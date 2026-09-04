@@ -22,11 +22,11 @@
         },
         {
             "path": "config/testing/current-run-evidence-location-acceptance.json",
-            "sha256": "abdab4af0ac5ef0f1869c8c4d4090b8af8d7cea28960fa6377c4dc1c12902042"
+            "sha256": "48f2381463f36be5aa74dfdd11ddc18451252bee6799360fa790d23453769536"
         },
         {
             "path": "config/testing/evidence-location-migration-ledger.json",
-            "sha256": "526e2b5cc4b1fb3690bc47b66e8d389e9e5b8d8879a6cef959dad318911d4ce7"
+            "sha256": "0842bdd13361d72c498eddc079ecd95be06651d0c19adfc39d4af2be385d4360"
         },
         {
             "path": "docs/testing.generated.md",
