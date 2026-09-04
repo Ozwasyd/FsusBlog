@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const { hostDeclarations } = await import(new URL("../../../tools/docs/behavior-doc-minimal-contract-build.mjs", import.meta.url));
-const { behaviorDocAdmissionReceiptSchema, validateBehaviorDocStaticAdmissionReceipt } = await import(new URL("../../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
+const { minimalContractBuildHostDeclarations: hostDeclarations } = await import(new URL("../../../tools/docs/behavior-doc-minimal-contract-build-contract.mjs", import.meta.url));
+const { behaviorDocAdmissionReceiptSchema, validateBehaviorDocStaticAdmissionReceipt } = await import(new URL("../../../tools/docs/behavior-doc-static-admission-contract.mjs", import.meta.url));
 const { digestValue, sealSourceIdentity } = await import(new URL("../../../tools/fact-extractors/identity.mjs", import.meta.url));
 const { loadRegistry } = await import(new URL("../../../tools/fact-extractors/registry.mjs", import.meta.url));
 

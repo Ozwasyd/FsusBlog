@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -9,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 const { currentProcessIdentity, processIdentityStatus } = await import(new URL("../../tools/test/process-identity.mjs", import.meta.url));
 const { bindProductionBuildLayoutSource, finalizeProductionBuildLayout, prepareProductionBuildLayout, registerProductionBuildCompiler } = await import(new URL("../../tools/test-matrix/production-build-layout.mjs", import.meta.url));
-const { collectSchedulerProcessGroupOrJobIdentity, createSchedulerRunOwner, finalizeSchedulerRunOwner, heartbeatSchedulerRunOwner, readSchedulerProducerTerminalFailure, schedulerCandidateIdentityDigest, schedulerProcessGroupOrJobIdentityIsComplete, schedulerRunOwnerFields, schedulerRunOwnerSchema, sealSchedulerRunOwner, verifySchedulerProcessAuthority, verifySchedulerRunOwner } = await import(new URL("../../tools/test-matrix/scheduler-run-owner.mjs", import.meta.url));
+const { collectSchedulerProcessGroupOrJobIdentity, createSchedulerRunOwner, createSchedulerTierAdmission, finalizeSchedulerRunOwner, heartbeatSchedulerRunOwner, readSchedulerProducerTerminalFailure, schedulerCandidateIdentityDigest, schedulerProcessGroupOrJobIdentityIsComplete, schedulerRunOwnerFields, schedulerRunOwnerSchema, schedulerTierAdmissionActivity, schedulerTierAdmissionSchema, schedulerTierAdmissionSequence, sealSchedulerRunOwner, verifySchedulerProcessAuthority, verifySchedulerRunOwner, writeSchedulerTierAdmission } = await import(new URL("../../tools/test-matrix/scheduler-run-owner.mjs", import.meta.url));
 const { findLatestRunId, reclaimSchedulerRunLock, runDag, schedulerRunLockActivity, schedulerRunLockIsActive } = await import(new URL("../../tools/test-matrix/scheduler.mjs", import.meta.url));
 const { runWindowsJobSupervisorStateMachine, windowsJobSupervisorStateSchema } = await import(new URL("../../tools/test-matrix/windows-job-supervisor-state.mjs", import.meta.url));
 
@@ -245,6 +246,124 @@ test('scheduler candidate identity separates namespaces and resume cannot omit t
         () => findLatestRunId(runsRoot, 'fixture'),
         /candidate checkpoint identity is incomplete/u
     );
+});
+
+test('scheduler tier admission seals candidate, owner, source, namespace and append sequence', (t) =>
+{
+    const root = fixture(t, 'scheduler-tier-admission-contract');
+    const runsRoot = path.join(root, 'runs');
+    const sourceState = { commit: 'a'.repeat(40), worktreeFingerprint: 'stable' };
+    const candidateIdentityDigest = schedulerCandidateIdentityDigest({
+        runId: 'admission-run',
+        targetTierId: 'release-final',
+        namespace: 'admission-namespace',
+        sourceState
+    });
+    const admission = createSchedulerTierAdmission({
+        runId: 'admission-run',
+        targetTierId: 'release-final',
+        currentTierId: 'behavior-evidence-post-runtime',
+        namespace: 'admission-namespace',
+        mode: 'fresh',
+        sourceState,
+        schedulerCandidateIdentityDigest: candidateIdentityDigest,
+        schedulerOwnerToken: 'owner-token',
+        schedulerCheckpointRevision: 2,
+        admissionSequence: 1,
+        activeTierIds: [],
+        releaseFinalSpawnCountBeforeAdmission: 0
+    });
+    assert.equal(admission.schema, schedulerTierAdmissionSchema);
+    assert.equal(admission.releaseFinalSpawnCountBeforeAdmission, 0);
+    const published = writeSchedulerTierAdmission({ runsRoot, admission });
+    assert.equal(schedulerTierAdmissionSequence({ runsRoot, runId: admission.runId }), 1);
+    assert.throws(
+        () => writeSchedulerTierAdmission({ runsRoot, admission }),
+        /EEXIST/u
+    );
+    assert.equal(fs.readFileSync(published.file, 'utf8'), `${JSON.stringify(admission, null, 2)}\n`);
+
+    assert.throws(
+        () => createSchedulerTierAdmission({
+            ...admission,
+            schedulerCandidateIdentityDigest: `sha256:${'f'.repeat(64)}`
+        }),
+        /candidate identity is invalid/u
+    );
+    assert.throws(
+        () => createSchedulerTierAdmission({
+            ...admission,
+            activeTierIds: ['release-final'],
+            releaseFinalSpawnCountBeforeAdmission: 0
+        }),
+        /release-final activity contradicts/u
+    );
+});
+
+test('runDag publishes a live journal-bound tier admission and resume appends without overwrite', async (t) =>
+{
+    const root = fixture(t, 'scheduler-tier-admission-runtime');
+    const runsRoot = path.join(root, 'runs');
+    const runId = 'admission-runtime';
+    const namespace = 'admission-runtime-namespace';
+    const sourceState = { commit: 'a'.repeat(40), worktreeFingerprint: 'stable' };
+    const currentTier = tier('behavior-evidence-post-runtime', `${process.execPath} -e "process.exit(0)"`);
+    const observed = [];
+    const executeTier = async (_tier, context) =>
+    {
+        const file = context.env.FSUSBLOG_SCHEDULER_CHECKPOINT;
+        const bytes = fs.readFileSync(file);
+        const admission = JSON.parse(bytes.toString('utf8'));
+        const reference = {
+            schema: admission.schema,
+            ref: path.relative(root, file).replaceAll(path.sep, '/'),
+            fileDigest: `sha256:${createHash('sha256').update(bytes).digest('hex')}`,
+            contentDigest: admission.contentDigest,
+            currentTierId: admission.currentTierId,
+            admissionSequence: admission.admissionSequence
+        };
+        const activity = schedulerTierAdmissionActivity({ runsRoot, admission, reference });
+        assert.equal(activity.status, 'active', activity.reason);
+        assert.equal(context.env.FSUSBLOG_TEST_RUN_ID, runId);
+        assert.equal(context.env.FSUSBLOG_TEST_NAMESPACE, namespace);
+        observed.push(admission);
+        return { code: 0, signal: null };
+    };
+    const options = {
+        tiers: [currentTier],
+        root,
+        runsRoot,
+        runId,
+        namespace,
+        targetTierId: 'release-final',
+        mode: 'fresh',
+        sourceState,
+        snapshotWorktree: stableSnapshot,
+        executeTier
+    };
+    const fresh = await runDag(options);
+    assert.equal(fresh.status, 'success', JSON.stringify(fresh.failure));
+    assert.equal(observed.length, 1);
+    assert.equal(observed[0].releaseFinalSpawnCountBeforeAdmission, 0);
+
+    const exactResume = await runDag({ ...options, mode: 'resume', resume: true });
+    assert.equal(exactResume.status, 'success', JSON.stringify(exactResume.failure));
+    assert.deepEqual(exactResume.reusedTiers, ['behavior-evidence-post-runtime']);
+    assert.equal(observed.length, 1);
+    assert.equal(schedulerTierAdmissionSequence({ runsRoot, runId }), 1);
+
+    const changedResume = await runDag({
+        ...options,
+        mode: 'resume',
+        resume: true,
+        env: { FSUSBLOG_ADMISSION_SEMANTIC_INPUT: 'changed' }
+    });
+    assert.equal(changedResume.status, 'success', JSON.stringify(changedResume.failure));
+    assert.deepEqual(changedResume.reusedTiers, []);
+    assert.equal(observed.length, 2);
+    assert.equal(observed[1].admissionSequence, 2);
+    assert.notEqual(observed[1].schedulerOwnerToken, observed[0].schedulerOwnerToken);
+    assert.equal(schedulerTierAdmissionSequence({ runsRoot, runId }), 2);
 });
 
 test('producer terminal waits trust only the active same-run scheduler checkpoint authority', (t) =>

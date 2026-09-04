@@ -9,7 +9,7 @@ import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const { validateBehaviorDocStaticAdmissionReceipt } = await import(new URL("../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
+const { validateBehaviorDocStaticAdmissionReceipt } = await import(new URL("../../tools/docs/behavior-doc-static-admission-contract.mjs", import.meta.url));
 const { sealSourceIdentity } = await import(new URL("../../tools/fact-extractors/identity.mjs", import.meta.url));
 const { currentProcessIdentity } = await import(new URL("../../tools/test/process-identity.mjs", import.meta.url));
 const { createArtifactDigestTable } = await import(new URL("../../tools/test-matrix/artifact-digest-table.mjs", import.meta.url));
@@ -4772,6 +4772,7 @@ test('resident leases stay in admission accounting, hand off once, and release c
         runsRoot: path.join(temp, '.tmp/test-runs'),
         runId,
         targetTierId: 'after-exit',
+        namespace,
         mode: 'fresh',
         sourceState,
         maxParallel: 2,
@@ -4937,6 +4938,7 @@ test('failed resident producer retains partial live-service evidence without pub
         runsRoot: path.join(temp, '.tmp/test-runs'),
         runId,
         targetTierId: 'performance',
+        namespace,
         mode: 'fresh',
         sourceState,
         collectFailures: true,

@@ -7,6 +7,7 @@ import test from 'node:test'
 import {
     buildGlobalClaimExactnessReceipt,
     globalExactnessScopeId,
+    globalExactnessSchema,
     loadGlobalExactnessInputs,
     root,
     runGlobalMutationAggregate,
@@ -18,7 +19,7 @@ import { produceConfigErrorSecurityObservation } from '../../tools/contracts/lib
 import { produceContentLifecycleObservation } from '../../tools/contracts/lib/content-lifecycle-observation.mjs'
 import { produceOpenApiObservation } from '../../tools/contracts/lib/openapi-observation.mjs'
 import { produceRuntimeRoleObservation } from '../../tools/contracts/lib/runtime-role-observation.mjs'
-import { sealSourceIdentity } from '../../tools/fact-extractors/identity.mjs'
+import { digestValue, sealSourceIdentity } from '../../tools/fact-extractors/identity.mjs'
 import { runExtractor } from '../../tools/fact-extractors/runner.mjs'
 import { sealReceipt } from '../../tools/fact-extractors/receipt.mjs'
 
@@ -129,10 +130,12 @@ test('global exactness terminal receipt is ok with warnings=0', async () =>
     const receipt = await buildGlobalClaimExactnessReceipt({
         repositoryRoot: root,
         observationReceiptPaths: receipts,
+        runId: 'global-claim-exactness-test',
         sourceCommit: first.sourceCommit,
         worktreeFingerprint: first.worktreeFingerprint
     })
     validateGlobalClaimExactnessReceipt(receipt)
+    assert.equal(receipt.runId, 'global-claim-exactness-test')
     assert.equal(receipt.scopeId, globalExactnessScopeId)
     assert.equal(receipt.counts.requiredBehaviors, 9)
     assert.equal(receipt.counts.scopes, 6)
@@ -148,6 +151,7 @@ test('global exactness fails closed on ledger, claim and observation tamper', as
     const base = {
         repositoryRoot: root,
         observationReceiptPaths: receipts,
+        runId: 'global-claim-exactness-test',
         sourceCommit: first.sourceCommit,
         worktreeFingerprint: first.worktreeFingerprint
     }
@@ -177,6 +181,70 @@ test('global exactness fails closed on ledger, claim and observation tamper', as
     assert.ok(driftedResult.failureReasons.some((reason) =>
         /prose verification|generated section drift/u.test(reason)))
 })
+
+test('global exactness terminal requires and seals one exact run identity', async () =>
+{
+    const base = {
+        repositoryRoot: root,
+        observationReceiptPaths: receipts,
+        sourceCommit: 'a'.repeat(40),
+        worktreeFingerprint: 'b'.repeat(64)
+    }
+    await assert.rejects(
+        () => buildGlobalClaimExactnessReceipt(base),
+        /runId is required/u
+    )
+
+    const receipt = validTerminalReceipt('global-claim-exactness-run-a')
+    assert.throws(
+        () => validateGlobalClaimExactnessReceipt(receipt, {
+            expectedRunId: 'global-claim-exactness-run-b'
+        }),
+        /runId mismatch/u
+    )
+
+    const resealed = structuredClone(receipt)
+    resealed.runId = 'global-claim-exactness-run-b'
+    resealed.contentDigest = null
+    resealed.contentDigest = digestValue(resealed)
+    validateGlobalClaimExactnessReceipt(resealed, {
+        expectedRunId: 'global-claim-exactness-run-b'
+    })
+    assert.throws(
+        () => validateGlobalClaimExactnessReceipt(resealed, {
+            expectedRunId: 'global-claim-exactness-run-a'
+        }),
+        /runId mismatch/u
+    )
+})
+
+function validTerminalReceipt(runId)
+{
+    const receipt = {
+        schema: globalExactnessSchema,
+        scopeId: globalExactnessScopeId,
+        runId,
+        source: {},
+        authorityDigests: [],
+        counts: {
+            warnings: 0,
+            missing: 0,
+            extra: 0,
+            residue: 0,
+            generatedSectionDrifts: 0,
+            proseVerified: 0,
+            proseTotal: 0
+        },
+        mutationAggregate: { killed: 1, total: 1 },
+        residue: [],
+        proseVerification: {},
+        status: 'ok',
+        failureReasons: [],
+        contentDigest: null
+    }
+    receipt.contentDigest = digestValue(receipt)
+    return receipt
+}
 
 function writeReceipt(receipt)
 {
