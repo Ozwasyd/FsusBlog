@@ -118,6 +118,20 @@ export const generatedOutputRepairProducers = Object.freeze([
         outputs: Object.freeze([
             'docs/testing.generated.md'
         ])
+    }),
+    Object.freeze({
+        id: 'backend-evidence-path-authority',
+        source: 'tests/matrix.yml',
+        generator: 'tools/test/generate-backend-evidence-path-authority.mjs',
+        command: 'node tools/test/generate-backend-evidence-path-authority.mjs --write',
+        executable: 'node',
+        arguments: Object.freeze([
+            'tools/test/generate-backend-evidence-path-authority.mjs',
+            '--write'
+        ]),
+        outputs: Object.freeze([
+            'tests/backend/Fixtures/backend-evidence-path-authority.generated.json'
+        ])
     })
 ])
 
