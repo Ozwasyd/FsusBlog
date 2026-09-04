@@ -48,6 +48,52 @@ public sealed class PublicAotInvalidationService(
         await InvalidateRoutesAsync([new RouteInvalidation(pageId, routeKey)], cancellationToken);
     }
 
+    public async Task InvalidateFilterRouteFamilyAsync(string filterRouteKey, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(filterRouteKey))
+        {
+            return;
+        }
+
+        PublicRouteIdentity.ParsedFilterRouteIdentity parsed = PublicRouteIdentity.ParseFilterRouteKey(filterRouteKey);
+        if (parsed.FilterId <= 0)
+        {
+            return;
+        }
+
+        string familyRouteKey;
+        PublicAotRouteDescriptor scheduled;
+        if (parsed.CategoryId is > 0)
+        {
+            familyRouteKey = PublicRouteIdentity.BuildCategoryRouteKey(parsed.FilterId);
+            scheduled = PublicAotRouteManifestProvider.CreateCategoryRoute(parsed.FilterId, 200);
+        }
+        else if (parsed.TagId is > 0)
+        {
+            familyRouteKey = PublicRouteIdentity.BuildTagIdRouteKey(parsed.FilterId);
+            scheduled = PublicAotRouteManifestProvider.CreateTagIdRoute(parsed.FilterId, tagName: null, 210);
+        }
+        else
+        {
+            return;
+        }
+
+        string exactKey = ScopeKey(CacheKeyBuilder.PublicAotDocument(PublicPageId.Filter, familyRouteKey));
+        string familyPrefix = string.Concat(exactKey, ":");
+        string pagePrefixKey = ScopeKey(CacheKeyBuilder.PublicAotDocument(PublicPageId.Filter, string.Empty));
+        await invalidationTracker.WithInvalidationLockAsync([pagePrefixKey], async () =>
+        {
+            invalidationTracker.MarkKey(exactKey);
+            invalidationTracker.MarkPrefix(familyPrefix);
+            ssrRuntimeState.ClearRouteQuarantine(PublicPageKind.Filter, familyRouteKey);
+            await cache.RemoveAsync(exactKey, cancellationToken).ConfigureAwait(false);
+            await cache.RemoveByPrefixAsync(familyPrefix, cancellationToken).ConfigureAwait(false);
+            hotReadStore.RemoveHtmlFamily(familyRouteKey);
+        }, cancellationToken).ConfigureAwait(false);
+
+        ScheduleRoute(scheduled);
+    }
+
     public async Task InvalidateArticleMutationAsync(
         int? articleId,
         IEnumerable<int>? categoryIds,

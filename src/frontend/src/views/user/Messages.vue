@@ -2,7 +2,6 @@
   <div class="account-page messages-page">
     <FsusUiTaskPageHeader
       :title="isAdminView ? '站内信中心' : '我的站内信'"
-      :description="isAdminView ? '处理账号会话、系统通知与待跟进状态。' : '集中处理站内消息、系统通知与申诉工单。'"
       class="account-task-page-header"
       density="compact"
     />

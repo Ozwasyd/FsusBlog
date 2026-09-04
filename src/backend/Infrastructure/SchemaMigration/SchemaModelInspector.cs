@@ -415,7 +415,11 @@ public sealed class SchemaModelInspector : ISchemaModelInspector
     {
         SchemaModelSnapshot expected = BuildExpectedModel(entityTypes);
         SchemaModelSnapshot actual = await ReadActualModelAsync(db, cancellationToken).ConfigureAwait(false);
-        IReadOnlyList<string> errors = SchemaModelComparer.Compare(expected, actual, allowedExtraTables);
+        IReadOnlyList<string> errors = SchemaModelComparer.Compare(
+            expected,
+            actual,
+            allowedExtraTables,
+            SchemaAllowedExtraLinkNames.Names);
         if (errors.Count > 0)
         {
             throw new InvalidOperationException($"Schema migration validation failed:{Environment.NewLine}- {string.Join($"{Environment.NewLine}- ", errors)}");

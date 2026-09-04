@@ -333,6 +333,58 @@ export FSUSBLOG_WASM_TOOLCHAIN_VCPKG="${FSUSBLOG_VCPKG_COMMIT:-eae1680538b86f962
 export FSUSBLOG_WASM_TOOLCHAIN_EMSDK_IMAGE="emscripten/emsdk:6.0.0@sha256:9eed2e47b4206928b22f99d2917013ad5462d777bb24cb546a652729896badd8"
 echo "[build:wasm] emscripten=${EMSCRIPTEN_VERSION} binaryen=${WASM_OPT_VERSION}"
 
+# Emscripten 6.0.0 ships a py-filelock UnixFileLock whose _release unlinks the
+# lock file before unlocking it. Parallel variant builds then let a waiter
+# re-create and flock a second inode while the releaser still owns the first
+# one, so two emcc processes enter the cache critical section at once and the
+# same system library gets generated concurrently (upstream: emscripten#24609,
+# unfixed in the pinned emsdk image). flock ownership alone is a correct mutex
+# as long as the lock file stays resident, so drop the unlink here before any
+# emcc runs. The patch is idempotent and refuses to touch an unknown filelock.
+HardenEmscriptenCacheLock() {
+    local filelockPy
+    filelockPy="$(dirname "$(command -v emcc)")/tools/filelock.py"
+    [[ -f "${filelockPy}" ]] || return 0
+    grep -q 'fsusblog: persistent emscripten cache lock' "${filelockPy}" && return 0
+    command -v python3 >/dev/null 2>&1 || {
+        echo "[build:wasm] emscripten cache lock is vulnerable but python3 is unavailable" >&2
+        exit 1
+    }
+    python3 - "${filelockPy}" <<'PY'
+import sys
+
+path = sys.argv[1]
+with open(path) as handle:
+    source = handle.read()
+vulnerable = """    def _release(self):
+        fd = self._lock_file_fd
+        self._lock_file_fd = None
+        os.unlink(self._lock_file)
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+        return None
+"""
+replacement = """    def _release(self):
+        # fsusblog: persistent emscripten cache lock (upstream issue
+        # emscripten#24609): unlinking the lock file lets a waiter recreate it
+        # and flock a different inode while the releaser still holds the old
+        # one, so keep the lock file resident and rely on flock alone.
+        fd = self._lock_file_fd
+        self._lock_file_fd = None
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+        return None
+"""
+if vulnerable not in source:
+    print("[build:wasm] emscripten filelock.py does not match the vulnerable _release fingerprint; refusing to patch", file=sys.stderr)
+    sys.exit(1)
+with open(path, "w") as handle:
+    handle.write(source.replace(vulnerable, replacement, 1))
+print("[build:wasm] hardened emscripten cache lock against parallel unlink race (emscripten#24609)")
+PY
+}
+HardenEmscriptenCacheLock
+
 if [[ "${FSUSBLOG_WASM_DISABLE_VCPKG_AUTODETECT:-0}" != "1" ]]; then
     VCPKG_ROOT_CANDIDATE="${VCPKG_ROOT:-/home/dev/vcpkg}"
     if [[ -d "${VCPKG_ROOT_CANDIDATE}/installed/wasm32-emscripten" ]]; then

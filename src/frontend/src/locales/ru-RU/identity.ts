@@ -265,27 +265,27 @@ export const identity = {
         },
         UserIdentityPasskeys: {
             title: 'Ключи доступа',
-            description: 'Устройства для входа.'
+            description: '',
         },
         UserIdentityRecoveryKey: {
             title: 'Recovery Key',
-            description: 'Учётные данные для восстановления аккаунта.'
+            description: '',
         },
         UserIdentityAnonymous: {
             title: 'Анонимная идентификация',
-            description: 'Анонимные комментарии, публичные сообщения, правила сайта.'
+            description: '',
         },
         UserIdentityPublicProfile: {
             title: 'Публичный профиль',
-            description: 'Публичная информация идентификации.'
+            description: '',
         },
         UserIdentitySessions: {
             title: 'Сессии устройств',
-            description: 'Активные сессии устройств.'
+            description: '',
         },
         UserIdentityMfa: {
             title: 'Двухфакторная аутентификация',
-            description: 'Статус TOTP.'
+            description: '',
         },
         UserIdentityCommentRecords: {
             title: 'Записи публичных комментариев',

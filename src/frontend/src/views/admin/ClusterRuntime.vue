@@ -2,7 +2,6 @@
     <div class="account-page cluster-runtime-page account-motion-enter w-full">
         <FsusUiTaskPageHeader
             title="集群与运行时"
-            description="查看节点、职责分配、lease、checkpoint 与故障接管状态。"
             class="account-task-page-header"
             density="compact"
         />

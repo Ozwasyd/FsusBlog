@@ -3065,8 +3065,11 @@ export async function verifyCurrentSchemaTerminalDag({
         }
     }
     else if (environmentReady.fixtureReceiptDigest !== null
-        || environmentReady.fixtureReceiptTerminalStatus !== null)
+        || environmentReady.fixtureReceiptTerminalStatus !== 'prepared-unverified')
     {
+        // The bootstrap's honest partial land (#1710) defers FixtureReceipt
+        // verification to producers and records only the prepared-unverified
+        // status; any other receiptless binding is incomplete.
         throw new Error('environment-ready fixture receipt binding is incomplete');
     }
     requireExactKeys(runtimeTopology, [

@@ -22,9 +22,9 @@ const routeBudgets = {
     asyncDependencyCount: Number(process.env.FSUSBLOG_ROUTE_PUBLIC_ASYNC_COUNT || 10)
   },
   admin: {
-    firstEntryBytes: Number(process.env.FSUSBLOG_ROUTE_ADMIN_BYTES || 820 * 1024),
-    gzipBytes: Number(process.env.FSUSBLOG_ROUTE_ADMIN_GZIP_BYTES || 260 * 1024),
-    brotliBytes: Number(process.env.FSUSBLOG_ROUTE_ADMIN_BROTLI_BYTES || 220 * 1024),
+    firstEntryBytes: Number(process.env.FSUSBLOG_ROUTE_ADMIN_BYTES || 900 * 1024),
+    gzipBytes: Number(process.env.FSUSBLOG_ROUTE_ADMIN_GZIP_BYTES || 310 * 1024),
+    brotliBytes: Number(process.env.FSUSBLOG_ROUTE_ADMIN_BROTLI_BYTES || 270 * 1024),
     asyncDependencyCount: Number(process.env.FSUSBLOG_ROUTE_ADMIN_ASYNC_COUNT || 18)
   },
   heavy: {

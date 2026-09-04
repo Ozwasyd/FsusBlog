@@ -129,7 +129,13 @@ echo "[dev-start] capabilities=${CAPABILITY_IDS:-<none>} producers=${PRODUCER_ID
 echo "[dev-start] planned-profile receipt: ${PLANNED_RECEIPT}"
 
 echo "[dev-start] starting PostgreSQL and Redis..."
-docker compose -f "$COMPOSE_FILE" up -d postgres redis
+if docker inspect fsusblog-dev-postgres >/dev/null 2>&1 || docker inspect fsusblog-dev-redis >/dev/null 2>&1; then
+    # Compose cannot take over containers it did not create (name conflict),
+    # so an existing healthy stack is reused and readiness is checked below.
+    echo "[dev-start] dev containers already present; reusing them (compose up skipped)."
+else
+    docker compose -f "$COMPOSE_FILE" up -d postgres redis
+fi
 
 echo "[dev-start] waiting for PostgreSQL..."
 for _ in $(seq 1 60); do
@@ -448,4 +454,7 @@ cat <<READY
 Press Ctrl+C to stop backend and frontend processes.
 READY
 
-wait -n "$backend_pid" "$frontend_pid"
+# macOS ships bash 3.2 which has no `wait -n`; poll both children instead.
+while kill -0 "$backend_pid" 2>/dev/null && kill -0 "$frontend_pid" 2>/dev/null; do
+    sleep 1
+done

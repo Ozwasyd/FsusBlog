@@ -47,25 +47,11 @@
             </template>
 
             <template #mobile-primary-actions>
-                <RouterLink
-                    to="/"
-                    class="account-header-link account-header-link--mobile"
-                >
-                    {{ messages.admin.shell.mainSite }}
-                </RouterLink>
                 <ThemeModeToggle
                     class="account-header-theme-action account-header-theme-action--mobile"
                     variant="menu-button"
                 />
                 <LocaleSelectorRuntimeAdapter compact />
-                <AccountHeaderMenu
-                    :can-manage="workspaceContext.canManage"
-                    compact
-                    :current-area="currentArea"
-                    :is-logging-out="isLoggingOut"
-                    @open-policy="openPolicy"
-                    @logout="handleLogout"
-                />
                 <RouterView name="accountMobileAction" />
             </template>
         </SiteChromeHeaderAdapter>

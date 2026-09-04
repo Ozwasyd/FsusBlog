@@ -405,9 +405,27 @@
     },
     {
       "method": "GET",
+      "path": "/api/binary/category/{id:int}.aeds",
+      "responseFrame": "TaxonomyExactMetadata",
+      "surface": "public-category-exact"
+    },
+    {
+      "method": "GET",
       "path": "/api/binary/tag.aeds",
       "responseFrame": "TagList",
       "surface": "public-tag"
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/tag/{id:int}.aeds",
+      "responseFrame": "TaxonomyExactMetadata",
+      "surface": "public-tag-exact"
+    },
+    {
+      "method": "GET",
+      "path": "/api/binary/tag/by-name.aeds",
+      "responseFrame": "TaxonomyExactMetadata",
+      "surface": "public-tag-by-name"
     },
     {
       "method": "GET",
@@ -878,6 +896,24 @@
           "path": "/tag",
           "auth": "anonymous",
           "responseFrame": "TagList"
+        },
+        {
+          "method": "GET",
+          "path": "/category/{id:int}.aeds",
+          "auth": "anonymous",
+          "responseFrame": "TaxonomyExactMetadata"
+        },
+        {
+          "method": "GET",
+          "path": "/tag/by-name.aeds",
+          "auth": "anonymous",
+          "responseFrame": "TaxonomyExactMetadata"
+        },
+        {
+          "method": "GET",
+          "path": "/tag/{id:int}.aeds",
+          "auth": "anonymous",
+          "responseFrame": "TaxonomyExactMetadata"
         },
         {
           "method": "POST",
