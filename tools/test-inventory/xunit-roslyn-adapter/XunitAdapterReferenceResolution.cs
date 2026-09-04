@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json;
 
 using Microsoft.CodeAnalysis;
@@ -12,6 +13,23 @@ internal static partial class XunitAdapterProgram
     {
         var references = new List<MetadataReference>();
         var seenNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var targetFrameworkNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        string? refPack = ResolveReferencePack(targetFramework);
+        if (refPack is null)
+        {
+            throw new InvalidOperationException(
+                $"target reference pack is unavailable for {targetFramework}; refuse runtime or output assembly fallback for BCL symbols");
+        }
+        foreach (string dll in Directory.EnumerateFiles(refPack, "*.dll").OrderBy(file => file, StringComparer.Ordinal))
+        {
+            string simpleName = ReadAssemblySimpleName(dll);
+            targetFrameworkNames.Add(simpleName);
+            if (seenNames.Add(simpleName))
+            {
+                references.Add(MetadataReference.CreateFromFile(dll));
+            }
+        }
 
         string? output = FindOutputDirectory(projectDir, projectPath);
         if (output is null)
@@ -21,7 +39,12 @@ internal static partial class XunitAdapterProgram
         }
         foreach (string dll in Directory.EnumerateFiles(output, "*.dll").OrderBy(file => file, StringComparer.Ordinal))
         {
-            string simpleName = Path.GetFileNameWithoutExtension(dll);
+            string simpleName = ReadAssemblySimpleName(dll);
+            if (targetFrameworkNames.Contains(simpleName))
+            {
+                throw new InvalidOperationException(
+                    $"test output assembly shadows target reference pack identity {simpleName}: {dll}");
+            }
             if (simpleName == Path.GetFileNameWithoutExtension(projectDir)
                 || simpleName is "Microsoft.CodeAnalysis" or "Microsoft.CodeAnalysis.CSharp" or "Microsoft.CodeAnalysis.Analyzers" or "Microsoft.CodeAnalysis.Common")
             {
@@ -35,7 +58,7 @@ internal static partial class XunitAdapterProgram
 
         foreach (string dll in Directory.EnumerateFiles(AppContext.BaseDirectory, "*.dll").OrderBy(file => file, StringComparer.Ordinal))
         {
-            string simpleName = Path.GetFileNameWithoutExtension(dll);
+            string simpleName = ReadAssemblySimpleName(dll);
             if (simpleName.StartsWith("FsusBlog.XunitRoslynAdapter", StringComparison.Ordinal))
                 continue;
             if (seenNames.Add(simpleName))
@@ -44,25 +67,13 @@ internal static partial class XunitAdapterProgram
             }
         }
 
-        string? refPack = ResolveReferencePack(targetFramework);
-        if (refPack is not null)
-        {
-            foreach (string dll in Directory.EnumerateFiles(refPack, "*.dll").OrderBy(file => file, StringComparer.Ordinal))
-            {
-                string simpleName = Path.GetFileNameWithoutExtension(dll);
-                if (seenNames.Add(simpleName))
-                {
-                    references.Add(MetadataReference.CreateFromFile(dll));
-                }
-            }
-        }
         List<string> sharedFrameworks = ResolveSharedFrameworks(output);
 
         foreach (string sharedFramework in sharedFrameworks)
         {
             foreach (string dll in Directory.EnumerateFiles(sharedFramework, "*.dll").OrderBy(file => file, StringComparer.Ordinal))
             {
-                string simpleName = Path.GetFileNameWithoutExtension(dll);
+                string simpleName = ReadAssemblySimpleName(dll);
                 if (seenNames.Add(simpleName))
                 {
                     references.Add(MetadataReference.CreateFromFile(dll));
@@ -70,6 +81,12 @@ internal static partial class XunitAdapterProgram
             }
         }
         return references;
+    }
+
+    private static string ReadAssemblySimpleName(string assemblyPath)
+    {
+        return AssemblyName.GetAssemblyName(assemblyPath).Name
+            ?? throw new InvalidOperationException($"assembly identity has no name: {assemblyPath}");
     }
 
     private static List<string> ResolveSharedFrameworks(string outputDirectory)

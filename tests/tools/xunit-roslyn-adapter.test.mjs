@@ -283,6 +283,61 @@ test('valid GeneratedRegex declaration cannot suppress an accompanying compiler 
     assert.match(diagnostic.message, /CS0117/u);
 });
 
+test('GeneratedRegex method with a ref return fails closed', () =>
+{
+    assert.equal(projectGraphEvidence.refGeneratedRegex.status, 1);
+    assert.equal(projectGraphEvidence.refGeneratedRegex.report.testCases.length, 0);
+    const diagnostic = projectGraphEvidence.refGeneratedRegex.report.diagnostics.find((entry) => (
+        entry.code === 'xunit-semantic-model-incomplete'
+    ));
+    assert.ok(diagnostic);
+    assert.match(diagnostic.message, /CS8818/u);
+});
+
+test('GeneratedRegex method with a ref readonly return fails closed', () =>
+{
+    assert.equal(projectGraphEvidence.refReadonlyGeneratedRegex.status, 1);
+    assert.equal(projectGraphEvidence.refReadonlyGeneratedRegex.report.testCases.length, 0);
+    const diagnostic = projectGraphEvidence.refReadonlyGeneratedRegex.report.diagnostics.find((entry) => (
+        entry.code === 'xunit-semantic-model-incomplete'
+    ));
+    assert.ok(diagnostic);
+    assert.match(diagnostic.message, /CS8818/u);
+});
+
+test('invalid GeneratedRegex pattern fails closed through the real framework generator', () =>
+{
+    assert.equal(projectGraphEvidence.invalidGeneratedRegexPattern.status, 1);
+    assert.equal(projectGraphEvidence.invalidGeneratedRegexPattern.report.testCases.length, 0);
+    const diagnostic = projectGraphEvidence.invalidGeneratedRegexPattern.report.diagnostics.find((entry) => (
+        entry.code === 'xunit-semantic-model-incomplete'
+    ));
+    assert.ok(diagnostic);
+    assert.match(diagnostic.message, /SYSLIB1042/u);
+});
+
+test('invalid GeneratedRegex timeout fails closed through the real framework generator', () =>
+{
+    assert.equal(projectGraphEvidence.invalidGeneratedRegexTimeout.status, 1);
+    assert.equal(projectGraphEvidence.invalidGeneratedRegexTimeout.report.testCases.length, 0);
+    const diagnostic = projectGraphEvidence.invalidGeneratedRegexTimeout.report.diagnostics.find((entry) => (
+        entry.code === 'xunit-semantic-model-incomplete'
+    ));
+    assert.ok(diagnostic);
+    assert.match(diagnostic.message, /SYSLIB1042/u);
+});
+
+test('test output cannot shadow a target reference-pack assembly by simple name', () =>
+{
+    assert.equal(projectGraphEvidence.sameNameMetadataShadow.status, 1);
+    assert.equal(projectGraphEvidence.sameNameMetadataShadow.report.testCases.length, 0);
+    const diagnostic = projectGraphEvidence.sameNameMetadataShadow.report.diagnostics.find((entry) => (
+        entry.code === 'xunit-compile-context-unavailable'
+    ));
+    assert.ok(diagnostic);
+    assert.match(diagnostic.message, /shadows target reference pack identity System\.Text\.RegularExpressions/u);
+});
+
 test('runtime xUnit discovery matches static inventory on statically expandable cases', () =>
 {
     const listed = execFileSync(

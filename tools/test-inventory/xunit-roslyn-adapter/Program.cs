@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -82,26 +83,47 @@ internal static partial class XunitAdapterProgram
 
         var syntaxTrees = new List<SyntaxTree>();
         var sourceByTree = new Dictionary<string, string>();
+        var parseOptions = new CSharpParseOptions(LanguageVersion.Latest);
         foreach (string sourcePath in sources)
         {
             string relative = Path.GetRelativePath(root, sourcePath).Replace(Path.DirectorySeparatorChar, '/');
             string sourceText = File.ReadAllText(sourcePath);
-            SyntaxTree tree = CSharpSyntaxTree.ParseText(sourceText, new CSharpParseOptions(LanguageVersion.Latest), path: sourcePath);
+            SyntaxTree tree = CSharpSyntaxTree.ParseText(sourceText, parseOptions, path: sourcePath);
             syntaxTrees.Add(tree);
             sourceByTree[tree.FilePath] = relative;
         }
 
         string assemblyName = Path.GetFileNameWithoutExtension(projectPath);
-        var compilation = CSharpCompilation.Create(
+        CSharpCompilation compilation = CSharpCompilation.Create(
             assemblyName,
             syntaxTrees,
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
                 .WithAllowUnsafe(allowUnsafeBlocks));
 
-        var compilationErrorDiagnostics = compilation.GetDiagnostics()
-            .Where(item => item.Severity == DiagnosticSeverity.Error
-                && !IsMissingGeneratedRegexImplementation(compilation, item))
+        ImmutableArray<Diagnostic> generatorDiagnostics;
+        try
+        {
+            (compilation, generatorDiagnostics) = RunRegexSourceGenerator(
+                compilation,
+                parseOptions,
+                targetFramework);
+        }
+        catch (Exception error)
+        {
+            result.Diagnostics.Add(new DiagnosticEntry
+            {
+                Severity = "error",
+                Code = "xunit-compile-context-unavailable",
+                File = relativeProject,
+                Message = error.Message
+            });
+            return result;
+        }
+
+        var compilationErrorDiagnostics = generatorDiagnostics
+            .Concat(compilation.GetDiagnostics())
+            .Where(item => item.Severity == DiagnosticSeverity.Error)
             .OrderBy(item => item.Location.SourceTree?.FilePath ?? "", StringComparer.Ordinal)
             .ThenBy(item => item.Location.SourceSpan.Start)
             .ThenBy(item => item.Id, StringComparer.Ordinal)
@@ -389,39 +411,6 @@ internal static partial class XunitAdapterProgram
                 : string.CompareOrdinal(left.Severity, right.Severity));
         return result;
     }
-
-    private static bool IsMissingGeneratedRegexImplementation(CSharpCompilation compilation, Diagnostic diagnostic)
-    {
-        if (diagnostic.Id != "CS8795" || !diagnostic.Location.IsInSource)
-            return false;
-        SyntaxTree? tree = diagnostic.Location.SourceTree;
-        if (tree is null)
-            return false;
-        SyntaxNode node = tree.GetRoot().FindNode(diagnostic.Location.SourceSpan);
-        MethodDeclarationSyntax? method = node.FirstAncestorOrSelf<MethodDeclarationSyntax>();
-        if (method is null)
-            return false;
-
-        SemanticModel semanticModel = compilation.GetSemanticModel(tree);
-        IMethodSymbol? methodSymbol = semanticModel.GetDeclaredSymbol(method);
-        INamedTypeSymbol? generatedRegexAttribute = compilation.GetTypeByMetadataName(
-            "System.Text.RegularExpressions.GeneratedRegexAttribute");
-        INamedTypeSymbol? regexType = compilation.GetTypeByMetadataName(
-            "System.Text.RegularExpressions.Regex");
-        return methodSymbol is not null
-            && generatedRegexAttribute is not null
-            && generatedRegexAttribute.ContainingAssembly.Name == "System.Text.RegularExpressions"
-            && regexType is not null
-            && regexType.ContainingAssembly.Name == "System.Text.RegularExpressions"
-            && methodSymbol.GetAttributes().Count(attribute => SymbolEqualityComparer.Default.Equals(
-                attribute.AttributeClass, generatedRegexAttribute)) == 1
-            && methodSymbol.IsPartialDefinition
-            && !methodSymbol.IsAbstract
-            && methodSymbol.Parameters.Length == 0
-            && methodSymbol.Arity == 0
-            && SymbolEqualityComparer.Default.Equals(methodSymbol.ReturnType, regexType);
-    }
-
 
     public static void WriteReport(Result result)
     {

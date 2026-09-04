@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -160,8 +160,8 @@ public sealed class XunitSemanticStaleMemberProbeTests
         writeFileSync(probePath, `\
 namespace FsusBlog.Server.Tests;
 
-[AttributeUsage(AttributeTargets.Method)]
-public sealed class GeneratedRegexAttribute : Attribute
+[global::System.AttributeUsage(global::System.AttributeTargets.Method)]
+public sealed class GeneratedRegexAttribute : global::System.Attribute
 {
 }
 
@@ -224,6 +224,138 @@ public sealed partial class XunitSemanticStaleMemberProbeTests
             environment
         );
 
+        writeFileSync(probePath, `\
+namespace FsusBlog.Server.Tests;
+
+public sealed partial class XunitSemanticStaleMemberProbeTests
+{
+    [global::System.Text.RegularExpressions.GeneratedRegex("probe")]
+    public static partial ref global::System.Text.RegularExpressions.Regex RefGeneratedRegex();
+
+    [Fact]
+    public void RefGeneratedRegexReturnMustNotSuppressCompilerErrors()
+    {
+        _ = RefGeneratedRegex();
+    }
+}
+`);
+        const refGeneratedRegex = runAdapter(adapterAssembly, checkoutRoot, projectPath, environment);
+
+        writeFileSync(probePath, `\
+namespace FsusBlog.Server.Tests;
+
+public sealed partial class XunitSemanticStaleMemberProbeTests
+{
+    [global::System.Text.RegularExpressions.GeneratedRegex("probe")]
+    public static partial ref readonly global::System.Text.RegularExpressions.Regex RefReadonlyGeneratedRegex();
+
+    [Fact]
+    public void RefReadonlyGeneratedRegexReturnMustNotSuppressCompilerErrors()
+    {
+        _ = RefReadonlyGeneratedRegex();
+    }
+}
+`);
+        const refReadonlyGeneratedRegex = runAdapter(adapterAssembly, checkoutRoot, projectPath, environment);
+
+        writeFileSync(probePath, `\
+namespace FsusBlog.Server.Tests;
+
+public sealed partial class XunitSemanticStaleMemberProbeTests
+{
+    [global::System.Text.RegularExpressions.GeneratedRegex("(")]
+    public static partial global::System.Text.RegularExpressions.Regex InvalidPatternGeneratedRegex();
+
+    [Fact]
+    public void InvalidGeneratedRegexPatternFailsClosed()
+    {
+        _ = InvalidPatternGeneratedRegex();
+    }
+}
+`);
+        const invalidGeneratedRegexPattern = runAdapter(adapterAssembly, checkoutRoot, projectPath, environment);
+
+        writeFileSync(probePath, `\
+namespace FsusBlog.Server.Tests;
+
+public sealed partial class XunitSemanticStaleMemberProbeTests
+{
+    [global::System.Text.RegularExpressions.GeneratedRegex(
+        "probe",
+        global::System.Text.RegularExpressions.RegexOptions.None,
+        -2)]
+    public static partial global::System.Text.RegularExpressions.Regex InvalidTimeoutGeneratedRegex();
+
+    [Fact]
+    public void InvalidGeneratedRegexTimeoutFailsClosed()
+    {
+        _ = InvalidTimeoutGeneratedRegex();
+    }
+}
+`);
+        const invalidGeneratedRegexTimeout = runAdapter(adapterAssembly, checkoutRoot, projectPath, environment);
+
+        const fakeAssemblyRoot = path.join(fixtureRoot, 'fake-system-text-regular-expressions');
+        const fakeAssemblyOutput = path.join(fakeAssemblyRoot, 'output');
+        mkdirSync(fakeAssemblyRoot, { recursive: true });
+        writeFileSync(path.join(fakeAssemblyRoot, 'FakeSystemTextRegularExpressions.csproj'), `\
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>System.Text.RegularExpressions</AssemblyName>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>CS0436</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="FakeTypes.cs" />
+  </ItemGroup>
+</Project>
+`);
+        writeFileSync(path.join(fakeAssemblyRoot, 'FakeTypes.cs'), `\
+namespace System.Text.RegularExpressions;
+
+[global::System.AttributeUsage(global::System.AttributeTargets.Method)]
+public sealed class GeneratedRegexAttribute : global::System.Attribute
+{
+    public GeneratedRegexAttribute(string pattern)
+    {
+    }
+}
+
+public class Regex
+{
+    public Regex(string pattern)
+    {
+    }
+}
+`);
+        runRequired('dotnet', [
+            'build',
+            path.join(fakeAssemblyRoot, 'FakeSystemTextRegularExpressions.csproj'),
+            '--disable-build-servers',
+            '-v:minimal',
+            '-o', fakeAssemblyOutput,
+            '/p:NuGetAudit=false'
+        ], { cwd: fakeAssemblyRoot, env: environment });
+        const testOutput = path.join(
+            buildRoot,
+            'dotnet/FsusBlog.Server.Tests/bin/Debug/net10.0'
+        );
+        const fakeAssemblyPath = path.join(testOutput, 'System.Text.RegularExpressions.dll');
+        copyFileSync(
+            path.join(fakeAssemblyOutput, 'System.Text.RegularExpressions.dll'),
+            fakeAssemblyPath
+        );
+        let sameNameMetadataShadow;
+        try
+        {
+            sameNameMetadataShadow = runAdapter(adapterAssembly, checkoutRoot, projectPath, environment);
+        }
+        finally
+        {
+            rmSync(fakeAssemblyPath, { force: true });
+        }
+
         return {
             sourceCommit,
             staleLockedRestore: {
@@ -246,7 +378,12 @@ public sealed partial class XunitSemanticStaleMemberProbeTests
             cs1061,
             shadowGeneratedRegex,
             invalidGeneratedRegexSignature,
-            generatedRegexWithOtherError
+            generatedRegexWithOtherError,
+            refGeneratedRegex,
+            refReadonlyGeneratedRegex,
+            invalidGeneratedRegexPattern,
+            invalidGeneratedRegexTimeout,
+            sameNameMetadataShadow
         };
     }
     finally
