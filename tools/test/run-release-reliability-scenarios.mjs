@@ -860,6 +860,8 @@ export async function executeScenario({
             identityReference,
             actionEnvironment: {
                 ...childEnvironment,
+                FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID:
+                    `${invocationId}.attempt-1`,
                 ...Object.fromEntries([
                     'FSUSBLOG_DATA_SCALE_RUNTIME_RECEIPT_PATH',
                     'FSUSBLOG_DATA_SCALE_TEARDOWN_RECEIPT_PATH'
@@ -951,6 +953,7 @@ export async function executeScenario({
         cancellation: ['cancelled', 'timed-out'].includes(lifecycle.status)
             ? measurement?.processTreeReceipt ?? null
             : null,
+        producerSpawned: measurement?.producerSpawned === true,
         authoritativeEvidence: evidence,
         outputs: evidence === null
             ? []

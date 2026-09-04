@@ -109,12 +109,13 @@ function validateRegistryShape(registry, schema)
             || !lifecyclePhaseOrder.includes(action.phase)
             || ![
                 'cleanup-mutation-output',
-                'consume-data-scale-teardown',
                 'observe-data-scale-runtime',
+                'provision-data-scale-runtime',
                 'observe-mutation',
                 'observe-runtime',
                 'prepare-evidence-files',
-                'run-measurement'
+                'run-measurement',
+                'teardown-data-scale-runtime'
             ].includes(action.operation)
             || typeof action.executable !== 'string' || !action.executable
             || !Array.isArray(action.args)
@@ -243,7 +244,11 @@ function validateActionOperation(action, scenario, errors)
     }
     if (action.ownerReceipt)
     {
-        if (!['observe-data-scale-runtime', 'consume-data-scale-teardown']
+        if (![
+            'observe-data-scale-runtime',
+            'provision-data-scale-runtime',
+            'teardown-data-scale-runtime'
+        ]
             .includes(action.operation)
             || action.executable !== 'node'
             || action.expectedReceiptSchema
@@ -253,7 +258,11 @@ function validateActionOperation(action, scenario, errors)
             errors.push(`${prefix} owner receipt adapter contract is invalid`);
         }
     }
-    else if (['observe-data-scale-runtime', 'consume-data-scale-teardown']
+    else if ([
+        'observe-data-scale-runtime',
+        'provision-data-scale-runtime',
+        'teardown-data-scale-runtime'
+    ]
         .includes(action.operation))
     {
         errors.push(`${prefix} owner receipt adapter must name its external owner`);
@@ -923,6 +932,7 @@ export async function executeRegisteredLifecycleAction({
     return {
         actionId: action.actionId,
         phase: action.phase,
+        producerSpawned: true,
         status: recordStatus,
         startedAt: new Date(outcome.startedAtMs).toISOString(),
         finishedAt: new Date(outcome.finishedAtMs).toISOString(),
@@ -963,12 +973,51 @@ function rawDigest(bytes)
     return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 }
 
+function dataScaleOwnerEnvironment(repositoryRoot, records)
+{
+    const precondition = records.find((record) =>
+        record.phase === 'precondition'
+        && record.status === 'passed'
+        && record.receipt?.path
+    );
+    if (!precondition)
+    {
+        return {};
+    }
+    try
+    {
+        const receiptPath = resolveRepositoryPath(
+            repositoryRoot,
+            precondition.receipt.path,
+            'data-scale owner adapter receipt'
+        );
+        const bytes = fs.readFileSync(receiptPath);
+        if (rawDigest(bytes) !== precondition.receipt.bytesDigest)
+        {
+            throw new Error('data-scale owner adapter receipt changed');
+        }
+        const adapter = JSON.parse(bytes.toString('utf8'));
+        const runtime = adapter.operation?.ownerProducer?.runtimeReceipt;
+        const plan = adapter.operation?.ownerProducer?.runtimePlan;
+        return runtime && plan ? {
+            FSUSBLOG_DATA_SCALE_RUNTIME_RECEIPT_PATH: runtime,
+            FSUSBLOG_DATA_SCALE_RUNTIME_PLAN_PATH: plan
+        } : {};
+    }
+    catch
+    {
+        return {};
+    }
+}
+
 async function bindDataScaleMeasurementEnvironment({
     contracts,
     scenario,
     records,
     repositoryRoot,
     runId,
+    invocationId,
+    attemptId,
     identity,
     measurementEnvironment
 })
@@ -1008,6 +1057,8 @@ async function bindDataScaleMeasurementEnvironment({
         receiptPath: adapter.ownerReceipt?.path,
         identity,
         runId,
+        invocationId,
+        attemptId,
         expectedBytesDigest: adapter.ownerReceipt?.bytesDigest
     }).document;
     const expectedTargets = {
@@ -1017,15 +1068,6 @@ async function bindDataScaleMeasurementEnvironment({
         FSUSBLOG_TEST_NAMESPACE: owner.namespace,
         FSUSBLOG_TEST_RUN_ID: owner.dataScaleRunId
     };
-    for (const [key, expected] of Object.entries(expectedTargets))
-    {
-        if (String(measurementEnvironment[key] ?? '') !== String(expected))
-        {
-            throw new Error(
-                `data-scale measurement environment ${key} is not bound to the verified runtime owner`
-            );
-        }
-    }
     const rootBindings = {
         FSUSBLOG_AOT_CACHE_DIR: owner.aotRoot,
         FSUSBLOG_PUBLIC_AOT_CACHE_DIR: owner.aotRoot,
@@ -1051,6 +1093,7 @@ async function bindDataScaleMeasurementEnvironment({
     }
     return {
         ...measurementEnvironment,
+        ...expectedTargets,
         ...Object.fromEntries(Object.entries(rootBindings).map(([key, value]) => [
             key,
             path.resolve(repositoryRoot, value)
@@ -1158,6 +1201,7 @@ export async function executeLifecycleActionPlan({
             records.push({
                 actionId: action.actionId,
                 phase: action.phase,
+                producerSpawned: false,
                 status: 'not-run',
                 startedAt: null,
                 finishedAt: null,
@@ -1197,6 +1241,9 @@ export async function executeLifecycleActionPlan({
                         records,
                         repositoryRoot,
                         runId,
+                        invocationId,
+                        attemptId:
+                            actionEnvironment.FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID,
                         identity,
                         measurementEnvironment:
                             effectiveMeasurementEnvironment
@@ -1210,14 +1257,16 @@ export async function executeLifecycleActionPlan({
             }
         }
         const bindingTime = new Date().toISOString();
-        const effectiveActionEnvironment = cleanupPhase
-            && measurementRecord?.processTreeReceipt?.path
-            ? {
-                ...actionEnvironment,
+        const effectiveActionEnvironment = {
+            ...actionEnvironment,
+            ...dataScaleOwnerEnvironment(repositoryRoot, records),
+            ...(cleanupPhase && measurementRecord?.processTreeReceipt?.path
+                ? {
                 FSUSBLOG_RELEASE_RELIABILITY_PROCESS_TREE_RECEIPT_PATH:
                     measurementRecord.processTreeReceipt.path
-            }
-            : actionEnvironment;
+                }
+                : {})
+        };
         const record = bindingFailure === null
             ? await executeAction({
                 action,
@@ -1236,6 +1285,7 @@ export async function executeLifecycleActionPlan({
             : {
                 actionId: action.actionId,
                 phase: action.phase,
+                producerSpawned: false,
                 status: 'failed',
                 startedAt: bindingTime,
                 finishedAt: bindingTime,

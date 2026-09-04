@@ -653,7 +653,9 @@ async function inspectDataScaleOwner(context, dependencies)
         ownerReceipt: context.action.ownerReceipt,
         receiptPath: configuredPath,
         identity: context.identity,
-        runId: context.runId
+        runId: context.runId,
+        invocationId: context.invocationId,
+        attemptId: context.environment.FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID
     });
     if (context.action.ownerReceipt === 'data-scale-teardown')
     {
@@ -681,6 +683,34 @@ async function inspectDataScaleOwner(context, dependencies)
         spawnProcess,
         context.repositoryRoot
     );
+    const networkInspection = spawnProcess('docker', [
+        'network', 'inspect', runtime.network.id
+    ], {
+        cwd: context.repositoryRoot,
+        encoding: 'utf8',
+        maxBuffer: 4 * 1024 * 1024
+    });
+    let network = { status: 'failed' };
+    try
+    {
+        const [document] = JSON.parse(networkInspection.stdout || '[]');
+        const members = Object.keys(document?.Containers ?? {}).sort();
+        const expectedMembers = [
+            runtime.backend.pidOrContainerId,
+            runtime.postgres.containerId,
+            runtime.redis.containerId
+        ].sort();
+        network = networkInspection.status === 0
+            && document?.Id === runtime.network.id
+            && document?.Name === runtime.network.name
+            && JSON.stringify(members) === JSON.stringify(expectedMembers)
+            ? { status: 'bound', id: document.Id, name: document.Name, members }
+            : { status: 'failed' };
+    }
+    catch
+    {
+        // Preserve the fail-closed observation above.
+    }
     let live = { status: 'failed', reason: 'data-scale live probe failed' };
     try
     {
@@ -713,6 +743,7 @@ async function inspectDataScaleOwner(context, dependencies)
                 context.repositoryRoot
             ),
             live,
+            network,
             expected: {
                 backend: runtime.backend,
                 postgres: runtime.postgres,
@@ -751,8 +782,11 @@ export async function observeLifecycleAction(
     {
         return inspectMutation(context, spawnProcess);
     }
-    if (context.action.operation === 'observe-data-scale-runtime'
-        || context.action.operation === 'consume-data-scale-teardown')
+    if ([
+        'observe-data-scale-runtime',
+        'provision-data-scale-runtime',
+        'teardown-data-scale-runtime'
+    ].includes(context.action.operation))
     {
         return inspectDataScaleOwner(context, { spawnProcess, fetchImpl });
     }
@@ -826,7 +860,8 @@ function observationErrors(action, observation)
             errors.push('mutation output cleanup final observation is not absent');
         }
     }
-    if (action.operation === 'observe-data-scale-runtime'
+    if (['observe-data-scale-runtime', 'provision-data-scale-runtime']
+        .includes(action.operation)
         && (observation.runtime?.backend?.status !== 'running'
             || String(observation.runtime.backend.id)
                 !== String(observation.runtime.expected?.backend?.pidOrContainerId)
@@ -851,6 +886,7 @@ function observationErrors(action, observation)
                 observation.runtime.expected?.redis?.volumeId
             )
             || observation.runtime?.live?.status !== 'live'
+            || observation.runtime?.network?.status !== 'bound'
             || observation.runtime?.roots?.some(
                 (rootObservation) => !['directory', 'file'].includes(
                     rootObservation.status
@@ -862,7 +898,7 @@ function observationErrors(action, observation)
     {
         errors.push('dedicated data-scale runtime final observation failed');
     }
-    if (action.operation === 'consume-data-scale-teardown')
+    if (action.operation === 'teardown-data-scale-runtime')
     {
         if (observation.teardown?.status !== 'observed')
         {
@@ -895,11 +931,12 @@ function lifecycleContext({
     const action = contracts.actions.get(safeIdentifier(actionId, 'actionId'));
     if (!action || ![
         'cleanup-mutation-output',
-        'consume-data-scale-teardown',
         'observe-data-scale-runtime',
+        'provision-data-scale-runtime',
         'observe-mutation',
         'observe-runtime',
-        'prepare-evidence-files'
+        'prepare-evidence-files',
+        'teardown-data-scale-runtime'
     ]
         .includes(action.operation))
     {
@@ -968,7 +1005,9 @@ export async function runLifecycleAction({
         environment
     });
     const startedAt = new Date().toISOString();
-    const before = await observeState(context, dependencies);
+    const before = context.action.operation === 'provision-data-scale-runtime'
+        ? { runtime: { status: 'absent' } }
+        : await observeState(context, dependencies);
     const operation = {
         kind: context.action.operation,
         deleted: [],
@@ -1008,7 +1047,7 @@ export async function runLifecycleAction({
                 })()
             }
             : {}),
-        ...(context.action.operation === 'consume-data-scale-teardown'
+        ...(context.action.operation === 'teardown-data-scale-runtime'
             ? {
                 dataScaleRuntimeReceipt: (() =>
                 {
@@ -1055,6 +1094,57 @@ export async function runLifecycleAction({
             existed
         });
     }
+    if (context.action.operation === 'provision-data-scale-runtime')
+    {
+        const { provisionDataScaleRuntime } = await import(
+            './data-scale-runtime-owner.mjs'
+        );
+        const produced = await provisionDataScaleRuntime({
+            repositoryRoot: context.repositoryRoot,
+            identity: context.identity,
+            environment: context.environment,
+            execute: dependencies.spawnProcess,
+            fetchImpl: dependencies.fetchImpl,
+            wait: dependencies.wait,
+            now: dependencies.now
+        });
+        context.environment.FSUSBLOG_DATA_SCALE_RUNTIME_RECEIPT_PATH =
+            produced.receiptPath;
+        context.environment.FSUSBLOG_DATA_SCALE_RUNTIME_PLAN_PATH =
+            produced.planPath;
+        operation.ownerProducer = {
+            runtimeReceipt: produced.receiptPath,
+            runtimePlan: produced.planPath
+        };
+    }
+    if (context.action.operation === 'teardown-data-scale-runtime')
+    {
+        const { teardownDataScaleRuntime } = await import(
+            './data-scale-runtime-owner.mjs'
+        );
+        const planPath = repositoryPath(
+            context.repositoryRoot,
+            context.environment.FSUSBLOG_DATA_SCALE_RUNTIME_PLAN_PATH,
+            'data-scale runtime plan'
+        );
+        const runtimePath = repositoryPath(
+            context.repositoryRoot,
+            context.environment.FSUSBLOG_DATA_SCALE_RUNTIME_RECEIPT_PATH,
+            'data-scale runtime receipt'
+        );
+        const produced = await teardownDataScaleRuntime({
+            repositoryRoot: context.repositoryRoot,
+            plan: JSON.parse(fs.readFileSync(planPath.absolute, 'utf8')),
+            runtimeReceipt: JSON.parse(
+                fs.readFileSync(runtimePath.absolute, 'utf8')
+            ),
+            execute: dependencies.spawnProcess,
+            now: dependencies.now
+        });
+        context.environment.FSUSBLOG_DATA_SCALE_TEARDOWN_RECEIPT_PATH =
+            produced.receiptPath;
+        operation.ownerProducer = { teardownReceipt: produced.receiptPath };
+    }
     const after = await observeState(context, dependencies);
     const ownerReceipt = after.ownerReceipt
         ? {
@@ -1063,7 +1153,9 @@ export async function runLifecycleAction({
             contentDigest: after.ownerReceipt.contentDigest,
             schema: after.ownerReceipt.schema,
             dataScaleRunId: after.ownerReceipt.dataScaleRunId,
-            parentSchedulerRunId: after.ownerReceipt.parentSchedulerRunId
+            parentSchedulerRunId: after.ownerReceipt.parentSchedulerRunId,
+            invocationId: after.ownerReceipt.document.invocationId,
+            attemptId: after.ownerReceipt.document.attemptId
         }
         : null;
     if (after.ownerReceipt)

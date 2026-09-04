@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import {
     runPhysicalExecution
@@ -15,6 +16,7 @@ import {
     executeRegisteredLifecycleAction
 } from '../../tools/test/release-reliability-lifecycle-actions.mjs';
 import {
+    digestValue,
     sealDocument
 } from '../../tools/test/release-reliability-receipt.mjs';
 import {
@@ -26,7 +28,7 @@ const runId = 'fixture-run';
 const scenarioId = 'release-fixture-scenario';
 const sourceCommit = 'a'.repeat(40);
 const repositoryRoot = path.resolve(
-    path.dirname(new URL(import.meta.url).pathname),
+    path.dirname(fileURLToPath(import.meta.url)),
     '../..'
 );
 const actionReceiptSchema =
@@ -194,6 +196,7 @@ function createFixture(context)
             hashedPathCount: 0
         },
         build: { contentDigest: `sha256:${'c'.repeat(64)}` },
+        fixture: { status: 'complete' },
         policy: {
             physicalExecution: {
                 status: 'complete',
@@ -300,7 +303,10 @@ function executePlan(fixture, modes = {})
         runId,
         identity: fixture.identity,
         identityReference: fixture.identityReference,
-        actionEnvironment: fixture.environment,
+        actionEnvironment: {
+            ...fixture.environment,
+            FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID: 'attempt-1'
+        },
         measurementEnvironment: fixture.environment,
         spawnProcess: spawn,
         physicalExecution: fixturePhysicalExecution
@@ -515,7 +521,7 @@ test('stale passed postcondition cannot substitute an unexecuted current action'
     );
 });
 
-test('valid data-scale owner plus shared ambient targets blocks measurement spawn', async (context) =>
+test('verified data-scale owner replaces shared ambient targets before measurement', async (context) =>
 {
     const fixture = createFixture(context);
     const dataScaleRunId = 'data-scale-run-1';
@@ -534,14 +540,28 @@ test('valid data-scale owner plus shared ambient targets blocks measurement spaw
         }
     };
     const owner = sealDocument({
-        schema: 'fsusblog.data-scale-runtime.v1',
+        schema: 'fsusblog.data-scale-runtime.v2',
         dataScaleRunId,
         parentSchedulerRunId: runId,
+        invocationId,
+        attemptId: 'attempt-1',
         sourceCommit,
         worktreeFingerprint: fixture.identity.sourceState.worktreeFingerprint,
         buildReceiptDigest: dataScaleIdentity.build.contentDigest,
         imageDigest: dataScaleIdentity.build.imageDigest,
+        fixtureIdentityDigest: digestValue(dataScaleIdentity.fixture),
         namespace: 'dedicated-namespace',
+        network: { id: 'a'.repeat(64), name: 'dedicated-network' },
+        permissionHelper: {
+            name: 'dedicated-permission-helper',
+            postExists: false
+        },
+        lifecycle: {
+            start: 'complete',
+            reset: 'complete',
+            readiness: 'complete',
+            postcondition: 'pending'
+        },
         postgres: {
             containerId: 'e'.repeat(64),
             imageDigest: `sha256:${'3'.repeat(64)}`,
@@ -566,6 +586,12 @@ test('valid data-scale owner plus shared ambient targets blocks measurement spaw
         envManifestDigest: `sha256:${'6'.repeat(64)}`,
         seedReceiptPath: seedPath,
         seedReceiptDigest: bytesDigest(seedBytes),
+        seedSummary: {
+            status: 'ok', tier: 'scale-m', namespace: 'dedicated-namespace',
+            declared: { articles: 10000, comments: 100000 },
+            expected: { articles: 10000, comments: 100000 },
+            observed: { articles: 10000, comments: 100000 }
+        },
         createdAt: new Date().toISOString()
     });
     fs.writeFileSync(path.join(fixture.root, ownerPath), JSON.stringify(owner));
@@ -605,7 +631,8 @@ test('valid data-scale owner plus shared ambient targets blocks measurement spaw
         ]))
     };
     let measurementSpawnCount = 0;
-    const executeAction = async ({ action }) =>
+    let boundMeasurementEnvironment = null;
+    const executeAction = async ({ action, measurementEnvironment }) =>
     {
         const timestamp = new Date().toISOString();
         let receipt = null;
@@ -633,6 +660,7 @@ test('valid data-scale owner plus shared ambient targets blocks measurement spaw
         if (action.phase === 'measurement')
         {
             measurementSpawnCount += 1;
+            boundMeasurementEnvironment = measurementEnvironment;
         }
         return {
             actionId: action.actionId,
@@ -660,7 +688,10 @@ test('valid data-scale owner plus shared ambient targets blocks measurement spaw
         runId,
         identity: dataScaleIdentity,
         identityReference: fixture.identityReference,
-        actionEnvironment: fixture.environment,
+        actionEnvironment: {
+            ...fixture.environment,
+            FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID: 'attempt-1'
+        },
         measurementEnvironment: {
             ...fixture.environment,
             FSUSBLOG_DEBUG_BACKEND_URL: 'http://127.0.0.1:24501',
@@ -671,10 +702,16 @@ test('valid data-scale owner plus shared ambient targets blocks measurement spaw
         },
         executeAction
     });
-    assert.equal(result.status, 'failed');
-    assert.equal(result.firstFailure.phase, 'measurement');
-    assert.match(result.firstFailure.message, /not bound to the verified runtime owner/u);
-    assert.equal(measurementSpawnCount, 0);
+    assert.equal(result.status, 'passed');
+    assert.equal(measurementSpawnCount, 1);
+    assert.equal(
+        boundMeasurementEnvironment.FSUSBLOG_DEBUG_BACKEND_URL,
+        owner.backend.baseUrl
+    );
+    assert.equal(
+        boundMeasurementEnvironment.FSUSBLOG_POSTGRES_CONTAINER_NAME,
+        owner.postgres.containerId
+    );
 });
 
 test('old runtime URL or ambient service identity blocks measurement spawn', async (context) =>
