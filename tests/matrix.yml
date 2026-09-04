@@ -2176,7 +2176,7 @@ tiers:
       minCpuUnits: 1
       requiresBootstrap: none
       requiresNode: true
-      requiresDotnet: false
+      requiresDotnet: true
       requiresPlaywright: none
       cacheProfile: none
       timeoutMinutes: 35
@@ -2363,7 +2363,9 @@ tiers:
           - tests/tools/gateway-switch.test.mjs
           - tests/tools/deployment-slots.test.mjs
           - tools/governance/check-monolithic-distributed-architecture.mjs
+          - tools/governance/evaluate-msbuild-entrypoints.mjs
           - tests/governance/monolithic-distributed-architecture.json
+          - tests/governance/backend-production-build-consumers.json
           - tests/tools/monolithic-distributed-architecture.test.mjs
           - docs/architecture/monolithic-distributed-boundary.md
           - docs/architecture.md
