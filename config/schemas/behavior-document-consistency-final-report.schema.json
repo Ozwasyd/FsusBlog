@@ -113,6 +113,41 @@
             "$ref": "#/$defs/digest"
         }
     },
+    "allOf": [
+        {
+            "if": {
+                "type": "object",
+                "required": [
+                    "status"
+                ],
+                "properties": {
+                    "status": {
+                        "const": "ok"
+                    }
+                }
+            },
+            "then": {
+                "type": "object",
+                "required": [
+                    "zeroLegacyScan"
+                ],
+                "properties": {
+                    "zeroLegacyScan": {
+                        "type": "object",
+                        "required": [
+                            "findings"
+                        ],
+                        "properties": {
+                            "findings": {
+                                "type": "array",
+                                "maxItems": 0
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ],
     "$defs": {
         "digest": {
             "type": "string",

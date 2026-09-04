@@ -94,9 +94,12 @@ const ignoredDirectoryNames = new Set([
     '.cache', '.git', '.tmp', 'bin', 'build', 'coverage', 'dist', 'node_modules', 'obj', 'out',
     'playwright-report', 'publish', 'temp', 'test-results', 'testresults', 'tmp'
 ])
-const machineSourceExtensions = /\.(?:c|cc|cpp|cs|cxx|h|hpp|js|jsx|mjs|ps1|sh|ts|tsx|vue|ya?ml)$/u
+const machineSourceExtensions = /\.(?:bash|c|cc|cjs|cpp|cs|cts|cxx|h|hpp|js|jsx|mjs|mts|ps1|sh|ts|tsx|vue|ya?ml)$/u
 const qualificationPathPattern = /(?:artifact|behavior|doc[-_.]?claim|evidence|fact[-_.]?extract|generated[-_.]?fact|governance|mutation|qualification|receipt|release[-_.]?final)/iu
-const machineFencePattern = /^```(bash|csharp|cs|javascript|js|json|jsonc|powershell|ps1|sh|shell|toml|typescript|ts|yaml|yml)\s*\n([\s\S]*?)^```\s*$/gimu
+const machineFenceLanguages = new Set([
+    'bash', 'csharp', 'cs', 'javascript', 'js', 'json', 'jsonc', 'powershell', 'ps1',
+    'sh', 'shell', 'toml', 'typescript', 'ts', 'yaml', 'yml'
+])
 const machineTextNormalization = 'NFKC'
 const canonicalMachineText = (value) => String(value).normalize(machineTextNormalization)
 const normalizeIdentifier = (value) => canonicalMachineText(value).toLowerCase().replace(/[^a-z0-9]/gu, '')
@@ -118,6 +121,7 @@ const jsonSubschemaKeywords = new Set([
     'additionalItems', 'additionalProperties', 'contains', 'else', 'if', 'items', 'not',
     'propertyNames', 'then', 'unevaluatedItems', 'unevaluatedProperties'
 ])
+const jsonSchemaReferenceKeywords = new Set(['$dynamicRef', '$recursiveRef', '$ref'])
 const valueChunkSize = 512
 const maximumValueCandidateTokens = 4
 const maximumValueTokenLength = 128
@@ -588,10 +592,11 @@ function scanObjectKeys(value, context, negated = false, location = '$', schemaM
                 scanIdentifier(key, entry, { ...resourceContext, location: `${location}.${key}[${index}]` })
             })
         }
-        if (activeSchemaMode === 'schema' && key === '$ref' && typeof nested === 'string'
+        if (activeSchemaMode === 'schema' && jsonSchemaReferenceKeywords.has(key) && typeof nested === 'string'
             && legacySurfaceName(nested, resourceContext))
         {
-            addFinding(resourceContext.findings, resourceContext.file, resourceContext.pathClasses, `forbidden-legacy-surface:${nested}`, `${location}.$ref`)
+            addFinding(resourceContext.findings, resourceContext.file, resourceContext.pathClasses,
+                `forbidden-legacy-surface:${nested}`, `${location}.${key}`)
         }
         const schemaNegation = activeSchemaMode === 'schema'
             && !referenceIgnoresSiblings
@@ -873,7 +878,7 @@ function sourceIdentifierAuthority(file, locationPrefix)
         const escape = String.raw`\\(?:u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})`
         return { grammar: `@?(?:[\\p{ID_Start}_]|${escape})(?:[\\p{ID_Continue}_]|${escape})*`, language: 'csharp' }
     }
-    if (/\.(?:js|jsx|mjs|ts|tsx|vue)$/iu.test(file) || /^fence:(?:javascript|js|typescript|ts):/u.test(locationPrefix))
+    if (/\.(?:cjs|cts|js|jsx|mjs|mts|ts|tsx|vue)$/iu.test(file) || /^fence:(?:javascript|js|typescript|ts):/u.test(locationPrefix))
     {
         const escape = String.raw`\\u(?:[0-9A-Fa-f]{4}|\{[0-9A-Fa-f]{1,6}\})`
         return { grammar: `#?(?:[$\\p{ID_Start}_]|${escape})(?:[$\\p{ID_Continue}_]|${escape})*`, language: 'javascript' }
@@ -882,7 +887,7 @@ function sourceIdentifierAuthority(file, locationPrefix)
     {
         return { grammar: String.raw`(?:\$\{[^}\r\n]+\}|\$?[\p{ID_Start}_][\p{ID_Continue}_]*)`, language: 'powershell' }
     }
-    if (/\.sh$/iu.test(file) || /^fence:(?:sh|shell):/u.test(locationPrefix))
+    if (/\.(?:bash|sh)$/iu.test(file) || /^fence:(?:bash|sh|shell):/u.test(locationPrefix))
     {
         return { grammar: String.raw`[A-Za-z_][A-Za-z0-9_]*`, language: 'shell' }
     }
@@ -992,6 +997,118 @@ function sourceInvocations(source, masked, identifierAuthority)
     return invocations
 }
 
+function shellLiteralTokens(source, masked)
+{
+    const tokens = []
+    const control = /[;&|(){}<>]/u
+    let index = 0
+    while (index < source.length)
+    {
+        if (/\s/u.test(source[index]) || control.test(masked[index] ?? ''))
+        {
+            index += sourceLineTerminatorAt(source, index) || 1
+            continue
+        }
+        if (masked[index] === ' ' && !/\s/u.test(source[index]))
+        {
+            index += 1
+            continue
+        }
+        const start = index
+        let value = ''
+        while (index < source.length)
+        {
+            const character = source[index]
+            if (/\s/u.test(character) || control.test(masked[index] ?? '')) break
+            if (masked[index] === ' ') break
+            if (character === '"' || character === "'")
+            {
+                const quote = character
+                index += 1
+                while (index < source.length && source[index] !== quote)
+                {
+                    if (source[index] === '\\' && index + 1 < source.length)
+                    {
+                        value += source[index + 1]
+                        index += 2
+                    }
+                    else
+                    {
+                        value += source[index]
+                        index += 1
+                    }
+                }
+                if (source[index] === quote) index += 1
+                continue
+            }
+            if (character === '\\' && index + 1 < source.length)
+            {
+                value += source[index + 1]
+                index += 2
+                continue
+            }
+            value += character
+            index += 1
+        }
+        if (value.length > 0) tokens.push({ index: start, value })
+        if (index === start) index += 1
+    }
+    return tokens
+}
+
+function maskShellComments(source)
+{
+    const masked = source.split('')
+    let quote = null
+    for (let index = 0; index < source.length; index += 1)
+    {
+        if (quote !== null)
+        {
+            if (source[index] === '\\') index += 1
+            else if (source[index] === quote) quote = null
+            continue
+        }
+        if (source[index] === '"' || source[index] === "'")
+        {
+            quote = source[index]
+            continue
+        }
+        if (!startsHashComment(source, index, 'shell')) continue
+        const end = findSourceLineTerminator(source, index + 1)
+        for (let cursor = index; cursor < end; cursor += 1) masked[cursor] = ' '
+        index = end - 1
+    }
+    return masked.join('')
+}
+
+function scanShellDirectCli(source, masked, context, locationPrefix, lineAt)
+{
+    for (const token of shellLiteralTokens(source, masked))
+    {
+        const tokenContext = {
+            ...context,
+            location: `${locationPrefix}:line:${lineAt(token.index)}`
+        }
+        if (legacySurfaceName(token.value, tokenContext))
+        {
+            addFinding(context.findings, context.file, context.pathClasses,
+                `forbidden-legacy-surface:${token.value}`, tokenContext.location)
+        }
+        const selectionField = evidenceSelectionField(token.value)
+        if (context.qualification && selectionField)
+        {
+            addFinding(context.findings, context.file, context.pathClasses,
+                `forbidden-evidence-selection:${selectionField}`, tokenContext.location)
+        }
+        const authorityField = authorityResidueField(token.value)
+        if (context.qualification && authorityField)
+        {
+            addFinding(context.findings, context.file, context.pathClasses,
+                `forbidden-self-authority:${authorityField}`, tokenContext.location)
+        }
+    }
+}
+
 function autoPropertyInitializers(source, masked, identifierAuthority)
 {
     const initializers = []
@@ -1019,6 +1136,7 @@ function scanEcmaScriptAst(source, context, parser, locationPrefix, lineAt, isEx
     const sourceFile = parser.createSourceFile(context.file, source, parser.ScriptTarget.Latest, true, scriptKind)
     const identifierText = (name) =>
     {
+        if (!name) return null
         if (parser.isIdentifier(name)) return name.text
         if (parser.isPrivateIdentifier?.(name)) return String(name.text).replace(/^#/u, '')
         if (parser.isStringLiteralLike(name)) return name.text
@@ -1069,9 +1187,44 @@ function scanEcmaScriptAst(source, context, parser, locationPrefix, lineAt, isEx
         if (parser.isElementAccessExpression(node) && parser.isStringLiteralLike(node.argumentExpression)) return node.argumentExpression.text
         return null
     }
+    const scanStaticModuleSpecifier = (node) =>
+    {
+        const moduleSpecifier = constantString(node.moduleSpecifier)
+        if (moduleSpecifier === null) return
+        const moduleContext = {
+            ...context,
+            location: `${locationPrefix}:line:${lineAt(node.getStart(sourceFile))}`
+        }
+        scanValueResidue('source', moduleSpecifier, moduleContext)
+        if (legacySurfaceName(moduleSpecifier, moduleContext))
+        {
+            addFinding(context.findings, context.file, context.pathClasses,
+                `forbidden-legacy-surface:${moduleSpecifier}`, moduleContext.location)
+        }
+    }
     const visit = (node) =>
     {
-        if (parser.isVariableDeclaration(node)
+        if (parser.isImportDeclaration(node))
+        {
+            scanStaticModuleSpecifier(node)
+            const importClause = node.importClause
+            scanOwned(identifierText(importClause?.name), '', node)
+            const bindings = importClause?.namedBindings
+            if (bindings && parser.isNamespaceImport(bindings)) scanOwned(identifierText(bindings.name), '', node)
+            else if (bindings && parser.isNamedImports(bindings))
+            {
+                for (const element of bindings.elements)
+                {
+                    scanOwned(identifierText(element.propertyName), '', node)
+                    scanOwned(identifierText(element.name), '', node)
+                }
+            }
+        }
+        else if (parser.isExportDeclaration(node) && node.moduleSpecifier)
+        {
+            scanStaticModuleSpecifier(node)
+        }
+        else if (parser.isVariableDeclaration(node)
             || parser.isPropertyDeclaration(node)
             || parser.isPropertySignature(node)
             || parser.isPropertyAssignment(node))
@@ -1178,7 +1331,7 @@ function scanMachineYaml(source, context, parser, location = '$')
 
 function scanMachineSource(source, context, locationPrefix = 'source')
 {
-    const commentStyle = /\.sh$/iu.test(context.file) || /^fence:(?:sh|shell):/u.test(locationPrefix)
+    const commentStyle = /\.(?:bash|sh)$/iu.test(context.file) || /^fence:(?:bash|sh|shell):/u.test(locationPrefix)
         ? 'shell'
         : /\.ps1$/iu.test(context.file) || /^fence:(?:powershell|ps1|toml):/u.test(locationPrefix)
             ? (/\.ps1$/iu.test(context.file) || /^fence:(?:powershell|ps1):/u.test(locationPrefix) ? 'powershell' : 'hash')
@@ -1209,12 +1362,13 @@ function scanMachineSource(source, context, locationPrefix = 'source')
         }
         return low
     }
-    if ((/\.(?:js|jsx|mjs|ts|tsx)$/iu.test(context.file)
+    if ((/\.(?:cjs|cts|js|jsx|mjs|mts|ts|tsx)$/iu.test(context.file)
         || /^fence:(?:javascript|js|typescript|ts):/u.test(locationPrefix)) && !/\.vue$/iu.test(context.file))
     {
         scanEcmaScriptAst(source, context, context.jsoncParser(), locationPrefix, lineAt, isExactDeclaration)
         return
     }
+    if (commentStyle === 'shell') scanShellDirectCli(source, maskShellComments(source), context, locationPrefix, lineAt)
     for (const assignment of sourceAssignments(source, masked, commentStyle, identifierAuthority))
     {
         if (isExactDeclaration(assignment.index)) continue
@@ -1259,19 +1413,28 @@ function scanMachineSource(source, context, locationPrefix = 'source')
 function scanDocumentFences(source, context)
 {
     const normalized = source.replace(/\r\n|\r|\u2028|\u2029/gu, '\n')
-    machineFencePattern.lastIndex = 0
-    let match
-    while ((match = machineFencePattern.exec(normalized)) !== null)
+    const lines = normalized.split('\n')
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1)
     {
-        const line = normalized.slice(0, match.index).split('\n').length
-        const language = match[1].toLowerCase()
-        const location = `fence:${language}:line:${line}`
+        const opening = /^ {0,3}(`{3,}|~{3,})(.*)$/u.exec(lines[lineIndex])
+        if (!opening) continue
+        const marker = opening[1][0]
+        const information = opening[2].trim()
+        if (marker === '`' && information.includes('`')) continue
+        const language = information.split(/\s+/u, 1)[0].toLowerCase()
+        const closing = new RegExp(`^ {0,3}${marker}{${opening[1].length},}[\\t ]*$`, 'u')
+        let closingIndex = lineIndex + 1
+        while (closingIndex < lines.length && !closing.test(lines[closingIndex])) closingIndex += 1
+        const body = lines.slice(lineIndex + 1, closingIndex).join('\n')
+        const location = `fence:${language}:line:${lineIndex + 1}`
+        lineIndex = closingIndex
+        if (!machineFenceLanguages.has(language)) continue
         if (language === 'yaml' || language === 'yml')
         {
             const parser = context.yamlParser()
             try
             {
-                scanMachineYaml(match[2], { ...context, qualification: true }, parser, location)
+                scanMachineYaml(body, { ...context, qualification: true }, parser, location)
             }
             catch
             {
@@ -1280,7 +1443,7 @@ function scanDocumentFences(source, context)
         }
         else
         {
-            scanMachineSource(match[2], { ...context, qualification: true }, location)
+            scanMachineSource(body, { ...context, qualification: true }, location)
         }
     }
 }

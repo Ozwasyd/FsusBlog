@@ -77,8 +77,8 @@ function repositoryFixture(t, files)
     const repositoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-zero-legacy-'))
     t.after(() => fs.rmSync(repositoryRoot, { recursive: true, force: true }))
     const needsMachineParser = Object.entries(files).some(([relative, content]) =>
-        /\.(?:js|jsx|mjs|ts|tsx|jsonc?|ya?ml)$/iu.test(relative)
-        || (/\.md$/iu.test(relative) && /```(?:javascript|js|jsonc?|typescript|ts|ya?ml)\b/iu.test(String(content))))
+        /\.(?:cjs|cts|js|jsx|mjs|mts|ts|tsx|jsonc?|ya?ml)$/iu.test(relative)
+        || (/\.md$/iu.test(relative) && /(?:`{3,}|~{3,})(?:javascript|js|jsonc?|typescript|ts|ya?ml)\b/iu.test(String(content))))
     const suppliedConsumer = files['src/frontend/package.json'] === undefined
         ? JSON.parse(parserConsumer)
         : JSON.parse(String(files['src/frontend/package.json']))
@@ -442,6 +442,41 @@ test('zero-legacy source identifiers follow CSharp JavaScript PowerShell and she
     }
 })
 
+test('zero-legacy dispatches tracked module and shell extensions and scans static imports and direct CLI', (t) =>
+{
+    const repositoryRoot = repositoryFixture(t, {
+        'tools/release/import-behavior-qualification.mts': [
+            'import currentClaim from "./deprecated-claim-cli.mjs"',
+            'import { currentReceipt as latestReceipt } from "./current-receipt.mjs"',
+            'export { currentClaim } from "./latest-receipt.mjs"'
+        ].join('\n'),
+        'tools/release/commonjs-behavior-qualification.cjs': 'const lastReviewedAt = "now"\n',
+        'tools/release/direct-behavior-qualification.bash': [
+            '# deprecated-claim-cli --comment-only',
+            'env deprecated-claim-cli --run',
+            '"deprecated-claim-cli" --quoted-run'
+        ].join('\n'),
+        'tools/release/current-import-qualification.mts': 'import currentReceipt from "./current-receipt.mjs"\n',
+        'tools/release/current-direct-qualification.bash': '# deprecated-claim-cli\ncurrent-claim-cli --run\n'
+    })
+    const findings = scanZeroLegacyGovernance(repositoryRoot).findings
+    assert.ok(findings.some((finding) => finding.file === 'tools/release/import-behavior-qualification.mts'
+        && finding.rule === 'forbidden-legacy-surface:./deprecated-claim-cli.mjs'))
+    assert.ok(findings.some((finding) => finding.file === 'tools/release/import-behavior-qualification.mts'
+        && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
+    assert.ok(findings.some((finding) => finding.file === 'tools/release/commonjs-behavior-qualification.cjs'
+        && finding.rule === 'forbidden-machine-field:lastReviewedAt'))
+    assert.ok(findings.filter((finding) => finding.file === 'tools/release/direct-behavior-qualification.bash'
+        && finding.rule.includes('deprecated-claim-cli')).length >= 2)
+    for (const file of [
+        'tools/release/current-import-qualification.mts',
+        'tools/release/current-direct-qualification.bash'
+    ])
+    {
+        assert.equal(findings.some((finding) => finding.file === file), false, `${file} current syntax was rejected`)
+    }
+})
+
 test('zero-legacy shell and YAML hash comments do not create residue or hide active values', (t) =>
 {
     const repositoryRoot = repositoryFixture(t, {
@@ -463,7 +498,7 @@ test('zero-legacy shell and YAML hash comments do not create residue or hide act
         'config/testing/current-url-behavior-qualification.yaml'
     ])
     {
-        assert.equal(findings.some((finding) => finding.file === file), false, `${file} hash comment was scanned`)
+        assert.deepEqual(findings.filter((finding) => finding.file === file), [], `${file} hash comment was scanned`)
     }
     for (const file of [
         'tools/release/active-behavior-qualification.sh',
@@ -863,6 +898,14 @@ test('zero-legacy schema traversal switches dialect at each embedded schema reso
             $schema: 'https://json-schema.org/draft/2020-12/schema',
             $ref: './deprecated-claim-schema.json#/$defs/current'
         }),
+        'config/schemas/legacy-dynamic-ref-behavior-qualification.schema.json': JSON.stringify({
+            $schema: 'https://json-schema.org/draft/2020-12/schema',
+            $dynamicRef: './deprecated-claim-schema.json#current'
+        }),
+        'config/schemas/legacy-recursive-ref-behavior-qualification.schema.json': JSON.stringify({
+            $schema: 'https://json-schema.org/draft/2019-09/schema',
+            $recursiveRef: './compat-claim-schema.json#'
+        }),
         'config/schemas/nested-draft7-ref-sibling-behavior-qualification.schema.json': JSON.stringify({
             $schema: 'http://json-schema.org/draft-07/schema#',
             not: {
@@ -903,6 +946,12 @@ test('zero-legacy schema traversal switches dialect at each embedded schema reso
     assert.ok(findings.some((finding) => finding.file === 'config/schemas/legacy-ref-behavior-qualification.schema.json'
         && finding.location === '$.$ref'
         && finding.rule.includes('deprecated-claim-schema')))
+    assert.ok(findings.some((finding) => finding.file === 'config/schemas/legacy-dynamic-ref-behavior-qualification.schema.json'
+        && finding.location === '$.$dynamicRef'
+        && finding.rule.includes('deprecated-claim-schema')))
+    assert.ok(findings.some((finding) => finding.file === 'config/schemas/legacy-recursive-ref-behavior-qualification.schema.json'
+        && finding.location === '$.$recursiveRef'
+        && finding.rule.includes('compat-claim-schema')))
     for (const keyword of ['.properties.', '.allOf[0].'])
     {
         assert.ok(findings.some((finding) => finding.file === 'config/schemas/nested-draft7-ref-sibling-behavior-qualification.schema.json'
@@ -1067,6 +1116,31 @@ test('zero-legacy Markdown machine fences recognize every JavaScript line termin
         assert.ok(findings.some((finding) => finding.file === `docs/${name}-behavior-contract.md`
             && finding.rule === 'forbidden-evidence-selection:latestReceipt'), `${name} fence escaped`)
         assert.equal(findings.some((finding) => finding.file === `docs/${name}-current-contract.md`), false)
+    }
+})
+
+test('zero-legacy Markdown machine fences follow CommonMark marker and length rules', (t) =>
+{
+    const repositoryRoot = repositoryFixture(t, {
+        'docs/tilde-behavior-contract.md': '# Contract\n~~~yaml\nlatestReceipt: stale.json\n~~~~~\n',
+        'docs/long-backtick-behavior-contract.md': [
+            '# Contract',
+            '````typescript',
+            'const command = "deprecated-claim-cli"',
+            '```',
+            '`````'
+        ].join('\n'),
+        'docs/indented-current-contract.md': '# Contract\n    ~~~yaml\nlatestReceipt: prose-only\n    ~~~\n',
+        'docs/current-tilde-contract.md': '# Contract\n~~~yaml\ncurrentReceipt: current.json\n~~~\n'
+    })
+    const findings = scanZeroLegacyGovernance(repositoryRoot).findings
+    assert.ok(findings.some((finding) => finding.file === 'docs/tilde-behavior-contract.md'
+        && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
+    assert.ok(findings.some((finding) => finding.file === 'docs/long-backtick-behavior-contract.md'
+        && finding.rule === 'forbidden-legacy-surface:deprecated-claim-cli'))
+    for (const file of ['docs/indented-current-contract.md', 'docs/current-tilde-contract.md'])
+    {
+        assert.equal(findings.some((finding) => finding.file === file), false, `${file} non-machine prose was scanned`)
     }
 })
 
@@ -1324,6 +1398,11 @@ test('zero-legacy scan and final report schema are deterministic and structurall
 
     const schema = JSON.parse(fs.readFileSync('config/schemas/behavior-document-consistency-final-report.schema.json', 'utf8'))
     assert.deepEqual(validateJsonSchema(report, schema), [])
+    assert.match(validateJsonSchema(forgedOk, schema).join('\n'), /more than 0 items/u)
+    const failedWithFindings = structuredClone(forgedOk)
+    failedWithFindings.status = 'failed'
+    failedWithFindings.failureReasons = ['zero-legacy findings remain']
+    assert.deepEqual(validateJsonSchema(failedWithFindings, schema), [])
     const openScan = structuredClone(report)
     openScan.zeroLegacyScan.unowned = true
     assert.match(validateJsonSchema(openScan, schema).join('\n'), /additional properties/u)
