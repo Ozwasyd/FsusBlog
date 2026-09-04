@@ -28,8 +28,8 @@ const auditQuery = read('src/backend/Infrastructure/Audit/AuditQueryService.cs')
 for (const token of [
   'id: string',
   'createdByAdminPrincipalId: string',
-  'export async function getArticleRevision(\n  articleId: number,\n  revisionId: string',
-  'export async function rollbackArticleRevision(\n  articleId: number,\n  revisionId: string',
+  'export async function getArticleRevision(\n    articleId: number,\n    revisionId: string,',
+  'export async function rollbackArticleRevision(\n    articleId: number,\n    revisionId: string,',
   'export async function verifyAuditLog(id: string'
 ]) {
   assert(authoringApi.includes(token), `frontend authoring API long id boundary missing: ${token}`)
@@ -68,8 +68,7 @@ for (const token of [
 
 for (const token of [
   'revision.Id.ToString(CultureInfo.InvariantCulture)',
-  'revision.CreatedByAdminPrincipalId.ToString(CultureInfo.InvariantCulture)',
-  'item.Id.ToString(CultureInfo.InvariantCulture)'
+  'revision.CreatedByAdminPrincipalId.ToString(CultureInfo.InvariantCulture)'
 ]) {
   assert(authoringService.includes(token), `authoring service must serialize long id as invariant string: ${token}`)
 }

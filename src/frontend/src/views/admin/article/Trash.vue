@@ -2,7 +2,6 @@
   <div class="account-page article-trash-wrapper account-motion-enter w-full">
     <FsusUiTaskPageHeader
       title="回收站"
-      description="恢复下线文章或执行永久删除。"
       class="account-task-page-header"
       density="compact"
     />

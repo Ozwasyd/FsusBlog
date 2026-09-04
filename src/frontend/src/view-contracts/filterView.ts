@@ -119,6 +119,15 @@ function createFilterLoadingStateViewContract(view: {
   };
 }
 
+export function normalizeFilterDescription(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
 function normalizeFilterName(value: string): string {
   return value.trim().replace(/^“|”$/gu, '')
 }
