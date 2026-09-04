@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdirSync, mkdtempSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { delimiter, join, resolve } from 'node:path'
 import test from 'node:test'
 
 import commitlintConfig from '../../commitlint.config.mjs'
@@ -19,6 +19,7 @@ import {
     validatePerformancePullRequest,
     validatePrContract,
     pullRequestActor,
+    readFileAtRevision,
     validateRepositoryBlameIgnore,
     validateRepositorySources
 } from '../../tools/governance/change-contract.mjs'
@@ -724,7 +725,7 @@ test('generated bot exception binds source, digest, and authenticated identity',
     execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: repository })
     execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: repository })
     writeRepositoryFile(repository, 'tools/generate.mjs', 'export const generator = true\n')
-    writeRepositoryFile(repository, 'src/generated/output.ts', 'export const generated = true\n')
+    writeRepositoryFile(repository, 'src/generated/output.ts', Buffer.alloc(1_310_720, 0x61))
     const outputSha256 = createHash('sha256')
         .update(readFileSync(join(repository, 'src/generated/output.ts')))
         .digest('hex')
@@ -757,6 +758,18 @@ test('generated bot exception binds source, digest, and authenticated identity',
         root: repository,
         authorityRoot: null
     }), [])
+
+    writeRepositoryFile(repository, 'src/generated/output.ts', 'worktree-only content must not be trusted\n')
+    assert.deepEqual(validatePrContract({
+        title: 'chore(tooling): refresh generated contract fixture',
+        body,
+        labels: ['release-note:internal'],
+        actor,
+        changedFiles,
+        root: repository,
+        authorityRoot: null
+    }), [])
+    execFileSync('git', ['restore', 'src/generated/output.ts'], { cwd: repository })
 
     const wrongActor = validatePrContract({
         title: 'chore(tooling): refresh generated contract fixture',
@@ -793,6 +806,121 @@ test('generated bot exception binds source, digest, and authenticated identity',
         authorityRoot: null
     })
     assert.ok(tampered.some((error) => error.includes('Generated output digest mismatch')))
+})
+
+test('revision reader rejects truncated, missing, invalid, and non-file Git objects', () => {
+    const repository = mkdtempSync(join(tmpdir(), 'fsusblog-revision-reader-'))
+    execFileSync('git', ['init', '-q'], { cwd: repository })
+    execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: repository })
+    execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: repository })
+    writeRepositoryFile(repository, 'large.bin', Buffer.alloc(1_310_720, 0x62))
+    symlinkSync('large.bin', join(repository, 'large-link.bin'))
+    execFileSync('git', ['add', '.'], { cwd: repository })
+    execFileSync('git', ['commit', '-qm', 'fixture revision objects'], { cwd: repository })
+    const revision = execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: repository,
+        encoding: 'utf8'
+    }).trim()
+
+    writeRepositoryFile(repository, 'large.bin', 'uncommitted worktree content\n')
+    assert.equal(readFileAtRevision(repository, revision, 'large.bin').length, 1_310_720)
+    assert.throws(
+        () => readFileAtRevision(repository, revision, 'large.bin', { maximumBytes: 1024 }),
+        /exceeds the 1024-byte revision read limit/u
+    )
+    assert.throws(
+        () => readFileAtRevision(repository, 'not-a-revision', 'large.bin'),
+        /repository revision does not resolve to one commit/u
+    )
+    assert.throws(
+        () => readFileAtRevision(repository, revision, '../large.bin'),
+        /invalid repository path/u
+    )
+    assert.throws(
+        () => readFileAtRevision(repository, revision, 'missing.bin'),
+        /does not resolve to one exact Git object/u
+    )
+    assert.throws(
+        () => readFileAtRevision(repository, revision, 'large-link.bin'),
+        /is not a regular Git blob/u
+    )
+
+    const gitExecutable = execFileSync('which', ['git'], { encoding: 'utf8' }).trim()
+    const wrapperDirectory = join(repository, 'git-wrapper')
+    const wrapperPath = join(wrapperDirectory, 'git')
+    mkdirSync(wrapperDirectory)
+    writeFileSync(wrapperPath, `#!/usr/bin/env node
+import { spawnSync } from 'node:child_process'
+
+if (process.argv[2] === 'cat-file' && process.argv[3] === 'blob') {
+    process.stdout.write('truncated')
+    process.exit(0)
+}
+const result = spawnSync(${JSON.stringify(gitExecutable)}, process.argv.slice(2), { stdio: 'inherit' })
+process.exit(result.status ?? 1)
+`)
+    chmodSync(wrapperPath, 0o755)
+    const originalPath = process.env.PATH
+    try {
+        process.env.PATH = `${wrapperDirectory}${delimiter}${originalPath}`
+        assert.throws(
+            () => readFileAtRevision(repository, revision, 'large.bin'),
+            /Git blob read was truncated/u
+        )
+    } finally {
+        process.env.PATH = originalPath
+    }
+})
+
+test('revision reader ignores commit and blob replacement refs', () => {
+    const repository = mkdtempSync(join(tmpdir(), 'fsusblog-revision-replace-'))
+    execFileSync('git', ['init', '-q'], { cwd: repository })
+    execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: repository })
+    execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: repository })
+    writeRepositoryFile(repository, 'sample.txt', 'original bytes\n')
+    execFileSync('git', ['add', '.'], { cwd: repository })
+    execFileSync('git', ['commit', '-qm', 'fixture original revision'], { cwd: repository })
+    const originalRevision = execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: repository,
+        encoding: 'utf8'
+    }).trim()
+    const originalBlob = execFileSync('git', ['rev-parse', `${originalRevision}:sample.txt`], {
+        cwd: repository,
+        encoding: 'utf8'
+    }).trim()
+
+    writeRepositoryFile(repository, 'sample.txt', 'replacement bytes are longer\n')
+    execFileSync('git', ['add', '.'], { cwd: repository })
+    execFileSync('git', ['commit', '-qm', 'fixture replacement revision'], { cwd: repository })
+    const replacementRevision = execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: repository,
+        encoding: 'utf8'
+    }).trim()
+    const replacementBlob = execFileSync('git', ['rev-parse', `${replacementRevision}:sample.txt`], {
+        cwd: repository,
+        encoding: 'utf8'
+    }).trim()
+
+    execFileSync('git', ['replace', originalRevision, replacementRevision], { cwd: repository })
+    assert.equal(
+        execFileSync('git', ['show', `${originalRevision}:sample.txt`], { cwd: repository, encoding: 'utf8' }),
+        'replacement bytes are longer\n'
+    )
+    assert.equal(
+        readFileAtRevision(repository, originalRevision, 'sample.txt').toString('utf8'),
+        'original bytes\n'
+    )
+
+    execFileSync('git', ['replace', '-d', originalRevision], { cwd: repository })
+    execFileSync('git', ['replace', originalBlob, replacementBlob], { cwd: repository })
+    assert.equal(
+        execFileSync('git', ['show', `${originalRevision}:sample.txt`], { cwd: repository, encoding: 'utf8' }),
+        'replacement bytes are longer\n'
+    )
+    assert.equal(
+        readFileAtRevision(repository, originalRevision, 'sample.txt').toString('utf8'),
+        'original bytes\n'
+    )
 })
 
 test('post-merge generated repair binds exact history and isolated canonical replays', () => {
