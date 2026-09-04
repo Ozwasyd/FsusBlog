@@ -70,6 +70,22 @@ function validatePolicy(policy)
             errors.push(`mainApplication.${field} is required`);
         }
     }
+    const executableProjectClassifications = object(policy?.executableProjectClassifications);
+    if (Object.keys(executableProjectClassifications).length === 0)
+    {
+        errors.push('executableProjectClassifications must classify every executable project');
+    }
+    for (const [project, classification] of Object.entries(executableProjectClassifications))
+    {
+        if (project !== normalize(project) || !project.startsWith('src/') || !project.endsWith('.csproj'))
+        {
+            errors.push(`invalid executable project classification path: ${project}`);
+        }
+        if (!['business-application', 'non-business-tool'].includes(classification))
+        {
+            errors.push(`invalid executable project classification: ${project}#${classification}`);
+        }
+    }
     if (JSON.stringify(policy?.runtimeModes) !== JSON.stringify(['single', 'static-role', 'adaptive']))
     {
         errors.push('runtimeModes must be exactly single, static-role, adaptive');
@@ -111,16 +127,41 @@ function validatePolicy(policy)
 function validateProjectTopology(root, files, policy, errors)
 {
     const projects = files.filter((file) => file.startsWith('src/') && file.endsWith('.csproj'));
+    const projectSources = new Map(projects.map((file) => [file, read(root, file, errors)]));
     const entrypoints = projects.filter((file) =>
     {
-        const source = read(root, file, errors);
+        const source = projectSources.get(file) ?? '';
         return /<Project\s+Sdk="Microsoft\.NET\.Sdk\.Web"/u.test(source)
       || /<OutputType>\s*(?:Exe|WinExe)\s*<\/OutputType>/u.test(source);
     });
-    const expected = normalize(policy.mainApplication.project);
-    if (entrypoints.length !== 1 || entrypoints[0] !== expected)
+    const classifications = object(policy.executableProjectClassifications);
+    const classifiedProjects = Object.keys(classifications).map(normalize).sort();
+    for (const project of entrypoints.filter((file) => !Object.hasOwn(classifications, file)))
     {
-        errors.push(`product source must expose exactly one business entrypoint (${expected}); found ${entrypoints.join(', ') || 'none'}`);
+        errors.push(`executable project has no architecture classification: ${project}`);
+    }
+    for (const project of classifiedProjects.filter((file) => !entrypoints.includes(file)))
+    {
+        errors.push(`classified executable project is missing or no longer executable: ${project}`);
+    }
+    for (const project of entrypoints.filter((file) => classifications[file] === 'non-business-tool'))
+    {
+        const source = projectSources.get(project) ?? '';
+        if (/<Project\s+Sdk="Microsoft\.NET\.Sdk\.Web"/u.test(source))
+        {
+            errors.push(`non-business tool must not use the Web SDK: ${project}`);
+        }
+        if (!/<OutputType>\s*(?:Exe|WinExe)\s*<\/OutputType>/u.test(source))
+        {
+            errors.push(`non-business tool must declare an executable OutputType: ${project}`);
+        }
+    }
+    const expected = normalize(policy.mainApplication.project);
+    const businessEntrypoints = entrypoints.filter((file) => classifications[file] !== 'non-business-tool');
+    if (businessEntrypoints.length !== 1 || businessEntrypoints[0] !== expected
+        || classifications[expected] !== 'business-application')
+    {
+        errors.push(`product source must expose exactly one business entrypoint (${expected}); found ${businessEntrypoints.join(', ') || 'none'}`);
     }
     const mainProject = read(root, expected, errors);
     for (const token of array(policy.mainApplication.frontendIntegrationTokens))

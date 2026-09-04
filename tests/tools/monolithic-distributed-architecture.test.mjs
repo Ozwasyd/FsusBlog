@@ -67,6 +67,13 @@ function createFixture()
 </Project>
 `);
     write(root, 'src/core/FsusBlog.Core.csproj', '<Project Sdk="Microsoft.NET.Sdk" />\n');
+    write(root, 'src/migration/FsusBlog.Migration.csproj', `
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+</Project>
+`);
     write(root, policy.mainApplication.dockerfile, 'FROM fixture\n');
     for (const [file, services] of Object.entries(policy.composeServices))
     {
@@ -101,9 +108,13 @@ test.after(() =>
     }
 });
 
-test('accepts the canonical repository and a minimal monolithic distributed fixture', () =>
+test('accepts the canonical repository', () =>
 {
     assert.deepEqual(checkMonolithicDistributedArchitecture({ root: repositoryRoot }).errors, []);
+});
+
+test('accepts a minimal monolithic distributed fixture with an offline migration tool', () =>
+{
     const { root } = createFixture();
     assert.deepEqual(checkFixture(root).errors, []);
 });
@@ -116,6 +127,42 @@ test('rejects a second business entrypoint and application Dockerfile', () =>
     const errors = checkFixture(root).errors;
     assert.ok(errors.some((error) => error.includes('exactly one business entrypoint')));
     assert.ok(errors.some((error) => error.includes('exactly one application Dockerfile')));
+});
+
+test('does not treat an unclassified executable project as a non-business tool', () =>
+{
+    const { root } = createFixture();
+    write(root, 'src/tools/LooseTool.csproj', `
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+</Project>
+`);
+    const errors = checkFixture(root).errors;
+    assert.ok(errors.some((error) => error.includes('has no architecture classification: src/tools/LooseTool.csproj')));
+    assert.ok(errors.some((error) => error.includes('exactly one business entrypoint')));
+});
+
+test('rejects missing or drifted executable project classifications', () =>
+{
+    const { root, policy } = createFixture();
+    delete policy.executableProjectClassifications['src/migration/FsusBlog.Migration.csproj'];
+    policy.executableProjectClassifications['src/core/FsusBlog.Core.csproj'] = 'non-business-tool';
+    write(root, 'tests/governance/monolithic-distributed-architecture.json', `${JSON.stringify(policy, null, 2)}\n`);
+    const errors = checkFixture(root).errors;
+    assert.ok(errors.some((error) => error.includes('has no architecture classification: src/migration/FsusBlog.Migration.csproj')));
+    assert.ok(errors.some((error) => error.includes('classified executable project is missing or no longer executable: src/core/FsusBlog.Core.csproj')));
+    assert.ok(errors.some((error) => error.includes('exactly one business entrypoint')));
+});
+
+test('rejects a Web application disguised as a non-business tool', () =>
+{
+    const { root, policy } = createFixture();
+    write(root, 'src/comments/Comments.Tool.csproj', '<Project Sdk="Microsoft.NET.Sdk.Web" />\n');
+    policy.executableProjectClassifications['src/comments/Comments.Tool.csproj'] = 'non-business-tool';
+    write(root, 'tests/governance/monolithic-distributed-architecture.json', `${JSON.stringify(policy, null, 2)}\n`);
+    assert.ok(checkFixture(root).errors.some((error) => error.includes('non-business tool must not use the Web SDK')));
 });
 
 test('rejects an unclassified fixed business sidecar', () =>
