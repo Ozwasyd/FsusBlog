@@ -625,7 +625,13 @@ function executeDagProducer(guard, executable, arguments_, options) {
             `producer DAG exceeds ${generatedOutputRepairDagMaximumExecutions} producer executions`
         )
     }
-    return execFileSync(executable, arguments_, options)
+    return execFileSync(executable, arguments_, {
+        ...options,
+        env: {
+            ...options.env,
+            FSUSBLOG_GENERATED_OUTPUT_REPAIR_REPLAY: '1'
+        }
+    })
 }
 
 function worktreeOutputState(worktree, path) {

@@ -578,11 +578,11 @@ const digest = createHash('sha256').update(source).digest('hex')
 mkdirSync('config/testing', { recursive: true })
 writeFileSync('config/testing/evidence-locator-registry.json', JSON.stringify({ stable: true }) + '\\n')
 writeFileSync('config/testing/evidence-location-migration-ledger.json', JSON.stringify({ scanDigest: 'sha256:' + digest, entries: source.split(',').map((id) => ({ id })) }) + '\\n')
-${producerFault === 'future-output' ? "if (source.includes('event')) writeFileSync('config/testing/current-run-evidence-location-acceptance.json', JSON.stringify({ premature: true }) + '\\n')" : ''}
-${producerFault === 'unexpected-write' ? "if (source.includes('event')) writeFileSync('unexpected-output.txt', 'unexpected\\n')" : ''}
-${producerFault === 'ignored-write' ? "if (source.includes('event')) { mkdirSync('.tmp', { recursive: true }); writeFileSync('.tmp/unexpected.txt', 'unexpected\\n') }" : ''}
-${producerFault === 'staged-write' ? "if (source.includes('event')) { writeFileSync('unexpected-output.txt', 'unexpected\\n'); execFileSync('git', ['add', 'unexpected-output.txt']) }" : ''}
-${producerFault === 'nondeterministic' ? "if (source.includes('event')) writeFileSync('config/testing/evidence-location-migration-ledger.json', JSON.stringify({ scanDigest: 'sha256:' + digest, entries: [{ id: String(Math.random()) }] }) + '\\n')" : ''}
+${producerFault === 'future-output' ? "if (process.env.FSUSBLOG_GENERATED_OUTPUT_REPAIR_REPLAY === '1') writeFileSync('config/testing/current-run-evidence-location-acceptance.json', JSON.stringify({ premature: true }) + '\\n')" : ''}
+${producerFault === 'unexpected-write' ? "if (process.env.FSUSBLOG_GENERATED_OUTPUT_REPAIR_REPLAY === '1') writeFileSync('unexpected-output.txt', 'unexpected\\n')" : ''}
+${producerFault === 'ignored-write' ? "if (process.env.FSUSBLOG_GENERATED_OUTPUT_REPAIR_REPLAY === '1') { mkdirSync('.tmp', { recursive: true }); writeFileSync('.tmp/unexpected.txt', 'unexpected\\n') }" : ''}
+${producerFault === 'staged-write' ? "if (process.env.FSUSBLOG_GENERATED_OUTPUT_REPAIR_REPLAY === '1') { writeFileSync('unexpected-output.txt', 'unexpected\\n'); execFileSync('git', ['add', 'unexpected-output.txt']) }" : ''}
+${producerFault === 'nondeterministic' ? "if (process.env.FSUSBLOG_GENERATED_OUTPUT_REPAIR_REPLAY === '1') writeFileSync('config/testing/evidence-location-migration-ledger.json', JSON.stringify({ scanDigest: 'sha256:' + digest, entries: [{ id: String(Math.random()) }] }) + '\\n')" : ''}
 ${candidateInputExecutionMarker ? `if (existsSync('candidate-extra.ts')) writeFileSync(${JSON.stringify(candidateInputExecutionMarker)}, 'executed\\n')` : ''}
 `.trimStart())
     writeRepositoryFile(repository, 'tools/test/generate-current-run-evidence-location-acceptance.mjs', `
@@ -591,7 +591,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 const registry = readFileSync('config/testing/evidence-locator-registry.json')
 const ledger = readFileSync('config/testing/evidence-location-migration-ledger.json')
 writeFileSync('config/testing/current-run-evidence-location-acceptance.json', JSON.stringify({ registrySha256: ${producerFault === 'no-consume' ? "'constant'" : "createHash('sha256').update(registry).digest('hex')"}, ledgerSha256: ${producerFault === 'no-consume' ? "'constant'" : "createHash('sha256').update(ledger).digest('hex')"} }) + '\\n')
-${producerFault === 'later-overwrite' ? "if (readFileSync('semantic-source.txt', 'utf8').includes('event')) writeFileSync('config/testing/evidence-location-migration-ledger.json', JSON.stringify({ overwritten: true }) + '\\n')" : ''}
+${producerFault === 'later-overwrite' ? "if (process.env.FSUSBLOG_GENERATED_OUTPUT_REPAIR_REPLAY === '1') writeFileSync('config/testing/evidence-location-migration-ledger.json', JSON.stringify({ overwritten: true }) + '\\n')" : ''}
 `.trimStart())
     if (producerFault === 'ignored-write') writeRepositoryFile(repository, '.gitignore', '.tmp/\n')
     execFileSync('node', ['tools/test/generate-evidence-location-governance.mjs'], { cwd: repository })
