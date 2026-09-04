@@ -23,6 +23,9 @@ import { produceRuntimeRoleObservation } from '../../tools/contracts/lib/runtime
 
 const extractorId = 'test-matrix-fact-extractor'
 const runtimeRoleBuild = produceRuntimeRoleObservation({ repositoryRoot: root })
+const runtimeRoleBuildReceiptPath = path.relative(root, runtimeRoleBuild.receiptPath)
+const runtimeRoleBuildReceiptSchema = runtimeRoleBuild.receiptBody.schema
+const runtimeRoleBuildSourcePaths = runtimeRoleBuild.buildSourcePaths
 const sourceIdentity = sealSourceIdentity(root)
 
 function registryExtractor()
@@ -231,8 +234,8 @@ test('test-matrix-fact-extractor is registered for browserless-production-correc
 
 test('live matrix projects typed topology / release-final / production-fresh facts', async () =>
 {
-  const first = await runExtractor({ extractorId, repositoryRoot: root, useCache: false, buildIdentity: runtimeRoleBuild.buildIdentity })
-  const second = await runExtractor({ extractorId, repositoryRoot: root, useCache: false, buildIdentity: runtimeRoleBuild.buildIdentity })
+  const first = await runExtractor({ extractorId, repositoryRoot: root, useCache: false, buildIdentity: runtimeRoleBuild.buildIdentity, buildReceiptPath: runtimeRoleBuildReceiptPath, buildReceiptSchema: runtimeRoleBuildReceiptSchema, buildSourcePaths: runtimeRoleBuildSourcePaths })
+  const second = await runExtractor({ extractorId, repositoryRoot: root, useCache: false, buildIdentity: runtimeRoleBuild.buildIdentity, buildReceiptPath: runtimeRoleBuildReceiptPath, buildReceiptSchema: runtimeRoleBuildReceiptSchema, buildSourcePaths: runtimeRoleBuildSourcePaths })
   assert.equal(first.receipt.status, 'ok', first.receipt.failureReasons?.join('\n'))
   assertDeterministicSemanticDigest(first.receipt, second.receipt)
   const facts = first.receipt.observations.facts
@@ -644,8 +647,8 @@ test('release-final matrix membership drift from the exact ledger set fails clos
 
 test('semantic digest is stable across identical live runs', async () =>
 {
-  const first = await runExtractor({ extractorId, repositoryRoot: root, useCache: false, buildIdentity: runtimeRoleBuild.buildIdentity })
-  const second = await runExtractor({ extractorId, repositoryRoot: root, useCache: false, buildIdentity: runtimeRoleBuild.buildIdentity })
+  const first = await runExtractor({ extractorId, repositoryRoot: root, useCache: false, buildIdentity: runtimeRoleBuild.buildIdentity, buildReceiptPath: runtimeRoleBuildReceiptPath, buildReceiptSchema: runtimeRoleBuildReceiptSchema, buildSourcePaths: runtimeRoleBuildSourcePaths })
+  const second = await runExtractor({ extractorId, repositoryRoot: root, useCache: false, buildIdentity: runtimeRoleBuild.buildIdentity, buildReceiptPath: runtimeRoleBuildReceiptPath, buildReceiptSchema: runtimeRoleBuildReceiptSchema, buildSourcePaths: runtimeRoleBuildSourcePaths })
   assert.equal(first.receipt.status, 'ok')
   assert.equal(semanticDigestFromReceipt(first.receipt), semanticDigestFromReceipt(second.receipt))
 })

@@ -23,11 +23,14 @@ let observation
 
 test.before(async () =>
 {
-    const buildIdentity = produceRuntimeRoleObservation({ repositoryRoot: root }).buildIdentity
+    const produced = produceRuntimeRoleObservation({ repositoryRoot: root })
     observation = (await runExtractor({
         extractorId: 'test-matrix-fact-extractor',
         repositoryRoot: root,
-        buildIdentity,
+        buildIdentity: produced.buildIdentity,
+        buildReceiptPath: path.relative(root, produced.receiptPath),
+        buildReceiptSchema: produced.receiptBody.schema,
+        buildSourcePaths: produced.buildSourcePaths,
         useCache: false
     })).receipt
 })

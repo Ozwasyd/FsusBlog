@@ -42,6 +42,9 @@ if (protocolErrors.length > 0)
 const extractorResult = await runOpenApiFactExtractor({
     repositoryRoot: root,
     buildIdentity: produced.buildIdentity,
+    buildReceiptPath: path.relative(root, produced.receiptPath),
+    buildReceiptSchema: produced.receiptBody.schema,
+    buildSourcePaths: produced.buildSourcePaths,
     useCache: false
 });
 if (extractorResult.receipt.status !== 'ok')

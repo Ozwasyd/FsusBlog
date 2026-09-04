@@ -481,11 +481,28 @@ function validateBuildIdentityShape (buildIdentity)
 {
   if (!isPlainObject(buildIdentity)) return false
   const keys = Object.keys(buildIdentity).sort()
-  if (keys.join('\0') !== ['artifactDigest', 'artifactId', 'receiptDigest'].join('\0')) return false
-  return typeof buildIdentity.artifactId === 'string'
+  const legacyKeys = ['artifactDigest', 'artifactId', 'receiptDigest']
+  const sourceBoundKeys = [...legacyKeys, 'schema', 'sourceDigest', 'sourceDigests'].sort()
+  const legacy = keys.join('\0') === legacyKeys.join('\0')
+  const sourceBound = keys.join('\0') === sourceBoundKeys.join('\0')
+  if (!legacy && !sourceBound) return false
+  const baseValid = typeof buildIdentity.artifactId === 'string'
     && buildIdentity.artifactId.length > 0
     && digestPattern.test(buildIdentity.receiptDigest)
     && digestPattern.test(buildIdentity.artifactDigest)
+  if (!baseValid || legacy) return baseValid
+  if (buildIdentity.schema !== 'fsusblog.fact-extractor-build-identity.v2'
+    || !isPlainObject(buildIdentity.sourceDigests)
+    || Object.keys(buildIdentity.sourceDigests).length === 0
+    || Object.keys(buildIdentity.sourceDigests).join('\0')
+      !== Object.keys(buildIdentity.sourceDigests).sort().join('\0')
+    || Object.entries(buildIdentity.sourceDigests).some(([sourcePath, digest]) =>
+      typeof sourcePath !== 'string'
+      || sourcePath.length === 0
+      || sourcePath.includes('\\')
+      || sourcePath.split('/').includes('..')
+      || !digestPattern.test(digest))) return false
+  return buildIdentity.sourceDigest === digestValue(buildIdentity.sourceDigests)
 }
 
 function validateParseReceipt (receipt)

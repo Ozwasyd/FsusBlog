@@ -110,7 +110,8 @@ export function produceContentLifecycleObservation({
     observationPath: paths.observationPath,
     buildIdentity,
     receiptPath,
-    receiptBody
+    receiptBody,
+    buildSourcePaths: []
   }
 }
 

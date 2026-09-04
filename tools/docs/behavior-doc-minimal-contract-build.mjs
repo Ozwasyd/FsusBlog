@@ -7,7 +7,8 @@ import {
   computeConsumedInputDigests,
   digestPath,
   digestValue,
-  sealSourceIdentity
+  sealSourceIdentity,
+  sourceBoundBuildIdentitySchema
 } from '../fact-extractors/identity.mjs'
 import { loadRegistry } from '../fact-extractors/registry.mjs'
 
@@ -272,27 +273,75 @@ export function validateMinimalContractBuildReceipt(receipt, {
   return receipt
 }
 
-export function buildIdentitiesFromMinimalReceipt(receipt) {
+function childBuildReceiptFromMinimalReceipt(receipt, artifactId) {
   validateMinimalContractBuildReceipt(receipt)
-  return Object.fromEntries(Object.entries(receipt.artifacts).map(([artifactId, artifact]) => {
-    const declaration = hostDeclarations[artifactId]
-    if (declaration == null) throw new Error(`minimal contract build has unknown artifact ${artifactId}`)
-    const receiptBody = {
-      schema: `fsusblog.${artifactId}-build-receipt.v1`,
-      artifactId,
-      artifactPath: declaration.output,
-      artifactDigest: artifact.artifactDigest,
-      configuration: 'Release'
-    }
-    return [
-      artifactId,
-      {
-        artifactId,
-        receiptDigest: digestValue(receiptBody),
-        artifactDigest: artifact.artifactDigest
-      }
-    ]
-  }))
+  const artifact = receipt.artifacts[artifactId]
+  const declaration = hostDeclarations[artifactId]
+  if (artifact == null || declaration == null) {
+    throw new Error(`minimal contract build has unknown artifact ${artifactId}`)
+  }
+  const authoritySourcePaths = [...(declaration.authoritySourcePaths ?? [])].sort()
+  const sourceDigests = authoritySourcePaths.length === 0
+    ? null
+    : Object.fromEntries(authoritySourcePaths.map((relative) => {
+      const source = receipt.sourceClosureDigests.find((entry) => entry.path === relative)
+      if (source == null) throw new Error(`minimal contract build missing authority source ${relative}`)
+      return [relative, source.digest]
+    }))
+  const receiptBody = {
+    schema: `fsusblog.${artifactId}-build-receipt.v${sourceDigests === null ? 1 : 2}`,
+    artifactId,
+    artifactPath: declaration.output,
+    artifactDigest: artifact.artifactDigest,
+    ...(sourceDigests === null ? {} : {
+      sourceDigests,
+      sourceDigest: digestValue(sourceDigests)
+    }),
+    configuration: 'Release'
+  }
+  const buildIdentity = {
+    ...(sourceDigests === null ? {} : { schema: sourceBoundBuildIdentitySchema }),
+    artifactId,
+    receiptDigest: digestValue(receiptBody),
+    artifactDigest: artifact.artifactDigest,
+    ...(sourceDigests === null ? {} : {
+      sourceDigests,
+      sourceDigest: receiptBody.sourceDigest
+    })
+  }
+  return {
+    receipt: { ...receiptBody, buildIdentity },
+    receiptPath: path.posix.join(path.posix.dirname(declaration.output), 'build-receipt.json'),
+    buildIdentity
+  }
+}
+
+export function buildIdentitiesFromMinimalReceipt(receipt) {
+  return Object.fromEntries(Object.keys(receipt.artifacts).map((artifactId) => [
+    artifactId,
+    childBuildReceiptFromMinimalReceipt(receipt, artifactId).buildIdentity
+  ]))
+}
+
+export function buildReceiptPathsFromMinimalReceipt(receipt) {
+  return Object.fromEntries(Object.keys(receipt.artifacts).map((artifactId) => [
+    artifactId,
+    childBuildReceiptFromMinimalReceipt(receipt, artifactId).receiptPath
+  ]))
+}
+
+export function buildReceiptSchemasFromMinimalReceipt(receipt) {
+  return Object.fromEntries(Object.keys(receipt.artifacts).map((artifactId) => [
+    artifactId,
+    childBuildReceiptFromMinimalReceipt(receipt, artifactId).receipt.schema
+  ]))
+}
+
+export function buildSourcePathsFromMinimalReceipt(receipt) {
+  return Object.fromEntries(Object.keys(receipt.artifacts).map((artifactId) => [
+    artifactId,
+    Object.keys(childBuildReceiptFromMinimalReceipt(receipt, artifactId).receipt.sourceDigests ?? {})
+  ]))
 }
 
 function reusableReceipt({
@@ -345,6 +394,11 @@ function publishCanonicalObservations(repositoryRoot, receipt) {
     if (artifactDigest(repositoryRoot, declaration.output) !== artifact.artifactDigest) {
       throw new Error(`minimal contract build artifact ${artifactId} publish digest mismatch`)
     }
+    const childReceipt = childBuildReceiptFromMinimalReceipt(receipt, artifactId)
+    const receiptDestination = path.join(repositoryRoot, childReceipt.receiptPath)
+    const temporaryReceipt = `${receiptDestination}.next-${process.pid}-${randomUUID()}`
+    fs.writeFileSync(temporaryReceipt, `${JSON.stringify(childReceipt.receipt, null, 2)}\n`)
+    fs.renameSync(temporaryReceipt, receiptDestination)
   }
 }
 
@@ -519,6 +573,9 @@ export function runMinimalContractBuild({
     receipt,
     receiptFile,
     buildIdentities: buildIdentitiesFromMinimalReceipt(receipt),
+    buildReceiptPaths: buildReceiptPathsFromMinimalReceipt(receipt),
+    buildReceiptSchemas: buildReceiptSchemasFromMinimalReceipt(receipt),
+    buildSourcePaths: buildSourcePathsFromMinimalReceipt(receipt),
     cacheHit
   }
 }

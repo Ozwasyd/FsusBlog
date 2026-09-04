@@ -110,7 +110,8 @@ export function produceAuthSessionObservation({
     observationPath: paths.observationPath,
     buildIdentity,
     receiptPath,
-    receiptBody
+    receiptBody,
+    buildSourcePaths: []
   }
 }
 

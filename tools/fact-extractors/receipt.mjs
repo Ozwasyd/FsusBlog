@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { digestValue, isPlainObject, stable } from './lib/canonicalize.mjs'
+import { validateNormalizedBuildIdentity } from './identity.mjs'
 import { loadReceiptSchema, receiptSchemaId, root } from './registry.mjs'
 
 export const forbiddenReceiptFields = Object.freeze([
@@ -41,6 +42,15 @@ export function validateReceiptSchemaContract(schema = loadReceiptSchema())
     }
     if (schema.properties?.status?.enum?.includes('warning')) fail('status must not admit warning')
     if (schema.properties?.status?.enum?.includes('partial')) fail('status must not admit partial')
+    const buildIdentity = schema?.$defs?.buildIdentity
+    if (buildIdentity?.additionalProperties !== false
+        || !Object.hasOwn(buildIdentity?.properties ?? {}, 'sourceDigests')
+        || !Object.hasOwn(buildIdentity?.properties ?? {}, 'sourceDigest')
+        || !Array.isArray(buildIdentity?.oneOf)
+        || buildIdentity.oneOf.length !== 2)
+    {
+        fail('buildIdentity schema must close legacy-v1 and source-bound-v2 shapes')
+    }
     return true
 }
 
@@ -171,6 +181,10 @@ export function buildReceipt({
     if (behaviorIds.some((id) => !idPattern.test(id))) fail('behaviorIds contains invalid id')
     if (!commitPattern.test(sourceCommit)) fail('sourceCommit must be full lowercase SHA')
     if (!digestPattern.test(worktreeFingerprint)) fail('worktreeFingerprint must be sha256 hex')
+    if (buildIdentity !== null)
+    {
+        validateNormalizedBuildIdentity(buildIdentity)
+    }
     if (!digestPattern.test(extractorDigest) || !digestPattern.test(registryDigest)) fail('extractor/registry digests invalid')
     if (!Array.isArray(consumedInputDigests) || consumedInputDigests.length === 0) fail('consumedInputDigests required')
     for (const entry of consumedInputDigests)
@@ -241,6 +255,10 @@ export function validateReceipt(receipt, options = {})
     if (!isPlainObject(receipt)) fail('receipt must be an object')
     assertNoForbiddenKeys(receipt, 'receipt')
     if (receipt.schema !== receiptSchemaId) fail(`unexpected receipt schema ${receipt.schema}`)
+    if (receipt.buildIdentity !== null)
+    {
+        validateNormalizedBuildIdentity(receipt.buildIdentity)
+    }
     const required = [
         'schema',
         'extractorId',
