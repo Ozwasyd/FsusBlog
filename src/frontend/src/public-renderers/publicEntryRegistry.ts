@@ -72,7 +72,7 @@ import {
     createArticleListViewContract
 } from '@/view-contracts/articleList';
 import { normalizeArticleResponsibilityPublicView } from '@/view-contracts/articleResponsibility';
-import { createFilterPageViewContract } from '@/view-contracts/filterView';
+import { createFilterPageViewContract, normalizeFilterDescription } from '@/view-contracts/filterView';
 
 export type PublicEntryBuilder = (options: PublicEntryBuildOptions) => Promise<RenderResult>;
 
@@ -543,6 +543,7 @@ const filterEntryDefinition = definePublicEntry({
         const filterInput = asRecord(options.filter) ?? options;
         const filterType: PublicFilterType = normalizePublicFilterType(filterInput.filterType);
         const filterName = toText(filterInput.filterName, '');
+        const description = normalizeFilterDescription(filterInput.description);
         const scope = createScope(buildPublicFilterRouteKey({
             routeKey: options.routeKey,
             filterType,
@@ -562,7 +563,7 @@ const filterEntryDefinition = definePublicEntry({
             filterType,
             labelText: getPublicFilterLabel(filterType),
             currentName: title,
-            description: null,
+            description,
             loadingMeta: false,
             loadingArticles: false,
             isPowCalculating: false,
@@ -582,6 +583,7 @@ const filterEntryDefinition = definePublicEntry({
             filterKey: toText(filterInput.filterKey, scope.routeKey),
             filterId: toNumber(filterInput.filterId),
             filterName,
+            description,
             isInvalidTarget,
             pageIndex,
             pageSize,

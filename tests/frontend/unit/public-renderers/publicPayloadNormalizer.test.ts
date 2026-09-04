@@ -94,6 +94,7 @@ describe('publicPayloadNormalizer', () => {
         filterKey: 'category:7',
         filterId: 7,
         filterName: 'Category',
+        description: '  分类说明  ',
         isInvalidTarget: false,
         pageIndex: 2,
         pageSize: 10,
@@ -104,5 +105,29 @@ describe('publicPayloadNormalizer', () => {
     expect(normalized.routeKey).toBe('category:7')
     expect(normalized.filter?.filterType).toBe('category')
     expect(normalized.filter?.filterId).toBe(7)
+    expect(normalized.filter?.description).toBe('分类说明')
+  })
+
+  it('keeps filter description null when taxonomy has none', () => {
+    const normalized = normalizePublicHydrationPayload({
+      pageKind: 'Filter',
+      siteTitle: 'FsusBlog',
+      siteDescription: 'desc',
+      rendererVersion: 'test',
+      title: 'Tag',
+      filter: {
+        filterType: 'tag',
+        filterKey: 'tag:3',
+        filterId: 3,
+        filterName: 'Tag',
+        description: null,
+        isInvalidTarget: false,
+        pageIndex: 1,
+        pageSize: 10,
+        total: 0
+      }
+    })
+
+    expect(normalized.filter?.description).toBeNull()
   })
 })

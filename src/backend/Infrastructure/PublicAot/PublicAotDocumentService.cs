@@ -410,13 +410,19 @@ public sealed class PublicAotDocumentService(
             }
         }
 
+        if (kind is PublicPageKind.Filter)
+        {
+            string generated = ResolveGeneratedFilterDescription(entry, siteTitle, title);
+            string taxonomyDescription = ResolveFilterTaxonomyDescription(payloads);
+            return string.IsNullOrWhiteSpace(taxonomyDescription)
+                ? generated
+                : Summarize(taxonomyDescription, generated);
+        }
+
         return kind switch
         {
             PublicPageKind.Home => Summarize(siteDescription, $"{siteTitle} 的最新文章与专题内容。"),
             PublicPageKind.Archive => $"按发布时间浏览 {siteTitle} 的文章归档。",
-            PublicPageKind.Filter when PublicRouteIdentity.ResolveRouteBucket(entry.PageId, entry.RouteKey) == "category"
-                => $"浏览 {siteTitle} 中“{title}”分类下的文章。",
-            PublicPageKind.Filter => $"浏览 {siteTitle} 中“{title}”标签下的文章。",
             PublicPageKind.About => $"了解 {siteTitle} 的内容方向、作者与本站信息。",
             PublicPageKind.Privacy => $"查看 {siteTitle} 如何处理访问数据、Cookie 与隐私选择。",
             PublicPageKind.Guidelines => $"查看 {siteTitle} 的社区参与、评论与内容发布守则。",
@@ -424,6 +430,27 @@ public sealed class PublicAotDocumentService(
             _ => Summarize(siteDescription, $"{siteTitle} 页面。")
         };
     }
+
+    private static string ResolveGeneratedFilterDescription(
+        PublicAotShellEntryContract entry,
+        string siteTitle,
+        string title)
+        => PublicRouteIdentity.ResolveRouteBucket(entry.PageId, entry.RouteKey) == "category"
+            ? $"浏览 {siteTitle} 中“{title}”分类下的文章。"
+            : $"浏览 {siteTitle} 中“{title}”标签下的文章。";
+
+    private static string ResolveFilterTaxonomyDescription(DecodedEntryPayloads payloads)
+    {
+        string hydrationDescription = ResolveFilterDescription(payloads.Hydration);
+        return string.IsNullOrWhiteSpace(hydrationDescription)
+            ? ResolveFilterDescription(payloads.Bootstrap)
+            : hydrationDescription;
+    }
+
+    private static string ResolveFilterDescription(IReadOnlyDictionary<string, object?>? payload)
+        => payload is null
+            ? string.Empty
+            : ResolvePayloadString(PublicAotBinaryPayload.TryGetObject(payload, "filter"), "description", string.Empty);
 
     private static DecodedEntryPayloads DecodeEntryPayloads(PublicAotShellEntryContract entry)
     {

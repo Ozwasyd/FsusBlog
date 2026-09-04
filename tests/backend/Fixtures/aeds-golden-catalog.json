@@ -250,6 +250,7 @@
     { "name": "EmptySuccess", "value": 240, "family": "common-response" },
     { "name": "MutationId", "value": 241, "family": "common-response" },
     { "name": "UserLocalePreferenceUpdateRequest", "value": 242, "family": "locale-preference-request" },
+    { "name": "TaxonomyExactMetadata", "value": 243, "family": "taxonomy-response" },
     { "name": "ApiError", "value": 251, "family": "error-response" }
   ]
 }

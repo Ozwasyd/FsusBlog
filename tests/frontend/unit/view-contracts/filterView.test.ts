@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { PUBLIC_FILTER_TYPE, type PublicFilterType } from '@/public-renderers/publicFilterSemantics'
-import { createFilterPageViewContract } from '@/view-contracts/filterView'
+import { createFilterPageViewContract, normalizeFilterDescription } from '@/view-contracts/filterView'
 
 function createView(filterType: PublicFilterType, currentName: string, overrides: {
   hasError?: boolean
@@ -93,5 +93,13 @@ describe('createFilterPageViewContract', () => {
     })
 
     expect(view.header.description).toBeNull()
+  })
+
+  it('normalizes missing and blank descriptions to null', () => {
+    expect(normalizeFilterDescription(undefined)).toBeNull()
+    expect(normalizeFilterDescription(null)).toBeNull()
+    expect(normalizeFilterDescription('')).toBeNull()
+    expect(normalizeFilterDescription('   ')).toBeNull()
+    expect(normalizeFilterDescription('  架构说明  ')).toBe('架构说明')
   })
 })

@@ -196,6 +196,7 @@ public sealed record PublicFilterPageSnapshot(
     string FilterKey,
     int FilterId,
     string? FilterName,
+    string? Description,
     bool IsInvalidTarget,
     int PageIndex,
     int PageSize,

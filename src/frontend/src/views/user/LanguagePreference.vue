@@ -2,7 +2,6 @@
   <section class="account-page language-preference-page">
     <FsusUiTaskPageHeader
       title="语言与区域"
-      description="选择自动跟随浏览器语言，或固定当前设备与账户使用的语言。"
       class="account-task-page-header"
     />
 
