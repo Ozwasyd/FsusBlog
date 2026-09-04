@@ -700,7 +700,8 @@ test('verified data-scale owner replaces shared ambient targets before measureme
             FSUSBLOG_TEST_NAMESPACE: 'shared',
             FSUSBLOG_TEST_RUN_ID: runId
         },
-        executeAction
+        executeAction,
+        dataScaleLivenessVerifier: async () => ({ status: 'ready' })
     });
     assert.equal(result.status, 'passed');
     assert.equal(measurementSpawnCount, 1);
@@ -712,6 +713,31 @@ test('verified data-scale owner replaces shared ambient targets before measureme
         boundMeasurementEnvironment.FSUSBLOG_POSTGRES_CONTAINER_NAME,
         owner.postgres.containerId
     );
+
+    measurementSpawnCount = 0;
+    const deadOwner = await executeLifecycleActionPlan({
+        contracts,
+        scenario,
+        repositoryRoot: fixture.root,
+        invocationId,
+        runId,
+        identity: dataScaleIdentity,
+        identityReference: fixture.identityReference,
+        actionEnvironment: {
+            ...fixture.environment,
+            FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID: 'attempt-1'
+        },
+        measurementEnvironment: fixture.environment,
+        executeAction,
+        dataScaleLivenessVerifier: async () =>
+        {
+            throw new Error('dedicated runtime owner exited');
+        }
+    });
+    assert.equal(deadOwner.status, 'failed');
+    assert.equal(deadOwner.firstFailure.phase, 'measurement');
+    assert.equal(deadOwner.measurementRecord.producerSpawned, false);
+    assert.equal(measurementSpawnCount, 0);
 });
 
 test('old runtime URL or ambient service identity blocks measurement spawn', async (context) =>

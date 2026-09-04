@@ -650,6 +650,8 @@ test('stale evidence is removed and cannot pass when the producer is not spawned
         const result = await executeFixtureScenario(fixture, catalog, { spawnProcess: () => null });
         assert.equal(result.status, 'failed');
         assert.equal(fs.existsSync(stale), false);
+        assert.equal(result.producerSpawned, false);
+        assert.equal(result.authoritativeEvidence, null);
     }
     finally
     {

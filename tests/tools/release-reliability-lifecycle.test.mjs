@@ -793,6 +793,36 @@ test('#1617 runtime owner binds exact nested identities, dedicated roots, and se
         attemptId: 'attempt-1'
     });
     assert.equal(verified.dataScaleRunId, dataScaleRunId);
+    assert.throws(
+        () => verifyDataScaleOwnerReceipt({
+            repositoryRoot: fixture.root,
+            ownerReceipt: 'data-scale-runtime',
+            receiptPath: relative,
+            identity: fixture.identity,
+            runId,
+            invocationId,
+            attemptId: 'attempt-2'
+        }),
+        /identity mismatch/u
+    );
+    const notReady = sealDocument({
+        ...receipt,
+        contentDigest: undefined,
+        lifecycle: { ...receipt.lifecycle, readiness: 'failed' }
+    });
+    fs.writeFileSync(path.join(fixture.root, relative), JSON.stringify(notReady));
+    assert.throws(
+        () => verifyDataScaleOwnerReceipt({
+            repositoryRoot: fixture.root,
+            ownerReceipt: 'data-scale-runtime',
+            receiptPath: relative,
+            identity: fixture.identity,
+            runId,
+            invocationId,
+            attemptId: 'attempt-1'
+        }),
+        /lifecycle state is incomplete/u
+    );
     const wrongBuild = sealDocument({
         ...receipt,
         contentDigest: undefined,

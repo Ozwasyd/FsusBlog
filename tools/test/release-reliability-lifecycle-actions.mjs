@@ -1019,7 +1019,8 @@ async function bindDataScaleMeasurementEnvironment({
     invocationId,
     attemptId,
     identity,
-    measurementEnvironment
+    measurementEnvironment,
+    livenessVerifier = null
 })
 {
     const preconditionActionId = scenario.isolation.lifecycle.preconditions.find(
@@ -1061,6 +1062,10 @@ async function bindDataScaleMeasurementEnvironment({
         attemptId,
         expectedBytesDigest: adapter.ownerReceipt?.bytesDigest
     }).document;
+    const verifyLiveness = livenessVerifier ?? (await import(
+        './data-scale-runtime-owner.mjs'
+    )).verifyDataScaleRuntimeLiveness;
+    await verifyLiveness({ repositoryRoot, runtimeReceipt: owner });
     const expectedTargets = {
         FSUSBLOG_DEBUG_BACKEND_URL: owner.backend.baseUrl,
         FSUSBLOG_POSTGRES_CONTAINER_NAME: owner.postgres.containerId,
@@ -1160,7 +1165,8 @@ export async function executeLifecycleActionPlan({
     signal = null,
     spawnProcess = spawn,
     physicalExecution = runPhysicalExecution,
-    executeAction = executeRegisteredLifecycleAction
+    executeAction = executeRegisteredLifecycleAction,
+    dataScaleLivenessVerifier = null
 })
 {
     const records = [];
@@ -1246,7 +1252,8 @@ export async function executeLifecycleActionPlan({
                             actionEnvironment.FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID,
                         identity,
                         measurementEnvironment:
-                            effectiveMeasurementEnvironment
+                            effectiveMeasurementEnvironment,
+                        livenessVerifier: dataScaleLivenessVerifier
                     });
             }
             catch (error)

@@ -863,6 +863,13 @@ export async function executeScenario({
                 FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID:
                     `${invocationId}.attempt-1`,
                 ...Object.fromEntries([
+                    'FSUSBLOG_DATA_SCALE_POSTGRES_IMAGE_DIGEST',
+                    'FSUSBLOG_DATA_SCALE_REDIS_IMAGE_DIGEST'
+                ].filter((key) => ambientEnvironment[key]).map((key) => [
+                    key,
+                    String(ambientEnvironment[key])
+                ])),
+                ...Object.fromEntries([
                     'FSUSBLOG_DATA_SCALE_RUNTIME_RECEIPT_PATH',
                     'FSUSBLOG_DATA_SCALE_TEARDOWN_RECEIPT_PATH'
                 ].filter((key) => ambientEnvironment[key]).map((key) => [

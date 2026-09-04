@@ -418,11 +418,20 @@ function runtimeInputs(repositoryRoot, identity, environment)
     const runtimeImageReference = String(
         environment.FSUSBLOG_RELEASE_RUNTIME_IMAGE ?? ''
     ).trim();
+    const postgresImageReference = String(
+        environment.FSUSBLOG_DATA_SCALE_POSTGRES_IMAGE_DIGEST ?? ''
+    ).trim();
+    const redisImageReference = String(
+        environment.FSUSBLOG_DATA_SCALE_REDIS_IMAGE_DIGEST ?? ''
+    ).trim();
     const envFile = path.resolve(
         repositoryRoot,
         String(environment.FSUSBLOG_TEST_FIXTURE_CONFIG ?? '')
     );
-    if (!runtimeImageReference || !fs.existsSync(envFile)
+    if (!runtimeImageReference
+        || !digestPattern.test(postgresImageReference)
+        || !digestPattern.test(redisImageReference)
+        || !fs.existsSync(envFile)
         || !fs.lstatSync(envFile).isFile())
     {
         throw new Error('runtime image and canonical fixture environment are required');
@@ -441,6 +450,8 @@ function runtimeInputs(repositoryRoot, identity, environment)
             'attemptId'
         ),
         runtimeImageReference,
+        postgresImageReference,
+        redisImageReference,
         envFile
     };
 }
@@ -544,17 +555,9 @@ export async function provisionDataScaleRuntime({
     const resolvedRoot = path.resolve(repositoryRoot);
     const inputs = runtimeInputs(resolvedRoot, identity, environment);
     const commandOptions = { repositoryRoot: resolvedRoot, execute };
-    const sourcePostgres = inspectOne(
-        identity.fixture.topology.content.postgres.instance,
-        commandOptions
-    );
-    const sourceRedis = inspectOne(
-        identity.fixture.topology.content.redis.instance,
-        commandOptions
-    );
     const runtimeImage = inspectImage(inputs.runtimeImageReference, commandOptions);
-    const postgresImage = inspectImage(sourcePostgres.Config.Image, commandOptions);
-    const redisImage = inspectImage(sourceRedis.Config.Image, commandOptions);
+    const postgresImage = inspectImage(inputs.postgresImageReference, commandOptions);
+    const redisImage = inspectImage(inputs.redisImageReference, commandOptions);
     const plan = createDataScaleRuntimePlan({
         repositoryRoot: resolvedRoot,
         runId: inputs.runId,
@@ -597,7 +600,7 @@ export async function provisionDataScaleRuntime({
             '--user', '0', '--entrypoint', '/bin/sh',
             ...labels,
             '-v', `${ownedRuntimeRoot}:/owned`,
-            inputs.runtimeImageReference,
+            runtimeImage.Id,
             '-c', 'chown -R "$1:$2" /owned && chmod -R u=rwX,g=rwX,o= /owned',
             'fsusblog-owner-permissions', runtimeUid, runtimeGid
         ], commandOptions);
@@ -628,14 +631,14 @@ export async function provisionDataScaleRuntime({
             '-e', 'POSTGRES_PASSWORD=fsusblog_dev',
             '-e', 'POSTGRES_DB=fsusblog',
             '-v', `${plan.resources.postgresVolumeName}:/var/lib/postgresql/data`,
-            sourcePostgres.Config.Image
+            inputs.postgresImageReference
         ], commandOptions);
         const redisId = run('docker', [
             'run', '-d', '--name', plan.resources.redisContainerName,
             '--network', plan.resources.networkName, '--network-alias', 'redis',
             ...labels,
             '-v', `${plan.resources.redisVolumeName}:/data`,
-            sourceRedis.Config.Image
+            inputs.redisImageReference
         ], commandOptions);
         await waitUntilReady(() => run('docker', [
             'exec', postgresId, 'pg_isready', '-U', 'fsusblog', '-d', 'fsusblog'
@@ -664,7 +667,7 @@ export async function provisionDataScaleRuntime({
             '-e', 'RedisOptions__Configuration=redis:6379,abortConnect=false,connectTimeout=10000',
             '-e', `FSUSBLOG_TEST_RUN_ID=${plan.dataScaleRunId}`,
             '-e', `FSUSBLOG_TEST_NAMESPACE=${plan.namespace}`,
-            inputs.runtimeImageReference
+            runtimeImage.Id
         ], commandOptions);
         const backend = inspectOne(backendId, commandOptions);
         const hostPort = Number(
@@ -762,6 +765,90 @@ export async function provisionDataScaleRuntime({
         }).catch(() => {});
         throw error;
     }
+}
+
+export async function verifyDataScaleRuntimeLiveness({
+    repositoryRoot,
+    runtimeReceipt,
+    execute = spawnSync,
+    fetchImpl = fetch
+})
+{
+    const resolvedRoot = path.resolve(repositoryRoot);
+    const options = { repositoryRoot: resolvedRoot, execute };
+    const inspectContainer = (identity, volumeId = null) =>
+    {
+        const container = inspectOne(identity, options);
+        const volumeNames = (container.Mounts ?? [])
+            .filter((mount) => mount.Type === 'volume')
+            .map((mount) => mount.Name);
+        if (container.Id !== identity || container.State?.Running !== true
+            || (volumeId !== null && !volumeNames.includes(volumeId)))
+        {
+            throw new Error('dedicated runtime container is not live/current');
+        }
+        return container;
+    };
+    const postgres = inspectContainer(
+        runtimeReceipt.postgres.containerId,
+        runtimeReceipt.postgres.volumeId
+    );
+    const redis = inspectContainer(
+        runtimeReceipt.redis.containerId,
+        runtimeReceipt.redis.volumeId
+    );
+    const backend = inspectContainer(runtimeReceipt.backend.pidOrContainerId);
+    if (postgres.Image !== runtimeReceipt.postgres.imageDigest
+        || redis.Image !== runtimeReceipt.redis.imageDigest
+        || backend.Image !== runtimeReceipt.backend.executableOrImageDigest
+        || containerStartTicks(backend) !== runtimeReceipt.backend.startTicks)
+    {
+        throw new Error('dedicated runtime container identity drifted');
+    }
+    const network = JSON.parse(run('docker', [
+        'network', 'inspect', runtimeReceipt.network.id
+    ], options) || '[]')[0];
+    const members = Object.keys(network?.Containers ?? {}).sort();
+    const expectedMembers = [
+        runtimeReceipt.backend.pidOrContainerId,
+        runtimeReceipt.postgres.containerId,
+        runtimeReceipt.redis.containerId
+    ].sort();
+    if (network?.Id !== runtimeReceipt.network.id
+        || network?.Name !== runtimeReceipt.network.name
+        || JSON.stringify(members) !== JSON.stringify(expectedMembers))
+    {
+        throw new Error('dedicated runtime network topology drifted');
+    }
+    for (const relative of [
+        runtimeReceipt.aotRoot,
+        runtimeReceipt.searchRoot,
+        runtimeReceipt.hotReadRoot,
+        runtimeReceipt.dataRoot
+    ])
+    {
+        const target = path.resolve(resolvedRoot, relative);
+        if (!target.startsWith(`${resolvedRoot}${path.sep}`)
+            || !fs.existsSync(target)
+            || !fs.lstatSync(target).isDirectory()
+            || fs.lstatSync(target).isSymbolicLink())
+        {
+            throw new Error('dedicated runtime root is missing or unsafe');
+        }
+    }
+    const response = await fetchImpl(
+        `${runtimeReceipt.backend.baseUrl.replace(/\/$/u, '')}/health/ready`,
+        {
+            headers: { Accept: 'application/json' },
+            signal: AbortSignal.timeout(3_000)
+        }
+    );
+    const readiness = response.ok ? await response.json() : null;
+    if (!response.ok || readiness?.status !== 'ready')
+    {
+        throw new Error('dedicated runtime readiness is no longer complete');
+    }
+    return Object.freeze({ status: 'ready', members });
 }
 
 export async function teardownDataScaleRuntime({

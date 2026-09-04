@@ -210,10 +210,11 @@ test('provision and teardown execute the dedicated topology and leave zero resid
     };
     const imageIds = {
         'fsusblog/runtime:test': sha('d'),
-        'postgres:test': sha('e'),
-        'redis:test': sha('f')
+        [sha('e')]: sha('e'),
+        [sha('f')]: sha('f')
     };
     const removed = new Set();
+    let helperResidue = '';
     const calls = [];
     let ownerPlan = plan(root);
     const labels = () => ({
@@ -281,7 +282,7 @@ test('provision and teardown execute the dedicated topology and leave zero resid
         }
         if (args[0] === 'ps')
         {
-            return { status: 0, stdout: '', stderr: '' };
+            return { status: 0, stdout: helperResidue, stderr: '' };
         }
         const inspectKind = args[0] === 'network' ? 'network'
             : args[0] === 'volume' ? 'volume' : 'container';
@@ -344,6 +345,8 @@ test('provision and teardown execute the dedicated topology and leave zero resid
         FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID: 'invocation-a',
         FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID: 'attempt-1',
         FSUSBLOG_RELEASE_RUNTIME_IMAGE: 'fsusblog/runtime:test',
+        FSUSBLOG_DATA_SCALE_POSTGRES_IMAGE_DIGEST: sha('e'),
+        FSUSBLOG_DATA_SCALE_REDIS_IMAGE_DIGEST: sha('f'),
         FSUSBLOG_TEST_FIXTURE_CONFIG: '.tmp/env/runtime.env'
     };
     const provisioned = await provisionDataScaleRuntime({
@@ -380,6 +383,22 @@ test('provision and teardown execute the dedicated topology and leave zero resid
         removed.size,
         7,
         'transient helper plus three containers, one network, and two volumes must be absent'
+    );
+
+    helperResidue = '9'.repeat(64);
+    await assert.rejects(
+        provisionDataScaleRuntime({
+            repositoryRoot: root,
+            identity,
+            environment,
+            execute,
+            fetchImpl: async () => ({
+                ok: true,
+                json: async () => ({ status: 'ready' })
+            }),
+            wait: async () => {}
+        }),
+        /permission helper container left a residue/u
     );
 });
 
@@ -451,6 +470,8 @@ test('tampered plan and escaped CLI paths fail before any destructive command', 
                 FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID: 'invocation-a',
                 FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID: 'attempt-1',
                 FSUSBLOG_RELEASE_RUNTIME_IMAGE: 'runtime:secret',
+                FSUSBLOG_DATA_SCALE_POSTGRES_IMAGE_DIGEST: sha('e'),
+                FSUSBLOG_DATA_SCALE_REDIS_IMAGE_DIGEST: sha('f'),
                 FSUSBLOG_TEST_FIXTURE_CONFIG: '.tmp/env/runtime.env'
             },
             execute: () => ({
@@ -459,7 +480,7 @@ test('tampered plan and escaped CLI paths fail before any destructive command', 
                 stderr: 'password=super-secret'
             })
         }),
-        (error) => error.message === 'docker inspect failed with exit 1'
+        (error) => error.message === 'docker image failed with exit 1'
             && !error.message.includes('super-secret')
     );
 });
