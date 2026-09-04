@@ -872,6 +872,57 @@ process.exit(result.status ?? 1)
     }
 })
 
+test('revision reader ignores commit and blob replacement refs', () => {
+    const repository = mkdtempSync(join(tmpdir(), 'fsusblog-revision-replace-'))
+    execFileSync('git', ['init', '-q'], { cwd: repository })
+    execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: repository })
+    execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: repository })
+    writeRepositoryFile(repository, 'sample.txt', 'original bytes\n')
+    execFileSync('git', ['add', '.'], { cwd: repository })
+    execFileSync('git', ['commit', '-qm', 'fixture original revision'], { cwd: repository })
+    const originalRevision = execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: repository,
+        encoding: 'utf8'
+    }).trim()
+    const originalBlob = execFileSync('git', ['rev-parse', `${originalRevision}:sample.txt`], {
+        cwd: repository,
+        encoding: 'utf8'
+    }).trim()
+
+    writeRepositoryFile(repository, 'sample.txt', 'replacement bytes are longer\n')
+    execFileSync('git', ['add', '.'], { cwd: repository })
+    execFileSync('git', ['commit', '-qm', 'fixture replacement revision'], { cwd: repository })
+    const replacementRevision = execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: repository,
+        encoding: 'utf8'
+    }).trim()
+    const replacementBlob = execFileSync('git', ['rev-parse', `${replacementRevision}:sample.txt`], {
+        cwd: repository,
+        encoding: 'utf8'
+    }).trim()
+
+    execFileSync('git', ['replace', originalRevision, replacementRevision], { cwd: repository })
+    assert.equal(
+        execFileSync('git', ['show', `${originalRevision}:sample.txt`], { cwd: repository, encoding: 'utf8' }),
+        'replacement bytes are longer\n'
+    )
+    assert.equal(
+        readFileAtRevision(repository, originalRevision, 'sample.txt').toString('utf8'),
+        'original bytes\n'
+    )
+
+    execFileSync('git', ['replace', '-d', originalRevision], { cwd: repository })
+    execFileSync('git', ['replace', originalBlob, replacementBlob], { cwd: repository })
+    assert.equal(
+        execFileSync('git', ['show', `${originalRevision}:sample.txt`], { cwd: repository, encoding: 'utf8' }),
+        'replacement bytes are longer\n'
+    )
+    assert.equal(
+        readFileAtRevision(repository, originalRevision, 'sample.txt').toString('utf8'),
+        'original bytes\n'
+    )
+})
+
 test('post-merge generated repair binds exact history and isolated canonical replays', () => {
     const repair = createPostMergeRepairFixture()
     assert.deepEqual(validatePostMergeRepairFixture(repair), [])

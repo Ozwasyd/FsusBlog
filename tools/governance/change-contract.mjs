@@ -293,6 +293,18 @@ function sameStrings(left, right) {
         && [...left].sort().every((value, index) => value === [...right].sort()[index])
 }
 
+function exactRevisionGitOptions(root, options = {}) {
+    return {
+        ...options,
+        cwd: root,
+        env: {
+            ...process.env,
+            ...options.env,
+            GIT_NO_REPLACE_OBJECTS: '1'
+        }
+    }
+}
+
 function resolveRevisionBlob(root, revision, path) {
     if (typeof revision !== 'string' || revision.length === 0 || revision.includes('\x00')) {
         throw new Error(`invalid repository revision: ${String(revision)}`)
@@ -306,7 +318,7 @@ function resolveRevisionBlob(root, revision, path) {
         commit = execFileSync(
             'git',
             ['rev-parse', '--verify', '--end-of-options', `${revision}^{commit}`],
-            { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+            exactRevisionGitOptions(root, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
         ).trim()
     } catch {
         throw new Error(`repository revision does not resolve to one commit: ${revision}`)
@@ -316,7 +328,7 @@ function resolveRevisionBlob(root, revision, path) {
     const treeOutput = execFileSync(
         'git',
         ['ls-tree', '-z', '--full-tree', commit, '--', path],
-        { cwd: root }
+        exactRevisionGitOptions(root)
     )
     const treeEntry = treeOutput.toString('utf8').match(
         /^(?<mode>\d{6}) (?<type>[a-z]+) (?<object>[0-9a-f]{40})\t(?<path>[^\x00]+)\x00$/u
@@ -331,7 +343,7 @@ function resolveRevisionBlob(root, revision, path) {
     const sizeText = execFileSync(
         'git',
         ['cat-file', '-s', treeEntry.object],
-        { cwd: root, encoding: 'utf8' }
+        exactRevisionGitOptions(root, { encoding: 'utf8' })
     ).trim()
     if (!/^(?:0|[1-9]\d*)$/u.test(sizeText) || !Number.isSafeInteger(Number(sizeText))) {
         throw new Error(`Git blob reported an invalid size at ${commit}: ${path}`)
@@ -358,7 +370,7 @@ export function readFileAtRevision(root, revision, path, {
     const content = execFileSync(
         'git',
         ['cat-file', 'blob', blob.object],
-        { cwd: root, maxBuffer: maximumBytes + 1 }
+        exactRevisionGitOptions(root, { maxBuffer: maximumBytes + 1 })
     )
     if (content.length !== blob.size) {
         throw new Error(
