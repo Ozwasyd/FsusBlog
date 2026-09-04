@@ -145,7 +145,8 @@ internal static class ApiErrorSemanticMapper
             }
         }
 
-        return ApiErrorTransportMappingId.Generic500InfraFailure;
+        throw new InvalidOperationException(
+            $"Unregistered generic ApiError status mapping: HTTP {statusCode}.");
     }
 
     public static ApiErrorTransportMappingId RequireTransportMappingId(int statusCode, ErrorCode errorCode)

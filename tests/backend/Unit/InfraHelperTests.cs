@@ -977,7 +977,7 @@ public class ApiBinaryResponseMiddlewareTests
     }
 
     [Fact]
-    public async Task InvokeAsync_BinaryEndpointWithUnknownEmptyError_CanonicalizesToRegistered500InfraFailure()
+    public async Task InvokeAsync_BinaryEndpointWithUnknownEmptyError_FailsClosedWithoutRewritingStatus()
     {
         static Task Next(HttpContext context)
         {
@@ -993,15 +993,12 @@ public class ApiBinaryResponseMiddlewareTests
 
         var encoder = new AedsEncoder();
         var middleware = new ApiBinaryResponseMiddleware(Next);
-        await middleware.InvokeAsync(context, encoder);
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            middleware.InvokeAsync(context, encoder));
 
-        Assert.Equal(StatusCodes.Status500InternalServerError, context.Response.StatusCode);
-        var decoded = encoder.TryDecode(body.ToArray());
-        Assert.True(decoded.IsSuccess);
-        Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Value.Payload, out var errorPod));
-        Assert.Equal(StatusCodes.Status500InternalServerError, errorPod.HttpStatus);
-        Assert.Equal((byte)ErrorCode.InfraFailure, errorPod.Code);
-        Assert.Equal("HTTP 418", PodUtf8Codec.FromFixed256(errorPod.Message));
+        Assert.Equal("Unregistered generic ApiError status mapping: HTTP 418.", exception.Message);
+        Assert.Equal(StatusCodes.Status418ImATeapot, context.Response.StatusCode);
+        Assert.Empty(body.ToArray());
     }
 
     [Fact]

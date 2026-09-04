@@ -136,12 +136,11 @@ public sealed class ProductionStartupValidatorTests
                 ApiErrorSemanticMapper.RequireTransportMappingId(pair.Key.HttpStatus, pair.Key.ErrorCode));
         }
 
-        ApiErrorTransportMappingId fallbackId = ApiErrorSemanticMapper.GetGenericMappingId(StatusCodes.Status418ImATeapot);
-        Assert.Equal(ApiErrorTransportMappingId.Generic500InfraFailure, fallbackId);
+        const ApiErrorTransportMappingId FallbackId = ApiErrorTransportMappingId.Generic500InfraFailure;
         foreach (string? missingMessage in new[] { null, string.Empty, "  " })
         {
             ErrorDetail fallback = ApiErrorSemanticMapper.CreateError(
-                fallbackId,
+                FallbackId,
                 missingMessage,
                 "trace-fallback",
                 "details-fallback");
@@ -152,7 +151,7 @@ public sealed class ProductionStartupValidatorTests
         }
 
         ErrorDetail explicitMessage = ApiErrorSemanticMapper.CreateError(
-            fallbackId,
+            FallbackId,
             "Explicit failure",
             "trace-explicit",
             "details-explicit");
@@ -162,6 +161,9 @@ public sealed class ProductionStartupValidatorTests
         InvalidOperationException unregistered = Assert.Throws<InvalidOperationException>(() =>
             ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status418ImATeapot, ErrorCode.InfraFailure));
         Assert.Equal("Unregistered ApiError transport mapping: HTTP 418/InfraFailure.", unregistered.Message);
+        InvalidOperationException unknownGeneric = Assert.Throws<InvalidOperationException>(() =>
+            ApiErrorSemanticMapper.GetGenericMappingId(StatusCodes.Status418ImATeapot));
+        Assert.Equal("Unregistered generic ApiError status mapping: HTTP 418.", unknownGeneric.Message);
         InvalidOperationException mismatch = Assert.Throws<InvalidOperationException>(() =>
             ApiErrorSemanticMapper.ValidateError(
                 ApiErrorTransportMappingId.Operation428Forbidden,

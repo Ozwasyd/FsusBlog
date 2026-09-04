@@ -37,7 +37,7 @@ public static partial class BinaryEndpoints
         {
             int status = payload.Error.Message.Contains("上限", StringComparison.Ordinal)
                 ? StatusCodes.Status413PayloadTooLarge
-                : 0;
+                : StatusCodes.Status400BadRequest;
             return BinaryResults.FromError(payload.Error, aeds, ApiErrorSemanticMapper.RequireTransportMappingId(status, (payload.Error).Code));
         }
 
