@@ -44,7 +44,7 @@ internal static partial class XunitAdapterProgram
             }
         }
 
-        string refPack = ResolveReferencePack(targetFramework);
+        string? refPack = ResolveReferencePack(targetFramework);
         if (refPack is not null)
         {
             foreach (string dll in Directory.EnumerateFiles(refPack, "*.dll").OrderBy(file => file, StringComparer.Ordinal))

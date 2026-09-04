@@ -44,6 +44,7 @@ internal static partial class XunitAdapterProgram
         string projectDir = Path.GetDirectoryName(projectPath) ?? root;
         string relativeProject = Path.GetRelativePath(root, projectPath).Replace(Path.DirectorySeparatorChar, '/');
         string targetFramework = ReadTargetFramework(projectPath) ?? "net10.0";
+        bool allowUnsafeBlocks = ReadAllowUnsafeBlocks(projectPath);
 
         string[] sources;
         try
@@ -95,22 +96,30 @@ internal static partial class XunitAdapterProgram
             assemblyName,
             syntaxTrees,
             references,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                .WithAllowUnsafe(allowUnsafeBlocks));
 
-        var missingReferenceDiagnostics = compilation.GetDiagnostics()
+        var compilationErrorDiagnostics = compilation.GetDiagnostics()
             .Where(item => item.Severity == DiagnosticSeverity.Error
-                && item.Id is "CS0006" or "CS0009" or "CS0012" or "CS0234" or "CS0246" or "CS0103" or "CS0400")
-            .Take(40)
-            .Select(item => item.ToString())
+                && !IsMissingGeneratedRegexImplementation(item))
+            .OrderBy(item => item.Location.SourceTree?.FilePath ?? "", StringComparer.Ordinal)
+            .ThenBy(item => item.Location.SourceSpan.Start)
+            .ThenBy(item => item.Id, StringComparer.Ordinal)
             .ToArray();
-        if (missingReferenceDiagnostics.Length > 0)
+        if (compilationErrorDiagnostics.Length > 0)
         {
+            string renderedDiagnostics = string.Join(
+                " | ",
+                compilationErrorDiagnostics.Take(40).Select(item => item.ToString()));
+            string truncated = compilationErrorDiagnostics.Length > 40
+                ? $" | ... {compilationErrorDiagnostics.Length - 40} more compilation errors"
+                : "";
             result.Diagnostics.Add(new DiagnosticEntry
             {
                 Severity = "error",
                 Code = "xunit-semantic-model-incomplete",
                 File = relativeProject,
-                Message = "semantic model is incomplete; unresolved symbols: " + string.Join(" | ", missingReferenceDiagnostics)
+                Message = $"semantic model is incomplete; compilation errors ({compilationErrorDiagnostics.Length}): {renderedDiagnostics}{truncated}"
             });
             return result;
         }
@@ -145,7 +154,7 @@ internal static partial class XunitAdapterProgram
                     {
                         continue;
                     }
-                    bool isTheory = IsAttributeType(testAttribute, "TheoryAttribute");
+                    bool isTheory = IsAttributeType(testAttribute!, "TheoryAttribute");
 
                     if (TryGetUnresolved(methodSymbol, relativeFile, unresolvedSymbols))
                     {
@@ -183,7 +192,7 @@ internal static partial class XunitAdapterProgram
 
                     var (classTraits, fixture) = ClassMetadata(classSymbol, semanticModel, relativeFile, unresolvedSymbols);
                     var (methodTraits, skipReason, explicitFlag, timeoutMs, displayNameOverride) = MethodMetadata(
-                        methodSymbol, testAttribute, semanticModel, relativeFile, unresolvedSymbols);
+                        methodSymbol, testAttribute!, semanticModel, relativeFile, unresolvedSymbols);
                     var traits = MergeTraits(classTraits, methodTraits);
                     string? category = TraitValue(traits, "Category");
                     string? platform = TraitValue(traits, "Platform");
@@ -379,6 +388,24 @@ internal static partial class XunitAdapterProgram
                 ? string.CompareOrdinal(left.Code, right.Code)
                 : string.CompareOrdinal(left.Severity, right.Severity));
         return result;
+    }
+
+    private static bool IsMissingGeneratedRegexImplementation(Diagnostic diagnostic)
+    {
+        if (diagnostic.Id != "CS8795" || !diagnostic.Location.IsInSource)
+            return false;
+        SyntaxTree? tree = diagnostic.Location.SourceTree;
+        if (tree is null)
+            return false;
+        SyntaxNode node = tree.GetRoot().FindNode(diagnostic.Location.SourceSpan);
+        MethodDeclarationSyntax? method = node.FirstAncestorOrSelf<MethodDeclarationSyntax>();
+        return method is not null
+            && method.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.PartialKeyword))
+            && method.AttributeLists
+                .SelectMany(list => list.Attributes)
+                .Any(attribute => attribute.Name.ToString() is "GeneratedRegex" or "GeneratedRegexAttribute"
+                    || attribute.Name.ToString().EndsWith(".GeneratedRegex", StringComparison.Ordinal)
+                    || attribute.Name.ToString().EndsWith(".GeneratedRegexAttribute", StringComparison.Ordinal));
     }
 
 

@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+
+import { exerciseXunitProjectGraphFixture } from './support/xunit-project-graph-fixture.mjs';
 
 const repositoryRoot = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const fixtureProject = path.join(
@@ -13,7 +15,6 @@ const fixtureProject = path.join(
 );
 const adapterProjectDir = path.join(repositoryRoot, 'tools/test-inventory/xunit-roslyn-adapter');
 const adapterProject = path.join(adapterProjectDir, 'FsusBlog.XunitRoslynAdapter.csproj');
-const backendTestLock = JSON.parse(readFileSync(path.join(repositoryRoot, 'tests/backend/packages.lock.json'), 'utf8'));
 const productionBuildRoot = mkdtempSync(path.join(os.tmpdir(), 'fsus-xunit-adapter-build-'));
 const adapterEnvironment = {
     ...process.env,
@@ -23,6 +24,7 @@ const relocatedAdapterExecutable = path.join(
     productionBuildRoot,
     'dotnet/FsusBlog.XunitRoslynAdapter/bin/Debug/net10.0/FsusBlog.XunitRoslynAdapter'
 );
+const relocatedAdapterAssembly = `${relocatedAdapterExecutable}.dll`;
 
 function buildAdapter()
 {
@@ -71,19 +73,16 @@ function factsOf(report, methodName)
     return report.testCases.find((testCase) => testCase.methodName === methodName)?.methodFacts ?? {};
 }
 
-function assertCurrentMigrationProjectGraph(lock)
-{
-    const net10 = lock.dependencies?.['net10.0'];
-    assert.equal(net10?.['fsusblog.migration']?.type, 'Project');
-    assert.deepEqual(net10['fsusblog.migration'].dependencies, {
-        'FsusBlog.Shared': '[1.0.0, )',
-        Npgsql: '[10.0.3, )',
-        SqlSugarCoreNoDrive: '[5.1.4.213, )'
-    });
-    assert.equal(net10?.['fsusblog.server']?.dependencies?.['FsusBlog.Migration'], undefined);
-}
-
 buildAdapter();
+let projectGraphEvidence;
+test.before(() =>
+{
+    projectGraphEvidence = exerciseXunitProjectGraphFixture({
+        repositoryRoot,
+        adapterAssembly: relocatedAdapterAssembly,
+        buildRoot: productionBuildRoot
+    });
+});
 test.after(() => rmSync(productionBuildRoot, { recursive: true, force: true }));
 
 test('xunit Roslyn adapter extracts Fact, InlineData Theory, MemberData, ClassData and nested/partial/generic owners', () =>
@@ -211,14 +210,43 @@ test('compile or semantic model failure fails closed instead of falling back to 
     }), /test project not found|fail closed/u);
 });
 
-test('xunit compile context lock tracks the current migration project graph and rejects its stale predecessor', () =>
+test('real xunit project graph rejects a stale lock then regenerates, builds and inventories current sources', () =>
 {
-    assert.doesNotThrow(() => assertCurrentMigrationProjectGraph(backendTestLock));
+    assert.notEqual(projectGraphEvidence.staleLockedRestore.status, 0);
+    assert.match(projectGraphEvidence.staleLockedRestore.output, /NU1004|lock file is inconsistent/iu);
+    assert.equal(projectGraphEvidence.regeneratedRestoreStatus, 0);
+    assert.equal(projectGraphEvidence.currentLockedRestoreStatus, 0);
+    assert.equal(projectGraphEvidence.buildStatus, 0);
+    assert.equal(
+        projectGraphEvidence.currentInventory.status,
+        0,
+        JSON.stringify(projectGraphEvidence.currentInventory.errorDiagnostics)
+    );
+    assert.ok(projectGraphEvidence.currentInventory.testCaseCount > 0);
+    assert.deepEqual(projectGraphEvidence.currentInventory.errorDiagnostics, []);
+    assert.equal(projectGraphEvidence.currentInventory.hasRuntimeRollupCase, true);
+});
 
-    const stale = structuredClone(backendTestLock);
-    delete stale.dependencies['net10.0']['fsusblog.migration'].dependencies.Npgsql;
-    stale.dependencies['net10.0']['fsusblog.server'].dependencies['FsusBlog.Migration'] = '[1.0.0, )';
-    assert.throws(() => assertCurrentMigrationProjectGraph(stale));
+test('xunit Roslyn adapter fails closed on stale static member CS0117 after the last build', () =>
+{
+    assert.equal(projectGraphEvidence.cs0117.status, 1);
+    assert.equal(projectGraphEvidence.cs0117.report.testCases.length, 0);
+    const diagnostic = projectGraphEvidence.cs0117.report.diagnostics.find((entry) => (
+        entry.code === 'xunit-semantic-model-incomplete'
+    ));
+    assert.ok(diagnostic);
+    assert.match(diagnostic.message, /CS0117/u);
+});
+
+test('xunit Roslyn adapter fails closed on stale instance member CS1061 after the last build', () =>
+{
+    assert.equal(projectGraphEvidence.cs1061.status, 1);
+    assert.equal(projectGraphEvidence.cs1061.report.testCases.length, 0);
+    const diagnostic = projectGraphEvidence.cs1061.report.diagnostics.find((entry) => (
+        entry.code === 'xunit-semantic-model-incomplete'
+    ));
+    assert.ok(diagnostic);
+    assert.match(diagnostic.message, /CS1061/u);
 });
 
 test('runtime xUnit discovery matches static inventory on statically expandable cases', () =>

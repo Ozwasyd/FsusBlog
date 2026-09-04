@@ -38,6 +38,17 @@ internal static partial class XunitAdapterProgram
         return end > start ? projectText[start..end].Trim() : "net10.0";
     }
 
+    private static bool ReadAllowUnsafeBlocks(string projectPath)
+    {
+        string projectText = File.ReadAllText(projectPath);
+        int index = projectText.IndexOf("<AllowUnsafeBlocks>", StringComparison.Ordinal);
+        if (index < 0)
+            return false;
+        int start = index + "<AllowUnsafeBlocks>".Length;
+        int end = projectText.IndexOf("</AllowUnsafeBlocks>", start, StringComparison.Ordinal);
+        return end > start && bool.TryParse(projectText[start..end].Trim(), out bool value) && value;
+    }
+
     private static string[] CollectSourceFiles(string projectDir, string projectPath)
     {
         var files = new List<string>();
@@ -50,7 +61,7 @@ internal static partial class XunitAdapterProgram
                 files.Add(generated);
             }
         }
-        string expectedOutput = FindOutputDirectory(projectDir, projectPath);
+        string? expectedOutput = FindOutputDirectory(projectDir, projectPath);
         if (expectedOutput is not null && !Directory.Exists(expectedOutput))
         {
             throw new InvalidOperationException($"test project build output is missing at {expectedOutput}; run dotnet build on {Path.GetFileName(projectPath)} before invoking the adapter");
