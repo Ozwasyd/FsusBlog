@@ -22,6 +22,22 @@ export const observedOpenApiFileName = 'fsusblog.openapi.observed.json';
 export const observationToolProject = 'tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj';
 export const contractsRelative = 'src/shared/Contracts/Validation/aeds-endpoint-contracts.json';
 export const protocolRelative = 'src/shared/Contracts/Validation/aeds-protocol.json';
+export const errorMapperRelative = 'src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs';
+export const observationBuildSourcePaths = Object.freeze([
+    contractsRelative,
+    protocolRelative,
+    errorMapperRelative,
+    'config/contracts/behavior-contracts.json',
+    observationToolProject,
+    'tools/contracts/FsusBlog.OpenApiObservation/CompiledEndpointContractObserver.cs',
+    'tools/contracts/FsusBlog.OpenApiObservation/Models.cs',
+    'tools/contracts/FsusBlog.OpenApiObservation/OpenApiObservationSelfTest.cs',
+    'tools/contracts/FsusBlog.OpenApiObservation/OpenApiProjectionWriter.cs',
+    'tools/contracts/FsusBlog.OpenApiObservation/Program.cs',
+    'tools/contracts/FsusBlog.OpenApiObservation/RequestContractObserver.cs',
+    'tools/contracts/lib/openapi-observation.mjs',
+    'tools/fact-extractors/openapi-aeds/extract.mjs'
+]);
 
 const fail = (message) =>
 {
@@ -38,7 +54,7 @@ const boundKeys = ['minimum', 'maximum', 'minLength', 'maxLength', 'minItems', '
 const propertyKeys = ['name', 'type', 'required', 'nullable', 'format', 'schemaRef', 'itemType', 'itemSchemaRef', 'enumValues', 'bounds'];
 const definitionKeys = ['typeIdentity', 'requiredFields', 'properties', 'oneOf', 'discriminator', 'bounds'];
 const requestKeys = ['direction', 'source', 'schemaRef', 'encoding', 'required', 'nullable', 'requiredFields', 'parameters', 'properties', 'definitions', 'oneOf', 'discriminator', 'bounds', 'fieldSetState', 'boundsState', 'unionState', 'schemaDigest', 'sourceTypes', 'readerIdentities'];
-const parameterKeys = ['name', 'direction', 'source', 'schemaRef', 'required', 'nullable', 'evidence'];
+const parameterKeys = ['name', 'direction', 'source', 'schemaRef', 'required', 'nullable', 'bounds', 'evidence'];
 
 function validateBound(value)
 {
@@ -91,6 +107,7 @@ function validateRequestContract(op)
         && typeof parameter.schemaRef === 'string' && parameter.schemaRef.startsWith(`${parameter.source}://`)
         && typeof parameter.required === 'boolean' && typeof parameter.nullable === 'boolean'
         && !(parameter.required && parameter.nullable)
+        && validateBound(parameter.bounds)
         && Array.isArray(parameter.evidence) && parameter.evidence.length > 0
         && isSortedUnique(parameter.evidence))
         || new Set(request.parameters.map((parameter) => `${parameter.source}\0${parameter.name}`)).size !== request.parameters.length
@@ -161,7 +178,7 @@ function validateRequestContract(op)
                 && request.unionState === 'one-of');
 }
 
-function validateResponseContracts(op)
+function validateResponseContracts(op, statusMappingKeys)
 {
     if (!isSortedUnique(op.publicErrorStatuses) || op.publicErrorStatuses.length === 0
         || !isObject(op.publicErrorStatusEvidence)) return false;
@@ -172,6 +189,7 @@ function validateResponseContracts(op)
         || JSON.stringify(Object.keys(op.publicErrorStatusEvidence).sort((a, b) => Number(a) - Number(b)))
             !== JSON.stringify(op.publicErrorStatuses.map(String))) return false;
     if (!op.publicErrorStatuses.every((status) => status >= 400 && status <= 599
+        && statusMappingKeys.has(status)
         && Array.isArray(op.publicErrorStatusEvidence[String(status)])
         && op.publicErrorStatusEvidence[String(status)].length > 0
         && isSortedUnique(op.publicErrorStatusEvidence[String(status)])
@@ -188,6 +206,94 @@ function validateResponseContracts(op)
             && response.resultPlacement === 'aeds.frame.payload' && response.nullable === false)
         && errors.every((response) => response.schemaRef === `aeds://frame/${op.errorFrame}`
             && response.publicErrorRef === `configuration-error-security-policy:error-transport-mappings:${response.status}`);
+}
+
+export function protocolStateCatalog(protocol)
+{
+    const version = Number(protocol?.header?.version);
+    const frameTypes = protocol?.frameTypes;
+    const retiredEntries = protocol?.retiredFrameValues;
+    if (!Number.isInteger(version) || !Array.isArray(frameTypes) || frameTypes.length === 0
+        || !Array.isArray(retiredEntries))
+    {
+        fail('canonical AEDS protocol is missing version/frame/retired partitions');
+    }
+    const frameNames = frameTypes.map((frame) => String(frame?.name ?? ''));
+    const frameValues = frameTypes.map((frame) => frame?.value);
+    const retiredFrameValues = retiredEntries.map((entry) => entry?.value);
+    if (frameNames.some((name) => name.length === 0)
+        || frameValues.some((value) => !Number.isInteger(value))
+        || retiredFrameValues.some((value) => !Number.isInteger(value))
+        || new Set(frameNames).size !== frameNames.length
+        || new Set(frameValues).size !== frameValues.length
+        || new Set(retiredFrameValues).size !== retiredFrameValues.length
+        || frameValues.some((value) => retiredFrameValues.includes(value)))
+    {
+        fail('canonical AEDS protocol frame partitions are duplicated or overlapping');
+    }
+    const named = frameNames.filter((name) => name !== 'Unknown').sort();
+    const activeFrameIds = named.filter((name) => !name.startsWith('Reserved'));
+    const migrationOnlyFrameIds = named.filter((name) => name.startsWith('Reserved'));
+    if (activeFrameIds.length === 0)
+    {
+        fail('canonical AEDS protocol active frame partition is empty');
+    }
+    return {
+        supportedVersions: [version],
+        activeFrameIds,
+        retiredFrameValues: [...retiredFrameValues].sort((left, right) => left - right),
+        migrationOnlyFrameIds,
+        aedsOnly: true
+    };
+}
+
+export function observationContentDigest(observation)
+{
+    const dotNetJson = (value) => JSON.stringify(value)
+        .replace(/\\"/gu, '\\u0022')
+        .replace(/[+<>&'\u007f-\uffff]/gu, (character) =>
+            `\\u${character.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}`);
+    const pascalRecord = (value) => !isObject(value) ? value : Object.fromEntries(Object.entries(value).map(([key, item]) => [
+        `${key[0].toUpperCase()}${key.slice(1)}`,
+        item
+    ]));
+    const bounds = (value) => !isObject(value) ? {} : Object.fromEntries(Object.entries(value).map(([key, item]) => [key, pascalRecord(item)]));
+    const parameter = (value) => ({
+        ...pascalRecord(value),
+        Bounds: pascalRecord(value?.bounds)
+    });
+    const properties = (value) => !isObject(value) ? {} : Object.fromEntries(Object.entries(value).map(([key, item]) => [key, {
+        ...pascalRecord(item),
+        Bounds: pascalRecord(item.bounds)
+    }]));
+    const definitions = (value) => !isObject(value) ? {} : Object.fromEntries(Object.entries(value).map(([key, item]) => [key, {
+        ...pascalRecord(item),
+        Properties: properties(item.properties),
+        Bounds: bounds(item.bounds)
+    }]));
+    const operations = (observation.operations ?? []).map((operation) => ({
+        ...pascalRecord(operation),
+        Request: {
+            ...pascalRecord(operation.request),
+            Parameters: operation.request?.parameters?.map(parameter),
+            Properties: properties(operation.request?.properties),
+            Definitions: definitions(operation.request?.definitions),
+            Bounds: bounds(operation.request?.bounds)
+        },
+        Responses: operation.responses?.map(pascalRecord),
+        PublicErrorStatusEvidence: operation.publicErrorStatusEvidence
+    }));
+    return sha256Text(dotNetJson({
+        Schema: observation.schema,
+        Protocol: observation.protocol,
+        AedsVersion: observation.aedsVersion,
+        OperationCount: observation.operationCount,
+        OperationKeys: observation.operationKeys,
+        Operations: operations,
+        ProtocolStates: pascalRecord(observation.protocolStates),
+        ErrorAuthority: pascalRecord(observation.errorAuthority),
+        EndpointContractAuthority: pascalRecord(observation.endpointContractAuthority)
+    }));
 }
 
 export function observationPaths(repositoryRoot = root)
@@ -281,19 +387,7 @@ export function produceOpenApiObservation({
     const observation = JSON.parse(readFileSync(paths.observationPath, 'utf8'));
     const artifactDigest = sha256File(paths.observationPath);
     const openapiDigest = sha256File(paths.observedOpenApiPath);
-    const sourcePaths = [
-        contractsRelative,
-        protocolRelative,
-        'config/contracts/behavior-contracts.json',
-        observationToolProject,
-        'tools/contracts/FsusBlog.OpenApiObservation/Models.cs',
-        'tools/contracts/FsusBlog.OpenApiObservation/OpenApiProjectionWriter.cs',
-        'tools/contracts/FsusBlog.OpenApiObservation/Program.cs',
-        'tools/contracts/FsusBlog.OpenApiObservation/RequestContractObserver.cs',
-        'tools/contracts/lib/openapi-observation.mjs',
-        'tools/fact-extractors/openapi-aeds/extract.mjs'
-    ];
-    const sourceDigests = Object.fromEntries(sourcePaths.map((relative) => [
+    const sourceDigests = Object.fromEntries(observationBuildSourcePaths.map((relative) => [
         relative,
         sha256File(path.join(repositoryRoot, relative))
     ]));
@@ -412,13 +506,32 @@ export function validateObservationAgainstProtocol(observation, protocol = loadP
         errors.push('observation operations empty');
         return errors;
     }
-    const states = observation.protocolStates;
-    if (states?.aedsOnly !== true
-        || JSON.stringify(states?.supportedVersions) !== JSON.stringify([Number(protocol.header?.version ?? 2)])
-        || !Array.isArray(states?.activeFrameIds) || states.activeFrameIds.length === 0
-        || !Array.isArray(states?.retiredFrameValues) || !Array.isArray(states?.migrationOnlyFrameIds))
+    let expectedStates;
+    try
     {
-        errors.push('closed active/retired/migration/AEDS-only protocol states missing');
+        expectedStates = protocolStateCatalog(protocol);
+    }
+    catch (error)
+    {
+        errors.push(error instanceof Error ? error.message : String(error));
+    }
+    const states = observation.protocolStates;
+    if (expectedStates == null || JSON.stringify(states) !== JSON.stringify(expectedStates))
+    {
+        errors.push('closed active/retired/migration/AEDS-only protocol states drifted from canonical aeds-protocol.json');
+    }
+    if (observation.observationDigest !== observationContentDigest(observation))
+    {
+        errors.push('observationDigest does not match current observation content');
+    }
+    const errorAuthority = observation.errorAuthority;
+    const statusMappingKeys = new Set(errorAuthority?.statusMappingKeys ?? []);
+    if (!exactKeys(errorAuthority, ['behaviorId', 'catalogDigest', 'documentPath', 'factIds', 'statusMappingKeys'])
+        || !isSortedUnique(errorAuthority.statusMappingKeys)
+        || errorAuthority.statusMappingKeys.length === 0
+        || !errorAuthority.statusMappingKeys.every((status) => Number.isInteger(status) && status >= 400 && status <= 599))
+    {
+        errors.push('current error authority status mapping keys are missing or invalid');
     }
     const endpointAuthority = observation.endpointContractAuthority;
     if (!exactKeys(endpointAuthority, ['schema', 'documentPath', 'contentDigest'])
@@ -505,7 +618,7 @@ export function validateObservationAgainstProtocol(observation, protocol = loadP
         {
             errors.push(`${key} typed request contract missing`);
         }
-        if (!validateResponseContracts(op))
+        if (!validateResponseContracts(op, statusMappingKeys))
         {
             errors.push(`${key} typed response/result placement missing`);
         }

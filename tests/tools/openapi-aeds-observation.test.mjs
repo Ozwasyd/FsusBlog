@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -6,12 +7,15 @@ import path from 'node:path';
 import test from 'node:test';
 
 const { digestCatalog, loadCatalog } = await import(new URL("../../tools/contracts/behavior-contract-catalog.mjs", import.meta.url));
+const { digestValue } = await import(new URL("../../tools/fact-extractors/lib/canonicalize.mjs", import.meta.url));
 const { buildOpenApiFromMatrix, committedOpenApiPath, operationsFromOpenApi, readJson, loadProtocol } = await import(new URL("../../tools/contracts/lib/openapi-contracts.mjs", import.meta.url));
-const { openApiProjectionTextFromObservationFile, observationToFactObservations, validateObservationAgainstProtocol, writeGeneratedOpenApiProjection } = await import(new URL("../../tools/contracts/lib/openapi-observation.mjs", import.meta.url));
+const { observationBuildSourcePaths, observationContentDigest, openApiProjectionTextFromObservationFile, observationToFactObservations, validateObservationAgainstProtocol, writeGeneratedOpenApiProjection } = await import(new URL("../../tools/contracts/lib/openapi-observation.mjs", import.meta.url));
 const { extract: extractOpenApi } = await import(new URL("../../tools/fact-extractors/openapi-aeds/extract.mjs", import.meta.url));
 const { loadRegistry, validateOwnershipAgainstBehaviorCatalog, root } = await import(new URL("../../tools/fact-extractors/registry.mjs", import.meta.url));
 
 const observationRelative = '.tmp/contracts/openapi/api-aeds-observation.json';
+const observedOpenApiRelative = '.tmp/contracts/openapi/fsusblog.openapi.observed.json';
+const buildReceiptRelative = '.tmp/contracts/openapi/build-receipt.json';
 
 function sha256(buffer)
 {
@@ -20,29 +24,128 @@ function sha256(buffer)
 
 function writeObservation(repositoryRoot, observation)
 {
+    const protocol = {
+        schemaVersion: 1,
+        header: { size: 16, magic: '0x53444541', version: 2 },
+        frameTypes: [
+            { name: 'Unknown', value: 0 },
+            { name: 'ArticleDetail', value: 2 },
+            { name: 'ArticleWriteRequest', value: 100 },
+            { name: 'MutationId', value: 241 },
+            { name: 'ApiError', value: 251 },
+            { name: 'Reserved177', value: 177 }
+        ],
+        retiredFrameValues: [{ value: 40, reason: 'legacy-test' }]
+    };
+    const catalog = { schema: 'fixture-behavior-catalog', contracts: [] };
+    const endpointContent = {
+        schema: 'fsusblog.aeds-endpoint-contracts.v2',
+        protocol: 'AEDS',
+        aedsVersion: 2,
+        operations: []
+    };
+    const endpointDigest = sha256(Buffer.from(JSON.stringify(endpointContent), 'utf8'));
+    const writeJson = (relative, value) =>
+    {
+        const absolute = path.join(repositoryRoot, relative);
+        mkdirSync(path.dirname(absolute), { recursive: true });
+        writeFileSync(absolute, `${JSON.stringify(value, null, 2)}\n`);
+    };
+    for (const relative of observationBuildSourcePaths)
+    {
+        const absolute = path.join(repositoryRoot, relative);
+        mkdirSync(path.dirname(absolute), { recursive: true });
+        writeFileSync(absolute, `fixture source: ${relative}\n`);
+    }
+    writeJson('src/shared/Contracts/Validation/aeds-protocol.json', protocol);
+    writeJson('config/contracts/behavior-contracts.json', catalog);
+    writeJson('src/shared/Contracts/Validation/aeds-endpoint-contracts.json', {
+        ...endpointContent,
+        contentDigest: endpointDigest
+    });
+    observation.errorAuthority.catalogDigest = digestCatalog(catalog);
+    observation.endpointContractAuthority.contentDigest = endpointDigest;
+    observation.observationDigest = observationContentDigest(observation);
     const absolute = path.join(repositoryRoot, observationRelative);
     mkdirSync(path.dirname(absolute), { recursive: true });
     const text = `${JSON.stringify(observation, null, 2)}\n`;
     writeFileSync(absolute, text);
+    writeJson(observedOpenApiRelative, { openapi: '3.1.0', paths: {} });
+    const sourceDigests = Object.fromEntries(observationBuildSourcePaths.map((relative) => [
+        relative,
+        sha256(readFileSync(path.join(repositoryRoot, relative)))
+    ]));
+    const artifactDigest = sha256(Buffer.from(text, 'utf8'));
+    const receiptBody = {
+        schema: 'fsusblog.openapi-observation-build-receipt.v1',
+        artifactId: 'openapi-aeds-observation',
+        observationPath: observationRelative,
+        openapiPath: observedOpenApiRelative,
+        observationDigest: observation.observationDigest,
+        artifactDigest,
+        openapiDigest: sha256(readFileSync(path.join(repositoryRoot, observedOpenApiRelative))),
+        sourceDigests,
+        sourceDigest: digestValue(sourceDigests),
+        contractDigest: endpointDigest,
+        errorCatalogDigest: observation.errorAuthority.catalogDigest,
+        generatorDigest: sourceDigests['tools/contracts/lib/openapi-observation.mjs'],
+        protocolDigest: sourceDigests['src/shared/Contracts/Validation/aeds-protocol.json'],
+        configuration: 'Release'
+    };
+    const fullIdentity = {
+        artifactId: receiptBody.artifactId,
+        receiptDigest: digestValue(receiptBody),
+        artifactDigest,
+        sourceDigest: receiptBody.sourceDigest,
+        contractDigest: receiptBody.contractDigest,
+        errorCatalogDigest: receiptBody.errorCatalogDigest,
+        generatorDigest: receiptBody.generatorDigest,
+        protocolDigest: receiptBody.protocolDigest
+    };
+    writeJson(buildReceiptRelative, { ...receiptBody, buildIdentity: fullIdentity });
     return {
         absolute,
-        artifactDigest: sha256(Buffer.from(text, 'utf8')),
+        artifactDigest,
+        buildIdentity: {
+            artifactId: fullIdentity.artifactId,
+            receiptDigest: fullIdentity.receiptDigest,
+            artifactDigest: fullIdentity.artifactDigest
+        },
         text
     };
 }
 
-function identityFor(observation, artifactDigest, overrides = {})
+function identityFor(_observation, artifactDigest, overrides = {})
 {
     return {
         artifactId: 'openapi-aeds-observation',
         receiptDigest: 'b'.repeat(64),
         artifactDigest,
-        sourceDigest: 'd'.repeat(64),
-        contractDigest: observation.endpointContractAuthority.contentDigest,
-        errorCatalogDigest: observation.errorAuthority.catalogDigest,
-        generatorDigest: 'e'.repeat(64),
-        protocolDigest: 'f'.repeat(64),
         ...overrides
+    };
+}
+
+function rewriteReceipt(repositoryRoot, mutate)
+{
+    const absolute = path.join(repositoryRoot, buildReceiptRelative);
+    const receipt = JSON.parse(readFileSync(absolute, 'utf8'));
+    mutate(receipt);
+    const { buildIdentity: _oldIdentity, ...body } = receipt;
+    receipt.buildIdentity = {
+        artifactId: body.artifactId,
+        receiptDigest: digestValue(body),
+        artifactDigest: body.artifactDigest,
+        sourceDigest: body.sourceDigest,
+        contractDigest: body.contractDigest,
+        errorCatalogDigest: body.errorCatalogDigest,
+        generatorDigest: body.generatorDigest,
+        protocolDigest: body.protocolDigest
+    };
+    writeFileSync(absolute, `${JSON.stringify(receipt, null, 2)}\n`);
+    return {
+        artifactId: receipt.buildIdentity.artifactId,
+        receiptDigest: receipt.buildIdentity.receiptDigest,
+        artifactDigest: receipt.buildIdentity.artifactDigest
     };
 }
 
@@ -98,17 +201,20 @@ function sampleObservation(overrides = {})
                 {
                     name: 'X-Fsus-Pow-Proof', direction: 'request', source: 'header',
                     schemaRef: 'header://string', required: true, nullable: false,
+                    bounds: emptyBounds(),
                     evidence: ['compiled-endpoint-filter:RequiresPowFilter']
                 },
                 {
                     name: 'dryRun', direction: 'request', source: 'query',
                     schemaRef: 'query://boolean', required: false, nullable: false,
+                    bounds: emptyBounds(),
                     evidence: ['compiled-handler-parameter:dryRun']
                 }
             ] : [
                 {
                     name: 'id', direction: 'request', source: 'path',
                     schemaRef: 'path://int', required: true, nullable: false,
+                    bounds: emptyBounds(),
                     evidence: ['compiled-route-template:id']
                 }
             ],
@@ -176,14 +282,15 @@ function sampleObservation(overrides = {})
         ],
         observationDigest: 'a'.repeat(64),
         protocolStates: {
-            supportedVersions: [2], activeFrameIds: ['ApiError', 'ArticleDetail', 'ArticleWriteRequest', 'MutationId', 'RetiredCredentialSpecificRevocationRequest'],
+            supportedVersions: [2], activeFrameIds: ['ApiError', 'ArticleDetail', 'ArticleWriteRequest', 'MutationId'],
             retiredFrameValues: [40], migrationOnlyFrameIds: ['Reserved177'], aedsOnly: true
         },
         errorAuthority: {
             behaviorId: 'configuration-error-security-policy',
             catalogDigest: 'c'.repeat(64),
             documentPath: 'docs/api/schemas-and-errors.md',
-            factIds: ['facts.error-codes.domain.active', 'facts.error-codes.transport-mapping']
+            factIds: ['facts.error-codes.domain.active', 'facts.error-codes.transport-mapping'],
+            statusMappingKeys: [400, 401, 403, 404, 406, 415, 500]
         },
         endpointContractAuthority: {
             schema: 'fsusblog.aeds-endpoint-contracts.v2',
@@ -241,6 +348,76 @@ test('registry owns binary-api-aeds-contract via openapi-aeds-fact-extractor', (
     assert.equal(extractor.requiredBuildArtifact, 'openapi-aeds-observation');
 });
 
+test('compiled C# observation self-test executes real loader, merger, and request observer negatives', {
+    timeout: 120_000
+}, () =>
+{
+    const result = spawnSync('dotnet', [
+        'run',
+        '--project',
+        'tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj',
+        '-c',
+        'Release',
+        '--',
+        '--self-test'
+    ], {
+        cwd: root,
+        encoding: 'utf8',
+        env: process.env
+    });
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stdout, /self-test.*ok/iu);
+});
+
+test('pre-3177 normal producer fails closed on the exact compiled JSON binary-route census', {
+    timeout: 120_000
+}, () =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-production-census-'));
+    try
+    {
+        const result = spawnSync('dotnet', [
+            'run',
+            '--project',
+            'tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj',
+            '-c',
+            'Release',
+            '--no-build',
+            '--',
+            '--output',
+            path.join(directory, 'observation.json'),
+            '--repository-root',
+            root
+        ], {
+            cwd: root,
+            encoding: 'utf8',
+            env: process.env
+        });
+        const expectedRoutes = [
+            'GET /api/binary/author/ops/fonts/activations',
+            'GET /api/binary/author/ops/fonts/registry',
+            'GET /api/binary/author/ops/fonts/registry/{fontId}',
+            'GET /api/binary/author/ops/themes/activations',
+            'GET /api/binary/author/ops/themes/activations/{scope}',
+            'GET /api/binary/author/ops/themes/activations/{scope}/history',
+            'GET /api/binary/author/ops/themes/registry',
+            'GET /api/binary/author/ops/themes/registry/{themeId}'
+        ];
+        const diagnostic = `${result.stdout}\n${result.stderr}`;
+        assert.equal(result.status, 1, diagnostic);
+        assert.match(diagnostic, /production \/api\/binary census found 8 non-AEDS route\(s\):/u);
+        const observedRoutes = diagnostic
+            .split(/\r?\n/u)
+            .map((line) => line.match(/^(GET \/api\/binary\/.+?) requestFrame=/u)?.[1])
+            .filter(Boolean);
+        assert.deepEqual(observedRoutes, expectedRoutes);
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
 test('checked-in OpenAPI projection declares compiled observation authority', () =>
 {
     const openapi = readJson(committedOpenApiPath);
@@ -287,7 +464,7 @@ test('2) missing operationId fails extractor', () =>
         const sealed = writeObservation(directory, observation);
         const result = extractOpenApi({
             repositoryRoot: directory,
-            buildIdentity: identityFor(observation, sealed.artifactDigest)
+            buildIdentity: sealed.buildIdentity
         });
         assert.equal(result.status, 'failed');
         assert.match(result.failureReasons.join('\n'), /missing operationId|duplicate/iu);
@@ -367,7 +544,7 @@ test('8) reverse generation markers from checked-in OpenAPI fail closed', () =>
         const sealed = writeObservation(directory, observation);
         const result = extractOpenApi({
             repositoryRoot: directory,
-            buildIdentity: identityFor(observation, sealed.artifactDigest)
+            buildIdentity: sealed.buildIdentity
         });
         assert.equal(result.status, 'failed');
         assert.match(result.failureReasons.join('\n'), /reverse-generated|checked-in OpenAPI/iu);
@@ -389,7 +566,7 @@ test('9) duplicate method/path fails extractor', () =>
         const sealed = writeObservation(directory, observation);
         const result = extractOpenApi({
             repositoryRoot: directory,
-            buildIdentity: identityFor(observation, sealed.artifactDigest)
+            buildIdentity: sealed.buildIdentity
         });
         assert.equal(result.status, 'failed');
         assert.match(result.failureReasons.join('\n'), /duplicate method\/path/u);
@@ -409,7 +586,7 @@ test('extractor accepts sealed observation and emits operation map', () =>
         const sealed = writeObservation(directory, observation);
         const result = extractOpenApi({
             repositoryRoot: directory,
-            buildIdentity: identityFor(observation, sealed.artifactDigest)
+            buildIdentity: sealed.buildIdentity
         });
         assert.equal(result.status, 'ok');
         assert.equal(result.observations.operationCount, 2);
@@ -428,13 +605,134 @@ test('stale artifact digest (yesterday Debug swap) fails', () =>
     try
     {
         const observation = sampleObservation();
-        writeObservation(directory, observation);
+        const sealed = writeObservation(directory, observation);
         const result = extractOpenApi({
             repositoryRoot: directory,
-            buildIdentity: identityFor(observation, '0'.repeat(64))
+            buildIdentity: { ...sealed.buildIdentity, artifactDigest: '0'.repeat(64) }
         });
         assert.equal(result.status, 'failed');
-        assert.match(result.failureReasons.join('\n'), /digest mismatch|stale|unbound/iu);
+        assert.match(result.failureReasons.join('\n'), /digest mismatch|stale|unbound|canonical OpenAPI build receipt/iu);
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('arbitrary lowercase sha256 identity cannot select an unreceipted artifact', () =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-arbitrary-identity-'));
+    try
+    {
+        const observation = sampleObservation();
+        const sealed = writeObservation(directory, observation);
+        const result = extractOpenApi({
+            repositoryRoot: directory,
+            buildIdentity: identityFor(observation, sealed.artifactDigest)
+        });
+        assert.equal(result.status, 'failed');
+        assert.match(result.failureReasons.join('\n'), /canonical OpenAPI build receipt/iu);
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('canonical receipt self-digest and recomputed aggregate source digest fail closed independently', () =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-receipt-self-digest-'));
+    try
+    {
+        const observation = sampleObservation();
+        const sealed = writeObservation(directory, observation);
+        const receiptPath = path.join(directory, buildReceiptRelative);
+        const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
+        receipt.buildIdentity.receiptDigest = 'f'.repeat(64);
+        writeFileSync(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
+        const selfDigest = extractOpenApi({
+            repositoryRoot: directory,
+            buildIdentity: { ...sealed.buildIdentity, receiptDigest: 'f'.repeat(64) }
+        });
+        assert.equal(selfDigest.status, 'failed');
+        assert.match(selfDigest.failureReasons.join('\n'), /receipt self-digest mismatch/iu);
+
+        writeObservation(directory, observation);
+        const forgedIdentity = rewriteReceipt(directory, (value) =>
+        {
+            value.sourceDigest = 'e'.repeat(64);
+        });
+        const aggregate = extractOpenApi({ repositoryRoot: directory, buildIdentity: forgedIdentity });
+        assert.equal(aggregate.status, 'failed');
+        assert.match(aggregate.failureReasons.join('\n'), /aggregate source digest mismatch/iu);
+
+        const sourceSealed = writeObservation(directory, observation);
+        const compiledObserver = path.join(
+            directory,
+            'tools/contracts/FsusBlog.OpenApiObservation/CompiledEndpointContractObserver.cs'
+        );
+        writeFileSync(compiledObserver, `${readFileSync(compiledObserver, 'utf8')}tampered\n`);
+        const sourceDrift = extractOpenApi({ repositoryRoot: directory, buildIdentity: sourceSealed.buildIdentity });
+        assert.equal(sourceDrift.status, 'failed');
+        assert.match(sourceDrift.failureReasons.join('\n'), /CompiledEndpointContractObserver\.cs/iu);
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('receipt cannot self-select contract, error, generator, protocol, or artifact digests', () =>
+{
+    const cases = [
+        ['contractDigest', /contract digest mismatch/iu],
+        ['errorCatalogDigest', /error authority digest mismatch/iu],
+        ['generatorDigest', /generator digest mismatch/iu],
+        ['protocolDigest', /protocol digest mismatch/iu],
+        ['artifactDigest', /observation artifact digest mismatch/iu],
+        ['openapiDigest', /observed OpenAPI artifact digest mismatch/iu]
+    ];
+    for (const [field, expected] of cases)
+    {
+        const directory = mkdtempSync(path.join(os.tmpdir(), `openapi-receipt-${field}-`));
+        try
+        {
+            writeObservation(directory, sampleObservation());
+            const identity = rewriteReceipt(directory, (receipt) =>
+            {
+                receipt[field] = '0'.repeat(64);
+            });
+            const result = extractOpenApi({ repositoryRoot: directory, buildIdentity: identity });
+            assert.equal(result.status, 'failed', field);
+            assert.match(result.failureReasons.join('\n'), expected, field);
+        }
+        finally
+        {
+            rmSync(directory, { recursive: true, force: true });
+        }
+    }
+});
+
+test('observationDigest is recomputed from sealed content, not trusted from artifact or receipt', () =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-observation-digest-'));
+    try
+    {
+        const observation = sampleObservation();
+        writeObservation(directory, observation);
+        const artifactPath = path.join(directory, observationRelative);
+        const document = JSON.parse(readFileSync(artifactPath, 'utf8'));
+        document.observationDigest = '0'.repeat(64);
+        const text = `${JSON.stringify(document, null, 2)}\n`;
+        writeFileSync(artifactPath, text);
+        const identity = rewriteReceipt(directory, (receipt) =>
+        {
+            receipt.observationDigest = document.observationDigest;
+            receipt.artifactDigest = sha256(Buffer.from(text, 'utf8'));
+        });
+        const result = extractOpenApi({ repositoryRoot: directory, buildIdentity: identity });
+        assert.equal(result.status, 'failed');
+        assert.match(result.failureReasons.join('\n'), /observationDigest does not match current observation content/iu);
     }
     finally
     {
@@ -465,6 +763,8 @@ test('typed request, response, protocol, and error authority counterexamples fai
         ['parameter source conflict', (value) => { value.operations[1].request.parameters[0].source = 'query'; }, /request contract/iu],
         ['missing query parameter', (value) => { value.operations[1].request.parameters.pop(); }, /request contract/iu],
         ['duplicate request parameter', (value) => { value.operations[1].request.parameters.push({ ...value.operations[1].request.parameters[0] }); }, /request contract/iu],
+        ['parameter bounds missing', (value) => { delete value.operations[1].request.parameters[0].bounds; }, /request contract/iu],
+        ['parameter bounds invalid', (value) => { value.operations[1].request.parameters[0].bounds.minLength = -1; }, /request contract/iu],
         ['parameter evidence missing', (value) => { value.operations[1].request.parameters[0].evidence = []; }, /request contract/iu],
         ['duplicate source type', (value) => { value.operations[1].request.sourceTypes.push(value.operations[1].request.sourceTypes[0]); }, /request contract/iu],
         ['missing error response', (value) => { value.operations[0].responses.pop(); }, /response contracts/iu],
@@ -477,14 +777,16 @@ test('typed request, response, protocol, and error authority counterexamples fai
         ['missing status evidence', (value) => { delete value.operations[0].publicErrorStatusEvidence['404']; }, /response contracts/iu],
         ['unmapped status ref', (value) => { value.operations[0].publicErrorRefs[0] = 'configuration-error-security-policy:error-transport-mappings:999'; }, /response contracts/iu],
         ['generic error placeholder', (value) => { value.operations[0].publicErrorRefs[0] = 'configuration-error-security-policy:error-transport-mappings:ApiError'; }, /response contracts/iu],
-        ['active migration overlap', (value) => { value.protocolStates.migrationOnlyFrameIds.push('ArticleDetail'); }, /protocol states conflict/iu],
-        ['reserved frame in active partition', (value) => { value.protocolStates.activeFrameIds.push('Reserved178'); }, /protocol states conflict/iu],
-        ['non-reserved migration frame', (value) => { value.protocolStates.migrationOnlyFrameIds.push('MigrationFrame'); }, /protocol states conflict/iu],
-        ['duplicate retired protocol value', (value) => { value.protocolStates.retiredFrameValues.push(40); }, /protocol states conflict/iu],
-        ['missing migration partition', (value) => { delete value.protocolStates.migrationOnlyFrameIds; }, /protocol states missing/iu],
+        ['active migration overlap', (value) => { value.protocolStates.migrationOnlyFrameIds.push('ArticleDetail'); }, /protocol states/iu],
+        ['reserved frame in active partition', (value) => { value.protocolStates.activeFrameIds.push('Reserved178'); }, /protocol states/iu],
+        ['non-reserved migration frame', (value) => { value.protocolStates.migrationOnlyFrameIds.push('MigrationFrame'); }, /protocol states/iu],
+        ['duplicate retired protocol value', (value) => { value.protocolStates.retiredFrameValues.push(40); }, /protocol states/iu],
+        ['missing migration partition', (value) => { delete value.protocolStates.migrationOnlyFrameIds; }, /protocol states/iu],
         ['error behavior drift', (value) => { value.operations[0].errorAuthorityBehaviorId = 'binary-api-aeds-contract'; }, /public errors/iu],
         ['invented operation error allow-list', (value) => { value.operations[0].publicErrorRefState = 'operation-allow-list'; }, /public errors/iu],
         ['duplicate public error ref', (value) => { value.operations[0].publicErrorRefs.push(value.operations[0].publicErrorRefs[0]); }, /response contracts/iu],
+        ['dangling authority status', (value) => { value.errorAuthority.statusMappingKeys = value.errorAuthority.statusMappingKeys.filter((status) => status !== 406); }, /response contracts/iu],
+        ['missing authority status keys', (value) => { delete value.errorAuthority.statusMappingKeys; }, /error authority binding/iu],
         ['duplicate authority fact', (value) => { value.errorAuthority.factIds.push(value.errorAuthority.factIds[0]); }, /error authority binding/iu],
         ['endpoint contract authority drift', (value) => { value.endpointContractAuthority.schema = 'fsusblog.aeds-endpoint-contracts.v1'; }, /endpoint contract authority/iu]
     ];
@@ -499,7 +801,7 @@ test('typed request, response, protocol, and error authority counterexamples fai
             const sealed = writeObservation(directory, observation);
             const result = extractOpenApi({
                 repositoryRoot: directory,
-                buildIdentity: identityFor(observation, sealed.artifactDigest)
+                buildIdentity: sealed.buildIdentity
             });
             assert.equal(result.status, 'failed', name);
             assert.match(result.failureReasons.join('\n'), expected, name);
@@ -516,47 +818,27 @@ test('current error authority catalog digest and sealed artifact bytes are indep
     const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-authority-digest-'));
     try
     {
-        const catalogPath = path.join(directory, 'config/contracts/behavior-contracts.json');
-        mkdirSync(path.dirname(catalogPath), { recursive: true });
-        writeFileSync(catalogPath, '{"schema":"current"}\n');
-        const endpointPath = path.join(directory, 'src/shared/Contracts/Validation/aeds-endpoint-contracts.json');
-        mkdirSync(path.dirname(endpointPath), { recursive: true });
-        const endpointContent = {
-            schema: 'fsusblog.aeds-endpoint-contracts.v2', protocol: 'AEDS', aedsVersion: 2, operations: []
-        };
-        const endpointDigest = sha256(Buffer.from(JSON.stringify(endpointContent)));
-        writeFileSync(endpointPath, `${JSON.stringify({
-            schema: endpointContent.schema,
-            protocol: endpointContent.protocol,
-            aedsVersion: endpointContent.aedsVersion,
-            contentDigest: endpointDigest,
-            operations: endpointContent.operations
-        }, null, 2)}\n`);
         const observation = sampleObservation();
-        observation.errorAuthority.catalogDigest = digestCatalog(JSON.parse(readFileSync(catalogPath, 'utf8')));
-        observation.endpointContractAuthority.contentDigest = endpointDigest;
         const sealed = writeObservation(directory, observation);
-        const identity = identityFor(observation, sealed.artifactDigest);
+        const identity = sealed.buildIdentity;
         assert.equal(extractOpenApi({ repositoryRoot: directory, buildIdentity: identity }).status, 'ok');
 
-        writeFileSync(catalogPath, '  { "schema": "current" }\n');
-        assert.equal(extractOpenApi({ repositoryRoot: directory, buildIdentity: identity }).status, 'ok');
+        const catalogPath = path.join(directory, 'config/contracts/behavior-contracts.json');
+        writeFileSync(catalogPath, '  { "schema": "fixture-behavior-catalog", "contracts": [] }\n');
+        const byteDrift = extractOpenApi({ repositoryRoot: directory, buildIdentity: identity });
+        assert.equal(byteDrift.status, 'failed');
+        assert.match(byteDrift.failureReasons.join('\n'), /source digest mismatch.*behavior-contracts/iu);
 
         writeFileSync(catalogPath, '{"schema":"tampered"}\n');
         const authorityDrift = extractOpenApi({ repositoryRoot: directory, buildIdentity: identity });
         assert.equal(authorityDrift.status, 'failed');
-        assert.match(authorityDrift.failureReasons.join('\n'), /catalog digest.*current BehaviorCatalog/iu);
+        assert.match(authorityDrift.failureReasons.join('\n'), /error authority digest|source digest/iu);
 
-        writeFileSync(endpointPath, JSON.stringify({
-            schema: endpointContent.schema,
-            protocol: endpointContent.protocol,
-            aedsVersion: endpointContent.aedsVersion,
-            contentDigest: endpointDigest,
-            operations: [{ operationId: 'tampered' }]
-        }));
+        const endpointPath = path.join(directory, 'src/shared/Contracts/Validation/aeds-endpoint-contracts.json');
+        writeFileSync(endpointPath, '{"schema":"tampered"}\n');
         const endpointDrift = extractOpenApi({ repositoryRoot: directory, buildIdentity: identity });
         assert.equal(endpointDrift.status, 'failed');
-        assert.match(endpointDrift.failureReasons.join('\n'), /endpoint contract content digest/iu);
+        assert.match(endpointDrift.failureReasons.join('\n'), /contract digest|source digest/iu);
 
         writeFileSync(sealed.absolute, `${sealed.text} `);
         const artifactTamper = extractOpenApi({ repositoryRoot: directory, buildIdentity: identity });

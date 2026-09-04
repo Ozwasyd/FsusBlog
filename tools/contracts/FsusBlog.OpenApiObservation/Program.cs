@@ -6,6 +6,8 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
+using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Cache;
 using FsusBlog.OpenApiObservation;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Bootstrap;
@@ -20,6 +22,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
@@ -28,7 +31,17 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
-return OpenApiObservationHost.Run(args);
+using AedsFrameHeader = FsusBlog.Shared.AedsFrameHeader;
+
+try
+{
+    return OpenApiObservationHost.Run(args);
+}
+catch (Exception exception)
+{
+    Console.Error.WriteLine($"[openapi-observation] error: {exception.Message}");
+    return 1;
+}
 
 internal static class OpenApiObservationHost
 {
@@ -44,6 +57,7 @@ internal static class OpenApiObservationHost
         string? outputPath = null;
         string? contractsPath = null;
         string? repositoryRoot = null;
+        bool selfTest = false;
         for (int i = 0; i < args.Length; i++)
         {
             if (args[i] is "--output" or "-o")
@@ -64,9 +78,13 @@ internal static class OpenApiObservationHost
                     ?? throw new InvalidOperationException("--repository-root requires a path");
                 i++;
             }
+            else if (args[i] is "--self-test")
+            {
+                selfTest = true;
+            }
             else if (args[i] is "--help" or "-h")
             {
-                Console.WriteLine("FsusBlog.OpenApiObservation --output <path> [--contracts <aeds-endpoint-contracts.json>] [--repository-root <path>]");
+                Console.WriteLine("FsusBlog.OpenApiObservation --output <path> [--contracts <aeds-endpoint-contracts.json>] [--repository-root <path>] | --self-test [--repository-root <path>]");
                 return 0;
             }
             else
@@ -75,12 +93,16 @@ internal static class OpenApiObservationHost
             }
         }
 
+        repositoryRoot ??= LocateRepositoryRoot();
+        if (selfTest)
+        {
+            return OpenApiObservationSelfTest.Run(repositoryRoot);
+        }
         if (string.IsNullOrWhiteSpace(outputPath))
         {
             throw new InvalidOperationException("--output is required");
         }
 
-        repositoryRoot ??= LocateRepositoryRoot();
         contractsPath ??= Path.Combine(
             repositoryRoot,
             "src",
@@ -129,6 +151,7 @@ internal static class OpenApiObservationHost
         try
         {
             List<ObservedOperation> operations = [];
+            List<(string Key, CompiledEndpointContract Contract)> census = [];
             HashSet<string> seenKeys = new(StringComparer.Ordinal);
             HashSet<string> seenOperationIds = new(StringComparer.Ordinal);
 
@@ -161,7 +184,17 @@ internal static class OpenApiObservationHost
                         throw new InvalidOperationException($"duplicate method/path operation: {key}");
                     }
 
-                    string operationId = OperationIdFor(method, rawPath);
+                    CompiledEndpointContract compiledContract = CompiledEndpointContractObserver.Observe(
+                        endpoint,
+                        method,
+                        rawPath);
+                    census.Add((key, compiledContract));
+                    if (!compiledContract.IsAeds)
+                    {
+                        continue;
+                    }
+
+                    string operationId = compiledContract.OperationId;
                     if (!seenOperationIds.Add(operationId))
                     {
                         throw new InvalidOperationException($"duplicate operationId: {operationId} for {key}");
@@ -174,6 +207,7 @@ internal static class OpenApiObservationHost
                         Method: method,
                         Path: rawPath,
                         OperationId: operationId,
+                        Contract: compiledContract,
                         Auth: ClassifyAuth(endpoint),
                         Permission: ClassifyPermission(endpoint),
                         Pow: HasFilter(endpoint, typeof(RequiresPowFilter)),
@@ -196,6 +230,8 @@ internal static class OpenApiObservationHost
                     continue;
                 }
 
+                census.Add((key, publicArtifact.Contract));
+
                 if (!seenOperationIds.Add(publicArtifact.OperationId))
                 {
                     throw new InvalidOperationException(
@@ -204,6 +240,8 @@ internal static class OpenApiObservationHost
 
                 operations.Add(publicArtifact);
             }
+
+            CompiledEndpointContractCensus.Validate(census);
 
             return operations
                 .OrderBy(static item => item.Method, StringComparer.Ordinal)
@@ -267,7 +305,7 @@ internal static class OpenApiObservationHost
             ["facts.error-codes.domain.active", "facts.error-codes.transport-mapping"]);
     }
 
-    private static WebApplication CreateApplication()
+    internal static WebApplication CreateApplication()
     {
         WebApplicationBuilder builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
@@ -292,12 +330,13 @@ internal static class OpenApiObservationHost
         builder.Services.RemoveAll<IHostedService>();
 
         WebApplication app = builder.Build();
-        // AEDS binary contract surface: MapBinary + Authoring + Security.
-        // Font/Theme admin endpoints intentionally return JSON Results.Ok and are
-        // outside the AEDS OpenAPI observation set.
+        // Register the full production binary route surface. The census below must
+        // observe legacy JSON implementations as non-AEDS until their owner migrates them.
         app.MapBinaryEndpoints();
         app.MapAuthoringEndpoints();
         app.MapSecurityEndpoints();
+        app.MapFontAdminEndpoints();
+        app.MapThemeAdminEndpoints();
         return app;
     }
 
@@ -398,20 +437,6 @@ internal static class OpenApiObservationHost
         return value.StartsWith('/') ? value : "/" + value;
     }
 
-    private static string OperationIdFor(string method, string path)
-    {
-        string body = path
-            .Replace("/api/binary/", string.Empty, StringComparison.Ordinal)
-            .Replace("/api/binary", string.Empty, StringComparison.Ordinal);
-        string slug = System.Text.RegularExpressions.Regex.Replace(
-            body,
-            @"[{}:.?=&/\-]+",
-            "_");
-        slug = slug.Trim('_');
-        slug = System.Text.RegularExpressions.Regex.Replace(slug, @"_+", "_");
-        return $"binary_{method.ToLowerInvariant()}_{slug}";
-    }
-
     private static IEnumerable<ObservedOperation> ObservePublicHotReadBinaryArtifacts()
     {
         PublicHotReadRouteSecurityCatalog.ValidateOrThrow();
@@ -437,10 +462,38 @@ internal static class OpenApiObservationHost
                 continue;
             }
 
+            AedsFrameType responseFrame = policy.Kind switch
+            {
+                PublicHotReadRouteKind.Category => AedsFrameType.CategoryList,
+                PublicHotReadRouteKind.Tag => AedsFrameType.TagList,
+                PublicHotReadRouteKind.ArticleDetail => AedsFrameType.ArticleDetail,
+                PublicHotReadRouteKind.ArticleList => AedsFrameType.ArticleList,
+                PublicHotReadRouteKind.ArticleHot => AedsFrameType.ArticleHot,
+                PublicHotReadRouteKind.ArticleFeatured => AedsFrameType.ArticleFeatured,
+                _ => throw new InvalidOperationException($"unsupported binary public hot-read kind {policy.Kind}")
+            };
+            string operationId = CompiledEndpointContractObserver.OperationIdFor("GET", path);
+            var compiledContract = new CompiledEndpointContract(
+                operationId,
+                null,
+                responseFrame.ToString(),
+                AedsFrameType.ApiError.ToString(),
+                StatusCodes.Status200OK,
+                "application/octet-stream",
+                "aeds.frame.payload",
+                [$"compiled-public-hot-read-policy:{policy.PolicyId}:{policy.Kind}"]);
+            IReadOnlyDictionary<string, Type> parserTypes = policy.Kind switch
+            {
+                PublicHotReadRouteKind.ArticleDetail => new Dictionary<string, Type> { ["id"] = typeof(int) },
+                PublicHotReadRouteKind.ArticleList => new Dictionary<string, Type> { ["page"] = typeof(ushort), ["size"] = typeof(byte) },
+                PublicHotReadRouteKind.ArticleHot or PublicHotReadRouteKind.ArticleFeatured => new Dictionary<string, Type> { ["size"] = typeof(byte) },
+                _ => new Dictionary<string, Type>()
+            };
             yield return new ObservedOperation(
                 Method: "GET",
                 Path: path,
-                OperationId: OperationIdFor("GET", path),
+                OperationId: operationId,
+                Contract: compiledContract,
                 Auth: "anonymous",
                 Permission: "none",
                 Pow: false,
@@ -448,7 +501,7 @@ internal static class OpenApiObservationHost
                 Cache: "public-read",
                 SourceIdentity: $"public-hot-read:{policy.PolicyId}",
                 RequestTypes: [],
-                RequestParameters: CompiledRequestParameterObserver.ForRoute(path),
+                RequestParameters: CompiledRequestParameterObserver.ForPublicHotRead(path, parserTypes),
                 CompiledErrorStatusEvidence: new SortedDictionary<int, IReadOnlyList<string>>
                 {
                     [StatusCodes.Status406NotAcceptable] = ["compiled-middleware:ApiBinaryResponseMiddleware.accept"],
@@ -488,19 +541,34 @@ internal static class CompiledRequestParameterObserver
 
     public static IReadOnlyList<RequestParameterContract> Observe(RouteEndpoint endpoint)
     {
-        string route = endpoint.RoutePattern.RawText ?? string.Empty;
-        var parameters = ForRoute(route).ToDictionary(ParameterKey, StringComparer.Ordinal);
+        var parameters = new Dictionary<string, RequestParameterContract>(StringComparer.Ordinal);
         MethodInfo? handler = endpoint.Metadata.GetMetadata<MethodInfo>();
         if (handler is null)
         {
-            return parameters.Values.OrderBy(static item => item.Source, StringComparer.Ordinal)
-                .ThenBy(static item => item.Name, StringComparer.Ordinal).ToArray();
+            throw new InvalidOperationException(
+                $"{endpoint.RoutePattern.RawText} lacks compiled handler metadata for request parameter observation");
         }
 
-        HashSet<string> routeNames = parameters.Values
-            .Where(static item => item.Source == "path")
+        HashSet<string> routeNames = endpoint.RoutePattern.Parameters
             .Select(static item => item.Name)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (string routeName in routeNames.OrderBy(static item => item, StringComparer.Ordinal))
+        {
+            ParameterInfo routeParameter = handler.GetParameters().SingleOrDefault(parameter =>
+                    string.Equals(RouteParameterName(parameter), routeName, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException(
+                    $"{endpoint.RoutePattern.RawText} path parameter {routeName} lacks compiled handler parser evidence");
+            bool nullable = IsNullable(routeParameter);
+            Add(parameters, new RequestParameterContract(
+                routeName,
+                "request",
+                "path",
+                $"path://{ParameterSchema(routeParameter.ParameterType)}",
+                true,
+                nullable,
+                ParameterBounds(routeParameter.ParameterType),
+                [$"compiled-handler-path-parser:{MethodIdentity(handler)}:{routeParameter.Position}"]));
+        }
         foreach (ParameterInfo parameter in handler.GetParameters())
         {
             string? source = ParameterSource(parameter, routeNames);
@@ -518,6 +586,7 @@ internal static class CompiledRequestParameterObserver
                 $"{source}://{ParameterSchema(parameter.ParameterType)}",
                 !nullable && !parameter.HasDefaultValue,
                 nullable,
+                ParameterBounds(parameter.ParameterType),
                 [$"compiled-handler-parameter:{handler.DeclaringType?.FullName}.{handler.Name}:{parameter.Position}"]));
         }
 
@@ -528,19 +597,35 @@ internal static class CompiledRequestParameterObserver
             .ThenBy(static item => item.Name, StringComparer.Ordinal).ToArray();
     }
 
-    public static IReadOnlyList<RequestParameterContract> ForRoute(string route)
+    public static IReadOnlyList<RequestParameterContract> ForPublicHotRead(
+        string route,
+        IReadOnlyDictionary<string, Type> parserTypes)
         => System.Text.RegularExpressions.Regex
-            .Matches(route, @"\{([A-Za-z_][A-Za-z0-9_]*)(?::([^}]+))?\}")
-            .Select(match => new RequestParameterContract(
-                match.Groups[1].Value,
+            .Matches(route, @"\{([A-Za-z_][A-Za-z0-9_]*)[^}]*\}")
+            .Select(match =>
+            {
+                string name = match.Groups[1].Value;
+                Type type = parserTypes.TryGetValue(name, out Type? value)
+                    ? value
+                    : throw new InvalidOperationException(
+                        $"public hot-read route {route} parameter {name} lacks compiled parser evidence");
+                return new RequestParameterContract(
+                name,
                 "request",
                 "path",
-                match.Groups[2].Success ? $"path://{match.Groups[2].Value}" : "path://string",
+                $"path://{ParameterSchema(type)}",
                 true,
                 false,
-                [$"compiled-route-template:{match.Value}"]))
+                ParameterBounds(type),
+                [$"compiled-public-hot-read-parser:{type.FullName}"]);
+            })
             .OrderBy(static item => item.Name, StringComparer.Ordinal)
             .ToArray();
+
+    private static string RouteParameterName(ParameterInfo parameter)
+        => parameter.GetCustomAttribute<FromRouteAttribute>()?.Name
+            ?? parameter.Name
+            ?? throw new InvalidOperationException("compiled route parameter name is missing");
 
     private static string? ParameterSource(ParameterInfo parameter, IReadOnlySet<string> routeNames)
     {
@@ -548,13 +633,11 @@ internal static class CompiledRequestParameterObserver
         {
             return "path";
         }
-        if (parameter.GetCustomAttributes().Any(static attribute =>
-            attribute.GetType().FullName == "Microsoft.AspNetCore.Mvc.FromHeaderAttribute"))
+        if (parameter.GetCustomAttribute<FromHeaderAttribute>() is not null)
         {
             return "header";
         }
-        if (parameter.GetCustomAttributes().Any(static attribute =>
-            attribute.GetType().FullName == "Microsoft.AspNetCore.Mvc.FromQueryAttribute"))
+        if (parameter.GetCustomAttribute<FromQueryAttribute>() is not null)
         {
             return "query";
         }
@@ -563,11 +646,9 @@ internal static class CompiledRequestParameterObserver
 
     private static string ParameterName(ParameterInfo parameter, string source)
     {
-        object? attribute = parameter.GetCustomAttributes().FirstOrDefault(item =>
-            item.GetType().FullName == (source == "header"
-                ? "Microsoft.AspNetCore.Mvc.FromHeaderAttribute"
-                : "Microsoft.AspNetCore.Mvc.FromQueryAttribute"));
-        string? configured = attribute?.GetType().GetProperty("Name")?.GetValue(attribute) as string;
+        string? configured = source == "header"
+            ? parameter.GetCustomAttribute<FromHeaderAttribute>()?.Name
+            : parameter.GetCustomAttribute<FromQueryAttribute>()?.Name;
         return string.IsNullOrWhiteSpace(configured)
             ? parameter.Name ?? throw new InvalidOperationException("compiled request parameter name is missing")
             : configured;
@@ -616,6 +697,24 @@ internal static class CompiledRequestParameterObserver
         if (actual == typeof(TimeOnly) || actual == typeof(TimeSpan))
             return "time";
         throw new InvalidOperationException($"unsupported compiled request parameter type {actual.FullName}");
+    }
+
+    private static RequestBoundContract ParameterBounds(Type type)
+    {
+        Type actual = Nullable.GetUnderlyingType(type) ?? type;
+        (string? minimum, string? maximum) = Type.GetTypeCode(actual) switch
+        {
+            TypeCode.Byte => ("0", byte.MaxValue.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            TypeCode.SByte => (sbyte.MinValue.ToString(System.Globalization.CultureInfo.InvariantCulture), sbyte.MaxValue.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            TypeCode.Int16 => (short.MinValue.ToString(System.Globalization.CultureInfo.InvariantCulture), short.MaxValue.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            TypeCode.UInt16 => ("0", ushort.MaxValue.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            TypeCode.Int32 => (int.MinValue.ToString(System.Globalization.CultureInfo.InvariantCulture), int.MaxValue.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            TypeCode.UInt32 => ("0", uint.MaxValue.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            TypeCode.Int64 => (long.MinValue.ToString(System.Globalization.CultureInfo.InvariantCulture), long.MaxValue.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            TypeCode.UInt64 => ("0", ulong.MaxValue.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            _ => (null, null)
+        };
+        return new RequestBoundContract(minimum, maximum, null, null, null, null, null, null);
     }
 
     private static string ParameterKey(RequestParameterContract parameter)
@@ -704,13 +803,15 @@ internal static class CompiledRequestParameterObserver
                             throw new InvalidOperationException(
                                 $"{MethodIdentity(method)} has unresolved compiled {pendingSource} request parameter at IL {instructionOffset}");
                         }
+                        bool required = HasCompiledRequiredValueGuard(method, pendingName);
                         Add(parameters, new RequestParameterContract(
                             pendingName,
                             "request",
                             pendingSource,
                             $"{pendingSource}://string",
-                            false,
-                            true,
+                            required,
+                            !required,
+                            ParameterBounds(typeof(string)),
                             [$"compiled-il:{MethodIdentity(method)}@{instructionOffset}"]));
                         pendingSource = null;
                         pendingName = null;
@@ -724,6 +825,7 @@ internal static class CompiledRequestParameterObserver
                             "header://string",
                             false,
                             true,
+                            ParameterBounds(typeof(string)),
                             [$"compiled-call-argument:{MethodIdentity(method)}->{MethodIdentity(called)}@{instructionOffset}"]));
                         pendingSource = null;
                         pendingName = null;
@@ -739,6 +841,7 @@ internal static class CompiledRequestParameterObserver
                             "header://string",
                             true,
                             false,
+                            ParameterBounds(typeof(string)),
                             [$"compiled-sensitive-step-up:{MethodIdentity(called)}"]));
                         pendingSource = null;
                         pendingName = null;
@@ -753,6 +856,7 @@ internal static class CompiledRequestParameterObserver
                             "header://string",
                             true,
                             false,
+                            ParameterBounds(typeof(string)),
                             [$"compiled-request-helper:{MethodIdentity(called)}"]));
                         pendingSource = null;
                         pendingName = null;
@@ -792,6 +896,50 @@ internal static class CompiledRequestParameterObserver
             && method.Name.Contains("Header", StringComparison.Ordinal)
             && !method.Name.StartsWith("Write", StringComparison.Ordinal)
             && !method.Name.StartsWith("TryWrite", StringComparison.Ordinal);
+
+    private static bool HasCompiledRequiredValueGuard(MethodBase owner, string parameterName)
+    {
+        byte[]? il = owner.GetMethodBody()?.GetILAsByteArray();
+        if (il is null)
+        {
+            return false;
+        }
+
+        bool seesParameter = false;
+        bool seesEquality = false;
+        bool seesFailureResult = false;
+        int offset = 0;
+        while (offset < il.Length)
+        {
+            short value = il[offset++];
+            if (value == 0xfe)
+            {
+                value = (short)(0xfe00 | il[offset++]);
+            }
+            if (!s_opCodes.TryGetValue(value, out OpCode opCode))
+            {
+                return false;
+            }
+            if (opCode == OpCodes.Ldstr)
+            {
+                seesParameter |= string.Equals(
+                    ResolveString(owner, BitConverter.ToInt32(il, offset)),
+                    parameterName,
+                    StringComparison.Ordinal);
+            }
+            else if (opCode.OperandType == OperandType.InlineMethod
+                && ResolveMethod(owner, BitConverter.ToInt32(il, offset)) is MethodBase called)
+            {
+                seesEquality |= called.DeclaringType == typeof(string)
+                    && called.Name == nameof(string.Equals);
+                seesFailureResult |= called.DeclaringType?.FullName
+                        == "FsusBlog.Server.Infrastructure.Results.AedsJsonResults"
+                    && called.Name is "BadRequest" or "PreconditionRequired";
+            }
+            offset += OperandSize(opCode, il, offset);
+        }
+        return seesParameter && seesEquality && seesFailureResult;
+    }
 
     private static void ObservePipelineParameters(
         RouteEndpoint endpoint,
@@ -850,6 +998,7 @@ internal static class CompiledRequestParameterObserver
             "header://string",
             required,
             !required,
+            ParameterBounds(typeof(string)),
             [$"compiled-endpoint-filter:{filterType.FullName}"]));
 
     private static bool ShouldRecurse(MethodBase method)
@@ -952,7 +1101,8 @@ internal static class CompiledRequestParameterObserver
                 || existing.Source != candidate.Source
                 || existing.SchemaRef != candidate.SchemaRef
                 || existing.Required != candidate.Required
-                || existing.Nullable != candidate.Nullable)
+                || existing.Nullable != candidate.Nullable
+                || existing.Bounds != candidate.Bounds)
             {
                 throw new InvalidOperationException($"conflicting compiled request parameter {candidate.Source}:{candidate.Name}");
             }
@@ -1043,7 +1193,7 @@ internal static class CompiledRequestTypeObserver
                 MethodBase? called = ResolveMethod(method, token);
                 if (called is not null)
                 {
-                    ObserveCall(called, requestTypes);
+                    ObserveCall(method, called, requestTypes);
                     if (ShouldRecurse(called))
                     {
                         ObserveMethod(called, requestTypes, visited, depth + 1);
@@ -1054,21 +1204,47 @@ internal static class CompiledRequestTypeObserver
         }
     }
 
-    private static void ObserveCall(MethodBase called, Dictionary<Type, ObservedRequestType> requestTypes)
+    private static void ObserveCall(
+        MethodBase owner,
+        MethodBase called,
+        Dictionary<Type, ObservedRequestType> requestTypes)
     {
         if (called is not MethodInfo method)
         {
             return;
         }
 
-        bool isJsonReader = method.Name is "ReadAsync" or "ReadRequestAsync" or "TryReadGovernanceJson"
-            || method.Name.StartsWith("ReadCommentManagementRequest", StringComparison.Ordinal);
-        bool isBinaryReader = method.Name.StartsWith("TryDecode", StringComparison.Ordinal)
-            || (method.Name.StartsWith("Read", StringComparison.Ordinal) && !isJsonReader);
-        bool isRequestReader = isJsonReader
-            || method.Name.StartsWith("Read", StringComparison.Ordinal)
-            || method.Name.StartsWith("TryDecode", StringComparison.Ordinal);
-        if (!isRequestReader)
+        if (method.GetParameters().Any(static parameter => parameter.ParameterType == typeof(Stream))
+            && CalledMethods(owner).Any(static candidate =>
+                candidate.DeclaringType?.FullName == "FsusBlog.Server.Infrastructure.Binary.IBinaryEndpointRequestContext"
+                && candidate.Name == "ReadFrameAsync"))
+        {
+            int frameLimit = IntegerConstants(owner).Where(static value => value > AedsFrameHeader.Size).DefaultIfEmpty().Max();
+            if (frameLimit <= AedsFrameHeader.Size)
+            {
+                throw new InvalidOperationException(
+                    $"{MethodIdentity(owner)} binary stream consumer lacks compiled frame limit");
+            }
+            requestTypes[typeof(Stream)] = new ObservedRequestType(
+                typeof(Stream),
+                "binary-package",
+                "FsusBlog.Server.Infrastructure.Binary.IBinaryEndpointRequestContext.ReadFrameAsync",
+                MethodSignature(method),
+                MinimumBytes: 1,
+                MaximumBytes: frameLimit - AedsFrameHeader.Size);
+            return;
+        }
+
+        string declaring = method.DeclaringType?.FullName ?? string.Empty;
+        bool isJsonReader = declaring is "FsusBlog.Server.Infrastructure.Results.AedsJsonResults"
+                or "FsusBlog.Server.Modules.Endpoints.AuthoringEndpoints"
+                or "FsusBlog.Server.Modules.Endpoints.SecurityEndpoints"
+                or "FsusBlog.Server.Modules.Endpoints.Binary.BinaryEndpoints"
+            && method.Name is "ReadAsync" or "ReadRequestAsync" or "TryReadGovernanceJson"
+                or "ReadCommentManagementRequestAsync";
+        bool isBinaryReader = method.DeclaringType == typeof(PodBinaryCodec)
+            && method.Name.StartsWith("TryDecode", StringComparison.Ordinal);
+        if (!isJsonReader && !isBinaryReader)
         {
             return;
         }
@@ -1079,12 +1255,11 @@ internal static class CompiledRequestTypeObserver
         {
             foreach (Type argument in method.GetGenericArguments())
             {
-                AddCandidate(argument, encoding, readerIdentity, requestTypes, force: isJsonReader);
+                AddCandidate(argument, encoding, readerIdentity, requestTypes);
             }
         }
 
-        if (method.Name.StartsWith("TryDecode", StringComparison.Ordinal)
-            || method.Name.StartsWith("TryRead", StringComparison.Ordinal))
+        if (isBinaryReader)
         {
             foreach (ParameterInfo parameter in method.GetParameters().Where(static item => item.ParameterType.IsByRef))
             {
@@ -1093,14 +1268,10 @@ internal static class CompiledRequestTypeObserver
                     encoding,
                     readerIdentity,
                     requestTypes,
-                    force: isBinaryReader);
+                    force: true);
             }
         }
 
-        if (method.Name.StartsWith("Read", StringComparison.Ordinal))
-        {
-            AddCandidate(Unwrap(method.ReturnType), encoding, readerIdentity, requestTypes);
-        }
     }
 
     private static void AddCandidate(
@@ -1118,10 +1289,7 @@ internal static class CompiledRequestTypeObserver
             return;
         }
 
-        if (force || candidate == typeof(string)
-            || candidate.Name.Contains("Request", StringComparison.Ordinal)
-            || candidate.Name.Contains("Payload", StringComparison.Ordinal)
-            || candidate.Name.Contains("Draft", StringComparison.Ordinal))
+        if (force || candidate == typeof(string) || encoding == "utf8-json")
         {
             if (!requestTypes.TryGetValue(candidate, out ObservedRequestType? existing)
                 || (existing.Encoding == "binary-layout" && encoding == "utf8-json"))
@@ -1147,6 +1315,84 @@ internal static class CompiledRequestTypeObserver
         }
         return current;
     }
+
+    private static IEnumerable<MethodBase> CalledMethods(MethodBase owner)
+    {
+        byte[]? il = owner.GetMethodBody()?.GetILAsByteArray();
+        if (il is null)
+        {
+            yield break;
+        }
+        int offset = 0;
+        while (offset < il.Length)
+        {
+            short value = il[offset++];
+            if (value == 0xfe)
+            {
+                value = (short)(0xfe00 | il[offset++]);
+            }
+            if (!s_opCodes.TryGetValue(value, out OpCode opCode))
+            {
+                yield break;
+            }
+            if (opCode.OperandType == OperandType.InlineMethod
+                && ResolveMethod(owner, BitConverter.ToInt32(il, offset)) is MethodBase called)
+            {
+                yield return called;
+            }
+            offset += OperandSize(opCode, il, offset);
+        }
+    }
+
+    private static IEnumerable<int> IntegerConstants(MethodBase owner)
+    {
+        byte[]? il = owner.GetMethodBody()?.GetILAsByteArray();
+        if (il is null)
+        {
+            yield break;
+        }
+        int offset = 0;
+        while (offset < il.Length)
+        {
+            short value = il[offset++];
+            if (value == 0xfe)
+            {
+                value = (short)(0xfe00 | il[offset++]);
+            }
+            if (!s_opCodes.TryGetValue(value, out OpCode opCode))
+            {
+                yield break;
+            }
+            int? constant = opCode == OpCodes.Ldc_I4_M1 ? -1
+                : opCode == OpCodes.Ldc_I4_0 ? 0
+                : opCode == OpCodes.Ldc_I4_1 ? 1
+                : opCode == OpCodes.Ldc_I4_2 ? 2
+                : opCode == OpCodes.Ldc_I4_3 ? 3
+                : opCode == OpCodes.Ldc_I4_4 ? 4
+                : opCode == OpCodes.Ldc_I4_5 ? 5
+                : opCode == OpCodes.Ldc_I4_6 ? 6
+                : opCode == OpCodes.Ldc_I4_7 ? 7
+                : opCode == OpCodes.Ldc_I4_8 ? 8
+                : opCode == OpCodes.Ldc_I4_S ? (sbyte)il[offset]
+                : opCode == OpCodes.Ldc_I4 ? BitConverter.ToInt32(il, offset)
+                : null;
+            if (constant is int observed)
+            {
+                yield return observed;
+            }
+            offset += OperandSize(opCode, il, offset);
+        }
+    }
+
+    private static string MethodSignature(MethodInfo method)
+        => $"{method.DeclaringType?.FullName}.{method.Name}("
+            + string.Join(',', method.GetParameters()
+                .Where(static parameter => parameter.ParameterType == typeof(Stream))
+                .Select(static parameter => parameter.ParameterType.Name))
+            + ")";
+
+    private static string MethodIdentity(MethodBase method)
+        => $"{method.DeclaringType?.FullName}.{method.Name}";
 
     private static bool ShouldRecurse(MethodBase method)
         => method.DeclaringType?.Assembly == typeof(AuthoringEndpoints).Assembly

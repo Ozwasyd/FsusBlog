@@ -49,14 +49,9 @@ internal static partial class RequestContractObserver
                 []);
         }
 
-        IReadOnlyList<ObservedRequestType> selected = SelectTypes(requestFrame, observedTypes);
+        IReadOnlyList<ObservedRequestType> selected = SelectTypes(observedTypes);
         if (selected.Count == 0)
         {
-            if (string.Equals(requestFrame, "PluginPackageInstallRequest", StringComparison.Ordinal))
-            {
-                return BuildPackageRequest(operationId, parameters);
-            }
-
             throw new InvalidOperationException(
                 $"{operationId} request frame {requestFrame} has no compiled request type");
         }
@@ -78,6 +73,11 @@ internal static partial class RequestContractObserver
         }
 
         Type sourceType = sourceTypes[0];
+        if (sourceType == typeof(Stream))
+        {
+            return BuildCompiledBinaryStreamRequest(requestFrame, operationId, parameters, selected);
+        }
+
         SortedDictionary<string, RequestPropertyContract> properties = ObserveProperties(sourceType, encoding);
         if (properties.Count == 0)
         {
@@ -103,7 +103,11 @@ internal static partial class RequestContractObserver
             : polymorphic?.TypeDiscriminatorPropertyName ?? "$type";
         SortedDictionary<string, RequestSchemaDefinition> definitions = ObserveDefinitions(sourceType, encoding);
         string schemaRef = $"aeds://request-schema/{operationId}";
-        string[] typeIdentities = [TypeIdentity(sourceType)];
+        string[] typeIdentities = selected
+            .Select(static item => item.SourceIdentity ?? TypeIdentity(item.Type))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(static value => value, StringComparer.Ordinal)
+            .ToArray();
         string[] readerIdentities = selected.Select(static item => item.ReaderIdentity)
             .Distinct(StringComparer.Ordinal)
             .OrderBy(static value => value, StringComparer.Ordinal)
@@ -147,11 +151,35 @@ internal static partial class RequestContractObserver
             readerIdentities);
     }
 
-    private static OperationRequestContract BuildPackageRequest(
+    private static OperationRequestContract BuildCompiledBinaryStreamRequest(
+        string requestFrame,
         string operationId,
-        IReadOnlyList<RequestParameterContract> parameters)
+        IReadOnlyList<RequestParameterContract> parameters,
+        IReadOnlyList<ObservedRequestType> selected)
     {
-        var packageBounds = new RequestBoundContract(null, null, 1, 32 * 1024 * 1024, null, null, null, null);
+        if (selected.Any(static item => item.Encoding != "binary-package")
+            || selected.Any(static item => string.IsNullOrWhiteSpace(item.SourceIdentity))
+            || selected.Any(static item => item.MaximumBytes is null or <= 0))
+        {
+            throw new InvalidOperationException(
+                $"{operationId} binary stream request lacks compiled reader/consumer bounds evidence");
+        }
+
+        int minimumBytes = selected.Max(static item => item.MinimumBytes ?? 0);
+        int maximumBytes = selected.Min(static item => item.MaximumBytes!.Value);
+        if (minimumBytes > maximumBytes)
+        {
+            throw new InvalidOperationException($"{operationId} binary stream request has conflicting compiled bounds");
+        }
+        var packageBounds = new RequestBoundContract(
+            null,
+            null,
+            minimumBytes,
+            maximumBytes,
+            null,
+            null,
+            null,
+            null);
         var property = new RequestPropertyContract(
             "packageBytes",
             "binary",
@@ -174,13 +202,19 @@ internal static partial class RequestContractObserver
         var definitions = new SortedDictionary<string, RequestSchemaDefinition>(StringComparer.Ordinal);
         string schemaRef = $"aeds://request-schema/{operationId}";
         string[] requiredFields = [property.Name];
-        string[] sourceTypes = ["FsusBlog.Server.Infrastructure.Plugins.PluginAdminService.InstallAsync(Stream)"];
-        string[] readerIdentities = ["FsusBlog.Server.Infrastructure.Binary.IBinaryEndpointRequestContext.ReadFrameAsync"];
+        string[] sourceTypes = selected.Select(static item => item.SourceIdentity!)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(static value => value, StringComparer.Ordinal)
+            .ToArray();
+        string[] readerIdentities = selected.Select(static item => item.ReaderIdentity)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(static value => value, StringComparer.Ordinal)
+            .ToArray();
         string schemaDigest = Digest(new
         {
             direction = "request",
             schemaRef,
-            requestFrame = "PluginPackageInstallRequest",
+            requestFrame,
             encoding = "binary-package",
             parameters,
             requiredFields,
@@ -301,98 +335,19 @@ internal static partial class RequestContractObserver
     }
 
     private static IReadOnlyList<ObservedRequestType> SelectTypes(
-        string requestFrame,
         IReadOnlyList<ObservedRequestType> observedTypes)
-    {
-        List<ObservedRequestType> candidates = observedTypes
+        => observedTypes
             .Where(static item => !item.Type.IsGenericParameter)
             .Where(static item => item.Type.FullName != "FsusBlog.Server.Infrastructure.Binary.BinaryRequestPayload")
-            .GroupBy(static item => item.Type)
-            .Select(static group => group.OrderByDescending(static item => item.Encoding == "utf8-json").First())
-            .ToList();
-
-        List<ObservedRequestType> nonStrings = candidates.Where(static item => item.Type != typeof(string)).ToList();
-        if (nonStrings.Count > 0)
-        {
-            candidates = nonStrings;
-        }
-
-        List<ObservedRequestType> coreModels = candidates
-            .Where(static item => item.Type.Namespace == "FsusBlog.Core.Mapping.Models")
-            .ToList();
-        if (coreModels.Count > 0)
-        {
-            candidates = coreModels;
-        }
-
-        List<ObservedRequestType> sharedBinaryModels = candidates
-            .Where(static item => item.Type.Namespace?.StartsWith("FsusBlog.Shared.Contracts", StringComparison.Ordinal) == true)
-            .ToList();
-        if (sharedBinaryModels.Count > 0)
-        {
-            candidates = sharedBinaryModels;
-        }
-
-        if (candidates.Count == 0)
-        {
-            Type? fallback = ResolveFrameType(requestFrame);
-            if (fallback is not null)
-            {
-                candidates.Add(new ObservedRequestType(
-                    fallback,
-                    "binary-layout",
-                    $"compiled-frame-type:{fallback.FullName}"));
-            }
-        }
-
-        return candidates;
-    }
-
-    private static Type? ResolveFrameType(string requestFrame)
-    {
-        string[] candidateNames =
-        [
-            requestFrame + "CoreModel",
-            requestFrame + "BinaryRequest",
-            requestFrame,
-            requestFrame + "Pod",
-            requestFrame + "Dto"
-        ];
-        Type[] types = AppDomain.CurrentDomain.GetAssemblies()
-            .Where(static assembly => assembly.GetName().Name?.StartsWith("FsusBlog", StringComparison.Ordinal) == true)
-            .SelectMany(GetTypes)
-            .Where(type => candidateNames.Contains(type.Name, StringComparer.Ordinal))
+            .GroupBy(static item => (
+                item.Type,
+                item.Encoding,
+                item.ReaderIdentity,
+                item.SourceIdentity,
+                item.MinimumBytes,
+                item.MaximumBytes))
+            .Select(static group => group.First())
             .ToArray();
-        return types
-            .OrderBy(type => Array.IndexOf(candidateNames, type.Name))
-            .ThenBy(static type => TypePriority(type))
-            .ThenBy(static type => type.FullName, StringComparer.Ordinal)
-            .FirstOrDefault();
-    }
-
-    private static IEnumerable<Type> GetTypes(Assembly assembly)
-    {
-        try
-        {
-            return assembly.GetTypes();
-        }
-        catch (ReflectionTypeLoadException exception)
-        {
-            return exception.Types.OfType<Type>();
-        }
-    }
-
-    private static int TypePriority(Type type)
-    {
-        string ns = type.Namespace ?? string.Empty;
-        if (ns == "FsusBlog.Core.Mapping.Models")
-            return 0;
-        if (ns.StartsWith("FsusBlog.Shared.Contracts", StringComparison.Ordinal))
-            return 1;
-        if (ns.StartsWith("FsusBlog.Server.Models", StringComparison.Ordinal))
-            return 2;
-        return 3;
-    }
 
     private static SortedDictionary<string, RequestPropertyContract> ObserveProperties(Type type, string encoding)
     {

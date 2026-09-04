@@ -3,10 +3,32 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
 import { digestCatalog } from '../../contracts/behavior-contract-catalog.mjs'
+import { digestValue } from '../lib/canonicalize.mjs'
 
 const observationRelative = '.tmp/contracts/openapi/api-aeds-observation.json'
+const observedOpenApiRelative = '.tmp/contracts/openapi/fsusblog.openapi.observed.json'
+const buildReceiptRelative = '.tmp/contracts/openapi/build-receipt.json'
 const expectedArtifactId = 'openapi-aeds-observation'
 const endpointContractRelative = 'src/shared/Contracts/Validation/aeds-endpoint-contracts.json'
+const protocolRelative = 'src/shared/Contracts/Validation/aeds-protocol.json'
+const behaviorCatalogRelative = 'config/contracts/behavior-contracts.json'
+const generatorRelative = 'tools/contracts/lib/openapi-observation.mjs'
+const sourcePaths = Object.freeze([
+  endpointContractRelative,
+  protocolRelative,
+  'src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs',
+  behaviorCatalogRelative,
+  'tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj',
+  'tools/contracts/FsusBlog.OpenApiObservation/CompiledEndpointContractObserver.cs',
+  'tools/contracts/FsusBlog.OpenApiObservation/Models.cs',
+  'tools/contracts/FsusBlog.OpenApiObservation/OpenApiObservationSelfTest.cs',
+  'tools/contracts/FsusBlog.OpenApiObservation/OpenApiProjectionWriter.cs',
+  'tools/contracts/FsusBlog.OpenApiObservation/Program.cs',
+  'tools/contracts/FsusBlog.OpenApiObservation/RequestContractObserver.cs',
+  generatorRelative,
+  'tools/fact-extractors/openapi-aeds/extract.mjs'
+])
+const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex')
 const exactKeys = (value, expected) => value && typeof value === 'object'
   && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...expected].sort())
 const isObject = (value) => value != null && typeof value === 'object' && !Array.isArray(value)
@@ -17,7 +39,7 @@ const boundKeys = ['minimum', 'maximum', 'minLength', 'maxLength', 'minItems', '
 const propertyKeys = ['name', 'type', 'required', 'nullable', 'format', 'schemaRef', 'itemType', 'itemSchemaRef', 'enumValues', 'bounds']
 const definitionKeys = ['typeIdentity', 'requiredFields', 'properties', 'oneOf', 'discriminator', 'bounds']
 const requestKeys = ['direction', 'source', 'schemaRef', 'encoding', 'required', 'nullable', 'requiredFields', 'parameters', 'properties', 'definitions', 'oneOf', 'discriminator', 'bounds', 'fieldSetState', 'boundsState', 'unionState', 'schemaDigest', 'sourceTypes', 'readerIdentities']
-const parameterKeys = ['name', 'direction', 'source', 'schemaRef', 'required', 'nullable', 'evidence']
+const parameterKeys = ['name', 'direction', 'source', 'schemaRef', 'required', 'nullable', 'bounds', 'evidence']
 
 function validBound(value)
 {
@@ -65,6 +87,7 @@ function validRequest(op)
     && typeof parameter.schemaRef === 'string' && parameter.schemaRef.startsWith(`${parameter.source}://`)
     && typeof parameter.required === 'boolean' && typeof parameter.nullable === 'boolean'
     && !(parameter.required && parameter.nullable)
+    && validBound(parameter.bounds)
     && Array.isArray(parameter.evidence) && parameter.evidence.length > 0
     && isSortedUnique(parameter.evidence))
     || new Set(request.parameters.map((parameter) => `${parameter.source}\0${parameter.name}`)).size !== request.parameters.length
@@ -131,7 +154,7 @@ function validRequest(op)
         && request.unionState === 'one-of')
 }
 
-function validResponses(op)
+function validResponses(op, statusMappingKeys)
 {
   if (!isSortedUnique(op.publicErrorStatuses) || op.publicErrorStatuses.length === 0
     || !isObject(op.publicErrorStatusEvidence)) return false
@@ -141,6 +164,7 @@ function validResponses(op)
     || JSON.stringify(Object.keys(op.publicErrorStatusEvidence).sort((a, b) => Number(a) - Number(b)))
       !== JSON.stringify(op.publicErrorStatuses.map(String))) return false
   if (!op.publicErrorStatuses.every((status) => status >= 400 && status <= 599
+    && statusMappingKeys.has(status)
     && Array.isArray(op.publicErrorStatusEvidence[String(status)])
     && op.publicErrorStatusEvidence[String(status)].length > 0
     && isSortedUnique(op.publicErrorStatusEvidence[String(status)])
@@ -157,6 +181,190 @@ function validResponses(op)
       && response.resultPlacement === 'aeds.frame.payload' && response.nullable === false)
     && errors.every((response) => response.schemaRef === `aeds://frame/${op.errorFrame}`
       && response.publicErrorRef === `configuration-error-security-policy:error-transport-mappings:${response.status}`)
+}
+
+function observationContentDigest(observation)
+{
+  const dotNetJson = (value) => JSON.stringify(value)
+    .replace(/\\"/gu, '\\u0022')
+    .replace(/[+<>&'\u007f-\uffff]/gu, (character) =>
+      `\\u${character.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}`)
+  const pascalRecord = (value) => !isObject(value) ? value : Object.fromEntries(Object.entries(value).map(([key, item]) => [
+    `${key[0].toUpperCase()}${key.slice(1)}`,
+    item
+  ]))
+  const bounds = (value) => !isObject(value) ? {} : Object.fromEntries(Object.entries(value).map(([key, item]) => [key, pascalRecord(item)]))
+  const parameter = (value) => ({
+    ...pascalRecord(value),
+    Bounds: pascalRecord(value?.bounds)
+  })
+  const properties = (value) => !isObject(value) ? {} : Object.fromEntries(Object.entries(value).map(([key, item]) => [key, {
+    ...pascalRecord(item),
+    Bounds: pascalRecord(item.bounds)
+  }]))
+  const definitions = (value) => !isObject(value) ? {} : Object.fromEntries(Object.entries(value).map(([key, item]) => [key, {
+    ...pascalRecord(item),
+    Properties: properties(item.properties),
+    Bounds: bounds(item.bounds)
+  }]))
+  const operations = (observation.operations ?? []).map((operation) => ({
+    ...pascalRecord(operation),
+    Request: {
+      ...pascalRecord(operation.request),
+      Parameters: operation.request?.parameters?.map(parameter),
+      Properties: properties(operation.request?.properties),
+      Definitions: definitions(operation.request?.definitions),
+      Bounds: bounds(operation.request?.bounds)
+    },
+    Responses: operation.responses?.map(pascalRecord),
+    PublicErrorStatusEvidence: operation.publicErrorStatusEvidence
+  }))
+  return sha256(Buffer.from(dotNetJson({
+    Schema: observation.schema,
+    Protocol: observation.protocol,
+    AedsVersion: observation.aedsVersion,
+    OperationCount: observation.operationCount,
+    OperationKeys: observation.operationKeys,
+    Operations: operations,
+    ProtocolStates: pascalRecord(observation.protocolStates),
+    ErrorAuthority: pascalRecord(observation.errorAuthority),
+    EndpointContractAuthority: pascalRecord(observation.endpointContractAuthority)
+  }), 'utf8'))
+}
+
+function protocolStateCatalog(protocol)
+{
+  const version = Number(protocol?.header?.version)
+  const frameTypes = protocol?.frameTypes
+  const retiredEntries = protocol?.retiredFrameValues
+  if (!Number.isInteger(version) || !Array.isArray(frameTypes) || frameTypes.length === 0
+    || !Array.isArray(retiredEntries)) return null
+  const frameNames = frameTypes.map((frame) => String(frame?.name ?? ''))
+  const frameValues = frameTypes.map((frame) => frame?.value)
+  const retiredFrameValues = retiredEntries.map((entry) => entry?.value)
+  if (frameNames.some((name) => name.length === 0)
+    || frameValues.some((value) => !Number.isInteger(value))
+    || retiredFrameValues.some((value) => !Number.isInteger(value))
+    || new Set(frameNames).size !== frameNames.length
+    || new Set(frameValues).size !== frameValues.length
+    || new Set(retiredFrameValues).size !== retiredFrameValues.length
+    || frameValues.some((value) => retiredFrameValues.includes(value))) return null
+  const named = frameNames.filter((name) => name !== 'Unknown').sort()
+  const activeFrameIds = named.filter((name) => !name.startsWith('Reserved'))
+  if (activeFrameIds.length === 0) return null
+  return {
+    supportedVersions: [version],
+    activeFrameIds,
+    retiredFrameValues: [...retiredFrameValues].sort((left, right) => left - right),
+    migrationOnlyFrameIds: named.filter((name) => name.startsWith('Reserved')),
+    aedsOnly: true
+  }
+}
+
+function readJson(absolute, label, failureReasons)
+{
+  if (!existsSync(absolute))
+  {
+    failureReasons.push(`missing ${label}`)
+    return null
+  }
+  try
+  {
+    return JSON.parse(readFileSync(absolute, 'utf8'))
+  }
+  catch (error)
+  {
+    failureReasons.push(`${label} JSON parse failed: ${error instanceof Error ? error.message : String(error)}`)
+    return null
+  }
+}
+
+function validateExactBuildReceipt(repositoryRoot, suppliedIdentity)
+{
+  const failureReasons = []
+  const receipt = readJson(path.join(repositoryRoot, buildReceiptRelative), 'canonical OpenAPI build receipt', failureReasons)
+  if (receipt == null) return { failureReasons, receipt: null }
+  const receiptKeys = [
+    'schema', 'artifactId', 'observationPath', 'openapiPath', 'observationDigest', 'artifactDigest',
+    'openapiDigest', 'sourceDigests', 'sourceDigest', 'contractDigest', 'errorCatalogDigest',
+    'generatorDigest', 'protocolDigest', 'configuration', 'buildIdentity'
+  ]
+  const identityKeys = [
+    'artifactId', 'receiptDigest', 'artifactDigest', 'sourceDigest', 'contractDigest',
+    'errorCatalogDigest', 'generatorDigest', 'protocolDigest'
+  ]
+  if (!exactKeys(receipt, receiptKeys)
+    || receipt.schema !== 'fsusblog.openapi-observation-build-receipt.v1'
+    || receipt.artifactId !== expectedArtifactId
+    || receipt.observationPath !== observationRelative
+    || receipt.openapiPath !== observedOpenApiRelative
+    || !['Debug', 'Release'].includes(receipt.configuration)
+    || !exactKeys(receipt.buildIdentity, identityKeys)
+    || !exactKeys(receipt.sourceDigests, sourcePaths))
+  {
+    failureReasons.push('canonical OpenAPI build receipt shape/path/source set is invalid')
+    return { failureReasons, receipt }
+  }
+
+  const { buildIdentity: embeddedIdentity, ...receiptBody } = receipt
+  const actualReceiptDigest = digestValue(receiptBody)
+  if (embeddedIdentity.receiptDigest !== actualReceiptDigest)
+  {
+    failureReasons.push('canonical OpenAPI build receipt self-digest mismatch')
+  }
+  for (const key of identityKeys.filter((key) => key !== 'receiptDigest'))
+  {
+    if (embeddedIdentity[key] !== receipt[key]) failureReasons.push(`build receipt embedded ${key} mismatch`)
+  }
+  if (!exactKeys(suppliedIdentity, ['artifactId', 'receiptDigest', 'artifactDigest'])
+    || suppliedIdentity.artifactId !== embeddedIdentity.artifactId
+    || suppliedIdentity.receiptDigest !== embeddedIdentity.receiptDigest
+    || suppliedIdentity.artifactDigest !== embeddedIdentity.artifactDigest)
+  {
+    failureReasons.push('supplied buildIdentity does not identify the canonical OpenAPI build receipt')
+  }
+
+  const actualSourceDigests = {}
+  for (const relative of sourcePaths)
+  {
+    const absolute = path.join(repositoryRoot, relative)
+    if (!existsSync(absolute))
+    {
+      failureReasons.push(`build receipt source missing: ${relative}`)
+      continue
+    }
+    actualSourceDigests[relative] = sha256(readFileSync(absolute))
+    if (receipt.sourceDigests[relative] !== actualSourceDigests[relative])
+    {
+      failureReasons.push(`build receipt source digest mismatch: ${relative}`)
+    }
+  }
+  if (receipt.sourceDigest !== digestValue(actualSourceDigests)) failureReasons.push('build receipt aggregate source digest mismatch')
+  if (receipt.generatorDigest !== actualSourceDigests[generatorRelative]) failureReasons.push('build receipt generator digest mismatch')
+  if (receipt.protocolDigest !== actualSourceDigests[protocolRelative]) failureReasons.push('build receipt protocol digest mismatch')
+
+  const endpointContract = readJson(path.join(repositoryRoot, endpointContractRelative), 'canonical endpoint contract', failureReasons)
+  if (endpointContract != null)
+  {
+    const { contentDigest: declared, ...content } = endpointContract
+    const actual = sha256(Buffer.from(JSON.stringify(content), 'utf8'))
+    if (declared !== actual || receipt.contractDigest !== actual) failureReasons.push('build receipt contract digest mismatch')
+  }
+  const behaviorCatalog = readJson(path.join(repositoryRoot, behaviorCatalogRelative), 'current BehaviorCatalog', failureReasons)
+  if (behaviorCatalog != null && receipt.errorCatalogDigest !== digestCatalog(behaviorCatalog))
+  {
+    failureReasons.push('build receipt error authority digest mismatch')
+  }
+  for (const [relative, expected, label] of [
+    [observationRelative, receipt.artifactDigest, 'observation artifact'],
+    [observedOpenApiRelative, receipt.openapiDigest, 'observed OpenAPI artifact']
+  ])
+  {
+    const absolute = path.join(repositoryRoot, relative)
+    if (!existsSync(absolute)) failureReasons.push(`missing ${label} at fixed canonical path`)
+    else if (sha256(readFileSync(absolute)) !== expected) failureReasons.push(`${label} digest mismatch`)
+  }
+  return { failureReasons, receipt }
 }
 
 const encodedKey = (prefix, identity) => `${prefix}_${Buffer.from(String(identity), 'utf8').toString('hex')}`
@@ -262,6 +470,17 @@ export function extract(context)
     }
   }
 
+  const receiptValidation = validateExactBuildReceipt(context.repositoryRoot, buildIdentity)
+  if (receiptValidation.failureReasons.length > 0)
+  {
+    return {
+      status: 'failed',
+      failureReasons: receiptValidation.failureReasons,
+      observations: {}
+    }
+  }
+  const buildReceipt = receiptValidation.receipt
+
   const absolute = path.join(context.repositoryRoot, observationRelative)
   if (!existsSync(absolute))
   {
@@ -273,13 +492,13 @@ export function extract(context)
   }
 
   const bytes = readFileSync(absolute)
-  const artifactDigest = createHash('sha256').update(bytes).digest('hex')
-  if (artifactDigest !== buildIdentity.artifactDigest)
+  const artifactDigest = sha256(bytes)
+  if (artifactDigest !== buildReceipt.artifactDigest)
   {
     return {
       status: 'failed',
       failureReasons: [
-        `observation artifact digest mismatch (refuses unbound or stale build; expected ${buildIdentity.artifactDigest}, got ${artifactDigest})`
+        `observation artifact digest mismatch (refuses unbound or stale build; expected ${buildReceipt.artifactDigest}, got ${artifactDigest})`
       ],
       observations: {}
     }
@@ -336,32 +555,28 @@ export function extract(context)
   const protocolStates = observation.protocolStates
   const errorAuthority = observation.errorAuthority
   const endpointAuthority = observation.endpointContractAuthority
-  if (!protocolStates || protocolStates.aedsOnly !== true
-    || !Array.isArray(protocolStates.supportedVersions) || protocolStates.supportedVersions.length === 0
-    || !Array.isArray(protocolStates.activeFrameIds) || protocolStates.activeFrameIds.length === 0
-    || !Array.isArray(protocolStates.retiredFrameValues)
-    || !Array.isArray(protocolStates.migrationOnlyFrameIds))
+  const protocol = readJson(path.join(context.repositoryRoot, protocolRelative), 'canonical AEDS protocol', failureReasons)
+  const expectedProtocolStates = protocolStateCatalog(protocol)
+  if (expectedProtocolStates == null || JSON.stringify(protocolStates) !== JSON.stringify(expectedProtocolStates))
   {
-    failureReasons.push('closed active/retired/migration/AEDS-only protocol states missing')
+    failureReasons.push('active/retired/migration/AEDS-only protocol states do not match canonical aeds-protocol.json')
   }
-  else if (JSON.stringify(protocolStates.supportedVersions) !== JSON.stringify([Number(observation.aedsVersion)])
-    || new Set(protocolStates.activeFrameIds).size !== protocolStates.activeFrameIds.length
-    || new Set(protocolStates.retiredFrameValues).size !== protocolStates.retiredFrameValues.length
-    || new Set(protocolStates.migrationOnlyFrameIds).size !== protocolStates.migrationOnlyFrameIds.length
-    || protocolStates.activeFrameIds.some((id) => protocolStates.migrationOnlyFrameIds.includes(id))
-    || protocolStates.activeFrameIds.some((id) => String(id).startsWith('Reserved'))
-    || protocolStates.migrationOnlyFrameIds.some((id) => !String(id).startsWith('Reserved')))
+  if (observation.observationDigest !== observationContentDigest(observation)
+    || buildReceipt.observationDigest !== observation.observationDigest)
   {
-    failureReasons.push('active/retired/AEDS-only protocol states conflict')
+    failureReasons.push('observationDigest does not match current observation content and build receipt')
   }
-  if (!exactKeys(errorAuthority, ['behaviorId', 'catalogDigest', 'documentPath', 'factIds'])
+  if (!exactKeys(errorAuthority, ['behaviorId', 'catalogDigest', 'documentPath', 'factIds', 'statusMappingKeys'])
     || errorAuthority.behaviorId !== 'configuration-error-security-policy'
     || !/^[a-f0-9]{64}$/u.test(String(errorAuthority.catalogDigest ?? ''))
     || errorAuthority.documentPath !== 'docs/api/schemas-and-errors.md'
     || JSON.stringify(errorAuthority.factIds) !== JSON.stringify([
       'facts.error-codes.domain.active',
       'facts.error-codes.transport-mapping'
-    ]))
+    ])
+    || !isSortedUnique(errorAuthority.statusMappingKeys)
+    || errorAuthority.statusMappingKeys.length === 0
+    || !errorAuthority.statusMappingKeys.every((status) => Number.isInteger(status) && status >= 400 && status <= 599))
   {
     failureReasons.push('error authority binding is missing, duplicated, or stale')
   }
@@ -372,7 +587,7 @@ export function extract(context)
   {
     failureReasons.push('endpoint contract authority binding is missing, duplicated, or stale')
   }
-  const behaviorCatalog = path.join(context.repositoryRoot, 'config/contracts/behavior-contracts.json')
+  const behaviorCatalog = path.join(context.repositoryRoot, behaviorCatalogRelative)
   if (existsSync(behaviorCatalog)
     && digestCatalog(JSON.parse(readFileSync(behaviorCatalog, 'utf8'))) !== errorAuthority?.catalogDigest)
   {
@@ -402,7 +617,7 @@ export function extract(context)
     {
       failureReasons.push(`${key} request contract is not closed and typed`)
     }
-    if (!validResponses(op))
+    if (!validResponses(op, new Set(errorAuthority?.statusMappingKeys ?? [])))
     {
       failureReasons.push(`${key} response contracts/result placement are invalid`)
     }

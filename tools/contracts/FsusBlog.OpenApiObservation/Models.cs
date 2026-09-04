@@ -6,6 +6,7 @@ internal sealed record ObservedOperation(
     string Method,
     string Path,
     string OperationId,
+    CompiledEndpointContract Contract,
     string Auth,
     string Permission,
     bool Pow,
@@ -16,10 +17,31 @@ internal sealed record ObservedOperation(
     IReadOnlyList<RequestParameterContract> RequestParameters,
     IReadOnlyDictionary<int, IReadOnlyList<string>> CompiledErrorStatusEvidence);
 
+internal sealed record CompiledEndpointContract(
+    string OperationId,
+    string? RequestFrame,
+    string? ResponseFrame,
+    string? ErrorFrame,
+    int? SuccessStatus,
+    string ContentType,
+    string ResultPlacement,
+    IReadOnlyList<string> Evidence)
+{
+    public bool IsAeds
+        => string.Equals(ContentType, "application/octet-stream", StringComparison.Ordinal)
+            && string.Equals(ResultPlacement, "aeds.frame.payload", StringComparison.Ordinal)
+            && !string.IsNullOrWhiteSpace(ResponseFrame)
+            && !string.IsNullOrWhiteSpace(ErrorFrame)
+            && SuccessStatus is not null;
+}
+
 internal sealed record ObservedRequestType(
     Type Type,
     string Encoding,
-    string ReaderIdentity);
+    string ReaderIdentity,
+    string? SourceIdentity = null,
+    int? MinimumBytes = null,
+    int? MaximumBytes = null);
 
 internal sealed record AedsEndpointContract(
     string Method,
@@ -124,13 +146,14 @@ internal sealed class AedsEndpointContractCatalog
                 .Select(static item => new AedsEndpointContract(
                     Method: (item.Method ?? throw new InvalidOperationException("contract method required")).ToUpperInvariant(),
                     Path: Normalize(item.Path),
-                    OperationId: item.OperationId ?? throw new InvalidOperationException("contract operationId required"),
+                    OperationId: Required(item.OperationId, "contract operationId required"),
                     RequestFrame: NormalizeFrame(item.RequestFrame),
                     RequestType: NormalizeFrame(item.RequestType),
                     RequestEncoding: NormalizeFrame(item.RequestEncoding),
-                    ResponseFrame: item.ResponseFrame ?? throw new InvalidOperationException("contract responseFrame required"),
-                    ErrorFrame: item.ErrorFrame ?? "ApiError",
-                    SuccessStatus: item.SuccessStatus ?? 200))
+                    ResponseFrame: Required(item.ResponseFrame, "contract responseFrame required"),
+                    ErrorFrame: Required(item.ErrorFrame, "contract errorFrame required"),
+                    SuccessStatus: item.SuccessStatus
+                        ?? throw new InvalidOperationException("contract successStatus required")))
                 .ToArray()
         };
     }
@@ -148,6 +171,9 @@ internal sealed class AedsEndpointContractCatalog
 
     private static string? NormalizeFrame(string? frame)
         => string.IsNullOrWhiteSpace(frame) || frame == "null" ? null : frame;
+
+    private static string Required(string? value, string message)
+        => !string.IsNullOrWhiteSpace(value) ? value : throw new InvalidOperationException(message);
 }
 
 internal sealed class AedsEndpointContractCatalogDocument
@@ -460,6 +486,7 @@ internal sealed record RequestParameterContract(
     string SchemaRef,
     bool Required,
     bool Nullable,
+    RequestBoundContract Bounds,
     IReadOnlyList<string> Evidence);
 
 internal sealed record OperationResponseContract(
@@ -549,9 +576,18 @@ internal static class ObservationMerger
         {
             ObservedOperation live = observedByKey[key];
             AedsEndpointContract contract = byKey[key];
-            string operationId = string.IsNullOrWhiteSpace(contract.OperationId)
-                ? live.OperationId
-                : contract.OperationId;
+            if (!live.Contract.IsAeds)
+            {
+                throw new InvalidOperationException(
+                    $"{key} compiled endpoint is not an AEDS frame contract: "
+                    + $"contentType={live.Contract.ContentType} resultPlacement={live.Contract.ResultPlacement}");
+            }
+            RequireEqual(key, "operationId", contract.OperationId, live.Contract.OperationId);
+            RequireEqual(key, "requestFrame", contract.RequestFrame, live.Contract.RequestFrame);
+            RequireEqual(key, "responseFrame", contract.ResponseFrame, live.Contract.ResponseFrame);
+            RequireEqual(key, "errorFrame", contract.ErrorFrame, live.Contract.ErrorFrame);
+            RequireEqual(key, "successStatus", contract.SuccessStatus, live.Contract.SuccessStatus);
+            string operationId = live.Contract.OperationId;
             if (!operationIds.Add(operationId))
             {
                 throw new InvalidOperationException($"duplicate operationId after merge: {operationId}");
@@ -572,12 +608,12 @@ internal static class ObservationMerger
                 .ToDictionary(static pair => pair.Key, static pair => pair.Value);
 
             OperationRequestContract request = BuildRequest(
-                contract.RequestFrame,
+                live.Contract.RequestFrame,
                 operationId,
                 live.RequestTypes,
                 live.RequestParameters);
             string? actualRequestType = request.SourceTypes.SingleOrDefault();
-            string? actualEncoding = contract.RequestFrame is null ? null : request.Encoding;
+            string? actualEncoding = live.Contract.RequestFrame is null ? null : request.Encoding;
             if (!string.Equals(contract.RequestType, actualRequestType, StringComparison.Ordinal)
                 || !string.Equals(contract.RequestEncoding, actualEncoding, StringComparison.Ordinal))
             {
@@ -595,17 +631,17 @@ internal static class ObservationMerger
                 OperationId = operationId,
                 Protocol = contracts.Protocol,
                 AedsVersion = contracts.AedsVersion,
-                RequestFrame = contract.RequestFrame,
-                ResponseFrame = contract.ResponseFrame,
-                ErrorFrame = contract.ErrorFrame,
+                RequestFrame = live.Contract.RequestFrame,
+                ResponseFrame = live.Contract.ResponseFrame!,
+                ErrorFrame = live.Contract.ErrorFrame!,
                 Auth = live.Auth,
                 Permission = live.Permission,
                 Pow = live.Pow,
                 RateLimit = live.RateLimit,
                 Cache = live.Cache,
-                SuccessStatus = contract.SuccessStatus,
+                SuccessStatus = live.Contract.SuccessStatus!.Value,
                 Request = request,
-                Responses = BuildResponses(contract, publicErrorEvidence.Keys),
+                Responses = BuildResponses(live.Contract, publicErrorEvidence.Keys),
                 PublicErrorRefs = BuildPublicErrorRefs(publicErrorEvidence.Keys),
                 PublicErrorStatuses = publicErrorEvidence.Keys.Order().ToArray(),
                 PublicErrorStatusEvidence = publicErrorEvidence.ToDictionary(
@@ -614,7 +650,7 @@ internal static class ObservationMerger
                     StringComparer.Ordinal),
                 PublicErrorRefState = "operation-status-authority-bound",
                 ErrorAuthorityBehaviorId = "configuration-error-security-policy",
-                ResultPlacement = "aeds.frame.payload",
+                ResultPlacement = live.Contract.ResultPlacement,
                 ProtocolState = "active-aeds-only",
                 SourceIdentity = live.SourceIdentity
             });
@@ -637,20 +673,7 @@ internal static class ObservationMerger
             ObservationDigest = string.Empty
         };
 
-        string canonical = System.Text.Json.JsonSerializer.Serialize(new
-        {
-            document.Schema,
-            document.Protocol,
-            document.AedsVersion,
-            document.OperationCount,
-            document.OperationKeys,
-            Operations = document.Operations,
-            document.ProtocolStates,
-            document.ErrorAuthority,
-            document.EndpointContractAuthority
-        });
-        string digest = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(canonical)))
-            .ToLowerInvariant();
+        string digest = ObservationDigest.Compute(document);
 
         return new ObservationDocument
         {
@@ -668,7 +691,7 @@ internal static class ObservationMerger
     }
 
     private static IReadOnlyList<OperationResponseContract> BuildResponses(
-        AedsEndpointContract contract,
+        CompiledEndpointContract contract,
         IEnumerable<int> errorStatuses)
     {
         List<OperationResponseContract> responses =
@@ -677,8 +700,8 @@ internal static class ObservationMerger
                 contract.SuccessStatus,
                 "success",
                 $"aeds://frame/{contract.ResponseFrame}",
-                "application/octet-stream",
-                "aeds.frame.payload",
+                contract.ContentType,
+                contract.ResultPlacement,
                 false,
                 null)
         ];
@@ -690,8 +713,8 @@ internal static class ObservationMerger
                 status,
                 "error",
                 $"aeds://frame/{contract.ErrorFrame}",
-                "application/octet-stream",
-                "aeds.frame.payload",
+                contract.ContentType,
+                contract.ResultPlacement,
                 false,
                 PublicErrorRef(status))));
         if (responses.Count == 1)
@@ -712,6 +735,17 @@ internal static class ObservationMerger
     private static string PublicErrorRef(int status)
         => $"configuration-error-security-policy:error-transport-mappings:{status}";
 
+    private static void RequireEqual<T>(string key, string field, T expected, T actual)
+    {
+        if (!EqualityComparer<T>.Default.Equals(expected, actual))
+        {
+            string expectedText = expected is null ? "none" : expected.ToString() ?? "none";
+            string actualText = actual is null ? "none" : actual.ToString() ?? "none";
+            throw new InvalidOperationException(
+                $"{key} compiled/shared {field} conflict: contract={expectedText} compiled={actualText}");
+        }
+    }
+
     private static OperationRequestContract BuildRequest(
         string? requestFrame,
         string operationId,
@@ -727,4 +761,27 @@ internal static class ObservationMerger
             path,
             @"\{([A-Za-z_][A-Za-z0-9_]*)(?::[^}]+)?\}",
             "{$1}");
+}
+
+internal static class ObservationDigest
+{
+    public static string Compute(ObservationDocument document)
+    {
+        // Keep these property names and ordering explicit. The digest predates the public
+        // camel-case projection and is intentionally over this PascalCase canonical payload.
+        string canonical = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            document.Schema,
+            document.Protocol,
+            document.AedsVersion,
+            document.OperationCount,
+            document.OperationKeys,
+            Operations = document.Operations,
+            document.ProtocolStates,
+            document.ErrorAuthority,
+            document.EndpointContractAuthority
+        });
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(canonical))).ToLowerInvariant();
+    }
 }
