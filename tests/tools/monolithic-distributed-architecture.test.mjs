@@ -166,6 +166,83 @@ test('rejects an unclassified executable whose OutputType carries a condition', 
     assert.ok(errors.some((error) => error.includes('exactly one business entrypoint')));
 });
 
+test('rejects a second business entrypoint declared by expanded Web SDK imports', () =>
+{
+    const { root } = createFixture();
+    write(root, 'src/comments/ExpandedSdk.Service.csproj', `
+<Project>
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk.Web" />
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk.Web" />
+</Project>
+`);
+    const errors = checkFixture(root).errors;
+    assert.ok(errors.some((error) => error.includes('has no architecture classification: src/comments/ExpandedSdk.Service.csproj')));
+    assert.ok(errors.some((error) => error.includes('exactly one business entrypoint')));
+});
+
+test('rejects an executable OutputType supplied by an imported props file', () =>
+{
+    const { root } = createFixture();
+    write(root, 'src/tools/Executable.props', `
+<Project>
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+</Project>
+`);
+    write(root, 'src/tools/ImportedTool.csproj', `
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="Executable.props" />
+</Project>
+`);
+    const errors = checkFixture(root).errors;
+    assert.ok(errors.some((error) => error.includes('has no architecture classification: src/tools/ImportedTool.csproj')));
+    assert.ok(errors.some((error) => error.includes('exactly one business entrypoint')));
+});
+
+test('rejects a Web SDK entrypoint whose project attribute uses an XML entity', () =>
+{
+    const { root } = createFixture();
+    write(root, 'src/comments/EntitySdk.Service.csproj', '<Project Sdk="Microsoft.NET.Sdk.&#x57;eb" />\n');
+    const errors = checkFixture(root).errors;
+    assert.ok(errors.some((error) => error.includes('has no architecture classification: src/comments/EntitySdk.Service.csproj')));
+    assert.ok(errors.some((error) => error.includes('exactly one business entrypoint')));
+});
+
+test('rejects the classified migration tool when evaluated SDK imports make it a Web application', () =>
+{
+    const { root } = createFixture();
+    write(root, 'src/migration/FsusBlog.Migration.csproj', `
+<Project>
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk.Web" />
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk.Web" />
+</Project>
+`);
+    const result = checkFixture(root);
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((error) => error.includes('non-business tool must not use the Web SDK')));
+});
+
+test('fails closed when an imported MSBuild project cannot be evaluated', () =>
+{
+    const { root } = createFixture();
+    write(root, 'src/tools/UnknownImport.csproj', `
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="missing-executable.props" />
+</Project>
+`);
+    const errors = checkFixture(root).errors;
+    assert.ok(errors.some((error) => error.includes('cannot evaluate MSBuild project src/tools/UnknownImport.csproj')));
+    assert.ok(errors.some((error) => error.includes('has no architecture classification: src/tools/UnknownImport.csproj')));
+    assert.ok(errors.some((error) => error.includes('exactly one business entrypoint')));
+});
+
 test('does not treat an unclassified executable project as a non-business tool', () =>
 {
     const { root } = createFixture();

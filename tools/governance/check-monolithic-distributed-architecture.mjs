@@ -56,49 +56,78 @@ function trackedFiles(root, errors)
     return result.stdout.split('\0').map(normalize).filter(Boolean).sort();
 }
 
-function xmlWithoutComments(source)
+function evaluationFailure(project, reason, errors)
 {
-    return String(source).replace(/<!--[\s\S]*?-->/gu, '');
+    const detail = String(reason).replace(/\s+/gu, ' ').trim().slice(0, 1000);
+    errors.push(`cannot evaluate MSBuild project ${project}: ${detail || 'unknown evaluation failure'}`);
+    return { executable: true, executableOutputType: false, webSdk: false };
 }
 
-function xmlStartTagAttributes(source, elementName)
+function evaluateExecutableProject(root, project, errors)
 {
-    const expression = new RegExp(`<\\s*${elementName}\\b(?<attributes>[^<>]*?)(?:\\/\\s*)?>`, 'giu');
-    return [...source.matchAll(expression)].map((match) => match.groups?.attributes ?? '');
-}
+    const result = spawnSync('dotnet', [
+        'msbuild',
+        project,
+        '--nologo',
+        '--verbosity:quiet',
+        '--getProperty:OutputType',
+        '--getProperty:UsingMicrosoftNETSdkWeb'
+    ], {
+        cwd: root,
+        encoding: 'utf8',
+        env: {
+            ...process.env,
+            DOTNET_CLI_TELEMETRY_OPTOUT: '1',
+            DOTNET_NOLOGO: '1',
+            DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1',
+            MSBUILDTERMINALLOGGER: 'off'
+        },
+        maxBuffer: 1024 * 1024,
+        timeout: 15_000
+    });
+    if (result.error)
+    {
+        return evaluationFailure(project, result.error.message, errors);
+    }
+    if (result.status !== 0)
+    {
+        const detail = String(result.stderr || result.stdout || `exit ${result.status}`).trim();
+        return evaluationFailure(project, detail || `exit ${result.status}`, errors);
+    }
 
-function xmlAttribute(attributes, name)
-{
-    const expression = new RegExp(
-        `(?:^|\\s)${name}\\s*=\\s*(?:"(?<double>[^"]*)"|'(?<single>[^']*)')`,
-        'iu'
-    );
-    const match = expression.exec(attributes);
-    return match?.groups?.double ?? match?.groups?.single ?? null;
-}
+    let properties;
+    try
+    {
+        const document = JSON.parse(String(result.stdout ?? '').trim());
+        properties = object(document?.Properties);
+    }
+    catch (error)
+    {
+        return evaluationFailure(
+            project,
+            `invalid property JSON: ${error instanceof Error ? error.message : String(error)}`,
+            errors
+        );
+    }
+    const propertyNames = Object.keys(properties).sort();
+    if (JSON.stringify(propertyNames) !== JSON.stringify(['OutputType', 'UsingMicrosoftNETSdkWeb']))
+    {
+        return evaluationFailure(project, 'property result must contain exactly OutputType and UsingMicrosoftNETSdkWeb', errors);
+    }
 
-function inspectExecutableProject(source)
-{
-    const xml = xmlWithoutComments(source);
-    const sdkReferences = [
-        ...xmlStartTagAttributes(xml, 'Project').map((attributes) => xmlAttribute(attributes, 'Sdk')),
-        ...xmlStartTagAttributes(xml, 'Sdk').map((attributes) => xmlAttribute(attributes, 'Name'))
-    ].filter((value) => value !== null);
-    const sdkNames = sdkReferences.flatMap((value) => value
-        .split(';')
-        .map((entry) => entry.trim().split('/', 1)[0].toLowerCase())
-        .filter(Boolean));
-    const webSdk = sdkNames.includes('microsoft.net.sdk.web');
-
-    const outputTypes = [...xml.matchAll(
-        /<\s*OutputType\b[^<>]*>(?<value>[^<>]*)<\s*\/\s*OutputType\s*>/giu
-    )].map((match) => (match.groups?.value ?? '').trim());
-    const outputTypeTagCount = [...xml.matchAll(/<\s*OutputType\b/giu)].length;
-    const executableOutputType = outputTypes.some((value) => /^(?:Exe|WinExe)$/iu.test(value));
-    const indeterminate = outputTypeTagCount !== outputTypes.length
-        || outputTypes.some((value) => value !== '' && !/^(?:Library|Exe|WinExe)$/iu.test(value))
-        || sdkReferences.some((value) => /[$@%]\(/u.test(value));
-    return { executable: webSdk || executableOutputType || indeterminate, executableOutputType, indeterminate, webSdk };
+    const outputType = String(properties.OutputType ?? '').trim().toLowerCase();
+    const usingWebSdk = String(properties.UsingMicrosoftNETSdkWeb ?? '').trim().toLowerCase();
+    if (!['exe', 'library', 'winexe'].includes(outputType))
+    {
+        return evaluationFailure(project, `unsupported OutputType ${outputType || 'empty'}`, errors);
+    }
+    if (!['', 'false', 'true'].includes(usingWebSdk))
+    {
+        return evaluationFailure(project, `unsupported UsingMicrosoftNETSdkWeb ${usingWebSdk}`, errors);
+    }
+    const executableOutputType = outputType === 'exe' || outputType === 'winexe';
+    const webSdk = usingWebSdk === 'true';
+    return { executable: executableOutputType || webSdk, executableOutputType, webSdk };
 }
 
 function validatePolicy(policy)
@@ -172,18 +201,10 @@ function validatePolicy(policy)
 function validateProjectTopology(root, files, policy, errors)
 {
     const projects = files.filter((file) => file.startsWith('src/') && file.endsWith('.csproj'));
-    const projectSources = new Map(projects.map((file) => [file, read(root, file, errors)]));
     const projectInspections = new Map(projects.map((file) => [
         file,
-        inspectExecutableProject(projectSources.get(file) ?? '')
+        evaluateExecutableProject(root, file, errors)
     ]));
-    for (const [project, inspection] of projectInspections)
-    {
-        if (inspection.indeterminate)
-        {
-            errors.push(`executable project classification is indeterminate: ${project}`);
-        }
-    }
     const entrypoints = projects.filter((file) => projectInspections.get(file)?.executable === true);
     const classifications = object(policy.executableProjectClassifications);
     const classifiedProjects = Object.keys(classifications).map(normalize).sort();
