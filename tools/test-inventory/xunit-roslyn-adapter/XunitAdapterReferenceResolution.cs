@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using System.Text.Json;
 
@@ -5,32 +6,138 @@ using Microsoft.CodeAnalysis;
 
 internal static partial class XunitAdapterProgram
 {
-    private static List<MetadataReference> BuildReferences(
-        string root,
-        string projectDir,
-        string projectPath,
-        string targetFramework)
-    {
-        var references = new List<MetadataReference>();
-        var seenNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var targetFrameworkNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    private sealed record ResolvedReferenceContext(
+        List<MetadataReference> References,
+        string TargetFramework,
+        string NetCoreReferencePack);
 
-        string? refPack = ResolveReferencePack(targetFramework);
-        if (refPack is null)
+    private static ResolvedReferenceContext BuildReferences(
+        string projectDir,
+        string projectPath)
+    {
+        using JsonDocument evaluation = EvaluateCompileReferences(projectDir, projectPath);
+        JsonElement root = evaluation.RootElement;
+        JsonElement properties = root.GetProperty("Properties");
+        string targetFramework = properties.GetProperty("TargetFramework").GetString()?.Trim() ?? "";
+        string targetingPackRoot = properties.GetProperty("NetCoreTargetingPackRoot").GetString()?.Trim() ?? "";
+        if (targetFramework.Length == 0 || targetingPackRoot.Length == 0)
         {
             throw new InvalidOperationException(
-                $"target reference pack is unavailable for {targetFramework}; refuse runtime or output assembly fallback for BCL symbols");
+                "MSBuild ResolveReferences did not return TargetFramework and NetCoreTargetingPackRoot");
         }
-        foreach (string dll in Directory.EnumerateFiles(refPack, "*.dll").OrderBy(file => file, StringComparer.Ordinal))
+
+        JsonElement referenceItems = root.GetProperty("Items").GetProperty("ReferencePath");
+        var references = new List<MetadataReference>();
+        var seenNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var frameworkNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        string? frameworkVersion = null;
+        string? regularExpressionsPath = null;
+        foreach (JsonElement item in referenceItems.EnumerateArray())
         {
-            string simpleName = ReadAssemblySimpleName(dll);
-            targetFrameworkNames.Add(simpleName);
-            if (seenNames.Add(simpleName))
+            string referencePath = item.GetProperty("FullPath").GetString()?.Trim()
+                ?? item.GetProperty("Identity").GetString()?.Trim()
+                ?? "";
+            if (referencePath.Length == 0 || !File.Exists(referencePath))
             {
-                references.Add(MetadataReference.CreateFromFile(dll));
+                throw new InvalidOperationException(
+                    $"MSBuild ResolveReferences returned a missing compile reference: {referencePath}");
+            }
+            string simpleName = ReadAssemblySimpleName(referencePath);
+            if (!seenNames.Add(simpleName))
+            {
+                throw new InvalidOperationException(
+                    $"MSBuild ResolveReferences returned duplicate assembly identity {simpleName}");
+            }
+            references.Add(MetadataReference.CreateFromFile(referencePath));
+
+            string frameworkName = OptionalMetadata(item, "FrameworkReferenceName");
+            if (frameworkName.Length > 0)
+            {
+                frameworkNames.Add(simpleName);
+            }
+            if (simpleName == "System.Text.RegularExpressions"
+                && frameworkName == "Microsoft.NETCore.App"
+                && OptionalMetadata(item, "NuGetPackageId") == "Microsoft.NETCore.App.Ref")
+            {
+                frameworkVersion = OptionalMetadata(item, "FrameworkReferenceVersion");
+                regularExpressionsPath = Path.GetFullPath(referencePath);
             }
         }
 
+        if (frameworkVersion is null || regularExpressionsPath is null)
+        {
+            throw new InvalidOperationException(
+                "MSBuild ResolveReferences did not bind System.Text.RegularExpressions from Microsoft.NETCore.App.Ref");
+        }
+        string exactReferencePack = Path.GetFullPath(Path.Combine(
+            targetingPackRoot,
+            "Microsoft.NETCore.App.Ref",
+            frameworkVersion,
+            "ref",
+            targetFramework));
+        if (!Path.GetDirectoryName(regularExpressionsPath)!.Equals(exactReferencePack, StringComparison.Ordinal)
+            || !Path.Combine(exactReferencePack, "System.Text.RegularExpressions.dll")
+                .Equals(regularExpressionsPath, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"MSBuild System.Text.RegularExpressions reference is outside its exact targeting pack: {regularExpressionsPath}");
+        }
+
+        RejectOutputFrameworkShadows(projectDir, projectPath, frameworkNames);
+        return new ResolvedReferenceContext(references, targetFramework, exactReferencePack);
+    }
+
+    private static JsonDocument EvaluateCompileReferences(string projectDir, string projectPath)
+    {
+        var startInfo = new ProcessStartInfo("dotnet")
+        {
+            WorkingDirectory = projectDir,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+        foreach (string argument in new[]
+        {
+            "msbuild",
+            projectPath,
+            "-target:ResolveReferences",
+            "-getProperty:TargetFramework",
+            "-getProperty:NetCoreTargetingPackRoot",
+            "-getItem:ReferencePath",
+            "-verbosity:quiet",
+            "/p:BuildProjectReferences=false"
+        })
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+        using Process process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException("failed to start dotnet msbuild ResolveReferences");
+        Task<string> stdout = process.StandardOutput.ReadToEndAsync();
+        Task<string> stderr = process.StandardError.ReadToEndAsync();
+        process.WaitForExit();
+        Task.WaitAll(stdout, stderr);
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException(
+                $"dotnet msbuild ResolveReferences failed ({process.ExitCode}): {stderr.Result.Trim()}");
+        }
+        try
+        {
+            return JsonDocument.Parse(stdout.Result);
+        }
+        catch (JsonException error)
+        {
+            throw new InvalidOperationException(
+                $"dotnet msbuild ResolveReferences returned invalid JSON: {stdout.Result.Trim()}",
+                error);
+        }
+    }
+
+    private static void RejectOutputFrameworkShadows(
+        string projectDir,
+        string projectPath,
+        HashSet<string> frameworkNames)
+    {
         string? output = FindOutputDirectory(projectDir, projectPath);
         if (output is null)
         {
@@ -40,47 +147,19 @@ internal static partial class XunitAdapterProgram
         foreach (string dll in Directory.EnumerateFiles(output, "*.dll").OrderBy(file => file, StringComparer.Ordinal))
         {
             string simpleName = ReadAssemblySimpleName(dll);
-            if (targetFrameworkNames.Contains(simpleName))
+            if (frameworkNames.Contains(simpleName))
             {
                 throw new InvalidOperationException(
-                    $"test output assembly shadows target reference pack identity {simpleName}: {dll}");
-            }
-            if (simpleName == Path.GetFileNameWithoutExtension(projectDir)
-                || simpleName is "Microsoft.CodeAnalysis" or "Microsoft.CodeAnalysis.CSharp" or "Microsoft.CodeAnalysis.Analyzers" or "Microsoft.CodeAnalysis.Common")
-            {
-                continue;
-            }
-            if (seenNames.Add(simpleName))
-            {
-                references.Add(MetadataReference.CreateFromFile(dll));
+                    $"test output assembly shadows MSBuild target reference-pack identity {simpleName}: {dll}");
             }
         }
+    }
 
-        foreach (string dll in Directory.EnumerateFiles(AppContext.BaseDirectory, "*.dll").OrderBy(file => file, StringComparer.Ordinal))
-        {
-            string simpleName = ReadAssemblySimpleName(dll);
-            if (simpleName.StartsWith("FsusBlog.XunitRoslynAdapter", StringComparison.Ordinal))
-                continue;
-            if (seenNames.Add(simpleName))
-            {
-                references.Add(MetadataReference.CreateFromFile(dll));
-            }
-        }
-
-        List<string> sharedFrameworks = ResolveSharedFrameworks(output);
-
-        foreach (string sharedFramework in sharedFrameworks)
-        {
-            foreach (string dll in Directory.EnumerateFiles(sharedFramework, "*.dll").OrderBy(file => file, StringComparer.Ordinal))
-            {
-                string simpleName = ReadAssemblySimpleName(dll);
-                if (seenNames.Add(simpleName))
-                {
-                    references.Add(MetadataReference.CreateFromFile(dll));
-                }
-            }
-        }
-        return references;
+    private static string OptionalMetadata(JsonElement item, string name)
+    {
+        return item.TryGetProperty(name, out JsonElement property)
+            ? property.GetString()?.Trim() ?? ""
+            : "";
     }
 
     private static string ReadAssemblySimpleName(string assemblyPath)
@@ -88,57 +167,4 @@ internal static partial class XunitAdapterProgram
         return AssemblyName.GetAssemblyName(assemblyPath).Name
             ?? throw new InvalidOperationException($"assembly identity has no name: {assemblyPath}");
     }
-
-    private static List<string> ResolveSharedFrameworks(string outputDirectory)
-    {
-        var frameworks = new List<string>();
-        string? dotnetRoot = ResolveDotnetRoot();
-        foreach (string file in Directory.EnumerateFiles(outputDirectory, "*.runtimeconfig.json"))
-        {
-            try
-            {
-                using var document = JsonDocument.Parse(File.ReadAllText(file));
-                JsonElement frameworksElement = document.RootElement.GetProperty("runtimeOptions").GetProperty("frameworks");
-                foreach (JsonElement framework in frameworksElement.EnumerateArray())
-                {
-                    string name = framework.GetProperty("name").GetString() ?? "";
-                    string version = framework.GetProperty("version").GetString() ?? "";
-                    string? shared = ResolveSharedFramework(dotnetRoot, name, version);
-                    if (shared is not null)
-                    {
-                        frameworks.Add(shared);
-                    }
-                }
-            }
-            catch
-            {
-                // Ignore unreadable runtime configs; NETCore.App ref pack still covers the BCL.
-            }
-        }
-        if (frameworks.Count == 0 && dotnetRoot is not null)
-        {
-            string fallback = Path.Combine(dotnetRoot, "shared", "Microsoft.AspNetCore.App");
-            if (Directory.Exists(fallback))
-            {
-                string? best = Directory.EnumerateDirectories(fallback).OrderBy(item => item, StringComparer.Ordinal).LastOrDefault();
-                if (best is not null)
-                    frameworks.Add(best);
-            }
-        }
-        return frameworks;
-    }
-
-    private static string? ResolveSharedFramework(string? dotnetRoot, string name, string version)
-    {
-        if (dotnetRoot is null || name != "Microsoft.AspNetCore.App")
-            return null;
-        string shared = Path.Combine(dotnetRoot, "shared", name, version);
-        if (Directory.Exists(shared))
-            return shared;
-        string packRoot = Path.Combine(dotnetRoot, "shared", name);
-        return Directory.Exists(packRoot)
-            ? Directory.EnumerateDirectories(packRoot).OrderBy(item => item, StringComparer.Ordinal).LastOrDefault()
-            : null;
-    }
-
 }

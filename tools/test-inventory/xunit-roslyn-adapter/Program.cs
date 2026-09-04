@@ -44,7 +44,6 @@ internal static partial class XunitAdapterProgram
         var result = new Result();
         string projectDir = Path.GetDirectoryName(projectPath) ?? root;
         string relativeProject = Path.GetRelativePath(root, projectPath).Replace(Path.DirectorySeparatorChar, '/');
-        string targetFramework = ReadTargetFramework(projectPath) ?? "net10.0";
         bool allowUnsafeBlocks = ReadAllowUnsafeBlocks(projectPath);
 
         string[] sources;
@@ -64,10 +63,10 @@ internal static partial class XunitAdapterProgram
             return result;
         }
 
-        List<MetadataReference> references;
+        ResolvedReferenceContext referenceContext;
         try
         {
-            references = BuildReferences(root, projectDir, projectPath, targetFramework);
+            referenceContext = BuildReferences(projectDir, projectPath);
         }
         catch (Exception error)
         {
@@ -97,7 +96,7 @@ internal static partial class XunitAdapterProgram
         CSharpCompilation compilation = CSharpCompilation.Create(
             assemblyName,
             syntaxTrees,
-            references,
+            referenceContext.References,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
                 .WithAllowUnsafe(allowUnsafeBlocks));
 
@@ -107,7 +106,7 @@ internal static partial class XunitAdapterProgram
             (compilation, generatorDiagnostics) = RunRegexSourceGenerator(
                 compilation,
                 parseOptions,
-                targetFramework);
+                referenceContext.NetCoreReferencePack);
         }
         catch (Exception error)
         {

@@ -42,6 +42,29 @@ function runAdapter(adapterAssembly, repositoryRoot, projectPath, environment)
     return { status: result.status, report, stderr: result.stderr };
 }
 
+function resolveRegularExpressionsReference(projectPath, repositoryRoot, environment)
+{
+    const result = runRequired('dotnet', [
+        'msbuild',
+        projectPath,
+        '-target:ResolveReferences',
+        '-getItem:ReferencePath',
+        '-verbosity:quiet',
+        '/p:BuildProjectReferences=false'
+    ], { cwd: repositoryRoot, env: environment });
+    const evaluation = JSON.parse(result.stdout);
+    const reference = evaluation.Items.ReferencePath.find((item) => (
+        item.Filename === 'System.Text.RegularExpressions'
+        && item.FrameworkReferenceName === 'Microsoft.NETCore.App'
+        && item.NuGetPackageId === 'Microsoft.NETCore.App.Ref'
+    ));
+    if (!reference?.FullPath)
+    {
+        throw new Error('MSBuild did not resolve System.Text.RegularExpressions from Microsoft.NETCore.App.Ref');
+    }
+    return reference.FullPath;
+}
+
 export function exerciseXunitProjectGraphFixture({ repositoryRoot, adapterAssembly, buildRoot })
 {
     const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), 'fsus-xunit-project-graph-'));
@@ -128,6 +151,38 @@ export function exerciseXunitProjectGraphFixture({ repositoryRoot, adapterAssemb
         ], { cwd: checkoutRoot, env: environment });
 
         const current = runAdapter(adapterAssembly, checkoutRoot, projectPath, environment);
+        const regularExpressionsReference = resolveRegularExpressionsReference(
+            projectPath,
+            checkoutRoot,
+            environment
+        );
+        const wrongDotnetRoot = path.join(fixtureRoot, 'wrong-dotnet-root');
+        for (const version of ['10.0.9', '10.0.10'])
+        {
+            const wrongPack = path.join(
+                wrongDotnetRoot,
+                'packs/Microsoft.NETCore.App.Ref',
+                version
+            );
+            const wrongReferenceDirectory = path.join(wrongPack, 'ref/net10.0');
+            const wrongGeneratorDirectory = path.join(wrongPack, 'analyzers/dotnet/cs');
+            mkdirSync(wrongReferenceDirectory, { recursive: true });
+            mkdirSync(wrongGeneratorDirectory, { recursive: true });
+            copyFileSync(
+                regularExpressionsReference,
+                path.join(wrongReferenceDirectory, 'System.Text.RegularExpressions.dll')
+            );
+            writeFileSync(
+                path.join(wrongGeneratorDirectory, 'System.Text.RegularExpressions.Generator.dll'),
+                `invalid generator from wrong pack ${version}\n`
+            );
+        }
+        const wrongDotnetRootInventory = runAdapter(
+            adapterAssembly,
+            checkoutRoot,
+            projectPath,
+            { ...environment, DOTNET_ROOT: wrongDotnetRoot }
+        );
         const probePath = path.join(checkoutRoot, 'tests/backend/XunitSemanticStaleMemberProbeTests.cs');
         writeFileSync(probePath, `\
 namespace FsusBlog.Server.Tests;
@@ -356,6 +411,28 @@ public class Regex
             rmSync(fakeAssemblyPath, { force: true });
         }
 
+        copyFileSync(
+            path.join(
+                wrongDotnetRoot,
+                'packs/Microsoft.NETCore.App.Ref/10.0.9/ref/net10.0/System.Text.RegularExpressions.dll'
+            ),
+            fakeAssemblyPath
+        );
+        let sameStrongNameOldPackShadow;
+        try
+        {
+            sameStrongNameOldPackShadow = runAdapter(
+                adapterAssembly,
+                checkoutRoot,
+                projectPath,
+                environment
+            );
+        }
+        finally
+        {
+            rmSync(fakeAssemblyPath, { force: true });
+        }
+
         return {
             sourceCommit,
             staleLockedRestore: {
@@ -383,7 +460,9 @@ public class Regex
             refReadonlyGeneratedRegex,
             invalidGeneratedRegexPattern,
             invalidGeneratedRegexTimeout,
-            sameNameMetadataShadow
+            sameNameMetadataShadow,
+            sameStrongNameOldPackShadow,
+            wrongDotnetRootInventory
         };
     }
     finally

@@ -27,17 +27,6 @@ internal static partial class XunitAdapterProgram
         return testAttribute is not null;
     }
 
-    private static string ReadTargetFramework(string projectPath)
-    {
-        string projectText = File.ReadAllText(projectPath);
-        int index = projectText.IndexOf("<TargetFramework>", StringComparison.Ordinal);
-        if (index < 0)
-            return "net10.0";
-        int start = index + "<TargetFramework>".Length;
-        int end = projectText.IndexOf("</TargetFramework>", start, StringComparison.Ordinal);
-        return end > start ? projectText[start..end].Trim() : "net10.0";
-    }
-
     private static bool ReadAllowUnsafeBlocks(string projectPath)
     {
         string projectText = File.ReadAllText(projectPath);

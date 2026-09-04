@@ -335,7 +335,29 @@ test('test output cannot shadow a target reference-pack assembly by simple name'
         entry.code === 'xunit-compile-context-unavailable'
     ));
     assert.ok(diagnostic);
-    assert.match(diagnostic.message, /shadows target reference pack identity System\.Text\.RegularExpressions/u);
+    assert.match(diagnostic.message, /shadows MSBuild target reference-pack identity System\.Text\.RegularExpressions/u);
+});
+
+test('same-strong-name assembly copied from an old-pack path cannot shadow the evaluated reference', () =>
+{
+    assert.equal(projectGraphEvidence.sameStrongNameOldPackShadow.status, 1);
+    assert.equal(projectGraphEvidence.sameStrongNameOldPackShadow.report.testCases.length, 0);
+    const diagnostic = projectGraphEvidence.sameStrongNameOldPackShadow.report.diagnostics.find((entry) => (
+        entry.code === 'xunit-compile-context-unavailable'
+    ));
+    assert.ok(diagnostic);
+    assert.match(diagnostic.message, /shadows MSBuild target reference-pack identity System\.Text\.RegularExpressions/u);
+});
+
+test('multi-pack wrong DOTNET_ROOT cannot replace the MSBuild-evaluated targeting pack', () =>
+{
+    assert.equal(
+        projectGraphEvidence.wrongDotnetRootInventory.status,
+        0,
+        JSON.stringify(projectGraphEvidence.wrongDotnetRootInventory.report.diagnostics)
+    );
+    assert.equal(projectGraphEvidence.wrongDotnetRootInventory.report.testCases.length > 0, true);
+    assert.deepEqual(projectGraphEvidence.wrongDotnetRootInventory.report.diagnostics, []);
 });
 
 test('runtime xUnit discovery matches static inventory on statically expandable cases', () =>

@@ -9,10 +9,8 @@ internal static partial class XunitAdapterProgram
     private static (CSharpCompilation Compilation, ImmutableArray<Diagnostic> Diagnostics) RunRegexSourceGenerator(
         CSharpCompilation compilation,
         CSharpParseOptions parseOptions,
-        string targetFramework)
+        string refPack)
     {
-        string refPack = ResolveReferencePack(targetFramework)
-            ?? throw new InvalidOperationException($"target reference pack is unavailable for {targetFramework}");
         string generatorPath = Path.GetFullPath(Path.Combine(
             refPack,
             "..",
