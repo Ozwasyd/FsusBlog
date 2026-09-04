@@ -17,6 +17,8 @@ import {
     validateFormatOnlyDiff,
     validateFormatOnlyPullRequest,
     validatePerformancePullRequest,
+    validateGeneratedRepairPassThroughException,
+    validatePostMergeGeneratedOutputRepair,
     validatePrContract,
     pullRequestActor,
     readFileAtRevision,
@@ -492,6 +494,187 @@ function validatePostMergeRepairFixture(fixtureRepository) {
         head: fixtureRepository.head,
         authorityRoot: null
     })
+}
+
+function fixtureRevisionPathIdentity(repository, revision, path) {
+    const entry = execFileSync(
+        'git',
+        ['ls-tree', revision, '--', path],
+        { cwd: repository, encoding: 'utf8' }
+    ).trim().match(/^(?<mode>\d{6}) blob (?<object>[0-9a-f]{40})\t/u)?.groups
+    assert.ok(entry, `missing regular fixture blob ${revision}:${path}`)
+    return `${entry.mode}:${entry.object}`
+}
+
+function createRegisteredPassThroughFixture({ topology = 'valid', longDistance = 0 } = {}) {
+    const repository = mkdtempSync(join(tmpdir(), 'fsusblog-registered-pass-through-'))
+    execFileSync('git', ['init', '-q', '-b', 'master'], { cwd: repository })
+    execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: repository })
+    execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: repository })
+    writeRepositoryFile(repository, 'source.txt', 'divergent\n')
+    writeRepositoryFile(repository, 'generator.mjs', 'export const generator = true\n')
+    writeRepositoryFile(repository, 'output.txt', 'old-output\n')
+    const baseline = commitFixture(repository, 'fixture pass-through baseline')
+
+    execFileSync('git', ['checkout', '-qb', 'source-owner', baseline], { cwd: repository })
+    writeRepositoryFile(repository, 'source.txt', 'authoritative\n')
+    const sourceCommit = commitFixture(repository, 'fixture authoritative source owner')
+    execFileSync('git', ['checkout', '-q', 'master'], { cwd: repository })
+    execFileSync('git', [
+        'merge',
+        '--no-ff',
+        '-qm',
+        'Merge pull request #4101 from fixture/source-owner',
+        'source-owner'
+    ], { cwd: repository })
+    const mergeCommit = execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: repository,
+        encoding: 'utf8'
+    }).trim()
+
+    execFileSync('git', ['checkout', '-qb', 'unrelated-line', baseline], { cwd: repository })
+    writeRepositoryFile(repository, 'unrelated.txt', 'independent provenance\n')
+    writeRepositoryFile(repository, 'unrelated-followup.txt', 'divergent first-parent line\n')
+    const passThroughFirstParent = commitFixture(repository, 'fixture divergent first parent')
+
+    let passThroughSecondParent
+    if (topology === 'wrong-second-parent') {
+        execFileSync('git', ['checkout', '-qb', 'wrong-second', baseline], { cwd: repository })
+        writeRepositoryFile(repository, 'source.txt', 'authoritative\n')
+        writeRepositoryFile(repository, 'wrong-second.txt', 'not descended from source merge\n')
+        passThroughSecondParent = commitFixture(repository, 'fixture wrong authoritative second parent')
+    } else {
+        execFileSync('git', ['checkout', '-qb', 'canonical-second', mergeCommit], { cwd: repository })
+        writeRepositoryFile(repository, 'canonical-second.txt', 'canonical second parent\n')
+        passThroughSecondParent = commitFixture(repository, 'fixture canonical second parent')
+    }
+    const passThroughTree = execFileSync('git', ['rev-parse', `${passThroughSecondParent}^{tree}`], {
+        cwd: repository,
+        encoding: 'utf8'
+    }).trim()
+    const passThroughCommit = commitTreeFixture(
+        repository,
+        passThroughTree,
+        [passThroughFirstParent, passThroughSecondParent],
+        'fixture exact second-parent pass-through'
+    )
+    execFileSync('git', ['branch', 'pass-through', passThroughCommit], { cwd: repository })
+
+    let outerFirstParent
+    if (topology === 'wrong-second-parent') {
+        const outerFirstTree = execFileSync('git', ['rev-parse', `${passThroughSecondParent}^{tree}`], {
+            cwd: repository,
+            encoding: 'utf8'
+        }).trim()
+        outerFirstParent = commitTreeFixture(
+            repository,
+            outerFirstTree,
+            [passThroughSecondParent, mergeCommit],
+            'fixture outer first parent joins the source merge'
+        )
+        execFileSync('git', ['branch', 'outer-first', outerFirstParent], { cwd: repository })
+    } else {
+        execFileSync('git', ['checkout', '-qb', 'outer-first', passThroughSecondParent], { cwd: repository })
+        writeRepositoryFile(repository, 'outer-first.txt', 'outer first\n')
+        outerFirstParent = commitFixture(repository, 'fixture outer first parent')
+    }
+
+    let outerSecondParent
+    if (topology === 'hidden-side-parent') {
+        const hiddenTree = execFileSync('git', ['rev-parse', `${passThroughCommit}^{tree}`], {
+            cwd: repository,
+            encoding: 'utf8'
+        }).trim()
+        outerSecondParent = commitTreeFixture(
+            repository,
+            hiddenTree,
+            [passThroughSecondParent, passThroughCommit],
+            'fixture pass-through hidden on side parent'
+        )
+        execFileSync('git', ['branch', 'outer-second', outerSecondParent], { cwd: repository })
+    } else {
+        execFileSync('git', ['checkout', '-qb', 'outer-second', passThroughCommit], { cwd: repository })
+        writeRepositoryFile(repository, 'outer-second.txt', 'outer second\n')
+        outerSecondParent = commitFixture(repository, 'fixture outer second parent')
+        for (let index = 0; index < longDistance; index += 1) {
+            writeRepositoryFile(repository, 'distance.txt', `${index}\n`)
+            outerSecondParent = commitFixture(repository, `fixture bounded distance ${index}`)
+        }
+    }
+
+    execFileSync('git', ['checkout', '-q', 'outer-first'], { cwd: repository })
+    execFileSync('git', [
+        'merge',
+        '--no-ff',
+        '-qm',
+        'Merge pull request #4102 from fixture/outer-second',
+        'outer-second'
+    ], { cwd: repository })
+    const outerMergeCommit = execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: repository,
+        encoding: 'utf8'
+    }).trim()
+
+    if (topology === 'source-round-trip') {
+        writeRepositoryFile(repository, 'source.txt', 'transient\n')
+        commitFixture(repository, 'fixture transient source change')
+        writeRepositoryFile(repository, 'source.txt', 'authoritative\n')
+        commitFixture(repository, 'fixture restored source change')
+    }
+    if (topology === 'generator-round-trip' || topology === 'output-round-trip') {
+        const path = topology === 'generator-round-trip' ? 'generator.mjs' : 'output.txt'
+        const original = readFileSync(join(repository, path), 'utf8')
+        writeRepositoryFile(repository, path, 'transient\n')
+        commitFixture(repository, `fixture transient ${topology}`)
+        writeRepositoryFile(repository, path, original)
+        commitFixture(repository, `fixture restored ${topology}`)
+    }
+    if (topology === 'source-mode-drift') {
+        chmodSync(join(repository, 'source.txt'), 0o755)
+        commitFixture(repository, 'fixture source mode drift')
+    }
+    const base = execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: repository,
+        encoding: 'utf8'
+    }).trim()
+    execFileSync('git', ['checkout', '-qb', 'repair-candidate'], { cwd: repository })
+    writeRepositoryFile(repository, 'candidate.txt', 'candidate\n')
+    const head = commitFixture(repository, 'fixture repair candidate')
+
+    const producer = {
+        id: 'fixture-producer',
+        source: 'source.txt',
+        generator: 'generator.mjs',
+        outputs: ['output.txt']
+    }
+    const evidence = {
+        sourceCommit,
+        mergedPullRequest: 4101,
+        mergeCommit
+    }
+    const exception = {
+        producerId: producer.id,
+        repairBase: base,
+        repairHead: head,
+        sourceCommit,
+        mergedPullRequest: evidence.mergedPullRequest,
+        mergeCommit,
+        historyBoundaries: [mergeCommit, baseline],
+        passThroughCommit,
+        passThroughParents: [passThroughFirstParent, passThroughSecondParent],
+        outerPullRequest: 4102,
+        outerMergeCommit,
+        outerMergeParents: [outerFirstParent, outerSecondParent],
+        sourceIdentity: fixtureRevisionPathIdentity(repository, sourceCommit, producer.source),
+        sourceDivergenceIdentity: fixtureRevisionPathIdentity(repository, passThroughFirstParent, producer.source),
+        sourceDivergenceRevisions: [baseline, passThroughFirstParent],
+        generatorIdentity: fixtureRevisionPathIdentity(repository, sourceCommit, producer.generator),
+        outputs: [{
+            path: producer.outputs[0],
+            identity: fixtureRevisionPathIdentity(repository, sourceCommit, producer.outputs[0])
+        }]
+    }
+    return { repository, producer, evidence, base, head, exception, baseline }
 }
 
 function fixtureTrackedInputTreeDigest(repository, revision, excludedPaths) {
@@ -1549,6 +1732,206 @@ test('post-merge generated repair binds exact history and isolated canonical rep
 test('post-merge generated repair accepts the exact two-parent source revision inside the named pull request', () => {
     const repair = createPostMergeRepairFixture({ sourceRevisionMode: 'merge' })
     assert.deepEqual(validatePostMergeRepairFixture(repair), [])
+})
+
+test('post-merge generated repair accepts only the registered #3203 same-blob pass-through', () => {
+    const exception = changeContract.generatedOutputRepairPassThroughExceptions.find(
+        (entry) => entry.id === 'backend-evidence-path-authority-pr-3203'
+    )
+    const producer = changeContract.generatedOutputRepairProducers.find(
+        (entry) => entry.id === exception.producerId
+    )
+    const evidencePath = 'artifacts/change-contract/issue-3196-backend-evidence-path-authority-generated-repair.json'
+    const evidence = JSON.parse(readFileAtRevision(root, exception.repairHead, evidencePath).toString('utf8'))
+    const errors = []
+    validatePostMergeGeneratedOutputRepair(
+        {
+            generatorSource: producer.source,
+            generatedOutputs: producer.outputs.join(', ')
+        },
+        evidence,
+        {
+            root,
+            base: exception.repairBase,
+            head: exception.repairHead,
+            changedFiles: changedFilesBetween(root, exception.repairBase, exception.repairHead)
+        },
+        errors
+    )
+    assert.deepEqual(errors, [])
+    assert.deepEqual(
+        validateGeneratedRepairPassThroughException(
+            root,
+            producer,
+            evidence,
+            exception.repairBase,
+            exception.repairHead,
+            exception
+        ),
+        []
+    )
+
+    for (const [name, mutation, expected] of [
+        ['reversed pass-through parents', {
+            passThroughParents: [...exception.passThroughParents].reverse()
+        }, 'pass-through parents do not match'],
+        ['wrong outer first parent', {
+            outerMergeParents: [exception.outerMergeParents[1], exception.outerMergeParents[0]]
+        }, 'outer merge parents do not match'],
+        ['source provenance from the wrong parent', {
+            sourceIdentity: '100644:1715ef6023d8115b736fb123a82b595aee5930a9'
+        }, 'trusted source identity changed'],
+        ['output mode drift', {
+            outputs: exception.outputs.map((entry) => ({ ...entry, identity: `120000:${entry.identity.slice(7)}` }))
+        }, 'protected path identity changed'],
+        ['nearby repair base', {
+            repairBase: exception.outerMergeCommit
+        }, 'repair identity does not match']
+    ]) {
+        const mutated = { ...exception, ...mutation }
+        const mutationErrors = validateGeneratedRepairPassThroughException(
+                root,
+                producer,
+                evidence,
+                exception.repairBase,
+                exception.repairHead,
+                mutated
+            )
+        assert.ok(
+            mutationErrors.some((error) => error.includes(expected)),
+            `${name}: ${mutationErrors.join('\n')}`
+        )
+    }
+})
+
+test('registered generated repair pass-through rejects adversarial Git histories', () => {
+    const valid = createRegisteredPassThroughFixture()
+    assert.deepEqual(validateGeneratedRepairPassThroughException(
+        valid.repository,
+        valid.producer,
+        valid.evidence,
+        valid.base,
+        valid.head,
+        valid.exception
+    ), [])
+    const shortenedBoundary = {
+        ...valid.exception,
+        historyBoundaries: [valid.exception.mergeCommit, valid.exception.passThroughParents[0]],
+        sourceDivergenceRevisions: [valid.exception.passThroughParents[0]]
+    }
+    const shortenedBoundaryErrors = validateGeneratedRepairPassThroughException(
+        valid.repository,
+        valid.producer,
+        valid.evidence,
+        valid.base,
+        valid.head,
+        shortenedBoundary
+    )
+    assert.ok(shortenedBoundaryErrors.some(
+        (error) => error.includes('history boundaries do not match the exact source divergence frontier')
+    ))
+
+    for (const [topology, options, expected] of [
+        [
+            'wrong-second-parent',
+            { topology: 'wrong-second-parent' },
+            'authoritative second parent does not descend from the registered source merge'
+        ],
+        [
+            'hidden-side-parent',
+            { topology: 'hidden-side-parent' },
+            'pass-through commit is not on the outer pull request head first-parent chain'
+        ],
+        [
+            'source-round-trip',
+            { topology: 'source-round-trip' },
+            'trusted source identity changed'
+        ],
+        [
+            'generator-round-trip',
+            { topology: 'generator-round-trip' },
+            'protected path identity changed'
+        ],
+        [
+            'output-round-trip',
+            { topology: 'output-round-trip' },
+            'protected path identity changed'
+        ],
+        [
+            'source-mode-drift',
+            { topology: 'source-mode-drift' },
+            'trusted source identity changed'
+        ],
+        [
+            'unbounded-history',
+            { longDistance: 129 },
+            'registered history exceeds 128 parent edges'
+        ]
+    ]) {
+        const fixtureRepository = createRegisteredPassThroughFixture(options)
+        const errors = validateGeneratedRepairPassThroughException(
+            fixtureRepository.repository,
+            fixtureRepository.producer,
+            fixtureRepository.evidence,
+            fixtureRepository.base,
+            fixtureRepository.head,
+            fixtureRepository.exception
+        )
+        assert.ok(errors.some((error) => error.includes(expected)), `${topology}: ${errors.join('\n')}`)
+    }
+})
+
+test('registered generated repair pass-through ignores replacement refs and rejects missing objects', () => {
+    const fixtureRepository = createRegisteredPassThroughFixture()
+    execFileSync('git', [
+        'replace',
+        fixtureRepository.exception.passThroughCommit,
+        fixtureRepository.baseline
+    ], { cwd: fixtureRepository.repository })
+    const replacementAwareEnvironment = { ...process.env }
+    delete replacementAwareEnvironment.GIT_NO_REPLACE_OBJECTS
+    const replacementAwareParents = execFileSync(
+        'git',
+        ['rev-list', '--parents', '--max-count=1', fixtureRepository.exception.passThroughCommit],
+        {
+            cwd: fixtureRepository.repository,
+            encoding: 'utf8',
+            env: replacementAwareEnvironment
+        }
+    ).trim().split(/\s+/u).slice(1)
+    const exactParents = execFileSync(
+        'git',
+        ['rev-list', '--parents', '--max-count=1', fixtureRepository.exception.passThroughCommit],
+        {
+            cwd: fixtureRepository.repository,
+            encoding: 'utf8',
+            env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }
+        }
+    ).trim().split(/\s+/u).slice(1)
+    assert.notDeepEqual(replacementAwareParents, exactParents)
+    assert.deepEqual(exactParents, fixtureRepository.exception.passThroughParents)
+    assert.deepEqual(validateGeneratedRepairPassThroughException(
+        fixtureRepository.repository,
+        fixtureRepository.producer,
+        fixtureRepository.evidence,
+        fixtureRepository.base,
+        fixtureRepository.head,
+        fixtureRepository.exception
+    ), [])
+
+    const missingObject = {
+        ...fixtureRepository.exception,
+        outerMergeCommit: 'ffffffffffffffffffffffffffffffffffffffff'
+    }
+    const errors = validateGeneratedRepairPassThroughException(
+        fixtureRepository.repository,
+        fixtureRepository.producer,
+        fixtureRepository.evidence,
+        fixtureRepository.base,
+        fixtureRepository.head,
+        missingObject
+    )
+    assert.ok(errors.some((error) => error.includes('cannot verify registered history')))
 })
 
 test('post-merge generated repair rejects reversed, wrong, and multi-parent source revisions', () => {

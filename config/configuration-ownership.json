@@ -177,6 +177,7 @@
             "pathType": "file",
             "consumers": [
                 "tools/governance/change-contract.mjs",
+                "tools/governance/change-contract-registry.mjs",
                 "tests/tools/change-contract.test.mjs"
             ],
             "validationCommand": "node --test tests/tools/change-contract.test.mjs",

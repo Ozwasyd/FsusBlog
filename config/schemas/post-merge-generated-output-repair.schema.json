@@ -26,7 +26,7 @@
         "sourceCommit": {
             "type": "string",
             "pattern": "^[0-9a-f]{40}$",
-            "description": "Unique current last source revision: either the existing single-parent source commit or an exact two-parent in-PR merge on the outer head's first-parent chain, whose first parent is replayed and whose second parent is the merged PR base."
+            "description": "Unique current last source revision: either the existing single-parent source commit or an exact two-parent in-PR merge on the outer head's first-parent chain, whose first parent is replayed and whose second parent is the merged PR base. A historical same-blob pass-through is accepted only for an immutable trusted-registry tuple whose complete topology and source, generator, and output identities are re-proved."
         },
         "mergedPullRequest": {
             "type": "integer",
