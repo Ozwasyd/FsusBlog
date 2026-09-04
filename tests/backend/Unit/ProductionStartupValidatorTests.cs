@@ -91,6 +91,9 @@ public sealed class ProductionStartupValidatorTests
             expected,
             ApiErrorSemanticMapper.TransportMappings
                 .Select(static mapping => (mapping.Id, mapping.Kind, mapping.HttpStatus, mapping.ErrorCode)));
+        Assert.Equal(
+            [400, 401, 403, 404, 405, 406, 409, 410, 411, 413, 415, 422, 423, 426, 428, 429, 500, 501, 503],
+            ApiErrorSemanticMapper.StatusMappingKeys);
         Assert.All(
             ApiErrorSemanticMapper.TransportMappings,
             static mapping =>
@@ -261,11 +264,14 @@ public sealed class ProductionStartupValidatorTests
             "Invalid ApiError transport mapping Operation503Forbidden.",
             Reject(highStatus).Message);
 
-        ApiErrorSemanticMapper.TransportMapping[] upperBoundaryStatus = [.. canonical];
-        upperBoundaryStatus[^1] = upperBoundaryStatus[^1] with
-        {
-            HttpStatus = 599
-        };
+        ApiErrorSemanticMapper.TransportMapping[] upperBoundaryStatus = canonical
+            .Select(static mapping => mapping.HttpStatus == StatusCodes.Status503ServiceUnavailable
+                ? mapping with
+                {
+                    HttpStatus = 599
+                }
+                : mapping)
+            .ToArray();
         Assert.Equal(upperBoundaryStatus, ApiErrorSemanticMapper.ValidateCatalog(upperBoundaryStatus));
 
         ApiErrorSemanticMapper.TransportMapping[] noneCode = [.. canonical];
@@ -330,6 +336,51 @@ public sealed class ProductionStartupValidatorTests
         Assert.Equal(
             "Missing canonical ApiError transport mapping Default500Unknown.",
             Reject(wrongUnknown500).Message);
+    }
+
+    [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative)]
+    public void ApiErrorSemanticMapper_StatusMappingKeys_RejectMissingExtraUnsortedAndEveryStatusOmission()
+    {
+        ApiErrorSemanticMapper.TransportMapping[] mappings = [.. ApiErrorSemanticMapper.TransportMappings];
+        int[] keys = [.. ApiErrorSemanticMapper.StatusMappingKeys];
+
+        static InvalidOperationException Reject(
+            IReadOnlyList<ApiErrorSemanticMapper.TransportMapping> candidateMappings,
+            IReadOnlyList<int> candidateKeys)
+            => Assert.Throws<InvalidOperationException>(() =>
+                ApiErrorSemanticMapper.ValidateStatusMappingKeys(candidateMappings, candidateKeys));
+
+        Assert.Equal(
+            "ApiError status mapping keys must not be empty.",
+            Reject(mappings, []).Message);
+        Assert.Equal(
+            "ApiError status mapping keys and transport mapping statuses must match exactly.",
+            Reject(mappings, keys[..^1]).Message);
+        Assert.Equal(
+            "ApiError status mapping keys and transport mapping statuses must match exactly.",
+            Reject(mappings, [.. keys, StatusCodes.Status504GatewayTimeout]).Message);
+
+        int[] unsorted = [.. keys];
+        (unsorted[0], unsorted[1]) = (unsorted[1], unsorted[0]);
+        Assert.Equal(
+            "ApiError status mapping keys must be strictly ascending and unique.",
+            Reject(mappings, unsorted).Message);
+
+        int[] duplicate = [keys[0], .. keys];
+        Assert.Equal(
+            "ApiError status mapping keys must be strictly ascending and unique.",
+            Reject(mappings, duplicate).Message);
+
+        foreach (int status in keys)
+        {
+            ApiErrorSemanticMapper.TransportMapping[] omitted = mappings
+                .Where(mapping => mapping.HttpStatus != status)
+                .ToArray();
+            Assert.Equal(
+                "ApiError status mapping keys and transport mapping statuses must match exactly.",
+                Reject(omitted, keys).Message);
+        }
     }
 
     [Fact]

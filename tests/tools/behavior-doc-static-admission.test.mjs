@@ -78,6 +78,10 @@ function fakeMinimalReceipt(runId, source)
         {
             path: 'Directory.Packages.props',
             digest: 'f'.repeat(64)
+        },
+        {
+            path: 'src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs',
+            digest: '9'.repeat(64)
         }
     ];
     return seal({
@@ -203,6 +207,23 @@ test('directory source digests ignore generated dotnet outputs while binding sou
 
     fs.writeFileSync(path.join(repositoryRoot, 'src/migration/Schema.cs'), 'sealed class Schema { public int Version => 2; }\n');
     assert.notEqual(digestPath(repositoryRoot, 'src/migration'), initial);
+});
+
+test('config/error minimal build identity binds the production mapper source digest', () =>
+{
+    const receipt = fakeMinimalReceipt('minimal-build-config-error-source', {
+        sourceCommit: 'a'.repeat(40),
+        worktreeFingerprint: 'b'.repeat(64)
+    });
+    const identity = buildIdentitiesFromMinimalReceipt(receipt)['config-error-security-policy-observation'];
+    const mapperPath = 'src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs';
+
+    assert.equal(
+        identity.sourceDigests.find(({ path: sourcePath }) => sourcePath === mapperPath)?.digest,
+        '9'.repeat(64)
+    );
+    assert.deepEqual(identity.sourceDigests, receipt.sourceClosureDigests);
+    assert.equal(identity.sourceDigest, digestValue(identity.sourceDigests));
 });
 
 function validAdmissionReceipt({

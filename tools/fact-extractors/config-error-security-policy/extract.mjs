@@ -2,6 +2,9 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { observationAuthoritySourcePaths } from '../../contracts/lib/config-error-security-observation.mjs';
+import { digestValue } from '../lib/canonicalize.mjs';
+
 const observationRelative = '.tmp/contracts/config-error-security/config-error-security-policy-observation.json';
 const expectedArtifactId = 'config-error-security-policy-observation';
 const expectedSchema = 'fsusblog.config-error-security-policy-observation.v2';
@@ -14,6 +17,7 @@ const requiredFactKeys = Object.freeze([
     'configuration.allowed-values',
     'configuration.required-production-values',
     'error-codes.public',
+    'error-codes.status-mapping-keys',
     'error-codes.transport-mapping',
     'error-codes.domain',
     'security.challenge-kinds',
@@ -179,7 +183,7 @@ function validateDomainErrors(domainErrors, transport, failureReasons)
     }
 }
 
-function validateTransportMappings(transport, publicCodes, failureReasons)
+function validateTransportMappings(transport, statusMappingKeys, publicCodes, failureReasons)
 {
   if (transport == null || typeof transport !== 'object' || Array.isArray(transport) || Object.keys(transport).length === 0)
   {
@@ -192,6 +196,7 @@ function validateTransportMappings(transport, publicCodes, failureReasons)
   const typedTuples = new Set()
   const genericStatuses = new Set()
   const reverseCodes = new Set()
+  const mappingStatuses = new Set()
   let operationMappingCount = 0
   for (const [identity, mapping] of Object.entries(transport))
   {
@@ -216,6 +221,7 @@ function validateTransportMappings(transport, publicCodes, failureReasons)
       continue
     }
     const typedTuple = `${mapping.mappingKind}\u0000${mapping.httpStatus}\u0000${mapping.errorCode}`
+    mappingStatuses.add(mapping.httpStatus)
     if (typedTuples.has(typedTuple)) failureReasons.push(`duplicate typed transport tuple ${typedTuple}`)
     typedTuples.add(typedTuple)
 
@@ -263,6 +269,33 @@ function validateTransportMappings(transport, publicCodes, failureReasons)
   if (genericStatuses.size === 0)
   {
     failureReasons.push('error-codes.transport-mapping requires explicit status mappings')
+  }
+
+  if (!Array.isArray(statusMappingKeys) || statusMappingKeys.length === 0
+    || statusMappingKeys.some((status) => !Number.isInteger(status) || status < 400 || status > 599))
+  {
+    failureReasons.push('error-codes.status-mapping-keys must be a non-empty HTTP error status set')
+  }
+  else
+  {
+    for (let index = 1; index < statusMappingKeys.length; index += 1)
+    {
+      if (statusMappingKeys[index] <= statusMappingKeys[index - 1])
+      {
+        failureReasons.push('error-codes.status-mapping-keys must be strictly ascending and unique')
+        break
+      }
+    }
+    const keySet = new Set(statusMappingKeys)
+    for (const status of statusMappingKeys)
+    {
+      if (!mappingStatuses.has(status)) failureReasons.push(`status mapping key ${status} has no transport mapping`)
+      if (!genericStatuses.has(status)) failureReasons.push(`status mapping key ${status} has no generic status mapping`)
+    }
+    for (const status of [...mappingStatuses].sort((left, right) => left - right))
+    {
+      if (!keySet.has(status)) failureReasons.push(`transport mapping status ${status} is missing its status mapping key`)
+    }
   }
   if (operationMappingCount === 0)
   {
@@ -492,6 +525,43 @@ export function extract(context)
         return failResult(['refuses ambient bin/Debug or bin/Release observation identity']);
     }
 
+    const sourceDigests = buildIdentity.sourceDigests;
+    const sourceDigestMap = Array.isArray(sourceDigests)
+        ? Object.fromEntries(sourceDigests.map((entry) => [entry?.path, entry?.digest]))
+        : sourceDigests;
+    const sourceDigestKeys = sourceDigestMap != null
+        && typeof sourceDigestMap === 'object'
+        && !Array.isArray(sourceDigestMap)
+        ? Object.keys(sourceDigestMap).sort()
+        : [];
+    const expectedAuthorityPaths = [...observationAuthoritySourcePaths].sort();
+    const isMinimalBuildIdentity = buildIdentity.schema === 'fsusblog.build-identity.v1';
+    if (
+        isMinimalBuildIdentity
+            ? expectedAuthorityPaths.some((relative) => !sourceDigestKeys.includes(relative))
+            : JSON.stringify(sourceDigestKeys) !== JSON.stringify(expectedAuthorityPaths)
+    )
+    {
+        return failResult(['buildIdentity.sourceDigests must exactly bind the ApiErrorSemanticMapper authority source']);
+    }
+    if (buildIdentity.sourceDigest !== digestValue(sourceDigests))
+    {
+        return failResult(['buildIdentity.sourceDigest does not match sourceDigests']);
+    }
+    for (const relative of observationAuthoritySourcePaths)
+    {
+        const sourcePath = path.join(context.repositoryRoot, relative);
+        if (!existsSync(sourcePath))
+        {
+            return failResult([`missing authority source ${relative}`]);
+        }
+        const actualDigest = createHash('sha256').update(readFileSync(sourcePath)).digest('hex');
+        if (sourceDigestMap[relative] !== actualDigest)
+        {
+            return failResult([`authority source digest mismatch for ${relative}`]);
+        }
+    }
+
     const absolute = path.join(context.repositoryRoot, observationRelative);
     if (!existsSync(absolute))
     {
@@ -621,10 +691,8 @@ export function extract(context)
     }
 
     const transport = facts['error-codes.transport-mapping'];
-    if (transport == null || typeof transport !== 'object' || Array.isArray(transport) || Object.keys(transport).length === 0)
-    {
-        failureReasons.push('error-codes.transport-mapping must be a non-empty map');
-    }
+    const statusMappingKeys = facts['error-codes.status-mapping-keys'];
+    validateTransportMappings(transport, statusMappingKeys, publicCodes, failureReasons);
     validateDomainErrors(facts['error-codes.domain'], transport, failureReasons);
 
     // challenges
@@ -873,6 +941,7 @@ export function extract(context)
         'configuration.allowed-values': facts['configuration.allowed-values'],
         'configuration.required-production-values': facts['configuration.required-production-values'],
         'error-codes.public': facts['error-codes.public'],
+        'error-codes.status-mapping-keys': facts['error-codes.status-mapping-keys'],
         'error-codes.transport-mapping': facts['error-codes.transport-mapping'],
         'error-codes.domain': facts['error-codes.domain'],
         'security.challenge-kinds': facts['security.challenge-kinds'],

@@ -124,6 +124,7 @@ internal static class ConfigErrorSecurityObservationHost
                 ["configuration.allowed-values"] = configurationFacts["configuration.allowed-values"]!.DeepClone(),
                 ["configuration.required-production-values"] = configurationFacts["configuration.required-production-values"]!.DeepClone(),
                 ["error-codes.public"] = errorFacts["error-codes.public"]!.DeepClone(),
+                ["error-codes.status-mapping-keys"] = errorFacts["error-codes.status-mapping-keys"]!.DeepClone(),
                 ["error-codes.transport-mapping"] = errorFacts["error-codes.transport-mapping"]!.DeepClone(),
                 ["error-codes.domain"] = errorFacts["error-codes.domain"]!.DeepClone(),
                 ["security.challenge-kinds"] = securityFacts["security.challenge-kinds"]!.DeepClone(),
@@ -423,6 +424,7 @@ internal static class ConfigErrorSecurityObservationHost
 
         var transport = new JsonObject();
         IReadOnlyList<ApiErrorSemanticMapper.TransportMapping> mappings = ApiErrorSemanticMapper.TransportMappings;
+        IReadOnlyList<int> statusMappingKeys = ApiErrorSemanticMapper.StatusMappingKeys;
         if (mappings.Count == 0)
         {
             failures.Add("public transport mappings must not be empty");
@@ -434,6 +436,15 @@ internal static class ConfigErrorSecurityObservationHost
         if (mappings.Select(static mapping => (mapping.Kind, mapping.HttpStatus, mapping.ErrorCode)).Distinct().Count() != mappings.Count)
         {
             failures.Add("public transport mappings contain duplicate typed tuples");
+        }
+        int[] observedStatusKeys = mappings
+            .Select(static mapping => mapping.HttpStatus)
+            .Distinct()
+            .Order()
+            .ToArray();
+        if (!statusMappingKeys.SequenceEqual(observedStatusKeys))
+        {
+            failures.Add("public status mapping keys drift from transport mappings");
         }
 
         foreach (ApiErrorSemanticMapper.TransportMapping mapping in mappings)
@@ -495,6 +506,7 @@ internal static class ConfigErrorSecurityObservationHost
         return new JsonObject
         {
             ["error-codes.public"] = ToJsonArray(publicCodes),
+            ["error-codes.status-mapping-keys"] = ToJsonArray(statusMappingKeys),
             ["error-codes.transport-mapping"] = SortObject(transport),
             ["error-codes.domain"] = new JsonObject
             {
@@ -999,6 +1011,17 @@ internal static class ConfigErrorSecurityObservationHost
     {
         var array = new JsonArray();
         foreach (string value in values)
+        {
+            array.Add(value);
+        }
+
+        return array;
+    }
+
+    private static JsonArray ToJsonArray(IReadOnlyList<int> values)
+    {
+        var array = new JsonArray();
+        foreach (int value in values)
         {
             array.Add(value);
         }

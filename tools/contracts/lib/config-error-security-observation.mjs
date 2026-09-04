@@ -10,6 +10,9 @@ export const observationArtifactId = 'config-error-security-policy-observation'
 export const observationRelativeDir = '.tmp/contracts/config-error-security'
 export const observationFileName = 'config-error-security-policy-observation.json'
 export const observationToolProject = 'tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj'
+export const observationAuthoritySourcePaths = Object.freeze([
+  'src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs'
+])
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 
@@ -90,19 +93,30 @@ export function produceConfigErrorSecurityObservation({
 
   const observation = JSON.parse(readFileSync(paths.observationPath, 'utf8'))
   const artifactDigest = sha256File(paths.observationPath)
+  const sourceDigests = Object.fromEntries(observationAuthoritySourcePaths.map((relative) =>
+  {
+    const absolute = path.join(repositoryRoot, relative)
+    if (!existsSync(absolute)) fail(`authority source missing: ${relative}`)
+    return [relative, sha256File(absolute)]
+  }))
+  const sourceDigest = digestValue(sourceDigests)
   const receiptBody = {
     schema: 'fsusblog.config-error-security-observation-build-receipt.v1',
     artifactId: observationArtifactId,
     observationPath: paths.relativeObservationPath,
     observationDigest: observation.observationDigest,
     artifactDigest,
+    sourceDigests,
+    sourceDigest,
     configuration
   }
   const receiptDigest = digestValue(receiptBody)
   const buildIdentity = {
     artifactId: observationArtifactId,
     receiptDigest,
-    artifactDigest
+    artifactDigest,
+    sourceDigests,
+    sourceDigest
   }
   const receiptPath = path.join(paths.directory, 'build-receipt.json')
   writeFileSync(receiptPath, `${JSON.stringify({ ...receiptBody, buildIdentity }, null, 2)}\n`)

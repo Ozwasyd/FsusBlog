@@ -107,7 +107,12 @@ internal static class ApiErrorSemanticMapper
             Operation(ApiErrorTransportMappingId.Operation503Forbidden, StatusCodes.Status503ServiceUnavailable, ErrorCode.Forbidden)
         ]);
 
+    private static readonly IReadOnlyList<int> s_statusMappingKeys =
+        BuildStatusMappingKeys(s_transportMappings);
+
     public static IReadOnlyList<TransportMapping> TransportMappings => s_transportMappings;
+
+    public static IReadOnlyList<int> StatusMappingKeys => s_statusMappingKeys;
 
     public static IReadOnlyList<TransportMapping> GenericStatusErrorMappings
     {
@@ -264,7 +269,67 @@ internal static class ApiErrorSemanticMapper
             StatusCodes.Status500InternalServerError,
             ErrorCode.Unknown);
 
+        IReadOnlyList<int> statusMappingKeys = BuildStatusMappingKeys(mappings);
+        int[] genericStatusKeys = mappings
+            .Where(static mapping => mapping.Kind == ApiErrorTransportMappingKind.GenericStatusDefault)
+            .Select(static mapping => mapping.HttpStatus)
+            .Order()
+            .ToArray();
+        if (!statusMappingKeys.SequenceEqual(genericStatusKeys))
+        {
+            throw new InvalidOperationException(
+                "Every ApiError transport status must have exactly one generic status mapping.");
+        }
+
         return Array.AsReadOnly(mappings.ToArray());
+    }
+
+    internal static IReadOnlyList<int> ValidateStatusMappingKeys(
+        IReadOnlyList<TransportMapping> mappings,
+        IReadOnlyList<int> statusMappingKeys)
+    {
+        if (statusMappingKeys.Count == 0)
+        {
+            throw new InvalidOperationException("ApiError status mapping keys must not be empty.");
+        }
+
+        for (int index = 0; index < statusMappingKeys.Count; index++)
+        {
+            int status = statusMappingKeys[index];
+            if (status is < 400 or > 599)
+            {
+                throw new InvalidOperationException($"Invalid ApiError status mapping key: {status}.");
+            }
+
+            if (index > 0 && status <= statusMappingKeys[index - 1])
+            {
+                throw new InvalidOperationException(
+                    "ApiError status mapping keys must be strictly ascending and unique.");
+            }
+        }
+
+        int[] expected = mappings
+            .Select(static mapping => mapping.HttpStatus)
+            .Distinct()
+            .Order()
+            .ToArray();
+        if (!expected.SequenceEqual(statusMappingKeys))
+        {
+            throw new InvalidOperationException(
+                "ApiError status mapping keys and transport mapping statuses must match exactly.");
+        }
+
+        return Array.AsReadOnly(statusMappingKeys.ToArray());
+    }
+
+    private static IReadOnlyList<int> BuildStatusMappingKeys(IReadOnlyList<TransportMapping> mappings)
+    {
+        int[] keys = mappings
+            .Select(static mapping => mapping.HttpStatus)
+            .Distinct()
+            .Order()
+            .ToArray();
+        return ValidateStatusMappingKeys(mappings, keys);
     }
 
     private static void EnsureUnique<T>(IEnumerable<TransportMapping> mappings, Func<TransportMapping, T> key, string description)
