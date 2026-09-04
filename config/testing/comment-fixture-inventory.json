@@ -1,0 +1,497 @@
+{
+    "schema": "fsusblog.comment-fixture-inventory.v1",
+    "version": 1,
+    "producerId": "comment-moderation",
+    "strategy": "transaction-fixture",
+    "runtimeReferences": {
+        "actorModes": "src/backend/Models/CommentIdentity/AnonymousCommentIdentityModels.cs",
+        "moderationStatuses": "src/backend/Entities/Comment.cs",
+        "revisionOperations": "src/backend/Entities/CommentRevision.cs",
+        "threadPolicy": "src/backend/Services/CommentService.cs",
+        "regionPolicy": "src/backend/Models/Moderation/RegionModerationModels.cs",
+        "signalContract": "src/backend/Models/Moderation/AntiSpamModerationModels.cs"
+    },
+    "actorModes": [
+        "public",
+        "zk_anonymous"
+    ],
+    "moderationStatuses": [
+        "approved",
+        "pending",
+        "rejected",
+        "spam"
+    ],
+    "revisionOperations": [
+        "created",
+        "deleted",
+        "edited"
+    ],
+    "threadRelations": [
+        "depth",
+        "parent_id",
+        "reply_to_comment_id",
+        "root_id"
+    ],
+    "stateRules": {
+        "mutuallyExclusiveIdentityFields": [
+            "actorMode",
+            "deleteState",
+            "moderationStatus",
+            "regionState",
+            "semanticRole",
+            "signalState"
+        ],
+        "queueMembership": {
+            "approved": "excluded",
+            "pending": "included-pending",
+            "rejected": "included-rejected",
+            "spam": "included-rejected"
+        },
+        "readModels": {
+            "approved": {
+                "admin": "visible-exact",
+                "public": "visible-exact"
+            },
+            "pending": {
+                "admin": "visible-exact",
+                "public": "hidden-exact"
+            },
+            "rejected": {
+                "admin": "visible-exact",
+                "public": "hidden-exact"
+            },
+            "spam": {
+                "admin": "visible-exact",
+                "public": "hidden-exact"
+            }
+        },
+        "softDelete": {
+            "childVisibility": "approved-children-remain-visible-with-placeholder-chain",
+            "physicalDelete": "forbidden",
+            "publicPlaceholder": "required-for-visible-descendants"
+        }
+    },
+    "capabilities": [
+        {
+            "id": "comment.actor.public",
+            "portId": "comment-thread-lifecycle",
+            "requiredRefs": [
+                "article.published",
+                "auth.user.active"
+            ],
+            "stateFields": [
+                "actorId",
+                "actorMode",
+                "commentId"
+            ],
+            "postconditions": [
+                "admin.actor-exact",
+                "database.actor-exact",
+                "public.actor-exact"
+            ],
+            "proofTests": [
+                "actor-canonical",
+                "actor-projection-parity"
+            ]
+        },
+        {
+            "id": "comment.actor.zk-anonymous",
+            "portId": "comment-thread-lifecycle",
+            "requiredRefs": [
+                "article.published",
+                "auth.zk-anonymous.active"
+            ],
+            "stateFields": [
+                "actorMode",
+                "commentId",
+                "publicIdentity"
+            ],
+            "postconditions": [
+                "admin.actor-exact",
+                "database.actor-exact",
+                "public.actor-exact"
+            ],
+            "proofTests": [
+                "actor-canonical",
+                "actor-private-credential-absent"
+            ]
+        },
+        {
+            "id": "comment.delete.reply",
+            "portId": "comment-thread-lifecycle",
+            "requiredRefs": [
+                "article.published",
+                "auth.user.active"
+            ],
+            "stateFields": [
+                "commentId",
+                "currentVersion",
+                "deleteState",
+                "history",
+                "parentId",
+                "rootId"
+            ],
+            "postconditions": [
+                "admin.deleted-reply-exact",
+                "cache.generation-exact",
+                "database.soft-delete-exact",
+                "public.deleted-reply-placeholder-exact"
+            ],
+            "proofTests": [
+                "deleted-reply-history",
+                "deleted-reply-not-physical"
+            ]
+        },
+        {
+            "id": "comment.delete.root",
+            "portId": "comment-thread-lifecycle",
+            "requiredRefs": [
+                "article.published",
+                "auth.user.active"
+            ],
+            "stateFields": [
+                "childIds",
+                "commentId",
+                "currentVersion",
+                "deleteState",
+                "history",
+                "rootId"
+            ],
+            "postconditions": [
+                "admin.deleted-root-exact",
+                "cache.generation-exact",
+                "database.soft-delete-exact",
+                "public.deleted-root-placeholder-chain-exact"
+            ],
+            "proofTests": [
+                "deleted-root-child-visible",
+                "deleted-root-history"
+            ]
+        },
+        {
+            "id": "comment.moderation.approved",
+            "portId": "comment-moderation-lifecycle",
+            "requiredRefs": [
+                "auth.admin.full-permission",
+                "comment.thread.root"
+            ],
+            "stateFields": [
+                "commentId",
+                "moderatedAt",
+                "moderationReason",
+                "moderationStatus",
+                "policyDigest"
+            ],
+            "postconditions": [
+                "admin.status-exact",
+                "cache.public-membership-exact",
+                "database.moderation-audit-exact",
+                "public.visible-exact",
+                "queue.membership-exact"
+            ],
+            "proofTests": [
+                "approved-public",
+                "approved-queue-excluded"
+            ]
+        },
+        {
+            "id": "comment.moderation.pending",
+            "portId": "comment-moderation-lifecycle",
+            "requiredRefs": [
+                "auth.admin.full-permission",
+                "comment.thread.root"
+            ],
+            "stateFields": [
+                "commentId",
+                "moderatedAt",
+                "moderationReason",
+                "moderationStatus",
+                "policyDigest"
+            ],
+            "postconditions": [
+                "admin.status-exact",
+                "cache.public-absence-exact",
+                "database.moderation-audit-exact",
+                "public.hidden-exact",
+                "queue.membership-exact"
+            ],
+            "proofTests": [
+                "pending-public-hidden",
+                "pending-queue-exact"
+            ]
+        },
+        {
+            "id": "comment.moderation.rejected",
+            "portId": "comment-moderation-lifecycle",
+            "requiredRefs": [
+                "auth.admin.full-permission",
+                "comment.thread.root"
+            ],
+            "stateFields": [
+                "commentId",
+                "moderatedAt",
+                "moderationReason",
+                "moderationStatus",
+                "policyDigest"
+            ],
+            "postconditions": [
+                "admin.status-exact",
+                "cache.public-absence-exact",
+                "database.moderation-audit-exact",
+                "public.hidden-exact",
+                "queue.membership-exact"
+            ],
+            "proofTests": [
+                "rejected-public-hidden",
+                "rejected-queue-exact"
+            ]
+        },
+        {
+            "id": "comment.moderation.spam",
+            "portId": "comment-moderation-lifecycle",
+            "requiredRefs": [
+                "auth.admin.full-permission",
+                "comment.thread.root"
+            ],
+            "stateFields": [
+                "classification",
+                "commentId",
+                "evidenceRef",
+                "moderationReason",
+                "moderationStatus",
+                "signalRef"
+            ],
+            "postconditions": [
+                "admin.signal-exact",
+                "database.evidence-exact",
+                "public.hidden-exact",
+                "queue.rejected-membership-exact"
+            ],
+            "proofTests": [
+                "spam-evidence-bound",
+                "spam-rejected-projection"
+            ]
+        },
+        {
+            "id": "comment.queue.exact-membership",
+            "portId": "comment-moderation-lifecycle",
+            "requiredRefs": [
+                "auth.admin.full-permission",
+                "comment.moderation.pending",
+                "comment.moderation.rejected",
+                "comment.moderation.spam"
+            ],
+            "stateFields": [
+                "bucket",
+                "commentIds",
+                "group",
+                "order",
+                "reason"
+            ],
+            "postconditions": [
+                "admin.queue-exact",
+                "database.queue-source-exact"
+            ],
+            "proofTests": [
+                "queue-no-count-shortcut",
+                "queue-no-first-row"
+            ]
+        },
+        {
+            "id": "comment.region.global",
+            "portId": "comment-moderation-lifecycle",
+            "requiredRefs": [
+                "comment.thread.root"
+            ],
+            "stateFields": [
+                "applicableRegions",
+                "commentId",
+                "decisionEvidence",
+                "policyDigest",
+                "policyVersion",
+                "regionCode"
+            ],
+            "postconditions": [
+                "admin.region-exact",
+                "database.region-evidence-exact",
+                "public.region-visibility-exact"
+            ],
+            "proofTests": [
+                "region-evidence-structured",
+                "region-policy-bound"
+            ]
+        },
+        {
+            "id": "comment.region.manual-review",
+            "portId": "comment-moderation-lifecycle",
+            "requiredRefs": [
+                "comment.thread.root"
+            ],
+            "stateFields": [
+                "commentId",
+                "decisionEvidence",
+                "policyDigest",
+                "policyVersion",
+                "regionCode",
+                "requiresManualReview"
+            ],
+            "postconditions": [
+                "admin.region-exact",
+                "database.region-evidence-exact",
+                "public.hidden-exact",
+                "queue.membership-exact"
+            ],
+            "proofTests": [
+                "region-manual-review",
+                "region-policy-bound"
+            ]
+        },
+        {
+            "id": "comment.signal.verified",
+            "portId": "comment-moderation-lifecycle",
+            "requiredRefs": [
+                "comment.thread.root"
+            ],
+            "stateFields": [
+                "classification",
+                "commentId",
+                "confidence",
+                "evidenceRef",
+                "provider",
+                "signalRef",
+                "version"
+            ],
+            "postconditions": [
+                "admin.signal-exact",
+                "database.evidence-exact",
+                "database.signal-exact"
+            ],
+            "proofTests": [
+                "signal-private-payload-absent",
+                "signal-provider-version-bound"
+            ]
+        },
+        {
+            "id": "comment.thread.depth-boundary",
+            "portId": "comment-thread-lifecycle",
+            "requiredRefs": [
+                "article.published",
+                "auth.user.active"
+            ],
+            "stateFields": [
+                "commentId",
+                "depth",
+                "parentId",
+                "rootId"
+            ],
+            "postconditions": [
+                "admin.relation-exact",
+                "database.depth-policy-exact",
+                "public.relation-exact"
+            ],
+            "proofTests": [
+                "depth-boundary-accepted",
+                "depth-overrun-rejected"
+            ]
+        },
+        {
+            "id": "comment.thread.nested",
+            "portId": "comment-thread-lifecycle",
+            "requiredRefs": [
+                "article.published",
+                "auth.user.active"
+            ],
+            "stateFields": [
+                "commentId",
+                "depth",
+                "parentId",
+                "replyToCommentId",
+                "rootId"
+            ],
+            "postconditions": [
+                "admin.relation-exact",
+                "database.relation-exact",
+                "public.relation-exact"
+            ],
+            "proofTests": [
+                "nested-public-order",
+                "nested-relation"
+            ]
+        },
+        {
+            "id": "comment.thread.reply",
+            "portId": "comment-thread-lifecycle",
+            "requiredRefs": [
+                "article.published",
+                "auth.user.active"
+            ],
+            "stateFields": [
+                "commentId",
+                "depth",
+                "parentId",
+                "replyToCommentId",
+                "rootId"
+            ],
+            "postconditions": [
+                "admin.relation-exact",
+                "database.relation-exact",
+                "public.relation-exact"
+            ],
+            "proofTests": [
+                "reply-parent-root",
+                "reply-target-exact"
+            ]
+        },
+        {
+            "id": "comment.thread.root",
+            "portId": "comment-thread-lifecycle",
+            "requiredRefs": [
+                "article.published",
+                "auth.user.active"
+            ],
+            "stateFields": [
+                "articleId",
+                "commentId",
+                "depth",
+                "parentId",
+                "replyToCommentId",
+                "rootId"
+            ],
+            "postconditions": [
+                "admin.relation-exact",
+                "database.relation-exact",
+                "public.relation-exact"
+            ],
+            "proofTests": [
+                "root-public-order",
+                "root-relation"
+            ]
+        },
+        {
+            "id": "comment.version.edited",
+            "portId": "comment-thread-lifecycle",
+            "requiredRefs": [
+                "article.published",
+                "auth.user.active"
+            ],
+            "stateFields": [
+                "commentId",
+                "contentDigest",
+                "currentVersion",
+                "editedAt",
+                "history",
+                "previousVersion"
+            ],
+            "postconditions": [
+                "admin.history-exact",
+                "cache.generation-exact",
+                "database.revision-exact",
+                "public.content-version-exact"
+            ],
+            "proofTests": [
+                "edit-history-current",
+                "edit-version-increment"
+            ]
+        }
+    ]
+}
