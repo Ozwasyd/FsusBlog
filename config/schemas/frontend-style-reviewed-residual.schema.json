@@ -1,0 +1,250 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsus.blog/schemas/frontend-style-reviewed-residual.schema.json",
+    "title": "Closed reviewed frontend style residual",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "status",
+        "reviewIssue",
+        "consumerIssue",
+        "reviewBaseCommit",
+        "reviewBaseProjectionSha256",
+        "priorConsumerProjectionSha256",
+        "pathCount",
+        "diagnosticCount",
+        "otherDiagnosticCount",
+        "ruleCounts",
+        "diagnosticSetSha256",
+        "reason",
+        "terminalCondition",
+        "entries"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.frontend-style-reviewed-residual.v1"
+        },
+        "status": {
+            "const": "closed-reviewed"
+        },
+        "reviewIssue": {
+            "const": 3191
+        },
+        "consumerIssue": {
+            "const": 3075
+        },
+        "reviewBaseCommit": {
+            "const": "e53f69945508205dd605bd85787f58f63e5f902c"
+        },
+        "reviewBaseProjectionSha256": {
+            "$ref": "#/$defs/sha256"
+        },
+        "priorConsumerProjectionSha256": {
+            "$ref": "#/$defs/sha256"
+        },
+        "pathCount": {
+            "const": 149
+        },
+        "diagnosticCount": {
+            "const": 329
+        },
+        "otherDiagnosticCount": {
+            "const": 0
+        },
+        "ruleCounts": {
+            "const": {
+                "eslint/import-x/no-relative-parent-imports": 329
+            }
+        },
+        "diagnosticSetSha256": {
+            "$ref": "#/$defs/sha256"
+        },
+        "reason": {
+            "type": "string",
+            "minLength": 24
+        },
+        "terminalCondition": {
+            "const": "complete-baseline-consumption-once"
+        },
+        "entries": {
+            "type": "array",
+            "minItems": 149,
+            "maxItems": 149,
+            "items": {
+                "$ref": "#/$defs/entry"
+            }
+        }
+    },
+    "$defs": {
+        "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+        },
+        "commit": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+        },
+        "ruleCounts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "eslint/import-x/no-relative-parent-imports"
+            ],
+            "properties": {
+                "eslint/import-x/no-relative-parent-imports": {
+                    "type": "integer",
+                    "minimum": 1
+                }
+            }
+        },
+        "diagnostic": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "line",
+                "column",
+                "endLine",
+                "endColumn",
+                "identity",
+                "messageSha256"
+            ],
+            "properties": {
+                "line": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "column": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "endLine": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "endColumn": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "identity": {
+                    "type": "string",
+                    "pattern": "^eslint:import-x/no-relative-parent-imports:(?:tests|tools)/.+:[1-9][0-9]*:[1-9][0-9]*:[0-9a-f]{16}$"
+                },
+                "messageSha256": {
+                    "$ref": "#/$defs/sha256"
+                }
+            }
+        },
+        "entry": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "path",
+                "sourceSha256",
+                "diagnosticCount",
+                "ruleCounts",
+                "diagnosticDigest",
+                "priorOwnerCommit",
+                "reviewIssue",
+                "consumerIssue",
+                "reviewBaseBaseline",
+                "priorConsumerBaseline",
+                "reason",
+                "terminalCondition",
+                "diagnostics"
+            ],
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "pattern": "^(?:tests|tools)/(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\*)(?!.*\\\\)[^\\s]+$"
+                },
+                "sourceSha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "diagnosticCount": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "ruleCounts": {
+                    "$ref": "#/$defs/ruleCounts"
+                },
+                "diagnosticDigest": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "priorOwnerCommit": {
+                    "$ref": "#/$defs/commit"
+                },
+                "reviewIssue": {
+                    "const": 3191
+                },
+                "consumerIssue": {
+                    "const": 3075
+                },
+                "reviewBaseBaseline": {
+                    "$ref": "#/$defs/nullableBaselineEntry"
+                },
+                "priorConsumerBaseline": {
+                    "$ref": "#/$defs/nullableBaselineEntry"
+                },
+                "reason": {
+                    "type": "string",
+                    "minLength": 24
+                },
+                "terminalCondition": {
+                    "const": "source-content-change-or-complete-consumption"
+                },
+                "diagnostics": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/$defs/diagnostic"
+                    }
+                }
+            }
+        },
+        "baselineEntry": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "path",
+                "sourceSha256",
+                "violationCount",
+                "violationDigest",
+                "rules"
+            ],
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "sourceSha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "violationCount": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "violationDigest": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "rules": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer",
+                        "minimum": 1
+                    }
+                }
+            }
+        },
+        "nullableBaselineEntry": {
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/baselineEntry"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        }
+    }
+}
