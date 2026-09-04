@@ -86,16 +86,27 @@ test('scanner authority exclusions are exact and cannot become wildcard suppress
 {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'evidence-location-authority-'));
     context.after(() => fs.rmSync(root, { recursive: true, force: true }));
-    const exact = 'tools/test/evidence-location-scanner.mjs';
-    const adjacent = 'tools/test/evidence-location-scanner-copy.mjs';
-    for (const file of [exact, adjacent])
+    const pairs = [
+        [
+            'tools/test/evidence-location-scanner.mjs',
+            'tools/test/evidence-location-scanner-copy.mjs'
+        ],
+        [
+            'config/testing/current-run-evidence-location-acceptance.json',
+            'config/testing/current-run-evidence-location-acceptance-copy.json'
+        ]
+    ];
+    for (const file of pairs.flat())
     {
         fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
         fs.writeFileSync(path.join(root, file), "const latestEvidence = 'latest.json';\n");
     }
-    const scan = scanEvidenceLocations({ root, files: [exact, adjacent] });
-    assert.equal(scan.findings.some((finding) => finding.file === exact), false);
-    assert.equal(scan.findings.some((finding) => finding.file === adjacent), true);
+    const scan = scanEvidenceLocations({ root, files: pairs.flat() });
+    for (const [exact, adjacent] of pairs)
+    {
+        assert.equal(scan.findings.some((finding) => finding.file === exact), false);
+        assert.equal(scan.findings.some((finding) => finding.file === adjacent), true);
+    }
 });
 
 test('generated repository registry and unique ledger match a fresh full-repository scan', () =>

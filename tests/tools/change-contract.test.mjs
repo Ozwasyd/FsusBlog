@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { delimiter, join, resolve } from 'node:path'
 import test from 'node:test'
@@ -494,6 +494,338 @@ function validatePostMergeRepairFixture(fixtureRepository) {
     })
 }
 
+function fixtureTrackedInputTreeDigest(repository, revision, excludedPaths) {
+    const excluded = new Set(excludedPaths)
+    const entries = execFileSync(
+        'git',
+        ['ls-tree', '-r', '-z', '--full-tree', revision],
+        { cwd: repository }
+    ).toString('utf8').split('\x00').filter(Boolean)
+    const hash = createHash('sha256')
+    for (const entry of entries) {
+        const match = entry.match(/^(?<mode>\d{6}) (?<type>[a-z]+) (?<object>[0-9a-f]{40})\t(?<path>.+)$/u)?.groups
+        if (excluded.has(match.path)) continue
+        hash.update(`${match.mode}\x00${match.type}\x00${match.object}\x00${match.path}\x00`)
+    }
+    return hash.digest('hex')
+}
+
+function replayRepairDagFixture(repository, revision) {
+    const temporaryRoot = mkdtempSync(join(tmpdir(), 'fsusblog-repair-dag-fixture-'))
+    const worktree = join(temporaryRoot, 'worktree')
+    try {
+        execFileSync('git', ['worktree', 'add', '--detach', worktree, revision], {
+            cwd: repository,
+            stdio: 'ignore',
+            env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }
+        })
+        execFileSync('node', ['tools/test/generate-evidence-location-governance.mjs'], { cwd: worktree })
+        execFileSync('node', ['tools/test/generate-current-run-evidence-location-acceptance.mjs'], { cwd: worktree })
+        const ledger = JSON.parse(readFileSync(
+            join(worktree, 'config/testing/evidence-location-migration-ledger.json'),
+            'utf8'
+        ))
+        const outputs = new Map([
+            'config/testing/evidence-locator-registry.json',
+            'config/testing/evidence-location-migration-ledger.json',
+            'config/testing/current-run-evidence-location-acceptance.json'
+        ].map((path) => [path, fileSha256(worktree, path)]))
+        return {
+            outputs,
+            projection: {
+                revision,
+                findingCount: ledger.entries?.length ?? 0,
+                sha256: /^sha256:[0-9a-f]{64}$/u.test(ledger.scanDigest ?? '')
+                    ? ledger.scanDigest.slice('sha256:'.length)
+                    : '0'.repeat(64)
+            }
+        }
+    } finally {
+        execFileSync('git', ['worktree', 'remove', '--force', worktree], {
+            cwd: repository,
+            stdio: 'ignore',
+            env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }
+        })
+        rmSync(temporaryRoot, { recursive: true, force: true })
+    }
+}
+
+function createPostMergeRepairDagFixture({
+    mutateManifest = null,
+    producerFault = null,
+    eventProtectedMutation = null,
+    supersedeSource = false,
+    secondEvent = false,
+    sourceRevisionMode = 'single'
+} = {}) {
+    const repository = mkdtempSync(join(tmpdir(), 'fsusblog-post-merge-generated-repair-dag-'))
+    execFileSync('git', ['init', '-q', '-b', 'master'], { cwd: repository })
+    execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: repository })
+    execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: repository })
+    writeRepositoryFile(repository, 'semantic-source.txt', 'synchronized\n')
+    writeRepositoryFile(repository, 'tools/test/evidence-location-contract.mjs', 'export const fixture = true\n')
+    writeRepositoryFile(repository, 'tools/test/evidence-location-scanner.mjs', 'export const fixture = true\n')
+    writeRepositoryFile(repository, 'tools/test/generate-evidence-location-governance.mjs', `
+import { createHash } from 'node:crypto'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+const source = readFileSync('semantic-source.txt', 'utf8').trim()
+const digest = createHash('sha256').update(source).digest('hex')
+mkdirSync('config/testing', { recursive: true })
+writeFileSync('config/testing/evidence-locator-registry.json', JSON.stringify({ stable: true }) + '\\n')
+writeFileSync('config/testing/evidence-location-migration-ledger.json', JSON.stringify({ scanDigest: 'sha256:' + digest, entries: source.split(',').map((id) => ({ id })) }) + '\\n')
+${producerFault === 'future-output' ? "if (source.includes('event')) writeFileSync('config/testing/current-run-evidence-location-acceptance.json', JSON.stringify({ premature: true }) + '\\n')" : ''}
+${producerFault === 'unexpected-write' ? "if (source.includes('event')) writeFileSync('unexpected-output.txt', 'unexpected\\n')" : ''}
+${producerFault === 'ignored-write' ? "if (source.includes('event')) { mkdirSync('.tmp', { recursive: true }); writeFileSync('.tmp/unexpected.txt', 'unexpected\\n') }" : ''}
+${producerFault === 'nondeterministic' ? "if (source.includes('event')) writeFileSync('config/testing/evidence-location-migration-ledger.json', JSON.stringify({ scanDigest: 'sha256:' + digest, entries: [{ id: String(Math.random()) }] }) + '\\n')" : ''}
+`.trimStart())
+    writeRepositoryFile(repository, 'tools/test/generate-current-run-evidence-location-acceptance.mjs', `
+import { createHash } from 'node:crypto'
+import { readFileSync, writeFileSync } from 'node:fs'
+const ledger = readFileSync('config/testing/evidence-location-migration-ledger.json')
+writeFileSync('config/testing/current-run-evidence-location-acceptance.json', JSON.stringify({ ledgerSha256: ${producerFault === 'no-consume' ? "'constant'" : "createHash('sha256').update(ledger).digest('hex')"} }) + '\\n')
+${producerFault === 'later-overwrite' ? "if (readFileSync('semantic-source.txt', 'utf8').includes('event')) writeFileSync('config/testing/evidence-location-migration-ledger.json', JSON.stringify({ overwritten: true }) + '\\n')" : ''}
+`.trimStart())
+    if (producerFault === 'ignored-write') writeRepositoryFile(repository, '.gitignore', '.tmp/\n')
+    execFileSync('node', ['tools/test/generate-evidence-location-governance.mjs'], { cwd: repository })
+    execFileSync('node', ['tools/test/generate-current-run-evidence-location-acceptance.mjs'], { cwd: repository })
+    commitFixture(repository, 'fixture baseline')
+
+    execFileSync('git', ['checkout', '-qb', 'synchronized'], { cwd: repository })
+    writeRepositoryFile(repository, 'semantic-source.txt', 'synchronized,anchor\n')
+    execFileSync('node', ['tools/test/generate-evidence-location-governance.mjs'], { cwd: repository })
+    execFileSync('node', ['tools/test/generate-current-run-evidence-location-acceptance.mjs'], { cwd: repository })
+    const synchronizedRevision = commitFixture(repository, 'fixture synchronized graph revision')
+    execFileSync('git', ['checkout', '-q', 'master'], { cwd: repository })
+    execFileSync('git', [
+        'merge', '--no-ff', '-qm',
+        'Merge pull request #4001 from fixture/synchronized',
+        'synchronized'
+    ], { cwd: repository })
+    const synchronizedMergeCommit = execFileSync(
+        'git', ['rev-parse', 'HEAD'], { cwd: repository, encoding: 'utf8' }
+    ).trim()
+
+    execFileSync('git', ['checkout', '-qb', 'source-event'], { cwd: repository })
+    writeRepositoryFile(repository, 'semantic-source.txt', 'synchronized,anchor,event\n')
+    if (eventProtectedMutation === 'output') {
+        writeRepositoryFile(repository, 'config/testing/evidence-location-migration-ledger.json', '{"tampered":true}\n')
+    }
+    if (eventProtectedMutation === 'closure') {
+        writeRepositoryFile(repository, 'tools/test/evidence-location-scanner.mjs', 'export const fixture = false\n')
+    }
+    execFileSync('git', ['add', '.'], { cwd: repository })
+    const sourceTree = execFileSync('git', ['write-tree'], { cwd: repository, encoding: 'utf8' }).trim()
+    let sourceRevision
+    if (sourceRevisionMode === 'single') {
+        sourceRevision = commitFixture(repository, 'fixture omitted generated graph outputs')
+    } else {
+        const rootRevision = execFileSync(
+            'git',
+            ['rev-list', '--max-parents=0', 'HEAD'],
+            { cwd: repository, encoding: 'utf8' }
+        ).trim()
+        if (sourceRevisionMode === 'wrong-parent') {
+            sourceRevision = commitTreeFixture(
+                repository,
+                sourceTree,
+                [synchronizedMergeCommit, synchronizedRevision],
+                'fixture wrong-parent generated graph source'
+            )
+            execFileSync('git', ['update-ref', 'refs/heads/source-event', sourceRevision], { cwd: repository })
+        } else if (sourceRevisionMode === 'multi-parent') {
+            sourceRevision = commitTreeFixture(
+                repository,
+                sourceTree,
+                [synchronizedMergeCommit, synchronizedRevision, rootRevision],
+                'fixture multi-parent generated graph source'
+            )
+            execFileSync('git', ['update-ref', 'refs/heads/source-event', sourceRevision], { cwd: repository })
+        } else if (sourceRevisionMode === 'side-parent') {
+            sourceRevision = commitTreeFixture(
+                repository,
+                sourceTree,
+                [synchronizedMergeCommit],
+                'fixture side-parent generated graph source'
+            )
+            const synchronizedTree = execFileSync(
+                'git',
+                ['rev-parse', `${synchronizedMergeCommit}^{tree}`],
+                { cwd: repository, encoding: 'utf8' }
+            ).trim()
+            const primaryRevision = commitTreeFixture(
+                repository,
+                synchronizedTree,
+                [synchronizedMergeCommit],
+                'fixture primary source branch'
+            )
+            const sideMerge = commitTreeFixture(
+                repository,
+                sourceTree,
+                [primaryRevision, sourceRevision],
+                'fixture source hidden on side parent'
+            )
+            execFileSync('git', ['update-ref', 'refs/heads/source-event', sideMerge], { cwd: repository })
+        } else {
+            throw new Error(`unknown sourceRevisionMode fixture: ${sourceRevisionMode}`)
+        }
+    }
+    if (supersedeSource) {
+        writeRepositoryFile(repository, 'semantic-source.txt', 'synchronized,anchor,event,superseded\n')
+        commitFixture(repository, 'fixture superseding source event')
+    }
+    execFileSync('git', ['checkout', '-q', 'master'], { cwd: repository })
+    execFileSync('git', [
+        'merge', '--no-ff', '-qm',
+        'Merge pull request #4002 from fixture/source-event',
+        'source-event'
+    ], { cwd: repository })
+    let base = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repository, encoding: 'utf8' }).trim()
+    const sourceEvents = [{
+        sourceRevision,
+        mergedPullRequest: 4002,
+        mergeCommit: base
+    }]
+    if (secondEvent) {
+        execFileSync('git', ['checkout', '-qb', 'source-event-2'], { cwd: repository })
+        writeRepositoryFile(repository, 'semantic-source.txt', 'synchronized,anchor,event,event-2\n')
+        const secondSourceRevision = commitFixture(repository, 'fixture second omitted generated graph outputs')
+        execFileSync('git', ['checkout', '-q', 'master'], { cwd: repository })
+        execFileSync('git', [
+            'merge', '--no-ff', '-qm',
+            'Merge pull request #4003 from fixture/source-event-2',
+            'source-event-2'
+        ], { cwd: repository })
+        base = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repository, encoding: 'utf8' }).trim()
+        sourceEvents.push({
+            sourceRevision: secondSourceRevision,
+            mergedPullRequest: 4003,
+            mergeCommit: base
+        })
+    }
+
+    const manifestPath = 'artifacts/change-contract/evidence-location-repair-dag.json'
+    const graphOutputs = [
+        'config/testing/evidence-locator-registry.json',
+        'config/testing/evidence-location-migration-ledger.json',
+        'config/testing/current-run-evidence-location-acceptance.json'
+    ]
+    const synchronizedReplay = replayRepairDagFixture(repository, synchronizedRevision)
+    const baseReplay = replayRepairDagFixture(repository, base)
+    const baseDigests = new Map(graphOutputs.map((path) => [path, fileSha256(repository, path)]))
+    execFileSync('git', ['checkout', '-qb', 'candidate'], { cwd: repository })
+    execFileSync('node', ['tools/test/generate-evidence-location-governance.mjs'], { cwd: repository })
+    execFileSync('node', ['tools/test/generate-current-run-evidence-location-acceptance.mjs'], { cwd: repository })
+    const closure = (paths) => paths.map((path) => ({
+        path,
+        baseSha256: fileSha256(repository, path),
+        currentSha256: fileSha256(repository, path)
+    }))
+    const manifest = {
+        schema: changeContract.evidenceSchemas.postMergeGeneratedOutputRepairDag,
+        producerId: 'evidence-location-governance',
+        synchronizedRevision,
+        synchronizedPullRequest: 4001,
+        synchronizedMergeCommit,
+        baseCommit: base,
+        inputTree: {
+            synchronizedSha256: fixtureTrackedInputTreeDigest(repository, synchronizedRevision, [
+                ...graphOutputs,
+                manifestPath
+            ]),
+            baseSha256: fixtureTrackedInputTreeDigest(repository, base, [...graphOutputs, manifestPath]),
+            currentSha256: fixtureTrackedInputTreeDigest(repository, base, [...graphOutputs, manifestPath])
+        },
+        sourceProjection: {
+            projectionId: 'fsusblog.evidence-location-scan.v1',
+            synchronized: synchronizedReplay.projection,
+            base: baseReplay.projection,
+            current: baseReplay.projection
+        },
+        sourceEvents,
+        steps: [
+            {
+                id: 'evidence-location-governance',
+                command: 'node tools/test/generate-evidence-location-governance.mjs',
+                executable: 'node',
+                arguments: ['tools/test/generate-evidence-location-governance.mjs'],
+                dependsOn: [],
+                consumes: [],
+                generatorClosure: closure([
+                    'tools/test/evidence-location-contract.mjs',
+                    'tools/test/evidence-location-scanner.mjs',
+                    'tools/test/generate-evidence-location-governance.mjs'
+                ]),
+                outputs: graphOutputs.slice(0, 2)
+            },
+            {
+                id: 'current-run-evidence-location-acceptance',
+                command: 'node tools/test/generate-current-run-evidence-location-acceptance.mjs',
+                executable: 'node',
+                arguments: ['tools/test/generate-current-run-evidence-location-acceptance.mjs'],
+                dependsOn: ['evidence-location-governance'],
+                consumes: ['config/testing/evidence-location-migration-ledger.json'],
+                generatorClosure: closure([
+                    'tools/test/evidence-location-contract.mjs',
+                    'tools/test/evidence-location-scanner.mjs',
+                    'tools/test/generate-evidence-location-governance.mjs',
+                    'tools/test/generate-current-run-evidence-location-acceptance.mjs'
+                ]),
+                outputs: graphOutputs.slice(2)
+            }
+        ],
+        outputs: graphOutputs.map((path) => {
+            const baseSha256 = baseDigests.get(path)
+            const expectedSha256 = baseReplay.outputs.get(path)
+            const repairRequired = baseSha256 !== expectedSha256
+            return {
+                path,
+                repairRequired,
+                changed: repairRequired,
+                baseSha256,
+                expectedSha256,
+                currentSha256: fileSha256(repository, path)
+            }
+        })
+    }
+    if (mutateManifest) mutateManifest(manifest, repository)
+    writeRepositoryFile(repository, manifestPath, `${JSON.stringify(manifest, null, 4)}\n`)
+    const head = commitFixture(repository, 'fixture generated repair DAG candidate')
+    return { repository, base, head, manifest, manifestPath }
+}
+
+function validatePostMergeRepairDagFixture(fixtureRepository) {
+    return validatePrContract({
+        title: 'chore(governance): repair omitted evidence location projections',
+        body: pullRequestBody({
+            type: 'chore',
+            generated: true,
+            audience: 'internal',
+            category: 'Internal/Tooling',
+            summary: 'repair omitted evidence location projections',
+            generatorSource: [
+                'tools/test/generate-evidence-location-governance.mjs',
+                'tools/test/generate-current-run-evidence-location-acceptance.mjs'
+            ].join(', '),
+            generatedOutputs: [
+                'config/testing/evidence-location-migration-ledger.json',
+                'config/testing/current-run-evidence-location-acceptance.json'
+            ].join(', '),
+            generatedDigest: fixtureRepository.manifestPath
+        }),
+        labels: ['release-note:internal'],
+        actor: 'maintainer',
+        changedFiles: changedFilesBetween(
+            fixtureRepository.repository,
+            fixtureRepository.base,
+            fixtureRepository.head
+        ),
+        root: fixtureRepository.repository,
+        base: fixtureRepository.base,
+        head: fixtureRepository.head,
+        authorityRoot: null
+    })
+}
+
 function postMergeExternalNamingRepairBody() {
     return pullRequestBody({
         type: 'fix',
@@ -655,6 +987,14 @@ test('registry is the unique ordered type/scope source consumed by commitlint', 
         repairSchema.properties.schema.const,
         changeContract.evidenceSchemas.postMergeGeneratedOutputRepair
     )
+    const repairDagSchema = JSON.parse(readFileSync(
+        resolve(root, 'config/schemas/post-merge-generated-output-repair-dag.schema.json'),
+        'utf8'
+    ))
+    assert.equal(
+        repairDagSchema.properties.schema.const,
+        changeContract.evidenceSchemas.postMergeGeneratedOutputRepairDag
+    )
     assert.deepEqual(changeContract.generatedOutputRepairProducers[1], {
         id: 'backend-evidence-path-authority',
         source: 'tests/matrix.yml',
@@ -680,6 +1020,31 @@ test('registry is the unique ordered type/scope source consumed by commitlint', 
     assert.deepEqual(changeContract.generatedOutputRepairProducers.map((entry) => entry.id), [
         'testing-docs',
         'backend-evidence-path-authority'
+    ])
+    assert.deepEqual(changeContract.generatedOutputRepairDags.map((entry) => entry.id), [
+        'evidence-location-governance'
+    ])
+    assert.deepEqual(changeContract.generatedOutputRepairDags[0].steps.map((step) => ({
+        id: step.id,
+        dependsOn: step.dependsOn,
+        consumes: step.consumes,
+        outputs: step.outputs
+    })), [
+        {
+            id: 'evidence-location-governance',
+            dependsOn: [],
+            consumes: [],
+            outputs: [
+                'config/testing/evidence-locator-registry.json',
+                'config/testing/evidence-location-migration-ledger.json'
+            ]
+        },
+        {
+            id: 'current-run-evidence-location-acceptance',
+            dependsOn: ['evidence-location-governance'],
+            consumes: ['config/testing/evidence-location-migration-ledger.json'],
+            outputs: ['config/testing/current-run-evidence-location-acceptance.json']
+        }
     ])
 })
 
@@ -1299,6 +1664,282 @@ test('post-merge generated repair rejects changed sources, unchanged outputs, an
     assert.ok(validatePostMergeRepairFixture(tampered).some(
         (error) => error.includes('output bytes are not canonical')
     ))
+})
+
+test('post-merge generated repair DAG binds an ordered sealed range and canonical fixed point', () => {
+    const repair = createPostMergeRepairDagFixture()
+    assert.deepEqual(validatePostMergeRepairDagFixture(repair), [])
+    const multiple = createPostMergeRepairDagFixture({ secondEvent: true })
+    assert.deepEqual(validatePostMergeRepairDagFixture(multiple), [])
+})
+
+test('post-merge generated repair DAG requires the complete ordered source event range', () => {
+    for (const [name, mutate] of [
+        ['reordered', (manifest) => manifest.sourceEvents.reverse()],
+        ['missing', (manifest) => manifest.sourceEvents.pop()],
+        ['extra', (manifest) => manifest.sourceEvents.push(structuredClone(manifest.sourceEvents[1]))]
+    ]) {
+        const repair = createPostMergeRepairDagFixture({ secondEvent: true, mutateManifest: mutate })
+        assert.match(
+            validatePostMergeRepairDagFixture(repair).join('\n'),
+            /sourceEvents omit, duplicate, or reorder canonical transitions/u,
+            name
+        )
+    }
+})
+
+test('post-merge generated repair DAG rejects wrong, multi-parent, and side-parent source topology', () => {
+    for (const [mode, pattern] of [
+        ['wrong-parent', /invalid parent topology/u],
+        ['multi-parent', /invalid parent topology/u],
+        ['side-parent', /outside its named merge head/u]
+    ]) {
+        const repair = createPostMergeRepairDagFixture({ sourceRevisionMode: mode })
+        assert.match(validatePostMergeRepairDagFixture(repair).join('\n'), pattern, mode)
+    }
+})
+
+test('post-merge generated repair DAG rejects untrusted structure and stale sealed bindings', () => {
+    const cases = [
+        {
+            name: 'unknown graph',
+            mutate: (manifest) => { manifest.producerId = 'unknown-graph' },
+            pattern: /not trusted/u
+        },
+        {
+            name: 'reordered steps',
+            mutate: (manifest) => { manifest.steps.reverse() },
+            pattern: /step identity must match|generatorClosure must match/u
+        },
+        {
+            name: 'missing step',
+            mutate: (manifest) => { manifest.steps.pop() },
+            pattern: /steps must exactly match/u
+        },
+        {
+            name: 'extra step',
+            mutate: (manifest) => { manifest.steps.push(structuredClone(manifest.steps[1])) },
+            pattern: /steps must exactly match/u
+        },
+        {
+            name: 'unknown execution identity',
+            mutate: (manifest) => {
+                manifest.steps[0].command = 'node unknown.mjs'
+                manifest.steps[0].executable = 'unknown'
+                manifest.steps[0].arguments = ['unknown.mjs']
+            },
+            pattern: /step identity must match|arguments must match/u
+        },
+        {
+            name: 'missing dependency consumption',
+            mutate: (manifest) => { manifest.steps[1].consumes = [] },
+            pattern: /consumes must match/u
+        },
+        {
+            name: 'forged closure digest',
+            mutate: (manifest) => { manifest.steps[0].generatorClosure[0].baseSha256 = '0'.repeat(64) },
+            pattern: /generator closure changed or is stale/u
+        },
+        {
+            name: 'wrong output roster and flags',
+            mutate: (manifest) => {
+                manifest.outputs.reverse()
+                manifest.outputs[0].changed = false
+                manifest.outputs[0].repairRequired = false
+            },
+            pattern: /outputs must exactly match|repair\/change flags are wrong/u
+        },
+        {
+            name: 'missing output',
+            mutate: (manifest) => { manifest.outputs.pop() },
+            pattern: /outputs must exactly match/u
+        },
+        {
+            name: 'extra output',
+            mutate: (manifest) => {
+                manifest.outputs.push({
+                    ...structuredClone(manifest.outputs[0]),
+                    path: 'config/testing/untrusted-extra.json'
+                })
+            },
+            pattern: /outputs must exactly match/u
+        },
+        {
+            name: 'stale input tree and projection',
+            mutate: (manifest) => {
+                manifest.inputTree.baseSha256 = '1'.repeat(64)
+                manifest.sourceProjection.base.sha256 = '2'.repeat(64)
+            },
+            pattern: /tracked input tree binding is stale|semantic source projection binding is stale/u
+        },
+        {
+            name: 'duplicate event',
+            mutate: (manifest) => { manifest.sourceEvents.push(structuredClone(manifest.sourceEvents[0])) },
+            pattern: /omit, duplicate, or reorder/u
+        },
+        {
+            name: 'event cap',
+            mutate: (manifest) => {
+                manifest.sourceEvents = Array.from(
+                    { length: 65 },
+                    () => structuredClone(manifest.sourceEvents[0])
+                )
+            },
+            pattern: /must contain 1 to 64 entries/u
+        },
+        {
+            name: 'wrong pull request',
+            mutate: (manifest) => { manifest.sourceEvents[0].mergedPullRequest += 1 },
+            pattern: /source event identity is invalid/u
+        },
+        {
+            name: 'candidate input mutation',
+            mutate: (_manifest, repository) => { writeRepositoryFile(repository, 'candidate-extra.txt', 'extra\n') },
+            pattern: /candidate changed tracked inputs or policy|candidate contains unrelated changes/u
+        },
+        {
+            name: 'candidate policy mutation',
+            mutate: (_manifest, repository) => {
+                writeRepositoryFile(
+                    repository,
+                    'tools/test/evidence-location-scanner.mjs',
+                    'export const fixture = "candidate mutation"\n'
+                )
+            },
+            pattern: /candidate changed tracked inputs or policy|generator closure changed or is stale/u
+        },
+        {
+            name: 'tampered output',
+            mutate: (_manifest, repository) => {
+                writeRepositoryFile(
+                    repository,
+                    'config/testing/current-run-evidence-location-acceptance.json',
+                    '{"tampered":true}\n'
+                )
+            },
+            pattern: /candidate must be a canonical fixed point|output is not canonical/u
+        },
+        {
+            name: 'symlink output',
+            mutate: (_manifest, repository) => {
+                const output = join(repository, 'config/testing/current-run-evidence-location-acceptance.json')
+                unlinkSync(output)
+                symlinkSync('../../semantic-source.txt', output)
+            },
+            pattern: /not one canonical regular file/u
+        }
+    ]
+    for (const entry of cases) {
+        const repair = createPostMergeRepairDagFixture({ mutateManifest: entry.mutate })
+        assert.match(validatePostMergeRepairDagFixture(repair).join('\n'), entry.pattern, entry.name)
+    }
+})
+
+test('post-merge generated repair DAG rejects producer write, dependency, and history violations', () => {
+    const cases = [
+        {
+            name: 'future step output',
+            options: { producerFault: 'future-output' },
+            pattern: /producer step wrote another step's output/u
+        },
+        {
+            name: 'unexpected untracked output',
+            options: { producerFault: 'unexpected-write' },
+            pattern: /producer DAG wrote unregistered outputs/u
+        },
+        {
+            name: 'unexpected ignored output',
+            options: { producerFault: 'ignored-write' },
+            pattern: /producer DAG wrote unregistered outputs/u
+        },
+        {
+            name: 'later overwrite',
+            options: { producerFault: 'later-overwrite' },
+            pattern: /producer step wrote another step's output/u
+        },
+        {
+            name: 'declared but unconsumed dependency',
+            options: { producerFault: 'no-consume' },
+            pattern: /does not consume its declared dependency output/u
+        },
+        {
+            name: 'non-deterministic producer',
+            options: { producerFault: 'nondeterministic' },
+            pattern: /not fixed-point|not deterministic/u
+        },
+        {
+            name: 'event output mutation',
+            options: { eventProtectedMutation: 'output' },
+            pattern: /history changed outputs or policy closure/u
+        },
+        {
+            name: 'event closure mutation',
+            options: { eventProtectedMutation: 'closure' },
+            pattern: /history changed outputs or policy closure|generator closure changed or is stale/u
+        },
+        {
+            name: 'superseded event source',
+            options: { supersedeSource: true },
+            pattern: /was superseded/u
+        }
+    ]
+    for (const entry of cases) {
+        const repair = createPostMergeRepairDagFixture(entry.options)
+        assert.match(validatePostMergeRepairDagFixture(repair).join('\n'), entry.pattern, entry.name)
+    }
+})
+
+test('post-merge generated repair DAG ignores replacement refs for anchors, events, trees, and blobs', () => {
+    const revisions = [
+        ['synchronizedRevision'],
+        ['synchronizedMergeCommit'],
+        ['sourceEvents', 0, 'sourceRevision'],
+        ['sourceEvents', 0, 'mergeCommit']
+    ]
+    for (const path of revisions) {
+        const repair = createPostMergeRepairDagFixture()
+        const original = path.reduce((value, key) => value[key], repair.manifest)
+        const replacement = execFileSync(
+            'git',
+            ['rev-list', '--max-parents=0', 'HEAD'],
+            { cwd: repair.repository, encoding: 'utf8' }
+        ).trim()
+        execFileSync('git', ['replace', original, replacement], { cwd: repair.repository })
+        assert.deepEqual(validatePostMergeRepairDagFixture(repair), [], path.join('.'))
+    }
+
+    const blobRepair = createPostMergeRepairDagFixture()
+    const originalBlob = execFileSync(
+        'git',
+        ['rev-parse', `${blobRepair.base}:semantic-source.txt`],
+        { cwd: blobRepair.repository, encoding: 'utf8' }
+    ).trim()
+    const replacementBlob = execFileSync(
+        'git',
+        ['hash-object', '-w', '--stdin'],
+        { cwd: blobRepair.repository, encoding: 'utf8', input: 'replacement source bytes\n' }
+    ).trim()
+    execFileSync('git', ['replace', originalBlob, replacementBlob], { cwd: blobRepair.repository })
+    assert.deepEqual(validatePostMergeRepairDagFixture(blobRepair), [], 'source blob')
+
+    const treeRepair = createPostMergeRepairDagFixture()
+    const originalTree = execFileSync(
+        'git',
+        ['rev-parse', `${treeRepair.base}^{tree}`],
+        { cwd: treeRepair.repository, encoding: 'utf8' }
+    ).trim()
+    const rootRevision = execFileSync(
+        'git',
+        ['rev-list', '--max-parents=0', 'HEAD'],
+        { cwd: treeRepair.repository, encoding: 'utf8' }
+    ).trim()
+    const replacementTree = execFileSync(
+        'git',
+        ['rev-parse', `${rootRevision}^{tree}`],
+        { cwd: treeRepair.repository, encoding: 'utf8' }
+    ).trim()
+    execFileSync('git', ['replace', originalTree, replacementTree], { cwd: treeRepair.repository })
+    assert.deepEqual(validatePostMergeRepairDagFixture(treeRepair), [], 'base tree')
 })
 
 test('post-merge external naming repair binds exact history, source identity, surface, and missing artifact', () => {

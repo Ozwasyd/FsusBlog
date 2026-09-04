@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { appendFileSync, existsSync, lstatSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -293,6 +293,10 @@ function sameStrings(left, right) {
         && [...left].sort().every((value, index) => value === [...right].sort()[index])
 }
 
+function sameStringSequence(left, right) {
+    return left.length === right.length && left.every((value, index) => value === right[index])
+}
+
 function exactRevisionGitOptions(root, options = {}) {
     return {
         ...options,
@@ -431,6 +435,14 @@ function gitRevisionIsAncestor(root, ancestor, descendant) {
     }
 }
 
+function gitMergeBase(root, left, right) {
+    return execFileSync(
+        'git',
+        ['merge-base', left, right],
+        exactRevisionGitOptions(root, { encoding: 'utf8' })
+    ).trim()
+}
+
 function gitFirstParentChainIncludes(root, revision, descendant) {
     return execFileSync(
         'git',
@@ -534,6 +546,632 @@ function replayGeneratedOutput(root, revision, producer) {
         }
         rmSync(temporaryRoot, { recursive: true, force: true })
         if (cleanupError) throw cleanupError
+    }
+}
+
+function trackedInputTreeDigest(root, revision, excludedPaths) {
+    const excluded = new Set(excludedPaths)
+    const entries = execFileSync(
+        'git',
+        ['ls-tree', '-r', '-z', '--full-tree', revision],
+        exactRevisionGitOptions(root)
+    ).toString('utf8').split('\x00').filter(Boolean)
+    const hash = createHash('sha256')
+    for (const entry of entries) {
+        const parsed = entry.match(/^(?<mode>\d{6}) (?<type>[a-z]+) (?<object>[0-9a-f]{40})\t(?<path>.+)$/u)?.groups
+        if (!parsed || !repositoryPathPattern.test(parsed.path)) {
+            throw new Error(`tracked input tree contains an invalid Git entry: ${entry}`)
+        }
+        if (excluded.has(parsed.path)) continue
+        hash.update(parsed.mode)
+        hash.update('\x00')
+        hash.update(parsed.type)
+        hash.update('\x00')
+        hash.update(parsed.object)
+        hash.update('\x00')
+        hash.update(parsed.path)
+        hash.update('\x00')
+    }
+    return hash.digest('hex')
+}
+
+function worktreeChangedPaths(worktree) {
+    const modified = execFileSync(
+        'git',
+        ['diff', '--name-only', '-z', '--'],
+        exactRevisionGitOptions(worktree)
+    ).toString('utf8').split('\x00').filter(Boolean)
+    const untracked = execFileSync(
+        'git',
+        ['ls-files', '--others', '--exclude-standard', '-z'],
+        exactRevisionGitOptions(worktree)
+    ).toString('utf8').split('\x00').filter(Boolean)
+    const ignored = execFileSync(
+        'git',
+        ['ls-files', '--others', '--ignored', '--exclude-standard', '-z'],
+        exactRevisionGitOptions(worktree)
+    ).toString('utf8').split('\x00').filter(Boolean)
+    return [...new Set([...modified, ...untracked, ...ignored])]
+}
+
+function worktreeOutputState(worktree, path) {
+    const lexicalRoot = resolve(worktree)
+    const lexicalPath = resolve(worktree, path)
+    if (lexicalPath !== lexicalRoot && !lexicalPath.startsWith(`${lexicalRoot}/`)) {
+        throw new Error(`producer DAG output escapes its worktree: ${path}`)
+    }
+    if (!existsSync(lexicalPath)) return { exists: false }
+    const physicalRoot = realpathSync(lexicalRoot)
+    const physicalPath = realpathSync(lexicalPath)
+    const stat = lstatSync(lexicalPath)
+    if (physicalPath !== lexicalPath || !stat.isFile() || stat.isSymbolicLink()) {
+        throw new Error(`producer DAG output is not one canonical regular file: ${path}`)
+    }
+    if (physicalPath !== physicalRoot && !physicalPath.startsWith(`${physicalRoot}/`)) {
+        throw new Error(`producer DAG output resolves outside its worktree: ${path}`)
+    }
+    return {
+        exists: true,
+        mode: stat.mode & 0o777,
+        sha256: createHash('sha256').update(readFileSync(lexicalPath)).digest('hex')
+    }
+}
+
+function replayGeneratedOutputDag(root, revision, graph) {
+    const temporaryRoot = mkdtempSync(join(tmpdir(), 'fsusblog-generated-output-repair-dag-'))
+    const worktree = join(temporaryRoot, 'worktree')
+    const graphOutputs = graph.steps.flatMap((step) => step.outputs)
+    try {
+        execFileSync(
+            'git',
+            ['worktree', 'add', '--detach', worktree, revision],
+            exactRevisionGitOptions(root, { stdio: 'ignore' })
+        )
+        const runPass = () => {
+            for (const step of graph.steps) {
+                const before = new Map(graphOutputs.map((path) => [
+                    path,
+                    worktreeOutputState(worktree, path)
+                ]))
+                execFileSync(step.executable, step.arguments, {
+                    cwd: worktree,
+                    env: {
+                        ...process.env,
+                        FSUSBLOG_DOCS_EVIDENCE_DIR: join(temporaryRoot, 'evidence'),
+                        GIT_NO_REPLACE_OBJECTS: '1',
+                        LANG: 'C.UTF-8',
+                        LC_ALL: 'C.UTF-8',
+                        TZ: 'UTC'
+                    },
+                    stdio: 'pipe',
+                    timeout: 120_000,
+                    maxBuffer: revisionBlobMaximumBytes
+                })
+                const outputDelta = graphOutputs.filter((path) => (
+                    JSON.stringify(before.get(path)) !== JSON.stringify(worktreeOutputState(worktree, path))
+                ))
+                const unexpectedOutputDelta = outputDelta.filter((path) => !step.outputs.includes(path))
+                if (unexpectedOutputDelta.length > 0) {
+                    throw new Error(`producer step wrote another step's output: ${step.id}: ${unexpectedOutputDelta.join(', ')}`)
+                }
+                const unexpected = worktreeChangedPaths(worktree)
+                    .filter((path) => !graphOutputs.includes(path))
+                if (unexpected.length > 0) {
+                    throw new Error(`producer DAG wrote unregistered outputs: ${unexpected.join(', ')}`)
+                }
+            }
+        }
+        runPass()
+        const firstPassStates = new Map(graphOutputs.map((path) => [
+            path,
+            worktreeOutputState(worktree, path)
+        ]))
+        runPass()
+        for (const [path, state] of firstPassStates) {
+            if (JSON.stringify(worktreeOutputState(worktree, path)) !== JSON.stringify(state)) {
+                throw new Error(`producer DAG is not fixed-point after one ordered pass: ${path}`)
+            }
+        }
+        const projectionDocument = JSON.parse(readFileSync(
+            resolve(worktree, graph.semanticProjection.output),
+            'utf8'
+        ))
+        const projectionDigest = projectionDocument[graph.semanticProjection.digestField]
+        const projectionEntries = projectionDocument[graph.semanticProjection.entriesField]
+        if (!/^sha256:[0-9a-f]{64}$/u.test(projectionDigest ?? '') || !Array.isArray(projectionEntries)) {
+            throw new Error('producer DAG semantic projection is malformed')
+        }
+        return {
+            changedPaths: worktreeChangedPaths(worktree),
+            outputs: new Map([...firstPassStates].map(([path, state]) => [path, state.sha256])),
+            outputStates: firstPassStates,
+            projection: {
+                revision,
+                findingCount: projectionEntries.length,
+                sha256: projectionDigest.slice('sha256:'.length)
+            }
+        }
+    } finally {
+        let cleanupError = null
+        if (existsSync(worktree)) {
+            try {
+                execFileSync(
+                    'git',
+                    ['worktree', 'remove', '--force', worktree],
+                    exactRevisionGitOptions(root, { stdio: 'ignore' })
+                )
+            } catch (error) {
+                cleanupError = error
+            }
+        }
+        rmSync(temporaryRoot, { recursive: true, force: true })
+        if (cleanupError) throw cleanupError
+    }
+}
+
+function replayVector(replay) {
+    return JSON.stringify({
+        outputs: [...replay.outputs],
+        outputStates: [...replay.outputStates],
+        projection: replay.projection
+    })
+}
+
+function verifiedDagReplay(root, revision, graph) {
+    const first = replayGeneratedOutputDag(root, revision, graph)
+    const second = replayGeneratedOutputDag(root, revision, graph)
+    if (replayVector(first) !== replayVector(second) || !sameStrings(first.changedPaths, second.changedPaths)) {
+        throw new Error(`producer DAG replay is not deterministic at ${revision}`)
+    }
+    return first
+}
+
+function verifyDagStepConsumption(root, revision, graph) {
+    for (const [stepIndex, step] of graph.steps.entries()) {
+        for (const consumedPath of step.consumes) {
+            const temporaryRoot = mkdtempSync(join(tmpdir(), 'fsusblog-generated-output-consumption-'))
+            const worktree = join(temporaryRoot, 'worktree')
+            try {
+                execFileSync(
+                    'git',
+                    ['worktree', 'add', '--detach', worktree, revision],
+                    exactRevisionGitOptions(root, { stdio: 'ignore' })
+                )
+                for (const dependencyStep of graph.steps.slice(0, stepIndex)) {
+                    execFileSync(dependencyStep.executable, dependencyStep.arguments, {
+                        cwd: worktree,
+                        env: {
+                            ...process.env,
+                            FSUSBLOG_DOCS_EVIDENCE_DIR: join(temporaryRoot, 'evidence'),
+                            GIT_NO_REPLACE_OBJECTS: '1',
+                            LANG: 'C.UTF-8',
+                            LC_ALL: 'C.UTF-8',
+                            TZ: 'UTC'
+                        },
+                        stdio: 'pipe',
+                        timeout: 120_000,
+                        maxBuffer: revisionBlobMaximumBytes
+                    })
+                }
+                execFileSync(step.executable, step.arguments, {
+                    cwd: worktree,
+                    env: {
+                        ...process.env,
+                        FSUSBLOG_DOCS_EVIDENCE_DIR: join(temporaryRoot, 'evidence'),
+                        GIT_NO_REPLACE_OBJECTS: '1',
+                        LANG: 'C.UTF-8',
+                        LC_ALL: 'C.UTF-8',
+                        TZ: 'UTC'
+                    },
+                    stdio: 'pipe',
+                    timeout: 120_000,
+                    maxBuffer: revisionBlobMaximumBytes
+                })
+                const baseline = new Map(step.outputs.map((path) => [
+                    path,
+                    worktreeOutputState(worktree, path)
+                ]))
+                appendFileSync(resolve(worktree, consumedPath), '\n')
+                let rejected = false
+                try {
+                    execFileSync(step.executable, step.arguments, {
+                        cwd: worktree,
+                        env: {
+                            ...process.env,
+                            FSUSBLOG_DOCS_EVIDENCE_DIR: join(temporaryRoot, 'evidence'),
+                            GIT_NO_REPLACE_OBJECTS: '1',
+                            LANG: 'C.UTF-8',
+                            LC_ALL: 'C.UTF-8',
+                            TZ: 'UTC'
+                        },
+                        stdio: 'pipe',
+                        timeout: 120_000,
+                        maxBuffer: revisionBlobMaximumBytes
+                    })
+                } catch {
+                    rejected = true
+                }
+                const outputChanged = step.outputs.some((path) => (
+                    JSON.stringify(baseline.get(path)) !== JSON.stringify(worktreeOutputState(worktree, path))
+                ))
+                if (!rejected && !outputChanged) {
+                    throw new Error(`producer step does not consume its declared dependency output: ${step.id}: ${consumedPath}`)
+                }
+            } finally {
+                let cleanupError = null
+                if (existsSync(worktree)) {
+                    try {
+                        execFileSync(
+                            'git',
+                            ['worktree', 'remove', '--force', worktree],
+                            exactRevisionGitOptions(root, { stdio: 'ignore' })
+                        )
+                    } catch (error) {
+                        cleanupError = error
+                    }
+                }
+                rmSync(temporaryRoot, { recursive: true, force: true })
+                if (cleanupError) throw cleanupError
+            }
+        }
+    }
+}
+
+function gitFirstParentRange(root, base, head, maximum = 128) {
+    const revisions = execFileSync(
+        'git',
+        ['rev-list', '--first-parent', '--reverse', `${base}..${head}`],
+        exactRevisionGitOptions(root, { encoding: 'utf8' })
+    ).trim().split('\n').filter(Boolean)
+    if (revisions.length > maximum) throw new Error(`first-parent range exceeds ${maximum} revisions`)
+    return revisions
+}
+
+function gitPullRequestBranchFirstParentRange(root, mergeBase, mergeHead, maximum = 128) {
+    const revisions = []
+    let current = mergeHead
+    while (!gitRevisionIsAncestor(root, current, mergeBase)) {
+        revisions.push(current)
+        if (revisions.length > maximum) throw new Error(`pull request first-parent range exceeds ${maximum} revisions`)
+        const parents = gitRevisionParents(root, current)
+        if (parents.length === 0) throw new Error('pull request first-parent chain does not join its outer base')
+        current = parents[0]
+    }
+    return revisions.reverse()
+}
+
+function outputVectorChanged(left, right) {
+    return JSON.stringify([...left.outputs]) !== JSON.stringify([...right.outputs])
+        || left.projection.findingCount !== right.projection.findingCount
+        || left.projection.sha256 !== right.projection.sha256
+}
+
+function validatePostMergeGeneratedOutputRepairDag(
+    parsedBody,
+    evidence,
+    { root, base, head, changedFiles },
+    errors
+) {
+    const topLevelFields = [
+        'schema',
+        'producerId',
+        'synchronizedRevision',
+        'synchronizedPullRequest',
+        'synchronizedMergeCommit',
+        'baseCommit',
+        'inputTree',
+        'sourceProjection',
+        'sourceEvents',
+        'steps',
+        'outputs'
+    ]
+    if (!sameStrings(Object.keys(evidence), topLevelFields)) {
+        errors.push('Post-merge generated repair DAG manifest contains unsupported fields')
+    }
+    const graph = changeContract.generatedOutputRepairDags.find((entry) => entry.id === evidence.producerId)
+    if (!graph) {
+        errors.push(`Post-merge generated repair DAG is not trusted: ${evidence.producerId ?? 'missing'}`)
+        return
+    }
+    const graphOutputs = graph.steps.flatMap((step) => step.outputs)
+    const generatorSources = [...new Set(graph.steps.map((step) => step.generator))]
+    const closurePaths = [...new Set(graph.steps.flatMap((step) => step.generatorClosure))]
+    const steps = Array.isArray(evidence.steps) ? evidence.steps : []
+    const outputs = Array.isArray(evidence.outputs) ? evidence.outputs : []
+    const sourceEvents = Array.isArray(evidence.sourceEvents) ? evidence.sourceEvents : []
+    if (sourceEvents.length === 0 || sourceEvents.length > 64) {
+        errors.push('Post-merge generated repair DAG sourceEvents must contain 1 to 64 entries')
+    }
+    if (!sameStrings(repositoryPaths(parsedBody.generatorSource), generatorSources)) {
+        errors.push('Post-merge generated repair DAG generators must match Generator source')
+    }
+    const changedOutputPaths = outputs.filter((entry) => entry?.changed === true).map((entry) => entry?.path)
+    if (!sameStrings(repositoryPaths(parsedBody.generatedOutputs), changedOutputPaths)) {
+        errors.push('Post-merge generated repair DAG changed outputs must match Generated outputs')
+    }
+    if (steps.length !== graph.steps.length) {
+        errors.push('Post-merge generated repair DAG steps must exactly match the trusted graph')
+    }
+    const completedOutputs = new Map()
+    for (const [index, trustedStep] of graph.steps.entries()) {
+        const step = steps[index]
+        if (!step || typeof step !== 'object' || Array.isArray(step)) continue
+        if (!sameStrings(Object.keys(step), [
+            'id', 'command', 'executable', 'arguments', 'dependsOn', 'consumes', 'generatorClosure', 'outputs'
+        ])) {
+            errors.push(`Post-merge generated repair DAG step contains unsupported fields: ${trustedStep.id}`)
+        }
+        for (const [field, expected] of [
+            ['arguments', trustedStep.arguments],
+            ['dependsOn', trustedStep.dependsOn],
+            ['consumes', trustedStep.consumes],
+            ['outputs', trustedStep.outputs]
+        ]) {
+            if (!Array.isArray(step[field]) || !sameStringSequence(step[field], expected)) {
+                errors.push(`Post-merge generated repair DAG step ${field} must match trusted step ${trustedStep.id}`)
+            }
+        }
+        if (step.id !== trustedStep.id || step.command !== trustedStep.command || step.executable !== trustedStep.executable) {
+            errors.push(`Post-merge generated repair DAG step identity must match trusted step ${trustedStep.id}`)
+        }
+        for (const dependency of trustedStep.dependsOn) {
+            if (!completedOutputs.has(dependency)) {
+                errors.push(`Post-merge generated repair DAG dependency must precede consumer: ${trustedStep.id}: ${dependency}`)
+            }
+        }
+        const consumable = trustedStep.dependsOn.flatMap((dependency) => completedOutputs.get(dependency) ?? [])
+        if (!trustedStep.consumes.every((path) => consumable.includes(path))) {
+            errors.push(`Post-merge generated repair DAG step consumes undeclared dependency output: ${trustedStep.id}`)
+        }
+        completedOutputs.set(trustedStep.id, trustedStep.outputs)
+        const closure = Array.isArray(step.generatorClosure) ? step.generatorClosure : []
+        if (!sameStringSequence(closure.map((entry) => entry?.path), trustedStep.generatorClosure)) {
+            errors.push(`Post-merge generated repair DAG generatorClosure must match trusted step ${trustedStep.id}`)
+        }
+        for (const entry of closure) {
+            if (!entry || typeof entry !== 'object' || Array.isArray(entry)
+                || !sameStrings(Object.keys(entry), ['path', 'baseSha256', 'currentSha256'])
+                || !repositoryPathPattern.test(entry.path ?? '')
+                || !sha256Pattern.test(entry.baseSha256 ?? '')
+                || !sha256Pattern.test(entry.currentSha256 ?? '')) {
+                errors.push(`Post-merge generated repair DAG closure binding is malformed: ${trustedStep.id}`)
+            }
+        }
+    }
+    if (!sameStringSequence(outputs.map((entry) => entry?.path), graphOutputs)
+        || new Set(graphOutputs).size !== graphOutputs.length) {
+        errors.push('Post-merge generated repair DAG outputs must exactly match the trusted graph')
+    }
+    for (const output of outputs) {
+        if (!output || typeof output !== 'object' || Array.isArray(output)
+            || !sameStrings(Object.keys(output), [
+                'path', 'repairRequired', 'changed', 'baseSha256', 'expectedSha256', 'currentSha256'
+            ])
+            || !repositoryPathPattern.test(output.path ?? '')
+            || typeof output.repairRequired !== 'boolean'
+            || typeof output.changed !== 'boolean'
+            || !sha256Pattern.test(output.baseSha256 ?? '')
+            || !sha256Pattern.test(output.expectedSha256 ?? '')
+            || !sha256Pattern.test(output.currentSha256 ?? '')) {
+            errors.push(`Post-merge generated repair DAG output binding is malformed: ${output?.path ?? 'missing'}`)
+        }
+    }
+    if (!root || !fullShaPattern.test(base ?? '') || !fullShaPattern.test(head ?? '')) {
+        errors.push('Post-merge generated repair DAG requires exact pull request base and head revisions')
+        return
+    }
+    if (!fullShaPattern.test(evidence.baseCommit ?? '') || evidence.baseCommit !== base) {
+        errors.push('Post-merge generated repair DAG baseCommit must exactly match the pull request base')
+    }
+    if (![evidence.synchronizedRevision, evidence.synchronizedMergeCommit]
+        .every((revision) => fullShaPattern.test(revision ?? ''))
+        || !Number.isInteger(evidence.synchronizedPullRequest)
+        || evidence.synchronizedPullRequest < 1) {
+        errors.push('Post-merge generated repair DAG synchronized identity is malformed')
+        return
+    }
+
+    try {
+        const synchronizedMergeParents = gitRevisionParents(root, evidence.synchronizedMergeCommit)
+        if (synchronizedMergeParents.length !== 2
+            || !mergeCommitNamesPullRequest(root, evidence.synchronizedMergeCommit, evidence.synchronizedPullRequest)) {
+            errors.push('Post-merge generated repair DAG synchronized outer merge identity is invalid')
+            return
+        }
+        const [synchronizedBase, synchronizedHead] = synchronizedMergeParents
+        if (!gitRevisionIsAncestor(root, evidence.synchronizedMergeCommit, base)
+            || !gitFirstParentChainIncludes(root, evidence.synchronizedMergeCommit, base)) {
+            errors.push('Post-merge generated repair DAG synchronized merge must be on the base first-parent chain')
+        }
+        if (!gitRevisionIsAncestor(root, evidence.synchronizedRevision, synchronizedHead)
+            || gitRevisionIsAncestor(root, evidence.synchronizedRevision, synchronizedBase)
+            || !gitFirstParentChainIncludes(root, evidence.synchronizedRevision, synchronizedHead)) {
+            errors.push('Post-merge generated repair DAG synchronizedRevision must belong to the named merge head first-parent chain')
+        }
+        const synchronizedReplay = verifiedDagReplay(root, evidence.synchronizedRevision, graph)
+        const synchronizedOuterReplay = verifiedDagReplay(root, evidence.synchronizedMergeCommit, graph)
+        if (synchronizedReplay.changedPaths.length !== 0 || synchronizedOuterReplay.changedPaths.length !== 0) {
+            errors.push('Post-merge generated repair DAG synchronized revision must be a canonical fixed point')
+        }
+        for (const path of graphOutputs) {
+            if (gitFullHistoryRevisionsForPath(root, evidence.synchronizedRevision, synchronizedHead, path).length > 0
+                || gitFullHistoryRevisionsForPath(root, evidence.synchronizedMergeCommit, base, path).length > 0) {
+                errors.push(`Post-merge generated repair DAG synchronized revision is not the last output owner: ${path}`)
+            }
+        }
+
+        const baseReplay = verifiedDagReplay(root, base, graph)
+        const candidateReplay = verifiedDagReplay(root, head, graph)
+        verifyDagStepConsumption(root, base, graph)
+        if (candidateReplay.changedPaths.length !== 0) {
+            errors.push('Post-merge generated repair DAG candidate must be a canonical fixed point')
+        }
+        const excludedInputPaths = [
+            ...graphOutputs,
+            parsedBody.generatedDigest,
+            parsedBody.classifications['External naming exception'] ? parsedBody.externalExceptionManifest : null
+        ].filter((path) => repositoryPathPattern.test(path ?? ''))
+        const synchronizedInputTree = trackedInputTreeDigest(root, evidence.synchronizedRevision, excludedInputPaths)
+        const baseInputTree = trackedInputTreeDigest(root, base, excludedInputPaths)
+        const currentInputTree = trackedInputTreeDigest(root, head, excludedInputPaths)
+        if (!evidence.inputTree || !sameStrings(Object.keys(evidence.inputTree), [
+            'synchronizedSha256', 'baseSha256', 'currentSha256'
+        ]) || evidence.inputTree.synchronizedSha256 !== synchronizedInputTree
+            || evidence.inputTree.baseSha256 !== baseInputTree
+            || evidence.inputTree.currentSha256 !== currentInputTree) {
+            errors.push('Post-merge generated repair DAG tracked input tree binding is stale')
+        }
+        if (baseInputTree !== currentInputTree) {
+            errors.push('Post-merge generated repair DAG candidate changed tracked inputs or policy')
+        }
+        const expectedProjection = {
+            projectionId: graph.semanticProjection.id,
+            synchronized: synchronizedReplay.projection,
+            base: baseReplay.projection,
+            current: { ...candidateReplay.projection, revision: base }
+        }
+        if (JSON.stringify(evidence.sourceProjection) !== JSON.stringify(expectedProjection)) {
+            errors.push('Post-merge generated repair DAG semantic source projection binding is stale')
+        }
+
+        for (const [index, trustedStep] of graph.steps.entries()) {
+            const step = steps[index]
+            if (!step) continue
+            for (const entry of step.generatorClosure ?? []) {
+                const synchronizedDigest = blobSha256(root, evidence.synchronizedRevision, entry.path)
+                const baseDigest = blobSha256(root, base, entry.path)
+                const currentDigest = blobSha256(root, head, entry.path)
+                if (synchronizedDigest !== baseDigest
+                    || entry.baseSha256 !== baseDigest
+                    || entry.currentSha256 !== currentDigest
+                    || baseDigest !== currentDigest
+                    || changedFiles.includes(entry.path)) {
+                    errors.push(`Post-merge generated repair DAG generator closure changed or is stale: ${trustedStep.id}: ${entry.path}`)
+                }
+            }
+        }
+
+        const repairPaths = []
+        for (const output of outputs) {
+            const baseDigest = blobSha256(root, base, output.path)
+            const currentDigest = blobSha256(root, head, output.path)
+            const expectedDigest = baseReplay.outputs.get(output.path)
+            const repairRequired = baseDigest !== expectedDigest
+            if (repairRequired) repairPaths.push(output.path)
+            if (output.baseSha256 !== baseDigest
+                || output.expectedSha256 !== expectedDigest
+                || output.currentSha256 !== currentDigest) {
+                errors.push(`Post-merge generated repair DAG output digest is stale: ${output.path}`)
+            }
+            if (output.repairRequired !== repairRequired || output.changed !== repairRequired) {
+                errors.push(`Post-merge generated repair DAG output repair/change flags are wrong: ${output.path}`)
+            }
+            if (currentDigest !== expectedDigest) {
+                errors.push(`Post-merge generated repair DAG output is not canonical: ${output.path}`)
+            }
+            if (changedFiles.includes(output.path) !== repairRequired) {
+                errors.push(`Post-merge generated repair DAG candidate changed set is wrong: ${output.path}`)
+            }
+        }
+        if (!sameStrings(baseReplay.changedPaths, repairPaths)) {
+            errors.push('Post-merge generated repair DAG base drift must exactly equal repair-required outputs')
+        }
+
+        const permittedCandidatePaths = new Set([
+            ...repairPaths,
+            parsedBody.generatedDigest,
+            parsedBody.classifications['External naming exception'] ? parsedBody.externalExceptionManifest : null
+        ].filter((path) => repositoryPathPattern.test(path ?? '')))
+        const unexpectedCandidatePaths = changedFiles.filter((path) => !permittedCandidatePaths.has(path))
+        if (unexpectedCandidatePaths.length > 0) {
+            errors.push(`Post-merge generated repair DAG candidate contains unrelated changes: ${unexpectedCandidatePaths.join(', ')}`)
+        }
+
+        const outerRevisions = gitFirstParentRange(root, evidence.synchronizedMergeCommit, base)
+        const discoveredEvents = []
+        let previousOuterReplay = synchronizedOuterReplay
+        let previousOuter = evidence.synchronizedMergeCommit
+        for (const outerRevision of outerRevisions) {
+            const outerReplay = replayGeneratedOutputDag(root, outerRevision, graph)
+            if (outputVectorChanged(previousOuterReplay, outerReplay)) {
+                const parents = gitRevisionParents(root, outerRevision)
+                if (parents.length !== 2 || parents[0] !== previousOuter) {
+                    throw new Error(`canonical graph transition is not one exact outer merge: ${outerRevision}`)
+                }
+                discoveredEvents.push({ mergeCommit: outerRevision, parents, replay: outerReplay })
+            }
+            previousOuter = outerRevision
+            previousOuterReplay = outerReplay
+        }
+        if (!sameStringSequence(
+            sourceEvents.map((event) => event?.mergeCommit),
+            discoveredEvents.map((event) => event.mergeCommit)
+        )) {
+            errors.push('Post-merge generated repair DAG sourceEvents omit, duplicate, or reorder canonical transitions')
+        }
+        for (const [index, event] of sourceEvents.entries()) {
+            const discovered = discoveredEvents[index]
+            if (!discovered || !event || typeof event !== 'object' || Array.isArray(event)
+                || !sameStrings(Object.keys(event), ['sourceRevision', 'mergedPullRequest', 'mergeCommit'])
+                || !fullShaPattern.test(event.sourceRevision ?? '')
+                || !Number.isInteger(event.mergedPullRequest)
+                || event.mergedPullRequest < 1
+                || !mergeCommitNamesPullRequest(root, event.mergeCommit, event.mergedPullRequest)) {
+                errors.push(`Post-merge generated repair DAG source event identity is invalid: ${index}`)
+                continue
+            }
+            const [mergeBase, mergeHead] = discovered.parents
+            if (!gitRevisionIsAncestor(root, event.sourceRevision, mergeHead)
+                || gitRevisionIsAncestor(root, event.sourceRevision, mergeBase)
+                || !gitFirstParentChainIncludes(root, event.sourceRevision, mergeHead)) {
+                errors.push(`Post-merge generated repair DAG source revision is outside its named merge head: ${event.sourceRevision}`)
+                continue
+            }
+            const branchRevisions = gitPullRequestBranchFirstParentRange(root, mergeBase, mergeHead)
+            const semanticTransitions = []
+            const protectedPaths = new Set([
+                ...graphOutputs,
+                ...closurePaths,
+                ...changeContract.trustedPolicyFiles
+            ])
+            const branchBase = gitMergeBase(root, mergeBase, mergeHead)
+            for (const path of protectedPaths) {
+                if (gitFullHistoryRevisionsForPath(root, branchBase, mergeHead, path).length > 0) {
+                    errors.push(`Post-merge generated repair DAG source event full history changed outputs or policy closure: ${path}`)
+                }
+            }
+            for (const revision of branchRevisions) {
+                const parents = gitRevisionParents(root, revision)
+                const protectedChanges = gitChangedPaths(root, parents[0], revision)
+                    .filter((path) => protectedPaths.has(path))
+                if (protectedChanges.length > 0) {
+                    errors.push(`Post-merge generated repair DAG source event history changed outputs or policy closure: ${protectedChanges.join(', ')}`)
+                }
+                const before = replayGeneratedOutputDag(root, parents[0], graph)
+                const after = replayGeneratedOutputDag(root, revision, graph)
+                if (outputVectorChanged(before, after)) semanticTransitions.push({ revision, parents })
+            }
+            if (semanticTransitions[0]?.revision !== event.sourceRevision) {
+                errors.push(`Post-merge generated repair DAG source revision is not the first canonical transition: ${event.sourceRevision}`)
+            }
+            for (const transition of semanticTransitions.slice(1)) {
+                if (transition.parents.length !== 2 || transition.parents[1] !== mergeBase) {
+                    errors.push(`Post-merge generated repair DAG source revision was superseded in its merge head: ${event.sourceRevision}`)
+                }
+            }
+            const sourceParents = gitRevisionParents(root, event.sourceRevision)
+            if (![1, 2].includes(sourceParents.length)
+                || (sourceParents.length === 2 && sourceParents[1] !== mergeBase)) {
+                errors.push(`Post-merge generated repair DAG source revision has invalid parent topology: ${event.sourceRevision}`)
+            }
+            const sourceChanges = gitChangedPaths(root, sourceParents[0], event.sourceRevision)
+            const protectedChanges = sourceChanges.filter((path) => protectedPaths.has(path))
+            if (protectedChanges.length > 0) {
+                errors.push(`Post-merge generated repair DAG source event changed outputs or policy closure: ${protectedChanges.join(', ')}`)
+            }
+        }
+    } catch (error) {
+        errors.push(`Post-merge generated repair DAG cannot verify sealed history and isolated replays: ${error instanceof Error ? error.message : String(error)}`)
     }
 }
 
@@ -979,8 +1617,12 @@ function validateGeneratedEvidence(parsedBody, { root, base, head, changedFiles 
     const declaredSources = repositoryPaths(parsedBody.generatorSource)
     const declaredOutputs = repositoryPaths(parsedBody.generatedOutputs)
     const evidenceSchema = generatedEvidenceSchema(root, head, parsedBody.generatedDigest)
-    const expectedSchema = evidenceSchema === changeContract.evidenceSchemas.postMergeGeneratedOutputRepair
-        ? changeContract.evidenceSchemas.postMergeGeneratedOutputRepair
+    const repairSchemas = new Set([
+        changeContract.evidenceSchemas.postMergeGeneratedOutputRepair,
+        changeContract.evidenceSchemas.postMergeGeneratedOutputRepairDag
+    ])
+    const expectedSchema = repairSchemas.has(evidenceSchema)
+        ? evidenceSchema
         : changeContract.evidenceSchemas.generatedOutput
     const evidence = loadEvidence({
         root,
@@ -994,6 +1636,15 @@ function validateGeneratedEvidence(parsedBody, { root, base, head, changedFiles 
     if (!evidence) return
     if (evidence.schema === changeContract.evidenceSchemas.postMergeGeneratedOutputRepair) {
         validatePostMergeGeneratedOutputRepair(
+            parsedBody,
+            evidence,
+            { root, base, head, changedFiles },
+            errors
+        )
+        return
+    }
+    if (evidence.schema === changeContract.evidenceSchemas.postMergeGeneratedOutputRepairDag) {
+        validatePostMergeGeneratedOutputRepairDag(
             parsedBody,
             evidence,
             { root, base, head, changedFiles },
@@ -1584,11 +2235,15 @@ function validateChangedPaths(parsedTitle, parsedBody, changedFiles, context, er
     if (parsedBody.classifications['Generated output']) {
         const sources = repositoryPaths(parsedBody.generatorSource)
         const outputs = repositoryPaths(parsedBody.generatedOutputs)
-        const repair = generatedEvidenceSchema(
+        const evidenceSchema = generatedEvidenceSchema(
             context.root,
             context.head,
             parsedBody.generatedDigest
-        ) === changeContract.evidenceSchemas.postMergeGeneratedOutputRepair
+        )
+        const repair = [
+            changeContract.evidenceSchemas.postMergeGeneratedOutputRepair,
+            changeContract.evidenceSchemas.postMergeGeneratedOutputRepairDag
+        ].includes(evidenceSchema)
         if (sources.length === 0) errors.push('Generator source must list repository-relative paths')
         if (outputs.length === 0) errors.push('Generated outputs must list repository-relative changed paths')
         for (const path of repair ? outputs : [...sources, ...outputs]) {
@@ -2249,6 +2904,7 @@ export function validateRepositorySources(root) {
         'config/development/authoritative-development-docs.json',
         'config/schemas/external-naming-exceptions.schema.json',
         'config/schemas/post-merge-external-naming-evidence-repair.schema.json',
+        'config/schemas/post-merge-generated-output-repair-dag.schema.json',
         'config/schemas/post-merge-generated-output-repair.schema.json',
         'docs/development/change-contract.md',
         'docs/development/native-tooling-style-enforcement.md',
@@ -2294,6 +2950,22 @@ export function validateRepositorySources(root) {
             entry.generator,
             entry.command,
             ...entry.outputs
+        ]),
+        ...changeContract.generatedOutputRepairDags.flatMap((graph) => [
+            graph.id,
+            graph.semanticProjection.id,
+            graph.semanticProjection.output,
+            ...graph.steps.flatMap((step) => [
+                step.id,
+                step.generator,
+                step.command,
+                step.executable,
+                ...step.arguments,
+                ...step.dependsOn,
+                ...step.consumes,
+                ...step.generatorClosure,
+                ...step.outputs
+            ])
         ])
     ]) {
         if (!registrySource.includes(`'${value}'`)) errors.push(`candidate registry missing trusted value ${value}`)

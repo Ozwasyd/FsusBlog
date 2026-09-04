@@ -1,0 +1,275 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/schemas/post-merge-generated-output-repair-dag.v2.json",
+    "title": "Post-merge generated output repair DAG declaration",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "producerId",
+        "synchronizedRevision",
+        "synchronizedPullRequest",
+        "synchronizedMergeCommit",
+        "baseCommit",
+        "inputTree",
+        "sourceProjection",
+        "sourceEvents",
+        "steps",
+        "outputs"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.post-merge-generated-output-repair-dag.v2"
+        },
+        "producerId": {
+            "type": "string",
+            "minLength": 1
+        },
+        "synchronizedRevision": {
+            "$ref": "#/$defs/sha"
+        },
+        "synchronizedPullRequest": {
+            "type": "integer",
+            "minimum": 1
+        },
+        "synchronizedMergeCommit": {
+            "$ref": "#/$defs/sha"
+        },
+        "baseCommit": {
+            "$ref": "#/$defs/sha"
+        },
+        "inputTree": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "synchronizedSha256",
+                "baseSha256",
+                "currentSha256"
+            ],
+            "properties": {
+                "synchronizedSha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "baseSha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "currentSha256": {
+                    "$ref": "#/$defs/sha256"
+                }
+            }
+        },
+        "sourceProjection": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "projectionId",
+                "synchronized",
+                "base",
+                "current"
+            ],
+            "properties": {
+                "projectionId": {
+                    "const": "fsusblog.evidence-location-scan.v1"
+                },
+                "synchronized": {
+                    "$ref": "#/$defs/projection"
+                },
+                "base": {
+                    "$ref": "#/$defs/projection"
+                },
+                "current": {
+                    "$ref": "#/$defs/projection"
+                }
+            }
+        },
+        "sourceEvents": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "sourceRevision",
+                    "mergedPullRequest",
+                    "mergeCommit"
+                ],
+                "properties": {
+                    "sourceRevision": {
+                        "$ref": "#/$defs/sha"
+                    },
+                    "mergedPullRequest": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "mergeCommit": {
+                        "$ref": "#/$defs/sha"
+                    }
+                }
+            }
+        },
+        "steps": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "id",
+                    "command",
+                    "executable",
+                    "arguments",
+                    "dependsOn",
+                    "consumes",
+                    "generatorClosure",
+                    "outputs"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "command": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "executable": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "arguments": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 128,
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        }
+                    },
+                    "dependsOn": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    },
+                    "consumes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/$defs/path"
+                        },
+                        "uniqueItems": true
+                    },
+                    "generatorClosure": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 128,
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                                "path",
+                                "baseSha256",
+                                "currentSha256"
+                            ],
+                            "properties": {
+                                "path": {
+                                    "$ref": "#/$defs/path"
+                                },
+                                "baseSha256": {
+                                    "$ref": "#/$defs/sha256"
+                                },
+                                "currentSha256": {
+                                    "$ref": "#/$defs/sha256"
+                                }
+                            }
+                        }
+                    },
+                    "outputs": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "$ref": "#/$defs/path"
+                        },
+                        "uniqueItems": true
+                    }
+                }
+            }
+        },
+        "outputs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 128,
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "path",
+                    "repairRequired",
+                    "changed",
+                    "baseSha256",
+                    "expectedSha256",
+                    "currentSha256"
+                ],
+                "properties": {
+                    "path": {
+                        "$ref": "#/$defs/path"
+                    },
+                    "repairRequired": {
+                        "type": "boolean"
+                    },
+                    "changed": {
+                        "type": "boolean"
+                    },
+                    "baseSha256": {
+                        "$ref": "#/$defs/sha256"
+                    },
+                    "expectedSha256": {
+                        "$ref": "#/$defs/sha256"
+                    },
+                    "currentSha256": {
+                        "$ref": "#/$defs/sha256"
+                    }
+                }
+            }
+        }
+    },
+    "$defs": {
+        "path": {
+            "type": "string",
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\s]+$"
+        },
+        "sha": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+        },
+        "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+        },
+        "projection": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "revision",
+                "findingCount",
+                "sha256"
+            ],
+            "properties": {
+                "revision": {
+                    "$ref": "#/$defs/sha"
+                },
+                "findingCount": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "sha256": {
+                    "$ref": "#/$defs/sha256"
+                }
+            }
+        }
+    }
+}

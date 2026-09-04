@@ -135,6 +135,64 @@ export const generatedOutputRepairProducers = Object.freeze([
     })
 ])
 
+export const generatedOutputRepairDags = Object.freeze([
+    Object.freeze({
+        id: 'evidence-location-governance',
+        semanticProjection: Object.freeze({
+            id: 'fsusblog.evidence-location-scan.v1',
+            output: 'config/testing/evidence-location-migration-ledger.json',
+            digestField: 'scanDigest',
+            entriesField: 'entries'
+        }),
+        steps: Object.freeze([
+            Object.freeze({
+                id: 'evidence-location-governance',
+                generator: 'tools/test/generate-evidence-location-governance.mjs',
+                command: 'node tools/test/generate-evidence-location-governance.mjs',
+                executable: 'node',
+                arguments: Object.freeze([
+                    'tools/test/generate-evidence-location-governance.mjs'
+                ]),
+                generatorClosure: Object.freeze([
+                    'tools/test/evidence-location-contract.mjs',
+                    'tools/test/evidence-location-scanner.mjs',
+                    'tools/test/generate-evidence-location-governance.mjs'
+                ]),
+                dependsOn: Object.freeze([]),
+                consumes: Object.freeze([]),
+                outputs: Object.freeze([
+                    'config/testing/evidence-locator-registry.json',
+                    'config/testing/evidence-location-migration-ledger.json'
+                ])
+            }),
+            Object.freeze({
+                id: 'current-run-evidence-location-acceptance',
+                generator: 'tools/test/generate-current-run-evidence-location-acceptance.mjs',
+                command: 'node tools/test/generate-current-run-evidence-location-acceptance.mjs',
+                executable: 'node',
+                arguments: Object.freeze([
+                    'tools/test/generate-current-run-evidence-location-acceptance.mjs'
+                ]),
+                generatorClosure: Object.freeze([
+                    'tools/test/evidence-location-contract.mjs',
+                    'tools/test/evidence-location-scanner.mjs',
+                    'tools/test/generate-evidence-location-governance.mjs',
+                    'tools/test/generate-current-run-evidence-location-acceptance.mjs'
+                ]),
+                dependsOn: Object.freeze([
+                    'evidence-location-governance'
+                ]),
+                consumes: Object.freeze([
+                    'config/testing/evidence-location-migration-ledger.json'
+                ]),
+                outputs: Object.freeze([
+                    'config/testing/current-run-evidence-location-acceptance.json'
+                ])
+            })
+        ])
+    })
+])
+
 // A pull request is evaluated by the checker from its trusted base revision.
 // These files define that checker or one of its release/review adapters, so a
 // candidate PR cannot replace them while relying on the old checker to approve
@@ -145,6 +203,7 @@ export const trustedPolicyFiles = Object.freeze([
     '.github/release.yml',
     '.github/workflows/change-contract.yml',
     'commitlint.config.mjs',
+    'config/schemas/post-merge-generated-output-repair-dag.schema.json',
     'tools/governance/change-contract-registry.mjs',
     'tools/governance/change-contract.mjs',
     'tools/governance/check-change-contract.mjs'
@@ -161,12 +220,14 @@ export const changeContract = Object.freeze({
     reviewedLegacyFormatRevisions,
     generatedPathPatterns,
     generatedOutputRepairProducers,
+    generatedOutputRepairDags,
     trustedPolicyFiles,
     evidenceSchemas: Object.freeze({
         externalNamingExceptions: 'fsusblog.external-naming-exceptions.v1',
         formatIdempotence: 'fsusblog.format-idempotence-evidence.v1',
         generatedOutput: 'fsusblog.generated-output-binding.v1',
         postMergeGeneratedOutputRepair: 'fsusblog.post-merge-generated-output-repair.v1',
+        postMergeGeneratedOutputRepairDag: 'fsusblog.post-merge-generated-output-repair-dag.v2',
         postMergeExternalNamingEvidenceRepair: 'fsusblog.post-merge-external-naming-evidence-repair.v1',
         performanceClaim: 'fsusblog.performance-claim-evidence.v1'
     }),
