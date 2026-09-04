@@ -25,6 +25,12 @@ public static class ContentAssetStates
         => value is Active or PendingDelete;
 }
 
+public static class ContentAssetCleanupMarkers
+{
+    public const string PrivateCommitRepair = "private_asset_commit_repair";
+    public const string DeletePending = "content_asset_delete_pending";
+}
+
 /// <summary>
 /// Content asset domain record. Identity flows exclusively through
 /// <see cref="AssetId"/> and <see cref="AssetStorageKey"/>; public URLs are a

@@ -20,7 +20,8 @@ public sealed class LocalContentAssetStore(
         CancellationToken cancellationToken = default)
     {
         AssetDeleteResult outcome = AssetDeleteResult.NotFound;
-        var transaction = await db.Ado.UseTranAsync(async () =>
+        ContentAsset? deletion = null;
+        var prepare = await db.Ado.UseTranAsync(async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             await db.Ado.ExecuteCommandAsync(
@@ -50,39 +51,103 @@ public sealed class LocalContentAssetStore(
                 throw new InvalidOperationException($"content_asset_storage_record_invalid:{asset.AssetId}");
             }
 
-            if (string.Equals(asset.StorageClass, "private", StringComparison.Ordinal))
-            {
-                await privateAssetStore.DeleteAsync(assetId, cancellationToken).ConfigureAwait(false);
-            }
-            else if (string.Equals(asset.StorageClass, "public", StringComparison.Ordinal))
-            {
-                if (!TryResolveStoragePath(_publicRoot, storageKey.Value, out string candidate))
-                {
-                    throw new InvalidOperationException($"content_asset_storage_escape:{asset.AssetId}");
-                }
-
-                if (File.Exists(candidate))
-                {
-                    File.Delete(candidate);
-                }
-            }
-            else
+            if (!string.Equals(asset.StorageClass, "private", StringComparison.Ordinal)
+                && !string.Equals(asset.StorageClass, "public", StringComparison.Ordinal))
             {
                 throw new InvalidOperationException($"content_asset_storage_record_invalid:{asset.AssetId}");
             }
 
-            await db.Deleteable<ContentAssetCleanupQueueItem>()
+            if (string.Equals(asset.StorageClass, "public", StringComparison.Ordinal)
+                && !TryResolveStoragePath(_publicRoot, storageKey.Value, out _))
+            {
+                throw new InvalidOperationException($"content_asset_storage_escape:{asset.AssetId}");
+            }
+
+            DateTime now = DateTime.UtcNow;
+            await db.Updateable<ContentAsset>()
+                .SetColumns(item => new ContentAsset
+                {
+                    State = ContentAssetStates.PendingDelete,
+                    UpdatedAtUtc = now
+                })
                 .Where(item => item.AssetId == asset.AssetId)
                 .ExecuteCommandAsync(cancellationToken);
-            await db.Deleteable<ContentAsset>()
-                .Where(item => item.AssetId == asset.AssetId)
-                .ExecuteCommandAsync(cancellationToken);
-            outcome = AssetDeleteResult.Deleted;
+            await db.Ado.ExecuteCommandAsync(
+                """
+                INSERT INTO content_asset_cleanup_queue
+                    (asset_id, not_before_utc, attempt_count, last_error, updated_at_utc)
+                VALUES
+                    (@AssetId, @NotBeforeUtc, 0, @Marker, @UpdatedAtUtc)
+                ON CONFLICT (asset_id) DO UPDATE
+                SET not_before_utc = LEAST(content_asset_cleanup_queue.not_before_utc, EXCLUDED.not_before_utc),
+                    last_error = EXCLUDED.last_error,
+                    updated_at_utc = EXCLUDED.updated_at_utc;
+                """,
+                new SugarParameter("@AssetId", asset.AssetId),
+                new SugarParameter("@NotBeforeUtc", now),
+                new SugarParameter("@Marker", ContentAssetCleanupMarkers.DeletePending),
+                new SugarParameter("@UpdatedAtUtc", now)).ConfigureAwait(false);
+            deletion = asset;
         }).ConfigureAwait(false);
 
-        if (!transaction.IsSuccess)
+        if (!prepare.IsSuccess)
         {
-            throw new InvalidOperationException($"content_asset_delete_failed:{assetId}", transaction.ErrorException);
+            throw new InvalidOperationException("content_asset_delete_prepare_failed", prepare.ErrorException);
+        }
+
+        if (deletion is null)
+        {
+            logger.LogInformation("content-asset-deleted {AssetId} {Outcome}", assetId, outcome);
+            return outcome;
+        }
+
+        try
+        {
+            if (string.Equals(deletion.StorageClass, "private", StringComparison.Ordinal))
+            {
+                await privateAssetStore.DeleteAsync(assetId, cancellationToken).ConfigureAwait(false);
+            }
+            else if (TryResolveStoragePath(_publicRoot, deletion.StorageKey, out string publicPath))
+            {
+                File.Delete(publicPath);
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            throw new InvalidOperationException("content_asset_byte_delete_failed");
+        }
+
+        var finalize = await db.Ado.UseTranAsync(async () =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await db.Ado.ExecuteCommandAsync(
+                "SELECT pg_advisory_xact_lock(hashtextextended(CAST(@AssetId AS text), 1779));",
+                new SugarParameter("@AssetId", assetId.Value)).ConfigureAwait(false);
+            bool referenced = await db.Queryable<ContentAssetReference>()
+                .Where(reference => reference.AssetId == assetId.Value)
+                .AnyAsync(cancellationToken);
+            if (referenced)
+            {
+                throw new InvalidOperationException("content_asset_reference_appeared_during_delete");
+            }
+
+            await db.Deleteable<ContentAssetCleanupQueueItem>()
+                .Where(item => item.AssetId == assetId.Value)
+                .ExecuteCommandAsync(cancellationToken);
+            int deleted = await db.Deleteable<ContentAsset>()
+                .Where(item => item.AssetId == assetId.Value
+                    && item.State == ContentAssetStates.PendingDelete)
+                .ExecuteCommandAsync(cancellationToken);
+            if (deleted != 1)
+            {
+                throw new InvalidOperationException("content_asset_delete_finalize_row_mismatch");
+            }
+
+            outcome = AssetDeleteResult.Deleted;
+        }).ConfigureAwait(false);
+        if (!finalize.IsSuccess)
+        {
+            throw new InvalidOperationException("content_asset_delete_finalize_failed", finalize.ErrorException);
         }
 
         logger.LogInformation("content-asset-deleted {AssetId} {Outcome}", assetId, outcome);

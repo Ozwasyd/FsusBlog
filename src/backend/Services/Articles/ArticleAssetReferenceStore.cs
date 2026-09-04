@@ -233,6 +233,15 @@ internal sealed class ArticleAssetReferenceStore(ISqlSugarClient db, TimeProvide
         {
             throw new InvalidOperationException("content_asset_reference_asset_state_invalid");
         }
+
+        bool repairFenced = await db.Queryable<ContentAssetCleanupQueueItem>()
+            .Where(item => expected.Contains(item.AssetId)
+                && item.LastError != null)
+            .AnyAsync(cancellationToken);
+        if (repairFenced)
+        {
+            throw new InvalidOperationException("content_asset_reference_repair_in_progress");
+        }
     }
 
     private async Task ScheduleIfUnreferencedAsync(IEnumerable<AssetId> assetIds, CancellationToken cancellationToken)
@@ -265,7 +274,7 @@ internal sealed class ArticleAssetReferenceStore(ISqlSugarClient db, TimeProvide
                     FROM unreferenced
                 ON CONFLICT (asset_id) DO UPDATE
                 SET not_before_utc = LEAST(content_asset_cleanup_queue.not_before_utc, EXCLUDED.not_before_utc),
-                    last_error = NULL,
+                    last_error = content_asset_cleanup_queue.last_error,
                         updated_at_utc = EXCLUDED.updated_at_utc
                     RETURNING asset_id
                 )
@@ -287,17 +296,25 @@ internal sealed class ArticleAssetReferenceStore(ISqlSugarClient db, TimeProvide
             return;
         }
 
-        await db.Deleteable<ContentAssetCleanupQueueItem>()
-            .Where(item => ids.Contains(item.AssetId))
-            .ExecuteCommandAsync(cancellationToken);
-        await db.Updateable<ContentAsset>()
-            .SetColumns(asset => new ContentAsset
-            {
-                State = ContentAssetStates.Active,
-                UpdatedAtUtc = _timeProvider.GetUtcNow().UtcDateTime
-            })
-            .Where(asset => ids.Contains(asset.AssetId))
-            .ExecuteCommandAsync(cancellationToken);
+        DateTime now = _timeProvider.GetUtcNow().UtcDateTime;
+        await db.Ado.ExecuteCommandAsync(
+            """
+            WITH recoverable AS (
+                SELECT asset.id
+                FROM content_asset asset
+                LEFT JOIN content_asset_cleanup_queue cleanup ON cleanup.asset_id = asset.id
+                WHERE asset.id = ANY(CAST(@AssetIds AS uuid[]))
+                  AND (cleanup.asset_id IS NULL OR cleanup.last_error IS NULL)
+            ), removed AS (
+                DELETE FROM content_asset_cleanup_queue cleanup
+                WHERE cleanup.asset_id IN (SELECT id FROM recoverable)
+            )
+            UPDATE content_asset asset
+            SET state = 'active', updated_at_utc = @UpdatedAtUtc
+            WHERE asset.id IN (SELECT id FROM recoverable);
+            """,
+            new SugarParameter("@AssetIds", FormatUuidArray(ids)),
+            new SugarParameter("@UpdatedAtUtc", now)).ConfigureAwait(false);
     }
 
     private Task AcquireSourceLockAsync(string sourceKind, string sourceKey, CancellationToken cancellationToken)

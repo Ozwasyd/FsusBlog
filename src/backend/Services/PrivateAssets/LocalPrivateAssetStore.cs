@@ -1,6 +1,4 @@
 using System.Buffers;
-using System.ComponentModel;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 
 using FsusBlog.Server.Contracts.Assets;
@@ -21,8 +19,9 @@ internal interface IPrivateAssetRecordSource
         AssetRecord expected,
         CancellationToken cancellationToken);
 
-    Task<bool> CompleteCommitAsync(
+    Task<bool> PublishAndCompleteCommitAsync(
         AssetRecord expected,
+        Action publish,
         CancellationToken cancellationToken);
 }
 
@@ -53,10 +52,15 @@ internal sealed class SqlPrivateAssetRecordSource(ISqlSugarClient db) : IPrivate
             }
 
             AssetRecord current = ToRecord(entity);
-            bool cleanupQueued = await db.Queryable<ContentAssetCleanupQueueItem>()
+            ContentAssetCleanupQueueItem? cleanup = await db.Queryable<ContentAssetCleanupQueueItem>()
                 .Where(item => item.AssetId == expected.Id.Value)
-                .AnyAsync(cancellationToken);
-            if (cleanupQueued || !HasSameCommitMetadata(current, expected))
+                .FirstAsync(cancellationToken);
+            if ((cleanup is not null
+                    && !string.Equals(
+                        cleanup.LastError,
+                        ContentAssetCleanupMarkers.PrivateCommitRepair,
+                        StringComparison.Ordinal))
+                || !HasSameCommitMetadata(current, expected))
             {
                 return;
             }
@@ -69,6 +73,23 @@ internal sealed class SqlPrivateAssetRecordSource(ISqlSugarClient db) : IPrivate
                     .UpdateColumns(item => new { item.State, item.UpdatedAtUtc })
                     .ExecuteCommandAsync(cancellationToken);
             }
+
+            DateTime repairNotBeforeUtc = DateTime.UtcNow.AddHours(24);
+            await db.Ado.ExecuteCommandAsync(
+                """
+                INSERT INTO content_asset_cleanup_queue
+                    (asset_id, not_before_utc, attempt_count, last_error, updated_at_utc)
+                VALUES
+                    (@AssetId, @NotBeforeUtc, 0, @Marker, @UpdatedAtUtc)
+                ON CONFLICT (asset_id) DO UPDATE
+                SET not_before_utc = EXCLUDED.not_before_utc,
+                    last_error = EXCLUDED.last_error,
+                    updated_at_utc = EXCLUDED.updated_at_utc;
+                """,
+                new SugarParameter("@AssetId", expected.Id.Value),
+                new SugarParameter("@NotBeforeUtc", repairNotBeforeUtc),
+                new SugarParameter("@Marker", ContentAssetCleanupMarkers.PrivateCommitRepair),
+                new SugarParameter("@UpdatedAtUtc", DateTime.UtcNow)).ConfigureAwait(false);
 
             prepared = current with
             {
@@ -83,8 +104,9 @@ internal sealed class SqlPrivateAssetRecordSource(ISqlSugarClient db) : IPrivate
         return prepared;
     }
 
-    public async Task<bool> CompleteCommitAsync(
+    public async Task<bool> PublishAndCompleteCommitAsync(
         AssetRecord expected,
+        Action publish,
         CancellationToken cancellationToken)
     {
         bool completed = false;
@@ -94,25 +116,44 @@ internal sealed class SqlPrivateAssetRecordSource(ISqlSugarClient db) : IPrivate
             ContentAsset? entity = await db.Queryable<ContentAsset>()
                 .Where(item => item.AssetId == expected.Id.Value)
                 .FirstAsync(cancellationToken);
+            ContentAssetCleanupQueueItem? cleanup = entity is null
+                ? null
+                : await db.Queryable<ContentAssetCleanupQueueItem>()
+                    .Where(item => item.AssetId == expected.Id.Value)
+                    .FirstAsync(cancellationToken);
             if (entity is null
                 || entity.State != ContentAssetStates.PendingDelete
                 || !HasSameCommitMetadata(ToRecord(entity), expected)
-                || await db.Queryable<ContentAssetCleanupQueueItem>()
-                    .Where(item => item.AssetId == expected.Id.Value)
-                    .AnyAsync(cancellationToken))
+                || cleanup is null
+                || !string.Equals(cleanup.LastError, ContentAssetCleanupMarkers.PrivateCommitRepair, StringComparison.Ordinal))
             {
                 return;
             }
 
+            publish();
+            int removed = await db.Deleteable<ContentAssetCleanupQueueItem>()
+                .Where(item => item.AssetId == expected.Id.Value)
+                .ExecuteCommandAsync(cancellationToken);
             entity.State = ContentAssetStates.Active;
             entity.UpdatedAtUtc = DateTime.UtcNow;
-            completed = await db.Updateable(entity)
+            int promoted = await db.Updateable(entity)
                 .UpdateColumns(item => new { item.State, item.UpdatedAtUtc })
-                .ExecuteCommandAsync(cancellationToken) == 1;
+                .ExecuteCommandAsync(cancellationToken);
+            if (removed != 1 || promoted != 1)
+            {
+                throw new InvalidOperationException("private_asset_complete_row_mismatch");
+            }
+
+            completed = true;
         }).ConfigureAwait(false);
         if (!transaction.IsSuccess)
         {
-            throw new InvalidOperationException("private_asset_complete_failed", transaction.ErrorException);
+            if (transaction.ErrorException is IOException or UnauthorizedAccessException)
+            {
+                throw new IOException("private_asset_commit_publish_failed");
+            }
+
+            throw new InvalidOperationException("private_asset_complete_failed");
         }
 
         return completed;
@@ -202,12 +243,11 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
 {
     private const int BufferSize = 128 * 1024;
     private const long MaximumAssetBytes = 1024L * 1024L * 1024L;
-    private const int LinuxOpenCloseOnExec = 0x80000;
-    private const int LinuxOpenNoFollow = 0x20000;
     private readonly IPrivateAssetRecordSource _records;
     private readonly IPrivateAssetWritePolicy _writePolicy;
     private readonly string _privateRoot;
     private readonly string _commitRoot;
+    private readonly PrivateAssetAnchoredFileSystem _fileSystem;
 
     public LocalPrivateAssetStore(
         IPrivateAssetRecordSource records,
@@ -218,8 +258,16 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
         _writePolicy = writePolicy;
         _privateRoot = Path.GetFullPath(storagePaths.PrivateAssetRoot);
         _commitRoot = Path.GetFullPath(storagePaths.UploadCommitRoot);
-        EnsureRestrictedDirectory(_privateRoot);
-        EnsureRestrictedDirectory(_commitRoot);
+        try
+        {
+            EnsureRestrictedDirectory(_privateRoot);
+            EnsureRestrictedDirectory(_commitRoot);
+            _fileSystem = new PrivateAssetAnchoredFileSystem(_privateRoot, _commitRoot);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            throw new InvalidOperationException("private_asset_storage_initialization_failed");
+        }
     }
 
     public async Task<AssetStorageKey> CreateAsync(
@@ -240,14 +288,25 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
             throw new InvalidOperationException("private_asset_storage_key_not_canonical");
         }
 
-        string lexicalFinalPath = Path.Combine(
-            _privateRoot,
-            record.StorageKey.Value.Replace('/', Path.DirectorySeparatorChar));
-        var initialInfo = new FileInfo(lexicalFinalPath);
-        bool finalHasSymlink = HasSymlinkComponent(record.StorageKey);
-        bool finalExists = initialInfo.Exists && !finalHasSymlink;
+        bool finalExists;
+        try
+        {
+            await using FileStream? initial = _fileSystem.TryOpenRead(record.StorageKey.Value);
+            finalExists = initial is not null;
+        }
+        catch (IOException)
+        {
+            AssetRecord? rejectedPrepared = await _records.PrepareCommitAsync(record, cancellationToken);
+            if (rejectedPrepared is null)
+            {
+                throw new InvalidOperationException("private_asset_commit_state_conflict");
+            }
+
+            throw new InvalidOperationException("private_asset_symlink_rejected");
+        }
+
         AssetRecord? prepared = null;
-        if (record.State != ContentAssetState.Active || !finalExists || finalHasSymlink)
+        if (record.State != ContentAssetState.Active || !finalExists)
         {
             prepared = await _records.PrepareCommitAsync(record, cancellationToken);
             if (prepared is null)
@@ -256,19 +315,8 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
             }
         }
 
-        if (finalHasSymlink)
-        {
-            throw new InvalidOperationException("private_asset_symlink_rejected");
-        }
-
         ValidateMetadataPolicy(request.Purpose, record);
-
-        string finalPath = ResolvePrivatePath(record.StorageKey);
-        string finalDirectory = Path.GetDirectoryName(finalPath)!;
-        EnsurePrivateDirectoryChain(finalDirectory);
-        string tempDirectory = Path.Combine(_commitRoot, "private-assets");
-        EnsureRestrictedDirectory(tempDirectory);
-        string tempPath = Path.Combine(tempDirectory, $"{Guid.NewGuid():N}.tmp");
+        AnchoredTemporaryFile temporary = _fileSystem.CreateTemporary();
 
         string actualHash;
         long actualLength;
@@ -276,7 +324,7 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
         {
             (actualHash, actualLength) = await WriteTemporaryAsync(
                 request.Content,
-                tempPath,
+                temporary.Stream,
                 cancellationToken);
             if (actualLength != record.SizeBytes
                 || !CryptographicOperations.FixedTimeEquals(
@@ -286,16 +334,20 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
                 throw new InvalidOperationException("private_asset_content_metadata_mismatch");
             }
 
-            if (File.Exists(finalPath)
-                && new FileInfo(finalPath).Length == actualLength
-                && await HasExpectedHashAsync(finalPath, actualHash, cancellationToken))
+            await using FileStream? existing = _fileSystem.TryOpenRead(record.StorageKey.Value);
+            if (existing is not null
+                && existing.Length == actualLength
+                && await HasExpectedHashAsync(existing, actualHash, cancellationToken))
             {
                 if (prepared is null)
                 {
                     return record.StorageKey;
                 }
 
-                if (!await _records.CompleteCommitAsync(prepared, cancellationToken))
+                if (!await _records.PublishAndCompleteCommitAsync(
+                        prepared,
+                        static () => { },
+                        cancellationToken))
                 {
                     throw new InvalidOperationException("private_asset_commit_state_conflict");
                 }
@@ -303,7 +355,7 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
                 return prepared.StorageKey;
             }
 
-            if (File.Exists(finalPath))
+            if (existing is not null)
             {
                 prepared ??= await _records.PrepareCommitAsync(record, cancellationToken);
                 throw new InvalidOperationException("private_asset_commit_conflict");
@@ -318,17 +370,11 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
                 }
             }
 
-            File.Move(tempPath, finalPath, overwrite: false);
-            try
-            {
-                EnsureRestrictedFile(finalPath);
-            }
-            catch
-            {
-                TryDeleteTemporary(finalPath);
-                throw;
-            }
-            if (!await _records.CompleteCommitAsync(prepared, cancellationToken))
+            await temporary.Stream.FlushAsync(cancellationToken);
+            if (!await _records.PublishAndCompleteCommitAsync(
+                    prepared,
+                    () => _fileSystem.Commit(temporary, record.StorageKey.Value),
+                    cancellationToken))
             {
                 AssetRecord? current = await _records.FindAsync(record.Id, cancellationToken);
                 if (current is not null
@@ -341,7 +387,7 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
                 if (current is null || !HasSameCommitMetadata(current, record))
                 {
                     await QuarantineUnownedFinalAsync(
-                        finalPath,
+                        record.StorageKey,
                         record.Sha256!,
                         cancellationToken);
                     throw new InvalidOperationException("private_asset_commit_cleanup_required");
@@ -352,15 +398,20 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
 
             return prepared.StorageKey;
         }
-        catch (IOException) when (File.Exists(finalPath))
+        catch (IOException)
         {
-            if (new FileInfo(finalPath).Length == record.SizeBytes
-                && await HasExpectedHashAsync(finalPath, record.Sha256!, cancellationToken))
+            await using FileStream? winner = _fileSystem.TryOpenRead(record.StorageKey.Value);
+            if (winner is not null
+                && winner.Length == record.SizeBytes
+                && await HasExpectedHashAsync(winner, record.Sha256!, cancellationToken))
             {
                 AssetRecord? racePrepared = prepared
                     ?? await _records.PrepareCommitAsync(record, cancellationToken);
                 if (racePrepared is not null
-                    && await _records.CompleteCommitAsync(racePrepared, cancellationToken))
+                    && await _records.PublishAndCompleteCommitAsync(
+                        racePrepared,
+                        static () => { },
+                        cancellationToken))
                 {
                     return racePrepared.StorageKey;
                 }
@@ -370,7 +421,8 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
         }
         finally
         {
-            TryDeleteTemporary(tempPath);
+            await temporary.DisposeAsync();
+            _fileSystem.TryDeleteTemporary(temporary.Name, temporary.FallbackPath);
         }
     }
 
@@ -378,24 +430,28 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
         AssetId assetId,
         CancellationToken cancellationToken = default)
     {
-        PrivateAssetReadHandle? metadata = await ValidateAsync(assetId, cancellationToken);
-        if (metadata is null)
+        AssetRecord? record = await _records.FindAsync(assetId, cancellationToken);
+        if (!TryValidateActivePrivateRecord(record, out AssetRecord valid)
+            || valid.StorageKey != CreateStorageKey(valid.Id, valid.Extension))
         {
             return null;
         }
 
-        string path;
         try
         {
-            EnsureNoSymlinkComponents(metadata.StorageKey);
-            path = ResolvePrivatePath(metadata.StorageKey);
-            Stream content = OpenReadNoFollow(path);
-            return metadata with
+            FileStream? content = _fileSystem.TryOpenRead(valid.StorageKey.Value);
+            if (content is null
+                || content.Length != valid.SizeBytes
+                || !await HasExpectedHashAsync(content, valid.Sha256!, cancellationToken))
             {
-                Content = content
-            };
+                content?.Dispose();
+                return null;
+            }
+
+            content.Position = 0;
+            return ToReadHandle(valid, content);
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or CryptographicException)
         {
             return null;
         }
@@ -417,11 +473,15 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
             return null;
         }
 
-        string path;
         try
         {
-            EnsureNoSymlinkComponents(valid.StorageKey);
-            path = ResolvePrivatePath(valid.StorageKey);
+            await using FileStream? content = _fileSystem.TryOpenRead(valid.StorageKey.Value);
+            if (content is null
+                || content.Length != valid.SizeBytes
+                || !await HasExpectedHashAsync(content, valid.Sha256!, cancellationToken))
+            {
+                return null;
+            }
         }
         catch (Exception exception) when (exception is
             InvalidOperationException or
@@ -431,19 +491,7 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
             return null;
         }
 
-        var info = new FileInfo(path);
-        if (!info.Exists || info.LinkTarget is not null || info.Length != valid.SizeBytes)
-        {
-            return null;
-        }
-
-        return new PrivateAssetReadHandle(
-            valid.Id,
-            valid.StorageKey,
-            valid.MimeType,
-            valid.Extension,
-            valid.SizeBytes,
-            valid.Sha256!);
+        return ToReadHandle(valid);
     }
 
     public async Task DeleteAsync(AssetId assetId, CancellationToken cancellationToken = default)
@@ -454,14 +502,13 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
             return;
         }
 
-        EnsureNoSymlinkComponents(record.StorageKey);
-        string path = ResolvePrivatePath(record.StorageKey);
         try
         {
-            File.Delete(path);
+            _fileSystem.Delete(record.StorageKey.Value);
         }
-        catch (FileNotFoundException)
+        catch (IOException exception) when (PrivateAssetAnchoredFileSystem.IsUnsafeTraversal(exception))
         {
+            throw new InvalidOperationException("private_asset_symlink_rejected");
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -582,77 +629,11 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
         return normalized;
     }
 
-    private string ResolvePrivatePath(AssetStorageKey storageKey)
-    {
-        if (!CanonicalPathBoundary.TryResolveRelative(_privateRoot, storageKey.Value, out string path))
-        {
-            throw new InvalidOperationException("private_asset_storage_boundary_rejected");
-        }
-
-        return path;
-    }
-
-    private void EnsurePrivateDirectoryChain(string targetDirectory)
-    {
-        string relative = Path.GetRelativePath(_privateRoot, targetDirectory);
-        string current = _privateRoot;
-        foreach (string segment in relative.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
-        {
-            current = Path.Combine(current, segment);
-            if (new DirectoryInfo(current).LinkTarget is not null)
-            {
-                throw new InvalidOperationException("private_asset_symlink_rejected");
-            }
-
-            EnsureRestrictedDirectory(current);
-        }
-    }
-
-    private void EnsureNoSymlinkComponents(AssetStorageKey storageKey)
-    {
-        if (HasSymlinkComponent(storageKey))
-        {
-            throw new InvalidOperationException("private_asset_symlink_rejected");
-        }
-    }
-
-    private bool HasSymlinkComponent(AssetStorageKey storageKey)
-    {
-        try
-        {
-            if (new DirectoryInfo(_privateRoot).LinkTarget is not null)
-            {
-                return true;
-            }
-
-            string current = _privateRoot;
-            string[] segments = storageKey.Value.Split('/');
-            for (int index = 0; index < segments.Length; index++)
-            {
-                current = Path.Combine(current, segments[index]);
-                FileSystemInfo entry = index == segments.Length - 1
-                    ? new FileInfo(current)
-                    : new DirectoryInfo(current);
-                if (entry.LinkTarget is not null)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            return true;
-        }
-    }
-
     private static async Task<(string Hash, long Length)> WriteTemporaryAsync(
         Stream source,
-        string tempPath,
+        FileStream destination,
         CancellationToken cancellationToken)
     {
-        await using var destination = new FileStream(tempPath, CreatePrivateWriteOptions());
         using var hasher = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         byte[] buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
         long length = 0;
@@ -673,7 +654,6 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
 
             await destination.FlushAsync(cancellationToken);
             destination.Flush(flushToDisk: true);
-            EnsureRestrictedFile(tempPath);
             return (Convert.ToHexStringLower(hasher.GetHashAndReset()), length);
         }
         finally
@@ -683,56 +663,47 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
     }
 
     private static async Task<bool> HasExpectedHashAsync(
-        string path,
+        Stream content,
         string expectedHash,
         CancellationToken cancellationToken)
     {
-        await using var content = OpenReadNoFollow(path);
+        content.Position = 0;
         byte[] actual = await SHA256.HashDataAsync(content, cancellationToken);
         return CryptographicOperations.FixedTimeEquals(actual, Convert.FromHexString(expectedHash));
     }
 
     private async Task QuarantineUnownedFinalAsync(
-        string finalPath,
+        AssetStorageKey storageKey,
         string expectedHash,
         CancellationToken cancellationToken)
     {
-        if (!File.Exists(finalPath)
-            || !await HasExpectedHashAsync(finalPath, expectedHash, cancellationToken))
+        await using FileStream? content = _fileSystem.TryOpenRead(storageKey.Value);
+        if (content is null
+            || !await HasExpectedHashAsync(content, expectedHash, cancellationToken))
         {
             return;
         }
 
-        string cleanupRoot = Path.Combine(_commitRoot, "private-assets");
-        EnsureRestrictedDirectory(cleanupRoot);
-        string cleanupPath = Path.Combine(cleanupRoot, $"orphan-{Guid.NewGuid():N}.tmp");
         try
         {
-            File.Move(finalPath, cleanupPath, overwrite: false);
-            EnsureRestrictedFile(cleanupPath);
+            _fileSystem.MoveToCleanup(
+                storageKey.Value,
+                $"orphan-{Guid.NewGuid():N}.tmp");
         }
         catch (IOException)
         {
         }
     }
 
-    private static FileStreamOptions CreatePrivateWriteOptions()
-    {
-        var options = new FileStreamOptions
-        {
-            Mode = FileMode.CreateNew,
-            Access = FileAccess.Write,
-            Share = FileShare.None,
-            BufferSize = BufferSize,
-            Options = FileOptions.Asynchronous | FileOptions.SequentialScan
-        };
-        if (!OperatingSystem.IsWindows())
-        {
-            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-        }
-
-        return options;
-    }
+    private static PrivateAssetReadHandle ToReadHandle(AssetRecord record, Stream? content = null)
+        => new(
+            record.Id,
+            record.StorageKey,
+            record.MimeType,
+            record.Extension,
+            record.SizeBytes,
+            record.Sha256!,
+            content);
 
     private static void EnsureRestrictedDirectory(string path)
     {
@@ -751,73 +722,4 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
         }
     }
 
-    private static void EnsureRestrictedFile(string path)
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            const UnixFileMode Required = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-            File.SetUnixFileMode(path, Required);
-            if (File.GetUnixFileMode(path) != Required)
-            {
-                throw new UnauthorizedAccessException("private_asset_file_mode_rejected");
-            }
-        }
-    }
-
-    private static FileStream OpenReadNoFollow(string path)
-    {
-        Microsoft.Win32.SafeHandles.SafeFileHandle handle;
-        if (OperatingSystem.IsLinux())
-        {
-            int descriptor = OpenLinuxNoFollow(path, LinuxOpenCloseOnExec | LinuxOpenNoFollow);
-            if (descriptor < 0)
-            {
-                throw new IOException(
-                    "private_asset_nofollow_open_failed",
-                    new Win32Exception(Marshal.GetLastPInvokeError()));
-            }
-
-            handle = new Microsoft.Win32.SafeHandles.SafeFileHandle(
-                new IntPtr(descriptor),
-                ownsHandle: true);
-        }
-        else
-        {
-            if (new FileInfo(path).LinkTarget is not null)
-            {
-                throw new IOException("private_asset_symlink_rejected");
-            }
-
-            handle = File.OpenHandle(
-                path,
-                FileMode.Open,
-                FileAccess.Read,
-                FileShare.Read,
-                FileOptions.Asynchronous | FileOptions.SequentialScan);
-        }
-
-        try
-        {
-            return new FileStream(handle, FileAccess.Read, BufferSize, isAsync: false);
-        }
-        catch
-        {
-            handle.Dispose();
-            throw;
-        }
-    }
-
-    [LibraryImport("libc", EntryPoint = "open", SetLastError = true, StringMarshalling = StringMarshalling.Utf8)]
-    private static partial int OpenLinuxNoFollow(string path, int flags);
-
-    private static void TryDeleteTemporary(string path)
-    {
-        try
-        {
-            File.Delete(path);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-        }
-    }
 }

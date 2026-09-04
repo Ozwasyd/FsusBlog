@@ -127,13 +127,17 @@ public sealed class ArticleAssetCleanupService(
             """
             UPDATE content_asset_cleanup_queue
             SET attempt_count = attempt_count + 1,
-                last_error = @LastError,
+                last_error = CASE
+                    WHEN last_error = @DeletePendingMarker THEN last_error
+                    ELSE @LastError
+                END,
                 not_before_utc = @NotBeforeUtc,
                 updated_at_utc = @UpdatedAtUtc
             WHERE asset_id = @AssetId;
             """,
             new SugarParameter("@AssetId", assetId.Value),
             new SugarParameter("@LastError", error),
+            new SugarParameter("@DeletePendingMarker", ContentAssetCleanupMarkers.DeletePending),
             new SugarParameter("@NotBeforeUtc", now.AddMinutes(15)),
             new SugarParameter("@UpdatedAtUtc", now)).ConfigureAwait(false);
     }
