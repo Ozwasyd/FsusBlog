@@ -167,28 +167,59 @@ process.stdin.on('end', () => {
     const registerImportAliases = (node) => {
         if (filesystemSpecifier(node.source.value))
             for (const specifier of node.specifiers ?? [])
+            {
+                const imported = specifier.imported?.name ?? specifier.imported?.value
                 if (specifier.type === 'ImportDefaultSpecifier'
-                    || specifier.type === 'ImportNamespaceSpecifier')
+                    || specifier.type === 'ImportNamespaceSpecifier'
+                    || (specifier.type === 'ImportSpecifier' && imported === 'promises'))
                     filesystemNamespaceAliases.add(specifier.local.name)
                 else if (specifier.type === 'ImportSpecifier'
-                    && filesystemReaderPattern.test(specifier.imported?.name
-                        ?? specifier.imported?.value ?? ''))
+                    && filesystemReaderPattern.test(imported ?? ''))
                     filesystemReaderAliases.add(specifier.local.name)
+            }
         if (moduleSpecifier(node.source.value))
             for (const specifier of node.specifiers ?? [])
+            {
+                const imported = specifier.imported?.name ?? specifier.imported?.value
                 if (specifier.type === 'ImportDefaultSpecifier'
-                    || specifier.type === 'ImportNamespaceSpecifier')
+                    || specifier.type === 'ImportNamespaceSpecifier'
+                    || (specifier.type === 'ImportSpecifier' && imported === 'default'))
                     moduleNamespaceAliases.add(specifier.local.name)
                 else if (specifier.type === 'ImportSpecifier'
-                    && (specifier.imported?.name ?? specifier.imported?.value) === 'createRequire')
+                    && imported === 'createRequire')
                     requireFactoryAliases.add(specifier.local.name)
+            }
     }
     const registerRequireFactoryPattern = (pattern) => {
         for (const property of pattern.properties ?? [])
-            if (property.key?.name === 'createRequire' || property.key?.value === 'createRequire')
+            if (property.type === 'RestElement')
+                moduleNamespaceAliases.add(property.argument?.name)
+            else if (property.key?.name === 'createRequire' || property.key?.value === 'createRequire')
                 requireFactoryAliases.add(property.value?.name)
+            else if (property.key?.name === 'default' || property.key?.value === 'default')
+                moduleNamespaceAliases.add(property.value?.name)
             else if (property.computed && property.key?.type !== 'Literal')
                 throw new Error('computed module factory method is forbidden in the reader closure')
+    }
+    const registerFilesystemPattern = (pattern) => {
+        for (const property of pattern.properties ?? [])
+        {
+            if (property.type === 'RestElement')
+            {
+                filesystemNamespaceAliases.add(property.argument?.name)
+                continue
+            }
+            const key = property.key?.name ?? property.key?.value
+            if (property.computed && property.key?.type !== 'Literal')
+                throw new Error('computed filesystem reader method is forbidden in the reader closure')
+            if (key === 'promises')
+            {
+                if (property.value?.type === 'ObjectPattern') registerFilesystemPattern(property.value)
+                else filesystemNamespaceAliases.add(property.value?.name)
+            }
+            else if (filesystemReaderPattern.test(key ?? ''))
+                filesystemReaderAliases.add(property.value?.name)
+        }
     }
     const forbiddenReaderPath = (value) => {
         const normalized = value.normalize('NFKC').replaceAll('\\', '/').toLowerCase()
@@ -235,12 +266,7 @@ process.stdin.on('end', () => {
             filesystemReaderAliases.add(node.id.name)
         if (node.type === 'VariableDeclarator' && node.id?.type === 'ObjectPattern'
             && filesystemNamespace(node.init))
-        {
-            for (const property of node.id.properties ?? [])
-                if (filesystemReaderPattern.test(property.key?.name ?? property.key?.value ?? '')
-                    || (property.computed && property.key?.type !== 'Literal'))
-                    filesystemReaderAliases.add(property.value?.name)
-        }
+            registerFilesystemPattern(node.id)
         if (node.type === 'VariableDeclarator' && node.id?.type === 'ObjectPattern'
             && moduleNamespace(node.init))
             registerRequireFactoryPattern(node.id)
@@ -272,6 +298,9 @@ process.stdin.on('end', () => {
         if (node.type === 'AssignmentExpression' && node.left?.type === 'Identifier'
             && filesystemReader(node.right))
             filesystemReaderAliases.add(node.left.name)
+        if (node.type === 'AssignmentExpression' && node.left?.type === 'ObjectPattern'
+            && filesystemNamespace(node.right))
+            registerFilesystemPattern(node.left)
         if (node.type === 'ImportDeclaration')
         {
             add('import', node.source)
@@ -1518,13 +1547,11 @@ function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, lab
     {
         fail(`${label} schema/role/digest contract is invalid`)
     }
-    const expectedRoot = `.tmp/current-run/${sourceState.runId}/`
     const normalizedPath = ref.path.normalize('NFKC').toLowerCase()
-    if (!ref.path.startsWith(expectedRoot)
-        || normalizedPath.split('/').some((segment) => segment === 'docs'
+    if (normalizedPath.split('/').some((segment) => segment === 'docs'
             || segment.startsWith('doc-claim') || segment.startsWith('markdown-reader')))
     {
-        fail(`${label} must stay inside the same explicit current-run root`)
+        fail(`${label} must use an explicit non-document current-run receipt`)
     }
     const current = readCurrentJsonBytes(repositoryRoot, ref.path, label)
     if (current.fileDigest !== ref.fileDigest)
@@ -1648,7 +1675,7 @@ function validateSourceReceiptRef(repositoryRoot, ref, sourceState, producer, pr
     {
         fail(`producer ${producerId} source receipt reference is invalid`)
     }
-    const expectedPath = `.tmp/post-runtime-source-receipts/${sourceState.runId}/${classId}.json`
+    const expectedPath = `.tmp/post-runtime-source-receipts/${sourceState.runId}/${sourceState.attemptId}/${classId}.json`
     if (ref.path !== expectedPath)
     {
         fail(`producer ${producerId} source receipt path does not exact-match ${expectedPath}`)
@@ -1677,10 +1704,8 @@ function validateSourceReceiptRef(repositoryRoot, ref, sourceState, producer, pr
     assertExactKeys(upstreamRef, ['path', 'fileDigest', 'contentDigest', 'schema', 'role'],
         `producer ${producerId} source receipt upstream reference`)
     const contract = definition.sourceReceipt
-    const expectedUpstreamRoot = `.tmp/current-run/${sourceState.runId}/`
     const normalizedUpstreamPath = upstreamRef.path.normalize('NFKC').toLowerCase()
-    if (!upstreamRef.path.startsWith(expectedUpstreamRoot)
-        || normalizedUpstreamPath.split('/').some((segment) => segment === 'docs'
+    if (normalizedUpstreamPath.split('/').some((segment) => segment === 'docs'
             || segment.startsWith('doc-claim') || segment.startsWith('markdown-reader'))
         || upstreamRef.path === ref.path || identityAuthorityPaths.includes(upstreamRef.path)
         || upstreamRef.schema !== contract.schema

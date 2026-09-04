@@ -140,9 +140,24 @@ function producerReceipt(classId = 'route-response-error')
         }
         return seal({ schema: contract.schema, ...bySchema[contract.schema] })
     }
-    const embeddedReference = (field, contract) => writeDependency(
-        `.tmp/current-run/run-1/${classId}-${field.replaceAll('.', '-')}.json`,
-        embeddedDocument(contract), contract.role)
+    const embeddedReference = (field, contract) =>
+    {
+        const receiptPaths = {
+            'fsusblog.ci-production-build-receipt.v1': '.tmp/ci-production-build/receipt.json',
+            'fsusblog.fixture-receipt.v2': '.tmp/fixtures/run-1/prepare-state.json',
+            'fsusblog.post-runtime-candidate-plan.v1': '.tmp/post-runtime-plan/run-1/attempt-0001/candidate-plan.json',
+            'fsusblog.spa-manifest-descriptor.v1': '.tmp/aot-manifest/spa-manifest-descriptor.json',
+            'fsusblog.browser-contract-receipt.v2': '.tmp/browser-contract/receipt.json',
+            'fsusblog.browser-contract-public-preview-evidence.v1': '.tmp/release-evidence/public-preview-screenshots.json',
+            'fsusblog.release-rollout-evidence.v1': `.tmp/release-rollout/${classId}.json`,
+            'fsusblog.runtime-role-observation.v1': '.tmp/behavior-doc-static-admission/runtime-role-observation.json'
+        }
+        return writeDependency(
+            receiptPaths[contract.schema]
+                ?? `.tmp/post-runtime-dependencies/${classId}-${field.replaceAll('.', '-')}.json`,
+            embeddedDocument(contract),
+            contract.role)
+    }
     const canonicalRerunCommand = 'node tools/test-evidence/runtime-observation-probes.mjs route'
     const independentVerifyCommand = 'node tools/test-evidence/runtime-observation-raw.mjs verify'
     const upstreamBody = {
@@ -183,7 +198,11 @@ function producerReceipt(classId = 'route-response-error')
         }
     }
     const upstream = seal(upstreamBody)
-    const upstreamRelative = `.tmp/current-run/run-1/${classId}.json`
+    const upstreamRelative = definition.sourceReceipt.role === 'probe'
+        ? `.tmp/runtime-observation-probes/run-1/attempt-0001/${classId}.json`
+        : definition.sourceReceipt.role === 'browser'
+            ? '.tmp/browser-contract/receipt.json'
+            : `.tmp/post-runtime-sources/run-1/attempt-0001/${classId}.json`
     const upstreamRef = writeDependency(upstreamRelative, upstream)
     Object.assign(upstreamRef, {
         contentDigest: upstream.contentDigest,
@@ -229,7 +248,7 @@ function producerReceipt(classId = 'route-response-error')
         canonicalRerunCommand,
         independentVerifyCommand
     })
-    const sourceReceiptRelative = `.tmp/post-runtime-source-receipts/run-1/${classId}.json`
+    const sourceReceiptRelative = `.tmp/post-runtime-source-receipts/run-1/attempt-0001/${classId}.json`
     const sourceReceiptAbsolute = path.join(receiptRepositoryRoot, sourceReceiptRelative)
     fs.mkdirSync(path.dirname(sourceReceiptAbsolute), { recursive: true })
     fs.writeFileSync(sourceReceiptAbsolute, `${JSON.stringify(sourceReceipt, null, 2)}\n`)
@@ -663,6 +682,20 @@ test('run, attempt, fixture and profile identities are typed and bind independen
         () => validateProducerReceiptAgainstRegistry({ registry, producerId, receipt: seal(malformedAttempt) }),
         /source identity is invalid/u)
 
+    for (const [field, value] of [
+        ['runId', '../run-1'],
+        ['attemptId', 'attempt-0001/../attempt-0002']
+    ])
+    {
+        const unsafe = structuredClone(base)
+        unsafe.sourceState[field] = value
+        assert.throws(
+            () => validateProducerReceiptAgainstRegistry({
+                registry, producerId, receipt: seal(unsafe)
+            }),
+            /source identity is invalid/u)
+    }
+
     for (const [classId, field, value] of [
         ['release-identity-readiness', 'releaseId', 'run-1:release'],
         ['route-response-error', 'runtimeId', digest('3')],
@@ -711,7 +744,14 @@ test('sourceReceiptRef replays exact current source, producer, schema and file i
         path.join(receiptRepositoryRoot, base.sourceReceiptRef.path),
         '../source-receipt.json',
         '.tmp/latest/source-receipt.json',
-        '.tmp/current-run/missing-source-receipt.json'
+        '.tmp/current-run/missing-source-receipt.json',
+        '.tmp/history/run-1/attempt-0001/route-response-error.json',
+        '.tmp/docs/run-1/attempt-0001/route-response-error.json',
+        '.tmp/post-runtime-source-receipts/run-1/route-response-error.json',
+        '.tmp/post-runtime-source-receipts/run-1/attempt-0002/route-response-error.json',
+        '.tmp/post-runtime-source-receipts/run-1/attempt-0001/session-cookie-runtime.json',
+        '.tmp/post-runtime-source-receipts/other-run/attempt-0001/route-response-error.json',
+        '.tmp/post-runtime-source-receipts/run-1/attempt-0001/../attempt-0001/route-response-error.json'
     ])
     {
         const invalid = structuredClone(base)
@@ -723,6 +763,10 @@ test('sourceReceiptRef replays exact current source, producer, schema and file i
 
     const sourceAbsolute = path.join(receiptRepositoryRoot, base.sourceReceiptRef.path)
     const originalSourceBytes = fs.readFileSync(sourceAbsolute)
+    fs.rmSync(sourceAbsolute)
+    assert.throws(() => validate(base), /ENOENT|cannot be opened without following links/u)
+    fs.writeFileSync(sourceAbsolute, originalSourceBytes)
+
     const sourceAlias = path.join(receiptRepositoryRoot, '.tmp/current-run/source-receipt-alias.json')
     fs.writeFileSync(sourceAlias, originalSourceBytes)
     fs.rmSync(sourceAbsolute)
@@ -739,6 +783,17 @@ test('sourceReceiptRef replays exact current source, producer, schema and file i
     fs.rmSync(sourceAbsolute)
     fs.rmSync(sourceAlias)
     fs.writeFileSync(sourceAbsolute, originalSourceBytes)
+
+    for (const [field, value, expected] of [
+        ['schema', 'fsusblog.other-source-receipt.v1', /source receipt reference is invalid/u],
+        ['role', 'probe', /source receipt reference is invalid/u],
+        ['contentDigest', digest('7'), /schema\/producer\/source identity mismatch/u]
+    ])
+    {
+        const invalid = structuredClone(base)
+        invalid.sourceReceiptRef[field] = value
+        assert.throws(() => validate(invalid), expected)
+    }
 
     const rewriteSource = (mutate) =>
     {
@@ -774,10 +829,14 @@ test('sourceReceiptRef replays exact current source, producer, schema and file i
         ['schema', 'fsusblog.other-source.v1', /upstream reference is invalid/u],
         ['role', 'browser', /upstream reference is invalid/u],
         ['contentDigest', digest('8'), /upstream schema\/producer\/tool\/command\/content identity mismatch/u],
+        ['fileDigest', digest('7'), /upstream schema\/producer\/tool\/command\/content identity mismatch/u],
         ['path', '.tmp/current-run/run-1/missing-upstream.json', /ENOENT/u],
-        ['path', '../upstream.json', /upstream reference is invalid/u],
+        ['path', '.tmp/latest/run-1/upstream.json', /explicit current-run JSON path/u],
+        ['path', '.tmp/history/run-1/upstream.json', /explicit current-run JSON path/u],
+        ['path', '.tmp/docs/run-1/upstream.json', /upstream reference is invalid/u],
+        ['path', '../upstream.json', /upstream reference is invalid|explicit current-run JSON path/u],
         ['path', path.join(receiptRepositoryRoot, '.tmp/current-run/upstream.json'),
-            /upstream reference is invalid/u]
+            /upstream reference is invalid|explicit current-run JSON path/u]
     ])
     {
         const invalid = structuredClone(base)
@@ -827,15 +886,17 @@ test('sourceReceiptRef replays exact current source, producer, schema and file i
                 schema: arbitraryDocsReceipt.schema,
                 role: 'production-build'
             }
-        }, /same explicit current-run root/u],
+        }, /explicit current-run JSON path|explicit non-document current-run receipt/u],
         ['historical alias', (document) => { document.buildReceipt.path = '.tmp/history/run-1/build.json' },
-            /same explicit current-run root/u],
+            /explicit current-run JSON path/u],
         ['path escape', (document) => { document.buildReceipt.path = '../build.json' },
-            /same explicit current-run root|canonical repository-relative path/u],
+            /explicit current-run JSON path|canonical repository-relative path/u],
         ['wrong role', (document) => { document.buildReceipt.role = 'fixture' },
             /schema\/role\/digest contract is invalid/u],
         ['wrong schema', (document) => { document.buildReceipt.schema = 'fsusblog.fixture-receipt.v2' },
             /schema\/role\/digest contract is invalid/u],
+        ['wrong file digest', (document) => { document.buildReceipt.fileDigest = digest('7') },
+            /file digest mismatch/u],
         ['digest role confusion', (document) => {
             document.buildReceipt.contentDigest = document.buildReceipt.fileDigest
         }, /schema\/role\/digest contract is invalid/u]
@@ -869,7 +930,7 @@ test('sourceReceiptRef replays exact current source, producer, schema and file i
     const buildAbsolute = path.join(receiptRepositoryRoot,
         JSON.parse(upstreamBytes.toString('utf8')).buildReceipt.path)
     const buildBytes = fs.readFileSync(buildAbsolute)
-    const buildAlias = path.join(receiptRepositoryRoot, '.tmp/current-run/run-1/build-alias.json')
+    const buildAlias = path.join(receiptRepositoryRoot, '.tmp/ci-production-build/build-alias.json')
     fs.writeFileSync(buildAlias, buildBytes)
     fs.rmSync(buildAbsolute)
     fs.symlinkSync(buildAlias, buildAbsolute)
@@ -1330,6 +1391,8 @@ test('reader firewall traverses imports and rejects transitive Markdown/DocClaim
             `import { createRequire } from 'node:module'\nconst load = createRequire(import.meta.url)\nconst disk = load('node:fs')\nprocess.stdout.write(disk?.readFileSync(${JSON.stringify(docsText)}, 'utf8'))\n`],
         ['default-module-create-require-entry.mjs',
             `import Module from 'node:module'\nconst load = Module.createRequire(import.meta.url)\nconst disk = load('node:fs')\nprocess.stdout.write(disk?.readFileSync(${JSON.stringify(docsText)}, 'utf8'))\n`],
+        ['named-default-module-create-require-entry.mjs',
+            `import { default as Module } from 'node:module'\nconst load = Module.createRequire(import.meta.url)\nconst disk = load('node:fs')\nprocess.stdout.write(disk.readFileSync(${JSON.stringify(docsText)}, 'utf8'))\n`],
         ['hoisted-default-module-create-require-entry.mjs',
             `const load = Module.createRequire(import.meta.url)\nconst disk = load('node:fs')\nprocess.stdout.write(disk.readFileSync(${JSON.stringify(docsText)}, 'utf8'))\nimport Module from 'node:module'\n`],
         ['namespace-module-create-require-entry.mjs',
@@ -1344,6 +1407,12 @@ test('reader firewall traverses imports and rejects transitive Markdown/DocClaim
             `import * as Module from 'node:module'\nconst factory = Module['create' + 'Require']\nconst load = factory(import.meta.url)\nconst disk = load('node:fs')\nprocess.stdout.write(disk.readFileSync(${JSON.stringify(docsText)}, 'utf8'))\n`],
         ['cjs-create-require.cjs',
             `const { createRequire: factory } = require('node:module')\nconst load = factory(__filename)\nconst disk = load('node:fs')\nprocess.stdout.write(disk?.readFileSync(${JSON.stringify(docsText)}, 'utf8'))\n`],
+        ['imported-fs-promises-reader.mjs',
+            `import { promises as disk } from 'node:fs'\nprocess.stdout.write(await disk.readFile(${JSON.stringify(docsText)}, 'utf8'))\n`],
+        ['cjs-destructured-promises-reader.cjs',
+            `const { promises: disk } = require('node:fs')\ndisk.readFile(${JSON.stringify(docsText)}, 'utf8').then(value => process.stdout.write(value))\n`],
+        ['cjs-assigned-reader.cjs',
+            `const disk = require('node:fs')\nlet load\n;({ readFileSync: load } = disk)\nprocess.stdout.write(load(${JSON.stringify(docsText)}, 'utf8'))\n`],
         ['dynamic-import-entry.mjs',
             `const disk = await import('node:fs')\nprocess.stdout.write(disk['read' + 'FileSync'](${JSON.stringify(docsText)}, 'utf8'))\n`]
     ])
