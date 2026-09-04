@@ -295,18 +295,26 @@ public sealed class PrivateAssetStoreTests
     }
 
     [Fact]
-    public void ProductionGateway_DoesNotMountPrivateStorageAsPublicStaticContent()
+    public void ProductionGateway_UsesOnlyInternalPrivateStorageAlias()
     {
         string repositoryRoot = RepositoryRoot();
         string compose = File.ReadAllText(Path.Combine(repositoryRoot, "ops/docker/docker-compose.production.yml"));
         string gateway = File.ReadAllText(Path.Combine(repositoryRoot, "ops/gateway/production-openresty.conf"));
 
-        Assert.DoesNotContain("assets/private", gateway, StringComparison.Ordinal);
+        Assert.Contains("location ^~ /assets/private/", gateway, StringComparison.Ordinal);
+        Assert.Contains("access_log off;", gateway, StringComparison.Ordinal);
+        Assert.Contains("location ^~ /_fsus/private-assets/", gateway, StringComparison.Ordinal);
+        Assert.Contains("internal;", gateway, StringComparison.Ordinal);
+        Assert.Contains(
+            "alias /var/lib/fsusblog/storage/shared/assets/private/;",
+            gateway,
+            StringComparison.Ordinal);
         Assert.DoesNotContain("PrivateAssetRoot", gateway, StringComparison.Ordinal);
         Assert.DoesNotContain("/app/storage/shared/assets/private", compose, StringComparison.Ordinal);
         Assert.Contains("FSUSBLOG_SHARED_STORAGE_ROOT=/app/storage/shared", compose, StringComparison.Ordinal);
         Assert.Contains("FSUSBLOG_INSTANCE_STORAGE_ROOT=/app/storage/instances", compose, StringComparison.Ordinal);
         Assert.Contains("fsus-storage:/app/storage", compose, StringComparison.Ordinal);
+        Assert.Contains("device: /var/lib/fsusblog/storage", compose, StringComparison.Ordinal);
     }
 
     private static LocalPrivateAssetStore CreateStore(string root, TestRecordSource source)

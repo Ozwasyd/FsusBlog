@@ -29,6 +29,7 @@ using FsusBlog.Server.Services.VisitLog;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
 
@@ -220,6 +221,15 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddScoped<LocalPrivateAssetStore>();
         services.AddScoped<IPrivateAssetStore>(sp => sp.GetRequiredService<LocalPrivateAssetStore>());
         services.AddScoped<IPrivateAssetExistenceProbe>(sp => sp.GetRequiredService<LocalPrivateAssetStore>());
+        services.AddOptions<PrivateAssetTicketOptions>()
+            .BindConfiguration("PrivateAssets")
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<PrivateAssetTicketOptions>, PrivateAssetTicketOptionsValidator>();
+        services.AddSingleton<PrivateAssetTicketService>();
+        services.AddScoped<IPrivateAssetAccessService, PrivateAssetAccessService>();
+        services.AddScoped<IPrivateAssetResponseWriter>(static sp => PrivateAssetResponseWriterFactory.Create(
+            sp.GetRequiredService<IHostEnvironment>(),
+            sp.GetRequiredService<IPrivateAssetStore>()));
         if (!OpenApiExportMode.IsEnabled())
         {
             services.AddHostedService<UploadSessionCleanupWorker>();

@@ -316,6 +316,7 @@ internal static partial class PublicWebRuntime
 
     internal static void MapFsusApiRoutes(this WebApplication app)
     {
+        app.MapPrivateAssetEndpoints();
         app.MapBinaryEndpoints();
         app.MapAuthoringEndpoints();
         app.MapCspReportEndpoints();

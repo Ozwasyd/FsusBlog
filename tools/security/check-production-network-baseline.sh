@@ -81,6 +81,11 @@ if [[ -f "$GATEWAY_FILE" ]]; then
     RequirePattern "$GATEWAY_FILE" "proxy_set_header[[:space:]]+Upgrade[[:space:]]+\\\$http_upgrade;" 'WebSocket upgrade forwarding'
     RequirePattern "$GATEWAY_FILE" 'proxy_buffering[[:space:]]+off;' 'WebSocket buffering disabled'
     RequirePattern "$GATEWAY_FILE" 'Strict-Transport-Security' 'HSTS response header'
+    RequirePattern "$GATEWAY_FILE" 'user[[:space:]]+fsusblog;' 'private asset owner-matched worker identity'
+    RequirePattern "$GATEWAY_FILE" 'location[[:space:]]+\^~[[:space:]]+/assets/private/' 'private ticket proxy lane'
+    RequirePattern "$GATEWAY_FILE" 'location[[:space:]]+\^~[[:space:]]+/_fsus/private-assets/' 'private internal sendfile lane'
+    RequirePattern "$GATEWAY_FILE" 'alias[[:space:]]+/var/lib/fsusblog/storage/shared/assets/private/;' 'private host-backed alias'
+    RequirePattern "$GATEWAY_FILE" 'internal;' 'private alias internal guard'
 fi
 
 if [[ -f "$GATEWAY_UPSTREAM_EXAMPLE" ]]; then
