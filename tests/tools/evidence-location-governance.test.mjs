@@ -223,7 +223,7 @@ test('every registry authority declares an executable producer and exact publica
     }
     assert.deepEqual(Object.fromEntries(['cli', 'library-caller', 'workflow'].map((classification) =>
         [classification, [...sourceClasses.values()].filter((value) => value === classification).length])),
-    { cli: 46, 'library-caller': 18, workflow: 2 });
+    { cli: 47, 'library-caller': 18, workflow: 2 });
 });
 
 test('false positives and helper calls retain exact rule and actual consumer locations', () =>
