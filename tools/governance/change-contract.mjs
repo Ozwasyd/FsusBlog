@@ -922,7 +922,16 @@ function revisionPathIdentity(root, revision, path) {
 
 function preflightDagReplayHistory(
     root,
-    { base, head, synchronizedRevision, synchronizedMergeCommit, sourceEvents, graph, changedFiles },
+    {
+        base,
+        head,
+        synchronizedRevision,
+        synchronizedMergeCommit,
+        sourceEvents,
+        graph,
+        changedFiles,
+        externalExceptionManifest
+    },
     guard
 ) {
     const graphOutputs = graph.steps.flatMap((step) => step.outputs)
@@ -938,14 +947,29 @@ function preflightDagReplayHistory(
     if (candidateCodeChanges.length > 0) {
         throw new Error(`candidate changed executable or trusted policy before replay: ${candidateCodeChanges.join(', ')}`)
     }
+    const permittedCandidateSuperset = new Set([
+        ...graphOutputs,
+        graph.manifest,
+        externalExceptionManifest
+    ].filter((path) => repositoryPathPattern.test(path ?? '')))
+    const unexpectedCandidatePaths = changedFiles.filter((path) => !permittedCandidateSuperset.has(path))
+    if (unexpectedCandidatePaths.length > 0) {
+        throw new Error(`candidate changed unrelated paths before replay: ${unexpectedCandidatePaths.join(', ')}`)
+    }
 
-    const revisions = new Set([
+    const revisions = new Set()
+    const trackRevision = (revision) => {
+        if (!fullShaPattern.test(revision ?? '')) return
+        revisions.add(revision)
+        admitDagRevision(guard, revision)
+    }
+    for (const revision of [
         synchronizedRevision,
         synchronizedMergeCommit,
         base,
         head,
         ...sourceEvents.map((event) => event?.sourceRevision).filter((revision) => fullShaPattern.test(revision ?? ''))
-    ])
+    ]) trackRevision(revision)
     const outerRevisions = gitFirstParentRange(
         root,
         synchronizedMergeCommit,
@@ -953,9 +977,9 @@ function preflightDagReplayHistory(
         generatedOutputRepairDagMaximumRevisions
     )
     for (const revision of outerRevisions) {
-        revisions.add(revision)
+        trackRevision(revision)
         const parents = gitRevisionParents(root, revision)
-        for (const parent of parents) revisions.add(parent)
+        for (const parent of parents) trackRevision(parent)
         if (parents.length > 0) {
             const protectedChanges = gitChangedPaths(root, parents[0], revision)
                 .filter((path) => protectedPaths.has(path))
@@ -974,8 +998,8 @@ function preflightDagReplayHistory(
             generatedOutputRepairDagMaximumRevisions
         )
         for (const branchRevision of branchRevisions) {
-            revisions.add(branchRevision)
-            for (const parent of gitRevisionParents(root, branchRevision)) revisions.add(parent)
+            trackRevision(branchRevision)
+            for (const parent of gitRevisionParents(root, branchRevision)) trackRevision(parent)
         }
         for (const path of protectedPaths) {
             if (gitFullHistoryRevisionsForPath(root, branchBase, parents[1], path).length > 0) {
@@ -985,8 +1009,6 @@ function preflightDagReplayHistory(
             }
         }
     }
-    for (const revision of revisions) admitDagRevision(guard, revision)
-
     const trustedClosure = new Map(closurePaths.map((path) => [
         path,
         revisionPathIdentity(root, base, path)
@@ -1159,7 +1181,10 @@ function validatePostMergeGeneratedOutputRepairDag(
             synchronizedMergeCommit: evidence.synchronizedMergeCommit,
             sourceEvents,
             graph,
-            changedFiles
+            changedFiles,
+            externalExceptionManifest: parsedBody.classifications['External naming exception']
+                ? parsedBody.externalExceptionManifest
+                : null
         }, replayGuard)
         const synchronizedReplay = verifiedDagReplay(root, evidence.synchronizedRevision, graph, replayGuard)
         const synchronizedOuterReplay = verifiedDagReplay(root, evidence.synchronizedMergeCommit, graph, replayGuard)

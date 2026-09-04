@@ -559,7 +559,8 @@ function createPostMergeRepairDagFixture({
     synchronizedTail = false,
     outerProtectedMutation = false,
     outerPaddingCommits = 0,
-    historyExecutionMarker = null
+    historyExecutionMarker = null,
+    candidateInputExecutionMarker = null
 } = {}) {
     const repository = mkdtempSync(join(tmpdir(), 'fsusblog-post-merge-generated-repair-dag-'))
     execFileSync('git', ['init', '-q', '-b', 'master'], { cwd: repository })
@@ -571,7 +572,7 @@ function createPostMergeRepairDagFixture({
     writeRepositoryFile(repository, 'tools/test/generate-evidence-location-governance.mjs', `
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 const source = readFileSync('semantic-source.txt', 'utf8').trim()
 const digest = createHash('sha256').update(source).digest('hex')
 mkdirSync('config/testing', { recursive: true })
@@ -582,6 +583,7 @@ ${producerFault === 'unexpected-write' ? "if (source.includes('event')) writeFil
 ${producerFault === 'ignored-write' ? "if (source.includes('event')) { mkdirSync('.tmp', { recursive: true }); writeFileSync('.tmp/unexpected.txt', 'unexpected\\n') }" : ''}
 ${producerFault === 'staged-write' ? "if (source.includes('event')) { writeFileSync('unexpected-output.txt', 'unexpected\\n'); execFileSync('git', ['add', 'unexpected-output.txt']) }" : ''}
 ${producerFault === 'nondeterministic' ? "if (source.includes('event')) writeFileSync('config/testing/evidence-location-migration-ledger.json', JSON.stringify({ scanDigest: 'sha256:' + digest, entries: [{ id: String(Math.random()) }] }) + '\\n')" : ''}
+${candidateInputExecutionMarker ? `if (existsSync('candidate-extra.ts')) writeFileSync(${JSON.stringify(candidateInputExecutionMarker)}, 'executed\\n')` : ''}
 `.trimStart())
     writeRepositoryFile(repository, 'tools/test/generate-current-run-evidence-location-acceptance.mjs', `
 import { createHash } from 'node:crypto'
@@ -1856,7 +1858,7 @@ test('post-merge generated repair DAG rejects untrusted structure and stale seal
         {
             name: 'candidate input mutation',
             mutate: (_manifest, repository) => { writeRepositoryFile(repository, 'candidate-extra.txt', 'extra\n') },
-            pattern: /candidate changed tracked inputs or policy|candidate contains unrelated changes/u
+            pattern: /candidate changed unrelated paths before replay/u
         },
         {
             name: 'candidate policy mutation',
@@ -2017,6 +2019,19 @@ test('post-merge generated repair DAG rejects untrusted candidate and history co
             /outer history changed outputs or policy closure before replay|source branch changed outputs or policy closure before replay|generator closure is not trusted before replay/u
         )
         assert.equal(existsSync(historyMarker), false)
+
+        const candidateInputMarker = join(temporaryRoot, 'candidate-input-executed')
+        const candidateInput = createPostMergeRepairDagFixture({
+            candidateInputExecutionMarker: candidateInputMarker,
+            mutateManifest: (_manifest, repository) => {
+                writeRepositoryFile(repository, 'candidate-extra.ts', 'x'.repeat(256 * 1024))
+            }
+        })
+        assert.match(
+            validatePostMergeRepairDagFixture(candidateInput).join('\n'),
+            /candidate changed unrelated paths before replay/u
+        )
+        assert.equal(existsSync(candidateInputMarker), false)
     } finally {
         rmSync(temporaryRoot, { recursive: true, force: true })
     }
