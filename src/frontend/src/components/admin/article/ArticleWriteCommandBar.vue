@@ -300,12 +300,12 @@ const openCriticalInspector = (event: MouseEvent): void =>
 
     .article-write-command-bar__save-status
  {
-        max-width: 5.5rem;
+        max-width: 8.5rem;
     }
 
     .article-write-command-bar__critical-status
  {
-        max-width: 7rem;
+        max-width: 8.5rem;
     }
 }
 </style>

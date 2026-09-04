@@ -908,7 +908,9 @@ public static class SchemaModelComparer
     public static IReadOnlyList<string> Compare(
         SchemaModelSnapshot expected,
         SchemaModelSnapshot actual,
-        IReadOnlyCollection<string>? allowedExtraTables = null)
+        IReadOnlyCollection<string>? allowedExtraTables = null,
+        IReadOnlySet<string>? allowedExtraLinks = null,
+        IReadOnlyCollection<string>? requiredExtraTables = null)
     {
         var errors = new List<string>();
         foreach ((string tableName, SchemaTableModel expectedTable) in expected.Tables.OrderBy(static table => table.Key, StringComparer.Ordinal))
@@ -922,11 +924,30 @@ public static class SchemaModelComparer
                 expectedTable,
                 actualTable,
                 expected.Provider == SchemaProviderKind.PostgreSql,
+                allowedExtraLinks,
                 errors);
         }
 
         HashSet<string> allowed = allowedExtraTables?.Select(CurrentSchemaCanonicalAuthority.NormalizeIdentifier).ToHashSet(StringComparer.Ordinal)
             ?? [];
+        IEnumerable<string> requiredNames = requiredExtraTables is null
+            ? []
+            : requiredExtraTables
+                .Select(CurrentSchemaCanonicalAuthority.NormalizeIdentifier)
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal);
+        foreach (string tableName in requiredNames)
+        {
+            allowed.Add(tableName);
+            if (expected.Tables.ContainsKey(tableName))
+            {
+                continue;
+            }
+            if (!actual.Tables.ContainsKey(tableName))
+            {
+                errors.Add($"missing required extra table {tableName}");
+            }
+        }
         foreach (string tableName in actual.Tables.Keys.Except(expected.Tables.Keys, StringComparer.Ordinal).Except(allowed, StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
             errors.Add($"extra table {tableName} owner={Describe(actual.Tables[tableName].Owner)}");
@@ -938,6 +959,7 @@ public static class SchemaModelComparer
         SchemaTableModel expected,
         SchemaTableModel actual,
         bool requireExactPostgresPhysicalSemantics,
+        IReadOnlySet<string>? allowedExtraLinks,
         List<string> errors)
     {
         foreach ((string columnName, SchemaColumnModel expectedColumn) in expected.Columns.OrderBy(static column => column.Key, StringComparer.Ordinal))
@@ -964,6 +986,10 @@ public static class SchemaModelComparer
         }
         foreach (string indexName in actual.Indexes.Except(expected.Indexes, StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
+            if (allowedExtraLinks?.Contains(indexName) == true)
+            {
+                continue;
+            }
             errors.Add($"extra index {expected.Name}.{indexName} owner={Describe(actual.Owner)}");
         }
         foreach (string indexName in expected.IndexDefinitions.Keys.Intersect(actual.IndexDefinitions.Keys, StringComparer.Ordinal))
@@ -987,6 +1013,10 @@ public static class SchemaModelComparer
         }
         foreach (string constraintName in actual.Constraints.Keys.Except(expected.Constraints.Keys, StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
+            if (allowedExtraLinks?.Contains(constraintName) == true)
+            {
+                continue;
+            }
             errors.Add($"extra constraint {expected.Name}.{constraintName} owner={Describe(actual.Owner)}");
         }
         foreach (string constraintName in expected.Constraints.Keys.Intersect(actual.Constraints.Keys, StringComparer.Ordinal))

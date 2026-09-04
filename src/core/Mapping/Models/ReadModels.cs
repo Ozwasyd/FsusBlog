@@ -13,6 +13,8 @@ public readonly record struct TagCoreModel(int Id, string Name);
 
 public readonly record struct TaxonomyMetadataMutationRequestCoreModel(string Name, string? Description);
 
+public readonly record struct TaxonomyExactMetadataCoreModel(int Id, string Name, string? Description);
+
 public readonly record struct ArticleRightsCoreModel(
     long SnapshotId,
     long ArticleRevisionId,

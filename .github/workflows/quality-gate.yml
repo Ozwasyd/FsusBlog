@@ -890,6 +890,7 @@ jobs:
                   source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
                   receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
                   consumer-job: integration-runtime
+            - run: ./tools/test.sh current-schema-bootstrap-integration --no-deps
             - run: ./tools/test.sh integration
             - run: ./tools/test.sh data-scale-xs --no-deps
             - run: ./tools/test.sh data-scale-s --no-deps
@@ -902,7 +903,12 @@ jobs:
                   include-hidden-files: true
                   path: |
                       .tmp/acceptance/**
+                      .tmp/current-schema-bootstrap-integration/*/**
                       .tmp/fixtures/*/homogeneous-two-node/**
+                      .tmp/test-results/backend/integration/legacy-real-dump-membership.json
+                      .tmp/test-results/backend/legacy-20260517-real-dump/legacy-20260517-real-dump.trx
+                      .tmp/test-results/backend/legacy-20260517-real-dump/membership-plan.json
+                      .tmp/test-results/backend/legacy-20260517-real-dump/semantic-outcome.json
                       .tmp/runtime/integration.json
                       .tmp/runtime-scenario-host/**
                       .tmp/scale/**
@@ -1128,6 +1134,7 @@ jobs:
                       .tmp/fuzz/**
                       .tmp/security/perception-character-v3/release-gate/**
                       .tmp/security/perception-v2/**
+                      .tmp/test-results/backend/perception-character-v3-redis-producer.json
                       .tmp/release-evidence/fuzz-seeds.json
                       .tmp/release-evidence/jobs/**
 

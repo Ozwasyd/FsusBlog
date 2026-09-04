@@ -195,7 +195,7 @@ generatedSectionId: testing.coverage-entry-count
 render: scalar
 -->
 <!-- FSUSBLOG-GENERATED:BEGIN testing.coverage-entry-count -->
-261
+264
 <!-- FSUSBLOG-GENERATED:END testing.coverage-entry-count -->
 
 `config/testing/content-shape-catalog.json` 是 Unicode、script、正负 eligibility
@@ -1145,7 +1145,11 @@ admission，并在 materializer 前按 admitted container ID 重新观察完整 
 identity；C# 在同一连接 transaction 内再 exact 比对 PostgreSQL
 `system_identifier`、database/user/server version 后才可执行 DDL。
 
-DDL 与 `CurrentSchemaStartupVerifier` 位于同一 transaction。commit 前只原子
+DDL 与 `CurrentSchemaStartupVerifier` 位于同一 transaction。CodeFirst
+`InitTables` 之后，materializer 还要执行 `CurrentSchemaRuntimeRollupTables`
+中与 PostCodeFirst visit-log / author-analytics `EnsureTable` 对齐的 CREATE
+TABLE SQL；verifier 要求这些 rollup 表存在，而不是把它们留在可选 extra
+allowlist。commit 前只原子
 发布 `prepared`、qualification-ineligible staging receipt；commit 后才以
 no-overwrite 原子发布 `verified` terminal，所以 crash window 不会留下假的
 verified evidence。commit 后 publication 失败时，producer 保持 terminal
@@ -1780,6 +1784,7 @@ render: enum-set
 - `cross-browser-smoke`
 - `cross-stack-contract`
 - `csrf-browser-matrix`
+- `current-schema-bootstrap-integration`
 - `data-scale-evidence-summary`
 - `data-scale-m`
 - `data-scale-nightly`

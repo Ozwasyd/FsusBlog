@@ -468,6 +468,33 @@ public sealed class PublicHotReadSnapshot
         return CreateHtmlDeltaSnapshot(overlay, removed, _htmlFrameCount - 1);
     }
 
+    public PublicHotReadSnapshot WithoutHtmlMatching(Func<string, bool> match)
+    {
+        ArgumentNullException.ThrowIfNull(match);
+        Dictionary<string, PublicHtmlArtifact> overlay = _htmlOverlayByPath.ToDictionary(StringComparer.Ordinal);
+        HashSet<string> removed = _htmlRemovedPaths.ToHashSet(StringComparer.Ordinal);
+        int htmlFrameCount = _htmlFrameCount;
+        bool changed = false;
+        foreach (string path in overlay.Keys.Concat(_htmlBaseByPath.Keys).Distinct(StringComparer.Ordinal).ToArray())
+        {
+            if (!match(path) || !TryGetHtml(path, out _))
+            {
+                continue;
+            }
+
+            overlay.Remove(path);
+            if (_htmlBaseByPath.ContainsKey(path))
+            {
+                removed.Add(path);
+            }
+
+            htmlFrameCount--;
+            changed = true;
+        }
+
+        return changed ? CreateHtmlDeltaSnapshot(overlay, removed, htmlFrameCount) : this;
+    }
+
     public PublicHotReadSnapshot WithoutAllHtml()
         => _htmlFrameCount == 0
             ? this
@@ -926,6 +953,32 @@ public class PublicHotReadStore
         }
 
         Publish(next);
+    }
+
+    public void RemoveHtmlFamily(string routeKey)
+    {
+        if (string.IsNullOrWhiteSpace(routeKey))
+        {
+            return;
+        }
+
+        PublicHotReadSnapshot current = Current;
+        if (current.Version == 0)
+        {
+            return;
+        }
+
+        string exactPath = PublicHotReadRouteKeys.HtmlPath(routeKey);
+        string familyPrefix = exactPath.EndsWith(".html", StringComparison.Ordinal)
+            ? string.Concat(exactPath.AsSpan(0, exactPath.Length - ".html".Length), "-")
+            : string.Concat(exactPath, "-");
+        PublicHotReadSnapshot next = current.WithoutHtmlMatching(path =>
+            string.Equals(path, exactPath, StringComparison.Ordinal)
+            || path.StartsWith(familyPrefix, StringComparison.Ordinal));
+        if (!ReferenceEquals(next, current))
+        {
+            Publish(next);
+        }
     }
 
     public void ClearHtml()

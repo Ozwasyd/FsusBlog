@@ -232,8 +232,33 @@ public sealed class PublicAotBootstrapProviderTests
         string resolver = RuntimeMetadataInspection.DescribeMethods(provider, "ResolveTagIdByNameAsync");
 
         Assert.Contains("Tag.get_Name", resolver, StringComparison.Ordinal);
+        Assert.Contains("Tag.get_Description", resolver, StringComparison.Ordinal);
         Assert.Contains("TagUrlAlias.get_NormalizedName", resolver, StringComparison.Ordinal);
         Assert.Contains("TagUrlAlias.get_TagId", resolver, StringComparison.Ordinal);
         Assert.Contains("NormalizeLookupKey", resolver, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FilterProvider_ResolvesNameAndDescriptionInTheSameIdentityLookup()
+    {
+        Type provider = typeof(PublicAotFilterBootstrapProvider);
+        string identity = RuntimeMetadataInspection.DescribeMethods(provider, "ResolveFilterIdentityAsync");
+        string tagByName = RuntimeMetadataInspection.DescribeMethods(provider, "ResolveTagIdByNameAsync");
+        string typeShape = RuntimeMetadataInspection.DescribeType(provider);
+        Type projection = provider.GetNestedType("FilterTaxonomyAotProjection", BindingFlags.NonPublic)!;
+        Type identityType = provider.GetNestedType("FilterIdentity", BindingFlags.NonPublic)!;
+
+        Assert.Contains("Category.get_Name", identity, StringComparison.Ordinal);
+        Assert.Contains("Category.get_Description", identity, StringComparison.Ordinal);
+        Assert.Contains("Tag.get_Name", identity, StringComparison.Ordinal);
+        Assert.Contains("Tag.get_Description", identity, StringComparison.Ordinal);
+        Assert.Contains("NormalizeFilterDescription", identity, StringComparison.Ordinal);
+        Assert.Contains("Tag.get_Description", tagByName, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadFilterDescription", typeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetDescriptionAsync", typeShape, StringComparison.Ordinal);
+        Assert.Equal(typeof(string), projection.GetProperty("Name")!.PropertyType);
+        Assert.Equal(typeof(string), projection.GetProperty("Description")!.PropertyType);
+        Assert.Equal(typeof(string), identityType.GetProperty("Description")!.PropertyType);
+        Assert.Contains("FilterIdentity.get_Description", RuntimeMetadataInspection.DescribeMethods(provider, "BuildSnapshotAsync"), StringComparison.Ordinal);
     }
 }

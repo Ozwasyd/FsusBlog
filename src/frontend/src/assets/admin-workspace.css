@@ -325,7 +325,7 @@ html[data-theme-resolved='dark'] .admin-workspace-frame .article-list-toolbar-bu
     box-sizing: border-box;
     width: 100%;
     min-width: 0;
-    padding: var(--fsus-space-5);
+    padding: var(--fsus-admin-inline-empty-state-inset);
     text-align: left;
 }
 
@@ -387,7 +387,7 @@ html[data-theme-resolved='dark'] .admin-workspace-frame .article-list-toolbar-bu
 
     .admin-workspace-frame .admin-inline-empty-state
  {
-        padding: var(--fsus-space-4);
+        padding: var(--fsus-admin-inline-empty-state-inset);
     }
 
     .admin-workspace-frame .admin-inline-empty-state__actions
