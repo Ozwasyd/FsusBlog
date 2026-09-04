@@ -316,7 +316,7 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 3;
     overflow: hidden;
-    word-break: break-word;
+    word-break: normal;
     overflow-wrap: break-word;
     text-wrap: pretty;
 }
@@ -459,7 +459,7 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in
     min-width: 0;
     max-width: 100%;
     overflow-wrap: anywhere;
-    word-break: break-word;
+    word-break: normal;
 }
 
 .aot-panel
@@ -540,7 +540,7 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in
 .markdown-body a
  {
     overflow-wrap: anywhere;
-    word-break: break-word;
+    word-break: normal;
 }
 
 /* CSP-safe runtime classes: all varying values are applied through nonce-backed

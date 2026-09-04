@@ -152,6 +152,8 @@ import { useInboxSplitView } from '@/composables/useInboxSplitView';
 import { useRowStateMotion } from '@/composables/useRowStateMotion';
 import { FsusUiTaskPageHeader } from '@/fsusui';
 
+defineOptions({ name: 'UserMessagesView' });
+
 interface FocusablePane {
     focusPane: () => void;
 }
@@ -302,6 +304,8 @@ const visibleMessageRows = computed(() =>
     return messages.map((message) => ({
         ...message,
         createdAtText: formatTime(message.createdAt),
+        // Empty sender names intentionally fall back to the stable sender-type label.
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         senderText: message.senderName || senderLabel(message.senderType),
         bubbleClassName: bubbleClass(message.senderType),
         motionClass: messageMotion.classFor(message.messageId)
@@ -329,6 +333,8 @@ const contextAccountText = computed(() =>
 
     const messages = detail.value?.messages ?? [];
     const accountMessage = messages.find((message) => message.senderType === 0 && message.senderName);
+    // Empty sender names intentionally fall back to the stable anonymous account label.
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     return accountMessage?.senderName || '账号';
 });
 

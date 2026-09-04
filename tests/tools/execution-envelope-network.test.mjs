@@ -13,7 +13,9 @@ import {
     prepareNetworkSandbox,
     projectPlannedEndpoints,
     validateExecutionNetworkPolicy
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This contract test imports the repository owner that it directly exercises.
 } from '../../tools/test/execution-envelope-network.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This contract test imports the repository owner that it directly exercises.
 import { runPhysicalExecution } from '../../tools/test/physical-execution-process-tree.mjs';
 
 const policy = loadExecutionNetworkPolicy();

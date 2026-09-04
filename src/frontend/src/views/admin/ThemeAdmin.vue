@@ -198,8 +198,8 @@ async function loadActivations(): Promise<void>
 
 onMounted(() =>
 {
-    loadRegistry();
-    loadActivations();
+    void loadRegistry();
+    void loadActivations();
 });
 </script>
 

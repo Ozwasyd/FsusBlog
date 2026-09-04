@@ -620,12 +620,8 @@ import {
     userStepUpPasskeyBegin,
     userStepUpPasskeyComplete,
     verifyMfaSetup,
-    type MfaChallengeResult,
     type MfaProfile,
-    type MfaSetupStart,
-    type MfaSetupVerify,
     type PasskeyCredentialSummary,
-    type PasskeyLoginBeginResponse,
     type UserSessionSummary
 } from '@/api/auth';
 import MfaSetupModal from '@/components/ui/MfaSetupModal.vue';

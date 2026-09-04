@@ -437,7 +437,9 @@ function combineAbortSignals(...signals: (AbortSignal | undefined)[]): CombinedA
         return {
             signal: activeSignals[0],
             cleanup: () =>
-            {}
+            {
+                return;
+            }
         };
     }
 
@@ -512,7 +514,7 @@ function withCallerAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<
             (error) =>
             {
                 signal.removeEventListener('abort', abortHandler);
-                reject(error);
+                reject(error instanceof Error ? error : new Error(String(error)));
             }
         );
     });
@@ -523,7 +525,9 @@ async function reloadRuntimeFromEntries(entries: Map<string, Uint8Array>, genera
     const snapshot = new Map(entries);
     runtimeReloadPromise = runtimeReloadPromise
         .catch(() =>
-        {})
+        {
+            return;
+        })
         .then(async () =>
         {
             if (!isGenerationActive(generation, controller))
@@ -825,7 +829,9 @@ function scheduleDeepSearchPhase(manifest: SearchManifest, generation: number): 
     })();
 
     void deepPreloadPromise.catch(() =>
-    {});
+    {
+        return;
+    });
 }
 
 async function loadSearchIndexOnce(generation: number, controller: AbortController): Promise<void>
@@ -856,7 +862,9 @@ async function loadSearchIndexOnce(generation: number, controller: AbortControll
     loadedVersion = manifest.currentVersion;
     emitSearchPhaseMetric('initial', initialStartedAt, initialRoles, manifest.currentVersion, entries.size);
     void preloadBackgroundShard(manifest, generation).catch(() =>
-    {});
+    {
+        return;
+    });
     scheduleDeepSearchPhase(manifest, generation);
 }
 

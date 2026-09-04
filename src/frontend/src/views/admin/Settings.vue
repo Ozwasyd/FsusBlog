@@ -195,7 +195,8 @@
                                         type="textarea"
                                         :rows="4"
                                         maxlength="200"
-show-word-limit :disabled="siteFormDisabled"
+                                        show-word-limit
+                                        :disabled="siteFormDisabled"
                                     />
                                 </ElFormItem>
 
@@ -614,7 +615,8 @@ show-word-limit :disabled="siteFormDisabled"
                                             :rows="3"
                                             maxlength="512"
                                             show-word-limit
-:disabled="complianceFormDisabled" placeholder="保留所有权利。"
+                                            :disabled="complianceFormDisabled"
+                                            placeholder="保留所有权利。"
                                         />
                                     </ElFormItem>
 
@@ -845,6 +847,8 @@ import { FsusUiTaskPageHeader } from '@/fsusui';
 import { confirmWarning, toast } from '@/fsusui/feedback';
 import { Delete, Plus, Warning } from '@/fsusui/icons';
 import { cspStyleDirective } from '@/services/cspStyleRuntime';
+
+defineOptions({ name: 'AdminSettingsView' });
 
 const vCspStyle = cspStyleDirective;
 

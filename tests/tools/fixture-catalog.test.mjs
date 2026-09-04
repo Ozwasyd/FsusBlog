@@ -17,6 +17,17 @@ import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import {
+    canonicalDigest as currentSchemaCanonicalDigest,
+    runtimeReadyReceiptPath,
+    runtimeReadySchema
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This contract test imports the repository owner that it directly exercises.
+} from '../../tools/db/verify-current-schema-test-materialization-receipt.mjs';
+import {
+    buildFixtureReceipt,
+    writeFixtureReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This contract test imports the repository owner that it directly exercises.
+} from '../../tools/test-fixtures/receipt/fixture-receipt.mjs';
+import {
     applySealedFixtureProfileEnvironment,
     buildFixtureVariantPlan,
     buildProducerFixtureVariantPlan,
@@ -40,16 +51,8 @@ import {
     writeAcceptanceRuntimeTopology,
     writeCurrentSchemaRuntimeTopologyAdmission,
     writeFixtureProfileReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This contract test imports the repository owner that it directly exercises.
 } from '../../tools/testing/fixture-catalog.mjs';
-import {
-    canonicalDigest as currentSchemaCanonicalDigest,
-    runtimeReadyReceiptPath,
-    runtimeReadySchema
-} from '../../tools/db/verify-current-schema-test-materialization-receipt.mjs';
-import {
-    buildFixtureReceipt,
-    writeFixtureReceipt
-} from '../../tools/test-fixtures/receipt/fixture-receipt.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const names = ['capability', 'profile', 'producer', 'inventory', 'variant'];
@@ -1149,7 +1152,10 @@ test('terminal DAG rejects coordinated cross-run FixtureReceipt identities and p
         }
         finally
         {
-            if (aliasKind === 'parent-symlink') rmSync(parentAlias, { force: true });
+            if (aliasKind === 'parent-symlink')
+            {
+                rmSync(parentAlias, { force: true });
+            }
             rmSync(value.directory, { recursive: true, force: true });
         }
     }
@@ -1201,17 +1207,26 @@ test('environment-ready and runtime topology form an immutable exact terminal DA
     const cases = [
         {
             label: 'missing environment-ready child',
-            mutate(value) { rmSync(value.environmentReady); },
+            mutate(value)
+            {
+                rmSync(value.environmentReady);
+            },
             expected: /environment-ready receipt is missing/u
         },
         {
             label: 'missing runtime-topology child',
-            mutate(value) { rmSync(value.runtimeTopology); },
+            mutate(value)
+            {
+                rmSync(value.runtimeTopology);
+            },
             expected: /runtime topology receipt is missing/u
         },
         {
             label: 'prepared current-schema parent',
-            mutate(value) { writeFileSync(`${value.runtimeReady}.prepared`, '{}\n'); },
+            mutate(value)
+            {
+                writeFileSync(`${value.runtimeReady}.prepared`, '{}\n');
+            },
             expected: /prepared sibling exists/u
         },
         {
@@ -1228,17 +1243,26 @@ test('environment-ready and runtime topology form an immutable exact terminal DA
         },
         {
             label: 'prepared environment-ready sibling',
-            mutate(value) { writeFileSync(`${value.environmentReady}.prepared`, '{}\n'); },
+            mutate(value)
+            {
+                writeFileSync(`${value.environmentReady}.prepared`, '{}\n');
+            },
             expected: /prepared or publication alias sibling/u
         },
         {
             label: 'crash alias environment-ready sibling',
-            mutate(value) { writeFileSync(`${value.environmentReady}.next-crash`, '{}\n'); },
+            mutate(value)
+            {
+                writeFileSync(`${value.environmentReady}.next-crash`, '{}\n');
+            },
             expected: /prepared or publication alias sibling/u
         },
         {
             label: 'hardlink environment-ready alias',
-            mutate(value) { linkSync(value.environmentReady, `${value.environmentReady}.alias`); },
+            mutate(value)
+            {
+                linkSync(value.environmentReady, `${value.environmentReady}.alias`);
+            },
             expected: /canonical regular file/u
         },
         {

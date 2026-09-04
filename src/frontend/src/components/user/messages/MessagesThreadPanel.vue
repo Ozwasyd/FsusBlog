@@ -238,6 +238,7 @@ defineExpose({
 </script>
 
 <style scoped>
+/* stylelint-disable-next-line scss/at-rule-no-unknown -- Tailwind v4 reference syntax binds the shared asset context. */
 @reference "@/assets/main.css";
 
 .messages-inbox-pane

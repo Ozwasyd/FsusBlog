@@ -7,109 +7,136 @@
 // parity checker (check-offline-migration-catalog-parity.mjs) can detect
 // drift without parsing C# on both sides.
 
-import { createHash } from 'node:crypto'
-import { readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const sourcePath = join(
-  root,
-  'src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationMetadata.cs',
-)
+    root,
+    'src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationMetadata.cs'
+);
 const outPath = join(
-  root,
-  'src/migration/OfflineMigrationCatalogEntries.generated.cs',
-)
+    root,
+    'src/migration/OfflineMigrationCatalogEntries.generated.cs'
+);
 
-const source = readFileSync(sourcePath, 'utf8')
+const source = readFileSync(sourcePath, 'utf8');
 
 // Locate every result.Add call, then extract the balanced argument text so
 // per-entry fields are read only from the entry being parsed.
-const callPattern = /result\.Add\(\s*"[^"]+",\s*(?:CreateLegacyContract|new OnlineSchemaMigrationMetadata)\(/g
+const callPattern = /result\.Add\(\s*"[^"]+",\s*(?:CreateLegacyContract|new OnlineSchemaMigrationMetadata)\(/g;
 
-function balancedText(source, openIndex) {
-  let depth = 0
-  for (let index = openIndex; index < source.length; index++) {
-    const char = source[index]
-    if (char === '(') depth++
-    else if (char === ')') {
-      depth--
-      if (depth === 0) return source.slice(openIndex, index + 1)
+function balancedText(source, openIndex)
+{
+    let depth = 0;
+    for (let index = openIndex; index < source.length; index++)
+    {
+        const char = source[index];
+        if (char === '(')
+        {
+            depth++;
+        }
+        else if (char === ')')
+        {
+            depth--;
+            if (depth === 0)
+            {
+                return source.slice(openIndex, index + 1);
+            }
+        }
     }
-  }
-  throw new Error('unbalanced entry call')
+    throw new Error('unbalanced entry call');
 }
 
-const phaseEntries = []
-const backfillEntries = []
-const legacyEntries = []
+const phaseEntries = [];
+const backfillEntries = [];
+const legacyEntries = [];
 
-let match
-while ((match = callPattern.exec(source)) !== null) {
-  const call = balancedText(source, match.index + match[0].lastIndexOf('('))
-  const id = match[0].match(/result\.Add\(\s*"([^"]+)"/)?.[1] ?? (() => {
-    throw new Error('missing entry id')
-  })()
-  if (call.startsWith('CreateLegacyContract(')) {
-    legacyEntries.push({ id, phase: 'Contract', legacy: true })
-    continue
-  }
-  const phaseMatch = call.match(/OnlineSchemaMigrationPhase\.(\w+)/)
-  if (!phaseMatch) {
-    throw new Error(`missing phase for ${id}`)
-  }
-  const phase = phaseMatch[1]
-  if (phase !== 'Expand' && phase !== 'Backfill' && phase !== 'Contract') {
-    throw new Error(`unexpected phase for ${id}: ${phase}`)
-  }
-  const entry = { id, phase }
-  const batch = call.match(/BatchSize:\s*(\d+)/)
-  if (batch) {
-    entry.batchSize = Number.parseInt(batch[1], 10)
-  }
-  if (/LegacyBootstrapOnly:\s*true/.test(call)) {
-    entry.legacy = true
-  }
-  if (entry.phase === 'Backfill') {
-    backfillEntries.push(entry)
-  } else {
-    phaseEntries.push(entry)
-  }
+let match;
+while ((match = callPattern.exec(source)) !== null)
+{
+    const call = balancedText(source, match.index + match[0].lastIndexOf('('));
+    const id = match[0].match(/result\.Add\(\s*"([^"]+)"/)?.[1] ?? (() =>
+    {
+        throw new Error('missing entry id');
+    })();
+    if (call.startsWith('CreateLegacyContract('))
+    {
+        legacyEntries.push({ id, phase: 'Contract', legacy: true });
+        continue;
+    }
+    const phaseMatch = call.match(/OnlineSchemaMigrationPhase\.(\w+)/);
+    if (!phaseMatch)
+    {
+        throw new Error(`missing phase for ${id}`);
+    }
+    const phase = phaseMatch[1];
+    if (phase !== 'Expand' && phase !== 'Backfill' && phase !== 'Contract')
+    {
+        throw new Error(`unexpected phase for ${id}: ${phase}`);
+    }
+    const entry = { id, phase };
+    const batch = call.match(/BatchSize:\s*(\d+)/);
+    if (batch)
+    {
+        entry.batchSize = Number.parseInt(batch[1], 10);
+    }
+    if (/LegacyBootstrapOnly:\s*true/.test(call))
+    {
+        entry.legacy = true;
+    }
+    if (entry.phase === 'Backfill')
+    {
+        backfillEntries.push(entry);
+    }
+    else
+    {
+        phaseEntries.push(entry);
+    }
 }
 
-const idSet = (entries) => new Set(entries.map((entry) => entry.id))
-for (const id of idSet(phaseEntries).intersection(idSet(legacyEntries))) {
-  throw new Error(`entry classified twice: ${id}`)
+const idSet = (entries) => new Set(entries.map((entry) => entry.id));
+for (const id of idSet(phaseEntries).intersection(idSet(legacyEntries)))
+{
+    throw new Error(`entry classified twice: ${id}`);
 }
 
 // The legacy contract list is added via a foreach loop over
 // explicitlyClassifiedLegacyContracts; parse the string array inline.
-const legacyArrayPattern = /explicitlyClassifiedLegacyContracts\s*=\s*\[\s*([\s\S]*?)\];/
-const legacyArray = source.match(legacyArrayPattern)?.[1]
-if (!legacyArray) {
-  throw new Error('explicitlyClassifiedLegacyContracts array not found')
+const legacyArrayPattern = /explicitlyClassifiedLegacyContracts\s*=\s*\[\s*([\s\S]*?)\];/;
+const legacyArray = source.match(legacyArrayPattern)?.[1];
+if (!legacyArray)
+{
+    throw new Error('explicitlyClassifiedLegacyContracts array not found');
 }
-for (const arrayMatch of legacyArray.matchAll(/"([a-z0-9-]+)"/g)) {
-  legacyEntries.push({ id: arrayMatch[1], phase: 'Contract', legacy: true })
+for (const arrayMatch of legacyArray.matchAll(/"([a-z0-9-]+)"/g))
+{
+    legacyEntries.push({ id: arrayMatch[1], phase: 'Contract', legacy: true });
 }
-for (const id of idSet(legacyEntries)) {
-  if (idSet(phaseEntries).has(id) || idSet(backfillEntries).has(id)) {
-    throw new Error(`legacy entry collides with classified entry: ${id}`)
-  }
+for (const id of idSet(legacyEntries))
+{
+    if (idSet(phaseEntries).has(id) || idSet(backfillEntries).has(id))
+    {
+        throw new Error(`legacy entry collides with classified entry: ${id}`);
+    }
 }
-const seenLegacy = new Set()
-for (const entry of legacyEntries) {
-  if (seenLegacy.has(entry.id)) throw new Error(`duplicate legacy entry: ${entry.id}`)
-  seenLegacy.add(entry.id)
+const seenLegacy = new Set();
+for (const entry of legacyEntries)
+{
+    if (seenLegacy.has(entry.id))
+    {
+        throw new Error(`duplicate legacy entry: ${entry.id}`);
+    }
+    seenLegacy.add(entry.id);
 }
 
-const sourceDigest = createHash('sha256').update(source).digest('hex')
-const generatedAt = new Date().toISOString()
+const sourceDigest = createHash('sha256').update(source).digest('hex');
 
 const entries = [...phaseEntries, ...backfillEntries]
-  .sort((a, b) => a.id.localeCompare(b.id))
-  .concat(legacyEntries.sort((a, b) => a.id.localeCompare(b.id)))
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .concat(legacyEntries.sort((a, b) => a.id.localeCompare(b.id)));
 
 const code = `// <auto-generated />
 // Generated by tools/db/generate-offline-migration-catalog.mjs from
@@ -143,17 +170,17 @@ internal static class OfflineMigrationCatalogEntries
     {
         var result = new Dictionary<string, OfflineMigrationClassification>(StringComparer.Ordinal);
 ${entries
-  .map(
-    (entry) =>
-      `        result.Add("${entry.id}", new OfflineMigrationClassification("${entry.id}", OfflineMigrationPhase.${entry.phase}, ${entry.batchSize ?? 'null'}, ${entry.legacy ? 'true' : 'false'}));`,
-  )
-  .join('\n')}
+    .map(
+        (entry) =>
+            `        result.Add("${entry.id}", new OfflineMigrationClassification("${entry.id}", OfflineMigrationPhase.${entry.phase}, ${entry.batchSize ?? 'null'}, ${entry.legacy ? 'true' : 'false'}));`
+    )
+    .join('\n')}
         return new ReadOnlyDictionary<string, OfflineMigrationClassification>(result);
     }
 }
-`
+`;
 
-writeFileSync(outPath, code)
+writeFileSync(outPath, code);
 console.log(
-  `[generate-offline-migration-catalog] wrote ${entries.length} classifications (${phaseEntries.filter((e) => e.phase === 'Expand').length} expand, ${backfillEntries.length} backfill, ${legacyEntries.length} legacy contract) digest sha256:${sourceDigest}`,
-)
+    `[generate-offline-migration-catalog] wrote ${entries.length} classifications (${phaseEntries.filter((e) => e.phase === 'Expand').length} expand, ${backfillEntries.length} backfill, ${legacyEntries.length} legacy contract) digest sha256:${sourceDigest}`
+);

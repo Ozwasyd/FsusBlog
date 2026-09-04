@@ -1,17 +1,18 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-
-import { parseMatrix } from '../test-matrix/parse-matrix.mjs';
 
 import {
     canonicalDigest as currentSchemaCanonicalDigest,
     runtimeReadyReceiptPath,
     runtimeReadySchema,
     verifyCurrentSchemaRuntimeReadyReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This tool imports the existing repository owner that it directly composes.
 } from '../db/verify-current-schema-test-materialization-receipt.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This tool imports the existing repository owner that it directly composes.
+import { parseMatrix } from '../test-matrix/parse-matrix.mjs';
+
 import {
     contentShapeCatalogDigest,
     readContentShapeAuthority,
@@ -1752,7 +1753,6 @@ export function writeFixtureProfileReceipt(file, plan, {
         throw new Error('environment-ready cannot claim verified without a validated FixtureReceipt');
     }
     let currentSchemaRuntimeTopologyAdmission = null;
-    let currentSchemaAdmission = null;
     let profilePlan = null;
     if (kind === 'environment-ready')
     {
@@ -1760,7 +1760,7 @@ export function writeFixtureProfileReceipt(file, plan, {
         {
             throw new Error('environment-ready requires a verified current schema runtime topology admission');
         }
-        currentSchemaAdmission = verifyCurrentSchemaRuntimeTopologyAdmission(
+        const currentSchemaAdmission = verifyCurrentSchemaRuntimeTopologyAdmission(
             currentSchemaRuntimeTopologyAdmissionFile,
             currentSchemaAdmissionOptions
         );
@@ -2592,7 +2592,8 @@ function verifyRuntimeTopologyInput(input, plan, environmentReadyReceiptPath, {
         mutationPolicy: plan.mutationPolicy
     };
     if (typeof input.namespace !== 'string' || input.namespace.length === 0
-        || !['backendUrl', 'frontendUrl', 'previewUrl'].every((key) => {
+        || !['backendUrl', 'frontendUrl', 'previewUrl'].every((key) =>
+        {
             try
             {
                 const value = new URL(input[key]);
@@ -2792,7 +2793,7 @@ function writeExclusiveTerminal(file, value, label)
     {
         if (error?.code === 'EEXIST')
         {
-            throw new Error(`${label} terminal already exists`);
+            throw new Error(`${label} terminal already exists`, { cause: error });
         }
         throw error;
     }
@@ -2993,7 +2994,6 @@ export async function verifyCurrentSchemaTerminalDag({
         environmentReady.profilePlan?.path,
         'environment-ready profile plan'
     );
-    const profilePlanFile = profilePlanBinding.path;
     const profilePlanBytes = profilePlanBinding.bytes;
     const profilePlan = verifyPlannedFixtureProfile(JSON.parse(profilePlanBytes.toString('utf8')));
     if (environmentReady.schema !== 'fsusblog.fixture-environment-ready.v2'
@@ -3039,6 +3039,7 @@ export async function verifyCurrentSchemaTerminalDag({
             environmentReady.fixtureReceiptPath,
             'environment-ready FixtureReceipt'
         );
+        // eslint-disable-next-line import-x/no-relative-parent-imports -- This tool loads the existing repository owner only when receipt validation is required.
         const { validateFixtureReceipt } = await import('../test-fixtures/receipt/fixture-receipt.mjs');
         const fixtureReceipt = validateFixtureReceipt(
             JSON.parse(fixtureReceiptBinding.bytes.toString('utf8')),
@@ -3084,7 +3085,6 @@ export async function verifyCurrentSchemaTerminalDag({
         runtimeTopology.input?.path,
         'runtime topology input'
     );
-    const inputFile = inputBinding.path;
     const inputBytes = inputBinding.bytes;
     requireExactKeys(runtimeTopology.topology, [
         'namespace', 'backendUrl', 'frontendUrl', 'previewUrl', 'containers', 'fixtureProfile',
@@ -3377,6 +3377,7 @@ async function runCli(argv = process.argv.slice(2))
                 fixtureReceiptPath,
                 'environment-ready FixtureReceipt'
             );
+            // eslint-disable-next-line import-x/no-relative-parent-imports -- This tool loads the existing repository owner only when receipt validation is required.
             const { validateFixtureReceipt } = await import('../test-fixtures/receipt/fixture-receipt.mjs');
             fixtureReceiptDocument = validateFixtureReceipt(
                 JSON.parse(fixtureReceiptBinding.bytes.toString('utf8')),

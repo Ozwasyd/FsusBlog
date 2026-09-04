@@ -12,6 +12,7 @@ import {
     runtimeReadyReceiptPath,
     verifyCurrentSchemaMaterializationReceipt,
     verifyCurrentSchemaRuntimeReadyReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This contract test imports the repository owner that it directly exercises.
 } from '../../tools/db/verify-current-schema-test-materialization-receipt.mjs';
 
 const runId = 'issue-3105-receipt-fixture';
@@ -528,7 +529,8 @@ test('missing, prepared, stale, tampered, and structurally ambiguous receipts fa
         );
         value.cleanup();
     }
-    t.after(() => {});
+    t.after(() =>
+    {});
 });
 
 test('catalog, envelope, PostgreSQL observation, and database identity drift fail exact binding', () =>

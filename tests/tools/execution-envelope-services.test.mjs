@@ -12,8 +12,11 @@ import {
     requiredExecutionServices,
     validateExecutionServiceCatalog,
     verifyLiveServiceEnvelope
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This contract test imports the repository owner that it directly exercises.
 } from '../../tools/test/execution-envelope-services.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This contract test imports the repository owner that it directly exercises.
 import { loadExecutionEnvelopeApplicability } from '../../tools/test-matrix/execution-envelope-policy.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This contract test imports the repository owner that it directly exercises.
 import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs';
 
 const matrix = parseMatrix(

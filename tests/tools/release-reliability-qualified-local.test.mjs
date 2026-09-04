@@ -1371,8 +1371,10 @@ test('production build environment CLI executes from ASCII and Unicode script pa
         copyProductionBuildEnvironmentTool(path.join(fixtureRoot, 'ascii')),
         copyProductionBuildEnvironmentTool(path.join(fixtureRoot, 'unicode-路徑'))
     ];
-    assert.doesNotMatch(candidates[0], /[^\x00-\x7f]/u);
-    assert.match(candidates[1], /[^\x00-\x7f]/u);
+    const isAsciiPath = (candidate) => [...candidate]
+        .every((character) => character.codePointAt(0) <= 0x7f);
+    assert.equal(isAsciiPath(candidates[0]), true);
+    assert.equal(isAsciiPath(candidates[1]), false);
 
     for (const [index, tool] of candidates.entries())
     {

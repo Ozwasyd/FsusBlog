@@ -154,22 +154,21 @@ watch(
 
 function belongsToCurrentPreview(result: MarkdownRenderResult): boolean
 {
-    return Boolean(
-        props.preview
-            && result.normalizedSource === props.preview.normalizedMarkdownSource
-    );
+    const preview = props.preview;
+    return Boolean(preview?.normalizedMarkdownSource === result.normalizedSource);
 }
 
 function currentObservation(
     result: MarkdownRenderResult
 ): MarkdownCompletionObservation | null
 {
-    if (!props.preview || !belongsToCurrentPreview(result))
+    const preview = props.preview;
+    if (!preview || !belongsToCurrentPreview(result))
     {
         return null;
     }
     return {
-        previewIdentity: props.preview.sourceIdentity,
+        previewIdentity: preview.sourceIdentity,
         markdownIdentity: result.sourceIdentity
     };
 }
@@ -336,6 +335,7 @@ function resetPreviewCompletion(): void
 .author-preview
  {
     min-width: 0;
+
     --preview-radius-inline: var(--fsus-radius-control-small, 4px);
 }
 

@@ -523,7 +523,12 @@ const selectedId = ref('');
 const fileInput = ref<HTMLInputElement | null>(null);
 const overview = shallowRef<PluginAdminOverview | null>(null);
 const detail = shallowRef<PluginAdminDetail | null>(null);
-const configDraft = ref<Record<string, any>>({});
+const configDraft = ref<Record<string, unknown>>({});
+
+function stringField(value: unknown, fallback: string): string
+{
+    return typeof value === 'string' ? value : fallback;
+}
 
 const configFields = computed<ConfigField[]>(() =>
 {
@@ -534,9 +539,9 @@ const configFields = computed<ConfigField[]>(() =>
     }
     return Object.entries(properties as Record<string, Record<string, unknown>>).map(([name, schema]) => ({
         name,
-        title: String(schema.title ?? name),
-        description: String(schema.description ?? ''),
-        type: String(schema.type ?? 'string'),
+        title: stringField(schema.title, name),
+        description: stringField(schema.description, ''),
+        type: stringField(schema.type, 'string'),
         enumValues: Array.isArray(schema.enum) ? schema.enum : [],
         minimum: typeof schema.minimum === 'number' ? schema.minimum : undefined,
         maximum: typeof schema.maximum === 'number' ? schema.maximum : undefined

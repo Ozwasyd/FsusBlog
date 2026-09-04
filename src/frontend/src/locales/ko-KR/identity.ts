@@ -1,4 +1,4 @@
-export const localeDomainIdentity = Object.freeze({ locale: 'ko-KR', domain: 'identity' } as const)
+export const localeDomainIdentity = Object.freeze({ locale: 'ko-KR', domain: 'identity' } as const);
 
 import type { LocaleSchema } from '../keys';
 import type { identity as zhCNIdentity } from '../zh-CN/identity';
@@ -259,27 +259,27 @@ export const identity = {
         },
         UserIdentityPasskeys: {
             title: '패스키',
-            description: '',
+            description: ''
         },
         UserIdentityRecoveryKey: {
             title: '복구 키',
-            description: '',
+            description: ''
         },
         UserIdentityAnonymous: {
             title: '익명 신원',
-            description: '',
+            description: ''
         },
         UserIdentityPublicProfile: {
             title: '공개 프로필',
-            description: '',
+            description: ''
         },
         UserIdentitySessions: {
             title: '기기 세션',
-            description: '',
+            description: ''
         },
         UserIdentityMfa: {
             title: '2차 인증',
-            description: '',
+            description: ''
         },
         UserIdentityCommentRecords: {
             title: '공개 댓글 기록',

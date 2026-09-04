@@ -15,6 +15,7 @@ import {
     releaseProductionBuildConsumer,
     verifyProductionBuildConsumerMaterialization,
     verifyProductionBuildReceipt
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This contract test imports the repository owner that it directly exercises.
 } from '../../tools/ci/production-build-artifacts.mjs';
 
 const sourceState = {
@@ -193,7 +194,7 @@ test('lane dependency contract rejects missing, reordered, implicit and unbound 
     assert.throws(() => verifyMigrationBuildDependency(implicitTestBuild), /test consumer must remain no-dependencies/u);
 
     const unboundServerAssembly = lane.replace(
-        / \\\n+        -p:FsusBlogCommitSha="\$\{FSUSBLOG_TEST_SOURCE_COMMIT:\?production build source commit is required\}"/u,
+        / \\\n+ {8}-p:FsusBlogCommitSha="\$\{FSUSBLOG_TEST_SOURCE_COMMIT:\?production build source commit is required\}"/u,
         ''
     );
     assert.throws(
@@ -497,12 +498,30 @@ test('consumer verifier rejects non-canonical and tampered materialization evide
     );
 
     for (const [mutate, expected] of [
-        [evidence => { evidence.schema = 'fake'; }, /schema\/status/u],
-        [evidence => { evidence.status = 'failure'; }, /schema\/status/u],
-        [evidence => { evidence.receiptContentDigest = `sha256:${'0'.repeat(64)}`; }, /digest binding/u],
-        [evidence => { evidence.sourceState.commit = 'c'.repeat(40); }, /source binding/u],
-        [evidence => { evidence.consumerLease.runId = 'stale-run'; }, /evidence lease binding/u],
-        [evidence => { evidence.materialization.domains[0].bytes += 1; }, /mapping evidence is not exact/u]
+        [evidence =>
+        {
+            evidence.schema = 'fake';
+        }, /schema\/status/u],
+        [evidence =>
+        {
+            evidence.status = 'failure';
+        }, /schema\/status/u],
+        [evidence =>
+        {
+            evidence.receiptContentDigest = `sha256:${'0'.repeat(64)}`;
+        }, /digest binding/u],
+        [evidence =>
+        {
+            evidence.sourceState.commit = 'c'.repeat(40);
+        }, /source binding/u],
+        [evidence =>
+        {
+            evidence.consumerLease.runId = 'stale-run';
+        }, /evidence lease binding/u],
+        [evidence =>
+        {
+            evidence.materialization.domains[0].bytes += 1;
+        }, /mapping evidence is not exact/u]
     ])
     {
         const value = consumerMaterializationFixture(t);

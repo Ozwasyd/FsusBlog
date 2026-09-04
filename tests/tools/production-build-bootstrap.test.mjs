@@ -11,10 +11,12 @@ import {
     createProductionBuildReceipt,
     materializeProductionBuildDomains,
     registerProductionBuildConsumer
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This contract test imports the repository owner that it directly exercises.
 } from '../../tools/ci/production-build-artifacts.mjs';
 import {
     bindReservationServer,
     verifySealedPortLeaseManifest
+// eslint-disable-next-line import-x/no-relative-parent-imports -- This contract test imports the repository owner that it directly exercises.
 } from '../../tools/test-matrix/production-fresh-port-lease.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
