@@ -4,7 +4,6 @@
         {
             "id": "css-like-contract",
             "paths": [
-                ".github/PULL_REQUEST_TEMPLATE.md",
                 "docs/architecture/repository-layout.md",
                 "docs/development/change-contract.md"
             ],
@@ -22,7 +21,6 @@
         {
             "id": "json-wire-key",
             "paths": [
-                "config/configuration-ownership.json",
                 "config/schemas/post-merge-generated-output-repair-dag.schema.json",
                 "config/testing/current-run-evidence-location-acceptance.json",
                 "config/testing/evidence-location-migration-ledger.json"

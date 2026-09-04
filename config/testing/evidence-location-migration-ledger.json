@@ -15,7 +15,7 @@
         "evidence-selection.schema-search",
         "evidence-selection.timestamp-sort"
     ],
-    "scanDigest": "sha256:0efc39dc7358c6c9dd193366880b63e11719153618973ddf43c6aa7999c2c4af",
+    "scanDigest": "sha256:f537ee7cd8f36a51c541a22ebb244aaa38f85e053e03e94af71f0bc72425415e",
     "entries": [
         {
             "findingId": "796fa8284a86adb9",
@@ -150,28 +150,28 @@
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#c5731b254af32ed4"
         },
         {
-            "findingId": "d4ea09ffe38fd438",
+            "findingId": "7f01dea121aad311",
             "consumerId": "evidence-consumer.artifacts.change-contract.issue-3210-evidence-location-repair-dag-external-naming",
-            "location": "artifacts/change-contract/issue-3210-evidence-location-repair-dag-external-naming.json:27",
+            "location": "artifacts/change-contract/issue-3210-evidence-location-repair-dag-external-naming.json:25",
             "oldSelectionRule": "evidence-selection.latest-newest",
             "classification": "not-evidence",
             "newAuthorityId": null,
             "locatorMode": "not-applicable",
             "action": "close exact location and rule as non-evidence behavior",
             "owner": "test-evidence-governance",
-            "proofTest": "tests/tools/evidence-location-governance.test.mjs#d4ea09ffe38fd438"
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#7f01dea121aad311"
         },
         {
-            "findingId": "f4f83b5b500c424c",
+            "findingId": "80fa73797e6fc807",
             "consumerId": "evidence-consumer.artifacts.change-contract.issue-3210-evidence-location-repair-dag-external-naming",
-            "location": "artifacts/change-contract/issue-3210-evidence-location-repair-dag-external-naming.json:27",
+            "location": "artifacts/change-contract/issue-3210-evidence-location-repair-dag-external-naming.json:25",
             "oldSelectionRule": "evidence-selection.pointer-without-identity",
             "classification": "not-evidence",
             "newAuthorityId": null,
             "locatorMode": "not-applicable",
             "action": "close exact location and rule as non-evidence behavior",
             "owner": "test-evidence-governance",
-            "proofTest": "tests/tools/evidence-location-governance.test.mjs#f4f83b5b500c424c"
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#80fa73797e6fc807"
         },
         {
             "findingId": "b4588f61544065ac",
@@ -4446,5 +4446,5 @@
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#231c081ffc1efc86"
         }
     ],
-    "contentDigest": "sha256:d9bfbd531cd3f1d3a4604e27ccdfea371e728133cd84c8ce0c073c10091b4f11"
+    "contentDigest": "sha256:0c9764993fe45494e45bd02ed60e3f48fe9a678eff902ad679bd96ff76c1d7ac"
 }
