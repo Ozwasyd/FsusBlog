@@ -74,11 +74,6 @@ withDefaults(defineProps<{
     background: var(--fsusblog-panel-border-strong, var(--fsusblog-panel-border));
 }
 
-.public-content-state--error .public-content-state__rule
- {
-    background: var(--fsusblog-color-error, var(--fsusblog-panel-border-strong, var(--fsusblog-panel-border)));
-}
-
 .public-content-state__title-row
  {
     display: flex;

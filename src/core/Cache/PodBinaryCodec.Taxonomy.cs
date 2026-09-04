@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Runtime.InteropServices;
 
 using FsusBlog.Core.Mapping.Codecs;
+using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Shared.Contracts.Primitives;
@@ -132,6 +133,57 @@ public static partial class PodBinaryCodec
         }
 
         return reader.IsConsumed;
+    }
+
+    /// <summary>
+    /// Writes the dedicated <c>TaxonomyExactMetadata</c> contract. This layout is independent of
+    /// <c>CategoryList</c>/<c>TagList</c> and must not be widened from those list frames.
+    /// </summary>
+    public static void WriteTaxonomyExactMetadata(in TaxonomyExactMetadataCoreModel metadata, IBufferWriter<byte> destination)
+    {
+        var blob = new List<byte>(Math.Max(32, (metadata.Name?.Length ?? 0) + (metadata.Description?.Length ?? 0) + 8));
+        Utf8SliceRef name = PodUtf8Codec.AppendSlice(metadata.Name, blob);
+        Utf8SliceRef description = PodUtf8Codec.AppendSlice(metadata.Description, blob);
+
+        var writer = new BinaryPodWriter(destination);
+        writer.WriteInt32(metadata.Id);
+        writer.WriteBytes(CollectionsMarshal.AsSpan(blob));
+        writer.WriteSliceRef(name);
+        writer.WriteSliceRef(description);
+    }
+
+    /// <summary>
+    /// Encodes the dedicated <c>TaxonomyExactMetadata</c> contract into a new binary payload.
+    /// </summary>
+    public static byte[] EncodeTaxonomyExactMetadata(in TaxonomyExactMetadataCoreModel metadata)
+    {
+        TaxonomyExactMetadataCoreModel copy = metadata;
+        return EncodeToArray(64, writer => WriteTaxonomyExactMetadata(copy, writer));
+    }
+
+    /// <summary>
+    /// Attempts to decode the dedicated <c>TaxonomyExactMetadata</c> contract from a binary payload.
+    /// </summary>
+    public static bool TryDecodeTaxonomyExactMetadata(ReadOnlyMemory<byte> source, out TaxonomyExactMetadataCoreModel metadata)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadInt32(out int id) ||
+            !reader.TryReadBytes(out ReadOnlySpan<byte> blob) ||
+            !reader.TryReadSliceRef(out Utf8SliceRef name) ||
+            !reader.TryReadSliceRef(out Utf8SliceRef description) ||
+            !reader.IsConsumed)
+        {
+            metadata = default;
+            return false;
+        }
+
+        string decodedName = PodUtf8Codec.ReadSlice(name, blob);
+        string decodedDescription = PodUtf8Codec.ReadSlice(description, blob);
+        metadata = new TaxonomyExactMetadataCoreModel(
+            id,
+            decodedName,
+            decodedDescription.Length == 0 ? null : decodedDescription);
+        return true;
     }
 
     private static CategoryPod CreateCategoryPod(int id, string name, int articleCount)

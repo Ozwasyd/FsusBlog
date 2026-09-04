@@ -829,7 +829,9 @@ internal static partial class PublicWebRuntime
             StatusCodes.Status503ServiceUnavailable => ("暂时无法访问", "服务暂时不可用", "请稍后重试。"),
             _ => ("页面不存在", "页面不存在", "请检查地址后重试。")
         };
-        string html = BuildPublicStatusHtml(title, heading, detail);
+        EnsureHtmlCspHeader(context, environment);
+        string nonce = EnsureCspNonce(context);
+        string html = BuildPublicStatusHtml(title, heading, detail, nonce);
         byte[] body = Encoding.UTF8.GetBytes(html);
 
         context.Response.StatusCode = statusCode;
@@ -859,7 +861,6 @@ internal static partial class PublicWebRuntime
             context.Response.Headers.Remove("Retry-After");
         }
 
-        EnsureHtmlCspHeader(context, environment);
         if (HttpMethods.IsHead(context.Request.Method))
         {
             return;
@@ -869,16 +870,35 @@ internal static partial class PublicWebRuntime
     }
 
     internal static string BuildPublicStatusHtml(string title, string heading, string detail)
-        => string.Concat(
+        => BuildPublicStatusHtml(title, heading, detail, null);
+
+    internal static string BuildPublicStatusHtml(string title, string heading, string detail, string? nonce)
+    {
+        string styleNonceAttr = string.IsNullOrWhiteSpace(nonce) ? string.Empty : $" nonce=\"{WebUtility.HtmlEncode(nonce)}\"";
+        return string.Concat(
             "<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"UTF-8\">",
             "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">",
+            "<meta name=\"color-scheme\" content=\"light dark\">",
             "<meta name=\"robots\" content=\"noindex,follow\"><title>",
             WebUtility.HtmlEncode(title),
-            "</title></head><body><main><h1>",
+            "</title><style",
+            styleNonceAttr,
+            ">",
+            ":root{color-scheme:light dark;--bg:#ffffff;--text:#18181b;--muted:#71717a;--btn-bg:#18181b;--btn-text:#ffffff;--border:#e4e4e7}",
+            "html.dark,:root.dark,[data-theme='dark']{--bg:#000000;--text:#f4f4f5;--muted:#a1a1aa;--btn-bg:#f4f4f5;--btn-text:#000000;--border:#27272a}",
+            "@media(prefers-color-scheme:dark){:root:not(.light){--bg:#000000;--text:#f4f4f5;--muted:#a1a1aa;--btn-bg:#f4f4f5;--btn-text:#000000;--border:#27272a}}",
+            "body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;-webkit-font-smoothing:antialiased}",
+            "main{max-width:32rem;margin:0 auto;padding:6rem 1.5rem;box-sizing:border-box;text-align:left}",
+            "h1{font-size:1.5rem;font-weight:700;line-height:1.25;margin:0 0 0.75rem;letter-spacing:-0.01em}",
+            "p{font-size:0.9375rem;line-height:1.6;color:var(--muted);margin:0 0 2rem}",
+            "a{display:inline-flex;align-items:center;padding:0.5rem 1rem;background:var(--btn-bg);color:var(--btn-text);text-decoration:none;font-size:0.875rem;font-weight:500;border-radius:4px;transition:opacity 0.15s}",
+            "a:hover{opacity:0.9}",
+            "</style></head><body><main><h1>",
             WebUtility.HtmlEncode(heading),
             "</h1><p>",
             WebUtility.HtmlEncode(detail),
-            "</p></main></body></html>");
+            "</p><a href=\"/\">返回首页</a></main></body></html>");
+    }
 
     private static bool IsDevelopmentViteProxyRequest(IWebHostEnvironment env, HttpContext ctx)
     {
