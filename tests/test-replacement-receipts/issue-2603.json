@@ -1,0 +1,87 @@
+{
+    "schema": "fsusblog.test-replacement-receipt.v1",
+    "transactionId": "issue-2603-article-search-whitespace-theory",
+    "transactionDigest": "sha256:b630ea39abd598688f133c1bd55430ad9865c334be59d62c9e9d2e3bb2953c45",
+    "beforeTestIds": [
+        "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#FsusBlog.Server.Tests.Unit.ArticleServiceValidationTests.SearchArticlesAsync_WhitespaceKeyword_ReturnsEmpty#case-0000",
+        "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#FsusBlog.Server.Tests.Unit.ArticleServiceValidationTests.SearchArticlesAsync_TabAndNewlineOnly_ReturnsEmpty#case-0000"
+    ],
+    "afterTestIds": [
+        "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#FsusBlog.Server.Tests.Unit.ArticleServiceValidationTests.SearchArticlesAsync_WhitespaceOnlyKeyword_ReturnsEmpty#case-0000",
+        "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#FsusBlog.Server.Tests.Unit.ArticleServiceValidationTests.SearchArticlesAsync_WhitespaceOnlyKeyword_ReturnsEmpty#case-0001"
+    ],
+    "sourceDiffs": [
+        {
+            "path": "tests/backend/Unit/ArticleServiceValidationTests.cs",
+            "beforeDigest": "sha256:31d3bbd4df8031df5b85f98c4acf43d4c6efad9934c61df825e9e01f24b5a0a8",
+            "afterDigest": "sha256:73dec6a12f2052a7f0c662e3eeb4ce81708646c22d55cbb0f7e8893e759653d8",
+            "beforeExists": true,
+            "afterExists": true
+        }
+    ],
+    "catalogDiffs": [
+        {
+            "path": "tests/test-retention-replacements.json",
+            "beforeDigest": "sha256:2948ed2b15a8a5fe1d932c4c20e68be976b1be0c077489b246e8070784b3a356",
+            "afterDigest": "sha256:c1e60e173b214f51e4af086c52617d1df1ac9ad1f9e5952877b32962017b487d",
+            "beforeExists": true,
+            "afterExists": true
+        },
+        {
+            "path": "tests/backend/Fixtures/backend-test-requirements.json",
+            "beforeDigest": "sha256:3e5f18b0915c868bd41785c9fa9ea71b9aaa1e141990d1e1fb759d2ede1ed1f9",
+            "afterDigest": "sha256:3e5f18b0915c868bd41785c9fa9ea71b9aaa1e141990d1e1fb759d2ede1ed1f9",
+            "beforeExists": true,
+            "afterExists": true
+        },
+        {
+            "path": "tests/coverage-registry.json",
+            "beforeDigest": "sha256:56e2415977e018da14b84fd9395d178a9eb61204b1c1606e092f7d22ba04ed32",
+            "afterDigest": "sha256:56e2415977e018da14b84fd9395d178a9eb61204b1c1606e092f7d22ba04ed32",
+            "beforeExists": true,
+            "afterExists": true
+        },
+        {
+            "path": "tests/matrix.yml",
+            "beforeDigest": "sha256:a299c05b7de4c335e59f3d689460702375826db1b889722115af91c45b35f517",
+            "afterDigest": "sha256:a299c05b7de4c335e59f3d689460702375826db1b889722115af91c45b35f517",
+            "beforeExists": true,
+            "afterExists": true
+        },
+        {
+            "path": "docs/testing.generated.md",
+            "beforeDigest": "sha256:d319ae7573d7b4a7812c82edc5b7bc74f70b47c916c40d8bc7139f4a65c73805",
+            "afterDigest": "sha256:d319ae7573d7b4a7812c82edc5b7bc74f70b47c916c40d8bc7139f4a65c73805",
+            "beforeExists": true,
+            "afterExists": true
+        }
+    ],
+    "verificationOutcomes": [
+        {
+            "id": "transaction-schema",
+            "status": "passed"
+        },
+        {
+            "id": "before-source-identity",
+            "status": "passed"
+        },
+        {
+            "id": "atomic-file-application",
+            "status": "passed"
+        },
+        {
+            "id": "after-source-identity",
+            "status": "passed"
+        },
+        {
+            "id": "catalog-closure",
+            "status": "passed"
+        },
+        {
+            "id": "independent-post-apply",
+            "status": "passed"
+        }
+    ],
+    "verification": "passed",
+    "contentDigest": "sha256:cd97637ce6c4ad7b260eb8e617a1952b26d7833942ff26acabee95fb1d7d87b8"
+}

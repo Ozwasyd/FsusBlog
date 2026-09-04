@@ -6679,6 +6679,22 @@
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
         {
+            "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#FsusBlog.Server.Tests.Unit.ArticleServiceValidationTests.SearchArticlesAsync_TabAndNewlineOnly_ReturnsEmpty#case-0000",
+            "path": "tests/backend/Unit/ArticleServiceValidationTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#FsusBlog.Server.Tests.Unit.ArticleServiceValidationTests.SearchArticlesAsync_WhitespaceOnlyKeyword_ReturnsEmpty#case-0001"
+            ],
+            "reason": "The tab-newline-cr whitespace-only Fact is parameterized as the stable case-0001 row of the sole whitespace normalization Theory with the same empty-result oracle and explicit zero downstream-call oracles."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#FsusBlog.Server.Tests.Unit.ArticleServiceValidationTests.SearchArticlesAsync_WhitespaceKeyword_ReturnsEmpty#case-0000",
+            "path": "tests/backend/Unit/ArticleServiceValidationTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#FsusBlog.Server.Tests.Unit.ArticleServiceValidationTests.SearchArticlesAsync_WhitespaceOnlyKeyword_ReturnsEmpty#case-0000"
+            ],
+            "reason": "The spaces whitespace-only Fact is parameterized as the stable case-0000 row of the sole whitespace normalization Theory with the same empty-result oracle and explicit zero downstream-call oracles."
+        },
+        {
             "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.UpdateAsync_SourceChecksAffectedRowsBeforeDependentWrites",
             "path": "tests/backend/Unit/ArticleServiceValidationTests.cs",
             "replacementTestIds": [
