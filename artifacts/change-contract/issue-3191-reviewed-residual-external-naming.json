@@ -4,7 +4,6 @@
         {
             "id": "json-wire-key",
             "paths": [
-                "config/configuration-ownership.json",
                 "config/development/frontend-style-reviewed-residual.json",
                 "config/schemas/frontend-style-reviewed-residual.schema.json",
                 "config/testing/correctness-attempt-producers.json"
