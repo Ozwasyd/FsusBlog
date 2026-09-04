@@ -10,16 +10,14 @@ public sealed class ImageHelperTests
 {
     // ─── StripMarkdown ─────────────────────────────────────────────────────
 
-    [Fact]
-    public void StripMarkdown_EmptyContent_ReturnsEmpty()
+    [Theory]
+    [InlineData("empty", "")]
+    [InlineData("spaces", "   ")]
+    public void StripMarkdown_BlankContent_ReturnsEmpty(string caseName, string content)
     {
-        Assert.Equal(string.Empty, ImageHelper.StripMarkdown("", 100));
-    }
-
-    [Fact]
-    public void StripMarkdown_WhitespaceContent_ReturnsEmpty()
-    {
-        Assert.Equal(string.Empty, ImageHelper.StripMarkdown("   ", 100));
+        Assert.True(caseName is "empty" or "spaces", $"Unexpected blank content case '{caseName}'.");
+        string result = ImageHelper.StripMarkdown(content, 100);
+        Assert.Equal(string.Empty, result);
     }
 
     [Fact]

@@ -747,7 +747,7 @@ render: scalar
 -->
 
 <!-- FSUSBLOG-GENERATED:BEGIN api.operation-count -->
-262
+265
 <!-- FSUSBLOG-GENERATED:END api.operation-count -->
 
 ### Public error authority reference
