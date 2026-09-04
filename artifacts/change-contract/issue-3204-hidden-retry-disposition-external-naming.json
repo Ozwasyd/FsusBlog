@@ -1,0 +1,26 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/hidden-retry-scanner.mjs"
+            ],
+            "reason": "Preserve the existing process and command boundary spellings while rejecting shell command loops disguised as non-retry."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/retry-disposition-registry.json"
+            ],
+            "reason": "Preserve the canonical serialized retry disposition keys while adding the exact development probe identity."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/docs/run-public-preview-capture.sh"
+            ],
+            "reason": "Preserve the public preview process environment contract while making WASM envelope staging single-attempt."
+        }
+    ]
+}
