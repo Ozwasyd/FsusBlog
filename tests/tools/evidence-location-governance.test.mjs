@@ -22,6 +22,8 @@ const load = (name) => JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'con
 const seal = (value) => ({ ...value, contentDigest: governanceContentDigest(value) });
 const repairManifestPath = changeContract.generatedOutputRepairDags
     .find((entry) => entry.id === 'evidence-location-governance').manifest;
+const repairExternalNamingManifestPath = changeContract.generatedOutputRepairDags
+    .find((entry) => entry.id === 'evidence-location-governance').externalNamingManifest;
 
 test('scanner covers JS TS C# shell workflow and config selection families', (context) =>
 {
@@ -101,6 +103,10 @@ test('scanner authority exclusions are exact and cannot become wildcard suppress
         [
             repairManifestPath,
             'artifacts/change-contract/evidence-location-governance-post-merge-repair-copy.json'
+        ],
+        [
+            repairExternalNamingManifestPath,
+            'artifacts/change-contract/evidence-location-governance-post-merge-repair-external-naming-copy.json'
         ]
     ];
     for (const file of pairs.flat())

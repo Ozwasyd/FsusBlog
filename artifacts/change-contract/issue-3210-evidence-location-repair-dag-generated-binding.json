@@ -6,11 +6,11 @@
     "outputs": [
         {
             "path": "config/testing/current-run-evidence-location-acceptance.json",
-            "sha256": "f2d49e6a9e84182f52c7896a87039659ee720f76ba9fb5fbffd267b73d4a3a8d"
+            "sha256": "0584d7f748e648cea2355bba0e5c55aa7c1c103502b2e4d6ea891f72027a7096"
         },
         {
             "path": "config/testing/evidence-location-migration-ledger.json",
-            "sha256": "46acf793760edca51b70eaa1aafb73da685dc8d4c1efed643727f2cacd37edbe"
+            "sha256": "b58432744e8d852800328384aafd00f9a511bd617fc978f5c059865765ea17df"
         }
     ]
 }

@@ -1061,6 +1061,12 @@ function validatePostMergeGeneratedOutputRepairDag(
     if (parsedBody.generatedDigest !== graph.manifest) {
         errors.push('Post-merge generated repair DAG must use the trusted canonical manifest path')
     }
+    const declaredExternalNamingManifest = parsedBody.classifications['External naming exception']
+        ? parsedBody.externalExceptionManifest
+        : null
+    if (declaredExternalNamingManifest && declaredExternalNamingManifest !== graph.externalNamingManifest) {
+        errors.push('Post-merge generated repair DAG must use the trusted canonical external naming manifest path')
+    }
     const graphOutputs = graph.steps.flatMap((step) => step.outputs)
     const generatorSources = [...new Set(graph.steps.map((step) => step.generator))]
     const closurePaths = [...new Set(graph.steps.flatMap((step) => step.generatorClosure))]
@@ -1188,8 +1194,8 @@ function validatePostMergeGeneratedOutputRepairDag(
             sourceEvents,
             graph,
             changedFiles,
-            externalExceptionManifest: parsedBody.classifications['External naming exception']
-                ? parsedBody.externalExceptionManifest
+            externalExceptionManifest: declaredExternalNamingManifest === graph.externalNamingManifest
+                ? graph.externalNamingManifest
                 : null
         }, replayGuard)
         const synchronizedReplay = verifiedDagReplay(root, evidence.synchronizedRevision, graph, replayGuard)
@@ -3169,6 +3175,7 @@ export function validateRepositorySources(root) {
         ...changeContract.generatedOutputRepairDags.flatMap((graph) => [
             graph.id,
             graph.manifest,
+            graph.externalNamingManifest,
             graph.semanticProjection.id,
             graph.semanticProjection.output,
             ...graph.steps.flatMap((step) => [

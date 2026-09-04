@@ -2,15 +2,15 @@
     "schema": "fsusblog.current-run-evidence-location-acceptance.v1",
     "sourceDigests": {
         "config/testing/evidence-locator-registry.json": "sha256:318f999ec092c27837311b33787c6018f114caa4d73e384f325c455e5aab864b",
-        "config/testing/evidence-location-migration-ledger.json": "sha256:46acf793760edca51b70eaa1aafb73da685dc8d4c1efed643727f2cacd37edbe",
-        "tools/test/evidence-location-scanner.mjs": "sha256:e29696794730f1033a1187a55c75ce6c5dd68431da4e1a5abeb3681aacd95dc2",
+        "config/testing/evidence-location-migration-ledger.json": "sha256:b58432744e8d852800328384aafd00f9a511bd617fc978f5c059865765ea17df",
+        "tools/test/evidence-location-scanner.mjs": "sha256:5d554791088fc092c944ed010a0f66a69ed30655e7621e622cf27d2967a325b6",
         "tools/test/current-run-evidence-locator.mjs": "sha256:a3477d14e62b2e6a30bc48e16eaf417e49996fdab58e39ae064f1c7ac07b0653",
         "tools/test/current-run-evidence-transport.mjs": "sha256:74b09545ad37fb5b5dcacb56726a4ae0e46c6c664d6775b8ba109867816f0f28",
         "tools/test/generate-evidence-location-governance.mjs": "sha256:dfa82cd9a3da394569b31ca230c29d2359aafb40427c98ec0c29c666a7dac015"
     },
     "registryDigest": "sha256:24fb56ba935dc4d4b7e57427610c4f4e3962063d2db648183f36961adc27bc0f",
-    "ledgerDigest": "sha256:5d70740dca84ebf40b25e844a2bcb947874829e7cf18d1d9d851a55ff66865ed",
-    "scannerDigest": "sha256:8d22154b31e99459c8a5e90d0bfc0f3ee1e611ed781e6f12cd3818f7a7e80c10",
+    "ledgerDigest": "sha256:d9bfbd531cd3f1d3a4604e27ccdfea371e728133cd84c8ce0c073c10091b4f11",
+    "scannerDigest": "sha256:0efc39dc7358c6c9dd193366880b63e11719153618973ddf43c6aa7999c2c4af",
     "locatorDigest": "sha256:a3477d14e62b2e6a30bc48e16eaf417e49996fdab58e39ae064f1c7ac07b0653",
     "transportDigest": "sha256:74b09545ad37fb5b5dcacb56726a4ae0e46c6c664d6775b8ba109867816f0f28",
     "consumerInventory": [
@@ -515,5 +515,5 @@
     "consumerCount": 71,
     "findingCount": 369,
     "warnings": [],
-    "contentDigest": "sha256:34bbeed6d4a64f6bbbf2ab5e107e58cb0b6b9c8ff2f47b657b274acfce45279f"
+    "contentDigest": "sha256:c7026303bc9b9323a8803fc9e8c74c18e25d933da1e4e2816e9e595b079ec137"
 }

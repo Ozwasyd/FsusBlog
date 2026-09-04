@@ -139,6 +139,7 @@ export const generatedOutputRepairDags = Object.freeze([
     Object.freeze({
         id: 'evidence-location-governance',
         manifest: 'artifacts/change-contract/evidence-location-governance-post-merge-repair.json',
+        externalNamingManifest: 'artifacts/change-contract/evidence-location-governance-post-merge-repair-external-naming.json',
         semanticProjection: Object.freeze({
             id: 'fsusblog.evidence-location-scan.v1',
             output: 'config/testing/evidence-location-migration-ledger.json',

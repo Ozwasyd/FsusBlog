@@ -583,7 +583,7 @@ ${producerFault === 'unexpected-write' ? "if (process.env.FSUSBLOG_GENERATED_OUT
 ${producerFault === 'ignored-write' ? "if (process.env.FSUSBLOG_GENERATED_OUTPUT_REPAIR_REPLAY === '1') { mkdirSync('.tmp', { recursive: true }); writeFileSync('.tmp/unexpected.txt', 'unexpected\\n') }" : ''}
 ${producerFault === 'staged-write' ? "if (process.env.FSUSBLOG_GENERATED_OUTPUT_REPAIR_REPLAY === '1') { writeFileSync('unexpected-output.txt', 'unexpected\\n'); execFileSync('git', ['add', 'unexpected-output.txt']) }" : ''}
 ${producerFault === 'nondeterministic' ? "if (process.env.FSUSBLOG_GENERATED_OUTPUT_REPAIR_REPLAY === '1') writeFileSync('config/testing/evidence-location-migration-ledger.json', JSON.stringify({ scanDigest: 'sha256:' + digest, entries: [{ id: String(Math.random()) }] }) + '\\n')" : ''}
-${candidateInputExecutionMarker ? `if (existsSync('candidate-extra.ts')) writeFileSync(${JSON.stringify(candidateInputExecutionMarker)}, 'executed\\n')` : ''}
+${candidateInputExecutionMarker ? `if (existsSync('candidate-extra.ts') || existsSync('candidate-extra.json')) writeFileSync(${JSON.stringify(candidateInputExecutionMarker)}, 'executed\\n')` : ''}
 `.trimStart())
     writeRepositoryFile(repository, 'tools/test/generate-current-run-evidence-location-acceptance.mjs', `
 import { createHash } from 'node:crypto'
@@ -849,7 +849,10 @@ ${producerFault === 'later-overwrite' ? "if (process.env.FSUSBLOG_GENERATED_OUTP
     return { repository, base, head, manifest, manifestPath }
 }
 
-function validatePostMergeRepairDagFixture(fixtureRepository) {
+function validatePostMergeRepairDagFixture(fixtureRepository, {
+    externalExceptionManifest = null,
+    externalExceptionPaths = null
+} = {}) {
     return validatePrContract({
         title: 'chore(governance): repair omitted evidence location projections',
         body: pullRequestBody({
@@ -866,7 +869,14 @@ function validatePostMergeRepairDagFixture(fixtureRepository) {
                 'config/testing/evidence-location-migration-ledger.json',
                 'config/testing/current-run-evidence-location-acceptance.json'
             ].join(', '),
-            generatedDigest: fixtureRepository.manifestPath
+            generatedDigest: fixtureRepository.manifestPath,
+            externalNaming: externalExceptionManifest !== null,
+            externalExceptionManifest: externalExceptionManifest ?? 'none',
+            externalExceptionId: externalExceptionManifest === null ? 'none' : 'json-wire-key',
+            externalExceptionPaths: externalExceptionPaths ?? 'none',
+            externalExceptionReason: externalExceptionManifest === null
+                ? 'none'
+                : 'preserve the exact fixture JSON wire spelling'
         }),
         labels: ['release-note:internal'],
         actor: 'maintainer',
@@ -1083,6 +1093,10 @@ test('registry is the unique ordered type/scope source consumed by commitlint', 
     assert.equal(
         changeContract.generatedOutputRepairDags[0].manifest,
         'artifacts/change-contract/evidence-location-governance-post-merge-repair.json'
+    )
+    assert.equal(
+        changeContract.generatedOutputRepairDags[0].externalNamingManifest,
+        'artifacts/change-contract/evidence-location-governance-post-merge-repair-external-naming.json'
     )
     assert.deepEqual(changeContract.generatedOutputRepairDags[0].steps.map((step) => ({
         id: step.id,
@@ -2032,6 +2046,25 @@ test('post-merge generated repair DAG rejects untrusted candidate and history co
             /candidate changed unrelated paths before replay/u
         )
         assert.equal(existsSync(candidateInputMarker), false)
+
+        const forgedNamingMarker = join(temporaryRoot, 'forged-naming-executed')
+        const forgedNaming = createPostMergeRepairDagFixture({
+            candidateInputExecutionMarker: forgedNamingMarker,
+            mutateManifest: (_manifest, repository) => {
+                writeRepositoryFile(
+                    repository,
+                    'candidate-extra.json',
+                    `${JSON.stringify('x'.repeat(256 * 1024))}\n`
+                )
+            }
+        })
+        const forgedNamingErrors = validatePostMergeRepairDagFixture(forgedNaming, {
+            externalExceptionManifest: 'candidate-extra.json',
+            externalExceptionPaths: 'candidate-extra.json'
+        }).join('\n')
+        assert.match(forgedNamingErrors, /trusted canonical external naming manifest path/u)
+        assert.match(forgedNamingErrors, /candidate changed unrelated paths before replay/u)
+        assert.equal(existsSync(forgedNamingMarker), false)
     } finally {
         rmSync(temporaryRoot, { recursive: true, force: true })
     }

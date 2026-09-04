@@ -70,9 +70,9 @@ Change Contract 的 post-merge generated repair schema 位于
 `tools/governance/change-contract-registry.mjs`，不得从历史目录、mtime 或最新文件推断。
 多步且有前后依赖的 generated repair 使用独立
 `config/schemas/post-merge-generated-output-repair-dag.schema.json`；其 trusted registry
-同时封存唯一 canonical manifest path、ordered steps、generator closure、dependency
-consumption 和完整 output ownership，不能用 v1 单 producer manifest、任意 evidence path
-或未登记 command 替代。
+同时封存唯一 canonical repair 与 external-naming manifest paths、ordered steps、generator
+closure、dependency consumption 和完整 output ownership，不能用 v1 单 producer manifest、
+任意 evidence path 或未登记 command 替代。
 已合并 PR 遗漏其声明的 external-naming evidence 时，独立 schema
 `config/schemas/post-merge-external-naming-evidence-repair.schema.json` 绑定原 PR 的 exact
 base/head/merge、未漂移 source blob/revision、registered surface 与缺失 artifact digest；
