@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mapCategoryListFromPayload, mapTagListFromPayload } from '@/adapters/binary/taxonomyAdapter'
+import { mapCategoryListFromPayload, mapTagListFromPayload, mapTaxonomyExactMetadataFromPayload } from '@/adapters/binary/taxonomyAdapter'
 
 describe('taxonomy binary adapter', () => {
   it('maps category list payload', () => {
@@ -26,6 +26,23 @@ describe('taxonomy binary adapter', () => {
 
   it('throws on invalid payload size', () => {
     expect(() => mapCategoryListFromPayload(new Uint8Array([1, 0, 0, 0]))).toThrow()
+  })
+
+  it('maps exact taxonomy metadata payload with a nullable description', () => {
+    expect(mapTaxonomyExactMetadataFromPayload(buildExactPayload(7, 'Tech', 'desc'))).toEqual({
+      id: 7,
+      name: 'Tech',
+      description: 'desc'
+    })
+    expect(mapTaxonomyExactMetadataFromPayload(buildExactPayload(3, 'Life', ''))).toEqual({
+      id: 3,
+      name: 'Life',
+      description: null
+    })
+  })
+
+  it('throws on truncated exact metadata payload', () => {
+    expect(() => mapTaxonomyExactMetadataFromPayload(new Uint8Array(23))).toThrow()
   })
 })
 
@@ -56,5 +73,23 @@ function buildPayload(items: Array<{ id: number; name: string; articleCount: num
     recordOffset += 16
   })
 
+  return bytes
+}
+
+function buildExactPayload(id: number, name: string, description: string): Uint8Array {
+  const encoder = new TextEncoder()
+  const nameBytes = encoder.encode(name)
+  const descriptionBytes = encoder.encode(description)
+  const blobLength = nameBytes.byteLength + descriptionBytes.byteLength
+  const bytes = new Uint8Array(24 + blobLength)
+  const view = new DataView(bytes.buffer)
+  view.setInt32(0, id, true)
+  view.setInt32(4, blobLength, true)
+  bytes.set(nameBytes, 8)
+  bytes.set(descriptionBytes, 8 + nameBytes.byteLength)
+  view.setInt32(8 + blobLength, 0, true)
+  view.setInt32(12 + blobLength, nameBytes.byteLength, true)
+  view.setInt32(16 + blobLength, nameBytes.byteLength, true)
+  view.setInt32(20 + blobLength, descriptionBytes.byteLength, true)
   return bytes
 }

@@ -277,5 +277,6 @@ public enum AedsFrameType : ushort
     EmptySuccess = 240,
     MutationId = 241,
     UserLocalePreferenceUpdateRequest = 242,
+    TaxonomyExactMetadata = 243,
     ApiError = 251
 }

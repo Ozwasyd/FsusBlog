@@ -411,9 +411,10 @@ export async function openAuditedPage(browser: Browser, storageState?: StorageSt
 export async function openThemedAuditedPage(
   browser: Browser,
   themeMode: ThemeMode = 'light',
-  storageState?: StorageState
+  storageState?: StorageState,
+  disableServiceWorker = false
 ): Promise<AuditedPageSession> {
-  const auditedContext = await openThemedAuditedContext(browser, themeMode, storageState)
+  const auditedContext = await openThemedAuditedContext(browser, themeMode, storageState, disableServiceWorker)
   const pageSession = await auditedContext.newPage()
   return {
     page: pageSession.page,
@@ -430,7 +431,10 @@ export async function openThemedAuditedContext(
   testSession?: string
 ): Promise<ThemedAuditedContext> {
   const context = await browser.newContext(withAcceptanceContextOptions(
-    storageState ? { storageState } : undefined,
+    {
+      colorScheme: themeMode === 'dark' ? 'dark' : 'light',
+      ...(storageState ? { storageState } : {})
+    },
     testSession
   ))
   await context.addInitScript((options: {
@@ -2808,6 +2812,11 @@ export async function freezeUiForScreenshot(page: Page): Promise<void> {
       }
 
       #fsus-related-reading {
+        display: none !important;
+      }
+
+      .el-message,
+      .el-notification {
         display: none !important;
       }
     `)

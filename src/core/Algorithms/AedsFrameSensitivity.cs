@@ -17,6 +17,7 @@ public static class AedsFrameSensitivity
             or AedsFrameType.ArticleSearch
             or AedsFrameType.CategoryList
             or AedsFrameType.TagList
+            or AedsFrameType.TaxonomyExactMetadata
             or AedsFrameType.SeoConfig
             or AedsFrameType.PageContent
             or AedsFrameType.ArticleFeatured

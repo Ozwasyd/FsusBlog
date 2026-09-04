@@ -67,6 +67,7 @@ internal static class PublicAotRendererPayloadMapper
                     ["filterKey"] = filter.FilterKey,
                     ["filterId"] = filter.FilterId,
                     ["filterName"] = filter.FilterName,
+                    ["description"] = filter.Description,
                     ["isInvalidTarget"] = filter.IsInvalidTarget,
                     ["pageIndex"] = filter.PageIndex,
                     ["pageSize"] = filter.PageSize,

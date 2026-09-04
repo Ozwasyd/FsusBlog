@@ -259,27 +259,27 @@ export const identity = {
         },
         UserIdentityPasskeys: {
             title: '通行金鑰',
-            description: '登入裝置。'
+            description: '',
         },
         UserIdentityRecoveryKey: {
             title: 'Recovery Key',
-            description: '帳號恢復憑據。'
+            description: '',
         },
         UserIdentityAnonymous: {
             title: '匿名身份',
-            description: '匿名評論、公開發送、站點處理規則。'
+            description: '',
         },
         UserIdentityPublicProfile: {
             title: '公開資料',
-            description: '公開發送時使用的身份資訊。'
+            description: '',
         },
         UserIdentitySessions: {
             title: '裝置工作階段',
-            description: '活躍裝置工作階段。'
+            description: '',
         },
         UserIdentityMfa: {
             title: '二次驗證',
-            description: 'TOTP 狀態。'
+            description: '',
         },
         UserIdentityCommentRecords: {
             title: '公開評論記錄',

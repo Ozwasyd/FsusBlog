@@ -472,20 +472,24 @@ public sealed class PublicHotDeliveryIntegrationTests(
             "current description",
             await postgres.QueryScalarAsync<string>(connectionString, "SELECT description FROM category WHERE name = 'category-current';"));
 
-        Assert.Equal(1, await BinaryEndpoints.UpdateCategoryAndEnqueueProjectionAsync(
-            db,
-            1,
-            "category-updated",
-            "updated description",
-            preserveDescription: false,
-            CancellationToken.None));
-        Assert.Equal(1, await BinaryEndpoints.UpdateCategoryAndEnqueueProjectionAsync(
-            db,
-            1,
-            "category-legacy-renamed",
-            description: null,
-            preserveDescription: true,
-            CancellationToken.None));
+        Assert.Equal(
+            BinaryEndpoints.TaxonomyUpdateOutcome.Updated,
+            (await BinaryEndpoints.UpdateCategoryAndEnqueueProjectionAsync(
+                db,
+                1,
+                "category-updated",
+                "updated description",
+                preserveDescription: false,
+                CancellationToken.None)).Outcome);
+        Assert.Equal(
+            BinaryEndpoints.TaxonomyUpdateOutcome.Updated,
+            (await BinaryEndpoints.UpdateCategoryAndEnqueueProjectionAsync(
+                db,
+                1,
+                "category-legacy-renamed",
+                description: null,
+                preserveDescription: true,
+                CancellationToken.None)).Outcome);
         Assert.Equal(
             "updated description",
             await postgres.QueryScalarAsync<string>(connectionString, "SELECT description FROM category WHERE id = 1;"));
@@ -555,20 +559,24 @@ public sealed class PublicHotDeliveryIntegrationTests(
             await postgres.QueryScalarAsync<int>(connectionString, "SELECT char_length(description) FROM tag WHERE id = 1;"));
 
         Assert.True(BinaryEndpoints.TryNormalizeTaxonomyDescription("  replacement  ", out string? replacement));
-        Assert.Equal(1, await BinaryEndpoints.UpdateTagAndEnqueueProjectionAsync(
-            db,
-            1,
-            "tag-updated",
-            replacement,
-            preserveDescription: false,
-            CancellationToken.None));
-        Assert.Equal(1, await BinaryEndpoints.UpdateTagAndEnqueueProjectionAsync(
-            db,
-            1,
-            "tag-legacy-renamed",
-            description: null,
-            preserveDescription: true,
-            CancellationToken.None));
+        Assert.Equal(
+            BinaryEndpoints.TaxonomyUpdateOutcome.Updated,
+            (await BinaryEndpoints.UpdateTagAndEnqueueProjectionAsync(
+                db,
+                1,
+                "tag-updated",
+                replacement,
+                preserveDescription: false,
+                CancellationToken.None)).Outcome);
+        Assert.Equal(
+            BinaryEndpoints.TaxonomyUpdateOutcome.Updated,
+            (await BinaryEndpoints.UpdateTagAndEnqueueProjectionAsync(
+                db,
+                1,
+                "tag-legacy-renamed",
+                description: null,
+                preserveDescription: true,
+                CancellationToken.None)).Outcome);
         Assert.Equal(
             "tag-legacy-renamed|replacement",
             await postgres.QueryScalarAsync<string>(

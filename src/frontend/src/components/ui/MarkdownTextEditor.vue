@@ -86,7 +86,7 @@
 </template>
 
 <script setup lang="ts">
-import { ElMarkdownEditor, type MarkdownEditorCommand as FsusUiMarkdownEditorCommand, type MarkdownEditorMode as FsusUiMarkdownEditorMode, type MarkdownEditorSelection as FsusUiMarkdownEditorSelection } from '@ozwasyd/element-plus';
+import { ElMarkdownEditor, type MarkdownEditorCommand as FsusUiMarkdownEditorCommand, type MarkdownEditorMode as FsusUiMarkdownEditorMode } from '@ozwasyd/element-plus';
 import { computed, nextTick, ref, watch } from 'vue';
 
 import {
@@ -249,9 +249,42 @@ function toFsusUiCommand(command: MarkdownEditorCommand): FsusUiMarkdownEditorCo
     return {
         key: command.key,
         label: command.label,
+        description: command.ariaLabel,
+        group: command.group,
         shortcut: normalizeShortcut(command.shortcut),
-        title: command.ariaLabel ?? command.label,
-        apply: (value, selection) => applyBlogCommand(command.key as BlogCommandKey, value, selection)
+        title: command.label,
+        run: (context: {
+            selection: { start: number; end: number; direction?: 'forward' | 'backward' | 'none'; };
+            value: string;
+        }) =>
+        {
+            const selection = context.selection;
+            const result = executeMarkdownEditorCommand(command.key as BlogCommandKey, {
+                snapshot: createSnapshot(context.value, selection.start, selection.end)
+            });
+            // Blog command handlers rewrite only the selected range (same
+            // replaceSelection model as FsusUI's replaceRange), so the resulting
+            // snippet is the changed region: old value inserted at [start, end)
+            // is replaced by the same slice from the new value.
+            const oldValue = context.value;
+            const insertedLength = result.value.length - oldValue.length + (selection.end - selection.start);
+            return {
+                transaction: {
+                    changes: [{
+                        from: selection.start,
+                        insert: result.value.slice(selection.start, selection.start + insertedLength),
+                        to: selection.end
+                    }],
+                    history: 'separate',
+                    origin: 'command',
+                    selection: {
+                        direction: result.start === result.end ? 'none' : selection.direction,
+                        start: result.start,
+                        end: result.end
+                    }
+                }
+            };
+        }
     };
 }
 
@@ -263,25 +296,6 @@ function normalizeShortcut(shortcut?: string): string | undefined
     }
 
     return shortcut.replace(/^Ctrl\+/u, 'Mod+');
-}
-
-function applyBlogCommand(
-    key: BlogCommandKey,
-    value: string,
-    selection: FsusUiMarkdownEditorSelection
-): { nextSelection?: FsusUiMarkdownEditorSelection; value: string; }
-{
-    const result = executeMarkdownEditorCommand(key, {
-        snapshot: createSnapshot(value, selection.start, selection.end)
-    });
-
-    return {
-        nextSelection: {
-            start: result.start,
-            end: result.end
-        },
-        value: result.value
-    };
 }
 
 function cursorFromIndex(value: string, index: number): { line: number; column: number; }
@@ -633,37 +647,30 @@ defineExpose({
  {
     .markdown-text-editor__status
  {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        align-items: center;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
     }
 
     .markdown-text-editor__status-group
  {
+        display: flex;
+        width: 100%;
         align-items: flex-start;
         justify-content: flex-start;
         flex-wrap: wrap;
-    }
-
-    .markdown-text-editor__status-group--primary
- {
-        grid-column: 1;
-        grid-row: 1;
+        gap: 0.375rem 0.5rem;
     }
 
     .markdown-text-editor__status-group--metrics
  {
-        grid-column: 2;
-        grid-row: 1;
-        align-items: flex-start;
-        justify-content: flex-end;
+        justify-content: flex-start;
         flex-wrap: wrap;
     }
 
     .markdown-text-editor__status-group--secondary
  {
-        grid-column: 1 / -1;
-        grid-row: 2;
         align-items: flex-start;
         justify-content: flex-start;
         flex-flow: row wrap;
