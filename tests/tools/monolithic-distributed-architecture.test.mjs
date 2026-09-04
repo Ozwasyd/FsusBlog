@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import {
     existsSync,
     mkdtempSync,
@@ -112,6 +113,45 @@ function createFixture()
 function checkFixture(root)
 {
     return checkMonolithicDistributedArchitecture({ root, files: listFiles(root) });
+}
+
+function evaluationUnitAuthority()
+{
+    const user = spawnSync('systemctl', ['--user', 'show-environment']);
+    if (user.status === 0)
+    {
+        return {
+            controlCommand: 'systemctl',
+            controlPrefix: ['--user'],
+            runCommand: 'systemd-run',
+            runPrefix: ['--user']
+        };
+    }
+    assert.equal(spawnSync('sudo', ['-n', '/usr/bin/true']).status, 0);
+    return {
+        controlCommand: 'sudo',
+        controlPrefix: ['-n', 'systemctl'],
+        runCommand: 'sudo',
+        runPrefix: ['-n', 'systemd-run', `--uid=${process.getuid()}`]
+    };
+}
+
+function controlEvaluationUnit(authority, args)
+{
+    return spawnSync(authority.controlCommand, [...authority.controlPrefix, ...args], { encoding: 'utf8' });
+}
+
+function evaluationUnits(authority, pattern)
+{
+    const result = controlEvaluationUnit(authority, [
+        'list-units',
+        '--all',
+        '--no-legend',
+        '--plain',
+        pattern
+    ]);
+    assert.equal(result.status, 0);
+    return String(result.stdout).trim().split('\n').filter(Boolean).map((line) => line.split(/\s+/u)[0]).sort();
 }
 
 test.after(() =>
@@ -282,6 +322,10 @@ test('rejects unexpected top-level fields in the raw MSBuild property result', (
 test('keeps MSBuild evaluation networkless, read-only, and on an exact environment allowlist', () =>
 {
     assert.deepEqual(msbuildSandboxProperties(['/fixture', '/tooling']), [
+        'RuntimeMaxSec=45s',
+        'TimeoutStopSec=5s',
+        'KillMode=control-group',
+        'SendSIGKILL=yes',
         'PrivateNetwork=yes',
         'RestrictAddressFamilies=AF_UNIX',
         'ProtectSystem=strict',
@@ -312,6 +356,51 @@ test('keeps MSBuild evaluation networkless, read-only, and on an exact environme
         'MSBUILDDISABLENODEREUSE=1',
         'MSBUILDTERMINALLOGGER=off'
     ]);
+});
+
+test('terminates the exact MSBuild sandbox unit and every descendant after its hard deadline', () =>
+{
+    const { root } = createFixture();
+    const fifo = path.join(root, 'blocking-property-input');
+    assert.equal(spawnSync('/usr/bin/mkfifo', [fifo]).status, 0);
+    write(root, 'src/000-timeout/BlockingTool.csproj', `
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>$([System.IO.File]::ReadAllText('${fifo}'))</OutputType>
+  </PropertyGroup>
+</Project>
+`);
+
+    const neighbor = `fsusblog-msbuild-entrypoints-neighbor-${process.pid}-${Date.now()}.service`;
+    const authority = evaluationUnitAuthority();
+    const started = spawnSync(authority.runCommand, [
+        ...authority.runPrefix,
+        '--quiet',
+        `--unit=${neighbor}`,
+        '--property=RuntimeMaxSec=30s',
+        '/usr/bin/sleep',
+        '30'
+    ]);
+    assert.equal(started.status, 0);
+    try
+    {
+        const ownUnitPattern = `fsusblog-msbuild-entrypoints-${process.pid}-*.service`;
+        assert.deepEqual(evaluationUnits(authority, ownUnitPattern), []);
+        const result = checkMonolithicDistributedArchitecture({
+            root,
+            files: listFiles(root),
+            sandboxRuntimeMaxSeconds: 1
+        });
+        assert.equal(result.ok, false);
+        assert.ok(result.errors.some((error) => error.includes('sandbox-evaluation-failed')));
+        assert.deepEqual(evaluationUnits(authority, ownUnitPattern), []);
+        assert.equal(controlEvaluationUnit(authority, ['is-active', '--quiet', neighbor]).status, 0);
+    }
+    finally
+    {
+        controlEvaluationUnit(authority, ['stop', neighbor]);
+        controlEvaluationUnit(authority, ['reset-failed', neighbor]);
+    }
 });
 
 test('isolates MSBuild property-function reads and never echoes host secrets', () =>

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -90,9 +91,13 @@ function executablePath(name)
     return null;
 }
 
-export function msbuildSandboxProperties(readOnlyBindings = [])
+export function msbuildSandboxProperties(readOnlyBindings = [], runtimeMaxSeconds = 45)
 {
     return [
+        `RuntimeMaxSec=${runtimeMaxSeconds}s`,
+        'TimeoutStopSec=5s',
+        'KillMode=control-group',
+        'SendSIGKILL=yes',
         'PrivateNetwork=yes',
         'RestrictAddressFamilies=AF_UNIX',
         'ProtectSystem=strict',
@@ -220,21 +225,95 @@ function sandboxAuthority()
     const env = sandboxControlEnvironment();
     if (commandSucceeds(systemctl, ['--user', 'show-environment'], env))
     {
-        return { command: systemdRun, prefix: ['--user'] };
+        return {
+            controlCommand: systemctl,
+            controlPrefix: ['--user'],
+            runCommand: systemdRun,
+            runPrefix: ['--user']
+        };
     }
     const sudo = executablePath('sudo');
     if (sudo && fs.existsSync('/run/systemd/system')
         && commandSucceeds(sudo, ['-n', '/usr/bin/true'], env))
     {
         return {
-            command: sudo,
-            prefix: ['-n', systemdRun, `--uid=${process.getuid()}`]
+            controlCommand: sudo,
+            controlPrefix: ['-n', systemctl],
+            runCommand: sudo,
+            runPrefix: ['-n', systemdRun, `--uid=${process.getuid()}`]
         };
     }
     return null;
 }
 
-function evaluateExecutableProjects(root, projects, configurations, errors)
+function unitControl(authority, args)
+{
+    return spawnSync(authority.controlCommand, [...authority.controlPrefix, ...args], {
+        encoding: 'utf8',
+        env: sandboxControlEnvironment(),
+        maxBuffer: 64 * 1024,
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: 10_000
+    });
+}
+
+function unitState(authority, unit)
+{
+    const result = unitControl(authority, [
+        'show',
+        '--property=ActiveState',
+        '--property=LoadState',
+        unit
+    ]);
+    if (result.error || result.status !== 0)
+    {
+        return null;
+    }
+    const fields = Object.fromEntries(String(result.stdout).trim().split('\n').map((line) => {
+        const separator = line.indexOf('=');
+        return separator > 0 ? [line.slice(0, separator), line.slice(separator + 1)] : ['', ''];
+    }));
+    if (!exactKeys(fields, ['ActiveState', 'LoadState'])
+        || !['activating', 'active', 'deactivating', 'failed', 'inactive', 'maintenance', 'reloading'].includes(fields.ActiveState)
+        || !['error', 'loaded', 'masked', 'not-found', 'stub'].includes(fields.LoadState))
+    {
+        return null;
+    }
+    return fields;
+}
+
+function ensureUnitTerminal(authority, unit)
+{
+    let stopRequested = false;
+    let resetRequested = false;
+    const delay = new Int32Array(new SharedArrayBuffer(4));
+    for (let attempt = 0; attempt < 20; attempt += 1)
+    {
+        const state = unitState(authority, unit);
+        if (state === null)
+        {
+            return false;
+        }
+        if (state.ActiveState === 'inactive' && state.LoadState === 'not-found')
+        {
+            return true;
+        }
+        if (!['failed', 'inactive'].includes(state.ActiveState) && !stopRequested)
+        {
+            unitControl(authority, ['stop', unit]);
+            stopRequested = true;
+        }
+        if (state.ActiveState === 'failed' && !resetRequested)
+        {
+            unitControl(authority, ['reset-failed', unit]);
+            resetRequested = true;
+        }
+        Atomics.wait(delay, 0, 0, 50);
+    }
+    return false;
+}
+
+function evaluateExecutableProjects(root, projects, configurations, errors, runtimeMaxSeconds)
 {
     if (configurations === null)
     {
@@ -261,33 +340,48 @@ function evaluateExecutableProjects(root, projects, configurations, errors)
     }
     const input = Buffer.from(JSON.stringify({ configurations, dotnet, projects }), 'utf8').toString('base64url');
     const readOnlyBindings = [...new Set([root, defaultRoot])].sort();
-    const result = spawnSync(authority.command, [
-        ...authority.prefix,
-        '--quiet',
-        '--wait',
-        '--pipe',
-        '--collect',
-        '--service-type=exec',
-        ...msbuildSandboxProperties(readOnlyBindings).map((property) => `--property=${property}`),
-        `--working-directory=${root}`,
-        '/usr/bin/env',
-        '-i',
-        ...msbuildEvaluationEnvironment(dotnet),
-        process.execPath,
-        evaluationHelper,
-        input
-    ], {
-        cwd: root,
-        encoding: 'utf8',
-        env: sandboxControlEnvironment(),
-        maxBuffer: 1024 * 1024,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        timeout: 60_000
-    });
+    const unit = `fsusblog-msbuild-entrypoints-${process.pid}-${randomUUID().replaceAll('-', '')}.service`;
+    let result = null;
+    let unitIsTerminal = false;
+    try
+    {
+        result = spawnSync(authority.runCommand, [
+            ...authority.runPrefix,
+            '--quiet',
+            '--wait',
+            '--pipe',
+            '--collect',
+            `--unit=${unit}`,
+            '--service-type=exec',
+            ...msbuildSandboxProperties(readOnlyBindings, runtimeMaxSeconds).map((property) => `--property=${property}`),
+            `--working-directory=${root}`,
+            '/usr/bin/env',
+            '-i',
+            ...msbuildEvaluationEnvironment(dotnet),
+            process.execPath,
+            evaluationHelper,
+            input
+        ], {
+            cwd: root,
+            encoding: 'utf8',
+            env: sandboxControlEnvironment(),
+            maxBuffer: 1024 * 1024,
+            stdio: ['ignore', 'pipe', 'pipe'],
+            timeout: (runtimeMaxSeconds * 1000) + 10_000
+        });
+    }
+    catch
+    {
+        result = null;
+    }
+    finally
+    {
+        unitIsTerminal = ensureUnitTerminal(authority, unit);
+    }
     let evaluations;
     try
     {
-        if (result.error || result.status !== 0)
+        if (!unitIsTerminal || result === null || result.error || result.status !== 0)
         {
             throw new Error('sandbox-failed');
         }
@@ -380,11 +474,11 @@ function validatePolicy(policy)
     return errors;
 }
 
-function validateProjectTopology(root, files, policy, errors)
+function validateProjectTopology(root, files, policy, errors, runtimeMaxSeconds)
 {
     const projects = files.filter((file) => file.startsWith('src/') && file.endsWith('.csproj'));
     const configurations = productionConfigurations(root, errors);
-    const projectInspections = evaluateExecutableProjects(root, projects, configurations, errors);
+    const projectInspections = evaluateExecutableProjects(root, projects, configurations, errors, runtimeMaxSeconds);
     const entrypoints = projects.filter((file) => projectInspections.get(file)?.executable === true);
     const classifications = object(policy.executableProjectClassifications);
     const classifiedProjects = Object.keys(classifications).map(normalize).sort();
@@ -576,7 +670,12 @@ function validateDocumentation(root, files, policy, errors)
     }
 }
 
-export function checkMonolithicDistributedArchitecture({ root = defaultRoot, policyFile = defaultPolicy, files: suppliedFiles } = {})
+export function checkMonolithicDistributedArchitecture({
+    root = defaultRoot,
+    policyFile = defaultPolicy,
+    files: suppliedFiles,
+    sandboxRuntimeMaxSeconds = 45
+} = {})
 {
     const errors = [];
     const absoluteRoot = path.resolve(root);
@@ -592,7 +691,14 @@ export function checkMonolithicDistributedArchitecture({ root = defaultRoot, pol
     }
     errors.push(...validatePolicy(policy));
     const files = (suppliedFiles ?? trackedFiles(absoluteRoot, errors)).map(normalize).filter(Boolean).sort();
-    validateProjectTopology(absoluteRoot, files, policy, errors);
+    if (!Number.isInteger(sandboxRuntimeMaxSeconds)
+        || sandboxRuntimeMaxSeconds < 1
+        || sandboxRuntimeMaxSeconds > 45)
+    {
+        errors.push('MSBuild sandbox runtime maximum is invalid');
+        sandboxRuntimeMaxSeconds = 45;
+    }
+    validateProjectTopology(absoluteRoot, files, policy, errors, sandboxRuntimeMaxSeconds);
     validateComposeTopology(absoluteRoot, files, policy, errors);
     validateSourceBoundaries(absoluteRoot, files, policy, errors);
     validateSingleMode(absoluteRoot, policy, errors);
