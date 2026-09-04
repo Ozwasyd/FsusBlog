@@ -249,6 +249,40 @@ test('xunit Roslyn adapter fails closed on stale instance member CS1061 after th
     assert.match(diagnostic.message, /CS1061/u);
 });
 
+test('custom GeneratedRegexAttribute cannot suppress a missing partial implementation', () =>
+{
+    assert.equal(projectGraphEvidence.shadowGeneratedRegex.status, 1);
+    assert.equal(projectGraphEvidence.shadowGeneratedRegex.report.testCases.length, 0);
+    const diagnostic = projectGraphEvidence.shadowGeneratedRegex.report.diagnostics.find((entry) => (
+        entry.code === 'xunit-semantic-model-incomplete'
+    ));
+    assert.ok(diagnostic);
+    assert.match(diagnostic.message, /CS8795/u);
+});
+
+test('framework GeneratedRegexAttribute with an invalid method signature fails closed', () =>
+{
+    assert.equal(projectGraphEvidence.invalidGeneratedRegexSignature.status, 1);
+    assert.equal(projectGraphEvidence.invalidGeneratedRegexSignature.report.testCases.length, 0);
+    const diagnostic = projectGraphEvidence.invalidGeneratedRegexSignature.report.diagnostics.find((entry) => (
+        entry.code === 'xunit-semantic-model-incomplete'
+    ));
+    assert.ok(diagnostic);
+    assert.match(diagnostic.message, /CS8795/u);
+});
+
+test('valid GeneratedRegex declaration cannot suppress an accompanying compiler error', () =>
+{
+    assert.equal(projectGraphEvidence.generatedRegexWithOtherError.status, 1);
+    assert.equal(projectGraphEvidence.generatedRegexWithOtherError.report.testCases.length, 0);
+    const diagnostic = projectGraphEvidence.generatedRegexWithOtherError.report.diagnostics.find((entry) => (
+        entry.code === 'xunit-semantic-model-incomplete'
+    ));
+    assert.ok(diagnostic);
+    assert.doesNotMatch(diagnostic.message, /CS8795/u);
+    assert.match(diagnostic.message, /CS0117/u);
+});
+
 test('runtime xUnit discovery matches static inventory on statically expandable cases', () =>
 {
     const listed = execFileSync(

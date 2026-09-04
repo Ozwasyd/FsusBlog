@@ -157,6 +157,73 @@ public sealed class XunitSemanticStaleMemberProbeTests
 `);
         const cs1061 = runAdapter(adapterAssembly, checkoutRoot, projectPath, environment);
 
+        writeFileSync(probePath, `\
+namespace FsusBlog.Server.Tests;
+
+[AttributeUsage(AttributeTargets.Method)]
+public sealed class GeneratedRegexAttribute : Attribute
+{
+}
+
+public sealed partial class XunitSemanticStaleMemberProbeTests
+{
+    [GeneratedRegex]
+    public static partial global::System.Text.RegularExpressions.Regex ShadowedGeneratedRegex();
+
+    [Fact]
+    public void ShadowAttributeMustNotSuppressCompilerErrors()
+    {
+        _ = ShadowedGeneratedRegex();
+    }
+}
+`);
+        const shadowGeneratedRegex = runAdapter(adapterAssembly, checkoutRoot, projectPath, environment);
+
+        writeFileSync(probePath, `\
+namespace FsusBlog.Server.Tests;
+
+public sealed partial class XunitSemanticStaleMemberProbeTests
+{
+    [global::System.Text.RegularExpressions.GeneratedRegex("probe")]
+    public static partial global::System.Text.RegularExpressions.Regex InvalidGeneratedRegex(string value);
+
+    [Fact]
+    public void InvalidGeneratedRegexSignatureMustNotSuppressCompilerErrors()
+    {
+        _ = InvalidGeneratedRegex("probe");
+    }
+}
+`);
+        const invalidGeneratedRegexSignature = runAdapter(
+            adapterAssembly,
+            checkoutRoot,
+            projectPath,
+            environment
+        );
+
+        writeFileSync(probePath, `\
+namespace FsusBlog.Server.Tests;
+
+public sealed partial class XunitSemanticStaleMemberProbeTests
+{
+    [global::System.Text.RegularExpressions.GeneratedRegex("probe")]
+    public static partial global::System.Text.RegularExpressions.Regex ValidGeneratedRegex();
+
+    [Fact]
+    public void OtherCompilerErrorsRemainFatal()
+    {
+        _ = ValidGeneratedRegex();
+        _ = string.DoesNotExist;
+    }
+}
+`);
+        const generatedRegexWithOtherError = runAdapter(
+            adapterAssembly,
+            checkoutRoot,
+            projectPath,
+            environment
+        );
+
         return {
             sourceCommit,
             staleLockedRestore: {
@@ -176,7 +243,10 @@ public sealed class XunitSemanticStaleMemberProbeTests
                 ))
             },
             cs0117,
-            cs1061
+            cs1061,
+            shadowGeneratedRegex,
+            invalidGeneratedRegexSignature,
+            generatedRegexWithOtherError
         };
     }
     finally

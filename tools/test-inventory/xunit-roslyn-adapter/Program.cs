@@ -101,7 +101,7 @@ internal static partial class XunitAdapterProgram
 
         var compilationErrorDiagnostics = compilation.GetDiagnostics()
             .Where(item => item.Severity == DiagnosticSeverity.Error
-                && !IsMissingGeneratedRegexImplementation(item))
+                && !IsMissingGeneratedRegexImplementation(compilation, item))
             .OrderBy(item => item.Location.SourceTree?.FilePath ?? "", StringComparer.Ordinal)
             .ThenBy(item => item.Location.SourceSpan.Start)
             .ThenBy(item => item.Id, StringComparer.Ordinal)
@@ -390,7 +390,7 @@ internal static partial class XunitAdapterProgram
         return result;
     }
 
-    private static bool IsMissingGeneratedRegexImplementation(Diagnostic diagnostic)
+    private static bool IsMissingGeneratedRegexImplementation(CSharpCompilation compilation, Diagnostic diagnostic)
     {
         if (diagnostic.Id != "CS8795" || !diagnostic.Location.IsInSource)
             return false;
@@ -399,13 +399,27 @@ internal static partial class XunitAdapterProgram
             return false;
         SyntaxNode node = tree.GetRoot().FindNode(diagnostic.Location.SourceSpan);
         MethodDeclarationSyntax? method = node.FirstAncestorOrSelf<MethodDeclarationSyntax>();
-        return method is not null
-            && method.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.PartialKeyword))
-            && method.AttributeLists
-                .SelectMany(list => list.Attributes)
-                .Any(attribute => attribute.Name.ToString() is "GeneratedRegex" or "GeneratedRegexAttribute"
-                    || attribute.Name.ToString().EndsWith(".GeneratedRegex", StringComparison.Ordinal)
-                    || attribute.Name.ToString().EndsWith(".GeneratedRegexAttribute", StringComparison.Ordinal));
+        if (method is null)
+            return false;
+
+        SemanticModel semanticModel = compilation.GetSemanticModel(tree);
+        IMethodSymbol? methodSymbol = semanticModel.GetDeclaredSymbol(method);
+        INamedTypeSymbol? generatedRegexAttribute = compilation.GetTypeByMetadataName(
+            "System.Text.RegularExpressions.GeneratedRegexAttribute");
+        INamedTypeSymbol? regexType = compilation.GetTypeByMetadataName(
+            "System.Text.RegularExpressions.Regex");
+        return methodSymbol is not null
+            && generatedRegexAttribute is not null
+            && generatedRegexAttribute.ContainingAssembly.Name == "System.Text.RegularExpressions"
+            && regexType is not null
+            && regexType.ContainingAssembly.Name == "System.Text.RegularExpressions"
+            && methodSymbol.GetAttributes().Count(attribute => SymbolEqualityComparer.Default.Equals(
+                attribute.AttributeClass, generatedRegexAttribute)) == 1
+            && methodSymbol.IsPartialDefinition
+            && !methodSymbol.IsAbstract
+            && methodSymbol.Parameters.Length == 0
+            && methodSymbol.Arity == 0
+            && SymbolEqualityComparer.Default.Equals(methodSymbol.ReturnType, regexType);
     }
 
 
