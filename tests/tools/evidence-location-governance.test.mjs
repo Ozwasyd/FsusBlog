@@ -5,6 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { changeContract } from '../../tools/governance/change-contract-registry.mjs';
 import {
     governanceContentDigest,
     validateEvidenceLocationMigrationLedger,
@@ -19,6 +20,8 @@ import {
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const load = (name) => JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'config/testing', name), 'utf8'));
 const seal = (value) => ({ ...value, contentDigest: governanceContentDigest(value) });
+const repairManifestPath = changeContract.generatedOutputRepairDags
+    .find((entry) => entry.id === 'evidence-location-governance').manifest;
 
 test('scanner covers JS TS C# shell workflow and config selection families', (context) =>
 {
@@ -94,6 +97,10 @@ test('scanner authority exclusions are exact and cannot become wildcard suppress
         [
             'config/testing/current-run-evidence-location-acceptance.json',
             'config/testing/current-run-evidence-location-acceptance-copy.json'
+        ],
+        [
+            repairManifestPath,
+            'artifacts/change-contract/evidence-location-governance-post-merge-repair-copy.json'
         ]
     ];
     for (const file of pairs.flat())

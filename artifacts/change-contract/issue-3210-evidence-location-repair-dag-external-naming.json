@@ -4,6 +4,7 @@
         {
             "id": "css-like-contract",
             "paths": [
+                ".github/PULL_REQUEST_TEMPLATE.md",
                 "docs/architecture/repository-layout.md",
                 "docs/development/change-contract.md"
             ],

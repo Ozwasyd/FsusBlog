@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { delimiter, join, resolve } from 'node:path'
 import test from 'node:test'
@@ -533,7 +533,6 @@ function replayRepairDagFixture(repository, revision) {
         return {
             outputs,
             projection: {
-                revision,
                 findingCount: ledger.entries?.length ?? 0,
                 sha256: /^sha256:[0-9a-f]{64}$/u.test(ledger.scanDigest ?? '')
                     ? ledger.scanDigest.slice('sha256:'.length)
@@ -556,7 +555,11 @@ function createPostMergeRepairDagFixture({
     eventProtectedMutation = null,
     supersedeSource = false,
     secondEvent = false,
-    sourceRevisionMode = 'single'
+    sourceRevisionMode = 'single',
+    synchronizedTail = false,
+    outerProtectedMutation = false,
+    outerPaddingCommits = 0,
+    historyExecutionMarker = null
 } = {}) {
     const repository = mkdtempSync(join(tmpdir(), 'fsusblog-post-merge-generated-repair-dag-'))
     execFileSync('git', ['init', '-q', '-b', 'master'], { cwd: repository })
@@ -566,6 +569,7 @@ function createPostMergeRepairDagFixture({
     writeRepositoryFile(repository, 'tools/test/evidence-location-contract.mjs', 'export const fixture = true\n')
     writeRepositoryFile(repository, 'tools/test/evidence-location-scanner.mjs', 'export const fixture = true\n')
     writeRepositoryFile(repository, 'tools/test/generate-evidence-location-governance.mjs', `
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 const source = readFileSync('semantic-source.txt', 'utf8').trim()
@@ -576,13 +580,15 @@ writeFileSync('config/testing/evidence-location-migration-ledger.json', JSON.str
 ${producerFault === 'future-output' ? "if (source.includes('event')) writeFileSync('config/testing/current-run-evidence-location-acceptance.json', JSON.stringify({ premature: true }) + '\\n')" : ''}
 ${producerFault === 'unexpected-write' ? "if (source.includes('event')) writeFileSync('unexpected-output.txt', 'unexpected\\n')" : ''}
 ${producerFault === 'ignored-write' ? "if (source.includes('event')) { mkdirSync('.tmp', { recursive: true }); writeFileSync('.tmp/unexpected.txt', 'unexpected\\n') }" : ''}
+${producerFault === 'staged-write' ? "if (source.includes('event')) { writeFileSync('unexpected-output.txt', 'unexpected\\n'); execFileSync('git', ['add', 'unexpected-output.txt']) }" : ''}
 ${producerFault === 'nondeterministic' ? "if (source.includes('event')) writeFileSync('config/testing/evidence-location-migration-ledger.json', JSON.stringify({ scanDigest: 'sha256:' + digest, entries: [{ id: String(Math.random()) }] }) + '\\n')" : ''}
 `.trimStart())
     writeRepositoryFile(repository, 'tools/test/generate-current-run-evidence-location-acceptance.mjs', `
 import { createHash } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
+const registry = readFileSync('config/testing/evidence-locator-registry.json')
 const ledger = readFileSync('config/testing/evidence-location-migration-ledger.json')
-writeFileSync('config/testing/current-run-evidence-location-acceptance.json', JSON.stringify({ ledgerSha256: ${producerFault === 'no-consume' ? "'constant'" : "createHash('sha256').update(ledger).digest('hex')"} }) + '\\n')
+writeFileSync('config/testing/current-run-evidence-location-acceptance.json', JSON.stringify({ registrySha256: ${producerFault === 'no-consume' ? "'constant'" : "createHash('sha256').update(registry).digest('hex')"}, ledgerSha256: ${producerFault === 'no-consume' ? "'constant'" : "createHash('sha256').update(ledger).digest('hex')"} }) + '\\n')
 ${producerFault === 'later-overwrite' ? "if (readFileSync('semantic-source.txt', 'utf8').includes('event')) writeFileSync('config/testing/evidence-location-migration-ledger.json', JSON.stringify({ overwritten: true }) + '\\n')" : ''}
 `.trimStart())
     if (producerFault === 'ignored-write') writeRepositoryFile(repository, '.gitignore', '.tmp/\n')
@@ -594,7 +600,12 @@ ${producerFault === 'later-overwrite' ? "if (readFileSync('semantic-source.txt',
     writeRepositoryFile(repository, 'semantic-source.txt', 'synchronized,anchor\n')
     execFileSync('node', ['tools/test/generate-evidence-location-governance.mjs'], { cwd: repository })
     execFileSync('node', ['tools/test/generate-current-run-evidence-location-acceptance.mjs'], { cwd: repository })
-    const synchronizedRevision = commitFixture(repository, 'fixture synchronized graph revision')
+    const synchronizedOutputRevision = commitFixture(repository, 'fixture synchronized graph revision')
+    let synchronizedRevision = synchronizedOutputRevision
+    if (synchronizedTail) {
+        writeRepositoryFile(repository, 'synchronized-note.txt', 'unrelated synchronized tail\n')
+        synchronizedRevision = commitFixture(repository, 'fixture unrelated synchronized tail')
+    }
     execFileSync('git', ['checkout', '-q', 'master'], { cwd: repository })
     execFileSync('git', [
         'merge', '--no-ff', '-qm',
@@ -605,6 +616,11 @@ ${producerFault === 'later-overwrite' ? "if (readFileSync('semantic-source.txt',
         'git', ['rev-parse', 'HEAD'], { cwd: repository, encoding: 'utf8' }
     ).trim()
 
+    for (let index = 0; index < outerPaddingCommits; index += 1) {
+        writeRepositoryFile(repository, 'outer-padding.txt', `${index}\n`)
+        commitFixture(repository, `fixture outer padding ${index}`)
+    }
+
     execFileSync('git', ['checkout', '-qb', 'source-event'], { cwd: repository })
     writeRepositoryFile(repository, 'semantic-source.txt', 'synchronized,anchor,event\n')
     if (eventProtectedMutation === 'output') {
@@ -612,6 +628,13 @@ ${producerFault === 'later-overwrite' ? "if (readFileSync('semantic-source.txt',
     }
     if (eventProtectedMutation === 'closure') {
         writeRepositoryFile(repository, 'tools/test/evidence-location-scanner.mjs', 'export const fixture = false\n')
+    }
+    if (historyExecutionMarker) {
+        writeRepositoryFile(
+            repository,
+            'tools/test/generate-evidence-location-governance.mjs',
+            `${readFileSync(join(repository, 'tools/test/generate-evidence-location-governance.mjs'), 'utf8')}\nwriteFileSync(${JSON.stringify(historyExecutionMarker)}, 'executed\\n')\n`
+        )
     }
     execFileSync('git', ['add', '.'], { cwd: repository })
     const sourceTree = execFileSync('git', ['write-tree'], { cwd: repository, encoding: 'utf8' }).trim()
@@ -671,14 +694,34 @@ ${producerFault === 'later-overwrite' ? "if (readFileSync('semantic-source.txt',
     }
     if (supersedeSource) {
         writeRepositoryFile(repository, 'semantic-source.txt', 'synchronized,anchor,event,superseded\n')
-        commitFixture(repository, 'fixture superseding source event')
+        if (supersedeSource === 'two-parent') {
+            execFileSync('git', ['add', 'semantic-source.txt'], { cwd: repository })
+            const supersedingTree = execFileSync(
+                'git', ['write-tree'], { cwd: repository, encoding: 'utf8' }
+            ).trim()
+            const supersedingRevision = commitTreeFixture(
+                repository,
+                supersedingTree,
+                [sourceRevision, synchronizedMergeCommit],
+                'fixture two-parent superseding source event'
+            )
+            execFileSync('git', ['update-ref', 'refs/heads/source-event', supersedingRevision], { cwd: repository })
+        } else {
+            commitFixture(repository, 'fixture superseding source event')
+        }
     }
     execFileSync('git', ['checkout', '-q', 'master'], { cwd: repository })
-    execFileSync('git', [
-        'merge', '--no-ff', '-qm',
-        'Merge pull request #4002 from fixture/source-event',
-        'source-event'
-    ], { cwd: repository })
+    if (outerProtectedMutation) {
+        execFileSync('git', ['merge', '--no-ff', '--no-commit', 'source-event'], { cwd: repository })
+        writeRepositoryFile(repository, 'config/testing/evidence-location-migration-ledger.json', '{"outer":"tampered"}\n')
+        commitFixture(repository, 'Merge pull request #4002 from fixture/source-event')
+    } else {
+        execFileSync('git', [
+            'merge', '--no-ff', '-qm',
+            'Merge pull request #4002 from fixture/source-event',
+            'source-event'
+        ], { cwd: repository })
+    }
     let base = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repository, encoding: 'utf8' }).trim()
     const sourceEvents = [{
         sourceRevision,
@@ -703,7 +746,7 @@ ${producerFault === 'later-overwrite' ? "if (readFileSync('semantic-source.txt',
         })
     }
 
-    const manifestPath = 'artifacts/change-contract/evidence-location-repair-dag.json'
+    const manifestPath = 'artifacts/change-contract/evidence-location-governance-post-merge-repair.json'
     const graphOutputs = [
         'config/testing/evidence-locator-registry.json',
         'config/testing/evidence-location-migration-ledger.json',
@@ -715,6 +758,7 @@ ${producerFault === 'later-overwrite' ? "if (readFileSync('semantic-source.txt',
     execFileSync('git', ['checkout', '-qb', 'candidate'], { cwd: repository })
     execFileSync('node', ['tools/test/generate-evidence-location-governance.mjs'], { cwd: repository })
     execFileSync('node', ['tools/test/generate-current-run-evidence-location-acceptance.mjs'], { cwd: repository })
+    if (historyExecutionMarker && existsSync(historyExecutionMarker)) unlinkSync(historyExecutionMarker)
     const closure = (paths) => paths.map((path) => ({
         path,
         baseSha256: fileSha256(repository, path),
@@ -726,6 +770,13 @@ ${producerFault === 'later-overwrite' ? "if (readFileSync('semantic-source.txt',
         synchronizedRevision,
         synchronizedPullRequest: 4001,
         synchronizedMergeCommit,
+        synchronizedOutputOwners: graphOutputs.map((path) => ({
+            path,
+            revision: execFileSync(
+                'git', ['log', '-1', '--format=%H', synchronizedRevision, '--', path],
+                { cwd: repository, encoding: 'utf8' }
+            ).trim()
+        })),
         baseCommit: base,
         inputTree: {
             synchronizedSha256: fixtureTrackedInputTreeDigest(repository, synchronizedRevision, [
@@ -763,7 +814,10 @@ ${producerFault === 'later-overwrite' ? "if (readFileSync('semantic-source.txt',
                 executable: 'node',
                 arguments: ['tools/test/generate-current-run-evidence-location-acceptance.mjs'],
                 dependsOn: ['evidence-location-governance'],
-                consumes: ['config/testing/evidence-location-migration-ledger.json'],
+                consumes: [
+                    'config/testing/evidence-locator-registry.json',
+                    'config/testing/evidence-location-migration-ledger.json'
+                ],
                 generatorClosure: closure([
                     'tools/test/evidence-location-contract.mjs',
                     'tools/test/evidence-location-scanner.mjs',
@@ -1024,6 +1078,10 @@ test('registry is the unique ordered type/scope source consumed by commitlint', 
     assert.deepEqual(changeContract.generatedOutputRepairDags.map((entry) => entry.id), [
         'evidence-location-governance'
     ])
+    assert.equal(
+        changeContract.generatedOutputRepairDags[0].manifest,
+        'artifacts/change-contract/evidence-location-governance-post-merge-repair.json'
+    )
     assert.deepEqual(changeContract.generatedOutputRepairDags[0].steps.map((step) => ({
         id: step.id,
         dependsOn: step.dependsOn,
@@ -1042,7 +1100,10 @@ test('registry is the unique ordered type/scope source consumed by commitlint', 
         {
             id: 'current-run-evidence-location-acceptance',
             dependsOn: ['evidence-location-governance'],
-            consumes: ['config/testing/evidence-location-migration-ledger.json'],
+            consumes: [
+                'config/testing/evidence-locator-registry.json',
+                'config/testing/evidence-location-migration-ledger.json'
+            ],
             outputs: ['config/testing/current-run-evidence-location-acceptance.json']
         }
     ])
@@ -1785,7 +1846,7 @@ test('post-merge generated repair DAG rejects untrusted structure and stale seal
                     () => structuredClone(manifest.sourceEvents[0])
                 )
             },
-            pattern: /must contain 1 to 64 entries/u
+            pattern: /sourceEvents exceeds 64 entries/u
         },
         {
             name: 'wrong pull request',
@@ -1806,7 +1867,7 @@ test('post-merge generated repair DAG rejects untrusted structure and stale seal
                     'export const fixture = "candidate mutation"\n'
                 )
             },
-            pattern: /candidate changed tracked inputs or policy|generator closure changed or is stale/u
+            pattern: /candidate changed executable or trusted policy before replay/u
         },
         {
             name: 'tampered output',
@@ -1853,6 +1914,11 @@ test('post-merge generated repair DAG rejects producer write, dependency, and hi
             pattern: /producer DAG wrote unregistered outputs/u
         },
         {
+            name: 'unexpected staged output',
+            options: { producerFault: 'staged-write' },
+            pattern: /producer DAG wrote unregistered outputs/u
+        },
+        {
             name: 'later overwrite',
             options: { producerFault: 'later-overwrite' },
             pattern: /producer step wrote another step's output/u
@@ -1880,12 +1946,79 @@ test('post-merge generated repair DAG rejects producer write, dependency, and hi
         {
             name: 'superseded event source',
             options: { supersedeSource: true },
-            pattern: /was superseded/u
+            pattern: /must contain one exact canonical transition/u
+        },
+        {
+            name: 'two-parent superseded event source',
+            options: { supersedeSource: 'two-parent' },
+            pattern: /must contain one exact canonical transition/u
+        },
+        {
+            name: 'outer merge result mutation',
+            options: { outerProtectedMutation: true },
+            pattern: /outer history changed outputs or policy closure before replay/u
         }
     ]
     for (const entry of cases) {
         const repair = createPostMergeRepairDagFixture(entry.options)
         assert.match(validatePostMergeRepairDagFixture(repair).join('\n'), entry.pattern, entry.name)
+    }
+})
+
+test('post-merge generated repair DAG enforces anchor ownership and aggregate replay budgets', () => {
+    const tail = createPostMergeRepairDagFixture({ synchronizedTail: true })
+    assert.match(
+        validatePostMergeRepairDagFixture(tail).join('\n'),
+        /synchronized revision must own at least one graph output/u
+    )
+
+    const oversizedHistory = createPostMergeRepairDagFixture({ outerPaddingCommits: 129 })
+    assert.match(
+        validatePostMergeRepairDagFixture(oversizedHistory).join('\n'),
+        /first-parent range exceeds 128 revisions|exceeds 128 unique replay revisions/u
+    )
+})
+
+test('post-merge generated repair DAG rejects oversized nested structures before replay', () => {
+    for (const [label, mutate] of [
+        ['steps', (manifest) => { manifest.steps = Array.from({ length: 17 }, () => structuredClone(manifest.steps[0])) }],
+        ['outputs', (manifest) => { manifest.outputs = Array.from({ length: 129 }, () => structuredClone(manifest.outputs[0])) }],
+        ['arguments', (manifest) => { manifest.steps[0].arguments = Array.from({ length: 129 }, () => 'argument') }],
+        ['closure', (manifest) => { manifest.steps[0].generatorClosure = Array.from({ length: 129 }, () => structuredClone(manifest.steps[0].generatorClosure[0])) }]
+    ]) {
+        const repair = createPostMergeRepairDagFixture({ mutateManifest: mutate })
+        assert.match(validatePostMergeRepairDagFixture(repair).join('\n'), /exceeds \d+ entries/u, label)
+    }
+})
+
+test('post-merge generated repair DAG rejects untrusted candidate and history code before execution', () => {
+    const temporaryRoot = mkdtempSync(join(tmpdir(), 'fsusblog-repair-dag-no-exec-'))
+    try {
+        const candidateMarker = join(temporaryRoot, 'candidate-executed')
+        const candidate = createPostMergeRepairDagFixture({
+            mutateManifest: (_manifest, repository) => {
+                writeRepositoryFile(
+                    repository,
+                    'tools/test/generate-evidence-location-governance.mjs',
+                    `import { writeFileSync } from 'node:fs'\nwriteFileSync(${JSON.stringify(candidateMarker)}, 'executed\\n')\n`
+                )
+            }
+        })
+        assert.match(
+            validatePostMergeRepairDagFixture(candidate).join('\n'),
+            /candidate changed executable or trusted policy before replay/u
+        )
+        assert.equal(existsSync(candidateMarker), false)
+
+        const historyMarker = join(temporaryRoot, 'history-executed')
+        const history = createPostMergeRepairDagFixture({ historyExecutionMarker: historyMarker })
+        assert.match(
+            validatePostMergeRepairDagFixture(history).join('\n'),
+            /outer history changed outputs or policy closure before replay|source branch changed outputs or policy closure before replay|generator closure is not trusted before replay/u
+        )
+        assert.equal(existsSync(historyMarker), false)
+    } finally {
+        rmSync(temporaryRoot, { recursive: true, force: true })
     }
 })
 

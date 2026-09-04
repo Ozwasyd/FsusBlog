@@ -138,6 +138,7 @@ export const generatedOutputRepairProducers = Object.freeze([
 export const generatedOutputRepairDags = Object.freeze([
     Object.freeze({
         id: 'evidence-location-governance',
+        manifest: 'artifacts/change-contract/evidence-location-governance-post-merge-repair.json',
         semanticProjection: Object.freeze({
             id: 'fsusblog.evidence-location-scan.v1',
             output: 'config/testing/evidence-location-migration-ledger.json',
@@ -183,6 +184,7 @@ export const generatedOutputRepairDags = Object.freeze([
                     'evidence-location-governance'
                 ]),
                 consumes: Object.freeze([
+                    'config/testing/evidence-locator-registry.json',
                     'config/testing/evidence-location-migration-ledger.json'
                 ]),
                 outputs: Object.freeze([
