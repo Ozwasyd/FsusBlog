@@ -1,0 +1,30 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
+        "tools/contracts/FsusBlog.OpenApiObservation/Models.cs",
+        "tools/contracts/FsusBlog.OpenApiObservation/OpenApiProjectionWriter.cs",
+        "tools/contracts/FsusBlog.OpenApiObservation/Program.cs",
+        "tools/contracts/FsusBlog.OpenApiObservation/RequestContractObserver.cs",
+        "tools/contracts/lib/openapi-observation.mjs",
+        "tools/fact-extractors/openapi-aeds/extract.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "docs/api.md",
+            "sha256": "f868acbff758e34a651e6e8064dc7ccca214bd2a89eb46e5632e33c059874c46"
+        },
+        {
+            "path": "docs/api/schemas-and-errors.md",
+            "sha256": "cdcd9cd742a3e02a602af4e4bc9feb1eb45c4add7943a9054b84f8c1b55bf670"
+        },
+        {
+            "path": "docs/api/stability.md",
+            "sha256": "6a5eedd4a9574063d9f0783a8394b01b386e5d35affbc42be2a3afcd91317213"
+        },
+        {
+            "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
+            "sha256": "3d7bd80683d12d69e52e0d3ce58d8fee38f5945c8e2ca2a787e1d22fb2ff75a6"
+        }
+    ]
+}

@@ -22,12 +22,13 @@ internal static partial class RequestContractObserver
     public static OperationRequestContract Build(
         string? requestFrame,
         string operationId,
-        IReadOnlyList<RouteParameterContract> parameters,
+        IReadOnlyList<RequestParameterContract> parameters,
         IReadOnlyList<ObservedRequestType> observedTypes)
     {
         if (requestFrame is null)
         {
             return new OperationRequestContract(
+                "request",
                 "none",
                 null,
                 "none",
@@ -109,9 +110,11 @@ internal static partial class RequestContractObserver
             .ToArray();
         string schemaDigest = Digest(new
         {
+            direction = "request",
             schemaRef,
             requestFrame,
             encoding,
+            parameters,
             requiredFields,
             properties,
             definitions,
@@ -123,6 +126,7 @@ internal static partial class RequestContractObserver
         });
 
         return new OperationRequestContract(
+            "request",
             "aeds-frame-body",
             schemaRef,
             encoding,
@@ -145,7 +149,7 @@ internal static partial class RequestContractObserver
 
     private static OperationRequestContract BuildPackageRequest(
         string operationId,
-        IReadOnlyList<RouteParameterContract> parameters)
+        IReadOnlyList<RequestParameterContract> parameters)
     {
         var packageBounds = new RequestBoundContract(null, null, 1, 32 * 1024 * 1024, null, null, null, null);
         var property = new RequestPropertyContract(
@@ -174,9 +178,11 @@ internal static partial class RequestContractObserver
         string[] readerIdentities = ["FsusBlog.Server.Infrastructure.Binary.IBinaryEndpointRequestContext.ReadFrameAsync"];
         string schemaDigest = Digest(new
         {
+            direction = "request",
             schemaRef,
             requestFrame = "PluginPackageInstallRequest",
             encoding = "binary-package",
+            parameters,
             requiredFields,
             properties,
             definitions,
@@ -187,6 +193,7 @@ internal static partial class RequestContractObserver
             readerIdentities
         });
         return new OperationRequestContract(
+            "request",
             "aeds-frame-body",
             schemaRef,
             "binary-package",

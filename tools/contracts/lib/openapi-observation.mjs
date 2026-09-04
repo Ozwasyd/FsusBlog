@@ -37,7 +37,8 @@ const isSortedUnique = (values) => Array.isArray(values)
 const boundKeys = ['minimum', 'maximum', 'minLength', 'maxLength', 'minItems', 'maxItems', 'minProperties', 'maxProperties'];
 const propertyKeys = ['name', 'type', 'required', 'nullable', 'format', 'schemaRef', 'itemType', 'itemSchemaRef', 'enumValues', 'bounds'];
 const definitionKeys = ['typeIdentity', 'requiredFields', 'properties', 'oneOf', 'discriminator', 'bounds'];
-const requestKeys = ['source', 'schemaRef', 'encoding', 'required', 'nullable', 'requiredFields', 'parameters', 'properties', 'definitions', 'oneOf', 'discriminator', 'bounds', 'fieldSetState', 'boundsState', 'unionState', 'schemaDigest', 'sourceTypes', 'readerIdentities'];
+const requestKeys = ['direction', 'source', 'schemaRef', 'encoding', 'required', 'nullable', 'requiredFields', 'parameters', 'properties', 'definitions', 'oneOf', 'discriminator', 'bounds', 'fieldSetState', 'boundsState', 'unionState', 'schemaDigest', 'sourceTypes', 'readerIdentities'];
+const parameterKeys = ['name', 'direction', 'source', 'schemaRef', 'required', 'nullable', 'evidence'];
 
 function validateBound(value)
 {
@@ -79,15 +80,21 @@ function validateProperties(properties, definitions)
 function validateRequestContract(op)
 {
     const request = op.request;
-    if (!exactKeys(request, requestKeys) || !Array.isArray(request.requiredFields)
+    if (!exactKeys(request, requestKeys) || request.direction !== 'request' || !Array.isArray(request.requiredFields)
         || !Array.isArray(request.parameters) || !isObject(request.properties)
         || !isObject(request.definitions) || !Array.isArray(request.oneOf)
         || !isObject(request.bounds) || !Array.isArray(request.sourceTypes)
         || !Array.isArray(request.readerIdentities) || request.nullable !== false) return false;
-    if (!request.parameters.every((parameter) => exactKeys(parameter, ['name', 'source', 'schemaRef', 'required', 'nullable'])
+    if (!request.parameters.every((parameter) => exactKeys(parameter, parameterKeys)
         && typeof parameter.name === 'string' && parameter.name.length > 0
-        && parameter.source === 'path' && parameter.required === true && parameter.nullable === false)
-        || new Set(request.parameters.map((parameter) => parameter.name)).size !== request.parameters.length) return false;
+        && parameter.direction === 'request' && ['path', 'query', 'header'].includes(parameter.source)
+        && typeof parameter.schemaRef === 'string' && parameter.schemaRef.startsWith(`${parameter.source}://`)
+        && typeof parameter.required === 'boolean' && typeof parameter.nullable === 'boolean'
+        && !(parameter.required && parameter.nullable)
+        && Array.isArray(parameter.evidence) && parameter.evidence.length > 0
+        && isSortedUnique(parameter.evidence))
+        || new Set(request.parameters.map((parameter) => `${parameter.source}\0${parameter.name}`)).size !== request.parameters.length
+        || !isSortedUnique(request.parameters.map((parameter) => `${parameter.source}\0${parameter.name}`))) return false;
 
     if (op.requestFrame == null)
     {
@@ -132,9 +139,11 @@ function validateRequestContract(op)
                 .map((property) => property.name).sort()) !== JSON.stringify(definition.requiredFields)) return false;
     }
     const digest = sha256Text(JSON.stringify({
+        direction: request.direction,
         schemaRef: request.schemaRef,
         requestFrame: op.requestFrame,
         encoding: request.encoding,
+        parameters: request.parameters,
         requiredFields: request.requiredFields,
         properties: request.properties,
         definitions: request.definitions,
@@ -203,6 +212,12 @@ export function sha256Text(text)
     return createHash('sha256').update(text, 'utf8').digest('hex');
 }
 
+export function endpointContractContentDigest(document)
+{
+    const { contentDigest: _contentDigest, ...content } = document;
+    return sha256Text(JSON.stringify(content));
+}
+
 /**
  * Produce observation + observed OpenAPI from the current compiled endpoint registration.
  * Does not start a public listener. Binds digests for exact-build-receipt extractors.
@@ -266,6 +281,27 @@ export function produceOpenApiObservation({
     const observation = JSON.parse(readFileSync(paths.observationPath, 'utf8'));
     const artifactDigest = sha256File(paths.observationPath);
     const openapiDigest = sha256File(paths.observedOpenApiPath);
+    const sourcePaths = [
+        contractsRelative,
+        protocolRelative,
+        'config/contracts/behavior-contracts.json',
+        observationToolProject,
+        'tools/contracts/FsusBlog.OpenApiObservation/Models.cs',
+        'tools/contracts/FsusBlog.OpenApiObservation/OpenApiProjectionWriter.cs',
+        'tools/contracts/FsusBlog.OpenApiObservation/Program.cs',
+        'tools/contracts/FsusBlog.OpenApiObservation/RequestContractObserver.cs',
+        'tools/contracts/lib/openapi-observation.mjs',
+        'tools/fact-extractors/openapi-aeds/extract.mjs'
+    ];
+    const sourceDigests = Object.fromEntries(sourcePaths.map((relative) => [
+        relative,
+        sha256File(path.join(repositoryRoot, relative))
+    ]));
+    const sourceDigest = digestValue(sourceDigests);
+    const contractDigest = observation.endpointContractAuthority?.contentDigest;
+    const errorCatalogDigest = observation.errorAuthority?.catalogDigest;
+    const generatorDigest = sourceDigests['tools/contracts/lib/openapi-observation.mjs'];
+    const protocolDigest = sourceDigests[protocolRelative];
     const receiptBody = {
         schema: 'fsusblog.openapi-observation-build-receipt.v1',
         artifactId: observationArtifactId,
@@ -274,13 +310,24 @@ export function produceOpenApiObservation({
         observationDigest: observation.observationDigest,
         artifactDigest,
         openapiDigest,
+        sourceDigests,
+        sourceDigest,
+        contractDigest,
+        errorCatalogDigest,
+        generatorDigest,
+        protocolDigest,
         configuration
     };
     const receiptDigest = digestValue(receiptBody);
     const buildIdentity = {
         artifactId: observationArtifactId,
         receiptDigest,
-        artifactDigest
+        artifactDigest,
+        sourceDigest,
+        contractDigest,
+        errorCatalogDigest,
+        generatorDigest,
+        protocolDigest
     };
     const receiptPath = path.join(paths.directory, 'build-receipt.json');
     writeFileSync(receiptPath, `${JSON.stringify({ ...receiptBody, buildIdentity }, null, 2)}\n`);
@@ -347,9 +394,9 @@ export function validateObservationAgainstProtocol(observation, protocol = loadP
     const operationIds = new Set();
     const methodPaths = new Set();
 
-    if (!observation || observation.schema !== 'fsusblog.api-aeds-observation.v3')
+    if (!observation || observation.schema !== 'fsusblog.api-aeds-observation.v4')
     {
-        errors.push('observation schema must be fsusblog.api-aeds-observation.v3');
+        errors.push('observation schema must be fsusblog.api-aeds-observation.v4');
         return errors;
     }
     if (observation.protocol !== 'AEDS')
@@ -372,6 +419,14 @@ export function validateObservationAgainstProtocol(observation, protocol = loadP
         || !Array.isArray(states?.retiredFrameValues) || !Array.isArray(states?.migrationOnlyFrameIds))
     {
         errors.push('closed active/retired/migration/AEDS-only protocol states missing');
+    }
+    const endpointAuthority = observation.endpointContractAuthority;
+    if (!exactKeys(endpointAuthority, ['schema', 'documentPath', 'contentDigest'])
+        || endpointAuthority.schema !== 'fsusblog.aeds-endpoint-contracts.v2'
+        || endpointAuthority.documentPath !== contractsRelative
+        || !/^[a-f0-9]{64}$/u.test(String(endpointAuthority.contentDigest ?? '')))
+    {
+        errors.push('canonical endpoint contract authority binding missing');
     }
 
     for (const op of observation.operations)

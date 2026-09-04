@@ -6,6 +6,7 @@ import { digestCatalog } from '../../contracts/behavior-contract-catalog.mjs'
 
 const observationRelative = '.tmp/contracts/openapi/api-aeds-observation.json'
 const expectedArtifactId = 'openapi-aeds-observation'
+const endpointContractRelative = 'src/shared/Contracts/Validation/aeds-endpoint-contracts.json'
 const exactKeys = (value, expected) => value && typeof value === 'object'
   && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...expected].sort())
 const isObject = (value) => value != null && typeof value === 'object' && !Array.isArray(value)
@@ -15,7 +16,8 @@ const isSortedUnique = (values) => Array.isArray(values)
 const boundKeys = ['minimum', 'maximum', 'minLength', 'maxLength', 'minItems', 'maxItems', 'minProperties', 'maxProperties']
 const propertyKeys = ['name', 'type', 'required', 'nullable', 'format', 'schemaRef', 'itemType', 'itemSchemaRef', 'enumValues', 'bounds']
 const definitionKeys = ['typeIdentity', 'requiredFields', 'properties', 'oneOf', 'discriminator', 'bounds']
-const requestKeys = ['source', 'schemaRef', 'encoding', 'required', 'nullable', 'requiredFields', 'parameters', 'properties', 'definitions', 'oneOf', 'discriminator', 'bounds', 'fieldSetState', 'boundsState', 'unionState', 'schemaDigest', 'sourceTypes', 'readerIdentities']
+const requestKeys = ['direction', 'source', 'schemaRef', 'encoding', 'required', 'nullable', 'requiredFields', 'parameters', 'properties', 'definitions', 'oneOf', 'discriminator', 'bounds', 'fieldSetState', 'boundsState', 'unionState', 'schemaDigest', 'sourceTypes', 'readerIdentities']
+const parameterKeys = ['name', 'direction', 'source', 'schemaRef', 'required', 'nullable', 'evidence']
 
 function validBound(value)
 {
@@ -52,15 +54,21 @@ function validProperties(properties, definitions)
 function validRequest(op)
 {
   const request = op.request
-  if (!exactKeys(request, requestKeys) || !Array.isArray(request.requiredFields)
+  if (!exactKeys(request, requestKeys) || request.direction !== 'request' || !Array.isArray(request.requiredFields)
     || !Array.isArray(request.parameters) || !isObject(request.properties)
     || !isObject(request.definitions) || !Array.isArray(request.oneOf)
     || !isObject(request.bounds) || !Array.isArray(request.sourceTypes)
     || !Array.isArray(request.readerIdentities) || request.nullable !== false) return false
-  if (!request.parameters.every((parameter) => exactKeys(parameter, ['name', 'source', 'schemaRef', 'required', 'nullable'])
+  if (!request.parameters.every((parameter) => exactKeys(parameter, parameterKeys)
     && typeof parameter.name === 'string' && parameter.name.length > 0
-    && parameter.source === 'path' && parameter.required === true && parameter.nullable === false)
-    || new Set(request.parameters.map((parameter) => parameter.name)).size !== request.parameters.length) return false
+    && parameter.direction === 'request' && ['path', 'query', 'header'].includes(parameter.source)
+    && typeof parameter.schemaRef === 'string' && parameter.schemaRef.startsWith(`${parameter.source}://`)
+    && typeof parameter.required === 'boolean' && typeof parameter.nullable === 'boolean'
+    && !(parameter.required && parameter.nullable)
+    && Array.isArray(parameter.evidence) && parameter.evidence.length > 0
+    && isSortedUnique(parameter.evidence))
+    || new Set(request.parameters.map((parameter) => `${parameter.source}\0${parameter.name}`)).size !== request.parameters.length
+    || !isSortedUnique(request.parameters.map((parameter) => `${parameter.source}\0${parameter.name}`))) return false
   if (op.requestFrame == null)
   {
     return request.source === 'none' && request.schemaRef === null && request.encoding === 'none'
@@ -101,9 +109,11 @@ function validRequest(op)
         .map((property) => property.name).sort()) !== JSON.stringify(definition.requiredFields)) return false
   }
   const digest = createHash('sha256').update(JSON.stringify({
+    direction: request.direction,
     schemaRef: request.schemaRef,
     requestFrame: op.requestFrame,
     encoding: request.encoding,
+    parameters: request.parameters,
     requiredFields: request.requiredFields,
     properties: request.properties,
     definitions: request.definitions,
@@ -191,11 +201,11 @@ function projectRequest(request)
     ])
   ]))
   return compactObject([
-    ['source', request.source], ['schemaRef', request.schemaRef], ['encoding', request.encoding],
+    ['direction', request.direction], ['source', request.source], ['schemaRef', request.schemaRef], ['encoding', request.encoding],
     ['required', request.required], ['nullable', request.nullable],
     ['requiredFields', request.requiredFields.length > 0 ? request.requiredFields : null],
     ['parameters', request.parameters.length > 0
-      ? Object.fromEntries(request.parameters.map((parameter) => [encodedKey('parameter', parameter.name), parameter]))
+      ? Object.fromEntries(request.parameters.map((parameter) => [encodedKey('parameter', `${parameter.source}:${parameter.name}`), parameter]))
       : null],
     ['properties', Object.keys(request.properties).length > 0 ? projectProperties(request.properties) : null],
     ['definitions', Object.keys(definitions).length > 0 ? definitions : null],
@@ -289,11 +299,11 @@ export function extract(context)
     }
   }
 
-  if (observation?.schema !== 'fsusblog.api-aeds-observation.v3')
+  if (observation?.schema !== 'fsusblog.api-aeds-observation.v4')
   {
     return {
       status: 'failed',
-      failureReasons: ['observation schema is not fsusblog.api-aeds-observation.v3'],
+      failureReasons: ['observation schema is not fsusblog.api-aeds-observation.v4'],
       observations: {}
     }
   }
@@ -325,6 +335,7 @@ export function extract(context)
   const failureReasons = []
   const protocolStates = observation.protocolStates
   const errorAuthority = observation.errorAuthority
+  const endpointAuthority = observation.endpointContractAuthority
   if (!protocolStates || protocolStates.aedsOnly !== true
     || !Array.isArray(protocolStates.supportedVersions) || protocolStates.supportedVersions.length === 0
     || !Array.isArray(protocolStates.activeFrameIds) || protocolStates.activeFrameIds.length === 0
@@ -354,11 +365,29 @@ export function extract(context)
   {
     failureReasons.push('error authority binding is missing, duplicated, or stale')
   }
+  if (!exactKeys(endpointAuthority, ['schema', 'documentPath', 'contentDigest'])
+    || endpointAuthority.schema !== 'fsusblog.aeds-endpoint-contracts.v2'
+    || endpointAuthority.documentPath !== endpointContractRelative
+    || !/^[a-f0-9]{64}$/u.test(String(endpointAuthority.contentDigest ?? '')))
+  {
+    failureReasons.push('endpoint contract authority binding is missing, duplicated, or stale')
+  }
   const behaviorCatalog = path.join(context.repositoryRoot, 'config/contracts/behavior-contracts.json')
   if (existsSync(behaviorCatalog)
     && digestCatalog(JSON.parse(readFileSync(behaviorCatalog, 'utf8'))) !== errorAuthority?.catalogDigest)
   {
     failureReasons.push('error authority catalog digest does not match current BehaviorCatalog')
+  }
+  const endpointContract = path.join(context.repositoryRoot, endpointContractRelative)
+  if (existsSync(endpointContract))
+  {
+    const document = JSON.parse(readFileSync(endpointContract, 'utf8'))
+    const { contentDigest: _contentDigest, ...content } = document
+    const actual = createHash('sha256').update(JSON.stringify(content)).digest('hex')
+    if (actual !== endpointAuthority?.contentDigest || document.contentDigest !== actual)
+    {
+      failureReasons.push('endpoint contract content digest does not match current canonical shared contract')
+    }
   }
 
   for (const op of observation.operations)
@@ -444,6 +473,7 @@ export function extract(context)
           : {})
       },
       errorAuthority,
+      endpointContractAuthority: endpointAuthority,
       artifactDigest
     }
   }

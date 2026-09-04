@@ -31,6 +31,21 @@ function writeObservation(repositoryRoot, observation)
     };
 }
 
+function identityFor(observation, artifactDigest, overrides = {})
+{
+    return {
+        artifactId: 'openapi-aeds-observation',
+        receiptDigest: 'b'.repeat(64),
+        artifactDigest,
+        sourceDigest: 'd'.repeat(64),
+        contractDigest: observation.endpointContractAuthority.contentDigest,
+        errorCatalogDigest: observation.errorAuthority.catalogDigest,
+        generatorDigest: 'e'.repeat(64),
+        protocolDigest: 'f'.repeat(64),
+        ...overrides
+    };
+}
+
 function sampleObservation(overrides = {})
 {
     const emptyBounds = () => ({
@@ -72,13 +87,31 @@ function sampleObservation(overrides = {})
             : {};
         const statuses = operation.publicErrorStatuses;
         const request = {
+            direction: 'request',
             source: body ? 'aeds-frame-body' : 'none',
             schemaRef: body ? `aeds://request-schema/${operation.operationId}` : null,
             encoding: body ? 'binary-layout' : 'none',
             required: body,
             nullable: false,
             requiredFields: body ? ['title'] : [],
-            parameters: [],
+            parameters: body ? [
+                {
+                    name: 'X-Fsus-Pow-Proof', direction: 'request', source: 'header',
+                    schemaRef: 'header://string', required: true, nullable: false,
+                    evidence: ['compiled-endpoint-filter:RequiresPowFilter']
+                },
+                {
+                    name: 'dryRun', direction: 'request', source: 'query',
+                    schemaRef: 'query://boolean', required: false, nullable: false,
+                    evidence: ['compiled-handler-parameter:dryRun']
+                }
+            ] : [
+                {
+                    name: 'id', direction: 'request', source: 'path',
+                    schemaRef: 'path://int', required: true, nullable: false,
+                    evidence: ['compiled-route-template:id']
+                }
+            ],
             properties,
             definitions,
             oneOf: [],
@@ -94,9 +127,11 @@ function sampleObservation(overrides = {})
         if (body)
         {
             request.schemaDigest = sha256(Buffer.from(JSON.stringify({
+                direction: request.direction,
                 schemaRef: request.schemaRef,
                 requestFrame: operation.requestFrame,
                 encoding: request.encoding,
+                parameters: request.parameters,
                 requiredFields: request.requiredFields,
                 properties: request.properties,
                 definitions: request.definitions,
@@ -131,7 +166,7 @@ function sampleObservation(overrides = {})
         };
     };
     return {
-        schema: 'fsusblog.api-aeds-observation.v3',
+        schema: 'fsusblog.api-aeds-observation.v4',
         protocol: 'AEDS',
         aedsVersion: 2,
         operationCount: 2,
@@ -149,6 +184,11 @@ function sampleObservation(overrides = {})
             catalogDigest: 'c'.repeat(64),
             documentPath: 'docs/api/schemas-and-errors.md',
             factIds: ['facts.error-codes.domain.active', 'facts.error-codes.transport-mapping']
+        },
+        endpointContractAuthority: {
+            schema: 'fsusblog.aeds-endpoint-contracts.v2',
+            documentPath: 'src/shared/Contracts/Validation/aeds-endpoint-contracts.json',
+            contentDigest: 'd'.repeat(64)
         },
         operations: [
             typed({
@@ -247,11 +287,7 @@ test('2) missing operationId fails extractor', () =>
         const sealed = writeObservation(directory, observation);
         const result = extractOpenApi({
             repositoryRoot: directory,
-            buildIdentity: {
-                artifactId: 'openapi-aeds-observation',
-                receiptDigest: 'b'.repeat(64),
-                artifactDigest: sealed.artifactDigest
-            }
+            buildIdentity: identityFor(observation, sealed.artifactDigest)
         });
         assert.equal(result.status, 'failed');
         assert.match(result.failureReasons.join('\n'), /missing operationId|duplicate/iu);
@@ -302,15 +338,13 @@ test('7) ambient bin/Debug identity is refused by extractor', () =>
     const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-obs-'));
     try
     {
-        const sealed = writeObservation(directory, sampleObservation());
+        const observation = sampleObservation();
+        const sealed = writeObservation(directory, observation);
         const result = extractOpenApi({
             repositoryRoot: directory,
-            buildIdentity: {
-                artifactId: 'openapi-aeds-observation',
-                receiptDigest: 'b'.repeat(64),
-                artifactDigest: sealed.artifactDigest,
+            buildIdentity: identityFor(observation, sealed.artifactDigest, {
                 path: 'src/backend/bin/Debug/net10.0/FsusBlog.Server.dll'
-            }
+            })
         });
         assert.equal(result.status, 'failed');
         assert.match(result.failureReasons.join('\n'), /bin\/Debug|bin\/Release|ambient/iu);
@@ -333,11 +367,7 @@ test('8) reverse generation markers from checked-in OpenAPI fail closed', () =>
         const sealed = writeObservation(directory, observation);
         const result = extractOpenApi({
             repositoryRoot: directory,
-            buildIdentity: {
-                artifactId: 'openapi-aeds-observation',
-                receiptDigest: 'b'.repeat(64),
-                artifactDigest: sealed.artifactDigest
-            }
+            buildIdentity: identityFor(observation, sealed.artifactDigest)
         });
         assert.equal(result.status, 'failed');
         assert.match(result.failureReasons.join('\n'), /reverse-generated|checked-in OpenAPI/iu);
@@ -359,11 +389,7 @@ test('9) duplicate method/path fails extractor', () =>
         const sealed = writeObservation(directory, observation);
         const result = extractOpenApi({
             repositoryRoot: directory,
-            buildIdentity: {
-                artifactId: 'openapi-aeds-observation',
-                receiptDigest: 'b'.repeat(64),
-                artifactDigest: sealed.artifactDigest
-            }
+            buildIdentity: identityFor(observation, sealed.artifactDigest)
         });
         assert.equal(result.status, 'failed');
         assert.match(result.failureReasons.join('\n'), /duplicate method\/path/u);
@@ -379,14 +405,11 @@ test('extractor accepts sealed observation and emits operation map', () =>
     const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-obs-'));
     try
     {
-        const sealed = writeObservation(directory, sampleObservation());
+        const observation = sampleObservation();
+        const sealed = writeObservation(directory, observation);
         const result = extractOpenApi({
             repositoryRoot: directory,
-            buildIdentity: {
-                artifactId: 'openapi-aeds-observation',
-                receiptDigest: 'b'.repeat(64),
-                artifactDigest: sealed.artifactDigest
-            }
+            buildIdentity: identityFor(observation, sealed.artifactDigest)
         });
         assert.equal(result.status, 'ok');
         assert.equal(result.observations.operationCount, 2);
@@ -404,14 +427,11 @@ test('stale artifact digest (yesterday Debug swap) fails', () =>
     const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-obs-'));
     try
     {
-        writeObservation(directory, sampleObservation());
+        const observation = sampleObservation();
+        writeObservation(directory, observation);
         const result = extractOpenApi({
             repositoryRoot: directory,
-            buildIdentity: {
-                artifactId: 'openapi-aeds-observation',
-                receiptDigest: 'b'.repeat(64),
-                artifactDigest: '0'.repeat(64)
-            }
+            buildIdentity: identityFor(observation, '0'.repeat(64))
         });
         assert.equal(result.status, 'failed');
         assert.match(result.failureReasons.join('\n'), /digest mismatch|stale|unbound/iu);
@@ -426,6 +446,7 @@ test('typed request, response, protocol, and error authority counterexamples fai
 {
     const cases = [
         ['missing request', (value) => { delete value.operations[0].request; }, /request contract/iu],
+        ['request direction drift', (value) => { value.operations[0].request.direction = 'response'; }, /request direction|request contract/iu],
         ['incorrect request required', (value) => { value.operations[0].request.required = true; }, /request direction|request contract/iu],
         ['incorrect request nullable', (value) => { value.operations[1].request.nullable = true; }, /request contract/iu],
         ['property nullable drift', (value) => { value.operations[1].request.properties.title.nullable = true; }, /request contract/iu],
@@ -440,6 +461,11 @@ test('typed request, response, protocol, and error authority counterexamples fai
         ['discriminator without union', (value) => { value.operations[1].request.discriminator = '$type'; }, /request contract/iu],
         ['invented request required field', (value) => { value.operations[1].request.requiredFields.push('frame'); }, /request contract/iu],
         ['request direction swap', (value) => { value.operations[1].request.source = 'none'; }, /request contract/iu],
+        ['parameter direction swap', (value) => { value.operations[1].request.parameters[0].direction = 'response'; }, /request contract/iu],
+        ['parameter source conflict', (value) => { value.operations[1].request.parameters[0].source = 'query'; }, /request contract/iu],
+        ['missing query parameter', (value) => { value.operations[1].request.parameters.pop(); }, /request contract/iu],
+        ['duplicate request parameter', (value) => { value.operations[1].request.parameters.push({ ...value.operations[1].request.parameters[0] }); }, /request contract/iu],
+        ['parameter evidence missing', (value) => { value.operations[1].request.parameters[0].evidence = []; }, /request contract/iu],
         ['duplicate source type', (value) => { value.operations[1].request.sourceTypes.push(value.operations[1].request.sourceTypes[0]); }, /request contract/iu],
         ['missing error response', (value) => { value.operations[0].responses.pop(); }, /response contracts/iu],
         ['success status drift', (value) => { value.operations[0].responses[0].status = 201; }, /response contracts/iu],
@@ -459,7 +485,8 @@ test('typed request, response, protocol, and error authority counterexamples fai
         ['error behavior drift', (value) => { value.operations[0].errorAuthorityBehaviorId = 'binary-api-aeds-contract'; }, /public errors/iu],
         ['invented operation error allow-list', (value) => { value.operations[0].publicErrorRefState = 'operation-allow-list'; }, /public errors/iu],
         ['duplicate public error ref', (value) => { value.operations[0].publicErrorRefs.push(value.operations[0].publicErrorRefs[0]); }, /response contracts/iu],
-        ['duplicate authority fact', (value) => { value.errorAuthority.factIds.push(value.errorAuthority.factIds[0]); }, /error authority binding/iu]
+        ['duplicate authority fact', (value) => { value.errorAuthority.factIds.push(value.errorAuthority.factIds[0]); }, /error authority binding/iu],
+        ['endpoint contract authority drift', (value) => { value.endpointContractAuthority.schema = 'fsusblog.aeds-endpoint-contracts.v1'; }, /endpoint contract authority/iu]
     ];
 
     for (const [name, mutate, expected] of cases)
@@ -472,11 +499,7 @@ test('typed request, response, protocol, and error authority counterexamples fai
             const sealed = writeObservation(directory, observation);
             const result = extractOpenApi({
                 repositoryRoot: directory,
-                buildIdentity: {
-                    artifactId: 'openapi-aeds-observation',
-                    receiptDigest: 'b'.repeat(64),
-                    artifactDigest: sealed.artifactDigest
-                }
+                buildIdentity: identityFor(observation, sealed.artifactDigest)
             });
             assert.equal(result.status, 'failed', name);
             assert.match(result.failureReasons.join('\n'), expected, name);
@@ -496,14 +519,24 @@ test('current error authority catalog digest and sealed artifact bytes are indep
         const catalogPath = path.join(directory, 'config/contracts/behavior-contracts.json');
         mkdirSync(path.dirname(catalogPath), { recursive: true });
         writeFileSync(catalogPath, '{"schema":"current"}\n');
+        const endpointPath = path.join(directory, 'src/shared/Contracts/Validation/aeds-endpoint-contracts.json');
+        mkdirSync(path.dirname(endpointPath), { recursive: true });
+        const endpointContent = {
+            schema: 'fsusblog.aeds-endpoint-contracts.v2', protocol: 'AEDS', aedsVersion: 2, operations: []
+        };
+        const endpointDigest = sha256(Buffer.from(JSON.stringify(endpointContent)));
+        writeFileSync(endpointPath, `${JSON.stringify({
+            schema: endpointContent.schema,
+            protocol: endpointContent.protocol,
+            aedsVersion: endpointContent.aedsVersion,
+            contentDigest: endpointDigest,
+            operations: endpointContent.operations
+        }, null, 2)}\n`);
         const observation = sampleObservation();
         observation.errorAuthority.catalogDigest = digestCatalog(JSON.parse(readFileSync(catalogPath, 'utf8')));
+        observation.endpointContractAuthority.contentDigest = endpointDigest;
         const sealed = writeObservation(directory, observation);
-        const identity = {
-            artifactId: 'openapi-aeds-observation',
-            receiptDigest: 'b'.repeat(64),
-            artifactDigest: sealed.artifactDigest
-        };
+        const identity = identityFor(observation, sealed.artifactDigest);
         assert.equal(extractOpenApi({ repositoryRoot: directory, buildIdentity: identity }).status, 'ok');
 
         writeFileSync(catalogPath, '  { "schema": "current" }\n');
@@ -513,6 +546,17 @@ test('current error authority catalog digest and sealed artifact bytes are indep
         const authorityDrift = extractOpenApi({ repositoryRoot: directory, buildIdentity: identity });
         assert.equal(authorityDrift.status, 'failed');
         assert.match(authorityDrift.failureReasons.join('\n'), /catalog digest.*current BehaviorCatalog/iu);
+
+        writeFileSync(endpointPath, JSON.stringify({
+            schema: endpointContent.schema,
+            protocol: endpointContent.protocol,
+            aedsVersion: endpointContent.aedsVersion,
+            contentDigest: endpointDigest,
+            operations: [{ operationId: 'tampered' }]
+        }));
+        const endpointDrift = extractOpenApi({ repositoryRoot: directory, buildIdentity: identity });
+        assert.equal(endpointDrift.status, 'failed');
+        assert.match(endpointDrift.failureReasons.join('\n'), /endpoint contract content digest/iu);
 
         writeFileSync(sealed.absolute, `${sealed.text} `);
         const artifactTamper = extractOpenApi({ repositoryRoot: directory, buildIdentity: identity });

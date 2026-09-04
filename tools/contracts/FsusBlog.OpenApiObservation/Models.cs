@@ -13,6 +13,7 @@ internal sealed record ObservedOperation(
     string Cache,
     string? SourceIdentity,
     IReadOnlyList<ObservedRequestType> RequestTypes,
+    IReadOnlyList<RequestParameterContract> RequestParameters,
     IReadOnlyDictionary<int, IReadOnlyList<string>> CompiledErrorStatusEvidence);
 
 internal sealed record ObservedRequestType(
@@ -25,6 +26,8 @@ internal sealed record AedsEndpointContract(
     string Path,
     string OperationId,
     string? RequestFrame,
+    string? RequestType,
+    string? RequestEncoding,
     string ResponseFrame,
     string ErrorFrame,
     int SuccessStatus);
@@ -46,6 +49,11 @@ internal sealed class AedsEndpointContractCatalog
         get; init;
     }
 
+    public required string ContentDigest
+    {
+        get; init;
+    }
+
     public required IReadOnlyList<AedsEndpointContract> Operations
     {
         get; init;
@@ -58,11 +66,12 @@ internal sealed class AedsEndpointContractCatalog
             text,
             new System.Text.Json.JsonSerializerOptions
             {
-                PropertyNameCaseInsensitive = true
+                PropertyNameCaseInsensitive = true,
+                UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow
             })
             ?? throw new InvalidOperationException($"failed to parse contracts catalog: {path}");
 
-        if (!string.Equals(document.Schema, "fsusblog.aeds-endpoint-contracts.v1", StringComparison.Ordinal))
+        if (!string.Equals(document.Schema, "fsusblog.aeds-endpoint-contracts.v2", StringComparison.Ordinal))
         {
             throw new InvalidOperationException($"unsupported contracts schema: {document.Schema}");
         }
@@ -71,18 +80,54 @@ internal sealed class AedsEndpointContractCatalog
         {
             throw new InvalidOperationException("contracts catalog has no operations");
         }
+        if (!string.Equals(document.Protocol, "AEDS", StringComparison.Ordinal) || document.AedsVersion != 2)
+        {
+            throw new InvalidOperationException("contracts catalog must be the active AEDS v2 partition");
+        }
+        foreach (AedsEndpointContractDocument item in document.Operations)
+        {
+            bool hasFrame = !string.IsNullOrWhiteSpace(item.RequestFrame);
+            if (hasFrame != !string.IsNullOrWhiteSpace(item.RequestType)
+                || hasFrame != !string.IsNullOrWhiteSpace(item.RequestEncoding))
+            {
+                throw new InvalidOperationException(
+                    $"contract {item.OperationId ?? "unknown"} request frame/type/encoding must be an exact set");
+            }
+        }
+
+
+        System.Text.Json.Nodes.JsonObject canonicalDocument = System.Text.Json.Nodes.JsonNode.Parse(text)?.AsObject()
+            ?? throw new InvalidOperationException($"contracts catalog must be a JSON object: {path}");
+        if (!canonicalDocument.Remove("contentDigest"))
+        {
+            throw new InvalidOperationException("contracts catalog contentDigest required");
+        }
+        string canonical = canonicalDocument.ToJsonString(new System.Text.Json.JsonSerializerOptions
+        {
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        });
+        string actualDigest = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(canonical))).ToLowerInvariant();
+        if (!string.Equals(document.ContentDigest, actualDigest, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"contracts contentDigest mismatch: expected {document.ContentDigest}, got {actualDigest}");
+        }
 
         return new AedsEndpointContractCatalog
         {
             Schema = document.Schema ?? throw new InvalidOperationException("contracts schema required"),
             Protocol = document.Protocol ?? "AEDS",
             AedsVersion = document.AedsVersion ?? 2,
+            ContentDigest = actualDigest,
             Operations = document.Operations
                 .Select(static item => new AedsEndpointContract(
                     Method: (item.Method ?? throw new InvalidOperationException("contract method required")).ToUpperInvariant(),
                     Path: Normalize(item.Path),
                     OperationId: item.OperationId ?? throw new InvalidOperationException("contract operationId required"),
                     RequestFrame: NormalizeFrame(item.RequestFrame),
+                    RequestType: NormalizeFrame(item.RequestType),
+                    RequestEncoding: NormalizeFrame(item.RequestEncoding),
                     ResponseFrame: item.ResponseFrame ?? throw new InvalidOperationException("contract responseFrame required"),
                     ErrorFrame: item.ErrorFrame ?? "ApiError",
                     SuccessStatus: item.SuccessStatus ?? 200))
@@ -122,6 +167,11 @@ internal sealed class AedsEndpointContractCatalogDocument
         get; set;
     }
 
+    public string? ContentDigest
+    {
+        get; set;
+    }
+
     public List<AedsEndpointContractDocument>? Operations
     {
         get; set;
@@ -146,6 +196,16 @@ internal sealed class AedsEndpointContractDocument
     }
 
     public string? RequestFrame
+    {
+        get; set;
+    }
+
+    public string? RequestType
+    {
+        get; set;
+    }
+
+    public string? RequestEncoding
     {
         get; set;
     }
@@ -204,6 +264,11 @@ internal sealed class ObservationDocument
     }
 
     public required ErrorAuthorityBinding ErrorAuthority
+    {
+        get; init;
+    }
+
+    public required EndpointContractAuthorityBinding EndpointContractAuthority
     {
         get; init;
     }
@@ -338,13 +403,14 @@ internal sealed class ObservationOperation
 }
 
 internal sealed record OperationRequestContract(
+    string Direction,
     string Source,
     string? SchemaRef,
     string Encoding,
     bool Required,
     bool Nullable,
     IReadOnlyList<string> RequiredFields,
-    IReadOnlyList<RouteParameterContract> Parameters,
+    IReadOnlyList<RequestParameterContract> Parameters,
     IReadOnlyDictionary<string, RequestPropertyContract> Properties,
     IReadOnlyDictionary<string, RequestSchemaDefinition> Definitions,
     IReadOnlyList<string> OneOf,
@@ -387,12 +453,14 @@ internal sealed record RequestBoundContract(
     int? MinProperties,
     int? MaxProperties);
 
-internal sealed record RouteParameterContract(
+internal sealed record RequestParameterContract(
     string Name,
+    string Direction,
     string Source,
     string SchemaRef,
     bool Required,
-    bool Nullable);
+    bool Nullable,
+    IReadOnlyList<string> Evidence);
 
 internal sealed record OperationResponseContract(
     int? Status,
@@ -415,6 +483,11 @@ internal sealed record ErrorAuthorityBinding(
     string CatalogDigest,
     string DocumentPath,
     IReadOnlyList<string> FactIds);
+
+internal sealed record EndpointContractAuthorityBinding(
+    string Schema,
+    string DocumentPath,
+    string ContentDigest);
 
 internal static class ObservationMerger
 {
@@ -498,6 +571,22 @@ internal static class ObservationMerger
                 .Where(pair => pair.Key != contract.SuccessStatus)
                 .ToDictionary(static pair => pair.Key, static pair => pair.Value);
 
+            OperationRequestContract request = BuildRequest(
+                contract.RequestFrame,
+                operationId,
+                live.RequestTypes,
+                live.RequestParameters);
+            string? actualRequestType = request.SourceTypes.SingleOrDefault();
+            string? actualEncoding = contract.RequestFrame is null ? null : request.Encoding;
+            if (!string.Equals(contract.RequestType, actualRequestType, StringComparison.Ordinal)
+                || !string.Equals(contract.RequestEncoding, actualEncoding, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"{key} compiled request/shared contract conflict: "
+                    + $"contract={contract.RequestType ?? "none"}/{contract.RequestEncoding ?? "none"} "
+                    + $"compiled={actualRequestType ?? "none"}/{actualEncoding ?? "none"}");
+            }
+
             operations.Add(new ObservationOperation
             {
                 Method = live.Method,
@@ -515,7 +604,7 @@ internal static class ObservationMerger
                 RateLimit = live.RateLimit,
                 Cache = live.Cache,
                 SuccessStatus = contract.SuccessStatus,
-                Request = BuildRequest(contract.RequestFrame, live.Path, operationId, live.RequestTypes),
+                Request = request,
                 Responses = BuildResponses(contract, publicErrorEvidence.Keys),
                 PublicErrorRefs = BuildPublicErrorRefs(publicErrorEvidence.Keys),
                 PublicErrorStatuses = publicErrorEvidence.Keys.Order().ToArray(),
@@ -533,7 +622,7 @@ internal static class ObservationMerger
 
         var document = new ObservationDocument
         {
-            Schema = "fsusblog.api-aeds-observation.v3",
+            Schema = "fsusblog.api-aeds-observation.v4",
             Protocol = contracts.Protocol,
             AedsVersion = contracts.AedsVersion,
             OperationCount = operations.Count,
@@ -541,6 +630,10 @@ internal static class ObservationMerger
             Operations = operations,
             ProtocolStates = protocolStates,
             ErrorAuthority = errorAuthority,
+            EndpointContractAuthority = new EndpointContractAuthorityBinding(
+                contracts.Schema,
+                "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
+                contracts.ContentDigest),
             ObservationDigest = string.Empty
         };
 
@@ -553,7 +646,8 @@ internal static class ObservationMerger
             document.OperationKeys,
             Operations = document.Operations,
             document.ProtocolStates,
-            document.ErrorAuthority
+            document.ErrorAuthority,
+            document.EndpointContractAuthority
         });
         string digest = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(canonical)))
             .ToLowerInvariant();
@@ -568,6 +662,7 @@ internal static class ObservationMerger
             Operations = document.Operations,
             ProtocolStates = document.ProtocolStates,
             ErrorAuthority = document.ErrorAuthority,
+            EndpointContractAuthority = document.EndpointContractAuthority,
             ObservationDigest = digest
         };
     }
@@ -619,21 +714,10 @@ internal static class ObservationMerger
 
     private static OperationRequestContract BuildRequest(
         string? requestFrame,
-        string route,
         string operationId,
-        IReadOnlyList<ObservedRequestType> requestTypes)
-    {
-        IReadOnlyList<RouteParameterContract> parameters = System.Text.RegularExpressions.Regex
-            .Matches(route, @"\{([A-Za-z_][A-Za-z0-9_]*)(?::([^}]+))?\}")
-            .Select(match => new RouteParameterContract(
-                match.Groups[1].Value,
-                "path",
-                match.Groups[2].Success ? $"route://{match.Groups[2].Value}" : "route://string",
-                true,
-                false))
-            .ToArray();
-        return RequestContractObserver.Build(requestFrame, operationId, parameters, requestTypes);
-    }
+        IReadOnlyList<ObservedRequestType> requestTypes,
+        IReadOnlyList<RequestParameterContract> requestParameters)
+        => RequestContractObserver.Build(requestFrame, operationId, requestParameters, requestTypes);
 
     internal static string MatchKey(string method, string path)
         => $"{method.ToUpperInvariant()} {StripRouteConstraints(path)}";

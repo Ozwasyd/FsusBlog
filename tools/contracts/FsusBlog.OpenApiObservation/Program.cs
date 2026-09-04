@@ -168,6 +168,7 @@ internal static class OpenApiObservationHost
                     }
 
                     IReadOnlyList<ObservedRequestType> requestTypes = CompiledRequestTypeObserver.Observe(endpoint);
+                    IReadOnlyList<RequestParameterContract> requestParameters = CompiledRequestParameterObserver.Observe(endpoint);
                     IReadOnlyDictionary<int, IReadOnlyList<string>> errorStatuses = CompiledPublicStatusObserver.Observe(endpoint);
                     operations.Add(new ObservedOperation(
                         Method: method,
@@ -180,6 +181,7 @@ internal static class OpenApiObservationHost
                         Cache: ClassifyCache(endpoint),
                         SourceIdentity: endpoint.DisplayName,
                         RequestTypes: requestTypes,
+                        RequestParameters: requestParameters,
                         CompiledErrorStatusEvidence: errorStatuses));
                 }
             }
@@ -446,6 +448,7 @@ internal static class OpenApiObservationHost
                 Cache: "public-read",
                 SourceIdentity: $"public-hot-read:{policy.PolicyId}",
                 RequestTypes: [],
+                RequestParameters: CompiledRequestParameterObserver.ForRoute(path),
                 CompiledErrorStatusEvidence: new SortedDictionary<int, IReadOnlyList<string>>
                 {
                     [StatusCodes.Status406NotAcceptable] = ["compiled-middleware:ApiBinaryResponseMiddleware.accept"],
@@ -471,6 +474,498 @@ internal static class OpenApiObservationHost
         }
 
         throw new InvalidOperationException("unable to locate repository root from tool base directory");
+    }
+}
+
+internal static class CompiledRequestParameterObserver
+{
+    private static readonly NullabilityInfoContext s_nullability = new();
+    private static readonly IReadOnlyDictionary<short, OpCode> s_opCodes = typeof(OpCodes)
+        .GetFields(BindingFlags.Public | BindingFlags.Static)
+        .Where(static field => field.FieldType == typeof(OpCode))
+        .Select(static field => (OpCode)field.GetValue(null)!)
+        .ToDictionary(static code => code.Value);
+
+    public static IReadOnlyList<RequestParameterContract> Observe(RouteEndpoint endpoint)
+    {
+        string route = endpoint.RoutePattern.RawText ?? string.Empty;
+        var parameters = ForRoute(route).ToDictionary(ParameterKey, StringComparer.Ordinal);
+        MethodInfo? handler = endpoint.Metadata.GetMetadata<MethodInfo>();
+        if (handler is null)
+        {
+            return parameters.Values.OrderBy(static item => item.Source, StringComparer.Ordinal)
+                .ThenBy(static item => item.Name, StringComparer.Ordinal).ToArray();
+        }
+
+        HashSet<string> routeNames = parameters.Values
+            .Where(static item => item.Source == "path")
+            .Select(static item => item.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (ParameterInfo parameter in handler.GetParameters())
+        {
+            string? source = ParameterSource(parameter, routeNames);
+            if (source is null || source == "path")
+            {
+                continue;
+            }
+
+            string name = ParameterName(parameter, source);
+            bool nullable = IsNullable(parameter);
+            Add(parameters, new RequestParameterContract(
+                name,
+                "request",
+                source,
+                $"{source}://{ParameterSchema(parameter.ParameterType)}",
+                !nullable && !parameter.HasDefaultValue,
+                nullable,
+                [$"compiled-handler-parameter:{handler.DeclaringType?.FullName}.{handler.Name}:{parameter.Position}"]));
+        }
+
+        ObserveManualRequestAccesses(handler, parameters, [], 0);
+        ObservePipelineParameters(endpoint, parameters);
+
+        return parameters.Values.OrderBy(static item => item.Source, StringComparer.Ordinal)
+            .ThenBy(static item => item.Name, StringComparer.Ordinal).ToArray();
+    }
+
+    public static IReadOnlyList<RequestParameterContract> ForRoute(string route)
+        => System.Text.RegularExpressions.Regex
+            .Matches(route, @"\{([A-Za-z_][A-Za-z0-9_]*)(?::([^}]+))?\}")
+            .Select(match => new RequestParameterContract(
+                match.Groups[1].Value,
+                "request",
+                "path",
+                match.Groups[2].Success ? $"path://{match.Groups[2].Value}" : "path://string",
+                true,
+                false,
+                [$"compiled-route-template:{match.Value}"]))
+            .OrderBy(static item => item.Name, StringComparer.Ordinal)
+            .ToArray();
+
+    private static string? ParameterSource(ParameterInfo parameter, IReadOnlySet<string> routeNames)
+    {
+        if (routeNames.Contains(parameter.Name ?? string.Empty))
+        {
+            return "path";
+        }
+        if (parameter.GetCustomAttributes().Any(static attribute =>
+            attribute.GetType().FullName == "Microsoft.AspNetCore.Mvc.FromHeaderAttribute"))
+        {
+            return "header";
+        }
+        if (parameter.GetCustomAttributes().Any(static attribute =>
+            attribute.GetType().FullName == "Microsoft.AspNetCore.Mvc.FromQueryAttribute"))
+        {
+            return "query";
+        }
+        return IsSimpleParameter(parameter.ParameterType) ? "query" : null;
+    }
+
+    private static string ParameterName(ParameterInfo parameter, string source)
+    {
+        object? attribute = parameter.GetCustomAttributes().FirstOrDefault(item =>
+            item.GetType().FullName == (source == "header"
+                ? "Microsoft.AspNetCore.Mvc.FromHeaderAttribute"
+                : "Microsoft.AspNetCore.Mvc.FromQueryAttribute"));
+        string? configured = attribute?.GetType().GetProperty("Name")?.GetValue(attribute) as string;
+        return string.IsNullOrWhiteSpace(configured)
+            ? parameter.Name ?? throw new InvalidOperationException("compiled request parameter name is missing")
+            : configured;
+    }
+
+    private static bool IsSimpleParameter(Type type)
+    {
+        Type actual = Nullable.GetUnderlyingType(type) ?? type;
+        return actual.IsPrimitive || actual.IsEnum || actual == typeof(string) || actual == typeof(decimal)
+            || actual == typeof(Guid) || actual == typeof(DateTime) || actual == typeof(DateTimeOffset)
+            || actual == typeof(DateOnly) || actual == typeof(TimeOnly) || actual == typeof(TimeSpan);
+    }
+
+    private static bool IsNullable(ParameterInfo parameter)
+        => Nullable.GetUnderlyingType(parameter.ParameterType) is not null
+            || (!parameter.ParameterType.IsValueType
+                && s_nullability.Create(parameter).ReadState != NullabilityState.NotNull);
+
+    private static string ParameterSchema(Type type)
+    {
+        Type actual = Nullable.GetUnderlyingType(type) ?? type;
+        if (actual.IsEnum)
+            return $"enum/{actual.FullName}";
+        if (actual == typeof(string) || actual == typeof(char))
+            return "string";
+        if (actual == typeof(bool))
+            return "boolean";
+        if (actual == typeof(byte) || actual == typeof(sbyte))
+            return "int8";
+        if (actual == typeof(short) || actual == typeof(ushort))
+            return "int16";
+        if (actual == typeof(int) || actual == typeof(uint))
+            return "int32";
+        if (actual == typeof(long) || actual == typeof(ulong))
+            return "int64";
+        if (actual == typeof(float))
+            return "float32";
+        if (actual == typeof(double) || actual == typeof(decimal))
+            return "number";
+        if (actual == typeof(Guid))
+            return "uuid";
+        if (actual == typeof(DateTime) || actual == typeof(DateTimeOffset))
+            return "date-time";
+        if (actual == typeof(DateOnly))
+            return "date";
+        if (actual == typeof(TimeOnly) || actual == typeof(TimeSpan))
+            return "time";
+        throw new InvalidOperationException($"unsupported compiled request parameter type {actual.FullName}");
+    }
+
+    private static string ParameterKey(RequestParameterContract parameter)
+        => $"{parameter.Source}\0{parameter.Name}";
+
+    private static void ObserveManualRequestAccesses(
+        MethodBase method,
+        IDictionary<string, RequestParameterContract> parameters,
+        HashSet<MethodBase> visited,
+        int depth)
+    {
+        if (depth > 6 || !visited.Add(method))
+        {
+            return;
+        }
+        if (method is MethodInfo methodInfo)
+        {
+            AsyncStateMachineAttribute? asyncStateMachine = methodInfo.GetCustomAttribute<AsyncStateMachineAttribute>();
+            MethodInfo? moveNext = asyncStateMachine?.StateMachineType.GetMethod(
+                nameof(IAsyncStateMachine.MoveNext),
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (moveNext is not null)
+            {
+                ObserveManualRequestAccesses(moveNext, parameters, visited, depth + 1);
+            }
+        }
+
+        byte[]? il = method.GetMethodBody()?.GetILAsByteArray();
+        if (il is null)
+        {
+            return;
+        }
+
+        string? pendingSource = null;
+        string? pendingName = null;
+        int offset = 0;
+        while (offset < il.Length)
+        {
+            int instructionOffset = offset;
+            short value = il[offset++];
+            if (value == 0xfe)
+            {
+                value = (short)(0xfe00 | il[offset++]);
+            }
+            if (!s_opCodes.TryGetValue(value, out OpCode opCode))
+            {
+                return;
+            }
+
+            if (opCode == OpCodes.Ldstr)
+            {
+                pendingName = ResolveString(method, BitConverter.ToInt32(il, offset));
+            }
+            else if (opCode.OperandType == OperandType.InlineField)
+            {
+                pendingName = ResolveStringField(method, BitConverter.ToInt32(il, offset)) ?? pendingName;
+            }
+            if (opCode.OperandType == OperandType.InlineMethod)
+            {
+                MethodBase? called = ResolveMethod(method, BitConverter.ToInt32(il, offset));
+                if (called is not null)
+                {
+                    string declaring = called.DeclaringType?.FullName ?? string.Empty;
+                    if (called.Name == "get_Query" && called is MethodInfo { ReturnType: { } returnType }
+                        && returnType.FullName?.Contains("IQueryCollection", StringComparison.Ordinal) == true)
+                    {
+                        pendingSource = "query";
+                        pendingName = null;
+                    }
+                    else if (called.Name == "get_Headers"
+                        && called.DeclaringType == typeof(HttpRequest)
+                        && called is MethodInfo { ReturnType: { } headerType }
+                        && headerType.FullName?.Contains("IHeaderDictionary", StringComparison.Ordinal) == true)
+                    {
+                        pendingSource = "header";
+                        pendingName = null;
+                    }
+                    else if (pendingSource is not null && IsCollectionAccess(called, pendingSource))
+                    {
+                        pendingName ??= called.Name.StartsWith("get_", StringComparison.Ordinal)
+                            && called.Name != "get_Item"
+                            ? called.Name[4..]
+                            : null;
+                        if (string.IsNullOrWhiteSpace(pendingName))
+                        {
+                            throw new InvalidOperationException(
+                                $"{MethodIdentity(method)} has unresolved compiled {pendingSource} request parameter at IL {instructionOffset}");
+                        }
+                        Add(parameters, new RequestParameterContract(
+                            pendingName,
+                            "request",
+                            pendingSource,
+                            $"{pendingSource}://string",
+                            false,
+                            true,
+                            [$"compiled-il:{MethodIdentity(method)}@{instructionOffset}"]));
+                        pendingSource = null;
+                        pendingName = null;
+                    }
+                    else if (IsHeaderReaderCall(called, pendingName))
+                    {
+                        Add(parameters, new RequestParameterContract(
+                            pendingName!,
+                            "request",
+                            "header",
+                            "header://string",
+                            false,
+                            true,
+                            [$"compiled-call-argument:{MethodIdentity(method)}->{MethodIdentity(called)}@{instructionOffset}"]));
+                        pendingSource = null;
+                        pendingName = null;
+                    }
+                    else if (called.Name is "RequireAdminSensitiveStepUpAsync" or "TryReadMfaProof")
+                    {
+                        string headerName = ResolveConstantString(called.DeclaringType, "MfaProofHeader")
+                            ?? throw new InvalidOperationException($"{MethodIdentity(called)} is missing MfaProofHeader authority");
+                        Add(parameters, new RequestParameterContract(
+                            headerName,
+                            "request",
+                            "header",
+                            "header://string",
+                            true,
+                            false,
+                            [$"compiled-sensitive-step-up:{MethodIdentity(called)}"]));
+                        pendingSource = null;
+                        pendingName = null;
+                    }
+                    else if (called.Name == "ReadSiteSubscriptionProofToken")
+                    {
+                        string headerName = FsusBlog.Server.Services.Subscriptions.SiteSubscriptionProofService.HeaderName;
+                        Add(parameters, new RequestParameterContract(
+                            headerName,
+                            "request",
+                            "header",
+                            "header://string",
+                            true,
+                            false,
+                            [$"compiled-request-helper:{MethodIdentity(called)}"]));
+                        pendingSource = null;
+                        pendingName = null;
+                    }
+                    else
+                    {
+                        if (ShouldRecurse(called))
+                        {
+                            ObserveManualRequestAccesses(called, parameters, visited, depth + 1);
+                        }
+                        if (called.Name is not "get_Request" and not "GetRequest")
+                        {
+                            pendingSource = null;
+                            pendingName = null;
+                        }
+                    }
+                }
+            }
+            offset += OperandSize(opCode, il, offset);
+        }
+    }
+
+    private static bool IsCollectionAccess(MethodBase method, string source)
+    {
+        string declaring = method.DeclaringType?.FullName ?? string.Empty;
+        return source == "query"
+            ? declaring.Contains("IQueryCollection", StringComparison.Ordinal)
+            : declaring.Contains("IHeaderDictionary", StringComparison.Ordinal);
+    }
+
+    private static bool IsHeaderReaderCall(MethodBase method, string? pendingName)
+        => !string.IsNullOrWhiteSpace(pendingName)
+            && System.Text.RegularExpressions.Regex.IsMatch(
+                pendingName,
+                "^[A-Za-z0-9][A-Za-z0-9-]*$",
+                System.Text.RegularExpressions.RegexOptions.CultureInvariant)
+            && method.Name.Contains("Header", StringComparison.Ordinal)
+            && !method.Name.StartsWith("Write", StringComparison.Ordinal)
+            && !method.Name.StartsWith("TryWrite", StringComparison.Ordinal);
+
+    private static void ObservePipelineParameters(
+        RouteEndpoint endpoint,
+        IDictionary<string, RequestParameterContract> parameters)
+    {
+        Type[] filters = endpoint.Metadata.GetOrderedMetadata<EndpointFilterBoundaryMetadata>()
+            .Select(static metadata => metadata.FilterType)
+            .Distinct()
+            .ToArray();
+        if (filters.Contains(typeof(RequiresPowFilter)))
+        {
+            AddFilterHeader(parameters, PowHeaderName(), required: true, typeof(RequiresPowFilter));
+        }
+        if (filters.Contains(typeof(RiskAwarePublicReadFilter)))
+        {
+            AddFilterHeader(parameters, PowHeaderName(), required: false, typeof(RiskAwarePublicReadFilter));
+        }
+        if (filters.Contains(typeof(RequiresRiskControlFilter)))
+        {
+            AddFilterHeader(parameters, RequiresRiskControlFilter.ChallengeProofHeaderName, required: false, typeof(RequiresRiskControlFilter));
+            AddFilterHeader(parameters, RequiresRiskControlFilter.ChallengeIdHeaderName, required: false, typeof(RequiresRiskControlFilter));
+            AddFilterHeader(parameters, RequiresRiskControlFilter.ChallengeKindHeaderName, required: false, typeof(RequiresRiskControlFilter));
+        }
+        if (filters.Contains(typeof(RejectIdentifiedPrincipalFilter)))
+        {
+            foreach (FieldInfo field in typeof(RejectIdentifiedPrincipalFilter).GetFields(
+                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
+            {
+                if (field.Name.EndsWith("HeaderName", StringComparison.Ordinal)
+                    && ResolveFieldString(field) is string headerName)
+                {
+                    AddFilterHeader(parameters, headerName, required: false, typeof(RejectIdentifiedPrincipalFilter));
+                }
+            }
+        }
+    }
+
+    private static string PowHeaderName()
+    {
+        Type codec = typeof(RequiresPowFilter).Assembly.GetType(
+            "FsusBlog.Server.Infrastructure.Security.PowProofCodec",
+            throwOnError: true)!;
+        return ResolveConstantString(codec, "HeaderName")
+            ?? throw new InvalidOperationException("compiled PowProofCodec is missing HeaderName authority");
+    }
+
+    private static void AddFilterHeader(
+        IDictionary<string, RequestParameterContract> parameters,
+        string name,
+        bool required,
+        Type filterType)
+        => Add(parameters, new RequestParameterContract(
+            name,
+            "request",
+            "header",
+            "header://string",
+            required,
+            !required,
+            [$"compiled-endpoint-filter:{filterType.FullName}"]));
+
+    private static bool ShouldRecurse(MethodBase method)
+        => method.DeclaringType?.Assembly == typeof(AuthoringEndpoints).Assembly
+            && (method.DeclaringType.Namespace?.StartsWith("FsusBlog.Server.Modules.Endpoints", StringComparison.Ordinal) ?? false);
+
+    private static MethodBase? ResolveMethod(MethodBase owner, int token)
+    {
+        try
+        {
+            Type[]? declaringArguments = owner.DeclaringType?.IsGenericType == true
+                ? owner.DeclaringType.GetGenericArguments()
+                : null;
+            Type[]? methodArguments = owner.IsGenericMethod ? owner.GetGenericArguments() : null;
+            return owner.Module.ResolveMethod(token, declaringArguments, methodArguments);
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static string? ResolveString(MethodBase owner, int token)
+    {
+        try
+        {
+            return owner.Module.ResolveString(token);
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static string? ResolveStringField(MethodBase owner, int token)
+    {
+        try
+        {
+            Type[]? declaringArguments = owner.DeclaringType?.IsGenericType == true
+                ? owner.DeclaringType.GetGenericArguments()
+                : null;
+            Type[]? methodArguments = owner.IsGenericMethod ? owner.GetGenericArguments() : null;
+            FieldInfo? field = owner.Module.ResolveField(token, declaringArguments, methodArguments);
+            return field is null ? null : ResolveFieldString(field);
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static string? ResolveConstantString(Type? type, string fieldName)
+    {
+        FieldInfo? field = type?.GetField(
+            fieldName,
+            BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.FlattenHierarchy);
+        return field is null ? null : ResolveFieldString(field);
+    }
+
+    private static string? ResolveFieldString(FieldInfo field)
+    {
+        try
+        {
+            return field.IsLiteral
+                ? field.GetRawConstantValue() as string
+                : field.IsStatic ? field.GetValue(null) as string : null;
+        }
+        catch (TargetInvocationException)
+        {
+            return null;
+        }
+    }
+
+    private static string MethodIdentity(MethodBase method)
+        => $"{method.DeclaringType?.FullName}.{method.Name}";
+
+    private static int OperandSize(OpCode opCode, byte[] il, int operandOffset)
+        => opCode.OperandType switch
+        {
+            OperandType.InlineNone => 0,
+            OperandType.ShortInlineBrTarget or OperandType.ShortInlineI or OperandType.ShortInlineVar => 1,
+            OperandType.InlineVar => 2,
+            OperandType.InlineBrTarget or OperandType.InlineField or OperandType.InlineI
+                or OperandType.InlineMethod or OperandType.InlineSig or OperandType.InlineString
+                or OperandType.InlineTok or OperandType.InlineType or OperandType.ShortInlineR => 4,
+            OperandType.InlineI8 or OperandType.InlineR => 8,
+            OperandType.InlineSwitch => 4 + (BitConverter.ToInt32(il, operandOffset) * 4),
+            _ => throw new InvalidOperationException($"unsupported IL operand type {opCode.OperandType}")
+        };
+
+    private static void Add(
+        IDictionary<string, RequestParameterContract> parameters,
+        RequestParameterContract candidate)
+    {
+        string key = ParameterKey(candidate);
+        if (parameters.TryGetValue(key, out RequestParameterContract? existing))
+        {
+            if (existing.Name != candidate.Name
+                || existing.Direction != candidate.Direction
+                || existing.Source != candidate.Source
+                || existing.SchemaRef != candidate.SchemaRef
+                || existing.Required != candidate.Required
+                || existing.Nullable != candidate.Nullable)
+            {
+                throw new InvalidOperationException($"conflicting compiled request parameter {candidate.Source}:{candidate.Name}");
+            }
+            parameters[key] = existing with
+            {
+                Evidence = existing.Evidence.Concat(candidate.Evidence)
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(static item => item, StringComparer.Ordinal)
+                    .ToArray()
+            };
+            return;
+        }
+        parameters[key] = candidate;
     }
 }
 
