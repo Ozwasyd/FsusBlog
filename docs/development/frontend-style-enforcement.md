@@ -69,6 +69,29 @@ previous rule sum must prove the malformed aggregate, the corrected rule sum mus
 the corrected count, and the authority becomes unusable once the baseline entry is
 replaced.
 
+The independently reviewed parent-import residual is closed in
+`config/development/frontend-style-reviewed-residual.json`. It binds exactly 149
+`tests/**` and `tools/**` paths and 329
+`eslint/import-x/no-relative-parent-imports` diagnostics to the unsuppressed source
+SHA-256, canonical diagnostic identity and message digest, per-rule count, prior owner
+commit, review issue, reason and terminal condition. Its aggregate declares zero other
+diagnostics. Validate the authority without updating the baseline:
+
+```bash
+node tools/frontend/reviewed-residual-classification.mjs
+```
+
+A downstream baseline update that reaches any bound unsuppressed source must consume the
+whole authority with
+`--reviewed-residual-classification config/development/frontend-style-reviewed-residual.json`.
+The authority bytes must already exist unchanged on an ancestor at refreshed
+`refs/remotes/origin/master`. Candidate-authored or missing bytes, extra, omitted,
+duplicate or reordered entries, stale source/rule/diagnostic/owner identity, partial
+consumption and reuse after a successful update all fail closed. The authority only
+admits the exact 329-diagnostic current set from the bound source bytes and requires the
+reviewed prior-consumer plus still-unconsumed remote baseline projections. It does not
+update the baseline itself and never suppresses `strict-full`.
+
 `--migrate-baseline-paths tests/test-asset-semantic-renames.json` is limited to a
 non-empty set of real one-to-one renames whose old paths are absent and destinations are
 live. Each destination must preserve the exact source digest and the prior diagnostic

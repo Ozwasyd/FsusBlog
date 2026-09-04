@@ -16,6 +16,15 @@ import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const {
+    reviewedResidualAuthorityPath,
+    reviewedResidualConsumptionRequired,
+    validateReviewedResidualConsumption,
+    validateReviewedResidualDocument
+} = await import(pathToFileURL(path.join(root, 'tools/frontend/reviewed-residual-classification.mjs')).href);
+const { validateJsonSchema } = await import(
+    pathToFileURL(path.join(root, 'tools/test-matrix/schema-validator/validate.mjs')).href
+);
 const checker = path.join(root, 'tools/frontend/check-frontend-style.mjs');
 const toolchain = path.join(root, 'tools/frontend/style-toolchain');
 const eslintConfig = path.join(toolchain, 'eslint.config.mjs');
@@ -201,6 +210,51 @@ const props = { label: 'Good' };
         ]);
         assert.equal(result.status, 0, output(result));
         assert.match(result.stdout, /\[frontend-style\] ok files=4 eslint=3 stylelint=2 violations=0 new=0/u);
+    });
+});
+
+test('reviewed residual authority does not suppress strict-full parent-import diagnostics', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        writeFixture(fixtureRoot, 'tools/parent.mjs', 'export const parentValue = 1;\n');
+        writeFixture(
+            fixtureRoot,
+            'tools/child/residual.mjs',
+            `import { parentValue } from '../parent.mjs';
+
+export const residualValue = parentValue;
+`
+        );
+        const result = runChecker(fixtureRoot, [
+            '--mode', 'strict-full',
+            '--file', 'tools/child/residual.mjs'
+        ]);
+        assert.notEqual(result.status, 0);
+        assert.match(output(result), /eslint\/import-x\/no-relative-parent-imports/u);
+    });
+});
+
+test('reviewed residual consumption requires a canonical repository-wide baseline update', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const partial = runChecker(fixtureRoot, [
+            '--mode', 'full',
+            '--update-baseline',
+            '--reviewed-residual-classification', reviewedResidualAuthorityPath,
+            '--file', 'tools/sample.mjs'
+        ]);
+        assert.notEqual(partial.status, 0);
+        assert.match(output(partial), /requires a canonical full baseline update without --file/u);
+
+        const changed = runChecker(fixtureRoot, [
+            '--mode', 'changed',
+            '--update-baseline',
+            '--reviewed-residual-classification', reviewedResidualAuthorityPath
+        ]);
+        assert.notEqual(changed.status, 0);
+        assert.match(output(changed), /requires a canonical full baseline update without --file/u);
     });
 });
 
@@ -786,6 +840,288 @@ test('frontend style governance accepts only an exact pre-existing malformed bas
             assert.equal(readFileSync(baselinePath, 'utf8'), malformedBytes);
         }
     });
+});
+
+test('reviewed residual authority is exact, canonical and closed against structural mutation', () =>
+{
+    const authorityPath = path.join(root, reviewedResidualAuthorityPath);
+    const bytes = readFileSync(authorityPath, 'utf8');
+    const authority = JSON.parse(bytes);
+    const schema = JSON.parse(readFileSync(
+        path.join(root, 'config/schemas/frontend-style-reviewed-residual.schema.json'),
+        'utf8'
+    ));
+    assert.deepEqual(validateJsonSchema(authority, schema), []);
+    assert.deepEqual(validateReviewedResidualDocument(authority, bytes, { root }), []);
+    assert.deepEqual(schema.required, Object.keys(authority));
+    assert.deepEqual(schema.$defs.entry.required, Object.keys(authority.entries[0]));
+    assert.deepEqual(schema.$defs.diagnostic.required, Object.keys(authority.entries[0].diagnostics[0]));
+    assert.equal(authority.pathCount, 149);
+    assert.equal(authority.entries.length, 149);
+    assert.equal(authority.diagnosticCount, 329);
+    assert.equal(authority.otherDiagnosticCount, 0);
+    assert.deepEqual(authority.ruleCounts, {
+        'eslint/import-x/no-relative-parent-imports': 329
+    });
+    assert.equal(
+        authority.entries.reduce((sum, entry) => sum + entry.diagnosticCount, 0),
+        329
+    );
+    assert.equal(
+        authority.entries.find(({ path: file }) => file === 'tests/tools/production-build-bootstrap.test.mjs')?.priorOwnerCommit,
+        '784cf6d589054e435eaec8129c86bab3d7f94d39'
+    );
+    assert.equal(
+        authority.entries.find(({ path: file }) => file === 'tools/test/run-deterministic-command.mjs')?.priorOwnerCommit,
+        'f13f7fc3944ee65ceae41b13eb30628f919e864d'
+    );
+
+    const canonical = (document) => `${JSON.stringify(document, null, 4)}\n`;
+    const mutations = [
+        ['extra field', true, (document) =>
+        {
+            document.unreviewed = true;
+        }],
+        ['missing entry', true, (document) =>
+        {
+            document.entries.pop();
+        }],
+        ['extra entry', true, (document) =>
+        {
+            document.entries.push(structuredClone(document.entries.at(-1)));
+        }],
+        ['duplicate path', false, (document) =>
+        {
+            document.entries[1].path = document.entries[0].path;
+        }],
+        ['renamed path', false, (document) =>
+        {
+            document.entries[0].path = 'tests/browser-contract/renamed-fixture-provider.mjs';
+        }],
+        ['reordered paths', false, (document) =>
+        {
+            [document.entries[0], document.entries[1]] = [document.entries[1], document.entries[0]];
+        }],
+        ['rule', true, (document) =>
+        {
+            document.entries[0].ruleCounts['eslint/other'] = 1;
+        }],
+        ['diagnostic identity', false, (document) =>
+        {
+            document.entries[0].diagnostics[0].identity = document.entries[0].diagnostics[1].identity;
+        }],
+        ['diagnostic order', false, (document) =>
+        {
+            [document.entries[0].diagnostics[0], document.entries[0].diagnostics[1]] = [
+                document.entries[0].diagnostics[1],
+                document.entries[0].diagnostics[0]
+            ];
+        }],
+        ['diagnostic digest', false, (document) =>
+        {
+            document.entries[0].diagnosticDigest = '0'.repeat(64);
+        }],
+        ['owner', false, (document) =>
+        {
+            document.entries[0].priorOwnerCommit = '0'.repeat(40);
+        }],
+        ['terminal condition', true, (document) =>
+        {
+            document.entries[0].terminalCondition = 'reusable';
+        }]
+    ];
+    for (const [name, schemaMustReject, mutate] of mutations)
+    {
+        const document = structuredClone(authority);
+        mutate(document);
+        const schemaFailures = validateJsonSchema(document, schema);
+        const semanticFailures = validateReviewedResidualDocument(document, canonical(document), { root });
+        if (schemaMustReject)
+        {
+            assert.notDeepEqual(schemaFailures, [], `${name} unexpectedly passed JSON Schema`);
+        }
+        assert.notDeepEqual(
+            [...schemaFailures, ...semanticFailures],
+            [],
+            `${name} unexpectedly passed`
+        );
+    }
+    assert.match(
+        validateReviewedResidualDocument(authority, `${bytes}\n`, { root }).join('\n'),
+        /not canonical/u
+    );
+});
+
+test('reviewed residual consumption rejects candidate authority, drift, partial use and reuse', () =>
+{
+    const fixtureRoot = mkdtempSync(path.join(tmpdir(), 'fsusblog-reviewed-residual-'));
+    try
+    {
+        const sourceAuthority = JSON.parse(readFileSync(path.join(root, reviewedResidualAuthorityPath), 'utf8'));
+        const git = (args) => spawnSync('git', args, { cwd: fixtureRoot, encoding: 'utf8' });
+        const expectGit = (args) =>
+        {
+            const result = git(args);
+            assert.equal(result.status, 0, `${args.join(' ')}\n${output(result)}`);
+        };
+        expectGit(['init', '-q']);
+        expectGit(['config', 'user.email', 'fixture@example.invalid']);
+        expectGit(['config', 'user.name', 'Fixture']);
+        for (const [index, entry] of sourceAuthority.entries.entries())
+        {
+            writeFixture(fixtureRoot, entry.path, `export const source${index} = ${index};\n`);
+        }
+        writeFixture(
+            fixtureRoot,
+            'config/development/frontend-style-baseline.json',
+            `${JSON.stringify({
+                schema: 'fsusblog.frontend-style-baseline.v1',
+                files: sourceAuthority.entries
+                    .map(({ reviewBaseBaseline }) => reviewBaseBaseline)
+                    .filter(Boolean)
+            }, null, 4)}\n`
+        );
+        expectGit(['add', '.']);
+        expectGit(['commit', '-qm', 'test: establish prior source owners']);
+        const sourceCommit = git(['rev-parse', 'HEAD']).stdout.trim();
+        const authority = structuredClone(sourceAuthority);
+        authority.reviewBaseCommit = sourceCommit;
+        for (const entry of authority.entries)
+        {
+            entry.priorOwnerCommit = sourceCommit;
+            entry.priorConsumerBaseline = {
+                path: entry.path,
+                sourceSha256: '0'.repeat(64),
+                violationCount: 0,
+                violationDigest: createHash('sha256').update('').digest('hex'),
+                rules: {}
+            };
+        }
+        authority.priorConsumerProjectionSha256 = createHash('sha256')
+            .update(authority.entries.map((entry) =>
+                `${entry.path}\n${JSON.stringify(entry.priorConsumerBaseline)}`).join('\n'))
+            .digest('hex');
+        const authorityBytes = `${JSON.stringify(authority, null, 4)}\n`;
+        writeFixture(fixtureRoot, reviewedResidualAuthorityPath, authorityBytes);
+        expectGit(['add', reviewedResidualAuthorityPath]);
+        expectGit(['commit', '-qm', 'test: publish reviewed residual authority']);
+        expectGit(['update-ref', 'refs/remotes/origin/master', 'HEAD']);
+        writeFixture(fixtureRoot, 'consumer-marker.txt', 'consumer\n');
+        expectGit(['add', 'consumer-marker.txt']);
+        expectGit(['commit', '-qm', 'test: create downstream consumer']);
+
+        const emptyDigest = createHash('sha256').update('').digest('hex');
+        const currentByPath = new Map();
+        const previousByPath = new Map();
+        const violationsByPath = new Map();
+        for (const entry of authority.entries)
+        {
+            currentByPath.set(entry.path, {
+                path: entry.path,
+                sourceSha256: entry.sourceSha256,
+                violationCount: entry.diagnosticCount,
+                violationDigest: entry.diagnosticDigest,
+                rules: entry.ruleCounts
+            });
+            previousByPath.set(entry.path, {
+                path: entry.path,
+                sourceSha256: '0'.repeat(64),
+                violationCount: 0,
+                violationDigest: emptyDigest,
+                rules: {}
+            });
+            violationsByPath.set(entry.path, entry.diagnostics.map((diagnostic) => ({
+                id: diagnostic.identity,
+                tool: 'eslint',
+                rule: 'import-x/no-relative-parent-imports',
+                line: diagnostic.line,
+                column: diagnostic.column,
+                endLine: diagnostic.endLine,
+                endColumn: diagnostic.endColumn,
+                messageSha256: diagnostic.messageSha256
+            })));
+        }
+        const validate = (overrides = {}) => validateReviewedResidualConsumption({
+            root: fixtureRoot,
+            authorityPath: reviewedResidualAuthorityPath,
+            expectedReviewBaseCommit: sourceCommit,
+            currentByPath,
+            previousByPath,
+            violationsByPath,
+            ...overrides
+        });
+        assert.equal(reviewedResidualConsumptionRequired(authority, currentByPath, previousByPath), true);
+        assert.deepEqual(validate(), []);
+
+        const sourceDrift = new Map(currentByPath);
+        sourceDrift.set(authority.entries[0].path, {
+            ...sourceDrift.get(authority.entries[0].path),
+            sourceSha256: '1'.repeat(64)
+        });
+        assert.match(validate({ currentByPath: sourceDrift }).join('\n'), /source, rule, or diagnostic identity is stale/u);
+
+        const ruleDrift = new Map(violationsByPath);
+        ruleDrift.set(authority.entries[0].path, ruleDrift.get(authority.entries[0].path).map((entry, index) => index === 0
+            ? { ...entry, rule: 'no-unused-vars' }
+            : entry));
+        assert.match(validate({ violationsByPath: ruleDrift }).join('\n'), /diagnostic identity is stale/u);
+
+        const diagnosticDrift = new Map(violationsByPath);
+        diagnosticDrift.set(authority.entries[0].path, diagnosticDrift.get(authority.entries[0].path).slice(1));
+        assert.match(validate({ violationsByPath: diagnosticDrift }).join('\n'), /missing|complete/u);
+
+        const extraDiagnostic = new Map(violationsByPath);
+        extraDiagnostic.set(authority.entries[0].path, [
+            ...extraDiagnostic.get(authority.entries[0].path),
+            {
+                id: 'eslint:no-unused-vars:tools/extra.mjs:1:1:0000000000000000',
+                tool: 'eslint',
+                rule: 'no-unused-vars',
+                line: 1,
+                column: 1,
+                endLine: 1,
+                endColumn: 2,
+                messageSha256: '0'.repeat(64)
+            }
+        ]);
+        assert.match(validate({ violationsByPath: extraDiagnostic }).join('\n'), /extra or missing diagnostics/u);
+
+        const partialCurrent = new Map(currentByPath);
+        partialCurrent.delete(authority.entries.at(-1).path);
+        assert.match(validate({ currentByPath: partialCurrent }).join('\n'), /partially consumed/u);
+
+        const consumedBaseline = new Map(currentByPath);
+        assert.equal(reviewedResidualConsumptionRequired(authority, currentByPath, consumedBaseline), false);
+        assert.match(validate({ previousByPath: consumedBaseline }).join('\n'), /already consumed/u);
+
+        writeFixture(
+            fixtureRoot,
+            'config/development/frontend-style-baseline.json',
+            `${JSON.stringify({
+                schema: 'fsusblog.frontend-style-baseline.v1',
+                files: [...currentByPath.values()]
+            }, null, 4)}\n`
+        );
+        expectGit(['add', 'config/development/frontend-style-baseline.json']);
+        expectGit(['commit', '-qm', 'test: consume reviewed residual baseline']);
+        expectGit(['update-ref', 'refs/remotes/origin/master', 'HEAD']);
+        assert.match(validate().join('\n'), /was consumed|remote baseline projection drifted/u);
+
+        const candidateAuthority = structuredClone(authority);
+        candidateAuthority.entries[0].sourceSha256 = '2'.repeat(64);
+        writeFileSync(
+            path.join(fixtureRoot, reviewedResidualAuthorityPath),
+            `${JSON.stringify(candidateAuthority, null, 4)}\n`
+        );
+        assert.match(validate().join('\n'), /must already exist unchanged/u);
+
+        rmSync(path.join(fixtureRoot, reviewedResidualAuthorityPath));
+        assert.match(validate().join('\n'), /missing or invalid reviewed residual authority/u);
+    }
+    finally
+    {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+    }
 });
 
 test('frontend style governance baseline configuration migration requires explicit old-digest authorization', () =>

@@ -156,6 +156,21 @@
             "status": "manual"
         },
         {
+            "id": "frontend-style-reviewed-residual-schema",
+            "owner": "frontend-language-style-governance",
+            "canonicalPath": "config/schemas/frontend-style-reviewed-residual.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "config/development/frontend-style-reviewed-residual.json",
+                "tools/frontend/check-frontend-style.mjs",
+                "tools/frontend/reviewed-residual-classification.mjs",
+                "tests/tools/frontend-style.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/frontend-style.test.mjs",
+            "changePolicy": "manual-update-with-closed-canonical-authority-and-negative-mutation-validation",
+            "status": "manual"
+        },
+        {
             "id": "post-merge-generated-output-repair-schema",
             "owner": "repository-governance",
             "canonicalPath": "config/schemas/post-merge-generated-output-repair.schema.json",

@@ -6,6 +6,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import {
+    reviewedResidualAuthorityPath,
+    reviewedResidualConsumptionRequired,
+    validateReviewedResidualConsumption,
+    validateReviewedResidualDocument
+} from './reviewed-residual-classification.mjs';
+
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultRoot = path.resolve(path.dirname(scriptPath), '../..');
 const defaultPolicyPath = 'config/development/frontend-style-policy.json';
@@ -55,7 +62,8 @@ function parseArgs(argv)
             '--file',
             '--migrate-baseline-configuration',
             '--migrate-baseline-paths',
-            '--reviewed-baseline-correction'
+            '--reviewed-baseline-correction',
+            '--reviewed-residual-classification'
         ].includes(argument))
         {
             throw new Error(`unknown argument ${argument}`);
@@ -80,6 +88,10 @@ function parseArgs(argv)
         else if (argument === '--reviewed-baseline-correction')
         {
             parsed.reviewedBaselineCorrection = value;
+        }
+        else if (argument === '--reviewed-residual-classification')
+        {
+            parsed.reviewedResidualClassification = value;
         }
         else
         {
@@ -325,12 +337,16 @@ function makeViolation(tool, file, message)
     const rule = message.ruleId ?? message.rule ?? 'parse-error';
     const line = Number(message.line ?? 1);
     const column = Number(message.column ?? 1);
+    const endLine = Number(message.endLine ?? line);
+    const endColumn = Number(message.endColumn ?? column);
     return {
         id: `${tool}:${rule}:${file}:${line}:${column}:${sha256(normalizedMessage).slice(0, 16)}`,
         tool,
         file,
         line,
         column,
+        endLine,
+        endColumn,
         rule,
         message: normalizedMessage,
         fixable: Boolean(message.fix || message.replacements?.length)
@@ -699,10 +715,14 @@ function validateReviewedBaselineCorrections(correctionPath, rejections)
 
 function writeBaseline(violations, selectedFiles, args)
 {
+    const violationsByPath = new Map();
     const target = path.join(root, policy.baseline);
     const byFile = new Map();
     for (const violation of violations)
     {
+        const pathViolations = violationsByPath.get(violation.file) ?? [];
+        pathViolations.push(violation);
+        violationsByPath.set(violation.file, pathViolations);
         const entry = byFile.get(violation.file) ?? { rules: {}, ids: [] };
         const rule = `${violation.tool}/${violation.rule}`;
         entry.rules[rule] = (entry.rules[rule] ?? 0) + 1;
@@ -832,6 +852,36 @@ function writeBaseline(violations, selectedFiles, args)
         {
             fail('refusing unnecessary frontend style baseline configuration migration authorization');
         }
+        const residualAuthorityFile = path.join(root, reviewedResidualAuthorityPath);
+        const residualAuthority = fs.existsSync(residualAuthorityFile)
+            ? readJson(residualAuthorityFile, reviewedResidualAuthorityPath)
+            : null;
+        const residualRequired = residualAuthority
+            ? reviewedResidualConsumptionRequired(residualAuthority, currentByPath, previousByPath)
+            : false;
+        let residualAuthorized = false;
+        if (args.reviewedResidualClassification)
+        {
+            const residualFailures = validateReviewedResidualConsumption({
+                root,
+                authorityPath: args.reviewedResidualClassification,
+                currentByPath,
+                previousByPath,
+                violationsByPath
+            });
+            for (const residualFailure of residualFailures)
+            {
+                fail(residualFailure);
+            }
+            residualAuthorized = residualFailures.length === 0;
+        }
+        else if (residualRequired)
+        {
+            fail(`frontend style baseline update requires --reviewed-residual-classification ${reviewedResidualAuthorityPath}`);
+        }
+        const residualPaths = residualAuthorized
+            ? new Set(residualAuthority.entries.map(({ path: file }) => file))
+            : new Set();
         const identityRejections = [];
         for (const current of currentByPath.values())
         {
@@ -839,7 +889,8 @@ function writeBaseline(violations, selectedFiles, args)
                 ?? previousByPath.get(sourceByDestination.get(current.path));
             if (!prior)
             {
-                if (!identityMigrationFiles.has(current.path) || current.violationCount > 0)
+                if ((!identityMigrationFiles.has(current.path) || current.violationCount > 0)
+                    && !residualPaths.has(current.path))
                 {
                     fail(`refusing new frontend style baseline path ${current.path} with ${current.violationCount} violations`);
                 }
@@ -847,11 +898,15 @@ function writeBaseline(violations, selectedFiles, args)
             }
             if (current.violationCount > prior.violationCount)
             {
-                fail(`refusing frontend style baseline violation increase for ${current.path}: ${prior.violationCount} -> ${current.violationCount}`);
+                if (!residualPaths.has(current.path))
+                {
+                    fail(`refusing frontend style baseline violation increase for ${current.path}: ${prior.violationCount} -> ${current.violationCount}`);
+                }
             }
             else if (current.violationCount === prior.violationCount
                 && current.violationDigest !== prior.violationDigest
                 && !identityMigrationFiles.has(current.path)
+                && !residualPaths.has(current.path)
                 && !(args.migrateBaselineConfiguration
                     && current.sourceSha256 === prior.sourceSha256
                     && JSON.stringify(current.rules) === JSON.stringify(prior.rules)))
@@ -1066,6 +1121,19 @@ function validateConfiguration()
             }
         }
     }
+    const residualAuthority = path.join(root, reviewedResidualAuthorityPath);
+    if (fs.existsSync(residualAuthority))
+    {
+        const bytes = fs.readFileSync(residualAuthority, 'utf8');
+        const document = readJson(residualAuthority, reviewedResidualAuthorityPath);
+        if (document)
+        {
+            for (const residualFailure of validateReviewedResidualDocument(document, bytes, { root }))
+            {
+                fail(residualFailure);
+            }
+        }
+    }
     validateSpecializedGovernance();
 }
 
@@ -1082,10 +1150,19 @@ function main()
     {
         throw new Error('--update-baseline and --fix cannot be combined');
     }
-    if ((args.migrateBaselineConfiguration || args.migrateBaselinePaths || args.pruneRemovedBaselinePaths || args.reviewedBaselineCorrection)
+    if ((args.migrateBaselineConfiguration
+        || args.migrateBaselinePaths
+        || args.pruneRemovedBaselinePaths
+        || args.reviewedBaselineCorrection
+        || args.reviewedResidualClassification)
         && !args.updateBaseline)
     {
         throw new Error('baseline migration options require --update-baseline');
+    }
+    if (args.reviewedResidualClassification
+        && (args.mode !== 'full' || args.files.length > 0))
+    {
+        throw new Error('reviewed residual classification requires a canonical full baseline update without --file');
     }
     if (args.fix && args.mode === 'full' && args.files.length === 0)
     {
