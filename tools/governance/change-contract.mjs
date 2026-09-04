@@ -411,7 +411,7 @@ function gitRevisionParents(root, revision) {
     const line = execFileSync(
         'git',
         ['rev-list', '--parents', '--max-count=1', revision],
-        exactRevisionGitOptions(root, { encoding: 'utf8' })
+        exactRevisionGitOptions(root, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
     ).trim()
     return line === '' ? [] : line.split(/\s+/u).slice(1)
 }
@@ -451,6 +451,17 @@ function gitFirstParentChainIncludes(root, revision, descendant) {
         ['rev-list', '--first-parent', descendant],
         exactRevisionGitOptions(root, { encoding: 'utf8' })
     ).trim().split('\n').includes(revision)
+}
+
+function gitBoundedFirstParentChainIncludes(root, revision, descendant, maximum = 128) {
+    let current = descendant
+    for (let distance = 0; distance <= maximum; distance += 1) {
+        if (current === revision) return true
+        const parents = gitRevisionParents(root, current)
+        if (parents.length === 0) return false
+        current = parents[0]
+    }
+    return false
 }
 
 function gitLastRevisionForPath(root, revision, path) {
@@ -924,6 +935,233 @@ function dagEvidenceExceedsBounds(evidence, errors) {
 function revisionPathIdentity(root, revision, path) {
     const blob = resolveRevisionBlob(root, revision, path)
     return `${blob.mode}:${blob.object}`
+}
+
+function gitBoundedAncestryGraph(root, descendant, boundaries, maximum = 128) {
+    if (!Array.isArray(boundaries) || boundaries.length === 0 || new Set(boundaries).size !== boundaries.length) {
+        throw new Error('registered history boundaries must be a non-empty unique list')
+    }
+    const boundarySet = new Set(boundaries)
+    const reachedBoundaries = new Set()
+    const graph = new Map()
+    const pending = [descendant]
+    let edgeCount = 0
+    while (pending.length > 0) {
+        const revision = pending.pop()
+        if (boundarySet.has(revision)) {
+            reachedBoundaries.add(revision)
+            continue
+        }
+        if (graph.has(revision)) continue
+        const parents = gitRevisionParents(root, revision)
+        if (parents.length === 0) throw new Error(`registered history does not terminate at a boundary: ${revision}`)
+        edgeCount += parents.length
+        if (edgeCount > maximum) throw new Error(`registered history exceeds ${maximum} parent edges`)
+        graph.set(revision, parents)
+        pending.push(...parents)
+    }
+    if (reachedBoundaries.size !== boundarySet.size) {
+        throw new Error('registered history does not reach every boundary')
+    }
+    return graph
+}
+
+function boundedGraphIncludesAncestor(graph, ancestor, descendant) {
+    const pending = [descendant]
+    const visited = new Set()
+    while (pending.length > 0) {
+        const revision = pending.pop()
+        if (revision === ancestor) return true
+        if (visited.has(revision)) continue
+        visited.add(revision)
+        pending.push(...(graph.get(revision) ?? []))
+    }
+    return false
+}
+
+function generatedRepairPassThroughExceptionErrors(
+    root,
+    producer,
+    evidence,
+    base,
+    head,
+    exception
+) {
+    const errors = []
+    const fail = (message) => errors.push(`Registered generated repair pass-through is invalid: ${message}`)
+    if (
+        exception?.producerId !== producer.id
+        || exception?.repairBase !== base
+        || exception?.repairHead !== head
+        || exception?.sourceCommit !== evidence.sourceCommit
+        || exception?.mergedPullRequest !== evidence.mergedPullRequest
+        || exception?.mergeCommit !== evidence.mergeCommit
+    ) {
+        fail('repair identity does not match the immutable registry tuple')
+        return errors
+    }
+
+    const passThroughParents = gitRevisionParents(root, exception.passThroughCommit)
+    const outerMergeParents = gitRevisionParents(root, exception.outerMergeCommit)
+    if (!sameStringSequence(passThroughParents, exception.passThroughParents)) {
+        fail('pass-through parents do not match the immutable registry tuple')
+    }
+    if (!sameStringSequence(outerMergeParents, exception.outerMergeParents)) {
+        fail('outer merge parents do not match the immutable registry tuple')
+    }
+    if (!mergeCommitNamesPullRequest(root, exception.outerMergeCommit, exception.outerPullRequest)) {
+        fail('outer merge does not name the registered pull request')
+    }
+
+    const [passThroughFirstParent, passThroughSecondParent] = exception.passThroughParents
+    const [outerFirstParent, outerSecondParent] = exception.outerMergeParents
+    const divergenceBoundary = exception.historyBoundaries?.[1]
+    if (
+        !sameStringSequence(exception.historyBoundaries, [exception.mergeCommit, divergenceBoundary])
+        || !fullShaPattern.test(divergenceBoundary ?? '')
+        || !sameStringSequence(gitRevisionParents(root, passThroughFirstParent), [divergenceBoundary])
+        || !gitBoundedFirstParentChainIncludes(root, divergenceBoundary, exception.mergeCommit)
+    ) {
+        fail('history boundaries do not match the exact source divergence frontier')
+    }
+    const historyGraph = gitBoundedAncestryGraph(
+        root,
+        base,
+        exception.historyBoundaries,
+        generatedOutputRepairDagMaximumRevisions
+    )
+    const historyRevisions = new Set([
+        ...historyGraph.keys(),
+        ...exception.historyBoundaries
+    ])
+    for (const revision of [
+        passThroughFirstParent,
+        passThroughSecondParent,
+        exception.passThroughCommit,
+        outerFirstParent,
+        outerSecondParent,
+        exception.outerMergeCommit
+    ]) {
+        if (!historyRevisions.has(revision)) fail(`registered history omits required revision: ${revision}`)
+    }
+    if (!gitBoundedFirstParentChainIncludes(root, exception.mergeCommit, passThroughSecondParent)) {
+        fail('authoritative second parent does not descend from the registered source merge on its first-parent chain')
+    }
+    if (!gitBoundedFirstParentChainIncludes(root, exception.passThroughCommit, outerSecondParent)) {
+        fail('pass-through commit is not on the outer pull request head first-parent chain')
+    }
+    if (boundedGraphIncludesAncestor(historyGraph, exception.passThroughCommit, outerFirstParent)) {
+        fail('pass-through commit is also reachable from the outer merge first parent')
+    }
+    if (!gitBoundedFirstParentChainIncludes(root, passThroughSecondParent, outerFirstParent)) {
+        fail('authoritative second parent is not on the outer merge first-parent lineage')
+    }
+    if (!gitBoundedFirstParentChainIncludes(root, exception.outerMergeCommit, base)) {
+        fail('outer merge is not on the repair base first-parent chain')
+    }
+
+    if (gitLastRevisionForPath(root, base, producer.source) !== exception.sourceCommit) {
+        fail('registered source commit is not the exact current semantic path owner')
+    }
+
+    const stableSourceRevisions = new Set([
+        exception.sourceCommit,
+        head,
+        ...historyRevisions
+    ])
+    const sourceDivergenceRevisions = new Set(exception.sourceDivergenceRevisions)
+    if (
+        sourceDivergenceRevisions.size !== exception.sourceDivergenceRevisions.length
+        || [...sourceDivergenceRevisions].some((revision) => !historyRevisions.has(revision))
+        || !sourceDivergenceRevisions.has(passThroughFirstParent)
+        || exception.sourceDivergenceIdentity === exception.sourceIdentity
+    ) {
+        fail('registered source divergence set is malformed')
+    }
+    for (const revision of stableSourceRevisions) {
+        const expectedIdentity = sourceDivergenceRevisions.has(revision)
+            ? exception.sourceDivergenceIdentity
+            : exception.sourceIdentity
+        if (revisionPathIdentity(root, revision, producer.source) !== expectedIdentity) {
+            fail(`trusted source identity changed at ${revision}`)
+        }
+    }
+
+    const protectedBindings = [
+        { path: producer.generator, identity: exception.generatorIdentity },
+        ...exception.outputs
+    ]
+    if (!sameStrings(exception.outputs.map((entry) => entry.path), producer.outputs)) {
+        fail('protected output roster does not exactly match the trusted producer')
+    }
+    const stableClosureRevisions = new Set([
+        exception.sourceCommit,
+        ...historyRevisions
+    ])
+    for (const binding of protectedBindings) {
+        if (!repositoryPathPattern.test(binding?.path ?? '') || !/^\d{6}:[0-9a-f]{40}$/u.test(binding?.identity ?? '')) {
+            fail(`protected binding is malformed: ${binding?.path ?? 'missing'}`)
+            continue
+        }
+        for (const revision of stableClosureRevisions) {
+            if (revisionPathIdentity(root, revision, binding.path) !== binding.identity) {
+                fail(`protected path identity changed at ${revision}: ${binding.path}`)
+            }
+        }
+    }
+
+    const firstParentChanges = gitChangedPaths(root, passThroughFirstParent, exception.passThroughCommit)
+    if (!firstParentChanges.includes(producer.source)) {
+        fail('pass-through result does not restore the trusted source from its first parent')
+    }
+    if (protectedBindings.some((binding) => firstParentChanges.includes(binding.path))) {
+        fail('pass-through result changes the trusted generator or an output from its first parent')
+    }
+    const secondParentChanges = gitChangedPaths(root, passThroughSecondParent, exception.passThroughCommit)
+    if (secondParentChanges.includes(producer.source)) {
+        fail('pass-through result changes the authoritative second-parent source')
+    }
+    if (protectedBindings.some((binding) => secondParentChanges.includes(binding.path))) {
+        fail('pass-through result changes the trusted generator or an output from its second parent')
+    }
+    return errors
+}
+
+export function validateGeneratedRepairPassThroughException(
+    root,
+    producer,
+    evidence,
+    base,
+    head,
+    exception
+) {
+    try {
+        return generatedRepairPassThroughExceptionErrors(root, producer, evidence, base, head, exception)
+    } catch (error) {
+        return [
+            `Registered generated repair pass-through is invalid: cannot verify registered history: ${error instanceof Error ? error.message : String(error)}`
+        ]
+    }
+}
+
+function acceptedGeneratedRepairPassThrough(root, producer, evidence, base, head) {
+    const exception = changeContract.generatedOutputRepairPassThroughExceptions.find(
+        (entry) => entry.producerId === producer.id
+            && entry.repairBase === base
+            && entry.repairHead === head
+            && entry.sourceCommit === evidence.sourceCommit
+            && entry.mergedPullRequest === evidence.mergedPullRequest
+            && entry.mergeCommit === evidence.mergeCommit
+    )
+    if (!exception) return false
+    return validateGeneratedRepairPassThroughException(
+        root,
+        producer,
+        evidence,
+        base,
+        head,
+        exception
+    ).length === 0
 }
 
 function preflightDagReplayHistory(
@@ -1729,21 +1967,34 @@ export function validatePostMergeGeneratedOutputRepair(
         ) {
             errors.push('Post-merge generated repair outer pull request must not change the trusted generator or outputs after sourceCommit')
         }
+        const acceptedPassThrough = acceptedGeneratedRepairPassThrough(
+            root,
+            producer,
+            evidence,
+            base,
+            head
+        )
+        const sourceHeadRevisions = mergedSourceRevision
+            ? gitFullHistoryRevisionsForPath(
+                root,
+                evidence.sourceCommit,
+                mergeHeadParent,
+                producer.source
+            )
+            : []
+        const postMergeSourceRevisions = mergedSourceRevision
+            ? gitFullHistoryRevisionsForPath(
+                root,
+                evidence.mergeCommit,
+                base,
+                producer.source
+            )
+            : []
         if (
             mergedSourceRevision
             && (
-                gitFullHistoryRevisionsForPath(
-                    root,
-                    evidence.sourceCommit,
-                    mergeHeadParent,
-                    producer.source
-                ).length > 0
-                || gitFullHistoryRevisionsForPath(
-                    root,
-                    evidence.mergeCommit,
-                    base,
-                    producer.source
-                ).length > 0
+                sourceHeadRevisions.length > 0
+                || (postMergeSourceRevisions.length > 0 && !acceptedPassThrough)
             )
         ) {
             errors.push('Post-merge generated repair sourceCommit must be the unique current last trusted source revision')
