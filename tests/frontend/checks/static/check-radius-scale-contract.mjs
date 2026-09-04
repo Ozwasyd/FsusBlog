@@ -104,7 +104,7 @@ expectCount(
 )
 expectCount(
   'src/frontend/src/components/admin/article/ArticlePrivatePreviewPanel.vue',
-  'border-radius: var(--preview-radius-inline);',
+  'border-radius: var(--preview-radius-inline) !important;',
   1,
   'private preview inline-code radius usage'
 )

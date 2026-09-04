@@ -2,7 +2,6 @@
   <div class="account-page cache-diagnostics-page account-motion-enter w-full">
     <FsusUiTaskPageHeader
       title="缓存与索引"
-      description="查看 AOT、PublicHotRead、search、sitemap/feed 与评论缓存状态。"
       class="account-task-page-header"
       density="compact"
     />

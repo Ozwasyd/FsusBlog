@@ -1,7 +1,10 @@
+using System.Net;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Text.Json;
 
 using FsusBlog.Core.Common;
+using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Interfaces;
@@ -398,6 +401,205 @@ public sealed class PublicAotDocumentServiceTests
     }
 
     [Fact]
+    public async Task BuildSeoHeadModelAsync_CategoryFilterWithDescription_UsesSummarizedTaxonomyText()
+    {
+        await AssertFilterDescriptionAsync(
+            PublicRouteIdentity.BuildCategoryRouteKey(7),
+            "后端",
+            "  这是分类说明，含 **加粗** 与[链接](https://example.com)。  ",
+            expected: ImageHelper.StripMarkdown("  这是分类说明，含 **加粗** 与[链接](https://example.com)。  ", 160));
+    }
+
+    [Fact]
+    public async Task BuildSeoHeadModelAsync_RegeneratedFilterHead_ObservesUpdatedTaxonomyDescription()
+    {
+        string oldDescription = "old category notes about caching.";
+        string newDescription = "fresh category notes about taxonomy SEO.";
+        string expectedOld = ImageHelper.StripMarkdown(oldDescription, 160);
+        string expectedNew = ImageHelper.StripMarkdown(newDescription, 160);
+        Assert.NotEqual(expectedOld, expectedNew);
+
+        await WithServiceAsync(async service =>
+        {
+            Result<PublicSeoHeadModel> stale = await service.BuildSeoHeadModelAsync(CreateFilterEntry(
+                PublicRouteIdentity.BuildCategoryRouteKey(7),
+                "后端",
+                oldDescription));
+            Result<PublicSeoHeadModel> regenerated = await service.BuildSeoHeadModelAsync(CreateFilterEntry(
+                PublicRouteIdentity.BuildCategoryRouteKey(7),
+                "后端",
+                newDescription));
+
+            Assert.True(stale.IsSuccess, stale.Error.Message);
+            Assert.True(regenerated.IsSuccess, regenerated.Error.Message);
+            AssertSeoDescription(stale.Value!, expectedOld);
+            AssertSeoDescription(regenerated.Value!, expectedNew);
+        });
+    }
+
+    [Fact]
+    public async Task BuildSeoHeadModelAsync_TagFilterWithDescription_UsesSummarizedTaxonomyText()
+    {
+        await AssertFilterDescriptionAsync(
+            PublicRouteIdentity.BuildTagIdRouteKey(9),
+            "性能",
+            "Tag notes about latency and cache locality.",
+            expected: ImageHelper.StripMarkdown("Tag notes about latency and cache locality.", 160));
+    }
+
+    [Fact]
+    public async Task BuildSeoHeadModelAsync_FilterDescriptionLongerThanLimit_UsesExistingSummaryPath()
+    {
+        string raw = string.Concat(Enumerable.Repeat("这是一段会超过摘要上限的分类说明。", 12));
+        string expected = ImageHelper.StripMarkdown(raw, 160);
+        Assert.True(expected.Length < raw.Length, expected);
+
+        await AssertFilterDescriptionAsync(
+            PublicRouteIdentity.BuildCategoryRouteKey(7),
+            "后端",
+            raw,
+            expected);
+    }
+
+    [Fact]
+    public async Task BuildSeoHeadModelAsync_CategoryAndTagWithoutDescription_PreserveGeneratedFallback()
+    {
+        await WithServiceAsync(async service =>
+        {
+            Result<PublicSeoHeadModel> category = await service.BuildSeoHeadModelAsync(CreateFilterEntry(
+                PublicRouteIdentity.BuildCategoryRouteKey(7),
+                "后端",
+                description: null));
+            Result<PublicSeoHeadModel> tag = await service.BuildSeoHeadModelAsync(CreateFilterEntry(
+                PublicRouteIdentity.BuildTagIdRouteKey(9),
+                "性能",
+                description: string.Empty));
+            Result<PublicSeoHeadModel> whitespace = await service.BuildSeoHeadModelAsync(CreateFilterEntry(
+                PublicRouteIdentity.BuildCategoryRouteKey(7),
+                "后端",
+                description: "   "));
+
+            Assert.True(category.IsSuccess, category.Error.Message);
+            Assert.True(tag.IsSuccess, tag.Error.Message);
+            Assert.True(whitespace.IsSuccess, whitespace.Error.Message);
+            AssertSeoDescription(category.Value!, "浏览 Fsus Blog 中“后端”分类下的文章。");
+            AssertSeoDescription(tag.Value!, "浏览 Fsus Blog 中“性能”标签下的文章。");
+            AssertSeoDescription(whitespace.Value!, "浏览 Fsus Blog 中“后端”分类下的文章。");
+        });
+    }
+
+    [Fact]
+    public async Task BuildSeoHeadModelAsync_FilterPrefersHydrationDescriptionThenBootstrap()
+    {
+        await WithServiceAsync(async service =>
+        {
+            Result<PublicSeoHeadModel> hydrationWins = await service.BuildSeoHeadModelAsync(CreateFilterEntry(
+                PublicRouteIdentity.BuildCategoryRouteKey(7),
+                "后端",
+                hydrationDescription: "hydration taxonomy description",
+                bootstrapDescription: "bootstrap taxonomy description"));
+            Result<PublicSeoHeadModel> bootstrapFallback = await service.BuildSeoHeadModelAsync(CreateFilterEntry(
+                PublicRouteIdentity.BuildTagIdRouteKey(9),
+                "性能",
+                hydrationDescription: null,
+                bootstrapDescription: "bootstrap-only taxonomy description",
+                includeHydrationFilter: true));
+
+            Assert.True(hydrationWins.IsSuccess, hydrationWins.Error.Message);
+            Assert.True(bootstrapFallback.IsSuccess, bootstrapFallback.Error.Message);
+            AssertSeoDescription(hydrationWins.Value!, "hydration taxonomy description");
+            AssertSeoDescription(bootstrapFallback.Value!, "bootstrap-only taxonomy description");
+        });
+    }
+
+    [Fact]
+    public async Task ComposeAsync_FilterTaxonomyDescription_FeedsMetaOgTwitterAndJsonLd()
+    {
+        string root = CreateTempDirectory();
+        PublicSpaTemplateLocator.ResetCacheForTests();
+        try
+        {
+            var service = new PublicAotDocumentService(
+                new TestWebHostEnvironment(root, Environments.Production),
+                new ConfigurationBuilder().Build(),
+                new FixedSystemService(),
+                new ContextAwareAssetManifest(Path.Combine(root, "wwwroot", "index.html")),
+                NullLogger<PublicAotDocumentService>.Instance);
+            const string Description = "Category description used by public Filter SEO.";
+            Result<string> result = await service.ComposeAsync(CreateFilterEntry(
+                PublicRouteIdentity.BuildCategoryRouteKey(7),
+                "后端",
+                Description));
+
+            Assert.True(result.IsSuccess, result.Error.Message);
+            string html = result.Value!;
+            string encoded = WebUtility.HtmlEncode(Description);
+            Assert.Contains($"name=\"description\" content=\"{encoded}\"", html, StringComparison.Ordinal);
+            Assert.Contains($"property=\"og:description\" content=\"{encoded}\"", html, StringComparison.Ordinal);
+            Assert.Contains($"name=\"twitter:description\" content=\"{encoded}\"", html, StringComparison.Ordinal);
+            Assert.Contains($"\"description\":\"{Description}\"", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("SeoDescription", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("MetaDescription", html, StringComparison.Ordinal);
+        }
+        finally
+        {
+            PublicSpaTemplateLocator.ResetCacheForTests();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task BuildSeoHeadModelAsync_ArticleAndStaticPageDescriptionsRemainUnchanged()
+    {
+        await WithServiceAsync(async service =>
+        {
+            Result<PublicSeoHeadModel> article = await service.BuildSeoHeadModelAsync(new PublicAotShellEntryContract
+            {
+                PageId = PublicPageId.ArticleDetail,
+                RouteKey = PublicRouteIdentity.BuildArticleRouteKey(42),
+                ArticleId = 42,
+                Title = "Article",
+                Html = "<article />",
+                RenderLocale = "zh-CN",
+                BootstrapPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
+                {
+                    ["article"] = new Dictionary<string, object?>
+                    {
+                        ["summary"] = "Article summary for SEO.",
+                        ["content"] = "Unused body"
+                    }
+                }),
+                HydrationPropsPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
+                {
+                    ["siteTitle"] = "Fsus Blog",
+                    ["siteDescription"] = "Public AOT test"
+                })
+            });
+            Result<PublicSeoHeadModel> about = await service.BuildSeoHeadModelAsync(new PublicAotShellEntryContract
+            {
+                PageId = PublicPageId.About,
+                RouteKey = "about",
+                Title = "关于",
+                Html = "<main />",
+                RenderLocale = "zh-CN",
+                HydrationPropsPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
+                {
+                    ["siteTitle"] = "Fsus Blog",
+                    ["staticPage"] = new Dictionary<string, object?>
+                    {
+                        ["content"] = "About page content for SEO."
+                    }
+                })
+            });
+
+            Assert.True(article.IsSuccess, article.Error.Message);
+            Assert.True(about.IsSuccess, about.Error.Message);
+            AssertSeoDescription(article.Value!, "Article summary for SEO.");
+            AssertSeoDescription(about.Value!, "About page content for SEO.");
+        });
+    }
+
+    [Fact]
     public async Task ComposeAsync_DevelopmentViteProxy_UsesSourceAssetsInsteadOfProductionManifestChunks()
     {
         string root = CreateTempDirectory();
@@ -575,6 +777,120 @@ public sealed class PublicAotDocumentServiceTests
             }),
             HydrationPropsPayload = hydrationPayload
         };
+
+    private static async Task WithServiceAsync(Func<PublicAotDocumentService, Task> action)
+    {
+        string root = CreateTempDirectory();
+        PublicSpaTemplateLocator.ResetCacheForTests();
+        try
+        {
+            var service = new PublicAotDocumentService(
+                new TestWebHostEnvironment(root, Environments.Production),
+                new ConfigurationBuilder().Build(),
+                new FixedSystemService(),
+                new ContextAwareAssetManifest(Path.Combine(root, "wwwroot", "index.html")),
+                NullLogger<PublicAotDocumentService>.Instance);
+            await action(service);
+        }
+        finally
+        {
+            PublicSpaTemplateLocator.ResetCacheForTests();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static async Task AssertFilterDescriptionAsync(
+        string routeKey,
+        string title,
+        string description,
+        string expected)
+    {
+        await WithServiceAsync(async service =>
+        {
+            Result<PublicSeoHeadModel> result = await service.BuildSeoHeadModelAsync(
+                CreateFilterEntry(routeKey, title, description));
+            Assert.True(result.IsSuccess, result.Error.Message);
+            AssertSeoDescription(result.Value!, expected);
+        });
+    }
+
+    private static PublicAotShellEntryContract CreateFilterEntry(
+        string routeKey,
+        string title,
+        string? description = null,
+        string? hydrationDescription = null,
+        string? bootstrapDescription = null,
+        bool includeHydrationFilter = true)
+    {
+        string? resolvedHydration = hydrationDescription ?? description;
+        string? resolvedBootstrap = bootstrapDescription ?? description;
+        Dictionary<string, object?> hydration = new(StringComparer.Ordinal)
+        {
+            ["pageKind"] = "Filter",
+            ["routeKey"] = routeKey,
+            ["title"] = title,
+            ["siteTitle"] = "Fsus Blog",
+            ["siteDescription"] = "Public AOT test"
+        };
+        if (includeHydrationFilter)
+        {
+            hydration["filter"] = CreateFilterPayload(routeKey, title, resolvedHydration);
+        }
+
+        return new PublicAotShellEntryContract
+        {
+            PageId = PublicPageId.Filter,
+            RouteKey = routeKey,
+            Title = title,
+            Html = "<main />",
+            RenderLocale = "zh-CN",
+            BootstrapPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["pageKind"] = "Filter",
+                ["routeKey"] = routeKey,
+                ["title"] = title,
+                ["filter"] = CreateFilterPayload(routeKey, title, resolvedBootstrap)
+            }),
+            HydrationPropsPayload = PublicAotBinaryPayload.EncodeObject(hydration)
+        };
+    }
+
+    private static Dictionary<string, object?> CreateFilterPayload(string routeKey, string title, string? description)
+        => new(StringComparer.Ordinal)
+        {
+            ["filterType"] = routeKey.StartsWith("category:", StringComparison.Ordinal) ? "category" : "tag",
+            ["filterKey"] = routeKey,
+            ["filterId"] = 1,
+            ["filterName"] = title,
+            ["description"] = description,
+            ["isInvalidTarget"] = false,
+            ["pageIndex"] = 1,
+            ["pageSize"] = 10,
+            ["total"] = 0,
+            ["articles"] = Array.Empty<object>()
+        };
+
+    private static void AssertSeoDescription(PublicSeoHeadModel head, string expected)
+    {
+        Assert.Equal(expected, head.Description);
+        Assert.Equal(expected, head.OpenGraph.Description);
+        Assert.Equal(expected, head.Twitter.Description);
+        using JsonDocument document = JsonDocument.Parse(head.JsonLdGraph);
+        JsonElement graph = document.RootElement.GetProperty("@graph");
+        JsonElement? page = null;
+        foreach (JsonElement node in graph.EnumerateArray())
+        {
+            string? type = node.GetProperty("@type").GetString();
+            if (type is "CollectionPage" or "WebPage" or "BlogPosting")
+            {
+                page = node;
+                break;
+            }
+        }
+
+        Assert.True(page.HasValue, head.JsonLdGraph);
+        Assert.Equal(expected, page.Value.GetProperty("description").GetString());
+    }
 
     private sealed class ContextAwareAssetManifest(string indexTemplatePath) : ISpaAssetManifestService
     {

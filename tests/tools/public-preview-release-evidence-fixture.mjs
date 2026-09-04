@@ -71,15 +71,13 @@ export function assertReleaseFinalRequiresLocalPublicPreviewEvidence()
     assert.throws(() => requirePublicPreviewReleaseEvidence({
         commitSha: commit,
         browserContractReceipt: { publicPreview: binding },
-        findReceiptFile: () => null,
-        sha256Hex: () => 'e'.repeat(64),
-        environment: {}
+        evidence: undefined,
+        sha256Hex: () => 'e'.repeat(64)
     }), /fails closed without local evidence/u);
     assert.deepEqual(requirePublicPreviewReleaseEvidence({
         commitSha: commit,
         browserContractReceipt: { publicPreview: binding },
-        findReceiptFile: () => ({ file: '/local/evidence.json', receipt: evidence }),
-        sha256Hex: () => 'e'.repeat(64),
-        environment: {}
+        evidence: { file: '/local/evidence.json', receipt: evidence },
+        sha256Hex: () => 'e'.repeat(64)
     }), evidence);
 }

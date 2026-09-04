@@ -259,27 +259,27 @@ export const identity = {
         },
         UserIdentityPasskeys: {
             title: 'パスキー',
-            description: 'ログインデバイス。'
+            description: '',
         },
         UserIdentityRecoveryKey: {
             title: 'Recovery Key',
-            description: 'アカウント復旧用認証情報。'
+            description: '',
         },
         UserIdentityAnonymous: {
             title: '匿名アイデンティティ',
-            description: '匿名コメント、公開送信、サイト処理ルール。'
+            description: '',
         },
         UserIdentityPublicProfile: {
             title: '公開プロフィール',
-            description: '公開送信時に使用されるアイデンティティ情報。'
+            description: '',
         },
         UserIdentitySessions: {
             title: 'デバイスセッション',
-            description: 'アクティブなデバイスセッション。'
+            description: '',
         },
         UserIdentityMfa: {
             title: '二要素認証',
-            description: 'TOTP 状態。'
+            description: '',
         },
         UserIdentityCommentRecords: {
             title: '公開コメント履歴',

@@ -123,7 +123,10 @@ PublicHot delivery result 为 `cancelled`、`closed` 或 `failed` 时，上述 m
 | GET `/api/binary/article/{id}.aeds` | 🔓 📦 | `ArticleDetail`(2) | 文章详情 L0 artifact |
 | GET `/api/binary/article/hot/{size}.aeds` | 🔓 📦 | `ArticleHot`(3) | 热门文章 L0 artifact |
 | GET `/api/binary/category.aeds` | 🔓 📦 | `CategoryList`(9) | 分类元数据 L0 artifact |
+| GET `/api/binary/category/{id}.aeds` | 🔓 | `TaxonomyExactMetadata`(243) | 匿名精确分类元数据；id/name/nullable description；非 L0 list artifact |
 | GET `/api/binary/tag.aeds` | 🔓 📦 | `TagList`(10) | 标签元数据 L0 artifact |
+| GET `/api/binary/tag/{id}.aeds` | 🔓 | `TaxonomyExactMetadata`(243) | 匿名精确标签元数据；id/name/nullable description；非 L0 list artifact |
+| GET `/api/binary/tag/by-name.aeds?name=` | 🔓 | `TaxonomyExactMetadata`(243) | 按显示名或 TagUrlAlias 解析到当前规范标签后返回同一精确元数据 |
 | GET `/api/binary/article/html/{pathKey}.html` | 🔓 | `text/html` | AOT HTML 诊断/预览 artifact；不替代真实公开 URL |
 | GET `/api/public/navigation-snapshot.aeds?path={publicPath}` | 🔓 📦 | `PublicAotBootstrap`(71) | 公开路由切换快照；携带 versioned/digested `seoHead`；客户端校验 origin/path/entity 后原子接管；`Content-Type: application/vnd.fsus.aeds`；ETag + `Cache-Control: no-cache` 强制重验证 |
 | GET `/api/binary/comment/{articleId}` | 🔓 📦 | `CommentArticleCursor`(5) | 文章评论 |
@@ -468,6 +471,7 @@ render: enum-set
 - `GET /api/binary/author/taxonomy/tags`
 - `GET /api/binary/category`
 - `GET /api/binary/category.aeds`
+- `GET /api/binary/category/{id:int}.aeds`
 - `GET /api/binary/comment/me`
 - `GET /api/binary/comment/policy`
 - `GET /api/binary/comment/{articleId:int}`
@@ -488,6 +492,8 @@ render: enum-set
 - `GET /api/binary/system/seo`
 - `GET /api/binary/tag`
 - `GET /api/binary/tag.aeds`
+- `GET /api/binary/tag/by-name.aeds`
+- `GET /api/binary/tag/{id:int}.aeds`
 - `GET /api/binary/upload/{uploadId}/status`
 - `GET /api/binary/upload/{uploadId}/status/parts`
 - `POST /api/binary/admin/anonymous-governance/credentials/revoke`

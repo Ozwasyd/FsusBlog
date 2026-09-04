@@ -45,8 +45,12 @@ independent verifier，不拥有第二份 behavior、claim、state、transition 
 
 `src/migration/` 由独立 `FsusBlog.Migration` project 拥有：legacy descriptors、catalogs、
 checksum/history、typed provider DDL 与 migration-only conversion rows 只能在该 project 和
-对应 `tests/migration/` 中编译。`src/backend/Infrastructure/SchemaMigration/` 只保留
-current-schema authority/inspector、fail-closed startup verifier、lock 与业务 backfill
+对应 `tests/migration/` 中编译。该 project 同时以 `Exe` 形式编译为 offline migration
+host；`tools/db/run-online-migrations.sh` 的 `--server-dll` 指向其输出。分类注册表
+`OfflineMigrationCatalogEntries.generated.cs` 由 `tools/db/generate-offline-migration-catalog.mjs`
+从 Server 侧 `OnlineSchemaMigrationCatalog` 派生（防漂移：
+`tools/db/check-offline-migration-catalog-parity.mjs`）。`src/backend/Infrastructure/SchemaMigration/`
+只保留 current-schema authority/inspector、fail-closed startup verifier、lock 与业务 backfill
 handlers；Server 生产图不得引用 Migration assembly。机器可读文件/符号清单与 content digest 位于
 `artifacts/schema-migration/migration-assembly-receipt.json`。
 

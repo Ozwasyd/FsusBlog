@@ -1,378 +1,447 @@
 <template>
-  <section
-    ref="paneRef"
-    class="messages-inbox-pane messages-detail-pane messages-thread-panel"
-    tabindex="-1"
-    aria-live="polite"
-    :aria-busy="loading"
-    aria-labelledby="messages-thread-title"
-  >
-    <div class="messages-flat-pane messages-thread-flat-pane">
-      <header class="messages-pane-header messages-pane-header-detail">
-        <div class="messages-header messages-header-detail">
-          <div class="messages-detail-title-group">
-            <el-button
-              v-if="isMobile"
-              size="small"
-              :aria-label="threadCopy.backAriaLabel"
-              aria-controls="messages-list-title"
-              @click="emit('back')"
-            >
-              {{ threadCopy.backCta }}
-            </el-button>
-            <div class="messages-header-title-row">
-              <h2 id="messages-thread-title" class="messages-header-title" data-visual-dynamic>
-                {{ detail?.subject || threadCopy.titleFallbackAdmin }}
-              </h2>
-              <div v-if="detail" class="messages-conversation-tags">
-                <el-tag v-if="detail.isSystemSource" size="small">{{ threadCopy.systemTag }}</el-tag>
-                <el-tag size="small" :type="statusType(detail.status)">{{ statusLabel(detail.status) }}</el-tag>
-              </div>
-            </div>
-          </div>
+    <section
+        ref="paneRef"
+        class="messages-inbox-pane messages-detail-pane messages-thread-panel"
+        tabindex="-1"
+        aria-live="polite"
+        :aria-busy="loading"
+        aria-labelledby="messages-thread-title"
+    >
+        <div class="messages-flat-pane messages-thread-flat-pane">
+            <header class="messages-pane-header messages-pane-header-detail">
+                <div class="messages-header messages-header-detail">
+                    <div class="messages-detail-title-group">
+                        <ElButton
+                            v-if="isMobile"
+                            size="small"
+                            :aria-label="threadCopy.backAriaLabel"
+                            aria-controls="messages-list-title"
+                            @click="emit('back')"
+                        >
+                            {{ threadCopy.backCta }}
+                        </ElButton>
+                        <div class="messages-header-title-row">
+                            <h2
+                                id="messages-thread-title"
+                                class="messages-header-title"
+                                data-visual-dynamic
+                            >
+                                {{ detail?.subject || threadCopy.titleFallbackAdmin }}
+                            </h2>
+                            <div
+                                v-if="detail"
+                                class="messages-conversation-tags"
+                            >
+                                <ElTag
+                                    v-if="detail.isSystemSource"
+                                    size="small"
+                                >{{ threadCopy.systemTag }}</ElTag>
+                                <ElTag
+                                    size="small"
+                                    :type="statusType(detail.status)"
+                                >{{ statusLabel(detail.status) }}</ElTag>
+                            </div>
+                        </div>
+                    </div>
 
-          <div v-if="isAdminMode && detail" class="messages-actions">
-            <span class="messages-action-hint">{{ threadCopy.statusChangeWillNotify }}</span>
-            <el-button size="small" :disabled="processing" @click="emit('updateStatus', 'open')">{{ threadCopy.markOpen }}</el-button>
-            <el-button size="small" type="warning" :disabled="processing" @click="emit('updateStatus', 'pending')">{{ threadCopy.moveToPending }}</el-button>
-            <el-button size="small" type="primary" :disabled="processing" @click="emit('updateStatus', 'closed')">{{ threadCopy.closeConversation }}</el-button>
-          </div>
-        </div>
-      </header>
+                    <div
+                        v-if="isAdminMode && detail"
+                        class="messages-actions"
+                    >
+                        <span class="messages-action-hint">{{ threadCopy.statusChangeWillNotify }}</span>
+                        <ElButton
+                            size="small"
+                            :disabled="processing"
+                            @click="emit('updateStatus', 'open')"
+                        >{{ threadCopy.markOpen }}</ElButton>
+                        <ElButton
+                            size="small"
+                            type="warning"
+                            :disabled="processing"
+                            @click="emit('updateStatus', 'pending')"
+                        >{{ threadCopy.moveToPending }}</ElButton>
+                        <ElButton
+                            size="small"
+                            type="primary"
+                            :disabled="processing"
+                            @click="emit('updateStatus', 'closed')"
+                        >{{ threadCopy.closeConversation }}</ElButton>
+                    </div>
+                </div>
+            </header>
 
-      <div class="messages-pane-body messages-thread-body">
-        <MessagesEmptyState
-          v-if="selectionEmpty"
-          class="messages-thread-empty"
-          :title="isAdminMode ? threadCopy.titleFallbackAdmin : threadCopy.titleFallbackAccount"
-          :description="isAdminMode ? threadCopy.emptyDescriptionAdmin : threadCopy.emptyDescriptionAccount"
-        >
-          <template v-if="!isAdminMode" #action>
-            <el-button type="primary" @click="emit('createTicket')">{{ threadCopy.newTicketCta }}</el-button>
-          </template>
-        </MessagesEmptyState>
-
-        <el-skeleton v-else-if="loading" :rows="10" animated />
-
-        <template v-else>
-          <div v-if="detail" class="messages-context-bar">
-            <span>{{ threadCopy.replyingToPrefix }}：{{ detail.subject }}</span>
-            <span>{{ isAdminMode ? adminContextText : threadCopy.accountContext }}</span>
-            <span>{{ threadCopy.statusPrefix }}：{{ statusLabel(detail.status) }}</span>
-          </div>
-
-          <div class="messages-thread-scroll">
-            <p
-              v-if="motionSummary"
-              class="blog-motion-summary-enter messages-motion-summary"
-              role="status"
-              aria-live="polite"
-            >
-              {{ motionSummary }}
-            </p>
-            <div
-              v-for="msg in rows"
-              :key="msg.messageId"
-              class="messages-bubble"
-              :class="[msg.bubbleClassName, msg.motionClass]"
-              v-memo="[msg.messageId, msg.body, msg.createdAtText, msg.motionClass]"
-            >
-              <div class="messages-bubble-meta">
-                <span data-visual-dynamic>{{ msg.senderText }}</span>
-                <time :datetime="msg.createdAt" data-visual-dynamic>{{ msg.createdAtText }}</time>
-              </div>
-              <p class="messages-bubble-body" data-visual-dynamic>{{ msg.body }}</p>
-            </div>
-            <el-button
-              v-if="hasOlder"
-              link
-              type="primary"
-              class="messages-window-more"
-              :loading="loadingOlder"
-              @click="emit('loadMore')"
-            >
-              {{ showOlderText }}
-            </el-button>
-          </div>
-
-          <el-divider />
-
-          <div class="messages-reply-form">
-            <div class="messages-subheader">{{ threadCopy.replyHeader }}</div>
-            <el-form label-position="top">
-              <el-form-item :label="isAdminMode ? threadCopy.replyLabel : threadCopy.replyLabelAccount">
-                <el-input
-                  :model-value="replyBody"
-                  name="conversationReply"
-                  :csp-safe="true"
-                  type="textarea"
-                  :rows="4"
-                  show-word-limit
-                  :disabled="replyDisabled"
-                  :placeholder="threadCopy.replyPlaceholder"
-                  @update:model-value="handleReplyBodyUpdate"
+            <div class="messages-pane-body messages-thread-body">
+                <MessagesEmptyState
+                    v-if="selectionEmpty"
+                    class="messages-thread-empty"
+                    :title="isAdminMode ? threadCopy.titleFallbackAdmin : threadCopy.titleFallbackAccount"
+                    :description="isAdminMode ? threadCopy.emptyDescriptionAdmin : threadCopy.emptyDescriptionAccount"
                 />
-              </el-form-item>
-              <el-button
-                type="primary"
-                :loading="replyLoading"
-                :disabled="replyDisabled || !replyBody.trim()"
-                @click="emit('reply')"
-              >
-                {{ threadCopy.replyCta }}
-              </el-button>
-            </el-form>
-          </div>
-        </template>
-      </div>
-    </div>
-  </section>
+
+                <ElSkeleton
+                    v-else-if="loading"
+                    :rows="10"
+                    animated
+                />
+
+                <template v-else>
+                    <div
+                        v-if="detail"
+                        class="messages-context-bar"
+                    >
+                        <span>{{ threadCopy.replyingToPrefix }}：{{ detail.subject }}</span>
+                        <span>{{ isAdminMode ? adminContextText : threadCopy.accountContext }}</span>
+                        <span>{{ threadCopy.statusPrefix }}：{{ statusLabel(detail.status) }}</span>
+                    </div>
+
+                    <div class="messages-thread-scroll">
+                        <p
+                            v-if="motionSummary"
+                            class="blog-motion-summary-enter messages-motion-summary"
+                            role="status"
+                            aria-live="polite"
+                        >
+                            {{ motionSummary }}
+                        </p>
+                        <div
+                            v-for="msg in rows"
+                            :key="msg.messageId"
+                            class="messages-bubble"
+                            :class="[msg.bubbleClassName, msg.motionClass]"
+                            v-memo="[msg.messageId, msg.body, msg.createdAtText, msg.motionClass]"
+                        >
+                            <div class="messages-bubble-meta">
+                                <span data-visual-dynamic>{{ msg.senderText }}</span>
+                                <time
+                                    :datetime="msg.createdAt"
+                                    data-visual-dynamic
+                                >{{ msg.createdAtText }}</time>
+                            </div>
+                            <p
+                                class="messages-bubble-body"
+                                data-visual-dynamic
+                            >{{ msg.body }}</p>
+                        </div>
+                        <ElButton
+                            v-if="hasOlder"
+                            link
+                            type="primary"
+                            class="messages-window-more"
+                            :loading="loadingOlder"
+                            @click="emit('loadMore')"
+                        >
+                            {{ showOlderText }}
+                        </ElButton>
+                    </div>
+
+                    <ElDivider />
+
+                    <div class="messages-reply-form">
+                        <div class="messages-subheader">{{ threadCopy.replyHeader }}</div>
+                        <ElForm label-position="top">
+                            <ElFormItem :label="isAdminMode ? threadCopy.replyLabel : threadCopy.replyLabelAccount">
+                                <ElInput
+                                    :model-value="replyBody"
+                                    name="conversationReply"
+                                    :csp-safe="true"
+                                    type="textarea"
+                                    :rows="4"
+                                    show-word-limit
+                                    :disabled="replyDisabled"
+                                    :placeholder="threadCopy.replyPlaceholder"
+                                    @update:model-value="handleReplyBodyUpdate"
+                                />
+                            </ElFormItem>
+                            <ElButton
+                                type="primary"
+                                :loading="replyLoading"
+                                :disabled="replyDisabled || !replyBody.trim()"
+                                @click="emit('reply')"
+                            >
+                                {{ threadCopy.replyCta }}
+                            </ElButton>
+                        </ElForm>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </section>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import type { ConversationDetailResponse, ConversationMessageResponse, ConversationStatus } from '@/api/message'
-import MessagesEmptyState from './MessagesEmptyState.vue'
-import { useI18nText } from '@/composables/useI18nText'
+import { computed, ref } from 'vue';
+
+import type { ConversationDetailResponse, ConversationMessageResponse, ConversationStatus } from '@/api/message';
+import { useI18nText } from '@/composables/useI18nText';
+
+import MessagesEmptyState from './MessagesEmptyState.vue';
 
 type MessageRow = ConversationMessageResponse & {
-  createdAtText: string
-  senderText: string
-  bubbleClassName: string
-  motionClass: string
-}
+    createdAtText: string;
+    senderText: string;
+    bubbleClassName: string;
+    motionClass: string;
+};
 
-const { messages } = useI18nText()
-const threadCopy = computed(() => messages.value.messages.threadPanel)
+const { messages } = useI18nText();
+const threadCopy = computed(() => messages.value.messages.threadPanel);
 
 const props = withDefaults(defineProps<{
-  mode: 'admin' | 'account'
-  isMobile: boolean
-  loading: boolean
-  processing: boolean
-  detail: ConversationDetailResponse | null
-  selectionEmpty: boolean
-  rows: MessageRow[]
-  hasOlder?: boolean
-  loadingOlder?: boolean
-  replyBody: string
-  replyLoading: boolean
-  replyDisabled: boolean
-  contextAccountText: string
-  motionSummary?: string
-  statusLabel: (status: number) => string
-  statusType: (status: number) => 'warning' | 'success' | ''
+    mode: 'admin' | 'account';
+    isMobile: boolean;
+    loading: boolean;
+    processing: boolean;
+    detail: ConversationDetailResponse | null;
+    selectionEmpty: boolean;
+    rows: MessageRow[];
+    hasOlder?: boolean;
+    loadingOlder?: boolean;
+    replyBody: string;
+    replyLoading: boolean;
+    replyDisabled: boolean;
+    contextAccountText: string;
+    motionSummary?: string;
+    statusLabel: (status: number) => string;
+    statusType: (status: number) => 'warning' | 'success' | '';
 }>(), {
-  hasOlder: false,
-  loadingOlder: false
-})
+    hasOlder: false,
+    loadingOlder: false
+});
 
 const emit = defineEmits<{
-  'update:replyBody': [value: string]
-  back: []
-  createTicket: []
-  reply: []
-  updateStatus: [status: ConversationStatus]
-  loadMore: []
-}>()
+    'update:replyBody': [value: string];
+    back: [];
+    createTicket: [];
+    reply: [];
+    updateStatus: [status: ConversationStatus];
+    loadMore: [];
+}>();
 
-const paneRef = ref<HTMLElement | null>(null)
-const isAdminMode = computed(() => props.mode === 'admin')
+const paneRef = ref<HTMLElement | null>(null);
+const isAdminMode = computed(() => props.mode === 'admin');
 const adminContextText = computed(() =>
-  threadCopy.value.accountContextAdmin.replace('{id}', props.contextAccountText)
-)
-const showOlderText = computed(() => threadCopy.value.showOlder)
+    threadCopy.value.accountContextAdmin.replace('{id}', props.contextAccountText)
+);
+const showOlderText = computed(() => threadCopy.value.showOlder);
 
-const handleReplyBodyUpdate = (value: string): void => {
-  emit('update:replyBody', value)
-}
+const handleReplyBodyUpdate = (value: string): void =>
+{
+    emit('update:replyBody', value);
+};
 
 defineExpose({
-  focusPane: () => {
-    paneRef.value?.focus()
-  }
-})
+    focusPane: () =>
+    {
+        paneRef.value?.focus();
+    }
+});
 </script>
 
 <style scoped>
 @reference "@/assets/main.css";
 
-.messages-inbox-pane {
-  min-height: 0;
-  min-width: 0;
-  max-width: 100%;
+.messages-inbox-pane
+ {
+    min-height: 0;
+    min-width: 0;
+    max-width: 100%;
 }
 
-.messages-detail-pane {
-  min-height: 100%;
+.messages-detail-pane
+ {
+    min-height: 100%;
 }
 
-.messages-flat-pane {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-width: 0;
-  max-width: 100%;
+.messages-flat-pane
+ {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-width: 0;
+    max-width: 100%;
 }
 
-.messages-thread-flat-pane {
-  min-height: 0;
-  flex: 1 1 auto;
+.messages-thread-flat-pane
+ {
+    min-height: 0;
+    flex: 1 1 auto;
 }
 
-.messages-pane-header {
-  padding-bottom: 1.5rem;
-  border-bottom: 1px solid var(--fsusblog-panel-border);
-  margin-bottom: 2rem;
+.messages-pane-header
+ {
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--fsusblog-panel-border);
+    margin-bottom: 2rem;
 }
 
-.messages-pane-body {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
-  min-width: 0;
-  max-width: 100%;
+.messages-pane-body
+ {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+    max-width: 100%;
 }
 
-.messages-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+.messages-header
+ {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
 }
 
 .messages-header-title,
-.messages-subheader {
-  margin: 0;
-  color: var(--fsusblog-text-primary);
-  font-size: 1.125rem;
-  font-weight: 700;
-  letter-spacing: 0;
+.messages-subheader
+ {
+    margin: 0;
+    color: var(--fsusblog-text-primary);
+    font-size: 1.125rem;
+    font-weight: 700;
+    letter-spacing: 0;
 }
 
-.messages-header-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  min-width: 0;
-  max-width: 100%;
+.messages-header-title-row
+ {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-width: 0;
+    max-width: 100%;
 }
 
-.messages-detail-title-group {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 0.75rem;
+.messages-detail-title-group
+ {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.75rem;
 }
 
-.messages-conversation-tags {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  min-width: 0;
+.messages-conversation-tags
+ {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    min-width: 0;
 }
 
-.messages-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.5rem;
+.messages-actions
+ {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
 }
 
-.messages-action-hint {
-  align-self: center;
-  color: var(--fsusblog-text-muted);
-  font-size: 12px;
-  font-weight: 700;
+.messages-action-hint
+ {
+    align-self: center;
+    color: var(--fsusblog-text-muted);
+    font-size: 12px;
+    font-weight: 700;
 }
 
-.messages-thread-empty {
-  margin-top: 0.25rem;
+.messages-thread-empty
+ {
+    margin-top: 0.25rem;
 }
 
-.messages-context-bar {
-  display: flex;
-  min-width: 0;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  border-left: 2px solid var(--fsusblog-color-primary);
-  background: var(--fsusblog-page-bg-soft);
-  margin-bottom: 1.5rem;
-  padding: 0.85rem 1rem;
-  color: var(--fsusblog-text-secondary);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.5;
+.messages-context-bar
+ {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    border-left: 2px solid var(--fsusblog-color-primary);
+    background: var(--fsusblog-page-bg-soft);
+    margin-bottom: 1.5rem;
+    padding: 0.85rem 1rem;
+    color: var(--fsusblog-text-secondary);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.5;
 }
 
-.messages-thread-scroll {
-  flex: 1 1 auto;
-  min-height: 0;
-  min-width: 0;
-  max-width: 100%;
-  overflow: auto;
-  padding-right: 1.5rem;
+.messages-thread-scroll
+ {
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+    max-width: 100%;
+    overflow: auto;
+    padding-right: 1.5rem;
 }
 
-.messages-bubble {
-  margin-bottom: 2rem;
-  border-left: 2px solid var(--fsusblog-panel-border);
-  padding-left: 1.5rem;
-  min-width: 0;
-  max-width: 100%;
+.messages-bubble
+ {
+    margin-bottom: 2rem;
+    border-left: 2px solid var(--fsusblog-panel-border);
+    padding-left: 1.5rem;
+    min-width: 0;
+    max-width: 100%;
 }
 
-.messages-bubble-account {
-  border-left-color: var(--fsus-state-focus-border, var(--fsusblog-color-primary));
+.messages-bubble-account
+ {
+    border-left-color: var(--fsus-state-focus-border, var(--fsusblog-color-primary));
 }
 
-.messages-bubble-admin {
-  border-left-color: var(--fsusblog-text-primary);
+.messages-bubble-admin
+ {
+    border-left-color: var(--fsusblog-text-primary);
 }
 
-.messages-bubble-system {
-  border-left-style: dashed;
+.messages-bubble-system
+ {
+    border-left-style: dashed;
 }
 
-.messages-bubble-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  min-width: 0;
-  max-width: 100%;
-  flex-wrap: wrap;
-  color: var(--fsusblog-text-muted);
-  margin-bottom: 0.75rem;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0;
-  text-transform: none;
+.messages-bubble-meta
+ {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+    color: var(--fsusblog-text-muted);
+    margin-bottom: 0.75rem;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: none;
 }
 
-.messages-bubble-body {
-  color: var(--fsusblog-text-secondary);
-  font-size: 14px;
-  line-height: 1.8;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
+.messages-bubble-body
+ {
+    color: var(--fsusblog-text-secondary);
+    font-size: 14px;
+    line-height: 1.8;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
 }
 
-.messages-window-more {
-  margin-top: 0.75rem;
+.messages-window-more
+ {
+    margin-top: 0.75rem;
 }
 
-.messages-reply-form {
-  margin-top: 1.5rem;
+.messages-reply-form
+ {
+    margin-top: 1.5rem;
 }
 
-@media (max-width: 1023px) {
-  .messages-flat-pane {
-    min-height: calc(var(--fsus-viewport-block-size) - 10rem);
-  }
+@media (width <= 1023px)
+ {
+    .messages-flat-pane
+ {
+        min-height: calc(var(--fsus-viewport-block-size) - 10rem);
+    }
 }
 </style>
