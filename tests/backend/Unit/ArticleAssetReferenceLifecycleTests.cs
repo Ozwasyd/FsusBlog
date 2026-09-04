@@ -8,6 +8,8 @@ using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.Extensions.Logging.Abstractions;
 
+using NSubstitute;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -361,6 +363,7 @@ public sealed class ArticleAssetReferenceLifecycleTests(PostgresSchemaMigrationF
             var assetStore = new LocalContentAssetStore(
                 assertDb,
                 paths,
+                Substitute.For<IPrivateAssetStore>(),
                 NullLogger<LocalContentAssetStore>.Instance);
             var cleanup = new ArticleAssetCleanupService(
                 assertDb,
