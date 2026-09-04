@@ -33,6 +33,9 @@ const expectedStyleOwnerIds = [
     'lua'
 ];
 const expectedClassificationIds = ['generated', 'vendor', 'fixture', 'lock', 'minified'];
+const requiredStyleExtensionOwners = new Map([
+    ['.xml', 'repository-config']
+]);
 const expectedExternalExceptionIds = [
     'json-api-field',
     'postgres-column-migration',
@@ -660,6 +663,13 @@ function validateStyleOwnership(manifest)
             fail(`missing required style owner ${required}`);
         }
     }
+    for (const [extension, requiredOwner] of requiredStyleExtensionOwners)
+    {
+        if (extensionOwners.get(extension) !== requiredOwner)
+        {
+            fail(`extension ${extension} must use style owner ${requiredOwner}`);
+        }
+    }
 
     if (!sameStringArray(manifest.requiredPathClassificationIds, expectedClassificationIds))
     {
@@ -714,6 +724,13 @@ function validateStyleOwnership(manifest)
 
     const nonSourceExtensions = new Set(manifest.nonSourceExtensions ?? []);
     const nonSourceSpecialFiles = new Set(manifest.nonSourceSpecialFiles ?? []);
+    for (const extension of requiredStyleExtensionOwners.keys())
+    {
+        if (nonSourceExtensions.has(extension))
+        {
+            fail(`style-owned extension ${extension} cannot be classified as non-source`);
+        }
+    }
     let ownedFiles = 0;
     for (const file of trackedFiles())
     {

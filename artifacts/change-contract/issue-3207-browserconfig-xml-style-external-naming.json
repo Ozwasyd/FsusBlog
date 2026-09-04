@@ -1,0 +1,26 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/authoritative-development-docs.json"
+            ],
+            "reason": "preserve the canonical manifest schema and external extension spelling while assigning XML configuration to its repository style owner"
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/coding-conventions.md"
+            ],
+            "reason": "preserve external XML schema casing and the documented repository configuration identifiers without remapping them to internal names"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/check-authoritative-development-docs.mjs"
+            ],
+            "reason": "preserve the checker command and diagnostic surface while internal JavaScript identifiers continue to follow repository naming"
+        }
+    ]
+}
