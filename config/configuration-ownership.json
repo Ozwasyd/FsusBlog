@@ -184,6 +184,20 @@
             "status": "manual"
         },
         {
+            "id": "post-merge-generated-output-repair-dag-schema",
+            "owner": "repository-governance",
+            "canonicalPath": "config/schemas/post-merge-generated-output-repair-dag.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/governance/change-contract.mjs",
+                "tools/governance/change-contract-registry.mjs",
+                "tests/tools/change-contract.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/change-contract.test.mjs",
+            "changePolicy": "manual-update-with-ordered-dag-history-and-replay-validation",
+            "status": "manual"
+        },
+        {
             "id": "post-merge-external-naming-evidence-repair-schema",
             "owner": "repository-governance",
             "canonicalPath": "config/schemas/post-merge-external-naming-evidence-repair.schema.json",

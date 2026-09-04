@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import {
     beginCurrentRunEvidencePublication,
@@ -22,6 +23,7 @@ import {
 } from '../../tools/test/current-run-evidence-transport.mjs';
 
 const d = (value) => `sha256:${value.repeat(64)}`;
+const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 
 function fixture()
 {
@@ -276,17 +278,16 @@ test('quality-gate consumers reject broad downloaded scans and missing consumer 
     {
         pack(f);
         const source = [
-            fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname),
-                '../../tools/ci/summarize-quality-gate.mjs'), 'utf8'),
-            fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname),
-                '../../tools/ci/check-flaky-evidence.mjs'), 'utf8'),
-            fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname),
-                '../../tools/ci/check-job-summaries.mjs'), 'utf8'),
-            fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname),
-                '../../tools/run-test-matrix.mjs'), 'utf8'),
-            fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname),
+            fs.readFileSync(path.join(testDirectory, '../../tools/ci/summarize-quality-gate.mjs'),
+                'utf8'),
+            fs.readFileSync(path.join(testDirectory, '../../tools/ci/check-flaky-evidence.mjs'),
+                'utf8'),
+            fs.readFileSync(path.join(testDirectory, '../../tools/ci/check-job-summaries.mjs'),
+                'utf8'),
+            fs.readFileSync(path.join(testDirectory, '../../tools/run-test-matrix.mjs'), 'utf8'),
+            fs.readFileSync(path.join(testDirectory,
                 '../../tools/test/aggregate-performance-evidence.mjs'), 'utf8'),
-            fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname),
+            fs.readFileSync(path.join(testDirectory,
                 '../../tools/test/aggregate-data-scale-evidence.mjs'), 'utf8')
         ].join('\n');
         assert.match(source, /FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST|locateTransportedCurrentRunEvidence|resolveCorrectnessEvidencePath/u);
