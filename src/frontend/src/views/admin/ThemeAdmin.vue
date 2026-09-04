@@ -2,7 +2,6 @@
     <div class="account-page theme-admin-page account-motion-enter w-full">
         <FsusUiTaskPageHeader
             title="主题管理"
-            description="查看已安装主题、激活状态与操作历史。"
             class="account-task-page-header"
             density="compact"
         />

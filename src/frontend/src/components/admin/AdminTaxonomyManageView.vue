@@ -1,4 +1,5 @@
 <template>
+    <!-- eslint-disable vue/component-name-in-template-casing, vue/no-mutating-props, vue/max-attributes-per-line, vue/first-attribute-linebreak -->
     <div :class="['account-page account-motion-enter w-full', schema.pageClass]">
         <FsusUiTaskPageHeader
             :title="schema.pageTitle"
@@ -16,11 +17,11 @@
                 :description="schema.summaryDescription"
             >
                 <template #actions>
-                    <ElButton
+                    <el-button
                         type="primary"
                         :icon="Plus"
                         @click="state.openDialog()"
-                    >{{ schema.newButtonLabel }}</ElButton>
+                    >{{ schema.newButtonLabel }}</el-button>
                 </template>
             </AdminCollectionSummary>
         </section>
@@ -37,7 +38,7 @@
             <AdminCollectionToolbar :label="schema.toolbarLabel">
                 <template #filters>
                     <div class="taxonomy-toolbar-controls">
-                        <ElInput
+                        <el-input
                             v-model="state.filters.keyword"
                             class="taxonomy-filter-input"
                             clearable
@@ -45,11 +46,11 @@
                             :aria-label="schema.searchAriaLabel"
                             :prefix-icon="Search"
                         />
-                        <ElCheckbox v-model="state.filters.unusedOnly">仅未引用</ElCheckbox>
-                        <ElButton
+                        <el-checkbox v-model="state.filters.unusedOnly">仅未引用</el-checkbox>
+                        <el-button
                             text
                             @click="state.resetFilters"
-                        >清除筛选</ElButton>
+                        >清除筛选</el-button>
                     </div>
                 </template>
             </AdminCollectionToolbar>
@@ -59,20 +60,20 @@
                 class="px-4 py-6"
                 aria-busy="true"
             >
-                <ElSkeleton
+                <el-skeleton
                     :rows="6"
                     animated
                 />
             </div>
 
-            <ElTable
+            <el-table
                 v-else-if="hasTaxonomyRows"
                 class="taxonomy-table"
                 v-loading="loading"
                 :data="filteredList"
                 :row-key="getRowKey"
             >
-                <ElTableColumn
+                <el-table-column
                     v-if="!isCompact"
                     prop="id"
                     label="ID"
@@ -80,8 +81,8 @@
                     align="center"
                 >
                     <template #default="{ row }"><span class="tabular-nums">{{ row.id }}</span></template>
-                </ElTableColumn>
-                <ElTableColumn
+                </el-table-column>
+                <el-table-column
                     prop="name"
                     :label="schema.nameColumnLabel"
                     :min-width="nameColumnWidth"
@@ -92,18 +93,18 @@
                                 v-if="schema.nameDisplay === 'text'"
                                 class="font-bold text-[var(--fsusblog-text-secondary)] leading-6"
                             >{{ row.name }}</strong>
-                            <ElTag
+                            <el-tag
                                 v-else
                                 type="info"
-                            ># {{ row.name }}</ElTag>
+                            ># {{ row.name }}</el-tag>
                             <p
                                 v-if="isCompact && !row.canDelete"
                                 class="mt-2 text-[11px] leading-5 text-[var(--fsusblog-text-muted)]"
                             >{{ state.relationLockReason(row) }}</p>
                         </div>
                     </template>
-                </ElTableColumn>
-                <ElTableColumn
+                </el-table-column>
+                <el-table-column
                     v-if="!isCompact"
                     prop="totalBlockingArticleCount"
                     label="引用数"
@@ -114,10 +115,10 @@
                     <template #header>
                         <span class="inline-flex items-center justify-center gap-1">
                             引用数
-                            <ElTooltip
+                            <el-tooltip
                                 content="删除判断使用管理端完整引用数，可能高于公开文章数。"
                                 placement="top"
-                            ><ElIcon aria-hidden="true"><InfoFilled /></ElIcon></ElTooltip>
+                            ><el-icon aria-hidden="true"><InfoFilled /></el-icon></el-tooltip>
                         </span>
                     </template>
                     <template #default="{ row }">
@@ -126,8 +127,8 @@
                             <p class="mt-1 text-[10px] text-[var(--fsusblog-text-muted)]">公开 {{ row.publicArticleCount }}</p>
                         </div>
                     </template>
-                </ElTableColumn>
-                <ElTableColumn
+                </el-table-column>
+                <el-table-column
                     label="管理"
                     :width="actionColumnWidth"
                     align="right"
@@ -138,33 +139,33 @@
                             class="flex justify-end items-center gap-2 pr-2"
                             :class="{ 'gap-1 pr-0': isCompact }"
                         >
-                            <ElButton
+                            <el-button
                                 link
                                 type="primary"
                                 :class="{ 'admin-table-action--compact': isCompact }"
                                 @click="state.openDialog(row)"
                             >
-                                <ElIcon
+                                <el-icon
                                     aria-hidden="true"
                                     v-if="schema.compactEditIcon && isCompact"
-                                ><Edit /></ElIcon>
+                                ><Edit /></el-icon>
                                 <span v-else>{{ isCompact ? schema.compactEditLabel : schema.editLabel }}</span>
-                            </ElButton>
-                            <ElDivider direction="vertical" />
-                            <ElButton
+                            </el-button>
+                            <el-divider direction="vertical" />
+                            <el-button
                                 link
                                 type="primary"
                                 :class="{ 'admin-table-action--compact': isCompact }"
                                 :disabled="row.totalBlockingArticleCount <= 0"
                                 @click="state.viewAssociatedArticles(row)"
                             >
-                                <span v-if="!isCompact">查看文章</span><ElIcon
+                                <span v-if="!isCompact">查看文章</span><el-icon
                                     aria-hidden="true"
                                     v-else
-                                ><View /></ElIcon>
-                            </ElButton>
-                            <ElDivider direction="vertical" />
-                            <ElTooltip
+                                ><View /></el-icon>
+                            </el-button>
+                            <el-divider direction="vertical" />
+                            <el-tooltip
                                 v-if="!row.canDelete"
                                 :content="state.relationLockReason(row)"
                                 placement="top"
@@ -175,30 +176,30 @@
                                     :title="state.relationLockReason(row)"
                                     tabindex="0"
                                 >
-                                    <ElIcon
+                                    <el-icon
                                         aria-hidden="true"
                                         :size="14"
-                                    ><Lock /></ElIcon>
+                                    ><Lock /></el-icon>
                                     <span v-if="!isCompact">锁定</span>
                                 </div>
-                            </ElTooltip>
-                            <ElButton
+                            </el-tooltip>
+                            <el-button
                                 v-else
                                 link
                                 type="danger"
                                 :class="{ 'admin-table-action--compact': isCompact }"
                                 @click="state.handleDelete(row)"
                             >
-                                <ElIcon
+                                <el-icon
                                     aria-hidden="true"
                                     v-if="schema.compactDeleteIcon && isCompact"
-                                ><Delete /></ElIcon>
+                                ><Delete /></el-icon>
                                 <span v-else>删除</span>
-                            </ElButton>
+                            </el-button>
                         </div>
                     </template>
-                </ElTableColumn>
-            </ElTable>
+                </el-table-column>
+            </el-table>
 
             <div
                 v-else
@@ -212,17 +213,17 @@
                 >
                     <template #actions>
                         <div class="taxonomy-empty-actions">
-                            <ElButton
+                            <el-button
                                 v-if="hasFilters"
                                 class="taxonomy-empty-action"
                                 @click="state.resetFilters"
-                            >清除筛选</ElButton>
-                            <ElButton
+                            >清除筛选</el-button>
+                            <el-button
                                 v-else
                                 class="taxonomy-empty-action"
                                 type="primary"
                                 @click="state.openDialog()"
-                            >{{ schema.newButtonLabel }}</ElButton>
+                            >{{ schema.newButtonLabel }}</el-button>
                         </div>
                     </template>
                 </AdminInlineEmptyState>
@@ -237,18 +238,18 @@
             :close-on-click-modal="false"
         >
             <div class="pt-2">
-                <ElForm
+                <el-form
                     :model="state.form"
                     ref="formRef"
                     :rules="state.rules"
                     label-position="top"
                     @submit.prevent="submitForm"
                 >
-                    <ElFormItem
+                    <el-form-item
                         :label="schema.nameInputLabel"
                         prop="name"
                     >
-                        <ElInput
+                        <el-input
                             v-model="state.form.name"
                             :name="schema.nameInputName"
                             :aria-label="schema.nameInputLabel"
@@ -259,27 +260,42 @@
                             :disabled="isProcessing"
                             @keyup.enter="submitForm"
                         />
-                    </ElFormItem>
-                </ElForm>
+                    </el-form-item>
+                    <el-form-item
+                        :label="schema.descriptionInputLabel"
+                        prop="description"
+                    >
+                        <el-input
+                            v-model="state.form.description"
+                            type="textarea"
+                            :name="schema.descriptionInputName"
+                            :aria-label="schema.descriptionInputLabel"
+                            :placeholder="schema.descriptionInputPlaceholder"
+                            :rows="3"
+                            resize="none"
+                            :disabled="isProcessing || isEditMetadataLoading"
+                        />
+                    </el-form-item>
+                </el-form>
             </div>
             <div :class="['taxonomy-dialog-note mt-4 border-t border-[var(--fsusblog-panel-border)] pt-6 flex select-none', schema.dialogNoteGapClass]">
-                <span class="taxonomy-dialog-note__icon"><ElIcon
-                    aria-hidden="true"
-                    :size="16"
-                ><InfoFilled /></ElIcon></span>
+                <span class="taxonomy-dialog-note__icon"><el-icon
+                    aria-hidden="true" :size="16"
+                ><InfoFilled /></el-icon></span>
                 <p :class="['taxonomy-dialog-note__text', schema.dialogNoteClass]">{{ schema.dialogDescription }}</p>
             </div>
             <template #footer>
                 <div class="taxonomy-dialog-actions">
-                    <ElButton
+                    <el-button
                         @click="state.dialogVisible.value = false"
                         :disabled="isProcessing"
-                    >取消</ElButton>
-                    <ElButton
+                    >取消</el-button>
+                    <el-button
                         type="primary"
-                        :loading="isProcessing"
+                        :loading="isProcessing || isEditMetadataLoading"
+                        :disabled="!canSubmit"
                         @click="submitForm"
-                    >{{ submitButtonText }}</ElButton>
+                    >{{ submitButtonText }}</el-button>
                 </div>
             </template>
         </FsusDialog>
@@ -287,14 +303,13 @@
 </template>
 
 <script setup lang="ts" generic="TItem extends AdminTaxonomyItemBase">
-import { type FormInstance } from '@ozwasyd/element-plus';
 import { computed, ref, useTemplateRef, watch } from 'vue';
 
 import AdminCollectionSummary from '@/components/admin/AdminCollectionSummary.vue';
 import AdminCollectionToolbar from '@/components/admin/AdminCollectionToolbar.vue';
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue';
 import FsusDialog from '@/components/ui/FsusDialog.vue';
-import type { AdminTaxonomyItemBase, AdminTaxonomyManageState, TaxonomySchema } from '@/composables/useAdminTaxonomyManage';
+import type { AdminTaxonomyItemBase, AdminTaxonomyManageState, TaxonomyFormInstance, TaxonomySchema } from '@/composables/useAdminTaxonomyManage';
 import { useMediaQuery } from '@/composables/useMediaQuery';
 import { FsusUiTaskPageHeader } from '@/fsusui';
 import { InfoFilled, Plus, Edit, Lock, Delete, Search, View } from '@/fsusui/icons';
@@ -304,7 +319,7 @@ const props = defineProps<{
     state: AdminTaxonomyManageState;
 }>();
 
-const formRef = useTemplateRef<FormInstance>('formRef');
+const formRef = useTemplateRef<TaxonomyFormInstance>('formRef');
 const isCompact = useMediaQuery('(max-width: 639px)');
 const hasLoadedList = ref(false);
 
@@ -314,6 +329,8 @@ const loading = computed(() => props.state.loading.value);
 const dialogTitle = computed(() => props.state.dialogTitle.value);
 const submitButtonText = computed(() => props.state.submitButtonText.value);
 const isProcessing = computed(() => props.state.isProcessing.value);
+const isEditMetadataLoading = computed(() => props.state.isEditMetadataLoading.value);
+const canSubmit = computed(() => props.state.canSubmit.value);
 const hasFilters = computed(() => props.state.filters.keyword.trim() !== '' || props.state.filters.unusedOnly);
 const isInitialLoading = computed(() => loading.value && !hasLoadedList.value);
 const stateText = computed(() => `${props.schema.entityLabel} · ${list.value.length} 个`);
@@ -420,7 +437,8 @@ const submitForm = (): void =>
     line-height: 20px;
 }
 
-@media (width <= 639px)
+/* stylelint-disable-next-line media-feature-range-notation -- admin a11y contract tokens max-width: 639px */
+@media (max-width: 639px)
  {
     .taxonomy-empty-action
  {

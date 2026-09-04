@@ -129,7 +129,13 @@ echo "[dev-start] capabilities=${CAPABILITY_IDS:-<none>} producers=${PRODUCER_ID
 echo "[dev-start] planned-profile receipt: ${PLANNED_RECEIPT}"
 
 echo "[dev-start] starting PostgreSQL and Redis..."
-docker compose -f "$COMPOSE_FILE" up -d postgres redis
+if docker inspect fsusblog-dev-postgres >/dev/null 2>&1 || docker inspect fsusblog-dev-redis >/dev/null 2>&1; then
+    # Compose cannot take over containers it did not create (name conflict),
+    # so an existing healthy stack is reused and readiness is checked below.
+    echo "[dev-start] dev containers already present; reusing them (compose up skipped)."
+else
+    docker compose -f "$COMPOSE_FILE" up -d postgres redis
+fi
 
 echo "[dev-start] waiting for PostgreSQL..."
 for _ in $(seq 1 60); do
@@ -425,19 +431,6 @@ if [[ "$FIXTURE_RECEIPT_PUBLISHED" == "1" && -f "$FIXTURE_RECEIPT" ]]; then
     FIXTURE_RECEIPT_DIGEST="$(node "$ROOT_DIR/tools/test-fixtures/cli.mjs" receipt-digest --file "$FIXTURE_RECEIPT")"
     FIXTURE_RECEIPT_TERMINAL_STATUS="verified"
 fi
-READY_RECEIPT="$RECEIPT_ROOT/environment-ready.json"
-READY_ARGS=(
-    write-receipt
-    --plan "$PLANNED_RECEIPT"
-    --out "$READY_RECEIPT"
-    --kind environment-ready
-    --fixture-receipt-terminal-status "$FIXTURE_RECEIPT_TERMINAL_STATUS"
-)
-if [[ "$FIXTURE_RECEIPT_PUBLISHED" == "1" && -f "$FIXTURE_RECEIPT" ]]; then
-    READY_ARGS+=(--fixture-receipt "$FIXTURE_RECEIPT")
-fi
-node "${FIXTURE_CATALOG_CLI[@]}" "${READY_ARGS[@]}" >/dev/null
-
 echo "[dev-start] starting frontend on http://127.0.0.1:3000 ..."
 npm --prefix "$FRONTEND_DIR" run dev:debug &
 frontend_pid=$!
@@ -455,10 +448,13 @@ cat <<READY
   mutation policy: ${MUTATION_POLICY}
   fixture receipt: ${FIXTURE_RECEIPT}
   fixture receipt digest: ${FIXTURE_RECEIPT_DIGEST}
-  environment-ready receipt: ${READY_RECEIPT}
+  qualification environment-ready receipt: not produced by the development entrypoint
   Cleanup:  ./tools/dev/start.sh --cleanup
 
 Press Ctrl+C to stop backend and frontend processes.
 READY
 
-wait -n "$backend_pid" "$frontend_pid"
+# macOS ships bash 3.2 which has no `wait -n`; poll both children instead.
+while kill -0 "$backend_pid" 2>/dev/null && kill -0 "$frontend_pid" 2>/dev/null; do
+    sleep 1
+done

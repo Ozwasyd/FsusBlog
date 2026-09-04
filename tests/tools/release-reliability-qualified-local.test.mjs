@@ -45,6 +45,220 @@ function executable(file, source)
     fs.chmodSync(file, 0o755);
 }
 
+const fakeDockerSource = `#!/usr/bin/env node
+const fs = require('node:fs');
+
+const statePath = process.env.FSUSBLOG_FAKE_DOCKER_STATE;
+const logPath = process.env.FSUSBLOG_FAKE_DOCKER_LOG;
+const args = process.argv.slice(2);
+const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+fs.appendFileSync(logPath, JSON.stringify(args) + '\\n');
+
+const save = () => fs.writeFileSync(statePath, JSON.stringify(state));
+const print = (value) => process.stdout.write(String(value) + '\\n');
+const containerById = (id) => state.containers.find((container) => container.id === id);
+const networkById = (id) => state.networks.find((network) => network.id === id);
+
+if (args[0] === 'ps')
+{
+    const filters = [];
+    for (let index = 0; index < args.length; index += 1)
+    {
+        if (args[index] === '--filter')
+        {
+            filters.push(args[index + 1]);
+            index += 1;
+        }
+    }
+    const runFilter = filters.find((filter) => filter.startsWith('label=io.fsusblog.test.run-id='));
+    const namespaceFilter = filters.find((filter) => filter.startsWith('label=io.fsusblog.test.namespace='));
+    const runId = runFilter?.slice('label=io.fsusblog.test.run-id='.length);
+    const namespace = namespaceFilter?.slice('label=io.fsusblog.test.namespace='.length);
+    const selected = state.filterPollution
+        ? state.containers
+        : state.containers.filter((container) => container.runId === runId && container.namespace === namespace);
+    const ids = [...selected.map((container) => container.id), ...(state.malformedDiscoveryIds ?? [])];
+    if (ids.length > 0)
+    {
+        process.stdout.write(ids.join('\\n') + '\\n');
+    }
+    process.exit(0);
+}
+
+if (args[0] === 'inspect')
+{
+    const id = args.at(-1);
+    const container = containerById(id);
+    if (!container)
+    {
+        process.exit(1);
+    }
+    if (args.includes('--format'))
+    {
+        print(container.id + '|' + container.runId + '|' + container.namespace);
+    }
+    process.exit(0);
+}
+
+if (args[0] === 'rm')
+{
+    const id = args.at(-1);
+    if (!containerById(id))
+    {
+        process.exit(1);
+    }
+    if (!(state.stubbornContainerIds ?? []).includes(id))
+    {
+        state.containers = state.containers.filter((container) => container.id !== id);
+        save();
+    }
+    process.exit(0);
+}
+
+if (args[0] === 'network' && args[1] === 'inspect')
+{
+    const id = args.at(-1);
+    const network = networkById(id);
+    if (!network)
+    {
+        process.exit(1);
+    }
+    if (args.includes('--format'))
+    {
+        print(network.id + '|' + network.runId + '|' + network.namespace);
+    }
+    process.exit(0);
+}
+
+if (args[0] === 'network' && args[1] === 'rm')
+{
+    const id = args.at(-1);
+    if (!networkById(id))
+    {
+        process.exit(1);
+    }
+    state.networks = state.networks.filter((network) => network.id !== id);
+    save();
+    process.exit(0);
+}
+
+process.exit(91);
+`;
+
+function runBootstrapFailureCleanup(fixtureRoot, state, { runId, namespace })
+{
+    const fakeDocker = path.join(fixtureRoot, 'docker');
+    const bootstrap = path.join(fixtureRoot, 'failing-bootstrap');
+    const statePath = path.join(fixtureRoot, 'docker-state.json');
+    const logPath = path.join(fixtureRoot, 'docker-log.jsonl');
+    executable(fakeDocker, fakeDockerSource);
+    executable(bootstrap, '#!/usr/bin/env bash\nexit 23\n');
+    fs.writeFileSync(statePath, JSON.stringify({
+        containers: [],
+        networks: [],
+        ...state
+    }));
+    fs.writeFileSync(logPath, '');
+    const result = spawnSync('bash', [
+        wrapper,
+        '--test-bootstrap-cleanup',
+        fakeDocker,
+        bootstrap,
+        runId,
+        namespace
+    ], {
+        cwd: fixtureRoot,
+        encoding: 'utf8',
+        env: {
+            ...process.env,
+            FSUSBLOG_FAKE_DOCKER_STATE: statePath,
+            FSUSBLOG_FAKE_DOCKER_LOG: logPath
+        }
+    });
+    const commands = fs.readFileSync(logPath, 'utf8').trim().split('\n')
+        .filter(Boolean)
+        .map((line) => JSON.parse(line));
+    return {
+        result,
+        commands,
+        state: JSON.parse(fs.readFileSync(statePath, 'utf8'))
+    };
+}
+
+function runContainerCleanup(fixtureRoot, state, {
+    runId = 'bootstrap-cleanup-run',
+    namespace = 'bootstrap-cleanup-namespace',
+    backendId = '-',
+    postgresId = '-',
+    redisId = '-',
+    networkId = '-'
+} = {})
+{
+    const fakeDocker = path.join(fixtureRoot, 'docker');
+    const statePath = path.join(fixtureRoot, 'docker-state.json');
+    const logPath = path.join(fixtureRoot, 'docker-log.jsonl');
+    executable(fakeDocker, fakeDockerSource);
+    fs.writeFileSync(statePath, JSON.stringify({
+        containers: [],
+        networks: [],
+        ...state
+    }));
+    fs.writeFileSync(logPath, '');
+    const result = spawnSync('bash', [
+        wrapper,
+        '--test-container-cleanup',
+        fakeDocker,
+        runId,
+        namespace,
+        backendId,
+        postgresId,
+        redisId,
+        networkId
+    ], {
+        cwd: fixtureRoot,
+        encoding: 'utf8',
+        env: {
+            ...process.env,
+            FSUSBLOG_FAKE_DOCKER_STATE: statePath,
+            FSUSBLOG_FAKE_DOCKER_LOG: logPath
+        }
+    });
+    const commands = fs.readFileSync(logPath, 'utf8').trim().split('\n')
+        .filter(Boolean)
+        .map((line) => JSON.parse(line));
+    return {
+        result,
+        commands,
+        state: JSON.parse(fs.readFileSync(statePath, 'utf8'))
+    };
+}
+
+function copyProductionBuildEnvironmentTool(targetRoot)
+{
+    for (const relativePath of [
+        'tools/test/export-production-build-environment.mjs',
+        'tools/test/process-identity.mjs',
+        'tools/test-matrix/production-build-layout.mjs',
+        'tools/test-matrix/scheduler-run-owner.mjs'
+    ])
+    {
+        const target = path.join(targetRoot, relativePath);
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.copyFileSync(path.join(root, relativePath), target);
+    }
+    return path.join(targetRoot, 'tools/test/export-production-build-environment.mjs');
+}
+
+function productionBuildAssignments(stdout)
+{
+    return new Map(
+        stdout
+            .split('\0')
+            .filter(Boolean)
+            .map((assignment) => parseProductionBuildEnvironmentAssignment(assignment))
+    );
+}
+
 function runWorkflow(fixtureRoot, runnerSource, verifierSource, receiptName = 'qualified-receipt.json')
 {
     const runner = path.join(fixtureRoot, 'runner');
@@ -400,6 +614,153 @@ NODE
         FSUSBLOG_RUNTIME_NO_BUILD: '1',
         FSUSBLOG_RUNTIME_CONFIGURATION: 'Release'
     });
+});
+
+test('qualified cleanup discovers bootstrap containers before outer IDs are assigned and preserves external containers', (context) =>
+{
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-qualified-bootstrap-cleanup-'));
+    context.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }));
+    const runId = 'bootstrap-cleanup-run';
+    const namespace = 'bootstrap-cleanup-namespace';
+    const postgresId = '1'.repeat(64);
+    const redisId = '2'.repeat(64);
+    const externalRunId = '3'.repeat(64);
+    const externalNamespaceId = '4'.repeat(64);
+    const outcome = runBootstrapFailureCleanup(fixtureRoot, {
+        containers: [
+            { id: postgresId, runId, namespace },
+            { id: redisId, runId, namespace },
+            { id: externalRunId, runId: 'external-run', namespace },
+            { id: externalNamespaceId, runId, namespace: 'external-namespace' }
+        ]
+    }, { runId, namespace });
+
+    assert.equal(outcome.result.status, 23, outcome.result.stderr);
+    assert.deepEqual(
+        outcome.state.containers.map((container) => container.id).sort(),
+        [externalRunId, externalNamespaceId].sort()
+    );
+    assert.deepEqual(
+        outcome.commands.filter((args) => args[0] === 'rm').map((args) => args.at(-1)).sort(),
+        [postgresId, redisId].sort()
+    );
+    const observations = outcome.commands.filter((args) => args[0] === 'ps');
+    assert.equal(observations.length, 2);
+    for (const observation of observations)
+    {
+        assert.ok(observation.includes(`label=io.fsusblog.test.run-id=${runId}`));
+        assert.ok(observation.includes(`label=io.fsusblog.test.namespace=${namespace}`));
+        assert.ok(observation.includes('--no-trunc'));
+    }
+});
+
+test('qualified cleanup with uninitialized identity is a Docker no-op', (context) =>
+{
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-qualified-uninitialized-cleanup-'));
+    context.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }));
+    const ownedId = '5'.repeat(64);
+    const outcome = runContainerCleanup(fixtureRoot, {
+        containers: [{ id: ownedId, runId: 'unused-run', namespace: 'unused-namespace' }]
+    }, { runId: '-', namespace: '-' });
+
+    assert.equal(outcome.result.status, 0, outcome.result.stderr);
+    assert.deepEqual(outcome.commands, []);
+    assert.deepEqual(outcome.state.containers.map((container) => container.id), [ownedId]);
+});
+
+test('qualified cleanup removes explicit IDs before fallback discovery and observes zero residual before network cleanup', (context) =>
+{
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-qualified-cleanup-order-'));
+    context.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }));
+    const runId = 'ordered-cleanup-run';
+    const namespace = 'ordered-cleanup-namespace';
+    const postgresId = '6'.repeat(64);
+    const redisId = '7'.repeat(64);
+    const networkId = '8'.repeat(64);
+    const outcome = runContainerCleanup(fixtureRoot, {
+        containers: [
+            { id: postgresId, runId, namespace },
+            { id: redisId, runId, namespace }
+        ],
+        networks: [{ id: networkId, runId, namespace }]
+    }, { runId, namespace, postgresId, redisId, networkId });
+
+    assert.equal(outcome.result.status, 0, outcome.result.stderr);
+    const postgresRemoval = outcome.commands.findIndex((args) => args[0] === 'rm' && args.at(-1) === postgresId);
+    const redisRemoval = outcome.commands.findIndex((args) => args[0] === 'rm' && args.at(-1) === redisId);
+    const observations = outcome.commands
+        .map((args, index) => ({ args, index }))
+        .filter(({ args }) => args[0] === 'ps');
+    const networkRemoval = outcome.commands.findIndex((args) => args[0] === 'network' && args[1] === 'rm');
+    assert.equal(observations.length, 2);
+    assert.ok(postgresRemoval >= 0 && redisRemoval > postgresRemoval);
+    assert.ok(observations[0].index > redisRemoval);
+    assert.ok(observations[1].index > observations[0].index && networkRemoval > observations[1].index);
+    assert.deepEqual(outcome.state.containers, []);
+    assert.deepEqual(outcome.state.networks, []);
+});
+
+test('qualified cleanup fails closed on Docker label-filter pollution and preserves the foreign container', (context) =>
+{
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-qualified-filter-pollution-'));
+    context.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }));
+    const foreignId = '9'.repeat(64);
+    const outcome = runContainerCleanup(fixtureRoot, {
+        containers: [{ id: foreignId, runId: 'foreign-run', namespace: 'foreign-namespace' }],
+        filterPollution: true
+    });
+
+    assert.notEqual(outcome.result.status, 0);
+    assert.deepEqual(outcome.commands.filter((args) => args[0] === 'rm'), []);
+    assert.deepEqual(outcome.state.containers.map((container) => container.id), [foreignId]);
+});
+
+test('qualified cleanup rejects malformed discovered IDs without attempting removal', (context) =>
+{
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-qualified-malformed-discovery-'));
+    context.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }));
+    const outcome = runContainerCleanup(fixtureRoot, {
+        malformedDiscoveryIds: ['abcdef123456']
+    });
+
+    assert.notEqual(outcome.result.status, 0);
+    assert.match(outcome.result.stderr, /malformed full ID/u);
+    assert.deepEqual(outcome.commands.filter((args) => args[0] === 'rm'), []);
+});
+
+test('qualified cleanup fails when post-cleanup observation still finds a run-owned container', (context) =>
+{
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-qualified-residual-cleanup-'));
+    context.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }));
+    const runId = 'residual-cleanup-run';
+    const namespace = 'residual-cleanup-namespace';
+    const residualId = 'a'.repeat(64);
+    const outcome = runContainerCleanup(fixtureRoot, {
+        containers: [{ id: residualId, runId, namespace }],
+        stubbornContainerIds: [residualId]
+    }, { runId, namespace });
+
+    assert.notEqual(outcome.result.status, 0);
+    assert.match(outcome.result.stderr, /remain after qualified runtime cleanup/u);
+    assert.deepEqual(outcome.state.containers.map((container) => container.id), [residualId]);
+});
+
+test('qualified cleanup is idempotent after label-discovered containers are gone', (context) =>
+{
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-qualified-idempotent-cleanup-'));
+    context.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }));
+    const runId = 'idempotent-cleanup-run';
+    const namespace = 'idempotent-cleanup-namespace';
+    const ownedId = 'b'.repeat(64);
+    const first = runContainerCleanup(fixtureRoot, {
+        containers: [{ id: ownedId, runId, namespace }]
+    }, { runId, namespace });
+    assert.equal(first.result.status, 0, first.result.stderr);
+
+    const second = runContainerCleanup(fixtureRoot, first.state, { runId, namespace });
+    assert.equal(second.result.status, 0, second.result.stderr);
+    assert.deepEqual(second.commands.filter((args) => args[0] === 'rm'), []);
+    assert.equal(second.commands.filter((args) => args[0] === 'ps').length, 2);
 });
 
 test('qualified local wrapper rejects a wrong receipt path and cleans runtime state', (context) =>
@@ -1000,6 +1361,49 @@ test('qualified local wrapper uses strict runtime parsing and canonical semantic
     assert.match(source, /export-production-build-environment\.mjs/u);
     assert.match(source, /read -r -d '' assignment/u);
     assert.doesNotMatch(source, /eval\s/u);
+});
+
+test('production build environment CLI executes from ASCII and Unicode script paths', (context) =>
+{
+    const fixtureRoot = fs.mkdtempSync('/tmp/fsusblog-production-build-environment-cli-');
+    context.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }));
+    const candidates = [
+        copyProductionBuildEnvironmentTool(path.join(fixtureRoot, 'ascii')),
+        copyProductionBuildEnvironmentTool(path.join(fixtureRoot, 'unicode-路徑'))
+    ];
+    assert.doesNotMatch(candidates[0], /[^\x00-\x7f]/u);
+    assert.match(candidates[1], /[^\x00-\x7f]/u);
+
+    for (const [index, tool] of candidates.entries())
+    {
+        const runId = `production-environment-cli-${index}`;
+        const result = spawnSync(process.execPath, [
+            tool,
+            '--root',
+            root,
+            '--run-id',
+            runId
+        ], { cwd: fixtureRoot, encoding: 'utf8' });
+        assert.equal(result.status, 0, result.stderr);
+        const assignments = productionBuildAssignments(result.stdout);
+        assert.deepEqual([...assignments.keys()], productionBuildEnvironmentKeys);
+        assert.equal(
+            assignments.get('FSUSBLOG_PRODUCTION_BUILD_ROOT'),
+            path.join(root, '.tmp/build', runId)
+        );
+    }
+});
+
+test('production build environment module import does not execute the CLI branch', () =>
+{
+    const result = spawnSync(process.execPath, [
+        '--input-type=module',
+        '--eval',
+        `await import(${JSON.stringify(pathToFileURL(productionBuildEnvironmentTool).href)}); process.stdout.write('imported\\n');`
+    ], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout, 'imported\n');
+    assert.equal(result.stderr, '');
 });
 
 test('qualified local runtime ownership uses bounded identity and rejects every identity mismatch', async (context) =>

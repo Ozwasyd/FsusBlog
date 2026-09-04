@@ -72,8 +72,7 @@
                     role="alert"
                 >{{ deleteAccountError }}</div>
                 <FsusUiDestructiveActionPanel
-                    :title="copy.deleteAccountCta"
-                    :description="copy.lifecycleDescription"
+                    class="mt-4"
                     density="compact"
                 >
                     <template #actions>

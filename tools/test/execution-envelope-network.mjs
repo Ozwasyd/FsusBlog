@@ -21,6 +21,7 @@ export const executionNetworkPolicyFile = path.join(
 );
 export const executionEnvelopeNetworkSchema =
     'fsusblog.test-execution-envelope-network.v1';
+const standardWritableFiles = Object.freeze(['/dev/null']);
 
 export function loadExecutionNetworkPolicy(file = executionNetworkPolicyFile)
 {
@@ -187,7 +188,7 @@ export function prepareNetworkSandbox({
         ...Object.values(directories),
         ...writableRoots
     ]);
-    const readWritePaths = [...bindings].sort();
+    const readWritePaths = [...bindings, ...standardWritableFiles].sort();
     const landlockExecutable = path.join(
         directories.toolCache,
         'execution-envelope-landlock'
@@ -213,7 +214,10 @@ export function prepareNetworkSandbox({
             networkLog,
             '--',
             landlock.helper.absolutePath,
-            ...readWritePaths.flatMap((entry) => ['--writable', entry]),
+            ...readWritePaths.flatMap((entry) => [
+                standardWritableFiles.includes(entry) ? '--writable-file' : '--writable',
+                entry
+            ]),
             '--',
             ...command
         ],

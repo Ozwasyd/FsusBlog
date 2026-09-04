@@ -10,7 +10,7 @@
             brand-context="auth"
             :brand-href="PUBLIC_FIXED_PATHS.home"
             brand-link-class="auth-header-brand"
-            max-width="72rem"
+            max-width="64rem"
             header-class="auth-header"
             inner-class="auth-header__inner"
             primary-row-class="auth-header__primary-row"
@@ -45,7 +45,7 @@
             </template>
         </SiteChromeHeaderAdapter>
 
-        <main class="mx-auto flex min-h-[calc(var(--fsus-viewport-block-size)-5rem)] w-full max-w-6xl items-start px-5 pb-16 pt-10 sm:px-8 sm:pb-24 sm:pt-16">
+        <main class="mx-auto flex min-h-[calc(var(--fsus-viewport-block-size)-5rem)] w-full max-w-[64rem] items-start px-6 pb-16 pt-10 sm:px-6 sm:pb-24 sm:pt-16">
             <RouterView />
         </main>
     </div>
@@ -83,8 +83,6 @@ const authAction = computed(() =>
 </script>
 
 <style scoped>
-@reference "@/assets/main.css";
-
 .auth-page-shell
  {
     background: var(--fsusblog-page-bg);

@@ -2,7 +2,6 @@
     <div class="account-page font-admin-page account-motion-enter w-full">
         <FsusUiTaskPageHeader
             title="字体管理"
-            description="查看已安装字体与激活状态。"
             class="account-task-page-header"
             density="compact"
         />

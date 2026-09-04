@@ -2,7 +2,6 @@
     <section class="account-page admin-message-center">
         <FsusUiTaskPageHeader
             title="站内信中心"
-            description="面向管理员的会话收件箱，用于处理账号消息、状态流转与系统通知。"
             class="account-task-page-header"
             density="compact"
         />
@@ -495,7 +494,7 @@ const systemBody = computed({
 const visibleConversationRows = computed<ConversationRow[]>(() =>
     adminCenter.conversations.value.slice(0, conversationRenderLimit.value).map((item) => ({
         ...item,
-        lastMessageAtText: formatTime(item.lastMessageAt),
+        lastMessageAtText: formatListTime(item.lastMessageAt),
         ariaLabel: conversationAriaLabel(item),
         rowClassName: conversationRowClass(item)
     }))
@@ -512,7 +511,7 @@ const visibleMessageRows = computed<MessageRow[]>(() =>
     return messages.map((message) => ({
         ...message,
         createdAtText: formatTime(message.createdAt),
-        senderText: message.senderName || senderLabel(message.senderType),
+        senderText: message.senderName ?? senderLabel(message.senderType),
         bubbleVariant: messageBubbleVariant(message.senderType),
         motionClass: messageMotion.classFor(message.messageId)
     }));
@@ -527,7 +526,7 @@ const contextAccountText = computed(() =>
 {
     const messages = detail.value?.messages ?? [];
     const accountMessage = messages.find((message) => message.senderType === 0 && message.senderName);
-    return accountMessage?.senderName || '账号';
+    return accountMessage?.senderName ?? '账号';
 });
 
 watch(() => adminCenter.conversations.value, () =>
@@ -733,11 +732,19 @@ const formatTime = (input: string): string =>
     }
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 };
+
+const formatListTime = (input: string): string =>
+{
+    const date = new Date(input);
+    if (Number.isNaN(date.getTime()))
+    {
+        return input;
+    }
+    return `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+};
 </script>
 
 <style scoped>
-@reference "@/assets/main.css";
-
 .admin-message-center
  {
     min-width: 0;
@@ -754,6 +761,14 @@ const formatTime = (input: string): string =>
 .admin-message-center__layout
  {
     min-height: calc(var(--fsus-viewport-block-size) - 15rem);
+}
+
+@media (width >= 768px)
+ {
+    .admin-message-center__layout
+ {
+        grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr);
+    }
 }
 
 .admin-message-center__list,

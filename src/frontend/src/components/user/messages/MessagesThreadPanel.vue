@@ -76,17 +76,7 @@
                     class="messages-thread-empty"
                     :title="isAdminMode ? threadCopy.titleFallbackAdmin : threadCopy.titleFallbackAccount"
                     :description="isAdminMode ? threadCopy.emptyDescriptionAdmin : threadCopy.emptyDescriptionAccount"
-                >
-                    <template
-                        v-if="!isAdminMode"
-                        #action
-                    >
-                        <ElButton
-                            type="primary"
-                            @click="emit('createTicket')"
-                        >{{ threadCopy.newTicketCta }}</ElButton>
-                    </template>
-                </MessagesEmptyState>
+                />
 
                 <ElSkeleton
                     v-else-if="loading"

@@ -1,10 +1,17 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { parseMatrix } from '../test-matrix/parse-matrix.mjs';
 
+import {
+    canonicalDigest as currentSchemaCanonicalDigest,
+    runtimeReadyReceiptPath,
+    runtimeReadySchema,
+    verifyCurrentSchemaRuntimeReadyReceipt
+} from '../db/verify-current-schema-test-materialization-receipt.mjs';
 import {
     contentShapeCatalogDigest,
     readContentShapeAuthority,
@@ -19,6 +26,9 @@ const sortedUnique = (values) => Array.isArray(values) && values.every((value, i
 const readJson = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
 const profileSources = new Set(['dev-cli', 'matrix']);
 const sha256Json = (value) => `sha256:${createHash('sha256').update(stableStringify(value)).digest('hex')}`;
+const sha256Bytes = (value) => `sha256:${createHash('sha256').update(value).digest('hex')}`;
+const currentSchemaRuntimeTopologyAdmissionSchema =
+    'fsusblog.current-schema-runtime-topology-admission.v2';
 
 function stableStringify(value)
 {
@@ -1675,6 +1685,9 @@ export function writeFixtureProfileReceipt(file, plan, {
     fixtureReceiptDigest = null,
     fixtureReceiptTerminalStatus = null,
     fixtureReceiptDocument = null,
+    currentSchemaRuntimeTopologyAdmissionFile = null,
+    currentSchemaAdmissionOptions = null,
+    profilePlanFile = null,
     extra = null
 } = {})
 {
@@ -1738,15 +1751,69 @@ export function writeFixtureProfileReceipt(file, plan, {
     {
         throw new Error('environment-ready cannot claim verified without a validated FixtureReceipt');
     }
+    let currentSchemaRuntimeTopologyAdmission = null;
+    let currentSchemaAdmission = null;
+    let profilePlan = null;
+    if (kind === 'environment-ready')
+    {
+        if (!currentSchemaRuntimeTopologyAdmissionFile || !currentSchemaAdmissionOptions)
+        {
+            throw new Error('environment-ready requires a verified current schema runtime topology admission');
+        }
+        currentSchemaAdmission = verifyCurrentSchemaRuntimeTopologyAdmission(
+            currentSchemaRuntimeTopologyAdmissionFile,
+            currentSchemaAdmissionOptions
+        );
+        currentSchemaRuntimeTopologyAdmission = currentSchemaRuntimeTopologyAdmissionBinding(
+            currentSchemaRuntimeTopologyAdmissionFile,
+            currentSchemaAdmission
+        );
+        verifyCurrentSchemaAdmissionBindingShape(currentSchemaRuntimeTopologyAdmission);
+        const planBinding = currentSchemaFileBinding(
+            profilePlanFile,
+            'environment-ready profile plan'
+        );
+        const planBytes = planBinding.bytes;
+        if (stableStringify(JSON.parse(planBytes.toString('utf8'))) !== stableStringify(plan))
+        {
+            throw new Error('environment-ready profile plan file does not match supplied plan');
+        }
+        verifyPlannedFixtureProfile(plan);
+        profilePlan = { path: planBinding.path, fileSha256: planBinding.fileSha256 };
+        if (stableStringify(profilePlan) !== stableStringify(currentSchemaAdmission.profilePlan))
+        {
+            throw new Error('environment-ready profile plan is not bound by current schema admission');
+        }
+        if (fixtureReceiptDocument !== null)
+        {
+            const topologyInputBinding = currentSchemaFileBinding(
+                currentSchemaAdmission.runtimeTopologyInput.path,
+                'environment-ready fixture execution identity input'
+            );
+            const topologyInput = JSON.parse(topologyInputBinding.bytes.toString('utf8'));
+            if (topologyInputBinding.fileSha256 !== currentSchemaAdmission.runtimeTopologyInput.fileSha256
+                || stableStringify(fixtureReceiptDocument.executionIdentity)
+                    !== stableStringify(topologyInput.fixtureExecutionIdentity))
+            {
+                throw new Error(
+                    'environment-ready FixtureReceipt execution identity is not bound by the common admission'
+                );
+            }
+        }
+    }
     const capabilityIds = plan.capabilityIds ?? plan.capabilities ?? [];
     const producerIds = plan.producerIds ?? plan.producers ?? [];
     const receipt = {
         schema: kind === 'environment-ready'
-            ? 'fsusblog.fixture-environment-ready.v1'
+            ? 'fsusblog.fixture-environment-ready.v2'
             : 'fsusblog.fixture-planned-profile.v1',
         kind,
-        // generatedAt is audit metadata only — never a currency/completeness criterion (#1710).
-        generatedAt: new Date().toISOString(),
+        ...(kind === 'environment-ready'
+            ? { status: 'verified', qualificationEligible: true, profilePlan }
+            : {}),
+        ...(kind === 'planned-profile'
+            ? { generatedAt: new Date().toISOString() }
+            : {}),
         profileId: plan.profileId,
         profileSource: plan.profileSource,
         catalogDigest: plan.catalogDigest,
@@ -1768,8 +1835,18 @@ export function writeFixtureProfileReceipt(file, plan, {
         fixtureReceiptPath,
         fixtureReceiptDigest,
         fixtureReceiptTerminalStatus,
-        ...(extra && typeof extra === 'object' ? extra : {})
+        ...(kind === 'environment-ready'
+            ? { currentSchemaRuntimeTopologyAdmission }
+            : {}),
+        ...(extra && typeof extra === 'object' ? extra : {}),
+        ...(kind === 'environment-ready' ? { contentDigest: null } : {})
     };
+    if (kind === 'environment-ready')
+    {
+        receipt.contentDigest = sha256Json(receipt);
+        writeExclusiveTerminal(file, receipt, 'environment-ready');
+        return receipt;
+    }
     fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true });
     fs.writeFileSync(file, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 });
     try
@@ -2281,6 +2358,788 @@ export function validateFixtureCatalogs({
     return errors;
 }
 
+function currentSchemaRegularFile(file, label)
+{
+    if (typeof file !== 'string' || !path.isAbsolute(file))
+    {
+        throw new Error(`${label} path must be absolute`);
+    }
+    const resolved = path.resolve(file);
+    if (resolved !== file)
+    {
+        throw new Error(`${label} path must be canonical`);
+    }
+    let stat;
+    try
+    {
+        stat = fs.lstatSync(resolved);
+    }
+    catch
+    {
+        throw new Error(`${label} is missing`);
+    }
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1
+        || fs.realpathSync(resolved) !== resolved)
+    {
+        throw new Error(`${label} must be a canonical regular file`);
+    }
+    return resolved;
+}
+
+function currentSchemaTerminalFile(file, label)
+{
+    if (typeof file !== 'string' || !path.isAbsolute(file) || path.resolve(file) !== file)
+    {
+        throw new Error(`${label} path must be absolute and canonical`);
+    }
+    const parent = path.dirname(file);
+    const basename = path.basename(file);
+    const deadline = Date.now() + 1_000;
+    while (true)
+    {
+        const aliases = fs.readdirSync(parent)
+            .filter((entry) => entry === `${basename}.prepared` || entry.startsWith(`${basename}.next-`));
+        if (aliases.includes(`${basename}.prepared`))
+        {
+            throw new Error(`${label} has a prepared or publication alias sibling`);
+        }
+        if (aliases.length === 0)
+        {
+            break;
+        }
+        if (aliases.length !== 1 || Date.now() >= deadline)
+        {
+            throw new Error(`${label} has a prepared or publication alias sibling`);
+        }
+        const alias = path.join(parent, aliases[0]);
+        try
+        {
+            const aliasStat = fs.lstatSync(alias, { bigint: true });
+            if (!aliasStat.isFile() || aliasStat.isSymbolicLink())
+            {
+                throw new Error(`${label} has a prepared or publication alias sibling`);
+            }
+            if (fs.existsSync(file))
+            {
+                const terminalStat = fs.lstatSync(file, { bigint: true });
+                if (!terminalStat.isFile() || terminalStat.isSymbolicLink()
+                    || terminalStat.dev !== aliasStat.dev || terminalStat.ino !== aliasStat.ino
+                    || terminalStat.nlink !== 2n || aliasStat.nlink !== 2n)
+                {
+                    throw new Error(`${label} has a prepared or publication alias sibling`);
+                }
+            }
+        }
+        catch (error)
+        {
+            if (error?.code !== 'ENOENT')
+            {
+                throw error;
+            }
+        }
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
+    }
+    const resolved = currentSchemaRegularFile(file, label);
+    const aliases = fs.readdirSync(path.dirname(resolved))
+        .filter((entry) => entry === `${basename}.prepared` || entry.startsWith(`${basename}.next-`));
+    if (aliases.length !== 0)
+    {
+        throw new Error(`${label} has a prepared or publication alias sibling`);
+    }
+    return resolved;
+}
+
+function requireExactKeys(value, keys, label)
+{
+    if (value === null || typeof value !== 'object' || Array.isArray(value)
+        || stableStringify(Object.keys(value).sort()) !== stableStringify([...keys].sort()))
+    {
+        throw new Error(`${label} key set mismatch`);
+    }
+}
+
+const plannedFixtureProfileKeys = Object.freeze([
+    'schema', 'kind', 'generatedAt', 'profileId', 'profileSource', 'catalogDigest',
+    'expandedCapabilityDigest', 'fixtureVariantIds', 'fixtureVariantPlanDigest',
+    'capabilityIds', 'producerIds', 'capabilities', 'producers', 'mutationPolicy',
+    'executionClass', 'requiresLocalAuthBypass', 'requiresAuthFixtures',
+    'requiresPublicFixtures', 'requiresDemoSeed', 'fixtureReceiptPath',
+    'fixtureReceiptDigest', 'fixtureReceiptTerminalStatus'
+]);
+
+function verifyPlannedFixtureProfile(plan)
+{
+    requireExactKeys(plan, plannedFixtureProfileKeys, 'planned fixture profile');
+    if (plan.schema !== 'fsusblog.fixture-planned-profile.v1'
+        || plan.kind !== 'planned-profile'
+        || !Number.isFinite(Date.parse(plan.generatedAt))
+        || plan.fixtureReceiptPath !== null
+        || plan.fixtureReceiptDigest !== null
+        || plan.fixtureReceiptTerminalStatus !== null)
+    {
+        throw new Error('planned fixture profile terminal shape is invalid');
+    }
+    const sealed = plan.profileSource === 'matrix'
+        ? {
+            fixtureProfileId: plan.profileId,
+            fixtureCatalogDigest: plan.catalogDigest,
+            expandedCapabilityDigest: plan.expandedCapabilityDigest,
+            fixtureVariantIds: plan.fixtureVariantIds,
+            fixtureVariantPlanDigest: plan.fixtureVariantPlanDigest,
+            executionClass: plan.executionClass
+        }
+        : null;
+    const canonical = resolveFixtureProfile({
+        profileId: plan.profileId,
+        profileSource: plan.profileSource,
+        executionClass: plan.executionClass,
+        requestedVariantIds: plan.fixtureVariantIds,
+        sealed,
+        allowFreeProfileEnv: plan.profileSource === 'dev-cli',
+        freeProfileEnv: ''
+    });
+    const comparisons = [
+        [plan.catalogDigest, canonical.catalogDigest],
+        [plan.expandedCapabilityDigest, canonical.expandedCapabilityDigest],
+        [plan.fixtureVariantIds, canonical.variantIds],
+        [plan.fixtureVariantPlanDigest, canonical.variantPlanDigest],
+        [plan.capabilityIds, canonical.capabilities],
+        [plan.producerIds, canonical.producers],
+        [plan.capabilities, canonical.capabilities],
+        [plan.producers, canonical.producers],
+        [plan.mutationPolicy, canonical.mutationPolicy],
+        [plan.executionClass, canonical.executionClass],
+        [plan.requiresLocalAuthBypass, canonical.requiresLocalAuthBypass],
+        [plan.requiresAuthFixtures, canonical.requiresAuthFixtures],
+        [plan.requiresPublicFixtures, canonical.requiresPublicFixtures],
+        [plan.requiresDemoSeed, canonical.requiresDemoSeed]
+    ];
+    if (comparisons.some(([actual, expected]) => stableStringify(actual) !== stableStringify(expected)))
+    {
+        throw new Error('planned fixture profile does not match the canonical catalogs');
+    }
+    return plan;
+}
+
+function currentSchemaFileBinding(file, label, { terminal = false } = {})
+{
+    const resolved = terminal
+        ? currentSchemaTerminalFile(file, label)
+        : currentSchemaRegularFile(file, label);
+    let descriptor;
+    try
+    {
+        descriptor = fs.openSync(resolved, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+        const before = fs.fstatSync(descriptor, { bigint: true });
+        if (!before.isFile() || before.nlink !== 1n)
+        {
+            throw new Error(`${label} descriptor is not a single-link regular file`);
+        }
+        const bytes = fs.readFileSync(descriptor);
+        const after = fs.fstatSync(descriptor, { bigint: true });
+        const pathStat = fs.lstatSync(resolved, { bigint: true });
+        const stableFields = ['dev', 'ino', 'mode', 'nlink', 'size', 'mtimeNs', 'ctimeNs'];
+        if (stableFields.some((field) => before[field] !== after[field])
+            || stableFields.some((field) => after[field] !== pathStat[field])
+            || fs.realpathSync(resolved) !== resolved)
+        {
+            throw new Error(`${label} changed during its descriptor-pinned read`);
+        }
+        if (terminal)
+        {
+            currentSchemaTerminalFile(resolved, label);
+        }
+        return { path: resolved, fileSha256: sha256Bytes(bytes), bytes };
+    }
+    finally
+    {
+        if (descriptor !== undefined)
+        {
+            fs.closeSync(descriptor);
+        }
+    }
+}
+
+function verifyRuntimeTopologyInput(input, plan, environmentReadyReceiptPath, {
+    runId,
+    sourceCommit
+} = {})
+{
+    requireExactKeys(input, [
+        'namespace', 'backendUrl', 'frontendUrl', 'previewUrl', 'containers', 'fixtureProfile',
+        'fixtureExecutionIdentity', 'environmentReadyReceiptPath'
+    ], 'runtime topology input');
+    requireExactKeys(input.containers, ['postgres', 'redis'], 'runtime topology input containers');
+    requireExactKeys(input.fixtureProfile, [
+        'profileId', 'profileSource', 'catalogDigest', 'expandedCapabilityDigest',
+        'capabilityIds', 'producerIds', 'mutationPolicy'
+    ], 'runtime topology input fixture profile');
+    requireExactKeys(input.fixtureExecutionIdentity, [
+        'runId', 'namespace', 'source', 'serviceGeneration'
+    ], 'runtime topology input fixture execution identity');
+    requireExactKeys(
+        input.fixtureExecutionIdentity?.source,
+        ['commit', 'worktreeFingerprint'],
+        'runtime topology input fixture source identity'
+    );
+    const expectedProfile = {
+        profileId: plan.profileId,
+        profileSource: plan.profileSource,
+        catalogDigest: plan.catalogDigest,
+        expandedCapabilityDigest: plan.expandedCapabilityDigest,
+        capabilityIds: plan.capabilityIds,
+        producerIds: plan.producerIds,
+        mutationPolicy: plan.mutationPolicy
+    };
+    if (typeof input.namespace !== 'string' || input.namespace.length === 0
+        || !['backendUrl', 'frontendUrl', 'previewUrl'].every((key) => {
+            try
+            {
+                const value = new URL(input[key]);
+                return value.protocol === 'http:' && value.hostname === '127.0.0.1';
+            }
+            catch
+            {
+                return false;
+            }
+        })
+        || !Object.values(input.containers).every((value) => typeof value === 'string' && value.length > 0)
+        || input.environmentReadyReceiptPath !== environmentReadyReceiptPath
+        || input.fixtureExecutionIdentity.runId !== runId
+        || input.fixtureExecutionIdentity.namespace !== input.namespace
+        || input.fixtureExecutionIdentity.source.commit !== sourceCommit
+        || !/^sha256:[a-f0-9]{64}$/u.test(input.fixtureExecutionIdentity.source.worktreeFingerprint ?? '')
+        || !/^sha256:[a-f0-9]{64}$/u.test(input.fixtureExecutionIdentity.serviceGeneration ?? '')
+        || stableStringify(input.fixtureProfile) !== stableStringify(expectedProfile))
+    {
+        throw new Error('runtime topology input does not match the canonical planned profile');
+    }
+    return input;
+}
+
+function invokeCurrentSchemaRuntimeReadyVerifier({
+    receiptRoot,
+    runId,
+    sourceCommit,
+    assembly,
+    serviceCatalog,
+    serviceEnvelope
+})
+{
+    return verifyCurrentSchemaRuntimeReadyReceipt({
+        receiptRoot,
+        runId,
+        sourceCommit,
+        assembly,
+        serviceCatalog,
+        serviceEnvelope
+    });
+}
+
+function currentSchemaRuntimeTopologyAdmissionPath(receiptRoot, runId)
+{
+    const runtimeReady = runtimeReadyReceiptPath(receiptRoot, runId);
+    const suffix = path.basename(runtimeReady)
+        .replace(/^current-schema-runtime-ready-/u, '')
+        .replace(/\.json$/u, '');
+    return path.join(path.dirname(runtimeReady), `current-schema-runtime-topology-admission-${suffix}.json`);
+}
+
+function readCurrentSchemaRuntimeReadyBinding(
+    { receiptRoot, runId, sourceCommit },
+    expectedTerminal
+)
+{
+    const expectedPath = runtimeReadyReceiptPath(receiptRoot, runId);
+    if (fs.existsSync(`${expectedPath}.prepared`))
+    {
+        throw new Error('current schema runtime-ready prepared sibling exists');
+    }
+    const runtimeReadyBinding = currentSchemaFileBinding(
+        expectedPath,
+        'current schema runtime-ready receipt',
+        { terminal: true }
+    );
+    const bytes = runtimeReadyBinding.bytes;
+    let runtimeReady;
+    try
+    {
+        runtimeReady = JSON.parse(bytes.toString('utf8'));
+    }
+    catch
+    {
+        throw new Error('current schema runtime-ready receipt is not valid JSON');
+    }
+    if (runtimeReady.schema !== runtimeReadySchema
+        || runtimeReady.status !== 'verified'
+        || runtimeReady.qualificationEligible !== true
+        || runtimeReady.runId !== runId
+        || runtimeReady.sourceCommit !== sourceCommit
+        || runtimeReady.contentDigest !== currentSchemaCanonicalDigest({
+            ...runtimeReady,
+            contentDigest: null
+        })
+        || runtimeReady.canonicalIdentity === null
+        || typeof runtimeReady.canonicalIdentity !== 'object'
+        || Array.isArray(runtimeReady.canonicalIdentity))
+    {
+        throw new Error('current schema runtime-ready terminal identity is invalid');
+    }
+    if (expectedTerminal === null || typeof expectedTerminal !== 'object'
+        || stableStringify(runtimeReady) !== stableStringify(expectedTerminal))
+    {
+        throw new Error('current schema runtime-ready bytes do not match the independently recomputed terminal');
+    }
+    return {
+        path: runtimeReadyBinding.path,
+        fileSha256: runtimeReadyBinding.fileSha256,
+        contentDigest: runtimeReady.contentDigest,
+        runId: runtimeReady.runId,
+        sourceCommit: runtimeReady.sourceCommit,
+        canonicalIdentity: runtimeReady.canonicalIdentity
+    };
+}
+
+function buildCurrentSchemaRuntimeTopologyAdmission(options, binding)
+{
+    const profilePlanBinding = currentSchemaFileBinding(
+        options.profilePlan,
+        'current schema admission profile plan'
+    );
+    const profilePlan = verifyPlannedFixtureProfile(
+        JSON.parse(profilePlanBinding.bytes.toString('utf8'))
+    );
+    const runtimeTopologyInputBinding = currentSchemaFileBinding(
+        options.runtimeTopologyInput,
+        'current schema admission runtime topology input'
+    );
+    verifyRuntimeTopologyInput(
+        JSON.parse(runtimeTopologyInputBinding.bytes.toString('utf8')),
+        profilePlan,
+        options.environmentReady,
+        options
+    );
+    const admission = {
+        schema: currentSchemaRuntimeTopologyAdmissionSchema,
+        status: 'verified',
+        qualificationEligible: true,
+        runId: options.runId,
+        sourceCommit: options.sourceCommit,
+        profilePlan: {
+            path: profilePlanBinding.path,
+            fileSha256: profilePlanBinding.fileSha256
+        },
+        runtimeTopologyInput: {
+            path: runtimeTopologyInputBinding.path,
+            fileSha256: runtimeTopologyInputBinding.fileSha256
+        },
+        environmentReadyReceiptPath: options.environmentReady,
+        currentSchemaRuntimeReady: binding,
+        contentDigest: null
+    };
+    admission.contentDigest = sha256Json(admission);
+    return admission;
+}
+
+function writeExclusiveTerminal(file, value, label)
+{
+    const resolved = path.resolve(file);
+    if (resolved !== file)
+    {
+        throw new Error(`${label} output path must be absolute and canonical`);
+    }
+    const parent = path.dirname(resolved);
+    fs.mkdirSync(parent, { recursive: true });
+    if (fs.realpathSync(parent) !== parent)
+    {
+        throw new Error(`${label} output parent must be canonical`);
+    }
+    const basename = path.basename(resolved);
+    const aliases = fs.readdirSync(parent)
+        .filter((entry) => entry === `${basename}.prepared` || entry.startsWith(`${basename}.next-`));
+    if (aliases.length !== 0)
+    {
+        throw new Error(`${label} output has a prepared or publication alias sibling`);
+    }
+    const candidate = path.join(parent, `${basename}.next-${process.pid}-${randomUUID()}`);
+    let descriptor;
+    let published = false;
+    try
+    {
+        descriptor = fs.openSync(
+            candidate,
+            fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW,
+            0o600
+        );
+        fs.writeFileSync(descriptor, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+        fs.fsyncSync(descriptor);
+        fs.closeSync(descriptor);
+        descriptor = undefined;
+        const parentDescriptor = fs.openSync(parent, fs.constants.O_RDONLY);
+        try
+        {
+            fs.fsyncSync(parentDescriptor);
+        }
+        finally
+        {
+            fs.closeSync(parentDescriptor);
+        }
+        fs.linkSync(candidate, resolved);
+        fs.unlinkSync(candidate);
+        published = true;
+    }
+    catch (error)
+    {
+        if (error?.code === 'EEXIST')
+        {
+            throw new Error(`${label} terminal already exists`);
+        }
+        throw error;
+    }
+    finally
+    {
+        if (descriptor !== undefined)
+        {
+            fs.closeSync(descriptor);
+        }
+        if (!published && fs.existsSync(candidate))
+        {
+            fs.unlinkSync(candidate);
+        }
+    }
+}
+
+export function writeCurrentSchemaRuntimeTopologyAdmission(file, options)
+{
+    const expectedPath = currentSchemaRuntimeTopologyAdmissionPath(options.receiptRoot, options.runId);
+    if (path.resolve(file) !== expectedPath)
+    {
+        throw new Error('current schema runtime topology admission path is not canonical for the run');
+    }
+    const verified = (options.verifyRuntimeReady ?? invokeCurrentSchemaRuntimeReadyVerifier)(options);
+    const binding = readCurrentSchemaRuntimeReadyBinding(options, verified?.terminal);
+    const admission = buildCurrentSchemaRuntimeTopologyAdmission(options, binding);
+    writeExclusiveTerminal(expectedPath, admission, 'current schema runtime topology admission');
+    return admission;
+}
+
+export function verifyCurrentSchemaRuntimeTopologyAdmission(file, options)
+{
+    const expectedPath = currentSchemaRuntimeTopologyAdmissionPath(options.receiptRoot, options.runId);
+    if (path.resolve(file) !== expectedPath)
+    {
+        throw new Error('current schema runtime topology admission path is not canonical for the run');
+    }
+    const verified = (options.verifyRuntimeReady ?? invokeCurrentSchemaRuntimeReadyVerifier)(options);
+    const binding = readCurrentSchemaRuntimeReadyBinding(options, verified?.terminal);
+    const admissionBinding = currentSchemaFileBinding(
+        expectedPath,
+        'current schema runtime topology admission',
+        { terminal: true }
+    );
+    const actual = JSON.parse(admissionBinding.bytes.toString('utf8'));
+    const expected = buildCurrentSchemaRuntimeTopologyAdmission(options, binding);
+    if (stableStringify(actual) !== stableStringify(expected))
+    {
+        throw new Error('current schema runtime topology admission exact terminal mismatch');
+    }
+    return actual;
+}
+
+export function currentSchemaRuntimeTopologyAdmissionBinding(file, admission)
+{
+    const admissionBinding = currentSchemaFileBinding(
+        file,
+        'current schema runtime topology admission',
+        { terminal: true }
+    );
+    const bytes = admissionBinding.bytes;
+    if (stableStringify(JSON.parse(bytes.toString('utf8'))) !== stableStringify(admission))
+    {
+        throw new Error('current schema runtime topology admission bytes do not match verified terminal');
+    }
+    return {
+        path: admissionBinding.path,
+        fileSha256: admissionBinding.fileSha256,
+        contentDigest: admission.contentDigest,
+        runId: admission.runId,
+        sourceCommit: admission.sourceCommit,
+        canonicalIdentity: admission.currentSchemaRuntimeReady.canonicalIdentity
+    };
+}
+
+export function writeAcceptanceRuntimeTopology(
+    file,
+    inputFile,
+    environmentReadyFile,
+    admissionFile,
+    options
+)
+{
+    const inputBinding = currentSchemaFileBinding(inputFile, 'runtime topology input');
+    const topology = JSON.parse(inputBinding.bytes.toString('utf8'));
+    const admission = verifyCurrentSchemaRuntimeTopologyAdmission(admissionFile, options);
+    if (stableStringify({ path: inputBinding.path, fileSha256: inputBinding.fileSha256 })
+        !== stableStringify(admission.runtimeTopologyInput))
+    {
+        throw new Error('runtime topology input is not bound by current schema admission');
+    }
+    const profilePlanBinding = currentSchemaFileBinding(
+        admission.profilePlan.path,
+        'runtime topology profile plan'
+    );
+    const profilePlan = verifyPlannedFixtureProfile(
+        JSON.parse(profilePlanBinding.bytes.toString('utf8'))
+    );
+    verifyRuntimeTopologyInput(
+        topology,
+        profilePlan,
+        admission.environmentReadyReceiptPath,
+        admission
+    );
+    const environmentReadyBinding = currentSchemaFileBinding(
+        environmentReadyFile,
+        'runtime topology environment-ready',
+        { terminal: true }
+    );
+    const environmentReady = JSON.parse(environmentReadyBinding.bytes.toString('utf8'));
+    if (environmentReady.contentDigest !== sha256Json({ ...environmentReady, contentDigest: null })
+        || stableStringify(environmentReady.profilePlan) !== stableStringify(admission.profilePlan)
+        || stableStringify(environmentReady.currentSchemaRuntimeTopologyAdmission)
+            !== stableStringify(currentSchemaRuntimeTopologyAdmissionBinding(admissionFile, admission)))
+    {
+        throw new Error('runtime topology environment-ready parent is invalid');
+    }
+    const receipt = {
+        schema: 'fsusblog.acceptance-runtime-topology.v2',
+        status: 'verified',
+        qualificationEligible: true,
+        authority: 'runtime-topology-only',
+        notFixtureCompletenessEvidence: true,
+        input: { path: inputBinding.path, fileSha256: inputBinding.fileSha256 },
+        environmentReady: {
+            path: environmentReadyBinding.path,
+            fileSha256: environmentReadyBinding.fileSha256,
+            contentDigest: environmentReady.contentDigest
+        },
+        topology,
+        currentSchemaRuntimeTopologyAdmission:
+            currentSchemaRuntimeTopologyAdmissionBinding(admissionFile, admission),
+        contentDigest: null
+    };
+    receipt.contentDigest = sha256Json(receipt);
+    writeExclusiveTerminal(file, receipt, 'runtime topology');
+    return receipt;
+}
+
+function verifyCurrentSchemaAdmissionBindingShape(binding)
+{
+    if (binding === null || typeof binding !== 'object' || Array.isArray(binding)
+        || !path.isAbsolute(binding.path ?? '')
+        || !/^sha256:[a-f0-9]{64}$/u.test(binding.fileSha256 ?? '')
+        || !/^sha256:[a-f0-9]{64}$/u.test(binding.contentDigest ?? '')
+        || typeof binding.runId !== 'string' || binding.runId.length === 0
+        || !/^[a-f0-9]{40}$/u.test(binding.sourceCommit ?? '')
+        || binding.canonicalIdentity === null
+        || typeof binding.canonicalIdentity !== 'object'
+        || Array.isArray(binding.canonicalIdentity))
+    {
+        throw new Error('current schema runtime topology admission binding is invalid');
+    }
+}
+
+export async function verifyCurrentSchemaTerminalDag({
+    admissionFile,
+    environmentReadyFile,
+    runtimeTopologyFile,
+    ...options
+})
+{
+    const admission = verifyCurrentSchemaRuntimeTopologyAdmission(admissionFile, options);
+    const binding = currentSchemaRuntimeTopologyAdmissionBinding(admissionFile, admission);
+    const admissionInputBinding = currentSchemaFileBinding(
+        admission.runtimeTopologyInput.path,
+        'admission-bound runtime topology input'
+    );
+    if (admissionInputBinding.fileSha256 !== admission.runtimeTopologyInput.fileSha256)
+    {
+        throw new Error('admission-bound runtime topology input digest mismatch');
+    }
+    const admissionTopologyInput = JSON.parse(admissionInputBinding.bytes.toString('utf8'));
+    const environmentReadyBinding = currentSchemaFileBinding(
+        environmentReadyFile,
+        'environment-ready receipt',
+        { terminal: true }
+    );
+    const runtimeTopologyBinding = currentSchemaFileBinding(
+        runtimeTopologyFile,
+        'runtime topology receipt',
+        { terminal: true }
+    );
+    const resolvedEnvironmentReadyFile = environmentReadyBinding.path;
+    const environmentReady = JSON.parse(environmentReadyBinding.bytes.toString('utf8'));
+    const runtimeTopology = JSON.parse(runtimeTopologyBinding.bytes.toString('utf8'));
+    requireExactKeys(environmentReady, [
+        'schema', 'kind', 'status', 'qualificationEligible', 'profilePlan',
+        'profileId', 'profileSource', 'catalogDigest', 'expandedCapabilityDigest',
+        'fixtureVariantIds', 'fixtureVariantPlanDigest', 'capabilityIds', 'producerIds',
+        'capabilities', 'producers', 'mutationPolicy', 'executionClass',
+        'requiresLocalAuthBypass', 'requiresAuthFixtures', 'requiresPublicFixtures',
+        'requiresDemoSeed', 'fixtureReceiptPath', 'fixtureReceiptDigest',
+        'fixtureReceiptTerminalStatus', 'currentSchemaRuntimeTopologyAdmission', 'contentDigest'
+    ], 'environment-ready');
+    requireExactKeys(environmentReady.profilePlan, ['path', 'fileSha256'], 'environment-ready profile plan binding');
+    const profilePlanBinding = currentSchemaFileBinding(
+        environmentReady.profilePlan?.path,
+        'environment-ready profile plan'
+    );
+    const profilePlanFile = profilePlanBinding.path;
+    const profilePlanBytes = profilePlanBinding.bytes;
+    const profilePlan = verifyPlannedFixtureProfile(JSON.parse(profilePlanBytes.toString('utf8')));
+    if (environmentReady.schema !== 'fsusblog.fixture-environment-ready.v2'
+        || environmentReady.kind !== 'environment-ready'
+        || environmentReady.status !== 'verified'
+        || environmentReady.qualificationEligible !== true
+        || environmentReady.profilePlan.fileSha256 !== sha256Bytes(profilePlanBytes)
+        || environmentReady.profileId !== profilePlan.profileId
+        || environmentReady.profileSource !== profilePlan.profileSource
+        || environmentReady.catalogDigest !== profilePlan.catalogDigest
+        || environmentReady.expandedCapabilityDigest !== profilePlan.expandedCapabilityDigest
+        || stableStringify(environmentReady.fixtureVariantIds)
+            !== stableStringify(profilePlan.variantIds ?? profilePlan.fixtureVariantIds ?? [])
+        || environmentReady.fixtureVariantPlanDigest
+            !== (profilePlan.variantPlanDigest ?? profilePlan.fixtureVariantPlanDigest)
+        || stableStringify(environmentReady.capabilityIds)
+            !== stableStringify(profilePlan.capabilityIds ?? profilePlan.capabilities ?? [])
+        || stableStringify(environmentReady.producerIds)
+            !== stableStringify(profilePlan.producerIds ?? profilePlan.producers ?? [])
+        || stableStringify(environmentReady.capabilities)
+            !== stableStringify(profilePlan.capabilityIds ?? profilePlan.capabilities ?? [])
+        || stableStringify(environmentReady.producers)
+            !== stableStringify(profilePlan.producerIds ?? profilePlan.producers ?? [])
+        || environmentReady.mutationPolicy !== profilePlan.mutationPolicy
+        || environmentReady.executionClass !== profilePlan.executionClass
+        || environmentReady.requiresLocalAuthBypass !== profilePlan.requiresLocalAuthBypass
+        || environmentReady.requiresAuthFixtures !== profilePlan.requiresAuthFixtures
+        || environmentReady.requiresPublicFixtures !== profilePlan.requiresPublicFixtures
+        || environmentReady.requiresDemoSeed !== profilePlan.requiresDemoSeed
+        || environmentReady.contentDigest !== sha256Json({ ...environmentReady, contentDigest: null })
+        || stableStringify(environmentReady.currentSchemaRuntimeTopologyAdmission)
+            !== stableStringify(binding))
+    {
+        throw new Error('environment-ready current schema parent binding mismatch');
+    }
+    if (stableStringify(environmentReady.profilePlan) !== stableStringify(admission.profilePlan))
+    {
+        throw new Error('environment-ready profile plan is not bound by the common admission');
+    }
+    if (environmentReady.fixtureReceiptPath !== null)
+    {
+        const fixtureReceiptBinding = currentSchemaFileBinding(
+            environmentReady.fixtureReceiptPath,
+            'environment-ready FixtureReceipt'
+        );
+        const { validateFixtureReceipt } = await import('../test-fixtures/receipt/fixture-receipt.mjs');
+        const fixtureReceipt = validateFixtureReceipt(
+            JSON.parse(fixtureReceiptBinding.bytes.toString('utf8')),
+            {
+                requireVerified: true,
+                expectedExecutionIdentity: admissionTopologyInput.fixtureExecutionIdentity
+            }
+        );
+        if (environmentReady.fixtureReceiptTerminalStatus !== 'verified'
+            || environmentReady.fixtureReceiptDigest !== fixtureReceipt.receiptDigest
+            || fixtureReceipt.profileIdentity?.profileId !== profilePlan.profileId
+            || fixtureReceipt.profileIdentity?.profileSource !== profilePlan.profileSource
+            || fixtureReceipt.profileIdentity?.executionClass !== profilePlan.executionClass
+            || fixtureReceipt.catalogDigest !== profilePlan.catalogDigest
+            || fixtureReceipt.expandedCapabilityDigest !== profilePlan.expandedCapabilityDigest
+            || stableStringify(fixtureReceipt.fixtureVariantIds)
+                !== stableStringify(profilePlan.fixtureVariantIds)
+            || fixtureReceipt.variantPlanDigest !== profilePlan.fixtureVariantPlanDigest)
+        {
+            throw new Error('environment-ready FixtureReceipt does not match its canonical plan');
+        }
+    }
+    else if (environmentReady.fixtureReceiptDigest !== null
+        || environmentReady.fixtureReceiptTerminalStatus !== 'prepared-unverified')
+    {
+        // The bootstrap's honest partial land (#1710) defers FixtureReceipt
+        // verification to producers and records only the prepared-unverified
+        // status; any other receiptless binding is incomplete.
+        throw new Error('environment-ready fixture receipt binding is incomplete');
+    }
+    requireExactKeys(runtimeTopology, [
+        'schema', 'status', 'qualificationEligible', 'authority',
+        'notFixtureCompletenessEvidence', 'input', 'environmentReady', 'topology',
+        'currentSchemaRuntimeTopologyAdmission', 'contentDigest'
+    ], 'runtime topology');
+    requireExactKeys(runtimeTopology.input, ['path', 'fileSha256'], 'runtime topology input binding');
+    requireExactKeys(
+        runtimeTopology.environmentReady,
+        ['path', 'fileSha256', 'contentDigest'],
+        'runtime topology environment-ready binding'
+    );
+    const inputBinding = currentSchemaFileBinding(
+        runtimeTopology.input?.path,
+        'runtime topology input'
+    );
+    const inputFile = inputBinding.path;
+    const inputBytes = inputBinding.bytes;
+    requireExactKeys(runtimeTopology.topology, [
+        'namespace', 'backendUrl', 'frontendUrl', 'previewUrl', 'containers', 'fixtureProfile',
+        'fixtureExecutionIdentity', 'environmentReadyReceiptPath'
+    ], 'runtime topology identity');
+    requireExactKeys(runtimeTopology.topology.containers, ['postgres', 'redis'], 'runtime topology containers');
+    requireExactKeys(runtimeTopology.topology.fixtureProfile, [
+        'profileId', 'profileSource', 'catalogDigest', 'expandedCapabilityDigest',
+        'capabilityIds', 'producerIds', 'mutationPolicy'
+    ], 'runtime topology fixture profile');
+    requireExactKeys(runtimeTopology.topology.fixtureExecutionIdentity, [
+        'runId', 'namespace', 'source', 'serviceGeneration'
+    ], 'runtime topology fixture execution identity');
+    requireExactKeys(runtimeTopology.topology.fixtureExecutionIdentity?.source, [
+        'commit', 'worktreeFingerprint'
+    ], 'runtime topology fixture source identity');
+    if (runtimeTopology.schema !== 'fsusblog.acceptance-runtime-topology.v2'
+        || runtimeTopology.status !== 'verified'
+        || runtimeTopology.qualificationEligible !== true
+        || runtimeTopology.authority !== 'runtime-topology-only'
+        || runtimeTopology.notFixtureCompletenessEvidence !== true
+        || runtimeTopology.topology.environmentReadyReceiptPath !== resolvedEnvironmentReadyFile
+        || runtimeTopology.environmentReady.path !== resolvedEnvironmentReadyFile
+        || runtimeTopology.environmentReady.fileSha256
+            !== environmentReadyBinding.fileSha256
+        || runtimeTopology.environmentReady.contentDigest !== environmentReady.contentDigest
+        || runtimeTopology.topology.fixtureProfile.profileId !== environmentReady.profileId
+        || runtimeTopology.topology.fixtureProfile.profileSource !== environmentReady.profileSource
+        || runtimeTopology.topology.fixtureProfile.catalogDigest !== environmentReady.catalogDigest
+        || runtimeTopology.topology.fixtureProfile.expandedCapabilityDigest
+            !== environmentReady.expandedCapabilityDigest
+        || stableStringify(runtimeTopology.topology.fixtureProfile.capabilityIds)
+            !== stableStringify(environmentReady.capabilityIds)
+        || stableStringify(runtimeTopology.topology.fixtureProfile.producerIds)
+            !== stableStringify(environmentReady.producerIds)
+        || runtimeTopology.topology.fixtureProfile.mutationPolicy
+            !== environmentReady.mutationPolicy
+        || runtimeTopology.input.fileSha256 !== sha256Bytes(inputBytes)
+        || stableStringify({ path: inputBinding.path, fileSha256: inputBinding.fileSha256 })
+            !== stableStringify(admission.runtimeTopologyInput)
+        || stableStringify(runtimeTopology.topology)
+            !== stableStringify(JSON.parse(inputBytes.toString('utf8')))
+        || runtimeTopology.contentDigest !== sha256Json({ ...runtimeTopology, contentDigest: null })
+        || stableStringify(runtimeTopology.currentSchemaRuntimeTopologyAdmission)
+            !== stableStringify(binding))
+    {
+        throw new Error('runtime topology current schema parent binding mismatch');
+    }
+    if (stableStringify(runtimeTopology.input) !== stableStringify(admission.runtimeTopologyInput))
+    {
+        throw new Error('runtime topology input is not bound by the common admission');
+    }
+    return { admission, binding, environmentReady, runtimeTopology };
+}
+
 function parseCliArgs(argv)
 {
     const options = { _: [] };
@@ -2343,6 +3202,27 @@ function parseVariantIdsOption(value, label)
         return parsed.map(String);
     }
     return text.split(',').map((item) => item.trim()).filter(Boolean);
+}
+
+function currentSchemaOptionsFromCli(options, command)
+{
+    const admissionFile = options.admission ?? options.out;
+    const admissionOptions = {
+        receiptRoot: options['receipt-root'],
+        runId: options['run-id'],
+        sourceCommit: options['source-commit'],
+        assembly: options.assembly,
+        serviceCatalog: options['service-catalog'],
+        serviceEnvelope: options['service-envelope'],
+        profilePlan: options['profile-plan'],
+        runtimeTopologyInput: options['runtime-topology-input'],
+        environmentReady: options['environment-ready']
+    };
+    if (!admissionFile || Object.values(admissionOptions).some((value) => !value))
+    {
+        throw new Error(`${command} requires admission, receipt-root, run-id, source-commit, assembly, service-catalog, service-envelope, profile-plan, runtime-topology-input, and environment-ready`);
+    }
+    return { admissionFile, admissionOptions };
 }
 
 async function runCli(argv = process.argv.slice(2))
@@ -2414,6 +3294,61 @@ async function runCli(argv = process.argv.slice(2))
         })}\n`);
         return;
     }
+    if (command === 'write-current-schema-runtime-topology-admission'
+        || command === 'verify-current-schema-runtime-topology-admission')
+    {
+        const { admissionFile, admissionOptions } = currentSchemaOptionsFromCli(options, command);
+        const receipt = command.startsWith('write-', 0)
+            ? writeCurrentSchemaRuntimeTopologyAdmission(admissionFile, admissionOptions)
+            : verifyCurrentSchemaRuntimeTopologyAdmission(admissionFile, admissionOptions);
+        process.stdout.write(`${JSON.stringify(receipt)}\n`);
+        return;
+    }
+    if (command === 'current-schema-runtime-topology-admission-binding')
+    {
+        const { admissionFile, admissionOptions } = currentSchemaOptionsFromCli(options, command);
+        const admission = verifyCurrentSchemaRuntimeTopologyAdmission(
+            admissionFile,
+            admissionOptions
+        );
+        process.stdout.write(`${JSON.stringify(
+            currentSchemaRuntimeTopologyAdmissionBinding(admissionFile, admission)
+        )}\n`);
+        return;
+    }
+    if (command === 'verify-current-schema-terminal-dag')
+    {
+        const { admissionFile, admissionOptions } = currentSchemaOptionsFromCli(options, command);
+        if (!options['environment-ready'] || !options['runtime-topology'])
+        {
+            throw new Error(`${command} requires environment-ready and runtime-topology`);
+        }
+        const result = await verifyCurrentSchemaTerminalDag({
+            admissionFile,
+            environmentReadyFile: options['environment-ready'],
+            runtimeTopologyFile: options['runtime-topology'],
+            ...admissionOptions
+        });
+        process.stdout.write(`${JSON.stringify(result.binding)}\n`);
+        return;
+    }
+    if (command === 'write-acceptance-runtime-topology')
+    {
+        const { admissionFile, admissionOptions } = currentSchemaOptionsFromCli(options, command);
+        if (!options.input || !options.out || !options['environment-ready'])
+        {
+            throw new Error(`${command} requires input, environment-ready, and out`);
+        }
+        const receipt = writeAcceptanceRuntimeTopology(
+            options.out,
+            options.input,
+            options['environment-ready'],
+            admissionFile,
+            admissionOptions
+        );
+        process.stdout.write(`${JSON.stringify(receipt)}\n`);
+        return;
+    }
     if (command === 'receipt-digest')
     {
         const file = options.file ?? options._[1];
@@ -2438,19 +3373,38 @@ async function runCli(argv = process.argv.slice(2))
         let fixtureReceiptDocument = null;
         if (fixtureReceiptPath)
         {
-            const { readFixtureReceipt } = await import('../test-fixtures/receipt/fixture-receipt.mjs');
-            fixtureReceiptDocument = readFixtureReceipt(fixtureReceiptPath, {
-                requireVerified: fixtureReceiptTerminalStatus === 'verified'
-            });
+            const fixtureReceiptBinding = currentSchemaFileBinding(
+                fixtureReceiptPath,
+                'environment-ready FixtureReceipt'
+            );
+            const { validateFixtureReceipt } = await import('../test-fixtures/receipt/fixture-receipt.mjs');
+            fixtureReceiptDocument = validateFixtureReceipt(
+                JSON.parse(fixtureReceiptBinding.bytes.toString('utf8')),
+                { requireVerified: fixtureReceiptTerminalStatus === 'verified' }
+            );
         }
         const fixtureReceiptDigest = fixtureReceiptDocument?.receiptDigest
       ?? (options['fixture-receipt-digest'] ?? null);
+        let currentSchemaRuntimeTopologyAdmissionFile = null;
+        let currentSchemaAdmissionOptions = null;
+        if ((options.kind ?? 'environment-ready') === 'environment-ready')
+        {
+            const { admissionFile, admissionOptions } = currentSchemaOptionsFromCli(
+                options,
+                'write-receipt'
+            );
+            currentSchemaRuntimeTopologyAdmissionFile = admissionFile;
+            currentSchemaAdmissionOptions = admissionOptions;
+        }
         const receipt = writeFixtureProfileReceipt(out, plan, {
             kind: options.kind ?? 'environment-ready',
             fixtureReceiptPath,
             fixtureReceiptDigest,
             fixtureReceiptTerminalStatus,
-            fixtureReceiptDocument
+            fixtureReceiptDocument,
+            currentSchemaRuntimeTopologyAdmissionFile,
+            currentSchemaAdmissionOptions,
+            profilePlanFile: planFile
         });
         process.stdout.write(`${JSON.stringify(receipt)}\n`);
         return;

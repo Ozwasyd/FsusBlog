@@ -2,7 +2,6 @@
     <div class="account-page article-list-wrapper account-motion-enter w-full">
         <FsusUiTaskPageHeader
             title="文章管理"
-            description="检索文章、编辑状态与进入写作流程。"
             class="account-task-page-header"
             density="compact"
         />

@@ -1,5 +1,5 @@
 import { requestBinaryOnly } from '@/composition/binaryTransport';
-import type { TagItem } from '@/contracts/binaryApi';
+import type { TagItem, TaxonomyExactMetadata } from '@/contracts/binaryApi';
 
 import { FrameType } from '@wasm/protocol/frame';
 
@@ -9,7 +9,7 @@ import {
     type TaxonomyMetadataMutationRequest
 } from './binaryFrame';
 
-export type { TagItem } from '@/contracts/binaryApi';
+export type { TagItem, TaxonomyExactMetadata } from '@/contracts/binaryApi';
 
 // ================= API 方法定义 =================
 
@@ -25,6 +25,29 @@ export const getTags = (config?: { signal?: AbortSignal; }) =>
     requestBinaryOnly<TagItem[]>({
         binaryRoute: { operationId: 'binary_get_tag_aeds' },
         frameType: FrameType.TagList,
+        signal: config?.signal,
+        requestOptions: {
+            method: 'GET'
+        }
+    });
+
+export const getTagExactMetadata = (id: number, config?: { signal?: AbortSignal; }) =>
+    requestBinaryOnly<TaxonomyExactMetadata>({
+        binaryRoute: { operationId: 'binary_get_tag_id_int_aeds', params: { id } },
+        frameType: FrameType.TaxonomyExactMetadata,
+        signal: config?.signal,
+        requestOptions: {
+            method: 'GET'
+        }
+    });
+
+export const getTagExactMetadataByName = (name: string, config?: { signal?: AbortSignal; }) =>
+    requestBinaryOnly<TaxonomyExactMetadata>({
+        binaryRoute: {
+            operationId: 'binary_get_tag_by_name_aeds',
+            query: new URLSearchParams({ name })
+        },
+        frameType: FrameType.TaxonomyExactMetadata,
         signal: config?.signal,
         requestOptions: {
             method: 'GET'

@@ -76,6 +76,29 @@
                 </ul>
             </nav>
         </section>
+
+        <section
+            v-if="variant === 'mobile'"
+            class="account-mobile-utilities"
+            :aria-label="messages.admin.shell.navigation"
+        >
+            <div class="account-mobile-utilities__links">
+                <RouterLink
+                    to="/"
+                    class="account-module-link account-mobile-utilities__home-link"
+                    @click="$emit('navigate')"
+                >
+                    <span class="account-module-link__label">{{ messages.admin.shell.mainSite }}</span>
+                </RouterLink>
+            </div>
+            <div class="account-mobile-utilities__controls">
+                <LocaleSelectorRuntimeAdapter compact />
+                <ThemeModeToggle
+                    variant="menu-button"
+                    :labels="themeModeLabels"
+                />
+            </div>
+        </section>
     </div>
 </template>
 
@@ -83,6 +106,9 @@
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 
+import LocaleSelectorRuntimeAdapter from '@/components/i18n/LocaleSelectorRuntimeAdapter.vue';
+import { FSUSBLOG_THEME_MODE_LABELS } from '@/components/ui/themeModeLabels';
+import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue';
 import { useI18nText } from '@/composables/useI18nText';
 import {
     isAccountNavGroupActive,
@@ -104,6 +130,7 @@ defineEmits<(e: 'navigate') => void>();
 
 const route = useRoute();
 const { messages, t } = useI18nText();
+const themeModeLabels = FSUSBLOG_THEME_MODE_LABELS;
 const localizedAreaLabel = computed(() =>
 {
     const area = props.groups[0]?.area;
@@ -282,6 +309,25 @@ const localNavigationTitleId = computed(() => (
 .account-navigation-panel[data-variant="desktop"] .account-local-navigation__link
  {
     min-height: 2.5rem;
+}
+
+.account-mobile-utilities
+ {
+    margin-top: var(--fsus-space-6);
+    border-top: 1px solid var(--fsusblog-panel-border);
+    padding-top: var(--fsus-space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--fsus-space-3);
+}
+
+.account-mobile-utilities__controls
+ {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--fsus-space-2);
+    padding-inline: var(--fsus-space-2);
 }
 
 </style>

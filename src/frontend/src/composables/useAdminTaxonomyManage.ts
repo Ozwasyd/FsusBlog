@@ -1,16 +1,41 @@
-import { type FormInstance } from '@ozwasyd/element-plus';
 import { computed, onMounted, reactive, ref, shallowRef, type ComputedRef, type Ref, type ShallowRef } from 'vue';
 import { useRouter } from 'vue-router';
 
+import type { TaxonomyMetadataMutationRequest } from '@/api/binaryFrame';
 import type { ApiRequestConfig } from '@/api/requestConfig';
 import { useMutationFlow } from '@/composables/useMutationFlow';
 import { usePow } from '@/composables/usePow';
 import { useViewTask } from '@/composables/useViewTask';
+import type { TaxonomyExactMetadata } from '@/contracts/binaryApi';
 import type { FsusDialogWidth } from '@/fsusui/dialog';
 import { isFsusUiOk } from '@/fsusui/result';
-import { showWarningToast } from '@/utils/errorPresentation';
+import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
 
 export type TaxonomyNameDisplay = 'text' | 'tag';
+
+export interface TaxonomyFormInstance {
+    validate: () => Promise<unknown>;
+}
+
+export const taxonomyDescriptionMaxScalars = 500;
+
+export function normalizeTaxonomyDescriptionInput(
+    value: string
+): { ok: true; description: string | null; } | { ok: false; }
+{
+    const trimmed = value.trim();
+    if (trimmed.length === 0)
+    {
+        return { ok: true, description: null };
+    }
+
+    if (Array.from(trimmed).length > taxonomyDescriptionMaxScalars)
+    {
+        return { ok: false };
+    }
+
+    return { ok: true, description: trimmed };
+}
 
 export interface AdminTaxonomyItemBase {
     id: number;
@@ -29,8 +54,18 @@ export interface TaxonomyFormRules {
         min?: number;
         max?: number;
         pattern?: RegExp;
-        message: string;
+        message?: string;
         trigger: string;
+        validator?: (rule: unknown, value: unknown) => void | Promise<void>;
+    }[];
+    description?: {
+        required?: boolean;
+        min?: number;
+        max?: number;
+        pattern?: RegExp;
+        message?: string;
+        trigger: string;
+        validator?: (rule: unknown, value: unknown) => void | Promise<void>;
     }[];
 }
 
@@ -50,6 +85,9 @@ export interface TaxonomySchema<TItem extends AdminTaxonomyItemBase = AdminTaxon
     nameInputName: string;
     nameInputLabel: string;
     nameInputPlaceholder: string;
+    descriptionInputName: string;
+    descriptionInputLabel: string;
+    descriptionInputPlaceholder: string;
     dialogWidth: FsusDialogWidth;
     dialogDescription: string;
     dialogNoteClass: string;
@@ -73,11 +111,14 @@ export interface TaxonomySchema<TItem extends AdminTaxonomyItemBase = AdminTaxon
     submitButtonText: string;
     rules: TaxonomyFormRules;
     loadItems: (config?: ApiRequestConfig) => Promise<TItem[]>;
-    createItem: (name: string, config?: ApiRequestConfig) => Promise<unknown>;
-    updateItem: (id: number, name: string, config?: ApiRequestConfig) => Promise<unknown>;
+    loadExactMetadata: (id: number, config?: ApiRequestConfig) => Promise<TaxonomyExactMetadata>;
+    createItem: (request: TaxonomyMetadataMutationRequest, config?: ApiRequestConfig) => Promise<unknown>;
+    updateItem: (id: number, request: TaxonomyMetadataMutationRequest, config?: ApiRequestConfig) => Promise<unknown>;
     deleteItem: (id: number, config?: ApiRequestConfig) => Promise<unknown>;
     loadFallbackMessage: string;
     loadFailureLog: string;
+    loadExactMetadataFallbackMessage: string;
+    loadExactMetadataFailureLog: string;
     duplicateWarning: (name: string) => string;
     createFallbackMessage: string;
     updateFallbackMessage: string;
@@ -102,15 +143,17 @@ export interface AdminTaxonomyManageState {
     dialogTitle: ComputedRef<string>;
     submitButtonText: ComputedRef<string>;
     isProcessing: ComputedRef<boolean>;
+    isEditMetadataLoading: ComputedRef<boolean>;
+    canSubmit: ComputedRef<boolean>;
     filters: { keyword: string; unusedOnly: boolean; };
-    form: { name: string; };
+    form: { name: string; description: string; };
     rules: TaxonomyFormRules;
     relationLockReason: (row: AdminTaxonomyItemBase) => string;
     viewAssociatedArticles: (row: AdminTaxonomyItemBase) => void;
     hasDuplicateName: (name: string) => boolean;
     resetFilters: () => void;
     openDialog: (row?: AdminTaxonomyItemBase) => void;
-    submitForm: (formInstance: FormInstance | null | undefined) => Promise<void>;
+    submitForm: (formInstance: TaxonomyFormInstance | null | undefined) => Promise<void>;
     handleDelete: (row: AdminTaxonomyItemBase) => void;
 }
 
@@ -122,6 +165,7 @@ export function useAdminTaxonomyManage<TItem extends AdminTaxonomyItemBase>(
     const router = useRouter();
     const powProvider = usePow();
     const loadTask = useViewTask();
+    const metadataTask = useViewTask();
     const mutation = useMutationFlow();
 
     const list = shallowRef<AdminTaxonomyItemBase[]>([]);
@@ -129,10 +173,37 @@ export function useAdminTaxonomyManage<TItem extends AdminTaxonomyItemBase>(
     const dialogVisible = ref(false);
     const submitting = ref(false);
     const editingId = ref<number | null>(null);
+    const editMetadataStatus = ref<'idle' | 'loading' | 'ready' | 'failed'>('idle');
     const filters = reactive({ keyword: '', unusedOnly: false });
-    const form = reactive({ name: '' });
+    const form = reactive({ name: '', description: '' });
+    const rules: TaxonomyFormRules = {
+        ...schema.rules,
+        description: [
+            {
+                validator: (_rule: unknown, value: unknown) =>
+                {
+                    const text = typeof value === 'string' ? value : '';
+                    if (!normalizeTaxonomyDescriptionInput(text).ok)
+                    {
+                        throw new Error('描述不能超过 500 个字符');
+                    }
+                },
+                trigger: 'blur'
+            }
+        ]
+    };
 
     const isProcessing = computed(() => submitting.value || powProvider.isCalculating.value);
+    const isEditMetadataLoading = computed(() => editMetadataStatus.value === 'loading');
+    const canSubmit = computed(() =>
+    {
+        if (isProcessing.value)
+        {
+            return false;
+        }
+
+        return editingId.value === null || editMetadataStatus.value === 'ready';
+    });
     const dialogTitle = computed(() => schema.dialogTitle(Boolean(editingId.value)));
     const submitButtonText = computed(() =>
     powProvider.isCalculating.value ? '安全计算中...' : schema.submitButtonText
@@ -182,11 +253,54 @@ export function useAdminTaxonomyManage<TItem extends AdminTaxonomyItemBase>(
         }
     };
 
+    const loadEditMetadata = async (id: number): Promise<void> =>
+    {
+        editMetadataStatus.value = 'loading';
+        const data = await metadataTask.run(async (signal) =>
+        {
+            const config: ApiRequestConfig = { signal };
+            return await schema.loadExactMetadata(id, config);
+        }, {
+            fallbackMessage: schema.loadExactMetadataFallbackMessage,
+            onError: (error) =>
+            {
+                console.error(`[Admin Taxonomy:${endpoint}] ${schema.loadExactMetadataFailureLog}`, error);
+                showErrorToast(error, schema.loadExactMetadataFallbackMessage);
+            }
+        });
+
+        if (editingId.value !== id || !dialogVisible.value)
+        {
+            return;
+        }
+
+        if (data)
+        {
+            form.description = data.description ?? '';
+            editMetadataStatus.value = 'ready';
+            return;
+        }
+
+        if (metadataTask.hasError.value)
+        {
+            editMetadataStatus.value = 'failed';
+        }
+    };
+
     const openDialog = (row?: AdminTaxonomyItemBase): void =>
     {
-        editingId.value = row?.id || null;
-        form.name = row?.name || '';
+        editingId.value = row?.id ?? null;
+        form.name = row?.name ?? '';
+        form.description = '';
         dialogVisible.value = true;
+        if (row)
+        {
+            void loadEditMetadata(row.id);
+            return;
+        }
+
+        metadataTask.cancel();
+        editMetadataStatus.value = 'ready';
     };
 
     const hasDuplicateName = (name: string): boolean =>
@@ -195,9 +309,9 @@ export function useAdminTaxonomyManage<TItem extends AdminTaxonomyItemBase>(
         return list.value.some((item) => item.id !== editingId.value && item.name.trim().toLowerCase() === normalized);
     };
 
-    const submitForm = async (formInstance: FormInstance | null | undefined): Promise<void> =>
+    const submitForm = async (formInstance: TaxonomyFormInstance | null | undefined): Promise<void> =>
     {
-        if (!formInstance || isProcessing.value)
+        if (!formInstance || isProcessing.value || !canSubmit.value)
         {
             return;
         }
@@ -216,11 +330,22 @@ export function useAdminTaxonomyManage<TItem extends AdminTaxonomyItemBase>(
                 return;
             }
 
+            const normalizedDescription = normalizeTaxonomyDescriptionInput(form.description);
+            if (!normalizedDescription.ok)
+            {
+                return;
+            }
+
             if (hasDuplicateName(cleanName))
             {
                 showWarningToast(schema.duplicateWarning(cleanName));
                 return;
             }
+
+            const request: TaxonomyMetadataMutationRequest = {
+                name: cleanName,
+                description: normalizedDescription.description
+            };
 
             submitting.value = true;
             await mutation.run(async (signal) =>
@@ -228,11 +353,11 @@ export function useAdminTaxonomyManage<TItem extends AdminTaxonomyItemBase>(
                 const config: ApiRequestConfig = { signal };
                 if (editingId.value)
                 {
-                    await schema.updateItem(editingId.value, cleanName, config);
+                    await schema.updateItem(editingId.value, request, config);
                 }
                 else
                 {
-                    await schema.createItem(cleanName, config);
+                    await schema.createItem(request, config);
                 }
             }, {
                 fallbackMessage: editingId.value ? schema.updateFallbackMessage : schema.createFallbackMessage,
@@ -336,9 +461,11 @@ export function useAdminTaxonomyManage<TItem extends AdminTaxonomyItemBase>(
         dialogTitle,
         submitButtonText,
         isProcessing,
+        isEditMetadataLoading,
+        canSubmit,
         filters,
         form,
-        rules: schema.rules,
+        rules,
         relationLockReason,
         viewAssociatedArticles,
         hasDuplicateName,

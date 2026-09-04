@@ -55,10 +55,6 @@
     --el-text-color-secondary: var(--text-secondary);
     --el-text-color-placeholder: var(--text-muted);
     --fsusblog-color-primary: var(--fsus-color-action-primary, var(--accent, LinkText));
-    --fsusblog-header-bg: var(--el-bg-color);
-    --fsusblog-header-border: var(--el-border-color-lighter);
-    --fsusblog-backdrop-blur-soft: 0px;
-    --fsusblog-backdrop-saturate: 100%;
     --fsusblog-color-surface: var(--surface);
     --fsusblog-color-surface-soft: var(--surface-subtle);
     --fsusblog-color-surface-muted: var(--surface-subtle);
@@ -193,10 +189,6 @@ html[data-theme-resolved='dark']
     --el-text-color-secondary: var(--text-secondary);
     --el-text-color-placeholder: var(--text-muted);
     --fsusblog-color-primary: var(--fsus-color-action-primary, var(--accent, LinkText));
-    --fsusblog-header-bg: var(--el-bg-color);
-    --fsusblog-header-border: var(--el-border-color-lighter);
-    --fsusblog-backdrop-blur-soft: 0px;
-    --fsusblog-backdrop-saturate: 100%;
     --fsusblog-color-surface: var(--surface);
     --fsusblog-color-surface-soft: var(--surface-subtle);
     --fsusblog-color-surface-muted: var(--surface-subtle);
@@ -530,7 +522,7 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in
 
     #fsus-aot-shell a[data-public-link="article"]
     {
-        min-height: 36px;
+        min-height: 2.5rem;
         align-items: center;
     }
 }

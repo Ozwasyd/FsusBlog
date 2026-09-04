@@ -13,7 +13,7 @@
                 type="textarea"
                 textarea-variant="editor-title"
                 :csp-safe="true"
-                :autosize="{ minRows: 1, maxRows: 3 }"
+                :autosize="{ minRows: 1, maxRows: 5 }"
                 maxlength="100"
                 show-word-limit
                 :disabled="disabled"

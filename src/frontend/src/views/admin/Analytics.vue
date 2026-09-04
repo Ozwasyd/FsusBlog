@@ -2,7 +2,6 @@
     <div class="account-page dashboard-wrapper account-motion-enter w-full">
         <FsusUiTaskPageHeader
             title="数据概览"
-            description="阅读、搜索、运行指标与访问来源。"
             class="account-task-page-header"
             density="compact"
         />

@@ -1,6 +1,6 @@
 # 阅读排版契约
 
-本文只拥有 [`surface-profiles.md`](surface-profiles.md) 中 `reading` 内容的排版。Article、About、Comment 与管理端 Preview 共用 `MarkdownRenderer` 和 `markdown.css`，正文唯一基线为 16px、400 字重、1.8 行高、自然字距与左对齐。入口只声明 `article`、`about` 或 `preview` 语义，不允许在调用方重写正文、引用、列表、标题或代码字体。
+本文只拥有 [`surface-profiles.md`](surface-profiles.md) 中 `reading` 内容的排版。Article、About、Comment 与管理端 Preview 共用 `MarkdownRenderer` 和 `markdown.css`，正文基础基线为 16px、400 字重与 1.8 行高；中文文章叙事正文遵循书籍与经典刊物排版规范，使用两端齐行对齐（`text-align: justify`）、0.015em 微字距补偿与 2em 段落首行缩进；各级标题保持左对齐；document mode（About、法律与政策页面）保持段落零首行缩进与左对齐。入口只声明 `article`、`about` 或 `preview` 语义，不允许在调用方重写正文、引用、列表、标题或代码字体。
 
 ## Display、reading 与 metadata
 

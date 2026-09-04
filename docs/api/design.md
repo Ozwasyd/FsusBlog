@@ -557,7 +557,7 @@ tooling contract，不进入 AEDS runtime API，也不能被公开客户端或�
 
 ## AOT 公开页约定
 
-公开页（首页、文章详情、分类、标签、归档、关于、隐私政策、用户守则、版权声明）优先从 AOT 卷命中静态 HTML + AEDS payload。Bundle 格式遵循 [`PublicAotShellEntryContract`](contracts.md#aot-公开页契约)；SPA 接管后由 hydration 层用同一份 Bundle 数据初始化状态，无需二次网络请求。
+公开页（首页、文章详情、分类、标签、归档、关于、隐私政策、用户守则、版权声明）优先从 AOT 卷命中静态 HTML + AEDS payload。Bundle 格式遵循 [`PublicAotShellEntryContract`](contracts.md#aot-公开页契约)；SPA 接管后由 hydration 层用同一份 Bundle 数据初始化状态，无需二次网络请求。 无可用 public Filter seed 的 SPA 导航由 `useFilterView` 对当前目标发起一次 `TaxonomyExactMetadata` 精确读取（分类 id、标签 id、或标签名/alias），不再用 `CategoryList`/`TagList` 解析单个 Filter 目标；有效 seed 已含 taxonomy 元数据时不追加该请求。Search 不调用 taxonomy 元数据端点。文章列表仍走 `getArticles`/`searchIndex`。
 
 每个公开 HTML 请求在 renderer、backfill 和 cache key 之前由纯 `ILocaleResolver` 一次解析：有效 `fsusblog.locale` cookie > `Accept-Language` 中 q 最高且受 catalog 支持的 range > `zh-CN`。resolver 只消费共享 locale catalog，不查询账户、数据库或网络画像。canonical locale 原子绑定 SSR bundle/visible copy、payload `renderLocale`、document lang/dir、`Content-Language`、OpenGraph/Intl 与 Public AOT/PublicHotRead key；缺失或任一不一致拒绝发布。缓存只允许十个 canonical locale 分区，原始 header 和用户 identity 不进入 key。成功 HTML 声明 `Vary: Accept-Language, Cookie`；携带其它 cookie 的请求仍退出 L0。
 
@@ -573,7 +573,7 @@ tooling contract，不进入 AEDS runtime API，也不能被公开客户端或�
 
 统一 SEO 与品牌资产来自同一个 `SeoConfig` AEDS frame，不新增 `/system/brand` 并行主端点。`/api/binary/system/seo` 同时承载基础 SEO、OpenGraph 预览图、favicon/browser icon、Apple Touch Icon、PWA manifest 名称/图标/theme/background、公开站点 logo/wordmark、后台 logo/折叠图标和登录 logo/icon。保存后必须通过 SEO 配置失效链路刷新 HTML head、动态 `manifest.webmanifest`、Public AOT shell、公开 shell hydration、后台与登录页品牌展示；旧配置缺失新增字段时按默认静态路径或空值补齐。资产 URL 只接受站内绝对路径或 `http/https` 绝对 URL，不接受 `javascript:`、`data:` 或协议相对 URL。设置页可以把上传结果按 `ogImage`、`brandLogo`、`faviconSet` 目标语义回填到字段；favicon/PWA 图标组从 PNG/JPG/WebP 源图生成 ICO 与多尺寸 PNG，不引入新的品牌配置端点，也不做栅格图到 SVG 的自动矢量化。
 
-公开 head 不输出 `meta keywords`；历史 `keywords` wire/storage 字段仅用于旧配置兼容，不能作为发布门禁或排名优化信号。description 必须来自当前页面真实内容：文章优先摘要，无摘要时先把 Markdown 转为纯文本再按 Unicode、entity 与句子边界收敛；归档、分类、标签和固定静态页使用各自稳定且可见语义，不回退成同一段站点描述。JSON-LD 的全局实体只有一个 `WebSite`，普通页使用 `WebPage`，归档/分类/标签使用 `CollectionPage`，文章使用 `BlogPosting`。结构化数据用于帮助机器理解页面并取得展示资格，不是排名分数，也不保证富结果。
+公开 head 不输出 `meta keywords`；历史 `keywords` wire/storage 字段仅用于旧配置兼容，不能作为发布门禁或排名优化信号。description 必须来自当前页面真实内容：文章优先摘要，无摘要时先把 Markdown 转为纯文本再按 Unicode、entity 与句子边界收敛；分类和标签若存在 taxonomy `filter.description`，则把该纯文本送入同一套 `Summarize` / 160 字符摘要路径并写入 meta、Open Graph、Twitter 与 JSON-LD，缺失时保留现有分类/标签生成回退，不新增 `SeoDescription` 或 `MetaDescription`；归档和固定静态页使用各自稳定且可见语义，不回退成同一段站点描述。JSON-LD 的全局实体只有一个 `WebSite`，普通页使用 `WebPage`，归档/分类/标签使用 `CollectionPage`，文章使用 `BlogPosting`。结构化数据用于帮助机器理解页面并取得展示资格，不是排名分数，也不保证富结果。
 
 文章时间只使用内容投影：`datePublished` 是实际首次公开时间，`dateModified` 是 `article_body.updated_at` 的实质正文修改时间。可见文本、Microdata、JSON-LD、Feed 与 sitemap 必须共享这两个来源；正文时间不晚于发布时间时不重复展示“更新于”。评论、浏览量、模板和 footer 变化不得推进 `dateModified`。合法文章封面优先成为同一绝对 `og:image`、`twitter:image` 与 `BlogPosting.image`，缺失或协议/格式无效时回退站点社交图片。
 
@@ -748,6 +748,8 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`useAdminTaxonomyManage.ts`](../../src/frontend/src/composables/useAdminTaxonomyManage.ts)。
 
 管理端分类/标签列表不得复用公开 `CategoryList` / `TagList` 的公开文章计数。作者工作台必须读取 `/api/binary/author/taxonomy/categories` 与 `/api/binary/author/taxonomy/tags`，用所有非删除状态或所有 `ArticleTag` 关联形成 `totalBlockingArticleCount` 与 `canDelete`，这样草稿、定时、归档和已删除关联不会被公开计数隐藏。标签删除采用严格锁定语义：只要仍有关联文章就拒绝删除，不静默移除文章上的标签关系。
+
+分类与标签的创建/更新走同一套 `AdminTaxonomyManageView` / `useAdminTaxonomyManage` 对话框，发送 `TaxonomyMetadataMutationRequest`（`name` + 可选 `description`）。描述是可选纯文本：空白提交为 `null`，超过 500 个 Unicode 标量值由客户端与 #2851 服务端同时拒绝，不引入 Markdown/HTML 编辑器。编辑对话框打开时通过 #2852 的 exact Category/Tag metadata 读取当前描述，不得把 Description 放进管理端列表或公开 `CategoryList` / `TagList`；加载完成前该次编辑不可提交，加载失败保持不可提交并走现有管理端错误提示，避免把未解析描述静默写成 `null`。成功保存后再打开依赖 #2857 的 exact-metadata 失效，而不是列表缓存。
 
 ### 资产库
 

@@ -82,7 +82,7 @@ const shellState = computed(() => createPublicShellViewState({
     compliance: activeSiteIdentity.value.compliance,
     renderYear: activeSiteIdentity.value.renderYear,
     isSearchRoute: isSearchRoute.value,
-    initialSearchQuery: isSearchRoute.value ? String(route.query.q || '') : '',
+    initialSearchQuery: '',
     spaSearch: isMounted.value && runtimeActive.value
 }));
 

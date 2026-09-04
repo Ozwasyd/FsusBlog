@@ -9,7 +9,7 @@ artifact 缺失、source 不一致或 digest 漂移都会 fail closed。
 
 - `vue-tsc` 读取源码和生成的 public page manifest，不读取 `public/wasm`，因此不等待 `ensure-wasm`。
 - run-bound client Vite build 读取源码与稳定的 `public`，只等待两个源码生成器；WASM preparation 写入独立
-  run root 并与其并行，随后由 `sync-run-bound-public-assets` 装配 run-bound WASM。非 run-bound fallback
+  run root 并与其并行，随后由 `sync-run-bound-public-assets` 装配 run-bound 公共资产（fixtures、emergency CSS、PWA 文件等，release preview 自行提供这些静态文件）与 WASM。非 run-bound fallback
   仍从 `public/wasm` 读取，因此保留对 `ensure-wasm` 的真实依赖。
 - public SSR build 读取 public renderer 源码、生成的 page manifest 与 emergency CSS，不读取 typecheck
   output 或 client `dist/assets`，因此可与 `vue-tsc` 并行。

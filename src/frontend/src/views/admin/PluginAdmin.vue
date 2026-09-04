@@ -2,7 +2,6 @@
     <div class="account-page plugin-admin-page account-motion-enter w-full">
         <FsusUiTaskPageHeader
             title="插件"
-            description="集中处理权限、运行状态、错误和节点加载差异。"
             class="account-task-page-header"
             density="compact"
         >
@@ -188,10 +187,7 @@
                                 title="Hook 注册"
                                 id="plugin-hooks"
                             >
-                                <ElTable
-                                    :data="detail.manifest.hooks"
-                                    empty-text="未声明 Hook"
-                                >
+                                <ElTable :data="detail.manifest.hooks">
                                     <ElTableColumn
                                         prop="name"
                                         label="Hook"
@@ -218,6 +214,9 @@
                                     >
                                         <template #default="{ row }">{{ row.idempotent ? '是' : '否' }}</template>
                                     </ElTableColumn>
+                                    <template #empty>
+                                        <AdminInlineEmptyState title="未声明 Hook" />
+                                    </template>
                                 </ElTable>
                             </FsusUiSettingsSection>
                         </ElTabPane>
@@ -305,7 +304,6 @@
                                 <ElTable
                                     class="mt-5"
                                     :data="detail.recentExecutions"
-                                    empty-text="该插件尚未产生执行记录"
                                 >
                                     <ElTableColumn
                                         prop="hookName"
@@ -334,6 +332,9 @@
                                         label="Trace"
                                         min-width="170"
                                     />
+                                    <template #empty>
+                                        <AdminInlineEmptyState title="该插件尚未产生执行记录" />
+                                    </template>
                                 </ElTable>
                             </FsusUiSettingsSection>
 
@@ -342,10 +343,7 @@
                                 title="最近错误"
                                 id="plugin-errors"
                             >
-                                <ElTable
-                                    :data="detail.recentErrors"
-                                    empty-text="该插件尚未产生错误记录"
-                                >
+                                <ElTable :data="detail.recentErrors">
                                     <ElTableColumn
                                         prop="createdAtUtc"
                                         label="时间"
@@ -366,6 +364,9 @@
                                         label="节点"
                                         min-width="120"
                                     />
+                                    <template #empty>
+                                        <AdminInlineEmptyState title="该插件尚未产生错误记录" />
+                                    </template>
                                 </ElTable>
                             </FsusUiSettingsSection>
                         </ElTabPane>
@@ -379,10 +380,7 @@
                                 id="plugin-logs"
                             >
                                 <p class="plugin-admin-hint">每个插件每节点最多保留最近 200 条，避免日志刷爆。</p>
-                                <ElTable
-                                    :data="detail.recentLogs"
-                                    empty-text="该插件尚未产生日志条目"
-                                >
+                                <ElTable :data="detail.recentLogs">
                                     <ElTableColumn
                                         prop="createdAtUtc"
                                         label="时间"
@@ -408,6 +406,9 @@
                                         label="消息"
                                         min-width="240"
                                     />
+                                    <template #empty>
+                                        <AdminInlineEmptyState title="该插件尚未产生日志条目" />
+                                    </template>
                                 </ElTable>
                             </FsusUiSettingsSection>
                         </ElTabPane>
@@ -430,7 +431,6 @@
                                 <ElTable
                                     class="mt-5"
                                     :data="detail.nodes"
-                                    empty-text="没有节点"
                                 >
                                     <ElTableColumn
                                         prop="nodeId"
@@ -460,6 +460,9 @@
                                         label="最近错误"
                                         min-width="160"
                                     />
+                                    <template #empty>
+                                        <AdminInlineEmptyState title="没有节点" />
+                                    </template>
                                 </ElTable>
                             </FsusUiSettingsSection>
                         </ElTabPane>
@@ -490,6 +493,7 @@ import {
     type PluginAdminMutation,
     type PluginAdminOverview
 } from '@/api/authoring';
+import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue';
 import { ensureAdminSensitiveProof } from '@/composables/useAdminSensitiveProof';
 import {
     FsusUiKeyValueGrid,

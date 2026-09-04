@@ -1,5 +1,5 @@
 import { requestBinaryOnly } from '@/composition/binaryTransport';
-import type { CategoryItem } from '@/contracts/binaryApi';
+import type { CategoryItem, TaxonomyExactMetadata } from '@/contracts/binaryApi';
 
 import { FrameType } from '@wasm/protocol/frame';
 
@@ -9,7 +9,7 @@ import {
     type TaxonomyMetadataMutationRequest
 } from './binaryFrame';
 
-export type { CategoryItem } from '@/contracts/binaryApi';
+export type { CategoryItem, TaxonomyExactMetadata } from '@/contracts/binaryApi';
 
 // ================= API 方法定义 =================
 
@@ -25,6 +25,16 @@ export const getCategories = (config?: { signal?: AbortSignal; }) =>
     requestBinaryOnly<CategoryItem[]>({
         binaryRoute: { operationId: 'binary_get_category_aeds' },
         frameType: FrameType.CategoryList,
+        signal: config?.signal,
+        requestOptions: {
+            method: 'GET'
+        }
+    });
+
+export const getCategoryExactMetadata = (id: number, config?: { signal?: AbortSignal; }) =>
+    requestBinaryOnly<TaxonomyExactMetadata>({
+        binaryRoute: { operationId: 'binary_get_category_id_int_aeds', params: { id } },
+        frameType: FrameType.TaxonomyExactMetadata,
         signal: config?.signal,
         requestOptions: {
             method: 'GET'

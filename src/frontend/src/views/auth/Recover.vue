@@ -23,7 +23,7 @@
             >
                 <section
                     aria-labelledby="recovery-key-title"
-                    class="space-y-4 rounded-[var(--fsus-radius-panel)] border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] p-5"
+                    class="space-y-4"
                 >
                     <div>
                         <h2

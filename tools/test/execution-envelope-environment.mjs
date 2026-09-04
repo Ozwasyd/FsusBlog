@@ -269,10 +269,14 @@ export function prepareCorrectnessEnvironment({
     const plannedExecutable = observeExecutable(command[0], {
         pathValue: minimal.childEnvironment.PATH
     });
-    const actualExecutable = observeExecutable(plannedExecutable.absolutePath, {
+    const observedActualExecutable = observeExecutable(plannedExecutable.absolutePath, {
         pathValue: minimal.childEnvironment.PATH
     });
-    verifyExecutableIdentity(plannedExecutable, actualExecutable);
+    verifyExecutableIdentity(plannedExecutable, observedActualExecutable);
+    const actualExecutable = Object.freeze({
+        ...observedActualExecutable,
+        requestedName: plannedExecutable.requestedName
+    });
     const policyIdentity = createExecutionEnvelopePolicyIdentity({ policy, catalog });
     const fragment = Object.freeze({
         schema: executionEnvelopeEnvironmentSchema,

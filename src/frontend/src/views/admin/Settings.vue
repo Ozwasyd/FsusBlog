@@ -2,7 +2,6 @@
     <div class="account-page profile-page account-motion-enter w-full">
         <FsusUiTaskPageHeader
             title="系统设置"
-            description="维护站点信息、预览图与静态页面内容。高权限操作会触发明确确认，并自动同步至 AOT 缓存层。"
             class="account-task-page-header"
         />
 
@@ -196,8 +195,7 @@
                                         type="textarea"
                                         :rows="4"
                                         maxlength="200"
-                                        show-word-limit
-                                        :disabled="siteFormDisabled"
+show-word-limit :disabled="siteFormDisabled"
                                     />
                                 </ElFormItem>
 
@@ -616,8 +614,7 @@
                                             :rows="3"
                                             maxlength="512"
                                             show-word-limit
-                                            :disabled="complianceFormDisabled"
-                                            placeholder="保留所有权利。"
+:disabled="complianceFormDisabled" placeholder="保留所有权利。"
                                         />
                                     </ElFormItem>
 

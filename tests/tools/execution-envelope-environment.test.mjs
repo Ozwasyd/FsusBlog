@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import test from 'node:test';
 
 import {
@@ -120,6 +121,89 @@ test('planned and spawn-time executable observations must match exactly', () =>
             };
         }
     }), /executable drift/u);
+});
+
+test('spawn-time executable keeps the declared name after exact absolute identity verification', () =>
+{
+    const observedNames = [];
+    const result = prepareCorrectnessEnvironment({
+        command: ['node', '-e', '0'],
+        parentEnvironment: { PATH: '/tools' },
+        producerAllowlist: [],
+        injectedEnvironment: { FSUSBLOG_TEST_RUN_ID: 'run-1' },
+        policy,
+        catalog,
+        observeExecutable: (name) =>
+        {
+            observedNames.push(name);
+            return {
+                requestedName: name,
+                absolutePath: '/tools/node',
+                realPath: '/tools/node',
+                version: 'v1',
+                sha256: `sha256:${'a'.repeat(64)}`
+            };
+        }
+    });
+    assert.deepEqual(observedNames, ['node', '/tools/node']);
+    assert.equal(result.fragment.plannedExecutable.requestedName, 'node');
+    assert.equal(result.fragment.actualExecutable.requestedName, 'node');
+    assert.deepEqual(result.fragment.actualExecutable, result.fragment.plannedExecutable);
+    assert.deepEqual(result.command, ['/tools/node', '-e', '0']);
+});
+
+test('PATH-resolved node normalizes only its non-measurement command label', () =>
+{
+    const result = prepareCorrectnessEnvironment({
+        command: ['node', '-e', '0'],
+        parentEnvironment: { PATH: process.env.PATH },
+        producerAllowlist: [],
+        injectedEnvironment: { FSUSBLOG_TEST_RUN_ID: 'run-node-label' },
+        policy,
+        catalog
+    });
+    const planned = result.fragment.plannedExecutable;
+    const actual = result.fragment.actualExecutable;
+    assert.equal(planned.requestedName, 'node');
+    assert.equal(actual.requestedName, 'node');
+    assert.ok(path.isAbsolute(planned.absolutePath));
+    for (const field of ['absolutePath', 'realPath', 'version', 'sha256'])
+    {
+        assert.equal(actual[field], planned[field]);
+    }
+    assert.equal(result.command[0], planned.absolutePath);
+});
+
+test('PATH-resolved node still rejects every measured executable identity drift', () =>
+{
+    const planned = {
+        absolutePath: '/tools/node',
+        realPath: '/tools/node-real',
+        version: 'v1',
+        sha256: `sha256:${'a'.repeat(64)}`
+    };
+    for (const [field, value] of [
+        ['absolutePath', '/other/node'],
+        ['realPath', '/other/node-real'],
+        ['version', 'v2'],
+        ['sha256', `sha256:${'b'.repeat(64)}`]
+    ])
+    {
+        let call = 0;
+        assert.throws(() => prepareCorrectnessEnvironment({
+            command: ['node', '-e', '0'],
+            parentEnvironment: { PATH: '/tools' },
+            producerAllowlist: [],
+            injectedEnvironment: { FSUSBLOG_TEST_RUN_ID: 'run-node-drift' },
+            policy,
+            catalog,
+            observeExecutable: (name) => ({
+                requestedName: name,
+                ...planned,
+                ...(call++ === 0 ? {} : { [field]: value })
+            })
+        }), new RegExp(`executable drift: ${field}`, 'u'));
+    }
 });
 
 test('missing or unobservable executable fails closed', () =>

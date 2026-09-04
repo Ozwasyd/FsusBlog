@@ -34,8 +34,8 @@
                         {{ formatSecurityMode(activePolicy?.globalMode) }}
                     </ElTag>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full min-w-full md:min-w-[46rem] text-left text-[12px]">
+                <div class="overflow-x-auto blog-scroll-x-safe">
+                    <table class="w-full min-w-full text-left text-[12px]">
                         <thead class="text-[11px] uppercase text-[var(--fsusblog-text-muted)]">
                             <tr class="border-b border-[var(--fsusblog-panel-border)]">
                                 <th class="px-5 py-3">动作</th>
@@ -51,9 +51,9 @@
                                 class="border-b border-[var(--fsusblog-panel-border)]"
                             >
                                 <td class="px-5 py-3 font-bold text-[var(--fsusblog-text-primary)]">{{ row.actionLabel }}</td>
-                                <td class="px-5 py-3">{{ row.challengeKind || '-' }}</td>
+                                <td class="px-5 py-3 whitespace-nowrap">{{ row.challengeKind || '-' }}</td>
                                 <td class="px-5 py-3 tabular-nums">{{ row.escalationLevel }}</td>
-                                <td class="px-5 py-3 tabular-nums">{{ row.thresholds }}</td>
+                                <td class="px-5 py-3 tabular-nums whitespace-nowrap">{{ row.thresholds }}</td>
                             </tr>
                             <tr v-if="actionPolicyRows.length === 0">
                                 <td

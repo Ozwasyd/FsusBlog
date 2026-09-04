@@ -495,27 +495,27 @@ const loadingArticlePolicy = ref(false);
 const sections = {
     ManageAnonymousCommentPolicy: {
         title: '匿名评论策略',
-        description: '配置匿名评论、公开发送和隐私证明策略。',
+        description: '',
         caption: '需要 anonymous.comment.configure 权限。'
     },
     ManageAnonymousRisk: {
         title: '匿名风险',
-        description: '查看匿名评论主体、声誉桶和审核风险信号。',
+        description: '',
         caption: '展示匿名信号，不提供真实账号反查。'
     },
     ManageAnonymousCredentials: {
         title: '匿名资格',
-        description: '查看匿名资格状态并执行撤销操作。',
+        description: '',
         caption: '需要 anonymous.credential.revoke 权限。'
     },
     ManageAnonymousNullifiers: {
         title: '匿名标识治理',
-        description: '按匿名标识处理评论来源。',
+        description: '',
         caption: '需要 anonymous.nullifier.block 权限。'
     },
     ManageZkAnonymousStatus: {
         title: '隐私证明状态',
-        description: '查看匿名评论证明与策略配置状态。',
+        description: '',
         caption: '需要 anonymous.comment.configure 权限。'
     }
 } as const;

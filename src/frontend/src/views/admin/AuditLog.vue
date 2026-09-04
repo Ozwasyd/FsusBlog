@@ -2,7 +2,6 @@
     <div class="account-page audit-log-page account-motion-enter w-full">
         <FsusUiTaskPageHeader
             title="审计日志"
-            description="查询结构化安全事件、后台操作和防篡改证据。"
             class="account-task-page-header"
             density="compact"
         />
