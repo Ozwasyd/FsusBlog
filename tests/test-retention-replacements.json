@@ -11940,6 +11940,22 @@
                 "vitest:tests/frontend/unit/composables/useImageUploadRuntime.test.ts#shows-resume-and-abandon-only-for-the-corresponding-runt-ecc8235d4c"
             ],
             "reason": "The real upload composable, API calls, local resume snapshot and mounted options panel prove fresh upload, pause, resume, complete, abort cleanup and late-response isolation."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ClaimsAndApiResponseTests.cs#FsusBlog.Server.Tests.Unit.ClaimsPrincipalExtensionsTests.GetUserId_InvalidValueClaim_ReturnsZero#case-0000",
+            "path": "tests/backend/Unit/ClaimsAndApiResponseTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ClaimsAndApiResponseTests.cs#FsusBlog.Server.Tests.Unit.ClaimsPrincipalExtensionsTests.GetUserId_MalformedClaim_ReturnsZero#case-0000"
+            ],
+            "reason": "The not-a-number malformed NameIdentifier Fact becomes the stable not-numeric row of the sole malformed-claim Theory while retaining the real ClaimsPrincipal, production GetUserId call and exact zero assertion."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ClaimsAndApiResponseTests.cs#FsusBlog.Server.Tests.Unit.ClaimsPrincipalExtensionsTests.GetUserId_WhitespaceClaim_ReturnsZero#case-0000",
+            "path": "tests/backend/Unit/ClaimsAndApiResponseTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ClaimsAndApiResponseTests.cs#FsusBlog.Server.Tests.Unit.ClaimsPrincipalExtensionsTests.GetUserId_MalformedClaim_ReturnsZero#case-0001"
+            ],
+            "reason": "The three-space malformed NameIdentifier Fact becomes the stable whitespace row of the sole malformed-claim Theory while retaining the real ClaimsPrincipal, production GetUserId call and exact zero assertion."
         }
     ],
     "assertionReplacements": [
