@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        ".github/workflows/quality-gate.yml"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/current-run-evidence-location-acceptance.json",
+            "sha256": "337e09474f7f4277566f2dac92b6218fd3064747f1bad7f4f34799a6a49bf40a"
+        },
+        {
+            "path": "config/testing/evidence-location-migration-ledger.json",
+            "sha256": "114817edc2e890c371538d256353fe3e313c7152bb6b86bdc6f6c9d46a674714"
+        },
+        {
+            "path": "config/testing/evidence-locator-registry.json",
+            "sha256": "318f999ec092c27837311b33787c6018f114caa4d73e384f325c455e5aab864b"
+        }
+    ]
+}
