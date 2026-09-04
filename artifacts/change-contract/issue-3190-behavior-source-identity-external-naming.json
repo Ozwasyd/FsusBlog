@@ -1,0 +1,33 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/contracts/behavior-graph-join.mjs",
+                "tools/contracts/check-openapi-sync.mjs",
+                "tools/contracts/lib/auth-session-observation.mjs",
+                "tools/contracts/lib/config-error-security-observation.mjs",
+                "tools/contracts/lib/content-lifecycle-observation.mjs",
+                "tools/contracts/lib/openapi-observation.mjs",
+                "tools/contracts/lib/runtime-role-observation.mjs",
+                "tools/docs/behavior-doc-minimal-contract-build.mjs",
+                "tools/docs/behavior-doc-static-admission.mjs",
+                "tools/fact-extractors/identity.mjs",
+                "tools/fact-extractors/reader.mjs",
+                "tools/fact-extractors/receipt.mjs",
+                "tools/fact-extractors/runner.mjs"
+            ],
+            "reason": "preserve caller-visible process, command, receipt, and artifact identifiers while internal JavaScript symbols remain repository-style names"
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/behavior-evidence-pre-runtime-receipt.schema.json",
+                "config/schemas/behavior-graph-receipt.schema.json",
+                "config/schemas/fact-observation-receipt.schema.json"
+            ],
+            "reason": "preserve the existing serialized receipt and schema keys while runtime adapters keep their internal naming convention"
+        }
+    ]
+}
