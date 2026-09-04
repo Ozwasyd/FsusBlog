@@ -46,5 +46,12 @@ export function produceRuntimeRoleObservation({ repositoryRoot, rebuild = true }
   }
   const receiptPath = path.join(path.dirname(output), 'build-receipt.json')
   writeFileSync(receiptPath, `${JSON.stringify({ ...receiptBody, buildIdentity }, null, 2)}\n`)
-  return { observation: JSON.parse(bytes), output, receiptPath, buildIdentity }
+  return {
+    observation: JSON.parse(bytes),
+    output,
+    receiptPath,
+    receiptBody,
+    buildIdentity,
+    buildSourcePaths: []
+  }
 }

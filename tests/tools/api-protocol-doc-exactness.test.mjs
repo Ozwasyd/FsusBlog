@@ -28,6 +28,9 @@ test.before(async () =>
     observation = (await runOpenApiFactExtractor({
         repositoryRoot: root,
         buildIdentity: produced.buildIdentity,
+        buildReceiptPath: path.relative(root, produced.receiptPath),
+        buildReceiptSchema: produced.receiptBody.schema,
+        buildSourcePaths: produced.buildSourcePaths,
         useCache: false
     })).receipt
 })

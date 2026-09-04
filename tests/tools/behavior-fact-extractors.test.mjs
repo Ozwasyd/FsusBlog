@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, cpSync, existsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -361,24 +362,10 @@ test('3) rejects reusing a HEAD receipt after worktree source changes', async ()
     }
 });
 
-test('4) compiled extractor rejects ambient bin directory and requires exact build receipt', async () =>
+test('4) compiled extractor re-reads closed source-bound build identity and rejects mutations', async () =>
 {
     const { validateBuildIdentity } = await import('../../tools/fact-extractors/identity.mjs');
-    assert.throws(
-        () => validateBuildIdentity({
-            artifactId: 'bin/Debug/net9.0/FsusBlog.dll',
-            receiptDigest: 'f'.repeat(64),
-            artifactDigest: '0'.repeat(64)
-        }, 'bin/Debug/net9.0/FsusBlog.dll'),
-        /ambient bin\/Debug|must not bind ambient/u
-    );
     assert.throws(() => validateBuildIdentity(null, 'backend-release'), /requires exact buildIdentity/u);
-    const ok = validateBuildIdentity({
-        artifactId: 'backend-release',
-        receiptDigest: '1'.repeat(64),
-        artifactDigest: '2'.repeat(64)
-    }, 'backend-release');
-    assert.equal(ok.artifactId, 'backend-release');
 
     const directory = fixtureRoot();
     try
@@ -388,6 +375,58 @@ export function extract() {
   return { status: 'ok', failureReasons: [], observations: { assemblyName: 'FsusBlog' } }
 }
 `);
+        const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
+        const sourcePaths = [
+            'src/compiled-seed-a.cs',
+            'src/compiled-seed-b.cs'
+        ];
+        for (const sourcePath of sourcePaths)
+        {
+            write(directory, sourcePath, `${sourcePath}\n`);
+        }
+        const artifactPath = '.tmp/contracts/compiled-seed/compiled.json';
+        const receiptPath = '.tmp/contracts/compiled-seed/build-receipt.json';
+        const artifactBytes = Buffer.from('{"schema":"compiled-seed"}\n', 'utf8');
+        write(directory, artifactPath, artifactBytes);
+        const sourceDigests = Object.fromEntries(sourcePaths.map((sourcePath) => [
+            sourcePath,
+            digest(readFileSync(path.join(directory, sourcePath)))
+        ]));
+        const receiptBody = {
+            schema: 'fsusblog.compiled-seed-build-receipt.v2',
+            artifactId: 'backend-release',
+            artifactPath,
+            artifactDigest: digest(artifactBytes),
+            sourceDigests,
+            sourceDigest: digestValue(sourceDigests),
+            configuration: 'Release'
+        };
+        const buildIdentity = {
+            schema: 'fsusblog.fact-extractor-build-identity.v2',
+            artifactId: receiptBody.artifactId,
+            receiptDigest: digestValue(receiptBody),
+            artifactDigest: receiptBody.artifactDigest,
+            sourceDigests,
+            sourceDigest: receiptBody.sourceDigest
+        };
+        const writeBuildReceipt = (receipt) => write(
+            directory,
+            receiptPath,
+            `${JSON.stringify(receipt, null, 2)}\n`
+        );
+        const validReceipt = { ...receiptBody, buildIdentity };
+        const expectedReceiptSchema = receiptBody.schema;
+        writeBuildReceipt(validReceipt);
+
+        const ok = validateBuildIdentity(buildIdentity, 'backend-release', {
+            repositoryRoot: directory,
+            receiptPath,
+            expectedReceiptSchema,
+            expectedSourcePaths: sourcePaths
+        });
+        assert.deepEqual(ok.sourceDigests, sourceDigests);
+        assert.equal(ok.sourceDigest, digestValue(sourceDigests));
+
         const isolated = {
             schema: registrySchemaId,
             digestAlgorithm: 'sha256',
@@ -404,6 +443,206 @@ export function extract() {
             }]
         };
         validateRegistry(isolated, directory);
+        const accepted = await runExtractor({
+            extractorId: 'compiled-seed-extractor',
+            repositoryRoot: directory,
+            registry: isolated,
+            buildIdentity,
+            buildReceiptPath: receiptPath,
+            buildReceiptSchema: expectedReceiptSchema,
+            buildSourcePaths: sourcePaths,
+            useCache: false
+        });
+        assert.equal(accepted.receipt.status, 'ok');
+        assert.deepEqual(accepted.receipt.buildIdentity.sourceDigests, sourceDigests);
+
+        assert.throws(
+            () => validateBuildIdentity(buildIdentity, 'backend-release', {
+                repositoryRoot: directory,
+                expectedReceiptSchema,
+                expectedSourcePaths: sourcePaths
+            }),
+            /requires canonical build receipt/u
+        );
+        const missing = { ...buildIdentity };
+        delete missing.sourceDigest;
+        assert.throws(
+            () => validateBuildIdentity(missing, 'backend-release', {
+                repositoryRoot: directory,
+                receiptPath,
+                expectedReceiptSchema,
+                expectedSourcePaths: sourcePaths
+            }),
+            /closed buildIdentity shape/u
+        );
+        const extraSourceDigests = {
+            ...sourceDigests,
+            'src/compiled-seed-extra.cs': '0'.repeat(64)
+        };
+        assert.throws(
+            () => validateBuildIdentity({
+                ...buildIdentity,
+                sourceDigests: extraSourceDigests,
+                sourceDigest: digestValue(extraSourceDigests)
+            }, 'backend-release', {
+                repositoryRoot: directory,
+                receiptPath,
+                expectedReceiptSchema,
+                expectedSourcePaths: sourcePaths
+            }),
+            /artifact\/build identity mismatch|source identity mismatch/u
+        );
+        const resealSourceSet = (nextSourceDigests) =>
+        {
+            const nextReceiptBody = {
+                ...receiptBody,
+                sourceDigests: nextSourceDigests,
+                sourceDigest: digestValue(nextSourceDigests)
+            };
+            const nextIdentity = {
+                ...buildIdentity,
+                receiptDigest: digestValue(nextReceiptBody),
+                sourceDigests: nextSourceDigests,
+                sourceDigest: nextReceiptBody.sourceDigest
+            };
+            writeBuildReceipt({ ...nextReceiptBody, buildIdentity: nextIdentity });
+            return nextIdentity;
+        };
+        const missingSourceDigests = { [sourcePaths[0]]: sourceDigests[sourcePaths[0]] };
+        const resealedMissing = resealSourceSet(missingSourceDigests);
+        assert.throws(
+            () => validateBuildIdentity(resealedMissing, 'backend-release', {
+                repositoryRoot: directory,
+                receiptPath,
+                expectedReceiptSchema,
+                expectedSourcePaths: sourcePaths
+            }),
+            /source path set does not match producer authority/u
+        );
+        const extraSourcePath = 'src/compiled-seed-extra.cs';
+        write(directory, extraSourcePath, 'extra source\n');
+        const resealedExtra = resealSourceSet({
+            ...sourceDigests,
+            [extraSourcePath]: digest(readFileSync(path.join(directory, extraSourcePath)))
+        });
+        assert.throws(
+            () => validateBuildIdentity(resealedExtra, 'backend-release', {
+                repositoryRoot: directory,
+                receiptPath,
+                expectedReceiptSchema,
+                expectedSourcePaths: sourcePaths
+            }),
+            /source path set does not match producer authority/u
+        );
+        writeBuildReceipt(validReceipt);
+        const reorderedSourceDigests = Object.fromEntries([...Object.entries(sourceDigests)].reverse());
+        assert.throws(
+            () => validateBuildIdentity({
+                ...buildIdentity,
+                sourceDigests: reorderedSourceDigests,
+                sourceDigest: digestValue(reorderedSourceDigests)
+            }, 'backend-release', {
+                repositoryRoot: directory,
+                receiptPath,
+                expectedReceiptSchema,
+                expectedSourcePaths: sourcePaths
+            }),
+            /malformed or non-canonical/u
+        );
+        assert.throws(
+            () => validateBuildIdentity({
+                ...buildIdentity,
+                sourceDigests: { ...sourceDigests, [sourcePaths[0]]: 'A'.repeat(64) }
+            }, 'backend-release', {
+                repositoryRoot: directory,
+                receiptPath,
+                expectedReceiptSchema,
+                expectedSourcePaths: sourcePaths
+            }),
+            /malformed or non-canonical/u
+        );
+
+        const downgradedBody = { ...receiptBody };
+        delete downgradedBody.sourceDigests;
+        delete downgradedBody.sourceDigest;
+        const downgradedIdentity = {
+            artifactId: downgradedBody.artifactId,
+            receiptDigest: digestValue(downgradedBody),
+            artifactDigest: downgradedBody.artifactDigest
+        };
+        writeBuildReceipt({ ...downgradedBody, buildIdentity: downgradedIdentity });
+        assert.throws(
+            () => validateBuildIdentity(downgradedIdentity, 'backend-release', {
+                repositoryRoot: directory,
+                receiptPath,
+                expectedReceiptSchema,
+                expectedSourcePaths: sourcePaths
+            }),
+            /schema v2 does not match its source identity shape/u
+        );
+        writeBuildReceipt(validReceipt);
+
+        const renamedDowngradeBody = {
+            ...downgradedBody,
+            schema: 'fsusblog.compiled-seed-build-receipt.v1'
+        };
+        const renamedDowngradeIdentity = {
+            ...downgradedIdentity,
+            receiptDigest: digestValue(renamedDowngradeBody)
+        };
+        writeBuildReceipt({
+            ...renamedDowngradeBody,
+            buildIdentity: renamedDowngradeIdentity
+        });
+        assert.throws(
+            () => validateBuildIdentity(renamedDowngradeIdentity, 'backend-release', {
+                repositoryRoot: directory,
+                receiptPath,
+                expectedReceiptSchema,
+                expectedSourcePaths: sourcePaths
+            }),
+            /schema does not match its authoritative expected schema/u
+        );
+        writeBuildReceipt(validReceipt);
+
+        const tamperedReceipt = structuredClone(validReceipt);
+        tamperedReceipt.sourceDigest = '0'.repeat(64);
+        writeBuildReceipt(tamperedReceipt);
+        assert.throws(
+            () => validateBuildIdentity(buildIdentity, 'backend-release', {
+                repositoryRoot: directory,
+                receiptPath,
+                expectedReceiptSchema,
+                expectedSourcePaths: sourcePaths
+            }),
+            /self-digest mismatch/u
+        );
+        writeBuildReceipt(validReceipt);
+
+        writeFileSync(path.join(directory, sourcePaths[0]), 'stale source\n');
+        assert.throws(
+            () => validateBuildIdentity(buildIdentity, 'backend-release', {
+                repositoryRoot: directory,
+                receiptPath,
+                expectedReceiptSchema,
+                expectedSourcePaths: sourcePaths
+            }),
+            /source digest mismatch/u
+        );
+        writeFileSync(path.join(directory, sourcePaths[0]), `${sourcePaths[0]}\n`);
+
+        writeFileSync(path.join(directory, artifactPath), '{"schema":"tampered"}\n');
+        assert.throws(
+            () => validateBuildIdentity(buildIdentity, 'backend-release', {
+                repositoryRoot: directory,
+                receiptPath,
+                expectedReceiptSchema,
+                expectedSourcePaths: sourcePaths
+            }),
+            /artifact digest mismatch/u
+        );
+        writeFileSync(path.join(directory, artifactPath), artifactBytes);
+
         await assert.rejects(
             () => runExtractor({
                 extractorId: 'compiled-seed-extractor',

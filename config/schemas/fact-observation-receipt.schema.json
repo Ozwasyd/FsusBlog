@@ -45,30 +45,14 @@
             "pattern": "^[a-f0-9]{64}$"
         },
         "buildIdentity": {
-            "type": [
-                "object",
-                "null"
-            ],
-            "additionalProperties": false,
-            "required": [
-                "artifactId",
-                "receiptDigest",
-                "artifactDigest"
-            ],
-            "properties": {
-                "artifactId": {
-                    "type": "string",
-                    "minLength": 1
+            "oneOf": [
+                {
+                    "type": "null"
                 },
-                "receiptDigest": {
-                    "type": "string",
-                    "pattern": "^[a-f0-9]{64}$"
-                },
-                "artifactDigest": {
-                    "type": "string",
-                    "pattern": "^[a-f0-9]{64}$"
+                {
+                    "$ref": "#/$defs/buildIdentity"
                 }
-            }
+            ]
         },
         "extractorDigest": {
             "type": "string",
@@ -126,6 +110,77 @@
         }
     },
     "$defs": {
+        "buildIdentity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "artifactId",
+                "receiptDigest",
+                "artifactDigest"
+            ],
+            "properties": {
+                "artifactId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "schema": {
+                    "const": "fsusblog.fact-extractor-build-identity.v2"
+                },
+                "receiptDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "artifactDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "sourceDigests": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "propertyNames": {
+                        "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+                    },
+                    "additionalProperties": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                    }
+                },
+                "sourceDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                }
+            },
+            "oneOf": [
+                {
+                    "not": {
+                        "anyOf": [
+                            {
+                                "required": [
+                                    "schema"
+                                ]
+                            },
+                            {
+                                "required": [
+                                    "sourceDigests"
+                                ]
+                            },
+                            {
+                                "required": [
+                                    "sourceDigest"
+                                ]
+                            }
+                        ]
+                    }
+                },
+                {
+                    "required": [
+                        "schema",
+                        "sourceDigests",
+                        "sourceDigest"
+                    ]
+                }
+            ]
+        },
         "observationValue": {
             "description": "Stable typed observation values only. No free-form source, logs, or Markdown.",
             "oneOf": [

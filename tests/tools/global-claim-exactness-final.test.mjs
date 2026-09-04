@@ -34,11 +34,11 @@ const extractorIds = Object.freeze([
 ])
 
 const buildProviders = Object.freeze({
-    'test-matrix-fact-extractor': () => produceRuntimeRoleObservation({ repositoryRoot: root }).buildIdentity,
-    'openapi-aeds-fact-extractor': () => produceOpenApiObservation({ repositoryRoot: root }).buildIdentity,
-    'auth-session-permission-fact-extractor': () => produceAuthSessionObservation({ repositoryRoot: root }).buildIdentity,
-    'config-error-security-policy-fact-extractor': () => produceConfigErrorSecurityObservation({ repositoryRoot: root }).buildIdentity,
-    'content-lifecycle-fact-extractor': () => produceContentLifecycleObservation({ repositoryRoot: root }).buildIdentity
+    'test-matrix-fact-extractor': () => produceRuntimeRoleObservation({ repositoryRoot: root }),
+    'openapi-aeds-fact-extractor': () => produceOpenApiObservation({ repositoryRoot: root }),
+    'auth-session-permission-fact-extractor': () => produceAuthSessionObservation({ repositoryRoot: root }),
+    'config-error-security-policy-fact-extractor': () => produceConfigErrorSecurityObservation({ repositoryRoot: root }),
+    'content-lifecycle-fact-extractor': () => produceContentLifecycleObservation({ repositoryRoot: root })
 })
 
 let receipts
@@ -54,11 +54,16 @@ test.before(async () =>
     // extractor is simply re-run against the converged identity).
     const run = async (extractorId) =>
     {
-        const buildIdentity = buildProviders[extractorId] ? buildProviders[extractorId]() : null
+        const produced = buildProviders[extractorId] ? buildProviders[extractorId]() : null
         const { receipt } = await runExtractor({
             extractorId,
             repositoryRoot: root,
-            buildIdentity,
+            buildIdentity: produced?.buildIdentity ?? null,
+            buildReceiptPath: produced?.receiptPath == null
+                ? null
+                : path.relative(root, produced.receiptPath),
+            buildReceiptSchema: produced?.receiptBody?.schema ?? null,
+            buildSourcePaths: produced?.buildSourcePaths ?? null,
             useCache: false
         })
         if (receipt.status !== 'ok') assert.fail(`${extractorId} failed: ${receipt.failureReasons.join('; ')}`)

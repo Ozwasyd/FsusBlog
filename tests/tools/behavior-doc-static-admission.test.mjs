@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -8,9 +9,9 @@ import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const { parseWorkflow, validateBehaviorDocStaticAdmissionTopology } = await import(new URL("../../tools/check-workflow-matrix-sync.mjs", import.meta.url));
-const { buildIdentitiesFromMinimalReceipt, hostDeclarations, runMinimalContractBuild } = await import(new URL("../../tools/docs/behavior-doc-minimal-contract-build.mjs", import.meta.url));
-const { behaviorDocAdmissionReceiptSchema, validateBehaviorDocStaticAdmissionReceipt, writeFactObservationReceipts } = await import(new URL("../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
-const { digestValue, sealSourceIdentity } = await import(new URL("../../tools/fact-extractors/identity.mjs", import.meta.url));
+const { buildIdentitiesFromMinimalReceipt, buildReceiptPathsFromMinimalReceipt, buildReceiptSchemasFromMinimalReceipt, buildSourcePathsFromMinimalReceipt, hostDeclarations, runMinimalContractBuild } = await import(new URL("../../tools/docs/behavior-doc-minimal-contract-build.mjs", import.meta.url));
+const { behaviorDocAdmissionReceiptSchema, runFactObservationAdmission, validateBehaviorDocStaticAdmissionReceipt, writeFactObservationReceipts } = await import(new URL("../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
+const { digestValue, sealSourceIdentity, validateBuildIdentity } = await import(new URL("../../tools/fact-extractors/identity.mjs", import.meta.url));
 const { loadRegistry } = await import(new URL("../../tools/fact-extractors/registry.mjs", import.meta.url));
 const { establishBehaviorDocAdmission, runLocalProfile } = await import(new URL("../../tools/run-test-matrix.mjs", import.meta.url));
 const { behaviorDocStaticAdmissionTierId, localBehaviorDocCandidateBundleIds, validateBehaviorDocStaticAdmissionMatrix } = await import(new URL("../../tools/test-matrix/behavior-doc-static-admission-contract.mjs", import.meta.url));
@@ -122,6 +123,149 @@ test('minimal build identity binds the child build receipt digest', () =>
 
     assert.equal(identity.receiptDigest, expectedReceiptDigest);
     assert.notEqual(identity.receiptDigest, receipt.contentDigest);
+});
+
+test('BehaviorDoc fact admission preserves source identity and rejects receipt/source/artifact tamper', async (t) =>
+{
+    const relativeDirectory = `.tmp/contracts/behavior-doc-source-identity-${process.pid}`;
+    const directory = path.join(root, relativeDirectory);
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    fs.mkdirSync(directory, { recursive: true });
+
+    const digestBytes = (bytes) => createHash('sha256').update(bytes).digest('hex');
+    const sourcePaths = [
+        `${relativeDirectory}/authority-a.txt`,
+        `${relativeDirectory}/authority-b.txt`
+    ];
+    const artifactPath = `${relativeDirectory}/observation.json`;
+    const receiptPath = `${relativeDirectory}/build-receipt.json`;
+    const artifactId = 'behavior-doc-source-identity-observation';
+    const receiptSchema = 'fsusblog.behavior-doc-source-identity-build-receipt.v2';
+    const sourceBytes = new Map(sourcePaths.map((sourcePath) => [
+        sourcePath,
+        Buffer.from(`${path.basename(sourcePath)}\n`, 'utf8')
+    ]));
+    const artifactBytes = Buffer.from('{"schema":"source-bound-observation"}\n', 'utf8');
+    for (const [sourcePath, bytes] of sourceBytes)
+    {
+        fs.writeFileSync(path.join(root, sourcePath), bytes);
+    }
+    fs.writeFileSync(path.join(root, artifactPath), artifactBytes);
+    const sourceDigests = Object.fromEntries(sourcePaths.map((sourcePath) => [
+        sourcePath,
+        digestBytes(sourceBytes.get(sourcePath))
+    ]));
+    const receiptBody = {
+        schema: receiptSchema,
+        artifactId,
+        artifactPath,
+        artifactDigest: digestBytes(artifactBytes),
+        sourceDigests,
+        sourceDigest: digestValue(sourceDigests),
+        configuration: 'Release'
+    };
+    const buildIdentity = {
+        schema: 'fsusblog.fact-extractor-build-identity.v2',
+        artifactId,
+        receiptDigest: digestValue(receiptBody),
+        artifactDigest: receiptBody.artifactDigest,
+        sourceDigests,
+        sourceDigest: receiptBody.sourceDigest
+    };
+    const validReceipt = { ...receiptBody, buildIdentity };
+    const writeBuildReceipt = (receipt) => fs.writeFileSync(
+        path.join(root, receiptPath),
+        `${JSON.stringify(receipt, null, 2)}\n`
+    );
+    writeBuildReceipt(validReceipt);
+
+    const registry = structuredClone(loadRegistry());
+    const extractor = structuredClone(
+        registry.extractors.find((entry) => entry.id === 'test-asset-audit-fact-extractor')
+    );
+    extractor.kind = 'compiled-assembly';
+    extractor.requiredBuildArtifact = artifactId;
+    extractor.hermeticPolicy = 'exact-build-receipt';
+    registry.extractors = [extractor];
+    const minimalBuild = {
+        buildIdentities: { [artifactId]: buildIdentity },
+        buildReceiptPaths: { [artifactId]: receiptPath },
+        buildReceiptSchemas: { [artifactId]: receiptSchema },
+        buildSourcePaths: { [artifactId]: sourcePaths }
+    };
+    const run = (overrides = {}) => runFactObservationAdmission({
+        repositoryRoot: root,
+        registry,
+        minimalBuild: { ...minimalBuild, ...overrides }
+    });
+
+    const positive = await run();
+    assert.equal(positive.observationReceipts[0].status, 'ok');
+    assert.deepEqual(
+        positive.observationReceipts[0].buildIdentity.sourceDigests,
+        sourceDigests
+    );
+
+    const resealSourceSet = (nextSourceDigests) =>
+    {
+        const nextBody = {
+            ...receiptBody,
+            sourceDigests: nextSourceDigests,
+            sourceDigest: digestValue(nextSourceDigests)
+        };
+        const nextIdentity = {
+            ...buildIdentity,
+            receiptDigest: digestValue(nextBody),
+            sourceDigests: nextSourceDigests,
+            sourceDigest: nextBody.sourceDigest
+        };
+        writeBuildReceipt({ ...nextBody, buildIdentity: nextIdentity });
+        return nextIdentity;
+    };
+    const missingSourceDigests = { [sourcePaths[0]]: sourceDigests[sourcePaths[0]] };
+    const missingIdentity = resealSourceSet(missingSourceDigests);
+    await assert.rejects(
+        () => run({ buildIdentities: { [artifactId]: missingIdentity } }),
+        /source path set does not match producer authority/u
+    );
+    const extraSourcePath = `${relativeDirectory}/authority-c.txt`;
+    const extraSourceBytes = Buffer.from('authority-c.txt\n', 'utf8');
+    fs.writeFileSync(path.join(root, extraSourcePath), extraSourceBytes);
+    const extraIdentity = resealSourceSet({
+        ...sourceDigests,
+        [extraSourcePath]: digestBytes(extraSourceBytes)
+    });
+    await assert.rejects(
+        () => run({ buildIdentities: { [artifactId]: extraIdentity } }),
+        /source path set does not match producer authority/u
+    );
+    writeBuildReceipt(validReceipt);
+
+    writeBuildReceipt({ ...validReceipt, configuration: 'Debug' });
+    await assert.rejects(() => run(), /self-digest mismatch/u);
+    writeBuildReceipt(validReceipt);
+
+    fs.writeFileSync(path.join(root, sourcePaths[0]), 'stale source authority\n');
+    await assert.rejects(() => run(), /source digest mismatch/u);
+    fs.writeFileSync(path.join(root, sourcePaths[0]), sourceBytes.get(sourcePaths[0]));
+
+    fs.writeFileSync(path.join(root, artifactPath), '{"schema":"tampered"}\n');
+    await assert.rejects(() => run(), /artifact digest mismatch/u);
+    fs.writeFileSync(path.join(root, artifactPath), artifactBytes);
+
+    const downgradedBody = { ...receiptBody, schema: receiptSchema.replace(/v2$/u, 'v1') };
+    delete downgradedBody.sourceDigests;
+    delete downgradedBody.sourceDigest;
+    const downgradedIdentity = {
+        artifactId,
+        receiptDigest: digestValue(downgradedBody),
+        artifactDigest: receiptBody.artifactDigest
+    };
+    writeBuildReceipt({ ...downgradedBody, buildIdentity: downgradedIdentity });
+    await assert.rejects(
+        () => run({ buildIdentities: { [artifactId]: downgradedIdentity } }),
+        /schema does not match its authoritative expected schema/u
+    );
 });
 
 function validAdmissionReceipt({
@@ -484,6 +628,30 @@ test('minimal contract build uses only a content-addressed root and never ambien
         Object.keys(hostDeclarations).length
     );
     assert.match(result.receipt.buildRoot, /^\.tmp\/behavior-doc-contract-builds\/[a-f0-9]{64}$/u);
+    const runtimeIdentity = result.buildIdentities['runtime-role-observation'];
+    const runtimeReceiptPath = result.buildReceiptPaths['runtime-role-observation'];
+    const runtimeReceiptSchema = result.buildReceiptSchemas['runtime-role-observation'];
+    const runtimeSourcePaths = result.buildSourcePaths['runtime-role-observation'];
+    const normalized = validateBuildIdentity(runtimeIdentity, 'runtime-role-observation', {
+        repositoryRoot,
+        receiptPath: runtimeReceiptPath,
+        expectedReceiptSchema: runtimeReceiptSchema,
+        expectedSourcePaths: runtimeSourcePaths
+    });
+    assert.equal(normalized.artifactId, 'runtime-role-observation');
+    assert.equal(Object.hasOwn(normalized, 'sourceDigests'), false);
+    assert.equal(
+        runtimeReceiptPath,
+        buildReceiptPathsFromMinimalReceipt(result.receipt)['runtime-role-observation']
+    );
+    assert.equal(
+        runtimeReceiptSchema,
+        buildReceiptSchemasFromMinimalReceipt(result.receipt)['runtime-role-observation']
+    );
+    assert.deepEqual(
+        runtimeSourcePaths,
+        buildSourcePathsFromMinimalReceipt(result.receipt)['runtime-role-observation']
+    );
     assert.equal(fs.readFileSync(ambient, 'utf8'), '{"stale":true}\n');
 });
 

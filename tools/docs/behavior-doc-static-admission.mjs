@@ -347,6 +347,53 @@ export function writeFactObservationReceipts(componentsDirectory, observationRec
     }
 }
 
+export async function runFactObservationAdmission({
+    repositoryRoot,
+    registry,
+    minimalBuild
+})
+{
+    const observationReceipts = [];
+    const factObservations = {};
+    for (const extractor of registry.extractors)
+    {
+        const buildIdentity = extractor.requiredBuildArtifact === null
+            ? null
+            : minimalBuild.buildIdentities[extractor.requiredBuildArtifact];
+        const buildReceiptPath = extractor.requiredBuildArtifact === null
+            ? null
+            : minimalBuild.buildReceiptPaths[extractor.requiredBuildArtifact];
+        const buildReceiptSchema = extractor.requiredBuildArtifact === null
+            ? null
+            : minimalBuild.buildReceiptSchemas[extractor.requiredBuildArtifact];
+        const buildSourcePaths = extractor.requiredBuildArtifact === null
+            ? null
+            : minimalBuild.buildSourcePaths[extractor.requiredBuildArtifact];
+        const result = await runExtractor({
+            extractorId: extractor.id,
+            repositoryRoot,
+            registry,
+            buildIdentity,
+            buildReceiptPath,
+            buildReceiptSchema,
+            buildSourcePaths,
+            useCache: false
+        });
+        if (result.receipt.status !== 'ok')
+        {
+            throw new Error(`${extractor.id}: ${result.receipt.failureReasons.join('; ')}`);
+        }
+        observationReceipts.push(result.receipt);
+        factObservations[extractor.id] = {
+            status: result.receipt.status,
+            extractorDigest: result.receipt.extractorDigest,
+            semanticDigest: semanticDigestFromReceipt(result.receipt),
+            contentDigest: result.receipt.contentDigest
+        };
+    }
+    return { observationReceipts, factObservations };
+}
+
 export async function runBehaviorDocStaticAdmission({
     repositoryRoot = root,
     runId = process.env.FSUSBLOG_TEST_RUN_ID || `local-${process.pid}`,
@@ -453,31 +500,13 @@ export async function runBehaviorDocStaticAdmission({
         });
         base.minimalContractBuild = minimalBuild.receipt;
 
-        const observationReceipts = [];
-        for (const extractor of registry.extractors)
-        {
-            const buildIdentity = extractor.requiredBuildArtifact === null
-                ? null
-                : minimalBuild.buildIdentities[extractor.requiredBuildArtifact];
-            const result = await runExtractor({
-                extractorId: extractor.id,
-                repositoryRoot,
-                registry,
-                buildIdentity,
-                useCache: false
-            });
-            if (result.receipt.status !== 'ok')
-            {
-                throw new Error(`${extractor.id}: ${result.receipt.failureReasons.join('; ')}`);
-            }
-            observationReceipts.push(result.receipt);
-            base.factObservations[extractor.id] = {
-                status: result.receipt.status,
-                extractorDigest: result.receipt.extractorDigest,
-                semanticDigest: semanticDigestFromReceipt(result.receipt),
-                contentDigest: result.receipt.contentDigest
-            };
-        }
+        const factAdmission = await runFactObservationAdmission({
+            repositoryRoot,
+            registry,
+            minimalBuild
+        });
+        const { observationReceipts } = factAdmission;
+        base.factObservations = factAdmission.factObservations;
         // Preserve successful current-source observations before downstream
         // generated-section admission. A drift failure must retain the exact
         // receipts required by the canonical generator without weakening the

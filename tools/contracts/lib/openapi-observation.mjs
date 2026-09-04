@@ -139,7 +139,8 @@ export function produceOpenApiObservation({
         observedOpenApiText: readFileSync(paths.observedOpenApiPath, 'utf8'),
         buildIdentity,
         receiptPath,
-        receiptBody
+        receiptBody,
+        buildSourcePaths: []
     };
 }
 
@@ -322,6 +323,9 @@ export function validateObservationAgainstProtocol(observation, protocol = loadP
 export async function runOpenApiFactExtractor({
     repositoryRoot = root,
     buildIdentity,
+    buildReceiptPath,
+    buildReceiptSchema,
+    buildSourcePaths,
     useCache = false
 } = {})
 {
@@ -333,6 +337,9 @@ export async function runOpenApiFactExtractor({
         extractorId: 'openapi-aeds-fact-extractor',
         repositoryRoot,
         buildIdentity,
+        buildReceiptPath,
+        buildReceiptSchema,
+        buildSourcePaths,
         useCache
     });
 }

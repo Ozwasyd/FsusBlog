@@ -112,7 +112,8 @@ export function produceConfigErrorSecurityObservation({
     observationPath: paths.observationPath,
     buildIdentity,
     receiptPath,
-    receiptBody
+    receiptBody,
+    buildSourcePaths: []
   }
 }
 

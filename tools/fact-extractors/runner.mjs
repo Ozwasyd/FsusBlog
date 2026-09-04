@@ -105,6 +105,9 @@ export async function runExtractor({
     repositoryRoot = root,
     registry = loadRegistry(path.join(repositoryRoot, 'config/contracts/behavior-fact-extractors.json')),
     buildIdentity = null,
+    buildReceiptPath = null,
+    buildReceiptSchema = null,
+    buildSourcePaths = null,
     useCache = true,
     cacheRoot = null
 } = {})
@@ -112,7 +115,16 @@ export async function runExtractor({
     const { digest: registryDigest } = validateRegistry(registry, repositoryRoot)
     const extractor = getExtractor(registry, extractorId)
     const identity = sealSourceIdentity(repositoryRoot)
-    const normalizedBuildIdentity = validateBuildIdentity(buildIdentity, extractor.requiredBuildArtifact)
+    const normalizedBuildIdentity = validateBuildIdentity(
+        buildIdentity,
+        extractor.requiredBuildArtifact,
+        {
+            repositoryRoot,
+            receiptPath: buildReceiptPath,
+            expectedReceiptSchema: buildReceiptSchema,
+            expectedSourcePaths: buildSourcePaths
+        }
+    )
 
     if (extractor.hermeticPolicy === 'exact-build-receipt' && normalizedBuildIdentity == null)
     {
