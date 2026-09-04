@@ -162,8 +162,12 @@ function currentObservation(
     result: MarkdownRenderResult
 ): MarkdownCompletionObservation | null
 {
+    if (!belongsToCurrentPreview(result))
+    {
+        return null;
+    }
     const preview = props.preview;
-    if (!preview || !belongsToCurrentPreview(result))
+    if (!preview)
     {
         return null;
     }
@@ -175,10 +179,7 @@ function currentObservation(
 
 function isCurrentGeneration(contentVersion: number | string | null): boolean
 {
-    return Boolean(
-        props.preview
-            && contentVersion === props.preview.sourceIdentity
-    );
+    return props.preview?.sourceIdentity === contentVersion;
 }
 
 function requiredKindsFor(
