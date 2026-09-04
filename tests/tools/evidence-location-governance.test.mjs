@@ -5,6 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { changeContract } from '../../tools/governance/change-contract-registry.mjs';
 import {
     governanceContentDigest,
     validateEvidenceLocationMigrationLedger,
@@ -19,6 +20,10 @@ import {
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const load = (name) => JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'config/testing', name), 'utf8'));
 const seal = (value) => ({ ...value, contentDigest: governanceContentDigest(value) });
+const repairManifestPath = changeContract.generatedOutputRepairDags
+    .find((entry) => entry.id === 'evidence-location-governance').manifest;
+const repairExternalNamingManifestPath = changeContract.generatedOutputRepairDags
+    .find((entry) => entry.id === 'evidence-location-governance').externalNamingManifest;
 
 test('scanner covers JS TS C# shell workflow and config selection families', (context) =>
 {
@@ -86,16 +91,35 @@ test('scanner authority exclusions are exact and cannot become wildcard suppress
 {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'evidence-location-authority-'));
     context.after(() => fs.rmSync(root, { recursive: true, force: true }));
-    const exact = 'tools/test/evidence-location-scanner.mjs';
-    const adjacent = 'tools/test/evidence-location-scanner-copy.mjs';
-    for (const file of [exact, adjacent])
+    const pairs = [
+        [
+            'tools/test/evidence-location-scanner.mjs',
+            'tools/test/evidence-location-scanner-copy.mjs'
+        ],
+        [
+            'config/testing/current-run-evidence-location-acceptance.json',
+            'config/testing/current-run-evidence-location-acceptance-copy.json'
+        ],
+        [
+            repairManifestPath,
+            'artifacts/change-contract/evidence-location-governance-post-merge-repair-copy.json'
+        ],
+        [
+            repairExternalNamingManifestPath,
+            'artifacts/change-contract/evidence-location-governance-post-merge-repair-external-naming-copy.json'
+        ]
+    ];
+    for (const file of pairs.flat())
     {
         fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
         fs.writeFileSync(path.join(root, file), "const latestEvidence = 'latest.json';\n");
     }
-    const scan = scanEvidenceLocations({ root, files: [exact, adjacent] });
-    assert.equal(scan.findings.some((finding) => finding.file === exact), false);
-    assert.equal(scan.findings.some((finding) => finding.file === adjacent), true);
+    const scan = scanEvidenceLocations({ root, files: pairs.flat() });
+    for (const [exact, adjacent] of pairs)
+    {
+        assert.equal(scan.findings.some((finding) => finding.file === exact), false);
+        assert.equal(scan.findings.some((finding) => finding.file === adjacent), true);
+    }
 });
 
 test('generated repository registry and unique ledger match a fresh full-repository scan', () =>
