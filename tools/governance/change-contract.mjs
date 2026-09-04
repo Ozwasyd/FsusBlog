@@ -23,6 +23,7 @@ const refactorClaimPattern = /\b(?:faster|latency|performance|throughput|speedup
 const fullShaPattern = /^[0-9a-f]{40}$/u
 const sha256Pattern = /^[0-9a-f]{64}$/u
 const repositoryPathPattern = /^(?![/\\])(?!.*(?:^|[/\\])\.\.(?:[/\\]|$))[A-Za-z0-9._/\-]+$/u
+const revisionBlobMaximumBytes = 16 * 1024 * 1024
 
 const userReleaseCategories = new Set(
     changeContract.releaseNoteCategories
@@ -292,9 +293,79 @@ function sameStrings(left, right) {
         && [...left].sort().every((value, index) => value === [...right].sort()[index])
 }
 
-function readFileAtRevision(root, revision, path) {
-    if (!repositoryPathPattern.test(path)) throw new Error(`invalid repository path: ${path}`)
-    return execFileSync('git', ['show', `${revision}:${path}`], { cwd: root })
+function resolveRevisionBlob(root, revision, path) {
+    if (typeof revision !== 'string' || revision.length === 0 || revision.includes('\x00')) {
+        throw new Error(`invalid repository revision: ${String(revision)}`)
+    }
+    if (typeof path !== 'string' || !repositoryPathPattern.test(path)) {
+        throw new Error(`invalid repository path: ${String(path)}`)
+    }
+
+    let commit
+    try {
+        commit = execFileSync(
+            'git',
+            ['rev-parse', '--verify', '--end-of-options', `${revision}^{commit}`],
+            { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+        ).trim()
+    } catch {
+        throw new Error(`repository revision does not resolve to one commit: ${revision}`)
+    }
+    if (!fullShaPattern.test(commit)) throw new Error(`repository revision did not resolve to one commit: ${revision}`)
+
+    const treeOutput = execFileSync(
+        'git',
+        ['ls-tree', '-z', '--full-tree', commit, '--', path],
+        { cwd: root }
+    )
+    const treeEntry = treeOutput.toString('utf8').match(
+        /^(?<mode>\d{6}) (?<type>[a-z]+) (?<object>[0-9a-f]{40})\t(?<path>[^\x00]+)\x00$/u
+    )?.groups
+    if (!treeEntry || treeEntry.path !== path) {
+        throw new Error(`repository path does not resolve to one exact Git object at ${commit}: ${path}`)
+    }
+    if (!['100644', '100755'].includes(treeEntry.mode) || treeEntry.type !== 'blob') {
+        throw new Error(`repository path is not a regular Git blob at ${commit}: ${path} (${treeEntry.mode} ${treeEntry.type})`)
+    }
+
+    const sizeText = execFileSync(
+        'git',
+        ['cat-file', '-s', treeEntry.object],
+        { cwd: root, encoding: 'utf8' }
+    ).trim()
+    if (!/^(?:0|[1-9]\d*)$/u.test(sizeText) || !Number.isSafeInteger(Number(sizeText))) {
+        throw new Error(`Git blob reported an invalid size at ${commit}: ${path}`)
+    }
+    return { commit, object: treeEntry.object, size: Number(sizeText) }
+}
+
+export function readFileAtRevision(root, revision, path, {
+    maximumBytes = revisionBlobMaximumBytes
+} = {}) {
+    if (
+        !Number.isSafeInteger(maximumBytes)
+        || maximumBytes < 0
+        || maximumBytes > revisionBlobMaximumBytes
+    ) {
+        throw new Error(`revision blob maximum must be between 0 and ${revisionBlobMaximumBytes} bytes`)
+    }
+    const blob = resolveRevisionBlob(root, revision, path)
+    if (blob.size > maximumBytes) {
+        throw new Error(
+            `Git blob exceeds the ${maximumBytes}-byte revision read limit at ${blob.commit}: ${path} (${blob.size} bytes)`
+        )
+    }
+    const content = execFileSync(
+        'git',
+        ['cat-file', 'blob', blob.object],
+        { cwd: root, maxBuffer: maximumBytes + 1 }
+    )
+    if (content.length !== blob.size) {
+        throw new Error(
+            `Git blob read was truncated at ${blob.commit}: ${path} (expected ${blob.size} bytes, received ${content.length})`
+        )
+    }
+    return content
 }
 
 function readJsonAtRevision(root, revision, path) {
@@ -1792,8 +1863,8 @@ export function validateFormatOnlyDiff(root, base, head, { ignoredPaths = [] } =
         ).toString('utf8').split('\x00').filter((path) => path !== '' && !ignored.has(path))
         const changedTokens = []
         for (const path of modifiedFiles) {
-            const before = execFileSync('git', ['show', `${base}:${path}`], { cwd: root })
-            const after = execFileSync('git', ['show', `${head}:${path}`], { cwd: root })
+            const before = readFileAtRevision(root, base, path)
+            const after = readFileAtRevision(root, head, path)
             if (before.includes(0) || after.includes(0)) {
                 changedTokens.push(path)
                 continue
