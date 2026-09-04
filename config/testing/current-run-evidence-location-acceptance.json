@@ -1,18 +1,18 @@
 {
     "schema": "fsusblog.current-run-evidence-location-acceptance.v1",
     "sourceDigests": {
-        "config/testing/evidence-locator-registry.json": "sha256:794f0a954163ec50281969e6dca89df67ba0d59f054b87da34e371a389ebe0a7",
-        "config/testing/evidence-location-migration-ledger.json": "sha256:526e2b5cc4b1fb3690bc47b66e8d389e9e5b8d8879a6cef959dad318911d4ce7",
+        "config/testing/evidence-locator-registry.json": "sha256:318f999ec092c27837311b33787c6018f114caa4d73e384f325c455e5aab864b",
+        "config/testing/evidence-location-migration-ledger.json": "sha256:27ff9733a6e5bd31ad1c7be25b36bd50d3d4e71505b24b3dc5cd9f35ce4f62f2",
         "tools/test/evidence-location-scanner.mjs": "sha256:2a859e2bcc66068eff8e8019fa7af0f66dce35cc3276e0af8cf836d0fe51091f",
         "tools/test/current-run-evidence-locator.mjs": "sha256:a3477d14e62b2e6a30bc48e16eaf417e49996fdab58e39ae064f1c7ac07b0653",
-        "tools/test/current-run-evidence-transport.mjs": "sha256:d6e05dc266a709a001507df0e14e41e73cc450dbcd853e285fa5a0da16335e4f",
+        "tools/test/current-run-evidence-transport.mjs": "sha256:74b09545ad37fb5b5dcacb56726a4ae0e46c6c664d6775b8ba109867816f0f28",
         "tools/test/generate-evidence-location-governance.mjs": "sha256:dfa82cd9a3da394569b31ca230c29d2359aafb40427c98ec0c29c666a7dac015"
     },
-    "registryDigest": "sha256:b797f559879744f365c842f9a4371cd69974490dbd0b6564efc5f491c698236e",
-    "ledgerDigest": "sha256:1d1ec9f5244467fc26c6d861eb7e6535d38137fe9c3e52dfbdd56bd6b1ee0e89",
-    "scannerDigest": "sha256:2a01c2095c16079aaa15c010c288da80ecef80938a5570307a68d8f312e046ea",
+    "registryDigest": "sha256:24fb56ba935dc4d4b7e57427610c4f4e3962063d2db648183f36961adc27bc0f",
+    "ledgerDigest": "sha256:5ab9c72e7b89d193911711596dc8b563137cc3900164975c37d3b9f8ae3c5d02",
+    "scannerDigest": "sha256:b46a6a4b10990adf13c4f8473ba768ea5dfbe4003dfba501a8f35f99924927c7",
     "locatorDigest": "sha256:a3477d14e62b2e6a30bc48e16eaf417e49996fdab58e39ae064f1c7ac07b0653",
-    "transportDigest": "sha256:d6e05dc266a709a001507df0e14e41e73cc450dbcd853e285fa5a0da16335e4f",
+    "transportDigest": "sha256:74b09545ad37fb5b5dcacb56726a4ae0e46c6c664d6775b8ba109867816f0f28",
     "consumerInventory": [
         {
             "consumerId": "evidence-consumer.workflow.browser-diagnostics",
@@ -60,13 +60,6 @@
             "consumerId": "evidence-consumer.ci.check-job-summaries",
             "authorityId": "evidence-consumer.ci.check-job-summaries.current-run",
             "producerId": "evidence-consumer.ci.check-job-summaries.producer",
-            "locatorMode": "explicit-run-path",
-            "publicationMode": "hooked"
-        },
-        {
-            "consumerId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport",
-            "authorityId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport.current-run",
-            "producerId": "evidence-consumer.ci.prepare-quality-gate-evidence-transport.producer",
             "locatorMode": "explicit-run-path",
             "publicationMode": "hooked"
         },
@@ -519,8 +512,8 @@
             "publicationMode": "parent"
         }
     ],
-    "consumerCount": 72,
-    "findingCount": 377,
+    "consumerCount": 71,
+    "findingCount": 364,
     "warnings": [],
-    "contentDigest": "sha256:13924e7f77f62a07fa22fa11872e0aaaedc8f63a89723a6d7748731b14dbb064"
+    "contentDigest": "sha256:eaa69ec13710d9cde97755a977df51879213c458b1be3dcf46048c90ee8c3f7d"
 }

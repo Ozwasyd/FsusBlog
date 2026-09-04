@@ -16620,6 +16620,94 @@
         "x-fsus-source-identity": "HTTP: PUT api/binary/category/{id:int}"
       }
     },
+    "/api/binary/category/{id:int}.aeds": {
+      "get": {
+        "operationId": "binary_get_category_id_int_aeds",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "/category/{id:int}.aeds",
+        "responses": {
+          "200": {
+            "description": "TaxonomyExactMetadata AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "TaxonomyExactMetadata",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "anonymous",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "public-read",
+        "x-fsus-rate-limit": "public_read",
+        "x-fsus-permission": "none",
+        "x-fsus-request-contract": {
+          "Source": "none",
+          "SchemaRef": null,
+          "Required": false,
+          "Nullable": false,
+          "RequiredFields": [],
+          "Parameters": [
+            {
+              "Name": "id",
+              "Source": "path",
+              "SchemaRef": "route://int",
+              "Required": true,
+              "Nullable": false
+            }
+          ],
+          "FieldSetState": "not-applicable",
+          "BoundsState": "not-applicable",
+          "UnionState": "not-applicable"
+        },
+        "x-fsus-response-contracts": [
+          {
+            "Status": 200,
+            "SchemaRef": "aeds://frame/TaxonomyExactMetadata",
+            "ContentType": "application/octet-stream",
+            "ResultPlacement": "aeds.frame.payload",
+            "Nullable": false
+          },
+          {
+            "Status": null,
+            "SchemaRef": "aeds://frame/ApiError",
+            "ContentType": "application/octet-stream",
+            "ResultPlacement": "aeds.frame.payload",
+            "Nullable": false
+          }
+        ],
+        "x-fsus-public-error-refs": [
+          "configuration-error-security-policy:error-transport-mappings:ApiError"
+        ],
+        "x-fsus-public-error-ref-state": "transport-frame-authority-only",
+        "x-fsus-error-authority-behavior": "configuration-error-security-policy",
+        "x-fsus-result-placement": "aeds.frame.payload",
+        "x-fsus-protocol-state": "active-aeds-only",
+        "x-fsus-source-identity": "HTTP: GET api/binary/category/{id:int}.aeds => ReadCategoryExactMetadataAsync"
+      }
+    },
     "/api/binary/comment": {
       "post": {
         "operationId": "binary_post_comment",
@@ -20965,6 +21053,86 @@
         "x-fsus-source-identity": "public-hot-read:taxonomy-tag"
       }
     },
+    "/api/binary/tag/by-name.aeds": {
+      "get": {
+        "operationId": "binary_get_tag_by_name_aeds",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "/tag/by-name.aeds",
+        "responses": {
+          "200": {
+            "description": "TaxonomyExactMetadata AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "TaxonomyExactMetadata",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "anonymous",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "public-read",
+        "x-fsus-rate-limit": "public_read",
+        "x-fsus-permission": "none",
+        "x-fsus-request-contract": {
+          "Source": "none",
+          "SchemaRef": null,
+          "Required": false,
+          "Nullable": false,
+          "RequiredFields": [],
+          "Parameters": [],
+          "FieldSetState": "not-applicable",
+          "BoundsState": "not-applicable",
+          "UnionState": "not-applicable"
+        },
+        "x-fsus-response-contracts": [
+          {
+            "Status": 200,
+            "SchemaRef": "aeds://frame/TaxonomyExactMetadata",
+            "ContentType": "application/octet-stream",
+            "ResultPlacement": "aeds.frame.payload",
+            "Nullable": false
+          },
+          {
+            "Status": null,
+            "SchemaRef": "aeds://frame/ApiError",
+            "ContentType": "application/octet-stream",
+            "ResultPlacement": "aeds.frame.payload",
+            "Nullable": false
+          }
+        ],
+        "x-fsus-public-error-refs": [
+          "configuration-error-security-policy:error-transport-mappings:ApiError"
+        ],
+        "x-fsus-public-error-ref-state": "transport-frame-authority-only",
+        "x-fsus-error-authority-behavior": "configuration-error-security-policy",
+        "x-fsus-result-placement": "aeds.frame.payload",
+        "x-fsus-protocol-state": "active-aeds-only",
+        "x-fsus-source-identity": "HTTP: GET api/binary/tag/by-name.aeds => ReadTagExactMetadataByNameAsync"
+      }
+    },
     "/api/binary/tag/{id:int}": {
       "delete": {
         "operationId": "binary_delete_tag_id_int",
@@ -21137,6 +21305,94 @@
         "x-fsus-result-placement": "aeds.frame.payload",
         "x-fsus-protocol-state": "active-aeds-only",
         "x-fsus-source-identity": "HTTP: PUT api/binary/tag/{id:int}"
+      }
+    },
+    "/api/binary/tag/{id:int}.aeds": {
+      "get": {
+        "operationId": "binary_get_tag_id_int_aeds",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "/tag/{id:int}.aeds",
+        "responses": {
+          "200": {
+            "description": "TaxonomyExactMetadata AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "TaxonomyExactMetadata",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "anonymous",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "public-read",
+        "x-fsus-rate-limit": "public_read",
+        "x-fsus-permission": "none",
+        "x-fsus-request-contract": {
+          "Source": "none",
+          "SchemaRef": null,
+          "Required": false,
+          "Nullable": false,
+          "RequiredFields": [],
+          "Parameters": [
+            {
+              "Name": "id",
+              "Source": "path",
+              "SchemaRef": "route://int",
+              "Required": true,
+              "Nullable": false
+            }
+          ],
+          "FieldSetState": "not-applicable",
+          "BoundsState": "not-applicable",
+          "UnionState": "not-applicable"
+        },
+        "x-fsus-response-contracts": [
+          {
+            "Status": 200,
+            "SchemaRef": "aeds://frame/TaxonomyExactMetadata",
+            "ContentType": "application/octet-stream",
+            "ResultPlacement": "aeds.frame.payload",
+            "Nullable": false
+          },
+          {
+            "Status": null,
+            "SchemaRef": "aeds://frame/ApiError",
+            "ContentType": "application/octet-stream",
+            "ResultPlacement": "aeds.frame.payload",
+            "Nullable": false
+          }
+        ],
+        "x-fsus-public-error-refs": [
+          "configuration-error-security-policy:error-transport-mappings:ApiError"
+        ],
+        "x-fsus-public-error-ref-state": "transport-frame-authority-only",
+        "x-fsus-error-authority-behavior": "configuration-error-security-policy",
+        "x-fsus-result-placement": "aeds.frame.payload",
+        "x-fsus-protocol-state": "active-aeds-only",
+        "x-fsus-source-identity": "HTTP: GET api/binary/tag/{id:int}.aeds => ReadTagExactMetadataAsync"
       }
     },
     "/api/binary/telemetry/rum": {
@@ -21753,7 +22009,7 @@
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json",
     "endpointContracts": "src/shared/Contracts/Validation/aeds-endpoint-contracts.json"
   },
-  "x-fsus-observation-digest": "13097a4ad5520270382adee523ab104825dd6c4255dfc5de7dac4514f6056f5e",
+  "x-fsus-observation-digest": "e8869afd13054bc3f86c7cdde15cc3a4581447f967665f6268d74da2f13cc4bf",
   "x-fsus-protocol-states": {
     "SupportedVersions": [
       2
@@ -21981,6 +22237,7 @@
       "SystemMessageRequest",
       "TagList",
       "TagWriteRequest",
+      "TaxonomyExactMetadata",
       "TrashClearResponse",
       "UploadComplete",
       "UploadCompleteRequest",

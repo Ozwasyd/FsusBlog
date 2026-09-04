@@ -263,27 +263,27 @@ export const identity = {
         },
         UserIdentityPasskeys: {
             title: "Clés d'accès",
-            description: 'Appareils de connexion.'
+            description: '',
         },
         UserIdentityRecoveryKey: {
             title: 'Clé de récupération',
-            description: 'Identifiant de récupération de compte.'
+            description: '',
         },
         UserIdentityAnonymous: {
             title: 'Identité anonyme',
-            description: 'Commentaires anonymes, envois publics, règles du site.'
+            description: '',
         },
         UserIdentityPublicProfile: {
             title: 'Profil public',
-            description: "Informations d'identité publique."
+            description: '',
         },
         UserIdentitySessions: {
             title: "Sessions d'appareils",
-            description: 'Sessions actives.'
+            description: '',
         },
         UserIdentityMfa: {
             title: 'Double authentification',
-            description: 'Statut TOTP.'
+            description: '',
         },
         UserIdentityCommentRecords: {
             title: 'Historique des commentaires publics',

@@ -898,8 +898,8 @@ jobs:
                   source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
                   receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
                   consumer-job: integration-runtime
-            - run: ./tools/test.sh integration
             - run: ./tools/test.sh current-schema-bootstrap-integration --no-deps
+            - run: ./tools/test.sh integration
             - run: ./tools/test.sh data-scale-xs --no-deps
             - run: ./tools/test.sh data-scale-s --no-deps
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -913,13 +913,13 @@ jobs:
                       .tmp/acceptance/**
                       .tmp/current-schema-bootstrap-integration/*/**
                       .tmp/fixtures/*/homogeneous-two-node/**
-                      .tmp/runtime/integration.json
-                      .tmp/runtime-scenario-host/**
-                      .tmp/scale/**
                       .tmp/test-results/backend/integration/legacy-real-dump-membership.json
                       .tmp/test-results/backend/legacy-20260517-real-dump/legacy-20260517-real-dump.trx
                       .tmp/test-results/backend/legacy-20260517-real-dump/membership-plan.json
                       .tmp/test-results/backend/legacy-20260517-real-dump/semantic-outcome.json
+                      .tmp/runtime/integration.json
+                      .tmp/runtime-scenario-host/**
+                      .tmp/scale/**
                       .tmp/release-evidence/rights-v3-test-matrix.json
                       .tmp/release-evidence/jobs/**
 

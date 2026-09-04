@@ -473,6 +473,88 @@ public sealed class PublicAotInvalidationTrackerTests
     }
 
     [Fact]
+    public async Task InvalidateFilterRouteFamilyAsync_RemovesFamilyAndPagination_WithoutTouchingSiblingIdentities()
+    {
+        var tracker = new PublicAotInvalidationTracker();
+        var cache = new RecordingAotCache();
+        var scheduler = new RecordingBackfillScheduler();
+        var service = new PublicAotInvalidationService(
+            cache,
+            new DefaultRuntimeKeyScope(),
+            tracker,
+            scheduler,
+            new RecordingRouteManifestProvider(),
+            new PublicHotReadStore(),
+            new FixedTestSessionKeyScope(null),
+            AssetManifest(),
+            new PublicAotSsrRuntimeState(new ConfigurationBuilder().Build()),
+            NullLogger<PublicAotInvalidationService>.Instance);
+        string familyKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.Filter, "category:7");
+        string familyPrefix = familyKey + ":";
+        string familyPageTwoKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.Filter, "category:7:page:2");
+        string siblingKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.Filter, "category:70");
+        string tagKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.Filter, "tag:7");
+        string pagePrefixKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.Filter, string.Empty);
+        var familyRequest = new PublicAotBackfillRequest(
+            PublicPageKind.Filter, "category:7", "/category/7", string.Empty, familyKey)
+        {
+            PagePrefixKey = pagePrefixKey,
+            ScheduledInvalidationVersion = tracker.GetCurrentVersion(familyKey, pagePrefixKey)
+        };
+        var siblingRequest = new PublicAotBackfillRequest(
+            PublicPageKind.Filter, "category:70", "/category/70", string.Empty, siblingKey)
+        {
+            PagePrefixKey = pagePrefixKey,
+            ScheduledInvalidationVersion = tracker.GetCurrentVersion(siblingKey, pagePrefixKey)
+        };
+
+        await service.InvalidateFilterRouteFamilyAsync("category:7");
+
+        Assert.Contains(familyKey, cache.KeysRemoved);
+        Assert.Contains(familyPrefix, cache.PrefixesRemoved);
+        Assert.DoesNotContain(siblingKey, cache.KeysRemoved);
+        Assert.DoesNotContain(tagKey, cache.KeysRemoved);
+        Assert.DoesNotContain(cache.PrefixesRemoved, prefix => prefix == siblingKey + ":" || prefix == pagePrefixKey);
+        Assert.StartsWith(familyPrefix, familyPageTwoKey, StringComparison.Ordinal);
+        Assert.False(siblingKey.StartsWith(familyPrefix, StringComparison.Ordinal));
+        Assert.True(tracker.WasInvalidatedAfter(familyRequest));
+        Assert.False(tracker.WasInvalidatedAfter(siblingRequest));
+        Assert.Contains(scheduler.Requests, request => request.RouteKey == "category:7");
+        Assert.DoesNotContain(scheduler.Requests, request => request.RouteKey == "category:70");
+        Assert.DoesNotContain(scheduler.Requests, request => request.RouteKey == "tag:7");
+        Assert.DoesNotContain(scheduler.Requests, request => request.RouteKey == "home");
+        Assert.DoesNotContain(scheduler.Requests, request => request.RouteKey == "archive");
+    }
+
+    [Fact]
+    public async Task InvalidateFilterRouteFamilyAsync_TagIdentity_DoesNotInvalidateCategoryFamily()
+    {
+        var cache = new RecordingAotCache();
+        var scheduler = new RecordingBackfillScheduler();
+        var service = new PublicAotInvalidationService(
+            cache,
+            new DefaultRuntimeKeyScope(),
+            new PublicAotInvalidationTracker(),
+            scheduler,
+            new RecordingRouteManifestProvider(),
+            new PublicHotReadStore(),
+            new FixedTestSessionKeyScope(null),
+            AssetManifest(),
+            new PublicAotSsrRuntimeState(new ConfigurationBuilder().Build()),
+            NullLogger<PublicAotInvalidationService>.Instance);
+
+        await service.InvalidateFilterRouteFamilyAsync("tag:11");
+
+        string tagKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.Filter, "tag:11");
+        string categoryKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.Filter, "category:11");
+        Assert.Contains(tagKey, cache.KeysRemoved);
+        Assert.Contains(tagKey + ":", cache.PrefixesRemoved);
+        Assert.DoesNotContain(categoryKey, cache.KeysRemoved);
+        Assert.Contains(scheduler.Requests, request => request.RouteKey == "tag:11");
+        Assert.DoesNotContain(scheduler.Requests, request => request.RouteKey == "category:11");
+    }
+
+    [Fact]
     public void Tracker_DoesNotTreatScopedPrefixAsUnscopedPageInvalidation()
     {
         var tracker = new PublicAotInvalidationTracker();

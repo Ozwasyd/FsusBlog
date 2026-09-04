@@ -839,19 +839,6 @@ RetryableRuntimeProbeStatus() {
     esac
 }
 
-FormatRuntimeProbeObservations() {
-    local countsName="$1"
-    local outputName="$2"
-    local -n counts="$countsName"
-    local observation
-    local formatted=""
-
-    for observation in "${!counts[@]}"; do
-        formatted+="${formatted:+,}${observation}:${counts[$observation]}"
-    done
-    printf -v "$outputName" '%s' "${formatted:-none}"
-}
-
 ProbeHttpUntilReady() {
     local label="$1"
     local url="$2"
@@ -866,9 +853,8 @@ ProbeHttpUntilReady() {
     local httpStatus
     local curlStatus
     local observation
-    local observations
+    local observations=""
     local attempts=0
-    local -A observationCounts=()
     local -a curlHeaders=()
 
     RuntimeProbeTimeoutSeconds timeoutSeconds
@@ -888,7 +874,7 @@ ProbeHttpUntilReady() {
         attemptTimeoutSeconds="$(awk -v remaining_ms="$remainingMs" 'BEGIN { value = remaining_ms / 1000; if (value < 0.05) value = 0.05; printf "%.3f", value }')"
         attempts=$((attempts + 1))
         curlStatus=0
-        if httpStatus="$(curl -sS --max-time "$attemptTimeoutSeconds" "${curlHeaders[@]}" -o /dev/null -w '%{http_code}' "$url" 2>/dev/null)"; then
+        if httpStatus="$(curl -sS --max-time "$attemptTimeoutSeconds" ${curlHeaders[@]+"${curlHeaders[@]}"} -o /dev/null -w '%{http_code}' "$url" 2>/dev/null)"; then
             :
         else
             curlStatus=$?
@@ -896,8 +882,7 @@ ProbeHttpUntilReady() {
 
         if [[ "$httpStatus" =~ ^[0-9]{3}$ ]] && ((10#$httpStatus >= 200 && 10#$httpStatus < 400)); then
             if ((attempts > 1)); then
-                FormatRuntimeProbeObservations observationCounts observations
-                Log "$label recovered at $url attempts=$attempts observed=$observations"
+                Log "$label recovered at $url attempts=$attempts observed=${observations:-none}"
             fi
             return 0
         fi
@@ -909,11 +894,14 @@ ProbeHttpUntilReady() {
         else
             observation="invalid-status"
         fi
-        observationCounts[$observation]=$((${observationCounts[$observation]:-0} + 1))
+        if [[ -z "$observations" ]]; then
+            observations="$observation"
+        elif [[ "$observations" != *"$observation"* ]]; then
+            observations="$observations,$observation"
+        fi
 
         if ((curlStatus == 0)) && ! RetryableRuntimeProbeStatus "$httpStatus"; then
-            FormatRuntimeProbeObservations observationCounts observations
-            Fail "$label returned terminal HTTP $httpStatus at $url observed=$observations"
+            Fail "$label returned terminal HTTP $httpStatus at $url observed=${observations:-none}"
         fi
 
         nowMs="$(NowEpochMs)"
@@ -922,8 +910,7 @@ ProbeHttpUntilReady() {
         fi
     done
 
-    FormatRuntimeProbeObservations observationCounts observations
-    Fail "$label did not become ready at $url within ${timeoutSeconds}s attempts=$attempts observed=$observations"
+    Fail "$label did not become ready at $url within ${timeoutSeconds}s attempts=$attempts observed=${observations:-none}"
 }
 
 ProbeUrl() {

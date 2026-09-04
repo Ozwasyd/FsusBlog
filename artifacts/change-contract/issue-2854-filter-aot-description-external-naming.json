@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/contracts.md"
+            ],
+            "reason": "preserve documented Filter AOT payload field spellings while adding nullable filter.description"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs",
+                "src/backend/Infrastructure/PublicAot/PublicAotPageSnapshots.cs",
+                "src/backend/Infrastructure/PublicAot/PublicAotRendererPayloadMapper.cs"
+            ],
+            "reason": "preserve caller-visible process and contract spellings while carrying taxonomy Description through the Filter AOT pipeline"
+        }
+    ]
+}
