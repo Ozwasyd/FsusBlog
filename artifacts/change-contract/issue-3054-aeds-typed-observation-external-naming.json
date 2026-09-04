@@ -1,0 +1,35 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json"
+            ],
+            "reason": "preserve serialized test-governance keys while registering the typed AEDS observation test owner"
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/schemas-and-errors.md",
+                "docs/api/stability.md"
+            ],
+            "reason": "preserve documented AEDS route, frame, status and wire-field spellings in canonical generated API facts"
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "preserve generated test documentation identifiers while registering the typed AEDS observation owner paths"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/contracts/lib/openapi-observation.mjs",
+                "tools/fact-extractors/openapi-aeds/extract.mjs"
+            ],
+            "reason": "preserve caller-visible process and contract spellings while extending the typed observation projection"
+        }
+    ]
+}

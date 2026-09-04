@@ -7,9 +7,14 @@
         "tools/contracts/FsusBlog.OpenApiObservation/Program.cs",
         "tools/contracts/FsusBlog.OpenApiObservation/RequestContractObserver.cs",
         "tools/contracts/lib/openapi-observation.mjs",
-        "tools/fact-extractors/openapi-aeds/extract.mjs"
+        "tools/fact-extractors/openapi-aeds/extract.mjs",
+        "tests/matrix.yml"
     ],
     "outputs": [
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "cb16aa6c6917e4e537de9e2e538569ce5d17fd9244d1851420410083f9fda95b"
+        },
         {
             "path": "docs/api.md",
             "sha256": "f868acbff758e34a651e6e8064dc7ccca214bd2a89eb46e5632e33c059874c46"
@@ -21,6 +26,10 @@
         {
             "path": "docs/api/stability.md",
             "sha256": "6a5eedd4a9574063d9f0783a8394b01b386e5d35affbc42be2a3afcd91317213"
+        },
+        {
+            "path": "docs/testing.generated.md",
+            "sha256": "21d6f0c50c169a3caed05b744e2321ce1b15f212fea4b561d8e6488c0f677c34"
         },
         {
             "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
