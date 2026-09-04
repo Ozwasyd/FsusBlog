@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/governance/check-monolithic-distributed-architecture.mjs"
+            ],
+            "reason": "Preserve the checker CLI and its existing caller-visible process environment spellings while adding the internal executable classification logic."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/governance/monolithic-distributed-architecture.json"
+            ],
+            "reason": "Keep the architecture policy's machine-readable JSON keys stable and explicitly name the new executableProjectClassifications contract."
+        }
+    ]
+}
