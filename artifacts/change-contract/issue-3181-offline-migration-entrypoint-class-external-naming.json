@@ -11,7 +11,8 @@
         {
             "id": "environment-variable",
             "paths": [
-                "tools/governance/check-monolithic-distributed-architecture.mjs"
+                "tools/governance/check-monolithic-distributed-architecture.mjs",
+                "tools/governance/evaluate-msbuild-entrypoints.mjs"
             ],
             "reason": "Preserve the checker CLI and caller-visible .NET and MSBuild process environment spellings while evaluating executable project properties."
         },

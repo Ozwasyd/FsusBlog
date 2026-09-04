@@ -6,7 +6,7 @@
     "outputs": [
         {
             "path": "config/testing/correctness-attempt-producers.json",
-            "sha256": "4cfc6e91282645dd91d91cf48e302c9e803eb50c98b2106499d3103884b94a3f"
+            "sha256": "7b6c5a5089d2cba51e0c116b649ba7753e0618e51e5dbe9c1b73e9e044fa562a"
         },
         {
             "path": "config/testing/test-execution-envelope-applicability.json",
@@ -14,7 +14,7 @@
         },
         {
             "path": "docs/testing.generated.md",
-            "sha256": "0cb86b4774b5cd356fde80ac6c4ba9a2986ed0835097a2251af39a1c139a7325"
+            "sha256": "d319ae7573d7b4a7812c82edc5b7bc74f70b47c916c40d8bc7139f4a65c73805"
         }
     ]
 }

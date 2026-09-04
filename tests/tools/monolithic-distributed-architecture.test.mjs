@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+    existsSync,
     mkdtempSync,
     mkdirSync,
     readdirSync,
@@ -14,9 +15,18 @@ import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const { checkMonolithicDistributedArchitecture } = await import(pathToFileURL(path.join(
+const {
+    checkMonolithicDistributedArchitecture,
+    msbuildEvaluationEnvironment,
+    msbuildSandboxProperties,
+    parseMsbuildEvaluationEnvelope
+} = await import(pathToFileURL(path.join(
     repositoryRoot,
     'tools/governance/check-monolithic-distributed-architecture.mjs'
+)).href);
+const { parseMsbuildPropertyDocument } = await import(pathToFileURL(path.join(
+    repositoryRoot,
+    'tools/governance/evaluate-msbuild-entrypoints.mjs'
 )).href);
 const sourcePolicy = path.join(repositoryRoot, 'tests/governance/monolithic-distributed-architecture.json');
 const temporaryRoots = [];
@@ -57,6 +67,10 @@ function createFixture()
     temporaryRoots.push(root);
     const policy = JSON.parse(readFileSync(sourcePolicy, 'utf8'));
     write(root, 'tests/governance/monolithic-distributed-architecture.json', `${JSON.stringify(policy, null, 2)}\n`);
+    write(root, 'tests/governance/backend-production-build-consumers.json', `${JSON.stringify({
+        schema: 'fsusblog.backend-production-build-consumers.v1',
+        producer: { configuration: 'Release' }
+    }, null, 2)}\n`);
     write(root, policy.mainApplication.project, `
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
@@ -164,6 +178,195 @@ test('rejects an unclassified executable whose OutputType carries a condition', 
     const errors = checkFixture(root).errors;
     assert.ok(errors.some((error) => error.includes('has no architecture classification: src/tools/ConditionalTool.csproj')));
     assert.ok(errors.some((error) => error.includes('exactly one business entrypoint')));
+});
+
+test('rejects an executable enabled only by the canonical Production configuration', () =>
+{
+    const { root } = createFixture();
+    write(root, 'src/tools/ReleaseOnlyTool.csproj', `
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType Condition="'$(Configuration)' == 'Release'">Exe</OutputType>
+  </PropertyGroup>
+</Project>
+`);
+    const errors = checkFixture(root).errors;
+    assert.ok(errors.some((error) => error.includes('has no architecture classification: src/tools/ReleaseOnlyTool.csproj')));
+    assert.ok(errors.some((error) => error.includes('exactly one business entrypoint')));
+});
+
+test('rejects a Web SDK enabled only by the canonical Production configuration', () =>
+{
+    const { root } = createFixture();
+    write(root, 'src/comments/ConditionalWeb.Service.csproj', `
+<Project>
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk.Web" Condition="'$(Configuration)' == 'Release'" />
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" Condition="'$(Configuration)' != 'Release'" />
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk.Web" Condition="'$(Configuration)' == 'Release'" />
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" Condition="'$(Configuration)' != 'Release'" />
+</Project>
+`);
+    const errors = checkFixture(root).errors;
+    assert.ok(errors.some((error) => error.includes('has no architecture classification: src/comments/ConditionalWeb.Service.csproj')));
+    assert.ok(errors.some((error) => error.includes('exactly one business entrypoint')));
+});
+
+test('rejects an executable enabled only for one evaluated target framework', () =>
+{
+    const { root } = createFixture();
+    write(root, 'src/tools/TargetFrameworkTool.csproj', `
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
+    <OutputType Condition="'$(TargetFramework)' == 'net10.0'">Exe</OutputType>
+  </PropertyGroup>
+</Project>
+`);
+    const errors = checkFixture(root).errors;
+    assert.ok(errors.some((error) => error.includes('has no architecture classification: src/tools/TargetFrameworkTool.csproj')));
+    assert.ok(errors.some((error) => error.includes('exactly one business entrypoint')));
+});
+
+test('fails closed when the canonical Production configuration is not a literal name', () =>
+{
+    const { root } = createFixture();
+    write(root, 'tests/governance/backend-production-build-consumers.json', `${JSON.stringify({
+        schema: 'fsusblog.backend-production-build-consumers.v1',
+        producer: { configuration: '$(UnknownConfiguration)' }
+    }, null, 2)}\n`);
+    const errors = checkFixture(root).errors;
+    assert.ok(errors.includes('production build configuration authority is missing or invalid'));
+    assert.ok(errors.some((error) => error.includes('configuration-authority-invalid')));
+});
+
+test('fails closed on an unknown evaluated OutputType without echoing its value', () =>
+{
+    const { root } = createFixture();
+    write(root, 'src/tools/UnknownOutputTool.csproj', `
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>reviewer-secret-output-type</OutputType>
+  </PropertyGroup>
+</Project>
+`);
+    const errors = checkFixture(root).errors;
+    assert.ok(errors.some((error) => error.includes('unsupported-output-type')));
+    assert.ok(errors.every((error) => !error.includes('reviewer-secret-output-type')));
+});
+
+test('rejects unexpected top-level MSBuild evaluation fields', () =>
+{
+    assert.throws(() => parseMsbuildEvaluationEnvelope(JSON.stringify({
+        schema: 'fsusblog.msbuild-entrypoint-evaluation.v1',
+        projects: [],
+        UnexpectedTopLevel: 'reviewer-secret'
+    }), []), /invalid-evaluation-envelope/u);
+});
+
+test('rejects unexpected top-level fields in the raw MSBuild property result', () =>
+{
+    assert.throws(() => parseMsbuildPropertyDocument(JSON.stringify({
+        Properties: {
+            OutputType: 'Library',
+            TargetFramework: 'net10.0',
+            TargetFrameworks: '',
+            UsingMicrosoftNETSdkWeb: ''
+        },
+        UnexpectedTopLevel: 'reviewer-secret'
+    })), /invalid-property-shape/u);
+});
+
+test('keeps MSBuild evaluation networkless, read-only, and on an exact environment allowlist', () =>
+{
+    assert.deepEqual(msbuildSandboxProperties(['/fixture', '/tooling']), [
+        'PrivateNetwork=yes',
+        'RestrictAddressFamilies=AF_UNIX',
+        'ProtectSystem=strict',
+        'ProtectHome=tmpfs',
+        'PrivateTmp=yes',
+        'NoNewPrivileges=yes',
+        'RestrictSUIDSGID=yes',
+        'LockPersonality=yes',
+        'ProtectKernelTunables=yes',
+        'ProtectControlGroups=yes',
+        'UMask=0077',
+        'BindReadOnlyPaths=/fixture',
+        'BindReadOnlyPaths=/tooling'
+    ]);
+    assert.deepEqual(msbuildEvaluationEnvironment('/opt/dotnet/dotnet'), [
+        'PATH=/usr/bin:/bin',
+        'LANG=C.UTF-8',
+        'DOTNET_ROOT=/opt/dotnet',
+        'HOME=/tmp',
+        'DOTNET_CLI_HOME=/tmp',
+        'TMPDIR=/tmp',
+        'DOTNET_CLI_TELEMETRY_OPTOUT=1',
+        'DOTNET_CLI_USE_MSBUILD_SERVER=0',
+        'DOTNET_MULTILEVEL_LOOKUP=0',
+        'DOTNET_NOLOGO=1',
+        'DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1',
+        'MSBUILDENABLEALLPROPERTYFUNCTIONS=0',
+        'MSBUILDDISABLENODEREUSE=1',
+        'MSBUILDTERMINALLOGGER=off'
+    ]);
+});
+
+test('isolates MSBuild property-function reads and never echoes host secrets', () =>
+{
+    const { root } = createFixture();
+    const hostRoot = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-msbuild-host-secret-'));
+    temporaryRoots.push(hostRoot);
+    const secretFile = path.join(hostRoot, 'secret.txt');
+    const secret = 'REVIEWER_SECRET_MUST_NOT_ESCAPE';
+    writeFileSync(secretFile, secret);
+    write(root, 'src/tools/SecretReader.csproj', `
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>$([System.IO.File]::ReadAllText('${secretFile}'))</OutputType>
+  </PropertyGroup>
+</Project>
+`);
+    const errors = checkFixture(root).errors;
+    assert.ok(errors.some((error) => error.includes('cannot evaluate MSBuild project src/tools/SecretReader.csproj')));
+    assert.ok(errors.every((error) => !error.includes(secret)));
+});
+
+test('does not inherit unrestricted property functions or permit host writes', () =>
+{
+    const { root } = createFixture();
+    const hostRoot = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-msbuild-host-write-'));
+    temporaryRoots.push(hostRoot);
+    const marker = path.join(hostRoot, 'marker.txt');
+    write(root, 'src/tools/SecretWriter.csproj', `
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>$([System.IO.File]::WriteAllText('${marker}', 'written'))Exe</OutputType>
+  </PropertyGroup>
+</Project>
+`);
+    const previous = process.env.MSBUILDENABLEALLPROPERTYFUNCTIONS;
+    process.env.MSBUILDENABLEALLPROPERTYFUNCTIONS = '1';
+    try
+    {
+        const errors = checkFixture(root).errors;
+        assert.ok(errors.some((error) => error.includes('cannot evaluate MSBuild project src/tools/SecretWriter.csproj')));
+        assert.ok(errors.every((error) => !error.includes(marker)));
+    }
+    finally
+    {
+        if (previous === undefined)
+        {
+            delete process.env.MSBUILDENABLEALLPROPERTYFUNCTIONS;
+        }
+        else
+        {
+            process.env.MSBUILDENABLEALLPROPERTYFUNCTIONS = previous;
+        }
+    }
+    assert.equal(existsSync(marker), false);
 });
 
 test('rejects a second business entrypoint declared by expanded Web SDK imports', () =>
