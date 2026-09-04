@@ -439,6 +439,24 @@ function gitLastRevisionForPath(root, revision, path) {
     ).trim()
 }
 
+function gitFirstParentRevisionsForPath(root, base, head, path) {
+    return execFileSync(
+        'git',
+        ['log', '--first-parent', '--format=%H', `${base}..${head}`, '--', path],
+        { cwd: root, encoding: 'utf8' }
+    ).trim().split('\n').filter(Boolean)
+}
+
+function mergeCommitNamesPullRequest(root, revision, pullRequest) {
+    const subject = execFileSync(
+        'git',
+        ['show', '-s', '--format=%s', revision],
+        { cwd: root, encoding: 'utf8' }
+    ).trim()
+    return new RegExp(`^Merge pull request #${pullRequest}\\b`, 'u').test(subject)
+        || new RegExp(`\\(#${pullRequest}\\)$`, 'u').test(subject)
+}
+
 function replayGeneratedOutput(root, revision, producer) {
     const temporaryRoot = mkdtempSync(join(tmpdir(), 'fsusblog-generated-output-repair-'))
     const worktree = join(temporaryRoot, 'worktree')
@@ -769,17 +787,18 @@ export function validatePostMergeGeneratedOutputRepair(
 
     try {
         const sourceParents = gitRevisionParents(root, evidence.sourceCommit)
-        if (sourceParents.length !== 1) {
-            errors.push('Post-merge generated repair sourceCommit must have exactly one parent')
+        if (![1, 2].includes(sourceParents.length)) {
+            errors.push('Post-merge generated repair sourceCommit must have one parent or an exact two-parent in-PR merge')
             return
         }
-        const [sourceParent] = sourceParents
+        const [sourceParent, sourceBaseParent] = sourceParents
         const mergeParents = gitRevisionParents(root, evidence.mergeCommit)
         if (mergeParents.length !== 2) {
             errors.push('Post-merge generated repair mergeCommit must have exactly two parents')
             return
         }
         const [mergeBaseParent, mergeHeadParent] = mergeParents
+        const mergedSourceRevision = sourceParents.length === 2
         if (!gitRevisionIsAncestor(root, evidence.sourceCommit, base)) {
             errors.push('Post-merge generated repair sourceCommit must be an ancestor of the pull request base')
         }
@@ -792,18 +811,41 @@ export function validatePostMergeGeneratedOutputRepair(
         ) {
             errors.push('Post-merge generated repair sourceCommit must belong to the merged pull request head only')
         }
-        const mergeMessage = execFileSync(
-            'git',
-            ['show', '-s', '--format=%B', evidence.mergeCommit],
-            { cwd: root, encoding: 'utf8' }
-        )
-        if (!new RegExp(`^Merge pull request #${evidence.mergedPullRequest}\\b`, 'mu').test(mergeMessage)) {
+        if (!mergeCommitNamesPullRequest(root, evidence.mergeCommit, evidence.mergedPullRequest)) {
             errors.push('Post-merge generated repair mergedPullRequest must match the exact merge commit message')
         }
 
+        if (mergedSourceRevision && sourceBaseParent !== mergeBaseParent) {
+            errors.push('Post-merge generated repair two-parent sourceCommit second parent must exactly match the merged pull request base')
+        }
+        if (
+            mergedSourceRevision
+            && (!gitRevisionIsAncestor(root, sourceParent, mergeHeadParent)
+                || gitRevisionIsAncestor(root, sourceParent, mergeBaseParent))
+        ) {
+            errors.push('Post-merge generated repair two-parent sourceCommit first parent must be the pull request replay parent')
+        }
+
         const sourceChanges = gitChangedPaths(root, sourceParent, evidence.sourceCommit)
-        if (!sameStrings(sourceChanges, [producer.source])) {
+        if (!mergedSourceRevision && !sameStrings(sourceChanges, [producer.source])) {
             errors.push('Post-merge generated repair sourceCommit must change only the trusted producer source')
+        }
+        if (mergedSourceRevision && !sourceChanges.includes(producer.source)) {
+            errors.push('Post-merge generated repair two-parent sourceCommit must change the trusted producer source from its replay parent')
+        }
+        if (
+            mergedSourceRevision
+            && [producer.generator, ...producer.outputs].some((path) => sourceChanges.includes(path))
+        ) {
+            errors.push('Post-merge generated repair two-parent sourceCommit must not change the trusted generator or outputs')
+        }
+        if (
+            mergedSourceRevision
+            && [producer.generator, ...producer.outputs].some(
+                (path) => gitFirstParentRevisionsForPath(root, evidence.sourceCommit, mergeHeadParent, path).length > 0
+            )
+        ) {
+            errors.push('Post-merge generated repair outer pull request must not change the trusted generator or outputs after sourceCommit')
         }
         const mergedChanges = gitChangedPaths(root, mergeBaseParent, evidence.mergeCommit)
         if (!mergedChanges.includes(producer.source)) {
@@ -816,6 +858,12 @@ export function validatePostMergeGeneratedOutputRepair(
         for (const output of outputs) {
             if (blobSha256(root, sourceParent, output.path) !== blobSha256(root, evidence.sourceCommit, output.path)) {
                 errors.push(`Post-merge generated repair sourceCommit changed an output instead of omitting it: ${output.path}`)
+            }
+            if (
+                mergedSourceRevision
+                && blobSha256(root, sourceBaseParent, output.path) !== blobSha256(root, evidence.sourceCommit, output.path)
+            ) {
+                errors.push(`Post-merge generated repair two-parent sourceCommit changed an output from the pull request base: ${output.path}`)
             }
             if (blobSha256(root, mergeBaseParent, output.path) !== blobSha256(root, evidence.mergeCommit, output.path)) {
                 errors.push(`Post-merge generated repair mergeCommit changed an allegedly omitted output: ${output.path}`)
@@ -836,9 +884,14 @@ export function validatePostMergeGeneratedOutputRepair(
         }
         const currentGeneratorAtBase = blobSha256(root, base, producer.generator)
         const currentGeneratorAtHead = blobSha256(root, head, producer.generator)
+        const sourceParentGenerator = blobSha256(root, sourceParent, producer.generator)
+        const sourceRevisionGenerator = blobSha256(root, evidence.sourceCommit, producer.generator)
+        const mergeBaseGenerator = blobSha256(root, mergeBaseParent, producer.generator)
         if (
             evidence.generator.sha256 !== currentGeneratorAtBase
             || evidence.generator.sha256 !== currentGeneratorAtHead
+            || sourceParentGenerator !== sourceRevisionGenerator
+            || (mergedSourceRevision && mergeBaseGenerator !== sourceRevisionGenerator)
             || changedFiles.includes(producer.generator)
         ) {
             errors.push('Post-merge generated repair generator changed or its current digest is stale')
@@ -847,7 +900,7 @@ export function validatePostMergeGeneratedOutputRepair(
         const sourceParentReplay = replayGeneratedOutput(root, sourceParent, producer)
         const sourceRevisionReplay = replayGeneratedOutput(root, evidence.sourceCommit, producer)
         const candidateReplay = replayGeneratedOutput(root, head, producer)
-        if (sourceParentReplay.changedPaths.length !== 0) {
+        if (!mergedSourceRevision && sourceParentReplay.changedPaths.length !== 0) {
             errors.push('Post-merge generated repair source parent was already out of sync with the canonical producer')
         }
         if (!sameStrings(sourceRevisionReplay.changedPaths, producer.outputs)) {

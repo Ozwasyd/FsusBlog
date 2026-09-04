@@ -25,7 +25,8 @@
         },
         "sourceCommit": {
             "type": "string",
-            "pattern": "^[0-9a-f]{40}$"
+            "pattern": "^[0-9a-f]{40}$",
+            "description": "Current last source revision: either the existing single-parent source commit or an exact two-parent in-PR merge whose first parent is replayed and whose second parent is the merged PR base."
         },
         "mergedPullRequest": {
             "type": "integer",
