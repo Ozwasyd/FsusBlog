@@ -240,7 +240,8 @@
         ".webp"
     ],
     "nonSourceSpecialFiles": [
-        "LICENSE"
+        "LICENSE",
+        "browserconfig.xml"
     ],
     "requiredPathClassificationIds": [
         "generated",
