@@ -10,7 +10,7 @@ import { readLatestDotnetSdk } from './dependency-dotnet-registry.mjs'
 import { readLatestNuget } from './dependency-nuget-registry.mjs'
 import { registryRelease } from './dependency-registry-release.mjs'
 import { readLatestGitRef } from './dependency-git-registry.mjs'
-import { createDockerRegistryReader, dockerRepository, readDockerHubPublication, readLatestDocker } from './dependency-docker-registry.mjs'
+import { createDockerRegistryReader, dockerRepository, readDockerHubPublication, readLatestDocker, readMcrPublication } from './dependency-docker-registry.mjs'
 import { readGhcrPublication } from './dependency-ghcr-publication.mjs'
 
 import {
@@ -55,12 +55,13 @@ function githubHeaders() {
 async function liveLatest(item, currentVersion) {
     if (item.datasource === 'docker') {
         const origin = dockerRepository(item.packageName).origin
-        if (!['https://registry-1.docker.io', 'https://ghcr.io'].includes(origin)) {
+        if (!['https://registry-1.docker.io', 'https://ghcr.io', 'https://mcr.microsoft.com'].includes(origin)) {
             throw new Error(`docker publication provider missing for ${item.packageName}`)
         }
         return readLatestDocker(item.packageName, currentVersion, createDockerRegistryReader(item.packageName),
             (name, tag, digest) => origin === 'https://ghcr.io'
                 ? readGhcrPublication(name, tag, digest, fetchJson, githubHeaders())
+                : origin === 'https://mcr.microsoft.com' ? readMcrPublication(name, tag, digest, fetchJson)
                 : readDockerHubPublication(name, tag, digest, fetchJson))
     }
     if (item.datasource === 'dotnet-version' && item.packageName === 'dotnet-sdk') {
