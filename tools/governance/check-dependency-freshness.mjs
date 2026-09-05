@@ -8,6 +8,7 @@ import { readFreshnessPullPages } from './dependency-freshness-pulls.mjs'
 import { collectDependencySupersession } from './dependency-pull-supersession.mjs'
 import { readLatestDotnetSdk } from './dependency-dotnet-registry.mjs'
 import { readLatestNuget } from './dependency-nuget-registry.mjs'
+import { registryRelease } from './dependency-registry-release.mjs'
 
 import {
     clone,
@@ -56,28 +57,29 @@ async function liveLatest(item) {
         const body = await fetchJson(`https://registry.npmjs.org/${encodeURIComponent(item.packageName)}`)
         const latest = body['dist-tags']?.latest
         if (!latest) throw new Error(`npm latest missing for ${item.packageName}`)
-        return { latestStable: latest, releasedAt: body.time?.[latest] ?? new Date().toISOString() }
+        return registryRelease(latest, body.time?.[latest], `npm:${item.packageName}`)
     }
     if (item.datasource === 'nuget') {
         return readLatestNuget(item.packageName, fetchJson)
     }
     if (item.datasource === 'node-version') {
         const body = await fetchJson('https://nodejs.org/dist/index.json')
-        const latest = body.find(entry => entry.lts)?.version?.replace(/^v/u, '')
+        const release = body.find(entry => entry.lts)
+        const latest = release?.version?.replace(/^v/u, '')
         if (!latest) throw new Error('node-version latest missing')
-        return { latestStable: latest, releasedAt: new Date().toISOString() }
+        return registryRelease(latest, release.date, 'node-version:node')
     }
     if (item.datasource === 'git-refs') {
         const repo = String(item.packageName).replace(/^https:\/\/github.com\//u, '').replace(/\.git$/u, '')
         const body = await fetchJson(`https://api.github.com/repos/${repo}/commits/master`, githubHeaders())
         if (!body.sha) throw new Error(`git-refs latest missing for ${item.packageName}`)
-        return { latestStable: body.sha, releasedAt: body.commit?.committer?.date ?? new Date().toISOString() }
+        return registryRelease(body.sha, body.commit?.committer?.date, `git-refs:${repo}`)
     }
     if (item.datasource === 'github-tags' || item.datasource === 'github-releases') {
         const body = await fetchJson(`https://api.github.com/repos/${item.packageName}/releases/latest`, githubHeaders())
         const latest = body.tag_name
         if (!latest) throw new Error(`github latest missing for ${item.packageName}`)
-        return { latestStable: latest, releasedAt: body.published_at ?? new Date().toISOString() }
+        return registryRelease(latest, body.published_at, `${item.datasource}:${item.packageName}`)
     }
     throw new Error(`unsupported live datasource ${item.datasource}`)
 }
