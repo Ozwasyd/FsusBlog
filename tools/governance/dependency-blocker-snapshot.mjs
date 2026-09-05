@@ -1,6 +1,7 @@
 import { collectDependencyPullSnapshot } from './dependency-blocker-pull-snapshot.mjs';
 import { parseRenovatePullRequests } from './dependency-freshness-pulls.mjs';
 import { resolveGroupChecks } from './dependency-required-checks.mjs';
+import { resolveDependencyPullTarget } from './dependency-pull-target.mjs';
 
 function mappingIdentity(mappings)
 {
@@ -9,7 +10,7 @@ function mappingIdentity(mappings)
 }
 
 /** Join canonical freshness PR mappings with fresh, source-bound check observations. */
-export async function buildDependencyBlockerSnapshot({ report, catalog, exceptions, requiredChecks, client })
+export async function buildDependencyBlockerSnapshot({ report, catalog, exceptions, requiredChecks, client, config = {} })
 {
     if (!Array.isArray(report?.pullRequests) || !Array.isArray(catalog?.items))
     {
@@ -46,11 +47,22 @@ export async function buildDependencyBlockerSnapshot({ report, catalog, exceptio
             client, number,
             dependencyIds: mappings.map((item) => item.dependencyId).sort(),
             requirements: mappings.map((item) => ({ group: item.group, updateType: item.updateType })),
-            verifyPull: (pull) => {
-                if (mappingIdentity(parseRenovatePullRequests([pull], catalog)) !== expected)
+            verifyPull: async (pull) => {
+                const declared = parseRenovatePullRequests([pull], catalog);
+                const expectedDeclarations = mappings.map(mapping => ({ ...mapping, targetVersion: mapping.declaredTargetVersion ?? mapping.targetVersion }));
+                if (mappingIdentity(declared) !== mappingIdentity(expectedDeclarations))
                 {
                     throw new Error('dependency_blocker_pull_mapping_changed');
                 }
+                const verified = [];
+                for (const mapping of declared)
+                {
+                    const prior = mappings.find(item => item.dependencyId === mapping.dependencyId);
+                    verified.push(prior.declaredTargetVersion === undefined ? mapping : await resolveDependencyPullTarget({
+                        mapping, item: items.get(mapping.dependencyId), config, readFileAtHead: client.readFileAtHead
+                    }));
+                }
+                if (mappingIdentity(verified) !== expected) throw new Error('dependency_blocker_pull_target_changed');
             }
         }));
     }

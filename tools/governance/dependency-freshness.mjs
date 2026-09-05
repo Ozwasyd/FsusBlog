@@ -173,30 +173,44 @@ function extractDocker(root, item) {
     const file = sourceFiles(item)[0]
     const source = fs.readFileSync(path.join(root, file), 'utf8')
     if (item.manager === 'docker-compose') {
-        const match = source.match(new RegExp(`image:\\s*["']?${escapeRegExp(item.packageName)}:([^\\s@"']+)`, 'mu'))
+        const match = source.match(new RegExp(`image:\\s*["']?${escapeRegExp(item.packageName)}:([^\\s"']+)`, 'mu'))
         return match?.[1]
     }
     if (item.packageName === 'docker/dockerfile') {
         const match = source.match(/^#\s*syntax=docker\/dockerfile:(\S+)/mu)
         return match?.[1]
     }
-    const argNames = {
-        node: ['NODE_VERSION'],
-        'mcr.microsoft.com/dotnet/sdk': ['DOTNET_SDK_VERSION'],
-        'mcr.microsoft.com/dotnet/aspnet': ['DOTNET_RUNTIME_VERSION']
+    const globals = new Map()
+    const references = new Set()
+    let beforeFirstFrom = true
+    for (const line of source.split(/\r?\n/u)) {
+        if (beforeFirstFrom) {
+            const argument = /^\s*ARG\s+([A-Za-z_][A-Za-z0-9_]*)=(\S+)\s*$/iu.exec(line)
+            if (argument) globals.set(argument[1], argument[2].replace(/^(["'])(.*)\1$/u, '$2'))
+        }
+        const from = /^\s*FROM\s+(?:--platform=\S+\s+)?(\S+)/iu.exec(line)
+        if (!from) continue
+        beforeFirstFrom = false
+        if (!from[1].startsWith(`${item.packageName}:`) && !from[1].startsWith(`${item.packageName}@`)) continue
+        const expanded = from[1].replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)/gu, (token, braced, bare) => {
+            const value = globals.get(braced ?? bare)
+            if (value === undefined || value.includes('$')) throw new Error(`docker-from-argument-unresolved:${file}:${token}`)
+            return value
+        })
+        const reference = expanded.slice(item.packageName.length + 1)
+        if (!/^(?:[A-Za-z0-9_][A-Za-z0-9_.-]*(?:@sha256:[0-9a-f]{64})?|sha256:[0-9a-f]{64})$/u.test(reference)) {
+            throw new Error(`docker-from-reference-invalid:${file}`)
+        }
+        references.add(reference)
     }
-    for (const argument of argNames[item.packageName] ?? []) {
-        const match = source.match(new RegExp(`^ARG ${argument}=(\\S+)`, 'mu'))
-        if (match) return match[1]
-    }
-    const literal = source.match(new RegExp(`^FROM\\s+${escapeRegExp(item.packageName)}:(?!\\$\\{)([^@\\s]+)`, 'mu'))
-    if (literal) return literal[1]
-    return undefined
+    const sorted = [...references].sort()
+    return sorted.length > 1 ? JSON.stringify(sorted) : sorted[0]
 }
 
 function extractCustom(root, item, config) {
     const manager = (config.customManagers ?? []).find(candidate => candidate.description === item.customManager)
     if (!manager) return undefined
+    const dockerReferences = new Set()
     for (const file of sourceFiles(item)) {
         if (!manager.managerFilePatterns?.some(pattern => configPattern(pattern).test(file))) continue
         const source = fs.readFileSync(path.join(root, file), 'utf8')
@@ -206,9 +220,20 @@ function extractCustom(root, item, config) {
                 const packageName = manager.packageNameTemplate ?? manager.depNameTemplate ?? match.groups?.depName
                 if (packageName !== item.packageName && match.groups?.depName !== item.packageName) continue
                 const value = match.groups?.currentValue ?? match.groups?.currentDigest
+                if (item.datasource === 'docker' && value) {
+                    dockerReferences.add(match.groups?.currentValue && match.groups?.currentDigest
+                        ? `${match.groups.currentValue}@${match.groups.currentDigest}` : value)
+                    continue
+                }
                 if (value) return value
             }
         }
+    }
+    if (item.datasource === 'docker') {
+        const pinnedTags = new Set([...dockerReferences].filter(value => value.includes('@')).map(value => value.split('@')[0]))
+        const references = [...dockerReferences].filter(value => !pinnedTags.has(value))
+        if (references.length > 1) throw new Error(`docker-current-references-disagree:${item.id}`)
+        return references[0]
     }
     return undefined
 }

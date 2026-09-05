@@ -1,4 +1,5 @@
 import { planScheduledBlockers } from './dependency-blocker-state.mjs';
+import { createDependencySourceReader } from './dependency-source-reader.mjs';
 
 /** Narrow GitHub adapter: issue reconciliation and one label, never PR merge/close. */
 export function createDependencyBlockerGitHub({ repository, token, fetchImpl = fetch })
@@ -63,6 +64,7 @@ export function createDependencyBlockerGitHub({ repository, token, fetchImpl = f
         throw new Error('dependency_blocker_github_incomplete_counted_snapshot');
     }
     return {
+        readFileAtHead: createDependencySourceReader({ repository, fetchJson: url => request('GET', url.slice(prefix.length)) }),
         readPullRequest(number)
         {
             issueRoute(number);

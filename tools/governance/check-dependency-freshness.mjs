@@ -16,6 +16,8 @@ import { collectRegistryResults } from './dependency-registry-batch.mjs'
 import { readLatestNpm } from './dependency-npm-registry.mjs'
 import { readLatestNode } from './dependency-node-registry.mjs'
 import { readLatestGithubTag } from './dependency-github-tags.mjs'
+import { resolveDependencyPullTarget } from './dependency-pull-target.mjs'
+import { createDependencySourceReader } from './dependency-source-reader.mjs'
 
 import {
     clone,
@@ -118,8 +120,15 @@ async function loadLiveSnapshot(catalog, currentVersions) {
         catalog,
         readPullRequest: number => fetchJson(`https://api.github.com/repos/${repository}/pulls/${number}`, githubHeaders())
     })
-    void currentVersions
-    return { registries, pullRequests: supersession.pullRequests, supersession: supersession.relations }
+    const readFileAtHead = createDependencySourceReader({ repository, fetchJson, headers: githubHeaders() })
+    const config = readJson('renovate.json5')
+    const pullRequests = []
+    for (const mapping of supersession.pullRequests) {
+        pullRequests.push(mapping.state === 'open' ? await resolveDependencyPullTarget({
+            mapping, item: catalog.items.find(item => item.id === mapping.dependencyId), config, readFileAtHead
+        }) : mapping)
+    }
+    return { registries, pullRequests, supersession: supersession.relations }
 }
 
 function writeResult(result) {
