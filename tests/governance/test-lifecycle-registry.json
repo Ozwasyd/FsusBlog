@@ -1624,6 +1624,18 @@
             ]
         },
         {
+            "file": "tests/tools/offline-migration-catalog-parity.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "migration",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/online-schema-migration-wrapper.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",
@@ -2609,6 +2621,30 @@
             "lifecycle": "manual-diagnostic",
             "physicalExecutionCount": 0,
             "classifications": [
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/schema-allowed-extra-links.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "migration",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/schema-allowed-extra-tables.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "migration",
                 "runtime"
             ]
         },

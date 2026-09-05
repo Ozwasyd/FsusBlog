@@ -64,4 +64,4 @@ exec "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mj
     --test-id matrix-validate \
     --test-id matrix-preflight \
     --test-id matrix-evidence-plan \
-    -- bash -c 'node tools/test/check-hidden-retries.mjs && node tools/test/check-clean-attempt-consumers.mjs && node tools/test/generate-correctness-attempt-producers.mjs --check && node tools/test-matrix/runtime-state-domain-catalog.mjs && node tools/check-test-matrix.mjs'
+    -- bash -c 'node tools/test/check-hidden-retries.mjs && node tools/test/check-clean-attempt-consumers.mjs && node tools/test/generate-correctness-attempt-producers.mjs --check && node tools/test-matrix/runtime-state-domain-catalog.mjs && node tools/check-test-matrix.mjs && node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-plan.json'

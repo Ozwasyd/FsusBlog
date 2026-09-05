@@ -485,6 +485,7 @@
                 "type": "Project",
                 "dependencies": {
                     "FsusBlog.Shared": "[1.0.0, )",
+                    "Npgsql": "[10.0.3, )",
                     "SqlSugarCoreNoDrive": "[5.1.4.213, )"
                 }
             },
@@ -495,7 +496,6 @@
                     "BouncyCastle.Cryptography": "[2.6.2, )",
                     "Fido2": "[4.0.1, )",
                     "FsusBlog.Core": "[1.0.0, )",
-                    "FsusBlog.Migration": "[1.0.0, )",
                     "FsusBlog.Shared": "[1.0.0, )",
                     "Jint": "[4.13.0, )",
                     "Konscious.Security.Cryptography.Argon2": "[1.3.1, )",

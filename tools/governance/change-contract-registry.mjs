@@ -118,6 +118,127 @@ export const generatedOutputRepairProducers = Object.freeze([
         outputs: Object.freeze([
             'docs/testing.generated.md'
         ])
+    }),
+    Object.freeze({
+        id: 'backend-evidence-path-authority',
+        source: 'tests/matrix.yml',
+        generator: 'tools/test/generate-backend-evidence-path-authority.mjs',
+        command: 'node tools/test/generate-backend-evidence-path-authority.mjs --write',
+        executable: 'node',
+        arguments: Object.freeze([
+            'tools/test/generate-backend-evidence-path-authority.mjs',
+            '--write'
+        ]),
+        outputs: Object.freeze([
+            'tests/backend/Fixtures/backend-evidence-path-authority.generated.json'
+        ])
+    })
+])
+
+// Historical exception for the exact #3203 repair candidate. The source blob
+// was carried unchanged through #3201's second-parent merge, so Git's
+// full-history path owner differs from the semantic source owner recorded by
+// the repair. This immutable tuple does not define reusable policy: the
+// checker must re-prove every named parent, first-parent edge, and path
+// identity before accepting it.
+export const generatedOutputRepairPassThroughExceptions = Object.freeze([
+    Object.freeze({
+        id: 'backend-evidence-path-authority-pr-3203',
+        producerId: 'backend-evidence-path-authority',
+        repairBase: '1ea60cecdc954e21cdfc9f9cafaa59e9e2e6582d',
+        repairHead: '7a7095e576a78599d8121d9d5f022df3bae57e41',
+        sourceCommit: '01828fc6e4e6c5769129b044e9de8490ed1ca29d',
+        mergedPullRequest: 3195,
+        mergeCommit: 'db1102e1171f15be970d60dc808c820e0ffe8dae',
+        historyBoundaries: Object.freeze([
+            'db1102e1171f15be970d60dc808c820e0ffe8dae',
+            'c0e3127b5f88ea959dac31c13c8c06418f7b9905'
+        ]),
+        passThroughCommit: 'ea763f87c5c4c16b280140dbdb4dec5207bcdfdb',
+        passThroughParents: Object.freeze([
+            '1c0ddb634f3932419fbe549f7e4e225b74a15689',
+            '179351a150241bd86eecb1a18d118b35f82edcc1'
+        ]),
+        outerPullRequest: 3201,
+        outerMergeCommit: '2c52a0fd505ab79fc31171cb14981aeb8f065939',
+        outerMergeParents: Object.freeze([
+            '57c6380420933a6e40c477c88e2105533523e886',
+            'eb55c976124f8c69f68717fdd65bc95ff53f9892'
+        ]),
+        sourceIdentity: '100644:0e576ed10e1280cb6a1a74cecb84ff39ebfef49b',
+        sourceDivergenceIdentity: '100644:1715ef6023d8115b736fb123a82b595aee5930a9',
+        sourceDivergenceRevisions: Object.freeze([
+            'c0e3127b5f88ea959dac31c13c8c06418f7b9905',
+            '1c0ddb634f3932419fbe549f7e4e225b74a15689'
+        ]),
+        generatorIdentity: '100644:c2babae5f58fee3b693a23e4203d0bcf34fbe227',
+        outputs: Object.freeze([
+            Object.freeze({
+                path: 'tests/backend/Fixtures/backend-evidence-path-authority.generated.json',
+                identity: '100644:36aa194319fc0c1ea6785982f86639a6f43a82a4'
+            })
+        ])
+    })
+])
+
+export const generatedOutputRepairDags = Object.freeze([
+    Object.freeze({
+        id: 'evidence-location-governance',
+        manifest: 'artifacts/change-contract/evidence-location-governance-post-merge-repair.json',
+        externalNamingManifest: 'artifacts/change-contract/evidence-location-governance-post-merge-repair-external-naming.json',
+        semanticProjection: Object.freeze({
+            id: 'fsusblog.evidence-location-scan.v1',
+            output: 'config/testing/evidence-location-migration-ledger.json',
+            digestField: 'scanDigest',
+            entriesField: 'entries'
+        }),
+        steps: Object.freeze([
+            Object.freeze({
+                id: 'evidence-location-governance',
+                generator: 'tools/test/generate-evidence-location-governance.mjs',
+                command: 'node tools/test/generate-evidence-location-governance.mjs',
+                executable: 'node',
+                arguments: Object.freeze([
+                    'tools/test/generate-evidence-location-governance.mjs'
+                ]),
+                generatorClosure: Object.freeze([
+                    'tools/test/evidence-location-contract.mjs',
+                    'tools/test/evidence-location-scanner.mjs',
+                    'tools/test/generate-evidence-location-governance.mjs'
+                ]),
+                dependsOn: Object.freeze([]),
+                consumes: Object.freeze([]),
+                outputs: Object.freeze([
+                    'config/testing/evidence-locator-registry.json',
+                    'config/testing/evidence-location-migration-ledger.json'
+                ])
+            }),
+            Object.freeze({
+                id: 'current-run-evidence-location-acceptance',
+                generator: 'tools/test/generate-current-run-evidence-location-acceptance.mjs',
+                command: 'node tools/test/generate-current-run-evidence-location-acceptance.mjs',
+                executable: 'node',
+                arguments: Object.freeze([
+                    'tools/test/generate-current-run-evidence-location-acceptance.mjs'
+                ]),
+                generatorClosure: Object.freeze([
+                    'tools/test/evidence-location-contract.mjs',
+                    'tools/test/evidence-location-scanner.mjs',
+                    'tools/test/generate-evidence-location-governance.mjs',
+                    'tools/test/generate-current-run-evidence-location-acceptance.mjs'
+                ]),
+                dependsOn: Object.freeze([
+                    'evidence-location-governance'
+                ]),
+                consumes: Object.freeze([
+                    'config/testing/evidence-locator-registry.json',
+                    'config/testing/evidence-location-migration-ledger.json'
+                ]),
+                outputs: Object.freeze([
+                    'config/testing/current-run-evidence-location-acceptance.json'
+                ])
+            })
+        ])
     })
 ])
 
@@ -131,6 +252,7 @@ export const trustedPolicyFiles = Object.freeze([
     '.github/release.yml',
     '.github/workflows/change-contract.yml',
     'commitlint.config.mjs',
+    'config/schemas/post-merge-generated-output-repair-dag.schema.json',
     'tools/governance/change-contract-registry.mjs',
     'tools/governance/change-contract.mjs',
     'tools/governance/check-change-contract.mjs'
@@ -147,12 +269,15 @@ export const changeContract = Object.freeze({
     reviewedLegacyFormatRevisions,
     generatedPathPatterns,
     generatedOutputRepairProducers,
+    generatedOutputRepairPassThroughExceptions,
+    generatedOutputRepairDags,
     trustedPolicyFiles,
     evidenceSchemas: Object.freeze({
         externalNamingExceptions: 'fsusblog.external-naming-exceptions.v1',
         formatIdempotence: 'fsusblog.format-idempotence-evidence.v1',
         generatedOutput: 'fsusblog.generated-output-binding.v1',
         postMergeGeneratedOutputRepair: 'fsusblog.post-merge-generated-output-repair.v1',
+        postMergeGeneratedOutputRepairDag: 'fsusblog.post-merge-generated-output-repair-dag.v2',
         postMergeExternalNamingEvidenceRepair: 'fsusblog.post-merge-external-naming-evidence-repair.v1',
         performanceClaim: 'fsusblog.performance-claim-evidence.v1'
     }),

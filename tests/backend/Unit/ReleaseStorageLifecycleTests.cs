@@ -743,6 +743,81 @@ public sealed class ReleaseStorageLifecycleTests
         }
     }
 
+    [Fact]
+    public async Task SearchDerivedStaticFiles_ServeManifestAndAliasFromCurrentPointerWhenCompatibilityCopyLags()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            const string ReleaseId = "20260712000006-abcdef123456";
+            var publisher = new ReleaseDerivedArtifactPublisher(
+                Path.Combine(root, "derived"),
+                ReleaseId);
+            var first = new Dictionary<string, ReadOnlyMemory<byte>>(StringComparer.Ordinal)
+            {
+                ["index.bin"] = new byte[] { 1, 2, 3 },
+                ["index.core.v1.bin"] = new byte[] { 4, 5, 6 },
+                ["index.manifest.aeds"] = new byte[] { 7, 8, 9 }
+            };
+            var second = new Dictionary<string, ReadOnlyMemory<byte>>(StringComparer.Ordinal)
+            {
+                ["index.bin"] = new byte[] { 13, 14, 15 },
+                ["index.core.v2.bin"] = new byte[] { 10, 11, 12 },
+                ["index.manifest.aeds"] = new byte[] { 16, 17, 18 }
+            };
+
+            await SearchIndexService.PublishReleaseDerivedArtifactsAsync(publisher, first);
+            ReleaseDerivedArtifactGeneration secondGeneration =
+                await SearchIndexService.PublishReleaseDerivedArtifactsAsync(publisher, second);
+
+            string derivedRoot = Path.GetFullPath(Path.Combine(root, "derived"));
+            string searchRoot = publisher.GetKindRoot("search");
+            await File.WriteAllBytesAsync(Path.Combine(searchRoot, "index.manifest.aeds"), first["index.manifest.aeds"].ToArray());
+            await File.WriteAllBytesAsync(Path.Combine(searchRoot, "index.bin"), first["index.bin"].ToArray());
+
+            using var provider = new ReleaseDerivedSearchPointerFileProvider(derivedRoot);
+            string manifestSubpath = $"{ReleaseId}/search/index.manifest.aeds";
+            string aliasSubpath = $"{ReleaseId}/search/index.bin";
+            IFileInfo manifest = provider.GetFileInfo(manifestSubpath);
+            IFileInfo alias = provider.GetFileInfo(aliasSubpath);
+            IFileInfo shard = provider.GetFileInfo($"{ReleaseId}/search/index.core.v2.bin");
+
+            Assert.True(manifest.Exists);
+            Assert.Equal(second["index.manifest.aeds"].ToArray(), ReadFileInfo(manifest));
+            Assert.Equal(second["index.bin"].ToArray(), ReadFileInfo(alias));
+            Assert.Equal(second["index.core.v2.bin"].ToArray(), ReadFileInfo(shard));
+            Assert.Contains(
+                Path.Combine("generations", secondGeneration.Generation),
+                manifest.PhysicalPath ?? string.Empty,
+                StringComparison.Ordinal);
+            Assert.DoesNotContain(
+                Path.Combine("generations", secondGeneration.Generation),
+                shard.PhysicalPath ?? string.Empty,
+                StringComparison.Ordinal);
+            Assert.Equal(
+                first["index.manifest.aeds"].ToArray(),
+                await File.ReadAllBytesAsync(Path.Combine(searchRoot, "index.manifest.aeds")));
+            Assert.True(ReleaseDerivedSearchPointerFileProvider.TryParseSearchPointerFile(
+                manifestSubpath,
+                out string? parsedReleaseId,
+                out string? parsedFileName));
+            Assert.Equal(ReleaseId, parsedReleaseId);
+            Assert.Equal("index.manifest.aeds", parsedFileName);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static byte[] ReadFileInfo(IFileInfo info)
+    {
+        using Stream stream = info.CreateReadStream();
+        using var memory = new MemoryStream();
+        stream.CopyTo(memory);
+        return memory.ToArray();
+    }
+
     private static FileService CreateFileService(string root)
         => new(ReleaseStorageTestPaths.Create(root), NullLogger<FileService>.Instance);
 

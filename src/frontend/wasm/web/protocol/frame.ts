@@ -235,6 +235,7 @@ export const FrameType = {
   EmptySuccess: 240,
   MutationId: 241,
   UserLocalePreferenceUpdateRequest: 242,
+  TaxonomyExactMetadata: 243,
   ApiError: 251,
 } as const;
 

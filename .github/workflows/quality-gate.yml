@@ -711,6 +711,9 @@ jobs:
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
+            - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+              with:
+                  dotnet-version: 10.0.x
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -897,6 +900,7 @@ jobs:
                   source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
                   receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
                   consumer-job: integration-runtime
+            - run: ./tools/test.sh current-schema-bootstrap-integration --no-deps
             - run: ./tools/test.sh integration
             - run: ./tools/test.sh data-scale-xs --no-deps
             - run: ./tools/test.sh data-scale-s --no-deps
@@ -909,7 +913,12 @@ jobs:
                   include-hidden-files: true
                   path: |
                       .tmp/acceptance/**
+                      .tmp/current-schema-bootstrap-integration/*/**
                       .tmp/fixtures/*/homogeneous-two-node/**
+                      .tmp/test-results/backend/integration/legacy-real-dump-membership.json
+                      .tmp/test-results/backend/legacy-20260517-real-dump/legacy-20260517-real-dump.trx
+                      .tmp/test-results/backend/legacy-20260517-real-dump/membership-plan.json
+                      .tmp/test-results/backend/legacy-20260517-real-dump/semantic-outcome.json
                       .tmp/runtime/integration.json
                       .tmp/runtime-scenario-host/**
                       .tmp/test-results/backend/integration/legacy-real-dump-membership.json

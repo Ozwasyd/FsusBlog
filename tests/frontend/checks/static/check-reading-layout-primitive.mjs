@@ -18,6 +18,9 @@ for (const line of ['full-start', 'bleed-start', 'content-start', 'content-end',
 assert.match(layout, /\[data-fsus-reading-bleed\]\s*\{[^}]*grid-column:\s*bleed;/su);
 assert.match(layout, /figcaption[^}]*grid-column:\s*content;/su);
 assert.match(layout, /pre\.shiki[^}]*grid-column:\s*bleed;/su);
+assert.match(layout, /\.markdown-renderer__virtual-unit[^}]*contain:\s*none;/su, 'virtual unit subgrid must not be blocked by containment');
+assert.match(layout, /\.markdown-renderer__virtual-unit[^}]*container-type:\s*normal;/su, 'virtual unit subgrid must not be blocked by container queries');
+assert.doesNotMatch(layout, /\.blog-markdown-renderer\s*>\s*\*\s*\{[^}]*grid-column:\s*content/su, 'renderer wrappers must not be collapsed to content track');
 assert.doesNotMatch(layout, /overflow-x\s*:\s*hidden/u, 'reading layout must not hide page overflow');
 
 console.log('[check-reading-layout-primitive] ok');

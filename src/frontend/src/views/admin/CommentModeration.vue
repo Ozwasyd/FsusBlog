@@ -3,7 +3,6 @@
     <FsusUiTaskPageHeader
       v-if="!embedded"
       title="评论审核"
-      description="集中处理评论队列、筛选风险命中项，并执行需要管理员二次验证的审核操作。"
       class="account-task-page-header"
       density="compact"
     />

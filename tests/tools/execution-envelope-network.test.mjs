@@ -159,6 +159,63 @@ test('empty observed network exact-matches a no-network correctness plan', (cont
     assert.equal(finalizeNetworkSandbox(prepared).admission, 'planned-actual-exact');
 });
 
+test('Landlock grants only the exact null device while retaining default-deny writes', {
+    skip: process.platform !== 'linux'
+}, (context) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-landlock-file-'));
+    const deniedDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-landlock-denied-'));
+    context.after(() => {
+        fs.rmSync(directory, { recursive: true, force: true });
+        fs.rmSync(deniedDirectory, { recursive: true, force: true });
+    });
+    const deniedFile = path.join(deniedDirectory, 'unchanged.txt');
+    fs.writeFileSync(deniedFile, 'unchanged');
+    const directories = Object.fromEntries([
+        'home', 'temp', 'npmCache', 'nugetPackages', 'dotnetHome', 'toolCache'
+    ].map((name) => {
+        const value = path.join(directory, name);
+        fs.mkdirSync(value, { recursive: true, mode: 0o700 });
+        return [name, value];
+    }));
+    const environment = {
+        PATH: process.env.PATH,
+        LANG: 'C.UTF-8',
+        LC_ALL: 'C.UTF-8',
+        TZ: 'UTC',
+        HOME: directories.home,
+        TMPDIR: directories.temp,
+        TMP: directories.temp,
+        TEMP: directories.temp
+    };
+    const prepared = prepareNetworkSandbox({
+        command: [
+            process.execPath,
+            '-e',
+            `const fs = require('node:fs'); fs.writeFileSync('/dev/null', 'allowed'); try { fs.writeFileSync(${JSON.stringify(deniedFile)}, 'changed'); process.exit(2); } catch (error) { if (!['EACCES', 'EPERM'].includes(error.code)) throw error; }`
+        ],
+        cwd: process.cwd(),
+        directories,
+        writableRoots: Object.values(directories),
+        environment,
+        policy
+    });
+    const result = spawnSync(prepared.command[0], prepared.command.slice(1), {
+        cwd: process.cwd(),
+        env: environment,
+        encoding: 'utf8'
+    });
+    if (result.status === 125 && /Landlock ABI is unavailable/u.test(result.stderr))
+    {
+        context.skip('Landlock ABI unavailable on this Linux host');
+        return;
+    }
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(fs.readFileSync(deniedFile, 'utf8'), 'unchanged');
+    assert.deepEqual(prepared.linuxReadWritePaths.filter((entry) => entry.startsWith('/dev/')), ['/dev/null']);
+    assert.equal(finalizeNetworkSandbox(prepared).admission, 'planned-actual-exact');
+});
+
 test('systemd address policy permits an exact current-run loopback service and denies other addresses', {
     skip: process.platform !== 'linux'
 }, async (context) =>

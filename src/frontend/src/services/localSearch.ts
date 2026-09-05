@@ -42,7 +42,7 @@ const SEARCH_MANIFEST_URL = resolveSearchManifestUrl()
 const SEARCH_MANIFEST_MAGIC = 0x4d495346
 const SEARCH_MANIFEST_BINARY_VERSION = 1
 const SEARCH_PACKAGE_MAGIC = 0x4b505346
-const SEARCH_PACKAGE_VERSION = 3
+const SEARCH_PACKAGE_VERSION = 4
 const DOTNET_EPOCH_OFFSET_MS = 62135596800000
 const SEARCH_ASSET_FETCH_CONCURRENCY = 2
 const SEARCH_BACKGROUND_IDLE_TIMEOUT_MS = 2_000
@@ -691,6 +691,33 @@ function scheduleDeepSearchPhase(manifest: SearchManifest, generation: number): 
   void deepPreloadPromise.catch(() => {})
 }
 
+async function loadSearchIndexOnce(generation: number, controller: AbortController): Promise<void> {
+  const initialStartedAt = typeof performance !== 'undefined' ? performance.now() : 0
+  const manifest = await loadManifest(controller.signal)
+  if (!isGenerationActive(generation, controller)) {
+    return
+  }
+
+  activeManifest = manifest
+  const initialRoles = selectInitialRoles(manifest)
+  const entries = await loadAssetsForRoles(manifest, initialRoles, controller.signal)
+  if (!isGenerationActive(generation, controller)) {
+    return
+  }
+
+  await reloadRuntimeFromEntries(entries, generation, controller)
+  if (!isGenerationActive(generation, controller)) {
+    return
+  }
+
+  loadedEntryKeys = new Set(entries.keys())
+  loaded = true
+  loadedVersion = manifest.currentVersion
+  emitSearchPhaseMetric('initial', initialStartedAt, initialRoles, manifest.currentVersion, entries.size)
+  void preloadBackgroundShard(manifest, generation).catch(() => {})
+  scheduleDeepSearchPhase(manifest, generation)
+}
+
 function ensureLoadPromise(): Promise<void> {
   if (loadPromise) {
     return loadPromise
@@ -703,34 +730,18 @@ function ensureLoadPromise(): Promise<void> {
   const currentLoad = { promise: null as Promise<void> | null }
   const promise = (async () => {
     try {
-      const initialStartedAt = typeof performance !== 'undefined' ? performance.now() : 0
-      const manifest = await loadManifest(controller.signal)
-      if (!isGenerationActive(generation, controller)) {
-        return
-      }
-
-      activeManifest = manifest
-      const initialRoles = selectInitialRoles(manifest)
-      const entries = await loadAssetsForRoles(manifest, initialRoles, controller.signal)
-      if (!isGenerationActive(generation, controller)) {
-        return
-      }
-
-      await reloadRuntimeFromEntries(entries, generation, controller)
-      if (!isGenerationActive(generation, controller)) {
-        return
-      }
-
-      loadedEntryKeys = new Set(entries.keys())
-      loaded = true
-      loadedVersion = manifest.currentVersion
-      emitSearchPhaseMetric('initial', initialStartedAt, initialRoles, manifest.currentVersion, entries.size)
-      void preloadBackgroundShard(manifest, generation).catch(() => {})
-      scheduleDeepSearchPhase(manifest, generation)
+      await loadSearchIndexOnce(generation, controller)
     } catch (error) {
-      if (!controller.signal.aborted) {
-        throw error
+      if (controller.signal.aborted || !isGenerationActive(generation, controller)) {
+        if (!controller.signal.aborted) {
+          throw error
+        }
+        return
       }
+
+      // A lagging release-derived search pointer can fail the first load while
+      // current.json has already advanced; retry once against a later snapshot.
+      await loadSearchIndexOnce(generation, controller)
     } finally {
       if (activeLoadController === controller) {
         activeLoadController = null
