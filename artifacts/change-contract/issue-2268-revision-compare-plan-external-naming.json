@@ -1,0 +1,22 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+                "src/backend/Services/Authoring/AuthoringRevisionComparePackageReader.cs",
+                "src/core/Services/Articles/RevisionCompareContracts.cs",
+                "src/core/Services/Articles/RevisionComparePlanner.cs"
+            ],
+            "reason": "Preserve existing caller-visible process configuration spelling covered by the trusted C# surface registry without claiming new environment access."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/api/article-publication-revisions.md"
+            ],
+            "reason": "Preserve existing external identifiers and contract terminology in the current content-authority document."
+        }
+    ]
+}
