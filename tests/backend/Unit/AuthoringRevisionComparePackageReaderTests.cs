@@ -198,6 +198,49 @@ public sealed class AuthoringRevisionComparePackageReaderTests
         Assert.Null(result.Context);
     }
 
+    [Fact]
+    public async Task DraftContextAuthority_RejectsProviderScopeOrRightsSubstitution()
+    {
+        var request = new AuthoringRevisionCompareDraftContextRequest(
+            Context(),
+            7,
+            "draft-key",
+            3,
+            "document-epoch-3",
+            RightsPayloadDigest());
+        IAuthoringRevisionCompareDraftContextProvider provider = Substitute.For<IAuthoringRevisionCompareDraftContextProvider>();
+        provider.ReadAsync(request, Arg.Any<CancellationToken>()).Returns(call =>
+        {
+            AuthoringRevisionCompareDraftContextRequest substituted = request with
+            {
+                Reader = request.Reader with
+                {
+                    SiteScope = "other-site"
+                }
+            };
+            AuthoringRevisionCompareDraftContext context = AuthoringRevisionCompareDraftContextAuthority.Seal(
+                substituted,
+                [
+                    RevisionCompareSnapshot.Present(
+                        RevisionCompareSnapshotKind.Rights,
+                        "wrong-rights",
+                        1,
+                        JsonSerializer.SerializeToUtf8Bytes(new ArticleRightsRequest { Enabled = false })),
+                    RevisionCompareSnapshot.NotApplicable(RevisionCompareSnapshotKind.Responsibility),
+                    RevisionCompareSnapshot.NotApplicable(RevisionCompareSnapshotKind.Release)
+                ]);
+            return new AuthoringRevisionCompareDraftContextResult(
+                RevisionComparePackageReadStatus.Available,
+                context);
+        });
+        var authority = new AuthoringRevisionCompareDraftContextAuthority([provider]);
+
+        AuthoringRevisionCompareDraftContextResult result = await authority.ReadAsync(request, default);
+
+        Assert.Equal(RevisionComparePackageReadStatus.Stale, result.Status);
+        Assert.Null(result.Context);
+    }
+
     private static IAuthoringRevisionCompareAuthority Authority(long currentRevisionId = 11)
     {
         IAuthoringRevisionCompareAuthority authority = Substitute.For<IAuthoringRevisionCompareAuthority>();

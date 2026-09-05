@@ -285,6 +285,75 @@ public sealed class RevisionComparePlannerTests
         Assert.Equal("revision_compare_metadata_invalid", error.Code);
     }
 
+    [Fact]
+    public async Task CreateAsync_AdmitsDraftAgainstHistoricalWithExactEpochAndSourceRevision()
+    {
+        RevisionComparePackage draft = DraftPackage("epoch-a", 4, "draft body");
+        RevisionComparePackage historical = Package(RevisionCompareSourceKind.HistoricalRevision, 11, 1, "history");
+        var reader = new DelegateReader((_, selector, _) => Task.FromResult(
+            RevisionComparePackageReadResult.Available(
+                selector.Kind == RevisionCompareSourceKind.CurrentDraft ? draft : historical)));
+        RevisionComparePlanRequest request = Request() with
+        {
+            Base = new RevisionCompareSourceSelector(
+                RevisionCompareSourceKind.CurrentDraft,
+                DraftKey: "draft-key",
+                ExpectedServerRevision: 4,
+                DocumentEpoch: "epoch-a"),
+            Compare = new RevisionCompareSourceSelector(RevisionCompareSourceKind.HistoricalRevision, RevisionId: 11)
+        };
+
+        RevisionComparePlanResult result = await new RevisionComparePlanner(reader).CreateAsync(request);
+
+        Assert.True(result.IsSuccess, result.Receipt.ReasonCode);
+        Assert.Equal("epoch-a", result.Bundle!.Plan.BasePackage.DocumentEpoch);
+        Assert.Equal(4, result.Bundle.Plan.BasePackage.ServerRevision);
+    }
+
+    [Fact]
+    public async Task CreateAsync_AdmitsTwoHistoricalPackagesWithoutCurrentPointerLookup()
+    {
+        RevisionComparePackage first = Package(RevisionCompareSourceKind.HistoricalRevision, 11, 1, "one");
+        RevisionComparePackage second = Package(RevisionCompareSourceKind.HistoricalRevision, 12, 2, "two");
+        var reader = new DelegateReader((_, selector, _) => Task.FromResult(
+            RevisionComparePackageReadResult.Available(selector.RevisionId == 11 ? first : second)));
+        RevisionComparePlanRequest request = Request() with
+        {
+            Compare = new RevisionCompareSourceSelector(RevisionCompareSourceKind.HistoricalRevision, RevisionId: 12)
+        };
+
+        RevisionComparePlanResult result = await new RevisionComparePlanner(reader).CreateAsync(request);
+
+        Assert.True(result.IsSuccess, result.Receipt.ReasonCode);
+        Assert.All(
+            [result.Bundle!.Plan.BasePackage, result.Bundle.Plan.ComparePackage],
+            static package => Assert.Equal(RevisionCompareSourceKind.HistoricalRevision, package.SourceKind));
+    }
+
+    [Fact]
+    public async Task CreateAsync_RejectsDraftEpochOrSourceRevisionDrift()
+    {
+        RevisionComparePackage draft = DraftPackage("epoch-b", 5, "changed");
+        RevisionComparePackage historical = Package(RevisionCompareSourceKind.HistoricalRevision, 11, 1, "history");
+        var reader = new DelegateReader((_, selector, _) => Task.FromResult(
+            RevisionComparePackageReadResult.Available(
+                selector.Kind == RevisionCompareSourceKind.CurrentDraft ? draft : historical)));
+        RevisionComparePlanRequest request = Request() with
+        {
+            Base = new RevisionCompareSourceSelector(
+                RevisionCompareSourceKind.CurrentDraft,
+                DraftKey: "draft-key",
+                ExpectedServerRevision: 4,
+                DocumentEpoch: "epoch-a"),
+            Compare = new RevisionCompareSourceSelector(RevisionCompareSourceKind.HistoricalRevision, RevisionId: 11)
+        };
+
+        RevisionComparePlanResult result = await new RevisionComparePlanner(reader).CreateAsync(request);
+
+        Assert.Equal(RevisionComparePlanStatus.Stale, result.Status);
+        Assert.Equal("revision_compare_source_stale", result.Receipt.ReasonCode);
+    }
+
     private static RevisionComparePlanRequest Request()
         => new(
             7,
@@ -317,6 +386,19 @@ public sealed class RevisionComparePlannerTests
             revisionNo,
             null,
             null,
+            Encoding.UTF8.GetBytes(markdown),
+            Metadata(),
+            Snapshots());
+
+    private static RevisionComparePackage DraftPackage(string epoch, long serverRevision, string markdown)
+        => RevisionComparePackageSeal.Create(
+            7,
+            RevisionCompareSourceKind.CurrentDraft,
+            $"draft:5:draft-key:{serverRevision}:{epoch}",
+            null,
+            null,
+            serverRevision,
+            epoch,
             Encoding.UTF8.GetBytes(markdown),
             Metadata(),
             Snapshots());
