@@ -795,7 +795,7 @@ public sealed class AuthorArticlePinStore(
             reader.GetString(reader.GetOrdinal("command_kind")),
             reader.GetString(reader.GetOrdinal("status")),
             ReadNullableString(reader, "reason_code"),
-            reader.GetFieldValue<int[]>(reader.GetOrdinal("article_ids")),
+            ParseArticleIds(reader.GetString(reader.GetOrdinal("article_ids"))),
             ReadNullableInt32(reader, "after_article_id"),
             reader.GetInt32(reader.GetOrdinal("item_count")),
             reader.GetBoolean(reader.GetOrdinal("rebalanced")),
@@ -832,7 +832,7 @@ public sealed class AuthorArticlePinStore(
             VALUES (
                 @ReceiptId, @OwnerAdminPrincipalId, @SiteScope, @RequestId,
                 @PreviousRevision, @Revision, @CommandKind, @Status, @ReasonCode,
-                @ArticleIds, @AfterArticleId, @ItemCount, @Rebalanced,
+                @ArticleIds, @AfterArticleId::integer, @ItemCount, @Rebalanced,
                 @CommandDigest, @ContentDigest, @CreatedAtUtc);
 
             INSERT INTO author_article_pin_idempotency(
@@ -843,7 +843,7 @@ public sealed class AuthorArticlePinStore(
             VALUES (
                 @OwnerAdminPrincipalId, @SiteScope, @RequestId, @ReceiptId,
                 @PreviousRevision, @Revision, @CommandKind, @Status, @ReasonCode,
-                @ArticleIds, @AfterArticleId, @ItemCount, @Rebalanced,
+                @ArticleIds, @AfterArticleId::integer, @ItemCount, @Rebalanced,
                 @CommandDigest, @ContentDigest, @CreatedAtUtc);
             """,
             new SugarParameter("@ReceiptId", receiptId),
@@ -855,7 +855,7 @@ public sealed class AuthorArticlePinStore(
             new SugarParameter("@CommandKind", commandKind),
             new SugarParameter("@Status", status),
             new SugarParameter("@ReasonCode", reasonCode is null ? DBNull.Value : reasonCode),
-            new SugarParameter("@ArticleIds", articleIds.ToArray()),
+            new SugarParameter("@ArticleIds", string.Join(',', articleIds)),
             new SugarParameter("@AfterArticleId", afterArticleId.HasValue ? afterArticleId.Value : DBNull.Value),
             new SugarParameter("@ItemCount", itemCount),
             new SugarParameter("@Rebalanced", rebalanced),
@@ -999,6 +999,14 @@ public sealed class AuthorArticlePinStore(
         return reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
     }
 
+    private static int[] ParseArticleIds(string value)
+        => value.Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(static articleId => int.Parse(
+                articleId,
+                System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture))
+            .ToArray();
+
     private async Task<IReadOnlyList<string>> ReadReceiptIntegrityReasonsAsync(
         AuthorArticlePinOwner owner,
         CancellationToken cancellationToken)
@@ -1038,7 +1046,7 @@ public sealed class AuthorArticlePinStore(
                 continue;
             }
 
-            int[] articleIds = reader.GetFieldValue<int[]>(reader.GetOrdinal("article_ids"));
+            int[] articleIds = ParseArticleIds(reader.GetString(reader.GetOrdinal("article_ids")));
             int? afterArticleId = ReadNullableInt32(reader, "after_article_id");
             string expectedCommandDigest = AuthorArticlePinContract.ComputeCommandDigest(
                 reader.GetString(reader.GetOrdinal("command_kind")),
@@ -1057,7 +1065,7 @@ public sealed class AuthorArticlePinStore(
                 && string.Equals(reader.GetString(reader.GetOrdinal("command_kind")), reader.GetString(reader.GetOrdinal("receipt_command_kind")), StringComparison.Ordinal)
                 && string.Equals(reader.GetString(reader.GetOrdinal("status")), reader.GetString(reader.GetOrdinal("receipt_status")), StringComparison.Ordinal)
                 && string.Equals(ReadNullableString(reader, "reason_code"), ReadNullableString(reader, "receipt_reason_code"), StringComparison.Ordinal)
-                && articleIds.SequenceEqual(reader.GetFieldValue<int[]>(reader.GetOrdinal("receipt_article_ids")))
+                && articleIds.SequenceEqual(ParseArticleIds(reader.GetString(reader.GetOrdinal("receipt_article_ids"))))
                 && afterArticleId == ReadNullableInt32(reader, "receipt_after_article_id")
                 && reader.GetInt32(reader.GetOrdinal("item_count")) == reader.GetInt32(reader.GetOrdinal("receipt_item_count"))
                 && reader.GetBoolean(reader.GetOrdinal("rebalanced")) == reader.GetBoolean(reader.GetOrdinal("receipt_rebalanced"))

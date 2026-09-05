@@ -73,7 +73,7 @@ internal static class AuthorArticlePinMigrationDefinitions
                         command_kind varchar(16) NOT NULL,
                         status varchar(16) NOT NULL,
                         reason_code varchar(64) NULL,
-                        article_ids integer[] NOT NULL,
+                        article_ids varchar(704) NOT NULL,
                         after_article_id integer NULL,
                         item_count integer NOT NULL,
                         rebalanced boolean NOT NULL,
@@ -90,9 +90,7 @@ internal static class AuthorArticlePinMigrationDefinitions
                         CONSTRAINT ck_author_article_pin_receipt_status CHECK (
                             status IN ('applied', 'noop')),
                         CONSTRAINT ck_author_article_pin_receipt_articles CHECK (
-                            cardinality(article_ids) BETWEEN 1 AND 64
-                            AND array_position(article_ids, NULL) IS NULL
-                            AND 0 < ALL(article_ids)
+                            article_ids ~ '^[1-9][0-9]*(,[1-9][0-9]*){0,63}$'
                             AND (after_article_id IS NULL OR after_article_id > 0)),
                         CONSTRAINT ck_author_article_pin_receipt_reason CHECK (
                             (status = 'applied' AND reason_code IS NULL)
@@ -116,7 +114,7 @@ internal static class AuthorArticlePinMigrationDefinitions
                         command_kind varchar(16) NOT NULL,
                         status varchar(16) NOT NULL,
                         reason_code varchar(64) NULL,
-                        article_ids integer[] NOT NULL,
+                        article_ids varchar(704) NOT NULL,
                         after_article_id integer NULL,
                         item_count integer NOT NULL,
                         rebalanced boolean NOT NULL,
@@ -133,9 +131,7 @@ internal static class AuthorArticlePinMigrationDefinitions
                         CONSTRAINT ck_author_article_pin_idempotency_status CHECK (
                             status IN ('applied', 'noop')),
                         CONSTRAINT ck_author_article_pin_idempotency_articles CHECK (
-                            cardinality(article_ids) BETWEEN 1 AND 64
-                            AND array_position(article_ids, NULL) IS NULL
-                            AND 0 < ALL(article_ids)
+                            article_ids ~ '^[1-9][0-9]*(,[1-9][0-9]*){0,63}$'
                             AND (after_article_id IS NULL OR after_article_id > 0)),
                         CONSTRAINT ck_author_article_pin_idempotency_reason CHECK (
                             (status = 'applied' AND reason_code IS NULL)

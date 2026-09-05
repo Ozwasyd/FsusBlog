@@ -32,7 +32,7 @@ public sealed class MigrationAssemblyBoundaryTests
 
         Assert.Equal(138, manifest.Descriptors.Count);
         Assert.Equal(
-            "DCFCE725F38279E8A163A98B759257745F38F9571612F1F116A56B12EB1B45AD",
+            "2F6026130A6667AA83190973DFF348D92F425DE543F67B4DA07B3FDB2EFA859A",
             ComputePlanFingerprint(manifest.Descriptors));
         Assert.Equal(
             manifest.Descriptors.Count,

@@ -198,19 +198,9 @@ public sealed class AuthorArticlePinStoreIntegrationTests(PostgresSchemaMigratio
                 owner_admin_principal_id, site_scope, schema_version, revision,
                 item_count, updated_at_utc, content_digest)
             VALUES (1, 'primary-site', 1, 1, 1000, CURRENT_TIMESTAMP, @CollectionDigest);
-
-            INSERT INTO author_article_pin(
-                pin_id, owner_admin_principal_id, site_scope, article_id, order_key,
-                created_revision, updated_revision, content_digest)
-            SELECT seed.pin_id, 1, 'primary-site', seed.article_id, seed.order_key, 1, 1, seed.content_digest
-            FROM unnest(@PinIds::uuid[], @ArticleIds::integer[], @OrderKeys::bigint[], @PinDigests::text[])
-                AS seed(pin_id, article_id, order_key, content_digest);
             """,
-            new SugarParameter("@CollectionDigest", digest),
-            new SugarParameter("@PinIds", pinIds),
-            new SugarParameter("@ArticleIds", articleIds),
-            new SugarParameter("@OrderKeys", orderKeys),
-            new SugarParameter("@PinDigests", pins.Select(static pin => pin.ContentDigest).ToArray()));
+            new SugarParameter("@CollectionDigest", digest));
+        await SeedPinsAsync(db, pins);
 
         Assert.Equal(1_000, (await store.GetAuthoritySnapshotAsync(s_owner)).ItemCount);
         await Assert.ThrowsAsync<AuthorArticlePinBudgetExceededException>(() => store.AddAsync(
@@ -272,6 +262,40 @@ public sealed class AuthorArticlePinStoreIntegrationTests(PostgresSchemaMigratio
         foreach (SchemaMigrationStep step in migration.Steps)
         {
             await step.ExecuteAsync(db, CancellationToken.None);
+        }
+    }
+
+    private static async Task SeedPinsAsync(SqlSugarClient db, IReadOnlyList<AuthorArticlePin> pins)
+    {
+        const int BatchSize = 250;
+        for (int offset = 0; offset < pins.Count; offset += BatchSize)
+        {
+            int count = Math.Min(BatchSize, pins.Count - offset);
+            var values = new System.Text.StringBuilder();
+            var parameters = new List<SugarParameter>(count * 4);
+            for (int index = 0; index < count; index++)
+            {
+                int parameterIndex = offset + index;
+                if (index > 0)
+                {
+                    values.Append(',');
+                }
+                values.Append($"(@PinId{parameterIndex}, 1, 'primary-site', @ArticleId{parameterIndex}, @OrderKey{parameterIndex}, 1, 1, @Digest{parameterIndex})");
+                AuthorArticlePin pin = pins[parameterIndex];
+                parameters.Add(new SugarParameter($"@PinId{parameterIndex}", pin.PinId));
+                parameters.Add(new SugarParameter($"@ArticleId{parameterIndex}", pin.ArticleId));
+                parameters.Add(new SugarParameter($"@OrderKey{parameterIndex}", pin.OrderKey));
+                parameters.Add(new SugarParameter($"@Digest{parameterIndex}", pin.ContentDigest));
+            }
+
+            await db.Ado.ExecuteCommandAsync(
+                $"""
+                INSERT INTO author_article_pin(
+                    pin_id, owner_admin_principal_id, site_scope, article_id, order_key,
+                    created_revision, updated_revision, content_digest)
+                VALUES {values};
+                """,
+                parameters.ToArray());
         }
     }
 
