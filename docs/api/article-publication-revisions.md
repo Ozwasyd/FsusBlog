@@ -53,6 +53,28 @@ outbox。失败时整个批次回滚，旧发布版本继续可读。
 `current_publication_id` 固定的版本。后台私有请求继续显示当前编辑修订。
 outbox 事件同时在列和 payload 中保存精确坐标；消费者只处理事件给出的版本。
 
+## 修订正文比较契约
+
+修订正文比较只消费通过 `RevisionComparePlanVerifier` 复核的 sealed compare plan。plan
+固定 base/compare package digest、raw Markdown SHA-256、article/revision 或 draft
+coordinates、reader scope、到期时间、取消 identity 与资源预算；执行前重新读取 exact package
+reference，不能把 `latest` 或 current pointer 重新解释成另一修订。正文与 metadata/snapshots
+仍由 package 持有，diff result 只返回 byte ranges、line terminator 类型、heading identity 和
+content-addressed receipts，不成为第二份内容 authority。
+
+`revision-source-diff-v1` 先按原始 bytes 切分 LF、CRLF、lone CR 与无结尾换行的 physical
+lines，BOM、trailing spaces 和所有 Unicode bytes 均留在原 source range。line matching
+使用 deterministic unique-line anchors 与 increasing subsequence；无稳定 anchor 的封闭区间
+明确输出 insert/delete/replace，不猜测 move。replace hunk 再以
+`unicode-text-elements-v1` 做 Unicode grapheme/word refinement，invalid UTF-8 只跳过 word
+refinement，不改变 byte-level line result。heading navigation 由 fence-aware、只读 Markdown
+heading scanner 产生 ATX/setext ranges；不读取 rendered HTML、current DOM、local cache，也不
+使用 regex 改写 Markdown semantics。
+
+source bytes/line/token/memory/time/output/chunk 上限全部来自 sealed plan。超限、取消、过期、
+package drift 或 receipt/range tamper 都 fail closed；engine 在 worker task 上计算，100k-line
+输入仍使用有界内存与 `O(n log n)` anchor 排序/LIS 路径，禁止在 UI/main thread 运行。
+
 ## 风险与无重启回退
 
 主要风险是旧数据缺少修订、权利或责任快照，迁移期间投影坐标不完整，以及旧缓存
