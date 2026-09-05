@@ -1,4 +1,42 @@
-/** Preserve the freshness producer's PR matching semantics for all consumers. */
+import { updateTypes } from './dependency-required-checks.mjs';
+
+function plainCell(value)
+{
+    return value.replace(/\[([^\]]+)\]\([^)]*\)/gu, '$1').replaceAll('`', '').trim();
+}
+
+function declaredUpdates(body)
+{
+    const rows = [];
+    let headers;
+    for (const line of String(body ?? '').split(/\r?\n/u))
+    {
+        if (!line.trim().startsWith('|') || !line.trim().endsWith('|'))
+        {
+            headers = undefined;
+            continue;
+        }
+        const cells = line.trim().slice(1, -1).split('|').map(plainCell);
+        if (cells.includes('Package') && cells.includes('Update'))
+        {
+            headers = cells;
+            continue;
+        }
+        if (!headers || cells.length !== headers.length || cells.every((cell) => /^:?-+:?$/u.test(cell)))
+        {
+            continue;
+        }
+        const row = Object.fromEntries(headers.map((header, index) => [header, cells[index]]));
+        rows.push({
+            packageName: row.Package,
+            updateType: row.Update,
+            targetVersion: row['New value'] ?? row.Change?.split('→').at(-1)?.trim()
+        });
+    }
+    return rows;
+}
+
+/** Read producer-declared table metadata; freshness evaluation remains owned by evaluateFreshness. */
 export function parseRenovatePullRequests(pulls, catalog)
 {
     const items = catalog.items ?? [];
@@ -7,10 +45,22 @@ export function parseRenovatePullRequests(pulls, catalog)
         {
             return [];
         }
+        const updates = declaredUpdates(pull.body);
         return items.flatMap((item) => {
+            const declared = updates.filter((update) => update.packageName === item.packageName);
+            if (declared.length > 0)
+            {
+                const identities = new Set(declared.map((update) => JSON.stringify([update.updateType, update.targetVersion])));
+                if (identities.size !== 1 || ![...updateTypes, 'pin'].includes(declared[0].updateType)
+                    || !declared[0].targetVersion)
+                {
+                    throw new Error(`dependency_pull_ambiguous_update:${pull.number}:${item.id}`);
+                }
+            }
             const mentionsPackage = `${pull.title ?? ''} ${pull.body ?? ''}`.includes(item.packageName);
             const versionMatch = /to (?:v)?(\S+)/u.exec(pull.title ?? '');
-            if (!mentionsPackage || !versionMatch)
+            const targetVersion = declared[0]?.targetVersion ?? versionMatch?.[1];
+            if (!mentionsPackage || !targetVersion)
             {
                 return [];
             }
@@ -20,7 +70,9 @@ export function parseRenovatePullRequests(pulls, catalog)
                 dependencyId: item.id,
                 packageName: item.packageName,
                 group: item.group,
-                targetVersion: versionMatch[1]
+                targetVersion,
+                ...(declared.length > 0 ? { updateType: declared[0].updateType } : {}),
+                ...(pull.head?.sha ? { headSha: pull.head.sha } : {})
             }];
         });
     });
