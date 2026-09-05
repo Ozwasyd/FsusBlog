@@ -158,9 +158,14 @@ export function validateBehaviorDocStaticAdmissionReceipt(receipt, options = {})
 
 export function readBehaviorDocStaticAdmissionReceipt(file, expected = {})
 {
-    if (!file || !fs.existsSync(file))
+    const stat = file ? fs.lstatSync(file, { throwIfNoEntry: false }) : null;
+    if (!stat)
     {
         throw new Error('BehaviorDoc admission receipt is missing');
+    }
+    if (!stat.isFile() || stat.isSymbolicLink() || fs.realpathSync(file) !== path.resolve(file))
+    {
+        throw new Error('BehaviorDoc admission receipt must be a physical regular file');
     }
     const receipt = JSON.parse(fs.readFileSync(file, 'utf8'));
     return validateBehaviorDocStaticAdmissionReceipt(receipt, expected);

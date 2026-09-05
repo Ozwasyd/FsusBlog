@@ -441,6 +441,36 @@ test('sealed receipt rejects every fail-open static result and candidate spawn',
     );
 });
 
+test('pure receipt contracts reject incomplete identities and non-integer counters without expectations', async () =>
+{
+    const { validateMinimalContractBuildReceipt } = await import('../../tools/docs/behavior-doc-minimal-contract-build-contract.mjs');
+    const receipt = validAdmissionReceipt();
+    const mutations = [
+        (value) => { value.run.id = ''; },
+        (value) => { value.source.commit = 'bad'; },
+        (value) => { value.source.worktreeFingerprint = ''; },
+        (value) => { value.worktree.root = ''; },
+        ...['node', 'dotnet', 'platform', 'architecture'].map((field) => (value) => { value.toolchain[field] = ''; }),
+        (value) => { value.implementationOwner.bindingCount = 1.5; },
+        (value) => { value.generated.documentCount = -1; },
+        (value) => { value.prose.verifiedClaimCount = 0.5; },
+        (value) => { value.mutationFixtures.caseCount = 1.5; },
+        (value) => { value.durationMs = -1; }
+    ];
+    for (const mutate of mutations)
+    {
+        const value = structuredClone(receipt);
+        mutate(value);
+        assert.throws(() => validateAdmissionContract(seal(value)));
+    }
+    for (const field of ['runId', 'sourceCommit', 'worktreeFingerprint'])
+    {
+        const value = structuredClone(receipt.minimalContractBuild);
+        value[field] = '';
+        assert.throws(() => validateMinimalContractBuildReceipt(seal(value)), /run\/source identity is incomplete/u);
+    }
+});
+
 test('pure admission validation requires independent artifact reads when requested', () =>
 {
     const receipt = validAdmissionReceipt();

@@ -8,6 +8,7 @@ export const defaultBehaviorDocAdmissionReceipt =
     '.tmp/behavior-doc-static-admission/receipt.json';
 export const defaultBehaviorDocAdmissionComponentsDirectory =
     '.tmp/behavior-doc-static-admission/components';
+export const behaviorDocGlobalClaimExactnessComponent = 'global-claim-exactness.json';
 
 const authorityDigestKeys = Object.freeze([
     'catalog',
@@ -19,6 +20,8 @@ const authorityDigestKeys = Object.freeze([
     'mutationCatalog'
 ]);
 const digestPattern = /^[a-f0-9]{64}$/u;
+const isNonEmptyString = (value) => typeof value === 'string' && value.length > 0;
+const isNonNegativeInteger = (value) => Number.isInteger(value) && value >= 0;
 const receiptKeys = Object.freeze([
     'schema',
     'run',
@@ -111,6 +114,14 @@ export function validateBehaviorDocStaticAdmissionReceipt(receipt, {
         'architecture',
         'directoryBuildPropsDigest'
     ])
+    || !isNonEmptyString(receipt.run.id)
+    || !/^[a-f0-9]{40}$/u.test(receipt.source.commit ?? '')
+    || !digestPattern.test(receipt.source.worktreeFingerprint ?? '')
+    || !isNonEmptyString(receipt.worktree.root)
+    || !isNonEmptyString(receipt.toolchain.node)
+    || !isNonEmptyString(receipt.toolchain.dotnet)
+    || !isNonEmptyString(receipt.toolchain.platform)
+    || !isNonEmptyString(receipt.toolchain.architecture)
     || !digestPattern.test(receipt.toolchain.directoryBuildPropsDigest ?? ''))
     {
         throw new Error('BehaviorDoc admission run/source/toolchain identity is incomplete');
@@ -120,6 +131,7 @@ export function validateBehaviorDocStaticAdmissionReceipt(receipt, {
         throw new Error('BehaviorDoc admission implementation owner scan failed');
     }
     if (!hasExactKeys(receipt.implementationOwner, ['status', 'bindingCount', 'contentDigest'])
+    || !Number.isInteger(receipt.implementationOwner.bindingCount)
     || receipt.implementationOwner.bindingCount < 1
     || !digestPattern.test(receipt.implementationOwner.contentDigest ?? ''))
     {
@@ -143,8 +155,9 @@ export function validateBehaviorDocStaticAdmissionReceipt(receipt, {
     if (!digestPattern.test(receipt.generated.contentDigest ?? '')
     || !digestPattern.test(receipt.prose.contentDigest ?? '')
     || !digestPattern.test(receipt.mutationFixtures.contentDigest ?? '')
-    || receipt.generated.documentCount < 0
-    || receipt.prose.verifiedClaimCount < 0
+    || !isNonNegativeInteger(receipt.generated.documentCount)
+    || !isNonNegativeInteger(receipt.prose.verifiedClaimCount)
+    || !Number.isInteger(receipt.mutationFixtures.caseCount)
     || receipt.mutationFixtures.caseCount < 1)
     {
         throw new Error('BehaviorDoc admission verification component receipt is incomplete');
@@ -164,6 +177,11 @@ export function validateBehaviorDocStaticAdmissionReceipt(receipt, {
       || !digestPattern.test(entry.contentDigest ?? '')))
     {
         throw new Error('BehaviorDoc admission fact observations are incomplete');
+    }
+    if (!Number.isInteger(receipt.candidateSpawnCountBeforeReceipt)
+        || !isNonNegativeInteger(receipt.durationMs))
+    {
+        throw new Error('BehaviorDoc admission counters are invalid');
     }
     if (expectedWorktree !== null)
     {
