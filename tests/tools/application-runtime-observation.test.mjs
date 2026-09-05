@@ -148,7 +148,7 @@ function fixture(context)
   const publicationOptions = { authorityId: authority.authorityId, producerId: authority.producerId,
     context: publicationContext, outputPath: terminalReference, payloadPath: terminalPayload, repositoryRoot: root }
   const session = beginCurrentRunEvidencePublication(publicationOptions)
-  fs.writeFileSync(path.join(root, terminalPayload), `${JSON.stringify(terminal)}\n`)
+  fs.writeFileSync(path.join(root, terminalPayload), `${JSON.stringify(terminal, null, 2)}\n`)
   finalizeCurrentRunEvidencePublication({ ...publicationOptions, sessionId: session.sessionId,
     payloadSchema: terminal.schema, terminalStatus: 'success' })
   const claims = produceAcceptedClaims({ terminalReceipt: relative('terminal.json'), expectedRunId: runId, repositoryRoot: root })
@@ -324,6 +324,25 @@ test('#2205 accepted-claim CLI produces and independently replays one explicit t
   ], { cwd: root, encoding: 'utf8' })
   assert.equal(verified.status, 0, verified.stderr)
   assert.match(verified.stdout, /verify-accepted-claims status=accepted/u)
+})
+
+test('accepted-claim adapter refuses payloads and requires an independently supplied current run', (context) =>
+{
+  const value = fixture(context)
+  const terminalReference = JSON.parse(fs.readFileSync(path.join(root, value.relative('terminal.json')), 'utf8'))
+  assert.throws(() => produceAcceptedClaims({
+    terminalReceipt: terminalReference.payload.path, expectedRunId: value.runId, repositoryRoot: root
+  }), /path|payload|reference/u)
+  assert.throws(() => produceAcceptedClaims({
+    terminalReceipt: value.relative('terminal.json'), repositoryRoot: root
+  }), /expected run id is required/u)
+  assert.throws(() => produceAcceptedClaims({
+    terminalReceipt: value.relative('terminal.json'), expectedRunId: `${value.runId}-other`, repositoryRoot: root
+  }), /run/u)
+  const claims = JSON.parse(fs.readFileSync(path.join(root, value.relative('claims.json')), 'utf8'))
+  assert.throws(() => validateAcceptedClaims(claims, {
+    expectedRunId: `${value.runId}-other`, repositoryRoot: root
+  }), /run/u)
 })
 
 test('candidate plans bind the current registry/schema/tool identity', (context) =>
