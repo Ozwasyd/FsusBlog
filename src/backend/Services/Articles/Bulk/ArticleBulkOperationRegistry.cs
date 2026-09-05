@@ -230,9 +230,10 @@ internal static partial class ArticleBulkOperationRegistry
             ArticleBulkParameterType.StableId => StableIdRegex().IsMatch(text),
             ArticleBulkParameterType.Rfc3339Utc => DateTimeOffset.TryParseExact(
                 text,
-                "yyyy-MM-dd'T'HH:mm:ss'Z'",
-                null,
-                System.Globalization.DateTimeStyles.AssumeUniversal,
+                ["yyyy-MM-dd'T'HH:mm:ss'Z'", "yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'"],
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal
+                    | System.Globalization.DateTimeStyles.AdjustToUniversal,
                 out _),
             _ => false
         };

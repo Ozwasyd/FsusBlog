@@ -69,6 +69,11 @@ public sealed class ArticleBulkRegistryTests
                 ["checkIds"] = JsonSerializer.SerializeToElement(new[] { "z-check", "a-check" })
             });
         Assert.Equal(["a-check", "z-check"], Assert.IsAssignableFrom<IEnumerable<string>>(normalized["checkIds"]));
+
+        var schedule = ArticleBulkOperationRegistry.NormalizeParameters(
+            "schedule.change",
+            Parameters(("scheduledAtUtc", "2026-09-04T12:00:00.1234567Z")));
+        Assert.Equal("2026-09-04T12:00:00.1234567Z", schedule["scheduledAtUtc"]);
     }
 
     private static Dictionary<string, JsonElement> Parameters(params (string Name, string Value)[] pairs) =>
