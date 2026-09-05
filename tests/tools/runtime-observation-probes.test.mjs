@@ -389,7 +389,7 @@ test('cache facts reject wrong release paths, duplicate events, and unsealed gen
     events: [{ id: 1, status: 'processed', last_error: null }],
     edges: { eventTypes: ['article-published'] },
     authorityCoordinate: { articleIdDigest: digest('1'), mutationIdDigest: digest('2') },
-    generation: { valueDigest: digest('3'), present: true },
+    generation: { value: '3', valueDigest: sha('3'), present: true },
     query: {
       searchIndexDigest: digest('4'),
       releaseScopedPath: `/release-derived/${expectedReleaseId}/search/index.bin`,

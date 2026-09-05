@@ -25,7 +25,7 @@ import {
 } from '../../tests/frontend/support/aeds-envelope.mjs'
 import { projectPreparedPublicIds } from '../test-fixtures/receipt/projection.mjs'
 import { loadPostRuntimeProducerRegistry } from '../test-matrix/post-runtime-producer-registry.mjs'
-import { deriveProbeRawFacts, verifyFacts } from './runtime-observation-probe-facts.mjs'
+import { deriveProbeRawFacts, refreshHashDigest, verifyFacts } from './runtime-observation-probe-facts.mjs'
 export { deriveProbeRawFacts, verifyFacts } from './runtime-observation-probe-facts.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -420,18 +420,18 @@ async function sessionProbe(context)
   const facts = {
     schema: 'fsusblog.session-cookie-runtime-probe-facts.v1',
     database: {
-      projection: { ...row, sessionid: sha(row.sessionid), refreshtokenhash: sha(row.refreshtokenhash),
+      projection: { ...row, sessionid: sha(row.sessionid), refreshtokenhash: refreshHashDigest(row.refreshtokenhash),
         refresh_family_id: sha(row.refresh_family_id), device_signal_hash: sha(row.device_signal_hash) },
-      sessionDigest: digest({ ...row, sessionid: sha(row.sessionid), refreshtokenhash: sha(row.refreshtokenhash),
+      sessionDigest: digest({ ...row, sessionid: sha(row.sessionid), refreshtokenhash: refreshHashDigest(row.refreshtokenhash),
         refresh_family_id: sha(row.refresh_family_id), device_signal_hash: sha(row.device_signal_hash) }),
       sessionIdDigest: sha(row.sessionid),
-      refreshTokenHashDigest: sha(row.refreshtokenhash),
+      refreshTokenHashDigest: refreshHashDigest(row.refreshtokenhash),
       refreshGeneration: Number(row.refresh_generation),
       revoked: row.revokedat != null
     },
     credential: {
-      presentedRefreshHashDigest: sha(presentedRefreshHash),
-      storedRefreshHashDigest: sha(row.refreshtokenhash),
+      presentedRefreshHashDigest: refreshHashDigest(presentedRefreshHash),
+      storedRefreshHashDigest: refreshHashDigest(row.refreshtokenhash),
       matches: presentedRefreshHash.toLowerCase() === String(row.refreshtokenhash).toLowerCase()
     },
     authContext: {
@@ -509,7 +509,7 @@ async function sessionProbe(context)
     }
   }
   facts.storage = { projection: { surface: 'postgresql-session-storage',
-    sessionIdDigest: sha(row.sessionid), refreshTokenHashDigest: sha(row.refreshtokenhash),
+    sessionIdDigest: sha(row.sessionid), refreshTokenHashDigest: refreshHashDigest(row.refreshtokenhash),
     refreshGeneration: row.refresh_generation, revokedAt: row.revokedat } }
   facts.coherent = facts.credential.matches && facts.authContext.jwtMatches && facts.jwt.sessionMatches
     && facts.cookie.sessionMatches && facts.expiry.ordered && facts.revision.current && facts.device.matches

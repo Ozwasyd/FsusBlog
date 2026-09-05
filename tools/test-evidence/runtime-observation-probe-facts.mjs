@@ -5,6 +5,12 @@ const digestPattern = /^sha256:[a-f0-9]{64}$/u
 const fail = (message) => { throw new Error(`[runtime-observation-probe] ${message}`) }
 const sha = (value) => `sha256:${createHash('sha256').update(value).digest('hex')}`
 
+export function refreshHashDigest(value)
+{
+  if (typeof value !== 'string' || !/^[a-fA-F0-9]{64}$/u.test(value)) fail('invalid observed refresh hash')
+  return sha(value.toLowerCase())
+}
+
 function seal(value)
 {
   const receipt = { ...stable(value), contentDigest: null }
@@ -147,6 +153,34 @@ export function verifyFacts(kind, facts, { fixture = null, fixtureProjection: pr
   }
   else if (kind === 'session-cookie-runtime')
   {
+    const credentialDigests = [facts.credential?.presentedRefreshHashDigest,
+      facts.credential?.storedRefreshHashDigest, facts.database?.refreshTokenHashDigest,
+      facts.database?.projection?.refreshtokenhash, facts.storage?.projection?.refreshTokenHashDigest]
+    if (credentialDigests.some((value) => !digestPattern.test(String(value ?? ''))
+      || value !== credentialDigests[0]))
+    {
+      fail('session facts do not replay the exact DB/JWT/cookie/service relations: credential projections differ')
+    }
+    const expiry = facts.expiry?.projection
+    const database = facts.database?.projection
+    const jwt = facts.jwt?.projection
+    const finiteNumeric = (value) => (typeof value === 'number'
+      || (typeof value === 'string' && value.trim().length > 0)) && Number.isFinite(Number(value))
+    const dateTime = (value) => typeof value === 'string' && value.length > 0 ? Date.parse(value) : NaN
+    if (!expiry || !database || !jwt
+      || !finiteNumeric(expiry.accessTokenExp) || !finiteNumeric(expiry.issuedAt)
+      || !Number.isFinite(dateTime(expiry.idleExpiresAt)) || !Number.isFinite(dateTime(expiry.absoluteExpiresAt))
+      || Number(expiry.accessTokenExp) <= Number(expiry.issuedAt)
+      || dateTime(expiry.absoluteExpiresAt) < dateTime(expiry.idleExpiresAt)
+      || expiry.accessTokenExp !== jwt.exp || expiry.issuedAt !== jwt.iat
+      || expiry.idleExpiresAt !== database.idleexpiresat || expiry.absoluteExpiresAt !== database.absoluteexpiresat
+      || expiry.durationPolicy == null || expiry.durationPolicy !== database.duration_policy
+      || facts.expiry.digest !== `sha256:${digestValue({ accessTokenExp: expiry.accessTokenExp,
+        idleExpiresAt: expiry.idleExpiresAt, absoluteExpiresAt: expiry.absoluteExpiresAt,
+        durationPolicy: expiry.durationPolicy })}`)
+    {
+      fail('session facts do not replay the exact DB/JWT/cookie/service relations: expiry projections differ')
+    }
     const relations = [facts.credential?.matches, facts.authContext?.jwtMatches, facts.jwt?.sessionMatches,
       facts.cookie?.sessionMatches, facts.expiry?.ordered, facts.revision?.current,
       facts.device?.matches, facts.service?.currentSessionMatches]
@@ -187,6 +221,8 @@ export function verifyFacts(kind, facts, { fixture = null, fixtureProjection: pr
     || new Set(facts.events.map(({ id }) => id)).size !== facts.events.length
     || !Array.isArray(facts.edges?.eventTypes) || facts.edges.eventTypes.length !== facts.events.length
     || facts.generation?.present !== true
+    || typeof facts.generation?.value !== 'string' || facts.generation.value.length === 0
+    || facts.generation.valueDigest !== sha(facts.generation.value)
     || [facts.authorityCoordinate?.articleIdDigest, facts.authorityCoordinate?.mutationIdDigest,
       facts.generation?.valueDigest, facts.query?.searchIndexDigest, facts.readModel?.projectionDigest,
       facts.readModel?.detailDigest, facts.readModel?.detailTitleDigest, facts.output?.navigationDigest,
