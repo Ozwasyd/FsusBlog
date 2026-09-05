@@ -8,6 +8,7 @@ import test from 'node:test'
 
 import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs'
 import { BehaviorId } from '../../tools/contracts/behavior-contract-catalog.mjs'
+import { sealBrowserContractReceipt } from '../../tools/release/test-evidence-receipts.mjs'
 import {
     acceptedClaimsSchema,
     authorityDigest,
@@ -100,7 +101,7 @@ function producerReceipt(classId = 'route-response-error')
         const reference = {
             path: relative,
             fileDigest: `sha256:${createHash('sha256').update(fs.readFileSync(absolute)).digest('hex')}`,
-            contentDigest: document.contentDigest,
+            contentDigest: document.contentDigest ?? null,
             schema: document.schema
         }
         if (role !== null) reference.role = role
@@ -131,14 +132,23 @@ function producerReceipt(classId = 'route-response-error')
                 sourceState: source,
                 runIdentity: { runId: sourceState.runId }
             },
-            'fsusblog.browser-contract-public-preview-evidence.v1': { sourceState },
+            'fsusblog.public-preview-screenshot-verification.v1': {
+                status: 'ok', sourceCommit: sourceState.sourceCommit,
+                releaseId: `20260718000000-${sourceState.sourceCommit.slice(0, 12)}`,
+                manifestSchema: 'fsusblog.public-preview-screenshot-manifest.v1',
+                visualInputDigest: 'c'.repeat(64), runtimeAudit: true, layoutAudit: true,
+                sanitizationCheck: true, differences: [], commandVersion: 'd'.repeat(64),
+                images: Object.fromEntries(Array.from({ length: 9 }, (_, index) =>
+                    [`screenshot-${index + 1}`, `${index + 1}`.repeat(64)]))
+            },
             'fsusblog.release-rollout-evidence.v1': {
                 rolloutId: sourceState.rolloutId,
                 target: { releaseId: sourceState.releaseId }
             },
             'fsusblog.runtime-role-observation.v1': { observationDigest: digest('1') }
         }
-        return seal({ schema: contract.schema, ...bySchema[contract.schema] })
+        const document = { schema: contract.schema, ...bySchema[contract.schema] }
+        return contract.schema === 'fsusblog.public-preview-screenshot-verification.v1' ? document : seal(document)
     }
     const embeddedReference = (field, contract) =>
     {
@@ -148,7 +158,7 @@ function producerReceipt(classId = 'route-response-error')
             'fsusblog.post-runtime-candidate-plan.v1': '.tmp/post-runtime-plan/run-1/attempt-0001/candidate-plan.json',
             'fsusblog.spa-manifest-descriptor.v1': '.tmp/aot-manifest/spa-manifest-descriptor.json',
             'fsusblog.browser-contract-receipt.v2': '.tmp/browser-contract/receipt.json',
-            'fsusblog.browser-contract-public-preview-evidence.v1': '.tmp/release-evidence/public-preview-screenshots.json',
+            'fsusblog.public-preview-screenshot-verification.v1': '.tmp/release-evidence/public-preview-screenshots.json',
             'fsusblog.release-rollout-evidence.v1': `.tmp/release-rollout/${classId}.json`,
             'fsusblog.runtime-role-observation.v1': '.tmp/behavior-doc-static-admission/runtime-role-observation.json'
         }
@@ -235,6 +245,72 @@ function producerReceipt(classId = 'route-response-error')
             schema: identityAuthoritySchema,
             role
         }
+    }
+    if (classId === 'browser-behavior-contract')
+    {
+        const canonicalSource = {
+            commit: sourceState.sourceCommit,
+            worktreeFingerprint: sourceState.worktreeFingerprint
+        }
+        const buildReceipt = seal({ schema: 'fsusblog.ci-production-build-receipt.v1', sourceState: canonicalSource })
+        const buildRef = writeDependency('.tmp/ci-production-build/receipt.json', buildReceipt)
+        sourceState.buildIdentity = buildReceipt.contentDigest
+        const build = { receipt: buildRef.path, receiptContentDigest: buildReceipt.contentDigest,
+            sourceState: canonicalSource, profile: 'production' }
+        const candidatePlan = seal({
+            schema: 'fsusblog.post-runtime-candidate-plan.v1',
+            producerId: producer.producerId,
+            status: 'planned',
+            sourceState: canonicalSource,
+            build,
+            candidate: {
+                candidateId: sourceState.candidateId, runtimeId: sourceState.runtimeId,
+                browserId: sourceState.browserIdentity, runId: sourceState.runId,
+                attemptId: sourceState.attemptId, fixtureId: sourceState.fixtureId,
+                profileId: sourceState.profileId
+            },
+            identityAuthorityRefs: { plan: refs.candidatePlanRef, attempt: refs.attemptAuthorityRef,
+                fixture: refs.fixtureAuthorityRef, profile: refs.profileAuthorityRef }
+        })
+        const candidatePlanRef = writeDependency('.tmp/post-runtime-plan/run-1/attempt-0001/candidate-plan.json',
+            candidatePlan, 'candidate-plan')
+        const browserPlan = seal({
+            schema: 'fsusblog.playwright-browser-identity.v1', executionClass: 'correctness',
+            evidenceClass: 'browser-contract', qualificationEligible: true, managedExecutable: true,
+            browserName: 'chromium', browserVersion: '140.0.0', revision: '123456',
+            executablePath: '/managed/chromium/chrome', executableSha256: digest('f'),
+            playwright: { package: '@playwright/test', version: '1.59.1' },
+            launchOptions: { headless: true }, rendering: {
+                fontSetDigest: digest('1'), localeDataDigest: digest('2'), locale: 'zh-CN',
+                deviceScaleFactor: 1, renderingMode: 'headless', colorScheme: 'light', gpuMode: 'software'
+            }
+        })
+        const browserActual = seal({ ...browserPlan, schema: 'fsusblog.playwright-browser-actual.v1',
+            planDigest: browserPlan.contentDigest, renderingObservation: {
+                locale: 'zh-CN', deviceScaleFactor: 1, colorScheme: 'light', renderer: 'SwiftShader fixture renderer'
+            } })
+        const preview = JSON.parse(fs.readFileSync(path.join(receiptRepositoryRoot, upstreamBody.publicPreviewRef.path), 'utf8'))
+        const browser = sealBrowserContractReceipt({
+            ...upstreamBody,
+            sourceState: canonicalSource,
+            status: 'success', classification: 'clean', error: null,
+            wallClockMs: 2000,
+            finalization: { state: 'complete', primary: { status: 'success' },
+                cleanup: { status: 'success' }, persistence: { attemptCount: 1 } },
+            playwright: { chromiumRevision: '123456', browserIdentity: { plan: browserPlan, actual: browserActual } },
+            topology: { browserLaunchCount: 1, maxConcurrentBrowserRoots: 1, retries: 0, contextCount: 1 },
+            build,
+            fixture: { namespace: 'run-1', lifecycle: { identity: { runId: sourceState.runId } } },
+            runIdentity: { commit: sourceState.sourceCommit, runId: sourceState.runId,
+                attemptId: sourceState.attemptId, namespace: 'run-1' },
+            scenarios: [{ id: 'browser-source', status: 'success', classification: 'clean', issues: [], artifacts: [] }],
+            publicPreview: { ...preview, captureContextCount: 9, evidencePath: upstreamBody.publicPreviewRef.path,
+                evidenceFileDigest: upstreamBody.publicPreviewRef.fileDigest },
+            candidatePlanRef
+        })
+        const browserRef = writeDependency(upstreamRelative, browser, 'browser')
+        Object.assign(upstreamRef, browserRef)
+        sourceState.artifactDigest = browserRef.fileDigest
     }
     const sourceReceipt = seal({
         schema: sourceReceiptSchema,
@@ -592,6 +668,81 @@ test('every observation class accepts only its declared source identities', () =
                 registry, producerId, receipt: seal(expanded), classId
             }), /sourceState has missing or unknown fields/u)
         }
+    }
+})
+
+test('canonical Browser source keeps its sealer fields and rejects re-sealed identity drift', () =>
+{
+    const classId = 'browser-behavior-contract'
+    const producerId = registry.producers[0].producerId
+    for (const [mutate, expected] of [
+        [(value) => { value.unregistered = true }, /missing or unknown fields/u],
+        [(value) => { delete value.diagnostics }, /missing or unknown fields/u],
+        [(value) => { value.sourceState.sourceCommit = value.sourceState.commit }, /sourceState has missing or unknown fields/u],
+        [(value) => { value.runIdentity.runId = 'other-run' }, /runId mismatch/u],
+        [(value) => { value.runIdentity.attemptId = 'attempt-0002' }, /attemptId mismatch/u],
+        [(value) => { value.buildBinding.receiptContentDigest = digest('f') }, /canonical Browser contract.*build.*digest mismatch/u],
+        [(value) => { value.publicPreview.evidenceFileDigest = digest('f') }, /canonical source\/build\/run\/preview binding mismatch/u],
+        [(value) => { value.candidatePlanRef.fileDigest = digest('f') }, /candidatePlanRef file digest mismatch/u],
+        [(value) => { value.candidatePlanRef.path = '.tmp/latest/plan.json' }, /explicit current-run JSON path/u],
+        [(value) => { value.status = 'failure' }, /canonical Browser contract/u]
+    ])
+    {
+        const receipt = producerReceipt(classId)
+        const sourcePath = path.join(receiptRepositoryRoot, receipt.sourceReceiptRef.path)
+        const source = JSON.parse(fs.readFileSync(sourcePath, 'utf8'))
+        const upstreamPath = path.join(receiptRepositoryRoot, source.upstreamRef.path)
+        const upstream = JSON.parse(fs.readFileSync(upstreamPath, 'utf8'))
+        assert.equal(upstream.evidenceClass, 'browser-contract')
+        assert.deepEqual(Object.keys(upstream.sourceState).sort(), ['commit', 'worktreeFingerprint'])
+        mutate(upstream)
+        const changed = seal(upstream)
+        fs.writeFileSync(upstreamPath, `${JSON.stringify(changed, null, 2)}\n`)
+        source.upstreamRef.fileDigest = `sha256:${createHash('sha256').update(fs.readFileSync(upstreamPath)).digest('hex')}`
+        source.upstreamRef.contentDigest = changed.contentDigest
+        receipt.sourceState.artifactDigest = source.upstreamRef.fileDigest
+        source.sourceState.artifactDigest = source.upstreamRef.fileDigest
+        const changedSource = seal(source)
+        fs.writeFileSync(sourcePath, `${JSON.stringify(changedSource, null, 2)}\n`)
+        receipt.sourceReceiptRef.fileDigest = `sha256:${createHash('sha256').update(fs.readFileSync(sourcePath)).digest('hex')}`
+        receipt.sourceReceiptRef.contentDigest = changedSource.contentDigest
+        assert.throws(() => validateProducerReceiptAgainstRegistry({
+            registry, producerId, receipt: seal(receipt), classId
+        }), expected)
+    }
+})
+
+test('canonical pure receipt modules retain transitive no-I/O and no-execution boundaries', (context) =>
+{
+    const repositoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-pure-receipt-'))
+    context.after(() => fs.rmSync(repositoryRoot, { recursive: true, force: true }))
+    fs.mkdirSync(path.join(repositoryRoot, 'tools/docs'), { recursive: true })
+    fs.mkdirSync(path.join(repositoryRoot, 'tools/contracts'), { recursive: true })
+    const entry = 'tools/docs/behavior-doc-static-admission-contract.mjs'
+    const entryFile = path.join(repositoryRoot, entry)
+    fs.writeFileSync(entryFile, "import path from 'node:path'\nexport const normalize = path.resolve\n")
+    assert.doesNotThrow(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry))
+    for (const source of [
+        "import fs from 'node:fs'\nexport const reader = fs\n",
+        "import { spawn } from 'node:child_process'\nexport const run = spawn\n",
+        "export const dependency = import('node:path')\n",
+        "export const capability = process.getBuiltinModule('fs')\n",
+        "import './doc-claim.mjs'\n",
+        "import './fake-receipt-contract.mjs'\n",
+        "import '../contracts/transitive-helper.mjs'\n"
+    ])
+    {
+        fs.writeFileSync(path.join(repositoryRoot, 'tools/docs/doc-claim.mjs'), 'export const scanner = true\n')
+        fs.writeFileSync(path.join(repositoryRoot, 'tools/docs/fake-receipt-contract.mjs'), 'export const copy = true\n')
+        fs.writeFileSync(path.join(repositoryRoot, 'tools/contracts/transitive-helper.mjs'),
+            "import { execSync } from 'node:child_process'\nexport const build = execSync\n")
+        fs.writeFileSync(entryFile, source)
+        assert.throws(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry), /forbidden/u)
+    }
+    for (const canonical of [entry, 'tools/docs/behavior-doc-minimal-contract-build-contract.mjs',
+        'tools/release/browser-contract-receipt-contract.mjs'])
+    {
+        assert.doesNotThrow(() => validatePostRuntimeReaderFirewall(root, canonical))
     }
 })
 

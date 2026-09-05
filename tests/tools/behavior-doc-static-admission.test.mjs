@@ -10,6 +10,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const { parseWorkflow, validateBehaviorDocStaticAdmissionTopology } = await import(new URL("../../tools/check-workflow-matrix-sync.mjs", import.meta.url));
 const { buildIdentitiesFromMinimalReceipt, hostDeclarations, runMinimalContractBuild } = await import(new URL("../../tools/docs/behavior-doc-minimal-contract-build.mjs", import.meta.url));
 const { behaviorDocAdmissionReceiptSchema, validateBehaviorDocStaticAdmissionReceipt, writeFactObservationReceipts } = await import(new URL("../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
+const { validateBehaviorDocStaticAdmissionReceipt: validateAdmissionContract } = await import(new URL("../../tools/docs/behavior-doc-static-admission-contract.mjs", import.meta.url));
 const { digestValue, sealSourceIdentity } = await import(new URL("../../tools/fact-extractors/identity.mjs", import.meta.url));
 const { loadRegistry } = await import(new URL("../../tools/fact-extractors/registry.mjs", import.meta.url));
 const { establishBehaviorDocAdmission, runLocalProfile } = await import(new URL("../../tools/run-test-matrix.mjs", import.meta.url));
@@ -438,6 +439,40 @@ test('sealed receipt rejects every fail-open static result and candidate spawn',
         () => validateBehaviorDocStaticAdmissionReceipt(tampered, expected),
         /content digest mismatch/u
     );
+});
+
+test('pure admission validation requires independent artifact reads when requested', () =>
+{
+    const receipt = validAdmissionReceipt();
+    const options = {
+        expectedRunId: receipt.run.id,
+        expectedSourceIdentity: {
+            sourceCommit: receipt.source.commit,
+            worktreeFingerprint: receipt.source.worktreeFingerprint
+        },
+        expectedWorktree: root,
+        expectedExtractorIds: loadRegistry().extractors.map((extractor) => extractor.id).sort(),
+        artifactRepositoryRoot: root
+    };
+    assert.throws(() => validateAdmissionContract(receipt, options), /independent artifact reader/u);
+    const digests = new Map(Object.values(receipt.minimalContractBuild.artifacts)
+        .flatMap((artifact) => [[artifact.project, artifact.projectDigest], [artifact.path, artifact.artifactDigest]]));
+    const visited = new Set();
+    assert.equal(validateAdmissionContract(receipt, {
+        ...options,
+        readArtifactDigest: (repositoryRoot, relative) =>
+        {
+            assert.equal(repositoryRoot, root);
+            assert.ok(digests.has(relative));
+            visited.add(relative);
+            return digests.get(relative);
+        }
+    }), receipt);
+    assert.deepEqual([...visited].sort(), [...digests.keys()].sort());
+    assert.throws(() => validateAdmissionContract(receipt, {
+        ...options,
+        readArtifactDigest: () => '0'.repeat(64)
+    }), /artifact .* digest mismatch/u);
 });
 
 test('minimal contract build uses only a content-addressed root and never ambient bin output', (t) =>
