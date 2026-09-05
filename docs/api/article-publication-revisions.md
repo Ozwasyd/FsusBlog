@@ -67,13 +67,25 @@ lines，BOM、trailing spaces 和所有 Unicode bytes 均留在原 source range�
 使用 deterministic unique-line anchors 与 increasing subsequence；无稳定 anchor 的封闭区间
 明确输出 insert/delete/replace，不猜测 move。replace hunk 再以
 `unicode-text-elements-v1` 做 Unicode grapheme/word refinement，invalid UTF-8 只跳过 word
-refinement，不改变 byte-level line result。heading navigation 由 fence-aware、只读 Markdown
-heading scanner 产生 ATX/setext ranges；不读取 rendered HTML、current DOM、local cache，也不
-使用 regex 改写 Markdown semantics。
+refinement，不改变 byte-level line result。heading navigation 只接受
+`IRevisionMarkdownStructureAuthority` 返回并重新验 seal 的 canonical parser version、source
+digest、node level、line index、byte range 与 node identity；engine 不自行解释 ATX、setext、
+blockquote、list、code fence 或 HTML block 语法。provider 为零或多于一个时 fail closed；仓库
+当前没有注册 production canonical Markdown provider，因此启用 heading navigation 的运行时请求
+会稳定返回 `revision_diff_structure_unavailable`，本地测试只在该 production interface 边界注入
+deterministic structure snapshot，不把模拟 provider 描述为已部署 authority。
+
+sealed plan 的 `contextLineCount` 由 engine 转成覆盖 equal hunks 的稳定 context groups：靠近 change
+的前后 context 保持展开，其余区间标记 collapsed，并固定 base/compare line 与 byte ranges、group
+index 和 digest。UI 只消费这些 groups，不重新裁剪 source ranges。
 
 source bytes/line/token/memory/time/output/chunk 上限全部来自 sealed plan。超限、取消、过期、
 package drift 或 receipt/range tamper 都 fail closed；engine 在 worker task 上计算，100k-line
 输入仍使用有界内存与 `O(n log n)` anchor 排序/LIS 路径，禁止在 UI/main thread 运行。
+semantic receipt 明确绑定 engine/segmenter/parser/budget identity、source/structure digests、byte、
+line、token、word edit、heading、context group、hunk、chunk、estimated memory/output counts 与完整
+representation digest；相同输入产生相同 semantic receipt。wall-clock elapsed time 单独进入
+content-addressed attempt receipt，并绑定 semantic digest，不污染 deterministic diff identity。
 
 ## 风险与无重启回退
 
