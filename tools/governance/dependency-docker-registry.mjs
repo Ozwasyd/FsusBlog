@@ -10,6 +10,25 @@ const manifestTypes = [
 ];
 const digestPattern = /^sha256:[0-9a-f]{64}$/;
 
+/** Consume the same digest-bound publication metadata shown by Microsoft's artifact catalog. */
+export async function readMcrPublication(packageName, tag, digest, fetchJson)
+{
+    const { origin, name } = dockerRepository(packageName);
+    if (origin !== 'https://mcr.microsoft.com' || !/^[\w][\w.-]{0,127}$/.test(tag) || !digestPattern.test(digest))
+    {
+        throw new Error('mcr_publication_input_invalid');
+    }
+    const entries = await fetchJson(`https://mcr.microsoft.com/api/v1/catalog/${name}/tags?reg=mar`);
+    if (!Array.isArray(entries)) throw new Error('mcr_publication_catalog_invalid');
+    const matching = entries.filter((entry) => entry?.name === tag);
+    if (matching.length !== 1 || matching[0].digest !== digest || matching[0].repository !== name
+        || matching[0].regHash !== 'mar' || !manifestTypes.includes(matching[0].manifestType))
+    {
+        throw new Error(`mcr_publication_identity_mismatch:${packageName}`);
+    }
+    return registryRelease(tag, matching[0].lastModifiedDate, `mcr:${name}`).releasedAt;
+}
+
 /** Bind Docker Hub's tag publication timestamp to the exact observed manifest digest. */
 export async function readDockerHubPublication(packageName, tag, digest, fetchJson)
 {

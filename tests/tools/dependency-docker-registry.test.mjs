@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 
-import { createDockerRegistryReader, dockerRepository, readDockerHubPublication, readDockerManifest, readDockerTags, readLatestDocker, selectLatestDockerTag } from '../../tools/governance/dependency-docker-registry.mjs';
+import { createDockerRegistryReader, dockerRepository, readDockerHubPublication, readDockerManifest, readDockerTags, readLatestDocker, readMcrPublication, selectLatestDockerTag } from '../../tools/governance/dependency-docker-registry.mjs';
 
 function page(tags, link, name = 'library/node')
 {
@@ -171,4 +171,22 @@ test('Docker snapshot joins tag or digest targets with the exact publication pro
         assert.equal(result.targetDigest, data.digest);
         assert.equal(result.releasedAt, '2026-01-01T00:00:00.000Z');
     }
+});
+
+test('MCR catalog publication binds registry, repository, tag and manifest digest', async () => {
+    const data = manifestFixture();
+    const row = { name: '10.0', digest: data.digest, repository: 'dotnet/sdk', regHash: 'mar',
+        manifestType: data.manifest.mediaType, lastModifiedDate: '2026-01-01T12:00:00.0000000+00:00' };
+    const read = async (url) => {
+        assert.equal(url, 'https://mcr.microsoft.com/api/v1/catalog/dotnet/sdk/tags?reg=mar');
+        return [row];
+    };
+    assert.equal(await readMcrPublication('mcr.microsoft.com/dotnet/sdk', '10.0', data.digest, read), '2026-01-01T12:00:00.000Z');
+    for (const changes of [{ digest: `sha256:${'b'.repeat(64)}` }, { repository: 'dotnet/aspnet' }, { regHash: 'other' }])
+    {
+        await assert.rejects(readMcrPublication('mcr.microsoft.com/dotnet/sdk', '10.0', data.digest, async () => [{ ...row, ...changes }]), /identity_mismatch/);
+    }
+    await assert.rejects(readMcrPublication('mcr.microsoft.com/dotnet/sdk', '10.0', data.digest, async () => [row, row]), /identity_mismatch/);
+    delete row.lastModifiedDate;
+    await assert.rejects(readMcrPublication('mcr.microsoft.com/dotnet/sdk', '10.0', data.digest, read), /publication_missing/);
 });
