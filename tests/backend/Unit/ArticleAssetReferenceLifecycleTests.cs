@@ -1,5 +1,8 @@
+using FsusBlog.Migration;
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Contracts.Assets;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Articles;
@@ -45,6 +48,15 @@ public sealed class ArticleAssetReferenceLifecycleTests(PostgresSchemaMigrationF
         System.Reflection.MethodInfo method = Assert.Single(typeof(IAssetStore).GetMethods());
         Assert.Equal(nameof(IAssetStore.DeleteAsync), method.Name);
         Assert.Equal(typeof(AssetId), method.GetParameters()[0].ParameterType);
+        Assert.Equal(typeof(Task<AssetDeleteOutcome>), method.ReturnType);
+        Assert.DoesNotContain(
+            typeof(AssetDeleteOutcome)
+                .GetProperties()
+                .Concat(typeof(AssetDeleteReferenceSummary).GetProperties())
+                .Concat(typeof(AssetDeleteReferenceLocation).GetProperties()),
+            static property => property.Name.Contains("Url", StringComparison.OrdinalIgnoreCase)
+                || property.Name.Contains("Path", StringComparison.OrdinalIgnoreCase)
+                || property.PropertyType == typeof(AssetStorageKey));
     }
 
     [Fact]
@@ -380,6 +392,281 @@ public sealed class ArticleAssetReferenceLifecycleTests(PostgresSchemaMigrationF
     }
 
     [Fact]
+    public async Task ReferencedDeleteReturnsDeterministicLocatableSourceSummary()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        AssetId assetId = SeedAsset(db, "illustration/referenced.png");
+        db.Insertable(new[]
+        {
+            Reference(assetId, ContentAssetSourceKinds.Revision, "1001", 42, 1),
+            Reference(assetId, ContentAssetSourceKinds.Article, "42", 42, 2),
+            Reference(assetId, ContentAssetSourceKinds.Draft, "7:draft", 42, 3)
+        }).ExecuteCommand();
+        var store = new LocalContentAssetStore(
+            db,
+            ReleaseStorageTestPaths.Create(Path.Combine(Path.GetTempPath(), $"fsusblog-delete-summary-{Guid.NewGuid():N}")),
+            NullLogger<LocalContentAssetStore>.Instance);
+
+        AssetDeleteOutcome outcome = await store.DeleteAsync(assetId);
+
+        Assert.Equal(AssetDeleteResult.Referenced, outcome.Result);
+        AssetDeleteReferenceSummary summary = Assert.IsType<AssetDeleteReferenceSummary>(outcome.ReferenceSummary);
+        Assert.Equal(3, summary.SourceCount);
+        Assert.False(summary.IsTruncated);
+        Assert.Equal(
+            [ContentAssetSourceKinds.Article, ContentAssetSourceKinds.Draft, ContentAssetSourceKinds.Revision],
+            summary.Locations.Select(static location => location.SourceKind).ToArray());
+        Assert.Equal(["42", "7:draft", "1001"], summary.Locations.Select(static location => location.SourceKey).ToArray());
+        Assert.Equal([2, 3, 1], summary.Locations.Select(static location => location.ReferenceCount).ToArray());
+        Assert.NotNull(db.Queryable<ContentAsset>().InSingle(assetId.Value));
+    }
+
+    [Fact]
+    public async Task LocalStoreDeleteIsIdempotentForRepeatedDelivery()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        AssetId assetId = SeedAsset(db, "illustration/idempotent.png");
+        string root = Path.Combine(Path.GetTempPath(), $"fsusblog-delete-idempotent-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            ReleaseStoragePaths paths = ReleaseStorageTestPaths.Create(root);
+            string file = WriteAssetFile(paths, "illustration/idempotent.png");
+            var store = new LocalContentAssetStore(db, paths, NullLogger<LocalContentAssetStore>.Instance);
+
+            AssetDeleteOutcome first = await store.DeleteAsync(assetId);
+            AssetDeleteOutcome replay = await store.DeleteAsync(assetId);
+
+            Assert.Equal(AssetDeleteResult.Deleted, first.Result);
+            Assert.Equal(AssetDeleteResult.NotFound, replay.Result);
+            Assert.False(File.Exists(file));
+            Assert.Empty(db.Queryable<ContentAsset>().ToList());
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task DatabaseDeleteFailureMustNotLeaveActiveAssetWithoutBytes()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        AssetId assetId = SeedAsset(db, "illustration/delete-rollback.png");
+        string root = Path.Combine(Path.GetTempPath(), $"fsusblog-delete-rollback-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            ReleaseStoragePaths paths = ReleaseStorageTestPaths.Create(root);
+            string file = WriteAssetFile(paths, "illustration/delete-rollback.png");
+            await db.Ado.ExecuteCommandAsync("""
+                CREATE FUNCTION reject_asset_delete() RETURNS trigger LANGUAGE plpgsql AS $$
+                BEGIN
+                    RAISE EXCEPTION 'injected asset metadata delete failure';
+                END;
+                $$;
+                CREATE TRIGGER reject_asset_delete BEFORE DELETE ON content_asset
+                    FOR EACH ROW EXECUTE FUNCTION reject_asset_delete();
+                """);
+            var store = new LocalContentAssetStore(db, paths, NullLogger<LocalContentAssetStore>.Instance);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => store.DeleteAsync(assetId));
+
+            ContentAsset remaining = Assert.IsType<ContentAsset>(
+                db.Queryable<ContentAsset>().InSingle(assetId.Value));
+            Assert.True(
+                File.Exists(file) || remaining.State != ContentAssetStates.Active,
+                "A failed metadata transaction must not leave an active asset whose bytes were deleted.");
+            if (!File.Exists(file))
+            {
+                ContentAssetCleanupQueueItem pending = Assert.IsType<ContentAssetCleanupQueueItem>(
+                    db.Queryable<ContentAssetCleanupQueueItem>().InSingle(assetId.Value));
+                Assert.Equal(ContentAssetCleanupMarkers.DeletePending, pending.LastError);
+                var references = new ArticleAssetReferenceStore(db);
+                var restore = await db.Ado.UseTranAsync(
+                    () => references.ReplaceCurrentArticleAsync(42, Writes(assetId)));
+                Assert.False(restore.IsSuccess);
+                Assert.Empty(db.Queryable<ContentAssetReference>().ToList());
+            }
+
+            await db.Ado.ExecuteCommandAsync("DROP TRIGGER reject_asset_delete ON content_asset;");
+            AssetDeleteOutcome retried = await store.DeleteAsync(assetId);
+            Assert.Equal(AssetDeleteResult.Deleted, retried.Result);
+            Assert.False(File.Exists(file));
+            Assert.Empty(db.Queryable<ContentAsset>().ToList());
+            Assert.Empty(db.Queryable<ContentAssetCleanupQueueItem>().ToList());
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ConcurrentCleanupWorkersClaimDistinctAssetIdsAndDeleteEachOnce()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        AssetId first;
+        AssetId second;
+        using (SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString))
+        {
+            CreateTables(setupDb);
+            first = SeedAsset(setupDb, "illustration/worker-first.png");
+            second = SeedAsset(setupDb, "illustration/worker-second.png");
+            QueueAsset(setupDb, first, DateTime.UtcNow.AddMinutes(-2));
+            QueueAsset(setupDb, second, DateTime.UtcNow.AddMinutes(-1));
+        }
+
+        string root = Path.Combine(Path.GetTempPath(), $"fsusblog-cleanup-workers-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            ReleaseStoragePaths paths = ReleaseStorageTestPaths.Create(root);
+            string firstFile = WriteAssetFile(paths, "illustration/worker-first.png");
+            string secondFile = WriteAssetFile(paths, "illustration/worker-second.png");
+            using var barrier = new Barrier(2);
+
+            int[] processed = await Task.WhenAll(
+                StartCleanupTaskAsync(barrier, connectionString, paths),
+                StartCleanupTaskAsync(barrier, connectionString, paths)).WaitAsync(TimeSpan.FromSeconds(20));
+
+            Assert.Equal([1, 1], processed.Order().ToArray());
+            Assert.False(File.Exists(firstFile));
+            Assert.False(File.Exists(secondFile));
+            using SqlSugarClient assertDb = PostgresSqlSugarTestClient.Create(connectionString);
+            Assert.Empty(assertDb.Queryable<ContentAssetCleanupQueueItem>().ToList());
+            Assert.Empty(assertDb.Queryable<ContentAsset>().ToList());
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task CleanupFailureRecordsRetryWithoutPoisoningNextDueAsset()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        AssetId poison = SeedAsset(db, "illustration/poison.png");
+        AssetId healthy = SeedAsset(db, "illustration/healthy.png");
+        DateTime now = DateTime.UtcNow;
+        QueueAsset(db, poison, now.AddMinutes(-2));
+        QueueAsset(db, healthy, now.AddMinutes(-1));
+        string root = Path.Combine(Path.GetTempPath(), $"fsusblog-cleanup-retry-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            ReleaseStoragePaths paths = ReleaseStorageTestPaths.Create(root);
+            string poisonFile = WriteAssetFile(paths, "illustration/poison.png");
+            string healthyFile = WriteAssetFile(paths, "illustration/healthy.png");
+            var localStore = new LocalContentAssetStore(db, paths, NullLogger<LocalContentAssetStore>.Instance);
+            var store = new DelegateAssetStore((assetId, cancellationToken) =>
+                assetId == poison
+                    ? Task.FromException<AssetDeleteOutcome>(new InvalidOperationException("simulated poison item"))
+                    : localStore.DeleteAsync(assetId, cancellationToken));
+            var cleanup = new ArticleAssetCleanupService(
+                db,
+                store,
+                TimeProvider.System,
+                NullLogger<ArticleAssetCleanupService>.Instance);
+
+            Assert.Equal(0, await cleanup.ProcessDueAsync(maxItems: 2));
+            ContentAssetCleanupQueueItem retry = db.Queryable<ContentAssetCleanupQueueItem>()
+                .InSingle(poison.Value);
+            Assert.Equal(1, retry.AttemptCount);
+            Assert.Equal("simulated poison item", retry.LastError);
+            Assert.True(retry.NotBeforeUtc > now.AddMinutes(10));
+            Assert.True(File.Exists(poisonFile));
+
+            Assert.Equal(1, await cleanup.ProcessDueAsync(maxItems: 2));
+            Assert.False(File.Exists(healthyFile));
+            Assert.NotNull(db.Queryable<ContentAssetCleanupQueueItem>().InSingle(poison.Value));
+            Assert.Null(db.Queryable<ContentAssetCleanupQueueItem>().InSingle(healthy.Value));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task CleanupQueueRejectsStaleIdentityAndPassesExactQueuedAssetId()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        AssetId queued = SeedAsset(db, "illustration/queued.png");
+        AssetId unrelated = SeedAsset(db, "illustration/unrelated.png");
+        DateTime due = DateTime.UtcNow.AddMinutes(-1);
+        await Assert.ThrowsAnyAsync<Exception>(() => db.Insertable(new ContentAssetCleanupQueueItem
+        {
+            AssetId = AssetId.New().Value,
+            NotBeforeUtc = due,
+            AttemptCount = 0,
+            UpdatedAtUtc = due
+        }).ExecuteCommandAsync());
+        QueueAsset(db, queued, due);
+        var requested = new List<AssetId>();
+        var store = new DelegateAssetStore((assetId, _) =>
+        {
+            requested.Add(assetId);
+            return Task.FromResult<AssetDeleteOutcome>(new(
+                AssetDeleteResult.Referenced,
+                new AssetDeleteReferenceSummary(
+                    1,
+                    [new(ContentAssetSourceKinds.Revision, "1001", 42, 1)])));
+        });
+        var cleanup = new ArticleAssetCleanupService(
+            db,
+            store,
+            TimeProvider.System,
+            NullLogger<ArticleAssetCleanupService>.Instance);
+
+        Assert.Equal(1, await cleanup.ProcessDueAsync(maxItems: 1));
+
+        Assert.Equal([queued], requested);
+        Assert.Empty(db.Queryable<ContentAssetCleanupQueueItem>().ToList());
+        Assert.NotNull(db.Queryable<ContentAsset>().InSingle(queued.Value));
+        Assert.NotNull(db.Queryable<ContentAsset>().InSingle(unrelated.Value));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CleanupCompletionPreservesNewerDurableDeletionMarker(bool storageFails)
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        AssetId assetId = SeedAsset(db, "illustration/cleanup-fence.png");
+        QueueAsset(db, assetId, DateTime.UtcNow.AddMinutes(-1));
+        var store = new DelegateAssetStore(async (requested, cancellationToken) =>
+        {
+            Assert.Equal(assetId, requested);
+            await db.Updateable<ContentAssetCleanupQueueItem>()
+                .SetColumns(item => item.LastError == ContentAssetCleanupMarkers.DeletePending)
+                .Where(item => item.AssetId == assetId.Value)
+                .ExecuteCommandAsync(cancellationToken);
+            if (storageFails)
+            {
+                throw new IOException("injected storage failure after deletion preparation");
+            }
+
+            return new AssetDeleteOutcome(AssetDeleteResult.Referenced);
+        });
+        var cleanup = new ArticleAssetCleanupService(
+            db, store, TimeProvider.System, NullLogger<ArticleAssetCleanupService>.Instance);
+
+        Assert.Equal(storageFails ? 0 : 1, await cleanup.ProcessDueAsync(maxItems: 1));
+
+        ContentAssetCleanupQueueItem pending = Assert.IsType<ContentAssetCleanupQueueItem>(
+            db.Queryable<ContentAssetCleanupQueueItem>().InSingle(assetId.Value));
+        Assert.Equal(ContentAssetCleanupMarkers.DeletePending, pending.LastError);
+        Assert.Equal(storageFails ? 1 : 0, pending.AttemptCount);
+        var references = new ArticleAssetReferenceStore(db);
+        var restore = await db.Ado.UseTranAsync(
+            () => references.ReplaceCurrentArticleAsync(42, Writes(assetId)));
+        Assert.False(restore.IsSuccess);
+        Assert.Empty(db.Queryable<ContentAssetReference>().ToList());
+    }
+
+    [Fact]
     public void LocalStorePathBoundaryRejectsRootTraversalAndAbsoluteCandidates()
     {
         string root = Path.Combine(Path.GetTempPath(), "fsusblog-content-asset-root");
@@ -401,11 +688,13 @@ public sealed class ArticleAssetReferenceLifecycleTests(PostgresSchemaMigrationF
     }
 
     private static void CreateTables(SqlSugarClient db)
-        => PostgresSqlSugarTestClient.InitTables(
-            db,
-            typeof(ContentAsset),
-            typeof(ContentAssetReference),
-            typeof(ContentAssetCleanupQueueItem));
+    {
+        foreach (EnsureTableStep table in ContentAssetCutoverMigrationDefinitions.BuildMigration()
+            .Steps.OfType<EnsureTableStep>())
+        {
+            db.Ado.ExecuteCommand(table.CreateSql);
+        }
+    }
 
     private static AssetId SeedAsset(SqlSugarClient db, string storageKey)
     {
@@ -426,6 +715,49 @@ public sealed class ArticleAssetReferenceLifecycleTests(PostgresSchemaMigrationF
             UpdatedAtUtc = DateTime.UtcNow
         }).ExecuteCommand();
         return assetId;
+    }
+
+    private static ContentAssetReference Reference(
+        AssetId assetId,
+        string sourceKind,
+        string sourceKey,
+        int? articleId,
+        int referenceCount)
+        => new()
+        {
+            AssetId = assetId.Value,
+            SourceKind = sourceKind,
+            SourceKey = sourceKey,
+            ArticleId = articleId,
+            ReferenceCount = referenceCount,
+            UpdatedAtUtc = DateTime.UtcNow
+        };
+
+    private static void QueueAsset(SqlSugarClient db, AssetId assetId, DateTime notBeforeUtc)
+    {
+        db.Updateable<ContentAsset>()
+            .SetColumns(asset => new ContentAsset
+            {
+                State = ContentAssetStates.PendingDelete,
+                UpdatedAtUtc = DateTime.UtcNow
+            })
+            .Where(asset => asset.AssetId == assetId.Value)
+            .ExecuteCommand();
+        db.Insertable(new ContentAssetCleanupQueueItem
+        {
+            AssetId = assetId.Value,
+            NotBeforeUtc = notBeforeUtc,
+            AttemptCount = 0,
+            UpdatedAtUtc = DateTime.UtcNow
+        }).ExecuteCommand();
+    }
+
+    private static string WriteAssetFile(ReleaseStoragePaths paths, string storageKey)
+    {
+        string path = Path.Combine(paths.PublicAssetRoot, storageKey.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllBytes(path, [1, 2, 3]);
+        return path;
     }
 
     private static async Task InTransactionAsync(SqlSugarClient db, Func<Task> action)
@@ -470,9 +802,39 @@ public sealed class ArticleAssetReferenceLifecycleTests(PostgresSchemaMigrationF
             TaskCreationOptions.LongRunning,
             TaskScheduler.Default).Unwrap();
 
+    private static Task<int> StartCleanupTaskAsync(
+        Barrier barrier,
+        string connectionString,
+        ReleaseStoragePaths paths)
+        => Task.Factory.StartNew(
+            async () =>
+            {
+                Assert.True(barrier.SignalAndWait(TimeSpan.FromSeconds(20)));
+                using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+                var store = new LocalContentAssetStore(db, paths, NullLogger<LocalContentAssetStore>.Instance);
+                var cleanup = new ArticleAssetCleanupService(
+                    db,
+                    store,
+                    TimeProvider.System,
+                    NullLogger<ArticleAssetCleanupService>.Instance);
+                return await cleanup.ProcessDueAsync(maxItems: 1);
+            },
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default).Unwrap();
+
     private static ArticleAssetReferenceWrite[] Writes(
         AssetId assetId,
         int referenceCount = 1,
         string? altText = null)
         => [new(assetId, referenceCount, altText)];
+
+    private sealed class DelegateAssetStore(
+        Func<AssetId, CancellationToken, Task<AssetDeleteOutcome>> delete) : IAssetStore
+    {
+        public Task<AssetDeleteOutcome> DeleteAsync(
+            AssetId assetId,
+            CancellationToken cancellationToken = default)
+            => delete(assetId, cancellationToken);
+    }
 }
