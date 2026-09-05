@@ -63,5 +63,6 @@ public enum CachePolicyId
     AccountSnapshotVersion = 60,
     SecurityUserSessionValidation = 61,
     SecurityChallengeEnvelope = 62,
-    PublicAotBackfillLease = 63
+    PublicAotBackfillLease = 63,
+    TaxonomyExactMetadataFrame = 64
 }

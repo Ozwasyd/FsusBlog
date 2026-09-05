@@ -2,7 +2,6 @@
   <div class="account-page dashboard-wrapper account-motion-enter w-full">
     <FsusUiTaskPageHeader
       title="站点工作台"
-      description="先处理今天的内容、互动与运行待办。"
       class="account-task-page-header"
       density="compact"
     >

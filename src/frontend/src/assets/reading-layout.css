@@ -73,11 +73,16 @@
     grid-column: full;
     grid-template-columns: subgrid;
     min-width: 0;
+    contain: none;
+    container-type: normal;
 }
 
-[data-fsus-reading-layout] .article-detail-body > *,
-[data-fsus-reading-layout] .blog-markdown-renderer > *,
-[data-fsus-reading-layout] .markdown-renderer > *,
+[data-fsus-reading-layout] .markdown-renderer__virtual-spacer
+ {
+    grid-column: full;
+}
+
+[data-fsus-reading-layout] .article-detail-body > :not(.blog-markdown-renderer),
 [data-fsus-reading-layout] .markdown-renderer > div > *,
 [data-fsus-reading-layout] .markdown-renderer__virtual-unit > *
  {

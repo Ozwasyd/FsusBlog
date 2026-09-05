@@ -2,6 +2,8 @@
 
 ## 运行模式
 
+运行模式的唯一权威是 compiled `RuntimeModeOptions` observation；模式集合为 `single`、`static-role`、`adaptive`，职责组合与 unsupported combinations 由下方 generated section 表达，正文不再维护手写模式表或第二份 role 映射。
+
 <!-- fsus-doc-claim
 claimId: deployment-blue-green-runtime-role.runtime-roles
 behaviorId: deployment-blue-green-runtime-role

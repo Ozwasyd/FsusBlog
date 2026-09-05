@@ -59,7 +59,9 @@ docker compose version    # 应输出 v2.x.x
 `Version`、嵌套 `Version` 或 `VersionOverride`。
 
 升级 NuGet package 时只编辑 `Directory.Packages.props`，然后重新生成并提交每个
-受影响项目自己的 `packages.lock.json`。提交前运行：
+受影响项目自己的 `packages.lock.json`。新增、删除 `ProjectReference`，或修改被引用
+项目的 package/project 依赖边时，也必须用非 locked restore 生成器更新所有受影响
+consumer 的 lock graph；`--locked-mode` 只用于验证，不会修复过期图。提交前运行：
 
 ```bash
 dotnet restore FsusBlog.slnx --locked-mode
@@ -248,10 +250,18 @@ Production 使用已跟踪的 `appsettings.Production.json` 作为真实 fail-cl
 Vite 通过 `vite.config.ts` 中的 `proxy` 配置将 `/api/` 请求转发到后端：
 
 ```typescript
-// vite.config.ts（示意）
-proxy: {
-  '/api': { target: 'http://127.0.0.1:7568', changeOrigin: true },
-}
+import { defineConfig } from 'vite'
+
+export default defineConfig({
+    server: {
+        proxy: {
+            '/api': {
+                target: 'http://127.0.0.1:7568',
+                changeOrigin: true
+            }
+        }
+    }
+})
 ```
 
 `/health` 端点需直接访问后端端口（默认 `http://127.0.0.1:7568`），不经过 Vite proxy。

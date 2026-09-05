@@ -703,6 +703,13 @@ async function main()
             assert(categoryBootstrap.title === categoryName, 'category bootstrap title mismatch');
             expectIncludes(category, categoryName, 'category page title text');
         }
+        assert(Object.prototype.hasOwnProperty.call(categoryPayload.filter ?? {}, 'description'), 'category payload description missing');
+        assert(categoryPayload.filter?.description === categoryBootstrap.filter?.description, 'category description hydration/bootstrap mismatch');
+        assert((categoryPayload.view?.header?.description ?? null) === (categoryPayload.filter?.description ?? null), 'category header description mismatch');
+        if (typeof categoryPayload.filter?.description === 'string' && categoryPayload.filter.description.trim())
+        {
+            expectIncludes(category, categoryPayload.filter.description, 'category description text');
+        }
     }
 
     const tagList = await fetchAeds('/api/binary/tag.aeds');
@@ -736,6 +743,16 @@ async function main()
             assert(tagPayload.title === tagName, 'tag payload title mismatch');
             assert(tagBootstrap.title === tagName, 'tag bootstrap title mismatch');
             expectIncludes(tag, tagName, 'tag page title text');
+        }
+        assert(Object.prototype.hasOwnProperty.call(tagPayload.filter ?? {}, 'description'), 'tag payload description missing');
+        assert(tagPayload.filter?.description === tagBootstrap.filter?.description, 'tag description hydration/bootstrap mismatch');
+        assert((tagPayload.view?.header?.description ?? null) === (tagPayload.filter?.description ?? null), 'tag header description mismatch');
+        if (typeof tagPayload.filter?.description === 'string' && tagPayload.filter.description.trim())
+        {
+            expectIncludes(tag, tagPayload.filter.description, 'tag description text');
+        }
+        if (tagName)
+        {
 
             const namedTag = await fetchWithTimeout(`${baseUrl}/tag/${encodeURIComponent(tagName)}`, {
                 redirect: 'manual',

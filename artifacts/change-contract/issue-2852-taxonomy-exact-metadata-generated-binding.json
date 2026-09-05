@@ -1,0 +1,38 @@
+{
+  "schema": "fsusblog.generated-output-binding.v1",
+  "sources": [
+    "src/shared/Contracts/Validation/aeds-protocol.json",
+    "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
+    "tests/frontend/fixtures/cross-stack-contract-matrix.json"
+  ],
+  "outputs": [
+    {
+      "path": "src/core/Algorithms/AedsFrameType.cs",
+      "sha256": "8eede212194921ed95ff5922d0ff612c7d1f6a8695a4b375adef8336c4d77373"
+    },
+    {
+      "path": "src/shared/AedsFrameHeader.cs",
+      "sha256": "4a6c9ee5b88414607dfa4bf7400c893112dc2863501a5ada0c795baa57c0edf9"
+    },
+    {
+      "path": "src/frontend/wasm/web/protocol/frame.ts",
+      "sha256": "ad076e3362419d936147f2d1ba07cd68a3d2f221b0a5590c9b0bdc6ba9632327"
+    },
+    {
+      "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+      "sha256": "3fc272760a3193c05268697be665e6283ecccf7b1a106def39f2843a3a96f882"
+    },
+    {
+      "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
+      "sha256": "02a669efcab94e9dcc239c2c0dd770c2b97dcc75a23b1337df23fcd72d51bbf7"
+    },
+    {
+      "path": "src/frontend/src/generated/fsusBinaryRoutes.ts",
+      "sha256": "c1c2462725e7332a4bb07b6bae9bc3b42f4d6dd477046cc2bfae96b8e78162ea"
+    },
+    {
+      "path": "tests/frontend/fixtures/cross-stack-contract-matrix.generated.json",
+      "sha256": "df38b82f9a586b77c7b71ceb2d1b66a4443c91e0217bca3f7f8166a28816d0d8"
+    }
+  ]
+}
