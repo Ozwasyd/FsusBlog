@@ -37,7 +37,53 @@ export function createDependencyBlockerGitHub({ repository, token, fetchImpl = f
         }
         return `/issues/${number}`;
     }
+    async function listCounted(route, field)
+    {
+        const entries = [];
+        let expected;
+        for (let page = 1; page <= 10; page++)
+        {
+            const payload = await request('GET', `${route}${route.includes('?') ? '&' : '?'}per_page=100&page=${page}`);
+            if (!Number.isSafeInteger(payload?.total_count) || payload.total_count < 0 || payload.total_count > 1000
+                || !Array.isArray(payload[field]) || (expected !== undefined && expected !== payload.total_count))
+            {
+                throw new Error('dependency_blocker_github_incomplete_counted_snapshot');
+            }
+            expected = payload.total_count;
+            entries.push(...payload[field]);
+            if (entries.length === expected)
+            {
+                return entries;
+            }
+            if (entries.length > expected || payload[field].length < 100)
+            {
+                break;
+            }
+        }
+        throw new Error('dependency_blocker_github_incomplete_counted_snapshot');
+    }
     return {
+        readPullRequest(number)
+        {
+            issueRoute(number);
+            return request('GET', `/pulls/${number}`);
+        },
+        listWorkflowRuns(headSha)
+        {
+            if (!/^[0-9a-f]{40}$/.test(headSha))
+            {
+                throw new Error('dependency_blocker_invalid_head_sha');
+            }
+            return listCounted(`/actions/runs?head_sha=${headSha}`, 'workflow_runs');
+        },
+        listWorkflowJobs(runId, attempt)
+        {
+            if (![runId, attempt].every((value) => Number.isSafeInteger(value) && value > 0))
+            {
+                throw new Error('dependency_blocker_invalid_run_identity');
+            }
+            return listCounted(`/actions/runs/${runId}/attempts/${attempt}/jobs`, 'jobs');
+        },
         async listIssues()
         {
             const issues = [];
