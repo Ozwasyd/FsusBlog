@@ -78,7 +78,7 @@ function currentTerminal(runId, root)
     })
 }
 
-function fixture(context)
+function fixture(context, { publishWithHook = false } = {})
 {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'post-runtime-accepted-claims-'))
     const repositoryRoot = root
@@ -86,6 +86,7 @@ function fixture(context)
     for (const file of ['config/contracts/behavior-contracts.json',
         'config/contracts/document-claim-migration-ledger.json',
         'config/testing/post-runtime-producer-registry.json',
+        'config/testing/evidence-locator-registry.json',
         'config/schemas/post-runtime-accepted-claims.schema.json',
         'config/schemas/post-runtime-observation-result.schema.json',
         'config/configuration-ownership.json',
@@ -93,6 +94,11 @@ function fixture(context)
         'tools/test-matrix/parse-matrix.mjs',
         'tools/run-test-matrix.mjs',
         'tools/test/lanes/production-correctness-receipt.sh',
+        'tools/test/current-run-evidence-producer-hook.mjs',
+        'tools/test/run-current-run-evidence-producer.mjs',
+        'tools/test/current-run-evidence-publication.mjs',
+        'tools/test/current-run-evidence-locator.mjs',
+        'tools/test/evidence-location-contract.mjs',
         'tools/yaml/parse-document.mjs',
         'tests/matrix.yml',
         'config/testing/correctness-attempt-producers.json',
@@ -102,8 +108,7 @@ function fixture(context)
         fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true })
         fs.copyFileSync(path.join(sourceRoot, file), path.join(root, file))
     }
-    // Isolated synthetic fixture only; production output exclusion is separately audited.
-    fs.writeFileSync(path.join(root, '.gitignore'), '/artifacts/current-run/\n')
+    fs.copyFileSync(path.join(sourceRoot, '.gitignore'), path.join(root, '.gitignore'))
     for (const args of [['init', '-q'], ['add', '.'],
         ['-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'fixture']])
     {
@@ -138,7 +143,57 @@ function fixture(context)
         const reference = { ...sealed, producerReceiptDigest: `sha256:${digestValue(sealed)}` }
         fs.writeFileSync(path.join(directory, mapped(name)), `${JSON.stringify(reference, null, 2)}\n`)
     }
-    write('terminal.json', currentTerminal(runId, root))
+    const terminal = currentTerminal(runId, root)
+    if (publishWithHook)
+    {
+        const sourceBefore = sealSourceIdentity(root)
+        const sourceEnvironment = {
+            ...process.env,
+            FSUSBLOG_TEST_SOURCE_COMMIT: sourceBefore.sourceCommit,
+            FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceBefore.worktreeFingerprint
+        }
+        const collected = spawnSync(process.execPath, ['--input-type=module', '-e',
+            `import { collectSchedulerSourceState } from ${JSON.stringify(path.join(sourceRoot, 'tools/test-matrix/scheduler.mjs'))}; console.log(JSON.stringify(await collectSchedulerSourceState(${JSON.stringify(root)})));`
+        ], { cwd: root, env: sourceEnvironment, encoding: 'utf8' })
+        assert.equal(collected.status, 0, collected.stderr)
+        const schedulerIdentity = JSON.parse(collected.stdout)
+        assert.equal(schedulerIdentity.sourceState.commit, sourceBefore.sourceCommit)
+        assert.equal(schedulerIdentity.sourceState.worktreeFingerprint, sourceBefore.worktreeFingerprint)
+        assert.notEqual(schedulerIdentity.snapshot.fingerprint, sourceBefore.worktreeFingerprint)
+        const evidenceContext = {
+            schema: 'fsusblog.current-run-evidence-context.v1', schedulerRunId: runId,
+            attemptId: 'attempt-0001', sourceCommit: schedulerIdentity.sourceState.commit,
+            worktreeFingerprint: `sha256:${schedulerIdentity.sourceState.worktreeFingerprint}`,
+            candidateIdentity: { id: 'candidate-fixture', digest: `sha256:${'1'.repeat(64)}` },
+            buildIdentity: { id: 'build-fixture', digest: `sha256:${'2'.repeat(64)}` },
+            ownedRoots: [path.relative(root, directory).replaceAll(path.sep, '/')]
+        }
+        evidenceContext.contentDigest = `sha256:${digestValue(evidenceContext)}`
+        write('context.json', evidenceContext)
+        const registry = JSON.parse(fs.readFileSync(path.join(root,
+            'config/testing/evidence-locator-registry.json'), 'utf8'))
+        const entry = registry.entries.find((candidate) => candidate.authorityId === authority.authorityId)
+        assert.ok(entry)
+        const result = spawnSync(process.execPath, [
+            '--import', path.join(root, 'tools/test/current-run-evidence-producer-hook.mjs'),
+            '--input-type=module', '-e',
+            `import fs from 'node:fs'; fs.writeFileSync(${JSON.stringify(relative(authority.payloadName))}, JSON.stringify(${JSON.stringify(terminal)}, null, 2) + '\\n');`
+        ], {
+            cwd: root, encoding: 'utf8',
+            env: {
+                ...sourceEnvironment,
+                FSUSBLOG_CURRENT_RUN_EVIDENCE_HOOK_OWNER_PID: '',
+                FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER: entry.consumerId,
+                FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT: relative('context.json'),
+                [entry.outputBindingKey]: relative('terminal.json'),
+                [entry.payloadBindingKey]: relative(authority.payloadName)
+            }
+        })
+        assert.equal(result.status, 0, result.stderr)
+        assert.match(result.stdout, /FSUSBLOG_CURRENT_RUN_EVIDENCE_HANDOFF=/u)
+        assert.deepEqual(sealSourceIdentity(root), sourceBefore)
+    }
+    else write('terminal.json', terminal)
     fs.writeFileSync(path.join(directory, 'cli.mjs'),
         `import { runPostRuntimeAcceptedClaimsCli } from ${JSON.stringify(path.join(sourceRoot, 'tools/docs/post-runtime-accepted-claims.mjs'))};\nrunPostRuntimeAcceptedClaimsCli(process.argv.slice(2), ${JSON.stringify(root)});\n`)
     return { repositoryRoot, directory, relative, runId, write }
@@ -428,4 +483,27 @@ test('invalid publication and duplicate CLI identities cannot create output', (c
     assert.notEqual(duplicate.status, 0)
     assert.match(duplicate.stderr, /duplicate option --run-id/u)
     assert.equal(fs.existsSync(path.join(root, outputPath)), false)
+})
+
+test('registered real process hook publishes context-bound reference consumed by accepted-claims CLI', (context) =>
+{
+    const value = fixture(context, { publishWithHook: true })
+    const { repositoryRoot: root } = value
+    const cli = path.join(value.directory, 'cli.mjs')
+    const output = value.relative('hook-accepted.json')
+    const produced = spawnSync(process.execPath, [cli, 'produce',
+        '--terminal', value.relative('terminal.json'), '--run-id', value.runId, '--out', output],
+    { cwd: root, encoding: 'utf8' })
+    assert.equal(produced.status, 0, produced.stderr)
+    const verified = spawnSync(process.execPath, [cli, 'verify', '--receipt', output,
+        '--run-id', value.runId], { cwd: root, encoding: 'utf8' })
+    assert.equal(verified.status, 0, verified.stderr)
+    const receipt = JSON.parse(fs.readFileSync(path.join(root, output), 'utf8'))
+    assert.equal(receipt.sourceState.schedulerRunId, value.runId)
+    assert.equal(receipt.sourceState.attemptId, 'attempt-0001')
+    fs.writeFileSync(path.join(root, 'unexpected-source.mjs'), 'export const changed = true\n')
+    const stale = spawnSync(process.execPath, [cli, 'verify', '--receipt', output,
+        '--run-id', value.runId], { cwd: root, encoding: 'utf8' })
+    assert.notEqual(stale.status, 0)
+    assert.match(stale.stderr, /current repository state/u)
 })
