@@ -229,6 +229,7 @@ export function projectProbeRaw({ candidatePlan, probeReceipt, repositoryRoot = 
       ? typedEnvelope ? typedCacheFacts(probe.facts, probe) : cacheFacts(probe.facts, probe)
       : typedEnvelope ? typedSessionFacts(probe.facts) : sessionFacts(probe.facts)
   const sourceState = observationSourceState({
+    classId: probe.kind,
     plan,
     artifactDigest: semanticDigest(probe.facts),
     repositoryRoot,

@@ -681,6 +681,7 @@ export function produceBlueGreenAuthoritiesRaw({ candidatePlan, sourceReceipt, r
     ? typedFacts
     : legacyFacts
   const sourceState = observationSourceState({
+    classId,
     plan: context.plan, artifactDigest: authorities.authorityDigest, repositoryRoot,
     legacy: {
       sourceCommit: context.plan.sourceState.commit,

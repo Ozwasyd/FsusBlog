@@ -245,13 +245,13 @@ export function observationEnvelopeAuthorityFields({ plan, candidatePlanRef, rep
   })
 }
 
-export function observationSourceState({ plan, artifactDigest = null, repositoryRoot = defaultRoot, legacy = {} })
+export function observationSourceState({ classId, plan, artifactDigest = null, repositoryRoot = defaultRoot, legacy = {} })
 {
   const schema = JSON.parse(readFileSync(
     path.join(repositoryRoot, 'config/schemas/post-runtime-observation-result.schema.json'), 'utf8'))
   const required = new Set(schema.required ?? [])
   if (!required.has('attemptAuthorityRef')) return stable(legacy)
-  return stable({
+  const available = {
     sourceCommit: plan.sourceState.commit,
     worktreeFingerprint: plan.sourceState.worktreeFingerprint,
     buildIdentity: plan.build.receiptContentDigest,
@@ -265,7 +265,16 @@ export function observationSourceState({ plan, artifactDigest = null, repository
     attemptId: plan.candidate.attemptId,
     fixtureId: plan.candidate.fixtureId,
     profileId: plan.candidate.profileId
-  })
+  }
+  const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
+  const definition = registry.observationClasses[classId]
+  if (!definition) fail('observation source state requires an explicit registered class')
+  return stable(Object.fromEntries(definition.requiredIdentityFields
+    .filter((field) => !['producerId', 'toolVersion', 'contentDigest'].includes(field))
+    .map((field) => {
+      if (available[field] === undefined) fail(`${classId} source identity ${field} is missing`)
+      return [field, available[field]]
+    })))
 }
 
 export function observationSourceReceipt({

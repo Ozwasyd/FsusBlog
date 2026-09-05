@@ -599,6 +599,7 @@ export function projectReleaseReadinessAuthoritiesRaw({ candidatePlan, sourceRec
     ? typedFacts
     : legacyFacts
   const sourceState = observationSourceState({
+    classId: 'release-identity-readiness',
     plan, artifactDigest: authorities.authorityDigest, repositoryRoot,
     legacy: {
       sourceCommit: plan.sourceState.commit, worktreeFingerprint: plan.sourceState.worktreeFingerprint,

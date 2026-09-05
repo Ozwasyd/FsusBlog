@@ -365,7 +365,7 @@ export function projectAotSpaHydrationRaw({ candidatePlan, sourceReceipt, reposi
   const semanticFacts = Array.isArray(definition.requiredSemanticFactFields)
     ? typedFacts(inputs, legacyFacts)
     : legacyFacts
-  const sourceState = observationSourceState({ plan, artifactDigest: semanticFacts.manifestDigest, repositoryRoot, legacy: {
+  const sourceState = observationSourceState({ classId, plan, artifactDigest: semanticFacts.manifestDigest, repositoryRoot, legacy: {
     sourceCommit: plan.sourceState.commit,
     worktreeFingerprint: plan.sourceState.worktreeFingerprint,
     buildIdentity: plan.build.receiptContentDigest,

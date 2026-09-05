@@ -314,6 +314,7 @@ export function projectBrowserContractRaw({ candidatePlan, browserContractReceip
   const producer = registry.producers.find(({ producerId }) => producerId === plan.producerId)
   if (!producer) fail('candidate plan producer is absent from registry')
   const sourceState = observationSourceState({
+    classId,
     plan,
     artifactDigest: browserInput.ref.fileDigest,
     repositoryRoot,

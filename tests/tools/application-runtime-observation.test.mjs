@@ -15,6 +15,7 @@ import {
   produceClassReceipt,
   observationEnvelopeAuthorityFields,
   observationSourceState,
+  observationSourceReceipt,
   seal,
   validateAcceptedClaims,
   validateCandidatePlan,
@@ -115,7 +116,7 @@ function fixture(context)
   const terminalPayload = path.relative(root, path.join(publicationDirectory, authority.payloadName)).replaceAll(path.sep, '/')
   const relative = (name) => name === 'terminal.json' ? terminalReference
     : path.relative(root, path.join(directory, name)).replaceAll(path.sep, '/')
-  const write = (name, value) => fs.writeFileSync(path.join(directory, name), `${JSON.stringify(value)}\n`)
+  const write = (name, value) => fs.writeFileSync(path.join(directory, name), `${JSON.stringify(value, null, 2)}\n`)
   const ledger = JSON.parse(fs.readFileSync(path.join(root, 'config/contracts/document-claim-migration-ledger.json'), 'utf8'))
   const claimAcceptance = ledger.scopes.flatMap((scope) => scope.entries.flatMap((entry) =>
     entry.claimIds.map((claimId, index) => ({
@@ -200,6 +201,7 @@ function fixture(context)
     return { path: relativePath, fileDigest: `sha256:${createHash('sha256').update(bytes).digest('hex')}`, contentDigest: value.contentDigest }
   }
   const classReceipts = {}
+  context.after(() => fs.rmSync(path.join(root, '.tmp/post-runtime-source-receipts', runId), { recursive: true, force: true }))
   for (const classId of classIds)
   {
     const modes = Object.entries(producer.requiredObservations).filter(([, ids]) => ids.includes(classId)).map(([mode]) => mode).sort()
@@ -209,18 +211,52 @@ function fixture(context)
       runId: plan.candidate.runId, browserIdentity: plan.candidate.browserId,
       releaseId: plan.candidate.releaseId, rolloutId: plan.candidate.rolloutId,
       artifactDigest: digest('f'), slot: 'standby' }
-    write(`${classId}-source.json`, seal({ schema: `fsusblog.${classId}.source.v1`, classId, status: 'passed' }))
+    const sourceState = observationSourceState({ classId, plan, artifactDigest: digest('f'), repositoryRoot: root, legacy: identity })
+    const rawField = (field) => field.endsWith('Digest') ? field.slice(0, -'Digest'.length) : field
+    const rawFacts = Object.fromEntries(definition.requiredSemanticFactFields.map((field) =>
+      [rawField(field), field === 'responseStatus' ? 404 : sourceState[field] ?? `${rawField(field)}-raw-value`]))
+    const facts = Object.fromEntries(definition.requiredSemanticFactFields.map((field) =>
+      [field, field.endsWith('Digest') ? `sha256:${digestValue(rawFacts[rawField(field)])}` : rawFacts[field]]))
+    const canonicalRerunCommand = `run ${classId}`
+    const independentVerifyCommand = `verify ${classId}`
+    const contract = definition.sourceReceipt
+    const dependency = (field, referenceContract) => {
+      const name = `${classId}-${field.replaceAll('.', '-')}-dependency.json`
+      write(name, seal({ schema: referenceContract.schema, sourceState }))
+      return { ...ref(name), schema: referenceContract.schema, role: referenceContract.role }
+    }
+    const upstream = { schema: contract.schema, producerId: producer.producerId, toolVersion: producer.toolVersion,
+      sourceState, rawFacts, canonicalRerunCommand, independentVerifyCommand }
+    if (contract.discriminator) upstream[contract.discriminator.field] = contract.discriminator.value
+    for (const field of contract.requiredReferenceFields)
+    {
+      upstream[field] = dependency(field, contract.referenceContracts[field])
+    }
+    if (contract.referenceMap)
+    {
+      upstream[contract.referenceMap.field] = Object.fromEntries(contract.referenceMap.keys.map((key) => {
+        const field = `${contract.referenceMap.field}.${key}`
+        return [key, dependency(field, contract.referenceContracts[field])]
+      }))
+    }
+    for (const field of contract.requiredFields)
+    {
+      if (!(field in upstream) && field !== 'contentDigest') upstream[field] = { fixture: `${classId}-${field}` }
+    }
+    write(`${classId}-source.json`, seal(upstream))
+    const sourceReceiptRef = observationSourceReceipt({ classId, plan, sourceState,
+      upstreamRef: { ...ref(`${classId}-source.json`), schema: contract.schema },
+      canonicalRerunCommand, independentVerifyCommand, repositoryRoot: root })
     const result = seal({ schema: definition.schema,
       producerId: producer.producerId, toolVersion: producer.toolVersion,
-      sourceState: observationSourceState({ plan, artifactDigest: digest('f'), repositoryRoot: root, legacy: identity }),
+      sourceState,
       executionClass: 'correctness',
       evidenceClass: 'correctness', qualificationEligible: true, planned: true, executed: true,
       outcome: 'passed', recovered: false, modes,
       terminal: { timeout: false, cancelled: false, processTreeTerminated: false, priorAttemptDigest: null },
-      semanticFacts: semanticFacts(classId, definition),
+      semanticFacts: facts,
       ...observationEnvelopeAuthorityFields({ plan, candidatePlanRef: ref('plan.json'), repositoryRoot: root }),
-      sourceReceiptRef: ref(`${classId}-source.json`), canonicalRerunCommand: `run ${classId}`,
-      independentVerifyCommand: `verify ${classId}` })
+      sourceReceiptRef, canonicalRerunCommand, independentVerifyCommand })
     write(`${classId}.json`, result)
     classReceipts[classId] = produceClassReceipt({ candidatePlan: relative('plan.json'), classId,
       result: paths[classId], repositoryRoot: root })
