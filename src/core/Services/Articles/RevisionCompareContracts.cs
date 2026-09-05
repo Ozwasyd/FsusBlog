@@ -622,8 +622,6 @@ public static class RevisionCompareContract
 {
     public const int SchemaVersion = 1;
     public const string PlannerVersion = "revision-compare-plan-v1";
-    public const string DiffEngineVersion = "revision-source-diff-v1";
-    public const string SegmenterVersion = "unicode-text-elements-v1";
     public const int MaxIdentityLength = 256;
     public const int MaxMetadataValueLength = 8_192;
     public const int AbsoluteMaxSourceBytes = 4 * 1024 * 1024;

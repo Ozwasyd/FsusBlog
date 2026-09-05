@@ -59,33 +59,7 @@ outbox 事件同时在列和 payload 中保存精确坐标；消费者只处理�
 固定 base/compare package digest、raw Markdown SHA-256、article/revision 或 draft
 coordinates、reader scope、到期时间、取消 identity 与资源预算；执行前重新读取 exact package
 reference，不能把 `latest` 或 current pointer 重新解释成另一修订。正文与 metadata/snapshots
-仍由 package 持有，diff result 只返回 byte ranges、line terminator 类型、heading identity 和
-content-addressed receipts，不成为第二份内容 authority。
-
-`revision-source-diff-v1` 先按原始 bytes 切分 LF、CRLF、lone CR 与无结尾换行的 physical
-lines，BOM、trailing spaces 和所有 Unicode bytes 均留在原 source range。line matching
-使用 deterministic unique-line anchors 与 increasing subsequence；无稳定 anchor 的封闭区间
-明确输出 insert/delete/replace，不猜测 move。replace hunk 再以
-`unicode-text-elements-v1` 做 Unicode grapheme/word refinement，invalid UTF-8 只跳过 word
-refinement，不改变 byte-level line result。heading navigation 只接受
-`IRevisionMarkdownStructureAuthority` 返回并重新验 seal 的 canonical parser version、source
-digest、node level、line index、byte range 与 node identity；engine 不自行解释 ATX、setext、
-blockquote、list、code fence 或 HTML block 语法。provider 为零或多于一个时 fail closed；仓库
-当前没有注册 production canonical Markdown provider，因此启用 heading navigation 的运行时请求
-会稳定返回 `revision_diff_structure_unavailable`，本地测试只在该 production interface 边界注入
-deterministic structure snapshot，不把模拟 provider 描述为已部署 authority。
-
-sealed plan 的 `contextLineCount` 由 engine 转成覆盖 equal hunks 的稳定 context groups：靠近 change
-的前后 context 保持展开，其余区间标记 collapsed，并固定 base/compare line 与 byte ranges、group
-index 和 digest。UI 只消费这些 groups，不重新裁剪 source ranges。
-
-source bytes/line/token/memory/time/output/chunk 上限全部来自 sealed plan。超限、取消、过期、
-package drift 或 receipt/range tamper 都 fail closed；engine 在 worker task 上计算，100k-line
-输入仍使用有界内存与 `O(n log n)` anchor 排序/LIS 路径，禁止在 UI/main thread 运行。
-semantic receipt 明确绑定 engine/segmenter/parser/budget identity、source/structure digests、byte、
-line、token、word edit、heading、context group、hunk、chunk、estimated memory/output counts 与完整
-representation digest；相同输入产生相同 semantic receipt。wall-clock elapsed time 单独进入
-content-addressed attempt receipt，并绑定 semantic digest，不污染 deterministic diff identity。
+仍由 package 持有。
 
 ## 风险与无重启回退
 

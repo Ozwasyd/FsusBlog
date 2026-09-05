@@ -1,9 +1,12 @@
 using System.Text.Json;
 
 using FsusBlog.Core.Services.Articles;
+using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services.Authoring;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using NSubstitute;
 
@@ -11,6 +14,27 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AuthoringRevisionComparePackageReaderTests
 {
+    [Fact]
+    public void RuntimeDomainRegistrations_ResolveRevisionComparePlanningServices()
+    {
+        var services = new ServiceCollection();
+        services.AddFsusRuntimeDomainServices();
+        services.AddSingleton(Substitute.For<IAuthoringRevisionCompareAuthority>());
+        using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
+        using IServiceScope scope = provider.CreateScope();
+
+        Assert.Contains(
+            services,
+            static descriptor => descriptor.ServiceType == typeof(IAuthoringRevisionCompareAuthority)
+                && descriptor.ImplementationType == typeof(AuthoringRevisionCompareAuthority));
+        Assert.IsType<AuthoringRevisionCompareDraftContextAuthority>(
+            scope.ServiceProvider.GetRequiredService<IAuthoringRevisionCompareDraftContextAuthority>());
+        Assert.IsType<AuthoringRevisionComparePackageReader>(
+            scope.ServiceProvider.GetRequiredService<IRevisionComparePackageReader>());
+        Assert.IsType<RevisionComparePlanner>(scope.ServiceProvider.GetRequiredService<RevisionComparePlanner>());
+        Assert.IsType<RevisionComparePlanVerifier>(scope.ServiceProvider.GetRequiredService<RevisionComparePlanVerifier>());
+    }
+
     [Fact]
     public async Task ReadAuthorizedAsync_DoesNotReadSourceWhenPermissionOrArticleAdmissionFails()
     {
