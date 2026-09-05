@@ -679,6 +679,8 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         runIdentity: 'run-1151',
         sourceIdentity: build.sourceState,
         preRuntimeReceiptDigest: preRuntime.contentDigest,
+        releaseFinalSpawnCountBeforeReceipt: 0,
+        failureReasons: [],
         status: 'ok'
     });
     const postRuntimeFile = path.join(build.directory, 'behavior-post-runtime.json');
@@ -866,6 +868,78 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
             preRuntimeReceiptPath: preRuntimeFile,
             postRuntimeReceipt: boundPostRuntime,
             postRuntimeReceiptPath: postRuntimeFile,
+            consistencyFinalReport: consistencyFinal,
+            consistencyFinalReportPath: consistencyFinalFile,
+            releaseDomainProjectionReceipts,
+            releaseReliabilityQualifiedReceipt,
+            requiredEvidenceCatalogBinding: createRequiredEvidenceCatalogBinding()
+        }), errorPattern, name);
+    }
+
+    const postRuntimeMutations = [
+        ['missing', undefined, /schema\/scope mismatch/u],
+        ['stale digest', { ...postRuntime, contentDigest: `sha256:${'0'.repeat(64)}` }, /contentDigest mismatch/u],
+        ['schema', sealDocument({ ...postRuntime, schema: 'forged' }), /schema\/scope mismatch/u],
+        ['scope', sealDocument({ ...postRuntime, scope: 'pre-runtime' }), /schema\/scope mismatch/u],
+        ['failed', sealDocument({ ...postRuntime, status: 'failed', failureReasons: ['runtime failed'] }), /not qualified: runtime failed/u],
+        ['diagnostic', sealDocument({ ...postRuntime, status: 'diagnostic' }), /status must be ok or failed/u],
+        ['failures', sealDocument({ ...postRuntime, failureReasons: ['runtime failed'] }), /status=ok cannot include failures/u],
+        ['early spawn', sealDocument({ ...postRuntime, releaseFinalSpawnCountBeforeReceipt: 1 }), /releaseFinalSpawnCountBeforeReceipt must be 0/u]
+    ];
+    for (const [name, postRuntimeReceipt, errorPattern] of postRuntimeMutations)
+    {
+        assert.throws(() => createReleaseFinalTestEvidenceBinding({
+            commitSha: build.sourceState.commit,
+            buildReceipt: build.receipt,
+            buildReceiptPath: build.receiptFile,
+            correctnessReceipt: correctness,
+            correctnessReceiptPath: correctnessFile,
+            browserContractReceipt: browserContract,
+            browserContractReceiptPath: browserContractFile,
+            preRuntimeReceipt: preRuntime,
+            preRuntimeReceiptPath: preRuntimeFile,
+            postRuntimeReceipt,
+            postRuntimeReceiptPath: postRuntimeFile,
+            consistencyFinalReport: consistencyFinal,
+            consistencyFinalReportPath: consistencyFinalFile,
+            releaseDomainProjectionReceipts,
+            releaseReliabilityQualifiedReceipt,
+            requiredEvidenceCatalogBinding: createRequiredEvidenceCatalogBinding()
+        }), errorPattern, name);
+    }
+
+    const badPreFile = path.join(build.directory, 'failed-pre-runtime.json');
+    const badPostFile = path.join(build.directory, 'failed-post-runtime.json');
+    const stalePostFile = path.join(build.directory, 'stale-post-runtime.json');
+    fs.writeFileSync(badPreFile, JSON.stringify(sealDocument({
+        ...preRuntime, status: 'failed', failureReasons: ['pre failed']
+    })));
+    fs.writeFileSync(badPostFile, JSON.stringify(sealDocument({
+        ...postRuntime, status: 'failed', failureReasons: ['post failed']
+    })));
+    fs.writeFileSync(stalePostFile, JSON.stringify(sealDocument({
+        ...postRuntime, runIdentity: 'another-run'
+    })));
+    for (const [name, prePath, postPath, errorPattern] of [
+        ['good pre object failed file', badPreFile, postRuntimeFile, /pre-runtime|qualified/u],
+        ['good post object failed file', preRuntimeFile, badPostFile, /object\/file mismatch/u],
+        ['good post object stale file', preRuntimeFile, stalePostFile, /object\/file mismatch/u],
+        ['swapped pre path', postRuntimeFile, postRuntimeFile, /schema/u],
+        ['swapped post path', preRuntimeFile, preRuntimeFile, /schema\/scope mismatch/u]
+    ])
+    {
+        assert.throws(() => createReleaseFinalTestEvidenceBinding({
+            commitSha: build.sourceState.commit,
+            buildReceipt: build.receipt,
+            buildReceiptPath: build.receiptFile,
+            correctnessReceipt: correctness,
+            correctnessReceiptPath: correctnessFile,
+            browserContractReceipt: browserContract,
+            browserContractReceiptPath: browserContractFile,
+            preRuntimeReceipt: preRuntime,
+            preRuntimeReceiptPath: prePath,
+            postRuntimeReceipt: postRuntime,
+            postRuntimeReceiptPath: postPath,
             consistencyFinalReport: consistencyFinal,
             consistencyFinalReportPath: consistencyFinalFile,
             releaseDomainProjectionReceipts,

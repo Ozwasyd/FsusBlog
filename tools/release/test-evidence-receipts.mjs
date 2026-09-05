@@ -16,6 +16,9 @@ import {
 import {
     assertPreRuntimeQualified
 } from '../test-matrix/behavior-evidence-pre-runtime.mjs';
+import {
+    validatePostRuntimeReceipt
+} from '../test-matrix/behavior-evidence-post-runtime.mjs';
 
 export const browserlessCorrectnessReceiptSchema = 'fsusblog.browserless-correctness-receipt.v1';
 export const browserDiagnosticsReceiptSchema = 'fsusblog.browser-diagnostics-receipt.v2';
@@ -58,7 +61,24 @@ function seal(value)
 
 export function sha256File(file)
 {
-    return `sha256:${crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`;
+    return sha256Bytes(fs.readFileSync(file));
+}
+
+function sha256Bytes(bytes)
+{
+    return `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}`;
+}
+
+function readBoundBehaviorReceipt(file, receipt, validator)
+{
+    const bytes = fs.readFileSync(file);
+    const parsed = JSON.parse(bytes.toString('utf8'));
+    validator(parsed);
+    if (JSON.stringify(canonicalize(parsed)) !== JSON.stringify(canonicalize(receipt)))
+    {
+        throw new Error('release-final behavior receipt object/file mismatch');
+    }
+    return { receipt: parsed, fileDigest: sha256Bytes(bytes) };
 }
 
 function sortedUnique(values)
@@ -1647,12 +1667,23 @@ export function createReleaseFinalTestEvidenceBinding({
         throw new Error([...correctnessErrors, ...contractErrors].join('; '));
     }
     assertPreRuntimeQualified(preRuntimeReceipt);
+    const qualifiedPostRuntime = validatePostRuntimeReceipt(postRuntimeReceipt);
+    if (qualifiedPostRuntime.status !== 'ok')
+    {
+        throw new Error(`post-runtime behavior evidence is not qualified: ${qualifiedPostRuntime.failureReasons.join('; ')}`);
+    }
     assertReleaseFinalBehaviorIdentity({
         preRuntimeReceipt,
         postRuntimeReceipt,
         releaseCommit: commitSha,
         expectedWorktreeFingerprint: build.sourceState.worktreeFingerprint
     });
+    const preRuntimeInput = readBoundBehaviorReceipt(
+        preRuntimeReceiptPath, preRuntimeReceipt, assertPreRuntimeQualified
+    );
+    const postRuntimeInput = readBoundBehaviorReceipt(
+        postRuntimeReceiptPath, postRuntimeReceipt, validatePostRuntimeReceipt
+    );
     const releaseDomains = createReleaseDomainProjectionBindings(
         releaseDomainProjectionReceipts
     );
@@ -1696,14 +1727,14 @@ export function createReleaseFinalTestEvidenceBinding({
             behaviorPostRuntime: {
                 schema: postRuntimeReceipt.schema,
                 path: String(postRuntimeReceiptPath).replaceAll(path.sep, '/'),
-                fileDigest: sha256File(postRuntimeReceiptPath),
-                contentDigest: postRuntimeReceipt.contentDigest
+                fileDigest: postRuntimeInput.fileDigest,
+                contentDigest: postRuntimeInput.receipt.contentDigest
             },
             behaviorPreRuntime: {
                 schema: preRuntimeReceipt.schema,
                 path: String(preRuntimeReceiptPath).replaceAll(path.sep, '/'),
-                fileDigest: sha256File(preRuntimeReceiptPath),
-                contentDigest: preRuntimeReceipt.contentDigest
+                fileDigest: preRuntimeInput.fileDigest,
+                contentDigest: preRuntimeInput.receipt.contentDigest
             },
             behaviorConsistencyFinal: {
                 schema: consistencyFinalReport.schema,
