@@ -820,6 +820,12 @@ export interface TagItem {
     articleCount: number;
 }
 
+export interface TaxonomyExactMetadata {
+    id: number;
+    name: string;
+    description: string | null;
+}
+
 export type HumanReadScope = 'site' | 'article';
 
 export interface HumanReadChallenge {

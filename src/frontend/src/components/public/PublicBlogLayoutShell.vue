@@ -158,7 +158,9 @@ const PUBLIC_MOBILE_NAV_MODE = FSUSBLOG_PUBLIC_MOBILE_NAV_MODE;
 
 const SHELL_DEFAULTS = {
     hydrationKind: null,
+    // fsus-allow-public-brand-fallback: first-paint defaults keep the site brand until a site config is injected.
     siteTitle: "Fsu's Blog",
+    // fsus-allow-public-brand-fallback: first-paint defaults keep the site brand until a site config is injected.
     siteDescription: '工程记录、性能实验、UI 系统与 FsusBlog 构建过程。',
     activeNav: 'none',
     authAction: 'login',
@@ -205,7 +207,9 @@ const props = withDefaults(
     }>(),
     {
         hydrationKind: null,
+        // fsus-allow-public-brand-fallback: first-paint defaults keep the site brand until a site config is injected.
         siteTitle: "Fsu's Blog",
+        // fsus-allow-public-brand-fallback: first-paint defaults keep the site brand until a site config is injected.
         siteDescription: '工程记录、性能实验、UI 系统与 FsusBlog 构建过程。',
         siteLogoUrl: '',
         siteLogoDarkUrl: '',

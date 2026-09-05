@@ -13,7 +13,10 @@ const supportedExtension = /\.(?:cs|js|json|mjs|sh|ts|tsx|ya?ml)$/u;
 // contract instead of repository consumers. The list is deliberately exact:
 // wildcard or directory suppressions are not supported.
 const authoritySourcePaths = new Set([
+    'artifacts/change-contract/evidence-location-governance-post-merge-repair.json',
+    'artifacts/change-contract/evidence-location-governance-post-merge-repair-external-naming.json',
     'config/testing/current-run-evidence-context.schema.json',
+    'config/testing/current-run-evidence-location-acceptance.json',
     'config/testing/evidence-location-migration-ledger.json',
     'config/testing/evidence-location-migration-ledger.schema.json',
     'config/testing/evidence-locator-registry.json',

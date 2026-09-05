@@ -165,6 +165,7 @@ public sealed class PublicAotRendererPayloadMapperTests
                 FilterKey: "category:2",
                 FilterId: 2,
                 FilterName: "Category",
+                Description: "Category description",
                 IsInvalidTarget: false,
                 PageIndex: 1,
                 PageSize: 10,
@@ -180,10 +181,40 @@ public sealed class PublicAotRendererPayloadMapperTests
         Assert.Equal("category:2", filter["filterKey"]);
         Assert.Equal(2, filter["filterId"]);
         Assert.Equal("Category", filter["filterName"]);
+        Assert.Equal("Category description", filter["description"]);
         Assert.Equal(false, filter["isInvalidTarget"]);
         Assert.Equal(1, filter["pageIndex"]);
         Assert.Equal(10, filter["pageSize"]);
         Assert.Equal(0, filter["total"]);
+    }
+
+    [Fact]
+    public void FilterOptions_PreserveNullDescriptionWhenTaxonomyHasNone()
+    {
+        IReadOnlyDictionary<string, object?> payload = PublicAotRendererPayloadMapper.ToBuildEntryPayload(new PublicAotRenderRequest(
+            new PublicAotRouteMatch(PublicPageKind.Filter, PublicPageId.Filter, "tag:3", "/tag/3", "/tag/3", string.Empty),
+            new PublicFilterPageSnapshot(
+                Seo(),
+                RouteKey: "tag:3",
+                FilterType: "tag",
+                FilterKey: "tag:3",
+                FilterId: 3,
+                FilterName: "Tag",
+                Description: null,
+                IsInvalidTarget: false,
+                PageIndex: 1,
+                PageSize: 10,
+                Total: 0,
+                Articles: [],
+                Title: "Tag"),
+            s_renderTimestamp));
+
+        IReadOnlyDictionary<string, object?> options = GetOptions(payload);
+        IReadOnlyDictionary<string, object?> filter = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(options["filter"]);
+
+        Assert.Equal("tag", filter["filterType"]);
+        Assert.Equal("Tag", filter["filterName"]);
+        Assert.Null(filter["description"]);
     }
 
     private static IReadOnlyDictionary<string, object?> GetOptions(IReadOnlyDictionary<string, object?> payload)

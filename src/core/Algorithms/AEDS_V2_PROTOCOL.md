@@ -164,6 +164,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `240`: EmptySuccess
 - `241`: MutationId
 - `242`: UserLocalePreferenceUpdateRequest
+- `243`: TaxonomyExactMetadata
 - `251`: ApiError
 
 `CommentArticleCursor`, `CommentThreadReplyCursor`, and `CommentUserCursor` records do not carry fixed legacy display-name slots. Each item blob stores the content slice first, then appends two length-prefixed `CommentAuthorView` payloads: required `author` and optional `replyToAuthor`. Decoders must reject missing author payloads instead of reconstructing display authors from legacy identity strings.
@@ -255,8 +256,9 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `ArticleWriteRequest` writers emit V5 and append `baseRevisionId:int64` after the rights blob. Create writes zero; update must echo the positive `currentRevisionId` read from author detail. Article create/update/rollback `MutationId(241)` responses use the 48-byte `ArticleMutationResultPod` (`articleId`, `revisionId/revisionNo`, `releaseId/releaseNo`, `status`, `rightsSnapshotId/rightsRevisionNo`, `idempotencyReplay`, `errorCode`). A stale base returns HTTP 409 `ApiError` with stable `article_revision_conflict` semantics; PostgreSQL `xmin` is never serialized.
 - `ArticleSearch` writers emit FAS4 (`magic = 0x34534146`, `version = 4`) before the count and append the four 24-byte publication coordinates to each article item. Decoders retain read-only compatibility with the legacy unversioned payload. Offline search shard/package/manifest and Wasm search result use version 4 with 76-byte document/result records carrying the same coordinates.
 - `ArticleHot` payload: `int32 count`, shared UTF-8 blob, `16B popularArticleRecord[count]`.
-- `CategoryList` payload: `int32 count`, shared UTF-8 blob, `16B taxonomyRecord[count]`.
-- `TagList` payload: `int32 count`, shared UTF-8 blob, `16B taxonomyRecord[count]`.
+- `CategoryList` payload: `int32 count`, shared UTF-8 blob, `16B taxonomyRecord[count]`. The list contract stays byte-compatible and does not carry description.
+- `TagList` payload: `int32 count`, shared UTF-8 blob, `16B taxonomyRecord[count]`. The list contract stays byte-compatible and does not carry description.
+- `TaxonomyExactMetadata` payload: `int32 id`, shared UTF-8 blob, `Utf8SliceRef name`, `Utf8SliceRef description`. Description length 0 means null. This dedicated frame is independent of `CategoryList`/`TagList` and is used by `GET /api/binary/category/{id}.aeds`, `GET /api/binary/tag/{id}.aeds`, and `GET /api/binary/tag/by-name.aeds?name=`.
 - `RecentCommentStats` payload: `int32 count`, shared UTF-8 blob, `56B recentCommentRecord[count]`. Each record stores `createTimeUnixMs` plus blob slices for `authorDisplayName`, `authorMode`, optional `authorBadge`, optional `authorScopeLabel`, optional `credentialLevel`, and `content`; it does not carry account identifiers or legacy display-name fields.
 - `RegionStats` payload: `int32 count`, shared UTF-8 blob, `12B regionRecord[count]`.
 - `SeoConfig` payload: `SeoConfigPod` (5000 bytes) followed by blob payload for variable description. Fixed fields are `title:Utf8Fixed256`, `description:Utf8SliceRef`, `keywords:Utf8Fixed256`, `author:Utf8Fixed64`, `ogImage:Utf8Fixed256`, `baseUrl:Utf8Fixed256`, then `faviconSvgUrl/faviconIcoUrl/faviconPngUrl/appleTouchIconUrl:Utf8Fixed256`, `manifestName/manifestShortName:Utf8Fixed128`, `pwaIcon192Url/pwaIcon512Url/pwaMaskableIconUrl:Utf8Fixed256`, `themeColor/backgroundColor:Utf8Fixed32`, `siteLogoUrl/siteLogoDarkUrl/siteWordmarkUrl/adminLogoUrl/adminCollapsedIconUrl/loginLogoUrl/loginIconUrl:Utf8Fixed256`.

@@ -5,8 +5,8 @@ vi.mock('@/composition/binaryTransport', () => ({
 }))
 
 import { requestBinaryOnly } from '@/composition/binaryTransport'
-import { getTags, createTag, updateTag, deleteTag } from '@/api/tag'
-import { getCategories, createCategory, updateCategory, deleteCategory } from '@/api/category'
+import { getTags, getTagExactMetadata, getTagExactMetadataByName, createTag, updateTag, deleteTag } from '@/api/tag'
+import { getCategories, getCategoryExactMetadata, createCategory, updateCategory, deleteCategory } from '@/api/category'
 import { FrameType } from '@wasm/protocol/frame'
 
 const mockBinary = vi.mocked(requestBinaryOnly)
@@ -30,6 +30,30 @@ describe('tag API', () => {
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       signal: config.signal
     }))
+  })
+
+  it('getTagExactMetadata calls GET /tag/{id}.aeds', async () => {
+    const config = { signal: new AbortController().signal }
+    await getTagExactMetadata(11, config)
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryRoute: { operationId: 'binary_get_tag_id_int_aeds', params: { id: 11 } },
+      frameType: FrameType.TaxonomyExactMetadata,
+      signal: config.signal
+    }))
+  })
+
+  it('getTagExactMetadataByName calls GET /tag/by-name.aeds', async () => {
+    await getTagExactMetadataByName('C#')
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryRoute: {
+        operationId: 'binary_get_tag_by_name_aeds',
+        query: expect.any(URLSearchParams)
+      },
+      frameType: FrameType.TaxonomyExactMetadata
+    }))
+    const query = mockBinary.mock.calls.at(-1)?.[0]?.binaryRoute?.query
+    expect(query).toBeInstanceOf(URLSearchParams)
+    expect(query.get('name')).toBe('C#')
   })
 
   it('createTag sends binary mutation frame', async () => {
@@ -83,6 +107,16 @@ describe('category API', () => {
     await getCategories()
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: { operationId: 'binary_get_category_aeds' }
+    }))
+  })
+
+  it('getCategoryExactMetadata calls GET /category/{id}.aeds', async () => {
+    const config = { signal: new AbortController().signal }
+    await getCategoryExactMetadata(7, config)
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryRoute: { operationId: 'binary_get_category_id_int_aeds', params: { id: 7 } },
+      frameType: FrameType.TaxonomyExactMetadata,
+      signal: config.signal
     }))
   })
 

@@ -29,6 +29,7 @@
 - 注释解释约束与原因，不复述代码；公开契约使用该语言的文档注释；高价值意图和性能声明见 [Code intent governance](code-intent-governance.md)；
 - TODO/FIXME 只允许 `TODO(#1234): reason; removal condition: observable exit condition.`，并登记 open issue 与删除条件，禁止 owner-only 或无归属占位。
 - TOML agent/tool configuration 归 `repository-config` style owner；稳定排列顶层 key，保留外部 consumer 字段名，multiline instruction 每行表达一个可审阅的完整约束。
+- XML configuration 归 `repository-config` style owner；保留外部 schema 规定的 element/attribute 名称、casing、namespace 与结构，只在 schema 允许的位置应用 repository text baseline，不得按内部 naming map 改写 `TileColor` 等外部 element。
 
 Allman braces 适用于 C# 和仓库手写 C++。TS/JS/Vue、CSS、Shell、CMake、YAML、JSON 与 Markdown 服从语言语法和社区工具可稳定表达的形式，不机械套用 Allman。
 
