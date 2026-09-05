@@ -7,8 +7,8 @@ import path from 'node:path'
 import test from 'node:test'
 
 import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs'
+import { BehaviorId } from '../../tools/contracts/behavior-contract-catalog.mjs'
 import {
-    BehaviorId,
     acceptedClaimsSchema,
     authorityDigest,
     canonicalRepositoryFile,
@@ -525,7 +525,7 @@ test('receipt binding recomputes digest and exact mode/tool/source identity', ()
         validateProducerReceiptAgainstRegistry({ registry, producerId: producer.producerId, receipt }),
         {
             producerId: producer.producerId,
-            behaviorId: 'browserless-production-correctness',
+            behaviorId: BehaviorId('browserless-production-correctness'),
             classId: 'route-response-error',
             qualificationEligible: true,
             warnings: 0
@@ -1580,14 +1580,14 @@ function acceptedClaimsFixture(context)
     }
     const claimAcceptance = [...owners.values()].map((owner) => ({
         claimId: owner.claimId,
-        behaviorId: owner.behaviorId,
+        behaviorId: BehaviorId(owner.behaviorId),
         scopeId: owner.scopeId,
         documentPath: owner.documentPath,
         claimType: owner.generatedSectionId === null ? 'prose' : 'generated-section',
         generatedSectionId: owner.generatedSectionId,
         claimDigest: `sha256:${digestValue({
             claimId: owner.claimId,
-            behaviorId: owner.behaviorId,
+            behaviorId: BehaviorId(owner.behaviorId),
             documentPath: owner.documentPath
         })}`
     })).sort((left, right) => left.claimId.localeCompare(right.claimId))
@@ -1702,7 +1702,7 @@ function acceptedClaimsFixture(context)
             const accepted = claimAcceptance.find((claim) => claim.claimId === claimId)
             return {
                 claimId: owner.claimId,
-                behaviorId: owner.behaviorId,
+                behaviorId: BehaviorId(owner.behaviorId),
                 scopeId: owner.scopeId,
                 claimDigest: accepted.claimDigest
             }
@@ -1877,7 +1877,15 @@ test('accepted claims replay the terminal exact claim inventory rather than reco
                 ? 'proseClaimCount'
                 : 'generatedClaimCount'] -= 1
         },
-        (terminal) => { terminal.claimAcceptance[0].behaviorId = 'other-behavior' },
+        (terminal) =>
+        {
+            terminal.claimAcceptance[0].behaviorId = BehaviorId(catalog.contracts
+                .find((contract) => contract.id !== terminal.claimAcceptance[0].behaviorId).id)
+        },
+        (terminal) =>
+        {
+            terminal.claimAcceptance[0].behaviorId = `${BehaviorId(terminal.claimAcceptance[0].behaviorId)}-unregistered`
+        },
         (terminal) => { terminal.claimAcceptance[0].documentPath = 'docs/other.md' }
     ])
     {
