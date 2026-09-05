@@ -185,6 +185,106 @@ public sealed class RevisionComparePlannerTests
         Assert.Equal("revision_compare_metadata_field_unknown", result.Receipt.ReasonCode);
     }
 
+    [Fact]
+    public async Task CreateAsync_RejectsCrossArticlePackageFromAuthorityBoundary()
+    {
+        RevisionComparePackage baseline = Package(RevisionCompareSourceKind.HistoricalRevision, 11, 1, "base");
+        RevisionComparePackage crossArticle = RevisionComparePackageSeal.Create(
+            8,
+            RevisionCompareSourceKind.CurrentRevision,
+            "revision:12",
+            12,
+            2,
+            null,
+            null,
+            Encoding.UTF8.GetBytes("other"),
+            Metadata(),
+            Snapshots());
+        var reader = new DelegateReader((_, selector, _) => Task.FromResult(
+            RevisionComparePackageReadResult.Available(selector.RevisionId == 11 ? baseline : crossArticle)));
+
+        RevisionComparePlanResult result = await new RevisionComparePlanner(reader).CreateAsync(Request());
+
+        Assert.Equal(RevisionComparePlanStatus.Invalid, result.Status);
+        Assert.Equal("revision_compare_cross_article_invalid", result.Receipt.ReasonCode);
+    }
+
+    [Fact]
+    public async Task CreateAsync_RejectsMissingSnapshotWithoutInventingFallback()
+    {
+        RevisionComparePackage incomplete = RevisionComparePackageSeal.Create(
+            7,
+            RevisionCompareSourceKind.HistoricalRevision,
+            "revision:11",
+            11,
+            1,
+            null,
+            null,
+            Encoding.UTF8.GetBytes("base"),
+            Metadata(),
+            [
+                RevisionCompareSnapshot.Missing(RevisionCompareSnapshotKind.Rights),
+                RevisionCompareSnapshot.NotApplicable(RevisionCompareSnapshotKind.Responsibility),
+                RevisionCompareSnapshot.NotApplicable(RevisionCompareSnapshotKind.Release)
+            ]);
+        RevisionComparePackage current = Package(RevisionCompareSourceKind.CurrentRevision, 12, 2, "current");
+        var reader = new DelegateReader((_, selector, _) => Task.FromResult(
+            RevisionComparePackageReadResult.Available(selector.RevisionId == 11 ? incomplete : current)));
+
+        RevisionComparePlanResult result = await new RevisionComparePlanner(reader).CreateAsync(Request());
+
+        Assert.Equal(RevisionComparePlanStatus.Invalid, result.Status);
+        Assert.Equal("revision_compare_package_incomplete", result.Receipt.ReasonCode);
+    }
+
+    [Fact]
+    public async Task CreateAsync_RejectsTamperedRawBytesAndSeal()
+    {
+        RevisionComparePackage sealedPackage = Package(RevisionCompareSourceKind.HistoricalRevision, 11, 1, "base");
+        var tampered = new RevisionComparePackage(
+            sealedPackage.ArticleId,
+            sealedPackage.SourceKind,
+            sealedPackage.SourceIdentity,
+            sealedPackage.RevisionId,
+            sealedPackage.RevisionNo,
+            sealedPackage.ServerRevision,
+            sealedPackage.DocumentEpoch,
+            [.. Encoding.UTF8.GetBytes("tampered")],
+            sealedPackage.SourceDigest,
+            sealedPackage.Metadata,
+            sealedPackage.Snapshots,
+            sealedPackage.PackageDigest);
+        RevisionComparePackage current = Package(RevisionCompareSourceKind.CurrentRevision, 12, 2, "current");
+        var reader = new DelegateReader((_, selector, _) => Task.FromResult(
+            RevisionComparePackageReadResult.Available(selector.RevisionId == 11 ? tampered : current)));
+
+        RevisionComparePlanResult result = await new RevisionComparePlanner(reader).CreateAsync(Request());
+
+        Assert.Equal(RevisionComparePlanStatus.Tampered, result.Status);
+        Assert.Equal("revision_compare_package_tampered", result.Receipt.ReasonCode);
+    }
+
+    [Fact]
+    public void PackageSeal_RejectsDuplicateTypedMetadata()
+    {
+        RevisionCompareMetadataValue title = RevisionCompareMetadataRegistry.String("title", "Title");
+
+        RevisionCompareContractException error = Assert.Throws<RevisionCompareContractException>(() =>
+            RevisionComparePackageSeal.Create(
+                7,
+                RevisionCompareSourceKind.HistoricalRevision,
+                "revision:11",
+                11,
+                1,
+                null,
+                null,
+                Encoding.UTF8.GetBytes("base"),
+                [title, title],
+                Snapshots()));
+
+        Assert.Equal("revision_compare_metadata_invalid", error.Code);
+    }
+
     private static RevisionComparePlanRequest Request()
         => new(
             7,

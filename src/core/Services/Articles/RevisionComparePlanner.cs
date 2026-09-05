@@ -155,14 +155,15 @@ public sealed class RevisionComparePlanner(IRevisionComparePackageReader package
         {
             return "revision_compare_package_tampered";
         }
+        if (basePackage.ArticleId != comparePackage.ArticleId
+            || basePackage.ArticleId != request.ArticleId)
+        {
+            return "revision_compare_cross_article_invalid";
+        }
         if (!MatchesSelector(request.ArticleId, request.Base, basePackage)
             || !MatchesSelector(request.ArticleId, request.Compare, comparePackage))
         {
             return "revision_compare_source_stale";
-        }
-        if (basePackage.ArticleId != comparePackage.ArticleId)
-        {
-            return "revision_compare_cross_article_invalid";
         }
         if (basePackage.Snapshots.Any(static snapshot => snapshot.State == RevisionCompareSnapshotState.Missing)
             || comparePackage.Snapshots.Any(static snapshot => snapshot.State == RevisionCompareSnapshotState.Missing))
