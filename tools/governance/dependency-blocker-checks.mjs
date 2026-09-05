@@ -23,11 +23,19 @@ export function planDependencyCheckLabels({ catalog, pullRequests, now, previous
             throw new Error('dependency_checks_invalid_pull_request');
         }
         seen.add(pull.number);
-        const required = resolveGroupChecks(catalog, pull.group, pull.updateType);
-        if (required.length === 0)
+        const requirements = pull.requirements ?? [{ group: pull.group, updateType: pull.updateType }];
+        if (!Array.isArray(requirements) || requirements.length === 0)
         {
-            throw new Error(`dependency_checks_unregistered_group:${pull.group}:${pull.updateType}`);
+            throw new Error('dependency_checks_missing_requirements');
         }
+        const required = [...new Set(requirements.flatMap((requirement) => {
+            const names = resolveGroupChecks(catalog, requirement.group, requirement.updateType);
+            if (names.length === 0)
+            {
+                throw new Error(`dependency_checks_unregistered_group:${requirement.group}:${requirement.updateType}`);
+            }
+            return names;
+        }))].sort();
         if (pull.checkRuns.some((run) => run.headSha !== pull.headSha))
         {
             throw new Error(`dependency_checks_stale_head:${pull.number}`);
