@@ -292,7 +292,7 @@ export default defineConfig({
 | `npm run ensure:wasm` | 检查并拉取 Wasm 预构建产物 |
 | `npm run build:wasm` | 本地重新编译 Wasm（需 Emscripten） |
 | `npm run deps:wasm-codec` | 更新 Wasm 相关依赖 |
-| `npm run deps:freshness` | 以 local-controlled-simulation 判定 `update-surface.json` 三态 freshness；缺 registry/GitHub 输入时 fail closed |
+| `npm run deps:freshness` | 查询真实 registry/GitHub，输出 `update-surface.json` 三态 freshness；显式 `--fixtures` 才使用 local-controlled-simulation，输入不可用时 fail closed |
 
 ### 静态检查
 
