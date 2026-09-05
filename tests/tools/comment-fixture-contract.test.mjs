@@ -50,6 +50,25 @@ test('comment fixture inventory rejects queue shortcuts, same-state ambiguity, a
     assert.ok(commentFixtureInventoryErrors(signal).some((item) => item.includes('stateFields')));
 });
 
+test('comment fixture inventory rejects arbitrary visibility, queue, and capability declarations', () =>
+{
+    const { inventory } = readCommentFixtureInventory();
+    const state = clone(inventory);
+    state.stateRules.readModels.approved.public = false;
+    state.stateRules.queueMembership.approved = 'arbitrary-value';
+    const stateErrors = commentFixtureInventoryErrors(state);
+    assert.ok(stateErrors.some((item) => item.includes('queue membership')));
+    assert.ok(stateErrors.some((item) => item.includes('read-model visibility')));
+
+    const refs = clone(inventory);
+    refs.capabilities.find((item) => item.id === 'comment.thread.root').requiredRefs = ['article.any'];
+    assert.ok(commentFixtureInventoryErrors(refs).some((item) => item.includes('exact authority binding')));
+
+    const proof = clone(inventory);
+    proof.capabilities.find((item) => item.id === 'comment.thread.root').proofTests = ['self-declared-pass'];
+    assert.ok(commentFixtureInventoryErrors(proof).some((item) => item.includes('exact authority binding')));
+});
+
 test('comment fixture inventory rejects duplicate/orphan capabilities and tamper', () =>
 {
     const { inventory } = readCommentFixtureInventory();

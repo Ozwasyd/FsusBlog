@@ -9,7 +9,8 @@
         "revisionOperations": "src/backend/Entities/CommentRevision.cs",
         "threadPolicy": "src/backend/Services/CommentService.cs",
         "regionPolicy": "src/backend/Models/Moderation/RegionModerationModels.cs",
-        "signalContract": "src/backend/Models/Moderation/AntiSpamModerationModels.cs"
+        "signalEntity": "src/backend/Entities/CommentModerationSignal.cs",
+        "signalModel": "src/backend/Models/Moderation/AntiSpamModerationModels.cs"
     },
     "actorModes": [
         "public",
