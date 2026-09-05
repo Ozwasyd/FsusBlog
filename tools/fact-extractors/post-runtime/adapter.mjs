@@ -14,7 +14,10 @@ import {
 import path from 'node:path'
 
 import { loadCatalog } from '../../contracts/behavior-contract-catalog.mjs'
-import { validateGlobalClaimExactnessReceipt } from '../../docs/global-claim-exactness-final.mjs'
+import {
+  buildPostRuntimeAcceptedClaimsReceipt,
+  validatePostRuntimeAcceptedClaimsValue
+} from '../../docs/post-runtime-accepted-claims.mjs'
 import { digestValue, isPlainObject, stable } from '../lib/canonicalize.mjs'
 import { resolveSourceCommit, resolveWorktreeFingerprint } from '../identity.mjs'
 import { productionBuildBinding } from '../../release/test-evidence-receipts.mjs'
@@ -23,7 +26,6 @@ import { assertPreRuntimeQualified } from '../../test-matrix/behavior-evidence-p
 import {
   loadPostRuntimeProducerRegistry,
   root as defaultRoot,
-  validateAcceptedClaimsReceiptAgainstRegistry,
   validatePostRuntimeProducerRegistry,
   validateProducerReceiptAgainstRegistry
 } from '../../test-matrix/post-runtime-producer-registry.mjs'
@@ -366,74 +368,26 @@ function requiredModes(producer, classId)
     .sort()
 }
 
-export function produceAcceptedClaims({ terminalReceipt, repositoryRoot = defaultRoot })
+export function produceAcceptedClaims({ terminalReceipt, expectedRunId, repositoryRoot = defaultRoot })
 {
-  const terminalInput = explicitJson(terminalReceipt, 'terminal receipt', repositoryRoot)
-  if (terminalInput.relative === null) fail('accepted claims require a persisted terminal receipt path')
-  const terminal = terminalInput.value
-  validateGlobalClaimExactnessReceipt(terminal)
-  const { registry, producer } = authority(repositoryRoot)
-  const ledger = JSON.parse(readFileSync(path.join(repositoryRoot, 'config/contracts/document-claim-migration-ledger.json'), 'utf8'))
-  if (normalizedDigest(terminal.source?.migrationLedgerDigest) !== digestValue(ledger))
-  {
-    fail('terminal receipt migration ledger digest does not match current #2205 authority')
-  }
-  const claimOwners = new Map()
-  for (const scope of ledger.scopes ?? [])
-  {
-    for (const entry of scope.entries ?? [])
-    {
-      for (const claimId of entry.claimIds ?? [])
-      {
-        if (claimOwners.has(claimId)) fail(`claim ${claimId} has duplicate ledger owners`)
-        claimOwners.set(claimId, { behaviorId: entry.behaviorId, scopeId: scope.scopeId })
-      }
-    }
-  }
-  const claims = producer.acceptedClaimRefs.map((claimId) => {
-    const owner = claimOwners.get(claimId)
-    if (!owner) fail(`accepted claim ${claimId} is absent from the #2205 ledger`)
-    return { claimId, ...owner }
-  }).sort((left, right) => left.claimId.localeCompare(right.claimId))
-  const claimsSchemaDocument = JSON.parse(readFileSync(
-    path.join(repositoryRoot, 'config/schemas/post-runtime-accepted-claims.schema.json'), 'utf8'))
-  const requiresAuthorityDigests = (claimsSchemaDocument.required ?? []).includes('registryDigest')
-  return seal({
-    schema: acceptedClaimsSchema,
-    sourceState: {
-      commit: terminal.source.sourceCommit,
-      worktreeFingerprint: prefixedDigest(terminal.source.worktreeFingerprint)
-    },
+  const { producer } = authority(repositoryRoot)
+  return buildPostRuntimeAcceptedClaimsReceipt({
+    terminalReceiptPath: terminalReceipt,
+    expectedRunId,
     producerId: producer.producerId,
-    toolVersion: registry.receiptSemantics.acceptedClaimsToolVersion,
-    ...(requiresAuthorityDigests
-      ? {
-          registryDigest: `sha256:${digestValue(registry)}`,
-          claimsSchemaDigest: `sha256:${digestValue(claimsSchemaDocument)}`
-        }
-      : {}),
-    terminalReceiptRef: {
-      path: terminalInput.relative,
-      fileDigest: `sha256:${createHash('sha256').update(readFileSync(path.join(repositoryRoot, terminalInput.relative))).digest('hex')}`,
-      contentDigest: prefixedDigest(terminal.contentDigest),
-      schema: terminal.schema
-    },
-    migrationLedgerDigest: prefixedDigest(terminal.source.migrationLedgerDigest),
-    claims,
-    status: 'accepted'
+    repositoryRoot
   })
 }
 
-export function validateAcceptedClaims(receipt, { repositoryRoot = defaultRoot } = {})
+export function validateAcceptedClaims(receipt, { expectedRunId, repositoryRoot = defaultRoot } = {})
 {
-  const { registry, producer } = authority(repositoryRoot)
-  validateAcceptedClaimsReceiptAgainstRegistry({
-    registry,
+  const { producer } = authority(repositoryRoot)
+  return validatePostRuntimeAcceptedClaimsValue({
+    expectedRunId,
     producerId: producer.producerId,
     receipt,
     repositoryRoot
   })
-  return receipt
 }
 
 export function produceCandidateContext({
@@ -665,10 +619,10 @@ export function produceCandidatePlan({
   const pre = preInput.value
   assertPreRuntimeQualified(pre)
   const claimsInput = explicitJson(acceptedClaimsReceipt, 'accepted claims receipt', repositoryRoot)
-  const claims = validateAcceptedClaims(claimsInput.value, { repositoryRoot })
   const buildInput = explicitJson(buildReceipt, 'production build receipt', repositoryRoot)
   const runInput = explicitJson(context, 'candidate context', repositoryRoot)
   const run = validateCandidateContext(runInput.value, repositoryRoot)
+  const claims = validateAcceptedClaims(claimsInput.value, { expectedRunId: run.candidate.runId, repositoryRoot })
   const sourceState = { commit: pre.sourceIdentity.commit, worktreeFingerprint: prefixedDigest(pre.sourceIdentity.worktreeFingerprint) }
   verifyCurrentRepositoryIdentity(sourceState, repositoryRoot)
   const build = verifyProductionBuildInput(buildInput, sourceState, repositoryRoot)
@@ -733,10 +687,10 @@ export function validateCandidatePlan(plan, { repositoryRoot = defaultRoot } = {
   const preInput = verifyReference(plan.preRuntimeReceiptRef, 'candidate plan pre-runtime receipt', repositoryRoot)
   assertPreRuntimeQualified(preInput.value)
   const claimsInput = verifyReference(plan.acceptedClaimsReceiptRef, 'candidate plan accepted claims receipt', repositoryRoot)
-  const claims = validateAcceptedClaims(claimsInput.value, { repositoryRoot })
   const buildInput = verifyReference(plan.buildReceiptRef, 'candidate plan production build receipt', repositoryRoot)
   const contextInput = verifyReference(plan.candidateContextRef, 'candidate plan context receipt', repositoryRoot)
   const run = validateCandidateContext(contextInput.value, repositoryRoot)
+  const claims = validateAcceptedClaims(claimsInput.value, { expectedRunId: run.candidate.runId, repositoryRoot })
   const sourceState = {
     commit: preInput.value.sourceIdentity.commit,
     worktreeFingerprint: prefixedDigest(preInput.value.sourceIdentity.worktreeFingerprint)
@@ -890,7 +844,7 @@ export function produceObservationReceipt({ scope, candidatePlan, acceptedClaims
   const planInput = explicitJson(candidatePlan, 'candidate plan', repositoryRoot)
   const plan = validateCandidatePlan(planInput.value, { repositoryRoot })
   const claimsInput = explicitJson(acceptedClaimsReceipt, 'accepted claims receipt', repositoryRoot)
-  const claims = validateAcceptedClaims(claimsInput.value, { repositoryRoot })
+  const claims = validateAcceptedClaims(claimsInput.value, { expectedRunId: plan.candidate.runId, repositoryRoot })
   if (claims.contentDigest !== plan.acceptedClaimsReceiptDigest) fail('accepted claims do not match candidate plan')
   const scopeClasses = scope === 'application'
     ? ['aot-spa-hydration', 'browser-behavior-contract', 'cache-search-outbox-convergence', 'route-response-error', 'session-cookie-runtime']

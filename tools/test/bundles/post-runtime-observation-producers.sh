@@ -63,7 +63,7 @@ aot_args=(--manifest "$AOT_MANIFEST" --browser-contract "$BROWSER")
 
 mkdir -p "$RAW_DIR" "$SOURCE_DIR" "$OUT_DIR/classes"
 
-"$NODE_BIN" tools/fact-extractors/post-runtime/current-run.mjs verify-accepted-claims --receipt "$CLAIMS"
+"$NODE_BIN" tools/fact-extractors/post-runtime/current-run.mjs verify-accepted-claims --receipt "$CLAIMS" --run-id "$RUN_ID"
 "$NODE_BIN" tools/fact-extractors/post-runtime/current-run.mjs verify-candidate-plan --receipt "$PLAN"
 
 "$NODE_BIN" tools/test-evidence/aot-spa-hydration-raw.mjs bundle --candidate-plan "$PLAN" "${aot_args[@]}" --out "$SOURCE_DIR/aot-spa-hydration.json"

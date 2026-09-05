@@ -30,6 +30,8 @@ import {
 } from '../../tools/fact-extractors/post-runtime/release-deployment.mjs'
 import { root } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
 import { createRunId } from '../../tools/test-matrix/scheduler.mjs'
+import { beginCurrentRunEvidencePublication, finalizeCurrentRunEvidencePublication }
+  from '../../tools/test/current-run-evidence-publication.mjs'
 
 const commit = resolveSourceCommit(root)
 const fingerprint = resolveWorktreeFingerprint(root)
@@ -103,22 +105,53 @@ function fixture(context)
 {
   const directory = fs.mkdtempSync(path.join(root, '.tmp', 'post-runtime-current-'))
   context.after(() => fs.rmSync(directory, { recursive: true, force: true }))
-  const relative = (name) => path.relative(root, path.join(directory, name)).replaceAll(path.sep, '/')
+  const runId = path.basename(directory)
+  const authority = JSON.parse(fs.readFileSync(path.join(root,
+    'config/testing/post-runtime-producer-registry.json'), 'utf8')).receiptSemantics.acceptedTerminalAuthority
+  const publicationDirectory = path.join(root, authority.referenceRoot, runId, 'attempt-0001')
+  fs.mkdirSync(publicationDirectory, { recursive: true })
+  context.after(() => fs.rmSync(path.dirname(publicationDirectory), { recursive: true, force: true }))
+  const terminalReference = path.relative(root, path.join(publicationDirectory, authority.referenceName)).replaceAll(path.sep, '/')
+  const terminalPayload = path.relative(root, path.join(publicationDirectory, authority.payloadName)).replaceAll(path.sep, '/')
+  const relative = (name) => name === 'terminal.json' ? terminalReference
+    : path.relative(root, path.join(directory, name)).replaceAll(path.sep, '/')
   const write = (name, value) => fs.writeFileSync(path.join(directory, name), `${JSON.stringify(value)}\n`)
   const ledger = JSON.parse(fs.readFileSync(path.join(root, 'config/contracts/document-claim-migration-ledger.json'), 'utf8'))
+  const claimAcceptance = ledger.scopes.flatMap((scope) => scope.entries.flatMap((entry) =>
+    entry.claimIds.map((claimId, index) => ({
+      claimId, behaviorId: entry.behaviorId, scopeId: scope.scopeId, documentPath: entry.documentPath,
+      claimType: entry.generatedSectionIds[index] ? 'generated-section' : 'prose',
+      generatedSectionId: entry.generatedSectionIds[index] ?? null,
+      claimDigest: `sha256:${digestValue({ claimId })}`
+    })))).sort((left, right) => left.claimId.localeCompare(right.claimId))
+  const generatedClaimCount = claimAcceptance.filter((claim) => claim.claimType === 'generated-section').length
   const terminal = globalSeal({
     schema: 'fsusblog.global-claim-exactness-terminal-receipt.v1', scopeId: 'global-document-claim-exactness',
+    runId, claimAcceptance,
     source: { sourceCommit: commit, worktreeFingerprint: fingerprint, catalogDigest: '1'.repeat(64),
       migrationLedgerDigest: digestValue(ledger), sectionCatalogDigest: '2'.repeat(64), observationDigests: {} },
     authorityDigests: [], counts: { requiredBehaviors: 10, scopes: 6, ledgerEntries: 10,
-      generatedClaimCount: 1, proseClaimCount: 1, proseTotal: 1, proseVerified: 1,
+      generatedClaimCount, proseClaimCount: claimAcceptance.length - generatedClaimCount, proseTotal: 1, proseVerified: 1,
       generatedSectionsVerified: 1, generatedSectionDrifts: 0, missing: 0, extra: 0,
       residue: 0, mutationKilled: 1, mutationTotal: 1, warnings: 0 },
     mutationAggregate: { killed: 1, total: 1 }, residue: [], proseVerification: {},
     status: 'ok', failureReasons: []
   })
-  write('terminal.json', terminal)
-  const claims = produceAcceptedClaims({ terminalReceipt: relative('terminal.json'), repositoryRoot: root })
+  const publicationContext = {
+    schema: 'fsusblog.current-run-evidence-context.v1', schedulerRunId: runId, attemptId: 'attempt-0001',
+    sourceCommit: commit, worktreeFingerprint: `sha256:${fingerprint}`,
+    candidateIdentity: { id: `${runId}:candidate`, digest: digest('1') },
+    buildIdentity: { id: `${runId}:build`, digest: digest('2') },
+    ownedRoots: [path.relative(root, publicationDirectory).replaceAll(path.sep, '/')]
+  }
+  publicationContext.contentDigest = `sha256:${digestValue(publicationContext)}`
+  const publicationOptions = { authorityId: authority.authorityId, producerId: authority.producerId,
+    context: publicationContext, outputPath: terminalReference, payloadPath: terminalPayload, repositoryRoot: root }
+  const session = beginCurrentRunEvidencePublication(publicationOptions)
+  fs.writeFileSync(path.join(root, terminalPayload), `${JSON.stringify(terminal)}\n`)
+  finalizeCurrentRunEvidencePublication({ ...publicationOptions, sessionId: session.sessionId,
+    payloadSchema: terminal.schema, terminalStatus: 'success' })
+  const claims = produceAcceptedClaims({ terminalReceipt: relative('terminal.json'), expectedRunId: runId, repositoryRoot: root })
   const pre = seal({
     schema: 'fsusblog.behavior-evidence-pre-runtime-receipt.v1', scope: 'pre-runtime',
     runIdentity: 'run-1', sourceIdentity: { commit, worktreeFingerprint: `sha256:${fingerprint}` },
@@ -144,7 +177,7 @@ function fixture(context)
     path.join(root, 'config/schemas/post-runtime-observation-result.schema.json'), 'utf8'))
   const contextReceipt = produceCandidateContext({
     preRuntimeReceipt: relative('pre.json'),
-    runId: 'run-0001',
+    runId,
     attemptId: 'attempt-0001',
     candidate: observationSchema.properties?.sourceState?.properties?.runtimeId !== undefined
       ? { releaseId: `20260830123456-${commit.slice(0, 12)}` }
@@ -193,7 +226,7 @@ function fixture(context)
       result: paths[classId], repositoryRoot: root })
     write(`${classId}-receipt.json`, classReceipts[classId])
   }
-  return { relative, classReceipts }
+  return { relative, classReceipts, runId }
 }
 
 test('current-run application producer binds #2205 claims, one plan, and exact five semantic class receipts', (context) =>
@@ -281,13 +314,13 @@ test('#2205 accepted-claim CLI produces and independently replays one explicit t
   const cli = path.join(root, 'tools/fact-extractors/post-runtime/current-run.mjs')
   const output = value.relative('accepted-claims-cli.json')
   const produced = spawnSync(process.execPath, [
-    cli, 'accepted-claims', '--terminal', value.relative('terminal.json'), '--out', output
+    cli, 'accepted-claims', '--terminal', value.relative('terminal.json'), '--run-id', value.runId, '--out', output
   ], { cwd: root, encoding: 'utf8' })
   assert.equal(produced.status, 0, produced.stderr)
   assert.match(produced.stdout, /accepted-claims status=accepted/u)
 
   const verified = spawnSync(process.execPath, [
-    cli, 'verify-accepted-claims', '--receipt', output
+    cli, 'verify-accepted-claims', '--receipt', output, '--run-id', value.runId
   ], { cwd: root, encoding: 'utf8' })
   assert.equal(verified.status, 0, verified.stderr)
   assert.match(verified.stdout, /verify-accepted-claims status=accepted/u)
@@ -410,5 +443,5 @@ test('#2205 accepted-claim verifier rejects a symlinked ancestor even when leaf 
   claims.terminalReceiptRef.path = path.relative(root, path.join(linkDirectory, 'terminal.json')).replaceAll(path.sep, '/')
   claims.contentDigest = null
   const resealed = seal(claims)
-  assert.throws(() => validateAcceptedClaims(resealed, { repositoryRoot: root }), /canonical|symlink/u)
+  assert.throws(() => validateAcceptedClaims(resealed, { expectedRunId: value.runId, repositoryRoot: root }), /canonical|symlink/u)
 })

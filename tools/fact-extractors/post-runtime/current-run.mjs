@@ -3,6 +3,10 @@
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import {
+  readAndValidatePostRuntimeAcceptedClaimsReceipt,
+  writePostRuntimeAcceptedClaimsReceipt
+} from '../../docs/post-runtime-accepted-claims.mjs'
 
 import {
   explicitJson,
@@ -10,7 +14,6 @@ import {
   produceCandidateContext,
   produceCandidatePlan,
   produceClassReceipt,
-  validateAcceptedClaims,
   validateCandidatePlan,
   validateClassReceipt,
   writeReceipt
@@ -56,7 +59,7 @@ export function runCurrentRunCli(argv, repositoryRoot)
   let receipt
   if (command === 'accepted-claims')
   {
-    receipt = produceAcceptedClaims({ terminalReceipt: options.terminalReceipt, repositoryRoot })
+    receipt = produceAcceptedClaims({ terminalReceipt: options.terminalReceipt, expectedRunId: options.runId, repositoryRoot })
   }
   else if (command === 'candidate-context')
   {
@@ -92,7 +95,9 @@ export function runCurrentRunCli(argv, repositoryRoot)
   }
   else if (command === 'verify-accepted-claims')
   {
-    receipt = validateAcceptedClaims(explicitJson(options.receipt, 'accepted claims receipt', repositoryRoot).value, { repositoryRoot })
+    receipt = readAndValidatePostRuntimeAcceptedClaimsReceipt({
+      receiptPath: options.receipt, expectedRunId: options.runId, repositoryRoot
+    })
   }
   else if (command === 'verify-candidate-plan')
   {
@@ -104,7 +109,15 @@ export function runCurrentRunCli(argv, repositoryRoot)
   }
   else fail('command must be accepted-claims, candidate-context, candidate-plan, class-receipt, verify-accepted-claims, verify-candidate-plan, or verify-class-receipt')
 
-  if (options.out) writeReceipt(options.out, receipt, repositoryRoot)
+  if (options.out)
+  {
+    if (command === 'accepted-claims' || command === 'verify-accepted-claims')
+    {
+      writePostRuntimeAcceptedClaimsReceipt({ outputPath: options.out, receipt,
+        expectedRunId: options.runId, repositoryRoot })
+    }
+    else writeReceipt(options.out, receipt, repositoryRoot)
+  }
   console.log(`[post-runtime-current-run] ${command} status=${receipt.status} digest=${receipt.contentDigest}`)
   return receipt
 }

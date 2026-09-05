@@ -15,7 +15,7 @@ ATTEMPT_ID="${PRODUCTION_ATTEMPT_ID:-${TEST_ATTEMPT_ID:-attempt-0001}}"
 export FSUSBLOG_TEST_ATTEMPT_ID="$ATTEMPT_ID"
 RELEASE_ID="${FSUSBLOG_RELEASE_ID:?FSUSBLOG_RELEASE_ID is required}"
 PRE_RUNTIME="${FSUSBLOG_BEHAVIOR_PRE_RUNTIME_RECEIPT:-$ROOT_DIR/.tmp/behavior-evidence-pre-runtime/receipt.json}"
-TERMINAL_CLAIMS="${FSUSBLOG_GLOBAL_CLAIM_EXACTNESS_RECEIPT:-$ROOT_DIR/.tmp/behavior-evidence-pre-runtime/global-claim-exactness.json}"
+TERMINAL_CLAIMS="${FSUSBLOG_DOCS_GLOBAL_CLAIM_EXACTNESS_FINAL_EVIDENCE_PATH:?FSUSBLOG_DOCS_GLOBAL_CLAIM_EXACTNESS_FINAL_EVIDENCE_PATH reference is required}"
 BUILD_RECEIPT="${FSUSBLOG_CI_PRODUCTION_BUILD_RECEIPT:-$ROOT_DIR/.tmp/ci-production-build/receipt.json}"
 CLAIMS_DIR="${FSUSBLOG_POST_RUNTIME_CLAIMS_DIR:-.tmp/post-runtime-plan/$RUN_ID}"
 OUT_DIR="${FSUSBLOG_POST_RUNTIME_PLAN_DIR:-$CLAIMS_DIR/$ATTEMPT_ID}"
@@ -26,10 +26,11 @@ mkdir -p "$CLAIMS_DIR" "$OUT_DIR"
 
 if [[ -e "$CLAIMS_DIR/accepted-claims.json" ]]; then
     "$NODE_BIN" "$ROOT_DIR/tools/fact-extractors/post-runtime/current-run.mjs" verify-accepted-claims \
-        --receipt "$CLAIMS_DIR/accepted-claims.json"
+        --receipt "$CLAIMS_DIR/accepted-claims.json" --run-id "$RUN_ID"
 else
     "$NODE_BIN" "$ROOT_DIR/tools/fact-extractors/post-runtime/current-run.mjs" accepted-claims \
         --terminal "$TERMINAL_CLAIMS" \
+        --run-id "$RUN_ID" \
         --out "$CLAIMS_DIR/accepted-claims.json"
 fi
 
