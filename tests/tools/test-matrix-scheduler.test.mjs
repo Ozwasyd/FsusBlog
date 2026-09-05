@@ -9,7 +9,7 @@ import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const { validateBehaviorDocStaticAdmissionReceipt } = await import(new URL("../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
+const { validateBehaviorDocStaticAdmissionReceipt } = await import(new URL("../../tools/docs/behavior-doc-static-admission-contract.mjs", import.meta.url));
 const { sealSourceIdentity } = await import(new URL("../../tools/fact-extractors/identity.mjs", import.meta.url));
 const { currentProcessIdentity } = await import(new URL("../../tools/test/process-identity.mjs", import.meta.url));
 const { createArtifactDigestTable } = await import(new URL("../../tools/test-matrix/artifact-digest-table.mjs", import.meta.url));
@@ -35,6 +35,47 @@ import {
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const schedulerFile = path.join(root, 'tools/test-matrix/scheduler.mjs');
+
+test('scheduler source snapshot excludes owned current-run outputs but detects source drift', async (t) =>
+{
+    const { snapshotSourceState } = await import(pathToFileURL(schedulerFile).href);
+    const repository = createTempDir('current-run-scheduler-source');
+    t.after(() => fs.rmSync(repository, { recursive: true, force: true }));
+    const git = (...args) => execFileSync('git', args, { cwd: repository, encoding: 'utf8' });
+    git('init', '--quiet');
+    fs.copyFileSync(path.join(root, '.gitignore'), path.join(repository, '.gitignore'));
+    fs.writeFileSync(path.join(repository, 'source.txt'), 'source-before');
+    git('add', '.gitignore', 'source.txt');
+    git('-c', 'user.name=Test', '-c', 'user.email=test@example.invalid',
+        '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'fixture');
+    const before = await snapshotSourceState(repository);
+    const output = path.join(repository, 'artifacts/current-run/run-1/attempt-1/receipt.json');
+    fs.mkdirSync(path.dirname(output), { recursive: true });
+    fs.writeFileSync(output, '{"status":"prepared"}');
+    assert.deepEqual(await snapshotSourceState(repository), before);
+    fs.writeFileSync(output, '{"status":"verified"}');
+    assert.deepEqual(await snapshotSourceState(repository), before);
+    assert.match(git('check-ignore', 'artifacts/current-run/run-1/attempt-1/receipt.json'), /receipt\.json/u);
+
+    for (const relative of ['untracked-source.txt', 'artifacts/authority.json', 'nested/artifacts/current-run/source.json'])
+    {
+        const file = path.join(repository, relative);
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, 'source-after');
+        assert.notEqual((await snapshotSourceState(repository)).worktreeFingerprint, before.worktreeFingerprint, relative);
+        fs.rmSync(file);
+        assert.deepEqual(await snapshotSourceState(repository), before);
+    }
+    fs.writeFileSync(path.join(repository, 'source.txt'), 'source-after');
+    assert.notEqual((await snapshotSourceState(repository)).worktreeFingerprint, before.worktreeFingerprint);
+    fs.writeFileSync(path.join(repository, 'source.txt'), 'source-before');
+    git('add', '-f', 'artifacts/current-run/run-1/attempt-1/receipt.json');
+    git('-c', 'user.name=Test', '-c', 'user.email=test@example.invalid',
+        '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'tracked output fixture');
+    const tracked = await snapshotSourceState(repository);
+    fs.writeFileSync(output, '{"status":"tampered"}');
+    assert.notEqual((await snapshotSourceState(repository)).worktreeFingerprint, tracked.worktreeFingerprint);
+});
 
 async function loadScheduler()
 {
@@ -4772,6 +4813,7 @@ test('resident leases stay in admission accounting, hand off once, and release c
         runsRoot: path.join(temp, '.tmp/test-runs'),
         runId,
         targetTierId: 'after-exit',
+        namespace,
         mode: 'fresh',
         sourceState,
         maxParallel: 2,
@@ -4937,6 +4979,7 @@ test('failed resident producer retains partial live-service evidence without pub
         runsRoot: path.join(temp, '.tmp/test-runs'),
         runId,
         targetTierId: 'performance',
+        namespace,
         mode: 'fresh',
         sourceState,
         collectFailures: true,

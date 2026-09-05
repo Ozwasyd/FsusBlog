@@ -6,8 +6,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-// eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler admission consumes the canonical BehaviorDoc receipt validator.
-import { validateBehaviorDocStaticAdmissionReceipt } from '../docs/behavior-doc-static-admission.mjs';
+// eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler admission consumes the pure canonical BehaviorDoc receipt validator.
+import { validateBehaviorDocStaticAdmissionReceipt } from '../docs/behavior-doc-static-admission-contract.mjs';
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler fingerprints use the canonical source-identity owner.
 import { sealSourceIdentity } from '../fact-extractors/identity.mjs';
 import {
@@ -70,8 +70,12 @@ import {
 } from './scheduler-admission-support.mjs';
 import {
     acquireSchedulerRunLock,
+    createSchedulerTierAdmission,
     schedulerCandidateIdentityDigest,
-    schedulerRunLockIsActive
+    schedulerRunLockActivity,
+    schedulerRunLockIsActive,
+    schedulerTierAdmissionSequence,
+    writeSchedulerTierAdmission
 } from './scheduler-run-owner.mjs';
 
 export {
@@ -95,6 +99,8 @@ const fingerprintEnvironmentKeys = new Set(['CI', 'NODE_ENV', 'DOTNET_ROOT']);
 const orchestrationOnlyFingerprintEnvironmentKeys = new Set([
     'FSUSBLOG_TEST_INVOCATION_STARTED_AT_MS',
     'FSUSBLOG_TEST_EXECUTION_SOURCE',
+    'FSUSBLOG_TEST_RUN_ID',
+    'FSUSBLOG_TEST_NAMESPACE',
     'FSUSBLOG_TIER_CPU_UNITS',
     'FSUSBLOG_TIER_MEMORY_GIB',
     'FSUSBLOG_BUNDLE_CPU_BUDGET',
@@ -105,6 +111,7 @@ const orchestrationOnlyFingerprintEnvironmentKeys = new Set([
     'FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE',
     'FSUSBLOG_SCHEDULER_RESOURCE_GRANT_RUN_ID',
     'FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID',
+    'FSUSBLOG_SCHEDULER_CHECKPOINT',
     'FSUSBLOG_CGROUP_BUNDLE_PATH',
     'FSUSBLOG_CGROUP_EFFECTIVE_CPU_MAX',
     'FSUSBLOG_CGROUP_EFFECTIVE_MEMORY_HIGH_BYTES',
@@ -4281,6 +4288,8 @@ async function runDagUnlocked(options)
       || previous.sourceState?.worktreeFingerprint !== sourceState.worktreeFingerprint);
     const resumeBudgetPolicyChanged = Boolean(previous) &&
     previous.budgetPolicyDigest !== budgetPolicyDigest;
+    const resumeCandidateIdentityChanged = Boolean(previous)
+    && previous.schedulerCandidateIdentityDigest !== options.schedulerCandidateIdentityDigest;
     const requestedWallClockStartedAtMs = options.wallClockStartedAtMs === undefined
         ? Date.now()
         : Number(options.wallClockStartedAtMs);
@@ -4382,7 +4391,11 @@ async function runDagUnlocked(options)
         } : {}),
         failure: null,
         failurePoint: null,
-        failures: []
+        failures: [],
+        schedulerAdmissions: resume && !resumeSourceChanged
+          && !resumeBudgetPolicyChanged && !resumeCandidateIdentityChanged
+            ? structuredClone(previous?.schedulerAdmissions ?? {})
+            : {}
     };
     const dynamicPriorityEnabled = !schedulerReplayPlan && options.dynamicPriority !== false
     && String(options.env?.FSUSBLOG_TEST_DYNAMIC_PRIORITY
@@ -4413,6 +4426,31 @@ async function runDagUnlocked(options)
     const failed = new Set();
     const resultFingerprints = new Map();
     const active = new Map();
+    let schedulerAdmissionSequence = Math.max(
+        schedulerTierAdmissionSequence({ runsRoot, runId }),
+        0,
+        ...Object.values(checkpoint.schedulerAdmissions)
+            .map((entry) => Number(entry.admissionSequence) || 0)
+    );
+    const schedulerOwnerActivity = schedulerRunLockActivity({
+        runsRoot,
+        runId,
+        targetTierId: checkpoint.targetTierId,
+        candidateIdentityDigest: checkpoint.schedulerCandidateIdentityDigest
+    });
+    if (schedulerOwnerActivity.status !== 'active'
+        || !schedulerOwnerActivity.owner?.ownerToken)
+    {
+        throw new Error(
+            `scheduler tier admission requires one active run owner: ${schedulerOwnerActivity.status}`
+        );
+    }
+    if (options.schedulerRunOwnerToken
+        && options.schedulerRunOwnerToken !== schedulerOwnerActivity.owner.ownerToken)
+    {
+        throw new Error('scheduler tier admission owner token does not match the live run owner');
+    }
+    const schedulerRunOwnerToken = schedulerOwnerActivity.owner.ownerToken;
     const schedulerWaitLedger = createWaitLedger();
     let resolveInterrupt = null;
     let interrupted = null;
@@ -5205,6 +5243,8 @@ async function runDagUnlocked(options)
             ...(options.env ?? {}),
             ...(options.envForTier?.(tier) ?? {}),
             FSUSBLOG_TEST_EXECUTION_SOURCE: mode,
+            FSUSBLOG_TEST_RUN_ID: runId,
+            FSUSBLOG_TEST_NAMESPACE: checkpoint.namespace,
             FSUSBLOG_TEST_SOURCE_COMMIT: sourceState.commit ?? '',
             FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceState.worktreeFingerprint,
             FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE: resourceGrantFile,
@@ -5295,6 +5335,44 @@ async function runDagUnlocked(options)
             });
             return false;
         }
+
+        schedulerAdmissionSequence += 1;
+        const releaseFinalRecorded = checkpoint.tiers?.['release-final'];
+        const releaseFinalSpawnCountBeforeAdmission = active.has('release-final')
+            || releaseFinalRecorded != null
+            ? Math.max(1, Number(releaseFinalRecorded?.producerSpawnCount) || 0)
+            : 0;
+        const admission = createSchedulerTierAdmission({
+            runId,
+            targetTierId: checkpoint.targetTierId,
+            currentTierId: tier.id,
+            namespace: checkpoint.namespace,
+            mode: checkpoint.mode,
+            sourceState: checkpoint.sourceState,
+            schedulerCandidateIdentityDigest: checkpoint.schedulerCandidateIdentityDigest,
+            schedulerOwnerToken: schedulerRunOwnerToken,
+            budgetPolicyDigest: checkpoint.budgetPolicyDigest ?? null,
+            schedulerCheckpointRevision: Math.max(0, Number(checkpoint.revision) || 0) + 1,
+            admissionSequence: schedulerAdmissionSequence,
+            activeTierIds: [...active.keys()].sort(),
+            releaseFinalSpawnCountBeforeAdmission
+        });
+        const publishedAdmission = writeSchedulerTierAdmission({ runsRoot, admission });
+        const schedulerAdmissionReference = {
+            schema: publishedAdmission.schema,
+            ref: path.relative(root, publishedAdmission.file).replaceAll(path.sep, '/'),
+            fileDigest: publishedAdmission.fileDigest,
+            contentDigest: publishedAdmission.contentDigest,
+            currentTierId: publishedAdmission.currentTierId,
+            admissionSequence: publishedAdmission.admissionSequence
+        };
+        checkpoint.schedulerAdmissions[tier.id] = schedulerAdmissionReference;
+        writeCheckpoint(checkpointFile, checkpoint, {
+            eventType: 'tier-admitted',
+            tier: tier.id,
+            step: 'scheduler'
+        });
+        tierEnvironment.FSUSBLOG_SCHEDULER_CHECKPOINT = publishedAdmission.file;
 
         // Once execution is about to begin, the old success is no longer a safe
         // fallback: the command may mutate its outputs before failing or being
@@ -6198,6 +6276,7 @@ export async function runDag(options)
             targetTierId,
             namespace,
             schedulerCandidateIdentityDigest: releaseLock.owner.candidateIdentityDigest,
+            schedulerRunOwnerToken: releaseLock.owner.ownerToken,
             sourceState,
             runSourceSnapshot,
             registerSchedulerFinalizer(finalizer)

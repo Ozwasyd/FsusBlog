@@ -23,7 +23,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { digestCatalog, loadCatalog } from '../contracts/behavior-contract-catalog.mjs'
+import { BehaviorId, digestCatalog, loadCatalog } from '../contracts/behavior-contract-catalog.mjs'
 import { digestValue } from '../fact-extractors/identity.mjs'
 import { readFactObservationReceipt } from '../fact-extractors/reader.mjs'
 import { parseRepositoryClaims } from './doc-claim.mjs'
@@ -201,7 +201,7 @@ export async function buildGlobalClaimExactnessReceipt({
                     continue
                 }
                 claimOwners.set(claimId, {
-                    behaviorId: entry.behaviorId,
+                    behaviorId: BehaviorId(entry.behaviorId),
                     scopeId: scope.scopeId,
                     documentPath: entry.documentPath,
                     entryKey: `${scope.scopeId}\u0000${entry.behaviorId}\u0000${entry.documentPath}`,
@@ -229,7 +229,7 @@ export async function buildGlobalClaimExactnessReceipt({
         }
         const identity = {
             claimId: declaration.claimId,
-            behaviorId: declaration.behaviorId,
+            behaviorId: BehaviorId(declaration.behaviorId),
             scopeId: owner?.scopeId ?? 'unowned',
             documentPath: claim.location.documentPath,
             claimType: declaration.claimType,

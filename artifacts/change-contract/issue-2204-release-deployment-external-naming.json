@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "docs/architecture/monolithic-distributed-boundary.md",
+                "docs/releases/blue-green-deployment-runbook.md"
+            ],
+            "reason": "Preserve the existing external Behavior, observation, generated-section, and document identifiers while removing the parallel handwritten authority prose."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/release-deployment-doc-exactness.mjs"
+            ],
+            "reason": "Preserve caller-visible process environment, CLI and receipt spelling while the exactness verifier derives its internal behavior roster from the catalog and binds the protected PR base."
+        }
+    ]
+}

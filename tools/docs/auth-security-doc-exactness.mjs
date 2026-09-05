@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 
 import { digestPath, digestValue, sealSourceIdentity } from '../fact-extractors/identity.mjs'
 import { parseRepositoryClaims } from './doc-claim.mjs'
-import { readBehaviorDocStaticAdmissionReceipt } from './behavior-doc-static-admission.mjs'
+import { readBehaviorDocStaticAdmissionReceipt } from './behavior-doc-static-admission-contract.mjs'
 import {
   buildBehaviorDocExactnessReceipt,
   validateBehaviorDocExactnessReceipt,

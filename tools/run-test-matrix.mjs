@@ -9,10 +9,12 @@ import { fileURLToPath } from 'node:url';
 
 import {
     behaviorDocAdmissionTierId,
-    defaultBehaviorDocAdmissionReceipt,
-    readBehaviorDocStaticAdmissionReceipt,
     runBehaviorDocStaticAdmission
 } from './docs/behavior-doc-static-admission.mjs';
+import {
+    defaultBehaviorDocAdmissionReceipt,
+    readBehaviorDocStaticAdmissionReceipt
+} from './docs/behavior-doc-static-admission-contract.mjs';
 import { sealSourceIdentity } from './fact-extractors/identity.mjs';
 import { availableMemoryGiB } from './test/system-memory.mjs';
 import { validateCorrectnessAttemptMigration } from './test/correctness-attempt-migration.mjs';
