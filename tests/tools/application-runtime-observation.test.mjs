@@ -43,58 +43,6 @@ const classIds = [
 ]
 const digest = (value) => `sha256:${String(value).repeat(64).slice(0, 64)}`
 
-function typedSemanticFacts(definition)
-{
-  return Object.fromEntries(definition.requiredSemanticFactFields.map((field) => [field,
-    field === 'responseStatus' ? 404 : field.endsWith('Digest') ? digest('1') : `${field}-value`]))
-}
-
-function semanticFacts(classId, definition)
-{
-  if (Array.isArray(definition.requiredSemanticFactFields)) return typedSemanticFacts(definition)
-  if (classId === 'route-response-error') return {
-    statusCode: 404, typedResult: 'typed-error', protocolIdentity: 'aeds-v2', contentIdentity: 'missing-article',
-    authSemantics: 'anonymous', permissionSemantics: 'public', visibilitySemantics: 'not-found',
-    cacheSemantics: 'not-cacheable', semanticMatch: true
-  }
-  if (classId === 'aot-spa-hydration') return {
-    buildDigest: digest('1'), manifestDigest: digest('2'), publicationDigest: digest('3'),
-    localeCanaryDigest: digest('4'), dataCanaryDigest: digest('5'), serverHtmlDigest: digest('6'),
-    hydratedDomDigest: digest('7'), clientStateDigest: digest('8'), networkResourceDigest: digest('9'), coherent: true
-  }
-  if (classId === 'cache-search-outbox-convergence') return {
-    authorityCoordinateDigest: digest('1'), eventDigest: digest('2'), edgeDigest: digest('3'),
-    generationDigest: digest('4'), queryDigest: digest('5'), readModelDigest: digest('6'),
-    outputDigest: digest('7'), terminalReceiptDigest: digest('8'), terminalState: 'converged', coherent: true
-  }
-  if (classId === 'session-cookie-runtime') return {
-    databaseSessionDigest: digest('1'), credentialDigest: digest('2'), authContextDigest: digest('3'),
-    jwtDigest: digest('4'), cookieDigest: digest('5'), storageClaimsDigest: digest('6'), expiryDigest: digest('7'),
-    revisionDigest: digest('8'), deviceDigest: digest('9'), serviceResultDigest: digest('a'), coherent: true
-  }
-  if (classId === 'browser-behavior-contract') return {
-    requiredTestIds: ['article-route'], viewportId: 'desktop', themeId: 'light', stateId: 'loaded',
-    interactionDigest: digest('1'), domDigest: digest('2'), a11yDigest: digest('3'),
-    networkDigest: digest('4'), consoleDigest: digest('5'), contractSatisfied: true, consoleClean: true,
-    screenshotOnly: false
-  }
-  if (classId === 'release-identity-readiness') return {
-    imageDigest: digest('1'), packageDigest: digest('2'), configDigest: digest('3'), schemaDigest: digest('4'),
-    manifestDigest: digest('5'), signingDigest: digest('6'), trustDigest: digest('7'), readinessReceiptDigest: digest('8'),
-    serviceReady: true, routeDataReady: true, cacheReady: true, dependenciesReady: true, versionReady: true,
-    credentialReady: true, identityMatch: true, runtimeRoleContractSatisfied: true, monolithicOwnershipSatisfied: true
-  }
-  return {
-    activeBeforeDigest: digest('1'), standbyBeforeDigest: digest('2'), activeAfterDigest: digest('3'),
-    standbyAfterDigest: digest('4'), promotionReceiptDigest: digest('5'), switchReceiptDigest: digest('6'),
-    healthReceiptDigest: digest('7'), rollbackReceiptDigest: digest('8'), failureReceiptDigest: digest('9'),
-    trafficOwnershipDigest: digest('a'), artifactContainmentDigest: digest('b'), volumeContainmentDigest: digest('c'),
-    schemaContainmentDigest: digest('d'), processContainmentDigest: digest('e'), cleanupReceiptDigest: digest('f'),
-    terminalReceiptDigest: digest('0'), activeReleaseProtected: true, activeIdentityKnown: true, switchComplete: true,
-    splitBrainAbsent: true, cleanupInactiveOnly: true, sharedFactsPreserved: true, runtimeRoleContractSatisfied: true
-  }
-}
-
 function globalSeal(value)
 {
   const receipt = { ...value, contentDigest: null }
