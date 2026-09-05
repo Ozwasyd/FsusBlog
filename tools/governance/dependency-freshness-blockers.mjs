@@ -75,8 +75,12 @@ export function planBlockerIssue({ report, catalog, exceptions, issues, previous
         const item = items.get(result.dependencyId);
         const exceptionDetails = exceptions.exceptions.filter((exception) => exception.dependencyId === result.dependencyId)
             .map((exception) => `${exception.owner} / ${exception.expiresAt}`).sort().join('; ');
+        const successors = (report.supersession ?? []).filter((relation) => relation.dependencyId === result.dependencyId)
+            .map((relation) => `#${relation.predecessor} superseded by #${relation.successor}; #${relation.successor} supersedes #${relation.predecessor}`)
+            .sort().join('; ');
         return `| ${[result.dependencyId, result.currentVersion, result.latestStable,
             `${item.datasource}/${item.packageName}`, result.prNumber ? `#${result.prNumber}` : '—',
+            successors || '—',
             (failedByDependency.get(result.dependencyId) ?? []).sort().join('; ') || '—',
             exceptionDetails || '—', observations[result.dependencyId]].map(cell).join(' | ')} |`;
     });
@@ -89,8 +93,8 @@ export function planBlockerIssue({ report, catalog, exceptions, issues, previous
     const body = [
         'Canonical dependency freshness blockers; no version policy is computed by this consumer.',
         '',
-        '| dependencyId | currentVersion | targetVersion | datasource/package | open PR | failed checks | exception owner/expiry | firstObservedAt |',
-        '| --- | --- | --- | --- | --- | --- | --- | --- |',
+        '| dependencyId | currentVersion | targetVersion | datasource/package | open PR | superseding PR | failed checks | exception owner/expiry | firstObservedAt |',
+        '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
         ...rows,
         '',
         ...diagnostics.map((diagnostic) => `- ${diagnostic}`)
