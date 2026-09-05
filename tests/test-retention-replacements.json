@@ -9955,8 +9955,8 @@
             "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.PublicAotDocumentComposer_AvoidsRegexForLiteralHeadAndAttributeChecks",
             "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#PublicAotDocumentComposerTests.ExtractAttributeValue_DoubleQuotes_ReturnsValue",
-                "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#PublicAotDocumentComposerTests.ExtractAttributeValue_SingleQuotes_ReturnsValue",
+                "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#FsusBlog.Server.Tests.PublicAotDocumentComposerTests.ExtractAttributeValue_QuotedAttribute_ReturnsExactValue#case-0000",
+                "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#FsusBlog.Server.Tests.PublicAotDocumentComposerTests.ExtractAttributeValue_QuotedAttribute_ReturnsExactValue#case-0001",
                 "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#PublicAotDocumentComposerTests.ComposeDocument_WithTemplateVariants_InjectsBySentinel",
                 "shell:tools/test/lanes/backend-benchmark-regression.sh"
             ],
@@ -12004,6 +12004,22 @@
                 "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.GetFirstIllustration_ContentWithoutIllustration_ReturnsNull#case-0001"
             ],
             "reason": "The plain-content-no-image Fact becomes the stable plain-content-no-image Theory row retaining the real GetFirstIllustration call and exact null assertion."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#FsusBlog.Server.Tests.PublicAotDocumentComposerTests.ExtractAttributeValue_DoubleQuotes_ReturnsValue#case-0000",
+            "path": "tests/backend/Unit/PublicAotDocumentComposerTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#FsusBlog.Server.Tests.PublicAotDocumentComposerTests.ExtractAttributeValue_QuotedAttribute_ReturnsExactValue#case-0000"
+            ],
+            "reason": "The double-quoted attribute case retains its complete HTML input and exact expected URL as a stable Theory row."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#FsusBlog.Server.Tests.PublicAotDocumentComposerTests.ExtractAttributeValue_SingleQuotes_ReturnsValue#case-0000",
+            "path": "tests/backend/Unit/PublicAotDocumentComposerTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#FsusBlog.Server.Tests.PublicAotDocumentComposerTests.ExtractAttributeValue_QuotedAttribute_ReturnsExactValue#case-0001"
+            ],
+            "reason": "The single-quoted attribute case retains its complete HTML input and exact expected URL as a stable Theory row."
         }
     ],
     "assertionReplacements": [
