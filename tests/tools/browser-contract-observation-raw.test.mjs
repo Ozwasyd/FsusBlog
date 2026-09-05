@@ -10,6 +10,8 @@ import {
   seal
 } from '../../tools/fact-extractors/post-runtime/adapter.mjs'
 import {
+  bindBrowserPostRuntimeObservation,
+  deriveBrowserObservedRawFacts,
   projectBrowserContractRaw,
   verifyBrowserContractRaw
 } from '../../tools/test-evidence/browser-contract-observation-raw.mjs'
@@ -147,7 +149,7 @@ function fixture(context)
     artifacts: id.startsWith('public-') ? [`traces/${id}.zip`] : [],
     error: null
   }))
-  const browser = sealBrowserContractReceipt({
+  let browser = sealBrowserContractReceipt({
     schema: 'fsusblog.browser-contract-receipt.v2',
     status: 'success',
     classification: 'clean',
@@ -193,6 +195,9 @@ function fixture(context)
       persistence: { attemptCount: 1, priorFailures: [] }
     }
   })
+  browser = sealBrowserContractReceipt(bindBrowserPostRuntimeObservation({
+    candidatePlan: relative(candidate.planFile), browser, repositoryRoot
+  }))
   const browserFile = write('browser-contract.json', browser)
   const plan = candidate.plan
   const planFile = candidate.planFile
@@ -211,6 +216,30 @@ function project(value)
     repositoryRoot: value.repositoryRoot
   })
 }
+
+test('canonical Browser source seals observed facts and independently bound plan and preview bytes', (context) =>
+{
+  const value = fixture(context)
+  assert.deepEqual(value.browser.rawFacts, deriveBrowserObservedRawFacts(value.browser, value.publicPreviewEvidence))
+  assert.equal(value.browser.candidatePlanRef.fileDigest, fileDigest(value.planFile))
+  assert.equal(value.browser.publicPreviewRef.fileDigest, fileDigest(value.publicPreviewFile))
+  assert.equal(value.browser.publicPreviewRef.schema, 'fsusblog.public-preview-screenshot-verification.v1')
+  assert.equal(value.browser.publicPreviewRef.fileDigest, value.browser.publicPreview.evidenceFileDigest)
+  assert.equal(value.browser.rawFacts.state.some((entry) => entry.status !== 'success'), false)
+  const substituted = structuredClone(value.browser)
+  substituted.runIdentity.attemptId = 'wrong-attempt'
+  assert.throws(() => bindBrowserPostRuntimeObservation({
+    candidatePlan: value.relative(value.planFile), browser: substituted, repositoryRoot: value.repositoryRoot
+  }), /identities do not exact-match/u)
+})
+
+test('Browser projector refuses source raw facts that disagree with retained observations', (context) =>
+{
+  const value = fixture(context)
+  value.browser.rawFacts.state = [{ id: 'invented', status: 'success', classification: 'clean' }]
+  fs.writeFileSync(value.browserFile, `${JSON.stringify(sealBrowserContractReceipt(value.browser), null, 2)}\n`)
+  assert.throws(() => project(value), /raw facts do not replay/u)
+})
 
 test('browser raw projector binds exact tests, dimensions, semantics, and current candidate identities', (context) =>
 {

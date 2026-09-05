@@ -264,18 +264,80 @@ function browserSemanticFacts(browser, publicPreviewEvidence)
   }
 }
 
-function typedBrowserSemanticFacts(legacyFacts)
+function typedBrowserSemanticFacts(rawFacts)
 {
   return {
-    contractTestId: legacyFacts.requiredTestIds.join('+'),
-    viewport: legacyFacts.viewportId,
-    theme: legacyFacts.themeId,
-    stateDigest: semanticDigest(legacyFacts.stateId),
-    interactionDigest: legacyFacts.interactionDigest,
-    domDigest: legacyFacts.domDigest,
-    a11yDigest: legacyFacts.a11yDigest,
-    networkDigest: legacyFacts.networkDigest,
-    consoleDigest: legacyFacts.consoleDigest
+    contractTestId: rawFacts.contractTestId,
+    viewport: rawFacts.viewport,
+    theme: rawFacts.theme,
+    stateDigest: semanticDigest(rawFacts.state),
+    interactionDigest: semanticDigest(rawFacts.interaction),
+    domDigest: semanticDigest(rawFacts.dom),
+    a11yDigest: semanticDigest(rawFacts.a11y),
+    networkDigest: semanticDigest(rawFacts.network),
+    consoleDigest: semanticDigest(rawFacts.console)
+  }
+}
+
+export function deriveBrowserObservedRawFacts(browser, publicPreviewEvidence)
+{
+  const scenarios = exactScenarioFacts(browser)
+  const reports = qualityReports(publicPreviewEvidence)
+  const issues = scenarios.scenarios.flatMap(({ id, issues: observed }) =>
+    observed.map(({ kind, detail, expected }) => ({ scenarioId: id, kind, detail, expected })))
+  return stable({
+    contractTestId: scenarios.requiredTestIds.join('+'),
+    viewport: dimensionIdentity(reports, 'viewport'),
+    theme: dimensionIdentity(reports, 'theme'),
+    state: scenarios.scenarios.map(({ id, status, classification }) => ({ id, status, classification })),
+    interaction: scenarios.scenarios,
+    dom: {
+      runtimeAudit: browser.publicPreview.runtimeAudit,
+      layoutAudit: browser.publicPreview.layoutAudit,
+      sanitizationCheck: browser.publicPreview.sanitizationCheck,
+      reports: reports.map(({ id, route, viewport, theme, locale, zoom, surfaceRole, machine, reviewer, status }) =>
+        ({ id, route, viewport, theme, locale, zoom, surfaceRole, machine, reviewer, status }))
+    },
+    a11y: reports.map(({ id, machine, status }) => ({ id, status,
+      hitTargets: machine?.hitTargets, focusClipping: machine?.focusClipping,
+      localeCoherence: machine?.localeCoherence, primaryTask: machine?.primaryTask })),
+    network: {
+      requestFailureCount: browser.diagnostics.requestFailureCount,
+      responseErrorCount: browser.diagnostics.responseErrorCount,
+      issues: issues.filter(({ kind }) => kind === 'request-failed' || kind === 'response')
+    },
+    console: {
+      consoleIssueCount: browser.diagnostics.consoleIssueCount,
+      pageErrorCount: browser.diagnostics.pageErrorCount,
+      unexpectedIssueCount: browser.diagnostics.unexpectedIssueCount,
+      issues: issues.filter(({ kind }) => kind.startsWith('console-') || kind === 'page-error')
+    }
+  })
+}
+
+export function bindBrowserPostRuntimeObservation({ candidatePlan, browser, repositoryRoot = root })
+{
+  const planInput = fileReference(candidatePlan, repositoryRoot, 'candidate plan')
+  const plan = validateCandidatePlan(planInput.value, { repositoryRoot })
+  const build = fileReference(plan.build.receipt, repositoryRoot, 'production build receipt')
+  exactIdentities(plan, browser, productionBuildBinding(build.value, build.ref.path), repositoryRoot)
+  const preview = fileReference(browser.publicPreview?.evidencePath, repositoryRoot, 'public-preview evidence')
+  const errors = validatePublicPreviewEvidenceBinding(browser.publicPreview, preview.value, {
+    expectedCommit: plan.sourceState.commit, evidenceFileDigest: preview.ref.fileDigest
+  })
+  if (errors.length > 0) fail(`public-preview evidence is non-qualifying: ${errors.join('; ')}`)
+  const producer = loadPostRuntimeProducerRegistry(repositoryRoot).producers
+    .find(({ producerId }) => producerId === plan.producerId)
+  if (!producer) fail('candidate plan producer is absent from registry')
+  return {
+    ...browser,
+    producerId: plan.producerId,
+    toolVersion: producer.toolVersion,
+    candidatePlanRef: { ...planInput.ref, schema: plan.schema, role: 'candidate-plan' },
+    publicPreviewRef: { ...preview.ref, schema: preview.value.schema, role: 'public-preview' },
+    rawFacts: deriveBrowserObservedRawFacts(browser, preview.value),
+    canonicalRerunCommand: 'node tests/browser-contract/run.mjs',
+    independentVerifyCommand: `node tools/test-evidence/browser-contract-observation-raw.mjs project --candidate-plan ${planInput.ref.path} --browser-contract <current-run-browser-receipt.json> --out <current-run-raw.json>`
   }
 }
 
@@ -308,8 +370,14 @@ export function projectBrowserContractRaw({ candidatePlan, browserContractReceip
   if (legacyFacts.consoleClean !== true) fail('Browser Contract console/network audit is not clean')
   const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
   const definition = registry.observationClasses[classId]
+  const observedRawFacts = deriveBrowserObservedRawFacts(browserInput.value, publicPreviewInput.value)
+  if (Array.isArray(definition.requiredSemanticFactFields)
+    && semanticDigest(browserInput.value.rawFacts ?? null) !== semanticDigest(observedRawFacts))
+  {
+    fail('Browser Contract raw facts do not replay from retained observed scenarios and public-preview evidence')
+  }
   const semanticFacts = Array.isArray(definition.requiredSemanticFactFields)
-    ? typedBrowserSemanticFacts(legacyFacts)
+    ? typedBrowserSemanticFacts(observedRawFacts)
     : legacyFacts
   const producer = registry.producers.find(({ producerId }) => producerId === plan.producerId)
   if (!producer) fail('candidate plan producer is absent from registry')

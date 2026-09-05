@@ -83,7 +83,7 @@ function verifyRuntimeRole(relative, plan, repositoryRoot)
     || normalized(deployment.ref.fileDigest) !== artifact.deploymentArtifactDigest
     || observation.value.schema !== 'fsusblog.runtime-role-observation.v2'
     || deployment.value.ownership?.claimEligible !== true
-    || observation.value.deploymentAuthority?.ownership?.claimEligible !== true
+    || observation.value.ownership?.claimEligible !== true
     || observation.value.deploymentAuthority?.observationDigest !== deployment.value.observationDigest
     || normalized(deployment.value.observationDigest) !== normalized(buildReceipt.deploymentObservationDigest))
   {

@@ -91,7 +91,18 @@ async function writeAuditedBrowserContractReceipt(file, receipt)
     {
         throw new BrowserContractFailure('browser contract receipt target changed during sealing', 'contract');
     }
-    const sealed = sealBrowserContractReceipt(receipt);
+    let sealed = sealBrowserContractReceipt(receipt);
+    if (sealed.status === 'success' && process.env.FSUSBLOG_POST_RUNTIME_CANDIDATE_PLAN)
+    {
+        const { bindBrowserPostRuntimeObservation } = await import(
+            '../../tools/test-evidence/browser-contract-observation-raw.mjs'
+        );
+        sealed = sealBrowserContractReceipt(bindBrowserPostRuntimeObservation({
+            candidatePlan: process.env.FSUSBLOG_POST_RUNTIME_CANDIDATE_PLAN,
+            browser: sealed,
+            repositoryRoot: root
+        }));
+    }
     if (sealed.status !== 'running')
     {
         const errors = validateBrowserContractReceipt(sealed, { requireSuccess: false });
