@@ -160,6 +160,9 @@ public static partial class AuthoringCanvasOperationContract
         }
     }
 
+    public static void ValidateCommand(AuthoringCanvasClosedCommand command)
+        => ValidateCommandShape(command, validateDigest: true);
+
     public static string ComputeFactDigest(AuthoringCanvasOperationFact fact)
     {
         string payloadDigest = fact switch
@@ -215,6 +218,7 @@ public static partial class AuthoringCanvasOperationContract
             entry.TransactionDigest,
             entry.ReferenceValidationDigest,
             string.Join(',', entry.CommandKinds.Select(static kind => (int)kind)),
+            string.Join(',', entry.Commands.Select(static command => command.ContentDigest)),
             string.Join(',', entry.ForwardFacts.Select(static fact => fact.ContentDigest)),
             string.Join(',', entry.InverseFacts.Select(static fact => fact.ContentDigest)),
             string.Join(',', entry.AffectedNodeIds.Order()),
@@ -421,6 +425,7 @@ public sealed record AuthoringCanvasOperationJournalEntry(
     string ContentDigest,
     string TransactionDigest,
     IReadOnlyList<AuthoringCanvasOperationKind> CommandKinds,
+    IReadOnlyList<AuthoringCanvasClosedCommand> Commands,
     IReadOnlyList<AuthoringCanvasOperationFact> ForwardFacts,
     IReadOnlyList<AuthoringCanvasOperationFact> InverseFacts,
     IReadOnlyList<Guid> AffectedNodeIds,

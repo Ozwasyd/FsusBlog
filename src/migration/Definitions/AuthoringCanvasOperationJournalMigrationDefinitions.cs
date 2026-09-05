@@ -68,6 +68,48 @@ internal static class AuthoringCanvasOperationJournalMigrationDefinitions
                         ON authoring_canvas_operation_journal(
                             canvas_id, owner_admin_principal_id, site_scope, revision, journal_id);
 
+                    CREATE TABLE IF NOT EXISTS authoring_canvas_operation_command (
+                        journal_id uuid NOT NULL,
+                        command_ordinal integer NOT NULL,
+                        command_id uuid NOT NULL,
+                        command_kind smallint NOT NULL,
+                        command_digest varchar(64) NOT NULL,
+                        PRIMARY KEY (journal_id, command_ordinal),
+                        CONSTRAINT uq_authoring_canvas_operation_command_id UNIQUE (
+                            journal_id, command_id),
+                        CONSTRAINT fk_authoring_canvas_operation_command_journal
+                            FOREIGN KEY (journal_id)
+                            REFERENCES authoring_canvas_operation_journal(journal_id) ON DELETE RESTRICT,
+                        CONSTRAINT ck_authoring_canvas_operation_command_ordinal CHECK (
+                            command_ordinal BETWEEN 0 AND 9999),
+                        CONSTRAINT ck_authoring_canvas_operation_command_kind CHECK (
+                            command_kind BETWEEN 0 AND 14),
+                        CONSTRAINT ck_authoring_canvas_operation_command_digest CHECK (
+                            command_digest ~ '^[0-9a-f]{64}$')
+                    );
+
+                    CREATE TABLE IF NOT EXISTS authoring_canvas_operation_command_fact (
+                        journal_id uuid NOT NULL,
+                        command_ordinal integer NOT NULL,
+                        direction smallint NOT NULL,
+                        fact_order integer NOT NULL,
+                        fact_payload jsonb NOT NULL,
+                        fact_digest varchar(64) NOT NULL,
+                        PRIMARY KEY (journal_id, command_ordinal, direction, fact_order),
+                        CONSTRAINT fk_authoring_canvas_operation_command_fact_command
+                            FOREIGN KEY (journal_id, command_ordinal)
+                            REFERENCES authoring_canvas_operation_command(journal_id, command_ordinal)
+                            ON DELETE RESTRICT,
+                        CONSTRAINT ck_authoring_canvas_operation_command_fact_direction CHECK (
+                            direction BETWEEN 0 AND 1),
+                        CONSTRAINT ck_authoring_canvas_operation_command_fact_order CHECK (
+                            fact_order BETWEEN 0 AND 20000),
+                        CONSTRAINT ck_authoring_canvas_operation_command_fact_payload CHECK (
+                            jsonb_typeof(fact_payload) = 'object'),
+                        CONSTRAINT ck_authoring_canvas_operation_command_fact_digest CHECK (
+                            fact_digest ~ '^[0-9a-f]{64}$')
+                    );
+
                     CREATE TABLE IF NOT EXISTS authoring_canvas_operation_history_state (
                         canvas_id uuid PRIMARY KEY,
                         owner_admin_principal_id bigint NOT NULL,

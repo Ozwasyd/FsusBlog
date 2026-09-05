@@ -446,7 +446,8 @@ foreign key，也不导入 transient graph positions。
 
 `20260906-post-authoring-canvas-operation-journal` 是只增不改的 Expand：它在
 既有 canvas document authority 旁新增 append-only operation journal、typed
-forward/inverse fact rows、bounded undo/redo head 与 idempotent recovery receipt。
+forward/inverse fact rows、sealed command headers 与逐 command before/after facts、
+bounded undo/redo head 与 idempotent recovery receipt。
 运行时代码必须在同一 PostgreSQL transaction 内锁定 document coordinate、
 复核 sealed before facts、CAS 更新 canvas-owned rows，再追加 journal/receipt；
 表中不建立 article/relation/property/workspace foreign key，也不把 receipt

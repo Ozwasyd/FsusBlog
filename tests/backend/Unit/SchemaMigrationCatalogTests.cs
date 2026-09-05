@@ -123,7 +123,7 @@ public sealed class SchemaMigrationCatalogTests
                 Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase);
             });
         Assert.Equal(138, manifest.Descriptors.Count);
-        const string ExpectedPlanFingerprint = "48F4FBA8D5946AE15F6C2A6FB2D7C9F35AAA49EB7724FD47E77B3A13AB217F2E";
+        const string ExpectedPlanFingerprint = "1ED60E1E55217E5A07E5BB0CE5AD07EB60EBDABEEA2773FBFBA306C553182DFF";
         string actualPlanFingerprint = ComputePlanFingerprint(manifest.Descriptors);
         Assert.True(
             string.Equals(ExpectedPlanFingerprint, actualPlanFingerprint, StringComparison.Ordinal),

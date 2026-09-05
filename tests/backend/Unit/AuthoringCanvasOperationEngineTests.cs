@@ -685,6 +685,7 @@ public sealed class AuthoringCanvasOperationEngineTests
                 contentDigest,
                 plan.TransactionDigest,
                 plan.CommandKinds,
+                plan.Commands,
                 plan.ForwardFacts,
                 plan.InverseFacts,
                 plan.AffectedNodeIds,

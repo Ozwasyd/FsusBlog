@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Text.Json;
 
 using SqlSugar;
 
@@ -91,6 +92,7 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
                 contentDigest,
                 plan.TransactionDigest,
                 plan.CommandKinds,
+                plan.Commands,
                 plan.ForwardFacts,
                 plan.InverseFacts,
                 plan.AffectedNodeIds,
@@ -104,6 +106,7 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
             };
             DateTime now = timeProvider.GetUtcNow().UtcDateTime;
             await InsertJournalAsync(entry, plan.Owner, nodeCount, edgeCount, now).ConfigureAwait(false);
+            await InsertCommandsAsync(entry, cancellationToken).ConfigureAwait(false);
             await InsertFactsAsync(entry, cancellationToken).ConfigureAwait(false);
 
             (List<Guid> undo, List<Guid> redo) = AdvanceHistory(history, entry);
@@ -471,6 +474,68 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
             .ConfigureAwait(false);
     }
 
+    private async Task InsertCommandsAsync(
+        AuthoringCanvasOperationJournalEntry entry,
+        CancellationToken cancellationToken)
+    {
+        for (int commandOrdinal = 0; commandOrdinal < entry.Commands.Count; commandOrdinal++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            AuthoringCanvasClosedCommand command = entry.Commands[commandOrdinal];
+            await db.Ado.ExecuteCommandAsync(
+                """
+                INSERT INTO authoring_canvas_operation_command(
+                    journal_id, command_ordinal, command_id, command_kind, command_digest)
+                VALUES (@JournalId, @CommandOrdinal, @CommandId, @CommandKind, @CommandDigest);
+                """,
+                new SugarParameter("@JournalId", entry.JournalId),
+                new SugarParameter("@CommandOrdinal", commandOrdinal),
+                new SugarParameter("@CommandId", command.CommandId),
+                new SugarParameter("@CommandKind", (short)command.Kind),
+                new SugarParameter("@CommandDigest", command.ContentDigest)).ConfigureAwait(false);
+            await InsertCommandFactSetAsync(
+                entry.JournalId,
+                commandOrdinal,
+                0,
+                command.Before,
+                cancellationToken).ConfigureAwait(false);
+            await InsertCommandFactSetAsync(
+                entry.JournalId,
+                commandOrdinal,
+                1,
+                command.After,
+                cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task InsertCommandFactSetAsync(
+        Guid journalId,
+        int commandOrdinal,
+        short direction,
+        IReadOnlyList<AuthoringCanvasOperationFact> facts,
+        CancellationToken cancellationToken)
+    {
+        for (int factOrder = 0; factOrder < facts.Count; factOrder++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            AuthoringCanvasOperationFact fact = facts[factOrder];
+            await db.Ado.ExecuteCommandAsync(
+                """
+                INSERT INTO authoring_canvas_operation_command_fact(
+                    journal_id, command_ordinal, direction, fact_order, fact_payload, fact_digest)
+                VALUES (
+                    @JournalId, @CommandOrdinal, @Direction, @FactOrder,
+                    CAST(@FactPayload AS jsonb), @FactDigest);
+                """,
+                new SugarParameter("@JournalId", journalId),
+                new SugarParameter("@CommandOrdinal", commandOrdinal),
+                new SugarParameter("@Direction", direction),
+                new SugarParameter("@FactOrder", factOrder),
+                new SugarParameter("@FactPayload", JsonSerializer.Serialize(fact)),
+                new SugarParameter("@FactDigest", fact.ContentDigest)).ConfigureAwait(false);
+        }
+    }
+
     private async Task InsertFactSetAsync(
         Guid journalId,
         short direction,
@@ -821,6 +886,60 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
         }
         var inverse = rows.Keys.ToDictionary(static id => id, static _ => new List<AuthoringCanvasOperationFact>());
         var forward = rows.Keys.ToDictionary(static id => id, static _ => new List<AuthoringCanvasOperationFact>());
+        var commands = rows.Keys.ToDictionary(
+            static id => id,
+            static _ => new SortedDictionary<int, StoredCommand>());
+        using (DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT journal_id, command_ordinal, command_id, command_kind, command_digest
+            FROM authoring_canvas_operation_command
+            WHERE journal_id = ANY(@JournalIds)
+            ORDER BY journal_id, command_ordinal;
+            """,
+            new SugarParameter("@JournalIds", ids.ToArray())).ConfigureAwait(false))
+        {
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                Guid journalId = reader.GetGuid(reader.GetOrdinal("journal_id"));
+                int ordinal = reader.GetInt32(reader.GetOrdinal("command_ordinal"));
+                commands[journalId].Add(
+                    ordinal,
+                    new StoredCommand(
+                        reader.GetGuid(reader.GetOrdinal("command_id")),
+                        (AuthoringCanvasOperationKind)reader.GetInt16(reader.GetOrdinal("command_kind")),
+                        reader.GetString(reader.GetOrdinal("command_digest"))));
+            }
+        }
+        using (DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT journal_id, command_ordinal, direction, fact_payload::text AS fact_payload,
+                   fact_digest
+            FROM authoring_canvas_operation_command_fact
+            WHERE journal_id = ANY(@JournalIds)
+            ORDER BY journal_id, command_ordinal, direction, fact_order;
+            """,
+            new SugarParameter("@JournalIds", ids.ToArray())).ConfigureAwait(false))
+        {
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                Guid journalId = reader.GetGuid(reader.GetOrdinal("journal_id"));
+                int ordinal = reader.GetInt32(reader.GetOrdinal("command_ordinal"));
+                AuthoringCanvasOperationFact fact = JsonSerializer.Deserialize<AuthoringCanvasOperationFact>(
+                    reader.GetString(reader.GetOrdinal("fact_payload")))
+                    ?? throw new AuthoringCanvasValidationException("canvas_operation_command_fact_invalid");
+                if (!string.Equals(
+                    fact.ContentDigest,
+                    reader.GetString(reader.GetOrdinal("fact_digest")),
+                    StringComparison.Ordinal))
+                {
+                    throw new AuthoringCanvasValidationException("canvas_operation_command_fact_digest_invalid");
+                }
+                AuthoringCanvasOperationContract.ValidateFact(fact);
+                (reader.GetInt16(reader.GetOrdinal("direction")) == 0
+                    ? commands[journalId][ordinal].Before
+                    : commands[journalId][ordinal].After).Add(fact);
+            }
+        }
         using (DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
             SELECT journal_id, direction, fact_kind, fact_id, exists,
@@ -847,7 +966,10 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
         }
         return rows.ToDictionary(
             static pair => pair.Key,
-            pair => pair.Value.ToEntry(forward[pair.Key], inverse[pair.Key]));
+            pair => pair.Value.ToEntry(
+                commands[pair.Key].Values.Select(static command => command.ToCommand()).ToArray(),
+                forward[pair.Key],
+                inverse[pair.Key]));
     }
 
     private static AuthoringCanvasOperationFact ReadFact(DbDataReader reader)
@@ -1000,6 +1122,8 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
             || plan.CanvasId == Guid.Empty
             || plan.ActorUserId <= 0
             || plan.ExpectedRevision <= 0
+            || plan.Commands.Count != plan.CommandKinds.Count
+            || !plan.Commands.Select(static command => command.Kind).SequenceEqual(plan.CommandKinds)
             || plan.ForwardFacts.Count != plan.InverseFacts.Count
             || plan.ForwardFacts.Count > AuthoringCanvasOperationContract.MaxFactsPerTransaction
             || plan.ReferenceValidationDigest.Length != 64)
@@ -1009,6 +1133,10 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
         foreach (AuthoringCanvasOperationFact fact in plan.ForwardFacts.Concat(plan.InverseFacts))
         {
             AuthoringCanvasOperationContract.ValidateFact(fact);
+        }
+        foreach (AuthoringCanvasClosedCommand command in plan.Commands)
+        {
+            AuthoringCanvasOperationContract.ValidateCommand(command);
         }
         FactKey[] forward = plan.ForwardFacts.Select(static fact => new FactKey(fact.Kind, fact.Id)).ToArray();
         FactKey[] inverse = plan.InverseFacts.Select(static fact => new FactKey(fact.Kind, fact.Id)).ToArray();
@@ -1173,6 +1301,7 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
         string JournalDigest)
     {
         public AuthoringCanvasOperationJournalEntry ToEntry(
+            IReadOnlyList<AuthoringCanvasClosedCommand> commands,
             IReadOnlyList<AuthoringCanvasOperationFact> forward,
             IReadOnlyList<AuthoringCanvasOperationFact> inverse)
             => new(
@@ -1188,6 +1317,7 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
                 ContentDigest,
                 TransactionDigest,
                 CommandKinds,
+                commands,
                 forward,
                 inverse,
                 AffectedNodeIds,
@@ -1195,5 +1325,33 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
                 TruncatedRedoJournalIds,
                 ReferenceValidationDigest,
                 JournalDigest);
+    }
+
+    private sealed class StoredCommand(
+        Guid commandId,
+        AuthoringCanvasOperationKind kind,
+        string contentDigest)
+    {
+        public List<AuthoringCanvasOperationFact> Before { get; } = [];
+
+        public List<AuthoringCanvasOperationFact> After { get; } = [];
+
+        public AuthoringCanvasClosedCommand ToCommand()
+        {
+            var command = new AuthoringCanvasClosedCommand(
+                commandId,
+                kind,
+                Before,
+                After,
+                contentDigest);
+            if (!string.Equals(
+                command.ContentDigest,
+                AuthoringCanvasOperationContract.ComputeCommandDigest(command),
+                StringComparison.Ordinal))
+            {
+                throw new AuthoringCanvasValidationException("canvas_operation_command_digest_invalid");
+            }
+            return command;
+        }
     }
 }
