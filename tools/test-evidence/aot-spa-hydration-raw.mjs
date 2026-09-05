@@ -60,9 +60,9 @@ function explicitFile(relative, label, repositoryRoot, { json = false } = {})
   const absolute = path.resolve(resolvedRoot, relative)
   if (!absolute.startsWith(`${resolvedRoot}${path.sep}`)) fail(`${label} escapes the repository`)
   const stat = fs.lstatSync(absolute, { throwIfNoEntry: false })
-  if (!stat?.isFile() || stat.isSymbolicLink() || fs.realpathSync(absolute) !== absolute)
+  if (!stat?.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 || fs.realpathSync(absolute) !== absolute)
   {
-    fail(`${label} must be a regular non-symlink file`)
+    fail(`${label} must be a regular non-symlink single-link file`)
   }
   const bytes = fs.readFileSync(absolute)
   const normalized = path.relative(resolvedRoot, absolute).replaceAll(path.sep, '/')
@@ -117,6 +117,14 @@ function normalizedFacts(inputs, plan, buildReceipt)
 {
   const manifest = inputs.manifest.value
   if (manifest.schema !== 'fsusblog.spa-manifest-descriptor.v1') fail('manifest evidence is not a SPA manifest descriptor')
+  const descriptorKeys = [
+    'schema', 'releaseId', 'sourceCommit', 'worktreeFingerprint', 'buildReceiptDigest',
+    'assetRoot', 'manifestPath', 'manifestDigest', 'assetInventoryDigest', 'contentDigest'
+  ].sort()
+  if (JSON.stringify(Object.keys(manifest).sort()) !== JSON.stringify(descriptorKeys))
+  {
+    fail('SPA manifest descriptor fields are incomplete or unsupported')
+  }
   const descriptor = { ...manifest }
   const descriptorDigest = descriptor.contentDigest
   delete descriptor.contentDigest
@@ -128,9 +136,39 @@ function normalizedFacts(inputs, plan, buildReceipt)
     || String(manifest.worktreeFingerprint).replace(/^sha256:/u, '')
       !== plan.sourceState.worktreeFingerprint.replace(/^sha256:/u, '')
     || manifest.buildReceiptDigest !== plan.build.receiptContentDigest
-    || !digestPattern.test(String(manifest.manifestDigest ?? '')))
+    || manifest.releaseId !== plan.candidate.releaseId
+    || !digestPattern.test(String(manifest.manifestDigest ?? ''))
+    || !digestPattern.test(String(manifest.assetInventoryDigest ?? '')))
   {
     fail('SPA manifest descriptor does not exact-match the candidate build')
+  }
+  const assetRoot = path.resolve(String(manifest.assetRoot ?? ''))
+  const manifestPath = path.resolve(String(manifest.manifestPath ?? ''))
+  const inventoryPath = path.join(assetRoot, 'asset-manifest.json')
+  if (!path.isAbsolute(manifest.assetRoot)
+    || path.basename(assetRoot) !== plan.candidate.releaseId
+    || manifest.assetRoot !== assetRoot
+    || manifest.manifestPath !== path.join(assetRoot, '.vite', 'manifest.json')
+    || manifestPath !== path.join(assetRoot, '.vite', 'manifest.json'))
+  {
+    fail('SPA manifest descriptor release, asset root, and manifest path are not canonical')
+  }
+  const assetRootStat = fs.lstatSync(assetRoot, { throwIfNoEntry: false })
+  if (!assetRootStat?.isDirectory() || assetRootStat.isSymbolicLink() || fs.realpathSync(assetRoot) !== assetRoot)
+  {
+    fail('SPA manifest descriptor asset root is missing or symbolic')
+  }
+  for (const [file, label, expectedDigest] of [
+    [manifestPath, 'manifest', manifest.manifestDigest],
+    [inventoryPath, 'asset inventory', manifest.assetInventoryDigest]
+  ])
+  {
+    const stat = fs.lstatSync(file, { throwIfNoEntry: false })
+    if (!stat?.isFile() || stat.isSymbolicLink() || fs.realpathSync(file) !== file
+      || sha(fs.readFileSync(file)) !== expectedDigest)
+    {
+      fail(`SPA ${label} bytes do not exact-match the retained release`)
+    }
   }
   const frontendManifest = (buildReceipt.artifacts ?? [])
     .filter(({ path: artifactPath }) => artifactPath.endsWith('frontend-dist/.vite/manifest.json'))
@@ -161,7 +199,9 @@ function normalizedFacts(inputs, plan, buildReceipt)
       !== plan.sourceState.worktreeFingerprint.replace(/^sha256:/u, '')
     || browser.buildBinding?.receiptContentDigest !== plan.build.receiptContentDigest
     || browser.runIdentity?.runId !== plan.candidate.runId
-    || lifecycle.runId !== plan.candidate.runId)
+    || browser.runIdentity?.attemptId !== plan.candidate.attemptId
+    || lifecycle.runId !== plan.candidate.runId
+    || lifecycle.attemptId !== plan.candidate.attemptId)
   {
     fail('Browser Contract source/build/run/fixture identity does not match the candidate')
   }
@@ -284,12 +324,13 @@ export function produceAotSpaHydrationSourceBundle({ candidatePlan, evidence, re
   })
 }
 
-function loadSourceBundle(sourceReceipt, plan, repositoryRoot)
+function loadSourceBundle(sourceReceipt, candidatePlanRef, plan, repositoryRoot)
 {
   const source = explicitFile(sourceReceipt, 'AOT source bundle', repositoryRoot, { json: true })
   source.ref.contentDigest = source.value.contentDigest
   if (source.value.schema !== sourceBundleSchema
     || seal(Object.fromEntries(Object.entries(source.value).filter(([key]) => key !== 'contentDigest'))).contentDigest !== source.value.contentDigest
+    || JSON.stringify(stable(source.value.candidatePlanRef)) !== JSON.stringify(stable(candidatePlanRef))
     || source.value.candidatePlanRef?.contentDigest !== plan.contentDigest)
   {
     fail('AOT source bundle schema, seal, or candidate binding mismatch')
@@ -317,7 +358,7 @@ export function projectAotSpaHydrationRaw({ candidatePlan, sourceReceipt, reposi
   const producer = registry.producers.find(({ producerId }) => producerId === plan.producerId)
   if (!producer) fail('candidate plan producer is absent from registry')
   const buildReceipt = verifyBuild(plan, repositoryRoot)
-  const source = loadSourceBundle(sourceReceipt, plan, repositoryRoot)
+  const source = loadSourceBundle(sourceReceipt, candidate.ref, plan, repositoryRoot)
   const inputs = loadInputs(source.evidence, repositoryRoot)
   const legacyFacts = normalizedFacts(inputs, plan, buildReceipt)
   validateSemanticFacts(classId, legacyFacts)
@@ -337,7 +378,7 @@ export function projectAotSpaHydrationRaw({ candidatePlan, sourceReceipt, reposi
     rolloutId: plan.candidate.rolloutId
   } })
   const canonicalRerunCommand = `node tools/test-evidence/aot-spa-hydration-raw.mjs project --candidate-plan ${candidate.ref.path} --source ${source.source.ref.path} --out ${planned.receiptPath}`
-  const independentVerifyCommand = `node tools/test-evidence/aot-spa-hydration-raw.mjs verify --receipt ${planned.receiptPath}`
+  const independentVerifyCommand = `node tools/test-evidence/aot-spa-hydration-raw.mjs verify --candidate-plan ${candidate.ref.path} --receipt ${planned.receiptPath}`
   return seal({
     schema: definition.schema,
     producerId: plan.producerId,
@@ -379,6 +420,12 @@ export function verifyAotSpaHydrationRaw(receiptPath, repositoryRoot = root, can
     registry, producerId: receipt.producerId, receipt, classId, repositoryRoot
   })
   const planPath = candidatePlanPathForObservation(receipt, candidatePlan)
+  const plan = validateCandidatePlan(explicitJson(planPath, 'candidate plan', repositoryRoot).value, { repositoryRoot })
+  const planned = plan.observations.find((entry) => entry.classId === classId)
+  if (!planned || input.ref.path !== planned.receiptPath)
+  {
+    fail('AOT raw receipt path does not exact-match candidate plan')
+  }
   const replay = projectAotSpaHydrationRaw({
     candidatePlan: planPath,
     sourceReceipt: observationUpstreamPath(receipt, repositoryRoot),

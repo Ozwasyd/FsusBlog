@@ -70,6 +70,10 @@ function exactSource(plan, probe, buildReceipt, rawSchema, repositoryRoot)
     || source.buildIdentity !== plan.build.receiptContentDigest
     || source.runId !== plan.candidate.runId
     || source.attemptId !== plan.candidate.attemptId
+    || source.candidateId !== plan.candidate.candidateId
+    || source.runtimeId !== plan.candidate.runtimeId
+    || source.releaseId !== plan.candidate.releaseId
+    || source.candidatePlanDigest !== plan.contentDigest
     || probe.buildReceipt?.path !== plan.build.receipt
     || probe.buildReceipt?.contentDigest !== bytesDigest(path.resolve(repositoryRoot, plan.build.receipt))
     || buildReceipt.contentDigest !== plan.build.receiptContentDigest)
@@ -171,12 +175,13 @@ function sessionFacts(facts)
     storageClaimsDigest: semanticDigest({
       databaseSessionId: facts.database.sessionIdDigest,
       cookieNames: facts.cookie.names,
-      serviceStatus: facts.service.status
+      serviceStatus: facts.service.status,
+      modeOutcomes: facts.modeOutcomes
     }),
     expiryDigest: facts.expiry.digest,
     revisionDigest: facts.revision.digest,
     deviceDigest: facts.device.digest,
-    serviceResultDigest: facts.service.digest,
+    serviceResultDigest: semanticDigest({ service: facts.service, modeOutcomes: facts.modeOutcomes }),
     coherent: facts.coherent
   }
 }
@@ -192,12 +197,13 @@ function typedSessionFacts(facts)
     storageClaimsDigest: semanticDigest({
       databaseSessionId: facts.database.sessionIdDigest,
       cookieNames: facts.cookie.names,
-      serviceStatus: facts.service.status
+      serviceStatus: facts.service.status,
+      modeOutcomes: facts.modeOutcomes
     }),
     expiry: facts.expiry.digest,
     revision: facts.revision.digest,
     deviceDigest: facts.device.digest,
-    serviceResultDigest: facts.service.digest
+    serviceResultDigest: semanticDigest({ service: facts.service, modeOutcomes: facts.modeOutcomes })
   }
 }
 
@@ -229,7 +235,7 @@ export function projectProbeRaw({ candidatePlan, probeReceipt, repositoryRoot = 
     legacy: legacySourceState
   })
   const canonicalRerunCommand = probe.provenance.rerunCommand
-  const independentVerifyCommand = `node tools/test-evidence/runtime-observation-raw.mjs verify --receipt ${planned.receiptPath}`
+  const independentVerifyCommand = `node tools/test-evidence/runtime-observation-raw.mjs verify --candidate-plan ${planInput.ref.path} --receipt ${planned.receiptPath}`
   return seal({
     schema: definition.schema,
     producerId: plan.producerId,
@@ -281,6 +287,12 @@ export function verifyProjectedRaw(receiptPath, repositoryRoot = root, candidate
     }
   }
   const planPath = candidatePlanPathForObservation(receipt, candidatePlan)
+  const plan = validateCandidatePlan(explicitJson(planPath, 'candidate plan', repositoryRoot).value, { repositoryRoot })
+  const planned = plan.observations.find((entry) => entry.classId === receiptClass)
+  if (!planned || input.ref.path !== planned.receiptPath)
+  {
+    fail(`${receiptClass} raw receipt path does not exact-match candidate plan`)
+  }
   const replay = projectProbeRaw({
     candidatePlan: planPath,
     probeReceipt: observationUpstreamPath(receipt, repositoryRoot),

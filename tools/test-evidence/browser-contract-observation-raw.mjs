@@ -178,9 +178,11 @@ function exactIdentities(plan, browser, buildBinding, repositoryRoot)
     || browser.buildBinding?.receipt !== plan.build.receipt
     || browser.buildBinding?.receiptContentDigest !== plan.build.receiptContentDigest
     || run.commit !== plan.sourceState.commit || run.runId !== plan.candidate.runId
+    || run.attemptId !== plan.candidate.attemptId
     || lifecycle.commit !== plan.sourceState.commit || lifecycle.runId !== plan.candidate.runId
+    || lifecycle.attemptId !== plan.candidate.attemptId
     || plan.candidate.browserId !== expectedBrowserId
-    || plan.candidate.attemptId !== 'attempt-0001')
+    )
   {
     fail('candidate, build, fixture, and Browser Contract identities do not exact-match')
   }
@@ -318,7 +320,7 @@ export function projectBrowserContractRaw({ candidatePlan, browserContractReceip
     legacy: legacySourceState
   })
   const canonicalRerunCommand = `node tools/test-evidence/browser-contract-observation-raw.mjs project --candidate-plan ${planInput.ref.path} --browser-contract ${browserInput.ref.path} --out ${planned.receiptPath}`
-  const independentVerifyCommand = `node tools/test-evidence/browser-contract-observation-raw.mjs verify --receipt ${planned.receiptPath}`
+  const independentVerifyCommand = `node tools/test-evidence/browser-contract-observation-raw.mjs verify --candidate-plan ${planInput.ref.path} --receipt ${planned.receiptPath}`
   return seal({
     schema: planned.schema,
     producerId: plan.producerId,

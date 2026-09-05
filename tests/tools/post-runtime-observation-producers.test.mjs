@@ -52,12 +52,17 @@ test('candidate and observation outputs preserve each run attempt while accepted
   }
   assert.match(candidateLane, /\$CLAIMS_DIR\/accepted-claims\.json/u)
   assert.doesNotMatch(candidateLane, /\$OUT_DIR\/accepted-claims\.json/u)
+  assert.match(candidateLane, /if \[\[ -e "\$CLAIMS_DIR\/accepted-claims\.json" \]\]/u)
+  assert.match(candidateLane, /verify-accepted-claims/u)
+  assert.match(candidateLane, /FSUSBLOG_PRODUCTION_FRESH_ATTEMPT_ID/u)
   assert.match(producerBundle, /post-runtime-observations\/\$RUN_ID\/\$ATTEMPT_ID/u)
   assert.match(producerBundle, /post-runtime-sources\/\$RUN_ID\/\$ATTEMPT_ID/u)
   assert.match(producerBundle, /runtime-observation-probes\/\$RUN_ID\/\$ATTEMPT_ID/u)
+  assert.match(producerBundle, /verify-class-receipt --receipt/u)
   const adapter = fs.readFileSync(path.join(root, 'tools/fact-extractors/post-runtime/adapter.mjs'), 'utf8')
   assert.match(adapter, /post-runtime-source-receipts\/\$\{plan\.candidate\.runId\}\/\$\{plan\.candidate\.attemptId\}/u)
   assert.match(adapter, /production requires an explicit current-run output path/u)
+  assert.match(adapter, /!path\.isAbsolute\(value\)/u)
 })
 
 test('post-runtime writers never overwrite retained attempt evidence', (context) =>

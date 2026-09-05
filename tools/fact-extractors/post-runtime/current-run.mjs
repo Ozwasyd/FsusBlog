@@ -12,6 +12,7 @@ import {
   produceClassReceipt,
   validateAcceptedClaims,
   validateCandidatePlan,
+  validateClassReceipt,
   writeReceipt
 } from './adapter.mjs'
 
@@ -97,7 +98,11 @@ export function runCurrentRunCli(argv, repositoryRoot)
   {
     receipt = validateCandidatePlan(explicitJson(options.receipt, 'candidate plan', repositoryRoot).value, { repositoryRoot })
   }
-  else fail('command must be accepted-claims, candidate-context, candidate-plan, class-receipt, verify-accepted-claims, or verify-candidate-plan')
+  else if (command === 'verify-class-receipt')
+  {
+    receipt = validateClassReceipt(explicitJson(options.receipt, 'class receipt', repositoryRoot).value, { repositoryRoot })
+  }
+  else fail('command must be accepted-claims, candidate-context, candidate-plan, class-receipt, verify-accepted-claims, verify-candidate-plan, or verify-class-receipt')
 
   if (options.out) writeReceipt(options.out, receipt, repositoryRoot)
   console.log(`[post-runtime-current-run] ${command} status=${receipt.status} digest=${receipt.contentDigest}`)

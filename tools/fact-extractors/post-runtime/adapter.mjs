@@ -1,5 +1,16 @@
-import { createHash } from 'node:crypto'
-import { lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
+import { createHash, randomUUID } from 'node:crypto'
+import {
+  closeSync,
+  fsyncSync,
+  linkSync,
+  lstatSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  realpathSync,
+  unlinkSync,
+  writeFileSync
+} from 'node:fs'
 import path from 'node:path'
 
 import { loadCatalog } from '../../contracts/behavior-contract-catalog.mjs'
@@ -30,6 +41,31 @@ const unsafePathPattern = /(?:^|[/\\])(?:latest|history|historical)(?:[/\\]|$)/i
 const fail = (message) => { throw new Error(`[post-runtime-observation] ${message}`) }
 const normalizedDigest = (value) => String(value ?? '').replace(/^sha256:/u, '')
 const prefixedDigest = (value) => `sha256:${normalizedDigest(value)}`
+const schedulerRunIdPattern = /^[A-Za-z0-9][A-Za-z0-9_.-]{2,127}$/u
+
+function canonicalCurrentRunJsonPath(value)
+{
+  return typeof value === 'string'
+    && value.endsWith('.json')
+    && value.startsWith('.tmp/')
+    && !path.isAbsolute(value)
+    && !value.includes('\\')
+    && path.posix.normalize(value) === value
+    && !value.startsWith('../')
+    && !unsafePathPattern.test(value)
+}
+
+function canonicalCurrentRunDirectory(value)
+{
+  return typeof value === 'string'
+    && value.startsWith('.tmp/')
+    && !path.isAbsolute(value)
+    && !value.includes('\\')
+    && path.posix.normalize(value) === value
+    && !value.startsWith('../')
+    && !value.endsWith('.json')
+    && !unsafePathPattern.test(value)
+}
 
 function withoutDigest(value)
 {
@@ -68,10 +104,10 @@ export function explicitJson(input, label, repositoryRoot = defaultRoot)
     }
   }
   const stat = lstatSync(absolute, { throwIfNoEntry: false })
-  if (!stat?.isFile() || stat.isSymbolicLink() || realpathSync(absolute) !== absolute
+  if (!stat?.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 || realpathSync(absolute) !== absolute
     || realpathSync(root) !== root)
   {
-    fail(`${label} must be a regular non-symlink current-run file`)
+    fail(`${label} must be a regular non-symlink single-link current-run file`)
   }
   const bytes = readFileSync(absolute)
   return {
@@ -138,14 +174,23 @@ export function writeReceipt(output, receipt, repositoryRoot = defaultRoot)
   {
     fail('output must not overwrite an existing current-run record')
   }
+  const temporary = `${absolute}.prepublish-${process.pid}-${randomUUID()}`
   try
   {
-    writeFileSync(absolute, `${JSON.stringify(receipt, null, 2)}\n`, { flag: 'wx' })
+    writeFileSync(temporary, `${JSON.stringify(receipt, null, 2)}\n`, { flag: 'wx', mode: 0o600 })
+    const descriptor = openSync(temporary, 'r')
+    try { fsyncSync(descriptor) }
+    finally { closeSync(descriptor) }
+    linkSync(temporary, absolute)
   }
   catch (error)
   {
     if (error?.code === 'EEXIST') fail('output must not overwrite an existing current-run record')
     throw error
+  }
+  finally
+  {
+    try { unlinkSync(temporary) } catch (error) { if (error?.code !== 'ENOENT') throw error }
   }
   return path.relative(root, absolute).replaceAll(path.sep, '/')
 }
@@ -154,7 +199,7 @@ function authority(repositoryRoot = defaultRoot)
 {
   const catalog = loadCatalog(path.join(repositoryRoot, 'config/contracts/behavior-contracts.json'))
   const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
-  validatePostRuntimeProducerRegistry(registry, { catalog })
+  validatePostRuntimeProducerRegistry(registry, { catalog, repositoryRoot })
   if (registry.producers.length !== 1) fail('post-runtime registry must resolve exact-one producer')
   return { registry, producer: registry.producers[0] }
 }
@@ -402,7 +447,7 @@ export function produceCandidateContext({
   const preInput = explicitJson(preRuntimeReceipt, 'pre-runtime receipt', repositoryRoot)
   const pre = preInput.value
   assertPreRuntimeQualified(pre)
-  if (!/^[a-z][a-z0-9-]{2,96}$/u.test(String(runId ?? ''))
+  if (!schedulerRunIdPattern.test(String(runId ?? ''))
     || !/^attempt-[0-9]{4}$/u.test(String(attemptId ?? '')))
   {
     fail('candidate context requires a stable lowercase runId and canonical attempt-NNNN identity')
@@ -455,7 +500,7 @@ function validateCandidateContext(run, repositoryRoot)
     fail('candidate context source identity does not replay from pre-runtime authority')
   }
   const candidate = run.candidate ?? {}
-  if (!/^[a-z][a-z0-9-]{2,96}$/u.test(String(candidate.runId ?? ''))
+  if (!schedulerRunIdPattern.test(String(candidate.runId ?? ''))
     || !/^attempt-[0-9]{4}$/u.test(String(candidate.attemptId ?? ''))
     || ['candidateId', 'fixtureId', 'profileId', 'runtimeId', 'browserId', 'releaseId', 'rolloutId']
       .some((field) => typeof candidate[field] !== 'string' || candidate[field].length < 3))
@@ -497,9 +542,10 @@ function identityAuthoritySource(candidateContext)
 
 function produceIdentityAuthorities({ candidateContext, outputDirectory, repositoryRoot })
 {
-  if (typeof outputDirectory !== 'string' || outputDirectory.length === 0)
+  const normalizedOutputDirectory = String(outputDirectory ?? '').replaceAll(path.sep, '/')
+  if (!canonicalCurrentRunDirectory(normalizedOutputDirectory))
   {
-    fail('candidate plan requires an explicit identity-authority output directory')
+    fail('candidate plan requires a canonical repository-relative current-run identity-authority directory')
   }
   const identities = {
     plan: candidateContext.candidate.runId,
@@ -516,7 +562,7 @@ function produceIdentityAuthorities({ candidateContext, outputDirectory, reposit
       authorityId,
       sourceState: identityAuthoritySource(candidateContext)
     })
-    const output = path.posix.join(outputDirectory.replaceAll(path.sep, '/'), `${role}.json`)
+    const output = path.posix.join(normalizedOutputDirectory, `${role}.json`)
     writeReceipt(output, receipt, repositoryRoot)
     const input = explicitJson(output, `${role} identity authority`, repositoryRoot)
     refs[role] = stable({
@@ -643,9 +689,13 @@ export function produceCandidatePlan({
   }
   const observations = classes.map((classId) => {
     const receiptPath = String(observationPaths[classId] ?? '')
-    if (!receiptPath.endsWith('.json') || unsafePathPattern.test(receiptPath)) fail(`${classId} receipt path is not current-run explicit`)
+    if (!canonicalCurrentRunJsonPath(receiptPath)) fail(`${classId} receipt path is not canonical repository-relative current-run JSON`)
     return { classId, schema: registry.observationClasses[classId].schema, receiptPath, requiredModes: requiredModes(producer, classId) }
   })
+  if (new Set(observations.map(({ receiptPath }) => receiptPath)).size !== observations.length)
+  {
+    fail('candidate plan observation output paths must be exact-one per class')
+  }
   const identityAuthorityRefs = produceIdentityAuthorities({
     candidateContext: run,
     outputDirectory: identityAuthorityDirectory,
@@ -709,6 +759,10 @@ export function validateCandidatePlan(plan, { repositoryRoot = defaultRoot } = {
   const expected = Object.keys(registry.observationClasses).sort()
   const actual = (plan.observations ?? []).map(({ classId }) => classId).sort()
   if (JSON.stringify(actual) !== JSON.stringify(expected)) fail('candidate plan observation closure mismatch')
+  if (new Set((plan.observations ?? []).map(({ receiptPath }) => receiptPath)).size !== expected.length)
+  {
+    fail('candidate plan observation output paths must be exact-one per class')
+  }
   for (const observation of plan.observations)
   {
     const definition = registry.observationClasses[observation.classId]
@@ -718,10 +772,9 @@ export function validateCandidatePlan(plan, { repositoryRoot = defaultRoot } = {
     {
       fail(`${observation.classId} candidate plan authority binding mismatch`)
     }
-    if (typeof observation.receiptPath !== 'string' || !observation.receiptPath.endsWith('.json')
-      || unsafePathPattern.test(observation.receiptPath))
+    if (!canonicalCurrentRunJsonPath(observation.receiptPath))
     {
-      fail(`${observation.classId} candidate plan path is not current-run explicit`)
+      fail(`${observation.classId} candidate plan path is not canonical repository-relative current-run JSON`)
     }
   }
   return plan
@@ -729,7 +782,8 @@ export function validateCandidatePlan(plan, { repositoryRoot = defaultRoot } = {
 
 export function produceClassReceipt({ candidatePlan, classId, result, repositoryRoot = defaultRoot })
 {
-  const plan = validateCandidatePlan(explicitJson(candidatePlan, 'candidate plan', repositoryRoot).value, { repositoryRoot })
+  const planInput = explicitJson(candidatePlan, 'candidate plan', repositoryRoot)
+  const plan = validateCandidatePlan(planInput.value, { repositoryRoot })
   const input = explicitJson(result, `${classId} result`, repositoryRoot)
   const { registry, producer } = authority(repositoryRoot)
   const definition = registry.observationClasses[classId]
@@ -786,40 +840,70 @@ export function produceClassReceipt({ candidatePlan, classId, result, repository
     producerId: producer.producerId,
     sourceState: plan.sourceState,
     candidatePlanDigest: plan.contentDigest,
+    candidatePlanRef: receiptReference(planInput, 'candidate plan'),
     buildReceiptDigest: plan.build.receiptContentDigest,
     candidate: plan.candidate,
     modes,
     semanticFacts: stable(input.value.semanticFacts),
-    rawResult: { path: input.relative, contentDigest: prefixedDigest(input.value.contentDigest) },
+    rawResultRef: { ...receiptReference(input, `${classId} raw result`), role: 'raw-result' },
     status: 'qualified'
   })
 }
 
+export function validateClassReceipt(receipt, { repositoryRoot = defaultRoot } = {})
+{
+  if (receipt?.schema !== classReceiptSchema || receipt.status !== 'qualified')
+  {
+    fail('class receipt schema/status mismatch')
+  }
+  verifySeal(receipt, `class receipt ${receipt.classId ?? '<missing>'}`)
+  const planInput = verifyReference(receipt.candidatePlanRef, 'class receipt candidate plan', repositoryRoot)
+  const rawReference = receipt.rawResultRef
+  if (!isPlainObject(rawReference)
+    || rawReference.role !== 'raw-result'
+    || JSON.stringify(Object.keys(rawReference).sort())
+      !== JSON.stringify(['contentDigest', 'fileDigest', 'path', 'role', 'schema']))
+  {
+    fail(`${receipt.classId ?? 'unknown'} raw result reference shape is invalid`)
+  }
+  const rawInput = verifyReference(
+    Object.fromEntries(Object.entries(rawReference).filter(([key]) => key !== 'role')),
+    `${receipt.classId ?? 'unknown'} raw result`,
+    repositoryRoot
+  )
+  if (rawInput.value.schema !== receipt.observationSchema)
+  {
+    fail(`${receipt.classId ?? 'unknown'} raw result schema mismatch`)
+  }
+  const replay = produceClassReceipt({
+    candidatePlan: planInput.relative,
+    classId: receipt.classId,
+    result: rawInput.relative,
+    repositoryRoot
+  })
+  if (replay.contentDigest !== receipt.contentDigest) fail(`${receipt.classId} class receipt replay mismatch`)
+  return receipt
+}
+
 export function produceObservationReceipt({ scope, candidatePlan, acceptedClaimsReceipt, classReceipts, repositoryRoot = defaultRoot })
 {
-  const plan = validateCandidatePlan(explicitJson(candidatePlan, 'candidate plan', repositoryRoot).value, { repositoryRoot })
-  const claims = validateAcceptedClaims(explicitJson(acceptedClaimsReceipt, 'accepted claims receipt', repositoryRoot).value, { repositoryRoot })
+  const planInput = explicitJson(candidatePlan, 'candidate plan', repositoryRoot)
+  const plan = validateCandidatePlan(planInput.value, { repositoryRoot })
+  const claimsInput = explicitJson(acceptedClaimsReceipt, 'accepted claims receipt', repositoryRoot)
+  const claims = validateAcceptedClaims(claimsInput.value, { repositoryRoot })
   if (claims.contentDigest !== plan.acceptedClaimsReceiptDigest) fail('accepted claims do not match candidate plan')
   const scopeClasses = scope === 'application'
     ? ['aot-spa-hydration', 'browser-behavior-contract', 'cache-search-outbox-convergence', 'route-response-error', 'session-cookie-runtime']
     : scope === 'release-deployment'
       ? ['blue-green-containment', 'release-identity-readiness']
       : fail(`unknown observation scope ${scope}`)
-  const receipts = classReceipts.map((entry, index) => explicitJson(entry, `class receipt ${index}`, repositoryRoot).value)
-  for (const receipt of receipts)
+  const receiptInputs = classReceipts.map((entry, index) => explicitJson(entry, `class receipt ${index}`, repositoryRoot))
+  for (const { value: receipt } of receiptInputs)
   {
-    if (receipt.schema !== classReceiptSchema || receipt.status !== 'qualified') fail('class receipt schema/status mismatch')
-    verifySeal(receipt, `class receipt ${receipt.classId}`)
+    validateClassReceipt(receipt, { repositoryRoot })
     if (receipt.candidatePlanDigest !== plan.contentDigest) fail(`${receipt.classId} candidate plan mismatch`)
-    const replay = produceClassReceipt({
-      candidatePlan: plan,
-      classId: receipt.classId,
-      result: receipt.rawResult?.path,
-      repositoryRoot
-    })
-    if (replay.contentDigest !== receipt.contentDigest) fail(`${receipt.classId} class receipt replay mismatch`)
   }
-  if (JSON.stringify(receipts.map(({ classId }) => classId).sort()) !== JSON.stringify(scopeClasses.sort()))
+  if (JSON.stringify(receiptInputs.map(({ value }) => value.classId).sort()) !== JSON.stringify(scopeClasses.sort()))
   {
     fail(`${scope} class receipt closure must be exact-one`)
   }
@@ -833,21 +917,65 @@ export function produceObservationReceipt({ scope, candidatePlan, acceptedClaims
     build: plan.build,
     buildReceiptDigest: plan.build.receiptContentDigest,
     candidatePlanDigest: plan.contentDigest,
+    candidatePlanRef: receiptReference(planInput, 'candidate plan'),
     preRuntimeReceiptDigest: plan.preRuntimeReceiptDigest,
     acceptedClaimsReceiptDigest: claims.contentDigest,
+    acceptedClaimsReceiptRef: receiptReference(claimsInput, 'accepted claims receipt'),
     acceptedClaimRefs: claims.claims.map(({ claimId }) => claimId).sort(),
     requiredClasses: [...scopeClasses].sort(),
-    observedClasses: receipts.map(({ classId }) => classId).sort(),
-    observations: receipts.sort((left, right) => left.classId.localeCompare(right.classId)).map((receipt) => ({
-      classId: receipt.classId,
-      receiptDigest: receipt.contentDigest,
-      modes: receipt.modes,
-      rawResult: receipt.rawResult,
-      semanticFacts: receipt.semanticFacts
-    })),
+    observedClasses: receiptInputs.map(({ value }) => value.classId).sort(),
+    observations: receiptInputs.sort((left, right) => left.value.classId.localeCompare(right.value.classId))
+      .map((input) => ({
+        classId: input.value.classId,
+        receiptDigest: input.value.contentDigest,
+        classReceiptRef: { ...receiptReference(input, `${input.value.classId} class receipt`), role: 'class' },
+        modes: input.value.modes,
+        rawResultRef: input.value.rawResultRef,
+        semanticFacts: input.value.semanticFacts
+      })),
     status: 'qualified',
     failureReasons: []
   })
+}
+
+export function validateObservationReceipt(receipt, { repositoryRoot = defaultRoot } = {})
+{
+  if (receipt?.schema !== observationReceiptSchema || receipt.status !== 'qualified')
+  {
+    fail('observation receipt schema/status mismatch')
+  }
+  verifySeal(receipt, 'observation receipt')
+  const plan = verifyReference(receipt.candidatePlanRef, 'observation candidate plan', repositoryRoot)
+  const claims = verifyReference(receipt.acceptedClaimsReceiptRef, 'observation accepted claims', repositoryRoot)
+  const observations = Array.isArray(receipt.observations) ? receipt.observations : []
+  const classPaths = observations.map((observation) => {
+    const reference = observation?.classReceiptRef
+    if (!isPlainObject(reference)
+      || reference.role !== 'class'
+      || JSON.stringify(Object.keys(reference).sort())
+        !== JSON.stringify(['contentDigest', 'fileDigest', 'path', 'role', 'schema']))
+    {
+      fail(`${observation?.classId ?? 'unknown'} class receipt reference shape is invalid`)
+    }
+    const input = verifyReference(Object.fromEntries(Object.entries(reference).filter(([key]) => key !== 'role')),
+      `${observation.classId} class receipt`, repositoryRoot)
+    if (input.value.schema !== classReceiptSchema
+      || input.value.classId !== observation.classId
+      || input.value.contentDigest !== observation.receiptDigest)
+    {
+      fail(`${observation.classId} class receipt reference identity mismatch`)
+    }
+    return reference.path
+  })
+  const replay = produceObservationReceipt({
+    scope: receipt.scope,
+    candidatePlan: plan.relative,
+    acceptedClaimsReceipt: claims.relative,
+    classReceipts: classPaths,
+    repositoryRoot
+  })
+  if (replay.contentDigest !== receipt.contentDigest) fail('observation receipt replay mismatch')
+  return receipt
 }
 
 export function runObservationCli({ argv, scope, repositoryRoot = defaultRoot })
@@ -866,15 +994,15 @@ export function runObservationCli({ argv, scope, repositoryRoot = defaultRoot })
     else if (key === '--receipt') options.receipt = value
     else fail(`unknown option ${key}`)
   }
-  const produced = produceObservationReceipt({ scope, ...options, repositoryRoot })
   if (command === 'verify')
   {
     const actual = explicitJson(options.receipt, 'observation receipt', repositoryRoot).value
-    verifySeal(actual, 'observation receipt')
-    if (actual.contentDigest !== produced.contentDigest) fail('observation receipt replay mismatch')
-    return actual
+    const validated = validateObservationReceipt(actual, { repositoryRoot })
+    if (validated.scope !== scope) fail(`observation receipt scope does not match ${scope} verifier`)
+    return validated
   }
   if (command !== 'produce') fail('command must be produce or verify')
+  const produced = produceObservationReceipt({ scope, ...options, repositoryRoot })
   if (!options.out) fail('observation production requires an explicit current-run output path')
   writeReceipt(options.out, produced, repositoryRoot)
   return produced

@@ -8,7 +8,12 @@ import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
 
 import { digestValue, stable } from '../fact-extractors/lib/canonicalize.mjs'
-import { seal, writeReceipt } from '../fact-extractors/post-runtime/adapter.mjs'
+import {
+  explicitJson as explicitPostRuntimeJson,
+  seal,
+  validateCandidatePlan,
+  writeReceipt
+} from '../fact-extractors/post-runtime/adapter.mjs'
 import {
   authBinary,
   loginWithFixtureSessionBypass
@@ -67,9 +72,9 @@ function explicitJson(relative, label)
     fail(`${label} must be an explicit current-run path`)
   }
   const stat = fs.lstatSync(absolute, { throwIfNoEntry: false })
-  if (!stat?.isFile() || stat.isSymbolicLink() || fs.realpathSync(absolute) !== absolute)
+  if (!stat?.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 || fs.realpathSync(absolute) !== absolute)
   {
-    fail(`${label} must be a regular non-symlink current-run file`)
+    fail(`${label} must be a regular non-symlink single-link current-run file`)
   }
   const bytes = fs.readFileSync(absolute)
   return {
@@ -81,7 +86,7 @@ function explicitJson(relative, label)
   }
 }
 
-function sourceIdentity(parsed, build, fixture)
+function sourceIdentity(parsed, build, fixture, candidatePlan)
 {
   const commit = String(process.env.FSUSBLOG_TEST_SOURCE_COMMIT || parsed['source-commit'] || '')
   const fingerprint = String(process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT || parsed['source-fingerprint'] || '').replace(/^sha256:/u, '')
@@ -102,13 +107,26 @@ function sourceIdentity(parsed, build, fixture)
   {
     fail('fixture prepare receipt does not match the prepared current run')
   }
+  const plan = candidatePlan.value
+  if (plan.sourceState?.commit !== commit
+    || plan.sourceState?.worktreeFingerprint !== `sha256:${fingerprint}`
+    || plan.candidate?.runId !== runId
+    || plan.candidate?.attemptId !== attemptId
+    || plan.build?.receiptContentDigest !== build.value.contentDigest)
+  {
+    fail('candidate plan does not match the live probe run, attempt, source, and build')
+  }
   return {
     sourceCommit: commit,
     worktreeFingerprint: `sha256:${fingerprint}`,
     runId,
     attemptId,
     buildIdentity: String(build.value.contentDigest ?? ''),
-    fixtureIdentity: fixture.ref.contentDigest
+    fixtureIdentity: fixture.ref.contentDigest,
+    candidateId: plan.candidate.candidateId,
+    runtimeId: plan.candidate.runtimeId,
+    releaseId: plan.candidate.releaseId,
+    candidatePlanDigest: plan.contentDigest
   }
 }
 
@@ -190,7 +208,10 @@ function publicCase(value, { id, role, expectation })
     typedKind: value.payload?.code != null ? 'typed-error' : 'payload',
     typedEntityId: Number.isSafeInteger(value.payload?.id) ? value.payload.id : null,
     typedTitleDigest: typeof value.payload?.title === 'string' ? sha(value.payload.title) : null,
+    typedCode: Number.isSafeInteger(value.payload?.code) ? value.payload.code : null,
+    typedCategory: Number.isSafeInteger(value.payload?.category) ? value.payload.category : null,
     typedStatusCode: Number.isSafeInteger(value.payload?.statusCode) ? value.payload.statusCode : null,
+    typedMessageDigest: typeof value.payload?.message === 'string' ? sha(value.payload.message) : null,
     decodeError: value.decodeError
   })
 }
@@ -206,6 +227,10 @@ async function binaryCase(id, role, expectation, result)
     headers: selectedHeaders(response.headers),
     typedPayloadDigest: result.payload == null ? null : digest(result.payload),
     typedKind: result.payload?.code != null ? 'typed-error' : 'payload',
+    typedCode: Number.isSafeInteger(result.payload?.code) ? result.payload.code : null,
+    typedCategory: Number.isSafeInteger(result.payload?.category) ? result.payload.category : null,
+    typedStatusCode: Number.isSafeInteger(result.payload?.statusCode) ? result.payload.statusCode : null,
+    typedMessageDigest: typeof result.payload?.message === 'string' ? sha(result.payload.message) : null,
     decodeError: result.payloadError ?? null
   })
 }
@@ -269,7 +294,10 @@ async function routeProbe(context)
     && second.status === 304 && second.headers.etag === first.headers.etag
     && byId.get('public-missing-typed-error').status === 404
     && byId.get('public-missing-typed-error').typedKind === 'typed-error'
+    && byId.get('public-missing-typed-error').typedCode === 2
+    && byId.get('public-missing-typed-error').typedCategory === 4
     && byId.get('public-missing-typed-error').typedStatusCode === 404
+    && byId.get('public-missing-typed-error').typedMessageDigest === sha('article_not_found')
     && [401, 403].includes(byId.get('anonymous-auth-denied').status)
     && byId.get('user-self-visible').status === 200
     && [401, 403].includes(byId.get('user-admin-denied').status)
@@ -342,6 +370,22 @@ async function sessionProbe(context)
   const serviceSession = Array.isArray(sessions) ? sessions.find((item) => item.sessionId === session.sessionId) : null
   const presentedRefreshHash = createHash('sha256').update(session.refreshToken).digest('hex')
   const authenticatedAtEpochSeconds = Math.floor(Date.parse(`${String(row.authenticated_at_utc).replace(/Z$/u, '')}Z`) / 1000)
+  const replacementFingerprint = `${deviceFingerprint}-replacement`
+  const replacement = await loginWithFixtureSessionBypass('binaryuser', '', true, replacementFingerprint, timeoutMs)
+  const replacedRefresh = await authBinary('/api/Auth/refresh-token', {
+    method: 'POST', cookieHeader: session.cookieHeader, deviceFingerprint,
+    headers: { Origin: frontendUrl }, timeoutMs
+  })
+  const revoke = await authBinary(`/api/Auth/sessions/${encodeURIComponent(replacement.sessionId)}/revoke`, {
+    method: 'POST', cookieHeader: replacement.cookieHeader, deviceFingerprint: replacementFingerprint,
+    headers: { Origin: frontendUrl }, timeoutMs
+  })
+  const revokedRefresh = await authBinary('/api/Auth/refresh-token', {
+    method: 'POST', cookieHeader: replacement.cookieHeader, deviceFingerprint: replacementFingerprint,
+    headers: { Origin: frontendUrl }, timeoutMs
+  })
+  const releaseIdFor = (result) => result.response.headers.get('x-fsus-release-id')
+  const denied = (result) => result.response.status === 401 || result.response.status === 403
   const facts = {
     schema: 'fsusblog.session-cookie-runtime-probe-facts.v1',
     database: {
@@ -396,14 +440,30 @@ async function sessionProbe(context)
     service: {
       digest: digest({ me: meResult.payload, session: serviceSession == null ? null : { ...serviceSession, sessionId: sha(serviceSession.sessionId) } }),
       status: { me: meResult.response.status, sessions: sessionsResult.response.status },
+      releaseIds: [meResult.response.headers.get('x-fsus-release-id'),
+        sessionsResult.response.headers.get('x-fsus-release-id')],
       currentSessionMatches: serviceSession?.isCurrent === true
         && serviceSession?.authenticationMethod === row.authentication_method
         && serviceSession?.authenticationStrength === row.authentication_strength
+    },
+    modeOutcomes: {
+      positive: { caseId: 'current-session-coherence', status: meResult.response.status,
+        releaseId: releaseIdFor(meResult), passed: meResult.response.status === 200 },
+      negative: { caseId: 'replaced-session-refresh-denied', status: replacedRefresh.response.status,
+        releaseId: releaseIdFor(replacedRefresh), passed: denied(replacedRefresh) },
+      failure: { caseId: 'revoked-session-refresh-denied', revokeStatus: revoke.response.status,
+        refreshStatus: revokedRefresh.response.status, releaseIds: [releaseIdFor(revoke), releaseIdFor(revokedRefresh)],
+        passed: revoke.response.ok && denied(revokedRefresh) }
     }
   }
   facts.coherent = facts.credential.matches && facts.authContext.jwtMatches && facts.jwt.sessionMatches
     && facts.cookie.sessionMatches && facts.expiry.ordered && facts.revision.current && facts.device.matches
     && facts.service.status.me === 200 && facts.service.status.sessions === 200 && facts.service.currentSessionMatches
+    && facts.service.releaseIds.every((value) => value === context.identity.releaseId)
+    && facts.modeOutcomes.positive.passed && facts.modeOutcomes.negative.passed && facts.modeOutcomes.failure.passed
+    && facts.modeOutcomes.positive.releaseId === context.identity.releaseId
+    && facts.modeOutcomes.negative.releaseId === context.identity.releaseId
+    && facts.modeOutcomes.failure.releaseIds.every((value) => value === context.identity.releaseId)
   if (!facts.coherent)
   {
     fail(`session probe observed a DB/JWT/cookie/service mismatch: ${JSON.stringify({
@@ -415,7 +475,8 @@ async function sessionProbe(context)
       revision: facts.revision.current,
       device: facts.device.matches,
       serviceStatus: facts.service.status,
-      serviceSession: facts.service.currentSessionMatches
+      serviceSession: facts.service.currentSessionMatches,
+      modeOutcomes: facts.modeOutcomes
     })}`)
   }
   return stable(facts)
@@ -528,7 +589,8 @@ async function cacheProbe(context)
     events: terminal.outbox.map((item) => ({ ...item, event_id: sha(item.event_id), aggregate_id: sha(String(item.aggregate_id)) })),
     edges: { eventTypes: terminal.outbox.map((item) => item.event_type).sort(), redisKeyDigests: terminal.keys.map(sha) },
     generation: { valueDigest: sha(terminal.generation), present: true },
-    query: { searchIndexDigest: sha(terminal.searchBytes), releaseScopedPath: terminal.searchPath, containsMarker: true },
+    query: { searchIndexDigest: sha(terminal.searchBytes), releaseScopedPath: terminal.searchPath,
+      releaseId: terminal.detail.headers['x-fsus-release-id'], containsMarker: true },
     readModel: { projectionDigest: digest(terminal.projection), detailDigest: terminal.detail.bodyDigest,
       detailTitleDigest: sha(terminal.detail.payload.title), visible: terminal.projection.visible },
     output: { navigationDigest: sha(terminal.navigationBytes), envelopeDigest: digest(terminal.envelope), containsMarker: true },
@@ -544,6 +606,12 @@ function buildReceipt(kind, context, facts)
     kind,
     producerId: 'production-correctness-scheduler',
     sourceState: context.identity,
+    candidatePlanRef: {
+      path: context.candidatePlan.relative,
+      fileDigest: context.candidatePlan.fileDigest,
+      contentDigest: context.candidatePlan.value.contentDigest,
+      schema: context.candidatePlan.value.schema
+    },
     buildReceipt: context.build.ref,
     fixtureReceipt: context.fixture.ref,
     provenance: {
@@ -551,7 +619,7 @@ function buildReceipt(kind, context, facts)
       semanticAuthority: 'current-candidate-application-and-owned-services',
       simulatedInfrastructure: ['docker-postgresql', 'docker-redis', 'loopback-network'],
       syntheticSemanticResult: false,
-      rerunCommand: `node tools/test-evidence/runtime-observation-probes.mjs probe --kind ${kind} --build ${context.build.ref.path} --fixture ${context.fixture.ref.path} --out <current-run-output.json>`
+      rerunCommand: `node tools/test-evidence/runtime-observation-probes.mjs probe --kind ${kind} --candidate-plan ${context.candidatePlan.relative} --build ${context.build.ref.path} --fixture ${context.fixture.ref.path} --out <current-run-output.json>`
     },
     facts,
     terminalStatus: 'verified'
@@ -566,13 +634,20 @@ function buildFailureReceipt(kind, context, error)
     kind,
     producerId: 'production-correctness-scheduler',
     sourceState: context.identity,
+    candidatePlanRef: {
+      path: context.candidatePlan.relative,
+      fileDigest: context.candidatePlan.fileDigest,
+      contentDigest: context.candidatePlan.value.contentDigest,
+      schema: context.candidatePlan.value.schema
+    },
     buildReceipt: context.build.ref,
     fixtureReceipt: context.fixture.ref,
     provenance: {
       mode: 'local-real-runtime',
       semanticAuthority: 'current-candidate-application-and-owned-services',
       simulatedInfrastructure: ['docker-postgresql', 'docker-redis', 'loopback-network'],
-      syntheticSemanticResult: false
+      syntheticSemanticResult: false,
+      rerunCommand: `node tools/test-evidence/runtime-observation-probes.mjs probe --kind ${kind} --candidate-plan ${context.candidatePlan.relative} --build ${context.build.ref.path} --fixture ${context.fixture.ref.path} --out <new-current-run-output.json>`
     },
     qualificationEligible: false,
     terminalStatus: 'failed',
@@ -584,7 +659,7 @@ function buildFailureReceipt(kind, context, error)
   })
 }
 
-export function verifyFacts(kind, facts, { fixture = null } = {})
+export function verifyFacts(kind, facts, { fixture = null, expectedReleaseId = null } = {})
 {
   if (facts?.coherent !== true) fail(`${kind} facts are partial or incoherent`)
   if (kind === 'route-response-error')
@@ -601,6 +676,13 @@ export function verifyFacts(kind, facts, { fixture = null } = {})
     const first = byId.get('public-visible-first-read')
     const second = byId.get('public-visible-cache-revalidation')
     const authority = facts.fixtureAuthority ?? {}
+    const exactTypedError = (entry, expectedStatus = entry?.status) => entry?.typedKind === 'typed-error'
+      && entry.decodeError === null
+      && digestPattern.test(String(entry.typedPayloadDigest ?? ''))
+      && entry.typedStatusCode === expectedStatus
+      && entry.typedCode === (expectedStatus === 404 ? 2 : expectedStatus === 401 ? 4 : 5)
+      && entry.typedCategory === (expectedStatus === 404 ? 4 : expectedStatus === 401 ? 2 : 3)
+      && digestPattern.test(String(entry.typedMessageDigest ?? ''))
     if ([authority.prepareStateDigest, authority.projectionDigest, authority.articleIdDigest,
       authority.articleTitleDigest, authority.searchCanaryDigest]
       .some((value) => !digestPattern.test(String(value ?? ''))))
@@ -624,16 +706,26 @@ export function verifyFacts(kind, facts, { fixture = null } = {})
       || first.typedTitleDigest !== authority.articleTitleDigest
       || first.headers?.['content-type']?.toLowerCase().includes('application/octet-stream') !== true
       || first.headers?.['x-fsus-frame-version'] !== '2'
+      || first.headers?.['x-fsus-release-id'] !== expectedReleaseId
+      || !digestPattern.test(String(first.typedPayloadDigest ?? ''))
       || !/^[0-9]+$/u.test(String(first.headers?.['x-fsus-generation'] ?? ''))
       || typeof first.headers?.etag !== 'string' || first.headers.etag.length === 0
       || second.status !== 304 || second.headers?.etag !== first.headers.etag
       || byId.get('public-missing-typed-error').status !== 404
-      || byId.get('public-missing-typed-error').typedKind !== 'typed-error'
-      || byId.get('public-missing-typed-error').typedStatusCode !== 404
+      || !exactTypedError(byId.get('public-missing-typed-error'), 404)
+      || byId.get('public-missing-typed-error').typedMessageDigest !== sha('article_not_found')
       || ![401, 403].includes(byId.get('anonymous-auth-denied').status)
+      || !exactTypedError(byId.get('anonymous-auth-denied'))
       || byId.get('user-self-visible').status !== 200
+      || byId.get('user-self-visible').typedKind !== 'payload'
+      || byId.get('user-self-visible').decodeError !== null
+      || !digestPattern.test(String(byId.get('user-self-visible').typedPayloadDigest ?? ''))
       || ![401, 403].includes(byId.get('user-admin-denied').status)
-      || byId.get('admin-list-visible').status !== 200)
+      || !exactTypedError(byId.get('user-admin-denied'))
+      || byId.get('admin-list-visible').status !== 200
+      || byId.get('admin-list-visible').typedKind !== 'payload'
+      || byId.get('admin-list-visible').decodeError !== null
+      || !digestPattern.test(String(byId.get('admin-list-visible').typedPayloadDigest ?? '')))
     {
       fail('route facts do not replay the required role/auth/visibility/cache relations')
     }
@@ -650,7 +742,21 @@ export function verifyFacts(kind, facts, { fixture = null } = {})
       facts.expiry?.digest, facts.revision?.digest, facts.device?.digest, facts.service?.digest]
     if (facts.schema !== 'fsusblog.session-cookie-runtime-probe-facts.v1'
       || relations.some((value) => value !== true) || digests.some((value) => !digestPattern.test(String(value ?? '')))
-      || facts.service?.status?.me !== 200 || facts.service?.status?.sessions !== 200)
+      || facts.service?.status?.me !== 200 || facts.service?.status?.sessions !== 200
+      || facts.service?.releaseIds?.length !== 2
+      || facts.service.releaseIds.some((value) => value !== expectedReleaseId)
+      || facts.modeOutcomes?.positive?.caseId !== 'current-session-coherence'
+      || facts.modeOutcomes.positive.status !== 200 || facts.modeOutcomes.positive.passed !== true
+      || facts.modeOutcomes.positive.releaseId !== expectedReleaseId
+      || facts.modeOutcomes?.negative?.caseId !== 'replaced-session-refresh-denied'
+      || ![401, 403].includes(facts.modeOutcomes.negative.status)
+      || facts.modeOutcomes.negative.passed !== true || facts.modeOutcomes.negative.releaseId !== expectedReleaseId
+      || facts.modeOutcomes?.failure?.caseId !== 'revoked-session-refresh-denied'
+      || facts.modeOutcomes.failure.revokeStatus < 200 || facts.modeOutcomes.failure.revokeStatus >= 300
+      || ![401, 403].includes(facts.modeOutcomes.failure.refreshStatus)
+      || facts.modeOutcomes.failure.passed !== true
+      || facts.modeOutcomes.failure.releaseIds?.length !== 2
+      || facts.modeOutcomes.failure.releaseIds.some((value) => value !== expectedReleaseId))
     {
       fail('session facts do not replay the exact DB/JWT/cookie/service relations')
     }
@@ -658,9 +764,14 @@ export function verifyFacts(kind, facts, { fixture = null } = {})
   else if (facts.schema !== 'fsusblog.cache-search-outbox-probe-facts.v1'
     || facts.terminal?.state !== 'converged' || facts.terminal.processedEvents < 1
     || facts.terminal.poisonEvents !== 0 || facts.query?.containsMarker !== true
+    || facts.query?.releaseId !== expectedReleaseId
+    || facts.query?.releaseScopedPath !== `/release-derived/${expectedReleaseId}/search/index.bin`
     || facts.readModel?.visible !== true || facts.output?.containsMarker !== true
     || !Array.isArray(facts.events) || facts.events.length !== facts.terminal.processedEvents
     || facts.events.some((event) => event.status !== 'processed' || event.last_error != null)
+    || new Set(facts.events.map(({ id }) => id)).size !== facts.events.length
+    || !Array.isArray(facts.edges?.eventTypes) || facts.edges.eventTypes.length !== facts.events.length
+    || facts.generation?.present !== true
     || [facts.authorityCoordinate?.articleIdDigest, facts.authorityCoordinate?.mutationIdDigest,
       facts.generation?.valueDigest, facts.query?.searchIndexDigest, facts.readModel?.projectionDigest,
       facts.readModel?.detailDigest, facts.readModel?.detailTitleDigest, facts.output?.navigationDigest,
@@ -704,7 +815,20 @@ export function verifyReceipt(receipt)
   {
     fail('probe fixture dependency identity mismatch')
   }
-  verifyFacts(receipt.kind, receipt.facts, { fixture })
+  const candidatePlanInput = explicitPostRuntimeJson(receipt.candidatePlanRef?.path,
+    'probe candidate plan')
+  const candidatePlan = validateCandidatePlan(candidatePlanInput.value)
+  if (receipt.candidatePlanRef?.fileDigest !== candidatePlanInput.fileDigest
+    || receipt.candidatePlanRef?.contentDigest !== candidatePlan.contentDigest
+    || receipt.candidatePlanRef?.schema !== candidatePlan.schema
+    || source.candidatePlanDigest !== candidatePlan.contentDigest
+    || source.candidateId !== candidatePlan.candidate.candidateId
+    || source.runtimeId !== candidatePlan.candidate.runtimeId
+    || source.releaseId !== candidatePlan.candidate.releaseId)
+  {
+    fail('probe candidate identity does not replay from the candidate plan')
+  }
+  verifyFacts(receipt.kind, receipt.facts, { fixture, expectedReleaseId: source.releaseId })
   return receipt
 }
 
@@ -722,9 +846,12 @@ async function main()
   if (command !== 'probe' || !probeKinds.has(parsed.kind)) fail('usage: probe --kind <canonical-kind> ... or verify --receipt <path>')
   const build = explicitJson(parsed.build, 'production build receipt')
   const fixture = explicitJson(parsed.fixture, 'fixture prepare receipt')
+  const candidatePlan = explicitPostRuntimeJson(
+    process.env.FSUSBLOG_POST_RUNTIME_CANDIDATE_PLAN || parsed['candidate-plan'], 'probe candidate plan')
+  validateCandidatePlan(candidatePlan.value)
   configureTemporalFixture(fixture)
-  const identity = sourceIdentity(parsed, build, fixture)
-  const context = { build, fixture, identity }
+  const identity = sourceIdentity(parsed, build, fixture, candidatePlan)
+  const context = { build, fixture, candidatePlan, identity }
   let facts
   try
   {

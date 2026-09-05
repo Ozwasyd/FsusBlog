@@ -108,13 +108,30 @@ export function resolveBrowserContractRunIdentity({
     }
     const resolvedSourceState = resolveRequiredSourceState(env, sourceState);
     const commit = resolvedSourceState.commit;
+    const productionAttemptId = String(env.FSUSBLOG_PRODUCTION_FRESH_ATTEMPT_ID ?? '').trim();
+    const testAttemptId = String(env.FSUSBLOG_TEST_ATTEMPT_ID ?? '').trim();
+    if (productionAttemptId && testAttemptId && productionAttemptId !== testAttemptId)
+    {
+        throw new BrowserContractFailure('Browser Contract attempt authorities disagree', 'contract');
+    }
+    const attemptId = productionAttemptId || testAttemptId || 'attempt-0001';
+    if (!/^attempt-[0-9]{4}$/u.test(attemptId))
+    {
+        throw new BrowserContractFailure('Browser Contract attempt identity is invalid', 'contract');
+    }
+    const testRunId = String(env.FSUSBLOG_TEST_RUN_ID ?? '').trim();
+    const browserRunId = String(env.FSUSBLOG_BROWSER_CONTRACT_RUN_ID ?? '').trim();
+    if (testRunId && browserRunId && testRunId !== browserRunId)
+    {
+        throw new BrowserContractFailure('Browser Contract run authorities disagree', 'contract');
+    }
     const runId = compactIdentity(
-        env.FSUSBLOG_BROWSER_CONTRACT_RUN_ID
-      ?? (env.GITHUB_RUN_ID ? `${env.GITHUB_RUN_ID}-${env.GITHUB_RUN_ATTEMPT ?? '1'}` : `local-${process.pid}-${now}`),
+        testRunId || browserRunId
+      || (env.GITHUB_RUN_ID ? `${env.GITHUB_RUN_ID}-${env.GITHUB_RUN_ATTEMPT ?? '1'}` : `local-${process.pid}-${now}`),
         'run'
     );
     const laneId = 'browser-contract';
-    const namespace = `bc-${commit.slice(0, 8)}-${digest(runId, 10)}-${digest(laneId, 6)}`;
+    const namespace = `bc-${commit.slice(0, 8)}-${digest(`${runId}:${attemptId}`, 10)}-${digest(laneId, 6)}`;
     const fixtureBase = resolveConfiguredBase(env.FSUSBLOG_BROWSER_CONTRACT_FIXTURE_ROOT, repoRoot);
     const fixtureRoot = path.join(fixtureBase, namespace);
 
@@ -125,6 +142,7 @@ export function resolveBrowserContractRunIdentity({
         concurrency: browserContractFixedFixtureTopology.concurrency,
         commit,
         runId,
+        attemptId,
         laneId,
         namespace,
         databaseSchema: 'public',

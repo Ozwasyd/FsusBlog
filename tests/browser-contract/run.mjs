@@ -311,6 +311,7 @@ async function main()
                 identity: {
                     commit: plannedIdentity.commit,
                     runId: plannedIdentity.runId,
+                    attemptId: plannedIdentity.attemptId,
                     laneId: plannedIdentity.laneId,
                     namespace: plannedIdentity.namespace
                 },
@@ -672,6 +673,7 @@ main()
               identity: {
                 commit: plannedRunIdentity.commit,
                 runId: plannedRunIdentity.runId,
+                attemptId: plannedRunIdentity.attemptId,
                 laneId: plannedRunIdentity.laneId,
                 namespace: plannedRunIdentity.namespace
               }

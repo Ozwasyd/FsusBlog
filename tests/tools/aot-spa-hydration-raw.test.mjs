@@ -85,12 +85,14 @@ function browserReceipt(value)
   }
   return sealBrowserContractReceipt({
     schema: 'fsusblog.browser-contract-receipt.v2', status: 'success', classification: 'clean',
-    runIdentity: { commit: value.commit, runId: value.plan.candidate.runId, laneId: 'browser-contract', namespace: value.plan.candidate.runId },
+    runIdentity: { commit: value.commit, runId: value.plan.candidate.runId, attemptId: value.plan.candidate.attemptId,
+      laneId: 'browser-contract', namespace: value.plan.candidate.runId },
     sourceState: value.sourceState,
     build: { receipt: value.relative(value.buildFile), receiptContentDigest: value.build.contentDigest,
       sourceState: value.sourceState, profile: 'production-fresh' },
     fixture: { namespace: value.plan.candidate.runId, capabilities: {}, lifecycle: { identity: {
-      commit: value.commit, runId: value.plan.candidate.runId, laneId: 'browser-contract', namespace: value.plan.candidate.runId
+      commit: value.commit, runId: value.plan.candidate.runId, attemptId: value.plan.candidate.attemptId,
+      laneId: 'browser-contract', namespace: value.plan.candidate.runId
     } } },
     playwright: { chromiumRevision: '123456', chromiumVersion: '140.0.0', browserIdentity: { plan: browserPlan, actual: browserActual } },
     topology: { runner: 'playwright-library', browserType: 'chromium', managedBrowser: true,
@@ -110,13 +112,22 @@ function fixture(context)
 {
   const value = createPostRuntimeCandidateFixture(context, { prefix: 'aot-spa-hydration-raw-', runId: 'run-aot-current-0001' })
   const manifestArtifact = value.build.artifacts.find(({ path: artifactPath }) => artifactPath.endsWith('/.vite/manifest.json'))
+  const assetRoot = path.join(value.directory, 'runtime-assets', value.plan.candidate.releaseId)
+  const retainedManifest = path.join(assetRoot, '.vite', 'manifest.json')
+  const assetInventory = path.join(assetRoot, 'asset-manifest.json')
+  fs.mkdirSync(path.dirname(retainedManifest), { recursive: true })
+  fs.copyFileSync(path.join(value.artifactRoot, manifestArtifact.path), retainedManifest)
+  writeJson(assetInventory, {
+    schema: 'fsusblog.release-assets.v1', releaseId: value.plan.candidate.releaseId,
+    slot: 'green', frontendBuildId: value.plan.candidate.releaseId, files: [], compatibilityFile: null
+  })
   const manifest = seal({
     schema: 'fsusblog.spa-manifest-descriptor.v1', releaseId: value.plan.candidate.releaseId,
     sourceCommit: value.commit, worktreeFingerprint: `sha256:${value.worktreeFingerprint}`,
     buildReceiptDigest: value.build.contentDigest,
-    assetRoot: `/app/release-assets/${value.plan.candidate.releaseId}`,
-    manifestPath: `/app/release-assets/${value.plan.candidate.releaseId}/.vite/manifest.json`,
-    manifestDigest: manifestArtifact.sha256, assetInventoryDigest: `sha256:${'c'.repeat(64)}`
+    assetRoot,
+    manifestPath: retainedManifest,
+    manifestDigest: manifestArtifact.sha256, assetInventoryDigest: fileDigest(assetInventory)
   })
   const manifestFile = value.write('manifest-descriptor.json', manifest)
   const browser = browserReceipt(value)
@@ -127,11 +138,18 @@ function fixture(context)
   return { ...value, evidence, source, sourceFile, browser, browserFile }
 }
 
+function writeJson(file, value)
+{
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`)
+}
+
 test('projects and independently replays canonical browser/server AOT outputs', (context) =>
 {
   const value = fixture(context)
   const receipt = projectAotSpaHydrationRaw({ candidatePlan: value.relative(value.planFile),
     sourceReceipt: value.relative(value.sourceFile), repositoryRoot: root })
+  assert.match(receipt.independentVerifyCommand, /verify --candidate-plan .* --receipt /u)
   const rawPath = value.observationPaths['aot-spa-hydration']
   fs.writeFileSync(path.join(root, rawPath), `${JSON.stringify(receipt, null, 2)}\n`)
   assert.equal(verifyAotSpaHydrationRaw(rawPath, root, value.relative(value.planFile)).contentDigest, receipt.contentDigest)
@@ -164,6 +182,40 @@ test('verifier rejects canonical Browser Contract bytes changed after source bun
     /(?:browserContract evidence bytes changed|aot upstream evidence browserContract file digest mismatch)/u)
 })
 
+test('rejects Browser Contract evidence from another current-run attempt', (context) =>
+{
+  const value = fixture(context)
+  const browser = structuredClone(value.browser)
+  browser.runIdentity.attemptId = 'attempt-0002'
+  browser.fixture.lifecycle.identity.attemptId = 'attempt-0002'
+  value.write('browser-contract.json', sealBrowserContractReceipt(browser))
+  const source = produceAotSpaHydrationSourceBundle({ candidatePlan: value.relative(value.planFile),
+    evidence: value.evidence, repositoryRoot: root })
+  value.write('aot-source-bundle.json', source)
+  assert.throws(() => projectAotSpaHydrationRaw({ candidatePlan: value.relative(value.planFile),
+    sourceReceipt: value.relative(value.sourceFile), repositoryRoot: root }), /identity does not match the candidate/u)
+})
+
+test('rejects a source bundle whose candidate plan byte reference was coordinated-resealed', (context) =>
+{
+  const value = fixture(context)
+  const source = structuredClone(value.source)
+  source.candidatePlanRef.fileDigest = `sha256:${'0'.repeat(64)}`
+  value.write('aot-source-bundle.json', seal(source))
+  assert.throws(() => projectAotSpaHydrationRaw({ candidatePlan: value.relative(value.planFile),
+    sourceReceipt: value.relative(value.sourceFile), repositoryRoot: root }), /candidate binding mismatch/u)
+})
+
+test('raw verifier rejects a relocated extra result outside the candidate plan', (context) =>
+{
+  const value = fixture(context)
+  const receipt = projectAotSpaHydrationRaw({ candidatePlan: value.relative(value.planFile),
+    sourceReceipt: value.relative(value.sourceFile), repositoryRoot: root })
+  const relocated = value.write('relocated-aot-raw.json', receipt)
+  assert.throws(() => verifyAotSpaHydrationRaw(value.relative(relocated), root, value.relative(value.planFile)),
+    /path does not exact-match candidate plan/u)
+})
+
 test('verifier rejects immutable production manifest drift', (context) =>
 {
   const value = fixture(context)
@@ -175,4 +227,25 @@ test('verifier rejects immutable production manifest drift', (context) =>
   fs.chmodSync(manifest, 0o644)
   fs.appendFileSync(manifest, ' ')
   assert.throws(() => verifyAotSpaHydrationRaw(rawPath, root, value.relative(value.planFile)), /artifact (?:size|digest) mismatch/u)
+})
+
+test('rejects descriptor release paths and retained inventory bytes that do not bind the candidate', (context) =>
+{
+  const release = fixture(context)
+  const changedRelease = structuredClone(release.evidence)
+  const descriptor = structuredClone(JSON.parse(fs.readFileSync(path.join(release.directory, 'manifest-descriptor.json'), 'utf8')))
+  descriptor.releaseId = '20260830000000-aaaaaaaaaaaa'
+  delete descriptor.contentDigest
+  release.write('manifest-descriptor.json', seal(descriptor))
+  const source = produceAotSpaHydrationSourceBundle({ candidatePlan: release.relative(release.planFile),
+    evidence: changedRelease, repositoryRoot: root })
+  release.write('aot-source-bundle.json', source)
+  assert.throws(() => projectAotSpaHydrationRaw({ candidatePlan: release.relative(release.planFile),
+    sourceReceipt: release.relative(release.sourceFile), repositoryRoot: root }), /does not exact-match the candidate build/u)
+
+  const inventory = fixture(context)
+  const inventoryFile = path.join(inventory.directory, 'runtime-assets', inventory.plan.candidate.releaseId, 'asset-manifest.json')
+  fs.appendFileSync(inventoryFile, ' ')
+  assert.throws(() => projectAotSpaHydrationRaw({ candidatePlan: inventory.relative(inventory.planFile),
+    sourceReceipt: inventory.relative(inventory.sourceFile), repositoryRoot: root }), /asset inventory bytes/u)
 })

@@ -1162,7 +1162,6 @@ jobs:
             FSUSBLOG_BROWSER_CONTRACT_SESSIONS: "1"
             FSUSBLOG_BROWSER_CONTRACT_CONCURRENCY: "1"
             FSUSBLOG_BROWSER_CONTRACT_TIMEOUT: 7m
-            FSUSBLOG_BROWSER_CONTRACT_RUN_ID: browser-contract-${{ github.run_id }}-${{ github.run_attempt }}
             FSUSBLOG_BROWSER_CONTRACT_OUTPUT: ${{ github.workspace }}/.tmp/browser-contract
             FSUSBLOG_BROWSER_CONTRACT_BUILD_RECEIPT: ${{ github.workspace }}/.tmp/downloaded-production-build/receipt.json
             FSUSBLOG_TEST_SOURCE_COMMIT: ${{ github.sha }}

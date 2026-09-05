@@ -151,7 +151,7 @@ function fixture(context)
     schema: 'fsusblog.browser-contract-receipt.v2',
     status: 'success',
     classification: 'clean',
-    runIdentity: { commit, runId, laneId: 'browser-contract', namespace: 'browser-observation-test' },
+    runIdentity: { commit, runId, attemptId: 'attempt-0001', laneId: 'browser-contract', namespace: 'browser-observation-test' },
     sourceState: { commit, worktreeFingerprint: fingerprint },
     build: {
       receipt: relative(buildFile),
@@ -162,7 +162,7 @@ function fixture(context)
     fixture: {
       namespace: 'browser-observation-test',
       capabilities: { webAuthnRegistration: true },
-      lifecycle: { identity: { commit, runId, laneId: 'browser-contract', namespace: 'browser-observation-test' } }
+      lifecycle: { identity: { commit, runId, attemptId: 'attempt-0001', laneId: 'browser-contract', namespace: 'browser-observation-test' } }
     },
     playwright: {
       chromiumRevision: '123456',
@@ -216,6 +216,7 @@ test('browser raw projector binds exact tests, dimensions, semantics, and curren
 {
   const value = fixture(context)
   const raw = project(value)
+  assert.match(raw.independentVerifyCommand, /verify --candidate-plan .* --receipt /u)
   assert.equal(raw.schema, 'fsusblog.browser-contract-receipt.v2')
   if ('contractTestId' in raw.semanticFacts)
   {
@@ -248,6 +249,7 @@ test('browser raw projector binds exact tests, dimensions, semantics, and curren
     assert.equal(raw.sourceState.browserIdentity, `${runId}-browser-contract`)
   }
   assert.equal(raw.sourceState.runId, runId)
+  assert.equal(raw.sourceState.attemptId, 'attempt-0001')
 
   fs.writeFileSync(path.join(value.repositoryRoot, value.rawPath), `${JSON.stringify(raw, null, 2)}\n`)
   assert.equal(verifyBrowserContractRaw(
@@ -260,11 +262,22 @@ test('browser raw projector binds exact tests, dimensions, semantics, and curren
   }).status, 'qualified')
 })
 
+test('quality gate keeps Browser Contract on the canonical parent run authority', () =>
+{
+  const workflow = fs.readFileSync(path.join(root, '.github/workflows/quality-gate.yml'), 'utf8')
+  const browserJob = workflow.slice(workflow.indexOf('\n    browser-contract:'), workflow.indexOf('\n    resilience-runtime:'))
+  assert.doesNotMatch(browserJob, /FSUSBLOG_BROWSER_CONTRACT_RUN_ID:/u)
+  const lifecycle = fs.readFileSync(path.join(root, 'tests/browser-contract/fixture-lifecycle.mjs'), 'utf8')
+  assert.match(lifecycle, /FSUSBLOG_TEST_RUN_ID/u)
+  assert.match(lifecycle, /Browser Contract run authorities disagree/u)
+})
+
 test('browser raw projector rejects diagnostic, partial, stale, and screenshot-only-shaped receipts', (context) =>
 {
   const cases = [
     ['diagnostic schema', (browser) => { browser.schema = 'fsusblog.browser-diagnostics-receipt.v2' }, /non-qualifying/u],
     ['another candidate run', (browser) => { browser.runIdentity.runId = 'other-run' }, /identities do not exact-match/u],
+    ['another candidate attempt', (browser) => { browser.runIdentity.attemptId = 'attempt-0002' }, /identities do not exact-match/u],
     ['missing required test', (browser) => {
       browser.scenarios.pop()
       browser.topology.contextCount = browser.scenarios.length

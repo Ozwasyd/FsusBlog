@@ -17,11 +17,19 @@ import {
   observationSourceState,
   seal,
   validateAcceptedClaims,
-  validateCandidatePlan
+  validateCandidatePlan,
+  validateClassReceipt
 } from '../../tools/fact-extractors/post-runtime/adapter.mjs'
-import { produceApplicationRuntimeObservation } from '../../tools/fact-extractors/post-runtime/application-runtime.mjs'
-import { produceReleaseDeploymentObservation } from '../../tools/fact-extractors/post-runtime/release-deployment.mjs'
+import {
+  produceApplicationRuntimeObservation,
+  validateApplicationRuntimeObservation
+} from '../../tools/fact-extractors/post-runtime/application-runtime.mjs'
+import {
+  produceReleaseDeploymentObservation,
+  validateReleaseDeploymentObservation
+} from '../../tools/fact-extractors/post-runtime/release-deployment.mjs'
 import { root } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
+import { createRunId } from '../../tools/test-matrix/scheduler.mjs'
 
 const commit = resolveSourceCommit(root)
 const fingerprint = resolveWorktreeFingerprint(root)
@@ -198,6 +206,10 @@ test('current-run application producer binds #2205 claims, one plan, and exact f
   })
   assert.equal(receipt.status, 'qualified')
   assert.equal(receipt.observations.length, 5)
+  assert.equal(receipt.observations.every(({ classReceiptRef }) => classReceiptRef?.role === 'class'), true)
+  assert.equal(receipt.observations.every(({ rawResultRef }) => rawResultRef?.role === 'raw-result'), true)
+  assert.equal(validateApplicationRuntimeObservation(receipt, { repositoryRoot: root }).contentDigest,
+    receipt.contentDigest)
 })
 
 test('current-run release producer binds the exact release and deployment class receipts', (context) =>
@@ -212,6 +224,44 @@ test('current-run release producer binds the exact release and deployment class 
   assert.deepEqual(receipt.observations.map(({ classId }) => classId), [
     'blue-green-containment', 'release-identity-readiness'
   ])
+  assert.equal(validateReleaseDeploymentObservation(receipt, { repositoryRoot: root }).contentDigest,
+    receipt.contentDigest)
+})
+
+test('aggregate verifier independently reopens class and raw receipt bytes', (context) =>
+{
+  const value = fixture(context)
+  const receipt = produceApplicationRuntimeObservation({
+    candidatePlan: value.relative('plan.json'), acceptedClaimsReceipt: value.relative('claims.json'),
+    classReceipts: ['aot-spa-hydration', 'browser-behavior-contract', 'cache-search-outbox-convergence',
+      'route-response-error', 'session-cookie-runtime'].map((id) => value.relative(`${id}-receipt.json`)), repositoryRoot: root
+  })
+  const classPath = path.join(root, receipt.observations[0].classReceiptRef.path)
+  fs.appendFileSync(classPath, ' ')
+  assert.throws(() => validateApplicationRuntimeObservation(receipt, { repositoryRoot: root }),
+    /reference bytes, content, or schema changed/u)
+})
+
+test('class receipt is self-contained and rejects byte-only raw result tamper', (context) =>
+{
+  const value = fixture(context)
+  const receipt = value.classReceipts['route-response-error']
+  assert.equal(receipt.candidatePlanRef.schema, 'fsusblog.post-runtime-candidate-plan.v1')
+  assert.equal(receipt.rawResultRef.role, 'raw-result')
+  assert.equal(validateClassReceipt(receipt, { repositoryRoot: root }).contentDigest, receipt.contentDigest)
+  fs.appendFileSync(path.join(root, receipt.rawResultRef.path), ' ')
+  assert.throws(() => validateClassReceipt(receipt, { repositoryRoot: root }),
+    /raw result reference bytes, content, or schema changed/u)
+})
+
+test('class receipt verifier rejects a hard-linked raw result authority', (context) =>
+{
+  const value = fixture(context)
+  const receipt = structuredClone(value.classReceipts['route-response-error'])
+  const original = path.join(root, receipt.rawResultRef.path)
+  const alias = path.join(path.dirname(original), 'route-response-error-hardlink.json')
+  fs.linkSync(original, alias)
+  assert.throws(() => validateClassReceipt(receipt, { repositoryRoot: root }), /single-link current-run file/u)
 })
 
 test('class producer rejects existence-only and cross-plan results', (context) =>
@@ -256,6 +306,47 @@ test('candidate plans bind the current registry/schema/tool identity', (context)
     result: value.relative('route-response-error.json'),
     repositoryRoot: root
   }), /registry\/schema\/tool identity binding mismatch/u)
+})
+
+test('candidate context accepts the canonical scheduler run identity', (context) =>
+{
+  const value = fixture(context)
+  const schedulerRunId = createRunId('post-runtime-candidate-plan')
+  const receipt = produceCandidateContext({
+    preRuntimeReceipt: value.relative('pre.json'),
+    runId: schedulerRunId,
+    attemptId: 'attempt-0002',
+    candidate: { releaseId: `20260830123456-${commit.slice(0, 12)}` },
+    repositoryRoot: root
+  })
+  assert.equal(receipt.candidate.runId, schedulerRunId)
+  assert.equal(receipt.candidate.attemptId, 'attempt-0002')
+})
+
+test('candidate verifier rejects absolute or noncanonical observation paths', (context) =>
+{
+  const value = fixture(context)
+  const planFile = path.join(root, value.relative('plan.json'))
+  const plan = JSON.parse(fs.readFileSync(planFile, 'utf8'))
+  plan.observations[0].receiptPath = path.join(root, '.tmp', 'outside-plan.json')
+  assert.throws(() => validateCandidatePlan(seal(plan), { repositoryRoot: root }),
+    /canonical repository-relative current-run JSON/u)
+})
+
+test('candidate plan rejects non-current-run and duplicate class output paths', (context) =>
+{
+  for (const [label, mutate, pattern] of [
+    ['non-current-run path', (plan) => { plan.observations[0].receiptPath = 'artifacts/result.json' },
+      /canonical repository-relative current-run JSON/u],
+    ['duplicate output path', (plan) => { plan.observations[1].receiptPath = plan.observations[0].receiptPath },
+      /output paths must be exact-one per class/u]
+  ])
+  {
+    const value = fixture(context)
+    const plan = JSON.parse(fs.readFileSync(path.join(root, value.relative('plan.json')), 'utf8'))
+    mutate(plan)
+    assert.throws(() => validateCandidatePlan(seal(plan), { repositoryRoot: root }), pattern, label)
+  }
 })
 
 test('current-run adapters reject symlinked JSON inputs', (context) =>

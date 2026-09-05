@@ -6,7 +6,7 @@ import test from 'node:test'
 
 import { resolveSourceCommit, resolveWorktreeFingerprint } from '../../tools/fact-extractors/identity.mjs'
 import { seal } from '../../tools/fact-extractors/post-runtime/adapter.mjs'
-import { projectProbeRaw } from '../../tools/test-evidence/runtime-observation-raw.mjs'
+import { projectProbeRaw, verifyProjectedRaw } from '../../tools/test-evidence/runtime-observation-raw.mjs'
 import { verifyFacts, verifyReceipt } from '../../tools/test-evidence/runtime-observation-probes.mjs'
 import { projectPreparedPublicIds } from '../../tools/test-fixtures/receipt/projection.mjs'
 import { root } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
@@ -19,7 +19,7 @@ const digest = (character) => `sha256:${character.repeat(64)}`
 const fileDigest = (file) => `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`
 const sha = (value) => `sha256:${createHash('sha256').update(value).digest('hex')}`
 
-function routeFacts(prepared, prepareStateDigest)
+function routeFacts(prepared, prepareStateDigest, releaseId)
 {
   const projection = projectPreparedPublicIds(prepared)
   const value = (id, status, typedKind, hash, overrides = {}) => ({
@@ -34,7 +34,10 @@ function routeFacts(prepared, prepareStateDigest)
     typedKind,
     typedEntityId: null,
     typedTitleDigest: null,
+    typedCode: null,
+    typedCategory: null,
     typedStatusCode: null,
+    typedMessageDigest: null,
     decodeError: null,
     ...overrides
   })
@@ -50,16 +53,22 @@ function routeFacts(prepared, prepareStateDigest)
     cases: [
       value('public-visible-first-read', 200, 'payload', '1', {
         headers: { 'content-type': 'application/octet-stream', 'x-fsus-frame-version': '2',
-          'x-fsus-generation': '1', etag: '"fixture-etag"' },
+          'x-fsus-generation': '1', 'x-fsus-release-id': releaseId, etag: '"fixture-etag"' },
         typedEntityId: Number(projection.articleId), typedTitleDigest: sha(projection.articleTitle)
       }),
       value('public-visible-cache-revalidation', 304, 'payload', '2', {
         headers: { etag: '"fixture-etag"' }
       }),
-      value('public-missing-typed-error', 404, 'typed-error', '3', { typedStatusCode: 404 }),
-      value('anonymous-auth-denied', 401, 'typed-error', '4'),
+      value('public-missing-typed-error', 404, 'typed-error', '3', {
+        typedCode: 2, typedCategory: 4, typedStatusCode: 404, typedMessageDigest: sha('article_not_found')
+      }),
+      value('anonymous-auth-denied', 401, 'typed-error', '4', {
+        typedCode: 4, typedCategory: 2, typedStatusCode: 401, typedMessageDigest: digest('4')
+      }),
       value('user-self-visible', 200, 'payload', '5'),
-      value('user-admin-denied', 403, 'typed-error', '6'),
+      value('user-admin-denied', 403, 'typed-error', '6', {
+        typedCode: 5, typedCategory: 3, typedStatusCode: 403, typedMessageDigest: digest('6')
+      }),
       value('admin-list-visible', 200, 'payload', '7')
     ],
     coherent: true
@@ -110,7 +119,17 @@ function fixture(context)
       runId,
       attemptId: 'attempt-0001',
       buildIdentity: build.contentDigest,
-      fixtureIdentity: fileDigest(fixturePath)
+      fixtureIdentity: fileDigest(fixturePath),
+      candidateId: candidate.plan.candidate.candidateId,
+      runtimeId: candidate.plan.candidate.runtimeId,
+      releaseId: candidate.plan.candidate.releaseId,
+      candidatePlanDigest: candidate.plan.contentDigest
+    },
+    candidatePlanRef: {
+      path: relative(candidate.planFile),
+      fileDigest: fileDigest(candidate.planFile),
+      contentDigest: candidate.plan.contentDigest,
+      schema: candidate.plan.schema
     },
     buildReceipt: { path: relative(buildPath), contentDigest: fileDigest(buildPath) },
     fixtureReceipt: { path: relative(fixturePath), contentDigest: fileDigest(fixturePath) },
@@ -120,7 +139,7 @@ function fixture(context)
       syntheticSemanticResult: false,
       rerunCommand: 'node tools/test-evidence/runtime-observation-probes.mjs probe --kind route-response-error'
     },
-    facts: routeFacts(prepared, fileDigest(fixturePath)),
+    facts: routeFacts(prepared, fileDigest(fixturePath), candidate.plan.candidate.releaseId),
     terminalStatus: 'verified'
   })
   fs.writeFileSync(probePath, `${JSON.stringify(receipt)}\n`)
@@ -160,7 +179,7 @@ test('probe verifier rejects a symlinked current-run dependency', (context) =>
   const target = path.join(value.directory, 'fixture-target.json')
   fs.renameSync(value.fixturePath, target)
   fs.symlinkSync(target, value.fixturePath)
-  assert.throws(() => verifyReceipt(value.receipt), /regular non-symlink current-run file/u)
+  assert.throws(() => verifyReceipt(value.receipt), /regular non-symlink (?:single-link )?current-run file/u)
 })
 
 test('raw projector binds a verified probe to the exact candidate and toolchain', (context) =>
@@ -172,6 +191,7 @@ test('raw projector binds a verified probe to the exact candidate and toolchain'
     probeReceipt: value.relative(value.probePath),
     repositoryRoot: root
   })
+  assert.match(raw.independentVerifyCommand, /verify --candidate-plan .* --receipt /u)
   assert.equal(raw.schema, 'fsusblog.observation.route-response-error.v1')
   assert.equal(raw.producerId, 'production-correctness-scheduler')
   if ('requestIdentity' in raw.semanticFacts)
@@ -202,6 +222,7 @@ test('production correctness wires probes after current backend identity checks'
   assert.match(lane, /Jwt__SecretKey=\*\|Jwt__KeyVersion=\*\|Jwt__Issuer=\*\|Jwt__Audience=\*/u)
   assert.doesNotMatch(lane, /env\s*>|printenv/u)
   assert.match(lane, /runtime-observation-probes\/\$RUN_ID\/\$ATTEMPT_ID/u)
+  assert.match(lane, /FSUSBLOG_PRODUCTION_FRESH_ATTEMPT_ID/u)
   assert.doesNotMatch(lane, /rm -f "\$output"/u)
   const probeOffset = scheduler.indexOf('runtime-observation-probes.sh')
   const receiptOffset = scheduler.indexOf('create-correctness')
@@ -222,6 +243,21 @@ test('raw projector rejects a probe from another attempt', (context) =>
   }), /probe, build, and candidate plan identities do not exact-match/u)
 })
 
+test('raw verifier rejects a relocated extra result outside the candidate plan', (context) =>
+{
+  const value = fixture(context)
+  const plan = candidatePlan(value)
+  const raw = projectProbeRaw({
+    candidatePlan: value.relative(plan.planPath),
+    probeReceipt: value.relative(value.probePath),
+    repositoryRoot: root
+  })
+  const relocated = path.join(value.directory, 'relocated-route-raw.json')
+  fs.writeFileSync(relocated, `${JSON.stringify(raw)}\n`)
+  assert.throws(() => verifyProjectedRaw(
+    value.relative(relocated), root, value.relative(plan.planPath)), /path does not exact-match candidate plan/u)
+})
+
 test('route probe facts reject partial and mismatched semantic relations', () =>
 {
   const prepared = {
@@ -237,24 +273,27 @@ test('route probe facts reject partial and mismatched semantic relations', () =>
       projection: { articleId: '11', articleTitle: 'Current article', categoryId: '12', tagId: '13', searchKeyword: 'CURRENT_BODY' }
     } }
   }
-  const partial = routeFacts(prepared, digest('e'))
+  const expectedReleaseId = '20260830123456-aaaaaaaaaaaa'
+  const partial = routeFacts(prepared, digest('e'), expectedReleaseId)
   partial.cases.pop()
-  assert.throws(() => verifyFacts('route-response-error', partial), /exact real request closure/u)
+  assert.throws(() => verifyFacts('route-response-error', partial, { expectedReleaseId }), /exact real request closure/u)
 
-  const mismatched = routeFacts(prepared, digest('e'))
+  const mismatched = routeFacts(prepared, digest('e'), expectedReleaseId)
   mismatched.cases.find((entry) => entry.id === 'user-admin-denied').status = 200
-  assert.throws(() => verifyFacts('route-response-error', mismatched), /role\/auth\/visibility\/cache relations/u)
+  assert.throws(() => verifyFacts('route-response-error', mismatched, { expectedReleaseId }), /role\/auth\/visibility\/cache relations/u)
 
   for (const mutate of [
     (facts) => { facts.cases[0].typedEntityId = 99 },
     (facts) => { facts.cases[0].typedTitleDigest = digest('f') },
     (facts) => { delete facts.cases[0].headers['x-fsus-frame-version'] },
-    (facts) => { facts.cases[1].headers.etag = '"stale-etag"' }
+    (facts) => { facts.cases[1].headers.etag = '"stale-etag"' },
+    (facts) => { facts.cases[2].typedCode = 3 },
+    (facts) => { facts.cases[3].typedPayloadDigest = null }
   ])
   {
-    const stale = routeFacts(prepared, digest('e'))
+    const stale = routeFacts(prepared, digest('e'), expectedReleaseId)
     mutate(stale)
-    assert.throws(() => verifyFacts('route-response-error', stale), /role\/auth\/visibility\/cache relations/u)
+    assert.throws(() => verifyFacts('route-response-error', stale, { expectedReleaseId }), /role\/auth\/visibility\/cache relations/u)
   }
 })
 
@@ -271,4 +310,75 @@ test('cache and session probe facts reject partial terminal relations', () =>
     cookie: { sessionMatches: true }, expiry: { ordered: true }, revision: { current: true },
     device: { matches: true }, service: { currentSessionMatches: true, status: { me: 200, sessions: 200 } }
   }), /DB\/JWT\/cookie\/service relations/u)
+})
+
+test('cache facts reject wrong release paths, duplicate events, and unsealed generations', () =>
+{
+  const expectedReleaseId = '20260830123456-aaaaaaaaaaaa'
+  const facts = {
+    schema: 'fsusblog.cache-search-outbox-probe-facts.v1', coherent: true,
+    terminal: { state: 'converged', processedEvents: 1, poisonEvents: 0 },
+    events: [{ id: 1, status: 'processed', last_error: null }],
+    edges: { eventTypes: ['article-published'] },
+    authorityCoordinate: { articleIdDigest: digest('1'), mutationIdDigest: digest('2') },
+    generation: { valueDigest: digest('3'), present: true },
+    query: {
+      searchIndexDigest: digest('4'),
+      releaseScopedPath: `/release-derived/${expectedReleaseId}/search/index.bin`,
+      releaseId: expectedReleaseId,
+      containsMarker: true
+    },
+    readModel: {
+      projectionDigest: digest('5'), detailDigest: digest('6'),
+      detailTitleDigest: digest('7'), visible: true
+    },
+    output: { navigationDigest: digest('8'), envelopeDigest: digest('9'), containsMarker: true }
+  }
+  assert.doesNotThrow(() => verifyFacts('cache-search-outbox-convergence', facts, { expectedReleaseId }))
+  for (const mutate of [
+    (value) => { value.query.releaseScopedPath = '/release-derived/other/search/index.bin' },
+    (value) => {
+      value.terminal.processedEvents = 2
+      value.events.push(structuredClone(value.events[0]))
+      value.edges.eventTypes.push('article-published')
+    },
+    (value) => { value.generation.present = false }
+  ])
+  {
+    const changed = structuredClone(facts)
+    mutate(changed)
+    assert.throws(() => verifyFacts('cache-search-outbox-convergence', changed, { expectedReleaseId }),
+      /stale or partial/u)
+  }
+})
+
+test('session facts require distinct positive, negative, and revoked-session failure outcomes', () =>
+{
+  const expectedReleaseId = '20260830123456-aaaaaaaaaaaa'
+  const facts = {
+    schema: 'fsusblog.session-cookie-runtime-probe-facts.v1', coherent: true,
+    database: { sessionDigest: digest('1'), sessionIdDigest: digest('b'), refreshTokenHashDigest: digest('c') },
+    credential: { matches: true, presentedRefreshHashDigest: digest('2'),
+      storedRefreshHashDigest: digest('3') },
+    authContext: { jwtMatches: true, digest: digest('4') },
+    jwt: { sessionMatches: true, tokenDigest: digest('d'), claimsDigest: digest('5') },
+    cookie: { sessionMatches: true, digest: digest('6') }, expiry: { ordered: true, digest: digest('7') },
+    revision: { current: true, digest: digest('8') }, device: { matches: true, digest: digest('9') },
+    service: { currentSessionMatches: true, status: { me: 200, sessions: 200 }, digest: digest('a'),
+      releaseIds: [expectedReleaseId, expectedReleaseId] },
+    modeOutcomes: {
+      positive: { caseId: 'current-session-coherence', status: 200, releaseId: expectedReleaseId, passed: true },
+      negative: { caseId: 'replaced-session-refresh-denied', status: 401, releaseId: expectedReleaseId, passed: true },
+      failure: { caseId: 'revoked-session-refresh-denied', revokeStatus: 200, refreshStatus: 403,
+        releaseIds: [expectedReleaseId, expectedReleaseId], passed: true }
+    }
+  }
+  assert.doesNotThrow(() => verifyFacts('session-cookie-runtime', facts, { expectedReleaseId }))
+  for (const mode of ['positive', 'negative', 'failure'])
+  {
+    const changed = structuredClone(facts)
+    changed.modeOutcomes[mode].passed = false
+    assert.throws(() => verifyFacts('session-cookie-runtime', changed, { expectedReleaseId }),
+      /DB\/JWT\/cookie\/service relations/u)
+  }
 })

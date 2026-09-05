@@ -4,7 +4,14 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 NODE_BIN="${FSUSBLOG_NODE:-node}"
 RUN_ID="${FSUSBLOG_TEST_RUN_ID:?FSUSBLOG_TEST_RUN_ID is required}"
-ATTEMPT_ID="${FSUSBLOG_TEST_ATTEMPT_ID:-attempt-0001}"
+PRODUCTION_ATTEMPT_ID="${FSUSBLOG_PRODUCTION_FRESH_ATTEMPT_ID:-}"
+TEST_ATTEMPT_ID="${FSUSBLOG_TEST_ATTEMPT_ID:-}"
+if [[ -n "$PRODUCTION_ATTEMPT_ID" && -n "$TEST_ATTEMPT_ID" && "$PRODUCTION_ATTEMPT_ID" != "$TEST_ATTEMPT_ID" ]]; then
+    printf '[runtime-observation-probes] attempt authorities disagree\n' >&2
+    exit 1
+fi
+ATTEMPT_ID="${PRODUCTION_ATTEMPT_ID:-${TEST_ATTEMPT_ID:-attempt-0001}}"
+[[ "$ATTEMPT_ID" =~ ^attempt-[0-9]{4}$ ]] || { printf '[runtime-observation-probes] attempt identity is invalid\n' >&2; exit 1; }
 SOURCE_COMMIT="${FSUSBLOG_TEST_SOURCE_COMMIT:?FSUSBLOG_TEST_SOURCE_COMMIT is required}"
 SOURCE_FINGERPRINT="${FSUSBLOG_TEST_SOURCE_FINGERPRINT:?FSUSBLOG_TEST_SOURCE_FINGERPRINT is required}"
 BUILD_RECEIPT="${FSUSBLOG_CI_PRODUCTION_BUILD_RECEIPT:-$ROOT_DIR/.tmp/ci-production-build/receipt.json}"
@@ -12,16 +19,18 @@ FIXTURE_RECEIPT="${FSUSBLOG_FIXTURE_PREPARE_RECEIPT:-$ROOT_DIR/.tmp/fixtures/$RU
 RUNTIME_DIR="${FSUSBLOG_ACCEPTANCE_RUNTIME_DIR:-$ROOT_DIR/.tmp/acceptance/$RUN_ID}"
 BACKEND_IDENTITY="${FSUSBLOG_BACKEND_PROCESS_IDENTITY:-$RUNTIME_DIR/backend.identity.json}"
 OUT_DIR="${FSUSBLOG_RUNTIME_OBSERVATION_PROBE_DIR:-$ROOT_DIR/.tmp/runtime-observation-probes/$RUN_ID/$ATTEMPT_ID}"
+PLAN_RECEIPT="${FSUSBLOG_POST_RUNTIME_CANDIDATE_PLAN:-$ROOT_DIR/.tmp/post-runtime-plan/$RUN_ID/$ATTEMPT_ID/candidate-plan.json}"
 
 [[ -r "$BACKEND_IDENTITY" ]] || {
     printf '[runtime-observation-probes] backend identity is missing: %s\n' "$BACKEND_IDENTITY" >&2
     exit 1
 }
 
-backend_pid="$($NODE_BIN - "$BACKEND_IDENTITY" "$RUN_ID" "$SOURCE_COMMIT" "$SOURCE_FINGERPRINT" <<'NODE'
+backend_pid="$($NODE_BIN - "$BACKEND_IDENTITY" "$PLAN_RECEIPT" "$RUN_ID" "$ATTEMPT_ID" "$SOURCE_COMMIT" "$SOURCE_FINGERPRINT" <<'NODE'
 const fs = require('node:fs')
-const [identityPath, runId, commit, fingerprint] = process.argv.slice(2)
+const [identityPath, planPath, runId, attemptId, commit, fingerprint] = process.argv.slice(2)
 const identity = JSON.parse(fs.readFileSync(identityPath, 'utf8'))
+const plan = JSON.parse(fs.readFileSync(planPath, 'utf8'))
 if (identity.schema !== 'fsusblog.local-runtime-process-identity.v1'
   || identity.role !== 'backend' || identity.runId !== runId || identity.namespace !== runId
   || identity.sourceState?.commit !== commit
@@ -31,12 +40,30 @@ if (identity.schema !== 'fsusblog.local-runtime-process-identity.v1'
 {
   throw new Error('backend process identity does not match the current run')
 }
+if (plan.schema !== 'fsusblog.post-runtime-candidate-plan.v1'
+  || plan.status !== 'planned'
+  || plan.sourceState?.commit !== commit
+  || String(plan.sourceState?.worktreeFingerprint ?? '').replace(/^sha256:/u, '') !== fingerprint.replace(/^sha256:/u, '')
+  || plan.candidate?.runId !== runId
+  || plan.candidate?.attemptId !== attemptId)
+{
+  throw new Error('candidate plan identity does not match the runtime probe')
+}
 const stat = fs.readFileSync(`/proc/${identity.pid}/stat`, 'utf8')
 const close = stat.lastIndexOf(')')
 const fields = stat.slice(close + 2).split(' ')
 if (fields[19] !== String(identity.startTimeTicks)) throw new Error('backend PID start-time identity changed')
 const cwd = fs.realpathSync(`/proc/${identity.pid}/cwd`)
 if (cwd !== fs.realpathSync(process.cwd())) throw new Error('backend process belongs to another worktree')
+const environment = Object.fromEntries(fs.readFileSync(`/proc/${identity.pid}/environ`, 'utf8')
+  .split('\0').filter(Boolean).map((entry) => {
+    const separator = entry.indexOf('=')
+    return separator < 1 ? [entry, ''] : [entry.slice(0, separator), entry.slice(separator + 1)]
+  }))
+if (environment.FSUSBLOG_RELEASE_ID !== plan.candidate.releaseId)
+{
+  throw new Error('backend release identity does not match the candidate plan')
+}
 process.stdout.write(String(identity.pid))
 NODE
 )"
@@ -56,6 +83,7 @@ if [[ "$jwt_field_count" -ne 4 ]]; then
 fi
 
 export FSUSBLOG_TEST_ATTEMPT_ID="$ATTEMPT_ID"
+export FSUSBLOG_POST_RUNTIME_CANDIDATE_PLAN="$PLAN_RECEIPT"
 export FSUSBLOG_RUNTIME_OBSERVATION_TIMEOUT_MS="${FSUSBLOG_RUNTIME_OBSERVATION_TIMEOUT_MS:-120000}"
 mkdir -p "$OUT_DIR"
 
@@ -63,6 +91,7 @@ for kind in route-response-error session-cookie-runtime cache-search-outbox-conv
     output="$OUT_DIR/$kind.json"
     "$NODE_BIN" "$ROOT_DIR/tools/test-evidence/runtime-observation-probes.mjs" probe \
         --kind "$kind" \
+        --candidate-plan "$PLAN_RECEIPT" \
         --build "$BUILD_RECEIPT" \
         --fixture "$FIXTURE_RECEIPT" \
         --out "$output"
