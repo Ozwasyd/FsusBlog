@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 
-import { createDockerRegistryReader, dockerRepository, readDockerTags } from '../../tools/governance/dependency-docker-registry.mjs';
+import { createDockerRegistryReader, dockerRepository, readDockerManifest, readDockerTags } from '../../tools/governance/dependency-docker-registry.mjs';
 
 function page(tags, link, name = 'library/node')
 {
@@ -79,4 +80,40 @@ test('token permission errors propagate without credential or response-body diag
         assert.doesNotMatch(error.message, /private token response/);
         return true;
     });
+});
+
+function manifestFixture()
+{
+    const manifest = {
+        schemaVersion: 2, mediaType: 'application/vnd.oci.image.manifest.v1+json',
+        config: { mediaType: 'application/vnd.oci.image.config.v1+json', digest: `sha256:${'a'.repeat(64)}`, size: 100 }, layers: []
+    };
+    const bytes = JSON.stringify(manifest);
+    const digest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+    return { manifest, bytes, digest, headers: { 'content-type': manifest.mediaType, 'docker-content-digest': digest } };
+}
+
+test('manifest digest is computed from exact bytes with no image layer requests', async () => {
+    const data = manifestFixture();
+    const calls = [];
+    const result = await readDockerManifest('node', data.digest, async (url, accept) => {
+        calls.push(url);
+        assert.ok(accept.includes(data.manifest.mediaType));
+        return new Response(data.bytes, { headers: data.headers });
+    });
+    assert.equal(result.digest, data.digest);
+    assert.deepEqual(result.manifest, data.manifest);
+    assert.equal(calls.length, 1);
+});
+
+test('manifest byte tampering and requested digest mismatch fail closed', async () => {
+    const data = manifestFixture();
+    await assert.rejects(readDockerManifest('node', 'latest', async () => new Response(`${data.bytes} `, { headers: data.headers })), /digest_mismatch/);
+    await assert.rejects(readDockerManifest('node', `sha256:${'b'.repeat(64)}`, async () => new Response(data.bytes, { headers: data.headers })), /digest_mismatch/);
+});
+
+test('legacy media types and excessive manifest bodies are not accepted', async () => {
+    const data = manifestFixture();
+    await assert.rejects(readDockerManifest('node', 'latest', async () => new Response(data.bytes)), /media_type_invalid/);
+    await assert.rejects(readDockerManifest('node', 'latest', async () => new Response(' '.repeat(4 * 1024 * 1024 + 1), { headers: data.headers })), /size_exceeded/);
 });
