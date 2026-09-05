@@ -48,8 +48,11 @@ public sealed class NotificationStreamConnectionManager(
     private readonly int _maxConnectionsPerIp = NormalizeLimit(configuration.GetValue<int?>("NotificationStream:MaxConnectionsPerIp"), DefaultMaxConnectionsPerIp);
     private readonly int _maxConnectionsPerAccount = NormalizeLimit(configuration.GetValue<int?>("NotificationStream:MaxConnectionsPerAccount"), DefaultMaxConnectionsPerAccount);
     private int _reservedConnectionCount;
+    private readonly NotificationStreamDeliveryAccounting _delivery = new();
 
     public int ConnectionCount => _byConnectionId.Count;
+
+    internal NotificationStreamDeliverySnapshot DeliverySnapshot => _delivery.Snapshot();
 
     public NotificationStreamConnection RegisterConnection(
         string connectionId,
@@ -82,7 +85,8 @@ public sealed class NotificationStreamConnectionManager(
             accountQuotaKey,
             _queueByteCapacity,
             _queueMaximumAge,
-            logger);
+            logger,
+            _delivery);
         if (!_byConnectionId.TryAdd(connectionId, connection))
         {
             ReleaseQuota(ipQuotaKey, accountQuotaKey);
@@ -172,17 +176,26 @@ public sealed class NotificationStreamConnectionManager(
         NotificationStreamDeliveryPolicy policy,
         long eventId,
         long coalescedOccurrences = 0)
+        => Publish(frame, target, policy, eventId, coalescedOccurrences, null).Accepted;
+
+    internal NotificationStreamFanoutDispatchResult Publish(
+        SharedNotificationStreamFrame frame,
+        NotificationStreamTarget target,
+        NotificationStreamDeliveryPolicy policy,
+        long eventId,
+        long coalescedOccurrences,
+        NotificationStreamBacklogAcceptance? acceptance)
     {
         long allocationEstimateBytes = EstimatePublishAllocationBytes(target);
-        int delivered = target switch
+        NotificationStreamFanoutDispatchResult delivered = target switch
         {
-            NotificationStreamUserTarget account => PublishByIndexSnapshot(frame, _byUserId, account.AccountId, policy, eventId, coalescedOccurrences),
-            NotificationStreamGroupTarget group => PublishByIndexSnapshot(frame, _byGroup, group.GroupName, policy, eventId, coalescedOccurrences),
-            NotificationStreamMultiUserTarget multi => PublishMultiUser(frame, multi.UserIds, policy, eventId, coalescedOccurrences),
-            _ => 0
+            NotificationStreamUserTarget account => PublishByIndexSnapshot(frame, _byUserId, account.AccountId, policy, eventId, coalescedOccurrences, acceptance, target),
+            NotificationStreamGroupTarget group => PublishByIndexSnapshot(frame, _byGroup, group.GroupName, policy, eventId, coalescedOccurrences, acceptance, target),
+            NotificationStreamMultiUserTarget multi => PublishMultiUser(frame, multi.UserIds, policy, eventId, coalescedOccurrences, acceptance, target),
+            _ => default
         };
 
-        NotificationStreamMetrics.RecordPublishFanout(delivered, target, allocationEstimateBytes);
+        NotificationStreamMetrics.RecordPublishFanout(delivered.Accepted, target, allocationEstimateBytes);
         return delivered;
     }
 
@@ -245,30 +258,35 @@ public sealed class NotificationStreamConnectionManager(
         return connections;
     }
 
-    private int PublishByIndexSnapshot(
+    private NotificationStreamFanoutDispatchResult PublishByIndexSnapshot(
         SharedNotificationStreamFrame frame,
         ConcurrentDictionary<string, ConnectionIndexBucket> index,
         string key,
         NotificationStreamDeliveryPolicy policy,
         long eventId,
-        long coalescedOccurrences)
+        long coalescedOccurrences,
+        NotificationStreamBacklogAcceptance? acceptance,
+        NotificationStreamTarget target)
     {
         if (!index.TryGetValue(key, out ConnectionIndexBucket? bucket))
         {
-            return 0;
+            return default;
         }
 
-        return PublishToConnectionIds(frame, bucket.Snapshot, policy, eventId, coalescedOccurrences);
+        return PublishToConnectionIds(frame, bucket.Snapshot, policy, eventId, coalescedOccurrences, acceptance, target);
     }
 
-    private int PublishToConnectionIds(
+    private NotificationStreamFanoutDispatchResult PublishToConnectionIds(
         SharedNotificationStreamFrame frame,
         IReadOnlyList<string> connectionIds,
         NotificationStreamDeliveryPolicy policy,
         long eventId,
-        long coalescedOccurrences)
+        long coalescedOccurrences,
+        NotificationStreamBacklogAcceptance? acceptance,
+        NotificationStreamTarget target)
     {
         int delivered = 0;
+        int rejected = 0;
         foreach (string connectionId in connectionIds)
         {
             if (!_byConnectionId.TryGetValue(connectionId, out NotificationStreamConnection? connection))
@@ -277,13 +295,17 @@ public sealed class NotificationStreamConnectionManager(
             }
 
             frame.Retain();
-            if (connection.TryEnqueue(frame, policy, eventId, coalescedOccurrences))
+            if (connection.TryEnqueue(frame, policy, eventId, coalescedOccurrences, acceptance, target))
             {
                 delivered++;
             }
+            else
+            {
+                rejected++;
+            }
         }
 
-        return delivered;
+        return new(delivered, rejected);
     }
 
     private IReadOnlyList<NotificationStreamConnection> ResolveMultiUser(IReadOnlyList<string> userIds)
@@ -317,15 +339,18 @@ public sealed class NotificationStreamConnectionManager(
         return connections ?? [];
     }
 
-    private int PublishMultiUser(
+    private NotificationStreamFanoutDispatchResult PublishMultiUser(
         SharedNotificationStreamFrame frame,
         IReadOnlyList<string> userIds,
         NotificationStreamDeliveryPolicy policy,
         long eventId,
-        long coalescedOccurrences)
+        long coalescedOccurrences,
+        NotificationStreamBacklogAcceptance? acceptance,
+        NotificationStreamTarget target)
     {
         var seenConnectionIds = new HashSet<string>(StringComparer.Ordinal);
         int delivered = 0;
+        int rejected = 0;
 
         foreach (string userId in userIds)
         {
@@ -347,14 +372,18 @@ public sealed class NotificationStreamConnectionManager(
                 }
 
                 frame.Retain();
-                if (connection.TryEnqueue(frame, policy, eventId, coalescedOccurrences))
+                if (connection.TryEnqueue(frame, policy, eventId, coalescedOccurrences, acceptance, target))
                 {
                     delivered++;
+                }
+                else
+                {
+                    rejected++;
                 }
             }
         }
 
-        return delivered;
+        return new(delivered, rejected);
     }
 
     private static void AddToIndex(ConcurrentDictionary<string, ConnectionIndexBucket> index, string key, string connectionId)

@@ -160,58 +160,15 @@ internal sealed class NotificationStreamSessionService(
         {
             while (!cancellationToken.IsCancellationRequested && socket.State == WebSocketState.Open)
             {
-                SharedNotificationStreamFrame? frame;
                 try
                 {
-                    frame = await connection.Reader.ReadAsync(cancellationToken);
+                    await WriteNextQueuedFrameAsync(socket, connection, sendGate, cancellationToken, drillSendDelay);
                 }
                 catch (ChannelClosedException)
                 {
                     break;
                 }
 
-                try
-                {
-                    if (connection.IsClosed)
-                    {
-                        break;
-                    }
-
-                    await SendQueuedFrameAsync(socket, connection, frame.Memory, sendGate, drillSendDelay, cancellationToken);
-                }
-                finally
-                {
-                    connection.AcknowledgeDequeuedFrame();
-                    frame.Release();
-                }
-
-                if (socket.State != WebSocketState.Open)
-                {
-                    break;
-                }
-
-                while (connection.Reader.TryRead(out frame))
-                {
-                    try
-                    {
-                        if (connection.IsClosed)
-                        {
-                            break;
-                        }
-
-                        await SendQueuedFrameAsync(socket, connection, frame.Memory, sendGate, drillSendDelay, cancellationToken);
-                    }
-                    finally
-                    {
-                        connection.AcknowledgeDequeuedFrame();
-                        frame.Release();
-                    }
-
-                    if (socket.State != WebSocketState.Open)
-                    {
-                        break;
-                    }
-                }
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -231,6 +188,41 @@ internal sealed class NotificationStreamSessionService(
                 : NotificationStreamRestartProtocol.Resolve(
                     replayMissed: false,
                     serviceRestartRequested: restartCoordinator?.IsRestartRequested == true));
+    }
+
+    internal static async Task WriteNextQueuedFrameAsync(
+        WebSocket socket,
+        NotificationStreamConnection connection,
+        SemaphoreSlim sendGate,
+        CancellationToken cancellationToken,
+        TimeSpan? drillSendDelay = null)
+    {
+        NotificationStreamWriteLease lease = await connection.ReadForWriteAsync(cancellationToken).ConfigureAwait(false);
+        bool written = false;
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (connection.IsClosed)
+            {
+                return;
+            }
+
+            await SendQueuedFrameAsync(socket, connection, lease.Frame.Memory, sendGate, drillSendDelay, cancellationToken)
+                .ConfigureAwait(false);
+            written = true;
+        }
+        finally
+        {
+            try
+            {
+                connection.CompleteWrite(lease, written,
+                    cancellationToken.IsCancellationRequested ? "connection-write-cancelled" : "connection-write-incomplete");
+            }
+            finally
+            {
+                lease.Frame.Release();
+            }
+        }
     }
 
     private static async Task SendQueuedFrameAsync(
@@ -275,10 +267,12 @@ internal sealed class NotificationStreamSessionService(
         await sendGate.WaitAsync(cancellationToken);
         try
         {
-            if (socket.State == WebSocketState.Open)
+            if (socket.State != WebSocketState.Open)
             {
-                await socket.SendAsync(frame, WebSocketMessageType.Binary, endOfMessage: true, cancellationToken);
+                throw new WebSocketException("Notification stream socket closed before write.");
             }
+
+            await socket.SendAsync(frame, WebSocketMessageType.Binary, endOfMessage: true, cancellationToken);
         }
         finally
         {

@@ -164,7 +164,8 @@ public sealed class HotStatsReleaseDrainParticipant(HotStatsInvalidationCoalesce
 public sealed class NotificationStreamReleaseDrainParticipant(
     NotificationStreamRestartCoordinator restart,
     NotificationStreamConnectionManager connections,
-    TimeProvider timeProvider) : IReleaseDrainParticipant
+    TimeProvider timeProvider,
+    NotificationStreamLocalFanoutQueue fanout) : IReleaseDrainParticipant
 {
     public string Name => "notification-stream";
 
@@ -172,14 +173,35 @@ public sealed class NotificationStreamReleaseDrainParticipant(
 
     public ReleaseDrainParticipantSnapshot Snapshot()
     {
-        int pending = connections.ConnectionCount;
+        NotificationStreamDeliverySnapshot before = fanout.DeliverySnapshot;
+        NotificationStreamDeliverySnapshot writes = connections.DeliverySnapshot;
+        NotificationStreamDeliverySnapshot dispatch = fanout.DeliverySnapshot;
+        bool changed = before.Sequence != dispatch.Sequence;
+        long pending = connections.ConnectionCount + writes.Outstanding + dispatch.Outstanding + (changed ? 1 : 0);
+        long transferred = writes.DurableReplayTransferred + dispatch.DurableReplayTransferred;
+        string? error = writes.TerminalFailures + dispatch.TerminalFailures > 0
+            ? "notification_delivery_terminal_failure"
+            : writes.ReplayRequired + dispatch.ReplayRequired > 0
+                ? "notification_replay_unproven"
+                : null;
         return new ReleaseDrainParticipantSnapshot(
             Name,
             "multi-consumer-safe",
             pending,
-            pending == 0 ? "drained" : restart.IsRestartRequested ? "closing-1012" : "accepting",
+            pending == 0 ? transferred > 0 ? "replay-transferred" : "drained" : "pending",
             MaxDrain,
-            "Redis notification backlog; replay miss forces full resync");
+            "Redis notification backlog; replay miss forces full resync",
+            error,
+            [
+                $"fanout-queued={dispatch.Queued}",
+                $"fanout-in-flight={dispatch.InFlight}",
+                $"connection-queued={writes.Queued}",
+                $"connection-in-flight={writes.InFlight}",
+                $"unproven-replay={writes.ReplayRequired + dispatch.ReplayRequired}",
+                $"durable-replay-transferred={transferred}",
+                $"terminal-failures={writes.TerminalFailures + dispatch.TerminalFailures}",
+                $"observation-changed={changed}"
+            ]);
     }
 
     public async Task DrainAsync(CancellationToken cancellationToken)
@@ -195,7 +217,7 @@ public sealed class NotificationStreamReleaseDrainParticipant(
             throw new InvalidOperationException(requested.ErrorCode ?? "notification_restart_rejected");
         }
 
-        while (connections.ConnectionCount > 0)
+        while (Snapshot().PendingCount > 0)
         {
             await Task.Delay(TimeSpan.FromMilliseconds(50), timeProvider, cancellationToken).ConfigureAwait(false);
         }
