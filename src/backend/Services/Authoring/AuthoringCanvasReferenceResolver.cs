@@ -1,0 +1,439 @@
+namespace FsusBlog.Server.Services.Authoring;
+
+/// <summary>
+/// Resolves private canvas references through one permission-filtered upstream facts port.
+/// The resolver never persists target content or mutates canvas, article, relation, or workspace state.
+/// </summary>
+public sealed class AuthoringCanvasReferenceResolver(
+    IAuthoringCanvasDocumentStore canvasStore,
+    IAuthoringCanvasReferenceFactSource factSource,
+    AuthoringCanvasReferenceProjectionCache cache,
+    TimeProvider timeProvider)
+{
+    public async Task<AuthoringCanvasReferenceResolutionBatch> ResolveAsync(
+        AuthoringCanvasReferenceResolutionRequest request,
+        CancellationToken cancellationToken = default)
+        => await ResolveCoreAsync(request, useCache: true, cancellationToken).ConfigureAwait(false);
+
+    public async Task<AuthoringCanvasReferenceVerificationResult> VerifyAsync(
+        AuthoringCanvasReferenceResolutionRequest request,
+        AuthoringCanvasReferenceResolutionBatch candidate,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(candidate);
+        AuthoringCanvasReferenceResolutionBatch expected = await ResolveCoreAsync(
+            request,
+            useCache: false,
+            cancellationToken).ConfigureAwait(false);
+        var reasons = new List<string>();
+        if (candidate.CanvasId != request.CanvasId
+            || candidate.CanvasRevision != request.CanvasRevision
+            || !string.Equals(candidate.CanvasContentDigest, request.CanvasContentDigest, StringComparison.Ordinal))
+        {
+            reasons.Add("resolution_coordinate_mismatch");
+        }
+        if (candidate.AuthorityCoordinate != expected.AuthorityCoordinate)
+        {
+            reasons.Add("authority_coordinate_mismatch");
+        }
+        if (candidate.Projections.Count != expected.Projections.Count)
+        {
+            reasons.Add("projection_count_mismatch");
+        }
+
+        var expectedByNode = expected.Projections.ToDictionary(static projection => projection.NodeId);
+        foreach (AuthoringCanvasReferenceProjection projection in candidate.Projections)
+        {
+            if (!string.Equals(
+                projection.ContentDigest,
+                AuthoringCanvasReferenceContract.ComputeProjectionDigest(
+                    projection with
+                    {
+                        ContentDigest = string.Empty
+                    }),
+                StringComparison.Ordinal))
+            {
+                reasons.Add($"projection_digest_mismatch:{projection.NodeId:D}");
+            }
+            if (!expectedByNode.TryGetValue(projection.NodeId, out AuthoringCanvasReferenceProjection? expectedProjection)
+                || !string.Equals(projection.ContentDigest, expectedProjection.ContentDigest, StringComparison.Ordinal))
+            {
+                reasons.Add($"projection_fact_mismatch:{projection.NodeId:D}");
+            }
+        }
+
+        if (!string.Equals(candidate.ContentDigest, expected.ContentDigest, StringComparison.Ordinal))
+        {
+            reasons.Add("batch_digest_mismatch");
+        }
+        string candidateReceiptDigest = AuthoringCanvasReferenceContract.ComputeReceiptDigest(
+            request,
+            candidate.AuthorityCoordinate,
+            candidate.Receipt.Items,
+            candidate.ContentDigest);
+        if (!string.Equals(candidate.Receipt.ContentDigest, candidateReceiptDigest, StringComparison.Ordinal)
+            || candidate.Receipt.RequestId != request.RequestId
+            || candidate.Receipt.TargetCount != candidate.Projections.Count)
+        {
+            reasons.Add("receipt_invalid");
+        }
+
+        return new AuthoringCanvasReferenceVerificationResult(
+            request.CanvasId,
+            request.CanvasRevision,
+            expected.Projections.Count,
+            expected.ContentDigest,
+            reasons.Count == 0,
+            reasons);
+    }
+
+    private async Task<AuthoringCanvasReferenceResolutionBatch> ResolveCoreAsync(
+        AuthoringCanvasReferenceResolutionRequest request,
+        bool useCache,
+        CancellationToken cancellationToken)
+    {
+        AuthoringCanvasReferenceContract.ValidateRequest(request);
+        cancellationToken.ThrowIfCancellationRequested();
+        AuthoringCanvasDocumentHeader header = await canvasStore.GetAsync(
+            request.Owner,
+            request.CanvasId,
+            cancellationToken).ConfigureAwait(false)
+            ?? throw new AuthoringCanvasAccessDeniedException();
+        if (header.Revision != request.CanvasRevision)
+        {
+            throw new AuthoringCanvasRevisionConflictException(request.CanvasRevision, header.Revision);
+        }
+        if (!string.Equals(header.ContentDigest, request.CanvasContentDigest, StringComparison.Ordinal))
+        {
+            throw new AuthoringCanvasValidationException("canvas_reference_content_digest_stale");
+        }
+
+        long started = timeProvider.GetTimestamp();
+        AuthoringCanvasReferenceAuthorityCoordinate coordinate = await factSource.ReadAuthorityCoordinateAsync(
+            request.Owner,
+            request.Permission,
+            cancellationToken).ConfigureAwait(false);
+        AuthoringCanvasReferenceContract.ValidateAuthorityCoordinate(coordinate);
+
+        AuthoringCanvasReferenceTarget[] targets = request.Nodes.Select(ToTarget).ToArray();
+        var factsByNode = new Dictionary<Guid, AuthoringCanvasReferenceFact>(targets.Length);
+        var missing = new List<AuthoringCanvasReferenceTarget>(targets.Length);
+        int cacheHits = 0;
+        foreach (AuthoringCanvasReferenceTarget target in targets)
+        {
+            AuthoringCanvasReferenceCacheKey cacheKey = CacheKey(request, coordinate, target);
+            if (useCache && cache.TryGet(cacheKey, out AuthoringCanvasReferenceFact? cached))
+            {
+                factsByNode.Add(target.NodeId, cached!);
+                cacheHits++;
+            }
+            else
+            {
+                missing.Add(target);
+            }
+        }
+
+        if (missing.Count > 0)
+        {
+            IReadOnlyList<AuthoringCanvasReferenceFact> loaded = await factSource.ReadBatchAsync(
+                new AuthoringCanvasReferenceFactQuery(
+                    request.CanvasId,
+                    request.CanvasRevision,
+                    request.CanvasContentDigest,
+                    request.Owner,
+                    request.Permission,
+                    coordinate,
+                    missing),
+                cancellationToken).ConfigureAwait(false);
+            var requested = missing.ToDictionary(static target => target.NodeId);
+            foreach (AuthoringCanvasReferenceFact fact in loaded)
+            {
+                if (!requested.TryGetValue(fact.NodeId, out AuthoringCanvasReferenceTarget? target)
+                    || factsByNode.ContainsKey(fact.NodeId))
+                {
+                    throw new AuthoringCanvasValidationException("canvas_reference_fact_set_invalid");
+                }
+                AuthoringCanvasReferenceContract.ValidateFact(target, fact);
+                factsByNode.Add(fact.NodeId, fact);
+                if (useCache)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    cache.Set(CacheKey(request, coordinate, target), fact);
+                }
+            }
+        }
+
+        var projections = new List<AuthoringCanvasReferenceProjection>(targets.Length);
+        foreach (AuthoringCanvasReferenceTarget target in targets)
+        {
+            if (!factsByNode.TryGetValue(target.NodeId, out AuthoringCanvasReferenceFact? fact))
+            {
+                fact = DeniedOrUnknown(target);
+            }
+            projections.Add(Project(target, fact));
+        }
+
+        string batchDigest = AuthoringCanvasReferenceContract.ComputeBatchDigest(request, coordinate, projections);
+        AuthoringCanvasReferenceResolutionReceiptItem[] receiptItems = projections.Select(static projection =>
+            new AuthoringCanvasReferenceResolutionReceiptItem(
+                projection.NodeId,
+                projection.TargetArticleId,
+                projection.TargetRevision,
+                projection.Status,
+                projection.ContextSnippet is not null,
+                projection.OpenIntent is not null,
+                projection.ContentDigest)).ToArray();
+        string receiptDigest = AuthoringCanvasReferenceContract.ComputeReceiptDigest(
+            request,
+            coordinate,
+            receiptItems,
+            batchDigest);
+        var receipt = new AuthoringCanvasReferenceResolutionReceipt(
+            request.RequestId,
+            request.CanvasId,
+            request.CanvasRevision,
+            request.CanvasContentDigest,
+            request.Permission,
+            coordinate.PermissionFingerprint,
+            coordinate.Generation,
+            coordinate.ContentDigest,
+            projections.Count,
+            cacheHits,
+            Math.Max(0, (long)timeProvider.GetElapsedTime(started).TotalMilliseconds),
+            receiptItems,
+            receiptDigest);
+        return new AuthoringCanvasReferenceResolutionBatch(
+            request.CanvasId,
+            request.CanvasRevision,
+            request.CanvasContentDigest,
+            coordinate,
+            projections,
+            batchDigest,
+            receipt);
+    }
+
+    private static AuthoringCanvasReferenceTarget ToTarget(AuthoringCanvasNode node)
+        => new(
+            node.Id,
+            node.Type,
+            node.TargetArticleId!.Value,
+            node.TargetHeadingIdentity,
+            node.TargetBlockIdentity,
+            node.PinnedTargetRevision,
+            node.DisplayProjectionReference);
+
+    private static AuthoringCanvasReferenceProjection Project(
+        AuthoringCanvasReferenceTarget target,
+        AuthoringCanvasReferenceFact fact)
+    {
+        AuthoringCanvasReferenceProjectionStatus status = Status(target, fact);
+        bool contentVisible = status is AuthoringCanvasReferenceProjectionStatus.Current
+            or AuthoringCanvasReferenceProjectionStatus.PinnedCurrent
+            or AuthoringCanvasReferenceProjectionStatus.PinnedStale
+            or AuthoringCanvasReferenceProjectionStatus.TargetUpdated
+            or AuthoringCanvasReferenceProjectionStatus.SourceStale;
+        bool openEligible = contentVisible && fact.StableRoute is not null && fact.ResolvedRevision > 0;
+        var projection = new AuthoringCanvasReferenceProjection(
+            target.NodeId,
+            target.NodeType,
+            target.TargetArticleId,
+            target.TargetHeadingIdentity,
+            target.TargetBlockIdentity,
+            status,
+            contentVisible ? fact.Title : null,
+            contentVisible ? fact.ContextSnippet : null,
+            fact.ResolvedRevision > 0 ? fact.ResolvedRevision : null,
+            fact.CurrentRevision > 0 ? fact.CurrentRevision : null,
+            openEligible
+                ? new AuthoringCanvasOpenIntent(
+                    target.TargetArticleId,
+                    fact.ResolvedRevision,
+                    target.TargetHeadingIdentity,
+                    target.TargetBlockIdentity,
+                    fact.StableRoute!)
+                : null,
+            status is AuthoringCanvasReferenceProjectionStatus.PinnedStale
+                or AuthoringCanvasReferenceProjectionStatus.TargetUpdated,
+            string.Empty);
+        return projection with
+        {
+            ContentDigest = AuthoringCanvasReferenceContract.ComputeProjectionDigest(projection)
+        };
+    }
+
+    private static AuthoringCanvasReferenceProjectionStatus Status(
+        AuthoringCanvasReferenceTarget target,
+        AuthoringCanvasReferenceFact fact)
+    {
+        AuthoringCanvasReferenceProjectionStatus? articleStatus = fact.ArticleState switch
+        {
+            AuthoringCanvasArticleState.Current => null,
+            AuthoringCanvasArticleState.Missing => AuthoringCanvasReferenceProjectionStatus.Missing,
+            AuthoringCanvasArticleState.Deleted => AuthoringCanvasReferenceProjectionStatus.Deleted,
+            AuthoringCanvasArticleState.Archived => AuthoringCanvasReferenceProjectionStatus.Archived,
+            AuthoringCanvasArticleState.PermissionDeniedOrUnknown =>
+                AuthoringCanvasReferenceProjectionStatus.PermissionDeniedOrUnknown,
+            _ => throw new AuthoringCanvasValidationException("canvas_reference_article_state_invalid")
+        };
+        if (articleStatus is not null)
+        {
+            return articleStatus.Value;
+        }
+
+        AuthoringCanvasReferenceProjectionStatus? coordinateStatus = fact.CoordinateState switch
+        {
+            AuthoringCanvasReferenceCoordinateState.Current => null,
+            AuthoringCanvasReferenceCoordinateState.SourceStale =>
+                AuthoringCanvasReferenceProjectionStatus.SourceStale,
+            AuthoringCanvasReferenceCoordinateState.Missing => target.NodeType switch
+            {
+                AuthoringCanvasNodeType.HeadingReference => AuthoringCanvasReferenceProjectionStatus.HeadingMissing,
+                AuthoringCanvasNodeType.BlockReference => AuthoringCanvasReferenceProjectionStatus.BlockMissing,
+                _ => AuthoringCanvasReferenceProjectionStatus.Missing
+            },
+            AuthoringCanvasReferenceCoordinateState.Duplicate => target.NodeType switch
+            {
+                AuthoringCanvasNodeType.HeadingReference => AuthoringCanvasReferenceProjectionStatus.HeadingDuplicate,
+                AuthoringCanvasNodeType.BlockReference => AuthoringCanvasReferenceProjectionStatus.BlockDuplicate,
+                _ => AuthoringCanvasReferenceProjectionStatus.Missing
+            },
+            AuthoringCanvasReferenceCoordinateState.Invalid => target.NodeType switch
+            {
+                AuthoringCanvasNodeType.HeadingReference => AuthoringCanvasReferenceProjectionStatus.HeadingInvalid,
+                AuthoringCanvasNodeType.BlockReference => AuthoringCanvasReferenceProjectionStatus.BlockInvalid,
+                _ => AuthoringCanvasReferenceProjectionStatus.Missing
+            },
+            _ => throw new AuthoringCanvasValidationException("canvas_reference_coordinate_state_invalid")
+        };
+        if (coordinateStatus is not null)
+        {
+            return coordinateStatus.Value;
+        }
+        if (target.PinnedTargetRevision is not null)
+        {
+            return fact.CurrentRevision == target.PinnedTargetRevision.Value
+                ? AuthoringCanvasReferenceProjectionStatus.PinnedCurrent
+                : AuthoringCanvasReferenceProjectionStatus.PinnedStale;
+        }
+        return fact.TargetChangedSinceProjection
+            ? AuthoringCanvasReferenceProjectionStatus.TargetUpdated
+            : AuthoringCanvasReferenceProjectionStatus.Current;
+    }
+
+    private static AuthoringCanvasReferenceFact DeniedOrUnknown(AuthoringCanvasReferenceTarget target)
+        => new(
+            target.NodeId,
+            target.TargetArticleId,
+            AuthoringCanvasArticleState.PermissionDeniedOrUnknown,
+            AuthoringCanvasReferenceCoordinateState.Current,
+            0,
+            0,
+            false,
+            null,
+            null,
+            null);
+
+    private static AuthoringCanvasReferenceCacheKey CacheKey(
+        AuthoringCanvasReferenceResolutionRequest request,
+        AuthoringCanvasReferenceAuthorityCoordinate coordinate,
+        AuthoringCanvasReferenceTarget target)
+        => new(
+            request.CanvasId,
+            request.CanvasRevision,
+            request.CanvasContentDigest,
+            request.Owner.AdminPrincipalId,
+            request.Owner.SiteScope,
+            (int)request.Permission,
+            coordinate.PermissionFingerprint,
+            coordinate.Generation,
+            coordinate.ContentDigest,
+            target.NodeId,
+            AuthoringCanvasReferenceContract.ComputeTargetDigest(target));
+}
+
+public sealed class AuthoringCanvasReferenceProjectionCache
+{
+    private readonly int _capacity;
+    private readonly object _gate = new();
+    private readonly Dictionary<AuthoringCanvasReferenceCacheKey, LinkedListNode<CacheEntry>> _entries = [];
+    private readonly LinkedList<CacheEntry> _recency = [];
+
+    public AuthoringCanvasReferenceProjectionCache(int capacity = AuthoringCanvasReferenceContract.DefaultCacheCapacity)
+    {
+        if (capacity <= 0 || capacity > AuthoringCanvasReferenceContract.MaxBatchSize)
+        {
+            throw new ArgumentOutOfRangeException(nameof(capacity));
+        }
+        _capacity = capacity;
+    }
+
+    public int EntryCount
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _entries.Count;
+            }
+        }
+    }
+
+    internal bool TryGet(
+        AuthoringCanvasReferenceCacheKey key,
+        out AuthoringCanvasReferenceFact? fact)
+    {
+        lock (_gate)
+        {
+            if (!_entries.TryGetValue(key, out LinkedListNode<CacheEntry>? node))
+            {
+                fact = null;
+                return false;
+            }
+            _recency.Remove(node);
+            _recency.AddLast(node);
+            fact = node.Value.Fact;
+            return true;
+        }
+    }
+
+    internal void Set(AuthoringCanvasReferenceCacheKey key, AuthoringCanvasReferenceFact fact)
+    {
+        lock (_gate)
+        {
+            if (_entries.TryGetValue(key, out LinkedListNode<CacheEntry>? existing))
+            {
+                existing.Value = new CacheEntry(key, fact);
+                _recency.Remove(existing);
+                _recency.AddLast(existing);
+                return;
+            }
+
+            var node = new LinkedListNode<CacheEntry>(new CacheEntry(key, fact));
+            _recency.AddLast(node);
+            _entries.Add(key, node);
+            while (_entries.Count > _capacity)
+            {
+                LinkedListNode<CacheEntry> oldest = _recency.First!;
+                _recency.RemoveFirst();
+                _entries.Remove(oldest.Value.Key);
+            }
+        }
+    }
+
+    private sealed record CacheEntry(
+        AuthoringCanvasReferenceCacheKey Key,
+        AuthoringCanvasReferenceFact Fact);
+}
+
+internal readonly record struct AuthoringCanvasReferenceCacheKey(
+    Guid CanvasId,
+    long CanvasRevision,
+    string CanvasContentDigest,
+    long AdminPrincipalId,
+    string SiteScope,
+    int Permission,
+    string PermissionFingerprint,
+    long AuthorityGeneration,
+    string AuthorityContentDigest,
+    Guid NodeId,
+    string TargetDigest);

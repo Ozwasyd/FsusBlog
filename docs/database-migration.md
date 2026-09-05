@@ -444,6 +444,14 @@ owner/site index、document-scoped foreign keys 和 digest constraints 与
 一致。该 migration 不复制 article content，不建立 article/relation/property
 foreign key，也不导入 transient graph positions。
 
+`20260906-post-authoring-canvas-operation-journal` 是只增不改的 Expand：它在
+既有 canvas document authority 旁新增 append-only operation journal、typed
+forward/inverse fact rows、bounded undo/redo head 与 idempotent recovery receipt。
+运行时代码必须在同一 PostgreSQL transaction 内锁定 document coordinate、
+复核 sealed before facts、CAS 更新 canvas-owned rows，再追加 journal/receipt；
+表中不建立 article/relation/property/workspace foreign key，也不把 receipt
+或普通日志变成 note/article 明文载体。
+
 文件名为 canonical N-format UUID 时复用该 `AssetId`；为既有资产兼容也接受 canonical D-format，其余文件分配新 ID。最终引用边只从当前 source 内容重建。旧 cleanup due/retry/error 状态会迁移到 AssetId queue，但最终仍有引用的资产会取消清理并回到 `active`。验证通过后迁移删除四张 URL-identity 旧表；运行时不双写、不建 view/trigger alias，也不在新表缺行时回扫旧结构。Rollback 只能从已验证的 pre-cutover backup/WAL 恢复到隔离环境；不得在 live schema 重建 URL-identity 表。
 
 ## Read Event Retirement

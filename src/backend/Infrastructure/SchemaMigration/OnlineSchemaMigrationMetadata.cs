@@ -1429,6 +1429,30 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                     "taxonomy_list_wire_compatibility"
                 ]));
 
+        result.Add(
+            "20260906-post-authoring-canvas-operation-journal",
+            new OnlineSchemaMigrationMetadata(
+                "20260906-post-authoring-canvas-operation-journal",
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260906-authoring-canvas-operation-journal"),
+                ContractAfterCoordinate: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "authoring_canvas_operation_atomic_cas",
+                    "authoring_canvas_operation_recovery",
+                    "authoring_canvas_operation_journal_tamper"
+                ]));
+
         return new ReadOnlyDictionary<string, OnlineSchemaMigrationMetadata>(result);
     }
 
