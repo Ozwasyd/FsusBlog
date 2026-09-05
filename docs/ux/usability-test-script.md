@@ -1,35 +1,35 @@
-# 小样本可用性测试脚本
+# Small-sample usability test script
 
-## 范围
+## Scope
 
-每轮 5-8 人，覆盖公开阅读、账户消息、后台写作、评论审核、站内信和移动端回收站恢复。测试只记录任务行为，不记录正文输入、密码、验证码或个人敏感信息。
+Each round has 5–8 participants and covers public reading, account messaging, admin authoring, comment moderation, site messaging, and mobile recycle-bin recovery. Record task behavior only; never record article text, passwords, verification codes, or sensitive personal data.
 
-## 任务
+## Tasks
 
-1. 找到一篇关于 X 的文章。
-2. 注册或登录并查看消息。
-3. 新建一篇文章并保存草稿。
-4. 发布文章并设置 SEO 摘要。
-5. 审核一条评论。
-6. 回复一个站内信工单。
-7. 在移动端恢复一篇回收站文章。
+1. Find an article about X.
+2. Register or sign in and view messages.
+3. Create an article and save a draft.
+4. Publish the article and set its SEO summary.
+5. Moderate a comment.
+6. Reply to a site-message ticket.
+7. Recover a recycle-bin article on mobile.
 
-## 记录项
+## Recorded items
 
-- 停顿点
-- 误点
-- 返回次数
-- 反复阅读次数
-- 询问“这是什么意思”的位置
-- 任务完成时间
-- 是否完成
+- Hesitation points
+- Misclicks
+- Back-navigation count
+- Re-reading count
+- Locations where the participant asks “What does this mean?”
+- Task completion time
+- Completion status
 
-## 执行方式
+## Execution
 
-将每轮记录写入 `.tmp/ux/usability-findings.json`，然后运行：
+Write each round's record to `.tmp/ux/usability-findings.json`, then run:
 
 ```bash
 node tools/ux/validate-usability-findings.mjs
 ```
 
-`.tmp/` 是本地执行目录，不提交真实受试者数据。
+`.tmp/` is a local execution directory; do not commit real participant data.

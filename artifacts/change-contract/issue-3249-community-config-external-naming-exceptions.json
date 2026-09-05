@@ -1,0 +1,85 @@
+{
+  "schema": "fsusblog.external-naming-exceptions.v1",
+  "exceptions": [
+    {
+      "id": "github-actions-schema",
+      "paths": [
+        ".github/workflows/scorecard.yml"
+      ],
+      "reason": "Workflow and third-party action keys are defined by an external schema."
+    },
+    {
+      "id": "environment-variable",
+      "paths": [
+        "tools/configuration/check-appsettings-authority.mjs",
+        "tools/configuration/check-backend-configuration-contract.mjs",
+        "tools/docs/check-community-workflow.mjs",
+        "tools/docs/check-dev-onboarding.mjs",
+        "tools/docs/check-public-preview-docs.mjs"
+      ],
+      "reason": "Process environment spelling is external while option variables remain internal."
+    },
+    {
+      "id": "shell-environment-variable",
+      "paths": [
+        "tools/security/check-production-exposure-live.sh",
+        "tools/security/check-production-network-baseline.sh",
+        "tools/security/collect-production-hosts.sh"
+      ],
+      "reason": "Exported shell variables retain process-level spelling; local aliases use camelCase."
+    },
+    {
+      "id": "post-runtime-observation-authority",
+      "paths": [
+        "config/development/authoritative-development-docs.json",
+        "docs/architecture/repository-layout.md"
+      ],
+      "reason": "The generated Behavior catalog sources, schemas, projections and documentation authorities must change atomically with their post-runtime observation and governance tooling while preserving existing external JSON, document, environment and tooling identifiers; internal C#, JavaScript and Shell symbols remain governed by the repository mapping."
+    },
+    {
+      "id": "release-locator-current-run-authority",
+      "paths": [
+        "config/testing/evidence-location-migration-ledger.json"
+      ],
+      "reason": "The sealed release locator registry, producer adapters, parent receipt, verifier and release-final consumer must change atomically while preserving their caller-visible JSON keys, schemas, CLI flags and process environment bindings."
+    },
+    {
+      "id": "search-index-utf8-scalar-owner",
+      "paths": [
+        "docs/testing.generated.md",
+        "tests/coverage-registry.json"
+      ],
+      "reason": "The search UTF-8 scalar production owner, governance registry and generated test documentation must migrate atomically while preserving their existing external JSON, document and tooling identifiers; internal C# symbols remain governed by the repository mapping."
+    },
+    {
+      "id": "content-doc-exactness-authority",
+      "paths": [
+        "config/testing/correctness-attempt-producers.json"
+      ],
+      "reason": "The content exactness catalogs, current documentation authorities, test registries and receipt tooling must change atomically while preserving their existing external JSON, Markdown marker, command-line and receipt identifiers; internal JavaScript symbols remain governed by the repository mapping."
+    },
+    {
+      "id": "json-wire-key",
+      "paths": [
+        "config/application/backend-configuration-contract.json",
+        "config/development/document-inventory.generated.json",
+        "config/development/document-lifecycle.json",
+        "config/governance/repository-governance-authorities.json",
+        "config/testing/current-run-evidence-location-acceptance.json",
+        "tests/governance/appsettings-authority.json",
+        "tests/governance/code-intent-registry.json"
+      ],
+      "reason": "Wire and schema keys remain stable while runtime adapters follow internal naming."
+    },
+    {
+      "id": "css-like-contract",
+      "paths": [
+        "docs/configuration/appsettings-authority.md",
+        "docs/configuration/backend-configuration-reference.generated.md",
+        "docs/development/demo-data.md",
+        "docs/releases/public-preview-policy.md"
+      ],
+      "reason": "DOM and token spelling is preserved only when documented as a caller-visible contract."
+    }
+  ]
+}

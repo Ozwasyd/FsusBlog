@@ -8,7 +8,7 @@
         "codeowners": ".github/CODEOWNERS",
         "authorityDocuments": [
             "AGENTS.md",
-            "CONTRIBUTING.md",
+            "docs/CONTRIBUTING.md",
             ".github/CODEOWNERS",
             ".github/labeler.yml",
             ".github/PULL_REQUEST_TEMPLATE.md",
@@ -21,7 +21,7 @@
         ],
         "linkDocuments": [
             "AGENTS.md",
-            "CONTRIBUTING.md",
+            "docs/CONTRIBUTING.md",
             ".github/PULL_REQUEST_TEMPLATE.md",
             "docs/development.md",
             "docs/index.md",
@@ -382,7 +382,7 @@
             "path": "tools/test.sh",
             "invocation": "./tools/test.sh fast",
             "documents": [
-                "CONTRIBUTING.md"
+                "docs/CONTRIBUTING.md"
             ]
         },
         {
@@ -420,7 +420,7 @@
             "script": "test:fast",
             "invocation": "npm --prefix src/frontend run test:fast",
             "documents": [
-                "CONTRIBUTING.md"
+                "docs/CONTRIBUTING.md"
             ]
         }
     ],
