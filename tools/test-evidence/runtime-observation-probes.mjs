@@ -11,6 +11,7 @@ import { digestValue, stable } from '../fact-extractors/lib/canonicalize.mjs'
 import {
   explicitJson as explicitPostRuntimeJson,
   seal,
+  observationSourceState,
   validateCandidatePlan,
   writeReceipt
 } from '../fact-extractors/post-runtime/adapter.mjs'
@@ -23,6 +24,7 @@ import {
   decodePublicAotPayload
 } from '../../tests/frontend/support/aeds-envelope.mjs'
 import { projectPreparedPublicIds } from '../test-fixtures/receipt/projection.mjs'
+import { loadPostRuntimeProducerRegistry } from '../test-matrix/post-runtime-producer-registry.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const execFileAsync = promisify(execFile)
@@ -185,6 +187,11 @@ async function directAeds(requestPath, init = {})
     catch (error) { decodeError = error instanceof Error ? error.message : String(error) }
   }
   return {
+    requestObservation: { method: init.method ?? 'GET', url: response.url,
+      accept: new Headers(init.headers).get('accept') ?? 'application/octet-stream',
+      ifNoneMatch: new Headers(init.headers).get('if-none-match'),
+      deviceFingerprintDigest: new Headers(init.headers).has('x-fsus-device-fp')
+        ? sha(new Headers(init.headers).get('x-fsus-device-fp')) : null },
     status: response.status,
     headers: selectedHeaders(response.headers),
     bodyDigest: sha(bytes),
@@ -200,6 +207,8 @@ function publicCase(value, { id, role, expectation })
     id,
     role,
     expectation,
+    requestObservation: value.requestObservation,
+    typedPayloadProjection: safeErrorProjection(value.payload),
     status: value.status,
     headers: value.headers,
     bodyDigest: value.bodyDigest,
@@ -223,6 +232,8 @@ async function binaryCase(id, role, expectation, result)
     id,
     role,
     expectation,
+    requestObservation: { method: 'GET', url: response.url },
+    typedPayloadProjection: safeErrorProjection(result.payload),
     status: response.status,
     headers: selectedHeaders(response.headers),
     typedPayloadDigest: result.payload == null ? null : digest(result.payload),
@@ -233,6 +244,13 @@ async function binaryCase(id, role, expectation, result)
     typedMessageDigest: typeof result.payload?.message === 'string' ? sha(result.payload.message) : null,
     decodeError: result.payloadError ?? null
   })
+}
+
+function safeErrorProjection(payload)
+{
+  if (payload?.code == null) return null
+  return { code: payload.code, category: payload.category, statusCode: payload.statusCode,
+    messageDigest: typeof payload.message === 'string' ? sha(payload.message) : null }
 }
 
 async function routeProbe(context)
@@ -389,6 +407,8 @@ async function sessionProbe(context)
   const facts = {
     schema: 'fsusblog.session-cookie-runtime-probe-facts.v1',
     database: {
+      projection: { ...row, sessionid: sha(row.sessionid), refreshtokenhash: sha(row.refreshtokenhash),
+        refresh_family_id: sha(row.refresh_family_id), device_signal_hash: sha(row.device_signal_hash) },
       sessionDigest: digest({ ...row, sessionid: sha(row.sessionid), refreshtokenhash: sha(row.refreshtokenhash),
         refresh_family_id: sha(row.refresh_family_id), device_signal_hash: sha(row.device_signal_hash) }),
       sessionIdDigest: sha(row.sessionid),
@@ -402,12 +422,18 @@ async function sessionProbe(context)
       matches: presentedRefreshHash.toLowerCase() === String(row.refreshtokenhash).toLowerCase()
     },
     authContext: {
+      projection: { authenticationMethod: row.authentication_method, authenticationStrength: row.authentication_strength,
+        authenticatedAtUtc: row.authenticated_at_utc, sessionMode: row.session_mode, mfaVerified: row.mfaverified },
       digest: digest({ authenticationMethod: row.authentication_method, authenticationStrength: row.authentication_strength,
         authenticatedAtUtc: row.authenticated_at_utc, sessionMode: row.session_mode, mfaVerified: row.mfaverified }),
       jwtMatches: claims.auth_method === row.authentication_method && claims.auth_strength === row.authentication_strength
         && Number(claims.auth_time) === authenticatedAtEpochSeconds
     },
     jwt: {
+      projection: { subjectDigest: sha(String(claims['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] ?? claims.sub)),
+        sessionIdDigest: sha(claims.sid), identity_kind: claims.identity_kind, auth_method: claims.auth_method,
+        auth_strength: claims.auth_strength, session_mode: claims.session_mode, auth_time: claims.auth_time,
+        iat: claims.iat, nbf: claims.nbf, exp: claims.exp, iss: claims.iss, aud: claims.aud },
       tokenDigest: sha(session.accessToken),
       claimsDigest: digest({ sub: claims['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] ?? claims.sub,
         sid: sha(claims.sid), identity_kind: claims.identity_kind, auth_method: claims.auth_method,
@@ -416,28 +442,41 @@ async function sessionProbe(context)
       sessionMatches: claims.sid === session.sessionId && Number(claims.exp) === session.accessTokenExpiresAtEpochSeconds
     },
     cookie: {
+      projection: { surface: 'http-request-cookie', values: Object.fromEntries(
+        Object.entries(cookies).map(([name, value]) => [name, { valueDigest: sha(value) }])) },
       names: Object.keys(cookies).sort(),
       digest: digest(Object.fromEntries(Object.entries(cookies).map(([name, value]) => [name, sha(value)]))),
       sessionMatches: cookies.SessionId === session.sessionId && cookies['__Host-SessionId'] === session.sessionId
         && cookies.AccessToken === session.accessToken && cookies['__Host-AccessToken'] === session.accessToken
     },
     expiry: {
+      projection: { accessTokenExp: claims.exp, issuedAt: claims.iat, idleExpiresAt: row.idleexpiresat,
+        absoluteExpiresAt: row.absoluteexpiresat, durationPolicy: row.duration_policy },
       digest: digest({ accessTokenExp: claims.exp, idleExpiresAt: row.idleexpiresat,
         absoluteExpiresAt: row.absoluteexpiresat, durationPolicy: row.duration_policy }),
       ordered: Number(claims.exp) > Number(claims.iat)
         && new Date(row.absoluteexpiresat).getTime() >= new Date(row.idleexpiresat).getTime()
     },
     revision: {
+      projection: { refreshGeneration: row.refresh_generation, refreshRotatedAtUtc: row.refresh_rotated_at_utc,
+        familyDigest: sha(row.refresh_family_id) },
       digest: digest({ refreshGeneration: row.refresh_generation, refreshRotatedAtUtc: row.refresh_rotated_at_utc,
         family: sha(row.refresh_family_id) }),
       current: Number(row.refresh_generation) === 0 && row.revokedat == null
     },
     device: {
+      projection: { observedDigest: sha(row.device_signal_hash), presentedDigest: sha(deviceFingerprint),
+        browserFamily: row.browser_family, osFamily: row.os_family, formFactor: row.form_factor },
       digest: digest({ observed: sha(row.device_signal_hash), presented: sha(deviceFingerprint),
         browserFamily: row.browser_family, osFamily: row.os_family, formFactor: row.form_factor }),
       matches: row.device_signal_hash === deviceFingerprint
     },
     service: {
+      projection: { meStatus: meResult.response.status, sessionsStatus: sessionsResult.response.status,
+        mePayloadDigest: digest(meResult.payload), session: serviceSession == null ? null : {
+          sessionIdDigest: sha(serviceSession.sessionId), isCurrent: serviceSession.isCurrent,
+          authenticationMethod: serviceSession.authenticationMethod,
+          authenticationStrength: serviceSession.authenticationStrength } },
       digest: digest({ me: meResult.payload, session: serviceSession == null ? null : { ...serviceSession, sessionId: sha(serviceSession.sessionId) } }),
       status: { me: meResult.response.status, sessions: sessionsResult.response.status },
       releaseIds: [meResult.response.headers.get('x-fsus-release-id'),
@@ -456,6 +495,9 @@ async function sessionProbe(context)
         passed: revoke.response.ok && denied(revokedRefresh) }
     }
   }
+  facts.storage = { projection: { surface: 'postgresql-session-storage',
+    sessionIdDigest: sha(row.sessionid), refreshTokenHashDigest: sha(row.refreshtokenhash),
+    refreshGeneration: row.refresh_generation, revokedAt: row.revokedat } }
   facts.coherent = facts.credential.matches && facts.authContext.jwtMatches && facts.jwt.sessionMatches
     && facts.cookie.sessionMatches && facts.expiry.ordered && facts.revision.current && facts.device.matches
     && facts.service.status.me === 200 && facts.service.status.sessions === 200 && facts.service.currentSessionMatches
@@ -580,7 +622,9 @@ async function cacheProbe(context)
       throw new Error(`partial processed=${processed} projection=${projection?.visible} detail=${detailMatches} search=${searchContains} navigation=${navigationContains} generation=${Boolean(generation)}`)
     }
     return { outbox, projection, detail, searchBytes, searchPath, navigationBytes,
-      envelope: { envelope, bootstrap, hydration }, generation, keys }
+      envelope: { envelope, bootstrap, hydration }, generation, keys,
+      searchContains, navigationContains, searchStatus: searchResponse.status,
+      navigationStatus: navigationResponse.status, processed, detailMatches }
   })
   return stable({
     schema: 'fsusblog.cache-search-outbox-probe-facts.v1',
@@ -588,24 +632,94 @@ async function cacheProbe(context)
       projectionVersion: terminal.projection.version },
     events: terminal.outbox.map((item) => ({ ...item, event_id: sha(item.event_id), aggregate_id: sha(String(item.aggregate_id)) })),
     edges: { eventTypes: terminal.outbox.map((item) => item.event_type).sort(), redisKeyDigests: terminal.keys.map(sha) },
-    generation: { valueDigest: sha(terminal.generation), present: true },
+    generation: { value: terminal.generation, valueDigest: sha(terminal.generation), present: Boolean(terminal.generation) },
     query: { searchIndexDigest: sha(terminal.searchBytes), releaseScopedPath: terminal.searchPath,
-      releaseId: terminal.detail.headers['x-fsus-release-id'], containsMarker: true },
+      releaseId: terminal.detail.headers['x-fsus-release-id'], containsMarker: terminal.searchContains,
+      responseStatus: terminal.searchStatus, markerDigest: sha(marker) },
     readModel: { projectionDigest: digest(terminal.projection), detailDigest: terminal.detail.bodyDigest,
-      detailTitleDigest: sha(terminal.detail.payload.title), visible: terminal.projection.visible },
-    output: { navigationDigest: sha(terminal.navigationBytes), envelopeDigest: digest(terminal.envelope), containsMarker: true },
-    terminal: { state: 'converged', processedEvents: terminal.outbox.length, poisonEvents: 0 },
-    coherent: true
+      detailTitleDigest: sha(terminal.detail.payload.title), visible: terminal.projection.visible,
+      projection: terminal.projection, responseStatus: terminal.detail.status },
+    output: { navigationDigest: sha(terminal.navigationBytes), envelopeDigest: digest(terminal.envelope),
+      containsMarker: terminal.navigationContains, responseStatus: terminal.navigationStatus, markerDigest: sha(marker) },
+    terminal: { state: terminal.processed && terminal.detailMatches && terminal.searchContains
+      && terminal.navigationContains ? 'converged' : 'partial',
+      processedEvents: terminal.outbox.filter((entry) => entry.status === 'processed').length,
+      poisonEvents: terminal.outbox.filter((entry) => entry.last_error != null).length },
+    coherent: terminal.processed && terminal.detailMatches && terminal.searchContains && terminal.navigationContains
   })
+}
+
+export function deriveProbeRawFacts(kind, facts)
+{
+  const required = (value, label) => {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) fail(`missing observed projection: ${label}`)
+    return value
+  }
+  if (kind === 'route-response-error')
+  {
+    const ids = ['public-visible-first-read', 'public-visible-cache-revalidation', 'public-missing-typed-error',
+      'anonymous-auth-denied', 'user-self-visible', 'user-admin-denied', 'admin-list-visible']
+    if (JSON.stringify(facts.cases?.map(({ id }) => id)) !== JSON.stringify(ids)) fail('raw route case closure mismatch')
+    const [first, second, missing] = facts.cases
+    const response = (entry) => ({ caseId: entry.id, role: entry.role, status: entry.status,
+      typedKind: entry.typedKind, typedPayloadDigest: entry.typedPayloadDigest,
+      typedEntityId: entry.typedEntityId, typedTitleDigest: entry.typedTitleDigest, decodeError: entry.decodeError })
+    const cache = (entry) => ({ caseId: entry.id, status: entry.status, headers: entry.headers })
+    return stable({
+      requestIdentity: facts.cases.map((entry) => ({ caseId: entry.id,
+        request: required(entry.requestObservation, entry.id) })),
+      responseStatus: missing.status,
+      typedPayload: required(missing.typedPayloadProjection, 'missing typed payload'),
+      protocolIdentity: { contentType: first.headers['content-type'], frameVersion: first.headers['x-fsus-frame-version'],
+        frameEncoding: first.headers['x-fsus-frame-encoding'] ?? null, decodeError: first.decodeError },
+      authorizationDecision: facts.cases.slice(3).map(response),
+      visibilityState: [first, missing].map(response), cacheSemantics: [first, second].map(cache),
+      errorSemantics: facts.cases.filter((entry) => entry.typedKind === 'typed-error').map((entry) => ({
+        caseId: entry.id, status: entry.status, payload: required(entry.typedPayloadProjection, entry.id) }))
+    })
+  }
+  if (kind === 'cache-search-outbox-convergence')
+  {
+    if (facts.schema !== 'fsusblog.cache-search-outbox-probe-facts.v1'
+      || Object.hasOwn(facts, 'contentDigest') || Object.hasOwn(facts, 'rawFacts')) fail('cache terminal must be unsealed observed facts')
+    if (typeof facts.generation?.value !== 'string' || facts.generation.value.length === 0) fail('missing observed generation')
+    return stable({ authorityCoordinates: required(facts.authorityCoordinate, 'coordinates'), event: facts.events,
+      edge: required(facts.edges, 'edges'), generation: facts.generation,
+      query: required(facts.query, 'query'), readModel: required(facts.readModel, 'read model'),
+      output: required(facts.output, 'output'), terminalReceipt: seal(facts) })
+  }
+  if (kind === 'session-cookie-runtime')
+  {
+    const projection = (key) => required(facts[key]?.projection, key)
+    const storage = projection('storage')
+    if (storage.surface !== 'postgresql-session-storage') fail('session storage observation surface mismatch')
+    const outcomes = Object.fromEntries(Object.entries(facts.modeOutcomes).map(([key, value]) => [key,
+      Object.fromEntries(Object.entries(value).filter(([field]) => field !== 'passed'))]))
+    return stable({ databaseSession: projection('database'),
+      credential: { presentedRefreshHashDigest: facts.credential.presentedRefreshHashDigest,
+        storedRefreshHashDigest: facts.credential.storedRefreshHashDigest },
+      authContext: projection('authContext'), jwtClaims: projection('jwt'), cookieClaims: projection('cookie'),
+      storageClaims: storage, expiry: projection('expiry'), revision: projection('revision'), device: projection('device'),
+      serviceResult: { service: projection('service'), outcomes } })
+  }
+  fail(`unsupported raw probe kind: ${kind}`)
 }
 
 function buildReceipt(kind, context, facts)
 {
+  const plan = context.candidatePlan.value
+  const producer = loadPostRuntimeProducerRegistry(root).producers.find((entry) => entry.producerId === plan.producerId)
+  const canonicalRerunCommand = `node tools/test-evidence/runtime-observation-probes.mjs probe --kind ${kind} --candidate-plan ${context.candidatePlan.relative} --build ${context.build.ref.path} --fixture ${context.fixture.ref.path} --out ${context.output}`
+  const independentVerifyCommand = `node tools/test-evidence/runtime-observation-raw.mjs verify --candidate-plan ${context.candidatePlan.relative} --receipt ${plan.observations.find((entry) => entry.classId === kind).receiptPath}`
   return seal({
     schema: receiptSchema,
     kind,
     producerId: 'production-correctness-scheduler',
-    sourceState: context.identity,
+    toolVersion: producer.toolVersion,
+    sourceState: observationSourceState({ classId: kind, plan, artifactDigest: digest(facts), repositoryRoot: root }),
+    canonicalRerunCommand,
+    independentVerifyCommand,
+    rawFacts: deriveProbeRawFacts(kind, facts),
     candidatePlanRef: {
       path: context.candidatePlan.relative,
       fileDigest: context.candidatePlan.fileDigest,
@@ -619,7 +733,7 @@ function buildReceipt(kind, context, facts)
       semanticAuthority: 'current-candidate-application-and-owned-services',
       simulatedInfrastructure: ['docker-postgresql', 'docker-redis', 'loopback-network'],
       syntheticSemanticResult: false,
-      rerunCommand: `node tools/test-evidence/runtime-observation-probes.mjs probe --kind ${kind} --candidate-plan ${context.candidatePlan.relative} --build ${context.build.ref.path} --fixture ${context.fixture.ref.path} --out <current-run-output.json>`
+      rerunCommand: canonicalRerunCommand
     },
     facts,
     terminalStatus: 'verified'
@@ -810,8 +924,7 @@ export function verifyReceipt(receipt)
   if (fixture.value.terminalState !== 'prepared'
     || fixtureSource.commit !== source.sourceCommit
     || `sha256:${String(fixtureSource.worktreeFingerprint ?? '').replace(/^sha256:/u, '')}` !== source.worktreeFingerprint
-    || fixture.value.plan?.executionIdentity?.runId !== source.runId
-    || fixture.ref.contentDigest !== source.fixtureIdentity)
+    || fixture.value.plan?.executionIdentity?.runId !== source.runId)
   {
     fail('probe fixture dependency identity mismatch')
   }
@@ -821,14 +934,22 @@ export function verifyReceipt(receipt)
   if (receipt.candidatePlanRef?.fileDigest !== candidatePlanInput.fileDigest
     || receipt.candidatePlanRef?.contentDigest !== candidatePlan.contentDigest
     || receipt.candidatePlanRef?.schema !== candidatePlan.schema
-    || source.candidatePlanDigest !== candidatePlan.contentDigest
     || source.candidateId !== candidatePlan.candidate.candidateId
-    || source.runtimeId !== candidatePlan.candidate.runtimeId
-    || source.releaseId !== candidatePlan.candidate.releaseId)
+    || source.runtimeId !== candidatePlan.candidate.runtimeId)
   {
     fail('probe candidate identity does not replay from the candidate plan')
   }
-  verifyFacts(receipt.kind, receipt.facts, { fixture, expectedReleaseId: source.releaseId })
+  const producer = loadPostRuntimeProducerRegistry(root).producers.find((entry) => entry.producerId === receipt.producerId)
+  const expectedSource = observationSourceState({ classId: receipt.kind, plan: candidatePlan,
+    artifactDigest: digest(receipt.facts), repositoryRoot: root })
+  if (!producer || receipt.toolVersion !== producer.toolVersion || digest(source) !== digest(expectedSource)
+    || receipt.canonicalRerunCommand !== receipt.provenance.rerunCommand
+    || receipt.independentVerifyCommand !== `node tools/test-evidence/runtime-observation-raw.mjs verify --candidate-plan ${receipt.candidatePlanRef.path} --receipt ${candidatePlan.observations.find((entry) => entry.classId === receipt.kind).receiptPath}`
+    || digest(receipt.rawFacts) !== digest(deriveProbeRawFacts(receipt.kind, receipt.facts)))
+  {
+    fail('probe raw facts, source identity, tool or commands do not replay')
+  }
+  verifyFacts(receipt.kind, receipt.facts, { fixture, expectedReleaseId: candidatePlan.candidate.releaseId })
   return receipt
 }
 
@@ -851,7 +972,7 @@ async function main()
   validateCandidatePlan(candidatePlan.value)
   configureTemporalFixture(fixture)
   const identity = sourceIdentity(parsed, build, fixture, candidatePlan)
-  const context = { build, fixture, candidatePlan, identity }
+  const context = { build, fixture, candidatePlan, identity, output: parsed.out }
   let facts
   try
   {

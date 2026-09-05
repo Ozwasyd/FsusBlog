@@ -22,7 +22,7 @@ import {
   root,
   validateProducerReceiptAgainstRegistry
 } from '../test-matrix/post-runtime-producer-registry.mjs'
-import { verifyReceipt as verifyProbeReceipt } from './runtime-observation-probes.mjs'
+import { deriveProbeRawFacts, verifyReceipt as verifyProbeReceipt } from './runtime-observation-probes.mjs'
 
 const probeClasses = new Set([
   'route-response-error',
@@ -72,8 +72,7 @@ function exactSource(plan, probe, buildReceipt, rawSchema, repositoryRoot)
     || source.attemptId !== plan.candidate.attemptId
     || source.candidateId !== plan.candidate.candidateId
     || source.runtimeId !== plan.candidate.runtimeId
-    || source.releaseId !== plan.candidate.releaseId
-    || source.candidatePlanDigest !== plan.contentDigest
+    || probe.candidatePlanRef?.contentDigest !== plan.contentDigest
     || probe.buildReceipt?.path !== plan.build.receipt
     || probe.buildReceipt?.contentDigest !== bytesDigest(path.resolve(repositoryRoot, plan.build.receipt))
     || buildReceipt.contentDigest !== plan.build.receiptContentDigest)
@@ -100,113 +99,6 @@ function exactSource(plan, probe, buildReceipt, rawSchema, repositoryRoot)
   }
 }
 
-function routeFacts(facts)
-{
-  const byId = new Map(facts.cases.map((entry) => [entry.id, entry]))
-  return {
-    statusCode: byId.get('public-missing-typed-error').status,
-    typedResult: byId.get('public-missing-typed-error').typedKind,
-    protocolIdentity: 'aeds-v2',
-    contentIdentity: semanticDigest(facts.cases.map(({ id, status, bodyDigest, typedPayloadDigest }) => ({
-      id, status, bodyDigest, typedPayloadDigest
-    }))),
-    authSemantics: semanticDigest(facts.cases.filter(({ id }) => id.includes('auth') || id.includes('self'))),
-    permissionSemantics: semanticDigest(facts.cases.filter(({ id }) => id.includes('admin'))),
-    visibilitySemantics: semanticDigest(facts.cases.filter(({ id }) => id.includes('visible') || id.includes('missing'))),
-    cacheSemantics: semanticDigest(facts.cases.filter(({ id }) => id.includes('cache') || id.includes('first-read'))),
-    semanticMatch: facts.coherent
-  }
-}
-
-function typedRouteFacts(facts)
-{
-  const byId = new Map(facts.cases.map((entry) => [entry.id, entry]))
-  const missing = byId.get('public-missing-typed-error')
-  return {
-    requestIdentity: semanticDigest({ fixtureAuthority: facts.fixtureAuthority, caseIds: facts.cases.map(({ id }) => id) }),
-    responseStatus: missing.status,
-    typedPayloadDigest: missing.typedPayloadDigest,
-    protocolIdentity: 'aeds-v2',
-    authorizationDecision: semanticDigest(facts.cases.filter(({ id }) => id.includes('auth') || id.includes('self'))),
-    visibilityState: semanticDigest(facts.cases.filter(({ id }) => id.includes('visible') || id.includes('missing'))),
-    cacheSemanticsDigest: semanticDigest(facts.cases.filter(({ id }) => id.includes('cache') || id.includes('first-read'))),
-    errorSemanticsDigest: semanticDigest(facts.cases.filter(({ typedKind }) => typedKind === 'typed-error'))
-  }
-}
-
-function cacheFacts(facts, probe)
-{
-  return {
-    authorityCoordinateDigest: semanticDigest(facts.authorityCoordinate),
-    eventDigest: semanticDigest(facts.events),
-    edgeDigest: semanticDigest(facts.edges),
-    generationDigest: semanticDigest(facts.generation),
-    queryDigest: semanticDigest(facts.query),
-    readModelDigest: semanticDigest(facts.readModel),
-    outputDigest: semanticDigest(facts.output),
-    terminalReceiptDigest: probe.contentDigest,
-    terminalState: facts.terminal.state,
-    coherent: facts.coherent
-  }
-}
-
-function typedCacheFacts(facts, probe)
-{
-  return {
-    authorityCoordinates: semanticDigest(facts.authorityCoordinate),
-    eventDigest: semanticDigest(facts.events),
-    edgeDigest: semanticDigest(facts.edges),
-    generation: semanticDigest(facts.generation),
-    queryDigest: semanticDigest(facts.query),
-    readModelDigest: semanticDigest(facts.readModel),
-    outputDigest: semanticDigest(facts.output),
-    terminalReceiptDigest: probe.contentDigest
-  }
-}
-
-function sessionFacts(facts)
-{
-  return {
-    databaseSessionDigest: facts.database.sessionDigest,
-    credentialDigest: semanticDigest(facts.credential),
-    authContextDigest: facts.authContext.digest,
-    jwtDigest: facts.jwt.claimsDigest,
-    cookieDigest: facts.cookie.digest,
-    storageClaimsDigest: semanticDigest({
-      databaseSessionId: facts.database.sessionIdDigest,
-      cookieNames: facts.cookie.names,
-      serviceStatus: facts.service.status,
-      modeOutcomes: facts.modeOutcomes
-    }),
-    expiryDigest: facts.expiry.digest,
-    revisionDigest: facts.revision.digest,
-    deviceDigest: facts.device.digest,
-    serviceResultDigest: semanticDigest({ service: facts.service, modeOutcomes: facts.modeOutcomes }),
-    coherent: facts.coherent
-  }
-}
-
-function typedSessionFacts(facts)
-{
-  return {
-    databaseSessionDigest: facts.database.sessionDigest,
-    credentialDigest: semanticDigest(facts.credential),
-    authContextDigest: facts.authContext.digest,
-    jwtClaimsDigest: facts.jwt.claimsDigest,
-    cookieClaimsDigest: facts.cookie.digest,
-    storageClaimsDigest: semanticDigest({
-      databaseSessionId: facts.database.sessionIdDigest,
-      cookieNames: facts.cookie.names,
-      serviceStatus: facts.service.status,
-      modeOutcomes: facts.modeOutcomes
-    }),
-    expiry: facts.expiry.digest,
-    revision: facts.revision.digest,
-    deviceDigest: facts.device.digest,
-    serviceResultDigest: semanticDigest({ service: facts.service, modeOutcomes: facts.modeOutcomes })
-  }
-}
-
 export function projectProbeRaw({ candidatePlan, probeReceipt, repositoryRoot = root })
 {
   const planInput = fileReference(candidatePlan, repositoryRoot, 'candidate plan')
@@ -223,11 +115,13 @@ export function projectProbeRaw({ candidatePlan, probeReceipt, repositoryRoot = 
   const build = explicitJson(plan.build.receipt, 'production build receipt', repositoryRoot).value
   const legacySourceState = exactSource(plan, probe, build, definition.schema, repositoryRoot)
   const typedEnvelope = Array.isArray(definition.requiredSemanticFactFields)
-  const semanticFacts = probe.kind === 'route-response-error'
-    ? typedEnvelope ? typedRouteFacts(probe.facts) : routeFacts(probe.facts)
-    : probe.kind === 'cache-search-outbox-convergence'
-      ? typedEnvelope ? typedCacheFacts(probe.facts, probe) : cacheFacts(probe.facts, probe)
-      : typedEnvelope ? typedSessionFacts(probe.facts) : sessionFacts(probe.facts)
+  if (!typedEnvelope) fail('canonical raw semantic fact authority is required')
+  const rawFacts = deriveProbeRawFacts(probe.kind, probe.facts)
+  if (semanticDigest(rawFacts) !== semanticDigest(probe.rawFacts)) fail('probe raw facts do not independently replay')
+  // Integration boundary: replace this projection with the registry's exported
+  // extractSemanticFactsFromRawReceipt when its baseline reaches this branch.
+  const semanticFacts = Object.fromEntries(definition.requiredSemanticFactFields.map((field) => [field,
+    field.endsWith('Digest') ? semanticDigest(rawFacts[field.slice(0, -6)]) : rawFacts[field]]))
   const sourceState = observationSourceState({
     classId: probe.kind,
     plan,

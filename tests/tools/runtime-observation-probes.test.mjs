@@ -5,11 +5,12 @@ import path from 'node:path'
 import test from 'node:test'
 
 import { resolveSourceCommit, resolveWorktreeFingerprint } from '../../tools/fact-extractors/identity.mjs'
-import { seal } from '../../tools/fact-extractors/post-runtime/adapter.mjs'
+import { observationSourceState, seal } from '../../tools/fact-extractors/post-runtime/adapter.mjs'
+import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs'
 import { projectProbeRaw, verifyProjectedRaw } from '../../tools/test-evidence/runtime-observation-raw.mjs'
-import { verifyFacts, verifyReceipt } from '../../tools/test-evidence/runtime-observation-probes.mjs'
+import { deriveProbeRawFacts, verifyFacts, verifyReceipt } from '../../tools/test-evidence/runtime-observation-probes.mjs'
 import { projectPreparedPublicIds } from '../../tools/test-fixtures/receipt/projection.mjs'
-import { root } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
+import { loadPostRuntimeProducerRegistry, root } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
 import { createPostRuntimeCandidateFixture } from './support/post-runtime-candidate-fixture.mjs'
 
 const commit = resolveSourceCommit(root)
@@ -19,10 +20,68 @@ const digest = (character) => `sha256:${character.repeat(64)}`
 const fileDigest = (file) => `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`
 const sha = (value) => `sha256:${createHash('sha256').update(value).digest('hex')}`
 
+test('pure probe raw projection seals the full observed cache snapshot without a parent digest', () => {
+  const facts = { schema: 'fsusblog.cache-search-outbox-probe-facts.v1',
+    authorityCoordinate: { projectionVersion: 7 }, events: [{ id: 9, status: 'processed' }],
+    edges: { eventTypes: ['published'] }, generation: { value: '11' },
+    query: { responseStatus: 200, containsMarker: true }, readModel: { visible: true },
+    output: { responseStatus: 200, containsMarker: true },
+    terminal: { state: 'converged', processedEvents: 1, poisonEvents: 0 }, coherent: true }
+  const raw = deriveProbeRawFacts('cache-search-outbox-convergence', facts)
+  assert.deepEqual(raw.terminalReceipt, seal(facts))
+  assert.equal(raw.terminalReceipt.schema, facts.schema)
+  assert.deepEqual(facts.events, raw.event)
+  const changed = structuredClone(facts)
+  changed.events[0].status = 'pending'
+  assert.notEqual(deriveProbeRawFacts('cache-search-outbox-convergence', changed).terminalReceipt.contentDigest,
+    raw.terminalReceipt.contentDigest)
+  assert.throws(() => deriveProbeRawFacts('cache-search-outbox-convergence', { ...facts, contentDigest: digest('a') }), /unsealed observed facts/)
+  assert.throws(() => deriveProbeRawFacts('cache-search-outbox-convergence', { ...facts, generation: { valueDigest: digest('b') } }), /observed generation/)
+})
+
+test('pure probe raw projection requires actual route requests and decoded error projections', () => {
+  const ids = ['public-visible-first-read', 'public-visible-cache-revalidation', 'public-missing-typed-error',
+    'anonymous-auth-denied', 'user-self-visible', 'user-admin-denied', 'admin-list-visible']
+  const facts = { cases: ids.map((id, index) => ({ id, role: index < 4 ? 'anonymous' : 'authenticated',
+    requestObservation: { method: 'GET', url: `http://127.0.0.1/observed/${index}` },
+    status: index === 2 ? 404 : 200, typedKind: index === 2 ? 'typed-error' : 'payload',
+    typedPayloadProjection: index === 2 ? { code: 2, category: 4, statusCode: 404, messageDigest: digest('a') } : null,
+    typedPayloadDigest: digest('b'), headers: { 'content-type': 'application/octet-stream', 'x-fsus-frame-version': '2' },
+    decodeError: null, expectation: 'not-an-observation' })) }
+  const raw = deriveProbeRawFacts('route-response-error', facts)
+  assert.equal(raw.authorizationDecision.length, 4)
+  assert.equal(raw.protocolIdentity.frameVersion, '2')
+  assert.equal(JSON.stringify(raw).includes('not-an-observation'), false)
+  const changed = structuredClone(facts)
+  changed.cases[2].typedPayloadProjection = null
+  assert.throws(() => deriveProbeRawFacts('route-response-error', changed), /missing typed payload/)
+  changed.cases[2].typedPayloadProjection = facts.cases[2].typedPayloadProjection
+  delete changed.cases[0].requestObservation
+  assert.throws(() => deriveProbeRawFacts('route-response-error', changed), /observed projection/)
+})
+
+test('pure probe raw projection refuses digest-only session facts and browser-storage relabeling', () => {
+  const fields = ['database', 'authContext', 'jwt', 'cookie', 'expiry', 'revision', 'device', 'service']
+  const facts = Object.fromEntries(fields.map((key) => [key, { projection: { observedField: key } }]))
+  facts.storage = { projection: { surface: 'postgresql-session-storage', refreshGeneration: 1 } }
+  facts.credential = { presentedRefreshHashDigest: digest('a'), storedRefreshHashDigest: digest('a') }
+  facts.modeOutcomes = { positive: { status: 200, passed: true } }
+  const raw = deriveProbeRawFacts('session-cookie-runtime', facts)
+  assert.equal(raw.storageClaims.surface, 'postgresql-session-storage')
+  assert.equal(Object.hasOwn(raw.serviceResult.outcomes.positive, 'passed'), false)
+  delete facts.jwt.projection
+  facts.jwt.claimsDigest = digest('b')
+  assert.throws(() => deriveProbeRawFacts('session-cookie-runtime', facts), /jwt/)
+  facts.jwt.projection = { observedField: 'jwt' }
+  facts.storage.projection.surface = 'browser-local-storage'
+  assert.throws(() => deriveProbeRawFacts('session-cookie-runtime', facts), /storage observation surface/)
+})
+
 function routeFacts(prepared, prepareStateDigest, releaseId)
 {
   const projection = projectPreparedPublicIds(prepared)
-  const value = (id, status, typedKind, hash, overrides = {}) => ({
+  const value = (id, status, typedKind, hash, overrides = {}) => {
+    const entry = {
     id,
     role: 'fixture-role',
     expectation: 'typed-semantic-result',
@@ -40,7 +99,12 @@ function routeFacts(prepared, prepareStateDigest, releaseId)
     typedMessageDigest: null,
     decodeError: null,
     ...overrides
-  })
+    }
+    entry.requestObservation = { method: 'GET', url: `http://127.0.0.1/fixture/${id}` }
+    entry.typedPayloadProjection = typedKind === 'typed-error' ? { code: entry.typedCode,
+      category: entry.typedCategory, statusCode: entry.typedStatusCode, messageDigest: entry.typedMessageDigest } : null
+    return entry
+  }
   return {
     schema: 'fsusblog.route-response-error-probe-facts.v1',
     fixtureAuthority: {
@@ -109,22 +173,18 @@ function fixture(context)
     }
   }
   fs.writeFileSync(fixturePath, `${JSON.stringify(prepared)}\n`)
+  const facts = routeFacts(prepared, fileDigest(fixturePath), candidate.plan.candidate.releaseId)
+  const rerunCommand = 'node tools/test-evidence/runtime-observation-probes.mjs probe --kind route-response-error'
   const receipt = seal({
     schema: 'fsusblog.runtime-observation-probe.v1',
     kind: 'route-response-error',
     producerId: 'production-correctness-scheduler',
-    sourceState: {
-      sourceCommit: commit,
-      worktreeFingerprint: `sha256:${fingerprint}`,
-      runId,
-      attemptId: 'attempt-0001',
-      buildIdentity: build.contentDigest,
-      fixtureIdentity: fileDigest(fixturePath),
-      candidateId: candidate.plan.candidate.candidateId,
-      runtimeId: candidate.plan.candidate.runtimeId,
-      releaseId: candidate.plan.candidate.releaseId,
-      candidatePlanDigest: candidate.plan.contentDigest
-    },
+    toolVersion: loadPostRuntimeProducerRegistry(root).producers.find((entry) => entry.producerId === candidate.plan.producerId).toolVersion,
+    sourceState: observationSourceState({ classId: 'route-response-error', plan: candidate.plan,
+      artifactDigest: `sha256:${digestValue(facts)}`, repositoryRoot: root }),
+    rawFacts: deriveProbeRawFacts('route-response-error', facts),
+    canonicalRerunCommand: rerunCommand,
+    independentVerifyCommand: `node tools/test-evidence/runtime-observation-raw.mjs verify --candidate-plan ${relative(candidate.planFile)} --receipt ${candidate.plan.observations.find((entry) => entry.classId === 'route-response-error').receiptPath}`,
     candidatePlanRef: {
       path: relative(candidate.planFile),
       fileDigest: fileDigest(candidate.planFile),
@@ -137,9 +197,9 @@ function fixture(context)
       mode: 'local-real-runtime',
       semanticAuthority: 'current-candidate-application-and-owned-services',
       syntheticSemanticResult: false,
-      rerunCommand: 'node tools/test-evidence/runtime-observation-probes.mjs probe --kind route-response-error'
+      rerunCommand
     },
-    facts: routeFacts(prepared, fileDigest(fixturePath), candidate.plan.candidate.releaseId),
+    facts,
     terminalStatus: 'verified'
   })
   fs.writeFileSync(probePath, `${JSON.stringify(receipt)}\n`)
