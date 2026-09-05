@@ -27,6 +27,7 @@ const SOURCE_COMMIT = 'a'.repeat(40);
 const WORKTREE_FP = 'b'.repeat(64);
 const EXTRACTOR_DIGEST = 'c'.repeat(64);
 const INPUT_DIGEST = 'e'.repeat(64);
+const RUN_ID = 'round-1';
 
 function stable(value)
 {
@@ -233,7 +234,7 @@ function makeTestEvidence({ catalog, evidence, errors = [] } = {})
         schema: 'fsusblog.behavior-test-evidence-receipt.v1',
         catalogDigest: digest,
         worktreeDigest: SOURCE_COMMIT,
-        run: { id: 'round-1', attemptKind: 'primary', evidenceClass: 'correctness' },
+        run: { id: RUN_ID, attemptKind: 'primary', evidenceClass: 'correctness' },
         sourceState: { commit: SOURCE_COMMIT, worktreeFingerprint: `sha256:${WORKTREE_FP}` },
         sourceClosureDigest: `sha256:${'f'.repeat(64)}`,
         rawResultDigest: `sha256:${'9'.repeat(64)}`,
@@ -339,11 +340,16 @@ function makeGenerated({ catalog, sections = [], status = 'ok', failureReasons =
     });
 }
 
-function makeStaticAdmission({ status = 'ok', candidateSpawnCount = 0, sourceCommit = SOURCE_COMMIT } = {})
+function makeStaticAdmission({
+    status = 'ok',
+    candidateSpawnCount = 0,
+    sourceCommit = SOURCE_COMMIT,
+    runId = RUN_ID
+} = {})
 {
     const receipt = {
         schema: 'fsusblog.behavior-doc-static-admission-receipt.v1',
-        run: { id: 'run-1' },
+        run: { id: runId },
         source: {
             commit: sourceCommit,
             worktreeFingerprint: `sha256:${WORKTREE_FP}`
@@ -405,7 +411,7 @@ function makeMutationEvidence({ catalog, owner, status = 'ok', qualifications, a
         blockedCount: status === 'ok' ? 0 : 0,
         status,
         failureReasons,
-        runId: 'round-1',
+        runId: RUN_ID,
         attemptId: 'attempt-0001',
         scope: 'pr'
     });
@@ -511,6 +517,7 @@ function join(inputs, overrides = {})
         staticAdmissionReceipt: inputs.staticAdmissionReceipt,
         sourceCommit: SOURCE_COMMIT,
         worktreeFingerprint: WORKTREE_FP,
+        runIdentity: RUN_ID,
         ...overrides
     });
 }
@@ -547,12 +554,13 @@ test('happy path produces qualified pre-runtime receipt with stable digest', () 
     assert.equal(receipt.requiredTestKinds['alpha-behavior'].includes('boundary'), true);
     assert.equal(receipt.observedTestKinds['alpha-behavior'].includes('boundary'), true);
     assert.equal(receipt.mutationStatus['alpha-behavior'].qualified, true);
-    validatePreRuntimeReceipt(receipt);
-    assertPreRuntimeQualified(receipt);
+    validatePreRuntimeReceipt(receipt, { behaviorCatalog: inputs.catalog });
+    assertPreRuntimeQualified(receipt, { behaviorCatalog: inputs.catalog });
     assertRuntimeCandidateAdmissionAllowed({
         receipt,
         expectedCommit: SOURCE_COMMIT,
         expectedWorktreeFingerprint: WORKTREE_FP,
+        behaviorCatalog: inputs.catalog,
         factExtractorRegistry: inputs.factExtractorRegistry
     });
 });
@@ -604,6 +612,7 @@ test('counterexample 1: boundary test not executed but file exists fails gate an
             receipt,
             expectedCommit: SOURCE_COMMIT,
             expectedWorktreeFingerprint: WORKTREE_FP,
+            behaviorCatalog: inputs.catalog,
             factExtractorRegistry: inputs.factExtractorRegistry
         }),
         /runtime candidate admission refused/u
@@ -716,6 +725,7 @@ test('counterexample 6: gate failure refuses browser/runtime candidate spawn', (
                 receipt: receiptFile,
                 expectedCommit: SOURCE_COMMIT,
                 expectedWorktreeFingerprint: WORKTREE_FP,
+                behaviorCatalog: inputs.catalog,
                 factExtractorRegistry: inputs.factExtractorRegistry
             }),
             /runtime candidate admission refused/u
@@ -904,6 +914,7 @@ test('runtime candidate admission refuses identity mismatch', () =>
             receipt,
             expectedCommit: 'f'.repeat(40),
             expectedWorktreeFingerprint: WORKTREE_FP,
+            behaviorCatalog: inputs.catalog,
             factExtractorRegistry: inputs.factExtractorRegistry
         }),
         /does not match expected/u
@@ -913,6 +924,7 @@ test('runtime candidate admission refuses identity mismatch', () =>
             receipt,
             expectedCommit: SOURCE_COMMIT,
             expectedWorktreeFingerprint: 'c'.repeat(64),
+            behaviorCatalog: inputs.catalog,
             factExtractorRegistry: inputs.factExtractorRegistry
         }),
         /worktree fingerprint/u
@@ -925,6 +937,66 @@ test('tampered receipt contentDigest is rejected', () =>
     const receipt = join(inputs);
     receipt.status = 'failed';
     assert.throws(() => validatePreRuntimeReceipt(receipt), /contentDigest mismatch/u);
+});
+
+test('independent verifier rejects a resealed schema-incomplete receipt', () =>
+{
+    const inputs = happyBundle();
+    const receipt = join(inputs);
+    delete receipt.testEvidenceDigests;
+    receipt.contentDigest = digestReceipt(receipt);
+    assert.throws(
+        () => validatePreRuntimeReceipt(receipt, { behaviorCatalog: inputs.catalog }),
+        /schema validation failed/u
+    );
+});
+
+test('join rejects current-run relabeling of stale same-source evidence', () =>
+{
+    const inputs = happyBundle();
+    inputs.staticAdmissionReceipt = makeStaticAdmission({ runId: 'stale-run' });
+    assert.throws(
+        () => join(inputs),
+        /run identity mismatch/u
+    );
+});
+
+test('independent verifier rejects a resealed subset of current catalog behaviors', () =>
+{
+    const inputs = happyBundle();
+    const receipt = join(inputs);
+    receipt.behaviorIds = ['alpha-behavior'];
+    delete receipt.requiredTestKinds['beta-behavior'];
+    delete receipt.observedTestKinds['beta-behavior'];
+    delete receipt.mutationStatus['beta-behavior'];
+    receipt.contentDigest = digestReceipt(receipt);
+    assert.throws(
+        () => validatePreRuntimeReceipt(receipt, { behaviorCatalog: inputs.catalog }),
+        /current pre-runtime catalog authority/u
+    );
+});
+
+test('independent verifier rejects resealed test-kind and mutation policy weakening', () =>
+{
+    const inputs = happyBundle();
+    const mutations = [
+        (receipt) => { receipt.requiredTestKinds['alpha-behavior'] = ['positive']; },
+        (receipt) => { receipt.observedTestKinds['alpha-behavior'] = ['positive']; },
+        (receipt) => { receipt.mutationStatus['alpha-behavior'].mutationRequired = false; },
+        (receipt) => { receipt.mutationStatus['alpha-behavior'].mutationStatus = 'failed'; },
+        (receipt) => { receipt.mutationStatus['alpha-behavior'].qualified = false; },
+        (receipt) => { receipt.mutationStatus['alpha-behavior'].behaviorId = 'beta-behavior'; }
+    ];
+    for (const mutate of mutations)
+    {
+        const receipt = join(inputs);
+        mutate(receipt);
+        receipt.contentDigest = digestReceipt(receipt);
+        assert.throws(
+            () => validatePreRuntimeReceipt(receipt, { behaviorCatalog: inputs.catalog }),
+            /current catalog authority|requires qualified test and mutation evidence/u
+        );
+    }
 });
 
 test('receipt contentDigest is recomputable', () =>
