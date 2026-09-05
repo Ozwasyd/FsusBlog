@@ -1,0 +1,22 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+                "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationMetadata.cs",
+                "src/backend/Infrastructure/SchemaMigration/SchemaAllowedExtraLinkNames.generated.cs",
+                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs",
+                "src/backend/Services/Authoring/AuthorArticlePinContracts.cs",
+                "src/backend/Services/Authoring/AuthorArticlePinStore.cs",
+                "src/migration/Catalogs/SchemaMigrationCatalog20260904.cs",
+                "src/migration/Definitions/AuthorArticlePinMigrationDefinitions.cs",
+                "src/migration/OfflineMigrationCatalogEntries.generated.cs",
+                "src/migration/SchemaMigrationManifest.cs",
+                "tools/governance/check-author-article-pin-authority.mjs"
+            ],
+            "reason": "register the exact trusted-registry source and tooling surfaces changed by the article pin authority while preserving existing external spellings without asserting new environment reads"
+        }
+    ]
+}
