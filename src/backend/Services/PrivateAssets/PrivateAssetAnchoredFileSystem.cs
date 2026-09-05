@@ -28,11 +28,21 @@ internal sealed partial class PrivateAssetAnchoredFileSystem
     private const uint StatxBasicStats = 0x7FF;
     private readonly string _privateRoot;
     private readonly string _commitRoot;
+    private readonly IPrivateAssetDirectorySync _directorySync;
 
     public PrivateAssetAnchoredFileSystem(string privateRoot, string commitRoot)
+        : this(privateRoot, commitRoot, new LinuxPrivateAssetDirectorySync())
+    {
+    }
+
+    internal PrivateAssetAnchoredFileSystem(
+        string privateRoot,
+        string commitRoot,
+        IPrivateAssetDirectorySync directorySync)
     {
         _privateRoot = privateRoot;
         _commitRoot = commitRoot;
+        _directorySync = directorySync;
         if (OperatingSystem.IsLinux())
         {
             using SafeFileHandle privateDirectory = OpenDirectoryHandle(_privateRoot);
@@ -102,6 +112,30 @@ internal sealed partial class PrivateAssetAnchoredFileSystem
         {
             throw FileSystemFailure("private_asset_commit_publish_failed");
         }
+
+        _directorySync.Sync(finalDirectory, PrivateAssetDirectoryDurabilityPoint.Published);
+    }
+
+    public void SyncExistingEntry(string storageKey)
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+
+        using SafeFileHandle directory = OpenStorageParent(storageKey, create: false, out string fileName, syncParents: true);
+        int descriptor = OpenAt(
+            FileDescriptor(directory),
+            fileName,
+            OpenReadOnly | OpenCloseOnExec | OpenNoFollow,
+            0);
+        if (descriptor < 0)
+        {
+            throw FileSystemFailure("private_asset_existing_publish_open_failed");
+        }
+
+        using var handle = new SafeFileHandle(new IntPtr(descriptor), ownsHandle: true);
+        _directorySync.Sync(directory, PrivateAssetDirectoryDurabilityPoint.ExistingPublication);
     }
 
     public FileStream? TryOpenRead(string storageKey)
@@ -181,13 +215,13 @@ internal sealed partial class PrivateAssetAnchoredFileSystem
 
         using (directory)
         {
-            if (UnlinkAt(FileDescriptor(directory), fileName, 0) == 0
-                || Marshal.GetLastPInvokeError() == NotFound)
+            int result = UnlinkAt(FileDescriptor(directory), fileName, 0);
+            if (result != 0 && Marshal.GetLastPInvokeError() != NotFound)
             {
-                return;
+                throw FileSystemFailure("private_asset_delete_failed");
             }
 
-            throw FileSystemFailure("private_asset_delete_failed");
+            _directorySync.Sync(directory, PrivateAssetDirectoryDurabilityPoint.Deleted);
         }
     }
 
@@ -213,6 +247,8 @@ internal sealed partial class PrivateAssetAnchoredFileSystem
         {
             throw FileSystemFailure("private_asset_quarantine_failed");
         }
+
+        SyncRenameDirectories(finalDirectory, cleanupDirectory);
     }
 
     public void TryDeleteTemporary(string temporaryName, string? fallbackPath)
@@ -229,7 +265,7 @@ internal sealed partial class PrivateAssetAnchoredFileSystem
         }
     }
 
-    private SafeFileHandle OpenStorageParent(string storageKey, bool create, out string fileName)
+    private SafeFileHandle OpenStorageParent(string storageKey, bool create, out string fileName, bool syncParents = false)
     {
         string[] segments = storageKey.Split('/');
         if (segments.Length < 2)
@@ -242,6 +278,11 @@ internal sealed partial class PrivateAssetAnchoredFileSystem
         {
             for (int index = 0; index < segments.Length - 1; index++)
             {
+                if (syncParents)
+                {
+                    _directorySync.Sync(current, PrivateAssetDirectoryDurabilityPoint.ParentCreated);
+                }
+
                 SafeFileHandle next = create
                     ? OpenOrCreateDirectory(current, segments[index])
                     : OpenDirectoryAt(current, segments[index]);
@@ -285,7 +326,7 @@ internal sealed partial class PrivateAssetAnchoredFileSystem
         return new SafeFileHandle(new IntPtr(descriptor), ownsHandle: true);
     }
 
-    private static SafeFileHandle OpenOrCreateDirectory(SafeFileHandle parent, string name)
+    private SafeFileHandle OpenOrCreateDirectory(SafeFileHandle parent, string name)
     {
         int descriptor = OpenAt(
             FileDescriptor(parent),
@@ -295,11 +336,16 @@ internal sealed partial class PrivateAssetAnchoredFileSystem
         if (descriptor < 0)
         {
             int error = Marshal.GetLastPInvokeError();
-            if (error != NotFound
-                || MkdirAt(FileDescriptor(parent), name, DirectoryMode) != 0
-                    && Marshal.GetLastPInvokeError() != AlreadyExists)
+            if (error != NotFound)
             {
                 throw FileSystemFailure("private_asset_parent_create_failed", error);
+            }
+
+            int createResult = MkdirAt(FileDescriptor(parent), name, DirectoryMode);
+            int createError = Marshal.GetLastPInvokeError();
+            if (createResult != 0 && createError != AlreadyExists)
+            {
+                throw FileSystemFailure("private_asset_parent_create_failed", createError);
             }
 
             descriptor = OpenAt(
@@ -317,12 +363,42 @@ internal sealed partial class PrivateAssetAnchoredFileSystem
         try
         {
             RequireMode(handle, DirectoryMode, "private_asset_directory_mode_rejected");
+            _directorySync.Sync(parent, PrivateAssetDirectoryDurabilityPoint.ParentCreated);
             return handle;
         }
         catch
         {
             handle.Dispose();
             throw;
+        }
+    }
+
+    private void SyncRenameDirectories(
+        SafeFileHandle sourceDirectory,
+        SafeFileHandle destinationDirectory)
+    {
+        PrivateAssetDurabilityException? failure = null;
+        try
+        {
+            _directorySync.Sync(sourceDirectory, PrivateAssetDirectoryDurabilityPoint.QuarantineSource);
+        }
+        catch (PrivateAssetDurabilityException exception)
+        {
+            failure = exception;
+        }
+
+        try
+        {
+            _directorySync.Sync(destinationDirectory, PrivateAssetDirectoryDurabilityPoint.QuarantineDestination);
+        }
+        catch (PrivateAssetDurabilityException exception)
+        {
+            failure ??= exception;
+        }
+
+        if (failure is not null)
+        {
+            throw new PrivateAssetDurabilityException(failure.Message);
         }
     }
 
@@ -519,3 +595,41 @@ internal sealed record AnchoredTemporaryFile(string Name, string? FallbackPath, 
 {
     public ValueTask DisposeAsync() => Stream.DisposeAsync();
 }
+
+internal enum PrivateAssetDirectoryDurabilityPoint
+{
+    ParentCreated,
+    Published,
+    ExistingPublication,
+    Deleted,
+    QuarantineSource,
+    QuarantineDestination
+}
+
+internal interface IPrivateAssetDirectorySync
+{
+    void Sync(SafeFileHandle directory, PrivateAssetDirectoryDurabilityPoint point);
+}
+
+internal sealed partial class LinuxPrivateAssetDirectorySync : IPrivateAssetDirectorySync
+{
+    public void Sync(SafeFileHandle directory, PrivateAssetDirectoryDurabilityPoint point)
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+
+        int descriptor = checked((int)directory.DangerousGetHandle());
+        if (Fsync(descriptor) != 0)
+        {
+            throw new PrivateAssetDurabilityException(
+                $"private_asset_{point.ToString().ToLowerInvariant()}_directory_sync_failed");
+        }
+    }
+
+    [LibraryImport("libc", EntryPoint = "fsync", SetLastError = true)]
+    private static partial int Fsync(int descriptor);
+}
+
+internal sealed class PrivateAssetDurabilityException(string message) : IOException(message);

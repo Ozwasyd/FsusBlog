@@ -148,6 +148,11 @@ internal sealed class SqlPrivateAssetRecordSource(ISqlSugarClient db) : IPrivate
         }).ConfigureAwait(false);
         if (!transaction.IsSuccess)
         {
+            if (transaction.ErrorException is PrivateAssetDurabilityException durabilityFailure)
+            {
+                throw new PrivateAssetDurabilityException(durabilityFailure.Message);
+            }
+
             if (transaction.ErrorException is IOException or UnauthorizedAccessException)
             {
                 throw new IOException("private_asset_commit_publish_failed");
@@ -253,6 +258,15 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
         IPrivateAssetRecordSource records,
         IPrivateAssetWritePolicy writePolicy,
         ReleaseStoragePaths storagePaths)
+        : this(records, writePolicy, storagePaths, fileSystem: null)
+    {
+    }
+
+    internal LocalPrivateAssetStore(
+        IPrivateAssetRecordSource records,
+        IPrivateAssetWritePolicy writePolicy,
+        ReleaseStoragePaths storagePaths,
+        PrivateAssetAnchoredFileSystem? fileSystem)
     {
         _records = records;
         _writePolicy = writePolicy;
@@ -262,7 +276,7 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
         {
             EnsureRestrictedDirectory(_privateRoot);
             EnsureRestrictedDirectory(_commitRoot);
-            _fileSystem = new PrivateAssetAnchoredFileSystem(_privateRoot, _commitRoot);
+            _fileSystem = fileSystem ?? new PrivateAssetAnchoredFileSystem(_privateRoot, _commitRoot);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -346,7 +360,7 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
 
                 if (!await _records.PublishAndCompleteCommitAsync(
                         prepared,
-                        static () => { },
+                        () => _fileSystem.SyncExistingEntry(record.StorageKey.Value),
                         cancellationToken))
                 {
                     throw new InvalidOperationException("private_asset_commit_state_conflict");
@@ -398,6 +412,10 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
 
             return prepared.StorageKey;
         }
+        catch (PrivateAssetDurabilityException)
+        {
+            throw new InvalidOperationException("private_asset_commit_durability_failed");
+        }
         catch (IOException)
         {
             await using FileStream? winner = _fileSystem.TryOpenRead(record.StorageKey.Value);
@@ -410,7 +428,7 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
                 if (racePrepared is not null
                     && await _records.PublishAndCompleteCommitAsync(
                         racePrepared,
-                        static () => { },
+                        () => _fileSystem.SyncExistingEntry(record.StorageKey.Value),
                         cancellationToken))
                 {
                     return racePrepared.StorageKey;

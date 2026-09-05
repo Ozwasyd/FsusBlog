@@ -746,6 +746,50 @@ public sealed class PrivateAssetStoreTests
 public sealed class PrivateAssetStorePostgresIntegrationTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
+    public async Task DirectorySyncFailure_PreservesRepairFenceUntilDurableRetry()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        using var directory = new PrivateAssetIntegrationTemporaryDirectory();
+        ReleaseStoragePaths paths = ReleaseStorageTestPaths.Create(directory.Path);
+        byte[] bytes = [2, 4, 6, 8];
+        (AssetId assetId, AssetStorageKey storageKey) = SeedPrivateAsset(
+            db, bytes, ContentAssetStates.PendingDelete);
+        Directory.CreateDirectory(paths.PrivateAssetRoot);
+        Directory.CreateDirectory(paths.UploadCommitRoot);
+        var sync = new PrivateAssetDurabilityTests.FaultingDirectorySync();
+        var fileSystem = new PrivateAssetAnchoredFileSystem(
+            paths.PrivateAssetRoot, paths.UploadCommitRoot, sync);
+        var store = new LocalPrivateAssetStore(
+            new SqlPrivateAssetRecordSource(db), new PrivateAssetWritePolicy(), paths, fileSystem);
+
+        foreach (PrivateAssetDirectoryDurabilityPoint point in new[]
+        {
+            PrivateAssetDirectoryDurabilityPoint.Published,
+            PrivateAssetDirectoryDurabilityPoint.ExistingPublication
+        })
+        {
+            sync.FailNext = point;
+            InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                store.CreateAsync(new PrivateAssetWriteRequest(
+                    assetId, new MemoryStream(bytes), PrivateAssetWritePurpose.BinaryAttachment)));
+
+            Assert.Equal("private_asset_commit_durability_failed", failure.Message);
+            Assert.Equal(ContentAssetStates.PendingDelete,
+                db.Queryable<ContentAsset>().InSingle(assetId.Value).State);
+            Assert.Equal(ContentAssetCleanupMarkers.PrivateCommitRepair,
+                db.Queryable<ContentAssetCleanupQueueItem>().InSingle(assetId.Value).LastError);
+            Assert.Equal(bytes, await File.ReadAllBytesAsync(ResolveFinalPath(paths, storageKey)));
+        }
+
+        await store.CreateAsync(new PrivateAssetWriteRequest(
+            assetId, new MemoryStream(bytes), PrivateAssetWritePurpose.BinaryAttachment));
+
+        Assert.Equal(ContentAssetStates.Active,
+            db.Queryable<ContentAsset>().InSingle(assetId.Value).State);
+        Assert.Null(db.Queryable<ContentAssetCleanupQueueItem>().InSingle(assetId.Value));
+    }
+
+    [Fact]
     public async Task CommitAndUnifiedCleanup_KeepDatabaseAndPrivateFileConsistent()
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
