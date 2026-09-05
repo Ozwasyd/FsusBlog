@@ -1,6 +1,6 @@
 {
     "schema": "fsusblog.monolithic-distributed-architecture.v2",
-    "contentDigest": "sha256:f824d89173f121ceba34c8b39f6eba9789e397d7a436594b9d30d939fa8766ba",
+    "contentDigest": "sha256:8a366f76e65d059c4810caf777c7edea4b0a29acd8ff382e04d78f9c5a60a311",
     "mainApplication": {
         "project": "src/backend/FsusBlog.Server.csproj",
         "dockerfile": "ops/docker/FsusBlog.Server.Dockerfile",

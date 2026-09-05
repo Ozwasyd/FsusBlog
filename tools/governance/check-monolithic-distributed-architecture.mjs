@@ -554,7 +554,7 @@ function validatePolicy(policy)
     const errors = [];
     validateExactKeys(policy, [
         'blueGreenMounts', 'composeServices', 'contentDigest', 'documentation', 'domainForbiddenPatterns',
-        'domainRoots', 'mainApplication', 'remoteInvocation', 'runtimeModes', 'runtimeRoleOwnership',
+        'domainRoots', 'executableProjectClassifications', 'mainApplication', 'remoteInvocation', 'runtimeModes', 'runtimeRoleOwnership',
         'schema', 'singleModeGuard'
     ], 'architecture policy', errors);
     if (policy?.schema !== 'fsusblog.monolithic-distributed-architecture.v2')

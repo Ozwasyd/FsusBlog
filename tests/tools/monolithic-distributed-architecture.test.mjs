@@ -675,6 +675,20 @@ test('deployment authority observes one process/service and exact blue-green mou
     assert.equal(Object.keys(observation.volumeTopology).length, 10);
 });
 
+test('deployment authority rejects resealed unknown policy fields alongside executable classifications', () =>
+{
+    const root = createAuthorityFixture();
+    const policyPath = path.join(root, 'tests/governance/monolithic-distributed-architecture.json');
+    const policy = JSON.parse(readFileSync(policyPath, 'utf8'));
+    policy.unregisteredOwnership = 'supported';
+    resealPolicy(policy);
+    writeFileSync(policyPath, `${JSON.stringify(policy, null, 4)}\n`);
+    const observation = observeRuntimeRoleDeploymentAuthority({ root });
+    assert.equal(observation.ownership.claimEligible, false);
+    assert.ok(observation.ownership.failureReasons.some((reason) =>
+        reason.startsWith('architecture policy fields must be exactly ')));
+});
+
 test('standalone and deployment observers reject an unknown production service', () =>
 {
     const root = createAuthorityFixture();
