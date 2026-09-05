@@ -16,7 +16,7 @@ function cell(value)
 }
 
 /** Consume the complete canonical result; callers must serialize snapshot and mutation. */
-export function planBlockerIssue({ report, catalog, exceptions, issues, previousObservations = {} })
+export function planBlockerIssue({ report, catalog, exceptions, issues, previousObservations = {}, checkPlan = { blockedPullRequests: [] } })
 {
     if (report?.schema !== resultSchema || !['pass', 'fail'].includes(report.status)
         || !Array.isArray(report.results) || !Array.isArray(report.errors)
@@ -48,7 +48,21 @@ export function planBlockerIssue({ report, catalog, exceptions, issues, previous
         throw new Error('dependency_blocker_issue_not_exact_one');
     }
     const issue = matching[0];
-    const blockers = report.results.filter((result) => result.state === 'uncovered')
+    const failedByDependency = new Map();
+    for (const pull of checkPlan.blockedPullRequests)
+    {
+        for (const id of pull.dependencyIds)
+        {
+            if (!items.has(id))
+            {
+                throw new Error('dependency_blocker_unknown_pull_dependency');
+            }
+            const failures = failedByDependency.get(id) ?? [];
+            failures.push(...pull.failedChecks.map((check) => `#${pull.number} ${check.name} (${check.errors.map((error) => error.code).join(', ')}; first failure ${check.firstObservedAt})`));
+            failedByDependency.set(id, failures);
+        }
+    }
+    const blockers = report.results.filter((result) => result.state === 'uncovered' || failedByDependency.has(result.dependencyId))
         .sort((left, right) => left.dependencyId < right.dependencyId ? -1 : left.dependencyId > right.dependencyId ? 1 : 0);
     const observations = {};
     const rows = blockers.map((result) => {
@@ -63,6 +77,7 @@ export function planBlockerIssue({ report, catalog, exceptions, issues, previous
             .map((exception) => `${exception.owner} / ${exception.expiresAt}`).sort().join('; ');
         return `| ${[result.dependencyId, result.currentVersion, result.latestStable,
             `${item.datasource}/${item.packageName}`, result.prNumber ? `#${result.prNumber}` : '—',
+            (failedByDependency.get(result.dependencyId) ?? []).sort().join('; ') || '—',
             exceptionDetails || '—', observations[result.dependencyId]].map(cell).join(' | ')} |`;
     });
     const active = blockers.length > 0 || report.status === 'fail';
@@ -74,8 +89,8 @@ export function planBlockerIssue({ report, catalog, exceptions, issues, previous
     const body = [
         'Canonical dependency freshness blockers; no version policy is computed by this consumer.',
         '',
-        '| dependencyId | currentVersion | targetVersion | datasource/package | open PR | exception owner/expiry | firstObservedAt |',
-        '| --- | --- | --- | --- | --- | --- | --- |',
+        '| dependencyId | currentVersion | targetVersion | datasource/package | open PR | failed checks | exception owner/expiry | firstObservedAt |',
+        '| --- | --- | --- | --- | --- | --- | --- | --- |',
         ...rows,
         '',
         ...diagnostics.map((diagnostic) => `- ${diagnostic}`)
