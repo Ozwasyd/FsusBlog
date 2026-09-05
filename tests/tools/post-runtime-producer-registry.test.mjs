@@ -1216,6 +1216,23 @@ test('reader firewall traverses imports and rejects transitive Markdown/DocClaim
     context.after(() => fs.rmSync(repositoryRoot, { recursive: true, force: true }))
     fs.mkdirSync(path.join(repositoryRoot, 'tools/test-matrix'), { recursive: true })
     fs.mkdirSync(path.join(repositoryRoot, 'tools/docs'), { recursive: true })
+    const canonicalSource = fs.readFileSync(path.join(root,
+        'tools/test-matrix/post-runtime-producer-registry.mjs'), 'utf8')
+    const pinnedReaderSource = canonicalSource.slice(
+        canonicalSource.indexOf('function readPinnedRepositoryFile('),
+        canonicalSource.indexOf('function trackedRepositoryEntries(')).trim()
+    fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix/copied-reader.mjs'),
+        `import * as fs from 'node:fs'\n${pinnedReaderSource}\n`)
+    fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix/copied-entry.mjs'),
+        "import './copied-reader.mjs'\n")
+    assert.throws(
+        () => validatePostRuntimeReaderFirewall(repositoryRoot, 'tools/test-matrix/copied-entry.mjs'),
+        /computed filesystem path is forbidden/u)
+    fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix/post-runtime-producer-registry.mjs'),
+        `import * as fs from 'node:fs'\n${pinnedReaderSource.replace('fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW', 'fs.constants.O_RDONLY')}\n`)
+    assert.throws(
+        () => validatePostRuntimeReaderFirewall(repositoryRoot),
+        /computed filesystem path is forbidden/u)
     fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix/entry.mjs'),
         "import './middle.mjs'\nexport const entry = true\n")
     fs.writeFileSync(path.join(repositoryRoot, 'tools/test-matrix/middle.mjs'),

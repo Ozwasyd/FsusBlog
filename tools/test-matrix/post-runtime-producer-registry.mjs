@@ -90,6 +90,10 @@ process.stdin.on('data', (chunk) => { source += chunk })
 process.stdin.on('end', () => {
     const sourceType = process.argv[1]
     const ast = acorn.parse(source, { ecmaVersion: 'latest', sourceType, allowHashBang: true })
+    const pinnedReader = ast.body.find((node) => node.type === 'FunctionDeclaration'
+        && node.id?.name === 'readPinnedRepositoryFile'
+        && process.argv[2] !== ''
+        && source.slice(node.start, node.end) === process.argv[2])
     const dependencies = []
     const requireAliases = new Set(['require'])
     const requireFactoryAliases = new Set()
@@ -337,7 +341,8 @@ process.stdin.on('end', () => {
             const callee = unwrap(node.callee)
             const method = callee?.type === 'MemberExpression' ? propertyName(callee) : null
             const argument = node.arguments[0]
-            const canonicalPinnedRead = functionName === 'readPinnedRepositoryFile'
+            const canonicalPinnedRead = pinnedReader
+                && node.start >= pinnedReader.start && node.end <= pinnedReader.end
                 && callee?.type === 'MemberExpression'
                 && callee.object?.type === 'Identifier' && callee.object.name === 'fs'
                 && ((method === 'openSync' && argument?.type === 'Identifier'
@@ -710,7 +715,8 @@ function parseExecutableDependencies(source, relative)
     try
     {
         return JSON.parse(execFileSync(process.execPath, [
-            '--expose-internals', '--input-type=commonjs', '--eval', acornDependencyParser, sourceType
+            '--expose-internals', '--input-type=commonjs', '--eval', acornDependencyParser, sourceType,
+            relative === readerFirewallEntry ? readPinnedRepositoryFile.toString() : ''
         ], { input: source, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }))
     }
     catch (error)
