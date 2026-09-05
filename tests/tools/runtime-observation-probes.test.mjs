@@ -8,7 +8,8 @@ import { resolveSourceCommit, resolveWorktreeFingerprint } from '../../tools/fac
 import { observationSourceState, seal } from '../../tools/fact-extractors/post-runtime/adapter.mjs'
 import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs'
 import { projectProbeRaw, verifyProjectedRaw } from '../../tools/test-evidence/runtime-observation-raw.mjs'
-import { deriveProbeRawFacts, verifyFacts, verifyReceipt } from '../../tools/test-evidence/runtime-observation-probes.mjs'
+import { verifyReceipt } from '../../tools/test-evidence/runtime-observation-probes.mjs'
+import { deriveProbeRawFacts, verifyFacts } from '../../tools/test-evidence/runtime-observation-probe-facts.mjs'
 import { projectPreparedPublicIds } from '../../tools/test-fixtures/receipt/projection.mjs'
 import { loadPostRuntimeProducerRegistry, root } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
 import { createPostRuntimeCandidateFixture } from './support/post-runtime-candidate-fixture.mjs'
@@ -19,6 +20,10 @@ const runId = 'runtime-observation-test'
 const digest = (character) => `sha256:${character.repeat(64)}`
 const fileDigest = (file) => `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`
 const sha = (value) => `sha256:${createHash('sha256').update(value).digest('hex')}`
+
+test('pure probe raw projection refuses a fixture without its verified public projection', () => {
+  assert.throws(() => verifyFacts('route-response-error', {}, { fixture: {} }), /verified fixture projection is required/)
+})
 
 test('pure probe raw projection seals the full observed cache snapshot without a parent digest', () => {
   const facts = { schema: 'fsusblog.cache-search-outbox-probe-facts.v1',
