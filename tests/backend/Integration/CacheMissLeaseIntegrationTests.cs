@@ -1,10 +1,17 @@
 using System.Buffers;
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Helpers.Initializer;
 
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+
+using Npgsql;
 
 using StackExchange.Redis;
 using StackExchange.Redis.Profiling;
@@ -13,8 +20,223 @@ namespace FsusBlog.Server.Tests;
 
 [Trait("Category", "Integration")]
 [Trait("Dependency", "Docker")]
-public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture redis) : IClassFixture<PublicHotDeliveryRedisFixture>
+[Collection(nameof(SchemaMigrationPostgresCollectionA))]
+public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture redis, PostgresSchemaMigrationFixture postgres) : IClassFixture<PublicHotDeliveryRedisFixture>
 {
+    [Theory]
+    [InlineData("loser")]
+    [InlineData("write-failure")]
+    public async Task CoordinationFailure_CapturesRedisAndPostgresCommands(string scenario)
+    {
+        string database = await postgres.CreateDatabaseAsync();
+        using var commandCapture = new PostgresCommandCapture();
+        using ILoggerFactory logFactory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Information).AddProvider(commandCapture));
+        var dataSourceBuilder = new NpgsqlDataSourceBuilder(postgres.BuildDatabaseConnectionString(database));
+        dataSourceBuilder.UseLoggerFactory(logFactory);
+        await using NpgsqlDataSource dataSource = dataSourceBuilder.Build();
+        await using ConnectionMultiplexer connection = await redis.ConnectAsync();
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var policies = new CachePolicyRegistry();
+        var scope = new TestKeyScope($"eight-cache-failure-capture-{Guid.NewGuid():N}:");
+        using var cache = new UnifiedCache(memory, connection, policies, scope, NullLogger<UnifiedCache>.Instance);
+        using var singleFlight = new CacheSingleFlightCoordinator(new CacheKeyResolver(policies, scope, NullLogger<CacheKeyResolver>.Instance));
+        var coordinator = new CacheMissCoordinator(singleFlight, cache, policies, NullLogger<CacheMissCoordinator>.Instance);
+        const CachePolicyId Policy = CachePolicyId.ArticleHotFrame;
+        string leaseKey = cache.BuildKey(Policy, "__lease__:value");
+        string valueKey = cache.BuildKey(Policy, "value");
+        string registryKey = scope.PrefixKey(UnifiedCache.BuildRegistryKeyForTests(Policy));
+        IDatabase db = connection.GetDatabase();
+        if (scenario == "loser")
+        {
+            await db.StringSetAsync(leaseKey, "other-owner", TimeSpan.FromSeconds(30));
+        }
+        else
+        {
+            await db.StringSetAsync(registryKey, "wrong-type");
+        }
+        var profile = new ProfilingSession();
+        connection.RegisterProfiler(() => profile);
+        try
+        {
+            CacheCoordinationException failure = await Assert.ThrowsAsync<CacheCoordinationException>(() => coordinator.CoordinateAsync<string>(Policy, "value",
+                async token =>
+                {
+                    string? value = await cache.GetStringAsync(Policy, "value", token);
+                    return new CacheReadResult<string>(value is not null, value);
+                },
+                async token =>
+                {
+                    await using NpgsqlCommand query = dataSource.CreateCommand("SELECT 'built'::text");
+                    Assert.Equal("built", await query.ExecuteScalarAsync(token));
+                    await cache.SetStringAsync(Policy, "value", "built", cancellationToken: token);
+                    return "built";
+                }, "failure-capture",
+                strategy: new CacheRebuildStrategy(TimeSpan.FromSeconds(5), TimeSpan.FromMilliseconds(20), TimeSpan.FromSeconds(10))));
+            string[] commands = profile.FinishProfiling().Select(command => command.Command).ToArray();
+            Assert.Equal(1, commands.Count(command => command == "SET"));
+            Assert.DoesNotContain("SADD", commands);
+            if (scenario == "loser")
+            {
+                Assert.Equal("refill-timeout", failure.Reason);
+                Assert.Empty(commandCapture.Completed);
+                Assert.Equal(3, commands.Count(command => command == "GET"));
+                Assert.DoesNotContain(commands, command => command is "EVAL" or "EVALSHA");
+                Assert.Equal("other-owner", (string?)await db.StringGetAsync(leaseKey));
+            }
+            else
+            {
+                Assert.Equal("publication-registry-invalid", failure.Reason);
+                Assert.Equal("SELECT 'built'::text", Assert.Single(commandCapture.Completed));
+                Assert.Equal(2, commands.Count(command => command == "GET"));
+                Assert.Equal(2, commands.Count(command => command is "EVAL" or "EVALSHA"));
+                Assert.False(await db.KeyExistsAsync(leaseKey));
+            }
+            Assert.False(await db.KeyExistsAsync(valueKey));
+            Assert.Equal(0, singleFlight.ActiveEntryCount);
+        }
+        finally
+        {
+            await db.KeyDeleteAsync([leaseKey, valueKey, registryKey]);
+        }
+    }
+
+    [Fact]
+    public async Task FactoryProfiler_EmitsCoordinationMeasurementsWithoutIdentities()
+    {
+        await using ConnectionMultiplexer fixtureConnection = await redis.ConnectAsync();
+        using IConnectionMultiplexer connection = await new StackExchangeRedisConnectionMultiplexerFactory().CreateAsync(ConfigurationOptions.Parse(fixtureConnection.Configuration));
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var policies = new CachePolicyRegistry();
+        var scope = new TestKeyScope($"eight-cache-metrics-{Guid.NewGuid():N}:");
+        using var cache = new UnifiedCache(memory, connection, policies, scope, NullLogger<UnifiedCache>.Instance);
+        using var singleFlight = new CacheSingleFlightCoordinator(new CacheKeyResolver(policies, scope, NullLogger<CacheKeyResolver>.Instance));
+        var coordinator = new CacheMissCoordinator(singleFlight, cache, policies, NullLogger<CacheMissCoordinator>.Instance);
+        using Activity activity = new Activity("cache-coordination-test").Start();
+        var samples = new ConcurrentDictionary<string, double>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, owner) =>
+        {
+            if (instrument.Name.StartsWith("fsus.cache.coordination.", StringComparison.Ordinal))
+            {
+                owner.EnableMeasurementEvents(instrument);
+            }
+        };
+        void Record(Instrument instrument, double measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags)
+        {
+            if (Activity.Current?.TraceId != activity.TraceId)
+            {
+                return;
+            }
+            foreach (KeyValuePair<string, object?> tag in tags)
+            {
+                Assert.Contains(tag.Key, new[] { "fsus.cache.policy", "fsus.cache.release.outcome" });
+            }
+            samples[instrument.Name] = measurement;
+        }
+        listener.SetMeasurementEventCallback<long>((instrument, value, tags, _) => Record(instrument, value, tags));
+        listener.SetMeasurementEventCallback<double>((instrument, value, tags, _) => Record(instrument, value, tags));
+        listener.Start();
+        try
+        {
+            await coordinator.CoordinateAsync<string>(CachePolicyId.SystemPage, "private-identity",
+                async token =>
+                {
+                    string? value = await cache.GetStringAsync(CachePolicyId.SystemPage, "private-identity", token);
+                    return new CacheReadResult<string>(value is not null, value);
+                },
+                async token =>
+                {
+                    await cache.SetStringAsync(CachePolicyId.SystemPage, "private-identity", "private-payload", cancellationToken: token);
+                    return "private-payload";
+                }, "private-operation");
+            Assert.Equal(6, samples.Count);
+            Assert.Equal(5, samples["fsus.cache.coordination.redis_commands"]);
+            Assert.Equal(1, samples["fsus.cache.coordination.rebuild_count"]);
+            Assert.Equal(1, samples["fsus.cache.coordination.release"]);
+            Assert.Equal(0, samples["fsus.cache.coordination.active_entries"]);
+            Assert.True(samples["fsus.cache.coordination.local_wait"] >= 0);
+            Assert.True(samples["fsus.cache.coordination.lease_wait"] >= 0);
+        }
+        finally
+        {
+            await cache.RemoveAsync(CachePolicyId.SystemPage, "private-identity");
+        }
+    }
+
+    [Fact]
+    public async Task InvalidRegistry_RejectsPublicationWithoutValueAndReleasesLease()
+    {
+        await using ConnectionMultiplexer connection = await redis.ConnectAsync();
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var policies = new CachePolicyRegistry();
+        var scope = new TestKeyScope($"eight-cache-write-failure-{Guid.NewGuid():N}:");
+        using var cache = new UnifiedCache(memory, connection, policies, scope, NullLogger<UnifiedCache>.Instance);
+        using var singleFlight = new CacheSingleFlightCoordinator(new CacheKeyResolver(policies, scope, NullLogger<CacheKeyResolver>.Instance));
+        var coordinator = new CacheMissCoordinator(singleFlight, cache, policies, NullLogger<CacheMissCoordinator>.Instance);
+        const CachePolicyId Policy = CachePolicyId.ArticleHotFrame;
+        string registryKey = scope.PrefixKey(UnifiedCache.BuildRegistryKeyForTests(Policy));
+        string valueKey = cache.BuildKey(Policy, "value");
+        string leaseKey = cache.BuildKey(Policy, "__lease__:value");
+        IDatabase db = connection.GetDatabase();
+        await db.StringSetAsync(registryKey, "invalid-registry-type");
+        try
+        {
+            CacheCoordinationException failure = await Assert.ThrowsAsync<CacheCoordinationException>(() => coordinator.CoordinateAsync<string>(Policy, "value",
+                _ => Task.FromResult(new CacheReadResult<string>(false, default)),
+                async token =>
+                {
+                    await cache.SetStringAsync(Policy, "value", "uncommitted", cancellationToken: token);
+                    return "uncommitted";
+                }, "invalid-registry"));
+            Assert.Equal("publication-registry-invalid", failure.Reason);
+            Assert.False(await db.KeyExistsAsync(valueKey));
+            Assert.False(await db.KeyExistsAsync(leaseKey));
+            Assert.False((await cache.TryGetRawAsync(Policy, "value")).Hit);
+            Assert.Equal("invalid-registry-type", (string?)await db.StringGetAsync(registryKey));
+            Assert.Equal(0, singleFlight.ActiveEntryCount);
+        }
+        finally
+        {
+            await db.KeyDeleteAsync([registryKey, valueKey, leaseKey]);
+        }
+    }
+
+    [Fact]
+    public async Task SuccessfulRenewal_PublishesAfterInitialLeaseTtlAndReleasesAuthority()
+    {
+        await using ConnectionMultiplexer connection = await redis.ConnectAsync();
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var policies = new CachePolicyRegistry();
+        var scope = new TestKeyScope($"eight-cache-renew-success-{Guid.NewGuid():N}:");
+        using var cache = new UnifiedCache(memory, connection, policies, scope, NullLogger<UnifiedCache>.Instance);
+        using var singleFlight = new CacheSingleFlightCoordinator(new CacheKeyResolver(policies, scope, NullLogger<CacheKeyResolver>.Instance));
+        var coordinator = new CacheMissCoordinator(singleFlight, cache, policies, NullLogger<CacheMissCoordinator>.Instance);
+        string valueKey = cache.BuildKey(CachePolicyId.SystemPage, "value");
+        string leaseKey = cache.BuildKey(CachePolicyId.SystemPage, "__lease__:value");
+        IDatabase db = connection.GetDatabase();
+        try
+        {
+            string? result = await coordinator.CoordinateAsync<string>(CachePolicyId.SystemPage, "value",
+                _ => Task.FromResult(new CacheReadResult<string>(false, default)),
+                async token =>
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(1500), token);
+                    Assert.True(await db.KeyExistsAsync(leaseKey));
+                    await cache.SetStringAsync(CachePolicyId.SystemPage, "value", "renewed", cancellationToken: token);
+                    return "renewed";
+                }, "renewed-publication",
+                strategy: new CacheRebuildStrategy(TimeSpan.FromSeconds(1), TimeSpan.Zero, TimeSpan.FromSeconds(5)));
+            Assert.Equal("renewed", result);
+            Assert.Equal("renewed", (string?)await db.StringGetAsync(valueKey));
+            Assert.False(await db.KeyExistsAsync(leaseKey));
+            Assert.Equal(0, singleFlight.ActiveEntryCount);
+        }
+        finally
+        {
+            await db.KeyDeleteAsync([valueKey, leaseKey]);
+        }
+    }
+
     [Fact]
     public async Task ColdLeader_ProfilesTwoReadsOneAcquireAndAtomicPublishRelease()
     {
@@ -111,10 +333,18 @@ public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture
     }
 
     [Theory]
-    [InlineData(100)]
-    [InlineData(1000)]
-    public async Task TwoCoordinators_ColdKey_HaveOneBuilderAndReleaseLease(int concurrency)
+    [InlineData(100, false)]
+    [InlineData(1000, false)]
+    [InlineData(100, true)]
+    [InlineData(1000, true)]
+    public async Task Coordinators_ColdKey_ExecuteOnePostgresCommandAndReleaseLease(int concurrency, bool twoNodes)
     {
+        string database = await postgres.CreateDatabaseAsync();
+        using var commandCapture = new PostgresCommandCapture();
+        using ILoggerFactory logFactory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Information).AddProvider(commandCapture));
+        var dataSourceBuilder = new NpgsqlDataSourceBuilder(postgres.BuildDatabaseConnectionString(database));
+        dataSourceBuilder.UseLoggerFactory(logFactory);
+        await using NpgsqlDataSource dataSource = dataSourceBuilder.Build();
         await using ConnectionMultiplexer connection = await redis.ConnectAsync();
         using var memoryA = new MemoryCache(new MemoryCacheOptions());
         using var memoryB = new MemoryCache(new MemoryCacheOptions());
@@ -137,8 +367,8 @@ public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture
         {
             Task<string?>[] requests = Enumerable.Range(0, concurrency).Select(index =>
             {
-                UnifiedCache cache = index % 2 == 0 ? cacheA : cacheB;
-                CacheMissCoordinator coordinator = index % 2 == 0 ? coordinatorA : coordinatorB;
+                UnifiedCache cache = !twoNodes || index % 2 == 0 ? cacheA : cacheB;
+                CacheMissCoordinator coordinator = !twoNodes || index % 2 == 0 ? coordinatorA : coordinatorB;
                 return coordinator.CoordinateAsync<string>(CachePolicyId.SystemPage, identity,
                     async token =>
                     {
@@ -150,6 +380,8 @@ public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture
                         Interlocked.Increment(ref builds);
                         builderStarted.TrySetResult();
                         await releaseBuilder.Task.WaitAsync(token);
+                        await using NpgsqlCommand query = dataSource.CreateCommand("SELECT 'built'::text");
+                        Assert.Equal("built", await query.ExecuteScalarAsync(token));
                         await cache.SetStringAsync(CachePolicyId.SystemPage, identity, "built", cancellationToken: token);
                         return "built";
                     }, "two-coordinators",
@@ -160,6 +392,7 @@ public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture
             string?[] values = await Task.WhenAll(requests).WaitAsync(TimeSpan.FromSeconds(20));
             Assert.All(values, value => Assert.Equal("built", value));
             Assert.Equal(1, builds);
+            Assert.Equal("SELECT 'built'::text", Assert.Single(commandCapture.Completed));
             Assert.False(await connection.GetDatabase().KeyExistsAsync(leaseKey));
             Assert.Equal(0, singleA.ActiveEntryCount);
             Assert.Equal(0, singleB.ActiveEntryCount);
@@ -280,6 +513,30 @@ public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture
         finally
         {
             await db.KeyDeleteAsync([leaseKey, childKey]);
+        }
+    }
+    private sealed class TestKeyScope(string prefix) : IRuntimeKeyScope
+    {
+        public string ScopeToken => prefix;
+        public string PrefixKey(string key) => string.Concat(prefix, key);
+    }
+
+    private sealed class PostgresCommandCapture : ILoggerProvider, ILogger
+    {
+        internal ConcurrentQueue<string> Completed { get; } = new();
+        public ILogger CreateLogger(string categoryName) => this;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public void Dispose()
+        {
+        }
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (eventId.Name == "CommandExecutionCompleted" && state is IEnumerable<KeyValuePair<string, object?>> fields)
+            {
+                Completed.Enqueue(fields.Single(field => field.Key == "CommandText").Value?.ToString() ?? string.Empty);
+            }
         }
     }
 }

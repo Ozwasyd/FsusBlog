@@ -8,6 +8,32 @@ namespace FsusBlog.Server.Tests;
 public sealed class CacheMissCoordinatorTests
 {
     [Fact]
+    public async Task CoordinateAsync_AcquireThrows_StillRecordsLeaseWait()
+    {
+        CacheCoordinationObservation? captured = null;
+        var cache = new CoordinatingCache
+        {
+            TryAcquireLeaseHandler = async (_, _, _, _, _) =>
+            {
+                captured = CacheCoordinationObservation.Current;
+                await Task.Delay(10);
+                throw new InvalidOperationException("acquire-failed");
+            }
+        };
+        using var singleFlight = new CacheSingleFlightCoordinator(cache);
+        var coordinator = new CacheMissCoordinator(singleFlight, cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.CoordinateAsync<string>(
+            CachePolicyId.ArticleDetail, "acquire-failure",
+            _ => Task.FromResult(new CacheReadResult<string>(false, default)),
+            _ => throw new InvalidOperationException("unexpected-rebuild"), "acquire-failure"));
+        Assert.NotNull(captured);
+        Assert.True(captured.LeaseWait > TimeSpan.Zero);
+        Assert.Equal(0, captured.RebuildCount);
+        Assert.Equal("not-owned", captured.ReleaseOutcome);
+        Assert.Equal(0, singleFlight.ActiveEntryCount);
+    }
+
+    [Fact]
     public async Task CoordinateAsync_IntegerIdentityHit_ReturnsBeforeStringCoordination()
     {
         var cache = new CoordinatingCache();

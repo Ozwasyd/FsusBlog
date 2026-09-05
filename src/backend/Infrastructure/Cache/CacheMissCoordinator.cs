@@ -87,6 +87,7 @@ public sealed class CacheMissCoordinator(
         CancellationToken cancellationToken = default,
         CacheRebuildStrategy? strategy = null)
     {
+        using var observation = CacheCoordinationObservation.Begin(policyId, singleFlightCoordinator);
         CacheReadResult<T> hit = await tryReadAsync(cancellationToken).ConfigureAwait(false);
         if (hit.Hit)
         {
@@ -113,6 +114,7 @@ public sealed class CacheMissCoordinator(
         CancellationToken cancellationToken = default,
         CacheRebuildStrategy? strategy = null)
     {
+        using var observation = CacheCoordinationObservation.Begin(policyId, singleFlightCoordinator);
         CacheReadResult<T> hit = await tryReadAsync(cancellationToken).ConfigureAwait(false);
         if (hit.Hit)
         {
@@ -140,7 +142,18 @@ public sealed class CacheMissCoordinator(
         CacheRebuildStrategy? strategy)
     {
 
-        await using IAsyncDisposable singleFlight = await singleFlightCoordinator.AcquireAsync(policyId, identity, cancellationToken).ConfigureAwait(false);
+        CacheCoordinationObservation observation = CacheCoordinationObservation.Current!;
+        long localWaitStarted = Stopwatch.GetTimestamp();
+        IAsyncDisposable acquired;
+        try
+        {
+            acquired = await singleFlightCoordinator.AcquireAsync(policyId, identity, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            observation.LocalWait = Stopwatch.GetElapsedTime(localWaitStarted);
+        }
+        await using IAsyncDisposable singleFlight = acquired;
 
         CacheReadResult<T> hit = await tryReadAsync(cancellationToken).ConfigureAwait(false);
         if (hit.Hit)
@@ -156,9 +169,25 @@ public sealed class CacheMissCoordinator(
         string leaseIdentity = $"__lease__:{identity}";
         string leaseValue = $"{Environment.ProcessId}:{Guid.NewGuid():N}";
         long acquireStarted = Stopwatch.GetTimestamp();
-        if (!await leaseStore.TryAcquireLeaseAsync(policyId, leaseIdentity, leaseValue, effectiveStrategy.LeaseTtl, cancellationToken).ConfigureAwait(false))
+        bool leaseAcquired;
+        try
         {
-            await Task.Delay(effectiveStrategy.WaitTimeout, cancellationToken).ConfigureAwait(false);
+            leaseAcquired = await leaseStore.TryAcquireLeaseAsync(policyId, leaseIdentity, leaseValue, effectiveStrategy.LeaseTtl, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            observation.LeaseWait = Stopwatch.GetElapsedTime(acquireStarted);
+        }
+        if (!leaseAcquired)
+        {
+            try
+            {
+                await Task.Delay(effectiveStrategy.WaitTimeout, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                observation.LeaseWait = Stopwatch.GetElapsedTime(acquireStarted);
+            }
             CacheReadResult<T> finalRead = await tryReadAsync(cancellationToken).ConfigureAwait(false);
             if (finalRead.Hit)
             {
@@ -180,6 +209,7 @@ public sealed class CacheMissCoordinator(
         try
         {
             rebuildCancellation.Token.ThrowIfCancellationRequested();
+            observation.RebuildCount++;
             T? result = await rebuildAsync(rebuildCancellation.Token).ConfigureAwait(false);
             rebuildCancellation.Token.ThrowIfCancellationRequested();
             return result;
@@ -198,10 +228,12 @@ public sealed class CacheMissCoordinator(
                 {
                     bool released = await leaseStore.TryReleaseLeaseAsync(
                         policyId, leaseIdentity, leaseValue, CancellationToken.None).ConfigureAwait(false);
+                    observation.ReleaseOutcome = released ? "released" : "lost";
                     logger.LogDebug("cache-lease-release {Operation} {PolicyId} {Released}", operation, policyId, released);
                 }
                 catch (Exception exception)
                 {
+                    observation.ReleaseOutcome = "failed";
                     logger.LogWarning(exception, "cache-lease-release-failed {Operation} {PolicyId}", operation, policyId);
                 }
             }
