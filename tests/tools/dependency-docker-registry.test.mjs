@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 
-import { createDockerRegistryReader, dockerRepository, readDockerManifest, readDockerTags, selectLatestDockerTag } from '../../tools/governance/dependency-docker-registry.mjs';
+import { createDockerRegistryReader, dockerRepository, readDockerHubPublication, readDockerManifest, readDockerTags, readLatestDocker, selectLatestDockerTag } from '../../tools/governance/dependency-docker-registry.mjs';
 
 function page(tags, link, name = 'library/node')
 {
@@ -137,5 +137,38 @@ test('missing compatible tags, implicit aliases and downgrades cannot become lat
     for (const current of ['latest', `sha256:${'a'.repeat(64)}`, 'not-a-version'])
     {
         assert.throws(() => selectLatestDockerTag(['1.0'], current), /numeric_tag_required/);
+    }
+});
+
+test('Docker Hub publication requires exact tag and manifest identity, not HTTP observation time', async () => {
+    const data = manifestFixture();
+    const body = { name: '24', digest: data.digest, tag_last_pushed: '2026-01-01T00:00:00Z' };
+    const read = async (url) => {
+        assert.equal(url, 'https://hub.docker.com/v2/namespaces/library/repositories/node/tags/24');
+        return body;
+    };
+    assert.equal(await readDockerHubPublication('node', '24', data.digest, read), '2026-01-01T00:00:00.000Z');
+    body.digest = `sha256:${'b'.repeat(64)}`;
+    await assert.rejects(readDockerHubPublication('node', '24', data.digest, read), /digest_changed/);
+    body.digest = data.digest;
+    delete body.tag_last_pushed;
+    await assert.rejects(readDockerHubPublication('node', '24', data.digest, read), /publication_missing/);
+});
+
+test('Docker snapshot joins tag or digest targets with the exact publication provider', async () => {
+    const data = manifestFixture();
+    for (const current of ['23', `sha256:${'b'.repeat(64)}`])
+    {
+        const digestOnly = current.startsWith('sha256:');
+        const read = async (url) => url.includes('/tags/list') ? page(['23', '24']) : new Response(data.bytes, { headers: data.headers });
+        const result = await readLatestDocker('node', current, read, async (name, tag, digest) => {
+            assert.equal(name, 'node');
+            assert.equal(tag, digestOnly ? 'latest' : '24');
+            assert.equal(digest, data.digest);
+            return '2026-01-01T00:00:00Z';
+        });
+        assert.equal(result.latestStable, digestOnly ? data.digest : '24');
+        assert.equal(result.targetDigest, data.digest);
+        assert.equal(result.releasedAt, '2026-01-01T00:00:00.000Z');
     }
 });

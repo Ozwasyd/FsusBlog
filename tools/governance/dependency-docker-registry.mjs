@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 
+import { registryRelease } from './dependency-registry-release.mjs';
+
 const manifestTypes = [
     'application/vnd.oci.image.index.v1+json',
     'application/vnd.docker.distribution.manifest.list.v2+json',
@@ -7,6 +9,35 @@ const manifestTypes = [
     'application/vnd.docker.distribution.manifest.v2+json'
 ];
 const digestPattern = /^sha256:[0-9a-f]{64}$/;
+
+/** Bind Docker Hub's tag publication timestamp to the exact observed manifest digest. */
+export async function readDockerHubPublication(packageName, tag, digest, fetchJson)
+{
+    const { origin, name } = dockerRepository(packageName);
+    if (origin !== 'https://registry-1.docker.io' || !/^[\w][\w.-]{0,127}$/.test(tag) || !digestPattern.test(digest))
+    {
+        throw new Error('docker_hub_publication_input_invalid');
+    }
+    const [namespace, repository, ...extra] = name.split('/');
+    if (extra.length) throw new Error('docker_hub_repository_invalid');
+    const body = await fetchJson(`https://hub.docker.com/v2/namespaces/${namespace}/repositories/${repository}/tags/${tag}`);
+    if (body.name !== tag || body.digest !== digest)
+    {
+        throw new Error(`docker_hub_publication_digest_changed:${packageName}`);
+    }
+    return registryRelease(tag, body.tag_last_pushed, `docker-hub:${name}`).releasedAt;
+}
+
+/** Join target selection, verified manifest and a digest-bound publication provider. */
+export async function readLatestDocker(packageName, currentVersion, readResponse, readPublication)
+{
+    const digestOnly = digestPattern.test(currentVersion);
+    const tag = digestOnly ? 'latest' : selectLatestDockerTag(await readDockerTags(packageName, readResponse), currentVersion);
+    const observed = await readDockerManifest(packageName, tag, readResponse);
+    const published = await readPublication(packageName, tag, observed.digest);
+    const result = registryRelease(digestOnly ? observed.digest : tag, published, `docker:${packageName}`);
+    return { ...result, targetTag: tag, targetDigest: observed.digest };
+}
 
 function numericDockerTag(tag)
 {
