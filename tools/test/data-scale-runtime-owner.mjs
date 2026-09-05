@@ -419,10 +419,10 @@ function runtimeInputs(repositoryRoot, identity, environment)
         environment.FSUSBLOG_RELEASE_RUNTIME_IMAGE ?? ''
     ).trim();
     const postgresImageReference = String(
-        environment.FSUSBLOG_DATA_SCALE_POSTGRES_IMAGE_DIGEST ?? ''
+        identity.fixture.topology?.content?.postgres?.imageId ?? ''
     ).trim();
     const redisImageReference = String(
-        environment.FSUSBLOG_DATA_SCALE_REDIS_IMAGE_DIGEST ?? ''
+        identity.fixture.topology?.content?.redis?.imageId ?? ''
     ).trim();
     const envFile = path.resolve(
         repositoryRoot,

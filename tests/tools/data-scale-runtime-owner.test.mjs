@@ -335,8 +335,8 @@ test('provision and teardown execute the dedicated topology and leave zero resid
         fixture: {
             status: 'complete',
             topology: { content: {
-                postgres: { instance: sourcePostgresId },
-                redis: { instance: sourceRedisId }
+                postgres: { instance: sourcePostgresId, imageId: sha('e') },
+                redis: { instance: sourceRedisId, imageId: sha('f') }
             } }
         }
     };
@@ -345,8 +345,6 @@ test('provision and teardown execute the dedicated topology and leave zero resid
         FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID: 'invocation-a',
         FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID: 'attempt-1',
         FSUSBLOG_RELEASE_RUNTIME_IMAGE: 'fsusblog/runtime:test',
-        FSUSBLOG_DATA_SCALE_POSTGRES_IMAGE_DIGEST: sha('e'),
-        FSUSBLOG_DATA_SCALE_REDIS_IMAGE_DIGEST: sha('f'),
         FSUSBLOG_TEST_FIXTURE_CONFIG: '.tmp/env/runtime.env'
     };
     const provisioned = await provisionDataScaleRuntime({
@@ -460,8 +458,8 @@ test('tampered plan and escaped CLI paths fail before any destructive command', 
                 fixture: {
                     status: 'complete',
                     topology: { content: {
-                        postgres: { instance: 'a'.repeat(64) },
-                        redis: { instance: 'b'.repeat(64) }
+                        postgres: { instance: 'a'.repeat(64), imageId: sha('e') },
+                        redis: { instance: 'b'.repeat(64), imageId: sha('f') }
                     } }
                 }
             },
@@ -470,8 +468,6 @@ test('tampered plan and escaped CLI paths fail before any destructive command', 
                 FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID: 'invocation-a',
                 FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID: 'attempt-1',
                 FSUSBLOG_RELEASE_RUNTIME_IMAGE: 'runtime:secret',
-                FSUSBLOG_DATA_SCALE_POSTGRES_IMAGE_DIGEST: sha('e'),
-                FSUSBLOG_DATA_SCALE_REDIS_IMAGE_DIGEST: sha('f'),
                 FSUSBLOG_TEST_FIXTURE_CONFIG: '.tmp/env/runtime.env'
             },
             execute: () => ({

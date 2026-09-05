@@ -301,11 +301,11 @@ const document = {
     },
     postgres: (() =>
     {
-        const value = { id: postgresContainer.Id, image: postgresContainer.Config.Image, imageId: postgresContainer.Image, labels: postgresContainer.Config.Labels ?? {} }; return { instance: value.id, version: 'docker-inspected', configDigest: digest(JSON.stringify(canonical(value))) };
+        const value = { id: postgresContainer.Id, image: postgresContainer.Config.Image, imageId: postgresContainer.Image, labels: postgresContainer.Config.Labels ?? {} }; return { instance: value.id, imageId: value.imageId, version: 'docker-inspected', configDigest: digest(JSON.stringify(canonical(value))) };
     })(),
     redis: (() =>
     {
-        const value = { id: redisContainer.Id, image: redisContainer.Config.Image, imageId: redisContainer.Image, labels: redisContainer.Config.Labels ?? {} }; return { instance: value.id, version: 'docker-inspected', configDigest: digest(JSON.stringify(canonical(value))) };
+        const value = { id: redisContainer.Id, image: redisContainer.Config.Image, imageId: redisContainer.Image, labels: redisContainer.Config.Labels ?? {} }; return { instance: value.id, imageId: value.imageId, version: 'docker-inspected', configDigest: digest(JSON.stringify(canonical(value))) };
     })(), contentDigest: null
 };
 document.contentDigest = digestValue(document);

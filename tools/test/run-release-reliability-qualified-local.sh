@@ -538,11 +538,6 @@ runtime_base_url="$(node "$runtime_environment_tool" get --root "$root" --namesp
 backend_host_port="$(node "$runtime_environment_tool" get --root "$root" --namespace "$namespace" --run-id "$run_id" --field backend-port)"
 postgres_container_id="$(docker inspect --format '{{.Id}}' "$postgres_container")"
 redis_container_id="$(docker inspect --format '{{.Id}}' "$redis_container")"
-data_scale_postgres_image_digest="$(docker inspect --format '{{.Image}}' "$postgres_container_id")"
-data_scale_redis_image_digest="$(docker inspect --format '{{.Image}}' "$redis_container_id")"
-[[ "$data_scale_postgres_image_digest" =~ ^sha256:[0-9a-f]{64}$ \
-    && "$data_scale_redis_image_digest" =~ ^sha256:[0-9a-f]{64}$ ]] \
-    || { printf '%s\n' 'data-scale dependency image digests are invalid' >&2; exit 1; }
 [[ "$(docker inspect --format '{{index .Config.Labels "io.fsusblog.test.run-id"}}|{{index .Config.Labels "io.fsusblog.test.namespace"}}' "$postgres_container_id")" == "$run_id|$namespace" ]] \
     || { printf '%s\n' 'PostgreSQL container ownership does not match the qualified run' >&2; exit 1; }
 [[ "$(docker inspect --format '{{index .Config.Labels "io.fsusblog.test.run-id"}}|{{index .Config.Labels "io.fsusblog.test.namespace"}}' "$redis_container_id")" == "$run_id|$namespace" ]] \
@@ -702,8 +697,6 @@ qualified_executor_environment=(
     "FSUSBLOG_RELEASE_RUNTIME_IMAGE=$image"
     "FSUSBLOG_RELEASE_RESOURCE_POLICY=$FSUSBLOG_RELEASE_RESOURCE_POLICY"
     "FSUSBLOG_RELEASE_FIXTURE_AUTHORITY=$FSUSBLOG_RELEASE_FIXTURE_AUTHORITY"
-    "FSUSBLOG_DATA_SCALE_POSTGRES_IMAGE_DIGEST=$data_scale_postgres_image_digest"
-    "FSUSBLOG_DATA_SCALE_REDIS_IMAGE_DIGEST=$data_scale_redis_image_digest"
     "FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT=$FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT"
     "FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST=$FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST"
     "FSUSBLOG_TEST_FIXTURE_ROOT=$FSUSBLOG_TEST_FIXTURE_ROOT"

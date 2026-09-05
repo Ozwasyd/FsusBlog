@@ -839,14 +839,12 @@ test('ambient semantic overrides and undeclared keys never reach any scenario pr
     }
 });
 
-test('data-scale immutable owner inputs reach lifecycle actions but not the workload', async () =>
+test('data-scale owner inputs reach lifecycle actions but not the workload', async () =>
 {
     const fixture = createFixture();
     try
     {
         const ownerInputs = {
-            FSUSBLOG_DATA_SCALE_POSTGRES_IMAGE_DIGEST: `sha256:${'1'.repeat(64)}`,
-            FSUSBLOG_DATA_SCALE_REDIS_IMAGE_DIGEST: `sha256:${'2'.repeat(64)}`,
             FSUSBLOG_RELEASE_RUNTIME_IMAGE: `sha256:${'3'.repeat(64)}`,
             FSUSBLOG_TEST_FIXTURE_CONFIG: 'config/testing/fixture.json'
         };
