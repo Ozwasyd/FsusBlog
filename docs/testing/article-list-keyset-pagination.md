@@ -1,27 +1,27 @@
-# 公共文章列表 Keyset 验证
+# Public article-list keyset verification
 
-公共文章列表按 `createtime DESC, id DESC` 排序。首屏不带 cursor；后续请求必须原样回传上一帧的 `nextCursor`。cursor 是版本化 opaque base64url 值，绑定分类、标签与规范化关键词；客户端不得解析或跨过滤条件复用。
+The public list orders by `createtime DESC, id DESC`. The first page has no cursor; later requests return the preceding frame's `nextCursor` unchanged. This versioned opaque base64url cursor binds category, tags, and normalized keywords; clients must not parse or reuse it across filters. See the [testing strategy](../testing.md) for the canonical matrix.
 
-## 正确性门禁
+## Correctness gate
 
-本地 PostgreSQL 场景由 `ArticleListKeysetPaginationIntegrationTests` 覆盖：
+Local PostgreSQL `ArticleListKeysetPaginationIntegrationTests` covers:
 
-- fixture 为相同 `createtime` 生成多个 ID，验证复合排序不会丢行；
-- 分类、标签与关键词同时过滤；
-- 读取首屏后插入一条更晚记录，再沿 cursor 读完，断言首屏边界内的原始记录无重复、无跳过；
-- `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` 必须使用有序索引路径，且计划不含 `Sort` 或 `OFFSET`。
+- multiple IDs at one `createtime`, proving composite ordering loses no rows;
+- simultaneous category, tag, and keyword filters;
+- a later insertion after page one, then cursor exhaustion with no duplicate or skipped original within the first-page boundary;
+- `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` using an ordered index with no `Sort` or `OFFSET`.
 
-运行 focused 门禁：
+Run the focused gate:
 
 ```bash
 dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
   --filter "FullyQualifiedName~ArticleListKeysetPaginationIntegrationTests"
 ```
 
-测试只启动临时本地 PostgreSQL 容器，不访问生产数据库、真实流量或外部压测平台。性能结果只用于当前固定 fixture 的查询形状回归，不作为生产延迟承诺。
+The test starts only a temporary local PostgreSQL container: no production database, real traffic, or external load platform. Performance is fixed-fixture query-shape regression evidence, not a production latency promise.
 
-## 兼容与回退
+## Compatibility and rollback
 
-旧 page URL 继续可用；没有 cursor 的深页在服务端按 keyset window 顺序推进，不执行公共列表 `OFFSET`。预生成首屏/page artifact 会发出新版 cursor，浏览器拿到后优先使用 cursor。
+Existing page URLs remain available. A deep page without a cursor advances through a server-side keyset window and never uses public-list `OFFSET`. Pre-generated first-page/page artifacts emit the new cursor, which browsers prefer.
 
-如需无重启降级，客户端可暂时停止发送 `cursor` 并继续请求原 page URL；管理端列表始终保留 page/offset。frame cache 使用 `core:v5` cursor identity，源列表 cache 使用 `v2` 前缀，因此旧 envelope/cache 不会被新版读链误用。
+For a no-restart downgrade, clients may stop sending `cursor` and keep the old page URL; the admin list retains page/offset. Frame cache uses `core:v5` cursor identity and source-list cache uses the `v2` prefix, preventing an old envelope/cache from entering the new read path.

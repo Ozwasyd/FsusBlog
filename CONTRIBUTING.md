@@ -1,6 +1,6 @@
 # Contributing
 
-FsusBlog is currently a public-preview project. Contributions should keep changes focused, include evidence, and avoid promising stable compatibility for internal APIs that are not explicitly documented as stable.
+FsusBlog is a public-preview project. Keep contributions focused, include evidence, and do not promise stable compatibility for undocumented internal APIs.
 
 ## Before Opening An Issue
 
@@ -15,20 +15,12 @@ FsusBlog is currently a public-preview project. Contributions should keep change
 - Do not file security vulnerabilities as public GitHub issues. Follow [SECURITY.md](SECURITY.md).
 - For setup, usage, deployment, or self-hosting routing, start with [SUPPORT.md](SUPPORT.md) and then use the matching issue form only when the report is actionable.
 - Never put security vulnerability details or private deployment data in public support threads, issue comments, or PRs.
-- Include a canonical ReleaseId or full commit SHA, deployment mode, and sanitized evidence.
-- For performance reports, state whether the measurement is the Kestrel-only baseline or includes a reverse proxy, CDN, or other deployment layer.
+- Include a canonical ReleaseId or full commit SHA, deployment mode, and sanitized evidence; performance reports must state whether the measurement is the Kestrel-only baseline or includes a reverse proxy, CDN, or other deployment layer.
 - New issues and pull requests use the namespaced label taxonomy in [docs/repository-labels.md](docs/repository-labels.md).
 
 ## Development Setup
 
-Start with [docs/development.md](docs/development.md), the [cross-language coding conventions](docs/development/coding-conventions.md), and the local development section in [README.md](README.md#本地开发).
-
-Common prerequisites:
-
-- .NET SDK 10+
-- Node.js 20+ and npm 10+
-- Docker and Docker Compose for PostgreSQL and Redis
-- `GITHUB_PACKAGES_TOKEN` when installing the private FsusUI package
+Start with [docs/development.md](docs/development.md), the [cross-language coding conventions](docs/development/coding-conventions.md), and [README.md](README.md#local-development). Prerequisites are .NET SDK 10+, Node.js 20+ with npm 10+, Docker and Docker Compose for PostgreSQL and Redis, and `GITHUB_PACKAGES_TOKEN` for the private FsusUI package.
 
 By participating in this project, follow [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Repository code is licensed under [Apache-2.0](LICENSE); do not contribute code or assets that cannot be redistributed under compatible terms.
 
@@ -46,18 +38,14 @@ For release-sensitive, security, visual, load, or AEDS changes, follow [docs/tes
 
 ## Coding Conventions
 
-- Follow the canonical [cross-language coding conventions](docs/development/coding-conventions.md), derived from the Microsoft .NET C# conventions.
-- Preserve external wire, ABI, database, and third-party names at their boundary, then adapt them to the repository naming rules internally.
-- Language syntax takes precedence over the cross-language mapping. Formatter/linter defaults and personal IDE settings do not override repository rules.
+- Follow the canonical [cross-language coding conventions](docs/development/coding-conventions.md), derived from the Microsoft .NET C# conventions; preserve external wire, ABI, database, and third-party names at their boundaries, then adapt them internally. Language syntax takes precedence over the mapping, and formatter/linter defaults or personal IDE settings do not override repository rules.
 - Run `node tools/docs/check-authoritative-development-docs.mjs` when changing authoritative development docs, repository paths, style ownership, or command examples.
 - Follow [code intent governance](docs/development/code-intent-governance.md) for ownership/security markers, public contract documentation, TODO lifecycle, and performance claims; run `node tools/governance/check-code-intent.mjs` after changing those surfaces.
 - Follow the [change contract](docs/development/change-contract.md) for commit/squash titles, format and naming migration commits, PR classification, performance/generated evidence, release-note labels, and rollback metadata.
 - Follow the [document lifecycle](docs/development/document-lifecycle.md) when adding or completing design notes: stable facts move into a current source of truth, while issue handoffs remain explicitly historical or proposed.
 - Label performance statements as structural (`S`), local measured (`M`), route measured (`R`), or capacity measured (`C`). A stale SHA, missing artifact or machine identity, or incomplete statistics must remain blocked instead of being reported as measured.
-- Keep changes scoped to the issue being closed.
-- Prefer existing patterns and local helpers over new abstractions.
-- Update API docs when changing request/response contracts, AEDS frame semantics, routes, or binary/JSON behavior.
-- Update security docs when changing authentication, authorization, PoW, MFA, Passkey, moderation, crawler defense, or privacy behavior.
+- Keep changes scoped to the issue being closed and prefer existing patterns and local helpers over new abstractions.
+- Update API docs when changing request/response contracts, AEDS frame semantics, routes, or binary/JSON behavior; update security docs for authentication, authorization, PoW, MFA, Passkey, moderation, crawler defense, or privacy behavior.
 - For frontend UI, preserve responsive layout, keyboard access, dark mode, and `prefers-reduced-motion` behavior.
 
 Useful references:

@@ -1,359 +1,351 @@
-# 路由速查表
+# Route Quick Reference
 
-所有 FsusBlog API 端点的快速索引。
+This is the compact route index for FsusBlog APIs. Payload and failure details belong to the [API contracts](contracts.md); design rationale belongs to [API design](design.md).
 
-## 图例
+## Legend
 
-| 符号 | 含义 |
+| Symbol | Meaning |
 | ------ | ------ |
-| 🔓 | 匿名可访问 |
-| 🔑 | 需要登录（HttpOnly Cookie session / AEDS auth frame） |
-| 👑 | 需要 admin 角色 |
-| 🚦 | IP 速率限制（fixed_ip 固定窗口） |
-| 📦 | Binary 端点（`application/octet-stream`，AEDS v2 帧） |
-| 🗄️ | 有输出缓存（L1 内存 + OutputCache） |
+| 🔓 | Anonymous access |
+| 🔑 | Authentication required (HttpOnly cookie session / AEDS auth frame) |
+| 👑 | Admin role required |
+| 🚦 | IP rate limit (`fixed_ip` fixed window) |
+| 📦 | Binary endpoint (`application/octet-stream`, AEDS v2 frame) |
+| 🗄️ | Output cache (L1 memory + OutputCache) |
 
 ---
 
-## 认证 — `/api/binary/auth`
+## Authentication — `/api/binary/auth`
 
-### PoW 与账号入口
+### PoW and account entry
 
+### Current user
 
-### 当前用户
-
-
-### 会话管理
-
+### Session management
 
 ### MFA / TOTP
-
 
 ---
 
 ### Recovery Key
+
+PoW/account entry, current-user, session, MFA/TOTP, and Recovery Key routes use the canonical [authentication contracts](contracts.md).
+
+<!-- Detailed authentication payloads are centralized in contracts.md. -->
 
 
 ---
 
 ## Passkey / WebAuthn — `/api/binary/auth/passkey`
 
-
----
+See the [Passkey contracts](contracts.md) for registration, login, credential management, and signal-state payloads.
 
 ## Admin principal / Passkey — `/api/binary/auth/admin`
 
+See the [admin-principal contracts](contracts.md) for the independent admin session flow.
 
 ---
 
-## 公共 HTML 状态
+## Public HTML status
 
-| 请求 | 首响应 | 说明 |
+| Request | First response | Meaning |
 | ------ | -------- | ------ |
-| `GET/HEAD /article/{positive-int}` | 200 / 404 / 503 | 仅公开文章为 200；缺失、隐藏、未到发布时间为 404；临时依赖故障为 503 |
-| `GET/HEAD /category/{positive-int}` | 200 / 404 / 503 | 不存在分类不生成空 200 SEO 页 |
-| `GET/HEAD /tag/{positive-int}` | 200 / 404 / 503 | 唯一标签成功页与 self-canonical；不存在标签不生成空 200 SEO 页 |
-| `GET/HEAD /tag/{valid-name}` | 301 / 404 / 503 | 当前名称或持久旧 alias 单跳到 `/tag/{id}`；不产生第二个 200 canonical |
-| `GET/HEAD /search[?q&sort&page]` | 200 / 301 / 400 | 首响应始终 noindex；NFC/空白、`relevance` / `latest` / `hot`、`page=1..100` 规范化到唯一 URL，危险超限输入 400 |
-| `GET/HEAD /unknown` 或额外 path segment | 404 | 服务器首响应 noindex，不交给 SPA catch-all 改写语义 |
-| 除 `/` 外的 `.../` | 301 | 单跳到无尾斜杠 canonical，并保留 query |
+| `GET/HEAD /article/{positive-int}` | 200 / 404 / 503 | Only public articles return 200; missing, hidden, or not-yet-published articles return 404; temporary dependency failures return 503. |
+| `GET/HEAD /category/{positive-int}` | 200 / 404 / 503 | A missing category never produces an empty 200 SEO page. |
+| `GET/HEAD /tag/{positive-int}` | 200 / 404 / 503 | A unique tag returns a success page with self-canonical; a missing tag never produces an empty 200 SEO page. |
+| `GET/HEAD /tag/{valid-name}` | 301 / 404 / 503 | The current name or persistent old alias makes one hop to `/tag/{id}`; no second 200 canonical is emitted. |
+| `GET/HEAD /search[?q&sort&page]` | 200 / 301 / 400 | The first response is always noindex; NFC/whitespace, `relevance` / `latest` / `hot`, and `page=1..100` normalize to one URL; dangerous over-limit input returns 400. |
+| `GET/HEAD /unknown` or an extra path segment | 404 | The server's first response is noindex; the SPA catch-all does not rewrite the meaning. |
+| `.../` other than `/` | 301 | One hop to the no-trailing-slash canonical, preserving the query. |
 
-400/404/410/503 HTML 固定 `Cache-Control: no-store`、`X-Robots-Tag: noindex, follow`、`X-Fsus-Public-Aot-Backfill: none`；503 额外带 `Retry-After: 5`。负响应不含成功页 canonical、Open Graph URL、`BlogPosting` 或 hydration script。SPA-only `/search`、认证入口与 `/user/**` 不属于此 SEO 成功页集合；搜索成功壳层也不输出 canonical、JSON-LD 或 AOT entry。
+HTML 400/404/410/503 responses always include `Cache-Control: no-store`, `X-Robots-Tag: noindex, follow`, and `X-Fsus-Public-Aot-Backfill: none`; 503 also includes `Retry-After: 5`. Negative responses contain no success-page canonical, Open Graph URL, `BlogPosting`, or hydration script. SPA-only `/search`, authentication entry points, and `/user/**` are outside this SEO success-page set; a successful search shell also emits no canonical, JSON-LD, or AOT entry.
 
-Public AOT 成功 HTML 按有效 `fsusblog.locale` cookie > `Accept-Language` > `zh-CN` 协商，只使用共享 catalog 的 canonical code。响应 `Content-Language`、HTML lang/dir、OG、visible copy、payload `renderLocale` 与 cache identity 必须一致，并声明 `Vary: Accept-Language, Cookie`；其它 cookie 仍使 PublicHotRead L0 回常规管线。
+Successful Public AOT HTML negotiates `fsusblog.locale` cookie > `Accept-Language` > `zh-CN` and uses only canonical codes from the shared catalog. `Content-Language`, HTML lang/dir, OG, visible copy, payload `renderLocale`, and cache identity must agree, with `Vary: Accept-Language, Cookie`. Any other cookie still sends PublicHotRead L0 through the normal pipeline.
 
-## 文章
+## Articles
 
-> 已迁移至 [Binary 端点 — `/api/binary`](#binary-端点--apibinary) 下的 `/api/binary/article/**` AEDS v2 frame。旧 `/api/Article/**` JSON 路径不再注册。
+Article routes use the `/api/binary/article/**` AEDS v2 frames below; legacy `/api/Article/**` JSON routes are not registered.
 
-## 评论 — `/api/binary/comment`
+## Comments — `/api/binary/comment`
 
+Comment payload and policy details are in the [comment contracts](contracts.md); routes are listed with the binary endpoints below.
+
+---
+
+## Categories / tags
+
+Category and tag routes use the `/api/binary/category.aeds` and `/api/binary/tag.aeds` AEDS v2 frames below; legacy `/api/Category/**` and `/api/Tag/**` JSON routes are not registered.
+
+`POST/PUT /api/binary/category` and `/api/binary/tag` write `Name` plus nullable `Description`. Trimmed descriptions are at most 500 Unicode characters; whitespace persists as `NULL`. During migration, the exact 128-byte name-only legacy create writes a null description, while legacy update preserves the existing description.
+
+If PublicHot delivery is `cancelled`, `closed`, or `failed`, the mutation returns HTTP `500` plus AEDS `ApiError(Code=InfraFailure)`, even if the taxonomy database mutation committed. The client must reread admin taxonomy state before deciding whether to retry. For no-restart recovery, repair Redis and invoke the `public-hot-rebuild` action at `/api/binary/author/cache/actions`; retain the pending generation and never downgrade to in-process success or blindly replay create.
+
+## System configuration — `/api/binary/system`
+
+System configuration payloads are defined in the [system contracts](contracts.md).
 
 ---
 
-## 分类 / 标签
-
-> 已迁移至 [Binary 端点 — `/api/binary`](#binary-端点--apibinary) 下的 `/api/binary/category.aeds`、`/api/binary/tag.aeds` AEDS v2 frame。旧 `/api/Category/**`、`/api/Tag/**` JSON 路径不再注册。
-
-`POST/PUT /api/binary/category` 与 `POST/PUT /api/binary/tag` 当前写入 payload 携带 `Name` 和 nullable `Description`；description trim 后最多 500 个 Unicode 字符，空白持久化为 `NULL`。迁移期精确 128-byte name-only legacy create 仍写入 null description，legacy update 保留已有 description。
-
-PublicHot delivery result 为 `cancelled`、`closed` 或 `failed` 时，上述 mutation 返回 HTTP `500` + AEDS `ApiError(Code=InfraFailure)`，即使 taxonomy 数据库写入可能已经提交。客户端应先重读管理端 taxonomy 状态，再决定是否重试。
-无需重启恢复时，修复 Redis 后调用 `/api/binary/author/cache/actions` 的 `public-hot-rebuild` action；保留 pending generation，禁止降级为进程内成功或盲目重放 create。
-
-## 系统配置 — `/api/binary/system`
-
-
----
+<a id="integrity-verification-sidecars--integrity"></a>
 
 ## Integrity verification sidecars — `/integrity`
 
-> 公开 JSON manifest，不属于 `/api/binary/**` AEDS 主链路。
+These public JSON manifests are outside the `/api/binary/**` AEDS main path.
 
-| 方法 | 路径 | 权限 | 缓存 | 说明 |
+| Method | Path | Access | Cache | Meaning |
 | ------ | ------ | ------ | ------ | ------ |
-| GET | `/integrity/keys.json` | 🔓 | 🗄️ | 公开签名 key registry，不包含 private key |
-| GET | `/integrity/article/{articleId}` | 🔓 | 🗄️ | 当前公开文章 publish proof；ready/superseded immutable，其他状态 no-store |
-| GET | `/integrity/article/{articleId}/revisions/{revisionNo}` | 🔓 | 🗄️ | 指定公开文章 revision number 的 publish proof |
-| GET | `/integrity/article/{articleId}/rights` | 🔓 | 🗄️ | 当前公开文章 Rights V3 proof；ready/superseded immutable，其他状态 no-store |
-| GET | `/integrity/article/{articleId}/revisions/{revisionNo}/rights` | 🔓 | 🗄️ | 指定公开文章 revision number 的 Rights V3 proof |
-| GET | `/integrity/article/{articleId}/responsibility` | 🔓 | 🗄️ | 当前责任 manifest；无历史 revision 的公开旧文章返回确定性 legacy fallback |
-| GET | `/integrity/article/{articleId}/revisions/{revisionNo}/responsibility` | 🔓 | 🗄️ | 指定 revision 的责任 manifest；revision 不存在时返回 404 |
-| GET | `/integrity/revisions/{articleRevisionId}` | 🔓 | 🗄️ | 按 `ArticleRevision.Id` 查询 publish proof |
-| GET | `/integrity/checkpoints/latest` | 🔓 | 🗄️ | 最新 Merkle checkpoint manifest |
-| GET | `/integrity/checkpoints/{date}` | 🔓 | 🗄️ | `yyyy-MM-dd` UTC daily checkpoint manifest |
-| GET | `/integrity/log/head` | 🔓 | 🗄️ | transparency log 当前 head |
-| GET | `/api/admin/integrity/console` | 👑🚦 | no-store | 后台 Integrity Proof 状态视图，需 `system.config` |
-| POST | `/api/admin/integrity/console/proofs/{proofId}/retry` | 👑🚦 step-up | no-store | 重试 failed/retrying/pending proof，需 `system.config` 与 admin step-up |
+| GET | `/integrity/keys.json` | 🔓 | 🗄️ | Public signing-key registry; no private key. |
+| GET | `/integrity/article/{articleId}` | 🔓 | 🗄️ | Current public-article publish proof; ready/superseded is immutable, other states are no-store. |
+| GET | `/integrity/article/{articleId}/revisions/{revisionNo}` | 🔓 | 🗄️ | Publish proof for the specified public-article revision number. |
+| GET | `/integrity/article/{articleId}/rights` | 🔓 | 🗄️ | Current public-article Rights V3 proof; ready/superseded is immutable, other states are no-store. |
+| GET | `/integrity/article/{articleId}/revisions/{revisionNo}/rights` | 🔓 | 🗄️ | Rights V3 proof for the specified public-article revision number. |
+| GET | `/integrity/article/{articleId}/responsibility` | 🔓 | 🗄️ | Current responsibility manifest; a public legacy article with no historical revision receives a deterministic legacy fallback. |
+| GET | `/integrity/article/{articleId}/revisions/{revisionNo}/responsibility` | 🔓 | 🗄️ | Responsibility manifest for the specified revision; an absent revision returns 404. |
+| GET | `/integrity/revisions/{articleRevisionId}` | 🔓 | 🗄️ | Publish proof selected by `ArticleRevision.Id`. |
+| GET | `/integrity/checkpoints/latest` | 🔓 | 🗄️ | Latest Merkle checkpoint manifest. |
+| GET | `/integrity/checkpoints/{date}` | 🔓 | 🗄️ | UTC daily checkpoint manifest for `yyyy-MM-dd`. |
+| GET | `/integrity/log/head` | 🔓 | 🗄️ | Current transparency-log head. |
+| GET | `/api/admin/integrity/console` | 👑🚦 | no-store | Admin Integrity Proof status view; requires `system.config`. |
+| POST | `/api/admin/integrity/console/proofs/{proofId}/retry` | 👑🚦 step-up | no-store | Retry a failed/retrying/pending proof; requires `system.config` and admin step-up. |
 
 ---
 
-## Binary 端点 — `/api/binary`
+<a id="read-proof"></a>
+<a id="rum-telemetry"></a>
 
-> 所有运行时 API 输出 `Content-Type: application/octet-stream`（AEDS v2 帧）。
-> 客户端必须优先使用 `/api/binary/**`；旧文本 API 不再注册。
+## Binary endpoints — `/api/binary`
 
-### Binary 路由
+All runtime API output uses `Content-Type: application/octet-stream` (AEDS v2 frames). Clients must prefer `/api/binary/**`; legacy text APIs are not registered.
 
-| Binary 路径 | 权限 | FrameType | 说明 |
+### Binary routes
+
+| Binary path | Access | FrameType | Meaning |
 | ------------ | ------ | ----------- | ------ |
-| GET `/api/binary/article/list/home/{page}/{size}.aeds?cursor={nextCursor}` | 🔓 📦 | `ArticleList`(1) | 首页文章列表；首屏省略 cursor，后续原样回传 opaque cursor；page URL 保留兼容 |
-| GET `/api/binary/article/list/archive/{page}/{size}.aeds?cursor={nextCursor}` | 🔓 📦 | `ArticleList`(1) | 归档文章列表；cursor/page 兼容语义同首页 |
-| GET `/api/binary/article/list/category/{categoryId}/{page}/{size}.aeds?cursor={nextCursor}` | 🔓 📦 | `ArticleList`(1) | 分类文章列表；cursor 绑定 category 筛选，不可跨筛选复用 |
-| GET `/api/binary/article/list/tag/{tagId}/{page}/{size}.aeds?cursor={nextCursor}` | 🔓 📦 | `ArticleList`(1) | 标签文章列表；cursor 绑定 tag 筛选，不可跨筛选复用 |
-| GET `/api/binary/article/{id}.aeds` | 🔓 📦 | `ArticleDetail`(2) | 文章详情 L0 artifact |
-| GET `/api/binary/article/hot/{size}.aeds` | 🔓 📦 | `ArticleHot`(3) | 热门文章 L0 artifact |
-| GET `/api/binary/category.aeds` | 🔓 📦 | `CategoryList`(9) | 分类元数据 L0 artifact |
-| GET `/api/binary/category/{id}.aeds` | 🔓 | `TaxonomyExactMetadata`(243) | 匿名精确分类元数据；id/name/nullable description；非 L0 list artifact |
-| GET `/api/binary/tag.aeds` | 🔓 📦 | `TagList`(10) | 标签元数据 L0 artifact |
-| GET `/api/binary/tag/{id}.aeds` | 🔓 | `TaxonomyExactMetadata`(243) | 匿名精确标签元数据；id/name/nullable description；非 L0 list artifact |
-| GET `/api/binary/tag/by-name.aeds?name=` | 🔓 | `TaxonomyExactMetadata`(243) | 按显示名或 TagUrlAlias 解析到当前规范标签后返回同一精确元数据 |
-| GET `/api/binary/article/html/{pathKey}.html` | 🔓 | `text/html` | AOT HTML 诊断/预览 artifact；不替代真实公开 URL |
-| GET `/api/public/navigation-snapshot.aeds?path={publicPath}` | 🔓 📦 | `PublicAotBootstrap`(71) | 公开路由切换快照；携带 versioned/digested `seoHead`；客户端校验 origin/path/entity 后原子接管；`Content-Type: application/vnd.fsus.aeds`；ETag + `Cache-Control: no-cache` 强制重验证 |
-| GET `/api/binary/comment/{articleId}` | 🔓 📦 | `CommentArticleCursor`(5) | 文章评论 |
-| GET `/api/binary/comment/{articleId}/thread/{rootId}` | 🔓 📦 | `CommentThreadReplyCursor`(8) | 评论线程 |
+| GET `/api/binary/article/list/home/{page}/{size}.aeds?cursor={nextCursor}` | 🔓 📦 | `ArticleList`(1) | Home article list; omit cursor on the first page and return the opaque cursor unchanged thereafter; page URL remains supported. |
+| GET `/api/binary/article/list/archive/{page}/{size}.aeds?cursor={nextCursor}` | 🔓 📦 | `ArticleList`(1) | Archive article list; cursor/page semantics match home. |
+| GET `/api/binary/article/list/category/{categoryId}/{page}/{size}.aeds?cursor={nextCursor}` | 🔓 📦 | `ArticleList`(1) | Category article list; cursor is bound to the category filter and cannot be reused across filters. |
+| GET `/api/binary/article/list/tag/{tagId}/{page}/{size}.aeds?cursor={nextCursor}` | 🔓 📦 | `ArticleList`(1) | Tag article list; cursor is bound to the tag filter and cannot be reused across filters. |
+| GET `/api/binary/article/{id}.aeds` | 🔓 📦 | `ArticleDetail`(2) | Article-detail L0 artifact. |
+| GET `/api/binary/article/hot/{size}.aeds` | 🔓 📦 | `ArticleHot`(3) | Hot-article L0 artifact. |
+| GET `/api/binary/category.aeds` | 🔓 📦 | `CategoryList`(9) | Category metadata L0 artifact. |
+| GET `/api/binary/category/{id}.aeds` | 🔓 | `TaxonomyExactMetadata`(243) | Anonymous exact category metadata: id/name/nullable description; not an L0 list artifact. |
+| GET `/api/binary/tag.aeds` | 🔓 📦 | `TagList`(10) | Tag metadata L0 artifact. |
+| GET `/api/binary/tag/{id}.aeds` | 🔓 | `TaxonomyExactMetadata`(243) | Anonymous exact tag metadata: id/name/nullable description; not an L0 list artifact. |
+| GET `/api/binary/tag/by-name.aeds?name=` | 🔓 | `TaxonomyExactMetadata`(243) | Resolve the display name or `TagUrlAlias` to the current canonical tag and return the same exact metadata. |
+| GET `/api/binary/article/html/{pathKey}.html` | 🔓 | `text/html` | AOT HTML diagnostic/preview artifact; it does not replace the real public URL. |
+| GET `/api/public/navigation-snapshot.aeds?path={publicPath}` | 🔓 📦 | `PublicAotBootstrap`(71) | Public route-transition snapshot with versioned/digested `seoHead`; the client validates origin/path/entity before atomic takeover; `Content-Type: application/vnd.fsus.aeds`; ETag plus `Cache-Control: no-cache` forces revalidation. |
+| GET `/api/binary/comment/{articleId}` | 🔓 📦 | `CommentArticleCursor`(5) | Article comments. |
+| GET `/api/binary/comment/{articleId}/thread/{rootId}` | 🔓 📦 | `CommentThreadReplyCursor`(8) | Comment thread. |
+| GET `/api/binary/comment/me` | 🔑 📦 | `CommentUserCursor`(6) | Current user's attributable comments; optional `articleId` forms a private ownership overlay; strong-anonymous comments are not account-side records. |
+| GET `/api/binary/comment/policy` | 🔓 📦 | `CommentPolicySnapshot`(164) | Public comment-composer policy and ZK-Prod readiness. |
+| POST `/api/binary/comment` | 🔑 🚦 📦 | `CommentCreateV2Request`(166) → `CommentCreateResult`(205) | Explicit opt-in public comment only; requires canonical lowercase UUID `X-Fsus-Client-Mutation-Id`; returns IDs, tree coordinates, creation time, final visibility, and replay flag. |
+| POST `/api/binary/comment/anonymous-ticket` | 🔓 🚦 📦 | `AnonymousCommentTicketRequest`(198) → `AnonymousCommentTicketResponse`(199) | v5/layout 6 minimum qualification predicate; requires `credentials: omit`; scope v1 binds article top (1 comment/credential period) or article+thread (3/period); short-TTL one-time ticket. |
+| POST `/api/binary/comment/anonymous` | 🔓 🚦 📦 | `AnonymousCommentCreateRequest`(182) → `AnonymousCommentCreateResult`(214) | Strong-anonymous submission; first success returns a one-time management secret, while the server stores only its SHA-256 commitment; idempotent replay does not restore the secret and rejects login-state contamination. |
+| POST `/api/binary/comment/{id}/author/challenge` | 🔑 🚦 📦 | `CommentManagementChallengeRequest`(215) → `CommentManagementChallengeResponse`(216) | Account-owned public author receives a one-time edit/delete challenge and current version. |
+| POST `/api/binary/comment/{id}/author/edit` | 🔑 🚦 📦 | `CommentAuthorEditRequest`(217) → `CommentAuthorMutationResult`(218) | Public author edits by `expectedVersion` CAS and triggers re-moderation. |
+| POST `/api/binary/comment/{id}/author/delete` | 🔑 🚦 📦 | `CommentAuthorStatusRequest`(219) → `CommentAuthorMutationResult`(218) | Public author soft-deletes with a one-time challenge. |
+| POST `/api/binary/comment/{id}/management/challenge` | 🔓 🚦 📦 | `CommentManagementChallengeRequest`(215) → `CommentManagementChallengeResponse`(216) | Strong-anonymous author submits capability in the body; URL or account recovery is not accepted. |
+| POST `/api/binary/comment/{id}/management/edit` | 🔓 🚦 📦 | `CommentAuthorEditRequest`(217) → `CommentAuthorMutationResult`(218) | Strong-anonymous author edits with capability, challenge, and `expectedVersion`. |
+| POST `/api/binary/comment/{id}/management/delete` | 🔓 🚦 📦 | `CommentAuthorStatusRequest`(219) → `CommentAuthorMutationResult`(218) | Strong-anonymous author deletes with a one-time challenge. |
+| POST `/api/binary/comment/{id}/management/status` | 🔓 🚦 📦 | `CommentAuthorStatusRequest`(219) → `CommentAuthorStatusResult`(220) | Capability-scoped single-comment moderation-status read; enumeration is unsupported. |
+| POST `/api/binary/comment/{id}/management/appeal` | 🔓 🚦 📦 | `CommentAuthorAppealRequest`(221) → `CommentAuthorMutationResult`(218) | Capability-scoped appeal; secret/challenge travel only in a no-store body. |
+| POST `/api/binary/comment/{id}/author/appeal` | 🔒 🚦 📦 | `CommentAuthorAppealRequest`(221) → `CommentAuthorMutationResult`(218) | Public-author account ownership plus one-time challenge. |
+| POST `/api/binary/comment/{id}/report` | 🔒 🚦 📦 | `CommentReportRequest`(223) → `CommentReportResult`(224) | Account deduplication by comment; does not auto-hide. |
+| POST `/api/binary/comment/{id}/anonymous-report` | 🔓 🚦 📦 | `CommentReportRequest`(223) → `CommentReportResult`(224) | No identity contamination; comment-scoped credential HMAC. |
+| GET `/api/binary/author/comments/{id}/moderation-timeline` | 🛡️ 🚦 📦 | → `CommentModerationTimeline`(225) | Admin rebuilds the projection and checks consistency. |
+| POST `/api/binary/author/moderation/appeals/{id}/decision` | 🛡️ 🚦 📦 | `CommentAppealDecisionRequest`(226) → `CommentAppealDecisionResult`(227) | Independent review plus step-up. |
+| GET `/api/binary/author/comments/{id}/revisions` | 🛡️ 🚦 📦 | `CommentRevisionList`(222) | Admin views the full revision sequence; public reads never return historical body text. |
 
-公开文章 list/detail/search payload 均携带 `currentRevisionId/revisionNo/currentPublicationId/publicationNo`。已发布文章安排未来修订时，上述文章路由在切换点前持续返回旧 publication；定时 worker 原子切换后各投影才进入新坐标。端点不提供“读取最新修订”的公开 fallback。
-| GET `/api/binary/comment/me` | 🔑 📦 | `CommentUserCursor`(6) | 当前用户可归因评论记录；可选 `articleId` 形成私有 ownership overlay，强匿名评论不进入账号侧记录 |
-| GET `/api/binary/comment/policy` | 🔓 📦 | `CommentPolicySnapshot`(164) | 公开评论 composer 策略与 ZK-Prod readiness |
-| POST `/api/binary/comment` | 🔑 🚦 📦 | `CommentCreateV2Request`(166) → `CommentCreateResult`(205) | 仅显式 opt-in 的 public 评论；必需规范小写 UUID `X-Fsus-Client-Mutation-Id`；响应返回 ID、树坐标、创建时间、最终可见状态与 replay 标记 |
-| POST `/api/binary/comment/anonymous-ticket` | 🔓 🚦 📦 | `AnonymousCommentTicketRequest`(198) → `AnonymousCommentTicketResponse`(199) | v5/layout 6 最小资格谓词；必须 `credentials: omit`；scope v1 按 article top（1 条/凭据周期）或 article+thread（3 条/凭据周期）绑定，ticket 短 TTL 且一次性消费 |
-| POST `/api/binary/comment/anonymous` | 🔓 🚦 📦 | `AnonymousCommentCreateRequest`(182) → `AnonymousCommentCreateResult`(214) | 强匿名评论提交；首次成功响应附带一次性返回的管理 secret，服务端只保存 SHA-256 commitment；幂等 replay 不恢复 secret；拒绝登录态污染 |
-| POST `/api/binary/comment/{id}/author/challenge` | 🔑 🚦 📦 | `CommentManagementChallengeRequest`(215) → `CommentManagementChallengeResponse`(216) | public 作者按账号所有权签发一次性 edit/delete challenge，并返回当前版本 |
-| POST `/api/binary/comment/{id}/author/edit` | 🔑 🚦 📦 | `CommentAuthorEditRequest`(217) → `CommentAuthorMutationResult`(218) | public 作者按 expectedVersion CAS 编辑并重新审核 |
-| POST `/api/binary/comment/{id}/author/delete` | 🔑 🚦 📦 | `CommentAuthorStatusRequest`(219) → `CommentAuthorMutationResult`(218) | public 作者以一次性 challenge 软删除自己的评论 |
-| POST `/api/binary/comment/{id}/management/challenge` | 🔓 🚦 📦 | `CommentManagementChallengeRequest`(215) → `CommentManagementChallengeResponse`(216) | 强匿名作者在 body 中提交 capability；不接受 URL 或账号恢复路径 |
-| POST `/api/binary/comment/{id}/management/edit` | 🔓 🚦 📦 | `CommentAuthorEditRequest`(217) → `CommentAuthorMutationResult`(218) | 强匿名作者按 capability、challenge 与 expectedVersion 编辑 |
-| POST `/api/binary/comment/{id}/management/delete` | 🔓 🚦 📦 | `CommentAuthorStatusRequest`(219) → `CommentAuthorMutationResult`(218) | 强匿名作者以一次性 challenge 删除自己的评论 |
-| POST `/api/binary/comment/{id}/management/status` | 🔓 🚦 📦 | `CommentAuthorStatusRequest`(219) → `CommentAuthorStatusResult`(220) | capability-scoped 单评论审核状态读取；不支持枚举 |
-| POST `/api/binary/comment/{id}/management/appeal` | 🔓 🚦 📦 | `CommentAuthorAppealRequest`(221) → `CommentAuthorMutationResult`(218) | capability-scoped 申诉；secret/challenge 仅在 no-store body 中传输 |
-| POST `/api/binary/comment/{id}/author/appeal` | 🔒 🚦 📦 | `CommentAuthorAppealRequest`(221) → `CommentAuthorMutationResult`(218) | public 作者账号所有权 + 单次 challenge |
-| POST `/api/binary/comment/{id}/report` | 🔒 🚦 📦 | `CommentReportRequest`(223) → `CommentReportResult`(224) | 账号按评论去重；不自动隐藏 |
-| POST `/api/binary/comment/{id}/anonymous-report` | 🔓 🚦 📦 | `CommentReportRequest`(223) → `CommentReportResult`(224) | 无身份污染；comment-scoped credential HMAC |
-| GET `/api/binary/author/comments/{id}/moderation-timeline` | 🛡️ 🚦 📦 | → `CommentModerationTimeline`(225) | admin 重建投影并检查一致性 |
-| POST `/api/binary/author/moderation/appeals/{id}/decision` | 🛡️ 🚦 📦 | `CommentAppealDecisionRequest`(226) → `CommentAppealDecisionResult`(227) | 独立复核 + step-up |
-| GET `/api/binary/author/comments/{id}/revisions` | 🛡️ 🚦 📦 | `CommentRevisionList`(222) | admin 查看完整修订序列；公共读取永不返回历史正文 |
+Comment-creation idempotency defaults to a 24-hour window (`Comments:MutationIdempotencyTtlHours` is constrained to 1..168). During the window, the same public account/mutation ID or anonymous ticket commitment writes at most once; the complete result is fixed as `commentId/rootId/parentId/createdAtUtc/moderationStatus/visibilityState/isPubliclyVisible/idempotencyReplay`. Hot-reloaded `Comments:MutationIdempotencyEnabled=false` fails closed for both creates with `503 comment_mutation_idempotency_disabled`; reads and the notification stream remain available.
+| GET `/api/binary/system/seo` | 🔓 📦 | `SeoConfig`(13) | Public SEO, brand, and PWA configuration. |
+| GET `/api/binary/system/compliance` | 🔓 📦 | `SiteComplianceConfig`(26) | Public compliance-footer configuration. |
+| GET `/api/binary/system/page/{slug}` | 🔓 📦 | `PageContent`(14) | Public static-page content; slug allowlist as above. |
+| POST `/api/binary/read-proof/challenge.aeds` | 🔓 🚦 📦 | `HumanReadChallengeRequest`(73) → `HumanReadChallengeResponse`(28) | Human-read challenge; limited by `read_proof`. |
+| POST `/api/binary/read-proof/submit.aeds` | 🔓 🚦 📦 | `HumanReadSubmitRequest`(74) → `HumanReadSubmitResponse`(29) | Human-read proof submission; raw IP is synchronously reduced to a short-lived HMAC, and statistics are discarded when deduplication is unavailable. |
+| POST `/api/binary/security/challenge` | 🔓 🚦 📦 | `SecurityChallengeIssueRequest`(173) → `SecurityChallengeIssueResponse`(175) | Issues a UUIDv7 envelope and returns only the first actionable member of the server-ordered plan; later members remain planned; no JSON fallback. |
+| POST `/api/binary/security/challenge/verify` | 🔓 🚦 📦 | `SecurityChallengeVerifyRequest`(174) → `SecurityChallengeVerifyResponse`(176) | Atomically completes the current member and issues the unique next assignment/payload; returns aggregate `proofToken` and authoritative `expiresAtUnixMs` only after all members complete. |
+| POST `/api/binary/security/challenge/cancel` | 🔓 🚦 📦 | `SecurityChallengeCancelRequest`(200) → `EmptySuccess`(240) | Revokes the whole envelope on refresh/cancel, identity or route change, or unload; complete binding mismatch still returns opaque idempotent success; no JSON fallback. |
+| `PerceptionCharacterV3` union | 🔓 🚦 📦 | issue: final PNG/Ogg Opus + opaque state; verify: answer + opaque state | `kind=14` typed member; 32/48 KiB hard limits; two atomic attempts; no retired V3/JSON/V1/V2 fallback. |
+| GET `/api/binary/anonymous-credential/root` | 🔓 🚦 📦 | `AnonymousCredentialRootSnapshot`(179) | Public credential root/epoch/expiry/circuit metadata; `public_read` limited. |
+| GET `/api/binary/anonymous-credential/circuit` | 🔓 🚦 📦 | `AnonymousCredentialRootSnapshot`(179) | Same root snapshot, used by the prover to warm circuit/verifying-key metadata. |
+| POST `/api/binary/anonymous-credential/revocation-witness` | 🔓 🚦 📦 | Fixed `ApiError` / 410 | Credential-specific witness is permanently retired; body and parameters are not read. |
+| GET `/api/binary/anonymous-credential/revocation/{epoch}/{version}/{root}/full.aeds` | 🔓 🚦 📦 | `AnonymousCredentialRevocationSnapshot`(196) | Same content-addressed immutable public full snapshot for every client; coordinate conflict 409, not generated 404, provider unavailable 503. |
+| GET `/api/binary/anonymous-credential/revocation/{epoch}/{version}/{root}/delta/{baseVersion}.aeds` | 🔓 🚦 📦 | `AnonymousCredentialRevocationDelta`(197) | Public append-only delta; clients may update only from the exact previous version; coordinate conflict 409, not generated 404, provider unavailable 503. |
+| GET `/api/binary/anonymous-credential/blind-issuer` | 🔓 🚦 📦 | `BlindCredentialIssuerMetadata`(193) | RFC 9474 profile, root binding, issuer SPKI/hash; `public_read`, `no-store`, and 503 when runtime-disabled. |
+| POST `/api/binary/anonymous-credential/blind-issue` | 🔑 🚦 📦 | `BlindCredentialIssueRequest`(194) → `BlindCredentialIssueResponse`(195) | RFC 9474 blind issuance; accepts only a 384B blinded representative, with uniform rejection and delay buckets, `no-store`. |
+| POST `/api/binary/telemetry/rum` | 🔓 🚦 📦 | `RumMetricBatchRequest`(75) → `RumMetricIngestResponse`(76) | Anonymous RUM batch ingestion; `credentials: omit`. |
 
-评论创建的幂等窗口默认 24 小时（`Comments:MutationIdempotencyTtlHours` 限制为 1..168）。public 相同账号/相同 mutation ID、anonymous 相同 ticket 承诺在窗口内最多写入一次；完整结果固定为 `commentId/rootId/parentId/createdAtUtc/moderationStatus/visibilityState/isPubliclyVisible/idempotencyReplay`。`Comments:MutationIdempotencyEnabled=false` 可热重载 fail closed 两类创建并返回 `503 comment_mutation_idempotency_disabled`，读取与 notification stream 不受影响。
-| GET `/api/binary/system/seo` | 🔓 📦 | `SeoConfig`(13) | 公开 SEO/品牌/PWA 配置 |
-| GET `/api/binary/system/compliance` | 🔓 📦 | `SiteComplianceConfig`(26) | 公开合规 footer 配置 |
-| GET `/api/binary/system/page/{slug}` | 🔓 📦 | `PageContent`(14) | 公开静态页内容，slug allowlist 同上 |
-| POST `/api/binary/read-proof/challenge.aeds` | 🔓 🚦 📦 | `HumanReadChallengeRequest`(73) → `HumanReadChallengeResponse`(28) | 真人阅读 challenge；受 `read_proof` 限流 |
-| POST `/api/binary/read-proof/submit.aeds` | 🔓 🚦 📦 | `HumanReadSubmitRequest`(74) → `HumanReadSubmitResponse`(29) | 真人阅读 proof 提交；raw IP 只同步生成短期 HMAC，去重不可用时丢弃统计 |
-| POST `/api/binary/security/challenge` | 🔓 🚦 📦 | `SecurityChallengeIssueRequest`(173) → `SecurityChallengeIssueResponse`(175) | 签发 UUIDv7 envelope，只返回服务端 ordered plan 的首个 actionable member；后续 member 保持 planned；不提供 JSON fallback |
-| POST `/api/binary/security/challenge/verify` | 🔓 🚦 📦 | `SecurityChallengeVerifyRequest`(174) → `SecurityChallengeVerifyResponse`(176) | 原子完成当前 member 并签发唯一 next assignment/payload；仅全部完成时返回 aggregate `proofToken` 与权威 `expiresAtUnixMs` |
-| POST `/api/binary/security/challenge/cancel` | 🔓 🚦 📦 | `SecurityChallengeCancelRequest`(200) → `EmptySuccess`(240) | refresh/cancel/身份或路由变化/卸载时撤销整个 envelope；完整 binding 不匹配也返回 opaque idempotent success，不提供 JSON fallback |
-| `PerceptionCharacterV3` union | 🔓 🚦 📦 | issue: final PNG/Ogg Opus + opaque state；verify: answer + opaque state | `kind=14` typed member；32/48 KiB hard limits；两次原子尝试；无 retired V3/JSON/V1/V2 fallback |
-| GET `/api/binary/anonymous-credential/root` | 🔓 🚦 📦 | `AnonymousCredentialRootSnapshot`(179) | 公开 credential root / epoch / expiry / circuit metadata；`public_read` 限流 |
-| GET `/api/binary/anonymous-credential/circuit` | 🔓 🚦 📦 | `AnonymousCredentialRootSnapshot`(179) | 同 root snapshot，用于 prover 预热读取 circuit/verifying key metadata |
-| POST `/api/binary/anonymous-credential/revocation-witness` | 🔓 🚦 📦 | 固定 `ApiError` / 410 | credential-specific witness 永久 retired；body/参数均不读取 |
-| GET `/api/binary/anonymous-credential/revocation/{epoch}/{version}/{root}/full.aeds` | 🔓 🚦 📦 | `AnonymousCredentialRevocationSnapshot`(196) | 所有客户端相同、content-addressed、immutable 的公共 full snapshot；坐标冲突 `409`、未生成 `404`、provider 不可用 `503` |
-| GET `/api/binary/anonymous-credential/revocation/{epoch}/{version}/{root}/delta/{baseVersion}.aeds` | 🔓 🚦 📦 | `AnonymousCredentialRevocationDelta`(197) | 公共 append-only delta；客户端仅允许精确上一 version 更新；坐标冲突 `409`、未生成 `404`、provider 不可用 `503` |
-| GET `/api/binary/anonymous-credential/blind-issuer` | 🔓 🚦 📦 | `BlindCredentialIssuerMetadata`(193) | RFC 9474 profile、root 绑定、issuer SPKI/hash；`public_read`、`no-store`，runtime disable 时 503 |
-| POST `/api/binary/anonymous-credential/blind-issue` | 🔑 🚦 📦 | `BlindCredentialIssueRequest`(194) → `BlindCredentialIssueResponse`(195) | RFC 9474 blind issuance；只接收 384B blinded representative，统一拒绝与延迟桶，`no-store` |
-| POST `/api/binary/telemetry/rum` | 🔓 🚦 📦 | `RumMetricBatchRequest`(75) → `RumMetricIngestResponse`(76) | 匿名 RUM 批量 ingestion；`credentials: omit` |
+Public article list/detail/search payloads carry `currentRevisionId/revisionNo/currentPublicationId/publicationNo`. When a published article has a future revision, these routes continue returning the old publication until the scheduled worker atomically switches projections to the new coordinates; no public “read-latest-revision” fallback exists.
 
-### 管理端 Binary
+### Administration binary
 
-
----
-
-## 消息系统 — `/api/binary/messages`
-
-> 整个路由组需要登录（🔑）。
-
+Administrative routes are included in the authoring and security table below.
 
 ---
 
-## 管理端消息 — `/api/binary/admin/messages`
+## Messaging — `/api/binary/messages`
 
-> 整个路由组需要 admin 角色（👑）。
+The entire route group requires authentication (🔑).
 
+---
 
-`Messages:ReplyWritesEnabled=false` 可动态暂停两个 reply 端点并返回
-`503 message_reply_writes_disabled`，不影响读取和显式状态变更。
-`Messages:MutationIdempotencyEnabled=false` 可动态 fail closed 创建、两类回复和 system-send，
-返回 `503 message_mutation_idempotency_disabled`；不得回退到无 mutation/source identity 写入。
-`Messages:AdminAccountProjectionEnabled=false` 可动态暂停两个 admin 读取端点并返回
-`503 message_admin_account_projection_disabled`；账号消息端点与原有账号 frame 保持可用。
-`Messages:StatusMutationsEnabled=false` 可动态暂停 admin 状态写入并返回
-`503 message_status_mutations_disabled`；读取与 notification stream 不受影响。
-`Messages:SystemMessageTargetValidationEnabled=false` 可动态 fail closed 新系统消息并返回
-`503 system_message_target_validation_disabled`；已提交 source event 的同摘要 replay 仍返回原结果。
+## Administrative messaging — `/api/binary/admin/messages`
 
-## 开放分发与作者工作台
-
-> 作者工作台生产前端调用原生 `/api/binary/author/**` AEDS v2 端点；外部 `/api/author/**` JSON 入口和 internal bridge 兼容层均已移除。
->
-> Admin security 生产前端使用原生 `/api/binary/admin/security/**` AEDS v2 入口；外部 `/api/admin/security/**` JSON 入口和 internal bridge 兼容层均已移除。
+The entire route group requires the admin role (👑).
 
 
-| POST | `/api/binary/author/drafts` | 👑 | 以 `expectedServerRevision` CAS 保存草稿；返回递增 `serverRevision` 与原始 `baseRevisionId` |
-| GET | `/api/binary/author/drafts/{draftKey}` | 👑 | 读取服务端草稿、`serverRevision` 与原始 `baseRevisionId` |
-| DELETE | `/api/binary/author/drafts/{draftKey}?expectedServerRevision={revision}` | 👑 | 版本前置条件匹配后丢弃；stale 返回 `draft_conflict` |
-| POST | `/api/binary/author/preview` | 👑 | admin-only 结构化私有预览（规范化字段 + source identity + issues；无 HTML） |
-| POST | `/api/binary/author/prepublish-check` | 👑 | 发布前 SEO/内容质量检查 |
-| GET | `/api/binary/author/articles/{articleId}/revisions` | 👑 | 文章修订列表 |
-| GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}` | 👑 | 完整历史版本包：正文、rights、responsibility 与 release 坐标；缺项通过 `packageComplete` 明示 |
-| GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/responsibility` | 👑 | `ArticleResponsibilityHistory(228)`；按版本倒序读取 append-only 责任历史 |
-| PUT | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/responsibility` | 👑 | 以 `expectedVersion` CAS 追加责任版本；冲突返回 HTTP 409 |
-| POST | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback` | 👑 | `ArticleRevisionRollbackRequest(213)` → `MutationId(241)` 48B 强类型结果；提交 base revision、Draft/Published/Archived 目标和审计原因，复制完整历史包到新 revision/release；冲突或不完整包不写入 |
-| POST | `/api/binary/author/articles/{articleId}/assets/reindex` | 👑 | 重建资产引用 |
-| GET | `/api/binary/author/assets` | 👑 | 资产库列表 |
-| DELETE | `/api/binary/author/assets/orphans` | 👑 | 删除孤儿资产库记录 |
-| GET | `/api/binary/author/taxonomy/categories` | 👑 | 管理端分类真实引用计数 |
-| GET | `/api/binary/author/taxonomy/tags` | 👑 | 管理端标签真实引用计数 |
-| GET | `/api/binary/author/analytics` | 👑 | 单作者分析 |
-| GET | `/api/binary/author/comments/moderation?status&limit&cursor` | 👑 `comment.moderate` | 稳定 keyset 评论审核队列；响应返回 `nextCursor`、评论/claim row version 与 lease 状态 |
-| POST | `/api/binary/author/comments/{commentId}/moderation/claim` | 👑 `comment.moderate` | 抢占审核 lease；活跃 lease 冲突返回 409 |
-| POST | `/api/binary/author/comments/{commentId}/moderation/claim/renew` | 👑 `comment.moderate` | 以 token + generation + claim row version 续租 |
-| POST | `/api/binary/author/comments/{commentId}/moderation/claim/release` | 👑 `comment.moderate` | 以 token + generation + claim row version 释放 lease |
-| POST | `/api/binary/author/comments/moderation/bulk` | 👑 `comment.moderate` 🚦 MFA | 批量评论审核 |
-| POST | `/api/binary/author/comments/{commentId}/moderation` | 👑 `comment.moderate` 🚦 MFA | 评论审核 |
-| GET | `/api/binary/author/moderation/overview` | 👑 | 审核系统总览 |
-| GET | `/api/binary/author/moderation/anonymous-comment-policy` | 👑 | 读取匿名评论策略 |
-| PUT | `/api/binary/author/moderation/anonymous-comment-policy` | 👑🚦 MFA | 更新匿名评论策略 |
-| POST | `/api/binary/author/comments/moderation/nullifiers/block` | 👑🚦 MFA | 封禁匿名评论 nullifier |
-| POST | `/api/binary/author/comments/moderation/anonymous-credentials/{credentialId}/revoke` | 👑🚦 MFA | 撤销匿名凭证 |
-| GET | `/api/binary/admin/anonymous-governance/status` | 👑🚦 MFA | 匿名治理后台状态与 root/revocation 聚合 |
-| GET | `/api/binary/admin/anonymous-governance/nullifiers` | 👑🚦 MFA | 匿名 nullifier 治理列表，仅展示 masked hash |
-| POST | `/api/binary/admin/anonymous-governance/nullifiers/block` | 👑🚦 MFA | 匿名治理后台封禁 nullifier |
-| POST | `/api/binary/admin/anonymous-governance/credentials/revoke` | 👑🚦 MFA | 按 revocation handle 撤销匿名凭证 |
-| GET | `/api/binary/author/moderation/dictionaries` | 👑 | 只读审核词库和地区策略 snapshot metadata |
-| POST | `/api/binary/author/moderation/dictionaries/reload` | 👑🚦 MFA | 手动 reload 审核词库和地区策略 snapshot |
-| POST | `/api/binary/author/moderation/dictionaries/rollback` | 👑🚦 MFA | 回滚到上一份成功加载的词库/地区策略 snapshot |
-| POST | `/api/binary/author/moderation/dictionaries/{dictionaryId}/enable` | 👑🚦 MFA | 启用运行时词库 override |
-| POST | `/api/binary/author/moderation/dictionaries/{dictionaryId}/disable` | 👑🚦 MFA | 禁用运行时词库 override；CN-MAINLAND 强制词库需确认短语 |
-| GET | `/api/binary/author/moderation/policies` | 👑 | 地区策略 summary 与 CN-MAINLAND 强制检查 |
-| GET | `/api/binary/author/moderation/regions` | 👑 | 地区定义 catalog，含内置/自定义地区和模板绑定 |
-| GET | `/api/binary/author/moderation/region-groups` | 👑 | 地区大区 catalog，含成员地区和大区模板 |
-| GET | `/api/binary/author/moderation/policy-templates` | 👑 | 默认/自定义策略模板 presets、review marker 和 checksum |
-| GET | `/api/binary/author/moderation/effective-policy/{regionCode}` | 👑🚦 | 指定地区 effective policy preview |
-| POST | `/api/binary/author/moderation/effective-policy/preview` | 👑🚦 | 带 operator override 的 effective policy preview |
-| POST | `/api/binary/author/moderation/replay/preview` | 👑🚦 | 策略回放 preview diff，不执行变更 |
-| GET | `/api/binary/author/moderation/runtime/status` | 👑 | 审核运行时全局/地区/词库/模型状态 |
-| POST | `/api/binary/author/moderation/runtime/global-state` | 👑🚦 MFA | 调整全局审核运行状态 |
-| POST | `/api/binary/author/moderation/runtime/region-state` | 👑🚦 MFA | 调整地区审核运行状态并清理评论 frame 缓存 |
-| GET | `/api/binary/author/moderation/model/status` | 👑 | 审核模型配置与 latency/error 观测 |
-| POST | `/api/binary/author/moderation/model/runtime` | 👑🚦 MFA | 热切换模型 provider/profile/启停状态 |
-| POST | `/api/binary/author/moderation/model/reload` | 👑🚦 MFA | 从配置热重载模型运行快照 |
-| POST | `/api/binary/author/moderation/model/rollback` | 👑🚦 MFA | 回滚上一份模型运行快照 |
-| GET | `/api/binary/admin/security/overview` | 👑 | 安全系统总览：AntiCrawler、PoW、SecurityRisk |
-| GET | `/api/binary/admin/security/risk-control/overview` | 👑 | RiskControl active policy、风险事件聚合、challenge 成功/失败率 |
+Hot-reloading `Messages:ReplyWritesEnabled=false` pauses both reply endpoints with `503 message_reply_writes_disabled`; reads and explicit status changes remain available. `Messages:MutationIdempotencyEnabled=false` fails closed for creates, both reply types, and system-send with `503 message_mutation_idempotency_disabled`; never fall back to writes without mutation/source identity. `Messages:AdminAccountProjectionEnabled=false` pauses both admin reads with `503 message_admin_account_projection_disabled`; account message endpoints and their existing frames remain available. `Messages:StatusMutationsEnabled=false` pauses admin status writes with `503 message_status_mutations_disabled`; reads and the notification stream are unaffected. `Messages:SystemMessageTargetValidationEnabled=false` fails closed for new system messages with `503 system_message_target_validation_disabled`; a replay with the same digest for an already submitted source event still returns the original result.
+
+<a id="开放分发与作者工作台"></a>
+
+## Open distribution and authoring workbench
+
+The production authoring frontend calls native `/api/binary/author/**` AEDS v2 endpoints; external `/api/author/**` JSON entry points and the internal bridge compatibility layer are removed. The production admin-security frontend likewise calls native `/api/binary/admin/security/**` AEDS v2 endpoints; external `/api/admin/security/**` JSON entry points and the bridge are removed.
+
+
+| POST | `/api/binary/author/drafts` | 👑 | Save with `expectedServerRevision` CAS; return incremented `serverRevision` and original `baseRevisionId`. |
+| GET | `/api/binary/author/drafts/{draftKey}` | 👑 | Read server draft, `serverRevision`, and original `baseRevisionId`. |
+| DELETE | `/api/binary/author/drafts/{draftKey}?expectedServerRevision={revision}` | 👑 | Discard when the version precondition matches; stale returns `draft_conflict`. |
+| POST | `/api/binary/author/preview` | 👑 | Admin-only structured private preview (normalized fields, source identity, issues; no HTML). |
+| POST | `/api/binary/author/prepublish-check` | 👑 | Pre-publication SEO/content-quality check. |
+| GET | `/api/binary/author/articles/{articleId}/revisions` | 👑 | Article revision list. |
+| GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}` | 👑 | Complete historical package: body, rights, responsibility, and release coordinates; missing parts are explicit through `packageComplete`. |
+| GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/responsibility` | 👑 | `ArticleResponsibilityHistory(228)`; append-only responsibility history in reverse version order. |
+| PUT | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/responsibility` | 👑 | Append a responsibility version with `expectedVersion` CAS; conflict returns HTTP 409. |
+| POST | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback` | 👑 | `ArticleRevisionRollbackRequest(213)` → 48B typed `MutationId(241)` result; submit base revision, Draft/Published/Archived target, and audit reason; copy the complete package to a new revision/release; conflicts or incomplete packages write nothing. |
+| POST | `/api/binary/author/articles/{articleId}/assets/reindex` | 👑 | Rebuild asset references. |
+| GET | `/api/binary/author/assets` | 👑 | Asset-library list. |
+| DELETE | `/api/binary/author/assets/orphans` | 👑 | Delete orphaned asset-library records. |
+| GET | `/api/binary/author/taxonomy/categories` | 👑 | Admin category real-reference counts. |
+| GET | `/api/binary/author/taxonomy/tags` | 👑 | Admin tag real-reference counts. |
+| GET | `/api/binary/author/analytics` | 👑 | Single-author analytics. |
+| GET | `/api/binary/author/comments/moderation?status&limit&cursor` | 👑 `comment.moderate` | Stable keyset moderation queue; returns `nextCursor`, comment/claim row versions, and lease state. |
+| POST | `/api/binary/author/comments/{commentId}/moderation/claim` | 👑 `comment.moderate` | Claim a moderation lease; an active-lease conflict returns 409. |
+| POST | `/api/binary/author/comments/{commentId}/moderation/claim/renew` | 👑 `comment.moderate` | Renew with token + generation + claim row version. |
+| POST | `/api/binary/author/comments/{commentId}/moderation/claim/release` | 👑 `comment.moderate` | Release with token + generation + claim row version. |
+| POST | `/api/binary/author/comments/moderation/bulk` | 👑 `comment.moderate` 🚦 MFA | Bulk comment moderation. |
+| POST | `/api/binary/author/comments/{commentId}/moderation` | 👑 `comment.moderate` 🚦 MFA | Moderate a comment. |
+| GET | `/api/binary/author/moderation/overview` | 👑 | Moderation-system overview. |
+| GET | `/api/binary/author/moderation/anonymous-comment-policy` | 👑 | Read anonymous-comment policy. |
+| PUT | `/api/binary/author/moderation/anonymous-comment-policy` | 👑🚦 MFA | Update anonymous-comment policy. |
+| POST | `/api/binary/author/comments/moderation/nullifiers/block` | 👑🚦 MFA | Block an anonymous-comment nullifier. |
+| POST | `/api/binary/author/comments/moderation/anonymous-credentials/{credentialId}/revoke` | 👑🚦 MFA | Revoke an anonymous credential. |
+| GET | `/api/binary/admin/anonymous-governance/status` | 👑🚦 MFA | Anonymous-governance admin status and root/revocation aggregate. |
+| GET | `/api/binary/admin/anonymous-governance/nullifiers` | 👑🚦 MFA | Anonymous-nullifier governance list; shows masked hashes only. |
+| POST | `/api/binary/admin/anonymous-governance/nullifiers/block` | 👑🚦 MFA | Block an anonymous-governance nullifier. |
+| POST | `/api/binary/admin/anonymous-governance/credentials/revoke` | 👑🚦 MFA | Revoke an anonymous credential by revocation handle. |
+| GET | `/api/binary/author/moderation/dictionaries` | 👑 | Read-only moderation dictionaries and regional-policy snapshot metadata. |
+| POST | `/api/binary/author/moderation/dictionaries/reload` | 👑🚦 MFA | Manually reload moderation dictionaries and regional-policy snapshot. |
+| POST | `/api/binary/author/moderation/dictionaries/rollback` | 👑🚦 MFA | Roll back to the last successfully loaded dictionary/regional-policy snapshot. |
+| POST | `/api/binary/author/moderation/dictionaries/{dictionaryId}/enable` | 👑🚦 MFA | Enable a runtime dictionary override. |
+| POST | `/api/binary/author/moderation/dictionaries/{dictionaryId}/disable` | 👑🚦 MFA | Disable a runtime dictionary override; the CN-MAINLAND mandatory dictionary requires a confirmation phrase. |
+| GET | `/api/binary/author/moderation/policies` | 👑 | Regional-policy summary and CN-MAINLAND mandatory checks. |
+| GET | `/api/binary/author/moderation/regions` | 👑 | Region catalog with built-in/custom regions and template bindings. |
+| GET | `/api/binary/author/moderation/region-groups` | 👑 | Region-group catalog with member regions and group templates. |
+| GET | `/api/binary/author/moderation/policy-templates` | 👑 | Default/custom policy presets, review markers, and checksums. |
+| GET | `/api/binary/author/moderation/effective-policy/{regionCode}` | 👑🚦 | Preview the effective policy for a region. |
+| POST | `/api/binary/author/moderation/effective-policy/preview` | 👑🚦 | Preview an effective policy with an operator override. |
+| POST | `/api/binary/author/moderation/replay/preview` | 👑🚦 | Preview a policy-replay diff without applying changes. |
+| GET | `/api/binary/author/moderation/runtime/status` | 👑 | Global, regional, dictionary, and model moderation-runtime status. |
+| POST | `/api/binary/author/moderation/runtime/global-state` | 👑🚦 MFA | Adjust global moderation-runtime state. |
+| POST | `/api/binary/author/moderation/runtime/region-state` | 👑🚦 MFA | Adjust regional moderation-runtime state and clear comment-frame cache. |
+| GET | `/api/binary/author/moderation/model/status` | 👑 | Moderation-model configuration and latency/error telemetry. |
+| POST | `/api/binary/author/moderation/model/runtime` | 👑🚦 MFA | Hot-switch model provider/profile and enabled state. |
+| POST | `/api/binary/author/moderation/model/reload` | 👑🚦 MFA | Hot-reload the model runtime snapshot from configuration. |
+| POST | `/api/binary/author/moderation/model/rollback` | 👑🚦 MFA | Roll back the previous model runtime snapshot. |
+| GET | `/api/binary/admin/security/overview` | 👑 | Security-system overview: AntiCrawler, PoW, and SecurityRisk. |
+| GET | `/api/binary/admin/security/risk-control/overview` | 👑 | RiskControl active policy, risk-event aggregate, and challenge success/failure rates. |
 | GET | `/api/binary/admin/security/risk-control/options` | 👑 | RiskControl active runtime policy snapshot |
-| PUT | `/api/binary/admin/security/risk-control/options` | 👑🚦 MFA | 更新 RiskControl mode、PoSpace/PublicRead/Comment/Auth 开关和 strict multiplier |
-| POST | `/api/binary/admin/security/risk-control/options/rollback` | 👑🚦 MFA | 回滚上一份 RiskControl last-known-good policy |
-| POST | `/api/binary/admin/security/risk-control/simulate` | 👑🚦 | RiskControl dry-run：调用生产决策链返回 riskScore、decision、reasons、requiredChallenges、policyVersion，不签发 challenge、不改风险分 |
-| GET | `/api/binary/admin/security/challenges/overview?kind={kind}` | 👑 | challenge 签发、尝试、成功/失败率；`kind` 只接受当前 provider wire kind |
-| GET | `/api/binary/admin/security/policies/overview` | 👑 | active RiskControl、AntiCrawler、PoW 与持久化策略版本 |
-| GET | `/api/binary/admin/security/anti-crawler/overview` | 👑 | 反爬虫总览、CIDR、风险事件、规则与 list |
-| GET | `/api/binary/admin/security/anti-crawler/options` | 👑 | 反爬虫运行策略快照 |
-| PUT | `/api/binary/admin/security/anti-crawler/options` | 👑🚦 MFA | 更新 AntiCrawler mode、局部开关、阈值、限流额度和 CIDR 更新配置 |
-| POST | `/api/binary/admin/security/anti-crawler/options/rollback` | 👑🚦 MFA | 回滚上一份反爬虫策略快照 |
-| GET | `/api/binary/admin/security/anti-crawler/crawler-ranges/status` | 👑 | CIDR worker 状态、更新时间、下次同步和 range 数量 |
-| POST | `/api/binary/admin/security/anti-crawler/crawler-ranges/sync` | 👑🚦 MFA | 手动同步 Google/Bing crawler CIDR |
-| GET | `/api/binary/admin/security/anti-crawler/risk-events` | 👑 | 反爬虫风险事件列表；`limit` clamp 到 1..1000 |
-| GET | `/api/binary/admin/security/anti-crawler/rules` | 👑 | 反爬虫规则列表 |
-| POST | `/api/binary/admin/security/anti-crawler/rules` | 👑🚦 MFA | 新增反爬虫规则 |
-| PUT | `/api/binary/admin/security/anti-crawler/rules/{id}` | 👑🚦 MFA | 更新反爬虫规则 |
-| DELETE | `/api/binary/admin/security/anti-crawler/rules/{id}` | 👑🚦 MFA | 删除反爬虫规则 |
-| GET | `/api/binary/admin/security/anti-crawler/allowlist` | 👑 | 反爬虫 allowlist |
-| POST | `/api/binary/admin/security/anti-crawler/allowlist` | 👑🚦 MFA | 新增 allowlist 条目 |
-| DELETE | `/api/binary/admin/security/anti-crawler/allowlist/{id}` | 👑🚦 MFA | 删除 allowlist 条目 |
-| GET | `/api/binary/admin/security/anti-crawler/blocklist` | 👑 | 反爬虫 blocklist |
-| POST | `/api/binary/admin/security/anti-crawler/blocklist` | 👑🚦 MFA | 新增 blocklist 条目 |
-| DELETE | `/api/binary/admin/security/anti-crawler/blocklist/{id}` | 👑🚦 MFA | 删除 blocklist 条目 |
-| POST | `/api/binary/admin/security/anti-crawler/simulate` | 👑🚦 | 反爬虫策略模拟器，不执行变更 |
-| GET | `/api/binary/admin/security/pow/overview` | 👑 | PoW 系统总览 |
-| GET | `/api/binary/admin/security/pow/options` | 👑 | PoW 独立策略快照 |
-| PUT | `/api/binary/admin/security/pow/options` | 👑🚦 MFA | 更新 PoW mode、difficulty、TTL、replay 和风险联动 |
-| POST | `/api/binary/admin/security/pow/options/rollback` | 👑🚦 MFA | 回滚上一份 PoW 策略快照 |
-| GET | `/api/binary/admin/security/pow/events` | 👑 | PoW 风险事件；`limit` clamp 到 1..1000 |
-| GET | `/api/binary/admin/security/risk/events` | 👑 | 统一安全风险事件；`limit` clamp 到 1..1000 |
-| GET | `/api/binary/admin/security/risk/snapshots` | 👑 | 统一安全风险主体快照；`limit` clamp 到 1..1000 |
-| POST | `/api/binary/admin/security/risk/ip/reset` | 👑🚦 MFA | 重置指定 IP 风险分 |
-| GET | `/api/binary/author/content/export` | 👑 | 全站内容备份包 |
-| GET | `/api/binary/author/articles/{articleId}/export` | 👑 | 导出 Markdown + frontmatter |
-| POST | `/api/binary/author/articles/import` | 👑 | create-new 导入 Markdown + frontmatter，不按 source article ID 覆盖现有文章；未提供 rights 时绑定默认策略 snapshot |
-| GET | `/api/binary/author/audit` | 👑🚦 | 审计日志 cursor 列表，支持 actor/action/target/outcome/time 过滤 |
-| GET | `/api/binary/author/audit/summary` | 👑🚦 | 审计 facet 汇总与写入 runtime |
-| GET | `/api/binary/author/audit/{id}` | 👑🚦 | 审计详情与 context |
-| GET | `/api/binary/author/audit/{id}/verify` | 👑🚦 | 单条防篡改证据校验 |
-| GET | `/api/binary/author/ops/health` | 👑🚦 | 运维健康：DB/Redis/audit/worker/search/backup/队列/结构化最近错误 |
-| GET | `/api/binary/author/ops/backup` | 👑🚦 | 最近站点备份和 restore drill 状态 |
-| GET | `/api/binary/author/ops/dangerous-operations/policy` | 👑🚦 | 管理端危险操作确认、MFA 与 diff 策略 |
-| GET | `/api/binary/author/cache/diagnostics` | 👑🚦 | AOT/PublicHotRead/search/sitemap/feed/comment cache 与 HotArticles/Stats 失效合并状态 |
-| POST | `/api/binary/author/cache/actions` | 👑🚦 | 手动重建 search/AOT 或清理 output cache |
-| GET | `/api/binary/author/integrity` | 👑🚦 | 数据一致性巡检报告 |
-| GET | `/api/binary/author/integrity/fix-preview` | 👑🚦 | 安全修复 diff 预览 |
-| POST | `/api/binary/author/integrity/fix` | 👑🚦 step-up | 应用安全修复，要求确认短语和 admin step-up proof |
-| POST | `/api/binary/author/ai-assist` | 👑 | 默认关闭的作者 AI 辅助 |
+| PUT | `/api/binary/admin/security/risk-control/options` | 👑🚦 MFA | Update RiskControl mode, PoSpace/PublicRead/Comment/Auth switches, and strict multiplier. |
+| POST | `/api/binary/admin/security/risk-control/options/rollback` | 👑🚦 MFA | Roll back the previous RiskControl last-known-good policy. |
+| POST | `/api/binary/admin/security/risk-control/simulate` | 👑🚦 | RiskControl dry run through the production decision chain; returns riskScore, decision, reasons, requiredChallenges, and policyVersion without issuing a challenge or changing risk score. |
+| GET | `/api/binary/admin/security/challenges/overview?kind={kind}` | 👑 | Challenge issuance, attempts, and success/failure rates; `kind` accepts only the current provider wire kind. |
+| GET | `/api/binary/admin/security/policies/overview` | 👑 | Active RiskControl, AntiCrawler, PoW, and persisted policy versions. |
+| GET | `/api/binary/admin/security/anti-crawler/overview` | 👑 | Anti-crawler overview, CIDRs, risk events, rules, and lists. |
+| GET | `/api/binary/admin/security/anti-crawler/options` | 👑 | Anti-crawler runtime-policy snapshot. |
+| PUT | `/api/binary/admin/security/anti-crawler/options` | 👑🚦 MFA | Update AntiCrawler mode, local switches, thresholds, rate-limit quota, and CIDR update configuration. |
+| POST | `/api/binary/admin/security/anti-crawler/options/rollback` | 👑🚦 MFA | Roll back the previous anti-crawler policy snapshot. |
+| GET | `/api/binary/admin/security/anti-crawler/crawler-ranges/status` | 👑 | CIDR worker status, update time, next sync, and range count. |
+| POST | `/api/binary/admin/security/anti-crawler/crawler-ranges/sync` | 👑🚦 MFA | Manually sync Google/Bing crawler CIDRs. |
+| GET | `/api/binary/admin/security/anti-crawler/risk-events` | 👑 | Anti-crawler risk events; `limit` is clamped to 1..1000. |
+| GET | `/api/binary/admin/security/anti-crawler/rules` | 👑 | Anti-crawler rules. |
+| POST | `/api/binary/admin/security/anti-crawler/rules` | 👑🚦 MFA | Add an anti-crawler rule. |
+| PUT | `/api/binary/admin/security/anti-crawler/rules/{id}` | 👑🚦 MFA | Update an anti-crawler rule. |
+| DELETE | `/api/binary/admin/security/anti-crawler/rules/{id}` | 👑🚦 MFA | Delete an anti-crawler rule. |
+| GET | `/api/binary/admin/security/anti-crawler/allowlist` | 👑 | Anti-crawler allowlist. |
+| POST | `/api/binary/admin/security/anti-crawler/allowlist` | 👑🚦 MFA | Add an allowlist entry. |
+| DELETE | `/api/binary/admin/security/anti-crawler/allowlist/{id}` | 👑🚦 MFA | Delete an allowlist entry. |
+| GET | `/api/binary/admin/security/anti-crawler/blocklist` | 👑 | Anti-crawler blocklist. |
+| POST | `/api/binary/admin/security/anti-crawler/blocklist` | 👑🚦 MFA | Add a blocklist entry. |
+| DELETE | `/api/binary/admin/security/anti-crawler/blocklist/{id}` | 👑🚦 MFA | Delete a blocklist entry. |
+| POST | `/api/binary/admin/security/anti-crawler/simulate` | 👑🚦 | Anti-crawler policy simulator; applies no changes. |
+| GET | `/api/binary/admin/security/pow/overview` | 👑 | PoW-system overview. |
+| GET | `/api/binary/admin/security/pow/options` | 👑 | Independent PoW policy snapshot. |
+| PUT | `/api/binary/admin/security/pow/options` | 👑🚦 MFA | Update PoW mode, difficulty, TTL, replay, and risk linkage. |
+| POST | `/api/binary/admin/security/pow/options/rollback` | 👑🚦 MFA | Roll back the previous PoW policy snapshot. |
+| GET | `/api/binary/admin/security/pow/events` | 👑 | PoW risk events; `limit` is clamped to 1..1000. |
+| GET | `/api/binary/admin/security/risk/events` | 👑 | Unified security-risk events; `limit` is clamped to 1..1000. |
+| GET | `/api/binary/admin/security/risk/snapshots` | 👑 | Unified security-risk subject snapshots; `limit` is clamped to 1..1000. |
+| POST | `/api/binary/admin/security/risk/ip/reset` | 👑🚦 MFA | Reset an IP risk score. |
+| GET | `/api/binary/author/content/export` | 👑 | Full-site content backup package. |
+| GET | `/api/binary/author/articles/{articleId}/export` | 👑 | Export Markdown plus frontmatter. |
+| POST | `/api/binary/author/articles/import` | 👑 | Create-new import of Markdown plus frontmatter; never overwrite by source article ID; bind the default policy snapshot when rights are absent. |
+| GET | `/api/binary/author/audit` | 👑🚦 | Audit-log cursor list with actor/action/target/outcome/time filters. |
+| GET | `/api/binary/author/audit/summary` | 👑🚦 | Audit facets and write runtime. |
+| GET | `/api/binary/author/audit/{id}` | 👑🚦 | Audit detail and context. |
+| GET | `/api/binary/author/audit/{id}/verify` | 👑🚦 | Verify one tamper-evident audit proof. |
+| GET | `/api/binary/author/ops/health` | 👑🚦 | Operational health: DB/Redis/audit/worker/search/backup/queue and structured recent errors. |
+| GET | `/api/binary/author/ops/backup` | 👑🚦 | Recent site-backup and restore-drill status. |
+| GET | `/api/binary/author/ops/dangerous-operations/policy` | 👑🚦 | Admin dangerous-operation confirmation, MFA, and diff policy. |
+| GET | `/api/binary/author/cache/diagnostics` | 👑🚦 | Combined AOT/PublicHotRead/search/sitemap/feed/comment cache and HotArticles/Stats invalidation status. |
+| POST | `/api/binary/author/cache/actions` | 👑🚦 | Manually rebuild search/AOT or clear output cache. |
+| GET | `/api/binary/author/integrity` | 👑🚦 | Data-consistency inspection report. |
+| GET | `/api/binary/author/integrity/fix-preview` | 👑🚦 | Preview a security-fix diff. |
+| POST | `/api/binary/author/integrity/fix` | 👑🚦 step-up | Apply a security fix; requires a confirmation phrase and admin step-up proof. |
+| POST | `/api/binary/author/ai-assist` | 👑 | Author AI assistance, disabled by default. |
 
 ---
 
-## 通知与健康检查
-
-
-通知通道是 AEDS WebSocket notification stream，不是标准 Server-Sent Events，不使用 `EventSource` 或 `text/event-stream`。
-`ArticleChanged(8)` 的 v2 payload 携带可空 `revisionId/releaseId` 精确坐标；前端按 decimal string 接收 int64。发送前坐标已 superseded 时该事件不发布，outbox 将剩余 edge 记为 skipped。
-账号 Passkey counter 回滚会在全部普通会话持久撤销后发布 `NotificationStreamEventType.SessionRevoked=16`；浏览器立即清除普通账号态并跨 tab 强制重新认证，独立 admin session 不随之撤销。
+## Notifications and health checks
+The notification channel is an AEDS WebSocket stream, not Server-Sent Events; it does not use `EventSource` or `text/event-stream`. v2 `ArticleChanged(8)` payloads carry nullable `revisionId/releaseId` coordinates; the frontend receives int64 values as decimal strings. If the coordinates are superseded before dispatch, the event is not published and the remaining outbox edge is marked skipped. A Passkey-counter rollback publishes `NotificationStreamEventType.SessionRevoked=16` after persisting revocation of all ordinary sessions; browsers clear ordinary account state and force re-authentication across tabs, while an independent admin session remains active.
 
 ---
 
-## 速率限制策略
+## Rate-limit policy
 
-带 🚦 标记的端点受 `fixed_ip` 策略约束，按客户端 IP 计数。
+Endpoints marked 🚦 use the `fixed_ip` policy and count by client IP.
 
-- 超限响应：`429 Too Many Requests`
-- 响应含 `Retry-After` 头（秒数）
-- IP 提取：`X-Forwarded-For`（需 Nginx 正确配置 `proxy_set_header X-Forwarded-For`）
+- Over-limit response: `429 Too Many Requests`.
+- Response includes `Retry-After` in seconds.
+- IP source: `X-Forwarded-For` (Nginx must set `proxy_set_header X-Forwarded-For`).
 
 ---
 
-## 参见
+## See also
 
-- [design.md](design.md) — API 设计哲学与约定
-- [contracts.md](contracts.md) — 请求/响应 DTO 完整定义
-- [schemas-and-errors.md](schemas-and-errors.md) — 错误码与 Binary 帧格式
-- [../api.md](../api.md) — API 总览（含 AEDS 帧格式附录）
+- [design.md](design.md) — API design principles and conventions
+- [contracts.md](contracts.md) — Complete request/response DTO definitions
+- [schemas-and-errors.md](schemas-and-errors.md) — Error codes and binary frame format
+- [../api.md](../api.md) — API overview (including the AEDS frame appendix)
 
-## 文章/线程评论策略
+## Article/thread comment policy
 
-| 端点 | 认证 | 响应 | 用途 |
+| Endpoint | Auth | Response | Purpose |
 |---|---|---|---|
-| GET `/api/binary/comment/policy?articleId=&rootId=` | 🔓 📦 | `CommentPolicySnapshot`(164) | 全站→文章→线程有效 composer 策略 |
-| GET/PUT `/api/authoring/moderation/articles/{articleId}/comment-policy` | 🔐 📦 | `CommentPolicySnapshot`(164) envelope | admin 文章 override、审核/慢速模式与乐观版本 |
-| PUT `/api/authoring/moderation/articles/{articleId}/comment-threads/{rootId}` | 🔐 📦 | `CommentPolicySnapshot`(164) envelope | admin 单线程锁定/解锁与审计 |
+| GET `/api/binary/comment/policy?articleId=&rootId=` | 🔓 📦 | `CommentPolicySnapshot`(164) | Site → article → thread effective composer policy |
+| GET/PUT `/api/authoring/moderation/articles/{articleId}/comment-policy` | 🔐 📦 | `CommentPolicySnapshot`(164) envelope | Admin article override, moderation/slow mode, and optimistic version |
+| PUT `/api/authoring/moderation/articles/{articleId}/comment-threads/{rootId}` | 🔐 📦 | `CommentPolicySnapshot`(164) envelope | Admin single-thread lock/unlock and audit |
 
 ## Cluster operations
 
-| 方法与路径 | 权限 | 响应 | 说明 |
+| Method and path | Permission | Response | Meaning |
 | --- | --- | --- | --- |
-| GET `/api/ops/cluster/nodes` | independent admin principal + `system.config` + `fixed_ip` | JSON cluster runtime snapshot, `no-store` | 节点、职责状态、lease/checkpoint 摘要、事件、健康与指标；single 返回本地健康节点 |
-| POST `/api/ops/cluster/nodes/{nodeId}/state` | 同上 + trusted origin + `X-Fsus-Mfa-Proof` | JSON node state, `no-store` | 仅 `alive|draining|maintenance` |
-| POST `/api/ops/cluster/scheduler` | 同上 + trusted origin + `X-Fsus-Mfa-Proof` | JSON scheduling latch, `no-store` | 无重启停止/恢复新职责调度 |
-| POST `/api/ops/cluster/leases/{leaseId}/release-expired` | 同上 + trusted origin + `X-Fsus-Mfa-Proof` | JSON release result, `no-store` | 只清理已过期 lease，不允许强制释放 active lease |
+| GET `/api/ops/cluster/nodes` | independent admin principal + `system.config` + `fixed_ip` | JSON cluster runtime snapshot, `no-store` | Nodes, role state, lease/checkpoint summary, events, health, and metrics; single returns the local healthy node. |
+| POST `/api/ops/cluster/nodes/{nodeId}/state` | Same + trusted origin + `X-Fsus-Mfa-Proof` | JSON node state, `no-store` | Only `alive|draining|maintenance`. |
+| POST `/api/ops/cluster/scheduler` | Same + trusted origin + `X-Fsus-Mfa-Proof` | JSON scheduling latch, `no-store` | Stop/resume new-role scheduling without restart. |
+| POST `/api/ops/cluster/leases/{leaseId}/release-expired` | Same + trusted origin + `X-Fsus-Mfa-Proof` | JSON release result, `no-store` | Clean up expired leases only; never force-release an active lease. |
 
-## Plugin Admin
+## Plugin administration
 
 ## Current operation identities
 

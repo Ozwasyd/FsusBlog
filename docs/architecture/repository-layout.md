@@ -1,141 +1,67 @@
 # Repository source ownership
 
-FsusBlog 的产品实现源码统一归入 `src/`。文件是否由 `.csproj`、
-`package.json` 或编译器直接发现，不决定它是不是源码；手写的 ZK circuit
-definition 与 shader、protocol schema、SQL migration 一样，属于可编译的领域源码。
+FsusBlog product implementation source belongs under `src/`. Whether `.csproj`,
+`package.json`, or a compiler discovers a file does not determine whether it is
+source: handwritten ZK circuit definitions, shaders, protocol schemas, and SQL
+migrations are all compilable domain source.
 
 ## ZK ownership boundary
 
-| Ownership | Canonical path | 内容 |
+| Ownership | Canonical path | Contents |
 | --- | --- | --- |
-| Handwritten source | `src/zk/circuits/` | v2/v5 circuit definitions 与同目录说明 |
-| Generated artifacts | `artifacts/zk/` | R1CS、proving/verifying keys、ceremony outputs、Wasm prover bundles |
-| ZK contracts | `security/zk/contracts/` | circuit、tamper 与 feasibility contracts |
-| ZK provenance | `security/zk/provenance/` | source/artifact hashes、trusted-setup state、local review 与 artifact ownership |
-| Runtime configuration | `config/zk/` | active circuit/verifying-key selection 与 fail-closed binding |
-| Test fixtures | `tests/fixtures/zk/` | witnesses、proofs、tamper vectors 与 deterministic fixture manifests |
-| Build/check tooling | `tools/crypto/`, `tools/security/` | compiler、artifact generator 与 semantic validators |
+| Handwritten source | `src/zk/circuits/` | v2/v5 circuit definitions and adjacent documentation |
+| Generated artifacts | `artifacts/zk/` | R1CS, proving/verifying keys, ceremony outputs, and Wasm prover bundles |
+| ZK contracts | `security/zk/contracts/` | circuit, tamper, and feasibility contracts |
+| ZK provenance | `security/zk/provenance/` | source/artifact hashes, trusted-setup state, local review, and artifact ownership |
+| Runtime configuration | `config/zk/` | active circuit/verifying-key selection and fail-closed binding |
+| Test fixtures | `tests/fixtures/zk/` | witnesses, proofs, tamper vectors, and deterministic fixture manifests |
+| Build/check tooling | `tools/crypto/`, `tools/security/` | compiler, artifact generator, and semantic validators |
 
-这些目录不可互换：生成产物不能进入 `src/`，runtime config 不能作为 source，
-test fixture 也不能被 production readiness 当作 ceremony evidence。
+These directories are not interchangeable: generated artifacts cannot enter `src/`, runtime configuration is not source, and test fixtures cannot qualify as ceremony evidence for production readiness.
 
 ## Security ownership boundary
 
-`security/` 下禁止散落 root files。矩阵、策略、ZK contract、ZK provenance 与静态
-evidence contract 分别位于 `security/matrices/`、`security/policies/`、
-`security/zk/contracts/`、`security/zk/provenance/` 和
-`security/evidence-contracts/`；总目录位于 `security/catalog/security-domain.json`。
-完整分类、运行时路径和回退约束见
-[`docs/security/security-domain-layout.md`](../security/security-domain-layout.md)。
+Root files may not be scattered under `security/`. Matrices, policies, ZK contracts,
+ZK provenance, and static evidence contracts live in `security/matrices/`,
+`security/policies/`, `security/zk/contracts/`, `security/zk/provenance/`, and
+`security/evidence-contracts/`; the catalog is `security/catalog/security-domain.json`.
+For the complete classification, runtime paths, and fallback constraints, see
+[`docs/security/security-domain-layout.md`](../security/security-domain-layout.md).
 
 ## Shared contract ownership
 
-`src/shared/Contracts/` 是跨栈契约的唯一 product-source root。手写的安全协议 JSON 位于
-`src/shared/Contracts/Validation/Security/`，跨语言生成器位于 `tools/contracts/`；生成的
-C# 与 TypeScript consumer 可以分别位于 Shared 和 frontend，但不得反向成为事实源。
-根目录 `contracts/security/` 与 `tools/frontend/` 不承载跨栈安全协议 source/generator。
+`src/shared/Contracts/` is the sole product-source root for cross-stack contracts. Handwritten security-protocol JSON lives in `src/shared/Contracts/Validation/Security/`, and cross-language generators live in `tools/contracts/`; generated C# and TypeScript consumers may live in Shared and frontend, but cannot become authorities. Root `contracts/security/` and `tools/frontend/` do not hold cross-stack security-protocol source or generators.
 
-内容 lifecycle 文档 exactness 复用 `config/contracts/behavior-contracts.json`、
-`config/contracts/document-claim-migration-ledger.json` 与
-`config/contracts/generated-fact-sections.json` 的既有 ownership；
-`tools/docs/content-doc-exactness.mjs` 只是 current-run mutation/terminal receipt producer 与
-independent verifier，不拥有第二份 behavior、claim、state、transition 或 outbox registry。
+Content-lifecycle document exactness reuses the existing ownership of
+`config/contracts/behavior-contracts.json`, `config/contracts/document-claim-migration-ledger.json`,
+and `config/contracts/generated-fact-sections.json`. `tools/docs/content-doc-exactness.mjs`
+only produces current-run mutation/terminal receipts and independently verifies them; it owns no second behavior, claim, state, transition, or Outbox registry.
 
 ## Schema migration ownership
 
-`src/migration/` 由独立 `FsusBlog.Migration` project 拥有：legacy descriptors、catalogs、
-checksum/history、typed provider DDL 与 migration-only conversion rows 只能在该 project 和
-对应 `tests/migration/` 中编译。该 project 同时以 `Exe` 形式编译为 offline migration
-host；`tools/db/run-online-migrations.sh` 的 `--server-dll` 指向其输出。分类注册表
-`OfflineMigrationCatalogEntries.generated.cs` 由 `tools/db/generate-offline-migration-catalog.mjs`
-从 Server 侧 `OnlineSchemaMigrationCatalog` 派生（防漂移：
-`tools/db/check-offline-migration-catalog-parity.mjs`）。`src/backend/Infrastructure/SchemaMigration/`
-只保留 current-schema authority/inspector、fail-closed startup verifier、lock 与业务 backfill
-handlers；Server 生产图不得引用 Migration assembly。机器可读文件/符号清单与 content digest 位于
-`artifacts/schema-migration/migration-assembly-receipt.json`。
+`src/migration/` belongs to the independent `FsusBlog.Migration` project: legacy descriptors, catalogs, checksum/history, typed provider DDL, and migration-only conversion rows compile only there and in `tests/migration/`. The project also builds as an `Exe` offline-migration host, and `tools/db/run-online-migrations.sh` with `--server-dll` points to its output. `OfflineMigrationCatalogEntries.generated.cs` is derived from the Server-side `OnlineSchemaMigrationCatalog` by `tools/db/generate-offline-migration-catalog.mjs`; `tools/db/check-offline-migration-catalog-parity.mjs` prevents drift. `src/backend/Infrastructure/SchemaMigration/` retains only current-schema authority/inspector, fail-closed startup verifier, lock, and business-backfill handlers; the Server production graph must not reference the Migration assembly. The machine-readable file/symbol inventory and content digest are at `artifacts/schema-migration/migration-assembly-receipt.json`.
 
 ## Configuration ownership
 
-通用运行时、测试和观测配置统一放在 `config/`；只有 .NET framework tool
-manifest 使用 `.config/`。项目专属 `appsettings*.json` 与
-`Properties/launchSettings.json` 必须和拥有它们的 project 共置，Docker Compose
-launch profile 因而位于 `ops/docker/Properties/`。根级 `configs/`、无 root project
-所有者的 `Properties/` 和散落的 JSON 配置均由
-`tools/configuration/check-configuration-layout.mjs` 拒绝。完整 ownership 表见
-[`docs/configuration-layout.md`](../configuration-layout.md)。
+Shared runtime, test, and observability configuration belongs in `config/`; only the .NET framework tool manifest uses `.config/`. Project-specific `appsettings*.json` and `Properties/launchSettings.json` stay with their owning project, so Docker Compose launch profiles live in `ops/docker/Properties/`. Root `configs/`, ownerless `Properties/`, and scattered JSON configuration are rejected by `tools/configuration/check-configuration-layout.mjs`. See [`docs/configuration-layout.md`](../configuration-layout.md) for the complete ownership table.
 
-Change Contract 的 post-merge generated repair schema 位于
-`config/schemas/post-merge-generated-output-repair.schema.json`，由
-`config/configuration-ownership.json` 显式登记；producer allowlist 只存在于 trusted
-`tools/governance/change-contract-registry.mjs`，不得从历史目录、mtime 或最新文件推断。
-多步且有前后依赖的 generated repair 使用独立
-`config/schemas/post-merge-generated-output-repair-dag.schema.json`；其 trusted registry
-同时封存唯一 canonical repair 与 external-naming manifest paths、ordered steps、generator
-closure、dependency consumption 和完整 output ownership，不能用 v1 单 producer manifest、
-任意 evidence path 或未登记 command 替代。
-已合并 PR 遗漏其声明的 external-naming evidence 时，独立 schema
-`config/schemas/post-merge-external-naming-evidence-repair.schema.json` 绑定原 PR 的 exact
-base/head/merge、未漂移 source blob/revision、registered surface 与缺失 artifact digest；
-普通 external-naming manifest 仍必须和受影响 source 同 PR 修改，repair 不允许重写 source。
+The Change Contract post-merge generated-repair schema is `config/schemas/post-merge-generated-output-repair.schema.json`, explicitly registered by `config/configuration-ownership.json`; the producer allowlist exists only in the trusted `tools/governance/change-contract-registry.mjs` and cannot be inferred from historical directories, mtime, or the newest file. Multi-step repairs with dependencies use `config/schemas/post-merge-generated-output-repair-dag.schema.json`; its trusted registry seals the sole canonical repair and external-naming manifest paths, ordered steps, generator closure, dependency consumption, and complete output ownership, so a v1 single-producer manifest, arbitrary evidence path, or unregistered command cannot substitute. If a merged PR omitted declared external-naming evidence, `config/schemas/post-merge-external-naming-evidence-repair.schema.json` binds the original PR's exact base/head/merge, unchanged source blob/revision, registered surface, and missing artifact digest; an ordinary external-naming manifest must still change with its affected source, and repair may not rewrite source.
 
-Release Reliability 的场景与动作事实源分离：`config/testing/release-reliability-scenario-catalog.json`
-拥有 exact-seven 场景、命令语义、环境合同和结构化 lifecycle action 引用；
-`config/testing/release-reliability-lifecycle-action-registry.json` 唯一拥有 35 个动作的
-进程调用、timeout、回执、状态域与 failure-safe cleanup 合同，对应 JSON Schema 位于
-`config/schemas/release-reliability-lifecycle-action-registry.schema.json`。
-`config/testing/runtime-state-domain-registry.json` 是 action state domain 的 closed-world
-词表。`config/testing/physical-execution-process-policy.json` 单独拥有 tree termination、
-bounded pipe close 与连续 zero-member observation，不拥有 registry action timeout。
-`tools/test/release-reliability-lifecycle-actions.mjs` 加载合同，并作为唯一 outer executor
-通过 `tools/test/physical-execution-process-tree.mjs` 运行每个 action、封存 process-tree
-receipt；`tools/test/release-reliability-lifecycle.mjs` 只执行动作/观察真实状态，
-`tools/test/verify-release-reliability-lifecycle-action.mjs` 独立重读 raw receipt；
-具体 soak/load/data-scale/mutation/resource lane 不拥有 lifecycle receipt，也不得自封
-precondition、reset 或 postcondition。Data-scale lane 只测量 dedicated runtime owner
-准备的 fixture/runtime，seed 与 teardown 分别仍由其专属 owner authority 承担。
+Release Reliability separates scenario and action authorities: `config/testing/release-reliability-scenario-catalog.json` owns the exact-seven scenarios, command semantics, environment contract, and structured lifecycle-action references; `config/testing/release-reliability-lifecycle-action-registry.json` alone owns the 35 actions' process calls, timeouts, receipts, state domains, and failure-safe cleanup contract, whose JSON Schema is `config/schemas/release-reliability-lifecycle-action-registry.schema.json`. `config/testing/runtime-state-domain-registry.json` is the closed-world action-state vocabulary. `config/testing/physical-execution-process-policy.json` alone owns tree termination, bounded pipe close, and consecutive zero-member observation, not registry action timeouts. `tools/test/release-reliability-lifecycle-actions.mjs` loads the contract and is the sole outer executor via `tools/test/physical-execution-process-tree.mjs`; it runs each action and seals a process-tree receipt. `tools/test/release-reliability-lifecycle.mjs` only executes actions/observes real state, while `tools/test/verify-release-reliability-lifecycle-action.mjs` independently rereads the raw receipt. Soak/load/data-scale/mutation/resource lanes do not own lifecycle receipts and cannot self-certify precondition, reset, or postcondition. A data-scale lane measures only the fixture/runtime prepared by its dedicated runtime owner; its seed and teardown remain with their respective owner authorities.
 
 ## Operations ownership
 
-运维模板只有一个 top-level root：`ops/`。生产容器/Compose、开发依赖、gateway
-模板和 privacy 运维示例分别由 `ops/docker/`、`ops/development/`、
-`ops/gateway/`、`ops/privacy/` 拥有。零停机资源阈值是配置而不是模板，位于
-`config/deployment/`；可执行部署与通用运维流程继续位于 `tools/deployment/` 和
-`tools/operations/`。完整路径表、历史 local-proxy 删除决策和回退边界见
-[`docs/operations-layout.md`](../operations-layout.md)。
+Operations templates have one top-level root, `ops/`. Production containers/Compose, development dependencies, gateway templates, and privacy-operation examples belong to `ops/docker/`, `ops/development/`, `ops/gateway/`, and `ops/privacy/`. Zero-downtime resource thresholds are configuration in `config/deployment/`, not templates; executable deployment and general operations remain in `tools/deployment/` and `tools/operations/`. See [`docs/operations-layout.md`](../operations-layout.md) for the path table, historical local-proxy removal decision, and fallback boundary.
 
 ## Language entrypoint ownership
 
-`src/frontend/` 由 `FsusBlog.Client.esproj`、Vite 和 JavaScript/TypeScript 工具链拥有，
-不得出现 C# application entrypoint。所有 C# source 必须位于某个 `.csproj` 的目录边界内，
-或作为带 owner、依赖声明、调用命令、测试和输出契约的 file-based app 显式登记。
-`tests/governance/repository-source-layout.json` 将这条语言 ownership 边界绑定到
-`tests/governance/csharp-entrypoint-ownership.json` 和
-`tools/check-csharp-entrypoint-ownership.mjs`；生成 protocol fixture 的工具还必须拥有稳定的
-`generate`/`check` 命令，且不得写死 `/tmp` 或 `/var/tmp` 输出路径。完整决策见
-[`docs/testing/issue-1174-csharp-entrypoint-ownership.md`](../testing/issue-1174-csharp-entrypoint-ownership.md)。
+`src/frontend/` is owned by `FsusBlog.Client.esproj`, Vite, and the JavaScript/TypeScript toolchain; it may not contain a C# application entry point. Every C# source file must be within a `.csproj` directory boundary or explicitly registered as a file-based app with owner, dependency declaration, invocation command, tests, and output contract. `tests/governance/repository-source-layout.json` binds this language boundary to `tests/governance/csharp-entrypoint-ownership.json` and `tools/check-csharp-entrypoint-ownership.mjs`; protocol-fixture generators also need stable `generate`/`check` commands and may not hard-code `/tmp` or `/var/tmp`. See [`docs/testing/issue-1174-csharp-entrypoint-ownership.md`](../testing/issue-1174-csharp-entrypoint-ownership.md) for the full decision.
 
-Issue #1166 将原 top-level `circuits/` 纯路径迁移到
-`src/zk/circuits/`。v2 与 v5 source bytes 的 SHA-256 保持不变；v2 R1CS
-IR 和 Groth16 binary 因内嵌 `source_path` 合法变化，因此对应 artifact、circuit、
-trusted-setup 与 local-review hashes 必须同步更新。迁移不改变 circuit id、public
-input/witness layout、constraint count、proof system、curve、ceremony state 或
-`production_usable=false` 的 fail-closed 状态。
+Issue #1166 moved the original top-level `circuits/` path to `src/zk/circuits/`. The v2 and v5 source bytes' SHA-256 remain unchanged; v2 R1CS IR and Groth16 binary may legitimately change because they embed `source_path`, so corresponding artifact, circuit, trusted-setup, and local-review hashes must be updated. The migration changes neither circuit ID, public input/witness layout, constraint count, proof system, curve, ceremony state, nor the fail-closed `production_usable=false` state.
 
 ## Root exceptions
 
-`src/` 是唯一 canonical product-source root。`benchmarks/`、`tests/`、`tools/`
-和 `ops/` 中包含可执行源码，但分别受 benchmark isolation、test isolation、
-repository tooling 与 operator tooling 的架构例外约束，不进入产品源码或 shipping
-assemblies。`.config/` 是 .NET tool manifest 所需的 framework root；其他
-top-level 目录必须在
-`tests/governance/repository-source-layout.json` 中声明为 artifact、configuration、
-documentation、security 或 automation ownership；新增 source-like root 必须同时提供
-明确的 `architecturalException`，否则 checker fail closed。顶层 `release-evidence/`
-已经退役并被列入禁止目录：历史报告属于 `docs/reports/`，静态契约属于
-`security/evidence-contracts/`，fixture 属于 `tests/fixtures/evidence/`，fresh bundle
-只能写入未跟踪的 `.tmp/release-evidence/`。可选 `release-index/` 是唯一例外，且
-只能保存 `check-release-evidence-layout.mjs` 校验过的最小 identity/integrity JSON，
-不能保存 bundle 或替代其不可变存储引用。
+`src/` is the sole canonical product-source root. `benchmarks/`, `tests/`, `tools/`, and `ops/` contain executable source under benchmark-isolation, test-isolation, repository-tooling, and operator-tooling exceptions; they do not enter product source or shipping assemblies. `.config/` is the framework root required by the .NET tool manifest. Every other top-level directory must be declared in `tests/governance/repository-source-layout.json` as artifact, configuration, documentation, security, or automation ownership; a new source-like root also needs an explicit `architecturalException`, or the checker fails closed. Top-level `release-evidence/` is retired and forbidden: historical reports belong in `docs/reports/`, static contracts in `security/evidence-contracts/`, fixtures in `tests/fixtures/evidence/`, and a fresh bundle only in untracked `.tmp/release-evidence/`. Optional `release-index/` is the sole exception and may contain only the minimal identity/integrity JSON checked by `check-release-evidence-layout.mjs`; it cannot store a bundle or replace its immutable storage reference.
 
 ## Verification
 
@@ -149,8 +75,4 @@ node tools/security/check-zk-comment-v5-manifests.mjs
 node --test tests/tools/zk-source-layout.test.mjs
 ```
 
-`tools/check-repository-source-layout.mjs` 从 Git index 读取 top-level inventory，
-拒绝重新出现的 root `circuits/`、`deploy/`、`release-evidence/`，以及未声明的顶层目录、缺少理由的 source exception、
-旧 circuit source 引用、source hash 漂移和 manifest/R1CS source binding 漂移。
-它同时确认 C# entrypoint ownership 的 policy/checker 没有脱离 canonical source-layout contract；
-具体 C# project/file-app/global-output/protocol-fixture 违规由后者一次聚合报告。
+`tools/check-repository-source-layout.mjs` reads the top-level inventory from the Git index and rejects a reintroduced root `circuits/`, `deploy/`, or `release-evidence/`, undeclared top-level directories, unjustified source exceptions, old circuit-source references, source-hash drift, and manifest/R1CS source-binding drift. It also confirms that C# entry-point ownership policy/checkers remain attached to the canonical source-layout contract; the C# project/file-app/global-output/protocol-fixture checker aggregates those specific violations.
