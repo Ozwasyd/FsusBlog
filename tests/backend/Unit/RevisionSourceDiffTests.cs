@@ -339,6 +339,76 @@ public sealed class RevisionSourceDiffTests
     }
 
     [Fact]
+    public async Task ComputeAsync_CoalescesLongSingleTokensWithoutQuadraticRebuilding()
+    {
+        byte[] baseline = Encoding.UTF8.GetBytes(new string('a', 500_000));
+        byte[] compare = Encoding.UTF8.GetBytes(new string('b', 500_000));
+        (RevisionSourceDiffEngine engine, RevisionComparePlanBundle plan) = await SetupAsync(
+            baseline,
+            compare,
+            Budgets() with
+            {
+                MaxTokenCount = 2
+            });
+
+        RevisionSourceDiffResult result = await engine.ComputeAsync(plan, DateTimeOffset.UtcNow);
+
+        Assert.True(result.IsSuccess, result.Receipt.ReasonCode);
+        Assert.Equal(2, result.Receipt.TokenCount);
+        Assert.Equal(compare, Apply(result, baseline, compare, forward: true));
+        Assert.Equal(baseline, Apply(result, baseline, compare, forward: false));
+    }
+
+    [Fact]
+    public async Task ComputeAsync_StopsLargeSymbolTokenizationAtIncrementalBudget()
+    {
+        byte[] baseline = Encoding.UTF8.GetBytes(new string('!', 250_000));
+        byte[] compare = Encoding.UTF8.GetBytes(new string('?', 250_000));
+        (RevisionSourceDiffEngine engine, RevisionComparePlanBundle plan) = await SetupAsync(
+            baseline,
+            compare,
+            Budgets() with
+            {
+                MaxTokenCount = 32
+            });
+
+        RevisionSourceDiffResult result = await engine.ComputeAsync(plan, DateTimeOffset.UtcNow);
+
+        Assert.Equal(RevisionComparePlanStatus.BudgetExceeded, result.Status);
+        Assert.Equal("revision_diff_token_budget_exceeded", result.Receipt.ReasonCode);
+        Assert.Empty(result.Chunks);
+    }
+
+    [Fact]
+    public async Task ComputeAsync_CancelsWhileScanningLargeSingleToken()
+    {
+        byte[] baseline = Encoding.UTF8.GetBytes(new string('a', 1_500_000));
+        byte[] compare = Encoding.UTF8.GetBytes(new string('b', 1_500_000));
+        (RevisionSourceDiffEngine engine, RevisionComparePlanBundle plan) = await SetupAsync(
+            baseline,
+            compare,
+            Budgets() with
+            {
+                MaxSourceBytes = 1_600_000,
+                MaxTokenCount = 2,
+                TimeoutMilliseconds = 10_000
+            });
+        using var cancellation = new CancellationTokenSource();
+
+        Task<RevisionSourceDiffResult> pending = engine.ComputeAsync(
+            plan,
+            DateTimeOffset.UtcNow,
+            cancellation.Token);
+        await Task.Delay(10);
+        cancellation.Cancel();
+        RevisionSourceDiffResult result = await pending;
+
+        Assert.Equal(RevisionComparePlanStatus.Cancelled, result.Status);
+        Assert.Equal("revision_diff_cancelled", result.Receipt.ReasonCode);
+        Assert.Empty(result.Chunks);
+    }
+
+    [Fact]
     public async Task ComputeAsync_RejectsDraftEpochDriftDuringExactPackageReread()
     {
         RevisionComparePackage draft = DraftPackage("epoch-a", 4, "draft\n");
@@ -374,6 +444,54 @@ public sealed class RevisionSourceDiffTests
             new RevisionMarkdownStructureAuthority([]));
 
         RevisionSourceDiffResult result = await engine.ComputeAsync(planned.Bundle!, DateTimeOffset.UtcNow);
+
+        Assert.Equal(RevisionComparePlanStatus.Stale, result.Status);
+        Assert.Equal("revision_compare_source_stale", result.Receipt.ReasonCode);
+        Assert.Empty(result.Chunks);
+    }
+
+    [Fact]
+    public async Task ComputeAsync_RejectsDraftDriftWhileCanonicalStructureReadIsInFlight()
+    {
+        RevisionComparePackage draft = DraftPackage("epoch-a", 4, "# Draft\nbody\n");
+        RevisionComparePackage historical = Package(
+            RevisionCompareSourceKind.HistoricalRevision,
+            11,
+            1,
+            Encoding.UTF8.GetBytes("# History\nbody\n"));
+        var reader = new MutableReader(draft, historical);
+        var request = new RevisionComparePlanRequest(
+            7,
+            new RevisionCompareReadContext(5, "primary", Guid.Parse("f6cc3f8c-b06f-437c-8c0f-91da744ad783")),
+            new RevisionCompareSourceSelector(
+                RevisionCompareSourceKind.CurrentDraft,
+                DraftKey: "draft-key",
+                ExpectedServerRevision: 4,
+                DocumentEpoch: "epoch-a"),
+            new RevisionCompareSourceSelector(RevisionCompareSourceKind.HistoricalRevision, RevisionId: 11),
+            new RevisionCompareOptions(
+                RevisionCompareViewMode.Unified,
+                RevisionCompareWordSegmentation.UnicodeTextElementsV1,
+                3,
+                true,
+                ["title"]),
+            Budgets(),
+            "diff:7:draft:11",
+            DateTimeOffset.UtcNow.AddMinutes(5));
+        RevisionComparePlanResult planned = await new RevisionComparePlanner(reader).CreateAsync(request);
+        Assert.True(planned.IsSuccess, planned.Receipt.ReasonCode);
+        var provider = new CoordinatedStructureProvider(
+            Structure(draft.RawMarkdown.ToArray(), (1, 0, LineRange(draft.RawMarkdown.ToArray(), 0, 1))),
+            Structure(historical.RawMarkdown.ToArray(), (1, 0, LineRange(historical.RawMarkdown.ToArray(), 0, 1))));
+        var engine = new RevisionSourceDiffEngine(
+            new RevisionComparePlanVerifier(reader),
+            new RevisionMarkdownStructureAuthority([provider]));
+
+        Task<RevisionSourceDiffResult> pending = engine.ComputeAsync(planned.Bundle!, DateTimeOffset.UtcNow);
+        await provider.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        reader.Baseline = DraftPackage("epoch-b", 5, "# Changed\nbody\n");
+        provider.Release.TrySetResult();
+        RevisionSourceDiffResult result = await pending;
 
         Assert.Equal(RevisionComparePlanStatus.Stale, result.Status);
         Assert.Equal("revision_compare_source_stale", result.Receipt.ReasonCode);
@@ -944,6 +1062,33 @@ public sealed class RevisionSourceDiffTests
             CancellationToken cancellationToken = default)
         {
             await Task.Delay(delay);
+            return _snapshots.TryGetValue(request.SourceDigest, out RevisionMarkdownStructureSnapshot? snapshot)
+                ? RevisionMarkdownStructureReadResult.Available(snapshot)
+                : RevisionMarkdownStructureReadResult.Unavailable();
+        }
+    }
+
+    private sealed class CoordinatedStructureProvider(
+        params RevisionMarkdownStructureSnapshot[] snapshots) : IRevisionMarkdownStructureProvider
+    {
+        private readonly IReadOnlyDictionary<string, RevisionMarkdownStructureSnapshot> _snapshots = snapshots
+            .ToDictionary(static snapshot => snapshot.SourceDigest, StringComparer.Ordinal);
+        private int _readCount;
+
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async Task<RevisionMarkdownStructureReadResult> ReadAsync(
+            RevisionMarkdownStructureRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            if (Interlocked.Increment(ref _readCount) == 1)
+            {
+                Started.TrySetResult();
+                await Release.Task.WaitAsync(cancellationToken);
+            }
+            cancellationToken.ThrowIfCancellationRequested();
             return _snapshots.TryGetValue(request.SourceDigest, out RevisionMarkdownStructureSnapshot? snapshot)
                 ? RevisionMarkdownStructureReadResult.Available(snapshot)
                 : RevisionMarkdownStructureReadResult.Unavailable();

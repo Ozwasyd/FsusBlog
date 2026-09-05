@@ -46,7 +46,7 @@ public sealed class AuthoringRevisionCompareServiceTests
         AuthoringRevisionCompareResult result = await service.CompareAsync(Request());
 
         Assert.True(result.IsSuccess, result.Diff?.Receipt.ReasonCode ?? result.Plan.Receipt.ReasonCode);
-        Assert.Equal(4, reader.ReadCount);
+        Assert.Equal(6, reader.ReadCount);
         Assert.True(RevisionSourceDiffVerifier.Verify(result.Plan.Bundle!, result.Diff!));
     }
 
