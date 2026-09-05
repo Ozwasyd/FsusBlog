@@ -16,6 +16,10 @@
             "<Copy SourceFiles=\"@(ClientDistFiles)\""
         ]
     },
+    "executableProjectClassifications": {
+        "src/backend/FsusBlog.Server.csproj": "business-application",
+        "src/migration/FsusBlog.Migration.csproj": "non-business-tool"
+    },
     "runtimeModes": [
         "single",
         "static-role",

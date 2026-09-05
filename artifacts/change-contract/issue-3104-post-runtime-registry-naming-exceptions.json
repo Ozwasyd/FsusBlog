@@ -1,0 +1,29 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/post-runtime-accepted-claims.schema.json",
+                "config/schemas/post-runtime-observation-result.schema.json",
+                "config/testing/post-runtime-producer-registry.json"
+            ],
+            "reason": "preserve the versioned post-runtime JSON schema and receipt field spellings consumed by runtime evidence producers"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/global-claim-exactness-final.mjs",
+                "tools/test-matrix/post-runtime-producer-registry.mjs"
+            ],
+            "reason": "preserve caller-visible process environment and command spellings while producing and validating the registry contract"
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/static-governance.sh"
+            ],
+            "reason": "preserve shell process environment spellings while wiring the canonical registry validator into static governance"
+        }
+    ]
+}

@@ -143,27 +143,13 @@ mkdir -p "$(dirname "${FSUSBLOG_FRONTEND_WASM_ROOT:?frontend wasm root is requir
         FSUSBLOG_WASM_TOOLCHAIN_EMSDK_IMAGE="emscripten/emsdk:6.0.0@sha256:9eed2e47b4206928b22f99d2917013ad5462d777bb24cb546a652729896badd8" \
         node ../../tools/frontend/ensure-wasm.mjs write-manifest >/dev/null
 )
-# macOS background metadata (provenance/Gatekeeper) bumps the ctime of
-# freshly renamed files once, a second or two after reseal, which trips the
-# staging tamper check on the first attempt; retry after the metadata
-# settles. stage-envelope cleans its destination on failure.
-wasmStaged=0
-for attempt in 1 2 3; do
-    if node "$ROOT_DIR/tools/frontend/wasm-build-receipt.mjs" stage-envelope \
-        --root "$ROOT_DIR" \
-        --client-root "$ROOT_DIR/src/frontend" \
-        --artifact-dir "$ROOT_DIR/src/frontend/public/wasm" \
-        --destination-artifact-dir "$FSUSBLOG_FRONTEND_WASM_ROOT" >/dev/null
-    then
-        wasmStaged=1
-        break
-    fi
-    sleep 2
-done
-if [[ "$wasmStaged" != "1" ]]; then
-    echo "[public-preview-capture] wasm envelope staging kept failing (source artifact identity churn)" >&2
-    exit 1
-fi
+# The public preview is a correctness producer: source identity churn on this
+# single staging attempt fails the run instead of being hidden by a retry.
+node "$ROOT_DIR/tools/frontend/wasm-build-receipt.mjs" stage-envelope \
+    --root "$ROOT_DIR" \
+    --client-root "$ROOT_DIR/src/frontend" \
+    --artifact-dir "$ROOT_DIR/src/frontend/public/wasm" \
+    --destination-artifact-dir "$FSUSBLOG_FRONTEND_WASM_ROOT" >/dev/null
 FSUSBLOG_RUNTIME_CONFIGURATION=Release
 FSUSBLOG_RUNTIME_NO_BUILD=1
 export FSUSBLOG_RUNTIME_CONFIGURATION FSUSBLOG_RUNTIME_NO_BUILD

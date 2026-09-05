@@ -10,16 +10,14 @@ public sealed class ImageHelperTests
 {
     // ─── StripMarkdown ─────────────────────────────────────────────────────
 
-    [Fact]
-    public void StripMarkdown_EmptyContent_ReturnsEmpty()
+    [Theory]
+    [InlineData("empty", "")]
+    [InlineData("spaces", "   ")]
+    public void StripMarkdown_BlankContent_ReturnsEmpty(string caseName, string content)
     {
-        Assert.Equal(string.Empty, ImageHelper.StripMarkdown("", 100));
-    }
-
-    [Fact]
-    public void StripMarkdown_WhitespaceContent_ReturnsEmpty()
-    {
-        Assert.Equal(string.Empty, ImageHelper.StripMarkdown("   ", 100));
+        Assert.True(caseName is "empty" or "spaces", $"Unexpected blank content case '{caseName}'.");
+        string result = ImageHelper.StripMarkdown(content, 100);
+        Assert.Equal(string.Empty, result);
     }
 
     [Fact]
@@ -127,18 +125,22 @@ public sealed class ImageHelperTests
 
     // ─── ExtractIllustrationUrls ──────────────────────────────────────────
 
-    [Fact]
-    public void ExtractIllustrationUrls_EmptyContent_ReturnsEmptyList()
+    [Theory]
+    [InlineData("empty-content", "")]
+    [InlineData("plain-markdown-no-image", "# Plain markdown with no images")]
+    public void ExtractIllustrationUrls_ContentWithoutIllustrations_ReturnsEmpty(string caseName, string content)
     {
-        var result = ImageHelper.ExtractIllustrationUrls("");
-        Assert.Empty(result);
-    }
+        Assert.True(
+            caseName is "empty-content" or "plain-markdown-no-image",
+            $"Unexpected no-illustration case '{caseName}'.");
 
-    [Fact]
-    public void ExtractIllustrationUrls_NoIllustrations_ReturnsEmptyList()
-    {
-        var result = ImageHelper.ExtractIllustrationUrls("# Plain markdown with no images");
-        Assert.Empty(result);
+        var result = ImageHelper.ExtractIllustrationUrls(content);
+
+        Assert.NotNull(result);
+        Assert.DoesNotContain(result, static url =>
+            url.Contains("placeholder", StringComparison.OrdinalIgnoreCase)
+            || url.Contains("default", StringComparison.OrdinalIgnoreCase));
+        Assert.True(result.Count == 0, "Expected no illustration URLs.");
     }
 
     [Fact]
@@ -216,16 +218,18 @@ public sealed class ImageHelperTests
 
     // ─── GetFirstIllustration ─────────────────────────────────────────────
 
-    [Fact]
-    public void GetFirstIllustration_EmptyContent_ReturnsNull()
+    [Theory]
+    [InlineData("empty-content", "")]
+    [InlineData("plain-content-no-image", "# No images here")]
+    public void GetFirstIllustration_ContentWithoutIllustration_ReturnsNull(string caseName, string content)
     {
-        Assert.Null(ImageHelper.GetFirstIllustration(""));
-    }
+        Assert.True(
+            caseName is "empty-content" or "plain-content-no-image",
+            $"Unexpected no-illustration case '{caseName}'.");
 
-    [Fact]
-    public void GetFirstIllustration_NoIllustration_ReturnsNull()
-    {
-        Assert.Null(ImageHelper.GetFirstIllustration("# No images here"));
+        string? result = ImageHelper.GetFirstIllustration(content);
+
+        Assert.Null(result);
     }
 
     [Fact]
