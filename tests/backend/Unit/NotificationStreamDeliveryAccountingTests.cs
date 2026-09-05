@@ -9,6 +9,7 @@ using FsusBlog.Shared.Contracts.NotificationStream;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using NSubstitute;
@@ -21,6 +22,165 @@ public sealed class NotificationStreamDeliveryAccountingTests
 {
     private static readonly NotificationStreamDeliveryPolicy s_policy =
         NotificationStreamDeliveryPolicyCatalog.GetRequired(NotificationStreamEventType.NoticeReceived);
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DeploymentDrain_ZeroCountsDoNotBecomeErrors(bool durableHandoff)
+    {
+        var (publisher, queue, manager, _) = CreatePublisher();
+        if (durableHandoff)
+        {
+            Assert.True((await publisher.PublishAsync(NotificationStreamEventType.NoticeReceived, 7,
+                new NotificationStreamUserTarget("proof-account"))).IsSuccess);
+            NotificationStreamLocalFanoutWorkItem item = await queue.DequeueAsync(CancellationToken.None);
+            queue.CompleteDelivery(item, false, false, "simulated-durable-handoff");
+            item.Frame.Release();
+        }
+
+        var (provider, coordinator, state, registry) = CreateDrainHarness(manager, queue);
+        await using (provider)
+        {
+            ReleaseDrainRunResult local = await registry.DrainAsync(TimeSpan.FromSeconds(1));
+            Assert.True(local.Drained);
+            Assert.Equal(0, Assert.Single(local.Participants).PendingCount);
+            Assert.Equal(0, queue.DeliverySnapshot.Completed);
+            Assert.Equal(0, manager.DeliverySnapshot.Completed);
+            Assert.Equal(durableHandoff ? 1 : 0, queue.DeliverySnapshot.DurableReplayTransferred);
+
+            await coordinator.DrainForHostStopAsync(CancellationToken.None);
+
+            DeploymentDrainSnapshot drain = state.CreateSnapshot(0).Drain;
+            DeploymentDrainComponentSnapshot[] notifications = drain.Components
+                .Where(component => component.Name == "notification-stream").ToArray();
+            Assert.NotEmpty(notifications);
+            Assert.True(drain.Drained, string.Join(";", notifications.Select(component =>
+                $"notification Error={component.Error}; PendingCount={component.PendingCount}")));
+            Assert.False(drain.TimedOut);
+            Assert.All(notifications, component => Assert.Null(component.Error));
+            Assert.Contains(notifications, component => component.Status == (durableHandoff ? "replay-transferred" : "drained"));
+        }
+    }
+
+    [Theory]
+    [InlineData("queued")]
+    [InlineData("in-flight")]
+    [InlineData("replay")]
+    [InlineData("terminal")]
+    public async Task DeploymentDrain_UnresolvedNotificationStillBlocks(string scenario)
+    {
+        var manager = CreateManager();
+        var queue = NotificationStreamBackpressureTestSupport.CreateQueue();
+        var connection = manager.RegisterConnection("blocking", "account", []);
+        Assert.True(connection.TryEnqueue(SharedNotificationStreamFrame.FromArray([1]), s_policy, 1));
+        NotificationStreamWriteLease? lease = null;
+        if (scenario is "in-flight" or "terminal")
+        {
+            lease = await connection.ReadForWriteAsync(CancellationToken.None);
+        }
+        if (scenario == "terminal")
+        {
+            connection.CompleteWrite(lease!, true, "simulated-write-completed");
+            lease!.Frame.Release();
+            Assert.Throws<InvalidOperationException>(() => connection.CompleteWrite(lease, true, "duplicate"));
+            lease = null;
+        }
+        if (scenario != "queued")
+        {
+            manager.RemoveConnection("blocking");
+        }
+
+        var (provider, coordinator, state, registry) = CreateDrainHarness(manager, queue);
+        await using (provider)
+        {
+            try
+            {
+                ReleaseDrainParticipantSnapshot participant = Assert.Single(registry.Snapshot());
+                Assert.True(participant.PendingCount > 0);
+                await coordinator.DrainForHostStopAsync(CancellationToken.None);
+                DeploymentDrainSnapshot drain = state.CreateSnapshot(manager.ConnectionCount).Drain;
+                Assert.False(drain.Drained);
+                Assert.True(drain.TimedOut);
+                string expected = scenario switch
+                {
+                    "queued" => "connection-queued=1",
+                    "in-flight" => "connection-in-flight=1",
+                    "replay" => "unproven-replay=1",
+                    _ => "terminal-failures=1"
+                };
+                Assert.Contains(drain.Components, component => component.Name == "notification-stream"
+                    && component.PendingCount > 0
+                    && component.Error?.Contains(expected, StringComparison.Ordinal) == true);
+            }
+            finally
+            {
+                if (lease is not null)
+                {
+                    connection.CompleteWrite(lease, false, "simulated-test-shutdown");
+                    lease.Frame.Release();
+                }
+                manager.RemoveConnection("blocking");
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DeploymentDrain_PendingFanoutStillBlocks(bool inFlight)
+    {
+        var manager = CreateManager();
+        var queue = NotificationStreamBackpressureTestSupport.CreateQueue();
+        var frame = SharedNotificationStreamFrame.FromArray([1]);
+        Assert.True(queue.TryEnqueue(frame, new NotificationStreamUserTarget("account"), s_policy, "pending", 1).Accepted);
+        frame.Release();
+        NotificationStreamLocalFanoutWorkItem? item = inFlight
+            ? await queue.DequeueAsync(CancellationToken.None)
+            : null;
+        var (provider, coordinator, state, _) = CreateDrainHarness(manager, queue);
+        await using (provider)
+        {
+            try
+            {
+                await coordinator.DrainForHostStopAsync(CancellationToken.None);
+                DeploymentDrainSnapshot drain = state.CreateSnapshot(0).Drain;
+                Assert.False(drain.Drained);
+                Assert.True(drain.TimedOut);
+                string expected = inFlight ? "fanout-in-flight=1" : "fanout-queued=1";
+                Assert.Contains(drain.Components, component => component.Name == "notification-stream"
+                    && component.PendingCount > 0
+                    && component.Error?.Contains(expected, StringComparison.Ordinal) == true);
+            }
+            finally
+            {
+                item ??= await queue.DequeueAsync(CancellationToken.None);
+                queue.CompleteDelivery(item.Value, false, false, "simulated-test-shutdown");
+                item.Value.Frame.Release();
+            }
+        }
+    }
+
+    private static (ServiceProvider, DeploymentDrainCoordinator, DeploymentRuntimeState, ReleaseDrainParticipantRegistry)
+        CreateDrainHarness(NotificationStreamConnectionManager manager, NotificationStreamLocalFanoutQueue queue)
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Deployment:DrainTimeoutSeconds"] = "1",
+            ["FSUSBLOG_DEPLOYMENT_GENERATION"] = "1"
+        }).Build();
+        var identity = new ReleaseIdentityProvider(configuration);
+        var environment = Substitute.For<IWebHostEnvironment>();
+        environment.EnvironmentName.Returns("Development");
+        var state = new DeploymentRuntimeState(identity, configuration, environment, TimeProvider.System);
+        var restart = new NotificationStreamRestartCoordinator(identity, state, manager, TimeProvider.System);
+        var participant = new NotificationStreamReleaseDrainParticipant(restart, manager, TimeProvider.System, queue);
+        var registry = new ReleaseDrainParticipantRegistry([participant], TimeProvider.System,
+            NullLogger<ReleaseDrainParticipantRegistry>.Instance);
+        var provider = new ServiceCollection().AddSingleton(manager).AddSingleton(registry).BuildServiceProvider();
+        var coordinator = new DeploymentDrainCoordinator(state, provider, configuration, TimeProvider.System,
+            NullLogger<DeploymentDrainCoordinator>.Instance);
+        return (provider, coordinator, state, registry);
+    }
 
     [Fact]
     public async Task WriteAwaited_RemovedConnectionRemainsInFlightUntilSocketCompletes()

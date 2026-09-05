@@ -177,13 +177,27 @@ public sealed class NotificationStreamReleaseDrainParticipant(
         NotificationStreamDeliverySnapshot writes = connections.DeliverySnapshot;
         NotificationStreamDeliverySnapshot dispatch = fanout.DeliverySnapshot;
         bool changed = before.Sequence != dispatch.Sequence;
-        long pending = connections.ConnectionCount + writes.Outstanding + dispatch.Outstanding + (changed ? 1 : 0);
+        int activeConnections = connections.ConnectionCount;
+        long pending = activeConnections + writes.Outstanding + dispatch.Outstanding + (changed ? 1 : 0);
         long transferred = writes.DurableReplayTransferred + dispatch.DurableReplayTransferred;
         string? error = writes.TerminalFailures + dispatch.TerminalFailures > 0
             ? "notification_delivery_terminal_failure"
             : writes.ReplayRequired + dispatch.ReplayRequired > 0
                 ? "notification_replay_unproven"
                 : null;
+        List<string> blockers = [];
+        AddPending("active-connections", activeConnections);
+        AddPending("fanout-queued", dispatch.Queued);
+        AddPending("fanout-in-flight", dispatch.InFlight);
+        AddPending("connection-queued", writes.Queued);
+        AddPending("connection-in-flight", writes.InFlight);
+        AddPending("unproven-replay", writes.ReplayRequired + dispatch.ReplayRequired);
+        AddPending("terminal-failures", writes.TerminalFailures + dispatch.TerminalFailures);
+        if (changed)
+        {
+            blockers.Add("observation-changed=true");
+        }
+
         return new ReleaseDrainParticipantSnapshot(
             Name,
             "multi-consumer-safe",
@@ -192,16 +206,15 @@ public sealed class NotificationStreamReleaseDrainParticipant(
             MaxDrain,
             "Redis notification backlog; replay miss forces full resync",
             error,
-            [
-                $"fanout-queued={dispatch.Queued}",
-                $"fanout-in-flight={dispatch.InFlight}",
-                $"connection-queued={writes.Queued}",
-                $"connection-in-flight={writes.InFlight}",
-                $"unproven-replay={writes.ReplayRequired + dispatch.ReplayRequired}",
-                $"durable-replay-transferred={transferred}",
-                $"terminal-failures={writes.TerminalFailures + dispatch.TerminalFailures}",
-                $"observation-changed={changed}"
-            ]);
+            blockers);
+
+        void AddPending(string name, long count)
+        {
+            if (count > 0)
+            {
+                blockers.Add($"{name}={count}");
+            }
+        }
     }
 
     public async Task DrainAsync(CancellationToken cancellationToken)
