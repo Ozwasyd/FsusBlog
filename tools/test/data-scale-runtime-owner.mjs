@@ -86,6 +86,15 @@ function inspectOne(target, options)
     return documents[0];
 }
 
+function resourceExists(kind, name, options)
+{
+    const args = kind === 'container'
+        ? ['ps', '-a', '--format', '{{.Names}}']
+        : [kind, 'ls', '--format', '{{.Name}}'];
+    return run('docker', args, options).split(/\r?\n/u)
+        .some((entry) => entry.trim() === name);
+}
+
 function inspectImage(reference, options)
 {
     const documents = JSON.parse(run('docker', ['image', 'inspect', reference], options) || '[]');
@@ -756,13 +765,25 @@ export async function provisionDataScaleRuntime({
     }
     catch (error)
     {
-        await teardownDataScaleRuntime({
-            repositoryRoot: resolvedRoot,
-            plan,
-            runtimeReceipt: null,
-            execute,
-            now
-        }).catch(() => {});
+        try
+        {
+            const cleanup = await teardownDataScaleRuntime({
+                repositoryRoot: resolvedRoot,
+                plan,
+                runtimeReceipt: null,
+                execute,
+                now
+            });
+            if (cleanup.receipt.status !== 'complete')
+            {
+                throw new Error('data-scale runtime cleanup remains incomplete');
+            }
+        }
+        catch (cleanupError)
+        {
+            throw new AggregateError([error, cleanupError],
+                error instanceof Error ? error.message : 'data-scale runtime provision failed');
+        }
         throw error;
     }
 }
@@ -882,6 +903,9 @@ export async function teardownDataScaleRuntime({
     const commandOptions = { repositoryRoot: resolvedRoot, execute };
     const startedAt = now();
     const failures = [];
+    const allocatedPorts = new Set(runtimeReceipt
+        ? [Number(new URL(runtimeReceipt.backend.baseUrl).port)]
+        : []);
     const targets = [
         ['container', plan.resources.permissionHelperContainerName],
         ['container', plan.resources.backendContainerName],
@@ -899,6 +923,19 @@ export async function teardownDataScaleRuntime({
         let exists = true;
         try
         {
+            if (!resourceExists(kind, id, commandOptions))
+            {
+                observations.push({
+                    plannedId: id,
+                    observedId: id,
+                    ownershipStatus: 'owned',
+                    action: 'observe-absent',
+                    actionExit: 0,
+                    postExists: false
+                });
+                continue;
+            }
+
             const inspectArgs = kind === 'network'
                 ? ['network', 'inspect', id]
                 : kind === 'volume'
@@ -910,54 +947,32 @@ export async function teardownDataScaleRuntime({
             {
                 throw new Error(`refusing to remove unowned ${kind}: ${id}`);
             }
+            if (id === plan.resources.backendContainerName)
+            {
+                for (const bindings of Object.values(documents[0].NetworkSettings?.Ports ?? {}))
+                {
+                    for (const binding of bindings ?? [])
+                    {
+                        const port = Number(binding.HostPort);
+                        if (!Number.isInteger(port) || port < 1 || port > 65535)
+                        {
+                            throw new Error('data-scale runtime allocated port is invalid');
+                        }
+                        allocatedPorts.add(port);
+                    }
+                }
+            }
             run('docker', kind === 'network'
                 ? ['network', 'rm', id]
                 : kind === 'volume'
                     ? ['volume', 'rm', id]
                     : ['rm', '-f', '-v', id], commandOptions);
-            try
-            {
-                run('docker', inspectArgs, commandOptions);
-            }
-            catch
-            {
-                exists = false;
-            }
+            exists = resourceExists(kind, id, commandOptions);
         }
         catch (error)
         {
-            if (kind === 'container'
-                && id === plan.resources.permissionHelperContainerName)
-            {
-                try
-                {
-                    const residue = run('docker', [
-                        'ps', '-aq', '--no-trunc',
-                        '--filter', `name=^/${id}$`
-                    ], commandOptions);
-                    if (!residue)
-                    {
-                        owned = true;
-                        exists = false;
-                    }
-                    else
-                    {
-                        throw error;
-                    }
-                }
-                catch (nested)
-                {
-                    actionExit = 1;
-                    failures.push(nested instanceof Error
-                        ? nested.message
-                        : String(nested));
-                }
-            }
-            else
-            {
-                actionExit = 1;
-                failures.push(error instanceof Error ? error.message : String(error));
-            }
+            actionExit = 1;
+            failures.push(error instanceof Error ? error.message : String(error));
         }
         observations.push({
             plannedId: id,
@@ -969,23 +984,34 @@ export async function teardownDataScaleRuntime({
         });
     }
     const ownedRuntimeRoot = runtimeRoot(resolvedRoot, plan);
-    fs.rmSync(ownedRuntimeRoot, { recursive: true, force: true });
-    const port = runtimeReceipt
-        ? Number(new URL(runtimeReceipt.backend.baseUrl).port)
-        : 1;
-    let postListeningPids = [];
-    try
+    const portObservations = [];
+    for (const port of allocatedPorts)
     {
-        const sockets = run('ss', [
-            '-H', '-ltnp', `( sport = :${port} )`
-        ], commandOptions);
-        postListeningPids = [...sockets.matchAll(/pid=(\d+)/gu)]
-            .map((match) => Number(match[1]));
+        let postListeningPids = [];
+        try
+        {
+            const sockets = run('ss', [
+                '-H', '-ltnp', `( sport = :${port} )`
+            ], commandOptions);
+            postListeningPids = [...sockets.matchAll(/pid=(\d+)/gu)]
+                .map((match) => Number(match[1]));
+            if (sockets && postListeningPids.length === 0)
+            {
+                throw new Error('data-scale port remains listening without observable owner');
+            }
+        }
+        catch (error)
+        {
+            failures.push(error instanceof Error ? error.message : String(error));
+            postListeningPids = [-1];
+        }
+        portObservations.push({ port, postListeningPids });
     }
-    catch (error)
+    if (failures.length === 0
+        && observations.every((item) => item.postExists === false)
+        && portObservations.every((item) => item.postListeningPids.length === 0))
     {
-        failures.push(error instanceof Error ? error.message : String(error));
-        postListeningPids = [-1];
+        fs.rmSync(ownedRuntimeRoot, { recursive: true, force: true });
     }
     const receipt = createDataScaleTeardownReceipt({
         plan,
@@ -995,7 +1021,7 @@ export async function teardownDataScaleRuntime({
         startedAt,
         finishedAt: now(),
         resourceObservations: observations,
-        portObservations: [{ port, postListeningPids }],
+        portObservations,
         rootObservations: Object.values(plan.roots).map((relative) => ({
             path: relative,
             postExists: fs.existsSync(path.join(resolvedRoot, relative))

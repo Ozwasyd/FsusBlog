@@ -280,6 +280,16 @@ test('provision and teardown execute the dedicated topology and leave zero resid
         {
             return { status: 0, stdout: '', stderr: '' };
         }
+        if ((args[0] === 'ps' && args.includes('--format')) || args[1] === 'ls')
+        {
+            const kind = args[0] === 'ps' ? 'container' : args[0];
+            const names = Object.entries(ownerPlan.resources)
+                .filter(([key, name]) => (kind === 'container' ? key.endsWith('ContainerName')
+                    : kind === 'network' ? key === 'networkName' : key.endsWith('VolumeName'))
+                    && !removed.has(`${kind}:${name}`))
+                .map(([, name]) => name);
+            return { status: 0, stdout: names.join('\n'), stderr: '' };
+        }
         if (args[0] === 'ps')
         {
             return { status: 0, stdout: helperResidue, stderr: '' };
@@ -369,6 +379,17 @@ test('provision and teardown execute the dedicated topology and leave zero resid
         )));
     }
     assert.ok(calls.some((call) => call[0].endsWith('/tools/data-scale/seed.sh')));
+    const unavailable = await teardownDataScaleRuntime({
+        repositoryRoot: root,
+        plan: provisioned.plan,
+        runtimeReceipt: provisioned.receipt,
+        execute: (command, args, options) => (args.includes('--format') || args[1] === 'ls')
+            ? { status: 1, stdout: '', stderr: 'daemon unavailable' }
+            : execute(command, args, options)
+    });
+    assert.equal(unavailable.receipt.status, 'blocked');
+    assert.ok(unavailable.receipt.roots.every((item) => item.postExists));
+    assert.equal(removed.size, 1, 'failed observation must retain resources and their cleanup owner');
     const tornDown = await teardownDataScaleRuntime({
         repositoryRoot: root,
         plan: provisioned.plan,
