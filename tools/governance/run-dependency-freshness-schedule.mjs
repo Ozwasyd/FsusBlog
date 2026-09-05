@@ -58,12 +58,13 @@ export async function runDependencyFreshnessSchedule({ root, client, withExclusi
     const catalog = read('config/dependencies/update-surface.json');
     const exceptions = read('config/dependencies/exceptions.json');
     const requiredChecks = read('config/dependencies/required-checks.json');
+    const config = read('renovate.json5');
     let report;
     const result = await reconcileDependencyBlockers({
         client, withExclusiveRun,
         loadSnapshot: async () => {
             report = await produceReport(root);
-            return buildDependencyBlockerSnapshot({ report, catalog, exceptions, requiredChecks, client });
+            return buildDependencyBlockerSnapshot({ report, catalog, exceptions, requiredChecks, client, config });
         }
     });
     const exitCode = report.status === 'pass' && result.plan.issue.body === undefined ? 0 : 1;

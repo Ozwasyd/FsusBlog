@@ -173,6 +173,36 @@ test('Docker snapshot joins tag or digest targets with the exact publication pro
     }
 });
 
+test('same-tag digest changes remain distinct freshness targets', async () => {
+    const data = manifestFixture();
+    const current = `24@sha256:${'b'.repeat(64)}`;
+    const result = await readLatestDocker('node', current, async url => url.includes('/tags/list')
+        ? page(['24']) : new Response(data.bytes, { headers: data.headers }), async () => '2026-01-01T00:00:00Z');
+    assert.equal(result.latestStable, `24@${data.digest}`);
+    assert.notEqual(result.latestStable, current);
+    await assert.rejects(readLatestDocker('node', '24@sha256:short', async () => { throw new Error('must not fetch'); }), /current_reference_invalid/);
+});
+
+test('every image flavor is verified and unchanged flavors cannot backdate a new update', async () => {
+    const data = manifestFixture();
+    const current = JSON.stringify([`24-alpine@${data.digest}`, `24-slim@sha256:${'b'.repeat(64)}`]);
+    const publications = [];
+    const read = async url => url.includes('/tags/list')
+        ? page(['24-alpine', '24-slim']) : new Response(data.bytes, { headers: data.headers });
+    const result = await readLatestDocker('node', current, read, async (name, tag) => {
+        publications.push(tag);
+        return tag === '24-alpine' ? '2025-01-01T00:00:00Z' : '2026-01-02T00:00:00Z';
+    });
+    assert.deepEqual(publications, ['24-alpine', '24-slim']);
+    assert.equal(result.latestStable, JSON.stringify([`24-alpine@${data.digest}`, `24-slim@${data.digest}`]));
+    assert.equal(result.releasedAt, '2026-01-02T00:00:00.000Z');
+    await assert.rejects(readLatestDocker('node', current, read, async (name, tag) => {
+        if (tag === '24-slim') throw new Error('second flavor unavailable');
+        return '2025-01-01T00:00:00Z';
+    }), /second flavor unavailable/);
+    await assert.rejects(readLatestDocker('node', '["24","24"]', read), /variant_identity_invalid/);
+});
+
 test('MCR catalog publication binds registry, repository, tag and manifest digest', async () => {
     const data = manifestFixture();
     const row = { name: '10.0', digest: data.digest, repository: 'dotnet/sdk', regHash: 'mar',

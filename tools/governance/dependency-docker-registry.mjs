@@ -50,11 +50,36 @@ export async function readDockerHubPublication(packageName, tag, digest, fetchJs
 /** Join target selection, verified manifest and a digest-bound publication provider. */
 export async function readLatestDocker(packageName, currentVersion, readResponse, readPublication)
 {
+    if (typeof currentVersion === 'string' && currentVersion.startsWith('['))
+    {
+        const references = JSON.parse(currentVersion);
+        if (!Array.isArray(references) || references.length < 2 || references.length > 16
+            || references.some(reference => typeof reference !== 'string' || reference.startsWith('['))
+            || new Set(references).size !== references.length
+            || JSON.stringify([...references].sort()) !== currentVersion)
+        {
+            throw new Error(`docker_variant_identity_invalid:${packageName}`);
+        }
+        const targets = [];
+        for (const reference of references)
+        {
+            targets.push(await readLatestDocker(packageName, reference, readResponse, readPublication));
+        }
+        const changed = targets.filter((target, index) => target.latestStable !== references[index]);
+        const published = (changed.length ? changed : targets).map(target => target.releasedAt).sort()[0];
+        return registryRelease(JSON.stringify([...new Set(targets.map(target => target.latestStable))].sort()), published, `docker:${packageName}`);
+    }
     const digestOnly = digestPattern.test(currentVersion);
-    const tag = digestOnly ? 'latest' : selectLatestDockerTag(await readDockerTags(packageName, readResponse), currentVersion);
+    const pinned = typeof currentVersion === 'string' && currentVersion.includes('@');
+    const [currentTag, currentDigest, ...extra] = String(currentVersion).split('@');
+    if (pinned && (!currentTag || !digestPattern.test(currentDigest) || extra.length))
+    {
+        throw new Error(`docker_current_reference_invalid:${packageName}`);
+    }
+    const tag = digestOnly ? 'latest' : selectLatestDockerTag(await readDockerTags(packageName, readResponse), currentTag);
     const observed = await readDockerManifest(packageName, tag, readResponse);
     const published = await readPublication(packageName, tag, observed.digest);
-    const result = registryRelease(digestOnly ? observed.digest : tag, published, `docker:${packageName}`);
+    const result = registryRelease(digestOnly ? observed.digest : pinned ? `${tag}@${observed.digest}` : tag, published, `docker:${packageName}`);
     return { ...result, targetTag: tag, targetDigest: observed.digest };
 }
 

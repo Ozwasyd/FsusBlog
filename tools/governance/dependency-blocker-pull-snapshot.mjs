@@ -37,7 +37,7 @@ export async function collectDependencyPullSnapshot({ client, number, group, upd
     {
         throw new Error('dependency_blocker_invalid_open_pull');
     }
-    verifyPull?.(pull);
+    await verifyPull?.(pull);
     const runs = latestRuns(await client.listWorkflowRuns(headSha), headSha, number);
     const checkRuns = [];
     const names = new Set();
@@ -66,6 +66,6 @@ export async function collectDependencyPullSnapshot({ client, number, group, upd
     {
         throw new Error('dependency_blocker_invalid_pull_labels');
     }
-    verifyPull?.(after);
+    await verifyPull?.(after);
     return { number, headSha, group, updateType, dependencyIds, requirements, checkRuns, labels: after.labels.map((label) => label.name) };
 }

@@ -46,3 +46,23 @@ test('metadata change during check collection rejects the completed snapshot', a
     request.client.readPullRequest = async () => ({ ...pull, body: ++calls === 1 ? pull.body : pull.body.replace('2.0.0', '3.0.0') });
     await assert.rejects(buildDependencyBlockerSnapshot(request), /mapping_changed/);
 });
+
+test('source-bound targets are re-extracted and asynchronous failures prevent a snapshot', async () => {
+    const { request, pull } = setup();
+    const item = request.catalog.items[0];
+    request.catalog.items = [{ ...item, manager: 'github-actions', files: ['workflow.yml'] }];
+    pull.body = '| Package | Update | New value |\n| --- | --- | --- |\n| package-a | patch | 1.1.1 |';
+    const pin = 'b'.repeat(40);
+    request.report.pullRequests = parseRenovatePullRequests([pull], request.catalog).map(mapping => ({ ...mapping, declaredTargetVersion: mapping.targetVersion, targetVersion: pin }));
+    let reads = 0;
+    request.client.readFileAtHead = async (file, sha) => {
+        assert.equal(file, 'workflow.yml');
+        assert.equal(sha, pull.head.sha);
+        reads++;
+        return `- uses: package-a@${pin}`;
+    };
+    await buildDependencyBlockerSnapshot(request);
+    assert.equal(reads, 2);
+    request.client.readFileAtHead = async () => { throw new Error('source unavailable'); };
+    await assert.rejects(buildDependencyBlockerSnapshot(request), /source unavailable/);
+});
