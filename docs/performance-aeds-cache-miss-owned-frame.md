@@ -49,6 +49,9 @@ node tools/operations/check-aeds-cache-miss-frame-evidence.mjs \
 
 ## Cache 与并发边界
 
+- `CacheMissCoordinator` 在 initial read 后取得一个引用计数 singleflight，再做一次 authoritative re-read。leader 只获取一次 distributed lease；contender 只等待一个有界窗口并做一次 final read，仍 miss 时抛出 `CacheCoordinationException(refill-timeout)`，不能无租约重建。keyed entry 在最后引用释放后退休。
+- lease TTL 与整个 rebuild deadline 分开计时：默认 deadline 为 policy-derived lease TTL 的四倍，续租只延长当前 owner 的租约有效期，不能无限延长 rebuild。取得或续租的网络耗时计入本地 ownership deadline；续租失败、调用取消或 deadline 到期都会停止合作式 rebuild。
+- coordinator 内的 raw/string、negative 与 owned-frame publication 通过同一个 Redis Lua 操作校验当前及嵌套父 scope 的所有 lease token，然后发布 value 与 policy 所需的 registry membership。过期、被替换或不同 store 的 owner 不得安装 L1；scope 退出后继承它的异步任务也不能继续发布。租约释放独立于 renewal cleanup 的成功，始终尝试 value-checked compare-delete；Redis 不可达时记录 release failure 并保留 TTL 兜底，不能冒称已释放。
 - `SetOwnedFrameAsync` 从参数校验后的第一个可能失败点开始消费 root；success、cancellation、exception 和 cache 已 shutdown 都不会把 owner 留给调用方。
 - L1 admission 先写 `IMemoryCache`，成功后才发布 owned indexes 和 residency；admission exception 保留旧 entry/counters，并 retire 新 owner。
 - exact、batch 与 prefix invalidation 对已解析 Redis key 使用按字典序获取的 keyed mutation gates。L2 read、owned set 与删除不能交叉完成为“删除后重装”。

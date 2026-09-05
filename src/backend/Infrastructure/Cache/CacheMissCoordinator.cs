@@ -1,10 +1,14 @@
-using System.Collections.Concurrent;
-
-using FsusBlog.Server.Infrastructure.Execution;
+using System.Diagnostics;
 
 namespace FsusBlog.Server.Infrastructure.Cache;
 
-public readonly record struct CacheRebuildStrategy(TimeSpan LeaseTtl, TimeSpan WaitTimeout, TimeSpan PollInterval);
+public readonly record struct CacheRebuildStrategy(TimeSpan LeaseTtl, TimeSpan WaitTimeout, TimeSpan RebuildTimeout);
+
+public sealed class CacheCoordinationException(string reason, CachePolicyId policyId)
+    : TimeoutException($"Cache coordination failed: {reason} ({policyId}).")
+{
+    public string Reason { get; } = reason;
+}
 
 public interface ICacheMissCoordinator
 {
@@ -69,13 +73,10 @@ public sealed class CacheMissCoordinator(
     ICachePolicyRegistry policyRegistry,
     ILogger<CacheMissCoordinator> logger) : ICacheMissCoordinator
 {
-    private readonly ConcurrentDictionary<string, SemaphoreSlim> _rebuildSemaphores = new(StringComparer.Ordinal);
     private static readonly TimeSpan s_minLeaseTtl = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan s_maxLeaseTtl = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan s_minWaitTimeout = TimeSpan.FromMilliseconds(750);
     private static readonly TimeSpan s_maxWaitTimeout = TimeSpan.FromSeconds(5);
-    private static readonly TimeSpan s_defaultPollInterval = TimeSpan.FromMilliseconds(125);
-    private static readonly TimeSpan s_maxPollInterval = TimeSpan.FromMilliseconds(500);
 
     public async Task<T?> CoordinateAsync<T>(
         CachePolicyId policyId,
@@ -148,147 +149,109 @@ public sealed class CacheMissCoordinator(
         }
 
         CacheRebuildStrategy effectiveStrategy = strategy ?? ResolveStrategy(policyId);
+        if (effectiveStrategy.LeaseTtl < TimeSpan.FromMilliseconds(3) || effectiveStrategy.WaitTimeout < TimeSpan.Zero || effectiveStrategy.RebuildTimeout <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(strategy), "Lease TTL must be at least 3 ms, refill wait must not be negative and rebuild timeout must be positive.");
+        }
         string leaseIdentity = $"__lease__:{identity}";
         string leaseValue = $"{Environment.ProcessId}:{Guid.NewGuid():N}";
-
-        if (await leaseStore.TryAcquireLeaseAsync(policyId, leaseIdentity, leaseValue, effectiveStrategy.LeaseTtl, cancellationToken).ConfigureAwait(false))
+        long acquireStarted = Stopwatch.GetTimestamp();
+        if (!await leaseStore.TryAcquireLeaseAsync(policyId, leaseIdentity, leaseValue, effectiveStrategy.LeaseTtl, cancellationToken).ConfigureAwait(false))
         {
-            logger.LogDebug(
-                "cache-lease-hit {Operation} {PolicyId} {Identity}",
-                operation,
-                policyId,
-                identity);
-            return await RebuildWithSemaphoreAsync(policyId, identity, tryReadAsync, rebuildAsync, cancellationToken)
-                .ConfigureAwait(false);
-        }
-
-        logger.LogDebug(
-            "cache-lease-miss {Operation} {PolicyId} {Identity}",
-            operation,
-            policyId,
-            identity);
-
-        CacheReadResult<T> waited = await WaitForRefillAsync(
-            tryReadAsync,
-            operation,
-            policyId,
-            identity,
-            effectiveStrategy,
-            cancellationToken).ConfigureAwait(false);
-
-        if (waited.Hit)
-        {
-            return waited.Value;
-        }
-
-        string fallbackLeaseValue = $"{Environment.ProcessId}:{Guid.NewGuid():N}";
-        if (await leaseStore.TryAcquireLeaseAsync(policyId, leaseIdentity, fallbackLeaseValue, effectiveStrategy.LeaseTtl, cancellationToken).ConfigureAwait(false))
-        {
-            logger.LogDebug(
-                "cache-lease-fallback-hit {Operation} {PolicyId} {Identity}",
-                operation,
-                policyId,
-                identity);
-            return await RebuildWithSemaphoreAsync(policyId, identity, tryReadAsync, rebuildAsync, cancellationToken)
-                .ConfigureAwait(false);
-        }
-
-        logger.LogDebug(
-            "cache-lease-fallback-miss {Operation} {PolicyId} {Identity}",
-            operation,
-            policyId,
-            identity);
-
-        CacheReadResult<T> fallbackWaited = await WaitForRefillAsync(
-            tryReadAsync,
-            operation,
-            policyId,
-            identity,
-            effectiveStrategy,
-            cancellationToken).ConfigureAwait(false);
-
-        if (fallbackWaited.Hit)
-        {
-            return fallbackWaited.Value;
-        }
-
-        return await RebuildWithSemaphoreAsync(policyId, identity, tryReadAsync, rebuildAsync, cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    private async Task<T?> RebuildWithSemaphoreAsync<T>(
-        CachePolicyId policyId,
-        string identity,
-        Func<CancellationToken, Task<CacheReadResult<T>>> tryReadAsync,
-        Func<CancellationToken, Task<T?>> rebuildAsync,
-        CancellationToken cancellationToken)
-    {
-        string semaphoreKey = $"{(int)policyId}:{identity}";
-        SemaphoreSlim semaphore = _rebuildSemaphores.GetOrAdd(semaphoreKey, static _ => new SemaphoreSlim(1, 1));
-        await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            CacheReadResult<T> hit = await tryReadAsync(cancellationToken).ConfigureAwait(false);
-            if (hit.Hit)
+            await Task.Delay(effectiveStrategy.WaitTimeout, cancellationToken).ConfigureAwait(false);
+            CacheReadResult<T> finalRead = await tryReadAsync(cancellationToken).ConfigureAwait(false);
+            if (finalRead.Hit)
             {
-                return hit.Value;
+                return finalRead.Value;
             }
 
-            return await rebuildAsync(cancellationToken).ConfigureAwait(false);
+            throw new CacheCoordinationException("refill-timeout", policyId);
+        }
+
+        using CancellationTokenSource ownershipCancellation = new();
+        ArmOwnershipDeadline(ownershipCancellation, effectiveStrategy.LeaseTtl - Stopwatch.GetElapsedTime(acquireStarted));
+        using CancellationTokenSource rebuildCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, ownershipCancellation.Token);
+        using CancellationTokenSource renewalCancellation = new();
+        rebuildCancellation.CancelAfter(effectiveStrategy.RebuildTimeout);
+        Task renewal = RenewUntilStoppedAsync(
+            policyId, leaseIdentity, leaseValue, effectiveStrategy.LeaseTtl,
+            ownershipCancellation, renewalCancellation.Token);
+        using var publication = new CacheRebuildLeaseScope(leaseStore, policyId, leaseIdentity, leaseValue, rebuildCancellation.Token);
+        try
+        {
+            rebuildCancellation.Token.ThrowIfCancellationRequested();
+            T? result = await rebuildAsync(rebuildCancellation.Token).ConfigureAwait(false);
+            rebuildCancellation.Token.ThrowIfCancellationRequested();
+            return result;
         }
         finally
         {
-            semaphore.Release();
+            publication.StopPublishing();
+            try
+            {
+                await renewalCancellation.CancelAsync().ConfigureAwait(false);
+                await renewal.ConfigureAwait(false);
+            }
+            finally
+            {
+                try
+                {
+                    bool released = await leaseStore.TryReleaseLeaseAsync(
+                        policyId, leaseIdentity, leaseValue, CancellationToken.None).ConfigureAwait(false);
+                    logger.LogDebug("cache-lease-release {Operation} {PolicyId} {Released}", operation, policyId, released);
+                }
+                catch (Exception exception)
+                {
+                    logger.LogWarning(exception, "cache-lease-release-failed {Operation} {PolicyId}", operation, policyId);
+                }
+            }
         }
     }
 
-    private async Task<CacheReadResult<T>> WaitForRefillAsync<T>(
-        Func<CancellationToken, Task<CacheReadResult<T>>> tryReadAsync,
-        string operation,
+    private async Task RenewUntilStoppedAsync(
         CachePolicyId policyId,
-        string identity,
-        CacheRebuildStrategy strategy,
+        string leaseIdentity,
+        string leaseValue,
+        TimeSpan leaseTtl,
+        CancellationTokenSource rebuildCancellation,
         CancellationToken cancellationToken)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow.Add(strategy.WaitTimeout);
-        TimeSpan pollInterval = strategy.PollInterval <= TimeSpan.Zero ? s_defaultPollInterval : strategy.PollInterval;
-
-        while (DateTimeOffset.UtcNow < deadline)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            CacheReadResult<T> probe = await tryReadAsync(cancellationToken).ConfigureAwait(false);
-            if (probe.Hit)
+            using var timer = new PeriodicTimer(TimeSpan.FromTicks(Math.Max(TimeSpan.TicksPerMillisecond, leaseTtl.Ticks / 3)));
+            while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
             {
-                logger.LogDebug(
-                    "cache-wait-fallback-hit {Operation} {PolicyId} {Identity}",
-                    operation,
-                    policyId,
-                    identity);
-                return probe;
+                long renewStarted = Stopwatch.GetTimestamp();
+                bool renewed = await leaseStore.TryRenewLeaseAsync(
+                    policyId, leaseIdentity, leaseValue, leaseTtl, cancellationToken).ConfigureAwait(false);
+                if (!renewed)
+                {
+                    await rebuildCancellation.CancelAsync().ConfigureAwait(false);
+                    return;
+                }
+                ArmOwnershipDeadline(rebuildCancellation, leaseTtl - Stopwatch.GetElapsedTime(renewStarted));
             }
-
-            TimeSpan remaining = deadline - DateTimeOffset.UtcNow;
-            if (remaining <= TimeSpan.Zero)
-            {
-                break;
-            }
-
-            TimeSpan delay = remaining < pollInterval ? remaining : pollInterval;
-            await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
-            pollInterval = TimeSpan.FromTicks(Math.Min(pollInterval.Ticks * 2L, s_maxPollInterval.Ticks));
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "cache-lease-renew-failed {PolicyId}", policyId);
+            await rebuildCancellation.CancelAsync().ConfigureAwait(false);
+        }
+    }
 
-        RuntimePressureSnapshot pressure = RuntimePressureSnapshot.Capture();
-        logger.LogInformation(
-            "cache-wait-fallback-timeout {Operation} {PolicyId} {Identity} waitMs={WaitMs} availableWorkers={AvailableWorkers} availableIo={AvailableIo}",
-            operation,
-            policyId,
-            identity,
-            (int)strategy.WaitTimeout.TotalMilliseconds,
-            pressure.AvailableWorkerThreads,
-            pressure.AvailableIoThreads);
-
-        return new CacheReadResult<T>(false, default);
+    private static void ArmOwnershipDeadline(CancellationTokenSource ownershipCancellation, TimeSpan remaining)
+    {
+        if (remaining <= TimeSpan.Zero)
+        {
+            ownershipCancellation.Cancel();
+        }
+        else
+        {
+            ownershipCancellation.CancelAfter(remaining);
+        }
     }
 
     private CacheRebuildStrategy ResolveStrategy(CachePolicyId policyId)
@@ -298,7 +261,7 @@ public sealed class CacheMissCoordinator(
             ? s_minLeaseTtl
             : TimeSpan.FromTicks(Math.Clamp(policy.L2Ttl.Ticks / 20L, s_minLeaseTtl.Ticks, s_maxLeaseTtl.Ticks));
         TimeSpan waitTimeout = TimeSpan.FromTicks(Math.Clamp(leaseTtl.Ticks / 4L, s_minWaitTimeout.Ticks, s_maxWaitTimeout.Ticks));
-        return new CacheRebuildStrategy(leaseTtl, waitTimeout, s_defaultPollInterval);
+        return new CacheRebuildStrategy(leaseTtl, waitTimeout, TimeSpan.FromTicks(leaseTtl.Ticks * 4));
     }
 
     private CachePolicy ResolvePolicy(CachePolicyId policyId)
