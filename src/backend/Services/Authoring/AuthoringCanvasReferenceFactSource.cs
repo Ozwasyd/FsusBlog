@@ -353,7 +353,7 @@ public sealed class PostgresAuthoringCanvasArticleReferenceReader(ISqlSugarClien
 
         long generation = reader.GetInt64(reader.GetOrdinal("principal_generation"));
         string status = reader.GetString(reader.GetOrdinal("status"));
-        bool isRoot = reader.GetBoolean(reader.GetOrdinal("is_root"));
+        bool isRoot = reader.GetBoolean(reader.GetOrdinal("isroot"));
         string permissions = reader.GetString(reader.GetOrdinal("permissions"));
         bool authorized = string.Equals(status, AdminPrincipalStatus.Active, StringComparison.Ordinal)
             && (isRoot || permissions.Split(
@@ -391,7 +391,7 @@ public sealed class PostgresAuthoringCanvasArticleReferenceReader(ISqlSugarClien
             FROM article
             WHERE id = ANY(@ArticleIds);
             """,
-            new SugarParameter("@ArticleIds", articleIds)).ConfigureAwait(false))
+            ArrayParameter("@ArticleIds", articleIds)).ConfigureAwait(false))
         {
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
@@ -433,7 +433,7 @@ public sealed class PostgresAuthoringCanvasArticleReferenceReader(ISqlSugarClien
                 FROM article_revision
                 WHERE id = ANY(@RevisionIds);
                 """,
-                new SugarParameter("@RevisionIds", pinnedRevisionIds)).ConfigureAwait(false);
+                ArrayParameter("@RevisionIds", pinnedRevisionIds)).ConfigureAwait(false);
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
                 int articleId = reader.GetInt32(reader.GetOrdinal("article_id"));
@@ -454,6 +454,12 @@ public sealed class PostgresAuthoringCanvasArticleReferenceReader(ISqlSugarClien
             static pair => pair.Key,
             static pair => pair.Value.ToRecord());
     }
+
+    private static SugarParameter ArrayParameter(string name, Array value)
+        => new(name, value)
+        {
+            IsArray = true
+        };
 
     private static AuthoringCanvasArticleRevisionDisplayFact Display(
         long revision,
