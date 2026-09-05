@@ -81,6 +81,10 @@ Refs: #1234
 
 formatter 必须二次运行证明幂等。PR 中的 `Formatter idempotence evidence` 是本 PR 已修改的一个 JSON 文件，schema 为 `fsusblog.format-idempotence-evidence.v1`，至少包含 formatter identity、version、完整 command、被检查的 repository-relative paths、第一次和第二次运行的同一算法 tree digest，以及 `idempotent: true`。checker 重新计算或核对路径和 digest；一段自由文本、未变更路径或只有“已运行”的声明都不是证据。
 
+JavaScript（`.js`、`.mjs`、`.cjs`）格式等价使用 checker 自身 checkout 内锁定的 Espree parser，比较完整 AST、原始 token/literal 和绑定相邻 token 的 comments，仅排除源码位置。ASI、regex、template 与 directive 的变化不得通过删除空白规避。解析失败或 parser 缺失直接拒绝；TypeScript、Vue 及缩排敏感语言保持既有保守校验。parser 安装入口为 `npm ci --ignore-scripts --prefix tools/governance/javascript-format-parser`，PR/push 使用 trusted checkout，不加载 candidate 或 `NODE_PATH` 提供的 parser，不执行 package lifecycle scripts。
+
+安装阶段的 lock integrity 与运行阶段的路径绑定是不同证据。运行时核对依赖名称、版本、实际直接/传递入口的 canonical regular-file 路径，拒绝 symlink 和入口重定向；版本相同不表示完整字节可信。首次载入后，在同一进程的每次格式判定前重验 dependency tree digest，已缓存 parser 不能掩盖后续文件变化。该检查不替代 trusted checkout 的锁定安装，也不宣称提供对并发文件系统攻击的原子隔离。
+
 机械命名 commit 使用：
 
 ```text

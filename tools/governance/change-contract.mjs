@@ -6,6 +6,9 @@ import { join, resolve } from 'node:path'
 
 import commitlintConfig from '../../commitlint.config.mjs'
 import { changeContract } from './change-contract-registry.mjs'
+import { javascriptFormatFingerprint } from './javascript-format-equivalence.mjs';
+
+export { javascriptFormatFingerprint };
 
 const genericSummaries = new Set([
     'apply fixes',
@@ -3230,6 +3233,10 @@ function preprocessorFingerprint(source) {
 }
 
 function formatFingerprint(source, path) {
+    if (/\.(?:mjs|cjs|js)$/u.test(path))
+    {
+        return javascriptFormatFingerprint(source, path);
+    }
     const normalized = source.replace(/\r\n/gu, '\n')
     if (/\.ya?ml$/u.test(path) && /^\s*[^#\r\n][^\r\n]*:\s*[|>][-+0-9]*\s*(?:#.*)?$/mu.test(normalized)) {
         return normalized

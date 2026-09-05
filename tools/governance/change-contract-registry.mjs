@@ -255,6 +255,9 @@ export const trustedPolicyFiles = Object.freeze([
     'config/schemas/post-merge-generated-output-repair-dag.schema.json',
     'tools/governance/change-contract-registry.mjs',
     'tools/governance/change-contract.mjs',
+    'tools/governance/javascript-format-equivalence.mjs',
+    'tools/governance/javascript-format-parser/package.json',
+    'tools/governance/javascript-format-parser/package-lock.json',
     'tools/governance/check-change-contract.mjs'
 ])
 

@@ -1,14 +1,16 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { delimiter, join, resolve } from 'node:path'
 import test from 'node:test'
+import { pathToFileURL } from 'node:url';
 
 import commitlintConfig from '../../commitlint.config.mjs'
 import {
     changeContract,
+    javascriptFormatFingerprint,
     changedFilesBetween,
     parseBlameIgnoreRevisions,
     validateBlameIgnoreRevisions,
@@ -28,6 +30,150 @@ import {
 
 const root = resolve(import.meta.dirname, '../..')
 const fixtures = resolve(root, 'tests/fixtures/governance/change-contract')
+
+test('JavaScript formatting compares syntax, raw tokens and anchored comments', () =>
+{
+    const fingerprint = (source) => javascriptFormatFingerprint(source, 'sample.mjs');
+    assert.equal(fingerprint('const f = () => { return 1; };'), fingerprint('const f = () =>\n{\n    return 1;\n};'));
+    for (const [before, after] of [
+        ['function f(){return 1}', 'function f(){return\n1}'],
+        ['let a=1; let b=2; a++\nb', 'let a=1; let b=2; a\n++b'],
+        ['const x = /a+/u;', 'const x = /b+/u;'],
+        ['const x = a / b / c;', 'const x = a / (b / c);'],
+        ['const x = `a ${v}`;', 'const x = `a  ${v}`;'],
+        ['"use strict"; f();', '"use sloppy"; f();'],
+        ['// eslint-disable-next-line rule\nf();\ng();', 'f();\n// eslint-disable-next-line rule\ng();'],
+        ['// eslint-disable-next-line rule\nf();', '// eslint-disable-next-line rule\n\nf();'],
+        ['const x = 1;', 'const x = 2;']
+    ])
+    {
+        assert.notEqual(fingerprint(before), fingerprint(after));
+    }
+    assert.throws(() => fingerprint('const = ;'));
+});
+
+test('canonical transaction brace hunks remain equivalent under the trusted parser', () =>
+{
+    // The fixture below preserves the actual two canonical formatter transformations.
+    const samples = [
+        ['const originals = new Map(transaction.changes.map((change) => {\nreturn change;\n}));', 'const originals = new Map(transaction.changes.map((change) =>\n{\nreturn change;\n}));'],
+        ["const options = { verifyAfter: () => { throw new Error('verification failed'); } };", "const options = { verifyAfter: () =>\n{\nthrow new Error('verification failed');\n} };"]
+    ];
+    for (const [before, after] of samples)
+    {
+        assert.equal(javascriptFormatFingerprint(before, 'sample.mjs'), javascriptFormatFingerprint(after, 'sample.mjs'));
+    }
+});
+
+test('JavaScript formatter ignores candidate cwd and NODE_PATH parser substitutions', () =>
+{
+    const candidate = mkdtempSync(join(tmpdir(), 'fsusblog-format-parser-candidate-'));
+    try
+    {
+        const fake = join(candidate, 'espree');
+        mkdirSync(fake);
+        writeFileSync(join(fake, 'package.json'), JSON.stringify({ name: 'espree', main: 'index.js' }));
+        writeFileSync(join(fake, 'index.js'), 'throw new Error("candidate parser must not execute")');
+        const moduleUrl = pathToFileURL(resolve(root, 'tools/governance/javascript-format-equivalence.mjs')).href;
+        const code = `import { javascriptFormatFingerprint as fingerprint } from ${JSON.stringify(moduleUrl)}; console.log(fingerprint('const value = 1;', 'sample.mjs'))`;
+        const result = execFileSync(process.execPath, ['--input-type=module', '-e', code], {
+            cwd: candidate,
+            env: { ...process.env, NODE_PATH: candidate },
+            encoding: 'utf8'
+        });
+        assert.equal(result.trim(), javascriptFormatFingerprint('const value = 1;', 'sample.mjs'));
+    }
+    finally
+    {
+        rmSync(candidate, { recursive: true, force: true });
+    }
+});
+
+test('JavaScript formatter fails closed when its own pinned parser is absent', () =>
+{
+    const isolated = mkdtempSync(join(tmpdir(), 'fsusblog-format-parser-missing-'));
+    try
+    {
+        const parserDirectory = join(isolated, 'javascript-format-parser');
+        mkdirSync(parserDirectory);
+        for (const file of ['package.json', 'package-lock.json'])
+        {
+            writeFileSync(join(parserDirectory, file), readFileSync(resolve(root, 'tools/governance/javascript-format-parser', file)));
+        }
+        writeFileSync(join(isolated, 'javascript-format-equivalence.mjs'), readFileSync(resolve(root, 'tools/governance/javascript-format-equivalence.mjs')));
+        const moduleUrl = pathToFileURL(join(isolated, 'javascript-format-equivalence.mjs')).href;
+        const code = `import { javascriptFormatFingerprint } from ${JSON.stringify(moduleUrl)}; javascriptFormatFingerprint('const value = 1;', 'sample.mjs')`;
+        assert.throws(() => execFileSync(process.execPath, ['--input-type=module', '-e', code], {
+            cwd: isolated,
+            env: { ...process.env, NODE_PATH: resolve(root, 'tools/governance/javascript-format-parser/node_modules') },
+            stdio: 'pipe'
+        }), (error) => error.status !== 0 && /ENOENT/u.test(error.stderr.toString()));
+    }
+    finally
+    {
+        rmSync(isolated, { recursive: true, force: true });
+    }
+});
+
+test('checker parser installation is locked, script-free and selected from the trusted checkout', () =>
+{
+    const workflow = readFileSync(resolve(root, '.github/workflows/change-contract.yml'), 'utf8');
+    const install = workflow.slice(workflow.indexOf('- name: Install the selected checker parser'), workflow.indexOf('- name: Validate pull request and squash contract'));
+    assert.match(install, /checker_root="\$GITHUB_WORKSPACE\/trusted"/u);
+    assert.match(install, /if \[\[ "\$EVENT_NAME" == "pull_request" \]\]; then[\s\S]*?exit 1/u);
+    assert.match(install, /npm ci --ignore-scripts --no-audit --no-fund --prefix "\$parser_root"/u);
+    const manifest = JSON.parse(readFileSync(resolve(root, 'tools/governance/javascript-format-parser/package.json'), 'utf8'));
+    assert.deepEqual(manifest.dependencies, { espree: '10.4.0' });
+    assert.equal(manifest.scripts, undefined);
+    const lock = JSON.parse(readFileSync(resolve(root, 'tools/governance/javascript-format-parser/package-lock.json'), 'utf8'));
+    assert.equal(Object.values(lock.packages).some((entry) => entry.hasInstallScript), false);
+    for (const file of ['javascript-format-equivalence.mjs', 'javascript-format-parser/package.json', 'javascript-format-parser/package-lock.json'])
+    {
+        assert.ok(changeContract.trustedPolicyFiles.includes(`tools/governance/${file}`));
+    }
+});
+
+test('JavaScript parser rejects direct and transitive entry redirects, symlinks and cached authority drift', () =>
+{
+    for (const mutation of ['direct', 'transitive', 'symlink', 'cached'])
+    {
+        const isolated = mkdtempSync(join(tmpdir(), 'fsusblog-format-parser-path-'));
+        try
+        {
+            const parserDirectory = join(isolated, 'javascript-format-parser');
+            cpSync(resolve(root, 'tools/governance/javascript-format-parser'), parserDirectory, { recursive: true });
+            writeFileSync(join(isolated, 'javascript-format-equivalence.mjs'), readFileSync(resolve(root, 'tools/governance/javascript-format-equivalence.mjs')));
+            const moduleUrl = pathToFileURL(join(isolated, 'javascript-format-equivalence.mjs')).href;
+            const espreeEntry = join(parserDirectory, 'node_modules/espree/dist/espree.cjs');
+            if (mutation === 'direct' || mutation === 'transitive')
+            {
+                const packageDirectory = join(parserDirectory, 'node_modules', mutation === 'direct' ? 'espree' : 'acorn');
+                const packagePath = join(packageDirectory, 'package.json');
+                const manifest = JSON.parse(readFileSync(packagePath, 'utf8'));
+                manifest.exports = './redirect.cjs';
+                writeFileSync(packagePath, JSON.stringify(manifest));
+                writeFileSync(join(packageDirectory, 'redirect.cjs'), 'throw new Error("redirect must never execute")');
+            }
+            else if (mutation === 'symlink')
+            {
+                const outside = join(isolated, 'outside.cjs');
+                writeFileSync(outside, readFileSync(espreeEntry));
+                unlinkSync(espreeEntry);
+                symlinkSync(outside, espreeEntry);
+            }
+            const code = `import { appendFileSync } from 'node:fs'; import { javascriptFormatFingerprint as fingerprint } from ${JSON.stringify(moduleUrl)}; fingerprint('const value = 1;', 'sample.mjs'); ${mutation === 'cached' ? `appendFileSync(${JSON.stringify(espreeEntry)}, '\\n// changed authority'); fingerprint('const value = 1;', 'sample.mjs')` : ''}`;
+            assert.throws(() => execFileSync(process.execPath, ['--input-type=module', '-e', code], { stdio: 'pipe' }), (error) =>
+            {
+                const stderr = error.stderr.toString();
+                return error.status !== 0 && /entry redirected|canonical regular file|authority changed after loading/u.test(stderr) && !stderr.includes('redirect must never execute');
+            }, mutation);
+        }
+        finally
+        {
+            rmSync(isolated, { recursive: true, force: true });
+        }
+    }
+});
 
 function fixture(kind, name) {
     return readFileSync(resolve(fixtures, kind, name), 'utf8')

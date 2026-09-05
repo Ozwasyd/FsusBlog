@@ -54,6 +54,24 @@ jobs:
               with:
                   node-version: 24
 
+            - name: Install the selected checker parser without lifecycle scripts
+              shell: bash
+              env:
+                  EVENT_NAME: ${{ github.event_name }}
+              run: |
+                  checker_root="$GITHUB_WORKSPACE/trusted"
+                  if [[ ! -f "$checker_root/tools/governance/check-change-contract.mjs" ]]; then
+                    if [[ "$EVENT_NAME" == "pull_request" ]]; then
+                      echo "trusted pull request checker is missing" >&2
+                      exit 1
+                    fi
+                    checker_root="$GITHUB_WORKSPACE/candidate"
+                  fi
+                  parser_root="$checker_root/tools/governance/javascript-format-parser"
+                  if [[ -f "$parser_root/package.json" ]]; then
+                    npm ci --ignore-scripts --no-audit --no-fund --prefix "$parser_root"
+                  fi
+
             - name: Validate pull request and squash contract
               if: github.event_name == 'pull_request'
               working-directory: trusted
