@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 
 import { verifyProductionBuildReceipt } from '../ci/production-build-artifacts.mjs'
 import { validateBrowserContractReceipt } from '../release/test-evidence-receipts.mjs'
-import { stable } from '../fact-extractors/lib/canonicalize.mjs'
+import { digestValue, stable } from '../fact-extractors/lib/canonicalize.mjs'
 import {
   candidatePlanPathForObservation,
   explicitJson,
@@ -261,20 +261,32 @@ function normalizedFacts(inputs, plan, buildReceipt)
   }
 }
 
-function typedFacts(inputs, legacyFacts)
+function observedRawFacts(inputs)
 {
   const scenario = inputs.browserContract.value.scenarios
     .find(({ id }) => id === 'public-hydration-history-reload')
-  return {
-    manifestDigest: legacyFacts.manifestDigest,
-    publicationDigest: legacyFacts.publicationDigest,
-    locale: scenario.observation.direct.locale,
-    dataCanaryDigest: legacyFacts.dataCanaryDigest,
-    serverHtmlDigest: legacyFacts.serverHtmlDigest,
-    hydratedDomDigest: legacyFacts.hydratedDomDigest,
-    clientStateDigest: legacyFacts.clientStateDigest,
-    networkResourceDigest: legacyFacts.networkResourceDigest
+  const observation = scenario.observation
+  const manifestBytes = fs.readFileSync(inputs.manifest.value.manifestPath)
+  if (sha(manifestBytes) !== inputs.manifest.value.manifestDigest)
+  {
+    fail('SPA manifest bytes changed during raw observation projection')
   }
+  return {
+    manifest: JSON.parse(manifestBytes.toString('utf8')),
+    publication: { url: observation.response.url, status: observation.response.status, headers: observation.response.headers },
+    locale: observation.direct.locale,
+    dataCanary: observation.direct.bootstrapText,
+    serverHtml: observation.response.serverHtml,
+    hydratedDom: observation.direct,
+    clientState: { spa: observation.spa, history: observation.history, reload: observation.reload },
+    networkResource: observation.direct.resourceUrls
+  }
+}
+
+function typedFacts(rawFacts)
+{
+  return Object.fromEntries(Object.entries(rawFacts).map(([field, value]) =>
+    field === 'locale' ? [field, value] : [`${field}Digest`, `sha256:${digestValue(stable(value))}`]))
 }
 
 function loadInputs(evidence, repositoryRoot)
@@ -311,16 +323,26 @@ function verifyBuild(plan, repositoryRoot)
 export function produceAotSpaHydrationSourceBundle({ candidatePlan, evidence, repositoryRoot = root })
 {
   const { input: candidate, plan } = planInput(candidatePlan, repositoryRoot)
+  const planned = plan.observations.find((entry) => entry.classId === classId)
+  if (!planned) fail('candidate plan does not own aot-spa-hydration')
   const inputs = loadInputs(evidence, repositoryRoot)
+  normalizedFacts(inputs, plan, verifyBuild(plan, repositoryRoot))
+  const producer = loadPostRuntimeProducerRegistry(repositoryRoot).producers
+    .find(({ producerId }) => producerId === plan.producerId)
+  if (!producer) fail('candidate plan producer is absent from registry')
   return seal({
     schema: sourceBundleSchema,
+    producerId: plan.producerId,
+    toolVersion: producer.toolVersion,
     sourceState: plan.sourceState,
+    rawFacts: observedRawFacts(inputs),
     candidatePlanRef: candidate.ref,
     evidenceRefs: Object.fromEntries(evidenceKeys.map((key) => [key, {
       ...inputs[key].ref,
       contentDigest: inputs[key].value?.contentDigest ?? null
     }])),
-    canonicalRerunCommand: `node tools/test-evidence/aot-spa-hydration-raw.mjs bundle --candidate-plan ${candidate.ref.path} ${evidenceKeys.map((key) => `--${key.replace(/[A-Z]/gu, (letter) => `-${letter.toLowerCase()}`)} ${inputs[key].ref.path}`).join(' ')}`
+    canonicalRerunCommand: `node tools/test-evidence/aot-spa-hydration-raw.mjs bundle --candidate-plan ${candidate.ref.path} ${evidenceKeys.map((key) => `--${key.replace(/[A-Z]/gu, (letter) => `-${letter.toLowerCase()}`)} ${inputs[key].ref.path}`).join(' ')}`,
+    independentVerifyCommand: `node tools/test-evidence/aot-spa-hydration-raw.mjs verify --candidate-plan ${candidate.ref.path} --receipt ${planned.receiptPath}`
   })
 }
 
@@ -362,14 +384,19 @@ export function projectAotSpaHydrationRaw({ candidatePlan, sourceReceipt, reposi
   const inputs = loadInputs(source.evidence, repositoryRoot)
   const legacyFacts = normalizedFacts(inputs, plan, buildReceipt)
   validateSemanticFacts(classId, legacyFacts)
+  const rawFacts = observedRawFacts(inputs)
+  if (digestValue(stable(source.source.value.rawFacts ?? null)) !== digestValue(stable(rawFacts)))
+  {
+    fail('AOT raw facts do not replay from retained manifest and Browser Contract observations')
+  }
   const semanticFacts = Array.isArray(definition.requiredSemanticFactFields)
-    ? typedFacts(inputs, legacyFacts)
+    ? typedFacts(rawFacts)
     : legacyFacts
-  const sourceState = observationSourceState({ classId, plan, artifactDigest: semanticFacts.manifestDigest, repositoryRoot, legacy: {
+  const sourceState = observationSourceState({ classId, plan, artifactDigest: legacyFacts.manifestDigest, repositoryRoot, legacy: {
     sourceCommit: plan.sourceState.commit,
     worktreeFingerprint: plan.sourceState.worktreeFingerprint,
     buildIdentity: plan.build.receiptContentDigest,
-    artifactDigest: semanticFacts.manifestDigest,
+    artifactDigest: legacyFacts.manifestDigest,
     candidateId: plan.candidate.candidateId,
     runId: plan.candidate.runId,
     attemptId: plan.candidate.attemptId,
@@ -377,7 +404,7 @@ export function projectAotSpaHydrationRaw({ candidatePlan, sourceReceipt, reposi
     releaseId: plan.candidate.releaseId,
     rolloutId: plan.candidate.rolloutId
   } })
-  const canonicalRerunCommand = `node tools/test-evidence/aot-spa-hydration-raw.mjs project --candidate-plan ${candidate.ref.path} --source ${source.source.ref.path} --out ${planned.receiptPath}`
+  const canonicalRerunCommand = source.source.value.canonicalRerunCommand
   const independentVerifyCommand = `node tools/test-evidence/aot-spa-hydration-raw.mjs verify --candidate-plan ${candidate.ref.path} --receipt ${planned.receiptPath}`
   return seal({
     schema: definition.schema,

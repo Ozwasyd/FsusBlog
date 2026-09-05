@@ -144,6 +144,20 @@ function writeJson(file, value)
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`)
 }
 
+test('AOT source preserves observed values and rejects coordinated raw fact substitution', (context) =>
+{
+  const value = fixture(context)
+  const observation = value.browser.scenarios.find(({ id }) => id === 'public-hydration-history-reload').observation
+  assert.equal(value.source.rawFacts.serverHtml, observation.response.serverHtml)
+  assert.deepEqual(value.source.rawFacts.hydratedDom, observation.direct)
+  assert.deepEqual(value.source.rawFacts.networkResource, observation.direct.resourceUrls)
+  const substituted = structuredClone(value.source)
+  substituted.rawFacts.locale = 'forged-locale'
+  value.write('aot-source-bundle.json', seal(substituted))
+  assert.throws(() => projectAotSpaHydrationRaw({ candidatePlan: value.relative(value.planFile),
+    sourceReceipt: value.relative(value.sourceFile), repositoryRoot: root }), /raw facts do not replay/u)
+})
+
 test('projects and independently replays canonical browser/server AOT outputs', (context) =>
 {
   const value = fixture(context)
@@ -164,10 +178,8 @@ test('rejects a stale-cache style Browser Contract payload with the wrong decode
   const browser = structuredClone(value.browser)
   browser.scenarios[0].observation.direct.title = 'Old cached article'
   value.write('browser-contract.json', sealBrowserContractReceipt(browser))
-  const source = produceAotSpaHydrationSourceBundle({ candidatePlan: value.relative(value.planFile), evidence: value.evidence, repositoryRoot: root })
-  value.write('aot-source-bundle.json', source)
-  assert.throws(() => projectAotSpaHydrationRaw({ candidatePlan: value.relative(value.planFile),
-    sourceReceipt: value.relative(value.sourceFile), repositoryRoot: root }), /not coherent/u)
+  assert.throws(() => produceAotSpaHydrationSourceBundle({ candidatePlan: value.relative(value.planFile),
+    evidence: value.evidence, repositoryRoot: root }), /not coherent/u)
 })
 
 test('verifier rejects canonical Browser Contract bytes changed after source bundling', (context) =>
@@ -189,11 +201,8 @@ test('rejects Browser Contract evidence from another current-run attempt', (cont
   browser.runIdentity.attemptId = 'attempt-0002'
   browser.fixture.lifecycle.identity.attemptId = 'attempt-0002'
   value.write('browser-contract.json', sealBrowserContractReceipt(browser))
-  const source = produceAotSpaHydrationSourceBundle({ candidatePlan: value.relative(value.planFile),
-    evidence: value.evidence, repositoryRoot: root })
-  value.write('aot-source-bundle.json', source)
-  assert.throws(() => projectAotSpaHydrationRaw({ candidatePlan: value.relative(value.planFile),
-    sourceReceipt: value.relative(value.sourceFile), repositoryRoot: root }), /identity does not match the candidate/u)
+  assert.throws(() => produceAotSpaHydrationSourceBundle({ candidatePlan: value.relative(value.planFile),
+    evidence: value.evidence, repositoryRoot: root }), /identity does not match the candidate/u)
 })
 
 test('rejects a source bundle whose candidate plan byte reference was coordinated-resealed', (context) =>
@@ -237,11 +246,8 @@ test('rejects descriptor release paths and retained inventory bytes that do not 
   descriptor.releaseId = '20260830000000-aaaaaaaaaaaa'
   delete descriptor.contentDigest
   release.write('manifest-descriptor.json', seal(descriptor))
-  const source = produceAotSpaHydrationSourceBundle({ candidatePlan: release.relative(release.planFile),
-    evidence: changedRelease, repositoryRoot: root })
-  release.write('aot-source-bundle.json', source)
-  assert.throws(() => projectAotSpaHydrationRaw({ candidatePlan: release.relative(release.planFile),
-    sourceReceipt: release.relative(release.sourceFile), repositoryRoot: root }), /does not exact-match the candidate build/u)
+  assert.throws(() => produceAotSpaHydrationSourceBundle({ candidatePlan: release.relative(release.planFile),
+    evidence: changedRelease, repositoryRoot: root }), /does not exact-match the candidate build/u)
 
   const inventory = fixture(context)
   const inventoryFile = path.join(inventory.directory, 'runtime-assets', inventory.plan.candidate.releaseId, 'asset-manifest.json')

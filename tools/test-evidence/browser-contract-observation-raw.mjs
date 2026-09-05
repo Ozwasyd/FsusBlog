@@ -290,7 +290,10 @@ export function deriveBrowserObservedRawFacts(browser, publicPreviewEvidence)
     viewport: dimensionIdentity(reports, 'viewport'),
     theme: dimensionIdentity(reports, 'theme'),
     state: scenarios.scenarios.map(({ id, status, classification }) => ({ id, status, classification })),
-    interaction: scenarios.scenarios,
+    interaction: scenarios.scenarios.map((scenario) => ({
+      ...scenario,
+      observation: browser.scenarios.find(({ id }) => id === scenario.id)?.observation ?? null
+    })),
     dom: {
       runtimeAudit: browser.publicPreview.runtimeAudit,
       layoutAudit: browser.publicPreview.layoutAudit,
@@ -329,6 +332,8 @@ export function bindBrowserPostRuntimeObservation({ candidatePlan, browser, repo
   const producer = loadPostRuntimeProducerRegistry(repositoryRoot).producers
     .find(({ producerId }) => producerId === plan.producerId)
   if (!producer) fail('candidate plan producer is absent from registry')
+  const planned = plan.observations.find((entry) => entry.classId === classId)
+  if (!planned) fail('candidate plan does not own browser-behavior-contract')
   return {
     ...browser,
     producerId: plan.producerId,
@@ -337,7 +342,7 @@ export function bindBrowserPostRuntimeObservation({ candidatePlan, browser, repo
     publicPreviewRef: { ...preview.ref, schema: preview.value.schema, role: 'public-preview' },
     rawFacts: deriveBrowserObservedRawFacts(browser, preview.value),
     canonicalRerunCommand: 'node tests/browser-contract/run.mjs',
-    independentVerifyCommand: `node tools/test-evidence/browser-contract-observation-raw.mjs project --candidate-plan ${planInput.ref.path} --browser-contract <current-run-browser-receipt.json> --out <current-run-raw.json>`
+    independentVerifyCommand: `node tools/test-evidence/browser-contract-observation-raw.mjs verify --candidate-plan ${planInput.ref.path} --receipt ${planned.receiptPath}`
   }
 }
 
@@ -388,7 +393,7 @@ export function projectBrowserContractRaw({ candidatePlan, browserContractReceip
     repositoryRoot,
     legacy: legacySourceState
   })
-  const canonicalRerunCommand = `node tools/test-evidence/browser-contract-observation-raw.mjs project --candidate-plan ${planInput.ref.path} --browser-contract ${browserInput.ref.path} --out ${planned.receiptPath}`
+  const canonicalRerunCommand = browserInput.value.canonicalRerunCommand
   const independentVerifyCommand = `node tools/test-evidence/browser-contract-observation-raw.mjs verify --candidate-plan ${planInput.ref.path} --receipt ${planned.receiptPath}`
   return seal({
     schema: planned.schema,
