@@ -2050,7 +2050,7 @@ export function validateAcceptedClaimsReceiptAgainstRegistry({
         }
         return {
             claimId: owner.claimId,
-            behaviorId: owner.behaviorId,
+            behaviorId: BehaviorId(owner.behaviorId),
             scopeId: owner.scopeId,
             claimDigest: accepted.claimDigest
         }
