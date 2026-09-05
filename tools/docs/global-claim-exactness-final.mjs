@@ -128,9 +128,14 @@ export async function buildGlobalClaimExactnessReceipt({
     repositoryRoot = root,
     observationReceiptPaths,
     sourceCommit,
-    worktreeFingerprint
+    worktreeFingerprint,
+    runId
 })
 {
+    if (typeof runId !== 'string' || runId.length === 0)
+    {
+        throw new Error('global exactness runId is required')
+    }
     const inputs = await loadGlobalExactnessInputs(repositoryRoot, observationReceiptPaths)
     const failureReasons = []
     const required = inputs.catalog.contracts.filter((contract) => contract.status === 'active'
@@ -351,6 +356,7 @@ export async function buildGlobalClaimExactnessReceipt({
     return seal({
         schema: globalExactnessSchema,
         scopeId: globalExactnessScopeId,
+        runId,
         source: {
             sourceCommit,
             worktreeFingerprint,
@@ -387,9 +393,18 @@ export async function buildGlobalClaimExactnessReceipt({
     })
 }
 
-export function validateGlobalClaimExactnessReceipt(receipt)
+export function validateGlobalClaimExactnessReceipt(receipt, { expectedRunId = null } = {})
 {
     if (receipt?.schema !== globalExactnessSchema) throw new Error('unexpected global exactness schema')
+    if (JSON.stringify(Object.keys(receipt).sort()) !== JSON.stringify([
+        'schema', 'scopeId', 'runId', 'source', 'authorityDigests', 'claimAcceptance',
+        'counts', 'mutationAggregate', 'residue', 'proseVerification', 'status',
+        'failureReasons', 'contentDigest'
+    ].sort())) throw new Error('global exactness receipt fields are not sealed')
+    if (typeof receipt.runId !== 'string' || receipt.runId.length === 0)
+        throw new Error('global exactness runId is required')
+    if (expectedRunId !== null && receipt.runId !== expectedRunId)
+        throw new Error(`global exactness runId mismatch: expected ${expectedRunId}, got ${receipt.runId}`)
     if (receipt.contentDigest !== digestValue({ ...receipt, contentDigest: null }))
         throw new Error('global exactness contentDigest mismatch')
     if (!Array.isArray(receipt.claimAcceptance)
@@ -428,6 +443,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const result = await buildGlobalClaimExactnessReceipt({
         repositoryRoot: root,
         observationReceiptPaths: receiptPaths,
+        runId: String(process.env.FSUSBLOG_TEST_RUN_ID ?? '').trim(),
         sourceCommit: identity.sourceCommit,
         worktreeFingerprint: identity.worktreeFingerprint
     })

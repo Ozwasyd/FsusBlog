@@ -1429,11 +1429,12 @@ function validateTypedSourceState(sourceState, repositoryRoot, producerId,
 function validateMachineGlobalClaimExactnessReceipt(receipt)
 {
     assertExactKeys(receipt, [
-        'schema', 'scopeId', 'source', 'authorityDigests', 'counts', 'mutationAggregate',
+        'schema', 'scopeId', 'runId', 'source', 'authorityDigests', 'counts', 'mutationAggregate',
         'claimAcceptance', 'residue', 'proseVerification', 'status', 'failureReasons',
         'contentDigest'
     ], 'global exactness terminal receipt')
     if (receipt.schema !== globalExactnessSchema
+        || !runIdentityPattern.test(receipt.runId ?? '')
         || receipt.contentDigest !== digestValue({ ...receipt, contentDigest: null }))
     {
         fail('global exactness terminal schema/contentDigest mismatch')
@@ -1970,7 +1971,8 @@ export function validateAcceptedClaimsReceiptAgainstRegistry({
         fail('accepted terminal payload schema/content digest mismatch')
     }
     validateMachineGlobalClaimExactnessReceipt(terminal)
-    if (receipt.sourceState.commit !== terminal.source?.sourceCommit
+    if (receipt.sourceState.schedulerRunId !== terminal.runId
+        || receipt.sourceState.commit !== terminal.source?.sourceCommit
         || receipt.sourceState.worktreeFingerprint !== prefixedDigest(terminal.source?.worktreeFingerprint))
     {
         fail('accepted terminal receipt source identity mismatch')

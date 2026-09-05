@@ -130,10 +130,28 @@ test('global exactness terminal receipt is ok with warnings=0', async () =>
     const receipt = await buildGlobalClaimExactnessReceipt({
         repositoryRoot: root,
         observationReceiptPaths: receipts,
+        runId: 'global-claim-exactness-test',
         sourceCommit: first.sourceCommit,
         worktreeFingerprint: first.worktreeFingerprint
     })
-    validateGlobalClaimExactnessReceipt(receipt)
+    validateGlobalClaimExactnessReceipt(receipt, { expectedRunId: 'global-claim-exactness-test' })
+    assert.equal(receipt.runId, 'global-claim-exactness-test')
+    await assert.rejects(() => buildGlobalClaimExactnessReceipt({
+        repositoryRoot: root,
+        observationReceiptPaths: receipts,
+        sourceCommit: first.sourceCommit,
+        worktreeFingerprint: first.worktreeFingerprint
+    }), /runId is required/u)
+    const crossRun = structuredClone(receipt)
+    crossRun.runId = 'global-claim-exactness-other-run'
+    crossRun.contentDigest = digestValue({ ...crossRun, contentDigest: null })
+    assert.throws(() => validateGlobalClaimExactnessReceipt(crossRun, {
+        expectedRunId: 'global-claim-exactness-test'
+    }), /runId mismatch/u)
+    const expanded = structuredClone(receipt)
+    expanded.unclaimedAuthority = true
+    expanded.contentDigest = digestValue({ ...expanded, contentDigest: null })
+    assert.throws(() => validateGlobalClaimExactnessReceipt(expanded), /fields are not sealed/u)
     assert.equal(receipt.scopeId, globalExactnessScopeId)
     assert.equal(receipt.counts.requiredBehaviors, 9)
     assert.equal(receipt.counts.scopes, 6)
@@ -168,6 +186,7 @@ test('global exactness fails closed on ledger, claim and observation tamper', as
     const base = {
         repositoryRoot: root,
         observationReceiptPaths: receipts,
+        runId: 'global-claim-exactness-test',
         sourceCommit: first.sourceCommit,
         worktreeFingerprint: first.worktreeFingerprint
     }

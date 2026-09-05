@@ -1580,6 +1580,7 @@ function acceptedClaimsFixture(context)
     const terminal = {
         schema: 'fsusblog.global-claim-exactness-terminal-receipt.v1',
         scopeId: 'global-document-claim-exactness',
+        runId: schedulerRunId,
         source: {
             sourceCommit: 'a'.repeat(40),
             worktreeFingerprint: 'b'.repeat(64),
@@ -1833,6 +1834,19 @@ test('accepted claims reject terminal file/content/identity and re-sealed claim 
             migrationLedger
         }),
         /reference identity\/content seal mismatch/u)
+})
+
+test('accepted claims reject a re-sealed terminal from another scheduler run', (context) =>
+{
+    const fixture = acceptedClaimsFixture(context)
+    const terminal = structuredClone(fixture.terminal)
+    terminal.runId = 'other-run'
+    terminal.contentDigest = digestValue({ ...terminal, contentDigest: null })
+    const receipt = fixture.bindTerminal(terminal)
+    assert.throws(() => validateAcceptedClaimsReceiptAgainstRegistry({
+        registry, producerId: registry.producers[0].producerId, receipt,
+        repositoryRoot: fixture.repositoryRoot, migrationLedger
+    }), /terminal receipt source identity mismatch/u)
 })
 
 test('accepted claims replay the terminal exact claim inventory rather than reconstructing it', (context) =>
