@@ -1500,11 +1500,14 @@ function scanPackageScripts(manifest, context)
             {
                 addFinding(context.findings, context.file, context.pathClasses, `forbidden-legacy-surface:${token}`, location)
             }
-            const selectionField = evidenceSelectionField(token)
-            if (selectionField) addFinding(context.findings, context.file, context.pathClasses, `forbidden-evidence-selection:${selectionField}`, location)
             const authorityField = authorityResidueField(token)
             if (authorityField) addFinding(context.findings, context.file, context.pathClasses, `forbidden-self-authority:${authorityField}`, location)
         }
+        scanMachineValueCandidates(String(command), (candidate) =>
+        {
+            const selectionField = evidenceSelectionField(candidate)
+            if (selectionField) addFinding(context.findings, context.file, context.pathClasses, `forbidden-evidence-selection:${selectionField}`, location)
+        })
     }
 }
 
@@ -1626,8 +1629,7 @@ function collectScanFiles(repositoryRoot)
     const tracked = trackedRepositoryFiles(repositoryRoot)
     if (tracked)
     {
-        const inScope = (file) => scanRoots.some((entry) => file === entry.path || file.startsWith(`${entry.path}/`))
-            || path.posix.basename(file) === 'package.json'
+        const inScope = (file) => pathClassesFor(file).length > 0
         return {
             files: tracked.files.filter((entry) => inScope(entry.file)),
             gitAuthority: tracked.gitAuthority,
@@ -1637,7 +1639,7 @@ function collectScanFiles(repositoryRoot)
     }
     const files = []
     for (const entry of scanRoots) walkFiles(repositoryRoot, entry.path, files)
-    walkFiles(repositoryRoot, '.', files, (file) => path.posix.basename(file) === 'package.json')
+    walkFiles(repositoryRoot, '.', files, (file) => pathClassesFor(file).length > 0)
     return { files: files.map((file) => ({ file, indexContent: null })), gitAuthority: null, symlinks: [], gitlinks: [] }
 }
 

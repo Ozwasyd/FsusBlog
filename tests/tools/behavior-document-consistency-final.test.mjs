@@ -260,6 +260,49 @@ test('zero-legacy scan covers every terminal path class and rejects root-specifi
     }
 })
 
+test('zero-legacy inventories tracked projections output schemas and package scripts outside source roots', (t) =>
+{
+    const files = {
+        'artifacts/behavior.generated.json': JSON.stringify({ lastVerifiedCommit: 'a'.repeat(40) }),
+        'build/schemas/behavior-output.json': JSON.stringify({ approvedContentDigest: 'sha256:old' }),
+        'package.json': JSON.stringify({ scripts: { qualify: 'node deprecated-claim-cli.mjs' } }),
+        'ops/private/package.json': JSON.stringify({ scripts: { latestReceipt: 'node current-claim-cli.mjs' } })
+    }
+    const repositoryRoot = sourceRepositoryFixture(t, files)
+    const scan = scanZeroLegacyGovernance(repositoryRoot)
+    for (const file of Object.keys(files))
+    {
+        assert.ok(scan.findings.some((finding) => finding.file === file), `${file} escaped tracked scope`)
+    }
+    assert.ok(scan.pathClassCounts['generated-projection'] > 0)
+    assert.ok(scan.pathClassCounts['output-schema'] > 0)
+    assert.deepEqual(scan, scanZeroLegacyGovernance(repositoryRoot))
+
+    const looseRoot = repositoryFixture(t, files)
+    const looseScan = scanZeroLegacyGovernance(looseRoot)
+    assert.ok(looseScan.findings.some((finding) => finding.file === 'artifacts/behavior.generated.json'))
+    assert.equal(looseScan.findings.some((finding) => finding.file.startsWith('build/')), false)
+})
+
+test('zero-legacy package script selection paths cannot hide behind command file extensions', (t) =>
+{
+    const repositoryRoot = repositoryFixture(t, {
+        'package.json': JSON.stringify({ scripts: {
+            qualify: 'node ./tools/latest-receipt.mjs',
+            verify: 'node "./tools/newest-evidence.cjs"',
+            current: 'node ./tools/current-receipt.mjs --scan-source'
+        } })
+    })
+    const findings = scanZeroLegacyGovernance(repositoryRoot).findings
+    for (const script of ['qualify', 'verify'])
+    {
+        assert.ok(findings.some((finding) => finding.file === 'package.json'
+            && finding.location === `$.scripts.${script}`
+            && finding.rule.startsWith('forbidden-evidence-selection:')))
+    }
+    assert.equal(findings.some((finding) => finding.location === '$.scripts.current'), false)
+})
+
 test('zero-legacy machine-field mutation corpus rejects separator variants and boolean self-certification', (t) =>
 {
     const machineFields = {
