@@ -13,6 +13,7 @@ import { readLatestGitRef } from './dependency-git-registry.mjs'
 import { createDockerRegistryReader, dockerRepository, readDockerHubPublication, readLatestDocker, readMcrPublication } from './dependency-docker-registry.mjs'
 import { readGhcrPublication } from './dependency-ghcr-publication.mjs'
 import { collectRegistryResults } from './dependency-registry-batch.mjs'
+import { readLatestNpm } from './dependency-npm-registry.mjs'
 
 import {
     clone,
@@ -69,10 +70,7 @@ async function liveLatest(item, currentVersion) {
         return readLatestDotnetSdk(fetchJson)
     }
     if (item.datasource === 'npm') {
-        const body = await fetchJson(`https://registry.npmjs.org/${encodeURIComponent(item.packageName)}`)
-        const latest = body['dist-tags']?.latest
-        if (!latest) throw new Error(`npm latest missing for ${item.packageName}`)
-        return registryRelease(latest, body.time?.[latest], `npm:${item.packageName}`)
+        return readLatestNpm(item, root, fetchJson, process.env.GITHUB_TOKEN || process.env.GH_TOKEN)
     }
     if (item.datasource === 'nuget') {
         return readLatestNuget(item.packageName, fetchJson)
