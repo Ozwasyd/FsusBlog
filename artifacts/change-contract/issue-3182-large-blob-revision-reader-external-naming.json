@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/change-contract.md"
+            ],
+            "reason": "preserve documented caller-visible schema, digest, path, symlink and worktree spellings while defining the exact revision blob boundary"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/governance/change-contract.mjs"
+            ],
+            "reason": "preserve process environment and Git command spellings while replacing the bounded candidate revision reader"
+        }
+    ]
+}

@@ -671,4 +671,77 @@ describe('publicEntryRegistry shared coverage', () => {
     expect(bootstrap?.filterType).toBeUndefined()
     expect(hydration?.filterType).toBeUndefined()
   })
+
+  it('propagates taxonomy description through filter view, bootstrap, and hydration', async () => {
+    const result = await buildPublicEntry('Filter', {
+      siteTitle: 'FsusBlog',
+      siteDescription: 'desc',
+      routeKey: 'category:7',
+      title: '架构',
+      filter: {
+        filterType: 'category',
+        filterKey: 'category:7',
+        filterId: 7,
+        filterName: '架构',
+        description: '  关于系统架构的文章  ',
+        isInvalidTarget: false,
+        pageIndex: 1,
+        pageSize: 10,
+        total: 0,
+        articles: []
+      }
+    })
+
+    const renderShellMock = vi.mocked(renderShell)
+    const filterAssembly = renderShellMock.mock.calls.at(-1)?.[2] as {
+      props?: { view?: { header?: { description?: string | null; currentName?: string } } }
+    }
+    const bootstrap = decodePublicAotPayload<{ filter?: { description?: string | null } }>(result.entry.bootstrapPayload)
+    const hydration = decodePublicAotPayload<{
+      filter?: { description?: string | null }
+      view?: { header?: { description?: string | null } }
+    }>(result.entry.hydrationPropsPayload)
+
+    expect(filterAssembly.props?.view?.header?.currentName).toBe('架构')
+    expect(filterAssembly.props?.view?.header?.description).toBe('关于系统架构的文章')
+    expect(bootstrap?.filter?.description).toBe('关于系统架构的文章')
+    expect(hydration?.filter?.description).toBe('关于系统架构的文章')
+    expect(hydration?.view?.header?.description).toBe('关于系统架构的文章')
+  })
+
+  it('keeps filter description null when taxonomy has none', async () => {
+    const result = await buildPublicEntry('Filter', {
+      siteTitle: 'FsusBlog',
+      siteDescription: 'desc',
+      routeKey: 'tag:3',
+      title: 'Vue',
+      filter: {
+        filterType: 'tag',
+        filterKey: 'tag:3',
+        filterId: 3,
+        filterName: 'Vue',
+        description: null,
+        isInvalidTarget: false,
+        pageIndex: 1,
+        pageSize: 10,
+        total: 0,
+        articles: []
+      }
+    })
+
+    const renderShellMock = vi.mocked(renderShell)
+    const filterAssembly = renderShellMock.mock.calls.at(-1)?.[2] as {
+      props?: { view?: { header?: { description?: string | null } } }
+    }
+    const bootstrap = decodePublicAotPayload<{ filter?: { description?: string | null } }>(result.entry.bootstrapPayload)
+    const hydration = decodePublicAotPayload<{
+      filter?: { description?: string | null }
+      view?: { header?: { description?: string | null } }
+    }>(result.entry.hydrationPropsPayload)
+
+    expect(filterAssembly.props?.view?.header?.description).toBeNull()
+    expect(bootstrap?.filter?.description).toBeNull()
+    expect(hydration?.filter?.description).toBeNull()
+    expect(hydration?.view?.header?.description).toBeNull()
+  })
 })

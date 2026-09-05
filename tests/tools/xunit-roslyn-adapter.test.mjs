@@ -6,6 +6,8 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { exerciseXunitProjectGraphFixture } from './support/xunit-project-graph-fixture.mjs';
+
 const repositoryRoot = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const fixtureProject = path.join(
     repositoryRoot,
@@ -22,6 +24,7 @@ const relocatedAdapterExecutable = path.join(
     productionBuildRoot,
     'dotnet/FsusBlog.XunitRoslynAdapter/bin/Debug/net10.0/FsusBlog.XunitRoslynAdapter'
 );
+const relocatedAdapterAssembly = `${relocatedAdapterExecutable}.dll`;
 
 function buildAdapter()
 {
@@ -71,6 +74,15 @@ function factsOf(report, methodName)
 }
 
 buildAdapter();
+let projectGraphEvidence;
+test.before(() =>
+{
+    projectGraphEvidence = exerciseXunitProjectGraphFixture({
+        repositoryRoot,
+        adapterAssembly: relocatedAdapterAssembly,
+        buildRoot: productionBuildRoot
+    });
+});
 test.after(() => rmSync(productionBuildRoot, { recursive: true, force: true }));
 
 test('xunit Roslyn adapter extracts Fact, InlineData Theory, MemberData, ClassData and nested/partial/generic owners', () =>
@@ -196,6 +208,156 @@ test('compile or semantic model failure fails closed instead of falling back to 
         env: adapterEnvironment,
         stdio: 'pipe'
     }), /test project not found|fail closed/u);
+});
+
+test('real xunit project graph rejects a stale lock then regenerates, builds and inventories current sources', () =>
+{
+    assert.notEqual(projectGraphEvidence.staleLockedRestore.status, 0);
+    assert.match(projectGraphEvidence.staleLockedRestore.output, /NU1004|lock file is inconsistent/iu);
+    assert.equal(projectGraphEvidence.regeneratedRestoreStatus, 0);
+    assert.equal(projectGraphEvidence.currentLockedRestoreStatus, 0);
+    assert.equal(projectGraphEvidence.buildStatus, 0);
+    assert.equal(
+        projectGraphEvidence.currentInventory.status,
+        0,
+        JSON.stringify(projectGraphEvidence.currentInventory.errorDiagnostics)
+    );
+    assert.ok(projectGraphEvidence.currentInventory.testCaseCount > 0);
+    assert.deepEqual(projectGraphEvidence.currentInventory.errorDiagnostics, []);
+    assert.equal(projectGraphEvidence.currentInventory.hasRuntimeRollupCase, true);
+});
+
+test('xunit Roslyn adapter fails closed on stale static member CS0117 after the last build', () =>
+{
+    assert.equal(projectGraphEvidence.cs0117.status, 1);
+    assert.equal(projectGraphEvidence.cs0117.report.testCases.length, 0);
+    const diagnostic = projectGraphEvidence.cs0117.report.diagnostics.find((entry) => (
+        entry.code === 'xunit-semantic-model-incomplete'
+    ));
+    assert.ok(diagnostic);
+    assert.match(diagnostic.message, /CS0117/u);
+});
+
+test('xunit Roslyn adapter fails closed on stale instance member CS1061 after the last build', () =>
+{
+    assert.equal(projectGraphEvidence.cs1061.status, 1);
+    assert.equal(projectGraphEvidence.cs1061.report.testCases.length, 0);
+    const diagnostic = projectGraphEvidence.cs1061.report.diagnostics.find((entry) => (
+        entry.code === 'xunit-semantic-model-incomplete'
+    ));
+    assert.ok(diagnostic);
+    assert.match(diagnostic.message, /CS1061/u);
+});
+
+test('custom GeneratedRegexAttribute cannot suppress a missing partial implementation', () =>
+{
+    assert.equal(projectGraphEvidence.shadowGeneratedRegex.status, 1);
+    assert.equal(projectGraphEvidence.shadowGeneratedRegex.report.testCases.length, 0);
+    const diagnostic = projectGraphEvidence.shadowGeneratedRegex.report.diagnostics.find((entry) => (
+        entry.code === 'xunit-semantic-model-incomplete'
+    ));
+    assert.ok(diagnostic);
+    assert.match(diagnostic.message, /CS8795/u);
+});
+
+test('framework GeneratedRegexAttribute with an invalid method signature fails closed', () =>
+{
+    assert.equal(projectGraphEvidence.invalidGeneratedRegexSignature.status, 1);
+    assert.equal(projectGraphEvidence.invalidGeneratedRegexSignature.report.testCases.length, 0);
+    const diagnostic = projectGraphEvidence.invalidGeneratedRegexSignature.report.diagnostics.find((entry) => (
+        entry.code === 'xunit-semantic-model-incomplete'
+    ));
+    assert.ok(diagnostic);
+    assert.match(diagnostic.message, /CS8795/u);
+});
+
+test('valid GeneratedRegex declaration cannot suppress an accompanying compiler error', () =>
+{
+    assert.equal(projectGraphEvidence.generatedRegexWithOtherError.status, 1);
+    assert.equal(projectGraphEvidence.generatedRegexWithOtherError.report.testCases.length, 0);
+    const diagnostic = projectGraphEvidence.generatedRegexWithOtherError.report.diagnostics.find((entry) => (
+        entry.code === 'xunit-semantic-model-incomplete'
+    ));
+    assert.ok(diagnostic);
+    assert.doesNotMatch(diagnostic.message, /CS8795/u);
+    assert.match(diagnostic.message, /CS0117/u);
+});
+
+test('GeneratedRegex method with a ref return fails closed', () =>
+{
+    assert.equal(projectGraphEvidence.refGeneratedRegex.status, 1);
+    assert.equal(projectGraphEvidence.refGeneratedRegex.report.testCases.length, 0);
+    const diagnostic = projectGraphEvidence.refGeneratedRegex.report.diagnostics.find((entry) => (
+        entry.code === 'xunit-semantic-model-incomplete'
+    ));
+    assert.ok(diagnostic);
+    assert.match(diagnostic.message, /CS8818/u);
+});
+
+test('GeneratedRegex method with a ref readonly return fails closed', () =>
+{
+    assert.equal(projectGraphEvidence.refReadonlyGeneratedRegex.status, 1);
+    assert.equal(projectGraphEvidence.refReadonlyGeneratedRegex.report.testCases.length, 0);
+    const diagnostic = projectGraphEvidence.refReadonlyGeneratedRegex.report.diagnostics.find((entry) => (
+        entry.code === 'xunit-semantic-model-incomplete'
+    ));
+    assert.ok(diagnostic);
+    assert.match(diagnostic.message, /CS8818/u);
+});
+
+test('invalid GeneratedRegex pattern fails closed through the real framework generator', () =>
+{
+    assert.equal(projectGraphEvidence.invalidGeneratedRegexPattern.status, 1);
+    assert.equal(projectGraphEvidence.invalidGeneratedRegexPattern.report.testCases.length, 0);
+    const diagnostic = projectGraphEvidence.invalidGeneratedRegexPattern.report.diagnostics.find((entry) => (
+        entry.code === 'xunit-semantic-model-incomplete'
+    ));
+    assert.ok(diagnostic);
+    assert.match(diagnostic.message, /SYSLIB1042/u);
+});
+
+test('invalid GeneratedRegex timeout fails closed through the real framework generator', () =>
+{
+    assert.equal(projectGraphEvidence.invalidGeneratedRegexTimeout.status, 1);
+    assert.equal(projectGraphEvidence.invalidGeneratedRegexTimeout.report.testCases.length, 0);
+    const diagnostic = projectGraphEvidence.invalidGeneratedRegexTimeout.report.diagnostics.find((entry) => (
+        entry.code === 'xunit-semantic-model-incomplete'
+    ));
+    assert.ok(diagnostic);
+    assert.match(diagnostic.message, /SYSLIB1042/u);
+});
+
+test('test output cannot shadow a target reference-pack assembly by simple name', () =>
+{
+    assert.equal(projectGraphEvidence.sameNameMetadataShadow.status, 1);
+    assert.equal(projectGraphEvidence.sameNameMetadataShadow.report.testCases.length, 0);
+    const diagnostic = projectGraphEvidence.sameNameMetadataShadow.report.diagnostics.find((entry) => (
+        entry.code === 'xunit-compile-context-unavailable'
+    ));
+    assert.ok(diagnostic);
+    assert.match(diagnostic.message, /shadows MSBuild target reference-pack identity System\.Text\.RegularExpressions/u);
+});
+
+test('same-strong-name assembly copied from an old-pack path cannot shadow the evaluated reference', () =>
+{
+    assert.equal(projectGraphEvidence.sameStrongNameOldPackShadow.status, 1);
+    assert.equal(projectGraphEvidence.sameStrongNameOldPackShadow.report.testCases.length, 0);
+    const diagnostic = projectGraphEvidence.sameStrongNameOldPackShadow.report.diagnostics.find((entry) => (
+        entry.code === 'xunit-compile-context-unavailable'
+    ));
+    assert.ok(diagnostic);
+    assert.match(diagnostic.message, /shadows MSBuild target reference-pack identity System\.Text\.RegularExpressions/u);
+});
+
+test('multi-pack wrong DOTNET_ROOT cannot replace the MSBuild-evaluated targeting pack', () =>
+{
+    assert.equal(
+        projectGraphEvidence.wrongDotnetRootInventory.status,
+        0,
+        JSON.stringify(projectGraphEvidence.wrongDotnetRootInventory.report.diagnostics)
+    );
+    assert.equal(projectGraphEvidence.wrongDotnetRootInventory.report.testCases.length > 0, true);
+    assert.deepEqual(projectGraphEvidence.wrongDotnetRootInventory.report.diagnostics, []);
 });
 
 test('runtime xUnit discovery matches static inventory on statically expandable cases', () =>

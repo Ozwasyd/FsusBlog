@@ -263,27 +263,27 @@ export const identity = {
         },
         UserIdentityPasskeys: {
             title: 'Passkeys',
-            description: 'Dispositivos de login.'
+            description: '',
         },
         UserIdentityRecoveryKey: {
             title: 'Recovery Key',
-            description: 'Credencial de recuperação da conta.'
+            description: '',
         },
         UserIdentityAnonymous: {
             title: 'Identidade anônima',
-            description: 'Comentários anônimos, envio público, regras do site.'
+            description: '',
         },
         UserIdentityPublicProfile: {
             title: 'Perfil público',
-            description: 'Informações de identidade pública.'
+            description: '',
         },
         UserIdentitySessions: {
             title: 'Sessões de dispositivos',
-            description: 'Sessões ativas de dispositivos.'
+            description: '',
         },
         UserIdentityMfa: {
             title: 'Verificação em duas etapas',
-            description: 'Status do TOTP.'
+            description: '',
         },
         UserIdentityCommentRecords: {
             title: 'Registros de comentários públicos',

@@ -18,6 +18,7 @@ public interface IPublicAotInvalidationService
         IEnumerable<int>? tagIds,
         CancellationToken cancellationToken = default);
     Task InvalidateSeoAsync(CancellationToken cancellationToken = default);
+    Task InvalidateFilterRouteFamilyAsync(string filterRouteKey, CancellationToken cancellationToken = default);
     Task InvalidateAboutAsync(CancellationToken cancellationToken = default);
     Task InvalidateStaticPageAsync(PublicPageKind kind, CancellationToken cancellationToken = default);
 }

@@ -141,7 +141,7 @@ for (const [file, source, tokens] of [
 const requiredWriteTokens = [
     '<ArticleWriteCommandBar',
     '@save-draft="saveDraftNow"',
-    'focusFirstArticleValidationError()',
+    'focusFirstArticleValidationError(',
     '<ArticleWriteInspectorShell',
     ':active-inspector="activeInspector"',
     '@switch="switchInspector"',
@@ -525,7 +525,7 @@ for (const token of [
         fail(markdownEditorPath, 1, `Article editor responsive command contract is missing ${token}`);
     }
 }
-for (const token of ['.el-form-item.is-error', 'target.focus({ preventScroll: true })', "block: 'center'"])
+for (const token of ['[aria-invalid="true"]', 'firstErrorFieldRoot', 'target.focus({ preventScroll: true })', "block: 'center'"])
 {
     if (!accessibility.includes(token))
     {

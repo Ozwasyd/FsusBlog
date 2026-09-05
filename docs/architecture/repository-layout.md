@@ -45,8 +45,12 @@ independent verifier，不拥有第二份 behavior、claim、state、transition 
 
 `src/migration/` 由独立 `FsusBlog.Migration` project 拥有：legacy descriptors、catalogs、
 checksum/history、typed provider DDL 与 migration-only conversion rows 只能在该 project 和
-对应 `tests/migration/` 中编译。`src/backend/Infrastructure/SchemaMigration/` 只保留
-current-schema authority/inspector、fail-closed startup verifier、lock 与业务 backfill
+对应 `tests/migration/` 中编译。该 project 同时以 `Exe` 形式编译为 offline migration
+host；`tools/db/run-online-migrations.sh` 的 `--server-dll` 指向其输出。分类注册表
+`OfflineMigrationCatalogEntries.generated.cs` 由 `tools/db/generate-offline-migration-catalog.mjs`
+从 Server 侧 `OnlineSchemaMigrationCatalog` 派生（防漂移：
+`tools/db/check-offline-migration-catalog-parity.mjs`）。`src/backend/Infrastructure/SchemaMigration/`
+只保留 current-schema authority/inspector、fail-closed startup verifier、lock 与业务 backfill
 handlers；Server 生产图不得引用 Migration assembly。机器可读文件/符号清单与 content digest 位于
 `artifacts/schema-migration/migration-assembly-receipt.json`。
 
@@ -64,6 +68,11 @@ Change Contract 的 post-merge generated repair schema 位于
 `config/schemas/post-merge-generated-output-repair.schema.json`，由
 `config/configuration-ownership.json` 显式登记；producer allowlist 只存在于 trusted
 `tools/governance/change-contract-registry.mjs`，不得从历史目录、mtime 或最新文件推断。
+多步且有前后依赖的 generated repair 使用独立
+`config/schemas/post-merge-generated-output-repair-dag.schema.json`；其 trusted registry
+同时封存唯一 canonical repair 与 external-naming manifest paths、ordered steps、generator
+closure、dependency consumption 和完整 output ownership，不能用 v1 单 producer manifest、
+任意 evidence path 或未登记 command 替代。
 已合并 PR 遗漏其声明的 external-naming evidence 时，独立 schema
 `config/schemas/post-merge-external-naming-evidence-repair.schema.json` 绑定原 PR 的 exact
 base/head/merge、未漂移 source blob/revision、registered surface 与缺失 artifact digest；

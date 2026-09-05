@@ -1,0 +1,43 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "github-actions-schema",
+            "paths": [
+                ".github/workflows/quality-gate.yml"
+            ],
+            "reason": "Preserve the pinned GitHub Actions setup-dotnet syntax while declaring the MSBuild evaluator dependency in the Fast Static Governance job."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/governance/check-monolithic-distributed-architecture.mjs",
+                "tools/governance/evaluate-msbuild-entrypoints.mjs"
+            ],
+            "reason": "Preserve the checker CLI and caller-visible .NET and MSBuild process environment spellings while evaluating executable project properties."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "config/testing/test-execution-envelope-applicability.json",
+                "tests/governance/monolithic-distributed-architecture.json"
+            ],
+            "reason": "Keep the architecture policy and generated test-governance projections on their canonical machine-readable JSON keys."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "Regenerate the complete testing matrix documentation without changing its existing externally visible tier and evidence identifiers."
+        },
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "docs/architecture/monolithic-distributed-boundary.md"
+            ],
+            "reason": "Preserve the canonical runtime-mode identifiers while closing the architecture boundary wording required by the generated observation authority."
+        }
+    ]
+}

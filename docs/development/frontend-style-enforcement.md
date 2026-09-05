@@ -59,6 +59,46 @@ Regenerate a reviewed baseline without changing source:
 node tools/frontend/check-frontend-style.mjs --mode full --update-baseline
 ```
 
+The updater rejects new debt, count increases, and equal-count diagnostic identity
+replacement. A malformed historical aggregate can be corrected only with
+`--reviewed-baseline-correction config/development/frontend-style-baseline-corrections.json`.
+That closed authority binds the unchanged source digest, exact previous and corrected
+counts, violation digests and rule maps. Its bytes must already exist at refreshed
+`refs/remotes/origin/master`; a candidate cannot add or edit its own correction. The
+previous rule sum must prove the malformed aggregate, the corrected rule sum must equal
+the corrected count, and the authority becomes unusable once the baseline entry is
+replaced.
+
+The independently reviewed parent-import residual is closed in
+`config/development/frontend-style-reviewed-residual.json`. It binds exactly 149
+`tests/**` and `tools/**` paths and 329
+`eslint/import-x/no-relative-parent-imports` diagnostics to the unsuppressed source
+SHA-256, canonical diagnostic identity and message digest, per-rule count, prior owner
+commit, review issue, reason and terminal condition. Its aggregate declares zero other
+diagnostics. Validate the authority without updating the baseline:
+
+```bash
+node tools/frontend/reviewed-residual-classification.mjs
+```
+
+A downstream baseline update that reaches any bound unsuppressed source must consume the
+whole authority with
+`--reviewed-residual-classification config/development/frontend-style-reviewed-residual.json`.
+The authority bytes must already exist unchanged on an ancestor at refreshed
+`refs/remotes/origin/master`. Candidate-authored or missing bytes, extra, omitted,
+duplicate or reordered entries, stale source/rule/diagnostic/owner identity, partial
+consumption and reuse after a successful update all fail closed. The authority only
+admits the exact 329-diagnostic current set from the bound source bytes and requires the
+reviewed prior-consumer plus still-unconsumed remote baseline projections. It does not
+update the baseline itself and never suppresses `strict-full`.
+
+`--migrate-baseline-paths tests/test-asset-semantic-renames.json` is limited to a
+non-empty set of real one-to-one renames whose old paths are absent and destinations are
+live. Each destination must preserve the exact source digest and the prior diagnostic
+identity after path normalization; a destination already owned by the baseline, or any
+duplicate, cycle, chain or path reuse, fails closed. `referenceFiles` are audit context
+only and never authorize a violation identity replacement or a new baseline path.
+
 The runner refuses a repository-wide `--fix`. `npm --prefix src/frontend run format:fix` fixes changed files only, and AST fixers must be idempotent. ESLint uses a content cache under ignored `.tmp/frontend-style/` so unchanged work is resumed rather than parsed repeatedly.
 
 ## Governance preservation

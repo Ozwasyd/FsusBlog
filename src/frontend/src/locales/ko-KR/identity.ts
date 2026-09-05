@@ -259,27 +259,27 @@ export const identity = {
         },
         UserIdentityPasskeys: {
             title: '패스키',
-            description: '로그인 기기.'
+            description: '',
         },
         UserIdentityRecoveryKey: {
             title: '복구 키',
-            description: '계정 복구 자격 증명.'
+            description: '',
         },
         UserIdentityAnonymous: {
             title: '익명 신원',
-            description: '익명 댓글, 공개 게시물, 사이트 규칙.'
+            description: '',
         },
         UserIdentityPublicProfile: {
             title: '공개 프로필',
-            description: '공개 신원 정보.'
+            description: '',
         },
         UserIdentitySessions: {
             title: '기기 세션',
-            description: '활성 기기 세션.'
+            description: '',
         },
         UserIdentityMfa: {
             title: '2차 인증',
-            description: 'TOTP 상태.'
+            description: '',
         },
         UserIdentityCommentRecords: {
             title: '공개 댓글 기록',

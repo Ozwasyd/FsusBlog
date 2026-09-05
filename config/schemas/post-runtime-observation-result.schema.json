@@ -7,6 +7,8 @@
         "schema",
         "producerId",
         "toolVersion",
+        "registryDigest",
+        "observationSchemaDigest",
         "sourceState",
         "executionClass",
         "evidenceClass",
@@ -19,6 +21,9 @@
         "terminal",
         "semanticFacts",
         "candidatePlanRef",
+        "attemptAuthorityRef",
+        "fixtureAuthorityRef",
+        "profileAuthorityRef",
         "sourceReceiptRef",
         "canonicalRerunCommand",
         "independentVerifyCommand",
@@ -42,9 +47,66 @@
         "toolVersion": {
             "$ref": "#/$defs/toolVersion"
         },
+        "registryDigest": {
+            "$ref": "#/$defs/digest"
+        },
+        "observationSchemaDigest": {
+            "$ref": "#/$defs/digest"
+        },
         "sourceState": {
             "type": "object",
-            "minProperties": 1
+            "additionalProperties": false,
+            "required": [
+                "sourceCommit",
+                "worktreeFingerprint",
+                "runId",
+                "attemptId",
+                "fixtureId",
+                "profileId"
+            ],
+            "properties": {
+                "sourceCommit": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{40}$"
+                },
+                "worktreeFingerprint": {
+                    "$ref": "#/$defs/digest"
+                },
+                "buildIdentity": {
+                    "$ref": "#/$defs/digest"
+                },
+                "artifactDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "candidateId": {
+                    "$ref": "#/$defs/candidateIdentity"
+                },
+                "runtimeId": {
+                    "$ref": "#/$defs/runtimeIdentity"
+                },
+                "browserIdentity": {
+                    "$ref": "#/$defs/browserIdentity"
+                },
+                "releaseId": {
+                    "$ref": "#/$defs/releaseIdentity"
+                },
+                "rolloutId": {
+                    "$ref": "#/$defs/rolloutIdentity"
+                },
+                "runId": {
+                    "$ref": "#/$defs/runIdentity"
+                },
+                "attemptId": {
+                    "type": "string",
+                    "pattern": "^attempt-[0-9]{4}$"
+                },
+                "fixtureId": {
+                    "$ref": "#/$defs/fixtureIdentity"
+                },
+                "profileId": {
+                    "$ref": "#/$defs/stableIdentity"
+                }
+            }
         },
         "executionClass": {
             "enum": [
@@ -129,10 +191,19 @@
             "minProperties": 1
         },
         "candidatePlanRef": {
-            "$ref": "#/$defs/receiptRef"
+            "$ref": "#/$defs/identityAuthorityRef"
+        },
+        "attemptAuthorityRef": {
+            "$ref": "#/$defs/identityAuthorityRef"
+        },
+        "fixtureAuthorityRef": {
+            "$ref": "#/$defs/identityAuthorityRef"
+        },
+        "profileAuthorityRef": {
+            "$ref": "#/$defs/identityAuthorityRef"
         },
         "sourceReceiptRef": {
-            "$ref": "#/$defs/receiptRef"
+            "$ref": "#/$defs/sourceReceiptRef"
         },
         "canonicalRerunCommand": {
             "type": "string",
@@ -159,6 +230,72 @@
             "type": "string",
             "pattern": "^sha256:[a-f0-9]{64}$"
         },
+        "stableIdentity": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{2,127}$"
+        },
+        "runIdentity": {
+            "type": "string",
+            "pattern": "^(?!\\.{1,2}$)[A-Za-z0-9_](?:[A-Za-z0-9_.-]{0,126}[A-Za-z0-9_])?$"
+        },
+        "candidateIdentity": {
+            "type": "string",
+            "pattern": "^(?!\\.{1,2}:)[A-Za-z0-9_](?:[A-Za-z0-9_.-]{0,126}[A-Za-z0-9_])?:candidate$"
+        },
+        "runtimeIdentity": {
+            "type": "string",
+            "pattern": "^(?!\\.{1,2}:)[A-Za-z0-9_](?:[A-Za-z0-9_.-]{0,126}[A-Za-z0-9_])?:runtime$"
+        },
+        "browserIdentity": {
+            "type": "string",
+            "pattern": "^(?!\\.{1,2}:)[A-Za-z0-9_](?:[A-Za-z0-9_.-]{0,126}[A-Za-z0-9_])?:browser-contract$"
+        },
+        "fixtureIdentity": {
+            "type": "string",
+            "pattern": "^(?!\\.{1,2}:)[A-Za-z0-9_](?:[A-Za-z0-9_.-]{0,126}[A-Za-z0-9_])?:fixture$"
+        },
+        "rolloutIdentity": {
+            "type": "string",
+            "pattern": "^(?!\\.{1,2}:)[A-Za-z0-9_](?:[A-Za-z0-9_.-]{0,126}[A-Za-z0-9_])?:rollout$"
+        },
+        "releaseIdentity": {
+            "type": "string",
+            "pattern": "^[0-9]{14}-[a-f0-9]{12}$"
+        },
+        "identityAuthorityRef": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "path",
+                "fileDigest",
+                "contentDigest",
+                "schema",
+                "role"
+            ],
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "fileDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "contentDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "schema": {
+                    "const": "fsusblog.post-runtime-identity-authority.v1"
+                },
+                "role": {
+                    "enum": [
+                        "plan",
+                        "attempt",
+                        "fixture",
+                        "profile"
+                    ]
+                }
+            }
+        },
         "receiptRef": {
             "type": "object",
             "additionalProperties": false,
@@ -177,6 +314,35 @@
                 },
                 "contentDigest": {
                     "$ref": "#/$defs/digest"
+                }
+            }
+        },
+        "sourceReceiptRef": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "path",
+                "fileDigest",
+                "contentDigest",
+                "schema",
+                "role"
+            ],
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "fileDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "contentDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "schema": {
+                    "const": "fsusblog.post-runtime-source-receipt.v1"
+                },
+                "role": {
+                    "const": "source"
                 }
             }
         }

@@ -460,6 +460,7 @@ export const PUBLIC_PAYLOAD_FIXTURES = [
             filterKey: 'category:4101',
             filterId: 4101,
             filterName: 'Payload Category',
+            description: 'Payload category description',
             title: 'Payload Category',
             articles: repeatedArticles(4, 4100),
             pageIndex: 1,
@@ -508,6 +509,7 @@ export const PUBLIC_PAYLOAD_FIXTURES = [
                 filterKey: 'tag:hydration',
                 filterId: 0,
                 filterName: 'hydration',
+                description: 'Hydration tag description',
                 articles: repeatedArticles(10, 4200),
                 pageIndex: 2,
                 pageSize: 10,
@@ -839,6 +841,9 @@ function assertFilterFixture(fixture, hydrationPayload, bootstrapPayload)
 
     assert(hydrationPayload.filter && bootstrapPayload.filter, `${fixture.id} missing filter payload`);
     assert(hydrationPayload.filter.filterType === bootstrapPayload.filter.filterType, `${fixture.id} filter type drift`);
+    assert(Object.prototype.hasOwnProperty.call(hydrationPayload.filter, 'description'), `${fixture.id} missing hydration filter.description`);
+    assert(hydrationPayload.filter.description === bootstrapPayload.filter.description, `${fixture.id} filter description drift`);
+    assert(hydrationPayload.view?.header?.description === hydrationPayload.filter.description, `${fixture.id} header description mismatch`);
     assert(Array.isArray(hydrationPayload.filter.articles), `${fixture.id} missing hydration filter articles`);
     assert(Array.isArray(bootstrapPayload.filter.articles), `${fixture.id} missing bootstrap filter articles`);
     assert(hydrationPayload.filter.articles.length === bootstrapPayload.filter.articles.length, `${fixture.id} filter article count drift`);
@@ -862,6 +867,7 @@ function assertFilterFixture(fixture, hydrationPayload, bootstrapPayload)
     return {
         filterType: hydrationPayload.filter.filterType,
         filterName: hydrationPayload.filter.filterName,
+        description: hydrationPayload.filter.description,
         articleCount: hydrationPayload.filter.articles.length,
         total: hydrationPayload.filter.total,
         invalid: hydrationPayload.filter.isInvalidTarget

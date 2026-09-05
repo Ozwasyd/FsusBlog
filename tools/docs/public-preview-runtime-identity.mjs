@@ -3,11 +3,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const identitySchema = 'fsusblog.local-runtime-process-identity.v1';
 const commitPattern = /^[a-f0-9]{40}$/u;
 const fingerprintPattern = /^[a-f0-9]{64}$/u;
+const darwinSnapshotScript = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../test/darwin-process-snapshot.py'
+);
 const runtimeRoles = [
     { role: 'backend', pidFile: 'backend.pid' },
     { role: 'debug-frontend', pidFile: 'dev-server.pid' },
@@ -37,6 +42,17 @@ function readPrivateFile(file)
 
 function readProcess(pid, procRoot = '/proc')
 {
+    if (process.platform === 'darwin')
+    {
+        // Linux /proc is unavailable; reuse the bootstrap's darwin observer so
+        // both sides read identical pgid/session/start-time/environment facts.
+        return {
+            pid,
+            ...JSON.parse(execFileSync('/usr/bin/python3', [darwinSnapshotScript, String(pid)], {
+                encoding: 'utf8'
+            }))
+        };
+    }
     const stat = fs.readFileSync(path.join(procRoot, String(pid), 'stat'), 'utf8');
     const tail = stat.slice(stat.lastIndexOf(')') + 2).trim().split(/\s+/u);
     const environment = Object.fromEntries(

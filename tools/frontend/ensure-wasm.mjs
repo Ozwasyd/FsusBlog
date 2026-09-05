@@ -2,7 +2,7 @@
 
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { constants as fsConstants } from 'node:fs';
+import { constants as fsConstants, existsSync } from 'node:fs';
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import { join, relative, resolve } from 'node:path';
@@ -682,7 +682,13 @@ async function runBuild()
 {
     return new Promise((resolve, reject) =>
     {
-        const bashExecutable = process.env.FSUSBLOG_BASH?.trim() || 'bash';
+        // macOS system bash (3.2) cannot parse the case/;; constructs in
+        // wasm/build.sh; prefer the brew bash when present.
+        const bashExecutable =
+            process.env.FSUSBLOG_BASH?.trim() ||
+            (process.platform === 'darwin' && existsSync('/opt/homebrew/bin/bash')
+                ? '/opt/homebrew/bin/bash'
+                : 'bash');
         const child = spawn(bashExecutable, ['./wasm/build.sh'], {
             cwd: clientRoot,
             stdio: 'inherit',

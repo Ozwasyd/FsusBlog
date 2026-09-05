@@ -109,6 +109,7 @@ export interface PublicAotBootstrapPayloadByKind {
             filterKey?: string | null;
             filterId?: number;
             filterName?: string | null;
+            description?: string | null;
             isInvalidTarget?: boolean;
             pageIndex?: number;
             pageSize?: number;
@@ -215,6 +216,7 @@ export interface PublicHydrationPayloadByKind {
             filterKey?: string | null;
             filterId?: number;
             filterName?: string | null;
+            description?: string | null;
             isInvalidTarget?: boolean;
             pageIndex?: number;
             pageSize?: number;

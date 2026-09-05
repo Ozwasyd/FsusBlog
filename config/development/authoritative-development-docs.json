@@ -215,7 +215,8 @@
                 ".gitignore",
                 ".gitattributes",
                 ".dockerignore",
-                ".ignore"
+                ".ignore",
+                ".xml"
             ],
             "specialFiles": [
                 "CODEOWNERS",
