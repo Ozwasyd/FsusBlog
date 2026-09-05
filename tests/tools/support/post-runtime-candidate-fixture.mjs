@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import assert from 'node:assert/strict'
 
 import { createProductionBuildReceipt } from '../../../tools/ci/production-build-artifacts.mjs'
 import { digestValue } from '../../../tools/fact-extractors/lib/canonicalize.mjs'
@@ -14,6 +15,8 @@ import {
   loadPostRuntimeProducerRegistry,
   root
 } from '../../../tools/test-matrix/post-runtime-producer-registry.mjs'
+import { beginCurrentRunEvidencePublication, finalizeCurrentRunEvidencePublication }
+  from '../../../tools/test/current-run-evidence-publication.mjs'
 
 function globalSeal(value)
 {
@@ -43,9 +46,18 @@ export function createPostRuntimeCandidateFixture(context, {
   const sourceState = { commit, worktreeFingerprint }
   const ledger = JSON.parse(fs.readFileSync(
     path.join(root, 'config/contracts/document-claim-migration-ledger.json'), 'utf8'))
+  const claimAcceptance = ledger.scopes.flatMap((scope) => scope.entries.flatMap((entry) =>
+    entry.claimIds.map((claimId, index) => ({
+      claimId, behaviorId: entry.behaviorId, scopeId: scope.scopeId, documentPath: entry.documentPath,
+      claimType: entry.generatedSectionIds[index] ? 'generated-section' : 'prose',
+      generatedSectionId: entry.generatedSectionIds[index] ?? null,
+      claimDigest: `sha256:${digestValue({ claimId })}`
+    })))).sort((left, right) => left.claimId.localeCompare(right.claimId))
+  const generatedClaimCount = claimAcceptance.filter((claim) => claim.claimType === 'generated-section').length
   const terminal = globalSeal({
     schema: 'fsusblog.global-claim-exactness-terminal-receipt.v1',
     scopeId: 'global-document-claim-exactness',
+    runId, claimAcceptance,
     source: {
       sourceCommit: commit,
       worktreeFingerprint,
@@ -57,15 +69,43 @@ export function createPostRuntimeCandidateFixture(context, {
     authorityDigests: [],
     counts: {
       requiredBehaviors: 10, scopes: 6, ledgerEntries: 10,
-      generatedClaimCount: 1, proseClaimCount: 1, proseTotal: 1, proseVerified: 1,
+      generatedClaimCount, proseClaimCount: claimAcceptance.length - generatedClaimCount, proseTotal: 1, proseVerified: 1,
       generatedSectionsVerified: 1, generatedSectionDrifts: 0, missing: 0, extra: 0,
       residue: 0, mutationKilled: 1, mutationTotal: 1, warnings: 0
     },
     mutationAggregate: { killed: 1, total: 1 },
     residue: [], proseVerification: {}, status: 'ok', failureReasons: []
   })
-  const terminalFile = write('terminal.json', terminal)
-  const claims = produceAcceptedClaims({ terminalReceipt: relative(terminalFile), repositoryRoot: root })
+  const authority = loadPostRuntimeProducerRegistry(root).receiptSemantics.acceptedTerminalAuthority
+  const publicationDirectory = path.join(root, authority.referenceRoot, runId, 'attempt-0001')
+  const terminalFile = path.join(publicationDirectory, authority.referenceName)
+  const payloadFile = path.join(publicationDirectory, authority.payloadName)
+  const terminalBytes = `${JSON.stringify(terminal, null, 2)}\n`
+  if (fs.existsSync(terminalFile))
+  {
+    assert.equal(fs.readFileSync(payloadFile, 'utf8'), terminalBytes,
+      'one fixture run cannot reuse a different terminal publication')
+  }
+  else
+  {
+    fs.mkdirSync(publicationDirectory, { recursive: true })
+    context.after(() => fs.rmSync(path.dirname(publicationDirectory), { recursive: true, force: true }))
+    const publicationContext = {
+      schema: 'fsusblog.current-run-evidence-context.v1', schedulerRunId: runId, attemptId: 'attempt-0001',
+      sourceCommit: commit, worktreeFingerprint: `sha256:${worktreeFingerprint}`,
+      candidateIdentity: { id: `${runId}:candidate`, digest: `sha256:${'1'.repeat(64)}` },
+      buildIdentity: { id: `${runId}:build`, digest: `sha256:${'2'.repeat(64)}` },
+      ownedRoots: [relative(publicationDirectory)]
+    }
+    publicationContext.contentDigest = `sha256:${digestValue(publicationContext)}`
+    const options = { authorityId: authority.authorityId, producerId: authority.producerId,
+      context: publicationContext, outputPath: relative(terminalFile), payloadPath: relative(payloadFile), repositoryRoot: root }
+    const session = beginCurrentRunEvidencePublication(options)
+    fs.writeFileSync(payloadFile, terminalBytes)
+    finalizeCurrentRunEvidencePublication({ ...options, sessionId: session.sessionId,
+      payloadSchema: terminal.schema, terminalStatus: 'success' })
+  }
+  const claims = produceAcceptedClaims({ terminalReceipt: relative(terminalFile), expectedRunId: runId, repositoryRoot: root })
   const claimsFile = write('accepted-claims.json', claims)
   const pre = seal({
     schema: 'fsusblog.behavior-evidence-pre-runtime-receipt.v1', scope: 'pre-runtime',

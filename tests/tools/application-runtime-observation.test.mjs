@@ -281,7 +281,7 @@ test('class receipt verifier rejects a hard-linked raw result authority', (conte
   assert.throws(() => validateClassReceipt(receipt, { repositoryRoot: root }), /single-link current-run file/u)
 })
 
-test('class producer rejects existence-only and cross-plan results', (context) =>
+test('class producer rejects existence-only semantic facts against retained source observations', (context) =>
 {
   const value = fixture(context)
   const badPath = value.relative('route-response-error.json')
@@ -289,7 +289,7 @@ test('class producer rejects existence-only and cross-plan results', (context) =
   raw.semanticFacts = { exact: true }
   fs.writeFileSync(path.join(root, badPath), `${JSON.stringify(seal(raw))}\n`)
   assert.throws(() => produceClassReceipt({ candidatePlan: value.relative('plan.json'), classId: 'route-response-error',
-    result: badPath, repositoryRoot: root }), /(?:unsupported or missing|missing or unknown) fields/u)
+    result: badPath, repositoryRoot: root }), /source receipt raw semantic facts mismatch/u)
 })
 
 test('#2205 accepted-claim CLI produces and independently replays one explicit terminal receipt', (context) =>
@@ -436,15 +436,10 @@ test('candidate verifier rejects a tampered typed identity authority', (context)
 test('#2205 accepted-claim verifier rejects a symlinked ancestor even when leaf bytes are regular', (context) =>
 {
   const value = fixture(context)
+  const linkDirectory = path.dirname(path.join(root, value.relative('terminal.json')))
   const realDirectory = path.join(root, value.relative('terminal-authority'))
-  fs.mkdirSync(realDirectory)
-  const realTerminal = path.join(realDirectory, 'terminal.json')
-  fs.copyFileSync(path.join(root, value.relative('terminal.json')), realTerminal)
-  const linkDirectory = path.join(root, value.relative('terminal-link'))
+  fs.renameSync(linkDirectory, realDirectory)
   fs.symlinkSync(realDirectory, linkDirectory)
   const claims = structuredClone(JSON.parse(fs.readFileSync(path.join(root, value.relative('claims.json')), 'utf8')))
-  claims.terminalReceiptRef.path = path.relative(root, path.join(linkDirectory, 'terminal.json')).replaceAll(path.sep, '/')
-  claims.contentDigest = null
-  const resealed = seal(claims)
-  assert.throws(() => validateAcceptedClaims(resealed, { expectedRunId: value.runId, repositoryRoot: root }), /canonical|symlink/u)
+  assert.throws(() => validateAcceptedClaims(claims, { expectedRunId: value.runId, repositoryRoot: root }), /canonical|symlink/u)
 })
