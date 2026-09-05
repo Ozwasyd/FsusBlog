@@ -57,6 +57,92 @@ public sealed class NotificationStreamBackpressurePolicyTests
         dequeued.Frame.Release();
     }
 
+    [Theory]
+    [InlineData(NotificationStreamEventType.UnreadCountUpdated, 10)]
+    [InlineData(NotificationStreamEventType.UnreadCountUpdated, 11)]
+    [InlineData(NotificationStreamEventType.UnreadCountUpdated, 12)]
+    [InlineData(NotificationStreamEventType.SearchIndexUpdated, 10)]
+    [InlineData(NotificationStreamEventType.SearchIndexUpdated, 11)]
+    [InlineData(NotificationStreamEventType.SearchIndexUpdated, 12)]
+    public async Task LocalFanout_PendingCursorNeverMovesBackward(
+        NotificationStreamEventType eventType, long incomingCursor)
+    {
+        NotificationStreamLocalFanoutQueue queue = CreateQueue();
+        NotificationStreamDeliveryPolicy policy = NotificationStreamDeliveryPolicyCatalog.GetRequired(eventType);
+        var target = new NotificationStreamUserTarget("cursor-account");
+        SharedNotificationStreamFrame latest = SharedNotificationStreamFrame.FromArray([11]);
+        SharedNotificationStreamFrame incoming = SharedNotificationStreamFrame.FromArray([(byte)incomingCursor]);
+        Assert.True(queue.TryEnqueue(latest, target, policy, "same-identity", 11).Accepted);
+
+        NotificationStreamFanoutEnqueueResult result =
+            queue.TryEnqueue(incoming, target, policy, "same-identity", incomingCursor);
+        latest.Release();
+        incoming.Release();
+
+        Assert.Equal(NotificationStreamFanoutEnqueueStatus.Coalesced, result.Status);
+        Assert.Equal(incomingCursor > 11 ? "latest-state-replaced" : "latest-cursor-retained", result.Reason);
+        NotificationStreamLocalFanoutWorkItem item = await queue.DequeueAsync(CancellationToken.None);
+        try
+        {
+            Assert.Equal(Math.Max(11, incomingCursor), item.EventId);
+            Assert.Equal((byte)Math.Max(11, incomingCursor), item.Frame.Memory.Span[0]);
+            Assert.Equal(1, item.CoalescedOccurrences);
+            Assert.Equal(0, queue.DroppedCount);
+        }
+        finally
+        {
+            item.Frame.Release();
+        }
+        Assert.Throws<InvalidOperationException>(() => latest.Release());
+        Assert.Throws<InvalidOperationException>(() => incoming.Release());
+    }
+
+    [Theory]
+    [InlineData("target")]
+    [InlineData("policy")]
+    [InlineData("content")]
+    [InlineData("cursor")]
+    public async Task LocalFanout_IncomparablePendingItemRequiresReplay(string conflict)
+    {
+        NotificationStreamLocalFanoutQueue queue = CreateQueue();
+        NotificationStreamDeliveryPolicy policy =
+            NotificationStreamDeliveryPolicyCatalog.GetRequired(NotificationStreamEventType.UnreadCountUpdated);
+        var target = new NotificationStreamUserTarget("original-account");
+        SharedNotificationStreamFrame original = SharedNotificationStreamFrame.FromArray([11]);
+        SharedNotificationStreamFrame incoming = SharedNotificationStreamFrame.FromArray([99]);
+        Assert.True(queue.TryEnqueue(original, target, policy, "same-key", 11).Accepted);
+
+        NotificationStreamFanoutEnqueueResult result = queue.TryEnqueue(
+            incoming,
+            conflict == "target" ? new NotificationStreamUserTarget("other-account") : target,
+            conflict == "policy" ? policy with
+            {
+                MaximumUsefulAge = TimeSpan.FromSeconds(1)
+            } : policy,
+            "same-key",
+            conflict == "content" ? 11 : conflict == "cursor" ? 0 : 12);
+        original.Release();
+        incoming.Release();
+
+        Assert.Equal(NotificationStreamFanoutEnqueueStatus.ReplayRequired, result.Status);
+        Assert.False(result.Accepted);
+        Assert.Equal(0, queue.CoalescedCount);
+        Assert.Equal(1, queue.DroppedCount);
+        Assert.Throws<InvalidOperationException>(() => incoming.Release());
+        NotificationStreamLocalFanoutWorkItem item = await queue.DequeueAsync(CancellationToken.None);
+        try
+        {
+            Assert.Equal(target, item.Target);
+            Assert.Equal(policy, item.Policy);
+            Assert.Equal(11, item.EventId);
+            Assert.Equal((byte)11, item.Frame.Memory.Span[0]);
+        }
+        finally
+        {
+            item.Frame.Release();
+        }
+    }
+
     [Fact]
     public async Task LocalFanout_FullLosslessLaneDoesNotBlockLowLane()
     {

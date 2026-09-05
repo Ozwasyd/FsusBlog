@@ -134,6 +134,36 @@ public sealed class NotificationStreamLocalFanoutQueue
         {
             if (latest.TryGetValue(item.CoalescingKey, out NotificationStreamLocalFanoutWorkItem existing))
             {
+                if (item.Target != existing.Target || item.Policy != existing.Policy)
+                {
+                    return Reject(item.Policy, "coalescing-identity-conflict");
+                }
+
+                if (item.EventId <= 0 || existing.EventId <= 0)
+                {
+                    return Reject(item.Policy, "coalescing-cursor-unavailable");
+                }
+
+                // The publisher appends to the scoped Redis backlog before admission.
+                // Compare transport cursors only within this pending identity.
+                if (item.EventId <= existing.EventId)
+                {
+                    if (item.EventId == existing.EventId
+                        && !item.Frame.Memory.Span.SequenceEqual(existing.Frame.Memory.Span))
+                    {
+                        return Reject(item.Policy, "coalescing-cursor-content-conflict");
+                    }
+
+                    latest[item.CoalescingKey] = existing with
+                    {
+                        CoalescedOccurrences = existing.CoalescedOccurrences + 1
+                    };
+                    Interlocked.Increment(ref _coalescedCount);
+                    NotificationStreamMetrics.RecordFanoutCoalesced(item.Policy);
+                    return new NotificationStreamFanoutEnqueueResult(
+                        NotificationStreamFanoutEnqueueStatus.Coalesced, "latest-cursor-retained");
+                }
+
                 long nextBytes = queuedBytes - existing.Frame.Length + item.Frame.Length;
                 if (nextBytes > byteBudget)
                 {
