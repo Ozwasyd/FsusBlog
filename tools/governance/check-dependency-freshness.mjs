@@ -4,6 +4,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 
+import { parseRenovatePullRequests, readFreshnessPullPages } from './dependency-freshness-pulls.mjs'
+
 import {
     clone,
     currentSimulation,
@@ -78,26 +80,6 @@ async function liveLatest(item) {
     throw new Error(`unsupported live datasource ${item.datasource}`)
 }
 
-function parseRenovatePullRequests(pulls, catalog) {
-    const items = catalog.items ?? []
-    return pulls.flatMap(pull => {
-        if (pull.user?.login !== 'renovate[bot]' && pull.user?.type !== 'Bot') return []
-        return items.flatMap(item => {
-            const mentionsPackage = `${pull.title ?? ''} ${pull.body ?? ''}`.includes(item.packageName)
-            const versionMatch = /to (?:v)?(\S+)/u.exec(pull.title ?? '')
-            if (!mentionsPackage || !versionMatch) return []
-            return [{
-                number: pull.number,
-                state: pull.state,
-                dependencyId: item.id,
-                packageName: item.packageName,
-                group: item.group,
-                targetVersion: versionMatch[1]
-            }]
-        })
-    })
-}
-
 async function loadLiveSnapshot(catalog, currentVersions) {
     const registries = { byId: {} }
     const settled = await Promise.allSettled((catalog.items ?? []).map(async item => {
@@ -111,8 +93,8 @@ async function loadLiveSnapshot(catalog, currentVersions) {
         throw new Error(failed.map(result => result.reason?.message ?? String(result.reason)).slice(0, 8).join('; '))
     }
     const repository = process.env.GITHUB_REPOSITORY || 'Ozwasyd/FsusBlog'
-    const pulls = await fetchJson(`https://api.github.com/repos/${repository}/pulls?state=open&per_page=100`, githubHeaders())
-    if (!Array.isArray(pulls)) throw new Error('github pull request payload is not an array')
+    const pulls = await readFreshnessPullPages(page => fetchJson(
+        `https://api.github.com/repos/${repository}/pulls?state=open&per_page=100&page=${page}`, githubHeaders()))
     void currentVersions
     return { registries, pullRequests: parseRenovatePullRequests(pulls, catalog) }
 }
@@ -259,6 +241,7 @@ if (fixturePath) {
         result.errors.push(...extractErrors)
         if (extractErrors.length > 0) result.status = 'fail'
         result.evidenceClass = 'live-registry'
+        result.pullRequests = liveSnapshot.pullRequests
         writeResult(result)
         if (result.status !== 'pass') process.exitCode = 1
     } catch (error) {
