@@ -116,6 +116,7 @@ public sealed class RevisionSourceDiffTests
             MaxSourceBytes = 2_000_000,
             MaxLineCount = 110_000,
             MaxMemoryBytes = 64 * 1024 * 1024,
+            MaxOutputBytes = 16 * 1024 * 1024,
             MaxTokenCount = 10_000,
             TimeoutMilliseconds = 20_000
         };

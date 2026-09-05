@@ -134,7 +134,7 @@ public sealed class RevisionSourceDiffEngine(RevisionComparePlanVerifier planVer
         ImmutableArray<SourceLine> baseLines = SplitLines(bundle.BasePackage.RawMarkdown.AsSpan(), cancellationToken);
         ImmutableArray<SourceLine> compareLines = SplitLines(bundle.ComparePackage.RawMarkdown.AsSpan(), cancellationToken);
         long estimatedMemory = ((long)bundle.BasePackage.RawMarkdown.Length + bundle.ComparePackage.RawMarkdown.Length) * 3L
-            + ((long)baseLines.Length + compareLines.Length) * 96L;
+            + ((long)baseLines.Length + compareLines.Length) * 128L;
         if (estimatedMemory > budgets.MaxMemoryBytes)
         {
             return Failure(bundle, RevisionComparePlanStatus.BudgetExceeded, "revision_diff_memory_budget_exceeded");
@@ -203,7 +203,8 @@ public sealed class RevisionSourceDiffEngine(RevisionComparePlanVerifier planVer
 
         long estimatedOutput = hunks.Count * 192L
             + hunks.Sum(static hunk => (long)hunk.WordEdits.Length * 80L + hunk.HeadingIdentities.Length * 72L)
-            + (baseHeadings.Length + compareHeadings.Length) * 96L;
+            + (baseHeadings.Length + compareHeadings.Length) * 96L
+            + ((long)baseLines.Length + compareLines.Length) * 48L;
         int chunkCount = hunks.Count == 0 ? 0 : (hunks.Count + budgets.MaxHunksPerChunk - 1) / budgets.MaxHunksPerChunk;
         if (estimatedOutput > budgets.MaxOutputBytes || chunkCount > budgets.MaxChunks)
         {
@@ -936,7 +937,13 @@ public static class RevisionSourceDiffVerifier
 
         int baseCursor = 0;
         int compareCursor = 0;
+        int baseLineCursor = 0;
+        int compareLineCursor = 0;
         int hunkCount = 0;
+        HashSet<string> headingIdentities = result.BaseHeadings
+            .Concat(result.CompareHeadings)
+            .Select(static heading => heading.IdentityDigest)
+            .ToHashSet(StringComparer.Ordinal);
         for (int chunkIndex = 0; chunkIndex < result.Chunks.Length; chunkIndex++)
         {
             RevisionDiffChunk chunk = result.Chunks[chunkIndex];
@@ -946,12 +953,44 @@ public static class RevisionSourceDiffVerifier
             }
             foreach (RevisionDiffHunk hunk in chunk.Hunks)
             {
-                if (hunk.Base.Offset != baseCursor
+                RevisionByteRange expectedBase = RangeFromLines(
+                    result.BaseLines,
+                    hunk.BaseStartLine,
+                    hunk.BaseLineCount,
+                    bundle.BasePackage.RawMarkdown.Length);
+                RevisionByteRange expectedCompare = RangeFromLines(
+                    result.CompareLines,
+                    hunk.CompareStartLine,
+                    hunk.CompareLineCount,
+                    bundle.ComparePackage.RawMarkdown.Length);
+                if (hunk.BaseStartLine != baseLineCursor
+                    || hunk.CompareStartLine != compareLineCursor
+                    || hunk.Base != expectedBase
+                    || hunk.Compare != expectedCompare
+                    || hunk.Base.Offset != baseCursor
                     || hunk.Compare.Offset != compareCursor
                     || hunk.Base.End > bundle.BasePackage.RawMarkdown.Length
                     || hunk.Compare.End > bundle.ComparePackage.RawMarkdown.Length
                     || hunk.Base.Offset < 0
                     || hunk.Compare.Offset < 0)
+                {
+                    return false;
+                }
+                bool kindValid = hunk.Kind switch
+                {
+                    RevisionDiffKind.Equal => hunk.Base.Length > 0
+                        && hunk.Compare.Length > 0
+                        && bundle.BasePackage.RawMarkdown.AsSpan(hunk.Base.Offset, hunk.Base.Length)
+                            .SequenceEqual(bundle.ComparePackage.RawMarkdown.AsSpan(hunk.Compare.Offset, hunk.Compare.Length)),
+                    RevisionDiffKind.Insert => hunk.Base.Length == 0 && hunk.Compare.Length > 0,
+                    RevisionDiffKind.Delete => hunk.Base.Length > 0 && hunk.Compare.Length == 0,
+                    RevisionDiffKind.Replace => hunk.Base.Length > 0
+                        && hunk.Compare.Length > 0
+                        && !bundle.BasePackage.RawMarkdown.AsSpan(hunk.Base.Offset, hunk.Base.Length)
+                            .SequenceEqual(bundle.ComparePackage.RawMarkdown.AsSpan(hunk.Compare.Offset, hunk.Compare.Length)),
+                    _ => false
+                };
+                if (!kindValid || hunk.HeadingIdentities.Any(identity => !headingIdentities.Contains(identity)))
                 {
                     return false;
                 }
@@ -969,11 +1008,15 @@ public static class RevisionSourceDiffVerifier
                 }
                 baseCursor = hunk.Base.End;
                 compareCursor = hunk.Compare.End;
+                baseLineCursor += hunk.BaseLineCount;
+                compareLineCursor += hunk.CompareLineCount;
                 hunkCount++;
             }
         }
         if (baseCursor != bundle.BasePackage.RawMarkdown.Length
             || compareCursor != bundle.ComparePackage.RawMarkdown.Length
+            || baseLineCursor != result.BaseLines.Length
+            || compareLineCursor != result.CompareLines.Length
             || hunkCount != result.Receipt.HunkCount)
         {
             return false;
@@ -987,6 +1030,25 @@ public static class RevisionSourceDiffVerifier
             result.Receipt.ChunkCount,
             result.Chunks.Select(static chunk => chunk.ContentDigest));
         return string.Equals(expected.ContentDigest, result.Receipt.ContentDigest, StringComparison.Ordinal);
+    }
+
+    private static RevisionByteRange RangeFromLines(
+        ImmutableArray<RevisionDiffLine> lines,
+        int start,
+        int count,
+        int sourceLength)
+    {
+        if (start < 0 || count < 0 || start > lines.Length || count > lines.Length - start)
+        {
+            return new RevisionByteRange(-1, -1);
+        }
+        int offset = start < lines.Length ? lines[start].Content.Offset : sourceLength;
+        if (count == 0)
+        {
+            return new RevisionByteRange(offset, 0);
+        }
+        RevisionDiffLine last = lines[start + count - 1];
+        return new RevisionByteRange(offset, last.Terminator.End - offset);
     }
 
     private static bool ValidLines(ImmutableArray<RevisionDiffLine> lines, ImmutableArray<byte> source)
