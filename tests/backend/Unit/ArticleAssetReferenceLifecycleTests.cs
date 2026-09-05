@@ -448,6 +448,33 @@ public sealed class ArticleAssetReferenceLifecycleTests(PostgresSchemaMigrationF
         }
     }
 
+    [Fact]
+    public async Task ReferencedDeleteReportsTotalCountWhenLocationsAreTruncated()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        AssetId assetId = SeedAsset(db, "illustration/many-references.png");
+        db.Insertable(Enumerable.Range(1, 17)
+            .Select(index => Reference(assetId, ContentAssetSourceKinds.Article,
+                index.ToString("D2", System.Globalization.CultureInfo.InvariantCulture), index, 1))
+            .ToArray()).ExecuteCommand();
+        var store = new LocalContentAssetStore(
+            db,
+            ReleaseStorageTestPaths.Create(Path.Combine(Path.GetTempPath(), $"fsusblog-summary-{Guid.NewGuid():N}")),
+            NullLogger<LocalContentAssetStore>.Instance);
+
+        AssetDeleteOutcome outcome = await store.DeleteAsync(assetId);
+
+        Assert.Equal(AssetDeleteResult.Referenced, outcome.Result);
+        AssetDeleteReferenceSummary summary = Assert.IsType<AssetDeleteReferenceSummary>(outcome.ReferenceSummary);
+        Assert.Equal(17, summary.SourceCount);
+        Assert.True(summary.IsTruncated);
+        Assert.Equal(16, summary.Locations.Count);
+        Assert.Equal("01", summary.Locations[0].SourceKey);
+        Assert.Equal("16", summary.Locations[^1].SourceKey);
+        Assert.Equal(17, db.Queryable<ContentAssetReference>().Count());
+        Assert.Empty(db.Queryable<ContentAssetCleanupQueueItem>().ToList());
+    }
+
     [Theory]
     [InlineData(ContentAssetSourceKinds.Article)]
     [InlineData(ContentAssetSourceKinds.Draft)]
