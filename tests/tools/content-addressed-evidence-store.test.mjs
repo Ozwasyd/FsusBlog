@@ -503,7 +503,8 @@ test('scheduler persists incremental journal events and only two compact stage c
     assert.equal(journal.filter((event) => event.eventType === 'tier-completed').length, 3);
     assert.equal(journal.at(0).eventType, 'run-started');
     assert.equal(journal.at(-1).eventType, 'run-completed');
-    assert.deepEqual(journal.map((event) => event.sequence), [1, 2, 3, 4, 5]);
+    assert.equal(journal.filter((event) => event.eventType === 'tier-admitted').length, 3);
+    assert.deepEqual(journal.map((event) => event.sequence), [1, 2, 3, 4, 5, 6, 7, 8]);
 });
 
 function tiersId(index)

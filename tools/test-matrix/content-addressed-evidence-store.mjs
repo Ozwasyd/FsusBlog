@@ -388,8 +388,9 @@ function lastJournalEvent(file)
 
 export class RunEvidenceObjectStore
 {
-    constructor({ root, runId, sourceState })
+    constructor({ root, runId, sourceState, readOnly = false })
     {
+        this.readOnly = readOnly;
         this.root = path.resolve(requiredText(root, 'root'));
         this.runId = validateRunIdentity(runId, 'runId');
         this.sourceState = normalizeSourceState(sourceState);
@@ -403,6 +404,7 @@ export class RunEvidenceObjectStore
         }
         else
         {
+            if (readOnly) throw new Error('read-only evidence store root is missing');
             fs.mkdirSync(this.root, { recursive: true, mode: 0o700 });
         }
         if (fs.realpathSync(this.root) !== this.root)
@@ -420,7 +422,13 @@ export class RunEvidenceObjectStore
             [this.checkpointsDirectory, 'checkpoints directory']
         ])
         {
-            assertSafeDirectory(directory, label);
+            if (readOnly)
+            {
+                const stat = fs.lstatSync(directory);
+                if (!stat.isDirectory() || stat.isSymbolicLink() || fs.realpathSync(directory) !== directory)
+                    throw new Error(`read-only ${label} must be a physical directory`);
+            }
+            else assertSafeDirectory(directory, label);
         }
         this.statistics = {
             jsonBytesWritten: 0,
@@ -445,6 +453,7 @@ export class RunEvidenceObjectStore
 
     publishObject(value, { references = [] } = {})
     {
+        if (this.readOnly) throw new Error('read-only evidence store cannot publish');
         const normalized = normalizedReferences(references, this.runId, 'object references');
         const startedAt = process.cpuUsage();
         const envelope = {
@@ -631,6 +640,7 @@ export class RunEvidenceObjectStore
 
     appendJournalEvent({ eventType, tier = null, step = null, status, payload })
     {
+        if (this.readOnly) throw new Error('read-only evidence store cannot append');
         const journal = path.join(this.journalsDirectory, `${this.runId}.jsonl`);
         const lockFile = path.join(this.journalsDirectory, `${this.runId}.lock`);
         const descriptor = acquireLock(lockFile);
@@ -718,6 +728,7 @@ export class RunEvidenceObjectStore
 
     writeCompactCheckpoint({ stage, state, lastSequence = null, retention = {} })
     {
+        if (this.readOnly) throw new Error('read-only evidence store cannot checkpoint');
         const events = this.readJournal();
         const sequence = lastSequence ?? (events.at(-1)?.sequence ?? 0);
         if (!Number.isInteger(sequence) || sequence < 0 || sequence > (events.at(-1)?.sequence ?? 0))
@@ -819,6 +830,7 @@ export class RunEvidenceObjectStore
 
     garbageCollect({ activeRunIds = [], releaseBindings = [] } = {})
     {
+        if (this.readOnly) throw new Error('read-only evidence store cannot collect');
         const active = new Set(activeRunIds.map((value) => validateRunIdentity(value, 'activeRunId')));
         const release = new Set(releaseBindings.map((value) => validateDigest(value, 'release binding digest')));
         const protectedDigests = new Set();

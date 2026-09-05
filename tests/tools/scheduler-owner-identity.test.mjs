@@ -11,8 +11,9 @@ import { fileURLToPath } from 'node:url';
 const { currentProcessIdentity, processIdentityStatus } = await import(new URL("../../tools/test/process-identity.mjs", import.meta.url));
 const { bindProductionBuildLayoutSource, finalizeProductionBuildLayout, prepareProductionBuildLayout, registerProductionBuildCompiler } = await import(new URL("../../tools/test-matrix/production-build-layout.mjs", import.meta.url));
 const { collectSchedulerProcessGroupOrJobIdentity, createSchedulerRunOwner, createSchedulerTierAdmission, finalizeSchedulerRunOwner, heartbeatSchedulerRunOwner, readSchedulerProducerTerminalFailure, schedulerCandidateIdentityDigest, schedulerProcessGroupOrJobIdentityIsComplete, schedulerRunOwnerFields, schedulerRunOwnerSchema, schedulerTierAdmissionActivity, schedulerTierAdmissionSchema, schedulerTierAdmissionSequence, sealSchedulerRunOwner, verifySchedulerProcessAuthority, verifySchedulerRunOwner, writeSchedulerTierAdmission } = await import(new URL("../../tools/test-matrix/scheduler-run-owner.mjs", import.meta.url));
-const { findLatestRunId, reclaimSchedulerRunLock, runDag, schedulerRunLockActivity, schedulerRunLockIsActive } = await import(new URL("../../tools/test-matrix/scheduler.mjs", import.meta.url));
+const { findLatestRunId, reclaimSchedulerRunLock, runDag, schedulerRunLockActivity, schedulerRunLockIsActive, schedulerTierInputIdentity, verifyCompletedSchedulerTierEvidence } = await import(new URL("../../tools/test-matrix/scheduler.mjs", import.meta.url));
 const { runWindowsJobSupervisorStateMachine, windowsJobSupervisorStateSchema } = await import(new URL("../../tools/test-matrix/windows-job-supervisor-state.mjs", import.meta.url));
+const { RunEvidenceObjectStore } = await import(new URL('../../tools/test-matrix/content-addressed-evidence-store.mjs', import.meta.url));
 
 import {
     createBehaviorDocAdmissionFixture,
@@ -271,10 +272,26 @@ test('scheduler tier admission seals candidate, owner, source, namespace and app
         schedulerCheckpointRevision: 2,
         admissionSequence: 1,
         activeTierIds: [],
-        releaseFinalSpawnCountBeforeAdmission: 0
+        releaseFinalSpawnCountBeforeAdmission: 0,
+        inputIdentity: schedulerTierInputIdentity(tier('behavior-evidence-post-runtime', 'test'), root),
+        outputDeclarations: [], dependencyAdmissions: {}
     });
     assert.equal(admission.schema, schedulerTierAdmissionSchema);
     assert.equal(admission.releaseFinalSpawnCountBeforeAdmission, 0);
+    for (const field of ['inputIdentity', 'outputDeclarations', 'dependencyAdmissions'])
+    {
+        const incomplete = structuredClone(admission);
+        delete incomplete[field];
+        assert.throws(() => createSchedulerTierAdmission(incomplete), /input|output|dependency|plan/u);
+    }
+    assert.throws(() => createSchedulerTierAdmission({ ...admission,
+        outputDeclarations: [{ declaration: 'out.json', path: '../out.json' }] }), /input|output|plan/u);
+    assert.throws(() => createSchedulerTierAdmission({ ...admission,
+        dependencyAdmissions: { earlier: { status: 'success' } } }), /dependency reference/u);
+    assert.throws(() => createSchedulerTierAdmission({ ...admission,
+        inputIdentity: { ...admission.inputIdentity, runtime: {
+            ...admission.inputIdentity.runtime, environment: { SECRET: 'must-not-persist' }
+        } } }), /input|plan/u);
     const published = writeSchedulerTierAdmission({ runsRoot, admission });
     assert.equal(schedulerTierAdmissionSequence({ runsRoot, runId: admission.runId }), 1);
     assert.throws(
@@ -364,6 +381,134 @@ test('runDag publishes a live journal-bound tier admission and resume appends wi
     assert.equal(observed[1].admissionSequence, 2);
     assert.notEqual(observed[1].schedulerOwnerToken, observed[0].schedulerOwnerToken);
     assert.equal(schedulerTierAdmissionSequence({ runsRoot, runId }), 2);
+});
+
+test('completed scheduler tier verifies journal outputs online and archived run offline without writes', async (t) =>
+{
+    const root = fixture(t, 'scheduler-completed-evidence');
+    const runsRoot = path.join(root, 'runs');
+    const runId = 'completed-evidence';
+    const sourceState = { commit: 'a'.repeat(40), worktreeFingerprint: 'stable' };
+    const prerequisite = { ...tier('pre-runtime', 'pre'), artifacts: ['pre.json'], cacheInputs: ['input.txt'] };
+    const post = { ...tier('behavior-evidence-post-runtime', 'post'),
+        artifacts: ['post.json'], cacheInputs: ['input.txt'], executionDependsOn: [prerequisite.id] };
+    const final = { ...tier('release-final', 'final'), executionDependsOn: [post.id] };
+    fs.writeFileSync(path.join(root, 'input.txt'), 'input');
+    let verification;
+    let admission;
+    let admissionReference;
+    let expectedOutputRefs;
+    let laggedCompatibility;
+    const verify = (mode) => verifyCompletedSchedulerTierEvidence({
+        root, runsRoot, runId, tierId: post.id, admission, admissionReference,
+        expectedSourceState: sourceState,
+        expectedCandidateIdentityDigest: schedulerCandidateIdentityDigest({ runId,
+            targetTierId: final.id, namespace: 'completed-evidence-namespace', sourceState }),
+        tiers: [prerequisite, post], expectedOutputRefs, mode
+    });
+    const result = await runDag({ tiers: [prerequisite, post, final], root, runsRoot, runId,
+        namespace: 'completed-evidence-namespace', targetTierId: final.id,
+        mode: 'fresh', sourceState, snapshotWorktree: stableSnapshot,
+        executeTier: async (currentTier, context) =>
+        {
+            if (currentTier.id === prerequisite.id)
+            {
+                fs.writeFileSync(path.join(root, 'pre.json'), '{}\n');
+            }
+            else if (currentTier.id === post.id)
+            {
+                const bytes = fs.readFileSync(context.env.FSUSBLOG_SCHEDULER_CHECKPOINT);
+                admission = JSON.parse(bytes);
+                admissionReference = { schema: admission.schema,
+                    ref: path.relative(root, context.env.FSUSBLOG_SCHEDULER_CHECKPOINT).replaceAll(path.sep, '/'),
+                    fileDigest: `sha256:${createHash('sha256').update(bytes).digest('hex')}`,
+                    contentDigest: admission.contentDigest, currentTierId: post.id,
+                    admissionSequence: admission.admissionSequence };
+                assert.equal(admission.schema, 'fsusblog.scheduler-tier-admission.v2');
+                assert.deepEqual(admission.outputDeclarations, [{ declaration: 'post.json', path: 'post.json' }]);
+                assert.deepEqual(Object.keys(admission.dependencyAdmissions), [prerequisite.id]);
+                assert.deepEqual(Object.keys(admission.inputIdentity.runtime).sort(),
+                    ['arch', 'environmentDigest', 'nodeVersion', 'platform']);
+                fs.writeFileSync(path.join(root, 'post.json'), '{"status":"verified"}\n');
+                expectedOutputRefs = [{ path: 'post.json', fileDigest: `sha256:${createHash('sha256')
+                    .update(fs.readFileSync(path.join(root, 'post.json'))).digest('hex')}` }];
+                assert.throws(() => verify('completed-tier'), /no later successful completion/u);
+            }
+            else
+            {
+                const checkpointPath = path.join(runsRoot, runId, 'checkpoint.json');
+                laggedCompatibility = fs.readFileSync(checkpointPath);
+                verification = verify('completed-tier');
+                const forged = JSON.parse(laggedCompatibility);
+                forged.status = 'success';
+                fs.writeFileSync(checkpointPath, JSON.stringify(forged));
+                assert.throws(() => verify('completed-tier'), /compatibility checkpoint disagrees/u);
+                fs.writeFileSync(checkpointPath, laggedCompatibility);
+            }
+            return { code: 0, signal: null };
+        }
+    });
+    assert.equal(result.status, 'success', JSON.stringify(result.failure));
+    assert.equal(verification.status, 'verified');
+    const before = fs.readFileSync(result.checkpointPath);
+    assert.equal(verify('completed-run').status, 'verified');
+    assert.deepEqual(fs.readFileSync(result.checkpointPath), before);
+    const savedAdmission = admission;
+    admission = { ...admission, schema: 'fsusblog.scheduler-tier-admission.v1' };
+    assert.throws(() => verify('completed-run'), /admission/u);
+    admission = savedAdmission;
+    const savedReference = admissionReference;
+    admissionReference = { ...savedReference, ref: `unrelated/${path.basename(savedReference.ref)}` };
+    assert.throws(() => verify('completed-run'), /admission|completion/u);
+    admissionReference = savedReference;
+    const originalArtifacts = post.artifacts;
+    post.artifacts = ['unadmitted.json'];
+    assert.throws(() => verify('completed-run'), /output declarations mismatch/u);
+    post.artifacts = originalArtifacts;
+    const originalCommand = post.command;
+    post.command = 'unadmitted-command';
+    assert.throws(() => verify('completed-run'), /input identity mismatch/u);
+    post.command = originalCommand;
+    fs.writeFileSync(result.checkpointPath, laggedCompatibility);
+    assert.throws(() => verify('completed-run'), /compatibility checkpoint disagrees/u);
+    fs.writeFileSync(result.checkpointPath, before);
+    assert.throws(() => verify('completed-tier'), /original live scheduler owner/u);
+    assert.throws(() => verify('other'), /unknown verification mode/u);
+    fs.writeFileSync(path.join(root, 'pre.json'), '{"changed":true}\n');
+    assert.throws(() => verify('completed-run'), /pre-runtime output identity mismatch/u);
+    fs.writeFileSync(path.join(root, 'pre.json'), '{}\n');
+    const savedRefs = expectedOutputRefs;
+    expectedOutputRefs = [];
+    assert.throws(() => verify('completed-run'), /exact-match declarations/u);
+    expectedOutputRefs = savedRefs;
+    const archive = path.join(runsRoot, '.locks', '.terminal', runId, `${admission.schedulerOwnerToken}.json`);
+    const archivedBytes = fs.readFileSync(archive);
+    const wrongOwner = JSON.parse(archivedBytes);
+    wrongOwner.candidateIdentityDigest = `sha256:${'c'.repeat(64)}`;
+    fs.writeFileSync(archive, JSON.stringify(sealSchedulerRunOwner(wrongOwner)));
+    assert.throws(() => verify('completed-run'), /terminal owner archive identity mismatch/u);
+    fs.writeFileSync(archive, archivedBytes);
+    fs.writeFileSync(path.join(root, 'post.json'), '{}\n');
+    assert.throws(() => verify('completed-run'), /output identity mismatch/u);
+    fs.writeFileSync(path.join(root, 'post.json'), '{"status":"verified"}\n');
+    fs.writeFileSync(path.join(root, 'input.txt'), 'changed');
+    assert.throws(() => verify('completed-run'), /input identity mismatch/u);
+    fs.writeFileSync(path.join(root, 'input.txt'), 'input');
+    const storeRoot = path.join(runsRoot, runId, 'evidence-store');
+    const readOnlyStore = new RunEvidenceObjectStore({ root: storeRoot, runId, sourceState, readOnly: true });
+    assert.throws(() => readOnlyStore.publishObject({}), /read-only evidence store cannot publish/u);
+    assert.throws(() => readOnlyStore.appendJournalEvent({}), /read-only evidence store cannot append/u);
+    assert.throws(() => readOnlyStore.writeCompactCheckpoint({}), /read-only evidence store cannot checkpoint/u);
+    assert.throws(() => readOnlyStore.garbageCollect(), /read-only evidence store cannot collect/u);
+    const retainedStore = `${storeRoot}.retained`;
+    fs.renameSync(storeRoot, retainedStore);
+    assert.throws(() => verify('completed-run'), /read-only evidence store root is missing/u);
+    assert.equal(fs.existsSync(storeRoot), false);
+    fs.renameSync(retainedStore, storeRoot);
+    const forged = JSON.parse(before);
+    forged.revision += 100;
+    fs.writeFileSync(result.checkpointPath, JSON.stringify(forged));
+    assert.throws(() => verify('completed-run'), /compatibility checkpoint disagrees/u);
 });
 
 test('producer terminal waits trust only the active same-run scheduler checkpoint authority', (t) =>
