@@ -14,6 +14,8 @@ public sealed class UploadSessionCleanupQueue
     private readonly TimeSpan _minSignalInterval;
     private long _lastAcceptedSignalTicks;
     private int _overflowedSignal;
+    private int _inFlight;
+    private int _retryPending;
     private readonly Channel<byte> _requests = Channel.CreateBounded<byte>(new BoundedChannelOptions(SignalCapacity)
     {
         SingleReader = true,
@@ -87,7 +89,26 @@ public sealed class UploadSessionCleanupQueue
 
     public int PendingSignalCount
         => (_requests.Reader.CanCount ? _requests.Reader.Count : (HasPendingSignals ? 1 : 0))
-            + (Volatile.Read(ref _overflowedSignal) == 1 ? 1 : 0);
+            + (Volatile.Read(ref _overflowedSignal) == 1 ? 1 : 0)
+            + InFlightCount + Volatile.Read(ref _retryPending);
+
+    public int InFlightCount => Volatile.Read(ref _inFlight);
+
+    internal void BeginScan()
+    {
+        Interlocked.Increment(ref _inFlight);
+        Interlocked.Exchange(ref _retryPending, 0);
+    }
+
+    internal void EndScan(bool completed)
+    {
+        if (!completed)
+        {
+            Volatile.Write(ref _retryPending, 1);
+        }
+
+        Interlocked.Decrement(ref _inFlight);
+    }
 
     internal ChannelReader<byte> Reader => _requests.Reader;
 }
@@ -134,7 +155,7 @@ public sealed class UploadSessionCleanupWorker : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using PeriodicTimer timer = new(s_scanInterval, _timeProvider);
-        await RunCleanupUntilSignalsFlushedAsync(stoppingToken).ConfigureAwait(false);
+        bool scanSucceeded = await RunCleanupUntilSignalsFlushedAsync(stoppingToken).ConfigureAwait(false);
         Task<bool> timerTask = timer.WaitForNextTickAsync(stoppingToken).AsTask();
         Task<bool> signalTask = _queue.Reader.WaitToReadAsync(stoppingToken).AsTask();
 
@@ -142,7 +163,9 @@ public sealed class UploadSessionCleanupWorker : BackgroundService
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                Task completed = await Task.WhenAny(timerTask, signalTask).ConfigureAwait(false);
+                Task completed = scanSucceeded
+                    ? await Task.WhenAny(timerTask, signalTask).ConfigureAwait(false)
+                    : timerTask;
                 bool refreshSignalTask = false;
                 if (completed == timerTask)
                 {
@@ -162,7 +185,7 @@ public sealed class UploadSessionCleanupWorker : BackgroundService
                     break;
                 }
 
-                await RunCleanupUntilSignalsFlushedAsync(stoppingToken).ConfigureAwait(false);
+                scanSucceeded = await RunCleanupUntilSignalsFlushedAsync(stoppingToken).ConfigureAwait(false);
                 if (refreshSignalTask)
                 {
                     signalTask = _queue.Reader.WaitToReadAsync(stoppingToken).AsTask();
@@ -174,32 +197,52 @@ public sealed class UploadSessionCleanupWorker : BackgroundService
         }
     }
 
-    internal async Task RunCleanupUntilSignalsFlushedAsync(CancellationToken stoppingToken)
+    internal async Task<bool> RunCleanupUntilSignalsFlushedAsync(CancellationToken stoppingToken)
     {
         stoppingToken.ThrowIfCancellationRequested();
         bool runAgain;
+        bool completed;
+        bool ran;
         do
         {
-            _queue.DrainPendingSignals();
-            bool ran = await _workerLease.TryRunAsLeaderAsync("upload-session-cleanup-worker", RunCleanupOnceAsync, stoppingToken)
+            completed = false;
+            ran = await _workerLease.TryRunAsLeaderAsync("upload-session-cleanup-worker", async token =>
+            {
+                _queue.BeginScan();
+                try
+                {
+                    _queue.DrainPendingSignals();
+                    completed = await RunCleanupOnceAsync(token).ConfigureAwait(false);
+                }
+                finally
+                {
+                    _queue.EndScan(completed);
+                }
+            }, stoppingToken)
                 .ConfigureAwait(false);
-            runAgain = ran && (_queue.ConsumeOverflowedSignal() || _queue.HasPendingSignals);
+            runAgain = ran && completed && (_queue.ConsumeOverflowedSignal() || _queue.HasPendingSignals);
         }
         while (runAgain && !stoppingToken.IsCancellationRequested);
+
+        return ran && completed;
     }
 
-    internal async Task RunCleanupOnceAsync(CancellationToken cancellationToken)
+    internal async Task<bool> RunCleanupOnceAsync(CancellationToken cancellationToken)
     {
         try
         {
             await _cleanupAction(cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            return true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            return false;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "upload-session-cleanup-failed");
+            return false;
         }
     }
 

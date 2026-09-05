@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Services.Background;
 
 using Microsoft.Extensions.Logging.Abstractions;
@@ -122,6 +123,119 @@ public sealed class UploadSessionCleanupWorkerBehaviorTests
         Assert.Equal(0, cleanupRuns);
         Assert.Equal(0, lease.Attempts);
         Assert.True(queue.HasPendingSignals);
+    }
+
+    [Fact]
+    public async Task RunCleanupUntilSignalsFlushedAsync_LeaseDeniedPreservesQueuedSignal()
+    {
+        var queue = new UploadSessionCleanupQueue(minSignalInterval: TimeSpan.Zero);
+        Assert.True(queue.TryRequestScan());
+        var worker = CreateWorker(queue, new RecordingLease { AllowRun = false },
+            _ => throw new InvalidOperationException("Lease must not run cleanup."));
+
+        await worker.RunCleanupUntilSignalsFlushedAsync(CancellationToken.None);
+
+        Assert.True(queue.HasPendingSignals);
+        Assert.Equal(1, queue.PendingSignalCount);
+        Assert.Equal(0, queue.InFlightCount);
+    }
+
+    [Fact]
+    public async Task RunCleanupUntilSignalsFlushedAsync_DequeueKeepsBlockedScanObservable()
+    {
+        var queue = new UploadSessionCleanupQueue(minSignalInterval: TimeSpan.Zero);
+        Assert.True(queue.TryRequestScan());
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var worker = CreateWorker(queue, new RecordingLease(), async _ =>
+        {
+            started.SetResult();
+            await release.Task;
+        });
+
+        Task scan = worker.RunCleanupUntilSignalsFlushedAsync(CancellationToken.None);
+        try
+        {
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.False(queue.HasPendingSignals);
+            Assert.Equal(1, queue.InFlightCount);
+            Assert.Equal(1, queue.PendingSignalCount);
+        }
+        finally
+        {
+            release.TrySetResult();
+            await scan.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+
+        Assert.Equal(0, queue.InFlightCount);
+        Assert.Equal(0, queue.PendingSignalCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RunCleanupUntilSignalsFlushedAsync_FailureRetainsRetryUntilSuccessfulScan(bool cancel)
+    {
+        var queue = new UploadSessionCleanupQueue(minSignalInterval: TimeSpan.Zero);
+        Assert.True(queue.TryRequestScan());
+        using var cancellation = new CancellationTokenSource();
+        int attempts = 0;
+        var worker = CreateWorker(queue, new RecordingLease(), token =>
+        {
+            if (++attempts == 1)
+            {
+                if (cancel)
+                {
+                    cancellation.Cancel();
+                    token.ThrowIfCancellationRequested();
+                }
+
+                throw new IOException("Cleanup storage unavailable.");
+            }
+
+            return Task.CompletedTask;
+        });
+
+        await worker.RunCleanupUntilSignalsFlushedAsync(cancellation.Token);
+
+        Assert.Equal(1, attempts);
+        Assert.False(queue.HasPendingSignals);
+        Assert.Equal(0, queue.InFlightCount);
+        Assert.Equal(1, queue.PendingSignalCount);
+
+        await worker.RunCleanupUntilSignalsFlushedAsync(CancellationToken.None);
+
+        Assert.Equal(2, attempts);
+        Assert.Equal(0, queue.PendingSignalCount);
+    }
+
+    [Fact]
+    public async Task DrainAsync_DoesNotDiscardUnprocessedScanSignals()
+    {
+        var queue = new UploadSessionCleanupQueue(minSignalInterval: TimeSpan.Zero);
+        Assert.True(queue.TryRequestScan());
+        var participant = new UploadCleanupReleaseDrainParticipant(queue, TimeProvider.System);
+        using var cancellation = new CancellationTokenSource();
+
+        Task drain = participant.DrainAsync(cancellation.Token);
+        try
+        {
+            Assert.False(drain.IsCompleted);
+            Assert.True(queue.HasPendingSignals);
+            Assert.Equal(1, participant.Snapshot().PendingCount);
+        }
+        finally
+        {
+            await cancellation.CancelAsync();
+        }
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => drain);
+        Assert.True(queue.HasPendingSignals);
+
+        var worker = CreateWorker(queue, new RecordingLease(), _ => Task.CompletedTask);
+        await worker.RunCleanupUntilSignalsFlushedAsync(CancellationToken.None);
+        await participant.DrainAsync(CancellationToken.None);
+        Assert.Equal(0, participant.Snapshot().PendingCount);
     }
 
     private static UploadSessionCleanupWorker CreateWorker(

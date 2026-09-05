@@ -448,14 +448,12 @@ public sealed class UploadCleanupReleaseDrainParticipant(
     public override string Name => "upload-cleanup";
     public override TimeSpan MaxDrain => TimeSpan.FromSeconds(15);
     protected override string Classification => "active-singleton";
-    protected override string ReplaySource => "upload session table";
+    protected override string ReplaySource => "durable upload session manifests and expiration index";
     protected override long ReadPendingCount() => queue.PendingSignalCount;
 
     public override Task DrainAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        queue.DrainPendingSignals();
-        queue.ConsumeOverflowedSignal();
-        return Task.CompletedTask;
+        return base.DrainAsync(cancellationToken);
     }
 }
