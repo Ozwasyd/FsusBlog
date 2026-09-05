@@ -15,7 +15,7 @@ public sealed class UploadSessionCleanupQueue
     private long _lastAcceptedSignalTicks;
     private int _overflowedSignal;
     private int _inFlight;
-    private int _retryPending;
+    private int _retryPending = 1;
     private readonly Channel<byte> _requests = Channel.CreateBounded<byte>(new BoundedChannelOptions(SignalCapacity)
     {
         SingleReader = true,
@@ -186,7 +186,7 @@ public sealed class UploadSessionCleanupWorker : BackgroundService
                 }
 
                 scanSucceeded = await RunCleanupUntilSignalsFlushedAsync(stoppingToken).ConfigureAwait(false);
-                if (refreshSignalTask)
+                if (refreshSignalTask || signalTask.IsCompleted)
                 {
                     signalTask = _queue.Reader.WaitToReadAsync(stoppingToken).AsTask();
                 }

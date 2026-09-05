@@ -136,7 +136,7 @@ public sealed class UploadSessionCleanupWorkerBehaviorTests
         await worker.RunCleanupUntilSignalsFlushedAsync(CancellationToken.None);
 
         Assert.True(queue.HasPendingSignals);
-        Assert.Equal(1, queue.PendingSignalCount);
+        Assert.Equal(2, queue.PendingSignalCount);
         Assert.Equal(0, queue.InFlightCount);
     }
 
@@ -222,7 +222,7 @@ public sealed class UploadSessionCleanupWorkerBehaviorTests
         {
             Assert.False(drain.IsCompleted);
             Assert.True(queue.HasPendingSignals);
-            Assert.Equal(1, participant.Snapshot().PendingCount);
+            Assert.Equal(2, participant.Snapshot().PendingCount);
         }
         finally
         {
@@ -236,6 +236,96 @@ public sealed class UploadSessionCleanupWorkerBehaviorTests
         await worker.RunCleanupUntilSignalsFlushedAsync(CancellationToken.None);
         await participant.DrainAsync(CancellationToken.None);
         Assert.Equal(0, participant.Snapshot().PendingCount);
+    }
+
+    [Fact]
+    public async Task StartupScan_LeaseDeniedWithoutSignalsKeepsDrainPending()
+    {
+        var queue = new UploadSessionCleanupQueue(minSignalInterval: TimeSpan.Zero);
+        var lease = new RecordingLease { AllowRun = false };
+        int scans = 0;
+        var worker = CreateWorker(queue, lease, _ =>
+        {
+            scans++;
+            return Task.CompletedTask;
+        });
+        var participant = new UploadCleanupReleaseDrainParticipant(queue, TimeProvider.System);
+
+        Assert.False(queue.HasPendingSignals);
+        Assert.False(await worker.RunCleanupUntilSignalsFlushedAsync(CancellationToken.None));
+        Assert.Equal(0, scans);
+        Assert.Equal(1, lease.Attempts);
+        Assert.Equal(1, participant.Snapshot().PendingCount);
+        Assert.Equal("pending", participant.Snapshot().Status);
+
+        lease.AllowRun = true;
+        Assert.True(await worker.RunCleanupUntilSignalsFlushedAsync(CancellationToken.None));
+
+        Assert.Equal(1, scans);
+        Assert.Equal(0, participant.Snapshot().PendingCount);
+        Assert.Equal("drained", participant.Snapshot().Status);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_StartupLeaseDeniedWaitsForTimerBeforeRecovery()
+    {
+        var queue = new UploadSessionCleanupQueue(minSignalInterval: TimeSpan.Zero);
+        var clock = new ScanTimeProvider();
+        var attempted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var recovered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var lease = new RecordingLease { AllowRun = false, OnAttempt = () => attempted.TrySetResult() };
+        int scans = 0;
+        using var worker = new UploadSessionCleanupWorker(
+            queue, NullLogger<UploadSessionCleanupWorker>.Instance, clock, lease, _ =>
+            {
+                Interlocked.Increment(ref scans);
+                recovered.TrySetResult();
+                return Task.CompletedTask;
+            });
+
+        await worker.StartAsync(CancellationToken.None);
+        try
+        {
+            await attempted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Equal(0, scans);
+            Assert.Equal(1, queue.PendingSignalCount);
+            Assert.Equal(1, lease.Attempts);
+
+            lease.AllowRun = true;
+            clock.Tick();
+            await recovered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        finally
+        {
+            await worker.StopAsync(CancellationToken.None);
+        }
+
+        Assert.Equal(1, scans);
+        Assert.Equal(2, lease.Attempts);
+    }
+
+    private sealed class ScanTimeProvider : TimeProvider
+    {
+        private TimerCallback? _callback;
+        private object? _state;
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            _callback = callback;
+            _state = state;
+            return new ScanTimer();
+        }
+
+        public void Tick() => _callback!(_state);
+
+        private sealed class ScanTimer : ITimer
+        {
+            public bool Change(TimeSpan dueTime, TimeSpan period) => true;
+            public void Dispose()
+            {
+            }
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        }
     }
 
     private static UploadSessionCleanupWorker CreateWorker(
@@ -252,6 +342,10 @@ public sealed class UploadSessionCleanupWorkerBehaviorTests
     private sealed class RecordingLease : IBackgroundWorkerLease
     {
         public bool AllowRun { get; set; } = true;
+        public Action? OnAttempt
+        {
+            get; set;
+        }
         public int Attempts
         {
             get; private set;
@@ -264,7 +358,9 @@ public sealed class UploadSessionCleanupWorkerBehaviorTests
         {
             Assert.Equal("upload-session-cleanup-worker", workerName);
             Attempts++;
-            if (!AllowRun)
+            bool allowRun = AllowRun;
+            OnAttempt?.Invoke();
+            if (!allowRun)
             {
                 return false;
             }
