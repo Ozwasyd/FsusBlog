@@ -6,6 +6,7 @@ import process from 'node:process'
 
 import { readFreshnessPullPages } from './dependency-freshness-pulls.mjs'
 import { collectDependencySupersession } from './dependency-pull-supersession.mjs'
+import { readLatestDotnetSdk } from './dependency-dotnet-registry.mjs'
 
 import {
     clone,
@@ -47,6 +48,9 @@ function githubHeaders() {
 }
 
 async function liveLatest(item) {
+    if (item.datasource === 'dotnet-version' && item.packageName === 'dotnet-sdk') {
+        return readLatestDotnetSdk(fetchJson)
+    }
     if (item.datasource === 'npm') {
         const body = await fetchJson(`https://registry.npmjs.org/${encodeURIComponent(item.packageName)}`)
         const latest = body['dist-tags']?.latest
