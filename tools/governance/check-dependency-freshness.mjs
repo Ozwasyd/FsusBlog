@@ -9,6 +9,7 @@ import { collectDependencySupersession } from './dependency-pull-supersession.mj
 import { readLatestDotnetSdk } from './dependency-dotnet-registry.mjs'
 import { readLatestNuget } from './dependency-nuget-registry.mjs'
 import { registryRelease } from './dependency-registry-release.mjs'
+import { readLatestGitRef } from './dependency-git-registry.mjs'
 
 import {
     clone,
@@ -70,10 +71,7 @@ async function liveLatest(item) {
         return registryRelease(latest, release.date, 'node-version:node')
     }
     if (item.datasource === 'git-refs') {
-        const repo = String(item.packageName).replace(/^https:\/\/github.com\//u, '').replace(/\.git$/u, '')
-        const body = await fetchJson(`https://api.github.com/repos/${repo}/commits/master`, githubHeaders())
-        if (!body.sha) throw new Error(`git-refs latest missing for ${item.packageName}`)
-        return registryRelease(body.sha, body.commit?.committer?.date, `git-refs:${repo}`)
+        return readLatestGitRef(item.packageName, fetchJson, githubHeaders())
     }
     if (item.datasource === 'github-tags' || item.datasource === 'github-releases') {
         const body = await fetchJson(`https://api.github.com/repos/${item.packageName}/releases/latest`, githubHeaders())
