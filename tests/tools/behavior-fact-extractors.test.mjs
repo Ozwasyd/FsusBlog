@@ -41,6 +41,51 @@ import {
 
 const checker = path.join(root, 'tools/fact-extractors/check-behavior-fact-extractors.mjs');
 
+test('source identity excludes owned current-run outputs but detects source drift', (t) =>
+{
+    const repository = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-current-run-source-identity-'));
+    t.after(() => rmSync(repository, { recursive: true, force: true }));
+    const git = (...args) =>
+    {
+        const result = spawnSync('git', args, { cwd: repository, encoding: 'utf8' });
+        assert.equal(result.status, 0, result.stderr);
+        return result.stdout;
+    };
+    git('init', '--quiet');
+    cpSync(path.join(root, '.gitignore'), path.join(repository, '.gitignore'));
+    writeFileSync(path.join(repository, 'source.txt'), 'source-before');
+    git('add', '.gitignore', 'source.txt');
+    git('-c', 'user.name=Test', '-c', 'user.email=test@example.invalid',
+        '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'fixture');
+    const before = sealSourceIdentity(repository);
+    const output = path.join(repository, 'artifacts/current-run/run-1/attempt-1/receipt.json');
+    mkdirSync(path.dirname(output), { recursive: true });
+    writeFileSync(output, '{"status":"prepared"}');
+    assert.deepEqual(sealSourceIdentity(repository), before);
+    writeFileSync(output, '{"status":"verified"}');
+    assert.deepEqual(sealSourceIdentity(repository), before);
+    assert.match(git('check-ignore', 'artifacts/current-run/run-1/attempt-1/receipt.json'), /receipt\.json/u);
+
+    for (const relative of ['untracked-source.txt', 'artifacts/authority.json', 'nested/artifacts/current-run/source.json'])
+    {
+        const file = path.join(repository, relative);
+        mkdirSync(path.dirname(file), { recursive: true });
+        writeFileSync(file, 'source-after');
+        assert.notEqual(sealSourceIdentity(repository).worktreeFingerprint, before.worktreeFingerprint, relative);
+        rmSync(file);
+        assert.deepEqual(sealSourceIdentity(repository), before);
+    }
+    writeFileSync(path.join(repository, 'source.txt'), 'source-after');
+    assert.notEqual(sealSourceIdentity(repository).worktreeFingerprint, before.worktreeFingerprint);
+    writeFileSync(path.join(repository, 'source.txt'), 'source-before');
+    git('add', '-f', 'artifacts/current-run/run-1/attempt-1/receipt.json');
+    git('-c', 'user.name=Test', '-c', 'user.email=test@example.invalid',
+        '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'tracked output fixture');
+    const tracked = sealSourceIdentity(repository);
+    writeFileSync(output, '{"status":"tampered"}');
+    assert.notEqual(sealSourceIdentity(repository).worktreeFingerprint, tracked.worktreeFingerprint);
+});
+
 test('source identity supports tracked diffs larger than the spawnSync default buffer', (t) =>
 {
     const repository = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-source-identity-large-diff-'));
