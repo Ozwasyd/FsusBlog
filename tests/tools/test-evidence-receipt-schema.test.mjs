@@ -663,6 +663,8 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
     const preRuntime = sealDocument({
         schema: 'fsusblog.behavior-evidence-pre-runtime-receipt.v1',
         scope: 'pre-runtime',
+        runIdentity: 'run-1151',
+        sourceIdentity: build.sourceState,
         status: 'ok',
         behaviorIds: [],
         buildIdentities: {},
@@ -674,6 +676,9 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
     const postRuntime = sealDocument({
         schema: 'fsusblog.behavior-evidence-post-runtime-receipt.v1',
         scope: 'post-runtime',
+        runIdentity: 'run-1151',
+        sourceIdentity: build.sourceState,
+        preRuntimeReceiptDigest: preRuntime.contentDigest,
         status: 'ok'
     });
     const postRuntimeFile = path.join(build.directory, 'behavior-post-runtime.json');
@@ -824,6 +829,11 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
     }
 
     const preRuntimeMutations = [
+        ...[
+            ['other run', { runIdentity: 'other-run' }],
+            ['other source', { sourceIdentity: { ...build.sourceState, commit: 'f'.repeat(40) } }],
+            ['other worktree', { sourceIdentity: { ...build.sourceState, worktreeFingerprint: `sha256:${'f'.repeat(64)}` } }]
+        ].map(([name, mutation]) => [name, sealDocument({ ...preRuntime, ...mutation }), /identity mismatch/u]),
         ['missing', undefined, /receipt must be an object/u],
         ['stale digest', {
             ...preRuntime,
@@ -837,6 +847,10 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
     ];
     for (const [name, preRuntimeReceipt, errorPattern] of preRuntimeMutations)
     {
+        const boundPostRuntime = sealDocument({
+            ...postRuntime,
+            preRuntimeReceiptDigest: preRuntimeReceipt?.contentDigest
+        });
         assert.throws(() => createReleaseFinalTestEvidenceBinding({
             commitSha: build.sourceState.commit,
             buildReceipt: build.receipt,
@@ -847,7 +861,7 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
             browserContractReceiptPath: browserContractFile,
             preRuntimeReceipt,
             preRuntimeReceiptPath: preRuntimeFile,
-            postRuntimeReceipt: postRuntime,
+            postRuntimeReceipt: boundPostRuntime,
             postRuntimeReceiptPath: postRuntimeFile,
             consistencyFinalReport: consistencyFinal,
             consistencyFinalReportPath: consistencyFinalFile,

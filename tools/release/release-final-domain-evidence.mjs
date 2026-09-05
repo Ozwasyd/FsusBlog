@@ -27,7 +27,10 @@ import { requirePublicPreviewReleaseEvidence } from './public-preview-release-ev
 import {
     locateReleaseReliabilityQualifiedReceipt
 } from './release-reliability-qualified-receipt.mjs';
-import { createReleaseFinalTestEvidenceBinding } from './test-evidence-receipts.mjs';
+import {
+    assertReleaseFinalBehaviorIdentity,
+    createReleaseFinalTestEvidenceBinding
+} from './test-evidence-receipts.mjs';
 
 export function assertReleaseFinalBehaviorAuthorityBinding({
     preRuntimeReceipt,
@@ -43,21 +46,7 @@ export function assertReleaseFinalBehaviorAuthorityBinding({
             `post-runtime behavior evidence is not qualified: ${post.failureReasons.join('; ')}`
         );
     }
-    if (post.sourceIdentity?.commit !== releaseCommit)
-    {
-        throw new Error('post-runtime behavior evidence source commit mismatch');
-    }
-    if (post.preRuntimeReceiptDigest !== pre.contentDigest)
-    {
-        throw new Error('post-runtime behavior evidence pre-runtime receipt mismatch');
-    }
-    if (post.runIdentity !== pre.runIdentity
-        || post.sourceIdentity?.commit !== pre.sourceIdentity?.commit
-        || post.sourceIdentity?.worktreeFingerprint
-            !== pre.sourceIdentity?.worktreeFingerprint)
-    {
-        throw new Error('pre/post-runtime behavior evidence identity mismatch');
-    }
+    assertReleaseFinalBehaviorIdentity({ preRuntimeReceipt: pre, postRuntimeReceipt: post, releaseCommit });
     return { preRuntimeReceipt: pre, postRuntimeReceipt: post };
 }
 

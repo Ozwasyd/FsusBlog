@@ -1577,6 +1577,33 @@ export function validateBrowserDiagnosticsReceipt(receipt, {
     return errors;
 }
 
+export function assertReleaseFinalBehaviorIdentity({
+    preRuntimeReceipt: pre,
+    postRuntimeReceipt: post,
+    releaseCommit,
+    expectedWorktreeFingerprint = null
+})
+{
+    if (!pre?.runIdentity || !pre?.sourceIdentity?.worktreeFingerprint
+        || post?.sourceIdentity?.commit !== releaseCommit)
+    {
+        throw new Error('post-runtime behavior evidence source commit mismatch or missing identity');
+    }
+    if (post.preRuntimeReceiptDigest !== pre.contentDigest)
+    {
+        throw new Error('post-runtime behavior evidence pre-runtime receipt mismatch');
+    }
+    if (post.runIdentity !== pre.runIdentity
+        || post.sourceIdentity.commit !== pre.sourceIdentity?.commit
+        || post.sourceIdentity.worktreeFingerprint !== pre.sourceIdentity.worktreeFingerprint
+        || (expectedWorktreeFingerprint !== null
+            && normalizeFingerprint(pre.sourceIdentity.worktreeFingerprint)
+                !== normalizeFingerprint(expectedWorktreeFingerprint)))
+    {
+        throw new Error('pre/post-runtime behavior evidence identity mismatch');
+    }
+}
+
 export function createReleaseFinalTestEvidenceBinding({
     commitSha,
     buildReceipt,
@@ -1620,6 +1647,12 @@ export function createReleaseFinalTestEvidenceBinding({
         throw new Error([...correctnessErrors, ...contractErrors].join('; '));
     }
     assertPreRuntimeQualified(preRuntimeReceipt);
+    assertReleaseFinalBehaviorIdentity({
+        preRuntimeReceipt,
+        postRuntimeReceipt,
+        releaseCommit: commitSha,
+        expectedWorktreeFingerprint: build.sourceState.worktreeFingerprint
+    });
     const releaseDomains = createReleaseDomainProjectionBindings(
         releaseDomainProjectionReceipts
     );
