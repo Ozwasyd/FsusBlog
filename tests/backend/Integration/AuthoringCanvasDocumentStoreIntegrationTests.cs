@@ -321,6 +321,140 @@ public sealed class AuthoringCanvasDocumentStoreIntegrationTests(PostgresSchemaM
             "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name LIKE 'authoring_canvas_%';"));
     }
 
+    [Fact]
+    public async Task SavedViewPersistence_RoundTripsClosedRowsCasAndDurableReceipts()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        await ApplySavedViewMigrationAsync(db);
+        await ApplySavedViewMigrationAsync(db);
+        var validator = new AuthorSavedViewQueryValidator(new AuthorSavedViewDependencyCatalog([]));
+        var store = new AuthorSavedViewStore(
+            new PostgresAuthorSavedViewPersistence(db),
+            validator,
+            TimeProvider.System);
+        var savedViewOwner = new AuthorSavedViewOwner(
+            s_owner.AdminPrincipalId,
+            s_owner.SiteScope);
+        Guid viewId = Guid.CreateVersion7();
+        Guid requestId = Guid.CreateVersion7();
+        var query = new AuthorSavedViewQuery(
+            AuthorSavedViewContract.SchemaVersion,
+            [
+                new(
+                    new(AuthorSavedViewFieldKind.LifecycleStatus,
+                        AuthorSavedViewContract.LifecycleStatusField),
+                    "identity.any-of",
+                    ["draft", "published"])
+            ],
+            new(
+                new(AuthorSavedViewFieldKind.Date, AuthorSavedViewContract.UpdatedAtField),
+                AuthorSavedViewSortDirection.Descending,
+                AuthorSavedViewNullPlacement.Last,
+                "temporal",
+                TimeZoneId: "UTC"),
+            [
+                new(AuthorSavedViewFieldKind.LifecycleStatus, AuthorSavedViewContract.LifecycleStatusField),
+                new(AuthorSavedViewFieldKind.Date, AuthorSavedViewContract.UpdatedAtField)
+            ],
+            50);
+        var create = new CreateAuthorSavedViewCommand(
+            viewId,
+            savedViewOwner,
+            0,
+            requestId,
+            "Review queue",
+            query);
+
+        AuthorSavedViewWriteReceipt created = await store.CreateAsync(create);
+        AuthorSavedViewWriteReceipt replay = await store.CreateAsync(create);
+
+        Assert.True(replay.IdempotentReplay);
+        Assert.Equal(created.ReceiptId, replay.ReceiptId);
+        var restarted = new AuthorSavedViewStore(
+            new PostgresAuthorSavedViewPersistence(db),
+            validator,
+            TimeProvider.System);
+        AuthorSavedView restored = Assert.IsType<AuthorSavedView>(await restarted.GetAsync(savedViewOwner, viewId));
+        Assert.Equal(created.QueryDigest, restored.QueryDigest);
+        Assert.Equal(["draft", "published"], Assert.Single(restored.Query.Conditions).Values);
+        Assert.Equal(1, await db.Ado.GetIntAsync(
+            "SELECT COUNT(*) FROM author_saved_view_condition WHERE view_id = @ViewId;",
+            new SugarParameter("@ViewId", viewId)));
+        Assert.Equal(2, await db.Ado.GetIntAsync(
+            "SELECT COUNT(*) FROM author_saved_view_condition_value WHERE view_id = @ViewId;",
+            new SugarParameter("@ViewId", viewId)));
+        Assert.Equal(2, await db.Ado.GetIntAsync(
+            "SELECT COUNT(*) FROM author_saved_view_projection WHERE view_id = @ViewId;",
+            new SugarParameter("@ViewId", viewId)));
+        Guid secondViewId = Guid.CreateVersion7();
+        await restarted.CreateAsync(new(
+            secondViewId,
+            savedViewOwner,
+            1,
+            Guid.CreateVersion7(),
+            "Second queue",
+            query));
+        await restarted.SetPinnedAsync(new(
+            viewId,
+            savedViewOwner,
+            2,
+            1,
+            Guid.CreateVersion7(),
+            true));
+        await restarted.SetPinnedAsync(new(
+            secondViewId,
+            savedViewOwner,
+            3,
+            1,
+            Guid.CreateVersion7(),
+            true));
+        await restarted.ReorderPinnedAsync(new(
+            savedViewOwner,
+            4,
+            Guid.CreateVersion7(),
+            [secondViewId, viewId],
+            new Dictionary<Guid, long>
+            {
+                [viewId] = 2,
+                [secondViewId] = 2
+            }));
+        Assert.Equal(
+            [secondViewId, viewId],
+            (await restarted.ListAsync(savedViewOwner, null, 10)).Items.Select(static view => view.Id));
+        Assert.Equal(0, await db.Ado.GetIntAsync(
+            """
+            SELECT COUNT(*)
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name IN ('author_saved_view_receipt', 'author_saved_view_idempotency')
+              AND column_name IN ('query_text', 'query_json', 'result_article_ids', 'permission_snapshot');
+            """));
+        await Assert.ThrowsAsync<AuthorSavedViewCollectionRevisionConflictException>(() => restarted.RenameAsync(new(
+            viewId,
+            savedViewOwner,
+            0,
+            3,
+            Guid.CreateVersion7(),
+            "Stale")));
+        await restarted.DeleteAsync(new(
+            viewId,
+            savedViewOwner,
+            5,
+            3,
+            Guid.CreateVersion7(),
+            AuthorSavedViewDefaultDisposition.NotApplicable,
+            null,
+            null,
+            "integration-delete"));
+        Assert.Null(await restarted.GetAsync(savedViewOwner, viewId));
+        Assert.Equal(0, await db.Ado.GetIntAsync(
+            "SELECT COUNT(*) FROM author_saved_view_condition WHERE view_id = @ViewId;",
+            new SugarParameter("@ViewId", viewId)));
+        Assert.Equal(3, await db.Ado.GetIntAsync(
+            "SELECT COUNT(*) FROM author_saved_view_receipt WHERE view_id = @ViewId;",
+            new SugarParameter("@ViewId", viewId)));
+    }
+
     private async Task<SqlSugarClient> CreateDatabaseAsync()
     {
         SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
@@ -336,6 +470,15 @@ public sealed class AuthoringCanvasDocumentStoreIntegrationTests(PostgresSchemaM
     private static async Task ApplyMigrationAsync(SqlSugarClient db)
     {
         ISchemaMigrationDescriptor migration = AuthoringCanvasDocumentMigrationDefinitions.BuildMigration();
+        foreach (SchemaMigrationStep step in migration.Steps)
+        {
+            await step.ExecuteAsync(db, CancellationToken.None);
+        }
+    }
+
+    private static async Task ApplySavedViewMigrationAsync(SqlSugarClient db)
+    {
+        ISchemaMigrationDescriptor migration = AuthorSavedViewMigrationDefinitions.BuildMigration();
         foreach (SchemaMigrationStep step in migration.Steps)
         {
             await step.ExecuteAsync(db, CancellationToken.None);
