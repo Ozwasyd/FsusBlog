@@ -70,7 +70,6 @@ export function createBrowserContractObservationFixture(context, suppliedCandida
     images: Object.fromEntries(Array.from({ length: 9 }, (_, index) => [`screenshot-${index + 1}`, String(index + 1).repeat(64)])),
     differences: [],
     commandVersion: 'd'.repeat(64),
-    captureContextCount: 9,
     qualityAudit: true,
     qualityPolicyDigest: 'e'.repeat(64),
     quality: {
