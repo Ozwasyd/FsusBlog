@@ -8,6 +8,43 @@ const manifestTypes = [
 ];
 const digestPattern = /^sha256:[0-9a-f]{64}$/;
 
+function numericDockerTag(tag)
+{
+    if (typeof tag !== 'string' || /^[0-9a-f]{40,64}$/.test(tag)) return null;
+    const match = /^(v?)(0|[1-9][0-9]*)(\.(?:0|[1-9][0-9]*)){0,3}(-[A-Za-z0-9][A-Za-z0-9_.-]*)?$/.exec(tag);
+    if (!match) return null;
+    const separator = tag.indexOf('-');
+    const version = separator < 0 ? tag : tag.slice(0, separator);
+    return {
+        tag, prefix: match[1], suffix: separator < 0 ? '' : tag.slice(separator),
+        parts: version.replace(/^v/, '').split('.').map(BigInt)
+    };
+}
+
+function compareDockerTags(left, right)
+{
+    for (let index = 0; index < left.parts.length; index++)
+    {
+        if (left.parts[index] < right.parts[index]) return -1;
+        if (left.parts[index] > right.parts[index]) return 1;
+    }
+    return 0;
+}
+
+/** Docker's numeric tags retain precision and the exact compatibility suffix. */
+export function selectLatestDockerTag(tags, currentVersion)
+{
+    const current = numericDockerTag(currentVersion);
+    if (!current || !Array.isArray(tags)) throw new Error('docker_numeric_tag_required');
+    const candidates = tags.map(numericDockerTag).filter((tag) => tag
+        && tag.parts.length === current.parts.length && tag.suffix === current.suffix && tag.prefix === current.prefix);
+    if (candidates.length === 0) throw new Error('docker_compatible_tag_missing');
+    candidates.sort(compareDockerTags);
+    const latest = candidates.at(-1);
+    if (compareDockerTags(latest, current) < 0) throw new Error('docker_latest_tag_would_downgrade');
+    return latest.tag;
+}
+
 export function dockerRepository(packageName)
 {
     let registry = 'registry-1.docker.io';

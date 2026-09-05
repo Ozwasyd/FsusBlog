@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 
-import { createDockerRegistryReader, dockerRepository, readDockerManifest, readDockerTags } from '../../tools/governance/dependency-docker-registry.mjs';
+import { createDockerRegistryReader, dockerRepository, readDockerManifest, readDockerTags, selectLatestDockerTag } from '../../tools/governance/dependency-docker-registry.mjs';
 
 function page(tags, link, name = 'library/node')
 {
@@ -116,4 +116,26 @@ test('legacy media types and excessive manifest bodies are not accepted', async 
     const data = manifestFixture();
     await assert.rejects(readDockerManifest('node', 'latest', async () => new Response(data.bytes)), /media_type_invalid/);
     await assert.rejects(readDockerManifest('node', 'latest', async () => new Response(' '.repeat(4 * 1024 * 1024 + 1), { headers: data.headers })), /size_exceeded/);
+});
+
+test('Docker latest tag preserves compatibility suffix and version precision', () => {
+    assert.equal(selectLatestDockerTag(['17-alpine', '18-alpine', '19-bookworm', '18.1-alpine', '19'], '17-alpine'), '18-alpine');
+    assert.equal(selectLatestDockerTag(['10.0', '10.1', '10.2.0', '11.0-preview.1'], '10.0'), '10.1');
+    assert.equal(selectLatestDockerTag(['24.9.0', '24.10.0', '24.11.0-alpine', '25.0.0-rc1'], '24.9.0'), '24.10.0');
+});
+
+test('Docker numeric ordering is exact and independent of tag response ordering', () => {
+    const tags = ['1.9.0', '2.0.0', '1.10.0'];
+    assert.equal(selectLatestDockerTag(tags, '1.0.0'), '2.0.0');
+    assert.equal(selectLatestDockerTag([...tags].reverse(), '1.0.0'), '2.0.0');
+    assert.equal(selectLatestDockerTag(['1.9007199254740992', '1.9007199254740993'], '1.0'), '1.9007199254740993');
+});
+
+test('missing compatible tags, implicit aliases and downgrades cannot become latest targets', () => {
+    assert.throws(() => selectLatestDockerTag(['18-bookworm'], '17-alpine'), /compatible_tag_missing/);
+    assert.throws(() => selectLatestDockerTag(['16-alpine'], '17-alpine'), /would_downgrade/);
+    for (const current of ['latest', `sha256:${'a'.repeat(64)}`, 'not-a-version'])
+    {
+        assert.throws(() => selectLatestDockerTag(['1.0'], current), /numeric_tag_required/);
+    }
 });
