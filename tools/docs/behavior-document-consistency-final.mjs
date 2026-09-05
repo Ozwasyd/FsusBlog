@@ -1128,6 +1128,91 @@ function autoPropertyInitializers(source, masked, identifierAuthority)
     return initializers
 }
 
+function rejectOnlyRegexDeclarations(sourceFile, parser)
+{
+    const identifiers = new Map()
+    const declarations = []
+    const collect = (node) =>
+    {
+        if (parser.isIdentifier(node))
+        {
+            const references = identifiers.get(node.text) ?? []
+            references.push(node)
+            identifiers.set(node.text, references)
+        }
+        if (parser.isVariableDeclaration(node) && parser.isIdentifier(node.name)
+            && node.initializer?.kind === parser.SyntaxKind.RegularExpressionLiteral) declarations.push(node)
+        parser.forEachChild(node, collect)
+    }
+    collect(sourceFile)
+    if (identifiers.has('eval')) return new Set()
+    const singleThrow = (statement) =>
+    {
+        const body = parser.isBlock(statement) ? statement.statements : [statement]
+        return body.length === 1 && parser.isThrowStatement(body[0])
+    }
+    const localRejectAssertion = (callee) =>
+    {
+        if (!parser.isIdentifier(callee)) return false
+        const candidates = sourceFile.statements.filter((statement) => parser.isFunctionDeclaration(statement)
+            && statement.name?.text === callee.text)
+        if (candidates.length !== 1) return false
+        const declaration = candidates[0]
+        if (declaration.modifiers?.length || declaration.asteriskToken || declaration.parameters.length !== 2) return false
+        const [conditionParameter, messageParameter] = declaration.parameters
+        if (!parser.isIdentifier(conditionParameter.name) || !parser.isIdentifier(messageParameter.name)
+            || conditionParameter.initializer || messageParameter.initializer) return false
+        const statements = declaration.body?.statements
+        if (statements?.length !== 1 || !parser.isIfStatement(statements[0])) return false
+        const guard = statements[0]
+        if (guard.elseStatement || !parser.isPrefixUnaryExpression(guard.expression)
+            || guard.expression.operator !== parser.SyntaxKind.ExclamationToken
+            || !parser.isIdentifier(guard.expression.operand)
+            || guard.expression.operand.text !== conditionParameter.name.text || !singleThrow(guard.thenStatement)) return false
+        const thrown = (parser.isBlock(guard.thenStatement) ? guard.thenStatement.statements[0] : guard.thenStatement).expression
+        if (!parser.isNewExpression(thrown) || !parser.isIdentifier(thrown.expression)
+            || thrown.expression.text !== 'Error' || thrown.arguments?.length !== 1
+            || !parser.isIdentifier(thrown.arguments[0]) || thrown.arguments[0].text !== messageParameter.name.text) return false
+        return (identifiers.get(callee.text) ?? []).every((reference) => reference === declaration.name
+            || (parser.isCallExpression(reference.parent) && reference.parent.expression === reference))
+            && (identifiers.get('Error') ?? []).every((reference) => parser.isNewExpression(reference.parent)
+                && reference.parent.expression === reference)
+    }
+    const guardedUse = (reference) =>
+    {
+        const access = reference.parent
+        const call = access?.parent
+        if (!parser.isPropertyAccessExpression(access) || access.expression !== reference
+            || access.name.text !== 'test' || access.questionDotToken
+            || !parser.isCallExpression(call) || call.expression !== access || call.questionDotToken
+            || call.arguments.length !== 1) return false
+        for (let ancestor = call.parent; ancestor; ancestor = ancestor.parent)
+        {
+            if (parser.isTryStatement(ancestor)) return false
+        }
+        const parent = call.parent
+        if (parser.isIfStatement(parent) && parent.expression === call
+            && !parent.elseStatement && singleThrow(parent.thenStatement)) return true
+        if (!parser.isPrefixUnaryExpression(parent) || parent.operator !== parser.SyntaxKind.ExclamationToken) return false
+        const assertion = parent.parent
+        return parser.isCallExpression(assertion) && assertion.arguments.length === 2
+            && assertion.arguments[0] === parent && !assertion.questionDotToken
+            && localRejectAssertion(assertion.expression)
+    }
+    return new Set(declarations.filter((declaration) =>
+    {
+        const list = declaration.parent
+        const statement = list.parent
+        if (!parser.isVariableDeclarationList(list) || !(list.flags & parser.NodeFlags.Const)
+            || !parser.isVariableStatement(statement) || statement.parent !== sourceFile
+            || statement.modifiers?.length) return false
+        const flags = declaration.initializer.text.slice(declaration.initializer.text.lastIndexOf('/') + 1)
+        if (/[gy]/u.test(flags)) return false
+        const uses = (identifiers.get(declaration.name.text) ?? []).filter((reference) => reference !== declaration.name)
+        return uses.length > 0 && uses.every(guardedUse)
+    }))
+}
+
 function scanEcmaScriptAst(source, context, parser, locationPrefix, lineAt, isExactDeclaration)
 {
     const scriptKind = /\.(?:jsx|tsx)$/iu.test(context.file)
@@ -1140,6 +1225,8 @@ function scanEcmaScriptAst(source, context, parser, locationPrefix, lineAt, isEx
         addFinding(context.findings, context.file, context.pathClasses, 'invalid-machine-source',
             `${locationPrefix}:line:${lineAt(start)}`)
     }
+    const rejectOnlyDeclarations = sourceFile.parseDiagnostics.length === 0
+        ? rejectOnlyRegexDeclarations(sourceFile, parser) : new Set()
     const identifierText = (name) =>
     {
         if (!name) return null
@@ -1180,7 +1267,7 @@ function scanEcmaScriptAst(source, context, parser, locationPrefix, lineAt, isEx
     {
         if (identifier === null) return
         const index = node.getStart(sourceFile)
-        if (isExactDeclaration(index)) return
+        if (isExactDeclaration(index) || rejectOnlyDeclarations.has(node)) return
         scanIdentifier(identifier, valueText, {
             ...context,
             location: `${locationPrefix}:line:${lineAt(index)}`

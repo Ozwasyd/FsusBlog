@@ -303,6 +303,37 @@ test('zero-legacy package script selection paths cannot hide behind command file
     assert.equal(findings.some((finding) => finding.location === '$.scripts.current'), false)
 })
 
+test('zero-legacy classifies only immutable regex bindings with exclusively rejecting uses', (t) =>
+{
+    const declaration = 'const forbiddenSelectionKey = /latest|mtime/iu;'
+    const assertion = 'function insist(condition, message) { if (!condition) { throw new Error(message); } }'
+    const call = 'function check(key) { insist(!forbiddenSelectionKey.test(key), "invalid input"); }'
+    const cases = [
+        ['direct-throw', `${declaration} function check(key) { if (forbiddenSelectionKey.test(key)) { throw new Error("invalid input"); } }`, false],
+        ['local-reject', `${declaration} ${assertion} ${call}`, false],
+        ['active-producer', `${declaration} export function produce(key) { return forbiddenSelectionKey.test(key); }`, true],
+        ['second-use', `${declaration} ${assertion} ${call} const selected = forbiddenSelectionKey.test(input);`, true],
+        ['alias', `${declaration} ${assertion} ${call} const alias = forbiddenSelectionKey;`, true],
+        ['dynamic-read', `${declaration} ${assertion} ${call} eval("publish(forbiddenSelectionKey)");`, true],
+        ['stateful-regex', `${declaration.replace('/iu;', '/giu;')} ${assertion} ${call}`, true],
+        ['export', `export ${declaration} ${assertion} ${call}`, true],
+        ['mutable', `${declaration.replace('const ', 'let ')} ${assertion} ${call}`, true],
+        ['no-throw', `${declaration} function check(key) { if (forbiddenSelectionKey.test(key)) { return false; } }`, true],
+        ['non-reject-assertion', `${declaration} function insist(condition, message) { return condition; } ${call}`, true],
+        ['assertion-shadow', `${declaration} ${assertion} function check(key, insist) { insist(!forbiddenSelectionKey.test(key), "invalid input"); }`, true],
+        ['regex-shadow', `${declaration} function check(key, forbiddenSelectionKey) { if (forbiddenSelectionKey.test(key)) { throw new Error("invalid input"); } }`, true],
+        ['error-shadow', `${declaration} const Error = factory; ${assertion} ${call}`, true],
+        ['caught-guard', `${declaration} function check(key) { try { if (forbiddenSelectionKey.test(key)) { throw new Error("invalid input"); } } catch {} }`, true],
+        ['guard-with-else', `${declaration} function check(key) { if (forbiddenSelectionKey.test(key)) { throw new Error("invalid input"); } else { return key; } }`, true]
+    ]
+    for (const [name, source, rejected] of cases)
+    {
+        const file = `tools/release/${name}-qualification.mjs`
+        const scan = scanZeroLegacyGovernance(repositoryFixture(t, { [file]: source }))
+        assert.equal(scan.findings.some((finding) => finding.file === file), rejected, name)
+    }
+})
+
 test('zero-legacy machine-field mutation corpus rejects separator variants and boolean self-certification', (t) =>
 {
     const machineFields = {
