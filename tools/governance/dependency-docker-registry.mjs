@@ -1,3 +1,13 @@
+import { createHash } from 'node:crypto';
+
+const manifestTypes = [
+    'application/vnd.oci.image.index.v1+json',
+    'application/vnd.docker.distribution.manifest.list.v2+json',
+    'application/vnd.oci.image.manifest.v1+json',
+    'application/vnd.docker.distribution.manifest.v2+json'
+];
+const digestPattern = /^sha256:[0-9a-f]{64}$/;
+
 export function dockerRepository(packageName)
 {
     let registry = 'registry-1.docker.io';
@@ -15,6 +25,49 @@ export function dockerRepository(packageName)
         throw new Error('docker_repository_invalid');
     }
     return { origin: `https://${registry}`, name };
+}
+
+/** Verify manifest bytes before using their descriptors as registry evidence. */
+export async function readDockerManifest(packageName, reference, readResponse)
+{
+    if (!digestPattern.test(reference) && !/^[\w][\w.-]{0,127}$/.test(reference))
+    {
+        throw new Error('docker_manifest_reference_invalid');
+    }
+    const { origin, name } = dockerRepository(packageName);
+    const response = await readResponse(`${origin}/v2/${name}/manifests/${reference}`, manifestTypes.join(', '));
+    if (!response.ok) throw new Error(`docker_manifest_http_error:${packageName}:${response.status}`);
+    const mediaType = response.headers.get('content-type')?.split(';')[0].trim();
+    if (!manifestTypes.includes(mediaType)) throw new Error('docker_manifest_media_type_invalid');
+    const chunks = [];
+    let size = 0;
+    for await (const chunk of response.body)
+    {
+        size += chunk.byteLength;
+        if (size > 4 * 1024 * 1024) throw new Error('docker_manifest_size_exceeded');
+        chunks.push(Buffer.from(chunk));
+    }
+    const bytes = Buffer.concat(chunks);
+    const digest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+    const header = response.headers.get('docker-content-digest');
+    if ((header && header !== digest) || (digestPattern.test(reference) && reference !== digest))
+    {
+        throw new Error('docker_manifest_digest_mismatch');
+    }
+    const manifest = JSON.parse(bytes.toString('utf8'));
+    if (manifest.schemaVersion !== 2 || manifest.mediaType !== mediaType)
+    {
+        throw new Error('docker_manifest_schema_invalid');
+    }
+    const index = manifestTypes.indexOf(mediaType) < 2;
+    const descriptors = index ? manifest.manifests : [manifest.config];
+    if (!Array.isArray(descriptors) || descriptors.length === 0 || descriptors.some((entry) => !entry
+        || !digestPattern.test(entry.digest) || !Number.isSafeInteger(entry.size) || entry.size < 0
+        || typeof entry.mediaType !== 'string'))
+    {
+        throw new Error('docker_manifest_descriptors_invalid');
+    }
+    return { digest, manifest, size };
 }
 
 /** Public metadata only: obtain repository-scoped anonymous pull tokens, never Docker login credentials. */
