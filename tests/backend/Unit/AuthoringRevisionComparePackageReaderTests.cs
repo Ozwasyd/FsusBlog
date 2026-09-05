@@ -241,6 +241,34 @@ public sealed class AuthoringRevisionComparePackageReaderTests
         Assert.Null(result.Context);
     }
 
+    [Fact]
+    public async Task ReadAuthorizedAsync_RejectsOversizedDraftBeforeContextOrByteCopy()
+    {
+        IAuthoringRevisionCompareAuthority authority = Authority();
+        authority.GetDraftAsync(5, "draft-key", Arg.Any<CancellationToken>())
+            .Returns(Draft(
+                7,
+                3,
+                "client-write-3",
+                new string('x', RevisionCompareContract.AbsoluteMaxSourceBytes + 1)));
+        IAuthoringRevisionCompareDraftContextProvider provider = DraftContextProvider();
+        var reader = Reader(authority, provider);
+
+        RevisionComparePackageReadResult result = await reader.ReadAuthorizedAsync(
+            Context(),
+            7,
+            new RevisionCompareSourceSelector(
+                RevisionCompareSourceKind.CurrentDraft,
+                DraftKey: "draft-key",
+                ExpectedServerRevision: 3,
+                DocumentEpoch: "document-epoch-3"));
+
+        Assert.Equal(RevisionComparePackageReadStatus.BudgetExceeded, result.Status);
+        Assert.Equal("revision_compare_source_budget_exceeded", result.ReasonCode);
+        Assert.Null(result.Package);
+        await provider.DidNotReceiveWithAnyArgs().ReadAsync(default!, default);
+    }
+
     private static IAuthoringRevisionCompareAuthority Authority(long currentRevisionId = 11)
     {
         IAuthoringRevisionCompareAuthority authority = Substitute.For<IAuthoringRevisionCompareAuthority>();
@@ -298,12 +326,16 @@ public sealed class AuthoringRevisionComparePackageReaderTests
     private static RevisionCompareSourceSelector HistoricalSelector()
         => new(RevisionCompareSourceKind.HistoricalRevision, RevisionId: 11);
 
-    private static ServerDraftResponse Draft(int articleId, long serverRevision, string clientRevision)
+    private static ServerDraftResponse Draft(
+        int articleId,
+        long serverRevision,
+        string clientRevision,
+        string content = "raw\r\nmarkdown\n")
         => new(
             "draft-key",
             articleId,
             "Draft title",
-            "raw\r\nmarkdown\n",
+            content,
             "Summary",
             null,
             2,

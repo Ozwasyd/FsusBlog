@@ -132,12 +132,14 @@ public sealed class RevisionComparePlanner(IRevisionComparePackageReader package
         {
             RevisionComparePackageReadStatus.Stale => RevisionComparePlanStatus.Stale,
             RevisionComparePackageReadStatus.Invalid => RevisionComparePlanStatus.Invalid,
+            RevisionComparePackageReadStatus.BudgetExceeded => RevisionComparePlanStatus.BudgetExceeded,
             _ => RevisionComparePlanStatus.Unavailable
         };
         string reason = status switch
         {
             RevisionComparePlanStatus.Stale => "revision_compare_source_stale",
             RevisionComparePlanStatus.Invalid => "revision_compare_source_invalid",
+            RevisionComparePlanStatus.BudgetExceeded => "revision_compare_source_budget_exceeded",
             _ => "revision_compare_source_unavailable"
         };
         // Failure receipts intentionally omit package coordinates and digests so an
@@ -150,6 +152,11 @@ public sealed class RevisionComparePlanner(IRevisionComparePackageReader package
         RevisionComparePackage basePackage,
         RevisionComparePackage comparePackage)
     {
+        if (basePackage.RawMarkdown.Length > request.Budgets.MaxSourceBytes
+            || comparePackage.RawMarkdown.Length > request.Budgets.MaxSourceBytes)
+        {
+            return "revision_compare_source_budget_exceeded";
+        }
         if (!RevisionComparePackageSeal.Verify(basePackage)
             || !RevisionComparePackageSeal.Verify(comparePackage))
         {
@@ -177,12 +184,6 @@ public sealed class RevisionComparePlanner(IRevisionComparePackageReader package
             {
                 return "revision_compare_metadata_incomplete";
             }
-        }
-
-        if (basePackage.RawMarkdown.Length > request.Budgets.MaxSourceBytes
-            || comparePackage.RawMarkdown.Length > request.Budgets.MaxSourceBytes)
-        {
-            return "revision_compare_source_budget_exceeded";
         }
 
         int baseLines = RevisionCompareContract.CountLines(basePackage.RawMarkdown.AsSpan());

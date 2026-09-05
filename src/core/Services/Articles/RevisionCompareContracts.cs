@@ -52,7 +52,8 @@ public enum RevisionComparePackageReadStatus
     Available = 0,
     Unavailable = 1,
     Stale = 2,
-    Invalid = 3
+    Invalid = 3,
+    BudgetExceeded = 4
 }
 
 public enum RevisionComparePlanStatus
@@ -306,6 +307,9 @@ public sealed record RevisionComparePackageReadResult(
 
     public static RevisionComparePackageReadResult Invalid()
         => new(RevisionComparePackageReadStatus.Invalid, null, "revision_compare_source_invalid");
+
+    public static RevisionComparePackageReadResult BudgetExceeded()
+        => new(RevisionComparePackageReadStatus.BudgetExceeded, null, "revision_compare_source_budget_exceeded");
 }
 
 public interface IRevisionComparePackageReader

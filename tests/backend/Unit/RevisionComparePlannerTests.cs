@@ -144,6 +144,20 @@ public sealed class RevisionComparePlannerTests
     }
 
     [Fact]
+    public async Task CreateAsync_PropagatesReaderBoundaryBudgetWithoutSourceReceiptLeak()
+    {
+        var reader = new DelegateReader((_, _, _) => Task.FromResult(
+            RevisionComparePackageReadResult.BudgetExceeded()));
+
+        RevisionComparePlanResult result = await new RevisionComparePlanner(reader).CreateAsync(Request());
+
+        Assert.Equal(RevisionComparePlanStatus.BudgetExceeded, result.Status);
+        Assert.Equal("revision_compare_source_budget_exceeded", result.Receipt.ReasonCode);
+        Assert.Null(result.Receipt.BasePackageDigest);
+        Assert.Null(result.Receipt.ComparePackageDigest);
+    }
+
+    [Fact]
     public async Task VerifyAsync_FailsClosedWhenExactSourceReferenceChanges()
     {
         RevisionComparePackage baseline = Package(RevisionCompareSourceKind.HistoricalRevision, 11, 1, "base");

@@ -293,6 +293,10 @@ public sealed class AuthoringRevisionComparePackageReader(
         {
             return RevisionComparePackageReadResult.Stale();
         }
+        if (!TryEncodeMarkdown(draft.Content, out byte[] rawMarkdown))
+        {
+            return RevisionComparePackageReadResult.BudgetExceeded();
+        }
 
         byte[] rightsPayload = JsonSerializer.SerializeToUtf8Bytes(draft.Rights);
         string rightsDigest = Convert.ToHexStringLower(SHA256.HashData(rightsPayload));
@@ -330,7 +334,7 @@ public sealed class AuthoringRevisionComparePackageReader(
             null,
             draft.ServerRevision,
             contextResult.Context.DocumentEpoch,
-            Encoding.UTF8.GetBytes(draft.Content),
+            rawMarkdown,
             DraftMetadata(draft),
             contextResult.Context.Snapshots);
         return RevisionComparePackageReadResult.Available(package);
@@ -373,6 +377,10 @@ public sealed class AuthoringRevisionComparePackageReader(
             }
         }
 
+        if (!TryEncodeMarkdown(revision.Content, out byte[] rawMarkdown))
+        {
+            return RevisionComparePackageReadResult.BudgetExceeded();
+        }
         RevisionComparePackage package = RevisionComparePackageSeal.Create(
             articleId,
             selector.Kind,
@@ -381,10 +389,21 @@ public sealed class AuthoringRevisionComparePackageReader(
             revision.RevisionNo,
             null,
             null,
-            Encoding.UTF8.GetBytes(revision.Content),
+            rawMarkdown,
             RevisionMetadata(revision),
             RevisionSnapshots(revision));
         return RevisionComparePackageReadResult.Available(package);
+    }
+
+    private static bool TryEncodeMarkdown(string markdown, out byte[] bytes)
+    {
+        if (Encoding.UTF8.GetByteCount(markdown) > RevisionCompareContract.AbsoluteMaxSourceBytes)
+        {
+            bytes = [];
+            return false;
+        }
+        bytes = Encoding.UTF8.GetBytes(markdown);
+        return true;
     }
 
     private static RevisionCompareMetadataValue[] DraftMetadata(ServerDraftResponse draft)
