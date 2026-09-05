@@ -74,3 +74,17 @@ test('foreign package metadata and late network errors cannot supply a freshness
         return data.read(url);
     }), /registry unavailable/);
 });
+
+test('explicitly unlisted newest version does not displace the latest listed stable target', async () => {
+    const data = fixture();
+    data.entry.listed = false;
+    data.entry.published = '1900-01-01T00:00:00Z';
+    data.page.items.push({ catalogEntry: { id: 'Example.Package', version: '1.0.0', listed: true, published: '2025-12-01T00:00:00Z' } });
+    data.page.count = 2;
+    assert.deepEqual(await readLatestNuget('Example.Package', data.read), {
+        latestStable: '1.0.0', releasedAt: '2025-12-01T00:00:00.000Z'
+    });
+    // Missing metadata is not equivalent to an explicit unlisted state.
+    delete data.entry.listed;
+    await assert.rejects(readLatestNuget('Example.Package', data.read), /publication_missing/);
+});

@@ -8,7 +8,7 @@ function registryUrl(value, inlineIdentity = false)
     return url.href;
 }
 
-/** Resolve publication metadata for the same latest target selected by the flat-container index. */
+/** Resolve the latest listed stable release, excluding explicitly unlisted package versions. */
 export async function readLatestNuget(packageName, fetchJson)
 {
     if (!/^[A-Za-z0-9_.-]+$/.test(packageName)) throw new Error('nuget_package_id_invalid');
@@ -18,8 +18,8 @@ export async function readLatestNuget(packageName, fetchJson)
     {
         throw new Error('nuget_versions_invalid');
     }
-    const latestStable = versions.versions.filter((version) => !version.includes('-')).at(-1);
-    if (!latestStable) throw new Error('nuget_latest_missing');
+    const stableVersions = versions.versions.filter((version) => !version.includes('-')).reverse();
+    if (!stableVersions.length) throw new Error('nuget_latest_missing');
     const service = await fetchJson('https://api.nuget.org/v3/index.json');
     const resources = service.resources?.filter((resource) => resource['@type'] === 'RegistrationsBaseUrl/3.6.0');
     if (resources?.length !== 1) throw new Error('nuget_registration_resource_ambiguous');
@@ -30,7 +30,7 @@ export async function readLatestNuget(packageName, fetchJson)
     {
         throw new Error('nuget_registration_pages_invalid');
     }
-    const matches = [];
+    const entries = [];
     const seen = new Set();
     for (const page of registration.items)
     {
@@ -50,14 +50,20 @@ export async function readLatestNuget(packageName, fetchJson)
             {
                 throw new Error('nuget_registration_entry_invalid');
             }
-            if (entry.version.toLowerCase() === latestStable.toLowerCase()) matches.push(entry);
+            entries.push(entry);
         }
     }
-    const published = matches[0]?.published;
-    if (matches.length !== 1 || matches[0].listed === false || typeof published !== 'string'
-        || !Number.isFinite(Date.parse(published)) || new Date(published).getUTCFullYear() <= 1900)
+    for (const latestStable of stableVersions)
     {
-        throw new Error('nuget_publication_missing_or_ambiguous');
+        const matches = entries.filter((entry) => entry.version.toLowerCase() === latestStable.toLowerCase());
+        if (matches.length !== 1) throw new Error('nuget_publication_missing_or_ambiguous');
+        if (matches[0].listed === false) continue;
+        const published = matches[0].published;
+        if (typeof published !== 'string' || !Number.isFinite(Date.parse(published)) || new Date(published).getUTCFullYear() <= 1900)
+        {
+            throw new Error('nuget_publication_missing_or_ambiguous');
+        }
+        return { latestStable, releasedAt: new Date(published).toISOString() };
     }
-    return { latestStable, releasedAt: new Date(published).toISOString() };
+    throw new Error('nuget_listed_stable_missing');
 }
