@@ -12,6 +12,7 @@ import { registryRelease } from './dependency-registry-release.mjs'
 import { readLatestGitRef } from './dependency-git-registry.mjs'
 import { createDockerRegistryReader, dockerRepository, readDockerHubPublication, readLatestDocker, readMcrPublication } from './dependency-docker-registry.mjs'
 import { readGhcrPublication } from './dependency-ghcr-publication.mjs'
+import { collectRegistryResults } from './dependency-registry-batch.mjs'
 
 import {
     clone,
@@ -97,12 +98,12 @@ async function liveLatest(item, currentVersion) {
 
 async function loadLiveSnapshot(catalog, currentVersions) {
     const registries = { byId: {} }
-    const settled = await Promise.allSettled((catalog.items ?? []).map(async item => {
+    const settled = await collectRegistryResults(catalog.items ?? [], async item => {
         const latest = await liveLatest(item, currentVersions[item.id]?.currentVersion)
         registries.byId[item.id] = latest
         registries[item.datasource] ??= {}
         registries[item.datasource][item.packageName] ??= latest
-    }))
+    })
     const failed = settled.filter(result => result.status === 'rejected')
     if (failed.length > 0) {
         throw new Error(failed.map(result => result.reason?.message ?? String(result.reason)).slice(0, 8).join('; '))
