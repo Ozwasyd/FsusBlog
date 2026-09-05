@@ -94,7 +94,7 @@ const ignoredDirectoryNames = new Set([
     '.cache', '.git', '.tmp', 'bin', 'build', 'coverage', 'dist', 'node_modules', 'obj', 'out',
     'playwright-report', 'publish', 'temp', 'test-results', 'testresults', 'tmp'
 ])
-const machineSourceExtensions = /\.(?:bash|c|cc|cjs|cpp|cs|cts|cxx|h|hpp|js|jsx|mjs|mts|ps1|sh|ts|tsx|vue|ya?ml)$/u
+const machineSourceExtensions = /\.(?:bash|c|cc|cjs|cpp|cs|cts|cxx|h|hpp|js|jsx|mjs|mts|ps1|sh|ts|tsx|vue|ya?ml)$/iu
 const qualificationPathPattern = /(?:artifact|behavior|doc[-_.]?claim|evidence|fact[-_.]?extract|generated[-_.]?fact|governance|mutation|qualification|receipt|release[-_.]?final)/iu
 const machineFenceLanguages = new Set([
     'bash', 'csharp', 'cs', 'javascript', 'js', 'json', 'jsonc', 'powershell', 'ps1',
@@ -1134,6 +1134,12 @@ function scanEcmaScriptAst(source, context, parser, locationPrefix, lineAt, isEx
         ? (/\.tsx$/iu.test(context.file) ? parser.ScriptKind.TSX : parser.ScriptKind.JSX)
         : (/\.(?:ts|mts|cts)$/iu.test(context.file) ? parser.ScriptKind.TS : parser.ScriptKind.JS)
     const sourceFile = parser.createSourceFile(context.file, source, parser.ScriptTarget.Latest, true, scriptKind)
+    for (const diagnostic of sourceFile.parseDiagnostics)
+    {
+        const start = Number.isInteger(diagnostic.start) && diagnostic.start >= 0 ? diagnostic.start : 0
+        addFinding(context.findings, context.file, context.pathClasses, 'invalid-machine-source',
+            `${locationPrefix}:line:${lineAt(start)}`)
+    }
     const identifierText = (name) =>
     {
         if (!name) return null
@@ -1187,13 +1193,13 @@ function scanEcmaScriptAst(source, context, parser, locationPrefix, lineAt, isEx
         if (parser.isElementAccessExpression(node) && parser.isStringLiteralLike(node.argumentExpression)) return node.argumentExpression.text
         return null
     }
-    const scanStaticModuleSpecifier = (node) =>
+    const scanModuleSpecifier = (moduleSpecifierNode, ownerNode) =>
     {
-        const moduleSpecifier = constantString(node.moduleSpecifier)
+        const moduleSpecifier = constantString(moduleSpecifierNode)
         if (moduleSpecifier === null) return
         const moduleContext = {
             ...context,
-            location: `${locationPrefix}:line:${lineAt(node.getStart(sourceFile))}`
+            location: `${locationPrefix}:line:${lineAt(ownerNode.getStart(sourceFile))}`
         }
         scanValueResidue('source', moduleSpecifier, moduleContext)
         if (legacySurfaceName(moduleSpecifier, moduleContext))
@@ -1206,7 +1212,7 @@ function scanEcmaScriptAst(source, context, parser, locationPrefix, lineAt, isEx
     {
         if (parser.isImportDeclaration(node))
         {
-            scanStaticModuleSpecifier(node)
+            scanModuleSpecifier(node.moduleSpecifier, node)
             const importClause = node.importClause
             scanOwned(identifierText(importClause?.name), '', node)
             const bindings = importClause?.namedBindings
@@ -1222,7 +1228,7 @@ function scanEcmaScriptAst(source, context, parser, locationPrefix, lineAt, isEx
         }
         else if (parser.isExportDeclaration(node) && node.moduleSpecifier)
         {
-            scanStaticModuleSpecifier(node)
+            scanModuleSpecifier(node.moduleSpecifier, node)
         }
         else if (parser.isVariableDeclaration(node)
             || parser.isPropertyDeclaration(node)
@@ -1245,6 +1251,10 @@ function scanEcmaScriptAst(source, context, parser, locationPrefix, lineAt, isEx
         }
         else if (parser.isCallExpression(node))
         {
+            if (node.expression.kind === parser.SyntaxKind.ImportKeyword)
+            {
+                scanModuleSpecifier(node.arguments[0], node)
+            }
             const invocation = assignedName(node.expression)
             const invocationContext = {
                 ...context,
@@ -1414,9 +1424,24 @@ function scanDocumentFences(source, context)
 {
     const normalized = source.replace(/\r\n|\r|\u2028|\u2029/gu, '\n')
     const lines = normalized.split('\n')
+    const stripBlockQuotePrefix = (line, expectedDepth = null) =>
+    {
+        let content = line
+        let depth = 0
+        while (expectedDepth === null || depth < expectedDepth)
+        {
+            const marker = /^ {0,3}>[\t ]?/u.exec(content)
+            if (!marker) break
+            content = content.slice(marker[0].length)
+            depth += 1
+        }
+        if (expectedDepth !== null && depth !== expectedDepth) return null
+        return { content, depth }
+    }
     for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1)
     {
-        const opening = /^ {0,3}(`{3,}|~{3,})(.*)$/u.exec(lines[lineIndex])
+        const openingLine = stripBlockQuotePrefix(lines[lineIndex])
+        const opening = /^ {0,3}(`{3,}|~{3,})(.*)$/u.exec(openingLine.content)
         if (!opening) continue
         const marker = opening[1][0]
         const information = opening[2].trim()
@@ -1424,10 +1449,23 @@ function scanDocumentFences(source, context)
         const language = information.split(/\s+/u, 1)[0].toLowerCase()
         const closing = new RegExp(`^ {0,3}${marker}{${opening[1].length},}[\\t ]*$`, 'u')
         let closingIndex = lineIndex + 1
-        while (closingIndex < lines.length && !closing.test(lines[closingIndex])) closingIndex += 1
-        const body = lines.slice(lineIndex + 1, closingIndex).join('\n')
+        let closingFound = false
+        const bodyLines = []
+        while (closingIndex < lines.length)
+        {
+            const containerLine = stripBlockQuotePrefix(lines[closingIndex], openingLine.depth)
+            if (containerLine === null) break
+            if (closing.test(containerLine.content))
+            {
+                closingFound = true
+                break
+            }
+            bodyLines.push(containerLine.content)
+            closingIndex += 1
+        }
+        const body = bodyLines.join('\n')
         const location = `fence:${language}:line:${lineIndex + 1}`
-        lineIndex = closingIndex
+        lineIndex = closingFound ? closingIndex : closingIndex - 1
         if (!machineFenceLanguages.has(language)) continue
         if (language === 'yaml' || language === 'yml')
         {
@@ -1668,6 +1706,11 @@ function inventoryFileContent(repositoryRoot, entry, findings, pathClasses)
         addFinding(findings, entry.file, pathClasses, 'tracked-worktree-index-split:mode', `git-index:${entry.mode}:${entry.oid}`)
         return entry.indexContent
     }
+    if (fs.realpathSync(absolute) !== absolute)
+    {
+        addFinding(findings, entry.file, pathClasses, 'tracked-worktree-index-split:path', `git-index:${entry.oid}`)
+        return entry.indexContent
+    }
     const executable = (stat.mode & 0o111) !== 0
     if ((entry.mode === '100755') !== executable)
     {
@@ -1797,7 +1840,7 @@ export function scanZeroLegacyGovernance(repositoryRoot = root)
             try
             {
                 const document = parseMachineJson(source, file, parser)
-                const jsonSchemaDocument = file.endsWith('.schema.json')
+                const jsonSchemaDocument = (/\.schema\.json$/iu.test(file) || /^config\/schemas(?:\/|$)/u.test(file))
                     && typeof document?.$schema === 'string'
                     && jsonSchemaDialectPattern.test(document.$schema)
                 scanObjectKeys(document, { ...context, jsonSchemaDocument })

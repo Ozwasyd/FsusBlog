@@ -448,7 +448,8 @@ test('zero-legacy dispatches tracked module and shell extensions and scans stati
         'tools/release/import-behavior-qualification.mts': [
             'import currentClaim from "./deprecated-claim-cli.mjs"',
             'import { currentReceipt as latestReceipt } from "./current-receipt.mjs"',
-            'export { currentClaim } from "./latest-receipt.mjs"'
+            'export { currentClaim } from "./latest-receipt.mjs"',
+            'await import("./compat-claim-cli.mjs")'
         ].join('\n'),
         'tools/release/commonjs-behavior-qualification.cjs': 'const lastReviewedAt = "now"\n',
         'tools/release/direct-behavior-qualification.bash': [
@@ -456,6 +457,9 @@ test('zero-legacy dispatches tracked module and shell extensions and scans stati
             'env deprecated-claim-cli --run',
             '"deprecated-claim-cli" --quoted-run'
         ].join('\n'),
+        'tools/release/uppercase-behavior-qualification.MTS': 'await import("./deprecated-claim-cli.mjs")\n',
+        'tools/release/uppercase-commonjs-behavior-qualification.CJS': 'const lastReviewedAt = "now"\n',
+        'tools/release/uppercase-direct-behavior-qualification.BASH': 'deprecated-claim-cli --run\n',
         'tools/release/current-import-qualification.mts': 'import currentReceipt from "./current-receipt.mjs"\n',
         'tools/release/current-direct-qualification.bash': '# deprecated-claim-cli\ncurrent-claim-cli --run\n'
     })
@@ -464,10 +468,18 @@ test('zero-legacy dispatches tracked module and shell extensions and scans stati
         && finding.rule === 'forbidden-legacy-surface:./deprecated-claim-cli.mjs'))
     assert.ok(findings.some((finding) => finding.file === 'tools/release/import-behavior-qualification.mts'
         && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
+    assert.ok(findings.some((finding) => finding.file === 'tools/release/import-behavior-qualification.mts'
+        && finding.rule === 'forbidden-legacy-surface:./compat-claim-cli.mjs'))
     assert.ok(findings.some((finding) => finding.file === 'tools/release/commonjs-behavior-qualification.cjs'
         && finding.rule === 'forbidden-machine-field:lastReviewedAt'))
     assert.ok(findings.filter((finding) => finding.file === 'tools/release/direct-behavior-qualification.bash'
         && finding.rule.includes('deprecated-claim-cli')).length >= 2)
+    assert.ok(findings.some((finding) => finding.file === 'tools/release/uppercase-behavior-qualification.MTS'
+        && finding.rule === 'forbidden-legacy-surface:./deprecated-claim-cli.mjs'))
+    assert.ok(findings.some((finding) => finding.file === 'tools/release/uppercase-commonjs-behavior-qualification.CJS'
+        && finding.rule === 'forbidden-machine-field:lastReviewedAt'))
+    assert.ok(findings.some((finding) => finding.file === 'tools/release/uppercase-direct-behavior-qualification.BASH'
+        && finding.rule === 'forbidden-legacy-surface:deprecated-claim-cli'))
     for (const file of [
         'tools/release/current-import-qualification.mts',
         'tools/release/current-direct-qualification.bash'
@@ -906,6 +918,14 @@ test('zero-legacy schema traversal switches dialect at each embedded schema reso
             $schema: 'https://json-schema.org/draft/2019-09/schema',
             $recursiveRef: './compat-claim-schema.json#'
         }),
+        'config/schemas/plain-behavior-qualification.json': JSON.stringify({
+            $schema: 'https://json-schema.org/draft/2020-12/schema',
+            $dynamicRef: './deprecated-claim-schema.json#current'
+        }),
+        'config/schemas/uppercase-behavior-qualification.SCHEMA.JSON': JSON.stringify({
+            $schema: 'https://json-schema.org/draft/2019-09/schema',
+            $recursiveRef: './compat-claim-schema.json#'
+        }),
         'config/schemas/nested-draft7-ref-sibling-behavior-qualification.schema.json': JSON.stringify({
             $schema: 'http://json-schema.org/draft-07/schema#',
             not: {
@@ -950,6 +970,12 @@ test('zero-legacy schema traversal switches dialect at each embedded schema reso
         && finding.location === '$.$dynamicRef'
         && finding.rule.includes('deprecated-claim-schema')))
     assert.ok(findings.some((finding) => finding.file === 'config/schemas/legacy-recursive-ref-behavior-qualification.schema.json'
+        && finding.location === '$.$recursiveRef'
+        && finding.rule.includes('compat-claim-schema')))
+    assert.ok(findings.some((finding) => finding.file === 'config/schemas/plain-behavior-qualification.json'
+        && finding.location === '$.$dynamicRef'
+        && finding.rule.includes('deprecated-claim-schema')))
+    assert.ok(findings.some((finding) => finding.file === 'config/schemas/uppercase-behavior-qualification.SCHEMA.JSON'
         && finding.location === '$.$recursiveRef'
         && finding.rule.includes('compat-claim-schema')))
     for (const keyword of ['.properties.', '.allOf[0].'])
@@ -1061,6 +1087,26 @@ test('zero-legacy malformed machine JSON fails closed through final aggregation'
     assert.ok(report.zeroLegacyScan.findings.some((finding) => finding.rule === 'invalid-machine-json'))
 })
 
+test('zero-legacy malformed ECMAScript fails closed through final aggregation', (t) =>
+{
+    const malformed = 'export const current = {\n'
+    const scanRoot = repositoryFixture(t, {
+        'tools/release/malformed-behavior-qualification.mjs': malformed
+    })
+    const scan = scanZeroLegacyGovernance(scanRoot)
+    assert.ok(scan.findings.some((finding) => finding.file === 'tools/release/malformed-behavior-qualification.mjs'
+        && finding.rule === 'invalid-machine-source'
+        && finding.location.startsWith('source:line:')))
+
+    const sourceRoot = sourceRepositoryFixture(t, {
+        'tools/release/malformed-behavior-qualification.mjs': malformed
+    })
+    const report = buildFinalConsistencyReport(fixture({ sourceRoot }))
+    assert.equal(report.status, 'failed')
+    assert.ok(report.failureReasons.some((reason) => reason.includes('zero-legacy scan found')))
+    assert.ok(report.zeroLegacyScan.findings.some((finding) => finding.rule === 'invalid-machine-source'))
+})
+
 test('zero-legacy parser authority rejects link mode byte and locked dependency substitution', (t) =>
 {
     const yamlFile = { 'config/testing/parser-authority-behavior-qualification.yaml': 'command: current-claim-cli\n' }
@@ -1144,6 +1190,36 @@ test('zero-legacy Markdown machine fences follow CommonMark marker and length ru
     }
 })
 
+test('zero-legacy Markdown machine fences scan explicit block quote containers', (t) =>
+{
+    const repositoryRoot = repositoryFixture(t, {
+        'docs/blockquote-behavior-contract.md': [
+            '# Contract',
+            '> ~~~yaml',
+            '> latestReceipt: stale.json',
+            '> ~~~'
+        ].join('\n'),
+        'docs/nested-blockquote-behavior-contract.md': [
+            '# Contract',
+            '> > ````typescript',
+            '> > await import("./deprecated-claim-cli.mjs")',
+            '> > ````'
+        ].join('\n'),
+        'docs/current-blockquote-contract.md': [
+            '# Contract',
+            '> ~~~yaml',
+            '> currentReceipt: current.json',
+            '> ~~~'
+        ].join('\n')
+    })
+    const findings = scanZeroLegacyGovernance(repositoryRoot).findings
+    assert.ok(findings.some((finding) => finding.file === 'docs/blockquote-behavior-contract.md'
+        && finding.rule === 'forbidden-evidence-selection:latestReceipt'))
+    assert.ok(findings.some((finding) => finding.file === 'docs/nested-blockquote-behavior-contract.md'
+        && finding.rule === 'forbidden-legacy-surface:./deprecated-claim-cli.mjs'))
+    assert.equal(findings.some((finding) => finding.file === 'docs/current-blockquote-contract.md'), false)
+})
+
 test('zero-legacy tracked gitlinks fail closed without pretending their contents were scanned', (t) =>
 {
     const repositoryRoot = repositoryFixture(t, {})
@@ -1200,6 +1276,24 @@ test('zero-legacy tracked symlinks are unsupported and expose target or worktree
         && finding.rule === 'tracked-worktree-index-split:mode'))
     assert.ok(split.findings.some((finding) => finding.file === 'src/target-policy-link.mjs'
         && finding.rule === 'tracked-worktree-index-split:oid'))
+})
+
+test('zero-legacy tracked files fail closed when an ancestor directory redirects outside the repository', (t) =>
+{
+    const content = 'export const current = true\n'
+    const repositoryRoot = sourceRepositoryFixture(t, {
+        'tools/release/nested/current-behavior-qualification.mjs': content
+    })
+    const outsideRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-zero-legacy-outside-'))
+    t.after(() => fs.rmSync(outsideRoot, { recursive: true, force: true }))
+    fs.mkdirSync(path.join(outsideRoot, 'nested'), { recursive: true })
+    fs.writeFileSync(path.join(outsideRoot, 'nested/current-behavior-qualification.mjs'), content)
+    fs.rmSync(path.join(repositoryRoot, 'tools/release'), { recursive: true })
+    fs.symlinkSync(outsideRoot, path.join(repositoryRoot, 'tools/release'), 'dir')
+
+    const scan = scanZeroLegacyGovernance(repositoryRoot)
+    assert.ok(scan.findings.some((finding) => finding.file === 'tools/release/nested/current-behavior-qualification.mjs'
+        && finding.rule === 'tracked-worktree-index-split:path'))
 })
 
 test('zero-legacy scans sparse and skip-worktree files from their exact index blobs', (t) =>
