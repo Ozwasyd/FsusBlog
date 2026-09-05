@@ -87,6 +87,35 @@ public sealed class PrivateAssetStoreTests
     }
 
     [Fact]
+    public async Task OpenReadAsync_CancellationReleasesTheOpenedFile()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+
+        using var directory = new TemporaryDirectory();
+        byte[] bytes = Encoding.UTF8.GetBytes("cancelled private read");
+        AssetRecord record = CreateRecord(bytes);
+        var source = new TestRecordSource(record);
+        var store = CreateStore(directory.Path, source);
+        await store.CreateAsync(WriteRequest(record.Id, bytes));
+        string storedPath = Path.Combine(
+            ReleaseStorageTestPaths.Create(directory.Path).PrivateAssetRoot,
+            record.StorageKey.Value.Replace('/', Path.DirectorySeparatorChar));
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => store.OpenReadAsync(record.Id, cancellation.Token));
+
+        foreach (string descriptor in Directory.EnumerateFiles("/proc/self/fd"))
+        {
+            Assert.NotEqual(storedPath, new FileInfo(descriptor).LinkTarget);
+        }
+    }
+
+    [Fact]
     public async Task ValidateAndOpenRead_RejectSameLengthTamper()
     {
         using var directory = new TemporaryDirectory();

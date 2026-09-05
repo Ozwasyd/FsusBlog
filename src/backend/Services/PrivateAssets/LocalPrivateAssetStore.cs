@@ -455,23 +455,32 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
             return null;
         }
 
+        FileStream? content = null;
         try
         {
-            FileStream? content = _fileSystem.TryOpenRead(valid.StorageKey.Value);
+            content = _fileSystem.TryOpenRead(valid.StorageKey.Value);
             if (content is null
                 || content.Length != valid.SizeBytes
                 || !await HasExpectedHashAsync(content, valid.Sha256!, cancellationToken))
             {
-                content?.Dispose();
                 return null;
             }
 
             content.Position = 0;
-            return ToReadHandle(valid, content);
+            PrivateAssetReadHandle handle = ToReadHandle(valid, content);
+            content = null;
+            return handle;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or CryptographicException)
         {
             return null;
+        }
+        finally
+        {
+            if (content is not null)
+            {
+                await content.DisposeAsync();
+            }
         }
     }
 
