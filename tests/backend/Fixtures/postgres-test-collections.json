@@ -117,7 +117,7 @@
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 385,
+      "estimatedFacts": 391,
       "tests": [
         {
           "path": "Integration/AccountEnrollmentIntegrationTests.cs",
@@ -411,6 +411,14 @@
         {
           "path": "Unit/AnonymousCommentTicketRedisConcurrencyTests.cs",
           "class": "AnonymousCommentTicketRedisConcurrencyTests"
+        },
+        {
+          "path": "Unit/ContentAssetCutoverAcceptanceTests.cs",
+          "class": "ContentAssetCutoverAcceptanceTests"
+        },
+        {
+          "path": "Unit/CurrentSchemaRuntimeRollupTablesTests.cs",
+          "class": "CurrentSchemaRuntimeRollupTablesDatabaseTests"
         }
       ]
     }

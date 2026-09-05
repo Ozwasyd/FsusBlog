@@ -112,7 +112,29 @@
             "owner": "deployment",
             "sourceDigest": "sha256:71c93e2811c49fc5a49c161ac29d16548589b2797db23bf0bc2094ce74177449",
             "syntaxDigest": "sha256:d6f2155724eb88421b23854e8aff6a380238243397ee841252481f4a541af502"
+        },
+        {
+            "producerId": "shell-bdcce7a77881",
+            "findingId": "sha256:c7470181e638e2de97127144fad69553c93dfd17d1bc3ae3cf209e543bf3edec",
+            "location": {
+                "path": "tools/dev/start.sh",
+                "start": {
+                    "line": 132,
+                    "column": 4
+                },
+                "end": {
+                    "line": 132,
+                    "column": 66
+                }
+            },
+            "ruleId": "retry.shell-or-reinvoke",
+            "classification": "non-retry",
+            "policyId": null,
+            "action": "restore-only",
+            "owner": "development",
+            "sourceDigest": "sha256:58f2d7bc942ff323d1044fcdfa8eabe421bcb3383b3636c6e951b311da8c0b33",
+            "syntaxDigest": "sha256:bdcce7a77881b6b9ab628eb719eb3893ea4fe57f40b9516969c02ec1e46f2901"
         }
     ],
-    "contentDigest": "sha256:6156ee23776fa3501291cf342246a65dcb2963ee146c93e832555d30861db9d2"
+    "contentDigest": "sha256:8ea9c685893c51b75f02be02a12913e7aabfa9cf5dbd1451351a9f14b60e3609"
 }

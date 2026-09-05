@@ -1,0 +1,27 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/post-merge-generated-output-repair.schema.json"
+            ],
+            "reason": "The repair schema preserves its caller-visible JSON keys while the exact registered pass-through tuple remains owned by trusted policy."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/change-contract.md"
+            ],
+            "reason": "The current contract documentation preserves the exact external schema and Git identity spelling used by repository tooling."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/governance/change-contract-registry.mjs",
+                "tools/governance/change-contract.mjs"
+            ],
+            "reason": "The trusted registry and checker preserve caller-visible Git and command identifiers while internal JavaScript names follow repository style."
+        }
+    ]
+}

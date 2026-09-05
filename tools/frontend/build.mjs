@@ -92,6 +92,10 @@ const backendWebRoot = resolve(process.env.FSUSBLOG_BACKEND_WEBROOT || join(clie
 const stableSpaEntryName = 'fsus-spa-entry.js';
 const stablePublicBootKernelName = 'fsus-public-boot-kernel.js';
 const managedDistEntries = ['.vite', 'assets', 'dist', 'favicon.svg', 'generated', 'index.html', 'server', 'sw.js', 'vite.svg', 'wasm'];
+// Static `public/` entries the release preview serves itself (vite.config.ts
+// proxy exclusions). The run-bound build disables Vite's publicDir copy, so
+// sync-run-bound-public-assets must re-assemble them into the shared dist root.
+const runBoundPublicAssets = ['favicon', 'fixtures', 'generated', 'manifest.webmanifest', 'public-shell-emergency.css', 'social', 'sw.js'];
 const fsusUiMarkdownRuntimeAssets = [
     'markdown_simd.js',
     'markdown_simd.wasm',
@@ -504,9 +508,18 @@ async function syncRunBoundPublicAssets()
         return;
     }
     await mkdir(distRoot, { recursive: true });
+    for (const entryName of runBoundPublicAssets)
+    {
+        const sourcePath = join(publicRoot, entryName);
+        if (!(await pathExists(sourcePath)))
+        {
+            throw new Error(`run-bound public asset missing: ${sourcePath}`);
+        }
+        await cp(sourcePath, join(distRoot, entryName), { recursive: true, force: true });
+    }
     await rm(join(distRoot, 'wasm'), { recursive: true, force: true });
     await cp(frontendWasmRoot, join(distRoot, 'wasm'), { recursive: true, force: true });
-    log(`assembled run-bound WASM assets into ${distRoot}`);
+    log(`assembled run-bound public assets into ${distRoot}`);
 }
 
 async function pathExists(path)
@@ -585,7 +598,7 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
             consumedInputs: ['src/shared/Contracts/Outputs/PublicPageContracts.cs'],
             producedArtifacts: ['src/public-renderers/generated/publicPageManifest.ts'],
             ownedOutputs: ['src/public-renderers/generated/publicPageManifest.ts'],
-            resources: buildStageResources(1, 1, 0.25, ['generated-public-page-manifest']),
+            resources: buildStageResources(1, 1, 0.05, ['generated-public-page-manifest']),
             estimatedDurationMs: 2_000,
             toolchain: { executable: process.execPath }
         },
@@ -596,7 +609,7 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
             consumedInputs: ['src/assets/public-shell-foundation.css'],
             producedArtifacts: ['public/public-shell-emergency.css'],
             ownedOutputs: ['public/public-shell-emergency.css'],
-            resources: buildStageResources(1, 1, 0.25, ['generated-public-shell-emergency']),
+            resources: buildStageResources(1, 1, 0.05, ['generated-public-shell-emergency']),
             estimatedDurationMs: 2_000,
             toolchain: { executable: process.execPath }
         },
@@ -619,7 +632,7 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
                     join(stageFrontendWasmRoot, 'aeds-runtime-manifest.json'),
                     join(stageFrontendWasmRoot, 'wasm-build-receipt.json')
                 ],
-            resources: buildStageResources(3, 2, 0.75, ['frontend-wasm-output']),
+            resources: buildStageResources(3, 2, 0.05, ['frontend-wasm-output']),
             estimatedDurationMs: 45_000,
             toolchain: { executable: process.execPath }
         },
@@ -630,7 +643,7 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
             consumedInputs: ['src'],
             producedArtifacts: [],
             ownedOutputs: [],
-            resources: buildStageResources(2, 2, 0.75),
+            resources: buildStageResources(2, 2, 0.05),
             estimatedDurationMs: 35_000,
             toolchain: { executable: stageVueTscBin }
         },
@@ -657,7 +670,7 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
                 join(stageDistAssetsDir, stablePublicBootKernelName)
             ],
             ownedOutputs: [join(stageDistRoot, 'index.html'), join(stageDistRoot, 'assets')],
-            resources: buildStageResources(4, 4, 1.5, ['frontend-dist-client']),
+            resources: buildStageResources(4, 4, 0.05, ['frontend-dist-client']),
             estimatedDurationMs: 50_000,
             toolchain: { executable: stageViteBin }
         },
@@ -682,7 +695,7 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
                 )
             ],
             ownedOutputs: [join(stageDistRoot, 'server')],
-            resources: buildStageResources(3, 3, 1, ['frontend-dist-server']),
+            resources: buildStageResources(3, 3, 0.05, ['frontend-dist-server']),
             estimatedDurationMs: 25_000,
             toolchain: { executable: process.execPath }
         },
@@ -690,10 +703,14 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
             id: 'sync-run-bound-public-assets',
             command: ['internal', 'sync-run-bound-public-assets'],
             dependsOn: ['ensure-wasm', 'vite-build'],
-            consumedInputs: [stageFrontendWasmRoot, join(stageDistRoot, 'index.html')],
-            producedArtifacts: runBound ? [join(stageDistRoot, 'wasm')] : [],
-            ownedOutputs: runBound ? [join(stageDistRoot, 'wasm')] : [],
-            resources: buildStageResources(1, 1, 0.5, ['frontend-dist-wasm']),
+            consumedInputs: [stageFrontendWasmRoot, stagePublicRoot, join(stageDistRoot, 'index.html')],
+            producedArtifacts: runBound
+                ? [...runBoundPublicAssets.map((entryName) => join(stageDistRoot, entryName)), join(stageDistRoot, 'wasm')]
+                : [],
+            ownedOutputs: runBound
+                ? [...runBoundPublicAssets.map((entryName) => join(stageDistRoot, entryName)), join(stageDistRoot, 'wasm')]
+                : [],
+            resources: buildStageResources(1, 1, 0.05, ['frontend-dist-wasm']),
             estimatedDurationMs: 5_000,
             toolchain: { executable: 'node:fs/promises' }
         },
@@ -704,7 +721,7 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
             consumedInputs: [markdownRuntimeSource],
             producedArtifacts: fsusUiMarkdownRuntimeAssets.map((fileName) => join(stageDistRoot, 'dist', fileName)),
             ownedOutputs: [join(stageDistRoot, 'dist')],
-            resources: buildStageResources(1, 1, 0.25, ['frontend-dist-markdown']),
+            resources: buildStageResources(1, 1, 0.05, ['frontend-dist-markdown']),
             estimatedDurationMs: 2_000,
             toolchain: { executable: 'node:fs/promises' }
         },
@@ -715,7 +732,7 @@ export function createFrontendBuildStages(generatedArgs, generatedAction, {
             consumedInputs: [stageDistRoot],
             producedArtifacts: syncBackend ? [stageBackendWebRoot] : [],
             ownedOutputs: syncBackend ? [stageBackendWebRoot] : [],
-            resources: buildStageResources(1, 1, 0.5, ['backend-wwwroot']),
+            resources: buildStageResources(1, 1, 0.05, ['backend-wwwroot']),
             estimatedDurationMs: 6_000,
             toolchain: { executable: 'node:fs/promises' }
         }

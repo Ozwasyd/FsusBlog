@@ -1,122 +1,134 @@
 <template>
-  <div class="auth-page-shell min-h-screen w-full overflow-x-hidden">
-    <SiteChromeHeaderAdapter
-      :site-title="siteStore.siteInfo.title"
-      :site-logo-url="siteStore.siteInfo.siteLogoUrl"
-      :site-logo-dark-url="siteStore.siteInfo.siteLogoDarkUrl"
-      :site-wordmark-url="siteStore.siteInfo.siteWordmarkUrl"
-      :login-logo-url="siteStore.siteInfo.loginLogoUrl"
-      :login-icon-url="siteStore.siteInfo.loginIconUrl"
-      brand-context="auth"
-      :brand-href="PUBLIC_FIXED_PATHS.home"
-      brand-link-class="auth-header-brand"
-      max-width="72rem"
-      header-class="auth-header"
-      inner-class="auth-header__inner"
-      primary-row-class="auth-header__primary-row"
-      desktop-actions-class="auth-header__actions"
-      mobile-primary-actions-class="auth-header__mobile-actions"
-      :show-desktop-theme-toggle="false"
-      :show-mobile-theme-toggle="false"
-    >
-      <template #desktop-actions>
-        <LocaleSelectorRuntimeAdapter />
-        <ThemeModeToggle visibility="desktop" />
-        <router-link :to="authAction.to" class="auth-header-action">
-          {{ authAction.label }}
-        </router-link>
-      </template>
-
-      <template #mobile-primary-actions>
-        <LocaleSelectorRuntimeAdapter compact />
-        <ThemeModeToggle visibility="mobile" variant="menu-button" />
-        <router-link
-          :to="authAction.to"
-          class="auth-header-action auth-header-action--mobile"
+    <div class="auth-page-shell min-h-screen w-full overflow-x-hidden">
+        <SiteChromeHeaderAdapter
+            :site-title="siteStore.siteInfo.title"
+            :site-logo-url="siteStore.siteInfo.siteLogoUrl"
+            :site-logo-dark-url="siteStore.siteInfo.siteLogoDarkUrl"
+            :site-wordmark-url="siteStore.siteInfo.siteWordmarkUrl"
+            :login-logo-url="siteStore.siteInfo.loginLogoUrl"
+            :login-icon-url="siteStore.siteInfo.loginIconUrl"
+            brand-context="auth"
+            :brand-href="PUBLIC_FIXED_PATHS.home"
+            brand-link-class="auth-header-brand"
+            max-width="64rem"
+            header-class="auth-header"
+            inner-class="auth-header__inner"
+            primary-row-class="auth-header__primary-row"
+            desktop-actions-class="auth-header__actions"
+            mobile-primary-actions-class="auth-header__mobile-actions"
+            :show-desktop-theme-toggle="false"
+            :show-mobile-theme-toggle="false"
         >
-          {{ authAction.label }}
-        </router-link>
-      </template>
-    </SiteChromeHeaderAdapter>
+            <template #desktop-actions>
+                <LocaleSelectorRuntimeAdapter />
+                <ThemeModeToggle visibility="desktop" />
+                <RouterLink
+                    :to="authAction.to"
+                    class="auth-header-action"
+                >
+                    {{ authAction.label }}
+                </RouterLink>
+            </template>
 
-    <main
-      class="mx-auto flex min-h-[calc(var(--fsus-viewport-block-size)-5rem)] w-full max-w-6xl items-start px-5 pb-16 pt-10 sm:px-8 sm:pb-24 sm:pt-16"
-    >
-      <router-view />
-    </main>
-  </div>
+            <template #mobile-primary-actions>
+                <LocaleSelectorRuntimeAdapter compact />
+                <ThemeModeToggle
+                    visibility="mobile"
+                    variant="menu-button"
+                />
+                <RouterLink
+                    :to="authAction.to"
+                    class="auth-header-action auth-header-action--mobile"
+                >
+                    {{ authAction.label }}
+                </RouterLink>
+            </template>
+        </SiteChromeHeaderAdapter>
+
+        <main class="mx-auto flex min-h-[calc(var(--fsus-viewport-block-size)-5rem)] w-full max-w-[64rem] items-start px-6 pb-16 pt-10 sm:px-6 sm:pb-24 sm:pt-16">
+            <RouterView />
+        </main>
+    </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
-import LocaleSelectorRuntimeAdapter from '@/components/i18n/LocaleSelectorRuntimeAdapter.vue'
-import SiteChromeHeaderAdapter from '@/components/layout/SiteChromeHeaderAdapter.vue'
-import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
-import { useI18nText } from '@/composables/useI18nText'
-import { PUBLIC_FIXED_PATHS } from '@/public-renderers/publicRoutePaths'
-import { useSiteStore } from '@/store/site'
+import { computed } from 'vue';
+import { useRoute } from 'vue-router';
 
-const route = useRoute()
-const siteStore = useSiteStore()
-const { messages } = useI18nText()
+import LocaleSelectorRuntimeAdapter from '@/components/i18n/LocaleSelectorRuntimeAdapter.vue';
+import SiteChromeHeaderAdapter from '@/components/layout/SiteChromeHeaderAdapter.vue';
+import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue';
+import { useI18nText } from '@/composables/useI18nText';
+import { PUBLIC_FIXED_PATHS } from '@/public-renderers/publicRoutePaths';
+import { useSiteStore } from '@/store/site';
 
-const authAction = computed(() => {
-  if (route.name === 'Register') {
-    return { label: messages.value.public.shell.login, to: '/login' }
-  }
+const route = useRoute();
+const siteStore = useSiteStore();
+const { messages } = useI18nText();
 
-  if (route.name === 'Recover') {
-    return { label: messages.value.public.shell.login, to: '/login' }
-  }
+const authAction = computed(() =>
+{
+    if (route.name === 'Register')
+    {
+        return { label: messages.value.public.shell.login, to: '/login' };
+    }
 
-  return { label: messages.value.common.routeTitles.register, to: '/register' }
-})
+    if (route.name === 'Recover')
+    {
+        return { label: messages.value.public.shell.login, to: '/login' };
+    }
+
+    return { label: messages.value.common.routeTitles.register, to: '/register' };
+});
 </script>
 
 <style scoped>
-@reference "@/assets/main.css";
-
-.auth-page-shell {
-  background: var(--fsusblog-page-bg);
-  color: var(--fsusblog-text-primary);
+.auth-page-shell
+ {
+    background: var(--fsusblog-page-bg);
+    color: var(--fsusblog-text-primary);
 }
 
 /* Slot geometry only — locale selection owns its trigger/menu surface. */
 .auth-header__actions,
-.auth-header__mobile-actions {
-  min-width: 0;
+.auth-header__mobile-actions
+ {
+    min-width: 0;
 }
 
-.auth-header-action {
-  display: inline-flex;
-  flex: 0 0 auto;
-  min-height: 2.5rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--fsus-radius-control-small);
-  padding-inline: var(--fsus-space-3);
-  color: var(--fsusblog-text-tertiary);
-  font-size: 12px;
-  font-weight: 700;
-  text-decoration: none;
-  transition:
-    color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
-    border-color var(--fsus-motion-control-fast) var(--fsus-motion-standard);
+.auth-header-action
+ {
+    display: inline-flex;
+    flex: 0 0 auto;
+    min-height: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--fsus-radius-control-small);
+    padding-inline: var(--fsus-space-3);
+    color: var(--fsusblog-text-tertiary);
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    transition:
+        color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
+        border-color var(--fsus-motion-control-fast) var(--fsus-motion-standard);
 }
 
 .auth-header-action:hover,
-.auth-header-action:focus-visible {
-  color: var(--fsusblog-text-primary);
+.auth-header-action:focus-visible
+ {
+    color: var(--fsusblog-text-primary);
 }
 
-.auth-header-action:focus-visible {
-  outline: none;
-  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
+.auth-header-action:focus-visible
+ {
+    outline: none;
+    box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
 }
 
-.auth-header-action--mobile {
-  border: 1px solid var(--fsusblog-panel-border);
-  background: var(--fsusblog-page-bg);
+.auth-header-action--mobile
+ {
+    border: 1px solid var(--fsusblog-panel-border);
+    background: var(--fsusblog-page-bg);
 }
 </style>

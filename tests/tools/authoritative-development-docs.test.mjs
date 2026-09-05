@@ -166,3 +166,45 @@ test('authoritative development documentation checker rejects a missing generate
     assert.match(combined, /missing required path classification vendor/)
   })
 })
+
+test('authoritative development documentation checker assigns XML configuration to repository-config', () => {
+  withOverlay((overlay) => {
+    const manifest = readManifest()
+    const owner = manifest.styleOwners.find((entry) => entry.id === 'repository-config')
+    assert.ok(owner.extensions.includes('.xml'))
+    assert.ok(!manifest.nonSourceExtensions.includes('.xml'))
+
+    const result = runChecker(overlay)
+    assert.equal(result.status, 0, output(result))
+  })
+})
+
+test('authoritative development documentation checker rejects browserconfig XML without its style owner', () => {
+  withOverlay((overlay) => {
+    const manifest = readManifest()
+    const owner = manifest.styleOwners.find((entry) => entry.id === 'repository-config')
+    owner.extensions = owner.extensions.filter((extension) => extension !== '.xml')
+    writeManifest(overlay, manifest)
+
+    const result = runChecker(overlay)
+    assert.notEqual(result.status, 0)
+    assert.match(
+      output(result),
+      /src\/frontend\/public\/favicon\/browserconfig\.xml has no style owner or non-source classification/
+    )
+  })
+})
+
+test('authoritative development documentation checker rejects treating XML configuration as non-source', () => {
+  withOverlay((overlay) => {
+    const manifest = readManifest()
+    const owner = manifest.styleOwners.find((entry) => entry.id === 'repository-config')
+    owner.extensions = owner.extensions.filter((extension) => extension !== '.xml')
+    manifest.nonSourceExtensions.push('.xml')
+    writeManifest(overlay, manifest)
+
+    const result = runChecker(overlay)
+    assert.notEqual(result.status, 0)
+    assert.match(output(result), /style-owned extension \.xml cannot be classified as non-source/)
+  })
+})

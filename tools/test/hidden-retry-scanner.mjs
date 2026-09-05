@@ -492,6 +492,10 @@ function validateDispositionEntry(root, entry, policies)
         {
             throw new Error(`${entry.producerId} non-retry disposition cannot bind a retry policy`);
         }
+        if (entry.ruleId === 'retry.shell-command-loop')
+        {
+            throw new Error(`${entry.producerId} shell command loop cannot be classified as non-retry`);
+        }
     }
     else if (!policies.has(entry.policyId))
     {

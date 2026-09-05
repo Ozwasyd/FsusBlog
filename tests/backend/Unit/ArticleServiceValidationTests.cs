@@ -11,6 +11,7 @@ using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
@@ -79,20 +80,61 @@ public class ArticleServiceValidationTests
         Assert.Empty(result);
     }
 
-    [Fact]
-    public async Task SearchArticlesAsync_WhitespaceKeyword_ReturnsEmpty()
+    [Theory]
+    [InlineData("spaces", "   ")]
+    [InlineData("tab-newline-cr", "\t\n\r")]
+    public async Task SearchArticlesAsync_WhitespaceOnlyKeyword_ReturnsEmpty(
+        string caseName,
+        string keyword)
     {
-        var svc = BuildService();
-        var result = await svc.SearchArticlesAsync("   ");
-        Assert.Empty(result);
-    }
+        Assert.True(caseName is "spaces" or "tab-newline-cr");
 
-    [Fact]
-    public async Task SearchArticlesAsync_TabAndNewlineOnly_ReturnsEmpty()
-    {
-        var svc = BuildService();
-        var result = await svc.SearchArticlesAsync("\t\n\r");
+        var db = Substitute.For<ISqlSugarClient>();
+        var searchIndex = Substitute.For<ISearchIndexService>();
+        var redis = Substitute.For<IDatabase>();
+        var redisConnection = Substitute.For<IConnectionMultiplexer>();
+        redisConnection.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(redis);
+        var cacheReader = Substitute.For<ICacheTypedReader>();
+        var cacheWriter = Substitute.For<ICacheRawWriter>();
+        var stringReader = Substitute.For<ICacheStringReader>();
+        var stringWriter = Substitute.For<ICacheStringWriter>();
+        var cacheMissCoordinator = Substitute.For<ICacheMissCoordinator>();
+        var dbConcurrencyGate = Substitute.For<IDbConcurrencyGate>();
+        var svc = new ArticleService(
+            _db: db,
+            _searchIndex: searchIndex,
+            _redisConnection: redisConnection,
+            _cacheReader: cacheReader,
+            _cacheWriter: cacheWriter,
+            _stringReader: stringReader,
+            _stringWriter: stringWriter,
+            _cacheMissCoordinator: cacheMissCoordinator,
+            _dbConcurrencyGate: dbConcurrencyGate,
+            _runtimeKeyScope: Substitute.For<IRuntimeKeyScope>(),
+            _httpContextAccessor: Substitute.For<IHttpContextAccessor>(),
+            _logger: NullLogger<ArticleService>.Instance,
+            _publicAotInvalidationService: Substitute.For<IPublicAotInvalidationService>(),
+            _cacheInvalidationDispatcher: Substitute.For<ICacheInvalidationDispatcher>(),
+            _mutationFence: Substitute.For<IArticlePublicMutationFence>(),
+            _mutationSideEffects: Substitute.For<IArticleMutationSideEffectCoordinator>(),
+            _viewWriteBuffer: Substitute.For<IArticleViewWriteBuffer>(),
+            _publicationValidator: Substitute.For<IArticlePublicationValidator>(),
+            _articleBodyRepairQueue: new ArticleBodyRepairQueue());
+        redisConnection.ClearReceivedCalls();
+
+        var result = await svc.SearchArticlesAsync(keyword);
+
         Assert.Empty(result);
+        Assert.Empty(db.ReceivedCalls());
+        Assert.Empty(searchIndex.ReceivedCalls());
+        Assert.Empty(redis.ReceivedCalls());
+        Assert.Empty(redisConnection.ReceivedCalls());
+        Assert.Empty(cacheReader.ReceivedCalls());
+        Assert.Empty(cacheWriter.ReceivedCalls());
+        Assert.Empty(stringReader.ReceivedCalls());
+        Assert.Empty(stringWriter.ReceivedCalls());
+        Assert.Empty(cacheMissCoordinator.ReceivedCalls());
+        Assert.Empty(dbConcurrencyGate.ReceivedCalls());
     }
 
     [Fact]

@@ -952,7 +952,7 @@ Submit 同样受 `read_proof` 专用限流保护。限流 key 是 path + 一分�
 
 公开 `CategoryList` / `TagList` 的 `articleCount` 只统计公开可见文章，不能作为后台删除判断。管理端 taxonomy 读取必须使用 `/api/binary/author/taxonomy/categories` 与 `/api/binary/author/taxonomy/tags`，返回真实阻断引用：
 
-管理端分类和标签写入均使用 binary mutation path。`CategoryWriteRequest(33)` 与 `TagWriteRequest(34)` 的当前 payload 是 136-byte `TaxonomyMetadataMutationRequestPod`（`Utf8Fixed128 Name` + `Utf8SliceRef Description`），后接标准 `int32 blobByteLength` 与 UTF-8 description blob。description 持久化前 trim，空白归一化为 `NULL`，超过 500 个 Unicode scalar value 的请求在数据库修改前返回 validation error。迁移期后端同时接受精确 128-byte legacy `NameMutationRequestPod`：legacy create 写 `Description = NULL`，legacy update 只更新名称并保留已有 description。新格式 update 同时替换名称与 description。该 description 不进入 `CategoryList`、`TagList`、文章 taxonomy projection 或文章列表契约。
+管理端分类和标签写入均使用 binary mutation path。`CategoryWriteRequest(33)` 与 `TagWriteRequest(34)` 的当前 payload 是 136-byte `TaxonomyMetadataMutationRequestPod`（`Utf8Fixed128 Name` + `Utf8SliceRef Description`），后接标准 `int32 blobByteLength` 与 UTF-8 description blob。description 持久化前 trim，空白归一化为 `NULL`，超过 500 个 Unicode scalar value 的请求在数据库修改前返回 validation error。迁移期后端同时接受精确 128-byte legacy `NameMutationRequestPod`：legacy create 写 `Description = NULL`，legacy update 只更新名称并保留已有 description。新格式 update 同时替换名称与 description。该 description 不进入 `CategoryList`、`TagList`、文章 taxonomy projection 或文章列表契约。匿名精确读取使用独立 `TaxonomyExactMetadata(243)` frame，路径为 `GET /api/binary/category/{id}.aeds`、`GET /api/binary/tag/{id}.aeds` 与 `GET /api/binary/tag/by-name.aeds?name=`，成功 payload 仅含 `id`、`name` 与 nullable `description`，不含 `articleCount` 或文章列表。缺失 id/name 返回普通 binary `NotFound`。Tag-by-name 使用与 Public AOT filter bootstrap 相同的显示名规范化与 `TagUrlAlias` 解析，命中后返回当前规范标签身份，不把 alias 当作第二身份。精确元数据缓存按 taxonomy kind + canonical id 独立于 list frame 失效。 公开 Filter SPA 在无可用 seed 时用上述精确读取解析当前 Category/Tag 目标（分类 id、标签 id、或标签名/alias），不再为单个 Filter 目标下载 `CategoryList`/`TagList`。有效公开 Filter seed 若已含 taxonomy 元数据则直接使用，不追加精确读取。Search 模式不请求 taxonomy 元数据。`CategoryList`/`TagList` 仍供导航、管理端和列表使用。 Category/Tag update 先按同一规范化规则比较持久化 Name/Description：两边未变则成功且无下游失效；`nameChanged` 保持既有 rename 投影/outbox、taxonomy list-frame bump、`ArticleList` 与 RequiredTaxonomy PublicHot；仅 Description 变化只失效该实体 exact metadata 与 `category:{id}`/`tag:{id}` Filter AOT 路由族（含分页、hydration 与 `filter.description` SEO），不插入 article taxonomy outbox、不 bump list frame、不失效 `ArticleList`、不改 `TagUrlAlias`。
 
 创建成功响应 `MutationId`，编辑器可用返回的 `id` 立即选中新建分类或关联新建标签，不能只依赖刷新列表后按名称猜测；更新和删除成功响应 `EmptySuccess`：
 
@@ -1898,6 +1898,7 @@ Public AOT HTML 的 representation identity 是 `(pageId, routeKey, renderLocale
     "filterKey": "tag:1",
     "filterId": 1,
     "filterName": "AcceptanceTag",
+    "description": "Acceptance tests for public taxonomy pages",
     "isInvalidTarget": false,
     "pageIndex": 1,
     "pageSize": 10,
@@ -1910,6 +1911,9 @@ Public AOT HTML 的 representation identity 是 `(pageId, routeKey, renderLocale
 补充约束：
 
 - `filterKey` 是成功筛选页的稳定身份，只能是 `category:{id}` 或 `tag:{id}`。`tag-name:{name}` 仅供服务端解析历史 URL，解析成功后必须先 301，不能出现在 200 AOT payload。
+- `filter.description` 是所选 Category/Tag 的可选说明。实体无描述时必须为 `null`。该字段来自 Filter identity 的同一轮数据库查找，不得为 Description 再发第二次查询。
+- Public Filter SEO description 复用同一 `filter.description`：document service 先读 hydration、再回退 bootstrap；非空值经现有 160 字符摘要路径写入 meta/OG/Twitter/JSON-LD；缺失时保留现有分类/标签生成回退。不得新增 `SeoDescription` 或 `MetaDescription`。
+- AOT shell HTML 与 hydration 的 Filter header 必须使用同一 `description` 值，并交给共享 Filter header contract。
 - 无效分类/标签目标必须设置 `isInvalidTarget=true`，且 `articles` 必须为空。
 - 客户端不得再从 path string 反推标题或筛选语义。
 
@@ -2617,6 +2621,7 @@ render: key-value-table
 | SystemPage | {"class":"sys","domain":"sys","id":"SystemPage","l1Ttl":{"unit":"minutes","value":10},"l2Ttl":{"unit":"days","value":1},"negativeTtl":{"unit":"minutes","value":2},"resource":"page","securityCritical":false} |
 | SystemSeo | {"class":"sys","domain":"sys","id":"SystemSeo","l1Ttl":{"unit":"minutes","value":10},"l2Ttl":{"unit":"days","value":1},"negativeTtl":{"state":"null"},"resource":"seo","securityCritical":false} |
 | TagFrame | {"class":"blog","domain":"blog","id":"TagFrame","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"tag-frame","securityCritical":false} |
+| TaxonomyExactMetadataFrame | {"class":"blog","domain":"blog","id":"TaxonomyExactMetadataFrame","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"minutes","value":10},"negativeTtl":{"state":"null"},"resource":"taxonomy-exact-metadata-frame","securityCritical":false} |
 | TaxonomyFrameVersion | {"class":"blog","domain":"blog","id":"TaxonomyFrameVersion","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"days","value":7},"negativeTtl":{"state":"null"},"resource":"taxonomy-frame-version","securityCritical":false} |
 | TopArticles | {"class":"blog","domain":"blog","id":"TopArticles","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"hours","value":2},"negativeTtl":{"state":"null"},"resource":"top-articles","securityCritical":false} |
 | TopArticlesFrame | {"class":"blog","domain":"blog","id":"TopArticlesFrame","l1Ttl":{"unit":"minutes","value":2},"l2Ttl":{"unit":"hours","value":2},"negativeTtl":{"state":"null"},"resource":"top-articles-frame","securityCritical":false} |

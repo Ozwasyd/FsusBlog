@@ -1,3 +1,5 @@
+import { normalizeFilterDescription } from '@/view-contracts/filterView';
+
 import type {
   PublicArchiveHydrationPayload,
   PublicArticleDetailHydrationPayload,
@@ -125,6 +127,7 @@ export const normalizePublicHydrationPayload: PublicPayloadNormalizer = (payload
           filterKey: filterPayload.filterKey ?? payload.filterKey ?? identity.filterKey,
           filterId: Number.isFinite(filterPayload.filterId) ? Number(filterPayload.filterId) : Number.isFinite(payload.filterId) ? Number(payload.filterId) : identity.filterId,
           filterName: filterPayload.filterName ?? payload.filterName ?? identity.filterName,
+          description: normalizeFilterDescription(filterPayload.description),
           isInvalidTarget: Boolean(filterPayload.isInvalidTarget ?? payload.isInvalidTarget),
           pageIndex: Number.isFinite(filterPayload.pageIndex) && Number(filterPayload.pageIndex) > 0
             ? Math.trunc(Number(filterPayload.pageIndex))

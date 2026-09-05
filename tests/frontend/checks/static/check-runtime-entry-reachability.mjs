@@ -26,6 +26,9 @@ const resolutionExtensions = [...moduleExtensions, '.json']
 const declaredRuntimeEntries = [
   'src/main.ts',
   'src/bootstrap/preTheme.ts',
+  // vite.config.ts declares the public boot kernel as its own rollup input
+  // (public-boot preload target), so it is a runtime entry of the graph.
+  'src/bootstrap/publicBootKernel.ts',
   'src/public-renderers/renderPublicPage.ts'
 ]
 
@@ -38,6 +41,18 @@ const pendingRuntimeIntegrations = new Map([
   ['src/components/admin/AdminFilterGroup.vue', '#1083'],
   ['src/performance/browserTaskScheduler.ts', '#1083'],
   ['src/views/user/Profile.vue', '#1083'],
+  // Governance-owned support modules that are intentionally outside the
+  // runtime graph until their owning issue lands the consumption path:
+  // the typed behavior contract catalog (#2203), the ten-locale migration
+  // gate validator (#1537), and the bounded authoring session host chain
+  // (#2294). Keeping the issue association visible makes the remaining
+  // integration an explicit obligation instead of a permanent allowlist.
+  ['src/contracts/behaviorContractCatalog.ts', '#2203'],
+  ['src/locales/validator.ts', '#1537'],
+  ['src/services/authoring/authoringSessionHost.ts', '#2294'],
+  ['src/services/authoring/index.ts', '#2294'],
+  ['src/services/authoring/openArticleDocumentRegistry.ts', '#2294'],
+  ['src/services/themeAssetRuntime.ts', '#142'],
 ])
 
 function toFrontendPath(filePath) {

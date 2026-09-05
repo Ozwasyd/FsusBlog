@@ -60,7 +60,7 @@ test('repository hidden retry inventory is exact, stable and warning free', () =
     const first = scanHiddenRetries(root);
     const second = scanHiddenRetries(root);
     assert.equal(first.contentDigest, second.contentDigest);
-    assert.equal(first.findings.length, 5);
+    assert.equal(first.findings.length, 6);
     assert.equal(new Set(first.findings.map((item) => item.findingId)).size, first.findings.length);
     const registry = JSON.parse(fs.readFileSync(
         path.join(root, 'config/testing/retry-disposition-registry.json'),
@@ -73,6 +73,87 @@ test('repository hidden retry inventory is exact, stable and warning free', () =
     )), false);
     assert.equal(registry.entries.some((entry) => entry.action === 'remove'), false);
 });
+
+test('dev container selection is an exact non-retry disposition', () =>
+{
+    const source = fs.readFileSync(path.join(root, 'tools/dev/start.sh'), 'utf8');
+    const findings = scanHiddenRetries(root).findings.filter((item) => (
+        item.location.path === 'tools/dev/start.sh'
+    ));
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].ruleId, 'retry.shell-or-reinvoke');
+    assert.equal((source.match(/docker inspect fsusblog-dev-postgres/gu) ?? []).length, 1);
+    assert.equal((source.match(/docker inspect fsusblog-dev-redis/gu) ?? []).length, 1);
+    assert.match(
+        source,
+        /if docker inspect fsusblog-dev-postgres[^\n]+ \|\| docker inspect fsusblog-dev-redis[^\n]+; then[\s\S]*?else\n\s+docker compose[^\n]+ up -d postgres redis\nfi/u
+    );
+
+    const registry = JSON.parse(fs.readFileSync(
+        path.join(root, 'config/testing/retry-disposition-registry.json'),
+        'utf8'
+    ));
+    const dispositionEntry = registry.entries.find((entry) => (
+        entry.findingId === findings[0].findingId
+    ));
+    assert.equal(dispositionEntry?.classification, 'non-retry');
+    assert.equal(dispositionEntry?.policyId, null);
+    assert.equal(dispositionEntry?.action, 'restore-only');
+    assert.equal(dispositionEntry?.owner, 'development');
+});
+
+test('public preview stages the WASM envelope once and has no recovered qualification path', () =>
+{
+    const source = fs.readFileSync(path.join(root, 'tools/docs/run-public-preview-capture.sh'), 'utf8');
+    assert.match(source, /^set -euo pipefail$/mu);
+    assert.equal((source.match(/wasm-build-receipt\.mjs" stage-envelope/gu) ?? []).length, 1);
+    assert.doesNotMatch(source, /for\s+attempt[\s\S]{0,800}stage-envelope/u);
+    assert.doesNotMatch(source, /wasmStaged/u);
+    assert.doesNotMatch(source, /sleep 2/u);
+    assert.doesNotMatch(source, /if\s+node[^\n]+wasm-build-receipt\.mjs" stage-envelope/u);
+    assert.equal(scanHiddenRetries(root).findings.some((item) => (
+        item.location.path === 'tools/docs/run-public-preview-capture.sh'
+    )), false);
+});
+
+test('reintroducing the public preview producer loop is an unregistered retry', () => withFixture({
+    'tools/docs/run-public-preview-capture.sh': [
+        'for attempt in 1 2 3; do',
+        '  node tools/frontend/wasm-build-receipt.mjs stage-envelope || true',
+        'done'
+    ].join('\n')
+}, (directory) =>
+{
+    const scan = scanHiddenRetries(directory);
+    assert.equal(scan.findings.length, 1);
+    assert.equal(scan.findings[0].ruleId, 'retry.shell-command-loop');
+    const empty = sealContentDigest({
+        schema: 'fsusblog.retry-disposition-registry.v1',
+        scannerVersion: hiddenRetryScannerVersion,
+        sourceDigestAlgorithm: 'sha256',
+        entries: []
+    });
+    assert.throws(
+        () => validateRetryDispositionRegistry(directory, empty, scan, readRetryPolicyRegistry()),
+        /unregistered retry\.shell-command-loop/u
+    );
+
+    const disguised = sealContentDigest({
+        schema: 'fsusblog.retry-disposition-registry.v1',
+        scannerVersion: hiddenRetryScannerVersion,
+        sourceDigestAlgorithm: 'sha256',
+        entries: [{
+            ...disposition(directory, scan.findings[0]),
+            classification: 'non-retry',
+            policyId: null,
+            action: 'restore-only'
+        }]
+    });
+    assert.throws(
+        () => validateRetryDispositionRegistry(directory, disguised, scan, readRetryPolicyRegistry()),
+        /shell command loop cannot be classified as non-retry/u
+    );
+}));
 
 test('scanner detects shell, Node, C#, Docker, framework, CI, timeout and resume retry shapes', () => withFixture({
     'ops/docker/Test.Dockerfile': "RUN sh -lc 'for i in 1 2; do dotnet build app.csproj && exit 0; echo retry; done; exit 1'\n",

@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -43,7 +44,7 @@ internal static partial class XunitAdapterProgram
         var result = new Result();
         string projectDir = Path.GetDirectoryName(projectPath) ?? root;
         string relativeProject = Path.GetRelativePath(root, projectPath).Replace(Path.DirectorySeparatorChar, '/');
-        string targetFramework = ReadTargetFramework(projectPath) ?? "net10.0";
+        bool allowUnsafeBlocks = ReadAllowUnsafeBlocks(projectPath);
 
         string[] sources;
         try
@@ -62,10 +63,10 @@ internal static partial class XunitAdapterProgram
             return result;
         }
 
-        List<MetadataReference> references;
+        ResolvedReferenceContext referenceContext;
         try
         {
-            references = BuildReferences(root, projectDir, projectPath, targetFramework);
+            referenceContext = BuildReferences(projectDir, projectPath);
         }
         catch (Exception error)
         {
@@ -81,36 +82,65 @@ internal static partial class XunitAdapterProgram
 
         var syntaxTrees = new List<SyntaxTree>();
         var sourceByTree = new Dictionary<string, string>();
+        var parseOptions = new CSharpParseOptions(LanguageVersion.Latest);
         foreach (string sourcePath in sources)
         {
             string relative = Path.GetRelativePath(root, sourcePath).Replace(Path.DirectorySeparatorChar, '/');
             string sourceText = File.ReadAllText(sourcePath);
-            SyntaxTree tree = CSharpSyntaxTree.ParseText(sourceText, new CSharpParseOptions(LanguageVersion.Latest), path: sourcePath);
+            SyntaxTree tree = CSharpSyntaxTree.ParseText(sourceText, parseOptions, path: sourcePath);
             syntaxTrees.Add(tree);
             sourceByTree[tree.FilePath] = relative;
         }
 
         string assemblyName = Path.GetFileNameWithoutExtension(projectPath);
-        var compilation = CSharpCompilation.Create(
+        CSharpCompilation compilation = CSharpCompilation.Create(
             assemblyName,
             syntaxTrees,
-            references,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            referenceContext.References,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                .WithAllowUnsafe(allowUnsafeBlocks));
 
-        var missingReferenceDiagnostics = compilation.GetDiagnostics()
-            .Where(item => item.Severity == DiagnosticSeverity.Error
-                && item.Id is "CS0006" or "CS0009" or "CS0012" or "CS0234" or "CS0246" or "CS0103" or "CS0400")
-            .Take(40)
-            .Select(item => item.ToString())
-            .ToArray();
-        if (missingReferenceDiagnostics.Length > 0)
+        ImmutableArray<Diagnostic> generatorDiagnostics;
+        try
         {
+            (compilation, generatorDiagnostics) = RunRegexSourceGenerator(
+                compilation,
+                parseOptions,
+                referenceContext.NetCoreReferencePack);
+        }
+        catch (Exception error)
+        {
+            result.Diagnostics.Add(new DiagnosticEntry
+            {
+                Severity = "error",
+                Code = "xunit-compile-context-unavailable",
+                File = relativeProject,
+                Message = error.Message
+            });
+            return result;
+        }
+
+        var compilationErrorDiagnostics = generatorDiagnostics
+            .Concat(compilation.GetDiagnostics())
+            .Where(item => item.Severity == DiagnosticSeverity.Error)
+            .OrderBy(item => item.Location.SourceTree?.FilePath ?? "", StringComparer.Ordinal)
+            .ThenBy(item => item.Location.SourceSpan.Start)
+            .ThenBy(item => item.Id, StringComparer.Ordinal)
+            .ToArray();
+        if (compilationErrorDiagnostics.Length > 0)
+        {
+            string renderedDiagnostics = string.Join(
+                " | ",
+                compilationErrorDiagnostics.Take(40).Select(item => item.ToString()));
+            string truncated = compilationErrorDiagnostics.Length > 40
+                ? $" | ... {compilationErrorDiagnostics.Length - 40} more compilation errors"
+                : "";
             result.Diagnostics.Add(new DiagnosticEntry
             {
                 Severity = "error",
                 Code = "xunit-semantic-model-incomplete",
                 File = relativeProject,
-                Message = "semantic model is incomplete; unresolved symbols: " + string.Join(" | ", missingReferenceDiagnostics)
+                Message = $"semantic model is incomplete; compilation errors ({compilationErrorDiagnostics.Length}): {renderedDiagnostics}{truncated}"
             });
             return result;
         }
@@ -145,7 +175,7 @@ internal static partial class XunitAdapterProgram
                     {
                         continue;
                     }
-                    bool isTheory = IsAttributeType(testAttribute, "TheoryAttribute");
+                    bool isTheory = IsAttributeType(testAttribute!, "TheoryAttribute");
 
                     if (TryGetUnresolved(methodSymbol, relativeFile, unresolvedSymbols))
                     {
@@ -183,7 +213,7 @@ internal static partial class XunitAdapterProgram
 
                     var (classTraits, fixture) = ClassMetadata(classSymbol, semanticModel, relativeFile, unresolvedSymbols);
                     var (methodTraits, skipReason, explicitFlag, timeoutMs, displayNameOverride) = MethodMetadata(
-                        methodSymbol, testAttribute, semanticModel, relativeFile, unresolvedSymbols);
+                        methodSymbol, testAttribute!, semanticModel, relativeFile, unresolvedSymbols);
                     var traits = MergeTraits(classTraits, methodTraits);
                     string? category = TraitValue(traits, "Category");
                     string? platform = TraitValue(traits, "Platform");
@@ -380,7 +410,6 @@ internal static partial class XunitAdapterProgram
                 : string.CompareOrdinal(left.Severity, right.Severity));
         return result;
     }
-
 
     public static void WriteReport(Result result)
     {
