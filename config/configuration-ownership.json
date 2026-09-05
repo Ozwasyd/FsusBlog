@@ -337,6 +337,7 @@
             "pathType": "file",
             "consumers": [
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
+                "tools/test/lanes/static-governance.sh",
                 "tests/tools/post-runtime-producer-registry.test.mjs"
             ],
             "validationCommand": "node --test tests/tools/post-runtime-producer-registry.test.mjs",
@@ -350,6 +351,7 @@
             "pathType": "file",
             "consumers": [
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
+                "tools/test/lanes/static-governance.sh",
                 "tests/tools/post-runtime-producer-registry.test.mjs"
             ],
             "validationCommand": "node --test tests/tools/post-runtime-producer-registry.test.mjs",
@@ -364,6 +366,7 @@
             "consumers": [
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/behavior-evidence-post-runtime.mjs",
+                "tools/test/lanes/static-governance.sh",
                 "tests/tools/post-runtime-producer-registry.test.mjs"
             ],
             "validationCommand": "node --test tests/tools/post-runtime-producer-registry.test.mjs",

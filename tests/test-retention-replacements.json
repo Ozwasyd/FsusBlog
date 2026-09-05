@@ -11988,6 +11988,22 @@
                 "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.ExtractIllustrationUrls_ContentWithoutIllustrations_ReturnsEmpty#case-0001"
             ],
             "reason": "The plain Markdown no-image Fact becomes the stable plain-markdown-no-image row of the sole no-illustration Theory while retaining the production ExtractIllustrationUrls call, non-null empty result and no placeholder/default URL oracle."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.GetFirstIllustration_EmptyContent_ReturnsNull#case-0000",
+            "path": "tests/backend/Unit/ImageHelperTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.GetFirstIllustration_ContentWithoutIllustration_ReturnsNull#case-0000"
+            ],
+            "reason": "The empty-content Fact becomes the stable empty-content Theory row retaining the real GetFirstIllustration call and exact null assertion."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.GetFirstIllustration_NoIllustration_ReturnsNull#case-0000",
+            "path": "tests/backend/Unit/ImageHelperTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.GetFirstIllustration_ContentWithoutIllustration_ReturnsNull#case-0001"
+            ],
+            "reason": "The plain-content-no-image Fact becomes the stable plain-content-no-image Theory row retaining the real GetFirstIllustration call and exact null assertion."
         }
     ],
     "assertionReplacements": [
