@@ -150,7 +150,7 @@ LoadEnvFile() {
     [[ -f "$ENV_FILE" ]] || {
         printf '[deploy-production] missing %s\n' "$ENV_FILE" >&2
         printf '[deploy-production] create it with:\n' >&2
-        printf '  cp .env.production.example .env.production\n' >&2
+        printf '  cp config/examples/.env.production.example .env.production\n' >&2
         printf '  \044EDITOR .env.production\n' >&2
         printf '[deploy-production] then fill every CHANGE_ME value and the ZK material directories.\n' >&2
         exit 1

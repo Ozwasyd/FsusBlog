@@ -1047,6 +1047,17 @@
             ]
         },
         {
+            "id": "backend-environment-examples",
+            "owner": "backend-configuration-governance",
+            "canonicalPath": "config/examples",
+            "pathType": "directory",
+            "recursive": true,
+            "rejectedPaths": [
+                ".env.example",
+                ".env.production.example"
+            ]
+        },
+        {
             "id": "development-governance",
             "owner": "repository-governance",
             "canonicalPath": "config/development",

@@ -1,8 +1,56 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:1db71251501ab4ad3bf24cba98baf99cf64aa4e2c3f83e509ef1b441953d9ef6",
+    "policyDigest": "sha256:f2784b999fd2d833da4e3be3ccf76aaacd72c81004a72ee4d7050476dfc3f272",
     "documents": [
+        {
+            "path": "docs/CODE_OF_CONDUCT.md",
+            "title": "Code of Conduct",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "governance",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/CONTRIBUTING.md",
+            "title": "Contributing",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "governance",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/SECURITY.md",
+            "title": "Security Policy",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "governance",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/SUPPORT.md",
+            "title": "Support",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "governance",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
         {
             "path": "docs/active-release-fenced-commits.md",
             "title": "Active release fenced database commits",

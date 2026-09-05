@@ -8,8 +8,8 @@ const root = resolve(import.meta.dirname, '../..');
 
 export const ProductPolicyPaths = Object.freeze([
     'ROADMAP.md',
-    'CONTRIBUTING.md',
-    'SUPPORT.md',
+    'docs/CONTRIBUTING.md',
+    'docs/SUPPORT.md',
     'CHANGELOG.md',
     'docs/architecture/overview.md',
     'docs/api/stability.md',

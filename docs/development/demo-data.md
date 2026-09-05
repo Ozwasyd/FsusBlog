@@ -42,7 +42,7 @@ The seed inserts or refreshes:
 - one pending anonymous moderation queue comment
 - fictional audit/security events
 
-The seed does not include real production content, real domains, real emails, real IP addresses, real logs, tokens, or private identifiers.
+No real production content, real domains, real emails, real IP addresses, real logs, tokens, or private identifiers are included in the seed.
 
 The demo covers are deterministic SVG fixtures under
 `src/frontend/public/fixtures/`. They use the same `center-80` crop-safe area as
