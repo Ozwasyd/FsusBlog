@@ -243,16 +243,22 @@ export function reconcileLocalRedisOutcome({
         redisBudgetEvidence?.runId !== runId ||
         redisBudgetEvidence?.endpoint !== endpoint ||
         redisBudgetEvidence?.prefixNamespace !== `${prefixNamespace}budgeted-lease:`)
+    {
         failureCodes.push('budget-case-identity-mismatch');
+    }
     if (!Array.isArray(budgetCases) || budgetCases.length !== BUDGET_CASE_IDS.length ||
         BUDGET_CASE_IDS.some((id, index) => budgetCases[index]?.id !== id))
+    {
         failureCodes.push('budget-case-inventory-mismatch');
+    }
     if (!Array.isArray(budgetCases) || budgetCases.some((entry, index) =>
         entry?.outcome !== 'passed' || entry?.leases !== (index < 4 ? 1 : 2) ||
         !Number.isSafeInteger(entry?.bytes) || entry.bytes <= 0 || entry.bytes !== entry.burnedBytes ||
         (index < 4 && entry.bytes !== budgetCases[0]?.bytes) ||
         (index >= 4 && (entry.bytes <= budgetCases[0]?.bytes || entry.bytes !== budgetCases[4]?.bytes))))
+    {
         failureCodes.push('budget-case-accounting-mismatch');
+    }
 
     const receipt = {
         schema: 'fsusblog.perception-character-v3-redis-fixture.v1',

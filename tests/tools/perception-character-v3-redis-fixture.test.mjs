@@ -64,7 +64,9 @@ test('budgeted lease requires its own exact outcome and current run accounting e
         { cleanupVerified: false }
     ];
     for (const variant of variants)
+    {
         assert.equal(reconcileLocalRedisOutcome({ ...common, ...variant }).status, 'failed');
+    }
     for (let index = 0; index < BUDGET_CASE_IDS.length; index += 1)
     {
         for (const field of ['leases', 'bytes', 'burnedBytes'])

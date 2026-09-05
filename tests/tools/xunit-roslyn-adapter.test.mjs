@@ -1,17 +1,18 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
-
-import { buildOracleFacts } from '../../tools/test-quality/oracle-facts.mjs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { exerciseXunitProjectGraphFixture } from './support/xunit-project-graph-fixture.mjs';
 
 const repositoryRoot = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
+const { buildOracleFacts } = await import(pathToFileURL(
+    path.join(repositoryRoot, 'tools/test-quality/oracle-facts.mjs')
+).href);
 const fixtureProject = path.join(
     repositoryRoot,
     'tools/test-inventory/xunit-roslyn-adapter/fixtures/AdapterFixtureTests/AdapterFixtureTests.csproj'

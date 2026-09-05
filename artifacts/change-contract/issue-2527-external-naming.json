@@ -1,0 +1,28 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
+                "tests/backend/Fixtures/backend-test-requirements.json"
+            ],
+            "reason": "Preserve serialized sourceDigest/contentDigest, sources and requirements JSON keys read by canonical correctness and backend evidence consumers; changing their spelling to suit internal naming would break the existing schema and producer bindings. Generated outputs remain producer-owned."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "tests/coverage-registry.json"
+            ],
+            "reason": "Preserve the shared coverage registry's existing backend-search-index-utf8-scalar-owner ID and evidencePaths JSON key. These are serialized identifiers consumed by the existing search-owner coverage contract, not internal symbols to rename; #2527 adds its own coverage entry without changing that existing owner."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/perception-character-v3-redis-fixture.sh"
+            ],
+            "reason": "Preserve the canonical local Docker runner's exported FSUSBLOG_TEST_REDIS, FSUSBLOG_TEST_RUN_ID and FSUSBLOG_TEST_SOURCE_COMMIT keys and its FSUSBLOG_TEST_REDIS_HOST input; process callers require these exact spellings while local aliases retain internal naming."
+        }
+    ]
+}
