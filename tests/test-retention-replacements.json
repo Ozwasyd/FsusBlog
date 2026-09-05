@@ -12024,6 +12024,16 @@
     ],
     "assertionReplacements": [
         {
+            "before": "Assert.True(bytesAfterAmbiguous > exactBytes)",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/PerceptionCharacterV3ArtifactPoolTests.cs#PerceptionCharacterV3Tests.BudgetedLeaseAtomicallyAccountsExactBytesQuotasAndRetryIdentity"
+            ],
+            "after": [
+                "xunit:Equal:await AssertBudgetStateAsync(\"ambiguous-reply\", 2, bytesAfterAmbiguous):equality:bytesAfterAmbiguous"
+            ],
+            "reason": "Issue 2527 retains the same budgeted lease test ID under the canonical LocalRedis producer only. Exact burned artifact bytes, lease counters, operation identities and inventory replace the weak ambiguous-reply increase assertion; ordinary backend membership excludes Fixture=LocalRedis and missing fixture identity fails closed."
+        },
+        {
             "before": "behavior:${caseGroup.id} keeps viewport boundaries usable",
             "replacementTestIds": [
                 "node-test:tests/tools/ux-viewport-plan.test.mjs#shared-planner-preserves-the-exact-smoke-visual-and-boun-7d7d1654db"
