@@ -24,6 +24,7 @@ import {
   validatePublicPreviewEvidenceBinding
 } from '../release/test-evidence-receipts.mjs'
 import {
+  extractSemanticFactsFromRawReceipt,
   loadPostRuntimeProducerRegistry,
   root,
   validateProducerReceiptAgainstRegistry
@@ -264,21 +265,6 @@ function browserSemanticFacts(browser, publicPreviewEvidence)
   }
 }
 
-function typedBrowserSemanticFacts(rawFacts)
-{
-  return {
-    contractTestId: rawFacts.contractTestId,
-    viewport: rawFacts.viewport,
-    theme: rawFacts.theme,
-    stateDigest: semanticDigest(rawFacts.state),
-    interactionDigest: semanticDigest(rawFacts.interaction),
-    domDigest: semanticDigest(rawFacts.dom),
-    a11yDigest: semanticDigest(rawFacts.a11y),
-    networkDigest: semanticDigest(rawFacts.network),
-    consoleDigest: semanticDigest(rawFacts.console)
-  }
-}
-
 export function deriveBrowserObservedRawFacts(browser, publicPreviewEvidence)
 {
   const scenarios = exactScenarioFacts(browser)
@@ -381,9 +367,6 @@ export function projectBrowserContractRaw({ candidatePlan, browserContractReceip
   {
     fail('Browser Contract raw facts do not replay from retained observed scenarios and public-preview evidence')
   }
-  const semanticFacts = Array.isArray(definition.requiredSemanticFactFields)
-    ? typedBrowserSemanticFacts(observedRawFacts)
-    : legacyFacts
   const producer = registry.producers.find(({ producerId }) => producerId === plan.producerId)
   if (!producer) fail('candidate plan producer is absent from registry')
   const sourceState = observationSourceState({
@@ -393,6 +376,7 @@ export function projectBrowserContractRaw({ candidatePlan, browserContractReceip
     repositoryRoot,
     legacy: legacySourceState
   })
+  const semanticFacts = extractSemanticFactsFromRawReceipt(browserInput.value, definition, plan.producerId, classId, sourceState)
   const canonicalRerunCommand = browserInput.value.canonicalRerunCommand
   const independentVerifyCommand = `node tools/test-evidence/browser-contract-observation-raw.mjs verify --candidate-plan ${planInput.ref.path} --receipt ${planned.receiptPath}`
   return seal({

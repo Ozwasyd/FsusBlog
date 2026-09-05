@@ -21,6 +21,7 @@ import {
 } from '../fact-extractors/post-runtime/adapter.mjs'
 import { validateSemanticFacts } from '../fact-extractors/post-runtime/semantic-contracts.mjs'
 import {
+  extractSemanticFactsFromRawReceipt,
   loadPostRuntimeProducerRegistry,
   root,
   validateProducerReceiptAgainstRegistry
@@ -283,12 +284,6 @@ function observedRawFacts(inputs)
   }
 }
 
-function typedFacts(rawFacts)
-{
-  return Object.fromEntries(Object.entries(rawFacts).map(([field, value]) =>
-    field === 'locale' ? [field, value] : [`${field}Digest`, `sha256:${digestValue(stable(value))}`]))
-}
-
 function loadInputs(evidence, repositoryRoot)
 {
   if (!evidence || JSON.stringify(Object.keys(evidence).sort()) !== JSON.stringify([...evidenceKeys].sort()))
@@ -389,9 +384,6 @@ export function projectAotSpaHydrationRaw({ candidatePlan, sourceReceipt, reposi
   {
     fail('AOT raw facts do not replay from retained manifest and Browser Contract observations')
   }
-  const semanticFacts = Array.isArray(definition.requiredSemanticFactFields)
-    ? typedFacts(rawFacts)
-    : legacyFacts
   const sourceState = observationSourceState({ classId, plan, artifactDigest: legacyFacts.manifestDigest, repositoryRoot, legacy: {
     sourceCommit: plan.sourceState.commit,
     worktreeFingerprint: plan.sourceState.worktreeFingerprint,
@@ -404,6 +396,7 @@ export function projectAotSpaHydrationRaw({ candidatePlan, sourceReceipt, reposi
     releaseId: plan.candidate.releaseId,
     rolloutId: plan.candidate.rolloutId
   } })
+  const semanticFacts = extractSemanticFactsFromRawReceipt(source.source.value, definition, plan.producerId, classId, sourceState)
   const canonicalRerunCommand = source.source.value.canonicalRerunCommand
   const independentVerifyCommand = `node tools/test-evidence/aot-spa-hydration-raw.mjs verify --candidate-plan ${candidate.ref.path} --receipt ${planned.receiptPath}`
   return seal({

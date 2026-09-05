@@ -18,6 +18,7 @@ import {
   writeReceipt
 } from '../fact-extractors/post-runtime/adapter.mjs'
 import {
+  extractSemanticFactsFromRawReceipt,
   loadPostRuntimeProducerRegistry,
   root,
   validateProducerReceiptAgainstRegistry
@@ -118,10 +119,6 @@ export function projectProbeRaw({ candidatePlan, probeReceipt, repositoryRoot = 
   if (!typedEnvelope) fail('canonical raw semantic fact authority is required')
   const rawFacts = deriveProbeRawFacts(probe.kind, probe.facts)
   if (semanticDigest(rawFacts) !== semanticDigest(probe.rawFacts)) fail('probe raw facts do not independently replay')
-  // Integration boundary: replace this projection with the registry's exported
-  // extractSemanticFactsFromRawReceipt when its baseline reaches this branch.
-  const semanticFacts = Object.fromEntries(definition.requiredSemanticFactFields.map((field) => [field,
-    field.endsWith('Digest') ? semanticDigest(rawFacts[field.slice(0, -6)]) : rawFacts[field]]))
   const sourceState = observationSourceState({
     classId: probe.kind,
     plan,
@@ -129,6 +126,7 @@ export function projectProbeRaw({ candidatePlan, probeReceipt, repositoryRoot = 
     repositoryRoot,
     legacy: legacySourceState
   })
+  const semanticFacts = extractSemanticFactsFromRawReceipt(probe, definition, plan.producerId, probe.kind, sourceState)
   const canonicalRerunCommand = probe.provenance.rerunCommand
   const independentVerifyCommand = `node tools/test-evidence/runtime-observation-raw.mjs verify --candidate-plan ${planInput.ref.path} --receipt ${planned.receiptPath}`
   return seal({
