@@ -13,7 +13,9 @@ internal abstract class NotificationStreamBacklogAcceptance
 internal sealed record NotificationStreamDeliverySnapshot(
     long Queued,
     long InFlight,
-    long Completed,
+    long FanoutExpanded,
+    long SocketWriteCompleted,
+    long LegacyPipeCopyCompleted,
     long ReplayRequired,
     long DurableReplayTransferred,
     long AllowedDrops,
@@ -29,7 +31,7 @@ internal readonly record struct NotificationStreamFanoutDispatchResult(int Accep
 internal sealed class NotificationStreamDeliveryAccounting
 {
     private readonly object _gate = new();
-    private NotificationStreamDeliverySnapshot _snapshot = new(0, 0, 0, 0, 0, 0, 0, 0, null);
+    private NotificationStreamDeliverySnapshot _snapshot = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null);
 
     internal NotificationStreamDeliverySnapshot Snapshot()
     {
@@ -42,7 +44,9 @@ internal sealed class NotificationStreamDeliveryAccounting
     internal void Transition(
         long queued = 0,
         long inFlight = 0,
-        long completed = 0,
+        long fanoutExpanded = 0,
+        long socketWriteCompleted = 0,
+        long legacyPipeCopyCompleted = 0,
         long replay = 0,
         long transferred = 0,
         long dropped = 0,
@@ -55,7 +59,9 @@ internal sealed class NotificationStreamDeliveryAccounting
             {
                 Queued = _snapshot.Queued + queued,
                 InFlight = _snapshot.InFlight + inFlight,
-                Completed = _snapshot.Completed + completed,
+                FanoutExpanded = _snapshot.FanoutExpanded + fanoutExpanded,
+                SocketWriteCompleted = _snapshot.SocketWriteCompleted + socketWriteCompleted,
+                LegacyPipeCopyCompleted = _snapshot.LegacyPipeCopyCompleted + legacyPipeCopyCompleted,
                 ReplayRequired = _snapshot.ReplayRequired + replay,
                 DurableReplayTransferred = _snapshot.DurableReplayTransferred + transferred,
                 AllowedDrops = _snapshot.AllowedDrops + dropped,

@@ -200,7 +200,7 @@ public sealed class NotificationStreamConnection
             {
                 _queuedFrames = Math.Max(0, _queuedFrames - 1);
                 _queuedBytes = Math.Max(0, _queuedBytes - accounting.Length);
-                RecordDelivery(queued: -1, completed: written ? 1 : 0);
+                RecordDelivery(queued: -1, legacyPipeCopyCompleted: written ? 1 : 0);
                 if (!written)
                 {
                     RecordUndelivered(accounting.Policy, "pipe-write-failed", accounting.DurableBacklogAccepted);
@@ -236,7 +236,7 @@ public sealed class NotificationStreamConnection
         throw new ChannelClosedException();
     }
 
-    internal void CompleteWrite(NotificationStreamWriteLease lease, bool written, string reason)
+    internal void CompleteSocketWrite(NotificationStreamWriteLease lease, bool written, string reason)
     {
         if (!ReferenceEquals(lease.Owner, this) || !lease.TryComplete())
         {
@@ -254,7 +254,7 @@ public sealed class NotificationStreamConnection
 
             _inFlightWrites--;
             _inFlightBytes -= lease.Accounting.Length;
-            RecordDelivery(inFlight: -1, completed: written ? 1 : 0);
+            RecordDelivery(inFlight: -1, socketWriteCompleted: written ? 1 : 0);
         }
     }
 
@@ -413,11 +413,16 @@ public sealed class NotificationStreamConnection
             dropped: policy.LossPolicy == NotificationStreamLossPolicy.DiagnosticDrop ? 1 : 0,
             reason: reason);
 
-    private void RecordDelivery(long queued = 0, long inFlight = 0, long completed = 0,
+    private void RecordDelivery(long queued = 0, long inFlight = 0, long socketWriteCompleted = 0,
+        long legacyPipeCopyCompleted = 0,
         long replay = 0, long transferred = 0, long dropped = 0, long terminal = 0, string? reason = null)
     {
-        _aggregateDelivery?.Transition(queued, inFlight, completed, replay, transferred, dropped, terminal, reason);
-        _delivery.Transition(queued, inFlight, completed, replay, transferred, dropped, terminal, reason);
+        _aggregateDelivery?.Transition(queued: queued, inFlight: inFlight, socketWriteCompleted: socketWriteCompleted,
+            legacyPipeCopyCompleted: legacyPipeCopyCompleted, replay: replay, transferred: transferred,
+            dropped: dropped, terminal: terminal, reason: reason);
+        _delivery.Transition(queued: queued, inFlight: inFlight, socketWriteCompleted: socketWriteCompleted,
+            legacyPipeCopyCompleted: legacyPipeCopyCompleted, replay: replay, transferred: transferred,
+            dropped: dropped, terminal: terminal, reason: reason);
     }
 }
 

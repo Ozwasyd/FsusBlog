@@ -159,7 +159,7 @@ public sealed class NotificationStreamLocalFanoutQueue
             RecordUndelivered(item, reason);
         }
 
-        _delivery.Transition(inFlight: -1, completed: dispatched ? 1 : 0, terminal: terminal ? 1 : 0);
+        _delivery.Transition(inFlight: -1, fanoutExpanded: dispatched ? 1 : 0, terminal: terminal ? 1 : 0);
     }
 
     private void RecordUndelivered(NotificationStreamLocalFanoutWorkItem item, string reason)

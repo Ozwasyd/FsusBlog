@@ -24,6 +24,93 @@ public sealed class NotificationStreamDeliveryAccountingTests
         NotificationStreamDeliveryPolicyCatalog.GetRequired(NotificationStreamEventType.NoticeReceived);
 
     [Theory]
+    [InlineData("success")]
+    [InlineData("cancel")]
+    [InlineData("failure")]
+    public async Task DeliveryStages_ExpandedFanoutDoesNotCompleteBlockedSocketWrite(string outcome)
+    {
+        var (publisher, queue, manager, _) = CreatePublisher();
+        var connection = manager.RegisterConnection("stage", "proof-account", []);
+        Assert.True((await publisher.PublishAsync(NotificationStreamEventType.NoticeReceived, 7,
+            new NotificationStreamUserTarget("proof-account"))).IsSuccess);
+        using var worker = new NotificationStreamLocalFanoutWorker(queue, manager,
+            NullLogger<NotificationStreamLocalFanoutWorker>.Instance, TimeProvider.System);
+        await worker.ProcessOnceAsync(CancellationToken.None);
+        Assert.Equal(1, queue.DeliverySnapshot.FanoutExpanded);
+        Assert.Equal(0, queue.DeliverySnapshot.SocketWriteCompleted);
+        Assert.Equal(1, manager.DeliverySnapshot.Queued);
+        using var socket = new ControlledSocket();
+        using var gate = new SemaphoreSlim(1, 1);
+        using var cancellation = new CancellationTokenSource();
+        Task send = NotificationStreamSessionService.WriteNextQueuedFrameAsync(socket, connection, gate, cancellation.Token);
+        try
+        {
+            await socket.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Equal(0, manager.DeliverySnapshot.Queued);
+            Assert.Equal(1, manager.DeliverySnapshot.InFlight);
+            Assert.Equal(0, manager.DeliverySnapshot.SocketWriteCompleted);
+            Assert.Equal(0, manager.DeliverySnapshot.FanoutExpanded);
+            Assert.Equal(0, manager.DeliverySnapshot.LegacyPipeCopyCompleted);
+            Assert.True(CreateParticipant(manager, queue).Snapshot().PendingCount > 0);
+            if (outcome == "cancel")
+            {
+                await cancellation.CancelAsync();
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() => send);
+            }
+            else if (outcome == "failure")
+            {
+                socket.Finish.SetException(new IOException("simulated stage write failure"));
+                await Assert.ThrowsAsync<IOException>(() => send);
+            }
+            else
+            {
+                socket.Finish.SetResult();
+                await send.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+        }
+        finally
+        {
+            socket.Finish.TrySetResult();
+            try
+            {
+                await send.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            catch (Exception exception) when (exception is IOException or OperationCanceledException)
+            {
+            }
+            manager.RemoveConnection("stage");
+        }
+
+        Assert.Equal(1, queue.DeliverySnapshot.FanoutExpanded);
+        Assert.Equal(0, queue.DeliverySnapshot.SocketWriteCompleted);
+        Assert.Equal(outcome == "success" ? 1 : 0, manager.DeliverySnapshot.SocketWriteCompleted);
+        Assert.Equal(outcome == "success" ? 0 : 1, manager.DeliverySnapshot.DurableReplayTransferred);
+        Assert.Equal(0, manager.DeliverySnapshot.InFlight);
+        Assert.Equal(0, manager.DeliverySnapshot.FanoutExpanded);
+        Assert.Equal(0, manager.DeliverySnapshot.LegacyPipeCopyCompleted);
+    }
+
+    [Fact]
+    public async Task DeliveryStages_EmptyTargetExpansionDoesNotCompleteSocketWrite()
+    {
+        var (publisher, queue, manager, _) = CreatePublisher();
+        Assert.True((await publisher.PublishAsync(NotificationStreamEventType.NoticeReceived, 7,
+            new NotificationStreamUserTarget("no-live-connection"))).IsSuccess);
+        using var worker = new NotificationStreamLocalFanoutWorker(queue, manager,
+            NullLogger<NotificationStreamLocalFanoutWorker>.Instance, TimeProvider.System);
+
+        await worker.ProcessOnceAsync(CancellationToken.None);
+
+        Assert.Equal(1, queue.DeliverySnapshot.FanoutExpanded);
+        Assert.Equal(0, queue.DeliverySnapshot.SocketWriteCompleted);
+        Assert.Equal(0, queue.DeliverySnapshot.LegacyPipeCopyCompleted);
+        Assert.Equal(0, manager.DeliverySnapshot.SocketWriteCompleted);
+        Assert.Equal(0, manager.DeliverySnapshot.FanoutExpanded);
+        Assert.Equal(0, manager.DeliverySnapshot.LegacyPipeCopyCompleted);
+        Assert.Equal(0, queue.DeliverySnapshot.Outstanding);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task DeploymentDrain_ZeroCountsDoNotBecomeErrors(bool durableHandoff)
@@ -44,8 +131,8 @@ public sealed class NotificationStreamDeliveryAccountingTests
             ReleaseDrainRunResult local = await registry.DrainAsync(TimeSpan.FromSeconds(1));
             Assert.True(local.Drained);
             Assert.Equal(0, Assert.Single(local.Participants).PendingCount);
-            Assert.Equal(0, queue.DeliverySnapshot.Completed);
-            Assert.Equal(0, manager.DeliverySnapshot.Completed);
+            Assert.Equal(0, queue.DeliverySnapshot.FanoutExpanded);
+            Assert.Equal(0, manager.DeliverySnapshot.SocketWriteCompleted);
             Assert.Equal(durableHandoff ? 1 : 0, queue.DeliverySnapshot.DurableReplayTransferred);
 
             await coordinator.DrainForHostStopAsync(CancellationToken.None);
@@ -80,9 +167,9 @@ public sealed class NotificationStreamDeliveryAccountingTests
         }
         if (scenario == "terminal")
         {
-            connection.CompleteWrite(lease!, true, "simulated-write-completed");
+            connection.CompleteSocketWrite(lease!, true, "simulated-write-completed");
             lease!.Frame.Release();
-            Assert.Throws<InvalidOperationException>(() => connection.CompleteWrite(lease, true, "duplicate"));
+            Assert.Throws<InvalidOperationException>(() => connection.CompleteSocketWrite(lease, true, "duplicate"));
             lease = null;
         }
         if (scenario != "queued")
@@ -116,7 +203,7 @@ public sealed class NotificationStreamDeliveryAccountingTests
             {
                 if (lease is not null)
                 {
-                    connection.CompleteWrite(lease, false, "simulated-test-shutdown");
+                    connection.CompleteSocketWrite(lease, false, "simulated-test-shutdown");
                     lease.Frame.Release();
                 }
                 manager.RemoveConnection("blocking");
@@ -202,7 +289,7 @@ public sealed class NotificationStreamDeliveryAccountingTests
             Assert.Equal(0, manager.ConnectionCount);
             Assert.Equal(0, manager.DeliverySnapshot.Queued);
             Assert.Equal(1, manager.DeliverySnapshot.InFlight);
-            Assert.Equal(0, manager.DeliverySnapshot.Completed);
+            Assert.Equal(0, manager.DeliverySnapshot.SocketWriteCompleted);
             Assert.True(participant.Snapshot().PendingCount > 0);
             Assert.Equal(3, frame.Length);
             frame.Retain();
@@ -215,7 +302,7 @@ public sealed class NotificationStreamDeliveryAccountingTests
         }
 
         Assert.Equal(0, manager.DeliverySnapshot.Outstanding);
-        Assert.Equal(1, manager.DeliverySnapshot.Completed);
+        Assert.Equal(1, manager.DeliverySnapshot.SocketWriteCompleted);
         Assert.Equal("drained", participant.Snapshot().Status);
         Assert.Throws<InvalidOperationException>(() => frame.Release());
     }
@@ -247,7 +334,7 @@ public sealed class NotificationStreamDeliveryAccountingTests
 
         manager.RemoveConnection("failed");
         Assert.Equal(0, manager.DeliverySnapshot.InFlight);
-        Assert.Equal(0, manager.DeliverySnapshot.Completed);
+        Assert.Equal(0, manager.DeliverySnapshot.SocketWriteCompleted);
         Assert.Equal(1, manager.DeliverySnapshot.ReplayRequired);
         Assert.Equal(0, manager.DeliverySnapshot.DurableReplayTransferred);
         Assert.True(connection.IsClosed);
@@ -272,9 +359,9 @@ public sealed class NotificationStreamDeliveryAccountingTests
         Assert.Equal(0, connection.QueuedFrameCount);
         Assert.Equal(1, manager.DeliverySnapshot.ReplayRequired);
         Assert.Throws<InvalidOperationException>(() => queued.Release());
-        connection.CompleteWrite(lease, true, "written");
+        connection.CompleteSocketWrite(lease, true, "written");
         lease.Frame.Release();
-        Assert.Equal(1, manager.DeliverySnapshot.Completed);
+        Assert.Equal(1, manager.DeliverySnapshot.SocketWriteCompleted);
         Assert.Equal(0, manager.DeliverySnapshot.InFlight);
     }
 
@@ -289,7 +376,7 @@ public sealed class NotificationStreamDeliveryAccountingTests
         Assert.False(connection.TryEnqueue(next, s_policy, 2));
         Assert.Equal(1, connection.InFlightWriteCount);
         Assert.Equal(1, connection.DeliverySnapshot.ReplayRequired);
-        connection.CompleteWrite(lease, true, "written");
+        connection.CompleteSocketWrite(lease, true, "written");
         lease.Frame.Release();
         Assert.Throws<InvalidOperationException>(() => next.Release());
     }
@@ -321,7 +408,7 @@ public sealed class NotificationStreamDeliveryAccountingTests
         }
 
         Assert.Equal(0, queue.DeliverySnapshot.InFlight);
-        Assert.Equal(0, queue.DeliverySnapshot.Completed);
+        Assert.Equal(0, queue.DeliverySnapshot.FanoutExpanded);
         Assert.Equal(1, queue.DeliverySnapshot.ReplayRequired);
         Assert.Equal("notification_replay_unproven", participant.Snapshot().ErrorCode);
         Assert.Throws<InvalidOperationException>(() => frame.Release());
@@ -377,7 +464,7 @@ public sealed class NotificationStreamDeliveryAccountingTests
 
         Assert.Equal(mismatch ? 1 : 0, manager.DeliverySnapshot.ReplayRequired);
         Assert.Equal(mismatch ? 0 : 1, manager.DeliverySnapshot.DurableReplayTransferred);
-        Assert.Equal(0, manager.DeliverySnapshot.Completed);
+        Assert.Equal(0, manager.DeliverySnapshot.SocketWriteCompleted);
         Assert.Equal(mismatch ? "pending" : "replay-transferred", CreateParticipant(manager, queue).Snapshot().Status);
     }
 
@@ -415,7 +502,7 @@ public sealed class NotificationStreamDeliveryAccountingTests
         queue.CompleteDelivery(item, false, false, "simulated-process-handoff");
         item.Frame.Release();
         Assert.Equal(1, queue.DeliverySnapshot.DurableReplayTransferred);
-        Assert.Equal(0, queue.DeliverySnapshot.Completed);
+        Assert.Equal(0, queue.DeliverySnapshot.FanoutExpanded);
         Assert.Equal(0, queue.DeliverySnapshot.Outstanding);
     }
 
@@ -434,7 +521,7 @@ public sealed class NotificationStreamDeliveryAccountingTests
 
         await worker.ProcessOnceAsync(CancellationToken.None);
 
-        Assert.Equal(0, queue.DeliverySnapshot.Completed);
+        Assert.Equal(0, queue.DeliverySnapshot.FanoutExpanded);
         Assert.Equal(0, queue.DeliverySnapshot.InFlight);
         Assert.Equal(1, queue.DeliverySnapshot.ReplayRequired);
         manager.RemoveConnection("closed");

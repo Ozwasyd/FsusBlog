@@ -215,7 +215,7 @@ internal sealed class NotificationStreamSessionService(
         {
             try
             {
-                connection.CompleteWrite(lease, written,
+                connection.CompleteSocketWrite(lease, written,
                     cancellationToken.IsCancellationRequested ? "connection-write-cancelled" : "connection-write-incomplete");
             }
             finally
