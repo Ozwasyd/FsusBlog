@@ -194,10 +194,13 @@ function fixture(context)
       path: relative(candidate.planFile),
       fileDigest: fileDigest(candidate.planFile),
       contentDigest: candidate.plan.contentDigest,
-      schema: candidate.plan.schema
+      schema: candidate.plan.schema,
+      role: 'candidate-plan'
     },
-    buildReceipt: { path: relative(buildPath), contentDigest: fileDigest(buildPath) },
-    fixtureReceipt: { path: relative(fixturePath), contentDigest: fileDigest(fixturePath) },
+    buildReceipt: { path: relative(buildPath), fileDigest: fileDigest(buildPath),
+      contentDigest: candidate.build.contentDigest, schema: candidate.build.schema, role: 'production-build' },
+    fixtureReceipt: { path: relative(fixturePath), fileDigest: fileDigest(fixturePath),
+      contentDigest: prepared.contentDigest ?? null, schema: prepared.schema, role: 'fixture' },
     provenance: {
       mode: 'local-real-runtime',
       semanticAuthority: 'current-candidate-application-and-owned-services',

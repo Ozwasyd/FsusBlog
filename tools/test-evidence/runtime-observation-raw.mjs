@@ -75,7 +75,8 @@ function exactSource(plan, probe, buildReceipt, rawSchema, repositoryRoot)
     || source.runtimeId !== plan.candidate.runtimeId
     || probe.candidatePlanRef?.contentDigest !== plan.contentDigest
     || probe.buildReceipt?.path !== plan.build.receipt
-    || probe.buildReceipt?.contentDigest !== bytesDigest(path.resolve(repositoryRoot, plan.build.receipt))
+    || probe.buildReceipt?.fileDigest !== bytesDigest(path.resolve(repositoryRoot, plan.build.receipt))
+    || probe.buildReceipt?.contentDigest !== plan.build.receiptContentDigest
     || buildReceipt.contentDigest !== plan.build.receiptContentDigest)
   {
     fail('probe, build, and candidate plan identities do not exact-match')

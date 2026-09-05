@@ -134,6 +134,17 @@ function sourceIdentity(parsed, build, fixture, candidatePlan)
   }
 }
 
+function dependencyReference(input, role)
+{
+  return {
+    path: input.ref.path,
+    fileDigest: input.ref.contentDigest,
+    contentDigest: input.value.contentDigest ?? null,
+    schema: input.value.schema,
+    role
+  }
+}
+
 function fixtureProjection(fixture)
 {
   let projection
@@ -671,10 +682,11 @@ function buildReceipt(kind, context, facts)
       path: context.candidatePlan.relative,
       fileDigest: context.candidatePlan.fileDigest,
       contentDigest: context.candidatePlan.value.contentDigest,
-      schema: context.candidatePlan.value.schema
+      schema: context.candidatePlan.value.schema,
+      role: 'candidate-plan'
     },
-    buildReceipt: context.build.ref,
-    fixtureReceipt: context.fixture.ref,
+    buildReceipt: dependencyReference(context.build, 'production-build'),
+    fixtureReceipt: dependencyReference(context.fixture, 'fixture'),
     provenance: {
       mode: 'local-real-runtime',
       semanticAuthority: 'current-candidate-application-and-owned-services',
@@ -731,10 +743,19 @@ export function verifyReceipt(receipt)
   }
   const replay = seal(Object.fromEntries(Object.entries(receipt).filter(([key]) => key !== 'contentDigest')))
   if (receipt.contentDigest !== replay.contentDigest) fail('probe receipt content digest mismatch')
-  for (const reference of [receipt.buildReceipt, receipt.fixtureReceipt])
+  for (const [reference, schema, role] of [
+    [receipt.buildReceipt, 'fsusblog.ci-production-build-receipt.v1', 'production-build'],
+    [receipt.fixtureReceipt, 'fsusblog.fixture-prepare-state.v1', 'fixture']
+  ])
   {
     const current = explicitJson(reference?.path, 'probe dependency')
-    if (current.ref.contentDigest !== reference.contentDigest) fail(`probe dependency digest mismatch: ${reference?.path}`)
+    if (Object.keys(reference).sort().join(',') !== 'contentDigest,fileDigest,path,role,schema'
+      || reference.schema !== schema || current.value.schema !== schema || reference.role !== role
+      || current.ref.contentDigest !== reference.fileDigest
+      || (current.value.contentDigest ?? null) !== reference.contentDigest)
+    {
+      fail(`probe dependency digest/schema mismatch: ${reference?.path}`)
+    }
   }
   const build = explicitJson(receipt.buildReceipt.path, 'production build receipt')
   const fixture = explicitJson(receipt.fixtureReceipt.path, 'fixture prepare receipt')
@@ -760,6 +781,7 @@ export function verifyReceipt(receipt)
   if (receipt.candidatePlanRef?.fileDigest !== candidatePlanInput.fileDigest
     || receipt.candidatePlanRef?.contentDigest !== candidatePlan.contentDigest
     || receipt.candidatePlanRef?.schema !== candidatePlan.schema
+    || receipt.candidatePlanRef?.role !== 'candidate-plan'
     || source.candidateId !== candidatePlan.candidate.candidateId
     || source.runtimeId !== candidatePlan.candidate.runtimeId)
   {

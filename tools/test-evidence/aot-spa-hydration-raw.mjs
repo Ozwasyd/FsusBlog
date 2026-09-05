@@ -299,6 +299,8 @@ function planInput(candidatePlan, repositoryRoot)
   const input = explicitFile(candidatePlan, 'candidate plan', repositoryRoot, { json: true })
   const plan = validateCandidatePlan(input.value, { repositoryRoot })
   input.ref.contentDigest = plan.contentDigest
+  input.ref.schema = plan.schema
+  input.ref.role = 'candidate-plan'
   return { input, plan }
 }
 
@@ -334,7 +336,9 @@ export function produceAotSpaHydrationSourceBundle({ candidatePlan, evidence, re
     candidatePlanRef: candidate.ref,
     evidenceRefs: Object.fromEntries(evidenceKeys.map((key) => [key, {
       ...inputs[key].ref,
-      contentDigest: inputs[key].value?.contentDigest ?? null
+      contentDigest: inputs[key].value?.contentDigest ?? null,
+      schema: inputs[key].value.schema,
+      role: key === 'manifest' ? 'spa-manifest' : 'browser-contract'
     }])),
     canonicalRerunCommand: `node tools/test-evidence/aot-spa-hydration-raw.mjs bundle --candidate-plan ${candidate.ref.path} ${evidenceKeys.map((key) => `--${key.replace(/[A-Z]/gu, (letter) => `-${letter.toLowerCase()}`)} ${inputs[key].ref.path}`).join(' ')}`,
     independentVerifyCommand: `node tools/test-evidence/aot-spa-hydration-raw.mjs verify --candidate-plan ${candidate.ref.path} --receipt ${planned.receiptPath}`
@@ -352,10 +356,17 @@ function loadSourceBundle(sourceReceipt, candidatePlanRef, plan, repositoryRoot)
   {
     fail('AOT source bundle schema, seal, or candidate binding mismatch')
   }
+  if (JSON.stringify(Object.keys(source.value.evidenceRefs ?? {}).sort()) !== JSON.stringify([...evidenceKeys].sort()))
+  {
+    fail('AOT source bundle evidence reference roster mismatch')
+  }
   const evidence = Object.fromEntries(evidenceKeys.map((key) => {
     const reference = source.value.evidenceRefs?.[key]
     const current = explicitFile(reference?.path, `${key} evidence`, repositoryRoot, { json: true })
-    if (current.ref.fileDigest !== reference?.fileDigest
+    if (Object.keys(reference ?? {}).sort().join(',') !== 'contentDigest,fileDigest,path,role,schema'
+      || reference.schema !== current.value.schema
+      || reference.role !== (key === 'manifest' ? 'spa-manifest' : 'browser-contract')
+      || current.ref.fileDigest !== reference?.fileDigest
       || (reference?.contentDigest ?? null) !== (current.value?.contentDigest ?? null))
     {
       fail(`${key} evidence bytes changed after source bundling`)
