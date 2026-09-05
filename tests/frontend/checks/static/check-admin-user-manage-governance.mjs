@@ -117,7 +117,7 @@ const requiredTableTokens = [
   'user-resource-list-identity-row flex items-center gap-3',
   'user-resource-list-meta',
   'user-resource-list-action-row',
-  'user-resource-surface:has(.el-responsive-collection.is-compact)',
+  'user-resource-surface:has(.is-compact)',
   'width: min(100%, 44rem);',
   'margin-inline: auto;',
   'border-radius: 0;',

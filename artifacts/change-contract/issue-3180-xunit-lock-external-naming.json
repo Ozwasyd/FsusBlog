@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json"
+            ],
+            "reason": "preserve NuGet lock schema keys and external package and project identifiers while regenerating the current backend test dependency graph"
+        }
+    ]
+}

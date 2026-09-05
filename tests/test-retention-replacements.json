@@ -6679,6 +6679,22 @@
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
         },
         {
+            "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#FsusBlog.Server.Tests.Unit.ArticleServiceValidationTests.SearchArticlesAsync_TabAndNewlineOnly_ReturnsEmpty#case-0000",
+            "path": "tests/backend/Unit/ArticleServiceValidationTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#FsusBlog.Server.Tests.Unit.ArticleServiceValidationTests.SearchArticlesAsync_WhitespaceOnlyKeyword_ReturnsEmpty#case-0001"
+            ],
+            "reason": "The tab-newline-cr whitespace-only Fact is parameterized as the stable case-0001 row of the sole whitespace normalization Theory with the same empty-result oracle and explicit zero downstream-call oracles."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#FsusBlog.Server.Tests.Unit.ArticleServiceValidationTests.SearchArticlesAsync_WhitespaceKeyword_ReturnsEmpty#case-0000",
+            "path": "tests/backend/Unit/ArticleServiceValidationTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#FsusBlog.Server.Tests.Unit.ArticleServiceValidationTests.SearchArticlesAsync_WhitespaceOnlyKeyword_ReturnsEmpty#case-0000"
+            ],
+            "reason": "The spaces whitespace-only Fact is parameterized as the stable case-0000 row of the sole whitespace normalization Theory with the same empty-result oracle and explicit zero downstream-call oracles."
+        },
+        {
             "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.UpdateAsync_SourceChecksAffectedRowsBeforeDependentWrites",
             "path": "tests/backend/Unit/ArticleServiceValidationTests.cs",
             "replacementTestIds": [
@@ -11924,6 +11940,54 @@
                 "vitest:tests/frontend/unit/composables/useImageUploadRuntime.test.ts#shows-resume-and-abandon-only-for-the-corresponding-runt-ecc8235d4c"
             ],
             "reason": "The real upload composable, API calls, local resume snapshot and mounted options panel prove fresh upload, pause, resume, complete, abort cleanup and late-response isolation."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ClaimsAndApiResponseTests.cs#FsusBlog.Server.Tests.Unit.ClaimsPrincipalExtensionsTests.GetUserId_InvalidValueClaim_ReturnsZero#case-0000",
+            "path": "tests/backend/Unit/ClaimsAndApiResponseTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ClaimsAndApiResponseTests.cs#FsusBlog.Server.Tests.Unit.ClaimsPrincipalExtensionsTests.GetUserId_MalformedClaim_ReturnsZero#case-0000"
+            ],
+            "reason": "The not-a-number malformed NameIdentifier Fact becomes the stable not-numeric row of the sole malformed-claim Theory while retaining the real ClaimsPrincipal, production GetUserId call and exact zero assertion."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ClaimsAndApiResponseTests.cs#FsusBlog.Server.Tests.Unit.ClaimsPrincipalExtensionsTests.GetUserId_WhitespaceClaim_ReturnsZero#case-0000",
+            "path": "tests/backend/Unit/ClaimsAndApiResponseTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ClaimsAndApiResponseTests.cs#FsusBlog.Server.Tests.Unit.ClaimsPrincipalExtensionsTests.GetUserId_MalformedClaim_ReturnsZero#case-0001"
+            ],
+            "reason": "The three-space malformed NameIdentifier Fact becomes the stable whitespace row of the sole malformed-claim Theory while retaining the real ClaimsPrincipal, production GetUserId call and exact zero assertion."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.StripMarkdown_EmptyContent_ReturnsEmpty#case-0000",
+            "path": "tests/backend/Unit/ImageHelperTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.StripMarkdown_BlankContent_ReturnsEmpty#case-0000"
+            ],
+            "reason": "The empty-string StripMarkdown Fact becomes the stable empty row of the sole blank-content Theory while retaining the production StripMarkdown call, maxLength 100 and exact empty-string result."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.StripMarkdown_WhitespaceContent_ReturnsEmpty#case-0000",
+            "path": "tests/backend/Unit/ImageHelperTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.StripMarkdown_BlankContent_ReturnsEmpty#case-0001"
+            ],
+            "reason": "The three-space StripMarkdown Fact becomes the stable spaces row of the sole blank-content Theory while retaining the production StripMarkdown call, maxLength 100 and exact empty-string result."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.ExtractIllustrationUrls_EmptyContent_ReturnsEmptyList#case-0000",
+            "path": "tests/backend/Unit/ImageHelperTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.ExtractIllustrationUrls_ContentWithoutIllustrations_ReturnsEmpty#case-0000"
+            ],
+            "reason": "The empty illustration-content Fact becomes the stable empty-content row of the sole no-illustration Theory while retaining the production ExtractIllustrationUrls call, non-null empty result and no placeholder/default URL oracle."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.ExtractIllustrationUrls_NoIllustrations_ReturnsEmptyList#case-0000",
+            "path": "tests/backend/Unit/ImageHelperTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.ExtractIllustrationUrls_ContentWithoutIllustrations_ReturnsEmpty#case-0001"
+            ],
+            "reason": "The plain Markdown no-image Fact becomes the stable plain-markdown-no-image row of the sole no-illustration Theory while retaining the production ExtractIllustrationUrls call, non-null empty result and no placeholder/default URL oracle."
         }
     ],
     "assertionReplacements": [

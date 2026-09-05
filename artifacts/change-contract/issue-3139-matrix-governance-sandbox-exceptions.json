@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/execution-envelope-environment.mjs",
+                "tools/test/execution-envelope-network.mjs"
+            ],
+            "reason": "preserve caller-visible FSUSBLOG environment names while restoring the current correctness execution boundary"
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/run-matrix-governance-once.sh"
+            ],
+            "reason": "preserve caller-visible FSUSBLOG environment names in the current canonical matrix governance shell producer"
+        }
+    ]
+}

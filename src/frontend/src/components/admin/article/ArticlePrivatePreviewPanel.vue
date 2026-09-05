@@ -336,6 +336,12 @@ function resetPreviewCompletion(): void
 .author-preview
  {
     min-width: 0;
+    --preview-radius-inline: var(--fsus-radius-control-small, 4px);
+}
+
+.author-preview :deep(:not(pre) > code)
+ {
+    border-radius: var(--preview-radius-inline) !important;
 }
 
 .author-preview__summary

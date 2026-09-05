@@ -378,6 +378,7 @@ frame 208 的 `no_change`，不属于错误。动态关闭 `Messages:StatusMutat
 | 190 | `AuthUpdatePublicHandleRequest` | `StringMutationRequestPod` | `PUT /api/binary/auth/public-handle` 请求体；保存或清空当前账号 public handle |
 | 240 | `EmptySuccess` | `EmptySuccessPod` | 通用空成功响应 |
 | 241 | `MutationId` | `MutationIdPod` / `ArticleMutationResultPod` | 通用变更 ID 响应；文章 create/update/rollback 使用 48B 强类型结果 |
+| 243 | `TaxonomyExactMetadata` | compact id/name/nullable description | `GET /api/binary/category/{id}.aeds`, `GET /api/binary/tag/{id}.aeds`, `GET /api/binary/tag/by-name.aeds` |
 | 251 | `ApiError` | `ApiErrorPod` | 二进制错误响应 |
 
 ---
@@ -746,7 +747,7 @@ render: scalar
 -->
 
 <!-- FSUSBLOG-GENERATED:BEGIN api.operation-count -->
-262
+265
 <!-- FSUSBLOG-GENERATED:END api.operation-count -->
 
 ### Public error authority reference

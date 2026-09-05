@@ -1,0 +1,27 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/frontend-style-baseline-corrections.json",
+                "config/schemas/frontend-style-baseline-corrections.schema.json"
+            ],
+            "reason": "The closed correction authority and JSON Schema preserve exact machine-readable keys while internal JavaScript symbols follow repository naming rules."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/frontend-style-enforcement.md"
+            ],
+            "reason": "The current enforcement documentation preserves caller-visible command-line flags and repository paths while documenting the dedicated authority."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/frontend/check-frontend-style.mjs"
+            ],
+            "reason": "The registered tooling surface preserves caller-visible command-line and process identifiers while internal JavaScript symbols follow repository naming rules."
+        }
+    ]
+}

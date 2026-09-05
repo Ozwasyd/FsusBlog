@@ -46,6 +46,16 @@
     outline: none;
 }
 
+.account-site-header
+ {
+    --el-site-header-max-width: var(--fsusblog-container-workbench);
+}
+
+.account-site-header__inner
+ {
+    width: min(100%, var(--fsusblog-container-workbench));
+}
+
 .account-site-header__actions .account-header-link,
 .account-site-header__actions .account-header-theme-action > button,
 .account-site-header__actions .locale-selector__trigger
@@ -221,10 +231,6 @@
 
     .account-main-scroll
  {
-        max-height: calc(var(--fsus-viewport-block-size) - var(--fsusblog-account-header-height) - var(--fsus-space-8) - var(--fsus-space-8));
-        overflow-y: auto;
-        overscroll-behavior: contain;
-        scrollbar-gutter: stable;
         padding-bottom: var(--fsus-space-8);
     }
 }
