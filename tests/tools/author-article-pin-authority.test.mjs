@@ -39,22 +39,66 @@ test('current article pin authority passes exact-one static governance', () =>
     assert.deepEqual(checkAuthorArticlePinAuthority(root), []);
 });
 
-test('mutations reject second/local/metadata/public and per-item authorities', () =>
+test('static scanner rejects executable source-shape mutations to pin authority boundaries', () =>
 {
-    const mutations = [
-        ['src/backend/Services/Authoring/AuthorArticlePinStore.cs', '\nsealed class ShadowAuthorArticlePinStore {}\n', 'exact-one article pin store'],
-        ['src/backend/Services/Authoring/AuthorArticlePinContracts.cs', '\nsealed record BadPin(string Title, string Slug, int ArrayIndex);\n', 'title/slug/url/source/index/display identity'],
-        ['src/backend/Services/Authoring/AuthorArticlePinStore.cs', '\n// localStorage FavoriteTag Hotness\n', 'browser-local pin authority'],
-        ['src/backend/Services/Authoring/AuthorArticlePinStore.cs', '\n// UPDATE article SET views = views + 1;\n', 'non-pin writes are forbidden']
-    ];
-    for (const [relative, suffix, expected] of mutations)
-    {
-        withFixture(
-            (temporary) => writeFileSync(
-                path.join(temporary, relative),
-                readFileSync(path.join(temporary, relative), 'utf8') + suffix),
-            (violations) => assert.ok(violations.some((violation) => violation.includes(expected)), violations.join('\n')));
-    }
+    withFixture(
+        (temporary) =>
+        {
+            const file = path.join(temporary, 'src/backend/Services/Authoring/AlternateAuthorArticlePinStore.cs');
+            mkdirSync(path.dirname(file), { recursive: true });
+            writeFileSync(file, `
+namespace FsusBlog.Server.Services.Authoring;
+sealed class AlternateAuthorArticlePinStore
+{
+    private readonly Dictionary<int, long> _orderByArticle = new();
+    public void Add(int articleId) => _orderByArticle.Add(articleId, _orderByArticle.Count + 1);
+}
+`);
+        },
+        (violations) => assert.ok(violations.some((violation) => violation.includes('exact-one article pin store')), violations.join('\n')));
+
+    withFixture(
+        (temporary) =>
+        {
+            const file = path.join(temporary, 'src/backend/Services/Authoring/AuthorArticlePinContracts.cs');
+            writeFileSync(file, readFileSync(file, 'utf8').replace(
+                'public sealed record AuthorArticlePin(\n    Guid PinId,',
+                'public sealed record AuthorArticlePin(\n    Guid PinId,\n    string Title,\n    string Slug,'));
+        },
+        (violations) => assert.ok(violations.some((violation) => violation.includes('title/slug/url/source/index/display identity')), violations.join('\n')));
+
+    withFixture(
+        (temporary) =>
+        {
+            const file = path.join(temporary, 'src/frontend/src/data/authorArticlePinAuthority.ts');
+            mkdirSync(path.dirname(file), { recursive: true });
+            writeFileSync(file, `
+export function persistPinOrder(articleIds: number[]): void {
+  localStorage.setItem('article-pins', JSON.stringify(articleIds))
+}
+`);
+        },
+        (violations) => assert.ok(violations.some((violation) => violation.includes('browser-local pin authority')), violations.join('\n')));
+
+    withFixture(
+        (temporary) =>
+        {
+            const file = path.join(temporary, 'src/backend/Services/Authoring/AuthorArticlePinStore.cs');
+            writeFileSync(file, readFileSync(file, 'utf8').replace(
+                'DELETE FROM author_article_pin\n                WHERE owner_admin_principal_id',
+                'UPDATE article SET views = views + 1\n                WHERE owner_admin_principal_id'));
+        },
+        (violations) => assert.ok(violations.some((violation) => violation.includes('non-pin writes are forbidden')), violations.join('\n')));
+
+    withFixture(
+        (temporary) =>
+        {
+            const file = path.join(temporary, 'src/backend/Services/Authoring/AuthorArticlePinContracts.cs');
+            writeFileSync(file, readFileSync(file, 'utf8').replace(
+                'string ContentDigest);',
+                'string ContentDigest, int PublicRank);'));
+        },
+        (violations) => assert.ok(violations.some((violation) => violation.includes('favorite/public-ranking metadata authority')), violations.join('\n')));
 
     withFixture(
         (temporary) =>
@@ -63,4 +107,9 @@ test('mutations reject second/local/metadata/public and per-item authorities', (
             writeFileSync(file, readFileSync(file, 'utf8').replace('SET order_key = CASE article_id', 'SET order_key = order_key'));
         },
         (violations) => assert.ok(violations.some((violation) => violation.includes('bounded set-based update'))));
+});
+
+test('static scanner scope is source authority shape; PostgreSQL verifier owns runtime replay and tamper semantics', () =>
+{
+    assert.deepEqual(checkAuthorArticlePinAuthority(root), []);
 });

@@ -174,6 +174,123 @@ public sealed class AuthorArticlePinStoreIntegrationTests(PostgresSchemaMigratio
     }
 
     [Fact]
+    public async Task Verifier_ReplaysHistoryAndRejectsConsistentDualTableTamperOrphansAndInvalidTransitions()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync(8);
+        var store = new AuthorArticlePinStore(db, TimeProvider.System);
+        string metadataBefore = await ReadAllArticleMetadataAsync(db);
+
+        AuthorArticlePinWriteReceipt addOne = await store.AddAsync(
+            new AddAuthorArticlePinCommand(s_owner, 1, 0, Guid.CreateVersion7()));
+        AuthorArticlePinWriteReceipt addTwo = await store.AddAsync(
+            new AddAuthorArticlePinCommand(s_owner, 2, addOne.Revision, Guid.CreateVersion7()));
+        AuthorArticlePinWriteReceipt addThree = await store.AddAsync(
+            new AddAuthorArticlePinCommand(s_owner, 3, addTwo.Revision, Guid.CreateVersion7()));
+        AuthorArticlePinWriteReceipt reorder = await store.ReorderAsync(
+            new ReorderAuthorArticlePinsCommand(s_owner, addThree.Revision, Guid.CreateVersion7(), [3], null));
+        AuthorArticlePinWriteReceipt remove = await store.RemoveAsync(
+            new RemoveAuthorArticlePinCommand(s_owner, 1, reorder.Revision, Guid.CreateVersion7()));
+        _ = await store.AddAsync(new AddAuthorArticlePinCommand(
+            s_owner, 3, remove.Revision, Guid.CreateVersion7()));
+
+        Assert.Equal(metadataBefore, await ReadAllArticleMetadataAsync(db));
+        AuthorArticlePinVerificationResult valid = await store.VerifyAsync(s_owner);
+        Assert.True(valid.Valid, string.Join(',', valid.Reasons));
+        int[] replayedOrder = await ReadOrderAsync(store);
+        Assert.Equal(new[] { 3, 2 }, replayedOrder);
+
+        string tamperedAddDigest = AuthorArticlePinContract.ComputeCommandDigest(
+            "add", s_owner, addTwo.PreviousRevision, [4], null);
+        await UpdateBothHistoryRowsAsync(
+            db,
+            addTwo.RequestId,
+            "article_ids = '4', command_digest = @CommandDigest",
+            new SugarParameter("@CommandDigest", tamperedAddDigest));
+        AuthorArticlePinVerificationResult consistentTamper = await store.VerifyAsync(s_owner);
+        Assert.Contains("history_terminal_order_mismatch", consistentTamper.Reasons);
+        await UpdateBothHistoryRowsAsync(
+            db,
+            addTwo.RequestId,
+            "article_ids = '2', command_digest = @CommandDigest",
+            new SugarParameter("@CommandDigest", addTwo.CommandDigest));
+
+        Guid orphanReceiptId = Guid.CreateVersion7();
+        Guid orphanRequestId = Guid.CreateVersion7();
+        await db.Ado.ExecuteCommandAsync(
+            """
+            INSERT INTO author_article_pin_receipt(
+                receipt_id, owner_admin_principal_id, site_scope, request_id,
+                previous_revision, revision, command_kind, status, reason_code,
+                article_ids, after_article_id, item_count, rebalanced,
+                command_digest, content_digest, created_at_utc)
+            SELECT @ReceiptId, owner_admin_principal_id, site_scope, @RequestId,
+                   previous_revision, revision, command_kind, status, reason_code,
+                   article_ids, after_article_id, item_count, rebalanced,
+                   command_digest, content_digest, created_at_utc
+            FROM author_article_pin_receipt
+            WHERE receipt_id = @SourceReceiptId;
+            """,
+            new SugarParameter("@ReceiptId", orphanReceiptId),
+            new SugarParameter("@RequestId", orphanRequestId),
+            new SugarParameter("@SourceReceiptId", addOne.ReceiptId));
+        AuthorArticlePinVerificationResult orphan = await store.VerifyAsync(s_owner);
+        Assert.Contains($"idempotency_missing:{orphanRequestId:D}", orphan.Reasons);
+        await db.Ado.ExecuteCommandAsync(
+            "DELETE FROM author_article_pin_receipt WHERE receipt_id = @ReceiptId;",
+            new SugarParameter("@ReceiptId", orphanReceiptId));
+
+        string brokenRevisionDigest = AuthorArticlePinContract.ComputeCommandDigest(
+            "add", s_owner, 0, [2], null);
+        await UpdateBothHistoryRowsAsync(
+            db,
+            addTwo.RequestId,
+            "previous_revision = 0, command_digest = @CommandDigest",
+            new SugarParameter("@CommandDigest", brokenRevisionDigest));
+        AuthorArticlePinVerificationResult brokenRevision = await store.VerifyAsync(s_owner);
+        Assert.Contains(brokenRevision.Reasons, reason => reason == $"history_revision_gap:{addTwo.RequestId:D}");
+        await UpdateBothHistoryRowsAsync(
+            db,
+            addTwo.RequestId,
+            "previous_revision = 1, command_digest = @CommandDigest",
+            new SugarParameter("@CommandDigest", addTwo.CommandDigest));
+
+        await db.Ado.ExecuteCommandAsync(
+            """
+            ALTER TABLE author_article_pin_receipt DROP CONSTRAINT ck_author_article_pin_receipt_status;
+            ALTER TABLE author_article_pin_receipt DROP CONSTRAINT ck_author_article_pin_receipt_reason;
+            ALTER TABLE author_article_pin_receipt DROP CONSTRAINT ck_author_article_pin_receipt_articles;
+            ALTER TABLE author_article_pin_idempotency DROP CONSTRAINT ck_author_article_pin_idempotency_status;
+            ALTER TABLE author_article_pin_idempotency DROP CONSTRAINT ck_author_article_pin_idempotency_reason;
+            ALTER TABLE author_article_pin_idempotency DROP CONSTRAINT ck_author_article_pin_idempotency_articles;
+            """);
+        await UpdateBothHistoryRowsAsync(db, addThree.RequestId, "status = 'invalid'");
+        AuthorArticlePinVerificationResult invalidStatus = await store.VerifyAsync(s_owner);
+        Assert.Contains(invalidStatus.Reasons, reason => reason == $"history_status_invalid:{addThree.RequestId:D}");
+        await UpdateBothHistoryRowsAsync(db, addThree.RequestId, "status = 'applied'");
+
+        string invalidOrderDigest = AuthorArticlePinContract.ComputeCommandDigest(
+            "reorder", s_owner, reorder.PreviousRevision, [2], null);
+        await UpdateBothHistoryRowsAsync(
+            db,
+            reorder.RequestId,
+            "article_ids = '2', command_digest = @CommandDigest",
+            new SugarParameter("@CommandDigest", invalidOrderDigest));
+        AuthorArticlePinVerificationResult invalidOrder = await store.VerifyAsync(s_owner);
+        Assert.Contains("history_terminal_order_mismatch", invalidOrder.Reasons);
+        await UpdateBothHistoryRowsAsync(
+            db,
+            reorder.RequestId,
+            "article_ids = '3', command_digest = @CommandDigest",
+            new SugarParameter("@CommandDigest", reorder.CommandDigest));
+
+        await UpdateBothHistoryRowsAsync(db, addThree.RequestId, "article_ids = 'not-an-id'");
+        AuthorArticlePinVerificationResult malformedArticles = await store.VerifyAsync(s_owner);
+        Assert.Contains(
+            malformedArticles.Reasons,
+            reason => reason == $"history_article_ids_invalid:{addThree.RequestId:D}");
+    }
+
+    [Fact]
     public async Task Store_UsesBoundedSetOperationsAtOneThousandPins_AndMigrationIsIdempotent()
     {
         using SqlSugarClient db = await CreateDatabaseAsync(1_100);
@@ -217,7 +334,8 @@ public sealed class AuthorArticlePinStoreIntegrationTests(PostgresSchemaMigratio
         AuthorArticlePinWriteReceipt restored = await store.AddAsync(
             new AddAuthorArticlePinCommand(s_owner, 1_001, removed.Revision, Guid.CreateVersion7()));
         Assert.Equal(1_000, restored.ItemCount);
-        Assert.True((await store.VerifyAsync(s_owner)).Valid);
+        AuthorArticlePinVerificationResult seededHistory = await store.VerifyAsync(s_owner);
+        Assert.Contains("history_terminal_revision_mismatch", seededHistory.Reasons);
 
         await ApplyMigrationAsync(db);
         Assert.Equal(4, await db.Ado.GetIntAsync(
@@ -301,6 +419,28 @@ public sealed class AuthorArticlePinStoreIntegrationTests(PostgresSchemaMigratio
 
     private static async Task<int[]> ReadOrderAsync(IAuthorArticlePinStore store)
         => [.. (await store.GetAuthoritySnapshotAsync(s_owner)).Pins.Select(static pin => pin.ArticleId)];
+
+    private static async Task UpdateBothHistoryRowsAsync(
+        SqlSugarClient db,
+        Guid requestId,
+        string assignment,
+        params SugarParameter[] parameters)
+    {
+        var allParameters = new List<SugarParameter>(parameters)
+        {
+            new("@RequestId", requestId)
+        };
+        await db.Ado.ExecuteCommandAsync(
+            $"""
+            UPDATE author_article_pin_receipt SET {assignment} WHERE request_id = @RequestId;
+            UPDATE author_article_pin_idempotency SET {assignment} WHERE request_id = @RequestId;
+            """,
+            allParameters.ToArray());
+    }
+
+    private static async Task<string> ReadAllArticleMetadataAsync(SqlSugarClient db)
+        => await db.Ado.GetStringAsync(
+            "SELECT jsonb_agg(to_jsonb(a) ORDER BY a.id)::text FROM article a;");
 
     private static async Task<ArticleMetadata> ReadArticleMetadataAsync(SqlSugarClient db, int articleId)
     {

@@ -522,7 +522,7 @@ public sealed class AuthorArticlePinStore(
             {
                 reasons.Add("collection_digest_mismatch");
             }
-            reasons.AddRange(await ReadReceiptIntegrityReasonsAsync(owner, cancellationToken).ConfigureAwait(false));
+            reasons.AddRange(await ReadReceiptIntegrityReasonsAsync(owner, snapshot, cancellationToken).ConfigureAwait(false));
             return new AuthorArticlePinVerificationResult(
                 reasons.Count == 0,
                 reasons,
@@ -1009,74 +1009,370 @@ public sealed class AuthorArticlePinStore(
 
     private async Task<IReadOnlyList<string>> ReadReceiptIntegrityReasonsAsync(
         AuthorArticlePinOwner owner,
+        AuthorArticlePinCollectionSnapshot snapshot,
         CancellationToken cancellationToken)
     {
         using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
-            SELECT i.request_id, i.receipt_id, i.previous_revision, i.revision,
-                   i.command_kind, i.status, i.reason_code, i.article_ids, i.after_article_id,
-                   i.item_count, i.rebalanced, i.command_digest, i.content_digest,
-                   r.receipt_id AS matched_receipt_id,
-                   r.previous_revision AS receipt_previous_revision,
-                   r.revision AS receipt_revision,
-                   r.command_kind AS receipt_command_kind,
-                   r.status AS receipt_status,
-                   r.reason_code AS receipt_reason_code,
-                   r.article_ids AS receipt_article_ids,
-                   r.after_article_id AS receipt_after_article_id,
-                   r.item_count AS receipt_item_count,
-                   r.rebalanced AS receipt_rebalanced,
-                   r.command_digest AS receipt_command_digest,
-                   r.content_digest AS receipt_content_digest
+            SELECT
+                i.receipt_id AS i_receipt_id,
+                i.owner_admin_principal_id AS i_owner_admin_principal_id,
+                i.site_scope AS i_site_scope,
+                i.request_id AS i_request_id,
+                i.previous_revision AS i_previous_revision,
+                i.revision AS i_revision,
+                i.command_kind AS i_command_kind,
+                i.status AS i_status,
+                i.reason_code AS i_reason_code,
+                i.article_ids AS i_article_ids,
+                i.after_article_id AS i_after_article_id,
+                i.item_count AS i_item_count,
+                i.rebalanced AS i_rebalanced,
+                i.command_digest AS i_command_digest,
+                i.content_digest AS i_content_digest,
+                i.created_at_utc AS i_created_at_utc,
+                r.receipt_id AS r_receipt_id,
+                r.owner_admin_principal_id AS r_owner_admin_principal_id,
+                r.site_scope AS r_site_scope,
+                r.request_id AS r_request_id,
+                r.previous_revision AS r_previous_revision,
+                r.revision AS r_revision,
+                r.command_kind AS r_command_kind,
+                r.status AS r_status,
+                r.reason_code AS r_reason_code,
+                r.article_ids AS r_article_ids,
+                r.after_article_id AS r_after_article_id,
+                r.item_count AS r_item_count,
+                r.rebalanced AS r_rebalanced,
+                r.command_digest AS r_command_digest,
+                r.content_digest AS r_content_digest,
+                r.created_at_utc AS r_created_at_utc
             FROM author_article_pin_idempotency i
-            LEFT JOIN author_article_pin_receipt r ON r.receipt_id = i.receipt_id
-            WHERE i.owner_admin_principal_id = @OwnerAdminPrincipalId
-              AND i.site_scope = @SiteScope
-            ORDER BY i.created_at_utc, i.request_id;
+            FULL OUTER JOIN author_article_pin_receipt r ON r.receipt_id = i.receipt_id
+            WHERE (i.owner_admin_principal_id = @OwnerAdminPrincipalId AND i.site_scope = @SiteScope)
+               OR (r.owner_admin_principal_id = @OwnerAdminPrincipalId AND r.site_scope = @SiteScope)
+            ORDER BY COALESCE(r.revision, i.revision),
+                     COALESCE(r.previous_revision, i.previous_revision),
+                     COALESCE(r.created_at_utc, i.created_at_utc),
+                     COALESCE(r.request_id, i.request_id);
             """,
             new SugarParameter("@OwnerAdminPrincipalId", owner.AdminPrincipalId),
             new SugarParameter("@SiteScope", owner.SiteScope)).ConfigureAwait(false);
         var reasons = new List<string>();
+        var replayRows = new List<ReceiptHistoryRow>();
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
-            Guid requestId = reader.GetGuid(reader.GetOrdinal("request_id"));
-            if (reader.IsDBNull(reader.GetOrdinal("matched_receipt_id")))
+            ReceiptHistoryRow? idempotency = ReadReceiptHistoryRow(reader, "i_", reasons);
+            ReceiptHistoryRow? receipt = ReadReceiptHistoryRow(reader, "r_", reasons);
+            if (receipt is null)
             {
-                reasons.Add($"receipt_missing:{requestId:D}");
+                reasons.Add($"receipt_missing:{idempotency!.RequestId:D}");
+                continue;
+            }
+            if (idempotency is null)
+            {
+                reasons.Add($"idempotency_missing:{receipt.RequestId:D}");
                 continue;
             }
 
-            int[] articleIds = ParseArticleIds(reader.GetString(reader.GetOrdinal("article_ids")));
-            int? afterArticleId = ReadNullableInt32(reader, "after_article_id");
-            string expectedCommandDigest = AuthorArticlePinContract.ComputeCommandDigest(
-                reader.GetString(reader.GetOrdinal("command_kind")),
-                owner,
-                reader.GetInt64(reader.GetOrdinal("previous_revision")),
-                articleIds,
-                afterArticleId);
-            if (!string.Equals(expectedCommandDigest, reader.GetString(reader.GetOrdinal("command_digest")), StringComparison.Ordinal))
+            string? expectedCommandDigest = null;
+            try
             {
-                reasons.Add($"command_digest_mismatch:{requestId:D}");
+                expectedCommandDigest = AuthorArticlePinContract.ComputeCommandDigest(
+                    receipt.CommandKind,
+                    owner,
+                    receipt.PreviousRevision,
+                    receipt.ArticleIds,
+                    receipt.AfterArticleId);
+            }
+            catch (AuthorArticlePinValidationException)
+            {
+                reasons.Add($"history_command_shape_invalid:{receipt.RequestId:D}");
+            }
+            if (expectedCommandDigest is not null
+                && !string.Equals(expectedCommandDigest, receipt.CommandDigest, StringComparison.Ordinal))
+            {
+                reasons.Add($"command_digest_mismatch:{receipt.RequestId:D}");
             }
 
-            bool receiptMatches =
-                reader.GetInt64(reader.GetOrdinal("previous_revision")) == reader.GetInt64(reader.GetOrdinal("receipt_previous_revision"))
-                && reader.GetInt64(reader.GetOrdinal("revision")) == reader.GetInt64(reader.GetOrdinal("receipt_revision"))
-                && string.Equals(reader.GetString(reader.GetOrdinal("command_kind")), reader.GetString(reader.GetOrdinal("receipt_command_kind")), StringComparison.Ordinal)
-                && string.Equals(reader.GetString(reader.GetOrdinal("status")), reader.GetString(reader.GetOrdinal("receipt_status")), StringComparison.Ordinal)
-                && string.Equals(ReadNullableString(reader, "reason_code"), ReadNullableString(reader, "receipt_reason_code"), StringComparison.Ordinal)
-                && articleIds.SequenceEqual(ParseArticleIds(reader.GetString(reader.GetOrdinal("receipt_article_ids"))))
-                && afterArticleId == ReadNullableInt32(reader, "receipt_after_article_id")
-                && reader.GetInt32(reader.GetOrdinal("item_count")) == reader.GetInt32(reader.GetOrdinal("receipt_item_count"))
-                && reader.GetBoolean(reader.GetOrdinal("rebalanced")) == reader.GetBoolean(reader.GetOrdinal("receipt_rebalanced"))
-                && string.Equals(reader.GetString(reader.GetOrdinal("command_digest")), reader.GetString(reader.GetOrdinal("receipt_command_digest")), StringComparison.Ordinal)
-                && string.Equals(reader.GetString(reader.GetOrdinal("content_digest")), reader.GetString(reader.GetOrdinal("receipt_content_digest")), StringComparison.Ordinal);
-            if (!receiptMatches)
+            if (!ReceiptHistoryRowsMatch(idempotency, receipt))
             {
-                reasons.Add($"receipt_idempotency_mismatch:{requestId:D}");
+                reasons.Add($"receipt_idempotency_mismatch:{receipt.RequestId:D}");
             }
+            replayRows.Add(receipt);
         }
+
+        ReplayReceiptHistory(owner, snapshot, replayRows, reasons);
         return reasons;
+    }
+
+    private static ReceiptHistoryRow? ReadReceiptHistoryRow(
+        DbDataReader reader,
+        string prefix,
+        List<string> reasons)
+    {
+        int receiptIdOrdinal = reader.GetOrdinal($"{prefix}receipt_id");
+        if (reader.IsDBNull(receiptIdOrdinal))
+        {
+            return null;
+        }
+        Guid requestId = reader.GetGuid(reader.GetOrdinal($"{prefix}request_id"));
+        string serializedArticleIds = reader.GetString(reader.GetOrdinal($"{prefix}article_ids"));
+        if (!TryParseArticleIds(serializedArticleIds, out int[] articleIds))
+        {
+            reasons.Add($"history_article_ids_invalid:{requestId:D}");
+        }
+        return new ReceiptHistoryRow(
+            reader.GetGuid(receiptIdOrdinal),
+            new AuthorArticlePinOwner(
+                reader.GetInt64(reader.GetOrdinal($"{prefix}owner_admin_principal_id")),
+                reader.GetString(reader.GetOrdinal($"{prefix}site_scope"))),
+            requestId,
+            reader.GetInt64(reader.GetOrdinal($"{prefix}previous_revision")),
+            reader.GetInt64(reader.GetOrdinal($"{prefix}revision")),
+            reader.GetString(reader.GetOrdinal($"{prefix}command_kind")),
+            reader.GetString(reader.GetOrdinal($"{prefix}status")),
+            ReadNullableString(reader, $"{prefix}reason_code"),
+            articleIds,
+            ReadNullableInt32(reader, $"{prefix}after_article_id"),
+            reader.GetInt32(reader.GetOrdinal($"{prefix}item_count")),
+            reader.GetBoolean(reader.GetOrdinal($"{prefix}rebalanced")),
+            reader.GetString(reader.GetOrdinal($"{prefix}command_digest")),
+            reader.GetString(reader.GetOrdinal($"{prefix}content_digest")),
+            reader.GetDateTime(reader.GetOrdinal($"{prefix}created_at_utc")));
+    }
+
+    private static bool TryParseArticleIds(string value, out int[] articleIds)
+    {
+        string[] serializedIds = value.Split(',', StringSplitOptions.None);
+        articleIds = new int[serializedIds.Length];
+        for (int index = 0; index < serializedIds.Length; index++)
+        {
+            if (!int.TryParse(
+                    serializedIds[index],
+                    System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out int articleId)
+                || articleId <= 0)
+            {
+                articleIds = [];
+                return false;
+            }
+            articleIds[index] = articleId;
+        }
+        return articleIds.Length > 0;
+    }
+
+    private static bool ReceiptHistoryRowsMatch(ReceiptHistoryRow left, ReceiptHistoryRow right)
+        => left.ReceiptId == right.ReceiptId
+            && left.Owner == right.Owner
+            && left.RequestId == right.RequestId
+            && left.PreviousRevision == right.PreviousRevision
+            && left.Revision == right.Revision
+            && string.Equals(left.CommandKind, right.CommandKind, StringComparison.Ordinal)
+            && string.Equals(left.Status, right.Status, StringComparison.Ordinal)
+            && string.Equals(left.ReasonCode, right.ReasonCode, StringComparison.Ordinal)
+            && left.ArticleIds.SequenceEqual(right.ArticleIds)
+            && left.AfterArticleId == right.AfterArticleId
+            && left.ItemCount == right.ItemCount
+            && left.Rebalanced == right.Rebalanced
+            && string.Equals(left.CommandDigest, right.CommandDigest, StringComparison.Ordinal)
+            && string.Equals(left.ContentDigest, right.ContentDigest, StringComparison.Ordinal)
+            && left.CreatedAtUtc == right.CreatedAtUtc;
+
+    private static void ReplayReceiptHistory(
+        AuthorArticlePinOwner owner,
+        AuthorArticlePinCollectionSnapshot snapshot,
+        IReadOnlyList<ReceiptHistoryRow> rows,
+        List<string> reasons)
+    {
+        var orderedArticles = new List<int>();
+        var seenRequests = new HashSet<Guid>();
+        var digestByRevision = new Dictionary<long, string>();
+        long currentRevision = 0;
+        foreach (ReceiptHistoryRow row in rows
+            .OrderBy(static row => row.Revision)
+            .ThenBy(static row => row.PreviousRevision)
+            .ThenBy(static row => row.CreatedAtUtc)
+            .ThenBy(static row => row.RequestId))
+        {
+            if (!seenRequests.Add(row.RequestId))
+            {
+                reasons.Add($"history_request_duplicate:{row.RequestId:D}");
+            }
+            if (row.Owner != owner)
+            {
+                reasons.Add($"history_owner_mismatch:{row.RequestId:D}");
+            }
+            if (row.PreviousRevision != currentRevision)
+            {
+                reasons.Add($"history_revision_gap:{row.RequestId:D}");
+                continue;
+            }
+            if (row.Status is not ("applied" or "noop"))
+            {
+                reasons.Add($"history_status_invalid:{row.RequestId:D}");
+                continue;
+            }
+
+            bool applied = row.Status == "applied";
+            long expectedRevision = applied ? checked(currentRevision + 1) : currentRevision;
+            if (row.Revision != expectedRevision)
+            {
+                reasons.Add($"history_revision_transition_invalid:{row.RequestId:D}");
+                continue;
+            }
+
+            bool semanticallyValid = row.CommandKind switch
+            {
+                AddCommand => ReplayAdd(row, orderedArticles, applied, reasons),
+                RemoveCommand => ReplayRemove(row, orderedArticles, applied, reasons),
+                ReorderCommand => ReplayReorder(row, orderedArticles, applied, reasons),
+                _ => false
+            };
+            if (row.CommandKind is not (AddCommand or RemoveCommand or ReorderCommand))
+            {
+                reasons.Add($"history_command_invalid:{row.RequestId:D}");
+            }
+            if (!semanticallyValid)
+            {
+                continue;
+            }
+
+            if (row.ItemCount != orderedArticles.Count)
+            {
+                reasons.Add($"history_count_mismatch:{row.RequestId:D}");
+            }
+            if (digestByRevision.TryGetValue(row.Revision, out string? digest)
+                && !string.Equals(digest, row.ContentDigest, StringComparison.Ordinal))
+            {
+                reasons.Add($"history_revision_digest_mismatch:{row.RequestId:D}");
+            }
+            else
+            {
+                digestByRevision[row.Revision] = row.ContentDigest;
+            }
+            currentRevision = row.Revision;
+        }
+
+        if (currentRevision != snapshot.Revision)
+        {
+            reasons.Add("history_terminal_revision_mismatch");
+        }
+        int[] currentOrder = snapshot.Pins
+            .OrderBy(static pin => pin.OrderKey)
+            .ThenBy(static pin => pin.PinId)
+            .Select(static pin => pin.ArticleId)
+            .ToArray();
+        if (!orderedArticles.SequenceEqual(currentOrder))
+        {
+            reasons.Add("history_terminal_order_mismatch");
+        }
+        if (digestByRevision.TryGetValue(snapshot.Revision, out string? terminalDigest)
+            && !string.Equals(terminalDigest, snapshot.ContentDigest, StringComparison.Ordinal))
+        {
+            reasons.Add("history_terminal_digest_mismatch");
+        }
+    }
+
+    private static bool ReplayAdd(
+        ReceiptHistoryRow row,
+        List<int> order,
+        bool applied,
+        List<string> reasons)
+    {
+        if (row.ArticleIds.Length != 1 || row.AfterArticleId.HasValue || row.Rebalanced)
+        {
+            reasons.Add($"history_add_shape_invalid:{row.RequestId:D}");
+            return false;
+        }
+        int articleId = row.ArticleIds[0];
+        bool present = order.Contains(articleId);
+        bool valid = applied
+            ? !present && row.ReasonCode is null
+            : present && row.ReasonCode == "already-present";
+        if (!valid)
+        {
+            reasons.Add($"history_add_semantics_invalid:{row.RequestId:D}");
+            return false;
+        }
+        if (applied)
+        {
+            order.Add(articleId);
+        }
+        return true;
+    }
+
+    private static bool ReplayRemove(
+        ReceiptHistoryRow row,
+        List<int> order,
+        bool applied,
+        List<string> reasons)
+    {
+        if (row.ArticleIds.Length != 1 || row.AfterArticleId.HasValue || row.Rebalanced)
+        {
+            reasons.Add($"history_remove_shape_invalid:{row.RequestId:D}");
+            return false;
+        }
+        int articleId = row.ArticleIds[0];
+        bool present = order.Contains(articleId);
+        bool valid = applied
+            ? present && row.ReasonCode is null
+            : !present && row.ReasonCode == "not-present";
+        if (!valid)
+        {
+            reasons.Add($"history_remove_semantics_invalid:{row.RequestId:D}");
+            return false;
+        }
+        if (applied)
+        {
+            order.Remove(articleId);
+        }
+        return true;
+    }
+
+    private static bool ReplayReorder(
+        ReceiptHistoryRow row,
+        List<int> order,
+        bool applied,
+        List<string> reasons)
+    {
+        try
+        {
+            AuthorArticlePinContract.ValidateReorder(row.ArticleIds, row.AfterArticleId);
+        }
+        catch (AuthorArticlePinValidationException)
+        {
+            reasons.Add($"history_reorder_shape_invalid:{row.RequestId:D}");
+            return false;
+        }
+        if (row.ArticleIds.Any(articleId => !order.Contains(articleId))
+            || (row.AfterArticleId.HasValue && !order.Contains(row.AfterArticleId.Value)))
+        {
+            reasons.Add($"history_reorder_member_invalid:{row.RequestId:D}");
+            return false;
+        }
+
+        var desired = order.Where(articleId => !row.ArticleIds.Contains(articleId)).ToList();
+        int insertionIndex = row.AfterArticleId.HasValue
+            ? desired.IndexOf(row.AfterArticleId.Value) + 1
+            : 0;
+        desired.InsertRange(insertionIndex, row.ArticleIds);
+        bool changed = !desired.SequenceEqual(order);
+        bool valid = applied
+            ? changed && row.ReasonCode is null
+            : !changed && row.ReasonCode == "order-unchanged" && !row.Rebalanced;
+        if (!valid)
+        {
+            reasons.Add($"history_reorder_semantics_invalid:{row.RequestId:D}");
+            return false;
+        }
+        if (applied)
+        {
+            order.Clear();
+            order.AddRange(desired);
+        }
+        return true;
     }
 
     private DateTime UtcNow => timeProvider.GetUtcNow().UtcDateTime;
@@ -1087,4 +1383,21 @@ public sealed class AuthorArticlePinStore(
         int ItemCount,
         DateTime UpdatedAtUtc,
         string ContentDigest);
+
+    private sealed record ReceiptHistoryRow(
+        Guid ReceiptId,
+        AuthorArticlePinOwner Owner,
+        Guid RequestId,
+        long PreviousRevision,
+        long Revision,
+        string CommandKind,
+        string Status,
+        string? ReasonCode,
+        int[] ArticleIds,
+        int? AfterArticleId,
+        int ItemCount,
+        bool Rebalanced,
+        string CommandDigest,
+        string ContentDigest,
+        DateTime CreatedAtUtc);
 }
