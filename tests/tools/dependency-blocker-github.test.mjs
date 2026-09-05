@@ -166,3 +166,31 @@ test('uncertain create response is not automatically retried into a duplicate is
     }), /connection lost/);
     assert.equal(creates, 1);
 });
+
+test('Actions snapshot routes bind exact head, run and attempt', async () => {
+    const urls = [];
+    const client = createDependencyBlockerGitHub({
+        repository: 'example/test', token: 'simulation-token',
+        fetchImpl: async (url) => {
+            urls.push(url);
+            return Response.json(url.includes('/attempts/')
+                ? { total_count: 1, jobs: [{ id: 50 }] }
+                : { total_count: 1, workflow_runs: [{ id: 20 }] });
+        }
+    });
+    assert.deepEqual(await client.listWorkflowRuns('a'.repeat(40)), [{ id: 20 }]);
+    assert.deepEqual(await client.listWorkflowJobs(20, 2), [{ id: 50 }]);
+    assert.ok(urls[0].includes(`head_sha=${'a'.repeat(40)}&per_page=100&page=1`));
+    assert.ok(urls[1].includes('/actions/runs/20/attempts/2/jobs?per_page=100&page=1'));
+});
+
+test('truncated Actions counts and searches beyond the API cap fail closed', async () => {
+    for (const total of [2, 1001])
+    {
+        const client = createDependencyBlockerGitHub({
+            repository: 'example/test', token: 'simulation-token',
+            fetchImpl: async () => Response.json({ total_count: total, workflow_runs: [{ id: 20 }] })
+        });
+        await assert.rejects(client.listWorkflowRuns('a'.repeat(40)), /incomplete_counted_snapshot/);
+    }
+});
