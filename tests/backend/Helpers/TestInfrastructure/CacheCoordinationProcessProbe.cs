@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.Cache;
@@ -26,7 +27,9 @@ public static class CacheCoordinationProcessProbe
 
         internal Child(string redis, string postgres, string prefix, string mode, int count)
         {
-            string assembly = BackendTestPaths.FromRoot("tests", "cache-coordination-probe", "bin", "Debug", "net10.0", "CacheCoordinationProbe.dll");
+            string configuration = typeof(CacheCoordinationProcessProbe).Assembly.GetCustomAttribute<AssemblyConfigurationAttribute>()?.Configuration
+                ?? throw new InvalidOperationException("Test assembly configuration missing");
+            string assembly = BackendTestPaths.FromRoot("tests", "cache-coordination-probe", "bin", configuration, "net10.0", "CacheCoordinationProbe.dll");
             if (!File.Exists(assembly))
             {
                 throw new InvalidOperationException("Build tests/cache-coordination-probe/CacheCoordinationProbe.csproj before this focused test");

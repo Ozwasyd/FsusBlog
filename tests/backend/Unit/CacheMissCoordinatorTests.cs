@@ -34,6 +34,98 @@ public sealed class CacheMissCoordinatorTests
     }
 
     [Fact]
+    public async Task CoordinateAsync_CancellationDuringLeaseAcquire_RetiresEntryWithoutRelease()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var acquireStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int rebuilds = 0;
+        int releases = 0;
+        var cache = new CoordinatingCache
+        {
+            TryAcquireLeaseHandler = async (_, _, _, _, token) =>
+            {
+                acquireStarted.SetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, token);
+                return false;
+            },
+            ReleaseHandler = _ =>
+            {
+                Interlocked.Increment(ref releases);
+                return Task.FromResult(true);
+            }
+        };
+        using var singleFlight = new CacheSingleFlightCoordinator(cache);
+        var coordinator = new CacheMissCoordinator(singleFlight, cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
+        Task<string?> run = coordinator.CoordinateAsync(
+            CachePolicyId.ArticleDetail,
+            "cancel-during-acquire",
+            static _ => Task.FromResult(new CacheReadResult<string>(false, default)),
+            _ =>
+            {
+                Interlocked.Increment(ref rebuilds);
+                return Task.FromResult<string?>("unexpected");
+            },
+            "cancel-during-acquire",
+            cancellation.Token);
+
+        await acquireStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
+        Assert.Equal(0, rebuilds);
+        Assert.Equal(0, releases);
+        Assert.Equal(0, singleFlight.ActiveEntryCount);
+    }
+
+    [Fact]
+    public async Task CoordinateAsync_CancellationDuringContendedWait_RetiresEntryWithoutReleaseOrFinalRead()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var leaseAttempted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int reads = 0;
+        int rebuilds = 0;
+        int releases = 0;
+        var cache = new CoordinatingCache
+        {
+            TryAcquireLeaseHandler = (_, _, _, _, _) =>
+            {
+                leaseAttempted.SetResult();
+                return Task.FromResult(false);
+            },
+            ReleaseHandler = _ =>
+            {
+                Interlocked.Increment(ref releases);
+                return Task.FromResult(true);
+            }
+        };
+        using var singleFlight = new CacheSingleFlightCoordinator(cache);
+        var coordinator = new CacheMissCoordinator(singleFlight, cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
+        Task<string?> run = coordinator.CoordinateAsync(
+            CachePolicyId.ArticleDetail,
+            "cancel-during-wait",
+            _ =>
+            {
+                Interlocked.Increment(ref reads);
+                return Task.FromResult(new CacheReadResult<string>(false, default));
+            },
+            _ =>
+            {
+                Interlocked.Increment(ref rebuilds);
+                return Task.FromResult<string?>("unexpected");
+            },
+            "cancel-during-wait",
+            cancellation.Token,
+            new CacheRebuildStrategy(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2)));
+
+        await leaseAttempted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
+        Assert.Equal(2, reads);
+        Assert.Equal(0, rebuilds);
+        Assert.Equal(0, releases);
+        Assert.Equal(0, singleFlight.ActiveEntryCount);
+    }
+
+    [Fact]
     public async Task CoordinateAsync_IntegerIdentityHit_ReturnsBeforeStringCoordination()
     {
         var cache = new CoordinatingCache();

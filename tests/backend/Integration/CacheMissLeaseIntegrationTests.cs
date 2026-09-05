@@ -28,6 +28,8 @@ public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture
     [InlineData("lost")]
     [InlineData("cancelled")]
     [InlineData("parent-lost")]
+    [InlineData("owner-exited")]
+    [InlineData("different-connection")]
     public async Task SortedSetPublication_RequiresEveryLiveLeaseAndPreservesMembers(string scenario)
     {
         await using ConnectionMultiplexer connection = await redis.ConnectAsync();
@@ -59,7 +61,18 @@ public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture
         {
             cancellation.Cancel();
         }
-        if (scenario == "valid")
+        if (scenario == "owner-exited")
+        {
+            owner.StopPublishing();
+        }
+        if (scenario == "different-connection")
+        {
+            await using ConnectionMultiplexer other = await redis.ConnectAsync();
+            CacheCoordinationException failure = await Assert.ThrowsAsync<CacheCoordinationException>(() => CacheRebuildLeaseScope.PublishSortedSetAsync(other.GetDatabase(), key, entries, cancellation.Token));
+            Assert.Equal("publication-store-mismatch", failure.Reason);
+            Assert.Equal(new SortedSetEntry("existing", 9), Assert.Single(await db.SortedSetRangeByRankWithScoresAsync(key)));
+        }
+        else if (scenario == "valid")
         {
             await CacheRebuildLeaseScope.PublishSortedSetAsync(db, key, entries, cancellation.Token);
             Assert.Equal(3, await db.SortedSetLengthAsync(key));
@@ -77,7 +90,7 @@ public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture
             else
             {
                 CacheCoordinationException failure = await Assert.ThrowsAsync<CacheCoordinationException>(() => CacheRebuildLeaseScope.PublishSortedSetAsync(db, key, entries, cancellation.Token));
-                Assert.Equal("publication-lease-lost", failure.Reason);
+                Assert.Equal(scenario == "owner-exited" ? "publication-after-owner-exit" : "publication-lease-lost", failure.Reason);
             }
             Assert.Equal(new SortedSetEntry("existing", 9), Assert.Single(await db.SortedSetRangeByRankWithScoresAsync(key)));
         }
