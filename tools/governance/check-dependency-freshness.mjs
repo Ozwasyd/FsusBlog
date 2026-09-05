@@ -7,6 +7,7 @@ import process from 'node:process'
 import { readFreshnessPullPages } from './dependency-freshness-pulls.mjs'
 import { collectDependencySupersession } from './dependency-pull-supersession.mjs'
 import { readLatestDotnetSdk } from './dependency-dotnet-registry.mjs'
+import { readLatestNuget } from './dependency-nuget-registry.mjs'
 
 import {
     clone,
@@ -58,11 +59,7 @@ async function liveLatest(item) {
         return { latestStable: latest, releasedAt: body.time?.[latest] ?? new Date().toISOString() }
     }
     if (item.datasource === 'nuget') {
-        const body = await fetchJson(`https://api.nuget.org/v3-flatcontainer/${item.packageName.toLowerCase()}/index.json`)
-        const versions = (body.versions ?? []).filter(version => !/[-]/u.test(version))
-        const latest = versions.at(-1)
-        if (!latest) throw new Error(`nuget latest missing for ${item.packageName}`)
-        return { latestStable: latest, releasedAt: new Date().toISOString() }
+        return readLatestNuget(item.packageName, fetchJson)
     }
     if (item.datasource === 'node-version') {
         const body = await fetchJson('https://nodejs.org/dist/index.json')
