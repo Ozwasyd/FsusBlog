@@ -240,7 +240,7 @@ cp src/backend/appsettings.Development.example.json src/backend/appsettings.Deve
 
 The example contains only 11 intentional leaf overrides for loopback PostgreSQL/Redis, the local auth fixture, the insecure local cookie, the synthetic release fence, and the localhost browser origin; do not copy the entire base into it. ASP.NET Core merges settings in this order: base < `appsettings.Development.json` < environment variable < command line.
 
-Production uses the tracked `appsettings.Production.json` as its real fail-closed policy overlay. Operators create a private `.env.production` from `.env.production.example`. The full production precedence is base < Production overlay < `.env.production`/Compose environment < command line; real secrets must come from the environment, user-secrets, or a mounted file and must not enter tracked JSON/examples. See [appsettings authority](configuration/appsettings-authority.md).
+Production uses the tracked `appsettings.Production.json` as its real fail-closed policy overlay. Operators create a private `.env.production` from `config/examples/.env.production.example`. The full production precedence is base < Production overlay < `.env.production`/Compose environment < command line; real secrets must come from the environment, user-secrets, or a mounted file and must not enter tracked JSON/examples. See [appsettings authority](configuration/appsettings-authority.md).
 
 ### Frontend proxy configuration
 

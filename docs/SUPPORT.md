@@ -23,10 +23,10 @@ Maintainers triage public reports when time allows. A complete report with sanit
 
 ## Useful Links
 
-- [README.md](README.md)
-- [docs/development.md](docs/development.md)
-- [docs/troubleshooting.md](docs/troubleshooting.md)
-- [docs/production.md](docs/production.md)
-- [docs/open-source-readiness.md](docs/open-source-readiness.md)
+- [README.md](../README.md)
+- [development.md](development.md)
+- [troubleshooting.md](troubleshooting.md)
+- [production.md](production.md)
+- [open-source-readiness.md](open-source-readiness.md)
 - [CONTRIBUTING.md](CONTRIBUTING.md)
 - [SECURITY.md](SECURITY.md)

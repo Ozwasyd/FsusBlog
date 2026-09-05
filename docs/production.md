@@ -63,7 +63,7 @@ Release identity and container storage paths are runtime wiring, not static valu
 
 ## Required Configuration
 
-Copy `.env.production.example` to a private `.env.production` and replace every `CHANGE_ME` value. Configuration precedence is `src/backend/appsettings.json` < `src/backend/appsettings.Production.json` < environment variables supplied by `.env.production`/Compose < command-line arguments. Keep real secrets outside tracked JSON and example files; the existing fail-closed startup validation remains authoritative.
+Copy `config/examples/.env.production.example` to a private `.env.production` and replace every `CHANGE_ME` value. Configuration precedence is `src/backend/appsettings.json` < `src/backend/appsettings.Production.json` < environment variables supplied by `.env.production`/Compose < command-line arguments. Keep real secrets outside tracked JSON and example files; the existing fail-closed startup validation remains authoritative.
 
 Required variables:
 
@@ -330,7 +330,7 @@ active application. A completed Contract writes `rollbackCompatible=false`; afte
 that boundary an old-image gateway rollback is forbidden and recovery is
 backup/forward-fix based.
 
-Do not use `.env.production.example` directly to start production. It is only safe as the source for a private operator-owned `.env.production` and for `docker compose config` structure checks.
+Do not use `config/examples/.env.production.example` directly to start production. It is only safe as the source for a private operator-owned `.env.production` and for `docker compose config` structure checks.
 
 `config/deployment/production-compose-environment.json` is the complete
 machine-readable inventory for every `${...}` interpolation in

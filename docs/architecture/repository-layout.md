@@ -51,7 +51,7 @@ Release Reliability separates scenario and action authorities: `config/testing/r
 
 ## Operations ownership
 
-Operations templates have one top-level root, `ops/`. Production containers/Compose, development dependencies, gateway templates, and privacy-operation examples belong to `ops/docker/`, `ops/development/`, `ops/gateway/`, and `ops/privacy/`. Zero-downtime resource thresholds are configuration in `config/deployment/`, not templates; executable deployment and general operations remain in `tools/deployment/` and `tools/operations/`. See [`docs/operations-layout.md`](../operations-layout.md) for the path table, historical local-proxy removal decision, and fallback boundary.
+Operations templates have one top-level root, `ops/`. Production containers/Compose, development dependencies, gateway templates, and privacy-operation examples belong to `ops/docker/`, `ops/development/`, `ops/gateway/`, and `ops/privacy/`. Zero-downtime resource thresholds are configuration in `config/deployment/`, not templates; executable deployment and general operations remain in `tools/deployment/` and `tools/operations/`. Backend environment templates are owned by `config/examples/`; the root `.env.example` and `.env.production.example` paths are retired. See [`docs/operations-layout.md`](../operations-layout.md) for the path table, historical local-proxy removal decision, and fallback boundary.
 
 ## Language entrypoint ownership
 

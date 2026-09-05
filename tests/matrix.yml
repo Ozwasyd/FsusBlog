@@ -2559,7 +2559,7 @@ tiers:
           - docs/releases/zero-downtime-release-runbook.md
           - docs/development/coding-conventions.md
           - AGENTS.md
-          - CONTRIBUTING.md
+          - docs/CONTRIBUTING.md
           - .github/CODEOWNERS
           - .github/labeler.yml
           - .github/PULL_REQUEST_TEMPLATE.md
@@ -2581,7 +2581,7 @@ tiers:
           - tests/tools/appsettings-authority.test.mjs
           - docs/configuration/appsettings-authority.md
           - src/backend/appsettings.Development.example.json
-          - .env.production.example
+          - config/examples/.env.production.example
           - tools/crypto/check-zk-artifact-ownership.mjs
           - security/zk/provenance/artifact-ownership.manifest.json
           - tests/tools/zk-artifact-ownership.test.mjs
@@ -2674,7 +2674,7 @@ tiers:
           - ops/docker/Properties/launchSettings.json
           - config/development/authoritative-development-docs.json
           - src/backend/appsettings.Development.example.json
-          - .env.production.example
+          - config/examples/.env.production.example
           - README.md
           - tools/build-native.sh
           - tools/build-final-image.sh

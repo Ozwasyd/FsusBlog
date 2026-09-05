@@ -4849,7 +4849,7 @@
                 "tests/tools/authoritative-development-docs.test.mjs",
                 "docs/development/coding-conventions.md",
                 "AGENTS.md",
-                "CONTRIBUTING.md",
+                "docs/CONTRIBUTING.md",
                 ".github/CODEOWNERS",
                 ".github/labeler.yml",
                 ".github/PULL_REQUEST_TEMPLATE.md",
@@ -4876,7 +4876,7 @@
                 "src/backend/appsettings.json",
                 "src/backend/appsettings.Production.json",
                 "src/backend/appsettings.Development.example.json",
-                ".env.production.example"
+                "config/examples/.env.production.example"
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject reintroduced full appsettings examples or the retired env template, redundant or undeclared development leaves, unexpected production sections, non-empty fail-closed values, non-placeholder production example secrets, and consumers that reference a non-canonical operator template.",
@@ -5090,7 +5090,7 @@
                 "ops/docker/Properties/launchSettings.json",
                 "config/development/authoritative-development-docs.json",
                 "src/backend/appsettings.Development.example.json",
-                ".env.production.example",
+                "config/examples/.env.production.example",
                 "README.md",
                 ".gitignore"
             ],

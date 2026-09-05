@@ -8,12 +8,12 @@ FsusBlog is a personal content system for real deployments, centered on a binary
 | Roadmap | [ROADMAP.md](ROADMAP.md) |
 | API stability | [docs/api/stability.md](docs/api/stability.md) |
 | Known limitations | [docs/known-limitations.md](docs/known-limitations.md) |
-| Security policy | [SECURITY.md](SECURITY.md) |
+| Security policy | [docs/SECURITY.md](docs/SECURITY.md) |
 | Security domain ownership | [docs/security/security-domain-layout.md](docs/security/security-domain-layout.md) |
-| Support routing | [SUPPORT.md](SUPPORT.md) |
-| Contributing guide | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Support routing | [docs/SUPPORT.md](docs/SUPPORT.md) |
+| Contributing guide | [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) |
 | Repository governance | [docs/repository-governance.md](docs/repository-governance.md) |
-| Code of conduct | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
+| Code of conduct | [docs/CODE_OF_CONDUCT.md](docs/CODE_OF_CONDUCT.md) |
 | License | [Apache-2.0](LICENSE) |
 | Open source readiness | [docs/open-source-readiness.md](docs/open-source-readiness.md) |
 
@@ -145,7 +145,7 @@ For the complete setup, Passkey, configuration, and troubleshooting guide, see [
 ```bash
 git clone https://github.com/Ozwasyd/FsusBlog.git
 cd FsusBlog
-cp .env.example .env
+cp config/examples/.env.example .env
 ./tools/dev/start.sh --fixture-profile demo-public
 ```
 
@@ -160,7 +160,7 @@ The default `./tools/dev/start.sh` (profile `none`) starts only PostgreSQL, Redi
 | Demo data | [docs/development/demo-data.md](docs/development/demo-data.md) |
 | Troubleshooting | [docs/troubleshooting.md](docs/troubleshooting.md) |
 | Known limitations | [docs/known-limitations.md](docs/known-limitations.md) |
-| Example config | `.env.example`, `src/backend/appsettings.Development.example.json` |
+| Example config | `config/examples/.env.example`, `config/examples/.env.production.example`, `src/backend/appsettings.Development.example.json` |
 | Configuration ownership | [docs/configuration-layout.md](docs/configuration-layout.md) |
 | Appsettings/operator authority | [docs/configuration/appsettings-authority.md](docs/configuration/appsettings-authority.md) |
 | Operations layout | [docs/operations-layout.md](docs/operations-layout.md) |
@@ -296,10 +296,10 @@ See [tests/backend/TESTING.md](tests/backend/TESTING.md) for detailed rules.
 | [docs/repository-governance.md](docs/repository-governance.md) | Default-branch protection, required checks, CodeQL / Scorecard posture checks, and GitHub Actions permissions |
 | [docs/architecture/repository-layout.md](docs/architecture/repository-layout.md) | Canonical ownership for product source, ZK artifacts, security manifests, runtime config, and test fixtures |
 | [docs/testing/issue-1174-csharp-entrypoint-ownership.md](docs/testing/issue-1174-csharp-entrypoint-ownership.md) | Ownership contract for C# entrypoints, file-based apps, and the AEDS protocol fixture generator |
-| [SUPPORT.md](SUPPORT.md) | Usage, deployment, and self-hosting support routing; sensitive information prohibited in public issues |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution flow, Issue/PR templates, test evidence, and public-preview stability boundaries |
-| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Community conduct and enforcement path |
-| [SECURITY.md](SECURITY.md) | Private vulnerability-reporting entry point, scope, and public-issue prohibitions |
+| [docs/SUPPORT.md](docs/SUPPORT.md) | Usage, deployment, and self-hosting support routing; sensitive information prohibited in public issues |
+| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) | Contribution flow, Issue/PR templates, test evidence, and public-preview stability boundaries |
+| [docs/CODE_OF_CONDUCT.md](docs/CODE_OF_CONDUCT.md) | Community conduct and enforcement path |
+| [docs/SECURITY.md](docs/SECURITY.md) | Private vulnerability-reporting entry point, scope, and public-issue prohibitions |
 | [LICENSE](LICENSE) | Apache-2.0 repository code license |
 
 ## Public Preview boundary
