@@ -214,6 +214,7 @@ test('provision and teardown execute the dedicated topology and leave zero resid
         [sha('f')]: sha('f')
     };
     const removed = new Set();
+    const created = new Set();
     let helperResidue = '';
     const calls = [];
     let ownerPlan = plan(root);
@@ -253,10 +254,12 @@ test('provision and teardown execute the dedicated topology and leave zero resid
         }
         if (args[0] === 'network' && args[1] === 'create')
         {
+            created.add(`network:${args.at(-1)}`);
             return { status: 0, stdout: ids.network, stderr: '' };
         }
         if (args[0] === 'volume' && args[1] === 'create')
         {
+            created.add(`volume:${args.at(-1)}`);
             return { status: 0, stdout: args.at(-1), stderr: '' };
         }
         if (args[0] === 'run')
@@ -268,6 +271,7 @@ test('provision and teardown execute the dedicated topology and leave zero resid
                 return { status: 0, stdout: '', stderr: '' };
             }
             const name = args[args.indexOf('--name') + 1];
+            created.add(`container:${name}`);
             const id = name.includes('postgres') ? ids.postgres
                 : name.includes('redis') ? ids.redis : ids.backend;
             return { status: 0, stdout: id, stderr: '' };
@@ -286,7 +290,7 @@ test('provision and teardown execute the dedicated topology and leave zero resid
             const names = Object.entries(ownerPlan.resources)
                 .filter(([key, name]) => (kind === 'container' ? key.endsWith('ContainerName')
                     : kind === 'network' ? key === 'networkName' : key.endsWith('VolumeName'))
-                    && !removed.has(`${kind}:${name}`))
+                    && created.has(`${kind}:${name}`) && !removed.has(`${kind}:${name}`))
                 .map(([, name]) => name);
             return { status: 0, stdout: names.join('\n'), stderr: '' };
         }
@@ -357,6 +361,13 @@ test('provision and teardown execute the dedicated topology and leave zero resid
         FSUSBLOG_RELEASE_RUNTIME_IMAGE: 'fsusblog/runtime:test',
         FSUSBLOG_TEST_FIXTURE_CONFIG: '.tmp/env/runtime.env'
     };
+    created.add(`network:${ownerPlan.resources.networkName}`);
+    await assert.rejects(provisionDataScaleRuntime({
+        repositoryRoot: root, identity, environment, execute
+    }), /attempt already has runtime resources/u);
+    assert.equal(existsSync(path.join(root, '.tmp/data-scale-runtime')), false);
+    assert.ok(!calls.some((call) => call[1] === 'run' || call[2] === 'create'));
+    created.clear();
     const provisioned = await provisionDataScaleRuntime({
         repositoryRoot: root,
         identity,
@@ -404,12 +415,21 @@ test('provision and teardown execute the dedicated topology and leave zero resid
         'transient helper plus three containers, one network, and two volumes must be absent'
     );
 
+    const previousCalls = calls.length;
+    await assert.rejects(provisionDataScaleRuntime({
+        repositoryRoot: root, identity, environment, execute
+    }), /attempt already has owner state/u);
+    assert.ok(calls.slice(previousCalls).every((call) => call[1] === 'image' && call[2] === 'inspect'));
+
+    ownerPlan = createDataScaleRuntimePlan({
+        ...plan(root), repositoryRoot: root, runId: 'release-run', attemptId: 'attempt-2'
+    });
     helperResidue = '9'.repeat(64);
     await assert.rejects(
         provisionDataScaleRuntime({
             repositoryRoot: root,
             identity,
-            environment,
+            environment: { ...environment, FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID: 'attempt-2' },
             execute,
             fetchImpl: async () => ({
                 ok: true,

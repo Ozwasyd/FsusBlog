@@ -474,6 +474,7 @@ function ownerFiles(repositoryRoot, plan)
         validated.invocationId,
         'data-scale-owner'
     );
+    requireDirectoryAncestry(repositoryRoot, directory);
     return {
         plan: path.join(directory, `${validated.dataScaleRunId}.plan.json`),
         runtime: path.join(directory, `${validated.dataScaleRunId}.runtime.json`),
@@ -495,7 +496,28 @@ function runtimeRoot(repositoryRoot, plan)
     {
         throw new Error('data-scale runtime root is not an exact owned descendant');
     }
+    requireDirectoryAncestry(resolvedRoot, target);
     return target;
+}
+
+function requireDirectoryAncestry(repositoryRoot, directory)
+{
+    const root = path.resolve(repositoryRoot);
+    const relative = path.relative(root, directory);
+    if (path.isAbsolute(relative) || relative.split(path.sep).includes('..'))
+    {
+        throw new Error('data-scale owner directory escapes repository');
+    }
+    let current = root;
+    for (const segment of relative.split(path.sep).filter(Boolean))
+    {
+        current = path.join(current, segment);
+        const metadata = fs.lstatSync(current, { throwIfNoEntry: false });
+        if (metadata && (!metadata.isDirectory() || metadata.isSymbolicLink()))
+        {
+            throw new Error('data-scale owner directory ancestry is unsafe');
+        }
+    }
 }
 
 function ownerMarker(repositoryRoot, plan)
@@ -580,22 +602,46 @@ export async function provisionDataScaleRuntime({
         redisImageDigest: redisImage.Id
     });
     const files = ownerFiles(resolvedRoot, plan);
-    writeJsonAtomic(files.plan, plan);
     const ownedRuntimeRoot = runtimeRoot(resolvedRoot, plan);
-    fs.mkdirSync(ownedRuntimeRoot, { recursive: true, mode: 0o700 });
-    for (const relative of Object.values(plan.roots))
+    for (const target of [ownedRuntimeRoot, ...Object.values(files)])
     {
-        const absolute = path.join(resolvedRoot, relative);
-        fs.mkdirSync(absolute, { recursive: true, mode: 0o700 });
+        if (fs.lstatSync(target, { throwIfNoEntry: false }))
+        {
+            throw new Error('data-scale attempt already has owner state');
+        }
     }
-    writeJsonAtomic(ownerMarker(resolvedRoot, plan), sealDocument({
-        schema: 'fsusblog.data-scale-runtime-owner-marker.v1',
-        dataScaleRunId: plan.dataScaleRunId,
-        planDigest: plan.contentDigest
-    }));
+    for (const [key, name] of Object.entries(plan.resources))
+    {
+        const kind = key.endsWith('ContainerName') ? 'container'
+            : key.endsWith('VolumeName') ? 'volume' : 'network';
+        if (resourceExists(kind, name, commandOptions))
+        {
+            throw new Error('data-scale attempt already has runtime resources');
+        }
+    }
+    fs.mkdirSync(path.dirname(ownedRuntimeRoot), { recursive: true, mode: 0o700 });
+    fs.mkdirSync(ownedRuntimeRoot, { mode: 0o700 });
+    try
+    {
+        writeJsonAtomic(files.plan, plan);
+        writeJsonAtomic(ownerMarker(resolvedRoot, plan), sealDocument({
+            schema: 'fsusblog.data-scale-runtime-owner-marker.v1',
+            dataScaleRunId: plan.dataScaleRunId,
+            planDigest: plan.contentDigest
+        }));
+    }
+    catch (error)
+    {
+        fs.rmSync(ownedRuntimeRoot, { recursive: true, force: true });
+        throw error;
+    }
     const labels = ownerLabels(plan);
     try
     {
+        for (const relative of Object.values(plan.roots))
+        {
+            fs.mkdirSync(path.join(resolvedRoot, relative), { recursive: true, mode: 0o700 });
+        }
         const runtimeUser = String(runtimeImage.Config?.User ?? '').trim();
         const match = runtimeUser.match(/^(\d+)(?::(\d+))?$/u);
         if (!match)
