@@ -10,6 +10,7 @@ import { readLatestDotnetSdk } from './dependency-dotnet-registry.mjs'
 import { readLatestNuget } from './dependency-nuget-registry.mjs'
 import { registryRelease } from './dependency-registry-release.mjs'
 import { readLatestGitRef } from './dependency-git-registry.mjs'
+import { createDockerRegistryReader, dockerRepository, readDockerHubPublication, readLatestDocker } from './dependency-docker-registry.mjs'
 
 import {
     clone,
@@ -50,7 +51,14 @@ function githubHeaders() {
     return token ? { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' } : { Accept: 'application/vnd.github+json' }
 }
 
-async function liveLatest(item) {
+async function liveLatest(item, currentVersion) {
+    if (item.datasource === 'docker') {
+        if (dockerRepository(item.packageName).origin !== 'https://registry-1.docker.io') {
+            throw new Error(`docker publication provider missing for ${item.packageName}`)
+        }
+        return readLatestDocker(item.packageName, currentVersion, createDockerRegistryReader(item.packageName),
+            (name, tag, digest) => readDockerHubPublication(name, tag, digest, fetchJson))
+    }
     if (item.datasource === 'dotnet-version' && item.packageName === 'dotnet-sdk') {
         return readLatestDotnetSdk(fetchJson)
     }
@@ -85,7 +93,7 @@ async function liveLatest(item) {
 async function loadLiveSnapshot(catalog, currentVersions) {
     const registries = { byId: {} }
     const settled = await Promise.allSettled((catalog.items ?? []).map(async item => {
-        const latest = await liveLatest(item)
+        const latest = await liveLatest(item, currentVersions[item.id]?.currentVersion)
         registries.byId[item.id] = latest
         registries[item.datasource] ??= {}
         registries[item.datasource][item.packageName] ??= latest
