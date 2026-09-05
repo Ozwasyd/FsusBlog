@@ -13,12 +13,78 @@ import {
 } from '../../tools/release/test-evidence-receipts.mjs'
 import {
     joinBehaviorEvidencePostRuntime,
+    validatePostRuntimeObservationInputs,
+    validatePostRuntimeClaimInputs,
     validatePostRuntimeReceipt
 } from '../../tools/test-matrix/behavior-evidence-post-runtime.mjs'
+import { loadPostRuntimeProducerRegistry } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
 
 const commit = 'a'.repeat(40)
 const worktreeFingerprint = 'b'.repeat(64)
 const runId = 'post-runtime-round-1'
+
+function currentObservationInputs()
+{
+    const registry = loadPostRuntimeProducerRegistry()
+    const currentCatalog = JSON.parse(fs.readFileSync(new URL('../../config/contracts/behavior-contracts.json', import.meta.url), 'utf8'))
+    const observations = registry.producers.flatMap((producer) =>
+        [...new Set(Object.values(producer.requiredObservations).flat())].map((classId) => seal({
+            schema: registry.observationClasses[classId].schema,
+            producerId: producer.producerId,
+            toolVersion: producer.toolVersion,
+            sourceState: {
+                sourceCommit: commit, worktreeFingerprint: `sha256:${worktreeFingerprint}`,
+                buildIdentity: 'build-1', candidateId: 'candidate-1', artifactDigest: `sha256:${'4'.repeat(64)}`,
+                runId, browserIdentity: 'browser-1', releaseId: 'release-1', slot: 'blue', rolloutId: 'rollout-1'
+            },
+            executionClass: 'correctness', evidenceClass: 'correctness', qualificationEligible: true,
+            planned: true, executed: true, outcome: 'passed', recovered: false,
+            modes: Object.entries(producer.requiredObservations).filter(([, classes]) => classes.includes(classId)).map(([mode]) => mode),
+            terminal: { timeout: false, cancelled: false, processTreeTerminated: false, priorAttemptDigest: null },
+            semanticFacts: { coherent: true },
+            candidatePlanRef: { path: '.tmp/current-run/plan.json', fileDigest: `sha256:${'5'.repeat(64)}`, contentDigest: `sha256:${'6'.repeat(64)}` },
+            sourceReceiptRef: { path: `.tmp/current-run/${classId}.json`, fileDigest: `sha256:${'7'.repeat(64)}`, contentDigest: `sha256:${'8'.repeat(64)}` },
+            canonicalRerunCommand: 'node forbidden-producer.mjs', independentVerifyCommand: 'node forbidden-verifier.mjs'
+        })))
+    return { registry, catalog: currentCatalog, preRuntimeReceipt: preRuntime(currentCatalog), observations }
+}
+
+test('current registry observation admission joins one scheduler and all seven classes without running commands', () =>
+{
+    const input = currentObservationInputs()
+    const results = validatePostRuntimeObservationInputs(input)
+    assert.equal(results.length, 7)
+    assert.deepEqual([...new Set(results.map((result) => result.producerId))], ['production-correctness-scheduler'])
+    assert.ok(results.every((result) => result.behaviorId === 'browserless-production-correctness'))
+})
+
+test('current registry observation admission rejects missing duplicate orphan and cross-candidate inputs', () =>
+{
+    for (const [mutation, expected] of [
+        [(input) => input.observations.pop(), /missing observations/u],
+        [(input) => input.observations.push(input.observations[0]), /duplicate observation/u],
+        [(input) => { input.observations[0].producerId = 'unowned' }, /orphan/u],
+        [(input) => { input.observations[0].sourceState.runId = 'stale' }, /run identity mismatch/u],
+        [(input) => { input.observations[1].sourceState.candidateId = 'other' }, /cross-candidate/u],
+        [(input) => { input.observations[1].candidatePlanRef.contentDigest = `sha256:${'9'.repeat(64)}` }, /candidate plan mismatch/u],
+        [(input) => { input.observations[0].qualificationEligible = false }, /cannot satisfy qualification/u],
+        [(input) => { input.observations[0].recovered = true; input.observations[0].terminal.priorAttemptDigest = `sha256:${'9'.repeat(64)}` }, /cannot satisfy qualification/u]
+    ])
+    {
+        const input = currentObservationInputs()
+        mutation(input)
+        input.observations = input.observations.map(seal)
+        assert.throws(() => validatePostRuntimeObservationInputs(input), expected)
+    }
+})
+
+test('current registry admission rejects legacy runtimeEvidence and missing accepted claims', () =>
+{
+    const input = currentObservationInputs()
+    input.observations = [{ schema: 'fsusblog.browserless-correctness-receipt.v1', aggregate: { status: 'success' } }]
+    assert.throws(() => validatePostRuntimeObservationInputs(input), /orphan/u)
+    assert.throws(() => validatePostRuntimeClaimInputs({ ...input, acceptedClaims: [] }), /missing accepted claims/u)
+})
 const stable = (value) => Array.isArray(value)
     ? value.map(stable)
     : value && typeof value === 'object'
@@ -197,19 +263,16 @@ function candidateFixture(context)
     return { build, correctness, browserContract }
 }
 
-test('post-runtime join seals exact pre/runtime/browser candidate evidence', (context) =>
+test('post-runtime join rejects the retired pre/runtime/browser fixture-only input shape', (context) =>
 {
     const behaviorCatalog = catalog()
     const candidate = candidateFixture(context)
-    const receipt = joinBehaviorEvidencePostRuntime({
+    assert.throws(() => joinBehaviorEvidencePostRuntime({
         preRuntimeReceipt: preRuntime(behaviorCatalog),
         catalog: behaviorCatalog,
         browserContractReceipt: candidate.browserContract,
         runtimeEvidenceReceipts: [candidate.correctness]
-    })
-    assert.equal(validatePostRuntimeReceipt(receipt).status, 'ok', receipt.failureReasons.join('; '))
-    assert.equal(receipt.candidateIdentity.buildReceiptDigest, candidate.build.contentDigest)
-    assert.equal(receipt.candidateIdentity.browserContractDigest, candidate.browserContract.contentDigest)
+    }), /legacy or unknown/u)
 })
 
 test('HTTP 200, diagnostic browser evidence, stale candidate and missing browser cannot qualify', (context) =>
@@ -240,23 +303,19 @@ test('HTTP 200, diagnostic browser evidence, stale candidate and missing browser
     ]
     for (const scenario of cases)
     {
-        const receipt = joinBehaviorEvidencePostRuntime({ preRuntimeReceipt: pre, catalog: behaviorCatalog, ...scenario })
-        assert.equal(receipt.status, 'failed', scenario.name)
-        assert.ok(receipt.failureReasons.length > 0, scenario.name)
+        assert.throws(() => joinBehaviorEvidencePostRuntime({ preRuntimeReceipt: pre, catalog: behaviorCatalog, ...scenario }), /legacy or unknown/u, scenario.name)
     }
 })
 
-test('post-runtime receipt refuses release-final spawn before sealing', (context) =>
+test('post-runtime join rejects caller-reported release-final spawn counts including zero', (context) =>
 {
     const behaviorCatalog = catalog()
     const candidate = candidateFixture(context)
-    const receipt = joinBehaviorEvidencePostRuntime({
+    for (const count of [0, 1]) assert.throws(() => joinBehaviorEvidencePostRuntime({
         preRuntimeReceipt: preRuntime(behaviorCatalog),
         catalog: behaviorCatalog,
         browserContractReceipt: candidate.browserContract,
         runtimeEvidenceReceipts: [candidate.correctness],
-        releaseFinalSpawnCountBeforeReceipt: 1
-    })
-    assert.equal(receipt.status, 'failed')
-    assert.throws(() => validatePostRuntimeReceipt(receipt), /must be 0/u)
+        releaseFinalSpawnCountBeforeReceipt: count
+    }), /legacy or unknown/u)
 })
