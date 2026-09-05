@@ -181,6 +181,8 @@ export function commentFixtureInventoryErrors(inventory)
         'comment.region.manual-review', 'comment.signal.verified', 'comment.thread.depth-boundary',
         'comment.thread.nested', 'comment.thread.reply', 'comment.thread.root', 'comment.version.edited'
     ];
+    if (!exactArray(capabilities.map((item) => item?.id), required))
+        errors.push('capability set is not the exact closed authority set');
     for (const id of required) if (!ids.has(id)) errors.push(`missing capability ${id}`);
     for (const capability of capabilities)
     {

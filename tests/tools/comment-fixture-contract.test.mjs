@@ -80,6 +80,11 @@ test('comment fixture inventory rejects duplicate/orphan capabilities and tamper
     orphan.capabilities[0].portId = 'second-comment-producer';
     assert.ok(commentFixtureInventoryErrors(orphan).some((item) => item.includes('unknown port')));
 
+    const unknown = clone(inventory);
+    unknown.capabilities[0].id = 'comment.zz.unregistered';
+    unknown.capabilities.sort((left, right) => left.id.localeCompare(right.id));
+    assert.ok(commentFixtureInventoryErrors(unknown).some((item) => item.includes('exact closed authority set')));
+
     const tamper = clone(inventory);
     tamper.unownedStatusMap = {};
     assert.ok(commentFixtureInventoryErrors(tamper).some((item) => item.includes('keys are not closed')));
