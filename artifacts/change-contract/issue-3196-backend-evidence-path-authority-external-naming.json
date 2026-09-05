@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/Fixtures/backend-evidence-path-authority.generated.json"
+            ],
+            "reason": "Preserve the canonical generated governance JSON keys consumed by backend evidence-path tooling."
+        }
+    ]
+}
