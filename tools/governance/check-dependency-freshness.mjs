@@ -14,6 +14,8 @@ import { createDockerRegistryReader, dockerRepository, readDockerHubPublication,
 import { readGhcrPublication } from './dependency-ghcr-publication.mjs'
 import { collectRegistryResults } from './dependency-registry-batch.mjs'
 import { readLatestNpm } from './dependency-npm-registry.mjs'
+import { readLatestNode } from './dependency-node-registry.mjs'
+import { readLatestGithubTag } from './dependency-github-tags.mjs'
 
 import {
     clone,
@@ -76,16 +78,18 @@ async function liveLatest(item, currentVersion) {
         return readLatestNuget(item.packageName, fetchJson)
     }
     if (item.datasource === 'node-version') {
-        const body = await fetchJson('https://nodejs.org/dist/index.json')
-        const release = body.find(entry => entry.lts)
-        const latest = release?.version?.replace(/^v/u, '')
-        if (!latest) throw new Error('node-version latest missing')
-        return registryRelease(latest, release.date, 'node-version:node')
+        return readLatestNode(fetchJson)
     }
     if (item.datasource === 'git-refs') {
         return readLatestGitRef(item.packageName, fetchJson, githubHeaders())
     }
-    if (item.datasource === 'github-tags' || item.datasource === 'github-releases') {
+    if (item.datasource === 'github-tags') {
+        const release = await readLatestGithubTag(item.packageName, fetchJson, githubHeaders())
+        return /^[0-9a-f]{40}$/u.test(currentVersion ?? '')
+            ? { ...release, latestStable: release.targetDigest, targetTag: release.latestStable }
+            : release
+    }
+    if (item.datasource === 'github-releases') {
         const body = await fetchJson(`https://api.github.com/repos/${item.packageName}/releases/latest`, githubHeaders())
         const latest = body.tag_name
         if (!latest) throw new Error(`github latest missing for ${item.packageName}`)
