@@ -14,156 +14,192 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
     IAuthoringCanvasDocumentStore documentStore,
     TimeProvider timeProvider) : IAuthoringCanvasOperationTransaction
 {
+    internal const string TryAcquireLockSql =
+        "SELECT pg_try_advisory_xact_lock(hashtextextended(@Identity, 0));";
+    private static string NoReferenceValidationDigest
+    {
+        get;
+    } =
+        AuthoringCanvasContract.ComputeCommandDigest("canvas-operation-reference-validation-none");
+
     public async Task<AuthoringCanvasOperationReceipt> CommitAsync(
         AuthoringCanvasOperationPlan plan,
         CancellationToken cancellationToken = default)
     {
         ValidatePlan(plan);
+        cancellationToken.ThrowIfCancellationRequested();
         AuthoringCanvasOperationReceipt? result = null;
-        var transaction = await db.Ado.UseTranAsync(async () =>
+        bool preparedForCommit = false;
+        DbResult<bool> transaction;
+        try
         {
-            await AcquireLockAsync(plan.CanvasId).ConfigureAwait(false);
-            AuthoringCanvasOperationReceipt? replay = await ReadReceiptAsync(
-                plan.CanvasId,
-                plan.Owner,
-                plan.RequestId,
-                cancellationToken).ConfigureAwait(false);
-            if (replay is not null)
+            transaction = await db.Ado.UseTranAsync(async () =>
             {
-                if (!string.Equals(replay.TransactionDigest, plan.TransactionDigest, StringComparison.Ordinal))
+                await AcquireLockAsync(plan.CanvasId, cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                AuthoringCanvasOperationReceipt? replay = await ReadReceiptAsync(
+                    plan.CanvasId,
+                    plan.Owner,
+                    plan.RequestId,
+                    cancellationToken).ConfigureAwait(false);
+                if (replay is not null)
                 {
-                    throw new AuthoringCanvasIdempotencyConflictException();
+                    if (!string.Equals(replay.TransactionDigest, plan.TransactionDigest, StringComparison.Ordinal))
+                    {
+                        throw new AuthoringCanvasIdempotencyConflictException();
+                    }
+                    result = AsReplay(replay);
+                    return;
                 }
-                result = AsReplay(replay);
-                return;
-            }
 
-            AuthoringCanvasDocumentHeader header = await ReadHeaderForUpdateAsync(
-                plan.Owner,
-                plan.CanvasId,
-                cancellationToken).ConfigureAwait(false)
-                ?? throw new AuthoringCanvasAccessDeniedException();
-            if (header.Revision != plan.ExpectedRevision)
-            {
-                throw new AuthoringCanvasRevisionConflictException(plan.ExpectedRevision, header.Revision);
-            }
-            if (!string.Equals(header.ContentDigest, plan.ExpectedContentDigest, StringComparison.Ordinal))
-            {
-                throw new AuthoringCanvasValidationException("canvas_operation_content_digest_stale");
-            }
+                cancellationToken.ThrowIfCancellationRequested();
+                AuthoringCanvasDocumentHeader header = await ReadHeaderForUpdateAsync(
+                    plan.Owner,
+                    plan.CanvasId,
+                    cancellationToken).ConfigureAwait(false)
+                    ?? throw new AuthoringCanvasAccessDeniedException();
+                if (header.Revision != plan.ExpectedRevision)
+                {
+                    throw new AuthoringCanvasRevisionConflictException(plan.ExpectedRevision, header.Revision);
+                }
+                if (!string.Equals(header.ContentDigest, plan.ExpectedContentDigest, StringComparison.Ordinal))
+                {
+                    throw new AuthoringCanvasValidationException("canvas_operation_content_digest_stale");
+                }
 
-            HistoryState history = await ReadHistoryStateForUpdateAsync(
-                header,
-                cancellationToken).ConfigureAwait(false);
-            ValidateHistoryPlan(plan, history);
-            await ValidateBeforeFactsAsync(plan, header, cancellationToken).ConfigureAwait(false);
-            await ApplyFactsAsync(plan, cancellationToken).ConfigureAwait(false);
+                HistoryState history = await ReadHistoryStateForUpdateAsync(
+                    header,
+                    cancellationToken).ConfigureAwait(false);
+                ValidateHistoryPlan(plan, history);
+                cancellationToken.ThrowIfCancellationRequested();
+                await ValidateBeforeFactsAsync(plan, header, cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                await ApplyFactsAsync(plan, cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
 
-            int nodeCount = await CountAsync(
-                "authoring_canvas_node",
-                plan.CanvasId).ConfigureAwait(false);
-            int edgeCount = await CountAsync(
-                "authoring_canvas_edge",
-                plan.CanvasId).ConfigureAwait(false);
-            if (nodeCount != plan.ResultNodeCount || edgeCount != plan.ResultEdgeCount)
-            {
-                throw new AuthoringCanvasValidationException("canvas_operation_result_count_mismatch");
-            }
+                int nodeCount = await CountAsync(
+                    "authoring_canvas_node",
+                    plan.CanvasId).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                int edgeCount = await CountAsync(
+                    "authoring_canvas_edge",
+                    plan.CanvasId).ConfigureAwait(false);
+                if (nodeCount != plan.ResultNodeCount || edgeCount != plan.ResultEdgeCount)
+                {
+                    throw new AuthoringCanvasValidationException("canvas_operation_result_count_mismatch");
+                }
 
-            long revision = header.Revision + 1;
-            string contentDigest = AuthoringCanvasContract.ComputeTransitionDigest(
-                header.ContentDigest,
-                revision,
-                $"canvas-operation:{plan.Mode}",
-                plan.TransactionDigest,
-                nodeCount,
-                edgeCount);
-            Guid journalId = Guid.CreateVersion7();
-            var entry = new AuthoringCanvasOperationJournalEntry(
-                journalId,
-                plan.CanvasId,
-                revision,
-                plan.Mode,
-                plan.RequestId,
-                plan.ActorUserId,
-                history.LastJournalId,
-                plan.TargetJournalId,
-                header.ContentDigest,
-                contentDigest,
-                plan.TransactionDigest,
-                plan.CommandKinds,
-                plan.Commands,
-                plan.ForwardFacts,
-                plan.InverseFacts,
-                plan.AffectedNodeIds,
-                plan.AffectedEdgeIds,
-                plan.TruncatedRedoJournalIds,
-                plan.ReferenceValidationDigest,
-                string.Empty);
-            entry = entry with
-            {
-                JournalDigest = AuthoringCanvasOperationContract.ComputeJournalDigest(entry)
-            };
-            DateTime now = timeProvider.GetUtcNow().UtcDateTime;
-            await InsertJournalAsync(entry, plan.Owner, nodeCount, edgeCount, now).ConfigureAwait(false);
-            await InsertCommandsAsync(entry, cancellationToken).ConfigureAwait(false);
-            await InsertFactsAsync(entry, cancellationToken).ConfigureAwait(false);
+                long revision = header.Revision + 1;
+                string contentDigest = AuthoringCanvasContract.ComputeTransitionDigest(
+                    header.ContentDigest,
+                    revision,
+                    $"canvas-operation:{plan.Mode}",
+                    plan.TransactionDigest,
+                    nodeCount,
+                    edgeCount);
+                Guid journalId = Guid.CreateVersion7();
+                var entry = new AuthoringCanvasOperationJournalEntry(
+                    journalId,
+                    plan.CanvasId,
+                    revision,
+                    plan.Mode,
+                    plan.RequestId,
+                    plan.ActorUserId,
+                    history.LastJournalId,
+                    plan.TargetJournalId,
+                    header.ContentDigest,
+                    contentDigest,
+                    plan.TransactionDigest,
+                    plan.CommandKinds,
+                    plan.Commands,
+                    plan.ForwardFacts,
+                    plan.InverseFacts,
+                    plan.AffectedNodeIds,
+                    plan.AffectedEdgeIds,
+                    plan.TruncatedRedoJournalIds,
+                    plan.ReferenceValidationDigest,
+                    string.Empty);
+                entry = entry with
+                {
+                    JournalDigest = AuthoringCanvasOperationContract.ComputeJournalDigest(entry)
+                };
+                DateTime now = timeProvider.GetUtcNow().UtcDateTime;
+                cancellationToken.ThrowIfCancellationRequested();
+                await InsertJournalAsync(entry, plan.Owner, nodeCount, edgeCount, now).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                await InsertCommandsAsync(entry, cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                await InsertFactsAsync(entry, cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
 
-            (List<Guid> undo, List<Guid> redo) = AdvanceHistory(history, entry);
-            string historyDigest = AuthoringCanvasContract.ComputeCommandDigest(
-                "canvas-operation-history",
-                revision,
-                string.Join(',', undo),
-                string.Join(',', redo),
-                entry.JournalDigest);
-            await UpdateDocumentAsync(
-                plan,
-                header,
-                revision,
-                contentDigest,
-                nodeCount,
-                edgeCount,
-                now).ConfigureAwait(false);
-            await PersistHistoryStateAsync(
-                plan,
-                revision,
-                contentDigest,
-                historyDigest,
-                undo,
-                redo,
-                journalId,
-                now).ConfigureAwait(false);
+                (List<Guid> undo, List<Guid> redo) = AdvanceHistory(history, entry);
+                string historyDigest = AuthoringCanvasContract.ComputeCommandDigest(
+                    "canvas-operation-history",
+                    revision,
+                    string.Join(',', undo),
+                    string.Join(',', redo),
+                    entry.JournalDigest);
+                await UpdateDocumentAsync(
+                    plan,
+                    header,
+                    revision,
+                    contentDigest,
+                    nodeCount,
+                    edgeCount,
+                    now).ConfigureAwait(false);
+                await PersistHistoryStateAsync(
+                    plan,
+                    revision,
+                    contentDigest,
+                    historyDigest,
+                    undo,
+                    redo,
+                    journalId,
+                    now).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
 
-            var receipt = new AuthoringCanvasOperationReceipt(
-                Guid.CreateVersion7(),
-                plan.RequestId,
-                plan.CanvasId,
-                revision,
-                plan.Mode,
-                journalId,
-                plan.TargetJournalId,
-                plan.CommandKinds.Count,
-                plan.CommandKinds,
-                plan.AffectedNodeIds,
-                plan.AffectedEdgeIds,
-                undo.Count,
-                redo.Count,
-                AuthoringCanvasOperationStatus.Committed,
-                [],
-                plan.TransactionDigest,
-                entry.JournalDigest,
-                contentDigest,
-                string.Empty);
-            receipt = receipt with
-            {
-                ReceiptDigest = AuthoringCanvasOperationContract.ComputeReceiptDigest(receipt)
-            };
-            await InsertReceiptAsync(receipt, plan.Owner, plan.ReferenceValidationDigest, now)
-                .ConfigureAwait(false);
-            result = receipt;
-        }).ConfigureAwait(false);
+                var receipt = new AuthoringCanvasOperationReceipt(
+                    Guid.CreateVersion7(),
+                    plan.RequestId,
+                    plan.CanvasId,
+                    revision,
+                    plan.Mode,
+                    journalId,
+                    plan.TargetJournalId,
+                    plan.CommandKinds.Count,
+                    plan.CommandKinds,
+                    plan.AffectedNodeIds,
+                    plan.AffectedEdgeIds,
+                    undo.Count,
+                    redo.Count,
+                    AuthoringCanvasOperationStatus.Committed,
+                    [],
+                    plan.TransactionDigest,
+                    entry.JournalDigest,
+                    contentDigest,
+                    string.Empty);
+                receipt = receipt with
+                {
+                    ReceiptDigest = AuthoringCanvasOperationContract.ComputeReceiptDigest(receipt)
+                };
+                await InsertReceiptAsync(receipt, plan.Owner, plan.ReferenceValidationDigest, now)
+                    .ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                result = receipt;
+                preparedForCommit = true;
+            }).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (preparedForCommit)
+        {
+            ClearCompletedTransactionAfterCommitFailure();
+            throw ClassifyTransactionFailure(exception, preparedForCommit);
+        }
         if (!transaction.IsSuccess)
         {
+            if (preparedForCommit)
+            {
+                throw ClassifyTransactionFailure(transaction.ErrorException, preparedForCommit: true);
+            }
             if (transaction.ErrorException is not null)
             {
                 System.Runtime.ExceptionServices.ExceptionDispatchInfo
@@ -195,6 +231,43 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
             throw new AuthoringCanvasIdempotencyConflictException();
         }
         return AsReplay(receipt);
+    }
+
+    public async Task<IReadOnlyList<AuthoringCanvasOperationJournalEntry>> ReadJournalAsync(
+        AuthoringCanvasOwner owner,
+        Guid canvasId,
+        long afterRevision,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        AuthoringCanvasContract.ValidateOwner(owner);
+        if (canvasId == Guid.Empty || afterRevision < 0 || limit is < 1 or > 10_000)
+        {
+            throw new AuthoringCanvasValidationException("canvas_operation_journal_query_invalid");
+        }
+        List<Guid> ids = await db.Ado.SqlQueryAsync<Guid>(
+            """
+            SELECT journal_id
+            FROM authoring_canvas_operation_journal
+            WHERE canvas_id = @CanvasId
+              AND owner_admin_principal_id = @OwnerAdminPrincipalId
+              AND site_scope = @SiteScope
+              AND revision > @AfterRevision
+            ORDER BY revision
+            LIMIT @Limit;
+            """,
+            new SugarParameter("@CanvasId", canvasId),
+            new SugarParameter("@OwnerAdminPrincipalId", owner.AdminPrincipalId),
+            new SugarParameter("@SiteScope", owner.SiteScope),
+            new SugarParameter("@AfterRevision", afterRevision),
+            new SugarParameter("@Limit", limit)).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        IReadOnlyDictionary<Guid, AuthoringCanvasOperationJournalEntry> entries = await ReadEntriesAsync(
+            owner,
+            canvasId,
+            ids,
+            cancellationToken).ConfigureAwait(false);
+        return ids.Select(id => RequireEntry(entries, id)).ToArray();
     }
 
     public async Task<AuthoringCanvasHistoryWindow> ReadHistoryAsync(
@@ -231,6 +304,26 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
         AuthoringCanvasDocumentHeader lockedHeader,
         CancellationToken cancellationToken)
     {
+        AuthoringCanvasVerificationResult integrity = await documentStore.VerifyAsync(
+            plan.Owner,
+            plan.CanvasId,
+            cancellationToken).ConfigureAwait(false);
+        bool documentFactsValid = integrity.Valid
+            || (integrity.Reasons.Count == 1
+                && string.Equals(
+                    integrity.Reasons[0],
+                    "document_receipt_digest_mismatch",
+                    StringComparison.Ordinal));
+        if (!documentFactsValid
+            || integrity.CanvasId != lockedHeader.Id
+            || integrity.Revision != lockedHeader.Revision
+            || !string.Equals(integrity.ContentDigest, lockedHeader.ContentDigest, StringComparison.Ordinal)
+            || integrity.VerifiedNodeCount != lockedHeader.NodeCount
+            || integrity.VerifiedEdgeCount != lockedHeader.EdgeCount)
+        {
+            throw new AuthoringCanvasValidationException("canvas_operation_snapshot_integrity_invalid");
+        }
+
         var actual = new Dictionary<FactKey, AuthoringCanvasOperationFact>();
         AuthoringCanvasPageCursor? cursor = null;
         do
@@ -449,16 +542,16 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
             new SugarParameter("@Mode", (short)entry.Mode),
             new SugarParameter("@RequestId", entry.RequestId),
             new SugarParameter("@ActorUserId", entry.ActorUserId),
-            new SugarParameter("@ParentJournalId", DbValue(entry.ParentJournalId)),
-            new SugarParameter("@TargetJournalId", DbValue(entry.TargetJournalId)),
+            NullableGuidParameter("@ParentJournalId", entry.ParentJournalId),
+            NullableGuidParameter("@TargetJournalId", entry.TargetJournalId),
             new SugarParameter("@PreviousContentDigest", entry.PreviousContentDigest),
             new SugarParameter("@ContentDigest", entry.ContentDigest),
             new SugarParameter("@TransactionDigest", entry.TransactionDigest),
             new SugarParameter("@ReferenceValidationDigest", entry.ReferenceValidationDigest),
-            new SugarParameter("@CommandKinds", entry.CommandKinds.Select(static kind => (short)kind).ToArray()),
-            new SugarParameter("@AffectedNodeIds", entry.AffectedNodeIds.ToArray()),
-            new SugarParameter("@AffectedEdgeIds", entry.AffectedEdgeIds.ToArray()),
-            new SugarParameter("@TruncatedRedoJournalIds", entry.TruncatedRedoJournalIds.ToArray()),
+            ArrayParameter("@CommandKinds", entry.CommandKinds.Select(static kind => (short)kind).ToArray()),
+            ArrayParameter("@AffectedNodeIds", entry.AffectedNodeIds.ToArray()),
+            ArrayParameter("@AffectedEdgeIds", entry.AffectedEdgeIds.ToArray()),
+            ArrayParameter("@TruncatedRedoJournalIds", entry.TruncatedRedoJournalIds.ToArray()),
             new SugarParameter("@ResultNodeCount", nodeCount),
             new SugarParameter("@ResultEdgeCount", edgeCount),
             new SugarParameter("@JournalDigest", entry.JournalDigest),
@@ -574,31 +667,31 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
                 new SugarParameter("@FactKind", (short)fact.Kind),
                 new SugarParameter("@FactId", fact.Id),
                 new SugarParameter("@Exists", fact.Exists),
-                new SugarParameter("@NodeType", DbValue(node is null ? null : (short)node.Type)),
-                new SugarParameter("@NodeOrder", DbValue(node?.Order)),
-                new SugarParameter("@PositionX", DbValue(node?.Geometry.X)),
-                new SugarParameter("@PositionY", DbValue(node?.Geometry.Y)),
-                new SugarParameter("@Width", DbValue(node?.Geometry.Width)),
-                new SugarParameter("@Height", DbValue(node?.Geometry.Height)),
-                new SugarParameter("@TargetArticleId", DbValue(node?.TargetArticleId)),
+                NullableInt16Parameter("@NodeType", node is null ? null : (short)node.Type),
+                NullableInt32Parameter("@NodeOrder", node?.Order),
+                NullableDoubleParameter("@PositionX", node?.Geometry.X),
+                NullableDoubleParameter("@PositionY", node?.Geometry.Y),
+                NullableDoubleParameter("@Width", node?.Geometry.Width),
+                NullableDoubleParameter("@Height", node?.Geometry.Height),
+                NullableInt32Parameter("@TargetArticleId", node?.TargetArticleId),
                 new SugarParameter("@TargetHeadingIdentity", DbValue(node?.TargetHeadingIdentity)),
                 new SugarParameter("@TargetBlockIdentity", DbValue(node?.TargetBlockIdentity)),
-                new SugarParameter("@PinnedTargetRevision", DbValue(node?.PinnedTargetRevision)),
+                NullableInt64Parameter("@PinnedTargetRevision", node?.PinnedTargetRevision),
                 new SugarParameter("@DisplayProjectionRef", DbValue(node?.DisplayProjectionReference)),
-                new SugarParameter("@ReferenceState", DbValue(node?.ReferenceState is null
-                    ? null
-                    : (short)node.ReferenceState.Value)),
+                NullableInt16Parameter(
+                    "@ReferenceState",
+                    node?.ReferenceState is null ? null : (short)node.ReferenceState.Value),
                 new SugarParameter("@NoteSource", DbValue(node?.NoteSource)),
                 new SugarParameter("@FrameLabel", DbValue(node?.FrameLabel)),
-                new SugarParameter("@FrameMemberIds", DbValue(node?.MemberNodeIds.ToArray())),
-                new SugarParameter("@EdgeType", DbValue(edge is null ? null : (short)edge.Type)),
-                new SugarParameter("@EdgeOrder", DbValue(edge?.Order)),
-                new SugarParameter("@SourceNodeId", DbValue(edge?.SourceNodeId)),
-                new SugarParameter("@TargetNodeId", DbValue(edge?.TargetNodeId)),
+                NullableGuidArrayParameter("@FrameMemberIds", node?.MemberNodeIds),
+                NullableInt16Parameter("@EdgeType", edge is null ? null : (short)edge.Type),
+                NullableInt32Parameter("@EdgeOrder", edge?.Order),
+                NullableGuidParameter("@SourceNodeId", edge?.SourceNodeId),
+                NullableGuidParameter("@TargetNodeId", edge?.TargetNodeId),
                 new SugarParameter("@EdgeLabel", DbValue(edge?.Label)),
-                new SugarParameter("@ViewportX", DbValue(viewport?.X)),
-                new SugarParameter("@ViewportY", DbValue(viewport?.Y)),
-                new SugarParameter("@ViewportZoom", DbValue(viewport?.Zoom)),
+                NullableDoubleParameter("@ViewportX", viewport?.X),
+                NullableDoubleParameter("@ViewportY", viewport?.Y),
+                NullableDoubleParameter("@ViewportZoom", viewport?.Zoom),
                 new SugarParameter("@FactDigest", fact.ContentDigest)).ConfigureAwait(false);
         }
     }
@@ -688,8 +781,8 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
             new SugarParameter("@Revision", revision),
             new SugarParameter("@CanvasContentDigest", contentDigest),
             new SugarParameter("@HistoryDigest", historyDigest),
-            new SugarParameter("@UndoJournalIds", undo.ToArray()),
-            new SugarParameter("@RedoJournalIds", redo.ToArray()),
+            ArrayParameter("@UndoJournalIds", undo.ToArray()),
+            ArrayParameter("@RedoJournalIds", redo.ToArray()),
             new SugarParameter("@LastJournalId", lastJournalId),
             new SugarParameter("@UpdatedAtUtc", now)).ConfigureAwait(false);
 
@@ -721,15 +814,15 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
             new SugarParameter("@RequestId", receipt.RequestId),
             new SugarParameter("@Revision", receipt.Revision),
             new SugarParameter("@Mode", (short)receipt.Mode),
-            new SugarParameter("@TargetJournalId", DbValue(receipt.TargetJournalId)),
+            NullableGuidParameter("@TargetJournalId", receipt.TargetJournalId),
             new SugarParameter("@CommandCount", receipt.CommandCount),
-            new SugarParameter("@CommandKinds", receipt.CommandKinds.Select(static kind => (short)kind).ToArray()),
-            new SugarParameter("@AffectedNodeIds", receipt.AffectedNodeIds.ToArray()),
-            new SugarParameter("@AffectedEdgeIds", receipt.AffectedEdgeIds.ToArray()),
+            ArrayParameter("@CommandKinds", receipt.CommandKinds.Select(static kind => (short)kind).ToArray()),
+            ArrayParameter("@AffectedNodeIds", receipt.AffectedNodeIds.ToArray()),
+            ArrayParameter("@AffectedEdgeIds", receipt.AffectedEdgeIds.ToArray()),
             new SugarParameter("@UndoDepth", receipt.UndoDepth),
             new SugarParameter("@RedoDepth", receipt.RedoDepth),
             new SugarParameter("@Status", (short)receipt.Status),
-            new SugarParameter("@Reasons", receipt.Reasons.ToArray()),
+            ArrayParameter("@Reasons", receipt.Reasons.ToArray()),
             new SugarParameter("@TransactionDigest", receipt.TransactionDigest),
             new SugarParameter("@ReferenceValidationDigest", referenceValidationDigest),
             new SugarParameter("@JournalDigest", receipt.JournalDigest),
@@ -876,7 +969,7 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
             new SugarParameter("@CanvasId", canvasId),
             new SugarParameter("@OwnerAdminPrincipalId", owner.AdminPrincipalId),
             new SugarParameter("@SiteScope", owner.SiteScope),
-            new SugarParameter("@JournalIds", ids.ToArray())).ConfigureAwait(false))
+            ArrayParameter("@JournalIds", ids.ToArray())).ConfigureAwait(false))
         {
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
@@ -896,7 +989,7 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
             WHERE journal_id = ANY(@JournalIds)
             ORDER BY journal_id, command_ordinal;
             """,
-            new SugarParameter("@JournalIds", ids.ToArray())).ConfigureAwait(false))
+            ArrayParameter("@JournalIds", ids.ToArray())).ConfigureAwait(false))
         {
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
@@ -918,7 +1011,7 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
             WHERE journal_id = ANY(@JournalIds)
             ORDER BY journal_id, command_ordinal, direction, fact_order;
             """,
-            new SugarParameter("@JournalIds", ids.ToArray())).ConfigureAwait(false))
+            ArrayParameter("@JournalIds", ids.ToArray())).ConfigureAwait(false))
         {
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
@@ -953,7 +1046,7 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
             WHERE journal_id = ANY(@JournalIds)
             ORDER BY journal_id, direction, fact_order;
             """,
-            new SugarParameter("@JournalIds", ids.ToArray())).ConfigureAwait(false))
+            ArrayParameter("@JournalIds", ids.ToArray())).ConfigureAwait(false))
         {
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
@@ -1122,11 +1215,27 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
             || plan.CanvasId == Guid.Empty
             || plan.ActorUserId <= 0
             || plan.ExpectedRevision <= 0
+            || plan.ExpectedContentDigest.Length != 64
+            || plan.TransactionDigest.Length != 64
+            || !Enum.IsDefined(plan.Mode)
             || plan.Commands.Count != plan.CommandKinds.Count
+            || plan.Commands.Count is < 1 or > AuthoringCanvasOperationContract.MaxCommandsPerTransaction
             || !plan.Commands.Select(static command => command.Kind).SequenceEqual(plan.CommandKinds)
             || plan.ForwardFacts.Count != plan.InverseFacts.Count
             || plan.ForwardFacts.Count > AuthoringCanvasOperationContract.MaxFactsPerTransaction
-            || plan.ReferenceValidationDigest.Length != 64)
+            || plan.ResultNodeCount is < 0 or > AuthoringCanvasContract.MaxNodesPerCanvas
+            || plan.ResultEdgeCount is < 0 or > AuthoringCanvasContract.MaxEdgesPerCanvas
+            || plan.ReferenceValidationDigest.Length != 64
+            || (plan.Mode == AuthoringCanvasJournalMode.Apply && plan.TargetJournalId is not null)
+            || (plan.Mode is AuthoringCanvasJournalMode.Undo or AuthoringCanvasJournalMode.Redo
+                && (plan.TargetJournalId is null || plan.TruncatedRedoJournalIds.Count != 0))
+            || (plan.Mode == AuthoringCanvasJournalMode.Apply
+                && plan.CommandKinds.Any(static kind => kind is AuthoringCanvasOperationKind.CreateReference
+                    or AuthoringCanvasOperationKind.PinTargetRevision)
+                && string.Equals(
+                    plan.ReferenceValidationDigest,
+                    NoReferenceValidationDigest,
+                    StringComparison.Ordinal)))
         {
             throw new AuthoringCanvasValidationException("canvas_operation_plan_invalid");
         }
@@ -1136,7 +1245,7 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
         }
         foreach (AuthoringCanvasClosedCommand command in plan.Commands)
         {
-            AuthoringCanvasOperationContract.ValidateCommand(command);
+            AuthoringCanvasOperationSemantics.ValidateCommand(command);
         }
         FactKey[] forward = plan.ForwardFacts.Select(static fact => new FactKey(fact.Kind, fact.Id)).ToArray();
         FactKey[] inverse = plan.InverseFacts.Select(static fact => new FactKey(fact.Kind, fact.Id)).ToArray();
@@ -1146,13 +1255,52 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
         {
             throw new AuthoringCanvasValidationException("canvas_operation_plan_fact_set_invalid");
         }
+        Guid[] affectedNodes = plan.ForwardFacts
+            .Where(static fact => fact.Kind == AuthoringCanvasOperationFactKind.Node)
+            .Select(static fact => fact.Id).Distinct().Order().ToArray();
+        Guid[] affectedEdges = plan.ForwardFacts
+            .Where(static fact => fact.Kind == AuthoringCanvasOperationFactKind.Edge)
+            .Select(static fact => fact.Id).Distinct().Order().ToArray();
+        if (!plan.AffectedNodeIds.SequenceEqual(affectedNodes)
+            || !plan.AffectedEdgeIds.SequenceEqual(affectedEdges))
+        {
+            throw new AuthoringCanvasValidationException("canvas_operation_plan_affected_ids_invalid");
+        }
     }
 
-    private async Task AcquireLockAsync(Guid canvasId)
-        => _ = await db.Ado.GetScalarAsync(
-            "SELECT pg_advisory_xact_lock(hashtextextended(@Identity, 0));",
-            new SugarParameter("@Identity", $"authoring-canvas-document:{canvasId:D}"))
-            .ConfigureAwait(false);
+    private async Task AcquireLockAsync(Guid canvasId, CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            object acquired = await db.Ado.GetScalarAsync(
+                TryAcquireLockSql,
+                new SugarParameter("@Identity", $"authoring-canvas-document:{canvasId:D}"))
+                .ConfigureAwait(false);
+            if (Convert.ToBoolean(acquired, System.Globalization.CultureInfo.InvariantCulture))
+            {
+                return;
+            }
+            await Task.Delay(TimeSpan.FromMilliseconds(25), timeProvider, cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    internal static Exception ClassifyTransactionFailure(Exception? failure, bool preparedForCommit)
+    {
+        Exception resolved = failure
+            ?? new InvalidOperationException("authoring_canvas_operation_transaction_failed");
+        return preparedForCommit
+            ? new AuthoringCanvasUnknownCommitResultException(resolved)
+            : resolved;
+    }
+
+    private void ClearCompletedTransactionAfterCommitFailure()
+    {
+        System.Data.IDbTransaction? completed = db.Ado.Transaction;
+        db.Ado.Transaction = null;
+        completed?.Dispose();
+    }
 
     private async Task<int> CountAsync(string table, Guid canvasId)
         => await db.Ado.GetIntAsync(
@@ -1170,10 +1318,10 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
             new("@PositionY", node.Geometry.Y),
             new("@Width", node.Geometry.Width),
             new("@Height", node.Geometry.Height),
-            new("@TargetArticleId", DbValue(node.TargetArticleId)),
+            NullableInt32Parameter("@TargetArticleId", node.TargetArticleId),
             new("@TargetHeadingIdentity", DbValue(node.TargetHeadingIdentity)),
             new("@TargetBlockIdentity", DbValue(node.TargetBlockIdentity)),
-            new("@PinnedTargetRevision", DbValue(node.PinnedTargetRevision)),
+            NullableInt64Parameter("@PinnedTargetRevision", node.PinnedTargetRevision),
             new("@DisplayProjectionRef", DbValue(node.DisplayProjectionReference)),
             new("@ReferenceState", DbValue(node.ReferenceState is null
                 ? null
@@ -1243,6 +1391,37 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
             : throw new AuthoringCanvasHistoryConflictException();
 
     private static object DbValue(object? value) => value ?? DBNull.Value;
+
+    private static SugarParameter ArrayParameter(string name, Array value)
+        => new(name, value)
+        {
+            IsArray = true
+        };
+
+    private static SugarParameter NullableGuidArrayParameter(
+        string name,
+        IReadOnlyList<Guid>? value)
+        => value is null
+            ? new SugarParameter(name, DBNull.Value, System.Data.DbType.Guid)
+            {
+                IsArray = true
+            }
+            : ArrayParameter(name, value.ToArray());
+
+    private static SugarParameter NullableGuidParameter(string name, Guid? value)
+        => new(name, value.HasValue ? value.Value : DBNull.Value, System.Data.DbType.Guid);
+
+    private static SugarParameter NullableInt16Parameter(string name, short? value)
+        => new(name, value.HasValue ? value.Value : DBNull.Value, System.Data.DbType.Int16);
+
+    private static SugarParameter NullableInt32Parameter(string name, int? value)
+        => new(name, value.HasValue ? value.Value : DBNull.Value, System.Data.DbType.Int32);
+
+    private static SugarParameter NullableInt64Parameter(string name, long? value)
+        => new(name, value.HasValue ? value.Value : DBNull.Value, System.Data.DbType.Int64);
+
+    private static SugarParameter NullableDoubleParameter(string name, double? value)
+        => new(name, value.HasValue ? value.Value : DBNull.Value, System.Data.DbType.Double);
 
     private static string? ReadNullableString(DbDataReader reader, string name)
         => reader.IsDBNull(reader.GetOrdinal(name)) ? null : reader.GetString(reader.GetOrdinal(name));

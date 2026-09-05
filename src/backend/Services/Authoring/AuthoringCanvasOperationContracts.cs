@@ -495,6 +495,13 @@ public interface IAuthoringCanvasOperationTransaction
         AuthoringCanvasOwner owner,
         Guid canvasId,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<AuthoringCanvasOperationJournalEntry>> ReadJournalAsync(
+        AuthoringCanvasOwner owner,
+        Guid canvasId,
+        long afterRevision,
+        int limit,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record AuthoringCanvasOperationReferenceValidationRequest(
@@ -512,8 +519,8 @@ public interface IAuthoringCanvasOperationReferenceValidator
         CancellationToken cancellationToken = default);
 }
 
-public sealed class AuthoringCanvasUnknownCommitResultException()
-    : Exception("authoring_canvas_commit_result_unknown");
+public sealed class AuthoringCanvasUnknownCommitResultException(Exception? innerException = null)
+    : Exception("authoring_canvas_commit_result_unknown", innerException);
 
 public sealed class AuthoringCanvasHistoryConflictException()
     : Exception("authoring_canvas_history_conflict");

@@ -197,6 +197,29 @@ public sealed class AuthoringCanvasOperationEngineTests
     }
 
     [Fact]
+    public async Task ApplyAsync_DoesNotTrustCallerReferenceStateWithoutResolverEvidence()
+    {
+        Guid referenceId = Guid.CreateVersion7();
+        var authority = new DeterministicCanvasAuthority
+        {
+            RejectReferences = true
+        };
+        AuthoringCanvasNode callerClaimedValid = Reference(referenceId) with
+        {
+            ReferenceState = AuthoringCanvasReferenceState.Current
+        };
+
+        AuthoringCanvasValidationException exception = await Assert.ThrowsAsync<AuthoringCanvasValidationException>(
+            () => authority.Engine.ApplyAsync(authority.Request(
+                [Command(AuthoringCanvasOperationKind.CreateReference, MissingNode(referenceId), Present(callerClaimedValid))])));
+
+        Assert.Equal("canvas_reference_target_unavailable", exception.Code);
+        Assert.Equal(1, authority.ReferenceValidationCount);
+        Assert.Equal(0, authority.CommitCount);
+        Assert.DoesNotContain(referenceId, authority.Nodes.Keys);
+    }
+
+    [Fact]
     public async Task UndoRedo_BindsHistoryHeadAndCutsRedoBranchWhilePreservingAudit()
     {
         Guid nodeId = Guid.CreateVersion7();
@@ -235,6 +258,29 @@ public sealed class AuthoringCanvasOperationEngineTests
         Assert.Contains(applied.JournalId, authority.Audit[^1].TruncatedRedoJournalIds);
         Assert.Equal(0, branchReceipt.RedoDepth);
         Assert.Equal(5, authority.Audit.Count);
+
+        AuthoringCanvasOperationVerificationResult verified = AuthoringCanvasOperationVerifier.Verify(
+            authority.InitialSnapshot,
+            authority.Audit,
+            authority.Snapshot());
+        Assert.True(verified.Valid, string.Join(',', verified.Reasons));
+
+        AuthoringCanvasOperationJournalEntry targetTamper = authority.Audit[1] with
+        {
+            TargetJournalId = Guid.CreateVersion7(),
+            JournalDigest = string.Empty
+        };
+        targetTamper = SealJournal(targetTamper);
+        AuthoringCanvasOperationJournalEntry[] historyTamper = authority.Audit.ToArray();
+        historyTamper[1] = targetTamper;
+        AuthoringCanvasOperationVerificationResult invalidHistory = AuthoringCanvasOperationVerifier.Verify(
+            authority.InitialSnapshot,
+            historyTamper,
+            authority.Snapshot());
+        Assert.False(invalidHistory.Valid);
+        Assert.Contains(
+            invalidHistory.Reasons,
+            static reason => reason.StartsWith("journal_history_transition_invalid:", StringComparison.Ordinal));
 
         AuthoringCanvasHistoryRequest staleDevice = authority.HistoryRequest(
             branchReceipt.JournalId,
@@ -276,6 +322,32 @@ public sealed class AuthoringCanvasOperationEngineTests
             cancelled.Token));
         Assert.Equal(0, cancelledAuthority.CommitCount);
         Assert.Equal("before", cancelledAuthority.Nodes[nodeId].NoteSource);
+    }
+
+    [Fact]
+    public void PostgresTransaction_UsesCancelableTryLockAndClassifiesOnlyPreparedFailuresAsUnknown()
+    {
+        Assert.Contains(
+            "pg_try_advisory_xact_lock",
+            PostgresAuthoringCanvasOperationTransaction.TryAcquireLockSql,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "pg_advisory_xact_lock(",
+            PostgresAuthoringCanvasOperationTransaction.TryAcquireLockSql,
+            StringComparison.Ordinal);
+        var failure = new InvalidOperationException("transport-failed");
+
+        Exception beforePrepared = PostgresAuthoringCanvasOperationTransaction.ClassifyTransactionFailure(
+            failure,
+            preparedForCommit: false);
+        Exception afterPrepared = PostgresAuthoringCanvasOperationTransaction.ClassifyTransactionFailure(
+            failure,
+            preparedForCommit: true);
+
+        Assert.Same(failure, beforePrepared);
+        AuthoringCanvasUnknownCommitResultException unknown =
+            Assert.IsType<AuthoringCanvasUnknownCommitResultException>(afterPrepared);
+        Assert.Same(failure, unknown.InnerException);
     }
 
     [Fact]
@@ -369,6 +441,61 @@ public sealed class AuthoringCanvasOperationEngineTests
         Assert.Contains(invalid.Reasons, static reason => reason.StartsWith("journal_digest_mismatch:", StringComparison.Ordinal));
         Assert.Contains("current_nodes_mismatch", invalid.Reasons);
 
+        AuthoringCanvasOperationJournalEntry duplicateInverse = entry with
+        {
+            InverseFacts = [entry.InverseFacts[0], entry.InverseFacts[0]],
+            JournalDigest = string.Empty
+        };
+        duplicateInverse = SealJournal(duplicateInverse);
+        AuthoringCanvasOperationVerificationResult duplicateResult = AuthoringCanvasOperationVerifier.Verify(
+            initial,
+            [duplicateInverse],
+            authority.Snapshot());
+        Assert.False(duplicateResult.Valid);
+        Assert.Contains(
+            duplicateResult.Reasons,
+            static reason => reason.StartsWith("journal_fact_set_invalid:", StringComparison.Ordinal));
+
+        AuthoringCanvasClosedCommand invalidSemanticCommand = entry.Commands.Single() with
+        {
+            Kind = AuthoringCanvasOperationKind.Move,
+            ContentDigest = string.Empty
+        };
+        invalidSemanticCommand = invalidSemanticCommand with
+        {
+            ContentDigest = AuthoringCanvasOperationContract.ComputeCommandDigest(invalidSemanticCommand)
+        };
+        AuthoringCanvasOperationJournalEntry semanticTamper = entry with
+        {
+            CommandKinds = [AuthoringCanvasOperationKind.Move],
+            Commands = [invalidSemanticCommand],
+            JournalDigest = string.Empty
+        };
+        semanticTamper = SealJournal(semanticTamper);
+        AuthoringCanvasOperationVerificationResult semanticResult = AuthoringCanvasOperationVerifier.Verify(
+            initial,
+            [semanticTamper],
+            authority.Snapshot());
+        Assert.False(semanticResult.Valid);
+        Assert.Contains(
+            semanticResult.Reasons,
+            static reason => reason.StartsWith("journal_command_invalid:", StringComparison.Ordinal));
+
+        AuthoringCanvasOperationJournalEntry contentDigestTamper = entry with
+        {
+            ContentDigest = new string('a', 64),
+            JournalDigest = string.Empty
+        };
+        contentDigestTamper = SealJournal(contentDigestTamper);
+        AuthoringCanvasOperationVerificationResult contentDigestResult = AuthoringCanvasOperationVerifier.Verify(
+            initial,
+            [contentDigestTamper],
+            authority.Snapshot());
+        Assert.False(contentDigestResult.Valid);
+        Assert.Contains(
+            contentDigestResult.Reasons,
+            static reason => reason.StartsWith("journal_content_digest_mismatch:", StringComparison.Ordinal));
+
         AuthoringCanvasOperationReceipt receiptTamper = receipt with
         {
             UndoDepth = 99
@@ -399,6 +526,12 @@ public sealed class AuthoringCanvasOperationEngineTests
 
     private static AuthoringCanvasOperationFact MissingEdge(Guid id)
         => AuthoringCanvasOperationContract.Missing(AuthoringCanvasOperationFactKind.Edge, id);
+
+    private static AuthoringCanvasOperationJournalEntry SealJournal(AuthoringCanvasOperationJournalEntry entry)
+        => entry with
+        {
+            JournalDigest = AuthoringCanvasOperationContract.ComputeJournalDigest(entry)
+        };
 
     private static AuthoringCanvasNode Reference(Guid id)
         => new(
@@ -511,6 +644,16 @@ public sealed class AuthoringCanvasOperationEngineTests
             get; set;
         }
 
+        public bool RejectReferences
+        {
+            get; set;
+        }
+
+        public int ReferenceValidationCount
+        {
+            get; private set;
+        }
+
         public string HistoryDigest => Audit.Count == 0
             ? AuthoringCanvasOperationContract.EmptyHistoryDigest
             : AuthoringCanvasContract.ComputeCommandDigest(
@@ -606,6 +749,18 @@ public sealed class AuthoringCanvasOperationEngineTests
                 HistoryDigest,
                 _undo.AsEnumerable().Reverse().Select(id => _entries[id]).ToArray(),
                 _redo.AsEnumerable().Reverse().Select(id => _entries[id]).ToArray()));
+        }
+
+        public Task<IReadOnlyList<AuthoringCanvasOperationJournalEntry>> ReadJournalAsync(
+            AuthoringCanvasOwner owner,
+            Guid canvasId,
+            long afterRevision,
+            int limit,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult<IReadOnlyList<AuthoringCanvasOperationJournalEntry>>(
+                Audit.Where(entry => entry.Revision > afterRevision).Take(limit).ToArray());
         }
 
         public Task<AuthoringCanvasOperationReceipt?> RecoverAsync(
@@ -746,6 +901,11 @@ public sealed class AuthoringCanvasOperationEngineTests
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            ReferenceValidationCount++;
+            if (RejectReferences)
+            {
+                throw new AuthoringCanvasValidationException("canvas_reference_target_unavailable");
+            }
             Assert.All(request.References, static node => Assert.True(node.TargetArticleId > 0));
             return Task.FromResult(AuthoringCanvasContract.ComputeCommandDigest(
                 "deterministic-reference-validation",
