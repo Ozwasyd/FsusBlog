@@ -849,6 +849,9 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
     {
         const boundPostRuntime = sealDocument({
             ...postRuntime,
+            sourceIdentity: name === 'other worktree'
+                ? preRuntimeReceipt.sourceIdentity
+                : postRuntime.sourceIdentity,
             preRuntimeReceiptDigest: preRuntimeReceipt?.contentDigest
         });
         assert.throws(() => createReleaseFinalTestEvidenceBinding({
