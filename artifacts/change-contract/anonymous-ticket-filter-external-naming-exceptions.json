@@ -1,0 +1,29 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/backend/Fixtures/backend-test-requirements.json",
+                "tests/test-replacement-transactions/issue-2361.json"
+            ],
+            "reason": "preserve serialized test-governance keys and canonical test identifiers while migrating the anonymous ticket filter owner"
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md",
+                "tests/coverage-registry.json"
+            ],
+            "reason": "preserve generated documentation and coverage identifiers while replacing the synthetic anonymous ticket owner"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/security/check-security-matrices.mjs"
+            ],
+            "reason": "preserve caller-visible process environment spellings while updating the canonical security matrix test identity"
+        }
+    ]
+}

@@ -220,9 +220,9 @@
             "id": "node-test:tests/tools/release-evidence-artifact-restore.test.mjs#release-evidence-collector-delegates-downloaded-artifact-f311ed4021",
             "path": "tests/tools/release-evidence-artifact-restore.test.mjs",
             "replacementTestIds": [
-                "node-test:tests/tools/release-evidence-artifact-restore.test.mjs#release-evidence-restores-both-stripped-tmp-and-mixed-ro-e780bfdcf5"
+                "node-test:tests/tools/release-evidence-artifact-restore.test.mjs#restore-extracts-downloaded-evidence-only-through-a-tran-d9ba29a1d6"
             ],
-            "reason": "The restore helper is executed over stripped, mixed and legacy layouts instead of checking its caller text."
+            "reason": "The restore helper is executed against a bound current-run transport manifest instead of checking its caller text."
         },
         {
             "id": "node-test:tests/tools/runtime-cross-stack-split.test.mjs#cross-stack-runtime-phase-binds-the-exact-browser-probe--0407b014a3",
@@ -5987,6 +5987,15 @@
             "reason": "Real POD round trips, principal behavior and actor projection replace regex searches over frame enums and other test method names."
         },
         {
+            "id": "xunit:tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.AnonymousPrivacyConcurrencyTests.AnonymousTicketEndpointCheapReject_SkipsExpensiveProofWorkUnderLoad#case-0000",
+            "path": "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs#FsusBlog.Server.Tests.Unit.AnonymousCommentTicketEndpointFilterTests.RealEndpoint_CleanValidRequestEntersDecodeProofNullifierAndTicketStore#case-0000",
+                "xunit:tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs#FsusBlog.Server.Tests.Unit.AnonymousCommentTicketEndpointFilterTests.RealEndpoint_ConcurrentIdentityContaminationNeverEntersExpensiveBoundaries#case-0000"
+            ],
+            "reason": "The production anonymous-ticket route, strong-anonymous endpoint filter, real AEDS binder and real ticket service now prove that identity contamination rejects before root, proof, nullifier and ticket-store boundaries under ordinary, malformed and concurrent requests, with a clean positive control."
+        },
+        {
             "id": "xunit:tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs#AnonymousPrivacyConcurrencyTests.SameNullifierAndScopeConcurrentSubmit_AllowsOnlyPolicyLimit",
             "path": "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
             "replacementTestIds": [
@@ -5994,6 +6003,40 @@
                 "xunit:tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs#AnonymousNullifierPostgresConcurrencyTests.CreateStrongAnonymousCommentAsync_SameNullifierRaceCommitsOnlyAllowedComments"
             ],
             "reason": "The in-memory dictionary and lock limiter is replaced by PostgreSQL concurrency tests covering atomic nullifier scope limits and transactional anonymous comment submission."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.AnonymousPrivacyConcurrencyTests.SameTicketConcurrentConsume_SucceedsOnce#case-0000",
+            "path": "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.AnonymousCommentTicketRedisConcurrencyTests.ConsumeTicketAsync_RealRedisL2RaceReturnsExactlyOnePayloadAndConverges#case-0000"
+            ],
+            "reason": "The in-test dictionary ticket store is replaced by the real ticket service and unified cache over Redis GETDEL, with a sixteen-request barrier, one identity-exact payload and converged raw, hashed, registry and L1 state."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.AnonymousPrivacyConcurrencyTests.RootSnapshotHighFrequencyRead_UsesCachedSnapshot#case-0000",
+            "path": "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs#FsusBlog.Server.Tests.Unit.AnonymousCredentialRootLifecycleTests.RootLifecycle_HighFrequencyReaderAndVerifierReuseSingleAuthoritativeGeneration#case-0000"
+            ],
+            "reason": "The in-test string cache is replaced by the real lifecycle reader, root service and PostgreSQL store, with concurrent verifier reads and SQL instrumentation proving one authoritative load for the published generation."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.AnonymousPrivacyConcurrencyTests.VerifierBoundedConcurrency_DoesNotExceedConfiguredLimit#case-0000",
+            "path": "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs#FsusBlog.Server.Tests.Unit.NativeGroth16ZkProofBackendTests.ProductionZkProofVerifier_NativeBackendUsesExistingConcurrencyGate#case-0000"
+            ],
+            "reason": "The in-test semaphore model is replaced by the real production verifier and a passive backend probe, with barrier-started calls proving configured backend in-flight limits, queued completion, slot release, configuration bounds, singleton DI sharing and exact public-input forwarding."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.AnonymousPrivacyConcurrencyTests.CommentSubmitHighConcurrency_CacheInvalidationIsNonBlocking#case-0000",
+            "path": "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/CommentMutationOutboxAnonymousPostgresTests.cs#FsusBlog.Server.Tests.Unit.CommentMutationOutboxAnonymousPostgresTests.StrongAnonymousSubmission_OutboxCommitFailureRollsBackAllAuthoritativeRows#case-0000",
+                "xunit:tests/backend/Unit/CommentMutationOutboxAnonymousPostgresTests.cs#FsusBlog.Server.Tests.Unit.CommentMutationOutboxAnonymousPostgresTests.StrongAnonymousSubmission_WorkerRetryAndRestartPreserveCommittedCommentAndCheckpoints#case-0000",
+                "xunit:tests/backend/Unit/CommentMutationOutboxAnonymousPostgresTests.cs#FsusBlog.Server.Tests.Unit.CommentMutationOutboxAnonymousPostgresTests.StrongAnonymousSubmissions_CommitBeforeBlockedOutboxInvalidationAndDeliverExactlyOnce#case-0000"
+            ],
+            "reason": "The in-test ID generator and TaskCompletionSource bag are replaced by real concurrent strong-anonymous PostgreSQL transactions, durable comment outbox rows and the production worker, proving request completion before blocked cache delivery, atomic rollback, restart recovery and exact completed checkpoints."
         },
         {
             "id": "xunit:tests/backend/Unit/AnonymousPrivacyMatrixTests.cs#AnonymousPrivacyMatrixTests.PrivacyZkBackendGate_CoversRevocationAccumulatorAndWitnessTests",
@@ -6634,6 +6677,22 @@
                 "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.SearchArticlesAsync_RuntimeUsesVersionedNormalizedCacheIdentity"
             ],
             "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#FsusBlog.Server.Tests.Unit.ArticleServiceValidationTests.SearchArticlesAsync_TabAndNewlineOnly_ReturnsEmpty#case-0000",
+            "path": "tests/backend/Unit/ArticleServiceValidationTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#FsusBlog.Server.Tests.Unit.ArticleServiceValidationTests.SearchArticlesAsync_WhitespaceOnlyKeyword_ReturnsEmpty#case-0001"
+            ],
+            "reason": "The tab-newline-cr whitespace-only Fact is parameterized as the stable case-0001 row of the sole whitespace normalization Theory with the same empty-result oracle and explicit zero downstream-call oracles."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#FsusBlog.Server.Tests.Unit.ArticleServiceValidationTests.SearchArticlesAsync_WhitespaceKeyword_ReturnsEmpty#case-0000",
+            "path": "tests/backend/Unit/ArticleServiceValidationTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#FsusBlog.Server.Tests.Unit.ArticleServiceValidationTests.SearchArticlesAsync_WhitespaceOnlyKeyword_ReturnsEmpty#case-0000"
+            ],
+            "reason": "The spaces whitespace-only Fact is parameterized as the stable case-0000 row of the sole whitespace normalization Theory with the same empty-result oracle and explicit zero downstream-call oracles."
         },
         {
             "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.UpdateAsync_SourceChecksAffectedRowsBeforeDependentWrites",
@@ -9896,8 +9955,8 @@
             "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.PublicAotDocumentComposer_AvoidsRegexForLiteralHeadAndAttributeChecks",
             "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#PublicAotDocumentComposerTests.ExtractAttributeValue_DoubleQuotes_ReturnsValue",
-                "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#PublicAotDocumentComposerTests.ExtractAttributeValue_SingleQuotes_ReturnsValue",
+                "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#FsusBlog.Server.Tests.PublicAotDocumentComposerTests.ExtractAttributeValue_QuotedAttribute_ReturnsExactValue#case-0000",
+                "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#FsusBlog.Server.Tests.PublicAotDocumentComposerTests.ExtractAttributeValue_QuotedAttribute_ReturnsExactValue#case-0001",
                 "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#PublicAotDocumentComposerTests.ComposeDocument_WithTemplateVariants_InjectsBySentinel",
                 "shell:tools/test/lanes/backend-benchmark-regression.sh"
             ],
@@ -11881,6 +11940,86 @@
                 "vitest:tests/frontend/unit/composables/useImageUploadRuntime.test.ts#shows-resume-and-abandon-only-for-the-corresponding-runt-ecc8235d4c"
             ],
             "reason": "The real upload composable, API calls, local resume snapshot and mounted options panel prove fresh upload, pause, resume, complete, abort cleanup and late-response isolation."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ClaimsAndApiResponseTests.cs#FsusBlog.Server.Tests.Unit.ClaimsPrincipalExtensionsTests.GetUserId_InvalidValueClaim_ReturnsZero#case-0000",
+            "path": "tests/backend/Unit/ClaimsAndApiResponseTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ClaimsAndApiResponseTests.cs#FsusBlog.Server.Tests.Unit.ClaimsPrincipalExtensionsTests.GetUserId_MalformedClaim_ReturnsZero#case-0000"
+            ],
+            "reason": "The not-a-number malformed NameIdentifier Fact becomes the stable not-numeric row of the sole malformed-claim Theory while retaining the real ClaimsPrincipal, production GetUserId call and exact zero assertion."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ClaimsAndApiResponseTests.cs#FsusBlog.Server.Tests.Unit.ClaimsPrincipalExtensionsTests.GetUserId_WhitespaceClaim_ReturnsZero#case-0000",
+            "path": "tests/backend/Unit/ClaimsAndApiResponseTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ClaimsAndApiResponseTests.cs#FsusBlog.Server.Tests.Unit.ClaimsPrincipalExtensionsTests.GetUserId_MalformedClaim_ReturnsZero#case-0001"
+            ],
+            "reason": "The three-space malformed NameIdentifier Fact becomes the stable whitespace row of the sole malformed-claim Theory while retaining the real ClaimsPrincipal, production GetUserId call and exact zero assertion."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.StripMarkdown_EmptyContent_ReturnsEmpty#case-0000",
+            "path": "tests/backend/Unit/ImageHelperTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.StripMarkdown_BlankContent_ReturnsEmpty#case-0000"
+            ],
+            "reason": "The empty-string StripMarkdown Fact becomes the stable empty row of the sole blank-content Theory while retaining the production StripMarkdown call, maxLength 100 and exact empty-string result."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.StripMarkdown_WhitespaceContent_ReturnsEmpty#case-0000",
+            "path": "tests/backend/Unit/ImageHelperTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.StripMarkdown_BlankContent_ReturnsEmpty#case-0001"
+            ],
+            "reason": "The three-space StripMarkdown Fact becomes the stable spaces row of the sole blank-content Theory while retaining the production StripMarkdown call, maxLength 100 and exact empty-string result."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.ExtractIllustrationUrls_EmptyContent_ReturnsEmptyList#case-0000",
+            "path": "tests/backend/Unit/ImageHelperTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.ExtractIllustrationUrls_ContentWithoutIllustrations_ReturnsEmpty#case-0000"
+            ],
+            "reason": "The empty illustration-content Fact becomes the stable empty-content row of the sole no-illustration Theory while retaining the production ExtractIllustrationUrls call, non-null empty result and no placeholder/default URL oracle."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.ExtractIllustrationUrls_NoIllustrations_ReturnsEmptyList#case-0000",
+            "path": "tests/backend/Unit/ImageHelperTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.ExtractIllustrationUrls_ContentWithoutIllustrations_ReturnsEmpty#case-0001"
+            ],
+            "reason": "The plain Markdown no-image Fact becomes the stable plain-markdown-no-image row of the sole no-illustration Theory while retaining the production ExtractIllustrationUrls call, non-null empty result and no placeholder/default URL oracle."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.GetFirstIllustration_EmptyContent_ReturnsNull#case-0000",
+            "path": "tests/backend/Unit/ImageHelperTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.GetFirstIllustration_ContentWithoutIllustration_ReturnsNull#case-0000"
+            ],
+            "reason": "The empty-content Fact becomes the stable empty-content Theory row retaining the real GetFirstIllustration call and exact null assertion."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.GetFirstIllustration_NoIllustration_ReturnsNull#case-0000",
+            "path": "tests/backend/Unit/ImageHelperTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.GetFirstIllustration_ContentWithoutIllustration_ReturnsNull#case-0001"
+            ],
+            "reason": "The plain-content-no-image Fact becomes the stable plain-content-no-image Theory row retaining the real GetFirstIllustration call and exact null assertion."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#FsusBlog.Server.Tests.PublicAotDocumentComposerTests.ExtractAttributeValue_DoubleQuotes_ReturnsValue#case-0000",
+            "path": "tests/backend/Unit/PublicAotDocumentComposerTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#FsusBlog.Server.Tests.PublicAotDocumentComposerTests.ExtractAttributeValue_QuotedAttribute_ReturnsExactValue#case-0000"
+            ],
+            "reason": "The double-quoted attribute case retains its complete HTML input and exact expected URL as a stable Theory row."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#FsusBlog.Server.Tests.PublicAotDocumentComposerTests.ExtractAttributeValue_SingleQuotes_ReturnsValue#case-0000",
+            "path": "tests/backend/Unit/PublicAotDocumentComposerTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#FsusBlog.Server.Tests.PublicAotDocumentComposerTests.ExtractAttributeValue_QuotedAttribute_ReturnsExactValue#case-0001"
+            ],
+            "reason": "The single-quoted attribute case retains its complete HTML input and exact expected URL as a stable Theory row."
         }
     ],
     "assertionReplacements": [

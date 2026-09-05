@@ -1188,7 +1188,7 @@ public sealed class PublicHotReadFastPathTests
         if (expectsTrustedTypes)
         {
             Assert.Contains("require-trusted-types-for 'script'", csp, StringComparison.Ordinal);
-            Assert.Contains("trusted-types vue fsusblog fsusblog-spa-entry;", csp, StringComparison.Ordinal);
+            Assert.Contains("trusted-types vue fsusblog fsusblog-spa-entry fsusui-markdown-feature;", csp, StringComparison.Ordinal);
             Assert.DoesNotContain("http://127.0.0.1:3000", csp, StringComparison.Ordinal);
         }
         else

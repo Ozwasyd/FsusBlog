@@ -18,7 +18,7 @@ LOCK_DIR="$ROOT_DIR/.tmp/locks/public-preview-docs.lock"
 LOCK_TOOL="$ROOT_DIR/tools/docs/public-preview-writer-transaction.mjs"
 ENV_FILE="$ROOT_DIR/.tmp/env/$NAMESPACE.env"
 SOURCE_COMMIT="$(git -C "$ROOT_DIR" rev-parse HEAD)"
-mapfile -t SOURCE_STATE < <(node --input-type=module - "$ROOT_DIR" "$MODE" <<'NODE'
+SOURCE_FINGERPRINT="$(node --input-type=module - "$ROOT_DIR" "$MODE" <<'NODE'
 import { pathToFileURL } from 'node:url'
 const root = process.argv[2]
 const { snapshotGitWorktree } = await import(pathToFileURL(`${root}/tools/test-matrix/scheduler.mjs`).href)
@@ -29,8 +29,7 @@ if (process.argv[3] !== 'manual' && Object.keys(snapshot.entries).length > 0) {
 }
 process.stdout.write(`${snapshot.fingerprint}\n`)
 NODE
-)
-SOURCE_FINGERPRINT="${SOURCE_STATE[0]:-}"
+)"
 [[ "$SOURCE_FINGERPRINT" =~ ^[a-f0-9]{64}$ ]] || {
     printf '[public-preview-capture] could not resolve a clean checkout fingerprint\n' >&2
     exit 1
@@ -88,8 +87,9 @@ export FSUSBLOG_PUBLIC_PREVIEW_WRITER_PID="$$"
 export FSUSBLOG_REPOSITORY_ROOT="$ROOT_DIR"
 export FSUSBLOG_PLAYWRIGHT_MANAGED_ONLY=1
 export FSUSBLOG_PHYSICAL_BUNDLE_ID=standalone
-export FSUSBLOG_STEP_ID=bootstrap
-mapfile -t SEALED_FIXTURE_ENV < <(node --input-type=module - "$ROOT_DIR" <<'NODE'
+while IFS= read -r assignment; do
+    [[ -n "$assignment" ]] && export "$assignment"
+done < <(node --input-type=module - "$ROOT_DIR" <<'NODE'
 import { pathToFileURL } from 'node:url'
 const root = process.argv[2]
 const { loadTestMatrix } = await import(pathToFileURL(`${root}/tools/test-matrix/command-groups.mjs`).href)
@@ -111,9 +111,52 @@ for (const [key, value] of Object.entries(environment).sort(([left], [right]) =>
 }
 NODE
 )
-for assignment in "${SEALED_FIXTURE_ENV[@]}"; do
+# The canonical bootstrap materializes the current schema from the candidate
+# assembly inside the production build layout. Screenshot capture runs the
+# release runtime (the preview readers target the immutable release preview),
+# so import the canonical production layout assignments and build the Release
+# server into that layout through the shared build producer before bootstrap,
+# matching the qualified release-reliability/homogeneous-two-node flow.
+while IFS= read -r -d '' assignment; do
     export "$assignment"
-done
+done < <(FSUSBLOG_TEST_RUN_ID="$NAMESPACE" \
+    node "$ROOT_DIR/tools/test/export-production-build-environment.mjs" \
+    --root "$ROOT_DIR" \
+    --run-id "$NAMESPACE")
+# The pinned wasm toolchain only builds inside the emsdk container, and the
+# release bundle producer needs the receipt-bound envelope inside this run's
+# production layout. Stage the container-built envelope through the same
+# transport the production-build-artifacts lane uses; ensure:wasm then
+# verifies it as receipt-bound instead of rebuilding on the host.
+mkdir -p "$(dirname "${FSUSBLOG_FRONTEND_WASM_ROOT:?frontend wasm root is required}")"
+# Re-seal the container-built manifest against this run's source identity so
+# the receipt fingerprint matches the snapshot env that every later wasm
+# check (staging, ensure, verify) validates with.
+(
+    cd "$ROOT_DIR/src/frontend" || exit 1
+    # Re-seal the canonical public/wasm artifact dir, not the run layout root.
+    env -u FSUSBLOG_FRONTEND_WASM_ROOT \
+        FSUSBLOG_WASM_TOOLCHAIN_EMSCRIPTEN=6.0.0 \
+        FSUSBLOG_WASM_TOOLCHAIN_BINARYEN=123 \
+        FSUSBLOG_WASM_TOOLCHAIN_CMAKE=4.3.3 \
+        FSUSBLOG_WASM_TOOLCHAIN_VCPKG=eae1680538b86f962455c27abca2aad0dc304a4d \
+        FSUSBLOG_WASM_TOOLCHAIN_EMSDK_IMAGE="emscripten/emsdk:6.0.0@sha256:9eed2e47b4206928b22f99d2917013ad5462d777bb24cb546a652729896badd8" \
+        node ../../tools/frontend/ensure-wasm.mjs write-manifest >/dev/null
+)
+# The public preview is a correctness producer: source identity churn on this
+# single staging attempt fails the run instead of being hidden by a retry.
+node "$ROOT_DIR/tools/frontend/wasm-build-receipt.mjs" stage-envelope \
+    --root "$ROOT_DIR" \
+    --client-root "$ROOT_DIR/src/frontend" \
+    --artifact-dir "$ROOT_DIR/src/frontend/public/wasm" \
+    --destination-artifact-dir "$FSUSBLOG_FRONTEND_WASM_ROOT" >/dev/null
+FSUSBLOG_RUNTIME_CONFIGURATION=Release
+FSUSBLOG_RUNTIME_NO_BUILD=1
+export FSUSBLOG_RUNTIME_CONFIGURATION FSUSBLOG_RUNTIME_NO_BUILD
+"$ROOT_DIR/tools/build-with-data-env.sh" dotnet build \
+    "$ROOT_DIR/src/backend/FsusBlog.Server.csproj" \
+    --configuration Release \
+    -p:FsusBlogCommitSha="$SOURCE_COMMIT"
 FSUSBLOG_TEST_NAMESPACE="$NAMESPACE" \
 FSUSBLOG_TEST_RUN_ID="$NAMESPACE" \
 FSUSBLOG_FORCE_BOOTSTRAP=1 \
@@ -127,6 +170,26 @@ done <"$ENV_FILE"
 
 FSUSBLOG_STEP_ID=release-public-hydration \
     "$ROOT_DIR/tools/test/lanes/release-public-hydration.sh"
+
+# The lane warm settles the default unscoped zh-CN generation. Playwright
+# correctness readers (#2645) forbid a retryable cold 503 on the first browser
+# navigation, and each context reads the AOT cache through its own key space:
+# the temporal context UI locale (Accept-Language) and the worker test-session
+# cache scope (X-Fsus-Test-Session). Warm that exact key space from the same
+# manifest so the browser's first attempt is a cache hit.
+if [[ -n "${FSUSBLOG_TEMPORAL_CONTEXT_FILE:-}" && -f "${FSUSBLOG_TEMPORAL_CONTEXT_FILE:-}" ]]; then
+    browserUiLocale="$(node -e 'const context = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")); process.stdout.write(String(context.uiLocale || "zh-CN"))' "$FSUSBLOG_TEMPORAL_CONTEXT_FILE")"
+else
+    browserUiLocale="zh-CN"
+fi
+browserTestSession="$(node --input-type=module -e "const { resolveWorkerTestSession } = await import('file://${ROOT_DIR}/tests/frontend/support/test-session.mjs'); process.stdout.write(resolveWorkerTestSession('0'))")"
+FSUSBLOG_BASE_URL="${FSUSBLOG_DEBUG_BACKEND_URL:?debug backend url is required}" \
+FSUSBLOG_PUBLIC_AOT_WAIT_MS=120000 \
+FSUSBLOG_PUBLIC_AOT_WARM_ACCEPT_LANGUAGE="$browserUiLocale" \
+FSUSBLOG_PUBLIC_AOT_WARM_TEST_SESSION="$browserTestSession" \
+FSUSBLOG_PUBLIC_AOT_WARM_REPORT="$WORK_DIR/browser-keyspace-warm-evidence.json" \
+FSUSBLOG_SYNC_PUBLIC_AOT_SIDECARS_TO_DIST=0 \
+    node "$ROOT_DIR/tools/frontend/warm-public-aot-cache.mjs"
 
 export FSUSBLOG_BASE_URL="$FSUSBLOG_RELEASE_PREVIEW_URL"
 export FSUSBLOG_PUBLIC_BASE_URL="$FSUSBLOG_RELEASE_PREVIEW_URL"

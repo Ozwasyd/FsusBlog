@@ -67,9 +67,34 @@ test('accepts the checked-in PostgreSQL collection manifest', () =>
     const result = runChecker(fixture.root);
 
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /collections=2 classes=86 estimatedCases=584/u);
+    assert.match(result.stdout, /collections=2 classes=90 estimatedCases=615/u);
     assert.match(result.stdout, /SchemaMigrationPostgresCollectionA:224/u);
-    assert.match(result.stdout, /SchemaMigrationPostgresCollectionB:360/u);
+    assert.match(result.stdout, /SchemaMigrationPostgresCollectionB:391/u);
+});
+
+test('rejects omission of the current content-asset and runtime-rollup PostgreSQL classes', () =>
+{
+    for (const className of [
+        'ContentAssetCutoverAcceptanceTests',
+        'CurrentSchemaRuntimeRollupTablesDatabaseTests'
+    ])
+    {
+        const fixture = createFixture();
+        const manifest = JSON.parse(fs.readFileSync(fixture.manifestPath, 'utf8'));
+        const collection = manifest.collections.find(
+            (item) => item.tests.some((entry) => entry.class === className)
+        );
+        collection.tests = collection.tests.filter((entry) => entry.class !== className);
+        fs.writeFileSync(fixture.manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+        const result = runChecker(fixture.root);
+
+        assert.notEqual(result.status, 0);
+        assert.match(
+            result.stderr,
+            new RegExp(`${className}.*missing from the PostgreSQL manifest`, 'u')
+        );
+    }
 });
 
 test('rejects a fixture-backed test class that is absent from the manifest', () =>

@@ -1,0 +1,2481 @@
+{
+  "schema": "fsusblog.migration-assembly-receipt.v2",
+  "identity": {
+    "oldProject": "src/backend/FsusBlog.Server.csproj",
+    "oldAssembly": "FsusBlog.Server",
+    "oldNamespace": "FsusBlog.Server.Infrastructure.SchemaMigration",
+    "newProject": "src/migration/FsusBlog.Migration.csproj",
+    "newAssembly": "FsusBlog.Migration",
+    "newNamespace": "FsusBlog.Migration",
+    "targetFramework": "net10.0"
+  },
+  "dependencies": {
+    "projectReferences": [
+      "src/shared/FsusBlog.Shared.csproj"
+    ],
+    "providerPackages": [
+      "SqlSugarCoreNoDrive"
+    ]
+  },
+  "files": [
+    {
+      "path": "src/migration/AccountSubjectHashBackfillStep.cs",
+      "sha256": "8ce05015ba8ff604ac80bf33b30a45295498300d60b036153c4664d509a580da",
+      "symbols": [
+        "AccountIdentityMaterial",
+        "AccountSubjectHashBackfillStep",
+        "AccountSubjectHashOnlineBackfillHandler",
+        "AccountSubjectMigrationHasher"
+      ]
+    },
+    {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog.cs",
+      "sha256": "64907434ac2c6540ef714b368fd09afb757331e86a9f0cdbc771a6b58a631ee3",
+      "symbols": [
+        "SchemaMigrationCatalog",
+        "SchemaMigrationCatalogDependency",
+        "SchemaMigrationExecutionOrder",
+        "SchemaMigrationGapPolicy",
+        "SchemaMigrationIdentity",
+        "SchemaMigrationVersionGap"
+      ]
+    },
+    {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog20260418To20260518.cs",
+      "sha256": "8abae982769225f1f87efb1130c53344aab0a69e4e336470024ce2b39aabc28c",
+      "symbols": [
+        "SchemaMigrationCatalog20260418To20260518"
+      ]
+    },
+    {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog20260602To20260621.cs",
+      "sha256": "78563f7ec9cf33af3c037102b6a6732d58b4609fc6da2c9e0209c928f4e7dbd8",
+      "symbols": [
+        "SchemaMigrationCatalog20260602To20260621"
+      ]
+    },
+    {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog20260625To20260704.cs",
+      "sha256": "7d95b449da973e2359f40a10d2ec6d4908be24fe2960ef8a1d19e21e373b14ee",
+      "symbols": [
+        "SchemaMigrationCatalog20260625To20260704"
+      ]
+    },
+    {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog20260709To20260716.cs",
+      "sha256": "9b3594e1efba9fa05016f5e588a3ef4a552fae66362df81d7cddd3df0d6bc1ae",
+      "symbols": [
+        "SchemaMigrationCatalog20260709To20260716"
+      ]
+    },
+    {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog20260719.cs",
+      "sha256": "5236d4e9c010067975bcffb4db264a2eedf28d705067c0f9e1d6aa7705f9f14d",
+      "symbols": [
+        "SchemaMigrationCatalog20260719"
+      ]
+    },
+    {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog20260720.cs",
+      "sha256": "10f78f29358309a2d2224c69e9983e63103b9a7fa06b23b8b2854cfdedbc2428",
+      "symbols": [
+        "SchemaMigrationCatalog20260720"
+      ]
+    },
+    {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog20260724.cs",
+      "sha256": "2006e89434652a21d8332876dea479373efaeabd29ee48ad71101b67366f0e83",
+      "symbols": [
+        "SchemaMigrationCatalog20260724"
+      ]
+    },
+    {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog20260725.cs",
+      "sha256": "39e2dc8e0f6ba35c54c808508d56267d7937ff5e700335b430b8351ff055cd22",
+      "symbols": [
+        "SchemaMigrationCatalog20260725"
+      ]
+    },
+    {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog20260726.cs",
+      "sha256": "a16acf5999635d8fa3483bd66d972e157639dc839866a9cdbd333d2cd2953606",
+      "symbols": [
+        "SchemaMigrationCatalog20260726"
+      ]
+    },
+    {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog20260727.cs",
+      "sha256": "4de53e3f7c3c31bbe0a3cb4527b1921d561be79e051d38e7e3b9eea149b50afa",
+      "symbols": [
+        "SchemaMigrationCatalog20260727"
+      ]
+    },
+    {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog20260728.cs",
+      "sha256": "fd85bb19b074ca2d2f66ad2edf0d1be793240a16239c290a6fde867552b6e187",
+      "symbols": [
+        "SchemaMigrationCatalog20260728"
+      ]
+    },
+    {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog20260809.cs",
+      "sha256": "e0b612f93a46c93c4dffc34dbefc542b6a49d4d69509cd463004345e3ed4f831",
+      "symbols": [
+        "SchemaMigrationCatalog20260809"
+      ]
+    },
+    {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog20260826.cs",
+      "sha256": "6b29733a1c61cfa85de33989767be03e041b0542137cebc20612c4d33b1e2efc",
+      "symbols": [
+        "SchemaMigrationCatalog20260826"
+      ]
+    },
+    {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog20260828.cs",
+      "sha256": "e4112dbf53b3374430357f4061015c350565aec3a2782017889be4f640c726ab",
+      "symbols": [
+        "SchemaMigrationCatalog20260828"
+      ]
+    },
+    {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog20260829.cs",
+      "sha256": "e152da4dbe0a5664ed9892348f5fc54115b3edaf3b5b9107cd0b048a949cafee",
+      "symbols": [
+        "SchemaMigrationCatalog20260829"
+      ]
+    },
+    {
+      "path": "src/migration/ContentAssetCutoverBackfillStep.cs",
+      "sha256": "29588506016e563ca48eda80c23c9c6f53cc46695e439752bb49f11c75b6162a",
+      "symbols": [
+        "ContentAssetCutoverBackfillStep"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/AccountEnrollmentMigrationDefinitions.cs",
+      "sha256": "268bbbae36b6781b9052c5defa15051b3ded0a6cf0b44f5fcf7d8e9cb6c2bdc3",
+      "symbols": [
+        "AccountEnrollmentMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/AnonymousEligibilityPredicateMigrationDefinitions.cs",
+      "sha256": "4918f6d44565983a5b8dfb891da4de151d2bff310be73587cc92d8ee1219186e",
+      "symbols": [
+        "AnonymousEligibilityPredicateMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/AnonymousPrivacyMigrationDefinitions.cs",
+      "sha256": "8b1e9f2a3d4fa691837a5847018afd8b294e1d39945632002823bf843d60cabf",
+      "symbols": [
+        "AnonymousPrivacyMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/ArticleAssetReferenceMigrationDefinitions.cs",
+      "sha256": "3b84c5896cb727e16489e825938c55938098054341fe8a8b2e43d5900535ab5c",
+      "symbols": [
+        "ArticleAssetReferenceMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/ArticleCommentPolicyMigrationDefinitions.cs",
+      "sha256": "65e43e8cceef8cbc9be32837cc4742ee469cef5323bbf51f41f95ce743367526",
+      "symbols": [
+        "ArticleCommentPolicyMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/ArticleDraftBaseRevisionMigrationDefinitions.cs",
+      "sha256": "7738f552b2b12d614ff60d2b4b2ec76506402cfbc223d97e6c4037dad6ac84e2",
+      "symbols": [
+        "ArticleDraftBaseRevisionMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/ArticleDraftServerRevisionMigrationDefinitions.cs",
+      "sha256": "f83c128983bfb2e0215cebd5cf3b59bb174fc507123a58d5281ae4bd122b438d",
+      "symbols": [
+        "ArticleDraftServerRevisionMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/ArticleMutationIdempotencyMigrationDefinitions.cs",
+      "sha256": "ba51545049438a84d00185cf5f881d99cf9b1a35ba083eaca6fa6d7a75227348",
+      "symbols": [
+        "ArticleMutationIdempotencyMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/ArticleMutationOutboxVersionMigrationDefinitions.cs",
+      "sha256": "f73d0be3909a24ee45e31690cca20a42e346e3860c27081c396668a6e0423e29",
+      "symbols": [
+        "ArticleMutationOutboxVersionMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/ArticlePublicationMigrationDefinitions.cs",
+      "sha256": "fea2d7c4c2beb777e99c8a25b857b58ab63ce49542840bb91c72d6d7b32f928b",
+      "symbols": [
+        "ArticlePublicationMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/ArticleResponsibilityVersionMigrationDefinitions.cs",
+      "sha256": "ddc16121fa048c86f18024e8770f89314103f545d514a3109426c12beec6ed21",
+      "symbols": [
+        "ArticleResponsibilityVersionMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/ArticleRevisionContentBlockMigrationDefinitions.cs",
+      "sha256": "991c754d3d53c9a91c9e37a2b6272a60885d72349d0a41e593f0fd454d40a704",
+      "symbols": [
+        "ArticleRevisionContentBlockMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/ArticleRevisionRollbackMigrationDefinitions.cs",
+      "sha256": "d45011d08501da639d4926d4c7b81c161b68f2890b259916e9f4f89fba2cd799",
+      "symbols": [
+        "ArticleRevisionRollbackMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/ArticleTimeSemanticsMigrationDefinitions.cs",
+      "sha256": "0270d6bcaabd04863538353113946a1e723513346f977bec56270403265fdf99",
+      "symbols": [
+        "ArticleTimeSemanticsMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/AuthoringAndIntegrityMigrationDefinitions.cs",
+      "sha256": "4ee3530bbcfc417d60ad03de18a9df1136ddc2b618f104ebc91131a6e9809121",
+      "symbols": [
+        "AuthoringAndIntegrityMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/AuthoringCanvasDocumentMigrationDefinitions.cs",
+      "sha256": "bd0ccaa30500438b7660e415ad2fe8647018a3acbcde217d5cc034546766dcc2",
+      "symbols": [
+        "AuthoringCanvasDocumentMigrationDefinitions",
+        "ledgers"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/CommentAuthorModeRetirementMigrationDefinitions.cs",
+      "sha256": "408633b8edc725a307cdd5bbbc2bdeb0b764ff2023fecadc480ce58dbf5c826f",
+      "symbols": [
+        "CommentAuthorModeRetirementMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/CommentGovernanceMigrationDefinitions.cs",
+      "sha256": "805bb881b4d023df86563cc2419e0554cb0cb1b0629f6c4b40113da78083b04f",
+      "symbols": [
+        "CommentGovernanceMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/CommentModerationEventMigrationDefinitions.cs",
+      "sha256": "9f31417edcd170c4478d9e4ef0e60d40ded7e0c96a5ce1d0d6e79b8859feee10",
+      "symbols": [
+        "CommentModerationEventMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/CommentModerationQueueMigrationDefinitions.cs",
+      "sha256": "9b917fa496fab3ffa7d6d103ca265cb6364a10200f7aaa7f63825714c74f1bc1",
+      "symbols": [
+        "CommentModerationQueueMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/CommentMutationIdempotencyMigrationDefinitions.cs",
+      "sha256": "2156ead8e2a6c4f4a4a38665a6f4d2f149b3f3ef3f3d8fe38e9a8ba89ec43965",
+      "symbols": [
+        "CommentMutationIdempotencyMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/CommentMutationOutboxClaimLeaseMigrationDefinitions.cs",
+      "sha256": "800c68f2aad131aa78a97f5e69dec9a0e3380477236129ab953c311ea8716131",
+      "symbols": [
+        "CommentMutationOutboxClaimLeaseMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/CommentMutationOutboxDeliveryReservationMigrationDefinitions.cs",
+      "sha256": "b161473c98b9e4ff47a381f623699bd3044e03dc7c7df40cc0cd852ff70a8d5c",
+      "symbols": [
+        "CommentMutationOutboxDeliveryReservationMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/CommentMutationOutboxMigrationDefinitions.cs",
+      "sha256": "4c4bc57a7db90d5e4c2bea6f266142d2e5fb3256adac690a9a69c99ae7cb9a1c",
+      "symbols": [
+        "CommentMutationOutboxMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/CommentRevisionManagementMigrationDefinitions.cs",
+      "sha256": "d5dfc226097d5592062440438a60da3b330556b1857c804a4888ac8827dc57fe",
+      "symbols": [
+        "BackfillCommentInitialRevisionStep",
+        "CommentRevisionBackfillSource",
+        "CommentRevisionManagementMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/CommentRevisionMigrationRows.cs",
+      "sha256": "27d33b2378e010018a6d8b7c6a663f736e756b9756d8e12c33dd7358eced20b8",
+      "symbols": [
+        "Comment",
+        "CommentRevision",
+        "CommentRevisionOperations"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/ContentAssetCutoverMigrationDefinitions.cs",
+      "sha256": "5d4ddf4054503e180c15350179177aef72eb1e57baad02b0e59fe4e8d1d45440",
+      "symbols": [
+        "ContentAssetCutoverMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/ConversationStatusAuditMigrationDefinitions.cs",
+      "sha256": "725d56746281c2c7e73099abc5189268cf706ff5ded8fa4eb83612ad6c3561c9",
+      "symbols": [
+        "ConversationStatusAuditMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/CustomizationMigrationDefinitions.cs",
+      "sha256": "c0b17bfd1e5bdd502b8703f482c14148a6e2205108a3f674388446aa3c1b97e2",
+      "symbols": [
+        "CustomizationMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/DistributedInvalidationConvergenceObligationMigrationDefinitions.cs",
+      "sha256": "b71c20932476bd7c319482e9696c375f8a002a05bee656804fc07497cf9a4c73",
+      "symbols": [
+        "DistributedInvalidationConvergenceObligationMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/DistributedInvalidationDeliveryLedgerMigrationDefinitions.cs",
+      "sha256": "145317af23137f96d44d7e1351eea9b08826cd117b4fe56f702c57ef9e1d0d03",
+      "symbols": [
+        "DistributedInvalidationDeliveryLedgerMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/DistributedInvalidationFullReconcileMigrationDefinitions.cs",
+      "sha256": "7355105a91b3db19c3ea7a9822e834eda343a77aea7a6647005d7c0c2d9fffcf",
+      "symbols": [
+        "DistributedInvalidationFullReconcileMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/LegacyIdentityMigrationDefinitions.cs",
+      "sha256": "82e7335e75dcc4a8e18b556c3eed1dcb0a2a0e2667848ea41efa6b1d7270e9aa",
+      "symbols": [
+        "LegacyIdentityMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/MessageAdminQueueMigrationDefinitions.cs",
+      "sha256": "405e452eecc76234ee303009a119302efbfb59dc417f0db0b409ac8171fff753",
+      "symbols": [
+        "MessageAdminQueueMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/MessageMutationIdempotencyMigrationDefinitions.cs",
+      "sha256": "3f0e9cbd63fc691ec761bc3302210a93814f59afa04827f933d646689da7c2fa",
+      "symbols": [
+        "MessageMutationIdempotencyMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/MessageMutationOutboxMigrationDefinitions.cs",
+      "sha256": "3794878b4b69fa725cc2b8f3a8394bbae4ff874fe364e8cea8eb4c30d969d441",
+      "symbols": [
+        "MessageMutationOutboxMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/MessagePrivacyRetentionMigrationDefinitions.cs",
+      "sha256": "b350aeca92eca492f891d8987a6047df7576e7d5e6d83071e07d4031ad84dc4a",
+      "symbols": [
+        "MessagePrivacyRetentionMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/MessageUnreadAuthorityMigrationDefinitions.cs",
+      "sha256": "7e917ea6a68e04087c9e76a8774d724d2d507ea53e91611773c0505f11a4b384",
+      "symbols": [
+        "MessageUnreadAuthorityMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/PasskeySignalMigrationDefinitions.cs",
+      "sha256": "58b12c85fb57c66d829beb1671e4464ab398e9097cd4602c709d9df8fad2b1fb",
+      "symbols": [
+        "PasskeySignalMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/PluginRegistryMigrationDefinitions.cs",
+      "sha256": "affc7731b68a5e8386b366472948893b08641909b78a0c154a6223201af6df0e",
+      "symbols": [
+        "PluginRegistryMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/RefreshTokenLineageMigrationDefinitions.cs",
+      "sha256": "921bd0102258c6f70ffec6671c24c6d4cdcb8b489666b459e32e69591c884262",
+      "symbols": [
+        "RefreshTokenLineageMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/ScheduledPublishIndexMigrationDefinitions.cs",
+      "sha256": "b483b811a3d70070fb90f85ff32b368cf3b7fb2d02595ec3a56b6955f7efb69c",
+      "symbols": [
+        "CreateScheduledPublishDueIndexStep",
+        "ScheduledPublishIndexMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/SecurityAndProjectionMigrationDefinitions.cs",
+      "sha256": "ff070c1196f1ef0abef44608cde9d2addbc62ad32981d103b4a9cef5afb60bda",
+      "symbols": [
+        "SecurityAndProjectionMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/TaxonomyDescriptionMigrationDefinitions.cs",
+      "sha256": "d7352892c922c64f4275966f441bc9f1fccdde981cd467ef2ac627ecc3bf2a15",
+      "symbols": [
+        "TaxonomyDescriptionMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/ThemeActivationRuntimeMigrationDefinitions.cs",
+      "sha256": "a297b238e96d2ee0954aa9288802f64baa6c243e6b79bb3e5b92c4a06ba9a36f",
+      "symbols": [
+        "ThemeActivationRuntimeMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/ThemeRegistryMigrationDefinitions.cs",
+      "sha256": "990b7b3a209ca4fbc1fcb09d92c302be9687918b6cfcf7ab8fa4229f7d9940ea",
+      "symbols": [
+        "ThemeRegistryMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/UserLocalePreferenceMigrationDefinitions.cs",
+      "sha256": "693649f43b196981b2ce0ee30de4d55912a26155c533155b73266a9c514d1fce",
+      "symbols": [
+        "UserLocalePreferenceMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/UserSessionAuthenticationContextMigrationDefinitions.cs",
+      "sha256": "8dfc9f78075fc0c0bbfa3d12c1dd5990f61397e4ea66b77c5bac3cd2fac16a3f",
+      "symbols": [
+        "UserSessionAuthenticationContextMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/UserSessionMetadataMinimizationMigrationDefinitions.cs",
+      "sha256": "77561dd4e98b0bef52556c49fd03fbb4757a1045a88037288b3e526c14aba107",
+      "symbols": [
+        "UserSessionMetadataMinimizationMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/UserSessionModeMigrationDefinitions.cs",
+      "sha256": "a4e033e8e4d2cc0f87e2b53d277270e1d6ca8295b169b25384d3c5ff3625e6d0",
+      "symbols": [
+        "UserSessionModeMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/UserSessionMultiDeviceMigrationDefinitions.cs",
+      "sha256": "8949c34d52a8ed511550d1cd437eac47848f9f90715fdacf1075d56c5a19e01d",
+      "symbols": [
+        "UserSessionMultiDeviceMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/DestructiveMigrationProofs.cs",
+      "sha256": "434077993a029aafd758518ef70ecd64c3d1f3445c9f7a14f6c3dbc5a44ade44",
+      "symbols": [
+        "DestructiveMigrationProof",
+        "DestructiveMigrationProofs",
+        "IDestructiveSchemaMigrationStep"
+      ]
+    },
+    {
+      "path": "src/migration/FsusBlog.Migration.csproj",
+      "sha256": "380c33225b65fbf995b1c654915aed4317ee2a3cce0795db591fdcfd9ad41df0",
+      "symbols": []
+    },
+    {
+      "path": "src/migration/OfflineMigrationCatalogEntries.generated.cs",
+      "sha256": "7e3c386574df90db43af7bedd697f9082e55fd8dc5015427939290d5b4f16422",
+      "symbols": [
+        "OfflineMigrationCatalogEntries",
+        "OfflineMigrationClassification",
+        "OfflineMigrationPhase"
+      ]
+    },
+    {
+      "path": "src/migration/OfflineMigrationCommandLine.cs",
+      "sha256": "fa3cb0e973d3bd1996fe9f63ac15e2c52f744c0bc2ba49e1dc8c48e2fd021987",
+      "symbols": [
+        "OfflineMigrationCommandLine",
+        "OfflineMigrationCommandOptions"
+      ]
+    },
+    {
+      "path": "src/migration/OfflineMigrationExecutor.cs",
+      "sha256": "822dade45a6aa698fdfb5a26db042abd43d96a718c0099497578a040c3e61902",
+      "symbols": [
+        "OfflineMigrationExecutionResult",
+        "OfflineMigrationExecutor"
+      ]
+    },
+    {
+      "path": "src/migration/OfflineMigrationHost.cs",
+      "sha256": "f152bc1351e51b9f933f09f61b107c62f14f3fd596c824d7c4a62b26db40195e",
+      "symbols": [
+        "OfflineMigrationHost"
+      ]
+    },
+    {
+      "path": "src/migration/OfflineMigrationStateStore.cs",
+      "sha256": "ef5de70ee4bee46c0610c909f01d576faea6f5908570accb6f10d475f3365237",
+      "symbols": [
+        "BackfillSnapshot",
+        "OfflineMigrationStateStore"
+      ]
+    },
+    {
+      "path": "src/migration/OnlineSchemaBackfillPrimitives.cs",
+      "sha256": "2b305c80c9ab000bbe8070933333069e573c316805cdcf7bb23a7e287cd7a1c8",
+      "symbols": [
+        "IOnlineSchemaBackfillHandler",
+        "OnlineSchemaBackfillBatchResult"
+      ]
+    },
+    {
+      "path": "src/migration/Properties/AssemblyInfo.cs",
+      "sha256": "3499bb36662d918a32b1a1fe41ca6f7c1ffb33a00769c3918646a4286c5baf84",
+      "symbols": []
+    },
+    {
+      "path": "src/migration/SchemaMigrationDdlPrimitives.cs",
+      "sha256": "10e79f34d58509c73a0504099a89d93e52d0822a11e9beead74287f7d8250fec",
+      "symbols": [
+        "ISchemaDdlProvider",
+        "MySqlSchemaDdlProvider",
+        "PostgresSchemaDdlProvider",
+        "SchemaColumnDefinition",
+        "SchemaDdlDialect",
+        "SchemaDdlProviderBase",
+        "SchemaDdlProviders",
+        "SchemaIdentifier",
+        "SchemaMigrationCommand",
+        "SchemaMigrationPreviewResult",
+        "SchemaMigrationPreviewStep",
+        "SchemaMigrationPreviewer",
+        "SqliteSchemaDdlProvider"
+      ]
+    },
+    {
+      "path": "src/migration/SchemaMigrationExecution.cs",
+      "sha256": "421dd1859d58f28a5d2092caa3c142a0401170ae29d19d4daa50cee95f263d0f",
+      "symbols": [
+        "SchemaMigrationHistoryEntry",
+        "SchemaMigrationTransactionExecutor"
+      ]
+    },
+    {
+      "path": "src/migration/SchemaMigrationManifest.cs",
+      "sha256": "79c70deb15553d24badcf36127fc852cda53667095798d064702e9ec2e20d710",
+      "symbols": [
+        "SchemaMigrationManifest"
+      ]
+    },
+    {
+      "path": "src/migration/SchemaMigrationPrimitives.cs",
+      "sha256": "a6655983ba8ab77ad42c34451a420030b671db844307498a854595aa6dad5cb4",
+      "symbols": [
+        "AssertSqlStep",
+        "BackfillSqlStep",
+        "ClearLegacyPublicArtifactsStep",
+        "CopyColumnToColumnStep",
+        "CopyColumnToTableStep",
+        "CreateIndexStep",
+        "DropColumnStep",
+        "DropIndexStep",
+        "DropTableStep",
+        "EnsureColumnStep",
+        "EnsureTableStep",
+        "ISchemaMigrationDescriptor",
+        "RawSqlStep",
+        "RenameColumnStep",
+        "RenameTableStep",
+        "SchemaMigrationDescriptor",
+        "SchemaMigrationPhase",
+        "SchemaMigrationSql",
+        "SchemaMigrationStep"
+      ]
+    },
+    {
+      "path": "src/migration/SchemaMigrationRegistry.cs",
+      "sha256": "7859728ecb4a4d5a2b58245777ece04c35cd4db4e4c07d30cf881ad35963b849",
+      "symbols": [
+        "ISchemaMigrationRegistry",
+        "SchemaMigrationRegistry"
+      ]
+    }
+  ],
+  "sourceTransition": {
+    "baseCommit": "b70e6d928bf63963e17a260369b1485990f7d079",
+    "files": [
+      {
+        "newPath": "src/migration/AccountSubjectHashBackfillStep.cs",
+        "newSha256": "8ce05015ba8ff604ac80bf33b30a45295498300d60b036153c4664d509a580da",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/AccountSubjectHashBackfillStep.cs",
+            "sha256": "992b07d75d53753a679b276f849a3c7a253ade2382ec9e5dac3cb7cc6249a1e5",
+            "symbols": [
+              "AccountIdentityMaterial",
+              "AccountSubjectHashBackfillStep",
+              "AccountSubjectHashOnlineBackfillHandler"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "AccountIdentityMaterial",
+          "AccountSubjectHashBackfillStep",
+          "AccountSubjectHashOnlineBackfillHandler"
+        ],
+        "newSymbols": [
+          "AccountSubjectMigrationHasher"
+        ],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/AccountSubjectHashBackfillStep.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Catalogs/SchemaMigrationCatalog.cs",
+        "newSha256": "64907434ac2c6540ef714b368fd09afb757331e86a9f0cdbc771a6b58a631ee3",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog.cs",
+            "sha256": "434f1d844c99df32b9bb7458e9d8f864005dd1d8a22d1b18253a9c4a4c373ab8",
+            "symbols": [
+              "SchemaMigrationCatalog",
+              "SchemaMigrationCatalogDependency",
+              "SchemaMigrationExecutionOrder",
+              "SchemaMigrationGapPolicy",
+              "SchemaMigrationIdentity",
+              "SchemaMigrationVersionGap"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "SchemaMigrationCatalog",
+          "SchemaMigrationCatalogDependency",
+          "SchemaMigrationExecutionOrder",
+          "SchemaMigrationGapPolicy",
+          "SchemaMigrationIdentity",
+          "SchemaMigrationVersionGap"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Catalogs/SchemaMigrationCatalog20260418To20260518.cs",
+        "newSha256": "8abae982769225f1f87efb1130c53344aab0a69e4e336470024ce2b39aabc28c",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260418To20260518.cs",
+            "sha256": "911b1b1f57e4107c77b8989a36f3af31d5b2ff9e1f24e653d407657bab027152",
+            "symbols": [
+              "SchemaMigrationCatalog20260418To20260518"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "SchemaMigrationCatalog20260418To20260518"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260418To20260518.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Catalogs/SchemaMigrationCatalog20260602To20260621.cs",
+        "newSha256": "78563f7ec9cf33af3c037102b6a6732d58b4609fc6da2c9e0209c928f4e7dbd8",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260602To20260621.cs",
+            "sha256": "88d0dee389d16360fb6f8d68622424d7c3c0a2aeb6a95c5a0aafdb5c67186f53",
+            "symbols": [
+              "SchemaMigrationCatalog20260602To20260621"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "SchemaMigrationCatalog20260602To20260621"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260602To20260621.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Catalogs/SchemaMigrationCatalog20260625To20260704.cs",
+        "newSha256": "7d95b449da973e2359f40a10d2ec6d4908be24fe2960ef8a1d19e21e373b14ee",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260625To20260704.cs",
+            "sha256": "64bb639efd5f16e68e616706c0d8a76d4dc1b4bbac52419a790d37c22fe303a5",
+            "symbols": [
+              "SchemaMigrationCatalog20260625To20260704"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "SchemaMigrationCatalog20260625To20260704"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260625To20260704.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Catalogs/SchemaMigrationCatalog20260709To20260716.cs",
+        "newSha256": "9b3594e1efba9fa05016f5e588a3ef4a552fae66362df81d7cddd3df0d6bc1ae",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260709To20260716.cs",
+            "sha256": "ddfb28de86f4a2dfec11737f7757c68b3edbe89b9441ea483a6bd10b627cfbe6",
+            "symbols": [
+              "SchemaMigrationCatalog20260709To20260716"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "SchemaMigrationCatalog20260709To20260716"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260709To20260716.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Catalogs/SchemaMigrationCatalog20260719.cs",
+        "newSha256": "5236d4e9c010067975bcffb4db264a2eedf28d705067c0f9e1d6aa7705f9f14d",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260719.cs",
+            "sha256": "9569df3f5a448d887f3c922ab6659013b1033333d398554eb771314daaf3daf9",
+            "symbols": [
+              "SchemaMigrationCatalog20260719"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "SchemaMigrationCatalog20260719"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260719.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Catalogs/SchemaMigrationCatalog20260720.cs",
+        "newSha256": "10f78f29358309a2d2224c69e9983e63103b9a7fa06b23b8b2854cfdedbc2428",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260720.cs",
+            "sha256": "bbb7de810bbcb7487ac5509af2001110702257c2aff9f2e61bd17e84402c8a94",
+            "symbols": [
+              "SchemaMigrationCatalog20260720"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "SchemaMigrationCatalog20260720"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260720.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Catalogs/SchemaMigrationCatalog20260724.cs",
+        "newSha256": "2006e89434652a21d8332876dea479373efaeabd29ee48ad71101b67366f0e83",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260724.cs",
+            "sha256": "276699bb36e548628e72594ee7b0105d724cc8b79a5b59ee2c531e40c122a8a2",
+            "symbols": [
+              "SchemaMigrationCatalog20260724"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "SchemaMigrationCatalog20260724"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260724.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Catalogs/SchemaMigrationCatalog20260725.cs",
+        "newSha256": "39e2dc8e0f6ba35c54c808508d56267d7937ff5e700335b430b8351ff055cd22",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260725.cs",
+            "sha256": "b7c0dbb44bb23d20a3dde442c2d7e70624bd4fd45852770d593e12580801c451",
+            "symbols": [
+              "SchemaMigrationCatalog20260725"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "SchemaMigrationCatalog20260725"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260725.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Catalogs/SchemaMigrationCatalog20260726.cs",
+        "newSha256": "a16acf5999635d8fa3483bd66d972e157639dc839866a9cdbd333d2cd2953606",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260726.cs",
+            "sha256": "cf53ec35912f1931e3364ede3114f3e9f10b45133e37c98bc68b0727e1a257a1",
+            "symbols": [
+              "SchemaMigrationCatalog20260726"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "SchemaMigrationCatalog20260726"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260726.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Catalogs/SchemaMigrationCatalog20260727.cs",
+        "newSha256": "4de53e3f7c3c31bbe0a3cb4527b1921d561be79e051d38e7e3b9eea149b50afa",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260727.cs",
+            "sha256": "e0204fe6a6e2dcdae828a9993ffaf6e7cefd95c2949c0686a32a7a6c1d269e2d",
+            "symbols": [
+              "SchemaMigrationCatalog20260727"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "SchemaMigrationCatalog20260727"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260727.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Catalogs/SchemaMigrationCatalog20260728.cs",
+        "newSha256": "fd85bb19b074ca2d2f66ad2edf0d1be793240a16239c290a6fde867552b6e187",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260728.cs",
+            "sha256": "2b3a7cb3e1432b44dbb0143ba123e3d6b4cf8541704670d6fdd35cc8c64c69fb",
+            "symbols": [
+              "SchemaMigrationCatalog20260728"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "SchemaMigrationCatalog20260728"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260728.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Catalogs/SchemaMigrationCatalog20260809.cs",
+        "newSha256": "e0b612f93a46c93c4dffc34dbefc542b6a49d4d69509cd463004345e3ed4f831",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260809.cs",
+            "sha256": "4af68a7f58df39dc3499b5b9e387d0a19ea6d44967b01700f06f2b35e89c7e9c",
+            "symbols": [
+              "SchemaMigrationCatalog20260809"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "SchemaMigrationCatalog20260809"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260809.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Catalogs/SchemaMigrationCatalog20260826.cs",
+        "newSha256": "6b29733a1c61cfa85de33989767be03e041b0542137cebc20612c4d33b1e2efc",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260826.cs",
+            "sha256": "88ebd793dfe9dd80731d093dad1b067f3ee5762d7a902ff6523581986ec610dc",
+            "symbols": [
+              "SchemaMigrationCatalog20260826"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "SchemaMigrationCatalog20260826"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260826.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Catalogs/SchemaMigrationCatalog20260828.cs",
+        "newSha256": "e4112dbf53b3374430357f4061015c350565aec3a2782017889be4f640c726ab",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260828.cs",
+            "sha256": "5231a21c065253fbdeb6ec46d4dc6678060c718971876c7a498160494ddfc63b",
+            "symbols": [
+              "SchemaMigrationCatalog20260828"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "SchemaMigrationCatalog20260828"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260828.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Catalogs/SchemaMigrationCatalog20260829.cs",
+        "newSha256": "e152da4dbe0a5664ed9892348f5fc54115b3edaf3b5b9107cd0b048a949cafee",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260829.cs",
+            "sha256": "a8ad408b21a3f2d3e41cec853b3032a02eb5a793e66d6a85a4380278dbde977b",
+            "symbols": [
+              "SchemaMigrationCatalog20260829"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "SchemaMigrationCatalog20260829"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260829.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/ContentAssetCutoverBackfillStep.cs",
+        "newSha256": "29588506016e563ca48eda80c23c9c6f53cc46695e439752bb49f11c75b6162a",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/ContentAssetCutoverBackfill.cs",
+            "sha256": "89e8c68ab8c11a3114ad36676bd4f276a8472789d53f87c17eb3c280006c904e",
+            "symbols": [
+              "ContentAssetCutoverBackfill",
+              "ContentAssetCutoverBackfillStep",
+              "LegacyCleanup",
+              "ReferenceAggregate",
+              "SourceSnapshot"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "ContentAssetCutoverBackfillStep"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": []
+      },
+      {
+        "newPath": "src/migration/Definitions/AccountEnrollmentMigrationDefinitions.cs",
+        "newSha256": "268bbbae36b6781b9052c5defa15051b3ded0a6cf0b44f5fcf7d8e9cb6c2bdc3",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/AccountEnrollmentMigrationDefinitions.cs",
+            "sha256": "5513d80e55af1539afa8fa390ddf960b85bdf18321867a902f407b0511bee924",
+            "symbols": [
+              "AccountEnrollmentMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "AccountEnrollmentMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/AccountEnrollmentMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/AnonymousEligibilityPredicateMigrationDefinitions.cs",
+        "newSha256": "4918f6d44565983a5b8dfb891da4de151d2bff310be73587cc92d8ee1219186e",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/AnonymousEligibilityPredicateMigrationDefinitions.cs",
+            "sha256": "b45d3ef7544c1ec6fbdd559b303de568d6ad6797d97bb581c7c149f9345634f2",
+            "symbols": [
+              "AnonymousEligibilityPredicateMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "AnonymousEligibilityPredicateMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/AnonymousEligibilityPredicateMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/AnonymousPrivacyMigrationDefinitions.cs",
+        "newSha256": "8b1e9f2a3d4fa691837a5847018afd8b294e1d39945632002823bf843d60cabf",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/AnonymousPrivacyMigrationDefinitions.cs",
+            "sha256": "399e9c9ed3d3a45ebda4a21f0ed90dcac9b3c13351a06753a597e82e925aef57",
+            "symbols": [
+              "AnonymousPrivacyMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "AnonymousPrivacyMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/AnonymousPrivacyMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/ArticleAssetReferenceMigrationDefinitions.cs",
+        "newSha256": "3b84c5896cb727e16489e825938c55938098054341fe8a8b2e43d5900535ab5c",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleAssetReferenceMigrationDefinitions.cs",
+            "sha256": "d6986d1ec766d7e3432c78cd3ddb3a8ca25e36bc4d592a9f2ca5a526aaed4129",
+            "symbols": [
+              "ArticleAssetReferenceMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "ArticleAssetReferenceMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleAssetReferenceMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/ArticleCommentPolicyMigrationDefinitions.cs",
+        "newSha256": "65e43e8cceef8cbc9be32837cc4742ee469cef5323bbf51f41f95ce743367526",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleCommentPolicyMigrationDefinitions.cs",
+            "sha256": "211da3c840d2604c7d9088cefee9985796aff1d8aca5e749543af5d5d50849f6",
+            "symbols": [
+              "ArticleCommentPolicyMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "ArticleCommentPolicyMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleCommentPolicyMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/ArticleDraftBaseRevisionMigrationDefinitions.cs",
+        "newSha256": "7738f552b2b12d614ff60d2b4b2ec76506402cfbc223d97e6c4037dad6ac84e2",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleDraftBaseRevisionMigrationDefinitions.cs",
+            "sha256": "94ff55e6ba19e630ea6ac13348864b2c729b809dadc39e9c3d4dc542835a071c",
+            "symbols": [
+              "ArticleDraftBaseRevisionMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "ArticleDraftBaseRevisionMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleDraftBaseRevisionMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/ArticleDraftServerRevisionMigrationDefinitions.cs",
+        "newSha256": "f83c128983bfb2e0215cebd5cf3b59bb174fc507123a58d5281ae4bd122b438d",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleDraftServerRevisionMigrationDefinitions.cs",
+            "sha256": "64e30a2e177b2b0930c32c86d489952aafe7358f2c9463268148379ab3e92768",
+            "symbols": [
+              "ArticleDraftServerRevisionMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "ArticleDraftServerRevisionMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleDraftServerRevisionMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/ArticleMutationIdempotencyMigrationDefinitions.cs",
+        "newSha256": "ba51545049438a84d00185cf5f881d99cf9b1a35ba083eaca6fa6d7a75227348",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleMutationIdempotencyMigrationDefinitions.cs",
+            "sha256": "ad7f8fd04134d46b36f10acf011241db0b5fb73f0691c33d5be4a1abd08917dc",
+            "symbols": [
+              "ArticleMutationIdempotencyMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "ArticleMutationIdempotencyMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleMutationIdempotencyMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/ArticleMutationOutboxVersionMigrationDefinitions.cs",
+        "newSha256": "f73d0be3909a24ee45e31690cca20a42e346e3860c27081c396668a6e0423e29",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleMutationOutboxVersionMigrationDefinitions.cs",
+            "sha256": "dd3c43283404bd550111014c78a69585c0869e5308790a5d4c5be44d638dbe3c",
+            "symbols": [
+              "ArticleMutationOutboxVersionMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "ArticleMutationOutboxVersionMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleMutationOutboxVersionMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/ArticlePublicationMigrationDefinitions.cs",
+        "newSha256": "fea2d7c4c2beb777e99c8a25b857b58ab63ce49542840bb91c72d6d7b32f928b",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/ArticlePublicationMigrationDefinitions.cs",
+            "sha256": "e312d8010c62c8dd406b39ff73ce7ed9fa8cc5a0f75329d44ea631463cacac44",
+            "symbols": [
+              "ArticlePublicationMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "ArticlePublicationMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/ArticlePublicationMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/ArticleResponsibilityVersionMigrationDefinitions.cs",
+        "newSha256": "ddc16121fa048c86f18024e8770f89314103f545d514a3109426c12beec6ed21",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleResponsibilityVersionMigrationDefinitions.cs",
+            "sha256": "32727aa4adde6b0624b7b50e5ab00fc38e7a1411d86a96ee316b04f9a311ddc1",
+            "symbols": [
+              "ArticleResponsibilityVersionMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "ArticleResponsibilityVersionMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleResponsibilityVersionMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/ArticleRevisionContentBlockMigrationDefinitions.cs",
+        "newSha256": "991c754d3d53c9a91c9e37a2b6272a60885d72349d0a41e593f0fd454d40a704",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleRevisionContentBlockMigrationDefinitions.cs",
+            "sha256": "2326dcf3fd015d059b3ff469a7c069ae32fce6130046d33ca1eb4e8d34fec52b",
+            "symbols": [
+              "ArticleRevisionContentBlockMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "ArticleRevisionContentBlockMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleRevisionContentBlockMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/ArticleRevisionRollbackMigrationDefinitions.cs",
+        "newSha256": "d45011d08501da639d4926d4c7b81c161b68f2890b259916e9f4f89fba2cd799",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleRevisionRollbackMigrationDefinitions.cs",
+            "sha256": "436a18713f45cd2a0a9caeae0efa160f06743d850da9141e5488dc96535ab6e0",
+            "symbols": [
+              "ArticleRevisionRollbackMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "ArticleRevisionRollbackMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleRevisionRollbackMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/ArticleTimeSemanticsMigrationDefinitions.cs",
+        "newSha256": "0270d6bcaabd04863538353113946a1e723513346f977bec56270403265fdf99",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleTimeSemanticsMigrationDefinitions.cs",
+            "sha256": "1f5ed52432d1e2f10d1ff1213a8892438e0f3a691b283ef9d1d97dafdbe7e46c",
+            "symbols": [
+              "ArticleTimeSemanticsMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "ArticleTimeSemanticsMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleTimeSemanticsMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/AuthoringAndIntegrityMigrationDefinitions.cs",
+        "newSha256": "4ee3530bbcfc417d60ad03de18a9df1136ddc2b618f104ebc91131a6e9809121",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/AuthoringAndIntegrityMigrationDefinitions.cs",
+            "sha256": "9352e06e18a5535cc7f5d285711d3272fa738daf6688953bbe177058b838a492",
+            "symbols": [
+              "AuthoringAndIntegrityMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "AuthoringAndIntegrityMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/AuthoringAndIntegrityMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/AuthoringCanvasDocumentMigrationDefinitions.cs",
+        "newSha256": "bd0ccaa30500438b7660e415ad2fe8647018a3acbcde217d5cc034546766dcc2",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/AuthoringCanvasDocumentMigrationDefinitions.cs",
+            "sha256": "d3b35464494b5649778857935f3774d4f1567c30bd12fb9afa3df586349dceab",
+            "symbols": [
+              "AuthoringCanvasDocumentMigrationDefinitions",
+              "ledgers"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "AuthoringCanvasDocumentMigrationDefinitions",
+          "ledgers"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/AuthoringCanvasDocumentMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/CommentAuthorModeRetirementMigrationDefinitions.cs",
+        "newSha256": "408633b8edc725a307cdd5bbbc2bdeb0b764ff2023fecadc480ce58dbf5c826f",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/CommentAuthorModeRetirementMigrationDefinitions.cs",
+            "sha256": "cd21415e817fa6169e38609ea9ac9fb20c49476ba23056ed37750b26a00d9bb2",
+            "symbols": [
+              "CommentAuthorModeRetirementMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "CommentAuthorModeRetirementMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/CommentAuthorModeRetirementMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/CommentGovernanceMigrationDefinitions.cs",
+        "newSha256": "805bb881b4d023df86563cc2419e0554cb0cb1b0629f6c4b40113da78083b04f",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/CommentGovernanceMigrationDefinitions.cs",
+            "sha256": "21eb6f4a8103c59e967fcabee3537646f5168227da5ef0dff680b7c911021add",
+            "symbols": [
+              "CommentGovernanceMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "CommentGovernanceMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/CommentGovernanceMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/CommentModerationEventMigrationDefinitions.cs",
+        "newSha256": "9f31417edcd170c4478d9e4ef0e60d40ded7e0c96a5ce1d0d6e79b8859feee10",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/CommentModerationEventMigrationDefinitions.cs",
+            "sha256": "115ff653c29624d123118d78481ca6bef44d96993a0bc708258f99aaa0e5f026",
+            "symbols": [
+              "CommentModerationEventMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "CommentModerationEventMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/CommentModerationEventMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/CommentModerationQueueMigrationDefinitions.cs",
+        "newSha256": "9b917fa496fab3ffa7d6d103ca265cb6364a10200f7aaa7f63825714c74f1bc1",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/CommentModerationQueueMigrationDefinitions.cs",
+            "sha256": "3bfd53ad57a061539ae8c8b3877cc81cb965f8a829a5e58dffa5760629d7d6ca",
+            "symbols": [
+              "CommentModerationQueueMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "CommentModerationQueueMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/CommentModerationQueueMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/CommentMutationIdempotencyMigrationDefinitions.cs",
+        "newSha256": "2156ead8e2a6c4f4a4a38665a6f4d2f149b3f3ef3f3d8fe38e9a8ba89ec43965",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/CommentMutationIdempotencyMigrationDefinitions.cs",
+            "sha256": "a574432dee9435e1742df5de94440e7173583a3c86c5bfd36eaa93b7b4f06a53",
+            "symbols": [
+              "CommentMutationIdempotencyMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "CommentMutationIdempotencyMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/CommentMutationIdempotencyMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/CommentMutationOutboxClaimLeaseMigrationDefinitions.cs",
+        "newSha256": "800c68f2aad131aa78a97f5e69dec9a0e3380477236129ab953c311ea8716131",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/CommentMutationOutboxClaimLeaseMigrationDefinitions.cs",
+            "sha256": "9322ee433901012231449fc6a036e7d76a9055c30e319a47fae6b401bad612e5",
+            "symbols": [
+              "CommentMutationOutboxClaimLeaseMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "CommentMutationOutboxClaimLeaseMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/CommentMutationOutboxClaimLeaseMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/CommentMutationOutboxDeliveryReservationMigrationDefinitions.cs",
+        "newSha256": "b161473c98b9e4ff47a381f623699bd3044e03dc7c7df40cc0cd852ff70a8d5c",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/CommentMutationOutboxDeliveryReservationMigrationDefinitions.cs",
+            "sha256": "4345b0b61e896f726f45bf0714708a54203b2a6262be2897302839254ce0fce6",
+            "symbols": [
+              "CommentMutationOutboxDeliveryReservationMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "CommentMutationOutboxDeliveryReservationMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/CommentMutationOutboxDeliveryReservationMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/CommentMutationOutboxMigrationDefinitions.cs",
+        "newSha256": "4c4bc57a7db90d5e4c2bea6f266142d2e5fb3256adac690a9a69c99ae7cb9a1c",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/CommentMutationOutboxMigrationDefinitions.cs",
+            "sha256": "954174c73117314801c2fc92c7228490e937eeaaf181ddfc43677dd8fd9860f4",
+            "symbols": [
+              "CommentMutationOutboxMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "CommentMutationOutboxMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/CommentMutationOutboxMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/CommentRevisionManagementMigrationDefinitions.cs",
+        "newSha256": "d5dfc226097d5592062440438a60da3b330556b1857c804a4888ac8827dc57fe",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/CommentRevisionManagementMigrationDefinitions.cs",
+            "sha256": "bfe808f84752b0c2dcf519ea451359133102550c7d233873c1c614833c831c05",
+            "symbols": [
+              "BackfillCommentInitialRevisionStep",
+              "CommentRevisionBackfillSource",
+              "CommentRevisionManagementMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "BackfillCommentInitialRevisionStep",
+          "CommentRevisionBackfillSource",
+          "CommentRevisionManagementMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/CommentRevisionManagementMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/CommentRevisionMigrationRows.cs",
+        "newSha256": "27d33b2378e010018a6d8b7c6a663f736e756b9756d8e12c33dd7358eced20b8",
+        "oldFiles": [
+          {
+            "path": "src/backend/Entities/Comment.cs",
+            "sha256": "bd270408991fd6ac8e0fbea01514fb3a1c9be00f24d302b6c5c1a82131f1e5c1",
+            "symbols": [
+              "Comment",
+              "CommentModerationStatus"
+            ]
+          },
+          {
+            "path": "src/backend/Entities/CommentRevision.cs",
+            "sha256": "d2c627f6d64c75ab564a5f65df21abf570d8b17e29186bd249d4f795b0ef1c0c",
+            "symbols": [
+              "CommentAuthorAppeal",
+              "CommentManagementChallenge",
+              "CommentRevision",
+              "CommentRevisionOperations"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "Comment",
+          "CommentRevision",
+          "CommentRevisionOperations"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": []
+      },
+      {
+        "newPath": "src/migration/Definitions/ContentAssetCutoverMigrationDefinitions.cs",
+        "newSha256": "5d4ddf4054503e180c15350179177aef72eb1e57baad02b0e59fe4e8d1d45440",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/ContentAssetCutoverMigrationDefinitions.cs",
+            "sha256": "2bf1e7533660f14ade82097485220071692bd841660ee533df9a05ea80526678",
+            "symbols": [
+              "ContentAssetCutoverMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "ContentAssetCutoverMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/ContentAssetCutoverMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/ConversationStatusAuditMigrationDefinitions.cs",
+        "newSha256": "725d56746281c2c7e73099abc5189268cf706ff5ded8fa4eb83612ad6c3561c9",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/ConversationStatusAuditMigrationDefinitions.cs",
+            "sha256": "f1b22f701cdeac83a3a1a3fe6b0aa6199097d600539359223fa9197afb52f4a3",
+            "symbols": [
+              "ConversationStatusAuditMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "ConversationStatusAuditMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/ConversationStatusAuditMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/CustomizationMigrationDefinitions.cs",
+        "newSha256": "c0b17bfd1e5bdd502b8703f482c14148a6e2205108a3f674388446aa3c1b97e2",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/CustomizationMigrationDefinitions.cs",
+            "sha256": "78cc098faedc2eff3300d981db82b191a2acd0cfceba35b5267e31f024c577b8",
+            "symbols": [
+              "CustomizationMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "CustomizationMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/CustomizationMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/DistributedInvalidationConvergenceObligationMigrationDefinitions.cs",
+        "newSha256": "b71c20932476bd7c319482e9696c375f8a002a05bee656804fc07497cf9a4c73",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/DistributedInvalidationConvergenceObligationMigrationDefinitions.cs",
+            "sha256": "e3cdf4da78e2379b5b8b4fa6c59084479051fbdc2377f737207d179b36c4a357",
+            "symbols": [
+              "DistributedInvalidationConvergenceObligationMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "DistributedInvalidationConvergenceObligationMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/DistributedInvalidationConvergenceObligationMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/DistributedInvalidationDeliveryLedgerMigrationDefinitions.cs",
+        "newSha256": "145317af23137f96d44d7e1351eea9b08826cd117b4fe56f702c57ef9e1d0d03",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/DistributedInvalidationDeliveryLedgerMigrationDefinitions.cs",
+            "sha256": "b53333b64062e0249a890d85fd0e0e24b2932508f2247436faee32009e36d144",
+            "symbols": [
+              "DistributedInvalidationDeliveryLedgerMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "DistributedInvalidationDeliveryLedgerMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/DistributedInvalidationDeliveryLedgerMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/DistributedInvalidationFullReconcileMigrationDefinitions.cs",
+        "newSha256": "7355105a91b3db19c3ea7a9822e834eda343a77aea7a6647005d7c0c2d9fffcf",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/DistributedInvalidationFullReconcileMigrationDefinitions.cs",
+            "sha256": "1cf1ba111a4ba9e3768d016a0eb87bd3c179a4efaedce9fe0cfcb1ff6347cac5",
+            "symbols": [
+              "DistributedInvalidationFullReconcileMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "DistributedInvalidationFullReconcileMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/DistributedInvalidationFullReconcileMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/LegacyIdentityMigrationDefinitions.cs",
+        "newSha256": "82e7335e75dcc4a8e18b556c3eed1dcb0a2a0e2667848ea41efa6b1d7270e9aa",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/LegacyIdentityMigrationDefinitions.cs",
+            "sha256": "2d38e14853b4bb86b82c02859cc0be4a737990822246d84872d0e0e7eb46dfa7",
+            "symbols": [
+              "LegacyIdentityMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "LegacyIdentityMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/LegacyIdentityMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/MessageAdminQueueMigrationDefinitions.cs",
+        "newSha256": "405e452eecc76234ee303009a119302efbfb59dc417f0db0b409ac8171fff753",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/MessageAdminQueueMigrationDefinitions.cs",
+            "sha256": "4899f7142d2d7993c414e75c8dcd660b6d4285bec33ff3dd1592913a00bab07f",
+            "symbols": [
+              "MessageAdminQueueMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "MessageAdminQueueMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/MessageAdminQueueMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/MessageMutationIdempotencyMigrationDefinitions.cs",
+        "newSha256": "3f0e9cbd63fc691ec761bc3302210a93814f59afa04827f933d646689da7c2fa",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/MessageMutationIdempotencyMigrationDefinitions.cs",
+            "sha256": "b3dd57f3c9ecb730525cc86f158bedd35aa6a3e8d1c6ec7ae0a4628bbe900300",
+            "symbols": [
+              "MessageMutationIdempotencyMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "MessageMutationIdempotencyMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/MessageMutationIdempotencyMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/MessageMutationOutboxMigrationDefinitions.cs",
+        "newSha256": "3794878b4b69fa725cc2b8f3a8394bbae4ff874fe364e8cea8eb4c30d969d441",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/MessageMutationOutboxMigrationDefinitions.cs",
+            "sha256": "bba05cff3dca8f1be3ccfaa786b15802c4fdc2d769d2ec4dabf77be6839b6a07",
+            "symbols": [
+              "MessageMutationOutboxMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "MessageMutationOutboxMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/MessageMutationOutboxMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/MessagePrivacyRetentionMigrationDefinitions.cs",
+        "newSha256": "b350aeca92eca492f891d8987a6047df7576e7d5e6d83071e07d4031ad84dc4a",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/MessagePrivacyRetentionMigrationDefinitions.cs",
+            "sha256": "ced88e6d399ea6ef12bac2489b1e87e534ffd24df327ab765b0b740d209a99c0",
+            "symbols": [
+              "MessagePrivacyRetentionMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "MessagePrivacyRetentionMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/MessagePrivacyRetentionMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/MessageUnreadAuthorityMigrationDefinitions.cs",
+        "newSha256": "7e917ea6a68e04087c9e76a8774d724d2d507ea53e91611773c0505f11a4b384",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/MessageUnreadAuthorityMigrationDefinitions.cs",
+            "sha256": "df771fd58a2764e14e72c257611379aee0dac1f367359784c5b8566387edfba3",
+            "symbols": [
+              "MessageUnreadAuthorityMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "MessageUnreadAuthorityMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/MessageUnreadAuthorityMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/PasskeySignalMigrationDefinitions.cs",
+        "newSha256": "58b12c85fb57c66d829beb1671e4464ab398e9097cd4602c709d9df8fad2b1fb",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/PasskeySignalMigrationDefinitions.cs",
+            "sha256": "7ae4bfe535d0f6d75ef95196123784df802c1a36e9680ef9d76c78f49e6c2f98",
+            "symbols": [
+              "PasskeySignalMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "PasskeySignalMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/PasskeySignalMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/PluginRegistryMigrationDefinitions.cs",
+        "newSha256": "affc7731b68a5e8386b366472948893b08641909b78a0c154a6223201af6df0e",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/PluginRegistryMigrationDefinitions.cs",
+            "sha256": "7e81ae68e7f1f9f33bacfbbcd014fa59563074e516ef18c5338098c35dbb5279",
+            "symbols": [
+              "PluginRegistryMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "PluginRegistryMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/PluginRegistryMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/RefreshTokenLineageMigrationDefinitions.cs",
+        "newSha256": "921bd0102258c6f70ffec6671c24c6d4cdcb8b489666b459e32e69591c884262",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/RefreshTokenLineageMigrationDefinitions.cs",
+            "sha256": "23a1ca411556f8fa45ed545aa4f919131cf74e278bb0504891e9d85e64e7b4fc",
+            "symbols": [
+              "RefreshTokenLineageMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "RefreshTokenLineageMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/RefreshTokenLineageMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/ScheduledPublishIndexMigrationDefinitions.cs",
+        "newSha256": "b483b811a3d70070fb90f85ff32b368cf3b7fb2d02595ec3a56b6955f7efb69c",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/ScheduledPublishIndexMigrationDefinitions.cs",
+            "sha256": "ea82687313a12392650d732857885d0968ce2302ee23526e531cd8d4f121fdf5",
+            "symbols": [
+              "CreateScheduledPublishDueIndexStep",
+              "ScheduledPublishIndexMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "CreateScheduledPublishDueIndexStep",
+          "ScheduledPublishIndexMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/ScheduledPublishIndexMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/SecurityAndProjectionMigrationDefinitions.cs",
+        "newSha256": "ff070c1196f1ef0abef44608cde9d2addbc62ad32981d103b4a9cef5afb60bda",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/SecurityAndProjectionMigrationDefinitions.cs",
+            "sha256": "aca5faa29a90df52f7bbd25e8e8b07a11798eca58bb7a806384b90d45d0b18d0",
+            "symbols": [
+              "SecurityAndProjectionMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "SecurityAndProjectionMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/SecurityAndProjectionMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/TaxonomyDescriptionMigrationDefinitions.cs",
+        "newSha256": "d7352892c922c64f4275966f441bc9f1fccdde981cd467ef2ac627ecc3bf2a15",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/TaxonomyDescriptionMigrationDefinitions.cs",
+            "sha256": "c05f0ba6cece28f1b3b00921910e59e358c99280873cb5eb4896a81fcbf84a5e",
+            "symbols": [
+              "TaxonomyDescriptionMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "TaxonomyDescriptionMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/TaxonomyDescriptionMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/ThemeActivationRuntimeMigrationDefinitions.cs",
+        "newSha256": "a297b238e96d2ee0954aa9288802f64baa6c243e6b79bb3e5b92c4a06ba9a36f",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/ThemeActivationRuntimeMigrationDefinitions.cs",
+            "sha256": "f0af542b24d542793413c5149e7a645e4c1a62dcc5c6f72be08b50ca0fe103aa",
+            "symbols": [
+              "ThemeActivationRuntimeMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "ThemeActivationRuntimeMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/ThemeActivationRuntimeMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/ThemeRegistryMigrationDefinitions.cs",
+        "newSha256": "990b7b3a209ca4fbc1fcb09d92c302be9687918b6cfcf7ab8fa4229f7d9940ea",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/ThemeRegistryMigrationDefinitions.cs",
+            "sha256": "50cf94a8c6072ee0fa8e6fa390ce372c0e1fedb985f3bada69cf4d0ae11b12e4",
+            "symbols": [
+              "ThemeRegistryMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "ThemeRegistryMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/ThemeRegistryMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/UserLocalePreferenceMigrationDefinitions.cs",
+        "newSha256": "693649f43b196981b2ce0ee30de4d55912a26155c533155b73266a9c514d1fce",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/UserLocalePreferenceMigrationDefinitions.cs",
+            "sha256": "7fd641dbb56d4fff4670c60912ae7c47c76bfebe959bde181255c3811440610a",
+            "symbols": [
+              "UserLocalePreferenceMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "UserLocalePreferenceMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/UserLocalePreferenceMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/UserSessionAuthenticationContextMigrationDefinitions.cs",
+        "newSha256": "8dfc9f78075fc0c0bbfa3d12c1dd5990f61397e4ea66b77c5bac3cd2fac16a3f",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/UserSessionAuthenticationContextMigrationDefinitions.cs",
+            "sha256": "8211f04dd693599eda27b75c186265fee27796594db56ca5ee3b2da97e4e17a2",
+            "symbols": [
+              "UserSessionAuthenticationContextMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "UserSessionAuthenticationContextMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/UserSessionAuthenticationContextMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/UserSessionMetadataMinimizationMigrationDefinitions.cs",
+        "newSha256": "77561dd4e98b0bef52556c49fd03fbb4757a1045a88037288b3e526c14aba107",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/UserSessionMetadataMinimizationMigrationDefinitions.cs",
+            "sha256": "4d8fdcb5ac7a0e68051e22042e0a68d1b3b543a9b4c970e23290f5107006e204",
+            "symbols": [
+              "UserSessionMetadataMinimizationMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "UserSessionMetadataMinimizationMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/UserSessionMetadataMinimizationMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/UserSessionModeMigrationDefinitions.cs",
+        "newSha256": "a4e033e8e4d2cc0f87e2b53d277270e1d6ca8295b169b25384d3c5ff3625e6d0",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/UserSessionModeMigrationDefinitions.cs",
+            "sha256": "e44e7b5817cb7491be796d7f8c608cb6a245d737135b265148093d2ca4dbeefa",
+            "symbols": [
+              "UserSessionModeMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "UserSessionModeMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/UserSessionModeMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/Definitions/UserSessionMultiDeviceMigrationDefinitions.cs",
+        "newSha256": "8949c34d52a8ed511550d1cd437eac47848f9f90715fdacf1075d56c5a19e01d",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/Definitions/UserSessionMultiDeviceMigrationDefinitions.cs",
+            "sha256": "6d5d0a7e40bb5184b04f1238258cdad132d4162322ff56d0b7cd7d53f954b59e",
+            "symbols": [
+              "UserSessionMultiDeviceMigrationDefinitions"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "UserSessionMultiDeviceMigrationDefinitions"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/Definitions/UserSessionMultiDeviceMigrationDefinitions.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/DestructiveMigrationProofs.cs",
+        "newSha256": "434077993a029aafd758518ef70ecd64c3d1f3445c9f7a14f6c3dbc5a44ade44",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/DestructiveMigrationProofs.cs",
+            "sha256": "981e05878d48475e40d61afab450489555b65e67fbdba859c09a2682fa6c9def",
+            "symbols": [
+              "DestructiveMigrationProof",
+              "DestructiveMigrationProofs",
+              "IDestructiveSchemaMigrationStep"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "DestructiveMigrationProof",
+          "DestructiveMigrationProofs",
+          "IDestructiveSchemaMigrationStep"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/DestructiveMigrationProofs.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/OfflineMigrationCatalogEntries.generated.cs",
+        "newSha256": "7e3c386574df90db43af7bedd697f9082e55fd8dc5015427939290d5b4f16422",
+        "oldFiles": [],
+        "movedSymbols": [],
+        "newSymbols": [
+          "OfflineMigrationCatalogEntries",
+          "OfflineMigrationClassification",
+          "OfflineMigrationPhase"
+        ],
+        "oldPathsDeleted": []
+      },
+      {
+        "newPath": "src/migration/OfflineMigrationCommandLine.cs",
+        "newSha256": "fa3cb0e973d3bd1996fe9f63ac15e2c52f744c0bc2ba49e1dc8c48e2fd021987",
+        "oldFiles": [],
+        "movedSymbols": [],
+        "newSymbols": [
+          "OfflineMigrationCommandLine",
+          "OfflineMigrationCommandOptions"
+        ],
+        "oldPathsDeleted": []
+      },
+      {
+        "newPath": "src/migration/OfflineMigrationExecutor.cs",
+        "newSha256": "822dade45a6aa698fdfb5a26db042abd43d96a718c0099497578a040c3e61902",
+        "oldFiles": [],
+        "movedSymbols": [],
+        "newSymbols": [
+          "OfflineMigrationExecutionResult",
+          "OfflineMigrationExecutor"
+        ],
+        "oldPathsDeleted": []
+      },
+      {
+        "newPath": "src/migration/OfflineMigrationHost.cs",
+        "newSha256": "f152bc1351e51b9f933f09f61b107c62f14f3fd596c824d7c4a62b26db40195e",
+        "oldFiles": [],
+        "movedSymbols": [],
+        "newSymbols": [
+          "OfflineMigrationHost"
+        ],
+        "oldPathsDeleted": []
+      },
+      {
+        "newPath": "src/migration/OfflineMigrationStateStore.cs",
+        "newSha256": "ef5de70ee4bee46c0610c909f01d576faea6f5908570accb6f10d475f3365237",
+        "oldFiles": [],
+        "movedSymbols": [],
+        "newSymbols": [
+          "BackfillSnapshot",
+          "OfflineMigrationStateStore"
+        ],
+        "oldPathsDeleted": []
+      },
+      {
+        "newPath": "src/migration/OnlineSchemaBackfillPrimitives.cs",
+        "newSha256": "2b305c80c9ab000bbe8070933333069e573c316805cdcf7bb23a7e287cd7a1c8",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCoordinator.cs",
+            "sha256": "8e19ecbb14bb42a0d57831c8f3c2632e10479d9e136276d013774f4312ce3c08",
+            "symbols": [
+              "IOnlineSchemaBackfillHandler",
+              "IOnlineSchemaMigrationCoordinator",
+              "IOnlineSchemaMigrationDescriptorExecutor",
+              "NoopAsyncDisposable",
+              "OnlineSchemaBackfillBatchResult",
+              "OnlineSchemaCompatibilityRuntimeState",
+              "OnlineSchemaMigrationCommand",
+              "OnlineSchemaMigrationCommandHost",
+              "OnlineSchemaMigrationCommandKind",
+              "OnlineSchemaMigrationCommandLine",
+              "OnlineSchemaMigrationCoordinator",
+              "OnlineSchemaMigrationEnvironmentFile",
+              "OnlineSchemaMigrationExecutionResult",
+              "OnlineSchemaMigrationOptions",
+              "OnlineSchemaMigrationServiceCollectionExtensions",
+              "PostgresOnlineSchemaMigrationDescriptorExecutor",
+              "ServeSchemaCompatibilityRunner"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "IOnlineSchemaBackfillHandler",
+          "OnlineSchemaBackfillBatchResult"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": []
+      },
+      {
+        "newPath": "src/migration/Properties/AssemblyInfo.cs",
+        "newSha256": "3499bb36662d918a32b1a1fe41ca6f7c1ffb33a00769c3918646a4286c5baf84",
+        "oldFiles": [],
+        "movedSymbols": [],
+        "newSymbols": [],
+        "oldPathsDeleted": []
+      },
+      {
+        "newPath": "src/migration/SchemaMigrationDdlPrimitives.cs",
+        "newSha256": "10e79f34d58509c73a0504099a89d93e52d0822a11e9beead74287f7d8250fec",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/SchemaMigrationDdlPrimitives.cs",
+            "sha256": "36cbc1662494f7fe2c5a68626250d47682cd17beeb326277171c1822d3339e70",
+            "symbols": [
+              "ISchemaDdlProvider",
+              "MySqlSchemaDdlProvider",
+              "PostgresSchemaDdlProvider",
+              "SchemaColumnDefinition",
+              "SchemaDdlDialect",
+              "SchemaDdlProviderBase",
+              "SchemaDdlProviders",
+              "SchemaIdentifier",
+              "SchemaMigrationCommand",
+              "SchemaMigrationPreviewResult",
+              "SchemaMigrationPreviewStep",
+              "SchemaMigrationPreviewer",
+              "SqliteSchemaDdlProvider"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "ISchemaDdlProvider",
+          "MySqlSchemaDdlProvider",
+          "PostgresSchemaDdlProvider",
+          "SchemaColumnDefinition",
+          "SchemaDdlDialect",
+          "SchemaDdlProviderBase",
+          "SchemaDdlProviders",
+          "SchemaIdentifier",
+          "SchemaMigrationCommand",
+          "SchemaMigrationPreviewResult",
+          "SchemaMigrationPreviewStep",
+          "SchemaMigrationPreviewer",
+          "SqliteSchemaDdlProvider"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/SchemaMigrationDdlPrimitives.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/SchemaMigrationExecution.cs",
+        "newSha256": "421dd1859d58f28a5d2092caa3c142a0401170ae29d19d4daa50cee95f263d0f",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs",
+            "sha256": "c62e852c3c37c15d58165b909fa6929121a1f97b5a5c7365545d7c8ce1c612e2",
+            "symbols": [
+              "ISchemaMigrationRunner",
+              "SchemaMigrationHistoryEntry",
+              "SchemaMigrationRunner",
+              "SchemaMigrationTransactionExecutor"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "SchemaMigrationHistoryEntry",
+          "SchemaMigrationTransactionExecutor"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": []
+      },
+      {
+        "newPath": "src/migration/SchemaMigrationManifest.cs",
+        "newSha256": "79c70deb15553d24badcf36127fc852cda53667095798d064702e9ec2e20d710",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/SchemaMigrationManifest.cs",
+            "sha256": "c4395b692c79602f9411ef4e6fc2076dfa5efce097e4617f7a3aa307109d088b",
+            "symbols": [
+              "SchemaMigrationManifest"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "SchemaMigrationManifest"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/SchemaMigrationManifest.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/SchemaMigrationPrimitives.cs",
+        "newSha256": "a6655983ba8ab77ad42c34451a420030b671db844307498a854595aa6dad5cb4",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/SchemaMigrationPrimitives.cs",
+            "sha256": "7110cbc86dfad015b191570af0e828a2b7030047495963272a91423d4cac2bb0",
+            "symbols": [
+              "AssertSqlStep",
+              "BackfillSqlStep",
+              "ClearLegacyPublicArtifactsStep",
+              "CopyColumnToColumnStep",
+              "CopyColumnToTableStep",
+              "CreateIndexStep",
+              "DropColumnStep",
+              "DropIndexStep",
+              "DropTableStep",
+              "EnsureColumnStep",
+              "EnsureTableStep",
+              "ISchemaMigrationDescriptor",
+              "RawSqlStep",
+              "RenameColumnStep",
+              "RenameTableStep",
+              "SchemaMigrationDescriptor",
+              "SchemaMigrationPhase",
+              "SchemaMigrationSql",
+              "SchemaMigrationStep"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "AssertSqlStep",
+          "BackfillSqlStep",
+          "ClearLegacyPublicArtifactsStep",
+          "CopyColumnToColumnStep",
+          "CopyColumnToTableStep",
+          "CreateIndexStep",
+          "DropColumnStep",
+          "DropIndexStep",
+          "DropTableStep",
+          "EnsureColumnStep",
+          "EnsureTableStep",
+          "ISchemaMigrationDescriptor",
+          "RawSqlStep",
+          "RenameColumnStep",
+          "RenameTableStep",
+          "SchemaMigrationDescriptor",
+          "SchemaMigrationPhase",
+          "SchemaMigrationSql",
+          "SchemaMigrationStep"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/SchemaMigrationPrimitives.cs"
+        ]
+      },
+      {
+        "newPath": "src/migration/SchemaMigrationRegistry.cs",
+        "newSha256": "7859728ecb4a4d5a2b58245777ece04c35cd4db4e4c07d30cf881ad35963b849",
+        "oldFiles": [
+          {
+            "path": "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs",
+            "sha256": "425c7de227dc537b57c04bbde1ad3245f60f4c56a29984e65855d04fea32fec4",
+            "symbols": [
+              "ISchemaMigrationRegistry",
+              "SchemaMigrationRegistry"
+            ]
+          }
+        ],
+        "movedSymbols": [
+          "ISchemaMigrationRegistry",
+          "SchemaMigrationRegistry"
+        ],
+        "newSymbols": [],
+        "oldPathsDeleted": [
+          "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs"
+        ]
+      }
+    ],
+    "oldContentDigest": "8c93dc7c94f1c86d0676751657606c6c0043a34bd67186d59049aa7e146cfaca",
+    "deletedOldPaths": [
+      "src/backend/Infrastructure/SchemaMigration/AccountSubjectHashBackfillStep.cs",
+      "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog.cs",
+      "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260418To20260518.cs",
+      "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260602To20260621.cs",
+      "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260625To20260704.cs",
+      "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260709To20260716.cs",
+      "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260719.cs",
+      "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260720.cs",
+      "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260724.cs",
+      "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260725.cs",
+      "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260726.cs",
+      "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260727.cs",
+      "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260728.cs",
+      "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260809.cs",
+      "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260826.cs",
+      "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260828.cs",
+      "src/backend/Infrastructure/SchemaMigration/Catalogs/SchemaMigrationCatalog20260829.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/AccountEnrollmentMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/AnonymousEligibilityPredicateMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/AnonymousPrivacyMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleAssetReferenceMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleCommentPolicyMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleDraftBaseRevisionMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleDraftServerRevisionMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleMutationIdempotencyMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleMutationOutboxVersionMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/ArticlePublicationMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleResponsibilityVersionMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleRevisionContentBlockMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleRevisionRollbackMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/ArticleTimeSemanticsMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/AuthoringAndIntegrityMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/AuthoringCanvasDocumentMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/CommentAuthorModeRetirementMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/CommentGovernanceMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/CommentModerationEventMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/CommentModerationQueueMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/CommentMutationIdempotencyMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/CommentMutationOutboxClaimLeaseMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/CommentMutationOutboxDeliveryReservationMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/CommentMutationOutboxMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/CommentRevisionManagementMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/ContentAssetCutoverMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/ConversationStatusAuditMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/CustomizationMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/DistributedInvalidationConvergenceObligationMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/DistributedInvalidationDeliveryLedgerMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/DistributedInvalidationFullReconcileMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/LegacyIdentityMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/MessageAdminQueueMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/MessageMutationIdempotencyMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/MessageMutationOutboxMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/MessagePrivacyRetentionMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/MessageUnreadAuthorityMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/PasskeySignalMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/PluginRegistryMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/RefreshTokenLineageMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/ScheduledPublishIndexMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/SecurityAndProjectionMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/TaxonomyDescriptionMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/ThemeActivationRuntimeMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/ThemeRegistryMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/UserLocalePreferenceMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/UserSessionAuthenticationContextMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/UserSessionMetadataMinimizationMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/UserSessionModeMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/Definitions/UserSessionMultiDeviceMigrationDefinitions.cs",
+      "src/backend/Infrastructure/SchemaMigration/DestructiveMigrationProofs.cs",
+      "src/backend/Infrastructure/SchemaMigration/SchemaMigrationDdlPrimitives.cs",
+      "src/backend/Infrastructure/SchemaMigration/SchemaMigrationManifest.cs",
+      "src/backend/Infrastructure/SchemaMigration/SchemaMigrationPrimitives.cs",
+      "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs"
+    ]
+  },
+  "contentDigest": "e474df0b99f2ac151126e304df949c307c354fa7d6787a8b063eb8cb1e00893b",
+  "testFiles": [
+    {
+      "path": "tests/migration/FsusBlog.Migration.Tests.csproj",
+      "sha256": "e5160a72e306044117de9775444e4a61d5996f05d2e654c9a9bd94e504159af9"
+    },
+    {
+      "path": "tests/migration/MigrationAssemblyBoundaryTests.cs",
+      "sha256": "180e30d8fd613ce5878be24033d3ab7c91c283bd0b4b9267ed40ff3733202957"
+    },
+    {
+      "path": "tests/migration/OfflineMigrationCommandLineTests.cs",
+      "sha256": "87f15704c718567e7ef4da097c8ac00c44fe50520155b277ad7198c4c4dc2d5d"
+    },
+    {
+      "path": "tests/migration/packages.lock.json",
+      "sha256": "9932d64ee31ddde272b8104f466ef4bfe78fe564d259c74add51c2c547e1ba8c"
+    },
+    {
+      "path": "tests/migration/schema-ddl-provider-snapshots.json",
+      "sha256": "5a820a6fd24e42208816c1fbea01714ffb9aefebab84de0875bbbf3054adfb96"
+    },
+    {
+      "path": "tests/migration/SchemaMigrationDdlPrimitivesTests.cs",
+      "sha256": "5ab89b14fd6de0fcdea83656facca23980405c604230da63deab3aaf57d0011e"
+    }
+  ],
+  "testContentDigest": "dbb0aa722ddad984a6918a7a68b4d72e4d4f17fb7fb63b87be34a3664843dcac",
+  "verificationInputDigest": "5f2239d9d36b7b5aa1367aa9aa2e19d90fd9e9cfffafcd6850d87d2fe23d74fe",
+  "verificationResults": [
+    {
+      "command": "dotnet build src/migration/FsusBlog.Migration.csproj -c Release --no-restore",
+      "status": "passed",
+      "exitCode": 0,
+      "inputDigest": "5f2239d9d36b7b5aa1367aa9aa2e19d90fd9e9cfffafcd6850d87d2fe23d74fe",
+      "summary": "0 Warning(s) | 0 Error(s) | Time Elapsed 00:00:00.55"
+    },
+    {
+      "command": "dotnet test tests/migration/FsusBlog.Migration.Tests.csproj -c Release --no-restore",
+      "status": "passed",
+      "exitCode": 0,
+      "inputDigest": "5f2239d9d36b7b5aa1367aa9aa2e19d90fd9e9cfffafcd6850d87d2fe23d74fe",
+      "summary": "Test run for <repo>/tests/migration/bin/Release/net10.0/FsusBlog.Migration.Tests.dll (.NETCoreApp,Version=v10.0) | A total of 1 test files matched the specified pattern. | Passed!  - Failed:     0, Passed:    36, Skipped:     0, Total:    36, Duration: 198 ms - FsusBlog.Migration.Tests.dll (net10.0)"
+    }
+  ]
+}

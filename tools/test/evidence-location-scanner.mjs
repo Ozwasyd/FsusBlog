@@ -13,14 +13,21 @@ const supportedExtension = /\.(?:cs|js|json|mjs|sh|ts|tsx|ya?ml)$/u;
 // contract instead of repository consumers. The list is deliberately exact:
 // wildcard or directory suppressions are not supported.
 const authoritySourcePaths = new Set([
+    'artifacts/change-contract/evidence-location-governance-post-merge-repair.json',
+    'artifacts/change-contract/evidence-location-governance-post-merge-repair-external-naming.json',
     'config/testing/current-run-evidence-context.schema.json',
+    'config/testing/current-run-evidence-location-acceptance.json',
     'config/testing/evidence-location-migration-ledger.json',
     'config/testing/evidence-location-migration-ledger.schema.json',
     'config/testing/evidence-locator-registry.json',
     'config/testing/evidence-locator-registry.schema.json',
     'tools/test/evidence-location-contract.mjs',
     'tools/test/evidence-location-scanner.mjs',
-    'tools/test/generate-evidence-location-governance.mjs'
+    'tools/test/generate-evidence-location-governance.mjs',
+    'tools/test/current-run-evidence-locator.mjs',
+    'tools/test/current-run-evidence-transport.mjs',
+    'tools/test/run-current-run-evidence-transport.mjs',
+    'tools/test/generate-current-run-evidence-location-acceptance.mjs'
 ]);
 const evidenceVocabulary = /(?:artifact|checkpoint|coverage|evidence|flaky|manifest|public[-_ ]preview|quality[-_ ]gate|receipt|release[-_ ]final|report|summary)/iu;
 const stableFunction = /^(?:async\s+)?function\s+([A-Za-z_$][\w$]*)|^(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/u;

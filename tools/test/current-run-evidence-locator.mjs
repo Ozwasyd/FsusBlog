@@ -115,7 +115,12 @@ export function locateCurrentRunEvidence(options)
         || (entry.locatorMode === 'content-addressed-reference' && referenceCount === 1),
     'evidence input does not match registered locator mode');
     const inputPath = explicitCount === 1 ? explicitInputs[0] : reference.path;
+    assert(!String(inputPath ?? '').replaceAll('\\', '/').split('/').includes('downloaded-artifacts'),
+        'downloaded evidence requires an exact transport manifest mapping');
     const realPath = assertSafeExplicitPath(inputPath, entry, context, repositoryRoot);
+    const relativeInput = path.relative(repositoryRoot, realPath).replaceAll(path.sep, '/');
+    assert(!relativeInput.split('/').includes('downloaded-artifacts'),
+        'downloaded evidence requires an exact transport manifest mapping');
     const inputDigest = digestFile(realPath);
     if (reference)
     {

@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/contracts.md",
+                "docs/api/design.md",
+                "docs/architecture.md"
+            ],
+            "reason": "preserve documented Filter AOT and SEO field spellings while describing taxonomy description reuse"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/PublicAot/PublicAotDocumentService.cs"
+            ],
+            "reason": "preserve caller-visible process and contract spellings while resolving Filter SEO description from filter.description"
+        }
+    ]
+}

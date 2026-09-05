@@ -1,0 +1,30 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/backend/Fixtures/backend-test-requirements.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "preserve serialized test-governance keys and canonical test identifiers while binding the OpenAPI package to its central version authority"
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md",
+                "tests/coverage-registry.json",
+                "tools/check-backend-test-governance.mjs"
+            ],
+            "reason": "preserve registered external documentation and tooling identifiers while extending the backend governance contract"
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/static-governance.sh"
+            ],
+            "reason": "preserve caller-visible shell environment spellings while registering the focused governance test"
+        }
+    ]
+}

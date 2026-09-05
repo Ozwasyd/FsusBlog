@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "preserve the serialized lifecycle registry keys while assigning exact ownership to the six current canonical Node test files"
+        }
+    ]
+}

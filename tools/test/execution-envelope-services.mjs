@@ -13,8 +13,131 @@ export const executionServiceCatalogFile = path.join(
     'config/testing/test-execution-service-catalog.json'
 );
 export const executionEnvelopeServicesSchema =
-    'fsusblog.test-execution-envelope-services.v1';
+    'fsusblog.test-execution-envelope-services.v2';
 const digestPattern = /^sha256:[a-f0-9]{64}$/u;
+const decimalIdentifierPattern = /^[1-9][0-9]*$/u;
+const containerIdentityFields = [
+    'containerId',
+    'imageReference',
+    'imageId',
+    'repositoryDigest',
+    'serviceVersion',
+    'networkMode',
+    'ports',
+    'resourceLimits'
+];
+const postgresIdentityFields = [...containerIdentityFields, 'databaseIdentity'];
+const postgresDatabaseIdentityQuery = [
+    'SELECT json_build_object(',
+    "'systemIdentifier', (pg_control_system()).system_identifier::text,",
+    "'database', current_database(),",
+    "'username', current_user,",
+    "'serverVersion', current_setting('server_version'),",
+    "'serverVersionNumber', current_setting('server_version_num')",
+    ')::text;'
+].join(' ');
+
+function hasExactProperties(value, expected)
+{
+    if (!value || typeof value !== 'object' || Array.isArray(value))
+    {
+        return false;
+    }
+    return JSON.stringify(Object.keys(value).sort())
+        === JSON.stringify([...expected].sort());
+}
+
+function hasExactArray(value, expected)
+{
+    return Array.isArray(value)
+        && JSON.stringify(value) === JSON.stringify(expected);
+}
+
+function validatePostgresDatabaseIdentity(identity, catalogEntry)
+{
+    if (!hasExactProperties(identity, [
+        'systemIdentifier',
+        'database',
+        'username',
+        'serverVersion',
+        'serverVersionNumber'
+    ]))
+    {
+        throw new Error('postgres: database identity is malformed');
+    }
+    const escapedVersion = String(catalogEntry.version ?? '')
+        .replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+    const versionPattern = new RegExp(`^${escapedVersion}(?:$|\\s)`, 'u');
+    if (typeof identity.systemIdentifier !== 'string'
+        || !decimalIdentifierPattern.test(identity.systemIdentifier)
+        || typeof identity.database !== 'string'
+        || typeof identity.username !== 'string'
+        || typeof identity.serverVersion !== 'string'
+        || typeof identity.serverVersionNumber !== 'string'
+        || identity.database !== catalogEntry.database
+        || identity.username !== catalogEntry.username
+        || !versionPattern.test(identity.serverVersion)
+        || identity.serverVersionNumber !== catalogEntry.serverVersionNumber)
+    {
+        throw new Error('postgres: database identity drift');
+    }
+}
+
+function validateObservedContainerService(identity, catalogEntry)
+{
+    const isPostgres = identity?.id === 'postgres';
+    const expectedProperties = [
+        'id',
+        'kind',
+        'containerId',
+        'createdAt',
+        'imageReference',
+        'imageId',
+        'repositoryDigest',
+        'serviceVersion',
+        'networkMode',
+        'networkNamespace',
+        'ports',
+        'resourceLimits',
+        ...(isPostgres ? ['databaseIdentity'] : [])
+    ];
+    if (!hasExactProperties(identity, expectedProperties)
+        || identity.kind !== 'container'
+        || !String(identity.containerId ?? '').trim()
+        || !String(identity.createdAt ?? '').trim()
+        || identity.imageReference !== catalogEntry.imageReference
+        || !digestPattern.test(identity.imageId ?? '')
+        || identity.repositoryDigest !== catalogEntry.imageReference
+        || !String(identity.serviceVersion ?? '').includes(catalogEntry.version)
+        || !String(identity.networkMode ?? '').trim()
+        || !String(identity.networkNamespace ?? '').trim()
+        || !Array.isArray(identity.ports)
+        || !hasExactProperties(identity.resourceLimits, [
+            'nanoCpus',
+            'memory',
+            'memoryReservation',
+            'pidsLimit'
+        ])
+        || Object.values(identity.resourceLimits)
+            .some((value) => !Number.isInteger(value) || value < 0))
+    {
+        throw new Error(`${identity?.id ?? 'unknown'}: container identity is malformed`);
+    }
+    for (const port of identity.ports)
+    {
+        if (!hasExactProperties(port, ['containerPort', 'hostIp', 'hostPort'])
+            || !String(port.containerPort ?? '').trim()
+            || !String(port.hostIp ?? '').trim()
+            || !String(port.hostPort ?? '').trim())
+        {
+            throw new Error(`${identity.id}: container port identity is malformed`);
+        }
+    }
+    if (isPostgres)
+    {
+        validatePostgresDatabaseIdentity(identity.databaseIdentity, catalogEntry);
+    }
+}
 
 export function loadExecutionServiceCatalog(file = executionServiceCatalogFile)
 {
@@ -54,15 +177,45 @@ export function validateExecutionServiceCatalog(catalog, matrix)
     {
         return ['execution service catalog source is missing'];
     }
-    if (catalog?.schema !== 'fsusblog.test-execution-service-catalog.v1')
+    if (catalog?.schema !== 'fsusblog.test-execution-service-catalog.v2'
+        || catalog?.version !== 2
+        || !hasExactProperties(catalog, [
+            'schema',
+            'version',
+            'correctnessPhase',
+            'containerRuntime',
+            'services'
+        ]))
     {
         errors.push('execution service catalog schema is invalid');
     }
-    if (catalog?.correctnessPhase?.imagePull !== 'denied'
+    if (!hasExactProperties(catalog?.correctnessPhase, [
+        'imagePull',
+        'hostFallback',
+        'admission'
+    ])
+        || catalog?.correctnessPhase?.imagePull !== 'denied'
         || catalog?.correctnessPhase?.hostFallback !== 'denied'
         || catalog?.correctnessPhase?.admission !== 'planned-actual-exact')
     {
         errors.push('correctness service phase must deny pulls and host fallback with exact admission');
+    }
+    if (!hasExactProperties(catalog?.containerRuntime, [
+        'kind',
+        'identityFields',
+        'plannedVersionSource'
+    ])
+        || catalog?.containerRuntime?.kind !== 'docker'
+        || !hasExactArray(catalog?.containerRuntime?.identityFields, [
+            'serverVersion',
+            'serverId',
+            'operatingSystem',
+            'architecture',
+            'cgroupDriver'
+        ])
+        || catalog?.containerRuntime?.plannedVersionSource !== 'observed-preflight-exact')
+    {
+        errors.push('execution service Docker runtime authority is invalid');
     }
     const declaredServices = new Set(Object.keys(catalog?.services ?? {}));
     const matrixServices = new Set(
@@ -83,6 +236,25 @@ export function validateExecutionServiceCatalog(catalog, matrix)
         }
         if (service.kind === 'container')
         {
+            const isPostgres = id === 'postgres';
+            const expectedProperties = [
+                'kind',
+                'imageReference',
+                'version',
+                'versionCommand',
+                'hostNativeAllowed',
+                'requiredIdentityFields',
+                ...(isPostgres ? [
+                    'databaseIdentityAuthority',
+                    'database',
+                    'username',
+                    'serverVersionNumber'
+                ] : [])
+            ];
+            if (!hasExactProperties(service, expectedProperties))
+            {
+                errors.push(`${id}: container service catalog shape is invalid`);
+            }
             if (!/^[a-z0-9./_-]+@sha256:[a-f0-9]{64}$/u.test(service.imageReference ?? ''))
             {
                 errors.push(`${id}: imageReference must be a concrete repository digest`);
@@ -95,10 +267,44 @@ export function validateExecutionServiceCatalog(catalog, matrix)
             {
                 errors.push(`${id}: concrete service version is required`);
             }
+            if (!Array.isArray(service.versionCommand)
+                || service.versionCommand.length < 1
+                || service.versionCommand.some((argument) => !String(argument).trim()))
+            {
+                errors.push(`${id}: service version command is invalid`);
+            }
+            if (!hasExactArray(
+                service.requiredIdentityFields,
+                isPostgres ? postgresIdentityFields : containerIdentityFields
+            ))
+            {
+                errors.push(`${id}: required container identity fields are invalid`);
+            }
+            if (isPostgres
+                && (service.databaseIdentityAuthority !== 'postgres-control-system-exact'
+                    || service.database !== 'fsusblog'
+                    || service.username !== 'fsusblog'
+                    || service.version !== '16.15'
+                    || service.serverVersionNumber !== '160015'))
+            {
+                errors.push('postgres: database identity authority is invalid');
+            }
         }
         else if (service.kind !== 'run-owned-process')
         {
             errors.push(`${id}: unknown service identity kind`);
+        }
+        else if (!hasExactProperties(service, [
+            'kind',
+            'identityAuthority',
+            'image',
+            'imageNotApplicableReason'
+        ])
+            || service.identityAuthority !== 'resident-resource-lease'
+            || service.image !== null
+            || service.imageNotApplicableReason !== 'repository-build-artifact-process')
+        {
+            errors.push(`${id}: run-owned service authority is invalid`);
         }
     }
     return errors;
@@ -201,6 +407,46 @@ export function observeContainerService({
     {
         throw new Error(`${id}: service version drift`);
     }
+    let databaseIdentity;
+    if (id === 'postgres')
+    {
+        if (catalogEntry.databaseIdentityAuthority !== 'postgres-control-system-exact'
+            || catalogEntry.database !== 'fsusblog'
+            || catalogEntry.username !== 'fsusblog'
+            || catalogEntry.version !== '16.15'
+            || catalogEntry.serverVersionNumber !== '160015')
+        {
+            throw new Error('postgres: database identity authority is invalid');
+        }
+        const identityResult = docker('docker', [
+            'exec',
+            containerName,
+            'psql',
+            '--no-psqlrc',
+            '--set=ON_ERROR_STOP=1',
+            '--tuples-only',
+            '--no-align',
+            '--dbname',
+            catalogEntry.database,
+            '--username',
+            catalogEntry.username,
+            '--command',
+            postgresDatabaseIdentityQuery
+        ], { encoding: 'utf8', shell: false, windowsHide: true });
+        if (identityResult?.error || identityResult?.status !== 0)
+        {
+            throw new Error('postgres: database identity is unobservable');
+        }
+        try
+        {
+            databaseIdentity = JSON.parse(String(identityResult.stdout).trim());
+        }
+        catch
+        {
+            throw new Error('postgres: database identity is malformed');
+        }
+        validatePostgresDatabaseIdentity(databaseIdentity, catalogEntry);
+    }
     const ports = Object.entries(container.NetworkSettings?.Ports ?? {})
         .flatMap(([containerPort, bindings]) => (bindings ?? []).map((binding) => ({
             containerPort,
@@ -208,7 +454,7 @@ export function observeContainerService({
             hostPort: binding.HostPort
         })))
         .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
-    return {
+    const identity = {
         id,
         kind: 'container',
         containerId: container.Id,
@@ -227,6 +473,12 @@ export function observeContainerService({
             pidsLimit: container.HostConfig?.PidsLimit ?? 0
         }
     };
+    if (databaseIdentity)
+    {
+        identity.databaseIdentity = databaseIdentity;
+    }
+    validateObservedContainerService(identity, catalogEntry);
+    return identity;
 }
 
 export function observeRunOwnedService({
@@ -289,6 +541,121 @@ function exactMatch(planned, actual, label)
     }
 }
 
+function validateRuntimeIdentity(runtime)
+{
+    if (!hasExactProperties(runtime, [
+        'serverVersion',
+        'serverId',
+        'operatingSystem',
+        'architecture',
+        'cgroupDriver'
+    ]) || Object.values(runtime).some((value) => !String(value ?? '').trim()))
+    {
+        throw new Error('execution service Docker runtime identity is malformed');
+    }
+}
+
+function validateEnvelopeShape(envelope, catalog)
+{
+    const catalogErrors = validateExecutionServiceCatalog(catalog, {
+        tiers: [{ services: Object.keys(catalog?.services ?? {}) }]
+    });
+    if (catalogErrors.length > 0)
+    {
+        throw new Error(`execution service catalog is invalid: ${catalogErrors.join('; ')}`);
+    }
+    if (!hasExactProperties(envelope, [
+        'schema',
+        'qualificationEligible',
+        'producerId',
+        'runId',
+        'catalogDigest',
+        'requiredServices',
+        'planned',
+        'actual',
+        'admission',
+        'correctnessImagePull',
+        'hostFallback'
+    ])
+        || envelope.schema !== executionEnvelopeServicesSchema
+        || envelope.qualificationEligible !== true
+        || !String(envelope.producerId ?? '').trim()
+        || !String(envelope.runId ?? '').trim()
+        || envelope.catalogDigest !== executionEnvelopeDigest(catalog)
+        || envelope.admission !== 'planned-actual-exact'
+        || envelope.correctnessImagePull !== 'denied'
+        || envelope.hostFallback !== 'denied'
+        || !hasExactProperties(envelope.planned, ['runtime', 'services'])
+        || !hasExactProperties(envelope.actual, ['runtime', 'services']))
+    {
+        throw new Error('execution service envelope is malformed or catalog-unbound');
+    }
+    const requiredServices = envelope.requiredServices;
+    const declared = [...new Set(requiredServices)].sort();
+    if (!hasExactArray(requiredServices, declared)
+        || declared.some((id) => !catalog?.services?.[id])
+        || !Array.isArray(envelope.planned.services)
+        || !Array.isArray(envelope.actual.services)
+        || !hasExactArray(
+            envelope.planned.services.map((service) => service?.id),
+            declared
+        )
+        || !hasExactArray(
+            envelope.actual.services.map((service) => service?.id),
+            declared
+        ))
+    {
+        throw new Error('execution service envelope roster is malformed');
+    }
+    exactMatch(envelope.planned, envelope.actual, 'admitted');
+    return declared;
+}
+
+export function verifyLiveServiceEnvelope({
+    envelope,
+    catalog,
+    observeRuntime = observeDockerRuntime,
+    observeService = observeContainerService,
+    observeProcessService = observeRunOwnedService
+})
+{
+    const declared = validateEnvelopeShape(envelope, catalog);
+    const admittedServices = new Map(
+        envelope.actual.services.map((service) => [service.id, service])
+    );
+    const containerIds = declared.filter((id) => catalog.services[id].kind === 'container');
+    const runtime = containerIds.length > 0 ? observeRuntime() : null;
+    if (runtime !== null)
+    {
+        validateRuntimeIdentity(runtime);
+    }
+    const services = declared.map((id) =>
+    {
+        const catalogEntry = catalog.services[id];
+        const admitted = admittedServices.get(id);
+        if (catalogEntry.kind === 'container')
+        {
+            validateObservedContainerService(admitted, catalogEntry);
+            const identity = observeService({
+                id,
+                containerName: admitted.containerId,
+                catalogEntry
+            });
+            validateObservedContainerService(identity, catalogEntry);
+            return identity;
+        }
+        return observeProcessService({
+            id,
+            evidence: admitted,
+            catalogEntry
+        });
+    });
+    const live = { runtime, services };
+    exactMatch(envelope.planned, live, 'live');
+    exactMatch(envelope.actual, live, 'live');
+    return envelope;
+}
+
 export function createAndAdmitServiceEnvelope({
     producerId,
     runId,
@@ -311,20 +678,35 @@ export function createAndAdmitServiceEnvelope({
         throw new Error(`${producerId}: required service roster is duplicate or unknown`);
     }
     const containerIds = declared.filter((id) => catalog.services[id].kind === 'container');
-    const observe = () => ({
-        runtime: containerIds.length > 0 ? observeRuntime() : null,
-        services: declared.map((id) => catalog.services[id].kind === 'container'
-            ? observeService({
-                id,
-                containerName: containers?.[id],
-                catalogEntry: catalog.services[id]
-            })
-            : observeProcessService({
-                id,
-                evidence: runOwnedProcesses[id],
-                catalogEntry: catalog.services[id]
-            }))
-    });
+    const observe = () =>
+    {
+        const runtime = containerIds.length > 0 ? observeRuntime() : null;
+        if (runtime !== null)
+        {
+            validateRuntimeIdentity(runtime);
+        }
+        const services = declared.map((id) =>
+        {
+            const catalogEntry = catalog.services[id];
+            const identity = catalogEntry.kind === 'container'
+                ? observeService({
+                    id,
+                    containerName: containers?.[id],
+                    catalogEntry
+                })
+                : observeProcessService({
+                    id,
+                    evidence: runOwnedProcesses[id],
+                    catalogEntry
+                });
+            if (catalogEntry.kind === 'container')
+            {
+                validateObservedContainerService(identity, catalogEntry);
+            }
+            return identity;
+        });
+        return { runtime, services };
+    };
     const planned = observe();
     const actual = observe();
     exactMatch(planned, actual, 'correctness');
@@ -343,14 +725,63 @@ export function createAndAdmitServiceEnvelope({
     };
 }
 
-function options(argv)
+export function parseExecutionEnvelopeServicesOptions(argv)
 {
+    const allowed = new Set([
+        '--image-reference',
+        '--verify-envelope',
+        '--service-catalog',
+        '--producer-id',
+        '--run-id',
+        '--required-services',
+        '--postgres-container',
+        '--redis-container',
+        '--process-evidence',
+        '--output'
+    ]);
+    if (argv.length % 2 !== 0)
+    {
+        throw new Error('execution envelope service options require name/value pairs');
+    }
     const values = new Map();
     for (let index = 0; index < argv.length; index += 2)
     {
-        values.set(argv[index], argv[index + 1]);
+        const name = argv[index];
+        const value = argv[index + 1];
+        if (!allowed.has(name))
+        {
+            throw new Error(`unknown execution envelope service option: ${name}`);
+        }
+        if (values.has(name))
+        {
+            throw new Error(`duplicate execution envelope service option: ${name}`);
+        }
+        if (!String(value ?? '').trim())
+        {
+            throw new Error(`execution envelope service option requires a value: ${name}`);
+        }
+        values.set(name, value);
     }
     return values;
+}
+
+function requireExactOptions(values, required, optional = [])
+{
+    const accepted = new Set([...required, ...optional]);
+    for (const name of required)
+    {
+        if (!values.has(name))
+        {
+            throw new Error(`missing execution envelope service option: ${name}`);
+        }
+    }
+    for (const name of values.keys())
+    {
+        if (!accepted.has(name))
+        {
+            throw new Error(`execution envelope service option is not valid in this mode: ${name}`);
+        }
+    }
 }
 
 function writePrivateJson(file, value)
@@ -363,26 +794,66 @@ function writePrivateJson(file, value)
 
 async function main(argv)
 {
-    const values = options(argv);
-    const catalog = loadExecutionServiceCatalog();
+    const values = parseExecutionEnvelopeServicesOptions(argv);
     if (values.has('--image-reference'))
     {
+        requireExactOptions(values, ['--image-reference'], ['--service-catalog']);
+        const catalog = loadExecutionServiceCatalog(
+            values.has('--service-catalog')
+                ? path.resolve(values.get('--service-catalog'))
+                : executionServiceCatalogFile
+        );
         console.log(executionServiceImageReference(
             values.get('--image-reference'),
             catalog
         ));
         return;
     }
-    const output = path.resolve(values.get('--output') ?? '');
-    if (!output || output === root)
+    if (values.has('--verify-envelope'))
     {
-        throw new Error('--output is required');
+        requireExactOptions(values, ['--verify-envelope', '--service-catalog']);
+        const envelopeFile = path.resolve(values.get('--verify-envelope'));
+        const catalogFile = path.resolve(values.get('--service-catalog'));
+        const envelope = JSON.parse(fs.readFileSync(envelopeFile, 'utf8'));
+        const catalog = loadExecutionServiceCatalog(catalogFile);
+        verifyLiveServiceEnvelope({ envelope, catalog });
+        console.log(`[execution-envelope-services] live verified envelope=${envelopeFile}`);
+        return;
+    }
+    requireExactOptions(values, [
+        '--producer-id',
+        '--run-id',
+        '--output'
+    ], [
+        '--required-services',
+        '--postgres-container',
+        '--redis-container',
+        '--process-evidence',
+        '--service-catalog'
+    ]);
+    const catalog = loadExecutionServiceCatalog(
+        values.has('--service-catalog')
+            ? path.resolve(values.get('--service-catalog'))
+            : executionServiceCatalogFile
+    );
+    const output = path.resolve(values.get('--output'));
+    const requiredServices = String(values.get('--required-services') ?? 'postgres,redis')
+        .split(',').filter(Boolean).sort();
+    for (const [serviceId, option] of [
+        ['postgres', '--postgres-container'],
+        ['redis', '--redis-container']
+    ])
+    {
+        const required = requiredServices.includes(serviceId);
+        if (required !== values.has(option))
+        {
+            throw new Error(`${option} must be present exactly when ${serviceId} is required`);
+        }
     }
     const envelope = createAndAdmitServiceEnvelope({
         producerId: values.get('--producer-id'),
         runId: values.get('--run-id'),
-        requiredServices: String(values.get('--required-services') ?? 'postgres,redis')
-            .split(',').filter(Boolean).sort(),
+        requiredServices,
         containers: {
             postgres: values.get('--postgres-container'),
             redis: values.get('--redis-container')

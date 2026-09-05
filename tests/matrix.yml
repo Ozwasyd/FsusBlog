@@ -5,7 +5,7 @@ governance:
     retention:
         baseline: tests/test-retention-before.json
         replacementLedger: tests/test-retention-replacements.json
-        postBaselines: [tests/admin-inline-empty-state-retirement-baseline.json, tests/ci-local-matrix-retirement-baseline.json, tests/lightweight-acceptance-baseline.json, tests/moderation-regions-datalist-retirement-baseline.json, tests/public-aot-byte-shape-retirement-baseline.json, tests/public-article-reading-layout-retirement-baseline.json, tests/public-response-compression-retirement-baseline.json, tests/service-composition-registration-baseline.json, tests/test-asset-lifecycle-retirement-baseline.json, tests/test-governance-modernization-baseline.json, tests/timing-policy-retirement-baseline.json]
+        postBaselines: [tests/admin-inline-empty-state-retirement-baseline.json, tests/anonymous-nullifier-concurrency-retirement-baseline.json, tests/ci-local-matrix-retirement-baseline.json, tests/lightweight-acceptance-baseline.json, tests/moderation-regions-datalist-retirement-baseline.json, tests/public-aot-byte-shape-retirement-baseline.json, tests/public-article-reading-layout-retirement-baseline.json, tests/public-response-compression-retirement-baseline.json, tests/sensitive-endpoint-session-retirement-baseline.json, tests/service-composition-registration-baseline.json, tests/test-asset-lifecycle-retirement-baseline.json, tests/test-governance-modernization-baseline.json, tests/timing-policy-retirement-baseline.json, tests/upload-range-retirement-baseline.json]
         auditOutput: .tmp/release-evidence/test-retention-audit.json
         automaticDeletion: false
     sourceLocking:
@@ -70,8 +70,8 @@ commandGroups:
         schema: "fsusblog.frontend-static-command-manifest.v2"
         lane: "frontend-static-governance"
         commands:
-            - {id: "frontend-style-full", script: "lint:full", access: "write", stage: "blocking-prebuild", reason: "Runs the baseline-aware AST ESLint, Vue template and Stylelint gate over every governed frontend and Node source before other frontend governance checks.", consumedInputs: ["config/development/frontend-style-*.json", "eslint.config.mjs", "stylelint.config.mjs", "src/frontend/src", "src/frontend/wasm/web", "src/frontend/scripts", "src/frontend/public", "tools/**/*.mjs", "tests/**/*.mjs", "tools/frontend/style-toolchain"], ownedOutputs: [".tmp/frontend-style/eslint.cache", ".tmp/frontend-style/eslint.cache-key"], dependsOn: [], resources: {cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1, exclusiveResources: ["frontend-style-cache"]}}
-            - {id: "frontend-style-fixtures", command: ["node", "../../tests/tools/frontend-style.test.mjs"], access: "write", stage: "concurrent", reason: "Exercises positive and negative AST style fixtures, baseline invalidation, fixer idempotency and locale-stable diagnostics in isolated temporary repositories.", consumedInputs: ["config/development/frontend-style-*.json", "eslint.config.mjs", "stylelint.config.mjs", "src/frontend/package.json", "tests/tools/frontend-style.test.mjs", "tools/frontend/check-frontend-style.mjs", "tools/frontend/style-toolchain"], ownedOutputs: ["os-temp://fsusblog-frontend-style-unique"], dependsOn: ["frontend-style-full"], resources: {cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "frontend-style-full", script: "lint:full", access: "write", stage: "blocking-prebuild", reason: "Runs the baseline-aware AST ESLint, Vue template and Stylelint gate over every governed frontend and Node source before other frontend governance checks.", consumedInputs: ["config/development/frontend-style-*.json", "config/schemas/frontend-style-reviewed-residual.schema.json", "eslint.config.mjs", "stylelint.config.mjs", "src/frontend/src", "src/frontend/wasm/web", "src/frontend/scripts", "src/frontend/public", "tools/**/*.mjs", "tests/**/*.mjs", "tools/frontend/check-frontend-style.mjs", "tools/frontend/reviewed-residual-classification.mjs", "tools/frontend/style-toolchain"], ownedOutputs: [".tmp/frontend-style/eslint.cache", ".tmp/frontend-style/eslint.cache-key"], dependsOn: [], resources: {cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1, exclusiveResources: ["frontend-style-cache"]}}
+            - {id: "frontend-style-fixtures", command: ["node", "../../tests/tools/frontend-style.test.mjs"], access: "write", stage: "concurrent", reason: "Exercises positive and negative AST style fixtures, reviewed residual admission, baseline invalidation, fixer idempotency and locale-stable diagnostics in isolated temporary repositories.", consumedInputs: ["config/development/frontend-style-*.json", "config/schemas/frontend-style-reviewed-residual.schema.json", "eslint.config.mjs", "stylelint.config.mjs", "src/frontend/package.json", "tests/tools/frontend-style.test.mjs", "tools/frontend/check-frontend-style.mjs", "tools/frontend/reviewed-residual-classification.mjs", "tools/frontend/style-toolchain"], ownedOutputs: ["os-temp://fsusblog-frontend-style-unique"], dependsOn: ["frontend-style-full"], resources: {cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "frontend-test-governance", script: "check:frontend-test-governance", access: "read", stage: "blocking-prebuild", reason: "Validates the Vitest and test-lane admission contract, locale catalog projections, and the ten-locale × domain fail-closed static gate before test execution starts.", consumedInputs: ["src/frontend/vitest*.{ts,mjs}", "src/frontend/package.json", "src/frontend/src/locales", "src/frontend/src/bootstrap/globalLoaderCopy.ts", "src/shared/Contracts/Localization/locale-catalog.json", "src/shared/Contracts/Localization/LocaleCatalog.g.cs", "tools/contracts/generate-locale-catalog.mjs", "tools/contracts/check-locale-catalog.mjs", "tools/frontend/check-locale-domain-static.mjs", "tests/tools/locale-catalog.test.mjs", "tests/tools/locale-domain-static.test.mjs", "tests/frontend", "tools/test"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "locale-domain-static-fixtures", command: ["node", "--test", "../../tests/tools/locale-domain-static.test.mjs"], access: "write", stage: "concurrent", reason: "Exercises the eight required locale-domain static counterexamples and diagnostic contract without network access.", consumedInputs: ["src/frontend/src/locales", "src/frontend/src/bootstrap/globalLoaderCopy.ts", "src/shared/Contracts/Localization/locale-catalog.json", "tools/frontend/check-locale-domain-static.mjs", "tests/tools/locale-domain-static.test.mjs"], ownedOutputs: ["os-temp://fsusblog-locale-domain-static-unique"], dependsOn: ["frontend-test-governance"], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
             - {id: "locale-domain-bundles", script: "check:locale-domain-bundles", access: "write", stage: "postbuild", reason: "Rejects any locale/domain dictionary from the static initial client graph and records per-entry raw/gzip/brotli evidence after frontend dist is available.", consumedInputs: ["src/frontend/dist", "src/shared/Contracts/Localization/locale-catalog.json", "src/frontend/src/locales/localeDomains.ts", "tools/frontend/check-locale-domain-bundles.mjs"], ownedOutputs: [".tmp/frontend/locale-domain-bundles.json"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: ["frontend-dist", "frontend-static-output"]}}
@@ -542,6 +542,7 @@ tiers:
       cacheInputs:
           [
               Directory.Build.props,
+              Directory.Packages.props,
               FsusBlog.slnx,
               config/contracts/behavior-contracts.json,
               config/contracts/behavior-fact-extractors.json,
@@ -1038,6 +1039,7 @@ tiers:
       triggerPaths:
           [
               Directory.Build.props,
+              Directory.Packages.props,
               FsusBlog.slnx,
               global.json,
               src/backend/**,
@@ -1570,12 +1572,15 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               benchmarks/core,
               src/backend,
               src/core,
+              src/migration,
               src/shared,
               tests/backend,
+              tests/migration,
               tests/performance/backend-hotpath-budgets.json,
               tests/tools/backend-benchmark-regression.test.mjs,
               tools/check-backend-test-governance.mjs,
@@ -1631,11 +1636,14 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
+              src/migration,
               src/shared,
               tests/backend,
+              tests/migration,
               tests/tools/backend-production-shards.test.mjs,
               tools/test/backend-platform-selection.mjs,
               tools/test/run-backend-production-shards.mjs,
@@ -1662,6 +1670,8 @@ tiers:
           - backend-physical-account-subject-retirement
           - deployment-runtime-lifecycle
           - backend-online-schema-migration-protocol
+          - current-schema-canonical-authority
+          - migration-assembly-boundary
           - backend-typed-schema-ddl-providers
           - blue-green-release-storage-lifecycle
           - atomic-idempotent-upload-commit
@@ -1724,6 +1734,13 @@ tiers:
           - src/backend/Services/SearchIndexService.Dictionary.cs
           - src/backend/Properties/AssemblyInfo.cs
           - tests/backend/FsusBlog.Server.Tests.csproj
+          - tests/migration/FsusBlog.Migration.Tests.csproj
+          - tests/migration/MigrationAssemblyBoundaryTests.cs
+          - src/migration/FsusBlog.Migration.csproj
+          - src/migration/SchemaMigrationPrimitives.cs
+          - src/migration/SchemaMigrationDdlPrimitives.cs
+          - src/migration/SchemaMigrationExecution.cs
+          - src/migration/SchemaMigrationManifest.cs
           - tests/backend/Unit/SearchIndexServiceTests.cs
           - tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs
           - tests/backend/Unit/UserSecurityStepUpServiceTests.cs
@@ -1733,6 +1750,7 @@ tiers:
           - tests/backend/legacy-identity-retirement-evidence.json
           - docs/security.md
           - docs/database-migration.md
+          - docs/online-database-migration.md
           - docs/architecture.md
           - docs/anonymous-identity-smoke-flow.md
           - tests/backend/Unit/DeploymentRuntimeStateTests.cs
@@ -1741,17 +1759,20 @@ tiers:
           - src/backend/Infrastructure/NotificationStream/NotificationStreamConnectionManager.cs
           - src/backend/Infrastructure/NotificationStream/NotificationStreamFrame.cs
           - tests/backend/Unit/OnlineSchemaMigrationPolicyTests.cs
+          - src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs
+          - src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs
+          - tests/backend/Unit/SchemaModelInspectorTests.cs
           - tests/backend/Unit/OnlineSchemaMigrationCompatibilityTests.cs
           - tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs
           - tests/backend/Unit/SchemaCompatibilityCoordinateTests.cs
           - tests/backend/Unit/DestructiveMigrationProofTests.cs
-          - src/backend/Infrastructure/SchemaMigration/DestructiveMigrationProofs.cs
+          - src/migration/DestructiveMigrationProofs.cs
           - docs/schema-migrations/destructive-rollback-window-proofs.json
           - tests/backend/Unit/ProductionHealthTests.cs
-          - src/backend/Infrastructure/SchemaMigration/SchemaMigrationPrimitives.cs
-          - src/backend/Infrastructure/SchemaMigration/SchemaMigrationDdlPrimitives.cs
-          - tests/backend/Unit/SchemaMigrationDdlPrimitivesTests.cs
-          - tests/backend/Fixtures/schema-ddl-provider-snapshots.json
+          - src/migration/SchemaMigrationPrimitives.cs
+          - src/migration/SchemaMigrationDdlPrimitives.cs
+          - tests/migration/SchemaMigrationDdlPrimitivesTests.cs
+          - tests/migration/schema-ddl-provider-snapshots.json
           - tests/backend/Unit/ReleaseStorageLifecycleTests.cs
           - tests/backend/Unit/PublicAotFileShellCacheTests.cs
           - tests/backend/Helpers/TestInfrastructure/PublicAotCrashWorkerProgram.cs
@@ -1880,6 +1901,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend/Infrastructure/Distributed,
               src/backend/Infrastructure/PublicAot/PublicAotBackfillLease.cs,
@@ -2154,7 +2176,7 @@ tiers:
       minCpuUnits: 1
       requiresBootstrap: none
       requiresNode: true
-      requiresDotnet: false
+      requiresDotnet: true
       requiresPlaywright: none
       cacheProfile: none
       timeoutMinutes: 35
@@ -2201,6 +2223,8 @@ tiers:
           - dead-code-audit-governance
           - deployment-runtime-lifecycle
           - backend-online-schema-migration-protocol
+          - current-schema-canonical-authority
+          - migration-assembly-boundary
           - public-representation-coordinate-closed-loop
           - backend-typed-schema-ddl-providers
           - blue-green-release-storage-lifecycle
@@ -2339,7 +2363,9 @@ tiers:
           - tests/tools/gateway-switch.test.mjs
           - tests/tools/deployment-slots.test.mjs
           - tools/governance/check-monolithic-distributed-architecture.mjs
+          - tools/governance/evaluate-msbuild-entrypoints.mjs
           - tests/governance/monolithic-distributed-architecture.json
+          - tests/governance/backend-production-build-consumers.json
           - tests/tools/monolithic-distributed-architecture.test.mjs
           - docs/architecture/monolithic-distributed-boundary.md
           - docs/architecture.md
@@ -2358,6 +2384,16 @@ tiers:
           - src/backend/Infrastructure/Operations/ReleaseIdContract.Generated.cs
           - src/backend/Infrastructure/Operations/ReleaseId.cs
           - src/backend/Infrastructure/SchemaMigration/SchemaCompatibilityCoordinate.cs
+          - src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs
+          - src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs
+          - tests/backend/Unit/SchemaModelInspectorTests.cs
+          - tools/db/check-current-schema-authority.mjs
+          - tests/tools/current-schema-authority.test.mjs
+          - tools/db/generate-migration-assembly-receipt.mjs
+          - tools/db/check-migration-assembly-boundary.mjs
+          - tests/tools/migration-assembly-boundary.test.mjs
+          - artifacts/schema-migration/migration-assembly-receipt.json
+          - artifacts/schema-migration/migration-assembly-binding.json
           - src/shared/Contracts/Validation/schema-compatibility-coordinate.json
           - src/frontend/src/generated/releaseIdContract.ts
           - src/frontend/public/generated/release-id-contract.js
@@ -2467,12 +2503,27 @@ tiers:
           - docs/testing/issue-1174-csharp-entrypoint-ownership.md
           - .editorconfig
           - Directory.Build.props
+          - Directory.Packages.props
           - .git-blame-ignore-revs
           - config/development/csharp-style-policy.json
           - config/development/csharp-style-baseline.json
           - tools/dotnet/check-csharp-style.mjs
           - tests/tools/csharp-style.test.mjs
           - docs/development/csharp-style-enforcement.md
+          - tools/governance/check-central-package-management.mjs
+          - tests/fixtures/governance/central-package-management.json
+          - config/dependencies/required-checks.json
+          - config/dependencies/required-checks.schema.json
+          - tools/governance/dependency-required-checks.mjs
+          - tools/governance/validate-dependency-required-checks.mjs
+          - tools/governance/check-dependency-required-checks.mjs
+          - tests/fixtures/governance/dependency-required-checks.json
+          - tests/tools/dependency-required-checks.test.mjs
+          - renovate.json5
+          - tools/governance/dependency-automerge.mjs
+          - tools/governance/check-dependency-automerge.mjs
+          - tests/fixtures/governance/dependency-automerge.json
+          - tests/tools/dependency-automerge.test.mjs
           - .gitattributes
           - tools/style/line-ending-invariant.mjs
           - tests/tools/line-endings.test.mjs
@@ -2547,8 +2598,24 @@ tiers:
           - tools/test/evidence-location-contract.mjs
           - tools/test/evidence-location-scanner.mjs
           - tools/test/generate-evidence-location-governance.mjs
+          - tools/test/current-run-evidence-publication.mjs
+          - tools/test/current-run-evidence-checkpoint.mjs
+          - tools/test/run-current-run-evidence-producer.mjs
+          - tools/test/current-run-evidence-producer-hook.mjs
+          - tools/test/current-run-evidence-producer-hook.bash
+          - tools/test/publish-current-run-evidence-reference.mjs
+          - tools/test/publish-release-final-evidence-parent.mjs
+          - tools/test/attach-current-run-evidence-checkpoint.mjs
+          - tools/test/current-run-evidence-transport.mjs
+          - tools/test/run-current-run-evidence-transport.mjs
           - tests/tools/evidence-location-contract.test.mjs
           - tests/tools/evidence-location-governance.test.mjs
+          - tests/tools/current-run-evidence-publication.test.mjs
+          - tests/tools/current-run-evidence-scheduler.test.mjs
+          - tests/tools/current-run-evidence-transport.test.mjs
+          - tests/tools/current-run-evidence-locator-negative-matrix.test.mjs
+          - tools/test/generate-current-run-evidence-location-acceptance.mjs
+          - config/testing/current-run-evidence-location-acceptance.json
           - security/evidence-contracts/release-bundle-storage.json
           - security/matrices/privacy-zk-comment.yml
           - tests/fixtures/evidence/anonymous-eligibility-anonymity-set.json
@@ -2950,6 +3017,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -3335,6 +3403,78 @@ tiers:
       triggerFiles: [tests/matrix.yml, tests/matrix.schema.json]
       triggerCoverage: [homogeneous-two-node-fixture]
       triggerReason: homogeneous multi-node fixture or topology contract changed
+
+    - id: current-schema-bootstrap-integration
+      executionClass: runtime
+      fixtureProfile: none
+      fixtureProfileReason: none-runtime
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
+      owner: ServerContractAgent
+      command: tools/test/lanes/current-schema-bootstrap-integration.sh
+      executionDependsOn: [behavior-doc-static-admission]
+      services: [postgres]
+      runtimeMode: single
+      nodeCount: 1
+      artifactStorage: local
+      coordinationStore: none
+      clusterScenario: none
+      clusterBootstrap: none
+      clusterFixtures: []
+      parallelizable: false
+      serialReason: one source-bound backend build and one isolated PostgreSQL cluster are mutated across positive, crash-window, live-identity and physical-schema counterexamples
+      exclusiveResources: [docker-runtime, local-ports, database-writes, backend-build-output, current-schema-bootstrap-integration]
+      phase: 2
+      cost: high
+      resourceClass: database
+      cpuWeight: 2
+      memoryWeight: 3
+      minCpuUnits: 1
+      maxParallel: 1
+      requiresBootstrap: backend
+      selfBootstraps: true
+      requiresNode: true
+      requiresDotnet: true
+      requiresPlaywright: none
+      cacheProfile: full
+      timeoutMinutes: 30
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: pr
+      requiredFor: production
+      coverage: [current-schema-bootstrap, current-schema-physical-exactness, current-schema-receipt-lifecycle]
+      artifacts: [.tmp/current-schema-bootstrap-integration/*/**]
+      evidence:
+          [
+              .tmp/current-schema-bootstrap-integration/*/**,
+              .tmp/current-schema-bootstrap-integration/*/terminal.json,
+              src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs,
+              src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs,
+              src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs,
+              src/backend/Infrastructure/Testing/CurrentSchemaTestMaterializer.cs,
+              src/backend/Infrastructure/Testing/CurrentSchemaTestMaterializationCandidateVerifier.cs,
+              src/backend/Program.cs,
+              tests/backend/Unit/SchemaModelInspectorTests.cs,
+              tests/tools/current-schema-bootstrap-integration.test.mjs,
+              tests/tools/current-schema-materialization-receipt.test.mjs,
+              tests/tools/fixture-catalog.test.mjs,
+              tools/bootstrap-acceptance-env.sh,
+              tools/db/verify-current-schema-test-materialization-receipt.mjs,
+              tools/test/lanes/current-schema-bootstrap-integration.sh,
+              tools/test/lanes/homogeneous-two-node-fixture.sh,
+              tools/testing/fixture-catalog.mjs,
+              docs/database-migration.md,
+          ]
+      ciJob: integration-runtime
+      localOnly: false
+      nightlyOnly: false
+      smartGateMode: conditional
+      retentionClass: must-keep
+      triggerPaths: [src/backend/Infrastructure/SchemaMigration, src/backend/Infrastructure/Testing, tools/db, tools/test/execution-envelope-services.mjs, tools/test/lanes/current-schema-bootstrap-integration.sh]
+      triggerFiles: [config/testing/test-execution-service-catalog.json, src/backend/Program.cs, tests/tools/current-schema-bootstrap-integration.test.mjs, tests/tools/current-schema-materialization-receipt.test.mjs, tests/tools/fixture-catalog.test.mjs, tools/bootstrap-acceptance-env.sh, tools/test/lanes/homogeneous-two-node-fixture.sh, tools/testing/fixture-catalog.mjs, tests/matrix.yml]
+      triggerCoverage: [current-schema-bootstrap, current-schema-physical-exactness, current-schema-receipt-lifecycle]
+      triggerReason: current-schema materialization, PostgreSQL observation, verifier exactness, service identity, or terminal receipt lifecycle changed
 
     - id: integration
       executionClass: runtime
@@ -5869,6 +6009,7 @@ tiers:
       cacheInputs:
           [
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               benchmarks/core,
               src/backend,
@@ -5945,6 +6086,7 @@ tiers:
       cacheInputs:
           [
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               benchmarks/core,
               src/backend,
@@ -6458,6 +6600,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               benchmarks/core,
               src/backend,
@@ -6528,6 +6671,7 @@ tiers:
       cacheInputs:
           [
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               benchmarks/core,
               src/backend,
@@ -7142,8 +7286,12 @@ tiers:
               tools/security/comment-privacy-build-contract.mjs,
               src/frontend/wasm/build.sh,
               docs/zk/trusted-setup-ceremony.md,
-              tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs,
+              tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs,
+              tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs,
+              tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs,
+              tests/backend/Unit/CommentMutationOutboxAnonymousPostgresTests.cs,
               tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs,
+              tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs,
               tests/backend/Unit/ActorResolverBehaviorTests.cs,
               tests/backend/Unit/AnonymousCommentPolicyTests.cs,
               tests/backend/Unit/AnonymousIdentitySerializationTests.cs,
@@ -8995,6 +9143,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -9072,6 +9221,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -9157,6 +9307,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -9200,6 +9351,9 @@ tiers:
           - .tmp/backend-concurrency/summary.json
           - tests/backend/Unit/FileServiceTests.cs
           - tests/backend/Fixtures/backend-test-requirements.json
+          - tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs
+          - tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs
+          - tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs
           - tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs
           - tests/backend/Unit/SubscriptionEndpointsContractTests.cs
           - tests/backend/Integration/DemoFixtureSeederCleanupIntegrationTests.cs
@@ -9254,6 +9408,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -9315,6 +9470,7 @@ tiers:
           [
               FsusBlog.slnx,
               Directory.Build.props,
+              Directory.Packages.props,
               global.json,
               src/backend,
               src/core,
@@ -9397,13 +9553,18 @@ tiers:
       evidence:
           [
               tests/backend/Fixtures/backend-test-requirements.json,
+              tests/backend/Fixtures/backend-evidence-path-authority.generated.json,
               src/backend/Services/SearchIndexService.Dictionary.cs,
+              tools/test/backend-evidence-path-authority.mjs,
+              tools/test/generate-backend-evidence-path-authority.mjs,
               tests/backend/Unit/SearchIndexServiceTests.cs,
               tools/test/csharp-source-mask.mjs,
               tools/test/search-index-utf8-scalar-governance.mjs,
+              tests/tools/backend-test-governance-cpm.test.mjs,
               tests/backend/Unit/CoverageScriptContractTests.cs,
               tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs,
               tests/tools/backend-trx-contract.test.mjs,
+              tests/tools/backend-production-evidence.test.mjs,
               tests/test-retention-replacements.json,
           ]
       ciJob: fast-static-governance

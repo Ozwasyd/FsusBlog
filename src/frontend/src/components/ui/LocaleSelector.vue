@@ -753,14 +753,6 @@ onBeforeUnmount(() =>
     overflow-wrap: anywhere;
 }
 
-@keyframes locale-selector-spin
- {
-    to
- {
-        transform: rotate(360deg);
-    }
-}
-
 @media (forced-colors: active)
  {
     .locale-selector__trigger,

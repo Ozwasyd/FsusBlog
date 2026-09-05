@@ -46,6 +46,15 @@ function walkJsonFiles(directory, results = []) {
   return results
 }
 
+function transportedJsonFiles() {
+  const configured = String(process.env.FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST ?? '').trim()
+  if (!configured) return []
+  const manifest = readJson(path.resolve(root, configured))
+  return (manifest.objects ?? [])
+    .flatMap((object) => object.archiveEntries ?? [])
+    .map((entry) => path.resolve(root, entry.extractedPath))
+}
+
 function readJson(file) {
   return readEvidenceDocument(file)
 }
@@ -141,7 +150,7 @@ function findPrSmartGatePlan(explicitFile, env, buildReceiptDigest) {
     : [
         path.join(root, '.tmp/pr-plan.json'),
         path.join(root, '.tmp/release-evidence/pr-smart-gate-summary.json'),
-        ...walkJsonFiles(path.join(root, '.tmp/downloaded-artifacts'))
+        ...transportedJsonFiles()
       ]
   const matches = []
   for (const file of [...new Set(candidates)]) {
@@ -168,7 +177,7 @@ function findProductionBuildReceipt(explicitFile = null) {
     explicitFile,
     process.env.FSUSBLOG_PRODUCTION_BUILD_RECEIPT,
     path.join(root, '.tmp/ci-production-build/receipt.json'),
-    ...walkJsonFiles(path.join(root, '.tmp/downloaded-artifacts'))
+    ...transportedJsonFiles()
   ].filter(Boolean).map((file) => path.resolve(file))
   const expectedCommit = String(process.env.GITHUB_SHA ?? '').trim()
   const expectedFingerprint = String(process.env.FSUSBLOG_CI_PRODUCTION_SOURCE_FINGERPRINT ?? '').trim()
@@ -192,7 +201,7 @@ function findProductionBuildReceipt(explicitFile = null) {
 function collectJobSummaries(expectedCommit, env = process.env, { schedulerRunId = null } = {}) {
   const files = [
     ...walkJsonFiles(path.join(root, '.tmp/release-evidence/jobs')),
-    ...walkJsonFiles(path.join(root, '.tmp/downloaded-artifacts'))
+    ...transportedJsonFiles()
   ]
   const summaries = []
   const seen = new Map()

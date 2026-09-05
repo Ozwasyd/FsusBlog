@@ -1,0 +1,70 @@
+{
+    "schema": "fsusblog.backend-evidence-path-authority.v1",
+    "generatedBy": "tools/test/generate-backend-evidence-path-authority.mjs",
+    "sources": {
+        "tests/matrix.yml": "sha256:a299c05b7de4c335e59f3d689460702375826db1b889722115af91c45b35f517",
+        "tests/backend/Fixtures/backend-test-requirements.json": "sha256:c2ee05cc5138e9a7e4d300258dbacbce0ec0c990845a603085f81391415d9d9e"
+    },
+    "entries": [
+        {
+            "evidencePath": ".tmp/backend-perf/native-p99/measurement.json",
+            "owners": [
+                {
+                    "tierId": "backend-perf",
+                    "tierOwner": "ServerContractAgent",
+                    "declarationKind": "evidence"
+                },
+                {
+                    "tierId": "backend-perf",
+                    "tierOwner": "ServerContractAgent",
+                    "declarationKind": "artifacts"
+                }
+            ]
+        },
+        {
+            "evidencePath": ".tmp/backend-perf/native-p99/preflight.json",
+            "owners": [
+                {
+                    "tierId": "backend-perf",
+                    "tierOwner": "ServerContractAgent",
+                    "declarationKind": "evidence"
+                },
+                {
+                    "tierId": "backend-perf",
+                    "tierOwner": "ServerContractAgent",
+                    "declarationKind": "artifacts"
+                }
+            ]
+        },
+        {
+            "evidencePath": ".tmp/backend-perf/native-p99/summary.json",
+            "owners": [
+                {
+                    "tierId": "backend-perf",
+                    "tierOwner": "ServerContractAgent",
+                    "declarationKind": "evidence"
+                },
+                {
+                    "tierId": "backend-perf",
+                    "tierOwner": "ServerContractAgent",
+                    "declarationKind": "artifacts"
+                }
+            ]
+        },
+        {
+            "evidencePath": ".tmp/test-results/backend/perception-character-v3-redis-producer.json",
+            "owners": [
+                {
+                    "tierId": "perception-character-v3-release-gate",
+                    "tierOwner": "ServerContractAgent",
+                    "declarationKind": "evidence"
+                },
+                {
+                    "tierId": "perception-character-v3-release-gate",
+                    "tierOwner": "ServerContractAgent",
+                    "declarationKind": "artifacts"
+                }
+            ]
+        }
+    ]
+}

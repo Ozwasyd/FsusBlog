@@ -44,8 +44,8 @@ runner consumes this manifest order directly: all
 `PostCodeFirst` descriptors, which preserves the historical execution contract.
 
 Descriptor implementations live under
-`src/backend/Infrastructure/SchemaMigration/Definitions/`; release-range catalogs
-live under `src/backend/Infrastructure/SchemaMigration/Catalogs/`. To add a
+`src/migration/Definitions/`; release-range catalogs
+live under `src/migration/Catalogs/`. To add a
 migration, put its implementation in a focused definition type and register it once
 in the catalog whose range owns the ID. A version beyond the current range requires
 a new catalog, explicit phase-tail dependencies, and an explicit boundary gap. Do
@@ -54,6 +54,77 @@ reopen `SchemaMigrationRegistry.*.cs` partial files. `migration-doc-lint.mjs` an
 `SchemaMigrationCatalogTests.SourceLayout_PreventsLegacyRegistryDescriptorAggregation`
 enforce the one-definition/one-catalog rule without code generation or external
 tools.
+
+## Migration Assembly Boundary
+
+Legacy descriptors, version catalogs, checksum/history primitives, typed DDL
+providers and migration-owned conversion rows compile in the independent
+`src/migration/FsusBlog.Migration.csproj` project under the
+`FsusBlog.Migration` root namespace. That project targets `net10.0`, references
+only `FsusBlog.Shared`, and carries the SqlSugar provider abstraction required to
+build and test the PostgreSQL, MySQL and SQLite DDL adapters without loading the
+Server or a web host.
+
+Server production no longer references `FsusBlog.Migration`. Startup loads the
+#2211 current schema projection through `CurrentSchemaStartupVerifier` and
+fail-closes on semantic schema mismatch before admission, with zero DDL or backfill. The
+online command host refuses descriptor execution from the Server process; the
+independent migration assembly remains the owner of legacy catalogs.
+
+Schema DDL and backfill are applied by the offline migration host, an
+`Exe` entry point of `src/migration/FsusBlog.Migration.csproj`:
+
+```bash
+dotnet FsusBlog.Migration.dll migrate --phase expand|backfill-resume|contract \
+    [--id <migration-id>] --release-manifest <path> --env-file <path> \
+    [--evidence <path>] [--confirm-destructive] [--dry-run]
+```
+
+`tools/db/run-online-migrations.sh` wraps exactly this contract; pass the host
+assembly via `--server-dll` (deployment passes
+`--migration-server-dll` in `tools/deployment/release-rollout.sh`). Machine
+output follows the rollout gate contract: `status` is `ok` / `dry_run` /
+`paused` / `failed`, with `phase`, `migrationIds` and `codes`.
+
+The host applies only the `Expand`-classified descriptors of the curated
+register (`OnlineSchemaMigrationCatalog` in the Server); the register is
+exposed to the host as the generated
+`src/migration/OfflineMigrationCatalogEntries.generated.cs` (producer
+`tools/db/generate-offline-migration-catalog.mjs`, guarded by
+`tools/db/check-offline-migration-catalog-parity.mjs`). Server-side
+`CurrentSchemaStartupVerifier` compares the live schema against the CodeFirst
+entity projection only; migration-created indexes/constraints are exempted
+through the generated
+`src/backend/Infrastructure/SchemaMigration/SchemaAllowedExtraLinkNames.generated.cs`
+(producer `tools/db/generate-schema-allowed-extra-links.mjs`, guarded by
+`tools/db/check-schema-allowed-extra-links.mjs`), so a migrated database still
+passes the fail-closed admission check. Visit-log and author-analytics rollup
+tables created by PostCodeFirst `EnsureTable` steps
+(`daily_read_stats`, `region_read_stats`, `event_type_read_stats`,
+`author_daily_read_stats` and sibling author rollups) are required extras:
+they are not CodeFirst entities, they must exist, and they are not optional
+`s_allowedExtraTables` members. The Server catalog
+`CurrentSchemaRuntimeRollupTables` owns the same CREATE TABLE SQL; the extra-tables
+checker binds it to those two descriptors. Cold-start legacy
+descriptors fail closed with `schema_legacy_bootstrap_required` until the
+historical cold-start runner has marked them applied, and the `contract`
+phase requires porting the backup-evidence gate, so the host currently fails
+closed with `schema_offline_contract_not_supported` instead of executing
+destructive work unguarded. `backfill-resume` executes resumable handlers
+declared in the migration assembly (for example
+`AccountSubjectHashOnlineBackfillHandler`).
+
+`artifacts/schema-migration/migration-assembly-receipt.json` records the old/new
+project, assembly and namespace identities, every old/new source path and declared
+symbol, old/new SHA-256 digests, deleted Server paths, the aggregate content digest
+and actual independent build/test results bound to the migration source plus test
+input digest. The generated
+`artifacts/schema-migration/migration-assembly-binding.json` seals the receipt,
+source transition and verification result digests. `tools/db/check-migration-assembly-boundary.mjs` rejects reverse Server
+references, linked or duplicate sources, type forwarding/re-export namespaces,
+provider copies of the current schema model, shared legacy-only fields, web-hosted
+migration tests, graph cycles, dual registration, Server publish leakage, missing
+provider/build evidence and receipt or binding tampering.
 
 The PostgreSQL fixture exercises both an empty database and the representative
 20260517 historical schema twice. For each starting point, the normalized columns,
@@ -69,6 +140,84 @@ pre-quoted SQL fragments. For example, use `DefaultValue = "basic"`, never
 and changes the database default to a value containing quote characters. The fresh
 fixture inserts a `sys_user` row after the second run while omitting these columns
 and requires `anonymous_account|basic|active`.
+
+## Canonical Current Schema
+
+`CurrentSchemaCanonicalAuthority` is the only current-schema materializer. It
+extracts the current `SugarTable`/`SugarColumn`/`SugarIndex` mapping, inherited
+public properties, nullability metadata, defaults, conversions and explicit
+current constraints into a provider-neutral semantic model. Duplicate owners,
+unknown property types, unsupported converters and incomplete constraints fail
+before a projection is accepted. Ignored, navigation and `NotMapped` members never
+enter the model.
+
+Runtime reflection, `CurrentSchemaProjection` and the migration target adapter are
+independent observations of that sealed model; none reads the migration catalog,
+Markdown, test fixtures or a running database to define the target. Their shared
+identity binds model, extractor and generator versions plus source and content
+SHA-256 digests. PostgreSQL, MySQL and SQLite projections retain this semantic
+identity while recording different physical type spellings. The PostgreSQL
+projection additionally seals normalized type modifiers and domains, collation,
+default and identity/owned-sequence semantics, complete index key ordering,
+NULL placement, access method, opclass, collation, INCLUDE, predicate and NULLS
+NOT DISTINCT state, plus constraint deferral, validation and foreign-key actions.
+PostgreSQL's explicit `timestamp(6)` is normalized only to its equivalent
+unspecified default precision; `timestamp(0)` and every other explicit precision
+remain distinct and fail exact comparison.
+The independent verifier and cold-readiness comparison reject stale identities,
+content tampering and exact table, column, physical type, nullability, default,
+constraint or index drift.
+
+`tools/db/check-current-schema-authority.mjs` prevents a second production
+extractor, hand-written table inventory, fixture reconstruction or migration
+descriptor from becoming current authority. This boundary does not move migration
+descriptor SQL or make provider DDL a second current-schema mapping. The migration
+assembly extraction above changes compile ownership only; descriptor IDs,
+fingerprints, checksums, SQL and execution order remain stable.
+
+Acceptance runtime bootstrap uses the explicit Server command
+`materialize-current-schema-test` only after its isolated PostgreSQL service is
+ready and before any runtime application starts. The command is unavailable to the
+ordinary `serve` route and requires the exact `Test` environment, an explicit
+opt-in, the admitted service envelope's exact `127.0.0.1` PostgreSQL host/port,
+the exact `fsusblog` database/user, the `public` search path and a canonical
+run-derived receipt path below a physical, non-symlink receipt root. Immediately
+before the command, the canonical service observer addresses the admitted
+container ID and re-observes the complete Docker/runtime/service identity; on the
+same PostgreSQL connection and transaction, the command independently compares
+`system_identifier`, database, user and exact server version identity before any
+DDL. It accepts only a `public` schema with no relation, routine, standalone type,
+domain, operator, conversion, collation, extended-statistics or text-search object,
+derives entity types and the
+five-field identity through the sole
+`CurrentSchemaCanonicalAuthority`, materializes those entity types once, applies
+the PostCodeFirst visit-log and author-analytics rollup `EnsureTable` SQL from
+`CurrentSchemaRuntimeRollupTables` (without referencing the migration assembly),
+then runs `CurrentSchemaStartupVerifier`. Missing rollup tables fail closed instead
+of remaining optional extras. A partial or stale schema fails before any write.
+DDL and verification remain inside one PostgreSQL transaction. Before commit the
+producer atomically publishes only a `prepared`, qualification-ineligible staging
+receipt; after commit it atomically publishes the no-overwrite `verified` receipt.
+A process death in the commit window can therefore leave only noneligible staging
+evidence while PostgreSQL rolls back the open transaction. The committed crash
+case starts the materializer in an identity-checked isolated process group, kills
+that entire group and proves zero surviving candidates before checking rollback.
+Publication failure
+after commit leaves no eligible receipt and triggers best-effort schema compensation
+and receipt cleanup; the full run rejects the nonzero producer exit and does not
+claim cleanup succeeded without a fresh catalog observation. An independent
+consumer invokes the candidate assembly's explicit test-only, read-only verification
+command, which derives the sole canonical authority and a fresh physical PostgreSQL
+observation instead of trusting a locally resealed receipt. It then re-reads and
+verifies receipt shape, self-digest, run/source/assembly, catalog/envelope/service/
+database and canonical identity and publishes the sole run-bound
+`current-schema-runtime-ready` terminal. The fixture catalog seals that terminal
+into an exact runtime-topology admission and reconsumes both before any runtime
+process is spawned. Production `serve` remains a read-only verifier and never
+invokes either test command. The committed
+`current-schema-bootstrap-integration` lane reruns the empty-schema positive path,
+rollback/crash and publication windows, stale-service substitution and physical
+column/index/constraint counterexamples on an exclusive pinned PostgreSQL.
 
 ## Plugin Registry
 
@@ -139,7 +288,7 @@ compatible retained release.
 The table below is the authoritative final-state inventory for legacy identity
 columns that are either removed from the physical schema or retained only for an
 explicit compatibility purpose. Keep it synchronized with
-`src/backend/Infrastructure/SchemaMigration/Definitions/`;
+`src/migration/Definitions/`;
 `tools/db/migration-doc-lint.mjs` fails when the definitions, catalogs, manifest,
 and this table diverge.
 

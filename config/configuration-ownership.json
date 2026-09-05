@@ -15,6 +15,58 @@
             "pathType": "file"
         },
         {
+            "id": "dependency-update-surface",
+            "owner": "dependency-update-governance",
+            "canonicalPath": "config/dependencies/update-surface.json",
+            "pathType": "file",
+            "consumers": [
+                "renovate.json5",
+                "tools/governance/check-dependency-update-surface.mjs",
+                "tools/governance/check-dependency-freshness.mjs"
+            ],
+            "validationCommand": "node tools/governance/check-dependency-update-surface.mjs --root . --fixtures tests/fixtures/governance/dependency-update-surface.json",
+            "changePolicy": "manual-update-with-exact-surface-and-negative-fixture-validation",
+            "status": "manual"
+        },
+        {
+            "id": "dependency-update-surface-schema",
+            "owner": "dependency-update-governance",
+            "canonicalPath": "config/dependencies/update-surface.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "config/dependencies/update-surface.json",
+                "tools/governance/check-dependency-update-surface.mjs"
+            ],
+            "validationCommand": "node tools/governance/check-dependency-update-surface.mjs --root . --fixtures tests/fixtures/governance/dependency-update-surface.json",
+            "changePolicy": "manual-update-with-closed-schema-validation",
+            "status": "manual"
+        },
+        {
+            "id": "dependency-exceptions",
+            "owner": "dependency-update-governance",
+            "canonicalPath": "config/dependencies/exceptions.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/governance/check-dependency-freshness.mjs"
+            ],
+            "validationCommand": "node tools/governance/check-dependency-freshness.mjs --root . --fixtures tests/fixtures/governance/dependency-freshness.json",
+            "changePolicy": "manual-update-with-exact-exception-and-negative-fixture-validation",
+            "status": "manual"
+        },
+        {
+            "id": "dependency-exceptions-schema",
+            "owner": "dependency-update-governance",
+            "canonicalPath": "config/dependencies/exceptions.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "config/dependencies/exceptions.json",
+                "tools/governance/check-dependency-freshness.mjs"
+            ],
+            "validationCommand": "node tools/governance/check-dependency-freshness.mjs --root . --fixtures tests/fixtures/governance/dependency-freshness.json",
+            "changePolicy": "manual-update-with-closed-schema-validation",
+            "status": "manual"
+        },
+        {
             "id": "behavior-contract-catalog",
             "owner": "behavior-contract-governance",
             "canonicalPath": "config/contracts/behavior-contracts.json",
@@ -51,6 +103,32 @@
             "pathType": "file"
         },
         {
+            "id": "cross-authority-dag-schema",
+            "owner": "behavior-contract-governance",
+            "canonicalPath": "config/schemas/cross-authority-dag.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/contracts/cross-authority-dag.mjs",
+                "tests/tools/cross-authority-dag.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/cross-authority-dag.test.mjs",
+            "changePolicy": "manual-update-with-negative-mutation-and-replay-validation",
+            "status": "manual"
+        },
+        {
+            "id": "cross-authority-dag-receipt-schema",
+            "owner": "behavior-contract-governance",
+            "canonicalPath": "config/schemas/cross-authority-dag-receipt.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/contracts/cross-authority-dag.mjs",
+                "tests/tools/cross-authority-dag.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/cross-authority-dag.test.mjs",
+            "changePolicy": "manual-update-with-exact-replay-validation",
+            "status": "manual"
+        },
+        {
             "id": "external-naming-exceptions-schema",
             "owner": "repository-governance",
             "canonicalPath": "config/schemas/external-naming-exceptions.schema.json",
@@ -64,16 +142,73 @@
             "status": "manual"
         },
         {
+            "id": "frontend-style-baseline-corrections-schema",
+            "owner": "frontend-language-style-governance",
+            "canonicalPath": "config/schemas/frontend-style-baseline-corrections.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "config/development/frontend-style-baseline-corrections.json",
+                "tools/frontend/check-frontend-style.mjs",
+                "tests/tools/frontend-style.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/frontend-style.test.mjs",
+            "changePolicy": "manual-update-with-closed-schema-and-negative-mutation-validation",
+            "status": "manual"
+        },
+        {
+            "id": "frontend-style-reviewed-residual-schema",
+            "owner": "frontend-language-style-governance",
+            "canonicalPath": "config/schemas/frontend-style-reviewed-residual.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "config/development/frontend-style-reviewed-residual.json",
+                "tools/frontend/check-frontend-style.mjs",
+                "tools/frontend/reviewed-residual-classification.mjs",
+                "tests/tools/frontend-style.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/frontend-style.test.mjs",
+            "changePolicy": "manual-update-with-closed-canonical-authority-and-negative-mutation-validation",
+            "status": "manual"
+        },
+        {
             "id": "post-merge-generated-output-repair-schema",
             "owner": "repository-governance",
             "canonicalPath": "config/schemas/post-merge-generated-output-repair.schema.json",
             "pathType": "file",
             "consumers": [
                 "tools/governance/change-contract.mjs",
+                "tools/governance/change-contract-registry.mjs",
                 "tests/tools/change-contract.test.mjs"
             ],
             "validationCommand": "node --test tests/tools/change-contract.test.mjs",
             "changePolicy": "manual-update-with-history-and-replay-validation",
+            "status": "manual"
+        },
+        {
+            "id": "post-merge-generated-output-repair-dag-schema",
+            "owner": "repository-governance",
+            "canonicalPath": "config/schemas/post-merge-generated-output-repair-dag.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/governance/change-contract.mjs",
+                "tools/governance/change-contract-registry.mjs",
+                "tests/tools/change-contract.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/change-contract.test.mjs",
+            "changePolicy": "manual-update-with-ordered-dag-history-and-replay-validation",
+            "status": "manual"
+        },
+        {
+            "id": "post-merge-external-naming-evidence-repair-schema",
+            "owner": "repository-governance",
+            "canonicalPath": "config/schemas/post-merge-external-naming-evidence-repair.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/governance/change-contract.mjs",
+                "tests/tools/change-contract.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/change-contract.test.mjs",
+            "changePolicy": "manual-update-with-exact-history-and-blob-validation",
             "status": "manual"
         },
         {
@@ -196,6 +331,34 @@
             "status": "manual"
         },
         {
+            "id": "post-runtime-observation-result-schema",
+            "owner": "behavior-test-evidence-binding",
+            "canonicalPath": "config/schemas/post-runtime-observation-result.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test-matrix/post-runtime-producer-registry.mjs",
+                "tools/test/lanes/static-governance.sh",
+                "tests/tools/post-runtime-producer-registry.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/post-runtime-producer-registry.test.mjs",
+            "changePolicy": "manual-update-with-negative-fixture-validation",
+            "status": "manual"
+        },
+        {
+            "id": "post-runtime-accepted-claims-schema",
+            "owner": "behavior-test-evidence-binding",
+            "canonicalPath": "config/schemas/post-runtime-accepted-claims.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/test-matrix/post-runtime-producer-registry.mjs",
+                "tools/test/lanes/static-governance.sh",
+                "tests/tools/post-runtime-producer-registry.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/post-runtime-producer-registry.test.mjs",
+            "changePolicy": "manual-update-with-negative-fixture-validation",
+            "status": "manual"
+        },
+        {
             "id": "post-runtime-producer-registry",
             "owner": "behavior-test-evidence-binding",
             "canonicalPath": "config/testing/post-runtime-producer-registry.json",
@@ -203,6 +366,7 @@
             "consumers": [
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/behavior-evidence-post-runtime.mjs",
+                "tools/test/lanes/static-governance.sh",
                 "tests/tools/post-runtime-producer-registry.test.mjs"
             ],
             "validationCommand": "node --test tests/tools/post-runtime-producer-registry.test.mjs",
@@ -1558,6 +1722,12 @@
             "pathType": "file"
         },
         {
+            "id": "current-run-evidence-location-acceptance",
+            "owner": "test-evidence-location-governance",
+            "canonicalPath": "config/testing/current-run-evidence-location-acceptance.json",
+            "pathType": "file"
+        },
+        {
             "id": "evidence-locator-registry",
             "owner": "test-evidence-location-governance",
             "canonicalPath": "config/testing/evidence-locator-registry.json",
@@ -1580,6 +1750,50 @@
             "owner": "test-evidence-location-governance",
             "canonicalPath": "config/testing/evidence-location-migration-ledger.schema.json",
             "pathType": "file"
+        },
+        {
+            "id": "dependency-required-checks",
+            "owner": "dependency-update-governance",
+            "canonicalPath": "config/dependencies/required-checks.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/governance/dependency-required-checks.mjs",
+                "tools/governance/validate-dependency-required-checks.mjs",
+                "tools/governance/check-dependency-required-checks.mjs",
+                "tools/governance/dependency-automerge.mjs",
+                "tools/governance/check-dependency-automerge.mjs",
+                "tests/tools/dependency-required-checks.test.mjs",
+                "tests/tools/dependency-automerge.test.mjs"
+            ],
+            "validationCommand": "node tools/governance/check-dependency-required-checks.mjs --root . --fixtures tests/fixtures/governance/dependency-required-checks.json",
+            "changePolicy": "manual-update-with-negative-mutation-and-local-branch-protection-simulation",
+            "status": "manual"
+        },
+        {
+            "id": "dependency-required-checks-schema",
+            "owner": "dependency-update-governance",
+            "canonicalPath": "config/dependencies/required-checks.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "config/dependencies/required-checks.json",
+                "tools/governance/check-dependency-required-checks.mjs"
+            ],
+            "validationCommand": "node tools/governance/check-dependency-required-checks.mjs --root . --fixtures tests/fixtures/governance/dependency-required-checks.json",
+            "changePolicy": "manual-update-with-closed-schema-validation",
+            "status": "manual"
+        },
+        {
+            "id": "renovate-platform-automerge",
+            "owner": "dependency-update-governance",
+            "canonicalPath": "renovate.json5",
+            "pathType": "file",
+            "consumers": [
+                "tools/governance/check-dependency-automerge.mjs",
+                "tests/tools/dependency-automerge.test.mjs"
+            ],
+            "validationCommand": "node tools/governance/check-dependency-automerge.mjs --root . --fixtures tests/fixtures/governance/dependency-automerge.json",
+            "changePolicy": "manual-update-with-local-platform-automerge-simulation",
+            "status": "manual"
         }
     ]
 }

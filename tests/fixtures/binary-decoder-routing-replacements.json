@@ -61,6 +61,7 @@
     "mapSiteStatsFromPodPayload": "d399fbe2f616350be14bcb5d8696d9e8e5b577f04c1e83a05d02a0902b960102",
     "mapSiteSubscriptionResponseFromPayload": "472b90deef02136d1e063111392477236f193adca91b598872767df181b89419",
     "mapTagListFromPayload": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "mapTaxonomyExactMetadataFromPayload": "af076f5aeeb57e5435f79dc71508fb0c83e73df4ac7d7b75dc6362d2ba542dfa",
     "mapThreadReplyCursorFromPodPayload": "17968c30e8687e7d98a2b1d7c54ddede9c529f9098ec119ee7b4ac6a38a3cde5",
     "mapTrashClearResponseFromPodPayload": "618de7d9f46f3f697d827a1b6d84974760d5deda62e4e592adaa3c646602a94c",
     "mapUploadCompleteFromPayload": "728b90f81ac6ee33499181a83107fc4acd7207f45308c4f8809de3f998c92e2c",

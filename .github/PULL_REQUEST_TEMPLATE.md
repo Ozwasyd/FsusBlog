@@ -54,7 +54,7 @@ For a `Format-only` change, complete every field. The idempotence evidence must 
 
 ## External Naming Exception
 
-For a checked `External naming exception`, point to one changed repository-relative JSON manifest using `fsusblog.external-naming-exceptions.v1`. Each entry binds one registered exception ID to its own changed paths and substantive reason; the union must exactly cover every changed registered naming surface. Use `none` otherwise.
+For a checked `External naming exception`, point to one changed repository-relative JSON manifest using `fsusblog.external-naming-exceptions.v1`. Each entry binds one registered exception ID to its own changed paths and substantive reason; the union must exactly cover every changed registered naming surface. A missing manifest already named by an authoritative merged PR may instead use `fsusblog.post-merge-external-naming-evidence-repair.v1`; that strict repair binds immutable merge history, unchanged source blob/revision identity, the registered surface, and the exact missing artifact without changing the source again. Use `none` otherwise.
 
 - Exceptions manifest:
 
@@ -95,7 +95,7 @@ The matching `release-note:*` label selects the generated release category. GitH
 
 ## Generated Output
 
-For a checked `Generated output`, bind the output to its source through one repository-relative `.json` manifest path changed by this PR. Normal atomic source/output changes use `fsusblog.generated-output-binding.v1`. A generated-only repair for a source omission already merged into the PR base uses `fsusblog.post-merge-generated-output-repair.v1`; it must name one trusted producer and leave its source and generator unchanged. An authenticated bot must identify itself exactly. Use `none` otherwise.
+For a checked `Generated output`, bind the output to its source through one repository-relative `.json` manifest path changed by this PR. Normal atomic source/output changes use `fsusblog.generated-output-binding.v1`. A generated-only repair for a source omission already merged into the PR base uses `fsusblog.post-merge-generated-output-repair.v1`; it must name one trusted producer and leave its source and generator unchanged. A trusted ordered multi-producer repair uses `fsusblog.post-merge-generated-output-repair-dag.v2` and its registry-owned canonical manifest path. An authenticated bot must identify itself exactly. Use `none` otherwise.
 
 - Generator source:
 - Generated outputs:

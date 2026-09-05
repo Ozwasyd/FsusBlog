@@ -167,6 +167,7 @@
             "owner": "ContractStyleOwner",
             "extensions": [
                 ".json",
+                ".json5",
                 ".jsonc",
                 ".webmanifest"
             ],
@@ -214,7 +215,8 @@
                 ".gitignore",
                 ".gitattributes",
                 ".dockerignore",
-                ".ignore"
+                ".ignore",
+                ".xml"
             ],
             "specialFiles": [
                 "CODEOWNERS",

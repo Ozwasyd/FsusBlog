@@ -138,9 +138,13 @@ if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && { HasDomain backend-runtime || HasDoma
         "$ROOT_DIR/tools/build-with-data-env.sh" dotnet restore "$ROOT_DIR/FsusBlog.slnx" -v minimal /p:NuGetAudit=false
     "$ROOT_DIR/tools/test/run-with-dotnet-release-build-lock.sh" \
         "$ROOT_DIR/tools/build-with-data-env.sh" dotnet build "$ROOT_DIR/src/backend/FsusBlog.Server.csproj" \
-        -c Release --no-restore --no-incremental -warnaserror -v minimal /p:NuGetAudit=false
+        -c Release --no-restore --no-incremental -warnaserror -v minimal /p:NuGetAudit=false \
+        -p:FsusBlogCommitSha="${FSUSBLOG_TEST_SOURCE_COMMIT:?production build source commit is required}"
 fi
 if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && HasDomain test-runtime; then
+    "$ROOT_DIR/tools/test/run-with-dotnet-release-build-lock.sh" \
+        "$ROOT_DIR/tools/build-with-data-env.sh" dotnet build "$ROOT_DIR/src/migration/FsusBlog.Migration.csproj" \
+        -c Release --no-restore --no-dependencies --no-incremental -warnaserror -v minimal /p:NuGetAudit=false
     "$ROOT_DIR/tools/test/run-with-dotnet-release-build-lock.sh" \
         "$ROOT_DIR/tools/build-with-data-env.sh" dotnet build "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj" \
         -c Release --no-restore --no-dependencies --no-incremental -warnaserror -v minimal /p:NuGetAudit=false
@@ -198,6 +202,7 @@ CREATE_ARGS=(
     --finished-at "$FINISHED_AT"
     --duration-ms "$DURATION_MS"
     --input Directory.Build.props
+    --input Directory.Packages.props
     --input FsusBlog.slnx
     --input .gitignore
     --input .dockerignore
@@ -236,7 +241,12 @@ if HasDomain backend-runtime || HasDomain test-runtime; then
     )
 fi
 if HasDomain test-runtime; then
-    CREATE_ARGS+=(--input tests/backend/FsusBlog.Server.Tests.csproj --input tests/backend/packages.lock.json)
+    CREATE_ARGS+=(
+        --input src/migration/FsusBlog.Migration.csproj
+        --input src/migration/packages.lock.json
+        --input tests/backend/FsusBlog.Server.Tests.csproj
+        --input tests/backend/packages.lock.json
+    )
 fi
 if HasDomain frontend-dist || HasDomain wasm; then
     CREATE_ARGS+=(

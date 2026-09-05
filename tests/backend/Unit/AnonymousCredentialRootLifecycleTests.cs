@@ -1,16 +1,19 @@
 using System.Reflection;
 
 using FsusBlog.Core.Common;
+using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
 
 using NSubstitute;
 
@@ -22,6 +25,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigrationFixture fixture)
 {
     private static readonly DateTimeOffset s_baselineNow = DateTimeOffset.Parse("2026-06-19T00:00:00Z");
+    private static readonly DateTimeOffset s_runtimeNow = DateTimeOffset.Parse("2030-06-19T00:00:00Z");
     private static readonly SemaphoreSlim s_databaseResetLock = new(1, 1);
     private static readonly string s_issuerPublicKeyHash = new('f', 64);
     private static string? s_sharedConnectionString;
@@ -81,6 +85,293 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
         Assert.Contains("TryGetValue", runtimeShape, StringComparison.Ordinal);
         Assert.DoesNotContain("NormalizeToken", runtimeShape, StringComparison.Ordinal);
         Assert.DoesNotContain("GetEnumerator", runtimeShape, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Concurrency")]
+    public async Task RootLifecycle_HighFrequencyReaderAndVerifierReuseSingleAuthoritativeGeneration()
+    {
+        const int Reads = 32;
+        string connectionString = await CreateConnectionStringAsync();
+        var clock = new MutableTimeProvider(s_runtimeNow);
+        var queryProbe = new RootQueryProbe();
+        await using ServiceProvider provider = BuildRealProvider(connectionString, clock, queryProbe);
+        var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
+        var reader = provider.GetRequiredService<IAnonymousCredentialRootReader>();
+        var rootService = provider.GetRequiredService<IAnonymousCredentialRootService>();
+        string credentialRoot = new('a', 64);
+        string revocationRoot = CircuitFriendlyRevocationRoot(401);
+
+        Result<AnonymousCredentialRootRecord> rotated = await writer.RotateAsync(CreateRotation(
+            epoch: 401,
+            rootHash: credentialRoot,
+            revocationRootHash: revocationRoot,
+            circuitMetadata: CircuitFriendlyRevocationAccumulatorMetadata,
+            now: s_runtimeNow), CancellationToken.None);
+
+        Assert.True(rotated.IsSuccess, rotated.Error.Message);
+        AnonymousCredentialRootRuntimeSnapshot runtimeGeneration = reader.CurrentSnapshot;
+        AssertRuntimeSnapshotContains(
+            runtimeGeneration,
+            401,
+            credentialRoot,
+            revocationRoot,
+            AnonymousCredentialRootStatuses.Active);
+
+        queryProbe.Reset();
+        Result<AnonymousCredentialRootSnapshotCoreModel>[] serviceReads = await RunConcurrentlyAsync(
+            Reads,
+            () => rootService.GetCurrentSnapshotAsync(CancellationToken.None));
+
+        Assert.All(serviceReads, static result => Assert.True(result.IsSuccess, result.Error.Message));
+        Assert.Single(serviceReads.Select(SnapshotIdentity).Distinct(StringComparer.Ordinal));
+        Assert.Equal(1, queryProbe.RootSelectCount);
+        Assert.Equal(401, serviceReads[0].Value.CredentialEpoch);
+        Assert.Equal(credentialRoot, Convert.ToHexStringLower(serviceReads[0].Value.CredentialRoot));
+        Assert.Equal(revocationRoot, Convert.ToHexStringLower(serviceReads[0].Value.RevocationRoot));
+        Assert.Equal(AnonymousPrivacyContract.CircuitId, serviceReads[0].Value.CircuitId);
+        Assert.Equal(AnonymousPrivacyContract.PublicInputLayoutVersion, serviceReads[0].Value.PublicInputLayoutVersion);
+        Assert.True(serviceReads[0].Value.ZkAnonymousEnabled);
+
+        AnonymousCredentialRootRuntimeSnapshot[] readerReads = await RunConcurrentlyAsync(
+            Reads,
+            () => Task.FromResult(reader.CurrentSnapshot));
+        Assert.All(readerReads, snapshot => Assert.Same(runtimeGeneration, snapshot));
+
+        var backend = new AcceptingProductionZkProofBackend();
+        using var verifier = new ProductionZkProofVerifier(
+            provider.GetRequiredService<IConfiguration>(),
+            reader,
+            backend,
+            NullLogger<ProductionZkProofVerifier>.Instance);
+        ZkProofVerificationResult[] verificationResults = await RunConcurrentlyAsync(
+            16,
+            () => verifier.VerifyAsync(CreateProofRequest(credentialRoot, revocationRoot), CancellationToken.None));
+
+        Assert.All(verificationResults, static result => Assert.True(result.Verified));
+        Assert.Equal(16, backend.CallCount);
+        Assert.Equal(1, queryProbe.RootSelectCount);
+        Assert.Same(runtimeGeneration, reader.CurrentSnapshot);
+    }
+
+    [Fact]
+    [Trait("Category", "Concurrency")]
+    public async Task RootLifecycle_RotationRevocationAndGraceRefreshPublishOnlyCompleteGenerations()
+    {
+        string connectionString = await CreateConnectionStringAsync();
+        var clock = new MutableTimeProvider(s_runtimeNow);
+        var queryProbe = new RootQueryProbe();
+        await using ServiceProvider provider = BuildRealProvider(connectionString, clock, queryProbe);
+        var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
+        var reader = provider.GetRequiredService<IAnonymousCredentialRootReader>();
+        var revocations = provider.GetRequiredService<IAnonymousCredentialRevocationService>();
+        var rootService = provider.GetRequiredService<IAnonymousCredentialRootService>();
+        string firstRoot = new('b', 64);
+        string secondRoot = new('c', 64);
+        string firstRevocationRoot = CircuitFriendlyRevocationRoot(402);
+        string secondRevocationRoot = CircuitFriendlyRevocationRoot(403);
+
+        Result<AnonymousCredentialRootRecord> first = await writer.RotateAsync(CreateRotation(
+            epoch: 402,
+            rootHash: firstRoot,
+            revocationRootHash: firstRevocationRoot,
+            circuitMetadata: CircuitFriendlyRevocationAccumulatorMetadata,
+            now: s_runtimeNow), CancellationToken.None);
+        Assert.True(first.IsSuccess, first.Error.Message);
+        long firstGeneration = reader.CurrentSnapshot.Version;
+
+        clock.Advance(TimeSpan.FromSeconds(10));
+        queryProbe.Reset();
+        queryProbe.BlockNextRootSelect();
+        Task<Result<AnonymousCredentialRootRecord>> rotationTask = Task.Run(() => writer.RotateAsync(CreateRotation(
+            epoch: 403,
+            rootHash: secondRoot,
+            revocationRootHash: secondRevocationRoot,
+            circuitMetadata: CircuitFriendlyRevocationAccumulatorMetadata,
+            now: clock.GetUtcNow()), CancellationToken.None));
+
+        await queryProbe.WaitUntilBlockedAsync();
+        try
+        {
+            AnonymousCredentialRootRuntimeSnapshot[] duringRefresh = await RunConcurrentlyAsync(
+                32,
+                () => Task.FromResult(reader.CurrentSnapshot));
+            Assert.All(duringRefresh, static snapshot =>
+            {
+                Assert.Equal(0, snapshot.Version);
+                Assert.Empty(snapshot.AcceptedRoots);
+                Assert.Empty(snapshot.AcceptedRootLookup);
+            });
+        }
+        finally
+        {
+            queryProbe.ReleaseBlockedSelect();
+        }
+
+        Result<AnonymousCredentialRootRecord> second = await rotationTask.WaitAsync(TimeSpan.FromSeconds(30));
+        Assert.True(second.IsSuccess, second.Error.Message);
+        Assert.Equal(1, queryProbe.RootSelectCount);
+        AnonymousCredentialRootRuntimeSnapshot rotatedGeneration = reader.CurrentSnapshot;
+        Assert.True(rotatedGeneration.Version > firstGeneration);
+        AssertRuntimeSnapshotContains(
+            rotatedGeneration,
+            402,
+            firstRoot,
+            firstRevocationRoot,
+            AnonymousCredentialRootStatuses.Grace);
+        AssertRuntimeSnapshotContains(
+            rotatedGeneration,
+            403,
+            secondRoot,
+            secondRevocationRoot,
+            AnonymousCredentialRootStatuses.Active);
+
+        queryProbe.Reset();
+        Result<AnonymousCredentialRootSnapshotCoreModel>[] rotatedReads = await RunConcurrentlyAsync(
+            32,
+            () => rootService.GetCurrentSnapshotAsync(CancellationToken.None));
+        Assert.All(rotatedReads, static result => Assert.True(result.IsSuccess, result.Error.Message));
+        Assert.Single(rotatedReads.Select(SnapshotIdentity).Distinct(StringComparer.Ordinal));
+        Assert.Equal(403, rotatedReads[0].Value.CredentialEpoch);
+        Assert.Equal(1, queryProbe.RootSelectCount);
+
+        string revokedHandle = AnonymousCredentialRevocationAccumulator.DeriveHandleHash(
+            s_issuerPublicKeyHash,
+            "credential:403:rotation-race");
+        string updatedRevocationRoot = CircuitFriendlyRevocationRoot(403, revokedHandle);
+        long generationBeforeRevocation = reader.CurrentSnapshot.Version;
+        Result revoked = await revocations.RevokeAsync(new AnonymousCredentialRevocationRequest(
+            Epoch: 403,
+            RevocationHandleHash: revokedHandle,
+            RevocationRootHash: updatedRevocationRoot,
+            Reason: "unit",
+            ActorId: "admin:42"), CancellationToken.None);
+
+        Assert.True(revoked.IsSuccess, revoked.Error.Message);
+        Assert.True(reader.CurrentSnapshot.Version > generationBeforeRevocation);
+        Assert.False(reader.IsRootAccepted(secondRoot, secondRevocationRoot, s_issuerPublicKeyHash, 403));
+        Assert.True(reader.IsRootAccepted(secondRoot, updatedRevocationRoot, s_issuerPublicKeyHash, 403));
+        AssertRuntimeSnapshotContains(
+            reader.CurrentSnapshot,
+            403,
+            secondRoot,
+            updatedRevocationRoot,
+            AnonymousCredentialRootStatuses.Active);
+
+        queryProbe.Reset();
+        Result<AnonymousCredentialRootSnapshotCoreModel>[] revokedReads = await RunConcurrentlyAsync(
+            32,
+            () => rootService.GetCurrentSnapshotAsync(CancellationToken.None));
+        Assert.All(revokedReads, static result => Assert.True(result.IsSuccess, result.Error.Message));
+        Assert.Single(revokedReads.Select(SnapshotIdentity).Distinct(StringComparer.Ordinal));
+        Assert.Equal(updatedRevocationRoot, Convert.ToHexStringLower(revokedReads[0].Value.RevocationRoot));
+        Assert.Equal(1, queryProbe.RootSelectCount);
+
+        clock.Advance(TimeSpan.FromSeconds(301));
+        await reader.RefreshAsync(CancellationToken.None);
+
+        AnonymousCredentialAcceptedRoot remaining = Assert.Single(reader.CurrentSnapshot.AcceptedRoots);
+        Assert.Equal(403, remaining.Epoch);
+        Assert.Equal(secondRoot, remaining.RootHash);
+        Assert.Equal(updatedRevocationRoot, remaining.RevocationRootHash);
+        Assert.Equal(AnonymousCredentialRootStatuses.Active, remaining.Status);
+        Assert.False(reader.IsRootAccepted(firstRoot, firstRevocationRoot, s_issuerPublicKeyHash, 402));
+    }
+
+    [Fact]
+    [Trait("Category", "Concurrency")]
+    public async Task RootLifecycle_StoreFailureAndRecoveryRemainFailClosedAndConverge()
+    {
+        string connectionString = await CreateConnectionStringAsync();
+        var clock = new MutableTimeProvider(s_runtimeNow);
+        string credentialRoot = new('d', 64);
+        string revocationRoot = CircuitFriendlyRevocationRoot(404);
+        await using (ServiceProvider seedProvider = BuildRealProvider(connectionString, clock))
+        {
+            var writer = seedProvider.GetRequiredService<IAnonymousCredentialRootWriter>();
+            Result<AnonymousCredentialRootRecord> seeded = await writer.RotateAsync(CreateRotation(
+                epoch: 404,
+                rootHash: credentialRoot,
+                revocationRootHash: revocationRoot,
+                circuitMetadata: CircuitFriendlyRevocationAccumulatorMetadata,
+                now: s_runtimeNow), CancellationToken.None);
+            Assert.True(seeded.IsSuccess, seeded.Error.Message);
+        }
+
+        var availability = new RootDatabaseAvailability();
+        var queryProbe = new RootQueryProbe();
+        availability.Fail();
+        await using ServiceProvider provider = BuildRealProvider(connectionString, clock, queryProbe, availability);
+        var reader = provider.GetRequiredService<IAnonymousCredentialRootReader>();
+        var rootService = provider.GetRequiredService<IAnonymousCredentialRootService>();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => reader.RefreshAsync(CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => rootService.GetCurrentSnapshotAsync(CancellationToken.None));
+        Assert.Equal(0, reader.CurrentSnapshot.Version);
+        Assert.Empty(reader.CurrentSnapshot.AcceptedRoots);
+
+        availability.Recover();
+        await reader.RefreshAsync(CancellationToken.None);
+        Result<AnonymousCredentialRootSnapshotCoreModel> recovered = await rootService.GetCurrentSnapshotAsync(CancellationToken.None);
+        Assert.True(recovered.IsSuccess, recovered.Error.Message);
+        Assert.Equal(404, recovered.Value.CredentialEpoch);
+        AssertRuntimeSnapshotContains(
+            reader.CurrentSnapshot,
+            404,
+            credentialRoot,
+            revocationRoot,
+            AnonymousCredentialRootStatuses.Active);
+
+        string attestation;
+        using (SqlSugarClient db = CreateDb(connectionString))
+        {
+            AnonymousCredentialRoot row = await db.Queryable<AnonymousCredentialRoot>()
+                .Where(static item => item.Epoch == 404)
+                .FirstAsync();
+            attestation = row.RootAttestation!;
+            await db.Updateable<AnonymousCredentialRoot>()
+                .SetColumns(static item => item.RootAttestation == string.Empty)
+                .Where(static item => item.Epoch == 404)
+                .ExecuteCommandAsync();
+        }
+
+        await reader.RefreshAsync(CancellationToken.None);
+        Assert.Empty(reader.CurrentSnapshot.AcceptedRoots);
+        rootService.Invalidate();
+        queryProbe.Reset();
+        Result<AnonymousCredentialRootSnapshotCoreModel> unavailable = await rootService.GetCurrentSnapshotAsync(CancellationToken.None);
+        Result<AnonymousCredentialRootSnapshotCoreModel> negativeCached = await rootService.GetCurrentSnapshotAsync(CancellationToken.None);
+        Assert.True(unavailable.IsFailure);
+        Assert.True(negativeCached.IsFailure);
+        Assert.Equal("anonymous_root_unavailable", unavailable.Error.Message);
+        Assert.Equal(1, queryProbe.RootSelectCount);
+
+        using (SqlSugarClient db = CreateDb(connectionString))
+        {
+            await db.Updateable<AnonymousCredentialRoot>()
+                .SetColumns(item => item.RootAttestation == attestation)
+                .Where(static item => item.Epoch == 404)
+                .ExecuteCommandAsync();
+        }
+
+        Result<AnonymousCredentialRootSnapshotCoreModel> stillNegativeCached =
+            await rootService.GetCurrentSnapshotAsync(CancellationToken.None);
+        Assert.True(stillNegativeCached.IsFailure);
+        Assert.Equal(1, queryProbe.RootSelectCount);
+
+        await reader.RefreshAsync(CancellationToken.None);
+        AssertRuntimeSnapshotContains(
+            reader.CurrentSnapshot,
+            404,
+            credentialRoot,
+            revocationRoot,
+            AnonymousCredentialRootStatuses.Active);
+        clock.Advance(TimeSpan.FromSeconds(6));
+        Result<AnonymousCredentialRootSnapshotCoreModel> converged =
+            await rootService.GetCurrentSnapshotAsync(CancellationToken.None);
+        Assert.True(converged.IsSuccess, converged.Error.Message);
+        Assert.Equal(404, converged.Value.CredentialEpoch);
+        Assert.Equal(3, queryProbe.RootSelectCount);
     }
 
     [Fact]
@@ -595,8 +886,11 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
         string rootHash,
         int graceMinutes = 120,
         string? revocationRootHash = null,
-        string? circuitMetadata = null)
-        => new(
+        string? circuitMetadata = null,
+        DateTimeOffset? now = null)
+    {
+        DateTimeOffset anchor = now ?? s_baselineNow;
+        return new(
             Epoch: epoch,
             RootHash: rootHash,
             RevocationRootHash: revocationRootHash ?? RevocationRoot(epoch),
@@ -604,12 +898,13 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
             CircuitNumericId: 7,
             VerifyingKeyHash: "vk-sha256",
             PublicInputLayoutVersion: 6,
-            ExpiresAtUtc: s_baselineNow.AddMinutes(60),
-            GraceExpiresAtUtc: s_baselineNow.AddMinutes(graceMinutes),
+            ExpiresAtUtc: anchor.AddMinutes(60),
+            GraceExpiresAtUtc: anchor.AddMinutes(graceMinutes),
             CircuitMetadata: circuitMetadata ?? "{\"layout\":3}",
             Reason: "unit",
             ActorId: "admin:42",
             IssuerPublicKeyHash: s_issuerPublicKeyHash);
+    }
 
     private static string RevocationRoot(long epoch, params string[] revokedHandleHashes)
     {
@@ -654,14 +949,128 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
         });
     }
 
+    private static ServiceProvider BuildRealProvider(
+        string connectionString,
+        TimeProvider timeProvider,
+        RootQueryProbe? queryProbe = null,
+        RootDatabaseAvailability? availability = null)
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IConfiguration>(BuildRootAttestationConfiguration());
+        services.AddSingleton(timeProvider);
+        services.AddSingleton<CapturingAuditEventService>();
+        services.AddSingleton<IAuditEventService>(static sp => sp.GetRequiredService<CapturingAuditEventService>());
+        services.AddScoped<ISqlSugarClient>(_ =>
+        {
+            availability?.ThrowIfUnavailable();
+            SqlSugarClient db = CreateDb(connectionString);
+            if (queryProbe is not null)
+            {
+                db.Aop.OnLogExecuting = (statement, _) => queryProbe.Observe(statement);
+            }
+
+            return db;
+        });
+        services.AddScoped<IAnonymousCredentialRootStore, AnonymousCredentialRootStore>();
+        services.AddSingleton<IAnonymousCredentialRootService, AnonymousCredentialRootService>();
+        services.AddSingleton<AnonymousCredentialRootLifecycleService>();
+        services.AddSingleton<IAnonymousCredentialRootReader>(static sp => sp.GetRequiredService<AnonymousCredentialRootLifecycleService>());
+        services.AddSingleton<IAnonymousCredentialRootWriter>(static sp => sp.GetRequiredService<AnonymousCredentialRootLifecycleService>());
+        services.AddSingleton<IAnonymousCredentialRevocationService>(static sp => sp.GetRequiredService<AnonymousCredentialRootLifecycleService>());
+        return services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateOnBuild = true,
+            ValidateScopes = true
+        });
+    }
+
     private static IConfiguration BuildRootAttestationConfiguration()
         => new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["AnonymousCredentialRoot:AttestationKey"] = "unit-test-root-attestation-key-with-at-least-thirty-two-chars",
-                ["AnonymousCredentialRoot:AttestationKeyId"] = "local-test-root-attestation"
+                ["AnonymousCredentialRoot:AttestationKeyId"] = "local-test-root-attestation",
+                ["AnonymousIdentity:ZkAnonymousCommentsEnabled"] = "true",
+                ["AnonymousIdentity:ZkVerifier:Enabled"] = "true",
+                ["AnonymousIdentity:ZkVerifier:CircuitId"] = AnonymousPrivacyContract.CircuitId,
+                ["AnonymousIdentity:ZkVerifier:VerifyingKeyHash"] = "vk-sha256",
+                ["AnonymousIdentity:ZkVerifier:PublicInputLayoutVersion"] = AnonymousPrivacyContract.PublicInputLayoutVersion.ToString(),
+                ["AnonymousIdentity:ZkVerifier:Backend"] = "unit",
+                ["AnonymousIdentity:ZkVerifier:MaxConcurrentVerifications"] = "16"
             })
             .Build();
+
+    private static async Task<T[]> RunConcurrentlyAsync<T>(int attempts, Func<Task<T>> action)
+    {
+        using var barrier = new Barrier(attempts);
+        return await Task.WhenAll(Enumerable.Range(0, attempts)
+            .Select(_ => Task.Factory.StartNew(
+                async () =>
+                {
+                    Assert.True(barrier.SignalAndWait(TimeSpan.FromSeconds(20)));
+                    return await action();
+                },
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default).Unwrap())).WaitAsync(TimeSpan.FromSeconds(30));
+    }
+
+    private static string SnapshotIdentity(Result<AnonymousCredentialRootSnapshotCoreModel> result)
+    {
+        Assert.True(result.IsSuccess, result.Error.Message);
+        AnonymousCredentialRootSnapshotCoreModel snapshot = result.Value;
+        return string.Join('|',
+            snapshot.CredentialEpoch,
+            snapshot.RootExpiresAtUnixMs,
+            snapshot.RootGraceExpiresAtUnixMs,
+            snapshot.CircuitNumericId,
+            snapshot.PublicInputLayoutVersion,
+            snapshot.ZkAnonymousEnabled,
+            snapshot.VerifierConfigured,
+            snapshot.CircuitId,
+            snapshot.VerifyingKeyHash,
+            snapshot.IssuerPublicKeyHash,
+            Convert.ToHexStringLower(snapshot.CredentialRoot),
+            Convert.ToHexStringLower(snapshot.RevocationRoot),
+            Convert.ToHexStringLower(snapshot.CircuitMetadata));
+    }
+
+    private static void AssertRuntimeSnapshotContains(
+        AnonymousCredentialRootRuntimeSnapshot snapshot,
+        long epoch,
+        string rootHash,
+        string revocationRootHash,
+        string status)
+    {
+        AnonymousCredentialAcceptedRoot root = Assert.Single(snapshot.AcceptedRoots, item => item.Epoch == epoch);
+        Assert.Equal(rootHash, root.RootHash);
+        Assert.Equal(revocationRootHash, root.RevocationRootHash);
+        Assert.Equal(s_issuerPublicKeyHash, root.IssuerPublicKeyHash);
+        Assert.Equal(status, root.Status);
+        Assert.True(root.GraceExpiresAtUtc > s_runtimeNow);
+        Assert.True(snapshot.AcceptedRootLookup.TryGetValue(
+            (epoch, rootHash, revocationRootHash, s_issuerPublicKeyHash),
+            out AnonymousCredentialAcceptedRoot? lookupRoot));
+        Assert.Same(root, lookupRoot);
+    }
+
+    private static ZkProofVerificationRequest CreateProofRequest(string credentialRoot, string revocationRoot)
+        => new(
+            ActionContext: "comment.create",
+            Scope: "article:42",
+            CircuitId: AnonymousPrivacyContract.CircuitId,
+            VerifyingKeyHash: "vk-sha256",
+            PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
+            NullifierHash: new string('e', 64),
+            CredentialRoot: credentialRoot,
+            PolicyHash: new string('9', 64),
+            IsEligible: true,
+            MayComment: true,
+            RateClass: AnonymousPrivacyContract.CommonRateClass,
+            RequiresModeration: false,
+            Proof: [1, 2, 3],
+            RevocationRoot: revocationRoot,
+            IssuerPublicKeyHash: s_issuerPublicKeyHash);
 
     private async Task<string> CreateConnectionStringAsync()
     {
@@ -748,6 +1157,122 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
             });
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class AcceptingProductionZkProofBackend : IProductionZkProofBackend
+    {
+        private int _callCount;
+
+        public int CallCount => Volatile.Read(ref _callCount);
+
+        public bool IsAvailable(string backendName)
+            => string.Equals(backendName, "unit", StringComparison.Ordinal);
+
+        public Task<ProductionZkProofBackendResult> VerifyAsync(
+            ProductionZkProofBackendRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Interlocked.Increment(ref _callCount);
+            return Task.FromResult(ProductionZkProofBackendResult.Accepted());
+        }
+    }
+
+    private sealed class RootDatabaseAvailability
+    {
+        private int _available = 1;
+
+        public void Fail()
+            => Volatile.Write(ref _available, 0);
+
+        public void Recover()
+            => Volatile.Write(ref _available, 1);
+
+        public void ThrowIfUnavailable()
+        {
+            if (Volatile.Read(ref _available) == 0)
+            {
+                throw new InvalidOperationException("simulated anonymous root database unavailability");
+            }
+        }
+    }
+
+    private sealed class RootQueryProbe
+    {
+        private readonly object _sync = new();
+        private TaskCompletionSource _blocked = NewCompletionSource();
+        private TaskCompletionSource _release = NewCompletionSource();
+        private int _blockNextRootSelect;
+        private int _rootSelectCount;
+
+        public int RootSelectCount => Volatile.Read(ref _rootSelectCount);
+
+        public void Observe(string statement)
+        {
+            if (!IsRootSelect(statement))
+            {
+                return;
+            }
+
+            Interlocked.Increment(ref _rootSelectCount);
+            if (Interlocked.CompareExchange(ref _blockNextRootSelect, 0, 1) != 1)
+            {
+                return;
+            }
+
+            TaskCompletionSource blocked;
+            TaskCompletionSource release;
+            lock (_sync)
+            {
+                blocked = _blocked;
+                release = _release;
+            }
+
+            blocked.TrySetResult();
+            if (!release.Task.Wait(TimeSpan.FromSeconds(20)))
+            {
+                throw new TimeoutException("Timed out waiting to release the anonymous root SELECT.");
+            }
+        }
+
+        public void Reset()
+            => Volatile.Write(ref _rootSelectCount, 0);
+
+        public void BlockNextRootSelect()
+        {
+            lock (_sync)
+            {
+                _blocked = NewCompletionSource();
+                _release = NewCompletionSource();
+                Volatile.Write(ref _blockNextRootSelect, 1);
+            }
+        }
+
+        public async Task WaitUntilBlockedAsync()
+        {
+            Task wait;
+            lock (_sync)
+            {
+                wait = _blocked.Task;
+            }
+
+            await wait.WaitAsync(TimeSpan.FromSeconds(20));
+        }
+
+        public void ReleaseBlockedSelect()
+        {
+            lock (_sync)
+            {
+                _release.TrySetResult();
+            }
+        }
+
+        private static bool IsRootSelect(string statement)
+            => statement.TrimStart().StartsWith("SELECT", StringComparison.OrdinalIgnoreCase) &&
+                statement.Contains("anonymous_credential_root", StringComparison.OrdinalIgnoreCase);
+
+        private static TaskCompletionSource NewCompletionSource()
+            => new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
     private sealed class MutableTimeProvider(DateTimeOffset utcNow) : TimeProvider

@@ -22,10 +22,26 @@ const timeoutMs = Number(
   || Math.min(Math.max(waitMs, 15000), 60000)
 )
 const manifestToken = process.env.FSUSBLOG_PUBLIC_AOT_MANIFEST_TOKEN || ''
+const warmAcceptLanguage = process.env.FSUSBLOG_PUBLIC_AOT_WARM_ACCEPT_LANGUAGE || ''
+const warmTestSession = process.env.FSUSBLOG_PUBLIC_AOT_WARM_TEST_SESSION || ''
 const {
   sourceDir: sidecarSourceDir,
   previewDistDir: sidecarPreviewDistDir
 } = resolvePublicAotSidecarDirectories({ repoRoot })
+
+function publicPageHeaders() {
+  // Browser readers resolve a distinct AOT document per Accept-Language locale
+  // and per X-Fsus-Test-Session cache scope, so an aligned warm must request
+  // the exact key space those readers will hit on their first navigation.
+  const headers = { Accept: 'text/html,application/xhtml+xml' }
+  if (warmAcceptLanguage) {
+    headers['Accept-Language'] = warmAcceptLanguage
+  }
+  if (warmTestSession) {
+    headers['X-Fsus-Test-Session'] = warmTestSession
+  }
+  return headers
+}
 
 function parseArgs(argv) {
   const configuredConcurrency = process.env.FSUSBLOG_PUBLIC_AOT_CONCURRENCY
@@ -209,7 +225,7 @@ async function waitForPublicAotHealth() {
 async function fetchHtml(path, expectedPublicOrigin) {
   const { promise } = withTimeout((signal) => fetch(`${baseUrl}${path}`, {
     signal,
-    headers: { Accept: 'text/html,application/xhtml+xml' }
+    headers: publicPageHeaders()
   }), timeoutMs)
   const response = await promise
   const html = await response.text()

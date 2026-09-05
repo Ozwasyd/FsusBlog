@@ -7,6 +7,7 @@ using System.Text.Json;
 
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Integrity;
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -17,7 +18,6 @@ using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
-using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Modules.Endpoints.Binary;
@@ -84,7 +84,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         }
 
         await fixture.ExecuteAsync(connectionString, $"""
-            DELETE FROM {SchemaMigrationRunner.HistoryTableName}
+            DELETE FROM {CurrentSchemaStartupVerifier.HistoryTableName}
             WHERE migration_id = '{TaxonomyDescriptionMigrationDefinitions.MigrationId}';
             ALTER TABLE category DROP COLUMN description;
             ALTER TABLE tag DROP COLUMN description;
@@ -158,7 +158,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             await File.WriteAllBytesAsync(Path.Combine(paths.PublicAssetRoot, "illustration", "cleanup.png"), png);
 
             await fixture.ExecuteAsync(connectionString, $"""
-                DELETE FROM {SchemaMigrationRunner.HistoryTableName}
+                DELETE FROM {CurrentSchemaStartupVerifier.HistoryTableName}
                 WHERE migration_id IN (
                     '{ContentAssetCutoverMigrationDefinitions.PrototypeShapeMigrationId}',
                     '{ContentAssetCutoverMigrationDefinitions.MigrationId}');
@@ -312,7 +312,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             }
 
             await fixture.ExecuteAsync(connectionString, $"""
-                DELETE FROM {SchemaMigrationRunner.HistoryTableName}
+                DELETE FROM {CurrentSchemaStartupVerifier.HistoryTableName}
                 WHERE migration_id = '{ContentAssetCutoverMigrationDefinitions.MigrationId}';
                 CREATE TABLE asset_library_item (
                     url varchar(512) PRIMARY KEY,
@@ -331,7 +331,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
                 StringComparison.Ordinal);
             Assert.True(await fixture.TableExistsAsync(connectionString, "asset_library_item"));
             int historyRows = await fixture.QueryScalarAsync<int>(connectionString, $"""
-                SELECT COUNT(1) FROM {SchemaMigrationRunner.HistoryTableName}
+                SELECT COUNT(1) FROM {CurrentSchemaStartupVerifier.HistoryTableName}
                 WHERE migration_id = '{ContentAssetCutoverMigrationDefinitions.MigrationId}';
                 """);
             Assert.Equal(0, historyRows);
@@ -388,7 +388,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             "SELECT COUNT(1) FROM sys_systemconfig WHERE key LIKE 'Page_%' OR key LIKE 'sys:page:%';");
         int historyCount = await fixture.QueryScalarAsync<int>(
             connectionString,
-            $"SELECT COUNT(1) FROM {SchemaMigrationRunner.HistoryTableName};");
+            $"SELECT COUNT(1) FROM {CurrentSchemaStartupVerifier.HistoryTableName};");
         bool auditLogExists = await fixture.TableExistsAsync(connectionString, "sys_audit_log");
         bool rumMetricExists = await fixture.TableExistsAsync(connectionString, "frontend_rum_metric");
         bool anonymousPolicyExists = await fixture.TableExistsAsync(connectionString, "anonymous_comment_policy");
@@ -988,16 +988,20 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             .ExecuteCommandAsync();
         await sqlSugar.Insertable(new ArticleTag { ArticleId = articleId, TagId = tagId }).ExecuteCommandAsync();
 
-        Assert.Equal(1, await BinaryEndpoints.UpdateCategoryAndEnqueueProjectionAsync(
-            sqlSugar,
-            categoryId,
-            "projection-category-after",
-            CancellationToken.None));
-        Assert.Equal(1, await BinaryEndpoints.UpdateTagAndEnqueueProjectionAsync(
-            sqlSugar,
-            tagId,
-            "projection-tag-after",
-            CancellationToken.None));
+        Assert.Equal(
+            BinaryEndpoints.TaxonomyUpdateOutcome.Updated,
+            (await BinaryEndpoints.UpdateCategoryAndEnqueueProjectionAsync(
+                sqlSugar,
+                categoryId,
+                "projection-category-after",
+                CancellationToken.None)).Outcome);
+        Assert.Equal(
+            BinaryEndpoints.TaxonomyUpdateOutcome.Updated,
+            (await BinaryEndpoints.UpdateTagAndEnqueueProjectionAsync(
+                sqlSugar,
+                tagId,
+                "projection-tag-after",
+                CancellationToken.None)).Outcome);
         TagUrlAlias persistedTagAlias = await sqlSugar.Queryable<TagUrlAlias>()
             .Where(alias => alias.TagId == tagId)
             .SingleAsync();
@@ -1008,6 +1012,71 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
                 && (item.EventType == "category-updated" || item.EventType == "tag-updated"))
             .CountAsync();
         Assert.Equal(2, taxonomyOutboxRows);
+
+        Assert.True(BinaryEndpoints.TryNormalizeTaxonomyDescription("  description only  ", out string? descriptionOnly));
+        BinaryEndpoints.TaxonomyUpdateApplyResult categoryDescriptionOnly =
+            await BinaryEndpoints.UpdateCategoryAndEnqueueProjectionAsync(
+                sqlSugar,
+                categoryId,
+                "projection-category-after",
+                descriptionOnly,
+                preserveDescription: false,
+                CancellationToken.None);
+        BinaryEndpoints.TaxonomyUpdateApplyResult tagDescriptionOnly =
+            await BinaryEndpoints.UpdateTagAndEnqueueProjectionAsync(
+                sqlSugar,
+                tagId,
+                "projection-tag-after",
+                descriptionOnly,
+                preserveDescription: false,
+                CancellationToken.None);
+        Assert.Equal(BinaryEndpoints.TaxonomyUpdateOutcome.Updated, categoryDescriptionOnly.Outcome);
+        Assert.False(categoryDescriptionOnly.NameChanged);
+        Assert.True(categoryDescriptionOnly.DescriptionChanged);
+        Assert.Equal(BinaryEndpoints.TaxonomyUpdateOutcome.Updated, tagDescriptionOnly.Outcome);
+        Assert.False(tagDescriptionOnly.NameChanged);
+        Assert.True(tagDescriptionOnly.DescriptionChanged);
+        Assert.Equal(2, await sqlSugar.Queryable<ArticleMutationOutboxEvent>()
+            .Where(item => item.AggregateId == articleId
+                && (item.EventType == "category-updated" || item.EventType == "tag-updated"))
+            .CountAsync());
+        Assert.Equal(1, await sqlSugar.Queryable<TagUrlAlias>().Where(alias => alias.TagId == tagId).CountAsync());
+        Assert.Equal(
+            "description only",
+            await sqlSugar.Queryable<Category>().Where(item => item.Id == categoryId).Select(item => item.Description).SingleAsync());
+        Assert.Equal(
+            "description only",
+            await sqlSugar.Queryable<Tag>().Where(item => item.Id == tagId).Select(item => item.Description).SingleAsync());
+
+        BinaryEndpoints.TaxonomyUpdateApplyResult categoryNoOp =
+            await BinaryEndpoints.UpdateCategoryAndEnqueueProjectionAsync(
+                sqlSugar,
+                categoryId,
+                "projection-category-after",
+                descriptionOnly,
+                preserveDescription: false,
+                CancellationToken.None);
+        Assert.Equal(BinaryEndpoints.TaxonomyUpdateOutcome.NoOp, categoryNoOp.Outcome);
+        Assert.Equal(2, await sqlSugar.Queryable<ArticleMutationOutboxEvent>()
+            .Where(item => item.AggregateId == articleId
+                && (item.EventType == "category-updated" || item.EventType == "tag-updated"))
+            .CountAsync());
+
+        BinaryEndpoints.TaxonomyUpdateApplyResult categoryRenameWithDescription =
+            await BinaryEndpoints.UpdateCategoryAndEnqueueProjectionAsync(
+                sqlSugar,
+                categoryId,
+                "projection-category-renamed-again",
+                "rename and description",
+                preserveDescription: false,
+                CancellationToken.None);
+        Assert.Equal(BinaryEndpoints.TaxonomyUpdateOutcome.Updated, categoryRenameWithDescription.Outcome);
+        Assert.True(categoryRenameWithDescription.NameChanged);
+        Assert.True(categoryRenameWithDescription.DescriptionChanged);
+        Assert.Equal(3, await sqlSugar.Queryable<ArticleMutationOutboxEvent>()
+            .Where(item => item.AggregateId == articleId
+                && (item.EventType == "category-updated" || item.EventType == "tag-updated"))
+            .CountAsync());
 
         IWebHostEnvironment environment = Substitute.For<IWebHostEnvironment>();
         environment.ContentRootPath.Returns(Path.GetTempPath());
@@ -1451,7 +1520,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         string databaseName = await fixture.CreateDatabaseAsync();
         string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
         await fixture.ExecuteAsync(connectionString, $"""
-            CREATE TABLE {SchemaMigrationRunner.HistoryTableName} (
+            CREATE TABLE {CurrentSchemaStartupVerifier.HistoryTableName} (
                 migration_id varchar(160) PRIMARY KEY,
                 checksum varchar(128) NOT NULL,
                 applied_at_utc timestamp NOT NULL,
@@ -1459,7 +1528,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
                 succeeded boolean NOT NULL
             );
 
-            INSERT INTO {SchemaMigrationRunner.HistoryTableName}(migration_id, checksum, applied_at_utc, app_version, succeeded)
+            INSERT INTO {CurrentSchemaStartupVerifier.HistoryTableName}(migration_id, checksum, applied_at_utc, app_version, succeeded)
             VALUES (
                 '20260518-post-authoring-workspace-tables',
                 '{LegacyAuthoringWorkspaceChecksum}',
@@ -1491,7 +1560,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             connectionString,
             $"""
             SELECT checksum
-            FROM {SchemaMigrationRunner.HistoryTableName}
+            FROM {CurrentSchemaStartupVerifier.HistoryTableName}
             WHERE migration_id = '20260518-post-authoring-workspace-tables';
             """);
 
@@ -2456,7 +2525,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
 
         int historyCount = await fixture.QueryScalarAsync<int>(
             connectionString,
-            $"SELECT COUNT(1) FROM {SchemaMigrationRunner.HistoryTableName};");
+            $"SELECT COUNT(1) FROM {CurrentSchemaStartupVerifier.HistoryTableName};");
 
         Assert.Contains("article_markdown_legacy", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(0, historyCount);
@@ -2518,7 +2587,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
 
         int historyCount = await fixture.QueryScalarAsync<int>(
             connectionString,
-            $"SELECT COUNT(1) FROM {SchemaMigrationRunner.HistoryTableName};");
+            $"SELECT COUNT(1) FROM {CurrentSchemaStartupVerifier.HistoryTableName};");
         bool auditLogExists = await fixture.TableExistsAsync(connectionString, "sys_audit_log");
         bool rumMetricExists = await fixture.TableExistsAsync(connectionString, "frontend_rum_metric");
         bool articleTableExists = await fixture.TableExistsAsync(connectionString, "article");
@@ -2933,7 +3002,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             "SELECT COUNT(1) FROM sys_systemconfig WHERE key LIKE 'Page_%' OR key LIKE 'sys:page:%';");
         int historyCount = await fixture.QueryScalarAsync<int>(
             connectionString,
-            $"SELECT COUNT(1) FROM {SchemaMigrationRunner.HistoryTableName};");
+            $"SELECT COUNT(1) FROM {CurrentSchemaStartupVerifier.HistoryTableName};");
 
         Assert.Equal(legacyCounts.Articles, articleBodyRows);
         Assert.Equal(legacyCounts.Articles, articleViewSeedRows);
@@ -3105,7 +3174,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             "fsusblog-schema-migration-tests",
             Guid.NewGuid().ToString("N"))));
         services.AddSingleton<IArticleDetailAedsArtifactMaintenanceService, NoopArticleDetailAedsArtifactMaintenanceService>();
-        services.AddScoped<ISchemaMigrationRunner, SchemaMigrationRunner>();
+        services.AddScoped<ISchemaMigrationRunner, CurrentSchemaStartupVerifier>();
         services.AddScoped<IAuditLogStore, AuditLogStore>();
 
         return services.BuildServiceProvider(new ServiceProviderOptions

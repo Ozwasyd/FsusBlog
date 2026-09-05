@@ -6,10 +6,17 @@ import { fileURLToPath } from 'node:url';
 import { maskCSharpTrivia, verifyFactWrappersAndSearchUtf8ScalarOwner } from './test/csharp-source-mask.mjs';
 import { parseMatrix } from './test-matrix/parse-matrix.mjs';
 import {
+    backendEvidencePathAuthorityFile,
+    buildBackendEvidencePathAuthority
+} from './test/backend-evidence-path-authority.mjs';
+import {
     verifyPlatformRuntimeGovernance,
     verifyPublicAotCrashWorkerGovernance
 } from './backend-test-runtime-governance.mjs';
-import { factWrapperContracts } from './backend-test-governance-contracts.mjs';
+import {
+    factWrapperContracts,
+    verifyCentralOpenApiPackageContract
+} from './backend-test-governance-contracts.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const requirementCatalogPath = 'tests/backend/Fixtures/backend-test-requirements.json';
@@ -32,10 +39,12 @@ const backendPathGovernanceAllowedFiles = new Set([
 const requirementCatalog = JSON.parse(readFileSync(resolve(root, requirementCatalogPath), 'utf8'));
 const aedsCatalog = JSON.parse(readFileSync(resolve(root, aedsCatalogPath), 'utf8'));
 const matrix = readFileSync(resolve(root, 'tests/matrix.yml'), 'utf8');
-const matrixTierCommands = new Map(parseMatrix(matrix).tiers.map((tier) => [tier.id, tier.command]));
+const parsedMatrix = parseMatrix(matrix);
+const matrixTierCommands = new Map(parsedMatrix.tiers.map((tier) => [tier.id, tier.command]));
 const testSh = readFileSync(resolve(root, 'tools/test.sh'), 'utf8');
 const legacyTest = readFileSync(resolve(root, 'tools/test/lanes/_suite-support.sh'), 'utf8');
 const serverProject = readFileSync(resolve(root, 'src/backend/FsusBlog.Server.csproj'), 'utf8');
+const centralPackages = readFileSync(resolve(root, 'Directory.Packages.props'), 'utf8');
 const dotnetToolManifestPath = '.config/dotnet-tools.json';
 const defaultStrykerConfigPath = 'config/testing/mutation/default.json';
 const criticalStrykerConfigRepoPath = 'config/testing/mutation/critical.json';
@@ -76,13 +85,30 @@ function requireEvidencePath(path)
 {
     if (path.startsWith('.tmp/'))
     {
-        if (!matrix.includes(path))
+        if (!matrixEvidencePaths.has(path))
         {
-            fail(`generated backend evidence is not declared by the test matrix: ${path}`);
+            fail(`generated backend evidence is not declared by an exact matrix tier output: ${path}`);
         }
         return;
     }
     requireFile(path);
+}
+
+const matrixEvidenceAuthority = buildBackendEvidencePathAuthority(
+    matrix,
+    parsedMatrix,
+    requirementCatalog);
+const matrixEvidencePaths = new Set(
+    matrixEvidenceAuthority.authority.entries
+        .filter((entry) => entry.owners.length > 0)
+        .map((entry) => entry.evidencePath));
+errors.push(...matrixEvidenceAuthority.errors);
+const expectedMatrixEvidenceAuthority = `${JSON.stringify(matrixEvidenceAuthority.authority, null, 4)}\n`;
+const matrixEvidenceAuthorityPath = resolve(root, backendEvidencePathAuthorityFile);
+if (!existsSync(matrixEvidenceAuthorityPath)
+    || readFileSync(matrixEvidenceAuthorityPath, 'utf8') !== expectedMatrixEvidenceAuthority)
+{
+    fail(`${backendEvidencePathAuthorityFile} is stale`);
 }
 
 function walk(dir, predicate, results = [])
@@ -940,7 +966,6 @@ if (!legacyTest.includes('"$ROOT_DIR/src/core"'))
     fail('critical mutation runner must execute from the Core source-project directory');
 }
 for (const contract of [
-    'PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" GeneratePathProperty="true"',
     'Target Name="DisableCompileTimeOpenApiXmlGeneratorForMutation"',
     "Condition=\"'$(FSUSBLOG_MUTATION_BUILD)' == '1'\"",
     'Analyzer Remove="$(PkgMicrosoft_AspNetCore_OpenApi)/analyzers/dotnet/cs/Microsoft.AspNetCore.OpenApi.SourceGenerators.dll"'
@@ -950,6 +975,10 @@ for (const contract of [
     {
         fail(`Stryker build must disable only the incompatible OpenAPI XML source generator: missing ${contract}`);
     }
+}
+for (const error of verifyCentralOpenApiPackageContract(centralPackages, serverProject))
+{
+    fail(`Stryker OpenAPI build contract is invalid: ${error}`);
 }
 
 for (const path of [

@@ -1,64 +1,670 @@
 {
-    "schema": "fsusblog.post-runtime-producer-registry.v1",
+    "schema": "fsusblog.post-runtime-producer-registry.v2",
     "digestAlgorithm": "sha256",
     "canonicalSerialization": "json-utf8-v1",
+    "receiptSemantics": {
+        "observationEnvelopeSchema": "fsusblog.post-runtime-observation-result-envelope.v1",
+        "acceptedClaimsSchema": "fsusblog.post-runtime-accepted-claims.v1",
+        "acceptedClaimsToolVersion": "post-runtime-accepted-claims@1",
+        "acceptedTerminalSchema": "fsusblog.global-claim-exactness-terminal-receipt.v1",
+        "acceptedTerminalAuthority": {
+            "referenceSchema": "fsusblog.current-run-evidence-reference.v1",
+            "authorityId": "evidence-consumer.docs.global-claim-exactness-final.current-run",
+            "producerId": "evidence-consumer.docs.global-claim-exactness-final.producer",
+            "toolVersion": "global-claim-exactness-final@1",
+            "producerCommand": "FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER=evidence-consumer.docs.global-claim-exactness-final node --import ./tools/test/current-run-evidence-producer-hook.mjs tools/docs/global-claim-exactness-final.mjs",
+            "referenceRoot": "artifacts/current-run",
+            "referenceName": "global-claim-exactness-final.reference.json",
+            "payloadName": "global-claim-exactness-final.terminal.json"
+        },
+        "requiredModes": [
+            "positive",
+            "negative",
+            "boundary",
+            "failure"
+        ],
+        "qualifyingEnvelope": {
+            "executionClass": "correctness",
+            "evidenceClass": "correctness",
+            "qualificationEligible": true,
+            "planned": true,
+            "executed": true,
+            "outcome": "passed",
+            "recovered": false
+        },
+        "terminalOutcomes": {
+            "passed": {
+                "timeout": false,
+                "cancelled": false,
+                "processTreeTerminated": false
+            },
+            "failed": {
+                "timeout": false,
+                "cancelled": false,
+                "processTreeTerminated": false
+            },
+            "timed-out": {
+                "timeout": true,
+                "cancelled": false,
+                "processTreeTerminated": true
+            },
+            "cancelled": {
+                "timeout": false,
+                "cancelled": true,
+                "processTreeTerminated": true
+            }
+        }
+    },
     "observationClasses": {
         "route-response-error": {
             "schema": "fsusblog.observation.route-response-error.v1",
-            "requiredIdentityFields": ["sourceCommit", "worktreeFingerprint", "buildIdentity", "candidateId", "contentDigest"],
-            "allowedModes": ["positive", "negative", "boundary", "failure"],
+            "sourceReceipt": {
+                "schema": "fsusblog.runtime-observation-probe.v1",
+                "role": "probe",
+                "discriminator": {
+                    "field": "kind",
+                    "value": "route-response-error"
+                },
+                "requiredFields": [
+                    "schema",
+                    "kind",
+                    "producerId",
+                    "toolVersion",
+                    "sourceState",
+                    "rawFacts",
+                    "buildReceipt",
+                    "fixtureReceipt",
+                    "canonicalRerunCommand",
+                    "independentVerifyCommand",
+                    "contentDigest"
+                ],
+                "requiredReferenceFields": [
+                    "buildReceipt",
+                    "fixtureReceipt"
+                ],
+                "referenceContracts": {
+                    "buildReceipt": {
+                        "schema": "fsusblog.ci-production-build-receipt.v1",
+                        "role": "production-build",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint"
+                        ]
+                    },
+                    "fixtureReceipt": {
+                        "schema": "fsusblog.fixture-receipt.v2",
+                        "role": "fixture",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint",
+                            "runId",
+                            "profileId"
+                        ]
+                    }
+                },
+                "referenceMap": null
+            },
+            "requiredIdentityFields": [
+                "sourceCommit",
+                "worktreeFingerprint",
+                "buildIdentity",
+                "artifactDigest",
+                "candidateId",
+                "runtimeId",
+                "runId",
+                "attemptId",
+                "fixtureId",
+                "profileId",
+                "producerId",
+                "toolVersion",
+                "contentDigest"
+            ],
+            "requiredSemanticFactFields": [
+                "requestIdentity",
+                "responseStatus",
+                "typedPayloadDigest",
+                "protocolIdentity",
+                "authorizationDecision",
+                "visibilityState",
+                "cacheSemanticsDigest",
+                "errorSemanticsDigest"
+            ],
+            "allowedModes": [
+                "positive",
+                "negative",
+                "boundary",
+                "failure"
+            ],
             "existenceShortcutForbidden": true
         },
         "aot-spa-hydration": {
             "schema": "fsusblog.observation.aot-spa-hydration.v1",
-            "requiredIdentityFields": ["sourceCommit", "worktreeFingerprint", "buildIdentity", "artifactDigest", "contentDigest"],
-            "allowedModes": ["positive", "negative", "boundary", "failure"],
+            "sourceReceipt": {
+                "schema": "fsusblog.aot-spa-hydration-source-bundle.v1",
+                "role": "aot",
+                "discriminator": null,
+                "requiredFields": [
+                    "schema",
+                    "producerId",
+                    "toolVersion",
+                    "sourceState",
+                    "rawFacts",
+                    "candidatePlanRef",
+                    "evidenceRefs",
+                    "canonicalRerunCommand",
+                    "independentVerifyCommand",
+                    "contentDigest"
+                ],
+                "requiredReferenceFields": [
+                    "candidatePlanRef"
+                ],
+                "referenceContracts": {
+                    "candidatePlanRef": {
+                        "schema": "fsusblog.post-runtime-candidate-plan.v1",
+                        "role": "candidate-plan",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint",
+                            "runId",
+                            "candidateId"
+                        ]
+                    },
+                    "evidenceRefs.browserContract": {
+                        "schema": "fsusblog.browser-contract-receipt.v2",
+                        "role": "browser-contract",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint",
+                            "runId"
+                        ]
+                    },
+                    "evidenceRefs.manifest": {
+                        "schema": "fsusblog.spa-manifest-descriptor.v1",
+                        "role": "spa-manifest",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint",
+                            "buildIdentity"
+                        ]
+                    }
+                },
+                "referenceMap": {
+                    "field": "evidenceRefs",
+                    "keys": [
+                        "manifest",
+                        "browserContract"
+                    ]
+                }
+            },
+            "requiredIdentityFields": [
+                "sourceCommit",
+                "worktreeFingerprint",
+                "buildIdentity",
+                "artifactDigest",
+                "candidateId",
+                "runtimeId",
+                "runId",
+                "attemptId",
+                "fixtureId",
+                "profileId",
+                "producerId",
+                "toolVersion",
+                "contentDigest"
+            ],
+            "requiredSemanticFactFields": [
+                "manifestDigest",
+                "publicationDigest",
+                "locale",
+                "dataCanaryDigest",
+                "serverHtmlDigest",
+                "hydratedDomDigest",
+                "clientStateDigest",
+                "networkResourceDigest"
+            ],
+            "allowedModes": [
+                "positive",
+                "negative",
+                "boundary",
+                "failure"
+            ],
             "existenceShortcutForbidden": true
         },
         "cache-search-outbox-convergence": {
             "schema": "fsusblog.observation.cache-search-outbox.v1",
-            "requiredIdentityFields": ["sourceCommit", "worktreeFingerprint", "buildIdentity", "runId", "contentDigest"],
-            "allowedModes": ["positive", "negative", "boundary", "failure"],
+            "sourceReceipt": {
+                "schema": "fsusblog.runtime-observation-probe.v1",
+                "role": "probe",
+                "discriminator": {
+                    "field": "kind",
+                    "value": "cache-search-outbox-convergence"
+                },
+                "requiredFields": [
+                    "schema",
+                    "kind",
+                    "producerId",
+                    "toolVersion",
+                    "sourceState",
+                    "rawFacts",
+                    "buildReceipt",
+                    "fixtureReceipt",
+                    "canonicalRerunCommand",
+                    "independentVerifyCommand",
+                    "contentDigest"
+                ],
+                "requiredReferenceFields": [
+                    "buildReceipt",
+                    "fixtureReceipt"
+                ],
+                "referenceContracts": {
+                    "buildReceipt": {
+                        "schema": "fsusblog.ci-production-build-receipt.v1",
+                        "role": "production-build",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint"
+                        ]
+                    },
+                    "fixtureReceipt": {
+                        "schema": "fsusblog.fixture-receipt.v2",
+                        "role": "fixture",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint",
+                            "runId",
+                            "profileId"
+                        ]
+                    }
+                },
+                "referenceMap": null
+            },
+            "requiredIdentityFields": [
+                "sourceCommit",
+                "worktreeFingerprint",
+                "buildIdentity",
+                "artifactDigest",
+                "candidateId",
+                "runtimeId",
+                "runId",
+                "attemptId",
+                "fixtureId",
+                "profileId",
+                "producerId",
+                "toolVersion",
+                "contentDigest"
+            ],
+            "requiredSemanticFactFields": [
+                "authorityCoordinates",
+                "eventDigest",
+                "edgeDigest",
+                "generation",
+                "queryDigest",
+                "readModelDigest",
+                "outputDigest",
+                "terminalReceiptDigest"
+            ],
+            "allowedModes": [
+                "positive",
+                "negative",
+                "boundary",
+                "failure"
+            ],
             "existenceShortcutForbidden": true
         },
         "session-cookie-runtime": {
             "schema": "fsusblog.observation.session-cookie-runtime.v1",
-            "requiredIdentityFields": ["sourceCommit", "worktreeFingerprint", "buildIdentity", "candidateId", "contentDigest"],
-            "allowedModes": ["positive", "negative", "boundary", "failure"],
+            "sourceReceipt": {
+                "schema": "fsusblog.runtime-observation-probe.v1",
+                "role": "probe",
+                "discriminator": {
+                    "field": "kind",
+                    "value": "session-cookie-runtime"
+                },
+                "requiredFields": [
+                    "schema",
+                    "kind",
+                    "producerId",
+                    "toolVersion",
+                    "sourceState",
+                    "rawFacts",
+                    "buildReceipt",
+                    "fixtureReceipt",
+                    "canonicalRerunCommand",
+                    "independentVerifyCommand",
+                    "contentDigest"
+                ],
+                "requiredReferenceFields": [
+                    "buildReceipt",
+                    "fixtureReceipt"
+                ],
+                "referenceContracts": {
+                    "buildReceipt": {
+                        "schema": "fsusblog.ci-production-build-receipt.v1",
+                        "role": "production-build",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint"
+                        ]
+                    },
+                    "fixtureReceipt": {
+                        "schema": "fsusblog.fixture-receipt.v2",
+                        "role": "fixture",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint",
+                            "runId",
+                            "profileId"
+                        ]
+                    }
+                },
+                "referenceMap": null
+            },
+            "requiredIdentityFields": [
+                "sourceCommit",
+                "worktreeFingerprint",
+                "buildIdentity",
+                "artifactDigest",
+                "candidateId",
+                "runtimeId",
+                "browserIdentity",
+                "runId",
+                "attemptId",
+                "fixtureId",
+                "profileId",
+                "producerId",
+                "toolVersion",
+                "contentDigest"
+            ],
+            "requiredSemanticFactFields": [
+                "databaseSessionDigest",
+                "credentialDigest",
+                "authContextDigest",
+                "jwtClaimsDigest",
+                "cookieClaimsDigest",
+                "storageClaimsDigest",
+                "expiry",
+                "revision",
+                "deviceDigest",
+                "serviceResultDigest"
+            ],
+            "allowedModes": [
+                "positive",
+                "negative",
+                "boundary",
+                "failure"
+            ],
             "existenceShortcutForbidden": true
         },
         "browser-behavior-contract": {
             "schema": "fsusblog.browser-contract-receipt.v2",
-            "requiredIdentityFields": ["sourceCommit", "worktreeFingerprint", "buildIdentity", "browserIdentity", "contentDigest"],
-            "allowedModes": ["positive", "negative", "boundary", "failure"],
+            "sourceReceipt": {
+                "schema": "fsusblog.browser-contract-receipt.v2",
+                "role": "browser",
+                "discriminator": null,
+                "requiredFields": [
+                    "schema",
+                    "status",
+                    "classification",
+                    "runIdentity",
+                    "sourceState",
+                    "rawFacts",
+                    "build",
+                    "fixture",
+                    "playwright",
+                    "topology",
+                    "scenarios",
+                    "publicPreviewRef",
+                    "startedAt",
+                    "finishedAt",
+                    "wallClockMs",
+                    "error",
+                    "finalization",
+                    "producerId",
+                    "toolVersion",
+                    "canonicalRerunCommand",
+                    "independentVerifyCommand",
+                    "contentDigest"
+                ],
+                "requiredReferenceFields": [
+                    "publicPreviewRef"
+                ],
+                "referenceContracts": {
+                    "publicPreviewRef": {
+                        "schema": "fsusblog.browser-contract-public-preview-evidence.v1",
+                        "role": "public-preview",
+                        "identityFields": [
+                            "sourceCommit",
+                            "worktreeFingerprint",
+                            "runId",
+                            "browserIdentity"
+                        ]
+                    }
+                },
+                "referenceMap": null
+            },
+            "requiredIdentityFields": [
+                "sourceCommit",
+                "worktreeFingerprint",
+                "buildIdentity",
+                "artifactDigest",
+                "candidateId",
+                "runtimeId",
+                "browserIdentity",
+                "runId",
+                "attemptId",
+                "fixtureId",
+                "profileId",
+                "producerId",
+                "toolVersion",
+                "contentDigest"
+            ],
+            "requiredSemanticFactFields": [
+                "contractTestId",
+                "viewport",
+                "theme",
+                "stateDigest",
+                "interactionDigest",
+                "domDigest",
+                "a11yDigest",
+                "networkDigest",
+                "consoleDigest"
+            ],
+            "allowedModes": [
+                "positive",
+                "negative",
+                "boundary",
+                "failure"
+            ],
             "existenceShortcutForbidden": true
         },
         "release-identity-readiness": {
             "schema": "fsusblog.observation.release-identity-readiness.v1",
-            "requiredIdentityFields": ["sourceCommit", "worktreeFingerprint", "releaseId", "slot", "contentDigest"],
-            "allowedModes": ["positive", "negative", "boundary", "failure"],
+            "sourceReceipt": {
+                "schema": "fsusblog.release-identity-readiness-authority-bundle.v1",
+                "role": "release-authority",
+                "discriminator": null,
+                "requiredFields": [
+                    "schema",
+                    "producerId",
+                    "toolVersion",
+                    "sourceState",
+                    "rawFacts",
+                    "rolloutEvidenceRef",
+                    "runtimeRoleAdmissionRef",
+                    "canonicalRerunCommand",
+                    "independentVerifyCommand",
+                    "contentDigest"
+                ],
+                "requiredReferenceFields": [
+                    "rolloutEvidenceRef",
+                    "runtimeRoleAdmissionRef"
+                ],
+                "referenceContracts": {
+                    "rolloutEvidenceRef": {
+                        "schema": "fsusblog.release-rollout-evidence.v1",
+                        "role": "release-rollout",
+                        "identityFields": [
+                            "releaseId"
+                        ]
+                    },
+                    "runtimeRoleAdmissionRef": {
+                        "schema": "fsusblog.runtime-role-observation.v1",
+                        "role": "runtime-role",
+                        "identityFields": []
+                    }
+                },
+                "referenceMap": null
+            },
+            "requiredIdentityFields": [
+                "sourceCommit",
+                "worktreeFingerprint",
+                "buildIdentity",
+                "artifactDigest",
+                "candidateId",
+                "runtimeId",
+                "releaseId",
+                "runId",
+                "attemptId",
+                "fixtureId",
+                "profileId",
+                "producerId",
+                "toolVersion",
+                "contentDigest"
+            ],
+            "requiredSemanticFactFields": [
+                "artifactDigest",
+                "imageDigest",
+                "packageDigest",
+                "configDigest",
+                "schemaDigest",
+                "runtimeRole",
+                "candidateId",
+                "releaseId",
+                "readinessDigest"
+            ],
+            "allowedModes": [
+                "positive",
+                "negative",
+                "boundary",
+                "failure"
+            ],
             "existenceShortcutForbidden": true
         },
         "blue-green-containment": {
             "schema": "fsusblog.observation.blue-green-containment.v1",
-            "requiredIdentityFields": ["sourceCommit", "worktreeFingerprint", "releaseId", "rolloutId", "contentDigest"],
-            "allowedModes": ["positive", "negative", "boundary", "failure"],
+            "sourceReceipt": {
+                "schema": "fsusblog.blue-green-containment-authority-bundle.v1",
+                "role": "blue-green-authority",
+                "discriminator": null,
+                "requiredFields": [
+                    "schema",
+                    "producerId",
+                    "toolVersion",
+                    "sourceState",
+                    "rawFacts",
+                    "rolloutEvidenceRef",
+                    "runtimeRoleAdmissionRef",
+                    "canonicalRerunCommand",
+                    "independentVerifyCommand",
+                    "contentDigest"
+                ],
+                "requiredReferenceFields": [
+                    "rolloutEvidenceRef",
+                    "runtimeRoleAdmissionRef"
+                ],
+                "referenceContracts": {
+                    "rolloutEvidenceRef": {
+                        "schema": "fsusblog.release-rollout-evidence.v1",
+                        "role": "release-rollout",
+                        "identityFields": [
+                            "releaseId",
+                            "rolloutId"
+                        ]
+                    },
+                    "runtimeRoleAdmissionRef": {
+                        "schema": "fsusblog.runtime-role-observation.v1",
+                        "role": "runtime-role",
+                        "identityFields": []
+                    }
+                },
+                "referenceMap": null
+            },
+            "requiredIdentityFields": [
+                "sourceCommit",
+                "worktreeFingerprint",
+                "buildIdentity",
+                "artifactDigest",
+                "candidateId",
+                "runtimeId",
+                "releaseId",
+                "rolloutId",
+                "runId",
+                "attemptId",
+                "fixtureId",
+                "profileId",
+                "producerId",
+                "toolVersion",
+                "contentDigest"
+            ],
+            "requiredSemanticFactFields": [
+                "activeBeforeDigest",
+                "standbyBeforeDigest",
+                "activeAfterDigest",
+                "standbyAfterDigest",
+                "promotionDigest",
+                "switchDigest",
+                "healthDigest",
+                "rollbackDigest",
+                "trafficOwnershipDigest",
+                "containmentDigest",
+                "terminalReceiptDigest"
+            ],
+            "allowedModes": [
+                "positive",
+                "negative",
+                "boundary",
+                "failure"
+            ],
             "existenceShortcutForbidden": true
         }
     },
     "producers": [
         {
             "producerId": "production-correctness-scheduler",
+            "toolVersion": "production-correctness-scheduler@1",
             "owner": "tools/run-test-matrix.mjs",
             "behaviorId": "browserless-production-correctness",
+            "behaviorDomain": "testing",
+            "producerTierId": "production-correctness",
             "observationSchema": "fsusblog.browserless-correctness-receipt.v1",
             "executionClass": "correctness",
-            "requiredIdentities": ["sourceCommit", "worktreeFingerprint", "buildIdentity", "schedulerRunId", "producerId"],
+            "evidenceClass": "correctness",
+            "requiredIdentities": [
+                "sourceCommit",
+                "worktreeFingerprint",
+                "buildIdentity",
+                "schedulerRunId",
+                "producerId"
+            ],
             "requiredObservations": {
-                "positive": ["browser-behavior-contract", "release-identity-readiness", "route-response-error", "cache-search-outbox-convergence"],
-                "negative": ["route-response-error", "session-cookie-runtime", "browser-behavior-contract"],
-                "boundary": ["aot-spa-hydration", "blue-green-containment"],
-                "failure": ["blue-green-containment", "session-cookie-runtime"]
+                "positive": [
+                    "browser-behavior-contract",
+                    "release-identity-readiness",
+                    "route-response-error",
+                    "cache-search-outbox-convergence"
+                ],
+                "negative": [
+                    "route-response-error",
+                    "session-cookie-runtime",
+                    "browser-behavior-contract"
+                ],
+                "boundary": [
+                    "aot-spa-hydration",
+                    "blue-green-containment"
+                ],
+                "failure": [
+                    "blue-green-containment",
+                    "session-cookie-runtime"
+                ]
             },
             "diagnosticEligible": false,
             "timeoutPolicy": "per-producer budget from config/testing/correctness-budget-policy.json with physical process-tree termination",

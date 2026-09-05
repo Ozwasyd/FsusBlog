@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.behavior-mutation-owners.v1",
     "version": 1,
-    "description": "Reviewed per-behavior C# implementation-owner mutation closure for the four mutation-required release behaviors. Derived from the behavior-fact-extractor registry consumedInputs (C# files under the mutation source projects), the reviewed AEDS critical slice (config/testing/mutation/critical.json + release-parity-subset.json) for binary-api-aeds-contract, and one explicit disambiguation for the file shared by two extractors (MfaChallengeService.cs assigned to authentication-session-permission, the behavior whose fact keys cover auth step-up). Exact disjoint source ownership is required so every Stryker mutant attributes to exactly one behavior.",
+    "description": "Reviewed per-behavior C# implementation-owner mutation closure for the four mutation-required release behaviors. Derived from the behavior-fact-extractor registry consumedInputs (C# files under the mutation source projects), the reviewed AEDS critical slice (config/testing/mutation/critical.json + release-parity-subset.json) for binary-api-aeds-contract, and explicit disambiguation for security sources shared by the auth-session and config-error extractors (MfaChallengeService.cs, PasskeyService.cs, RecoveryKeyService.cs, and UserSecurityStepUpService.cs are assigned to authentication-session-permission, whose fact keys own authentication and step-up behavior). Exact disjoint source ownership is required so every Stryker mutant attributes to exactly one behavior.",
     "sourceProjects": [
         "src/backend",
         "src/core"
@@ -28,7 +28,7 @@
         },
         {
             "behaviorId": "authentication-session-permission",
-            "provenance": "behavior-fact-extractors.json auth-session-permission-fact-extractor consumedInputs (C# under src/backend/src/core); MfaChallengeService.cs disambiguated to this behavior",
+            "provenance": "behavior-fact-extractors.json auth-session-permission-fact-extractor consumedInputs (C# under src/backend/src/core); shared authentication and step-up sources disambiguated to this behavior",
             "sourceFiles": [
                 "src/backend/Entities/UserSessionAuthenticationContext.cs",
                 "src/backend/Infrastructure/Auth/AdminPermissions.cs",
@@ -36,20 +36,26 @@
                 "src/backend/Infrastructure/Helpers/JwtHelper.cs",
                 "src/backend/Services/Security/AdminPrincipalService.cs",
                 "src/backend/Services/Security/MfaChallengeService.cs",
+                "src/backend/Services/Security/PasskeyService.cs",
+                "src/backend/Services/Security/RecoveryKeyService.cs",
+                "src/backend/Services/Security/UserSecurityStepUpService.cs",
                 "src/backend/Services/UserLoginWorkflowService.cs",
                 "src/backend/Services/UserSessionCommandService.cs"
             ]
         },
         {
             "behaviorId": "configuration-error-security-policy",
-            "provenance": "behavior-fact-extractors.json config-error-security-policy-fact-extractor consumedInputs (C# under src/backend/src/core); MfaChallengeService.cs owned by authentication-session-permission per shared-file disambiguation",
+            "provenance": "behavior-fact-extractors.json config-error-security-policy-fact-extractor consumedInputs (C# under src/backend/src/core); shared authentication and step-up sources are owned by authentication-session-permission per shared-file disambiguation",
             "sourceFiles": [
                 "src/backend/Entities/AnonymousCommentPolicy.cs",
                 "src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs",
                 "src/backend/Infrastructure/Cache/CachePolicyRegistry.cs",
                 "src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs",
+                "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.SecurityChallenge.cs",
                 "src/backend/Models/Security/SecurityAdminModels.cs",
+                "src/backend/Services/Security/RedisPowService.cs",
                 "src/backend/Services/Security/SecurityAdminPolicyService.cs",
+                "src/backend/Services/Security/SecurityChallengeOrchestrator.cs",
                 "src/backend/Services/Security/SecurityChallengeVerifyRateLimiter.cs",
                 "src/core/Common/ErrorCode.cs"
             ]

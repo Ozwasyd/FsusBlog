@@ -256,27 +256,27 @@ export const identity = {
         },
         UserIdentityPasskeys: {
             title: '通行密钥',
-            description: '登录设备。'
+            description: '',
         },
         UserIdentityRecoveryKey: {
             title: 'Recovery Key',
-            description: '账号恢复凭据。'
+            description: '',
         },
         UserIdentityAnonymous: {
             title: '匿名身份',
-            description: '匿名评论、公开发送、站点处理规则。'
+            description: '',
         },
         UserIdentityPublicProfile: {
             title: '公开资料',
-            description: '公开发送时使用的身份信息。'
+            description: '',
         },
         UserIdentitySessions: {
             title: '设备会话',
-            description: '活跃设备会话。'
+            description: '',
         },
         UserIdentityMfa: {
             title: '二次验证',
-            description: 'TOTP 状态。'
+            description: '',
         },
         UserIdentityCommentRecords: {
             title: '公开评论记录',

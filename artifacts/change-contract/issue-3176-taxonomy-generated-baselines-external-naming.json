@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/aeds-only-policy.md",
+                "docs/api/contracts.md"
+            ],
+            "reason": "preserve canonical generated AEDS frame and cache policy spellings across the API documentation contract"
+        }
+    ]
+}

@@ -32,6 +32,7 @@
 	<ItemGroup>
 		<AssemblyMetadata Include="FsusBlog.PublishReadyToRun" Value="$(PublishReadyToRun)" />
 		<AssemblyMetadata Include="FsusBlog.ReadyToRunUseCrossgen2" Value="$(ReadyToRunUseCrossgen2)" />
+		<AssemblyMetadata Include="FsusBlog.SourceCommit" Value="$(FsusBlogCommitSha)" />
 	</ItemGroup>
 
 	<PropertyGroup>
@@ -76,35 +77,35 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="BCrypt.Net-Next" Version="4.1.0" />
-		<PackageReference Include="BouncyCastle.Cryptography" Version="2.6.2" />
-		<PackageReference Include="Fido2" Version="4.0.1" />
-		<PackageReference Include="Jint" Version="4.13.0" />
-		<PackageReference Include="Konscious.Security.Cryptography.Argon2" Version="1.3.1" />
-		<PackageReference Include="MessagePack" Version="2.5.301" />
-		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.7" />
-		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" GeneratePathProperty="true" />
-		<PackageReference Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.7">
+		<PackageReference Include="BCrypt.Net-Next" />
+		<PackageReference Include="BouncyCastle.Cryptography" />
+		<PackageReference Include="Fido2" />
+		<PackageReference Include="Jint" />
+		<PackageReference Include="Konscious.Security.Cryptography.Argon2" />
+		<PackageReference Include="MessagePack" />
+		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+		<PackageReference Include="Microsoft.AspNetCore.OpenApi" GeneratePathProperty="true" />
+		<PackageReference Include="Microsoft.Extensions.ApiDescription.Server">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
-		<PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.23.0" />
-		<PackageReference Include="Nethermind.MclBindings" Version="1.0.5" />
-		<PackageReference Include="Npgsql" Version="10.0.3" />
-		<PackageReference Include="Npgsql.OpenTelemetry" Version="10.0.2" />
-		<PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
-		<PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3" />
-		<PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.2" />
-		<PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
-		<PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
-		<PackageReference Include="Serilog" Version="4.3.1" />
-		<PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
-		<PackageReference Include="Serilog.Sinks.Async" Version="2.1.0" />
-		<PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
-		<PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
-		<PackageReference Include="SqlSugarCoreNoDrive" Version="5.1.4.213" />
-		<PackageReference Include="StackExchange.Redis" Version="2.7.27" />
+		<PackageReference Include="Microsoft.OpenApi" />
+		<PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" />
+		<PackageReference Include="Nethermind.MclBindings" />
+		<PackageReference Include="Npgsql" />
+		<PackageReference Include="Npgsql.OpenTelemetry" />
+		<PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+		<PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+		<PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
+		<PackageReference Include="OpenTelemetry.Instrumentation.Http" />
+		<PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
+		<PackageReference Include="Serilog" />
+		<PackageReference Include="Serilog.AspNetCore" />
+		<PackageReference Include="Serilog.Sinks.Async" />
+		<PackageReference Include="Serilog.Sinks.Console" />
+		<PackageReference Include="Serilog.Sinks.File" />
+		<PackageReference Include="SqlSugarCoreNoDrive" />
+		<PackageReference Include="StackExchange.Redis" />
 	</ItemGroup>
 
 	<Target Name="DisableCompileTimeOpenApiXmlGeneratorForMutation" BeforeTargets="CoreCompile" Condition="'$(FSUSBLOG_MUTATION_BUILD)' == '1'">
@@ -135,7 +136,7 @@
 			Text="FsusBlogReleaseId commit suffix must match the first 12 characters of FsusBlogCommitSha." />
 	</Target>
 
-	<ItemGroup>
+		<ItemGroup>
 				<ProjectReference Include="..\core\FsusBlog.Core.csproj" />
 				<ProjectReference Include="..\shared\FsusBlog.Shared.csproj" />
 				<ProjectReference Include="..\..\tools\architecture\FsusBlog.DiLifetimeAnalyzer\FsusBlog.DiLifetimeAnalyzer.csproj"

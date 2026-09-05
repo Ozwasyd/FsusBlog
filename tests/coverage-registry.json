@@ -1022,7 +1022,8 @@
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
-                "tests/backend/Fixtures/backend-test-requirements.json"
+                "tests/backend/Fixtures/backend-test-requirements.json",
+                "tests/tools/backend-test-governance-cpm.test.mjs"
             ],
             "assertionType": "static",
             "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
@@ -2031,8 +2032,12 @@
                 "security/matrices/privacy-zk-comment.yml",
                 "tools/security/check-security-matrices.mjs",
                 "tools/test/lanes/privacy-zk-comment-matrix.sh",
-                "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+                "tests/backend/Unit/AnonymousCommentTicketEndpointFilterTests.cs",
+                "tests/backend/Unit/AnonymousCommentTicketRedisConcurrencyTests.cs",
+                "tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs",
+                "tests/backend/Unit/CommentMutationOutboxAnonymousPostgresTests.cs",
                 "tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs",
+                "tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs",
                 "tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts",
                 "tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts",
                 "tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts",
@@ -3432,6 +3437,188 @@
             ]
         },
         {
+            "id": "current-schema-bootstrap",
+            "description": "A test-only pre-runtime producer materializes the sole canonical current schema into an exactly empty isolated PostgreSQL database before ordinary read-only Server startup.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "src/backend/Infrastructure/Testing/CurrentSchemaTestMaterializer.cs",
+                "src/backend/Infrastructure/Testing/CurrentSchemaTestMaterializationCandidateVerifier.cs",
+                "src/backend/Program.cs",
+                "tools/bootstrap-acceptance-env.sh",
+                "tools/test/lanes/current-schema-bootstrap-integration.sh",
+                "tests/backend/Unit/SchemaModelInspectorTests.cs",
+                "tests/tools/current-schema-bootstrap-integration.test.mjs",
+                "docs/database-migration.md"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Reject production or non-opted-in execution, non-loopback or mismatched service identity, a public schema containing relations or non-relation objects, noncanonical source or schema identity, and any materialization whose verifier does not pass before runtime admission.",
+            "minimumRequirement": "The committed lane must start a pinned isolated PostgreSQL service, bind its live container and database instance identity, materialize an exactly empty public schema from CurrentSchemaCanonicalAuthority, and prove the independent read-only candidate verifier and CurrentSchemaStartupVerifier accept it while production startup remains read-only.",
+            "tierIds": [
+                "current-schema-bootstrap-integration"
+            ]
+        },
+        {
+            "id": "current-schema-physical-exactness",
+            "description": "PostgreSQL current-schema observation exactly preserves owned column type modifiers, defaults, collation, identity sequences, index definitions and constraint semantics after explicit provider normalization.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs",
+                "src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs",
+                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs",
+                "tests/backend/Unit/SchemaModelInspectorTests.cs",
+                "tools/test/lanes/current-schema-bootstrap-integration.sh"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Reject missing or extra schema objects and drift in physical type modifiers, defaults, collation, identity generation or sequence options, index direction, predicate, access method or null semantics, and constraint deferral, validation, referenced namespace, update, delete or match behavior.",
+            "minimumRequirement": "Focused semantic comparisons and the committed PostgreSQL lane must accept the exact canonical schema and reject independently mutated physical columns, indexes and constraints without raw digest equality or broad provider exceptions.",
+            "tierIds": [
+                "current-schema-bootstrap-integration"
+            ]
+        },
+        {
+            "id": "current-schema-receipt-lifecycle",
+            "description": "Current-schema qualification publishes prepared evidence before database commit and one immutable verified terminal plus runtime-ready receipt only after committed schema and live identity verification.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "src/backend/Infrastructure/Testing/CurrentSchemaTestMaterializer.cs",
+                "src/backend/Infrastructure/Testing/CurrentSchemaTestMaterializationCandidateVerifier.cs",
+                "tools/db/verify-current-schema-test-materialization-receipt.mjs",
+                "tools/testing/fixture-catalog.mjs",
+                "tools/bootstrap-acceptance-env.sh",
+                "tools/test/lanes/homogeneous-two-node-fixture.sh",
+                "tools/test/lanes/current-schema-bootstrap-integration.sh",
+                "tests/tools/current-schema-materialization-receipt.test.mjs",
+                "tests/tools/current-schema-bootstrap-integration.test.mjs",
+                "tests/tools/fixture-catalog.test.mjs",
+                ".tmp/current-schema-bootstrap-integration/*/**"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Reject missing, prepared, stale, tampered or pre-existing terminal evidence, output aliases, source or service identity drift, publication failure without compensation, and every crash window that could leave a false verified receipt.",
+            "minimumRequirement": "Focused receipt tests and the committed PostgreSQL lane must cover prepared-process termination, post-commit publication failure with compensation, immutable verified publication, exact receipt revalidation and terminal runtime-ready binding; the final terminal must enforce the exact unique stage roster and SHA-bind the retained run evidence bundle for independent readback.",
+            "stageRoster": [
+                "partial-schema",
+                "composite-type",
+                "nonrelation-object",
+                "publication-fault",
+                "prepared-crash",
+                "positive",
+                "extra-default",
+                "index-direction",
+                "index-null-placement",
+                "index-predicate",
+                "index-access-method",
+                "index-operator-class",
+                "index-collation",
+                "index-include",
+                "index-nulls-not-distinct",
+                "type-precision",
+                "type-default-precision",
+                "column-collation",
+                "identity-generation-by-default",
+                "identity-generation-always",
+                "sequence-start",
+                "sequence-increment",
+                "sequence-minimum",
+                "sequence-maximum",
+                "sequence-cache",
+                "sequence-cycle",
+                "sequence-data-type",
+                "sequence-name",
+                "sequence-schema",
+                "sequence-ownership",
+                "constraint-deferrable",
+                "constraint-initially-deferred",
+                "constraint-validated",
+                "foreign-key-update-action",
+                "foreign-key-delete-action",
+                "foreign-key-match-type",
+                "foreign-key-referenced-schema",
+                "stale-envelope-cluster-swap"
+            ],
+            "allowedNotApplicableStages": [
+                "type-precision",
+                "type-default-precision",
+                "constraint-validated",
+                "foreign-key-update-action",
+                "foreign-key-delete-action",
+                "foreign-key-match-type",
+                "foreign-key-referenced-schema"
+            ],
+            "requiredRetainedEvidenceKinds": [
+                "stage-receipt",
+                "command-evidence",
+                "service-envelope",
+                "materializer-receipt",
+                "runtime-ready-receipt",
+                "raw-catalog-facts",
+                "command-log"
+            ],
+            "requiredRawCatalogFacts": [
+                "composite-type-after.facts",
+                "composite-type-before.facts",
+                "partial-schema-after.facts",
+                "partial-schema-before.facts",
+                "stale-envelope-after.facts",
+                "stale-envelope-before.facts"
+            ],
+            "tierIds": [
+                "current-schema-bootstrap-integration"
+            ]
+        },
+        {
+            "id": "current-schema-canonical-authority",
+            "description": "One recomputable provider-neutral current schema model drives runtime reflection, generated projection and migration-target adapters with sealed source/content identity and dialect-specific physical projections.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs",
+                "src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs",
+                "tests/backend/Unit/SchemaModelInspectorTests.cs",
+                "tools/db/check-current-schema-authority.mjs",
+                "tests/tools/current-schema-authority.test.mjs",
+                "docs/database-migration.md",
+                "docs/online-database-migration.md"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "Reject inherited or attributed mapping loss, ignored-member admission, unknown types or converters, duplicate owners, semantic/default/constraint/index drift, provider-dialect confusion, stale projection identity, benchmark identity mismatch, tampering, migration-catalog authority, fixture reconstruction, hand-written inventory or a second generator.",
+            "minimumRequirement": "Focused unit and static mutation tests independently recompute runtime, generated and migration-target projections from one sealed canonical input, compare PostgreSQL/MySQL/SQLite physical spellings without changing semantic identity, and enter readiness warmup plus sampling only after exact equivalence.",
+            "tierIds": [
+                "backend-unit",
+                "static-governance"
+            ]
+        },
+        {
+            "id": "migration-assembly-boundary",
+            "description": "Legacy schema descriptors, catalogs, checksum/history execution, typed provider DDL and migration-only row conversion live in one independently buildable FsusBlog.Migration assembly without Server or web-host dependencies.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "src/migration/FsusBlog.Migration.csproj",
+                "src/migration/SchemaMigrationPrimitives.cs",
+                "src/migration/SchemaMigrationDdlPrimitives.cs",
+                "src/migration/SchemaMigrationExecution.cs",
+                "src/migration/SchemaMigrationManifest.cs",
+                "tests/migration/FsusBlog.Migration.Tests.csproj",
+                "tests/migration/MigrationAssemblyBoundaryTests.cs",
+                "tools/db/generate-migration-assembly-receipt.mjs",
+                "tools/db/check-migration-assembly-boundary.mjs",
+                "tests/tools/migration-assembly-boundary.test.mjs",
+                "artifacts/schema-migration/migration-assembly-receipt.json",
+                "artifacts/schema-migration/migration-assembly-binding.json",
+                "docs/database-migration.md"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "Reject Server, web-host, business-service or reverse graph dependencies; linked duplicates, type forwarders, compatibility namespaces, provider current-schema copies, shared legacy fields, old Server source ownership, missing provider registration, descriptor digest drift, or receipt symbol/content tamper.",
+            "minimumRequirement": "The assembly and its direct test project must build without the Server; PostgreSQL, MySQL and SQLite provider semantics plus the exact descriptor plan digest must pass, and static mutation tests must cover every forbidden re-entry and identity-tamper class.",
+            "tierIds": [
+                "backend-unit",
+                "static-governance"
+            ]
+        },
+        {
             "id": "backend-online-schema-migration-protocol",
             "description": "Online schema changes follow classified Expand, resumable Backfill and gated Contract phases while every destructive step carries a source-bound rollback-window proof.",
             "owner": "ServerContractAgent",
@@ -3451,7 +3638,7 @@
                 "tests/tools/schema-compatibility-coordinate.test.mjs",
                 "tools/release/schema-compatibility-coordinate.mjs",
                 "tests/tools/destructive-migration-proof.test.mjs",
-                "src/backend/Infrastructure/SchemaMigration/DestructiveMigrationProofs.cs",
+                "src/migration/DestructiveMigrationProofs.cs",
                 "docs/schema-migrations/destructive-rollback-window-proofs.json",
                 "docs/schema-migrations/destructive-rollback-window.md",
                 "tests/backend/online-schema-migration-evidence.json"
@@ -3496,10 +3683,10 @@
             "owner": "ServerContractAgent",
             "risk": "high",
             "evidencePaths": [
-                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationPrimitives.cs",
-                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationDdlPrimitives.cs",
-                "tests/backend/Unit/SchemaMigrationDdlPrimitivesTests.cs",
-                "tests/backend/Fixtures/schema-ddl-provider-snapshots.json",
+                "src/migration/SchemaMigrationPrimitives.cs",
+                "src/migration/SchemaMigrationDdlPrimitives.cs",
+                "tests/migration/SchemaMigrationDdlPrimitivesTests.cs",
+                "tests/migration/schema-ddl-provider-snapshots.json",
                 "docs/schema-migrations/typed-ddl-primitives.json"
             ],
             "assertionType": "unit",
@@ -4740,13 +4927,29 @@
                 "tools/test/evidence-location-contract.mjs",
                 "tools/test/evidence-location-scanner.mjs",
                 "tools/test/generate-evidence-location-governance.mjs",
+                "tools/test/current-run-evidence-publication.mjs",
+                "tools/test/current-run-evidence-checkpoint.mjs",
+                "tools/test/run-current-run-evidence-producer.mjs",
+                "tools/test/current-run-evidence-producer-hook.mjs",
+                "tools/test/current-run-evidence-producer-hook.bash",
+                "tools/test/publish-current-run-evidence-reference.mjs",
+                "tools/test/publish-release-final-evidence-parent.mjs",
+                "tools/test/attach-current-run-evidence-checkpoint.mjs",
+                "tools/test/current-run-evidence-transport.mjs",
+                "tools/test/run-current-run-evidence-transport.mjs",
                 "tests/tools/evidence-location-contract.test.mjs",
                 "tests/tools/evidence-location-governance.test.mjs",
+                "tests/tools/current-run-evidence-publication.test.mjs",
+                "tests/tools/current-run-evidence-scheduler.test.mjs",
+                "tests/tools/current-run-evidence-transport.test.mjs",
+                "tests/tools/current-run-evidence-locator-negative-matrix.test.mjs",
+                "tools/test/generate-current-run-evidence-location-acceptance.mjs",
+                "config/testing/current-run-evidence-location-acceptance.json",
                 "docs/testing.md"
             ],
             "assertionType": "integration",
-            "failClosedRule": "Reject missing, duplicate, orphan, unclassified, wildcard-suppressed or newly discovered location findings; duplicate consumer authorities; mutable latest, timestamp, directory, fallback, age or TTL locator policy; and any content digest drift.",
-            "minimumRequirement": "Static governance must scan tracked JS, TS, C#, shell, workflow and config consumers, prove exact location and rule coverage for every finding, retain all three disposition classes, bind actual helper callsites, and cover quality gate, release-final, aggregates, flaky, public preview, manifest and downloaded evidence consumers.",
+            "failClosedRule": "Reject missing, duplicate, orphan, unclassified, wildcard-suppressed or newly discovered location findings; duplicate consumer authorities; mutable latest, timestamp, directory, fallback, age or TTL locator policy; producer failure, cancellation, missing output, stale attempt or identity; multiple final references; non-finalized publication journals; parent payload copies; unbound downloaded artifacts; transport digest, mapping or origin mismatch; and any content or receipt digest drift.",
+            "minimumRequirement": "Static governance must scan tracked JS, TS, C#, shell, workflow and config consumers, prove exact location and rule coverage for every finding, retain all three disposition classes, give every authority exact producer/output/checkpoint bindings, publish terminal current-run content-addressed references, bind downloaded artifacts only through an exact transport manifest, and verify checkpoint and parent propagation using refs and digests only.",
             "tierIds": [
                 "static-governance"
             ]

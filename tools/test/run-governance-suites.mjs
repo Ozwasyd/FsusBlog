@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 import { runWeightedCommandManifest } from './run-command-manifest.mjs';
 import {
@@ -15,7 +16,7 @@ import { sourceIdentity } from './test-asset-audit/preflight.mjs';
 
 const { loadCanonicalInventory } = await import(new URL('../test-inventory/api.mjs', import.meta.url));
 
-const root = path.resolve(new URL('../..', import.meta.url).pathname);
+const root = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const node = process.env.FSUSBLOG_NODE || process.execPath;
 const registryFile = path.join(root, 'tests/governance/test-lifecycle-registry.json');
 const reporterFile = path.join(root, 'tools/test/static-governance-reporter.mjs');
