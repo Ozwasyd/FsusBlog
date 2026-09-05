@@ -85,3 +85,10 @@ test('exception diagnostics retain owner and expiry without revalidating excepti
     assert.match(plan.body, /owner-a \/ 2026-09-04T00:00:00Z/);
     assert.match(plan.body, /exception-expired: a/);
 });
+
+test('validated supersession is rendered in both directions on its dependency row', () => {
+    const value = input();
+    value.report.supersession = [{ dependencyId: 'a', predecessor: 10, successor: 11 }];
+    const plan = planBlockerIssue(value);
+    assert.match(plan.body, /#10 superseded by #11; #11 supersedes #10/);
+});

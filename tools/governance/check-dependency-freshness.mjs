@@ -4,7 +4,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 
-import { parseRenovatePullRequests, readFreshnessPullPages } from './dependency-freshness-pulls.mjs'
+import { readFreshnessPullPages } from './dependency-freshness-pulls.mjs'
+import { collectDependencySupersession } from './dependency-pull-supersession.mjs'
 
 import {
     clone,
@@ -95,8 +96,13 @@ async function loadLiveSnapshot(catalog, currentVersions) {
     const repository = process.env.GITHUB_REPOSITORY || 'Ozwasyd/FsusBlog'
     const pulls = await readFreshnessPullPages(page => fetchJson(
         `https://api.github.com/repos/${repository}/pulls?state=open&per_page=100&page=${page}`, githubHeaders()))
+    const supersession = await collectDependencySupersession({
+        pulls,
+        catalog,
+        readPullRequest: number => fetchJson(`https://api.github.com/repos/${repository}/pulls/${number}`, githubHeaders())
+    })
     void currentVersions
-    return { registries, pullRequests: parseRenovatePullRequests(pulls, catalog) }
+    return { registries, pullRequests: supersession.pullRequests, supersession: supersession.relations }
 }
 
 function writeResult(result) {
@@ -242,6 +248,7 @@ if (fixturePath) {
         if (extractErrors.length > 0) result.status = 'fail'
         result.evidenceClass = 'live-registry'
         result.pullRequests = liveSnapshot.pullRequests
+        result.supersession = liveSnapshot.supersession
         writeResult(result)
         if (result.status !== 'pass') process.exitCode = 1
     } catch (error) {
