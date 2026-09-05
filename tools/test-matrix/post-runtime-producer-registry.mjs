@@ -22,6 +22,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { digestValue, isPlainObject } from '../fact-extractors/lib/canonicalize.mjs'
 import { validateBrowserContractReceipt, validatePublicPreviewEvidenceBinding } from '../release/browser-contract-receipt-contract.mjs'
+import { projectPublicPreviewQualityRegistry, validatePublicPreviewQualityManifestValue } from '../release/public-preview-quality-receipt-contract.mjs'
 import { parseMatrix } from './parse-matrix.mjs'
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -84,7 +85,8 @@ const readerFirewallEntry = 'tools/test-matrix/post-runtime-producer-registry.mj
 const pureReceiptContracts = new Set([
     'tools/docs/behavior-doc-static-admission-contract.mjs',
     'tools/docs/behavior-doc-minimal-contract-build-contract.mjs',
-    'tools/release/browser-contract-receipt-contract.mjs'
+    'tools/release/browser-contract-receipt-contract.mjs',
+    'tools/release/public-preview-quality-receipt-contract.mjs'
 ])
 const acornDependencyParser = String.raw`
 const acorn = require('internal/deps/acorn/acorn/dist/acorn')
@@ -1593,11 +1595,29 @@ function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, lab
     {
         assertExactKeys(current.value, ['schema', 'status', 'sourceCommit', 'releaseId', 'manifestSchema',
             'visualInputDigest', 'runtimeAudit', 'layoutAudit', 'sanitizationCheck', 'images',
-            'differences', 'commandVersion'], `${label} canonical preview`)
+            'differences', 'commandVersion', 'qualityAudit', 'qualityPolicyDigest', 'quality'], `${label} canonical preview`)
         if (current.value.schema !== contract.schema || current.value.status !== 'ok'
             || current.value.sourceCommit !== sourceState.sourceCommit)
         {
             fail(`${label} canonical preview source/status mismatch`)
+        }
+        const readQualityAuthority = (file) =>
+        {
+            if (typeof file !== 'string' || !file.startsWith('config/docs/') || !file.endsWith('.json'))
+                fail(`${label} quality authority must use a canonical config/docs JSON path`)
+            return parseCanonicalJson(readPinnedRepositoryFile(repositoryRoot, file, `${label} quality authority`).bytes, `${label} quality authority`, 4)
+        }
+        const qualityRegistry = readQualityAuthority('config/docs/public-preview-screenshots.json')
+        const qualityPolicy = readQualityAuthority(qualityRegistry.qualityPolicyFile)
+        const qualityScenarios = qualityRegistry.qualityScenarioFiles.map((file) =>
+            readQualityAuthority(file))
+        const qualityErrors = validatePublicPreviewQualityManifestValue(current.value.quality,
+            projectPublicPreviewQualityRegistry(qualityRegistry, qualityPolicy, qualityScenarios))
+        if (current.value.qualityAudit !== true
+            || current.value.qualityPolicyDigest !== current.value.quality?.policyDigest
+            || qualityErrors.length !== 0)
+        {
+            fail(`${label} canonical preview quality mismatch: ${qualityErrors.join('; ')}`)
         }
     }
     else if (current.value.schema !== contract.schema

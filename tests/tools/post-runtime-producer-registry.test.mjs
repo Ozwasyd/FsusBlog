@@ -40,6 +40,13 @@ fs.copyFileSync(path.join(root, 'config/schemas/post-runtime-observation-result.
     path.join(receiptRepositoryRoot, 'config/schemas/post-runtime-observation-result.schema.json'))
 fs.copyFileSync(path.join(root, 'config/testing/fixture-profile-catalog.json'),
     path.join(receiptRepositoryRoot, 'config/testing/fixture-profile-catalog.json'))
+const previewRegistry = JSON.parse(fs.readFileSync(path.join(root, 'config/docs/public-preview-screenshots.json'), 'utf8'))
+for (const file of ['config/docs/public-preview-screenshots.json', previewRegistry.qualityPolicyFile, ...previewRegistry.qualityScenarioFiles])
+{
+    fs.mkdirSync(path.dirname(path.join(receiptRepositoryRoot, file)), { recursive: true })
+    fs.copyFileSync(path.join(root, file), path.join(receiptRepositoryRoot, file))
+}
+const previewQuality = JSON.parse(fs.readFileSync(path.join(root, 'docs/assets/visual-evidence/public-preview-quality.json'), 'utf8'))
 
 function validateProducerReceiptAgainstRegistry(options)
 {
@@ -138,6 +145,7 @@ function producerReceipt(classId = 'route-response-error')
                 manifestSchema: 'fsusblog.public-preview-screenshot-manifest.v1',
                 visualInputDigest: 'c'.repeat(64), runtimeAudit: true, layoutAudit: true,
                 sanitizationCheck: true, differences: [], commandVersion: 'd'.repeat(64),
+                qualityAudit: true, qualityPolicyDigest: previewQuality.policyDigest, quality: structuredClone(previewQuality),
                 images: Object.fromEntries(Array.from({ length: 9 }, (_, index) =>
                     [`screenshot-${index + 1}`, `${index + 1}`.repeat(64)]))
             },
@@ -675,6 +683,18 @@ test('canonical Browser source keeps its sealer fields and rejects re-sealed ide
 {
     const classId = 'browser-behavior-contract'
     const producerId = registry.producers[0].producerId
+    const mutatePreview = (mutation) => (upstream) =>
+    {
+        const file = path.join(receiptRepositoryRoot, upstream.publicPreviewRef.path)
+        const preview = JSON.parse(fs.readFileSync(file, 'utf8'))
+        assert.equal(Object.keys(preview).length, 15)
+        mutation(preview)
+        const bytes = `${JSON.stringify(preview, null, 2)}\n`
+        fs.writeFileSync(file, bytes)
+        const fileDigest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`
+        upstream.publicPreviewRef.fileDigest = fileDigest
+        upstream.publicPreview.evidenceFileDigest = fileDigest
+    }
     for (const [mutate, expected] of [
         [(value) => { value.unregistered = true }, /missing or unknown fields/u],
         [(value) => { delete value.diagnostics }, /missing or unknown fields/u],
@@ -685,7 +705,12 @@ test('canonical Browser source keeps its sealer fields and rejects re-sealed ide
         [(value) => { value.publicPreview.evidenceFileDigest = digest('f') }, /canonical source\/build\/run\/preview binding mismatch/u],
         [(value) => { value.candidatePlanRef.fileDigest = digest('f') }, /candidatePlanRef file digest mismatch/u],
         [(value) => { value.candidatePlanRef.path = '.tmp/latest/plan.json' }, /explicit current-run JSON path/u],
-        [(value) => { value.status = 'failure' }, /canonical Browser contract/u]
+        [(value) => { value.status = 'failure' }, /canonical Browser contract/u],
+        [mutatePreview((value) => { value.captureContextCount = 9 }), /canonical preview has missing or unknown fields/u],
+        [mutatePreview((value) => { delete value.qualityAudit }), /canonical preview has missing or unknown fields/u],
+        [mutatePreview((value) => { value.qualityAudit = false }), /canonical preview quality mismatch/u],
+        [mutatePreview((value) => { value.qualityPolicyDigest = 'f'.repeat(64) }), /canonical preview quality mismatch/u],
+        [mutatePreview((value) => { value.quality.matrix.reports = [] }), /canonical preview quality mismatch/u]
     ])
     {
         const receipt = producerReceipt(classId)
@@ -740,7 +765,8 @@ test('canonical pure receipt modules retain transitive no-I/O and no-execution b
         assert.throws(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry), /forbidden/u)
     }
     for (const canonical of [entry, 'tools/docs/behavior-doc-minimal-contract-build-contract.mjs',
-        'tools/release/browser-contract-receipt-contract.mjs'])
+        'tools/release/browser-contract-receipt-contract.mjs',
+        'tools/release/public-preview-quality-receipt-contract.mjs'])
     {
         assert.doesNotThrow(() => validatePostRuntimeReaderFirewall(root, canonical))
     }
