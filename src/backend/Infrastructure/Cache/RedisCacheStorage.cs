@@ -1950,6 +1950,47 @@ return {1, source}
         SetL1(policy, l1Key, key, Array.Empty<byte>());
     }
 
+    internal async Task PublishSortedSetAsync(IDatabase database, string key, SortedSetEntry[] entries, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        CacheRebuildLeaseScope scope = CacheRebuildLeaseScope.Current ?? throw new CacheCoordinationException("publication-without-lease", CachePolicyId.TopArticles);
+        scope.EnsureActive();
+        if (!ReferenceEquals(database.Multiplexer, _db.Multiplexer) || database.Database != _db.Database)
+        {
+            throw new CacheCoordinationException("publication-store-mismatch", scope.PolicyId);
+        }
+        var keys = new List<RedisKey> { key };
+        var values = new List<RedisValue>();
+        for (CacheRebuildLeaseScope? lease = scope; lease is not null; lease = lease.Parent)
+        {
+            if (!ReferenceEquals(lease.Store, this))
+            {
+                throw new CacheCoordinationException("publication-store-mismatch", scope.PolicyId);
+            }
+            keys.Add(BuildKey(lease.PolicyId, lease.Identity));
+            values.Add(lease.Value);
+        }
+        foreach (SortedSetEntry entry in entries)
+        {
+            values.Add(entry.Score);
+            values.Add(entry.Element);
+        }
+        const string Script = """
+for i = 2, #KEYS do
+  if redis.call('GET', KEYS[i]) ~= ARGV[i - 1] then return 0 end
+end
+redis.call('ZADD', KEYS[1], unpack(ARGV, #KEYS))
+return 1
+""";
+        RedisResult result = await _db.ScriptEvaluateAsync(Script, keys.ToArray(), values.ToArray()).ConfigureAwait(false);
+        if ((long)result != 1)
+        {
+            throw new CacheCoordinationException("publication-lease-lost", scope.PolicyId);
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        scope.EnsureActive();
+    }
+
     private async Task PublishValueAsync(CachePolicyId policyId, string key, RedisValue value, TimeSpan? ttl, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

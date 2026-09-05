@@ -1,3 +1,5 @@
+using StackExchange.Redis;
+
 namespace FsusBlog.Server.Infrastructure.Cache;
 
 internal sealed class CacheRebuildLeaseScope : IDisposable
@@ -50,6 +52,17 @@ internal sealed class CacheRebuildLeaseScope : IDisposable
     }
 
     internal void StopPublishing() => Interlocked.Exchange(ref _stopped, 1);
+
+    internal static Task PublishSortedSetAsync(IDatabase database, string key, SortedSetEntry[] entries, CancellationToken cancellationToken)
+    {
+        CacheRebuildLeaseScope scope = Current ?? throw new CacheCoordinationException("publication-without-lease", CachePolicyId.TopArticles);
+        scope.EnsureActive();
+        if (scope.Store is not UnifiedCache cache)
+        {
+            throw new CacheCoordinationException("publication-store-mismatch", scope.PolicyId);
+        }
+        return cache.PublishSortedSetAsync(database, key, entries, cancellationToken);
+    }
 
     public void Dispose()
     {

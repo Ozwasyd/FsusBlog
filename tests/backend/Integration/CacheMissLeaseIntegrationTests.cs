@@ -21,8 +21,141 @@ namespace FsusBlog.Server.Tests;
 [Trait("Category", "Integration")]
 [Trait("Dependency", "Docker")]
 [Collection(nameof(SchemaMigrationPostgresCollectionA))]
-public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture redis, PostgresSchemaMigrationFixture postgres) : IClassFixture<PublicHotDeliveryRedisFixture>
+public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture redis, PostgresSchemaMigrationFixture postgres, Xunit.Abstractions.ITestOutputHelper output) : IClassFixture<PublicHotDeliveryRedisFixture>
 {
+    [Theory]
+    [InlineData("valid")]
+    [InlineData("lost")]
+    [InlineData("cancelled")]
+    [InlineData("parent-lost")]
+    public async Task SortedSetPublication_RequiresEveryLiveLeaseAndPreservesMembers(string scenario)
+    {
+        await using ConnectionMultiplexer connection = await redis.ConnectAsync();
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var scope = new TestKeyScope($"eight-cache-seed-{Guid.NewGuid():N}:");
+        using var cache = new UnifiedCache(memory, connection, new CachePolicyRegistry(), scope, NullLogger<UnifiedCache>.Instance);
+        IDatabase db = connection.GetDatabase();
+        string key = scope.PrefixKey("blog:top_articles");
+        string lease = cache.BuildKey(CachePolicyId.TopArticles, "__lease__:seed:10");
+        string parentKey = cache.BuildKey(CachePolicyId.TopArticles, "__lease__:parent");
+        await db.StringSetAsync(lease, "owner", TimeSpan.FromSeconds(10));
+        await db.StringSetAsync(parentKey, "parent", TimeSpan.FromSeconds(10));
+        await db.SortedSetAddAsync(key, "existing", 9);
+        await db.KeyExpireAsync(key, TimeSpan.FromSeconds(30));
+        TimeSpan? before = await db.KeyTimeToLiveAsync(key);
+        using var cancellation = new CancellationTokenSource();
+        using var parent = new CacheRebuildLeaseScope(cache, CachePolicyId.TopArticles, "__lease__:parent", "parent", CancellationToken.None);
+        using var owner = new CacheRebuildLeaseScope(cache, CachePolicyId.TopArticles, "__lease__:seed:10", "owner", cancellation.Token);
+        SortedSetEntry[] entries = [new(new byte[] { 0, 1, 255 }, 12.5), new("42", 7)];
+        if (scenario == "lost")
+        {
+            await db.StringSetAsync(lease, "replacement", TimeSpan.FromSeconds(10));
+        }
+        if (scenario == "parent-lost")
+        {
+            await db.StringSetAsync(parentKey, "replacement", TimeSpan.FromSeconds(10));
+        }
+        if (scenario == "cancelled")
+        {
+            cancellation.Cancel();
+        }
+        if (scenario == "valid")
+        {
+            await CacheRebuildLeaseScope.PublishSortedSetAsync(db, key, entries, cancellation.Token);
+            Assert.Equal(3, await db.SortedSetLengthAsync(key));
+            foreach (SortedSetEntry entry in entries)
+            {
+                Assert.Equal(entry.Score, await db.SortedSetScoreAsync(key, entry.Element));
+            }
+        }
+        else
+        {
+            if (scenario == "cancelled")
+            {
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() => CacheRebuildLeaseScope.PublishSortedSetAsync(db, key, entries, cancellation.Token));
+            }
+            else
+            {
+                CacheCoordinationException failure = await Assert.ThrowsAsync<CacheCoordinationException>(() => CacheRebuildLeaseScope.PublishSortedSetAsync(db, key, entries, cancellation.Token));
+                Assert.Equal("publication-lease-lost", failure.Reason);
+            }
+            Assert.Equal(new SortedSetEntry("existing", 9), Assert.Single(await db.SortedSetRangeByRankWithScoresAsync(key)));
+        }
+        Assert.Equal(9, await db.SortedSetScoreAsync(key, "existing"));
+        TimeSpan? after = await db.KeyTimeToLiveAsync(key);
+        Assert.NotNull(after);
+        Assert.True(after > TimeSpan.Zero && after <= before);
+        await db.KeyDeleteAsync([key, lease, parentKey]);
+    }
+
+    [Theory]
+    [InlineData(100)]
+    [InlineData(1000)]
+    public async Task SeparateProcesses_ColdKey_ExecuteOneDatabaseCommand(int concurrency)
+    {
+        string database = await postgres.CreateDatabaseAsync();
+        await using ConnectionMultiplexer connection = await redis.ConnectAsync();
+        string prefix = $"eight-cache-process-{Guid.NewGuid():N}:";
+        await using var first = new CacheCoordinationProcessProbe.Child(connection.Configuration, postgres.BuildDatabaseConnectionString(database), prefix, "normal", concurrency / 2);
+        await using var second = new CacheCoordinationProcessProbe.Child(connection.Configuration, postgres.BuildDatabaseConnectionString(database), prefix, "normal", concurrency / 2);
+        await Task.WhenAll(first.ReadyAsync(), second.ReadyAsync());
+        output.WriteLine(first.Identity);
+        output.WriteLine(second.Identity);
+        await Task.WhenAll(first.GoAsync(), second.GoAsync());
+        using var a = await first.ReadAsync("complete");
+        using var b = await second.ReadAsync("complete");
+        output.WriteLine(a.RootElement.GetRawText());
+        output.WriteLine(b.RootElement.GetRawText());
+        Assert.Equal(1, a.RootElement.GetProperty("dbCommands").GetInt32() + b.RootElement.GetProperty("dbCommands").GetInt32());
+        Assert.Equal(concurrency, a.RootElement.GetProperty("successes").GetInt32() + b.RootElement.GetProperty("successes").GetInt32());
+        Assert.Equal(0, a.RootElement.GetProperty("activeEntries").GetInt32());
+        Assert.Equal(0, b.RootElement.GetProperty("activeEntries").GetInt32());
+        await Task.WhenAll(first.FinishAsync(), second.FinishAsync());
+    }
+
+    [Fact]
+    public async Task OwnerProcessCrash_LeaseExpiresAndSuccessorPublishes()
+    {
+        string database = await postgres.CreateDatabaseAsync();
+        await using ConnectionMultiplexer connection = await redis.ConnectAsync();
+        string prefix = $"eight-cache-crash-{Guid.NewGuid():N}:";
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        using var cache = new UnifiedCache(memory, connection, new CachePolicyRegistry(), new TestKeyScope(prefix), NullLogger<UnifiedCache>.Instance);
+        string lease = cache.BuildKey(CachePolicyId.SystemPage, "__lease__:value");
+        string value = cache.BuildKey(CachePolicyId.SystemPage, "value");
+        IDatabase db = connection.GetDatabase();
+        await using var owner = new CacheCoordinationProcessProbe.Child(connection.Configuration, postgres.BuildDatabaseConnectionString(database), prefix, "crash", 1);
+        await owner.ReadyAsync();
+        output.WriteLine(owner.Identity);
+        await owner.GoAsync();
+        using var owned = await owner.ReadAsync("owned");
+        output.WriteLine(owned.RootElement.GetRawText());
+        Assert.Equal(1, owned.RootElement.GetProperty("dbCommands").GetInt32());
+        string[] commands = owned.RootElement.GetProperty("redisCommands").EnumerateArray().Select(item => item.GetString()!).ToArray();
+        Assert.Equal(2, commands.Count(command => command == "GET"));
+        Assert.Equal(1, commands.Count(command => command == "SET"));
+        Assert.True(await db.KeyExistsAsync(lease));
+        await owner.KillOwnerAsync();
+        Assert.False(await db.KeyExistsAsync(value));
+        var deadline = Stopwatch.StartNew();
+        while (await db.KeyExistsAsync(lease) && deadline.Elapsed < TimeSpan.FromSeconds(8))
+        {
+            await Task.Delay(50);
+        }
+        Assert.False(await db.KeyExistsAsync(lease));
+        await using var successor = new CacheCoordinationProcessProbe.Child(connection.Configuration, postgres.BuildDatabaseConnectionString(database), prefix, "normal", 1);
+        await successor.ReadyAsync();
+        output.WriteLine($"ownerExited=true leaseExpired=true expiryObservationMs={deadline.Elapsed.TotalMilliseconds:F0}");
+        output.WriteLine(successor.Identity);
+        await successor.GoAsync();
+        using var completed = await successor.ReadAsync("complete");
+        output.WriteLine(completed.RootElement.GetRawText());
+        Assert.Equal(1, completed.RootElement.GetProperty("dbCommands").GetInt32());
+        await successor.FinishAsync();
+        Assert.Equal("built", await cache.GetStringAsync(CachePolicyId.SystemPage, "value"));
+        Assert.False(await db.KeyExistsAsync(lease));
+    }
+
     [Theory]
     [InlineData("loser")]
     [InlineData("write-failure")]
