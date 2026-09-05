@@ -448,6 +448,56 @@ public sealed class ArticleAssetReferenceLifecycleTests(PostgresSchemaMigrationF
         }
     }
 
+    [Theory]
+    [InlineData(ContentAssetSourceKinds.Article)]
+    [InlineData(ContentAssetSourceKinds.Draft)]
+    [InlineData(ContentAssetSourceKinds.Revision)]
+    public async Task ReferenceRestoredAfterClaimPreventsPhysicalDeletion(string sourceKind)
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(db);
+        AssetId assetId = SeedAsset(db, "illustration/claim-restore.png");
+        QueueAsset(db, assetId, DateTime.UtcNow.AddMinutes(-1));
+        string root = Path.Combine(Path.GetTempPath(), $"fsusblog-claim-restore-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            ReleaseStoragePaths paths = ReleaseStorageTestPaths.Create(root);
+            string file = WriteAssetFile(paths, "illustration/claim-restore.png");
+            var physicalStore = new LocalContentAssetStore(db, paths, NullLogger<LocalContentAssetStore>.Instance);
+            var store = new DelegateAssetStore(async (requested, cancellationToken) =>
+            {
+                Assert.Equal(assetId, requested);
+                Assert.True(db.Queryable<ContentAssetCleanupQueueItem>()
+                    .InSingle(assetId.Value).NotBeforeUtc > DateTime.UtcNow);
+                using SqlSugarClient restoreDb = PostgresSqlSugarTestClient.Create(connectionString);
+                var references = new ArticleAssetReferenceStore(restoreDb);
+                await InTransactionAsync(restoreDb, () => sourceKind switch
+                {
+                    ContentAssetSourceKinds.Article => references.ReplaceCurrentArticleAsync(42, Writes(assetId)),
+                    ContentAssetSourceKinds.Draft => references.ReplaceDraftAsync(7, "draft", 42, Writes(assetId)),
+                    ContentAssetSourceKinds.Revision => references.ReplaceRevisionAsync(1001, 42, Writes(assetId)),
+                    _ => throw new InvalidOperationException("Unexpected source kind.")
+                });
+                return await physicalStore.DeleteAsync(requested, cancellationToken);
+            });
+            var cleanup = new ArticleAssetCleanupService(
+                db, store, TimeProvider.System, NullLogger<ArticleAssetCleanupService>.Instance);
+
+            Assert.Equal(1, await cleanup.ProcessDueAsync(maxItems: 1));
+
+            Assert.True(File.Exists(file));
+            Assert.Equal(ContentAssetStates.Active, db.Queryable<ContentAsset>().InSingle(assetId.Value).State);
+            Assert.Equal(sourceKind, Assert.Single(db.Queryable<ContentAssetReference>().ToList()).SourceKind);
+            Assert.Empty(db.Queryable<ContentAssetCleanupQueueItem>().ToList());
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     [Fact]
     public async Task DatabaseDeleteFailureMustNotLeaveActiveAssetWithoutBytes()
     {
