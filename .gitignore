@@ -99,6 +99,8 @@ FsusBlog.Server/appsettings.Development.json
 src/backend/appsettings.Development.json
 
 # Logs / runtime artifacts
+# Run-scoped evidence is output, not an input to source identity.
+/artifacts/current-run/
 FsusBlog.Server/[Ll]ogs/
 src/backend/[Ll]ogs/
 src/backend/FsusBlog.Server/[Ll]ogs/

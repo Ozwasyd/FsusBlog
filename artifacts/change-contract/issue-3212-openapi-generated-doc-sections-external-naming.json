@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/schemas-and-errors.md",
+                "docs/api/stability.md"
+            ],
+            "reason": "preserve canonical generated AEDS route, status, schema and observation digest spellings in the API documentation contract"
+        }
+    ]
+}

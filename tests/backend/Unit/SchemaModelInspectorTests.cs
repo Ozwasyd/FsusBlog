@@ -357,14 +357,12 @@ public sealed class SchemaModelInspectorTests
 
     private static string RepositoryFile(params string[] parts)
     {
-        for (DirectoryInfo? current = new(AppContext.BaseDirectory); current is not null; current = current.Parent)
+        string candidate = BackendTestPaths.FromRoot(parts);
+        if (File.Exists(candidate))
         {
-            string candidate = Path.Combine([current.FullName, .. parts]);
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
+            return candidate;
         }
+
         throw new InvalidOperationException($"Repository file not found: {string.Join('/', parts)}");
     }
 
