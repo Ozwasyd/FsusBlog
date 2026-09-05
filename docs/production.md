@@ -17,40 +17,39 @@ The app container owns only application runtime state. Persistent state is kept 
 - slot-local `fsusblog-aot-cache-{blue|green}`: public AOT shell cache under `/app/wwwroot/aot-cache`
 - slot-local `fsusblog-logs-{blue|green}`: rolling Serilog files under `/app/Logs`
 - slot-local `fsusblog-data-{blue|green}`: derived runtime data and fallback files under `/app/data`
-- shared `${FSUSBLOG_SHARED_RELEASE_DERIVED_VOLUME}` mounted at `/app/release-derived`: release-id-scoped `public-aot`、`public-hot`、`search`、`ssr`、`precompressed` 与 generated manifest generations
-- host append-only `${FSUSBLOG_RELEASE_ASSET_STORE}/releases` mounted read-only at `/app/release-assets`: one immutable child per release for frontend、Wasm、font 与 Service Worker compatibility
+- shared `${FSUSBLOG_SHARED_RELEASE_DERIVED_VOLUME}` mounted at `/app/release-derived`: release-id-scoped `public-aot`, `public-hot`, `search`, `ssr`, `precompressed`, and generated manifest generations
+- host append-only `${FSUSBLOG_RELEASE_ASSET_STORE}/releases` mounted read-only at `/app/release-assets`: one immutable child per release for frontend, Wasm, fonts, and Service Worker compatibility
 
 ## Backend coverage evidence
 
-Production Fresh 的 backend test partitions 只保留 Coverlet JSON 作为 canonical raw coverage。每个 partition 同目录的 `coverage.identity.json` 绑定 run ID、source commit/fingerprint、raw SHA-256、module 和 normalized source universe；`.tmp/coverage/backend/production/universe.json` 是本轮 expected shard 清单。缺 shard、重复目录、错 run/source、错 module/source 或损坏 raw 都必须在 merge 前 fail closed。
+Production Fresh backend test partitions retain only Coverlet JSON as canonical raw coverage. The `coverage.identity.json` in each partition directory binds the run ID, source commit/fingerprint, raw SHA-256, module, and normalized source universe; `.tmp/coverage/backend/production/universe.json` is this run's expected shard inventory. A missing shard, duplicate directory, wrong run/source, wrong module/source, or corrupted raw file must fail closed before merge.
 
-合并后 `.tmp/coverage/backend-merged/coverage.json` 是权威结果；`coverage.cobertura.xml` 与 `Summary.json` 只从该内存中的 merged result 各生成一次。coverage threshold、changed-code coverage 和 release-final evidence 读取同一 `Summary.json`，不能回退到任一 shard 的 Cobertura 或重新合并附件。`migration-evidence.json` 记录迁移前后 coverage bytes、attachment 数、parse count 和 merge CPU；这些数值只用于优化观察，不是 correctness 或固定时间门禁。
+After merging, `.tmp/coverage/backend-merged/coverage.json` is the authoritative result; `coverage.cobertura.xml` and `Summary.json` are each generated once from that in-memory merged result. The coverage threshold, changed-code coverage, and release-final evidence all read the same `Summary.json`; they must not fall back to any shard's Cobertura or merge attachments again. `migration-evidence.json` records coverage bytes before and after migration, attachment count, parse count, and merge CPU; these values are optimization observations only, not correctness or fixed-time gates.
 
-不重启降级路径是停止当前验收轮次、保留全部 raw shard evidence 并切回上一已验证 commit 重新运行 Fresh；不得在运行中跳过 sidecar/universe 校验，也不得用旧 Summary 冒充当前 source 的 evidence。该 coverage 工具链不修改应用 runtime、API、鉴权、notification stream 或 binary transport。
+The no-restart degradation path is to stop the current acceptance run, retain all raw shard evidence, and switch back to the last verified commit to rerun Fresh; do not skip sidecar/universe validation during execution or use an old Summary as evidence for the current source. This coverage toolchain does not modify application runtime, API, authentication, notification stream, or binary transport.
 
-## Production Fresh 磁盘 admission
+<a id="production-fresh-磁盘-admission"></a>
+## Production Fresh Disk Admission
 
-Production Fresh 在获取 repository exclusive lease 后，先从
-`config/testing/production-disk-demand.json` 解析 selected physical DAG 的磁盘需求。需求按
-canonical filesystem identity 合并，不按路径重复使用 free bytes；run output、production
-build、OS temp、Docker storage/volume 和本轮 dependency-cache growth 必须全部可解析。Docker
-volume 或 filesystem identity 不可确认时 fail closed。
+After acquiring the repository exclusive lease, Production Fresh first parses the selected physical DAG's disk demand from
+`config/testing/production-disk-demand.json`. Demands are merged by canonical filesystem identity rather than reusing free bytes by path; run output, production
+build, OS temp, Docker storage/volume, and this run's dependency-cache growth must all be resolvable. Fail closed when a Docker
+volume or filesystem identity cannot be confirmed.
 
-host-local reservation authority 位于 repository `.tmp`、run output、build root 与 cache holding
-root 之外。receipt 绑定 run/candidate、repository lease owner、完整 process start/command
-identity、plan digest 和 producer declaration digest。同一 filesystem 上的并发 Production run
-先扣除已有 active reservation；PID 存在、mtime 变旧或未来 GC 可释放空间都不能回收或抵扣
-reservation。
+The host-local reservation authority is outside the repository `.tmp`, run output, build root, and cache holding
+root. The receipt binds the run/candidate, repository lease owner, complete process start/command
+identity, plan digest, and producer declaration digest. Concurrent Production runs on the same filesystem
+first subtract existing active reservations; a present PID, stale mtime, or space that future GC could release may not reclaim or offset a
+reservation.
 
-reservation seal 之前不得终止 runtime/container、删除 output/checkpoint/log、迁移 cache、创建
-build root、启动 managed GC 或 physical producer。每个 producer 启动前重新检查 live headroom；
-external capacity loss 或实际增长超过声明会停止后续 admission、终止本轮 process tree并保留
-partial evidence。success、failure、timeout 与 cancel 都必须写 release receipt；释放失败使本轮
-不合格。`--plan-only` 只打印 demand plan，不获取 reservation或执行 mutation。
+Before the reservation seal, do not terminate a runtime/container, delete output/checkpoint/logs, migrate the cache, create a
+build root, or start managed GC or a physical producer. Recheck live headroom before each producer starts;
+external capacity loss or actual growth beyond the declaration stops subsequent admission, terminates this run's process tree, and retains
+partial evidence. success, failure, timeout, and cancel must all write a release receipt; a release failure makes this run
+unqualified. `--plan-only` only prints the demand plan; it does not acquire a reservation or execute a mutation.
 
-不重启回退路径是停止当前 Fresh、封存 failure/release receipt并保留旧 evidence；修正容量或
-estimator declaration 后用新 run ID 重跑。不得通过删除历史 evidence、cache 或临时启动 GC
-让失败中的同一 run 续命。
+The no-restart rollback path is to stop the current Fresh, seal the failure/release receipt, and retain the old evidence; after correcting the capacity or
+estimator declaration, rerun with a new run ID. Do not keep the same failed run alive by deleting historical evidence or cache, or by temporarily starting GC.
 
 PostgreSQL, Redis, uploads, DataProtection and the read-only ZK host mounts are controlled shared inputs. Release-derived output may share one volume only because every writer is confined to its immutable `releaseId` subtree and publishes multi-file generations through staging + atomic pointer replacement; deleting the shared root or another release is forbidden. Instance temp/runtime/log state stays slot-local. Materialized assets are append-only and are served as `/release-assets/<releaseId>/...`; derived output is served as `/release-derived/<releaseId>/...`. `UseReleaseScopedStaticAssets` registers `UseFsusReleaseAssets` and `UseFsusReleaseDerivedArtifacts` before the generic SPA fallback, and Production startup fails when either root setting is missing. This serving boundary does not prove that a release was materialized or retained: rollout compatibility, applied GC and N/N-1 probes must still gate closeout independently. Neither slot publishes a wildcard/public host port.
 
@@ -114,20 +113,20 @@ Rotate backup recipients only after a new-recipient package and isolated restore
 
 ## Capacity Certification
 
-生产容量不能从 localhost smoke、BenchmarkDotNet mean、CDN 命中或代理缓存命中推导。
-发布物只有在 `.tmp/perf/release-summaries/performance-saturation-v2.json` 通过
-`fsusblog.performance-saturation.v2` 验证后，才能声明 route-specific safe operating RPS。
-缺少报告不是隐式通过；release evidence 将容量状态记录为 `blocked`。
+Production capacity cannot be inferred from localhost smoke, BenchmarkDotNet mean, CDN hits, or proxy-cache hits.
+A release may declare route-specific safe operating RPS only after `.tmp/perf/release-summaries/performance-saturation-v2.json` passes
+`fsusblog.performance-saturation.v2` validation.
+The absence of a report is not an implicit pass; release evidence records the capacity status as `blocked`.
 
-生产 topology 的负载必须从独立压力机发起，并为压力机与服务进程配置不重叠的 CPU
-affinity；校验器会展开 Linux cpuset ranges，`0-7` 与 `4-11` 也会因实际重叠而拒绝，而不只
-比较字符串是否相同。identity 文件必须绑定 full commit SHA、不可变 image digest、CPU/核心/SMT/微码、
-内核/libc/container runtime、cgroup quota/memory/cpuset、完整 `DOTNET_*` 环境摘要、
-OpenResty/TLS 配置摘要、PostgreSQL/Redis 版本与配置摘要、fixture 数据规模、压力机身份和
-网络路径。Kestrel-only 使用同一发布物与 fixture，但绕过代理/TLS 的机制基线必须写入独立
-topology，不能覆盖生产结论。
+Load against the production topology must originate from an independent load generator, with non-overlapping CPU
+affinity configured for the load generator and service processes. The validator expands Linux cpuset ranges: `0-7` and `4-11` are rejected for actual overlap, not merely because their
+strings differ. The identity file must bind the full commit SHA, immutable image digest, CPU/core/SMT/microcode,
+kernel/libc/container runtime, cgroup quota/memory/cpuset, the complete `DOTNET_*` environment summary,
+OpenResty/TLS configuration summary, PostgreSQL/Redis version and configuration summaries, fixture data scale, load-generator identity, and
+network path. Kestrel-only uses the same release and fixture, but its mechanism baseline that bypasses the proxy/TLS must be recorded in a separate
+topology and may not override the production conclusion.
 
-示例开放环采样命令如下；真实 rates 必须逐级跨过拐点，不能把示例数字当作生产默认值：
+The following is an example open-loop sampling command; real rates must cross the inflection point level by level, and the example numbers must not be treated as production defaults:
 
 ```bash
 node tools/perf/run-open-loop-load.mjs \
@@ -142,17 +141,17 @@ node tools/perf/run-open-loop-load.mjs \
   --output /evidence/load/article-hot-production.json
 ```
 
-在完全相同的时间窗口采集 `perf stat`/eBPF、.NET runtime counters、cgroup、socket/FD、
-Npgsql pool、Redis command latency 与 `pg_stat_statements`，写成
-`fsusblog.saturation-system-metrics.v2` 后使用
-`tools/perf/merge-saturation-measurement.mjs` 合并。任一采集器不可用时保留原因并让对应
-scenario blocked；不得填零冒充采集成功。只有资源达到策略定义的饱和区间、队列在 safe
-point 不增长、p99/p99.9 与错误/超时率通过、压力机未饱和且多轮方差通过时，报告才输出
-`limitingResource`、`saturationPointRps` 与带余量的 `safeOperatingRps`。
+Collect `perf stat`/eBPF, .NET runtime counters, cgroup, socket/FD,
+Npgsql pool, Redis command latency, and `pg_stat_statements` in exactly the same time window; write them as
+`fsusblog.saturation-system-metrics.v2` and merge them with
+`tools/perf/merge-saturation-measurement.mjs`. If any collector is unavailable, retain the reason and mark the corresponding
+scenario blocked; do not fill in zeros to impersonate a successful collection. The report outputs
+`limitingResource`, `saturationPointRps`, and a margin-bearing `safeOperatingRps` only when resources reach the policy-defined saturation interval, the queue does not grow at the safe
+point, p99/p99.9 and error/timeout rates pass, the load generator is not saturated, and multi-round variance passes.
 
-回退不需要重启应用：容量报告只控制发布证据和运营上限，不改变请求路径。报告异常、过期
-或与当前 image 不匹配时，删除/隔离该 evidence，并恢复到上一个已验证发布物的 route-specific
-限流值；在新报告通过前保持容量状态 `blocked`，不要从旧硬件结果外推。
+Rollback does not require an application restart: the capacity report controls only release evidence and the operational limit; it does not change the request path. If the report is anomalous, expired,
+or does not match the current image, delete/isolate that evidence and restore the previous verified release's route-specific
+rate-limit value; keep the capacity status `blocked` until a new report passes, and do not extrapolate from old hardware results.
 
 ## Build And Deploy
 

@@ -17,7 +17,7 @@
         },
         {
             "path": "docs/active-release-fencing.md",
-            "title": "Active Release Fencing 与通知流排空",
+            "title": "Active Release Fencing and notification-stream drain",
             "kind": "markdown",
             "status": "current",
             "owner": "release",
@@ -71,7 +71,7 @@
         },
         {
             "path": "docs/api/article-publication-revisions.md",
-            "title": "文章修订与发布坐标",
+            "title": "Article Revisions and Publication Coordinates",
             "kind": "markdown",
             "status": "current",
             "owner": "backend",
@@ -83,7 +83,7 @@
         },
         {
             "path": "docs/api/contracts.md",
-            "title": "API 契约文档",
+            "title": "API Contract Reference",
             "kind": "markdown",
             "status": "current",
             "owner": "backend",
@@ -95,7 +95,7 @@
         },
         {
             "path": "docs/api/design.md",
-            "title": "API 设计哲学",
+            "title": "API Design Philosophy",
             "kind": "markdown",
             "status": "current",
             "owner": "backend",
@@ -121,7 +121,7 @@
         },
         {
             "path": "docs/api/quick-reference.md",
-            "title": "路由速查表",
+            "title": "Route Quick Reference",
             "kind": "markdown",
             "status": "current",
             "owner": "backend",
@@ -133,7 +133,7 @@
         },
         {
             "path": "docs/api/schemas-and-errors.md",
-            "title": "错误码、Binary 帧格式与 POD 大小目录",
+            "title": "Error Codes, Binary Frame Format, and POD Size Catalog",
             "kind": "markdown",
             "status": "current",
             "owner": "backend",
@@ -157,7 +157,7 @@
         },
         {
             "path": "docs/architecture.md",
-            "title": "系统架构",
+            "title": "System architecture",
             "kind": "markdown",
             "status": "current",
             "owner": "backend",
@@ -575,7 +575,7 @@
         },
         {
             "path": "docs/architecture/message-center-responsibilities.md",
-            "title": "MessageCenter 内部职责边界",
+            "title": "MessageCenter responsibility boundary",
             "kind": "markdown",
             "status": "current",
             "owner": "backend",
@@ -599,7 +599,7 @@
         },
         {
             "path": "docs/architecture/monolithic-distributed-boundary.md",
-            "title": "单体分布式架构边界",
+            "title": "Monolithic distributed architecture boundary",
             "kind": "markdown",
             "status": "current",
             "owner": "backend",
@@ -1011,7 +1011,7 @@
         },
         {
             "path": "docs/content-credentials.md",
-            "title": "Content Credentials 离线原型",
+            "title": "Content Credentials offline prototype",
             "kind": "markdown",
             "status": "current",
             "owner": "governance",
@@ -1063,7 +1063,7 @@
         },
         {
             "path": "docs/design/page-title-scale.md",
-            "title": "页面级标题比例",
+            "title": "Page-Level Title Scale",
             "kind": "markdown",
             "status": "current",
             "owner": "frontend",
@@ -1078,7 +1078,7 @@
         },
         {
             "path": "docs/design/reading-typography.md",
-            "title": "阅读排版契约",
+            "title": "Reading Typography Contract",
             "kind": "markdown",
             "status": "current",
             "owner": "frontend",
@@ -1107,7 +1107,7 @@
         },
         {
             "path": "docs/design/task-surface-geometry.md",
-            "title": "Task surface geometry",
+            "title": "Task Surface Geometry",
             "kind": "markdown",
             "status": "current",
             "owner": "frontend",
@@ -1121,7 +1121,7 @@
         },
         {
             "path": "docs/development.md",
-            "title": "本地开发指南",
+            "title": "Local development guide",
             "kind": "markdown",
             "status": "current",
             "owner": "governance",
@@ -1583,7 +1583,7 @@
         },
         {
             "path": "docs/integrity/article-responsibility.md",
-            "title": "文章责任、来源与修订公开说明",
+            "title": "Article responsibility, sources, and revision disclosure",
             "kind": "markdown",
             "status": "current",
             "owner": "backend",
@@ -1930,7 +1930,7 @@
         },
         {
             "path": "docs/passkey-test-governance.md",
-            "title": "Passkey 测试治理与保留映射",
+            "title": "Passkey test governance and retention mapping",
             "kind": "markdown",
             "status": "current",
             "owner": "security",
@@ -1942,7 +1942,7 @@
         },
         {
             "path": "docs/performance-aeds-cache-miss-owned-frame.md",
-            "title": "AEDS cache-miss owned-frame 构建与生命周期",
+            "title": "AEDS cache-miss owned-frame construction and lifecycle",
             "kind": "markdown",
             "status": "current",
             "owner": "release",
@@ -1954,7 +1954,7 @@
         },
         {
             "path": "docs/performance-app-config-local-tuning.md",
-            "title": "应用配置局部敏感度与安全步进",
+            "title": "Application configuration local sensitivity and safe steps",
             "kind": "markdown",
             "status": "current",
             "owner": "release",
@@ -1968,7 +1968,7 @@
         },
         {
             "path": "docs/performance-comment-moderation-queue.md",
-            "title": "评论审核队列查询计划与基准证据",
+            "title": "Comment moderation-queue query plan and benchmark evidence",
             "kind": "markdown",
             "status": "current",
             "owner": "release",
@@ -1980,7 +1980,7 @@
         },
         {
             "path": "docs/performance-comment-tree.md",
-            "title": "评论树查询计划与基准证据",
+            "title": "Comment-tree query plan and benchmark evidence",
             "kind": "markdown",
             "status": "current",
             "owner": "release",
@@ -2052,7 +2052,7 @@
         },
         {
             "path": "docs/performance-public-hot-read-residency.md",
-            "title": "PublicHotRead residency、admission 与 snapshot 生命周期",
+            "title": "PublicHotRead residency, admission, and snapshot lifecycle",
             "kind": "markdown",
             "status": "current",
             "owner": "release",
@@ -2139,7 +2139,7 @@
         },
         {
             "path": "docs/public-aot-cold-first-response.md",
-            "title": "公共 AOT 冷首屏与切流门禁",
+            "title": "Public AOT cold first response and traffic-switch gates",
             "kind": "markdown",
             "status": "current",
             "owner": "governance",
@@ -2192,7 +2192,7 @@
         },
         {
             "path": "docs/recovery-passkey-completion.md",
-            "title": "Recovery Passkey 完成一致性",
+            "title": "Recovery Passkey completion consistency",
             "kind": "markdown",
             "status": "current",
             "owner": "security",
@@ -2697,7 +2697,7 @@
         },
         {
             "path": "docs/security.md",
-            "title": "安全模型",
+            "title": "Security model",
             "kind": "markdown",
             "status": "current",
             "owner": "security",
@@ -2799,7 +2799,7 @@
         },
         {
             "path": "docs/security/content-credentials-key-lifecycle.md",
-            "title": "Content Credentials 密钥生命周期",
+            "title": "Content Credentials key lifecycle",
             "kind": "markdown",
             "status": "current",
             "owner": "security",
@@ -2847,7 +2847,7 @@
         },
         {
             "path": "docs/security/frontend-session-refresh-coordination.md",
-            "title": "前端会话刷新协调",
+            "title": "Frontend session-refresh coordination",
             "kind": "markdown",
             "status": "current",
             "owner": "security",
@@ -2871,7 +2871,7 @@
         },
         {
             "path": "docs/security/frontend-telemetry-privacy.md",
-            "title": "前端失败遥测隐私边界",
+            "title": "Frontend failure-telemetry privacy boundary",
             "kind": "markdown",
             "status": "current",
             "owner": "security",
@@ -2907,7 +2907,7 @@
         },
         {
             "path": "docs/security/passkey-counter-risk-response.md",
-            "title": "Passkey signature counter 风险响应",
+            "title": "Passkey signature-counter risk response",
             "kind": "markdown",
             "status": "current",
             "owner": "security",
@@ -2919,7 +2919,7 @@
         },
         {
             "path": "docs/security/passkey-metadata-projection.md",
-            "title": "Passkey metadata 与 PasskeyEnabled 投影",
+            "title": "Passkey metadata and PasskeyEnabled projection",
             "kind": "markdown",
             "status": "current",
             "owner": "security",
@@ -2955,7 +2955,7 @@
         },
         {
             "path": "docs/security/private-request-generations.md",
-            "title": "私有请求身份代际",
+            "title": "Private request generations",
             "kind": "markdown",
             "status": "current",
             "owner": "security",
@@ -2967,7 +2967,7 @@
         },
         {
             "path": "docs/security/private-surface-runtime.md",
-            "title": "私有页面运行时销毁边界",
+            "title": "Private-surface runtime cleanup boundary",
             "kind": "markdown",
             "status": "current",
             "owner": "security",
@@ -2979,7 +2979,7 @@
         },
         {
             "path": "docs/security/public-hot-read-cross-cutting-controls.md",
-            "title": "PublicHotRead 横切控制与回退手册",
+            "title": "PublicHotRead Cross-Cutting Controls and Rollback Runbook",
             "kind": "markdown",
             "status": "current",
             "owner": "security",
@@ -3080,7 +3080,7 @@
         },
         {
             "path": "docs/security/user-session-authentication-context.md",
-            "title": "普通账号 Session 认证上下文",
+            "title": "Ordinary-account session authentication context",
             "kind": "markdown",
             "status": "current",
             "owner": "security",
@@ -3152,7 +3152,7 @@
         },
         {
             "path": "docs/testing.md",
-            "title": "测试策略",
+            "title": "Test strategy",
             "kind": "markdown",
             "status": "current",
             "owner": "release",
@@ -3167,7 +3167,7 @@
         },
         {
             "path": "docs/testing/admin-console-behavior-tests.md",
-            "title": "管理控制台行为测试边界",
+            "title": "Admin-console behavior-test boundary",
             "kind": "markdown",
             "status": "current",
             "owner": "release",
@@ -3179,7 +3179,7 @@
         },
         {
             "path": "docs/testing/article-list-keyset-pagination.md",
-            "title": "公共文章列表 Keyset 验证",
+            "title": "Public article-list keyset verification",
             "kind": "markdown",
             "status": "current",
             "owner": "release",
@@ -3191,7 +3191,7 @@
         },
         {
             "path": "docs/testing/article-publication-consistency.md",
-            "title": "文章发布坐标迁移与一致性验证",
+            "title": "Article publication-coordinate migration and consistency verification",
             "kind": "markdown",
             "status": "current",
             "owner": "release",
@@ -3229,7 +3229,7 @@
         },
         {
             "path": "docs/testing/browser-capability-risk-budget.md",
-            "title": "Browser capability-risk budget",
+            "title": "Browser Capability-Risk Budget",
             "kind": "markdown",
             "status": "current",
             "owner": "release",
@@ -3259,7 +3259,7 @@
         },
         {
             "path": "docs/testing/browser-geometry-motion-focus.md",
-            "title": "Browser geometry、motion 与 focus 分层",
+            "title": "Browser Geometry, Motion, and Focus Layers",
             "kind": "markdown",
             "status": "current",
             "owner": "release",
@@ -3271,7 +3271,7 @@
         },
         {
             "path": "docs/testing/browser-readiness-contract.md",
-            "title": "Browser readiness contract",
+            "title": "Browser Readiness Contract",
             "kind": "markdown",
             "status": "current",
             "owner": "release",
@@ -3363,7 +3363,7 @@
         },
         {
             "path": "docs/testing/frontend-source-index.md",
-            "title": "Frontend Source Index 与 rule host",
+            "title": "Frontend Source Index and Rule Host",
             "kind": "markdown",
             "status": "current",
             "owner": "release",
@@ -4356,7 +4356,7 @@
         },
         {
             "path": "docs/testing/private-request-generations.md",
-            "title": "私有请求 generation 验证",
+            "title": "Private Request Generation Verification",
             "kind": "markdown",
             "status": "current",
             "owner": "release",
@@ -4368,7 +4368,7 @@
         },
         {
             "path": "docs/testing/private-surface-runtime.md",
-            "title": "PrivateSurfaceRuntime 验证清单",
+            "title": "PrivateSurfaceRuntime Verification Checklist",
             "kind": "markdown",
             "status": "current",
             "owner": "release",
@@ -4432,7 +4432,7 @@
         },
         {
             "path": "docs/testing/security-hardening-boundary-replacements.md",
-            "title": "Issue #1037：安全 hardening 边界测试替换",
+            "title": "Issue #1037: security-hardening boundary-test replacements",
             "kind": "markdown",
             "status": "current",
             "owner": "release",
@@ -4589,7 +4589,7 @@
         },
         {
             "path": "docs/user-session-revocation.md",
-            "title": "普通账号会话撤销一致性",
+            "title": "Ordinary-Account Session Revocation Consistency",
             "kind": "markdown",
             "status": "current",
             "owner": "security",
@@ -4601,7 +4601,7 @@
         },
         {
             "path": "docs/ux/usability-test-script.md",
-            "title": "小样本可用性测试脚本",
+            "title": "Small-sample usability test script",
             "kind": "markdown",
             "status": "current",
             "owner": "frontend",
@@ -4613,7 +4613,7 @@
         },
         {
             "path": "docs/wasm.md",
-            "title": "WebAssembly 开发与发布契约",
+            "title": "WebAssembly Development and Release Contract",
             "kind": "markdown",
             "status": "current",
             "owner": "governance",

@@ -1,41 +1,41 @@
-# Active Release Fencing 与通知流排空
+# Active Release Fencing and notification-stream drain
 
-本文定义 production blue/green 并存期间的全局后台任务单活、单调 generation、统一排空和 notification stream 重连契约。实现入口为 `IActiveReleaseFence`，宿主注册入口为 `AddActiveReleaseFencing()`。
+This document defines the singleton, monotonic-generation, unified-drain, and notification-stream reconnect contract while production blue/green releases coexist. The implementation entry point is `IActiveReleaseFence`; the host registration entry point is `AddActiveReleaseFencing()`.
 
-## 不变量
+## Invariants
 
-1. production 实例总是以 Candidate 启动。Candidate、Draining、Stopped 和 Failed 都不能取得新的全局后台任务 claim。
-2. PostgreSQL `sys_deployment_fence` 是 durable witness，Redis hash 是可重建的低延迟镜像。两者只保存一个 active release fence；身份由 `releaseId + slot + generation + imageDigest` 组成，generation 只能严格递增。
-3. target acquire 必须携带当前 owner 的 `expectedReleaseId + expectedSlot + expectedGeneration`。SQL 事务以 `SELECT ... FOR UPDATE` 完成 compare、generation 检查和 owner 替换，提交后再用单调 Redis Lua 镜像。
-4. source revoke 只撤销完全匹配的 owner；若 target 已经取得 fence，则 source revoke 返回 `already-superseded`，不能误伤 target。
-5. 每个 active-singleton worker 同时持有 active release ticket 和原有 worker lease。lease owner 包含 release、slot、generation 和 process instance，renew 前强制读取 fence；失去 fence 或 lease 会取消本轮工作。
-6. 有持久副作用的最后提交边界必须调用 `IActiveReleaseCommitGuard.EnsureCurrentAsync()`。该调用强制对账 durable witness；旧 generation 即使尚未等到 renew tick，也不能提交。
-7. durable witness 不可用或同 generation 身份分歧时 production fail closed；不会根据进程年龄、流量、容器状态或本地缓存猜测 active owner。Redis 整库丢失时从 SQL 恢复；Redis 暂时不可用时读取 SQL 进入 degraded 状态。synthetic local fence 只允许 `Development` 且显式设置 `ActiveReleaseFence:AllowSyntheticLocalFence=true`，production 启动校验硬拒绝该设置。
-8. 指标标签只允许 operation、result、reason 等低基数字段；releaseId、digest、process instance 不进入 metric label。
+1. Production instances always start as `Candidate`. `Candidate`, `Draining`, `Stopped`, and `Failed` cannot claim new global background work.
+2. PostgreSQL `sys_deployment_fence` is the durable witness and the Redis hash is a rebuildable low-latency mirror. Together they hold one active release fence identified by `releaseId + slot + generation + imageDigest`; generation is strictly increasing.
+3. Target acquire must carry the current owner's `expectedReleaseId + expectedSlot + expectedGeneration`. A SQL transaction uses `SELECT ... FOR UPDATE` to compare, check generation, and replace the owner, then updates the monotonic Redis Lua mirror after commit.
+4. Source revoke withdraws only an exact owner match. If the target already acquired the fence, source revoke returns `already-superseded` and cannot affect the target.
+5. Each `active-singleton` worker holds both an active-release ticket and the existing worker lease. The lease owner contains release, slot, generation, and process instance; renew first reads the fence, and losing either the fence or lease cancels the current work round.
+6. The final commit boundary for a durable side effect must call `IActiveReleaseCommitGuard.EnsureCurrentAsync()`. This forces a durable-witness reconcile; an old generation cannot commit even before its next renew tick.
+7. Production fails closed when the durable witness is unavailable or identities diverge at one generation. It never guesses the active owner from process age, traffic, container state, or local cache. Total Redis loss recovers from SQL; temporary Redis unavailability reads SQL in degraded mode. A synthetic local fence is allowed only in `Development` with explicit `ActiveReleaseFence:AllowSyntheticLocalFence=true`; production startup validation hard-rejects that setting.
+8. Metric labels may contain only low-cardinality fields such as operation, result, and reason; releaseId, digest, and process instance never enter metric labels.
 
-## Worker 执行链
+## Worker execution chain
 
-`ActiveReleaseFencedBackgroundWorkerLease` 替代原 `IBackgroundWorkerLease` 实现：
+`ActiveReleaseFencedBackgroundWorkerLease` replaces the former `IBackgroundWorkerLease` implementation:
 
-1. 从 `DeploymentRuntimeState` 取得 background claim；
-2. 从 `IActiveReleaseFence` 取得当前 generation ticket；
-3. 用包含 generation 的 owner 取得 worker lease；
-4. 把 ticket 放入 `IActiveReleaseExecutionContextAccessor`；
-5. renew 时先验证 fence，再 CAS renew worker lease；
-6. action 在数据库事务提交、对象存储 finalize、不可逆外部发送前调用 commit guard；
-7. action 返回后再强制验证一次 fence。
+1. Read the background claim from `DeploymentRuntimeState`.
+2. Get the current-generation ticket from `IActiveReleaseFence`.
+3. Acquire a worker lease whose owner includes the generation.
+4. Put the ticket in `IActiveReleaseExecutionContextAccessor`.
+5. On renew, validate the fence before CAS-renewing the worker lease.
+6. Before a database transaction commit, object-storage finalize, or irreversible external send, the action calls the commit guard.
+7. Force one more fence validation after the action returns.
 
-所有 `BackgroundService` 的权威分类位于 `tests/backend/Fixtures/background-service-classification.json`。合法分类只有：
+The authoritative classification for every `BackgroundService` is `tests/backend/Fixtures/background-service-classification.json`. The only valid classifications are:
 
-- `active-singleton`：全局任务，必须使用 active fence、worker lease 和 pre-commit guard；
-- `multi-consumer-safe`：不同实例可消费互不重叠的本地输入，必须声明幂等身份和 replay 来源；
-- `instance-local`：只维护本 release/process 的派生状态，不得产生全局 owner 语义。
+- `active-singleton`: global work that must use the active fence, worker lease, and pre-commit guard;
+- `multi-consumer-safe`: instances consume non-overlapping local inputs and must declare idempotent identity and replay source; and
+- `instance-local`: derived state for only this release/process, with no global-owner semantics.
 
-`tools/check-background-service-classification.mjs` 一次扫描全部 backend C# 文件，输出所有缺失、重复、无注册、无 lease 和非法 drain 字段，不设置最大错误数。
+`tools/check-background-service-classification.mjs` scans all backend C# files in one pass and reports every missing, duplicate, unregistered, lease-less, or invalid drain field; it has no maximum error count.
 
-## 宿主控制契约
+## Host control contract
 
-三个 fence endpoint 都要求 loopback 来源、`system.config` admin 权限和 `fixed_ip` rate limit：
+All three fence endpoints require a loopback source, `system.config` admin permission, and the `fixed_ip` rate limit.
 
 ### Target acquire / CAS
 
@@ -54,7 +54,7 @@
 }
 ```
 
-首次 acquire 可把三个 expected 字段同时设为 `null`。已存在 fence 时缺少 expected owner 会返回 `expected_current_required`。相同 owner/generation/digest 重试返回 `already-active`；同 generation 换 owner 会返回 `active_release_generation_not_monotonic`。
+For the first acquire, all three expected fields may be `null`. Once a fence exists, omitting the expected owner returns `expected_current_required`. Retrying the same owner/generation/digest returns `already-active`; changing the owner at the same generation returns `active_release_generation_not_monotonic`.
 
 ### Source revoke
 
@@ -73,9 +73,9 @@
 
 `GET /api/ops/deployment/fence/status?releaseId=...&slot=green&generation=42&requireActive=true`
 
-三个 endpoint 返回统一的 `accepted / idempotent / status / errorCode / dryRun / snapshot` JSON。
+All three endpoints return the same JSON fields: `accepted / idempotent / status / errorCode / dryRun / snapshot`.
 
-宿主命令：
+Host command:
 
 ```bash
 node tools/deployment/active-release-fence.mjs acquire \
@@ -86,56 +86,56 @@ node tools/deployment/active-release-fence.mjs acquire \
   --origin "$FSUSBLOG_DEPLOYMENT_CONTROL_ORIGIN"
 ```
 
-命令只连接显式 `127.0.0.1` 端口，校验 admin header 文件权限为 0400/0600，并把 machine JSON 写到 `.tmp/deployment/active-release-fence.json`。`--dry-run` 仍执行服务端 CAS 判定但不变更 owner；进入判定前的 witness read 仍可修复缺失的 SQL/Redis 镜像。
+The command connects only to an explicit `127.0.0.1` port, checks the admin-header file mode is 0400/0600, and writes machine JSON to `.tmp/deployment/active-release-fence.json`. `--dry-run` still performs the server-side CAS decision without changing the owner; the witness read before the decision may repair a missing SQL/Redis mirror.
 
-## Durable witness 与启动对账
+## Durable witness and startup reconcile
 
-`DurableActiveReleaseFenceStore` 并行读取 PostgreSQL 与 Redis，并按以下规则收敛：
+`DurableActiveReleaseFenceStore` reads PostgreSQL and Redis in parallel and converges as follows:
 
-- SQL 有记录、Redis 缺失：判定为 Redis total loss，从 SQL 单调恢复 Redis；
-- SQL 缺失、Redis 有记录：兼容升级窗口，把既有 Redis owner 写入 SQL 后再允许 mutation；
-- generation 不同：较高 generation 胜出并修复较旧一侧，generation 永不回退；
-- 同 generation、相同 identity、状态不同：`revoked` 胜出，避免已撤销 owner 复活；
-- 同 generation、identity 或 digest 不同：返回 `active_release_fence_witness_diverged`，readiness、claim 与 commit guard 全部 fail closed。
+- SQL has a record and Redis is missing: treat this as Redis total loss and monotonically restore Redis from SQL;
+- SQL is missing and Redis has a record: during the compatibility upgrade window, write the existing Redis owner to SQL before allowing mutation;
+- generations differ: the higher generation wins and repairs the older side; generation never moves backward;
+- same generation and identity but different state: `revoked` wins, preventing a revoked owner from returning; and
+- same generation with different identity or digest: return `active_release_fence_witness_diverged`; readiness, claim, and commit guard all fail closed.
 
-Acquire/revoke 总是 SQL 事务先提交、Redis 镜像后更新。若 SQL 已提交而 Redis 更新失败，本次控制请求不会伪报成功；相同请求重试会从 SQL 的幂等状态恢复 Redis。PostgreSQL 在这里就是 Redis 之外的 durable external witness，不要求部署额外的 etcd/Consul 服务。
+Acquire/revoke always commit the SQL transaction first and update the Redis mirror second. If SQL commits but the Redis update fails, the control request does not falsely report success; retrying the same request recovers Redis from SQL's idempotent state. PostgreSQL is the durable external witness outside Redis, so no extra etcd/Consul service is required.
 
 ## Stale snapshot policy
 
-production 必须显式配置 `ActiveReleaseFence:RefreshIntervalMs`（100–30000ms）与 `ActiveReleaseFence:StaleThresholdSeconds`（5–600s），且 hard-stale 阈值不得短于 refresh interval。部署模板使用 5000ms / 30s，对应连续 6 次失败。两项每轮动态读取，调整后无需把 failure count 写死进代码。
+Production must explicitly configure `ActiveReleaseFence:RefreshIntervalMs` (100–30000ms) and `ActiveReleaseFence:StaleThresholdSeconds` (5–600s); the hard-stale threshold must not be shorter than the refresh interval. Deployment templates use 5000ms / 30s, corresponding to six consecutive failures. Both values are read dynamically each round; the failure count is not hard-coded.
 
-启动顺序在 schema compatibility/migration 后、周期 refresh worker 前执行一次 `RefreshAsync(forceStoreRead: true)`：
+After schema compatibility/migration and before the periodic refresh worker, startup runs `RefreshAsync(forceStoreRead: true)` once:
 
-- PostgreSQL durable witness 可读时启动通过。Redis 镜像暂时不可用只记录 degraded reconcile，并继续以 SQL 作为权威来源；
-- PostgreSQL durable witness 不可读、snapshot 分歧或 store 返回 unavailable 时，production 抛出 `ActiveReleaseFenceStartupException`，在监听业务流量前拒绝启动；
-- Development/Test 记录 degraded startup task，不为本地缺失基础设施伪造 active owner。
+- if the PostgreSQL durable witness is readable, startup passes. A temporarily unavailable Redis mirror records degraded reconcile and SQL remains authoritative;
+- if the PostgreSQL durable witness is unreadable, snapshots diverge, or the store returns unavailable, production throws `ActiveReleaseFenceStartupException` and refuses startup before listening for business traffic; and
+- Development/Test records a degraded startup task and never fabricates an active owner for missing local infrastructure.
 
-运行期不采用“失败一次继续用旧 owner”的 soft-stale 授权。第一次 refresh 失败就把 runtime snapshot 发布为 unavailable，readiness、ticket capture、lease renew 和 commit guard 立即 fail closed；所谓 soft/hard 只描述进程保留窗口：
+Runtime authorization never uses “fail once, keep using the old owner” soft-stale behavior. The first refresh failure publishes an unavailable runtime snapshot, and readiness, ticket capture, lease renew, and the commit guard immediately fail closed. Soft/hard describes only the process-retention window:
 
-- 第 1 次失败：Warning/P3，增加 refresh failure counter；
-- 达到动态 failure limit 的一半：Error/P2，进程仍保留以等待基础设施恢复，但不能产生 singleton 副作用；
-- 达到 `ceil(staleThreshold / refreshInterval)` 次连续失败或实际 stale 时间达到 threshold：Critical/P1，并在 production 调用 `IHostApplicationLifetime.StopApplication()`；Compose `restart: always` 随后以 fresh startup probe 重启容器。
+- first failure: Warning/P3 and increment the refresh-failure counter;
+- half the dynamic failure limit: Error/P2; retain the process for infrastructure recovery, but produce no singleton side effect; and
+- `ceil(staleThreshold / refreshInterval)` consecutive failures or actual stale time reaching the threshold: Critical/P1; production calls `IHostApplicationLifetime.StopApplication()`, after which Compose `restart: always` restarts the container with a fresh startup probe.
 
-任一次成功的强制读取会清零连续失败并记录 recovery 日志。恢复顺序是先确认 PostgreSQL durable witness 可读且 generation/identity 未分歧，再让 pod 通过 fresh startup probe；单独 Redis 故障不需要重启或切换 owner。禁止用进程年龄、流量、容器健康或内存中的旧 snapshot 猜测 owner。
+Any successful forced read clears consecutive failures and records recovery. Recovery first confirms a readable PostgreSQL durable witness with no generation/identity divergence, then lets the pod pass a fresh startup probe; a Redis-only fault needs no restart or owner switch. Process age, traffic, container health, and an in-memory old snapshot must never be used to guess the owner.
 
-## 统一 drain 与 notification stream
+## Unified drain and notification stream
 
-`ReleaseDrainParticipantRegistry` 并行启动所有 participant，每项有独立 `MaxDrain`，同时受全局 deadline 约束。当前显式 adapter 包含 article-view、hot-stats invalidation 和 notification stream；其余 channel/queue 的长期分类由 `tests/backend/Fixtures/background-service-classification.json` 与当前实现共同约束。排空不是无界等待：每个 participant 必须声明 pending count、状态、最大时长和 replay 来源。
+`ReleaseDrainParticipantRegistry` starts all participants in parallel. Each has an independent `MaxDrain` and is also bounded by the global deadline. Explicit adapters currently include article-view, hot-stats invalidation, and notification stream; the long-term classification of other channels/queues is jointly governed by `tests/backend/Fixtures/background-service-classification.json` and the current implementation. Drain is bounded, not an unbounded wait: every participant must declare pending count, status, maximum duration, and replay source.
 
-notification drain 调用 `NotificationStreamRestartCoordinator`，取消所有 session 的 linked token。现有连接使用 WebSocket 1012 / `fsus_service_restart` 关闭；浏览器保留 cursor，并在 250–1250ms 抖动窗口内快速重连。服务端 replay 检测到保留窗口缺口时，不发送不完整 batch，而以 4009 / `fsus_replay_miss` 关闭；浏览器清除 cursor，重连成功后通过 `onReconnectSuccess(true)` 触发已有 full-resync 调度。
+Notification drain calls `NotificationStreamRestartCoordinator`, cancelling every session's linked token. Existing connections close with WebSocket 1012 / `fsus_service_restart`; the browser retains its cursor and reconnects quickly within a 250–1250ms jitter window. If replay finds a gap outside the retention window, the server sends no incomplete batch and closes with 4009 / `fsus_replay_miss`; the browser clears the cursor, and a successful reconnect calls `onReconnectSuccess(true)` to trigger the existing full-resync schedule.
 
-控制入口：
+Control entries:
 
 - `POST /api/ops/deployment/notification-stream/restart`
 - `GET /api/ops/deployment/notification-stream/restart/status`
-- host tool：`tools/deployment/notification-stream-restart.mjs`
-- machine evidence：`.tmp/deployment/notification-stream-restart.json`
+- host tool: `tools/deployment/notification-stream-restart.mjs`
+- machine evidence: `.tmp/deployment/notification-stream-restart.json`
 
-## Readiness、指标和证据
+## Readiness, metrics, and evidence
 
-`ActiveReleaseFenceReadiness.EvaluateAsync()` 只有在 store 可达且本地 identity 精确拥有 active fence 时返回 `ok`。接入 production readiness 后，Candidate 和旧 generation 会保持 not-ready。
+`ActiveReleaseFenceReadiness.EvaluateAsync()` returns `ok` only when the store is reachable and the local identity exactly owns the active fence. Once wired into production readiness, `Candidate` and an old generation remain not-ready.
 
-指标：
+Metrics:
 
 - `fsus.active_release_fence.operations{operation,result,reason}`
 - `fsus.active_release_fence.eligibility{result,reason}`
@@ -146,19 +146,19 @@ notification drain 调用 `NotificationStreamRestartCoordinator`，取消所有 
 - `fsus.active_release_fence.refresh_stale_seconds{reason,severity}`
 - `fsus.active_release_fence.refresh_shutdowns{reason}`
 
-发布证据必须至少包含 target acquire/CAS、source revoke、target status verify、notification restart status、drain participant terminal snapshot。运行时生成文件不提交；不具 fresh authority 的静态实现映射位于 `security/evidence-contracts/active-release-fencing-implementation.json`。
+Release evidence must include at least target acquire/CAS, source revoke, target status verify, notification restart status, and a terminal drain-participant snapshot. Runtime-generated files are not committed; the static implementation map without fresh authority is `security/evidence-contracts/active-release-fencing-implementation.json`.
 
-## 失败与回退
+## Failure and rollback
 
-- SQL durable witness 不可用或同 generation 身份分歧：停止新 claim，取消正在 renew 的全局任务，readiness 失败。
-- production 启动 probe 发现 durable witness 不可用：直接拒绝启动；运行期持续 hard-stale：请求 graceful shutdown，由编排器重启并重新 probe。
-- Redis 整库丢失：下一次读取用 SQL snapshot 重建；Redis 连接暂不可用时仍以 SQL 阻断旧 generation，并记录 degraded reconcile 指标。
-- target acquire CAS 失败：不切流，保留 source fence。
-- target 已 acquire 但后置验证失败：用更高 generation 把 source release 重新 acquire 为 active；禁止把 generation 回退到旧值。
-- notification 1012 后客户端无法重连：cursor 仍保留，可继续指数退避；backlog 超窗则 4009 触发 full resync。
-- drain deadline 到期：发布 blockers，不停止 source，不把未排空状态伪装成成功。
-- 需要无重启暂停控制面 mutation 时，把可 reload 配置 `ActiveReleaseFence:MutationEnabled=false`；status/readiness/worker commit guard 保持启用。恢复为 `true` 后先完成 SQL/Redis 对账，再接受 acquire/revoke。不得通过启用 synthetic local fence 回退 production。
+- PostgreSQL durable witness unavailable or same-generation identity divergence: stop new claims, cancel global tasks currently renewing, and fail readiness.
+- Production startup probe finds the durable witness unavailable: refuse startup; persistent runtime hard-stale: request graceful shutdown so the orchestrator restarts and reprobes.
+- Total Redis loss: rebuild from the SQL snapshot on the next read; while Redis is temporarily unavailable, SQL still blocks the old generation and records a degraded-reconcile metric.
+- Target acquire CAS failure: do not switch traffic; retain the source fence.
+- Target acquired but post-validation fails: reacquire the source release as active with a higher generation; never roll generation back.
+- Client cannot reconnect after notification 1012: retain the cursor and continue exponential backoff; a backlog beyond the window triggers 4009 and full resync.
+- Drain deadline expires: publish blockers, do not stop the source, and do not present an undrained state as success.
+- To pause control-plane mutation without restart, set reloadable `ActiveReleaseFence:MutationEnabled=false`; status/readiness/worker commit guard stay enabled. After restoring `true`, complete SQL/Redis reconcile before accepting acquire/revoke. Never roll production back by enabling a synthetic local fence.
 
-## 验证边界
+## Verification boundary
 
-聚焦测试覆盖 SQL-first 写入顺序、Redis total-loss 恢复、legacy Redis 启动引导、同 generation 分歧 fail-closed、revoked 优先、reloadable mutation pause、production synthetic local fence 硬门禁、迁移与指标契约。匿名、登录、notification stream 与 binary API 的请求/响应契约未改变；控制端点仍仅允许 loopback admin，既有 endpoint contract 测试继续覆盖该边界。实际执行结果只进入 run-scoped release evidence receipt，不在 current 文档中声明。
+Focused tests cover SQL-first write order, Redis total-loss recovery, legacy Redis startup bootstrap, same-generation divergence fail-closed, revoked precedence, reloadable mutation pause, the production synthetic-local-fence hard gate, migration, and metric contracts. Anonymous, login, notification-stream, and binary API request/response contracts are unchanged; control endpoints remain loopback-admin only, and existing endpoint-contract tests continue to cover that boundary. Actual results belong only in the run-scoped release evidence receipt and are not declared in this current document.

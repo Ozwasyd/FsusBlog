@@ -1,140 +1,140 @@
 # Historical / Legacy Changelog
 
-> 本文件只保留旧产品版本体系的历史记录，不代表当前 `master`，也不得用于生成新的发布身份。当前变更与 canonical ReleaseId 归档规则见仓库根目录 [`CHANGELOG.md`](../../CHANGELOG.md)。
+> This file contains only historical records from the legacy product version scheme. It does not represent the current `master` and must not be used to mint new release identities. See the repository-root [`CHANGELOG.md`](../../CHANGELOG.md) for current changes and canonical ReleaseId archival rules.
 
-旧条目没有可证明的 UTC + SHA 映射，因此保持原样，不补造 ReleaseId。
+Legacy entries have no provable UTC + SHA mapping; keep them as-is and do not invent ReleaseId values.
 
 ---
 
 ## Legacy Unreleased Snapshot
 
-### 新增
+### Added
 
-- 防爬虫闭环：`CrawlerRiskService` 统一沉淀 Shield、RateLimiter、PoW、ReadProof 和公开动态读风险分，`RiskAwarePublicReadFilter` 在高风险公开 GET API 上动态要求 PoW 或返回 429。
-- Crawler CIDR 同步支持远程官方 JSON、last-known-good snapshot、配置项 fallback 与 admin-only `/api/ops/crawler-ranges/status` 状态接口。
-- 结构化审计系统：`sys_audit_log` 增加 actor/action/target/outcome/severity、隐私 hash、context JSON 和 tamper evidence；新增 `IAuditEventService`、critical fallback JSONL、admin-only `/api/binary/author/audit/**` 查询与 `/user/manage/audit` 管理页。
-- RUM 遥测拆出独立 `frontend_rum_metric` 表，匿名 ingestion 加 `fixed_ip` 限流，作者 dashboard 从新表聚合性能指标。
+- Anti-crawler loop: `CrawlerRiskService` centralizes Shield, RateLimiter, PoW, ReadProof, and public dynamic-read risk scores; `RiskAwarePublicReadFilter` dynamically requires PoW or returns 429 for high-risk public GET APIs.
+- Crawler CIDR synchronization supports remote official JSON, a last-known-good snapshot, configuration fallback, and the admin-only `/api/ops/crawler-ranges/status` status endpoint.
+- Structured audit system: `sys_audit_log` adds actor/action/target/outcome/severity, privacy hashes, context JSON, and tamper evidence; adds `IAuditEventService`, critical fallback JSONL, admin-only `/api/binary/author/audit/**` queries, and the `/user/manage/audit` management page.
+- RUM telemetry uses a dedicated `frontend_rum_metric` table, anonymous ingestion has `fixed_ip` rate limiting, and the author dashboard aggregates performance metrics from the new table.
 
-### 变更
+### Changed
 
-- `ShieldMiddleware` 将 search crawler、social preview bot、unknown bot 和工具型 UA 分层处理，保留路径攻击硬 abort，其余拒绝返回轻量 403 并记录安全指标。
-- RSS、Atom、JSON Feed、sitemap 和 robots 响应统一使用 CDN 友好缓存头与 ETag；`robots.txt` 明确禁止 `/api/`、搜索索引和私有路径。
-- 运行时 legacy 回退收敛：上传会话清理只依赖 expiration bucket，订阅运行时只使用 HMAC hash，文章正文只读取 `article_body.markdown_content`，认证 Cookie 不再读取 legacy plain fallback，PublicAOT hydration sidecar 只接受内容 SHA-256，ArticleDetail legacy `.aeds` 清理由 SchemaMigrationRunner 一次性执行。
+- `ShieldMiddleware` classifies search crawlers, social-preview bots, unknown bots, and tool UAs; path attacks still hard-abort, while other denials return a lightweight 403 and record security metrics.
+- RSS, Atom, JSON Feed, sitemap, and robots responses share CDN-friendly cache headers and ETags; `robots.txt` explicitly disallows `/api/`, search indexing, and private paths.
+- Runtime legacy fallbacks are consolidated: upload-session cleanup relies only on the expiration bucket; subscription runtime uses only HMAC hashes; article bodies read only `article_body.markdown_content`; auth cookies no longer read the legacy plain fallback; the PublicAOT hydration sidecar accepts only content SHA-256; and `SchemaMigrationRunner` removes legacy ArticleDetail `.aeds` in one pass.
 
 ---
 
 ## [1.0.0] — 2026-04-27
 
-### 新增
+### Added
 
-#### 公开内容
+#### Public content
 
-- 文章列表端点，支持分页（`GET /api/Article/`）
-- 文章详情端点（`GET /api/Article/{id}`）
-- 热门文章端点（`GET /api/Article/hot`）
-- 评论线程端点，游标分页（`GET /api/Comment/{articleId}`，`/{articleId}/thread/{rootId}`）
-- 分类列表端点（`GET /api/Category/`）
-- 标签列表端点（`GET /api/Tag/`）
-- SEO 配置端点（`GET /api/System/seo`）
-- 静态页面内容端点（`GET /api/System/page/{slug}`）
+- Article-list endpoint with pagination (`GET /api/Article/`)
+- Article-detail endpoint (`GET /api/Article/{id}`)
+- Popular-article endpoint (`GET /api/Article/hot`)
+- Comment-thread endpoint with cursor pagination (`GET /api/Comment/{articleId}`, `/{articleId}/thread/{rootId}`)
+- Category-list endpoint (`GET /api/Category/`)
+- Tag-list endpoint (`GET /api/Tag/`)
+- SEO-configuration endpoint (`GET /api/System/seo`)
+- Static-page content endpoint (`GET /api/System/page/{slug}`)
 
-#### Binary 传输（AEDS v2）
+#### Binary transport (AEDS v2)
 
-- `api/binary` 端点组，所有公开读链支持 `application/octet-stream` 输出
-- AEDS v2 协议：16 字节帧头 + CRC16 payload 校验；v1 frame 不再兼容
-- C++23 Wasm 解码器（Freestanding，无 STL 堆分配，CMake + Emscripten 构建）
-- `AedsBinaryWriter` / `BinaryFrameResult` 分段写出 header + payload
-- 解码失败暴露协议错误，不回退 JSON 读链
-- 管理员 Binary 统计端点（`GET /api/binary/stats`，需 admin 角色）
-- 多分片上传端点组（`/api/binary/upload/*`，需 admin 角色）
+- `api/binary` endpoint group; all public read paths support `application/octet-stream` output
+- AEDS v2 protocol: 16-byte frame header plus CRC16 payload validation; v1 frames are no longer compatible
+- C++23 Wasm decoder (freestanding, no STL heap allocation, CMake + Emscripten build)
+- `AedsBinaryWriter` / `BinaryFrameResult` writes header plus payload in segments
+- Decode failures expose protocol errors and do not fall back to the JSON read path
+- Admin Binary statistics endpoint (`GET /api/binary/stats`, requires the admin role)
+- Multipart upload endpoint group (`/api/binary/upload/*`, requires the admin role)
 
-#### 认证与安全
+#### Authentication and security
 
-- Proof of Work (PoW) 前置机制，覆盖注册/登录等敏感操作
-- 用户注册（`POST /api/Auth/register`，带 PoW 验证）
-- 密码登录（`POST /api/Auth/login`，含 MFA 流程）
-- JWT Access Token（15 分钟过期）+ HttpOnly Refresh Token Cookie
-- Token 续期（`POST /api/Auth/refresh-token`）
-- 当前用户信息（`GET /api/Auth/me`）
-- 安全登出（`POST /api/Auth/logout`，吊销 Refresh Token）
-- 注销账号（`POST /api/Auth/delete-account`）
-- BCrypt 密码哈希（cost factor 10+）
+- Proof of Work (PoW) precondition covering sensitive operations such as registration and login
+- User registration (`POST /api/Auth/register`, with PoW verification)
+- Password login (`POST /api/Auth/login`, including the MFA flow)
+- JWT Access Token (15-minute expiry) plus an HttpOnly Refresh Token Cookie
+- Token refresh (`POST /api/Auth/refresh-token`)
+- Current-user information (`GET /api/Auth/me`)
+- Secure logout (`POST /api/Auth/logout`, revokes the Refresh Token)
+- Account deletion (`POST /api/Auth/delete-account`)
+- BCrypt password hashing (cost factor 10+)
 
-#### 通行密钥 / Passkey（WebAuthn / FIDO2）
+#### Passkeys (WebAuthn / FIDO2)
 
-- FIDO2 Discoverable Credential，无用户名流程（usernameless）
-- 注册流程（`POST /api/binary/auth/passkey/register/begin` + `register/complete`，需登录，AEDS frame）
-- 无密码登录流程（`POST /api/binary/auth/passkey/login/begin` + `login/complete`，匿名，IP 速率限制，AEDS frame）
-- 凭证列表（`GET /api/binary/auth/passkey/credentials`，每用户最多 5 枚）
-- 凭证删除（`DELETE /api/binary/auth/passkey/credentials/{id}`）
-- 凭证重命名（`PUT /api/binary/auth/passkey/credentials/{id}/name`）
-- 注册 MFA 前置保护（已启用 MFA 的用户注册新密钥需提供 proofToken）
-- Passkey 登录视为双因素，直接跳过 MFA 挑战
+- FIDO2 Discoverable Credential with a usernameless flow
+- Registration flow (`POST /api/binary/auth/passkey/register/begin` + `register/complete`, requires login, AEDS frame)
+- Passwordless login flow (`POST /api/binary/auth/passkey/login/begin` + `login/complete`, anonymous, IP rate limited, AEDS frame)
+- Credential list (`GET /api/binary/auth/passkey/credentials`, at most 5 per user)
+- Credential deletion (`DELETE /api/binary/auth/passkey/credentials/{id}`)
+- Credential rename (`PUT /api/binary/auth/passkey/credentials/{id}/name`)
+- Registration MFA precondition (users with MFA enabled must provide a proofToken to register a new key)
+- Passkey login counts as two-factor and skips the MFA challenge
 
-#### 多因素认证（MFA / TOTP）
+#### Multi-factor authentication (MFA / TOTP)
 
-- MFA 设置启动（`POST /api/Auth/mfa/setup/start`）
-- MFA 设置验证（`POST /api/Auth/mfa/setup/verify`）
-- MFA 个人配置信息（`GET /api/Auth/mfa/profile`）
-- MFA 禁用（`POST /api/Auth/mfa/disable`）
-- 恢复码重新生成（`POST /api/Auth/mfa/recovery/regenerate`）
-- MFA 登录挑战启动（`POST /api/Auth/mfa/challenge/start`）
-- MFA 登录挑战完成（`POST /api/Auth/mfa/challenge`）
-- 管理员重置用户 MFA（`POST /api/Auth/admin/users/{id}/mfa/reset`，需 admin 角色）
+- Start MFA setup (`POST /api/Auth/mfa/setup/start`)
+- Verify MFA setup (`POST /api/Auth/mfa/setup/verify`)
+- Personal MFA profile (`GET /api/Auth/mfa/profile`)
+- Disable MFA (`POST /api/Auth/mfa/disable`)
+- Regenerate recovery codes (`POST /api/Auth/mfa/recovery/regenerate`)
+- Start the MFA login challenge (`POST /api/Auth/mfa/challenge/start`)
+- Complete the MFA login challenge (`POST /api/Auth/mfa/challenge`)
+- Admin reset of user MFA (`POST /api/Auth/admin/users/{id}/mfa/reset`, requires the admin role)
 
-#### 多会话管理
+#### Multi-session management
 
-- 活跃会话列表（`GET /api/Auth/sessions`）
-- 吊销单个会话（`POST /api/Auth/sessions/{id}/revoke`）
-- 吊销全部其他会话（`POST /api/Auth/sessions/revoke-others`）
+- Active-session list (`GET /api/Auth/sessions`)
+- Revoke one session (`POST /api/Auth/sessions/{id}/revoke`)
+- Revoke all other sessions (`POST /api/Auth/sessions/revoke-others`)
 
-#### 实时通知（AEDS WebSocket notification stream）
+#### Real-time notifications (AEDS WebSocket notification stream)
 
-- AEDS WebSocket notification stream 端点（`GET /api/notifications/stream`）
-- 慢消费者自动断开保护
+- AEDS WebSocket notification stream endpoint (`GET /api/notifications/stream`)
+- Automatic disconnect protection for slow consumers
 - SignalR + Redis backing store
 
-#### 站内消息
+#### In-app messages
 
-- 用户对话列表（`GET /api/binary/messages/conversations`）
-- 用户对话详情（`GET /api/binary/messages/conversations/{id}`）
-- 发起新对话（`POST /api/binary/messages/conversations`）
-- 回复对话（`POST /api/binary/messages/conversations/{id}/reply`）
-- 标记已读（`POST /api/binary/messages/conversations/{id}/read`）
-- 管理员对话列表（`GET /api/binary/admin/messages/conversations`）
-- 管理员对话详情与回复
-- 管理员对话状态管理（`POST /api/binary/admin/messages/conversations/{id}/status`）
-- 管理员单用户系统消息（`POST /api/binary/admin/messages/system-send`）
+- User conversation list (`GET /api/binary/messages/conversations`)
+- User conversation detail (`GET /api/binary/messages/conversations/{id}`)
+- Start a new conversation (`POST /api/binary/messages/conversations`)
+- Reply to a conversation (`POST /api/binary/messages/conversations/{id}/reply`)
+- Mark as read (`POST /api/binary/messages/conversations/{id}/read`)
+- Admin conversation list (`GET /api/binary/admin/messages/conversations`)
+- Admin conversation detail and reply
+- Admin conversation status management (`POST /api/binary/admin/messages/conversations/{id}/status`)
+- Per-user admin system message (`POST /api/binary/admin/messages/system-send`)
 
-#### 用户评论历史
+#### User comment history
 
-- 当前用户评论历史（`GET /api/Comment/me`，需登录）
-- 同时支持 JSON 与 Binary 双读链（`GET /api/binary/comment/me`）
+- Current-user comment history (`GET /api/Comment/me`, requires login)
+- Both JSON and Binary read paths (`GET /api/binary/comment/me`)
 
-#### AOT 公开页缓存
+#### AOT public-page cache
 
-- 预渲染 HTML shell 输出，静态文件优先命中
-- 未命中回退到 SPA `index.html`，由客户端 hydration 接管
-- AOT 缓存卷挂载（`fsus-aot-cache`）
+- Prerendered HTML shell output, with static files preferred on cache hit
+- Cache misses fall back to the SPA `index.html`, then client hydration takes over
+- AOT cache volume mount (`fsus-aot-cache`)
 
-#### 前端（Vue 3 SPA）
+#### Frontend (Vue 3 SPA)
 
-- 公开页：首页、归档、分类、标签、文章详情
-- Passkey 登录入口（Login 页面）
-- Passkey 管理面板（用户控制台 Profile 页面）
-- MFA 设置与验证流程
-- 站内消息收发页面
-- 管理员后台界面
-- WebAssembly 解码引擎（C++23，Web Worker 隔离主线程）
-- 本地搜索（Service Worker 缓存静态索引 + Wasm 本地排序）
-- 响应式设计，深色/浅色主题
+- Public pages: home, archive, category, tag, and article detail
+- Passkey login entry point (Login page)
+- Passkey management panel (user-console Profile page)
+- MFA setup and verification flow
+- In-app messaging pages
+- Admin console UI
+- WebAssembly decoder engine (C++23, Web Worker isolates the main thread)
+- Local search (Service Worker caches the static index plus Wasm local sorting)
+- Responsive design with dark and light themes
 
-#### 运维与可观测性
+#### Operations and observability
 
-- 健康检查：`GET /health/live`（存活探针），`GET /health/ready`（就绪探针）
-- Serilog 结构化日志，异步滚动文件（卷挂载 `fsus-logs`）
-- 多分层测试基础设施（fast / integration / acceptance / visual / security / resilience / load / production）
-- 生产 Docker 多阶段构建（Wasm → .NET 发布 → Alpine 运行时）
-- 数据库 CodeFirst 自动迁移
+- Health checks: `GET /health/live` (liveness probe) and `GET /health/ready` (readiness probe)
+- Serilog structured logging with asynchronous rolling files (volume mount `fsus-logs`)
+- Layered test infrastructure (fast / integration / acceptance / visual / security / resilience / load / production)
+- Production Docker multi-stage build (Wasm → .NET publish → Alpine runtime)
+- Automatic CodeFirst database migrations
 
 ---

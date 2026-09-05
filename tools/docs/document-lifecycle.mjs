@@ -162,7 +162,7 @@ export function RenderDocumentIndex(inventory)
     const lines = [
         '# Documentation Index',
         '',
-        '本索引由 `config/development/document-lifecycle.json` 中的显式 metadata 和当前 `docs/` inventory 生成。长期事实源只出现在 Current 区域；工单关联和替代关系不再从文件名推导。',
+        'This index is generated from explicit metadata in `config/development/document-lifecycle.json` and the current `docs/` inventory. Long-term sources of truth appear only in the Current section; issue associations and supersession are not inferred from filenames.',
         '',
         '- Lifecycle policy: [`development/document-lifecycle.md`](development/document-lifecycle.md)',
         '- Machine-readable inventory: [`../config/development/document-inventory.generated.json`](../config/development/document-inventory.generated.json)',

@@ -93,9 +93,4 @@ dispatched. Registry readers on all nodes then observe the same state. The addit
 `plugin_registry` table remains during rollback; an N-1 build ignores it. Do not
 drop the table or erase package evidence during rollback.
 
-Before a future dispatcher invokes plugin code it must additionally check the
-isolation controller, construct the closed Level 1 sandbox profile and resource
-guard, and expose only a plugin-scoped Host API proxy. The proxy performs a fresh
-capability check for every operation. Detailed limits, quarantine transitions and
-the fail-closed no-restart path are defined in
-[Plugin permission and sandbox boundary](../security/plugin-sandbox.md).
+Before a future dispatcher invokes plugin code, it must apply the [Hook Dispatcher permission and failure checks](plugin-hook-dispatcher.md#permission-budget-and-failures): check isolation, construct the closed Level 1 sandbox/resource guard, expose only a plugin-scoped Host API proxy, and recheck capability for every operation. Detailed limits, quarantine transitions, and fail-closed no-restart handling remain in the [Plugin permission and sandbox boundary](../security/plugin-sandbox.md).
