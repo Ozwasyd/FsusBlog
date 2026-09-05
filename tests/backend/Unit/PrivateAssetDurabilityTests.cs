@@ -6,6 +6,41 @@ namespace FsusBlog.Server.Tests;
 
 public sealed class PrivateAssetDurabilityTests
 {
+    [Fact]
+    public async Task AtomicRenameRejectsExistingDestinationAndRemovesStagingEntry()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+
+        string root = Path.Combine(Path.GetTempPath(), $"fsus-private-rename-{Guid.NewGuid():N}");
+        string privateRoot = Path.Combine(root, "private");
+        string commitRoot = Path.Combine(root, "commit");
+        Directory.CreateDirectory(privateRoot);
+        Directory.CreateDirectory(commitRoot);
+        try
+        {
+            var fileSystem = new PrivateAssetAnchoredFileSystem(privateRoot, commitRoot);
+            await using AnchoredTemporaryFile first = fileSystem.CreateTemporary();
+            await first.Stream.WriteAsync(new byte[] { 1, 2, 3 });
+            first.Stream.Flush(flushToDisk: true);
+            fileSystem.Commit(first, "ab/asset.bin");
+            await using AnchoredTemporaryFile second = fileSystem.CreateTemporary();
+            await second.Stream.WriteAsync(new byte[] { 4, 5, 6 });
+            second.Stream.Flush(flushToDisk: true);
+
+            Assert.Throws<IOException>(() => fileSystem.Commit(second, "ab/asset.bin"));
+
+            Assert.Equal(new byte[] { 1, 2, 3 }, await File.ReadAllBytesAsync(Path.Combine(privateRoot, "ab/asset.bin")));
+            Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(commitRoot, "private-assets")));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

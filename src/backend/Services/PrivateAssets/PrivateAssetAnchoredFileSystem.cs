@@ -25,6 +25,7 @@ internal sealed partial class PrivateAssetAnchoredFileSystem
     private const int AtEmptyPath = 0x1000;
     private const int AtCurrentWorkingDirectory = -100;
     private const int AtFollowSymbolicLink = 0x400;
+    private const uint RenameNoReplace = 1;
     private const uint StatxBasicStats = 0x7FF;
     private readonly string _privateRoot;
     private readonly string _commitRoot;
@@ -102,18 +103,50 @@ internal sealed partial class PrivateAssetAnchoredFileSystem
         }
 
         using SafeFileHandle finalDirectory = OpenStorageParent(storageKey, create: true, out string fileName);
+        using SafeFileHandle commitRoot = OpenDirectoryHandle(_commitRoot);
+        using SafeFileHandle stagingDirectory = OpenOrCreateDirectory(commitRoot, "private-assets");
+        VerifySameFileSystem(finalDirectory, stagingDirectory);
+        string stagingName = $"{Guid.NewGuid():N}.tmp";
         string descriptorPath = $"/proc/self/fd/{FileDescriptor(temporary.Stream.SafeFileHandle)}";
         if (LinkAt(
                 AtCurrentWorkingDirectory,
                 descriptorPath,
-                FileDescriptor(finalDirectory),
-                fileName,
+                FileDescriptor(stagingDirectory),
+                stagingName,
                 AtFollowSymbolicLink) != 0)
         {
-            throw FileSystemFailure("private_asset_commit_publish_failed");
+            throw FileSystemFailure("private_asset_commit_stage_failed");
         }
 
-        _directorySync.Sync(finalDirectory, PrivateAssetDirectoryDurabilityPoint.Published);
+        bool renamed = false;
+        try
+        {
+            if (RenameAt2(
+                    FileDescriptor(stagingDirectory),
+                    stagingName,
+                    FileDescriptor(finalDirectory),
+                    fileName,
+                    RenameNoReplace) != 0)
+            {
+                throw FileSystemFailure("private_asset_commit_publish_failed");
+            }
+
+            renamed = true;
+            _directorySync.Sync(stagingDirectory, PrivateAssetDirectoryDurabilityPoint.CommitSource);
+            _directorySync.Sync(finalDirectory, PrivateAssetDirectoryDurabilityPoint.Published);
+        }
+        finally
+        {
+            if (!renamed)
+            {
+                if (UnlinkAt(FileDescriptor(stagingDirectory), stagingName, 0) != 0)
+                {
+                    throw FileSystemFailure("private_asset_commit_stage_cleanup_failed");
+                }
+
+                _directorySync.Sync(stagingDirectory, PrivateAssetDirectoryDurabilityPoint.CommitSource);
+            }
+        }
     }
 
     public void SyncExistingEntry(string storageKey)
@@ -135,6 +168,9 @@ internal sealed partial class PrivateAssetAnchoredFileSystem
         }
 
         using var handle = new SafeFileHandle(new IntPtr(descriptor), ownsHandle: true);
+        using SafeFileHandle commitRoot = OpenDirectoryHandle(_commitRoot);
+        using SafeFileHandle stagingDirectory = OpenOrCreateDirectory(commitRoot, "private-assets");
+        _directorySync.Sync(stagingDirectory, PrivateAssetDirectoryDurabilityPoint.CommitSource);
         _directorySync.Sync(directory, PrivateAssetDirectoryDurabilityPoint.ExistingPublication);
     }
 
@@ -531,6 +567,9 @@ internal sealed partial class PrivateAssetAnchoredFileSystem
     [LibraryImport("libc", EntryPoint = "renameat", SetLastError = true, StringMarshalling = StringMarshalling.Utf8)]
     private static partial int RenameAt(int oldDirectory, string oldPath, int newDirectory, string newPath);
 
+    [LibraryImport("libc", EntryPoint = "renameat2", SetLastError = true, StringMarshalling = StringMarshalling.Utf8)]
+    private static partial int RenameAt2(int oldDirectory, string oldPath, int newDirectory, string newPath, uint flags);
+
     [LibraryImport("libc", EntryPoint = "linkat", SetLastError = true, StringMarshalling = StringMarshalling.Utf8)]
     private static partial int LinkAt(int oldDirectory, string oldPath, int newDirectory, string newPath, int flags);
 
@@ -599,6 +638,7 @@ internal sealed record AnchoredTemporaryFile(string Name, string? FallbackPath, 
 internal enum PrivateAssetDirectoryDurabilityPoint
 {
     ParentCreated,
+    CommitSource,
     Published,
     ExistingPublication,
     Deleted,
