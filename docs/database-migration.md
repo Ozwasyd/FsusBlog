@@ -251,7 +251,7 @@ descriptions.
 `20260904-post-author-saved-view` is an additive, transactional Post-CodeFirst
 Expand. It creates the sole private `author_saved_view_collection` and
 `author_saved_view` authority, normalized condition/value/projection rows, and
-append-only receipt and idempotency ledgers. The collection key is the authenticated
+append-only receipt, typed receipt-change and idempotency ledgers. The collection key is the authenticated
 admin-principal identity plus configured site scope. Stable view IDs are independent
 of the normalized display name; collection and view revisions are independent CAS
 coordinates.
@@ -263,6 +263,16 @@ query result article IDs, facet counts, snippets, permission snapshots, SQL, scr
 or client functions. AST dependencies remain owned by their source domains and are
 revalidated before an active write; deleting or retiring one does not silently
 rewrite persisted conditions.
+
+Each successful command records its previous/result collection revision, active
+count, explicit default transition and exact affected-view set. Private
+`author_saved_view_receipt_change` rows carry the necessary typed before/after name,
+revision, query/dependency digest, pin/order/lifecycle and view-content facts. The
+independent verifier replays those facts from an empty collection, recomputes the
+canonical change, receipt, view and collection digests, checks the receipt/idempotency
+mapping in both directions, and then compares the replayed state with live rows. The
+history does not duplicate query text, result IDs, facets, snippets or permission
+snapshots.
 
 No-restart rollback retains these additive tables while an older release ignores
 them. Do not drop the receipt or idempotency ledgers during the compatibility window;

@@ -11,6 +11,14 @@ namespace FsusBlog.Server.Services.Authoring;
 /// </summary>
 public sealed class PostgresAuthorSavedViewPersistence(ISqlSugarClient db) : IAuthorSavedViewPersistence
 {
+    private const string ReceiptColumns =
+        "r.receipt_id, r.request_id, r.view_id, r.command_kind, r.command_digest, "
+        + "r.view_revision, r.previous_collection_revision, r.collection_revision, "
+        + "r.query_digest, r.dependency_digest, r.pinned, r.previous_default_view_id, r.default_view_id, "
+        + "r.previous_active_view_count, r.active_view_count, r.order_key, r.lifecycle_state, "
+        + "r.default_transition, r.change_count, r.changes_digest, r.reason_code, r.content_digest, "
+        + "r.occurred_at_utc";
+
     public async Task<T> ReadAsync<T>(
         AuthorSavedViewOwner owner,
         Func<AuthorSavedViewPersistenceSnapshot, T> read,
@@ -53,6 +61,42 @@ public sealed class PostgresAuthorSavedViewPersistence(ISqlSugarClient db) : IAu
                     .Throw();
             }
             throw new InvalidOperationException("author_saved_view_transaction_failed");
+        }
+        return result!;
+    }
+
+    public async Task<AuthorSavedViewVerificationHistory> ReadVerificationHistoryAsync(
+        AuthorSavedViewOwner owner,
+        CancellationToken cancellationToken = default)
+    {
+        AuthorSavedViewContract.ValidateOwner(owner);
+        AuthorSavedViewVerificationHistory? result = null;
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            _ = await db.Ado.GetScalarAsync(
+                "SELECT pg_advisory_xact_lock(hashtextextended(@Identity, 0));",
+                new SugarParameter("@Identity", $"author-saved-view:{owner.AdminPrincipalId}:{owner.SiteScope}"))
+                .ConfigureAwait(false);
+            AuthorSavedViewPersistenceSnapshot current = await ReadSnapshotAsync(owner, cancellationToken)
+                .ConfigureAwait(false);
+            IReadOnlyList<AuthorSavedViewWriteReceipt> receipts = await ReadReceiptsAsync(owner, cancellationToken)
+                .ConfigureAwait(false);
+            IReadOnlyList<AuthorSavedViewHistoryChange> changes =
+                await ReadHistoryChangesAsync(owner, cancellationToken).ConfigureAwait(false);
+            IReadOnlyList<AuthorSavedViewIdempotencyRecord> idempotency =
+                await ReadIdempotencyRecordsAsync(owner, cancellationToken).ConfigureAwait(false);
+            result = new(current, receipts, changes, idempotency);
+        }).ConfigureAwait(false);
+        if (!transaction.IsSuccess)
+        {
+            if (transaction.ErrorException is not null)
+            {
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo
+                    .Capture(transaction.ErrorException)
+                    .Throw();
+            }
+            throw new InvalidOperationException("author_saved_view_verification_read_failed");
         }
         return result!;
     }
@@ -111,6 +155,90 @@ public sealed class PostgresAuthorSavedViewPersistence(ISqlSugarClient db) : IAu
             reader.GetInt32(reader.GetOrdinal("active_view_count")),
             reader.GetString(reader.GetOrdinal("last_command_digest")),
             reader.GetString(reader.GetOrdinal("content_digest")));
+    }
+
+    private async Task<IReadOnlyList<AuthorSavedViewWriteReceipt>> ReadReceiptsAsync(
+        AuthorSavedViewOwner owner,
+        CancellationToken cancellationToken)
+    {
+        var result = new List<AuthorSavedViewWriteReceipt>();
+        using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            $"""
+            SELECT {ReceiptColumns}
+            FROM author_saved_view_receipt r
+            WHERE r.owner_admin_principal_id = @OwnerAdminPrincipalId
+              AND r.site_scope = @SiteScope
+            ORDER BY r.collection_revision, r.receipt_id;
+            """,
+            new SugarParameter("@OwnerAdminPrincipalId", owner.AdminPrincipalId),
+            new SugarParameter("@SiteScope", owner.SiteScope)).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            result.Add(ReadReceipt(reader, owner, idempotentReplay: false));
+        }
+        return Array.AsReadOnly(result.ToArray());
+    }
+
+    private async Task<IReadOnlyList<AuthorSavedViewHistoryChange>> ReadHistoryChangesAsync(
+        AuthorSavedViewOwner owner,
+        CancellationToken cancellationToken)
+    {
+        var result = new List<AuthorSavedViewHistoryChange>();
+        using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT c.receipt_id, c.change_index, c.view_id, c.change_kind,
+                   c.before_revision, c.before_name, c.before_query_digest,
+                   c.before_dependency_digest, c.before_pinned, c.before_order_key,
+                   c.before_lifecycle_state, c.before_content_digest,
+                   c.after_revision, c.after_name, c.after_query_digest,
+                   c.after_dependency_digest, c.after_pinned, c.after_order_key,
+                   c.after_lifecycle_state, c.after_content_digest, c.content_digest
+            FROM author_saved_view_receipt_change c
+            INNER JOIN author_saved_view_receipt r ON r.receipt_id = c.receipt_id
+            WHERE r.owner_admin_principal_id = @OwnerAdminPrincipalId
+              AND r.site_scope = @SiteScope
+            ORDER BY r.collection_revision, c.change_index;
+            """,
+            new SugarParameter("@OwnerAdminPrincipalId", owner.AdminPrincipalId),
+            new SugarParameter("@SiteScope", owner.SiteScope)).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            result.Add(new(
+                reader.GetGuid(reader.GetOrdinal("receipt_id")),
+                reader.GetInt32(reader.GetOrdinal("change_index")),
+                reader.GetGuid(reader.GetOrdinal("view_id")),
+                (AuthorSavedViewHistoryChangeKind)reader.GetInt16(reader.GetOrdinal("change_kind")),
+                ReadHistoryState(reader, "before"),
+                ReadHistoryState(reader, "after"),
+                reader.GetString(reader.GetOrdinal("content_digest"))));
+        }
+        return Array.AsReadOnly(result.ToArray());
+    }
+
+    private async Task<IReadOnlyList<AuthorSavedViewIdempotencyRecord>> ReadIdempotencyRecordsAsync(
+        AuthorSavedViewOwner owner,
+        CancellationToken cancellationToken)
+    {
+        var result = new List<AuthorSavedViewIdempotencyRecord>();
+        using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT request_id, receipt_id, command_digest, created_at_utc
+            FROM author_saved_view_idempotency
+            WHERE owner_admin_principal_id = @OwnerAdminPrincipalId
+              AND site_scope = @SiteScope
+            ORDER BY created_at_utc, request_id;
+            """,
+            new SugarParameter("@OwnerAdminPrincipalId", owner.AdminPrincipalId),
+            new SugarParameter("@SiteScope", owner.SiteScope)).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            result.Add(new(
+                reader.GetGuid(reader.GetOrdinal("request_id")),
+                reader.GetGuid(reader.GetOrdinal("receipt_id")),
+                reader.GetString(reader.GetOrdinal("command_digest")),
+                ReadUtcDateTime(reader, "created_at_utc")));
+        }
+        return Array.AsReadOnly(result.ToArray());
     }
 
     private async Task<IReadOnlyList<AuthorSavedView>> ReadViewsAsync(
@@ -321,6 +449,55 @@ public sealed class PostgresAuthorSavedViewPersistence(ISqlSugarClient db) : IAu
     private static DateTime ReadUtcDateTime(DbDataReader reader, string name)
         => DateTime.SpecifyKind(reader.GetDateTime(reader.GetOrdinal(name)), DateTimeKind.Utc);
 
+    private static AuthorSavedViewWriteReceipt ReadReceipt(
+        DbDataReader reader,
+        AuthorSavedViewOwner owner,
+        bool idempotentReplay)
+        => new(
+            reader.GetGuid(reader.GetOrdinal("receipt_id")),
+            reader.GetGuid(reader.GetOrdinal("request_id")),
+            owner,
+            reader.GetGuid(reader.GetOrdinal("view_id")),
+            reader.GetString(reader.GetOrdinal("command_kind")),
+            reader.GetString(reader.GetOrdinal("command_digest")),
+            reader.GetInt64(reader.GetOrdinal("view_revision")),
+            reader.GetInt64(reader.GetOrdinal("collection_revision")),
+            reader.GetString(reader.GetOrdinal("query_digest")),
+            reader.GetString(reader.GetOrdinal("dependency_digest")),
+            reader.GetBoolean(reader.GetOrdinal("pinned")),
+            ReadNullableGuid(reader, "default_view_id"),
+            reader.GetInt64(reader.GetOrdinal("order_key")),
+            (AuthorSavedViewLifecycleState)reader.GetInt16(reader.GetOrdinal("lifecycle_state")),
+            reader.GetString(reader.GetOrdinal("reason_code")),
+            reader.GetString(reader.GetOrdinal("content_digest")),
+            ReadUtcDateTime(reader, "occurred_at_utc"),
+            idempotentReplay,
+            reader.GetInt64(reader.GetOrdinal("previous_collection_revision")),
+            ReadNullableGuid(reader, "previous_default_view_id"),
+            reader.GetInt32(reader.GetOrdinal("previous_active_view_count")),
+            reader.GetInt32(reader.GetOrdinal("active_view_count")),
+            (AuthorSavedViewDefaultTransition)reader.GetInt16(reader.GetOrdinal("default_transition")),
+            reader.GetInt32(reader.GetOrdinal("change_count")),
+            reader.GetString(reader.GetOrdinal("changes_digest")));
+
+    private static AuthorSavedViewHistoryViewState? ReadHistoryState(DbDataReader reader, string prefix)
+    {
+        int revisionOrdinal = reader.GetOrdinal($"{prefix}_revision");
+        if (reader.IsDBNull(revisionOrdinal))
+        {
+            return null;
+        }
+        return new(
+            reader.GetInt64(revisionOrdinal),
+            reader.GetString(reader.GetOrdinal($"{prefix}_name")),
+            reader.GetString(reader.GetOrdinal($"{prefix}_query_digest")),
+            reader.GetString(reader.GetOrdinal($"{prefix}_dependency_digest")),
+            reader.GetBoolean(reader.GetOrdinal($"{prefix}_pinned")),
+            reader.GetInt64(reader.GetOrdinal($"{prefix}_order_key")),
+            (AuthorSavedViewLifecycleState)reader.GetInt16(reader.GetOrdinal($"{prefix}_lifecycle_state")),
+            reader.GetString(reader.GetOrdinal($"{prefix}_content_digest")));
+    }
+
     private sealed class PersistenceTransaction(
         ISqlSugarClient db,
         AuthorSavedViewPersistenceSnapshot snapshot) : IAuthorSavedViewPersistenceTransaction
@@ -335,11 +512,8 @@ public sealed class PostgresAuthorSavedViewPersistence(ISqlSugarClient db) : IAu
             CancellationToken cancellationToken = default)
         {
             using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
-                """
-                SELECT r.receipt_id, r.request_id, r.view_id, r.command_kind, r.command_digest,
-                       r.view_revision, r.collection_revision, r.query_digest, r.dependency_digest,
-                       r.pinned, r.default_view_id, r.order_key, r.lifecycle_state, r.reason_code,
-                       r.content_digest, r.occurred_at_utc
+                $"""
+                SELECT {ReceiptColumns}
                 FROM author_saved_view_idempotency i
                 INNER JOIN author_saved_view_receipt r ON r.receipt_id = i.receipt_id
                 WHERE i.owner_admin_principal_id = @OwnerAdminPrincipalId
@@ -353,25 +527,7 @@ public sealed class PostgresAuthorSavedViewPersistence(ISqlSugarClient db) : IAu
             {
                 return null;
             }
-            return new AuthorSavedViewWriteReceipt(
-                reader.GetGuid(reader.GetOrdinal("receipt_id")),
-                reader.GetGuid(reader.GetOrdinal("request_id")),
-                Collection.Owner,
-                reader.GetGuid(reader.GetOrdinal("view_id")),
-                reader.GetString(reader.GetOrdinal("command_kind")),
-                reader.GetString(reader.GetOrdinal("command_digest")),
-                reader.GetInt64(reader.GetOrdinal("view_revision")),
-                reader.GetInt64(reader.GetOrdinal("collection_revision")),
-                reader.GetString(reader.GetOrdinal("query_digest")),
-                reader.GetString(reader.GetOrdinal("dependency_digest")),
-                reader.GetBoolean(reader.GetOrdinal("pinned")),
-                ReadNullableGuid(reader, "default_view_id"),
-                reader.GetInt64(reader.GetOrdinal("order_key")),
-                (AuthorSavedViewLifecycleState)reader.GetInt16(reader.GetOrdinal("lifecycle_state")),
-                reader.GetString(reader.GetOrdinal("reason_code")),
-                reader.GetString(reader.GetOrdinal("content_digest")),
-                ReadUtcDateTime(reader, "occurred_at_utc"),
-                true);
+            return ReadReceipt(reader, Collection.Owner, idempotentReplay: true);
         }
 
         public async Task CommitAsync(
@@ -424,7 +580,7 @@ public sealed class PostgresAuthorSavedViewPersistence(ISqlSugarClient db) : IAu
                     await PersistViewAsync(view).ConfigureAwait(false);
                 }
             }
-            await PersistReceiptAsync(receipt).ConfigureAwait(false);
+            await PersistReceiptAsync(receipt, mutation.HistoryChanges).ConfigureAwait(false);
         }
 
         public void SetProposedOrderKey(long value)
@@ -576,20 +732,30 @@ public sealed class PostgresAuthorSavedViewPersistence(ISqlSugarClient db) : IAu
             }
         }
 
-        private async Task PersistReceiptAsync(AuthorSavedViewWriteReceipt receipt)
+        private async Task PersistReceiptAsync(
+            AuthorSavedViewWriteReceipt receipt,
+            IReadOnlyList<AuthorSavedViewHistoryChange> changes)
         {
             await db.Ado.ExecuteCommandAsync(
                 """
                 INSERT INTO author_saved_view_receipt(
                     receipt_id, request_id, owner_admin_principal_id, site_scope, view_id,
-                    command_kind, command_digest, view_revision, collection_revision,
-                    query_digest, dependency_digest, pinned, default_view_id, order_key,
-                    lifecycle_state, reason_code, content_digest, occurred_at_utc)
+                    command_kind, command_digest, view_revision,
+                    previous_collection_revision, collection_revision,
+                    query_digest, dependency_digest, pinned,
+                    previous_default_view_id, default_view_id,
+                    previous_active_view_count, active_view_count,
+                    order_key, lifecycle_state, default_transition,
+                    change_count, changes_digest, reason_code, content_digest, occurred_at_utc)
                 VALUES (
                     @ReceiptId, @RequestId, @OwnerAdminPrincipalId, @SiteScope, @ViewId,
-                    @CommandKind, @CommandDigest, @ViewRevision, @CollectionRevision,
-                    @QueryDigest, @DependencyDigest, @Pinned, CAST(@DefaultViewId AS uuid), @OrderKey,
-                    @LifecycleState, @ReasonCode, @ContentDigest, @OccurredAtUtc);
+                    @CommandKind, @CommandDigest, @ViewRevision,
+                    @PreviousCollectionRevision, @CollectionRevision,
+                    @QueryDigest, @DependencyDigest, @Pinned,
+                    CAST(@PreviousDefaultViewId AS uuid), CAST(@DefaultViewId AS uuid),
+                    @PreviousActiveViewCount, @ActiveViewCount,
+                    @OrderKey, @LifecycleState, @DefaultTransition,
+                    @ChangeCount, @ChangesDigest, @ReasonCode, @ContentDigest, @OccurredAtUtc);
 
                 INSERT INTO author_saved_view_idempotency(
                     owner_admin_principal_id, site_scope, request_id, receipt_id,
@@ -606,16 +772,67 @@ public sealed class PostgresAuthorSavedViewPersistence(ISqlSugarClient db) : IAu
                 new SugarParameter("@CommandKind", receipt.CommandKind),
                 new SugarParameter("@CommandDigest", receipt.CommandDigest),
                 new SugarParameter("@ViewRevision", receipt.ViewRevision),
+                new SugarParameter("@PreviousCollectionRevision", receipt.PreviousCollectionRevision),
                 new SugarParameter("@CollectionRevision", receipt.CollectionRevision),
                 new SugarParameter("@QueryDigest", receipt.QueryDigest),
                 new SugarParameter("@DependencyDigest", receipt.DependencyDigest),
                 new SugarParameter("@Pinned", receipt.Pinned),
+                new SugarParameter("@PreviousDefaultViewId", receipt.PreviousDefaultViewId),
                 new SugarParameter("@DefaultViewId", receipt.DefaultViewId),
+                new SugarParameter("@PreviousActiveViewCount", receipt.PreviousActiveViewCount),
+                new SugarParameter("@ActiveViewCount", receipt.ActiveViewCount),
                 new SugarParameter("@OrderKey", receipt.OrderKey),
                 new SugarParameter("@LifecycleState", (short)receipt.LifecycleState),
+                new SugarParameter("@DefaultTransition", (short)receipt.DefaultTransition),
+                new SugarParameter("@ChangeCount", receipt.ChangeCount),
+                new SugarParameter("@ChangesDigest", receipt.ChangesDigest),
                 new SugarParameter("@ReasonCode", receipt.ReasonCode),
                 new SugarParameter("@ContentDigest", receipt.ContentDigest),
                 new SugarParameter("@OccurredAtUtc", receipt.OccurredAtUtc)).ConfigureAwait(false);
+
+            foreach (AuthorSavedViewHistoryChange change in changes)
+            {
+                await db.Ado.ExecuteCommandAsync(
+                    """
+                    INSERT INTO author_saved_view_receipt_change(
+                        receipt_id, change_index, view_id, change_kind,
+                        before_revision, before_name, before_query_digest,
+                        before_dependency_digest, before_pinned, before_order_key,
+                        before_lifecycle_state, before_content_digest,
+                        after_revision, after_name, after_query_digest,
+                        after_dependency_digest, after_pinned, after_order_key,
+                        after_lifecycle_state, after_content_digest, content_digest)
+                    VALUES (
+                        @ReceiptId, @ChangeIndex, @ViewId, @ChangeKind,
+                        @BeforeRevision, @BeforeName, @BeforeQueryDigest,
+                        @BeforeDependencyDigest, @BeforePinned, @BeforeOrderKey,
+                        @BeforeLifecycleState, @BeforeContentDigest,
+                        @AfterRevision, @AfterName, @AfterQueryDigest,
+                        @AfterDependencyDigest, @AfterPinned, @AfterOrderKey,
+                        @AfterLifecycleState, @AfterContentDigest, @ContentDigest);
+                    """,
+                    new SugarParameter("@ReceiptId", receipt.ReceiptId),
+                    new SugarParameter("@ChangeIndex", change.ChangeIndex),
+                    new SugarParameter("@ViewId", change.ViewId),
+                    new SugarParameter("@ChangeKind", (short)change.ChangeKind),
+                    new SugarParameter("@BeforeRevision", change.Before?.Revision),
+                    new SugarParameter("@BeforeName", change.Before?.Name),
+                    new SugarParameter("@BeforeQueryDigest", change.Before?.QueryDigest),
+                    new SugarParameter("@BeforeDependencyDigest", change.Before?.DependencyDigest),
+                    new SugarParameter("@BeforePinned", change.Before?.Pinned),
+                    new SugarParameter("@BeforeOrderKey", change.Before?.OrderKey),
+                    new SugarParameter("@BeforeLifecycleState", (short?)change.Before?.LifecycleState),
+                    new SugarParameter("@BeforeContentDigest", change.Before?.ContentDigest),
+                    new SugarParameter("@AfterRevision", change.After?.Revision),
+                    new SugarParameter("@AfterName", change.After?.Name),
+                    new SugarParameter("@AfterQueryDigest", change.After?.QueryDigest),
+                    new SugarParameter("@AfterDependencyDigest", change.After?.DependencyDigest),
+                    new SugarParameter("@AfterPinned", change.After?.Pinned),
+                    new SugarParameter("@AfterOrderKey", change.After?.OrderKey),
+                    new SugarParameter("@AfterLifecycleState", (short?)change.After?.LifecycleState),
+                    new SugarParameter("@AfterContentDigest", change.After?.ContentDigest),
+                    new SugarParameter("@ContentDigest", change.ContentDigest)).ConfigureAwait(false);
+            }
         }
 
         private static SugarParameter[] ViewParameters(AuthorSavedView view)

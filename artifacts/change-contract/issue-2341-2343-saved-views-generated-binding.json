@@ -7,7 +7,7 @@
   "outputs": [
     {
       "path": "src/backend/Infrastructure/SchemaMigration/SchemaAllowedExtraLinkNames.generated.cs",
-      "sha256": "d5c3972a5d0ed21959cbb2d67a8303e1a6e534ed30e027441c07bc540ff2a9cd"
+      "sha256": "cdd17981388115160077c41e24aa83d77ffb4af4d3a8027c80b93b9e08318bc3"
     },
     {
       "path": "src/migration/OfflineMigrationCatalogEntries.generated.cs",

@@ -130,28 +130,118 @@ internal static class AuthorSavedViewMigrationDefinitions
                         command_kind varchar(32) NOT NULL,
                         command_digest varchar(64) NOT NULL,
                         view_revision bigint NOT NULL,
+                        previous_collection_revision bigint NOT NULL,
                         collection_revision bigint NOT NULL,
                         query_digest varchar(64) NOT NULL,
                         dependency_digest varchar(64) NOT NULL,
                         pinned boolean NOT NULL,
+                        previous_default_view_id uuid NULL,
                         default_view_id uuid NULL,
+                        previous_active_view_count integer NOT NULL,
+                        active_view_count integer NOT NULL,
                         order_key bigint NOT NULL,
                         lifecycle_state smallint NOT NULL,
+                        default_transition smallint NOT NULL,
+                        change_count integer NOT NULL,
+                        changes_digest varchar(64) NOT NULL,
                         reason_code varchar(64) NOT NULL,
                         content_digest varchar(64) NOT NULL,
                         occurred_at_utc timestamp without time zone NOT NULL,
                         CONSTRAINT ck_author_saved_view_receipt_revisions CHECK (
-                            view_revision >= 0 AND collection_revision >= 1),
+                            view_revision >= 0
+                            AND previous_collection_revision >= 0
+                            AND collection_revision = previous_collection_revision + 1),
+                        CONSTRAINT ck_author_saved_view_receipt_counts CHECK (
+                            previous_active_view_count BETWEEN 0 AND 1000
+                            AND active_view_count BETWEEN 0 AND 1000
+                            AND change_count BETWEEN 0 AND 1000),
                         CONSTRAINT ck_author_saved_view_receipt_lifecycle CHECK (lifecycle_state IN (0, 1)),
+                        CONSTRAINT ck_author_saved_view_receipt_default_transition CHECK (
+                            default_transition BETWEEN 0 AND 3),
                         CONSTRAINT ck_author_saved_view_receipt_digests CHECK (
                             command_digest ~ '^[0-9a-f]{64}$'
                             AND (query_digest = '' OR query_digest ~ '^[0-9a-f]{64}$')
                             AND (dependency_digest = '' OR dependency_digest ~ '^[0-9a-f]{64}$')
+                            AND changes_digest ~ '^[0-9a-f]{64}$'
                             AND content_digest ~ '^[0-9a-f]{64}$')
                     );
+                    CREATE UNIQUE INDEX IF NOT EXISTS ux_author_saved_view_receipt_revision
+                        ON author_saved_view_receipt(
+                            owner_admin_principal_id, site_scope, collection_revision);
                     CREATE INDEX IF NOT EXISTS ix_author_saved_view_receipt_owner
                         ON author_saved_view_receipt(
                             owner_admin_principal_id, site_scope, collection_revision DESC, occurred_at_utc DESC);
+
+                    CREATE TABLE IF NOT EXISTS author_saved_view_receipt_change (
+                        receipt_id uuid NOT NULL,
+                        change_index integer NOT NULL,
+                        view_id uuid NOT NULL,
+                        change_kind smallint NOT NULL,
+                        before_revision bigint NULL,
+                        before_name varchar(128) NULL,
+                        before_query_digest varchar(64) NULL,
+                        before_dependency_digest varchar(64) NULL,
+                        before_pinned boolean NULL,
+                        before_order_key bigint NULL,
+                        before_lifecycle_state smallint NULL,
+                        before_content_digest varchar(64) NULL,
+                        after_revision bigint NOT NULL,
+                        after_name varchar(128) NOT NULL,
+                        after_query_digest varchar(64) NOT NULL,
+                        after_dependency_digest varchar(64) NOT NULL,
+                        after_pinned boolean NOT NULL,
+                        after_order_key bigint NOT NULL,
+                        after_lifecycle_state smallint NOT NULL,
+                        after_content_digest varchar(64) NOT NULL,
+                        content_digest varchar(64) NOT NULL,
+                        PRIMARY KEY (receipt_id, change_index),
+                        CONSTRAINT ux_author_saved_view_receipt_change_view UNIQUE (receipt_id, view_id),
+                        CONSTRAINT fk_author_saved_view_receipt_change_receipt
+                            FOREIGN KEY (receipt_id) REFERENCES author_saved_view_receipt(receipt_id)
+                            ON DELETE RESTRICT,
+                        CONSTRAINT ck_author_saved_view_receipt_change_index CHECK (
+                            change_index BETWEEN 0 AND 999),
+                        CONSTRAINT ck_author_saved_view_receipt_change_kind CHECK (change_kind BETWEEN 0 AND 2),
+                        CONSTRAINT ck_author_saved_view_receipt_change_before CHECK (
+                            (change_kind = 0
+                                AND before_revision IS NULL
+                                AND before_name IS NULL
+                                AND before_query_digest IS NULL
+                                AND before_dependency_digest IS NULL
+                                AND before_pinned IS NULL
+                                AND before_order_key IS NULL
+                                AND before_lifecycle_state IS NULL
+                                AND before_content_digest IS NULL
+                                AND after_revision = 1)
+                            OR (change_kind IN (1, 2)
+                                AND before_revision >= 1
+                                AND before_name IS NOT NULL
+                                AND before_query_digest IS NOT NULL
+                                AND before_dependency_digest IS NOT NULL
+                                AND before_pinned IS NOT NULL
+                                AND before_order_key IS NOT NULL
+                                AND before_lifecycle_state IS NOT NULL
+                                AND before_content_digest IS NOT NULL
+                                AND after_revision = before_revision + 1)),
+                        CONSTRAINT ck_author_saved_view_receipt_change_before_order CHECK (
+                            before_revision IS NULL
+                            OR (before_pinned AND before_lifecycle_state = 0 AND before_order_key > 0)
+                            OR (NOT before_pinned AND before_order_key = 0)),
+                        CONSTRAINT ck_author_saved_view_receipt_change_after_order CHECK (
+                            (after_pinned AND after_lifecycle_state = 0 AND after_order_key > 0)
+                            OR (NOT after_pinned AND after_order_key = 0)),
+                        CONSTRAINT ck_author_saved_view_receipt_change_lifecycle CHECK (
+                            (before_lifecycle_state IS NULL OR before_lifecycle_state IN (0, 1))
+                            AND after_lifecycle_state IN (0, 1)),
+                        CONSTRAINT ck_author_saved_view_receipt_change_digests CHECK (
+                            (before_query_digest IS NULL OR before_query_digest ~ '^[0-9a-f]{64}$')
+                            AND (before_dependency_digest IS NULL OR before_dependency_digest ~ '^[0-9a-f]{64}$')
+                            AND (before_content_digest IS NULL OR before_content_digest ~ '^[0-9a-f]{64}$')
+                            AND after_query_digest ~ '^[0-9a-f]{64}$'
+                            AND after_dependency_digest ~ '^[0-9a-f]{64}$'
+                            AND after_content_digest ~ '^[0-9a-f]{64}$'
+                            AND content_digest ~ '^[0-9a-f]{64}$')
+                    );
 
                     CREATE TABLE IF NOT EXISTS author_saved_view_idempotency (
                         owner_admin_principal_id bigint NOT NULL,

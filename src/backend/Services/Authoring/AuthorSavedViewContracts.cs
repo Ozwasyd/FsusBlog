@@ -336,6 +336,68 @@ public static class AuthorSavedViewContract
         return canonical.Finish();
     }
 
+    public static string ComputeHistoryChangeDigest(
+        Guid receiptId,
+        int changeIndex,
+        Guid viewId,
+        AuthorSavedViewHistoryChangeKind kind,
+        AuthorSavedViewHistoryViewState? before,
+        AuthorSavedViewHistoryViewState? after)
+        => ComputeCommandDigest(
+            receiptId,
+            changeIndex,
+            viewId,
+            (int)kind,
+            before?.Revision,
+            before?.Name,
+            before?.QueryDigest,
+            before?.DependencyDigest,
+            before?.Pinned,
+            before?.OrderKey,
+            before is null ? null : (int)before.LifecycleState,
+            before?.ContentDigest,
+            after?.Revision,
+            after?.Name,
+            after?.QueryDigest,
+            after?.DependencyDigest,
+            after?.Pinned,
+            after?.OrderKey,
+            after is null ? null : (int)after.LifecycleState,
+            after?.ContentDigest);
+
+    public static string ComputeHistoryChangesDigest(IReadOnlyList<AuthorSavedViewHistoryChange> changes)
+        => ComputeCommandDigest(
+            changes.Count,
+            string.Join('|', changes.OrderBy(static change => change.ChangeIndex)
+                .Select(static change => change.ContentDigest)));
+
+    public static string ComputeReceiptDigest(AuthorSavedViewWriteReceipt receipt)
+        => ComputeCommandDigest(
+            receipt.ReceiptId,
+            receipt.RequestId,
+            receipt.Owner.AdminPrincipalId,
+            receipt.Owner.SiteScope,
+            receipt.CommandKind,
+            receipt.CommandDigest,
+            receipt.ViewId,
+            receipt.ViewRevision,
+            receipt.PreviousCollectionRevision,
+            receipt.CollectionRevision,
+            receipt.QueryDigest,
+            receipt.DependencyDigest,
+            receipt.Pinned,
+            receipt.PreviousDefaultViewId,
+            receipt.DefaultViewId,
+            receipt.PreviousActiveViewCount,
+            receipt.ActiveViewCount,
+            receipt.OrderKey,
+            (int)receipt.LifecycleState,
+            (int)receipt.DefaultTransition,
+            receipt.ChangeCount,
+            receipt.ChangesDigest,
+            receipt.ReasonCode,
+            receipt.OccurredAtUtc.Ticks);
+
     public static AuthorSavedViewOperatorDescriptor? FindBuiltInOperator(string operatorId)
         => s_operators.GetValueOrDefault(operatorId);
 

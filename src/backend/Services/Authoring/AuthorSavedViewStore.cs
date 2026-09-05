@@ -494,10 +494,10 @@ public sealed class AuthorSavedViewStore(
         CancellationToken cancellationToken = default)
     {
         AuthorSavedViewContract.ValidateOwner(owner);
-        AuthorSavedViewPersistenceSnapshot snapshot = await persistence.ReadAsync(
+        AuthorSavedViewVerificationHistory history = await persistence.ReadVerificationHistoryAsync(
             owner,
-            static value => value,
             cancellationToken).ConfigureAwait(false);
+        AuthorSavedViewPersistenceSnapshot snapshot = history.Current;
         var reasons = new List<string>();
         AuthorSavedView[] active = [.. Active(snapshot.Views)];
         if (active.Length != snapshot.Collection.ActiveViewCount)
@@ -587,9 +587,395 @@ public sealed class AuthorSavedViewStore(
                 reasons.Add($"saved_view_content_digest_mismatch:{view.Id:D}");
             }
         }
+        VerifyHistoryReplay(owner, history, reasons);
         return new AuthorSavedViewVerificationResult(
             reasons.Count == 0,
             Array.AsReadOnly(reasons.ToArray()));
+    }
+
+    private static void VerifyHistoryReplay(
+        AuthorSavedViewOwner owner,
+        AuthorSavedViewVerificationHistory history,
+        List<string> reasons)
+    {
+        AuthorSavedViewWriteReceipt[] receipts =
+        [
+            .. history.Receipts
+                .OrderBy(static receipt => receipt.CollectionRevision)
+                .ThenBy(static receipt => receipt.ReceiptId)
+        ];
+        Dictionary<Guid, AuthorSavedViewWriteReceipt> receiptById = receipts
+            .GroupBy(static receipt => receipt.ReceiptId)
+            .Where(static group => group.Count() == 1)
+            .ToDictionary(static group => group.Key, static group => group.Single());
+        if (receiptById.Count != receipts.Length)
+        {
+            reasons.Add("saved_view_history_duplicate_receipt");
+        }
+
+        VerifyIdempotencyHistory(receipts, history.IdempotencyRecords, reasons);
+        var replay = new Dictionary<Guid, AuthorSavedViewHistoryViewState>();
+        long collectionRevision = 0;
+        Guid? defaultViewId = null;
+        int activeViewCount = 0;
+
+        foreach (AuthorSavedViewWriteReceipt receipt in receipts)
+        {
+            if (receipt.Owner != owner)
+            {
+                reasons.Add($"saved_view_history_owner_mismatch:{receipt.ReceiptId:D}");
+            }
+            if (receipt.PreviousCollectionRevision != collectionRevision
+                || receipt.CollectionRevision != collectionRevision + 1)
+            {
+                reasons.Add($"saved_view_history_collection_revision_gap:{receipt.ReceiptId:D}");
+            }
+            if (receipt.PreviousDefaultViewId != defaultViewId
+                || receipt.PreviousActiveViewCount != activeViewCount)
+            {
+                reasons.Add($"saved_view_history_collection_before_mismatch:{receipt.ReceiptId:D}");
+            }
+            if (!string.Equals(
+                AuthorSavedViewContract.ComputeReceiptDigest(receipt),
+                receipt.ContentDigest,
+                StringComparison.Ordinal))
+            {
+                reasons.Add($"saved_view_history_receipt_digest_mismatch:{receipt.ReceiptId:D}");
+            }
+
+            AuthorSavedViewHistoryChange[] changes =
+            [
+                .. history.Changes
+                    .Where(change => change.ReceiptId == receipt.ReceiptId)
+                    .OrderBy(static change => change.ChangeIndex)
+            ];
+            if (changes.Length != receipt.ChangeCount
+                || changes.Select(static change => change.ChangeIndex)
+                    .Where((index, position) => index != position)
+                    .Any()
+                || changes.Select(static change => change.ViewId).Distinct().Count() != changes.Length)
+            {
+                reasons.Add($"saved_view_history_change_cardinality_mismatch:{receipt.ReceiptId:D}");
+            }
+            if (!string.Equals(ComputeChangesDigest(changes), receipt.ChangesDigest, StringComparison.Ordinal))
+            {
+                reasons.Add($"saved_view_history_changes_digest_mismatch:{receipt.ReceiptId:D}");
+            }
+
+            Dictionary<Guid, AuthorSavedViewHistoryViewState> beforeReplay = new(replay);
+            foreach (AuthorSavedViewHistoryChange change in changes)
+            {
+                VerifyAndApplyHistoryChange(owner, receipt, change, replay, reasons);
+            }
+            VerifyCommandReplay(receipt, changes, beforeReplay, replay, reasons);
+
+            int replayActiveCount = replay.Values.Count(
+                static state => state.LifecycleState == AuthorSavedViewLifecycleState.Active);
+            if (receipt.ActiveViewCount != replayActiveCount)
+            {
+                reasons.Add($"saved_view_history_active_count_mismatch:{receipt.ReceiptId:D}");
+            }
+            if (receipt.DefaultViewId is Guid replayDefault
+                && (!replay.TryGetValue(replayDefault, out AuthorSavedViewHistoryViewState? defaultState)
+                    || defaultState.LifecycleState != AuthorSavedViewLifecycleState.Active))
+            {
+                reasons.Add($"saved_view_history_default_invalid:{receipt.ReceiptId:D}");
+            }
+            VerifyDefaultTransition(receipt, beforeReplay, replay, reasons);
+            VerifyReplayOrdering(receipt, replay, requireContiguous: receipt.CommandKind == ReorderCommand, reasons);
+
+            collectionRevision = receipt.CollectionRevision;
+            defaultViewId = receipt.DefaultViewId;
+            activeViewCount = receipt.ActiveViewCount;
+        }
+
+        if (history.Changes.Any(change => !receiptById.ContainsKey(change.ReceiptId)))
+        {
+            reasons.Add("saved_view_history_orphan_change");
+        }
+        string replayLastCommandDigest = receipts.Length == 0
+            ? AuthorSavedViewContract.ComputeCommandDigest()
+            : receipts[^1].CommandDigest;
+        if (collectionRevision != history.Current.Collection.Revision
+            || defaultViewId != history.Current.Collection.DefaultViewId
+            || activeViewCount != history.Current.Collection.ActiveViewCount
+            || replayLastCommandDigest != history.Current.Collection.LastCommandDigest)
+        {
+            reasons.Add("saved_view_history_final_collection_mismatch");
+        }
+
+        Dictionary<Guid, AuthorSavedViewHistoryViewState> current = history.Current.Views
+            .GroupBy(static view => view.Id)
+            .Where(static group => group.Count() == 1)
+            .ToDictionary(static group => group.Key, static group => HistoryState(group.Single()));
+        if (current.Count != history.Current.Views.Count
+            || replay.Count != current.Count
+            || replay.Any(item => !current.TryGetValue(item.Key, out AuthorSavedViewHistoryViewState? state)
+                || state != item.Value))
+        {
+            reasons.Add("saved_view_history_final_view_state_mismatch");
+        }
+    }
+
+    private static void VerifyIdempotencyHistory(
+        IReadOnlyList<AuthorSavedViewWriteReceipt> receipts,
+        IReadOnlyList<AuthorSavedViewIdempotencyRecord> records,
+        List<string> reasons)
+    {
+        if (records.Count != receipts.Count
+            || records.Select(static record => record.RequestId).Distinct().Count() != records.Count
+            || records.Select(static record => record.ReceiptId).Distinct().Count() != records.Count)
+        {
+            reasons.Add("saved_view_history_idempotency_cardinality_mismatch");
+        }
+        foreach (AuthorSavedViewWriteReceipt receipt in receipts)
+        {
+            AuthorSavedViewIdempotencyRecord[] matches =
+            [
+                .. records.Where(record => record.ReceiptId == receipt.ReceiptId
+                    || record.RequestId == receipt.RequestId)
+            ];
+            if (matches.Length != 1
+                || matches[0].ReceiptId != receipt.ReceiptId
+                || matches[0].RequestId != receipt.RequestId
+                || !string.Equals(matches[0].CommandDigest, receipt.CommandDigest, StringComparison.Ordinal)
+                || matches[0].CreatedAtUtc != receipt.OccurredAtUtc)
+            {
+                reasons.Add($"saved_view_history_idempotency_mismatch:{receipt.ReceiptId:D}");
+            }
+        }
+    }
+
+    private static void VerifyAndApplyHistoryChange(
+        AuthorSavedViewOwner owner,
+        AuthorSavedViewWriteReceipt receipt,
+        AuthorSavedViewHistoryChange change,
+        Dictionary<Guid, AuthorSavedViewHistoryViewState> replay,
+        List<string> reasons)
+    {
+        if (!string.Equals(
+            AuthorSavedViewContract.ComputeHistoryChangeDigest(
+                change.ReceiptId,
+                change.ChangeIndex,
+                change.ViewId,
+                change.ChangeKind,
+                change.Before,
+                change.After),
+            change.ContentDigest,
+            StringComparison.Ordinal))
+        {
+            reasons.Add($"saved_view_history_change_digest_mismatch:{receipt.ReceiptId:D}:{change.ChangeIndex}");
+        }
+        if (change.After is null || !VerifyHistoryViewDigest(owner, change.ViewId, change.After))
+        {
+            reasons.Add($"saved_view_history_change_after_invalid:{receipt.ReceiptId:D}:{change.ChangeIndex}");
+            return;
+        }
+
+        bool existed = replay.TryGetValue(change.ViewId, out AuthorSavedViewHistoryViewState? current);
+        if (change.ChangeKind == AuthorSavedViewHistoryChangeKind.Create)
+        {
+            if (existed || change.Before is not null || change.After.Revision != 1)
+            {
+                reasons.Add($"saved_view_history_create_before_invalid:{receipt.ReceiptId:D}:{change.ChangeIndex}");
+            }
+            replay[change.ViewId] = change.After;
+            return;
+        }
+        if (!existed || change.Before is null || current != change.Before
+            || !VerifyHistoryViewDigest(owner, change.ViewId, change.Before)
+            || change.After.Revision != change.Before.Revision + 1)
+        {
+            reasons.Add($"saved_view_history_change_before_invalid:{receipt.ReceiptId:D}:{change.ChangeIndex}");
+        }
+        if (change.ChangeKind == AuthorSavedViewHistoryChangeKind.Delete)
+        {
+            replay.Remove(change.ViewId);
+        }
+        else
+        {
+            replay[change.ViewId] = change.After;
+        }
+    }
+
+    private static bool VerifyHistoryViewDigest(
+        AuthorSavedViewOwner owner,
+        Guid viewId,
+        AuthorSavedViewHistoryViewState state)
+        => string.Equals(
+            AuthorSavedViewContract.ComputeViewDigest(
+                owner,
+                viewId,
+                state.Revision,
+                state.Name,
+                state.QueryDigest,
+                state.DependencyDigest,
+                state.Pinned,
+                state.OrderKey,
+                state.LifecycleState),
+            state.ContentDigest,
+            StringComparison.Ordinal);
+
+    private static void VerifyCommandReplay(
+        AuthorSavedViewWriteReceipt receipt,
+        IReadOnlyList<AuthorSavedViewHistoryChange> changes,
+        IReadOnlyDictionary<Guid, AuthorSavedViewHistoryViewState> before,
+        IReadOnlyDictionary<Guid, AuthorSavedViewHistoryViewState> after,
+        List<string> reasons)
+    {
+        bool exactSet = receipt.CommandKind switch
+        {
+            CreateCommand => changes.Count == 1
+                && changes[0].ViewId == receipt.ViewId
+                && changes[0].ChangeKind == AuthorSavedViewHistoryChangeKind.Create,
+            UpdateCommand or RenameCommand or PinCommand or RetireCommand => changes.Count == 1
+                && changes[0].ViewId == receipt.ViewId
+                && changes[0].ChangeKind == AuthorSavedViewHistoryChangeKind.Upsert,
+            DeleteCommand => changes.Count == 1
+                && changes[0].ViewId == receipt.ViewId
+                && changes[0].ChangeKind == AuthorSavedViewHistoryChangeKind.Delete,
+            DefaultCommand => changes.Count == 0,
+            ReorderCommand => changes.All(static change => change.ChangeKind == AuthorSavedViewHistoryChangeKind.Upsert)
+                && changes.Select(static change => change.ViewId).ToHashSet()
+                    .SetEquals(before.Where(static item => item.Value.Pinned
+                        && item.Value.LifecycleState == AuthorSavedViewLifecycleState.Active)
+                        .Select(static item => item.Key)),
+            _ => false
+        };
+        if (!exactSet)
+        {
+            reasons.Add($"saved_view_history_command_change_set_invalid:{receipt.ReceiptId:D}");
+            return;
+        }
+
+        foreach (AuthorSavedViewHistoryChange change in changes)
+        {
+            if (change.Before is null || change.After is null)
+            {
+                continue;
+            }
+            AuthorSavedViewHistoryViewState previous = change.Before;
+            AuthorSavedViewHistoryViewState next = change.After;
+            bool semantics = receipt.CommandKind switch
+            {
+                UpdateCommand => previous.Name == next.Name
+                    && previous.Pinned == next.Pinned
+                    && previous.OrderKey == next.OrderKey
+                    && previous.LifecycleState == next.LifecycleState,
+                RenameCommand => previous.QueryDigest == next.QueryDigest
+                    && previous.DependencyDigest == next.DependencyDigest
+                    && previous.Pinned == next.Pinned
+                    && previous.OrderKey == next.OrderKey
+                    && previous.LifecycleState == next.LifecycleState,
+                PinCommand => previous.Name == next.Name
+                    && previous.QueryDigest == next.QueryDigest
+                    && previous.DependencyDigest == next.DependencyDigest
+                    && previous.LifecycleState == next.LifecycleState
+                    && (next.Pinned ? next.OrderKey > 0 : next.OrderKey == 0),
+                ReorderCommand => previous.Name == next.Name
+                    && previous.QueryDigest == next.QueryDigest
+                    && previous.DependencyDigest == next.DependencyDigest
+                    && previous.Pinned && next.Pinned
+                    && previous.LifecycleState == next.LifecycleState,
+                RetireCommand => previous.Name == next.Name
+                    && previous.QueryDigest == next.QueryDigest
+                    && previous.DependencyDigest == next.DependencyDigest
+                    && previous.LifecycleState == AuthorSavedViewLifecycleState.Active
+                    && next.LifecycleState == AuthorSavedViewLifecycleState.Retired
+                    && !next.Pinned
+                    && next.OrderKey == 0,
+                DeleteCommand => previous.Name == next.Name
+                    && previous.QueryDigest == next.QueryDigest
+                    && previous.DependencyDigest == next.DependencyDigest
+                    && previous.LifecycleState == AuthorSavedViewLifecycleState.Active
+                    && next.LifecycleState == AuthorSavedViewLifecycleState.Retired
+                    && !next.Pinned
+                    && next.OrderKey == 0,
+                _ => true
+            };
+            if (!semantics)
+            {
+                reasons.Add($"saved_view_history_command_semantics_invalid:{receipt.ReceiptId:D}:{change.ChangeIndex}");
+            }
+        }
+
+        AuthorSavedViewHistoryViewState? subject = changes.FirstOrDefault(
+                change => change.ViewId == receipt.ViewId)?.After
+            ?? after.GetValueOrDefault(receipt.ViewId);
+        if (subject is not null
+            && (subject.Revision != receipt.ViewRevision
+                || subject.QueryDigest != receipt.QueryDigest
+                || subject.DependencyDigest != receipt.DependencyDigest
+                || subject.Pinned != receipt.Pinned
+                || subject.OrderKey != receipt.OrderKey
+                || subject.LifecycleState != receipt.LifecycleState))
+        {
+            reasons.Add($"saved_view_history_receipt_subject_mismatch:{receipt.ReceiptId:D}");
+        }
+    }
+
+    private static void VerifyDefaultTransition(
+        AuthorSavedViewWriteReceipt receipt,
+        IReadOnlyDictionary<Guid, AuthorSavedViewHistoryViewState> before,
+        IReadOnlyDictionary<Guid, AuthorSavedViewHistoryViewState> after,
+        List<string> reasons)
+    {
+        AuthorSavedViewDefaultTransition expected = receipt.CommandKind switch
+        {
+            DefaultCommand when receipt.DefaultViewId is null => AuthorSavedViewDefaultTransition.ClearToSystem,
+            DefaultCommand => AuthorSavedViewDefaultTransition.SetView,
+            RetireCommand or DeleteCommand when receipt.PreviousDefaultViewId == receipt.ViewId
+                && receipt.DefaultViewId is null => AuthorSavedViewDefaultTransition.ClearToSystem,
+            RetireCommand or DeleteCommand when receipt.PreviousDefaultViewId == receipt.ViewId
+                => AuthorSavedViewDefaultTransition.ReplaceView,
+            _ => AuthorSavedViewDefaultTransition.Unchanged
+        };
+        bool valid = receipt.DefaultTransition == expected;
+        if (expected == AuthorSavedViewDefaultTransition.Unchanged)
+        {
+            valid &= receipt.PreviousDefaultViewId == receipt.DefaultViewId;
+        }
+        if (expected is AuthorSavedViewDefaultTransition.SetView or AuthorSavedViewDefaultTransition.ReplaceView)
+        {
+            valid &= receipt.DefaultViewId is Guid id
+                && after.TryGetValue(id, out AuthorSavedViewHistoryViewState? state)
+                && state.LifecycleState == AuthorSavedViewLifecycleState.Active;
+        }
+        if (receipt.CommandKind is RetireCommand or DeleteCommand
+            && receipt.PreviousDefaultViewId != receipt.ViewId)
+        {
+            valid &= before.ContainsKey(receipt.ViewId);
+        }
+        if (!valid)
+        {
+            reasons.Add($"saved_view_history_default_transition_invalid:{receipt.ReceiptId:D}");
+        }
+    }
+
+    private static void VerifyReplayOrdering(
+        AuthorSavedViewWriteReceipt receipt,
+        IReadOnlyDictionary<Guid, AuthorSavedViewHistoryViewState> replay,
+        bool requireContiguous,
+        List<string> reasons)
+    {
+        long[] orders =
+        [
+            .. replay.Values
+                .Where(static state => state.Pinned
+                    && state.LifecycleState == AuthorSavedViewLifecycleState.Active)
+                .Select(static state => state.OrderKey)
+                .Order()
+        ];
+        bool valid = orders.All(static order => order > 0)
+            && orders.Distinct().Count() == orders.Length;
+        if (requireContiguous)
+        {
+            valid &= orders.SequenceEqual(Enumerable.Range(1, orders.Length).Select(static value => (long)value));
+        }
+        if (!valid)
+        {
+            reasons.Add($"saved_view_history_order_invalid:{receipt.ReceiptId:D}");
+        }
     }
 
     private async Task<AuthorSavedViewWriteReceipt> RemoveOrRetireAsync(
@@ -781,10 +1167,17 @@ public sealed class AuthorSavedViewStore(
                         transaction.Collection.Revision);
                 }
                 AuthorSavedViewPersistenceMutation mutation = await mutate(transaction, token).ConfigureAwait(false);
+                Guid receiptId = Guid.CreateVersion7();
+                mutation = mutation with
+                {
+                    HistoryChanges = BuildHistoryChanges(receiptId, transaction.Views, mutation)
+                };
                 AuthorSavedViewWriteReceipt receipt = BuildReceipt(
+                    receiptId,
                     owner,
                     requestId,
                     mutation,
+                    transaction.Collection,
                     transaction.Views);
                 await transaction.CommitAsync(mutation, receipt, token).ConfigureAwait(false);
                 return receipt;
@@ -871,12 +1264,14 @@ public sealed class AuthorSavedViewStore(
         string commandDigest,
         DateTime now,
         string reasonCode = "none")
-        => new(collection, upserts, deletes, subjectViewId, commandKind, commandDigest, reasonCode, now);
+        => new(collection, upserts, deletes, subjectViewId, commandKind, commandDigest, reasonCode, now, []);
 
     private static AuthorSavedViewWriteReceipt BuildReceipt(
+        Guid receiptId,
         AuthorSavedViewOwner owner,
         Guid requestId,
         AuthorSavedViewPersistenceMutation mutation,
+        AuthorSavedViewCollection previousCollection,
         IReadOnlyList<AuthorSavedView> currentViews)
     {
         AuthorSavedView? subject = mutation.Upserts.FirstOrDefault(view => view.Id == mutation.SubjectViewId)
@@ -890,24 +1285,14 @@ public sealed class AuthorSavedViewStore(
         AuthorSavedViewLifecycleState state = deleted
             ? AuthorSavedViewLifecycleState.Retired
             : subject?.LifecycleState ?? AuthorSavedViewLifecycleState.Retired;
-        string contentDigest = AuthorSavedViewContract.ComputeCommandDigest(
-            requestId,
-            owner.AdminPrincipalId,
-            owner.SiteScope,
+        AuthorSavedViewDefaultTransition defaultTransition = ResolveDefaultTransition(
             mutation.CommandKind,
-            mutation.CommandDigest,
             mutation.SubjectViewId,
-            viewRevision,
-            mutation.Collection.Revision,
-            queryDigest,
-            dependencyDigest,
-            pinned,
-            mutation.Collection.DefaultViewId,
-            orderKey,
-            (int)state,
-            mutation.ReasonCode);
-        return new AuthorSavedViewWriteReceipt(
-            Guid.CreateVersion7(),
+            previousCollection.DefaultViewId,
+            mutation.Collection.DefaultViewId);
+        string changesDigest = ComputeChangesDigest(mutation.HistoryChanges);
+        var receipt = new AuthorSavedViewWriteReceipt(
+            receiptId,
             requestId,
             owner,
             mutation.SubjectViewId,
@@ -922,9 +1307,127 @@ public sealed class AuthorSavedViewStore(
             orderKey,
             state,
             mutation.ReasonCode,
-            contentDigest,
+            string.Empty,
             mutation.OccurredAtUtc,
-            false);
+            false,
+            previousCollection.Revision,
+            previousCollection.DefaultViewId,
+            previousCollection.ActiveViewCount,
+            mutation.Collection.ActiveViewCount,
+            defaultTransition,
+            mutation.HistoryChanges.Count,
+            changesDigest);
+        return receipt with
+        {
+            ContentDigest = AuthorSavedViewContract.ComputeReceiptDigest(receipt)
+        };
+    }
+
+    private static IReadOnlyList<AuthorSavedViewHistoryChange> BuildHistoryChanges(
+        Guid receiptId,
+        IReadOnlyList<AuthorSavedView> currentViews,
+        AuthorSavedViewPersistenceMutation mutation)
+    {
+        var changes = new List<AuthorSavedViewHistoryChange>(
+            mutation.Upserts.Count + mutation.Deletes.Count);
+        foreach (AuthorSavedView afterView in mutation.Upserts)
+        {
+            AuthorSavedView? beforeView = currentViews.FirstOrDefault(view => view.Id == afterView.Id);
+            AuthorSavedViewHistoryChangeKind kind = beforeView is null
+                ? AuthorSavedViewHistoryChangeKind.Create
+                : AuthorSavedViewHistoryChangeKind.Upsert;
+            changes.Add(BuildHistoryChange(
+                receiptId,
+                changes.Count,
+                afterView.Id,
+                kind,
+                beforeView is null ? null : HistoryState(beforeView),
+                HistoryState(afterView)));
+        }
+        foreach (Guid deletedId in mutation.Deletes)
+        {
+            AuthorSavedView beforeView = currentViews.Single(view => view.Id == deletedId);
+            AuthorSavedViewHistoryViewState before = HistoryState(beforeView);
+            AuthorSavedViewHistoryViewState after = before with
+            {
+                Revision = before.Revision + 1,
+                Pinned = false,
+                OrderKey = 0,
+                LifecycleState = AuthorSavedViewLifecycleState.Retired,
+                ContentDigest = AuthorSavedViewContract.ComputeViewDigest(
+                    beforeView.Owner,
+                    beforeView.Id,
+                    before.Revision + 1,
+                    before.Name,
+                    before.QueryDigest,
+                    before.DependencyDigest,
+                    false,
+                    0,
+                    AuthorSavedViewLifecycleState.Retired)
+            };
+            changes.Add(BuildHistoryChange(
+                receiptId,
+                changes.Count,
+                deletedId,
+                AuthorSavedViewHistoryChangeKind.Delete,
+                before,
+                after));
+        }
+        return Array.AsReadOnly(changes.ToArray());
+    }
+
+    private static AuthorSavedViewHistoryChange BuildHistoryChange(
+        Guid receiptId,
+        int changeIndex,
+        Guid viewId,
+        AuthorSavedViewHistoryChangeKind kind,
+        AuthorSavedViewHistoryViewState? before,
+        AuthorSavedViewHistoryViewState? after)
+    {
+        string digest = AuthorSavedViewContract.ComputeHistoryChangeDigest(
+            receiptId,
+            changeIndex,
+            viewId,
+            kind,
+            before,
+            after);
+        return new(receiptId, changeIndex, viewId, kind, before, after, digest);
+    }
+
+    private static AuthorSavedViewHistoryViewState HistoryState(AuthorSavedView view)
+        => new(
+            view.Revision,
+            view.Name,
+            view.QueryDigest,
+            view.DependencyDigest,
+            view.Pinned,
+            view.OrderKey,
+            view.LifecycleState,
+            view.ContentDigest);
+
+    private static string ComputeChangesDigest(IReadOnlyList<AuthorSavedViewHistoryChange> changes)
+        => AuthorSavedViewContract.ComputeHistoryChangesDigest(changes);
+
+    private static AuthorSavedViewDefaultTransition ResolveDefaultTransition(
+        string commandKind,
+        Guid subjectViewId,
+        Guid? previousDefaultViewId,
+        Guid? defaultViewId)
+    {
+        if (commandKind == DefaultCommand)
+        {
+            return defaultViewId is null
+                ? AuthorSavedViewDefaultTransition.ClearToSystem
+                : AuthorSavedViewDefaultTransition.SetView;
+        }
+        if (commandKind is RetireCommand or DeleteCommand
+            && previousDefaultViewId == subjectViewId)
+        {
+            return defaultViewId is null
+                ? AuthorSavedViewDefaultTransition.ClearToSystem
+                : AuthorSavedViewDefaultTransition.ReplaceView;
+        }
+        return AuthorSavedViewDefaultTransition.Unchanged;
     }
 
     private static Guid? ResolveDefaultDisposition(
@@ -1083,6 +1586,10 @@ public interface IAuthorSavedViewPersistence
         AuthorSavedViewOwner owner,
         Func<IAuthorSavedViewPersistenceTransaction, CancellationToken, Task<T>> operation,
         CancellationToken cancellationToken = default);
+
+    Task<AuthorSavedViewVerificationHistory> ReadVerificationHistoryAsync(
+        AuthorSavedViewOwner owner,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IAuthorSavedViewPersistenceTransaction
@@ -1123,7 +1630,8 @@ public sealed record AuthorSavedViewPersistenceMutation(
     string CommandKind,
     string CommandDigest,
     string ReasonCode,
-    DateTime OccurredAtUtc);
+    DateTime OccurredAtUtc,
+    IReadOnlyList<AuthorSavedViewHistoryChange> HistoryChanges);
 
 public sealed record AuthorSavedView(
     Guid Id,
@@ -1180,7 +1688,60 @@ public sealed record AuthorSavedViewWriteReceipt(
     string ReasonCode,
     string ContentDigest,
     DateTime OccurredAtUtc,
-    bool IdempotentReplay);
+    bool IdempotentReplay,
+    long PreviousCollectionRevision,
+    Guid? PreviousDefaultViewId,
+    int PreviousActiveViewCount,
+    int ActiveViewCount,
+    AuthorSavedViewDefaultTransition DefaultTransition,
+    int ChangeCount,
+    string ChangesDigest);
+
+public enum AuthorSavedViewHistoryChangeKind
+{
+    Create = 0,
+    Upsert = 1,
+    Delete = 2
+}
+
+public enum AuthorSavedViewDefaultTransition
+{
+    Unchanged = 0,
+    SetView = 1,
+    ClearToSystem = 2,
+    ReplaceView = 3
+}
+
+public sealed record AuthorSavedViewHistoryViewState(
+    long Revision,
+    string Name,
+    string QueryDigest,
+    string DependencyDigest,
+    bool Pinned,
+    long OrderKey,
+    AuthorSavedViewLifecycleState LifecycleState,
+    string ContentDigest);
+
+public sealed record AuthorSavedViewHistoryChange(
+    Guid ReceiptId,
+    int ChangeIndex,
+    Guid ViewId,
+    AuthorSavedViewHistoryChangeKind ChangeKind,
+    AuthorSavedViewHistoryViewState? Before,
+    AuthorSavedViewHistoryViewState? After,
+    string ContentDigest);
+
+public sealed record AuthorSavedViewIdempotencyRecord(
+    Guid RequestId,
+    Guid ReceiptId,
+    string CommandDigest,
+    DateTime CreatedAtUtc);
+
+public sealed record AuthorSavedViewVerificationHistory(
+    AuthorSavedViewPersistenceSnapshot Current,
+    IReadOnlyList<AuthorSavedViewWriteReceipt> Receipts,
+    IReadOnlyList<AuthorSavedViewHistoryChange> Changes,
+    IReadOnlyList<AuthorSavedViewIdempotencyRecord> IdempotencyRecords);
 
 public sealed record CreateAuthorSavedViewCommand(
     Guid ViewId,

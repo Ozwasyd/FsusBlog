@@ -453,6 +453,38 @@ public sealed class AuthoringCanvasDocumentStoreIntegrationTests(PostgresSchemaM
         Assert.Equal(3, await db.Ado.GetIntAsync(
             "SELECT COUNT(*) FROM author_saved_view_receipt WHERE view_id = @ViewId;",
             new SugarParameter("@ViewId", viewId)));
+        Assert.Equal(7, await db.Ado.GetIntAsync(
+            "SELECT COUNT(*) FROM author_saved_view_receipt_change;"));
+        Assert.True((await restarted.VerifyAsync(savedViewOwner)).Valid);
+
+        const string TamperedDigest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        object firstReceiptValue = await db.Ado.GetScalarAsync(
+            """
+            SELECT receipt_id
+            FROM author_saved_view_receipt
+            WHERE owner_admin_principal_id = @OwnerAdminPrincipalId
+              AND site_scope = @SiteScope
+            ORDER BY collection_revision
+            LIMIT 1;
+            """,
+            new SugarParameter("@OwnerAdminPrincipalId", savedViewOwner.AdminPrincipalId),
+            new SugarParameter("@SiteScope", savedViewOwner.SiteScope));
+        Guid firstReceiptId = Assert.IsType<Guid>(firstReceiptValue);
+        await db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE author_saved_view_receipt
+            SET command_digest = @CommandDigest
+            WHERE receipt_id = @ReceiptId;
+            UPDATE author_saved_view_idempotency
+            SET command_digest = @CommandDigest
+            WHERE receipt_id = @ReceiptId;
+            """,
+            new SugarParameter("@CommandDigest", TamperedDigest),
+            new SugarParameter("@ReceiptId", firstReceiptId));
+        AuthorSavedViewVerificationResult tampered = await restarted.VerifyAsync(savedViewOwner);
+        Assert.False(tampered.Valid);
+        Assert.Contains(tampered.Reasons, static reason =>
+            reason.StartsWith("saved_view_history_receipt_digest_mismatch:", StringComparison.Ordinal));
     }
 
     private async Task<SqlSugarClient> CreateDatabaseAsync()

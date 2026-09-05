@@ -336,6 +336,200 @@ public sealed class AuthorSavedViewStoreTests
     }
 
     [Fact]
+    public async Task Verifier_DetectsBidirectionalReceiptAndIdempotencyTamper()
+    {
+        var persistence = new LocalProductionBoundaryPersistence();
+        var store = Store(persistence);
+        await store.CreateAsync(new(
+            Guid.CreateVersion7(), s_owner, 0, Guid.CreateVersion7(), "Audit", Query(25)));
+        persistence.TamperHistory(s_owner, history =>
+        {
+            string tampered = new('a', 64);
+            AuthorSavedViewWriteReceipt receipt = history.Receipts[0] with
+            {
+                CommandDigest = tampered
+            };
+            AuthorSavedViewIdempotencyRecord idempotency = history.IdempotencyRecords[0] with
+            {
+                CommandDigest = tampered
+            };
+            return history with
+            {
+                Receipts = [receipt],
+                IdempotencyRecords = [idempotency]
+            };
+        });
+
+        AuthorSavedViewVerificationResult result = await store.VerifyAsync(s_owner);
+
+        Assert.False(result.Valid);
+        Assert.Contains(result.Reasons, static reason =>
+            reason.StartsWith("saved_view_history_receipt_digest_mismatch:", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Verifier_DetectsMissingReceiptAndBrokenCollectionRevisionChain()
+    {
+        var missingPersistence = new LocalProductionBoundaryPersistence();
+        var missingStore = Store(missingPersistence);
+        Guid firstId = Guid.CreateVersion7();
+        await missingStore.CreateAsync(new(
+            firstId, s_owner, 0, Guid.CreateVersion7(), "First", Query(25)));
+        await missingStore.RenameAsync(new(
+            firstId, s_owner, 1, 1, Guid.CreateVersion7(), "Renamed"));
+        missingPersistence.TamperHistory(s_owner, history => history with
+        {
+            Receipts = [history.Receipts[1]],
+            Changes = [.. history.Changes.Where(change => change.ReceiptId == history.Receipts[1].ReceiptId)],
+            IdempotencyRecords = [history.IdempotencyRecords[1]]
+        });
+
+        AuthorSavedViewVerificationResult missing = await missingStore.VerifyAsync(s_owner);
+
+        Assert.False(missing.Valid);
+        Assert.Contains(missing.Reasons, static reason =>
+            reason.StartsWith("saved_view_history_collection_revision_gap:", StringComparison.Ordinal));
+
+        var revisionPersistence = new LocalProductionBoundaryPersistence();
+        var revisionStore = Store(revisionPersistence);
+        Guid secondId = Guid.CreateVersion7();
+        await revisionStore.CreateAsync(new(
+            secondId, s_owner, 0, Guid.CreateVersion7(), "Revision", Query(25)));
+        await revisionStore.RenameAsync(new(
+            secondId, s_owner, 1, 1, Guid.CreateVersion7(), "Revision two"));
+        revisionPersistence.TamperHistory(s_owner, history =>
+        {
+            AuthorSavedViewWriteReceipt changed = history.Receipts[1] with
+            {
+                PreviousCollectionRevision = 17
+            };
+            changed = changed with
+            {
+                ContentDigest = AuthorSavedViewContract.ComputeReceiptDigest(changed)
+            };
+            return history with
+            {
+                Receipts = [history.Receipts[0], changed]
+            };
+        });
+
+        AuthorSavedViewVerificationResult revision = await revisionStore.VerifyAsync(s_owner);
+
+        Assert.False(revision.Valid);
+        Assert.Contains(revision.Reasons, static reason =>
+            reason.StartsWith("saved_view_history_collection_revision_gap:", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Verifier_RejectsRehashedDefaultAndReorderSemanticTamper()
+    {
+        var persistence = new LocalProductionBoundaryPersistence();
+        var store = Store(persistence);
+        Guid firstId = Guid.CreateVersion7();
+        Guid secondId = Guid.CreateVersion7();
+        await store.CreateAsync(new(firstId, s_owner, 0, Guid.CreateVersion7(), "First", Query(25)));
+        await store.CreateAsync(new(secondId, s_owner, 1, Guid.CreateVersion7(), "Second", Query(25)));
+        await store.SetPinnedAsync(new(firstId, s_owner, 2, 1, Guid.CreateVersion7(), true));
+        await store.SetPinnedAsync(new(secondId, s_owner, 3, 1, Guid.CreateVersion7(), true));
+        await store.ReorderPinnedAsync(new(
+            s_owner,
+            4,
+            Guid.CreateVersion7(),
+            [secondId, firstId],
+            new Dictionary<Guid, long>
+            {
+                [firstId] = 2,
+                [secondId] = 2
+            }));
+        await store.SetDefaultAsync(new(s_owner, 5, Guid.CreateVersion7(), firstId, 3));
+        persistence.TamperHistory(s_owner, history =>
+        {
+            AuthorSavedViewWriteReceipt defaultReceipt = history.Receipts.Single(
+                static receipt => receipt.CommandKind == "set-default") with
+            {
+                DefaultTransition = AuthorSavedViewDefaultTransition.Unchanged
+            };
+            defaultReceipt = defaultReceipt with
+            {
+                ContentDigest = AuthorSavedViewContract.ComputeReceiptDigest(defaultReceipt)
+            };
+
+            AuthorSavedViewWriteReceipt reorderReceipt = history.Receipts.Single(
+                static receipt => receipt.CommandKind == "reorder-pinned");
+            AuthorSavedViewHistoryChange[] reorderChanges =
+            [
+                .. history.Changes
+                    .Where(change => change.ReceiptId == reorderReceipt.ReceiptId)
+                    .OrderBy(static change => change.ChangeIndex)
+            ];
+            AuthorSavedViewHistoryChange second = reorderChanges[1];
+            AuthorSavedViewHistoryViewState changedAfter = second.After! with
+            {
+                OrderKey = reorderChanges[0].After!.OrderKey,
+                ContentDigest = AuthorSavedViewContract.ComputeViewDigest(
+                    s_owner,
+                    second.ViewId,
+                    second.After!.Revision,
+                    second.After.Name,
+                    second.After.QueryDigest,
+                    second.After.DependencyDigest,
+                    second.After.Pinned,
+                    reorderChanges[0].After!.OrderKey,
+                    second.After.LifecycleState)
+            };
+            second = second with
+            {
+                After = changedAfter
+            };
+            second = second with
+            {
+                ContentDigest = AuthorSavedViewContract.ComputeHistoryChangeDigest(
+                    second.ReceiptId,
+                    second.ChangeIndex,
+                    second.ViewId,
+                    second.ChangeKind,
+                    second.Before,
+                    second.After)
+            };
+            reorderChanges[1] = second;
+            reorderReceipt = reorderReceipt with
+            {
+                ChangesDigest = AuthorSavedViewContract.ComputeHistoryChangesDigest(reorderChanges)
+            };
+            reorderReceipt = reorderReceipt with
+            {
+                ContentDigest = AuthorSavedViewContract.ComputeReceiptDigest(reorderReceipt)
+            };
+
+            return history with
+            {
+                Receipts =
+                [
+                    .. history.Receipts.Select(receipt => receipt.ReceiptId switch
+                    {
+                        var id when id == defaultReceipt.ReceiptId => defaultReceipt,
+                        var id when id == reorderReceipt.ReceiptId => reorderReceipt,
+                        _ => receipt
+                    })
+                ],
+                Changes =
+                [
+                    .. history.Changes.Where(change => change.ReceiptId != reorderReceipt.ReceiptId),
+                    .. reorderChanges
+                ]
+            };
+        });
+
+        AuthorSavedViewVerificationResult result = await store.VerifyAsync(s_owner);
+
+        Assert.False(result.Valid);
+        Assert.Contains(result.Reasons, static reason =>
+            reason.StartsWith("saved_view_history_default_transition_invalid:", StringComparison.Ordinal));
+        Assert.Contains(result.Reasons, static reason =>
+            reason.StartsWith("saved_view_history_order_invalid:", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void StaticGovernance_HasOneAuthorityAndClosedRelationalMigration()
     {
         Type[] authorities = typeof(AuthorSavedViewStore).Assembly.GetTypes()
@@ -362,7 +556,12 @@ public sealed class AuthorSavedViewStoreTests
         Assert.Contains("author_saved_view_condition_value", sql, StringComparison.Ordinal);
         Assert.Contains("author_saved_view_projection", sql, StringComparison.Ordinal);
         Assert.Contains("author_saved_view_receipt", sql, StringComparison.Ordinal);
+        Assert.Contains("author_saved_view_receipt_change", sql, StringComparison.Ordinal);
         Assert.Contains("author_saved_view_idempotency", sql, StringComparison.Ordinal);
+        Assert.Contains("previous_collection_revision", sql, StringComparison.Ordinal);
+        Assert.Contains("default_transition", sql, StringComparison.Ordinal);
+        Assert.Contains("before_name", sql, StringComparison.Ordinal);
+        Assert.Contains("after_name", sql, StringComparison.Ordinal);
         Assert.Contains("name_key", sql, StringComparison.Ordinal);
         Assert.DoesNotContain("json", sql, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("article_ids", sql, StringComparison.OrdinalIgnoreCase);
@@ -516,6 +715,27 @@ public sealed class AuthorSavedViewStoreTests
             }
         }
 
+        public async Task<AuthorSavedViewVerificationHistory> ReadVerificationHistoryAsync(
+            AuthorSavedViewOwner owner,
+            CancellationToken cancellationToken = default)
+        {
+            SemaphoreSlim gate = _locks.GetOrAdd(owner, static _ => new SemaphoreSlim(1, 1));
+            await gate.WaitAsync(cancellationToken);
+            try
+            {
+                OwnerState state = State(owner);
+                return new(
+                    new(state.Collection, [.. state.Views]),
+                    Array.AsReadOnly(state.Receipts.Values.ToArray()),
+                    Array.AsReadOnly(state.Changes.ToArray()),
+                    Array.AsReadOnly(state.IdempotencyRecords.ToArray()));
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }
+
         public void Seed(
             AuthorSavedViewOwner owner,
             IReadOnlyList<AuthorSavedView> views,
@@ -534,7 +754,7 @@ public sealed class AuthorSavedViewStoreTests
                     null,
                     views.Count(view => view.LifecycleState == AuthorSavedViewLifecycleState.Active),
                     commandDigest));
-            _states[owner] = new OwnerState(collection, [.. views], []);
+            _states[owner] = new OwnerState(collection, [.. views], [], [], []);
             CommitCount = 0;
             LastMutation = null;
         }
@@ -553,9 +773,32 @@ public sealed class AuthorSavedViewStoreTests
         public int ReceiptCount(AuthorSavedViewOwner owner)
             => State(owner).Receipts.Count;
 
+        public void TamperHistory(
+            AuthorSavedViewOwner owner,
+            Func<AuthorSavedViewVerificationHistory, AuthorSavedViewVerificationHistory> tamper)
+        {
+            OwnerState state = State(owner);
+            AuthorSavedViewVerificationHistory changed = tamper(new(
+                new(state.Collection, [.. state.Views]),
+                [.. state.Receipts.Values],
+                [.. state.Changes],
+                [.. state.IdempotencyRecords]));
+            state.Collection = changed.Current.Collection;
+            state.Views = [.. changed.Current.Views];
+            state.Receipts.Clear();
+            foreach (AuthorSavedViewWriteReceipt receipt in changed.Receipts)
+            {
+                state.Receipts[receipt.RequestId] = receipt;
+            }
+            state.Changes = [.. changed.Changes];
+            state.IdempotencyRecords = [.. changed.IdempotencyRecords];
+        }
+
         private OwnerState State(AuthorSavedViewOwner owner)
             => _states.GetOrAdd(owner, static key => new OwnerState(
                 AuthorSavedViewCollection.Empty(key),
+                [],
+                [],
                 [],
                 []));
 
@@ -591,6 +834,12 @@ public sealed class AuthorSavedViewStoreTests
                 }
                 state.Collection = mutation.Collection;
                 state.Receipts.Add(receipt.RequestId, receipt);
+                state.Changes.AddRange(mutation.HistoryChanges);
+                state.IdempotencyRecords.Add(new(
+                    receipt.RequestId,
+                    receipt.ReceiptId,
+                    receipt.CommandDigest,
+                    receipt.OccurredAtUtc));
                 persistence.CommitCount++;
                 persistence.LastMutation = mutation;
                 return Task.CompletedTask;
@@ -611,11 +860,15 @@ public sealed class AuthorSavedViewStoreTests
         private sealed class OwnerState(
             AuthorSavedViewCollection collection,
             List<AuthorSavedView> views,
-            Dictionary<Guid, AuthorSavedViewWriteReceipt> receipts)
+            Dictionary<Guid, AuthorSavedViewWriteReceipt> receipts,
+            List<AuthorSavedViewHistoryChange> changes,
+            List<AuthorSavedViewIdempotencyRecord> idempotencyRecords)
         {
             public AuthorSavedViewCollection Collection { get; set; } = collection;
             public List<AuthorSavedView> Views { get; set; } = views;
             public Dictionary<Guid, AuthorSavedViewWriteReceipt> Receipts { get; } = receipts;
+            public List<AuthorSavedViewHistoryChange> Changes { get; set; } = changes;
+            public List<AuthorSavedViewIdempotencyRecord> IdempotencyRecords { get; set; } = idempotencyRecords;
         }
     }
 }

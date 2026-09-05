@@ -86,6 +86,7 @@ public sealed class CurrentSchemaStartupVerifier(
         "author_saved_view_condition_value",
         "author_saved_view_projection",
         "author_saved_view_receipt",
+        "author_saved_view_receipt_change",
         "author_saved_view_idempotency",
         "article_asset_cleanup_queue",
         "article_asset_reference",
