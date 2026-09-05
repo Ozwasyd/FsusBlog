@@ -95,6 +95,50 @@ public sealed class PrivateAssetDurabilityTests
         }
     }
 
+    [Fact]
+    public async Task RetrySynchronizesBothDirectoriesAfterCommitSourceSyncFailure()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+
+        string root = Path.Combine(Path.GetTempPath(), $"fsus-private-source-sync-{Guid.NewGuid():N}");
+        string privateRoot = Path.Combine(root, "private");
+        string commitRoot = Path.Combine(root, "commit");
+        Directory.CreateDirectory(privateRoot);
+        Directory.CreateDirectory(commitRoot);
+        try
+        {
+            var sync = new FaultingDirectorySync();
+            var fileSystem = new PrivateAssetAnchoredFileSystem(privateRoot, commitRoot, sync);
+            await using AnchoredTemporaryFile temporary = fileSystem.CreateTemporary();
+            byte[] expected = [7, 8, 9];
+            await temporary.Stream.WriteAsync(expected);
+            temporary.Stream.Flush(flushToDisk: true);
+            const string StorageKey = "cd/asset.bin";
+            sync.FailNext = PrivateAssetDirectoryDurabilityPoint.CommitSource;
+
+            Assert.Throws<PrivateAssetDurabilityException>(() => fileSystem.Commit(temporary, StorageKey));
+            Assert.Equal(expected, await File.ReadAllBytesAsync(Path.Combine(privateRoot, StorageKey)));
+            Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(commitRoot, "private-assets")));
+            Assert.DoesNotContain(PrivateAssetDirectoryDurabilityPoint.Published, sync.Points);
+
+            sync.Points.Clear();
+            fileSystem.SyncExistingEntry(StorageKey);
+
+            Assert.Contains(PrivateAssetDirectoryDurabilityPoint.CommitSource, sync.Points);
+            Assert.Equal(PrivateAssetDirectoryDurabilityPoint.ExistingPublication, sync.Points[^1]);
+            Assert.True(sync.Points.IndexOf(PrivateAssetDirectoryDurabilityPoint.CommitSource)
+                < sync.Points.IndexOf(PrivateAssetDirectoryDurabilityPoint.ExistingPublication));
+            Assert.Equal(expected, await File.ReadAllBytesAsync(Path.Combine(privateRoot, StorageKey)));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     internal sealed class FaultingDirectorySync : IPrivateAssetDirectorySync
     {
         private readonly LinuxPrivateAssetDirectorySync _inner = new();
