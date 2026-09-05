@@ -13,14 +13,10 @@ namespace FsusBlog.Server.Services.Authoring;
 public static class AuthorSavedViewContract
 {
     public const int SchemaVersion = 1;
-    public const int MaxViewsPerOwner = 1_000;
     public const int MaxConditions = 64;
     public const int MaxValuesPerCondition = 64;
     public const int MaxProjectionFields = 32;
     public const int MaxPageSize = 100;
-    public const int MaxNameCharacters = 128;
-    public const int MaxNameUtf8Bytes = 512;
-    public const int MaxNameKeyCharacters = 256;
     public const int MaxIdentityLength = 128;
     public const int MaxValueLength = 512;
     public const int MaxTimeZoneLength = 64;
@@ -126,34 +122,6 @@ public static class AuthorSavedViewContract
         }
 
         ValidateIdentity(owner.SiteScope, "saved_view_site_scope_invalid");
-    }
-
-    public static string NormalizeName(string name)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            throw new AuthorSavedViewValidationException("saved_view_name_invalid");
-        }
-
-        string normalized = name.Trim().Normalize(NormalizationForm.FormC);
-        if (normalized.Length > MaxNameCharacters
-            || Encoding.UTF8.GetByteCount(normalized) > MaxNameUtf8Bytes
-            || normalized.Any(char.IsControl))
-        {
-            throw new AuthorSavedViewValidationException("saved_view_name_invalid");
-        }
-
-        return normalized;
-    }
-
-    public static string NormalizeNameKey(string name)
-    {
-        string key = NormalizeName(name).ToUpperInvariant();
-        if (key.Length > MaxNameKeyCharacters)
-        {
-            throw new AuthorSavedViewValidationException("saved_view_name_invalid");
-        }
-        return key;
     }
 
     public static void ValidateQueryShape(AuthorSavedViewQuery query)
@@ -281,122 +249,6 @@ public static class AuthorSavedViewContract
         }
         return canonical.Finish();
     }
-
-    public static string ComputeViewDigest(
-        AuthorSavedViewOwner owner,
-        Guid viewId,
-        long revision,
-        string name,
-        string queryDigest,
-        string dependencyDigest,
-        bool pinned,
-        long orderKey,
-        AuthorSavedViewLifecycleState lifecycleState)
-    {
-        var canonical = new CanonicalDigestBuilder();
-        canonical.Append(SchemaVersion);
-        canonical.Append(owner.AdminPrincipalId);
-        canonical.Append(owner.SiteScope);
-        canonical.Append(viewId);
-        canonical.Append(revision);
-        canonical.Append(name);
-        canonical.Append(queryDigest);
-        canonical.Append(dependencyDigest);
-        canonical.Append(pinned);
-        canonical.Append(orderKey);
-        canonical.Append((int)lifecycleState);
-        return canonical.Finish();
-    }
-
-    public static string ComputeCommandDigest(params object?[] values)
-    {
-        var canonical = new CanonicalDigestBuilder();
-        foreach (object? value in values)
-        {
-            canonical.Append(value);
-        }
-        return canonical.Finish();
-    }
-
-    public static string ComputeCollectionDigest(
-        AuthorSavedViewOwner owner,
-        long revision,
-        Guid? defaultViewId,
-        int activeViewCount,
-        string commandDigest)
-    {
-        var canonical = new CanonicalDigestBuilder();
-        canonical.Append(SchemaVersion);
-        canonical.Append(owner.AdminPrincipalId);
-        canonical.Append(owner.SiteScope);
-        canonical.Append(revision);
-        canonical.Append(defaultViewId);
-        canonical.Append(activeViewCount);
-        canonical.Append(commandDigest);
-        return canonical.Finish();
-    }
-
-    public static string ComputeHistoryChangeDigest(
-        Guid receiptId,
-        int changeIndex,
-        Guid viewId,
-        AuthorSavedViewHistoryChangeKind kind,
-        AuthorSavedViewHistoryViewState? before,
-        AuthorSavedViewHistoryViewState? after)
-        => ComputeCommandDigest(
-            receiptId,
-            changeIndex,
-            viewId,
-            (int)kind,
-            before?.Revision,
-            before?.Name,
-            before?.QueryDigest,
-            before?.DependencyDigest,
-            before?.Pinned,
-            before?.OrderKey,
-            before is null ? null : (int)before.LifecycleState,
-            before?.ContentDigest,
-            after?.Revision,
-            after?.Name,
-            after?.QueryDigest,
-            after?.DependencyDigest,
-            after?.Pinned,
-            after?.OrderKey,
-            after is null ? null : (int)after.LifecycleState,
-            after?.ContentDigest);
-
-    public static string ComputeHistoryChangesDigest(IReadOnlyList<AuthorSavedViewHistoryChange> changes)
-        => ComputeCommandDigest(
-            changes.Count,
-            string.Join('|', changes.OrderBy(static change => change.ChangeIndex)
-                .Select(static change => change.ContentDigest)));
-
-    public static string ComputeReceiptDigest(AuthorSavedViewWriteReceipt receipt)
-        => ComputeCommandDigest(
-            receipt.ReceiptId,
-            receipt.RequestId,
-            receipt.Owner.AdminPrincipalId,
-            receipt.Owner.SiteScope,
-            receipt.CommandKind,
-            receipt.CommandDigest,
-            receipt.ViewId,
-            receipt.ViewRevision,
-            receipt.PreviousCollectionRevision,
-            receipt.CollectionRevision,
-            receipt.QueryDigest,
-            receipt.DependencyDigest,
-            receipt.Pinned,
-            receipt.PreviousDefaultViewId,
-            receipt.DefaultViewId,
-            receipt.PreviousActiveViewCount,
-            receipt.ActiveViewCount,
-            receipt.OrderKey,
-            (int)receipt.LifecycleState,
-            (int)receipt.DefaultTransition,
-            receipt.ChangeCount,
-            receipt.ChangesDigest,
-            receipt.ReasonCode,
-            receipt.OccurredAtUtc.Ticks);
 
     public static AuthorSavedViewOperatorDescriptor? FindBuiltInOperator(string operatorId)
         => s_operators.GetValueOrDefault(operatorId);
@@ -1117,19 +969,6 @@ public enum AuthorSavedViewNullPlacement
     Last = 1
 }
 
-public enum AuthorSavedViewLifecycleState
-{
-    Active = 0,
-    Retired = 1
-}
-
-public enum AuthorSavedViewDefaultDisposition
-{
-    NotApplicable = 0,
-    ClearToSystem = 1,
-    ReplaceWithView = 2
-}
-
 public sealed record AuthorSavedViewFieldReference(
     AuthorSavedViewFieldKind Kind,
     string Identity);
@@ -1185,10 +1024,4 @@ public sealed record AuthorSavedViewQueryValidationResult(
 public sealed class AuthorSavedViewValidationException(string code) : Exception(code)
 {
     public string Code { get; } = code;
-}
-
-public sealed class AuthorSavedViewDependencyException(IReadOnlyList<string> reasons)
-    : Exception("saved_view_dependency_invalid")
-{
-    public IReadOnlyList<string> Reasons { get; } = reasons;
 }

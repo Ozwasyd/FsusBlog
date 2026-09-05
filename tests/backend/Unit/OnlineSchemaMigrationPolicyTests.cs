@@ -325,7 +325,6 @@ public sealed class OnlineSchemaMigrationPolicyTests
             ThemeActivationRuntimeMigrationDefinitions.MigrationId,
             CustomizationMigrationDefinitions.MigrationId,
             AuthoringCanvasDocumentMigrationDefinitions.MigrationId,
-            AuthorSavedViewMigrationDefinitions.MigrationId,
             TaxonomyDescriptionMigrationDefinitions.MigrationId,
             ContentAssetCutoverMigrationDefinitions.PrototypeShapeMigrationId,
             ContentAssetCutoverMigrationDefinitions.MigrationId
