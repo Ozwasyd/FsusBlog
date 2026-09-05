@@ -96,7 +96,7 @@ function loadAuthorities(repositoryRoot)
     const migrationLedger = JSON.parse(fs.readFileSync(
         path.join(repositoryRoot, 'config/contracts/document-claim-migration-ledger.json'), 'utf8'))
     const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
-    validatePostRuntimeProducerRegistry(registry, { catalog, migrationLedger })
+    validatePostRuntimeProducerRegistry(registry, { catalog, migrationLedger, repositoryRoot })
     return { migrationLedger, registry }
 }
 
@@ -172,12 +172,20 @@ export function buildPostRuntimeAcceptedClaimsReceipt({
 {
     const terminalPath = resolveCurrentJsonPath(
         repositoryRoot, terminalReceiptPath, 'terminal receipt', { mustExist: true })
-    const terminalBytes = fs.readFileSync(terminalPath.absolute)
+    const referenceBytes = fs.readFileSync(terminalPath.absolute)
+    const reference = JSON.parse(referenceBytes.toString('utf8'))
+    const payloadPath = resolveCurrentJsonPath(repositoryRoot, reference.payload?.path,
+        'terminal payload', { mustExist: true })
+    const terminalBytes = fs.readFileSync(payloadPath.absolute)
     const terminal = readAcceptedTerminal(terminalBytes, expectedRunId)
 
     const sourceState = {
         commit: terminal.source?.sourceCommit,
-        worktreeFingerprint: prefixedDigest(terminal.source?.worktreeFingerprint)
+        worktreeFingerprint: prefixedDigest(terminal.source?.worktreeFingerprint),
+        schedulerRunId: reference.schedulerRunId,
+        attemptId: reference.attemptId,
+        candidateIdentityDigest: prefixedDigest(digestValue(reference.candidateIdentity)),
+        buildIdentityDigest: prefixedDigest(digestValue(reference.buildIdentity))
     }
     assertCurrentSource(sourceState, repositoryRoot)
 
@@ -197,7 +205,9 @@ export function buildPostRuntimeAcceptedClaimsReceipt({
         {
             fail(`accepted claim ${claimId} is absent from the #2205 terminal authority`)
         }
-        return owner
+        const accepted = terminal.claimAcceptance.find((claim) => claim.claimId === claimId)
+        if (!accepted) fail(`claim ${claimId} lacks terminal acceptance`)
+        return { ...owner, claimDigest: accepted.claimDigest }
     }).sort((left, right) => left.claimId.localeCompare(right.claimId))
 
     const receipt = {
@@ -205,11 +215,22 @@ export function buildPostRuntimeAcceptedClaimsReceipt({
         sourceState,
         producerId: producer.producerId,
         toolVersion: registry.receiptSemantics.acceptedClaimsToolVersion,
+        registryDigest: prefixedDigest(digestValue(registry)),
+        claimsSchemaDigest: prefixedDigest(digestValue(JSON.parse(fs.readFileSync(
+            path.join(repositoryRoot, 'config/schemas/post-runtime-accepted-claims.schema.json'), 'utf8')))),
         terminalReceiptRef: {
             path: terminalPath.relative,
-            fileDigest: `sha256:${createHash('sha256').update(terminalBytes).digest('hex')}`,
-            contentDigest: prefixedDigest(terminal.contentDigest),
-            schema: globalExactnessSchema
+            fileDigest: `sha256:${createHash('sha256').update(referenceBytes).digest('hex')}`,
+            contentDigest: reference.contentDigest,
+            schema: reference.schema,
+            authorityId: registry.receiptSemantics.acceptedTerminalAuthority.authorityId,
+            producerId: registry.receiptSemantics.acceptedTerminalAuthority.producerId,
+            toolVersion: registry.receiptSemantics.acceptedTerminalAuthority.toolVersion,
+            producerCommand: registry.receiptSemantics.acceptedTerminalAuthority.producerCommand,
+            payloadPath: payloadPath.relative,
+            payloadFileDigest: `sha256:${createHash('sha256').update(terminalBytes).digest('hex')}`,
+            payloadContentDigest: prefixedDigest(terminal.contentDigest),
+            payloadSchema: globalExactnessSchema
         },
         migrationLedgerDigest,
         claims,
@@ -237,7 +258,7 @@ export function validatePostRuntimeAcceptedClaimsValue({
         requireExplicitWhenAmbiguous: false
     })
     if (receipt?.producerId !== producer.producerId) fail('accepted-claims producer identity mismatch')
-    const terminalPath = resolveCurrentJsonPath(repositoryRoot, receipt?.terminalReceiptRef?.path,
+    const terminalPath = resolveCurrentJsonPath(repositoryRoot, receipt?.terminalReceiptRef?.payloadPath,
         'accepted terminal receipt', { mustExist: true })
     assertCurrentSource(receipt?.sourceState, repositoryRoot)
     validateAcceptedClaimsReceiptAgainstRegistry({
@@ -275,6 +296,7 @@ export function writePostRuntimeAcceptedClaimsReceipt({
     repositoryRoot = root
 })
 {
+    validatePostRuntimeAcceptedClaimsValue({ receipt, expectedRunId, repositoryRoot })
     const resolved = resolveCurrentJsonPath(
         repositoryRoot, outputPath, 'accepted-claims output', { mustExist: false })
     const resolvedRoot = ensurePhysicalRoot(repositoryRoot)
@@ -321,10 +343,13 @@ function parseArguments(argv)
     const [command, ...args] = argv
     if (!['produce', 'verify'].includes(command)) fail('command must be produce or verify')
     const options = {}
+    const seen = new Set()
     for (let index = 0; index < args.length; index += 2)
     {
         const key = args[index]
         const value = args[index + 1]
+        if (seen.has(key)) fail(`duplicate option ${key}`)
+        seen.add(key)
         if (!value) fail(`${key ?? '<missing option>'} requires a value`)
         if (key === '--terminal') options.terminalReceiptPath = value
         else if (key === '--receipt') options.receiptPath = value
@@ -334,7 +359,7 @@ function parseArguments(argv)
         else fail(`unknown option ${key}`)
     }
     if (command === 'produce'
-        && (!options.terminalReceiptPath || !options.outputPath || !options.expectedRunId))
+        && (!options.terminalReceiptPath || !options.outputPath || !options.expectedRunId || options.receiptPath))
     {
         fail('produce requires --terminal, --run-id and --out')
     }

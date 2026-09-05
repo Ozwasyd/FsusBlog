@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
+import os from 'node:os'
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -9,10 +11,12 @@ import { sealSourceIdentity } from '../../tools/fact-extractors/identity.mjs'
 import {
     buildPostRuntimeAcceptedClaimsReceipt,
     readAndValidatePostRuntimeAcceptedClaimsReceipt,
-    root,
+    root as sourceRoot,
     validatePostRuntimeAcceptedClaimsValue,
     writePostRuntimeAcceptedClaimsReceipt
 } from '../../tools/docs/post-runtime-accepted-claims.mjs'
+
+const byteDigest = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`
 
 function sealTerminal(value)
 {
@@ -21,11 +25,20 @@ function sealTerminal(value)
     return receipt
 }
 
-function currentTerminal(runId = 'post-runtime-accepted-claims-run')
+function currentTerminal(runId, root)
 {
     const source = sealSourceIdentity(root)
     const migrationLedger = JSON.parse(fs.readFileSync(
         path.join(root, 'config/contracts/document-claim-migration-ledger.json'), 'utf8'))
+    const claimAcceptance = migrationLedger.scopes.flatMap((scope) => scope.entries.flatMap((entry) =>
+        entry.claimIds.map((claimId, index) => ({
+            claimId, behaviorId: entry.behaviorId, scopeId: scope.scopeId,
+            documentPath: entry.documentPath,
+            claimType: entry.generatedSectionIds[index] ? 'generated-section' : 'prose',
+            generatedSectionId: entry.generatedSectionIds[index] ?? null,
+            claimDigest: `sha256:${digestValue({ claimId })}`
+        })))).sort((left, right) => left.claimId.localeCompare(right.claimId))
+    const generatedClaimCount = claimAcceptance.filter((claim) => claim.claimType === 'generated-section').length
     return sealTerminal({
         schema: 'fsusblog.global-claim-exactness-terminal-receipt.v1',
         scopeId: 'global-document-claim-exactness',
@@ -39,12 +52,13 @@ function currentTerminal(runId = 'post-runtime-accepted-claims-run')
             observationDigests: {}
         },
         authorityDigests: [],
+        claimAcceptance,
         counts: {
             requiredBehaviors: 9,
             scopes: 6,
             ledgerEntries: 43,
-            generatedClaimCount: 84,
-            proseClaimCount: 35,
+            generatedClaimCount,
+            proseClaimCount: claimAcceptance.length - generatedClaimCount,
             proseTotal: 35,
             proseVerified: 35,
             generatedSectionsVerified: 84,
@@ -66,19 +80,74 @@ function currentTerminal(runId = 'post-runtime-accepted-claims-run')
 
 function fixture(context)
 {
-    fs.mkdirSync(path.join(root, '.tmp'), { recursive: true })
-    const directory = fs.mkdtempSync(path.join(root, '.tmp', 'post-runtime-accepted-claims-'))
-    context.after(() => fs.rmSync(directory, { recursive: true, force: true }))
-    const relative = (name) => path.relative(root, path.join(directory, name)).replaceAll(path.sep, '/')
-    const write = (name, value) => fs.writeFileSync(path.join(directory, name), `${JSON.stringify(value, null, 2)}\n`)
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'post-runtime-accepted-claims-'))
+    const repositoryRoot = root
+    context.after(() => fs.rmSync(repositoryRoot, { recursive: true, force: true }))
+    for (const file of ['config/contracts/behavior-contracts.json',
+        'config/contracts/document-claim-migration-ledger.json',
+        'config/testing/post-runtime-producer-registry.json',
+        'config/schemas/post-runtime-accepted-claims.schema.json',
+        'config/schemas/post-runtime-observation-result.schema.json',
+        'config/configuration-ownership.json',
+        'tools/test-matrix/post-runtime-producer-registry.mjs',
+        'tools/test-matrix/parse-matrix.mjs',
+        'tools/run-test-matrix.mjs',
+        'tools/test/lanes/production-correctness-receipt.sh',
+        'tools/yaml/parse-document.mjs',
+        'tests/matrix.yml',
+        'config/testing/correctness-attempt-producers.json',
+        'config/testing/fixture-profile-catalog.json',
+        'tools/fact-extractors/lib/canonicalize.mjs'])
+    {
+        fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true })
+        fs.copyFileSync(path.join(sourceRoot, file), path.join(root, file))
+    }
+    // Isolated synthetic fixture only; production output exclusion is separately audited.
+    fs.writeFileSync(path.join(root, '.gitignore'), '/artifacts/current-run/\n')
+    for (const args of [['init', '-q'], ['add', '.'],
+        ['-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'fixture']])
+    {
+        const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' })
+        assert.equal(result.status, 0, result.stderr)
+    }
     const runId = 'post-runtime-accepted-claims-run'
-    write('terminal.json', currentTerminal(runId))
-    return { directory, relative, runId, write }
+    const authority = JSON.parse(fs.readFileSync(path.join(root,
+        'config/testing/post-runtime-producer-registry.json'), 'utf8')).receiptSemantics.acceptedTerminalAuthority
+    const directory = path.join(root, authority.referenceRoot, runId, 'attempt-0001')
+    fs.mkdirSync(directory, { recursive: true })
+    const mapped = (name) => name === 'terminal.json' ? authority.referenceName : name
+    const relative = (name) => path.relative(root, path.join(directory, mapped(name))).replaceAll(path.sep, '/')
+    const write = (name, value) =>
+    {
+        if (value.schema !== 'fsusblog.global-claim-exactness-terminal-receipt.v1')
+        {
+            fs.writeFileSync(path.join(directory, mapped(name)), `${JSON.stringify(value, null, 2)}\n`)
+            return
+        }
+        const bytes = `${JSON.stringify(value, null, 2)}\n`
+        const payloadPath = relative(authority.payloadName)
+        fs.writeFileSync(path.join(root, payloadPath), bytes)
+        const body = {
+            schema: authority.referenceSchema, schedulerRunId: value.runId, attemptId: 'attempt-0001',
+            sourceCommit: value.source.sourceCommit, worktreeFingerprint: value.source.worktreeFingerprint,
+            candidateIdentity: { candidateId: 'fixture' }, buildIdentity: { buildId: 'fixture' },
+            authorityId: authority.authorityId, producerId: authority.producerId,
+            payload: { path: payloadPath, schema: value.schema, digest: byteDigest(bytes) }
+        }
+        const sealed = { ...body, contentDigest: `sha256:${digestValue(body)}` }
+        const reference = { ...sealed, producerReceiptDigest: `sha256:${digestValue(sealed)}` }
+        fs.writeFileSync(path.join(directory, mapped(name)), `${JSON.stringify(reference, null, 2)}\n`)
+    }
+    write('terminal.json', currentTerminal(runId, root))
+    fs.writeFileSync(path.join(directory, 'cli.mjs'),
+        `import { runPostRuntimeAcceptedClaimsCli } from ${JSON.stringify(path.join(sourceRoot, 'tools/docs/post-runtime-accepted-claims.mjs'))};\nrunPostRuntimeAcceptedClaimsCli(process.argv.slice(2), ${JSON.stringify(root)});\n`)
+    return { repositoryRoot, directory, relative, runId, write }
 }
 
 test('publisher derives one exact accepted-claim receipt and independent verifier replays it', (context) =>
 {
     const value = fixture(context)
+    const { repositoryRoot: root } = value
     const receipt = buildPostRuntimeAcceptedClaimsReceipt({
         terminalReceiptPath: value.relative('terminal.json'),
         expectedRunId: value.runId,
@@ -108,7 +177,8 @@ test('publisher derives one exact accepted-claim receipt and independent verifie
 test('CLI produces and verifies a persisted current-run receipt', (context) =>
 {
     const value = fixture(context)
-    const cli = path.join(root, 'tools/docs/post-runtime-accepted-claims.mjs')
+    const { repositoryRoot: root } = value
+    const cli = path.join(value.directory, 'cli.mjs')
     const output = value.relative('cli-accepted-claims.json')
     const produced = spawnSync(process.execPath, [
         cli,
@@ -136,6 +206,7 @@ test('CLI produces and verifies a persisted current-run receipt', (context) =>
 test('terminal tamper, stale source and wrong producer fail closed', (context) =>
 {
     const value = fixture(context)
+    const { repositoryRoot: root } = value
     const receipt = buildPostRuntimeAcceptedClaimsReceipt({
         terminalReceiptPath: value.relative('terminal.json'),
         expectedRunId: value.runId,
@@ -143,7 +214,7 @@ test('terminal tamper, stale source and wrong producer fail closed', (context) =
     })
     value.write('accepted.json', receipt)
 
-    const terminal = JSON.parse(fs.readFileSync(path.join(value.directory, 'terminal.json'), 'utf8'))
+    const terminal = currentTerminal(value.runId, root)
     terminal.counts.warnings = 1
     value.write('terminal.json', terminal)
     assert.throws(
@@ -155,7 +226,7 @@ test('terminal tamper, stale source and wrong producer fail closed', (context) =
         /file digest mismatch/u
     )
 
-    const staleTerminal = currentTerminal()
+    const staleTerminal = currentTerminal(value.runId, root)
     staleTerminal.source.sourceCommit = 'f'.repeat(40)
     value.write('stale-terminal.json', sealTerminal(
         Object.fromEntries(Object.entries(staleTerminal).filter(([key]) => key !== 'contentDigest'))))
@@ -181,8 +252,9 @@ test('terminal tamper, stale source and wrong producer fail closed', (context) =
 test('symlink inputs and output overwrite are rejected without replacing evidence', (context) =>
 {
     const value = fixture(context)
+    const { repositoryRoot: root } = value
     const link = path.join(value.directory, 'terminal-link.json')
-    fs.symlinkSync(path.join(value.directory, 'terminal.json'), link)
+    fs.symlinkSync(path.join(root, value.relative('terminal.json')), link)
     assert.throws(
         () => buildPostRuntimeAcceptedClaimsReceipt({
             terminalReceiptPath: value.relative('terminal-link.json'),
@@ -220,6 +292,7 @@ test('symlink inputs and output overwrite are rejected without replacing evidenc
 test('value verifier rejects a self-resealed claim set not owned by the terminal ledger', (context) =>
 {
     const value = fixture(context)
+    const { repositoryRoot: root } = value
     const receipt = buildPostRuntimeAcceptedClaimsReceipt({
         terminalReceiptPath: value.relative('terminal.json'),
         expectedRunId: value.runId,
@@ -242,6 +315,7 @@ test('value verifier rejects a self-resealed claim set not owned by the terminal
 test('missing, wrong and self-resealed cross-run identities fail closed', (context) =>
 {
     const value = fixture(context)
+    const { repositoryRoot: root } = value
     assert.throws(
         () => buildPostRuntimeAcceptedClaimsReceipt({
             terminalReceiptPath: value.relative('terminal.json'),
@@ -258,7 +332,7 @@ test('missing, wrong and self-resealed cross-run identities fail closed', (conte
         /runId mismatch/u
     )
 
-    value.write('cross-run-terminal.json', currentTerminal('other-run'))
+    value.write('cross-run-terminal.json', currentTerminal('other-run', root))
     assert.throws(
         () => buildPostRuntimeAcceptedClaimsReceipt({
             terminalReceiptPath: value.relative('cross-run-terminal.json'),
@@ -267,6 +341,8 @@ test('missing, wrong and self-resealed cross-run identities fail closed', (conte
         }),
         /runId mismatch/u
     )
+
+    value.write('terminal.json', currentTerminal(value.runId, root))
 
     const receipt = buildPostRuntimeAcceptedClaimsReceipt({
         terminalReceiptPath: value.relative('terminal.json'),
@@ -287,7 +363,8 @@ test('missing, wrong and self-resealed cross-run identities fail closed', (conte
 test('CLI requires an explicit expected run identity for produce and verify', (context) =>
 {
     const value = fixture(context)
-    const cli = path.join(root, 'tools/docs/post-runtime-accepted-claims.mjs')
+    const { repositoryRoot: root } = value
+    const cli = path.join(value.directory, 'cli.mjs')
     const output = value.relative('missing-run.json')
     const produced = spawnSync(process.execPath, [
         cli,
@@ -305,4 +382,50 @@ test('CLI requires an explicit expected run identity for produce and verify', (c
     ], { cwd: root, encoding: 'utf8' })
     assert.notEqual(verified.status, 0)
     assert.match(verified.stderr, /verify requires --receipt, --run-id/u)
+})
+
+test('resealed scheduler, attempt, candidate, build and registry identity substitutions fail closed', (context) =>
+{
+    const value = fixture(context)
+    const { repositoryRoot: root } = value
+    const receipt = buildPostRuntimeAcceptedClaimsReceipt({
+        terminalReceiptPath: value.relative('terminal.json'), expectedRunId: value.runId, repositoryRoot: root
+    })
+    for (const mutate of [
+        (copy) => { copy.sourceState.schedulerRunId = 'different-run' },
+        (copy) => { copy.sourceState.attemptId = 'attempt-0002' },
+        (copy) => { copy.sourceState.candidateIdentityDigest = `sha256:${'a'.repeat(64)}` },
+        (copy) => { copy.sourceState.buildIdentityDigest = `sha256:${'b'.repeat(64)}` },
+        (copy) => { copy.registryDigest = `sha256:${'c'.repeat(64)}` }
+    ])
+    {
+        const copy = structuredClone(receipt)
+        mutate(copy)
+        delete copy.contentDigest
+        copy.contentDigest = `sha256:${digestValue(copy)}`
+        assert.throws(() => validatePostRuntimeAcceptedClaimsValue({
+            receipt: copy, expectedRunId: value.runId, repositoryRoot: root
+        }))
+    }
+})
+
+test('invalid publication and duplicate CLI identities cannot create output', (context) =>
+{
+    const value = fixture(context)
+    const { repositoryRoot: root } = value
+    const receipt = buildPostRuntimeAcceptedClaimsReceipt({
+        terminalReceiptPath: value.relative('terminal.json'), expectedRunId: value.runId, repositoryRoot: root
+    })
+    const outputPath = value.relative('invalid.json')
+    receipt.status = 'prepared'
+    assert.throws(() => writePostRuntimeAcceptedClaimsReceipt({
+        outputPath, receipt, expectedRunId: value.runId, repositoryRoot: root
+    }))
+    assert.equal(fs.existsSync(path.join(root, outputPath)), false)
+    const duplicate = spawnSync(process.execPath, [path.join(value.directory, 'cli.mjs'),
+        'produce', '--terminal', value.relative('terminal.json'), '--run-id', value.runId,
+        '--run-id', 'other', '--out', outputPath], { cwd: root, encoding: 'utf8' })
+    assert.notEqual(duplicate.status, 0)
+    assert.match(duplicate.stderr, /duplicate option --run-id/u)
+    assert.equal(fs.existsSync(path.join(root, outputPath)), false)
 })
