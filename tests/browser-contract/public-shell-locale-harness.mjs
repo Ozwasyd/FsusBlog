@@ -1,4 +1,6 @@
+/* global document */
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Reuse the immutable production build admission authority.
@@ -175,5 +177,145 @@ export async function bindPublicShellLocaleResourceBarrier(context, resourceUrl,
     {
         barrier.close();
         await context.unroute(matches, handler);
+    };
+}
+
+/** Observe the runner's real anonymous scenario without creating a page or advancing product state. */
+export function observePublicShellLocaleProbe(page, identity, { signal, matrix } = {})
+{
+    assert.equal(signal?.aborted === true, false, 'locale probe cannot start after abort');
+    const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+    const requests = [];
+    const issues = [];
+    let firstDocument = null;
+    let disposed = false;
+    const onRequest = (request) =>
+    {
+        requests.push({
+            resourceIdentity: sha256(request.url()),
+            resourceType: request.resourceType(),
+            method: request.method()
+        });
+    };
+    const onResponse = (response) =>
+    {
+        if (firstDocument || response.request().resourceType() !== 'document'
+            || response.request().frame() !== page.mainFrame())
+        {
+            return;
+        }
+        firstDocument = Promise.all([response.body(), response.allHeaders()]).then(([body, headers]) => ({
+            status: response.status(),
+            contentType: headers['content-type'] ?? null,
+            contentLanguage: headers['content-language'] ?? null,
+            bodyDigest: sha256(body),
+            bodyBytes: body.length
+        }), (error) => ({ errorDigest: sha256(String(error)) }));
+    };
+    const onConsole = (message) =>
+    {
+        if (['warning', 'error'].includes(message.type()))
+        {
+            issues.push({ kind: `console-${message.type()}`, detailDigest: sha256(message.text()) });
+        }
+    };
+    const onPageError = (error) => issues.push({ kind: 'page-error', detailDigest: sha256(String(error)) });
+    const onRequestFailed = (request) => issues.push({ kind: 'request-failed', detailDigest: sha256(request.url()) });
+    const listeners = [
+        ['request', onRequest], ['response', onResponse], ['console', onConsole],
+        ['pageerror', onPageError], ['requestfailed', onRequestFailed], ['close', dispose]
+    ];
+    function dispose()
+    {
+        if (disposed)
+        {
+            return;
+        }
+        for (const [event, listener] of listeners)
+        {
+            page.off(event, listener);
+        }
+        signal?.removeEventListener('abort', dispose);
+        disposed = true;
+    }
+    for (const [event, listener] of listeners)
+    {
+        page.on(event, listener);
+    }
+    signal?.addEventListener('abort', dispose, { once: true });
+    return {
+        async finish()
+        {
+            assert.equal(disposed, false, 'locale probe is already disposed');
+            // #2082 requires a real document/selector probe, independently of later qualification.
+            assert.ok(firstDocument, 'locale probe did not observe a real document response');
+            const firstResponse = await firstDocument;
+            assert.ok(firstResponse.bodyBytes > 0, 'locale probe could not read the document response');
+            const observed = await page.evaluate(() => ({
+                language: document.documentElement.lang,
+                title: document.title,
+                selectorLocales: [...document.querySelectorAll('[data-locale-selector-item]')]
+                    .map((item) => item.getAttribute('data-locale-code')),
+                activeLocales: [...document.querySelectorAll('[data-locale-selector-runtime-adapter]')]
+                    .map((item) => item.getAttribute('data-active-locale')),
+                hydrated: document.querySelector('#fsus-aot-shell')?.getAttribute('data-public-hydrated'),
+                fontsStatus: document.fonts.status,
+                fonts: [...document.fonts].map((font) => ({ family: font.family, weight: font.weight, status: font.status })),
+                resourceCount: performance.getEntriesByType('resource').length
+            }));
+            assert.ok(observed.activeLocales.length > 0, 'locale probe did not observe the real selector');
+            const safeObservation = projectPublicShellLocaleProbeObservation({ firstResponse, observed }, matrix);
+            const cookies = await page.context().cookies();
+            return {
+                schema: 'fsusblog.public-shell-locale-probe.v1',
+                evidenceKind: 'diagnostic-probe',
+                qualificationEligible: false,
+                identity,
+                ...safeObservation,
+                preferenceCookiePresent: cookies.some((cookie) => cookie.name === 'fsusblog.locale'),
+                requests,
+                issues
+            };
+        },
+        dispose
+    };
+}
+
+/** Only catalog identities and digests cross the private-artifact serialization boundary. */
+export function projectPublicShellLocaleProbeObservation({ firstResponse, observed }, matrix)
+{
+    const sha256 = (value) => createHash('sha256').update(String(value)).digest('hex');
+    const locales = new Set(matrix.locales.map((item) => item.code));
+    const requireLocale = (value) =>
+    {
+        assert.ok(locales.has(value), 'probe contains a noncatalog locale identity');
+        return value;
+    };
+    assert.equal(firstResponse.contentType?.split(';')[0].trim().toLowerCase(), 'text/html', 'probe response must be HTML');
+    assert.ok(['loading', 'loaded'].includes(observed.fontsStatus), 'unknown font set status');
+    assert.ok(['true', 'false', null].includes(observed.hydrated), 'unknown hydration observation');
+    assert.ok(Number.isSafeInteger(observed.resourceCount) && observed.resourceCount >= 0, 'invalid resource count');
+    return {
+        firstResponse: {
+            status: firstResponse.status,
+            contentType: 'text/html',
+            contentLanguage: requireLocale(firstResponse.contentLanguage),
+            bodyDigest: firstResponse.bodyDigest,
+            bodyBytes: firstResponse.bodyBytes
+        },
+        observed: {
+            language: requireLocale(observed.language),
+            titleDigest: sha256(observed.title),
+            selectorLocales: observed.selectorLocales.map(requireLocale),
+            activeLocales: observed.activeLocales.map(requireLocale),
+            hydrated: observed.hydrated,
+            fontsStatus: observed.fontsStatus,
+            fonts: observed.fonts.map((font) =>
+            {
+                assert.ok(['unloaded', 'loading', 'loaded', 'error'].includes(font.status), 'unknown font face status');
+                return { familyDigest: sha256(font.family), weightDigest: sha256(font.weight), status: font.status };
+            }),
+            resourceCount: observed.resourceCount
+        }
     };
 }
