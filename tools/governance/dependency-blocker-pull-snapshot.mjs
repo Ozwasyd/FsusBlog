@@ -29,7 +29,7 @@ function runIdentity(runs)
 }
 
 /** Observe current-head Actions jobs; absent or unsupported checks remain missing, never successful. */
-export async function collectDependencyPullSnapshot({ client, number, group, updateType, dependencyIds })
+export async function collectDependencyPullSnapshot({ client, number, group, updateType, dependencyIds, requirements, verifyPull })
 {
     const pull = await client.readPullRequest(number);
     const headSha = pull?.head?.sha;
@@ -37,6 +37,7 @@ export async function collectDependencyPullSnapshot({ client, number, group, upd
     {
         throw new Error('dependency_blocker_invalid_open_pull');
     }
+    verifyPull?.(pull);
     const runs = latestRuns(await client.listWorkflowRuns(headSha), headSha, number);
     const checkRuns = [];
     const names = new Set();
@@ -65,5 +66,6 @@ export async function collectDependencyPullSnapshot({ client, number, group, upd
     {
         throw new Error('dependency_blocker_invalid_pull_labels');
     }
-    return { number, headSha, group, updateType, dependencyIds, checkRuns, labels: after.labels.map((label) => label.name) };
+    verifyPull?.(after);
+    return { number, headSha, group, updateType, dependencyIds, requirements, checkRuns, labels: after.labels.map((label) => label.name) };
 }
