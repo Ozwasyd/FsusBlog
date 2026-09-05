@@ -774,6 +774,7 @@ export function applyReplacementTransaction({
     }
     let receiptTemporaryRoot = null;
     let receiptPublished = false;
+    let applicationFailed = false;
     let applicationError = null;
     let receipt = null;
     const rollbackErrors = [];
@@ -867,6 +868,7 @@ export function applyReplacementTransaction({
     }
     catch (error)
     {
+        applicationFailed = true;
         applicationError = error;
         for (const [relative, bytes] of originals)
         {
@@ -908,7 +910,7 @@ export function applyReplacementTransaction({
     if (rollbackErrors.length > 0 || cleanupErrors.length > 0)
     {
         // Cleanup is outside rollback: publication already commits the applied sources.
-        const errors = [applicationError, ...rollbackErrors, ...cleanupErrors].filter((error) => error !== null);
+        const errors = [...(applicationFailed ? [applicationError] : []), ...rollbackErrors, ...cleanupErrors];
         throw new AggregateError(
             errors,
             receiptPublished
@@ -917,7 +919,7 @@ export function applyReplacementTransaction({
             { cause: errors[0] }
         );
     }
-    if (applicationError !== null)
+    if (applicationFailed)
     {
         throw applicationError;
     }

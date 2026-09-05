@@ -574,6 +574,40 @@ test('each of six staging write and rename failures restores the complete before
     }
 });
 
+test('null and undefined verification failures remain failures and preserve the original thrown value', () =>
+{
+    for (const thrownValue of [null, undefined])
+    {
+        receiptFixture(({ root, transaction, receiptPath }) =>
+        {
+            let failed = false;
+            let actual = 'not thrown';
+            try
+            {
+                applyReplacementTransaction({
+                    root,
+                    transaction,
+                    receiptPath,
+                    verifyAfter: () =>
+                    {
+                        throw thrownValue;
+                    }
+                });
+            }
+            catch (error)
+            {
+                failed = true;
+                actual = error;
+            }
+            assert.equal(failed, true);
+            assert.equal(actual, thrownValue);
+            assertAppliedState(root, transaction, 'before');
+            assert.equal(existsSync(receiptPath), false);
+            assertNoOwnedStaging(root);
+        });
+    }
+});
+
 test('post-publication cleanup failure preserves the complete receipt and all six applied files', () =>
 {
     receiptFixture(({ root, transaction, receiptPath }) =>
