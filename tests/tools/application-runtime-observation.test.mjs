@@ -31,6 +31,8 @@ import {
 } from '../../tools/fact-extractors/post-runtime/release-deployment.mjs'
 import { root } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
 import { createRunId } from '../../tools/test-matrix/scheduler.mjs'
+import { createBrowserContractObservationFixture } from './support/browser-contract-observation-fixture.mjs'
+import { projectBrowserContractRaw } from '../../tools/test-evidence/browser-contract-observation-raw.mjs'
 import { beginCurrentRunEvidencePublication, finalizeCurrentRunEvidencePublication }
   from '../../tools/test/current-run-evidence-publication.mjs'
 
@@ -152,6 +154,21 @@ function fixture(context)
   context.after(() => fs.rmSync(path.join(root, '.tmp/post-runtime-source-receipts', runId), { recursive: true, force: true }))
   for (const classId of classIds)
   {
+    if (classId === 'browser-behavior-contract')
+    {
+      const browser = createBrowserContractObservationFixture(context, {
+        directory, commit, worktreeFingerprint: fingerprint, build,
+        buildFile: path.join(artifactRoot, 'receipt.json'), plan,
+        planFile: path.join(directory, 'plan.json'), observationPaths: paths
+      })
+      const result = projectBrowserContractRaw({ candidatePlan: relative('plan.json'),
+        browserContractReceipt: browser.relative(browser.browserFile), repositoryRoot: root })
+      write(`${classId}.json`, result)
+      classReceipts[classId] = produceClassReceipt({ candidatePlan: relative('plan.json'), classId,
+        result: paths[classId], repositoryRoot: root })
+      write(`${classId}-receipt.json`, classReceipts[classId])
+      continue
+    }
     const modes = Object.entries(producer.requiredObservations).filter(([, ids]) => ids.includes(classId)).map(([mode]) => mode).sort()
     const definition = registry.observationClasses[classId]
     const identity = { sourceCommit: plan.sourceState.commit, worktreeFingerprint: plan.sourceState.worktreeFingerprint,
