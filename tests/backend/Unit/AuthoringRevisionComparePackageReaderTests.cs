@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
@@ -15,7 +17,7 @@ public sealed class AuthoringRevisionComparePackageReaderTests
         IAuthoringRevisionCompareAuthority authority = Substitute.For<IAuthoringRevisionCompareAuthority>();
         authority.GetAuthorizedArticleAsync(Context(), 7, Arg.Any<CancellationToken>())
             .Returns((AuthoringRevisionCompareArticle?)null);
-        var reader = new AuthoringRevisionComparePackageReader(authority);
+        var reader = Reader(authority);
 
         RevisionComparePackageReadResult result = await reader.ReadAuthorizedAsync(
             Context(),
@@ -32,20 +34,21 @@ public sealed class AuthoringRevisionComparePackageReaderTests
     {
         IAuthoringRevisionCompareAuthority authority = Authority();
         authority.GetDraftAsync(5, "draft-key", Arg.Any<CancellationToken>())
-            .Returns(Draft(articleId: 7, serverRevision: 3, clientRevision: "epoch-3"));
-        var reader = new AuthoringRevisionComparePackageReader(authority);
+            .Returns(Draft(articleId: 7, serverRevision: 3, clientRevision: "client-write-3"));
+        var reader = Reader(authority, DraftContextProvider());
         var selector = new RevisionCompareSourceSelector(
             RevisionCompareSourceKind.CurrentDraft,
             DraftKey: "draft-key",
             ExpectedServerRevision: 3,
-            DocumentEpoch: "epoch-3");
+            DocumentEpoch: "document-epoch-3");
 
         RevisionComparePackageReadResult result = await reader.ReadAuthorizedAsync(Context(), 7, selector);
 
         Assert.Equal(RevisionComparePackageReadStatus.Available, result.Status);
         Assert.True(RevisionComparePackageSeal.Verify(result.Package!));
         Assert.Equal(3, result.Package!.ServerRevision);
-        Assert.Equal("epoch-3", result.Package.DocumentEpoch);
+        Assert.Equal("document-epoch-3", result.Package.DocumentEpoch);
+        Assert.NotEqual("client-write-3", result.Package.DocumentEpoch);
         Assert.Contains(result.Package.Metadata, static value => value.FieldId == "status" && value.CanonicalValue == "1");
         Assert.Equal(
             RevisionCompareSnapshotState.Present,
@@ -53,8 +56,8 @@ public sealed class AuthoringRevisionComparePackageReaderTests
     }
 
     [Theory]
-    [InlineData(8, 3, "epoch-3", RevisionComparePackageReadStatus.Unavailable)]
-    [InlineData(7, 4, "epoch-3", RevisionComparePackageReadStatus.Stale)]
+    [InlineData(8, 3, "document-epoch-3", RevisionComparePackageReadStatus.Unavailable)]
+    [InlineData(7, 4, "document-epoch-3", RevisionComparePackageReadStatus.Stale)]
     [InlineData(7, 3, "other-epoch", RevisionComparePackageReadStatus.Stale)]
     public async Task ReadAuthorizedAsync_RejectsCrossArticleOrStaleDraftCoordinates(
         int draftArticleId,
@@ -64,8 +67,8 @@ public sealed class AuthoringRevisionComparePackageReaderTests
     {
         IAuthoringRevisionCompareAuthority authority = Authority();
         authority.GetDraftAsync(5, "draft-key", Arg.Any<CancellationToken>())
-            .Returns(Draft(draftArticleId, 3, "epoch-3"));
-        var reader = new AuthoringRevisionComparePackageReader(authority);
+            .Returns(Draft(draftArticleId, 3, "client-write-3"));
+        var reader = Reader(authority, DraftContextProvider());
 
         RevisionComparePackageReadResult result = await reader.ReadAuthorizedAsync(
             Context(),
@@ -86,7 +89,7 @@ public sealed class AuthoringRevisionComparePackageReaderTests
         IAuthoringRevisionCompareAuthority authority = Authority(currentRevisionId: 11);
         authority.GetRevisionAsync(7, 11, Arg.Any<CancellationToken>()).Returns(Revision(articleId: 7));
         authority.GetCurrentRevisionIdAsync(7, Arg.Any<CancellationToken>()).Returns(12);
-        var reader = new AuthoringRevisionComparePackageReader(authority);
+        var reader = Reader(authority);
 
         RevisionComparePackageReadResult result = await reader.ReadAuthorizedAsync(
             Context(),
@@ -102,7 +105,7 @@ public sealed class AuthoringRevisionComparePackageReaderTests
     {
         IAuthoringRevisionCompareAuthority authority = Authority(currentRevisionId: 99);
         authority.GetRevisionAsync(7, 11, Arg.Any<CancellationToken>()).Returns(Revision(articleId: 7));
-        var reader = new AuthoringRevisionComparePackageReader(authority);
+        var reader = Reader(authority);
 
         RevisionComparePackageReadResult result = await reader.ReadAuthorizedAsync(
             Context(),
@@ -120,7 +123,7 @@ public sealed class AuthoringRevisionComparePackageReaderTests
         IAuthoringRevisionCompareAuthority authority = Authority();
         authority.GetRevisionAsync(7, 11, Arg.Any<CancellationToken>())
             .Returns(Revision(articleId: 7, missingRights: true));
-        var reader = new AuthoringRevisionComparePackageReader(authority);
+        var reader = Reader(authority);
 
         RevisionComparePackageReadResult result = await reader.ReadAuthorizedAsync(Context(), 7, HistoricalSelector());
 
@@ -150,7 +153,49 @@ public sealed class AuthoringRevisionComparePackageReaderTests
             .ToArray();
 
         Assert.Contains(typeof(IAuthoringDraftLifecycle), authorityDependencies);
-        Assert.Equal([typeof(IAuthoringRevisionCompareAuthority)], packageReaderDependencies);
+        Assert.Equal(
+            [typeof(IAuthoringRevisionCompareAuthority), typeof(IAuthoringRevisionCompareDraftContextAuthority)],
+            packageReaderDependencies);
+    }
+
+    [Fact]
+    public async Task ReadAuthorizedAsync_DraftIsUnavailableWithoutExternalContextProvider()
+    {
+        IAuthoringRevisionCompareAuthority authority = Authority();
+        authority.GetDraftAsync(5, "draft-key", Arg.Any<CancellationToken>())
+            .Returns(Draft(7, 3, "client-write-3"));
+        var reader = Reader(authority);
+
+        RevisionComparePackageReadResult result = await reader.ReadAuthorizedAsync(
+            Context(),
+            7,
+            new RevisionCompareSourceSelector(
+                RevisionCompareSourceKind.CurrentDraft,
+                DraftKey: "draft-key",
+                ExpectedServerRevision: 3,
+                DocumentEpoch: "document-epoch-3"));
+
+        Assert.Equal(RevisionComparePackageReadStatus.Unavailable, result.Status);
+        Assert.Null(result.Package);
+    }
+
+    [Fact]
+    public async Task DraftContextAuthority_RejectsAmbiguousProviders()
+    {
+        IAuthoringRevisionCompareDraftContextProvider provider = DraftContextProvider();
+        var authority = new AuthoringRevisionCompareDraftContextAuthority([provider, provider]);
+        var request = new AuthoringRevisionCompareDraftContextRequest(
+            Context(),
+            7,
+            "draft-key",
+            3,
+            "document-epoch-3",
+            RightsPayloadDigest());
+
+        AuthoringRevisionCompareDraftContextResult result = await authority.ReadAsync(request, default);
+
+        Assert.Equal(RevisionComparePackageReadStatus.Invalid, result.Status);
+        Assert.Null(result.Context);
     }
 
     private static IAuthoringRevisionCompareAuthority Authority(long currentRevisionId = 11)
@@ -161,6 +206,48 @@ public sealed class AuthoringRevisionComparePackageReaderTests
         authority.GetCurrentRevisionIdAsync(7, Arg.Any<CancellationToken>()).Returns(currentRevisionId);
         return authority;
     }
+
+    private static AuthoringRevisionComparePackageReader Reader(
+        IAuthoringRevisionCompareAuthority authority,
+        IAuthoringRevisionCompareDraftContextProvider? provider = null)
+        => new(
+            authority,
+            new AuthoringRevisionCompareDraftContextAuthority(
+                provider is null ? [] : [provider]));
+
+    private static IAuthoringRevisionCompareDraftContextProvider DraftContextProvider()
+    {
+        IAuthoringRevisionCompareDraftContextProvider provider = Substitute.For<IAuthoringRevisionCompareDraftContextProvider>();
+        provider.ReadAsync(Arg.Any<AuthoringRevisionCompareDraftContextRequest>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                AuthoringRevisionCompareDraftContextRequest request = call.Arg<AuthoringRevisionCompareDraftContextRequest>();
+                if (!string.Equals(request.DocumentEpoch, "document-epoch-3", StringComparison.Ordinal))
+                {
+                    return new AuthoringRevisionCompareDraftContextResult(RevisionComparePackageReadStatus.Stale, null);
+                }
+                RevisionCompareSnapshot rights = RevisionCompareSnapshot.Present(
+                    RevisionCompareSnapshotKind.Rights,
+                    "draft-rights:external:3",
+                    1,
+                    JsonSerializer.SerializeToUtf8Bytes(Draft(7, 3, "client-write-3").Rights));
+                AuthoringRevisionCompareDraftContext context = AuthoringRevisionCompareDraftContextAuthority.Seal(
+                    request,
+                    [
+                        rights,
+                        RevisionCompareSnapshot.NotApplicable(RevisionCompareSnapshotKind.Responsibility),
+                        RevisionCompareSnapshot.NotApplicable(RevisionCompareSnapshotKind.Release)
+                    ]);
+                return new AuthoringRevisionCompareDraftContextResult(
+                    RevisionComparePackageReadStatus.Available,
+                    context);
+            });
+        return provider;
+    }
+
+    private static string RightsPayloadDigest()
+        => Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
+            JsonSerializer.SerializeToUtf8Bytes(Draft(7, 3, "client-write-3").Rights)));
 
     private static RevisionCompareReadContext Context()
         => new(5, "primary", Guid.Parse("297dfbc4-ddaa-4830-9455-d88e6c8f29de"));

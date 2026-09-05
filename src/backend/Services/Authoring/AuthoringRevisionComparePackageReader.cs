@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
@@ -31,6 +32,152 @@ public interface IAuthoringRevisionCompareAuthority
         CancellationToken cancellationToken);
 
     Task<long?> GetCurrentRevisionIdAsync(int articleId, CancellationToken cancellationToken);
+}
+
+public sealed record AuthoringRevisionCompareDraftContextRequest(
+    RevisionCompareReadContext Reader,
+    int ArticleId,
+    string DraftKey,
+    long ServerRevision,
+    string DocumentEpoch,
+    string RightsPayloadDigest);
+
+public sealed record AuthoringRevisionCompareDraftContext(
+    long AdminPrincipalId,
+    string SiteScope,
+    int ArticleId,
+    string DraftKey,
+    long ServerRevision,
+    string DocumentEpoch,
+    string RightsPayloadDigest,
+    IReadOnlyList<RevisionCompareSnapshot> Snapshots,
+    string ContentDigest);
+
+public sealed record AuthoringRevisionCompareDraftContextResult(
+    RevisionComparePackageReadStatus Status,
+    AuthoringRevisionCompareDraftContext? Context);
+
+public interface IAuthoringRevisionCompareDraftContextProvider
+{
+    Task<AuthoringRevisionCompareDraftContextResult> ReadAsync(
+        AuthoringRevisionCompareDraftContextRequest request,
+        CancellationToken cancellationToken);
+}
+
+public interface IAuthoringRevisionCompareDraftContextAuthority
+{
+    Task<AuthoringRevisionCompareDraftContextResult> ReadAsync(
+        AuthoringRevisionCompareDraftContextRequest request,
+        CancellationToken cancellationToken);
+}
+
+public sealed class AuthoringRevisionCompareDraftContextAuthority(
+    IEnumerable<IAuthoringRevisionCompareDraftContextProvider> providers)
+    : IAuthoringRevisionCompareDraftContextAuthority
+{
+    private readonly IAuthoringRevisionCompareDraftContextProvider[] _providers = [.. providers];
+
+    public async Task<AuthoringRevisionCompareDraftContextResult> ReadAsync(
+        AuthoringRevisionCompareDraftContextRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (_providers.Length == 0)
+        {
+            return new AuthoringRevisionCompareDraftContextResult(
+                RevisionComparePackageReadStatus.Unavailable,
+                null);
+        }
+        if (_providers.Length != 1)
+        {
+            return new AuthoringRevisionCompareDraftContextResult(
+                RevisionComparePackageReadStatus.Invalid,
+                null);
+        }
+        AuthoringRevisionCompareDraftContextResult result = await _providers[0]
+            .ReadAsync(request, cancellationToken)
+            .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (result.Status != RevisionComparePackageReadStatus.Available
+            || result.Context is null)
+        {
+            return result with
+            {
+                Context = null
+            };
+        }
+        return DraftContextMatches(request, result.Context)
+            ? result
+            : new AuthoringRevisionCompareDraftContextResult(RevisionComparePackageReadStatus.Stale, null);
+    }
+
+    public static AuthoringRevisionCompareDraftContext Seal(
+        AuthoringRevisionCompareDraftContextRequest request,
+        IReadOnlyList<RevisionCompareSnapshot> snapshots)
+    {
+        string digest = DraftContextDigest(request, snapshots);
+        return new AuthoringRevisionCompareDraftContext(
+            request.Reader.AdminPrincipalId,
+            request.Reader.SiteScope,
+            request.ArticleId,
+            request.DraftKey,
+            request.ServerRevision,
+            request.DocumentEpoch,
+            request.RightsPayloadDigest,
+            snapshots,
+            digest);
+    }
+
+    private static bool DraftContextMatches(
+        AuthoringRevisionCompareDraftContextRequest request,
+        AuthoringRevisionCompareDraftContext context)
+        => context.AdminPrincipalId == request.Reader.AdminPrincipalId
+            && string.Equals(context.SiteScope, request.Reader.SiteScope, StringComparison.Ordinal)
+            && context.ArticleId == request.ArticleId
+            && string.Equals(context.DraftKey, request.DraftKey, StringComparison.Ordinal)
+            && context.ServerRevision == request.ServerRevision
+            && string.Equals(context.DocumentEpoch, request.DocumentEpoch, StringComparison.Ordinal)
+            && string.Equals(context.RightsPayloadDigest, request.RightsPayloadDigest, StringComparison.Ordinal)
+            && context.Snapshots.Count == Enum.GetValues<RevisionCompareSnapshotKind>().Length
+            && context.Snapshots.All(static snapshot => snapshot.State != RevisionCompareSnapshotState.Missing)
+            && context.Snapshots.Single(static snapshot => snapshot.Kind == RevisionCompareSnapshotKind.Rights)
+                .PayloadDigest == request.RightsPayloadDigest
+            && string.Equals(
+                context.ContentDigest,
+                DraftContextDigest(request, context.Snapshots),
+                StringComparison.Ordinal);
+
+    private static string DraftContextDigest(
+        AuthoringRevisionCompareDraftContextRequest request,
+        IEnumerable<RevisionCompareSnapshot> snapshots)
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        Append(hash, request.Reader.AdminPrincipalId);
+        Append(hash, request.Reader.SiteScope);
+        Append(hash, request.ArticleId);
+        Append(hash, request.DraftKey);
+        Append(hash, request.ServerRevision);
+        Append(hash, request.DocumentEpoch);
+        Append(hash, request.RightsPayloadDigest);
+        foreach (RevisionCompareSnapshot snapshot in snapshots.OrderBy(static snapshot => snapshot.Kind))
+        {
+            Append(hash, (int)snapshot.Kind);
+            Append(hash, (int)snapshot.State);
+            Append(hash, snapshot.Reference);
+            Append(hash, snapshot.SchemaVersion);
+            Append(hash, snapshot.PayloadDigest);
+        }
+        return Convert.ToHexStringLower(hash.GetHashAndReset());
+    }
+
+    private static void Append(IncrementalHash hash, object? value)
+    {
+        byte[] bytes = Encoding.UTF8.GetBytes(
+            value is null ? "null" : Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty);
+        Span<byte> length = stackalloc byte[4];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(length, bytes.Length);
+        hash.AppendData(length);
+        hash.AppendData(bytes);
+    }
 }
 
 public sealed class AuthoringRevisionCompareAuthority(
@@ -84,7 +231,9 @@ public sealed class AuthoringRevisionCompareAuthority(
 /// Adapts the existing authorized authoring readers into sealed comparison packages.
 /// It does not create a second revision or draft read model.
 /// </summary>
-public sealed class AuthoringRevisionComparePackageReader(IAuthoringRevisionCompareAuthority authority)
+public sealed class AuthoringRevisionComparePackageReader(
+    IAuthoringRevisionCompareAuthority authority,
+    IAuthoringRevisionCompareDraftContextAuthority draftContextAuthority)
     : IRevisionComparePackageReader
 {
     public async Task<RevisionComparePackageReadResult> ReadAuthorizedAsync(
@@ -140,10 +289,35 @@ public sealed class AuthoringRevisionComparePackageReader(IAuthoringRevisionComp
         {
             return RevisionComparePackageReadResult.Unavailable();
         }
-        if (draft.ServerRevision != selector.ExpectedServerRevision
-            || !string.Equals(draft.ClientRevision, selector.DocumentEpoch, StringComparison.Ordinal))
+        if (draft.ServerRevision != selector.ExpectedServerRevision)
         {
             return RevisionComparePackageReadResult.Stale();
+        }
+
+        byte[] rightsPayload = JsonSerializer.SerializeToUtf8Bytes(draft.Rights);
+        string rightsDigest = Convert.ToHexStringLower(SHA256.HashData(rightsPayload));
+        var contextRequest = new AuthoringRevisionCompareDraftContextRequest(
+            context,
+            articleId,
+            draft.DraftKey,
+            draft.ServerRevision,
+            selector.DocumentEpoch!,
+            rightsDigest);
+        AuthoringRevisionCompareDraftContextResult contextResult = await draftContextAuthority
+            .ReadAsync(contextRequest, cancellationToken)
+            .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (contextResult.Status != RevisionComparePackageReadStatus.Available
+            || contextResult.Context is null)
+        {
+            return new RevisionComparePackageReadResult(
+                contextResult.Status,
+                null,
+                contextResult.Status == RevisionComparePackageReadStatus.Stale
+                    ? "revision_compare_source_stale"
+                    : contextResult.Status == RevisionComparePackageReadStatus.Invalid
+                        ? "revision_compare_source_invalid"
+                        : "revision_compare_source_unavailable");
         }
 
         RevisionComparePackage package = RevisionComparePackageSeal.Create(
@@ -151,22 +325,14 @@ public sealed class AuthoringRevisionComparePackageReader(IAuthoringRevisionComp
             RevisionCompareSourceKind.CurrentDraft,
             string.Create(
                 CultureInfo.InvariantCulture,
-                $"draft:{context.AdminPrincipalId}:{draft.DraftKey}:{draft.ServerRevision}:{draft.ClientRevision}"),
+                $"draft:{context.AdminPrincipalId}:{draft.DraftKey}:{draft.ServerRevision}:{contextResult.Context.ContentDigest}"),
             null,
             null,
             draft.ServerRevision,
-            draft.ClientRevision,
+            contextResult.Context.DocumentEpoch,
             Encoding.UTF8.GetBytes(draft.Content),
             DraftMetadata(draft),
-            [
-                RevisionCompareSnapshot.Present(
-                    RevisionCompareSnapshotKind.Rights,
-                    $"draft-rights:{draft.ServerRevision}",
-                    1,
-                    JsonSerializer.SerializeToUtf8Bytes(draft.Rights)),
-                RevisionCompareSnapshot.NotApplicable(RevisionCompareSnapshotKind.Responsibility),
-                RevisionCompareSnapshot.NotApplicable(RevisionCompareSnapshotKind.Release)
-            ]);
+            contextResult.Context.Snapshots);
         return RevisionComparePackageReadResult.Available(package);
     }
 
