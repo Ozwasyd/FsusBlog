@@ -1,34 +1,42 @@
 {
-    "schema": "fsusblog.external-naming-exceptions.v1",
-    "exceptions": [
-        {
-            "id": "json-wire-key",
-            "paths": [
-                "config/development/authoritative-development-docs.json",
-                "tests/governance/test-lifecycle-registry.json"
-            ],
-            "reason": "Preserve all existing external registry field names and test identities while relocating symbol-document bindings and registering new isolated governance regressions."
-        },
-        {
-            "id": "css-like-contract",
-            "paths": [
-                "docs/design/governance.md"
-            ],
-            "reason": "Preserve caller-visible token, selector and environment spellings while clarifying task routing and the actual FsusUI source resolver; no CSS naming migration is performed."
-        },
-        {
-            "id": "auth-security-doc-exactness-authority",
-            "paths": [
-                "docs/security.md"
-            ],
-            "reason": "Preserve existing authentication, security, JSON and document identifiers while moving the five-path review applicability requirement from AGENTS.md to the current security authority."
-        },
-        {
-            "id": "search-index-utf8-scalar-owner",
-            "paths": [
-                "docs/testing.generated.md"
-            ],
-            "reason": "Preserve all existing generated matrix identifiers and commands; the canonical testing-doc producer adds only the three new agent-context and Skill evidence entries from tests/matrix.yml."
-        }
-    ]
+  "schema": "fsusblog.external-naming-exceptions.v1",
+  "exceptions": [
+    {
+      "id": "json-wire-key",
+      "paths": [
+        "config/development/authoritative-development-docs.json",
+        "tests/governance/test-lifecycle-registry.json"
+      ],
+      "reason": "Preserve all existing external registry field names and test identities while relocating symbol-document bindings and registering new isolated governance regressions."
+    },
+    {
+      "id": "css-like-contract",
+      "paths": [
+        "docs/design/governance.md"
+      ],
+      "reason": "Preserve caller-visible token, selector and environment spellings while clarifying task routing and the actual FsusUI source resolver; no CSS naming migration is performed."
+    },
+    {
+      "id": "auth-security-doc-exactness-authority",
+      "paths": [
+        "docs/security.md"
+      ],
+      "reason": "Preserve existing authentication, security, JSON and document identifiers while moving the five-path review applicability requirement from AGENTS.md to the current security authority."
+    },
+    {
+      "id": "search-index-utf8-scalar-owner",
+      "paths": [
+        "docs/testing.generated.md"
+      ],
+      "reason": "Preserve all existing generated matrix identifiers and commands; the canonical testing-doc producer adds only the three new agent-context and Skill evidence entries from tests/matrix.yml."
+    },
+    {
+      "id": "environment-variable",
+      "paths": [
+        "tools/frontend/check-frontend-style.mjs",
+        "tools/yaml/parse-document.mjs"
+      ],
+      "reason": "Preserve environment-variable spelling surfaces while adding folded YAML block-scalar support for matrix line wraps and making a stale frontend-style baseline grant no residual exemptions instead of failing before file lint."
+    }
+  ]
 }
