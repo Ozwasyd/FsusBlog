@@ -289,7 +289,44 @@ public sealed class AuditLogReleaseDrainParticipant(AuditLogChannel channel, Tim
     public override TimeSpan MaxDrain => TimeSpan.FromSeconds(10);
     protected override string Classification => "multi-consumer-safe";
     protected override string ReplaySource => "structured application log";
-    protected override long ReadPendingCount() => channel.Snapshot().QueuedCount;
+    protected override long ReadPendingCount() => channel.Snapshot().OutstandingCount;
+
+    public override ReleaseDrainParticipantSnapshot Snapshot()
+    {
+        AuditLogChannelSnapshot snapshot = channel.Snapshot();
+        return new ReleaseDrainParticipantSnapshot(
+            Name,
+            Classification,
+            snapshot.OutstandingCount,
+            snapshot.OutstandingCount == 0 ? "drained" : snapshot.TerminalFailureCount > 0 ? "terminal-failed" : "pending",
+            MaxDrain,
+            ReplaySource,
+            snapshot.TerminalFailureCount > 0 ? "audit_log_terminal_failure" : null,
+            BuildBlockers(snapshot));
+    }
+
+    private static IReadOnlyList<string>? BuildBlockers(AuditLogChannelSnapshot snapshot)
+    {
+        List<string> blockers = [];
+        Add("queued", snapshot.QueuedCount);
+        Add("in-flight", snapshot.InFlightCount);
+        Add("durable-pending", snapshot.DurablePendingCount);
+        Add("terminal-failed", snapshot.TerminalFailureCount);
+        if (!string.IsNullOrWhiteSpace(snapshot.LastFailureReason))
+        {
+            blockers.Add($"last-failure={snapshot.LastFailureReason}");
+        }
+
+        return blockers.Count == 0 ? null : blockers;
+
+        void Add(string name, long value)
+        {
+            if (value > 0)
+            {
+                blockers.Add($"{name}={value}");
+            }
+        }
+    }
 }
 
 public sealed class AdminAuditLogReleaseDrainParticipant(AdminAuditLogChannel channel, TimeProvider timeProvider)
@@ -299,7 +336,39 @@ public sealed class AdminAuditLogReleaseDrainParticipant(AdminAuditLogChannel ch
     public override TimeSpan MaxDrain => TimeSpan.FromSeconds(10);
     protected override string Classification => "multi-consumer-safe";
     protected override string ReplaySource => "high-value audit fallback log";
-    protected override long ReadPendingCount() => channel.QueuedCount;
+    protected override long ReadPendingCount() => channel.Snapshot().OutstandingCount;
+
+    public override ReleaseDrainParticipantSnapshot Snapshot()
+    {
+        AdminAuditLogChannelSnapshot snapshot = channel.Snapshot();
+        List<string> blockers = [];
+        Add("queued", snapshot.QueuedCount);
+        Add("in-flight", snapshot.InFlightCount);
+        Add("durable-pending", snapshot.DurablePendingCount);
+        Add("terminal-failed", snapshot.TerminalFailureCount);
+        if (!string.IsNullOrWhiteSpace(snapshot.LastFailureReason))
+        {
+            blockers.Add($"last-failure={snapshot.LastFailureReason}");
+        }
+
+        return new ReleaseDrainParticipantSnapshot(
+            Name,
+            Classification,
+            snapshot.OutstandingCount,
+            snapshot.OutstandingCount == 0 ? "drained" : snapshot.TerminalFailureCount > 0 ? "terminal-failed" : "pending",
+            MaxDrain,
+            ReplaySource,
+            snapshot.TerminalFailureCount > 0 ? "admin_audit_terminal_failure" : null,
+            blockers.Count == 0 ? null : blockers);
+
+        void Add(string name, long value)
+        {
+            if (value > 0)
+            {
+                blockers.Add($"{name}={value}");
+            }
+        }
+    }
 }
 
 public sealed class VisitLogReleaseDrainParticipant(VisitLogChannel channel, TimeProvider timeProvider)
@@ -329,7 +398,39 @@ public sealed class SecurityRiskReleaseDrainParticipant(SecurityRiskEventWriteQu
     public override TimeSpan MaxDrain => TimeSpan.FromSeconds(10);
     protected override string Classification => "multi-consumer-safe";
     protected override string ReplaySource => "security audit log";
-    protected override long ReadPendingCount() => queue.Snapshot().QueuedCount;
+    protected override long ReadPendingCount() => queue.Snapshot().OutstandingCount;
+
+    public override ReleaseDrainParticipantSnapshot Snapshot()
+    {
+        SecurityRiskEventWriteQueueSnapshot snapshot = queue.Snapshot();
+        List<string> blockers = [];
+        Add("queued", snapshot.QueuedCount);
+        Add("in-flight", snapshot.InFlightCount);
+        Add("durable-pending", snapshot.DurablePendingCount);
+        Add("terminal-failed", snapshot.TerminalFailureCount);
+        if (!string.IsNullOrWhiteSpace(snapshot.LastFailureReason))
+        {
+            blockers.Add($"last-failure={snapshot.LastFailureReason}");
+        }
+
+        return new ReleaseDrainParticipantSnapshot(
+            Name,
+            Classification,
+            snapshot.OutstandingCount,
+            snapshot.OutstandingCount == 0 ? "drained" : snapshot.TerminalFailureCount > 0 ? "terminal-failed" : "pending",
+            MaxDrain,
+            ReplaySource,
+            snapshot.TerminalFailureCount > 0 ? "security_risk_terminal_failure" : null,
+            blockers.Count == 0 ? null : blockers);
+
+        void Add(string name, long value)
+        {
+            if (value > 0)
+            {
+                blockers.Add($"{name}={value}");
+            }
+        }
+    }
 }
 
 public sealed class ChallengeAuditReleaseDrainParticipant(ChallengeV2AuditEventQueue queue, TimeProvider timeProvider)
@@ -339,10 +440,39 @@ public sealed class ChallengeAuditReleaseDrainParticipant(ChallengeV2AuditEventQ
     public override TimeSpan MaxDrain => TimeSpan.FromSeconds(5);
     protected override string Classification => "multi-consumer-safe";
     protected override string ReplaySource => "challenge attempt store";
-    protected override long ReadPendingCount()
+    protected override long ReadPendingCount() => queue.Snapshot().OutstandingCount;
+
+    public override ReleaseDrainParticipantSnapshot Snapshot()
     {
         ChallengeV2AuditEventQueueSnapshot snapshot = queue.Snapshot();
-        return snapshot.NormalQueuedCount + snapshot.HighValueQueuedCount;
+        List<string> blockers = [];
+        Add("normal-queued", snapshot.NormalQueuedCount);
+        Add("high-queued", snapshot.HighValueQueuedCount);
+        Add("in-flight", snapshot.InFlightCount);
+        Add("durable-pending", snapshot.DurablePendingCount);
+        Add("terminal-failed", snapshot.TerminalFailureCount);
+        if (!string.IsNullOrWhiteSpace(snapshot.LastFailureReason))
+        {
+            blockers.Add($"last-failure={snapshot.LastFailureReason}");
+        }
+
+        return new ReleaseDrainParticipantSnapshot(
+            Name,
+            Classification,
+            snapshot.OutstandingCount,
+            snapshot.OutstandingCount == 0 ? "drained" : snapshot.TerminalFailureCount > 0 ? "terminal-failed" : "pending",
+            MaxDrain,
+            ReplaySource,
+            snapshot.TerminalFailureCount > 0 ? "challenge_v2_terminal_failure" : null,
+            blockers.Count == 0 ? null : blockers);
+
+        void Add(string name, long value)
+        {
+            if (value > 0)
+            {
+                blockers.Add($"{name}={value}");
+            }
+        }
     }
 }
 
