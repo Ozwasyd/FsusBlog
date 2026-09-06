@@ -58,9 +58,9 @@ test('entry documents route tasks without prescribing concrete model profiles or
     {
         assert.ok(skill.includes(`references/${name}.md`), name);
     }
-    assert.ok(agents.includes('任务范围'));
-    assert.ok(agents.includes('无生产访问'));
-    assert.ok(agents.includes('不自动构成合并授权'));
+    assert.ok(agents.includes('task scope'));
+    assert.ok(agents.includes('no production access'));
+    assert.ok(agents.includes('do not by themselves authorize a merge'));
 });
 
 test('every local Skill and reference link resolves to its actual source', () =>

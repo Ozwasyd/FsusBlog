@@ -1,52 +1,52 @@
 # AGENTS.md: FsusBlog
 
-FsusBlog 是面向真实部署、以 AEDS 二进制读取和可验证运行时契约为核心的内容系统。默认用中文沟通；代码名词、路径和命令保留英文。
+FsusBlog is a deployment-oriented content system built around AEDS binary reads and verifiable runtime contracts. Prefer Chinese in conversation with the user; keep code identifiers, paths, and commands in English.
 
-## 范围与完成
+## Scope and completion
 
-尊重用户的任务范围和工作区既有改动。首次写入前检查 `git status`，不要覆盖、回退、格式化或提交无关改动。审阅或方案任务不自动升级为实现任务。
+Respect the user's task scope and any existing working-tree changes. Check `git status` before the first write. Do not overwrite, revert, reformat, or commit unrelated changes. Review-only or planning tasks do not automatically become implementation tasks.
 
-实现任务应完成请求范围内的闭环：修改、验证、修复本次变更引入的问题，以及必要的 current 文档同步；不要在第一版实现后等待例行批准。计划和进度记录按任务复杂度使用，不为小改动制造额外流程。
+For an implementation task, close the loop inside the requested scope: make the change, verify it, fix regressions introduced by this change, and update the necessary current documents. Do not wait for routine approval after a first pass. Use planning and progress notes only when the task complexity warrants them; do not invent process for small edits.
 
-在已确认隔离、无生产访问且只影响本任务所拥有资源的本地环境中，可自主构建、运行相关检查、修复并重跑；仍须遵守当前任务的写入权限和资源生命周期契约。涉及生产或非本任务数据、密钥、破坏性迁移、发布或其他对外写入时，确认操作处于已有授权范围内；未获授权则不执行。真正的权限、环境或产品决策阻塞只暂停受影响部分，继续可独立完成的工作并说明缺口。
+In a local environment that is confirmed isolated, has no production access, and only touches resources owned by this task, you may build, run the relevant checks, fix failures, and rerun on your own. Still honor the task's write permissions and resource-lifecycle contracts. For production or non-task data, secrets, destructive migrations, releases, or other outward writes, confirm the action is already authorized; if it is not, do not run it. When a real permission, environment, or product decision blocks progress, pause only the blocked part, continue independent work, and state the gap.
 
-## 按需查证
+## Load context on demand
 
-[文档索引](docs/index.md)用于定位，不是必读清单。只加载与当前问题相关的章节、实现、测试和 Skill；上下文未变化时不重复通读。
+Use the [document index](docs/index.md) to locate sources; it is not a required reading list. Load only the sections, implementations, tests, and Skills that apply to the current question. Do not reread unchanged context.
 
-文档权威性按[文档生命周期](docs/development/document-lifecycle.md)及 `config/development/document-lifecycle.json` 判断。`current` 表示维护中的权威位置，不保证内容已与实现一致；proposed、historical、retired 内容不能替代当前规范。generated 索引和证据用于导航或核验，应追溯其 producer，不手改产物。发现规范、实现和测试冲突时，查明预期行为，不凭“较新”或“当前能通过”自行改写契约。
+Judge document authority with the [document lifecycle](docs/development/document-lifecycle.md) and `config/development/document-lifecycle.json`. `current` means the maintained authoritative location; it does not guarantee the text already matches the implementation. Proposed, historical, and retired material cannot replace current norms. Generated indexes and evidence are for navigation or verification; trace them to their producer and do not hand-edit the outputs. When norms, implementation, and tests disagree, determine the intended behavior; do not rewrite the contract because something is newer or currently passing.
 
-| 任务涉及 | 上下文入口 |
+| Task involves | Context entry |
 | --- | --- |
-| API、DTO、AEDS、POD、跨栈 ABI | [API contracts](docs/api/contracts.md)、[AEDS v2 protocol](src/core/Algorithms/AEDS_V2_PROTOCOL.md) |
-| 鉴权、会话、隐私、安全 | [Security](docs/security.md)及对应 current 子文档 |
-| 缓存、中间件、启动或运行时架构 | [Architecture](docs/architecture.md)及对应 current 边界文档 |
-| 前端非视觉运行时、Wasm glue | [Architecture overview](docs/architecture/overview.md)及对应 current frontend 文档 |
-| 可观察 UI、交互、视觉验收或设计契约 | [fsusblog-design-conformance](.agents/skills/fsusblog-design-conformance/SKILL.md) |
-| 数据库迁移 | [Migration](docs/database-migration.md)、[Online migration](docs/online-database-migration.md) |
-| 编码、source/generated/vendor 归属 | [Coding conventions](docs/development/coding-conventions.md)、[Repository ownership](docs/architecture/repository-layout.md) |
-| 文档变更、提交或 PR | [Document lifecycle](docs/development/document-lifecycle.md)、[Change contract](docs/development/change-contract.md)，按本次任务选择 |
+| API, DTO, AEDS, POD, cross-stack ABI | [API contracts](docs/api/contracts.md), [AEDS v2 protocol](src/core/Algorithms/AEDS_V2_PROTOCOL.md) |
+| Auth, session, privacy, security | [Security](docs/security.md) and the matching current subdocuments |
+| Cache, middleware, startup, or runtime architecture | [Architecture](docs/architecture.md) and the matching current boundary docs |
+| Non-visual frontend runtime, Wasm glue | [Architecture overview](docs/architecture/overview.md) and the matching current frontend docs |
+| Observable UI, interaction, visual acceptance, or design contracts | [fsusblog-design-conformance](.agents/skills/fsusblog-design-conformance/SKILL.md) |
+| Database migration | [Migration](docs/database-migration.md), [Online migration](docs/online-database-migration.md) |
+| Coding, source/generated/vendor ownership | [Coding conventions](docs/development/coding-conventions.md), [Repository ownership](docs/architecture/repository-layout.md) |
+| Document changes, commits, or PRs | [Document lifecycle](docs/development/document-lifecycle.md), [Change contract](docs/development/change-contract.md), chosen for this task |
 
-## 不可隐式突破的边界
+## Boundaries that must not be bypassed
 
-- 公开运行时只接受 AEDS v2；不恢复旧文本 API、JSON fallback 或已编码帧的通用 stream 重组。协议修改须保持 C#、shared contract、POD、C++ decoder、TypeScript glue 和测试的 wire/ABI 一致。
-- 保留 `X-Fsus-*`、PoW、统一响应和错误语义以及安全 fail-closed 行为；不以兼容、降级或测试便利绕过鉴权与隐私边界。
-- `src/shared/Contracts/` 承载跨栈契约；`src/core/` 不引入 HTTP、Cookie 或路由语义。缓存失效、middleware/startup 及 Wasm glue 遵循既有 owner，不建立旁路或平行实现。
-- UI 以实际生效的 FsusUI baseline 为准，而非仅看包版本。共享组件与通用 token 属于 FsusUI，产品编排属于 FsusBlog；不用私有选择器、伪造 token 或兼容包装掩盖上游缺陷。设计判断与证据要求由设计 Skill 路由到 current 权威文档。
-- generated、vendor、fixture、lockfile 等按既有 ownership 分类处理。生成产物通过其 source/producer 修改，不把产物当手写源码。
+- The public runtime accepts AEDS v2 only. Do not restore legacy text APIs, JSON fallbacks, or generic stream reassembly of already-encoded frames. Protocol changes must keep wire/ABI parity across C#, shared contracts, POD, the C++ decoder, TypeScript glue, and tests.
+- Preserve `X-Fsus-*`, PoW, unified response and error semantics, and fail-closed security behavior. Do not bypass auth or privacy for compatibility, degradation, or test convenience.
+- `src/shared/Contracts/` owns cross-stack contracts. `src/core/` must not introduce HTTP, Cookie, or routing semantics. Cache invalidation, middleware/startup, and Wasm glue follow existing owners; do not add side paths or parallel implementations.
+- UI follows the actually active FsusUI baseline, not package version alone. Shared components and common tokens belong to FsusUI; product composition belongs to FsusBlog. Do not hide upstream defects with private selectors, forged tokens, or compatibility wrappers. Design judgment and evidence requirements are routed by the design Skill to current authoritative documents.
+- Treat generated, vendor, fixture, and lockfile surfaces under existing ownership rules. Change generated outputs through their source and producer; do not treat products as hand-written source.
 
-## 验证与交付
+## Verification and delivery
 
-检查入口为 `./tools/test.sh help`、`tests/matrix.yml` 和 [Testing](docs/testing.md) 的相关章节。先运行直接覆盖改动的检查，再按影响与风险扩展；这不豁免适用的强制矩阵、独立验收或提交合并门禁。编排任务继续遵循当前 domain stage policy、实现所有权隔离与候选绑定；模型/路由等共享编排由外部调度器负责，不能以自主执行为由跳过领域验收。
+Check entry points are `./tools/test.sh help`, `tests/matrix.yml`, and the relevant sections of [Testing](docs/testing.md). Run checks that directly cover the change first, then widen by impact and risk. That does not waive required matrix coverage, independent acceptance, or commit/merge gates. Orchestration work still follows the current domain stage policy, implementation-ownership isolation, and candidate binding. Shared orchestration such as model and route selection belongs to an external scheduler when one is present; autonomous local execution is not a reason to skip domain acceptance.
 
-验证的是本次候选及实际影响的行为。需要视觉验收时检查真实渲染结果；不把编译、静态检查、mock、历史截图或 checker 自测当作当前端到端或 UX 验收。不为取得绿色结果弱化测试、fixture、阈值或门禁；预期契约确需变化时，按对应治理流程同步修改。
+Verify the current candidate and the behavior it actually affects. When visual acceptance is required, inspect real rendered results. Do not treat compilation, static checks, mocks, historical screenshots, or checker self-tests as current end-to-end or UX acceptance. Do not weaken tests, fixtures, thresholds, or gates to force a green result. When the expected contract must change, update it through the matching governance process.
 
-改变 public contract、架构、安全或运维语义时，更新对应 current 文档。文档生命周期、索引和 generated 输出通过既有 producer/checker 维护，不另建重复事实源。
+When a public contract, architecture, security, or operations semantic changes, update the matching current documents. Maintain document lifecycle, indexes, and generated outputs through existing producers and checkers; do not create a second source of truth.
 
-只在任务已授权的范围内提交、推送、创建 PR 或合并，执行 [Change contract](docs/development/change-contract.md)，以执行时的 ruleset/checks 为准。远端检查缺失不等于通过，本地通过不自动构成合并授权。
+Commit, push, open a PR, or merge only inside the task's authorized scope. Follow the [Change contract](docs/development/change-contract.md) and the ruleset/checks in force at execution time. A missing remote check is not a pass. Local green results do not by themselves authorize a merge.
 
-交付说明实际完成内容、验证命令与结果、未验证项及阻塞；涉及兼容或数据风险时说明回退条件。区分本次引入的问题、既有失败和环境缺失，不声称超出证据覆盖范围的完成度。
+On delivery, state what was completed, the verification commands and results, what was not verified, and any blockers. When compatibility or data risk is involved, state the rollback conditions. Separate regressions introduced here from pre-existing failures and missing environment. Do not claim completion beyond the evidence.
 
-## 维护本文件
+## Maintaining this file
 
-只增加跨任务稳定、不能从现有入口可靠获得且值得常驻的决策边界，并链接其权威来源。不要在此复制实现符号表、命令全集、设计数值、完整测试矩阵、模型档位或临时 issue/编排状态。
+Add only decision boundaries that stay stable across tasks, cannot be reliably recovered from existing entry points, and are worth keeping resident, with a link to their authoritative source. Do not copy implementation symbol tables, full command catalogs, design numeric values, the complete test matrix, model tiers, or temporary issue/orchestration state into this file.
