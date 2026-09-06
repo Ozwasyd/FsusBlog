@@ -89,7 +89,7 @@ test('governance separates editorial tooling review and observable implementatio
     for (const term of [
         '## Task routing', 'Editorial-only', 'Semantic design-document', 'scheduler-policy',
         'Read-only rendered review', 'Observable UI implementation', 'Backend-only',
-        'A mixed task retains the stronger requirements', 'Model selection and exact receipt bindings'
+        'A mixed task retains the stronger requirements', 'Shared orchestration authority is external'
     ])
     {
         assert.ok(governance.includes(term), term);

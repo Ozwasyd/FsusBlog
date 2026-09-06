@@ -6,6 +6,6 @@ Select the affected entries from the [layout archetypes](../../../../tests/front
 
 Inspect realistic short, long, empty, loading, error, success, disabled, permission, and partial states where applicable, across relevant themes, locales, widths, keyboard focus, zoom, overflow, and reduced motion. Record what was actually rendered and inspected, what failed, and what remains unverified. Compilation, static checks, a snapshot command, or zero diff do not prove an untested state.
 
-A read-only review reports evidence and findings; it does not acquire write permission or authorize a redesign. Formal UX acceptance additionally requires [orchestrated UI](orchestrated-ui.md): a fresh read-only verifier, distinct implementation/verifier run identities, exact candidate/baseline/authority bindings, behavior green, and a valid acceptance receipt. Rejection grants veto authority only.
+A read-only review reports evidence and findings; it does not acquire write permission or authorize a redesign. Formal UX acceptance additionally requires [orchestrated UI](orchestrated-ui.md): independent verification evidence, exact candidate/baseline/authority/domain-policy bindings, behavior green, and a valid acceptance receipt. Rejection grants veto authority only.
 
 Do not weaken fixtures, baselines, thresholds, or acceptance mappings to obtain a pass. Without inspected current rendered evidence, report the missing coverage rather than signing UX accepted. Contract checker self-tests are not application render evidence.

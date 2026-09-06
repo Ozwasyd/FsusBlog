@@ -3,18 +3,9 @@
     "sources": [
         ".agents/skills/fsusblog-design-conformance/contracts/blog-ui-stage-policy.json",
         ".agents/skills/fsusblog-design-conformance/scripts/ui-stage-policy.mjs",
-        ".agents/skills/fsusblog-design-conformance/scripts/generate-execution-profiles.mjs",
         "tests/matrix.yml"
     ],
     "outputs": [
-        {
-            "path": ".agents/skills/fsusblog-design-conformance/contracts/generated/ui-execution-profiles.schema.json",
-            "sha256": "ab99c3992dee2a8d054ae8db123033b341545f41e9740511525368e6123a8e0d"
-        },
-        {
-            "path": ".agents/skills/fsusblog-design-conformance/contracts/generated/ui-execution-profiles.binding.json",
-            "sha256": "ea6b6b6e0d06ed8029bb324d3c87c0d47430c3a55193926894b505dc539d7f60"
-        },
         {
             "path": "docs/testing.generated.md",
             "sha256": "3e2a841c3f56b58e4988d30fd238db9148e386ec425d71255bdc781fb25af792"

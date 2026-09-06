@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": [
     "schema",
-    "stagePolicyDigest",
+    "domainPolicyDigest",
     "repository",
     "issueId",
     "uiImpact",
@@ -21,15 +21,17 @@
     "outOfScope",
     "candidateSha",
     "candidateIdentityDigest",
-    "slicePolicyDigest",
-    "routingPolicyDigest",
-    "contextDigest",
     "classificationEvidenceDigest",
+    "status",
     "receiptDigest"
   ],
   "properties": {
     "schema": {
       "const": "fsusblog-design-conformance.ui-classification-receipt.v2"
+    },
+    "domainPolicyDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
     },
     "repository": {
       "const": "Ozwasyd/FsusBlog"
@@ -50,11 +52,11 @@
     "affectedSurfaces": {
       "type": "array",
       "minItems": 1,
+      "uniqueItems": true,
       "items": {
         "type": "string",
         "minLength": 1
-      },
-      "uniqueItems": true
+      }
     },
     "uiDecisionClass": {
       "enum": [
@@ -109,6 +111,7 @@
     "inScope": {
       "type": "array",
       "minItems": 1,
+      "uniqueItems": true,
       "items": {
         "type": "string",
         "minLength": 1
@@ -117,6 +120,7 @@
     "outOfScope": {
       "type": "array",
       "minItems": 1,
+      "uniqueItems": true,
       "items": {
         "type": "string",
         "minLength": 1
@@ -130,28 +134,16 @@
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
     },
-    "slicePolicyDigest": {
-      "type": "string",
-      "pattern": "^[a-f0-9]{64}$"
-    },
-    "routingPolicyDigest": {
-      "type": "string",
-      "pattern": "^[a-f0-9]{64}$"
-    },
-    "contextDigest": {
-      "type": "string",
-      "pattern": "^[a-f0-9]{64}$"
-    },
     "classificationEvidenceDigest": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
     },
+    "status": {
+      "const": "frozen"
+    },
     "receiptDigest": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
-    },
-    "stagePolicyDigest": {
-      "$ref": "urn:fsusblog-design-conformance:ui-execution-profiles:v2#/$defs/stagePolicyDigest"
     }
   }
 }

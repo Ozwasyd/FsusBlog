@@ -6,29 +6,19 @@
   "additionalProperties": false,
   "required": [
     "schema",
-    "stagePolicyDigest",
+    "domainPolicyDigest",
     "repository",
     "classificationReceiptDigest",
-    "dispatchReceiptDigest",
     "candidateSha",
     "candidateIdentityDigest",
-    "actualModel",
-    "actualEffort",
-    "actualProfile",
-    "freshContext",
-    "sandbox",
-    "writeLease",
+    "verificationClass",
     "requiredSkills",
     "designAuthorityDigests",
     "fsusUIBaselineDigest",
-    "workPlanDigest",
-    "sliceDigest",
-    "compiledPromptDigest",
-    "executionRouteDecisionDigest",
-    "implementationRunIdentityDigest",
-    "verifierRunIdentityDigest",
+    "independenceEvidenceDigest",
+    "productionFixture",
     "viewportStateMatrix",
-    "renderedArtifacts",
+    "inspectedRenderedArtifacts",
     "blockers",
     "status",
     "modifiedPaths",
@@ -39,14 +29,14 @@
     "schema": {
       "const": "fsusblog-design-conformance.ux-acceptance-receipt.v2"
     },
+    "domainPolicyDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
     "repository": {
       "const": "Ozwasyd/FsusBlog"
     },
     "classificationReceiptDigest": {
-      "type": "string",
-      "pattern": "^[a-f0-9]{64}$"
-    },
-    "dispatchReceiptDigest": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
     },
@@ -58,33 +48,34 @@
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
     },
-    "actualModel": {
-      "type": "string",
-      "minLength": 1
-    },
-    "actualEffort": {
-      "type": "string",
-      "minLength": 1
-    },
-    "actualProfile": {
-      "type": "string",
-      "minLength": 1
-    },
-    "freshContext": {
-      "const": true
-    },
-    "sandbox": {
-      "const": "read-only"
-    },
-    "writeLease": {
-      "type": "null"
+    "verificationClass": {
+      "enum": [
+        "ux-local",
+        "ux-path",
+        "ux-system"
+      ]
     },
     "requiredSkills": {
       "type": "array",
       "minItems": 2,
       "maxItems": 2,
       "items": {
-        "type": "object"
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "digest"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
       }
     },
     "designAuthorityDigests": {
@@ -99,46 +90,111 @@
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
     },
-    "workPlanDigest": {
+    "independenceEvidenceDigest": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
     },
-    "sliceDigest": {
-      "type": "string",
-      "pattern": "^[a-f0-9]{64}$"
-    },
-    "compiledPromptDigest": {
-      "type": "string",
-      "pattern": "^[a-f0-9]{64}$"
-    },
-    "executionRouteDecisionDigest": {
-      "type": "string",
-      "pattern": "^[a-f0-9]{64}$"
-    },
-    "implementationRunIdentityDigest": {
-      "type": "string",
-      "pattern": "^[a-f0-9]{64}$"
-    },
-    "verifierRunIdentityDigest": {
-      "type": "string",
-      "pattern": "^[a-f0-9]{64}$"
+    "productionFixture": {
+      "const": true
     },
     "viewportStateMatrix": {
       "type": "array",
       "minItems": 1,
       "items": {
-        "type": "object"
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "viewport",
+          "state",
+          "theme",
+          "inputModes",
+          "evidenceDigest"
+        ],
+        "properties": {
+          "viewport": {
+            "type": "string",
+            "minLength": 1
+          },
+          "state": {
+            "type": "string",
+            "minLength": 1
+          },
+          "theme": {
+            "enum": [
+              "light",
+              "dark"
+            ]
+          },
+          "inputModes": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "pointer",
+                "keyboard",
+                "touch",
+                "screen-reader",
+                "reduced-motion",
+                "zoom"
+              ]
+            }
+          },
+          "evidenceDigest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
       }
     },
-    "renderedArtifacts": {
+    "inspectedRenderedArtifacts": {
       "type": "array",
       "minItems": 1,
       "items": {
-        "type": "object"
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "path",
+          "digest",
+          "inspected",
+          "fixtureClass"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "enum": [
+              "screenshot",
+              "video",
+              "trace",
+              "accessibility-tree",
+              "screen-reader-report"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "inspected": {
+            "const": true
+          },
+          "fixtureClass": {
+            "const": "production"
+          }
+        }
       }
     },
     "blockers": {
       "type": "array",
+      "uniqueItems": true,
       "items": {
         "type": "string",
         "minLength": 1
@@ -161,14 +217,31 @@
     "receiptDigest": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
-    },
-    "stagePolicyDigest": {
-      "$ref": "urn:fsusblog-design-conformance:ui-execution-profiles:v2#/$defs/stagePolicyDigest"
     }
   },
   "allOf": [
     {
-      "$ref": "urn:fsusblog-design-conformance:ui-execution-profiles:v2#/$defs/uxAcceptance"
+      "if": {
+        "properties": {
+          "status": {
+            "const": "accepted"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "blockers": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "blockers": {
+            "minItems": 1
+          }
+        }
+      }
     }
   ]
 }

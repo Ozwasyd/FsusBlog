@@ -6,32 +6,32 @@
   "additionalProperties": false,
   "required": [
     "schema",
-    "stagePolicyDigest",
+    "domainPolicyDigest",
     "repository",
     "classificationReceiptDigest",
-    "actualModel",
-    "actualEffort",
-    "actualProfile",
-    "freshContext",
-    "sandbox",
-    "writeLease",
-    "authorityState",
-    "uniqueResolutionAvailable",
-    "allowedImplementationClass",
+    "ownerRepository",
+    "authoritativeSkillDigests",
+    "authorityDigests",
+    "activeBaselineIdentityDigest",
+    "candidateSha",
+    "candidateIdentityDigest",
+    "problemClassification",
+    "disposition",
+    "allowedUiDecisionClass",
+    "modifiedPaths",
     "inScope",
     "outOfScope",
     "requiredFollowUpIssue",
-    "requiredReslice",
-    "humanGateReason",
-    "humanDecisionRequestSchema",
-    "humanDecisionRequestStatus",
-    "humanDecisionRequestDigest",
-    "modifiedPaths",
-    "receiptDigest"
+    "status",
+    "adjudicationDigest"
   ],
   "properties": {
     "schema": {
       "const": "fsusblog-design-conformance.ui-system-adjudication-receipt.v2"
+    },
+    "domainPolicyDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
     },
     "repository": {
       "const": "Ozwasyd/FsusBlog"
@@ -40,52 +40,74 @@
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
     },
-    "actualModel": {
-      "type": "string",
-      "minLength": 1
-    },
-    "actualEffort": {
-      "type": "string",
-      "minLength": 1
-    },
-    "actualProfile": {
-      "type": "string",
-      "minLength": 1
-    },
-    "freshContext": {
-      "const": true
-    },
-    "sandbox": {
-      "const": "read-only"
-    },
-    "writeLease": {
-      "type": "null"
-    },
-    "authorityState": {
+    "ownerRepository": {
       "enum": [
-        "unique-resolution",
-        "authority-conflict",
-        "multiple-valid-product-directions",
-        "irreversible-public-contract-tradeoff",
-        "model-uncertainty"
+        "Ozwasyd/FsusBlog",
+        "Ozwasyd/FsusUI"
       ]
     },
-    "uniqueResolutionAvailable": {
-      "type": "boolean"
+    "authoritativeSkillDigests": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
     },
-    "allowedImplementationClass": {
-      "anyOf": [
-        {
-          "$ref": "urn:fsusblog-design-conformance:ui-execution-profiles:v2#/$defs/implementationProfileId"
-        },
-        {
-          "type": "null"
-        }
+    "authorityDigests": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
+    },
+    "activeBaselineIdentityDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "candidateSha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "candidateIdentityDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "problemClassification": {
+      "enum": [
+        "owner-dispute",
+        "authority-dispute",
+        "component-api-ownership",
+        "design-system-capability-boundary"
       ]
+    },
+    "disposition": {
+      "enum": [
+        "fsusui-owned",
+        "consumer-owned",
+        "authority-clarified",
+        "requires-authority-change"
+      ]
+    },
+    "allowedUiDecisionClass": {
+      "enum": [
+        "prescribed",
+        "bounded-composition",
+        "layout-judgment",
+        "interaction-judgment"
+      ]
+    },
+    "modifiedPaths": {
+      "type": "array",
+      "maxItems": 0
     },
     "inScope": {
       "type": "array",
       "minItems": 1,
+      "uniqueItems": true,
       "items": {
         "type": "string",
         "minLength": 1
@@ -94,6 +116,7 @@
     "outOfScope": {
       "type": "array",
       "minItems": 1,
+      "uniqueItems": true,
       "items": {
         "type": "string",
         "minLength": 1
@@ -105,49 +128,12 @@
         "null"
       ]
     },
-    "requiredReslice": {
-      "const": true
+    "status": {
+      "const": "adjudicated"
     },
-    "humanGateReason": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "humanDecisionRequestSchema": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "humanDecisionRequestStatus": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "humanDecisionRequestDigest": {
-      "type": [
-        "string",
-        "null"
-      ],
-      "pattern": "^[a-f0-9]{64}$"
-    },
-    "modifiedPaths": {
-      "type": "array",
-      "maxItems": 0
-    },
-    "receiptDigest": {
+    "adjudicationDigest": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
-    },
-    "stagePolicyDigest": {
-      "$ref": "urn:fsusblog-design-conformance:ui-execution-profiles:v2#/$defs/stagePolicyDigest"
     }
-  },
-  "allOf": [
-    {
-      "$ref": "urn:fsusblog-design-conformance:ui-execution-profiles:v2#/$defs/adjudication"
-    }
-  ]
+  }
 }
