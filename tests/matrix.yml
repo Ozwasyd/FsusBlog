@@ -7422,7 +7422,7 @@ tiers:
       risk: critical
       cadence: push
       requiredFor: production
-      coverage: [perception-character-v3-breaking-release]
+      coverage: [perception-character-v3-breaking-release, perception-character-v3-budget-local-redis]
       artifacts:
           [
               .tmp/security/perception-character-v3/release-gate,

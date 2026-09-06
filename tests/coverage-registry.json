@@ -5067,6 +5067,24 @@
             ]
         },
         {
+            "id": "perception-character-v3-budget-local-redis",
+            "description": "Issue 2527 retains BudgetedLeaseAtomicallyAccountsExactBytesQuotasAndRetryIdentity exclusively in the canonical LocalRedis producer with exact accounting and individual execution evidence.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "tests/backend/Unit/PerceptionCharacterV3ArtifactPoolTests.cs",
+                "tools/test/perception-redis-producer.mjs",
+                "tests/tools/perception-character-v3-redis-fixture.test.mjs",
+                ".tmp/test-results/backend/perception-character-v3-redis-producer.json"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Reject missing Redis, mismatched current run prefix, missing or failed individual test outcome, duplicate execution, accounting drift and unverified prefix cleanup.",
+            "minimumRequirement": "Execute budgeted lease exactly once in real isolated Redis; preserve exact bytes and quotas, operation retry identity, ambiguous reply accounting and inventory. Ordinary unit Passed is not evidence for this test.",
+            "tierIds": [
+                "perception-character-v3-release-gate"
+            ]
+        },
+        {
             "id": "configuration-layout-governance",
             "description": "Repository and backend runtime configuration have one canonical owner, semantic contract, environment classification and fail-closed drift gate.",
             "owner": "ServerContractAgent",
