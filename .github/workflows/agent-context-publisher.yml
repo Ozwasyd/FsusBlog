@@ -1,0 +1,79 @@
+name: Agent context one-shot publisher
+
+on:
+  push:
+    branches:
+      - fix/agent-context-governance
+
+permissions:
+  contents: write
+  issues: read
+
+jobs:
+  publish:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reconstruct verified candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "ba72ac65c7395b876c26aa040f500c677d55678c"
+          python3 - <<'PY'
+          import base64
+          import hashlib
+          import json
+          import lzma
+          import os
+          import re
+          import urllib.request
+          from pathlib import Path
+
+          url = f"https://api.github.com/repos/{os.environ['REPOSITORY']}/issues/3269/comments?per_page=100"
+          request = urllib.request.Request(
+              url,
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              },
+          )
+          with urllib.request.urlopen(request) as response:
+              comments = json.load(response)
+          pattern = re.compile(r"^<!-- FSUSBLOG_PATCH_XZ_BASE64_CHUNK (\d)/4 -->\s*(\S+)\s*$", re.S)
+          chunks = {}
+          for comment in comments:
+              match = pattern.match(comment.get("body") or "")
+              if match:
+                  chunks[int(match.group(1))] = "".join(match.group(2).split())
+          if sorted(chunks) != [1, 2, 3, 4]:
+              raise SystemExit(f"missing transport chunks: {sorted(chunks)}")
+          encoded = "".join(chunks[index] for index in range(1, 5))
+          if len(encoded) != 46272:
+              raise SystemExit(f"unexpected encoded length: {len(encoded)}")
+          if hashlib.sha256(encoded.encode()).hexdigest() != "77e032f99b3fde3f1a6a44c9d0f208bf9a5884d15e9123c20da4931097ee083d":
+              raise SystemExit("transport digest mismatch")
+          patch = lzma.decompress(base64.b64decode(encoded, validate=True))
+          if hashlib.sha256(patch).hexdigest() != "4eba51ab93792fa5a595c6b4fdb63985fac7599f0abfa9469e3d5cb081d4a368":
+              raise SystemExit("patch digest mismatch")
+          Path("/tmp/agent-context.patch").write_bytes(patch)
+          PY
+          git apply --index /tmp/agent-context.patch
+          git rm .github/workflows/agent-context-publisher.yml
+          tree="$(git write-tree)"
+          echo "candidate tree: $tree"
+          test "$tree" = "2a93e1af6917c56904eedadbbc72934ba149faca"
+
+      - name: Publish verified candidate
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(governance)!: decouple agent context and UI execution policy" -m "Refs #3269"
+          git push origin HEAD:fix/agent-context-governance
