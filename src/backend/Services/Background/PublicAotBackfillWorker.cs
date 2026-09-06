@@ -49,6 +49,7 @@ public sealed class PublicAotBackfillWorker(
 
     private async Task RunBackfillLoopAsync(CancellationToken stoppingToken)
     {
+        scheduler.ReplayDurablePending();
         await foreach (PublicAotBackfillRequest request in scheduler.ReadAllAsync(stoppingToken))
         {
             await ProcessRequestAsync(request, stoppingToken);
@@ -57,14 +58,23 @@ public sealed class PublicAotBackfillWorker(
 
     private async Task ProcessRequestAsync(PublicAotBackfillRequest request, CancellationToken stoppingToken)
     {
+        scheduler.Begin(request);
+        bool committed = false;
         await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
         ITestSessionKeyScope testSessionKeyScope = scope.ServiceProvider.GetRequiredService<ITestSessionKeyScope>();
         using IDisposable testSessionScope = testSessionKeyScope.BeginScope(request.TestSessionId);
         try
         {
+            if (!scheduler.ShouldProcess(request))
+            {
+                committed = true;
+                return;
+            }
+
             if (runtimeState.IsRouteQuarantined(request))
             {
                 runtimeState.RecordBackfillDropped(request, "route-quarantined-before-lease", scheduler.InFlightCount);
+                scheduler.RetainDurablePending(request, "route-quarantined-before-lease");
                 return;
             }
 
@@ -80,6 +90,7 @@ public sealed class PublicAotBackfillWorker(
             catch (Exception ex)
             {
                 runtimeState.RecordBackfillDropped(request, "lease-unavailable", scheduler.InFlightCount);
+                scheduler.RetainDurablePending(request, "lease-unavailable");
                 logger.LogWarning(ex, "Public AOT backfill lease unavailable: {Kind} {RouteKey}", request.Kind, request.RouteKey);
                 return;
             }
@@ -118,22 +129,26 @@ public sealed class PublicAotBackfillWorker(
                 }
             }
             logger.LogInformation("Public AOT backfill completed: {Kind} {RouteKey}", request.Kind, request.RouteKey);
+            committed = true;
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
+            scheduler.RetainDurablePending(request, "cancelled");
         }
         catch (PublicAotBackfillLeaseLostException)
         {
             runtimeState.RecordBackfillDropped(request, "lease-lost", scheduler.InFlightCount);
+            scheduler.RetainDurablePending(request, "lease-lost");
             logger.LogWarning("Public AOT backfill lease lost before commit: {Kind} {RouteKey}", request.Kind, request.RouteKey);
         }
         catch (Exception ex)
         {
+            scheduler.RetainDurablePending(request, "worker-exception");
             logger.LogError(ex, "Public AOT backfill failed: {Kind} {RouteKey}", request.Kind, request.RouteKey);
         }
         finally
         {
-            scheduler.Complete(request);
+            scheduler.Complete(request, committed);
         }
     }
 

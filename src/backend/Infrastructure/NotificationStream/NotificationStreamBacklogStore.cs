@@ -20,9 +20,11 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
     private const string PublishOrderLockPrefix = "fsus:notification-stream:v2:publish-order-lock:";
     private const int StreamMaxLength = 4096;
     private const int MaxReplayEntries = 512;
+    private const int MaxReplayAttempts = 3;
     private static readonly TimeSpan s_idempotencyRetention = TimeSpan.FromDays(7);
     private static readonly TimeSpan s_publishOrderLockExpiry = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan s_publishOrderRetryDelay = TimeSpan.FromMilliseconds(10);
+    private static readonly TimeSpan s_replayRetryDelay = TimeSpan.FromMilliseconds(25);
 
     private readonly IDatabase _database = redis.GetDatabase();
 
@@ -317,72 +319,101 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
             return NotificationStreamReplayBatch.Empty;
         }
 
-        try
+        Exception? lastFailure = null;
+        for (int attempt = 1; attempt <= MaxReplayAttempts; attempt++)
         {
-            IReadOnlyList<string> replayRoutes = NotificationStreamTargetRouteCodec.GetReplayRoutes(userId, groups);
-            string start = string.Create(CultureInfo.InvariantCulture, $"{cursor.Value + 1}-0");
-            bool missedGap = false;
-            int scannedEntries = 0;
-            List<ReplayEntry> replayEntries = [];
-            RouteReplayReadBatch routeReplayBatch = await ReadRouteReplaysAsync(replayRoutes, start, cursor.Value).ConfigureAwait(false);
-            RouteReplayRead[] reads = routeReplayBatch.Reads;
-            int redisCommandCount = routeReplayBatch.RedisCommandCount;
-            for (int routeIndex = 0; routeIndex < reads.Length; routeIndex++)
+            try
             {
-                RouteReplayRead read = reads[routeIndex];
-                missedGap |= read.MissedGap;
-                StreamEntry[] entries = read.Entries;
-                scannedEntries += entries.Length;
-                foreach (StreamEntry entry in entries)
+                return await ReplayOnceAsync(cursor, userId, groups, cancellationToken, attempt).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                lastFailure = ex;
+                if (attempt < MaxReplayAttempts)
                 {
-                    if (!TryParseEventId(entry.Id, out long eventId))
-                    {
-                        continue;
-                    }
-
-                    if (!TryGetField(entry, "f", out RedisValue frameValue) || frameValue.IsNullOrEmpty)
-                    {
-                        continue;
-                    }
-
-                    replayEntries.Add(new ReplayEntry(eventId, frameValue));
+                    await Task.Delay(s_replayRetryDelay, cancellationToken).ConfigureAwait(false);
                 }
             }
+        }
 
-            replayEntries.Sort(static (left, right) => left.EventId.CompareTo(right.EventId));
+        logger.LogWarning(
+            lastFailure,
+            "Failed to replay notification stream backlog after bounded retries. Cursor: {Cursor} | Attempts: {Attempts}",
+            cursor.Value,
+            MaxReplayAttempts);
+        return NotificationStreamReplayBatch.Failed("replay-read-failed", MaxReplayAttempts);
+    }
 
-            var seenEventIds = new HashSet<long>();
-            List<SharedNotificationStreamFrame> frames = [];
-            int dedupedEntries = 0;
-            foreach (ReplayEntry replayEntry in replayEntries)
+    private async Task<NotificationStreamReplayBatch> ReplayOnceAsync(
+        NotificationStreamCursor cursor,
+        string? userId,
+        IReadOnlySet<string> groups,
+        CancellationToken cancellationToken,
+        int attempt)
+    {
+        IReadOnlyList<string> replayRoutes = NotificationStreamTargetRouteCodec.GetReplayRoutes(userId, groups);
+        string start = string.Create(CultureInfo.InvariantCulture, $"{cursor.Value + 1}-0");
+        bool missedGap = false;
+        int scannedEntries = 0;
+        List<ReplayEntry> replayEntries = [];
+        RouteReplayReadBatch routeReplayBatch = await ReadRouteReplaysAsync(replayRoutes, start, cursor.Value).ConfigureAwait(false);
+        RouteReplayRead[] reads = routeReplayBatch.Reads;
+        int redisCommandCount = routeReplayBatch.RedisCommandCount;
+        for (int routeIndex = 0; routeIndex < reads.Length; routeIndex++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            RouteReplayRead read = reads[routeIndex];
+            missedGap |= read.MissedGap;
+            StreamEntry[] entries = read.Entries;
+            scannedEntries += entries.Length;
+            foreach (StreamEntry entry in entries)
             {
-                if (!seenEventIds.Add(replayEntry.EventId))
-                {
-                    dedupedEntries++;
-                    continue;
-                }
-
-                if (frames.Count >= MaxReplayEntries)
+                if (!TryParseEventId(entry.Id, out long eventId))
                 {
                     continue;
                 }
 
-                byte[]? buffer = replayEntry.Frame;
-                if (buffer is null || buffer.Length == 0)
+                if (!TryGetField(entry, "f", out RedisValue frameValue) || frameValue.IsNullOrEmpty)
                 {
                     continue;
                 }
-                frames.Add(SharedNotificationStreamFrame.FromArray(buffer));
+
+                replayEntries.Add(new ReplayEntry(eventId, frameValue));
+            }
+        }
+
+        replayEntries.Sort(static (left, right) => left.EventId.CompareTo(right.EventId));
+
+        var seenEventIds = new HashSet<long>();
+        List<SharedNotificationStreamFrame> frames = [];
+        int dedupedEntries = 0;
+        foreach (ReplayEntry replayEntry in replayEntries)
+        {
+            if (!seenEventIds.Add(replayEntry.EventId))
+            {
+                dedupedEntries++;
+                continue;
             }
 
-            NotificationStreamMetrics.RecordReplay(frames.Count, missedGap, replayRoutes.Count, scannedEntries, dedupedEntries, redisCommandCount);
-            return new NotificationStreamReplayBatch(frames, missedGap);
+            if (frames.Count >= MaxReplayEntries)
+            {
+                continue;
+            }
+
+            byte[]? buffer = replayEntry.Frame;
+            if (buffer is null || buffer.Length == 0)
+            {
+                continue;
+            }
+            frames.Add(SharedNotificationStreamFrame.FromArray(buffer));
         }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to replay notification stream backlog. Cursor: {Cursor}", cursor.Value);
-            return NotificationStreamReplayBatch.Empty;
-        }
+
+        NotificationStreamMetrics.RecordReplay(frames.Count, missedGap, replayRoutes.Count, scannedEntries, dedupedEntries, redisCommandCount);
+        return new NotificationStreamReplayBatch(frames, missedGap, RetryableFailure: false, Attempts: attempt);
     }
 
     private string RouteStreamKey(string route)
@@ -504,9 +535,19 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
     private readonly record struct RouteReplayReadBatch(RouteReplayRead[] Reads, int RedisCommandCount);
 }
 
-public sealed record NotificationStreamReplayBatch(IReadOnlyList<SharedNotificationStreamFrame> Frames, bool MissedGap)
+public sealed record NotificationStreamReplayBatch(
+    IReadOnlyList<SharedNotificationStreamFrame> Frames,
+    bool MissedGap,
+    bool RetryableFailure = false,
+    int Attempts = 0,
+    string? FailureReason = null)
 {
-    public static NotificationStreamReplayBatch Empty { get; } = new(Array.Empty<SharedNotificationStreamFrame>(), false);
+    public bool IsSuccessful => !MissedGap && !RetryableFailure;
+
+    public static NotificationStreamReplayBatch Empty { get; } = new(Array.Empty<SharedNotificationStreamFrame>(), false, false, 0, null);
+
+    public static NotificationStreamReplayBatch Failed(string reason, int attempts)
+        => new(Array.Empty<SharedNotificationStreamFrame>(), false, true, Math.Max(1, attempts), reason);
 }
 
 internal static class NotificationStreamTargetRouteCodec

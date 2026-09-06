@@ -21,6 +21,10 @@ public sealed class NotificationStreamFramePumpTests
 
         Assert.Throws<InvalidOperationException>(() => NotificationStreamFramePump.WriteDequeuedFrame(new ThrowingPipeWriter(), connection, dequeued));
 
+        Assert.Equal(0, connection.DeliverySnapshot.LegacyPipeCopyCompleted);
+        Assert.Equal(0, connection.DeliverySnapshot.SocketWriteCompleted);
+        Assert.Equal(0, connection.DeliverySnapshot.FanoutExpanded);
+
         Assert.Equal(0, GetPrivateInt(connection, "_queuedFrames"));
         Assert.Equal(1, GetPrivateInt(frame, "_refCount"));
 
@@ -39,6 +43,10 @@ public sealed class NotificationStreamFramePumpTests
         Assert.True(connection.Reader.TryRead(out SharedNotificationStreamFrame? dequeued));
 
         int length = NotificationStreamFramePump.WriteDequeuedFrame(pipe.Writer, connection, dequeued);
+
+        Assert.Equal(1, connection.DeliverySnapshot.LegacyPipeCopyCompleted);
+        Assert.Equal(0, connection.DeliverySnapshot.SocketWriteCompleted);
+        Assert.Equal(0, connection.DeliverySnapshot.FanoutExpanded);
 
         Assert.Equal(5, length);
         Assert.Equal(0, GetPrivateInt(connection, "_queuedFrames"));
@@ -60,6 +68,9 @@ public sealed class NotificationStreamFramePumpTests
         Assert.True(connection.Reader.TryRead(out SharedNotificationStreamFrame? dequeued));
 
         int written = NotificationStreamFramePump.WriteDequeuedFrame(pipe.Writer, connection, dequeued);
+        Assert.Equal(1, connection.DeliverySnapshot.LegacyPipeCopyCompleted);
+        Assert.Equal(0, connection.DeliverySnapshot.SocketWriteCompleted);
+        Assert.Equal(0, connection.DeliverySnapshot.FanoutExpanded);
         await pipe.Writer.FlushAsync();
         ReadResult result = await pipe.Reader.ReadAsync();
 
