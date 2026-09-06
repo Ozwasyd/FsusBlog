@@ -42,6 +42,19 @@
             "status": "manual"
         },
         {
+            "id": "fsusui-release-event-schema",
+            "owner": "dependency-update-governance",
+            "canonicalPath": "config/dependencies/fsusui-release-event.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/dependencies/verify-fsusui-release-event.mjs",
+                "tests/tools/fsusui-release-event.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/fsusui-release-event.test.mjs",
+            "changePolicy": "manual-update-with-closed-schema-validation",
+            "status": "manual"
+        },
+        {
             "id": "dependency-exceptions",
             "owner": "dependency-update-governance",
             "canonicalPath": "config/dependencies/exceptions.json",

@@ -2519,6 +2519,15 @@ tiers:
           - tools/governance/check-dependency-required-checks.mjs
           - tests/fixtures/governance/dependency-required-checks.json
           - tests/tools/dependency-required-checks.test.mjs
+          - config/dependencies/fsusui-release-event.schema.json
+          - tools/dependencies/verify-fsusui-release-event.mjs
+          - tests/tools/fsusui-release-event.test.mjs
+          - tools/dependencies/verify-fsusui-candidate.mjs
+          - tools/dependencies/fsusui-candidate-package-smoke.mjs
+          - tests/tools/fsusui-candidate.test.mjs
+          - tests/frontend/checks/static/check-fsusui-boundary.mjs
+          - tests/frontend/checks/static/check-fsusui-typecheck-modes.mjs
+          - docs/frontend/fsusui-typecheck-modes.md
           - renovate.json5
           - tools/governance/dependency-automerge.mjs
           - tools/governance/check-dependency-automerge.mjs
