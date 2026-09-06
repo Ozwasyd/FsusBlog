@@ -13,7 +13,6 @@ import {
     LOCAL_REDIS_FILTER,
     LOCAL_REDIS_PLANNED_TESTS,
     MANDATORY_BURN_TEST,
-    parseTrxResults,
     REDIS_LUA_CASE_IDS,
     REDIS_LUA_TEST,
     reconcileLocalRedisOutcome
@@ -198,6 +197,32 @@ test('ordinary backend test filter excludes Fixture=LocalRedis to prevent false-
         /productionBaseFilter = '[^']*Fixture!=LocalRedis[^']*'/u,
         'production union must exclude Fixture=LocalRedis for the canonical Redis producer'
     );
+});
+
+test('BudgetedLease test fails closed and contains no early return on missing FSUSBLOG_TEST_REDIS', () =>
+{
+    const testFile = fs.readFileSync(
+        path.join(root, 'tests/backend/Unit/PerceptionCharacterV3ArtifactPoolTests.cs'),
+        'utf8'
+    );
+    const methodIndex = testFile.indexOf('BudgetedLeaseAtomicallyAccountsExactBytesQuotasAndRetryIdentity');
+    assert.ok(methodIndex > 0, 'BudgetedLease test method must exist');
+
+    const methodBody = testFile.slice(
+        methodIndex,
+        testFile.indexOf('private static PerceptionCharacterV3LeaseBudget Budget', methodIndex)
+    );
+    assert.doesNotMatch(
+        methodBody,
+        /if\s*\(\s*string\.IsNullOrWhiteSpace\s*\(\s*connectionString\s*\)\s*\)\s*return\s*;/u,
+        'BudgetedLease test must not return early on empty connection string'
+    );
+    assert.match(methodBody, /FSUSBLOG_TEST_REDIS environment variable is not set/u);
+    assert.match(methodBody, /LocalRedis run identity is required/u);
+    assert.match(methodBody, /LocalRedis prefix is required/u);
+    assert.match(methodBody, /LocalRedis budget evidence path is required/u);
+    assert.match(methodBody, /redisPrefixRoot \+ "budgeted-lease:"/u);
+    assert.match(methodBody, /fsusblog\.perception-character-v3-budget-cases\.v1/u);
 });
 
 test('ArtifactPoolBurn test fails closed and contains no early return on missing FSUSBLOG_TEST_REDIS', () =>
