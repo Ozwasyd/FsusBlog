@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.performance-claim-evidence.v1",
+    "changeRevision": "0dc840cf6cf792d6681271b5d96bf71a378c7cba",
+    "claimLevel": "S",
+    "status": "structural-only",
+    "evidence": [
+        {
+            "path": "docs/architecture/distributed-cache-invalidation.md",
+            "sha256": "feaac7b6c576602bbbd8b12442c61d677d445551e760eb061e2bb9db4662a853"
+        },
+        {
+            "path": "tests/backend/Unit/DistributedInvalidationLocalApplierTests.cs",
+            "sha256": "2ce110c67028e64ce8c877fab898ca010fca1a63bc9af8e2ba436e75f51cdfa7"
+        },
+        {
+            "path": "tests/backend/Integration/DistributedInvalidationTargetConvergenceIntegrationTests.cs",
+            "sha256": "c29397ef4da280790c08bbbeec8be493ca9a2026d7d30c61efb0bd5323d5a769"
+        }
+    ]
+}
