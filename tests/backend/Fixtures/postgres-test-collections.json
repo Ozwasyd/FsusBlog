@@ -3,7 +3,7 @@
   "collections": [
     {
       "id": "SchemaMigrationPostgresCollectionA",
-      "estimatedFacts": 250,
+      "estimatedFacts": 254,
       "tests": [
         {
           "path": "Integration/CacheMissLeaseIntegrationTests.cs",
@@ -116,6 +116,10 @@
         {
           "path": "Integration/DistributedInvalidationDeliveryLedgerIntegrationTests.cs",
           "class": "DistributedInvalidationDeliveryLedgerIntegrationTests"
+        },
+        {
+          "path": "Integration/DistributedInvalidationTargetConvergenceIntegrationTests.cs",
+          "class": "DistributedInvalidationTargetConvergenceIntegrationTests"
         },
         {
           "path": "Integration/SecurityFixtureCompositionRootIntegrationTests.cs",

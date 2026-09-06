@@ -1909,6 +1909,8 @@ tiers:
               src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs,
               tests/backend/Unit/DistributedContractFastTests.cs,
               tests/backend/Unit/DistributedInvalidationBusTests.cs,
+              tests/backend/Unit/DistributedInvalidationTargetResolverTests.cs,
+              tests/backend/Unit/DistributedInvalidationLocalApplierTests.cs,
               tests/backend/Unit/PublicAotBackfillLeaseTests.cs,
               tests/backend/Unit/ArticleMutationProjectionCheckpointTests.cs,
               tests/backend/Unit/ArticleMutationOutboxFailurePropagationTests.cs,
@@ -1940,6 +1942,8 @@ tiers:
           - .tmp/distributed-contract-fast/summary.json
           - tests/backend/Unit/DistributedContractFastTests.cs
           - tests/backend/Unit/DistributedInvalidationBusTests.cs
+          - tests/backend/Unit/DistributedInvalidationTargetResolverTests.cs
+          - tests/backend/Unit/DistributedInvalidationLocalApplierTests.cs
           - tests/backend/Unit/PublicAotBackfillLeaseTests.cs
           - docs/architecture/distributed-cache-invalidation.md
           - tests/backend/Unit/ArticleMutationProjectionCheckpointTests.cs

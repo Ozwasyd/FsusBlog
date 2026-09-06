@@ -84,6 +84,27 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
     internal long DistributedMemoryInvalidationGenerationForTests
         => Volatile.Read(ref _distributedMemoryInvalidationGeneration);
 
+    internal async Task<int> ApplyDistributedInvalidationAsync(
+        IReadOnlyCollection<string> cacheKeys,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        string[] distinctKeys = [.. cacheKeys
+            .Where(static key => !string.IsNullOrWhiteSpace(key))
+            .Distinct(StringComparer.Ordinal)];
+        if (distinctKeys.Length == 0)
+        {
+            return 0;
+        }
+
+        PublicAotBatchInvalidationStats stats = await RemoveManyLocalAsync(
+                distinctKeys,
+                cancellationToken)
+            .ConfigureAwait(false);
+        Interlocked.Increment(ref _distributedMemoryInvalidationGeneration);
+        return stats.InvalidatedKeys;
+    }
+
     internal void InvalidateDistributedMemoryState()
     {
         Interlocked.Increment(ref _memoryGeneration);
