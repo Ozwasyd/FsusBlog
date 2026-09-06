@@ -29,6 +29,17 @@ test('matrix derives ten locales, aliases, selector order, and exact typed artif
     assert.equal(matrix.locales.length, 10);
     assert.equal(matrix.evidenceKind, 'plan');
     assert.equal(matrix.runnerRef, 'tests/browser-contract/run.mjs');
+    assert.equal(matrix.fontPlan.schema, 'fsusblog.public-shell-locale-font-plan.v1');
+    assert.equal(matrix.fontPlan.entries.length, matrix.locales.length);
+    assert.equal(matrix.identity.fontPlanDigest, matrix.fontPlan.digest);
+    assert.equal(matrix.fontPlan.catalogDigest, matrix.identity.catalogDigest);
+    for (const entry of matrix.fontPlan.entries)
+    {
+        assert.ok(entry.assetRef.startsWith('src/frontend/src/assets/fonts/'));
+        assert.match(entry.assetDigest, /^[a-f0-9]{64}$/u);
+        assert.ok(entry.faceIds.length > 0);
+        assert.ok(entry.representativeText.length > 0);
+    }
     assert.equal(new Set(matrix.scenes.map((item) => item.id)).size, matrix.scenes.length);
     for (const descriptor of matrix.locales)
     {
@@ -190,6 +201,14 @@ const mutations = {
     'second runner': (value) =>
     {
         value.runnerRef = 'tests/another-runner.mjs';
+    },
+    'font plan digest': (value) =>
+    {
+        value.fontPlan.digest = '0'.repeat(64);
+    },
+    'font asset digest': (value) =>
+    {
+        value.fontPlan.entries[0].assetDigest = '0'.repeat(64);
     }
 };
 

@@ -259,14 +259,41 @@ export async function createPublicShellLocaleMatrix(root = defaultRoot)
     assert.equal(resolveSourceCommit(root), sourceCommit, 'source changed during matrix construction');
     assert.equal(resolveWorktreeFingerprint(root), worktreeFingerprint, 'worktree changed during matrix construction');
     const refs = [...authorities.refs.values()].sort((left, right) => left.path.localeCompare(right.path));
+    const fontPlanEntries = descriptors.map((descriptor) =>
+    {
+        const font = authorities.fonts.getLocaleFontDescriptor(descriptor.code);
+        const assetRef = authorities.refs.get(`${localeDirectory}/../assets/fonts/${font.assetFile}`)
+            ?? authorities.refs.get(`src/frontend/src/assets/fonts/${font.assetFile}`);
+        assert.ok(assetRef, `missing font asset authority: ${font.assetFile}`);
+        return {
+            ...JSON.parse(JSON.stringify(font)),
+            assetRef: assetRef.path,
+            assetDigest: assetRef.digest
+        };
+    });
+    const fontPlanBody = {
+        schema: 'fsusblog.public-shell-locale-font-plan.v1',
+        catalogDigest: authorities.fonts.LOCALE_FONT_CATALOG_DIGEST,
+        entries: fontPlanEntries
+    };
+    const fontPlan = { ...fontPlanBody, digest: publicShellLocaleContentDigest(fontPlanBody) };
     const value = {
         schema: publicShellLocaleMatrixSchema,
         evidenceKind: 'plan',
         runnerRef: 'tests/browser-contract/run.mjs',
-        identity: { sourceCommit, worktree: root, worktreeFingerprint, sourceDigest: publicShellLocaleContentDigest(refs), refs },
+        identity: {
+            sourceCommit,
+            worktree: root,
+            worktreeFingerprint,
+            sourceDigest: publicShellLocaleContentDigest(refs),
+            catalogDigest: authorities.fonts.LOCALE_FONT_CATALOG_DIGEST,
+            fontPlanDigest: fontPlan.digest,
+            refs
+        },
         defaultLocale: authorities.catalog.defaultCode,
         locales: descriptors,
         negotiationCases: cases,
+        fontPlan,
         scenes
     };
     return { ...value, contentDigest: publicShellLocaleContentDigest(value) };
