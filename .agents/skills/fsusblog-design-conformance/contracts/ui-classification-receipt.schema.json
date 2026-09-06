@@ -1,11 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:fsusblog-design-conformance:ui-classification-receipt:v1",
-  "title": "fsusblog-design-conformance.ui-classification-receipt.v1",
+  "$id": "urn:fsusblog-design-conformance:ui-classification-receipt:v2",
+  "title": "fsusblog-design-conformance.ui-classification-receipt.v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema",
+    "stagePolicyDigest",
     "repository",
     "issueId",
     "uiImpact",
@@ -28,7 +29,7 @@
   ],
   "properties": {
     "schema": {
-      "const": "fsusblog-design-conformance.ui-classification-receipt.v1"
+      "const": "fsusblog-design-conformance.ui-classification-receipt.v2"
     },
     "repository": {
       "const": "Ozwasyd/FsusBlog"
@@ -148,6 +149,9 @@
     "receiptDigest": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
+    },
+    "stagePolicyDigest": {
+      "$ref": "urn:fsusblog-design-conformance:ui-execution-profiles:v2#/$defs/stagePolicyDigest"
     }
   }
 }

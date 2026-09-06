@@ -4,10 +4,13 @@ import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { blogUiStagePolicy as policy, blogUiStagePolicyDigest, matchesExecutionProfile } from './ui-stage-policy.mjs'
+import { checkExecutionProfilesSchema } from './generate-execution-profiles.mjs'
+
+checkExecutionProfilesSchema()
 
 const skillRoot = path.resolve(import.meta.dirname, '..')
 const contractRoot = path.resolve(skillRoot, 'contracts')
-const policyPath = path.resolve(contractRoot, 'blog-ui-stage-policy.json')
 const schemaNames = [
     'fsusui-baseline-identity.schema.json',
     'ui-classification-receipt.schema.json',
@@ -15,7 +18,6 @@ const schemaNames = [
     'ui-system-adjudication-receipt.schema.json',
     'ux-acceptance-receipt.schema.json'
 ]
-const policy = JSON.parse(readFileSync(policyPath, 'utf8'))
 const HASH = /^[a-f0-9]{64}$/u
 const SHA = /^[a-f0-9]{40}$/u
 const REQUIRED_SKILL_IDS = policy.requiredSkillIds
@@ -122,22 +124,15 @@ function routeFor(uiDecisionClass, executionShape) {
     if (uiDecisionClass === 'system-design-dispute') {
         fail('blog-ui-adjudication-required')
     }
-    const lowShapes = new Set(['atomic-edit', 'bounded-multifile'])
-    const mediumShapes = new Set([
-        'bounded-multifile',
-        'iterative-debug',
-        'render-probe-heavy'
-    ])
-    if (['prescribed', 'bounded-composition'].includes(uiDecisionClass) &&
-        lowShapes.has(executionShape)) {
-        return 'sol-low'
-    }
-    if (['layout-judgment', 'interaction-judgment']
-        .includes(uiDecisionClass) &&
-        mediumShapes.has(executionShape)) {
-        return 'sol-medium'
-    }
+    const route = policy.implementation.routing[uiDecisionClass]?.[executionShape]
+    if (typeof route === 'string') return route
     fail('blog-ui-reslice-required')
+}
+
+function assertStagePolicy(input) {
+    if (input?.stagePolicyDigest !== blogUiStagePolicyDigest) {
+        fail('blog-ui-stage-policy-binding')
+    }
 }
 
 function validateBaseline(input) {
@@ -171,8 +166,9 @@ function validateBaseline(input) {
 }
 
 function validateClassification(input) {
+    assertStagePolicy(input)
     if (input?.schema !==
-            'fsusblog-design-conformance.ui-classification-receipt.v1' ||
+            'fsusblog-design-conformance.ui-classification-receipt.v2' ||
         input.repository !== 'Ozwasyd/FsusBlog' ||
         !text(input.issueId) ||
         input.uiImpact !== true ||
@@ -208,6 +204,7 @@ function validateClassification(input) {
 }
 
 function validateDispatch(input, classification) {
+    assertStagePolicy(input)
     if (input?.stageRole !== 'ui-ux-implementer' ||
         input.stagePhase !== 'ui-implementation') {
         fail('blog-ui-implementer-role')
@@ -217,7 +214,7 @@ function validateDispatch(input, classification) {
         input.executionShape
     )
     if (input.schema !==
-            'fsusblog-design-conformance.ui-dispatch-receipt.v1' ||
+            'fsusblog-design-conformance.ui-dispatch-receipt.v2' ||
         input.repository !== 'Ozwasyd/FsusBlog' ||
         input.classificationReceiptDigest !==
             classification.receiptDigest ||
@@ -269,10 +266,7 @@ function validateDispatch(input, classification) {
             input.allowedPaths.includes(entry))) {
         fail('blog-ui-write-lease')
     }
-    const expectedEffort = expectedProfile.slice('sol-'.length)
-    if (input.actualProfile !== expectedProfile ||
-        input.actualModel !== 'gpt-5.6-sol' ||
-        input.actualEffort !== expectedEffort ||
+    if (!matchesExecutionProfile(input, expectedProfile) ||
         !policy.implementation.allowedProfiles.includes(
             input.actualProfile
         )) {
@@ -293,13 +287,16 @@ function validateDispatch(input, classification) {
 }
 
 export function sealBlogUiAdjudication(input) {
+    assertStagePolicy(input)
+    if (INELIGIBLE_HUMAN_REASONS.has(input.authorityState) ||
+        INELIGIBLE_HUMAN_REASONS.has(input.humanGateReason)) {
+        fail('blog-ui-human-gate-ineligible')
+    }
     if (input?.schema !==
-            'fsusblog-design-conformance.ui-system-adjudication-receipt.v1' ||
+            'fsusblog-design-conformance.ui-system-adjudication-receipt.v2' ||
         input.repository !== 'Ozwasyd/FsusBlog' ||
         !HASH.test(input.classificationReceiptDigest ?? '') ||
-        input.actualModel !== 'gpt-5.6-sol' ||
-        !['sol-high', 'sol-xhigh'].includes(input.actualProfile) ||
-        input.actualEffort !== input.actualProfile.slice('sol-'.length) ||
+        !matchesExecutionProfile(input, policy.adjudication.routing[input.authorityState]) ||
         input.freshContext !== true ||
         input.sandbox !== 'read-only' ||
         input.writeLease !== null ||
@@ -312,13 +309,9 @@ export function sealBlogUiAdjudication(input) {
         input.modifiedPaths.length !== 0) {
         fail('blog-ui-adjudicator-read-only')
     }
-    if (INELIGIBLE_HUMAN_REASONS.has(input.authorityState) ||
-        INELIGIBLE_HUMAN_REASONS.has(input.humanGateReason)) {
-        fail('blog-ui-human-gate-ineligible')
-    }
     if (input.authorityState === 'unique-resolution') {
         if (input.uniqueResolutionAvailable !== true ||
-            !['sol-low', 'sol-medium'].includes(
+            !policy.implementation.allowedProfiles.includes(
                 input.allowedImplementationClass
             ) ||
             input.humanGateReason !== null ||
@@ -351,9 +344,10 @@ export function sealBlogUiAdjudication(input) {
 
 function validateUxAcceptance(input, classification, dispatch) {
     if (!input) fail('blog-ui-ux-acceptance-required')
+    assertStagePolicy(input)
     const expectedProfile = UX_ROUTES[classification.verificationClass]
     if (input.schema !==
-            'fsusblog-design-conformance.ux-acceptance-receipt.v1' ||
+            'fsusblog-design-conformance.ux-acceptance-receipt.v2' ||
         input.repository !== 'Ozwasyd/FsusBlog' ||
         input.classificationReceiptDigest !==
             classification.receiptDigest ||
@@ -361,9 +355,7 @@ function validateUxAcceptance(input, classification, dispatch) {
         input.candidateSha !== classification.candidateSha ||
         input.candidateIdentityDigest !==
             classification.candidateIdentityDigest ||
-        input.actualModel !== 'gpt-5.6-sol' ||
-        input.actualProfile !== expectedProfile ||
-        input.actualEffort !== expectedProfile.slice('sol-'.length) ||
+        !matchesExecutionProfile(input, expectedProfile) ||
         input.freshContext !== true ||
         input.sandbox !== 'read-only' ||
         input.writeLease !== null ||
@@ -521,7 +513,8 @@ function createClassification({
 }) {
     return sealDigest({
         schema:
-            'fsusblog-design-conformance.ui-classification-receipt.v1',
+            'fsusblog-design-conformance.ui-classification-receipt.v2',
+        stagePolicyDigest: blogUiStagePolicyDigest,
         repository: 'Ozwasyd/FsusBlog',
         issueId: '1830',
         uiImpact: true,
@@ -553,7 +546,8 @@ function createDispatch({
 }) {
     return sealDigest({
         schema:
-            'fsusblog-design-conformance.ui-dispatch-receipt.v1',
+            'fsusblog-design-conformance.ui-dispatch-receipt.v2',
+        stagePolicyDigest: blogUiStagePolicyDigest,
         repository: 'Ozwasyd/FsusBlog',
         stageRole: 'ui-ux-implementer',
         stagePhase: 'ui-implementation',
@@ -597,8 +591,8 @@ function createDispatch({
             'focused contract and required render probes are green',
         continuationPredicate:
             'verified checkpoint names the next required action',
-        actualModel: 'gpt-5.6-sol',
-        actualEffort: actualProfile.slice('sol-'.length),
+        actualModel: policy.executionProfiles[actualProfile].model,
+        actualEffort: policy.executionProfiles[actualProfile].effort,
         actualProfile,
         targetWorktree: '/workspace/FsusBlog',
         targetWorktreeDigest: digest('/workspace/FsusBlog'),
@@ -624,20 +618,22 @@ function createAdjudication({
     authorityState
 }) {
     const human = HUMAN_REASONS.has(authorityState)
+    const actualProfile = policy.adjudication.routing[authorityState]
     return sealDigest({
         schema:
-            'fsusblog-design-conformance.ui-system-adjudication-receipt.v1',
+            'fsusblog-design-conformance.ui-system-adjudication-receipt.v2',
+        stagePolicyDigest: blogUiStagePolicyDigest,
         repository: 'Ozwasyd/FsusBlog',
         classificationReceiptDigest: classification.receiptDigest,
-        actualModel: 'gpt-5.6-sol',
-        actualEffort: human ? 'xhigh' : 'high',
-        actualProfile: human ? 'sol-xhigh' : 'sol-high',
+        actualModel: policy.executionProfiles[actualProfile].model,
+        actualEffort: policy.executionProfiles[actualProfile].effort,
+        actualProfile,
         freshContext: true,
         sandbox: 'read-only',
         writeLease: null,
         authorityState,
         uniqueResolutionAvailable: !human,
-        allowedImplementationClass: human ? null : 'sol-medium',
+        allowedImplementationClass: human ? null : routeFor('layout-judgment', 'bounded-multifile'),
         inScope: ['authority ownership and implementation class'],
         outOfScope: ['implementation and product redesign'],
         requiredFollowUpIssue: human ? 'Ozwasyd/FsusBlog#1835' : null,
@@ -663,15 +659,16 @@ function createUxAcceptance({
     const actualProfile = UX_ROUTES[classification.verificationClass]
     return sealDigest({
         schema:
-            'fsusblog-design-conformance.ux-acceptance-receipt.v1',
+            'fsusblog-design-conformance.ux-acceptance-receipt.v2',
+        stagePolicyDigest: blogUiStagePolicyDigest,
         repository: 'Ozwasyd/FsusBlog',
         classificationReceiptDigest: classification.receiptDigest,
         dispatchReceiptDigest: dispatch.receiptDigest,
         candidateSha: classification.candidateSha,
         candidateIdentityDigest:
             classification.candidateIdentityDigest,
-        actualModel: 'gpt-5.6-sol',
-        actualEffort: actualProfile.slice('sol-'.length),
+        actualModel: policy.executionProfiles[actualProfile].model,
+        actualEffort: policy.executionProfiles[actualProfile].effort,
         actualProfile,
         freshContext: true,
         sandbox: 'read-only',
@@ -752,16 +749,11 @@ export function createValidBlogUiBundle({
         skills,
         baseline
     })
-    let expectedProfile = 'sol-low'
-    if (['layout-judgment', 'interaction-judgment']
-        .includes(uiDecisionClass)) {
-        expectedProfile = 'sol-medium'
-    }
     const dispatch = includeDispatch
         ? createDispatch({
             classification,
             executionShape,
-            actualProfile: expectedProfile
+            actualProfile: routeFor(uiDecisionClass, executionShape)
         })
         : null
     return {
@@ -826,12 +818,12 @@ export function mutateBlogUiBundle(source, id) {
         bundle.dispatch.executionShape = 'complete-page-system'
     } else if (id === 'N04-prompt-missing-first-action') {
         bundle.dispatch.firstRequiredAction = ''
-    } else if (id === 'N05-prescribed-sol-medium') {
-        bundle.dispatch.actualProfile = 'sol-medium'
-        bundle.dispatch.actualEffort = 'medium'
-    } else if (id === 'N06-ui-implementer-sol-high') {
-        bundle.dispatch.actualProfile = 'sol-high'
-        bundle.dispatch.actualEffort = 'high'
+    } else if (id === 'N05-prescribed-wrong-profile') {
+        bundle.dispatch.actualProfile = routeFor('layout-judgment', 'bounded-multifile')
+        bundle.dispatch.actualEffort = policy.executionProfiles[bundle.dispatch.actualProfile].effort
+    } else if (id === 'N06-ui-implementer-adjudication-profile') {
+        bundle.dispatch.actualProfile = policy.adjudication.routing['unique-resolution']
+        bundle.dispatch.actualEffort = policy.executionProfiles[bundle.dispatch.actualProfile].effort
     } else if (id === 'N07-output-missing-promotes-high') {
         bundle.recovery.currentObservableFingerprint =
             bundle.recovery.previousObservableFingerprint
@@ -852,7 +844,7 @@ export function mutateBlogUiBundle(source, id) {
         bundle.adjudication.authorityState =
             'multiple-valid-product-directions'
         bundle.adjudication.uniqueResolutionAvailable = true
-        bundle.adjudication.allowedImplementationClass = 'sol-medium'
+        bundle.adjudication.allowedImplementationClass = routeFor('layout-judgment', 'bounded-multifile')
         bundle.adjudication.humanGateReason = null
         bundle.adjudication.humanDecisionRequestSchema = null
         bundle.adjudication.humanDecisionRequestStatus = null
@@ -898,6 +890,9 @@ export function validateBlogUiBundle(input) {
         classification.fsusUIBaseline.baselineDigest) {
         fail('blog-ui-authority-binding')
     }
+    if (input.adjudication?.classificationReceiptDigest !== classification.receiptDigest) {
+        fail('blog-ui-adjudication-binding')
+    }
     if (!input.dispatch) {
         if (classification.uiDecisionClass === 'system-design-dispute') {
             return deepFreeze({
@@ -937,6 +932,7 @@ export function validateBlogUiBundle(input) {
 }
 
 export function runBlogUiSelfCheck() {
+    checkExecutionProfilesSchema()
     for (const name of schemaNames) {
         const schema = JSON.parse(readFileSync(
             path.resolve(contractRoot, name),
@@ -966,15 +962,16 @@ export function runBlogUiSelfCheck() {
         fail(`blog-ui-negative-control-survived:${control.id}`)
     }
     return {
-        schemas: schemaNames.length,
+        schemas: schemaNames.length + 1,
         negativeControls: controls.length,
-        policyDigest: createHash('sha256')
-            .update(JSON.stringify(policy))
-            .digest('hex')
+        policyDigest: blogUiStagePolicyDigest
     }
 }
 
 async function main() {
+    if (process.argv.length !== 2) {
+        throw new Error('ui-orchestration.mjs runs self-checks only; use validateBlogUiBundle for supplied receipts')
+    }
     const result = runBlogUiSelfCheck()
     process.stdout.write(
         `[fsusblog-ui-orchestration] schemas=${result.schemas} ` +

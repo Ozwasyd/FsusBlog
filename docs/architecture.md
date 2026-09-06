@@ -192,8 +192,6 @@ Browser
   → Kestrel（The intra-project baseline still starts here)
 ```
 
-<a id="public-aot-单一渲染链"></a>
-
 ### Public AOT single rendering chain
 
 `Home / ArticleDetail / Filter / Archive / About / Privacy / Guidelines / Copyright` on the public page uniformly follows a rendering pipeline:
@@ -364,8 +362,6 @@ In the same request, `/release-derived/<releaseId>/search/index.manifest.aeds` a
 
 The general static file middleware and Release SPA template locator always use the configured physical `WebRootPath` as the authoritative source, and do not use the source-first results that may be injected by Development static-web-assets or source tree candidates. In this way, `ASPNETCORE_WEBROOT`, SPA `index.html`, hashed assets, search index writer and `/search/index.bin` / `index.manifest.aeds` reader in local Release acceptance point to the same run-bound root; historical bundles or aliases in the source tree cannot be spliced ​​across generations with the current product. Explicit `preferSourceTemplate` is reserved only for development source template paths.
 
-<a id="缓存分层"></a>
-
 ## Cache tiering
 
 Mode selection for cross-node invalidation, Redis transport, publish/apply order, replay identity, retries, no loopbacks, and degraded semantics are only defined by [Distributed cache invalidation](architecture/distributed-cache-invalidation.md). This section only describes the storage and local failure boundaries of each cache layer itself and does not replicate the distributed bus protocol.
@@ -445,6 +441,8 @@ The FsusBlog runtime API only maintains the AEDS binary chain:
 **Failure logic**: When Wasm Worker decoding fails, the client can switch to the TypeScript binary decoder or display a protocol error; the text API request must not be resent.
 
 **v2 write out and cache paths**:
+
+New frames use `BinaryResults.Frame` to return `BinaryFrameResult` and are constructed with `AedsFrameBufferWriter`; complete cached frames use `BinaryResults.PreencodedFrame` to return `BinaryPreencodedFrameResult`. Typed POD writers such as `PodBinaryCodec.WriteArticlePage` own the payload boundary; do not replace these paths with generic JSON or stream reassembly.
 
 - `src/shared/Contracts/Validation/aeds-protocol.json` is the only machine-readable source of v2 headers and active frame types; generators simultaneously produce Core/Shared C#, TypeScript and C++ `aeds_frame.hpp`. Core, Server, and tests uniformly reference the Shared packed header, and Core handwritten copies are no longer maintained. `check:aeds-protocol` fail closed checks all generated files. The cross-stack frame-schema check also compiles the real C++ decoder, iterates over all active frame types, and verifies the C++ decoding with a C# golden frame, so cross-language name, value, or 16-byte layout drift is blocked in CI.
 - The frame header is fixed at 16 bytes. The dynamic response reserves the header through `AedsFrameBufferWriter` and writes the payload in the same pooled buffer. The header/CRC is backfilled after `Seal()` to avoid constructing the payload first and then copying it to the complete frame.
@@ -768,8 +766,6 @@ or failed engine is discarded and replaced to remove captured request context.
 The SDK remains a private repository type/source asset and has no package publish
 flow.
 
-<a id="生产启动保护"></a>
-
 ## Production startup protection
 
 The server performs the following production checks after startup via HostedService, and upon failure enters an observable degradation state instead of terminating the process directly:
@@ -789,6 +785,7 @@ The privacy boundaries of runtime logs are consistent with the production launch
 The degraded status is written to the runtime status task `productionStartupValidation`. The fallback path is to restart the application after repairing the environment variables or dependent services; key errors can only restore the previous key of the corresponding security domain, and cannot temporarily reuse the JWT key, and there is no need to modify the routing, middleware or health probe code.
 
 For detailed deployment process, see [production.md](production.md).
+
 ## Comment revision and author management
 
 The comment revision chain is pointed to the current content by `comment.current_version`, and `comment_revision(comment_id, version)` saves the append-only text snapshot, operation and summary. Create, edit, delete main table update, revision and mutation outbox are in the same database transaction; edit to expectedVersion CAS to prevent overwriting. Public author management is through account authorization, and strong anonymous author management is through irreversible capability commitment. The two do not share identity mapping. Public projection only encodes the current text and `isEdited` reserved bits; only the admin authoring boundary reads the complete revision sequence. The client capability vault is memory-only and is lost when refreshed. It does not enter the storage registry, service worker cache or notification stream.
@@ -920,6 +917,7 @@ Carry activation UUID/theme/package hash; the server will only do this when the 
 Accept and atomic rollback. The active/default fallback cannot be blocked when the failure reporter is unavailable.
 The downgrade method without restarting is reset affected scope to default or fenced rollback /
 replacement; if the front-end load fails, the existing stylesheet will be retained and default will be tried.
+
 ## Plugin Admin read model and rollback
 
 Plugin Admin is composed of Registry, permission manager and isolation by `PluginAdminService`
@@ -936,6 +934,7 @@ Checksum version CAS; enabled runtime followed by reload. Any load/reload failur
 Advance the lifecycle to Quarantined, remove Hooks, clear grants, and retain low-cardinality error evidence.
 The rollback without restarting is to execute disable/quarantine for a single plug-in; anonymous, login, admin session,
 notification streams and other binary routes are unchanged.
+
 ## Current candidate admission predecessors
 
 <!-- fsus-doc-claim

@@ -1,0 +1,14 @@
+{
+  "schema": "fsusblog.generated-output-binding.v1",
+  "sources": [
+    ".agents/skills/fsusblog-design-conformance/contracts/blog-ui-stage-policy.json",
+    ".agents/skills/fsusblog-design-conformance/scripts/ui-stage-policy.mjs",
+    ".agents/skills/fsusblog-design-conformance/scripts/generate-execution-profiles.mjs"
+  ],
+  "outputs": [
+    {
+      "path": ".agents/skills/fsusblog-design-conformance/contracts/generated/ui-execution-profiles.schema.json",
+      "sha256": "ab99c3992dee2a8d054ae8db123033b341545f41e9740511525368e6123a8e0d"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "schema": "fsusblog-design-conformance.ui-stage-policy.v1",
+  "schema": "fsusblog-design-conformance.ui-stage-policy.v2",
   "repository": "Ozwasyd/FsusBlog",
   "requiredSkillIds": [
     "fsusblog-design-conformance",
@@ -19,10 +19,26 @@
     "automaticPromotion": false,
     "writeScope": "implementation-only",
     "routing": {
-      "prescribed": "sol-low",
-      "bounded-composition": "sol-low",
-      "layout-judgment": "sol-medium",
-      "interaction-judgment": "sol-medium",
+      "prescribed": {
+        "atomic-edit": "sol-low",
+        "bounded-multifile": "sol-low",
+        "render-probe-heavy": "sol-medium"
+      },
+      "bounded-composition": {
+        "atomic-edit": "sol-low",
+        "bounded-multifile": "sol-low",
+        "render-probe-heavy": "sol-medium"
+      },
+      "layout-judgment": {
+        "bounded-multifile": "sol-medium",
+        "iterative-debug": "sol-medium",
+        "render-probe-heavy": "sol-medium"
+      },
+      "interaction-judgment": {
+        "bounded-multifile": "sol-medium",
+        "iterative-debug": "sol-medium",
+        "render-probe-heavy": "sol-medium"
+      },
       "system-design-dispute": "stop"
     },
     "resliceShapes": [
@@ -41,7 +57,13 @@
     "freshContext": true,
     "sandbox": "read-only",
     "writeScope": "none",
-    "requiredReslice": true
+    "requiredReslice": true,
+    "routing": {
+      "unique-resolution": "sol-high",
+      "authority-conflict": "sol-xhigh",
+      "multiple-valid-product-directions": "sol-high",
+      "irreversible-public-contract-tradeoff": "sol-high"
+    }
   },
   "uxAcceptance": {
     "role": "ux-acceptance-verifier",
@@ -92,5 +114,23 @@
     "component-wrapper",
     "consumer-local-parser",
     "consumer-local-offset-map"
-  ]
+  ],
+  "executionProfiles": {
+    "sol-low": {
+      "model": "gpt-5.6-sol",
+      "effort": "low"
+    },
+    "sol-medium": {
+      "model": "gpt-5.6-sol",
+      "effort": "medium"
+    },
+    "sol-high": {
+      "model": "gpt-5.6-sol",
+      "effort": "high"
+    },
+    "sol-xhigh": {
+      "model": "gpt-5.6-sol",
+      "effort": "xhigh"
+    }
+  }
 }

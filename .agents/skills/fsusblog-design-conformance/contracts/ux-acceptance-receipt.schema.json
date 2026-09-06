@@ -1,11 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:fsusblog-design-conformance:ux-acceptance-receipt:v1",
-  "title": "fsusblog-design-conformance.ux-acceptance-receipt.v1",
+  "$id": "urn:fsusblog-design-conformance:ux-acceptance-receipt:v2",
+  "title": "fsusblog-design-conformance.ux-acceptance-receipt.v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema",
+    "stagePolicyDigest",
     "repository",
     "classificationReceiptDigest",
     "dispatchReceiptDigest",
@@ -36,7 +37,7 @@
   ],
   "properties": {
     "schema": {
-      "const": "fsusblog-design-conformance.ux-acceptance-receipt.v1"
+      "const": "fsusblog-design-conformance.ux-acceptance-receipt.v2"
     },
     "repository": {
       "const": "Ozwasyd/FsusBlog"
@@ -58,21 +59,16 @@
       "pattern": "^[a-f0-9]{64}$"
     },
     "actualModel": {
-      "const": "gpt-5.6-sol"
+      "type": "string",
+      "minLength": 1
     },
     "actualEffort": {
-      "enum": [
-        "medium",
-        "high",
-        "xhigh"
-      ]
+      "type": "string",
+      "minLength": 1
     },
     "actualProfile": {
-      "enum": [
-        "sol-medium",
-        "sol-high",
-        "sol-xhigh"
-      ]
+      "type": "string",
+      "minLength": 1
     },
     "freshContext": {
       "const": true
@@ -165,6 +161,14 @@
     "receiptDigest": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
+    },
+    "stagePolicyDigest": {
+      "$ref": "urn:fsusblog-design-conformance:ui-execution-profiles:v2#/$defs/stagePolicyDigest"
     }
-  }
+  },
+  "allOf": [
+    {
+      "$ref": "urn:fsusblog-design-conformance:ui-execution-profiles:v2#/$defs/uxAcceptance"
+    }
+  ]
 }

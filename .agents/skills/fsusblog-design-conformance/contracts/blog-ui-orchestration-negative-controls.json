@@ -16,11 +16,11 @@
     "expectedCode": "blog-ui-prompt-incomplete"
   },
   {
-    "id": "N05-prescribed-sol-medium",
+    "id": "N05-prescribed-wrong-profile",
     "expectedCode": "blog-ui-route-mismatch"
   },
   {
-    "id": "N06-ui-implementer-sol-high",
+    "id": "N06-ui-implementer-adjudication-profile",
     "expectedCode": "blog-ui-route-mismatch"
   },
   {

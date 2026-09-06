@@ -7,13 +7,30 @@
 
 FsusBlog is content-first editorial reading with a quiet, compact task surface. Public pages make content the visual focus; account and admin pages make the current task the focus. Both share FsusUI components, tokens, states, and interaction language; neither creates a general-purpose UI system.
 
+## Task routing
+
+Choose context and completion requirements from the actual change, not its line count or the selected model. The repository [design Skill](../../.agents/skills/fsusblog-design-conformance/SKILL.md) routes to task-specific references.
+
+| Task | Required scope and completion |
+| --- | --- |
+| Editorial-only correction, with no contract or observable behavior change | Verify the relevant paragraph/authority and affected documentation checks. No upstream checkout, browser run, or UI dispatch is required solely for spelling or link repair. |
+| Semantic design-document change without application changes | Establish ownership, update applicable current contracts and checks, and resolve FsusUI only for FsusUI-dependent claims. Do not claim the intended rendered behavior is implemented or accepted. |
+| Agent/Skill or scheduler-policy change without application changes | Verify the affected policy, schema, checker, generated output, and integration contract. Documentation-stage dependencies of an observable UI task do not block this isolated tooling task. |
+| Read-only rendered review | Resolve the active baseline, apply relevant contracts, inspect affected states, and report findings. Formal independent UX acceptance additionally requires the complete orchestrated receipt chain. |
+| Observable UI implementation, including copy, CSS, layout, or interaction changes | Freeze classification, use the current stage policy, respect writer leases, and perform independent behavior/UX acceptance. A one-line change or a `prescribed` classification is not an exemption. |
+| Backend-only or non-visual frontend runtime work | Use the relevant architecture/protocol/test contracts; do not load the design workflow solely because the path is in the frontend. |
+
+A mixed task retains the stronger requirements for its affected observable surfaces; labeling it documentation or tooling cannot bypass them. Uncertainty about impact requires inspecting the relevant implementation, not assuming exemption. A documentation or policy change that requires application changes is not complete until those requested changes and their applicable verification are complete.
+
+Model selection and exact receipt bindings belong to the [stage policy](../../.agents/skills/fsusblog-design-conformance/contracts/blog-ui-stage-policy.json) and its checker, not AGENTS.md or repeated Skill prose. Changing the deployed model mapping requires owner-controlled policy migration and consumer revalidation; it does not remove design ownership, candidate identity, or acceptance requirements.
+
 ## 1. Baseline and precedence
 
-Resolve the active FsusUI baseline before every design task. The source of truth for the local alias is `src/frontend/scripts/fsusui-local.ts`:
+Resolve the active FsusUI baseline when implementation, review, or a semantic design claim depends on FsusUI. The local alias is determined by `src/frontend/scripts/fsusui-root.mjs`, its `fsusui-local.ts` consumer, and the active build configuration. Use the actual worktree-aware resolver and environment; do not replace them with a package-version guess or another path-discovery algorithm.
 
-- Unless `FSUSBLOG_USE_LOCAL_FSUSUI` is `0` or `false`, use `FSUSBLOG_LOCAL_FSUSUI_ROOT`, or the sibling `FsusUI`, when it contains valid source. Record its absolute path, Git HEAD, and dirty state.
-- Read that checkout's `docs/index.md`, `docs/design.md`, design governance, the relevant domain contract, and `.agents/skills/fsusui-design-conformance/SKILL.md`.
-- Only when the alias is inactive use the exact lockfile or CI-pinned package. Without authoritative design documents, report compatibility review only; do not claim current FsusUI conformance.
+- For active local source, record the absolute path, Git HEAD, package identity, dirty state and content fingerprint. Consult that checkout's `fsusui-design-conformance` Skill and the relevant current domain contract; use its index only when the authority is not already known.
+- Only when the alias is inactive use the exact installed/locked version or CI pin. Without authoritative design documents, report compatibility checks only; do not claim current FsusUI conformance.
+- Reuse verified context while checkout, alias inputs, pin, dirty files, consumed Skill/authority digests, and affected domain are unchanged. Refresh invalidated context and dependent receipts when any identity changes; do not mechanically reread the full documentation set before each edit.
 
 A local source alias outranks its package version, and current contract documents outrank historical screenshots. Resolve conflicts in this order:
 
