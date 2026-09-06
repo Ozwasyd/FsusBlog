@@ -105,6 +105,7 @@ StaticDependencyRequiredChecks() {
         --fixtures "$ROOT_DIR/tests/fixtures/governance/dependency-required-checks.json"
     Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/dependency-required-checks.test.mjs"
     Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/fsusui-release-event.test.mjs"
+    Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/fsusui-candidate.test.mjs"
 }
 StaticDependencyAutomerge() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-dependency-automerge.mjs" --root "$ROOT_DIR"

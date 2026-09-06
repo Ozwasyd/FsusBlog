@@ -88,7 +88,7 @@ async function fetchBytes(url, limit, transport) {
     }
 }
 
-function readPackage(tarball) {
+export function readFsusuiTarballManifest(tarball) {
     let listing;
     let manifest;
     try {
@@ -126,7 +126,7 @@ export async function verifyFsusuiReleaseEvent(rawPayload, { transport = fetch, 
     const tarball = await fetchBytes(version.dist.tarball, tarballLimit, transport);
     requireCondition(`sha512-${digest(tarball, 'sha512', 'base64')}` === payload.npmIntegrity, 'npm tarball integrity');
     requireCondition(digest(tarball) === payload.npmTarballSha256, 'npm tarball SHA-256');
-    const manifest = readPackage(tarball);
+    const manifest = readFsusuiTarballManifest(tarball);
     requireCondition(manifest?.name === packageName && manifest.version === payload.version, 'tarball name/version');
     const verifiedAt = now().toISOString();
     return seal({
