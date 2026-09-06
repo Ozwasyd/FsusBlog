@@ -428,6 +428,12 @@
             "pathType": "file"
         },
         {
+            "id": "clean-attempt-evidence-input-schema",
+            "owner": "test-attempt-governance",
+            "canonicalPath": "config/schemas/clean-attempt-evidence-input.schema.json",
+            "pathType": "file"
+        },
+        {
             "id": "correctness-attempt-producers-schema",
             "owner": "test-attempt-governance",
             "canonicalPath": "config/schemas/correctness-attempt-producers.schema.json",
