@@ -178,13 +178,16 @@ public sealed class NotificationStreamReleaseDrainParticipant(
         NotificationStreamDeliverySnapshot dispatch = fanout.DeliverySnapshot;
         bool changed = before.Sequence != dispatch.Sequence;
         int activeConnections = connections.ConnectionCount;
+        long replayReadFailures = writes.ReplayReadFailures;
         long pending = activeConnections + writes.Outstanding + dispatch.Outstanding + (changed ? 1 : 0);
         long transferred = writes.DurableReplayTransferred + dispatch.DurableReplayTransferred;
         string? error = writes.TerminalFailures + dispatch.TerminalFailures > 0
             ? "notification_delivery_terminal_failure"
-            : writes.ReplayRequired + dispatch.ReplayRequired > 0
-                ? "notification_replay_unproven"
-                : null;
+            : replayReadFailures > 0
+                ? "notification_replay_read_failed"
+                : writes.ReplayRequired + dispatch.ReplayRequired > 0
+                    ? "notification_replay_unproven"
+                    : null;
         List<string> blockers = [];
         AddPending("active-connections", activeConnections);
         AddPending("fanout-queued", dispatch.Queued);
@@ -192,7 +195,12 @@ public sealed class NotificationStreamReleaseDrainParticipant(
         AddPending("connection-queued", writes.Queued);
         AddPending("connection-in-flight", writes.InFlight);
         AddPending("unproven-replay", writes.ReplayRequired + dispatch.ReplayRequired);
+        AddPending("replay-read-failures", replayReadFailures);
         AddPending("terminal-failures", writes.TerminalFailures + dispatch.TerminalFailures);
+        if (replayReadFailures > 0 && !string.IsNullOrWhiteSpace(writes.LastFailure))
+        {
+            blockers.Add($"last-failure={writes.LastFailure}");
+        }
         if (changed)
         {
             blockers.Add("observation-changed=true");

@@ -64,7 +64,37 @@ internal sealed class NotificationStreamSessionService(
             }
 
             long replayStarted = Stopwatch.GetTimestamp();
-            var replay = await backlogStore.ReplayAsync(cursor, handshake.UserId, handshake.Groups, cancellationToken);
+            NotificationStreamReplayBatch replay;
+            try
+            {
+                replay = await backlogStore.ReplayAsync(cursor, handshake.UserId, handshake.Groups, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                manager.RecordReplayReadFailure("replay-read-exception", 1);
+                logger.LogWarning(ex, "notification-stream-replay-read-exception {ConnectionId}", connectionId);
+                await CloseSocketAsync(
+                    socket,
+                    sendGate,
+                    NotificationStreamRestartProtocol.ReplayRequired("replay-read-exception"));
+                return;
+            }
+
+            if (replay.RetryableFailure)
+            {
+                manager.RecordReplayReadFailure(replay.FailureReason ?? "replay-read-failed", replay.Attempts);
+                ReleaseReplayFrames(replay.Frames);
+                await CloseSocketAsync(
+                    socket,
+                    sendGate,
+                    NotificationStreamRestartProtocol.ReplayRequired(replay.FailureReason ?? "replay-read-failed"));
+                return;
+            }
+
             if (replay.MissedGap)
             {
                 ReleaseReplayFrames(replay.Frames);
@@ -73,6 +103,11 @@ internal sealed class NotificationStreamSessionService(
                     sendGate,
                     NotificationStreamRestartProtocol.Resolve(replayMissed: true, serviceRestartRequested: false));
                 return;
+            }
+
+            if (cursor.HasValue && replay.IsSuccessful)
+            {
+                manager.ResolveReplayReadFailure();
             }
 
             if (restartCoordinator?.IsRestartRequested == true)

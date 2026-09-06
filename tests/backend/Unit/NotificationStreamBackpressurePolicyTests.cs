@@ -30,7 +30,7 @@ public sealed class NotificationStreamBackpressurePolicyTests
     }
 
     [Fact]
-    public async Task LocalFanout_StateLaneCoalescesSameKeyToLatestFrame()
+    public async Task LocalFanout_StateLaneRetainsPendingWhenNewerFrameLacksDurableProof()
     {
         NotificationStreamLocalFanoutQueue queue = CreateQueue();
         NotificationStreamDeliveryPolicy policy =
@@ -47,13 +47,13 @@ public sealed class NotificationStreamBackpressurePolicyTests
         latest.Release();
 
         Assert.Equal(NotificationStreamFanoutEnqueueStatus.Enqueued, firstResult.Status);
-        Assert.Equal(NotificationStreamFanoutEnqueueStatus.Coalesced, latestResult.Status);
-        Assert.Equal(1, queue.CoalescedCount);
+        Assert.Equal(NotificationStreamFanoutEnqueueStatus.ReplayRequired, latestResult.Status);
+        Assert.Equal(0, queue.CoalescedCount);
 
         NotificationStreamLocalFanoutWorkItem dequeued = await queue.DequeueAsync(CancellationToken.None);
-        Assert.Equal(11, dequeued.EventId);
-        Assert.Equal(1, dequeued.CoalescedOccurrences);
-        Assert.Equal((byte)2, dequeued.Frame.Memory.Span[0]);
+        Assert.Equal(10, dequeued.EventId);
+        Assert.Equal(0, dequeued.CoalescedOccurrences);
+        Assert.Equal((byte)1, dequeued.Frame.Memory.Span[0]);
         dequeued.Frame.Release();
     }
 
@@ -79,15 +79,23 @@ public sealed class NotificationStreamBackpressurePolicyTests
         latest.Release();
         incoming.Release();
 
-        Assert.Equal(NotificationStreamFanoutEnqueueStatus.Coalesced, result.Status);
-        Assert.Equal(incomingCursor > 11 ? "latest-state-replaced" : "latest-cursor-retained", result.Reason);
+        Assert.Equal(incomingCursor == 11
+            ? NotificationStreamFanoutEnqueueStatus.Coalesced
+            : NotificationStreamFanoutEnqueueStatus.ReplayRequired, result.Status);
+        Assert.Equal(
+            incomingCursor == 11
+                ? "latest-cursor-retained"
+                : incomingCursor > 11
+                    ? "pending-backlog-unproven"
+                    : "stale-input-backlog-unproven",
+            result.Reason);
         NotificationStreamLocalFanoutWorkItem item = await queue.DequeueAsync(CancellationToken.None);
         try
         {
-            Assert.Equal(Math.Max(11, incomingCursor), item.EventId);
-            Assert.Equal((byte)Math.Max(11, incomingCursor), item.Frame.Memory.Span[0]);
-            Assert.Equal(1, item.CoalescedOccurrences);
-            Assert.Equal(0, queue.DroppedCount);
+            Assert.Equal(11, item.EventId);
+            Assert.Equal((byte)11, item.Frame.Memory.Span[0]);
+            Assert.Equal(incomingCursor == 11 ? 1 : 0, item.CoalescedOccurrences);
+            Assert.Equal(incomingCursor == 11 ? 0 : 1, queue.DroppedCount);
         }
         finally
         {

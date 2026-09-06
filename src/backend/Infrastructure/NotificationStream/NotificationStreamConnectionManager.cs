@@ -214,6 +214,28 @@ public sealed class NotificationStreamConnectionManager(
         return connections.Count;
     }
 
+    internal void RecordReplayReadFailure(string reason, int attempts)
+    {
+        string detail = string.Create(
+            System.Globalization.CultureInfo.InvariantCulture,
+            $"notification-replay-read-failed:{NormalizeReplayReason(reason)}:attempts={Math.Max(1, attempts)}");
+        _delivery.Transition(replayReadFailures: 1, reason: detail);
+    }
+
+    internal bool ResolveReplayReadFailure()
+        => _delivery.TryResolveReplayReadFailure("notification-replay-read-recovered");
+
+    private static string NormalizeReplayReason(string reason)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return "unknown";
+        }
+
+        string normalized = reason.Trim().ToLowerInvariant();
+        return normalized[..Math.Min(normalized.Length, 64)];
+    }
+
     private static long EstimatePublishAllocationBytes(NotificationStreamTarget target)
         => target is NotificationStreamMultiUserTarget multi
             ? Math.Max(0, multi.UserIds.Count) * 32L

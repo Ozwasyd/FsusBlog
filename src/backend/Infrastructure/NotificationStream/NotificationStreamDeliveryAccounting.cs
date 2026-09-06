@@ -21,9 +21,15 @@ internal sealed record NotificationStreamDeliverySnapshot(
     long AllowedDrops,
     long TerminalFailures,
     long Sequence,
-    string? LastFailure)
+    string? LastFailure,
+    long ReplayReadFailures = 0)
 {
-    public long Outstanding => Math.Max(0, Queued) + Math.Max(0, InFlight) + ReplayRequired + TerminalFailures;
+    public long Outstanding
+        => Math.Max(0, Queued)
+            + Math.Max(0, InFlight)
+            + ReplayRequired
+            + ReplayReadFailures
+            + TerminalFailures;
 }
 
 internal readonly record struct NotificationStreamFanoutDispatchResult(int Accepted, int Rejected);
@@ -51,7 +57,8 @@ internal sealed class NotificationStreamDeliveryAccounting
         long transferred = 0,
         long dropped = 0,
         long terminal = 0,
-        string? reason = null)
+        string? reason = null,
+        long replayReadFailures = 0)
     {
         lock (_gate)
         {
@@ -67,9 +74,10 @@ internal sealed class NotificationStreamDeliveryAccounting
                 AllowedDrops = _snapshot.AllowedDrops + dropped,
                 TerminalFailures = _snapshot.TerminalFailures + terminal,
                 Sequence = _snapshot.Sequence + 1,
-                LastFailure = reason ?? _snapshot.LastFailure
+                LastFailure = reason ?? _snapshot.LastFailure,
+                ReplayReadFailures = _snapshot.ReplayReadFailures + replayReadFailures
             };
-            if (_snapshot.Queued < 0 || _snapshot.InFlight < 0)
+            if (_snapshot.Queued < 0 || _snapshot.InFlight < 0 || _snapshot.ReplayReadFailures < 0)
             {
                 _snapshot = _snapshot with
                 {
@@ -77,6 +85,22 @@ internal sealed class NotificationStreamDeliveryAccounting
                 };
                 throw new InvalidOperationException("notification delivery accounting underflow");
             }
+        }
+    }
+
+    internal bool TryResolveReplayReadFailure(string reason)
+    {
+        lock (_gate)
+        {
+            if (_snapshot.ReplayReadFailures == 0)
+            {
+                return false;
+            }
+
+            Transition(
+                reason: reason,
+                replayReadFailures: -1);
+            return true;
         }
     }
 }

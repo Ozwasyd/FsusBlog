@@ -1,3 +1,5 @@
+using System.Buffers;
+using System.Globalization;
 using System.Net.WebSockets;
 using System.Runtime.CompilerServices;
 
@@ -16,12 +18,211 @@ using NSubstitute;
 
 using StackExchange.Redis;
 
+using Xunit.Abstractions;
+
 namespace FsusBlog.Server.Tests.Unit;
 
-public sealed class NotificationStreamDeliveryAccountingTests
+public sealed class NotificationStreamDeliveryAccountingTests(ITestOutputHelper output)
 {
     private static readonly NotificationStreamDeliveryPolicy s_policy =
         NotificationStreamDeliveryPolicyCatalog.GetRequired(NotificationStreamEventType.NoticeReceived);
+
+    [Fact]
+    public async Task CoalescingEvidence_NewProofDoesNotDischargeUnprovenOldInput()
+    {
+        var (publisher, queue, manager, database) = CreatePublisher();
+        database.StringIncrementAsync(Arg.Any<RedisKey>(), Arg.Any<long>(), Arg.Any<CommandFlags>()).Returns(11L);
+        database.StreamAddAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<RedisValue>(),
+            Arg.Any<RedisValue?>(), Arg.Any<int?>(), Arg.Any<bool>(), Arg.Any<CommandFlags>()).Returns((RedisValue)"11-0");
+        var target = new NotificationStreamUserTarget("proof-account");
+        var policy = NotificationStreamDeliveryPolicyCatalog.GetRequired(NotificationStreamEventType.UnreadCountUpdated);
+        string route = NotificationStreamTargetRouteCodec.TryEncode(target).Value!;
+        string key = string.Create(CultureInfo.InvariantCulture,
+            $"{(short)policy.EventType}:{policy.CoalescingKey}:{route}:{route}");
+        var pool = new EvidenceFramePool();
+        var old = OwnedEvidenceFrame(pool, 10, policy.EventType);
+        Assert.True(queue.TryEnqueue(old, target, policy, key, 10).Accepted);
+        old.Release();
+        Assert.Equal(0, pool.ReturnCount);
+        manager.RegisterConnection("new-proof", "proof-account", []);
+        try
+        {
+            Assert.True((await publisher.PublishAsync(policy.EventType, 11, target)).IsSuccess);
+            int retiredBeforeDispatch = pool.ReturnCount;
+            using var worker = new NotificationStreamLocalFanoutWorker(queue, manager,
+                NullLogger<NotificationStreamLocalFanoutWorker>.Instance, TimeProvider.System);
+            await worker.ProcessOnceAsync(CancellationToken.None);
+            manager.RemoveConnection("new-proof");
+            ReleaseDrainParticipantSnapshot snapshot = CreateParticipant(manager, queue).Snapshot();
+            output.WriteLine($"simulation old=10/no-proof new=11/awaited-append key={key}; oldReturnsBeforeDispatch={retiredBeforeDispatch}; fanout={queue.DeliverySnapshot}; connection={manager.DeliverySnapshot}; drain={snapshot}");
+            Assert.Equal(0, manager.DeliverySnapshot.SocketWriteCompleted);
+            Assert.Equal(0, queue.DeliverySnapshot.TerminalFailures + manager.DeliverySnapshot.TerminalFailures);
+            Assert.True(retiredBeforeDispatch == 0 || snapshot.PendingCount > 0,
+                $"Unproven old cursor 10 was retired; only cursor 11 was appended, yet drain={snapshot.Status}, pending={snapshot.PendingCount}, durableTransferred={manager.DeliverySnapshot.DurableReplayTransferred}.");
+        }
+        finally
+        {
+            manager.RemoveConnection("new-proof");
+            while (queue.DeliverySnapshot.Queued > 0)
+            {
+                NotificationStreamLocalFanoutWorkItem pending = await queue.DequeueAsync(CancellationToken.None);
+                queue.CompleteDelivery(pending, false, false, "simulation-evidence-cleanup");
+                pending.Frame.Release();
+            }
+            Assert.Equal(1, pool.ReturnCount);
+        }
+    }
+
+    [Fact]
+    public async Task CoalescingEvidence_StaleAndDuplicateInputsHaveDistinctBoundResults()
+    {
+        var queue = NotificationStreamBackpressureTestSupport.CreateQueue();
+        var target = new NotificationStreamUserTarget("evidence-account");
+        var policy = NotificationStreamDeliveryPolicyCatalog.GetRequired(NotificationStreamEventType.UnreadCountUpdated);
+        var retainedPool = new EvidenceFramePool();
+        var stalePool = new EvidenceFramePool();
+        var duplicatePool = new EvidenceFramePool();
+        var retained = OwnedEvidenceFrame(retainedPool, 11, policy.EventType);
+        var stale = OwnedEvidenceFrame(stalePool, 10, policy.EventType);
+        var duplicate = OwnedEvidenceFrame(duplicatePool, 11, policy.EventType);
+        const string Key = "simulation-same-scope-target-policy-key";
+        Assert.True(queue.TryEnqueue(retained, target, policy, Key, 11).Accepted);
+        retained.Release();
+        NotificationStreamFanoutEnqueueResult staleResult = queue.TryEnqueue(stale, target, policy, Key, 10);
+        stale.Release();
+        NotificationStreamFanoutEnqueueResult duplicateResult = queue.TryEnqueue(duplicate, target, policy, Key, 11);
+        duplicate.Release();
+        Assert.Equal(0, retainedPool.ReturnCount);
+        Assert.Equal(1, stalePool.ReturnCount);
+        Assert.Equal(1, duplicatePool.ReturnCount);
+        retained.Retain();
+        retained.Release();
+        NotificationStreamLocalFanoutWorkItem item = await queue.DequeueAsync(CancellationToken.None);
+        try
+        {
+            Assert.Equal(11, item.EventId);
+            Assert.Equal(target, item.Target);
+            Assert.Equal(policy, item.Policy);
+            Assert.Equal(Key, item.CoalescingKey);
+            Assert.Same(retained, item.Frame);
+            Assert.Equal(1, queue.CoalescedCount);
+            output.WriteLine($"simulation incoming cursor10={staleResult}; incoming cursor11/same-bytes={duplicateResult}; retained cursor={item.EventId}, key={item.CoalescingKey}; before cleanup accounting={queue.DeliverySnapshot}; returns retained/stale/duplicate={retainedPool.ReturnCount}/{stalePool.ReturnCount}/{duplicatePool.ReturnCount}");
+            Assert.NotEqual(staleResult, duplicateResult);
+        }
+        finally
+        {
+            queue.CompleteDelivery(item, false, false, "simulation-evidence-cleanup");
+            item.Frame.Release();
+            Assert.Equal(1, retainedPool.ReturnCount);
+            Assert.Equal(1, stalePool.ReturnCount);
+            Assert.Equal(1, duplicatePool.ReturnCount);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CoalescingEvidence_RequireRecoverySignalsOnlyCurrentConnections(bool connected)
+    {
+        var manager = CreateManager();
+        var target = new NotificationStreamUserTarget("evidence-account");
+        var connection = connected ? manager.RegisterConnection("recovery", "evidence-account", []) : null;
+        int signalled = manager.RequireRecovery(target, s_policy, 10, "simulation-undelivered-input");
+        Assert.Equal(connected ? 1 : 0, signalled);
+        if (connection is not null)
+        {
+            Assert.True(connection.IsClosed);
+            Assert.Equal(NotificationStreamRestartCloseCodes.ReplayRequired, connection.CloseInstruction.CloseCode);
+            Assert.True(connection.CloseInstruction.PreserveCursor);
+            Assert.False(connection.CloseInstruction.RequireFullResync);
+        }
+        manager.RemoveConnection("recovery");
+        output.WriteLine($"simulation RequireRecovery connected={connected}, signalled={signalled}, close={connection?.CloseInstruction}, delivery={manager.DeliverySnapshot}");
+        Assert.Equal(0, manager.DeliverySnapshot.Outstanding);
+        Assert.Equal(0, manager.DeliverySnapshot.DurableReplayTransferred);
+        Assert.Equal(0, manager.DeliverySnapshot.TerminalFailures);
+    }
+
+    [Fact]
+    public async Task CoalescingEvidence_RecoveryReadFailureDoesNotBecomeSuccessfulEmptyReplay()
+    {
+        var manager = CreateManager();
+        var connection = manager.RegisterConnection("read-failure", "evidence-account", []);
+        manager.RequireRecovery(new NotificationStreamUserTarget("evidence-account"), s_policy, 10,
+            "simulation-undelivered-input");
+        Assert.Equal(NotificationStreamRestartCloseCodes.ReplayRequired, connection.CloseInstruction.CloseCode);
+        manager.RemoveConnection("read-failure");
+        var redis = Substitute.For<IConnectionMultiplexer>();
+        var database = Substitute.For<IDatabase>();
+        var batch = Substitute.For<IBatch>();
+        var scope = Substitute.For<IRuntimeKeyScope>();
+        redis.GetDatabase().Returns(database);
+        database.CreateBatch().Returns(batch);
+        scope.PrefixKey(Arg.Any<string>()).Returns(call => "queues-coalescing-evidence:" + call.Arg<string>());
+        batch.StreamRangeAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue?>(), Arg.Any<RedisValue?>(), Arg.Any<int?>(),
+            Arg.Any<Order>(), Arg.Any<CommandFlags>())
+            .Returns(_ => Task.FromException<StreamEntry[]>(new IOException("simulated Redis replay read failure")));
+        var backlog = new NotificationStreamBacklogStore(redis, scope, NullLogger<NotificationStreamBacklogStore>.Instance);
+
+        NotificationStreamReplayBatch? replay = null;
+        Exception? failure = await Record.ExceptionAsync(async () =>
+        {
+            replay = await backlog.ReplayAsync(new NotificationStreamCursor(9), "evidence-account", new HashSet<string>());
+        });
+        output.WriteLine($"simulation retry cursor9 for failed cursor10: exception={failure?.GetType().Name ?? "none"}, frames={replay?.Frames.Count}, missedGap={replay?.MissedGap}; manager={manager.DeliverySnapshot}");
+        try
+        {
+            Assert.Null(failure);
+            Assert.True(replay?.RetryableFailure == true,
+                "A failed replay read became a normal empty batch; Session can continue live without proving cursor10 delivered.");
+            Assert.Equal(3, replay?.Attempts);
+            Assert.Equal("replay-read-failed", replay?.FailureReason);
+            manager.RecordReplayReadFailure(replay!.FailureReason!, replay.Attempts);
+            ReleaseDrainParticipantSnapshot blocked = CreateParticipant(manager,
+                NotificationStreamBackpressureTestSupport.CreateQueue()).Snapshot();
+            Assert.Equal(1, manager.DeliverySnapshot.ReplayReadFailures);
+            Assert.Contains("replay-read-failures=1", blocked.Blockers!);
+            Assert.Equal("notification_replay_read_failed", blocked.ErrorCode);
+            Assert.True(manager.ResolveReplayReadFailure());
+            Assert.Equal(0, manager.DeliverySnapshot.ReplayReadFailures);
+        }
+        finally
+        {
+            if (replay is not null)
+            {
+                foreach (var frame in replay.Frames)
+                {
+                    frame.Release();
+                }
+            }
+        }
+    }
+
+    private static SharedNotificationStreamFrame OwnedEvidenceFrame(EvidenceFramePool pool, byte cursor,
+        NotificationStreamEventType eventType)
+    {
+        byte[] buffer = pool.Rent(2);
+        buffer[0] = cursor;
+        buffer[1] = (byte)eventType;
+        return SharedNotificationStreamFrame.FromOwnedBuffer(buffer, 2, pool);
+    }
+
+    private sealed class EvidenceFramePool : ArrayPool<byte>
+    {
+        internal int ReturnCount
+        {
+            get; private set;
+        }
+        public override byte[] Rent(int minimumLength) => new byte[minimumLength];
+        public override void Return(byte[] array, bool clearArray = false)
+        {
+            ReturnCount++;
+            if (clearArray)
+            {
+                Array.Clear(array);
+            }
+        }
+    }
 
     [Theory]
     [InlineData("success")]
