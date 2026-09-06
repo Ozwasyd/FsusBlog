@@ -603,7 +603,44 @@ public sealed class PublicAotBackfillReleaseDrainParticipant(
     public override TimeSpan MaxDrain => TimeSpan.FromSeconds(20);
     protected override string Classification => "active-singleton";
     protected override string ReplaySource => "public AOT route registry";
-    protected override long ReadPendingCount() => scheduler.InFlightCount;
+    protected override long ReadPendingCount() => scheduler.Snapshot().OutstandingCount;
+
+    public override ReleaseDrainParticipantSnapshot Snapshot()
+    {
+        PublicAotBackfillQueueSnapshot snapshot = scheduler.Snapshot();
+        List<string> blockers = [];
+        Add("queued", snapshot.QueuedCount);
+        Add("in-flight", snapshot.InFlightCount);
+        Add("durable-pending", snapshot.DurablePendingCount);
+        Add("terminal-failed", snapshot.TerminalFailureCount);
+        if (snapshot.TargetGeneration > 0)
+        {
+            blockers.Add($"target-generation={snapshot.TargetGeneration}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(snapshot.LastFailureReason))
+        {
+            blockers.Add($"last-failure={snapshot.LastFailureReason}");
+        }
+
+        return new ReleaseDrainParticipantSnapshot(
+            Name,
+            Classification,
+            snapshot.OutstandingCount,
+            snapshot.OutstandingCount == 0 ? "drained" : snapshot.TerminalFailureCount > 0 ? "terminal-failed" : "pending",
+            MaxDrain,
+            ReplaySource,
+            snapshot.TerminalFailureCount > 0 ? "public_aot_backfill_terminal_failure" : null,
+            blockers.Count == 0 ? null : blockers);
+
+        void Add(string name, long value)
+        {
+            if (value > 0)
+            {
+                blockers.Add($"{name}={value}");
+            }
+        }
+    }
 }
 
 public sealed class UploadCleanupReleaseDrainParticipant(
