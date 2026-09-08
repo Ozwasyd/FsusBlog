@@ -1,17 +1,13 @@
-# 私有请求身份代际
+# Private request generations
 
-前端私有请求统一由 `PrivateRequestRuntime` 分配 generation lease。generation 是仅存在于内存的单调数字，不包含账户、管理员、Cookie、权限或会话标识，也不会写入 URL、存储、遥测和 BroadcastChannel。
+`PrivateRequestRuntime` assigns every private frontend request a generation lease. A generation is a monotonic in-memory number: it contains no account, admin, Cookie, permission, or session identifier and is never written to a URL, storage, telemetry, or `BroadcastChannel`.
 
-## 边界
+## Boundaries
 
-- `account`：账户 API，以及可能携带账户专属投影的 optional-auth 读取。
-- `admin`：独立管理员会话 API。
-- `public`：匿名公共读取，不登记身份切换 abort，也不受 generation 变化影响。
+`account` covers account APIs and optional-auth reads that may carry an account-specific projection; `admin` covers independent administrator-session APIs; `public` covers anonymous reads, which do not register identity-switch aborts and are unaffected by generation changes.
 
-generated binary route 从权威 route descriptor 的 `auth` 字段推导 scope。历史 `binaryUrl` 调用必须显式声明 `privateScope`；直接 `fetch` 或 `binaryRequest` 的私有 API 必须通过 `runPrivateRequest`。API Promise 只有在响应 generation 仍等于当前 generation 时才能返回，因此 Pinia、composable 和直接调用者共享同一个提交屏障。
+Generated binary routes derive scope from the authoritative route descriptor's `auth` field. Legacy `binaryUrl` calls must declare `privateScope`; private APIs using direct `fetch` or `binaryRequest` must use `runPrivateRequest`. A promise resolves only while its response generation equals the current generation, so Pinia, composables, and direct callers share one commit barrier. Logout, session expiry, and account switch advance account generation and abort registered requests; admin logout/session change advances only admin generation. Optional-auth public transport is not forcibly aborted, but a previous-identity projection is discarded before commit.
 
-账号退出、会话过期和账号切换会先推进 account generation 并 abort 已登记请求；管理员退出或管理员会话变化只推进 admin generation。optional-auth 公共传输不会被强制 abort，但若包含上一身份投影，其结果会在提交前丢弃。
+## Risk and no-restart rollback
 
-## 风险与无重启回退
-
-该机制不改变服务端 Session、Cookie、AEDS 帧或 API 响应。旧响应以 `AbortError` 语义退出，既有 composable 的中止分支可安全忽略。若需要回退，只需回滚前端静态资源，无需重启后端；服务端鉴权仍是最终授权边界。账户与管理员 generation 独立，避免账户退出无谓取消仍有效的管理员请求。
+This mechanism does not change server Sessions, Cookies, AEDS frames, or API responses. Stale responses exit with `AbortError`, which existing composable abort branches may safely ignore. Rollback is a frontend static-asset rollback and needs no backend restart; server authorization remains final. Separate account and admin generations prevent account logout from needlessly cancelling valid admin requests.

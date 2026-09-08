@@ -1,50 +1,50 @@
-# 普通账号 Session 认证上下文
+# Ordinary-account session authentication context
 
-本文档定义普通账号 `UserSession` 的登录来源、认证时效、step-up proof、Cookie 持续时间与会话列表隐私边界。独立的 admin principal/session 平面不复用这里的字段或 proof。
+This document defines ordinary-account `UserSession` login provenance, authentication freshness, step-up proof, Cookie duration, and session-list privacy. The independent admin principal/session plane does not reuse these fields or proofs. See the [security model](../security.md) and [Refresh Token lineage](refresh-token-lineage.md) for canonical cross-cutting rules.
 
-## 安全不变量
+## Security invariants
 
-- Session 记录的是“该会话最初如何完成认证”，不是“此后所有敏感操作均已授权”。
-- `MfaVerified` 和 JWT `mfa` 只允许作为迁移兼容、粗粒度策略与审计信号；它们不是敏感操作的充分证明。
-- 敏感操作必须使用绑定账号、当前 Session 和 action 的短期一次性 proof。Refresh 不复制、不续期也不重新签发该 proof。
-- Passkey 来源只保存内部 `passkey_credential` 行 ID；原始 credential ID 不进入 JWT、URL、日志、telemetry 或普通会话列表。
-- 所有认证与 step-up 时间均按 UTC 写入和比较。无效枚举、缺失认证时间、缺失当前 Session 或数据库/JWT Session 不一致时 fail closed。
+- A Session records how it was initially authenticated, not authorization for every later sensitive action.
+- `MfaVerified` and JWT `mfa` are migration/coarse-policy/audit signals only, never sufficient sensitive-operation proof.
+- Sensitive actions require a short-lived, one-time proof bound to account, current Session, and action; refresh neither copies, renews, nor reissues it.
+- Passkey provenance stores only the internal `passkey_credential` row ID; the raw credential ID never enters JWT, URL, logs, telemetry, or ordinary session lists.
+- Write and compare all authentication/step-up times in UTC. Invalid enums, missing auth time/current Session, or database/JWT Session mismatch fail closed.
 
-## 字段与登录来源
+## Fields and login provenance
 
-字段列表、认证方法、认证强度及它们的 current 关系由下方 generated sections 与 controlled prose claims 承载。本节只保留设计理由：Session 记录初始认证来源，敏感操作仍需要单独的 action-bound proof。
+The generated sections and controlled prose claims below carry the field list, methods, strengths, and current relations. The design rule is only that a Session records initial provenance and sensitive actions require separate action-bound proof.
 
-## JWT 与 Refresh
+## JWT and refresh
 
-请求验证以服务端 active Session 为权威；JWT 不是一次性 proof 或 credential 秘密的保存处。精确保留字段与不保留字段见下方 generated refresh context。
+Request validation trusts the server-side active Session; JWT is neither a one-time proof nor a credential-secret store. The generated refresh context below is authoritative for exact preserved/omitted fields.
 
-Refresh 的保留与禁止关系不在此手写，由下方 refresh generated section 与 directional claims 唯一承载。
+The generated refresh section and directional claims uniquely carry refresh-preservation and prohibition relations; this prose does not duplicate them. See [JWT signing-key rotation](jwt-key-rotation.md) for key lifecycle.
 
 ## Action-bound step-up proof
 
-敏感操作使用 action-bound proof。精确 binding 集合与 consume-once 关系只由下方 generated section 和 directional claims 承载。
+Sensitive operations use action-bound proof. The generated section and directional claims below are the sole authority for exact binding and consume-once relations.
 
-Step-up freshness 的精确配置键、默认值与范围由下方 generated section 唯一承载。审计投影不代替 proof cache 的一次性状态。
+The generated section alone specifies step-up freshness key, default, and range. Audit projections never replace one-time proof-cache state.
 
-## Duration policy 与 Cookie
+## Duration policy and Cookie
 
-Duration mode、Cookie 投影及 idle/absolute policy 的精确枚举和时长均由下方 generated sections 唯一承载；本节不保留手写兼容表。
+Generated sections alone specify duration-mode/Cookie projections and exact idle/absolute enums and durations; no handwritten compatibility table is maintained here.
 
-## 会话列表隐私
+## Session-list privacy
 
-`GET /api/binary/auth/sessions` 只返回账号自己的 active Session，并限制为安全展示所需的最小信息：
+`GET /api/binary/auth/sessions` returns only the account's active Sessions and the minimum safe-display data:
 
-- Session 的公开撤销标识和是否为当前 Session；
-- 设备粗粒度标签；
-- 创建时间、最近活动时间；
-- 登录方法、持续时间策略；
-- 若存在，仅返回 Passkey 友好名称。
+- public revocation identifier and whether it is the current Session;
+- coarse device label;
+- creation and last-activity times;
+- login method and duration policy;
+- Passkey friendly name, only when present.
 
-不得返回内部 `AuthenticatedCredentialRowId`、原始 WebAuthn credential ID、Refresh Token、JWT、proof、原始 IP、完整 User-Agent、精确认证器/设备指纹或可跨站关联的高熵标识。底层缺少凭据行或友好名称时显示稳定的低信息量 fallback，不得回退输出内部 ID。列表中的认证强度/MFA 展示不能成为授权决定；敏感操作仍重新验证当前 Session 并消费 action-bound proof。
+Never return internal `AuthenticatedCredentialRowId`, raw WebAuthn credential ID, Refresh Token, JWT, proof, raw IP, full User-Agent, exact authenticator/device fingerprint, or cross-site high-entropy identifiers. Missing credential rows/names use a stable low-information fallback, never an internal ID. Displayed auth strength/MFA is not authorization; sensitive actions revalidate the current Session and consume action-bound proof.
 
-## Migration 与验收边界
+## Migration and acceptance boundary
 
-迁移期状态不是 current auth 枚举的兼容副本。详细迁移机制与运行验收由 database migration 文档和 executable tests 承载；本 current authority 不再手写迁移映射、精确时长或验收矩阵。
+Migration states are not a compatibility copy of current auth enums. Database-migration documentation and executable tests own migration mechanics and runtime acceptance; this authority does not duplicate mappings, exact durations, or an acceptance matrix.
 
 ## Current session duration modes
 
@@ -213,7 +213,7 @@ factPath: facts.authRelationClaims.mfaEnabledStepUpMethod
 render: relation-subject-predicate-object
 -->
 
-`auth.relation.mfa-enabled-step-up-method`：`auth.mfa.state.enabled` conditional `permits-proof-method` `auth.step-up.mfa-proof`；condition 为 `account is active and the requested credential mutation accepts the MFA proof method`，scope 为 `current-account`、`bound-session`、`declared-action`、`declared-subject`。
+`auth.relation.mfa-enabled-step-up-method`: `auth.mfa.state.enabled` conditionally `permits-proof-method` `auth.step-up.mfa-proof` when `account is active and the requested credential mutation accepts the MFA proof method`; scope: `current-account`, `bound-session`, `declared-action`, `declared-subject`.
 
 <!-- fsus-doc-claim
 claimId: authentication-session-permission.relation.passkey-auth-strength
@@ -223,7 +223,7 @@ factPath: facts.authRelationClaims.passkeyAuthStrength
 render: relation-subject-predicate-object
 -->
 
-`auth.relation.passkey-auth-strength`：`auth.method.passkey` `results-in` `webauthn_uv`；condition 为 `successful user-verifying Passkey assertion`，scope 为 `current-account`、`bound-session`、`declared-action`、`declared-subject`。
+`auth.relation.passkey-auth-strength`: `auth.method.passkey` `results-in` `webauthn_uv` when `successful user-verifying Passkey assertion`; scope: `current-account`, `bound-session`, `declared-action`, `declared-subject`.
 
 <!-- fsus-doc-claim
 claimId: authentication-session-permission.relation.passkey-is-not-totp
@@ -233,7 +233,7 @@ factPath: facts.authRelationClaims.passkeyIsNotTotp
 render: relation-subject-predicate-object
 -->
 
-`auth.relation.passkey-is-not-totp`：`auth.method.passkey` does not `is-equivalent-to` `auth.method.totp`；condition 为 `all authentication and step-up scopes`，scope 为 `current-account`、`bound-session`、`declared-action`、`declared-subject`。
+`auth.relation.passkey-is-not-totp`: `auth.method.passkey` does not `is-equivalent-to` `auth.method.totp` for `all authentication and step-up scopes`; scope: `current-account`, `bound-session`, `declared-action`, `declared-subject`.
 
 <!-- fsus-doc-claim
 claimId: authentication-session-permission.relation.recovery-auth-strength
@@ -243,7 +243,7 @@ factPath: facts.authRelationClaims.recoveryAuthStrength
 render: relation-subject-predicate-object
 -->
 
-`auth.relation.recovery-auth-strength`：`auth.method.recovery_key` `results-in` `auth.strength.recovery`；condition 为 `successful Recovery Key login completion`，scope 为 `current-account`、`bound-session`、`declared-action`、`declared-subject`。
+`auth.relation.recovery-auth-strength`: `auth.method.recovery_key` `results-in` `auth.strength.recovery` after `successful Recovery Key login completion`; scope: `current-account`, `bound-session`, `declared-action`, `declared-subject`.
 
 <!-- fsus-doc-claim
 claimId: authentication-session-permission.relation.recovery-does-not-mint-step-up
@@ -253,7 +253,7 @@ factPath: facts.authRelationClaims.recoveryDoesNotMintStepUp
 render: relation-subject-predicate-object
 -->
 
-`auth.relation.recovery-does-not-mint-step-up`：`auth.recovery.completion` does not `mints` `auth.step-up.proof`；condition 为 `successful Recovery Key login completion without a separate step-up flow`，scope 为 `current-account`、`bound-session`、`declared-action`、`declared-subject`。
+`auth.relation.recovery-does-not-mint-step-up`: `auth.recovery.completion` does not `mints` `auth.step-up.proof` for `successful Recovery Key login completion without a separate step-up flow`; scope: `current-account`, `bound-session`, `declared-action`, `declared-subject`.
 
 <!-- fsus-doc-claim
 claimId: authentication-session-permission.relation.step-up-binding
@@ -263,7 +263,7 @@ factPath: facts.authRelationClaims.stepUpBinding
 render: relation-subject-predicate-object
 -->
 
-`auth.relation.step-up-binding`：`auth.step-up.proof` `is-bound-to` `account+session+action+token+expiry`；condition 为 `proof validation and consumption`，scope 为 `current-account`、`bound-session`、`declared-action`、`declared-subject`。
+`auth.relation.step-up-binding`: `auth.step-up.proof` `is-bound-to` `account+session+action+token+expiry` during `proof validation and consumption`; scope: `current-account`, `bound-session`, `declared-action`, `declared-subject`.
 
 <!-- fsus-doc-claim
 claimId: authentication-session-permission.relation.step-up-consume-once
@@ -273,7 +273,7 @@ factPath: facts.authRelationClaims.stepUpConsumeOnce
 render: relation-subject-predicate-object
 -->
 
-`auth.relation.step-up-consume-once`：`auth.step-up.proof` `may-be-consumed` `exactly-once`；condition 为 `matching account, session, action, token, and unexpired proof`，scope 为 `current-account`、`bound-session`、`declared-action`、`declared-subject`。
+`auth.relation.step-up-consume-once`: `auth.step-up.proof` `may-be-consumed` `exactly-once` when `matching account, session, action, token, and unexpired proof`; scope: `current-account`, `bound-session`, `declared-action`, `declared-subject`.
 
 <!-- fsus-doc-claim
 claimId: authentication-session-permission.relation.refresh-preserves-auth-context
@@ -283,7 +283,7 @@ factPath: facts.authRelationClaims.refreshPreservesAuthContext
 render: relation-subject-predicate-object
 -->
 
-`auth.relation.refresh-preserves-auth-context`：`auth.refresh.rotation` `preserves` `auth_method+auth_strength+auth_time+duration_policy+authenticated_credential_row_id`；condition 为 `active session context passes fail-closed validation`，scope 为 `current-account`、`bound-session`、`declared-action`、`declared-subject`。
+`auth.relation.refresh-preserves-auth-context`: `auth.refresh.rotation` `preserves` `auth_method+auth_strength+auth_time+duration_policy+authenticated_credential_row_id` when `active session context passes fail-closed validation`; scope: `current-account`, `bound-session`, `declared-action`, `declared-subject`.
 
 <!-- fsus-doc-claim
 claimId: authentication-session-permission.relation.refresh-does-not-rebuild-step-up
@@ -293,7 +293,7 @@ factPath: facts.authRelationClaims.refreshDoesNotRebuildStepUp
 render: relation-subject-predicate-object
 -->
 
-`auth.relation.refresh-does-not-rebuild-step-up`：`auth.refresh.rotation` does not `rebuilds-or-extends` `auth.step-up.proof`；condition 为 `all refresh rotations`，scope 为 `current-account`、`bound-session`、`declared-action`、`declared-subject`。
+`auth.relation.refresh-does-not-rebuild-step-up`: `auth.refresh.rotation` does not `rebuilds-or-extends` `auth.step-up.proof` for `all refresh rotations`; scope: `current-account`, `bound-session`, `declared-action`, `declared-subject`.
 
 <!-- fsus-doc-claim
 claimId: authentication-session-permission.relation.passkey-delete-revokes-bound-sessions
@@ -303,7 +303,7 @@ factPath: facts.authRelationClaims.passkeyDeleteRevokesBoundSessions
 render: relation-subject-predicate-object
 -->
 
-`auth.relation.passkey-delete-revokes-bound-sessions`：`auth.passkey.credential-delete` `revokes` `sessions-bound-to-deleted-credential`；condition 为 `credential row is deleted successfully`，scope 为 `current-account`、`bound-session`、`declared-action`、`declared-subject`。
+`auth.relation.passkey-delete-revokes-bound-sessions`: `auth.passkey.credential-delete` `revokes` `sessions-bound-to-deleted-credential` when `credential row is deleted successfully`; scope: `current-account`, `bound-session`, `declared-action`, `declared-subject`.
 
 <!-- fsus-doc-claim
 claimId: authentication-session-permission.relation.passkey-delete-does-not-revoke-unbound-sessions
@@ -313,4 +313,4 @@ factPath: facts.authRelationClaims.passkeyDeleteDoesNotRevokeUnboundSessions
 render: relation-subject-predicate-object
 -->
 
-`auth.relation.passkey-delete-does-not-revoke-unbound-sessions`：`auth.passkey.credential-delete` does not `revokes` `all-account-sessions`；condition 为 `credential row is deleted successfully`，scope 为 `current-account`、`bound-session`、`declared-action`、`declared-subject`。
+`auth.relation.passkey-delete-does-not-revoke-unbound-sessions`: `auth.passkey.credential-delete` does not `revokes` `all-account-sessions` when `credential row is deleted successfully`; scope: `current-account`, `bound-session`, `declared-action`, `declared-subject`.

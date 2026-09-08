@@ -1,59 +1,67 @@
 # API overview / selected quick reference
 
-本文档是 FsusBlog 当前 API overview / selected quick reference，不再手写声明覆盖所有端点。完整 HTTP shell 契约以 `src/shared/Contracts/Validation/fsusblog.openapi.json` 为准，AEDS frame/header 以 `src/shared/Contracts/Validation/aeds-protocol.json` 为准，路由速查表见 [api/quick-reference.md](api/quick-reference.md)。
-详细文档请参阅 [api/](api/) 子目录：
+This document is FsusBlog's current API overview / selected quick reference; it no longer claims to enumerate every endpoint. The complete HTTP shell contract is defined by `src/shared/Contracts/Validation/fsusblog.openapi.json`, the AEDS frame/header by `src/shared/Contracts/Validation/aeds-protocol.json`, and the route quick reference is in [api/quick-reference.md](api/quick-reference.md).
+See the [api/](api/) subdirectory for detailed documentation:
 
-| 文档 | 说明 |
+| Document | Description |
 | ------ | ------ |
-| [api/design.md](api/design.md) | API 设计哲学、响应格式约定、双链路决策 |
-| [api/contracts.md](api/contracts.md) | 请求/响应 DTO 完整契约、通知 WebSocket 契约、AOT 契约 |
-| [api/quick-reference.md](api/quick-reference.md) | 所有端点路由速查表（含认证 / 限流 / Binary 对照） |
-| [api/schemas-and-errors.md](api/schemas-and-errors.md) | 错误码枚举、AEDS v2 帧格式、compact POD 大小目录 |
+| [api/design.md](api/design.md) | API design philosophy, response-format conventions, and dual-path decisions |
+| [api/contracts.md](api/contracts.md) | Complete request/response DTO contract, notification WebSocket contract, and AOT contract |
+| [api/quick-reference.md](api/quick-reference.md) | Quick reference for every endpoint route, including authentication, rate limits, and Binary comparisons |
+| [api/schemas-and-errors.md](api/schemas-and-errors.md) | Error-code enumeration, AEDS v2 frame format, and compact POD size catalog |
 
 ---
 
-## 图例
+<a id="图例"></a>
 
-| 符号 | 含义 |
+## Legend
+
+| Symbol | Meaning |
 | ------ | ------ |
-| 🔓 | 匿名可访问 |
-| 🔑 | 需要登录（HttpOnly Cookie session / AEDS auth frame） |
-| 👑 | 需要 admin 角色 |
-| 🚦 | 有速率限制（fixed_ip / public_read / read_proof 等策略） |
+| 🔓 | Anonymous access |
+| 🔑 | Login required (`HttpOnly Cookie session` / AEDS auth frame) |
+| 👑 | `admin` role required |
+| 🚦 | Rate limited (`fixed_ip` / `public_read` / `read_proof` and related policies) |
 
 ---
 
 ## Current Binary API
 
-当前客户端主链优先调用 `/api/binary/**`，响应为 `application/octet-stream` AEDS v2 frame。认证、MFA、Passkey、公开读、评论、消息、上传、RUM telemetry、作者工作台、安全后台和管理读链都通过 AEDS frame/POD 契约校验；少量 JSON 端点仅用于健康检查、外部标准协议和废弃兼容。
+The current client main path prioritizes `/api/binary/**`; responses are AEDS v2 frames with `application/octet-stream`. Authentication, MFA, Passkey, public reads, comments, messages, uploads, RUM telemetry, the author workbench, the security console, and admin read paths are all validated against AEDS frame/POD contracts. The small number of JSON endpoints are limited to health checks, external standard protocols, and deprecated compatibility.
 
 | Family | Prefix | Auth | Notes |
 | -------- | -------- | ------ | ------- |
-| Public article/read | `/api/binary/article/**` | 🔓 | 首页、分类、标签、详情、热门与搜索 frame |
-| Comment cursors | `/api/binary/comment/**` | 🔓 / 🔑 | 公开评论游标与可归因评论记录 |
-| Auth / MFA / Passkey | `/api/binary/auth/**` | 🔓 / 🔑 | PoW、login flow、session、MFA、WebAuthn |
-| Messages | `/api/binary/messages/**` | 🔑 | 用户站内信与已读状态 |
-| Admin messages / stats / upload | `/api/binary/admin/**`, `/api/binary/stats`, `/api/binary/upload/**` | 👑 | 管理端 Binary read/write |
-| Authoring / moderation console | `/api/binary/author/**` | 👑 | 作者工作台、审核、审计、运维、cache/integrity 通过 AEDS bridge；外部 `/api/author/**` 已移除 |
-| Admin security console | `/api/binary/admin/security/**` | 👑 | 安全总览、AntiCrawler、PoW、风险分与规则/list 管理通过 AEDS bridge；外部 `/api/admin/security/**` 已移除 |
-| Telemetry | `/api/binary/telemetry/rum` | 🔓 | batched AEDS RUM ingestion；旧 `/api/telemetry/rum` 已移除 |
-| Notifications | `/api/notifications/stream` | 🔓 / 🔑 | WebSocket binary notification stream，子协议 `fsus-aeds.v2` |
+| Public article/read | `/api/binary/article/**` | 🔓 | Home, category, tag, detail, popular, and search frames |
+| Comment cursors | `/api/binary/comment/**` | 🔓 / 🔑 | Public comment cursors and attributable comment records |
+| Auth / MFA / Passkey | `/api/binary/auth/**` | 🔓 / 🔑 | PoW, login flow, session, MFA, and WebAuthn |
+| Messages | `/api/binary/messages/**` | 🔑 | User messages and read status |
+| Admin messages / stats / upload | `/api/binary/admin/**`, `/api/binary/stats`, `/api/binary/upload/**` | 👑 | Admin-side Binary reads/writes |
+| Authoring / moderation console | `/api/binary/author/**` | 👑 | Author workbench, moderation, audit, operations, and cache/integrity through the AEDS bridge; external `/api/author/**` has been removed |
+| Admin security console | `/api/binary/admin/security/**` | 👑 | Security overview, AntiCrawler, PoW, risk scores, and rule/list management through the AEDS bridge; external `/api/admin/security/**` has been removed |
+| Telemetry | `/api/binary/telemetry/rum` | 🔓 | Batched AEDS RUM ingestion; the old `/api/telemetry/rum` has been removed |
+| Notifications | `/api/notifications/stream` | 🔓 / 🔑 | WebSocket binary notification stream with the `fsus-aeds.v2` subprotocol |
 
-Notification stream 使用 WebSocket 传输、`fsus-aeds.v2` 子协议和 AEDS 二进制通知帧；它不是标准 Server-Sent Events，不使用 `EventSource` 或 `text/event-stream`。
+The notification stream uses WebSocket transport, the `fsus-aeds.v2` subprotocol, and AEDS binary notification frames. It is not standard Server-Sent Events and does not use `EventSource` or `text/event-stream`.
 
-测试 helper 里的 `toBinaryPath()` 仅是兼容层映射说明，不代表旧 JSON route 是当前产品主 API。
+The `toBinaryPath()` test helper only documents compatibility-layer mapping; it does not make an old JSON route the current product main API.
 
 ---
 
 ## Auth — `/api/binary/auth`
 
-### PoW 与账号入口
+<a id="pow-与账号入口"></a>
+
+### PoW and account entry points
 
 
-### 当前用户
+<a id="当前用户"></a>
+
+### Current user
 
 
-### 会话管理
+<a id="会话管理"></a>
+
+### Session management
 
 
 ### MFA / TOTP
@@ -68,102 +76,114 @@ Notification stream 使用 WebSocket 传输、`fsus-aeds.v2` 子协议和 AEDS �
 
 ## Article — `/api/Article`
 
-| 方法 | 路径 | 描述 | 权限 |
+| Method | Path | Description | Access |
 | ------ | ------ | ------ | ------ |
-| GET | `/api/Article/` | 文章列表（分页） | 🔓 |
-| GET | `/api/Article/{id}` | 文章详情 | 🔓 |
-| GET | `/api/Article/hot` | 热门文章 | 🔓 |
+| GET | `/api/Article/` | Article list (paginated) | 🔓 |
+| GET | `/api/Article/{id}` | Article details | 🔓 |
+| GET | `/api/Article/hot` | Popular articles | 🔓 |
 
 ---
 
 ## Comment — `/api/Comment`
 
-| 方法 | 路径 | 描述 | 权限 |
+| Method | Path | Description | Access |
 | ------ | ------ | ------ | ------ |
-| GET | `/api/Comment/{articleId}` | 指定文章的顶层评论（游标分页） | 🔓 |
-| GET | `/api/Comment/{articleId}/thread/{rootId}` | 指定评论的回复线程 | 🔓 |
-| GET | `/api/Comment/me` | 当前用户可归因评论记录 | 🔑 |
+| GET | `/api/Comment/{articleId}` | Top-level comments for the specified article (cursor-paginated) | 🔓 |
+| GET | `/api/Comment/{articleId}/thread/{rootId}` | Reply thread for the specified comment | 🔓 |
+| GET | `/api/Comment/me` | Attributable comment records for the current user | 🔑 |
 
 ---
 
 ## Category — `/api/Category`
 
-| 方法 | 路径 | 描述 | 权限 |
+| Method | Path | Description | Access |
 | ------ | ------ | ------ | ------ |
-| GET | `/api/Category/` | 所有分类 | 🔓 |
+| GET | `/api/Category/` | All categories | 🔓 |
 
 ---
 
 ## Tag — `/api/Tag`
 
-| 方法 | 路径 | 描述 | 权限 |
+| Method | Path | Description | Access |
 | ------ | ------ | ------ | ------ |
-| GET | `/api/Tag/` | 所有标签 | 🔓 |
+| GET | `/api/Tag/` | All tags | 🔓 |
 
 ---
 
 ## System — `/api/System`
 
-| 方法 | 路径 | 描述 | 权限 |
+| Method | Path | Description | Access |
 | ------ | ------ | ------ | ------ |
-| GET | `/api/System/seo` | 站点 SEO 配置 | 🔓 |
-| GET | `/api/System/page/{slug}` | 指定 slug 的静态页面内容 | 🔓 |
+| GET | `/api/System/seo` | Site SEO configuration | 🔓 |
+| GET | `/api/System/page/{slug}` | Static page content for the specified slug | 🔓 |
 
 ---
 
 ## Binary — `/api/binary`
 
-Binary 端点输出 AEDS v2 帧（`Content-Type: application/octet-stream`）。
-帧格式：16 字节帧头（Magic、Version、HeaderLength、Flags、FrameType、PayloadLength、PayloadCrc16）+ compact POD 载荷。AEDS v1 不再兼容，旧客户端会被直接拒绝。
-客户端小载荷默认走 TypeScript adapter 主线程解码；大载荷走 Web Worker / C++23 Wasm 解码器；解码失败不得回退到文本 API。
+Binary endpoints output AEDS v2 frames (`Content-Type: application/octet-stream`).
+The frame format is a 16-byte header (`Magic`, `Version`, `HeaderLength`, `Flags`, `FrameType`, `PayloadLength`, `PayloadCrc16`) plus a compact POD payload. AEDS v1 is no longer supported, and old clients are rejected directly.
+Small client payloads are decoded by the TypeScript adapter on the main thread by default; large payloads use the Web Worker / C++23 Wasm decoder. Decode failures must not fall back to the text API.
 
-### 公开读
+<a id="公开读"></a>
+
+### Public reads
 
 
-### 需认证
+<a id="需认证"></a>
+
+### Authentication required
 
 
-### 管理端
+<a id="管理端"></a>
+
+### Admin
 
 
 ---
 
 ## Messages — `/api/binary/messages`
 
-> 整个路由组需要登录。
+> The entire route group requires login.
 
 
 ---
 
 ## Admin Messages — `/api/binary/admin/messages`
 
-> 整个路由组需要 admin 角色。
+> The entire route group requires the `admin` role.
 
 
 ---
 
-## 通知与健康检查
+<a id="通知与健康检查"></a>
 
-| 方法 | 路径 | 描述 | 权限 |
+## Notifications and health checks
+
+| Method | Path | Description | Access |
 | ------ | ------ | ------ | ------ |
-| GET | `/api/notifications/stream` | WebSocket 通知通道（`fsus-aeds.v2`） | 🔓 |
-| GET | `/health/live` | JSON 存活探针 | 🔓 |
-| GET | `/health/ready` | JSON 最小就绪探针（仅 `status` / `checkedAt`） | 🔓 |
-| GET | `/api/ops/health/ready-detail` | JSON 详细就绪报告（配置、DB、Redis、runtime、observability） | 👑 |
-| GET | `/api/ops/crawler-ranges/status` | Crawler CIDR 同步状态 | 👑 |
+| GET | `/api/notifications/stream` | WebSocket notification channel (`fsus-aeds.v2`) | 🔓 |
+| GET | `/health/live` | JSON liveness probe | 🔓 |
+| GET | `/health/ready` | Minimal JSON readiness probe (`status` / `checkedAt` only) | 🔓 |
+| GET | `/api/ops/health/ready-detail` | Detailed JSON readiness report (configuration, DB, Redis, runtime, observability) | 👑 |
+| GET | `/api/ops/crawler-ranges/status` | Crawler CIDR synchronization status | 👑 |
 
 ---
 
-## 速率限制说明
+<a id="速率限制说明"></a>
 
-带 🚦 标记的端点受速率限制策略约束：认证/写入默认使用 `fixed_ip`，公开动态读使用 `public_read`，真人阅读 proof 使用 `read_proof`。超限返回 `429 Too Many Requests`，响应头包含 `Retry-After`，并写入 crawler risk 分。
+## Rate-limit notes
 
-客户端 IP 由 `ForwardedHeadersMiddleware` 处理后通过 `context.GetClientIp()` 读取，需要 Nginx/OpenResty 正确传递真实 IP；业务代码不得直接信任原始转发头。
+Endpoints marked 🚦 are governed by rate-limit policies: authentication/writes default to `fixed_ip`, dynamic public reads use `public_read`, and real-person reading proof uses `read_proof`. Exceeding a limit returns `429 Too Many Requests`, includes `Retry-After` in the response headers, and records a crawler risk score.
 
-## AEDS 帧格式
+The client IP is read through `context.GetClientIp()` after `ForwardedHeadersMiddleware` processing. Nginx/OpenResty must forward the actual client IP correctly; business code must not trust raw forwarded headers.
+
+<a id="aeds-帧格式"></a>
+
+## AEDS frame format
 
 ```text
-Offset  Size  字段
+Offset  Size  Field
 0       4     Magic (0x53444541 "AEDS")
 4       1     Version (2)
 5       1     Header Length (16)
@@ -174,8 +194,8 @@ Offset  Size  字段
 16      N     Compact POD Payload
 ```
 
-offset 8 是 `FrameType`，不是记录数；记录数属于各 payload 自己的 compact layout。
-协议完整规格见 [../src/core/Algorithms/AEDS_V2_PROTOCOL.md](../src/core/Algorithms/AEDS_V2_PROTOCOL.md)。
+Offset 8 is `FrameType`, not a record count; the record count belongs to each payload's own compact layout.
+See [../src/core/Algorithms/AEDS_V2_PROTOCOL.md](../src/core/Algorithms/AEDS_V2_PROTOCOL.md) for the complete protocol specification.
 ## Current binary operations
 
 <!-- fsus-doc-claim

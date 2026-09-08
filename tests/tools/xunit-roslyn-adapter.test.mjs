@@ -1,14 +1,18 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { exerciseXunitProjectGraphFixture } from './support/xunit-project-graph-fixture.mjs';
 
 const repositoryRoot = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
+const { buildOracleFacts } = await import(pathToFileURL(
+    path.join(repositoryRoot, 'tools/test-quality/oracle-facts.mjs')
+).href);
 const fixtureProject = path.join(
     repositoryRoot,
     'tools/test-inventory/xunit-roslyn-adapter/fixtures/AdapterFixtureTests/AdapterFixtureTests.csproj'
@@ -75,14 +79,14 @@ function factsOf(report, methodName)
 
 buildAdapter();
 let projectGraphEvidence;
-test.before(() =>
+function getProjectGraphEvidence()
 {
-    projectGraphEvidence = exerciseXunitProjectGraphFixture({
+    return projectGraphEvidence ??= exerciseXunitProjectGraphFixture({
         repositoryRoot,
         adapterAssembly: relocatedAdapterAssembly,
         buildRoot: productionBuildRoot
     });
-});
+}
 test.after(() => rmSync(productionBuildRoot, { recursive: true, force: true }));
 
 test('xunit Roslyn adapter extracts Fact, InlineData Theory, MemberData, ClassData and nested/partial/generic owners', () =>
@@ -173,6 +177,46 @@ test('test-to-test symbol calls are resolved and assembly kinds classify test vs
     assert.ok(report.testCases.every((testCase) => testCase.methodFacts.invocations.every((entry) => entry.assemblyKind !== '')));
 });
 
+test('real xunit adapter spans preserve source operands through the oracle consumer', () =>
+{
+    const report = runAdapter();
+    assert.equal(report.diagnostics.filter((entry) => entry.severity === 'error').length, 0);
+    const sourceFiles = [...new Set(report.testCases.map((item) => item.ownerFile))].map((file) => ({
+        path: file,
+        kind: 'discoverable-test',
+        sourceDigest: 'sha256:' + createHash('sha256')
+            .update(readFileSync(path.join(repositoryRoot, file))).digest('hex')
+    }));
+    const facts = buildOracleFacts({
+        adapterVersion: report.adapterVersion,
+        inventoryDigest: 'sha256:' + createHash('sha256').update(JSON.stringify(report)).digest('hex'),
+        sourceFiles,
+        testCases: report.testCases,
+        diagnostics: report.diagnostics
+    }, { root: repositoryRoot });
+    const actual = [
+        'PlainFact_ReturnsExpectedValue',
+        'ExpressionBodiedFact_RetainsAssertion'
+    ].map((methodName) =>
+    {
+        const testCase = casesForMethod(report, methodName)[0];
+        assert.ok(testCase, methodName);
+        const oracle = facts.cases.find((item) => item.testId === testCase.id);
+        const equality = oracle.assertions.find((item) => item.apiId === 'xunit:Equal');
+        assert.ok(equality, methodName);
+        return {
+            methodName,
+            actual: equality.actual?.text,
+            expected: equality.expected?.text,
+            operator: equality.operator
+        };
+    });
+    assert.deepEqual(actual, [
+        { methodName: 'PlainFact_ReturnsExpectedValue', actual: 'Add(2, 2)', expected: '4', operator: 'equality' },
+        { methodName: 'ExpressionBodiedFact_RetainsAssertion', actual: 'Add(2, 2)', expected: '4', operator: 'equality' }
+    ]);
+});
+
 test('expression-bodied assertions and test forwarders retain executable oracle ownership', () =>
 {
     const report = runAdapter();
@@ -212,6 +256,7 @@ test('compile or semantic model failure fails closed instead of falling back to 
 
 test('real xunit project graph rejects a stale lock then regenerates, builds and inventories current sources', () =>
 {
+    getProjectGraphEvidence();
     assert.notEqual(projectGraphEvidence.staleLockedRestore.status, 0);
     assert.match(projectGraphEvidence.staleLockedRestore.output, /NU1004|lock file is inconsistent/iu);
     assert.equal(projectGraphEvidence.regeneratedRestoreStatus, 0);
@@ -229,6 +274,7 @@ test('real xunit project graph rejects a stale lock then regenerates, builds and
 
 test('xunit Roslyn adapter fails closed on stale static member CS0117 after the last build', () =>
 {
+    getProjectGraphEvidence();
     assert.equal(projectGraphEvidence.cs0117.status, 1);
     assert.equal(projectGraphEvidence.cs0117.report.testCases.length, 0);
     const diagnostic = projectGraphEvidence.cs0117.report.diagnostics.find((entry) => (
@@ -240,6 +286,7 @@ test('xunit Roslyn adapter fails closed on stale static member CS0117 after the 
 
 test('xunit Roslyn adapter fails closed on stale instance member CS1061 after the last build', () =>
 {
+    getProjectGraphEvidence();
     assert.equal(projectGraphEvidence.cs1061.status, 1);
     assert.equal(projectGraphEvidence.cs1061.report.testCases.length, 0);
     const diagnostic = projectGraphEvidence.cs1061.report.diagnostics.find((entry) => (
@@ -251,6 +298,7 @@ test('xunit Roslyn adapter fails closed on stale instance member CS1061 after th
 
 test('custom GeneratedRegexAttribute cannot suppress a missing partial implementation', () =>
 {
+    getProjectGraphEvidence();
     assert.equal(projectGraphEvidence.shadowGeneratedRegex.status, 1);
     assert.equal(projectGraphEvidence.shadowGeneratedRegex.report.testCases.length, 0);
     const diagnostic = projectGraphEvidence.shadowGeneratedRegex.report.diagnostics.find((entry) => (
@@ -262,6 +310,7 @@ test('custom GeneratedRegexAttribute cannot suppress a missing partial implement
 
 test('framework GeneratedRegexAttribute with an invalid method signature fails closed', () =>
 {
+    getProjectGraphEvidence();
     assert.equal(projectGraphEvidence.invalidGeneratedRegexSignature.status, 1);
     assert.equal(projectGraphEvidence.invalidGeneratedRegexSignature.report.testCases.length, 0);
     const diagnostic = projectGraphEvidence.invalidGeneratedRegexSignature.report.diagnostics.find((entry) => (
@@ -273,6 +322,7 @@ test('framework GeneratedRegexAttribute with an invalid method signature fails c
 
 test('valid GeneratedRegex declaration cannot suppress an accompanying compiler error', () =>
 {
+    getProjectGraphEvidence();
     assert.equal(projectGraphEvidence.generatedRegexWithOtherError.status, 1);
     assert.equal(projectGraphEvidence.generatedRegexWithOtherError.report.testCases.length, 0);
     const diagnostic = projectGraphEvidence.generatedRegexWithOtherError.report.diagnostics.find((entry) => (
@@ -285,6 +335,7 @@ test('valid GeneratedRegex declaration cannot suppress an accompanying compiler 
 
 test('GeneratedRegex method with a ref return fails closed', () =>
 {
+    getProjectGraphEvidence();
     assert.equal(projectGraphEvidence.refGeneratedRegex.status, 1);
     assert.equal(projectGraphEvidence.refGeneratedRegex.report.testCases.length, 0);
     const diagnostic = projectGraphEvidence.refGeneratedRegex.report.diagnostics.find((entry) => (
@@ -296,6 +347,7 @@ test('GeneratedRegex method with a ref return fails closed', () =>
 
 test('GeneratedRegex method with a ref readonly return fails closed', () =>
 {
+    getProjectGraphEvidence();
     assert.equal(projectGraphEvidence.refReadonlyGeneratedRegex.status, 1);
     assert.equal(projectGraphEvidence.refReadonlyGeneratedRegex.report.testCases.length, 0);
     const diagnostic = projectGraphEvidence.refReadonlyGeneratedRegex.report.diagnostics.find((entry) => (
@@ -307,6 +359,7 @@ test('GeneratedRegex method with a ref readonly return fails closed', () =>
 
 test('invalid GeneratedRegex pattern fails closed through the real framework generator', () =>
 {
+    getProjectGraphEvidence();
     assert.equal(projectGraphEvidence.invalidGeneratedRegexPattern.status, 1);
     assert.equal(projectGraphEvidence.invalidGeneratedRegexPattern.report.testCases.length, 0);
     const diagnostic = projectGraphEvidence.invalidGeneratedRegexPattern.report.diagnostics.find((entry) => (
@@ -318,6 +371,7 @@ test('invalid GeneratedRegex pattern fails closed through the real framework gen
 
 test('invalid GeneratedRegex timeout fails closed through the real framework generator', () =>
 {
+    getProjectGraphEvidence();
     assert.equal(projectGraphEvidence.invalidGeneratedRegexTimeout.status, 1);
     assert.equal(projectGraphEvidence.invalidGeneratedRegexTimeout.report.testCases.length, 0);
     const diagnostic = projectGraphEvidence.invalidGeneratedRegexTimeout.report.diagnostics.find((entry) => (
@@ -329,6 +383,7 @@ test('invalid GeneratedRegex timeout fails closed through the real framework gen
 
 test('test output cannot shadow a target reference-pack assembly by simple name', () =>
 {
+    getProjectGraphEvidence();
     assert.equal(projectGraphEvidence.sameNameMetadataShadow.status, 1);
     assert.equal(projectGraphEvidence.sameNameMetadataShadow.report.testCases.length, 0);
     const diagnostic = projectGraphEvidence.sameNameMetadataShadow.report.diagnostics.find((entry) => (
@@ -340,6 +395,7 @@ test('test output cannot shadow a target reference-pack assembly by simple name'
 
 test('same-strong-name assembly copied from an old-pack path cannot shadow the evaluated reference', () =>
 {
+    getProjectGraphEvidence();
     assert.equal(projectGraphEvidence.sameStrongNameOldPackShadow.status, 1);
     assert.equal(projectGraphEvidence.sameStrongNameOldPackShadow.report.testCases.length, 0);
     const diagnostic = projectGraphEvidence.sameStrongNameOldPackShadow.report.diagnostics.find((entry) => (
@@ -351,6 +407,7 @@ test('same-strong-name assembly copied from an old-pack path cannot shadow the e
 
 test('multi-pack wrong DOTNET_ROOT cannot replace the MSBuild-evaluated targeting pack', () =>
 {
+    getProjectGraphEvidence();
     assert.equal(
         projectGraphEvidence.wrongDotnetRootInventory.status,
         0,
