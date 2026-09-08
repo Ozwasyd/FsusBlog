@@ -6,8 +6,8 @@
 Thumbs.db
 .env
 .env.*
-!.env.example
-!.env.production.example
+!config/examples/.env.example
+!config/examples/.env.production.example
 
 **/bin/
 **/obj/

@@ -26,9 +26,9 @@ const security = read('docs/security.md')
 const contracts = read('docs/api/contracts.md')
 
 for (const token of [
-  'perception-sealed@v2 的服务端真相',
-  '只承载 `perceptionLocalizationV2` 与 `perceptionMicroInteractionV2`',
-  '公开 issue payload 不得包含',
+  'perception-sealed@v2',
+  'retained only for `perceptionLocalizationV2` and `perceptionMicroInteractionV2`',
+  'Public issue data excludes',
   'Redis attempt/consume-once',
   'Security:PerceptionSealedToken:CurrentKeyVersion',
   'Security:PerceptionSealedToken:Keys:{version}',
@@ -36,24 +36,24 @@ for (const token of [
   'MicroInteractionV2',
   'HumanReadProof',
   'adminPasskeyStepUpV1',
-  '无需重启的回退'
+  'No-restart fallback'
 ]) {
   requireToken('docs/security.md', security, token)
 }
 
 for (const token of [
-  'perceptionLocalizationV2` 与 `perceptionMicroInteractionV2` provider',
-  'issue payload 禁止出现',
-  'verify 路径必须先解封 AEAD',
+  'perceptionLocalizationV2` and `perceptionMicroInteractionV2` providers',
+  'issue payload prohibits',
+  'verify path must first decrypt the AEAD token',
   'Security:PerceptionSealedToken:CurrentKeyVersion',
   'Security:PerceptionV2:MicroInteraction:Mode',
   'RiskControlPolicyUpdateRequest',
-  'perception-sealed@v2 的验证矩阵',
-  'Redis `INCR` attempt gate 失败',
-  'PostgreSQL audit / aggregation 写入失败',
-  'HumanReadProof proof 用于 `comment.*`、`auth.*`、`admin.*`',
-  'adminPasskeyStepUpV1` proof 尝试替代 `X-Fsus-Mfa-Proof`',
-  '上线顺序固定为 `observe -> V3/localization enforce -> micro-interaction optional -> strict/lockdown`'
+  'Verification matrix for perception-sealed@v2',
+  'Redis `INCR` attempt gate failed',
+  'PostgreSQL audit / aggregation write failure',
+  'HumanReadProof proof is used for `comment.*`, `auth.*`, `admin.*`',
+  'adminPasskeyStepUpV1` proof attempts to replace `X-Fsus-Mfa-Proof`',
+  'The rollout order is fixed to `observe -> V3/localization enforce -> micro-interaction optional -> strict/lockdown`'
 ]) {
   requireToken('docs/api/contracts.md', contracts, token)
 }

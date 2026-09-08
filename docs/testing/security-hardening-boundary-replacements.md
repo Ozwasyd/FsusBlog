@@ -1,40 +1,29 @@
-# Issue #1037：安全 hardening 边界测试替换
+# Issue #1037: security-hardening boundary-test replacements
 
-Issue #1037 移除五个通过 `File.ReadAllText` 和字符串片段猜测安全实现的 xUnit
-测试文件，改由真实服务/端点边界与一套 Roslyn AST policy 承担。旧文件中的 19 个
-测试 ID 均记录在 `tests/backend/issue-1037-retention-replacements.json`，不得在中央
-retention 合并时静默丢失。
+Issue #1037 removes five xUnit files that guessed security behavior with `File.ReadAllText` and string fragments, replacing them with real service/endpoint boundaries and a Roslyn AST policy. All 19 old test IDs remain in `tests/backend/issue-1037-retention-replacements.json` and must not disappear in the central retention merge. The [security source policy](security-hardening-source-policy.md) is the canonical static owner.
 
-## 当前依赖状态
+## Dependency status
 
-Issue 正文声明依赖 #1032。2026-07-11 的只读 GitHub 检查显示 #1032 仍为 open、无
-评论；GitHub typed dependency API 对 #1037 返回空集合。因此当前事实是“正文依赖”，
-不是 GitHub typed dependency。local master 已包含 #1032 implementation commit；coverage、
-matrix、backend requirements、static-governance 与 central retention 接线也已存在，但都仍待
-统一验证和 GitHub 同步。
+The issue body declares a dependency on #1032. A read-only GitHub check on 2026-07-11 found #1032 open with no comments, while #1037's typed dependency API returned an empty set: this is a body dependency, not a typed GitHub dependency. Local `master` contains the #1032 implementation commit; coverage, matrix, backend-requirement, static-governance, and central-retention wiring exist but still require unified validation and GitHub synchronization.
 
-## 可观察边界
+## Observable boundaries
 
-| 风险域 | 新的权威证据 |
+| Risk domain | Authoritative evidence |
 | --- | --- |
-| 路径注入 | `CanonicalPathBoundary` 对 URL 编码、反斜杠、绝对路径、词法越界和 symlink 物理越界 fail closed；AOT sidecar、SSR worker 与 admin upload 路径使用同一解析器；本地 fixture 的真实路径 validator 直接执行。 |
-| 输入 DoS | 搜索超长关键字在创建数据库 scope 前返回；内容过滤在大分配前拒绝；authoring DataAnnotations、public navigation、subscription、local fixture storage/redirect 和 passkey JSON 深度/长度均从实际入口执行。 |
-| 密码学 | 安全 snapshot ID 通过可注入 `ISecurityRandomSource` 使用 CSPRNG；敏感 hex/UTF-8 比较使用 fixed-time helper；最低 Argon2/PBKDF2 参数交给 AST policy。 |
-| 信息泄露 | production exception AEDS 响应、startup validation report、local fixture status 与结构化日志字段检查真实输出；AST policy 阻止敏感日志模板及非日志 raw exception 输出。 |
-| 上传 | TestServer 执行实际 upload-part handler，覆盖 content type、chunked/缺失 length、声明超限；`FileService` 覆盖 AVIF、目录穿越和取消后无进度/临时产物。 |
+| Path injection | `CanonicalPathBoundary` fails closed for URL encoding, backslashes, absolute paths, lexical escape, and physical symlink escape; AOT sidecar, SSR worker, and admin-upload paths share it, and a local fixture runs the real validator. |
+| Input DoS | Overlong search terms return before database scope creation; filtering rejects before large allocation; real entry points execute authoring DataAnnotations, public navigation, subscription, local storage/redirect, and passkey JSON depth/length checks. |
+| Cryptography | Security snapshot IDs use injectable `ISecurityRandomSource` CSPRNG; sensitive hex/UTF-8 comparisons use a fixed-time helper; the AST policy owns minimum Argon2/PBKDF2 parameters. |
+| Information disclosure | Real output checks cover production exception AEDS responses, startup reports, local-fixture status, and structured-log fields; the AST policy blocks sensitive log templates and raw exception output outside logs. |
+| Upload | `TestServer` runs the upload-part handler for content type, chunked/missing length, and declared over-limit cases; `FileService` covers AVIF, traversal, and cancellation without progress/temp artifacts. |
 
-上传分片公开 schema 未变化。handler 现在把既有请求体上限显式映射为 `413`，在调用
-storage 前返回；Kestrel 的全局上限仍是外层保护。
+The public upload-part schema is unchanged. The handler maps the existing request-body limit explicitly to `413` before storage; Kestrel's global limit remains the outer guard.
 
-## 风险与回退
+## Risk and rollback
 
-- 路径解析器故障时选择拒绝访问，不回退到只做字符串前缀判断的旧路径。
-- Roslyn policy 只检查 `security/policies/backend-source-policy.json` 中列出的 scope，新增规则须同时
-  提供 positive/negative fixture，避免用全仓正则制造误报。
-- 如果新边界导致兼容性问题，可按域回退调用点；不得恢复已删除的源码字符串测试。上传
-  可保持 Kestrel 外层限制并回退 handler 内显式 `413`，不需要重启其他服务。
+- A path-parser failure rejects access; it never falls back to string-prefix checking.
+- Roslyn checks only scopes listed in `security/policies/backend-source-policy.json`; every new rule needs positive and negative fixtures, avoiding repository-wide regex false positives.
+- If a new boundary breaks compatibility, roll back call sites by domain, never the removed source-string tests. Upload may retain Kestrel's outer limit and restore the handler's explicit `413` without restarting other services.
 
-## 验证状态
+## Verification status
 
-按当前并行实施指令，本 issue 尚未执行测试、构建、restore、lint、syntax check 或 analyzer。
-所有文件当前仅代表 implementation-only evidence；中央接线后必须据实运行并回填结果。
+Per the current parallel-implementation instruction, this issue has not run tests, build, restore, lint, syntax checks, or the analyzer. These files are implementation-only evidence until central wiring is validated and results are filled in from the actual run.

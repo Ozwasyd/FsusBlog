@@ -14,8 +14,8 @@
       "src/backend/appsettings.Development.example.json"
     ],
     "environmentExamples": [
-      ".env.example",
-      ".env.production.example"
+      "config/examples/.env.example",
+      "config/examples/.env.production.example"
     ],
     "compose": [
       "ops/development/dependencies.compose.yml",
@@ -6772,6 +6772,58 @@
       "deprecation": null
     },
     {
+      "key": "fsus:allowLocalSecurityFixture",
+      "owner": "security",
+      "purpose": "Security and risk control setting: allowLocalSecurityFixture",
+      "valueType": "boolean",
+      "environments": [
+        "Development"
+      ],
+      "allowedSources": [
+        "repository-development-overlay"
+      ],
+      "environmentVariables": [],
+      "secret": false,
+      "requiredStatus": "optional",
+      "requiredWhen": "optional",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "consumer",
+        "owner": "development-only host guard"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Modules/Endpoints/LocalSecurityFixtureEndpoints.cs",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "fsus:localSecurityFixtureSecret",
+      "owner": "security",
+      "purpose": "Security and risk control setting: localSecurityFixtureSecret",
+      "valueType": "secret-string",
+      "environments": [
+        "Development"
+      ],
+      "allowedSources": [
+        "repository-development-overlay"
+      ],
+      "environmentVariables": [],
+      "secret": true,
+      "requiredStatus": "conditional",
+      "requiredWhen": "when local security fixture endpoints are enabled",
+      "repositoryValuePolicy": "known-development-fixture-only; Production overlay must be empty",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "feature-gate",
+        "owner": "development-only host guard"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Modules/Endpoints/LocalSecurityFixtureEndpoints.cs",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
       "key": "fsus:allowLocalAuthFixture",
       "owner": "development-tooling",
       "purpose": "Local development tooling setting: allowLocalAuthFixture",
@@ -6808,7 +6860,7 @@
         "ActiveReleaseFence:RefreshIntervalMs"
       ],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -6822,7 +6874,7 @@
         "ActiveReleaseFence:StaleThresholdSeconds"
       ],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -6847,8 +6899,8 @@
         "AllowedHosts"
       ],
       "sources": [
-        ".env.example",
-        ".env.production.example",
+        "config/examples/.env.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -7275,8 +7327,8 @@
         "CORS_ALLOWED_HOSTS"
       ],
       "sources": [
-        ".env.example",
-        ".env.production.example",
+        "config/examples/.env.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.development-backend.yml",
         "ops/docker/docker-compose.production.yml"
       ],
@@ -7317,7 +7369,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml",
         "ops/docker/docker-compose.zero-downtime.yml"
       ],
@@ -7330,7 +7382,7 @@
       "secret": true,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml",
         "ops/docker/docker-compose.zero-downtime.yml"
       ],
@@ -7343,7 +7395,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml",
         "ops/docker/docker-compose.zero-downtime.yml"
       ],
@@ -7450,7 +7502,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -7462,7 +7514,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -7476,8 +7528,8 @@
         "Fido2:ServerDomain"
       ],
       "sources": [
-        ".env.example",
-        ".env.production.example",
+        "config/examples/.env.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -7491,8 +7543,8 @@
         "Fido2:ServerName"
       ],
       "sources": [
-        ".env.example",
-        ".env.production.example",
+        "config/examples/.env.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -7506,7 +7558,7 @@
         "FSUSBLOG_ANONYMOUS_IDENTITY_MODE"
       ],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -7597,7 +7649,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "tools/deploy-production.sh",
         "tools/deployment/release-rollout-recovery.sh",
         "tools/deployment/release-rollout.sh",
@@ -7756,7 +7808,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "tools/deployment/slot-common.sh"
       ],
       "deprecation": null
@@ -7783,7 +7835,7 @@
         "Deployment:NotificationStreamDrillEnabled"
       ],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -7795,7 +7847,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.example",
+        "config/examples/.env.example",
         "ops/development/dependencies.compose.yml"
       ],
       "deprecation": null
@@ -7807,7 +7859,7 @@
       "secret": true,
       "mapsTo": [],
       "sources": [
-        ".env.example",
+        "config/examples/.env.example",
         "ops/development/dependencies.compose.yml"
       ],
       "deprecation": null
@@ -7819,7 +7871,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.example",
+        "config/examples/.env.example",
         "ops/development/dependencies.compose.yml"
       ],
       "deprecation": null
@@ -7831,7 +7883,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.example",
+        "config/examples/.env.example",
         "ops/development/dependencies.compose.yml"
       ],
       "deprecation": null
@@ -7843,7 +7895,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.example",
+        "config/examples/.env.example",
         "ops/development/dependencies.compose.yml"
       ],
       "deprecation": null
@@ -7857,7 +7909,7 @@
         "FSUSBLOG_DRAIN_TIMEOUT_SECONDS"
       ],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml",
         "tools/deployment/deployment-control.sh",
         "tools/deployment/gateway-recover.sh",
@@ -7875,7 +7927,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "tools/deployment/gateway-recover.sh",
         "tools/deployment/gateway-switch.sh"
       ],
@@ -7909,7 +7961,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "tools/deployment/gateway-recover.sh",
         "tools/deployment/gateway-switch.sh"
       ],
@@ -7922,7 +7974,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "tools/deployment/gateway-recover.sh",
         "tools/deployment/gateway-switch.sh",
         "tools/deployment/release-rollout.sh"
@@ -7960,7 +8012,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "tools/deployment/gateway-recover.sh",
         "tools/deployment/gateway-switch.sh",
         "tools/deployment/release-rollout-recovery.sh",
@@ -7975,7 +8027,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "tools/deploy-production.sh",
         "tools/deployment/release-rollout-recovery.sh",
         "tools/deployment/release-rollout.sh",
@@ -8366,7 +8418,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml",
         "tools/deployment/release-rollout-recovery.sh",
         "tools/deployment/release-rollout.sh",
@@ -8771,7 +8823,9 @@
       "mapsTo": [],
       "sources": [
         "tools/deployment/release-rollout.sh",
-        "tools/deployment/rollout-state.mjs"
+        "tools/deployment/rollout-state.mjs",
+        "tools/deployment/slot-start.sh",
+        "tools/deployment/slot-stop.sh"
       ],
       "deprecation": null
     },
@@ -8861,7 +8915,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -8873,7 +8927,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -8885,7 +8939,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -8976,7 +9030,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "tools/deployment/slot-preflight.sh"
       ],
       "deprecation": null
@@ -9021,7 +9075,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "tools/deployment/slot-preflight.sh"
       ],
       "deprecation": null
@@ -9033,7 +9087,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "tools/deployment/slot-preflight.sh"
       ],
       "deprecation": null
@@ -9056,7 +9110,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "tools/deployment/gateway-rollback.sh",
         "tools/deployment/slot-common.sh",
         "tools/deployment/slot-state.mjs"
@@ -9083,7 +9137,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml",
         "tools/deployment/slot-preflight.sh"
       ],
@@ -9109,7 +9163,7 @@
         "AnonymousCredentialIssuer:BlindRsa:Enabled"
       ],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -9121,7 +9175,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml",
         "tools/deploy-production.sh"
       ],
@@ -9136,7 +9190,7 @@
         "AnonymousIdentity:ZkProd:CredentialReady"
       ],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -9150,7 +9204,7 @@
         "AnonymousIdentity:ZkVerifier:NativeGroth16:VerifyingKeyPath"
       ],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -9164,7 +9218,7 @@
         "AnonymousCredentialIssuer:BlindRsa:PrivateKeyPath"
       ],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -9178,7 +9232,7 @@
         "AnonymousCredentialIssuer:BlindRsa:PublicKeyHash"
       ],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -9192,7 +9246,7 @@
         "AnonymousCredentialIssuer:IssuerPublicKeyId"
       ],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -9206,7 +9260,7 @@
         "AnonymousIdentity:ZkVerifier:NativeGroth16:LibraryPath"
       ],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml",
         "tools/deploy-production.sh"
       ],
@@ -9221,7 +9275,7 @@
         "AnonymousIdentity:ZkProd:Enabled"
       ],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -9255,7 +9309,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml",
         "tools/deploy-production.sh"
       ],
@@ -9270,7 +9324,7 @@
         "AnonymousIdentity:ZkProd:TrustedSetupManifestPath"
       ],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -9284,7 +9338,7 @@
         "AnonymousIdentity:ZkProd:TrustedSetupVerified"
       ],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -9311,7 +9365,7 @@
         "AnonymousIdentity:ZkVerifier:VerifyingKeyHash"
       ],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -9325,7 +9379,7 @@
         "AnonymousIdentity:ZkProd:VerifyingKeyManifestPath"
       ],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null
@@ -9387,7 +9441,7 @@
       "secret": true,
       "mapsTo": [],
       "sources": [
-        ".env.example"
+        "config/examples/.env.example"
       ],
       "deprecation": null
     },
@@ -9411,7 +9465,7 @@
         "Jwt:KeyVersion"
       ],
       "sources": [
-        ".env.production.example"
+        "config/examples/.env.production.example"
       ],
       "deprecation": null
     },
@@ -9424,7 +9478,7 @@
         "Jwt:RotationWindowDays"
       ],
       "sources": [
-        ".env.production.example"
+        "config/examples/.env.production.example"
       ],
       "deprecation": null
     },
@@ -9437,7 +9491,7 @@
         "Jwt:SecretKey"
       ],
       "sources": [
-        ".env.production.example"
+        "config/examples/.env.production.example"
       ],
       "deprecation": null
     },
@@ -9584,7 +9638,7 @@
       "secret": true,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml",
         "ops/docker/docker-compose.zero-downtime.yml"
       ],
@@ -9619,7 +9673,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml",
         "tools/deploy-production.sh"
       ],
@@ -9632,7 +9686,7 @@
       "secret": false,
       "mapsTo": [],
       "sources": [
-        ".env.production.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml",
         "tools/deploy-production.sh"
       ],
@@ -9710,8 +9764,8 @@
         "Seo:BaseUrl"
       ],
       "sources": [
-        ".env.example",
-        ".env.production.example",
+        "config/examples/.env.example",
+        "config/examples/.env.production.example",
         "ops/docker/docker-compose.production.yml"
       ],
       "deprecation": null

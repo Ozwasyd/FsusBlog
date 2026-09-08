@@ -1,81 +1,78 @@
 # Release Browser Contract
 
-`tests/browser-contract/run.mjs` 是 release-final 唯一的真实浏览器 correctness 探针。它直接使用 Playwright Library 启动 lockfile 对应的 managed Chromium，不经过 Playwright Test worker pool、shard 或 suite retry。
+This page is the canonical release browser-contract execution boundary. Maintainers use it for the runner and invariant owners; release and operations reviewers use it for identity, evidence, and failure gates; contributors use it for supported scenarios, the command, and fallback boundaries. Evidence classification and retention are canonical in the [#1151 evidence governance](issue-1151-evidence-governance.md); the dedicated fixture lifecycle is canonical in the [#1149 Browser Contract fixture](issue-1149-browser-contract-fixture.md).
 
-在 evidence 治理中，它的 class 固定为 `browser-contract`，不是普通 `correctness` 或 `diagnostic`。Production Summary 不消费该 receipt；Release Final 缺少成功且 source/build/digest 绑定一致的 receipt 时 fail closed。三类 receipt、infra failure 与迁移 manifest 规则见 [`issue-1151-evidence-governance.md`](issue-1151-evidence-governance.md)。
+tests/browser-contract/run.mjs is the only real-browser correctness probe for release-final. It uses the lockfile's managed Chromium through Playwright Library, without the Playwright Test worker pool, shards, or suite retry.
 
-固定拓扑：
+Its evidence class is fixed as browser-contract, not generic correctness or diagnostic. Production Summary does not consume this receipt. Release Final fails closed when the receipt is missing, unsuccessful, or not consistently bound to the source, build, and digests.
 
-- 1 次 Chromium launch、最多 1 个并发 browser root；
-- 5 个基线场景顺序执行；只有 immutable fixture 明确声明已具备 step-up 注册前提时，才加入第 6 个 WebAuthn 成功场景；每场景新建并关闭一个 BrowserContext；
-- 0 worker pool、0 shard、0 retry；
-- lane 默认 9 分钟超时，超时后先发送 `TERM`，15 秒后终止完整 process group；
-- crash/disconnect 直接分类为 `infra`，不会重跑或升级为 clean pass。
+## Fixed topology
 
-## 场景目录与确定性选择
+- One Chromium launch and at most one concurrent browser root.
+- Five baseline scenarios run sequentially. A sixth WebAuthn-success scenario is added only when the immutable fixture explicitly declares the step-up registration prerequisite. Each scenario creates and closes a new BrowserContext.
+- Zero worker pool, zero shard, and zero retry.
+- The lane defaults to a nine-minute timeout; it sends TERM first and terminates the complete process group 15 seconds later.
+- A crash or disconnect is classified directly as infra; it is not rerun or promoted to a clean pass.
 
-| ID | 浏览器独有风险 |
+## Scenario catalog and deterministic selection
+
+| ID | Browser-only risk |
 | --- | --- |
-| `public-hydration-history-reload` | AOT article 直达、真实 Vue hydration、首次交互 takeover、public 导航、back、reload、head/body 与 app/shell identity |
-| `account-deep-link-bootstrap` | 真实普通账号 cookie 打开受保护 deep link 并完成 account bootstrap |
-| `admin-deep-link-expired-session` | 真实 admin cookie 完成权限 bootstrap；cookie 失效后保留 redirect 目标并呈现登录页 |
-| `article-publish-persistence` | 管理 UI 发出真实 prepublish/create 请求，返回成功后 reload 仍能检索到文章；只执行一次写入 |
-| `webauthn-virtual-authenticator` | 条件场景：fixture receipt 声明 `webAuthnRegistration=true` 时，Chromium CDP virtual authenticator 完成真实注册仪式，reload 后凭据仍存在 |
-| `service-worker-offline-reload` | Service Worker 接管后离线 reload 遵守 private/no-store 503 策略，恢复网络后可重新加载 |
+| public-hydration-history-reload | Direct AOT article entry, real Vue hydration, first-interaction takeover, public navigation, back, reload, and head/body plus app/shell identity |
+| account-deep-link-bootstrap | Open a protected deep link with a real ordinary-account cookie and complete account bootstrap |
+| admin-deep-link-expired-session | Complete permission bootstrap with a real admin cookie; after expiry, preserve the redirect target and render the login page |
+| article-publish-persistence | The admin UI sends a real prepublish/create request; after success, reload still retrieves the article; only one write is performed |
+| webauthn-virtual-authenticator | Conditional scenario: when the fixture receipt declares webAuthnRegistration=true, Chromium CDP's virtual authenticator completes a real registration ceremony and the credential remains after reload |
+| service-worker-offline-reload | After Service Worker takeover, offline reload follows the private/no-store 503 policy and can reload after network recovery |
 
-选择只读取本轮不可变 fixture 的 capability 声明，不读取宿主负载、live grant、上一轮 evidence 或浏览器探测结果，因此同一输入的 exact scenario IDs 保持确定。当前基线 fixture 没有可消费的 step-up proof，选择其余 5 个场景；#1149 的 producer 只有在生成可完成注册的账号会话后才可声明该能力。普通 Router、组件状态、API payload、权限、缓存与持久化 correctness 由 browserless tests 负责，不在这里重复 route/viewport/theme 矩阵。
+Selection reads only this run's immutable fixture capability declaration. It does not read host load, live grants, prior evidence, or browser probe results, so identical input yields identical scenario IDs. The current baseline fixture has no consumable step-up proof and therefore selects the other five scenarios; the #1149 producer may declare that capability only after creating an account session that can complete registration. Ordinary Router, component-state, API-payload, permission, cache, and persistence correctness belongs to browserless tests and is not duplicated here as a route/viewport/theme matrix.
 
-## 输入与输出
+## Inputs and outputs
 
-runner 在读取旧 receipt 或启动 Chromium 前，fail closed 验证显式的 `FSUSBLOG_TEST_SOURCE_COMMIT` / `FSUSBLOG_TEST_SOURCE_FINGERPRINT` 与 #1078 immutable production build receipt 完全一致，并要求 receipt 包含 `backend-runtime`、`frontend-dist`、`wasm` 和 `generated-contracts`。`GITHUB_SHA` 不能代替这两项专用 source identity。随后由 `config/testing/playwright-browser-identity-policy.json` 解析 lockfile 对应的 managed Chromium；任何 host executable override、managed binary 缺失、非 canonical path、revision/catalog 不一致或 binary digest 漂移都在 fixture/browser launch 前失败。
+Before reading an old receipt or launching Chromium, the runner fail-closed verifies that explicit FSUSBLOG_TEST_SOURCE_COMMIT and FSUSBLOG_TEST_SOURCE_FINGERPRINT exactly match the #1078 immutable production build receipt. That receipt must contain backend-runtime, frontend-dist, wasm, and generated-contracts; GITHUB_SHA cannot substitute for the dedicated source identities. config/testing/playwright-browser-identity-policy.json then resolves the lockfile-managed Chromium. A host executable override, missing managed binary, non-canonical path, revision/catalog mismatch, or binary-digest drift fails before fixture or browser launch.
 
-\#1149 的 fixture producer 固定准备 `1 session / 1 concurrency`：一个 run-scoped 专用 PostgreSQL instance/schema、一个 Redis instance/namespace、一个普通 user、一个 admin 和一份 sealed auth/storage manifest。它不读取 live CPU/memory grant 或 PostgreSQL PID headroom，不按 worker clone schema，也不回退到共享 `public` schema。场景只消费 `createPublishedArticle()`、`createPendingComment()`、`createUserSession()`、`createAdminSession()` 和 `resetContractNamespace()` 形成的稳定 fixture view；浏览器场景不执行 SQL、Redis 或 Docker 命令。完整生命周期见 [`issue-1149-browser-contract-fixture.md`](issue-1149-browser-contract-fixture.md)。
+The #1149 fixture producer fixes `1 session / 1 concurrency`: a run-dedicated PostgreSQL instance/schema, Redis instance/namespace, ordinary user, admin, and sealed auth/storage manifest. It does not read live CPU/memory grants or PostgreSQL PID headroom, clone a schema per worker, or fall back to shared `public`. Scenarios consume only the stable fixture view produced by `createPublishedArticle()`, `createPendingComment()`, `createUserSession()`, `createAdminSession()`, and `resetContractNamespace()`; browser scenarios run no SQL, Redis, or Docker commands. See the [#1149 fixture lifecycle](issue-1149-browser-contract-fixture.md).
 
-固定可上传结果是 `.tmp/browser-contract/receipt.json` 与 `.tmp/release-evidence/public-preview-screenshots.json`；sealed fixture manifest 在 cleanup 前位于 `.tmp/browser-contract/fixtures/<namespace>/contract-fixture.json`，本机私有调试产物位于 `.tmp/browser-contract/runs/<namespace>/`。receipt 记录 source/build fingerprint、run/lane/preparation identity、database/Redis identity、稳定实体 ID、cleanup 分项证据，以及 browser planned/actual identity：browser name/version/revision、canonical executable path 与 SHA-256、Playwright package/catalog digest、exact launch args、font/locale digest、locale、device scale、headless rendering、color scheme 和 software GPU mode。它还记录精确 scenario IDs、launch/context 数、wall clock、console/page/request issues、product/contract/infra 分类及本地证据的相对路径，不内联原始 trace、screenshot 或会话材料。场景 context 数只统计 5–6 个产品场景；public-preview 另行绑定 9 个截图 context 与 registry 声明的 viewport/locale/zoom 质量场景 context、九图 SHA-256、视觉输入摘要、质量策略摘要、runtime/layout/sanitization/quality 四类 audit、逐图质量报告、完整质量矩阵和证据文件 digest。只有显式 `anonymous` 场景允许在本地私有目录保留 raw trace；`user`、`admin` 及任何未知/未来 role 都不启动 tracing。场景失败时可在本地私有目录保留 viewport screenshot，但 CI 无论成功或失败都不上传 `fixtures/**` 或 `runs/**`。
+The fixed uploadable outputs are .tmp/browser-contract/receipt.json and .tmp/release-evidence/public-preview-screenshots.json. Before cleanup, the sealed fixture manifest is .tmp/browser-contract/fixtures/<namespace>/contract-fixture.json; local private debugging artifacts are under .tmp/browser-contract/runs/<namespace>/.
 
-## 运行
+The receipt records source/build fingerprint, run/lane/preparation identity, database/Redis identity, stable entity IDs, per-step cleanup evidence, and planned/actual browser identity: browser name/version/revision, canonical executable path and SHA-256, Playwright package/catalog digest, exact launch arguments, font/locale digest, locale, device scale, headless rendering, color scheme, and software-GPU mode. It also records exact scenario IDs, launch/context counts, wall clock, console/page/request issues, product/contract/infra classification, and relative paths to local evidence; raw traces, screenshots, and session material are not inlined.
 
-先物化当前 source identity 的 immutable production build receipt，再执行：
+The scenario context count covers only the five or six product scenarios. Public-preview separately binds nine screenshot contexts, registry-declared viewport/locale/zoom quality contexts, nine PNG SHA-256 values, visual-input and quality-policy summaries, runtime/layout/sanitization/quality audits, per-image quality reports, the complete quality matrix, and evidence-file digests. Only an explicit anonymous scenario may retain a raw trace in the private local directory; user, admin, and every unknown or future role do not start tracing. A failed scenario may retain a viewport screenshot locally, but CI never uploads fixtures/** or runs/**, whether the run succeeds or fails.
 
-```bash
+## Run
+
+Materialize the immutable production build receipt for the current source identity, then run:
+
+~~~bash
 npm --prefix src/frontend run check:browser-contract
-```
+~~~
 
-调用者必须提供 `FSUSBLOG_TEST_SOURCE_COMMIT`、`FSUSBLOG_TEST_SOURCE_FINGERPRINT` 和 `FSUSBLOG_BROWSER_CONTRACT_BUILD_RECEIPT`。lane 默认使用仓内 `tests/browser-contract/default-fixture-provider.mjs`，也可显式指定符合同一 protocol 的 provider。runtime URL、fixture root 和 namespace 由当前 run identity/producer 产出，不应指向上一轮运行。release-final 不允许跳过 build receipt、回退到系统 Chrome、共享 fixture 或通过 retry 掩盖失败。
+The caller must provide FSUSBLOG_TEST_SOURCE_COMMIT, FSUSBLOG_TEST_SOURCE_FINGERPRINT, and FSUSBLOG_BROWSER_CONTRACT_BUILD_RECEIPT. The lane defaults to the repository's tests/browser-contract/default-fixture-provider.mjs, or may receive an explicit provider implementing the same protocol. Runtime URL, fixture root, and namespace come from the current run identity and producer; they must not point to a previous run. Release Final cannot skip the build receipt, fall back to system Chrome, share fixtures, or hide failure with retry.
 
-## 测试分层与权威 owner
+## Test layering and authoritative owners
 
-`tests/browser-contract/invariant-owners.json` 是 browser-contract invariant 的机器可校验 owner 清单。每条 invariant 只能绑定一个 canonical test：
+tests/browser-contract/invariant-owners.json is the machine-checkable owner map for Browser Contract invariants. Each invariant has exactly one canonical test:
 
-- `tests/tools/browser-contract.test.mjs` 只负责 catalog、schema、声明式固定拓扑、runner/adapter 接口禁止项和 evidence retention policy；
-- `tests/browser-contract/fixture-lifecycle.test.mjs` 只负责必须执行才能证明的 namespace/resource 隔离、provider ownership、startup/runtime/cleanup failure、retry、signal 与 final receipt；
-- 静态层不得用 source regex 声称已经执行 cleanup 或 finalization；动态层不得重复检查固定 session/concurrency 常量。
+- tests/tools/browser-contract.test.mjs owns the catalog, schema, declarative fixed topology, forbidden runner/adapter interfaces, and evidence-retention policy.
+- tests/browser-contract/fixture-lifecycle.test.mjs owns the namespace/resource isolation that must execute, provider ownership, startup/runtime/cleanup failure, retry, signal, and final-receipt behavior.
+- The static layer must not use source regexes to claim that cleanup or finalization executed; the dynamic layer must not repeat fixed session/concurrency constants.
 
-registry 本身由静态 suite 校验 schema、唯一 invariant ID、唯一 owner、层级对应文件和 owner test 存在性。matrix 与 coverage registry 将该清单作为 `release-browser-contract` evidence 输入；test 改名或合并必须同步 retention replacement ledger，不保留兼容壳或 skip。
+The registry itself statically checks schema, unique invariant IDs, unique owners, layer-to-file mapping, and owner-test existence. Matrix and coverage registries consume it as release-browser-contract evidence. A test rename or merge must update the retention-replacement ledger; no compatibility shell or skip is retained.
 
-## 风险与回退
+## Risk and fallback
 
-Browser Contract 失败时 release-final 保持阻断，并根据 receipt 的 `product`、`contract` 或 `infra` 分类定位；browserless production correctness 不会被改写成失败。无论成功、失败、取消或 timeout 都执行同一幂等 cleanup；cleanup failure 单独记录且不覆盖第一个产品/契约失败，并保留当前 identity 的私有 recovery state 供重试。无法证明 container/PID ownership 时必须 fail closed，禁止按名称强制删除。紧急回退可以暂停 release-final 发布动作并保留 browserless gate，不能改用旧 Acceptance 矩阵、系统浏览器、共享 `public` schema 或自动重试生成 clean pass。Nightly/manual visual、cross-browser、geometry 和性能诊断由 #1148 独立承接。
+When Browser Contract fails, Release Final remains blocked and the receipt's product, contract, or infra classification directs diagnosis; browserless production correctness is not rewritten. The same idempotent cleanup runs for success, failure, cancellation, and timeout. Cleanup failure is recorded separately, does not overwrite the first product/contract failure, and retains private recovery state for retry. If container/PID ownership cannot be proved, fail closed; never force-delete by name.
 
-## 发布资产与 Service Worker 兼容性
+An emergency fallback may pause Release Final publication while retaining the browserless gate. It cannot restore the old Acceptance matrix, system browser, shared public schema, or automatic retries that manufacture a clean pass. Nightly/manual visual, cross-browser, geometry, and performance diagnostics are owned separately by the [#1148 browser diagnostics](issue-1148-browser-diagnostics.md).
 
-Browser Contract 的离线场景证明当前 release 的公开缓存边界；Blue/Green 发布还必须通过 [零停机发布资格运行手册](../releases/zero-downtime-release-runbook.md) 中独立的 N/N-1 retained-asset 场景。该场景在真实 gateway switch 前后读取旧 release 的 manifest、HTML、Service Worker 和 immutable assets，并在 GC 后复读受保护 URL。`browser.required=true` 时，HTTP-only probe 不能替代受控浏览器 checkpoint。
+## Release assets and Service Worker compatibility
 
-浏览器 evidence 绑定 release ID、asset manifest hash、gateway generation、Service Worker script/cache identity 和独立 HMAC key。模板、Playwright 测试源码、历史 receipt 与 `browser.required=false` 都不能声明一次执行已通过。私有/认证流量禁止进入 Cache Storage，长期安全规则由 [Service Worker private-cache boundary](../security/service-worker-cache-boundary.md) 唯一声明。
+Browser Contract's offline scenario proves the public-cache boundary of the current release. Blue/Green publication additionally requires the independent N/N-1 retained-asset scenario in the [zero-downtime release qualification runbook](../releases/zero-downtime-release-runbook.md). Before and after the real gateway switch, that scenario reads the old release's manifest, HTML, Service Worker, and immutable assets, then rereads protected URLs after GC. When browser.required=true, an HTTP-only probe cannot replace the controlled-browser checkpoint.
+
+Browser evidence binds release ID, asset-manifest hash, gateway generation, Service Worker script/cache identity, and an independent HMAC key. Templates, Playwright test source, historical receipts, and browser.required=false cannot claim that an execution passed. Private/authenticated traffic must not enter Cache Storage; the long-term rule is canonical in the [Service Worker private-cache boundary](../security/service-worker-cache-boundary.md).
 
 ## Public-preview quality evidence
 
-The public-preview gallery is audited inside the existing single Chromium
-launch. `tests/browser-contract/public-preview-gallery.mjs` captures the nine
-managed PNG contexts, runs the registry's additional viewport/locale/zoom
-scenarios, and calls the same `tools/docs/public-preview-quality.mjs` facade as
-the formal docs writer. It does not implement a parallel screenshot service.
+The public-preview gallery is audited inside the existing single Chromium launch. tests/browser-contract/public-preview-gallery.mjs captures nine managed PNG contexts, runs the registry's additional viewport/locale/zoom scenarios, and calls the same tools/docs/public-preview-quality.mjs facade as the formal documentation writer. It does not implement a parallel screenshot service.
 
-PNG provenance remains in `docs/assets/screenshots/manifest.json`; geometry,
-locale and deterministic reviewer results remain in the separate
-`docs/assets/visual-evidence/public-preview-quality.json`. Browser Contract
-compares both against a fresh same-source capture and augments
-`.tmp/release-evidence/public-preview-screenshots.json`. A missing, stale,
-tampered, `fail` or `needs-design-review` quality manifest is a product failure,
-not an infrastructure retry condition. No issue comment, CI URL or external
-visual service is required for the local decision.
+PNG provenance remains in docs/assets/screenshots/manifest.json; geometry, locale, and deterministic reviewer results remain in the separate docs/assets/visual-evidence/public-preview-quality.json. Browser Contract compares both with a fresh same-source capture and augments .tmp/release-evidence/public-preview-screenshots.json. A missing, stale, tampered, fail, or needs-design-review quality manifest is a product failure, not an infrastructure-retry condition. No issue comment, CI URL, or external visual service is required for the local decision.

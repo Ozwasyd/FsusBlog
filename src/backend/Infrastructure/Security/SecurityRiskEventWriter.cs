@@ -31,28 +31,62 @@ public sealed class SecurityRiskEventWriterOptions
     public int FlushWindowMs { get; set; } = 500;
 }
 
-/// <summary>Captures the current number of queued and dropped security-risk events.</summary>
+/// <summary>Captures queue admission, in-flight, durable and terminal dispositions.</summary>
 /// <param name="QueuedCount">The approximate number of events awaiting persistence.</param>
-/// <param name="DroppedCount">The cumulative number of events rejected by the bounded queue.</param>
-public sealed record SecurityRiskEventWriteQueueSnapshot(long QueuedCount, long DroppedCount);
+/// <param name="DroppedCount">The cumulative number of rejected admissions, not an acknowledged loss.</param>
+public sealed record SecurityRiskEventWriteQueueSnapshot(
+    long QueuedCount,
+    long DroppedCount,
+    long InFlightCount = 0,
+    long DurablePendingCount = 0,
+    long DurableAcceptedCount = 0,
+    long CommittedCount = 0,
+    long RequeuedCount = 0,
+    long RejectedCount = 0,
+    long TerminalFailureCount = 0,
+    long Sequence = 0,
+    string? LastDisposition = null,
+    string? LastFailureReason = null,
+    string? LastItemReference = null)
+{
+    public long OutstandingCount => Math.Max(0, QueuedCount)
+        + Math.Max(0, InFlightCount)
+        + Math.Max(0, DurablePendingCount)
+        + Math.Max(0, TerminalFailureCount);
+}
 
 /// <summary>Provides single-reader admission and accounting for the bounded security-risk event channel.</summary>
 public sealed class SecurityRiskEventWriteQueue
 {
     private readonly Channel<SecurityRiskEventWrite> _channel;
+    private readonly IServiceScopeFactory? _scopeFactory;
     private readonly ILogger<SecurityRiskEventWriteQueue> _logger;
     private long _queuedCount;
     private long _droppedCount;
+    private long _inFlightCount;
+    private long _durablePendingCount;
+    private long _durableAcceptedCount;
+    private long _committedCount;
+    private long _requeuedCount;
+    private long _rejectedCount;
+    private long _terminalFailureCount;
+    private long _sequence;
+    private string? _lastDisposition;
+    private string? _lastFailureReason;
+    private string? _lastItemReference;
+    private int _completed;
 
     /// <summary>Creates a bounded event queue using the configured capacity and wait-mode backpressure.</summary>
     /// <param name="options">The writer capacity and batching options.</param>
     /// <param name="logger">The logger used when queue admission fails.</param>
     public SecurityRiskEventWriteQueue(
         IOptions<SecurityRiskEventWriterOptions> options,
-        ILogger<SecurityRiskEventWriteQueue> logger)
+        ILogger<SecurityRiskEventWriteQueue> logger,
+        IServiceScopeFactory? scopeFactory = null)
     {
         SecurityRiskEventWriterOptions value = options.Value;
         _logger = logger;
+        _scopeFactory = scopeFactory;
         _channel = Channel.CreateBounded<SecurityRiskEventWrite>(new BoundedChannelOptions(Math.Clamp(value.Capacity, 1, 1_000_000))
         {
             SingleReader = true,
@@ -70,20 +104,42 @@ public sealed class SecurityRiskEventWriteQueue
     /// <returns><see langword="true"/> when the event was admitted; otherwise <see langword="false"/>.</returns>
     public bool TryWrite(SecurityRiskEventWrite write)
     {
+        if (Volatile.Read(ref _completed) != 0)
+        {
+            return RejectAndFallback(write, "closed");
+        }
+
         if (!_channel.Writer.TryWrite(write))
         {
-            Interlocked.Increment(ref _droppedCount);
-            _logger.LogWarning(
-                "security-risk-event-queue-full Source={Source} Reason={Reason} Action={Action} TraceId={TraceId}",
-                write.Source,
-                write.Reason,
-                write.Action,
-                write.TraceId);
-            return false;
+            return RejectAndFallback(write, "queue_full");
         }
 
         Interlocked.Increment(ref _queuedCount);
+        SetDisposition("queued", write.Id);
         return true;
+    }
+
+    /// <summary>Admits an event or waits for its own durable store fallback.</summary>
+    public async ValueTask<bool> EnqueueAsync(
+        SecurityRiskEventWrite write,
+        CancellationToken cancellationToken = default)
+    {
+        if (cancellationToken.IsCancellationRequested)
+        {
+            await WriteFallbackAsync(write, CancellationToken.None).ConfigureAwait(false);
+            return false;
+        }
+
+        if (Volatile.Read(ref _completed) == 0 && _channel.Writer.TryWrite(write))
+        {
+            Interlocked.Increment(ref _queuedCount);
+            SetDisposition("queued", write.Id);
+            return true;
+        }
+
+        Interlocked.Increment(ref _rejectedCount);
+        await WriteFallbackAsync(write, CancellationToken.None).ConfigureAwait(false);
+        return false;
     }
 
     /// <summary>Attempts to remove one event and updates the queue-depth accounting on success.</summary>
@@ -97,6 +153,8 @@ public sealed class SecurityRiskEventWriteQueue
         }
 
         MarkRead();
+        Interlocked.Increment(ref _inFlightCount);
+        SetDisposition("in-flight", write.Id);
         return true;
     }
 
@@ -105,7 +163,146 @@ public sealed class SecurityRiskEventWriteQueue
     public SecurityRiskEventWriteQueueSnapshot Snapshot()
         => new(
             Volatile.Read(ref _queuedCount),
-            Volatile.Read(ref _droppedCount));
+            Volatile.Read(ref _droppedCount),
+            Volatile.Read(ref _inFlightCount),
+            Volatile.Read(ref _durablePendingCount),
+            Volatile.Read(ref _durableAcceptedCount),
+            Volatile.Read(ref _committedCount),
+            Volatile.Read(ref _requeuedCount),
+            Volatile.Read(ref _rejectedCount),
+            Volatile.Read(ref _terminalFailureCount),
+            Volatile.Read(ref _sequence),
+            Volatile.Read(ref _lastDisposition),
+            Volatile.Read(ref _lastFailureReason),
+            Volatile.Read(ref _lastItemReference));
+
+    public void Complete(Exception? error = null)
+    {
+        if (Interlocked.Exchange(ref _completed, 1) != 0)
+        {
+            return;
+        }
+
+        _channel.Writer.TryComplete(error);
+        SetDisposition("closed", error?.Message);
+    }
+
+    internal void MarkCommitted(int count)
+    {
+        Decrement(ref _inFlightCount, count);
+        Interlocked.Add(ref _committedCount, Math.Max(0, count));
+        SetDisposition("committed", null);
+    }
+
+    internal void MarkDurablePending(int count)
+    {
+        Interlocked.Add(ref _durablePendingCount, Math.Max(0, count));
+        SetDisposition("durable-pending", null);
+    }
+
+    internal void MarkDurableAccepted(int count)
+    {
+        Decrement(ref _durablePendingCount, count);
+        Decrement(ref _inFlightCount, count);
+        Interlocked.Add(ref _durableAcceptedCount, Math.Max(0, count));
+        SetDisposition("durable-accepted", null);
+    }
+
+    internal void MarkRequeued(int count)
+    {
+        Decrement(ref _inFlightCount, count);
+        Interlocked.Add(ref _requeuedCount, Math.Max(0, count));
+        SetDisposition("requeued", null);
+    }
+
+    internal void MarkTerminalFailure(int count, string? itemReference, string reason)
+    {
+        if (count <= 0)
+        {
+            return;
+        }
+
+        Decrement(ref _inFlightCount, count);
+        Interlocked.Add(ref _terminalFailureCount, count);
+        SetDisposition("terminal-failed", itemReference, reason);
+    }
+
+    internal void MarkDurableFailed(int count, string? itemReference, string reason)
+    {
+        Decrement(ref _durablePendingCount, count);
+        MarkTerminalFailure(count, itemReference, reason);
+    }
+
+    internal bool TryRequeue(SecurityRiskEventWrite write)
+    {
+        if (!_channel.Writer.TryWrite(write))
+        {
+            return false;
+        }
+
+        Interlocked.Increment(ref _queuedCount);
+        MarkRequeued(1);
+        return true;
+    }
+
+    private bool RejectAndFallback(SecurityRiskEventWrite write, string reason)
+    {
+        Interlocked.Increment(ref _droppedCount);
+        Interlocked.Increment(ref _rejectedCount);
+        _logger.LogWarning(
+            "security-risk-event-admission-rejected Source={Source} Reason={Reason} Action={Action} TraceId={TraceId} Disposition=durable-fallback-or-terminal",
+            write.Source,
+            write.Reason,
+            write.Action,
+            write.TraceId);
+        SetDisposition("rejected", write.Id, reason);
+
+        if (_scopeFactory is null)
+        {
+            MarkTerminalFailure(1, write.Id, $"{reason}:fallback-unavailable");
+            return false;
+        }
+
+        MarkDurablePending(1);
+        try
+        {
+            using IServiceScope scope = _scopeFactory.CreateScope();
+            ISecurityRiskEventStore store = scope.ServiceProvider.GetRequiredService<ISecurityRiskEventStore>();
+            store.AppendAsync(write, CancellationToken.None).GetAwaiter().GetResult();
+            MarkDurableAccepted(1);
+        }
+        catch (Exception ex)
+        {
+            MarkDurableFailed(1, write.Id, $"{reason}:fallback-failed:{ex.GetType().Name}");
+            _logger.LogError(ex, "security-risk durable admission fallback failed. Id={Id}", write.Id);
+        }
+
+        return false;
+    }
+
+    private async Task WriteFallbackAsync(SecurityRiskEventWrite write, CancellationToken cancellationToken)
+    {
+        MarkDurablePending(1);
+        try
+        {
+            await using AsyncServiceScope scope = _scopeFactory is null
+                ? throw new InvalidOperationException("security-risk durable fallback unavailable")
+                : _scopeFactory.CreateAsyncScope();
+            ISecurityRiskEventStore store = scope.ServiceProvider.GetRequiredService<ISecurityRiskEventStore>();
+            await store.AppendAsync(write, cancellationToken).ConfigureAwait(false);
+            MarkDurableAccepted(1);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            MarkDurableFailed(1, write.Id, $"fallback-failed:{ex.GetType().Name}");
+            throw new InvalidOperationException($"security-risk durable fallback failed for {write.Id}", ex);
+        }
+        catch (OperationCanceledException)
+        {
+            MarkDurableFailed(1, write.Id, "fallback-cancelled");
+            throw;
+        }
+    }
 
     private void MarkRead()
     {
@@ -119,6 +316,40 @@ public sealed class SecurityRiskEventWriteQueue
             }
         }
         while (Interlocked.CompareExchange(ref _queuedCount, current - 1, current) != current);
+    }
+
+    private static void Decrement(ref long value, long count)
+    {
+        if (count <= 0)
+        {
+            return;
+        }
+
+        long current;
+        do
+        {
+            current = Volatile.Read(ref value);
+            if (current <= 0)
+            {
+                return;
+            }
+        }
+        while (Interlocked.CompareExchange(ref value, Math.Max(0, current - count), current) != current);
+    }
+
+    private void SetDisposition(string disposition, string? itemReference, string? failureReason = null)
+    {
+        Interlocked.Increment(ref _sequence);
+        Volatile.Write(ref _lastDisposition, disposition);
+        if (itemReference is not null)
+        {
+            Volatile.Write(ref _lastItemReference, itemReference);
+        }
+
+        if (failureReason is not null)
+        {
+            Volatile.Write(ref _lastFailureReason, failureReason);
+        }
     }
 }
 
@@ -142,6 +373,7 @@ public sealed class SecurityRiskEventWriterWorker(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var batch = new List<SecurityRiskEventWrite>(_batchSize);
+        bool persistenceStarted = false;
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -160,14 +392,21 @@ public sealed class SecurityRiskEventWriterWorker(
 
                 batch.Add(first);
                 await FillBatchUntilFlushWindowAsync(batch, stoppingToken);
+                persistenceStarted = true;
                 await PersistSafelyAsync(batch, stoppingToken);
+                persistenceStarted = false;
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
+                if (!persistenceStarted)
+                {
+                    RequeueOrTerminal(batch, "writer-cancelled");
+                }
                 break;
             }
             catch (Exception ex)
             {
+                RequeueOrTerminal(batch, "worker-exception");
                 _logger.LogError(ex, "security-risk-event writer loop recovered from an unexpected failure.");
             }
         }
@@ -212,6 +451,12 @@ public sealed class SecurityRiskEventWriterWorker(
             {
                 await store.AppendBatchAsync(batch, cancellationToken);
                 insertedRows = batch.Count;
+                _queue.MarkCommitted(batch.Count);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                RequeueOrTerminal(batch, "persist-cancelled");
+                throw;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -223,11 +468,27 @@ public sealed class SecurityRiskEventWriterWorker(
                 failedBatches = fallback.FailedBatches + 1;
                 fallbackSingleInserts = fallback.FallbackSingleInserts;
                 LogPersistFailure(ex, batch);
+                if (insertedRows > 0)
+                {
+                    _queue.MarkCommitted(insertedRows);
+                }
+
+                int unresolved = batch.Count - insertedRows;
+                if (unresolved > 0)
+                {
+                    _queue.MarkTerminalFailure(unresolved, batch[0].Id, "worker-failure:durable-replay-unresolved");
+                }
             }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            RequeueOrTerminal(batch, "persist-cancelled");
+            throw;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             failedBatches++;
+            _queue.MarkTerminalFailure(batch.Count, batch[0].Id, $"worker-failure:{ex.GetType().Name}");
             LogPersistFailure(ex, batch);
         }
         finally
@@ -315,6 +576,17 @@ public sealed class SecurityRiskEventWriterWorker(
             first.Reason,
             first.Action,
             first.TraceId);
+    }
+
+    private void RequeueOrTerminal(IReadOnlyList<SecurityRiskEventWrite> batch, string reason)
+    {
+        foreach (SecurityRiskEventWrite write in batch)
+        {
+            if (!_queue.TryRequeue(write))
+            {
+                _queue.MarkTerminalFailure(1, write.Id, reason);
+            }
+        }
     }
 
     private async Task FillBatchUntilFlushWindowAsync(List<SecurityRiskEventWrite> batch, CancellationToken stoppingToken)

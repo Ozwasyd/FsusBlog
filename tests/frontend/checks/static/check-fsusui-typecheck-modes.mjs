@@ -19,6 +19,9 @@ const augmentationPath = path.join(frontendRoot, 'src/fsusui/elementPlusAugmenta
 const contractPath = path.join(repoRoot, 'tests/frontend/typecheck/fsusui-export-contract.ts');
 const segmentedConsumerContractPath = path.join(repoRoot, 'tests/frontend/typecheck/admin-segmented-control-consumer-contract.ts');
 const docsPath = path.join(repoRoot, 'docs/frontend/fsusui-typecheck-modes.md');
+const candidateVerifierPath = path.join(repoRoot, 'tools/dependencies/verify-fsusui-candidate.mjs');
+const candidateSmokePath = path.join(repoRoot, 'tools/dependencies/fsusui-candidate-package-smoke.mjs');
+const candidateTestPath = path.join(repoRoot, 'tests/tools/fsusui-candidate.test.mjs');
 
 const failures = [];
 
@@ -68,7 +71,10 @@ for (const file of [
     frontendBuildPath,
     contractPath,
     segmentedConsumerContractPath,
-    docsPath
+    docsPath,
+    candidateVerifierPath,
+    candidateSmokePath,
+    candidateTestPath
 ])
 {
     requireFile(file);
@@ -99,6 +105,10 @@ if (failures.length === 0)
     if (scripts['typecheck:published-fsusui'] !== 'vue-tsc --noEmit -p tsconfig.fsusui-published.json')
     {
         failures.push('src/frontend/package.json: typecheck:published-fsusui must run the published package tsconfig');
+    }
+    if (scripts['verify:fsusui-candidate'] !== 'node ../../tools/dependencies/verify-fsusui-candidate.mjs')
+    {
+        failures.push('src/frontend/package.json: verify:fsusui-candidate must run the isolated candidate verifier');
     }
     if (scripts['typecheck:local-fsusui'] !== 'node ./scripts/run-local-fsusui-typecheck.mjs')
     {
@@ -277,7 +287,11 @@ if (failures.length === 0)
     }
     for (const token of [
         'typecheck:published-fsusui',
+        'verify:fsusui-candidate',
         'typecheck:local-fsusui',
+        'Isolated npm Candidate',
+        'FSUSBLOG_FSUSUI_CANDIDATE',
+        'FSUSBLOG_KEEP_FSUSUI_CANDIDATE_FIXTURE',
         'FSUSBLOG_LOCAL_FSUSUI_ROOT',
         'primary FsusBlog checkout',
         'fails closed',

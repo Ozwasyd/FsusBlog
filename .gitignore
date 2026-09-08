@@ -91,7 +91,7 @@ htmlcov/
 .env.local
 .env.*.local
 .env.production
-!.env.production.example
+!config/examples/.env.production.example
 launchSettings.json
 !src/backend/Properties/launchSettings.json
 !ops/docker/Properties/launchSettings.json

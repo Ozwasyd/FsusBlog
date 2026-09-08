@@ -4,6 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
+import { requireCleanAttemptConsumerAdmission } from './browser-release-clean-attempt-consumers.mjs';
+
 export const releaseReliabilityAuthorityId = 'release-reliability-fresh';
 export const releaseReliabilityQualifiedReceiptSchema =
     'fsusblog.release-reliability-qualified-receipt.v3';
@@ -76,11 +78,12 @@ function fileDigest(file)
 
 function canonicalRepositoryRoot(repositoryRoot)
 {
-    const root = path.resolve(repositoryRoot);
-    if (!fs.existsSync(root))
+    const requestedRoot = path.resolve(repositoryRoot);
+    if (!fs.existsSync(requestedRoot))
     {
-        throw new Error(`release reliability repository root is missing: ${root}`);
+        throw new Error(`release reliability repository root is missing: ${requestedRoot}`);
     }
+    const root = fs.realpathSync(requestedRoot);
     const metadata = fs.lstatSync(root);
     if (!metadata.isDirectory() || metadata.isSymbolicLink() || fs.realpathSync(root) !== root)
     {
@@ -636,6 +639,7 @@ export function locateReleaseReliabilityQualifiedReceipt({
     expectedWorktreeFingerprint = null,
     expectedBuildReceiptContentDigest = null,
     expectedImageDigest = null,
+    attemptEvidence = null,
     verifyQualifiedReceipt = runIndependentReleaseReliabilityVerifier
 })
 {
@@ -675,5 +679,10 @@ export function locateReleaseReliabilityQualifiedReceipt({
             `${errors.join('; ')}; produce with: ${producerCommand}`
         );
     }
+    requireCleanAttemptConsumerAdmission({
+        consumerId: 'release-reliability',
+        attemptEvidence,
+        repositoryRoot: root
+    });
     return binding;
 }

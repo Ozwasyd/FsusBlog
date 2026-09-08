@@ -1,14 +1,16 @@
 # Test asset lifecycle governance
 
-FsusBlog judges test assets by current coverage and ownership, not by age, issue history, runtime, or a one-time optimization campaign.
+FsusBlog judges test assets by current coverage and ownership—not age, issue
+history, runtime, or a one-time optimization campaign. The [test lifecycle
+governance](test-lifecycle-governance.md) owns per-file lifecycle state.
 
 ## Canonical authorities
 
-- `test-lifecycle-registry.json` assigns every Node test file and test ID one execution category and one physical owner. Projection and summary entries cannot execute producers.
+- `test-lifecycle-registry.json` assigns every Node test file and test ID one execution category and one physical owner; projection and summary entries cannot execute producers.
 - `test-retention-replacements.json` maps every removed test ID to live semantic replacements. Chains must resolve to current tests and remain acyclic.
 - `check-test-suite-convergence.mjs` compares the retained test, assertion, coverage, requirement, matrix, and release-evidence universes against the compact baseline and post-baseline manifests.
-- `run-test-matrix.mjs validate` owns current topology. It validates the matrix dynamically and does not preserve historical tier counts or migrated-lane lists.
-- `check-browser-test-migration.mjs` owns Browser Contract and diagnostics migration, and rejects browser E2E sources that directly control SQL, Redis, Docker, or child processes.
+- `run-test-matrix.mjs validate` owns current topology. It validates the matrix dynamically and does not preserve historical tier counts or migrated-lane lists; the [testing strategy](../testing.md) is the human entry point.
+- `check-browser-test-migration.mjs` owns [Browser Contract](browser-contract.md) and diagnostics migration, rejecting browser E2E sources that directly control SQL, Redis, Docker, or child processes.
 
 ## Retirement workflow
 

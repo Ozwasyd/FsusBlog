@@ -10,6 +10,7 @@ import {
 import {
     validateReleaseReliabilityQualifiedBinding
 } from './release-reliability-qualified-receipt.mjs';
+import { requireCleanAttemptConsumerAdmission } from './browser-release-clean-attempt-consumers.mjs';
 
 export const browserlessCorrectnessReceiptSchema = 'fsusblog.browserless-correctness-receipt.v1';
 export const browserDiagnosticsReceiptSchema = 'fsusblog.browser-diagnostics-receipt.v2';
@@ -122,6 +123,7 @@ export function createBrowserlessCorrectnessReceipt({
     jobSummaries = [],
     authority,
     physicalTestIds = [],
+    attemptEvidence = null,
     now = () => new Date()
 })
 {
@@ -262,6 +264,11 @@ export function createBrowserlessCorrectnessReceipt({
     {
         throw new Error('browserless correctness receipt found no correctness job summaries');
     }
+
+    requireCleanAttemptConsumerAdmission({
+        consumerId: 'production-correctness',
+        attemptEvidence
+    });
 
     return seal({
         schema: browserlessCorrectnessReceiptSchema,

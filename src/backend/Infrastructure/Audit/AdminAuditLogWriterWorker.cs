@@ -18,6 +18,7 @@ public sealed class AdminAuditLogWriterWorker(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var batch = new List<AdminAuditLog>(BatchSize);
+        bool persistenceStarted = false;
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -31,14 +32,24 @@ public sealed class AdminAuditLogWriterWorker(
                 batch.Clear();
                 batch.Add(await _channel.ReadAsync(stoppingToken));
                 await FillBatchUntilFlushWindowAsync(batch, stoppingToken);
+                persistenceStarted = true;
                 await FlushPendingAsync(batch, stoppingToken);
+                persistenceStarted = false;
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
+                if (!persistenceStarted)
+                {
+                    RequeueOrTerminal(batch, "writer-cancelled");
+                }
                 break;
             }
             catch (Exception ex)
             {
+                if (!persistenceStarted)
+                {
+                    RequeueOrTerminal(batch, "worker-exception");
+                }
                 _logger.LogError(ex, "admin-audit writer loop recovered from an unexpected failure.");
             }
         }
@@ -61,11 +72,24 @@ public sealed class AdminAuditLogWriterWorker(
                 "admin_audit_flush");
             IAdminAuditLogStore store = scope.ServiceProvider.GetRequiredService<IAdminAuditLogStore>();
             await store.WriteBatchAsync(batch, cancellationToken);
+            _channel.MarkCommitted(batch.Count);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                await _channel.WriteFallbackAsync(batch, CancellationToken.None);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _channel.MarkTerminalFailure(batch.Count, ItemReference(batch[0]), $"writer-cancelled:fallback-failed:{ex.GetType().Name}");
+                _logger.LogError(ex, "admin-audit cancellation fallback failed. Count={Count}", batch.Count);
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex, "admin-audit batch write failed; falling back to direct write. Count={Count}", batch.Count);
-            await _channel.WriteFallbackAsync(batch, cancellationToken);
+            await _channel.WriteFallbackAsync(batch, CancellationToken.None);
         }
     }
 
@@ -118,4 +142,20 @@ public sealed class AdminAuditLogWriterWorker(
             await FlushPendingAsync(batch, cancellationToken);
         }
     }
+
+    private void RequeueOrTerminal(IReadOnlyList<AdminAuditLog> batch, string reason)
+    {
+        foreach (AdminAuditLog audit in batch)
+        {
+            if (!_channel.TryRequeue(audit))
+            {
+                _channel.MarkTerminalFailure(1, ItemReference(audit), reason);
+            }
+        }
+    }
+
+    private static string ItemReference(AdminAuditLog audit)
+        => audit.Id > 0
+            ? audit.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            : $"{audit.AdminPrincipalId}:{audit.Action}:{audit.OccurredAtUtc.Ticks}:{audit.TargetId}";
 }
