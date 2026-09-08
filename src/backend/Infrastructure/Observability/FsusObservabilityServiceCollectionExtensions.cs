@@ -1,4 +1,8 @@
+using System.Diagnostics;
+
 using Npgsql;
+
+using FsusBlog.Server.Infrastructure.Security;
 
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -52,6 +56,8 @@ public static class FsusObservabilityServiceCollectionExtensions
                         instrumentation.RecordException = true;
                         instrumentation.EnrichWithHttpRequest = static (activity, request) =>
                         {
+                            RedactPrivateAssetActivity(activity, request);
+
                             if (activity.IsAllDataRequested)
                             {
                                 FsusObservability.SetTag(activity, "fsus.route_kind", FsusObservability.ResolveRouteKind(request.HttpContext));
@@ -108,6 +114,18 @@ public static class FsusObservabilityServiceCollectionExtensions
             });
 
         return services;
+    }
+
+    internal static void RedactPrivateAssetActivity(Activity activity, HttpRequest request)
+    {
+        if (!PrivateAssetRoutePrivacy.IsPrivateAssetRoute(request.HttpContext.Request.Path))
+        {
+            return;
+        }
+
+        activity.DisplayName = $"{request.Method} {PrivateAssetRoutePrivacy.RedactedPath}";
+        activity.SetTag("url.path", PrivateAssetRoutePrivacy.RedactedPath);
+        activity.SetTag("http.target", PrivateAssetRoutePrivacy.RedactedPath);
     }
 
     private static string? FirstNonEmpty(params string?[] values)
