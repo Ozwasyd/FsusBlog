@@ -88,19 +88,31 @@ async function fetchBytes(url, limit, transport) {
     }
 }
 
-export function readFsusuiTarballManifest(tarball) {
+export function readFsusuiTarballManifestBytes(tarball) {
     let listing;
     let manifest;
     try {
-        const options = { input: tarball, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: metadataLimit, timeout: 30000, env: { PATH: process.env.PATH, LC_ALL: 'C' } };
-        listing = execFileSync('tar', ['-tzf', '-'], options).trim().split('\n');
+        const options = { input: tarball, stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: metadataLimit, timeout: 30000, env: { PATH: process.env.PATH, LC_ALL: 'C' } };
+        listing = execFileSync('tar', ['-tzf', '-'], { ...options, encoding: 'utf8' }).trim().split('\n');
         requireCondition(listing.filter((entry) => entry === 'package/package.json').length === 1, 'tarball exact-one package/package.json');
         // Stream only the manifest to stdout. No archive path is written to disk.
         manifest = execFileSync('tar', ['-xOzf', '-', 'package/package.json'], options);
     } catch {
         throw new Error('FsusUI event verification failed: tarball package/package.json');
     }
-    return parseUniqueJson(manifest, 'tarball package');
+    requireCondition(Buffer.isBuffer(manifest), 'tarball package bytes');
+    return manifest;
+}
+
+export function readFsusuiTarballManifest(tarball) {
+    const manifestBytes = readFsusuiTarballManifestBytes(tarball);
+    let manifestText;
+    try {
+        manifestText = new TextDecoder('utf-8', { fatal: true }).decode(manifestBytes);
+    } catch {
+        throw new Error('FsusUI event verification failed: tarball package/package.json');
+    }
+    return parseUniqueJson(manifestText, 'tarball package');
 }
 
 function seal(body) {
@@ -126,7 +138,15 @@ export async function verifyFsusuiReleaseEvent(rawPayload, { transport = fetch, 
     const tarball = await fetchBytes(version.dist.tarball, tarballLimit, transport);
     requireCondition(`sha512-${digest(tarball, 'sha512', 'base64')}` === payload.npmIntegrity, 'npm tarball integrity');
     requireCondition(digest(tarball) === payload.npmTarballSha256, 'npm tarball SHA-256');
-    const manifest = readFsusuiTarballManifest(tarball);
+    const manifestBytes = readFsusuiTarballManifestBytes(tarball);
+    let manifestText;
+    try {
+        manifestText = new TextDecoder('utf-8', { fatal: true }).decode(manifestBytes);
+    } catch {
+        throw new Error('FsusUI event verification failed: tarball package/package.json');
+    }
+    const manifest = parseUniqueJson(manifestText, 'tarball package');
+    requireCondition(digest(manifestBytes) === payload.candidateManifestSha256, 'candidate manifest SHA-256');
     requireCondition(manifest?.name === packageName && manifest.version === payload.version, 'tarball name/version');
     const verifiedAt = now().toISOString();
     return seal({
@@ -137,6 +157,7 @@ export async function verifyFsusuiReleaseEvent(rawPayload, { transport = fetch, 
         npmVersionMetadataSha256: digest(versionBytes),
         npmLatestMetadataSha256: digest(latestBytes),
         npmTarballSha256: digest(tarball),
+        npmManifestSha256: digest(manifestBytes),
         verifiedAt,
         verifierSchema: receiptSchema
     });

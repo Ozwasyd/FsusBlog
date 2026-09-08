@@ -1053,14 +1053,17 @@ export function extract(context)
   {
     return failResult(['runtime-role observation artifact digest mismatch'])
   }
-  const expectedRuntimeReceiptDigest = digestValue({
-    schema: 'fsusblog.runtime-role-observation-build-receipt.v1',
-    artifactId: 'runtime-role-observation',
-    artifactPath: runtimeRelative,
-    artifactDigest: runtimeArtifactDigest,
-    configuration: 'Release'
-  })
-  if (runtimeIdentity.receiptDigest !== expectedRuntimeReceiptDigest)
+  const expectedRuntimeReceiptDigest = runtimeIdentity.schema === 'fsusblog.build-identity.v1'
+    ? null
+    : digestValue({
+      schema: 'fsusblog.runtime-role-observation-build-receipt.v1',
+      artifactId: 'runtime-role-observation',
+      artifactPath: runtimeRelative,
+      artifactDigest: runtimeArtifactDigest,
+      configuration: 'Release'
+    })
+  if (expectedRuntimeReceiptDigest !== null
+    && runtimeIdentity.receiptDigest !== expectedRuntimeReceiptDigest)
   {
     return failResult(['runtime-role observation build receipt digest mismatch'])
   }

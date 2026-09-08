@@ -119,3 +119,17 @@ export function discoverBoundedChannels({ sourceRoot = path.join(root, 'src'), s
   }
   return discovered.sort((left, right) => left.discoveryKey.localeCompare(right.discoveryKey))
 }
+
+export function discoverUnboundedChannels({ sourceRoot = path.join(root, 'src'), sources = null } = {}) {
+  const documents = sources instanceof Map
+    ? [...sources.entries()].map(([file, source]) => ({ file, source }))
+    : sourceFiles(sourceRoot).map((file) => ({ file: repositoryPath(file), source: fs.readFileSync(file, 'utf8') }))
+  const discovered = []
+  for (const document of documents.sort((left, right) => left.file.localeCompare(right.file))) {
+    const masked = maskCSharp(document.source)
+    for (const match of masked.matchAll(/\bChannel\s*\.\s*CreateUnbounded\s*</gu)) {
+      discovered.push({ file: document.file, line: lineNumber(document.source, match.index) })
+    }
+  }
+  return discovered
+}

@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/physical-execution-linux-systemd-adapter.mjs"
+            ],
+            "reason": "FSUSBLOG_TOOL_CACHE is a caller-visible process environment key for the canonical run-owned tool-cache carrier."
+        }
+    ]
+}
