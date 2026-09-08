@@ -11,7 +11,12 @@ import {
     scanRepositoryFactExtractorGovernance,
     assertExtractorDependencyAcyclic
 } from '../../tools/fact-extractors/governance.mjs';
-import { sealSourceIdentity } from '../../tools/fact-extractors/identity.mjs';
+import {
+    buildIdentitySchema,
+    digestPath,
+    sealSourceIdentity,
+    validateBuildIdentity
+} from '../../tools/fact-extractors/identity.mjs';
 import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs';
 import { readFactObservationReceipt, assertConsumerDoesNotImportExtractors } from '../../tools/fact-extractors/reader.mjs';
 import {
@@ -464,6 +469,59 @@ export function extract() {
     {
         rmSync(directory, { recursive: true, force: true });
     }
+});
+
+test('canonical build identity rejects source-set, receipt, and artifact tampering', (t) =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-canonical-build-identity-'));
+    t.after(() => rmSync(directory, { recursive: true, force: true }));
+    const projectPath = path.join(directory, 'project.csproj');
+    const sourcePath = path.join(directory, 'source.cs');
+    const artifactPath = path.join(directory, '.tmp/build/artifact.json');
+    const receiptPath = path.join(directory, '.tmp/build/receipt.json');
+    mkdirSync(path.dirname(artifactPath), { recursive: true });
+    writeFileSync(projectPath, '<Project />\n');
+    writeFileSync(sourcePath, 'source-v1\n');
+    writeFileSync(artifactPath, '{"artifact":1}\n');
+    const sourceDigests = [
+        { path: 'project.csproj', digest: digestPath(directory, 'project.csproj') },
+        { path: 'source.cs', digest: digestPath(directory, 'source.cs') }
+    ];
+    const artifact = {
+        project: 'project.csproj',
+        projectDigest: digestPath(directory, 'project.csproj'),
+        path: '.tmp/build/artifact.json',
+        artifactDigest: digestPath(directory, '.tmp/build/artifact.json')
+    };
+    const receipt = {
+        schema: 'fsusblog.behavior-doc-minimal-contract-build-receipt.v1',
+        runId: 'canonical-build-identity-test',
+        sourceCommit: 'a'.repeat(40),
+        worktreeFingerprint: 'b'.repeat(64),
+        toolchain: { dotnet: '10.0.100', configuration: 'Release', targetFramework: 'net10.0' },
+        buildKey: null,
+        buildRoot: null,
+        sourceClosureDigests: sourceDigests,
+        artifacts: { 'backend-release': artifact },
+        status: 'ok',
+        failureReasons: [],
+        contentDigest: null
+    };
+    receipt.buildKey = digestValue({ sourceIdentity: { sourceCommit: receipt.sourceCommit, worktreeFingerprint: receipt.worktreeFingerprint }, toolchain: receipt.toolchain, sourceClosureDigests: receipt.sourceClosureDigests });
+    receipt.buildRoot = `.tmp/behavior-doc-contract-builds/${receipt.buildKey}`;
+    receipt.contentDigest = digestValue(receipt);
+    mkdirSync(path.dirname(receiptPath), { recursive: true });
+    writeFileSync(receiptPath, `${JSON.stringify(receipt)}\n`);
+    const identity = { schema: buildIdentitySchema, artifactId: 'backend-release', receiptDigest: receipt.contentDigest, artifactDigest: artifact.artifactDigest, sourceDigests, sourceDigest: digestValue(sourceDigests) };
+    const validate = (candidate = identity) => validateBuildIdentity(candidate, 'backend-release', { repositoryRoot: directory, receiptPath });
+    assert.deepEqual(validate(), identity);
+    const missing = structuredClone(identity); missing.sourceDigests = missing.sourceDigests.slice(1); missing.sourceDigest = digestValue(missing.sourceDigests); assert.throws(() => validate(missing), /source path set/u);
+    const extra = structuredClone(identity); extra.sourceDigests.push({ path: 'zz-extra.cs', digest: 'd'.repeat(64) }); extra.sourceDigest = digestValue(extra.sourceDigests); assert.throws(() => validate(extra), /source path set/u);
+    const duplicate = structuredClone(identity); duplicate.sourceDigests.splice(1, 0, structuredClone(duplicate.sourceDigests[0])); duplicate.sourceDigest = digestValue(duplicate.sourceDigests); assert.throws(() => validate(duplicate), /duplicate/u);
+    const reordered = structuredClone(identity); reordered.sourceDigests.reverse(); reordered.sourceDigest = digestValue(reordered.sourceDigests); assert.throws(() => validate(reordered), /canonical path order/u);
+    writeFileSync(sourcePath, 'source-v2\n'); assert.throws(() => validate(), /source digest mismatch/u); writeFileSync(sourcePath, 'source-v1\n');
+    writeFileSync(receiptPath, `${JSON.stringify({ ...receipt, status: 'failed' })}\n`); assert.throws(() => validate(), /self-digest mismatch/u); writeFileSync(receiptPath, `${JSON.stringify(receipt)}\n`);
+    writeFileSync(artifactPath, '{"artifact":2}\n'); assert.throws(() => validate(), /artifact digest mismatch/u);
 });
 
 test('5) rejects two extractors claiming the same behavior', () =>
