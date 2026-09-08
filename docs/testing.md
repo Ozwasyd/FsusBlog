@@ -1365,3 +1365,7 @@ render: enum-set
 `BudgetedLeaseAtomicallyAccountsExactBytesQuotasAndRetryIdentity` is executed only by the canonical LocalRedis producer; ordinary discovery excludes it with `Fixture!=LocalRedis`. The test binds the current run, Redis endpoint, assembly and `budgeted-lease` prefix and records six independent accounting observations. Missing Redis, stale or cross-run prefixes, byte/inventory mismatches, duplicate execution, and cleanup failures fail closed.
 
 `FSUSBLOG_TEST_REDIS_HOST` defaults to `127.0.0.1`; only `host.docker.internal` is additionally permitted for an isolated Linux test container to reach the local Docker-published port. Other addresses are rejected before startup. This configuration cannot connect to an external Redis; the endpoint and evidence remain bound to the same local Docker fixture.
+
+<!-- #2529 current LocalRedis cutover evidence -->
+
+`RedisStore_RetiresAllV3NamespacesAndEnvelopeIdempotently` is executed exactly once by the same canonical LocalRedis producer; ordinary discovery excludes it with `Fixture!=LocalRedis`. It binds the current run, Redis endpoint, source identity and `cutover` prefix, then records real Redis evidence for state/active-identity/device/IP/old-generation retirement, active-generation retention, envelope revocation, the exact database revoke, repeated receipt/mutation idempotency and zero pool leases. Missing Redis, manifest identity, fresh evidence, exact planned/executed/outcome binding, stale or cross-run evidence, observed pool leasing, and cleanup failures fail closed.
