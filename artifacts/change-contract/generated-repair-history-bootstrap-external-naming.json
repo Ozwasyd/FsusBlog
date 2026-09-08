@@ -1,0 +1,28 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/evidence-location-migration-ledger.json",
+                "config/testing/current-run-evidence-location-acceptance.json"
+            ],
+            "reason": "Preserve canonical generated JSON wire keys while refreshing the full evidence-location DAG from its reviewed source."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/governance/change-contract.mjs",
+                "tools/governance/change-contract-registry.mjs"
+            ],
+            "reason": "Preserve external process environment names in the changed tooling while retaining internal identifier conventions."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/change-contract.md"
+            ],
+            "reason": "Preserve documented external kebab-case metadata and command identifiers governed by the registered Markdown surface."
+        }
+    ]
+}

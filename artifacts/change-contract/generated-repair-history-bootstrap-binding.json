@@ -1,0 +1,17 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/governance/change-contract.mjs",
+        "tools/governance/change-contract-registry.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/evidence-location-migration-ledger.json",
+      "sha256": "ed73ca1b40de37f9d76546ca078f0733beee5eb1afca1e6b93386928aff4c516"
+        },
+        {
+            "path": "config/testing/current-run-evidence-location-acceptance.json",
+      "sha256": "f9e8afa1eade49ebf5893f035e5f8e4024d28ef3b6281c76039b42a8b822e4f4"
+        }
+    ]
+}
