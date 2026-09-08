@@ -1,0 +1,333 @@
+import { execFileSync, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import process from 'node:process';
+import { isDeepStrictEqual } from 'node:util';
+
+import { resolveExecutablePath } from '../test/execution-envelope-environment.mjs';
+import { readFileAtRevision } from './change-contract.mjs';
+
+const revisionPattern = /^[a-f0-9]{40}$/u;
+const pathPattern = /^(?!\/)(?!.*(?:^|\/)\.{1,2}(?:\/|$))[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*$/u;
+const maximumHistoryRevisions = 128;
+const maximumReplayBytes = 64 * 1024 * 1024;
+const maximumTraceBytes = 16 * 1024 * 1024;
+const commandTimeoutMs = 10_000;
+const regularModes = new Set(['100644', '100755']);
+const sandboxRoot = '/work';
+const sandboxNode = '/runtime/node';
+
+function requireValue(condition, message)
+{
+    if (!condition) throw new Error(`generated repair repository: ${message}`);
+}
+
+function hash(bytes)
+{
+    return createHash('sha256').update(bytes).digest('hex');
+}
+
+function exactRevision(value)
+{
+    requireValue(typeof value === 'string' && revisionPattern.test(value), 'an exact commit SHA is required');
+    return value;
+}
+
+function exactPath(value)
+{
+    requireValue(typeof value === 'string' && pathPattern.test(value), 'an exact repository file path is required');
+    return value;
+}
+
+function exactPhysicalRoot(root)
+{
+    const absolute = path.resolve(root);
+    requireValue(fs.realpathSync(absolute) === absolute && fs.lstatSync(absolute).isDirectory(),
+        'repository root must be a canonical physical directory');
+    return absolute;
+}
+
+function fileSnapshot(file)
+{
+    const stat = fs.lstatSync(file);
+    requireValue(stat.isFile() && !stat.isSymbolicLink() && stat.nlink === 1
+        && fs.realpathSync(file) === file && stat.size <= maximumReplayBytes,
+    'replay file must be a bounded, unaliased regular file');
+    return { mode: stat.mode & 0o111 ? '100755' : '100644', bytes: fs.readFileSync(file) };
+}
+
+function parseTrace(text, producer, runtimeFiles)
+{
+    const reads = new Set();
+    const writes = new Set();
+    const runtimeDirectories = new Set(runtimeFiles.map((file) => path.posix.dirname(file)));
+    let nodeExecutions = 0;
+    let producerLoaded = false;
+    let deniedOperations = 0;
+    const supervisorPids = new Set();
+    const lines = text.split('\n');
+    for (const line of lines)
+    {
+        const pid = line.match(/^(\d+)\s/u)?.[1];
+        if (line.includes(`execve("${sandboxNode}"`))
+        {
+            nodeExecutions += 1;
+            supervisorPids.delete(pid);
+        }
+        else if (nodeExecutions === 0) supervisorPids.add(pid);
+        if (nodeExecutions === 0 || supervisorPids.has(pid)) continue;
+        const opened = line.match(/\bopen(?:at|at2)?\([^\n]*?"(?<file>[^"\n]+)", (?<flags>O_[^\n]+)\)\s+=/u)?.groups;
+        if (opened && (opened.flags.includes('O_RDONLY') || opened.flags.includes('O_RDWR') || opened.flags.includes('O_WRONLY')))
+        {
+            const directoryDescriptor = line.match(/\bopenat(?:2)?\((?:AT_FDCWD|\d+)<([^>]+)>,/u)?.[1];
+            const file = path.posix.resolve(directoryDescriptor ?? sandboxRoot, opened.file);
+            requireValue(!opened.file.includes('\\'), 'escaped syscall path is unverifiable');
+            if (file === `${sandboxRoot}/${producer.command.arguments[0]}`) producerLoaded = true;
+            if (file.startsWith(`${sandboxRoot}/`))
+            {
+                const relative = file.slice(sandboxRoot.length + 1);
+                if (opened.flags.includes('O_WRONLY') || opened.flags.includes('O_RDWR'))
+                {
+                    requireValue(relative === producer.output, `attempted write outside canonical output: ${relative}`);
+                    writes.add(relative);
+                }
+                else if (relative !== producer.output)
+                {
+                    requireValue(producer.closure.includes(relative), `attempted read outside declared closure: ${relative}`);
+                    if (!/\)\s+= -1/u.test(line)) reads.add(relative);
+                }
+            }
+            // Successful non-repository reads during the Node execution are
+            // limited by the sparse mount namespace to its runtime files and
+            // procfs. Failed loader probes beneath those directories disclose
+            // no additional host data; no other host directories are mounted.
+            else if (opened.flags.includes('O_WRONLY') || opened.flags.includes('O_RDWR'))
+                requireValue(false, `attempted write outside canonical output: ${file}`);
+            else if (nodeExecutions > 0 && !runtimeFiles.includes(file) && !file.startsWith('/proc/')
+                && !file.startsWith('/dev/') && !runtimeDirectories.has(path.posix.dirname(file))
+                && ((producerLoaded && file !== '/sys/devices/system/cpu/online') || !/\)\s+= -1 ENOENT/u.test(line)))
+            {
+                requireValue(false, `attempted read outside the sparse runtime and source mounts: ${file}`);
+            }
+        }
+        if (nodeExecutions > 0 && /\b(?:socket|connect|bind|listen|accept|sendto|sendmsg)\(/u.test(line))
+            requireValue(false, 'producer attempted a network operation');
+        if (nodeExecutions > 0 && /\b(?:link|linkat|symlink|symlinkat|rename|renameat|renameat2|unlink|unlinkat|mkdir|mkdirat|mknod|mknodat|chdir|fchdir|chroot|mount|umount2)\(/u.test(line))
+            requireValue(false, 'producer attempted an unregistered filesystem mutation');
+        if (nodeExecutions > 0 && /\)\s+= -1 (?:EROFS|EACCES|EPERM)/u.test(line)) deniedOperations += 1;
+        const fdWrite = line.match(/\b(?:write|writev|pwrite64|ftruncate|fchmod|fchown)\(\d+<(?<file>\/work\/[^>]+)>/u)?.groups;
+        if (fdWrite)
+        {
+            const relative = path.posix.normalize(fdWrite.file).slice(sandboxRoot.length + 1);
+            requireValue(relative === producer.output, `descriptor wrote outside canonical output: ${relative}`);
+            writes.add(relative);
+        }
+    }
+    requireValue(nodeExecutions === 1, 'producer execution must contain exactly one canonical Node process');
+    requireValue(deniedOperations === 0, 'producer attempted an operation denied by its sandbox');
+    return { readPaths: [...reads].sort(), writePaths: [...writes].sort() };
+}
+
+/**
+ * Construct real Git and replay capabilities from the trusted checker checkout.
+ * A repair manifest cannot supply command, closure, root or adapter overrides.
+ */
+export function createGeneratedOutputDigestRepairRepository({ root, authorityRoot, base, producer })
+{
+    const repositoryRoot = exactPhysicalRoot(root);
+    const policyRoot = exactPhysicalRoot(authorityRoot);
+    exactRevision(base);
+    const registered = structuredClone(producer);
+    const gitEnvironment = {
+        ...process.env,
+        GIT_NO_REPLACE_OBJECTS: '1',
+        GIT_NO_LAZY_FETCH: '1',
+        GIT_GRAFT_FILE: '/dev/null'
+    };
+    const git = (args, cwd = repositoryRoot) => execFileSync('git', ['-c', 'advice.graftFileDeprecated=false', ...args], {
+        cwd, env: gitEnvironment, maxBuffer: maximumTraceBytes, timeout: commandTimeoutMs
+    });
+    requireValue(git(['rev-parse', '--show-toplevel']).toString('utf8').trim() === repositoryRoot,
+        'candidate root is not the Git checkout root');
+    requireValue(git(['rev-parse', '--verify', 'HEAD'], policyRoot).toString('utf8').trim() === base,
+        'authority checkout does not hold the exact trusted base');
+    requireValue(registered && Array.isArray(registered.closure) && registered.closure.length <= 256
+        && registered.closure.every((file) => pathPattern.test(file)) && pathPattern.test(registered.output),
+    'trusted replay producer has invalid paths');
+    const isAncestor = (ancestor, descendant) =>
+    {
+        exactRevision(ancestor);
+        exactRevision(descendant);
+        const result = spawnSync('git', ['merge-base', '--is-ancestor', ancestor, descendant], {
+            cwd: repositoryRoot, env: gitEnvironment, timeout: commandTimeoutMs
+        });
+        requireValue(!result.error && [0, 1].includes(result.status), 'Git ancestry is unverifiable');
+        return result.status === 0;
+    };
+    const revisions = (args, maximum) =>
+    {
+        requireValue(Number.isSafeInteger(maximum) && maximum > 0 && maximum <= maximumHistoryRevisions,
+            'history limit is invalid');
+        const entries = git(['rev-list', `--max-count=${maximum + 1}`, ...args]).toString('utf8').trim().split('\n').filter(Boolean);
+        requireValue(entries.length <= maximum && entries.every((entry) => revisionPattern.test(entry)),
+            'Git history exceeds its bound or contains invalid revisions');
+        return entries;
+    };
+    const blob = (revision, file) =>
+    {
+        exactRevision(revision);
+        exactPath(file);
+        const listing = git(['ls-tree', '-z', '--full-tree', revision, '--', file]).toString('utf8');
+        const entry = listing.match(/^(?<mode>\d{6}) blob (?<object>[a-f0-9]{40})\t(?<file>[^\0]+)\0$/u)?.groups;
+        requireValue(entry && entry.file === file && regularModes.has(entry.mode), 'Git path is not one exact regular blob');
+        // Reuse the current contract's bounded exact-blob reader. It also
+        // disables replacement objects and verifies declared/read byte lengths.
+        return { mode: entry.mode, bytes: readFileAtRevision(repositoryRoot, revision, file) };
+    };
+    let runtime = null;
+    const loadRuntime = () =>
+    {
+        if (runtime) return runtime;
+        requireValue(process.platform === 'linux', 'isolated digest repair replay requires Linux');
+        const bwrap = fs.realpathSync(resolveExecutablePath('bwrap', { pathValue: process.env.PATH }));
+        const strace = fs.realpathSync(resolveExecutablePath('strace', { pathValue: process.env.PATH }));
+        const ldd = fs.realpathSync(resolveExecutablePath('ldd', { pathValue: process.env.PATH }));
+        const node = fs.realpathSync(process.execPath);
+        const listing = execFileSync(ldd, [node], {
+            env: { PATH: process.env.PATH, LANG: 'C', LC_ALL: 'C' }, timeout: commandTimeoutMs, encoding: 'utf8'
+        });
+        const libraries = [...new Set([...listing.matchAll(/(?:=>\s+)?(\/[^\s()]+)\s+\(/gu)].map((match) => match[1]))].sort();
+        requireValue(libraries.length > 0 && !listing.includes('not found'), 'Node runtime library closure is unavailable');
+        const mounts = libraries.map((file) => ({ source: fs.realpathSync(file), destination: file }));
+        if (fs.existsSync('/etc/ld.so.cache')) mounts.push({ source: '/etc/ld.so.cache', destination: '/etc/ld.so.cache' });
+        mounts.push({ source: node, destination: sandboxNode });
+        runtime = { bwrap, strace, mounts, identities: mounts.map((mount) => ({
+            ...mount, sha256: hash(fs.readFileSync(mount.source))
+        })) };
+        return runtime;
+    };
+    const replay = ({ revision, producer: requested, attempt }) =>
+    {
+        exactRevision(revision);
+        requireValue(isDeepStrictEqual(requested, registered) && [0, 1].includes(attempt),
+            'replay request differs from its trusted registration');
+        const tools = loadRuntime();
+        for (const identity of tools.identities)
+            requireValue(hash(fs.readFileSync(identity.source)) === identity.sha256, 'runtime library or Node identity drifted');
+        const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-digest-replay-'));
+        const checkout = path.join(temporaryRoot, 'checkout');
+        fs.mkdirSync(checkout);
+        try
+        {
+            const initial = new Map();
+            let totalBytes = 0;
+            for (const file of [...registered.closure, registered.output])
+            {
+                const source = blob(revision, file);
+                totalBytes += source.bytes.length;
+                requireValue(totalBytes <= maximumReplayBytes, 'sparse replay inputs exceed the byte budget');
+                const target = path.join(checkout, file);
+                fs.mkdirSync(path.dirname(target), { recursive: true });
+                fs.writeFileSync(target, source.bytes, { flag: 'wx', mode: source.mode === '100755' ? 0o755 : 0o644 });
+                initial.set(file, fileSnapshot(target));
+            }
+            const outputFile = path.join(checkout, registered.output);
+            const observations = [];
+            const run = (pass) =>
+            {
+                const trace = path.join(temporaryRoot, `pass-${pass}.strace`);
+                const sandboxArgs = [
+                    '--unshare-user', '--unshare-net', '--unshare-pid', '--unshare-ipc', '--unshare-uts',
+                    '--die-with-parent', '--new-session', '--cap-drop', 'ALL', '--clearenv',
+                    '--setenv', 'LANG', 'C.UTF-8', '--setenv', 'LC_ALL', 'C.UTF-8', '--setenv', 'TZ', 'UTC',
+                    '--setenv', 'OPENSSL_CONF', '/dev/null',
+                    '--proc', '/proc', '--dev', '/dev', '--dir', sandboxRoot,
+                    ...tools.mounts.flatMap((mount) => ['--ro-bind', mount.source, mount.destination]),
+                    ...registered.closure.flatMap((file) => ['--ro-bind', path.join(checkout, file), `${sandboxRoot}/${file}`]),
+                    '--bind', outputFile, `${sandboxRoot}/${registered.output}`,
+                    '--remount-ro', '/', '--remount-ro', '/proc', '--chdir', sandboxRoot,
+                    '--', sandboxNode, ...registered.command.arguments
+                ];
+                const result = spawnSync(tools.strace, [
+                    '-f', '-qq', '-yy', '-s', '65536', '-e', 'trace=%file,network,write,writev,pwrite64,ftruncate,fchmod,fchown',
+                    '-o', trace, '--', tools.bwrap, ...sandboxArgs
+                ], {
+                    cwd: checkout, env: { PATH: process.env.PATH, LANG: 'C', LC_ALL: 'C', TZ: 'UTC' },
+                    timeout: commandTimeoutMs, killSignal: 'SIGKILL', maxBuffer: maximumTraceBytes
+                });
+                requireValue(fs.existsSync(trace) && fs.statSync(trace).size <= maximumTraceBytes,
+                    'sandbox trace is missing or exceeds the byte budget');
+                const observation = parseTrace(fs.readFileSync(trace, 'utf8'), registered,
+                    tools.mounts.map((mount) => mount.destination));
+                requireValue(!result.error && result.status === 0 && result.signal === null,
+                    `canonical sandbox producer failed (exit=${result.status}, signal=${result.signal ?? 'none'})`);
+                observations.push(observation);
+                return fileSnapshot(outputFile);
+            };
+            const first = run(1);
+            const second = run(2);
+            const changedPaths = [];
+            for (const [file, previous] of initial)
+            {
+                const current = fileSnapshot(path.join(checkout, file));
+                if (!isDeepStrictEqual(previous, current)) changedPaths.push(file);
+            }
+            const actualFiles = [];
+            const walk = (directory, prefix = '') =>
+            {
+                for (const name of fs.readdirSync(directory))
+                {
+                    const file = path.join(directory, name);
+                    const relative = prefix ? `${prefix}/${name}` : name;
+                    const stat = fs.lstatSync(file);
+                    requireValue(!stat.isSymbolicLink(), 'replay left a symlink');
+                    if (stat.isDirectory()) walk(file, relative);
+                    else actualFiles.push(relative);
+                }
+            };
+            walk(checkout);
+            for (const file of actualFiles) if (!initial.has(file)) changedPaths.push(file);
+            return { revision, isolationId: temporaryRoot, first, second,
+                readPaths: [...new Set(observations.flatMap((entry) => entry.readPaths))].sort(),
+                writePaths: [...new Set(observations.flatMap((entry) => entry.writePaths))].sort(),
+                changedPaths: [...new Set(changedPaths)].sort() };
+        }
+        finally
+        {
+            fs.rmSync(temporaryRoot, { recursive: true, force: true });
+        }
+    };
+    return {
+        authorityRevision: base,
+        blob,
+        commit(revision)
+        {
+            exactRevision(revision);
+            const [commit, parents, subject] = git(['show', '-s', '--format=%H%x00%P%x00%s', revision]).toString('utf8').trimEnd().split('\0');
+            return { commit, parents: parents ? parents.split(' ') : [], subject };
+        },
+        isAncestor,
+        firstParentRevisions(ancestor, descendant, maximum)
+        {
+            exactRevision(ancestor);
+            exactRevision(descendant);
+            const common = git(['merge-base', ancestor, descendant]).toString('utf8').trim();
+            return revisions(['--first-parent', '--reverse', `${common}..${descendant}`], maximum);
+        },
+        revisionsBetween(ancestor, descendant, maximum)
+        {
+            requireValue(isAncestor(ancestor, descendant), 'history endpoints are not ancestral');
+            return revisions(['--topo-order', '--reverse', `${ancestor}..${descendant}`], maximum);
+        },
+        changedPaths(ancestor, descendant)
+        {
+            exactRevision(ancestor);
+            exactRevision(descendant);
+            return git(['diff', '--no-ext-diff', '--no-renames', '--name-only', '-z', ancestor, descendant, '--'])
+                .toString('utf8').split('\0').filter(Boolean).sort();
+        },
+        replay
+    };
+}
