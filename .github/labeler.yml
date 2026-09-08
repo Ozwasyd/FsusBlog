@@ -90,7 +90,7 @@
                 - "config/deployment/**"
                 - "tools/deployment/**"
                 - "docker-compose*.yml"
-                - ".env.example"
+                - "config/examples/.env.example"
                 - "appsettings*.json"
                 - "docs/production.md"
                 - "docs/troubleshooting.md"
@@ -100,9 +100,9 @@
           - any-glob-to-any-file:
                 - "docs/**"
                 - "README.md"
-                - "CONTRIBUTING.md"
-                - "SUPPORT.md"
-                - "SECURITY.md"
+                - "docs/CONTRIBUTING.md"
+                - "docs/SUPPORT.md"
+                - "docs/SECURITY.md"
 
 "area:tooling":
     - changed-files:
@@ -124,7 +124,7 @@
 "risk:security-sensitive":
     - changed-files:
           - any-glob-to-any-file:
-                - "SECURITY.md"
+                - "docs/SECURITY.md"
                 - "src/backend/Infrastructure/Auth/**"
                 - "src/backend/Infrastructure/Helpers/JwtHelper.cs"
                 - "src/backend/Infrastructure/Filters/BannedUserMiddleware.cs"

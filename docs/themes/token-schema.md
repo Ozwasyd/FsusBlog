@@ -1,9 +1,6 @@
 # Theme token schema and CSS variable runtime
 
-FsusBlog theme tokens use the versioned
-`fsusblog.theme.tokens.v1` schema. The source document is build input; the
-generated `styles/tokens.css` is the artifact included in `.fstheme`. Runtime
-components never read the source document or package-private token names.
+FsusBlog theme tokens use versioned `fsusblog.theme.tokens.v1`. The source document is build input; generated `styles/tokens.css` is the `.fstheme` artifact. Runtime components never read the source document or package-private token names.
 
 ## Document shape
 
@@ -49,16 +46,9 @@ components never read the source document or package-private token names.
 }
 ```
 
-Both `light` and `dark` are required. Each contains non-empty `primitive`,
-`semantic`, `component`, and `context` layers. Variants are partial overlays:
-`reducedMotion` must override `motion.fast` and `motion.panel`;
-`highContrast` must override page surface, primary text, and both baseline
-borders.
+`light` and `dark` are required, each with non-empty `primitive`, `semantic`, `component`, and `context` layers. Variants are partial overlays: `reducedMotion` must override `motion.fast` and `motion.panel`; `highContrast` must override page surface, primary text, and both baseline borders.
 
-Token references use an exact `{token.path}` value. They resolve only inside
-the current mode or variant, and a missing reference or cycle fails closed.
-Unknown schema properties, unsupported schema versions, unsafe CSS delimiters,
-and duplicate names also fail validation.
+References use an exact `{token.path}` value and resolve only in the current mode or variant; missing references and cycles fail closed. Unknown properties, unsupported schema versions, unsafe CSS delimiters, and duplicate names also fail validation.
 
 ## Required semantic contract
 
@@ -82,17 +72,11 @@ status.warning.bg
 status.error.bg
 ```
 
-`ThemeTokenCompiler` converts these names to stable `--fsus-*` variables.
-For example, `surface.page` becomes `--fsus-color-page-bg`,
-`text.primary` becomes `--fsus-color-text-primary`, and `motion.fast`
-becomes `--fsus-motion-fast`. Component and context names are converted
-deterministically, including camel-case segments such as
-`table.row.hoverBg` -> `--fsus-table-row-hover-bg`.
+`ThemeTokenCompiler` deterministically converts names to stable `--fsus-*` variables: `surface.page` → `--fsus-color-page-bg`, `text.primary` → `--fsus-color-text-primary`, `motion.fast` → `--fsus-motion-fast`, and `table.row.hoverBg` → `--fsus-table-row-hover-bg` (including camel-case segments).
 
 ## Scoped output
 
-Generated CSS is deterministic UTF-8. Its lowercase SHA-256 is returned beside
-the CSS and becomes part of the served URL.
+Generated CSS is deterministic UTF-8; its lowercase SHA-256 is returned beside the CSS and embedded in the served URL.
 
 ```css
 :root[data-theme="fsusblog.theme.minimal-ink"] { ... }
@@ -101,41 +85,19 @@ the CSS and becomes part of the served URL.
 :root[data-theme="fsusblog.theme.minimal-ink"][data-high-contrast="true"] { ... }
 ```
 
-The frontend accepts only same-origin `.css` URLs whose path contains the
-declared 64-character SHA-256. It loads a candidate with `media="not all"`,
-commits root attributes only after `load`, then removes the previous sheet.
-This keeps the last valid theme visible during a switch and reduces unthemed
-flash.
+The frontend accepts only same-origin `.css` URLs whose path contains the declared 64-character SHA-256. It loads a candidate with `media="not all"`, commits root attributes after `load`, then removes the previous sheet, keeping the last valid theme visible and reducing unthemed flash.
 
-Theme selection order is per-user preview, site/scope active theme, then the
-default theme. Color mode selection is explicit user mode, system
-`prefers-color-scheme`, then the theme default. Reduced-motion and
-high-contrast follow their media preferences and update root attributes when
-the preferences change.
+Theme selection is per-user preview → site/scope active → default. Color mode is explicit user mode → system `prefers-color-scheme` → theme default. Reduced-motion and high-contrast follow media preferences and update root attributes when preferences change.
 
-The runtime exposes a frozen snapshot. Callers can request a declared
-selection but cannot mutate current state or turn a preview into the active
-site theme. Persistence and atomic activation remain the responsibility of
-the activation lifecycle.
+The runtime exposes a frozen snapshot. Callers may request a declared selection but cannot mutate current state or make a preview the active site theme; persistence and atomic activation belong to the activation lifecycle.
 
 ## Migration rules
 
-- Public UI consumes semantic tokens plus `public.*` and
-  `article.*` context/component tokens.
-- Admin UI consumes semantic tokens plus `admin.*`, table, form, and action
-  component tokens.
-- Console UI consumes semantic tokens plus `console.*`, log, code, and panel
-  component tokens.
-- Business components must not reference primitive palette variables or names
-  private to a theme, such as `--minimal-ink-*`.
-- Compatibility aliases, when needed, belong in platform-owned foundation CSS
-  and must resolve to stable `--fsus-*` variables.
+- Public UI consumes semantic + `public.*`/`article.*` context/component tokens.
+- Admin UI consumes semantic + `admin.*`, table, form, and action component tokens.
+- Console UI consumes semantic + `console.*`, log, code, and panel component tokens.
+- Business components must not reference primitive palette variables or theme-private names such as `--minimal-ink-*`. Compatibility aliases belong in platform-owned foundation CSS and must resolve to stable `--fsus-*` variables.
 
 ## Risk and no-restart fallback
 
-The main risks are an invalid token graph, an unavailable content-hashed asset,
-and contrast or motion regressions. Validation rejects invalid graphs before
-CSS is emitted. A candidate stylesheet load failure leaves the current sheet
-in place and retries the default descriptor. Operations can disable or replace
-the active scope through the registry without restarting the service; preview
-state never changes the active scope.
+Risks are an invalid token graph, unavailable content-hashed asset, or contrast/ motion regression. Validation rejects bad graphs before CSS emission. A candidate stylesheet failure leaves the current sheet in place and retries the default descriptor. Operations can disable/replace the active scope through the registry without restart; preview never changes the active scope.

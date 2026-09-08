@@ -215,7 +215,7 @@ function discoverSourceInventory(absoluteRoot) {
   if (fs.existsSync(path.join(toolsRoot, 'deployment'))) deploymentScriptRoots.push('tools/deployment')
   return {
     appsettings: files.filter((file) => /^src\/backend\/(?:.*\/)?appsettings(?:\.[^/]+)?\.json$/u.test(file)),
-    environmentExamples: files.filter((file) => /^\.env(?:\.[A-Za-z0-9_-]+)*\.example$/u.test(file)),
+    environmentExamples: files.filter((file) => /^config\/examples\/\.env(?:\.[A-Za-z0-9_-]+)*\.example$/u.test(file)),
     compose: files.filter((file) => /^ops\/.*compose.*\.ya?ml$/iu.test(file)),
     deploymentScriptRoots: deploymentScriptRoots.sort()
   }
@@ -597,7 +597,7 @@ export function checkBackendConfigurationContract({ root = defaultRoot, contract
       continue
     }
     const values = parseEnvironmentExample(source, relative, errors)
-    if (relative === '.env.production.example') {
+    if (relative === 'config/examples/.env.production.example') {
       for (const [name, value] of values) {
         if (environmentByName.get(name)?.secret
           && environmentByName.get(name)?.category !== 'secret-file-path'

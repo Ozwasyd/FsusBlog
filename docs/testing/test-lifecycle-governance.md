@@ -1,25 +1,12 @@
 # Test lifecycle governance
 
-`tests/governance/test-lifecycle-registry.json` is the checked-in owner boundary for Node test files. Every Node test declares exactly one canonical owner, execution category, lifecycle state, physical execution count, and semantic classification. A newly added test is `unowned` until the registry is intentionally updated; local governance fails closed in that state.
+`tests/governance/test-lifecycle-registry.json` is the checked-in owner boundary for Node tests. Every test declares exactly one canonical owner, execution category, lifecycle state, physical execution count, and semantic classification. A new test is `unowned` until the registry is intentionally updated; governance fails closed while it is unowned. The [test-asset lifecycle](test-asset-lifecycle-governance.md) defines retention and replacement ownership.
 
-`test-assets` 先且仅先运行一次 `tools/check-test-retention.mjs`，完整生成
-matrix 已声明的 `.tmp/release-evidence/test-retention-audit.json` 后，再用
-`node tools/check-test-lifecycle.mjs --audit-input <path>` 消费同一 artifact。
-输入必须是非空 `fsusblog.test-retention-audit.v2`，并精确匹配当前 commit
-和 tracked worktree fingerprint；缺失、损坏、schema 错误、producer
-identity 漂移或读取期间变化全部 fail closed。带 `--audit-input` 的
-lifecycle 不启动 retention producer，也不修改输入。standalone
-`node tools/check-test-lifecycle.mjs` 仍自行生成一份诊断 audit，但该路径
-不是 matrix artifact authority。
+`test-assets` runs `tools/check-test-retention.mjs` once to completely generate the matrix-declared `.tmp/release-evidence/test-retention-audit.json`, then runs `node tools/check-test-lifecycle.mjs --audit-input <path>` against it. The input must be non-empty `fsusblog.test-retention-audit.v2` matching the current commit and tracked-worktree fingerprint exactly; missing, corrupt, invalid-schema, producer-identity drift, or read-time changes fail closed. `--audit-input` starts no retention producer and does not modify its input. Standalone `node tools/check-test-lifecycle.mjs` still creates a diagnostic audit, but that path is not the matrix artifact authority.
 
-Lifecycle 把 registry 与该完整 retention audit join，写入
-`.tmp/release-evidence/test-lifecycle-report.json`，其中包含每个发现的
-test/assertion ID、semantic assertion target、coverage ID、replacement
-ID、当前 source identity 和 physical owner；同时写入
-`.tmp/release-evidence/test-lifecycle-candidate-matrix.md`，其 action
-区分 retain、project、merge、move-layer 和 delete。
+Lifecycle joins the registry and complete retention audit into `.tmp/release-evidence/test-lifecycle-report.json`, including every discovered test/assertion ID, semantic assertion target, coverage ID, replacement ID, current source identity, and physical owner. It also writes `.tmp/release-evidence/test-lifecycle-candidate-matrix.md` with actions retain, project, merge, move-layer, or delete.
 
-Lifecycle decisions do not use elapsed time, file age, or recent failure age. `migration-bound` entries require a structured product or compatibility condition. `replacement-ready` and `obsolete` entries require exact replacement IDs or an explicit proof that the assertion is outside the supported contract. Projection and summary owners cannot execute their producer, while canonical execution owners must have exactly one physical execution.
+Decisions never use elapsed time, file age, or recent-failure age. `migration-bound` requires a structured product or compatibility condition; `replacement-ready` and `obsolete` require exact replacement IDs or explicit proof that the assertion is outside the supported contract. Projection and summary owners cannot execute their producer; canonical execution owners require exactly one physical execution.
 
 Update the inventory after intentionally adding, moving, or deleting a Node test:
 
@@ -29,4 +16,4 @@ node tools/check-test-lifecycle.mjs
 node --test tests/tools/test-lifecycle-governance.test.mjs
 ```
 
-The generated registry is a starting classification, not permission to demote a high-value scheduler, artifact, resource, security, migration, or runtime test to manual diagnostics. Such tests must be wired to their canonical executable owner before delivery.
+The generated registry is a starting classification, not permission to demote a high-value scheduler, artifact, resource, security, migration, or runtime test to manual diagnostics. Wire such tests to their canonical executable owner before delivery.

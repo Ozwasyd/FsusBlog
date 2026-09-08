@@ -99,15 +99,15 @@ test('authoritative development documentation checker aggregates missing command
     writeManifest(overlay, manifest)
     writeOverlay(
       overlay,
-      'CONTRIBUTING.md',
-      `${read('CONTRIBUTING.md')}\n[Missing authority document](docs/no-such-authority-document.md)\n`
+      'docs/CONTRIBUTING.md',
+      `${read('docs/CONTRIBUTING.md')}\n[Missing authority document](docs/no-such-authority-document.md)\n`
     )
 
     const result = runChecker(overlay)
     const combined = output(result)
     assert.notEqual(result.status, 0)
     assert.match(combined, /references missing command path tools\/docs\/no-such-authority-check\.mjs/)
-    assert.match(combined, /CONTRIBUTING\.md references missing document link docs\/no-such-authority-document\.md/)
+    assert.match(combined, /docs\/CONTRIBUTING\.md references missing document link docs\/no-such-authority-document\.md/)
   })
 })
 
