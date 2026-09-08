@@ -1,0 +1,91 @@
+{
+  "schema": "fsusblog.test-replacement-receipt.v1",
+  "transactionId": "issue-2610-named-abort-positive",
+  "transactionDigest": "sha256:5250c1decf094728c1feb13dbe9e24acdd505b9b08e70b125b62abadf2ef278e",
+  "beforeTestIds": [
+    "vitest:tests/frontend/unit/utils/errors.test.ts#detects-aborterror-by-name-490ac4e0ae",
+    "vitest:tests/frontend/unit/utils/errors.test.ts#detects-powaborterror-by-name-3a2f034989",
+    "vitest:tests/frontend/unit/utils/errors.test.ts#detects-canceled-message-2ccf1e3f79",
+    "vitest:tests/frontend/unit/utils/errors.test.ts#detects-abort-related-messages-4c79e50cb1"
+  ],
+  "afterTestIds": [
+    "vitest:tests/frontend/unit/utils/errors.test.ts#detects-abort-positive-input-name-aborterror-29181d7abd",
+    "vitest:tests/frontend/unit/utils/errors.test.ts#detects-abort-positive-input-name-powaborterror-7a8d147e1a",
+    "vitest:tests/frontend/unit/utils/errors.test.ts#detects-abort-positive-input-message-canceled-5127ae189c",
+    "vitest:tests/frontend/unit/utils/errors.test.ts#detects-abort-positive-input-message-the-operation-was-a-702b7d3b35"
+  ],
+  "sourceDiffs": [
+    {
+      "path": "tests/frontend/unit/utils/errors.test.ts",
+      "beforeDigest": "sha256:aac58b8b82d0965e276fd92f914c5228a8c71fce134b5052fb886a59fc2e866c",
+      "afterDigest": "sha256:7f29264ec41487062c5cd66a6d7595f59698ce0233b5bb87b8b7b252c3c2b1b3",
+      "beforeExists": true,
+      "afterExists": true
+    }
+  ],
+  "catalogDiffs": [
+    {
+      "path": "tests/test-retention-replacements.json",
+      "beforeDigest": "sha256:43e1b71efb62591879dbb38896386c69987abab4e006cc451310b3ef5e081de4",
+      "afterDigest": "sha256:84a2b8ff5e34c9a267742ce3c86367b184a94c56e759cbbd203285205fff842d",
+      "beforeExists": true,
+      "afterExists": true
+    },
+    {
+      "path": "tests/backend/Fixtures/backend-test-requirements.json",
+      "beforeDigest": "sha256:5a3924ade4afbd7aec299a6e75c5d5a348b7aa4e4ff6b811aebdab3a73143127",
+      "afterDigest": "sha256:5a3924ade4afbd7aec299a6e75c5d5a348b7aa4e4ff6b811aebdab3a73143127",
+      "beforeExists": true,
+      "afterExists": true
+    },
+    {
+      "path": "tests/coverage-registry.json",
+      "beforeDigest": "sha256:72e3703eea11f0bd5aaf8f7027764bf7fc22e84f9d231dc6a50f78720eb4d082",
+      "afterDigest": "sha256:72e3703eea11f0bd5aaf8f7027764bf7fc22e84f9d231dc6a50f78720eb4d082",
+      "beforeExists": true,
+      "afterExists": true
+    },
+    {
+      "path": "tests/matrix.yml",
+      "beforeDigest": "sha256:62202e706b4dfbac3244d4baacb8d812e313df366242afac35a22a5616fb421e",
+      "afterDigest": "sha256:62202e706b4dfbac3244d4baacb8d812e313df366242afac35a22a5616fb421e",
+      "beforeExists": true,
+      "afterExists": true
+    },
+    {
+      "path": "docs/testing.generated.md",
+      "beforeDigest": "sha256:330fcc3aded456931d5ac09e62f8643a27114a3ed631a4efa2a178d2cd541e63",
+      "afterDigest": "sha256:330fcc3aded456931d5ac09e62f8643a27114a3ed631a4efa2a178d2cd541e63",
+      "beforeExists": true,
+      "afterExists": true
+    }
+  ],
+  "verificationOutcomes": [
+    {
+      "id": "transaction-schema",
+      "status": "passed"
+    },
+    {
+      "id": "before-source-identity",
+      "status": "passed"
+    },
+    {
+      "id": "atomic-file-application",
+      "status": "passed"
+    },
+    {
+      "id": "after-source-identity",
+      "status": "passed"
+    },
+    {
+      "id": "catalog-closure",
+      "status": "passed"
+    },
+    {
+      "id": "independent-post-apply",
+      "status": "passed"
+    }
+  ],
+  "verification": "passed",
+  "contentDigest": "sha256:ad773e459e13a872d2a6d58b7e65c1b2347bb52f52aebcb68807c0195217f62b"
+}
