@@ -10,17 +10,22 @@ import {
   sealSourceIdentity
 } from '../fact-extractors/identity.mjs'
 import { loadRegistry } from '../fact-extractors/registry.mjs'
-import {
-  minimalContractBuildHostDeclarations as hostDeclarations,
-  minimalContractBuildSchema,
-  validateMinimalContractBuildReceipt
-} from './behavior-doc-minimal-contract-build-contract.mjs'
 
-export {
+import {
   minimalContractBuildSchema,
-  validateMinimalContractBuildReceipt
+  minimalContractBuildHostDeclarations as hostDeclarations,
+  validateMinimalContractBuildReceipt as validateMinimalContractBuildReceiptContract
 } from './behavior-doc-minimal-contract-build-contract.mjs'
+export { minimalContractBuildSchema } from './behavior-doc-minimal-contract-build-contract.mjs'
+
 const cacheRelative = '.tmp/behavior-doc-contract-builds'
+
+function hasExactKeys(value, keys) {
+  return value != null
+    && typeof value === 'object'
+    && !Array.isArray(value)
+    && Object.keys(value).sort().join('\0') === [...keys].sort().join('\0')
+}
 
 function seal(value) {
   const receipt = { ...value, contentDigest: null }
@@ -145,6 +150,13 @@ function acquireBuildLock(cacheRoot, buildKey) {
       if (error?.code !== 'ENOENT') throw error
     }
   }
+}
+
+export function validateMinimalContractBuildReceipt(receipt, options = {}) {
+  return validateMinimalContractBuildReceiptContract(receipt, {
+    ...options,
+    readArtifactDigest: artifactDigest
+  })
 }
 
 export function buildIdentitiesFromMinimalReceipt(receipt) {

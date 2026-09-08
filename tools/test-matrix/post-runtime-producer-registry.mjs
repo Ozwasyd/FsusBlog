@@ -21,6 +21,13 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { digestValue, isPlainObject } from '../fact-extractors/lib/canonicalize.mjs'
+import { validateRolloutId, verifyReleaseRolloutEvidence } from '../deployment/release-rollout-evidence-receipt-contract.mjs'
+import { validateBrowserContractReceipt, validatePublicPreviewEvidenceBinding } from '../release/browser-contract-receipt-contract.mjs'
+import { projectPublicPreviewQualityRegistry, validatePublicPreviewQualityManifestValue } from '../release/public-preview-quality-receipt-contract.mjs'
+import { deriveBrowserObservedRawFacts } from '../test-evidence/browser-contract-observed-facts.mjs'
+import { deriveProbeRawFacts, verifyFacts as verifyProbeFacts } from '../test-evidence/runtime-observation-probe-facts.mjs'
+import { deriveAotSpaHydrationRawFacts, normalizeAotSpaHydrationFacts } from '../test-evidence/aot-spa-hydration-observed-facts.mjs'
+import { projectPreparedPublicIds } from '../test-fixtures/receipt/prepared-public-projection-contract.mjs'
 import { parseMatrix } from './parse-matrix.mjs'
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -59,7 +66,7 @@ const rawFactSourceSchemas = Object.freeze({
 })
 const embeddedIdentityCapabilities = Object.freeze({
     'fsusblog.ci-production-build-receipt.v1': ['sourceCommit', 'worktreeFingerprint'],
-    'fsusblog.fixture-receipt.v2': [
+    'fsusblog.fixture-prepare-state.v1': [
         'sourceCommit', 'worktreeFingerprint', 'runId', 'profileId'
     ],
     'fsusblog.post-runtime-candidate-plan.v1': [
@@ -71,9 +78,7 @@ const embeddedIdentityCapabilities = Object.freeze({
     'fsusblog.browser-contract-receipt.v2': [
         'sourceCommit', 'worktreeFingerprint', 'runId', 'browserIdentity'
     ],
-    'fsusblog.browser-contract-public-preview-evidence.v1': [
-        'sourceCommit', 'worktreeFingerprint', 'runId', 'browserIdentity'
-    ],
+    'fsusblog.public-preview-screenshot-verification.v1': ['sourceCommit'],
     'fsusblog.release-rollout-evidence.v1': ['releaseId', 'rolloutId'],
     'fsusblog.runtime-role-observation.v1': []
 })
@@ -82,6 +87,19 @@ const runIdentityPattern = /^(?!\.{1,2}$)[A-Za-z0-9_](?:[A-Za-z0-9_.-]{0,126}[A-
 const attemptIdentityPattern = /^attempt-[0-9]{4}$/u
 const releaseIdentityPattern = /^[0-9]{14}-[a-f0-9]{12}$/u
 const readerFirewallEntry = 'tools/test-matrix/post-runtime-producer-registry.mjs'
+const pureReceiptContracts = new Set([
+    'tools/test-evidence/runtime-observation-probe-facts.mjs',
+    'tools/test-evidence/runtime-observation-probe-receipt-contract.mjs',
+    'tools/test-evidence/browser-contract-observed-facts.mjs',
+    'tools/test-evidence/aot-spa-hydration-observed-facts.mjs',
+    'tools/test-evidence/aot-spa-hydration-source-contract.mjs',
+    'tools/test-fixtures/receipt/prepared-public-projection-contract.mjs',
+    'tools/deployment/release-rollout-evidence-receipt-contract.mjs',
+    'tools/docs/behavior-doc-static-admission-contract.mjs',
+    'tools/docs/behavior-doc-minimal-contract-build-contract.mjs',
+    'tools/release/browser-contract-receipt-contract.mjs',
+    'tools/release/public-preview-quality-receipt-contract.mjs'
+])
 const acornDependencyParser = String.raw`
 const acorn = require('internal/deps/acorn/acorn/dist/acorn')
 let source = ''
@@ -239,8 +257,44 @@ process.stdin.on('end', () => {
         if (!literal(node)) throw new Error('non-literal ' + kind + ' dependency')
         dependencies.push({ kind, specifier: node.value })
     }
-    const walk = (node, enclosingFunction = null) => {
+    const bindsUrl = (node) => {
+        if (!node) return false
+        if (node.type === 'Identifier') return node.name === 'URL'
+        if (node.type === 'RestElement') return bindsUrl(node.argument)
+        if (node.type === 'AssignmentPattern') return bindsUrl(node.left)
+        if (node.type === 'ArrayPattern') return node.elements.some(bindsUrl)
+        if (node.type === 'ObjectPattern') return node.properties.some(item => bindsUrl(item.value ?? item.argument))
+        return false
+    }
+    const writesUrl = (node) => {
+        const current = unwrap(node)
+        return bindsUrl(current) || (current?.type === 'MemberExpression' && writesUrl(current.object))
+    }
+    const pureUrlParser = (node) => node?.type === 'NewExpression'
+        && (node.arguments.length === 1 || (node.arguments.length === 2
+            && literal(node.arguments[1]) && /^https?:\/\//u.test(node.arguments[1].value)))
+    const walk = (node, enclosingFunction = null, parent = null) => {
         if (!node || typeof node !== 'object') return
+        if (process.argv[3] === 'pure' && node.type === 'Identifier'
+            && ['process', 'globalThis', 'global'].includes(node.name))
+            throw new Error('ambient process/global capability is forbidden in a pure receipt contract')
+        if (process.argv[3] === 'pure')
+        {
+            if (node.type === 'Identifier' && node.name === 'URL'
+                && !(pureUrlParser(parent) && parent.callee === node))
+                throw new Error('URL capability outside standard value parsing is forbidden in a pure receipt contract')
+            if (node.type === 'Identifier' && ['fetch', 'WebSocket', 'XMLHttpRequest', 'EventSource'].includes(node.name))
+                throw new Error('network capability is forbidden in a pure receipt contract')
+            if ((node.type === 'VariableDeclarator' && bindsUrl(node.id))
+                || (['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression'].includes(node.type)
+                    && (bindsUrl(node.id) || node.params.some(bindsUrl)))
+                || (['ClassDeclaration', 'ClassExpression'].includes(node.type) && bindsUrl(node.id))
+                || (node.type === 'CatchClause' && bindsUrl(node.param))
+                || (node.type?.startsWith('Import') && bindsUrl(node.local))
+                || (node.type === 'AssignmentExpression' && writesUrl(node.left))
+                || (node.type === 'UpdateExpression' && writesUrl(node.argument)))
+                throw new Error('shadowed or mutable URL is forbidden in a pure receipt contract')
+        }
         const functionName = (node.type === 'FunctionDeclaration' || node.type === 'FunctionExpression'
             || node.type === 'ArrowFunctionExpression') ? (node.id?.name ?? enclosingFunction) : enclosingFunction
         if (node.type === 'VariableDeclarator' && node.id?.type === 'Identifier'
@@ -312,7 +366,11 @@ process.stdin.on('end', () => {
         }
         else if ((node.type === 'ExportNamedDeclaration' || node.type === 'ExportAllDeclaration') && node.source)
             add('import', node.source)
-        else if (node.type === 'ImportExpression') add('import', node.source)
+        else if (node.type === 'ImportExpression')
+        {
+            if (process.argv[3] === 'pure') throw new Error('dynamic import is forbidden in a pure receipt contract')
+            add('import', node.source)
+        }
         else if (node.type === 'CallExpression'
             && (requireCallee(node.callee) || requireFactoryCall(node.callee)))
         {
@@ -329,7 +387,8 @@ process.stdin.on('end', () => {
             throw new Error('computed module factory method is forbidden in the reader closure')
         if (node.type === 'NewExpression' && node.callee?.type === 'Identifier' && node.callee.name === 'URL')
         {
-            if (!literal(node.arguments[0]) || forbiddenReaderPath(node.arguments[0].value))
+            const pureValueParser = process.argv[3] === 'pure' && pureUrlParser(node)
+            if (!pureValueParser && (!literal(node.arguments[0]) || forbiddenReaderPath(node.arguments[0].value)))
                 throw new Error('dynamic or documentation URL is forbidden in the reader closure')
         }
         if (node.type === 'CallExpression' && node.callee?.type === 'MemberExpression'
@@ -378,8 +437,8 @@ process.stdin.on('end', () => {
         for (const [key, value] of Object.entries(node))
         {
             if (key === 'start' || key === 'end') continue
-            if (Array.isArray(value)) value.forEach((entry) => walk(entry, functionName))
-            else walk(value, functionName)
+            if (Array.isArray(value)) value.forEach((entry) => walk(entry, functionName, node))
+            else walk(value, functionName, node)
         }
     }
     for (const statement of ast.body ?? [])
@@ -709,14 +768,15 @@ function assertIndexSnapshotUnchanged(repositoryRoot, entries)
     }
 }
 
-function parseExecutableDependencies(source, relative)
+function parseExecutableDependencies(source, relative, pure = false)
 {
     const sourceType = relative.endsWith('.cjs') ? 'script' : 'module'
     try
     {
         return JSON.parse(execFileSync(process.execPath, [
             '--expose-internals', '--input-type=commonjs', '--eval', acornDependencyParser, sourceType,
-            relative === readerFirewallEntry ? readPinnedRepositoryFile.toString() : ''
+            relative === readerFirewallEntry ? readPinnedRepositoryFile.toString() : '',
+            pure ? 'pure' : ''
         ], { input: source, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }))
     }
     catch (error)
@@ -764,26 +824,36 @@ function resolveExecutableDependency(repositoryRoot, importer, dependency)
 
 export function validatePostRuntimeReaderFirewall(repositoryRoot = root, entry = readerFirewallEntry)
 {
-    const pending = [entry]
+    const pending = [{ relative: entry, pure: false }]
     const visited = new Set()
+    const pureVisited = new Set()
     while (pending.length > 0)
     {
-        const relative = pending.pop()
-        if (visited.has(relative)) continue
+        const next = pending.pop()
+        const relative = next.relative
+        const pure = next.pure || pureReceiptContracts.has(relative)
+        if (visited.has(relative) && (!pure || pureVisited.has(relative))) continue
         visited.add(relative)
+        if (pure) pureVisited.add(relative)
         const normalizedRelative = relative.normalize('NFKC').toLowerCase()
-        if (normalizedRelative.startsWith('docs/') || normalizedRelative.startsWith('tools/docs/')
+        if (normalizedRelative.startsWith('docs/')
+            || (normalizedRelative.startsWith('tools/docs/') && !pureReceiptContracts.has(relative))
             || /(?:^|\/)(?:doc-claim|markdown-reader)[^/]*\.(?:mjs|js|cjs)$/u.test(normalizedRelative))
         {
             fail(`post-runtime reader import closure reaches forbidden Markdown/DocClaim module ${relative}`)
         }
         const source = readPinnedRepositoryFile(repositoryRoot, relative,
             `reader module ${relative}`).bytes.toString('utf8')
-        const dependencies = parseExecutableDependencies(source, relative)
+        const dependencies = parseExecutableDependencies(source, relative, pure)
         for (const dependency of dependencies)
         {
+            if (pure && isBuiltin(dependency.specifier)
+                && !['path', 'node:path', 'crypto', 'node:crypto'].includes(dependency.specifier))
+            {
+                fail(`pure receipt contract reaches forbidden I/O or execution module ${dependency.specifier}`)
+            }
             const resolved = resolveExecutableDependency(repositoryRoot, relative, dependency)
-            if (resolved) pending.push(resolved)
+            if (resolved) pending.push({ relative: resolved, pure })
         }
     }
     return { entry, modules: [...visited].sort() }
@@ -1415,9 +1485,9 @@ function validateTypedSourceState(sourceState, repositoryRoot, producerId,
         candidateId: `${sourceState.runId}:candidate`,
         fixtureId: `${sourceState.runId}:fixture`,
         runtimeId: `${sourceState.runId}:runtime`,
-        browserIdentity: `${sourceState.runId}:browser-contract`,
-        rolloutId: `${sourceState.runId}:rollout`
+        browserIdentity: `${sourceState.runId}:browser-contract`
     }
+    if (sourceState.rolloutId !== undefined) validateRolloutId(sourceState.rolloutId)
     if (Object.entries(scopedIdentities).some(([field, expected]) =>
         sourceIdentityFields.includes(field) && sourceState[field] !== expected)
         || (sourceIdentityFields.includes('releaseId')
@@ -1548,8 +1618,12 @@ function readCurrentJsonBytes(repositoryRoot, relative, label)
 function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, label)
 {
     assertExactKeys(ref, ['path', 'fileDigest', 'contentDigest', 'schema', 'role'], label)
+    const preview = contract.schema === 'fsusblog.public-preview-screenshot-verification.v1'
+    const rollout = contract.schema === 'fsusblog.release-rollout-evidence.v1'
+    const preparedFixture = contract.schema === 'fsusblog.fixture-prepare-state.v1'
     if (ref.schema !== contract.schema || ref.role !== contract.role
-        || !digestPattern.test(ref.fileDigest ?? '') || !digestPattern.test(ref.contentDigest ?? '')
+        || !digestPattern.test(ref.fileDigest ?? '')
+        || (preview || rollout || preparedFixture ? ref.contentDigest !== null : !digestPattern.test(ref.contentDigest ?? ''))
         || ref.fileDigest === ref.contentDigest)
     {
         fail(`${label} schema/role/digest contract is invalid`)
@@ -1565,7 +1639,62 @@ function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, lab
     {
         fail(`${label} file digest mismatch`)
     }
-    if (current.value.schema !== contract.schema
+    if (preview)
+    {
+        assertExactKeys(current.value, ['schema', 'status', 'sourceCommit', 'releaseId', 'manifestSchema',
+            'visualInputDigest', 'runtimeAudit', 'layoutAudit', 'sanitizationCheck', 'images',
+            'differences', 'commandVersion', 'qualityAudit', 'qualityPolicyDigest', 'quality'], `${label} canonical preview`)
+        if (current.value.schema !== contract.schema || current.value.status !== 'ok'
+            || current.value.sourceCommit !== sourceState.sourceCommit)
+        {
+            fail(`${label} canonical preview source/status mismatch`)
+        }
+        const readQualityAuthority = (file) =>
+        {
+            if (typeof file !== 'string' || !file.startsWith('config/docs/') || !file.endsWith('.json'))
+                fail(`${label} quality authority must use a canonical config/docs JSON path`)
+            return parseCanonicalJson(readPinnedRepositoryFile(repositoryRoot, file, `${label} quality authority`).bytes, `${label} quality authority`, 4)
+        }
+        const qualityRegistry = readQualityAuthority('config/docs/public-preview-screenshots.json')
+        const qualityPolicy = readQualityAuthority(qualityRegistry.qualityPolicyFile)
+        const qualityScenarios = qualityRegistry.qualityScenarioFiles.map((file) =>
+            readQualityAuthority(file))
+        const qualityErrors = validatePublicPreviewQualityManifestValue(current.value.quality,
+            projectPublicPreviewQualityRegistry(qualityRegistry, qualityPolicy, qualityScenarios))
+        if (current.value.qualityAudit !== true
+            || current.value.qualityPolicyDigest !== current.value.quality?.policyDigest
+            || qualityErrors.length !== 0)
+        {
+            fail(`${label} canonical preview quality mismatch: ${qualityErrors.join('; ')}`)
+        }
+    }
+    else if (preparedFixture)
+    {
+        if (current.value.schema !== contract.schema || current.value.terminalState !== 'prepared'
+            || Object.hasOwn(current.value, 'contentDigest'))
+            fail(`${label} canonical prepared fixture schema/status mismatch`)
+        projectPreparedPublicIds(current.value)
+    }
+    else if (rollout)
+    {
+        assertExactKeys(current.value, ['schema', 'status', 'rolloutId', 'kind', 'source', 'target',
+            'gatewayGeneration', 'rollback', 'stages', 'recoveries', 'artifacts', 'auxiliary', 'errors',
+            'sealedAtUtc'], `${label} canonical rollout`)
+        const verification = verifyReleaseRolloutEvidence(current.value, {
+            evidencePath: ref.path,
+            now: Date.now(),
+            readBytes: (file) =>
+            {
+                if (typeof file !== 'string') fail(`${label} nested rollout path must be explicit`)
+                const relative = path.isAbsolute(file) ? path.relative(repositoryRoot, file) : file
+                if (!relative.startsWith('.tmp/') || unsafeReceiptPath.test(relative))
+                    fail(`${label} nested rollout bytes must belong to the current run`)
+                return readPinnedRepositoryFile(repositoryRoot, relative, `${label} nested rollout bytes`).bytes
+            }
+        })
+        if (verification.status !== 'pass') fail(`${label} canonical rollout contract: ${verification.errors.join('; ')}`)
+    }
+    else if (current.value.schema !== contract.schema
         || !digestPattern.test(prefixedDigest(current.value.contentDigest))
         || prefixedDigest(current.value.contentDigest) !== ref.contentDigest
         || ref.contentDigest !== receiptDigest(current.value))
@@ -1614,7 +1743,7 @@ function replayUpstreamClosure(repositoryRoot, upstream, contract, sourceState, 
     }
 }
 
-function extractSemanticFactsFromRawReceipt(upstream, definition, producerId, classId, sourceState)
+export function extractSemanticFactsFromRawReceipt(upstream, definition, producerId, classId, sourceState)
 {
     if (rawFactSourceSchemas[classId] !== upstream.schema
         || definition.sourceReceipt.schema !== upstream.schema)
@@ -1650,14 +1779,14 @@ function extractSemanticFactsFromRawReceipt(upstream, definition, producerId, cl
 
 function identityProjection(value)
 {
-    const execution = value?.executionIdentity ?? {}
-    const source = value?.sourceState ?? value?.sourceIdentity ?? execution.source ?? {}
+    const execution = value?.executionIdentity ?? value?.plan?.executionIdentity ?? {}
+    const source = value?.sourceState ?? value?.sourceIdentity ?? execution.source ?? execution.sourceIdentity ?? {}
     const candidate = value?.candidate ?? value?.target ?? {}
     const run = value?.runIdentity ?? {}
     return {
         sourceCommit: source.sourceCommit ?? source.commit ?? value?.sourceCommit,
         worktreeFingerprint: source.worktreeFingerprint ?? value?.worktreeFingerprint,
-        buildIdentity: source.buildIdentity ?? value?.buildIdentity ?? value?.buildReceiptDigest,
+        buildIdentity: source.buildIdentity ?? value?.buildIdentity ?? value?.buildReceiptDigest ?? value?.build?.receiptContentDigest,
         artifactDigest: source.artifactDigest ?? value?.artifactDigest,
         candidateId: source.candidateId ?? candidate.candidateId,
         runtimeId: source.runtimeId ?? candidate.runtimeId,
@@ -1667,7 +1796,150 @@ function identityProjection(value)
         runId: source.runId ?? run.runId ?? candidate.runId ?? execution.runId,
         attemptId: source.attemptId ?? candidate.attemptId,
         fixtureId: source.fixtureId ?? candidate.fixtureId,
-        profileId: source.profileId ?? candidate.profileId ?? value?.profileIdentity?.profileId
+        profileId: source.profileId ?? candidate.profileId ?? value?.profileIdentity?.profileId ?? value?.plan?.profileIdentity?.profileId
+    }
+}
+
+function validateCandidateIdentityAuthorityBindings(plan, envelope, producerId, label)
+{
+    if (plan.status !== 'planned' || plan.producerId !== producerId)
+        fail(`${label} candidate plan is not a planned producer authority`)
+    const refs = plan.identityAuthorityRefs
+    assertExactKeys(refs, ['plan', 'attempt', 'fixture', 'profile'], `${label} candidate identity authorities`)
+    for (const [role, field] of [['plan', 'candidatePlanRef'], ['attempt', 'attemptAuthorityRef'],
+        ['fixture', 'fixtureAuthorityRef'], ['profile', 'profileAuthorityRef']])
+    {
+        if (digestValue(refs[role]) !== digestValue(envelope[field]))
+            fail(`${label} candidate ${role} authority differs from the observation`)
+    }
+}
+
+function probeSourceProjection(repositoryRoot, upstream, sourceState, contract, envelope, producerId)
+{
+    const label = `producer ${producerId} probe upstream`
+    const plan = replayEmbeddedReference(repositoryRoot, upstream.candidatePlanRef,
+        contract.referenceContracts.candidatePlanRef, sourceState, `${label} candidatePlanRef`)
+    validateCandidateIdentityAuthorityBindings(plan, envelope, producerId, label)
+    const build = replayEmbeddedReference(repositoryRoot, upstream.buildReceipt,
+        contract.referenceContracts.buildReceipt, sourceState, `${label} buildReceipt`)
+    const prepared = replayEmbeddedReference(repositoryRoot, upstream.fixtureReceipt,
+        contract.referenceContracts.fixtureReceipt, sourceState, `${label} fixtureReceipt`)
+    if (upstream.terminalStatus !== 'verified' || upstream.provenance?.mode !== 'local-real-runtime'
+        || upstream.provenance?.syntheticSemanticResult !== false
+        || upstream.provenance?.rerunCommand !== upstream.canonicalRerunCommand
+        || plan.build?.receipt !== upstream.buildReceipt.path
+        || prefixedDigest(plan.build?.receiptContentDigest) !== prefixedDigest(build.contentDigest)
+        || prefixedDigest(build.contentDigest) !== sourceState.buildIdentity
+        || authorityDigest(upstream.facts) !== sourceState.artifactDigest)
+        fail(`${label} canonical probe authority/build/facts identity mismatch`)
+    const projection = projectPreparedPublicIds(prepared)
+    verifyProbeFacts(upstream.kind, upstream.facts, {
+        fixtureProjection: { ...projection, prepareStateDigest: upstream.fixtureReceipt.fileDigest },
+        expectedReleaseId: plan.candidate?.releaseId
+    })
+    if (digestValue(upstream.rawFacts) !== digestValue(deriveProbeRawFacts(upstream.kind, upstream.facts)))
+        fail(`${label} raw semantic facts mismatch: canonical probe observations do not replay`)
+    return identityProjection(upstream)
+}
+
+function aotSourceProjection(repositoryRoot, upstream, sourceState, contract, envelope, producerId)
+{
+    const label = `producer ${producerId} AOT upstream`
+    assertExactKeys(upstream.sourceState, ['commit', 'worktreeFingerprint'], `${label} sourceState`)
+    const plan = replayEmbeddedReference(repositoryRoot, upstream.candidatePlanRef,
+        contract.referenceContracts.candidatePlanRef, sourceState, `${label} candidatePlanRef`)
+    validateCandidateIdentityAuthorityBindings(plan, envelope, producerId, label)
+    if (digestValue(plan.sourceState) !== digestValue(upstream.sourceState))
+        fail(`${label} source differs from canonical candidate plan`)
+    const build = readCurrentJsonBytes(repositoryRoot, plan.build?.receipt, `${label} immutable build`).value
+    if (build.schema !== 'fsusblog.ci-production-build-receipt.v1'
+        || receiptDigest(build) !== prefixedDigest(build.contentDigest)
+        || prefixedDigest(build.contentDigest) !== prefixedDigest(plan.build?.receiptContentDigest)
+        || prefixedDigest(build.contentDigest) !== sourceState.buildIdentity
+        || digestValue(build.sourceState) !== digestValue(plan.sourceState))
+        fail(`${label} immutable build source/content identity mismatch`)
+    const inputs = Object.fromEntries(['manifest', 'browserContract'].map((key) => [key, {
+        value: replayEmbeddedReference(repositoryRoot, upstream.evidenceRefs[key],
+            contract.referenceContracts[`evidenceRefs.${key}`], sourceState, `${label} ${key}`)
+    }]))
+    // Normalize and project from one descriptor-pinned byte view, never reopen between phases.
+    const retained = new Map()
+    const readBytes = (file) =>
+    {
+        if (typeof file !== 'string' || !path.isAbsolute(file) || path.resolve(file) !== file)
+            fail(`${label} retained artifact path must be absolute and canonical`)
+        const relative = path.relative(repositoryRoot, file)
+        if (!relative.startsWith('.tmp/') || unsafeReceiptPath.test(relative)
+            || relative.normalize('NFKC').toLowerCase().split('/').some((segment) => segment === 'docs'
+                || segment.startsWith('doc-claim') || segment.startsWith('markdown-reader')))
+            fail(`${label} retained artifact bytes must belong to the current run`)
+        if (!retained.has(file)) retained.set(file, readPinnedRepositoryFile(repositoryRoot, relative, `${label} retained artifact`).bytes)
+        return retained.get(file)
+    }
+    const normalized = normalizeAotSpaHydrationFacts(inputs, plan, build, { readBytes })
+    if (digestValue(upstream.rawFacts) !== digestValue(deriveAotSpaHydrationRawFacts(inputs, { readBytes })))
+        fail(`${label} raw semantic facts mismatch: canonical AOT observations do not replay`)
+    return { ...identityProjection(plan), artifactDigest: normalized.manifestDigest }
+}
+
+function browserSourceProjection(repositoryRoot, upstream, current, sourceState, contract, envelope, producerId)
+{
+    const label = `producer ${producerId} browser upstream`
+    const browserErrors = validateBrowserContractReceipt(upstream, {
+        expectedCommit: sourceState.sourceCommit,
+        expectedFingerprint: sourceState.worktreeFingerprint,
+        expectedBuildReceiptDigest: sourceState.buildIdentity
+    })
+    if (browserErrors.length !== 0) fail(`${label} canonical Browser contract: ${browserErrors.join('; ')}`)
+    assertExactKeys(upstream.sourceState, ['commit', 'worktreeFingerprint'], `${label} sourceState`)
+    const plan = replayEmbeddedReference(repositoryRoot, upstream.candidatePlanRef,
+        contract.referenceContracts.candidatePlanRef, sourceState, `${label} candidatePlanRef`)
+    validateCandidateIdentityAuthorityBindings(plan, envelope, producerId, label)
+    const build = upstream.build
+    const binding = upstream.buildBinding
+    assertExactKeys(binding, ['schema', 'receipt', 'receiptContentDigest', 'sourceState', 'profile'],
+        `${label} build binding`)
+    if (upstream.status !== 'success' || upstream.evidenceClass !== 'browser-contract'
+        || upstream.affectsCorrectness !== true || upstream.error !== null
+        || binding.schema !== 'fsusblog.ci-production-build-receipt.v1'
+        || binding.receipt !== build?.receipt || binding.receiptContentDigest !== build?.receiptContentDigest
+        || digestValue(binding.sourceState) !== digestValue(upstream.sourceState)
+        || digestValue(build.sourceState) !== digestValue(upstream.sourceState)
+        || digestValue(binding.profile) !== digestValue(build.profile)
+        || build.receipt !== plan.build?.receipt
+        || prefixedDigest(build.receiptContentDigest) !== prefixedDigest(plan.build?.receiptContentDigest)
+        || prefixedDigest(upstream.runIdentity?.commit) !== prefixedDigest(upstream.sourceState.commit)
+        || upstream.fixtureNamespace !== upstream.fixture?.namespace
+        || upstream.fixtureNamespace !== upstream.runIdentity?.namespace
+        || upstream.publicPreview?.evidencePath !== upstream.publicPreviewRef.path
+        || prefixedDigest(upstream.publicPreview?.evidenceFileDigest) !== upstream.publicPreviewRef.fileDigest)
+    {
+        fail(`${label} canonical source/build/run/preview binding mismatch`)
+    }
+    const buildBytes = readCurrentJsonBytes(repositoryRoot, build.receipt, `${label} production build`)
+    if (buildBytes.value.schema !== binding.schema
+        || prefixedDigest(buildBytes.value.contentDigest) !== prefixedDigest(build.receiptContentDigest)
+        || receiptDigest(buildBytes.value) !== prefixedDigest(build.receiptContentDigest)
+        || digestValue(buildBytes.value.sourceState) !== digestValue(upstream.sourceState))
+    {
+        fail(`${label} production build bytes do not bind the canonical Browser source`)
+    }
+    const preview = replayEmbeddedReference(repositoryRoot, upstream.publicPreviewRef,
+        contract.referenceContracts.publicPreviewRef, sourceState, `${label} publicPreviewRef`)
+    const previewErrors = validatePublicPreviewEvidenceBinding(upstream.publicPreview, preview, {
+        expectedCommit: sourceState.sourceCommit, evidenceFileDigest: upstream.publicPreviewRef.fileDigest
+    })
+    if (previewErrors.length !== 0) fail(`${label} canonical preview binding: ${previewErrors.join('; ')}`)
+    if (digestValue(upstream.rawFacts) !== digestValue(deriveBrowserObservedRawFacts(upstream, preview)))
+        fail(`${label} raw semantic facts do not replay from canonical Browser observations`)
+    return {
+        ...identityProjection(plan),
+        sourceCommit: upstream.sourceState.commit,
+        worktreeFingerprint: upstream.sourceState.worktreeFingerprint,
+        buildIdentity: build.receiptContentDigest,
+        artifactDigest: current.fileDigest,
+        runId: upstream.runIdentity.runId,
+        attemptId: upstream.runIdentity.attemptId
     }
 }
 
@@ -1743,9 +2015,18 @@ function validateSourceReceiptRef(repositoryRoot, ref, sourceState, producer, pr
     }
     const expectedSourceFields = definition.requiredIdentityFields
         .filter((field) => !['producerId', 'toolVersion', 'contentDigest'].includes(field))
-    assertExactKeys(upstream.sourceState, expectedSourceFields,
-        `producer ${producerId} source receipt upstream sourceState`)
-    const projected = identityProjection(upstream)
+    if (!['browser', 'aot'].includes(contract.role))
+    {
+        assertExactKeys(upstream.sourceState, expectedSourceFields,
+            `producer ${producerId} source receipt upstream sourceState`)
+    }
+    const projected = contract.role === 'browser'
+        ? browserSourceProjection(repositoryRoot, upstream, upstreamCurrent, sourceState, contract, envelope, producerId)
+        : contract.role === 'probe'
+            ? probeSourceProjection(repositoryRoot, upstream, sourceState, contract, envelope, producerId)
+        : contract.role === 'aot'
+            ? aotSourceProjection(repositoryRoot, upstream, sourceState, contract, envelope, producerId)
+        : identityProjection(upstream)
     for (const required of expectedSourceFields)
     {
         if (projected[required] === undefined

@@ -1,6 +1,5 @@
 import path from 'node:path'
-
-import { digestPath, digestValue } from '../fact-extractors/identity.mjs'
+import { digestValue } from '../fact-extractors/lib/canonicalize.mjs'
 
 export const minimalContractBuildSchema =
   'fsusblog.behavior-doc-minimal-contract-build-receipt.v1'
@@ -37,10 +36,6 @@ export const minimalContractBuildHostDeclarations = Object.freeze({
     repositoryRootArgument: false
   }
 })
-
-const digestPattern = /^[a-f0-9]{64}$/u
-const commitPattern = /^[a-f0-9]{40}$/u
-
 function hasExactKeys(value, keys) {
   return value != null
     && typeof value === 'object'
@@ -48,13 +43,15 @@ function hasExactKeys(value, keys) {
     && Object.keys(value).sort().join('\0') === [...keys].sort().join('\0')
 }
 
-const cachedArtifactPath = (buildRoot, declaration) =>
-  path.posix.join(buildRoot, declaration.cacheFile)
+function cachedArtifactPath(buildRoot, declaration) {
+  return path.posix.join(buildRoot, declaration.cacheFile)
+}
 
 export function validateMinimalContractBuildReceipt(receipt, {
   expectedRunId = null,
   expectedSourceIdentity = null,
-  repositoryRoot = null
+  repositoryRoot = null,
+  readArtifactDigest = null
 } = {}) {
   if (receipt == null || typeof receipt !== 'object' || Array.isArray(receipt)) {
     throw new Error('minimal contract build receipt must be an object')
@@ -97,11 +94,11 @@ export function validateMinimalContractBuildReceipt(receipt, {
     throw new Error('minimal contract build source/worktree identity mismatch')
   }
   if (typeof receipt.runId !== 'string' || receipt.runId.length === 0
-    || !commitPattern.test(receipt.sourceCommit ?? '')
-    || !digestPattern.test(receipt.worktreeFingerprint ?? '')) {
+    || !/^[a-f0-9]{40}$/u.test(receipt.sourceCommit ?? '')
+    || !/^[a-f0-9]{64}$/u.test(receipt.worktreeFingerprint ?? '')) {
     throw new Error('minimal contract build run/source identity is incomplete')
   }
-  if (!digestPattern.test(receipt.buildKey ?? '')
+  if (!/^[a-f0-9]{64}$/u.test(receipt.buildKey ?? '')
     || receipt.buildRoot !== `.tmp/behavior-doc-contract-builds/${receipt.buildKey}`) {
     throw new Error('minimal contract build root is not content-addressed')
   }
@@ -122,28 +119,29 @@ export function validateMinimalContractBuildReceipt(receipt, {
       !hasExactKeys(entry, ['path', 'digest'])
       || typeof entry.path !== 'string'
       || entry.path.length === 0
-      || !digestPattern.test(entry.digest ?? ''))) {
+      || !/^[a-f0-9]{64}$/u.test(entry.digest ?? ''))) {
     throw new Error('minimal contract build source closure is incomplete')
   }
+  if (repositoryRoot !== null && typeof readArtifactDigest !== 'function') {
+    throw new Error('minimal contract build requires an independent artifact reader')
+  }
   const artifactIds = Object.keys(receipt.artifacts ?? {}).sort()
-  if (JSON.stringify(artifactIds)
-    !== JSON.stringify(Object.keys(minimalContractBuildHostDeclarations).sort())) {
+  if (JSON.stringify(artifactIds) !== JSON.stringify(Object.keys(minimalContractBuildHostDeclarations).sort())) {
     throw new Error('minimal contract build artifact roster is incomplete')
   }
-  for (const [artifactId, declaration]
-    of Object.entries(minimalContractBuildHostDeclarations)) {
+  for (const [artifactId, declaration] of Object.entries(minimalContractBuildHostDeclarations)) {
     const artifact = receipt.artifacts[artifactId]
     const expectedArtifactPath = cachedArtifactPath(receipt.buildRoot, declaration)
     if (artifact?.project !== declaration.project
       || artifact?.path !== expectedArtifactPath
       || !hasExactKeys(artifact, ['project', 'projectDigest', 'path', 'artifactDigest'])
-      || !digestPattern.test(artifact?.projectDigest ?? '')
-      || !digestPattern.test(artifact?.artifactDigest ?? '')) {
+      || !/^[a-f0-9]{64}$/u.test(artifact?.projectDigest ?? '')
+      || !/^[a-f0-9]{64}$/u.test(artifact?.artifactDigest ?? '')) {
       throw new Error(`minimal contract build artifact ${artifactId} is invalid`)
     }
     if (repositoryRoot !== null
-      && (digestPath(repositoryRoot, artifact.project) !== artifact.projectDigest
-        || digestPath(repositoryRoot, artifact.path) !== artifact.artifactDigest)) {
+      && (readArtifactDigest(repositoryRoot, artifact.project) !== artifact.projectDigest
+        || readArtifactDigest(repositoryRoot, artifact.path) !== artifact.artifactDigest)) {
       throw new Error(`minimal contract build artifact ${artifactId} digest mismatch`)
     }
   }

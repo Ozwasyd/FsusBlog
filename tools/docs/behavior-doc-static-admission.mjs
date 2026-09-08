@@ -39,16 +39,9 @@ import {
 import { runExtractor } from '../fact-extractors/runner.mjs';
 
 import {
-    runMinimalContractBuild
+    runMinimalContractBuild,
+    validateMinimalContractBuildReceipt
 } from './behavior-doc-minimal-contract-build.mjs';
-import {
-    behaviorDocAdmissionReceiptSchema,
-    behaviorDocGlobalClaimExactnessComponent,
-    defaultBehaviorDocAdmissionComponentsDirectory,
-    defaultBehaviorDocAdmissionReceipt,
-    readBehaviorDocStaticAdmissionReceipt,
-    validateBehaviorDocStaticAdmissionReceipt
-} from './behavior-doc-static-admission-contract.mjs';
 import {
     formatGovernanceViolations as formatMutationGovernanceViolations,
     runStalenessMutationGovernance
@@ -85,17 +78,19 @@ import { verifyProseClaims } from './prose-claim-verifier/verifier.mjs';
 
 
 export const behaviorDocAdmissionTierId = 'behavior-doc-static-admission';
+import {
+    behaviorDocAdmissionReceiptSchema,
+    defaultBehaviorDocAdmissionReceipt,
+    defaultBehaviorDocAdmissionComponentsDirectory,
+    validateBehaviorDocStaticAdmissionReceipt as validateBehaviorDocStaticAdmissionReceiptContract
+} from './behavior-doc-static-admission-contract.mjs';
 export {
     behaviorDocAdmissionReceiptSchema,
-    behaviorDocGlobalClaimExactnessComponent,
-    defaultBehaviorDocAdmissionComponentsDirectory,
     defaultBehaviorDocAdmissionReceipt,
-    readBehaviorDocStaticAdmissionReceipt,
-    validateBehaviorDocStaticAdmissionReceipt
+    defaultBehaviorDocAdmissionComponentsDirectory
 } from './behavior-doc-static-admission-contract.mjs';
 
 const directFile = fileURLToPath(import.meta.url);
-
 function seal(value)
 {
     const receipt = { ...value, contentDigest: null };
@@ -149,6 +144,33 @@ function authorityDigests(repositoryRoot, catalog, claimReceipt)
     };
 }
 
+export function validateBehaviorDocStaticAdmissionReceipt(receipt, options = {})
+{
+    const expectedExtractorIds = options.expectedWorktree == null ? null
+        : loadRegistry(path.join(options.expectedWorktree, 'config/contracts/behavior-fact-extractors.json'))
+            .extractors.map((extractor) => extractor.id).sort();
+    return validateBehaviorDocStaticAdmissionReceiptContract(receipt, {
+        ...options,
+        expectedExtractorIds,
+        readArtifactDigest: digestPath
+    });
+}
+
+export function readBehaviorDocStaticAdmissionReceipt(file, expected = {})
+{
+    const stat = file ? fs.lstatSync(file, { throwIfNoEntry: false }) : null;
+    if (!stat)
+    {
+        throw new Error('BehaviorDoc admission receipt is missing');
+    }
+    if (!stat.isFile() || stat.isSymbolicLink() || fs.realpathSync(file) !== path.resolve(file))
+    {
+        throw new Error('BehaviorDoc admission receipt must be a physical regular file');
+    }
+    const receipt = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return validateBehaviorDocStaticAdmissionReceipt(receipt, expected);
+}
+
 function writeReceipt(file, receipt)
 {
     fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -184,11 +206,6 @@ export async function runBehaviorDocStaticAdmission({
 } = {})
 {
     const startedAt = Date.now();
-    const globalClaimExactnessFile = path.join(
-        componentsDirectory,
-        behaviorDocGlobalClaimExactnessComponent
-    );
-    fs.rmSync(globalClaimExactnessFile, { force: true });
     const sourceIdentity = sealSourceIdentity(repositoryRoot);
     const toolchain = {
         node: process.version,
@@ -407,30 +424,15 @@ export async function runBehaviorDocStaticAdmission({
             contentDigest: digestValue(mutationResults)
         };
 
-        const {
-            buildGlobalClaimExactnessReceipt,
-            validateGlobalClaimExactnessReceipt
-        } = await import('./global-claim-exactness-final.mjs');
-        const globalClaimExactnessReceipt = await buildGlobalClaimExactnessReceipt({
-            repositoryRoot,
-            observationReceiptPaths: observationReceipts,
-            runId: base.run.id,
-            sourceCommit: sourceIdentity.sourceCommit,
-            worktreeFingerprint: sourceIdentity.worktreeFingerprint
-        });
-        validateGlobalClaimExactnessReceipt(globalClaimExactnessReceipt);
-
         writeReceipt(path.join(componentsDirectory, 'behavior-owner-binding.json'), ownerReceipt);
         writeReceipt(path.join(componentsDirectory, 'doc-claim-parse.json'), claimReceipt);
         writeReceipt(path.join(componentsDirectory, 'doc-claim-verification.json'), proseReceipt);
         writeReceipt(path.join(componentsDirectory, 'generated-section-check.json'), generatedReceipt);
-        writeReceipt(globalClaimExactnessFile, globalClaimExactnessReceipt);
 
         base.status = 'ok';
     }
     catch (error)
     {
-        fs.rmSync(globalClaimExactnessFile, { force: true });
         base.failureReasons.push(error instanceof Error ? error.message : String(error));
     }
 
@@ -449,11 +451,7 @@ export async function runBehaviorDocStaticAdmission({
         expectedSourceIdentity: sourceIdentity,
         expectedWorktree: repositoryRoot
     });
-    return {
-        receipt,
-        receiptFile: outputFile,
-        globalClaimExactnessFile
-    };
+    return { receipt, receiptFile: outputFile };
 }
 
 function parseArgs(argv)

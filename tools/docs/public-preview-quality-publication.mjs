@@ -14,7 +14,8 @@ import {
   validatePublicPreviewQualityReport
 } from './public-preview-quality.mjs'
 
-export const publicPreviewQualityManifestSchema = 'fsusblog.public-preview-quality-manifest.v1'
+import { publicPreviewQualityManifestSchema, qualityPolicyDigest, validatePublicPreviewQualityManifestValue } from '../release/public-preview-quality-receipt-contract.mjs'
+export { publicPreviewQualityManifestSchema } from '../release/public-preview-quality-receipt-contract.mjs'
 export const publicPreviewQualityManifestName = 'public-preview-quality.json'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 export const managedPublicPreviewQualityFile = path.join(root, 'docs/assets/visual-evidence', publicPreviewQualityManifestName)
@@ -36,9 +37,6 @@ function reproducibleManifestDigest(file) {
   return digest(stableJson(manifest))
 }
 
-function qualityPolicyDigest(registry) {
-  return digest(stableJson({ policy: registry.qualityPolicy, scenarios: registry.qualityScenarios }))
-}
 
 export function createPublicPreviewQualityManifest(captureDirectory, sourceCommit, rootDirectory = root) {
   const registry = loadPublicPreviewRegistry(rootDirectory)
@@ -89,27 +87,9 @@ export function writePublicPreviewQualityManifest(
 }
 
 export function validatePublicPreviewQualityManifest(file, rootDirectory = root, { requirePass = true } = {}) {
-  const errors = []
   const registry = loadPublicPreviewRegistry(rootDirectory)
   if (!fs.existsSync(file)) return ['public-preview quality manifest missing']
-  const manifest = readJson(file)
-  if (manifest.schema !== publicPreviewQualityManifestSchema) errors.push('public-preview quality manifest schema')
-  if (!/^[a-f0-9]{40}$/u.test(String(manifest.sourceCommit ?? ''))) errors.push('public-preview quality source commit')
-  if (manifest.policyDigest !== qualityPolicyDigest(registry)) errors.push('public-preview quality policy digest')
-  const screenshotIds = Object.keys(manifest.screenshots ?? {}).sort()
-  const expectedScreenshotIds = registry.screenshots.map((entry) => entry.id).sort()
-  if (JSON.stringify(screenshotIds) !== JSON.stringify(expectedScreenshotIds)) errors.push('public-preview quality screenshot ids')
-  for (const entry of registry.screenshots) {
-    errors.push(...validatePublicPreviewQualityReport(
-      manifest.screenshots?.[entry.id],
-      { ...entry, viewport: entry.qualityViewport },
-      registry.qualityPolicy
-    ).map((error) => `${entry.id}: ${error}`))
-  }
-  errors.push(...validatePublicPreviewQualityMatrix(manifest.matrix, registry.qualityScenarios, registry.qualityPolicy))
-  if (manifest.matrix?.policyDigest !== manifest.policyDigest) errors.push('public-preview quality matrix policy digest')
-  if (requirePass && manifest.status !== 'pass') errors.push(`public-preview quality manifest status=${manifest.status}`)
-  return errors
+  return validatePublicPreviewQualityManifestValue(readJson(file), registry, { requirePass })
 }
 
 export function comparePublicPreviewQualityManifests(actualFile, committedFile, evidenceFile, rootDirectory = root) {
