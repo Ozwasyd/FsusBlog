@@ -485,6 +485,16 @@ test('formal terminal CLI cannot publish a self-consistent seal without independ
         assert.equal(result.status, 1)
         assert.match(result.stderr, /explicit runId/u)
         assert.equal(fs.existsSync(output), false)
+        const forgedContext = spawnSync(process.execPath, [
+            new URL('../../tools/docs/behavior-document-consistency-final.mjs', import.meta.url).pathname,
+            '--post-runtime', post, '--pre-runtime', pre, '--out', output,
+            '--run-id', runId, '--scheduler-verification-context', path.join(directory, 'context.json'),
+            '--scheduler-verification-context-digest', 'c'.repeat(64),
+            '--candidate-identity-digest', 'd'.repeat(64)
+        ], { encoding: 'utf8' })
+        assert.equal(forgedContext.status, 1)
+        assert.match(forgedContext.stderr, /ENOENT|outside caller run authority/u)
+        assert.equal(fs.existsSync(output), false)
     }
     finally
     {
