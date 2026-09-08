@@ -1092,12 +1092,240 @@ export function validateGeneratedRepairDagEventOrder(sourceEvents, expectedEvent
     return [];
 }
 
+export function validateGeneratedRepairDagEpochAnchor(root, graph, registration)
+{
+    const errors = [];
+    const fail = (message) => errors.push(`Generated repair DAG epoch anchor is invalid: ${message}`);
+    if (!registration || typeof registration !== 'object' || Array.isArray(registration)
+        || !sameStrings(Object.keys(registration), [
+            'schema', 'id', 'producerId', 'synchronizedRevision', 'synchronizedParent',
+            'synchronizedTree', 'synchronizedMerge', 'synchronizedPullRequest', 'mergeParents',
+            'mergeTree', 'historySha256', 'staleOuterOutputs', 'bootstrapBase',
+            'bootstrapBindingManifest', 'bootstrapExternalNamingManifest', 'bootstrapSources',
+            'bootstrapPaths', 'legacyClosure', 'sourceBranches'
+        ]))
+    {
+        fail('fields do not match the closed epoch schema');
+        return errors;
+    }
+    if (registration.schema !== 'fsusblog.generated-output-repair-dag-epoch-anchor.v1'
+        || typeof registration.id !== 'string' || registration.id.length === 0
+        || registration.producerId !== graph.id
+        || !Number.isInteger(registration.synchronizedPullRequest)
+        || registration.synchronizedPullRequest < 1
+        || ![registration.synchronizedRevision, registration.synchronizedParent,
+            registration.synchronizedTree, registration.synchronizedMerge,
+            registration.mergeTree, registration.bootstrapBase].every((value) => fullShaPattern.test(value ?? ''))
+        || !sha256Pattern.test(registration.historySha256 ?? ''))
+    {
+        fail('identity fields are malformed');
+        return errors;
+    }
+    const graphOutputs = graph.steps.flatMap((step) => step.outputs);
+    if (!Array.isArray(registration.mergeParents)
+        || !sameStringSequence(registration.mergeParents, [
+            registration.mergeParents[0], registration.synchronizedRevision
+        ])
+        || !fullShaPattern.test(registration.mergeParents[0] ?? '')
+        || !Array.isArray(registration.staleOuterOutputs)
+        || registration.staleOuterOutputs.length === 0
+        || !registration.staleOuterOutputs.every((path) => graphOutputs.includes(path))
+        || new Set(registration.staleOuterOutputs).size !== registration.staleOuterOutputs.length
+        || !repositoryPathPattern.test(registration.bootstrapBindingManifest ?? '')
+        || !repositoryPathPattern.test(registration.bootstrapExternalNamingManifest ?? '')
+        || !Array.isArray(registration.bootstrapSources)
+        || !sameStrings(registration.bootstrapSources, [
+            'tools/governance/change-contract.mjs',
+            'tools/governance/change-contract-registry.mjs'
+        ])
+        || !Array.isArray(registration.bootstrapPaths)
+        || !sameStrings(registration.bootstrapPaths, [
+            registration.bootstrapBindingManifest,
+            registration.bootstrapExternalNamingManifest,
+            ...registration.staleOuterOutputs,
+            'docs/development/change-contract.md',
+            'tests/tools/change-contract.test.mjs',
+            ...registration.bootstrapSources
+        ])
+        || !Array.isArray(registration.legacyClosure)
+        || registration.legacyClosure.length === 0
+        || !Array.isArray(registration.sourceBranches)
+        || registration.sourceBranches.length !== 0)
+    {
+        fail('bounded merge, output, or closure fields are malformed');
+        return errors;
+    }
+    try
+    {
+        const sourceParents = gitRevisionParents(root, registration.synchronizedRevision);
+        const mergeParents = gitRevisionParents(root, registration.synchronizedMerge);
+        const sourceTree = execFileSync('git', ['show', '-s', '--format=%T', registration.synchronizedRevision],
+            exactRevisionGitOptions(root, { encoding: 'utf8' })).trim();
+        const mergeTree = execFileSync('git', ['show', '-s', '--format=%T', registration.synchronizedMerge],
+            exactRevisionGitOptions(root, { encoding: 'utf8' })).trim();
+        if (!sameStringSequence(sourceParents, [registration.synchronizedParent])
+            || !sameStringSequence(mergeParents, registration.mergeParents)
+            || registration.mergeParents[1] !== registration.synchronizedRevision
+            || gitMergeBase(root, ...registration.mergeParents) !== registration.synchronizedParent
+            || sourceTree !== registration.synchronizedTree
+            || mergeTree !== registration.mergeTree
+            || !mergeCommitNamesPullRequest(root, registration.synchronizedMerge,
+                registration.synchronizedPullRequest))
+        {
+            fail('commit topology, tree, or pull-request identity changed');
+        }
+        const protectedPaths = [...new Set([
+            ...graphOutputs,
+            ...graph.steps.flatMap((step) => step.generatorClosure),
+            ...changeContract.trustedPolicyFiles
+        ])];
+        const closurePaths = [...new Set(graph.steps.flatMap((step) => step.generatorClosure))];
+        if (!sameStrings(registration.legacyClosure.map((entry) => entry?.path), closurePaths)
+            || registration.legacyClosure.some((entry) => (
+                !entry || !sameStrings(Object.keys(entry), ['path', 'mode', 'object'])
+                || !['100644', '100755'].includes(entry.mode)
+                || !fullShaPattern.test(entry.object ?? '')
+                || revisionPathIdentity(root, registration.synchronizedRevision, entry.path)
+                    !== `${entry.mode}:${entry.object}`
+            )))
+        {
+            fail('generator closure identity seal changed');
+        }
+        if (protectedPaths.some((path) => (
+            revisionPathIdentity(root, registration.synchronizedRevision, path)
+            !== revisionPathIdentity(root, registration.synchronizedMerge, path)
+        )))
+        {
+            fail('outer merge does not preserve the canonical source protected identities');
+        }
+        const sourceChanges = gitChangedPaths(root, registration.synchronizedParent,
+            registration.synchronizedRevision);
+        const changedOutputs = sourceChanges.filter((path) => graphOutputs.includes(path));
+        const changedPolicy = sourceChanges.filter((path) => changeContract.trustedPolicyFiles.includes(path));
+        if (!sameStrings(changedOutputs, registration.staleOuterOutputs) || changedPolicy.length === 0
+            || sourceChanges.some((path) => graph.steps.some((step) => step.generatorClosure.includes(path))))
+        {
+            fail('canonical source is not the exact reviewed policy/output bootstrap shape');
+        }
+        const history = inspectGeneratedRepairDagHistory(root, graph, registration.synchronizedMerge,
+            registration.synchronizedMerge, registration.synchronizedRevision);
+        if (history.sha256 !== registration.historySha256 || history.nodes.length !== 2
+            || history.outerRevisions.length !== 0 || history.branches.length !== 0)
+        {
+            fail('minimal epoch history seal changed');
+        }
+    }
+    catch (error)
+    {
+        fail(error instanceof Error ? error.message : String(error));
+    }
+    return errors;
+}
+
+export function validateGeneratedRepairDagEpochBootstrap(
+    root,
+    graph,
+    registration,
+    parsedBody,
+    evidence,
+    { base, head, changedFiles }
+)
+{
+    const errors = validateGeneratedRepairDagEpochAnchor(root, graph, registration);
+    const fail = (message) => errors.push(`Generated repair DAG epoch bootstrap is invalid: ${message}`);
+    if (errors.length > 0) return errors;
+    if (base !== registration.bootstrapBase
+        || parsedBody.generatedDigest !== registration.bootstrapBindingManifest
+        || parsedBody.externalExceptionManifest !== registration.bootstrapExternalNamingManifest
+        || !sameStrings(repositoryPaths(parsedBody.generatorSource), registration.bootstrapSources)
+        || !sameStrings(repositoryPaths(parsedBody.generatedOutputs), registration.staleOuterOutputs)
+        || !sameStrings(evidence.sources, registration.bootstrapSources)
+        || !sameStrings(evidence.outputs?.map((entry) => entry?.path), registration.staleOuterOutputs)
+        || !sameStrings(changedFiles, registration.bootstrapPaths))
+    {
+        fail('base, declarations, manifest, or exact changed-path set differs from the one-time registration');
+        return errors;
+    }
+    try
+    {
+        const closurePaths = [...new Set(graph.steps.flatMap((step) => step.generatorClosure))];
+        const protectedPaths = [...new Set([
+            ...closurePaths,
+            ...graph.steps.flatMap((step) => step.outputs),
+            ...changeContract.trustedPolicyFiles
+        ])];
+        for (const path of protectedPaths)
+        {
+            if (gitFullHistoryRevisionsForPath(root, registration.synchronizedMerge, base, path).length > 0)
+            {
+                fail(`protected history changed after the registered outer boundary: ${path}`);
+            }
+        }
+        for (const path of closurePaths)
+        {
+            const identity = revisionPathIdentity(root, registration.synchronizedRevision, path);
+            if (revisionPathIdentity(root, base, path) !== identity
+                || revisionPathIdentity(root, head, path) !== identity)
+            {
+                fail(`generator closure differs from the canonical source: ${path}`);
+            }
+        }
+        const guard = createDagReplayGuard();
+        const synchronizedReplay = verifiedDagReplay(root, registration.synchronizedRevision, graph, guard);
+        const outerReplay = verifiedDagReplay(root, registration.synchronizedMerge, graph, guard);
+        const baseReplay = verifiedDagReplay(root, base, graph, guard);
+        const headReplay = verifiedDagReplay(root, head, graph, guard);
+        verifyDagStepConsumption(root, base, graph, guard);
+        if (synchronizedReplay.changedPaths.length !== 0)
+        {
+            fail('canonical source is not a fixed point');
+        }
+        if (!sameStrings(outerReplay.changedPaths, registration.staleOuterOutputs))
+        {
+            fail('outer drift differs from the registered stale-output subset');
+        }
+        if (!sameStrings(baseReplay.changedPaths, registration.staleOuterOutputs))
+        {
+            fail('current base drift differs from the registered stale-output subset');
+        }
+        if (headReplay.changedPaths.length !== 0)
+        {
+            fail('candidate is not a canonical fixed point');
+        }
+        for (const output of evidence.outputs)
+        {
+            if (output.sha256 !== headReplay.outputs.get(output.path))
+            {
+                fail(`candidate output digest differs from double replay: ${output.path}`);
+            }
+        }
+    }
+    catch (error)
+    {
+        fail(error instanceof Error ? error.message : String(error));
+    }
+    return errors;
+}
+
 export function reviewedDagHistoryAdmission(root, graph, synchronizedMerge, synchronizedRevision, base)
 {
-    const registration = changeContract.generatedOutputRepairDagReviewedHistories.find((entry) => (
+    let registration = changeContract.generatedOutputRepairDagReviewedHistories.find((entry) => (
         entry.producerId === graph.id && entry.synchronizedMerge === synchronizedMerge
         && entry.synchronizedRevision === synchronizedRevision
     ));
+    const epoch = changeContract.generatedOutputRepairDagEpochAnchors.find((entry) => (
+        entry.producerId === graph.id && entry.synchronizedMerge === synchronizedMerge
+        && entry.synchronizedRevision === synchronizedRevision
+    ));
+    if (!registration && epoch)
+    {
+        const epochErrors = validateGeneratedRepairDagEpochAnchor(root, graph, epoch);
+        if (epochErrors.length > 0)
+        {
+            throw new Error(epochErrors.join('; '));
+        }
+        registration = { ...epoch, reviewedRevision: epoch.synchronizedMerge };
+    }
     if (!registration || !gitFirstParentChainIncludes(root, registration.reviewedRevision, base))
     {
         return null;
@@ -1763,8 +1991,14 @@ function validatePostMergeGeneratedOutputRepairDag(
         }, replayGuard)
         const synchronizedReplay = verifiedDagReplay(root, evidence.synchronizedRevision, graph, replayGuard)
         const synchronizedOuterReplay = verifiedDagReplay(root, evidence.synchronizedMergeCommit, graph, replayGuard)
-        if (synchronizedReplay.changedPaths.length !== 0 || synchronizedOuterReplay.changedPaths.length !== 0) {
+        if (synchronizedReplay.changedPaths.length !== 0) {
             errors.push('Post-merge generated repair DAG synchronized revision must be a canonical fixed point')
+        }
+        const epochOuterOutputs = replayGuard.reviewedHistory?.registration.staleOuterOutputs
+        if (epochOuterOutputs
+            ? !sameStrings(synchronizedOuterReplay.changedPaths, epochOuterOutputs)
+            : synchronizedOuterReplay.changedPaths.length !== 0) {
+            errors.push('Post-merge generated repair DAG synchronized outer merge drift does not match its reviewed epoch')
         }
         if (!sameStringSequence(
             synchronizedOutputOwners.map((entry) => entry?.path),
@@ -2525,6 +2759,30 @@ function validateGeneratedEvidence(parsedBody, { root, base, head, changedFiles 
             if (output.sha256 !== digest) errors.push(`Generated output digest mismatch: ${output.path}`)
         } catch (error) {
             errors.push(`Generated output cannot be read from candidate head: ${output.path}: ${error instanceof Error ? error.message : String(error)}`)
+        }
+    }
+    const epochBootstrap = changeContract.generatedOutputRepairDagEpochAnchors.find((entry) => (
+        entry.bootstrapBindingManifest === parsedBody.generatedDigest
+    ));
+    if (epochBootstrap)
+    {
+        const graph = changeContract.generatedOutputRepairDags.find((entry) => (
+            entry.id === epochBootstrap.producerId
+        ));
+        if (!graph)
+        {
+            errors.push('Generated repair DAG epoch bootstrap producer is not trusted');
+        }
+        else
+        {
+            errors.push(...validateGeneratedRepairDagEpochBootstrap(
+                root,
+                graph,
+                epochBootstrap,
+                parsedBody,
+                evidence,
+                { base, head, changedFiles }
+            ));
         }
     }
 }

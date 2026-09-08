@@ -21,6 +21,8 @@ import {
     inspectGeneratedRepairDagHistory,
     validateReviewedGeneratedRepairDagEvents,
     validateGeneratedRepairDagEventOrder,
+    validateGeneratedRepairDagEpochAnchor,
+    validateGeneratedRepairDagEpochBootstrap,
     reviewedDagHistoryAdmission,
     validatePostMergeGeneratedOutputRepair,
     validatePrContract,
@@ -159,6 +161,47 @@ test('reviewed generated repair DAG history seals complete original epoch topolo
     const shortened = inspectGeneratedRepairDagHistory(root, graph, synchronizedMerge,
         '43961f1b7f89c117773ad25dfeb4554bdbba3e72', synchronizedRevision);
     assert.notEqual(shortened.sha256, history.sha256);
+});
+
+test('reviewed generated repair DAG epoch seals the canonical head and stale outer boundary', () =>
+{
+    const graph = changeContract.generatedOutputRepairDags[0];
+    const registration = changeContract.generatedOutputRepairDagEpochAnchors[0];
+    assert.deepEqual(validateGeneratedRepairDagEpochAnchor(root, graph, registration), []);
+    const admission = reviewedDagHistoryAdmission(root, graph, registration.synchronizedMerge,
+        registration.synchronizedRevision, registration.synchronizedMerge);
+    assert.equal(admission.history.nodes.length, 2);
+    assert.equal(admission.history.outerRevisions.length, 0);
+    assert.deepEqual(admission.registration.staleOuterOutputs, [
+        'config/testing/evidence-location-migration-ledger.json',
+        'config/testing/current-run-evidence-location-acceptance.json'
+    ]);
+    assert.match(validateGeneratedRepairDagEpochBootstrap(
+        root,
+        graph,
+        registration,
+        { generatedDigest: 'wrong.json', generatorSource: '', generatedOutputs: '', externalExceptionManifest: 'none' },
+        { sources: [], outputs: [] },
+        { base: registration.synchronizedMerge, head: registration.synchronizedMerge, changedFiles: [] }
+    ).join('\n'), /one-time registration/u);
+
+    for (const [label, mutate] of [
+        ['wrong parent', (entry) => { entry.synchronizedParent = entry.mergeParents[0]; }],
+        ['topology', (entry) => entry.mergeParents.reverse()],
+        ['tree', (entry) => { entry.mergeTree = '0'.repeat(40); }],
+        ['history', (entry) => { entry.historySha256 = '0'.repeat(64); }],
+        ['outputs', (entry) => { entry.staleOuterOutputs.pop(); }],
+        ['policy', (entry) => { entry.bootstrapSources.pop(); }],
+        ['extra path', (entry) => { entry.bootstrapPaths.push('unregistered.txt'); }],
+        ['extra field', (entry) => { entry.latest = 'HEAD'; }],
+        ['closure', (entry) => { entry.legacyClosure = []; }],
+        ['branches', (entry) => { entry.sourceBranches.push({}); }]
+    ])
+    {
+        const changed = structuredClone(registration);
+        mutate(changed);
+        assert.notDeepEqual(validateGeneratedRepairDagEpochAnchor(root, graph, changed), [], label);
+    }
 });
 
 function fixture(kind, name) {

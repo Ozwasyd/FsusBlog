@@ -228,6 +228,58 @@ export const generatedOutputRepairDagReviewedHistories = Object.freeze([
     })
 ]);
 
+// #3288 established a canonical source-head fixed point, but its ordinary
+// outer merge integrated unrelated first-parent inputs and was therefore not
+// itself a fixed point. This exact epoch anchor lets an owner bootstrap start
+// after the already sealed #3241 history without turning stale outer merges or
+// arbitrary policy/output commits into a reusable exception.
+export const generatedOutputRepairDagEpochAnchors = Object.freeze([
+    Object.freeze({
+        schema: 'fsusblog.generated-output-repair-dag-epoch-anchor.v1',
+        id: 'evidence-location-governance-pr-3288',
+        producerId: 'evidence-location-governance',
+        synchronizedRevision: '33b56d553a13c84c9c288acc92a75b9c0c86c3d7',
+        synchronizedParent: '2d64d60d3bc2d91b87fe8975db5c5e2585b2f290',
+        synchronizedTree: '6f7d95cd05e241f4013dc10b14f99d33fd4d6056',
+        synchronizedMerge: '7a940a9990a5686c9a612c7c88c8e9acaba1e13d',
+        synchronizedPullRequest: 3288,
+        mergeParents: Object.freeze([
+            '9fa2f72a550a5366e076094fbb346c6db6b697e5',
+            '33b56d553a13c84c9c288acc92a75b9c0c86c3d7'
+        ]),
+        mergeTree: 'fdf0d9035b2fe0a4756e70ef54be0914acd67d45',
+        historySha256: '5249baf2188ecf4c6afea247d5b6985ae20240903890ed657d9a5de8f101d75e',
+        staleOuterOutputs: Object.freeze([
+            'config/testing/evidence-location-migration-ledger.json',
+            'config/testing/current-run-evidence-location-acceptance.json'
+        ]),
+        bootstrapBase: 'cde6a9627c744c4a82ec3c10ac34b4c482a8fab7',
+        bootstrapBindingManifest: 'artifacts/change-contract/generated-repair-history-bootstrap-binding.json',
+        bootstrapExternalNamingManifest: 'artifacts/change-contract/generated-repair-history-bootstrap-external-naming.json',
+        bootstrapSources: Object.freeze([
+            'tools/governance/change-contract.mjs',
+            'tools/governance/change-contract-registry.mjs'
+        ]),
+        bootstrapPaths: Object.freeze([
+            'artifacts/change-contract/generated-repair-history-bootstrap-binding.json',
+            'artifacts/change-contract/generated-repair-history-bootstrap-external-naming.json',
+            'config/testing/current-run-evidence-location-acceptance.json',
+            'config/testing/evidence-location-migration-ledger.json',
+            'docs/development/change-contract.md',
+            'tests/tools/change-contract.test.mjs',
+            'tools/governance/change-contract-registry.mjs',
+            'tools/governance/change-contract.mjs'
+        ]),
+        legacyClosure: Object.freeze([
+            Object.freeze({ path: 'tools/test/evidence-location-contract.mjs', mode: '100644', object: '84def85f972e8e9bc5e137b51847f7f71108c85d' }),
+            Object.freeze({ path: 'tools/test/evidence-location-scanner.mjs', mode: '100644', object: 'b6947e6697a087580bfcb20b4f31dde5ed36c880' }),
+            Object.freeze({ path: 'tools/test/generate-evidence-location-governance.mjs', mode: '100644', object: 'fe127b3c6d6293a9ffe49854e533a0833cfb3822' }),
+            Object.freeze({ path: 'tools/test/generate-current-run-evidence-location-acceptance.mjs', mode: '100644', object: 'c65104f6c3cdb0d195196c27f4c9b981bcb7b3d2' })
+        ]),
+        sourceBranches: Object.freeze([])
+    })
+]);
+
 export const generatedOutputRepairDags = Object.freeze([
     Object.freeze({
         id: 'evidence-location-governance',
@@ -319,6 +371,7 @@ export const changeContract = Object.freeze({
     generatedOutputRepairPassThroughExceptions,
     generatedOutputRepairDags,
     generatedOutputRepairDagReviewedHistories,
+    generatedOutputRepairDagEpochAnchors,
     trustedPolicyFiles,
     evidenceSchemas: Object.freeze({
         externalNamingExceptions: 'fsusblog.external-naming-exceptions.v1',
