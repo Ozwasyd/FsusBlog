@@ -233,6 +233,15 @@ internal sealed class ArticleAssetReferenceStore(ISqlSugarClient db, TimeProvide
         {
             throw new InvalidOperationException("content_asset_reference_asset_state_invalid");
         }
+
+        bool deleting = await db.Queryable<ContentAssetCleanupQueueItem>()
+            .Where(item => expected.Contains(item.AssetId)
+                && item.LastError == ContentAssetCleanupMarkers.DeletePending)
+            .AnyAsync(cancellationToken);
+        if (deleting)
+        {
+            throw new InvalidOperationException("content_asset_reference_delete_in_progress");
+        }
     }
 
     private async Task ScheduleIfUnreferencedAsync(IEnumerable<AssetId> assetIds, CancellationToken cancellationToken)
@@ -265,7 +274,7 @@ internal sealed class ArticleAssetReferenceStore(ISqlSugarClient db, TimeProvide
                     FROM unreferenced
                 ON CONFLICT (asset_id) DO UPDATE
                 SET not_before_utc = LEAST(content_asset_cleanup_queue.not_before_utc, EXCLUDED.not_before_utc),
-                    last_error = NULL,
+                    last_error = content_asset_cleanup_queue.last_error,
                         updated_at_utc = EXCLUDED.updated_at_utc
                     RETURNING asset_id
                 )
