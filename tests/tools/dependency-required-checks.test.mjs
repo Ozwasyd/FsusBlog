@@ -96,5 +96,6 @@ test('local branch protection simulation rejects catalog drift', () => {
 test('required-checks catalog does not encode automerge or freshness workflows', () => {
     const serialized = JSON.stringify(catalog);
     assert.equal(serialized.includes('automerge'), false);
-    assert.equal(fs.existsSync(path.join(root, '.github/workflows/dependency-freshness.yml')), false);
+    assert.equal(serialized.includes('dependency-freshness.yml'), false);
+    assert.equal(serialized.includes('Dependency Freshness'), false);
 });
