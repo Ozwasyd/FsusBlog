@@ -42,6 +42,7 @@ function parse(argv)
     else if (key === '--run-id') options.runId = value
     else if (key === '--attempt-id') options.attemptId = value
     else if (key === '--release-id') options.releaseId = value
+    else if (key === '--rollout-id') options.rolloutId = value
     else if (key === '--observation')
     {
       const separator = value.indexOf('=')
@@ -67,7 +68,10 @@ export function runCurrentRunCli(argv, repositoryRoot)
       preRuntimeReceipt: options.preRuntimeReceipt,
       runId: options.runId,
       attemptId: options.attemptId,
-      candidate: options.releaseId ? { releaseId: options.releaseId } : {},
+      candidate: {
+        ...(options.releaseId ? { releaseId: options.releaseId } : {}),
+        ...(options.rolloutId ? { rolloutId: options.rolloutId } : {})
+      },
       repositoryRoot
     })
   }

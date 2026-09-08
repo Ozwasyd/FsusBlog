@@ -143,7 +143,7 @@ export function createPostRuntimeCandidateFixture(context, {
           ...candidate,
           candidateId: `${runId}:candidate`, runtimeId: `${runId}:runtime`,
           browserId: `${runId}:browser-contract`, fixtureId: `${runId}:fixture`,
-          rolloutId: `${runId}:rollout`,
+          rolloutId: candidate.rolloutId ?? `${runId}-rollout`,
           releaseId: candidate.releaseId ?? `20260830123456-${commit.slice(0, 12)}`
         }
       : candidate,

@@ -32,6 +32,7 @@ import {
 import { root } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
 import { createRunId } from '../../tools/test-matrix/scheduler.mjs'
 import { createBrowserContractObservationFixture } from './support/browser-contract-observation-fixture.mjs'
+import { createReleaseRolloutEvidenceFixture } from './support/release-rollout-evidence-fixture.mjs'
 import { projectBrowserContractRaw } from '../../tools/test-evidence/browser-contract-observation-raw.mjs'
 import { beginCurrentRunEvidencePublication, finalizeCurrentRunEvidencePublication }
   from '../../tools/test/current-run-evidence-publication.mjs'
@@ -148,7 +149,7 @@ function fixture(context)
     const relativePath = relative(name)
     const bytes = fs.readFileSync(path.join(root, relativePath))
     const value = JSON.parse(bytes.toString('utf8'))
-    return { path: relativePath, fileDigest: `sha256:${createHash('sha256').update(bytes).digest('hex')}`, contentDigest: value.contentDigest }
+    return { path: relativePath, fileDigest: `sha256:${createHash('sha256').update(bytes).digest('hex')}`, contentDigest: value.contentDigest ?? null }
   }
   const classReceipts = {}
   context.after(() => fs.rmSync(path.join(root, '.tmp/post-runtime-source-receipts', runId), { recursive: true, force: true }))
@@ -187,7 +188,15 @@ function fixture(context)
     const contract = definition.sourceReceipt
     const dependency = (field, referenceContract) => {
       const name = `${classId}-${field.replaceAll('.', '-')}-dependency.json`
-      write(name, seal({ schema: referenceContract.schema, sourceState }))
+      if (referenceContract.schema === 'fsusblog.release-rollout-evidence.v1')
+      {
+        const rollout = createReleaseRolloutEvidenceFixture({
+          rolloutId: sourceState.rolloutId,
+          target: { ...createReleaseRolloutEvidenceFixture().target, releaseId: sourceState.releaseId }
+        }).createFinalEvidence(path.join(directory, `${classId}-rollout`))
+        write(name, rollout.value)
+      }
+      else write(name, seal({ schema: referenceContract.schema, sourceState }))
       return { ...ref(name), schema: referenceContract.schema, role: referenceContract.role }
     }
     const upstream = { schema: contract.schema, producerId: producer.producerId, toolVersion: producer.toolVersion,
@@ -374,6 +383,16 @@ test('candidate context accepts the canonical scheduler run identity', (context)
   })
   assert.equal(receipt.candidate.runId, schedulerRunId)
   assert.equal(receipt.candidate.attemptId, 'attempt-0002')
+  assert.equal(receipt.candidate.rolloutId, `${schedulerRunId}-rollout`)
+  const requested = {
+    preRuntimeReceipt: value.relative('pre.json'), runId: schedulerRunId,
+    attemptId: 'attempt-0002', repositoryRoot: root,
+    candidate: { releaseId: receipt.candidate.releaseId, rolloutId: 'deploy-current-operation-0001' }
+  }
+  assert.equal(produceCandidateContext(requested).candidate.rolloutId, requested.candidate.rolloutId)
+  assert.throws(() => produceCandidateContext({
+    ...requested, candidate: { ...requested.candidate, rolloutId: `${schedulerRunId}:rollout` }
+  }), /rolloutId is invalid/u)
 })
 
 test('candidate verifier rejects absolute or noncanonical observation paths', (context) =>

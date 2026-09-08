@@ -14,6 +14,7 @@ import {
 import path from 'node:path'
 
 import { loadCatalog } from '../../contracts/behavior-contract-catalog.mjs'
+import { validateRolloutId } from '../../deployment/release-rollout-evidence-receipt-contract.mjs'
 import {
   buildPostRuntimeAcceptedClaimsReceipt,
   validatePostRuntimeAcceptedClaimsValue
@@ -438,7 +439,7 @@ export function produceCandidateContext({
       runtimeId: overrides.runtimeId ?? `${runId}${typedIdentity ? ':' : '-'}runtime`,
       browserId: overrides.browserId ?? `${runId}${typedIdentity ? ':' : '-'}browser-contract`,
       releaseId: overrides.releaseId ?? `${runId}-release`,
-      rolloutId: overrides.rolloutId ?? `${runId}${typedIdentity ? ':' : '-'}rollout`
+      rolloutId: validateRolloutId(overrides.rolloutId ?? `${runId}-rollout`)
     }),
     status: 'planned-before-runtime'
   })
@@ -477,11 +478,11 @@ function validateCandidateContext(run, repositoryRoot)
       || candidate.runtimeId !== `${candidate.runId}:runtime`
       || candidate.browserId !== `${candidate.runId}:browser-contract`
       || candidate.fixtureId !== `${candidate.runId}:fixture`
-      || candidate.rolloutId !== `${candidate.runId}:rollout`
       || !/^[0-9]{14}-[a-f0-9]{12}$/u.test(candidate.releaseId)))
   {
     fail('typed candidate identities do not exact-match the run/release authority')
   }
+  validateRolloutId(candidate.rolloutId)
   const profileCatalog = JSON.parse(readFileSync(
     path.join(repositoryRoot, 'config/testing/fixture-profile-catalog.json'), 'utf8'))
   if (!(profileCatalog.profiles ?? []).some(({ id }) => id === candidate.profileId))

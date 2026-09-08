@@ -14,6 +14,7 @@ ATTEMPT_ID="${PRODUCTION_ATTEMPT_ID:-${TEST_ATTEMPT_ID:-attempt-0001}}"
 [[ "$ATTEMPT_ID" =~ ^attempt-[0-9]{4}$ ]] || { printf '[post-runtime-candidate-plan] attempt identity is invalid\n' >&2; exit 1; }
 export FSUSBLOG_TEST_ATTEMPT_ID="$ATTEMPT_ID"
 RELEASE_ID="${FSUSBLOG_RELEASE_ID:?FSUSBLOG_RELEASE_ID is required}"
+ROLLOUT_ID="${FSUSBLOG_ROLLOUT_ID:?FSUSBLOG_ROLLOUT_ID is required}"
 PRE_RUNTIME="${FSUSBLOG_BEHAVIOR_PRE_RUNTIME_RECEIPT:-$ROOT_DIR/.tmp/behavior-evidence-pre-runtime/receipt.json}"
 TERMINAL_CLAIMS="${FSUSBLOG_DOCS_GLOBAL_CLAIM_EXACTNESS_FINAL_EVIDENCE_PATH:?FSUSBLOG_DOCS_GLOBAL_CLAIM_EXACTNESS_FINAL_EVIDENCE_PATH reference is required}"
 BUILD_RECEIPT="${FSUSBLOG_CI_PRODUCTION_BUILD_RECEIPT:-$ROOT_DIR/.tmp/ci-production-build/receipt.json}"
@@ -39,6 +40,7 @@ fi
     --run-id "$RUN_ID" \
     --attempt-id "$ATTEMPT_ID" \
     --release-id "$RELEASE_ID" \
+    --rollout-id "$ROLLOUT_ID" \
     --out "$OUT_DIR/candidate-context.json"
 
 "$NODE_BIN" "$ROOT_DIR/tools/fact-extractors/post-runtime/current-run.mjs" candidate-plan \
