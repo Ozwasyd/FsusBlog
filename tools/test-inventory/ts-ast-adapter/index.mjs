@@ -485,7 +485,7 @@ function resolveApi(ctx, node)
     return null;
 }
 
-function parseOptionsObject(node, source)
+function parseOptionsObject(node)
 {
     if (!node || !ts.isObjectLiteralExpression(node))
     {
@@ -764,11 +764,6 @@ function currentSuitePath(ctx, stack)
     return stack.map((suite) => suite.title).join(' › ');
 }
 
-function currentSuiteId(ctx, stack)
-{
-    return stack.length > 0 ? stack[stack.length - 1].id : ensureRootSuite(ctx).id;
-}
-
 function caseIdFor(ctx, framework, name, ordinal, seedExtra = '')
 {
     const suffix = shortHash(`${name}\n${ordinal}${seedExtra ? `\n${seedExtra}` : ''}`);
@@ -824,7 +819,7 @@ function handleTestCall(ctx, stack, call, api)
     const titleNode = args[0];
     const titleInfoValue = titleInfo(titleNode, ctx.source);
     const title = titleInfoValue.title;
-    if (titleInfoValue.dynamic || title === null)
+    if (titleInfoValue.dynamic || title === null || api.dynamicNativeTable)
     {
         const start = positionOf(ctx.sourceFile, call.getStart(ctx.sourceFile));
         const displayName = title === null ? '<dynamic title>' : title;
@@ -849,7 +844,6 @@ function handleTestCall(ctx, stack, call, api)
         return;
     }
 
-    let options = {};
     let callback = null;
     let skipReason = api.api === 'skip' ? 'skip' : null;
     let todo = api.api === 'todo';
@@ -865,7 +859,7 @@ function handleTestCall(ctx, stack, call, api)
         }
         if (ts.isObjectLiteralExpression(arg))
         {
-            options = parseOptionsObject(arg, ctx.source);
+            const options = parseOptionsObject(arg);
             skipReason = skipReason ?? options.skipReason ?? null;
             todo = todo || options.todo;
             only = only || options.only;
@@ -983,7 +977,7 @@ function handleEachCall(ctx, stack, call, api)
         }
         if (ts.isObjectLiteralExpression(arg))
         {
-            timeoutMs = parseOptionsObject(arg, ctx.source).timeoutMs ?? null;
+            timeoutMs = parseOptionsObject(arg).timeoutMs ?? null;
             continue;
         }
         const info = callbackInfo(arg);
@@ -1160,8 +1154,252 @@ function handleBehaviorTestCall(ctx, stack, call, api)
     addTestCase(ctx, entry);
 }
 
+// Native node:test has no test.each. Only this closed, inline frozen-table
+// form is expanded; no binding evaluation or user code executes here.
+function nativeFrozenLiteral(node, kind)
+{
+    if (!node || !ts.isCallExpression(node) || node.arguments.length !== 1
+        || node.questionDotToken || !ts.isPropertyAccessExpression(node.expression)
+        || node.expression.questionDotToken || !ts.isIdentifier(node.expression.expression)
+        || node.expression.expression.text !== 'Object' || node.expression.name.text !== 'freeze')
+    {
+        return null;
+    }
+    return kind(node.arguments[0]) ? node.arguments[0] : null;
+}
+
+function nativeTableExpansion(ctx, loop)
+{
+    if (!ts.isForOfStatement(loop) || loop.awaitModifier || loop.parent !== ctx.sourceFile
+        || !ts.isVariableDeclarationList(loop.initializer)
+        || !(loop.initializer.flags & ts.NodeFlags.Const) || loop.initializer.declarations.length !== 1
+        || !ts.isBlock(loop.statement) || loop.statement.statements.length !== 1)
+    {
+        return null;
+    }
+    const declaration = loop.initializer.declarations[0];
+    const statement = loop.statement.statements[0];
+    const table = nativeFrozenLiteral(loop.expression, ts.isArrayLiteralExpression);
+    if (!ts.isIdentifier(declaration.name) || declaration.initializer || !table || !table.elements.length || table.elements.length > 256
+        || !ts.isExpressionStatement(statement) || !ts.isCallExpression(statement.expression))
+    {
+        return null;
+    }
+    const call = statement.expression;
+    const api = resolveApi(ctx, call.expression);
+    const imported = ts.isIdentifier(call.expression) && ctx.imports.get(call.expression.text);
+    const callback = call.arguments.length === 2 ? callbackInfo(call.arguments[1]) : null;
+    const title = call.arguments[0];
+    if (!imported || imported.module !== 'node:test' || api?.framework !== 'node-test'
+        || !TEST_API_NAMES.has(api.api) || !callback || !ts.isTemplateExpression(title)
+        || call.questionDotToken)
+    {
+        return null;
+    }
+    const rowName = declaration.name.text;
+    const rows = [];
+    const freezeReceivers = new Set([loop.expression.expression.expression]);
+    for (const element of table.elements)
+    {
+        const object = nativeFrozenLiteral(element, ts.isObjectLiteralExpression);
+        if (!object)
+        {
+            return null;
+        }
+        freezeReceivers.add(element.expression.expression);
+        const values = new Map();
+        for (const property of object.properties)
+        {
+            if (!ts.isPropertyAssignment(property) || !ts.isIdentifier(property.name)
+                || values.has(property.name.text))
+            {
+                return null;
+            }
+            const array = nativeFrozenLiteral(property.initializer, ts.isArrayLiteralExpression);
+            if (ts.isStringLiteral(property.initializer))
+            {
+                values.set(property.name.text, property.initializer.text);
+            }
+            else if (array && array.elements.every(ts.isStringLiteral))
+            {
+                freezeReceivers.add(property.initializer.expression.expression);
+                values.set(property.name.text, array.elements.map((item) => item.text));
+            }
+            else
+            {
+                return null;
+            }
+        }
+        if (typeof values.get('caseName') !== 'string' || !values.get('caseName')
+            || typeof values.get('authorityId') !== 'string' || !values.get('authorityId'))
+        {
+            return null;
+        }
+        rows.push({ values, element });
+    }
+    const titleKeys = title.templateSpans.map(({ expression }) =>
+        ts.isPropertyAccessExpression(expression) && !expression.questionDotToken
+        && ts.isIdentifier(expression.expression) && expression.expression.text === rowName
+            ? expression.name.text : null);
+    if (titleKeys.some((key) => key === null) || !titleKeys.includes('caseName') || !titleKeys.includes('authorityId'))
+    {
+        return null;
+    }
+    const assertionBindings = new Set([...ctx.imports].filter(([, binding]) =>
+        ['node:assert/strict', 'node:assert'].includes(binding.module) && binding.exported === 'default').map(([name]) => name));
+    let valid = true;
+    const inspect = (node) =>
+    {
+        // Frozen arrays still inherit their iterator. Observable access to its
+        // authority (including prototype escape routes) is outside this form.
+        if (ts.isIdentifier(node) && ['globalThis', 'global', 'eval', 'Function', 'Reflect', 'Array', 'Symbol'].includes(node.text))
+        {
+            valid = false;
+        }
+        if (ts.isPropertyAccessExpression(node) && ['prototype', '__proto__', 'constructor'].includes(node.name.text))
+        {
+            valid = false;
+        }
+        if (ts.isElementAccessExpression(node) && (!ts.isStringLiteral(node.argumentExpression) && !ts.isNumericLiteral(node.argumentExpression)
+            || ['prototype', '__proto__', 'constructor'].includes(node.argumentExpression.text)))
+        {
+            valid = false;
+        }
+        if (ts.isIdentifier(node) && node.text === 'Object' && !freezeReceivers.has(node))
+        {
+            const property = node.parent;
+            const invocation = property.parent;
+            const safeRead = ts.isPropertyAccessExpression(property) && property.expression === node
+                && !property.questionDotToken && property.name.text === 'hasOwn'
+                && ts.isCallExpression(invocation) && invocation.expression === property
+                && !invocation.questionDotToken && invocation.arguments.length === 2
+                && ts.isStringLiteral(invocation.arguments[1]);
+            if (!safeRead)
+            {
+                valid = false;
+            }
+        }
+        if (ts.isIdentifier(node) && assertionBindings.has(node.text))
+        {
+            const parent = node.parent;
+            if (!(ts.isImportClause(parent) && parent.name === node)
+                && !(ts.isPropertyAccessExpression(parent) && parent.expression === node
+                    && !parent.questionDotToken && ts.isCallExpression(parent.parent)
+                    && parent.parent.expression === parent && !parent.parent.questionDotToken))
+            {
+                valid = false;
+            }
+        }
+        if (ts.isIdentifier(node) && node.text === call.expression.text)
+        {
+            const parent = node.parent;
+            if (!(ts.isImportClause(parent) && parent.name === node)
+                && !(ts.isImportSpecifier(parent) && parent.name === node)
+                && !(ts.isCallExpression(parent) && parent.expression === node))
+            {
+                valid = false;
+            }
+        }
+        if (ts.isIdentifier(node) && node.text === rowName && node !== declaration.name)
+        {
+            const access = node.parent;
+            if (!ts.isPropertyAccessExpression(access) || access.expression !== node || access.questionDotToken
+                || !rows.every((row) => row.values.has(access.name.text)))
+            {
+                valid = false;
+            }
+            else
+            {
+                let target = access;
+                while (ts.isParenthesizedExpression(target.parent))
+                {
+                    target = target.parent;
+                }
+                const parent = target.parent;
+                if ((ts.isBinaryExpression(parent) && parent.left === target
+                        && parent.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
+                        && parent.operatorToken.kind <= ts.SyntaxKind.LastAssignment)
+                    || ts.isPrefixUnaryExpression(parent) || ts.isPostfixUnaryExpression(parent)
+                    || ts.isDeleteExpression(parent))
+                {
+                    valid = false;
+                }
+                const assertionRead = ts.isCallExpression(parent) && parent.arguments.includes(target)
+                    && ts.isPropertyAccessExpression(parent.expression) && !parent.expression.questionDotToken
+                    && ts.isIdentifier(parent.expression.expression) && assertionBindings.has(parent.expression.expression.text)
+                    && ['deepEqual', 'deepStrictEqual'].includes(parent.expression.name.text) && !parent.questionDotToken;
+                if (rows.some((row) => Array.isArray(row.values.get(access.name.text)))
+                    && !(ts.isForOfStatement(parent) && parent.expression === target) && !assertionRead)
+                {
+                    valid = false;
+                }
+            }
+        }
+        // A nested registration cannot share the outer row's callback identity.
+        if (ts.isCallExpression(node) && node !== call && node.pos >= callback.node.pos
+            && node.end <= callback.node.end && resolveApi(ctx, node.expression)?.framework === 'node-test')
+        {
+            valid = false;
+        }
+        ts.forEachChild(node, inspect);
+    };
+    inspect(ctx.sourceFile);
+    if (!valid)
+    {
+        return null;
+    }
+    const identities = new Set();
+    for (const row of rows)
+    {
+        row.title = title.head.text;
+        for (let index = 0; index < title.templateSpans.length; index++)
+        {
+            const value = row.values.get(titleKeys[index]);
+            if (typeof value !== 'string')
+            {
+                return null;
+            }
+            row.title += value + title.templateSpans[index].literal.text;
+        }
+        const identity = JSON.stringify([row.values.get('caseName'), row.values.get('authorityId')]);
+        if (identities.has(identity) || rows.some((other) => other !== row && other.title === row.title))
+        {
+            return null;
+        }
+        identities.add(identity);
+    }
+    return { rows, call, callback, api };
+}
+
 function visitNode(ctx, node, stack)
 {
+    if (ts.isForOfStatement(node))
+    {
+        const expansion = nativeTableExpansion(ctx, node);
+        if (expansion)
+        {
+            for (const [index, row] of expansion.rows.entries())
+            {
+                const entry = {
+                    id: caseIdFor(ctx, 'node-test', row.title, nextOrdinal(ctx, row.title)),
+                    displayName: row.title,
+                    kind: 'theory',
+                    identity: 'static',
+                    ownerFile: ctx.file,
+                    adapter: 'node-test',
+                    sourceSpan: spanOf(ctx.sourceFile, expansion.call),
+                    traits: [
+                        { name: 'DataRow', value: String(index) },
+                        { name: 'NativeRowDigest', value: createHash('sha256').update(JSON.stringify([...row.values])).digest('hex') },
+                        { name: 'NativeRowSource', value: JSON.stringify(spanOf(ctx.sourceFile, row.element)) }
+                    ]
+                };
+                attachBodyAndFacts(ctx, entry, expansion.callback);
+                addTestCase(ctx, entry);
+            }
+            return;
+        }
+    }
     if (ts.isCallExpression(node))
     {
         const callee = node.expression;
@@ -1191,7 +1429,21 @@ function visitNode(ctx, node, stack)
                 }
                 else
                 {
-                    handleTestCall(ctx, stack, node, api);
+                    let ancestor = node.parent;
+                    while (ancestor && !ts.isSourceFile(ancestor)
+                        && !ts.isForOfStatement(ancestor) && !ts.isForStatement(ancestor)
+                        && !ts.isForInStatement(ancestor) && !ts.isWhileStatement(ancestor)
+                        && !ts.isDoStatement(ancestor))
+                    {
+                        ancestor = ancestor.parent;
+                    }
+                    const dynamicNativeTable = api.framework === 'node-test' && ancestor && !ts.isSourceFile(ancestor);
+                    if (dynamicNativeTable)
+                    {
+                        ctx.diagnostics.push({ severity: 'error', code: 'native-table-not-closed', file: ctx.file,
+                            message: `native registration is not an immutable closed table at ${ctx.file}:${positionOf(ctx.sourceFile, node.getStart()).line}` });
+                    }
+                    handleTestCall(ctx, stack, node, { ...api, dynamicNativeTable });
                 }
             }
             else if (api.api === 'each')
