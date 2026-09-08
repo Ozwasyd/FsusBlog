@@ -897,7 +897,7 @@ requireFileIncludes(
 );
 requireFileIncludes(
     'docs/testing.md',
-    '`fast-summary` 下载这些 artifacts',
+    '`fast-summary` downloads these artifacts',
     'docs/testing.md must document frontend-fast split aggregate evidence'
 );
 {
