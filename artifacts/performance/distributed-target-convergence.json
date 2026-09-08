@@ -10,11 +10,11 @@
         },
         {
             "path": "tests/backend/Unit/DistributedInvalidationLocalApplierTests.cs",
-            "sha256": "2ce110c67028e64ce8c877fab898ca010fca1a63bc9af8e2ba436e75f51cdfa7"
+            "sha256": "fd0d129ce18d2204a1bdd39ea9f8bcc6bdf6b8659f98273b6c8f2df2e11dd36e"
         },
         {
             "path": "tests/backend/Integration/DistributedInvalidationTargetConvergenceIntegrationTests.cs",
-            "sha256": "c29397ef4da280790c08bbbeec8be493ca9a2026d7d30c61efb0bd5323d5a769"
+            "sha256": "e711e470a0d9fb2514d2448aba7c7284f9ea6762621b6ac9cf9efb8ad1860290"
         }
     ]
 }

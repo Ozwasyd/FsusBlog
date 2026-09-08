@@ -66,7 +66,12 @@ public sealed class DistributedInvalidationTargetConvergenceIntegrationTests(
         AssertResidencyUnchanged(before, nodes.Target.LocalCache.SnapshotResidency(), CachePolicyId.CategoryFrame);
         AssertResidencyUnchanged(before, nodes.Target.LocalCache.SnapshotResidency(), CachePolicyId.SystemSeo);
         Assert.Equal(AppliedState, InboxState(nodes.Connection));
-        Assert.False(nodes.Target.LastResult!.FullReconcile);
+        DistributedInvalidationLocalApplyResult commentReceipt = nodes.Target.LastResult!;
+        Assert.False(commentReceipt.FullReconcile);
+        Assert.True(commentReceipt.ResolvedTargetCount >= 4);
+        Assert.True(commentReceipt.L1InvalidatedPolicyCount > 0);
+        Assert.Equal(0, commentReceipt.AotRouteCount);
+        Assert.Equal(1, commentReceipt.HotReadFragmentCount);
     }
 
     [Fact]
@@ -105,7 +110,13 @@ public sealed class DistributedInvalidationTargetConvergenceIntegrationTests(
         Assert.False(nodes.Target.HotRead.Current.TryGetArticle(1, out _));
         Assert.True(nodes.Target.HotRead.Current.TryGetArticle(2, out PublicBinaryArtifact remaining));
         Assert.Equal(unchanged, remaining.Frame.ToArray());
-        Assert.False(nodes.Target.LastResult!.FullReconcile);
+        DistributedInvalidationLocalApplyResult articleReceipt = nodes.Target.LastResult!;
+        Assert.False(articleReceipt.FullReconcile);
+        Assert.True(articleReceipt.ResolvedTargetCount >= 7);
+        Assert.True(articleReceipt.L1InvalidatedPolicyCount > 0);
+        Assert.True(articleReceipt.L1InvalidatedEntryCount > 0);
+        Assert.Equal(1, articleReceipt.AotRouteCount);
+        Assert.True(articleReceipt.HotReadFragmentCount > 0);
 
         DistributedInvalidationInboxEntity inbox = Assert.IsType<DistributedInvalidationInboxEntity>(ReadInbox(nodes.Connection));
         Assert.Equal(published.EventId, inbox.EventId);

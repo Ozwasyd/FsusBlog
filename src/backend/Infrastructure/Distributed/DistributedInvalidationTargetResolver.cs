@@ -10,7 +10,8 @@ namespace FsusBlog.Server.Infrastructure.Distributed;
 public sealed record DistributedInvalidationAotTarget(
     string CacheKey,
     PublicPageId PageId,
-    string RouteKey);
+    string RouteKey,
+    bool IsPrefix = false);
 
 public sealed record DistributedInvalidationTargetPlan(
     IReadOnlyList<CacheKeyIdentity> CacheKeys,
@@ -44,7 +45,7 @@ public static class DistributedInvalidationTargetResolver
         foreach (string target in invalidation.CacheTags)
         {
             parsedTargets++;
-            if (!TryResolveCacheTarget(target, invalidation.Kind, cacheKeys, hotFragments))
+            if (!TryResolveCacheTarget(target, invalidation.Kind, cacheKeys, aotTargets, hotFragments))
             {
                 failure ??= $"cache-target:{target}";
             }
@@ -75,9 +76,7 @@ public static class DistributedInvalidationTargetResolver
         }
 
         if (invalidation.ArtifactKeys.Contains("public-aot", StringComparer.Ordinal)
-            && aotTargets.Count == 0
-            && invalidation.Kind is not DistributedInvalidationEventKinds.CommentMutation
-            && invalidation.Kind is not DistributedInvalidationEventKinds.TaxonomyMutation)
+            && aotTargets.Count == 0)
         {
             failure ??= "artifact-target:public-aot-without-route";
         }
@@ -150,6 +149,7 @@ public static class DistributedInvalidationTargetResolver
         string target,
         string kind,
         ISet<CacheKeyIdentity> cacheKeys,
+        ISet<DistributedInvalidationAotTarget> aotTargets,
         ISet<string> hotFragments)
     {
         if (target.StartsWith("l1:", StringComparison.Ordinal))
@@ -179,6 +179,10 @@ public static class DistributedInvalidationTargetResolver
             case "taxonomy":
                 AddCategoryTagTargets(cacheKeys);
                 AddArticleListTargets(cacheKeys, hotFragments);
+                if (kind == DistributedInvalidationEventKinds.TaxonomyMutation)
+                {
+                    AddTaxonomyAotTargets(aotTargets);
+                }
                 hotFragments.Add("taxonomy:category");
                 hotFragments.Add("taxonomy:tag");
                 return true;
@@ -201,12 +205,21 @@ public static class DistributedInvalidationTargetResolver
             case "category":
                 cacheKeys.Add(new(CachePolicyId.CategoryFrame, "all"));
                 cacheKeys.Add(new(CachePolicyId.TaxonomyFrameVersion, "main"));
+                if (kind == DistributedInvalidationEventKinds.TaxonomyMutation)
+                {
+                    AddAotPrefixTarget(aotTargets, "category:", "category:*");
+                }
                 hotFragments.Add("taxonomy:category");
                 hotFragments.Add("list:category");
                 return true;
             case "tag":
                 cacheKeys.Add(new(CachePolicyId.TagFrame, "all"));
                 cacheKeys.Add(new(CachePolicyId.TaxonomyFrameVersion, "main"));
+                if (kind == DistributedInvalidationEventKinds.TaxonomyMutation)
+                {
+                    AddAotPrefixTarget(aotTargets, "tag:", "tag:*");
+                    AddAotPrefixTarget(aotTargets, "tag-name:", "tag-name:*");
+                }
                 hotFragments.Add("taxonomy:tag");
                 hotFragments.Add("list:tag");
                 return true;
@@ -244,6 +257,7 @@ public static class DistributedInvalidationTargetResolver
             hotFragments.Add("taxonomy:tag");
             hotFragments.Add("list:category");
             hotFragments.Add("list:tag");
+            AddTaxonomyAotTargets(aotTargets);
             return true;
         }
 
@@ -516,6 +530,13 @@ public static class DistributedInvalidationTargetResolver
         cacheKeys.Add(new(CachePolicyId.TaxonomyFrameVersion, "main"));
     }
 
+    private static void AddTaxonomyAotTargets(ISet<DistributedInvalidationAotTarget> targets)
+    {
+        AddAotPrefixTarget(targets, "category:", "category:*");
+        AddAotPrefixTarget(targets, "tag:", "tag:*");
+        AddAotPrefixTarget(targets, "tag-name:", "tag-name:*");
+    }
+
     private static void AddAllArticleFragments(ISet<string> hotFragments)
     {
         hotFragments.Add("article:*");
@@ -566,6 +587,16 @@ public static class DistributedInvalidationTargetResolver
             CacheKeyBuilder.PublicAotDocument(pageId, routeKey),
             pageId,
             routeKey));
+
+    private static void AddAotPrefixTarget(
+        ISet<DistributedInvalidationAotTarget> targets,
+        string routePrefix,
+        string receiptRouteKey)
+        => targets.Add(new(
+            CacheKeyBuilder.PublicAotDocument(PublicPageId.Filter, routePrefix),
+            PublicPageId.Filter,
+            receiptRouteKey,
+            IsPrefix: true));
 
     private static bool TryParseAotCacheKey(
         string value,

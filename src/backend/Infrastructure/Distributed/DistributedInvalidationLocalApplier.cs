@@ -114,8 +114,11 @@ public sealed class DistributedInvalidationLocalApplier : IDistributedInvalidati
         foreach (DistributedInvalidationAotTarget target in plan.AotTargets)
         {
             string scopedKey = ScopeAotKey(target.CacheKey);
-            aotGeneration = _publicAotInvalidationTracker.MarkKey(scopedKey, invalidation.EventId);
-            if (PublicAotPageCatalog.TryGet(target.PageId, out PublicAotPageDescriptor descriptor))
+            aotGeneration = target.IsPrefix
+                ? _publicAotInvalidationTracker.MarkPrefix(scopedKey, invalidation.EventId)
+                : _publicAotInvalidationTracker.MarkKey(scopedKey, invalidation.EventId);
+            if (!target.IsPrefix
+                && PublicAotPageCatalog.TryGet(target.PageId, out PublicAotPageDescriptor descriptor))
             {
                 _publicAotSsrRuntimeState.ClearRouteQuarantine(descriptor.Kind, target.RouteKey);
             }

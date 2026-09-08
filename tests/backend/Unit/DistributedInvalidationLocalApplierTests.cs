@@ -132,6 +132,14 @@ public sealed class DistributedInvalidationLocalApplierTests
         Assert.False(result.FullReconcile);
         Assert.True(fixture.HotRead.IsReady);
         Assert.True(fixture.HotRead.Current.TryGetArticle(9, out _));
+        if (matrix == "taxonomy")
+        {
+            Assert.Equal(3, result.AotRouteCount);
+        }
+        else
+        {
+            Assert.True(result.AotRouteCount > 0);
+        }
         Assert.True(fixture.TryGetL1(CachePolicyId.ArticleDetail, "9"));
         if (matrix == "taxonomy")
         {

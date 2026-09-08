@@ -1062,6 +1062,35 @@ public sealed class PublicAotFileShellCacheTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public async Task ApplyDistributedInvalidationAsync_Prefix_RemovesSiblingLocalArtifactsWithoutPublishing()
+    {
+        using CacheFixture fixture = BuildCacheFixture(Environments.Production);
+        const string Prefix = "public:aot:v2:doc:2:article:";
+        var first = CreateEntry("public:aot:v2:doc:2:article:42");
+        var second = CreateEntry("public:aot:v2:doc:2:article:43", "article:43", PublicPageId.ArticleDetail);
+        var other = CreateEntry("public:aot:v2:doc:5:about", "about", PublicPageId.About);
+        await fixture.Cache.SetAsync(first);
+        await fixture.Cache.SetAsync(second);
+        await fixture.Cache.SetAsync(other);
+        ConfigureSetScan(
+            fixture.Database,
+            PublicAotCacheRegistry.BuildRouteRegistryKey(PublicPageId.ArticleDetail, "article"),
+            first.CacheKey,
+            second.CacheKey);
+
+        int invalidated = await fixture.Cache.ApplyDistributedInvalidationAsync([Prefix]);
+
+        Assert.Equal(2, invalidated);
+        Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.CacheRoot, first)));
+        Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.CacheRoot, second)));
+        Assert.True(File.Exists(ResolveVersionedEntryPath(fixture.CacheRoot, other)));
+        await fixture.Subscriber.DidNotReceive().PublishAsync(
+            Arg.Any<RedisChannel>(),
+            Arg.Any<RedisValue>(),
+            Arg.Any<CommandFlags>());
+    }
+
+    [Fact]
     public async Task RemoveByPrefixAsync_HonorsCancellationBeforeMutation()
     {
         using CacheFixture fixture = BuildCacheFixture(Environments.Production);

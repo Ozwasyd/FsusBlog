@@ -61,6 +61,9 @@ public sealed class DistributedInvalidationTargetResolverTests
         Assert.Contains(plan.CacheKeys, key => key.PolicyId == CachePolicyId.TagFrame);
         Assert.Contains(plan.HotReadFragments, static fragment => fragment == "taxonomy:category");
         Assert.Contains(plan.HotReadFragments, static fragment => fragment == "taxonomy:tag");
+        Assert.Contains(plan.AotTargets, static target => target.IsPrefix && target.RouteKey == "category:*");
+        Assert.Contains(plan.AotTargets, static target => target.IsPrefix && target.RouteKey == "tag:*");
+        Assert.Contains(plan.AotTargets, static target => target.IsPrefix && target.RouteKey == "tag-name:*");
         Assert.DoesNotContain(plan.CacheKeys, key => key.PolicyId == CachePolicyId.ArticleDetail);
         Assert.DoesNotContain(plan.AotTargets, target => target.PageId == PublicPageId.ArticleDetail);
     }
