@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs'
 import { validateMinimalContractBuildReceipt } from '../../tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs'
+import { validateBehaviorDocStaticAdmissionReceipt, validateBehaviorDocStaticAdmissionReceiptV3 } from '../../tools/docs/behavior-doc-static-admission-contract.mjs'
 import { root, validatePostRuntimeReaderFirewall } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
 import { createRuntimeRoleMinimalV3Fixture } from './support/runtime-role-minimal-v3-fixture.mjs'
 
@@ -14,6 +15,45 @@ const seal = (value) => {
 }
 const fixture = () => createRuntimeRoleMinimalV3Fixture('v3-contract-test', identity)
 const options = { expectedRunId: 'v3-contract-test', expectedSourceIdentity: identity }
+
+test('explicit static admission v3 uses the same complete admission gate and never falls back to v1', () =>
+{
+    const admission = seal({
+        schema: 'fsusblog.behavior-doc-static-admission-receipt.v1',
+        run: { id: 'v3-contract-test' },
+        source: { commit: identity.sourceCommit, worktreeFingerprint: identity.worktreeFingerprint },
+        worktree: { root },
+        toolchain: { node: 'v24.0.0', dotnet: '10.0.100', platform: 'linux', architecture: 'x64', directoryBuildPropsDigest: '1'.repeat(64) },
+        authorityDigests: Object.fromEntries(['catalog', 'claim', 'extractorRegistry', 'generatedSectionCatalog',
+            'generatedRenderer', 'proseRenderer', 'mutationCatalog'].map((key) => [key, '2'.repeat(64)])),
+        implementationOwner: { status: 'ok', bindingCount: 1, contentDigest: '3'.repeat(64) },
+        factObservations: { 'runtime-role': { status: 'ok', extractorDigest: '4'.repeat(64), semanticDigest: '5'.repeat(64), contentDigest: '6'.repeat(64) } },
+        minimalContractBuild: fixture(),
+        generated: { status: 'ok', documentCount: 0, contentDigest: '7'.repeat(64) },
+        prose: { status: 'ok', verifiedClaimCount: 0, contentDigest: '8'.repeat(64) },
+        mutationFixtures: { status: 'ok', caseCount: 9, contentDigest: '9'.repeat(64) },
+        candidateSpawnCountBeforeReceipt: 0, status: 'ok', failureReasons: [], durationMs: 1
+    })
+    const expected = { ...options, expectedWorktree: root, expectedExtractorIds: ['runtime-role'] }
+    assert.equal(validateBehaviorDocStaticAdmissionReceiptV3(admission, expected), admission)
+    assert.throws(() => validateBehaviorDocStaticAdmissionReceipt(admission, expected), /artifact .* invalid/u)
+    for (const mutate of [
+        (value) => { value.candidateSpawnCountBeforeReceipt = 1 },
+        (value) => { value.status = 'failed' },
+        (value) => { value.source.commit = 'f'.repeat(40) },
+        (value) => { value.mutationFixtures.caseCount = 0 },
+        (value) => { value.unknown = true },
+        (value) => {
+            value.minimalContractBuild.artifacts['runtime-role-observation'].buildReceipt.schema = 'fsusblog.runtime-role-observation-build-receipt.v2'
+            value.minimalContractBuild = seal(value.minimalContractBuild)
+        }
+    ])
+    {
+        const changed = structuredClone(admission)
+        mutate(changed)
+        assert.throws(() => validateBehaviorDocStaticAdmissionReceiptV3(seal(changed), expected))
+    }
+})
 
 test('canonical runtime-role v3 value validator preserves exact build and oracle identity', () =>
 {
