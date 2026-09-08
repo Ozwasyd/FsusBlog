@@ -35,6 +35,7 @@ internal sealed class UnifiedCache(
     ICacheLeaseStore,
     ICacheDiagnostics,
     IOwnedFrameCache,
+    ICacheLocalInvalidator,
     IDisposable
 {
     public UnifiedCache(
@@ -1175,18 +1176,18 @@ return {1, source}
         var unregisteredRedisKeys = new List<RedisKey>(keys.Count);
         var registryMembersByPolicy = new Dictionary<CachePolicyId, List<RedisValue>>();
         var seenKeys = new HashSet<string>(StringComparer.Ordinal);
-        var resolvedKeys = new List<(CachePolicyId PolicyId, string Identity, string RedisKey)>(keys.Count);
+        var resolvedKeys = new List<(CachePolicyId PolicyId, string Identity, string? Version, string RedisKey)>(keys.Count);
         foreach (CacheKeyIdentity identity in keys)
         {
             cancellationToken.ThrowIfCancellationRequested();
             CachePolicy policy = ResolvePolicy(identity.PolicyId);
-            string key = keyScope.PrefixKey(policy.BuildKey(identity.Identity));
+            string key = keyScope.PrefixKey(policy.BuildKey(identity.Identity, identity.Version));
             if (!seenKeys.Add(key))
             {
                 continue;
             }
 
-            resolvedKeys.Add((identity.PolicyId, identity.Identity, key));
+            resolvedKeys.Add((identity.PolicyId, identity.Identity, identity.Version, key));
             if (policy.RegisterKeysForPrefixInvalidation)
             {
                 if (!registryMembersByPolicy.TryGetValue(identity.PolicyId, out List<RedisValue>? members))
@@ -1206,9 +1207,9 @@ return {1, source}
                 seenKeys,
                 cancellationToken)
             .ConfigureAwait(false);
-        foreach ((CachePolicyId policyId, string identity, string redisKey) in resolvedKeys)
+        foreach ((CachePolicyId policyId, string identity, string? version, string redisKey) in resolvedKeys)
         {
-            RemoveL1(policyId, CacheIdentity.FromString(identity), redisKey);
+            RemoveL1(policyId, CacheIdentity.FromString(identity, version), redisKey);
         }
 
         int redisBatches = 0;
@@ -1813,9 +1814,11 @@ return {1, source}
     private bool TryGetL1(CacheL1Key l1Key, out byte[] bytes)
         => localStore.TryGet(l1Key, out bytes);
 
-    private void RemoveL1(CacheL1Key l1Key, string? redisKey = null)
+    private CacheL1InvalidationPolicyReceipt RemoveL1(CacheL1Key l1Key, string? redisKey = null)
     {
-        localStore.Remove(l1Key, redisKey);
+        CacheL1InvalidationPolicyReceipt localReceipt = localStore.Remove(l1Key, redisKey);
+        int entryCount = localReceipt.EntryCount;
+        long bytes = localReceipt.Bytes;
         lock (_l1MutationLock)
         {
             if (_ownedFrameEntries.TryRemove(l1Key, out OwnedFrameL1Entry? directOwnedEntry))
@@ -1824,6 +1827,8 @@ return {1, source}
                     new KeyValuePair<string, OwnedFrameL1Entry>(directOwnedEntry.RedisKey, directOwnedEntry));
                 SafeRemoveMemoryCacheEntry(directOwnedEntry);
                 RetireOwnedEntry(directOwnedEntry);
+                entryCount++;
+                bytes += directOwnedEntry.Frame.LogicalLength;
             }
 
             if (redisKey is not null)
@@ -1835,13 +1840,89 @@ return {1, source}
                         new KeyValuePair<CacheL1Key, OwnedFrameL1Entry>(indexedOwned.L1Key, indexedOwned));
                     SafeRemoveMemoryCacheEntry(indexedOwned);
                     RetireOwnedEntry(indexedOwned);
+                    entryCount++;
+                    bytes += indexedOwned.Frame.LogicalLength;
                 }
             }
         }
+
+        return new(l1Key.PolicyId, entryCount, bytes);
     }
 
-    private void RemoveL1(CachePolicyId policyId, CacheIdentity identity, string redisKey)
+    private CacheL1InvalidationPolicyReceipt RemoveL1(CachePolicyId policyId, CacheIdentity identity, string redisKey)
         => RemoveL1(identity.ToL1Key(keyScope.ScopeToken, policyId), redisKey);
+
+    CacheL1InvalidationReceipt ICacheLocalInvalidator.InvalidateLocal(IReadOnlyList<CacheKeyIdentity> keys)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        if (keys.Count == 0)
+        {
+            return new(Array.Empty<CacheL1InvalidationPolicyReceipt>());
+        }
+
+        var receipts = new Dictionary<CachePolicyId, (int Entries, long Bytes)>();
+        var seen = new HashSet<(CachePolicyId PolicyId, string Identity, string? Version)>();
+        foreach (CacheKeyIdentity key in keys)
+        {
+            if (!seen.Add((key.PolicyId, key.Identity, key.Version)))
+            {
+                continue;
+            }
+
+            CachePolicy policy = ResolvePolicy(key.PolicyId);
+            CacheIdentity identity = CacheIdentity.FromString(key.Identity, key.Version);
+            string redisKey = BuildRedisKey(policy, identity);
+            CacheL1InvalidationPolicyReceipt receipt = RemoveL1(key.PolicyId, identity, redisKey);
+            if (receipts.TryGetValue(key.PolicyId, out (int Entries, long Bytes) current))
+            {
+                receipts[key.PolicyId] = (current.Entries + receipt.EntryCount, current.Bytes + receipt.Bytes);
+            }
+            else
+            {
+                receipts[key.PolicyId] = (receipt.EntryCount, receipt.Bytes);
+            }
+        }
+
+        return new(
+            receipts
+                .OrderBy(static pair => pair.Key)
+                .Select(static pair => new CacheL1InvalidationPolicyReceipt(pair.Key, pair.Value.Entries, pair.Value.Bytes))
+                .ToArray());
+    }
+
+    CacheL1InvalidationReceipt ICacheLocalInvalidator.ReconcileAllLocal()
+    {
+        CacheL1InvalidationReceipt localReceipt = localStore.ReconcileAllLocal();
+        var receipts = localReceipt.ByPolicy
+            .ToDictionary(static item => item.PolicyId, static item => (item.EntryCount, item.Bytes));
+        lock (_l1MutationLock)
+        {
+            OwnedFrameL1Entry[] owned = [.. _ownedFrameEntries.Values];
+            _ownedFrameEntries.Clear();
+            _ownedFrameKeysByRedisKey.Clear();
+            foreach (OwnedFrameL1Entry entry in owned)
+            {
+                SafeRemoveMemoryCacheEntry(entry);
+                RetireOwnedEntry(entry);
+                if (receipts.TryGetValue(entry.L1Key.PolicyId, out (int Entries, long Bytes) current))
+                {
+                    receipts[entry.L1Key.PolicyId] = (
+                        current.Entries + 1,
+                        current.Bytes + entry.Frame.LogicalLength);
+                }
+                else
+                {
+                    receipts[entry.L1Key.PolicyId] = (1, entry.Frame.LogicalLength);
+                }
+            }
+        }
+
+        return new(
+            receipts
+                .OrderBy(static pair => pair.Key)
+                .Select(static pair => new CacheL1InvalidationPolicyReceipt(pair.Key, pair.Value.Item1, pair.Value.Item2))
+                .ToArray());
+    }
 
     private void RemoveL1ByRedisKey(string redisKey)
     {
