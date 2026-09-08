@@ -6,12 +6,11 @@
 
 The caller first locks and rechecks soft-deleted `article` rows. Inside the same PostgreSQL transaction, the kernel:
 
-1. reconciles current-article and linked-draft asset URLs against the authoritative asset ledger;
+1. loads the canonical AssetIds referenced by current-article and linked-draft source rows;
 2. removes current body, drafts, tags and current read/projection rows for the exact locked ids;
-3. nulls only the source attribution on shared asset-library items;
-4. removes current-article and linked-draft ledger sources while retaining revision sources;
-5. writes one durable deletion outbox event per article;
-6. deletes the soft-deleted aggregate roots and rejects a target-count mismatch so the transaction rolls back.
+3. removes current-article and linked-draft reference sources while retaining revision sources, then schedules only AssetIds that have no remaining source-kind reference;
+4. writes one durable deletion outbox event per article;
+5. deletes the soft-deleted aggregate roots and rejects a target-count mismatch so the transaction rolls back.
 
 The single and bulk entry points therefore cannot drift into different table lists. A repeated single deletion returns not found; repeated trash clearing locks no targets and returns zero. Neither path broadens its SQL beyond the locked id set.
 
@@ -23,12 +22,12 @@ This retention is intentional and explicit in the catalog; adding a new article-
 
 ## File cleanup and operational degradation
 
-The transaction never deletes a file. Zero-reference URLs are inserted into `article_asset_cleanup_queue`; the existing multi-consumer worker rechecks the ledger and deletes through the local `IFileService` substitute idempotently. Shared and retained-revision assets therefore survive article deletion.
+The transaction never deletes a file. Zero-reference AssetIds are inserted into `content_asset_cleanup_queue`; the existing multi-consumer worker claims AssetIds and calls `IAssetStore.DeleteAsync(AssetId)`. The asset store rechecks the canonical reference ledger under the AssetId lock before resolving the record's storage key and deleting bytes. Shared and retained-revision assets therefore survive article deletion.
 
 Physical cleanup can be paused without restarting the application:
 
 ```sql
-UPDATE article_asset_cleanup_queue
+UPDATE content_asset_cleanup_queue
 SET not_before_utc = (now() AT TIME ZONE 'utc') + interval '7 days',
     updated_at_utc = now() AT TIME ZONE 'utc';
 ```

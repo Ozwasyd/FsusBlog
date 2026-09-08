@@ -77,13 +77,71 @@ function configPattern(value) {
 }
 
 function extractNpm(root, item) {
-    const file = sourceFiles(item).find(candidate => candidate.endsWith('package.json'))
-    if (!file || !item.fieldPaths?.length) return undefined
-    const manifest = JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'))
-    const raw = readPointer(manifest, item.fieldPaths[0])
-    if (typeof raw !== 'string') return undefined
-    if (item.fieldPaths[0] === '/packageManager') return raw.replace(/^npm@/u, '')
-    return raw
+    const files = sourceFiles(item).filter(candidate => candidate.endsWith('package.json'))
+    if (files.length === 0 || !item.fieldPaths?.length) return undefined
+    const versions = new Set()
+    for (const file of files) {
+        const manifest = JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'))
+        if (item.fieldPaths.length === 1 && item.fieldPaths[0] === '/packageManager') {
+            if (!/^npm@\d+\.\d+\.\d+$/u.test(manifest.packageManager ?? '')) {
+                throw new Error(`npm-package-manager-invalid:${file}`)
+            }
+            versions.add(manifest.packageManager.slice(4))
+            continue
+        }
+        const lockPath = path.posix.join(path.posix.dirname(file), 'package-lock.json')
+        if (!item.files.includes(lockPath)) throw new Error(`npm-lockfile-not-owned:${file}`)
+        const lock = JSON.parse(fs.readFileSync(path.join(root, lockPath), 'utf8'))
+        if (![2, 3].includes(lock.lockfileVersion) || !lock.packages?.['']) {
+            throw new Error(`npm-lockfile-invalid:${lockPath}`)
+        }
+        for (const pointer of item.fieldPaths) {
+            const raw = readPointer(manifest, pointer)
+            const tokens = decodePointer(pointer)
+            if (tokens[0] === 'overrides') {
+                if (typeof raw !== 'string' || tokens.at(-1) !== item.packageName || ![2, 3].includes(tokens.length)) {
+                    throw new Error(`npm-override-shape-unsupported:${pointer}`)
+                }
+                const packageSuffix = `node_modules/${item.packageName}`
+                let entries
+                if (tokens.length === 2) {
+                    entries = Object.entries(lock.packages).filter(([key]) => key === packageSuffix || key.endsWith(`/${packageSuffix}`)).map(([, entry]) => entry)
+                } else {
+                    const parentSuffix = `node_modules/${tokens[1]}`
+                    const parents = Object.keys(lock.packages).filter(key => key === parentSuffix || key.endsWith(`/${parentSuffix}`))
+                    entries = parents.map(parent => {
+                        let context = parent
+                        while (context) {
+                            const found = lock.packages[`${context}/${packageSuffix}`]
+                            if (found) return found
+                            const separator = context.lastIndexOf('/node_modules/')
+                            context = separator < 0 ? '' : context.slice(0, separator)
+                        }
+                        return lock.packages[packageSuffix]
+                    })
+                }
+                if (entries.length === 0) throw new Error(`npm-override-resolution-missing:${pointer}`)
+                for (const entry of entries) {
+                    if (entry?.link || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/u.test(entry?.version ?? '')) {
+                        throw new Error(`npm-override-resolution-invalid:${pointer}`)
+                    }
+                    versions.add(entry.version)
+                }
+                continue
+            }
+            if (typeof raw !== 'string' || readPointer(lock.packages[''], pointer) !== raw) {
+                throw new Error(`npm-lockfile-manifest-drift:${file}:${pointer}`)
+            }
+        }
+        if (item.fieldPaths.every(pointer => decodePointer(pointer)[0] === 'overrides')) continue
+        const entry = lock.packages[`node_modules/${item.packageName}`]
+        if (entry?.link || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/u.test(entry?.version ?? '')) {
+            throw new Error(`npm-lockfile-version-missing:${lockPath}:${item.packageName}`)
+        }
+        versions.add(entry.version)
+    }
+    if (versions.size !== 1) throw new Error(`npm-current-versions-disagree:${item.id}`)
+    return [...versions][0]
 }
 
 function extractNuget(root, item) {
@@ -101,42 +159,58 @@ function extractNuget(root, item) {
 }
 
 function extractAction(root, item) {
+    const references = new Set()
     for (const file of sourceFiles(item)) {
         const source = fs.readFileSync(path.join(root, file), 'utf8')
-        const match = source.match(new RegExp(`uses:\\s*${escapeRegExp(item.packageName)}(?:/[A-Za-z0-9_.-]+)?@([^\\s#]+)(?:\\s+#\\s*(\\S+))?`, 'u'))
-        if (match) return match[2] ?? match[1]
+        const pattern = new RegExp(`^\\s*(?:-\\s*)?uses:\\s*["']?${escapeRegExp(item.packageName)}(?:/[A-Za-z0-9_./-]+)?@([^\\s#"']+)`, 'gmu')
+        for (const match of source.matchAll(pattern)) references.add(match[1])
     }
-    return undefined
+    if (references.size > 1) throw new Error(`action-current-references-disagree:${item.id}`)
+    return [...references][0]
 }
 
 function extractDocker(root, item) {
     const file = sourceFiles(item)[0]
     const source = fs.readFileSync(path.join(root, file), 'utf8')
     if (item.manager === 'docker-compose') {
-        const match = source.match(new RegExp(`image:\\s*["']?${escapeRegExp(item.packageName)}:([^\\s@"']+)`, 'mu'))
+        const match = source.match(new RegExp(`image:\\s*["']?${escapeRegExp(item.packageName)}:([^\\s"']+)`, 'mu'))
         return match?.[1]
     }
     if (item.packageName === 'docker/dockerfile') {
         const match = source.match(/^#\s*syntax=docker\/dockerfile:(\S+)/mu)
         return match?.[1]
     }
-    const argNames = {
-        node: ['NODE_VERSION'],
-        'mcr.microsoft.com/dotnet/sdk': ['DOTNET_SDK_VERSION'],
-        'mcr.microsoft.com/dotnet/aspnet': ['DOTNET_RUNTIME_VERSION']
+    const globals = new Map()
+    const references = new Set()
+    let beforeFirstFrom = true
+    for (const line of source.split(/\r?\n/u)) {
+        if (beforeFirstFrom) {
+            const argument = /^\s*ARG\s+([A-Za-z_][A-Za-z0-9_]*)=(\S+)\s*$/iu.exec(line)
+            if (argument) globals.set(argument[1], argument[2].replace(/^(["'])(.*)\1$/u, '$2'))
+        }
+        const from = /^\s*FROM\s+(?:--platform=\S+\s+)?(\S+)/iu.exec(line)
+        if (!from) continue
+        beforeFirstFrom = false
+        if (!from[1].startsWith(`${item.packageName}:`) && !from[1].startsWith(`${item.packageName}@`)) continue
+        const expanded = from[1].replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)/gu, (token, braced, bare) => {
+            const value = globals.get(braced ?? bare)
+            if (value === undefined || value.includes('$')) throw new Error(`docker-from-argument-unresolved:${file}:${token}`)
+            return value
+        })
+        const reference = expanded.slice(item.packageName.length + 1)
+        if (!/^(?:[A-Za-z0-9_][A-Za-z0-9_.-]*(?:@sha256:[0-9a-f]{64})?|sha256:[0-9a-f]{64})$/u.test(reference)) {
+            throw new Error(`docker-from-reference-invalid:${file}`)
+        }
+        references.add(reference)
     }
-    for (const argument of argNames[item.packageName] ?? []) {
-        const match = source.match(new RegExp(`^ARG ${argument}=(\\S+)`, 'mu'))
-        if (match) return match[1]
-    }
-    const literal = source.match(new RegExp(`^FROM\\s+${escapeRegExp(item.packageName)}:(?!\\$\\{)([^@\\s]+)`, 'mu'))
-    if (literal) return literal[1]
-    return undefined
+    const sorted = [...references].sort()
+    return sorted.length > 1 ? JSON.stringify(sorted) : sorted[0]
 }
 
 function extractCustom(root, item, config) {
     const manager = (config.customManagers ?? []).find(candidate => candidate.description === item.customManager)
     if (!manager) return undefined
+    const dockerReferences = new Set()
     for (const file of sourceFiles(item)) {
         if (!manager.managerFilePatterns?.some(pattern => configPattern(pattern).test(file))) continue
         const source = fs.readFileSync(path.join(root, file), 'utf8')
@@ -146,9 +220,20 @@ function extractCustom(root, item, config) {
                 const packageName = manager.packageNameTemplate ?? manager.depNameTemplate ?? match.groups?.depName
                 if (packageName !== item.packageName && match.groups?.depName !== item.packageName) continue
                 const value = match.groups?.currentValue ?? match.groups?.currentDigest
+                if (item.datasource === 'docker' && value) {
+                    dockerReferences.add(match.groups?.currentValue && match.groups?.currentDigest
+                        ? `${match.groups.currentValue}@${match.groups.currentDigest}` : value)
+                    continue
+                }
                 if (value) return value
             }
         }
+    }
+    if (item.datasource === 'docker') {
+        const pinnedTags = new Set([...dockerReferences].filter(value => value.includes('@')).map(value => value.split('@')[0]))
+        const references = [...dockerReferences].filter(value => !pinnedTags.has(value))
+        if (references.length > 1) throw new Error(`docker-current-references-disagree:${item.id}`)
+        return references[0]
     }
     return undefined
 }
