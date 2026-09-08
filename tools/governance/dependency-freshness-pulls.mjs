@@ -36,16 +36,23 @@ function declaredUpdates(body)
     return rows;
 }
 
+function declaredTitleUpdate(title)
+{
+    const match = /^Update (?:dependency )?(.+?) to (?:v)?(\S+)$/u.exec(String(title ?? ''));
+    return match ? { packageName: match[1], targetVersion: match[2] } : undefined;
+}
+
 /** Read producer-declared table metadata; freshness evaluation remains owned by evaluateFreshness. */
 export function parseRenovatePullRequests(pulls, catalog)
 {
     const items = catalog.items ?? [];
     return pulls.flatMap((pull) => {
-        if (pull.user?.login !== 'renovate[bot]' && pull.user?.type !== 'Bot')
+        if (pull.user?.login !== 'renovate[bot]')
         {
             return [];
         }
         const updates = declaredUpdates(pull.body);
+        const titleUpdate = updates.length === 0 ? declaredTitleUpdate(pull.title) : undefined;
         return items.flatMap((item) => {
             const declared = updates.filter((update) => update.packageName === item.packageName);
             if (declared.length > 0)
@@ -57,10 +64,9 @@ export function parseRenovatePullRequests(pulls, catalog)
                     throw new Error(`dependency_pull_ambiguous_update:${pull.number}:${item.id}`);
                 }
             }
-            const mentionsPackage = `${pull.title ?? ''} ${pull.body ?? ''}`.includes(item.packageName);
-            const versionMatch = /to (?:v)?(\S+)/u.exec(pull.title ?? '');
-            const targetVersion = declared[0]?.targetVersion ?? versionMatch?.[1];
-            if (!mentionsPackage || !targetVersion)
+            const targetVersion = declared[0]?.targetVersion
+                ?? (titleUpdate?.packageName === item.packageName ? titleUpdate.targetVersion : undefined);
+            if (!targetVersion)
             {
                 return [];
             }
