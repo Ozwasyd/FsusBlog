@@ -772,6 +772,25 @@ Passkey complete、MFA verify 与匿名 bootstrap 的成功响应只表示服务
 
 源码：`src/shared/Contracts/Outputs/ServerResponseContracts.cs`
 
+### Article Vault sync plans
+
+Article Vault 的 closed manifest、coordinate 与 source-byte contracts 位于
+`src/shared/Contracts/ArticleVault/`。唯一 planner
+`ArticleVaultSyncPlanner.Build` 只接受已通过 #2103 validator 的 root/article manifests、
+显式 content-addressed server observations，以及调用方明确给出的 atomic group/dependency
+集合。`pull`、`push`、`sync` 只作为同一个 planner 的 direction policy；planner 不扫描目录，
+也不读取 `mtime`、title、slug、latest receipt 或 import fallback 来发现状态。
+
+sealed plan 使用 `fsusblog.article-vault.sync-plan.v1`，冻结 exact article membership、
+base/local/server coordinates、server revision、permission/lifecycle preconditions、dependency
+拓扑顺序、no-op/conflict decisions、expiry、cancel policy、idempotency key、candidate identity 与
+content digest。任一 unresolved dependency、identity/schema ambiguity 或 invalid manifest 不产生
+partial plan；three-way conflict 产生 `blocked` plan 且 operation order 为空。
+`ArticleVaultSyncPlanVerifier.VerifyCurrent` 在交给后续 executor 前以显式 current manifests 与
+server observations 及 caller direction/cancel policy 重新验证 membership、coordinate、revision、
+permission、schema、expiry 和 digest；drift 必须拒绝，不能自动 rebase。此 contract 不执行 server writer、DB、filesystem、
+Vault materialization、watcher 或 conflict resolution。
+
 ### `ArticleListItemResponse`
 
 ```json
