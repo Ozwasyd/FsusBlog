@@ -615,6 +615,18 @@
             "pathType": "file"
         },
         {
+            "id": "comment-fixture-inventory",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/testing/comment-fixture-inventory.json",
+            "pathType": "file"
+        },
+        {
+            "id": "comment-fixture-ownership",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/testing/comment-fixture-ownership.json",
+            "pathType": "file"
+        },
+        {
             "id": "messaging-fixture-inventory",
             "owner": "test-fixture-catalog",
             "canonicalPath": "config/testing/messaging-fixture-inventory.json",
@@ -1432,6 +1444,12 @@
             "id": "browser-readiness-migrations",
             "owner": "browser-test-governance",
             "canonicalPath": "config/testing/browser-readiness-migrations.json",
+            "pathType": "file"
+        },
+        {
+            "id": "public-shell-locale-gate",
+            "owner": "browser-test-governance",
+            "canonicalPath": "config/testing/public-shell-locale-gate.json",
             "pathType": "file"
         },
         {
