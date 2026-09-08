@@ -41,7 +41,9 @@ public readonly record struct PublicHotArtifactUpdate(
     PublicHotArtifactDirtyReason DirtyReason,
     long? ExpectedReleaseId = null,
     long DeliveryGeneration = 0,
-    PublicHotArtifactDeliveryClass DeliveryClass = PublicHotArtifactDeliveryClass.RequiredContent);
+    PublicHotArtifactDeliveryClass DeliveryClass = PublicHotArtifactDeliveryClass.RequiredContent,
+    IReadOnlyList<string>? FragmentKeys = null,
+    bool RequiresFullRebuild = false);
 
 public readonly record struct PublicHotArtifactEnqueueResult(
     PublicHotArtifactDeliveryStatus Status,
@@ -115,6 +117,36 @@ public sealed class PublicHotArtifactUpdateQueue
         string reason,
         long? expectedReleaseId = null,
         CancellationToken cancellationToken = default)
+        => await EnqueueCoreAsync(
+            deliveryClass,
+            articleId,
+            reason,
+            expectedReleaseId,
+            fragments: null,
+            requiresFullRebuild: articleId is null,
+            cancellationToken).ConfigureAwait(false);
+
+    internal Task<PublicHotArtifactEnqueueResult> EnqueueDistributedFragmentsAsync(
+        IReadOnlyList<string> fragments,
+        string reason,
+        CancellationToken cancellationToken = default)
+        => EnqueueCoreAsync(
+            PublicHotArtifactDeliveryClass.RequiredContent,
+            articleId: null,
+            reason,
+            expectedReleaseId: null,
+            fragments,
+            requiresFullRebuild: false,
+            cancellationToken);
+
+    private async Task<PublicHotArtifactEnqueueResult> EnqueueCoreAsync(
+        PublicHotArtifactDeliveryClass deliveryClass,
+        int? articleId,
+        string reason,
+        long? expectedReleaseId,
+        IReadOnlyList<string>? fragments,
+        bool requiresFullRebuild,
+        CancellationToken cancellationToken)
     {
         string normalized = string.IsNullOrWhiteSpace(reason) ? "unknown" : reason;
         PublicHotArtifactDirtyReason dirtyReason = ClassifyReason(normalized);
@@ -132,7 +164,15 @@ public sealed class PublicHotArtifactUpdateQueue
             if (_obligations is { } obligations)
             {
                 PublicHotArtifactObligation obligation = await obligations.MergeAsync(
-                    new PublicHotArtifactUpdate(articleId, normalized, dirtyReason, expectedReleaseId, 0, deliveryClass),
+                    new PublicHotArtifactUpdate(
+                        articleId,
+                        normalized,
+                        dirtyReason,
+                        expectedReleaseId,
+                        0,
+                        deliveryClass,
+                        fragments,
+                        requiresFullRebuild),
                     cancellationToken).ConfigureAwait(false);
                 generation = obligation.TargetGeneration;
                 obligationId = obligation.ObligationId;
@@ -162,7 +202,9 @@ public sealed class PublicHotArtifactUpdateQueue
             dirtyReason,
             expectedReleaseId,
             generation,
-            deliveryClass);
+            deliveryClass,
+            fragments,
+            requiresFullRebuild);
         if (_channel.Writer.TryWrite(update))
         {
             return new(PublicHotArtifactDeliveryStatus.Accepted, normalized, dirtyReason, generation, obligationId);
@@ -175,7 +217,7 @@ public sealed class PublicHotArtifactUpdateQueue
         }
 
         // A full bounded channel never changes the durable outcome into a drop.
-        // The next worker cycle consumes this pending generation as a full rebuild.
+        // The next worker cycle consumes the durable target obligation.
         PublicHotArtifactDeliveryStatus status =
             deliveryClass == PublicHotArtifactDeliveryClass.FullRebuildMarker
                 ? PublicHotArtifactDeliveryStatus.Coalesced
@@ -371,12 +413,30 @@ public sealed class PublicHotArtifactUpdateQueue
             PublicHotArtifactObligation? obligation = await obligations.GetActiveAsync(cancellationToken).ConfigureAwait(false);
             if (obligation is { State: not PublicHotArtifactObligationState.Published })
             {
-                return new PublicHotArtifactUpdate(null, "durable-obligation-replay", obligation.DirtyReasons, null, obligation.TargetGeneration, PublicHotArtifactDeliveryClass.FullRebuildMarker);
+                return new PublicHotArtifactUpdate(
+                    null,
+                    "durable-obligation-replay",
+                    obligation.DirtyReasons,
+                    null,
+                    obligation.TargetGeneration,
+                    obligation.RequiresFullRebuild
+                        ? PublicHotArtifactDeliveryClass.FullRebuildMarker
+                        : PublicHotArtifactDeliveryClass.RequiredContent,
+                    obligation.FragmentKeys,
+                    obligation.RequiresFullRebuild);
             }
         }
         long generation = await _deliveryState.GetPendingGenerationAsync(cancellationToken).ConfigureAwait(false);
         return generation > 0
-            ? new PublicHotArtifactUpdate(null, "durable-delivery-replay", PublicHotArtifactDirtyReason.Content, null, generation, PublicHotArtifactDeliveryClass.FullRebuildMarker)
+            ? new PublicHotArtifactUpdate(
+                null,
+                "durable-delivery-replay",
+                PublicHotArtifactDirtyReason.Content,
+                null,
+                generation,
+                PublicHotArtifactDeliveryClass.FullRebuildMarker,
+                FragmentKeys: null,
+                RequiresFullRebuild: true)
             : null;
     }
 
@@ -464,8 +524,9 @@ public sealed class PublicHotArtifactUpdateWorker(
             long deliveryGeneration = first.DeliveryGeneration;
             var articleIds = new HashSet<int>();
             var expectedReleaseIds = new Dictionary<int, long>();
+            var fragmentKeys = new HashSet<string>(StringComparer.Ordinal);
             bool requiresFullRebuild = false;
-            CollectUpdate(first, articleIds, expectedReleaseIds, ref requiresFullRebuild);
+            CollectUpdate(first, articleIds, expectedReleaseIds, fragmentKeys, ref requiresFullRebuild);
             TimeSpan debounce = TimeSpan.FromMilliseconds(Math.Clamp(options.Value.UpdateDebounceMilliseconds, 0, 30_000));
             if (debounce > TimeSpan.Zero)
             {
@@ -478,7 +539,7 @@ public sealed class PublicHotArtifactUpdateWorker(
                 dirtyReason |= next.DirtyReason;
                 deliveryGeneration = Math.Max(deliveryGeneration, next.DeliveryGeneration);
                 coalesced++;
-                CollectUpdate(next, articleIds, expectedReleaseIds, ref requiresFullRebuild);
+                CollectUpdate(next, articleIds, expectedReleaseIds, fragmentKeys, ref requiresFullRebuild);
             }
 
             if (dirtyReason == PublicHotArtifactDirtyReason.ViewProjection)
@@ -501,9 +562,7 @@ public sealed class PublicHotArtifactUpdateWorker(
             await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
             var projector = scope.ServiceProvider.GetRequiredService<IPublicHotArtifactProjector>();
             PublicHotReadSnapshot snapshot = store.Current;
-            bool publishesFullSnapshot = requiresFullRebuild
-                || articleIds.Count == 0
-                || RequiresInitialSnapshot(snapshot);
+            bool publishesFullSnapshot = requiresFullRebuild || RequiresInitialSnapshot(snapshot);
             queue.RecordProjectorStarted();
             try
             {
@@ -519,21 +578,14 @@ public sealed class PublicHotArtifactUpdateWorker(
                 }
                 else
                 {
-                    foreach (int articleId in articleIds)
-                    {
-                        expectedReleaseIds.TryGetValue(articleId, out long expectedReleaseId);
-                        snapshot = projector is IVersionedPublicHotArtifactProjector versionedProjector
-                            ? await versionedProjector
-                                .RebuildAfterArticleMutationAsync(
-                                    snapshot,
-                                    articleId,
-                                    expectedReleaseId > 0 ? expectedReleaseId : null,
-                                    stoppingToken)
-                                .ConfigureAwait(false)
-                            : await projector
-                                .RebuildAfterArticleMutationAsync(snapshot, articleId, stoppingToken)
-                                .ConfigureAwait(false);
-                    }
+                    snapshot = await RebuildBoundedSnapshotAsync(
+                            projector,
+                            snapshot,
+                            articleIds,
+                            expectedReleaseIds,
+                            fragmentKeys,
+                            stoppingToken)
+                        .ConfigureAwait(false);
                 }
             }
             finally
@@ -602,9 +654,7 @@ public sealed class PublicHotArtifactUpdateWorker(
             await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
             var projector = scope.ServiceProvider.GetRequiredService<IPublicHotArtifactProjector>();
             PublicHotReadSnapshot snapshot = store.Current;
-            bool publishesFullSnapshot = obligation.RequiresFullRebuild
-                || obligation.ArticleIds.Count == 0
-                || RequiresInitialSnapshot(snapshot);
+            bool publishesFullSnapshot = obligation.RequiresFullRebuild || RequiresInitialSnapshot(snapshot);
             queue.RecordProjectorStarted();
             try
             {
@@ -618,13 +668,18 @@ public sealed class PublicHotArtifactUpdateWorker(
                 }
                 else
                 {
-                    foreach (int articleId in obligation.ArticleIds)
-                    {
-                        obligation.ExpectedReleaseIds.TryGetValue(articleId, out long release);
-                        snapshot = projector is IVersionedPublicHotArtifactProjector versioned
-                            ? await versioned.RebuildAfterArticleMutationAsync(snapshot, articleId, release > 0 ? release : null, stoppingToken).ConfigureAwait(false)
-                            : await projector.RebuildAfterArticleMutationAsync(snapshot, articleId, stoppingToken).ConfigureAwait(false);
-                    }
+                    var articleIds = obligation.ArticleIds.ToHashSet();
+                    var expectedReleaseIds = obligation.ExpectedReleaseIds.ToDictionary();
+                    var fragmentKeys = new HashSet<string>(StringComparer.Ordinal);
+                    CollectFragments(obligation.FragmentKeys, articleIds, fragmentKeys);
+                    snapshot = await RebuildBoundedSnapshotAsync(
+                            projector,
+                            snapshot,
+                            articleIds,
+                            expectedReleaseIds,
+                            fragmentKeys,
+                            stoppingToken)
+                        .ConfigureAwait(false);
                 }
             }
             finally
@@ -666,6 +721,16 @@ public sealed class PublicHotArtifactUpdateWorker(
             PublicHotArtifactObligation failed = await obligations.RecordFailureAsync(obligation.ObligationId, obligation.AttemptNumber, stage, ex, DateTimeOffset.UtcNow, maxAttempts, CancellationToken.None).ConfigureAwait(false);
             store.ReportBuildFailure("obligation:" + obligation.ObligationId, ex);
             logger.LogWarning(ex, "public-hot obligation failed {ObligationId} {Attempt} {State} {FailureKind}", obligation.ObligationId, obligation.AttemptNumber, failed.State, failed.LastFailureKind);
+            if (failed.IsTerminal && obligation.FragmentKeys is { Count: > 0 })
+            {
+                store.InvalidateDistributedSnapshot("fragment-rebuild-failed");
+                await using AsyncServiceScope failureScope = scopeFactory.CreateAsyncScope();
+                await RecordDistributedFullReconcileAsync(
+                        failureScope.ServiceProvider,
+                        "fragment-rebuild-failed",
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
             if (scheduleRetry && failed.State == PublicHotArtifactObligationState.FailedRetryable && !stoppingToken.IsCancellationRequested)
             {
                 TimeSpan delay = failed.NextEligibleAt - DateTimeOffset.UtcNow;
@@ -738,24 +803,131 @@ public sealed class PublicHotArtifactUpdateWorker(
         }
     }
 
+    private static async Task<PublicHotReadSnapshot> RebuildBoundedSnapshotAsync(
+        IPublicHotArtifactProjector projector,
+        PublicHotReadSnapshot snapshot,
+        IReadOnlyCollection<int> articleIds,
+        IReadOnlyDictionary<int, long> expectedReleaseIds,
+        IReadOnlySet<string> fragmentKeys,
+        CancellationToken stoppingToken)
+    {
+        bool rebuildAllArticles = fragmentKeys.Any(DistributedInvalidationTargetResolver.IsAllArticlesFragment);
+        if (rebuildAllArticles)
+        {
+            snapshot = projector is IVersionedPublicHotArtifactProjector versionedAll
+                ? await versionedAll
+                    .RebuildAfterArticleMutationAsync(snapshot, 0, null, stoppingToken)
+                    .ConfigureAwait(false)
+                : await projector
+                    .RebuildAfterArticleMutationAsync(snapshot, 0, stoppingToken)
+                    .ConfigureAwait(false);
+        }
+        else
+        {
+            foreach (int articleId in articleIds.Where(static id => id > 0).Order())
+            {
+                expectedReleaseIds.TryGetValue(articleId, out long expectedReleaseId);
+                snapshot = projector is IVersionedPublicHotArtifactProjector versionedProjector
+                    ? await versionedProjector
+                        .RebuildAfterArticleMutationAsync(
+                            snapshot,
+                            articleId,
+                            expectedReleaseId > 0 ? expectedReleaseId : null,
+                            stoppingToken)
+                        .ConfigureAwait(false)
+                    : await projector
+                        .RebuildAfterArticleMutationAsync(snapshot, articleId, stoppingToken)
+                        .ConfigureAwait(false);
+            }
+        }
+
+        if (fragmentKeys.Any(DistributedInvalidationTargetResolver.IsTaxonomyFragment)
+            && projector is IPublicHotTaxonomyProjector taxonomyProjector)
+        {
+            snapshot = await taxonomyProjector
+                .RebuildAfterTaxonomyMutationAsync(snapshot, stoppingToken)
+                .ConfigureAwait(false);
+        }
+
+        return snapshot;
+    }
+
+    private static async Task RecordDistributedFullReconcileAsync(
+        IServiceProvider serviceProvider,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        if (serviceProvider.GetService<DistributedInvalidationOptions>() is not { Enabled: true } distributedOptions
+            || serviceProvider.GetService<IDistributedInvalidationDeliveryLedger>() is not { } ledger
+            || serviceProvider.GetService<IRuntimeKeyScope>() is not { } runtimeKeyScope)
+        {
+            return;
+        }
+
+        string runtimeScope = string.IsNullOrWhiteSpace(runtimeKeyScope.ScopeToken)
+            ? "default"
+            : runtimeKeyScope.ScopeToken;
+        await ledger.RecordFullReconcileObligationAsync(
+                runtimeScope,
+                distributedOptions.NodeId,
+                reason,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     private static void CollectUpdate(
         PublicHotArtifactUpdate update,
         HashSet<int> articleIds,
         Dictionary<int, long> expectedReleaseIds,
+        HashSet<string> fragmentKeys,
         ref bool requiresFullRebuild)
     {
+        requiresFullRebuild |= update.RequiresFullRebuild
+            || update.DeliveryClass == PublicHotArtifactDeliveryClass.FullRebuildMarker;
+        CollectFragments(update.FragmentKeys, articleIds, fragmentKeys);
+
         if (update.ArticleId is int id && id > 0)
         {
             articleIds.Add(id);
             if (update.ExpectedReleaseId is long expectedReleaseId && expectedReleaseId > 0)
             {
-                // Publication ids are coordinates, not sequence numbers. The channel is ordered,
-                // so retain the last event coordinate instead of guessing ordering from its id.
                 expectedReleaseIds[id] = expectedReleaseId;
             }
+        }
+    }
+
+    private static void CollectFragments(
+        IReadOnlyList<string>? fragments,
+        HashSet<int> articleIds,
+        HashSet<string> fragmentKeys)
+    {
+        if (fragments is not { Count: > 0 })
+        {
             return;
         }
 
-        requiresFullRebuild = true;
+        foreach (string fragment in fragments)
+        {
+            if (string.IsNullOrWhiteSpace(fragment))
+            {
+                continue;
+            }
+
+            string normalized = fragment.Trim();
+            fragmentKeys.Add(normalized);
+            if (DistributedInvalidationTargetResolver.IsAllArticlesFragment(normalized))
+            {
+                continue;
+            }
+
+            if (DistributedInvalidationTargetResolver.TryParseArticleFragment(
+                    normalized,
+                    out int articleId,
+                    out bool commentsOnly)
+                && !commentsOnly)
+            {
+                articleIds.Add(articleId);
+            }
+        }
     }
 }
