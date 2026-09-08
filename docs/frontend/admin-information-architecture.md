@@ -10,12 +10,12 @@ A fully authorized admin sees six first-level modules, below the hard limit of s
 
 | Module | Landing route | Local responsibility |
 | --- | --- | --- |
-| 工作台 | `/user/manage` | today’s operational tasks |
-| 内容 | `/user/manage/article/list` | articles, trash, taxonomy, tags and assets |
-| 互动 | `/user/manage/moderation` | moderation, messages, users and anonymous-comment governance |
-| 安全 | `/user/manage/security` | risk controls and challenge systems |
-| 系统 | `/user/manage/settings` | settings, backup/migration and audit |
-| 运维 | `/user/manage/analytics` | analytics, service health, cache and integrity |
+| `工作台` (Workbench) | `/user/manage` | today’s operational tasks |
+| `内容` (Content) | `/user/manage/article/list` | articles, trash, taxonomy, tags and assets |
+| `互动` (Interaction) | `/user/manage/moderation` | moderation, messages, users and anonymous-comment governance |
+| `安全` (Security) | `/user/manage/security` | risk controls and challenge systems |
+| `系统` (System) | `/user/manage/settings` | settings, backup/migration and audit |
+| `运维` (Operations) | `/user/manage/analytics` | analytics, service health, cache and integrity |
 
 The appearance/customization admin shell remains an internal workspace of system settings. It is not a seventh global navigation system and does not own global IA.
 

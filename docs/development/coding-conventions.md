@@ -1,178 +1,178 @@
 # Coding conventions
 
-本文件是 FsusBlog 唯一的跨语言编码规范。`AGENTS.md` 只定义代码代理的角色边界和操作流程；安全、协议、数据库与发布文档继续约束各自领域语义，但不另起一套同级代码风格。
+This is FsusBlog's single cross-language coding specification. `AGENTS.md` defines only the code-agent role and operating procedure; security, protocol, database, and release documents continue to govern their own semantics without creating a peer style authority.
 
-母规范采用 Microsoft Learn 的 [.NET coding conventions](https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/coding-style/coding-conventions) 和 [C# identifier naming rules](https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/coding-style/identifier-names)。仓库规则把这些约定映射到其他语言；formatter 和 linter 是执行器，不是规范来源。
+The mother standard is Microsoft's [.NET coding conventions](https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/coding-style/coding-conventions) and [C# identifier naming rules](https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/coding-style/identifier-names). Repository rules map those conventions to other languages; formatters and linters enforce the standard but do not define it.
 
 ## Priority
 
-发生冲突时严格采用以下优先级：
+Resolve conflicts in this strict order:
 
 ```text
-外部 wire / ABI / 数据库 / 第三方契约
-    > 语言语法强制要求
-    > FsusBlog C# 母规范映射
-    > formatter / linter 默认值
-    > 个人 IDE 设置
+external wire / ABI / database / third-party contract
+    > language syntax requirements
+    > FsusBlog C# mother-standard mapping
+    > formatter / linter defaults
+    > personal IDE settings
 ```
 
-安全、隐私、AEDS 协议和发布门禁对语义的要求始终有效。它们可以要求一个外部名称、字段顺序或二进制布局保持不变，但不能无理由改变内部 adapter 的命名和普通源码格式。工具默认值与本文件冲突时必须调整工具配置或登记窄范围例外，不能反向修改规范来迁就工具。
+Security, privacy, AEDS protocol, and release-gate semantic requirements always apply. They may require an external name, field order, or binary layout to remain unchanged, but cannot arbitrarily change internal adapter names or ordinary source formatting. When tool defaults conflict with this document, adjust tool configuration or register a narrow exception rather than changing the standard to accommodate the tool.
 
 ## Repository baseline
 
-所有手写文本源码默认遵循：
+All handwritten text source follows these defaults:
 
-- UTF-8（无 BOM）、LF、文件末尾一个 newline、无 trailing whitespace；
-- 4 spaces，禁止用 Tab 缩进；续行增加一个 4-space 层级；
-- 一行一条语句、一行一个声明；同一逻辑块之间用最少必要空行分隔；
-- import、include、using 先按平台/标准库、第三方、仓库内部三组排列，各组内稳定排序；
-- 注释解释约束与原因，不复述代码；公开契约使用该语言的文档注释；高价值意图和性能声明见 [Code intent governance](code-intent-governance.md)；
-- TODO/FIXME 只允许 `TODO(#1234): reason; removal condition: observable exit condition.`，并登记 open issue 与删除条件，禁止 owner-only 或无归属占位。
-- TOML agent/tool configuration 归 `repository-config` style owner；稳定排列顶层 key，保留外部 consumer 字段名，multiline instruction 每行表达一个可审阅的完整约束。
-- XML configuration 归 `repository-config` style owner；保留外部 schema 规定的 element/attribute 名称、casing、namespace 与结构，只在 schema 允许的位置应用 repository text baseline，不得按内部 naming map 改写 `TileColor` 等外部 element。
+- UTF-8 (without BOM), LF, one final newline, and no trailing whitespace;
+- 4 spaces, never Tab indentation; continuation lines add one 4-space level;
+- one statement and one declaration per line, with only necessary blank lines between logical blocks;
+- import/include/using groups in platform/standard library, third-party, and repository-internal order, stably sorted within each group;
+- comments explain constraints and reasons instead of repeating code; public contracts use the language's documentation form; see [Code intent governance](code-intent-governance.md) for high-value intent and performance claims;
+- TODO/FIXME only in the form `TODO(#1234): reason; removal condition: observable exit condition.`, with an open issue and removal condition; owner-only or unowned placeholders are forbidden;
+- TOML agent/tool configuration belongs to the `repository-config` style owner; keep top-level keys stable, preserve external consumer field names, and make each multiline instruction a complete, reviewable constraint;
+- XML configuration belongs to the `repository-config` style owner; preserve schema-defined element/attribute names, casing, namespace, and structure. Apply the repository text baseline only where the schema permits it; do not rewrite external elements such as `TileColor` with the internal naming map.
 
-Allman braces 适用于 C# 和仓库手写 C++。TS/JS/Vue、CSS、Shell、CMake、YAML、JSON 与 Markdown 服从语言语法和社区工具可稳定表达的形式，不机械套用 Allman。
+Allman braces apply to C# and hand-written repository C++. TS/JS/Vue, CSS, Shell, CMake, YAML, JSON, and Markdown follow language syntax and forms stably expressible by their ecosystem tools; do not apply Allman mechanically.
 
 ## Naming map
 
 | C# mother rule | Cross-language mapping |
 | --- | --- |
-| namespace、type、public member、method、local function 使用 `PascalCase` | TS class/type/component 使用 `PascalCase`；Vue component 文件使用 `PascalCase.vue`；C++ public type 与 Shell function 使用 `PascalCase` |
-| interface 使用 `I` + `PascalCase` | 仅 C# interface 强制 `I`；TS structural type 不机械添加 `I` |
-| parameter/local 使用 `camelCase` | TS/JS/C++ local 与 Shell local variable 使用 `camelCase` |
-| private instance field 使用 `_camelCase` | C# 强制；其他语言在不违背生态和 formatter 时使用 `camelCase` 或私有语法 |
-| private static field 使用 `s_camelCase` | C# 强制；TS/JS static private field 使用语言私有语法并保留 `camelCase` |
-| thread-static field 使用 `t_camelCase` | 只在支持该存储语义的语言中使用；不得把普通异步上下文变量伪装成 thread-static |
-| constant 使用 `PascalCase` | C# 使用 `PascalCase`；JS/TS module constant 使用 `camelCase`，外部环境常量例外登记 |
-| public contract 名称稳定且可读 | wire/ABI 名称原样保留，内部 DTO/adapter 继续使用本表规则 |
-| module/file name 表达主要 owner | C# 文件与主要类型同名；TS module 用现有 `camelCase.ts`，Vue component 用 `PascalCase.vue` |
+| namespace, type, public member, method, and local function use `PascalCase` | TS class/type/component uses `PascalCase`; Vue component files use `PascalCase.vue`; C++ public types and Shell functions use `PascalCase` |
+| interfaces use `I` + `PascalCase` | Only C# interfaces require `I`; do not add `I` mechanically to TS structural types |
+| parameters/locals use `camelCase` | TS/JS/C++ locals and Shell local variables use `camelCase` |
+| private instance fields use `_camelCase` | Required in C#; other languages use `camelCase` or private syntax when compatible with their ecosystem and formatter |
+| private static fields use `s_camelCase` | Required in C#; TS/JS static private fields use language-private syntax and retain `camelCase` |
+| thread-static fields use `t_camelCase` | Use only in languages supporting that storage semantic; do not disguise an ordinary async-context variable as thread-static |
+| constants use `PascalCase` | C# uses `PascalCase`; JS/TS module constants use `camelCase`, with registered external-environment exceptions |
+| public contract names remain stable and readable | Preserve wire/ABI names verbatim; internal DTOs/adapters continue to use this table |
+| module/file names express the primary owner | C# files match their primary type; TS modules use existing `camelCase.ts`; Vue components use `PascalCase.vue` |
 
 ## C# and .NET
 
-- 使用 4 spaces、Allman braces、一行一个 statement/declaration；必要的 binary expression 换行放在 operator 前。
-- namespace、type、method、property、event 和 public field 使用 `PascalCase`；interface 使用 `I` 前缀。
-- parameter/local 使用 `camelCase`；private/internal instance、static、thread-static field 分别使用 `_camelCase`、`s_camelCase`、`t_camelCase`；constant 使用 `PascalCase`。
-- `using` 位于统一的文件级位置，`System` 组优先，随后第三方和 `FsusBlog`，组内稳定排序。
-- public cross-assembly contract、协议/codec extension point、安全与 lifecycle 类型写有效 XML documentation；internal helper 不生成空洞注释。
-- record、primary constructor、collection expression 和 pattern matching 仍遵守同一命名、缩进与一行一声明规则。
-- `CancellationTokenSource` 的创建者拥有释放责任：timeout 或 linked token 必须在同一操作 scope 中 `using`/`Dispose`，不得返回或缓存丢失 owner 的裸 `.Token`。需要区分 caller cancellation 与 timeout 时使用 `TimeoutCancellationScope`；不得用 `CancellationToken.None`、static 延迟清理或 GC 代替 owner disposal。
+- Use 4 spaces, Allman braces, and one statement/declaration per line; when a binary expression must wrap, put the break before the operator.
+- Namespaces, types, methods, properties, events, and public fields use `PascalCase`; interfaces use the `I` prefix.
+- Parameters/locals use `camelCase`; private/internal instance, static, and thread-static fields use `_camelCase`, `s_camelCase`, and `t_camelCase`; constants use `PascalCase`.
+- Place `using` directives in the common file-level region, with the `System` group first, followed by third-party and `FsusBlog`, stably sorted within each group.
+- Write meaningful XML documentation for public cross-assembly contracts, protocol/codec extension points, and security, lifecycle, or ownership types; do not generate empty comments for internal helpers.
+- Records, primary constructors, collection expressions, and pattern matching follow the same naming, indentation, and one-declaration-per-line rules.
+- The creator of a `CancellationTokenSource` owns disposal: timeout or linked tokens must be `using`/`Dispose`d in the same operation scope; never return or cache a bare `.Token` whose owner is lost. Use `TimeoutCancellationScope` when caller cancellation must be distinguished from timeout; never use `CancellationToken.None`, static delayed cleanup, or GC in place of owner disposal.
 
 ## TypeScript, JavaScript, and Vue
 
-- 使用 4 spaces 和项目 ESLint/TypeScript 可稳定表达的 brace 形式；不将 C# Allman 机械应用到 JS grammar。
-- component、class、type 使用 `PascalCase`；function、variable、composable 和 module export 使用 `camelCase`。
-- import 依次为 runtime/platform、第三方、`@/` 或仓库内部、relative；type-only import 使用 `import type`。
-- Vue SFC 保持 `<script setup>`、`<template>`、`<style>` 的现有顺序；props/emits 是 public contract，改名必须同步 caller。
-- public function/type 使用 TSDoc 说明不可由类型表达的边界；普通局部逻辑不写重复注释。
+- Use 4 spaces and the brace form stably expressed by project ESLint/TypeScript; do not apply C# Allman mechanically to JS grammar.
+- Components, classes, and types use `PascalCase`; functions, variables, composables, and module exports use `camelCase`.
+- Order imports as runtime/platform, third-party, `@/` or repository-internal, then relative; use `import type` for type-only imports.
+- Keep Vue SFC sections in the existing `<script setup>`, `<template>`, `<style>` order; props/emits are public contracts and renames must update callers.
+- Use TSDoc on public functions/types for boundaries the type system cannot express; do not repeat comments for ordinary local logic.
 
 ## CSS
 
-- selector 和 custom property 使用 kebab-case；4 spaces；每行一个 declaration。
-- component scope、theme token 和 reduced-motion contract 优先于个人 selector 偏好。
-- class/custom-property 是 DOM/CSS 外部契约时保留原名，内部 TS adapter 不复制 kebab-case 命名。
+- Selectors and custom properties use kebab-case, 4 spaces, and one declaration per line.
+- Component scope, theme tokens, and the reduced-motion contract take precedence over personal selector preferences.
+- Preserve class/custom-property names when they are external DOM/CSS contracts; do not copy kebab-case into internal TS adapters.
 
 ## C
 
-- C11 以上，4 spaces、Allman braces；系统和第三方 header 优先于项目 header。
-- 函数和类型使用 `PascalCase`，module-static/local 使用 `camelCase`；Wasm C ABI export 通过窄 adapter 暴露并保留外部 `snake_case`。
-- 不默认套用 C++ 规则或 STL；安全敏感代码显式标注边界和生命周期。
+- C11 or later, 4 spaces, and Allman braces; system and third-party headers precede project headers.
+- Functions and types use `PascalCase`; module-static/local names use `camelCase`; expose Wasm C ABI exports through a narrow adapter while preserving external `snake_case`.
+- Do not apply C++ or STL rules by default; mark boundaries and lifetimes explicitly in security-sensitive code.
 
 ## C++
 
-- 手写 C++23 使用 4 spaces 和 Allman braces；header include 依次为对应 header、标准库、第三方、仓库 header。
-- type/public function 使用 `PascalCase`，local/parameter 使用 `camelCase`；宏和 C ABI export 只在契约要求时保留外部形式。
-- Wasm export 通过窄 adapter 暴露；外部 `snake_case` 不扩散到内部实现。
+- Handwritten C++23 uses 4 spaces and Allman braces; order header includes as the corresponding header, standard library, third-party, then repository headers.
+- Types/public functions use `PascalCase`, locals/parameters use `camelCase`, and macros/C ABI exports retain external forms only when the contract requires them.
+- Expose Wasm exports through a narrow adapter; do not spread external `snake_case` into the implementation.
 
 ## CMake
 
-- 4 spaces；内建 command 使用 CMake 规定的名称，项目变量和 target 采用既有稳定命名。
-- 一个 target 的 source/options 按职责分组并稳定排序；不要为模仿 C# brace 风格改写 CMake grammar。
+- Use 4 spaces; built-in commands retain CMake-defined names, while project variables and targets use existing stable names.
+- Group and stably sort a target's sources/options by responsibility; do not rewrite CMake grammar to imitate C# braces.
 
 ## Shell
 
-- POSIX/Bash 语法要求高于 brace 映射；4 spaces，函数和 control block 分行清晰。
-- PowerShell 同样使用 4 spaces；function 使用 `PascalCase`、local variable 使用 `camelCase`，native resource 必须在 `finally` 中释放。
-- exported environment variable 使用 `UPPER_SNAKE_CASE`；仓库自有 function 使用 `PascalCase`，local variable 使用 `camelCase`；仅已登记的公共 Shell API 或环境契约保留外部名称。
-- 新脚本使用 fail-closed 参数解析、引用变量展开，并给 cleanup 安装 `trap`。
+- POSIX/Bash syntax takes precedence over brace mapping; use 4 spaces and put functions/control blocks on clearly separated lines.
+- PowerShell also uses 4 spaces; functions use `PascalCase`, local variables use `camelCase`, and native resources must be released in `finally`.
+- Exported environment variables use `UPPER_SNAKE_CASE`; repository functions use `PascalCase` and local variables use `camelCase`; retain external names only for registered public Shell APIs or environment contracts.
+- New scripts use fail-closed argument parsing, quoted variable expansion, and a cleanup `trap`.
 
 ## Python
 
-- Python tooling 使用 4 spaces、标准库优先的 import 分组和 `snake_case` function/local 命名；class 使用 `PascalCase`。
-- 脚本入口显式返回退出状态，subprocess、文件和临时资源由创建者负责关闭；不得以宽泛 exception handler 吞掉治理失败。
-- repository path、process identity 和平台差异通过窄 adapter 表达，不复制 Shell 或 Node owner 已有的平行实现。
+- Python tooling uses 4 spaces, standard-library-first import groups, and `snake_case` function/local names; classes use `PascalCase`.
+- Script entry points return an explicit exit status; the creator closes subprocesses, files, and temporary resources. Broad exception handlers must not swallow governance failures.
+- Express repository paths, process identity, and platform differences through narrow adapters; do not duplicate an existing Shell or Node owner.
 
 ## YAML
 
-- 4 spaces、禁止 Tab；mapping key 顺序按 schema/consumer 约定稳定排列。
-- GitHub Actions key、第三方 action input 和外部 schema 字段原样保留。
-- 重复结构优先用仓库生成器或可读 anchor；不要用 anchor 隐藏权限和发布边界。
+- Use 4 spaces and no Tabs; stably order mapping keys according to schema/consumer conventions.
+- Preserve GitHub Actions keys, third-party action inputs, and external schema fields verbatim.
+- Prefer repository generators or readable anchors for repeated structures; do not use anchors to hide permission or release boundaries.
 
 ## JSON
 
-- 4 spaces、标准 JSON 双引号、末项无逗号；key 顺序按 schema 和生成器稳定输出。
-- API/wire 字段原样保留；内部 model 与 adapter 使用 C# 母规范映射。
-- generated manifest 不手工格式化，必须修改 source 或 generator。
+- Use 4 spaces, standard JSON double quotes, and no trailing comma; key order follows stable schema/generator output.
+- Preserve API/wire fields verbatim; map internal models and adapters to the C# mother standard.
+- Do not format generated manifests by hand; modify the source or generator.
 
 ## Markdown
 
-- heading 层级不跳级，fenced code block 标注语言，relative link 指向真实文件。
-- 一条规范只在本文件定义；其他文档链接到具体 heading，不复制完整规则表。
-- 命令示例必须可解析到现有脚本或 package script，不把伪命令写成可执行指引。
+- Do not skip heading levels; label fenced code blocks with a language, and make relative links point to real files.
+- Define each standard only here; other documents link to the specific heading instead of copying complete rule tables.
+- Command examples must resolve to existing scripts or package scripts; do not present pseudo-commands as executable instructions.
 
 ## Lua
 
-- 4 spaces；插件入口位于 `examples/plugins/`，不嵌入 C# 或 TypeScript 流程。
-- host API、错误处理和模块返回值遵循插件 SDK 契约；不依赖全局 IO、系统调用或未声明的跨模块状态。
-- 注释和格式化遵循插件示例统一风格；示例代码视为受治理手写 source。
+- Use 4 spaces; plugin entry points live under `examples/plugins/` and are not embedded in C# or TypeScript flows.
+- Follow the plugin SDK contract for host APIs, error handling, and module return values; do not depend on global I/O, system calls, or undeclared cross-module state.
+- Match the plugin examples for comments and formatting; example code is governed handwritten source.
 
 ## SQL
 
-- SQL keyword 使用大写，4 spaces，复杂 clause 分行；migration 保持可重复审阅。
-- PostgreSQL column、index、constraint 与 migration identity 是外部持久契约，不能为内部 naming rule 直接重命名。
-- 查询结果进入 C#/TS 后通过明确 mapping 转为内部命名。
+- Use uppercase SQL keywords, 4 spaces, and line breaks for complex clauses; keep migrations repeatedly reviewable.
+- PostgreSQL columns, indexes, constraints, and migration identities are external persistence contracts and cannot be renamed directly for an internal naming rule.
+- Map query results explicitly to internal names when they enter C#/TS.
 
 ## External contract exception registry
 
-例外只保护外部名称。只要存在内部 adapter，内部名称仍须回到 C# 母规范映射。以下 ID 与 `config/development/authoritative-development-docs.json` 一一对应：
+Exceptions protect external names only. When an internal adapter exists, internal names still follow the C# mother-standard mapping. The following IDs correspond one-to-one with `config/development/authoritative-development-docs.json`:
 
 | Exception ID | External surface | Internal rule |
 | --- | --- | --- |
-| `json-api-field` | JSON/API field | wire key 原样；DTO/property/adapter 使用语言内部命名 |
-| `postgres-column-migration` | PostgreSQL column、constraint、migration SQL | database identity 原样；reader/model 使用内部命名 |
-| `http-header` | HTTP header | header spelling 原样；constant/accessor 使用内部命名 |
-| `redis-key` | Redis key/prefix | serialized key 原样；builder method 使用内部命名 |
-| `c-abi-wasm-export` | C ABI/Wasm export | export symbol 原样；C++/TS wrapper 使用内部命名 |
-| `environment-variable` | process/container environment variable | `UPPER_SNAKE_CASE` 原样；options property 使用内部命名 |
-| `css-selector-custom-property` | CSS class/custom property | kebab-case 原样；component token/accessor 使用内部命名 |
-| `shell-environment-variable` | exported Shell environment variable | `UPPER_SNAKE_CASE` 原样；脚本内部 local 遵循 Shell 映射 |
-| `cmake-built-in` | CMake built-in command/property | CMake 名称原样；项目 wrapper/说明使用内部命名 |
-| `third-party-sdk-callback` | third-party callback/interface | SDK signature 原样；边界内立即适配 |
+| `json-api-field` | JSON/API field | Preserve the wire key; DTO/property/adapter uses the language's internal naming |
+| `postgres-column-migration` | PostgreSQL column, constraint, migration SQL | Preserve database identity; reader/model uses internal naming |
+| `http-header` | HTTP header | Preserve header spelling; constants/accessors use internal naming |
+| `redis-key` | Redis key/prefix | Preserve the serialized key; builder methods use internal naming |
+| `c-abi-wasm-export` | C ABI/Wasm export | Preserve the export symbol; C++/TS wrappers use internal naming |
+| `environment-variable` | Process/container environment variable | Preserve `UPPER_SNAKE_CASE`; options properties use internal naming |
+| `css-selector-custom-property` | CSS class/custom property | Preserve kebab-case; component tokens/accessors use internal naming |
+| `shell-environment-variable` | Exported Shell environment variable | Preserve `UPPER_SNAKE_CASE`; script locals follow the Shell mapping |
+| `cmake-built-in` | CMake built-in command/property | Preserve the CMake name; project wrappers/documentation use internal naming |
+| `third-party-sdk-callback` | Third-party callback/interface | Preserve the SDK signature; adapt immediately at the boundary |
 
-新增例外必须同时给出 external/internal 正例和“外部名泄漏到内部”的反例；不能用 `legacy` 或“formatter 不支持”作为永久理由。
+Each new exception must include positive external/internal examples and a negative example showing the external name leaking inward; `legacy` or “formatter unsupported” is not a permanent reason.
 
 ## Generated, vendor, fixture, and tool exceptions
 
-- `generated`：只改 source/generator，生成文件由 owner 命令重建；生成头和输出格式不证明手写风格先例。
-- `vendor`：保留上游格式和许可证，不做仓库风格重排；修改通过 overlay/patch 层完成。
-- `fixture`：可故意包含非法格式来证明门禁失败，但必须位于已分类 fixture 路径且测试说明意图。
-- `lock`：包管理器拥有顺序和格式，禁止手工整理。
-- `minified`：只接受可追溯 generator/source 的输出，不作为 source style 输入。
+- `generated`: change only the source/generator; rebuild generated files with the owner's command. Generated headers and output formatting are not handwritten-style precedents.
+- `vendor`: preserve upstream formatting and license; do not reformat it to repository style. Make changes through an overlay/patch layer.
+- `fixture`: may intentionally contain invalid formatting to prove gate rejection, but must live under a classified fixture path with documented test intent.
+- `lock`: the package manager owns order and formatting; do not organize it by hand.
+- `minified`: accept only traceable generator/source output; it is not a source-style input.
 
-这些分类是必须显式声明的窄例外，不是忽略任意目录的通配许可。
+These are explicitly declared narrow exceptions, not wildcard permission to ignore arbitrary directories.
 
 ## Imports and comments
 
-所有语言都遵循“platform/standard → third-party → repository/local”的依赖方向；语言强制顺序（例如对应 C++ header）优先。循环依赖不能靠调整 import 顺序掩盖。
+All languages follow the dependency direction “platform/standard → third-party → repository/local”; language-mandated order (such as the corresponding C++ header) takes precedence. Import order must not hide cyclic dependencies.
 
-短注释放在被解释语句之前。公共 contract doc comment 说明输入、输出、失败和安全边界；TODO/FIXME 必须绑定 open issue、删除条件和 registry entry。历史叙述、release 记录、行尾注释和长篇设计理由写入 `docs/`，不堆进 hot path。结构事实与实测性能结论不得混用；具体 marker、S/M/R/C 等级和 fail-closed 条件见 [Code intent governance](code-intent-governance.md)。
+Put short comments before the statement they explain. Public contract comments describe inputs, outputs, failures, and security boundaries; TODO/FIXME must bind an open issue, removal condition, and registry entry. Put history, release records, end-of-line comments, and long rationale in `docs/`, not in hot paths. Do not mix structural facts with measured performance conclusions; see [Code intent governance](code-intent-governance.md) for markers, S/M/R/C levels, and fail-closed conditions.
 
 ## Enforcement
 
-运行权威文档门禁：
+Run the authoritative-document gates:
 
 ```bash
 node tools/docs/check-authoritative-development-docs.mjs
 node tools/governance/check-code-intent.mjs
 ```
 
-门禁从 `config/development/authoritative-development-docs.json` 读取路径、symbol、command、style owner、外部例外和 generated/vendor/fixture 分类，聚合全部错误后失败。后续 formatter/linter issue 必须消费这份基线；不得创建另一份同级“唯一编码规范”。
+The gates read paths, symbols, commands, style owners, external exceptions, and generated/vendor/fixture classifications from `config/development/authoritative-development-docs.json`, then aggregate all errors before failing. Later formatter/linter checks must consume this baseline; do not create another peer “sole coding standard.”

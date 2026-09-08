@@ -98,29 +98,102 @@ export GITHUB_PACKAGES_TOKEN=...
   --env-file .env.production
 ```
 
-`slot-preflight.sh` 对 manifest 选中的精确 `repository@sha256:<64 lowercase hex>` 执行 fail-closed 镜像运行时契约。它先 pull 目标 digest，再 inspect OCI labels：`io.fsusblog.build.vcpkg-commit` 必须是完整 40 位小写 Git SHA，`io.fsusblog.runtime.node=required`、`io.fsusblog.runtime.npm=forbidden`；`profile-id`、catalog/profile digest、base family、RID、single-file、R2R、PGO、QuickJIT、Server GC、GC heap-count/hard-limit mode 与精确百分比、ThreadPool 与 topology labels 必须完整并受同一 profile digest 约束。R2R 可以由受控 startup profile 启用，不再被错误地全局固定为 false。随后 preflight 以临时容器执行 `command -v node`，并证明 `npm` 不存在。可变 tag、无效 digest、pull/inspect 失败、profile 漂移、musl/glibc 不匹配、Node 缺失或 npm 存在都会在 Compose candidate 启动前终止；持久化 active slot 不变，也不会启动 candidate。
+`slot-preflight.sh` enforces the fail-closed image runtime contract on the exact
+manifest-selected `repository@sha256:<64 lowercase hex>`. It pulls the target digest,
+then inspects OCI labels: `io.fsusblog.build.vcpkg-commit` must be a complete 40-character
+lowercase Git SHA; `io.fsusblog.runtime.node=required` and
+`io.fsusblog.runtime.npm=forbidden`; and `profile-id`, catalog/profile digest, base family,
+RID, single-file, R2R, PGO, QuickJIT, Server GC, GC heap-count/hard-limit mode and exact
+percentages, ThreadPool, and topology labels must be complete and bound by the same profile
+digest. R2R may be enabled by a controlled startup profile and is no longer incorrectly
+fixed globally to false. Preflight then runs `command -v node` in a temporary container and
+proves that `npm` is absent. A mutable tag, invalid digest, pull/inspect failure, profile
+drift, musl/glibc mismatch, missing Node, or present npm terminates before Compose candidate
+startup; the persisted active slot stays unchanged and no candidate starts.
 
 Runtime profile qualification seals container-visible CPU/memory identity plus physical-core/SMT and NUMA topology. The executor must echo the observed target cpuset, not only the requested plan. Auto-balanced allocation changes with the named mode: physical-core placement chooses one thread per core; NUMA-local keeps the target in one observed node and the load generator disjoint. Hidden topology is explicitly `unavailable` with a reason, and a single visible NUMA node is `not-applicable`; neither state may be replaced with synthetic topology evidence. The runner classifies only `physical-core-only` or `numa-local` as hardware-unsupported, and only when the sealed topology proves the corresponding capability absent. Evidence v2 records the full required `catalogProfileIds`, the actually scheduled `profileIds`, and a bounded `unsupportedProfiles` reason; their union must exactly cover the catalog before status can become `complete`. Build, gate, measurement, timeout, cleanup, or executor failures remain failed attempts and can never be relabeled as unsupported.
 
-单独诊断同一契约时使用 `bash tools/deployment/image-runtime-contract.sh '<repository>@sha256:<digest>'`。该命令会实际 pull/inspect/run 目标镜像，不是离线 Dockerfile 检查；失败后应重新构建并推送修正后的新 digest，再生成新 manifest，禁止用 tag 覆盖或跳过 preflight。
+For standalone diagnosis of the same contract, run
+`bash tools/deployment/image-runtime-contract.sh '<repository>@sha256:<digest>'`. It
+actually pulls/inspects/runs the target image rather than performing an offline Dockerfile
+check. After failure, rebuild and push a corrected new digest, then generate a new manifest;
+do not overwrite with a tag or skip preflight.
 
 ### Runtime/publish profile qualification
 
-运行前先用 `check-runtime-publish-profiles.mjs` 验证 catalog。资格测试必须使用同一 commit、数据 fixture、目标机、cgroup/cpuset、代理/TLS、PostgreSQL 和 Redis 配置；load generator 与 target CPU 必须隔离。不要把跨机器结果拼成三轮，也不要把 acceptance 环境的 burst-derived ThreadPool minimum 当生产默认值。
+Before running, validate the catalog with `check-runtime-publish-profiles.mjs`. Qualification
+tests must use the same commit, data fixture, target host, cgroup/cpuset, proxy/TLS,
+PostgreSQL, and Redis configuration; isolate load-generator and target CPUs. Do not combine
+cross-machine results into three rounds or treat the acceptance environment's burst-derived
+ThreadPool minimum as the production default.
 
-矩阵 evidence 可以在中断后保留 `partial` checkpoint；继续时向同一参数集传 `--resume-from <evidence>`。resume 会核验 commit、fixture、hardware、profile manifest、catalog、硬件不支持清单、profile 顺序、轮数、cooldown 与完整 schedule，只跳过已经成功的 schedule key，并对缺失或失败 key 追加新 attempt。硬件能力变化后不得 resume 旧证据，必须在新 hardware identity 下重跑。`runs` 是不可删减的全量 attempt history：失败记录必须位于同 key 的最终成功之前；complete artifact 要求每个 schedule key 恰有一个最终成功，comparison 只汇总这些成功样本。只有 `check-runtime-publish-evidence.mjs` 在非 `--allow-partial` 模式通过的三轮 artifact 才能进入选型。完整运行必须传入站点 policy，且必须保留 `auto-balanced`：executor 从当前进程可见 cpuset/quota/memory 与 topology 动态分配 target/loadgen，并把 resolved CPU count、GC modes/percent、ThreadPool mode、topology mode 传给仓库 stage adapter。adapter 再调用 site plan 的 direct executable，并要求每个 stage 返回同一 identity 的结构化结果；build、gate、NativeAOT parity、fault/load fixture 与 measurement payload 均以 digest receipt 绑定。measurement 必须回读实际 cpuset/cgroup/runtime settings，并在 `resourceStress` 中给出 allocation burst、GC pressure、适用时的 OOM/recovery，以及 active/candidate/snapshot/SSR/other 精确相加的 blue/green memory breakdown。默认完整矩阵覆盖所有无 `conditionalAdmission` 且当前硬件可执行的必测 profile；`physical-core-only` / `numa-local` 只有在 sealed hardware 明确不支持时才进入 `unsupportedProfiles`。NativeAOT 仍单独跑 partial experiment并要求 feature/security parity。失败 profile 必须保留错误。选型记录同时引用 startup 与 steady-state conclusions、逐 route median/CV、pairwise/Pareto、variance/materiality、JIT/GC/LOH/ThreadPool/migration/IPC、power、resource stress 与 fault/recovery；startup-only profile 不得替换 throughput 默认。收集 release evidence 时，matrix 的完整 commit SHA、sealed selected profile 和两个非零 digest 必须与 release identity 一致。collector 会复制并计算 `runtimePublishMatrix` sha256；manifest checker 与 release-final 会重新读取 bundle 内的普通非 symlink 文件，任何缺失、路径逃逸、摘要漂移、错误 SHA、错误/零 profile digest 或未选型状态都 fail closed。
+After interruption, matrix evidence may retain a `partial` checkpoint; resume with
+`--resume-from <evidence>` against the same parameter set. Resume verifies commit, fixture,
+hardware, profile manifest, catalog, unsupported-hardware list, profile order, round count,
+cooldown, and complete schedule; it skips only successful schedule keys and appends a new
+attempt for missing or failed keys. Never resume old evidence after hardware capability
+changes; rerun under the new hardware identity. `runs` is the non-reducible complete attempt
+history: failures must precede the final success for the same key; a complete artifact
+requires exactly one final success per schedule key, and comparison summarizes only those
+successful samples. Only a three-round artifact passing `check-runtime-publish-evidence.mjs`
+without `--allow-partial` may enter selection. Full runs must receive the site policy and
+retain `auto-balanced`: the executor dynamically allocates target/loadgen from the current
+process-visible cpuset/quota/memory and topology, then passes resolved CPU count, GC
+modes/percent, ThreadPool mode, and topology mode to the repository stage adapter. The
+adapter invokes the site plan's direct executable and requires each stage to return a
+structured result with the same identity; build, gate, NativeAOT parity, fault/load fixture,
+and measurement payload are all bound to the digest receipt. Measurement must reread actual
+cpuset/cgroup/runtime settings and report in `resourceStress` allocation burst, GC pressure,
+OOM/recovery where applicable, and a blue/green memory breakdown whose active/candidate/
+snapshot/SSR/other values sum exactly. The default complete matrix covers every required
+profile without `conditionalAdmission` that the current hardware can execute;
+`physical-core-only` / `numa-local` enter `unsupportedProfiles` only when sealed hardware
+explicitly lacks support. NativeAOT still runs as a separate partial experiment and requires
+feature/security parity. Failed profiles must retain their errors. Selection records must
+cite startup and steady-state conclusions, per-route median/CV, pairwise/Pareto,
+variance/materiality, JIT/GC/LOH/ThreadPool/migration/IPC, power, resource stress, and
+fault/recovery; a startup-only profile cannot replace the throughput default. When collecting
+release evidence, the matrix's full commit SHA, sealed selected profile, and two non-zero
+digests must match release identity. The collector copies and computes the `runtimePublishMatrix`
+sha256; the manifest checker and release-final reread ordinary non-symlink files in the bundle,
+and fail closed on any missing file, path escape, digest drift, wrong SHA, wrong/zero profile
+digest, or unselected state.
 
-回退始终选择 registry 中仍保留的旧 profile immutable digest，并按正常 rollout 生成新的单调 generation。不要修改现有 image labels、manifest 或 mutable tag。若只撤销 evidence-derived ThreadPool minimum，恢复 `runtime-default` 的部署设置并重启对应 retained image；确认 ThreadPool queue/starvation、context switches、RSS 与 p99.9 恢复后再继续 rollout。
+Always roll back by selecting an old profile's immutable digest still retained in the registry
+and generating a new monotonic generation through the normal rollout. Do not modify existing
+image labels, manifests, or mutable tags. If only the evidence-derived ThreadPool minimum is
+being revoked, restore `runtime-default` deployment settings and restart the corresponding
+retained image; confirm ThreadPool queue/starvation, context switches, RSS, and p99.9 recover
+before continuing rollout.
 
 ## Rollout
 
-### 唯一入口与资源前提
+<a id="唯一入口与资源前提"></a>
+### Single entrypoint and resource prerequisites
 
-生产发布、显式回滚和中断恢复都从 `tools/deployment/release-rollout.sh` 进入。除一次性空状态 bootstrap 与故障诊断外，不直接调用 `slot-start.sh`、`gateway-switch.sh` 或 `deploy-production.sh`。先运行 `slot-status.sh` 确认 durable state 为 `stable` 且 `activeStateConsistent=true`，再选择 CI 生成且 registry 仍保留的 immutable manifest。
+Production releases, explicit rollbacks and interrupted resumes all enter through
+`tools/deployment/release-rollout.sh`. Except for the one-time empty-state bootstrap
+and diagnosis, do not call `slot-start.sh`, `gateway-switch.sh` or
+`deploy-production.sh` directly. First run `slot-status.sh` and require durable state
+`stable` with `activeStateConsistent=true`, then select an immutable manifest produced
+by CI and still retained by the registry.
 
-零停机资格下限来自 `config/deployment/zero-downtime-resource-policy.json`：4 CPU cores、6144 MiB total memory、10240 MiB free disk。双槽合计预算是 360% CPU / 4608 MiB memory，临时磁盘 8192 MiB，并至少采集 10 个 overlap samples。2C/2G 只允许单槽运行，不能执行 overlap 或宣称零停机；`slot-preflight.sh` 的较低 pull/start guard 也不能替代这一资格门禁。
+The zero-downtime floor is defined by
+`config/deployment/zero-downtime-resource-policy.json`: 4 CPU cores, 6144 MiB total
+memory and 10240 MiB free disk. The two slots together are budgeted for 360% CPU and
+4608 MiB memory, with 8192 MiB temporary disk and at least 10 overlap samples. A
+2C/2G host may run one slot only; it cannot perform overlap or claim zero downtime.
+The lower pull/start guard in `slot-preflight.sh` does not replace this qualification
+gate.
 
-把 exactly one `Authorization: Bearer ...` 或 `Cookie: ...` header 保存到 root-readable mode-0400/0600 regular non-symlink file。认证 storage state 同样必须为 0400/0600；secret 不得进入命令行、证据、issue comment 或 shell trace。
+Store exactly one `Authorization: Bearer ...` or `Cookie: ...` header in a
+root-readable mode-0400/0600 regular non-symlink file. Authentication storage state
+must also be mode 0400/0600. Do not put secrets in the command line, evidence, issue
+comments or shell trace.
+
+The complete base invocation, including its environment exports and runtime-input
+flags, is maintained once in [Production Deployment — Build And Deploy](production.md#build-and-deploy).
+Use that canonical block unchanged:
 
 ```bash
 export FSUSBLOG_DEPLOYMENT_ADMIN_HEADER_FILE=/run/fsus/deployment-admin-header
@@ -149,17 +222,25 @@ export FSUSBLOG_GATEWAY_PUBLIC_PROBE_URL=https://fsus.blog/health/ready
   --dry-run
 ```
 
-Dry-run 必须显示 exact source/target release、digest、slot、generation、state path 和 ordered stages。确认后去掉 `--dry-run`，使用同一个全新 `rolloutId` 和相同输入运行；已存在 state 必须使用 `--resume`，不能覆盖。
+Run it first with `--dry-run` and review the exact source/target release, digest, slot,
+generation, state path, and ordered stages; then rerun without `--dry-run` using the same
+new `rolloutId` and identical inputs. Existing state must use `--resume`; it must never be
+overwritten.
 
-### 15 阶段与断点恢复
+<a id="15-阶段与断点恢复"></a>
+### 15 stages and interruption recovery
 
-完整顺序固定为：
+The complete order is fixed:
 
 `manifest-validate -> capacity-preflight -> backup-restore-gate -> expand-migration -> asset-materialize -> candidate-start -> candidate-readiness -> candidate-smoke -> compatibility-smoke -> gateway-switch -> source-drain -> active-fence -> public-verify -> source-stop -> release-evidence`
 
-每次 attempt 的 command stdout/stderr、开始/结束时间、exit code、SHA-256 和 bytes 都写入 mode-0600 stage evidence。已成功阶段不可重复；失败阶段先进入 `recovery_required` 并执行 stage-specific compensation。安全关键 gate 没有 skip 参数。
+Each attempt writes command stdout/stderr, start/end times, exit code, SHA-256, and bytes to
+mode-0600 stage evidence. A successful stage cannot be repeated; a failed stage first enters
+`recovery_required` and runs stage-specific compensation. Security-critical gates have no
+skip parameter.
 
-宿主进程被 SIGTERM/SIGKILL 或异常退出后，先读取 state，不从头跑：
+After the host process receives SIGTERM/SIGKILL or exits abnormally, read state first; do not
+start over:
 
 ```bash
 node tools/deployment/rollout-state.mjs read \
@@ -173,26 +254,70 @@ node tools/deployment/rollout-state.mjs read \
   <the-same-runtime-input-options>
 ```
 
-Resume 会验证 manifest 与 durable target 一致，采用仍存活且 command line/path anchor 匹配的 probes，把没有终态 evidence 的 orphan running stage 封存为 interruption failure，再执行该阶段的明确 recovery。它只跳过有 sealed success evidence 的阶段。Terminal state、另一 rollout ID、另一 release/digest 或历史 pass artifact 均不能复用。
+Resume verifies that the manifest matches the durable target and uses probes that are still
+alive and match the command-line/path anchor. It seals orphan running stages without terminal
+evidence as interruption failures, then performs that stage's explicit recovery. It skips only
+stages with sealed success evidence. Terminal state, another rollout ID, another release/digest,
+or a historical passing artifact cannot be reused.
 
-### 切流、fence、排空与存储
+<a id="切流-fence-排空与存储"></a>
+### Traffic switch, fencing, drain, and storage
 
-Gateway stage 使用 `--defer-source-drain`：先 CAS-activate target、atomic reload 并提交 traffic state，但保留 source 可恢复。随后 active-fence stage 用 release/slot/generation/digest 做 Redis CAS，revoke source，再 read-back target owner。所有 active-singleton worker 在领取 lease 后还必须在不可逆提交前执行 `IActiveReleaseCommitGuard.EnsureCurrentAsync`；旧 generation 即使仍在运行也不能提交 scheduled transition、outbox effect、crawler snapshot、cleanup delete、projection checkpoint、PublicAOT finalize 或 upload deletion。
+The Gateway stage uses `--defer-source-drain`: CAS-activate the target, atomically reload, and
+commit traffic state while keeping the source recoverable. The active-fence stage then uses
+release/slot/generation/digest for Redis CAS, revokes the source, and reads back the target
+owner. After acquiring a lease, every active-singleton worker must also run
+`IActiveReleaseCommitGuard.EnsureCurrentAsync` before an irreversible commit; an old generation,
+even if still running, cannot commit a scheduled transition, outbox effect, crawler snapshot,
+cleanup delete, projection checkpoint, PublicAOT finalize, or upload deletion.
 
-Public verification 同时运行持续 12-class traffic、notification reconnect/replay、N/N-1 asset/Service Worker、resource budget probes。Source drain 先发送 1012 restart，再并行排空 HTTP、notification、background claims、article-view、hot-stats、audit/admin-audit、visit、RUM、security/challenge audit、public-hot、ArticleDetail AEDS、PublicAOT backfill 与 upload cleanup。任一 pending、timeout 或 error 都保留在 blockers，不能手写 success。
+Public verification concurrently runs sustained 12-class traffic, notification reconnect/replay,
+N/N-1 asset/Service Worker, and resource-budget probes. Source drain first sends 1012 restart,
+then drains HTTP, notification, background claims, article-view, hot-stats, audit/admin-audit,
+visit, RUM, security/challenge audit, public-hot, ArticleDetail AEDS, PublicAOT backfill, and
+upload cleanup in parallel. Any pending, timeout, or error remains in blockers; success cannot
+be handwritten.
 
-`asset-materialize` 在 candidate start 前验证 sealed CI receipt 的完整 schema、source/worktree、producer/toolchain、input、domain、path/size/SHA-256 与 seal，并在首次写 store 前要求 image-extracted source 与 receipt frontend domain 精确同集，再把 manifest-selected frontend/Wasm/font 文件写入 append-only `<asset-store>/releases/<releaseId>`；同路径不同 hash fail closed。它生成 inventory，要求 receipt frontend artifact、inventory 与实际 materialization 精确同集，并安装只读 `spa-manifest-descriptor.json` 与 `production-build-receipt.json`。Compose 和 `slot-start.sh` 只接受当前 release 下这两个 canonical authority 路径。`UseReleaseScopedStaticAssets` 在 SPA fallback 前服务 `/release-assets/<releaseId>/...` 与 `/release-derived/<releaseId>/...`，Production 缺 root setting 会拒绝启动。Applied GC 必须先持久化 retention state，保护 N-1 `retention-window`，再由 old-asset probe 于 GC 后复读所有旧 URL。Release-derived writers 只写自己的 release subtree，并通过 generation publisher 原子更新 pointer；不得 clear shared root 或另一个 release。
+Before candidate start, `asset-materialize` validates the sealed CI receipt's complete schema,
+source/worktree, producer/toolchain, input, domain, path/size/SHA-256, and seal. Before the
+first store write it requires the image-extracted source and receipt frontend domain to be
+exactly the same set, then writes manifest-selected frontend/Wasm/font files to append-only
+`<asset-store>/releases/<releaseId>`; different hashes at the same path fail closed. It
+generates an inventory and requires the receipt frontend artifacts, inventory, and actual
+materialization to be exactly the same set, then installs read-only
+`spa-manifest-descriptor.json` and `production-build-receipt.json`. Compose and `slot-start.sh`
+accept only these two canonical authority paths under the current release.
+`UseReleaseScopedStaticAssets` serves `/release-assets/<releaseId>/...` and
+`/release-derived/<releaseId>/...` before SPA fallback; Production refuses to start when the
+root setting is missing. Applied GC must persist retention state first, protect the N-1
+`retention-window`, then have the old-asset probe reread every old URL after GC. Release-derived
+writers write only their own release subtree and atomically update the pointer through the
+generation publisher; they must not clear the shared root or another release.
 
-这里的运行时接线不能手工拆开：manifest 校验生成 `FSUSBLOG_RELEASE_ID`，主机侧 manifest 路径只暂存在 `FSUSBLOG_RELEASE_MANIFEST_HOST_PATH` 供 Compose 只读挂载；容器内固定读取 `FSUSBLOG_RELEASE_MANIFEST_PATH=/app/release-manifest.json`，并以 `FSUSBLOG_RELEASE_DERIVED_ROOT=/app/release-derived` 访问 shared derived volume。三者必须指向同一 release identity；不要把它们写死在 `.env.production`，也不要让容器读取另一个 manifest 或 derived root。
+Do not manually split this runtime wiring: manifest validation generates `FSUSBLOG_RELEASE_ID`;
+the host-side manifest path exists only in `FSUSBLOG_RELEASE_MANIFEST_HOST_PATH` for Compose's
+read-only mount; the container always reads `FSUSBLOG_RELEASE_MANIFEST_PATH=/app/release-manifest.json`
+and accesses the shared derived volume through `FSUSBLOG_RELEASE_DERIVED_ROOT=/app/release-derived`.
+All three must point to the same release identity. Do not hard-code them in `.env.production` or
+let the container read another manifest or derived root.
 
-Comment mutation outbox 在 `/api/ops/health/ready-detail` 的 `runtime.commentMutationOutbox` 暴露 backlog、failed、poison、oldest age、累计 processed 与最近错误；`fsus.comment_outbox.*` 指标覆盖吞吐、失败、积压、最老延迟和死信。poison 非零会把 runtime readiness 标为 degraded。处置时可通过 reloadable 配置把 `CommentMutationOutbox:Enabled=false` 暂停新 claim（评论权威事务继续写 pending，不丢事件），修复依赖或 poison 根因后恢复为 `true`；不得删除 checkpoint 或把未知副作用手工标成 completed。完整步骤见 [`architecture/comment-mutation-outbox.md`](architecture/comment-mutation-outbox.md)。
+The comment mutation outbox exposes backlog, failed, poison, oldest age, cumulative processed,
+and recent errors at `/api/ops/health/ready-detail` under
+`runtime.commentMutationOutbox`; `fsus.comment_outbox.*` metrics cover throughput, failures,
+backlog, oldest delay, and dead letters. Non-zero poison marks runtime readiness degraded.
+Operations may set reloadable `CommentMutationOutbox:Enabled=false` to pause new claims (the
+comment authoritative transaction continues writing pending without losing events); restore
+`true` after fixing the dependency or poison root cause. Do not delete checkpoints or manually
+mark unknown side effects completed. Full steps: [`architecture/comment-mutation-outbox.md`](architecture/comment-mutation-outbox.md).
 
-### 强流量、资产 HMAC 与 migration qualification
+<a id="强流量-资产-hmac-与-migration-qualification"></a>
+### Strong traffic, asset HMAC, and migration qualification
 
-唯一 rollout 入口必须同时取得两个独立私钥文件：
+The single rollout entrypoint must obtain two independent private-key files:
 
-完整 `release-rollout.sh` invocation 除 manifest、migration、notification、worker、
-resource 与 fault 参数外，必须包含以下四项（这里只列参数片段，不是第二个可执行入口）：
+In addition to manifest, migration, notification, worker, resource, and fault arguments, the
+complete `release-rollout.sh` invocation must include these four (parameter fragments only,
+not a second executable entrypoint):
 
 ```text
 --traffic-scenario /run/fsus/release-traffic-scenario.json
@@ -201,36 +326,45 @@ resource 与 fault 参数外，必须包含以下四项（这里只列参数片�
 --asset-browser-binding-key-file /run/fsus/secrets/asset-browser-binding.key
 ```
 
-两个 key 都必须是 0400/0600 regular non-symlink、32..4096 bytes，且不得与 admin
-header、Cookie/storage-state 或彼此复用。traffic artifact 与 asset/browser artifact
-分别由 dedicated verifier 进行 HMAC readback；`--resume` 不得因文件已存在就跳过验证。
-key 错误或 evidence 漂移会阻断 closeout，但不要求重启应用：切流前保持 source，切流后
-按 durable recovery 恢复 source gateway/fence，并使用新的单调 generation。
+Both keys must be 0400/0600 regular non-symlinks, 32..4096 bytes, and must not be reused
+with the admin header, Cookie/storage-state, or each other. Dedicated verifiers perform HMAC
+readback for the traffic and asset/browser artifacts respectively; `--resume` must not skip
+verification because a file already exists. A key error or evidence drift blocks closeout but
+does not require an application restart: keep the source before the switch, restore the source
+gateway/fence through durable recovery after the switch, and use a new monotonic generation.
 
-私有 rehearsal plan 的强字段为：
+The private rehearsal plan requires these fields:
 
-| 区域 | 字段 | 约束 |
+| Area | Field | Constraint |
 | --- | --- | --- |
-| traffic | `evidenceInputs.trafficBindingKey` | private key file，32..4096 bytes |
-| asset | `evidenceInputs.assetBrowserBindingKey` | 独立 private key file，32..4096 bytes |
-| migration binary | `target.migrationServerDll` | target manifest 对应的精确 Server DLL |
-| migration scenario | `migrationQualification.scenarioTemplate` | 固定十场景模板 |
+| traffic | `evidenceInputs.trafficBindingKey` | private key file, 32..4096 bytes |
+| asset | `evidenceInputs.assetBrowserBindingKey` | independent private key file, 32..4096 bytes |
+| migration binary | `target.migrationServerDll` | exact Server DLL for the target manifest |
+| migration scenario | `migrationQualification.scenarioTemplate` | fixed ten-scenario template |
 | migration timeout | `migrationQualification.timeoutSeconds` | 60..1800 |
 | migration IDs | `expandMigrationId` / `backfillMigrationId` / `contractMigrationId` | safe immutable IDs |
 
-rehearsal 自动物化并执行十场景：旧 Active + Expand、双槽并发读写、Backfill
-pause/checkpoint/resume、missing Expand 503、回滚窗口拒绝 Contract、Contract 后不可回滚
-marker、advisory-lock timeout、数据库断连、partial failure/resume、history checksum +
-unknown record。repository adapter 只接受
-`ASPNETCORE_ENVIRONMENT=Test` + `FSUSBLOG_ROLLOUT_REHEARSAL=1`；应用 bridge/readiness
-route 还要求 `SchemaMigration:QualificationEnabled=true`、admin `system.config` 与
-`fixed_ip`。生产配置保持 false。
+The rehearsal automates and executes ten scenarios: old Active + Expand, dual-slot concurrent
+read/write, Backfill pause/checkpoint/resume, missing Expand 503, rollback-window Contract
+rejection, post-Contract non-rollback marker, advisory-lock timeout, database disconnect,
+partial failure/resume, and history checksum + unknown record. The repository adapter accepts
+only `ASPNETCORE_ENVIRONMENT=Test` + `FSUSBLOG_ROLLOUT_REHEARSAL=1`; the application
+bridge/readiness route additionally requires `SchemaMigration:QualificationEnabled=true`,
+admin `system.config`, and `fixed_ip`. Production configuration remains false.
 
-### Normal 与 destructive qualification
+<a id="normal-与-destructive-qualification"></a>
+### Normal and destructive qualification
 
-正常 production rollout 只接受 worker reconciliation v2 `mode=normal`：八类 durable work、graceful drain、target exactly-once、zero stale-generation commit。Forced-source/SIGKILL 是独立 Test topology qualification，不得嵌入 normal source drain：
+Normal production rollout accepts only worker reconciliation v2 `mode=normal`: eight durable-work
+classes, graceful drain, target exactly-once, and zero stale-generation commits. Forced-source/
+SIGKILL is an independent Test-topology qualification and must not be embedded in normal source
+drain:
 
-Dry-run 审核完成后，在真实 rollout 旁路启动 normal observer；它等待 durable state 到达 `candidate-start`，通过 loopback admin action 驱动/观察八类真实 pending，并在 `source-drain-gate.json` 通过后独占写出传给 rollout `--worker-ledger` 的账本。plan 的 `baseUrl` 必须是精确 loopback origin，admin header 仍只从 0400/0600 regular non-symlink file 读取：
+After dry-run review, start the normal observer alongside the real rollout. It waits for durable
+state to reach `candidate-start`, drives/observes eight real pending classes through loopback
+admin actions, and exclusively writes the ledger passed to rollout as `--worker-ledger` after
+`source-drain-gate.json` passes. The plan's `baseUrl` must be the exact loopback origin; the
+admin header is still read only from a 0400/0600 regular non-symlink file:
 
 ```bash
 node tools/deployment/release-worker-normal-observer.mjs \
@@ -244,9 +378,21 @@ node tools/deployment/release-worker-normal-observer.mjs \
   --timeout-ms 900000
 ```
 
-Observer 的 start/status/finalize 响应必须绑定 rollout ID、source/target release/digest/slot/generation，显式 `destructive=false`，且保持精确有序八类事件；第九类 forced-source event、静态 pass JSON、qualification ledger、提前于 drain 的 final observation 和截断错误列表都会失败。
+Observer start/status/finalize responses must bind rollout ID, source/target release/digest/slot/
+generation, explicitly set `destructive=false`, and preserve exactly ordered events in eight
+classes. A ninth forced-source event, static pass JSON, qualification ledger, final observation
+before drain, or truncated error list fails.
 
-不要把上述 `release-worker-normal-observer.mjs` 与 `release-worker-observer-service.mjs` 混为一体。前者是正常 rollout 旁路观察器；后者只由 `zero-downtime-rehearsal.sh` 在隔离 `Test` 拓扑中按 deploy/rollback/resume、qualification、fault 和 SIGKILL/resume 阶段临时启动。演练脚本复制私有 `workers.observerEnvFile` 到 mode-0600 service root，以独立 process group 监听 loopback，并在成功、失败、中断恢复和 teardown 时停止该服务；提前退出或无法停止都会使演练失败。生产不得设置 `ASPNETCORE_ENVIRONMENT=Test`、`FSUSBLOG_ROLLOUT_REHEARSAL=1`、`FSUSBLOG_WORKER_OBSERVER_ENABLED=1` 或任何 `FSUSBLOG_WORKER_OBSERVER_*`，也不得把该服务注册成常驻 daemon。
+Do not conflate `release-worker-normal-observer.mjs` with
+`release-worker-observer-service.mjs`. The former is the normal-rollout sidecar observer; the
+latter is started temporarily only by `zero-downtime-rehearsal.sh` in an isolated `Test`
+topology for deploy/rollback/resume, qualification, fault, and SIGKILL/resume stages. The
+rehearsal copies private `workers.observerEnvFile` to a mode-0600 service root, listens on
+loopback in an independent process group, and stops the service on success, failure,
+interruption recovery, and teardown; premature exit or inability to stop it fails the rehearsal.
+Production must not set `ASPNETCORE_ENVIRONMENT=Test`, `FSUSBLOG_ROLLOUT_REHEARSAL=1`,
+`FSUSBLOG_WORKER_OBSERVER_ENABLED=1`, or any `FSUSBLOG_WORKER_OBSERVER_*`, nor register this
+service as a resident daemon.
 
 ```bash
 tools/deployment/zero-downtime-rehearsal.sh \
@@ -254,18 +400,27 @@ tools/deployment/zero-downtime-rehearsal.sh \
   --mode all
 ```
 
-Qualification 使用九类 ledger 和 file handshake，完成后 teardown；随后必须创建 fresh normal rollout，使用不同 rollout ID、相同 target release/digest。Qualification v2 hash-binds qualification control、ledger、resource policy、reconciliation 与 distinct normal state。不得在 production source container 上强杀，不得把 qualification ledger 当 normal ledger，也不得复用历史 state/evidence。
+Qualification uses nine ledger classes and a file handshake, then tears down. Afterwards, create
+a fresh normal rollout with a different rollout ID and the same target release/digest.
+Qualification v2 hash-binds qualification control, ledger, resource policy, reconciliation, and
+distinct normal state. Never force-kill the production source container, treat a qualification
+ledger as a normal ledger, or reuse historical state/evidence.
 
-### Evidence bundle 与 closeout
+<a id="evidence-bundle-与-closeout"></a>
+### Evidence bundle and closeout
 
-Final evidence 只允许六类 artifact：`publicTraffic`、`notificationStream`、`assetCompatibility`、`workerReconciliation`、`resourceBudget`、`faultInjection`。它必须 seal 15 stages、全部 attempts 与 recoveries，随后 read-back verify。收集时设置：
+Final evidence allows only six artifact classes: `publicTraffic`, `notificationStream`,
+`assetCompatibility`, `workerReconciliation`, `resourceBudget`, and `faultInjection`. It must
+seal 15 stages, all attempts and recoveries, then perform read-back verification. Set:
 
 ```bash
 export FSUSBLOG_RELEASE_ROLLOUT_EVIDENCE=/var/lib/fsusblog/deployment/rollouts/<rollout-id>/evidence/release-rollout.json
 tools/operations/collect-release-evidence.sh
 ```
 
-Collector 通过 `collect-release-rollout-bundle.mjs` 只复制 final evidence、15-stage command evidence、sealed recoveries 和六类 hash-bound artifacts，生成 `release-rollout-bundle/bundle-index.json`。需要单独导出时可运行：
+The collector uses `collect-release-rollout-bundle.mjs` to copy only final evidence, 15-stage
+command evidence, sealed recoveries, and the six hash-bound artifacts, producing
+`release-rollout-bundle/bundle-index.json`. For a separate export, run:
 
 ```bash
 node tools/operations/collect-release-rollout-bundle.mjs \
@@ -273,23 +428,49 @@ node tools/operations/collect-release-rollout-bundle.mjs \
   --output /run/fsus/handoff/release-rollout-bundle
 ```
 
-目标目录必须不存在；symlink、path escape、seal 后漂移、未引用文件或第七类 artifact 均失败。Release manifest 的 `evidenceSummary.operations.releaseRollout` 及 bundle semantic check 必须为 `ok`，但这仍不替代真实 DNS/firewall/live exposure 和 `--require-ok` closeout。
+The target directory must not exist; symlinks, path escapes, post-seal drift, unreferenced files,
+or a seventh artifact class all fail. The release manifest's
+`evidenceSummary.operations.releaseRollout` and bundle semantic check must be `ok`, but this
+does not replace real DNS/firewall/live exposure or `--require-ok` closeout.
 
-### 风险、无需重启回退与场景覆盖
+<a id="风险-无需重启回退与场景覆盖"></a>
+### Risks, no-restart rollback, and scenario coverage
 
-- 切流前失败：source 保持 Active，停止 candidate；修复输入后以同 state resume，或在明确 terminal outcome 后使用新 rollout。
-- 切流已激活但未 commit/未过 post-switch gates：恢复 source include，以新的单调 generation 重启/激活 source，并 CAS-drain target；无法证明两者时保留 `rollback_required`。
-- Traffic 已 commit、source drain 失败：保持 target Active，阻断 closeout并处理旧 inactive source；不自动反向切流。
-- Expand/Backfill：保留 N/N-1 bridge；Backfill 只暂停 durable token，不需要重启。Contract 执行前可停止命令；Contract 执行后只能隔离写路径并恢复 verified backup，不能靠 image rollback 重建数据。
-- Asset/derived 异常：停止 applied GC、继续保护 N-1，重建当前 release generation；不得恢复 mutable `current` 路径或删除 active/previous release。
+- Failure before traffic switch: keep the source Active and stop the candidate; fix inputs and
+  resume with the same state, or use a new rollout after an explicit terminal outcome.
+- Switch activated but not committed or post-switch gates not passed: restore source include,
+  restart/activate source with a new monotonic generation, and CAS-drain target; retain
+  `rollback_required` when neither can be proven.
+- Traffic committed but source drain failed: keep target Active, block closeout, and handle the
+  old inactive source; do not automatically switch back.
+- Expand/Backfill: retain the N/N-1 bridge; Backfill pauses only the durable token and needs no
+  restart. Stop the command before Contract; after destructive Contract, isolate the write path
+  and restore the verified backup, because image rollback cannot recreate data.
+- Asset/derived failure: stop applied GC, continue protecting N-1, and rebuild the current
+  release generation; do not restore mutable `current` paths or delete the active/previous release.
 
-Traffic scenario 和 release acceptance 必须覆盖：匿名主页/归档/文章/搜索/static/Binary；登录、refresh、protected read 与 write；admin health/control；notification stream 1012 reconnect、cursor replay、replay miss full resync、slow-client drain；上传以及 AEDS Binary frame。部署 502/503/504、未标记 5xx、连接失败、timeout 和 aborted in-flight 都是发布错误；只有明确 `X-Fsus-Error-Class: business` 且 error code 在 scenario allowlist 中的业务 5xx 可单独分类。
+Traffic scenario and release acceptance must cover anonymous home/archive/article/search/static/
+Binary; login, refresh, protected read and write; admin health/control; notification-stream
+1012 reconnect, cursor replay, replay-miss full resync, slow-client drain; uploads; and AEDS
+Binary frames. Deployment 502/503/504, unclassified 5xx, connection failures, timeouts, and
+aborted in-flight requests are release errors; only business 5xx with explicit
+`X-Fsus-Error-Class: business` and an error code in the scenario allowlist may be separately
+classified.
 
 ## Comment Length Policy
 
-评论长度由后台“匿名评论策略”统一控制，默认 `1000` 字符 / UTF-8 `4096` bytes。管理员可在 `/user/manage/moderation/anonymous-policy` 把上限提高到最多 `3000` 字符 / UTF-8 `12288` bytes；提交需要 admin-sensitive step-up，服务端会写高价值审计并触发现有 anonymous comment policy cache invalidation。
+Comment length is centrally controlled by the backend's “anonymous comment policy”, defaulting
+to `1000` characters / UTF-8 `4096` bytes. An administrator may raise the limit at
+`/user/manage/moderation/anonymous-policy` to at most `3000` characters / UTF-8 `12288` bytes;
+submission requires an admin-sensitive step-up, and the server writes high-value audit data
+and triggers the existing anonymous comment policy cache invalidation.
 
-回退无需重启：把策略改回 `1000/4096` 后，新的公开署名和强匿名评论立即按该策略校验；已发布评论不做字符串截断，展示层仍按渲染高度默认折叠长评论。无论策略如何调整，评论 Markdown 禁用图片、raw HTML、危险链接、LaTeX 和 Mermaid 的安全边界不变，创建 frame 仍受 16 KiB payload 上限保护。
+Rollback needs no restart: after restoring the policy to `1000/4096`, new public-attributed and
+strictly anonymous comments are validated against it immediately; published comments are not
+string-truncated, and the display layer still collapses long comments by rendered height by
+default. Regardless of policy changes, the comment-Markdown security boundary still disables
+images, raw HTML, dangerous links, LaTeX, and Mermaid, and frame creation remains protected by
+the 16 KiB payload limit.
 
 ## Rights V3 Public Artifact Cutover
 
@@ -493,7 +674,19 @@ The smoke records automated `verifiedCoverage` for anonymous public pages, feeds
 
 ## Release Evidence
 
-测试证据先按 `correctness`、`browser-contract` 与 `diagnostic` 分层。普通 PR 和 `production-correctness` 必须保持零浏览器。九个 release logical domain 各自生成独立 projection receipt；`release-final` 额外消费一个 source/build/digest 绑定的 Browser Contract receipt，并只从其中精确的七份 correctness projection receipt 读取历史发布断言。RBAC negative 与 AOT consumption 两份独立 diagnostic projection receipt 不是 target-only closeout evidence，也不能改变 Production Summary。所有 projection consumer 均不回读 producer artifact 或执行 fallback。nightly/manual diagnostics 使用独立 receipt、artifact 与 retention。浏览器安装/launch/crash/disconnect、runner OOM/PID/FD exhaustion 和 fixture/bootstrap failure 记为 `infra-failure`，不能伪装成产品断言，也不能通过整套自动重试变成 clean pass。release-domain 集合与回执边界见 [`testing/release-domain-projection-ledger.md`](testing/release-domain-projection-ledger.md)，操作与回退顺序见 [`testing/issue-1151-evidence-governance.md`](testing/issue-1151-evidence-governance.md)。
+Test evidence is layered as `correctness`, `browser-contract`, and `diagnostic`. Ordinary
+PRs and `production-correctness` must remain browserless. Each of the nine release logical
+domains generates an independent projection receipt; `release-final` additionally consumes a
+source/build/digest-bound Browser Contract receipt and reads historical release assertions
+only from its exact seven correctness projection receipts. The two independent diagnostic
+projection receipts for RBAC negative and AOT consumption are not target-only closeout evidence
+and cannot change Production Summary. Projection consumers never reread producer artifacts or
+execute fallbacks. Nightly/manual diagnostics use separate receipts, artifacts, and retention.
+Browser install/launch/crash/disconnect, runner OOM/PID/FD exhaustion, and fixture/bootstrap
+failure are recorded as `infra-failure`; they cannot be disguised as product assertions or
+turned into a clean pass through full-suite automatic retries. The release-domain set and
+receipt boundary are in [`testing/release-domain-projection-ledger.md`](testing/release-domain-projection-ledger.md);
+operation and rollback order are in [`testing/issue-1151-evidence-governance.md`](testing/issue-1151-evidence-governance.md).
 
 Collect machine-readable release evidence after gates and smoke:
 
@@ -582,46 +775,84 @@ When rotating `Moderation:RegionPolicy:IpHashKey`, old `comment_region_complianc
 
 ## PerceptionCharacterV3 stop and recovery
 
-正式切换只能由 `release-rollout.sh` 在 `source-drain` 的 active-release fence 内调用
-`invoke-perception-character-v3-cutover.mjs`。输入必须是当前构建生成的
-`perception-character-v3-release-target.json`、candidate 实际加载的 immutable pool
-`manifest.json` 与当前 RiskControl `PolicyVersion`；禁止手工调用 endpoint、分步开放 marker，
-或复用通用 challenge-kind operation id。命令先写 mode 0600 receipt，再要求
-`status=activated`；同一 operation id 重试只读取 durable mutation/receipt。receipt 只含数量、
-digest 与 release/slot/generation/contract/schema/policy/pool 绑定，不含 challenge ID、answer、
-token、media、IP、device 或 user material。
+Formal cutover may only invoke `invoke-perception-character-v3-cutover.mjs` from
+`release-rollout.sh` inside the `source-drain` active-release fence. Inputs must be the
+current-build `perception-character-v3-release-target.json`, the immutable pool
+`manifest.json` actually loaded by the candidate, and the current RiskControl `PolicyVersion`;
+do not call the endpoint manually, open the marker in steps, or reuse a generic
+challenge-kind operation ID. The command first writes a mode-0600 receipt, then requires
+`status=activated`; retrying the same operation ID only reads the durable mutation/receipt.
+The receipt contains only counts and release/slot/generation/contract/schema/policy/pool
+bindings, not challenge ID, answer, token, media, IP, device, or user material.
 
-1. 热更新 `Security:PerceptionCharacterV3:Resources:AllocationsEnabled=false`，并从 RiskControl policy 移除 `perceptionCharacterV3`；前者让下一次 planner decision 立即按 action disposition queue/fail closed，后者停止新的 ordered assignment，均无需重启。
-2. 对 active envelope 调用 binary cancel/revocation；确认 audit 中 terminal state 为 `revoked`，不要删除 Redis key 或重置 attempts。
-3. renderer/Redis/crypto 故障时保持公开 `unavailable`，不得切到退休 challenge、JSON 或本地进程内 attempt state。
-4. key ring 故障使用独立 V3 token/answer ring 的上一有效 version 修正 secret 后滚动重启。两个 ring 的任何 key material 都不得相等；未知旧 version 的 active token保持 fail closed。
+1. Hot-reload `Security:PerceptionCharacterV3:Resources:AllocationsEnabled=false` and remove
+   `perceptionCharacterV3` from the RiskControl policy; the former makes the next planner
+   decision immediately queue/fail closed by action disposition, while the latter stops new
+   ordered assignments; neither requires a restart.
+2. Call binary cancel/revocation on the active envelope; confirm the audit terminal state is
+   `revoked`; do not delete the Redis key or reset attempts.
+3. Keep the public state `unavailable` on renderer/Redis/crypto failure; do not switch to a
+   retired challenge, JSON, or in-process attempt state.
+4. For key-ring failure, correct the secret with the previous valid version of the independent
+   V3 token/answer ring, then rolling-restart. Key material in the two rings must never be equal;
+   an active token with an unknown old version remains fail closed.
 
-切换后的无重启回退只有上述 allocation disable 与移除 V3 policy 两种路径；不得恢复旧 pool
-generation、旧 parser/codec/state reader、旧前端资产或旧 contract feature flag。active fence、
-receipt、marker、pool 或 policy 任一不一致时保持 V3 closed，其他明确配置的 challenge kind、
-authentication、admin、notification stream 与 binary API 继续按各自策略运行。
+The only no-restart rollback after cutover is the two paths above: disable allocation and remove
+the V3 policy. Do not restore the old pool generation, parser/codec/state reader, frontend
+assets, or contract feature flag. Keep V3 closed if any active fence, receipt, marker, pool, or
+policy is inconsistent; other explicitly configured challenge kinds, authentication, admin,
+notification stream, and Binary API continue under their own policies.
 
-恢复 allocation 前检查 active generation 的 visual/audio/total ready、watermark、leased/burned、revocation/corruption、minute/rolling-hour lease 与 exact-byte egress budget；不要通过删除 operation fence、burn marker 或 budget key制造“可用容量”。离线补充只在低于 high watermark、无 CPU/memory/I/O/latency pressure 时按单次 entries/bytes 上限执行，失败的 staging generation 不得替换 active generation。
+Before restoring allocation, check the active generation's visual/audio/total ready,
+watermark, leased/burned, revocation/corruption, minute/rolling-hour lease, and exact-byte
+egress budget; do not manufacture “available capacity” by deleting an operation fence, burn
+marker, or budget key. Offline replenishment is allowed only below the high watermark and
+without CPU/memory/I/O/latency pressure, subject to per-run entries/bytes limits; a failed
+staging generation must not replace the active generation.
 
-部署 resource-planner candidate 前必须用当前离线 builder 生成带 additive `artifactBytes` 的 manifest v1 generation，并让 candidate 指向该 generation；旧 runtime 会忽略 additive 字段，因此仍可回切。candidate 不接受缺少 exact-byte metadata 的旧 generation，不能用 ciphertext length 或上线后解码估算补齐。
+Before deploying a resource-planner candidate, the current offline builder must generate a
+manifest v1 generation with additive `artifactBytes`, and the candidate must point to it; old
+runtime ignores the additive field, so rollback remains possible. The candidate rejects an old
+generation missing exact-byte metadata; do not fill it from ciphertext length or post-deployment
+decode estimates.
 
-匿名 device authority 的 Redis keys 与 challenge state 同属 fail-closed 基础设施；不要只清理 device lease 或 IP→device 映射中的一侧。cookie 丢失时同一 pseudonymous IP 复用权威租约，伪造 UUID 不会自动创建新 bucket。spoken atlas 由 embedded JSON 提供，startup 完整性失败时不得回退到 runtime TTS、Morse、索引音调或 V2 audio。
+Anonymous device-authority Redis keys and challenge state are both fail-closed infrastructure;
+do not clean only one side of the device lease or IP→device mapping. If a cookie is lost, the
+same pseudonymous IP reuses the authoritative lease; a forged UUID does not automatically
+create a new bucket. The spoken atlas is provided by embedded JSON; on startup-integrity
+failure, do not fall back to runtime TTS, Morse, index tones, or V2 audio.
 
-spoken atlas 的可复现输入是 `perception-character-v3-spoken-atlas-source.json` 与仓库内 `tests/fixtures/security/perception-character-v3-spoken-atlas-source-wav/*.wav`：逐 symbol 固定 SSML、spoken label、eSpeak source-WAV hash、resampled PCM hash/length；独立 golden 文件再绑定 source manifest 与最终 atlas 的 SHA-256。常规验收执行 `node tools/contracts/generate-perception-character-v3-spoken-atlas.mjs --check`，完全离线读取受控 WAV，重新 trim/resample 并逐层比对 PCM 与最终 atlas，不要求本机安装 TTS。只有明确更新权威语音源时才使用 eSpeak NG **1.51** 执行 `--regenerate-source --espeak-ng <path>`；脚本固定 `-m -v en-us -s 135 -p 45 -a 150` 并重写 WAV/source/output/golden，随后必须审阅所有 binary/hash 变化。
+The reproducible spoken-atlas inputs are `perception-character-v3-spoken-atlas-source.json`
+and the repository's `tests/fixtures/security/perception-character-v3-spoken-atlas-source-wav/*.wav`:
+fixed per-symbol SSML, spoken label, eSpeak source-WAV hash, and resampled PCM hash/length;
+an independent golden file then binds the source manifest and final atlas SHA-256. Normal
+verification runs `node tools/contracts/generate-perception-character-v3-spoken-atlas.mjs --check`,
+reads controlled WAVs fully offline, retrims/resamples them, and compares PCM and final atlas
+layer by layer; local TTS installation is not required. Only when explicitly updating the
+authoritative voice source may eSpeak NG **1.51** run
+`--regenerate-source --espeak-ng <path>`; the script fixes `-m -v en-us -s 135 -p 45 -a 150`
+and rewrites WAV/source/output/golden, after which every binary/hash change must be reviewed.
 
-本地验收先运行 `tools/test/perception-character-v3-redis-fixture.sh`，它使用一次性 Redis 7 container 验证并发 correct/incorrect、两次上限、replay、expiry、revoke、binding substitution 与 unavailable fail-closed；随后运行 targeted backend suite 和 protocol vector generator `--check`。
+For local verification, first run `tools/test/perception-character-v3-redis-fixture.sh`; it
+uses a disposable Redis 7 container to verify concurrent correct/incorrect attempts, the two
+limits, replay, expiry, revoke, binding substitution, and unavailable fail-closed behavior;
+then run the targeted backend suite and protocol vector generator `--check`.
 ## Host-local Production capacity reservation
 
-FsusBlog 与同主机上的 FsusUI Production run 必须配置同一个
-`FSUS_PRODUCTION_CAPACITY_AUTHORITY_ROOT`。该目录必须位于各 repository、`.tmp`、run output、
-build root 和 cache holding root 之外，并由当前操作账号独占。authority unavailable、journal
-digest 不符、owner identity 不完整或 filesystem identity 不明确时，不得先清理现场再重试。
+FsusBlog and the FsusUI Production run on the same host must configure the same
+`FSUS_PRODUCTION_CAPACITY_AUTHORITY_ROOT`. This directory must be outside each repository,
+`.tmp`, run output, build root, and cache holding root, and exclusively owned by the current
+operator account. If the authority is unavailable, the journal digest does not match, owner
+identity is incomplete, or filesystem identity is unclear, do not clean up the workspace before
+retrying.
 
-恢复 unfinished reservation 时核验 PID start identity、executable/command digest、run/candidate、
-repository lease以及完整 process tree/Windows Job Object。owner 已终止但仍有 descendant 时继续
-阻塞；只有完整 tree 零残留时才能原子归档为 aborted。不得按 PID、进程名或 mtime 猜测回收。
+When recovering an unfinished reservation, verify PID start identity, executable/command digest,
+run/candidate, repository lease, and the complete process tree/Windows Job Object. Continue to
+block when the owner has terminated but descendants remain; atomically archive as aborted only
+when the complete tree has zero residue. Never guess reclamation by PID, process name, or mtime.
 
-容量故障不需要重启应用：停止当前 Production Fresh，保留 checkpoint、logs、partial evidence
-和 host-local failure/release receipt，补充主机容量或修正 authoritative estimator，然后用新
-run ID 执行。禁止删除历史 evidence/cache、启动 GC 或扩大 reservation 来延续已经发生
-external-capacity-loss / estimator-under-declared 的 run。
+Capacity failure does not require an application restart: stop the current Production Fresh,
+retain the checkpoint, logs, partial evidence, and host-local failure/release receipt, add host
+capacity or correct the authoritative estimator, then run with a new run ID. Do not delete
+historical evidence/cache, start GC, or enlarge the reservation to continue a run that already
+experienced `external-capacity-loss` / `estimator-under-declared`.

@@ -1,74 +1,74 @@
 [
   {
-    "id": "N01-non-ui-implementer",
-    "expectedCode": "blog-ui-implementer-role"
-  },
-  {
-    "id": "N02-overlapping-ui-owner",
-    "expectedCode": "blog-ui-owner-overlap"
-  },
-  {
-    "id": "N03-unsliced-complete-page",
-    "expectedCode": "blog-ui-reslice-required"
-  },
-  {
-    "id": "N04-prompt-missing-first-action",
-    "expectedCode": "blog-ui-prompt-incomplete"
-  },
-  {
-    "id": "N05-prescribed-sol-medium",
-    "expectedCode": "blog-ui-route-mismatch"
-  },
-  {
-    "id": "N06-ui-implementer-sol-high",
-    "expectedCode": "blog-ui-route-mismatch"
-  },
-  {
-    "id": "N07-output-missing-promotes-high",
-    "expectedCode": "blog-ui-recovery-not-material"
-  },
-  {
-    "id": "N08-long-horizon-not-resliced",
-    "expectedCode": "blog-ui-reslice-required"
-  },
-  {
-    "id": "N09-dispute-bypasses-adjudication",
-    "expectedCode": "blog-ui-adjudication-required"
-  },
-  {
-    "id": "N10-adjudicator-writes-css",
-    "expectedCode": "blog-ui-adjudicator-read-only"
-  },
-  {
-    "id": "N11-model-uncertainty-human-gate",
-    "expectedCode": "blog-ui-human-gate-ineligible"
-  },
-  {
-    "id": "N12-model-chooses-product-direction",
-    "expectedCode": "blog-ui-human-decision-required"
-  },
-  {
-    "id": "N13-human-decision-direct-ux-green",
-    "expectedCode": "blog-ui-human-decision-revalidation"
-  },
-  {
-    "id": "N14-missing-skill-baseline-route-digest",
+    "id": "N01-classification-skill-digest-missing",
     "expectedCode": "blog-ui-authority-binding"
   },
   {
-    "id": "N15-consumer-private-selector-workaround",
+    "id": "N02-classification-candidate-drift",
+    "expectedCode": "blog-ui-authority-binding"
+  },
+  {
+    "id": "N03-classification-policy-drift",
+    "expectedCode": "blog-ui-domain-policy-binding"
+  },
+  {
+    "id": "N04-system-dispute-without-matching-adjudication",
+    "expectedCode": "blog-ui-adjudication-binding"
+  },
+  {
+    "id": "N05-adjudication-modifies-component",
+    "expectedCode": "blog-ui-adjudicator-read-only"
+  },
+  {
+    "id": "N06-adjudication-policy-drift",
+    "expectedCode": "blog-ui-domain-policy-binding"
+  },
+  {
+    "id": "N07-ux-accepted-with-blocker",
+    "expectedCode": "blog-ui-ux-acceptance-binding"
+  },
+  {
+    "id": "N08-ux-rejected-without-blocker",
+    "expectedCode": "blog-ui-ux-acceptance-binding"
+  },
+  {
+    "id": "N09-ux-verification-class-drift",
+    "expectedCode": "blog-ui-ux-acceptance-binding"
+  },
+  {
+    "id": "N10-ux-candidate-drift",
+    "expectedCode": "blog-ui-ux-acceptance-binding"
+  },
+  {
+    "id": "N11-ux-verifier-writes-component",
+    "expectedCode": "blog-ui-ux-acceptance-binding"
+  },
+  {
+    "id": "N12-ux-policy-drift",
+    "expectedCode": "blog-ui-domain-policy-binding"
+  },
+  {
+    "id": "N13-consumer-private-selector-workaround",
     "expectedCode": "blog-ui-consumer-workaround"
   },
   {
-    "id": "N16-behavior-green-skips-ux",
+    "id": "N14-missing-fsusui-skill",
+    "expectedCode": "blog-ui-authority-binding"
+  },
+  {
+    "id": "N15-behavior-green-skips-ux",
     "expectedCode": "blog-ui-ux-acceptance-required"
   },
   {
-    "id": "N17-narrative-checkpoint",
-    "expectedCode": "blog-ui-checkpoint-evidence"
+    "id": "N16-overlapping-ui-owner",
+    "expectedCode": "blog-ui-owner-overlap"
   },
   {
-    "id": "N18-partial-slice-candidate-green",
-    "expectedCode": "blog-ui-partial-candidate-green"
+    "id": "N17-baseline-identity-drift",
+    "expectedCode": "blog-ui-baseline-identity"
+  },
+  {
+    "id": "N18-orchestration-fields-in-receipt",
+    "expectedCode": "blog-ui-orchestration-authority-leak"
   }
 ]

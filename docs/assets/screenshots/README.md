@@ -46,7 +46,7 @@ regions instead of applying an automatic darkening filter. A missing or blank
 cover URL renders the complete text hierarchy without an empty media box.
 
 The Do/Don't examples and full review checklist live in
-[`public-layout-rules.md`](../../public-layout-rules.md#12-内容驱动的封面规范).
+[`public-layout-rules.md`](../../public-layout-rules.md#12-content-driven-covers).
 
 ## Brand And Asset Rights
 

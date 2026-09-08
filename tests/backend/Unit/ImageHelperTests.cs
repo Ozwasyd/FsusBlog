@@ -218,16 +218,18 @@ public sealed class ImageHelperTests
 
     // ─── GetFirstIllustration ─────────────────────────────────────────────
 
-    [Fact]
-    public void GetFirstIllustration_EmptyContent_ReturnsNull()
+    [Theory]
+    [InlineData("empty-content", "")]
+    [InlineData("plain-content-no-image", "# No images here")]
+    public void GetFirstIllustration_ContentWithoutIllustration_ReturnsNull(string caseName, string content)
     {
-        Assert.Null(ImageHelper.GetFirstIllustration(""));
-    }
+        Assert.True(
+            caseName is "empty-content" or "plain-content-no-image",
+            $"Unexpected no-illustration case '{caseName}'.");
 
-    [Fact]
-    public void GetFirstIllustration_NoIllustration_ReturnsNull()
-    {
-        Assert.Null(ImageHelper.GetFirstIllustration("# No images here"));
+        string? result = ImageHelper.GetFirstIllustration(content);
+
+        Assert.Null(result);
     }
 
     [Fact]
