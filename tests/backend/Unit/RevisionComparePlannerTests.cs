@@ -300,6 +300,28 @@ public sealed class RevisionComparePlannerTests
     }
 
     [Fact]
+    public void PackageSeal_RejectsUnknownSnapshotKind()
+    {
+        RevisionCompareSnapshot[] snapshots = Snapshots();
+        snapshots[2] = RevisionCompareSnapshot.NotApplicable((RevisionCompareSnapshotKind)int.MaxValue);
+
+        RevisionCompareContractException error = Assert.Throws<RevisionCompareContractException>(() =>
+            RevisionComparePackageSeal.Create(
+                7,
+                RevisionCompareSourceKind.HistoricalRevision,
+                "revision:11",
+                11,
+                1,
+                null,
+                null,
+                Encoding.UTF8.GetBytes("base"),
+                Metadata(),
+                snapshots));
+
+        Assert.Equal("revision_compare_snapshot_set_invalid", error.Code);
+    }
+
+    [Fact]
     public async Task CreateAsync_AdmitsDraftAgainstHistoricalWithExactEpochAndSourceRevision()
     {
         RevisionComparePackage draft = DraftPackage("epoch-a", 4, "draft body");

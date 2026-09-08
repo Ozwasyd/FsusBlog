@@ -265,6 +265,124 @@ public sealed class AuthoringRevisionComparePackageReaderTests
         Assert.Null(result.Context);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task DraftContextAuthority_ReturnsInvalidForMalformedSnapshotSet(bool duplicateRights)
+    {
+        var request = new AuthoringRevisionCompareDraftContextRequest(
+            Context(),
+            7,
+            "draft-key",
+            3,
+            "document-epoch-3",
+            RightsPayloadDigest());
+        RevisionCompareSnapshot rights = RevisionCompareSnapshot.Present(
+            RevisionCompareSnapshotKind.Rights,
+            "draft-rights:external:3",
+            1,
+            JsonSerializer.SerializeToUtf8Bytes(Draft(7, 3, "client-write-3").Rights));
+        RevisionCompareSnapshot malformed = duplicateRights
+            ? rights
+            : RevisionCompareSnapshot.NotApplicable((RevisionCompareSnapshotKind)int.MaxValue);
+        AuthoringRevisionCompareDraftContext context = AuthoringRevisionCompareDraftContextAuthority.Seal(
+            request,
+            [
+                rights,
+                RevisionCompareSnapshot.NotApplicable(RevisionCompareSnapshotKind.Responsibility),
+                RevisionCompareSnapshot.NotApplicable(RevisionCompareSnapshotKind.Release)
+            ]) with
+        {
+            Snapshots = new RevisionCompareSnapshot[]
+            {
+                rights,
+                RevisionCompareSnapshot.NotApplicable(RevisionCompareSnapshotKind.Responsibility),
+                malformed
+            }
+        };
+        IAuthoringRevisionCompareDraftContextProvider provider = Substitute.For<IAuthoringRevisionCompareDraftContextProvider>();
+        provider.ReadAsync(request, Arg.Any<CancellationToken>()).Returns(
+            new AuthoringRevisionCompareDraftContextResult(RevisionComparePackageReadStatus.Available, context));
+        var authority = new AuthoringRevisionCompareDraftContextAuthority([provider]);
+
+        AuthoringRevisionCompareDraftContextResult result = await authority.ReadAsync(request, default);
+
+        Assert.Equal(RevisionComparePackageReadStatus.Invalid, result.Status);
+        Assert.Null(result.Context);
+    }
+
+    [Fact]
+    public async Task DraftContextAuthority_SealCopiesCallerSnapshotList()
+    {
+        var request = new AuthoringRevisionCompareDraftContextRequest(
+            Context(),
+            7,
+            "draft-key",
+            3,
+            "document-epoch-3",
+            RightsPayloadDigest());
+        RevisionCompareSnapshot rights = RevisionCompareSnapshot.Present(
+            RevisionCompareSnapshotKind.Rights,
+            "draft-rights:external:3",
+            1,
+            JsonSerializer.SerializeToUtf8Bytes(Draft(7, 3, "client-write-3").Rights));
+        RevisionCompareSnapshot[] snapshots =
+        [
+            rights,
+            RevisionCompareSnapshot.NotApplicable(RevisionCompareSnapshotKind.Responsibility),
+            RevisionCompareSnapshot.NotApplicable(RevisionCompareSnapshotKind.Release)
+        ];
+        AuthoringRevisionCompareDraftContext context = AuthoringRevisionCompareDraftContextAuthority.Seal(
+            request,
+            snapshots);
+        snapshots[0] = RevisionCompareSnapshot.NotApplicable(RevisionCompareSnapshotKind.Rights);
+        IAuthoringRevisionCompareDraftContextProvider provider = Substitute.For<IAuthoringRevisionCompareDraftContextProvider>();
+        provider.ReadAsync(request, Arg.Any<CancellationToken>()).Returns(
+            new AuthoringRevisionCompareDraftContextResult(RevisionComparePackageReadStatus.Available, context));
+        var authority = new AuthoringRevisionCompareDraftContextAuthority([provider]);
+
+        AuthoringRevisionCompareDraftContextResult result = await authority.ReadAsync(request, default);
+
+        Assert.Equal(RevisionComparePackageReadStatus.Available, result.Status);
+        Assert.Same(rights, Assert.Single(result.Context!.Snapshots, static snapshot =>
+            snapshot.Kind == RevisionCompareSnapshotKind.Rights));
+    }
+
+    [Fact]
+    public async Task DraftContextAuthority_ReturnsInvalidForNullSnapshotSet()
+    {
+        var request = new AuthoringRevisionCompareDraftContextRequest(
+            Context(),
+            7,
+            "draft-key",
+            3,
+            "document-epoch-3",
+            RightsPayloadDigest());
+        AuthoringRevisionCompareDraftContext context = AuthoringRevisionCompareDraftContextAuthority.Seal(
+            request,
+            [
+                RevisionCompareSnapshot.Present(
+                    RevisionCompareSnapshotKind.Rights,
+                    "draft-rights:external:3",
+                    1,
+                    JsonSerializer.SerializeToUtf8Bytes(Draft(7, 3, "client-write-3").Rights)),
+                RevisionCompareSnapshot.NotApplicable(RevisionCompareSnapshotKind.Responsibility),
+                RevisionCompareSnapshot.NotApplicable(RevisionCompareSnapshotKind.Release)
+            ]) with
+        {
+            Snapshots = null!
+        };
+        IAuthoringRevisionCompareDraftContextProvider provider = Substitute.For<IAuthoringRevisionCompareDraftContextProvider>();
+        provider.ReadAsync(request, Arg.Any<CancellationToken>()).Returns(
+            new AuthoringRevisionCompareDraftContextResult(RevisionComparePackageReadStatus.Available, context));
+        var authority = new AuthoringRevisionCompareDraftContextAuthority([provider]);
+
+        AuthoringRevisionCompareDraftContextResult result = await authority.ReadAsync(request, default);
+
+        Assert.Equal(RevisionComparePackageReadStatus.Invalid, result.Status);
+        Assert.Null(result.Context);
+    }
+
     [Fact]
     public async Task ReadAuthorizedAsync_RejectsOversizedDraftBeforeContextOrByteCopy()
     {

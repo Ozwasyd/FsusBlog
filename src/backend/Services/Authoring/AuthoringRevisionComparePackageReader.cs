@@ -105,8 +105,27 @@ public sealed class AuthoringRevisionCompareDraftContextAuthority(
                 Context = null
             };
         }
-        return DraftContextMatches(request, result.Context)
-            ? result
+        if (result.Context.Snapshots is null)
+        {
+            return new AuthoringRevisionCompareDraftContextResult(
+                RevisionComparePackageReadStatus.Invalid,
+                null);
+        }
+        AuthoringRevisionCompareDraftContext context = result.Context with
+        {
+            Snapshots = FreezeSnapshots(result.Context.Snapshots)
+        };
+        if (!SnapshotSetValid(context.Snapshots))
+        {
+            return new AuthoringRevisionCompareDraftContextResult(
+                RevisionComparePackageReadStatus.Invalid,
+                null);
+        }
+        return DraftContextMatches(request, context)
+            ? result with
+            {
+                Context = context
+            }
             : new AuthoringRevisionCompareDraftContextResult(RevisionComparePackageReadStatus.Stale, null);
     }
 
@@ -114,7 +133,12 @@ public sealed class AuthoringRevisionCompareDraftContextAuthority(
         AuthoringRevisionCompareDraftContextRequest request,
         IReadOnlyList<RevisionCompareSnapshot> snapshots)
     {
-        string digest = DraftContextDigest(request, snapshots);
+        IReadOnlyList<RevisionCompareSnapshot> frozenSnapshots = FreezeSnapshots(snapshots);
+        if (!SnapshotSetValid(frozenSnapshots))
+        {
+            throw new RevisionCompareContractException("revision_compare_snapshot_set_invalid");
+        }
+        string digest = DraftContextDigest(request, frozenSnapshots);
         return new AuthoringRevisionCompareDraftContext(
             request.Reader.AdminPrincipalId,
             request.Reader.SiteScope,
@@ -123,8 +147,35 @@ public sealed class AuthoringRevisionCompareDraftContextAuthority(
             request.ServerRevision,
             request.DocumentEpoch,
             request.RightsPayloadDigest,
-            snapshots,
+            frozenSnapshots,
             digest);
+    }
+
+    private static IReadOnlyList<RevisionCompareSnapshot> FreezeSnapshots(
+        IReadOnlyList<RevisionCompareSnapshot> snapshots)
+    {
+        ArgumentNullException.ThrowIfNull(snapshots);
+        RevisionCompareSnapshot[] snapshotValues = [.. snapshots];
+        return Array.AsReadOnly(snapshotValues);
+    }
+
+    private static bool SnapshotSetValid(IReadOnlyList<RevisionCompareSnapshot> snapshots)
+    {
+        RevisionCompareSnapshotKind[] expectedKinds = Enum.GetValues<RevisionCompareSnapshotKind>();
+        if (snapshots.Count != expectedKinds.Length)
+        {
+            return false;
+        }
+
+        var foundKinds = new HashSet<RevisionCompareSnapshotKind>();
+        foreach (RevisionCompareSnapshot snapshot in snapshots)
+        {
+            if (snapshot is null || !Enum.IsDefined(snapshot.Kind) || !foundKinds.Add(snapshot.Kind))
+            {
+                return false;
+            }
+        }
+        return foundKinds.Count == expectedKinds.Length;
     }
 
     private static bool DraftContextMatches(

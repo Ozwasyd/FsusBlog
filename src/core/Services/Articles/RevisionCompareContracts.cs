@@ -753,6 +753,7 @@ public static class RevisionCompareContract
 
         if (snapshots.IsDefault
             || snapshots.Length != Enum.GetValues<RevisionCompareSnapshotKind>().Length
+            || snapshots.Any(static item => !Enum.IsDefined(item.Kind))
             || snapshots.Select(static item => item.Kind).Distinct().Count() != snapshots.Length)
         {
             throw new RevisionCompareContractException("revision_compare_snapshot_set_invalid");
