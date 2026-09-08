@@ -282,7 +282,11 @@ internal static partial class PublicWebRuntime
                 ctx.Response.OnStarting(static state =>
                 {
                     var response = (HttpResponse)state;
-                    response.Headers["Cache-Control"] = "no-store";
+                    if (!response.Headers.CacheControl.ToString().Contains("no-store", StringComparison.OrdinalIgnoreCase))
+                    {
+                        response.Headers.CacheControl = "no-store";
+                    }
+
                     response.Headers["Pragma"] = "no-cache";
                     return Task.CompletedTask;
                 }, ctx.Response);
@@ -316,6 +320,7 @@ internal static partial class PublicWebRuntime
 
     internal static void MapFsusApiRoutes(this WebApplication app)
     {
+        app.MapPrivateAssetEndpoints();
         app.MapBinaryEndpoints();
         app.MapAuthoringEndpoints();
         app.MapCspReportEndpoints();
