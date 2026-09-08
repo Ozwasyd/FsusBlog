@@ -446,6 +446,12 @@
             "sourceCommit": "0cb60c4c4ed8606ee79502d5497ce9e55554572a",
             "sourceBlob": "e80abd8513633e69bac9b37d29123fb95d7a0651",
             "sourceMode": "100755"
+        },
+        {
+            "path": "tools/test/lanes/production-correctness-receipt.sh",
+            "sourceCommit": "445d0fdb432e92f349fc02c4a5ff675e838aece6",
+            "sourceBlob": "9a43f733366c9a303bc4e3cc169ca5ab199678e0",
+            "sourceMode": "100755"
         }
     ],
     "sourceHunks": [
@@ -455,6 +461,13 @@
             "begin": "The rollout CLI delegates sealed receipt verification",
             "end": "Synthetic value parity is not evidence that a current producer has the complete closure, schema, path authority or runtime qualification required for release.",
             "selection": "five complete non-generated source paragraphs; all current generated sections retained"
+        },
+        {
+            "path": "tests/tools/post-runtime-accepted-claims.test.mjs",
+            "sourceRevision": "8e229f7220a20b98d150e40eab6caf8ed76fc4ef",
+            "sourceCommit": "0b3d5f58b57fb0349b5bdd95fb81da971bc02031",
+            "selection": "Import validatePostRuntimeReaderFirewall and copy its complete modules list into the existing isolated fixture; retain the current publisher test body.",
+            "resultingBlob": "8b83f1936d25c8b35785c862d24de5d4dd4bede1"
         }
     ],
     "excludedPaths": [
@@ -488,7 +501,6 @@
         "tools/test/bundles/behavior-evidence-pre-runtime.sh",
         "tools/test/correctness-attempt-migration.mjs",
         "tools/test/lanes/behavior-test-evidence.sh",
-        "tools/test/lanes/production-correctness-receipt.sh",
         "tools/test/run-matrix-governance-once.sh"
     ],
     "exclusionPolicy": "No workflow, legacy dump, perception artifact, #2204, generated index or old branch history is imported. Only the separately authorized nine publisher paths are absorbed as exact source content from cca8c810.",

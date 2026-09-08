@@ -8,6 +8,7 @@ import test from 'node:test'
 
 import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs'
 import { sealSourceIdentity } from '../../tools/fact-extractors/identity.mjs'
+import { validatePostRuntimeReaderFirewall } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
 import {
     buildPostRuntimeAcceptedClaimsReceipt,
     readAndValidatePostRuntimeAcceptedClaimsReceipt,
@@ -103,7 +104,8 @@ function fixture(context, { publishWithHook = false } = {})
         'tests/matrix.yml',
         'config/testing/correctness-attempt-producers.json',
         'config/testing/fixture-profile-catalog.json',
-        'tools/fact-extractors/lib/canonicalize.mjs'])
+        'tools/fact-extractors/lib/canonicalize.mjs',
+        ...validatePostRuntimeReaderFirewall(sourceRoot).modules])
     {
         fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true })
         fs.copyFileSync(path.join(sourceRoot, file), path.join(root, file))
