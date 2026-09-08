@@ -261,7 +261,10 @@ public sealed class ReleaseIdentityTests
         var provider = new ReleaseIdentityProvider(CreateConfiguration(
             new Dictionary<string, string?> { ["FSUSBLOG_RELEASE_ID"] = "v1.2.0" }));
 
-        Assert.False(provider.Current.Configured);
+        Assert.True(provider.Current.Configured);
+        ProductionReleaseIdentityHealthCheck health = provider.CreateHealthCheck(requireConfigured: true);
+        Assert.Equal("failed", health.Status);
+        Assert.Equal("release_identity_invalid", health.Error);
     }
 
     [Fact]

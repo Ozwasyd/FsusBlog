@@ -229,8 +229,10 @@ public sealed class PublicAotBootstrapProviderTests
     public void FilterProvider_TagNameCompatibilityResolvesCurrentAndPersistedAliasesToStableId()
     {
         Type provider = typeof(PublicAotFilterBootstrapProvider);
-        string resolver = RuntimeMetadataInspection.DescribeMethods(provider, "ResolveTagIdByNameAsync");
+        string adapter = RuntimeMetadataInspection.DescribeMethods(provider, "ResolveTagIdByNameAsync");
+        string resolver = RuntimeMetadataInspection.DescribeMethods(typeof(PublicTagUrlIdentity), "ResolveCanonicalTagIdentityAsync");
 
+        Assert.Contains("ResolveCanonicalTagIdentityAsync", adapter, StringComparison.Ordinal);
         Assert.Contains("Tag.get_Name", resolver, StringComparison.Ordinal);
         Assert.Contains("Tag.get_Description", resolver, StringComparison.Ordinal);
         Assert.Contains("TagUrlAlias.get_NormalizedName", resolver, StringComparison.Ordinal);
@@ -253,7 +255,10 @@ public sealed class PublicAotBootstrapProviderTests
         Assert.Contains("Tag.get_Name", identity, StringComparison.Ordinal);
         Assert.Contains("Tag.get_Description", identity, StringComparison.Ordinal);
         Assert.Contains("NormalizeFilterDescription", identity, StringComparison.Ordinal);
-        Assert.Contains("Tag.get_Description", tagByName, StringComparison.Ordinal);
+        Assert.Contains("ResolveCanonicalTagIdentityAsync", tagByName, StringComparison.Ordinal);
+        Assert.Contains("CanonicalTagIdentity.get_Description", tagByName, StringComparison.Ordinal);
+        Assert.Contains("Tag.get_Description", RuntimeMetadataInspection.DescribeMethods(
+            typeof(PublicTagUrlIdentity), "ResolveCanonicalTagIdentityAsync"), StringComparison.Ordinal);
         Assert.DoesNotContain("LoadFilterDescription", typeShape, StringComparison.Ordinal);
         Assert.DoesNotContain("GetDescriptionAsync", typeShape, StringComparison.Ordinal);
         Assert.Equal(typeof(string), projection.GetProperty("Name")!.PropertyType);
