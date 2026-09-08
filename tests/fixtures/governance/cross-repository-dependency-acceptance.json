@@ -1,0 +1,44 @@
+{
+  "schema": "fsusblog.cross-repository-dependency-acceptance-fixtures.v1",
+  "now": "2026-09-07T12:00:00Z",
+  "automerge": [
+    { "id": "patch-positive", "facts": { "updateType": "patch" }, "expectMerge": true },
+    { "id": "minor-positive", "facts": { "updateType": "minor" }, "expectMerge": true },
+    { "id": "major-positive", "facts": { "updateType": "major" }, "expectMerge": true },
+    { "id": "check-skipped", "facts": { "updateType": "patch", "checkConclusion": "skipped" }, "expectMerge": false },
+    { "id": "check-neutral", "facts": { "updateType": "patch", "checkConclusion": "neutral" }, "expectMerge": false },
+    { "id": "check-missing", "facts": { "updateType": "patch", "omitCheck": true }, "expectMerge": false },
+    { "id": "check-failed", "facts": { "updateType": "patch", "checkConclusion": "failure", "failureAgeHours": 25 }, "expectMerge": false },
+    { "id": "draft", "facts": { "updateType": "patch", "draft": true }, "expectMerge": false },
+    { "id": "conflict", "facts": { "updateType": "patch", "mergeable": false }, "expectMerge": false },
+    { "id": "blocking-label", "facts": { "updateType": "patch", "labels": ["dependency-blocked"] }, "expectMerge": false },
+    { "id": "target-not-latest", "facts": { "updateType": "patch", "targetVersion": "2.0.0", "latestStable": "2.0.1" }, "expectMerge": false }
+  ],
+  "freshness": [
+    { "id": "current", "facts": { "currentVersion": "2.0.0", "latestStable": "2.0.0" }, "expectFresh": true },
+    { "id": "latest-target-pr", "facts": { "currentVersion": "1.0.0", "latestStable": "2.0.0", "pullRequest": { "state": "open", "targetVersion": "2.0.0" } }, "expectFresh": true },
+    { "id": "valid-general-exception", "facts": { "currentVersion": "1.0.0", "latestStable": "2.0.0", "exception": { "kind": "general", "createdAt": "2026-09-01T12:00:00Z", "expiresAt": "2026-09-15T12:00:00Z" } }, "expectFresh": true },
+    { "id": "oversized-general-exception", "facts": { "currentVersion": "1.0.0", "latestStable": "2.0.0", "exception": { "kind": "general", "createdAt": "2026-09-01T12:00:00Z", "expiresAt": "2026-09-16T12:00:00Z" } }, "expectFresh": false },
+    { "id": "valid-vulnerability-exception", "facts": { "currentVersion": "1.0.0", "latestStable": "2.0.0", "exception": { "kind": "vulnerability", "createdAt": "2026-09-05T12:00:00Z", "expiresAt": "2026-09-08T12:00:00Z" } }, "expectFresh": true },
+    { "id": "oversized-vulnerability-exception", "facts": { "currentVersion": "1.0.0", "latestStable": "2.0.0", "exception": { "kind": "vulnerability", "createdAt": "2026-09-05T12:00:00Z", "expiresAt": "2026-09-08T13:00:00Z" } }, "expectFresh": false },
+    { "id": "expired-exception", "facts": { "currentVersion": "1.0.0", "latestStable": "2.0.0", "exception": { "kind": "general", "createdAt": "2026-08-20T12:00:00Z", "expiresAt": "2026-09-03T12:00:00Z" } }, "expectFresh": false },
+    { "id": "invalid-exception", "facts": { "currentVersion": "1.0.0", "latestStable": "2.0.0", "exception": { "kind": "general", "createdAt": "2026-09-01T12:00:00Z", "expiresAt": "2026-09-15T12:00:00Z", "omitOwner": true } }, "expectFresh": false },
+    { "id": "pr-target-not-latest", "facts": { "currentVersion": "1.0.0", "latestStable": "2.0.0", "pullRequest": { "state": "open", "targetVersion": "1.9.0" } }, "expectFresh": false },
+    { "id": "closed-pr-no-successor", "facts": { "currentVersion": "1.0.0", "latestStable": "2.0.0", "pullRequest": { "state": "closed", "targetVersion": "2.0.0" } }, "expectFresh": false },
+    { "id": "registry-unavailable", "facts": { "currentVersion": "1.0.0", "latestStable": null }, "expectFresh": false }
+  ],
+  "branchProtection": [
+    { "id": "bidirectional-match", "facts": { "mutation": "none" }, "expectValid": true },
+    { "id": "bidirectional-drift", "facts": { "mutation": "extra-context" }, "expectValid": false }
+  ],
+  "delegatedManager": [
+    { "id": "delegated-enumerated", "facts": { "owners": ["fsusui-release-train"] }, "expectValid": true },
+    { "id": "renovate-release-train-dual-owner", "facts": { "owners": ["renovate", "fsusui-release-train"] }, "expectValid": false }
+  ],
+  "blocker": [
+    {
+      "id": "exact-one-idempotent-recovery-concurrency",
+      "expect": { "create": "create", "idempotent": "none", "recovery": "close", "concurrentRejected": true }
+    }
+  ]
+}

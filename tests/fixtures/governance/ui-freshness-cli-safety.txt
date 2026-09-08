@@ -1,0 +1,5 @@
+const a = execSync(`npm view "${name}" version 2>/dev/null`)
+const b = execSync(`gh release view --repo "${repo}" --json tagName --jq '.tagName' 2>/dev/null`)
+const c = execSync(`gh pr list --state open --search "${depId} in:title" --json title,headRefName,number,url,body,createdAt,statusCheckRollup,labels --limit 5 2>/dev/null`)
+const d = execSync(`curl -sSL "${url}" 2>/dev/null`)
+writeFreshnessReport(outputPath, report, repoRoot)
