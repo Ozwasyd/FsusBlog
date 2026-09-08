@@ -97,6 +97,7 @@ const pureReceiptContracts = new Set([
     'tools/deployment/release-rollout-evidence-receipt-contract.mjs',
     'tools/docs/behavior-doc-static-admission-contract.mjs',
     'tools/docs/behavior-doc-minimal-contract-build-contract.mjs',
+    'tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs',
     'tools/release/browser-contract-receipt-contract.mjs',
     'tools/release/public-preview-quality-receipt-contract.mjs'
 ])
