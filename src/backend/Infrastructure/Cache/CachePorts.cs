@@ -1,9 +1,29 @@
 namespace FsusBlog.Server.Infrastructure.Cache;
 
 public readonly record struct CacheReadResult<T>(bool Hit, T? Value);
-public readonly record struct CacheKeyIdentity(CachePolicyId PolicyId, string Identity);
+public readonly record struct CacheKeyIdentity(CachePolicyId PolicyId, string Identity, string? Version = null);
 public readonly record struct CachePrefixIdentity(CachePolicyId PolicyId, string IdentityPrefix);
 public sealed record CachePolicyStorageSnapshot(CachePolicyId PolicyId, long KeyCount, long Bytes);
+
+public sealed record CacheL1InvalidationPolicyReceipt(
+    CachePolicyId PolicyId,
+    int EntryCount,
+    long Bytes);
+
+public sealed record CacheL1InvalidationReceipt(
+    IReadOnlyList<CacheL1InvalidationPolicyReceipt> ByPolicy)
+{
+    public int EntryCount => ByPolicy.Sum(static item => item.EntryCount);
+
+    public long Bytes => ByPolicy.Sum(static item => item.Bytes);
+}
+
+public interface ICacheLocalInvalidator
+{
+    CacheL1InvalidationReceipt InvalidateLocal(IReadOnlyList<CacheKeyIdentity> keys);
+
+    CacheL1InvalidationReceipt ReconcileAllLocal();
+}
 
 public interface ICachePayloadCodec<T>
 {
