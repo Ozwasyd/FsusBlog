@@ -1,0 +1,63 @@
+name: FsusUI Release Train
+
+on:
+    repository_dispatch:
+        types:
+            - fsusui-npm-published-v1
+
+permissions:
+    contents: write
+    pull-requests: write
+
+concurrency:
+    group: fsusui-release-train
+    cancel-in-progress: false
+
+jobs:
+    release-train:
+        name: FsusUI Release Train
+        if: github.event.action == 'fsusui-npm-published-v1'
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        steps:
+            - name: Checkout release-train base
+              uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+                  persist-credentials: true
+
+            - name: Set up Node
+              uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+
+            - name: Extract dispatch payload for the verifier
+              run: |
+                  mkdir -p .tmp/fsusui-release-train
+                  node --input-type=module <<'NODE'
+                  import fs from 'node:fs';
+                  const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+                  if (event.action !== 'fsusui-npm-published-v1' || !event.client_payload || typeof event.client_payload !== 'object') {
+                      throw new Error('FsusUI release train dispatch payload is missing');
+                  }
+                  fs.writeFileSync('.tmp/fsusui-release-train/payload.json', `${JSON.stringify(event.client_payload)}\n`);
+                  NODE
+
+            - name: Re-verify public npm facts and seal the event
+              run: >-
+                  node tools/dependencies/verify-fsusui-release-event.mjs
+                  --payload .tmp/fsusui-release-train/payload.json
+                  > .tmp/fsusui-release-train/receipt.json
+
+            - name: Run deterministic release-train contract fixture
+              run: node --test tests/tools/fsusui-release-train.test.mjs
+
+            - name: Apply verified release train
+              run: >-
+                  node tools/dependencies/update-fsusui-release.mjs
+                  --root .
+                  --receipt .tmp/fsusui-release-train/receipt.json
+                  --first-migration
+                  --apply
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
