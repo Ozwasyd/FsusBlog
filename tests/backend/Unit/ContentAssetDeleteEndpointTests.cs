@@ -166,6 +166,23 @@ public sealed class ContentAssetDeleteEndpointIntegrationTests(PostgresSchemaMig
             Assert.Equal(AedsFrameType.EmptySuccess, decoded.Value.FrameType);
             Assert.False(File.Exists(file));
             Assert.Null(db.Queryable<ContentAsset>().InSingle(assetId.Value));
+
+            DefaultHttpContext unknownContext = CreateContext(assetId.ToString());
+            BinaryFrameResult unknownResult = await BinaryEndpoints.HandleFileDeleteAsync(
+                unknownContext,
+                store,
+                aeds,
+                CancellationToken.None);
+            await unknownResult.ExecuteAsync(unknownContext);
+            Result<AedsDecodeResult> unknownDecoded = aeds.TryDecode(
+                ((MemoryStream)unknownContext.Response.Body).ToArray());
+
+            Assert.True(unknownDecoded.IsSuccess, unknownDecoded.Error.Message);
+            Assert.Equal(AedsFrameType.ApiError, unknownDecoded.Value.FrameType);
+            Assert.True(PodBinaryCodec.TryDecodeApiError(unknownDecoded.Value.Payload, out var errorPod));
+            Assert.Equal(ErrorCode.NotFound, PodBinaryCodec.ToErrorDetail(errorPod).Code);
+            Assert.False(File.Exists(file));
+            Assert.Null(db.Queryable<ContentAsset>().InSingle(assetId.Value));
         }
         finally
         {
