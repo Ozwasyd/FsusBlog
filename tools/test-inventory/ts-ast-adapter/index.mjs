@@ -144,6 +144,24 @@ function resolveRelativeModule(root, file, specifier)
     return candidates[0];
 }
 
+function resolveModule(root, file, specifier)
+{
+    const normalized = normalizeSpecifier(specifier);
+    if (normalized.startsWith('@/'))
+    {
+        const frontendPath = normalized.slice(2);
+        const candidates = [
+            path.posix.normalize(path.posix.join('src/frontend/src', frontendPath)),
+            path.posix.normalize(path.posix.join('src/frontend/src', `${frontendPath}.mjs`)),
+            path.posix.normalize(path.posix.join('src/frontend/src', `${frontendPath}.js`)),
+            path.posix.normalize(path.posix.join('src/frontend/src', `${frontendPath}.ts`)),
+            path.posix.normalize(path.posix.join('src/frontend/src', `${frontendPath}.tsx`))
+        ];
+        return candidates.find((candidate) => existsSync(path.join(root, candidate))) ?? null;
+    }
+    return resolveRelativeModule(root, file, normalized);
+}
+
 function classifyModule(root, file, specifier)
 {
     const normalized = normalizeSpecifier(specifier);
@@ -159,7 +177,7 @@ function classifyModule(root, file, specifier)
     {
         return { assembly: normalized, assemblyKind: 'third-party' };
     }
-    const resolved = resolveRelativeModule(root, file, normalized);
+    const resolved = resolveModule(root, file, normalized);
     if (resolved)
     {
         if (resolved.startsWith('src/'))
@@ -171,8 +189,75 @@ function classifyModule(root, file, specifier)
     return { assembly: normalized, assemblyKind: 'third-party' };
 }
 
+function staticObjectRowValues(node)
+{
+    if (!node || !ts.isObjectLiteralExpression(node))
+    {
+        return null;
+    }
+    const values = new Map();
+    for (const property of node.properties)
+    {
+        if (!ts.isPropertyAssignment(property))
+        {
+            return null;
+        }
+        const key = ts.isIdentifier(property.name) ? property.name.text : literalText(property.name, '');
+        if (key === null)
+        {
+            return null;
+        }
+        const initializer = property.initializer;
+        if (isLiteralStringLike(initializer))
+        {
+            values.set(key, literalText(initializer, ''));
+        }
+        else if (ts.isNumericLiteral(initializer))
+        {
+            values.set(key, Number(initializer.text));
+        }
+        else if (initializer.kind === ts.SyntaxKind.TrueKeyword)
+        {
+            values.set(key, true);
+        }
+        else if (initializer.kind === ts.SyntaxKind.FalseKeyword)
+        {
+            values.set(key, false);
+        }
+    }
+    return values;
+}
+
 function formatRowTitle(title, row, rowIndex, rowKey)
 {
+    const namedSpecifiers = [...String(title).matchAll(/\$([A-Za-z_$][\w$]*)/gu)];
+    if (namedSpecifiers.length > 0)
+    {
+        if (!(row instanceof Map))
+        {
+            return { displayName: `${title} [${rowIndex}]`, name: title };
+        }
+        let unresolved = false;
+        const formatted = String(title).replace(/\$([A-Za-z_$][\w$]*)/gu, (token, key) =>
+        {
+            if (!row.has(key))
+            {
+                unresolved = true;
+                return token;
+            }
+            const value = row.get(key);
+            return typeof value === 'string' ? value : JSON.stringify(value);
+        });
+        if (!unresolved)
+        {
+            return {
+                displayName: formatted,
+                name: formatted,
+                identitySeed: row.get('caseName') ?? row.get('name') ?? formatted
+            };
+        }
+        return { displayName: `${title} [${rowIndex}]`, name: title };
+    }
     const hasSpecifier = /%(?:[sdifjoO]|#)/u.test(title);
     if (!hasSpecifier)
     {
@@ -1001,9 +1086,17 @@ function handleEachCall(ctx, stack, call, api)
             return literalText(element, ctx.source) ?? ctx.source.slice(element.getStart(ctx.sourceFile), element.getEnd()).replace(/\s+/gu, ' ').trim().slice(0, 120);
         };
         const values = rawValue(row.value);
+        const objectValues = staticObjectRowValues(row.value);
         const rowKey = row.key;
-        const { displayName, name } = formatRowTitle(title, Array.isArray(values) ? values : [values], row.index, rowKey);
-        const seedExtra = String(rowKey === null ? row.index : rowKey);
+        const { displayName, name, identitySeed } = formatRowTitle(
+            title,
+            objectValues ?? (Array.isArray(values) ? values : [values]),
+            row.index,
+            rowKey
+        );
+        const seedExtra = identitySeed === undefined
+            ? String(rowKey === null ? row.index : rowKey)
+            : String(identitySeed);
         const id = caseIdFor(ctx, api.framework, name, baseOrdinal, seedExtra);
         const entry = {
             id,
