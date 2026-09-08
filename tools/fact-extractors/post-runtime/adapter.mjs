@@ -31,6 +31,8 @@ import {
   validateProducerReceiptAgainstRegistry
 } from '../../test-matrix/post-runtime-producer-registry.mjs'
 import { validateSemanticFacts } from './semantic-contracts.mjs'
+import { seal } from './receipt-seal-contract.mjs'
+export { seal } from './receipt-seal-contract.mjs'
 
 export const acceptedClaimsSchema = 'fsusblog.post-runtime-accepted-claims.v1'
 export const candidatePlanSchema = 'fsusblog.post-runtime-candidate-plan.v1'
@@ -73,13 +75,6 @@ function canonicalCurrentRunDirectory(value)
 function withoutDigest(value)
 {
   return Object.fromEntries(Object.entries(value).filter(([key]) => key !== 'contentDigest'))
-}
-
-export function seal(value)
-{
-  const receipt = { ...stable(value), contentDigest: null }
-  receipt.contentDigest = `sha256:${digestValue(withoutDigest(receipt))}`
-  return receipt
 }
 
 function verifySeal(value, label)

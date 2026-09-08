@@ -25,6 +25,7 @@ import {
   validateProducerReceiptAgainstRegistry
 } from '../test-matrix/post-runtime-producer-registry.mjs'
 import { verifyCanonicalReleaseAuthorities } from './canonical-release-authorities.mjs'
+import { deriveReleaseReadinessAuthorityFacts } from './release-authority-facts-contract.mjs'
 import {
   buildReleaseReadinessAuthorityBundle,
   releaseReadinessAuthorityBundleSchema
@@ -564,33 +565,8 @@ export function projectReleaseReadinessAuthoritiesRaw({ candidatePlan, sourceRec
   const producer = registry.producers.find(({ producerId }) => producerId === plan.producerId)
   if (!producer) fail('candidate plan producer is absent from registry')
   const rollout = authorities.rollout.value
-  const runtime = authorities.runtimeRole
   const build = buildFacts(plan, repositoryRoot)
-  const legacyFacts = {
-    imageDigest: rollout.target.imageDigest,
-    packageDigest: build.packageDigest,
-    configDigest: runtime.deployment.ref.fileDigest,
-    schemaDigest: authorities.manifest.value.schemaCompatibility?.contentDigest
-      ?? semanticDigest(authorities.manifest.value.schemaCompatibility),
-    manifestDigest: authorities.manifest.ref.fileDigest,
-    signingDigest: rollout.auxiliary?.releaseManifest?.sha256,
-    trustDigest: semanticDigest({ image: rollout.target.imageDigest, manifest: authorities.manifest.ref.fileDigest }),
-    readinessReceiptDigest: authorities.rollout.ref.fileDigest,
-    serviceReady: true, routeDataReady: true, cacheReady: true, dependenciesReady: true,
-    versionReady: true, credentialReady: true, identityMatch: true,
-    runtimeRoleContractSatisfied: true, monolithicOwnershipSatisfied: true
-  }
-  const typedFacts = {
-    artifactDigest: authorities.authorityDigest,
-    imageDigest: rollout.target.imageDigest,
-    packageDigest: build.packageDigest,
-    configDigest: runtime.deployment.ref.fileDigest,
-    schemaDigest: legacyFacts.schemaDigest,
-    runtimeRole: 'monolithic',
-    candidateId: plan.candidate.candidateId,
-    releaseId: plan.candidate.releaseId,
-    readinessDigest: authorities.rollout.ref.fileDigest
-  }
+  const { legacyFacts, typedFacts } = deriveReleaseReadinessAuthorityFacts({ plan, authorities, build })
   const semanticFacts = Array.isArray(registry.observationClasses['release-identity-readiness'].requiredSemanticFactFields)
     ? typedFacts
     : legacyFacts

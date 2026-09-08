@@ -1,4 +1,4 @@
-import { seal } from '../fact-extractors/post-runtime/adapter.mjs'
+import { seal } from '../fact-extractors/post-runtime/receipt-seal-contract.mjs'
 
 export const releaseReadinessAuthorityBundleSchema = 'fsusblog.release-identity-readiness-authority-bundle.v1'
 export const canonicalAuthorityBundleSchema = 'fsusblog.blue-green-containment-authority-bundle.v1'

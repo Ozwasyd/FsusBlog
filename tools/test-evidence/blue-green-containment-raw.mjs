@@ -25,6 +25,7 @@ import {
 } from '../test-matrix/post-runtime-producer-registry.mjs'
 import { productionBuildBinding } from '../release/test-evidence-receipts.mjs'
 import { verifyCanonicalReleaseAuthorities } from './canonical-release-authorities.mjs'
+import { deriveBlueGreenAuthorityFacts } from './release-authority-facts-contract.mjs'
 import {
   buildBlueGreenAuthorityBundle,
   canonicalAuthorityBundleSchema
@@ -631,48 +632,7 @@ export function produceBlueGreenAuthoritiesRaw({ candidatePlan, sourceReceipt, r
   const { source, authorities } = loadCanonicalAuthorityBundle(sourceReceipt, context, repositoryRoot)
   const rollout = authorities.rollout.value
   const registry = loadPostRuntimeProducerRegistry(repositoryRoot)
-  const stage = (id) => rollout.stages.find(({ stage: stageId }) => stageId === id)
-  const sourceIdentity = rollout.source
-  const targetIdentity = rollout.target
-  const legacyFacts = {
-    activeBeforeDigest: semanticDigest(sourceIdentity),
-    standbyBeforeDigest: semanticDigest(targetIdentity),
-    activeAfterDigest: semanticDigest(targetIdentity),
-    standbyAfterDigest: semanticDigest(sourceIdentity),
-    promotionReceiptDigest: semanticDigest(stage('candidate-readiness') ?? stage('gateway-switch')),
-    switchReceiptDigest: semanticDigest(stage('gateway-switch')),
-    healthReceiptDigest: semanticDigest(stage('target-health')),
-    rollbackReceiptDigest: semanticDigest(rollout.recoveries),
-    failureReceiptDigest: rollout.artifacts.faultInjection.sha256,
-    trafficOwnershipDigest: rollout.artifacts.publicTraffic.sha256,
-    artifactContainmentDigest: rollout.artifacts.assetCompatibility.sha256,
-    volumeContainmentDigest: rollout.artifacts.resourceBudget.sha256,
-    schemaContainmentDigest: rollout.auxiliary.compatibilityMatrix.sha256,
-    processContainmentDigest: authorities.runtimeRole.observation.ref.fileDigest,
-    cleanupReceiptDigest: semanticDigest(stage('release-evidence')),
-    terminalReceiptDigest: authorities.rollout.ref.fileDigest,
-    activeReleaseProtected: true, activeIdentityKnown: true, switchComplete: true,
-    splitBrainAbsent: true, cleanupInactiveOnly: true, sharedFactsPreserved: true,
-    runtimeRoleContractSatisfied: true
-  }
-  const typedFacts = {
-    activeBeforeDigest: legacyFacts.activeBeforeDigest,
-    standbyBeforeDigest: legacyFacts.standbyBeforeDigest,
-    activeAfterDigest: legacyFacts.activeAfterDigest,
-    standbyAfterDigest: legacyFacts.standbyAfterDigest,
-    promotionDigest: legacyFacts.promotionReceiptDigest,
-    switchDigest: legacyFacts.switchReceiptDigest,
-    healthDigest: legacyFacts.healthReceiptDigest,
-    rollbackDigest: legacyFacts.rollbackReceiptDigest,
-    trafficOwnershipDigest: legacyFacts.trafficOwnershipDigest,
-    containmentDigest: semanticDigest({
-      artifact: legacyFacts.artifactContainmentDigest,
-      volume: legacyFacts.volumeContainmentDigest,
-      schema: legacyFacts.schemaContainmentDigest,
-      process: legacyFacts.processContainmentDigest
-    }),
-    terminalReceiptDigest: legacyFacts.terminalReceiptDigest
-  }
+  const { legacyFacts, typedFacts } = deriveBlueGreenAuthorityFacts({ authorities })
   const semanticFacts = Array.isArray(registry.observationClasses[classId].requiredSemanticFactFields)
     ? typedFacts
     : legacyFacts
