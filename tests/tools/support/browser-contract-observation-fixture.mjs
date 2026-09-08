@@ -168,6 +168,7 @@ export function createBrowserContractObservationFixture(context, suppliedCandida
     scenarios,
     publicPreview: {
       ...publicPreviewEvidence,
+      captureContextCount: Object.keys(publicPreviewEvidence.images).length,
       evidencePath: relative(publicPreviewFile),
       evidenceFileDigest: fileDigest(publicPreviewFile)
     },
