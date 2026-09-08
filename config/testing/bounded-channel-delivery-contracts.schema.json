@@ -28,6 +28,7 @@
                     "discoveryKey",
                     "owner",
                     "deliveryClass",
+                    "drainParticipant",
                     "channelBehavior",
                     "writerCallsites",
                     "readerCallsites",
@@ -40,6 +41,21 @@
                     "disposition",
                     "implementationOwner"
                 ],
+                "if": {
+                    "properties": {
+                        "drainParticipant": {
+                            "const": true
+                        }
+                    },
+                    "required": [
+                        "drainParticipant"
+                    ]
+                },
+                "then": {
+                    "required": [
+                        "participantAdapter"
+                    ]
+                },
                 "properties": {
                     "queueId": {
                         "type": "string",
@@ -84,6 +100,12 @@
                             "coalescible",
                             "replayable"
                         ]
+                    },
+                    "drainParticipant": {
+                        "type": "boolean"
+                    },
+                    "participantAdapter": {
+                        "$ref": "#/$defs/reference"
                     },
                     "channelBehavior": {
                         "type": "object",

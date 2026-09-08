@@ -3,6 +3,17 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
+import {
+    assertPublicNpmTarballUrl,
+    parseStableVersion,
+} from '../dependencies/update-fsusui-release.mjs'
+import {
+    assertFsusuiManagerState,
+    findFsusuiDependencyItems,
+    FSUSUI_PACKAGE,
+    FSUSUI_RELEASE_TRAIN_MANAGER
+} from '../dependencies/fsusui-manager-ownership.mjs'
+
 export const exceptionsSchema = 'fsusblog.dependency-exceptions.v1'
 export const resultSchema = 'fsusblog.dependency-freshness-result.v1'
 export const generalMaxMs = 14 * 24 * 60 * 60 * 1000
@@ -239,6 +250,29 @@ function extractCustom(root, item, config) {
 }
 
 function extractDelegated(root, item) {
+    if (item.packageName === FSUSUI_PACKAGE && item.customManager === FSUSUI_RELEASE_TRAIN_MANAGER) {
+        const manifestFile = (item.files ?? []).find(file => file.endsWith('package.json'))
+        const lockFile = (item.files ?? []).find(file => file.endsWith('package-lock.json'))
+        if (!manifestFile || !lockFile) throw new Error(`fsusui-release-train-files-missing:${item.id}`)
+        const manifest = JSON.parse(fs.readFileSync(path.join(root, manifestFile), 'utf8'))
+        const lock = JSON.parse(fs.readFileSync(path.join(root, lockFile), 'utf8'))
+        const currentVersion = manifest.dependencies?.[FSUSUI_PACKAGE]
+        const lockRootVersion = lock.packages?.['']?.dependencies?.[FSUSUI_PACKAGE]
+        const lockEntry = lock.packages?.[`node_modules/${FSUSUI_PACKAGE}`]
+        if (typeof currentVersion !== 'string' || lockRootVersion !== currentVersion || lockEntry?.version !== currentVersion) {
+            throw new Error(`fsusui-release-train-lock-drift:${item.id}`)
+        }
+        if (lockEntry.link === true || typeof lockEntry.resolved !== 'string') {
+            throw new Error(`fsusui-release-train-target-invalid:${item.id}`)
+        }
+        try {
+            parseStableVersion(currentVersion, `fsusui-release-train-version:${item.id}`)
+            assertPublicNpmTarballUrl(lockEntry.resolved, currentVersion)
+        } catch {
+            throw new Error(`fsusui-release-train-public-lock-invalid:${item.id}`)
+        }
+        return currentVersion
+    }
     const file = sourceFiles(item)[0]
     const baseline = JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'))
     if (item.packageName === 'https://github.com/Ozwasyd/FsusUI.git') return baseline.commit
@@ -395,6 +429,13 @@ export function evaluateFreshness({ catalog, config, exceptions, currentVersions
     for (const updateType of missingUpdateTypes) errors.push({ code: 'config-update-type', detail: updateType })
     if (config?.automerge === true) errors.push({ code: 'config-automerge', detail: 'automerge' })
     const enabledManagers = new Set(config?.enabledManagers ?? ['npm', 'nuget', 'dockerfile', 'docker-compose', 'github-actions', 'custom.regex'])
+    if (findFsusuiDependencyItems(catalog).length > 0) {
+        try {
+            assertFsusuiManagerState(catalog)
+        } catch (error) {
+            errors.push({ code: 'fsusui-manager-invalid', detail: error.message })
+        }
+    }
     const owners = managerOwners(catalog)
     for (const [key, ids] of owners) if (ids.length > 1) errors.push({ code: 'manager-duplicate-owner', detail: `${key}:${ids.join(',')}` })
     const seen = new Set()

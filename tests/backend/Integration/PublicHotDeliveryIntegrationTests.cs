@@ -156,7 +156,12 @@ public sealed class PublicHotDeliveryIntegrationTests(
             Assert.Equal(PublicHotArtifactObligationState.FailedTerminal, persisted.State);
             Assert.True(await restarted.HasTerminalFailureAsync(CancellationToken.None));
             PublicHotArtifactObligation replayable = await restarted.MergeAsync(
-                new PublicHotArtifactUpdate(null, "taxonomy-updated", PublicHotArtifactDirtyReason.Content), CancellationToken.None);
+                new PublicHotArtifactUpdate(
+                    null,
+                    "taxonomy-updated",
+                    PublicHotArtifactDirtyReason.Content,
+                    RequiresFullRebuild: true),
+                CancellationToken.None);
             Assert.Equal(obligationId, replayable.ObligationId);
             Assert.Equal(PublicHotArtifactObligationState.Pending, replayable.State);
             Assert.True(replayable.RequiresFullRebuild);
@@ -183,7 +188,12 @@ public sealed class PublicHotDeliveryIntegrationTests(
                 new PublicHotArtifactUpdate(41, "article-a", PublicHotArtifactDirtyReason.Content, 101), CancellationToken.None);
             PublicHotArtifactObligation claim = (await state.ClaimEligibleAsync(DateTimeOffset.UtcNow, CancellationToken.None))!;
             PublicHotArtifactObligation merged = await state.MergeAsync(
-                new PublicHotArtifactUpdate(null, "global", PublicHotArtifactDirtyReason.Content), CancellationToken.None);
+                new PublicHotArtifactUpdate(
+                    null,
+                    "global",
+                    PublicHotArtifactDirtyReason.Content,
+                    RequiresFullRebuild: true),
+                CancellationToken.None);
             merged = await state.MergeAsync(
                 new PublicHotArtifactUpdate(42, "article-b", PublicHotArtifactDirtyReason.Content, 202), CancellationToken.None);
 
@@ -257,9 +267,9 @@ public sealed class PublicHotDeliveryIntegrationTests(
                         DistributedInvalidationEventKinds.TaxonomyMutation,
                         "bootstrap",
                         "test",
-                        ["taxonomy"],
-                        ["category", "tag"],
-                        ["public-hot-read"],
+                        ["article-list", "category", "tag"],
+                        ["taxonomy:*"],
+                        ["public-aot", "public-hot-read"],
                         $"trace-{Guid.CreateVersion7():N}",
                         TimeProvider.System);
 
@@ -268,9 +278,11 @@ public sealed class PublicHotDeliveryIntegrationTests(
 
                 Assert.NotNull(applied);
                 Assert.True(applied.IsApplied);
+                Assert.False(applied.FullReconcile);
                 PublicHotArtifactObligation fullRebuild =
                     (await state.GetActiveAsync(CancellationToken.None))!;
-                Assert.True(fullRebuild.RequiresFullRebuild);
+                Assert.False(fullRebuild.RequiresFullRebuild);
+                Assert.Contains("taxonomy:category", fullRebuild.FragmentKeys ?? []);
                 PublicHotArtifactObligation fullClaim =
                     (await state.ClaimEligibleAsync(
                         DateTimeOffset.UtcNow,
