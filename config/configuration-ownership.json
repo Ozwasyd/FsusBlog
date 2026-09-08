@@ -1055,6 +1055,18 @@
             "pathType": "file"
         },
         {
+            "id": "backend-docker-inputs",
+            "owner": "backend-build-tooling",
+            "canonicalPath": "config/build/backend-docker-inputs.json",
+            "pathType": "file"
+        },
+        {
+            "id": "backend-docker-restore-configuration",
+            "owner": "backend-build-tooling",
+            "canonicalPath": "config/build/backend-restore.xml",
+            "pathType": "file"
+        },
+        {
             "id": "backend-configuration-contract",
             "owner": "backend-configuration-governance",
             "canonicalPath": "config/application/backend-configuration-contract.json",

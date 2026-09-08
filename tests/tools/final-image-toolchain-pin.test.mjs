@@ -6,10 +6,14 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { resolveRuntimeProfile } from '../../tools/runtime-profiles/runtime-publish-profile.mjs';
+const { resolveRuntimeProfile } = await import(new URL('../../tools/runtime-profiles/runtime-publish-profile.mjs', import.meta.url));
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const dockerfile = fs.readFileSync(path.join(root, 'ops/docker/FsusBlog.Server.Dockerfile'), 'utf8');
+const backendInputInventory = JSON.parse(fs.readFileSync(
+    path.join(root, 'config/build/backend-docker-inputs.json'),
+    'utf8'
+));
 const bashExecutable = process.platform === 'win32' ? 'C:\\Program Files\\Git\\bin\\bash.exe' : 'bash';
 const releaseId = '20260715010101-0123456789ab';
 const releaseCreatedAtUtc = '2026-07-15T01:01:01Z';
@@ -92,26 +96,6 @@ function staticallyKnownModuleDependencies(file)
     ));
 }
 
-function restoreStageProjectCopies()
-{
-    const stageStart = dockerfile.indexOf('FROM build-${RUNTIME_BASE_FLAVOR} AS build');
-    const restore = dockerfile.indexOf('dotnet restore "./src/backend/FsusBlog.Server.csproj"', stageStart);
-    assert.notEqual(stageStart, -1, 'build stage is missing');
-    assert.notEqual(restore, -1, 'backend restore is missing');
-    const copies = [];
-    for (const line of dockerfile.slice(stageStart, restore).split(/\r?\n/u))
-    {
-        const match = /^COPY\s+(\[.*\])\s*$/u.exec(line);
-        if (!match)
-        {
-            continue;
-        }
-        const [source, destination] = JSON.parse(match[1]);
-        copies.push({ source, destination });
-    }
-    return copies;
-}
-
 function projectReferenceClosure(initialProjects)
 {
     const pending = [...initialProjects];
@@ -138,15 +122,6 @@ function projectReferenceClosure(initialProjects)
     return closure;
 }
 
-function restoreStageCopiesProject(copies, project)
-{
-    const expectedDestination = `/src/${project}`;
-    return copies.some(({ source, destination }) => (
-        source === project
-      && path.posix.join('/src', destination, path.posix.basename(source)) === expectedDestination
-    ));
-}
-
 function releaseBackendCompileProducerViolations(source)
 {
     const buildStart = source.indexOf('FROM build-${RUNTIME_BASE_FLAVOR} AS build');
@@ -170,10 +145,10 @@ function releaseBackendCompileProducerViolations(source)
         violations.push('release backend path must not materialize /app/build');
     }
     const restoreIndex = buildStage.indexOf('dotnet restore "./src/backend/FsusBlog.Server.csproj"');
-    const fullInputCopyIndex = buildStage.indexOf('\nCOPY . .\n');
-    if (restoreIndex < 0 || fullInputCopyIndex < restoreIndex)
+    const preciseInputCopyIndex = buildStage.indexOf('\nCOPY --from=backend-inputs /compile/ /src/\n');
+    if (restoreIndex < 0 || preciseInputCopyIndex < restoreIndex)
     {
-        violations.push('release backend publish must remain downstream of the full repository input copy');
+        violations.push('release backend publish must remain downstream of the verified compile input copy');
     }
     if ((publishStage.match(/\bRUN\s+dotnet\s+publish\b/gu) ?? []).length !== 1)
     {
@@ -342,15 +317,15 @@ test('Docker restore layer copies the recursive backend ProjectReference closure
         'src/core/FsusBlog.Core.csproj',
         'src/shared/FsusBlog.Shared.csproj'
     ]);
-    const copies = restoreStageProjectCopies();
-    for (const project of projects)
-    {
-        assert.equal(
-            restoreStageCopiesProject(copies, project),
-            true,
-            `Docker restore layer does not copy ProjectReference ${project}`
-        );
-    }
+    assert.deepEqual(
+        backendInputInventory.projects.map(project => project.path),
+        [...projects].sort(),
+        'the backend inventory must own the exact recursive ProjectReference closure'
+    );
+    const buildStart = dockerfile.indexOf('FROM build-${RUNTIME_BASE_FLAVOR} AS build');
+    const restore = dockerfile.indexOf('dotnet restore "./src/backend/FsusBlog.Server.csproj"', buildStart);
+    const preciseRestoreCopy = dockerfile.indexOf('COPY --from=backend-inputs /restore/ /src/', buildStart);
+    assert.ok(preciseRestoreCopy >= buildStart && preciseRestoreCopy < restore);
     assert.ok(projects.has('tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj'));
 });
 
@@ -384,10 +359,10 @@ test('release backend final-image path uses one compile-capable publish producer
         'governance must reject a release publish compile retry loop'
     );
 
-    const staleInputMutation = dockerfile.replace('\nCOPY . .\n', '\n');
+    const staleInputMutation = dockerfile.replace('\nCOPY --from=backend-inputs /compile/ /src/\n', '\n');
     assert.ok(
         releaseBackendCompileProducerViolations(staleInputMutation).includes(
-            'release backend publish must remain downstream of the full repository input copy'
+            'release backend publish must remain downstream of the verified compile input copy'
         ),
         'governance must keep source, project, Directory.Build, and NuGet lock inputs ahead of publish'
     );

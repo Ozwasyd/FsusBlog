@@ -15,6 +15,7 @@ USE_LOCAL_FSUSUI_RAW="${FSUSBLOG_USE_LOCAL_FSUSUI:-0}"
 LOCAL_FSUSUI_ROOT="${FSUSBLOG_LOCAL_FSUSUI_ROOT:-}"
 FSUSUI_CONTEXT_DIR=""
 FSUSUI_EMPTY_CONTEXT=""
+BACKEND_INPUT_CONTEXT=""
 FSUSUI_SOURCE="published-package"
 FSUSUI_COMMIT_SHA="0000000000000000000000000000000000000000"
 DOTNET_PIN_ENV_NAMES=(
@@ -60,6 +61,8 @@ RequireCommand() {
 }
 
 RequireCommand docker
+RequireCommand dotnet
+RequireCommand bwrap
 RequireCommand git
 RequireCommand node
 [[ -n "${GITHUB_PACKAGES_TOKEN:-}" ]] || Fail "GITHUB_PACKAGES_TOKEN is required"
@@ -180,6 +183,9 @@ CleanupLocalContext() {
     if [[ -n "$FSUSUI_EMPTY_CONTEXT" ]]; then
         rm -rf -- "$FSUSUI_EMPTY_CONTEXT"
     fi
+    if [[ -n "$BACKEND_INPUT_CONTEXT" ]]; then
+        rm -rf -- "$BACKEND_INPUT_CONTEXT"
+    fi
 }
 trap CleanupLocalContext EXIT
 
@@ -205,6 +211,15 @@ case "${USE_LOCAL_FSUSUI_RAW,,}" in
         ;;
     *) Fail "FSUSBLOG_USE_LOCAL_FSUSUI must be a boolean" ;;
 esac
+
+BACKEND_INPUT_CONTEXT="$(mktemp -d)" || Fail "unable to create backend input context"
+node "$ROOT_DIR/tools/docker/backend-input-closure.mjs" materialize \
+    --root "$ROOT_DIR" \
+    --configuration Release --runtime "$TARGET_RUNTIME" --ready-to-run "$PUBLISH_READY_TO_RUN" \
+    --target publish --single-file "$PUBLISH_SINGLE_FILE" --tiered-pgo "$TIERED_PGO" \
+    --quick-jit-for-loops "$QUICK_JIT_FOR_LOOPS" --server-gc "$SERVER_GC" \
+    --release-id "$RELEASE_ID" --commit-sha "$COMMIT_SHA" \
+    --output "$BACKEND_INPUT_CONTEXT"
 
 if [[ "${FSUSBLOG_FINAL_SKIP_WASM:-0}" == "1" ]]; then
     Log "resume with an existing generated wasm artifact package by FSUSBLOG_FINAL_SKIP_WASM=1"
@@ -260,6 +275,7 @@ DOCKER_BUILDKIT=1 docker build \
     --label "org.opencontainers.image.version=$RELEASE_ID" \
     --label "org.opencontainers.image.created=$RELEASE_CREATED_AT_UTC" \
     --build-context "fsusui=$FSUSUI_CONTEXT_DIR" \
+    --build-context "backend-inputs=$BACKEND_INPUT_CONTEXT" \
     -t "$IMAGE_TAG" \
     --secret id=github_packages_token,env=GITHUB_PACKAGES_TOKEN \
     "$ROOT_DIR"

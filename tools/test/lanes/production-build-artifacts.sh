@@ -206,8 +206,11 @@ CREATE_ARGS=(
     --input FsusBlog.slnx
     --input .gitignore
     --input .dockerignore
+    --input config/build/backend-docker-inputs.json
     --input ops/docker/FsusBlog.Server.Dockerfile
     --input tools/build-final-image.sh
+    --input tools/docker/backend-input-closure.mjs
+    --input tools/docker/backend-input-environment.mjs
     --input tools/build-wasm-artifact.sh
     --input tools/check-wasm-artifact-ownership.mjs
     --input tools/frontend/ensure-wasm.mjs
