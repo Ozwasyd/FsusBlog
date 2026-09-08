@@ -8,6 +8,12 @@ Status: implementation design for #3275, not a current authority or an accepted 
 
 No v1 or DAG v2 implementation, checker dispatch, production registry, or generated inventory changes in this checkpoint. No immutable commit-specific exception is introduced.
 
+## Repository adapter checkpoint
+
+`generated-output-digest-repair-repository.mjs` now implements exact bounded Git reads with replacement refs and grafts disabled, bounded all-parent history, and Linux sparse replay using Bubblewrap and an external strace observer. Only exact registered Git inputs and the canonical output are reconstructed; Node and its exact shared-library mounts are separately hashed. Inputs and the mount root are read-only, the existing canonical output alone is writable, and network/PID/user namespaces isolate execution. Missing tools or denied isolation fail closed. No producer-supplied observation is accepted.
+
+The adapter tests create small real Git histories with a multi-file source/parser event, a PR merge, a later trusted policy bootstrap, and a generated-only candidate. The full core verifies all eight fresh sandbox instances. Real negatives cover replacement refs, symlink blobs, omitted imports, caught unregistered/ignored/external writes, source writes and chmod, symlink/hardlink attempts, network calls, history change-revert, and nondeterministic output. These are bounded synthetic repositories, not canonical producer qualification or independent acceptance. The actual production closure, minimal dispatch, registry, manifest producer, existing-policy regressions and maintained contract update remain pending.
+
 ## Proposed trusted registration
 
 The final checker resolves this record from its trusted base and supplies the existing `changeContract.trustedPolicyFiles` as `protectedPolicyPaths`; this design does not introduce a second policy-path list. The complete closure below must be checked against real parent/source imports and file reads before the registration is enabled.
