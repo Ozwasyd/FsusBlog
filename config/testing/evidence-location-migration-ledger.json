@@ -15,7 +15,7 @@
         "evidence-selection.schema-search",
         "evidence-selection.timestamp-sort"
     ],
-    "scanDigest": "sha256:63b66084f38aaa8e5b29d1308d682775061cfef2193a60480d6b362185d403d0",
+    "scanDigest": "sha256:9e7ef8affb8fa4faf5a8973373b143d73ad90bead5c5748878dfe9dd3cf22914",
     "entries": [
         {
             "findingId": "796fa8284a86adb9",
@@ -1828,18 +1828,6 @@
             "action": "close exact location and rule as non-evidence behavior",
             "owner": "test-evidence-governance",
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#be5e8da91dc75d24"
-        },
-        {
-            "findingId": "d1665b22050501c1",
-            "consumerId": "evidence-consumer.governance.dependency-freshness",
-            "location": "tools/governance/dependency-freshness.mjs:83",
-            "oldSelectionRule": "evidence-selection.first-match",
-            "classification": "not-evidence",
-            "newAuthorityId": null,
-            "locatorMode": "not-applicable",
-            "action": "close exact location and rule as non-evidence behavior",
-            "owner": "test-evidence-governance",
-            "proofTest": "tests/tools/evidence-location-governance.test.mjs#d1665b22050501c1"
         },
         {
             "findingId": "924b28ab554e6b3c",
@@ -4494,5 +4482,5 @@
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#231c081ffc1efc86"
         }
     ],
-    "contentDigest": "sha256:5930676352e61f0fdec7c6b70dda2d6caf9a46340ffa4407956d1e44f1781f37"
+    "contentDigest": "sha256:61a57f70abd8d47d662c9fd26b12fbd98e64b3e28cc53e6a0bff56e2b9d54d9d"
 }
