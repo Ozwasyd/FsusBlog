@@ -661,6 +661,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url))
     {
         const testEvidence = createReleaseFinalDomainEvidence({
             directEvidence: locatedDomain.directEvidence,
+            currentRunContext: context,
             locatorEvidence: {
                 manifestBindingReceipt: locatedManifest.bindingReceipt,
                 manifestInputDigest: locatedManifest.receipt.payload.digest,

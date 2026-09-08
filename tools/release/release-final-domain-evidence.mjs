@@ -10,8 +10,15 @@ import {
     loadCanonicalReleaseFinalEvidenceInputs
 } from '../test-matrix/release-final-evidence-contract.mjs';
 import {
-    validatePostRuntimeReceipt
+    validatePostRuntimeReceipt,
+    verifyBehaviorEvidencePostRuntime
 } from '../test-matrix/behavior-evidence-post-runtime.mjs';
+import {
+    collectSchedulerVerificationOutputRefs,
+    readSchedulerVerificationContext
+} from '../test-matrix/scheduler.mjs';
+import { authorityDigest } from '../test-matrix/post-runtime-producer-registry.mjs';
+import { validateCurrentRunEvidenceContext } from '../test/evidence-location-contract.mjs';
 import {
     assertPreRuntimeQualified
 } from '../test-matrix/behavior-evidence-pre-runtime.mjs';
@@ -29,8 +36,91 @@ import {
 } from './release-reliability-qualified-receipt.mjs';
 import {
     assertReleaseFinalBehaviorIdentity,
-    createReleaseFinalTestEvidenceBinding
+    createReleaseFinalTestEvidenceBinding,
+    validateBrowserContractReceipt
 } from './test-evidence-receipts.mjs';
+
+export function assertReleaseFinalPostRuntimeCandidate({
+    postRuntimeReceipt: post, currentRunContext, browserContractReceipt, buildReceipt
+})
+{
+    const context = validateCurrentRunEvidenceContext(currentRunContext);
+    const expected = {
+        commit: context.sourceCommit,
+        worktreeFingerprint: context.worktreeFingerprint,
+        schedulerRunId: context.schedulerRunId,
+        attemptId: context.attemptId,
+        candidateIdentityDigest: authorityDigest(context.candidateIdentity),
+        buildIdentityDigest: authorityDigest(context.buildIdentity)
+    };
+    for (const [key, value] of Object.entries(expected))
+    {
+        if (post.executionIdentity?.[key] !== value)
+        {
+            throw new Error(`post-runtime execution identity mismatch: ${key}`);
+        }
+    }
+    const errors = validateBrowserContractReceipt(browserContractReceipt, {
+        expectedCommit: context.sourceCommit,
+        expectedFingerprint: context.worktreeFingerprint,
+        expectedBuildReceiptDigest: buildReceipt.contentDigest,
+        requireSuccess: true
+    });
+    if (browserContractReceipt.runIdentity?.runId !== context.schedulerRunId)
+    {
+        errors.push('post-runtime browser contract run identity mismatch');
+    }
+    if (errors.length > 0) throw new Error(errors.join('; '));
+}
+
+export function verifyReleaseFinalPostRuntimeAuthority({
+    directEvidence, currentRunContext, repositoryRoot,
+    environment = process.env
+})
+{
+    const context = validateCurrentRunEvidenceContext(currentRunContext);
+    const input = directEvidence.behaviorPostRuntime;
+    const post = validatePostRuntimeReceipt(input.receipt, { repositoryRoot });
+    const schedulerVerificationContext = readSchedulerVerificationContext({
+        file: environment.FSUSBLOG_SCHEDULER_VERIFICATION_CONTEXT,
+        expectedContentDigest: environment.FSUSBLOG_SCHEDULER_VERIFICATION_CONTEXT_DIGEST,
+        expectedCandidateIdentityDigest: environment.FSUSBLOG_SCHEDULER_CANDIDATE_IDENTITY_DIGEST,
+        expectedRunId: context.schedulerRunId,
+        expectedSourceState: {
+            commit: context.sourceCommit,
+            worktreeFingerprint: context.worktreeFingerprint.replace(/^sha256:/u, '')
+        }
+    });
+    const schedulerOutputRefs = collectSchedulerVerificationOutputRefs({
+        context: schedulerVerificationContext,
+        tierId: 'behavior-evidence-post-runtime',
+        root: repositoryRoot
+    });
+    const verified = verifyBehaviorEvidencePostRuntime({
+        receipt: input.file,
+        preRuntimeReceipt: directEvidence.behaviorPreRuntime.file,
+        catalog: 'config/contracts/behavior-contracts.json',
+        registry: 'config/testing/post-runtime-producer-registry.json',
+        observationReceipts: post.observationRefs.map((reference) => reference.ref),
+        acceptedClaimsReceipts: post.acceptedClaimRefs.map((reference) => reference.ref),
+        executionContext: post.executionContext.ref,
+        schedulerEvidence: post.schedulerEvidence.ref,
+        verificationMode: 'completed-tier',
+        schedulerVerificationContext,
+        schedulerOutputRefs,
+        repositoryRoot
+    });
+    if (verified.contentDigest !== post.contentDigest)
+    {
+        throw new Error('post-runtime replay differs from located receipt');
+    }
+    assertReleaseFinalPostRuntimeCandidate({
+        postRuntimeReceipt: verified, currentRunContext: context,
+        browserContractReceipt: directEvidence.browserContract.receipt,
+        buildReceipt: directEvidence.productionBuild.receipt
+    });
+    return verified;
+}
 
 export function assertReleaseFinalBehaviorAuthorityBinding({
     preRuntimeReceipt,
@@ -52,6 +142,7 @@ export function assertReleaseFinalBehaviorAuthorityBinding({
 
 export function createReleaseFinalDomainEvidence({
     directEvidence,
+    currentRunContext,
     locatorEvidence,
     manifest,
     repositoryRoot,
@@ -61,7 +152,9 @@ export function createReleaseFinalDomainEvidence({
     const preRuntimeFile = directEvidence.behaviorPreRuntime.file;
     const preRuntimeReceipt = directEvidence.behaviorPreRuntime.receipt;
     const postRuntimeFile = directEvidence.behaviorPostRuntime.file;
-    const postRuntimeReceipt = directEvidence.behaviorPostRuntime.receipt;
+    const postRuntimeReceipt = verifyReleaseFinalPostRuntimeAuthority({
+        directEvidence, currentRunContext, repositoryRoot
+    });
     const behaviorEvidence = assertReleaseFinalBehaviorAuthorityBinding({
         preRuntimeReceipt,
         postRuntimeReceipt,
@@ -80,11 +173,6 @@ export function createReleaseFinalDomainEvidence({
     const correctness = directEvidence.browserlessCorrectness;
 
     const browserContract = directEvidence.browserContract;
-    if (postRuntimeReceipt.candidateIdentity?.browserContractDigest
-        !== browserContract.receipt.contentDigest)
-    {
-        throw new Error('post-runtime behavior evidence browser candidate mismatch');
-    }
 
     const publicPreview = requirePublicPreviewReleaseEvidence({
         commitSha: manifest.commitSha,
@@ -94,11 +182,6 @@ export function createReleaseFinalDomainEvidence({
     });
 
     const build = directEvidence.productionBuild;
-    if (postRuntimeReceipt.candidateIdentity?.buildReceiptDigest
-        !== build.receipt.contentDigest)
-    {
-        throw new Error('post-runtime behavior evidence build candidate mismatch');
-    }
     const canonicalInputs = loadCanonicalReleaseFinalEvidenceInputs().inputs;
     const requiredEvidenceCatalog = loadCanonicalRequiredEvidenceCatalog();
     const requiredEvidenceCatalogBinding =
