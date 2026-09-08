@@ -6,7 +6,6 @@ import path from 'node:path';
 import process from 'node:process';
 import { isDeepStrictEqual } from 'node:util';
 
-import { resolveExecutablePath } from '../test/execution-envelope-environment.mjs';
 import { readFileAtRevision } from './change-contract.mjs';
 
 const revisionPattern = /^[a-f0-9]{40}$/u;
@@ -18,6 +17,9 @@ const commandTimeoutMs = 10_000;
 const regularModes = new Set(['100644', '100755']);
 const sandboxRoot = '/work';
 const sandboxNode = '/runtime/node';
+const trustedSystemPath = '/usr/bin:/bin';
+const sandboxExecutablePaths = Object.freeze({ bwrap: '/usr/bin/bwrap', strace: '/usr/bin/strace', ldd: '/usr/bin/ldd' });
+const absentRuntimeProbes = new Set(['/sys/devices/system/cpu/online', '/sys/devices/system/cpu/cpu0/tsc_freq_khz']);
 
 function requireValue(condition, message)
 {
@@ -56,6 +58,32 @@ function fileSnapshot(file)
         && fs.realpathSync(file) === file && stat.size <= maximumReplayBytes,
     'replay file must be a bounded, unaliased regular file');
     return { mode: stat.mode & 0o111 ? '100755' : '100644', bytes: fs.readFileSync(file) };
+}
+
+function trustedRuntimeIdentity(source, { executable = false, exact = false, systemOwned = true } = {})
+{
+    const resolved = fs.realpathSync(source);
+    requireValue(!exact || resolved === source, `trusted executable path was replaced or redirected: ${source}`);
+    const stat = fs.lstatSync(resolved);
+    requireValue(stat.isFile() && (!systemOwned || stat.uid === 0) && (stat.mode & 0o022) === 0
+        && (!executable || (stat.mode & 0o111) !== 0), `runtime file is not system-owned and immutable to the task: ${source}`);
+    for (let directory = path.dirname(resolved); systemOwned; directory = path.dirname(directory))
+    {
+        const ancestor = fs.lstatSync(directory);
+        requireValue(ancestor.isDirectory() && ancestor.uid === 0 && (ancestor.mode & 0o022) === 0,
+            `runtime ancestor is writable outside system ownership: ${directory}`);
+        if (directory === '/') break;
+    }
+    return { source, resolved, executable, exact, systemOwned, dev: stat.dev, ino: stat.ino, mode: stat.mode,
+        uid: stat.uid, gid: stat.gid, size: stat.size, mtimeMs: stat.mtimeMs, ctimeMs: stat.ctimeMs,
+        sha256: hash(fs.readFileSync(resolved)) };
+}
+
+function assertRuntimeIdentities(identities)
+{
+    for (const identity of identities)
+        requireValue(isDeepStrictEqual(trustedRuntimeIdentity(identity.source, identity), identity),
+            `trusted runtime identity drifted: ${identity.source}`);
 }
 
 function parseTrace(text, producer, runtimeFiles)
@@ -107,7 +135,7 @@ function parseTrace(text, producer, runtimeFiles)
                 requireValue(false, `attempted write outside canonical output: ${file}`);
             else if (nodeExecutions > 0 && !runtimeFiles.includes(file) && !file.startsWith('/proc/')
                 && !file.startsWith('/dev/') && !runtimeDirectories.has(path.posix.dirname(file))
-                && ((producerLoaded && file !== '/sys/devices/system/cpu/online') || !/\)\s+= -1 ENOENT/u.test(line)))
+                && ((producerLoaded && !absentRuntimeProbes.has(file)) || !/\)\s+= -1 ENOENT/u.test(line)))
             {
                 requireValue(false, `attempted read outside the sparse runtime and source mounts: ${file}`);
             }
@@ -191,21 +219,26 @@ export function createGeneratedOutputDigestRepairRepository({ root, authorityRoo
     {
         if (runtime) return runtime;
         requireValue(process.platform === 'linux', 'isolated digest repair replay requires Linux');
-        const bwrap = fs.realpathSync(resolveExecutablePath('bwrap', { pathValue: process.env.PATH }));
-        const strace = fs.realpathSync(resolveExecutablePath('strace', { pathValue: process.env.PATH }));
-        const ldd = fs.realpathSync(resolveExecutablePath('ldd', { pathValue: process.env.PATH }));
+        const executableIdentities = Object.values(sandboxExecutablePaths)
+            .map((source) => trustedRuntimeIdentity(source, { executable: true, exact: true }));
+        const { bwrap, strace, ldd } = sandboxExecutablePaths;
         const node = fs.realpathSync(process.execPath);
+        // Node is the already-running trusted checker runtime, not a command
+        // selected from candidate PATH. Retain its exact identity throughout
+        // replay without requiring a root-owned installation of that runtime.
+        const nodeIdentity = trustedRuntimeIdentity(node, { executable: true, exact: true, systemOwned: false });
+        assertRuntimeIdentities(executableIdentities);
         const listing = execFileSync(ldd, [node], {
-            env: { PATH: process.env.PATH, LANG: 'C', LC_ALL: 'C' }, timeout: commandTimeoutMs, encoding: 'utf8'
+            env: { PATH: trustedSystemPath, LANG: 'C', LC_ALL: 'C' }, timeout: commandTimeoutMs, encoding: 'utf8'
         });
+        assertRuntimeIdentities([...executableIdentities, nodeIdentity]);
         const libraries = [...new Set([...listing.matchAll(/(?:=>\s+)?(\/[^\s()]+)\s+\(/gu)].map((match) => match[1]))].sort();
         requireValue(libraries.length > 0 && !listing.includes('not found'), 'Node runtime library closure is unavailable');
         const mounts = libraries.map((file) => ({ source: fs.realpathSync(file), destination: file }));
         if (fs.existsSync('/etc/ld.so.cache')) mounts.push({ source: '/etc/ld.so.cache', destination: '/etc/ld.so.cache' });
         mounts.push({ source: node, destination: sandboxNode });
-        runtime = { bwrap, strace, mounts, identities: mounts.map((mount) => ({
-            ...mount, sha256: hash(fs.readFileSync(mount.source))
-        })) };
+        runtime = { bwrap, strace, mounts, identities: [...executableIdentities, nodeIdentity,
+            ...mounts.filter((mount) => mount.source !== node).map((mount) => trustedRuntimeIdentity(mount.source))] };
         return runtime;
     };
     const replay = ({ revision, producer: requested, attempt }) =>
@@ -214,8 +247,7 @@ export function createGeneratedOutputDigestRepairRepository({ root, authorityRoo
         requireValue(isDeepStrictEqual(requested, registered) && [0, 1].includes(attempt),
             'replay request differs from its trusted registration');
         const tools = loadRuntime();
-        for (const identity of tools.identities)
-            requireValue(hash(fs.readFileSync(identity.source)) === identity.sha256, 'runtime library or Node identity drifted');
+        assertRuntimeIdentities(tools.identities);
         const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-digest-replay-'));
         const checkout = path.join(temporaryRoot, 'checkout');
         fs.mkdirSync(checkout);
@@ -237,6 +269,7 @@ export function createGeneratedOutputDigestRepairRepository({ root, authorityRoo
             const observations = [];
             const run = (pass) =>
             {
+                assertRuntimeIdentities(tools.identities);
                 const trace = path.join(temporaryRoot, `pass-${pass}.strace`);
                 const sandboxArgs = [
                     '--unshare-user', '--unshare-net', '--unshare-pid', '--unshare-ipc', '--unshare-uts',
@@ -254,9 +287,10 @@ export function createGeneratedOutputDigestRepairRepository({ root, authorityRoo
                     '-f', '-qq', '-yy', '-s', '65536', '-e', 'trace=%file,network,write,writev,pwrite64,ftruncate,fchmod,fchown',
                     '-o', trace, '--', tools.bwrap, ...sandboxArgs
                 ], {
-                    cwd: checkout, env: { PATH: process.env.PATH, LANG: 'C', LC_ALL: 'C', TZ: 'UTC' },
+                    cwd: checkout, env: { PATH: trustedSystemPath, LANG: 'C', LC_ALL: 'C', TZ: 'UTC' },
                     timeout: commandTimeoutMs, killSignal: 'SIGKILL', maxBuffer: maximumTraceBytes
                 });
+                assertRuntimeIdentities(tools.identities);
                 requireValue(fs.existsSync(trace) && fs.statSync(trace).size <= maximumTraceBytes,
                     'sandbox trace is missing or exceeds the byte budget');
                 const observation = parseTrace(fs.readFileSync(trace, 'utf8'), registered,

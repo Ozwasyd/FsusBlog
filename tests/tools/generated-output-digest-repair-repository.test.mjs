@@ -44,6 +44,104 @@ test('real sparse sandbox reads Git inputs and writes only the output at a fixed
     assert.equal(fs.existsSync(result.isolationId), false);
 });
 
+test('candidate PATH executables cannot replace bwrap, strace or ldd', (t) =>
+{
+    const { repository, producer, base, root } = fixture(t);
+    const executables = path.join(root, 'candidate-bin');
+    fs.mkdirSync(executables);
+    const marker = path.join(root, 'hijacked');
+    for (const name of ['bwrap', 'strace', 'ldd'])
+        fs.writeFileSync(path.join(executables, name), `#!/bin/sh\nprintf hijacked > '${marker}'\nexit 97\n`, { mode: 0o755 });
+    const previous = process.env.PATH;
+    process.env.PATH = `${executables}:${previous}`;
+    try
+    {
+        const result = repository.replay({ revision: base, producer, attempt: 0 });
+        assert.equal(result.first.bytes.toString(), 'canonical\n');
+        assert.deepEqual(result.first, result.second);
+        assert.equal(fs.existsSync(marker), false);
+    }
+    finally
+    {
+        if (previous === undefined) delete process.env.PATH;
+        else process.env.PATH = previous;
+    }
+});
+
+for (const name of ['bwrap', 'strace', 'ldd'])
+{
+    test(`trusted ${name} rejects a redirected executable before execution`, (t) =>
+    {
+        const { repository, producer, base, root } = fixture(t);
+        const original = fs.realpathSync;
+        t.mock.method(fs, 'realpathSync', (file, ...args) => file === `/usr/bin/${name}`
+            ? path.join(root, name) : original(file, ...args));
+        assert.throws(() => repository.replay({ revision: base, producer, attempt: 0 }), /replaced or redirected/u);
+    });
+
+    test(`trusted ${name} rejects replacement bytes between fresh replays`, (t) =>
+    {
+        const { repository, producer, base } = fixture(t);
+        repository.replay({ revision: base, producer, attempt: 0 });
+        const original = fs.readFileSync;
+        // Mutate the filesystem observation, never the machine's executables.
+        t.mock.method(fs, 'readFileSync', (file, ...args) => file === `/usr/bin/${name}`
+            ? Buffer.from('replacement executable') : original(file, ...args));
+        assert.throws(() => repository.replay({ revision: base, producer, attempt: 1 }), /trusted runtime identity drifted/u);
+    });
+}
+
+test('trusted executable rejects same-byte inode replacement between fresh replays', (t) =>
+{
+    const { repository, producer, base } = fixture(t);
+    repository.replay({ revision: base, producer, attempt: 0 });
+    const original = fs.lstatSync;
+    t.mock.method(fs, 'lstatSync', (file, ...args) =>
+    {
+        const stat = original(file, ...args);
+        if (file === '/usr/bin/bwrap') stat.ino += 1;
+        return stat;
+    });
+    assert.throws(() => repository.replay({ revision: base, producer, attempt: 1 }), /trusted runtime identity drifted/u);
+});
+
+test('trusted executable rejects task-owned system path observations', (t) =>
+{
+    const { repository, producer, base } = fixture(t);
+    const original = fs.lstatSync;
+    t.mock.method(fs, 'lstatSync', (file, ...args) =>
+    {
+        const stat = original(file, ...args);
+        if (file === '/usr/bin/bwrap') stat.uid = 1000;
+        return stat;
+    });
+    assert.throws(() => repository.replay({ revision: base, producer, attempt: 0 }), /not system-owned/u);
+});
+
+for (const [name, file, syscallResult, accepted] of [
+    ['exact failed runtime probe', '/sys/devices/system/cpu/cpu0/tsc_freq_khz', '-1 ENOENT (No such file or directory)', true],
+    ['successful runtime probe', '/sys/devices/system/cpu/cpu0/tsc_freq_khz', '3</sys/devices/system/cpu/cpu0/tsc_freq_khz>', false],
+    ['failed sibling runtime probe', '/sys/devices/system/cpu/cpu0/other_freq_khz', '-1 ENOENT (No such file or directory)', false]
+])
+{
+    test(`syscall observation mutation ${name} is ${accepted ? 'accepted' : 'rejected'}`, (t) =>
+    {
+        const { repository, producer, base } = fixture(t);
+        const original = fs.readFileSync;
+        t.mock.method(fs, 'readFileSync', (source, ...args) =>
+        {
+            const result = original(source, ...args);
+            if (typeof source !== 'string' || !source.endsWith('.strace')) return result;
+            const pid = result.match(/^(\d+)\s+execve\("\/runtime\/node"/mu)?.[1];
+            assert.ok(pid, 'real trace must identify the canonical Node process');
+            return `${result}\n${pid} openat(AT_FDCWD</work>, "${file}", O_RDONLY|O_CLOEXEC) = ${syscallResult}\n`;
+        });
+        const replay = () => repository.replay({ revision: base, producer, attempt: 0 });
+        if (accepted) assert.equal(replay().first.bytes.toString(), 'canonical\n');
+        else assert.throws(replay, /attempted read outside the sparse runtime/u);
+    });
+}
+
 for (const [name, extra] of [
     ['undeclared source read', "try { fs.readFileSync('unregistered.txt'); } catch {}"],
     ['extra output write', "try { fs.writeFileSync('unregistered.txt', 'bad'); } catch {}"],
