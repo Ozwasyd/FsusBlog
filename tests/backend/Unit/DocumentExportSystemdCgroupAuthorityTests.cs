@@ -84,6 +84,52 @@ public sealed class DocumentExportSystemdCgroupAuthorityTests : IDisposable
     }
 
     [Fact]
+    public void ParsesRealSystemctlDurationFormatAndRejectsNonCanonicalValues()
+    {
+        Assert.Equal(
+            20_000_000,
+            DocumentExportSystemdCgroupAuthority.ParseSystemdDurationMicroseconds("20s", "RuntimeMaxUSec"));
+        Assert.Equal(
+            90_000_000,
+            DocumentExportSystemdCgroupAuthority.ParseSystemdDurationMicroseconds("1min 30s", "RuntimeMaxUSec"));
+        Assert.Equal(
+            1_001,
+            DocumentExportSystemdCgroupAuthority.ParseSystemdDurationMicroseconds("1ms 1us", "RuntimeMaxUSec"));
+
+        foreach (string invalid in new[]
+        {
+            "infinity",
+            "-1s",
+            "1fortnight",
+            "1.0000001ms",
+            "1s 1min",
+            "1s 1s",
+            "0s"
+        })
+        {
+            Assert.Throws<InvalidDataException>(() =>
+                DocumentExportSystemdCgroupAuthority.ParseSystemdDurationMicroseconds(
+                    invalid,
+                    "RuntimeMaxUSec"));
+        }
+    }
+
+    [Fact]
+    public void OnlyMissingCgroupPathsCanEnterTerminalSnapshotHandling()
+    {
+        Assert.True(DocumentExportSystemdCgroupAuthority.IsMissingCgroupException(
+            new FileNotFoundException()));
+        Assert.True(DocumentExportSystemdCgroupAuthority.IsMissingCgroupException(
+            new DirectoryNotFoundException()));
+        Assert.False(DocumentExportSystemdCgroupAuthority.IsMissingCgroupException(
+            new IOException("unqualified cgroup read")));
+        Assert.False(DocumentExportSystemdCgroupAuthority.IsMissingCgroupException(
+            new UnauthorizedAccessException()));
+        Assert.False(DocumentExportSystemdCgroupAuthority.IsMissingCgroupException(
+            new InvalidDataException("malformed cgroup counters")));
+    }
+
+    [Fact]
     public void RejectsFloatingAuthorityPathsInvalidDigestsAndUnboundedPolling()
     {
         DocumentExportSystemdCgroupAuthorityContract installed =
@@ -169,6 +215,7 @@ public sealed class DocumentExportSystemdCgroupAuthorityTests : IDisposable
             "src", "backend", "Services", "DocumentExport", "DocumentExportSystemdCgroupAuthority.cs");
 
         Assert.Contains("--service-type=exec", source, StringComparison.Ordinal);
+        Assert.Contains("--no-block", source, StringComparison.Ordinal);
         Assert.Contains("MemoryMax=", source, StringComparison.Ordinal);
         Assert.Contains("MemorySwapMax=0", source, StringComparison.Ordinal);
         Assert.Contains("TasksMax=", source, StringComparison.Ordinal);

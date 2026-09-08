@@ -143,6 +143,7 @@ public sealed class DocumentExportSystemdCgroupAuthority
         {
             "--user",
             "--quiet",
+            "--no-block",
             $"--unit={unitName}",
             "--service-type=exec",
             $"--working-directory={workload.WorkingDirectory}",
@@ -177,7 +178,7 @@ public sealed class DocumentExportSystemdCgroupAuthority
                     $"Document export transient service admission failed: {BoundedDiagnostic(launch)}");
             }
 
-            IReadOnlyDictionary<string, string> properties = await QueryUnitAsync(
+            IReadOnlyDictionary<string, string> properties = await WaitForAdmissionPropertiesAsync(
                 unitName,
                 cancellationToken,
                 "LoadState",
@@ -197,7 +198,6 @@ public sealed class DocumentExportSystemdCgroupAuthority
                 "KillMode",
                 "RemainAfterExit");
             ValidateAdmissionProperties(properties, budgets, runtimeMaxMicroseconds);
-
             string controlGroup = RequireProperty(properties, "ControlGroup");
             string cgroupPath = ResolveCgroupPath(unitName, controlGroup);
             ValidateCgroupFilesAndLimits(cgroupPath, budgets);
@@ -234,6 +234,34 @@ public sealed class DocumentExportSystemdCgroupAuthority
             }
             throw;
         }
+    }
+
+    private async Task<IReadOnlyDictionary<string, string>> WaitForAdmissionPropertiesAsync(
+        string unitName,
+        CancellationToken cancellationToken,
+        params string[] propertyNames)
+    {
+        for (int attempt = 0; attempt < 100; attempt++)
+        {
+            IReadOnlyDictionary<string, string> properties = await QueryUnitAsync(
+                unitName,
+                cancellationToken,
+                propertyNames);
+            string loadState = RequireProperty(properties, "LoadState");
+            string controlGroup = RequireProperty(properties, "ControlGroup");
+            if (loadState == "loaded" && !string.IsNullOrEmpty(controlGroup))
+            {
+                return properties;
+            }
+            if (loadState is not ("not-found" or "loaded"))
+            {
+                throw new InvalidDataException(
+                    "Document export transient service returned an unexpected admission state.");
+            }
+            await Task.Delay(10, cancellationToken);
+        }
+        throw new InvalidDataException(
+            "Document export transient service did not expose its cgroup before the admission deadline.");
     }
 
     private async Task ValidateInstalledIdentityAsync(CancellationToken cancellationToken)
@@ -374,25 +402,71 @@ public sealed class DocumentExportSystemdCgroupAuthority
         };
     }
 
-    private async Task<bool> KillAsync(string cgroupPath, CancellationToken cancellationToken)
+    private async Task<bool> KillAsync(
+        string unitName,
+        string cgroupPath,
+        CancellationToken cancellationToken)
     {
-        DocumentExportCgroupObservation observation = ReadObservation(cgroupPath);
+        DocumentExportCgroupObservation observation;
+        try
+        {
+            observation = ReadObservation(cgroupPath);
+        }
+        catch (Exception exception) when (IsMissingCgroupException(exception))
+        {
+            _ = await ReadCompletionAsync(unitName, cancellationToken);
+            return false;
+        }
         if (!observation.Populated)
         {
             return false;
         }
 
         string killPath = Path.Combine(cgroupPath, "cgroup.kill");
-        await File.WriteAllTextAsync(killPath, "1\n", Encoding.ASCII, cancellationToken);
+        try
+        {
+            await File.WriteAllTextAsync(killPath, "1\n", Encoding.ASCII, cancellationToken);
+        }
+        catch (Exception exception) when (IsMissingCgroupException(exception))
+        {
+            _ = await ReadCompletionAsync(unitName, cancellationToken);
+            return false;
+        }
         return true;
+    }
+
+    private async Task<DocumentExportCgroupObservation> ObserveAsync(
+        string unitName,
+        string cgroupPath,
+        DocumentExportCgroupObservation lastObservation,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return ReadObservation(cgroupPath);
+        }
+        catch (Exception exception) when (IsMissingCgroupException(exception))
+        {
+            _ = await ReadCompletionAsync(unitName, cancellationToken);
+            return lastObservation with
+            {
+                PidsCurrent = 0,
+                Populated = false
+            };
+        }
     }
 
     private async Task<DocumentExportCgroupCleanup> CleanupAsync(
         string unitName,
         string cgroupPath,
+        DocumentExportCgroupObservation lastObservation,
         CancellationToken cancellationToken)
     {
-        DocumentExportCgroupObservation final = ReadObservation(cgroupPath);
+        DocumentExportCgroupObservation final = await ObserveAsync(
+            unitName,
+            cgroupPath,
+            lastObservation,
+            cancellationToken);
         if (final.Populated)
         {
             throw new InvalidDataException("Document export cgroup remained populated before unit cleanup.");
@@ -486,7 +560,9 @@ public sealed class DocumentExportSystemdCgroupAuthority
             || ParsePositiveLong(RequireProperty(properties, "MemoryMax"), "MemoryMax") != budgets.MaxWorkingSetBytes
             || ParseNonNegativeLong(RequireProperty(properties, "MemorySwapMax"), "MemorySwapMax") != 0
             || ParsePositiveLong(RequireProperty(properties, "TasksMax"), "TasksMax") != budgets.MaxProcessCount
-            || ParsePositiveLong(RequireProperty(properties, "RuntimeMaxUSec"), "RuntimeMaxUSec") != expectedRuntimeMaxMicroseconds)
+            || ParseSystemdDurationMicroseconds(
+                RequireProperty(properties, "RuntimeMaxUSec"),
+                "RuntimeMaxUSec") != expectedRuntimeMaxMicroseconds)
         {
             throw new InvalidDataException(
                 "Document export transient service was not admitted with its exact cgroup properties.");
@@ -549,6 +625,7 @@ public sealed class DocumentExportSystemdCgroupAuthority
     public sealed class Execution
     {
         private readonly DocumentExportSystemdCgroupAuthority _authority;
+        private DocumentExportCgroupObservation _lastObservation;
 
         internal Execution(
             DocumentExportSystemdCgroupAuthority authority,
@@ -576,6 +653,7 @@ public sealed class DocumentExportSystemdCgroupAuthority
             MemoryLimitBytes = memoryLimitBytes;
             TasksLimit = tasksLimit;
             InitialObservation = initialObservation;
+            _lastObservation = initialObservation;
         }
 
         public string UnitName { get; }
@@ -600,10 +678,19 @@ public sealed class DocumentExportSystemdCgroupAuthority
 
         public DocumentExportCgroupObservation InitialObservation { get; }
 
-        public DocumentExportCgroupObservation Observe() => ReadObservation(CgroupPath);
+        public async Task<DocumentExportCgroupObservation> ObserveAsync(
+            CancellationToken cancellationToken = default)
+        {
+            _lastObservation = await _authority.ObserveAsync(
+                UnitName,
+                CgroupPath,
+                _lastObservation,
+                cancellationToken);
+            return _lastObservation;
+        }
 
         public Task<bool> KillAsync(CancellationToken cancellationToken = default)
-            => _authority.KillAsync(CgroupPath, cancellationToken);
+            => _authority.KillAsync(UnitName, CgroupPath, cancellationToken);
 
         public Task<DocumentExportCgroupCompletion> ReadCompletionAsync(
             CancellationToken cancellationToken = default)
@@ -611,7 +698,11 @@ public sealed class DocumentExportSystemdCgroupAuthority
 
         public Task<DocumentExportCgroupCleanup> CleanupAsync(
             CancellationToken cancellationToken = default)
-            => _authority.CleanupAsync(UnitName, CgroupPath, cancellationToken);
+            => _authority.CleanupAsync(
+                UnitName,
+                CgroupPath,
+                _lastObservation,
+                cancellationToken);
     }
 
     internal static IReadOnlyDictionary<string, string> ParseProperties(
@@ -667,6 +758,64 @@ public sealed class DocumentExportSystemdCgroupAuthority
             1 => true,
             _ => throw new InvalidDataException("Document export cgroup populated state is not binary.")
         };
+    }
+
+    internal static bool IsMissingCgroupException(Exception exception)
+        => exception is FileNotFoundException or DirectoryNotFoundException;
+
+    internal static long ParseSystemdDurationMicroseconds(string value, string name)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            throw new InvalidDataException($"Document export {name} is not a finite systemd duration.");
+        }
+
+        string[] components = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        decimal total = 0;
+        int previousRank = int.MaxValue;
+        foreach (string component in components)
+        {
+            int numberLength = 0;
+            while (numberLength < component.Length
+                && (char.IsAsciiDigit(component[numberLength]) || component[numberLength] == '.'))
+            {
+                numberLength++;
+            }
+            if (numberLength == 0
+                || numberLength == component.Length
+                || !decimal.TryParse(
+                    component.AsSpan(0, numberLength),
+                    NumberStyles.AllowDecimalPoint,
+                    CultureInfo.InvariantCulture,
+                    out decimal amount)
+                || amount < 0)
+            {
+                throw new InvalidDataException($"Document export {name} is not a finite systemd duration.");
+            }
+
+            (decimal multiplier, int rank) = component[numberLength..] switch
+            {
+                "d" => (86_400_000_000m, 6),
+                "h" => (3_600_000_000m, 5),
+                "min" => (60_000_000m, 4),
+                "s" => (1_000_000m, 3),
+                "ms" => (1_000m, 2),
+                "us" => (1m, 1),
+                _ => throw new InvalidDataException($"Document export {name} has an unknown systemd duration unit.")
+            };
+            decimal microseconds = amount * multiplier;
+            if (rank >= previousRank || microseconds != decimal.Truncate(microseconds))
+            {
+                throw new InvalidDataException($"Document export {name} is not a canonical microsecond duration.");
+            }
+            total = checked(total + microseconds);
+            previousRank = rank;
+        }
+        if (total <= 0 || total > long.MaxValue)
+        {
+            throw new InvalidDataException($"Document export {name} is not a positive microsecond duration.");
+        }
+        return decimal.ToInt64(total);
     }
 
     private static IReadOnlyDictionary<string, string> ResolveControlEnvironment()

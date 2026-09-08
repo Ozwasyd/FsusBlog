@@ -343,6 +343,7 @@ public sealed class DocumentExportSandboxTests : IDisposable
                 _fixture.Tool,
                 DocumentExportTestToolFixture.RequestBytes(input, mode)));
 
+        Assert.False(exception.Receipt.CgroupKillIssued);
         AssertFailureReceipt(exception.Plan, exception.Receipt, task, input, "failed", "contract-rejected");
     }
 

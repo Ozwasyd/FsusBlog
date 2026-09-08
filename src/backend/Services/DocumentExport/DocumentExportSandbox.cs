@@ -371,7 +371,7 @@ public sealed class DocumentExportSandboxRuntime
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                observation = execution.Observe();
+                observation = await execution.ObserveAsync(cancellationToken);
                 long observedAt = stopwatch.ElapsedMilliseconds;
                 if (stopwatch.Elapsed > budgets.WallTime)
                 {
@@ -488,14 +488,14 @@ public sealed class DocumentExportSandboxRuntime
             {
                 try
                 {
-                    observation = execution.Observe();
+                    observation = await execution.ObserveAsync(CancellationToken.None);
                     if (observation.Populated)
                     {
                         cgroupKillIssued |= await execution.KillAsync(CancellationToken.None);
                         for (int attempt = 0; attempt < 100 && observation.Populated; attempt++)
                         {
                             await Task.Delay(_authority.CpuPollIntervalMilliseconds, CancellationToken.None);
-                            observation = execution.Observe();
+                            observation = await execution.ObserveAsync(CancellationToken.None);
                         }
                     }
                     finalCgroupPopulated = observation.Populated;
