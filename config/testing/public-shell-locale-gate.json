@@ -1,0 +1,50 @@
+{
+    "schema": "fsusblog.public-shell-locale-gate.v1",
+    "matrix": {
+        "module": "tests/browser-contract/public-shell-locale-matrix.mjs",
+        "schema": "fsusblog.public-shell-locale-matrix.v1"
+    },
+    "runner": {
+        "path": "tests/browser-contract/run.mjs",
+        "kind": "browser-contract"
+    },
+    "subResults": {
+        "inputSchema": "fsusblog.public-shell-locale-sub-results.v1",
+        "resultSchema": "fsusblog.public-shell-locale-sub-result.v1",
+        "inputPath": ".tmp/browser-evidence/public-shell-locale-sub-results.json"
+    },
+    "build": {
+        "receiptPath": ".tmp/ci-production-build/receipt.json",
+        "requiredDomains": [
+            "backend-runtime",
+            "frontend-dist",
+            "generated-contracts",
+            "wasm"
+        ]
+    },
+    "output": {
+        "path": ".tmp/browser-evidence/public-shell-locale.json",
+        "schema": "fsusblog.public-shell-locale-qualification.v1"
+    },
+    "commands": {
+        "aggregate": "node tools/test-matrix/aggregate-public-shell-locale.mjs",
+        "verify": "node tools/test-matrix/verify-public-shell-locale.mjs <receipt>"
+    },
+    "legacy": {
+        "paths": [
+            "tests/frontend/e2e/public-shell-locale-lifecycle.spec.ts",
+            "tests/frontend/fixtures/publicShellLocaleLifecycle.ts"
+        ],
+        "forbiddenTokens": [
+            "__public-shell-locale-fixture",
+            "__advancePublicShellPhase",
+            "resetLocaleRuntimeForTests",
+            "requestLocale",
+            "LocaleToggle",
+            "waitForTimeout",
+            "flakyAllowlist",
+            "warningFilter",
+            "second-runner"
+        ]
+    }
+}

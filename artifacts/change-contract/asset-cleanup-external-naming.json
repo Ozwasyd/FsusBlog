@@ -1,0 +1,32 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Contracts/Assets/ContentAssetContract.cs",
+                "src/backend/Interfaces/IAssetStore.cs",
+                "src/backend/Services/Articles/ArticleAssetReferenceStore.cs",
+                "src/backend/Services/Authoring/AuthoringAssetLibraryService.cs",
+                "src/backend/Services/Background/ArticleAssetCleanupWorker.cs",
+                "src/backend/Services/LocalContentAssetStore.cs"
+            ],
+            "reason": "These C# files fall under the existing source-wide environment-variable registration. The cleanup change introduces no environment variable or configuration mapping; existing external names are preserved and new C# types, members and parameters follow the repository naming convention. The durable queue marker is a storage value, not an environment-variable alias."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/article-asset-reference-lifecycle.md",
+                "docs/testing.md"
+            ],
+            "reason": "The current lifecycle document falls under the existing Markdown registration. Preserve its document-claim and generated-section markers, canonical SQL table names and code identifiers while describing the deletion protocol; no CSS selector, token or external document identifier is renamed."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/Fixtures/postgres-test-collections.json"
+            ],
+            "reason": "Preserve collection IDs, class paths and serialized manifest fields while increasing only collection B's estimatedFacts by the twelve new AssetId cleanup cases. No existing class changes collection ownership."
+        }
+    ]
+}
