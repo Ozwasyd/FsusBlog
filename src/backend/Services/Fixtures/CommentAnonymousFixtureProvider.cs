@@ -142,7 +142,10 @@ public sealed class CommentAnonymousFixtureOperationLedger(
         try
         {
             Directory.CreateDirectory(_root);
-            File.SetUnixFileMode(_root, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(_root, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
             if (File.Exists(path))
             {
                 CommentAnonymousFixtureOperationReference existing = ReadCore(path, reference.OperationPlanDigest);
@@ -166,10 +169,16 @@ public sealed class CommentAnonymousFixtureOperationLedger(
                 reference.DisplayLanguage,
                 reference.CommentId,
                 _protector.Protect(reference.ManagementSecret),
-                reference.Comment with { ManagementSecret = null },
+                reference.Comment with
+                {
+                    ManagementSecret = null
+                },
                 reference.AuthorityEvidence,
                 string.Empty);
-            stored = stored with { RecordDigest = StoredDigest(stored) };
+            stored = stored with
+            {
+                RecordDigest = StoredDigest(stored)
+            };
             string temporaryPath = $"{path}.{Guid.NewGuid():N}.tmp";
             try
             {
@@ -178,7 +187,10 @@ public sealed class CommentAnonymousFixtureOperationLedger(
                     JsonSerializer.Serialize(stored, s_json),
                     new UTF8Encoding(false),
                     cancellationToken).ConfigureAwait(false);
-                File.SetUnixFileMode(temporaryPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+                if (!OperatingSystem.IsWindows())
+                {
+                    File.SetUnixFileMode(temporaryPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+                }
                 File.Move(temporaryPath, path, overwrite: false);
             }
             finally
@@ -249,7 +261,10 @@ public sealed class CommentAnonymousFixtureOperationLedger(
 
     private static string StoredDigest(StoredReference stored)
         => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(
-            JsonSerializer.Serialize(stored with { RecordDigest = string.Empty }, s_json))));
+            JsonSerializer.Serialize(stored with
+            {
+                RecordDigest = string.Empty
+            }, s_json))));
 
     private static bool IsCanonicalDigest(string? value)
         => value is not null
@@ -532,7 +547,10 @@ public sealed class CommentAnonymousFixtureProvider(
             request.DisplayLanguage,
             created.CommentId,
             created.ManagementSecret,
-            created with { ManagementSecret = null },
+            created with
+            {
+                ManagementSecret = null
+            },
             evidence);
         await StoreOperationOrCompensateAsync(
             operationLedger,
@@ -699,7 +717,11 @@ public sealed class CommentAnonymousFixtureProvider(
             capabilities.Store(request.Owner, request.TestSession, row.Id, existing.ManagementSecret);
         }
         return new CommentAnonymousFixtureCreateResult(
-            existing.Comment with { IdempotencyReplay = true, ManagementSecret = null },
+            existing.Comment with
+            {
+                IdempotencyReplay = true,
+                ManagementSecret = null
+            },
             existing.AuthorityEvidence);
     }
 
