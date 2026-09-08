@@ -6218,6 +6218,27 @@
             "classifications": [
                 "behavior"
             ]
+        },
+        {
+            "file": "tests/tools/generated-output-digest-repair-repository.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/generated-output-digest-repair-repository.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/generated-output-digest-repair-v2.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/generated-output-digest-repair-v2.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
         }
     ]
 }
