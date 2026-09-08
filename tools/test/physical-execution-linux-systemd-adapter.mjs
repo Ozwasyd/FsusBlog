@@ -1,11 +1,12 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHash, generateKeyPairSync, randomUUID, sign } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { resolveExecutablePath } from './execution-envelope-environment.mjs';
 import { createPhysicalExecutionOutputTracker } from './physical-execution-process-tree.mjs';
 import {
     collectProcessGroupOrJobIdentity,
@@ -16,6 +17,57 @@ const bootstrap = path.join(
     path.dirname(fileURLToPath(import.meta.url)),
     'physical-execution-linux-systemd-bootstrap.mjs'
 );
+
+function executableSnapshot(command, environment, cwd)
+{
+    const candidates = command[0].includes('/') ? [command[0]]
+        : (environment.PATH ?? '/usr/bin:/bin').split(':').map((directory) =>
+            directory ? `${directory}${directory.endsWith('/') ? '' : '/'}${command[0]}` : command[0]);
+    return candidates.map((candidate) =>
+    {
+        let descriptor;
+        try
+        {
+            const absolute = path.resolve(cwd, candidate);
+            if (!fs.statSync(absolute).isFile())
+            {
+                return { path: candidate, code: 'EACCES' };
+            }
+            descriptor = fs.openSync(absolute, 'r');
+            const metadata = fs.fstatSync(descriptor, { bigint: true });
+            const hasher = createHash('sha256');
+            const buffer = Buffer.alloc(1024 * 1024);
+            let count;
+            while ((count = fs.readSync(descriptor, buffer, 0, buffer.length, null)) > 0)
+            {
+                hasher.update(buffer.subarray(0, count));
+            }
+            const sha256 = hasher.digest('hex');
+            return {
+                path: candidate,
+                realPath: fs.realpathSync(absolute),
+                device: Number(metadata.dev),
+                inode: Number(metadata.ino),
+                mode: Number(metadata.mode),
+                size: Number(metadata.size),
+                modified: String(metadata.mtimeNs),
+                changed: String(metadata.ctimeNs),
+                sha256
+            };
+        }
+        catch (error)
+        {
+            return { path: candidate, code: error.code };
+        }
+        finally
+        {
+            if (descriptor !== undefined)
+            {
+                fs.closeSync(descriptor);
+            }
+        }
+    });
+}
 
 function delay(milliseconds)
 {
@@ -196,14 +248,14 @@ function waitForFile({
         const onAbort = () => finish(reject, new WaitForFileCancellation(phase, signal.reason));
         const inspect = () =>
         {
-            if (fs.existsSync(file))
-            {
-                finish(resolve);
-                return;
-            }
             if (signal?.aborted)
             {
                 onAbort();
+                return;
+            }
+            if (fs.existsSync(file))
+            {
+                finish(resolve);
                 return;
             }
             const childError = getChildError();
@@ -321,6 +373,10 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
     readProcessIdentity = collectProcessIdentity,
     readProcessGroupIdentity = (pid) =>
         collectProcessGroupOrJobIdentity(pid, { platform: 'linux' }),
+    readExecutableSnapshot = executableSnapshot,
+    resolvePython = (environment) => resolveExecutablePath(environment.FSUSBLOG_PYTHON ?? 'python3', {
+        pathValue: environment.PATH
+    }),
     removeControlRoot = (controlRoot) => fs.rmSync(controlRoot, { recursive: true, force: true }),
     handshakeTimeoutMs = 10_000
 } = {})
@@ -348,6 +404,8 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
         {
             requireSystemdAuthority(runSystemctl);
             const authorityId = randomUUID();
+            const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+            let python;
             const unitName = `fsusblog-physical-${authorityId.replaceAll('-', '')}`;
             const controlRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-physical-systemd-'));
             const readyFile = path.join(controlRoot, 'ready');
@@ -380,6 +438,12 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
             {
                 writePrivateJsonFile(controlRoot, 'command.json', command);
                 writePrivateJsonFile(controlRoot, 'environment.json', env);
+                python = resolvePython(controlEnv);
+                writePrivateJsonFile(controlRoot, 'admission.json', {
+                    authorityId,
+                    publicKey: publicKey.export({ type: 'spki', format: 'pem' }),
+                    python
+                });
             }
             catch (error)
             {
@@ -447,6 +511,7 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
             let controlGroup;
             let commandPid;
             let commandProcessGroup = null;
+            let executionAdmission = null;
             let authorityEstablished = false;
             let first;
             let outputEvidence = null;
@@ -750,7 +815,8 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     deadlineAt: Date.now() + handshakeTimeoutMs,
                     getChildError: () => childError
                 });
-                const childRegistration = JSON.parse(fs.readFileSync(childFile, 'utf8'));
+                const registrationBytes = fs.readFileSync(childFile, 'utf8').trim();
+                const childRegistration = JSON.parse(registrationBytes);
                 if (childRegistration.spawnError)
                 {
                     const spawnError = new Error(
@@ -761,6 +827,14 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     throw spawnError;
                 }
                 commandPid = Number(childRegistration.pid);
+                if (childRegistration.authorityId !== authorityId
+                    || !/^[a-f0-9]{64}$/u.test(childRegistration.nonce)
+                    || JSON.stringify(childRegistration.command) !== JSON.stringify(command)
+                    || childRegistration.environmentDigest !== `sha256:${createHash('sha256').update(JSON.stringify(env)).digest('hex')}`
+                    || !Array.isArray(childRegistration.executables))
+                {
+                    throw new Error('physical execution pre-exec command admission is invalid');
+                }
                 const commandIdentity = readProcessIdentity(commandPid);
                 if (commandIdentity.status !== 'verified')
                 {
@@ -776,7 +850,46 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     );
                 }
                 commandProcessGroup = processGroupIdentity.value;
-                inventory.set(`${commandPid}:${commandIdentity.processStartIdentity}`, commandIdentity);
+                if (commandProcessGroup.leaderProcessStartIdentity !== commandIdentity.processStartIdentity
+                    || childRegistration.startIdentity !== commandIdentity.processStartIdentity
+                    || childRegistration.processGroup !== commandPid
+                    || childRegistration.cgroup !== `0::${controlGroup}\n`
+                    || !readCgroupMemberPids(controlGroup).includes(commandPid))
+                {
+                    throw new Error('physical execution pre-exec containment admission is invalid');
+                }
+                inventory.set(`${commandPid}:${commandIdentity.processStartIdentity}`, {
+                    ...commandIdentity,
+                    observationPhase: 'pre-exec'
+                });
+                if (commandIdentity.executablePath !== fs.realpathSync(python)
+                    || commandIdentity.commandDigest !== `sha256:${createHash('sha256').update([
+                        python,
+                        '-I',
+                        '-S',
+                        path.join(path.dirname(bootstrap), 'physical-execution-linux-preexec.py')
+                    ].join('\0')).digest('hex')}`
+                    || JSON.stringify(childRegistration.executables) !== JSON.stringify(readExecutableSnapshot(command, env, cwd)))
+                {
+                    throw new Error('physical execution pre-exec executable admission is invalid');
+                }
+                if (signal?.aborted)
+                {
+                    throw new WaitForFileCancellation('admission', signal.reason);
+                }
+                executionAdmission = {
+                    phase: 'pre-exec',
+                    pid: commandPid,
+                    startIdentity: commandIdentity.processStartIdentity,
+                    commandDigest: `sha256:${createHash('sha256').update(JSON.stringify(command)).digest('hex')}`,
+                    environmentDigest: childRegistration.environmentDigest,
+                    executableCandidates: childRegistration.executables,
+                    executedImageObservation: 'not-observed'
+                };
+                writePrivateJsonFile(controlRoot, 'release.json', {
+                    registration: registrationBytes,
+                    signature: sign(null, Buffer.from(registrationBytes), privateKey).toString('base64')
+                });
                 lifecycle.push('running');
                 const resultPromise = waitForFile({
                     file: resultFile,
@@ -821,7 +934,14 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 }
                 else
                 {
-                    if (first.value.exitCode !== 0 || first.value.signal)
+                    if (first.value.spawnError)
+                    {
+                        primaryError = Object.assign(new Error(`command spawn failed: ${first.value.spawnError.message}`), {
+                            name: first.value.spawnError.name,
+                            code: first.value.spawnError.code
+                        });
+                    }
+                    else if (first.value.exitCode !== 0 || first.value.signal)
                     {
                         primaryError = Object.assign(
                             new Error(`command failed (${first.value.signal ? `signal ${first.value.signal}` : `exit ${first.value.exitCode}`}): ${command.join(' ')}`),
@@ -1002,6 +1122,7 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     ? 'zero-members'
                     : 'unverifiable',
                 cleanup,
+                executionAdmission,
                 controlRoot: cleanupVerified || cleanup.status === 'not-established' ? null : controlRoot,
                 processInventory: [...inventory.values()].map((identity) => ({
                     pid: identity.pid,
@@ -1013,6 +1134,7 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     jobId: unitName,
                     executableDigest: identity.executableDigest,
                     commandDigest: identity.commandDigest,
+                    observationPhase: identity.observationPhase ?? 'running',
                     role: identity.pid === commandPid
                         ? 'direct-child'
                         : identity.pid === supervisorPid

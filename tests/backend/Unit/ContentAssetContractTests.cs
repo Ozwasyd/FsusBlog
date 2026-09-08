@@ -1,6 +1,7 @@
 using System.Reflection;
 
 using FsusBlog.Server.Contracts.Assets;
+using FsusBlog.Server.Services;
 
 using SqlSugar;
 
@@ -82,16 +83,19 @@ public sealed class ContentAssetContractTests
 
     [Theory]
     [InlineData("/content-assets/images/hero.png")]
-    [InlineData("ftp://cdn.example.test/content-assets/images/hero.png")]
+    [InlineData("ftp://cdn.example.test/uploads/images/hero.png")]
     [InlineData("javascript:alert(1)")]
-    [InlineData("https://cdn.example.test/content-assets/images/hero.png?x=1")]
-    [InlineData("https://cdn.example.test/content-assets/images/hero.png#fragment")]
-    [InlineData("https://user@cdn.example.test/content-assets/images/hero.png")]
-    [InlineData("https://evil.example.test/content-assets/images/hero.png")]
+    [InlineData("https://cdn.example.test/uploads/images/hero.png?x=1")]
+    [InlineData("https://cdn.example.test/uploads/images/hero.png#fragment")]
+    [InlineData("https://user@cdn.example.test/uploads/images/hero.png")]
+    [InlineData("https://evil.example.test/uploads/images/hero.png")]
     [InlineData("https://cdn.example.test/content-assets/images/hero.png")]
-    [InlineData("https://cdn.example.test/content-assets/../secret")]
-    [InlineData("https://cdn.example.test/content-assets/%2e%2e/secret")]
-    [InlineData("https://cdn.example.test/content-assets/")]
+    [InlineData("https://cdn.example.test/uploads/a/../secret.png")]
+    [InlineData("https://cdn.example.test/uploads/a/%2e%2e/secret.png")]
+    [InlineData("https://cdn.example.test/uploads/a\\b.png")]
+    [InlineData("https://cdn.example.test/uploads/a%5cb.png")]
+    [InlineData("https://cdn.example.test/uploads/a\0b.png")]
+    [InlineData("https://cdn.example.test/uploads/")]
     public void PublicAssetUrlCodec_RejectsNonLocalAndMalformedUrls(string candidate)
     {
         var codec = new PublicAssetUrlCodec();
@@ -119,6 +123,32 @@ public sealed class ContentAssetContractTests
             out _));
         Assert.True(codec.TryGetStorageKey("/uploads/images/hero.png", out AssetStorageKey storageKey));
         Assert.Equal("images/hero.png", storageKey.Value);
+    }
+
+    [Fact]
+    public void FileService_CommittedAssetFlowCarriesTypedIdentityAndOneUrlCodec()
+    {
+        FieldInfo codec = Assert.Single(
+            typeof(FileService).GetFields(BindingFlags.Instance | BindingFlags.NonPublic),
+            static field => field.FieldType == typeof(PublicAssetUrlCodec));
+        Assert.Equal("_publicAssetUrlCodec", codec.Name);
+
+        foreach (string methodName in new[]
+        {
+            "CommitVerifiedUploadAsync",
+            "RegisterCommittedAssetAsync"
+        })
+        {
+            MethodInfo method = Assert.Single(
+                typeof(FileService).GetMethods(BindingFlags.Instance | BindingFlags.NonPublic),
+                method => method.Name == methodName);
+            ParameterInfo[] parameters = method.GetParameters();
+            Assert.Contains(parameters, static parameter => parameter.ParameterType == typeof(AssetId));
+            Assert.Contains(parameters, static parameter => parameter.ParameterType == typeof(AssetStorageKey));
+            Assert.DoesNotContain(
+                parameters,
+                static parameter => parameter.Name?.Contains("url", StringComparison.OrdinalIgnoreCase) == true);
+        }
     }
 
     [Fact]

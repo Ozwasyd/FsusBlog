@@ -1,0 +1,37 @@
+name: Dependency Freshness
+
+on:
+    schedule:
+        - cron: '0 */6 * * *'
+    workflow_dispatch:
+
+permissions:
+    contents: read
+    packages: read
+    actions: read
+    issues: write
+    pull-requests: read
+
+concurrency:
+    group: dependency-freshness-blockers
+    cancel-in-progress: false
+
+jobs:
+    freshness:
+        name: Dependency Freshness
+        if: github.ref == 'refs/heads/master'
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        steps:
+            - name: Checkout default branch snapshot
+              uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  persist-credentials: false
+            - name: Set up Node
+              uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - name: Evaluate freshness and reconcile blocker issue
+              run: node tools/governance/run-dependency-freshness-schedule.mjs
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

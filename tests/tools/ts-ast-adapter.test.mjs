@@ -128,6 +128,180 @@ test('top level', () => { assert.ok(true) })
     assert.ok(report.suiteRecords.some((entry) => entry.suitePath === 'suite'));
 });
 
+const nativeClosedTableFixture = `
+import test from 'node:test';
+import assert from 'node:assert/strict';
+for (const row of Object.freeze([
+    Object.freeze({ caseName: 'input-tree', authorityId: 'input', expectedErrors: Object.freeze(['stale']), unexpectedReasons: Object.freeze(['unknown']) }),
+    Object.freeze({ caseName: 'checker-source', authorityId: 'checker', expectedErrors: Object.freeze(['stale']), unexpectedReasons: Object.freeze([]) }),
+    Object.freeze({ caseName: 'parser-toolchain', authorityId: 'parser', expectedErrors: Object.freeze(['stale']), unexpectedReasons: Object.freeze([]) })
+])) {
+    test(\`invalidation \${row.caseName} / \${row.authorityId}\`, () => {
+        assert.ok(row.caseName);
+        assert.ok(row.authorityId);
+        for (const reason of row.expectedErrors) assert.equal(reason, 'stale');
+        for (const reason of row.unexpectedReasons) assert.notEqual(reason, 'stale');
+    });
+}
+`;
+
+test('native immutable closed table has exact runtime and static row identities', () =>
+{
+    const root = mkdtempSync(path.join(tmpdir(), 'fsusblog-native-table-'));
+    temporaryRoots.push(root);
+    const file = 'native-table.test.mjs';
+    write(root, file, nativeClosedTableFixture);
+    const report = runAdapter(root, [{ path: file, adapter: 'node-test' }]);
+    assert.deepEqual(report.diagnostics, []);
+    assert.equal(report.testCases.length, 3);
+    assert.equal(new Set(report.testCases.map((entry) => entry.id)).size, 3);
+    assert.ok(report.testCases.every((entry) => entry.identity === 'static' && entry.bodySource.includes('row.authorityId')));
+    const ordered = [...report.testCases].sort((a, b) => Number(a.traits.find((t) => t.name === 'DataRow').value) - Number(b.traits.find((t) => t.name === 'DataRow').value));
+    assert.deepEqual(ordered.map((entry) => entry.displayName), [
+        'invalidation input-tree / input', 'invalidation checker-source / checker', 'invalidation parser-toolchain / parser'
+    ]);
+    const runtimeEnvironment = { ...process.env };
+    delete runtimeEnvironment.NODE_TEST_CONTEXT;
+    const runtime = spawnSync(process.execPath, ['--test', '--test-reporter=tap', file], { cwd: root, encoding: 'utf8', env: runtimeEnvironment });
+    assert.equal(runtime.status, 0, runtime.stderr || runtime.stdout);
+    const executed = [...runtime.stdout.matchAll(/^# Subtest: (.+)$/gmu)].map((match) => match[1]);
+    assert.deepEqual(executed, ordered.map((entry) => entry.displayName));
+    assert.match(runtime.stdout, /# tests 3\b/u);
+    assert.deepEqual(runAdapter(root, [{ path: file, adapter: 'node-test' }]), report);
+    write(root, file, nativeClosedTableFixture.replace("caseName: 'checker-source', authorityId: 'checker'", "caseName: 'input-tree', authorityId: 'input'"));
+    const duplicate = runAdapter(root, [{ path: file, adapter: 'node-test' }]);
+    assert.ok(duplicate.diagnostics.some((entry) => entry.code === 'native-table-not-closed'));
+    assert.ok(duplicate.testCases.every((entry) => entry.identity === 'dynamic'));
+});
+
+test('native tables fail closed for unknown mutable escaped shadowed and unsupported registration', () =>
+{
+    const root = mkdtempSync(path.join(tmpdir(), 'fsusblog-native-table-negative-'));
+    temporaryRoots.push(root);
+    const variants = [
+        nativeClosedTableFixture.replace('for (const row', 'for (let row'),
+        nativeClosedTableFixture.replace('Object.freeze([', 'Object.freeze([,'),
+        nativeClosedTableFixture.replace("caseName: 'input-tree'", 'caseName: unknown'),
+        nativeClosedTableFixture.replace("caseName: 'input-tree',", ''),
+        nativeClosedTableFixture.replace('Object.freeze([', 'Array.from(['),
+        nativeClosedTableFixture.replace("Object.freeze(['stale'])", "['stale']"),
+        nativeClosedTableFixture.replace('assert.ok(row.caseName);', 'row.caseName = "changed";'),
+        nativeClosedTableFixture.replace('assert.ok(row.caseName);', 'row = {};'),
+        nativeClosedTableFixture.replace('assert.ok(row.caseName);', '(row.caseName) = "changed";'),
+        nativeClosedTableFixture.replace('assert.ok(row.caseName);', 'row.expectedErrors.push("changed");'),
+        nativeClosedTableFixture.replace('assert.ok(row.caseName);', 'escape(row);'),
+        nativeClosedTableFixture.replace('assert.ok(row.caseName);', 'escape(row.expectedErrors);'),
+        nativeClosedTableFixture.replace('assert.ok(row.caseName);', 'const row = {};'),
+        nativeClosedTableFixture.replace("import assert from 'node:assert/strict';", "import assert from 'node:assert/strict'; const Object = custom;"),
+        nativeClosedTableFixture.replace("import assert from 'node:assert/strict';", "import assert from 'node:assert/strict'; Object.freeze = custom;"),
+        nativeClosedTableFixture.replace("import assert from 'node:assert/strict';", "import assert from 'node:assert/strict'; globalThis.Object.freeze = custom;"),
+        nativeClosedTableFixture.replace("import assert from 'node:assert/strict';", "import assert from 'node:assert/strict'; Array.prototype[Symbol.iterator] = custom;"),
+        nativeClosedTableFixture.replace("import assert from 'node:assert/strict';", "import assert from 'node:assert/strict'; escape(Array.prototype);"),
+        nativeClosedTableFixture.replace("import assert from 'node:assert/strict';", "import assert from 'node:assert/strict'; escape([].__proto__);"),
+        nativeClosedTableFixture.replace("import assert from 'node:assert/strict';", "import assert from 'node:assert/strict'; escape([]['constructor']);"),
+        nativeClosedTableFixture.replace("import assert from 'node:assert/strict';", "import assert from 'node:assert/strict'; Object.hasOwn = custom;"),
+        nativeClosedTableFixture.replace("import assert from 'node:assert/strict';", "import assert from 'node:assert/strict'; escape(Object.hasOwn);"),
+        nativeClosedTableFixture.replace("import assert from 'node:assert/strict';", "import assert from 'node:assert/strict'; assert.deepEqual = custom;"),
+        nativeClosedTableFixture.replace('assert.ok(row.caseName);', 'const test = custom;'),
+        nativeClosedTableFixture.replace('for (const row', 'function register() { for (const row') + '\n}',
+        nativeClosedTableFixture.replace('test(`invalidation ${row.caseName} / ${row.authorityId}`, () => {', 'test("constant", () => {'),
+        nativeClosedTableFixture.replace('assert.ok(row.caseName);', 'test("nested", () => {});')
+    ];
+    for (const [index, source] of variants.entries())
+    {
+        const file = `negative-${index}.mjs`;
+        write(root, file, source);
+        const report = runAdapter(root, [{ path: file, adapter: 'node-test' }]);
+        assert.ok(report.diagnostics.some((entry) => entry.code === 'native-table-not-closed'), `variant ${index}`);
+        assert.ok(report.testCases.length > 0 && report.testCases.every((entry) => entry.identity === 'dynamic'), `variant ${index}`);
+    }
+    write(root, 'unrelated.mjs', "import test from 'node:test'; for (const item of [1, 2]) { console.log(item); } test('ordinary', () => {});");
+    const unrelated = runAdapter(root, [{ path: 'unrelated.mjs', adapter: 'node-test' }]);
+    assert.deepEqual(unrelated.diagnostics, []);
+    assert.deepEqual(unrelated.testCases.map((entry) => entry.displayName), ['ordinary']);
+});
+
+test('native table preserves actual governance receipt surrounding oracles and ten runtime cases', () =>
+{
+    const root = mkdtempSync(path.join(tmpdir(), 'fsusblog-native-governance-'));
+    temporaryRoots.push(root);
+    const current = readFileSync(path.join(repositoryRoot, 'tests/tools/repository-governance-authority.test.mjs'), 'utf8');
+    const start = current.indexOf("test('input-only change invalidates");
+    const end = current.indexOf("test('tampered rule IDs or command-output digests");
+    assert.ok(start > 0 && end > start);
+    const table = String.raw`
+const receiptInvalidationFixtureRoots = new Set();
+for (const mutationCase of Object.freeze([
+    Object.freeze({
+        caseName: 'input-tree', authorityId: 'test-asset-governance',
+        targetPath: 'inputs/authority-1.txt', replacementContent: 'changed test asset\n',
+        expectedReason: 'input tree digest mismatch',
+        expectedErrors: Object.freeze(['input tree digest mismatch', 'source worktree fingerprint mismatch']),
+        unexpectedReasons: Object.freeze(['checker source digest mismatch', 'parser/toolchain identity mismatch'])
+    }),
+    Object.freeze({
+        caseName: 'checker-source', authorityId: 'community-governance',
+        targetPath: 'checkers/authority-4.mjs', replacementContent: 'console.log("changed checker")\n',
+        expectedReason: 'checker source digest mismatch',
+        expectedErrors: Object.freeze(['input tree digest mismatch', 'checker source digest mismatch', 'source worktree fingerprint mismatch']),
+        unexpectedReasons: Object.freeze(['parser/toolchain identity mismatch'])
+    }),
+    Object.freeze({
+        caseName: 'parser-toolchain', authorityId: 'document-governance',
+        targetPath: 'toolchains/authority-3.json', replacementContent: '{"parser":99}\n',
+        expectedReason: 'parser/toolchain identity mismatch',
+        expectedErrors: Object.freeze(['input tree digest mismatch', 'parser/toolchain identity mismatch', 'source worktree fingerprint mismatch']),
+        unexpectedReasons: Object.freeze(['checker source digest mismatch'])
+    })
+])) {
+    test(\`governance receipt identity invalidation \${mutationCase.caseName}:\${mutationCase.authorityId}\`, async (context) => {
+        const { root, manifest } = fixture();
+        assert.equal(receiptInvalidationFixtureRoots.has(root), false);
+        receiptInvalidationFixtureRoots.add(root);
+        context.after(() => {
+            fs.rmSync(root, { recursive: true, force: true });
+            assert.equal(fs.existsSync(root), false);
+        });
+        const receipt = await createGovernanceReceipt({ root, manifest, authorityId: mutationCase.authorityId, write: false });
+        const beforeMutation = await verifyGovernanceReceipt({ root, manifest, authorityId: mutationCase.authorityId, receipt });
+        assert.deepEqual(beforeMutation, { valid: true, errors: [] });
+        write(root, mutationCase.targetPath, mutationCase.replacementContent);
+        const afterMutation = await verifyGovernanceReceipt({ root, manifest, authorityId: mutationCase.authorityId, receipt });
+        assert.equal(afterMutation.valid, false);
+        assert.ok(afterMutation.errors.includes(mutationCase.expectedReason),
+            \`\${mutationCase.caseName} did not report \${mutationCase.expectedReason}: \${afterMutation.errors.join('; ')}\`);
+        assert.deepEqual(afterMutation.errors, mutationCase.expectedErrors);
+        for (const unexpectedReason of mutationCase.unexpectedReasons) {
+            assert.equal(afterMutation.errors.includes(unexpectedReason), false);
+        }
+    });
+}
+`.replaceAll('\\`', '`').replaceAll('\\${', '${');
+    const source = (current.slice(0, start) + table + current.slice(end)).replace(
+        "const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');",
+        `const repositoryRoot = ${JSON.stringify(repositoryRoot)};`
+    );
+    assert.ok(source.includes('manifest.authorities[1].commands[0].checkerSources'));
+    assert.ok(source.includes('outputTamper.outputs[0].stdoutDigest'));
+    assert.equal([...source.matchAll(/Object\.hasOwn\(receipt,/gu)].length, 3);
+    assert.ok(source.endsWith(current.slice(end)), 'all later governance oracles remain byte-identical');
+    const file = 'governance-native.test.mjs';
+    write(root, file, source);
+    const report = runAdapter(root, [{ path: file, adapter: 'node-test' }]);
+    assert.deepEqual(report.diagnostics, []);
+    assert.equal(report.testCases.length, 10);
+    assert.ok(report.testCases.every((entry) => entry.identity === 'static'));
+    const environment = { ...process.env, TMPDIR: root };
+    delete environment.NODE_TEST_CONTEXT;
+    const runtime = spawnSync(process.execPath, ['--test', '--test-reporter=tap', file], {
+        cwd: root, env: environment, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024
+    });
+    assert.equal(runtime.status, 0, runtime.stderr || runtime.stdout);
+    const titles = [...runtime.stdout.matchAll(/^# Subtest: (.+)$/gmu)].map((match) => match[1]);
+    assert.deepEqual(titles.toSorted(), report.testCases.map((entry) => entry.displayName).toSorted());
+    assert.match(runtime.stdout, /# tests 10\b/u);
+});
+
 test('playwright adapter extracts fixtures, describe, use annotations and skip', () =>
 {
     const root = mkdtempSync(path.join(tmpdir(), 'fsusblog-ts-adapter-playwright-'));
