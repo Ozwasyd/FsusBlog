@@ -25,7 +25,8 @@
     { "id": "invalid-exception", "facts": { "currentVersion": "1.0.0", "latestStable": "2.0.0", "exception": { "kind": "general", "createdAt": "2026-09-01T12:00:00Z", "expiresAt": "2026-09-15T12:00:00Z", "omitOwner": true } }, "expectFresh": false },
     { "id": "pr-target-not-latest", "facts": { "currentVersion": "1.0.0", "latestStable": "2.0.0", "pullRequest": { "state": "open", "targetVersion": "1.9.0" } }, "expectFresh": false },
     { "id": "closed-pr-no-successor", "facts": { "currentVersion": "1.0.0", "latestStable": "2.0.0", "pullRequest": { "state": "closed", "targetVersion": "2.0.0" } }, "expectFresh": false },
-    { "id": "registry-unavailable", "facts": { "currentVersion": "1.0.0", "latestStable": null }, "expectFresh": false }
+    { "id": "registry-unavailable", "facts": { "currentVersion": "1.0.0", "latestStable": null }, "expectFresh": false },
+    { "id": "current-unavailable", "facts": { "latestStable": "2.0.0" }, "expectFresh": false }
   ],
   "branchProtection": [
     { "id": "bidirectional-match", "facts": { "mutation": "none" }, "expectValid": true },

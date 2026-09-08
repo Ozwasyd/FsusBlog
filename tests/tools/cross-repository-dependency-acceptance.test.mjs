@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
     auditUiFreshnessCli,
+    assertFixtureBinding,
     assertReceiptReplay,
     evaluateDelegatedOwnerInvariant,
     evidenceClass,
@@ -29,7 +30,8 @@ test('fixture matrix covers every issue #1981 controlled acceptance case', () =>
     assert.deepEqual(new Set(fixtures.freshness.map((entry) => entry.id)), new Set([
         'current', 'latest-target-pr', 'valid-general-exception', 'oversized-general-exception',
         'valid-vulnerability-exception', 'oversized-vulnerability-exception', 'expired-exception',
-        'invalid-exception', 'pr-target-not-latest', 'closed-pr-no-successor', 'registry-unavailable'
+        'invalid-exception', 'pr-target-not-latest', 'closed-pr-no-successor', 'registry-unavailable',
+        'current-unavailable'
     ]));
     assert.equal(fixtures.branchProtection.some((entry) => entry.id === 'bidirectional-drift'), true);
     assert.equal(fixtures.delegatedManager.some((entry) => entry.id === 'renovate-release-train-dual-owner'), true);
@@ -37,6 +39,13 @@ test('fixture matrix covers every issue #1981 controlled acceptance case', () =>
         id: 'exact-one-idempotent-recovery-concurrency',
         expect: { create: 'create', idempotent: 'none', recovery: 'close', concurrentRejected: true }
     });
+});
+
+test('fixture binding rejects working-tree semantics outside the bound Blog source', () => {
+    const source = fs.readFileSync(path.join(root, 'tests/fixtures/governance/cross-repository-dependency-acceptance.json'));
+    assert.equal(assertFixtureBinding(fixtures, source), true);
+    assert.throws(() => assertFixtureBinding({ ...fixtures, now: '2026-09-08T12:00:00Z' }, source),
+        /acceptance_fixtures_not_source_bound/);
 });
 
 test('bounded delegated-owner invariant rejects missing, duplicate and dual ownership', () => {

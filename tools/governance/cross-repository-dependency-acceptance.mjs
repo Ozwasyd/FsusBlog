@@ -588,6 +588,13 @@ function validateFixtures(fixtures)
     return fixtures;
 }
 
+export function assertFixtureBinding(fixtures, source)
+{
+    const bound = validateFixtures(JSON.parse(Buffer.from(source).toString('utf8')));
+    if (canonical(fixtures) !== canonical(bound)) throw new Error('acceptance_fixtures_not_source_bound');
+    return true;
+}
+
 function receiptPayload(receipt)
 {
     const { receiptDigest: ignored, ...payload } = receipt;
@@ -659,8 +666,10 @@ export async function runAcceptance({ blogRepository, blogSha, uiRepository, uiS
     const blogBinding = bindRepository(blogRepository, blogSha, blogClosure);
     const uiBinding = bindRepository(uiRepository, uiSha, uiClosure);
     const producerPath = 'tools/governance/cross-repository-dependency-acceptance.mjs';
+    const fixturePath = 'tests/fixtures/governance/cross-repository-dependency-acceptance.json';
     if (sha256(fs.readFileSync(fileURLToPath(import.meta.url))) !== blogBinding.files[producerPath].digest)
         throw new Error('acceptance_producer_not_source_bound');
+    assertFixtureBinding(fixtures, readGitBlob(blogBinding.repository, blogBinding.revision, fixturePath).content);
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-cross-repo-acceptance-'));
     try
     {
