@@ -349,11 +349,20 @@ public sealed record RequiredQueueHealthSnapshot(
     string Status,
     IReadOnlyDictionary<string, RequiredQueueHealthEntry> Queues) : IProductionHealthCheck
 {
-    public string? RunId { get; init; }
+    public string? RunId
+    {
+        get; init;
+    }
 
-    public string? ContentDigest { get; init; }
+    public string? ContentDigest
+    {
+        get; init;
+    }
 
-    public string? QualificationStatus { get; init; }
+    public string? QualificationStatus
+    {
+        get; init;
+    }
 
     public IReadOnlyList<string> Blockers { get; init; } = [];
 }
