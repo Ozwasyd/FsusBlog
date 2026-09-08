@@ -22,6 +22,8 @@ import {
 import { materializeTestMatrixRunner } from './support/esm-fixture-materializer-contracts.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const { readSchedulerVerificationContext, assertSchedulerVerificationContext,
+    collectSchedulerVerificationOutputRefs } = await import('../../tools/test-matrix/scheduler.mjs');
 
 function fixture(t, name)
 {
@@ -399,6 +401,8 @@ test('completed scheduler tier verifies journal outputs online and archived run 
     let admissionReference;
     let expectedOutputRefs;
     let laggedCompatibility;
+    let verificationContext;
+    let verificationContextRead;
     const verify = (mode) => verifyCompletedSchedulerTierEvidence({
         root, runsRoot, runId, tierId: post.id, admission, admissionReference,
         expectedSourceState: sourceState,
@@ -417,6 +421,40 @@ test('completed scheduler tier verifies journal outputs online and archived run 
             }
             else if (currentTier.id === post.id)
             {
+                verificationContextRead = {
+                    root, runsRoot,
+                    file: context.env.FSUSBLOG_SCHEDULER_VERIFICATION_CONTEXT,
+                    expectedContentDigest: context.env.FSUSBLOG_SCHEDULER_VERIFICATION_CONTEXT_DIGEST,
+                    expectedRunId: runId, expectedSourceState: sourceState,
+                    expectedCandidateIdentityDigest: schedulerCandidateIdentityDigest({ runId,
+                        targetTierId: final.id, namespace: 'completed-evidence-namespace', sourceState })
+                };
+                verificationContext = readSchedulerVerificationContext(verificationContextRead);
+                const copiedRoot = fixture(t, 'copied-scheduler-context');
+                const copiedRun = path.join(copiedRoot, 'runs', runId);
+                fs.cpSync(path.join(runsRoot, runId), copiedRun, { recursive: true });
+                assert.throws(() => readSchedulerVerificationContext({ ...verificationContextRead,
+                    file: path.join(copiedRun, path.basename(verificationContextRead.file)) }),
+                /outside caller run authority/u);
+                assert.throws(() => readSchedulerVerificationContext({ ...verificationContextRead,
+                    root: copiedRoot }), /runs root is not caller-owned/u);
+                assert.deepEqual(verificationContext.tiers.map((entry) => entry.id),
+                    [prerequisite.id, post.id, final.id]);
+                assert.equal(context.env.FSUSBLOG_SCHEDULER_CANDIDATE_IDENTITY_DIGEST,
+                    verificationContextRead.expectedCandidateIdentityDigest);
+                assert.throws(() => assertSchedulerVerificationContext(structuredClone(verificationContext)), /independently verified/u);
+                assert.throws(() => readSchedulerVerificationContext({ ...verificationContextRead,
+                    expectedRunId: 'another-run' }), /outside caller run authority/u);
+                const contextBytes = fs.readFileSync(verificationContextRead.file);
+                const contextDocument = JSON.parse(contextBytes);
+                contextDocument.tiers[0].command = 'forged';
+                fs.writeFileSync(verificationContextRead.file, JSON.stringify(contextDocument));
+                assert.throws(() => assertSchedulerVerificationContext(verificationContext), /identity or content mismatch/u);
+                fs.writeFileSync(verificationContextRead.file, contextBytes);
+                const originalCommand = verificationContext.tiers[0].command;
+                verificationContext.tiers[0].command = 'forged';
+                assert.throws(() => assertSchedulerVerificationContext(verificationContext), /unchanged independently verified/u);
+                verificationContext.tiers[0].command = originalCommand;
                 const bytes = fs.readFileSync(context.env.FSUSBLOG_SCHEDULER_CHECKPOINT);
                 admission = JSON.parse(bytes);
                 admissionReference = { schema: admission.schema,
@@ -432,6 +470,8 @@ test('completed scheduler tier verifies journal outputs online and archived run 
                 fs.writeFileSync(path.join(root, 'post.json'), '{"status":"verified"}\n');
                 expectedOutputRefs = [{ path: 'post.json', fileDigest: `sha256:${createHash('sha256')
                     .update(fs.readFileSync(path.join(root, 'post.json'))).digest('hex')}` }];
+                assert.deepEqual(collectSchedulerVerificationOutputRefs({ context: verificationContext,
+                    tierId: post.id, root }), expectedOutputRefs);
                 assert.throws(() => verify('completed-tier'), /no later successful completion/u);
             }
             else
@@ -439,6 +479,8 @@ test('completed scheduler tier verifies journal outputs online and archived run 
                 const checkpointPath = path.join(runsRoot, runId, 'checkpoint.json');
                 laggedCompatibility = fs.readFileSync(checkpointPath);
                 verification = verify('completed-tier');
+                assert.equal(schedulerTierAdmissionActivity({ runsRoot, admission,
+                    reference: admissionReference }).reason, 'scheduler tier is no longer running');
                 const forged = JSON.parse(laggedCompatibility);
                 forged.status = 'success';
                 fs.writeFileSync(checkpointPath, JSON.stringify(forged));
@@ -452,6 +494,7 @@ test('completed scheduler tier verifies journal outputs online and archived run 
     assert.equal(verification.status, 'verified');
     const before = fs.readFileSync(result.checkpointPath);
     assert.equal(verify('completed-run').status, 'verified');
+    assert.equal(assertSchedulerVerificationContext(readSchedulerVerificationContext(verificationContextRead)).runId, runId);
     assert.deepEqual(fs.readFileSync(result.checkpointPath), before);
     const savedAdmission = admission;
     admission = { ...admission, schema: 'fsusblog.scheduler-tier-admission.v1' };

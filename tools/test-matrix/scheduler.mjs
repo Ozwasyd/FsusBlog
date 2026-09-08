@@ -121,6 +121,7 @@ const orchestrationOnlyFingerprintEnvironmentKeys = new Set([
     'FSUSBLOG_CGROUP_EFFECTIVE_PIDS_MAX'
 ]);
 const checkpointPersistence = new Map();
+const verifiedSchedulerContexts = new WeakMap();
 const timeoutPhases = new Set([
     'preparation',
     'measurement',
@@ -2455,6 +2456,164 @@ function readCheckpoint(checkpointFile)
 
 /** Replays a retained scheduler execution; expected inputs must come from the
  * caller's admitted plan, never from the checkpoint being verified. */
+export function createSchedulerVerificationContext(options)
+{
+    const errors = validateSupersedesRules(options.supersedesUniverse ?? options.tiers ?? [], options.coverageRegistry);
+    if (errors.length) throw new Error(`invalid supersedes metadata: ${errors.join('; ')}`);
+    const tiers = applySupersedes(options.tiers ?? []);
+    if (!tiers.length || new Set(tiers.map((tier) => tier.id)).size !== tiers.length)
+        throw new Error('scheduler verification context requires an exact tier plan');
+    const identity = {
+        runId: options.runId,
+        targetTierId: options.targetTierId,
+        namespace: options.namespace,
+        sourceState: structuredClone(options.sourceState),
+        budgetPolicyDigest: options.budgetPolicyDigest ?? null
+    };
+    const context = {
+        schema: 'fsusblog.scheduler-verification-context.v1',
+        ...identity,
+        expectedCandidateIdentityDigest: schedulerCandidateIdentityDigest(identity),
+        tiers: structuredClone(tiers)
+    };
+    return { ...context, contentDigest: fingerprint(context) };
+}
+
+export function readSchedulerVerificationContext({
+    root, runsRoot, file, expectedContentDigest, expectedRunId, expectedSourceState, expectedCandidateIdentityDigest
+})
+{
+    const require = (condition, message) =>
+    {
+        if (!condition) throw new Error(`scheduler verification context: ${message}`);
+    };
+    require(root && runsRoot && file && expectedContentDigest && expectedRunId && expectedSourceState
+        && expectedCandidateIdentityDigest, 'independent expected identities are required');
+    const absolute = path.resolve(file);
+    const canonicalRoot = fs.realpathSync(path.resolve(root));
+    const canonicalRunsRoot = fs.realpathSync(path.resolve(runsRoot));
+    require(canonicalRoot === path.resolve(root) && canonicalRunsRoot === path.resolve(runsRoot)
+        && canonicalRunsRoot.startsWith(`${canonicalRoot}${path.sep}`), 'runs root is not caller-owned canonical root');
+    require(absolute === path.join(canonicalRunsRoot, safeRunId(expectedRunId),
+        `verification-context-${expectedContentDigest}.json`), 'context is outside caller run authority');
+    const stat = fs.lstatSync(absolute);
+    require(stat.isFile() && !stat.isSymbolicLink() && fs.realpathSync(absolute) === absolute,
+        'context path is not canonical');
+    const context = JSON.parse(fs.readFileSync(absolute, 'utf8'));
+    const { contentDigest, ...body } = context;
+    require(fingerprint(Object.keys(context).sort()) === fingerprint(['schema', 'runId', 'targetTierId',
+        'namespace', 'sourceState', 'budgetPolicyDigest', 'expectedCandidateIdentityDigest', 'tiers', 'contentDigest'].sort())
+        && Array.isArray(context.tiers) && context.tiers.length > 0
+        && new Set(context.tiers.map((tier) => tier.id)).size === context.tiers.length
+        && context.tiers.every((tier) => typeof tier.id === 'string' && tier.id
+            && typeof tier.command === 'string' && Array.isArray(tier.executionDependsOn ?? [])
+            && tierSchedulerDependencies(tier).every((id) => context.tiers.some((entry) => entry.id === id))),
+    'context shape or dependency plan is invalid');
+    require(context.schema === 'fsusblog.scheduler-verification-context.v1'
+        && contentDigest === expectedContentDigest && fingerprint(body) === contentDigest
+        && context.runId === expectedRunId
+        && fingerprint(context.sourceState) === fingerprint(expectedSourceState)
+        && context.expectedCandidateIdentityDigest === expectedCandidateIdentityDigest
+        && schedulerCandidateIdentityDigest(context) === expectedCandidateIdentityDigest,
+    'context identity or content mismatch');
+    const runDirectory = path.dirname(absolute);
+    require(path.basename(runDirectory) === expectedRunId
+        && path.basename(absolute) === `verification-context-${contentDigest}.json`, 'context path mismatch');
+    const store = new RunEvidenceObjectStore({ root: path.join(runDirectory, 'evidence-store'),
+        runId: expectedRunId, sourceState: expectedSourceState, readOnly: true });
+    let state = null;
+    let pinned = null;
+    for (const event of store.readJournal())
+    {
+        state = applyCheckpointPatch(state, store.readObject(event.payloadDigest).value);
+        if (event.eventType === 'run-started'
+            && state.schedulerVerificationContext?.contentDigest === contentDigest
+            && state.schedulerVerificationContext?.file === path.basename(absolute)
+            && state.schedulerCandidateIdentityDigest === expectedCandidateIdentityDigest
+            && fingerprint(state.sourceState) === fingerprint(expectedSourceState)) pinned = structuredClone(state);
+    }
+    require(pinned, 'context lacks a prior run-start journal binding');
+    require(pinned.targetTierId === context.targetTierId && pinned.namespace === context.namespace
+        && pinned.budgetPolicyDigest === context.budgetPolicyDigest && pinned.schedulerRunOwnerToken,
+    'context run-start owner identity mismatch');
+    const activity = schedulerRunLockActivity({ runsRoot: canonicalRunsRoot, runId: expectedRunId,
+        candidateIdentityDigest: expectedCandidateIdentityDigest, targetTierId: context.targetTierId });
+    if (activity.status !== 'active' || activity.owner.ownerToken !== pinned.schedulerRunOwnerToken)
+    {
+        const archive = path.join(canonicalRunsRoot, '.locks', '.terminal', expectedRunId,
+            `${pinned.schedulerRunOwnerToken}.json`);
+        const archiveStat = fs.lstatSync(archive);
+        require(archiveStat.isFile() && !archiveStat.isSymbolicLink() && fs.realpathSync(archive) === archive,
+            'context terminal owner path is not canonical');
+        const owner = JSON.parse(fs.readFileSync(archive, 'utf8'));
+        require(schedulerRunOwnerIsComplete(owner) && owner.state === 'complete'
+            && owner.ownerToken === pinned.schedulerRunOwnerToken && owner.runId === expectedRunId
+            && owner.candidateIdentityDigest === expectedCandidateIdentityDigest,
+        'context lacks matching scheduler owner authority');
+    }
+    verifiedSchedulerContexts.set(context, { root: canonicalRoot, runsRoot: canonicalRunsRoot,
+        file: absolute, contentDigest });
+    return context;
+}
+
+export function assertSchedulerVerificationContext(context)
+{
+    const verified = verifiedSchedulerContexts.get(context);
+    const { contentDigest, ...body } = context ?? {};
+    if (!verified || contentDigest !== verified.contentDigest || fingerprint(body) !== contentDigest)
+        throw new Error('scheduler verification context is not an unchanged independently verified context');
+    readSchedulerVerificationContext({ root: verified.root, runsRoot: verified.runsRoot,
+        file: verified.file, expectedContentDigest: contentDigest,
+        expectedRunId: context.runId, expectedSourceState: context.sourceState,
+        expectedCandidateIdentityDigest: context.expectedCandidateIdentityDigest });
+    return context;
+}
+
+export function collectSchedulerVerificationOutputRefs({ context, tierId, root })
+{
+    assertSchedulerVerificationContext(context);
+    const verified = verifiedSchedulerContexts.get(context);
+    if (path.resolve(root) !== verified.root) throw new Error('scheduler output root differs from verified caller root');
+    const runDirectory = path.dirname(verified.file);
+    const runsRoot = path.dirname(runDirectory);
+    const store = new RunEvidenceObjectStore({ root: path.join(runDirectory, 'evidence-store'),
+        runId: context.runId, sourceState: context.sourceState, readOnly: true });
+    let state = null;
+    let reference = null;
+    for (const event of store.readJournal())
+    {
+        state = applyCheckpointPatch(state, store.readObject(event.payloadDigest).value);
+        if (event.eventType === 'tier-admitted' && event.tier === tierId
+            && state.schedulerVerificationContext?.contentDigest === context.contentDigest)
+            reference = state.schedulerAdmissions?.[tierId];
+    }
+    const tier = context.tiers.find((entry) => entry.id === tierId);
+    if (!tier || !reference) throw new Error('scheduler output references lack canonical prior admission');
+    const admissionFile = path.resolve(root, reference.ref);
+    const stat = fs.lstatSync(admissionFile);
+    if (!stat.isFile() || stat.isSymbolicLink() || fs.realpathSync(admissionFile) !== admissionFile
+        || !admissionFile.startsWith(`${runDirectory}${path.sep}`))
+        throw new Error('scheduler output admission path is not canonical');
+    const admission = JSON.parse(fs.readFileSync(admissionFile, 'utf8'));
+    const persisted = verifyPersistedSchedulerTierAdmission({ runsRoot, admission, reference });
+    const declarations = [...new Set([...(tier.artifacts ?? []), ...(tier.evidence ?? [])])].sort();
+    if (persisted.status !== 'verified' || admission.currentTierId !== tierId
+        || admission.runId !== context.runId
+        || admission.schedulerCandidateIdentityDigest !== context.expectedCandidateIdentityDigest
+        || fingerprint(admission.sourceState) !== fingerprint(context.sourceState)
+        || fingerprint(admission.outputDeclarations.map((entry) => entry.declaration).sort()) !== fingerprint(declarations))
+        throw new Error('scheduler output admission identity or declarations mismatch');
+    return [...new Set(admission.outputDeclarations.map((entry) => entry.path))].sort().map((outputPath) =>
+    {
+        const absolute = path.resolve(root, outputPath);
+        const outputStat = fs.lstatSync(absolute);
+        if (!absolute.startsWith(`${path.resolve(root)}${path.sep}`) || !outputStat.isFile()
+            || outputStat.isSymbolicLink() || fs.realpathSync(absolute) !== absolute)
+            throw new Error('scheduler output reference is not a canonical regular file');
+        return { path: outputPath, fileDigest: `sha256:${sha256(fs.readFileSync(absolute))}` };
+    });
+}
+
 export function verifyCompletedSchedulerTierEvidence({
     root, runsRoot, runId, tierId, admission, admissionReference,
     expectedSourceState, expectedCandidateIdentityDigest, tiers,
@@ -4403,13 +4562,10 @@ async function runDagUnlocked(options)
     {
         throw new Error('scheduler budget policy digest is invalid');
     }
-    const supersedesUniverse = options.supersedesUniverse ?? options.tiers ?? [];
-    const supersedesErrors = validateSupersedesRules(supersedesUniverse, options.coverageRegistry);
-    if (supersedesErrors.length > 0)
-    {
-        throw new Error(`invalid supersedes metadata: ${supersedesErrors.join('; ')}`);
-    }
-    const tiers = applySupersedes(options.tiers ?? []);
+    const verificationContext = createSchedulerVerificationContext({ ...options, runId, sourceState });
+    const tiers = verificationContext.tiers;
+    const verificationContextFile = path.join(runDirectory,
+        `verification-context-${verificationContext.contentDigest}.json`);
     const schedulerReplayPlan = options.executionReplayPlan ?? null;
     if (schedulerReplayPlan)
     {
@@ -4498,6 +4654,14 @@ async function runDagUnlocked(options)
         resetFreshRunDirectory(runDirectory, options.freshRunDirectoryPreservation);
     }
     fs.mkdirSync(tierLogDirectory, { recursive: true });
+    if (fs.existsSync(verificationContextFile))
+    {
+        const stat = fs.lstatSync(verificationContextFile);
+        if (!stat.isFile() || stat.isSymbolicLink() || fs.realpathSync(verificationContextFile) !== verificationContextFile
+            || fs.readFileSync(verificationContextFile, 'utf8') !== `${JSON.stringify(verificationContext)}\n`)
+            throw new Error('scheduler verification context publication drift');
+    }
+    else fs.writeFileSync(verificationContextFile, `${JSON.stringify(verificationContext)}\n`, { flag: 'wx' });
     const previous = resume ? readCheckpoint(checkpointFile) : null;
     const resumeSourceChanged = Boolean(previous)
     && (previous.sourceState?.commit !== sourceState.commit
@@ -4539,6 +4703,10 @@ async function runDagUnlocked(options)
     const checkpoint = {
         schema: checkpointSchema,
         runId,
+        schedulerVerificationContext: {
+            file: path.basename(verificationContextFile), contentDigest: verificationContext.contentDigest
+        },
+        schedulerRunOwnerToken: options.schedulerRunOwnerToken,
         targetTierId: options.targetTierId ?? tiers.at(-1)?.id ?? null,
         namespace: options.namespace,
         schedulerCandidateIdentityDigest: options.schedulerCandidateIdentityDigest,
@@ -5597,6 +5765,9 @@ async function runDagUnlocked(options)
             step: 'scheduler'
         });
         tierEnvironment.FSUSBLOG_SCHEDULER_CHECKPOINT = publishedAdmission.file;
+        tierEnvironment.FSUSBLOG_SCHEDULER_VERIFICATION_CONTEXT = verificationContextFile;
+        tierEnvironment.FSUSBLOG_SCHEDULER_VERIFICATION_CONTEXT_DIGEST = verificationContext.contentDigest;
+        tierEnvironment.FSUSBLOG_SCHEDULER_CANDIDATE_IDENTITY_DIGEST = verificationContext.expectedCandidateIdentityDigest;
 
         // Once execution is about to begin, the old success is no longer a safe
         // fallback: the command may mutate its outputs before failing or being

@@ -1132,6 +1132,25 @@ export function schedulerTierAdmissionActivity({ runsRoot, admission, reference 
 {
     const verification = verifyPersistedSchedulerTierAdmission({ runsRoot, admission, reference });
     if (verification.status !== 'verified') return verification;
+    try
+    {
+        const store = new RunEvidenceObjectStore({
+            root: path.join(path.resolve(runsRoot), admission.runId, 'evidence-store'),
+            runId: admission.runId, sourceState: admission.sourceState, readOnly: true
+        });
+        const events = store.readJournal();
+        const admitted = events.findLast((entry) => entry.eventType === 'tier-admitted'
+            && entry.tier === admission.currentTierId);
+        if (!admitted || events.some((entry) => entry.sequence > admitted.sequence
+            && ((entry.tier === admission.currentTierId
+                && ['tier-completed', 'tier-failed', 'tier-cancelled', 'tier-reused'].includes(entry.eventType))
+                || ['run-completed', 'run-failed', 'run-interrupted', 'run-timed-out'].includes(entry.eventType))))
+            return { status: 'invalid', reason: 'scheduler tier is no longer running', owner: null };
+    }
+    catch (error)
+    {
+        return { status: 'invalid', reason: `scheduler running state is unverifiable: ${error.message}`, owner: null };
+    }
     const lock = schedulerRunLockActivity({
         runsRoot,
         runId: admission.runId,
