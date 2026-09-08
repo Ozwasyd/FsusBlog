@@ -1429,6 +1429,29 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                     "taxonomy_list_wire_compatibility"
                 ]));
 
+        result.Add(
+            "20260904-post-author-article-pins",
+            new OnlineSchemaMigrationMetadata(
+                "20260904-post-author-article-pins",
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260904-author-article-pins"),
+                ContractAfterCoordinate: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "author_article_pin_closed_schema",
+                    "author_article_pin_owner_scope"
+                ]));
+
         return new ReadOnlyDictionary<string, OnlineSchemaMigrationMetadata>(result);
     }
 
