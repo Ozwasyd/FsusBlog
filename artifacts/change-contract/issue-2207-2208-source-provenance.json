@@ -1,0 +1,574 @@
+{
+    "schema": "fsusblog.curated-source-provenance.v1",
+    "baseCommit": "e6caafd21ac70d43bc77b722d15ff4492f1890a7",
+    "sourceRevision": "8e229f7220a20b98d150e40eab6caf8ed76fc4ef",
+    "scope": [
+        "2207",
+        "2208",
+        "3235"
+    ],
+    "qualification": "source-only; synthetic contract checks are not runtime qualification",
+    "sourceFiles": [
+        {
+            "path": "config/testing/post-runtime-producer-registry.json",
+            "sourceCommit": "2373167821080ecc1b3c0f5bc9aa2d7d8da01497",
+            "sourceBlob": "f8f78733d81cce6000aed8062384cabd6644d453",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/browser-contract/contract-core.mjs",
+            "sourceCommit": "dd9eda441e12d4a62388c2f7a0c677bdeb3c27e0",
+            "sourceBlob": "fe629513d899c3a3f9d326023d6d3fee8498cf22",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/browser-contract/contract.mjs",
+            "sourceCommit": "dd9eda441e12d4a62388c2f7a0c677bdeb3c27e0",
+            "sourceBlob": "55986e0c679cb346633828a8c4a52ebed18486d3",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/browser-contract/fixture-lifecycle.mjs",
+            "sourceCommit": "0cb60c4c4ed8606ee79502d5497ce9e55554572a",
+            "sourceBlob": "34cd482d6de4a0dc85bcf1eda4edc0b78fc64e3a",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/browser-contract/fixture-lifecycle.test.mjs",
+            "sourceCommit": "0cb60c4c4ed8606ee79502d5497ce9e55554572a",
+            "sourceBlob": "37263577f85a0bac19bfb54e83b0c8c16569fec3",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/browser-contract/run.mjs",
+            "sourceCommit": "0a75ce70c1e39565b736020a667ae877041d9efb",
+            "sourceBlob": "17ca65c262dd5866328534c289f4aaeca4264a19",
+            "sourceMode": "100755"
+        },
+        {
+            "path": "tests/browser-contract/scenarios.mjs",
+            "sourceCommit": "165b7f3ccd705022923a2034cb562a7d9995a621",
+            "sourceBlob": "6b9c571efd889d6ceff8842830183dd2444d1283",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/deployment/release-rollout-evidence-receipt-contract.mjs",
+            "sourceCommit": "61ff9047197d534b21d40c21f38314ab0c172303",
+            "sourceBlob": "a431e271468e6bb37d46be546715be58b8176282",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/deployment/release-rollout-evidence.mjs",
+            "sourceCommit": "b7affdc67d027da6c3d22e5731d370ab867ee3e7",
+            "sourceBlob": "b3919482e5ee87afc5f226fa49ac81eabafd3206",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/deployment/release-rollout-lib.mjs",
+            "sourceCommit": "61ff9047197d534b21d40c21f38314ab0c172303",
+            "sourceBlob": "2ebbba18f86c378e5f1e960d072da14622da22f3",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/docs/behavior-doc-minimal-contract-build-contract.mjs",
+            "sourceCommit": "6885e3e9b2ea25eec83a0f1ac31700561a11b54b",
+            "sourceBlob": "64c10645718d21a5c14b95ee168d91048e64279e",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
+            "sourceCommit": "6ee2eeede3bf93b3dbaca077f5a70aa8ba39f6ea",
+            "sourceBlob": "557b3058f0b4d4aeb28ea84db531afe3ae199f57",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/docs/behavior-doc-static-admission-contract.mjs",
+            "sourceCommit": "8eb9c387410c2f575aeaa7c37298ed983e8f0cd6",
+            "sourceBlob": "baf95f50f8856eea4676c5f78d110b1726300711",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/docs/public-preview-quality-contract.mjs",
+            "sourceCommit": "c9100d9cb89f523d4943e6b62eb87f15d4cc9cb4",
+            "sourceBlob": "30e6ce84a40f0dc8af83094186c141bb0f3cb736",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/docs/public-preview-quality-publication.mjs",
+            "sourceCommit": "c9100d9cb89f523d4943e6b62eb87f15d4cc9cb4",
+            "sourceBlob": "dee11e1b1a58e16cb950d6b310773a6e42687173",
+            "sourceMode": "100755"
+        },
+        {
+            "path": "tools/docs/public-preview-registry.mjs",
+            "sourceCommit": "c9100d9cb89f523d4943e6b62eb87f15d4cc9cb4",
+            "sourceBlob": "0443819abc65a0e8843b690c75413e9216633562",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/fact-extractors/post-runtime/adapter.mjs",
+            "sourceCommit": "aaba08857cfd97b37a4d605b9c44c37fd52e7adc",
+            "sourceBlob": "63d8fe22fe7da1e2123f3af39f48e8877ff1dbe1",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/fact-extractors/post-runtime/application-runtime.mjs",
+            "sourceCommit": "0cb60c4c4ed8606ee79502d5497ce9e55554572a",
+            "sourceBlob": "163b2ed8ae41147851d28ff638f7224c65096d49",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/fact-extractors/post-runtime/current-run.mjs",
+            "sourceCommit": "b57deb6be80c79fc09937a51754b30daf5744d23",
+            "sourceBlob": "2c8bf6fbebc6f719f4cf5dd596c8800d1cae67a9",
+            "sourceMode": "100755"
+        },
+        {
+            "path": "tools/fact-extractors/post-runtime/receipt-seal-contract.mjs",
+            "sourceCommit": "aaba08857cfd97b37a4d605b9c44c37fd52e7adc",
+            "sourceBlob": "887628eb0b44a430ef2411af63d2a8bbb85ca1ac",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/fact-extractors/post-runtime/release-deployment.mjs",
+            "sourceCommit": "0cb60c4c4ed8606ee79502d5497ce9e55554572a",
+            "sourceBlob": "eb2438db6e655edaeece88b965ac06b92622b201",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/fact-extractors/post-runtime/semantic-contracts.mjs",
+            "sourceCommit": "445d0fdb432e92f349fc02c4a5ff675e838aece6",
+            "sourceBlob": "8f00bfa3f5ec32274dbc95350278db9b065ae581",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/release/browser-contract-receipt-contract.mjs",
+            "sourceCommit": "2bd93c5154c7053a0fb2e5cac2a532b370452915",
+            "sourceBlob": "7d8c1009a392bc4435637d0dde8dcbe4b1ad0d2f",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/release/public-preview-quality-receipt-contract.mjs",
+            "sourceCommit": "c9100d9cb89f523d4943e6b62eb87f15d4cc9cb4",
+            "sourceBlob": "b87ab5029d9eb4cb82b9921598699939c64212f7",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/release/release-id-value-contract.mjs",
+            "sourceCommit": "83cf9fc4837f196ed2ecc7ea9206c4d0f45ab06d",
+            "sourceBlob": "67a1e698b9a7b61182804cfd4d1af84183208728",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/release/release-id.mjs",
+            "sourceCommit": "83cf9fc4837f196ed2ecc7ea9206c4d0f45ab06d",
+            "sourceBlob": "cbf2cfe8bd288a41b51c91c7ea6860b5ab48f6a6",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/release/release-manifest-value-contract.mjs",
+            "sourceCommit": "83cf9fc4837f196ed2ecc7ea9206c4d0f45ab06d",
+            "sourceBlob": "699fa8c3a717cfa465c996a5908e3a0c55ca77d5",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/release/release-manifest.mjs",
+            "sourceCommit": "83cf9fc4837f196ed2ecc7ea9206c4d0f45ab06d",
+            "sourceBlob": "88615a74b934b2fb10e566d501047c8746439dfd",
+            "sourceMode": "100755"
+        },
+        {
+            "path": "tools/release/schema-compatibility-coordinate-value-contract.mjs",
+            "sourceCommit": "83cf9fc4837f196ed2ecc7ea9206c4d0f45ab06d",
+            "sourceBlob": "3c740f392af2744d9ee2a2b707c7cf6499c1e9ec",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/release/schema-compatibility-coordinate.mjs",
+            "sourceCommit": "83cf9fc4837f196ed2ecc7ea9206c4d0f45ab06d",
+            "sourceBlob": "425764eb5b8d4db06d4eee7d7f620870bd1e2a1e",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/release/test-evidence-receipts.mjs",
+            "sourceCommit": "b223390152489991555d66ffba4147ee3a497789",
+            "sourceBlob": "14b1215da0cd5c41a32a1b51111471b881c533a9",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/test-evidence/aot-spa-hydration-observed-facts.mjs",
+            "sourceCommit": "dc53fd68e9e9020f505b9b90ec0f4edcf83ae029",
+            "sourceBlob": "3c57a4d65c2d1e0dc23101fe89412c9c85b1193b",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/test-evidence/aot-spa-hydration-raw.mjs",
+            "sourceCommit": "249583c2b34a9c2033b370e929e472f8bf1d6e52",
+            "sourceBlob": "b97373b0e01bcc6bb94b8892e306d15239fffac2",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/test-evidence/aot-spa-hydration-source-contract.mjs",
+            "sourceCommit": "249583c2b34a9c2033b370e929e472f8bf1d6e52",
+            "sourceBlob": "d3c8709314a24be83989e61e2e53d1f4fc6c26c6",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/test-evidence/blue-green-containment-raw.mjs",
+            "sourceCommit": "aaba08857cfd97b37a4d605b9c44c37fd52e7adc",
+            "sourceBlob": "6c49b82c23386fe26d8fe0345954c6aa75cbcf75",
+            "sourceMode": "100755"
+        },
+        {
+            "path": "tools/test-evidence/browser-contract-observation-raw.mjs",
+            "sourceCommit": "dd9eda441e12d4a62388c2f7a0c677bdeb3c27e0",
+            "sourceBlob": "28c164f3cda08c84b0401634129c3fa55bfc94b6",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/test-evidence/browser-contract-observed-facts.mjs",
+            "sourceCommit": "dd9eda441e12d4a62388c2f7a0c677bdeb3c27e0",
+            "sourceBlob": "7febd7148b72d7469e7a022d983950e6a14a7622",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/test-evidence/canonical-release-authorities-value-contract.mjs",
+            "sourceCommit": "8e229f7220a20b98d150e40eab6caf8ed76fc4ef",
+            "sourceBlob": "576d5513cbffb6cd0fb51c45ad3fcfd7f6b66548",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/test-evidence/canonical-release-authorities.mjs",
+            "sourceCommit": "8e229f7220a20b98d150e40eab6caf8ed76fc4ef",
+            "sourceBlob": "326cdf37e5d5b6a84a03d55dd37099622f3ea502",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/test-evidence/release-authority-bundle-contract.mjs",
+            "sourceCommit": "aaba08857cfd97b37a4d605b9c44c37fd52e7adc",
+            "sourceBlob": "0ec48d1794dacb6050bc91459c8c010d0e7281d9",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/test-evidence/release-authority-facts-contract.mjs",
+            "sourceCommit": "aaba08857cfd97b37a4d605b9c44c37fd52e7adc",
+            "sourceBlob": "860a2de3d2e991edaa129863a85ddaf6baad3e7a",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/test-evidence/release-readiness-raw.mjs",
+            "sourceCommit": "aaba08857cfd97b37a4d605b9c44c37fd52e7adc",
+            "sourceBlob": "0dd4c3963351befbcbac020336f37467c0c94604",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/test-evidence/runtime-observation-probe-facts.mjs",
+            "sourceCommit": "45f4aa60ef98fc4dec47613a91f13d22b4b993c5",
+            "sourceBlob": "9244128ac5a22184dff1dcd18de203a5521d97c9",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/test-evidence/runtime-observation-probe-receipt-contract.mjs",
+            "sourceCommit": "249583c2b34a9c2033b370e929e472f8bf1d6e52",
+            "sourceBlob": "2849fc62806c4239eb57bfa842985fa99dc48039",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/test-evidence/runtime-observation-probes.mjs",
+            "sourceCommit": "249583c2b34a9c2033b370e929e472f8bf1d6e52",
+            "sourceBlob": "69cfe256ccdac5ec9d0a3eb62e6a9edffe1192a4",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/test-evidence/runtime-observation-raw.mjs",
+            "sourceCommit": "5c2f898388cf96cdb4e8b82c56c7e410813acd63",
+            "sourceBlob": "ea3f484fb07478781a095ba3178b140544d2f5d1",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/test-fixtures/receipt/prepared-public-projection-contract.mjs",
+            "sourceCommit": "b193ab96ffe0326f55a86968f4b73ea18e10b280",
+            "sourceBlob": "b05cea2fd4078ecca1a3c3f0ed2356e0be7efab3",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/test-fixtures/receipt/projection.mjs",
+            "sourceCommit": "b193ab96ffe0326f55a86968f4b73ea18e10b280",
+            "sourceBlob": "c7c16e10ab4ef71ced38d10dff6b1681ce5e34df",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/test-matrix/post-runtime-producer-registry.mjs",
+            "sourceCommit": "0b9ddacd3c01014082771ec3b755a945bafeab57",
+            "sourceBlob": "fbdf11a333864cb0e85cc2d95eb4c6b45e50b066",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/tools/aot-spa-hydration-raw.test.mjs",
+            "sourceCommit": "0b3817c034992ff8f3c985ef0a6b7bf787ad0471",
+            "sourceBlob": "2172911a28c8c31a61f32136cc6a9a9ca793077e",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/tools/application-runtime-observation.test.mjs",
+            "sourceCommit": "b57deb6be80c79fc09937a51754b30daf5744d23",
+            "sourceBlob": "699434d5b4c14938df7d8a7ed35066e98adfe04c",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/tools/blue-green-containment-raw.test.mjs",
+            "sourceCommit": "ec9745b9859cd771a4c9b17297bc4889147acd54",
+            "sourceBlob": "57222e1e43e20e633ea51e88ec16066378de363a",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/tools/browser-contract-observation-raw.test.mjs",
+            "sourceCommit": "0b3d5f58b57fb0349b5bdd95fb81da971bc02031",
+            "sourceBlob": "50bb9ece686f24cf2c2ad0135451cd241f68d02e",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/tools/browser-contract-observed-facts.test.mjs",
+            "sourceCommit": "dd9eda441e12d4a62388c2f7a0c677bdeb3c27e0",
+            "sourceBlob": "d96970d7c249f9662bf06768efe4f4ed5460694d",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/tools/post-runtime-observation-producers.test.mjs",
+            "sourceCommit": "b17b4f0f2fd88e3106d460c0274ff42b5af6515c",
+            "sourceBlob": "e26422fb4b564f775092e2d23fb90b9339f8090c",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/tools/post-runtime-producer-registry.test.mjs",
+            "sourceCommit": "0b9ddacd3c01014082771ec3b755a945bafeab57",
+            "sourceBlob": "fc7017b01ca79b98744c2cdd89f0dee3ad2ead75",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/tools/release-authority-pure-contract.test.mjs",
+            "sourceCommit": "0b9ddacd3c01014082771ec3b755a945bafeab57",
+            "sourceBlob": "6151e0e46a8756f823d6f6b098e1e632b165c313",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/tools/release-deployment-observation.test.mjs",
+            "sourceCommit": "445d0fdb432e92f349fc02c4a5ff675e838aece6",
+            "sourceBlob": "70ee42cb965d02283b1ff8286cb7e447da1a94d3",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/tools/release-manifest.test.mjs",
+            "sourceCommit": "83cf9fc4837f196ed2ecc7ea9206c4d0f45ab06d",
+            "sourceBlob": "7cca3393ca0290782f89bc62b81f0ce81ac95891",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/tools/release-readiness-raw.test.mjs",
+            "sourceCommit": "8e229f7220a20b98d150e40eab6caf8ed76fc4ef",
+            "sourceBlob": "0bfd16987228c5171b5a100abc231c6c3a983e24",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/tools/release-rollout-evidence.test.mjs",
+            "sourceCommit": "b7affdc67d027da6c3d22e5731d370ab867ee3e7",
+            "sourceBlob": "1677270ddf5b9f4b260436c9012be4c3feaf7825",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/tools/runtime-observation-probe-facts.test.mjs",
+            "sourceCommit": "45f4aa60ef98fc4dec47613a91f13d22b4b993c5",
+            "sourceBlob": "7d83788e52324f759d5989a24756d54b96b146f0",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/tools/runtime-observation-probes.test.mjs",
+            "sourceCommit": "45f4aa60ef98fc4dec47613a91f13d22b4b993c5",
+            "sourceBlob": "f62f922c5ba7a904926ba14c8b0bb6eb9b207759",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/tools/runtime-role-minimal-v3-contract.test.mjs",
+            "sourceCommit": "e8cc82ce98b397f4b6c08e08018c12fae93ff873",
+            "sourceBlob": "c373fe2332f3eb544af38ef4735cf9e1cfb07a8f",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/tools/support/browser-contract-observation-fixture.mjs",
+            "sourceCommit": "497dbbb1025adbe794417cc4cfeb9c23e80d249f",
+            "sourceBlob": "4a8335b19f47051095b1af709ed7798e75dd76d2",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/tools/support/canonical-post-runtime-source-fixture.mjs",
+            "sourceCommit": "2373167821080ecc1b3c0f5bc9aa2d7d8da01497",
+            "sourceBlob": "bd427fc0db9fa938290685d28b58e2bcd34b09ed",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/tools/support/post-runtime-candidate-fixture.mjs",
+            "sourceCommit": "b57deb6be80c79fc09937a51754b30daf5744d23",
+            "sourceBlob": "156931178e857d3487216ef2748173049a9c338c",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/tools/support/release-rollout-evidence-fixture.mjs",
+            "sourceCommit": "b7affdc67d027da6c3d22e5731d370ab867ee3e7",
+            "sourceBlob": "efbbc70cd668be3a705f52127fd949557f107270",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/tools/support/runtime-role-minimal-v3-fixture.mjs",
+            "sourceCommit": "e8cc82ce98b397f4b6c08e08018c12fae93ff873",
+            "sourceBlob": "b637f01ca16702730221d71ce5a78e05387ac010",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/test/bundles/post-runtime-observation-producers.sh",
+            "sourceCommit": "3c1cb4419be1661ef9b046addfc78b697c54a562",
+            "sourceBlob": "b468810e886671eda51e2e4f2e02103fe450014e",
+            "sourceMode": "100755"
+        },
+        {
+            "path": "tools/test/lanes/post-runtime-candidate-plan.sh",
+            "sourceCommit": "b57deb6be80c79fc09937a51754b30daf5744d23",
+            "sourceBlob": "92a7434635bd248f4f491dcb0f74dbfc7d22989a",
+            "sourceMode": "100755"
+        },
+        {
+            "path": "tools/test/lanes/post-runtime-observation-producers.sh",
+            "sourceCommit": "445d0fdb432e92f349fc02c4a5ff675e838aece6",
+            "sourceBlob": "f0893f6841baa0dbbd9aa2ebb85b14a1cc063c9b",
+            "sourceMode": "100755"
+        },
+        {
+            "path": "tools/test/lanes/runtime-observation-probes.sh",
+            "sourceCommit": "0cb60c4c4ed8606ee79502d5497ce9e55554572a",
+            "sourceBlob": "e80abd8513633e69bac9b37d29123fb95d7a0651",
+            "sourceMode": "100755"
+        },
+        {
+            "path": "tools/test/lanes/production-correctness-receipt.sh",
+            "sourceCommit": "445d0fdb432e92f349fc02c4a5ff675e838aece6",
+            "sourceBlob": "9a43f733366c9a303bc4e3cc169ca5ab199678e0",
+            "sourceMode": "100755"
+        }
+    ],
+    "sourceHunks": [
+        {
+            "path": "docs/testing.md",
+            "sourceRevision": "8e229f7220a20b98d150e40eab6caf8ed76fc4ef",
+            "begin": "The rollout CLI delegates sealed receipt verification",
+            "end": "Synthetic value parity is not evidence that a current producer has the complete closure, schema, path authority or runtime qualification required for release.",
+            "selection": "five complete non-generated source paragraphs; all current generated sections retained"
+        },
+        {
+            "path": "tests/tools/post-runtime-accepted-claims.test.mjs",
+            "sourceRevision": "8e229f7220a20b98d150e40eab6caf8ed76fc4ef",
+            "sourceCommit": "0b3d5f58b57fb0349b5bdd95fb81da971bc02031",
+            "selection": "Import validatePostRuntimeReaderFirewall and copy its complete modules list into the existing isolated fixture; retain the current publisher test body.",
+            "resultingBlob": "8b83f1936d25c8b35785c862d24de5d4dd4bede1"
+        }
+    ],
+    "excludedPaths": [
+        ".github/workflows/quality-gate.yml",
+        "artifacts/change-contract/issue-2204-release-deployment-external-naming.json",
+        "artifacts/change-contract/post-runtime-current-run-generated-binding.json",
+        "config/testing/correctness-attempt-producers.json",
+        "config/testing/fixture-profile-matrix.generated.json",
+        "config/testing/test-execution-envelope-applicability.json",
+        "docs/architecture.md",
+        "docs/architecture/monolithic-distributed-boundary.md",
+        "docs/architecture/overview.md",
+        "docs/releases/blue-green-deployment-runbook.md",
+        "docs/testing.generated.md",
+        "tests/governance/test-lifecycle-registry.json",
+        "tests/matrix.yml",
+        "tests/tools/behavior-doc-global-claim-exactness.test.mjs",
+        "tests/tools/behavior-doc-static-admission.test.mjs",
+        "tests/tools/behavior-test-binding.test.mjs",
+        "tests/tools/correctness-attempt-migration.test.mjs",
+        "tests/tools/release-deployment-doc-exactness.test.mjs",
+        "tests/tools/support/behavior-doc-admission-fixture.mjs",
+        "tools/contracts/behavior-contract-catalog.mjs",
+        "tools/contracts/behavior-test-binding.mjs",
+        "tools/docs/auth-security-doc-exactness.mjs",
+        "tools/docs/behavior-doc-minimal-contract-build.mjs",
+        "tools/docs/behavior-doc-static-admission.mjs",
+        "tools/docs/global-claim-exactness-final.mjs",
+        "tools/docs/release-deployment-doc-exactness.mjs",
+        "tools/run-test-matrix.mjs",
+        "tools/test/bundles/behavior-evidence-pre-runtime.sh",
+        "tools/test/correctness-attempt-migration.mjs",
+        "tools/test/lanes/behavior-test-evidence.sh",
+        "tools/test/run-matrix-governance-once.sh"
+    ],
+    "exclusionPolicy": "No workflow, legacy dump, perception artifact, #2204, generated index or old branch history is imported. Only the separately authorized nine publisher paths are absorbed as exact source content from cca8c810.",
+    "unresolvedDependencies": [
+        {
+            "authority": "runtime-role observation build receipt v3",
+            "status": "named-v3 gate retained; synthetic fixtures do not qualify current runtime producer; audited owner commits e0047dc8a..1906f3c89 await canonical delivery"
+        }
+    ],
+    "publisherSourceFiles": [
+        {
+            "path": "artifacts/change-contract/issue-2205-scheduler-claims-external-naming.json",
+            "sourceCommit": "cca8c810f8005f25629d0ddebd9f0b9137dbadd3",
+            "sourceBlob": "e12da68b78387d2dcab68410389d8ee58fb60e32",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/tools/content-addressed-evidence-store.test.mjs",
+            "sourceCommit": "cca8c810f8005f25629d0ddebd9f0b9137dbadd3",
+            "sourceBlob": "eeccb2a4283f752d427628194e39c64f119b77b1",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/tools/post-runtime-accepted-claims.test.mjs",
+            "sourceCommit": "cca8c810f8005f25629d0ddebd9f0b9137dbadd3",
+            "sourceBlob": "fe1fe617750b9a6ecfc887c87b792b4d3463f5e0",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/tools/scheduler-owner-identity.test.mjs",
+            "sourceCommit": "cca8c810f8005f25629d0ddebd9f0b9137dbadd3",
+            "sourceBlob": "61a6139ca536e8917439e2743411fd80462319e2",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tests/tools/test-matrix-scheduler.test.mjs",
+            "sourceCommit": "cca8c810f8005f25629d0ddebd9f0b9137dbadd3",
+            "sourceBlob": "52261f6f0782c12e05c5fe018625af4f281029b9",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/docs/post-runtime-accepted-claims.mjs",
+            "sourceCommit": "cca8c810f8005f25629d0ddebd9f0b9137dbadd3",
+            "sourceBlob": "12ad5cc45c3b2f75e875c7029eee40e9461b0dc8",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/test-matrix/content-addressed-evidence-store.mjs",
+            "sourceCommit": "cca8c810f8005f25629d0ddebd9f0b9137dbadd3",
+            "sourceBlob": "0ef44ba006dae3c7c94948a0935f8093e463d909",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/test-matrix/scheduler-run-owner.mjs",
+            "sourceCommit": "cca8c810f8005f25629d0ddebd9f0b9137dbadd3",
+            "sourceBlob": "b062a55070ca148bf8b69fad7a1db91410f1c05b",
+            "sourceMode": "100644"
+        },
+        {
+            "path": "tools/test-matrix/scheduler.mjs",
+            "sourceCommit": "cca8c810f8005f25629d0ddebd9f0b9137dbadd3",
+            "sourceBlob": "305743fd1bae5ce189a03e2fb5ff2782bb63e8ff",
+            "sourceMode": "100644"
+        }
+    ],
+    "publisherDependency": {
+        "pullRequest": 3295,
+        "sourceRevision": "cca8c810f8005f25629d0ddebd9f0b9137dbadd3",
+        "method": "bounded exact source content; no branch history merge"
+    }
+}

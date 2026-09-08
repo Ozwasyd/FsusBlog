@@ -70,8 +70,14 @@ import {
 } from './scheduler-admission-support.mjs';
 import {
     acquireSchedulerRunLock,
+    createSchedulerTierAdmission,
     schedulerCandidateIdentityDigest,
-    schedulerRunLockIsActive
+    schedulerRunLockActivity,
+    schedulerRunLockIsActive,
+    schedulerTierAdmissionSequence,
+    schedulerRunOwnerIsComplete,
+    verifyPersistedSchedulerTierAdmission,
+    writeSchedulerTierAdmission
 } from './scheduler-run-owner.mjs';
 
 export {
@@ -95,6 +101,8 @@ const fingerprintEnvironmentKeys = new Set(['CI', 'NODE_ENV', 'DOTNET_ROOT']);
 const orchestrationOnlyFingerprintEnvironmentKeys = new Set([
     'FSUSBLOG_TEST_INVOCATION_STARTED_AT_MS',
     'FSUSBLOG_TEST_EXECUTION_SOURCE',
+    'FSUSBLOG_TEST_RUN_ID',
+    'FSUSBLOG_TEST_NAMESPACE',
     'FSUSBLOG_TIER_CPU_UNITS',
     'FSUSBLOG_TIER_MEMORY_GIB',
     'FSUSBLOG_BUNDLE_CPU_BUDGET',
@@ -105,6 +113,7 @@ const orchestrationOnlyFingerprintEnvironmentKeys = new Set([
     'FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE',
     'FSUSBLOG_SCHEDULER_RESOURCE_GRANT_RUN_ID',
     'FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID',
+    'FSUSBLOG_SCHEDULER_CHECKPOINT',
     'FSUSBLOG_CGROUP_BUNDLE_PATH',
     'FSUSBLOG_CGROUP_EFFECTIVE_CPU_MAX',
     'FSUSBLOG_CGROUP_EFFECTIVE_MEMORY_HIGH_BYTES',
@@ -112,6 +121,7 @@ const orchestrationOnlyFingerprintEnvironmentKeys = new Set([
     'FSUSBLOG_CGROUP_EFFECTIVE_PIDS_MAX'
 ]);
 const checkpointPersistence = new Map();
+const verifiedSchedulerContexts = new WeakMap();
 const timeoutPhases = new Set([
     'preparation',
     'measurement',
@@ -1408,23 +1418,29 @@ function fingerprintEnvironment(env)
         .map(([key, value]) => [key, String(value)]));
 }
 
-export function tierInputFingerprint(tier, root, context = {})
+export function schedulerTierInputIdentity(tier, root, context = {})
 {
     const declaredCacheInputs = effectiveCacheInputs(tier);
-    return fingerprint({
+    return {
+        schema: 'fsusblog.scheduler-tier-input-identity.v1',
         executionKey: tier.executionKey ?? tier.id,
-        command: tier.command,
-        cacheInputs: declaredCacheInputs,
-        inputs: declaredCacheInputs.length > 0
+        commandDigest: fingerprint(tier.command),
+        cacheInputsDigest: fingerprint(declaredCacheInputs),
+        inputsDigest: fingerprint(declaredCacheInputs.length > 0
             ? cacheInputEntries(root, declaredCacheInputs)
-            : { conservativeRepositoryFingerprint: context.repositoryFingerprint ?? repositoryInputFingerprint(root) },
+            : { conservativeRepositoryFingerprint: context.repositoryFingerprint ?? repositoryInputFingerprint(root) }),
         runtime: {
-            environment: fingerprintEnvironment(context.env ?? process.env),
+            environmentDigest: fingerprint(fingerprintEnvironment(context.env ?? process.env)),
             platform: context.platform ?? process.platform,
             arch: context.arch ?? process.arch,
             nodeVersion: context.nodeVersion ?? process.version
         }
-    });
+    };
+}
+
+export function tierInputFingerprint(tier, root, context = {})
+{
+    return fingerprint(schedulerTierInputIdentity(tier, root, context));
 }
 
 function normalizeExecutionResult(value)
@@ -2436,6 +2452,372 @@ function readCheckpoint(checkpointFile)
         return compatibilityCheckpoint;
     }
     return recoveredCheckpoint;
+}
+
+/** Replays a retained scheduler execution; expected inputs must come from the
+ * caller's admitted plan, never from the checkpoint being verified. */
+export function createSchedulerVerificationContext(options)
+{
+    const errors = validateSupersedesRules(options.supersedesUniverse ?? options.tiers ?? [], options.coverageRegistry);
+    if (errors.length) throw new Error(`invalid supersedes metadata: ${errors.join('; ')}`);
+    const tiers = applySupersedes(options.tiers ?? []);
+    if (!tiers.length || new Set(tiers.map((tier) => tier.id)).size !== tiers.length)
+        throw new Error('scheduler verification context requires an exact tier plan');
+    const identity = {
+        runId: options.runId,
+        targetTierId: options.targetTierId,
+        namespace: options.namespace,
+        sourceState: structuredClone(options.sourceState),
+        budgetPolicyDigest: options.budgetPolicyDigest ?? null
+    };
+    const context = {
+        schema: 'fsusblog.scheduler-verification-context.v1',
+        ...identity,
+        expectedCandidateIdentityDigest: schedulerCandidateIdentityDigest(identity),
+        tiers: structuredClone(tiers)
+    };
+    return { ...context, contentDigest: fingerprint(context) };
+}
+
+export function readSchedulerVerificationContext({
+    root, runsRoot, file, expectedContentDigest, expectedRunId, expectedSourceState, expectedCandidateIdentityDigest
+})
+{
+    const require = (condition, message) =>
+    {
+        if (!condition) throw new Error(`scheduler verification context: ${message}`);
+    };
+    require(root && runsRoot && file && expectedContentDigest && expectedRunId && expectedSourceState
+        && expectedCandidateIdentityDigest, 'independent expected identities are required');
+    const absolute = path.resolve(file);
+    const canonicalRoot = fs.realpathSync(path.resolve(root));
+    const canonicalRunsRoot = fs.realpathSync(path.resolve(runsRoot));
+    require(canonicalRoot === path.resolve(root) && canonicalRunsRoot === path.resolve(runsRoot)
+        && canonicalRunsRoot.startsWith(`${canonicalRoot}${path.sep}`), 'runs root is not caller-owned canonical root');
+    require(absolute === path.join(canonicalRunsRoot, safeRunId(expectedRunId),
+        `verification-context-${expectedContentDigest}.json`), 'context is outside caller run authority');
+    const stat = fs.lstatSync(absolute);
+    require(stat.isFile() && !stat.isSymbolicLink() && fs.realpathSync(absolute) === absolute,
+        'context path is not canonical');
+    const context = JSON.parse(fs.readFileSync(absolute, 'utf8'));
+    const { contentDigest, ...body } = context;
+    require(fingerprint(Object.keys(context).sort()) === fingerprint(['schema', 'runId', 'targetTierId',
+        'namespace', 'sourceState', 'budgetPolicyDigest', 'expectedCandidateIdentityDigest', 'tiers', 'contentDigest'].sort())
+        && Array.isArray(context.tiers) && context.tiers.length > 0
+        && new Set(context.tiers.map((tier) => tier.id)).size === context.tiers.length
+        && context.tiers.every((tier) => typeof tier.id === 'string' && tier.id
+            && typeof tier.command === 'string' && Array.isArray(tier.executionDependsOn ?? [])
+            && tierSchedulerDependencies(tier).every((id) => context.tiers.some((entry) => entry.id === id))),
+    'context shape or dependency plan is invalid');
+    require(context.schema === 'fsusblog.scheduler-verification-context.v1'
+        && contentDigest === expectedContentDigest && fingerprint(body) === contentDigest
+        && context.runId === expectedRunId
+        && fingerprint(context.sourceState) === fingerprint(expectedSourceState)
+        && context.expectedCandidateIdentityDigest === expectedCandidateIdentityDigest
+        && schedulerCandidateIdentityDigest(context) === expectedCandidateIdentityDigest,
+    'context identity or content mismatch');
+    const runDirectory = path.dirname(absolute);
+    require(path.basename(runDirectory) === expectedRunId
+        && path.basename(absolute) === `verification-context-${contentDigest}.json`, 'context path mismatch');
+    const store = new RunEvidenceObjectStore({ root: path.join(runDirectory, 'evidence-store'),
+        runId: expectedRunId, sourceState: expectedSourceState, readOnly: true });
+    let state = null;
+    let pinned = null;
+    for (const event of store.readJournal())
+    {
+        state = applyCheckpointPatch(state, store.readObject(event.payloadDigest).value);
+        if (event.eventType === 'run-started'
+            && state.schedulerVerificationContext?.contentDigest === contentDigest
+            && state.schedulerVerificationContext?.file === path.basename(absolute)
+            && state.schedulerCandidateIdentityDigest === expectedCandidateIdentityDigest
+            && fingerprint(state.sourceState) === fingerprint(expectedSourceState)) pinned = structuredClone(state);
+    }
+    require(pinned, 'context lacks a prior run-start journal binding');
+    require(pinned.targetTierId === context.targetTierId && pinned.namespace === context.namespace
+        && pinned.budgetPolicyDigest === context.budgetPolicyDigest && pinned.schedulerRunOwnerToken,
+    'context run-start owner identity mismatch');
+    const activity = schedulerRunLockActivity({ runsRoot: canonicalRunsRoot, runId: expectedRunId,
+        candidateIdentityDigest: expectedCandidateIdentityDigest, targetTierId: context.targetTierId });
+    if (activity.status !== 'active' || activity.owner.ownerToken !== pinned.schedulerRunOwnerToken)
+    {
+        const archive = path.join(canonicalRunsRoot, '.locks', '.terminal', expectedRunId,
+            `${pinned.schedulerRunOwnerToken}.json`);
+        const archiveStat = fs.lstatSync(archive);
+        require(archiveStat.isFile() && !archiveStat.isSymbolicLink() && fs.realpathSync(archive) === archive,
+            'context terminal owner path is not canonical');
+        const owner = JSON.parse(fs.readFileSync(archive, 'utf8'));
+        require(schedulerRunOwnerIsComplete(owner) && owner.state === 'complete'
+            && owner.ownerToken === pinned.schedulerRunOwnerToken && owner.runId === expectedRunId
+            && owner.candidateIdentityDigest === expectedCandidateIdentityDigest,
+        'context lacks matching scheduler owner authority');
+    }
+    verifiedSchedulerContexts.set(context, { root: canonicalRoot, runsRoot: canonicalRunsRoot,
+        file: absolute, contentDigest });
+    return context;
+}
+
+export function assertSchedulerVerificationContext(context)
+{
+    const verified = verifiedSchedulerContexts.get(context);
+    const { contentDigest, ...body } = context ?? {};
+    if (!verified || contentDigest !== verified.contentDigest || fingerprint(body) !== contentDigest)
+        throw new Error('scheduler verification context is not an unchanged independently verified context');
+    readSchedulerVerificationContext({ root: verified.root, runsRoot: verified.runsRoot,
+        file: verified.file, expectedContentDigest: contentDigest,
+        expectedRunId: context.runId, expectedSourceState: context.sourceState,
+        expectedCandidateIdentityDigest: context.expectedCandidateIdentityDigest });
+    return context;
+}
+
+export function collectSchedulerVerificationOutputRefs({ context, tierId, root })
+{
+    assertSchedulerVerificationContext(context);
+    const verified = verifiedSchedulerContexts.get(context);
+    if (path.resolve(root) !== verified.root) throw new Error('scheduler output root differs from verified caller root');
+    const runDirectory = path.dirname(verified.file);
+    const runsRoot = path.dirname(runDirectory);
+    const store = new RunEvidenceObjectStore({ root: path.join(runDirectory, 'evidence-store'),
+        runId: context.runId, sourceState: context.sourceState, readOnly: true });
+    let state = null;
+    let reference = null;
+    for (const event of store.readJournal())
+    {
+        state = applyCheckpointPatch(state, store.readObject(event.payloadDigest).value);
+        if (event.eventType === 'tier-admitted' && event.tier === tierId
+            && state.schedulerVerificationContext?.contentDigest === context.contentDigest)
+            reference = state.schedulerAdmissions?.[tierId];
+    }
+    const tier = context.tiers.find((entry) => entry.id === tierId);
+    if (!tier || !reference) throw new Error('scheduler output references lack canonical prior admission');
+    const admissionFile = path.resolve(root, reference.ref);
+    const stat = fs.lstatSync(admissionFile);
+    if (!stat.isFile() || stat.isSymbolicLink() || fs.realpathSync(admissionFile) !== admissionFile
+        || !admissionFile.startsWith(`${runDirectory}${path.sep}`))
+        throw new Error('scheduler output admission path is not canonical');
+    const admission = JSON.parse(fs.readFileSync(admissionFile, 'utf8'));
+    const persisted = verifyPersistedSchedulerTierAdmission({ runsRoot, admission, reference });
+    const declarations = [...new Set([...(tier.artifacts ?? []), ...(tier.evidence ?? [])])].sort();
+    if (persisted.status !== 'verified' || admission.currentTierId !== tierId
+        || admission.runId !== context.runId
+        || admission.schedulerCandidateIdentityDigest !== context.expectedCandidateIdentityDigest
+        || fingerprint(admission.sourceState) !== fingerprint(context.sourceState)
+        || fingerprint(admission.outputDeclarations.map((entry) => entry.declaration).sort()) !== fingerprint(declarations))
+        throw new Error('scheduler output admission identity or declarations mismatch');
+    return [...new Set(admission.outputDeclarations.map((entry) => entry.path))].sort().map((outputPath) =>
+    {
+        const absolute = path.resolve(root, outputPath);
+        const outputStat = fs.lstatSync(absolute);
+        if (!absolute.startsWith(`${path.resolve(root)}${path.sep}`) || !outputStat.isFile()
+            || outputStat.isSymbolicLink() || fs.realpathSync(absolute) !== absolute)
+            throw new Error('scheduler output reference is not a canonical regular file');
+        return { path: outputPath, fileDigest: `sha256:${sha256(fs.readFileSync(absolute))}` };
+    });
+}
+
+export function verifyCompletedSchedulerTierEvidence({
+    root, runsRoot, runId, tierId, admission, admissionReference,
+    expectedSourceState, expectedCandidateIdentityDigest, tiers,
+    expectedOutputRefs, mode
+})
+{
+    const require = (condition, message) =>
+    {
+        if (!condition) throw new Error(`completed scheduler evidence: ${message}`);
+    };
+    require(['completed-tier', 'completed-run'].includes(mode), 'unknown verification mode');
+    require(expectedSourceState?.commit && expectedSourceState?.worktreeFingerprint
+        && expectedCandidateIdentityDigest, 'independent expected identities are required');
+    require(admission?.runId === runId && admission.currentTierId === tierId
+        && fingerprint(admission.sourceState) === fingerprint(expectedSourceState)
+        && admission.schedulerCandidateIdentityDigest === expectedCandidateIdentityDigest,
+    'admission expected identity mismatch');
+    const storeRoot = path.join(path.resolve(runsRoot), runId, 'evidence-store');
+    const store = new RunEvidenceObjectStore({ root: storeRoot, runId,
+        sourceState: expectedSourceState, readOnly: true });
+    const verifiedAdmission = verifyPersistedSchedulerTierAdmission({
+        runsRoot, admission, reference: admissionReference
+    });
+    require(verifiedAdmission.status === 'verified', verifiedAdmission.reason);
+    const events = store.readJournal();
+    require(events.length > 0, 'journal is missing');
+    let state = null;
+    let admittedSequence = null;
+    let completedSequence = null;
+    const prefixStates = new Map();
+    const tierAdmissions = new Map();
+    const tierCompletions = new Map();
+    let previousRevision = 0;
+    for (const event of events)
+    {
+        state = applyCheckpointPatch(state, store.readObject(event.payloadDigest).value);
+        require(Number.isSafeInteger(state?.revision) && state.revision === previousRevision + 1,
+            'checkpoint revision is duplicated, gapped or invalid');
+        previousRevision = state.revision;
+        prefixStates.set(state.revision, structuredClone(state));
+        if (event.eventType === 'tier-admitted') tierAdmissions.set(event.tier, event.sequence);
+        if (event.eventType === 'tier-completed') tierCompletions.set(event.tier, {
+            sequence: event.sequence, resultDigest: fingerprint(state.tiers?.[event.tier])
+        });
+        if (event.eventType === 'tier-admitted' && event.tier === tierId
+            && fingerprint(state.schedulerAdmissions?.[tierId]) === fingerprint(admissionReference))
+            admittedSequence = event.sequence;
+        if (event.eventType === 'tier-completed' && event.tier === tierId
+            && admittedSequence !== null && event.sequence > admittedSequence)
+            completedSequence = event.sequence;
+    }
+    require(state?.schema === checkpointSchema && state.runId === runId
+        && fingerprint(state.sourceState) === fingerprint(expectedSourceState)
+        && state.schedulerCandidateIdentityDigest === expectedCandidateIdentityDigest,
+    'replayed checkpoint identity mismatch');
+    require(admittedSequence !== null && completedSequence > admittedSequence
+        && fingerprint(state.schedulerAdmissions?.[tierId]) === fingerprint(admissionReference),
+    'exact admission has no later successful completion');
+    const checkpointFile = path.join(path.resolve(runsRoot), runId, 'checkpoint.json');
+    require(mode !== 'completed-run' || fs.existsSync(checkpointFile), 'terminal boundary checkpoint is missing');
+    if (fs.existsSync(checkpointFile))
+    {
+        const stat = fs.lstatSync(checkpointFile);
+        require(stat.isFile() && !stat.isSymbolicLink()
+            && fs.realpathSync(checkpointFile) === checkpointFile, 'checkpoint is not canonical');
+        const compatibility = JSON.parse(fs.readFileSync(checkpointFile, 'utf8'));
+        const prefix = prefixStates.get(compatibility.revision);
+        require(prefix && fingerprint(compatibility) === fingerprint(prefix)
+            && (mode !== 'completed-run' || compatibility.revision === state.revision),
+            'compatibility checkpoint disagrees with journal replay');
+    }
+    const compact = store.readCompactCheckpoint();
+    require(mode !== 'completed-run' || compact, 'terminal compact checkpoint is missing');
+    if (compact)
+    {
+        let compactReplay = null;
+        for (const event of events.filter((entry) => entry.sequence <= compact.checkpoint.lastSequence))
+            compactReplay = applyCheckpointPatch(compactReplay, store.readObject(event.payloadDigest).value);
+        require(fingerprint(compactReplay) === fingerprint(compact.state)
+            && (mode !== 'completed-run' || compact.checkpoint.lastSequence === events.at(-1).sequence),
+        'compact checkpoint disagrees with journal');
+    }
+    const byId = new Map((tiers ?? []).map((tier) => [tier.id, tier]));
+    require(byId.size === tiers?.length && byId.has(tierId), 'canonical tier plan is required');
+    const verified = new Map();
+    const visiting = new Set();
+    const verifyTier = (id, priorAdmission, priorReference) =>
+    {
+        require(!visiting.has(id), 'dependency cycle');
+        visiting.add(id);
+        const tier = byId.get(id);
+        const result = state.tiers?.[id];
+        const priorVerification = verifyPersistedSchedulerTierAdmission({
+            runsRoot, admission: priorAdmission, reference: priorReference
+        });
+        require(priorVerification.status === 'verified', priorVerification.reason);
+        const expectedAdmissionFile = path.join(path.resolve(runsRoot), runId, 'scheduler-admissions',
+            `${priorAdmission.schedulerOwnerToken}-${priorAdmission.admissionSequence}-${id}.json`);
+        require(priorReference.ref === path.relative(path.resolve(root), expectedAdmissionFile).replaceAll(path.sep, '/'),
+            `tier ${id} admission reference path mismatch`);
+        require(priorAdmission.currentTierId === id && priorAdmission.runId === runId
+            && priorAdmission.schedulerOwnerToken === admission.schedulerOwnerToken
+            && priorAdmission.schedulerCandidateIdentityDigest === expectedCandidateIdentityDigest
+            && fingerprint(priorAdmission.sourceState) === fingerprint(expectedSourceState)
+            && fingerprint(state.schedulerAdmissions?.[id]) === fingerprint(priorReference),
+        `tier ${id} prior admission identity mismatch`);
+        if (verified.has(id))
+        {
+            visiting.delete(id);
+            return verified.get(id);
+        }
+        require(tier && result?.status === 'success' && result.exitCode === 0
+            && result.signal === null && result.reused === false && result.inputIdentity,
+        `tier ${id} lacks successful fresh input authority`);
+        const completed = tierCompletions.get(id);
+        require(completed && completed.sequence > tierAdmissions.get(id)
+            && completed.resultDigest === fingerprint(result),
+            `tier ${id} completion event is missing`);
+        const inputIdentity = schedulerTierInputIdentity(tier, root, priorAdmission.inputIdentity.runtime);
+        // Runtime environment is opaque and sealed before execution, never reconstructed
+        // from terminal process.env or copied from the completion under verification.
+        inputIdentity.runtime.environmentDigest = priorAdmission.inputIdentity.runtime.environmentDigest;
+        require(fingerprint(inputIdentity) === fingerprint(priorAdmission.inputIdentity)
+            && fingerprint(inputIdentity) === fingerprint(result.inputIdentity)
+            && fingerprint(inputIdentity) === result.inputFingerprint, `tier ${id} input identity mismatch`);
+        require(fingerprint(Object.keys(priorAdmission.dependencyAdmissions).sort())
+            === fingerprint(tierSchedulerDependencies(tier).sort()), `tier ${id} dependency declarations mismatch`);
+        const dependencies = tierSchedulerDependencies(tier).map((dependencyId) =>
+        {
+            const reference = priorAdmission.dependencyAdmissions[dependencyId];
+            const file = path.resolve(root, reference.ref);
+            require(file.startsWith(`${path.resolve(runsRoot)}${path.sep}`), 'dependency admission escapes runs root');
+            const stat = fs.lstatSync(file);
+            require(stat.isFile() && !stat.isSymbolicLink() && fs.realpathSync(file) === file,
+                'dependency admission is not canonical');
+            const dependencyAdmission = JSON.parse(fs.readFileSync(file, 'utf8'));
+            const result = verifyTier(dependencyId, dependencyAdmission, reference);
+            require(tierCompletions.get(dependencyId).sequence < tierAdmissions.get(id),
+                `tier ${id} dependency completed after admission`);
+            return { id: dependencyId, fingerprint: result };
+        });
+        require(fingerprint(dependencies) === result.dependencyFingerprint, `tier ${id} dependency identity mismatch`);
+        const declarations = [...new Set([...(tier.artifacts ?? []), ...(tier.evidence ?? [])])].sort();
+        require(fingerprint(priorAdmission.outputDeclarations.map((entry) => entry.declaration).sort())
+            === fingerprint(declarations), `tier ${id} output declarations mismatch`);
+        const entries = {};
+        let reusable = true;
+        for (const entry of priorAdmission.outputDeclarations)
+        {
+            const snapshot = snapshotTierOutputs(root, { artifacts: [entry.path] }, {});
+            entries[entry.declaration.replace(/^\.\//u, '').replaceAll('\\', '/')]
+                = snapshot.entries[entry.path.replace(/^\.\//u, '').replaceAll('\\', '/')];
+            reusable &&= snapshot.reusable;
+        }
+        const outputs = { entries, reusable, fingerprint: fingerprint(entries) };
+        require(outputs.reusable && outputs.fingerprint === result.outputFingerprint
+            && fingerprint(outputs.entries) === fingerprint(result.outputs), `tier ${id} output identity mismatch`);
+        const expectedResult = fingerprint({ inputFingerprint: result.inputFingerprint,
+            dependencyFingerprint: result.dependencyFingerprint, outputFingerprint: outputs.fingerprint });
+        require(expectedResult === result.resultFingerprint, `tier ${id} result identity mismatch`);
+        visiting.delete(id);
+        verified.set(id, expectedResult);
+        return expectedResult;
+    };
+    verifyTier(tierId, admission, admissionReference);
+    const outputPaths = [...new Set(admission.outputDeclarations.map((entry) => entry.path))].sort();
+    require(Array.isArray(expectedOutputRefs) && new Set(expectedOutputRefs.map((ref) => ref.path)).size === expectedOutputRefs.length
+        && fingerprint(expectedOutputRefs.map((ref) => ref.path).sort()) === fingerprint(outputPaths),
+    'expected output references do not exact-match declarations');
+    for (const ref of expectedOutputRefs)
+    {
+        const file = path.resolve(root, ref.path);
+        require(file.startsWith(`${path.resolve(root)}${path.sep}`), 'output reference escapes root');
+        const stat = fs.lstatSync(file);
+        require(stat.isFile() && !stat.isSymbolicLink() && fs.realpathSync(file) === file,
+            'output reference must be a canonical regular file');
+        require(`sha256:${sha256(fs.readFileSync(file))}` === ref.fileDigest, 'expected output digest mismatch');
+    }
+    if (mode === 'completed-tier')
+    {
+        const activity = schedulerRunLockActivity({ runsRoot, runId,
+            candidateIdentityDigest: expectedCandidateIdentityDigest, targetTierId: admission.targetTierId });
+        require(activity.status === 'active' && activity.owner.ownerToken === admission.schedulerOwnerToken,
+            'completed-tier requires the original live scheduler owner');
+    }
+    else
+    {
+        require(state.status === 'success' && events.at(-1).eventType === 'run-completed', 'run is not terminal success');
+        const archive = path.join(path.resolve(runsRoot), '.locks', '.terminal', runId,
+            `${admission.schedulerOwnerToken}.json`);
+        const stat = fs.lstatSync(archive);
+        require(stat.isFile() && !stat.isSymbolicLink() && fs.realpathSync(archive) === archive,
+            'terminal owner archive is not canonical');
+        const owner = JSON.parse(fs.readFileSync(archive, 'utf8'));
+        require(schedulerRunOwnerIsComplete(owner) && owner.state === 'complete'
+            && owner.runId === runId && owner.ownerToken === admission.schedulerOwnerToken
+            && owner.candidateIdentityDigest === expectedCandidateIdentityDigest
+            && owner.targetTierId === admission.targetTierId
+            && owner.budgetPolicyDigest === admission.budgetPolicyDigest,
+        'terminal owner archive identity mismatch');
+    }
+    return { status: 'verified', mode, runId, tierId, admissionDigest: admission.contentDigest,
+        checkpointDigest: fingerprint(state), journalTailDigest: events.at(-1).contentDigest,
+        resultFingerprint: verified.get(tierId), outputRefs: structuredClone(expectedOutputRefs) };
 }
 
 function resumeTierCandidates(previous, tierIds)
@@ -4180,13 +4562,10 @@ async function runDagUnlocked(options)
     {
         throw new Error('scheduler budget policy digest is invalid');
     }
-    const supersedesUniverse = options.supersedesUniverse ?? options.tiers ?? [];
-    const supersedesErrors = validateSupersedesRules(supersedesUniverse, options.coverageRegistry);
-    if (supersedesErrors.length > 0)
-    {
-        throw new Error(`invalid supersedes metadata: ${supersedesErrors.join('; ')}`);
-    }
-    const tiers = applySupersedes(options.tiers ?? []);
+    const verificationContext = createSchedulerVerificationContext({ ...options, runId, sourceState });
+    const tiers = verificationContext.tiers;
+    const verificationContextFile = path.join(runDirectory,
+        `verification-context-${verificationContext.contentDigest}.json`);
     const schedulerReplayPlan = options.executionReplayPlan ?? null;
     if (schedulerReplayPlan)
     {
@@ -4275,12 +4654,22 @@ async function runDagUnlocked(options)
         resetFreshRunDirectory(runDirectory, options.freshRunDirectoryPreservation);
     }
     fs.mkdirSync(tierLogDirectory, { recursive: true });
+    if (fs.existsSync(verificationContextFile))
+    {
+        const stat = fs.lstatSync(verificationContextFile);
+        if (!stat.isFile() || stat.isSymbolicLink() || fs.realpathSync(verificationContextFile) !== verificationContextFile
+            || fs.readFileSync(verificationContextFile, 'utf8') !== `${JSON.stringify(verificationContext)}\n`)
+            throw new Error('scheduler verification context publication drift');
+    }
+    else fs.writeFileSync(verificationContextFile, `${JSON.stringify(verificationContext)}\n`, { flag: 'wx' });
     const previous = resume ? readCheckpoint(checkpointFile) : null;
     const resumeSourceChanged = Boolean(previous)
     && (previous.sourceState?.commit !== sourceState.commit
       || previous.sourceState?.worktreeFingerprint !== sourceState.worktreeFingerprint);
     const resumeBudgetPolicyChanged = Boolean(previous) &&
     previous.budgetPolicyDigest !== budgetPolicyDigest;
+    const resumeCandidateIdentityChanged = Boolean(previous)
+    && previous.schedulerCandidateIdentityDigest !== options.schedulerCandidateIdentityDigest;
     const requestedWallClockStartedAtMs = options.wallClockStartedAtMs === undefined
         ? Date.now()
         : Number(options.wallClockStartedAtMs);
@@ -4314,6 +4703,10 @@ async function runDagUnlocked(options)
     const checkpoint = {
         schema: checkpointSchema,
         runId,
+        schedulerVerificationContext: {
+            file: path.basename(verificationContextFile), contentDigest: verificationContext.contentDigest
+        },
+        schedulerRunOwnerToken: options.schedulerRunOwnerToken,
         targetTierId: options.targetTierId ?? tiers.at(-1)?.id ?? null,
         namespace: options.namespace,
         schedulerCandidateIdentityDigest: options.schedulerCandidateIdentityDigest,
@@ -4382,7 +4775,11 @@ async function runDagUnlocked(options)
         } : {}),
         failure: null,
         failurePoint: null,
-        failures: []
+        failures: [],
+        schedulerAdmissions: resume && !resumeSourceChanged
+          && !resumeBudgetPolicyChanged && !resumeCandidateIdentityChanged
+            ? structuredClone(previous?.schedulerAdmissions ?? {})
+            : {}
     };
     const dynamicPriorityEnabled = !schedulerReplayPlan && options.dynamicPriority !== false
     && String(options.env?.FSUSBLOG_TEST_DYNAMIC_PRIORITY
@@ -4413,6 +4810,31 @@ async function runDagUnlocked(options)
     const failed = new Set();
     const resultFingerprints = new Map();
     const active = new Map();
+    let schedulerAdmissionSequence = Math.max(
+        schedulerTierAdmissionSequence({ runsRoot, runId }),
+        0,
+        ...Object.values(checkpoint.schedulerAdmissions)
+            .map((entry) => Number(entry.admissionSequence) || 0)
+    );
+    const schedulerOwnerActivity = schedulerRunLockActivity({
+        runsRoot,
+        runId,
+        targetTierId: checkpoint.targetTierId,
+        candidateIdentityDigest: checkpoint.schedulerCandidateIdentityDigest
+    });
+    if (schedulerOwnerActivity.status !== 'active'
+        || !schedulerOwnerActivity.owner?.ownerToken)
+    {
+        throw new Error(
+            `scheduler tier admission requires one active run owner: ${schedulerOwnerActivity.status}`
+        );
+    }
+    if (options.schedulerRunOwnerToken
+        && options.schedulerRunOwnerToken !== schedulerOwnerActivity.owner.ownerToken)
+    {
+        throw new Error('scheduler tier admission owner token does not match the live run owner');
+    }
+    const schedulerRunOwnerToken = schedulerOwnerActivity.owner.ownerToken;
     const schedulerWaitLedger = createWaitLedger();
     let resolveInterrupt = null;
     let interrupted = null;
@@ -5205,6 +5627,8 @@ async function runDagUnlocked(options)
             ...(options.env ?? {}),
             ...(options.envForTier?.(tier) ?? {}),
             FSUSBLOG_TEST_EXECUTION_SOURCE: mode,
+            FSUSBLOG_TEST_RUN_ID: runId,
+            FSUSBLOG_TEST_NAMESPACE: checkpoint.namespace,
             FSUSBLOG_TEST_SOURCE_COMMIT: sourceState.commit ?? '',
             FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceState.worktreeFingerprint,
             FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE: resourceGrantFile,
@@ -5220,13 +5644,14 @@ async function runDagUnlocked(options)
             FSUSBLOG_CGROUP_EFFECTIVE_MEMORY_MAX_BYTES: String(effectiveEnforcement.memoryMaxBytes),
             FSUSBLOG_CGROUP_EFFECTIVE_PIDS_MAX: String(effectiveEnforcement.pidsMax)
         };
-        const inputFingerprint = tierInputFingerprint(tier, root, {
+        const inputIdentity = schedulerTierInputIdentity(tier, root, {
             env: tierEnvironment,
             platform: options.platform,
             arch: options.arch,
             nodeVersion: options.nodeVersion,
             repositoryFingerprint: conservativeRepositoryFingerprint
         });
+        const inputFingerprint = fingerprint(inputIdentity);
         const dependencyFingerprintValue = dependencyFingerprint(tier);
         const ownedOutputs = ownedGeneratedDeclarations(tier, byId);
         const currentRunPreexecutedTierBinding =
@@ -5295,6 +5720,54 @@ async function runDagUnlocked(options)
             });
             return false;
         }
+
+        schedulerAdmissionSequence += 1;
+        const releaseFinalRecorded = checkpoint.tiers?.['release-final'];
+        const releaseFinalSpawnCountBeforeAdmission = active.has('release-final')
+            || releaseFinalRecorded != null
+            ? Math.max(1, Number(releaseFinalRecorded?.producerSpawnCount) || 0)
+            : 0;
+        const admission = createSchedulerTierAdmission({
+            runId,
+            targetTierId: checkpoint.targetTierId,
+            currentTierId: tier.id,
+            namespace: checkpoint.namespace,
+            mode: checkpoint.mode,
+            sourceState: checkpoint.sourceState,
+            schedulerCandidateIdentityDigest: checkpoint.schedulerCandidateIdentityDigest,
+            schedulerOwnerToken: schedulerRunOwnerToken,
+            budgetPolicyDigest: checkpoint.budgetPolicyDigest ?? null,
+            schedulerCheckpointRevision: Math.max(0, Number(checkpoint.revision) || 0) + 1,
+            admissionSequence: schedulerAdmissionSequence,
+            activeTierIds: [...active.keys()].sort(),
+            releaseFinalSpawnCountBeforeAdmission,
+            inputIdentity,
+            outputDeclarations: [...new Set([...(tier.artifacts ?? []), ...(tier.evidence ?? [])])].sort()
+                .map((declaration) => ({ declaration,
+                    path: resolveRunBoundArtifactDeclaration(root, declaration, tierEnvironment) })),
+            dependencyAdmissions: Object.fromEntries(tierSchedulerDependencies(tier)
+                .filter((id) => checkpoint.schedulerAdmissions[id])
+                .map((id) => [id, checkpoint.schedulerAdmissions[id]]))
+        });
+        const publishedAdmission = writeSchedulerTierAdmission({ runsRoot, admission });
+        const schedulerAdmissionReference = {
+            schema: publishedAdmission.schema,
+            ref: path.relative(root, publishedAdmission.file).replaceAll(path.sep, '/'),
+            fileDigest: publishedAdmission.fileDigest,
+            contentDigest: publishedAdmission.contentDigest,
+            currentTierId: publishedAdmission.currentTierId,
+            admissionSequence: publishedAdmission.admissionSequence
+        };
+        checkpoint.schedulerAdmissions[tier.id] = schedulerAdmissionReference;
+        writeCheckpoint(checkpointFile, checkpoint, {
+            eventType: 'tier-admitted',
+            tier: tier.id,
+            step: 'scheduler'
+        });
+        tierEnvironment.FSUSBLOG_SCHEDULER_CHECKPOINT = publishedAdmission.file;
+        tierEnvironment.FSUSBLOG_SCHEDULER_VERIFICATION_CONTEXT = verificationContextFile;
+        tierEnvironment.FSUSBLOG_SCHEDULER_VERIFICATION_CONTEXT_DIGEST = verificationContext.contentDigest;
+        tierEnvironment.FSUSBLOG_SCHEDULER_CANDIDATE_IDENTITY_DIGEST = verificationContext.expectedCandidateIdentityDigest;
 
         // Once execution is about to begin, the old success is no longer a safe
         // fallback: the command may mutate its outputs before failing or being
@@ -5499,6 +5972,7 @@ async function runDagUnlocked(options)
                     changedPaths: changedSnapshotPaths(beforeSnapshot, afterSnapshot),
                     durationMs: Math.max(0, Date.now() - startedAt),
                     inputFingerprint,
+                    inputIdentity,
                     dependencyFingerprint: dependencyFingerprintValue,
                     ownedOutputs,
                     tierEnvironment,
@@ -5535,6 +6009,7 @@ async function runDagUnlocked(options)
             changedPaths,
             durationMs,
             inputFingerprint,
+            inputIdentity,
             dependencyFingerprint: dependencyFingerprintValue,
             ownedOutputs,
             tierEnvironment,
@@ -5667,6 +6142,7 @@ async function runDagUnlocked(options)
             priorityDecision: tier.priorityDecision ?? null,
             resourceUtilization,
             inputFingerprint,
+            inputIdentity,
             dependencyFingerprint: dependencyFingerprintValue,
             resultFingerprint,
             durationMs,
@@ -6198,6 +6674,7 @@ export async function runDag(options)
             targetTierId,
             namespace,
             schedulerCandidateIdentityDigest: releaseLock.owner.candidateIdentityDigest,
+            schedulerRunOwnerToken: releaseLock.owner.ownerToken,
             sourceState,
             runSourceSnapshot,
             registerSchedulerFinalizer(finalizer)
