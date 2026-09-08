@@ -155,6 +155,7 @@ export function verifyDataScaleOwnerReceipt({
             'backend',
             'buildReceiptDigest',
             'contentDigest',
+            'connections',
             'createdAt',
             'dataRoot',
             'dataScaleRunId',
@@ -212,6 +213,10 @@ export function verifyDataScaleOwnerReceipt({
         {
             requireNonEmptyObject(value, label);
         }
+        requireNonEmptyObject(
+            document.connections,
+            'data-scale backend connection identity'
+        );
         requireExactItemKeys(document.postgres, [
             'containerId',
             'database',
@@ -229,6 +234,23 @@ export function verifyDataScaleOwnerReceipt({
             'pidOrContainerId',
             'startTicks'
         ], 'data-scale backend identity');
+        requireExactItemKeys(document.connections, [
+            'postgres',
+            'redis'
+        ], 'data-scale backend connection identity');
+        requireExactItemKeys(document.connections.postgres, [
+            'applicationName',
+            'backendAddress',
+            'database',
+            'foreignClientCount',
+            'matchingClientCount'
+        ], 'data-scale PostgreSQL connection identity');
+        requireExactItemKeys(document.connections.redis, [
+            'backendAddress',
+            'clientName',
+            'foreignClientCount',
+            'matchingClientCount'
+        ], 'data-scale Redis connection identity');
         requireExactItemKeys(document.network, ['id', 'name'],
             'data-scale network identity');
         requireExactItemKeys(document.permissionHelper, ['name', 'postExists'],
@@ -247,6 +269,8 @@ export function verifyDataScaleOwnerReceipt({
             'status',
             'tier'
         ], 'data-scale seed summary');
+        const expectedClientName =
+            `FsusBlogDataScale-${document.dataScaleRunId}`;
         if (!safeIdentifierPattern.test(String(document.dataScaleRunId ?? ''))
             || !safeIdentifierPattern.test(String(document.namespace ?? ''))
             || !/^[0-9a-f]{64}$/u.test(document.postgres.containerId)
@@ -261,6 +285,26 @@ export function verifyDataScaleOwnerReceipt({
             || document.permissionHelper.postExists !== false
             || typeof document.postgres.database !== 'string'
             || !document.postgres.database.trim()
+            || document.connections.postgres.applicationName
+                !== expectedClientName
+            || document.connections.redis.clientName !== expectedClientName
+            || document.connections.postgres.database
+                !== document.postgres.database
+            || document.connections.postgres.backendAddress
+                !== document.connections.redis.backendAddress
+            || !/^\d{1,3}(?:\.\d{1,3}){3}$/u.test(
+                String(document.connections.postgres.backendAddress ?? '')
+            )
+            || !Number.isSafeInteger(
+                document.connections.postgres.matchingClientCount
+            )
+            || document.connections.postgres.matchingClientCount < 1
+            || document.connections.postgres.foreignClientCount !== 0
+            || !Number.isSafeInteger(
+                document.connections.redis.matchingClientCount
+            )
+            || document.connections.redis.matchingClientCount < 1
+            || document.connections.redis.foreignClientCount !== 0
             || !(/^[0-9a-f]{64}$/u.test(String(document.backend.pidOrContainerId))
                 || Number.isInteger(document.backend.pidOrContainerId)
                     && document.backend.pidOrContainerId > 1)

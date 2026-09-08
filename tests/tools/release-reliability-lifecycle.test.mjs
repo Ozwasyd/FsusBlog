@@ -766,6 +766,21 @@ test('#1617 runtime owner binds exact nested identities, dedicated roots, and se
             baseUrl: 'http://127.0.0.1:24501',
             executableOrImageDigest: fixture.identity.build.imageDigest
         },
+        connections: {
+            postgres: {
+                applicationName: `FsusBlogDataScale-${dataScaleRunId}`,
+                backendAddress: '172.24.0.4',
+                database: 'fsusblog_data_scale',
+                matchingClientCount: 2,
+                foreignClientCount: 0
+            },
+            redis: {
+                clientName: `FsusBlogDataScale-${dataScaleRunId}`,
+                backendAddress: '172.24.0.4',
+                matchingClientCount: 2,
+                foreignClientCount: 0
+            }
+        },
         aotRoot: `.tmp/${dataScaleRunId}/aot`,
         searchRoot: `.tmp/${dataScaleRunId}/search`,
         hotReadRoot: `.tmp/${dataScaleRunId}/hot-read`,
@@ -793,6 +808,55 @@ test('#1617 runtime owner binds exact nested identities, dedicated roots, and se
         attemptId: 'attempt-1'
     });
     assert.equal(verified.dataScaleRunId, dataScaleRunId);
+    const missingConnections = sealDocument({
+        ...receipt,
+        contentDigest: undefined,
+        connections: undefined
+    });
+    fs.writeFileSync(
+        path.join(fixture.root, relative),
+        JSON.stringify(missingConnections)
+    );
+    assert.throws(
+        () => verifyDataScaleOwnerReceipt({
+            repositoryRoot: fixture.root,
+            ownerReceipt: 'data-scale-runtime',
+            receiptPath: relative,
+            identity: fixture.identity,
+            runId,
+            invocationId,
+            attemptId: 'attempt-1'
+        }),
+        /top-level fields mismatch/u
+    );
+    const unknownConnectionField = sealDocument({
+        ...receipt,
+        contentDigest: undefined,
+        connections: {
+            ...receipt.connections,
+            redis: { ...receipt.connections.redis, unknown: true }
+        }
+    });
+    fs.writeFileSync(
+        path.join(fixture.root, relative),
+        JSON.stringify(unknownConnectionField)
+    );
+    assert.throws(
+        () => verifyDataScaleOwnerReceipt({
+            repositoryRoot: fixture.root,
+            ownerReceipt: 'data-scale-runtime',
+            receiptPath: relative,
+            identity: fixture.identity,
+            runId,
+            invocationId,
+            attemptId: 'attempt-1'
+        }),
+        /Redis connection identity top-level fields mismatch/u
+    );
+    fs.writeFileSync(
+        path.join(fixture.root, relative),
+        JSON.stringify(receipt)
+    );
     assert.throws(
         () => verifyDataScaleOwnerReceipt({
             repositoryRoot: fixture.root,

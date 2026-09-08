@@ -579,6 +579,21 @@ test('verified data-scale owner replaces shared ambient targets before measureme
             baseUrl: 'http://127.0.0.1:34567',
             executableOrImageDigest: `sha256:${'5'.repeat(64)}`
         },
+        connections: {
+            postgres: {
+                applicationName: `FsusBlogDataScale-${dataScaleRunId}`,
+                backendAddress: '172.24.0.4',
+                database: 'fsusblog',
+                matchingClientCount: 2,
+                foreignClientCount: 0
+            },
+            redis: {
+                clientName: `FsusBlogDataScale-${dataScaleRunId}`,
+                backendAddress: '172.24.0.4',
+                matchingClientCount: 2,
+                foreignClientCount: 0
+            }
+        },
         aotRoot: `.tmp/${dataScaleRunId}/aot`,
         searchRoot: `.tmp/${dataScaleRunId}/search`,
         hotReadRoot: `.tmp/${dataScaleRunId}/hot-read`,

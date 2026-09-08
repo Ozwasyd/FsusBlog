@@ -44,6 +44,11 @@ function rawDigest(bytes)
     return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 }
 
+function sha256Text(value)
+{
+    return createHash('sha256').update(String(value)).digest('hex');
+}
+
 function writeJsonAtomic(file, document)
 {
     fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -119,6 +124,130 @@ function containerStartTicks(container)
         throw new Error('backend container start ticks are unavailable');
     }
     return ticks;
+}
+
+function connectionClientName(dataScaleRunId)
+{
+    return `FsusBlogDataScale-${requireIdentifier(
+        dataScaleRunId,
+        'dataScaleRunId'
+    )}`;
+}
+
+function containerEnvironment(container)
+{
+    const result = new Map();
+    for (const entry of container?.Config?.Env ?? [])
+    {
+        const separator = String(entry).indexOf('=');
+        const key = separator < 0 ? String(entry) : String(entry).slice(0, separator);
+        if (!key || result.has(key))
+        {
+            throw new Error('dedicated backend environment is ambiguous');
+        }
+        result.set(key, separator < 0 ? '' : String(entry).slice(separator + 1));
+    }
+    return result;
+}
+
+function parseConnectionCounts(value, label)
+{
+    const match = String(value).match(/^(\d+)\|(\d+)$/u);
+    const matchingClientCount = Number(match?.[1]);
+    const foreignClientCount = Number(match?.[2]);
+    if (!Number.isSafeInteger(matchingClientCount) || matchingClientCount < 1
+        || foreignClientCount !== 0)
+    {
+        throw new Error(`${label} does not bind the dedicated backend`);
+    }
+    return { matchingClientCount, foreignClientCount };
+}
+
+function redisClientFields(line)
+{
+    return Object.fromEntries(String(line).trim().split(/\s+/u).map((entry) =>
+    {
+        const separator = entry.indexOf('=');
+        return separator < 1
+            ? [entry, '']
+            : [entry.slice(0, separator), entry.slice(separator + 1)];
+    }));
+}
+
+function escapeRegExp(value)
+{
+    return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+}
+
+function observeBackendConnections({
+    dataScaleRunId,
+    networkId,
+    networkName,
+    database,
+    backend,
+    postgresContainerId,
+    redisContainerId,
+    options
+})
+{
+    const clientName = connectionClientName(dataScaleRunId);
+    const backendNetwork = backend.NetworkSettings?.Networks?.[networkName];
+    const backendAddress = String(backendNetwork?.IPAddress ?? '');
+    if (backendNetwork?.NetworkID !== networkId
+        || !/^\d{1,3}(?:\.\d{1,3}){3}$/u.test(backendAddress))
+    {
+        throw new Error('dedicated backend network address is unavailable');
+    }
+    const expectedPostgres = `Host=postgres;Port=5432;Database=${database};Username=fsusblog;Password=fsusblog_dev;Include Error Detail=true;Application Name=${clientName}`;
+    const expectedRedis = `redis:6379,abortConnect=false,connectTimeout=10000,name=${clientName}`;
+    const environment = containerEnvironment(backend);
+    if (environment.get('ConnectionStrings__DefaultConnection')
+            !== expectedPostgres
+        || environment.get('ConnectionStrings__Redis') !== expectedRedis
+        || environment.get('RedisOptions__Configuration') !== expectedRedis)
+    {
+        throw new Error('dedicated backend dependency configuration drifted');
+    }
+
+    const postgresCounts = parseConnectionCounts(run('docker', [
+        'exec', postgresContainerId,
+        'psql', '--no-psqlrc', '--tuples-only', '--no-align',
+        '--username', 'fsusblog', '--dbname', database,
+        '--set', `application_name=${clientName}`,
+        '--set', `backend_address=${backendAddress}`,
+        '--command',
+        "SELECT count(*) FILTER (WHERE datname = current_database() AND host(client_addr) = :'backend_address')::text || '|' || count(*) FILTER (WHERE datname IS DISTINCT FROM current_database() OR host(client_addr) IS DISTINCT FROM :'backend_address')::text FROM pg_stat_activity WHERE backend_type = 'client backend' AND application_name = :'application_name';"
+    ], options), 'dedicated PostgreSQL connection identity');
+
+    const redisNamePattern = new RegExp(
+        `^${escapeRegExp(clientName)}(?:\\(SE\\.Redis-v\\d+(?:\\.\\d+)+\\))?$`,
+        'u'
+    );
+    const redisClients = run('docker', [
+        'exec', redisContainerId,
+        'redis-cli', '--raw', 'CLIENT', 'LIST', 'TYPE', 'normal'
+    ], options).split(/\r?\n/u).filter(Boolean).map(redisClientFields);
+    const matchingRedisClients = redisClients.filter((client) =>
+        redisNamePattern.test(String(client.name ?? '')));
+    const redisCounts = parseConnectionCounts(
+        `${matchingRedisClients.filter((client) =>
+            String(client.addr ?? '').startsWith(`${backendAddress}:`)).length}|${matchingRedisClients.filter((client) =>
+            !String(client.addr ?? '').startsWith(`${backendAddress}:`)).length}`,
+        'dedicated Redis connection identity'
+    );
+    return {
+        postgres: {
+            applicationName: clientName,
+            backendAddress,
+            database,
+            ...postgresCounts
+        },
+        redis: {
+            clientName,
+            backendAddress,
+            ...redisCounts
+        }
+    };
 }
 
 function ownerLabels(plan)
@@ -270,6 +399,7 @@ export function createDataScaleRuntimeReceipt({
     backend,
     network,
     permissionHelper,
+    connections,
     seedReceiptPath,
     seedReceiptDigest,
     seedSummary,
@@ -302,6 +432,47 @@ export function createDataScaleRuntimeReceipt({
     {
         throw new Error('runtime topology/lifecycle identity is incomplete');
     }
+    const expectedClientName = connectionClientName(plan.dataScaleRunId);
+    if (JSON.stringify(Object.keys(connections ?? {}).sort())
+            !== JSON.stringify(['postgres', 'redis'])
+        || JSON.stringify(Object.keys(connections?.postgres ?? {}).sort())
+            !== JSON.stringify([
+                'applicationName', 'backendAddress', 'database',
+                'foreignClientCount', 'matchingClientCount'
+            ])
+        || JSON.stringify(Object.keys(connections?.redis ?? {}).sort())
+            !== JSON.stringify([
+                'backendAddress', 'clientName', 'foreignClientCount',
+                'matchingClientCount'
+            ]))
+    {
+        throw new Error('runtime dependency connection identity shape is invalid');
+    }
+    for (const [connection, expected] of [
+        [connections?.postgres, {
+            applicationName: expectedClientName,
+            database: postgres.database
+        }],
+        [connections?.redis, { clientName: expectedClientName }]
+    ])
+    {
+        if (!connection
+            || Object.entries(expected).some(([key, value]) =>
+                connection[key] !== value)
+            || !/^\d{1,3}(?:\.\d{1,3}){3}$/u.test(
+                String(connection.backendAddress ?? '')
+            )
+            || !Number.isSafeInteger(connection.matchingClientCount)
+            || connection.matchingClientCount < 1
+            || connection.foreignClientCount !== 0)
+        {
+            throw new Error('runtime dependency connection identity is incomplete');
+        }
+    }
+    if (connections.postgres.backendAddress !== connections.redis.backendAddress)
+    {
+        throw new Error('runtime dependency connection address is inconsistent');
+    }
     if (seedSummary?.status !== 'ok' || seedSummary.tier !== 'scale-m'
         || seedSummary.namespace !== plan.namespace
         || seedSummary.declared?.articles !== 10000
@@ -328,6 +499,7 @@ export function createDataScaleRuntimeReceipt({
             name: network.name
         },
         permissionHelper,
+        connections,
         postgres: {
             containerId: postgres.containerId,
             imageDigest: postgres.imageDigest,
@@ -427,23 +599,72 @@ function runtimeInputs(repositoryRoot, identity, environment)
     const runtimeImageReference = String(
         environment.FSUSBLOG_RELEASE_RUNTIME_IMAGE ?? ''
     ).trim();
-    const postgresImageReference = String(
+    const fixturePostgresImageDigest = String(
         identity.fixture.topology?.content?.postgres?.imageId ?? ''
     ).trim();
-    const redisImageReference = String(
+    const fixtureRedisImageDigest = String(
         identity.fixture.topology?.content?.redis?.imageId ?? ''
     ).trim();
     const envFile = path.resolve(
         repositoryRoot,
         String(environment.FSUSBLOG_TEST_FIXTURE_CONFIG ?? '')
     );
-    if (!runtimeImageReference
-        || !digestPattern.test(postgresImageReference)
-        || !digestPattern.test(redisImageReference)
-        || !fs.existsSync(envFile)
-        || !fs.lstatSync(envFile).isFile())
+    const buildRoot = path.resolve(
+        repositoryRoot,
+        String(environment.FSUSBLOG_PRODUCTION_BUILD_ROOT ?? '')
+    );
+    const configuredCandidateAssembly = path.resolve(
+        repositoryRoot,
+        String(environment.FSUSBLOG_BACKEND_SERVER_DLL ?? '')
+    );
+    const canonicalBuildRoot = fs.existsSync(buildRoot)
+        ? fs.realpathSync(buildRoot)
+        : buildRoot;
+    const candidateAssembly = fs.existsSync(configuredCandidateAssembly)
+        ? fs.realpathSync(configuredCandidateAssembly)
+        : configuredCandidateAssembly;
+    const candidateRelative = path.relative(
+        canonicalBuildRoot,
+        candidateAssembly
+    );
+    const serviceCatalog = path.join(
+        repositoryRoot,
+        'config/testing/test-execution-service-catalog.json'
+    );
+    let serviceImages = null;
+    try
     {
-        throw new Error('runtime image and canonical fixture environment are required');
+        const catalog = JSON.parse(fs.readFileSync(serviceCatalog, 'utf8'));
+        serviceImages = {
+            postgres: String(catalog.services?.postgres?.imageReference ?? ''),
+            redis: String(catalog.services?.redis?.imageReference ?? '')
+        };
+    }
+    catch
+    {
+        // The single validation failure below keeps malformed catalog details private.
+    }
+    if (!runtimeImageReference
+        || !digestPattern.test(fixturePostgresImageDigest)
+        || !digestPattern.test(fixtureRedisImageDigest)
+        || !fs.existsSync(envFile)
+        || !fs.lstatSync(envFile).isFile()
+        || !String(environment.FSUSBLOG_PRODUCTION_BUILD_ROOT ?? '').trim()
+        || !String(environment.FSUSBLOG_BACKEND_SERVER_DLL ?? '').trim()
+        || !fs.existsSync(canonicalBuildRoot)
+        || !fs.lstatSync(canonicalBuildRoot).isDirectory()
+        || path.isAbsolute(candidateRelative)
+        || candidateRelative.split(path.sep).includes('..')
+        || !fs.existsSync(candidateAssembly)
+        || !fs.lstatSync(candidateAssembly).isFile()
+        || !fs.existsSync(serviceCatalog)
+        || !fs.lstatSync(serviceCatalog).isFile()
+        || fs.lstatSync(serviceCatalog).isSymbolicLink()
+        || !serviceImages
+        || !/^[a-z0-9./_-]+@sha256:[0-9a-f]{64}$/u.test(serviceImages.postgres)
+        || !/^[a-z0-9./_-]+@sha256:[0-9a-f]{64}$/u.test(serviceImages.redis))
+    {
+        throw new Error('source-bound runtime, candidate assembly, service catalog, and fixture environment are required');
     }
     return {
         runId: requireIdentifier(
@@ -459,8 +680,12 @@ function runtimeInputs(repositoryRoot, identity, environment)
             'attemptId'
         ),
         runtimeImageReference,
-        postgresImageReference,
-        redisImageReference,
+        fixturePostgresImageDigest,
+        fixtureRedisImageDigest,
+        postgresImageReference: serviceImages.postgres,
+        redisImageReference: serviceImages.redis,
+        candidateAssembly,
+        serviceCatalog,
         envFile
     };
 }
@@ -589,6 +814,11 @@ export async function provisionDataScaleRuntime({
     const runtimeImage = inspectImage(inputs.runtimeImageReference, commandOptions);
     const postgresImage = inspectImage(inputs.postgresImageReference, commandOptions);
     const redisImage = inspectImage(inputs.redisImageReference, commandOptions);
+    if (postgresImage.Id !== inputs.fixturePostgresImageDigest
+        || redisImage.Id !== inputs.fixtureRedisImageDigest)
+    {
+        throw new Error('dedicated service image identity differs from the admitted fixture');
+    }
     const plan = createDataScaleRuntimePlan({
         repositoryRoot: resolvedRoot,
         runId: inputs.runId,
@@ -632,6 +862,7 @@ export async function provisionDataScaleRuntime({
     }
     catch (error)
     {
+        fs.rmSync(files.plan, { force: true });
         fs.rmSync(ownedRuntimeRoot, { recursive: true, force: true });
         throw error;
     }
@@ -681,6 +912,8 @@ export async function provisionDataScaleRuntime({
         const postgresId = run('docker', [
             'run', '-d', '--name', plan.resources.postgresContainerName,
             '--network', plan.resources.networkName, '--network-alias', 'postgres',
+            '-p', '127.0.0.1::5432',
+            '--pull', 'never',
             ...labels,
             '-e', 'POSTGRES_USER=fsusblog',
             '-e', 'POSTGRES_PASSWORD=fsusblog_dev',
@@ -691,6 +924,7 @@ export async function provisionDataScaleRuntime({
         const redisId = run('docker', [
             'run', '-d', '--name', plan.resources.redisContainerName,
             '--network', plan.resources.networkName, '--network-alias', 'redis',
+            '--pull', 'never',
             ...labels,
             '-v', `${plan.resources.redisVolumeName}:/data`,
             inputs.redisImageReference
@@ -699,6 +933,175 @@ export async function provisionDataScaleRuntime({
             'exec', postgresId, 'pg_isready', '-U', 'fsusblog', '-d', 'fsusblog'
         ], commandOptions), { wait });
         const seedRoot = path.join(resolvedRoot, plan.roots.dataRoot);
+        const postgres = inspectOne(postgresId, commandOptions);
+        const postgresBindings = postgres.NetworkSettings?.Ports?.['5432/tcp'];
+        const postgresHostPort = Number(postgresBindings?.[0]?.HostPort);
+        if (!Number.isInteger(postgresHostPort) || postgresHostPort < 1
+            || postgresHostPort > 65_535
+            || !Array.isArray(postgresBindings)
+            || postgresBindings.length !== 1
+            || postgresBindings[0].HostIp !== '127.0.0.1')
+        {
+            throw new Error('dedicated PostgreSQL loopback binding is unavailable');
+        }
+        if (resourceExists(
+            'container',
+            plan.resources.backendContainerName,
+            commandOptions
+        ))
+        {
+            throw new Error('dedicated backend must be absent before schema and seed');
+        }
+        const schemaRunId = `${plan.dataScaleRunId}-schema`;
+        const serviceEnvelope = path.join(seedRoot, 'current-schema-services.json');
+        const schemaReceipt = path.join(
+            seedRoot,
+            `current-schema-test-materialization-${sha256Text(schemaRunId)}.json`
+        );
+        const schemaReadyReceipt = path.join(
+            seedRoot,
+            `current-schema-runtime-ready-${sha256Text(schemaRunId)}.json`
+        );
+        const connectionString = `Host=127.0.0.1;Port=${postgresHostPort};Database=fsusblog;Username=fsusblog;Password=fsusblog_dev;Include Error Detail=true;Search Path=public`;
+        const envelopeTool = path.join(
+            resolvedRoot,
+            'tools/test/execution-envelope-services.mjs'
+        );
+        const schemaReceiptVerifier = path.join(
+            resolvedRoot,
+            'tools/db/verify-current-schema-test-materialization-receipt.mjs'
+        );
+        run(process.execPath, [
+            envelopeTool,
+            '--producer-id', 'data-scale-runtime-owner',
+            '--run-id', schemaRunId,
+            '--required-services', 'postgres',
+            '--postgres-container', plan.resources.postgresContainerName,
+            '--service-catalog', inputs.serviceCatalog,
+            '--output', serviceEnvelope
+        ], commandOptions);
+        run(process.execPath, [
+            envelopeTool,
+            '--verify-envelope', serviceEnvelope,
+            '--service-catalog', inputs.serviceCatalog
+        ], commandOptions);
+        run('dotnet', [
+            inputs.candidateAssembly,
+            'materialize-current-schema-test',
+            '--run-id', schemaRunId,
+            '--source-commit', plan.sourceCommit,
+            '--service-envelope', serviceEnvelope,
+            '--service-catalog', inputs.serviceCatalog
+        ], {
+            ...commandOptions,
+            environment: {
+                ...environment,
+                ASPNETCORE_ENVIRONMENT: 'Test',
+                FSUSBLOG_CURRENT_SCHEMA_TEST_MATERIALIZATION: '1',
+                FSUSBLOG_CURRENT_SCHEMA_TEST_RECEIPT_ROOT: seedRoot,
+                ConnectionStrings__DefaultConnection: connectionString
+            }
+        });
+        run(process.execPath, [
+            schemaReceiptVerifier,
+            '--receipt-root', seedRoot,
+            '--run-id', schemaRunId,
+            '--source-commit', plan.sourceCommit,
+            '--assembly', inputs.candidateAssembly,
+            '--service-catalog', inputs.serviceCatalog,
+            '--service-envelope', serviceEnvelope
+        ], {
+            ...commandOptions,
+            environment: {
+                ...environment,
+                ConnectionStrings__DefaultConnection: connectionString
+            }
+        });
+        for (const [file, expectedSchema] of [
+            [schemaReceipt, 'fsusblog.current-schema-test-materialization-receipt.v1'],
+            [schemaReadyReceipt, 'fsusblog.current-schema-runtime-ready.v1']
+        ])
+        {
+            const document = JSON.parse(fs.readFileSync(file, 'utf8'));
+            if (document.schema !== expectedSchema || document.status !== 'verified'
+                || document.qualificationEligible !== true
+                || document.runId !== schemaRunId
+                || document.sourceCommit !== plan.sourceCommit)
+            {
+                throw new Error('dedicated current-schema evidence is invalid');
+            }
+        }
+        if (resourceExists(
+            'container',
+            plan.resources.backendContainerName,
+            commandOptions
+        ))
+        {
+            throw new Error('dedicated backend started before offline seed');
+        }
+        const unknownConnections = run('docker', [
+            'exec', postgresId,
+            'psql', '--no-psqlrc', '--tuples-only', '--no-align',
+            '--username', 'fsusblog', '--dbname', 'fsusblog', '--command',
+            "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND backend_type = 'client backend' AND pid <> pg_backend_pid();"
+        ], commandOptions);
+        if (unknownConnections !== '0')
+        {
+            throw new Error('dedicated PostgreSQL has an unknown client connection before seed');
+        }
+        const redisDatabaseSize = run('docker', [
+            'exec', redisId, 'redis-cli', '--raw', 'DBSIZE'
+        ], commandOptions);
+        if (redisDatabaseSize !== '0')
+        {
+            throw new Error('dedicated Redis is not pristine before backend start');
+        }
+        run(path.join(resolvedRoot, 'tools/data-scale/seed.sh'), ['scale-m'], {
+            ...commandOptions,
+            environment: {
+                ...environment,
+                FSUSBLOG_POSTGRES_CONTAINER_NAME: postgresId,
+                FSUSBLOG_REDIS_CONTAINER_NAME: redisId,
+                FSUSBLOG_DATA_SCALE_BACKEND_CONTAINER_NAME:
+                    plan.resources.backendContainerName,
+                FSUSBLOG_DATA_SCALE_REQUIRE_EMPTY: '1',
+                FSUSBLOG_TEST_NAMESPACE: plan.namespace,
+                FSUSBLOG_DATA_SCALE_OUT_DIR: seedRoot
+            }
+        });
+        const seedFile = path.join(seedRoot, 'seed.json');
+        const seedDocument = JSON.parse(fs.readFileSync(seedFile, 'utf8'));
+        const envManifest = path.join(seedRoot, 'runtime-environment.json');
+        writeJsonAtomic(envManifest, sealDocument({
+            schema: 'fsusblog.data-scale-runtime-environment.v1',
+            dataScaleRunId: plan.dataScaleRunId,
+            sourceCommit: plan.sourceCommit,
+            buildReceiptDigest: plan.buildReceiptDigest,
+            imageDigest: plan.imageDigest,
+            database: {
+                host: '127.0.0.1',
+                port: postgresHostPort,
+                name: 'fsusblog',
+                username: 'fsusblog',
+                containerId: postgresId
+            },
+            redis: { containerId: redisId },
+            roots: plan.roots,
+            candidateAssemblyDigest: rawDigest(
+                fs.readFileSync(inputs.candidateAssembly)
+            ),
+            serviceCatalogDigest: rawDigest(
+                fs.readFileSync(inputs.serviceCatalog)
+            ),
+            serviceEnvelopeDigest: rawDigest(fs.readFileSync(serviceEnvelope)),
+            schemaReceiptDigest: rawDigest(fs.readFileSync(schemaReceipt)),
+            schemaReadyReceiptDigest: rawDigest(
+                fs.readFileSync(schemaReadyReceipt)
+            )
+        }));
+        const clientName = connectionClientName(plan.dataScaleRunId);
+        const backendPostgresConnection = `Host=postgres;Port=5432;Database=fsusblog;Username=fsusblog;Password=fsusblog_dev;Include Error Detail=true;Application Name=${clientName}`;
+        const backendRedisConnection = `redis:6379,abortConnect=false,connectTimeout=10000,name=${clientName}`;
         const backendId = run('docker', [
             'run', '-d', '--name', plan.resources.backendContainerName,
             '--network', plan.resources.networkName,
@@ -717,9 +1120,9 @@ export async function provisionDataScaleRuntime({
             '-e', 'FSUSBLOG_WEB_ROOT=/app/data/hot-read',
             '-e', 'ASPNETCORE_URLS=http://0.0.0.0:8080',
             '-e', 'AllowedHosts=127.0.0.1',
-            '-e', 'ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=fsusblog;Username=fsusblog;Password=fsusblog_dev;Include Error Detail=true',
-            '-e', 'ConnectionStrings__Redis=redis:6379,abortConnect=false,connectTimeout=10000',
-            '-e', 'RedisOptions__Configuration=redis:6379,abortConnect=false,connectTimeout=10000',
+            '-e', `ConnectionStrings__DefaultConnection=${backendPostgresConnection}`,
+            '-e', `ConnectionStrings__Redis=${backendRedisConnection}`,
+            '-e', `RedisOptions__Configuration=${backendRedisConnection}`,
             '-e', `FSUSBLOG_TEST_RUN_ID=${plan.dataScaleRunId}`,
             '-e', `FSUSBLOG_TEST_NAMESPACE=${plan.namespace}`,
             runtimeImage.Id
@@ -745,17 +1148,17 @@ export async function provisionDataScaleRuntime({
                 throw new Error('dedicated backend readiness did not complete');
             }
         }, { wait });
-        run(path.join(resolvedRoot, 'tools/data-scale/seed.sh'), ['scale-m'], {
-            ...commandOptions,
-            environment: {
-                ...environment,
-                FSUSBLOG_POSTGRES_CONTAINER_NAME: postgresId,
-                FSUSBLOG_TEST_NAMESPACE: plan.namespace,
-                FSUSBLOG_DATA_SCALE_OUT_DIR: seedRoot
-            }
-        });
-        const seedFile = path.join(seedRoot, 'seed.json');
-        const seedDocument = JSON.parse(fs.readFileSync(seedFile, 'utf8'));
+        const connections = await waitUntilReady(() =>
+            observeBackendConnections({
+                dataScaleRunId: plan.dataScaleRunId,
+                networkId,
+                networkName: plan.resources.networkName,
+                database: 'fsusblog',
+                backend,
+                postgresContainerId: postgresId,
+                redisContainerId: redisId,
+                options: commandOptions
+            }), { wait });
         const receipt = createDataScaleRuntimeReceipt({
             repositoryRoot: resolvedRoot,
             plan,
@@ -781,6 +1184,7 @@ export async function provisionDataScaleRuntime({
                 name: plan.resources.permissionHelperContainerName,
                 postExists: false
             },
+            connections,
             seedReceiptPath: relativeTo(resolvedRoot, seedFile),
             seedReceiptDigest: rawDigest(fs.readFileSync(seedFile)),
             seedSummary: {
@@ -791,7 +1195,7 @@ export async function provisionDataScaleRuntime({
                 expected: seedDocument.expected,
                 observed: seedDocument.observed
             },
-            envManifestDigest: rawDigest(fs.readFileSync(inputs.envFile)),
+            envManifestDigest: rawDigest(fs.readFileSync(envManifest)),
             fixtureIdentityDigest: digestValue(identity.fixture),
             lifecycle: {
                 start: 'complete',
@@ -887,6 +1291,28 @@ export async function verifyDataScaleRuntimeLiveness({
     {
         throw new Error('dedicated runtime network topology drifted');
     }
+    const connections = observeBackendConnections({
+        dataScaleRunId: runtimeReceipt.dataScaleRunId,
+        networkId: runtimeReceipt.network.id,
+        networkName: runtimeReceipt.network.name,
+        database: runtimeReceipt.postgres.database,
+        backend,
+        postgresContainerId: runtimeReceipt.postgres.containerId,
+        redisContainerId: runtimeReceipt.redis.containerId,
+        options
+    });
+    for (const kind of ['postgres', 'redis'])
+    {
+        const expected = runtimeReceipt.connections?.[kind];
+        const observed = connections[kind];
+        const identityKeys = kind === 'postgres'
+            ? ['applicationName', 'backendAddress', 'database']
+            : ['clientName', 'backendAddress'];
+        if (!expected || identityKeys.some((key) => expected[key] !== observed[key]))
+        {
+            throw new Error('dedicated runtime connection identity drifted');
+        }
+    }
     for (const relative of [
         runtimeReceipt.aotRoot,
         runtimeReceipt.searchRoot,
@@ -915,7 +1341,7 @@ export async function verifyDataScaleRuntimeLiveness({
     {
         throw new Error('dedicated runtime readiness is no longer complete');
     }
-    return Object.freeze({ status: 'ready', members });
+    return Object.freeze({ status: 'ready', members, connections });
 }
 
 export async function teardownDataScaleRuntime({
@@ -993,7 +1419,7 @@ export async function teardownDataScaleRuntime({
             {
                 throw new Error(`refusing to remove unowned ${kind}: ${id}`);
             }
-            if (id === plan.resources.backendContainerName)
+            if (kind === 'container')
             {
                 for (const bindings of Object.values(documents[0].NetworkSettings?.Ports ?? {}))
                 {

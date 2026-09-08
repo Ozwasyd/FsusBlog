@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import {
+    copyFileSync,
+    existsSync,
+    mkdtempSync,
+    mkdirSync,
+    readFileSync,
+    rmSync,
+    writeFileSync
+} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -13,7 +22,8 @@ import {
     createDataScaleRuntimeReceipt,
     createDataScaleTeardownReceipt,
     provisionDataScaleRuntime,
-    teardownDataScaleRuntime
+    teardownDataScaleRuntime,
+    verifyDataScaleRuntimeLiveness
 } from '../../tools/test/data-scale-runtime-owner.mjs';
 
 const sha = (value) => `sha256:${String(value).repeat(64).slice(0, 64)}`;
@@ -39,6 +49,26 @@ function plan(root)
         postgresImageDigest: sha('e'),
         redisImageDigest: sha('f')
     });
+}
+
+function connectionEvidence(ownerPlan, backendAddress = '172.24.0.4')
+{
+    const clientName = `FsusBlogDataScale-${ownerPlan.dataScaleRunId}`;
+    return {
+        postgres: {
+            applicationName: clientName,
+            backendAddress,
+            database: 'fsusblog',
+            matchingClientCount: 2,
+            foreignClientCount: 0
+        },
+        redis: {
+            clientName,
+            backendAddress,
+            matchingClientCount: 2,
+            foreignClientCount: 0
+        }
+    };
 }
 
 function runtimeReceipt(root, ownerPlan)
@@ -71,6 +101,7 @@ function runtimeReceipt(root, ownerPlan)
             name: ownerPlan.resources.permissionHelperContainerName,
             postExists: false
         },
+        connections: connectionEvidence(ownerPlan),
         seedReceiptPath: `${ownerPlan.roots.dataRoot}/seed.json`,
         seedReceiptDigest: sha('4'),
         seedSummary: scaleSummary(ownerPlan.namespace),
@@ -98,6 +129,38 @@ function scaleSummary(namespace)
     };
 }
 
+function prepareCandidateInputs(root, runId = 'release-run')
+{
+    const buildRoot = path.join(root, '.tmp/build', runId);
+    const candidateAssembly = path.join(
+        buildRoot,
+        'dotnet/FsusBlog.Server/bin/Release/net10.0/FsusBlog.Server.dll'
+    );
+    mkdirSync(path.dirname(candidateAssembly), { recursive: true });
+    writeFileSync(candidateAssembly, 'source-bound-server-candidate');
+    const serviceCatalog = path.join(
+        root,
+        'config/testing/test-execution-service-catalog.json'
+    );
+    mkdirSync(path.dirname(serviceCatalog), { recursive: true });
+    copyFileSync(
+        path.join(process.cwd(), 'config/testing/test-execution-service-catalog.json'),
+        serviceCatalog
+    );
+    const catalog = JSON.parse(readFileSync(serviceCatalog, 'utf8'));
+    return {
+        environment: {
+            FSUSBLOG_PRODUCTION_BUILD_ROOT: buildRoot,
+            FSUSBLOG_BACKEND_SERVER_DLL: candidateAssembly
+        },
+        candidateAssembly,
+        serviceImages: {
+            postgres: catalog.services.postgres.imageReference,
+            redis: catalog.services.redis.imageReference
+        }
+    };
+}
+
 test('runtime plan is deterministic and binds current run, invocation, and attempt', (context) =>
 {
     const root = temporaryRoot(context);
@@ -116,12 +179,24 @@ test('runtime plan is deterministic and binds current run, invocation, and attem
 test('runtime receipt binds exact owner identities and sealed digest', (context) =>
 {
     const root = temporaryRoot(context);
-    const receipt = runtimeReceipt(root, plan(root));
+    const ownerPlan = plan(root);
+    const receipt = runtimeReceipt(root, ownerPlan);
     assert.equal(receipt.schema, DATA_SCALE_RUNTIME_SCHEMA);
     assert.equal(receipt.invocationId, 'invocation-a');
     assert.equal(receipt.attemptId, 'attempt-1');
     assert.equal(receipt.contentDigest, contentDigest(receipt));
     assert.equal(receipt.backend.executableOrImageDigest, receipt.imageDigest);
+    assert.equal(receipt.connections.postgres.matchingClientCount, 2);
+    assert.equal(receipt.connections.redis.foreignClientCount, 0);
+    assert.throws(() => createDataScaleRuntimeReceipt({
+        ...receipt,
+        repositoryRoot: root,
+        plan: ownerPlan,
+        connections: {
+            ...receipt.connections,
+            redis: { ...receipt.connections.redis, unexpected: true }
+        }
+    }), /connection identity shape is invalid/u);
 });
 
 test('runtime authority rejects cross-run identity, unsafe roots, and image drift', (context) =>
@@ -140,6 +215,7 @@ test('runtime authority rejects cross-run identity, unsafe roots, and image drif
         redis: { containerId: '2'.repeat(64), imageDigest: sha('f'), volumeId: 'redis' },
         backend: { pidOrContainerId: '3'.repeat(64), startTicks: '1', baseUrl: 'http://127.0.0.1:1', executableOrImageDigest: sha('d') },
         network: { id: '6'.repeat(64), name: ownerPlan.resources.networkName }, permissionHelper: { name: ownerPlan.resources.permissionHelperContainerName, postExists: false },
+        connections: connectionEvidence(ownerPlan),
         seedReceiptPath: `${ownerPlan.roots.dataRoot}/seed.json`, seedReceiptDigest: sha('4'), seedSummary: scaleSummary(ownerPlan.namespace), envManifestDigest: sha('5'), fixtureIdentityDigest: sha('6'), lifecycle: { start: 'complete', reset: 'complete', readiness: 'complete', postcondition: 'pending' }, createdAt: '2026-09-04T00:00:00Z'
     }), /dataRoot must be owned/u);
     assert.throws(() => createDataScaleRuntimeReceipt({
@@ -149,6 +225,7 @@ test('runtime authority rejects cross-run identity, unsafe roots, and image drif
         redis: { containerId: '2'.repeat(64), imageDigest: sha('f'), volumeId: 'redis' },
         backend: { pidOrContainerId: '3'.repeat(64), startTicks: '1', baseUrl: 'http://127.0.0.1:1', executableOrImageDigest: sha('9') },
         network: { id: '6'.repeat(64), name: ownerPlan.resources.networkName }, permissionHelper: { name: ownerPlan.resources.permissionHelperContainerName, postExists: false },
+        connections: connectionEvidence(ownerPlan),
         seedReceiptPath: `${ownerPlan.roots.dataRoot}/seed.json`, seedReceiptDigest: sha('4'), seedSummary: scaleSummary(ownerPlan.namespace), envManifestDigest: sha('5'), fixtureIdentityDigest: sha('6'), lifecycle: { start: 'complete', reset: 'complete', readiness: 'complete', postcondition: 'pending' }, createdAt: '2026-09-04T00:00:00Z'
     }), /backend identity is incomplete/u);
 });
@@ -197,6 +274,7 @@ test('teardown receipt is complete only after every owned resource is absent', (
 test('provision and teardown execute the dedicated topology and leave zero residue', async (context) =>
 {
     const root = temporaryRoot(context);
+    const candidateInputs = prepareCandidateInputs(root);
     const envFile = path.join(root, '.tmp/env/runtime.env');
     mkdirSync(path.dirname(envFile), { recursive: true });
     writeFileSync(envFile, 'ASPNETCORE_ENVIRONMENT=Test\n');
@@ -210,12 +288,14 @@ test('provision and teardown execute the dedicated topology and leave zero resid
     };
     const imageIds = {
         'fsusblog/runtime:test': sha('d'),
-        [sha('e')]: sha('e'),
-        [sha('f')]: sha('f')
+        [candidateInputs.serviceImages.postgres]: sha('e'),
+        [candidateInputs.serviceImages.redis]: sha('f')
     };
     const removed = new Set();
     const created = new Set();
     let helperResidue = '';
+    let postgresConnectionCounts = '2|0\n';
+    let redisClientAddress = '172.24.0.4';
     const calls = [];
     let ownerPlan = plan(root);
     const labels = () => ({
@@ -228,6 +308,56 @@ test('provision and teardown execute the dedicated topology and leave zero resid
     const execute = (command, args, options) =>
     {
         calls.push([command, ...args]);
+        if (command === process.execPath
+            && args[0].endsWith('/tools/test/execution-envelope-services.mjs'))
+        {
+            const outputIndex = args.indexOf('--output');
+            if (outputIndex >= 0)
+            {
+                writeFileSync(args[outputIndex + 1], `${JSON.stringify({
+                    schema: 'fsusblog.test-execution-envelope-services.v2',
+                    runId: args[args.indexOf('--run-id') + 1]
+                })}\n`);
+            }
+            return { status: 0, stdout: '', stderr: '' };
+        }
+        if (command === 'dotnet'
+            && args.includes('materialize-current-schema-test'))
+        {
+            const runId = args[args.indexOf('--run-id') + 1];
+            const sourceCommit = args[args.indexOf('--source-commit') + 1];
+            const receipt = path.join(
+                options.env.FSUSBLOG_CURRENT_SCHEMA_TEST_RECEIPT_ROOT,
+                `current-schema-test-materialization-${createHash('sha256').update(runId).digest('hex')}.json`
+            );
+            writeFileSync(receipt, `${JSON.stringify({
+                schema: 'fsusblog.current-schema-test-materialization-receipt.v1',
+                status: 'verified',
+                qualificationEligible: true,
+                runId,
+                sourceCommit
+            })}\n`);
+            return { status: 0, stdout: '', stderr: '' };
+        }
+        if (command === process.execPath
+            && args[0].endsWith('/tools/db/verify-current-schema-test-materialization-receipt.mjs'))
+        {
+            const runId = args[args.indexOf('--run-id') + 1];
+            const sourceCommit = args[args.indexOf('--source-commit') + 1];
+            const receiptRoot = args[args.indexOf('--receipt-root') + 1];
+            const receipt = path.join(
+                receiptRoot,
+                `current-schema-runtime-ready-${createHash('sha256').update(runId).digest('hex')}.json`
+            );
+            writeFileSync(receipt, `${JSON.stringify({
+                schema: 'fsusblog.current-schema-runtime-ready.v1',
+                status: 'verified',
+                qualificationEligible: true,
+                runId,
+                sourceCommit
+            })}\n`);
+            return { status: 0, stdout: '', stderr: '' };
+        }
         if (command.endsWith('/tools/data-scale/seed.sh'))
         {
             mkdirSync(options.env.FSUSBLOG_DATA_SCALE_OUT_DIR, { recursive: true });
@@ -280,6 +410,31 @@ test('provision and teardown execute the dedicated topology and leave zero resid
         {
             return { status: 0, stdout: 'CREATE TABLE fixture(id integer);', stderr: '' };
         }
+        if (args[0] === 'exec' && args.some((value) =>
+            String(value).includes('pg_stat_activity')))
+        {
+            return {
+                status: 0,
+                stdout: args.some((value) =>
+                    String(value).includes("application_name = :'application_name'"))
+                    ? postgresConnectionCounts
+                    : '0\n',
+                stderr: ''
+            };
+        }
+        if (args[0] === 'exec' && args.includes('DBSIZE'))
+        {
+            return { status: 0, stdout: '0\n', stderr: '' };
+        }
+        if (args[0] === 'exec' && args.includes('CLIENT')
+            && args.includes('LIST'))
+        {
+            return {
+                status: 0,
+                stdout: `id=11 addr=${redisClientAddress}:45501 name=FsusBlogDataScale-${ownerPlan.dataScaleRunId}(SE.Redis-v2.7.27.49176) age=1 idle=0 flags=N db=0\n`,
+                stderr: ''
+            };
+        }
         if (args[0] === 'exec')
         {
             return { status: 0, stdout: '', stderr: '' };
@@ -317,11 +472,76 @@ test('provision and teardown execute the dedicated topology and leave zero resid
             }
             if (target === ids.backend)
             {
+                const clientName = `FsusBlogDataScale-${ownerPlan.dataScaleRunId}`;
+                const redisConnection = `redis:6379,abortConnect=false,connectTimeout=10000,name=${clientName}`;
                 return { status: 0, stdout: JSON.stringify([{
                     Id: target,
+                    Image: sha('d'),
                     State: { Pid: process.pid, Running: true },
-                    NetworkSettings: { Ports: { '8080/tcp': [{ HostPort: '49152' }] } },
+                    NetworkSettings: {
+                        Ports: { '8080/tcp': [{ HostPort: '49152' }] },
+                        Networks: {
+                            [ownerPlan.resources.networkName]: {
+                                NetworkID: ids.network,
+                                IPAddress: '172.24.0.4'
+                            }
+                        }
+                    },
+                    Config: {
+                        Env: [
+                            `ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=fsusblog;Username=fsusblog;Password=fsusblog_dev;Include Error Detail=true;Application Name=${clientName}`,
+                            `ConnectionStrings__Redis=${redisConnection}`,
+                            `RedisOptions__Configuration=${redisConnection}`
+                        ],
+                        Labels: labels()
+                    }
+                }]), stderr: '' };
+            }
+            if (target === ids.postgres)
+            {
+                return { status: 0, stdout: JSON.stringify([{
+                    Id: target,
+                    Image: sha('e'),
+                    State: { Running: true },
+                    Mounts: [{
+                        Type: 'volume',
+                        Name: ownerPlan.resources.postgresVolumeName
+                    }],
+                    NetworkSettings: {
+                        Ports: {
+                            '5432/tcp': [{
+                                HostIp: '127.0.0.1',
+                                HostPort: '49151'
+                            }]
+                        }
+                    },
                     Config: { Labels: labels() }
+                }]), stderr: '' };
+            }
+            if (target === ids.redis)
+            {
+                return { status: 0, stdout: JSON.stringify([{
+                    Id: target,
+                    Image: sha('f'),
+                    State: { Running: true },
+                    Mounts: [{
+                        Type: 'volume',
+                        Name: ownerPlan.resources.redisVolumeName
+                    }],
+                    Config: { Labels: labels() }
+                }]), stderr: '' };
+            }
+            if (inspectKind === 'network' && target === ids.network)
+            {
+                return { status: 0, stdout: JSON.stringify([{
+                    Id: ids.network,
+                    Name: ownerPlan.resources.networkName,
+                    Labels: labels(),
+                    Containers: {
+                        [ids.postgres]: {},
+                        [ids.redis]: {},
+                        [ids.backend]: {}
+                    }
                 }]), stderr: '' };
             }
             const document = inspectKind === 'network'
@@ -355,6 +575,7 @@ test('provision and teardown execute the dedicated topology and leave zero resid
         }
     };
     const environment = {
+        ...candidateInputs.environment,
         FSUSBLOG_RELEASE_RELIABILITY_RUN_ID: 'release-run',
         FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID: 'invocation-a',
         FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID: 'attempt-1',
@@ -383,6 +604,10 @@ test('provision and teardown execute the dedicated topology and leave zero resid
     assert.ok(!calls.flat().includes('0777'));
     const backendRun = calls.find((call) =>
         call[1] === 'run' && call.includes(provisioned.plan.resources.backendContainerName));
+    const postgresRun = calls.find((call) =>
+        call[1] === 'run' && call.includes(provisioned.plan.resources.postgresContainerName));
+    assert.ok(postgresRun.includes('127.0.0.1::5432'));
+    assert.ok(postgresRun.includes('never'));
     for (const rootPath of Object.values(provisioned.plan.roots))
     {
         assert.ok(backendRun.some((argument) => argument.startsWith(
@@ -390,6 +615,55 @@ test('provision and teardown execute the dedicated topology and leave zero resid
         )));
     }
     assert.ok(calls.some((call) => call[0].endsWith('/tools/data-scale/seed.sh')));
+    const materializeCall = calls.findIndex((call) =>
+        call[0] === 'dotnet' && call.includes('materialize-current-schema-test'));
+    const seedCall = calls.findIndex((call) =>
+        call[0].endsWith('/tools/data-scale/seed.sh'));
+    const backendCall = calls.findIndex((call) =>
+        call[1] === 'run' && call.includes(provisioned.plan.resources.backendContainerName));
+    assert.ok(materializeCall >= 0 && materializeCall < seedCall);
+    assert.ok(seedCall < backendCall);
+    assert.ok(backendRun.includes(
+        `ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=fsusblog;Username=fsusblog;Password=fsusblog_dev;Include Error Detail=true;Application Name=FsusBlogDataScale-${provisioned.plan.dataScaleRunId}`
+    ));
+    assert.ok(backendRun.includes(
+        `ConnectionStrings__Redis=redis:6379,abortConnect=false,connectTimeout=10000,name=FsusBlogDataScale-${provisioned.plan.dataScaleRunId}`
+    ));
+    assert.equal(provisioned.receipt.connections.postgres.matchingClientCount, 2);
+    assert.equal(provisioned.receipt.connections.redis.matchingClientCount, 1);
+    const liveness = await verifyDataScaleRuntimeLiveness({
+        repositoryRoot: root,
+        runtimeReceipt: provisioned.receipt,
+        execute,
+        fetchImpl: async () => ({
+            ok: true,
+            json: async () => ({ status: 'ready' })
+        })
+    });
+    assert.equal(liveness.connections.postgres.foreignClientCount, 0);
+    assert.equal(liveness.connections.redis.foreignClientCount, 0);
+    postgresConnectionCounts = '0|1\n';
+    await assert.rejects(verifyDataScaleRuntimeLiveness({
+        repositoryRoot: root,
+        runtimeReceipt: provisioned.receipt,
+        execute,
+        fetchImpl: async () => ({
+            ok: true,
+            json: async () => ({ status: 'ready' })
+        })
+    }), /PostgreSQL connection identity does not bind/u);
+    postgresConnectionCounts = '2|0\n';
+    redisClientAddress = '172.24.0.99';
+    await assert.rejects(verifyDataScaleRuntimeLiveness({
+        repositoryRoot: root,
+        runtimeReceipt: provisioned.receipt,
+        execute,
+        fetchImpl: async () => ({
+            ok: true,
+            json: async () => ({ status: 'ready' })
+        })
+    }), /Redis connection identity does not bind/u);
+    redisClientAddress = '172.24.0.4';
     const unavailable = await teardownDataScaleRuntime({
         repositoryRoot: root,
         plan: provisioned.plan,
@@ -441,9 +715,26 @@ test('provision and teardown execute the dedicated topology and leave zero resid
     );
 });
 
+test('dedicated raw seed rejects a live backend and materializes database projections offline', () =>
+{
+    const source = readFileSync(
+        path.join(process.cwd(), 'tools/data-scale/seed.sh'),
+        'utf8'
+    );
+    assert.match(source, /FSUSBLOG_DATA_SCALE_REQUIRE_EMPTY/u);
+    assert.match(source, /FSUSBLOG_DATA_SCALE_BACKEND_CONTAINER_NAME/u);
+    assert.match(source, /dedicated backend must be absent during raw seed/u);
+    assert.match(source, /dedicated data-scale database is not empty/u);
+    assert.match(source, /INSERT INTO article_public_taxonomy_projection/u);
+    assert.match(source, /INSERT INTO category_public_article_count/u);
+    assert.match(source, /INSERT INTO tag_public_article_count/u);
+    assert.match(source, /'databaseProjections', jsonb_build_object/u);
+});
+
 test('tampered plan and escaped CLI paths fail before any destructive command', async (context) =>
 {
     const root = temporaryRoot(context);
+    const candidateInputs = prepareCandidateInputs(root);
     const sentinel = path.join(root, 'sentinel');
     writeFileSync(sentinel, 'keep');
     const valid = plan(root);
@@ -505,6 +796,7 @@ test('tampered plan and escaped CLI paths fail before any destructive command', 
                 }
             },
             environment: {
+                ...candidateInputs.environment,
                 FSUSBLOG_RELEASE_RELIABILITY_RUN_ID: 'release-run',
                 FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID: 'invocation-a',
                 FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID: 'attempt-1',
