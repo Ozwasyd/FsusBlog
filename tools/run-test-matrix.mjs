@@ -146,6 +146,7 @@ import {
     sealMatrixFixtureProfile, validateFixtureCatalogs
 } from './testing/fixture-catalog.mjs';
 import { parseWorkflowJobNeeds } from './yaml/workflow-structure.mjs';
+import { requireCleanAttemptConsumerAdmission } from './release/browser-release-clean-attempt-consumers.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'));
 const matrixFile = process.env.FSUSBLOG_MATRIX_FILE
@@ -6408,6 +6409,10 @@ async function main()
 
     const matrix = loadMatrix({ validateDependencyFields: command !== 'validate' });
     validateCorrectnessAttemptMigration(root);
+    requireCleanAttemptConsumerAdmission({
+        consumerId: 'production-correctness',
+        repositoryRoot: root
+    });
     if (command === 'validate')
     {
         const errors = [

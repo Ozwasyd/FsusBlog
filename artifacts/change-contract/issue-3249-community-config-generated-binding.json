@@ -1,0 +1,22 @@
+{
+  "schema": "fsusblog.generated-output-binding.v1",
+  "sources": [
+    "config/development/document-lifecycle.json",
+    "config/application/backend-configuration-contract.json",
+    "tests/matrix.yml"
+  ],
+  "outputs": [
+    {
+      "path": "config/development/document-inventory.generated.json",
+      "sha256": "4cd501489bcc7edd2ef4cb7c27198a5cffb5f78f5f623e7cd244a0f04fb57f5a"
+    },
+    {
+      "path": "docs/configuration/backend-configuration-reference.generated.md",
+      "sha256": "3b28d314180366eba6aff048fcabb0e11114d0ba35a2102a9e5fece026de6ab7"
+    },
+    {
+      "path": "docs/testing.generated.md",
+      "sha256": "404762d6299d31c82557f491290da41a61e9e7b80155eef445e2b9de4545b765"
+    }
+  ]
+}

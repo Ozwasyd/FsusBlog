@@ -1,89 +1,43 @@
 {
-  "schema": "fsusblog-design-conformance.ui-stage-policy.v1",
+  "schema": "fsusblog-design-conformance.ui-stage-policy.v2",
+  "policyVersion": "fsusblog-ui-domain.v2",
   "repository": "Ozwasyd/FsusBlog",
+  "authorityScope": "repository-domain-and-acceptance-only",
   "requiredSkillIds": [
     "fsusblog-design-conformance",
     "fsusui-design-conformance"
   ],
-  "writerLeaseOrder": [
-    "test-owner",
-    "ui-ux-implementer",
-    "documentation-writer"
+  "uiDecisionClasses": [
+    "prescribed",
+    "bounded-composition",
+    "layout-judgment",
+    "interaction-judgment",
+    "system-design-dispute"
   ],
-  "implementation": {
-    "role": "ui-ux-implementer",
-    "allowedProfiles": [
-      "sol-low",
-      "sol-medium"
+  "verificationClasses": [
+    "ux-local",
+    "ux-path",
+    "ux-system"
+  ],
+  "systemDesignDisputeClass": "system-design-dispute",
+  "implementationOwnership": {
+    "allowedPathClass": "implementation",
+    "forbiddenPathClasses": [
+      "tests",
+      "fixtures",
+      "snapshots",
+      "acceptance-mapping",
+      "design-authorities",
+      "skill-contracts"
     ],
-    "automaticPromotion": false,
-    "writeScope": "implementation-only",
-    "routing": {
-      "prescribed": "sol-low",
-      "bounded-composition": "sol-low",
-      "layout-judgment": "sol-medium",
-      "interaction-judgment": "sol-medium",
-      "system-design-dispute": "stop"
-    },
-    "resliceShapes": [
-      "context-heavy",
-      "high-tool-depth",
-      "long-horizon-cross-module",
-      "complete-page-system"
-    ]
+    "acceptanceMayModifyImplementation": false,
+    "adjudicationMayModifyImplementation": false
   },
-  "adjudication": {
-    "role": "ui-system-adjudicator",
-    "allowedProfiles": [
-      "sol-high",
-      "sol-xhigh"
-    ],
-    "freshContext": true,
-    "sandbox": "read-only",
-    "writeScope": "none",
-    "requiredReslice": true
-  },
-  "uxAcceptance": {
-    "role": "ux-acceptance-verifier",
-    "freshContext": true,
-    "sandbox": "read-only",
-    "writeScope": "none",
-    "routing": {
-      "ux-local": "sol-medium",
-      "ux-path": "sol-high",
-      "ux-system": "sol-xhigh"
-    }
-  },
-  "documentation": {
-    "role": "documentation-writer",
-    "allowedProfiles": [
-      "luna-high",
-      "luna-max"
-    ],
-    "requires": [
-      "behavior-green",
-      "ux-accepted"
-    ],
-    "writeScope": "documentation-only"
-  },
-  "humanGate": {
-    "requestSchema": "issue-orchestration.human-decision-request.v1",
-    "requestStatus": "verified",
-    "eligibleReasons": [
-      "authority-conflict",
-      "multiple-valid-product-directions",
-      "irreversible-public-contract-tradeoff"
-    ],
-    "ineligibleReasons": [
-      "model-uncertainty",
-      "layout-difficulty",
-      "responsive-complexity",
-      "test-failure",
-      "prompt-incomplete",
-      "reslice-required",
-      "profile-capability-mismatch"
-    ],
-    "requiresFullRevalidation": true
+  "acceptanceRequirements": {
+    "requiresRenderedEvidence": true,
+    "requiresProductionFixture": true,
+    "acceptedReceiptRequiresZeroBlockers": true,
+    "independentAcceptanceRequired": true
   },
   "consumerWorkaroundsForbidden": [
     "private-selector",
@@ -92,5 +46,33 @@
     "component-wrapper",
     "consumer-local-parser",
     "consumer-local-offset-map"
+  ],
+  "sharedOrchestrationAuthority": "external",
+  "forbiddenSharedOrchestrationClaims": [
+    "root-controller",
+    "permanent-actor-roster",
+    "model-profile-effort",
+    "route-selection",
+    "runtime-execution-permissions",
+    "lease-resource-capacity",
+    "shared-stage-order",
+    "checkpoint-continuation",
+    "retry-recovery-failure-routing",
+    "delivery-cleanup-terminalization"
+  ],
+  "requiredClassificationBindings": [
+    "skillDigest",
+    "authorityDigest",
+    "baselineIdentity",
+    "candidateIdentity",
+    "domainPolicyDigest"
+  ],
+  "requiredAcceptanceBindings": [
+    "classificationReceiptDigest",
+    "skillDigest",
+    "authorityDigest",
+    "baselineIdentity",
+    "candidateIdentity",
+    "domainPolicyDigest"
   ]
 }

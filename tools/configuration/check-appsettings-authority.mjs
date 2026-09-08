@@ -17,7 +17,7 @@ const canonicalAuthorities = {
   base: 'src/backend/appsettings.json',
   productionOverlay: 'src/backend/appsettings.Production.json',
   developmentExample: 'src/backend/appsettings.Development.example.json',
-  productionEnvironmentExample: '.env.production.example'
+  productionEnvironmentExample: 'config/examples/.env.production.example'
 }
 const canonicalRetiredFiles = [
   'src/backend/appsettings.example.json',

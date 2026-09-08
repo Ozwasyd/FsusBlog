@@ -1,8 +1,8 @@
-# 单体分布式架构边界
+# Monolithic distributed architecture boundary
 
 ## 运行模式
 
-运行模式的唯一权威是 compiled `RuntimeModeOptions` observation；模式集合为 `single`、`static-role`、`adaptive`，职责组合与 unsupported combinations 由下方 generated section 表达，正文不再维护手写模式表或第二份 role 映射。
+The sole runtime-mode authority is the compiled `RuntimeModeOptions` observation. The modes are `single`, `static-role`, and `adaptive`; the generated section below owns responsibility combinations and unsupported combinations, so this document keeps no hand-maintained mode table or second role map.
 
 <!-- fsus-doc-claim
 claimId: deployment-blue-green-runtime-role.runtime-roles
@@ -25,7 +25,6 @@ render: key-value-table
 <!-- FSUSBLOG-GENERATED:END deployment.runtime-roles -->
 
 ## 项目与部署拓扑守卫
-
 ```bash
 node tools/governance/check-monolithic-distributed-architecture.mjs
 node --test tests/tools/monolithic-distributed-architecture.test.mjs
