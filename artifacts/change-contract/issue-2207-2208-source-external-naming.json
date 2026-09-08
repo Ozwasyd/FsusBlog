@@ -70,13 +70,6 @@
                 "config/testing/post-runtime-producer-registry.json"
             ],
             "reason": "Preserve the canonical post-runtime registry wire-key and schema identities."
-        },
-        {
-            "id": "css-like-contract",
-            "paths": [
-                "docs/testing.md"
-            ],
-            "reason": "Preserve documented caller-visible source paths, schema identifiers and contract field spelling in the selected current testing paragraphs."
         }
     ]
 }
