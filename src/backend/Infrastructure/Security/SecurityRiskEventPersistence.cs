@@ -110,6 +110,12 @@ public readonly record struct SecurityRiskScoreQuery(
 /// <param name="ExpiresAtUtc">The latest UTC expiry among active contributions, when present.</param>
 public readonly record struct SecurityRiskScoreResult(int Score, DateTimeOffset? ExpiresAtUtc);
 
+/// <summary>Stable event reason used to persist an authoritative risk reset tombstone.</summary>
+public static class SecurityRiskEventReasons
+{
+    public const string RiskReset = "risk_reset";
+}
+
 /// <summary>Persists and queries pseudonymized security-risk events.</summary>
 public interface ISecurityRiskEventStore
 {
@@ -279,7 +285,10 @@ public sealed class SecurityRiskEventStore(ISqlSugarClient db) : ISecurityRiskEv
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        int clampedLimit = Math.Clamp(limit, 1, 2000);
+        // PublicHotRead durable replay uses the projection's explicit 100k
+        // entry budget. Other callers still pass much smaller limits; keeping
+        // this upper bound finite prevents an unbounded restart query.
+        int clampedLimit = Math.Clamp(limit, 1, 100_000);
         DateTime nowUtc = now.UtcDateTime;
         ISugarQueryable<SecurityRiskEvent> dbQuery = db.Queryable<SecurityRiskEvent>()
             .Where(item => item.ExpiresAtUtc > nowUtc);
@@ -416,10 +425,26 @@ public sealed class RiskScoreEngine(ISecurityRiskEventStore store, TimeProvider 
         IReadOnlyList<SecurityRiskEventRecord> events = await store.ListActiveForScoreAsync(query, now, 1000, cancellationToken);
         int total = 0;
         DateTimeOffset? expiresAt = null;
+        bool resetBarrierSeen = false;
         foreach (SecurityRiskEventRecord item in events)
         {
             TimeSpan remaining = item.ExpiresAtUtc - now;
             if (remaining <= TimeSpan.Zero)
+            {
+                continue;
+            }
+
+            if (string.Equals(item.Reason, SecurityRiskEventReasons.RiskReset, StringComparison.Ordinal))
+            {
+                // Events are read newest-first. A reset is an authoritative
+                // barrier: retain newer observations already accumulated, but
+                // never resurrect older positive contributions after an admin
+                // reset or a restart/fallback read.
+                resetBarrierSeen = true;
+                continue;
+            }
+
+            if (resetBarrierSeen)
             {
                 continue;
             }
@@ -457,7 +482,9 @@ public sealed class SecurityRiskEventSink(
     SecurityRiskEventWriteQueue eventQueue,
     IServiceScopeFactory scopeFactory,
     ILogger<SecurityRiskEventSink> logger,
-    TimeProvider timeProvider) : ISecurityRiskSignalSink, ISecurityRiskScoreReader
+    TimeProvider timeProvider,
+    IPublicHotReadRiskProjection? publicHotReadRiskProjection = null,
+    IPublicHotReadRiskProjectionPublisher? publicHotReadRiskProjectionPublisher = null) : ISecurityRiskSignalSink, ISecurityRiskScoreReader
 {
     /// <summary>Applies an observation to hot-path risk state and queues its bounded persisted representation.</summary>
     /// <param name="signal">The security observation to process.</param>
@@ -466,7 +493,7 @@ public sealed class SecurityRiskEventSink(
     public async ValueTask AddRiskAsync(SecurityRiskSignal signal, CancellationToken cancellationToken = default)
     {
         FsusObservability.RecordSecurityRiskEvent(signal.Source, signal.Reason.ToString(), signal.Action, "received");
-        await hotPath.AddRiskAsync(signal, cancellationToken);
+        int totalScore = await hotPath.AddRiskAndGetScoreAsync(signal, cancellationToken).ConfigureAwait(false);
         if (ShouldSkipPersistence(signal))
         {
             return;
@@ -474,8 +501,8 @@ public sealed class SecurityRiskEventSink(
 
         try
         {
-            int totalScore = await TryReadHotCacheAsync(signal.Context.GetClientIp(), cancellationToken);
             SecurityRiskEventWrite write = BuildWrite(signal, totalScore);
+            ApplyPublicHotReadProjection(write, publicHotReadRiskProjection, publicHotReadRiskProjectionPublisher, logger);
             if (!await eventQueue.EnqueueAsync(write, cancellationToken).ConfigureAwait(false))
             {
                 FsusObservability.RecordSecurityRiskEvent(signal.Source, signal.Reason.ToString(), signal.Action, "durable_fallback");
@@ -491,6 +518,50 @@ public sealed class SecurityRiskEventSink(
                 signal.Source,
                 signal.Reason.ToString(),
                 signal.Action);
+        }
+    }
+
+    private static void ApplyPublicHotReadProjection(
+        SecurityRiskEventWrite write,
+        IPublicHotReadRiskProjection? projection,
+        IPublicHotReadRiskProjectionPublisher? publisher,
+        ILogger<SecurityRiskEventSink> logger)
+    {
+        if (projection is null || write.ClientIpHash is null)
+        {
+            return;
+        }
+
+        PublicHotReadRiskProjectionUpdate update = new(
+            write.ClientIpHash,
+            Math.Max(1, write.PseudonymEpoch),
+            write.TotalScore,
+            write.OccurredAtUtc,
+            write.ExpiresAtUtc,
+            write.Id);
+        projection.Apply(update);
+        if (publisher is null)
+        {
+            return;
+        }
+
+        _ = PublishProjectionAsync(publisher, update, logger);
+    }
+
+    private static async Task PublishProjectionAsync(
+        IPublicHotReadRiskProjectionPublisher publisher,
+        PublicHotReadRiskProjectionUpdate update,
+        ILogger<SecurityRiskEventSink> logger)
+    {
+        try
+        {
+            await publisher.PublishAsync(update, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            // PostgreSQL event persistence is the durable replay source. A
+            // transient Pub/Sub failure must never make a risk signal fail.
+            logger.LogWarning(ex, "public-hot-risk-projection-async-publish-failed");
         }
     }
 
@@ -571,8 +642,86 @@ public sealed class SecurityRiskEventSink(
     /// <param name="subject">The subject whose score is reset.</param>
     /// <param name="cancellationToken">A token that cancels the reset operation.</param>
     /// <returns>A task that completes when the reset has finished.</returns>
-    public Task ResetRiskAsync(SecurityRiskSubject subject, CancellationToken cancellationToken = default)
-        => hotPath.ResetRiskAsync(subject, cancellationToken);
+    public async Task ResetRiskAsync(SecurityRiskSubject subject, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(subject.Identity))
+        {
+            return;
+        }
+
+        await hotPath.ResetRiskAsync(subject, cancellationToken).ConfigureAwait(false);
+        if (publicHotReadRiskProjection is null)
+        {
+            return;
+        }
+
+        DateTimeOffset now = timeProvider.GetUtcNow();
+        // Keep the durable tombstone active for the maximum accepted event TTL.
+        // The local projection still clamps each resident entry to its own bound,
+        // while replay can refresh the zero barrier before older events expire.
+        DateTimeOffset expiresAt = now.AddDays(1);
+        IReadOnlyList<SecurityRiskPseudonym> pseudonyms = pseudonymizer.PseudonymizeForRead(
+            SecurityRiskIdentityDomain.ClientIp,
+            subject.Identity);
+        var updates = new List<(PublicHotReadRiskProjectionUpdate Update, SecurityRiskEventWrite Write)>(pseudonyms.Count);
+        foreach ((SecurityRiskPseudonym pseudonym, int index) in pseudonyms.Select(static (value, index) => (value, index)))
+        {
+            string eventId = $"risk-reset-{now.ToUnixTimeMilliseconds():x}-{index}-{Guid.NewGuid():N}";
+            PublicHotReadRiskProjectionUpdate update = new(
+                pseudonym.Hash,
+                pseudonym.Epoch,
+                0,
+                now,
+                expiresAt,
+                eventId,
+                IsAuthoritativeZero: true);
+            updates.Add((
+                update,
+                new SecurityRiskEventWrite(
+                    eventId,
+                    now,
+                    SecurityRiskSources.RiskControl,
+                    SecurityRiskEventReasons.RiskReset,
+                    RiskActionNames.PublicRead,
+                    0,
+                    0,
+                    (int)(expiresAt - now).TotalSeconds,
+                    expiresAt,
+                    null,
+                    "security.risk.reset",
+                    pseudonym.Hash,
+                    null,
+                    null,
+                    HttpMethods.Post,
+                    null,
+                    "authoritative_public_hot_read_reset",
+                    null,
+                    pseudonym.Epoch)));
+        }
+
+        try
+        {
+            await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+            ISecurityRiskEventStore store = scope.ServiceProvider.GetRequiredService<ISecurityRiskEventStore>();
+            await store.AppendBatchAsync(updates.Select(static item => item.Write).ToArray(), cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            // Do not clear a resident positive or publish a non-durable zero. A
+            // failed reset remains fail-closed and is surfaced to the caller.
+            logger.LogWarning(ex, "public-hot-risk-projection-reset-persist-failed");
+            throw;
+        }
+
+        foreach ((PublicHotReadRiskProjectionUpdate update, _) in updates)
+        {
+            publicHotReadRiskProjection.Apply(update);
+            if (publicHotReadRiskProjectionPublisher is not null)
+            {
+                _ = PublishProjectionAsync(publicHotReadRiskProjectionPublisher, update, logger);
+            }
+        }
+    }
 
     private async Task<SecurityRiskScoreResult> ComputeFallbackAsync(
         SecurityRiskScoreQuery query,

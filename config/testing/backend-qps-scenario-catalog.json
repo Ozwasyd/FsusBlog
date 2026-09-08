@@ -150,16 +150,25 @@
       "route": "public_read:risk-filter",
       "trafficMode": "static-qps-guard",
       "checks": [
-        "zero-risk-microcache",
+        "bounded-public-hot-risk-projection",
         "no-public-read-lowercase",
         "stable-partition-key"
       ],
       "requiredTokens": [
-        { "file": "src/backend/Infrastructure/Security/CrawlerRiskService.cs", "token": "ZeroRiskCacheTtlSeconds" },
-        { "file": "src/backend/Infrastructure/Security/CrawlerRiskService.cs", "token": "zeroRiskCache" },
+        { "file": "src/backend/Infrastructure/Security/PublicHotReadRiskProjection.cs", "token": "MaxEntries" },
+        { "file": "src/backend/Infrastructure/Security/PublicHotReadRiskProjection.cs", "token": "MaxBytes" },
+        { "file": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSecurityGateMiddleware.cs", "token": "IPublicHotReadRiskProjection" },
+        { "file": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSecurityGateMiddleware.cs", "token": "isPublicHotRead" },
         { "file": "src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs", "token": "GetPublicReadPartitionPath" }
       ],
-      "forbiddenTokens": [],
+      "forbiddenTokens": [
+        { "file": "src/backend/Infrastructure/Security/CrawlerRiskService.cs", "token": "IMemoryCache" },
+        { "file": "src/backend/Infrastructure/Security/CrawlerRiskService.cs", "token": "ZeroRiskCacheTtlSeconds" },
+        { "file": "src/backend/Models/Security/SecurityAdminModels.cs", "token": "ZeroRiskCacheTtlSeconds" },
+        { "file": "src/backend/Services/Security/SecurityAdminPolicyService.cs", "token": "ZeroRiskCacheTtlSeconds" },
+        { "file": "src/frontend/src/api/security.ts", "token": "zeroRiskCacheTtlSeconds" },
+        { "file": "src/frontend/src/views/admin/security/SecurityCrawler.vue", "token": "zeroRiskCacheTtlSeconds" }
+      ],
       "evidencePath": ".tmp/perf/backend-qps/risk-filter.json"
     },
     {

@@ -113,9 +113,8 @@ public sealed class SecurityRiskTaxonomyTests
             .Returns(12L);
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
-        using var zeroRiskCache = new MemoryCache(new MemoryCacheOptions());
         var logger = new CapturingLogger<CrawlerRiskService>();
-        var service = new CrawlerRiskService(cache, cache, cache, cache, zeroRiskCache, policy, logger);
+        var service = new CrawlerRiskService(cache, cache, cache, cache, policy, logger);
         DefaultHttpContext context = CreateContext("198.51.100.18");
 
         await service.AddRiskAsync(
@@ -149,8 +148,7 @@ public sealed class SecurityRiskTaxonomyTests
             .Returns("4");
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
-        using var zeroRiskCache = new MemoryCache(new MemoryCacheOptions());
-        var service = new CrawlerRiskService(cache, cache, cache, cache, zeroRiskCache, policy, new CapturingLogger<CrawlerRiskService>());
+        var service = new CrawlerRiskService(cache, cache, cache, cache, policy, new CapturingLogger<CrawlerRiskService>());
         DefaultHttpContext context = CreateContext("198.51.100.19");
 
         await service.AddRiskAsync(
@@ -205,7 +203,6 @@ public sealed class SecurityRiskTaxonomyTests
                 BlockScore: 100,
                 MaxRiskScore: 200,
                 DefaultRiskTtlSeconds: 600,
-                ZeroRiskCacheTtlSeconds: 3,
                 FixedIpPermitLimit: 100,
                 FixedIpQueueLimit: 2,
                 VerifiedCrawlerFixedIpPermitLimit: 1000,

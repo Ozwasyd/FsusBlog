@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.performance-claim-evidence.v1",
+    "changeRevision": "d324d0bdde9e44bbdd004234e8b2e3ae744f9c6e",
+    "claimLevel": "S",
+    "status": "structural-only",
+    "evidence": [
+        {
+            "path": "artifacts/performance/public-hot-read-risk-projection-result.json",
+            "sha256": "538a97e9ae43f753235d41181fe8b44e25b88f7863677cd1658c7a8aba10e091"
+        }
+    ]
+}
