@@ -3,8 +3,13 @@ using System.Text.Json;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Modules.Endpoints;
+using FsusBlog.Server.Services.Fixtures;
 
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
+
+using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -105,6 +110,62 @@ public sealed class CompositionRegistrationContractTests
         Assert.Contains(
             ValidateRegistration(services, entry),
             error => error.Contains("multiplicity", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("Development", true, false, true)]
+    [InlineData("Development", false, true, true)]
+    [InlineData("Development", false, false, false)]
+    [InlineData("Production", true, true, false)]
+    public void CommentFixtureComposition_IsActualHostDevelopmentAndFlagBound(
+        string hostEnvironmentName,
+        bool allowLocalCommentFixture,
+        bool allowLocalAuthFixture,
+        bool expectedRegistered)
+    {
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                // Deliberately conflicts with the Production host test case.
+                ["ASPNETCORE_ENVIRONMENT"] = Environments.Development,
+                ["fsus:allowLocalCommentFixture"] = allowLocalCommentFixture.ToString(),
+                [LocalAuthFixtureEndpoints.AllowLocalAuthFixtureConfigurationKey] = allowLocalAuthFixture.ToString()
+            })
+            .Build();
+        IHostEnvironment hostEnvironment = Substitute.For<IHostEnvironment>();
+        hostEnvironment.EnvironmentName.Returns(hostEnvironmentName);
+        var services = new ServiceCollection();
+
+        services.AddFsusRuntimeDomainServices(configuration, hostEnvironment);
+
+        Type[] fixtureServices =
+        [
+            typeof(ICommentThreadFixturePort),
+            typeof(ICommentModerationFixturePort),
+            typeof(ICommentAnonymousFixtureCapabilityVault),
+            typeof(ICommentAnonymousFixtureOperationLedger),
+            typeof(ICommentAnonymousFixtureProvider),
+            typeof(ICommentFixtureSeeder)
+        ];
+        Assert.All(fixtureServices, serviceType => Assert.Equal(
+            expectedRegistered,
+            services.Any(descriptor => descriptor.ServiceType == serviceType)));
+    }
+
+    [Fact]
+    public void CommentFixtureComposition_NoConfigurationOverloadFailsClosed()
+    {
+        var services = new ServiceCollection();
+
+        services.AddFsusRuntimeDomainServices();
+
+        Assert.DoesNotContain(services, descriptor =>
+            descriptor.ServiceType == typeof(ICommentThreadFixturePort)
+            || descriptor.ServiceType == typeof(ICommentModerationFixturePort)
+            || descriptor.ServiceType == typeof(ICommentAnonymousFixtureCapabilityVault)
+            || descriptor.ServiceType == typeof(ICommentAnonymousFixtureOperationLedger)
+            || descriptor.ServiceType == typeof(ICommentAnonymousFixtureProvider)
+            || descriptor.ServiceType == typeof(ICommentFixtureSeeder));
     }
 
     private static IReadOnlyList<string> ValidateRegistration(

@@ -67,7 +67,7 @@ public static class WebApplicationBuilderCompositionExtensions
 
         builder.Services
             .AddFsusApiFoundation(builder.Configuration, businessTimeProvider)
-            .AddFsusRuntimeServices(builder.Configuration)
+            .AddFsusRuntimeServices(builder.Configuration, builder.Environment)
             .AddFsusObservability(builder.Configuration, builder.Environment)
             .AddFsusRateLimiting()
             .ValidateAndPublishFsusDependencyGraph();
