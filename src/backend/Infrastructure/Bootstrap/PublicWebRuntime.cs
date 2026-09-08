@@ -298,6 +298,7 @@ internal static partial class PublicWebRuntime
         app.MapLocalAccountProfilePreferenceFixtureEndpoints();
         app.MapLocalPublicContentFixtureEndpoints();
         app.MapLocalMessagingFixtureEndpoints();
+        app.MapLocalCommentFixtureEndpoints();
         app.MapLocalAuditFixtureEndpoints();
         app.MapLocalDemoFixtureEndpoints();
         app.MapLocalSecurityFixtureEndpoints();

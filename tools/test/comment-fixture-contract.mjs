@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const inventoryPath = path.join(repositoryRoot, 'config/testing/comment-fixture-inventory.json');
+const ownershipPath = path.join(repositoryRoot, 'config/testing/comment-fixture-ownership.json');
 const stableId = /^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$/u;
 const legacyActor = /(?:legacy|pseudonymous|identified-opt-in|current-equivalent|^anonymous$)/u;
 const shortcut = /(?:count-positive|count>0|first-row|row-exists|status-integer|wildcard|demo)/u;
@@ -230,9 +231,106 @@ export function validateCommentFixtureInventory(inventory)
     return true;
 }
 
+export function commentFixtureOwnershipErrors(inventory, ownership)
+{
+    const errors = [];
+    exactKeys(ownership, [
+        'schema', 'inventory', 'producer', 'ports', 'supportImplementations', 'composition', 'gateways',
+        'capabilityOwners', 'consumers', 'privacy'
+    ], 'ownership', errors);
+    if (ownership?.schema !== 'fsusblog.comment-fixture-ownership.v1'
+        || ownership?.inventory !== 'config/testing/comment-fixture-inventory.json')
+        errors.push('ownership schema/inventory identity is invalid');
+    exactKeys(ownership?.producer, ['id', 'implementation', 'strategy'], 'ownership.producer', errors);
+    if (ownership?.producer?.id !== inventory?.producerId
+        || ownership?.producer?.strategy !== inventory?.strategy
+        || ownership?.producer?.implementation !== 'tools/test-fixtures/producers/comment-moderation-producer.mjs')
+        errors.push('ownership producer is not the unique comment-moderation implementation');
+
+    const expectedPorts = new Map([
+        ['comment-moderation-lifecycle', ['src/backend/Services/Fixtures/CommentModerationFixturePort.cs', 'production-authoring-moderation-commands']],
+        ['comment-thread-lifecycle', ['src/backend/Services/Fixtures/CommentThreadFixturePort.cs', 'production-comment-command-and-management-services']]
+    ]);
+    const ports = ownership?.ports ?? [];
+    if (ports.length !== expectedPorts.size || new Set(ports.map((item) => item?.id)).size !== expectedPorts.size)
+        errors.push('ownership must expose exactly two typed comment lifecycle ports');
+    for (const port of ports)
+    {
+        exactKeys(port, ['id', 'implementation', 'storageWrites'], `ownership port ${port?.id}`, errors);
+        const expected = expectedPorts.get(port?.id);
+        if (!expected || port?.implementation !== expected[0] || port?.storageWrites !== expected[1])
+            errors.push(`port ${port?.id} crosses its production ownership boundary`);
+    }
+
+    const support = ownership?.supportImplementations ?? [];
+    if (support.length !== 1
+        || support[0]?.id !== 'comment-anonymous-production-adapter'
+        || support[0]?.implementation !== 'src/backend/Services/Fixtures/CommentAnonymousFixtureProvider.cs'
+        || support[0]?.portId !== 'comment-thread-lifecycle')
+        errors.push('ownership must expose the exact anonymous production adapter support implementation');
+    for (const item of support)
+        exactKeys(item, ['id', 'implementation', 'portId'], `ownership support ${item?.id}`, errors);
+
+    exactKeys(ownership?.composition, ['implementation', 'delegatesTo'], 'ownership.composition', errors);
+    if (ownership?.composition?.implementation !== 'src/backend/Services/Fixtures/CommentFixtureSeeder.cs'
+        || !exactArray(ownership?.composition?.delegatesTo, ['comment-moderation-lifecycle', 'comment-thread-lifecycle']))
+        errors.push('ownership composition does not delegate to the exact typed port set');
+    const gateways = ownership?.gateways ?? [];
+    if (gateways.length !== 1
+        || gateways[0]?.id !== 'loopback-http'
+        || gateways[0]?.implementation !== 'src/backend/Modules/Endpoints/LocalCommentFixtureEndpoints.cs'
+        || gateways[0]?.delegatesTo !== 'comment-fixture-composition')
+        errors.push('ownership gateway is not the exact local composition boundary');
+
+    const capabilities = inventory?.capabilities ?? [];
+    const owners = ownership?.capabilityOwners ?? [];
+    if (!exactArray(owners.map((item) => item?.capabilityId), capabilities.map((item) => item?.id)))
+        errors.push('capability ownership must be exact and bidirectional');
+    const portIds = new Set(expectedPorts.keys());
+    for (const owner of owners)
+    {
+        exactKeys(owner, ['capabilityId', 'portId'], `capability owner ${owner?.capabilityId}`, errors);
+        const capability = capabilities.find((item) => item.id === owner?.capabilityId);
+        if (!capability || capability.portId !== owner?.portId || !portIds.has(owner?.portId))
+            errors.push(`capability owner mismatch for ${owner?.capabilityId}`);
+    }
+
+    const consumers = ownership?.consumers ?? [];
+    if (consumers.length !== 2
+        || consumers[0]?.implementation !== 'tests/browser-contract/default-fixture-provider.mjs'
+        || consumers[0]?.reads !== 'verified-producer-receipt'
+        || consumers[1]?.implementation !== 'tools/test-fixtures/orchestrator.mjs'
+        || consumers[1]?.receiptSchema !== 'fsusblog.fixture-receipt.v2')
+        errors.push('ownership consumers are not the exact orchestrator/browser receipt readers');
+    const privacy = ownership?.privacy;
+    if (!sortedUnique(privacy?.ordinaryArtifactFields, /^[A-Za-z][A-Za-z0-9]*$/u)
+        || !sortedUnique(privacy?.forbiddenFields, /^[A-Za-z][A-Za-z0-9]*$/u))
+        errors.push('ownership privacy fields must be sorted and unique');
+    if (!exactArray(privacy?.forbiddenFields, ['anonymousTicket', 'cookie', 'managementSecret', 'privateCredential', 'token']))
+        errors.push('ownership privacy forbidden fields are incomplete');
+    return errors;
+}
+
 export function readCommentFixtureInventory()
 {
     const inventory = JSON.parse(fs.readFileSync(inventoryPath, 'utf8'));
     validateCommentFixtureInventory(inventory);
     return Object.freeze({ inventory, inventoryDigest: digestCommentFixtureValue(inventory) });
+}
+
+export function readCommentFixtureContract()
+{
+    const inventory = JSON.parse(fs.readFileSync(inventoryPath, 'utf8'));
+    const ownership = JSON.parse(fs.readFileSync(ownershipPath, 'utf8'));
+    const errors = [
+        ...commentFixtureInventoryErrors(inventory),
+        ...commentFixtureOwnershipErrors(inventory, ownership)
+    ];
+    if (errors.length) throw new Error(`comment fixture contract invalid:\n- ${errors.join('\n- ')}`);
+    return Object.freeze({
+        inventory,
+        ownership,
+        inventoryDigest: digestCommentFixtureValue(inventory),
+        ownershipDigest: digestCommentFixtureValue(ownership)
+    });
 }

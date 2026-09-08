@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+    commentFixtureOwnershipErrors,
+    readCommentFixtureContract,
     commentFixtureInventoryErrors,
     readCommentFixtureInventory
 } from '../../tools/test/comment-fixture-contract.mjs';
@@ -88,4 +90,26 @@ test('comment fixture inventory rejects duplicate/orphan capabilities and tamper
     const tamper = clone(inventory);
     tamper.unownedStatusMap = {};
     assert.ok(commentFixtureInventoryErrors(tamper).some((item) => item.includes('keys are not closed')));
+});
+
+test('comment fixture ownership is exact and bidirectional', () =>
+{
+    const contract = readCommentFixtureContract();
+    assert.equal(commentFixtureOwnershipErrors(contract.inventory, contract.ownership).length, 0);
+    assert.match(contract.ownershipDigest, /^sha256:[a-f0-9]{64}$/u);
+
+    const secondProducer = clone(contract.ownership);
+    secondProducer.producer.implementation = 'tests/browser-contract/default-fixture-provider.mjs';
+    assert.ok(commentFixtureOwnershipErrors(contract.inventory, secondProducer)
+        .some((item) => item.includes('unique comment-moderation')));
+
+    const bypass = clone(contract.ownership);
+    bypass.ports[0].storageWrites = 'direct-sql';
+    assert.ok(commentFixtureOwnershipErrors(contract.inventory, bypass)
+        .some((item) => item.includes('production ownership boundary')));
+
+    const orphan = clone(contract.ownership);
+    orphan.capabilityOwners.pop();
+    assert.ok(commentFixtureOwnershipErrors(contract.inventory, orphan)
+        .some((item) => item.includes('exact and bidirectional')));
 });

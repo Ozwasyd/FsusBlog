@@ -1,13 +1,17 @@
+// fixture-catalog: producer comment-moderation
 // fixture-catalog: port comment-thread-lifecycle
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
+using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
 
@@ -23,6 +27,54 @@ public static class CommentThreadFixtureOperations
     public const string RejectDepthOverrun = "reject-depth-overrun";
 }
 
+public sealed record CommentFixturePortBinding(
+    string RunId,
+    string Namespace,
+    string TestSession,
+    string Owner,
+    string ProfileId,
+    IReadOnlyList<string> Capabilities,
+    int ArticleId,
+    string AuthProducerResultDigest,
+    IReadOnlyList<string> AuthPrepareReferenceDigests,
+    string PublicContentProducerResultDigest,
+    string ArticleProjectionDigest,
+    string InventoryDigest,
+    string CapabilityCatalogDigest,
+    string VariantCatalogDigest,
+    string TemporalContextDigest,
+    string ProducerPlanDigest,
+    string PlanDigest)
+{
+    internal bool IsValid()
+        => !string.IsNullOrWhiteSpace(RunId)
+            && !string.IsNullOrWhiteSpace(Namespace)
+            && HttpTestSessionKeyScope.IsValidSessionId(TestSession)
+            && !string.IsNullOrWhiteSpace(Owner)
+            && !string.IsNullOrWhiteSpace(ProfileId)
+            && Capabilities.Count > 0
+            && Capabilities.Order(StringComparer.Ordinal).SequenceEqual(Capabilities, StringComparer.Ordinal)
+            && Capabilities.Distinct(StringComparer.Ordinal).Count() == Capabilities.Count
+            && ArticleId > 0
+            && AuthPrepareReferenceDigests.Count == 3
+            && AuthPrepareReferenceDigests.Order(StringComparer.Ordinal)
+                .SequenceEqual(AuthPrepareReferenceDigests, StringComparer.Ordinal)
+            && AuthPrepareReferenceDigests.Distinct(StringComparer.Ordinal).Count() == AuthPrepareReferenceDigests.Count
+            && IsDigest(AuthProducerResultDigest)
+            && AuthPrepareReferenceDigests.All(IsDigest)
+            && IsDigest(PublicContentProducerResultDigest)
+            && IsDigest(ArticleProjectionDigest)
+            && IsDigest(InventoryDigest)
+            && IsDigest(CapabilityCatalogDigest)
+            && IsDigest(VariantCatalogDigest)
+            && IsDigest(TemporalContextDigest)
+            && IsDigest(ProducerPlanDigest)
+            && IsDigest(PlanDigest);
+
+    private static bool IsDigest(string value) => value.StartsWith("sha256:", StringComparison.Ordinal)
+        && value.Length == 71 && value.AsSpan(7).IndexOfAnyExcept("0123456789abcdef") < 0;
+}
+
 public sealed record CommentThreadFixtureOperation(
     string CapabilityId,
     string SemanticRole,
@@ -31,18 +83,16 @@ public sealed record CommentThreadFixtureOperation(
     int? AccountId,
     string Content,
     string? ParentRole = null,
+    long? ParentCommentId = null,
+    long? ExistingCommentId = null,
     string? ExpectedFailureCode = null,
     string? AnonymousScope = null,
     string? DisplayLanguage = null,
-    byte[]? AnonymousTicket = null);
+    RegionModerationDecision? RegionDecision = null);
 
 public sealed record CommentThreadFixturePlan(
     string Schema,
-    string RunId,
-    string Namespace,
-    string Owner,
-    int ArticleId,
-    string InventoryDigest,
+    CommentFixturePortBinding Binding,
     IReadOnlyList<CommentThreadFixtureOperation> Operations);
 
 public sealed record CommentThreadFixtureEntity(
@@ -61,25 +111,62 @@ public sealed record CommentThreadFixtureEntity(
     string ContentDigest,
     IReadOnlyList<CommentRevisionResult> History,
     bool PubliclyVisible,
-    IReadOnlyList<string> OutboxEventIds);
+    IReadOnlyList<string> OutboxEventIds,
+    string OperationPlanDigest);
 
 public sealed record CommentThreadFixtureResult(
     string Schema,
-    string RunId,
-    string Namespace,
-    string Owner,
-    int ArticleId,
-    string InventoryDigest,
+    CommentFixturePortBinding Binding,
     IReadOnlyList<CommentThreadFixtureEntity> Entities,
-    IReadOnlyDictionary<string, string> NegativeResults);
+    IReadOnlyDictionary<string, string> NegativeResults,
+    IReadOnlyList<CommentFixtureZkAuthorityEvidence> ZkAuthorityEvidence);
+
+public sealed record CommentThreadFixtureObservationIdentity(
+    long CommentId,
+    int? AccountId,
+    string ActorMode,
+    string OperationPlanDigest);
+
+public sealed record CommentThreadFixtureObservationPlan(
+    string Schema,
+    CommentFixturePortBinding Binding,
+    IReadOnlyDictionary<string, CommentThreadFixtureObservationIdentity> Roles);
+
+public sealed record CommentThreadFixtureOwnedIdentity(
+    long CommentId,
+    int ArticleId,
+    string SemanticRole,
+    string ActorMode,
+    int? AccountId,
+    string ContentDigest,
+    int CurrentVersion,
+    bool IsDeleted,
+    string OperationPlanDigest);
 
 public sealed record CommentThreadFixtureCleanupReceipt(
     string Schema,
-    string RunId,
-    string Namespace,
-    string Owner,
-    string InventoryDigest,
-    IReadOnlyDictionary<long, int?> OwnedComments);
+    CommentFixturePortBinding Binding,
+    IReadOnlyDictionary<long, CommentThreadFixtureOwnedIdentity> OwnedComments);
+
+public sealed record CommentThreadFixtureCleanupResult(
+    string Schema,
+    CommentFixturePortBinding Binding,
+    IReadOnlyList<long> DeletedCommentIds,
+    IReadOnlyList<long> StillPublicCommentIds,
+    bool Exact);
+
+public sealed class CommentThreadFixtureRecoveryException(
+    string message,
+    Exception originalError,
+    CommentThreadFixtureCleanupReceipt recoveryReceipt,
+    CommentThreadFixtureCleanupResult? cleanupResult,
+    Exception? cleanupError)
+    : Exception(message, originalError)
+{
+    public CommentThreadFixtureCleanupReceipt RecoveryReceipt { get; } = recoveryReceipt;
+    public CommentThreadFixtureCleanupResult? CleanupResult { get; } = cleanupResult;
+    public Exception? CleanupError { get; } = cleanupError;
+}
 
 public interface ICommentThreadFixturePort
 {
@@ -87,7 +174,11 @@ public interface ICommentThreadFixturePort
         CommentThreadFixturePlan plan,
         CancellationToken cancellationToken = default);
 
-    Task CleanupAsync(
+    Task<IReadOnlyList<CommentThreadFixtureEntity>> ObserveCurrentAsync(
+        CommentThreadFixtureObservationPlan plan,
+        CancellationToken cancellationToken = default);
+
+    Task<CommentThreadFixtureCleanupResult> CleanupAsync(
         CommentThreadFixtureCleanupReceipt receipt,
         CancellationToken cancellationToken = default);
 }
@@ -98,6 +189,9 @@ public interface ICommentThreadFixturePort
 /// </summary>
 public sealed class CommentThreadFixturePort(
     ICommentEndpointService comments,
+    ICommentAnonymousFixtureProvider anonymousComments,
+    ICommentAnonymousFixtureCapabilityVault anonymousCapabilities,
+    ICommentAnonymousFixtureOperationLedger anonymousOperations,
     ICommentAuthorManagementService authorManagement,
     ICommentManagementCapabilityService managementCapabilities,
     ICommentQueryService publicQueries,
@@ -105,6 +199,7 @@ public sealed class CommentThreadFixturePort(
 {
     private const string PlanSchema = "fsusblog.comment-thread-fixture-plan.v1";
     private const string ResultSchema = "fsusblog.comment-thread-fixture-result.v1";
+    private const string ObservationSchema = "fsusblog.comment-thread-fixture-observation.v1";
     private const string CleanupSchema = "fsusblog.comment-thread-fixture-cleanup.v1";
 
     public async Task<CommentThreadFixtureResult> ExecuteAsync(
@@ -114,67 +209,141 @@ public sealed class CommentThreadFixturePort(
         ValidatePlan(plan);
         var roles = new Dictionary<string, FixtureIdentity>(StringComparer.Ordinal);
         var negativeResults = new Dictionary<string, string>(StringComparer.Ordinal);
+        var zkAuthorityEvidence = new List<CommentFixtureZkAuthorityEvidence>();
 
-        foreach (CommentThreadFixtureOperation operation in plan.Operations)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            switch (operation.Operation)
+            foreach (CommentThreadFixtureOperation operation in plan.Operations)
             {
-                case CommentThreadFixtureOperations.Create:
-                case CommentThreadFixtureOperations.RejectDepthOverrun:
-                    CommentCreateResult created = await CreateAsync(plan, operation, roles, cancellationToken)
-                        .ConfigureAwait(false);
-                    if (operation.Operation == CommentThreadFixtureOperations.RejectDepthOverrun)
-                    {
-                        string expected = operation.ExpectedFailureCode ?? "comment_thread_depth_limit";
-                        if (created.Created || !StringComparer.Ordinal.Equals(created.FailureCode, expected))
-                            throw new InvalidOperationException($"Depth overrun {operation.SemanticRole} was not rejected by production policy.");
-                        negativeResults.Add(operation.SemanticRole, created.FailureCode ?? "unknown");
+                cancellationToken.ThrowIfCancellationRequested();
+                if (operation.Operation is CommentThreadFixtureOperations.Edit or CommentThreadFixtureOperations.SoftDelete
+                    && !roles.ContainsKey(operation.SemanticRole))
+                {
+                    if (operation.ExistingCommentId is not > 0)
+                        throw new InvalidOperationException($"Existing comment identity is missing for {operation.SemanticRole}.");
+                    roles.Add(operation.SemanticRole, new FixtureIdentity(
+                        operation.ExistingCommentId.Value,
+                        operation.AccountId,
+                        operation.ActorMode,
+                        OperationPlanDigest(plan.Binding, operation)));
+                }
+                switch (operation.Operation)
+                {
+                    case CommentThreadFixtureOperations.Create:
+                    case CommentThreadFixtureOperations.RejectDepthOverrun:
+                        (CommentCreateResult created, CommentFixtureZkAuthorityEvidence? evidence) = await CreateAsync(
+                                plan,
+                                operation,
+                                roles,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                        if (operation.Operation == CommentThreadFixtureOperations.RejectDepthOverrun)
+                        {
+                            string expected = operation.ExpectedFailureCode ?? "comment_thread_depth_limit";
+                            if (created.Created || !StringComparer.Ordinal.Equals(created.FailureCode, expected))
+                                throw new InvalidOperationException($"Depth overrun {operation.SemanticRole} was not rejected by production policy.");
+                            negativeResults.Add(operation.SemanticRole, created.FailureCode ?? "unknown");
+                            break;
+                        }
+                        if (!created.Created || created.CommentId <= 0)
+                            throw new InvalidOperationException($"Production comment creation failed for {operation.SemanticRole}: {created.FailureCode ?? "unknown"}.");
+                        roles.Add(operation.SemanticRole, new FixtureIdentity(
+                            created.CommentId,
+                            operation.AccountId,
+                            operation.ActorMode,
+                            evidence is null
+                                ? OperationPlanDigest(plan.Binding, operation)
+                                : NormalizeDigest(evidence.OperationPlanDigest)));
+                        if (evidence is not null)
+                            zkAuthorityEvidence.Add(evidence);
                         break;
-                    }
-                    if (!created.Created || created.CommentId <= 0)
-                        throw new InvalidOperationException($"Production comment creation failed for {operation.SemanticRole}: {created.FailureCode ?? "unknown"}.");
-                    roles.Add(operation.SemanticRole, new FixtureIdentity(created.CommentId, operation.AccountId, created.ManagementSecret));
-                    break;
 
-                case CommentThreadFixtureOperations.Edit:
-                    await EditAsync(operation, RequireRole(roles, operation.SemanticRole), cancellationToken)
-                        .ConfigureAwait(false);
-                    break;
+                    case CommentThreadFixtureOperations.Edit:
+                        await EditAsync(plan, operation, RequireRole(roles, operation.SemanticRole), cancellationToken)
+                            .ConfigureAwait(false);
+                        break;
 
-                case CommentThreadFixtureOperations.SoftDelete:
-                    await SoftDeleteAsync(operation, RequireRole(roles, operation.SemanticRole), cancellationToken)
-                        .ConfigureAwait(false);
-                    break;
+                    case CommentThreadFixtureOperations.SoftDelete:
+                        await SoftDeleteAsync(plan, operation, RequireRole(roles, operation.SemanticRole), cancellationToken)
+                            .ConfigureAwait(false);
+                        break;
 
-                default:
-                    throw new InvalidOperationException($"Unknown comment thread fixture operation {operation.Operation}.");
+                    default:
+                        throw new InvalidOperationException($"Unknown comment thread fixture operation {operation.Operation}.");
+                }
             }
         }
+        catch (Exception originalError)
+        {
+            throw await BuildRecoveryExceptionAsync(plan.Binding, roles, originalError).ConfigureAwait(false);
+        }
 
-        List<CommentThreadFixtureEntity> entities = await ObserveAsync(plan, roles, cancellationToken)
-            .ConfigureAwait(false);
-        if (entities.Count != roles.Count)
-            throw new InvalidOperationException("Comment thread fixture observation is partial.");
+        List<CommentThreadFixtureEntity> entities;
+        try
+        {
+            entities = await ObserveAsync(plan.Binding.ArticleId, roles, cancellationToken).ConfigureAwait(false);
+            if (entities.Count != roles.Count)
+                throw new InvalidOperationException("Comment thread fixture observation is partial.");
+        }
+        catch (Exception originalError)
+        {
+            throw await BuildRecoveryExceptionAsync(plan.Binding, roles, originalError).ConfigureAwait(false);
+        }
 
         return new CommentThreadFixtureResult(
             ResultSchema,
-            plan.RunId,
-            plan.Namespace,
-            plan.Owner,
-            plan.ArticleId,
-            plan.InventoryDigest,
+            plan.Binding,
             entities,
-            negativeResults);
+            negativeResults,
+            zkAuthorityEvidence);
     }
 
-    public async Task CleanupAsync(
+    public async Task<IReadOnlyList<CommentThreadFixtureEntity>> ObserveCurrentAsync(
+        CommentThreadFixtureObservationPlan plan,
+        CancellationToken cancellationToken = default)
+    {
+        if (plan.Schema != ObservationSchema || !plan.Binding.IsValid() || plan.Roles.Count == 0
+            || plan.Roles.Any(item => string.IsNullOrWhiteSpace(item.Key)
+                || item.Value.CommentId <= 0
+                || item.Value.ActorMode is not (CommentAuthorModes.Public or CommentAuthorModes.ZkAnonymous)
+                || !IsDigest(item.Value.OperationPlanDigest))
+            || plan.Roles.Values.Select(item => item.CommentId).Distinct().Count() != plan.Roles.Count)
+            throw new InvalidOperationException("Comment thread observation plan is invalid.");
+
+        long[] ids = plan.Roles.Values.Select(item => item.CommentId).Order().ToArray();
+        List<Comment> rows = await db.Queryable<Comment>()
+            .Where(item => ids.Contains(item.Id))
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        if (rows.Count != ids.Length)
+            throw new InvalidOperationException("Comment thread observation plan contains a missing identity.");
+        var identities = plan.Roles.ToDictionary(
+            item => item.Key,
+            item => new FixtureIdentity(
+                item.Value.CommentId,
+                item.Value.AccountId,
+                item.Value.ActorMode,
+                item.Value.OperationPlanDigest),
+            StringComparer.Ordinal);
+        return await ObserveAsync(plan.Binding.ArticleId, identities, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<CommentThreadFixtureCleanupResult> CleanupAsync(
         CommentThreadFixtureCleanupReceipt receipt,
         CancellationToken cancellationToken = default)
     {
-        if (receipt.Schema != CleanupSchema || string.IsNullOrWhiteSpace(receipt.RunId)
-            || string.IsNullOrWhiteSpace(receipt.Namespace) || string.IsNullOrWhiteSpace(receipt.Owner)
-            || !IsDigest(receipt.InventoryDigest) || receipt.OwnedComments.Count == 0)
+        if (receipt.Schema != CleanupSchema || !receipt.Binding.IsValid()
+            || receipt.OwnedComments.Count == 0
+            || receipt.OwnedComments.Any(item => item.Key != item.Value.CommentId
+                || item.Value.ArticleId != receipt.Binding.ArticleId
+                || string.IsNullOrWhiteSpace(item.Value.SemanticRole)
+                || item.Value.ActorMode is not (CommentAuthorModes.Public or CommentAuthorModes.ZkAnonymous)
+                || !IsDigest(item.Value.ContentDigest)
+                || item.Value.CurrentVersion <= 0
+                || !IsDigest(item.Value.OperationPlanDigest))
+            || receipt.OwnedComments.Values.Select(item => item.SemanticRole).Distinct(StringComparer.Ordinal).Count()
+                != receipt.OwnedComments.Count
+            || receipt.OwnedComments.Values.Select(item => item.OperationPlanDigest).Distinct(StringComparer.Ordinal).Count()
+                != receipt.OwnedComments.Count)
             throw new InvalidOperationException("Comment thread cleanup receipt is invalid.");
 
         List<Comment> owned = await db.Queryable<Comment>()
@@ -185,29 +354,164 @@ public sealed class CommentThreadFixturePort(
             throw new InvalidOperationException("Comment thread cleanup receipt contains missing identities.");
         foreach (Comment row in owned)
         {
-            int? expectedActor = receipt.OwnedComments[row.Id];
-            if (row.UserId != expectedActor)
+            CommentThreadFixtureOwnedIdentity expected = receipt.OwnedComments[row.Id];
+            bool validVersion = row.IsDeleted
+                ? expected.IsDeleted
+                    ? row.CurrentVersion == expected.CurrentVersion
+                    : row.CurrentVersion == expected.CurrentVersion + 1
+                : !expected.IsDeleted && row.CurrentVersion == expected.CurrentVersion;
+            if (row.ArticleId != expected.ArticleId
+                || row.UserId != expected.AccountId
+                || !StringComparer.Ordinal.Equals(row.AuthorMode, expected.ActorMode)
+                || !StringComparer.Ordinal.Equals(Digest(row.Content), expected.ContentDigest)
+                || !validVersion)
                 throw new InvalidOperationException($"Comment {row.Id} actor is not owned by the cleanup receipt.");
             if (row.IsDeleted)
+            {
+                if (expected.ActorMode == CommentAuthorModes.ZkAnonymous)
+                {
+                    anonymousCapabilities.Remove(receipt.Binding.Owner, receipt.Binding.TestSession, row.Id);
+                    await anonymousOperations.RemoveAsync(RawDigest(expected.OperationPlanDigest), CancellationToken.None)
+                        .ConfigureAwait(false);
+                }
                 continue;
-            if (expectedActor is not > 0)
-                throw new InvalidOperationException("Anonymous cleanup requires an ephemeral management capability and cannot scan storage.");
-            await RequireAccountMutationAsync(row.Id, expectedActor.Value, CommentManagementPurposes.Delete,
-                (challenge, version) => authorManagement.DeleteAsAccountAsync(row.Id, expectedActor.Value, challenge, cancellationToken),
-                cancellationToken).ConfigureAwait(false);
+            }
+            if (expected.AccountId is > 0)
+            {
+                await RequireAccountMutationAsync(row.Id, expected.AccountId.Value, CommentManagementPurposes.Delete,
+                    (challenge, version) => authorManagement.DeleteAsAccountAsync(row.Id, expected.AccountId.Value, challenge, cancellationToken),
+                    cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+            string secret = RequireAnonymousCapability(receipt.Binding.Owner, receipt.Binding.TestSession, row.Id);
+            await RequireAnonymousDeleteAsync(row, secret, cancellationToken).ConfigureAwait(false);
+            anonymousCapabilities.Remove(receipt.Binding.Owner, receipt.Binding.TestSession, row.Id);
+            await anonymousOperations.RemoveAsync(RawDigest(expected.OperationPlanDigest), CancellationToken.None)
+                .ConfigureAwait(false);
         }
+
+        List<Comment> finalRows = await db.Queryable<Comment>()
+            .Where(item => receipt.OwnedComments.Keys.Contains(item.Id))
+            .OrderBy(item => item.Id, OrderByType.Asc)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        if (finalRows.Count != receipt.OwnedComments.Count || finalRows.Any(item => !item.IsDeleted))
+            throw new InvalidOperationException("Comment fixture cleanup did not soft-delete the exact owned identity set.");
+        var stillPublic = new List<long>();
+        foreach (Comment row in finalRows)
+        {
+            CommentPermalinkContextDto projection = await publicQueries.GetPermalinkContextAsync(row.ArticleId, row.Id)
+                .ConfigureAwait(false);
+            if (projection.Status == "found")
+                stillPublic.Add(row.Id);
+        }
+        if (stillPublic.Count > 0)
+            throw new InvalidOperationException("Comment fixture cleanup left an owned comment in the public read model.");
+        return new CommentThreadFixtureCleanupResult(
+            "fsusblog.comment-thread-fixture-cleanup-result.v1",
+            receipt.Binding,
+            [.. finalRows.Select(item => item.Id)],
+            stillPublic,
+            true);
     }
 
-    private async Task<CommentCreateResult> CreateAsync(
+    private async Task<CommentThreadFixtureCleanupReceipt> BuildCleanupReceiptAsync(
+        CommentFixturePortBinding binding,
+        IReadOnlyDictionary<string, FixtureIdentity> identities,
+        CancellationToken cancellationToken)
+    {
+        if (identities.Count == 0)
+            return new CommentThreadFixtureCleanupReceipt(
+                CleanupSchema,
+                binding,
+                new Dictionary<long, CommentThreadFixtureOwnedIdentity>());
+        long[] ids = identities.Values.Select(item => item.CommentId).Distinct().ToArray();
+        List<Comment> rows = await db.Queryable<Comment>()
+            .Where(item => ids.Contains(item.Id))
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        if (rows.Count != ids.Length)
+            throw new InvalidOperationException("Comment recovery receipt cannot resolve the exact partial identity set.");
+        IReadOnlyDictionary<long, Comment> byId = rows.ToDictionary(item => item.Id);
+        return new CommentThreadFixtureCleanupReceipt(
+            CleanupSchema,
+            binding,
+            identities.ToDictionary(
+                item => item.Value.CommentId,
+                item =>
+                {
+                    Comment row = byId[item.Value.CommentId];
+                    if (row.ArticleId != binding.ArticleId
+                        || row.UserId != item.Value.AccountId
+                        || row.AuthorMode != item.Value.ActorMode)
+                        throw new InvalidOperationException("Comment recovery receipt contains a cross-plan identity.");
+                    return new CommentThreadFixtureOwnedIdentity(
+                        row.Id,
+                        row.ArticleId,
+                        item.Key,
+                        row.AuthorMode,
+                        row.UserId,
+                        Digest(row.Content),
+                        row.CurrentVersion,
+                        row.IsDeleted,
+                        item.Value.OperationPlanDigest);
+                }));
+    }
+
+    private async Task<CommentThreadFixtureRecoveryException> BuildRecoveryExceptionAsync(
+        CommentFixturePortBinding binding,
+        IReadOnlyDictionary<string, FixtureIdentity> identities,
+        Exception originalError)
+    {
+        CommentThreadFixtureCleanupReceipt recoveryReceipt;
+        CommentThreadFixtureCleanupResult? cleanupResult = null;
+        Exception? cleanupError = null;
+        try
+        {
+            recoveryReceipt = await BuildCleanupReceiptAsync(binding, identities, CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (Exception error)
+        {
+            recoveryReceipt = new CommentThreadFixtureCleanupReceipt(
+                CleanupSchema,
+                binding,
+                new Dictionary<long, CommentThreadFixtureOwnedIdentity>());
+            cleanupError = error;
+        }
+        if (cleanupError is null && recoveryReceipt.OwnedComments.Count > 0)
+        {
+            try
+            {
+                cleanupResult = await CleanupAsync(recoveryReceipt, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception error)
+            {
+                cleanupError = error;
+            }
+        }
+        return new CommentThreadFixtureRecoveryException(
+            cleanupError is null
+                ? "Comment thread fixture execution failed; exact owned compensation completed."
+                : "Comment thread fixture execution failed and exact owned compensation was incomplete.",
+            originalError,
+            recoveryReceipt,
+            cleanupResult,
+            cleanupError);
+    }
+
+    private async Task<(CommentCreateResult Comment, CommentFixtureZkAuthorityEvidence? Evidence)> CreateAsync(
         CommentThreadFixturePlan plan,
         CommentThreadFixtureOperation operation,
         IReadOnlyDictionary<string, FixtureIdentity> roles,
         CancellationToken cancellationToken)
     {
         FixtureIdentity? parent = operation.ParentRole is null ? null : RequireRole(roles, operation.ParentRole);
-        string? parentId = parent?.CommentId.ToString(CultureInfo.InvariantCulture);
+        long? resolvedParentId = parent?.CommentId ?? operation.ParentCommentId;
+        string? parentId = resolvedParentId?.ToString(CultureInfo.InvariantCulture);
         Comment? parentRow = parent is null ? null : await db.Queryable<Comment>()
             .Where(item => item.Id == parent.CommentId)
+            .FirstAsync(cancellationToken).ConfigureAwait(false);
+        parentRow ??= resolvedParentId is null ? null : await db.Queryable<Comment>()
+            .Where(item => item.Id == resolvedParentId.Value)
             .FirstAsync(cancellationToken).ConfigureAwait(false);
         string? rootId = parentRow is null ? null : (parentRow.RootId ?? parentRow.Id).ToString(CultureInfo.InvariantCulture);
 
@@ -216,7 +520,7 @@ public sealed class CommentThreadFixturePort(
             if (operation.AccountId is not > 0)
                 throw new InvalidOperationException($"Public role {operation.SemanticRole} requires an account reference.");
             var request = new CommentCreateV2RequestCoreModel(
-                plan.ArticleId,
+                plan.Binding.ArticleId,
                 operation.Content,
                 parentId,
                 rootId,
@@ -228,36 +532,42 @@ public sealed class CommentThreadFixturePort(
                 operation.DisplayLanguage,
                 null,
                 []);
-            return await comments.CreateAttributablePublicCommentResultAsync(
+            CommentCreateResult created = await comments.CreateAttributablePublicCommentResultAsync(
                 new AccountPrincipalContext(operation.AccountId.Value, null),
                 request,
-                DeterministicMutationId(plan.Owner, operation.SemanticRole))
+                DeterministicMutationId(plan.Binding.Owner, operation.SemanticRole),
+                operation.RegionDecision)
                 .ConfigureAwait(false);
+            return (created, null);
         }
 
         if (operation.ActorMode == CommentAuthorModes.ZkAnonymous)
         {
             if (string.IsNullOrWhiteSpace(operation.AnonymousScope)
-                || string.IsNullOrWhiteSpace(operation.DisplayLanguage)
-                || operation.AnonymousTicket is not { Length: > 0 })
-                throw new InvalidOperationException($"zk_anonymous role {operation.SemanticRole} requires its verified ephemeral ticket reference.");
-            return await comments.CreateStrongAnonymousCommentResultAsync(
-                new AnonymousCommentCreateRequestCoreModel(
-                    plan.ArticleId,
+                || string.IsNullOrWhiteSpace(operation.DisplayLanguage))
+                throw new InvalidOperationException($"zk_anonymous role {operation.SemanticRole} requires its canonical scope and display language.");
+            CommentAnonymousFixtureCreateResult created = await anonymousComments.CreateAsync(
+                new CommentAnonymousFixtureCreateRequest(
+                    plan.Binding.Owner,
+                    plan.Binding.TestSession,
+                    operation.SemanticRole,
+                    plan.Binding.ArticleId,
                     operation.Content,
                     parentId,
                     rootId,
                     parentId,
                     operation.AnonymousScope,
                     operation.DisplayLanguage,
-                    operation.AnonymousTicket),
-                cancellationToken: cancellationToken).ConfigureAwait(false);
+                    operation.RegionDecision),
+                cancellationToken).ConfigureAwait(false);
+            return (created.Comment, created.AuthorityEvidence);
         }
 
         throw new InvalidOperationException($"Actor mode {operation.ActorMode} is not canonical.");
     }
 
     private async Task EditAsync(
+        CommentThreadFixturePlan plan,
         CommentThreadFixtureOperation operation,
         FixtureIdentity identity,
         CancellationToken cancellationToken)
@@ -276,13 +586,14 @@ public sealed class CommentThreadFixturePort(
                 cancellationToken).ConfigureAwait(false);
             return;
         }
-        if (operation.ActorMode == CommentAuthorModes.ZkAnonymous && !string.IsNullOrWhiteSpace(identity.ManagementSecret))
+        if (operation.ActorMode == CommentAuthorModes.ZkAnonymous)
         {
+            string secret = RequireAnonymousCapability(plan.Binding.Owner, plan.Binding.TestSession, identity.CommentId);
             CommentManagementChallengeResult challenge = await RequireAnonymousChallengeAsync(
-                row.Id, identity.ManagementSecret, CommentManagementPurposes.Edit, cancellationToken).ConfigureAwait(false);
+                row.Id, secret, CommentManagementPurposes.Edit, cancellationToken).ConfigureAwait(false);
             CommentAuthorMutationResult result = await authorManagement.EditAsAnonymousAsync(
                 row.Id,
-                identity.ManagementSecret,
+                secret,
                 new CommentEditRequest(challenge.CurrentVersion, operation.Content, challenge.Challenge!),
                 cancellationToken).ConfigureAwait(false);
             RequireMutation(result, operation.SemanticRole);
@@ -292,6 +603,7 @@ public sealed class CommentThreadFixturePort(
     }
 
     private async Task SoftDeleteAsync(
+        CommentThreadFixturePlan plan,
         CommentThreadFixtureOperation operation,
         FixtureIdentity identity,
         CancellationToken cancellationToken)
@@ -306,12 +618,13 @@ public sealed class CommentThreadFixturePort(
                 cancellationToken).ConfigureAwait(false);
             return;
         }
-        if (operation.ActorMode == CommentAuthorModes.ZkAnonymous && !string.IsNullOrWhiteSpace(identity.ManagementSecret))
+        if (operation.ActorMode == CommentAuthorModes.ZkAnonymous)
         {
+            string secret = RequireAnonymousCapability(plan.Binding.Owner, plan.Binding.TestSession, identity.CommentId);
             CommentManagementChallengeResult challenge = await RequireAnonymousChallengeAsync(
-                row.Id, identity.ManagementSecret, CommentManagementPurposes.Delete, cancellationToken).ConfigureAwait(false);
+                row.Id, secret, CommentManagementPurposes.Delete, cancellationToken).ConfigureAwait(false);
             CommentAuthorMutationResult result = await authorManagement.DeleteAsAnonymousAsync(
-                row.Id, identity.ManagementSecret, challenge.Challenge!, cancellationToken).ConfigureAwait(false);
+                row.Id, secret, challenge.Challenge!, cancellationToken).ConfigureAwait(false);
             RequireMutation(result, operation.SemanticRole);
             return;
         }
@@ -319,7 +632,7 @@ public sealed class CommentThreadFixturePort(
     }
 
     private async Task<List<CommentThreadFixtureEntity>> ObserveAsync(
-        CommentThreadFixturePlan plan,
+        int articleId,
         IReadOnlyDictionary<string, FixtureIdentity> roles,
         CancellationToken cancellationToken)
     {
@@ -332,7 +645,7 @@ public sealed class CommentThreadFixturePort(
         foreach ((string role, FixtureIdentity identity) in roles.OrderBy(item => item.Key, StringComparer.Ordinal))
         {
             if (!byId.TryGetValue(identity.CommentId, out Comment? row)
-                || row.ArticleId != plan.ArticleId
+                || row.ArticleId != articleId
                 || row.UserId != identity.AccountId)
                 throw new InvalidOperationException($"Comment role {role} does not match its owned article/actor reference.");
             IReadOnlyList<CommentRevisionResult> history = await authorManagement.ReadRevisionsAsAdminAsync(row.Id, cancellationToken)
@@ -340,7 +653,7 @@ public sealed class CommentThreadFixturePort(
             if (history.Count == 0 || history.Select(item => item.Version).Distinct().Count() != history.Count
                 || history.Max(item => item.Version) != row.CurrentVersion)
                 throw new InvalidOperationException($"Comment role {role} has incomplete revision history.");
-            CommentPermalinkContextDto publicProjection = await publicQueries.GetPermalinkContextAsync(plan.ArticleId, row.Id)
+            CommentPermalinkContextDto publicProjection = await publicQueries.GetPermalinkContextAsync(articleId, row.Id)
                 .ConfigureAwait(false);
             List<CommentMutationOutboxEvent> outbox = await db.Queryable<CommentMutationOutboxEvent>()
                 .Where(item => item.CommentId == row.Id)
@@ -362,7 +675,8 @@ public sealed class CommentThreadFixturePort(
                 Digest(row.Content),
                 history,
                 publicProjection.Status == "found",
-                outbox.Select(item => item.EventId).ToArray()));
+                outbox.Select(item => item.EventId).ToArray(),
+                identity.OperationPlanDigest));
         }
         return entities;
     }
@@ -409,9 +723,7 @@ public sealed class CommentThreadFixturePort(
 
     private static void ValidatePlan(CommentThreadFixturePlan plan)
     {
-        if (plan.Schema != PlanSchema || string.IsNullOrWhiteSpace(plan.RunId)
-            || string.IsNullOrWhiteSpace(plan.Namespace) || string.IsNullOrWhiteSpace(plan.Owner)
-            || plan.ArticleId <= 0 || !IsDigest(plan.InventoryDigest) || plan.Operations.Count == 0)
+        if (plan.Schema != PlanSchema || !plan.Binding.IsValid() || plan.Operations.Count == 0)
             throw new InvalidOperationException("Comment thread fixture plan is invalid.");
         string[] roles = plan.Operations.Where(item => item.Operation == CommentThreadFixtureOperations.Create)
             .Select(item => item.SemanticRole).ToArray();
@@ -432,8 +744,64 @@ public sealed class CommentThreadFixturePort(
     private static bool IsDigest(string value) => value.StartsWith("sha256:", StringComparison.Ordinal)
         && value.Length == 71 && value.AsSpan(7).IndexOfAnyExcept("0123456789abcdef") < 0;
 
+    private static string OperationPlanDigest(
+        CommentFixturePortBinding binding,
+        CommentThreadFixtureOperation operation)
+        => Digest(JsonSerializer.Serialize(new
+        {
+            Schema = "fsusblog.comment-thread-fixture-operation.v1",
+            binding.PlanDigest,
+            binding.Owner,
+            binding.TestSession,
+            operation.CapabilityId,
+            operation.SemanticRole,
+            operation.Operation,
+            operation.ActorMode,
+            operation.AccountId,
+            ContentDigest = Digest(operation.Content),
+            operation.ParentRole,
+            operation.ParentCommentId,
+            operation.ExistingCommentId,
+            operation.ExpectedFailureCode,
+            operation.AnonymousScope,
+            operation.DisplayLanguage
+        }));
+
+    private static string NormalizeDigest(string value)
+        => IsDigest(value) ? value : $"sha256:{value}";
+
+    private static string RawDigest(string value)
+        => IsDigest(value) ? value[7..] : value;
+
     private static string Digest(string value)
         => $"sha256:{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)))}";
 
-    private sealed record FixtureIdentity(long CommentId, int? AccountId, string? ManagementSecret);
+    private string RequireAnonymousCapability(string owner, string testSession, long commentId)
+        => anonymousCapabilities.TryGet(owner, testSession, commentId, out string secret)
+            ? secret
+            : throw new InvalidOperationException("Anonymous fixture capability is unavailable; outer isolated namespace cleanup is required.");
+
+    private async Task RequireAnonymousDeleteAsync(
+        Comment row,
+        string secret,
+        CancellationToken cancellationToken)
+    {
+        CommentManagementChallengeResult challenge = await RequireAnonymousChallengeAsync(
+            row.Id,
+            secret,
+            CommentManagementPurposes.Delete,
+            cancellationToken).ConfigureAwait(false);
+        CommentAuthorMutationResult result = await authorManagement.DeleteAsAnonymousAsync(
+            row.Id,
+            secret,
+            challenge.Challenge!,
+            cancellationToken).ConfigureAwait(false);
+        RequireMutation(result, row.Id.ToString(CultureInfo.InvariantCulture));
+    }
+
+    private sealed record FixtureIdentity(
+        long CommentId,
+        int? AccountId,
+        string ActorMode,
+        string OperationPlanDigest);
 }
