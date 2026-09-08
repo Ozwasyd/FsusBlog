@@ -100,7 +100,8 @@ public sealed partial class ArchitectureMaintainabilityBehaviorTests
         AssertFactoryRegistration<IAuthoringAiAssist>(services, ServiceLifetime.Scoped);
         AssertFactoryRegistration<IAuthoringModerationQueue>(services, ServiceLifetime.Scoped);
         AssertFactoryRegistration<IAuthoringModerationCommands>(services, ServiceLifetime.Scoped);
-        AssertRegistration<ISchemaMigrationRegistry, SchemaMigrationRegistry>(services, ServiceLifetime.Singleton);
+        AssertRegistration<ISchemaMigrationRunner, CurrentSchemaStartupVerifier>(services, ServiceLifetime.Scoped);
+        Assert.DoesNotContain(services, static descriptor => descriptor.ServiceType == typeof(ISchemaMigrationRegistry));
         AssertRegistration<PublicHotReadStore, PublicHotReadStore>(services, ServiceLifetime.Singleton);
         AssertRegistration<PublicHotReadCounters, PublicHotReadCounters>(services, ServiceLifetime.Singleton);
 
