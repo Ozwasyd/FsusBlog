@@ -355,6 +355,55 @@ function collectDeclaredNames(sourceFile)
     return names;
 }
 
+function collectLocalFunctionBodies(sourceFile)
+{
+    const functions = new Map();
+    const addFunction = (name, body) =>
+    {
+        if (!name || !body)
+        {
+            return;
+        }
+        if (functions.has(name))
+        {
+            functions.set(name, null);
+            return;
+        }
+        functions.set(name, body);
+    };
+    for (const statement of sourceFile.statements)
+    {
+        if (ts.isFunctionDeclaration(statement) && statement.name)
+        {
+            addFunction(statement.name.text, statement.body);
+            continue;
+        }
+        if (!ts.isVariableStatement(statement))
+        {
+            continue;
+        }
+        for (const declaration of statement.declarationList.declarations)
+        {
+            if (!ts.isIdentifier(declaration.name) || !declaration.initializer)
+            {
+                continue;
+            }
+            if (ts.isArrowFunction(declaration.initializer) || ts.isFunctionExpression(declaration.initializer))
+            {
+                addFunction(declaration.name.text, declaration.initializer.body);
+            }
+        }
+    }
+    for (const [name, body] of functions)
+    {
+        if (body === null)
+        {
+            functions.delete(name);
+        }
+    }
+    return functions;
+}
+
 function collectImports(root, file, sourceFile, source)
 {
     const imports = new Map();
@@ -448,6 +497,7 @@ function createExtractionContext({ root, file, adapter, source, sourceFile })
 {
     const declaredNames = collectDeclaredNames(sourceFile);
     const imports = collectImports(root, file, sourceFile, source);
+    const localFunctions = collectLocalFunctionBodies(sourceFile);
     return {
         root,
         file,
@@ -456,6 +506,7 @@ function createExtractionContext({ root, file, adapter, source, sourceFile })
         sourceFile,
         declaredNames,
         imports,
+        localFunctions,
         occurrenceByName: new Map(),
         testCases: [],
         suiteRecords: [],
@@ -746,6 +797,7 @@ function callFacts(ctx, body, caseId, testIdByCallbackName)
     const assertionCandidates = [];
     const returnStatements = [];
     const productionSymbolReferences = [];
+    const visitedLocalFunctions = new Set();
     let asyncSeen = false;
 
     const visit = (node) =>
@@ -805,6 +857,15 @@ function callFacts(ctx, body, caseId, testIdByCallbackName)
                 if (classification.assemblyKind === 'production')
                 {
                     productionSymbolReferences.push({ ...entry });
+                }
+                const localFunctionBody = identity.moduleSpecifier === null
+                    && identity.rootName
+                    ? ctx.localFunctions.get(identity.rootName)
+                    : null;
+                if (localFunctionBody && !visitedLocalFunctions.has(identity.rootName))
+                {
+                    visitedLocalFunctions.add(identity.rootName);
+                    visit(localFunctionBody);
                 }
             }
         }
