@@ -398,6 +398,7 @@ function runBuildWithInspect(t, labels, extraEnv = {})
     const binDir = path.join(directory, 'bin');
     const dockerArgs = path.join(directory, 'docker-args.txt');
     const dockerRunArgs = path.join(directory, 'docker-run-args.txt');
+    const materializerArgs = path.join(directory, 'materializer-args.txt');
     const inspectJson = JSON.stringify([{
         Id: `sha256:${'a'.repeat(64)}`,
         Config: { Labels: {
@@ -411,6 +412,10 @@ function runBuildWithInspect(t, labels, extraEnv = {})
     fs.writeFileSync(path.join(binDir, 'node'), `#!/usr/bin/env bash
 set -euo pipefail
 case "\${1:-}" in
+  "${path.join(root, 'tools/docker/backend-input-closure.mjs')}")
+    [[ "\${2:-}" == "materialize" ]] || exit 92
+    printf '%s\\n' "$@" > "${materializerArgs}"
+    exit 0 ;;
   */tools/check-wasm-artifact-ownership.mjs|*/tools/frontend/wasm-build-receipt.mjs) exit 0 ;;
 esac
 exec "${process.execPath}" "$@"
@@ -442,7 +447,7 @@ exit 91
             ...extraEnv
         }
     });
-    return { result, dockerArgs, dockerRunArgs };
+    return { result, dockerArgs, dockerRunArgs, materializerArgs };
 }
 
 test('build-final passes the complete pin set and accepts matching inherited labels', (t) =>
@@ -451,7 +456,7 @@ test('build-final passes the complete pin set and accepts matching inherited lab
     const runtimeImage = `mcr.microsoft.com/dotnet/aspnet:${pins.runtimeVersion}-alpine3.23@${pins.aspnetMusl}`;
     const sdkImage = `mcr.microsoft.com/dotnet/sdk:${pins.sdkVersion}-alpine3.23@${pins.sdkMusl}`;
     const nodeImage = `node:${pins.nodeVersion}-alpine3.23@${pins.nodeMusl}`;
-    const { result, dockerArgs, dockerRunArgs } = runBuildWithInspect(t, {
+    const { result, dockerArgs, dockerRunArgs, materializerArgs } = runBuildWithInspect(t, {
         'io.fsusblog.runtime.dotnet-version': pins.runtimeVersion,
         'io.fsusblog.build.dotnet-sdk-version': pins.sdkVersion,
         'io.fsusblog.runtime.base-image': runtimeImage,
@@ -481,6 +486,17 @@ test('build-final passes the complete pin set and accepts matching inherited lab
     });
 
     assert.equal(result.status, 0, result.stderr);
+    // This fixture owns image-label wiring; the closure suite executes the real materializer.
+    const materializerInvocation = fs.readFileSync(materializerArgs, 'utf8').trim().split('\n');
+    assert.deepEqual(materializerInvocation.slice(0, -2), [
+        path.join(root, 'tools/docker/backend-input-closure.mjs'), 'materialize', '--root', root,
+        '--configuration', 'Release', '--runtime', 'linux-musl-x64', '--ready-to-run', 'false',
+        '--target', 'publish', '--single-file', 'true', '--tiered-pgo', 'true',
+        '--quick-jit-for-loops', 'true', '--server-gc', 'true',
+        '--release-id', releaseId, '--commit-sha', commitSha
+    ]);
+    assert.equal(materializerInvocation.at(-2), '--output');
+    assert.ok(path.isAbsolute(materializerInvocation.at(-1)));
     const args = fs.readFileSync(dockerArgs, 'utf8');
     for (const [name, value] of [
         ['DOTNET_RUNTIME_VERSION', pins.runtimeVersion],
