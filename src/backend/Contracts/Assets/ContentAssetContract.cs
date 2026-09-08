@@ -28,6 +28,7 @@ public static class ContentAssetStates
 /// <summary>Durable cleanup states that prohibit restoring references after byte deletion begins.</summary>
 public static class ContentAssetCleanupMarkers
 {
+    public const string PrivateCommitRepair = "private_asset_commit_repair";
     public const string DeletePending = "content_asset_delete_pending";
 }
 

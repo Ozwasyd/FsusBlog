@@ -2881,6 +2881,8 @@ tiers:
               src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs,
               tests/backend/Unit/DistributedContractFastTests.cs,
               tests/backend/Unit/DistributedInvalidationBusTests.cs,
+              tests/backend/Unit/DistributedInvalidationTargetResolverTests.cs,
+              tests/backend/Unit/DistributedInvalidationLocalApplierTests.cs,
               tests/backend/Unit/PublicAotBackfillLeaseTests.cs,
               tests/backend/Unit/ArticleMutationProjectionCheckpointTests.cs,
               tests/backend/Unit/ArticleMutationOutboxFailurePropagationTests.cs,
@@ -2912,6 +2914,8 @@ tiers:
           - .tmp/distributed-contract-fast/summary.json
           - tests/backend/Unit/DistributedContractFastTests.cs
           - tests/backend/Unit/DistributedInvalidationBusTests.cs
+          - tests/backend/Unit/DistributedInvalidationTargetResolverTests.cs
+          - tests/backend/Unit/DistributedInvalidationLocalApplierTests.cs
           - tests/backend/Unit/PublicAotBackfillLeaseTests.cs
           - docs/architecture/distributed-cache-invalidation.md
           - tests/backend/Unit/ArticleMutationProjectionCheckpointTests.cs
@@ -8402,6 +8406,7 @@ tiers:
           [
               tests/backend/Unit/PerceptionCharacterV3ArtifactPoolTests.cs,
               tests/backend/Unit/PerceptionCharacterV3Tests.cs,
+              tests/backend/Unit/PerceptionCharacterV3ContractCutoverTests.cs,
               tests/tools/perception-character-v3-redis-fixture.test.mjs,
               tools/test/lanes/perception-character-v3-release-gate.sh,
               tools/test/perception-character-v3-redis-fixture.sh,
@@ -8418,7 +8423,7 @@ tiers:
       risk: critical
       cadence: push
       requiredFor: production
-      coverage: [perception-character-v3-breaking-release, perception-character-v3-budget-local-redis]
+      coverage: [perception-character-v3-breaking-release, perception-character-v3-budget-local-redis, perception-character-v3-cutover-local-redis]
       artifacts:
           [
               .tmp/security/perception-character-v3/release-gate,
@@ -8435,6 +8440,7 @@ tiers:
               .tmp/test-results/backend/perception-character-v3-redis-producer.json,
               tests/backend/Unit/PerceptionCharacterV3ArtifactPoolTests.cs,
               tests/backend/Unit/PerceptionCharacterV3Tests.cs,
+              tests/backend/Unit/PerceptionCharacterV3ContractCutoverTests.cs,
               tests/tools/perception-character-v3-redis-fixture.test.mjs,
               tools/test/perception-character-v3-redis-fixture.sh,
               tools/test/perception-redis-producer.mjs,

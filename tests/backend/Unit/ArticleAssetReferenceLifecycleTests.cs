@@ -11,6 +11,8 @@ using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.Extensions.Logging.Abstractions;
 
+using NSubstitute;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -377,6 +379,7 @@ public sealed class ArticleAssetReferenceLifecycleTests(PostgresSchemaMigrationF
             var assetStore = new LocalContentAssetStore(
                 assertDb,
                 paths,
+                Substitute.For<IPrivateAssetStore>(),
                 NullLogger<LocalContentAssetStore>.Instance);
             var cleanup = new ArticleAssetCleanupService(
                 assertDb,
@@ -409,6 +412,7 @@ public sealed class ArticleAssetReferenceLifecycleTests(PostgresSchemaMigrationF
         var store = new LocalContentAssetStore(
             db,
             ReleaseStorageTestPaths.Create(Path.Combine(Path.GetTempPath(), $"fsusblog-delete-summary-{Guid.NewGuid():N}")),
+            Substitute.For<IPrivateAssetStore>(),
             NullLogger<LocalContentAssetStore>.Instance);
 
         AssetDeleteOutcome outcome = await store.DeleteAsync(assetId);
@@ -436,7 +440,11 @@ public sealed class ArticleAssetReferenceLifecycleTests(PostgresSchemaMigrationF
         {
             ReleaseStoragePaths paths = ReleaseStorageTestPaths.Create(root);
             string file = WriteAssetFile(paths, "illustration/idempotent.png");
-            var store = new LocalContentAssetStore(db, paths, NullLogger<LocalContentAssetStore>.Instance);
+            var store = new LocalContentAssetStore(
+                db,
+                paths,
+                Substitute.For<IPrivateAssetStore>(),
+                NullLogger<LocalContentAssetStore>.Instance);
 
             AssetDeleteOutcome first = await store.DeleteAsync(assetId);
             AssetDeleteOutcome replay = await store.DeleteAsync(assetId);
@@ -464,6 +472,7 @@ public sealed class ArticleAssetReferenceLifecycleTests(PostgresSchemaMigrationF
         var store = new LocalContentAssetStore(
             db,
             ReleaseStorageTestPaths.Create(Path.Combine(Path.GetTempPath(), $"fsusblog-summary-{Guid.NewGuid():N}")),
+            Substitute.For<IPrivateAssetStore>(),
             NullLogger<LocalContentAssetStore>.Instance);
 
         AssetDeleteOutcome outcome = await store.DeleteAsync(assetId);
@@ -496,7 +505,11 @@ public sealed class ArticleAssetReferenceLifecycleTests(PostgresSchemaMigrationF
         {
             ReleaseStoragePaths paths = ReleaseStorageTestPaths.Create(root);
             string file = WriteAssetFile(paths, "illustration/claim-restore.png");
-            var physicalStore = new LocalContentAssetStore(db, paths, NullLogger<LocalContentAssetStore>.Instance);
+            var physicalStore = new LocalContentAssetStore(
+                db,
+                paths,
+                Substitute.For<IPrivateAssetStore>(),
+                NullLogger<LocalContentAssetStore>.Instance);
             var store = new DelegateAssetStore(async (requested, cancellationToken) =>
             {
                 Assert.Equal(assetId, requested);
@@ -549,7 +562,11 @@ public sealed class ArticleAssetReferenceLifecycleTests(PostgresSchemaMigrationF
                 CREATE TRIGGER reject_asset_delete BEFORE DELETE ON content_asset
                     FOR EACH ROW EXECUTE FUNCTION reject_asset_delete();
                 """);
-            var store = new LocalContentAssetStore(db, paths, NullLogger<LocalContentAssetStore>.Instance);
+            var store = new LocalContentAssetStore(
+                db,
+                paths,
+                Substitute.For<IPrivateAssetStore>(),
+                NullLogger<LocalContentAssetStore>.Instance);
 
             await Assert.ThrowsAsync<InvalidOperationException>(() => store.DeleteAsync(assetId));
 
@@ -640,7 +657,11 @@ public sealed class ArticleAssetReferenceLifecycleTests(PostgresSchemaMigrationF
             ReleaseStoragePaths paths = ReleaseStorageTestPaths.Create(root);
             string poisonFile = WriteAssetFile(paths, "illustration/poison.png");
             string healthyFile = WriteAssetFile(paths, "illustration/healthy.png");
-            var localStore = new LocalContentAssetStore(db, paths, NullLogger<LocalContentAssetStore>.Instance);
+            var localStore = new LocalContentAssetStore(
+                db,
+                paths,
+                Substitute.For<IPrivateAssetStore>(),
+                NullLogger<LocalContentAssetStore>.Instance);
             var store = new DelegateAssetStore((assetId, cancellationToken) =>
                 assetId == poison
                     ? Task.FromException<AssetDeleteOutcome>(new InvalidOperationException("simulated poison item"))
@@ -892,7 +913,11 @@ public sealed class ArticleAssetReferenceLifecycleTests(PostgresSchemaMigrationF
             {
                 Assert.True(barrier.SignalAndWait(TimeSpan.FromSeconds(20)));
                 using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
-                var store = new LocalContentAssetStore(db, paths, NullLogger<LocalContentAssetStore>.Instance);
+                var store = new LocalContentAssetStore(
+                    db,
+                    paths,
+                    Substitute.For<IPrivateAssetStore>(),
+                    NullLogger<LocalContentAssetStore>.Instance);
                 var cleanup = new ArticleAssetCleanupService(
                     db,
                     store,

@@ -13,6 +13,25 @@ node tools/governance/bounded-channel-contracts.mjs
 node --test tests/tools/bounded-channel-contracts.test.mjs
 ```
 
+## Catalog-driven bounded queue drain matrix
+
+`drainParticipant: true` in the sole bounded-channel catalog is the participant admission boundary. `BoundedQueueDeliveryCatalog` loads that same embedded catalog, and `BoundedQueueDrainAggregator` accepts exactly one registered adapter receipt for every participant queue. A receipt is current-run and content-addressed: it binds queue identity, delivery class, generation, sequence, queued/in-flight/durable-pending/terminal counts, commit postcondition, and any class-valid drop proof. Missing, duplicate, unknown, stale, cross-run, underflowed, observer-unavailable, or digest-mismatched observations fail closed.
+
+The release drain wrapper and `ProductionHealth` both consume the aggregate; health, readiness, and qualification are not computed from a second queue list or a `QueuedCount`-only shortcut. Queue adapters only expose existing queue-owned snapshots. The PublicHot adapter remains a wrapper around the authoritative PublicHot activity/quiescence APIs and does not copy or change PublicHot delivery behavior.
+
+`tests/backend/Unit/BoundedQueueDrainAggregatorTests.cs` enumerates `BoundedQueueDeliveryCatalog.Embedded.DrainParticipants` and executes the deterministic ten-case matrix for each queue: `exact-drain`, `queued-pending`, `in-flight-pending`, `durable-pending`, `terminal-failure`, `commit-postcondition-unknown`, `drop-proof-mutation`, `worker-crash`, `cancel-timeout`, and `restart-generation-regression`. The test asserts `catalog participant count × 10` fixtures, keeps peer receipts unchanged when one queue fails, and requires identical health/readiness/qualification status from the aggregate. Per-queue failure semantics, proof references, qualification impact, and recovery disposition remain in the catalog and are the queue-specific runbook; no universal delivery policy is inferred.
+
+Run the static gate and current-source terminal receipt with:
+
+```bash
+node tools/governance/bounded-channel-contracts.mjs
+node tools/governance/bounded-channel-contracts.mjs --receipt
+node --test tests/tools/bounded-channel-contracts.test.mjs
+dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --filter "FullyQualifiedName~BoundedQueueDrainAggregatorTests"
+```
+
+The receipt schema is `fsusblog.bounded-queue-acceptance.v1`. It binds the catalog digest, every participant and adapter source, the ten scenarios, the aggregate source/schema, all mutation results, and `warnings: []`; a verifier must rebuild it from the current source before accepting it. A changed catalog or source requires the catalog gate, matrix, and receipt to be rerun. This lane does not change individual queue delivery implementations, add a runner/catalog, or alter the PublicHot authoritative contract.
+
 ## Media shape authority
 
 `config/testing/media-shape-catalog.json` is the only closed/versioned MediaShapeCatalog. It registers MIME, extension, magic and independent codec fact owners of JPEG, PNG, SVG and WebP respectively, and fixes six aspect contracts, ten types of consumer applicability, ten canonical positive shapes and eight single-fault negative shapes. The catalog only saves AssetId-compatible generator digest refs and does not save absolute path, public URL, storage path or second asset ledger; `no-cover` explicitly does not generate bytes, URL or default images. `tools/test-fixtures/media-shape-catalog.mjs` performs independent fail-closed verification of the catalog and each shape's content digest, matrix integrity, format/MIME/extension, orientation/alpha/dimensions, single-fault, consumer isolation, and unique authority.
@@ -100,7 +119,7 @@ generatedSectionId: testing.coverage-entry-count
 render: scalar
 -->
 <!-- FSUSBLOG-GENERATED:BEGIN testing.coverage-entry-count -->
-264
+265
 <!-- FSUSBLOG-GENERATED:END testing.coverage-entry-count -->
 
 `config/testing/content-shape-catalog.json` is the only editable `ContentShapeCatalog` for Unicode, script, positive and negative eligibility, and content consumer applicability. `tools/testing/content-shape-catalog.mjs` generates and checks `config/testing/content-field-contracts.generated.json` from the current `ArticlePublicationValidator`, `CommentLimits` and comment binary endpoints; tests must not copy article/comment characters or UTF-8 byte limits. The "character" count semantics of production are fixed to .NET UTF-16 `string.Length`, and the byte count is fixed to `Encoding.UTF8.GetByteCount`. The generator separately records Unicode scalar and grapheme statistics, but they must not be used to replace the production judgment. The 1000 UTF-16 unit upper limit of the current comment will constrain all legal Unicode text before the 4096-byte upper limit, so the byte boundary case is still an independent dimension evidence, rather than pretending to be an overall positive input that can be achieved alone.
@@ -119,7 +138,7 @@ Correctness Playwright's browser/rendering identity is uniquely managed by `conf
 
 The correctness of the execution envelope is uniquely defined by `config/testing/test-execution-envelope-policy.json` and `config/testing/test-execution-envelope-applicability.json`; each non-diagnostic producer must be mapped exactly once by execution class. The runner only inherits the fixed locale/timezone, `PATH`, explicit `--env` allowlist and run/source/temporal identity, and performs an exact-match on the absolute path, realpath, version, SHA-256 and plan of the actual executable before spawning; the secret only records presence, type and digest. Each attempt has independent HOME, TMP, npm, NuGet, dotnet and tool cache roots, and only the current owned root is deleted after success, failure, timeout or cancel; path realpath/symlink escape will fail closed before spawn.
 
-The correctness network defaults to deny. Linux loads systemd `IPAddressDeny=any` / `IPAddressAllow=localhost` for each attempt, allowing only the loopback port sealed by the service envelope in the catalog to become a legal endpoint. At the same time, Landlock is used to set the repository/toolchain to read-only, allowing only run-owned roots and explicit `--output` paths to be written. `strace` observation seals the connection, DNS, proxy/certificate input and denial, and rejects the evidence if the planned/actual endpoint is not accurate and consistent; it does not downgrade the execution when isolation or observation is unavailable. The build/restore transfer is an independent phase and does not belong to the correctness network allowlist, nor can subsequent successes overwrite download attempts in correctness.
+The correctness network defaults to deny. Linux loads systemd `IPAddressDeny=any` / `IPAddressAllow=localhost` for each attempt, allowing only the loopback port sealed by the service envelope in the catalog to become a legal endpoint. At the same time, Landlock is used to set the repository/toolchain to read-only, allowing only run-owned roots and explicit `--output` paths to be written. With systemd `PrivateTmp=yes`, the private handshake carrier is created inside the declared run-owned tool-cache root, so control metadata remains under the same canonical writable-path authority. `strace` observation seals the connection, DNS, proxy/certificate input and denial, and rejects the evidence if the planned/actual endpoint is not accurate and consistent; it does not downgrade the execution when isolation or observation is unavailable. The build/restore transfer is an independent phase and does not belong to the correctness network allowlist, nor can subsequent successes overwrite download attempts in correctness.
 
 The version, image digest, topology, port/network namespace and resource limit of the five acceptance services use `config/testing/test-execution-service-catalog.json` as the unique directory. PostgreSQL/Redis only accepts digest-pinned local images in the directory; bootstrap is not in the test phase pull image, and it will fail directly if it is missing. It should be preloaded in the independent restore/preparation phase first. bootstrap writes the actual roster to `FSUSBLOG_TEST_SERVICE_ENVELOPE_FILE`, and the runner only accepts it when all planned/actual fields are consistent.
 
@@ -1358,10 +1377,14 @@ render: enum-set
 - `visual-public`
 - `wasm-build-artifacts`
 - `wasm-fuzz-regression`
+<!-- FSUSBLOG-GENERATED:END testing.tiers -->
+
 <!-- #2527 current LocalRedis budget evidence -->
 
 `BudgetedLeaseAtomicallyAccountsExactBytesQuotasAndRetryIdentity` is executed only by the canonical LocalRedis producer; ordinary discovery excludes it with `Fixture!=LocalRedis`. The test binds the current run, Redis endpoint, assembly and `budgeted-lease` prefix and records six independent accounting observations. Missing Redis, stale or cross-run prefixes, byte/inventory mismatches, duplicate execution, and cleanup failures fail closed.
 
 `FSUSBLOG_TEST_REDIS_HOST` defaults to `127.0.0.1`; only `host.docker.internal` is additionally permitted for an isolated Linux test container to reach the local Docker-published port. Other addresses are rejected before startup. This configuration cannot connect to an external Redis; the endpoint and evidence remain bound to the same local Docker fixture.
 
-<!-- FSUSBLOG-GENERATED:END testing.tiers -->
+<!-- #2529 current LocalRedis cutover evidence -->
+
+`RedisStore_RetiresAllV3NamespacesAndEnvelopeIdempotently` is executed exactly once by the same canonical LocalRedis producer; ordinary discovery excludes it with `Fixture!=LocalRedis`. It binds the current run, Redis endpoint, source identity and `cutover` prefix, then records real Redis evidence for state/active-identity/device/IP/old-generation retirement, active-generation retention, envelope revocation, the exact database revoke, repeated receipt/mutation idempotency and zero pool leases. Missing Redis, manifest identity, fresh evidence, exact planned/executed/outcome binding, stale or cross-run evidence, observed pool leasing, and cleanup failures fail closed.

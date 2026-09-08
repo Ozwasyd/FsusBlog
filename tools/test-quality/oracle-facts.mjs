@@ -160,6 +160,55 @@ function splitArguments(source)
     return values.filter((value) => value !== '');
 }
 
+function balancedBlock(source, openIndex)
+{
+    if (openIndex < 0 || source[openIndex] !== '{')
+    {
+        return null;
+    }
+    let quote = null;
+    let escaped = false;
+    let depth = 0;
+    for (let index = openIndex; index < source.length; index += 1)
+    {
+        const char = source[index];
+        if (quote !== null)
+        {
+            if (escaped)
+            {
+                escaped = false;
+            }
+            else if (char === '\\')
+            {
+                escaped = true;
+            }
+            else if (char === quote)
+            {
+                quote = null;
+            }
+            continue;
+        }
+        if (char === '"' || char === "'" || char === '`')
+        {
+            quote = char;
+            continue;
+        }
+        if (char === '{')
+        {
+            depth += 1;
+        }
+        else if (char === '}')
+        {
+            depth -= 1;
+            if (depth === 0)
+            {
+                return { body: source.slice(openIndex + 1, index), end: index + 1 };
+            }
+        }
+    }
+    return null;
+}
+
 function normalizeExpression(value)
 {
     return String(value ?? '').replace(/\s+/gu, ' ').trim();
@@ -286,7 +335,67 @@ function xunitOperands(snippet, matcher)
     return { actual: values.at(-1) ?? '', expected: values[0] ?? '', message: values.at(-1) ?? null };
 }
 
-function assertionOperands(snippet, candidate, apiId)
+function resolveRepositoryWrapperOperands(snippet, candidate, source)
+{
+    const callOpen = snippet.indexOf('(');
+    const callArgs = balancedArguments(snippet, callOpen);
+    if (!callArgs)
+    {
+        return null;
+    }
+    const supplied = splitArguments(callArgs.body);
+    const escapedName = String(candidate.methodName ?? '').replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
+    const declaration = new RegExp(`\\b${escapedName}\\s*\\(([^()]*)\\)\\s*\\{`, 'gu').exec(source);
+    if (!declaration)
+    {
+        return null;
+    }
+    const declarationOpen = declaration.index + declaration[0].lastIndexOf('{');
+    const body = balancedBlock(source, declarationOpen);
+    if (!body)
+    {
+        return null;
+    }
+    const parameters = splitArguments(declaration[1]).map((parameter) => (
+        parameter.replace(/=.*$/u, '').trim().split(/\s+/u).at(-1)?.replace(/^@/u, '') ?? ''
+    ));
+    const assertion = /\bAssert\.(Equal|NotEqual|Same|NotSame|StrictEqual|NotNull|Null|True|False|Empty|NotEmpty|Contains|DoesNotContain|Matches|Match)\s*\(/u.exec(body.body);
+    if (!assertion)
+    {
+        return null;
+    }
+    const assertionOpen = assertion.index + assertion[0].lastIndexOf('(');
+    const assertionArgs = balancedArguments(body.body, assertionOpen);
+    if (!assertionArgs)
+    {
+        return null;
+    }
+    const values = splitArguments(assertionArgs.body);
+    const matcher = assertion[1];
+    const substitution = (value) => {
+        const parameterIndex = parameters.indexOf(value.trim());
+        return parameterIndex >= 0 ? supplied[parameterIndex] ?? value : value;
+    };
+    if (equalityMatchers.has(matcher))
+    {
+        return {
+            actual: substitution(values[1] ?? ''),
+            expected: substitution(values[0] ?? ''),
+            message: values[2] ?? null,
+            matcher,
+            helperChain: [`${candidate.containingType ?? ''}.${candidate.methodName}`, `Xunit.Assert.${matcher}`]
+        };
+    }
+    return {
+        actual: substitution(values[0] ?? ''),
+        expected: matcher === 'True' ? 'true' : matcher === 'False' ? 'false' : '',
+        message: values[1] ?? null,
+        matcher,
+        helperChain: [`${candidate.containingType ?? ''}.${candidate.methodName}`, `Xunit.Assert.${matcher}`]
+    };
+}
+
+function assertionOperands(snippet, candidate, apiId, source)
 {
     const matcher = candidate.methodName;
     if (apiId.startsWith('node-assert:'))
@@ -301,6 +410,10 @@ function assertionOperands(snippet, candidate, apiId)
     if (apiId.startsWith('vitest:') || apiId.startsWith('playwright:'))
     {
         return expectOperands(snippet, matcher);
+    }
+    if (apiId.startsWith('repository-wrapper:'))
+    {
+        return resolveRepositoryWrapperOperands(snippet, candidate, source) ?? xunitOperands(snippet, matcher);
     }
     return xunitOperands(snippet, matcher);
 }
@@ -426,8 +539,8 @@ function assertionFact(candidate, testCase, source, productionCalls)
         return null;
     }
     const snippet = sourceAtSpan(source, candidate.location);
-    const parsed = assertionOperands(snippet, candidate, apiId);
-    const matcher = candidate.methodName;
+    const parsed = assertionOperands(snippet, candidate, apiId, source);
+    const matcher = parsed.matcher ?? candidate.methodName;
     const earlyExitStatements = (testCase.methodFacts?.returnStatements ?? []).filter((statement) => (
         !(testCase.methodFacts?.assertionCandidates ?? []).some((assertion) => (
             normalizeExpression(statement).includes(`${assertion.methodName}(`)
@@ -447,7 +560,7 @@ function assertionFact(candidate, testCase, source, productionCalls)
         message: parsed.message ? normalizeExpression(parsed.message) : null,
         sourceSpan: candidate.location ?? testCase.sourceSpan,
         reachability,
-        helperChain: apiId.startsWith('repository-wrapper:') ? [apiId.slice('repository-wrapper:'.length)] : []
+        helperChain: parsed.helperChain ?? (apiId.startsWith('repository-wrapper:') ? [apiId.slice('repository-wrapper:'.length)] : [])
     };
 }
 

@@ -10,6 +10,7 @@ import {
     BUDGETED_LEASE_TEST,
     BUDGET_CASE_IDS,
     CANONICAL_LOCAL_REDIS_TESTS,
+    CUTOVER_TEST,
     LOCAL_REDIS_FILTER,
     LOCAL_REDIS_PLANNED_TESTS,
     MANDATORY_BURN_TEST,
@@ -48,6 +49,7 @@ test('budgeted lease requires its own exact outcome and current run accounting e
         prefixNamespace: 'test:perception-v3-local-redis:test-run:',
         cleanupVerified: true, redisLuaCallsBefore: 1, redisLuaCallsAfter: 2,
         redisLuaCaseEvidence: redisLuaCaseEvidence(), redisBudgetEvidence: budgetEvidence(),
+        redisCutoverEvidence: cutoverEvidence(),
         runId: 'test-run', sourceCommit: 'test-commit', sourceFingerprint: `sha256:${'b'.repeat(64)}`
     };
     assert.equal(reconcileLocalRedisOutcome(common).status, 'passed');
@@ -60,6 +62,30 @@ test('budgeted lease requires its own exact outcome and current run accounting e
         { redisBudgetEvidence: budgetEvidence({ prefixNamespace: 'test:perception-v3-local-redis:other:budgeted-lease:' }) },
         { redisBudgetEvidence: budgetEvidence({ endpoint: '127.0.0.1:1' }) },
         { redisBudgetEvidence: budgetEvidence({ cases: [] }) },
+        { redisCutoverEvidence: null },
+        { redisCutoverEvidence: cutoverEvidence({ runId: 'stale-run' }) },
+        { redisCutoverEvidence: cutoverEvidence({ endpoint: '127.0.0.1:1' }) },
+        { redisCutoverEvidence: cutoverEvidence({ status: 'failed' }) },
+        {
+            redisCutoverEvidence: cutoverEvidence({
+                namespaceRetirement: { ...cutoverEvidence().namespaceRetirement, envelopeRevoked: false }
+            })
+        },
+        {
+            redisCutoverEvidence: cutoverEvidence({
+                databaseRevoke: { commandCount: 2, rowsRevoked: 2 }
+            })
+        },
+        {
+            redisCutoverEvidence: cutoverEvidence({
+                idempotency: { ...cutoverEvidence().idempotency, mutationStable: false }
+            })
+        },
+        {
+            redisCutoverEvidence: cutoverEvidence({
+                first: { ...cutoverEvidence().first, mutation: { ...cutoverEvidence().first.mutation, deviceKeysRetired: 1 } }
+            })
+        },
         { cleanupVerified: false }
     ];
     for (const variant of variants)
@@ -91,6 +117,61 @@ function redisLuaCaseEvidence(overrides = {})
         runId: 'test-run',
         prefixNamespace: 'test:perception-v3-local-redis:test-run:redis-lua:',
         cases: REDIS_LUA_CASE_IDS.map((id) => ({ id, outcome: 'passed' })),
+        ...overrides
+    };
+}
+
+function cutoverEvidence(overrides = {})
+{
+    const mutation = {
+        challengeRowsRevoked: 2,
+        stateKeysRetired: 1,
+        activeIdentityKeysRetired: 1,
+        deviceKeysRetired: 2,
+        oldPoolGenerationsRevoked: 1,
+        envelopesExamined: 1,
+        envelopesRevoked: 1,
+        retiredStateDigest: 'c'.repeat(64)
+    };
+    return {
+        schema: 'fsusblog.security.perception-character-v3-cutover-fixture.v1',
+        testId: CUTOVER_TEST,
+        status: 'passed',
+        runId: 'test-run',
+        prefixNamespace: 'test:perception-v3-local-redis:test-run:cutover:',
+        endpoint: '127.0.0.1:6379',
+        sourceCommit: 'test-commit',
+        sourceFingerprint: `sha256:${'b'.repeat(64)}`,
+        namespaceRetirement: {
+            stateKeysRetired: true,
+            activeIdentityKeysRetired: true,
+            deviceKeysRetired: true,
+            oldPoolGenerationsRevoked: true,
+            activeGenerationRetained: true,
+            envelopeRevoked: true
+        },
+        databaseRevoke: { commandCount: 1, rowsRevoked: 2 },
+        idempotency: {
+            repeatedAccepted: true,
+            repeatedIdempotent: true,
+            receiptFingerprintStable: true,
+            mutationStable: true,
+            poolLeaseCount: 0
+        },
+        first: {
+            accepted: true,
+            idempotent: false,
+            receiptFingerprint: 'a'.repeat(64),
+            targetFingerprint: 'b'.repeat(64),
+            mutation
+        },
+        second: {
+            accepted: true,
+            idempotent: true,
+            receiptFingerprint: 'a'.repeat(64),
+            targetFingerprint: 'b'.repeat(64),
+            mutation: { ...mutation }
+        },
         ...overrides
     };
 }
@@ -168,10 +249,13 @@ test('canonical LocalRedis producer registers all four Perception V3 tests under
             REDIS_LUA_TEST
         )
     );
-    assert.deepEqual(LOCAL_REDIS_PLANNED_TESTS, [MANDATORY_BURN_TEST, REDIS_LUA_TEST, BUDGETED_LEASE_TEST]);
+    assert.deepEqual(
+        LOCAL_REDIS_PLANNED_TESTS,
+        [MANDATORY_BURN_TEST, REDIS_LUA_TEST, BUDGETED_LEASE_TEST, CUTOVER_TEST]
+    );
     assert.equal(
         LOCAL_REDIS_FILTER,
-        `Fixture=LocalRedis&(FullyQualifiedName=${MANDATORY_BURN_TEST}|FullyQualifiedName=${REDIS_LUA_TEST}|FullyQualifiedName=${BUDGETED_LEASE_TEST})`
+        `Fixture=LocalRedis&(FullyQualifiedName=${MANDATORY_BURN_TEST}|FullyQualifiedName=${REDIS_LUA_TEST}|FullyQualifiedName=${BUDGETED_LEASE_TEST}|FullyQualifiedName=${CUTOVER_TEST})`
     );
 });
 
@@ -269,6 +353,35 @@ test('RedisLua state and device authority test fails closed and binds canonical 
     assert.match(methodBody, /fsusblog\.perception-character-v3-redis-lua-cases\.v1/u);
 });
 
+test('cutover RedisStore test fails closed and binds the canonical current-run evidence identity', () =>
+{
+    const testFile = fs.readFileSync(
+        path.join(root, 'tests/backend/Unit/PerceptionCharacterV3ContractCutoverTests.cs'),
+        'utf8'
+    );
+    const methodIndex = testFile.indexOf('RedisStore_RetiresAllV3NamespacesAndEnvelopeIdempotently');
+    assert.ok(methodIndex > 0, 'cutover RedisStore test method must exist');
+    const methodBody = testFile.slice(
+        methodIndex,
+        testFile.indexOf('public async Task ProtectedEndpoint', methodIndex)
+    );
+    assert.doesNotMatch(
+        methodBody,
+        /if\s*\(\s*string\.IsNullOrWhiteSpace\s*\(\s*connectionString\s*\)\s*\)[\s\S]{0,80}?return\s*;/u
+    );
+    assert.match(methodBody, /FSUSBLOG_TEST_REDIS environment variable is not set/u);
+    assert.match(methodBody, /FSUSBLOG_TEST_REDIS_PREFIX/u);
+    assert.match(methodBody, /FSUSBLOG_TEST_LOCAL_REDIS_RUN_ID/u);
+    assert.match(methodBody, /FSUSBLOG_V3_CUTOVER_EVIDENCE_OUT/u);
+    assert.match(methodBody, /FSUSBLOG_TEST_SOURCE_COMMIT/u);
+    assert.match(methodBody, /FSUSBLOG_TEST_SOURCE_FINGERPRINT/u);
+    assert.match(methodBody, /fsusblog\.security\.perception-character-v3-cutover-fixture\.v1/u);
+    assert.match(methodBody, /activeGenerationRetained/u);
+    assert.match(methodBody, /envelopeRevoked/u);
+    assert.match(methodBody, /update\.Received\(1\)/u);
+    assert.match(methodBody, /DidNotReceive\(\)\.LeaseAsync/u);
+});
+
 test('perception-character-v3-redis-fixture.sh binds fail-closed container lifecycle and outcome reconciliation', () =>
 {
     const script = fs.readFileSync(
@@ -282,6 +395,8 @@ test('perception-character-v3-redis-fixture.sh binds fail-closed container lifec
     assert.match(script, /FSUSBLOG_TEST_REDIS=/u);
     assert.match(script, /FSUSBLOG_TEST_REDIS_PREFIX=/u);
     assert.match(script, /FSUSBLOG_TEST_REDIS_CASE_EVIDENCE=/u);
+    assert.match(script, /FSUSBLOG_V3_CUTOVER_EVIDENCE_OUT=/u);
+    assert.match(script, /redis_cutover_evidence="\$\{FSUSBLOG_V3_CUTOVER_EVIDENCE_OUT:-/u);
     assert.match(script, /--print-filter/u);
     assert.match(script, /redis-cli --raw --scan --pattern/u);
     assert.match(script, /RedisLuaCalls/u);
@@ -341,6 +456,7 @@ test('reconcileLocalRedisOutcome parses passing TRX and produces conforming rece
     <UnitTestResult executionId="11111111-1111-1111-1111-111111111111" testId="ad61e41f-0cd3-9308-0db2-3b9922d07109" testName="${MANDATORY_BURN_TEST}" outcome="Passed" duration="00:00:00.4200000" />
     <UnitTestResult executionId="22222222-2222-2222-2222-222222222222" testId="bd61e41f-0cd3-9308-0db2-3b9922d07109" testName="${REDIS_LUA_TEST}" outcome="Passed" duration="00:00:00.8400000" />
     <UnitTestResult testId="budget" testName="${BUDGETED_LEASE_TEST}" outcome="Passed" duration="00:00:00.8400000" />
+    <UnitTestResult testId="cutover" testName="${CUTOVER_TEST}" outcome="Passed" duration="00:00:00.8400000" />
   </Results>
 </TestRun>`;
 
@@ -357,6 +473,7 @@ test('reconcileLocalRedisOutcome parses passing TRX and produces conforming rece
         redisLuaCallsAfter: 2,
         redisLuaCaseEvidence: redisLuaCaseEvidence(),
         redisBudgetEvidence: budgetEvidence(),
+        redisCutoverEvidence: cutoverEvidence(),
         runId: 'test-run',
         sourceCommit: 'test-commit',
         sourceFingerprint: `sha256:${'b'.repeat(64)}`
@@ -364,8 +481,8 @@ test('reconcileLocalRedisOutcome parses passing TRX and produces conforming rece
 
     assert.equal(receipt.schema, 'fsusblog.perception-character-v3-redis-fixture.v1');
     assert.equal(receipt.status, 'passed');
-    assert.equal(receipt.totalExecuted, 3);
-    assert.deepEqual(receipt.plannedTestIds, [MANDATORY_BURN_TEST, REDIS_LUA_TEST, BUDGETED_LEASE_TEST]);
+    assert.equal(receipt.totalExecuted, 4);
+    assert.deepEqual(receipt.plannedTestIds, [MANDATORY_BURN_TEST, REDIS_LUA_TEST, BUDGETED_LEASE_TEST, CUTOVER_TEST]);
     assert.equal(receipt.mandatoryTestOutcome, 'Passed');
     assert.equal(receipt.tests[0].executionStatus, 'executed');
     assert.equal(receipt.tests[0].fullyQualifiedName, MANDATORY_BURN_TEST);
@@ -374,8 +491,11 @@ test('reconcileLocalRedisOutcome parses passing TRX and produces conforming rece
     assert.equal(receipt.tests[1].outcome, 'Passed');
     assert.equal(receipt.tests[2].fullyQualifiedName, BUDGETED_LEASE_TEST);
     assert.equal(receipt.tests[2].outcome, 'Passed');
+    assert.equal(receipt.tests[3].fullyQualifiedName, CUTOVER_TEST);
+    assert.equal(receipt.tests[3].outcome, 'Passed');
     assert.equal(receipt.redisLuaCaseEvidence.identityMatches, true);
     assert.equal(receipt.redisLuaCaseEvidence.cases.length, REDIS_LUA_CASE_IDS.length);
+    assert.equal(receipt.redisCutoverEvidence.identityMatches, true);
     assert.equal(receipt.container, 'fsusblog-perception-v3-redis-test');
     assert.equal(receipt.endpoint, '127.0.0.1:6379');
 });

@@ -10,6 +10,7 @@ namespace FsusBlog.Server.Services;
 public sealed class LocalContentAssetStore(
     ISqlSugarClient db,
     ReleaseStoragePaths storagePaths,
+    IPrivateAssetStore privateAssetStore,
     ILogger<LocalContentAssetStore> logger) : IAssetStore
 {
     private const int ReferenceSummaryLimit = 16;
@@ -21,8 +22,8 @@ public sealed class LocalContentAssetStore(
         CancellationToken cancellationToken = default)
     {
         AssetDeleteOutcome outcome = new(AssetDeleteResult.NotFound);
-        string? deletionPath = null;
-        var transaction = await db.Ado.UseTranAsync(async () =>
+        ContentAsset? deletion = null;
+        var prepare = await db.Ado.UseTranAsync(async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             await db.Ado.ExecuteCommandAsync(
@@ -61,13 +62,19 @@ public sealed class LocalContentAssetStore(
                 return;
             }
 
-            if (!string.Equals(asset.StorageClass, "public", StringComparison.Ordinal)
-                || !AssetStorageKey.TryParse(asset.StorageKey, out AssetStorageKey storageKey))
+            if (!AssetStorageKey.TryParse(asset.StorageKey, out AssetStorageKey storageKey))
             {
                 throw new InvalidOperationException($"content_asset_storage_record_invalid:{asset.AssetId}");
             }
 
-            if (!TryResolveStoragePath(_publicRoot, storageKey.Value, out string candidate))
+            if (!string.Equals(asset.StorageClass, "private", StringComparison.Ordinal)
+                && !string.Equals(asset.StorageClass, "public", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException($"content_asset_storage_record_invalid:{asset.AssetId}");
+            }
+
+            if (string.Equals(asset.StorageClass, "public", StringComparison.Ordinal)
+                && !TryResolveStoragePath(_publicRoot, storageKey.Value, out _))
             {
                 throw new InvalidOperationException($"content_asset_storage_escape:{asset.AssetId}");
             }
@@ -79,35 +86,52 @@ public sealed class LocalContentAssetStore(
                     State = ContentAssetStates.PendingDelete,
                     UpdatedAtUtc = now
                 })
-                .Where(item => item.AssetId == assetId.Value)
+                .Where(item => item.AssetId == asset.AssetId)
                 .ExecuteCommandAsync(cancellationToken);
             await db.Ado.ExecuteCommandAsync(
                 """
                 INSERT INTO content_asset_cleanup_queue
                     (asset_id, not_before_utc, attempt_count, last_error, updated_at_utc)
-                VALUES (@AssetId, @NowUtc, 0, @Marker, @NowUtc)
+                VALUES
+                    (@AssetId, @NotBeforeUtc, 0, @Marker, @UpdatedAtUtc)
                 ON CONFLICT (asset_id) DO UPDATE
-                SET last_error = EXCLUDED.last_error,
+                SET not_before_utc = LEAST(content_asset_cleanup_queue.not_before_utc, EXCLUDED.not_before_utc),
+                    last_error = EXCLUDED.last_error,
                     updated_at_utc = EXCLUDED.updated_at_utc;
                 """,
-                new SugarParameter("@AssetId", assetId.Value),
-                new SugarParameter("@NowUtc", now),
-                new SugarParameter("@Marker", ContentAssetCleanupMarkers.DeletePending));
-            deletionPath = candidate;
+                new SugarParameter("@AssetId", asset.AssetId),
+                new SugarParameter("@NotBeforeUtc", now),
+                new SugarParameter("@Marker", ContentAssetCleanupMarkers.DeletePending),
+                new SugarParameter("@UpdatedAtUtc", now)).ConfigureAwait(false);
+            deletion = asset;
         }).ConfigureAwait(false);
 
-        if (!transaction.IsSuccess)
+        if (!prepare.IsSuccess)
         {
-            throw new InvalidOperationException($"content_asset_delete_prepare_failed:{assetId}", transaction.ErrorException);
+            throw new InvalidOperationException("content_asset_delete_prepare_failed", prepare.ErrorException);
         }
 
-        if (deletionPath is null)
+        if (deletion is null)
         {
+            logger.LogInformation("content-asset-deleted {AssetId} {Outcome}", assetId, outcome);
             return outcome;
         }
 
-        cancellationToken.ThrowIfCancellationRequested();
-        File.Delete(deletionPath);
+        try
+        {
+            if (string.Equals(deletion.StorageClass, "private", StringComparison.Ordinal))
+            {
+                await privateAssetStore.DeleteAsync(assetId, cancellationToken).ConfigureAwait(false);
+            }
+            else if (TryResolveStoragePath(_publicRoot, deletion.StorageKey, out string publicPath))
+            {
+                File.Delete(publicPath);
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            throw new InvalidOperationException("content_asset_byte_delete_failed");
+        }
 
         var finalize = await db.Ado.UseTranAsync(async () =>
         {
@@ -136,12 +160,12 @@ public sealed class LocalContentAssetStore(
             {
                 throw new InvalidOperationException("content_asset_delete_finalize_state_changed");
             }
+
             outcome = new AssetDeleteOutcome(AssetDeleteResult.Deleted);
         }).ConfigureAwait(false);
-
         if (!finalize.IsSuccess)
         {
-            throw new InvalidOperationException($"content_asset_delete_finalize_failed:{assetId}", finalize.ErrorException);
+            throw new InvalidOperationException("content_asset_delete_finalize_failed", finalize.ErrorException);
         }
 
         logger.LogInformation("content-asset-deleted {AssetId} {Outcome}", assetId, outcome);
@@ -189,4 +213,5 @@ public sealed class LocalContentAssetStore(
             return false;
         }
     }
+
 }
