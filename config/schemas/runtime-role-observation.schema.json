@@ -1,0 +1,619 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.runtime-role-observation.v2",
+    "title": "FsusBlog compiled runtime-role observation",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "modes",
+        "staticRoleCapabilities",
+        "unsupportedCombinations",
+        "ownership",
+        "deploymentAuthority",
+        "schemaOverlap",
+        "observationDigest"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.runtime-role-observation.v2"
+        },
+        "modes": {
+            "type": "array",
+            "minItems": 3,
+            "uniqueItems": true,
+            "items": {
+                "$ref": "#/$defs/runtimeMode"
+            }
+        },
+        "staticRoleCapabilities": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            },
+            "propertyNames": {
+                "pattern": "^[a-z][a-z0-9.-]*$"
+            }
+        },
+        "unsupportedCombinations": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+                "$ref": "#/$defs/unsupportedCombination"
+            }
+        },
+        "ownership": {
+            "$ref": "#/$defs/ownership"
+        },
+        "deploymentAuthority": {
+            "$ref": "#/$defs/deploymentAuthority"
+        },
+        "schemaOverlap": {
+            "$ref": "#/$defs/schemaOverlap"
+        },
+        "observationDigest": {
+            "$ref": "#/$defs/digest"
+        }
+    },
+    "$defs": {
+        "digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+        },
+        "prefixedDigest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "runtimeMode": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "staticRoles",
+                "clusterMembershipEnabled",
+                "adaptiveSchedulerEnabled",
+                "distributedInvalidationEnabled",
+                "localInvocationOnly",
+                "roleCombinationState"
+            ],
+            "properties": {
+                "id": {
+                    "enum": [
+                        "single",
+                        "static-role",
+                        "adaptive"
+                    ]
+                },
+                "staticRoles": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "clusterMembershipEnabled": {
+                    "type": "boolean"
+                },
+                "adaptiveSchedulerEnabled": {
+                    "type": "boolean"
+                },
+                "distributedInvalidationEnabled": {
+                    "type": "boolean"
+                },
+                "localInvocationOnly": {
+                    "type": "boolean"
+                },
+                "roleCombinationState": {
+                    "enum": [
+                        "optional-ignored",
+                        "explicit-required"
+                    ]
+                }
+            }
+        },
+        "unsupportedCombination": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "errorCode"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]*$"
+                },
+                "errorCode": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            }
+        },
+        "ownership": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "process",
+                "container",
+                "service",
+                "coResidency",
+                "separation",
+                "authorityState",
+                "claimEligible",
+                "failureReasons"
+            ],
+            "properties": {
+                "process": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "container": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "service": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "coResidency": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "separation": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "authorityState": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "claimEligible": {
+                    "type": "boolean"
+                },
+                "failureReasons": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            }
+        },
+        "sourceDigest": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "path",
+                "digest"
+            ],
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "digest": {
+                    "$ref": "#/$defs/digest"
+                }
+            }
+        },
+        "composeExecutable": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "canonicalPath",
+                "digest",
+                "version"
+            ],
+            "properties": {
+                "canonicalPath": {
+                    "type": "string",
+                    "pattern": "^/[^\\u0000]*$"
+                },
+                "digest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "version": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            }
+        },
+        "composeService": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "image",
+                "build",
+                "pullPolicy",
+                "profiles",
+                "entrypoint",
+                "command"
+            ],
+            "properties": {
+                "image": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "build": {
+                    "type": [
+                        "object",
+                        "null"
+                    ]
+                },
+                "pullPolicy": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "profiles": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "entrypoint": {
+                    "type": [
+                        "array",
+                        "string",
+                        "null"
+                    ]
+                },
+                "command": {
+                    "type": [
+                        "array",
+                        "string",
+                        "null"
+                    ]
+                }
+            }
+        },
+        "effectiveCompose": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "oracle",
+                "oracleVersion",
+                "dockerExecutable",
+                "composeImplementation",
+                "sourcePath",
+                "defaultServices",
+                "allProfileServices",
+                "modelDigest"
+            ],
+            "properties": {
+                "oracle": {
+                    "const": "docker-compose-config-json-no-interpolate"
+                },
+                "oracleVersion": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "dockerExecutable": {
+                    "$ref": "#/$defs/composeExecutable"
+                },
+                "composeImplementation": {
+                    "$ref": "#/$defs/composeExecutable"
+                },
+                "sourcePath": {
+                    "const": "ops/docker/docker-compose.production.yml"
+                },
+                "defaultServices": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "additionalProperties": {
+                        "$ref": "#/$defs/composeService"
+                    }
+                },
+                "allProfileServices": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "additionalProperties": {
+                        "$ref": "#/$defs/composeService"
+                    }
+                },
+                "modelDigest": {
+                    "$ref": "#/$defs/prefixedDigest"
+                }
+            }
+        },
+        "application": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "project",
+                "dockerTarget",
+                "processEntrypoint",
+                "composeService",
+                "image",
+                "serviceRoster",
+                "applicationServiceCount",
+                "composeEntrypointOverride",
+                "composeCommandOverride",
+                "effectivePid1",
+                "pid1Source"
+            ],
+            "properties": {
+                "project": {
+                    "const": "src/backend/FsusBlog.Server.csproj"
+                },
+                "dockerTarget": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "processEntrypoint": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "composeService": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "image": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "serviceRoster": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "applicationServiceCount": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "composeEntrypointOverride": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "composeCommandOverride": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "effectivePid1": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "pid1Source": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            }
+        },
+        "volume": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "source",
+                "volumeName",
+                "access",
+                "scope",
+                "protection"
+            ],
+            "properties": {
+                "source": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "volumeName": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "access": {
+                    "enum": [
+                        "read-only",
+                        "read-write"
+                    ]
+                },
+                "scope": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "protection": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            }
+        },
+        "deploymentAuthority": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "authoritySchema",
+                "authorityContentDigest",
+                "sourceDigests",
+                "effectiveCompose",
+                "application",
+                "volumeTopology",
+                "observationDigest"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "fsusblog.runtime-role-deployment-observation.v1"
+                },
+                "authoritySchema": {
+                    "const": "fsusblog.monolithic-distributed-architecture.v2"
+                },
+                "authorityContentDigest": {
+                    "$ref": "#/$defs/prefixedDigest"
+                },
+                "sourceDigests": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "policy",
+                        "project",
+                        "dockerfile",
+                        "productionCompose"
+                    ],
+                    "properties": {
+                        "policy": {
+                            "$ref": "#/$defs/sourceDigest"
+                        },
+                        "project": {
+                            "$ref": "#/$defs/sourceDigest"
+                        },
+                        "dockerfile": {
+                            "$ref": "#/$defs/sourceDigest"
+                        },
+                        "productionCompose": {
+                            "$ref": "#/$defs/sourceDigest"
+                        }
+                    }
+                },
+                "effectiveCompose": {
+                    "$ref": "#/$defs/effectiveCompose"
+                },
+                "application": {
+                    "$ref": "#/$defs/application"
+                },
+                "volumeTopology": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "propertyNames": {
+                        "pattern": "^/[^\\u0000]*$"
+                    },
+                    "additionalProperties": {
+                        "$ref": "#/$defs/volume"
+                    }
+                },
+                "observationDigest": {
+                    "$ref": "#/$defs/prefixedDigest"
+                }
+            }
+        },
+        "schemaOverlap": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "evidenceClass",
+                "manifestDescriptorCount",
+                "catalogMetadataCount",
+                "manifestDigest",
+                "catalogDigest",
+                "databaseObservationDigest",
+                "sourceReleaseId",
+                "targetReleaseId",
+                "previousRollbackReleaseId",
+                "sourceReleaseManifestDigest",
+                "targetReleaseManifestDigest",
+                "sameReleaseFailureCode",
+                "sourceReadiness",
+                "targetReadiness",
+                "missingExpandFailureCodes",
+                "concurrentContractFailureCodes",
+                "authorityState",
+                "claimEligible"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "fsusblog.online-schema-overlap-observation.v1"
+                },
+                "evidenceClass": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "manifestDescriptorCount": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "catalogMetadataCount": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "manifestDigest": {
+                    "$ref": "#/$defs/prefixedDigest"
+                },
+                "catalogDigest": {
+                    "$ref": "#/$defs/prefixedDigest"
+                },
+                "databaseObservationDigest": {
+                    "$ref": "#/$defs/prefixedDigest"
+                },
+                "sourceReleaseId": {
+                    "$ref": "#/$defs/releaseId"
+                },
+                "targetReleaseId": {
+                    "$ref": "#/$defs/releaseId"
+                },
+                "previousRollbackReleaseId": {
+                    "$ref": "#/$defs/releaseId"
+                },
+                "sourceReleaseManifestDigest": {
+                    "$ref": "#/$defs/prefixedDigest"
+                },
+                "targetReleaseManifestDigest": {
+                    "$ref": "#/$defs/prefixedDigest"
+                },
+                "sameReleaseFailureCode": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "sourceReadiness": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "targetReadiness": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "missingExpandFailureCodes": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "concurrentContractFailureCodes": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "authorityState": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "claimEligible": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "releaseId": {
+            "type": "string",
+            "pattern": "^[0-9]{14}-[a-f0-9]{12}$"
+        }
+    }
+}
