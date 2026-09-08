@@ -7,19 +7,23 @@ import { bindBrowserPostRuntimeObservation } from '../../../tools/test-evidence/
 import { sealBrowserContractReceipt } from '../../../tools/release/test-evidence-receipts.mjs'
 import { root } from '../../../tools/test-matrix/post-runtime-producer-registry.mjs'
 import { createPostRuntimeCandidateFixture } from './post-runtime-candidate-fixture.mjs'
+import { loadPublicPreviewRegistry } from '../../../tools/docs/public-preview-registry.mjs'
+import { createPublicPreviewQualityManifest } from '../../../tools/docs/public-preview-quality-publication.mjs'
 const fileDigest = (file) => `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`
 
-function qualityReport(id, viewport, theme)
+function qualityReport(entry)
 {
+  const { id, theme, locale, zoom } = entry
+  const viewport = entry.qualityViewport ?? entry.viewport
   return {
     schema: 'fsusblog.public-preview-quality-report.v1',
     id,
-    route: id.includes('admin') ? 'ManageDashboard' : 'Home',
+    route: entry.route,
     viewport,
     theme,
-    locale: 'zh-CN',
-    zoom: 1,
-    surfaceRole: id.includes('admin') ? 'task' : 'public',
+    locale,
+    zoom,
+    surfaceRole: entry.surfaceRole ?? (entry.scope === 'admin' ? 'task' : 'public'),
     linkedIssues: [],
     status: 'pass',
     machine: {
@@ -28,7 +32,8 @@ function qualityReport(id, viewport, theme)
       clippedText: { status: 'pass', checked: 1, findings: [] },
       hitTargets: { status: 'pass', checked: 1, findings: [] },
       focusClipping: { status: 'pass', checked: 1, findings: [] },
-      localeCoherence: { status: 'pass', expectedLocale: 'zh-CN', findings: [] },
+      localeCoherence: { status: 'pass', expectedLocale: locale, findings: [] },
+      headerStability: { status: 'pass', findings: [] },
       primaryTask: { status: 'pass', visibleInFirstViewport: true, findings: [] }
     },
     reviewer: { classification: 'pass', reasons: [] }
@@ -53,10 +58,20 @@ export function createBrowserContractObservationFixture(context, suppliedCandida
 
   const build = candidate.build
   const buildFile = candidate.buildFile
-  const reports = [
-    qualityReport('public-desktop-light', { width: 1440, height: 960 }, 'light'),
-    qualityReport('admin-mobile-dark', { width: 390, height: 844 }, 'dark')
-  ]
+  const qualityRegistry = loadPublicPreviewRegistry(repositoryRoot)
+  const qualityDirectory = path.join(fixtureRoot, 'quality-fixture')
+  fs.mkdirSync(qualityDirectory, { recursive: true })
+  for (const entry of qualityRegistry.screenshots)
+  {
+    fs.writeFileSync(path.join(qualityDirectory, `${entry.file}.quality.json`),
+      `${JSON.stringify(qualityReport(entry), null, 2)}\n`)
+  }
+  const reports = qualityRegistry.qualityScenarios.map(qualityReport)
+  fs.writeFileSync(path.join(qualityDirectory, 'quality-matrix.json'), `${JSON.stringify({
+    schema: 'fsusblog.public-preview-quality-matrix.v1', status: 'pass',
+    scenarioCount: reports.length, reports
+  }, null, 2)}\n`)
+  const quality = createPublicPreviewQualityManifest(qualityDirectory, commit, repositoryRoot)
   const publicPreviewEvidence = {
     schema: 'fsusblog.public-preview-screenshot-verification.v1',
     status: 'ok',
@@ -71,21 +86,8 @@ export function createBrowserContractObservationFixture(context, suppliedCandida
     differences: [],
     commandVersion: 'd'.repeat(64),
     qualityAudit: true,
-    qualityPolicyDigest: 'e'.repeat(64),
-    quality: {
-      schema: 'fsusblog.public-preview-quality-manifest.v1',
-      status: 'pass',
-      sourceCommit: commit,
-      policyDigest: 'e'.repeat(64),
-      screenshots: Object.fromEntries(reports.map((report) => [report.id, report])),
-      matrix: {
-        schema: 'fsusblog.public-preview-quality-matrix.v1',
-        status: 'pass',
-        policyDigest: 'e'.repeat(64),
-        scenarioCount: reports.length,
-        reports
-      }
-    }
+    qualityPolicyDigest: quality.policyDigest,
+    quality
   }
   const publicPreviewFile = path.join(repositoryRoot, '.tmp', 'release-evidence', 'public-preview-screenshots.json')
   fs.mkdirSync(path.dirname(publicPreviewFile), { recursive: true })
