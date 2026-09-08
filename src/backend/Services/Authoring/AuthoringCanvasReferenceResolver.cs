@@ -10,6 +10,8 @@ public sealed class AuthoringCanvasReferenceResolver(
     AuthoringCanvasReferenceProjectionCache cache,
     TimeProvider timeProvider)
 {
+    private readonly AuthoringCanvasReferenceVerifier _verifier = new(canvasStore, factSource);
+
     public async Task<AuthoringCanvasReferenceResolutionBatch> ResolveAsync(
         AuthoringCanvasReferenceResolutionRequest request,
         CancellationToken cancellationToken = default)
@@ -19,73 +21,7 @@ public sealed class AuthoringCanvasReferenceResolver(
         AuthoringCanvasReferenceResolutionRequest request,
         AuthoringCanvasReferenceResolutionBatch candidate,
         CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(candidate);
-        AuthoringCanvasReferenceResolutionBatch expected = await ResolveCoreAsync(
-            request,
-            useCache: false,
-            cancellationToken).ConfigureAwait(false);
-        var reasons = new List<string>();
-        if (candidate.CanvasId != request.CanvasId
-            || candidate.CanvasRevision != request.CanvasRevision
-            || !string.Equals(candidate.CanvasContentDigest, request.CanvasContentDigest, StringComparison.Ordinal))
-        {
-            reasons.Add("resolution_coordinate_mismatch");
-        }
-        if (candidate.AuthorityCoordinate != expected.AuthorityCoordinate)
-        {
-            reasons.Add("authority_coordinate_mismatch");
-        }
-        if (candidate.Projections.Count != expected.Projections.Count)
-        {
-            reasons.Add("projection_count_mismatch");
-        }
-
-        var expectedByNode = expected.Projections.ToDictionary(static projection => projection.NodeId);
-        foreach (AuthoringCanvasReferenceProjection projection in candidate.Projections)
-        {
-            if (!string.Equals(
-                projection.ContentDigest,
-                AuthoringCanvasReferenceContract.ComputeProjectionDigest(
-                    projection with
-                    {
-                        ContentDigest = string.Empty
-                    }),
-                StringComparison.Ordinal))
-            {
-                reasons.Add($"projection_digest_mismatch:{projection.NodeId:D}");
-            }
-            if (!expectedByNode.TryGetValue(projection.NodeId, out AuthoringCanvasReferenceProjection? expectedProjection)
-                || !string.Equals(projection.ContentDigest, expectedProjection.ContentDigest, StringComparison.Ordinal))
-            {
-                reasons.Add($"projection_fact_mismatch:{projection.NodeId:D}");
-            }
-        }
-
-        if (!string.Equals(candidate.ContentDigest, expected.ContentDigest, StringComparison.Ordinal))
-        {
-            reasons.Add("batch_digest_mismatch");
-        }
-        string candidateReceiptDigest = AuthoringCanvasReferenceContract.ComputeReceiptDigest(
-            request,
-            candidate.AuthorityCoordinate,
-            candidate.Receipt.Items,
-            candidate.ContentDigest);
-        if (!string.Equals(candidate.Receipt.ContentDigest, candidateReceiptDigest, StringComparison.Ordinal)
-            || candidate.Receipt.RequestId != request.RequestId
-            || candidate.Receipt.TargetCount != candidate.Projections.Count)
-        {
-            reasons.Add("receipt_invalid");
-        }
-
-        return new AuthoringCanvasReferenceVerificationResult(
-            request.CanvasId,
-            request.CanvasRevision,
-            expected.Projections.Count,
-            expected.ContentDigest,
-            reasons.Count == 0,
-            reasons);
-    }
+        => await _verifier.VerifyAsync(request, candidate, cancellationToken).ConfigureAwait(false);
 
     private async Task<AuthoringCanvasReferenceResolutionBatch> ResolveCoreAsync(
         AuthoringCanvasReferenceResolutionRequest request,
@@ -183,11 +119,17 @@ public sealed class AuthoringCanvasReferenceResolver(
                 projection.ContextSnippet is not null,
                 projection.OpenIntent is not null,
                 projection.ContentDigest)).ToArray();
+        long elapsedMilliseconds = Math.Max(
+            0,
+            (long)timeProvider.GetElapsedTime(started).TotalMilliseconds);
         string receiptDigest = AuthoringCanvasReferenceContract.ComputeReceiptDigest(
             request,
             coordinate,
             receiptItems,
-            batchDigest);
+            batchDigest,
+            projections.Count,
+            cacheHits,
+            elapsedMilliseconds);
         var receipt = new AuthoringCanvasReferenceResolutionReceipt(
             request.RequestId,
             request.CanvasId,
@@ -199,7 +141,7 @@ public sealed class AuthoringCanvasReferenceResolver(
             coordinate.ContentDigest,
             projections.Count,
             cacheHits,
-            Math.Max(0, (long)timeProvider.GetElapsedTime(started).TotalMilliseconds),
+            elapsedMilliseconds,
             receiptItems,
             receiptDigest);
         return new AuthoringCanvasReferenceResolutionBatch(

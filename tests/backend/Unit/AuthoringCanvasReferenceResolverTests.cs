@@ -300,37 +300,96 @@ public sealed class AuthoringCanvasReferenceResolverTests
     }
 
     [Fact]
-    public async Task VerifyAsync_BypassesCacheAndDetectsProjectionReceiptAndAuthorityTamper()
+    public async Task IndependentVerifier_BypassesCacheAndAcceptsLifecyclePinnedAndPermissionFacts()
     {
-        AuthoringCanvasNode node = Reference(701);
+        AuthoringCanvasNode[] nodes =
+        [
+            Reference(701),
+            Reference(702, pinned: 6),
+            Reference(703)
+        ];
+        var source = new DeterministicFactSource(target => target.TargetArticleId switch
+        {
+            701 => Fact(target) with { TargetChangedSinceProjection = true },
+            702 => Fact(target, currentRevision: 7, resolvedRevision: 6),
+            703 => DeniedFact(target),
+            _ => throw new InvalidOperationException()
+        });
+        AuthoringCanvasReferenceResolutionRequest request = Request(nodes);
+        AuthoringCanvasReferenceResolutionBatch candidate = await CreateResolver(nodes, source)
+            .ResolveAsync(request);
+        var verifier = new AuthoringCanvasReferenceVerifier(CanvasStore(nodes), source);
+
+        AuthoringCanvasReferenceVerificationResult result = await verifier.VerifyAsync(request, candidate);
+
+        Assert.True(result.Valid);
+        Assert.Empty(result.Reasons);
+        Assert.Equal(candidate.ContentDigest, result.ContentDigest);
+        Assert.Equal(3, result.VerifiedProjectionCount);
+        Assert.Equal(
+            [
+                AuthoringCanvasReferenceProjectionStatus.TargetUpdated,
+                AuthoringCanvasReferenceProjectionStatus.PinnedStale,
+                AuthoringCanvasReferenceProjectionStatus.PermissionDeniedOrUnknown
+            ],
+            candidate.Projections.Select(static projection => projection.Status));
+        Assert.Equal(2, source.AuthorityReadCount);
+        Assert.Equal(2, source.BatchReadCount);
+    }
+
+    [Fact]
+    public async Task IndependentVerifier_DetectsProjectionAuthorityAndEveryReceiptTamper()
+    {
+        AuthoringCanvasNode node = Reference(711);
         var source = new DeterministicFactSource(target => Fact(target));
         AuthoringCanvasReferenceResolver resolver = CreateResolver([node], source);
         AuthoringCanvasReferenceResolutionRequest request = Request([node]);
         AuthoringCanvasReferenceResolutionBatch original = await resolver.ResolveAsync(request);
-        AuthoringCanvasReferenceProjection tamperedProjection = original.Projections[0] with
+        var verifier = new AuthoringCanvasReferenceVerifier(CanvasStore([node]), source);
+        AuthoringCanvasReferenceProjection targetTamper = original.Projections[0] with
         {
-            Title = "tampered"
+            TargetArticleId = 999
         };
-        AuthoringCanvasReferenceResolutionBatch tampered = original with
+        AuthoringCanvasReferenceResolutionReceiptItem itemTamper = original.Receipt.Items[0] with
         {
-            AuthorityCoordinate = original.AuthorityCoordinate with
+            TargetArticleId = 999
+        };
+        AuthoringCanvasReferenceResolutionBatch[] tamperedCandidates =
+        [
+            original with
             {
-                Generation = 99
+                AuthorityCoordinate = original.AuthorityCoordinate with { Generation = 99 }
             },
-            Projections = [tamperedProjection],
-            Receipt = original.Receipt with
-            {
-                TargetCount = 9
-            }
-        };
+            original with { Projections = [targetTamper] },
+            original with { Receipt = original.Receipt with { TargetCount = 9 } },
+            original with { Receipt = original.Receipt with { CacheHitCount = 1 } },
+            original with { Receipt = original.Receipt with { ElapsedMilliseconds = 999 } },
+            original with { Receipt = original.Receipt with { Items = [itemTamper] } }
+        ];
 
-        AuthoringCanvasReferenceVerificationResult result = await resolver.VerifyAsync(request, tampered);
+        AuthoringCanvasReferenceVerificationResult authority = await verifier.VerifyAsync(
+            request,
+            tamperedCandidates[0]);
+        AuthoringCanvasReferenceVerificationResult projection = await verifier.VerifyAsync(
+            request,
+            tamperedCandidates[1]);
+        AuthoringCanvasReferenceVerificationResult[] receipts = [];
+        foreach (AuthoringCanvasReferenceResolutionBatch candidate in tamperedCandidates.Skip(2))
+        {
+            receipts = [.. receipts, await verifier.VerifyAsync(request, candidate)];
+        }
 
-        Assert.False(result.Valid);
-        Assert.Contains("authority_coordinate_mismatch", result.Reasons);
-        Assert.Contains($"projection_digest_mismatch:{node.Id:D}", result.Reasons);
-        Assert.Contains("receipt_invalid", result.Reasons);
-        Assert.Equal(2, source.BatchReadCount);
+        Assert.False(authority.Valid);
+        Assert.Contains("authority_coordinate_mismatch", authority.Reasons);
+        Assert.False(projection.Valid);
+        Assert.Contains($"projection_digest_mismatch:{node.Id:D}", projection.Reasons);
+        Assert.Contains($"projection_fact_mismatch:{node.Id:D}", projection.Reasons);
+        Assert.All(receipts, static result =>
+        {
+            Assert.False(result.Valid);
+            Assert.Contains("receipt_invalid", result.Reasons);
+        });
+        Assert.Equal(1 + tamperedCandidates.Length, source.BatchReadCount);
     }
 
     [Fact]
@@ -495,6 +554,11 @@ public sealed class AuthoringCanvasReferenceResolverTests
 
         public string PermissionFingerprint { get; set; } = "permission-a";
 
+        public int AuthorityReadCount
+        {
+            get; private set;
+        }
+
         public HashSet<int> DeniedArticleIds { get; } = [];
 
         public int BatchReadCount
@@ -511,10 +575,13 @@ public sealed class AuthoringCanvasReferenceResolverTests
             AuthoringCanvasOwner owner,
             AuthoringCanvasReferencePermission permission,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(new AuthoringCanvasReferenceAuthorityCoordinate(
+        {
+            AuthorityReadCount++;
+            return Task.FromResult(new AuthoringCanvasReferenceAuthorityCoordinate(
                 Generation,
                 AuthorityDigest,
                 PermissionFingerprint));
+        }
 
         public Task<IReadOnlyList<AuthoringCanvasReferenceFact>> ReadBatchAsync(
             AuthoringCanvasReferenceFactQuery query,

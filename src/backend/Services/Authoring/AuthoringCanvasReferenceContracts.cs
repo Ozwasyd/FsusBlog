@@ -167,7 +167,10 @@ public static partial class AuthoringCanvasReferenceContract
         AuthoringCanvasReferenceResolutionRequest request,
         AuthoringCanvasReferenceAuthorityCoordinate coordinate,
         IEnumerable<AuthoringCanvasReferenceResolutionReceiptItem> items,
-        string batchDigest)
+        string batchDigest,
+        int targetCount,
+        int cacheHitCount,
+        long elapsedMilliseconds)
         => HashCanonical(
             SchemaVersion,
             request.RequestId,
@@ -181,7 +184,10 @@ public static partial class AuthoringCanvasReferenceContract
             coordinate.ContentDigest,
             coordinate.PermissionFingerprint,
             string.Join(',', items.Select(static item => item.ContentDigest)),
-            batchDigest);
+            batchDigest,
+            targetCount,
+            cacheHitCount,
+            elapsedMilliseconds);
 
     private static void ValidatePermissionFingerprint(string value)
     {
