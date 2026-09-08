@@ -2,15 +2,15 @@
     "schema": "fsusblog.current-run-evidence-location-acceptance.v1",
     "sourceDigests": {
         "config/testing/evidence-locator-registry.json": "sha256:318f999ec092c27837311b33787c6018f114caa4d73e384f325c455e5aab864b",
-        "config/testing/evidence-location-migration-ledger.json": "sha256:9b8205ad42f89d737305c736e1d81d4ccc1cd9f580a72bc1e1ad4bf2d1e90de4",
+        "config/testing/evidence-location-migration-ledger.json": "sha256:2b188d6cc980a9a3f1a02f1ebc0f1aca144f975c0862c3bdb483774fc600baf1",
         "tools/test/evidence-location-scanner.mjs": "sha256:5d554791088fc092c944ed010a0f66a69ed30655e7621e622cf27d2967a325b6",
         "tools/test/current-run-evidence-locator.mjs": "sha256:a3477d14e62b2e6a30bc48e16eaf417e49996fdab58e39ae064f1c7ac07b0653",
         "tools/test/current-run-evidence-transport.mjs": "sha256:74b09545ad37fb5b5dcacb56726a4ae0e46c6c664d6775b8ba109867816f0f28",
         "tools/test/generate-evidence-location-governance.mjs": "sha256:dfa82cd9a3da394569b31ca230c29d2359aafb40427c98ec0c29c666a7dac015"
     },
     "registryDigest": "sha256:24fb56ba935dc4d4b7e57427610c4f4e3962063d2db648183f36961adc27bc0f",
-    "ledgerDigest": "sha256:0c9764993fe45494e45bd02ed60e3f48fe9a678eff902ad679bd96ff76c1d7ac",
-    "scannerDigest": "sha256:f537ee7cd8f36a51c541a22ebb244aaa38f85e053e03e94af71f0bc72425415e",
+    "ledgerDigest": "sha256:a9fada2dc2ffeed19b177728061f74ba0777a73b3e88e46cf011904e2dd514e7",
+    "scannerDigest": "sha256:2cdc45758291163b1e88204aa69c6446b4e2c7dcd0b201e922340bddb89fff51",
     "locatorDigest": "sha256:a3477d14e62b2e6a30bc48e16eaf417e49996fdab58e39ae064f1c7ac07b0653",
     "transportDigest": "sha256:74b09545ad37fb5b5dcacb56726a4ae0e46c6c664d6775b8ba109867816f0f28",
     "consumerInventory": [
@@ -515,5 +515,5 @@
     "consumerCount": 71,
     "findingCount": 369,
     "warnings": [],
-    "contentDigest": "sha256:80e54c17083ade5769c6afd59e31170ca8330748761f6bc3e606d2d12ff72276"
+    "contentDigest": "sha256:973aeae537cacb92569cfa24e3ec9fc9b2789cef5b865f23debd1f6f02226c28"
 }
