@@ -12190,6 +12190,10 @@
         },
         {
             "before": "vitest:toBe:isAbortError(e):equality:true",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/errors.test.ts#detects-abort-positive-input-name-aborterror-29181d7abd",
+                "vitest:tests/frontend/unit/utils/errors.test.ts#detects-abort-positive-input-name-powaborterror-7a8d147e1a"
+            ],
             "after": [
                 "vitest:toBe:isAbortError(factory()), caseName:equality:true"
             ],
@@ -12197,6 +12201,9 @@
         },
         {
             "before": "vitest:toBe:isAbortError(new Error('canceled')):equality:true",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/errors.test.ts#detects-abort-positive-input-message-canceled-5127ae189c"
+            ],
             "after": [
                 "vitest:toBe:isAbortError(factory()), caseName:equality:true"
             ],
@@ -12204,6 +12211,9 @@
         },
         {
             "before": "vitest:toBe:isAbortError(new Error('The operation was aborted due to timeout')):equality:true",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/errors.test.ts#detects-abort-positive-input-message-the-operation-was-a-702b7d3b35"
+            ],
             "after": [
                 "vitest:toBe:isAbortError(factory()), caseName:equality:true"
             ],
