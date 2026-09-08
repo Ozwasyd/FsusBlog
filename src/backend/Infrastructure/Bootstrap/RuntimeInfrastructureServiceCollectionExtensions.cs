@@ -29,6 +29,7 @@ using FsusBlog.Server.Services.VisitLog;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
 
@@ -215,11 +216,24 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<FileService>();
         services.AddSingleton<IFileService>(sp => sp.GetRequiredService<FileService>());
         services.AddScoped<IAssetStore, LocalContentAssetStore>();
-        services.AddScoped<IPrivateAssetRecordSource, SqlPrivateAssetRecordSource>();
+        services.AddScoped<SqlPrivateAssetRecordSource>();
+        services.AddScoped<IPrivateAssetRecordSource>(sp => sp.GetRequiredService<SqlPrivateAssetRecordSource>());
+        services.AddScoped<IPrivateAssetMetadataSource>(sp => sp.GetRequiredService<SqlPrivateAssetRecordSource>());
         services.AddSingleton<IPrivateAssetWritePolicy, PrivateAssetWritePolicy>();
         services.AddScoped<LocalPrivateAssetStore>();
         services.AddScoped<IPrivateAssetStore>(sp => sp.GetRequiredService<LocalPrivateAssetStore>());
         services.AddScoped<IPrivateAssetExistenceProbe>(sp => sp.GetRequiredService<LocalPrivateAssetStore>());
+        services.AddOptions<PrivateAssetTicketOptions>()
+            .BindConfiguration("PrivateAssets")
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<PrivateAssetTicketOptions>, PrivateAssetTicketOptionsValidator>();
+        services.AddSingleton<PrivateAssetTicketService>();
+        services.AddScoped<PrivateAssetAccessService>();
+        services.AddScoped<IPrivateAssetAccessService>(sp => sp.GetRequiredService<PrivateAssetAccessService>());
+        services.AddScoped<IPrivateAssetTicketRedemptionService>(sp => sp.GetRequiredService<PrivateAssetAccessService>());
+        services.AddScoped<IPrivateAssetResponseWriter>(static sp => PrivateAssetResponseWriterFactory.Create(
+            sp.GetRequiredService<IHostEnvironment>(),
+            sp.GetRequiredService<IPrivateAssetStore>()));
         if (!OpenApiExportMode.IsEnabled())
         {
             services.AddHostedService<UploadSessionCleanupWorker>();
