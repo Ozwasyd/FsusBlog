@@ -94,7 +94,18 @@ async function writeAuditedBrowserContractReceipt(file, receipt)
     {
         throw new BrowserContractFailure('browser contract receipt target changed during sealing', 'contract');
     }
-    const sealed = sealBrowserContractReceipt(receipt);
+    let sealed = sealBrowserContractReceipt(receipt);
+    if (sealed.status === 'success' && process.env.FSUSBLOG_POST_RUNTIME_CANDIDATE_PLAN)
+    {
+        const { bindBrowserPostRuntimeObservation } = await import(
+            '../../tools/test-evidence/browser-contract-observation-raw.mjs'
+        );
+        sealed = sealBrowserContractReceipt(bindBrowserPostRuntimeObservation({
+            candidatePlan: process.env.FSUSBLOG_POST_RUNTIME_CANDIDATE_PLAN,
+            browser: sealed,
+            repositoryRoot: root
+        }));
+    }
     if (sealed.status !== 'running')
     {
         const errors = validateBrowserContractReceipt(sealed, { requireSuccess: false });
@@ -329,6 +340,7 @@ async function main()
                 identity: {
                     commit: plannedIdentity.commit,
                     runId: plannedIdentity.runId,
+                    attemptId: plannedIdentity.attemptId,
                     laneId: plannedIdentity.laneId,
                     namespace: plannedIdentity.namespace
                 },
@@ -481,7 +493,11 @@ async function main()
                         matrix: localeMatrix
                     });
                 }
-                await runner({ browser, context, page, fixture, audit, scenario, outputRoot });
+                const observation = await runner({ browser, context, page, fixture, audit, scenario, outputRoot });
+                if (observation !== undefined)
+                {
+                    scenarioReceipt.observation = observation;
+                }
                 if (localeProbe)
                 {
                     const observation = await localeProbe.finish();
@@ -721,6 +737,7 @@ main()
               identity: {
                 commit: plannedRunIdentity.commit,
                 runId: plannedRunIdentity.runId,
+                attemptId: plannedRunIdentity.attemptId,
                 laneId: plannedRunIdentity.laneId,
                 namespace: plannedRunIdentity.namespace
               }

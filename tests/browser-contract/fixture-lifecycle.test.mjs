@@ -205,6 +205,24 @@ test('run identity derives isolated database and Redis resources from commit run
 
 });
 
+test('run identity consumes the canonical test-run authority and rejects disagreement', async (context) =>
+{
+    const { directory, env } = await harness(context, {
+        FSUSBLOG_TEST_RUN_ID: 'quality-gate-42-1',
+        FSUSBLOG_BROWSER_CONTRACT_RUN_ID: 'quality-gate-42-1'
+    });
+    const identity = resolveBrowserContractRunIdentity({ env, sourceState, repoRoot: directory });
+    assert.equal(identity.runId, 'quality-gate-42-1');
+    assert.throws(
+        () => resolveBrowserContractRunIdentity({
+            env: { ...env, FSUSBLOG_BROWSER_CONTRACT_RUN_ID: 'browser-only-42-1' },
+            sourceState,
+            repoRoot: directory
+        }),
+        /run authorities disagree/u
+    );
+});
+
 test('fixture source identity is complete, dedicated, and cannot fall back to GITHUB_SHA', async (context) =>
 {
     const { directory, env } = await harness(context);

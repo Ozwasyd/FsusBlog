@@ -1,0 +1,81 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/deployment/release-rollout-evidence-receipt-contract.mjs",
+                "tools/deployment/release-rollout-evidence.mjs",
+                "tools/deployment/release-rollout-lib.mjs",
+                "tools/docs/behavior-doc-minimal-contract-build-contract.mjs",
+                "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
+                "tools/docs/behavior-doc-static-admission-contract.mjs",
+                "tools/docs/public-preview-quality-contract.mjs",
+                "tools/docs/public-preview-quality-publication.mjs",
+                "tools/docs/public-preview-registry.mjs",
+                "tools/fact-extractors/post-runtime/adapter.mjs",
+                "tools/fact-extractors/post-runtime/application-runtime.mjs",
+                "tools/fact-extractors/post-runtime/current-run.mjs",
+                "tools/fact-extractors/post-runtime/receipt-seal-contract.mjs",
+                "tools/fact-extractors/post-runtime/release-deployment.mjs",
+                "tools/fact-extractors/post-runtime/semantic-contracts.mjs",
+                "tools/release/browser-contract-receipt-contract.mjs",
+                "tools/release/public-preview-quality-receipt-contract.mjs",
+                "tools/release/release-id-value-contract.mjs",
+                "tools/release/release-id.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
+                "tools/release/release-manifest.mjs",
+                "tools/release/schema-compatibility-coordinate-value-contract.mjs",
+                "tools/release/schema-compatibility-coordinate.mjs",
+                "tools/release/test-evidence-receipts.mjs",
+                "tools/test-evidence/aot-spa-hydration-observed-facts.mjs",
+                "tools/test-evidence/aot-spa-hydration-raw.mjs",
+                "tools/test-evidence/aot-spa-hydration-source-contract.mjs",
+                "tools/test-evidence/blue-green-containment-raw.mjs",
+                "tools/test-evidence/browser-contract-observation-raw.mjs",
+                "tools/test-evidence/browser-contract-observed-facts.mjs",
+                "tools/test-evidence/canonical-release-authorities-value-contract.mjs",
+                "tools/test-evidence/canonical-release-authorities.mjs",
+                "tools/test-evidence/release-authority-bundle-contract.mjs",
+                "tools/test-evidence/release-authority-facts-contract.mjs",
+                "tools/test-evidence/release-readiness-raw.mjs",
+                "tools/test-evidence/runtime-observation-probe-facts.mjs",
+                "tools/test-evidence/runtime-observation-probe-receipt-contract.mjs",
+                "tools/test-evidence/runtime-observation-probes.mjs",
+                "tools/test-evidence/runtime-observation-raw.mjs",
+                "tools/test-fixtures/receipt/prepared-public-projection-contract.mjs",
+                "tools/test-fixtures/receipt/projection.mjs",
+                "tools/test-matrix/post-runtime-producer-registry.mjs",
+                "tools/docs/post-runtime-accepted-claims.mjs",
+                "tools/test-matrix/content-addressed-evidence-store.mjs",
+                "tools/test-matrix/scheduler-run-owner.mjs",
+                "tools/test-matrix/scheduler.mjs"
+            ],
+            "reason": "Preserve the canonical source producers' caller-visible environment keys, schemas and CLI identities while importing exact source blobs."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/bundles/post-runtime-observation-producers.sh",
+                "tools/test/lanes/post-runtime-candidate-plan.sh",
+                "tools/test/lanes/post-runtime-observation-producers.sh",
+                "tools/test/lanes/runtime-observation-probes.sh"
+            ],
+            "reason": "Preserve the explicit FSUSBLOG current-run, candidate, release and rollout environment contract in the canonical producer entry points."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/post-runtime-producer-registry.json"
+            ],
+            "reason": "Preserve the canonical post-runtime registry wire-key and schema identities."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/testing.md"
+            ],
+            "reason": "Preserve documented caller-visible source paths, schema identifiers and contract field spelling in the selected current testing paragraphs."
+        }
+    ]
+}

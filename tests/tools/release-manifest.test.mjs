@@ -15,6 +15,115 @@ import {
     validateReleaseManifest,
     writeReleaseManifestAtomic
 } from '../../tools/release/release-manifest.mjs';
+import { createReleaseManifestValueContract } from '../../tools/release/release-manifest-value-contract.mjs';
+import { createReleaseIdValueContract } from '../../tools/release/release-id-value-contract.mjs';
+import { createSchemaCompatibilityCoordinateValueContract } from '../../tools/release/schema-compatibility-coordinate-value-contract.mjs';
+import { RELEASE_ID_CONTRACT } from '../../tools/release/release-id.mjs';
+import { SCHEMA_COMPATIBILITY_COORDINATE_CONTRACT } from '../../tools/release/schema-compatibility-coordinate.mjs';
+import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs';
+
+const pureManifest = createReleaseManifestValueContract({
+  releaseIdContract: RELEASE_ID_CONTRACT,
+  schemaCompatibilityContract: SCHEMA_COMPATIBILITY_COORDINATE_CONTRACT
+});
+
+function pureManifestMutationMatrix(valid)
+{
+  const cases = [];
+  const strict = { requireRegistryDigest: true, requireConcreteRuntimeProfile: true };
+  for (const [prefix, value] of [['', valid], ['schemaCompatibility', valid.schemaCompatibility], ['toolchain', valid.toolchain], ['runtimeProfile', valid.runtimeProfile], ['build', valid.build]])
+  {
+    for (const field of Object.keys(value))
+    {
+      for (const mutation of ['missing', 'null'])
+      {
+        const changed = structuredClone(valid);
+        const target = prefix ? changed[prefix] : changed;
+        if (mutation === 'missing') delete target[field];
+        else target[field] = null;
+        cases.push({ name: `${prefix}.${field}:${mutation}`, value: changed, options: strict, rejects: true });
+      }
+    }
+  }
+  for (const [name, mutate] of [
+    ['legacy schema', value => { value.schema = 'fsusblog.release-manifest.v1'; }],
+    ['mutable release', value => { value.releaseId = 'latest'; }],
+    ['false calendar', value => { value.releaseId = '20260230010101-0123456789ab'; }],
+    ['commit prefix', value => { value.commitSha = 'f'.repeat(40); }],
+    ['UTC identity', value => { value.createdAtUtc = '2026-07-11T01:01:02Z'; }],
+    ['legacy coordinate', value => { value.schemaCompatibility.minimumCoordinate = '20260711-legacy-test'; }],
+    ['reversed coordinates', value => { value.schemaCompatibility.minimumCoordinate = '99999999999999-ffffffffffff'; }],
+    ['native AOT', value => { value.runtimeProfile.nativeAot = true; }],
+    ['zero runtime digest', value => { value.runtimeProfile.profileDigest = `sha256:${'0'.repeat(64)}`; }],
+    ['runtime ABI', value => { value.runtimeProfile.targetRuntime = 'linux-x64'; }],
+    ['mutable image tag', value => { value.imageTag = 'ghcr.io/fsusblog/app:latest'; }],
+    ['unverified registry', value => { value.registryDigestVerified = false; }],
+    ['unknown field', value => { value.extra = true; }],
+    ['nested sensitive field', value => { value.toolchain.extra = [{ refreshToken: 'synthetic' }]; }]
+  ])
+  {
+    const changed = structuredClone(valid); mutate(changed);
+    cases.push({ name, value: changed, options: strict, rejects: true });
+  }
+  for (const [key, value] of Object.entries({ expectedReleaseId: 'another-release', expectedImageRef: 'different@digest', expectedImageDigest: 'different-digest', expectedCommitSha: 'f'.repeat(40) }))
+    cases.push({ name: key, value: structuredClone(valid), options: { ...strict, [key]: value }, rejects: true });
+  const unverified = { ...valid, registryDigestVerified: false };
+  cases.push({ name: 'explicit unverified option', value: unverified, options: { requireRegistryDigest: false }, rejects: false });
+  const noProfile = structuredClone(valid); delete noProfile.runtimeProfile;
+  cases.push({ name: 'original optional runtime profile', value: noProfile, options: {}, rejects: false });
+  for (const value of [null, [], 'invalid']) cases.push({ name: `non-object ${JSON.stringify(value)}`, value, options: strict, rejects: true });
+  return cases;
+}
+
+test('pure manifest value dependency closure contains no filesystem, process or validator callbacks', async () =>
+{
+  const seen = new Set();
+  const visit = async file => {
+    if (seen.has(file)) return;
+    seen.add(file);
+    const source = fs.readFileSync(file, 'utf8');
+    assert.doesNotMatch(source, /\b(?:process|require)\s*(?:\.|\()|\bimport\s*\(/u);
+    for (const match of source.matchAll(/(?:from\s*|import\s*)['"]([^'"]+)['"]/gu))
+    {
+      assert.ok(match[1].startsWith('.'), `unexpected import ${match[1]}`);
+      await visit(path.resolve(path.dirname(file), match[1]));
+    }
+    await import(file);
+  };
+  await visit(path.join(root, 'tools/release/release-manifest-value-contract.mjs'));
+  assert.equal(seen.size, 3);
+});
+
+test('pure manifest value preserves original golden parity and all field mutation outcomes', () =>
+{
+  const valid = createReleaseManifest(createInput());
+  assert.deepEqual(pureManifest.createReleaseManifest(createInput()), valid);
+  const matrix = pureManifestMutationMatrix(valid);
+  const results = matrix.map(entry => {
+    const errors = pureManifest.validateReleaseManifest(entry.value, entry.options);
+    assert.equal(errors.length > 0, entry.rejects, entry.name);
+    assert.deepEqual(errors, validateReleaseManifest(entry.value, entry.options), entry.name);
+    return { name: entry.name, errors };
+  });
+  // Independently replayed against the original three source bodies at aaba08857.
+  assert.equal(matrix.length, 95);
+  assert.equal(digestValue({ valid, results }), 'e0c6b3f009f674933c77a7350fa57c20974a6bdb61dee8ab74bb762e842b5227');
+});
+
+test('pure manifest value keeps explicit legacy read semantics separate from current validation', () =>
+{
+  const legacy = { ...createReleaseManifest(createInput()), schema: 'fsusblog.release-manifest.v1', createdAtUtc: '2026-07-11T01:01:02Z' };
+  assert.ok(pureManifest.validateReleaseManifest(legacy).some(error => error.includes('schema must')));
+  assert.deepEqual(pureManifest.validateLegacyReleaseManifestV1(legacy), []);
+  assert.ok(pureManifest.validateLegacyReleaseManifestV1({ ...legacy, releaseId: 'latest' }).length > 0);
+  const id = createReleaseIdValueContract(RELEASE_ID_CONTRACT);
+  const coordinates = createSchemaCompatibilityCoordinateValueContract(SCHEMA_COMPATIBILITY_COORDINATE_CONTRACT, RELEASE_ID_CONTRACT);
+  assert.deepEqual(id.validateReleaseId('local-unversioned', { allowLocalSentinel: true }), []);
+  assert.ok(id.validateReleaseId('local-unversioned', { allowLocalSentinel: true, forPublication: true }).length > 0);
+  assert.equal(coordinates.parseSchemaCompatibilityCoordinate('20260711-legacy-test'), null);
+  assert.equal(coordinates.parseSchemaCompatibilityCoordinate('20260711-legacy-test', { allowLegacy: true }).kind, 'legacy');
+  assert.throws(() => createReleaseIdValueContract({ ...RELEASE_ID_CONTRACT, regex: '.*' }), /v1 authority/u);
+});
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const releaseId = '20260711010101-0123456789ab'
