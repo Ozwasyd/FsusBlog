@@ -355,6 +355,40 @@
             ]
         },
         {
+            "file": "tests/tools/authoring-canvas-operation-authority.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text"
+            ],
+            "staticGovernance": {
+                "id": "authoring-canvas-operation-authority",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/authoring-canvas-operation-authority",
+                "output": ".tmp/test-governance/results/{checkId}/authoring-canvas-operation-authority.json"
+            }
+        },
+        {
+            "file": "tests/tools/authoring-canvas-reference-authority.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text"
+            ],
+            "staticGovernance": {
+                "id": "authoring-canvas-reference-authority",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/authoring-canvas-reference-authority",
+                "output": ".tmp/test-governance/results/{checkId}/authoring-canvas-reference-authority.json"
+            }
+        },
+        {
             "file": "tests/tools/authoritative-development-docs.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",
@@ -5873,27 +5907,6 @@
             "classifications": [
                 "source-text",
                 "migration",
-                "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/authoring-canvas-operation-authority.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/authoring-canvas-operation-authority.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
-            "classifications": [
-                "source-text",
-                "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/authoring-canvas-reference-authority.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/authoring-canvas-reference-authority.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
-            "classifications": [
                 "runtime"
             ]
         },

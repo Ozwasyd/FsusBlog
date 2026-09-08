@@ -26,9 +26,18 @@ public sealed class AuthoringCanvasServiceRegistrationTests
             scope.ServiceProvider.GetRequiredService<IAuthoringCanvasDocumentStore>());
         Assert.IsType<PostgresAuthoringCanvasArticleReferenceReader>(
             scope.ServiceProvider.GetRequiredService<IAuthoringCanvasArticleReferenceReader>());
+        Assert.IsType<AuthoringCanvasCoordinateFactProvider>(
+            scope.ServiceProvider.GetRequiredService<IAuthoringCanvasCoordinateFactProvider>());
         Assert.IsType<AuthoringCanvasReferenceFactSource>(
             scope.ServiceProvider.GetRequiredService<IAuthoringCanvasReferenceFactSource>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<AuthoringCanvasReferenceResolver>());
-        Assert.Empty(scope.ServiceProvider.GetServices<IAuthoringCanvasCoordinateFactProvider>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<AuthoringCanvasReferenceVerifier>());
+        Assert.IsType<AuthoringCanvasOperationReferenceValidator>(
+            scope.ServiceProvider.GetRequiredService<IAuthoringCanvasOperationReferenceValidator>());
+        Assert.IsType<PostgresAuthoringCanvasOperationTransaction>(
+            scope.ServiceProvider.GetRequiredService<IAuthoringCanvasOperationTransaction>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<AuthoringCanvasOperationEngine>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<AuthoringCanvasOperationDatabaseVerifier>());
+        Assert.Empty(scope.ServiceProvider.GetServices<IAuthoringCanvasExternalCoordinateAuthority>());
     }
 }

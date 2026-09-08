@@ -17,19 +17,7 @@ public sealed class AuthoringCanvasReferenceVerifier(
         ArgumentNullException.ThrowIfNull(candidate);
         cancellationToken.ThrowIfCancellationRequested();
 
-        AuthoringCanvasDocumentHeader header = await canvasStore.GetAsync(
-            request.Owner,
-            request.CanvasId,
-            cancellationToken).ConfigureAwait(false)
-            ?? throw new AuthoringCanvasAccessDeniedException();
-        if (header.Revision != request.CanvasRevision)
-        {
-            throw new AuthoringCanvasRevisionConflictException(request.CanvasRevision, header.Revision);
-        }
-        if (!string.Equals(header.ContentDigest, request.CanvasContentDigest, StringComparison.Ordinal))
-        {
-            throw new AuthoringCanvasValidationException("canvas_reference_content_digest_stale");
-        }
+        await EnsureCurrentCanvasCoordinateAsync(request, cancellationToken).ConfigureAwait(false);
 
         AuthoringCanvasReferenceAuthorityCoordinate coordinate = await factSource.ReadAuthorityCoordinateAsync(
             request.Owner,
@@ -50,8 +38,10 @@ public sealed class AuthoringCanvasReferenceVerifier(
                     targets),
                 cancellationToken).ConfigureAwait(false);
         Dictionary<Guid, AuthoringCanvasReferenceFact> facts = ExactFacts(targets, loaded);
+        await EnsureCurrentCanvasCoordinateAsync(request, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         AuthoringCanvasReferenceProjection[] expected = targets
-            .Select(target => Project(target, facts[target.NodeId]))
+            .Select(target => Project(target, facts[target.NodeId], request.TargetWorkspaceGroupId))
             .ToArray();
         string expectedBatchDigest = AuthoringCanvasReferenceContract.ComputeBatchDigest(
             request,
@@ -203,10 +193,13 @@ public sealed class AuthoringCanvasReferenceVerifier(
         => new(
             projection.NodeId,
             projection.TargetArticleId,
+            projection.TargetHeadingIdentity,
+            projection.TargetBlockIdentity,
             projection.TargetRevision,
             projection.Status,
-            projection.ContextSnippet is not null,
-            projection.OpenIntent is not null,
+            projection.Title,
+            projection.ContextSnippet,
+            projection.OpenIntent,
             projection.ContentDigest);
 
     private static AuthoringCanvasReferenceTarget ToTarget(AuthoringCanvasNode node)
@@ -221,7 +214,8 @@ public sealed class AuthoringCanvasReferenceVerifier(
 
     private static AuthoringCanvasReferenceProjection Project(
         AuthoringCanvasReferenceTarget target,
-        AuthoringCanvasReferenceFact fact)
+        AuthoringCanvasReferenceFact fact,
+        string? targetWorkspaceGroupId)
     {
         AuthoringCanvasReferenceProjectionStatus status = Status(target, fact);
         bool contentVisible = status is AuthoringCanvasReferenceProjectionStatus.Current
@@ -247,7 +241,8 @@ public sealed class AuthoringCanvasReferenceVerifier(
                     fact.ResolvedRevision,
                     target.TargetHeadingIdentity,
                     target.TargetBlockIdentity,
-                    fact.StableRoute!)
+                    fact.StableRoute!,
+                    TargetGroupId: targetWorkspaceGroupId)
                 : null,
             status is AuthoringCanvasReferenceProjectionStatus.PinnedStale
                 or AuthoringCanvasReferenceProjectionStatus.TargetUpdated,
@@ -318,5 +313,25 @@ public sealed class AuthoringCanvasReferenceVerifier(
         return fact.TargetChangedSinceProjection
             ? AuthoringCanvasReferenceProjectionStatus.TargetUpdated
             : AuthoringCanvasReferenceProjectionStatus.Current;
+    }
+
+    private async Task EnsureCurrentCanvasCoordinateAsync(
+        AuthoringCanvasReferenceResolutionRequest request,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        AuthoringCanvasDocumentHeader header = await canvasStore.GetAsync(
+            request.Owner,
+            request.CanvasId,
+            cancellationToken).ConfigureAwait(false)
+            ?? throw new AuthoringCanvasAccessDeniedException();
+        if (header.Revision != request.CanvasRevision)
+        {
+            throw new AuthoringCanvasRevisionConflictException(request.CanvasRevision, header.Revision);
+        }
+        if (!string.Equals(header.ContentDigest, request.CanvasContentDigest, StringComparison.Ordinal))
+        {
+            throw new AuthoringCanvasValidationException("canvas_reference_content_digest_stale");
+        }
     }
 }

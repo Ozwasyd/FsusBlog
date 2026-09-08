@@ -1,0 +1,37 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+                "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationMetadata.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasOperationDatabaseVerifier.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasReferenceContracts.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasReferenceFactSource.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasReferenceResolver.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasReferenceVerifier.cs",
+                "src/backend/Services/Authoring/PostgresAuthoringCanvasOperationTransaction.cs",
+                "src/migration/Catalogs/SchemaMigrationCatalog20260906AuthoringCanvasOperations.cs",
+                "src/migration/Catalogs/SchemaMigrationCatalog20260907.cs",
+                "src/migration/OfflineMigrationCatalogEntries.generated.cs",
+                "src/migration/SchemaMigrationManifest.cs"
+            ],
+            "reason": "Preserve the established AuthoringCanvas contract, SQL, migration, generated-catalog, and governance spellings while repairing their production authority wiring."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-canvas-document-boundary.md"
+            ],
+            "reason": "Preserve the established architecture document tokens and external contract spellings while documenting the repaired authority boundary."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve the lifecycle registry JSON keys and canonical test identifiers while assigning the canvas suites to their physical owner."
+        }
+    ]
+}
