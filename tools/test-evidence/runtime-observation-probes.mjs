@@ -26,6 +26,7 @@ import {
 import { projectPreparedPublicIds } from '../test-fixtures/receipt/projection.mjs'
 import { loadPostRuntimeProducerRegistry } from '../test-matrix/post-runtime-producer-registry.mjs'
 import { deriveProbeRawFacts, refreshHashDigest, verifyFacts } from './runtime-observation-probe-facts.mjs'
+import { buildRuntimeObservationProbeReceipt } from './runtime-observation-probe-receipt-contract.mjs'
 export { deriveProbeRawFacts, verifyFacts } from './runtime-observation-probe-facts.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -131,17 +132,6 @@ function sourceIdentity(parsed, build, fixture, candidatePlan)
     runtimeId: plan.candidate.runtimeId,
     releaseId: plan.candidate.releaseId,
     candidatePlanDigest: plan.contentDigest
-  }
-}
-
-function dependencyReference(input, role)
-{
-  return {
-    path: input.ref.path,
-    fileDigest: input.ref.contentDigest,
-    contentDigest: input.value.contentDigest ?? null,
-    schema: input.value.schema,
-    role
   }
 }
 
@@ -665,38 +655,10 @@ async function cacheProbe(context)
 
 function buildReceipt(kind, context, facts)
 {
-  const plan = context.candidatePlan.value
-  const producer = loadPostRuntimeProducerRegistry(root).producers.find((entry) => entry.producerId === plan.producerId)
-  const canonicalRerunCommand = `node tools/test-evidence/runtime-observation-probes.mjs probe --kind ${kind} --candidate-plan ${context.candidatePlan.relative} --build ${context.build.ref.path} --fixture ${context.fixture.ref.path} --out ${context.output}`
-  const independentVerifyCommand = `node tools/test-evidence/runtime-observation-raw.mjs verify --candidate-plan ${context.candidatePlan.relative} --receipt ${plan.observations.find((entry) => entry.classId === kind).receiptPath}`
-  return seal({
-    schema: receiptSchema,
-    kind,
-    producerId: 'production-correctness-scheduler',
-    toolVersion: producer.toolVersion,
-    sourceState: observationSourceState({ classId: kind, plan, artifactDigest: digest(facts), repositoryRoot: root }),
-    canonicalRerunCommand,
-    independentVerifyCommand,
-    rawFacts: deriveProbeRawFacts(kind, facts),
-    candidatePlanRef: {
-      path: context.candidatePlan.relative,
-      fileDigest: context.candidatePlan.fileDigest,
-      contentDigest: context.candidatePlan.value.contentDigest,
-      schema: context.candidatePlan.value.schema,
-      role: 'candidate-plan'
-    },
-    buildReceipt: dependencyReference(context.build, 'production-build'),
-    fixtureReceipt: dependencyReference(context.fixture, 'fixture'),
-    provenance: {
-      mode: 'local-real-runtime',
-      semanticAuthority: 'current-candidate-application-and-owned-services',
-      simulatedInfrastructure: ['docker-postgresql', 'docker-redis', 'loopback-network'],
-      syntheticSemanticResult: false,
-      rerunCommand: canonicalRerunCommand
-    },
-    facts,
-    terminalStatus: 'verified'
-  })
+  const producer = loadPostRuntimeProducerRegistry(root).producers.find((entry) => entry.producerId === context.candidatePlan.value.producerId)
+  const sourceState = observationSourceState({ classId: kind, plan: context.candidatePlan.value,
+    artifactDigest: digest(facts), repositoryRoot: root })
+  return buildRuntimeObservationProbeReceipt(kind, context, facts, { producer, sourceState })
 }
 
 function buildFailureReceipt(kind, context, error)

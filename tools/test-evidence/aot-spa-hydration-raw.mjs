@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url'
 
 import { verifyProductionBuildReceipt } from '../ci/production-build-artifacts.mjs'
 import { normalizeAotSpaHydrationFacts, deriveAotSpaHydrationRawFacts } from './aot-spa-hydration-observed-facts.mjs'
+import { buildAotSpaHydrationSourceBundle, evidenceKeys, sourceBundleSchema } from './aot-spa-hydration-source-contract.mjs'
+export { sourceBundleSchema } from './aot-spa-hydration-source-contract.mjs'
 import { digestValue, stable } from '../fact-extractors/lib/canonicalize.mjs'
 import {
   candidatePlanPathForObservation,
@@ -28,11 +30,7 @@ import {
 } from '../test-matrix/post-runtime-producer-registry.mjs'
 
 const classId = 'aot-spa-hydration'
-export const sourceBundleSchema = 'fsusblog.aot-spa-hydration-source-bundle.v1'
 const unsafePathPattern = /(?:^|[/\\])(?:latest|history|historical)(?:[/\\]|$)/iu
-const evidenceKeys = Object.freeze([
-  'manifest', 'browserContract'
-])
 const fail = (message) => { throw new Error(`[aot-spa-hydration-raw] ${message}`) }
 const sha = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`
 
@@ -147,22 +145,7 @@ export function produceAotSpaHydrationSourceBundle({ candidatePlan, evidence, re
   const producer = loadPostRuntimeProducerRegistry(repositoryRoot).producers
     .find(({ producerId }) => producerId === plan.producerId)
   if (!producer) fail('candidate plan producer is absent from registry')
-  return seal({
-    schema: sourceBundleSchema,
-    producerId: plan.producerId,
-    toolVersion: producer.toolVersion,
-    sourceState: plan.sourceState,
-    rawFacts: observedRawFacts(inputs),
-    candidatePlanRef: candidate.ref,
-    evidenceRefs: Object.fromEntries(evidenceKeys.map((key) => [key, {
-      ...inputs[key].ref,
-      contentDigest: inputs[key].value?.contentDigest ?? null,
-      schema: inputs[key].value.schema,
-      role: key === 'manifest' ? 'spa-manifest' : 'browser-contract'
-    }])),
-    canonicalRerunCommand: `node tools/test-evidence/aot-spa-hydration-raw.mjs bundle --candidate-plan ${candidate.ref.path} ${evidenceKeys.map((key) => `--${key.replace(/[A-Z]/gu, (letter) => `-${letter.toLowerCase()}`)} ${inputs[key].ref.path}`).join(' ')}`,
-    independentVerifyCommand: `node tools/test-evidence/aot-spa-hydration-raw.mjs verify --candidate-plan ${candidate.ref.path} --receipt ${planned.receiptPath}`
-  })
+  return buildAotSpaHydrationSourceBundle({ candidate, plan, inputs, producer, readBytes: readAotArtifactBytes })
 }
 
 function loadSourceBundle(sourceReceipt, candidatePlanRef, plan, repositoryRoot)
