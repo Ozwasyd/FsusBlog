@@ -119,6 +119,8 @@ const canonicalCallerOverrides = new Map(Object.entries({
         'node tools/docs/check-prose-claims.mjs'],
     'tools/governance/repository-governance-manifest.mjs': ['tools/governance/repository-governance-authority.mjs',
         'node tools/governance/repository-governance-authority.mjs validate-manifest'],
+    'tools/release/clean-attempt-evidence-source.mjs': ['tools/release/browser-release-clean-attempt-consumers.mjs',
+        'node tools/release/test-evidence-receipts-cli.mjs create-correctness'],
     'tools/release/release-reliability-qualified-receipt.mjs': ['tools/release/release-final-domain-evidence.mjs',
         'bash tools/test/run-release-reliability-qualified-local.sh'],
     'tools/runtime-profiles/runtime-publish-evidence.mjs': ['tools/runtime-profiles/run-runtime-publish-matrix.mjs',
