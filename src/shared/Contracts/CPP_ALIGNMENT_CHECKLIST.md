@@ -1,7 +1,6 @@
 # C++ POD Alignment Checklist (Milestone 2)
 
-This checklist is the counterpart for the external C++/Wasm side.
-All C# PODs are defined with `[StructLayout(LayoutKind.Sequential, Pack = 1)]`.
+This checklist covers the external C++/Wasm side. All C# PODs use `[StructLayout(LayoutKind.Sequential, Pack = 1)]`.
 
 ## 1. Primitive Mapping Rules
 
@@ -28,32 +27,12 @@ struct Utf8SliceRef {
 
 ## 3. Size Source Of Truth
 
-Use `FsusBlog.Shared.Contracts.Validation.PodSizeCatalog` values as authoritative byte sizes.
-
-- primitives: `Utf8Fixed*`, `Utf8SliceRef`
-- envelopes: `PodEnvelopeHeader`, `PageEnvelope`, `CursorEnvelope`, `PagedPodEnvelope`, `CursorPodEnvelope`
-- article: `ArticleListItemPod`, legacy `ArticleDetailPod`, `ArticleDetailV3HeaderPod`, 84-byte `ArticleDetailV3RecordPod`, `ArticleDetailV4HeaderPod`, 92-byte `ArticleDetailV4RecordPod`, 116-byte `ArticleDetailV5RecordPod`, `ArticleDetailTagV3RecordPod`, `ArticleRightsV3RecordPod`, `TagPod`, `TagWithCountPod`, `CategoryPod`, `ArticleNoticePod`, `ArticleMutationResultPod`, `TrashClearResponsePod`
-- comment: `CommentItemPod`, `UserCommentPod`
-- message: `MessageInboxPod`, `CommentPushPod`, `CommentAddedNotifyPod`, `GlobalNoticePayloadPod`, `MessageRevokedPayloadPod`, `AccountStatusPayloadPod`, `NoticePayloadPod`, `CommentRemovedPayloadPod`
-- user/auth: `TokenResponsePod`, `LoginResponsePod`, `UserListItemPod` (anonymous account list row)
-- system: `SeoConfigPod`, `PageContentPod`
-- stats: `PopularArticlePod`, `RecentCommentPod`, `RegionDistributionPod`, `SiteStatsPod`
-- file/pow: `FileUploadOutputPod`, `PowChallengePod`
+Use `FsusBlog.Shared.Contracts.Validation.PodSizeCatalog` as the authoritative byte-size source for primitives (`Utf8Fixed*`, `Utf8SliceRef`); envelopes (`PodEnvelopeHeader`, `PageEnvelope`, `CursorEnvelope`, `PagedPodEnvelope`, `CursorPodEnvelope`); article types (`ArticleListItemPod`, legacy `ArticleDetailPod`, `ArticleDetailV3HeaderPod`, 84-byte `ArticleDetailV3RecordPod`, `ArticleDetailV4HeaderPod`, 92-byte `ArticleDetailV4RecordPod`, 116-byte `ArticleDetailV5RecordPod`, `ArticleDetailTagV3RecordPod`, `ArticleRightsV3RecordPod`, `TagPod`, `TagWithCountPod`, `CategoryPod`, `ArticleNoticePod`, `ArticleMutationResultPod`, `TrashClearResponsePod`); comment types (`CommentItemPod`, `UserCommentPod`); message types (`MessageInboxPod`, `CommentPushPod`, `CommentAddedNotifyPod`, `GlobalNoticePayloadPod`, `MessageRevokedPayloadPod`, `AccountStatusPayloadPod`, `NoticePayloadPod`, `CommentRemovedPayloadPod`); user/auth types (`TokenResponsePod`, `LoginResponsePod`, `UserListItemPod` for the anonymous account list row); system types (`SeoConfigPod`, `PageContentPod`); stats types (`PopularArticlePod`, `RecentCommentPod`, `RegionDistributionPod`, `SiteStatsPod`); and file/PoW types (`FileUploadOutputPod`, `PowChallengePod`).
 
 ## 4. Balanced String Budget
 
-- author display snapshot: `Utf8SliceRef` payload or explicit `AuthorDisplayName` slot only
-- role: 32
-- id/category/action/salt/signature short ids: 64 or 128
-- title/article title: 256
-- category/tag/region: 128
-- URL/base URL/og image: 256
-- token: 512
-- long texts (`content`, `summary`, `snippet`, `reason`, markdown body): `Utf8SliceRef` in payload blob
+Use only a `Utf8SliceRef` payload or explicit `AuthorDisplayName` slot for an author display snapshot; allocate 32 bytes for role, 64 or 128 for id/category/action/salt/signature short IDs, 256 for title/article title, 128 for category/tag/region, 256 for URL/base URL/OG image, 512 for token, and `Utf8SliceRef` in the payload blob for long texts (`content`, `summary`, `snippet`, `reason`, markdown body`).
 
 ## 5. Compatibility Notes
 
-- `DateTime` is always encoded as Unix epoch milliseconds (`std::int64_t`).
-- `ArticleDetail` writers emit `ARD5`/version 5 with a 116-byte record containing `updatedAtUnixMs` and exact revision/publication coordinates. C++, TypeScript and C# decoders must also accept `ARD4`/version 4 (92 bytes) and `ARD3`/version 3 (84 bytes) in read-only compatibility mode and expose absent fields as null/zero. Mismatched magic/version pairs, truncation, out-of-range slices and trailing bytes are rejected.
-- nullable values are encoded as `Value + HasValue(std::uint8_t)`.
-- no reference types exist in POD structs; `PodContractValidation.AreAllPodModelsReferenceFree()` must remain `true`.
+`DateTime` is always encoded as Unix epoch milliseconds (`std::int64_t`); nullable values use `Value + HasValue(std::uint8_t)`; and POD structs contain no reference types, so `PodContractValidation.AreAllPodModelsReferenceFree()` must remain `true`. `ArticleDetail` writers emit `ARD5`/version 5 with a 116-byte record containing `updatedAtUnixMs` and exact revision/publication coordinates. C++, TypeScript, and C# decoders must also accept `ARD4`/version 4 (92 bytes) and `ARD3`/version 3 (84 bytes) in read-only compatibility mode and expose absent fields as null/zero; mismatched magic/version pairs, truncation, out-of-range slices, and trailing bytes are rejected.

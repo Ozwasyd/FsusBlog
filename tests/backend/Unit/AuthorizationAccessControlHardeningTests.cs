@@ -350,7 +350,8 @@ public sealed class AuthorizationAccessControlHardeningTests
     {
         AssetId assetId = AssetId.Parse("3f3b2e7a-1d2e-4f8a-9c5b-6a7b8c9d0e1f");
         IAssetStore validStore = Substitute.For<IAssetStore>();
-        validStore.DeleteAsync(assetId, Arg.Any<CancellationToken>()).Returns(AssetDeleteResult.Deleted);
+        validStore.DeleteAsync(assetId, Arg.Any<CancellationToken>())
+            .Returns(new AssetDeleteOutcome(AssetDeleteResult.Deleted));
         var aeds = new AedsEncoder();
         DefaultHttpContext validContext = ContentAssetDeleteEndpointTests.CreateContext(assetId.ToString());
 

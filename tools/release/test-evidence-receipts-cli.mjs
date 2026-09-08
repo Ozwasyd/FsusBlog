@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url'
 
 import { readEvidenceDocument } from '../test-matrix/content-addressed-evidence-store.mjs'
 import { parseMatrix } from '../test-matrix/parse-matrix.mjs'
+import { requireCleanAttemptConsumerAdmission } from './browser-release-clean-attempt-consumers.mjs'
 
 import {
   browserlessCorrectnessReceiptSchema,
@@ -377,6 +378,10 @@ function createCorrectness(options) {
     jobSummaries: summaries,
     authority,
     physicalTestIds: physicalTestIds(schedulerRunId, tierIds)
+  })
+  requireCleanAttemptConsumerAdmission({
+    consumerId: 'production-correctness',
+    repositoryRoot: root
   })
   const errors = validateBrowserlessCorrectnessReceipt(receipt)
   if (errors.length > 0) throw new Error(errors.join('; '))

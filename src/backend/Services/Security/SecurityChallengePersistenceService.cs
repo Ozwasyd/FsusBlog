@@ -47,7 +47,8 @@ public sealed record SecurityChallengeAttemptRequest(
     string? DeviceFpHash,
     string? TraceId,
     string? Traceparent,
-    DateTime? AttemptedAtUtc = null);
+    DateTime? AttemptedAtUtc = null,
+    string? AttemptId = null);
 
 internal sealed record SecurityChallengeMetricContext(
     string Kind,
@@ -119,10 +120,25 @@ public sealed class SecurityChallengePersistenceService(ISqlSugarClient db) : IS
         DateTime attemptedAt = request.AttemptedAtUtc is { } provided
             ? (provided.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(provided, DateTimeKind.Utc) : provided.ToUniversalTime())
             : DateTime.UtcNow;
+        string? requestedAttemptId = NormalizeOptional(request.AttemptId, 64);
+        string attemptId = requestedAttemptId ?? Guid.CreateVersion7().ToString("D");
+
+        if (requestedAttemptId is not null)
+        {
+            SecurityChallengeAttempt? existing = await db.Queryable<SecurityChallengeAttempt>()
+                .Where(item => item.AttemptId == attemptId)
+                .FirstAsync(cancellationToken)
+                .ConfigureAwait(false);
+            if (existing is not null)
+            {
+                EnsureSameAttempt(existing, challengeId, outcome, request);
+                return existing;
+            }
+        }
 
         var attempt = new SecurityChallengeAttempt
         {
-            AttemptId = Guid.CreateVersion7().ToString("D"),
+            AttemptId = attemptId,
             ChallengeId = challengeId,
             Outcome = outcome,
             Reason = NormalizeOptional(request.Reason, 128),
@@ -153,15 +169,42 @@ public sealed class SecurityChallengePersistenceService(ISqlSugarClient db) : IS
             }
 
             return metric;
-        });
+        }).ConfigureAwait(false);
 
         if (!transaction.IsSuccess)
         {
+            if (requestedAttemptId is not null)
+            {
+                SecurityChallengeAttempt? raced = await db.Queryable<SecurityChallengeAttempt>()
+                    .Where(item => item.AttemptId == attemptId)
+                    .FirstAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                if (raced is not null)
+                {
+                    EnsureSameAttempt(raced, challengeId, outcome, request);
+                    return raced;
+                }
+            }
+
             throw new InvalidOperationException("Security challenge attempt persistence failed.", transaction.ErrorException);
         }
 
         RecordAttemptMetric(transaction.Data, attempt);
         return attempt;
+    }
+
+    private static void EnsureSameAttempt(
+        SecurityChallengeAttempt existing,
+        string challengeId,
+        string outcome,
+        SecurityChallengeAttemptRequest request)
+    {
+        if (!string.Equals(existing.ChallengeId, challengeId, StringComparison.Ordinal)
+            || !string.Equals(existing.Outcome, outcome, StringComparison.Ordinal)
+            || !string.Equals(existing.PayloadHash, NormalizeHash(request.PayloadHash, nameof(request.PayloadHash), required: false), StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("security_challenge_attempt_idempotency_conflict");
+        }
     }
 
     public async Task<bool> ExpireAsync(string challengeId, string? reason = null, CancellationToken cancellationToken = default)

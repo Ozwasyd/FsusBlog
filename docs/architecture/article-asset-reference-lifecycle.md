@@ -25,21 +25,23 @@ The store does not accept a URL, path, Markdown body, or storage key. It never s
 
 Permanent article deletion and trash clearing load affected AssetIds from `content_asset_reference` and remove the applicable current article/draft sources inside the article transaction. An AssetId is inserted into `content_asset_cleanup_queue` only when the ledger has no remaining row, with a 24-hour grace period. Restoring any source reference cancels that queue row and returns the asset to `active`.
 
-`ArticleAssetCleanupWorker` claims due AssetIds with `FOR UPDATE SKIP LOCKED` and delegates deletion to `IAssetStore.DeleteAsync(AssetId)`. The asset store rechecks `content_asset_reference`; a live reference returns `Referenced` and cancels the queue row. Missing physical files are an idempotent success. Failures retain the row with an incremented attempt count and a delayed retry.
+`ArticleAssetCleanupWorker` claims due AssetIds with `FOR UPDATE SKIP LOCKED` and delegates deletion to `IAssetStore.DeleteAsync(AssetId)`. The asset store rechecks `content_asset_reference` under the AssetId advisory lock. A live reference returns `Referenced` with a source count and up to 16 locations ordered by source kind and source key; locations contain source identity, article ID and reference count, never a URL or storage path.
+
+Before deleting bytes, the store commits `pending_delete` and the `content_asset_delete_pending` cleanup marker. Reference restoration rejects this marker: the ordinary grace-period cancellation applies only before physical deletion begins. After byte deletion, a second transaction takes the same AssetId lock, checks references and removes metadata and the queue row. Missing physical files are an idempotent success. A failed metadata transaction leaves the deletion marker available for retry rather than restoring an active asset without bytes. Cleanup failure bookkeeping and cancellation of an earlier `Referenced` result must preserve a newer deletion marker.
 
 No object store, CDN or remote image API participates in this protocol.
 
 ## Operational rollback and degradation
 
-To stop physical cleanup without restarting the application, move queue deadlines forward in PostgreSQL:
+To stop physical cleanup without restarting the application, move queue deadlines forward in PostgreSQL using the [canonical cleanup-pause runbook](article-deletion-lifecycle.md#file-cleanup-and-operational-degradation). This leaves authoring and deletion available while retaining files. Do not delete ledger rows to pause cleanup. An application rollback must preserve `content_asset`, `content_asset_reference`, and `content_asset_cleanup_queue` because they remain the metadata, reference, and cleanup authorities.
 
 ```sql
-UPDATE article_asset_cleanup_queue
+UPDATE content_asset_cleanup_queue
 SET not_before_utc = (now() AT TIME ZONE 'utc') + interval '7 days',
     updated_at_utc = now() AT TIME ZONE 'utc';
 ```
+This postpones future claims; it does not cancel a deletion already in progress. Do not clear deletion markers to pause cleanup. Do not roll back to an implementation that restores references without checking deletion markers while marked rows remain; first finish their cleanup using the marker-aware implementation.
 
-This leaves authoring and deletion available while retaining files. Do not delete ledger rows to pause cleanup. An application rollback must preserve `content_asset`, `content_asset_reference`, and `content_asset_cleanup_queue` because they remain the metadata, reference, and cleanup authorities.
 ## Current rights fields
 
 <!-- fsus-doc-claim

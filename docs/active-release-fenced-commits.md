@@ -1,55 +1,55 @@
 # Active release fenced database commits
 
-本文定义 active-singleton worker 的 PostgreSQL 提交边界。普通 `IActiveReleaseCommitGuard` 的事务外读取只适合提前取消工作，不能证明读取完成后到数据库 commit 之间 fence 没有变化。所有 active-singleton PostgreSQL mutation 必须通过 `IActiveReleaseTransactionalCommitGuard` 在业务事务内登记。
+This document defines the PostgreSQL commit boundary for `active-singleton` workers. Transaction-outside reads by the ordinary `IActiveReleaseCommitGuard` can cancel work early but cannot prove that the fence stayed unchanged between the read and database commit. Every `active-singleton` PostgreSQL mutation must enlist through `IActiveReleaseTransactionalCommitGuard` inside the business transaction.
 
-## 原子边界
+## Atomic boundary
 
-`ActiveReleaseFencedTransaction.ExecuteAsync` 在同一个 SqlSugar/PostgreSQL 事务内依次执行：
+`ActiveReleaseFencedTransaction.ExecuteAsync` performs these steps in one SqlSugar/PostgreSQL transaction:
 
-1. 执行业务 mutation；
-2. 从 execution context 取得 `releaseId + slot + generation + imageDigest + processInstanceId`；
-3. 取得与 fence mutation 相同 key 的 `pg_advisory_xact_lock_shared`，再对 `sys_deployment_fence` 的精确 active owner 执行 `SELECT ... FOR SHARE`；
-4. 用同一条 CTE 把 token 写入 `sys_fenced_commit`；
-5. commit 业务 mutation 与 token 行。
+1. Execute the business mutation.
+2. Read `releaseId + slot + generation + imageDigest + processInstanceId` from the execution context.
+3. Acquire `pg_advisory_xact_lock_shared` under the same key as the fence mutation, then run `SELECT ... FOR SHARE` for the exact active owner in `sys_deployment_fence`.
+4. Use the same CTE to write the token to `sys_fenced_commit`.
+5. Commit the business mutation and token row.
 
-如果 owner 不匹配，CTE 不产生 token 行，guard 抛出 `ActiveReleaseFenceLostException`，整个业务事务回滚。shared advisory lock 与 `FOR SHARE` 行锁一直持有到业务 commit；acquire/revoke 使用同 key exclusive advisory lock + `FOR UPDATE`，因此 fence 变更只能发生在旧事务 commit 之后，且 singleton row 尚不存在时也没有 gap-lock 空窗。若 fence 先完成撤销或换代，旧事务在 enlist 时看不到匹配 active owner，只能回滚。这同时覆盖 pre-check 后撤销、长 GC pause 恢复和 Redis partition；事务判定只读取 #1118 引入的 PostgreSQL durable witness，不读取 stale Redis snapshot。
+If the owner does not match, the CTE creates no token row, the guard throws `ActiveReleaseFenceLostException`, and the entire business transaction rolls back. The shared advisory lock and `FOR SHARE` row lock remain until business commit; acquire/revoke use the same key with an exclusive advisory lock and `FOR UPDATE`. A fence change therefore waits for the old transaction to commit, with no gap-lock window when the singleton row is absent. If revocation or replacement completes first, the old transaction sees no matching active owner when enlisting and must roll back. This covers revocation after a pre-check, recovery from a long GC pause, and a Redis partition; the transaction decision reads only the PostgreSQL durable witness introduced by #1118, never a stale Redis snapshot.
 
-`sys_fenced_commit` 保存 commit token、operation scope、mutation key、release/slot/generation/digest、process instance 与 enlist 时间。回滚事务不会留下 token 行，因此可见 token 等价于对应业务事务已成功提交。operation scope 和 mutation key 不能包含用户输入或秘密。
+`sys_fenced_commit` stores the commit token, operation scope, mutation key, release/slot/generation/digest, process instance, and enlist time. A rolled-back transaction leaves no token row, so a visible token is equivalent to successful commit of its business transaction. Operation scope and mutation key must contain neither user input nor secrets.
 
-当前接线：
+Current wiring covers:
 
-- scheduled publish 的 article 状态与 outbox insert；
-- article mutation outbox 的 claim、heartbeat、edge、retry 与 complete transition；
-- article view projection 与 watermark transaction；
-- log cleanup 的 visit/RUM/audit/pseudonym/fenced-token delete chunk。
+- scheduled-publish article status and outbox insert;
+- article-mutation outbox claim, heartbeat, edge, retry, and complete transitions;
+- article-view projection and watermark transaction; and
+- log-cleanup visit/RUM/audit/pseudonym/fenced-token delete chunks.
 
-`sys_fenced_commit` 保留 30 天，由同样经过 fenced transaction 的 cleanup chunk 清理；每个 cleanup transaction 会留下自身的新 token，因此 ledger 不会被清空成不可审计状态。
+`sys_fenced_commit` is retained for 30 days and cleaned by the same fenced-transaction cleanup chunk. Each cleanup transaction leaves its own new token, so the ledger is never emptied into an unauditable state.
 
-文件、对象存储和进程内 mutation 仍保留原 `IActiveReleaseCommitGuard` 与 worker lease；它们不伪装成 PostgreSQL 原子事务。
+File, object-storage, and in-process mutations retain the existing `IActiveReleaseCommitGuard` and worker lease; they do not pretend to be PostgreSQL atomic transactions.
 
-## 周期审计与告警
+## Periodic audit and alerting
 
-`ActiveReleaseFencedCommitAuditWorker` 周期读取最近 token，并按 durable fence 的 generation 与激活/撤销时间检测：
+`ActiveReleaseFencedCommitAuditWorker` periodically reads recent tokens and checks the durable fence's generation and activation/revocation times for:
 
-- token generation 高于 durable fence；
-- 同 generation 但 identity/digest 不同；
-- 同 generation 已 revoked，且 token 时间不早于 revoke；
-- 旧 generation token 时间不早于新 generation activation。
+- token generation higher than the durable fence;
+- different identity/digest at the same generation;
+- a revoked same-generation fence with token time at or after revocation; or
+- an old-generation token at or after new-generation activation.
 
-违规记录使用 Critical 日志，并增加：
+Violations use Critical logs and add:
 
 - `fsus.active_release_fenced_commit.enlistments{result,operation_scope}`
 - `fsus.active_release_fenced_commit.audits{result}`
 - `fsus.active_release_fenced_commit.violations{result}`
 
-审计是检测与告警，不承担事后“自动回滚”未知业务副作用；真正的阻断边界是事务内 row lock + token insert。
+Audit detects and alerts; it cannot automatically roll back unknown business side effects after the fact. The actual blocking boundary is the transaction's row lock plus token insert.
 
-## 无重启回退
+## No-restart rollback
 
-若新 guard、表容量或审计出现异常，把支持 reload 的配置 `ActiveReleaseFencedCommit:MutationEnabled=false`。它不会回到不安全的事务外检查，而会让所有已接线 PostgreSQL mutation 在 commit 前抛出 `ActiveReleaseFencedCommitPausedException` 并回滚；读请求、notification stream、binary 公开读取和现有 pending outbox 保持可用。排查完成后恢复为 `true`，先验证 durable fence 与 audit 为 clean，再恢复 worker mutation。
+If the new guard, table capacity, or audit misbehaves, set the reloadable `ActiveReleaseFencedCommit:MutationEnabled=false`. This does not return to an unsafe transaction-outside check: every wired PostgreSQL mutation throws `ActiveReleaseFencedCommitPausedException` before commit and rolls back. Reads, the notification stream, public binary reads, and existing pending outbox work remain available. After investigation, restore `true`, verify a clean durable fence and audit, then resume worker mutations.
 
-`ActiveReleaseFencedCommitAudit:Enabled=false` 只暂停周期扫描，不能关闭事务 guard。interval、recent window 和 batch size 每轮从配置读取，无需重启。
+`ActiveReleaseFencedCommitAudit:Enabled=false` pauses only periodic scanning; it cannot disable the transaction guard. Interval, recent window, and batch size are read from configuration on every round, so no restart is needed.
 
-## API 与安全边界
+## API and security boundary
 
-本改动不增加公共、登录、admin、notification stream 或 binary endpoint，也不改变 DTO/AEDS frame。admin fence endpoint 仍保持 loopback + `system.config`；匿名与登录请求不接触 commit token 表。token 不进入响应、日志标签或客户端证据。
+This change adds no public, login, admin, notification-stream, or binary endpoint and changes no DTO/AEDS frame. The admin fence endpoint remains loopback + `system.config`; anonymous and login requests do not touch the commit-token table. Tokens do not enter responses, log labels, or client evidence.

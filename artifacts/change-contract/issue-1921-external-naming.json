@@ -1,0 +1,43 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/dependencies/fsusui-release-event.schema.json",
+                "config/testing/correctness-attempt-producers.json"
+            ],
+            "reason": "preserve existing JSON schema and generated producer wire keys while adding the isolated FsusUI candidate verifier to test governance"
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/frontend/fsusui-typecheck-modes.md"
+            ],
+            "reason": "preserve documented FsusUI typecheck command and environment identifiers in the current typecheck-modes document"
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "preserve generated testing documentation identifiers while registering the candidate verifier in the static-governance file list"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/dependencies/fsusui-candidate-package-smoke.mjs",
+                "tools/dependencies/verify-fsusui-candidate.mjs",
+                "tools/dependencies/verify-fsusui-release-event.mjs"
+            ],
+            "reason": "preserve process environment spellings used by isolated candidate installation, npm config, and Wasm toolchain selection"
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/static-governance.sh"
+            ],
+            "reason": "preserve caller-visible shell environment spellings while adding the candidate unit test to the static-governance lane"
+        }
+    ]
+}

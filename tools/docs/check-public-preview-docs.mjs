@@ -8,8 +8,8 @@ const root = resolve(import.meta.dirname, '../..');
 
 export const ProductPolicyPaths = Object.freeze([
     'ROADMAP.md',
-    'CONTRIBUTING.md',
-    'SUPPORT.md',
+    'docs/CONTRIBUTING.md',
+    'docs/SUPPORT.md',
     'CHANGELOG.md',
     'docs/architecture/overview.md',
     'docs/api/stability.md',
@@ -119,7 +119,7 @@ export function ValidateProductVersionGovernance(contents)
     includes('CHANGELOG.md', '## Unreleased');
     includes('CHANGELOG.md', 'Product SemVer is not a release coordinate');
     includes('src/backend/CHANGELOG.md', 'Historical / Legacy Changelog');
-    includes('src/backend/CHANGELOG.md', '不补造 ReleaseId');
+    includes('src/backend/CHANGELOG.md', 'do not invent ReleaseId');
     includes('src/backend/CHANGELOG.md', '## [1.0.0]');
 
     includes('docs/releases/public-preview-policy.md', 'current source of truth');

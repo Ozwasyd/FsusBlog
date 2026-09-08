@@ -14,6 +14,7 @@ import {
     sha256File,
     validateBrowserContractReceipt
 } from '../../tools/release/test-evidence-receipts.mjs';
+import { requireCleanAttemptConsumerAdmission } from '../../tools/release/browser-release-clean-attempt-consumers.mjs';
 import { loadTemporalContext } from '../../tools/test/temporal-context.mjs';
 import {
     bindCorrectnessProducerTemporalArtifacts,
@@ -44,6 +45,8 @@ import {
     resolveBrowserContractRunIdentity
 } from './prepare-fixture.mjs';
 import { capturePublicPreviewGallery } from './public-preview-gallery.mjs';
+import { admitPublicShellLocaleHarness, observePublicShellLocaleProbe } from './public-shell-locale-harness.mjs';
+import { createPublicShellLocaleMatrix } from './public-shell-locale-matrix.mjs';
 import {
     browserContractAppReadyTimeoutMs,
     browserContractScenarioRunners,
@@ -173,6 +176,21 @@ function expectedSourceState()
         );
     }
     return { commit, worktreeFingerprint };
+}
+
+function enforceConfiguredCleanAttemptAdmission()
+{
+    try
+    {
+        requireCleanAttemptConsumerAdmission({
+            consumerId: 'browser-contract',
+            repositoryRoot: root
+        });
+    }
+    catch (error)
+    {
+        throw new BrowserContractFailure(error.message, 'contract');
+    }
 }
 
 async function verifyImmutableBuild(sourceState)
@@ -347,6 +365,14 @@ async function main()
         expectedSourceState: build.sourceState,
         expectedBuild: build
     });
+    const localeMatrix = await createPublicShellLocaleMatrix(root);
+    const localeHarness = await admitPublicShellLocaleHarness({
+        root,
+        matrix: localeMatrix,
+        prepared: preparedFixture,
+        buildReceiptFile,
+        env: fixtureEnv
+    });
     const selectedScenarios = selectBrowserContractScenarios(fixture.capabilities);
     const managed = await loadManagedPlaywright();
     const receipt = createBrowserContractReceipt({
@@ -399,6 +425,7 @@ async function main()
             let context = null;
             let page = null;
             let audit = null;
+            let localeProbe = null;
             // Playwright traces serialize BrowserContext options and raw network
             // headers. Only the explicit anonymous allowlist may retain that raw
             // evidence; every authenticated or future role remains fail closed.
@@ -447,7 +474,30 @@ async function main()
                 page.setDefaultTimeout(browserContractAppReadyTimeoutMs);
                 page.setDefaultNavigationTimeout(browserContractAppReadyTimeoutMs);
                 audit = createPageAudit(page);
+                if (scenario.id === 'public-hydration-history-reload')
+                {
+                    localeProbe = observePublicShellLocaleProbe(page, localeHarness.identity, {
+                        signal: terminationController.signal,
+                        matrix: localeMatrix
+                    });
+                }
                 await runner({ browser, context, page, fixture, audit, scenario, outputRoot });
+                if (localeProbe)
+                {
+                    const observation = await localeProbe.finish();
+                    const probeFile = path.join(runOutputRoot, 'public-shell-locale-probe.json');
+                    const probeBindingFile = path.join(runOutputRoot, 'public-shell-locale-probe-binding.json');
+                    await writeBrowserContractReceipt(probeFile, observation);
+                    await writeBrowserContractReceipt(probeBindingFile, {
+                        schema: 'fsusblog.public-shell-locale-probe-binding.v1',
+                        evidenceKind: 'diagnostic-probe',
+                        qualificationEligible: false,
+                        identity: localeHarness.identity,
+                        artifact: relative(probeFile),
+                        digest: sha256File(probeFile)
+                    });
+                    scenarioReceipt.artifacts.push(relative(probeFile), relative(probeBindingFile));
+                }
                 if (browserDisconnected)
                 {
                     throw new BrowserContractFailure('Chromium disconnected during the release browser contract', 'infra');
@@ -485,6 +535,7 @@ async function main()
             }
             finally
             {
+                localeProbe?.dispose();
                 scenarioReceipt.issues = audit?.issues ?? [];
                 if (context)
                 {
@@ -535,6 +586,8 @@ async function main()
             evidencePath: relative(publicPreviewEvidenceFile),
             evidenceFileDigest: sha256File(publicPreviewEvidenceFile)
         };
+
+        enforceConfiguredCleanAttemptAdmission();
 
         closingBrowser = true;
         await browser.close();

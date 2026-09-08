@@ -676,11 +676,27 @@ public sealed class DeploymentDrainCoordinator(
         }
         if (serviceProvider.GetService<AuditLogChannel>() is { } audit)
         {
-            Add(components, "audit-log", audit.Snapshot().QueuedCount);
+            AuditLogChannelSnapshot snapshot = audit.Snapshot();
+            components.Add(new DeploymentDrainComponentSnapshot(
+                "audit-log",
+                snapshot.OutstandingCount,
+                Blocking: true,
+                snapshot.OutstandingCount == 0 ? "drained" : "pending",
+                snapshot.TerminalFailureCount > 0
+                    ? $"terminal-failed;queue-id=audit-log;item={snapshot.LastItemReference};reason={snapshot.LastFailureReason}"
+                    : snapshot.DurablePendingCount > 0 ? "durable-pending" : null));
         }
         if (serviceProvider.GetService<AdminAuditLogChannel>() is { } adminAudit)
         {
-            Add(components, "admin-audit-log", adminAudit.QueuedCount);
+            AdminAuditLogChannelSnapshot snapshot = adminAudit.Snapshot();
+            components.Add(new DeploymentDrainComponentSnapshot(
+                "admin-audit-log",
+                snapshot.OutstandingCount,
+                Blocking: true,
+                snapshot.OutstandingCount == 0 ? "drained" : "pending",
+                snapshot.TerminalFailureCount > 0
+                    ? $"terminal-failed;queue-id=admin-audit-log;item={snapshot.LastItemReference};reason={snapshot.LastFailureReason}"
+                    : snapshot.DurablePendingCount > 0 ? "durable-pending" : null));
         }
         if (serviceProvider.GetService<VisitLogChannel>() is { } visitLog)
         {
@@ -692,12 +708,27 @@ public sealed class DeploymentDrainCoordinator(
         }
         if (serviceProvider.GetService<SecurityRiskEventWriteQueue>() is { } risk)
         {
-            Add(components, "security-risk-events", risk.Snapshot().QueuedCount);
+            SecurityRiskEventWriteQueueSnapshot snapshot = risk.Snapshot();
+            components.Add(new DeploymentDrainComponentSnapshot(
+                "security-risk-events",
+                snapshot.OutstandingCount,
+                Blocking: true,
+                snapshot.OutstandingCount == 0 ? "drained" : "pending",
+                snapshot.TerminalFailureCount > 0
+                    ? $"terminal-failed;queue-id=security-risk-event;item={snapshot.LastItemReference};reason={snapshot.LastFailureReason}"
+                    : snapshot.DurablePendingCount > 0 ? "durable-pending" : null));
         }
         if (serviceProvider.GetService<ChallengeV2AuditEventQueue>() is { } challenge)
         {
             ChallengeV2AuditEventQueueSnapshot snapshot = challenge.Snapshot();
-            Add(components, "challenge-audit-events", snapshot.NormalQueuedCount + snapshot.HighValueQueuedCount);
+            components.Add(new DeploymentDrainComponentSnapshot(
+                "challenge-audit-events",
+                snapshot.OutstandingCount,
+                Blocking: true,
+                snapshot.OutstandingCount == 0 ? "drained" : "pending",
+                snapshot.TerminalFailureCount > 0
+                    ? $"terminal-failed;queue-id=challenge-v2-event;item={snapshot.LastItemReference};reason={snapshot.LastFailureReason}"
+                    : snapshot.DurablePendingCount > 0 ? "durable-pending" : null));
         }
         if (serviceProvider.GetService<PublicHotArtifactUpdateQueue>() is { } publicHot)
         {

@@ -140,7 +140,8 @@ from the runtime root snapshot.
    the disabled safe baseline passes.
 3. Mark the active root expired or revoked through the same lifecycle/ops
    boundary, then refresh the runtime root snapshot.
-4. 不删除已写入的匿名评论; rollback only disables future ZK-Prod ticket issuance
+4. Do not delete anonymous comments that have already been written; rollback only
+   disables future ZK-Prod ticket issuance
    and root acceptance.
 5. Keep the offline bootstrap evidence, rotate transcript, high-value audit id,
    release gate summary, and smoke evidence in the release record.
