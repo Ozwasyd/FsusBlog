@@ -62,11 +62,13 @@ public sealed class DocumentExportSystemdCgroupAuthority
     public const string MemoryAccountingSource = "cgroup-v2.memory.max-memory.peak-memory.events";
     public const string ProcessAccountingSource = "cgroup-v2.pids.max-pids.peak-pids.events";
     public const string CleanupSource = "cgroup-v2.cgroup.kill-cgroup.events.populated";
+    public const int BrokerProcessOverhead = 1;
 
     private const string RequiredSystemdRunPath = "/usr/bin/systemd-run";
     private const string RequiredSystemctlPath = "/usr/bin/systemctl";
     private const string RequiredBubblewrapPath = "/usr/bin/bwrap";
     private const string CgroupRoot = "/sys/fs/cgroup";
+    private const string DocumentExportSlice = "app.slice";
     private const int ControlOutputLimitBytes = 128 * 1024;
     private readonly IReadOnlyDictionary<string, string> _controlEnvironment;
 
@@ -145,6 +147,7 @@ public sealed class DocumentExportSystemdCgroupAuthority
             "--quiet",
             "--no-block",
             $"--unit={unitName}",
+            $"--slice={DocumentExportSlice}",
             "--service-type=exec",
             $"--working-directory={workload.WorkingDirectory}",
             "--property=CPUAccounting=yes",
@@ -152,7 +155,7 @@ public sealed class DocumentExportSystemdCgroupAuthority
             "--property=TasksAccounting=yes",
             $"--property=MemoryMax={budgets.MaxWorkingSetBytes.ToString(CultureInfo.InvariantCulture)}",
             "--property=MemorySwapMax=0",
-            $"--property=TasksMax={budgets.MaxProcessCount.ToString(CultureInfo.InvariantCulture)}",
+            $"--property=TasksMax={HostTasksLimit(budgets).ToString(CultureInfo.InvariantCulture)}",
             $"--property=RuntimeMaxSec={runtimeMaxMicroseconds.ToString(CultureInfo.InvariantCulture)}us",
             "--property=KillMode=control-group",
             "--property=TimeoutStopSec=1s",
@@ -185,10 +188,17 @@ public sealed class DocumentExportSystemdCgroupAuthority
                 "ActiveState",
                 "SubState",
                 "Type",
+                "Slice",
                 "ControlGroup",
                 "MainPID",
                 "ExecMainPID",
                 "ExecMainStartTimestampMonotonic",
+                "Result",
+                "ExecMainCode",
+                "ExecMainStatus",
+                "CPUUsageNSec",
+                "MemoryPeak",
+                "TasksCurrent",
                 "MemoryAccounting",
                 "TasksAccounting",
                 "MemoryMax",
@@ -199,14 +209,34 @@ public sealed class DocumentExportSystemdCgroupAuthority
                 "RemainAfterExit");
             ValidateAdmissionProperties(properties, budgets, runtimeMaxMicroseconds);
             string controlGroup = RequireProperty(properties, "ControlGroup");
-            string cgroupPath = ResolveCgroupPath(unitName, controlGroup);
-            ValidateCgroupFilesAndLimits(cgroupPath, budgets);
+            bool terminalAdmission = IsTerminalAdmission(properties);
+            if (terminalAdmission)
+            {
+                ValidateTerminalAdmissionProperties(properties);
+                if (string.IsNullOrEmpty(controlGroup))
+                {
+                    controlGroup = await ResolveTerminalControlGroupAsync(unitName, cancellationToken);
+                }
+            }
+            string cgroupPath = ResolveCgroupPath(
+                unitName,
+                controlGroup,
+                requireExisting: !terminalAdmission);
             int rootProcessId = ParsePositiveInt(
                 FirstNonZeroProperty(properties, "MainPID", "ExecMainPID"),
                 "document export root process ID");
             (long rootProcessStartIdentity, string rootProcessStartIdentitySource) =
                 ResolveStartIdentity(properties, rootProcessId);
-            DocumentExportCgroupObservation initial = ReadObservation(cgroupPath);
+            DocumentExportCgroupObservation initial;
+            if (terminalAdmission)
+            {
+                initial = CreateTerminalObservation(properties);
+            }
+            else
+            {
+                ValidateCgroupFilesAndLimits(cgroupPath, budgets);
+                initial = ReadObservation(cgroupPath);
+            }
 
             return new Execution(
                 this,
@@ -249,9 +279,17 @@ public sealed class DocumentExportSystemdCgroupAuthority
                 propertyNames);
             string loadState = RequireProperty(properties, "LoadState");
             string controlGroup = RequireProperty(properties, "ControlGroup");
-            if (loadState == "loaded" && !string.IsNullOrEmpty(controlGroup))
+            if (loadState == "loaded" && IsTerminalAdmission(properties))
             {
                 return properties;
+            }
+            if (loadState == "loaded" && !string.IsNullOrEmpty(controlGroup))
+            {
+                string cgroupPath = ResolveCgroupPath(unitName, controlGroup, requireExisting: false);
+                if (Directory.Exists(cgroupPath))
+                {
+                    return properties;
+                }
             }
             if (loadState is not ("not-found" or "loaded"))
             {
@@ -262,6 +300,34 @@ public sealed class DocumentExportSystemdCgroupAuthority
         }
         throw new InvalidDataException(
             "Document export transient service did not expose its cgroup before the admission deadline.");
+    }
+
+    private async Task<string> ResolveTerminalControlGroupAsync(
+        string unitName,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyDictionary<string, string> slice = await QueryUnitAsync(
+            DocumentExportSlice,
+            cancellationToken,
+            "LoadState",
+            "ControlGroup");
+        string sliceControlGroup = RequireProperty(slice, "ControlGroup");
+        if (RequireProperty(slice, "LoadState") != "loaded"
+            || string.IsNullOrEmpty(sliceControlGroup)
+            || sliceControlGroup.EndsWith("/", StringComparison.Ordinal))
+        {
+            throw new InvalidDataException(
+                "Document export authority could not resolve its fixed transient-service slice.");
+        }
+
+        string controlGroup = $"{sliceControlGroup}/{unitName}";
+        string cgroupPath = ResolveCgroupPath(unitName, controlGroup, requireExisting: false);
+        if (Directory.Exists(cgroupPath))
+        {
+            throw new InvalidDataException(
+                "Document export terminal service retained an unqualified cgroup path.");
+        }
+        return controlGroup;
     }
 
     private async Task ValidateInstalledIdentityAsync(CancellationToken cancellationToken)
@@ -388,6 +454,12 @@ public sealed class DocumentExportSystemdCgroupAuthority
             "Result",
             "ExecMainCode",
             "ExecMainStatus");
+        return ParseCompletion(properties);
+    }
+
+    private static DocumentExportCgroupCompletion ParseCompletion(
+        IReadOnlyDictionary<string, string> properties)
+    {
         string result = RequireProperty(properties, "Result");
         string exitKind = RequireProperty(properties, "ExecMainCode");
         int status = ParseNonNegativeInt(
@@ -445,15 +517,58 @@ public sealed class DocumentExportSystemdCgroupAuthority
         {
             return ReadObservation(cgroupPath);
         }
-        catch (Exception exception) when (IsMissingCgroupException(exception))
+        catch (IOException)
         {
-            _ = await ReadCompletionAsync(unitName, cancellationToken);
-            return lastObservation with
-            {
-                PidsCurrent = 0,
-                Populated = false
-            };
+            return await ReadTerminalObservationAsync(
+                unitName,
+                lastObservation,
+                cancellationToken);
         }
+    }
+
+    private async Task<DocumentExportCgroupObservation> ReadTerminalObservationAsync(
+        string unitName,
+        DocumentExportCgroupObservation lastObservation,
+        CancellationToken cancellationToken)
+    {
+        for (int attempt = 0; attempt < 100; attempt++)
+        {
+            IReadOnlyDictionary<string, string> properties = await QueryUnitAsync(
+                unitName,
+                cancellationToken,
+                "LoadState",
+                "ActiveState",
+                "SubState",
+                "Result",
+                "ExecMainCode",
+                "ExecMainStatus",
+                "CPUUsageNSec",
+                "MemoryPeak",
+                "TasksCurrent");
+            if (RequireProperty(properties, "LoadState") != "loaded")
+            {
+                throw new InvalidDataException(
+                    "Document export cgroup disappeared without an exact retained service unit.");
+            }
+            if (IsTerminalAdmission(properties))
+            {
+                DocumentExportCgroupObservation terminal = CreateTerminalObservation(properties);
+                return terminal with
+                {
+                    CpuUsageMicroseconds = Math.Max(
+                        lastObservation.CpuUsageMicroseconds,
+                        terminal.CpuUsageMicroseconds),
+                    MemoryPeakBytes = Math.Max(lastObservation.MemoryPeakBytes, terminal.MemoryPeakBytes),
+                    MemoryMaxEvents = Math.Max(lastObservation.MemoryMaxEvents, terminal.MemoryMaxEvents),
+                    MemoryOomEvents = Math.Max(lastObservation.MemoryOomEvents, terminal.MemoryOomEvents),
+                    PidsPeak = lastObservation.PidsPeak,
+                    PidsMaxEvents = lastObservation.PidsMaxEvents
+                };
+            }
+            await Task.Delay(10, cancellationToken);
+        }
+        throw new InvalidDataException(
+            "Document export cgroup disappeared before its retained service reached a terminal state.");
     }
 
     private async Task<DocumentExportCgroupCleanup> CleanupAsync(
@@ -553,13 +668,14 @@ public sealed class DocumentExportSystemdCgroupAuthority
         if (loadState != "loaded"
             || activeState is not ("active" or "activating" or "deactivating" or "failed")
             || RequireProperty(properties, "Type") != "exec"
+            || RequireProperty(properties, "Slice") != DocumentExportSlice
             || RequireProperty(properties, "MemoryAccounting") != "yes"
             || RequireProperty(properties, "TasksAccounting") != "yes"
             || RequireProperty(properties, "KillMode") != "control-group"
             || RequireProperty(properties, "RemainAfterExit") != "yes"
             || ParsePositiveLong(RequireProperty(properties, "MemoryMax"), "MemoryMax") != budgets.MaxWorkingSetBytes
             || ParseNonNegativeLong(RequireProperty(properties, "MemorySwapMax"), "MemorySwapMax") != 0
-            || ParsePositiveLong(RequireProperty(properties, "TasksMax"), "TasksMax") != budgets.MaxProcessCount
+            || ParsePositiveLong(RequireProperty(properties, "TasksMax"), "TasksMax") != HostTasksLimit(budgets)
             || ParseSystemdDurationMicroseconds(
                 RequireProperty(properties, "RuntimeMaxUSec"),
                 "RuntimeMaxUSec") != expectedRuntimeMaxMicroseconds)
@@ -567,6 +683,62 @@ public sealed class DocumentExportSystemdCgroupAuthority
             throw new InvalidDataException(
                 "Document export transient service was not admitted with its exact cgroup properties.");
         }
+    }
+
+    private static bool IsTerminalAdmission(IReadOnlyDictionary<string, string> properties)
+    {
+        string activeState = RequireProperty(properties, "ActiveState");
+        string subState = RequireProperty(properties, "SubState");
+        return (activeState == "active" && subState == "exited")
+            || (activeState == "failed" && subState == "failed");
+    }
+
+    private static void ValidateTerminalAdmissionProperties(
+        IReadOnlyDictionary<string, string> properties)
+    {
+        if (!IsTerminalAdmission(properties)
+            || ParsePositiveInt(
+                RequireProperty(properties, "ExecMainPID"),
+                "document export terminal root process ID") <= 0
+            || ParsePositiveLong(
+                RequireProperty(properties, "ExecMainStartTimestampMonotonic"),
+                "document export terminal root process start identity") <= 0)
+        {
+            throw new InvalidDataException(
+                "Document export transient service terminal admission was not exact.");
+        }
+        _ = ParseCompletion(properties);
+    }
+
+    private static DocumentExportCgroupObservation CreateTerminalObservation(
+        IReadOnlyDictionary<string, string> properties)
+    {
+        DocumentExportCgroupCompletion completion = ParseCompletion(properties);
+        long cpuUsageNanoseconds = ParseNonNegativeLong(
+            RequireProperty(properties, "CPUUsageNSec"),
+            "CPUUsageNSec");
+        long memoryPeakBytes = ParseNonNegativeLong(
+            RequireProperty(properties, "MemoryPeak"),
+            "MemoryPeak");
+        string tasksCurrent = RequireProperty(properties, "TasksCurrent");
+        if (tasksCurrent != "[not set]"
+            && ParseNonNegativeLong(tasksCurrent, "TasksCurrent") != 0)
+        {
+            throw new InvalidDataException(
+                "Document export terminal service retained an unexpected live task count.");
+        }
+
+        bool outOfMemory = completion.Result == "oom-kill";
+        return new DocumentExportCgroupObservation(
+            cpuUsageNanoseconds / 1000,
+            0,
+            memoryPeakBytes,
+            outOfMemory ? 1 : 0,
+            outOfMemory ? 1 : 0,
+            0,
+            0,
+            0,
+            false);
     }
 
     private static void ValidateCgroupFilesAndLimits(
@@ -591,7 +763,7 @@ public sealed class DocumentExportSystemdCgroupAuthority
         if (requiredFiles.Any(name => !File.Exists(Path.Combine(cgroupPath, name)))
             || ReadPositiveLongFile(cgroupPath, "memory.max") != budgets.MaxWorkingSetBytes
             || ReadNonNegativeLongFile(cgroupPath, "memory.swap.max") != 0
-            || ReadPositiveLongFile(cgroupPath, "pids.max") != budgets.MaxProcessCount)
+            || ReadPositiveLongFile(cgroupPath, "pids.max") != HostTasksLimit(budgets))
         {
             throw new PlatformNotSupportedException(
                 "Document export requires delegated cgroup v2 CPU, memory, pids, events and kill authority.");
@@ -616,8 +788,8 @@ public sealed class DocumentExportSystemdCgroupAuthority
             ReadNonNegativeLongFile(cgroupPath, "memory.peak"),
             RequireCounter(memory, "max"),
             checked(RequireCounter(memory, "oom") + RequireCounter(memory, "oom_kill")),
-            checked((int)ReadNonNegativeLongFile(cgroupPath, "pids.current")),
-            checked((int)ReadNonNegativeLongFile(cgroupPath, "pids.peak")),
+            BusinessProcessCount(ReadNonNegativeLongFile(cgroupPath, "pids.current")),
+            BusinessProcessCount(ReadNonNegativeLongFile(cgroupPath, "pids.peak")),
             RequireCounter(pids, "max"),
             ParsePopulated(events));
     }
@@ -845,7 +1017,10 @@ public sealed class DocumentExportSystemdCgroupAuthority
         };
     }
 
-    private static string ResolveCgroupPath(string unitName, string controlGroup)
+    private static string ResolveCgroupPath(
+        string unitName,
+        string controlGroup,
+        bool requireExisting = true)
     {
         if (!controlGroup.StartsWith("/", StringComparison.Ordinal)
             || !controlGroup.EndsWith($"/{unitName}", StringComparison.Ordinal))
@@ -855,8 +1030,8 @@ public sealed class DocumentExportSystemdCgroupAuthority
         string candidate = Path.GetFullPath(CgroupRoot + controlGroup);
         string requiredPrefix = CgroupRoot + Path.DirectorySeparatorChar;
         if (!candidate.StartsWith(requiredPrefix, StringComparison.Ordinal)
-            || !Directory.Exists(candidate)
-            || new DirectoryInfo(candidate).LinkTarget is not null)
+            || (requireExisting && !Directory.Exists(candidate))
+            || (Directory.Exists(candidate) && new DirectoryInfo(candidate).LinkTarget is not null))
         {
             throw new InvalidDataException("Document export cgroup path escaped or did not exist.");
         }
@@ -1098,6 +1273,12 @@ public sealed class DocumentExportSystemdCgroupAuthority
         }
         return checked((long)Math.Ceiling(value.TotalMilliseconds * 1000d));
     }
+
+    private static int HostTasksLimit(DocumentExportResourceBudgets budgets)
+        => checked(budgets.MaxProcessCount + BrokerProcessOverhead);
+
+    private static int BusinessProcessCount(long hostProcessCount)
+        => checked((int)Math.Max(0, hostProcessCount - BrokerProcessOverhead));
 
     private static void SetOwnerOnlyMode(string path)
     {

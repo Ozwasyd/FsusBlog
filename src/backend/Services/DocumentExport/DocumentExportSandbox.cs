@@ -39,6 +39,7 @@ public sealed record DocumentExportSandboxPlan(
     string BubblewrapDigest,
     string CpuAccountingSource,
     int CpuPollIntervalMilliseconds,
+    int BrokerProcessOverhead,
     string SandboxClass,
     string NetworkPolicy,
     IReadOnlyList<string> AllowedLoopbackServices,
@@ -83,6 +84,7 @@ public sealed record DocumentExportSandboxReceipt(
     long MemoryMaxEvents,
     long MemoryOomEvents,
     string ProcessAccountingSource,
+    int BrokerProcessOverhead,
     int TasksLimit,
     int TasksPeak,
     long TasksMaxEvents,
@@ -285,6 +287,7 @@ public sealed class DocumentExportSandboxRuntime
             _authority.Contract.BubblewrapDigest,
             DocumentExportSystemdCgroupAuthority.CpuAccountingSource,
             _authority.CpuPollIntervalMilliseconds,
+            DocumentExportSystemdCgroupAuthority.BrokerProcessOverhead,
             DocumentExportContractCatalog.SandboxClass,
             DocumentExportContractCatalog.NetworkPolicy,
             [],
@@ -630,6 +633,7 @@ public sealed class DocumentExportSandboxRuntime
             observation.MemoryMaxEvents,
             observation.MemoryOomEvents,
             DocumentExportSystemdCgroupAuthority.ProcessAccountingSource,
+            DocumentExportSystemdCgroupAuthority.BrokerProcessOverhead,
             plan.Budgets.MaxProcessCount,
             observation.PidsPeak,
             observation.PidsMaxEvents,
@@ -736,6 +740,7 @@ public sealed class DocumentExportSandboxRuntime
             || receipt.MemoryMaxEvents != 0
             || receipt.MemoryOomEvents != 0
             || receipt.ProcessAccountingSource != DocumentExportSystemdCgroupAuthority.ProcessAccountingSource
+            || receipt.BrokerProcessOverhead != plan.BrokerProcessOverhead
             || receipt.TasksLimit != plan.Budgets.MaxProcessCount
             || receipt.TasksPeak < 0
             || receipt.TasksPeak > receipt.TasksLimit
@@ -839,6 +844,7 @@ public sealed class DocumentExportSandboxRuntime
             || receipt.MemoryMaxEvents < 0
             || receipt.MemoryOomEvents < 0
             || receipt.ProcessAccountingSource != DocumentExportSystemdCgroupAuthority.ProcessAccountingSource
+            || receipt.BrokerProcessOverhead != plan.BrokerProcessOverhead
             || receipt.TasksLimit != plan.Budgets.MaxProcessCount
             || receipt.TasksPeak < 0
             || receipt.TasksMaxEvents < 0
@@ -869,7 +875,6 @@ public sealed class DocumentExportSandboxRuntime
                     || !receipt.ControlGroup.EndsWith($"/{receipt.UnitName}", StringComparison.Ordinal)
                     || receipt.ControlGroupDigest != DocumentExportDigest.Compute(receipt.ControlGroup)
                     || receipt.KillMode != "control-group"))
-            || (receipt.TerminationSignal == 0 && receipt.ExitCode >= 128)
             || (receipt.TerminationSignal > 0 && receipt.ExitCode != 128 + receipt.TerminationSignal)
             || receipt.Status != expectedStatus
             || receipt.FailureCode != expectedFailureCode
@@ -958,6 +963,7 @@ public sealed class DocumentExportSandboxRuntime
             || !IsDigest(plan.BubblewrapDigest)
             || plan.CpuAccountingSource != DocumentExportSystemdCgroupAuthority.CpuAccountingSource
             || plan.CpuPollIntervalMilliseconds is < 1 or > 1000
+            || plan.BrokerProcessOverhead != DocumentExportSystemdCgroupAuthority.BrokerProcessOverhead
             || plan.SandboxClass != DocumentExportContractCatalog.SandboxClass
             || plan.NetworkPolicy != DocumentExportContractCatalog.NetworkPolicy
             || plan.AllowedLoopbackServices.Count != 0
