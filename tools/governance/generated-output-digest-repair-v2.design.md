@@ -20,7 +20,9 @@ Bubblewrap, strace and ldd resolve only to the exact paths `/usr/bin/bwrap`, `/u
 
 The already-running checker Node remains the runtime trust anchor rather than a PATH-selected command. Its resolved executable and mounted libraries are identity-bound and rechecked; a root-owned Node installation is not newly required. The tests execute real candidate-PATH trap scripts to demonstrate they are ignored, and use controlled filesystem-observation mutations for redirected executables, changed bytes, changed inodes and task-owned executable observations. They never replace installed host tools.
 
-Only the exact absent CPU runtime probes `/sys/devices/system/cpu/online` and `/sys/devices/system/cpu/cpu0/tsc_freq_khz` may report `ENOENT` after producer loading; sysfs is not mounted. The latter was observed in a real Node replay. Observation mutations verify that a successful read of that exact path and an absent sibling path remain rejected; neither the directory nor all of `/sys` is allowlisted.
+Runtime file reads match exact mounted files, not their parent directories. Apart from the separately isolated procfs and device mounts, this holds during Node bootstrap as well as after producer loading. Successful or failed opens of an unmounted runtime-file sibling are rejected in both phases.
+
+Only four exact absent runtime probes may report `ENOENT`: `/sys/devices/system/cpu/online`, `/sys/devices/system/cpu/cpu0/tsc_freq_khz`, `/sys/fs/cgroup/memory.max`, and `/sys/fs/cgroup/memory.high`. These were observed in real Node replay; sysfs is not mounted. The cgroup namespace is unshared so the last two probes do not depend on the host's task-specific cgroup path. There is no pre-bootstrap blanket `ENOENT` exemption. Observation mutations verify that successful reads of the allowlisted CPU/cgroup paths, absent sibling paths, and unmounted runtime-file sibling reads remain rejected; neither a parent directory nor all of `/sys` is allowlisted.
 
 ## Proposed trusted registration
 

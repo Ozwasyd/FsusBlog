@@ -118,10 +118,19 @@ test('trusted executable rejects task-owned system path observations', (t) =>
     assert.throws(() => repository.replay({ revision: base, producer, attempt: 0 }), /not system-owned/u);
 });
 
-for (const [name, file, syscallResult, accepted] of [
+for (const [name, file, syscallResult, accepted, bootstrap = false] of [
     ['exact failed runtime probe', '/sys/devices/system/cpu/cpu0/tsc_freq_khz', '-1 ENOENT (No such file or directory)', true],
     ['successful runtime probe', '/sys/devices/system/cpu/cpu0/tsc_freq_khz', '3</sys/devices/system/cpu/cpu0/tsc_freq_khz>', false],
-    ['failed sibling runtime probe', '/sys/devices/system/cpu/cpu0/other_freq_khz', '-1 ENOENT (No such file or directory)', false]
+    ['failed sibling runtime probe', '/sys/devices/system/cpu/cpu0/other_freq_khz', '-1 ENOENT (No such file or directory)', false],
+    ['successful unmounted runtime sibling', '/runtime/unmounted-sibling', '3</runtime/unmounted-sibling>', false],
+    ['failed unmounted runtime sibling', '/runtime/unmounted-sibling', '-1 ENOENT (No such file or directory)', false],
+    ['bootstrap successful unmounted runtime sibling', '/runtime/unmounted-sibling', '3</runtime/unmounted-sibling>', false, true],
+    ['bootstrap failed unmounted runtime sibling', '/runtime/unmounted-sibling', '-1 ENOENT (No such file or directory)', false, true],
+    ['exact failed cgroup max probe', '/sys/fs/cgroup/memory.max', '-1 ENOENT (No such file or directory)', true],
+    ['exact failed cgroup high probe', '/sys/fs/cgroup/memory.high', '-1 ENOENT (No such file or directory)', true],
+    ['successful cgroup max probe', '/sys/fs/cgroup/memory.max', '3</sys/fs/cgroup/memory.max>', false],
+    ['successful cgroup high probe', '/sys/fs/cgroup/memory.high', '3</sys/fs/cgroup/memory.high>', false],
+    ['failed cgroup sibling probe', '/sys/fs/cgroup/memory.current', '-1 ENOENT (No such file or directory)', false]
 ])
 {
     test(`syscall observation mutation ${name} is ${accepted ? 'accepted' : 'rejected'}`, (t) =>
@@ -134,7 +143,9 @@ for (const [name, file, syscallResult, accepted] of [
             if (typeof source !== 'string' || !source.endsWith('.strace')) return result;
             const pid = result.match(/^(\d+)\s+execve\("\/runtime\/node"/mu)?.[1];
             assert.ok(pid, 'real trace must identify the canonical Node process');
-            return `${result}\n${pid} openat(AT_FDCWD</work>, "${file}", O_RDONLY|O_CLOEXEC) = ${syscallResult}\n`;
+            const injected = `${pid} openat(AT_FDCWD</work>, "${file}", O_RDONLY|O_CLOEXEC) = ${syscallResult}`;
+            return bootstrap ? result.replace(/^(\d+)\s+execve\("\/runtime\/node"[^\n]*$/mu, line => `${line}\n${injected}`)
+                : `${result}\n${injected}\n`;
         });
         const replay = () => repository.replay({ revision: base, producer, attempt: 0 });
         if (accepted) assert.equal(replay().first.bytes.toString(), 'canonical\n');
