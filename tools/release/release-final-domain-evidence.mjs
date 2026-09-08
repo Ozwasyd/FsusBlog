@@ -90,11 +90,6 @@ export function verifyReleaseFinalPostRuntimeAuthority({
             worktreeFingerprint: context.worktreeFingerprint.replace(/^sha256:/u, '')
         }
     });
-    const schedulerOutputRefs = schedulerAuthority.collectSchedulerVerificationOutputRefs({
-        context: schedulerVerificationContext,
-        tierId: 'behavior-evidence-post-runtime',
-        root: repositoryRoot
-    });
     const verified = verifyBehaviorEvidencePostRuntime({
         receipt: input.file,
         preRuntimeReceipt: directEvidence.behaviorPreRuntime.file,
@@ -106,7 +101,6 @@ export function verifyReleaseFinalPostRuntimeAuthority({
         schedulerEvidence: post.schedulerEvidence.ref,
         verificationMode: 'completed-tier',
         schedulerVerificationContext,
-        schedulerOutputRefs,
         repositoryRoot
     });
     if (verified.contentDigest !== post.contentDigest)
