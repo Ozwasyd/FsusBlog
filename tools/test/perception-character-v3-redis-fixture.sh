@@ -64,8 +64,12 @@ trx_dir="$ROOT_DIR/.tmp/test-results/backend"
 trx_file="$trx_dir/perception-character-v3-redis-${run_suffix}.trx"
 redis_lua_case_evidence="$trx_dir/perception-character-v3-redis-lua-cases-${run_suffix}.json"
 redis_budget_evidence="$trx_dir/perception-character-v3-budget-cases-${run_suffix}.json"
+redis_cutover_evidence="${FSUSBLOG_V3_CUTOVER_EVIDENCE_OUT:-$trx_dir/perception-character-v3-cutover-${run_suffix}.json}"
 mkdir -p "$trx_dir"
 rm -f "$trx_file" "$redis_lua_case_evidence" "$redis_budget_evidence"
+if [[ -z "${FSUSBLOG_V3_CUTOVER_EVIDENCE_OUT:-}" ]]; then
+    rm -f "$redis_cutover_evidence"
+fi
 
 output_receipt="$ROOT_DIR/.tmp/test-results/backend/perception-character-v3-redis-producer.json"
 configuration="${FSUSBLOG_TEST_CONFIGURATION:-Release}"
@@ -97,6 +101,9 @@ FSUSBLOG_TEST_REDIS="${redis_host}:${port},abortConnect=true" \
     FSUSBLOG_TEST_LOCAL_REDIS_RUN_ID="$run_suffix" \
     FSUSBLOG_TEST_REDIS_CASE_EVIDENCE="$redis_lua_case_evidence" \
     FSUSBLOG_TEST_REDIS_BUDGET_EVIDENCE="$redis_budget_evidence" \
+    FSUSBLOG_TEST_SOURCE_COMMIT="$source_commit" \
+    FSUSBLOG_TEST_SOURCE_FINGERPRINT="$source_fingerprint" \
+    FSUSBLOG_V3_CUTOVER_EVIDENCE_OUT="$redis_cutover_evidence" \
     dotnet test "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj" \
     --configuration "$configuration" \
     -m:1 \
@@ -128,6 +135,7 @@ producer_status=0
     --redis-lua-calls-after "$redis_lua_calls_after" \
     --redis-lua-case-evidence "$redis_lua_case_evidence" \
     --redis-budget-evidence "$redis_budget_evidence" \
+    --cutover-evidence "$redis_cutover_evidence" \
     --cleanup-verified "$cleanup_verified" \
     --output "$output_receipt" || producer_status=$?
 

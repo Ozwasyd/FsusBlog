@@ -204,16 +204,38 @@ public sealed class PerceptionCharacterV3ContractCutoverTests
     [Trait("Fixture", "LocalRedis")]
     public async Task RedisStore_RetiresAllV3NamespacesAndEnvelopeIdempotently()
     {
-        string? connectionString = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_REDIS");
-        if (string.IsNullOrWhiteSpace(connectionString))
-        {
-            return;
-        }
+        string connectionString = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_REDIS")
+            ?? throw new InvalidOperationException("FSUSBLOG_TEST_REDIS environment variable is not set.");
+        Assert.False(string.IsNullOrWhiteSpace(connectionString), "FSUSBLOG_TEST_REDIS must not be empty.");
+        string runId = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_LOCAL_REDIS_RUN_ID")
+            ?? throw new InvalidOperationException("LocalRedis run identity is required.");
+        Assert.False(string.IsNullOrWhiteSpace(runId), "LocalRedis run identity must not be empty.");
+        Assert.DoesNotContain(":", runId);
+        string redisPrefixRoot = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_REDIS_PREFIX")
+            ?? throw new InvalidOperationException("LocalRedis prefix is required.");
+        Assert.Equal($"test:perception-v3-local-redis:{runId}:", redisPrefixRoot);
+        string evidencePath = Environment.GetEnvironmentVariable("FSUSBLOG_V3_CUTOVER_EVIDENCE_OUT")
+            ?? throw new InvalidOperationException("LocalRedis cutover evidence path is required.");
+        Assert.False(string.IsNullOrWhiteSpace(evidencePath), "LocalRedis cutover evidence path must not be empty.");
+        string sourceCommit = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_SOURCE_COMMIT")
+            ?? throw new InvalidOperationException("LocalRedis source commit is required.");
+        string sourceFingerprint = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_SOURCE_FINGERPRINT")
+            ?? throw new InvalidOperationException("LocalRedis source fingerprint is required.");
+        Assert.False(string.IsNullOrWhiteSpace(sourceCommit), "LocalRedis source commit must not be empty.");
+        Assert.False(string.IsNullOrWhiteSpace(sourceFingerprint), "LocalRedis source fingerprint must not be empty.");
+        string fullEvidencePath = Path.GetFullPath(evidencePath);
+        Assert.False(File.Exists(fullEvidencePath), "LocalRedis cutover evidence must be fresh for this run.");
+
         await using ConnectionMultiplexer redis = await ConnectionMultiplexer.ConnectAsync(connectionString);
-        string prefix = $"test:v3-cutover:{Guid.CreateVersion7():N}:";
+        EndPoint endpoint = redis.GetEndPoints()[0];
+        string endpointIdentity = endpoint is DnsEndPoint dns
+            ? $"{dns.Host}:{dns.Port}"
+            : endpoint.ToString() ?? throw new InvalidOperationException("Redis endpoint identity is unavailable.");
+        string prefix = redisPrefixRoot + "cutover:";
         var scope = new PrefixRuntimeKeyScope(prefix);
         IDatabase database = redis.GetDatabase();
-        IServer server = redis.GetServer(redis.GetEndPoints()[0]);
+        IServer server = redis.GetServer(endpoint);
+        Assert.Empty(server.Keys(database.Database, $"{prefix}*"));
         ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
         IUpdateable<SecurityChallenge> update = Substitute.For<IUpdateable<SecurityChallenge>>();
         db.Updateable<SecurityChallenge>().Returns(update);
@@ -240,31 +262,45 @@ public sealed class PerceptionCharacterV3ContractCutoverTests
         RedisKey ipKey = scope.PrefixKey("security:perception-v3-device-ip:ip-a");
         RedisKey oldPoolKey = scope.PrefixKey("security:perception-v3-pool:pool-old:entry:a");
         RedisKey envelopeKey = scope.PrefixKey("fsus:sec:challenge-envelope:envelope:test");
-        await database.StringSetAsync(stateKey, "state");
-        await database.StringSetAsync(activeKey, "active");
-        await database.StringSetAsync(deviceKey, "device");
-        await database.StringSetAsync(ipKey, "ip");
-        await database.StringSetAsync(oldPoolKey, "old");
         SecurityChallengeEnvelopeState envelope = Envelope();
-        await database.HashSetAsync(
-            envelopeKey,
-            "data",
-            SecurityChallengeKindCutoverEnvelopeCodec.Encode(envelope));
+        string manifestSource = "canonical-test-fixture";
+        string poolGeneration = SecurityChallengeProtocolActivationGuardTests.PoolGeneration;
+        string poolManifestDigest = SecurityChallengeProtocolActivationGuardTests.PoolManifestDigest;
+        string? manifestPath = Environment.GetEnvironmentVariable("FSUSBLOG_V3_GATE_POOL_MANIFEST");
+        if (!string.IsNullOrWhiteSpace(manifestPath))
+        {
+            byte[] manifestBytes = await File.ReadAllBytesAsync(manifestPath);
+            using JsonDocument manifest = JsonDocument.Parse(manifestBytes);
+            Assert.Equal(
+                "fsusblog.security.perception-character-v3.pool-manifest.v1",
+                manifest.RootElement.GetProperty("schema").GetString());
+            poolGeneration = manifest.RootElement.GetProperty("generationId").GetString()
+                ?? throw new InvalidOperationException("The release-gate pool generation is missing.");
+            Assert.False(string.IsNullOrWhiteSpace(poolGeneration));
+            Assert.Equal(
+                PerceptionCharacterV3ReleaseTarget.ContractDigest,
+                manifest.RootElement.GetProperty("contractDigest").GetString());
+            Assert.True(
+                manifest.RootElement.TryGetProperty("entries", out JsonElement entries)
+                && entries.ValueKind == JsonValueKind.Array
+                && entries.GetArrayLength() > 0,
+                "The release-gate pool manifest must contain entries.");
+            poolManifestDigest = Convert.ToHexStringLower(SHA256.HashData(manifestBytes));
+            manifestSource = "release-gate-manifest";
+        }
+        RedisKey activePoolKey = scope.PrefixKey(
+            $"security:perception-v3-pool:{poolGeneration}:entry:b");
         try
         {
-            string? manifestPath = Environment.GetEnvironmentVariable("FSUSBLOG_V3_GATE_POOL_MANIFEST");
-            string poolGeneration = SecurityChallengeProtocolActivationGuardTests.PoolGeneration;
-            string poolManifestDigest = SecurityChallengeProtocolActivationGuardTests.PoolManifestDigest;
-            if (!string.IsNullOrWhiteSpace(manifestPath))
-            {
-                using JsonDocument manifest = JsonDocument.Parse(await File.ReadAllBytesAsync(manifestPath));
-                poolGeneration = manifest.RootElement.GetProperty("generationId").GetString()
-                    ?? throw new InvalidOperationException("The release-gate pool generation is missing.");
-                poolManifestDigest = Convert.ToHexStringLower(SHA256.HashData(
-                    await File.ReadAllBytesAsync(manifestPath)));
-            }
-            RedisKey activePoolKey = scope.PrefixKey(
-                $"security:perception-v3-pool:{poolGeneration}:entry:b");
+            await database.StringSetAsync(stateKey, "state");
+            await database.StringSetAsync(activeKey, "active");
+            await database.StringSetAsync(deviceKey, "device");
+            await database.StringSetAsync(ipKey, "ip");
+            await database.StringSetAsync(oldPoolKey, "old");
+            await database.HashSetAsync(
+                envelopeKey,
+                "data",
+                SecurityChallengeKindCutoverEnvelopeCodec.Encode(envelope));
             await database.StringSetAsync(activePoolKey, "active-pool");
             PerceptionCharacterV3CutoverTarget target = SecurityChallengeProtocolActivationGuardTests.Target() with
             {
@@ -318,54 +354,102 @@ public sealed class PerceptionCharacterV3ContractCutoverTests
             Assert.False(await database.KeyExistsAsync(oldPoolKey));
             Assert.True(await database.KeyExistsAsync(activePoolKey));
             RedisValue encoded = await database.HashGetAsync(envelopeKey, "data");
-            Assert.True(SecurityChallengeKindCutoverEnvelopeCodec.TryDecode(
-                (string)encoded!,
-                out SecurityChallengeEnvelopeState? revoked));
+            bool envelopeRevoked = SecurityChallengeKindCutoverEnvelopeCodec.TryDecode(
+                (string)encoded!, out SecurityChallengeEnvelopeState? revoked);
+            Assert.True(envelopeRevoked);
             Assert.Equal(SecurityChallengeEnvelopeStatuses.Revoked, revoked!.Status);
             await update.Received(1).ExecuteCommandAsync();
             await pool.DidNotReceive().LeaseAsync(
                 Arg.Any<PerceptionCharacterV3Representation>(),
                 Arg.Any<CancellationToken>());
 
-            string? evidencePath = Environment.GetEnvironmentVariable("FSUSBLOG_V3_CUTOVER_EVIDENCE_OUT");
-            if (!string.IsNullOrWhiteSpace(evidencePath))
+            var evidence = new
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(evidencePath))!);
-                var evidence = new
+                schema = "fsusblog.security.perception-character-v3-cutover-fixture.v1",
+                testId = "FsusBlog.Server.Tests.Unit.PerceptionCharacterV3ContractCutoverTests.RedisStore_RetiresAllV3NamespacesAndEnvelopeIdempotently",
+                status = "passed",
+                runId,
+                prefixNamespace = prefix,
+                endpoint = endpointIdentity,
+                sourceCommit,
+                sourceFingerprint,
+                releaseTargetFingerprint = PerceptionCharacterV3ReleaseTarget.TargetFingerprint,
+                poolGeneration,
+                poolManifestDigest,
+                manifestSource,
+                namespaceRetirement = new
                 {
-                    schema = "fsusblog.security.perception-character-v3-cutover-fixture.v1",
-                    status = "passed",
-                    releaseTargetFingerprint = PerceptionCharacterV3ReleaseTarget.TargetFingerprint,
-                    poolGeneration,
-                    poolManifestDigest,
-                    first = new
+                    stateKeysRetired = !await database.KeyExistsAsync(stateKey),
+                    activeIdentityKeysRetired = !await database.KeyExistsAsync(activeKey),
+                    deviceKeysRetired = !await database.KeyExistsAsync(deviceKey)
+                        && !await database.KeyExistsAsync(ipKey),
+                    oldPoolGenerationsRevoked = !await database.KeyExistsAsync(oldPoolKey),
+                    activeGenerationRetained = await database.KeyExistsAsync(activePoolKey),
+                    envelopeRevoked
+                },
+                databaseRevoke = new
+                {
+                    commandCount = 1,
+                    rowsRevoked = first.Mutation.ChallengeRowsRevoked
+                },
+                idempotency = new
+                {
+                    repeatedAccepted = repeated.Accepted,
+                    repeatedIdempotent = repeated.Idempotent,
+                    receiptFingerprintStable = first.ReceiptFingerprint == repeated.ReceiptFingerprint,
+                    mutationStable = first.Mutation == repeated.Mutation,
+                    poolLeaseCount = 0
+                },
+                first = new
+                {
+                    accepted = first.Accepted,
+                    idempotent = first.Idempotent,
+                    poolLeaseCount = 0,
+                    receiptFingerprint = first.ReceiptFingerprint,
+                    targetFingerprint = first.TargetFingerprint,
+                    mutation = new
                     {
-                        accepted = first.Accepted,
-                        idempotent = first.Idempotent,
-                        first.ReceiptFingerprint,
-                        first.TargetFingerprint,
-                        poolLeaseCount = 0,
-                        first.Mutation
-                    },
-                    second = new
+                        challengeRowsRevoked = first.Mutation.ChallengeRowsRevoked,
+                        stateKeysRetired = first.Mutation.StateKeysRetired,
+                        activeIdentityKeysRetired = first.Mutation.ActiveIdentityKeysRetired,
+                        deviceKeysRetired = first.Mutation.DeviceKeysRetired,
+                        oldPoolGenerationsRevoked = first.Mutation.OldPoolGenerationsRevoked,
+                        envelopesExamined = first.Mutation.EnvelopesExamined,
+                        envelopesRevoked = first.Mutation.EnvelopesRevoked,
+                        retiredStateDigest = first.Mutation.RetiredStateDigest
+                    }
+                },
+                second = new
+                {
+                    accepted = repeated.Accepted,
+                    idempotent = repeated.Idempotent,
+                    poolLeaseCount = 0,
+                    receiptFingerprint = repeated.ReceiptFingerprint,
+                    targetFingerprint = repeated.TargetFingerprint,
+                    mutation = new
                     {
-                        accepted = repeated.Accepted,
-                        idempotent = repeated.Idempotent,
-                        repeated.ReceiptFingerprint,
-                        repeated.TargetFingerprint,
-                        poolLeaseCount = 0,
-                        repeated.Mutation
-                    },
-                    oldStateConsumable = false,
-                    rollbackRestoresRetiredContract = false
-                };
-                await File.WriteAllTextAsync(
-                    evidencePath,
-                    JsonSerializer.Serialize(evidence, new JsonSerializerOptions
-                    {
-                        WriteIndented = true
-                    }) + Environment.NewLine);
-            }
+                        challengeRowsRevoked = repeated.Mutation.ChallengeRowsRevoked,
+                        stateKeysRetired = repeated.Mutation.StateKeysRetired,
+                        activeIdentityKeysRetired = repeated.Mutation.ActiveIdentityKeysRetired,
+                        deviceKeysRetired = repeated.Mutation.DeviceKeysRetired,
+                        oldPoolGenerationsRevoked = repeated.Mutation.OldPoolGenerationsRevoked,
+                        envelopesExamined = repeated.Mutation.EnvelopesExamined,
+                        envelopesRevoked = repeated.Mutation.EnvelopesRevoked,
+                        retiredStateDigest = repeated.Mutation.RetiredStateDigest
+                    }
+                },
+                oldStateConsumable = false,
+                rollbackRestoresRetiredContract = false
+            };
+            Directory.CreateDirectory(Path.GetDirectoryName(fullEvidencePath)!);
+            string temporaryEvidencePath = fullEvidencePath + "." + Guid.CreateVersion7().ToString("N") + ".tmp";
+            await File.WriteAllTextAsync(
+                temporaryEvidencePath,
+                JsonSerializer.Serialize(evidence, new JsonSerializerOptions
+                {
+                    WriteIndented = true
+                }) + Environment.NewLine);
+            File.Move(temporaryEvidencePath, fullEvidencePath);
         }
         finally
         {
