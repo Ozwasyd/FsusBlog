@@ -181,6 +181,53 @@ export const generatedOutputRepairPassThroughExceptions = Object.freeze([
     })
 ])
 
+// Reviewed #3241 history is an exact, finite exception, not an ancestry waiver.
+// The seal includes ordered parents and regular object/mode entries at every
+// reachable reviewed node. Replays retain each epoch's original tracked tree.
+export const generatedOutputRepairDagReviewedHistories = Object.freeze([
+    Object.freeze({
+        producerId: 'evidence-location-governance',
+        synchronizedRevision: 'e805a72c5171916f761701fc4dbd3116953d4d20',
+        synchronizedMerge: '182ffa102d7c322be9e01e98e2d3ee38554f52b0',
+        reviewedRevision: 'c7084b001a0c220538cbaca8f7305b1f3777493c',
+        historySha256: '5c19bf753b05cceeb66fad8ef35994feb3b3e2ea45b73efa39c8f2eeda81e80a',
+        legacyClosure: Object.freeze([
+            Object.freeze({ path: 'tools/test/evidence-location-contract.mjs', mode: '100644', object: '84def85f972e8e9bc5e137b51847f7f71108c85d' }),
+            Object.freeze({ path: 'tools/test/evidence-location-scanner.mjs', mode: '100644', object: 'c1a9bf9d5faa8c5271d0c14d5274907e0ac52b5a' }),
+            Object.freeze({ path: 'tools/test/generate-evidence-location-governance.mjs', mode: '100644', object: '3db3e70048c2135ebde9c0903078835eaafe10ba' }),
+            Object.freeze({ path: 'tools/test/generate-current-run-evidence-location-acceptance.mjs', mode: '100644', object: 'c65104f6c3cdb0d195196c27f4c9b981bcb7b3d2' })
+        ]),
+        sourceBranches: Object.freeze([
+            Object.freeze({
+                mergeCommit: '1cfc4db8ce0efffc14709884e6e01c4d01491bab',
+                mergedPullRequest: 3217,
+                transitions: Object.freeze(['ddb5af162b1c27aef341e32b748dc0a40ac872f2'])
+            }),
+            Object.freeze({
+                mergeCommit: 'a43d256a50656475ab245db086010b4984227fea',
+                mergedPullRequest: 3114,
+                transitions: Object.freeze([
+                    '15d52e8c3b4b8fbd349164bdef7872058d3506b5',
+                    '23929008e1fda59bd770b12c6b3f618fa3d0838f',
+                    'b15acc5b66a5b15238606f900d39e1447d846ff1',
+                    '97acdd98ed87ba4c77a3be882dd7ec05f7d4e1f8',
+                    'e6f1a2a8e207844dd834fa6e9834e9402d8ea660',
+                    '319225fab0c02c5c126f20c607aaaadf01a22f25',
+                    'c8b25af8eac90089a800f675b67a769461d600ad',
+                    '6bbbc342ea2f852dd14da3961ee5d5c6eca2b413',
+                    '7ff042276bcaa55d1bc935adf3d24d622c91734b',
+                    '60796d0b808586ec08e69be1120f3023b741d64e',
+                    '49845348385a1b2525e21ed7857cc5c2e648980e',
+                    'b18ebb8c3a32bebfcb3f73ca94656b523056c1cb',
+                    '1fb71faf6718b4b1f4bb3201f663b0293995e852',
+                    'f155f8b2e2720420cce4b6bf61a7a7e671fbd866',
+                    '94e4e8ca049eea384540da92b24310eb67973c29'
+                ])
+            })
+        ])
+    })
+]);
+
 export const generatedOutputRepairDags = Object.freeze([
     Object.freeze({
         id: 'evidence-location-governance',
@@ -271,6 +318,7 @@ export const changeContract = Object.freeze({
     generatedOutputRepairProducers,
     generatedOutputRepairPassThroughExceptions,
     generatedOutputRepairDags,
+    generatedOutputRepairDagReviewedHistories,
     trustedPolicyFiles,
     evidenceSchemas: Object.freeze({
         externalNamingExceptions: 'fsusblog.external-naming-exceptions.v1',
