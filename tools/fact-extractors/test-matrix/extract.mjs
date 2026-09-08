@@ -1453,7 +1453,10 @@ export function extract(context)
   {
     return failResult(['runtime-role observation is partial, conflicting, or unsupported'])
   }
-  const replayDirectory = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-runtime-role-replay-'))
+  const replayDirectory = mkdtempSync(path.join(
+    context.repositoryRoot,
+    '.tmp/runtime-role-replay-'
+  ))
   try
   {
     const replayOutput = path.join(replayDirectory, 'runtime-role-observation.json')

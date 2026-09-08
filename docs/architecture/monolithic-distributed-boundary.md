@@ -2,6 +2,8 @@
 
 FsusBlog is **monolithic distributed** (Homogeneous Binary, Heterogeneous Runtime): the repository, build, and deployment always produce one FsusBlog program, with `FsusBlog.Server` as the sole business entry point. Multiple nodes change only which runtime responsibilities each instance performs; content, comments, search, and other modules never become separate business services.
 
+这是一套**单体分布式**边界：仓库、构建和部署始终产出同一套 FsusBlog 程序，`FsusBlog.Server` 是唯一业务入口。跨节点执行通过 remote invocation 的窄 `port / adapter` 边界进入，模块不会固化为独立业务服务。
+
 ## Invariants
 
 - One repository, primary application project, application Dockerfile, and integrated frontend/backend production artifact.
@@ -91,6 +93,15 @@ These issues extend the same application; they do not define fixed service split
 - #113 distributed state control
 - #114 transparent local/remote invocation switching and module-boundary constraints
 - #115 multi-node deployment, observability, and failure governance
+
+对应的分布式运行议题标题为：
+
+- #110 单体分布式支持：同构全能力节点与动态职责调度
+- #111 节点能力注册与集群成员治理
+- #112 动态职责调度与自适应负载均衡
+- #113 分布式状态控制
+- #114 本地 / 远程调用透明切换与模块边界约束
+- #115 多节点部署、观测与故障治理
 
 Capability registration, responsibility scheduling, state coordination, transparent invocation, and failure governance may evolve independently, but all remain subject to one program, one artifact, and one business-entry boundary.
 ## Current execution classes
