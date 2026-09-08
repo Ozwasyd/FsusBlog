@@ -18,6 +18,14 @@ An external scheduler may continue to record actor, model, profile, route, lease
 
 Skill closure includes `SKILL.md`, applicable references, and its deployed contracts/scripts; a root-file-only hash cannot make changed guidance appear unchanged. Current task receipts must be invalidated when their consumed closure changes.
 
+## Migration and rollback validation limits
+
+Deploy a domain-policy migration as one closure: the policy bytes, four v2 receipt schemas, the checker, and the consumed Skill references must move together. The `domainPolicyDigest` binds each receipt to the exact deployed policy bytes. A rollback restores the complete previous closure and its exact policy digest; v2 receipts from the newer closure are not relabeled or re-signed, and the external scheduler must reissue any evidence it still needs under the restored digest.
+
+The `ui-orchestration.mjs` CLI is intentionally bounded. It reads exactly four schema files, checks their `additionalProperties` and required `schema` declarations, checks the external-orchestration policy boundary, validates one in-memory contract fixture, and executes the 18 permanent negative controls. It accepts no receipt-file argument. The exported `validateBlogUiBundle` additionally checks the exact receipt shapes, policy and baseline identities, candidate bindings, independent acceptance, and absence of scheduler-owned fields. These checks do not validate or execute an external scheduler, qualify a provider/model/route/runtime, inspect a real FsusUI checkout, or certify rendered artifacts or remote CI.
+
+The current baseline also has one unrelated document-authority limitation: `node --test tests/tools/public-design-document-authority.test.mjs` fails its `shell, composition, reading typography and page title rules have distinct authorities` assertion because it finds no `docs/design/page-title-scale.md` authority for `唯一 page-title authority`. The static `check-article-title-authority.mjs` probe and the focused `articleTitleAuthority.test.ts` Vitest test pass; this policy change does not alter that page-title contract.
+
 ## Verify
 
 After a reviewed domain-policy change, run:

@@ -492,6 +492,54 @@ public sealed record DistributedInvalidationLocalApplyResult(
     long? RebuildGeneration,
     long? AotGeneration)
 {
+    public int ResolvedTargetCount
+    {
+        get;
+        init;
+    }
+
+    public int L1InvalidatedPolicyCount
+    {
+        get;
+        init;
+    }
+
+    public int L1InvalidatedEntryCount
+    {
+        get;
+        init;
+    }
+
+    public long L1InvalidatedBytes
+    {
+        get;
+        init;
+    }
+
+    public int AotRouteCount
+    {
+        get;
+        init;
+    }
+
+    public int HotReadFragmentCount
+    {
+        get;
+        init;
+    }
+
+    public bool FullReconcile
+    {
+        get;
+        init;
+    }
+
+    public string? FullReconcileReason
+    {
+        get;
+        init;
+    }
+
     public bool IsApplied
         => MemoryInvalidated
             && AotMemoryInvalidated
@@ -501,7 +549,8 @@ public sealed record DistributedInvalidationLocalApplyResult(
                 or DistributedInvalidationRebuildObligationStatus.Queued)
             && LocalApplyStatus == DistributedInvalidationLocalApplyStatus.Applied
             && RebuildGeneration is > 0
-            && AotGeneration is > 0
+            && AotGeneration is >= 0
+            && !FullReconcile
             && (RebuildObligationStatus != DistributedInvalidationRebuildObligationStatus.Durable
                 || !string.IsNullOrWhiteSpace(RebuildObligationId));
 
@@ -510,7 +559,7 @@ public sealed record DistributedInvalidationLocalApplyResult(
             && AotMemoryInvalidated
             && AotGenerationMarked
             && HotSnapshotRetired
-            && AotGeneration is > 0;
+            && AotGeneration is >= 0;
 
     public bool HasRebuildObligation
         => (RebuildObligationStatus is DistributedInvalidationRebuildObligationStatus.Durable

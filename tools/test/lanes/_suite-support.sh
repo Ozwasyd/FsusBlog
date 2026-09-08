@@ -1061,7 +1061,7 @@ RunBackendUnitLane() {
 }
 
 RunDistributedContractFastOnly() {
-    local filter='FullyQualifiedName~DistributedContractFastTests|FullyQualifiedName~DistributedInvalidationBusTests|FullyQualifiedName~PublicAotBackfillLeaseTests|FullyQualifiedName~ArticleMutationProjectionCheckpointTests|FullyQualifiedName~ArticleMutationOutboxFailurePropagationTests'
+    local filter='FullyQualifiedName~DistributedContractFastTests|FullyQualifiedName~DistributedInvalidationBusTests|FullyQualifiedName~DistributedInvalidationTargetResolverTests|FullyQualifiedName~DistributedInvalidationLocalApplierTests|FullyQualifiedName~PublicAotBackfillLeaseTests|FullyQualifiedName~ArticleMutationProjectionCheckpointTests|FullyQualifiedName~ArticleMutationOutboxFailurePropagationTests'
     FSUSBLOG_BACKEND_TEST_CONFIGURATION=Release \
         RunBackendDotnetFilterOnly "$filter" distributed-contract-fast
     WriteBackendSplitSummary distributed-contract-fast runtime-mode-lease-checkpoint-outbox-invalidation-bus

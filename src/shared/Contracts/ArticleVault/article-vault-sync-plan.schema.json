@@ -1,0 +1,269 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fsusblog.local/contracts/article-vault-sync-plan.schema.json",
+  "title": "FsusBlog immutable Article Vault sync plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schemaVersion",
+    "siteIdentity",
+    "vaultIdentity",
+    "deviceIdentity",
+    "direction",
+    "createdAtUnixMs",
+    "expiresAtUnixMs",
+    "cancelPolicy",
+    "cancellationRequested",
+    "status",
+    "rootManifestSha256",
+    "groups",
+    "conflicts",
+    "operationOrder",
+    "idempotencyKey",
+    "planCandidateIdentity",
+    "resultCandidateIdentity",
+    "contentSha256"
+  ],
+  "properties": {
+    "schema": { "const": "fsusblog.article-vault.sync-plan.v1" },
+    "schemaVersion": { "const": 1 },
+    "siteIdentity": { "$ref": "#/$defs/identity" },
+    "vaultIdentity": { "$ref": "#/$defs/identity" },
+    "deviceIdentity": { "$ref": "#/$defs/identity" },
+    "direction": { "enum": ["pull", "push", "sync"] },
+    "createdAtUnixMs": { "type": "integer", "minimum": 0 },
+    "expiresAtUnixMs": { "type": "integer", "minimum": 1 },
+    "cancelPolicy": { "const": "before-execution-only" },
+    "cancellationRequested": { "type": "boolean" },
+    "status": { "enum": ["ready", "no-op", "blocked", "cancelled"] },
+    "rootManifestSha256": { "$ref": "#/$defs/sha256" },
+    "groups": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/group" }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/conflict" }
+    },
+    "operationOrder": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/identity" }
+    },
+    "idempotencyKey": { "$ref": "#/$defs/sha256" },
+    "planCandidateIdentity": { "$ref": "#/$defs/identity" },
+    "resultCandidateIdentity": { "$ref": "#/$defs/identity" },
+    "contentSha256": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "identity": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128,
+      "pattern": "^[^\\s/\\\\]+$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "nullableSha256": {
+      "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+    },
+    "nullableIdentity": {
+      "oneOf": [{ "$ref": "#/$defs/identity" }, { "type": "null" }]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "byteLength",
+        "hasUtf8Bom",
+        "newlineStyle",
+        "trailingWhitespaceLineCount",
+        "hasFinalNewline"
+      ],
+      "properties": {
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "byteLength": { "type": "integer", "minimum": 0 },
+        "hasUtf8Bom": { "type": "boolean" },
+        "newlineStyle": { "enum": ["none", "lf", "cr-lf", "mixed"] },
+        "trailingWhitespaceLineCount": { "type": "integer", "minimum": 0 },
+        "hasFinalNewline": { "type": "boolean" }
+      }
+    },
+    "coordinate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "schemaVersion",
+        "present",
+        "deleted",
+        "serverRevision",
+        "source",
+        "metadataManifestSha256",
+        "dependencySha256",
+        "lifecycle",
+        "permissionSha256",
+        "contentSha256"
+      ],
+      "properties": {
+        "schema": { "const": "fsusblog.article-vault.coordinate.v1" },
+        "schemaVersion": { "const": 1 },
+        "present": { "type": "boolean" },
+        "deleted": { "type": "boolean" },
+        "serverRevision": {
+          "oneOf": [{ "type": "integer", "minimum": 1 }, { "type": "null" }]
+        },
+        "source": { "oneOf": [{ "$ref": "#/$defs/source" }, { "type": "null" }] },
+        "metadataManifestSha256": { "$ref": "#/$defs/nullableSha256" },
+        "dependencySha256": { "$ref": "#/$defs/nullableSha256" },
+        "lifecycle": {
+          "oneOf": [
+            { "enum": ["draft", "scheduled", "published", "archived", "deleted"] },
+            { "type": "null" }
+          ]
+        },
+        "permissionSha256": { "$ref": "#/$defs/nullableSha256" },
+        "contentSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prerequisitePortableArticleIdentity", "dependentPortableArticleIdentity"],
+      "properties": {
+        "prerequisitePortableArticleIdentity": { "$ref": "#/$defs/identity" },
+        "dependentPortableArticleIdentity": { "$ref": "#/$defs/identity" }
+      }
+    },
+    "preconditions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "articleManifestSha256",
+        "serverObservationSha256",
+        "expectedServerRevision",
+        "expectedPermissionSha256",
+        "expectedLifecycle"
+      ],
+      "properties": {
+        "articleManifestSha256": { "$ref": "#/$defs/sha256" },
+        "serverObservationSha256": { "$ref": "#/$defs/sha256" },
+        "expectedServerRevision": {
+          "oneOf": [{ "type": "integer", "minimum": 1 }, { "type": "null" }]
+        },
+        "expectedPermissionSha256": { "$ref": "#/$defs/nullableSha256" },
+        "expectedLifecycle": {
+          "oneOf": [
+            { "enum": ["draft", "scheduled", "published", "archived", "deleted"] },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operationIdentity",
+        "sequence",
+        "groupIdentity",
+        "portableArticleIdentity",
+        "serverArticleIdentity",
+        "derivedState",
+        "decision",
+        "base",
+        "local",
+        "server",
+        "preconditions",
+        "dependsOnOperationIdentities"
+      ],
+      "properties": {
+        "operationIdentity": { "$ref": "#/$defs/identity" },
+        "sequence": { "type": "integer", "minimum": 0 },
+        "groupIdentity": { "$ref": "#/$defs/identity" },
+        "portableArticleIdentity": { "$ref": "#/$defs/identity" },
+        "serverArticleIdentity": { "$ref": "#/$defs/nullableIdentity" },
+        "derivedState": {
+          "enum": [
+            "untracked",
+            "clean",
+            "local-modified",
+            "server-modified",
+            "both-modified",
+            "local-created",
+            "server-created",
+            "local-deleted",
+            "server-deleted",
+            "conflicted",
+            "applying",
+            "synced",
+            "blocked"
+          ]
+        },
+        "decision": {
+          "enum": [
+            "no-op",
+            "pull-create",
+            "pull-update",
+            "pull-delete",
+            "push-create",
+            "push-update",
+            "push-delete",
+            "blocked"
+          ]
+        },
+        "base": { "$ref": "#/$defs/coordinate" },
+        "local": { "$ref": "#/$defs/coordinate" },
+        "server": { "$ref": "#/$defs/coordinate" },
+        "preconditions": { "$ref": "#/$defs/preconditions" },
+        "dependsOnOperationIdentities": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/identity" }
+        }
+      }
+    },
+    "group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "groupIdentity",
+        "allOrNothing",
+        "portableArticleIdentities",
+        "dependencies",
+        "items"
+      ],
+      "properties": {
+        "groupIdentity": { "$ref": "#/$defs/identity" },
+        "allOrNothing": { "const": true },
+        "portableArticleIdentities": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/identity" }
+        },
+        "dependencies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/dependency" }
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/item" }
+        }
+      }
+    },
+    "conflict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["groupIdentity", "portableArticleIdentity", "reasonCode"],
+      "properties": {
+        "groupIdentity": { "$ref": "#/$defs/identity" },
+        "portableArticleIdentity": { "$ref": "#/$defs/identity" },
+        "reasonCode": { "type": "string", "pattern": "^[a-z0-9_-]{3,128}$" }
+      }
+    }
+  }
+}

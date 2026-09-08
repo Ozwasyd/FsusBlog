@@ -322,6 +322,11 @@ public sealed record RuntimeHealthSnapshot(
         get; init;
     }
 
+    public BoundedQueueDrainHealthCheck? BoundedQueueDrain
+    {
+        get; init;
+    }
+
     public DbConcurrencyGateDiagnostics? DbGateClasses
     {
         get; init;
@@ -342,7 +347,34 @@ public sealed record RuntimeHealthSnapshot(
 
 public sealed record RequiredQueueHealthSnapshot(
     string Status,
-    IReadOnlyDictionary<string, RequiredQueueHealthEntry> Queues) : IProductionHealthCheck;
+    IReadOnlyDictionary<string, RequiredQueueHealthEntry> Queues) : IProductionHealthCheck
+{
+    public string? RunId
+    {
+        get; init;
+    }
+
+    public string? ContentDigest
+    {
+        get; init;
+    }
+
+    public string? QualificationStatus
+    {
+        get; init;
+    }
+
+    public IReadOnlyList<string> Blockers { get; init; } = [];
+}
+
+public sealed record BoundedQueueDrainHealthCheck(
+    string Status,
+    string RunId,
+    string ContentDigest,
+    bool Complete,
+    string QualificationStatus,
+    IReadOnlyList<string> Blockers,
+    string? Error = null) : IProductionHealthCheck;
 
 public sealed record RequiredQueueHealthEntry(
     string QueueId,
@@ -611,7 +643,7 @@ public sealed class ProductionReadinessProbe(
             ?.CreateSnapshot();
         PublicHotReadStore? publicHotReadStore = serviceProvider.GetService<PublicHotReadStore>();
         AuditLogRuntimeState? auditLogRuntime = serviceProvider.GetService<AuditLogRuntimeState>();
-        RequiredQueueHealthSnapshot requiredQueues = CaptureRequiredQueueHealth();
+        (RequiredQueueHealthSnapshot requiredQueues, BoundedQueueDrainHealthCheck boundedQueueDrain) = CaptureBoundedQueueAuthority();
         PublicHotArtifactUpdateQueue? publicHotQueue = serviceProvider.GetService<PublicHotArtifactUpdateQueue>();
         Task<PublicHotReadRuntimeSnapshot?> publicHotReadTask = Task.Run(
             () => publicHotReadStore?.CreateRuntimeSnapshot(),
@@ -637,6 +669,7 @@ public sealed class ProductionReadinessProbe(
             && (publicHotQuiescence?.Drained ?? true)
             && (commentMutationOutbox?.PoisonCount ?? 0) == 0
             && string.Equals(requiredQueues.Status, "ok", StringComparison.Ordinal)
+            && string.Equals(boundedQueueDrain.Status, "ok", StringComparison.Ordinal)
             ? "ok"
             : "degraded";
 
@@ -654,37 +687,70 @@ public sealed class ProductionReadinessProbe(
             PublicArticleProjection = publicArticleProjection,
             CommentMutationOutbox = commentMutationOutbox,
             PublicHotQuiescence = publicHotQuiescence,
-            RequiredQueues = requiredQueues
+            RequiredQueues = requiredQueues,
+            BoundedQueueDrain = boundedQueueDrain
         };
     }
 
-    private RequiredQueueHealthSnapshot CaptureRequiredQueueHealth()
+    private (RequiredQueueHealthSnapshot Required, BoundedQueueDrainHealthCheck Drain) CaptureBoundedQueueAuthority()
     {
-        var queues = new Dictionary<string, RequiredQueueHealthEntry>(StringComparer.Ordinal);
-        if (serviceProvider.GetService<AuditLogChannel>() is { } audit)
+        if (serviceProvider.GetService<BoundedQueueDrainAggregator>() is not { } aggregator)
         {
-            AuditLogChannelSnapshot s = audit.Snapshot();
-            queues["audit-log"] = new("audit-log", s.QueuedCount, s.InFlightCount, s.DurablePendingCount, s.CommittedCount, s.DurableAcceptedCount, s.RequeuedCount, s.TerminalFailureCount, s.LastDisposition, s.LastItemReference, s.LastFailureReason);
-        }
-        if (serviceProvider.GetService<AdminAuditLogChannel>() is { } admin)
-        {
-            AdminAuditLogChannelSnapshot s = admin.Snapshot();
-            queues["admin-audit-log"] = new("admin-audit-log", s.QueuedCount, s.InFlightCount, s.DurablePendingCount, s.CommittedCount, s.DurableAcceptedCount, s.RequeuedCount, s.TerminalFailureCount, s.LastDisposition, s.LastItemReference, s.LastFailureReason);
-        }
-        if (serviceProvider.GetService<SecurityRiskEventWriteQueue>() is { } risk)
-        {
-            SecurityRiskEventWriteQueueSnapshot s = risk.Snapshot();
-            queues["security-risk-event"] = new("security-risk-event", s.QueuedCount, s.InFlightCount, s.DurablePendingCount, s.CommittedCount, s.DurableAcceptedCount, s.RequeuedCount, s.TerminalFailureCount, s.LastDisposition, s.LastItemReference, s.LastFailureReason);
-        }
-        if (serviceProvider.GetService<ChallengeV2AuditEventQueue>() is { } challenge)
-        {
-            ChallengeV2AuditEventQueueSnapshot s = challenge.Snapshot();
-            queues["challenge-v2-event"] = new("challenge-v2-event", s.NormalQueuedCount + s.HighValueQueuedCount, s.InFlightCount, s.DurablePendingCount, s.CommittedCount, s.DurableAcceptedCount, s.RequeuedCount, s.TerminalFailureCount, s.LastDisposition, s.LastItemReference, s.LastFailureReason);
+            var failed = new BoundedQueueDrainHealthCheck(
+                "failed",
+                string.Empty,
+                string.Empty,
+                Complete: false,
+                "failed",
+                ["observer-unavailable"],
+                "observer_unavailable");
+            return (new RequiredQueueHealthSnapshot("failed", new Dictionary<string, RequiredQueueHealthEntry>(StringComparer.Ordinal))
+            {
+                QualificationStatus = "failed",
+                Blockers = failed.Blockers
+            }, failed);
         }
 
-        return new RequiredQueueHealthSnapshot(
-            queues.Values.Any(static item => item.TerminalFailed > 0) ? "failed" : "ok",
-            queues);
+        BoundedQueueDrainAggregateReceipt aggregate = aggregator.Observe();
+        var queues = new Dictionary<string, RequiredQueueHealthEntry>(StringComparer.Ordinal);
+        foreach (BoundedQueueParticipantReceipt participant in aggregate.Participants)
+        {
+            if (!BoundedQueueDrainEvaluation.IsBlockingDeliveryClass(participant.DeliveryClass)
+                && participant.TerminalFailures > 0
+                && BoundedQueueDrainEvaluation.AllowsTerminalFailures(participant.DeliveryClass, participant.DropProof))
+            {
+                continue;
+            }
+
+            queues[participant.QueueId] = new RequiredQueueHealthEntry(
+                participant.QueueId,
+                participant.Queued,
+                participant.InFlight,
+                participant.DurablePending,
+                Committed: 0,
+                DurableAccepted: 0,
+                Requeued: 0,
+                participant.TerminalFailures,
+                participant.CommitPostcondition.ToString(),
+                participant.QueueId,
+                participant.ErrorCode);
+        }
+
+        var drain = new BoundedQueueDrainHealthCheck(
+            aggregate.HealthStatus,
+            aggregate.RunId,
+            aggregate.ContentDigest,
+            aggregate.Complete,
+            aggregate.QualificationStatus,
+            aggregate.Blockers,
+            aggregate.ErrorCode);
+        return (new RequiredQueueHealthSnapshot(aggregate.HealthStatus, queues)
+        {
+            RunId = aggregate.RunId,
+            ContentDigest = aggregate.ContentDigest,
+            QualificationStatus = aggregate.QualificationStatus,
+            Blockers = aggregate.Blockers
+        }, drain);
     }
 
     private static async Task<PublicHotQuiescenceResult?> ReadPublicHotQuiescenceAsync(

@@ -358,6 +358,14 @@ public sealed class DistributedInvalidationBus(
                 {
                     runtimeState.RecordRebuildObligated(invalidation, result);
                 }
+                if (result.FullReconcile)
+                {
+                    await WithLedgerAsync(ledger => ledger.RecordFullReconcileObligationAsync(
+                        invalidation.RuntimeScope,
+                        options.NodeId,
+                        result.FullReconcileReason ?? "local-target-resolution-failed",
+                        cancellationToken)).ConfigureAwait(false);
+                }
                 if (result.LocalApplyStatus == DistributedInvalidationLocalApplyStatus.FailedTerminal)
                 {
                     throw new DistributedInvalidationLocalApplyTerminalException();

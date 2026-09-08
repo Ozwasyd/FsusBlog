@@ -2474,7 +2474,8 @@
         ".github/workflows/production-image-verification.yml",
         ".github/workflows/quality-gate.yml",
         ".github/workflows/release-evidence-storage.yml",
-        ".github/workflows/scorecard.yml"
+        ".github/workflows/scorecard.yml",
+        ".github/workflows/fsusui-release-train.yml"
       ],
       "versioning": "semver",
       "group": "github-actions",
@@ -2558,7 +2559,8 @@
         ".github/workflows/monthly-ip-anonymization-scan.yml",
         ".github/workflows/physical-execution-platforms.yml",
         ".github/workflows/production-image-verification.yml",
-        ".github/workflows/quality-gate.yml"
+        ".github/workflows/quality-gate.yml",
+        ".github/workflows/fsusui-release-train.yml"
       ],
       "versioning": "semver",
       "group": "github-actions",
@@ -2643,7 +2645,8 @@
         ".github/workflows/daily-operations-checks.yml",
         ".github/workflows/monthly-ip-anonymization-scan.yml",
         ".github/workflows/production-image-verification.yml",
-        ".github/workflows/quality-gate.yml"
+        ".github/workflows/quality-gate.yml",
+        ".github/workflows/fsusui-release-train.yml"
       ],
       "versioning": "node",
       "group": "container-toolchain",

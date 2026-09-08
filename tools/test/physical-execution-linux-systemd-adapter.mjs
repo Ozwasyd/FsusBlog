@@ -321,6 +321,42 @@ function writePrivateJsonFile(controlRoot, name, value)
     }
 }
 
+function createControlRoot({ env, linuxReadWritePaths })
+{
+    const configured = String(env.FSUSBLOG_TOOL_CACHE ?? '').trim();
+    if (linuxReadWritePaths.length === 0)
+    {
+        return fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-physical-systemd-'));
+    }
+    if (!configured)
+    {
+        throw new Error(
+            'physical execution systemd control carrier requires the declared tool-cache root'
+        );
+    }
+
+    const toolCache = path.resolve(configured);
+    let realToolCache;
+    try
+    {
+        realToolCache = fs.realpathSync(toolCache);
+    }
+    catch (error)
+    {
+        throw new Error(
+            'physical execution systemd control carrier must use an existing declared tool-cache root',
+            { cause: error }
+        );
+    }
+    if (!linuxReadWritePaths.includes(realToolCache))
+    {
+        throw new Error(
+            'physical execution systemd control carrier is not included in declared read-write paths'
+        );
+    }
+    return fs.mkdtempSync(path.join(realToolCache, 'physical-systemd-'));
+}
+
 async function observeStableEmpty({
     unitName,
     controlGroup,
@@ -407,7 +443,10 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
             const { privateKey, publicKey } = generateKeyPairSync('ed25519');
             let python;
             const unitName = `fsusblog-physical-${authorityId.replaceAll('-', '')}`;
-            const controlRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-physical-systemd-'));
+            const controlRoot = createControlRoot({
+                env,
+                linuxReadWritePaths
+            });
             const readyFile = path.join(controlRoot, 'ready');
             const startFile = path.join(controlRoot, 'start');
             const childFile = path.join(controlRoot, 'child.json');

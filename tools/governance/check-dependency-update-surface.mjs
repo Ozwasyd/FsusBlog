@@ -5,6 +5,10 @@ import path from 'node:path'
 import process from 'node:process'
 import { execFileSync } from 'node:child_process'
 import { validate as validateCatalogAndConfig } from './dependency-update-surface-policy.mjs'
+import {
+    FSUSUI_PACKAGE,
+    FSUSUI_RELEASE_TRAIN_MANAGER
+} from '../dependencies/fsusui-manager-ownership.mjs'
 
 const args = process.argv.slice(2)
 const valueAfter = flag => {
@@ -118,28 +122,47 @@ function discoverDockerComposeFields(candidateConfig) {
     return result
 }
 
-function discoverDelegatedFields() {
+function discoverDelegatedFields(candidateCatalog = catalog) {
+    const result = []
     const file = 'config/testing/fsusui-baseline.json'
-    if (!trackedFiles.includes(file)) return []
-    const source = fs.readFileSync(path.join(root, file), 'utf8')
-    const match = /"commit"\s*:\s*"(?<currentDigest>[0-9a-f]{40})"/du.exec(source)
-    if (!match?.indices?.groups?.currentDigest) return []
-    return [{
-        manager: 'delegated',
-        customManager: 'fsusui-release-train',
-        packageName: 'https://github.com/Ozwasyd/FsusUI.git',
-        file,
-        start: match.indices.groups.currentDigest[0],
-        end: match.indices.groups.currentDigest[1]
-    }]
+    if (trackedFiles.includes(file)) {
+        const source = fs.readFileSync(path.join(root, file), 'utf8')
+        const match = /"commit"\s*:\s*"(?<currentDigest>[0-9a-f]{40})"/du.exec(source)
+        if (match?.indices?.groups?.currentDigest) {
+            result.push({
+                manager: 'delegated',
+                customManager: FSUSUI_RELEASE_TRAIN_MANAGER,
+                packageName: 'https://github.com/Ozwasyd/FsusUI.git',
+                file,
+                start: match.indices.groups.currentDigest[0],
+                end: match.indices.groups.currentDigest[1]
+            })
+        }
+    }
+    for (const item of (candidateCatalog.items ?? []).filter(candidate => candidate.manager === 'delegated'
+        && candidate.packageName === FSUSUI_PACKAGE
+        && candidate.customManager === FSUSUI_RELEASE_TRAIN_MANAGER)) {
+        for (const targetFile of item.files ?? []) {
+            if (!trackedFiles.includes(targetFile)) continue
+            result.push({
+                manager: 'delegated',
+                customManager: FSUSUI_RELEASE_TRAIN_MANAGER,
+                packageName: FSUSUI_PACKAGE,
+                file: targetFile,
+                start: 0,
+                end: fs.statSync(path.join(root, targetFile)).size
+            })
+        }
+    }
+    return result
 }
 
-function discoverExternalFields(candidateConfig) {
+function discoverExternalFields(candidateConfig, candidateCatalog = catalog) {
     return [
         ...discoverDockerfileFields(),
         ...discoverDockerComposeFields(candidateConfig),
         ...discoverCustomFields(candidateConfig),
-        ...discoverDelegatedFields()
+        ...discoverDelegatedFields(candidateCatalog)
     ]
 }
 
@@ -170,9 +193,13 @@ function discoverNpmOverrides(overrides, file, pathTokens = ['overrides'], inher
     return result
 }
 
-function discoverPackages() {
+function discoverPackages(candidateCatalog = catalog) {
     const result = []
-    const excluded = new Set(catalog.exclusions.map(item => item.path))
+    const excluded = new Set(candidateCatalog.exclusions.map(item => item.path))
+    const delegatedPackageFiles = new Set((candidateCatalog.items ?? [])
+        .filter(item => item.manager === 'delegated' && item.packageName === FSUSUI_PACKAGE)
+        .flatMap(item => item.files ?? [])
+        .filter(file => file.endsWith('package.json')))
     for (const file of trackedFiles.filter(item => item.endsWith('package.json'))) {
         if (excluded.has(file)) continue
         const manifest = readJson(file)
@@ -181,7 +208,13 @@ function discoverPackages() {
         }
         for (const section of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']) {
             for (const packageName of Object.keys(manifest[section] ?? {})) {
-                result.push({ manager: 'npm', packageName, file, fieldPath: `/${section}/${pointerToken(packageName)}` })
+                const manager = packageName === FSUSUI_PACKAGE && delegatedPackageFiles.has(file) ? 'delegated' : 'npm'
+                result.push({
+                    manager,
+                    packageName,
+                    file,
+                    fieldPath: `/${section}/${pointerToken(packageName)}`
+                })
             }
         }
         result.push(...discoverNpmOverrides(manifest.overrides, file))
@@ -209,7 +242,7 @@ function discoverPackages() {
 const validate = (candidateCatalog, candidateConfig) => validateCatalogAndConfig(candidateCatalog, candidateConfig, {
     root,
     trackedFiles,
-    discoverPackages,
+    discoverPackages: (catalogForDiscovery) => discoverPackages(catalogForDiscovery),
     discoverExternalFields
 })
 
