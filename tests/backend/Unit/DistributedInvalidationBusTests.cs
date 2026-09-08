@@ -1,8 +1,10 @@
 using System.Collections.Concurrent;
+using System.Collections.Frozen;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading.Channels;
 
+using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.PublicAot;
@@ -469,11 +471,29 @@ public sealed class DistributedInvalidationBusTests
     }
 
     [Fact]
-    public async Task LocalApplier_InvalidatesRealL1AotAndPublicHotReadState()
+    public async Task LocalApplier_InvalidatesOnlyResolvedArticleTargets()
     {
         var localCache = new CacheLocalStore(
             new MemoryCache(new MemoryCacheOptions()),
             TimeProvider.System);
+        var policies = new CachePolicyRegistry();
+        Assert.True(policies.TryGet(CachePolicyId.ArticleDetail, out CachePolicy articlePolicy));
+        Assert.True(policies.TryGet(CachePolicyId.SystemSeo, out CachePolicy seoPolicy));
+        localCache.Set(
+            articlePolicy,
+            CacheL1Key.ForString("default", CachePolicyId.ArticleDetail, "42"),
+            articlePolicy.BuildKey("42"),
+            [1]);
+        localCache.Set(
+            articlePolicy,
+            CacheL1Key.ForString("default", CachePolicyId.ArticleDetail, "7"),
+            articlePolicy.BuildKey("7"),
+            [2]);
+        localCache.Set(
+            seoPolicy,
+            CacheL1Key.ForString("default", CachePolicyId.SystemSeo, "main"),
+            seoPolicy.BuildKey("main"),
+            [3]);
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object>()).Returns(Substitute.For<IDatabase>());
         var environment = Substitute.For<IWebHostEnvironment>();
@@ -489,10 +509,31 @@ public sealed class DistributedInvalidationBusTests
             new InMemoryPublicAotInvalidationGenerationAuthority();
         var tracker = new PublicAotInvalidationTracker(generationAuthority);
         var hotRead = new PublicHotReadStore();
+        var encoder = new AedsEncoder();
+        PublicBinaryArtifact article42 = new(
+            encoder.Encode(AedsFrameType.ArticleDetail, [42]),
+            "\"42\"",
+            "public,max-age=60",
+            1,
+            AedsFrameType.ArticleDetail);
+        PublicBinaryArtifact article7 = new(
+            encoder.Encode(AedsFrameType.ArticleDetail, [7]),
+            "\"7\"",
+            "public,max-age=60",
+            1,
+            AedsFrameType.ArticleDetail);
+        hotRead.Publish(new PublicHotReadSnapshot(
+            1,
+            new Dictionary<int, PublicBinaryArtifact> { [42] = article42, [7] = article7 }.ToFrozenDictionary(),
+            FrozenDictionary<PublicListKey, PublicBinaryArtifact>.Empty,
+            default,
+            default,
+            FrozenDictionary<string, PublicHtmlArtifact>.Empty,
+            PublicHotReadPublicationEvidence.CreateVerified(1, DateTimeOffset.UtcNow)));
         var deliveryState = new InMemoryPublicHotArtifactDeliveryStateStore();
         var queue = new PublicHotArtifactUpdateQueue(Options.Create(new PublicHotReadOptions
         {
-            UpdateQueueCapacity = 1
+            UpdateQueueCapacity = 8
         }), deliveryState, deliveryState);
         var cacheRuntime = new CacheInvalidationRuntimeState();
         var applier = new DistributedInvalidationLocalApplier(
@@ -506,33 +547,28 @@ public sealed class DistributedInvalidationBusTests
             cacheRuntime,
             NullLogger<DistributedInvalidationLocalApplier>.Instance);
 
-        await queue.EnqueueAsync(
-            PublicHotArtifactDeliveryClass.FullRebuildMarker,
-            null,
-            "pre-fill-durable-marker");
         DistributedInvalidationEvent invalidation =
             CreateEvent("node-a", "real-local-state");
         DistributedInvalidationLocalApplyResult? result =
             await applier.ApplyAsync(invalidation);
 
-        Assert.Equal(1, localCache.DistributedInvalidationGenerationForTests);
-        Assert.Equal(1, publicAotCache.DistributedMemoryInvalidationGenerationForTests);
-        Assert.Equal(1, hotRead.DistributedInvalidationGenerationForTests);
-        Assert.Equal(1, tracker.Snapshot().CurrentVersion);
+        Assert.False(localCache.TryGet(CacheL1Key.ForString("default", CachePolicyId.ArticleDetail, "42"), out _));
+        Assert.True(localCache.TryGet(CacheL1Key.ForString("default", CachePolicyId.ArticleDetail, "7"), out _));
+        Assert.True(localCache.TryGet(CacheL1Key.ForString("default", CachePolicyId.SystemSeo, "main"), out _));
+        Assert.True(hotRead.IsReady);
+        Assert.False(hotRead.Current.TryGetArticle(42, out _));
+        Assert.True(hotRead.Current.TryGetArticle(7, out _));
+        Assert.NotNull(result);
+        Assert.True(result.IsApplied);
+        Assert.False(result.FullReconcile);
+        Assert.True(result.RebuildGeneration > 0);
+        Assert.True(result.AotGeneration >= 0);
+        Assert.Equal("distributed:article_mutation", cacheRuntime.Snapshot().LastKind);
+        Assert.Contains("source:node-a", cacheRuntime.Snapshot().LastDetail, StringComparison.Ordinal);
+        Assert.Contains("fullReconcile:false", cacheRuntime.Snapshot().LastDetail, StringComparison.Ordinal);
         Assert.Equal(
             invalidation.EventId,
             generationAuthority.Load().LastMutationId);
-        Assert.False(hotRead.IsReady);
-        Assert.Equal(1, queue.QueuedCount);
-        Assert.NotNull(result);
-        Assert.True(result.IsApplied);
-        Assert.Equal(DistributedInvalidationRebuildObligationStatus.Durable, result.RebuildObligationStatus);
-        Assert.False(string.IsNullOrWhiteSpace(result.RebuildObligationId));
-        Assert.True(result.RebuildGeneration > 0);
-        Assert.Equal(1, result.AotGeneration);
-        Assert.Equal("distributed:article_mutation", cacheRuntime.Snapshot().LastKind);
-        Assert.Contains("source:node-a", cacheRuntime.Snapshot().LastDetail, StringComparison.Ordinal);
-        Assert.Contains("publicAotGeneration:1", cacheRuntime.Snapshot().LastDetail, StringComparison.Ordinal);
     }
 
     private static DistributedInvalidationBus CreateBus(
