@@ -118,7 +118,7 @@ claimType: binary-relation
 factPath: facts.article.scheduled.preDueCurrent
 render: relation-subject-predicate-object
 -->
-Before due time, a scheduled transition preserves the old current publication coordinate when the article already has a current publication and `pendingPublicationAt` is still in the future.
+scheduled transition before due preserves old current publication coordinate when an article already has a current publication and pendingPublicationAt is still in the future.
 
 <!-- fsus-doc-claim
 claimId: article-comment-lifecycle-outbox.scheduled-due
