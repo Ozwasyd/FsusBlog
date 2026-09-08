@@ -2388,7 +2388,23 @@
         },
         {
             "producerId": "comment-moderation",
-            "source": "tests/browser-contract/default-fixture-provider.mjs"
+            "source": "src/backend/Modules/Endpoints/LocalCommentFixtureEndpoints.cs"
+        },
+        {
+            "producerId": "comment-moderation",
+            "source": "src/backend/Services/Fixtures/CommentFixtureSeeder.cs"
+        },
+        {
+            "producerId": "comment-moderation",
+            "source": "src/backend/Services/Fixtures/CommentModerationFixturePort.cs"
+        },
+        {
+            "producerId": "comment-moderation",
+            "source": "src/backend/Services/Fixtures/CommentThreadFixturePort.cs"
+        },
+        {
+            "producerId": "comment-moderation",
+            "source": "tools/test-fixtures/producers/comment-moderation-producer.mjs"
         },
         {
             "producerId": "development-demo",

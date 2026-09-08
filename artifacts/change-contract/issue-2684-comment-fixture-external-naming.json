@@ -1,0 +1,38 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/comment-fixture-inventory.json",
+                "config/testing/comment-fixture-ownership.json",
+                "config/testing/fixture-consumer-inventory.generated.json",
+                "config/testing/fixture-producer-registry.json"
+            ],
+            "reason": "preserve the fixture catalog, ownership, receipt, and producer registry JSON keys consumed across the test runtime boundary"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs",
+                "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+                "src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs",
+                "src/backend/Infrastructure/Bootstrap/WebApplicationBuilderCompositionExtensions.cs",
+                "src/backend/Modules/Endpoints/LocalCommentFixtureEndpoints.cs",
+                "src/backend/Services/Fixtures/CommentAnonymousFixtureProvider.cs",
+                "src/backend/Services/Fixtures/CommentFixtureSeeder.cs",
+                "src/backend/Services/Fixtures/CommentModerationFixturePort.cs",
+                "src/backend/Services/Fixtures/CommentThreadFixturePort.cs",
+                "tools/test-fixtures/cli.mjs",
+                "tools/test-fixtures/producers/catalog-ports.mjs",
+                "tools/test-fixtures/producers/comment-moderation-producer.mjs",
+                "tools/test-fixtures/receipt/postconditions.mjs",
+                "tools/test-fixtures/runtime-scope.mjs",
+                "tools/test/check-comment-fixture-governance.mjs",
+                "tools/test/comment-fixture-contract.mjs",
+                "tools/test/comment-fixture-governance.mjs"
+            ],
+            "reason": "preserve caller-visible fixture environment keys while the C# and JavaScript adapters retain repository-native internal identifiers"
+        }
+    ]
+}

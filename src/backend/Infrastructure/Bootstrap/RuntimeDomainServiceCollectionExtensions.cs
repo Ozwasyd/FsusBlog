@@ -7,6 +7,7 @@ using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Privacy;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Authoring;
@@ -21,9 +22,12 @@ namespace FsusBlog.Server.Infrastructure.Bootstrap;
 
 internal static class RuntimeDomainServiceCollectionExtensions
 {
-    public static IServiceCollection AddFsusRuntimeDomainServices(this IServiceCollection services)
+    public static IServiceCollection AddFsusRuntimeDomainServices(
+        this IServiceCollection services,
+        IConfiguration? configuration = null,
+        IHostEnvironment? hostEnvironment = null)
     {
-        services.AddContentRuntimeServices();
+        services.AddContentRuntimeServices(configuration, hostEnvironment);
         services.AddUserRuntimePorts();
         services.AddGeneralDomainServices();
         services.AddCoreBridgeServices();
@@ -32,7 +36,10 @@ internal static class RuntimeDomainServiceCollectionExtensions
         return services;
     }
 
-    private static IServiceCollection AddContentRuntimeServices(this IServiceCollection services)
+    private static IServiceCollection AddContentRuntimeServices(
+        this IServiceCollection services,
+        IConfiguration? configuration,
+        IHostEnvironment? hostEnvironment)
     {
         services.AddSingleton<IArticleViewWriteBuffer, ArticleViewWriteBuffer>();
         services.AddScoped<IArticleViewFlushSink, ArticleServiceViewFlushSink>();
@@ -72,6 +79,15 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IArticleEndpointService, ArticleEndpointService>();
         services.AddScoped<FsusBlog.Server.Services.Fixtures.IPublicContentFixtureSeeder, FsusBlog.Server.Services.Fixtures.PublicContentFixtureSeeder>();
         services.AddScoped<FsusBlog.Server.Services.Fixtures.IMessagingFixtureSeeder, FsusBlog.Server.Services.Fixtures.MessagingFixtureSeeder>();
+        if (ShouldAddLocalCommentFixtureServices(configuration, hostEnvironment))
+        {
+            services.AddScoped<FsusBlog.Server.Services.Fixtures.ICommentThreadFixturePort, FsusBlog.Server.Services.Fixtures.CommentThreadFixturePort>();
+            services.AddScoped<FsusBlog.Server.Services.Fixtures.ICommentModerationFixturePort, FsusBlog.Server.Services.Fixtures.CommentModerationFixturePort>();
+            services.AddSingleton<FsusBlog.Server.Services.Fixtures.ICommentAnonymousFixtureCapabilityVault, FsusBlog.Server.Services.Fixtures.CommentAnonymousFixtureCapabilityVault>();
+            services.AddSingleton<FsusBlog.Server.Services.Fixtures.ICommentAnonymousFixtureOperationLedger, FsusBlog.Server.Services.Fixtures.CommentAnonymousFixtureOperationLedger>();
+            services.AddScoped<FsusBlog.Server.Services.Fixtures.ICommentAnonymousFixtureProvider, FsusBlog.Server.Services.Fixtures.CommentAnonymousFixtureProvider>();
+            services.AddScoped<FsusBlog.Server.Services.Fixtures.ICommentFixtureSeeder, FsusBlog.Server.Services.Fixtures.CommentFixtureSeeder>();
+        }
         services.AddScoped<FsusBlog.Server.Services.Fixtures.IDemoFixtureSeeder, FsusBlog.Server.Services.Fixtures.DemoFixtureSeeder>();
         services.AddScoped<FsusBlog.Server.Services.Fixtures.IAuditFixtureProducer, FsusBlog.Server.Services.Fixtures.AuditFixtureProducer>();
         services.AddScoped<ICommentQueryService, CommentQueryService>();
@@ -84,6 +100,11 @@ internal static class RuntimeDomainServiceCollectionExtensions
         }
         return services;
     }
+
+    private static bool ShouldAddLocalCommentFixtureServices(
+        IConfiguration? configuration,
+        IHostEnvironment? hostEnvironment)
+        => LocalCommentFixtureEndpoints.IsEnabled(configuration, hostEnvironment);
 
     private static IServiceCollection AddUserRuntimePorts(this IServiceCollection services)
     {

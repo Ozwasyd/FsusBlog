@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 // fixture-catalog: consumer browser-contract-fixture acceptance-representative
-// fixture-catalog: producer comment-moderation
 
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
@@ -1164,103 +1163,31 @@ async function sessionEntity(request, role)
     };
 }
 
-export function derivePendingCommentPrivacyIdentity(namespace, articleId)
-{
-    const normalizedNamespace = String(namespace ?? '');
-    const normalizedArticleId = String(articleId ?? '');
-    if (!/^[a-z0-9_-]+$/u.test(normalizedNamespace))
-    {
-        fail('pending comment namespace is invalid');
-    }
-    if (!/^[1-9][0-9]*$/u.test(normalizedArticleId))
-    {
-        fail('pending comment article id is invalid');
-    }
-    const nullifierHash = createHash('sha256')
-        .update(`browser-contract:nullifier:${normalizedNamespace}:${normalizedArticleId}`)
-        .digest('hex');
-    return {
-        anonymousHandle: `bc-${nullifierHash.slice(0, 16)}`,
-        nullifierHash,
-        moderationSubjectHash: createHash('sha256')
-            .update(`browser-contract:moderation:${normalizedNamespace}:${normalizedArticleId}`)
-            .digest('hex')
-    };
-}
-
 async function pendingComment(request)
 {
     const state = await readPreparedProviderState(request);
     const article = await publishedArticle(request);
-    const commentId = String(800_000_000_000_000n + BigInt(`0x${createHash('sha256').update(request.identity.namespace).digest('hex').slice(0, 12)}`));
-    const privacy = derivePendingCommentPrivacyIdentity(request.identity.namespace, article.id);
-    const temporal = temporalEnvironment();
-    const sql = `
-SET TIME ZONE '${temporal.postgresTimezone}';
-SET fsusblog.test_business_epoch_utc = '${temporal.businessEpochUtc}';
-INSERT INTO comment (
-  id, article_id, content, create_time, current_version, user_id, author_mode, public_handle,
-  anonymous_handle, anonymous_display_name, anonymous_display_language,
-  anonymous_nullifier_hash, anonymous_scope, moderation_subject_hash,
-  credential_level, reputation_bucket, account_age_bucket,
-  anonymous_rate_class, anonymous_requires_moderation,
-  parent_id, root_id, reply_to_user_id, reply_to_comment_id,
-  depth, is_deleted, delete_reason, delete_time,
-  moderation_status, moderation_reason, moderated_by_admin_principal_id, moderated_at
-) VALUES (
-  ${commentId}, ${article.id}, 'Browser Contract pending comment',
-  current_setting('fsusblog.test_business_epoch_utc')::timestamptz, 1, NULL, 'zk_anonymous', NULL,
-  '${privacy.anonymousHandle}', 'Browser Contract Reader', 'en',
-  '${privacy.nullifierHash}', 'browser-contract:${article.id}', '${privacy.moderationSubjectHash}',
-  NULL, NULL, NULL, 'common', true,
-  NULL, NULL, NULL, NULL,
-  0, false, NULL, NULL,
-  0, 'browser-contract-fixture', NULL, NULL
-) ON CONFLICT (id) DO UPDATE SET
-  article_id = EXCLUDED.article_id,
-  content = EXCLUDED.content,
-  create_time = EXCLUDED.create_time,
-  current_version = 1,
-  user_id = NULL,
-  author_mode = EXCLUDED.author_mode,
-  public_handle = NULL,
-  anonymous_handle = EXCLUDED.anonymous_handle,
-  anonymous_display_name = EXCLUDED.anonymous_display_name,
-  anonymous_display_language = EXCLUDED.anonymous_display_language,
-  anonymous_nullifier_hash = EXCLUDED.anonymous_nullifier_hash,
-  anonymous_scope = EXCLUDED.anonymous_scope,
-  moderation_subject_hash = EXCLUDED.moderation_subject_hash,
-  credential_level = NULL,
-  reputation_bucket = NULL,
-  account_age_bucket = NULL,
-  anonymous_rate_class = EXCLUDED.anonymous_rate_class,
-  anonymous_requires_moderation = true,
-  parent_id = NULL,
-  root_id = NULL,
-  reply_to_user_id = NULL,
-  reply_to_comment_id = NULL,
-  depth = 0,
-  is_deleted = false,
-  delete_reason = NULL,
-  delete_time = NULL,
-  moderation_status = 0,
-  moderation_reason = EXCLUDED.moderation_reason,
-  moderated_by_admin_principal_id = NULL,
-  moderated_at = NULL
-RETURNING id;
-`;
-    const result = await run('docker', [
-        'exec', '-i', state.containers.postgres.name,
-        'psql', '-v', 'ON_ERROR_STOP=1', '-U', 'fsusblog', '-d', 'fsusblog', '-Atqc', sql
-    ]);
-    if (result.stdout.trim() !== commentId)
+    const prepareState = JSON.parse(await readFile(path.join(request.resources.fixtureRoot, 'prepare-state.json'), 'utf8'));
+    const producer = prepareState.producerOutputs?.['comment-moderation'];
+    const pending = producer?.observations?.database?.entities?.filter((item) =>
+        item?.kind === 'comment' && item?.fields?.semanticRole === 'pending') ?? [];
+    if (producer?.producerId !== 'comment-moderation'
+        || producer?.strategy !== 'transaction-fixture'
+        || producer?.structuralOnly === true
+        || pending.length !== 1
+        || pending[0].owned !== true
+        || !/^[1-9][0-9]*$/u.test(String(pending[0].id ?? ''))
+        || String(pending[0].fields?.articleId ?? '') !== String(article.id)
+        || pending[0].fields?.moderationStatus !== 'pending'
+        || pending[0].fields?.publicVisible !== false
+        || pending[0].fields?.queueMember !== true)
     {
-        fail('pending comment fixture insert did not return its stable id');
+        fail('canonical comment fixture pending projection is incomplete');
     }
     return {
-        id: commentId,
+        id: String(pending[0].id),
         articleId: article.id,
-        url: `${state.runtime.frontendUrl}/article/${article.id}#comment-${commentId}`
+        url: `${state.runtime.frontendUrl}/article/${article.id}#comment-${pending[0].id}`
     };
 }
 
