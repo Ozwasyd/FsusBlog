@@ -5,11 +5,14 @@ import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 import {
+  buildBoundedQueueAcceptanceReceipt,
   defaultCatalogPath,
   deliveryCatalogDigest,
   discoverBoundedChannels,
+  discoverUnboundedChannels,
   queueDispositionReport,
-  validateBoundedChannelCatalog
+  validateBoundedChannelCatalog,
+  verifyBoundedQueueAcceptanceReceipt
 } from '../../tools/governance/bounded-channel-contracts.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -53,6 +56,16 @@ sealed class Fixture {
     ['indirect', 'indirect'],
     ['wrapped', 'wrapped']
   ])
+})
+
+test('discovers unbounded channels after masking comments and literals', () => {
+  const file = 'src/Fixture.cs'
+  const discovered = discoverUnboundedChannels({ sources: new Map([[file, `
+const string text = "Channel.CreateUnbounded<int>()";
+// Channel.CreateUnbounded<int>();
+Channel<int> actual = Channel.CreateUnbounded<int>();
+`]]) })
+  assert.deepEqual(discovered, [{ file, line: 4 }])
 })
 
 test('catalog is bidirectionally exact and emits successor dispositions', () => {
@@ -99,6 +112,26 @@ test('Wait plus TryWrite requires an explicit disposition', () => {
   assert.match(mutate((value) => { delete value.queues.find((queue) => queue.channelBehavior.fullMode === 'Wait' && queue.channelBehavior.writerPrimitive.includes('TryWrite')).channelBehavior.waitTryWriteDisposition }).join('\n'), /Wait plus TryWrite must be explained/u)
 })
 
+test('drain participant adapters must implement and register the exact wrapper', () => {
+  assert.match(mutate((value) => { value.queues[0].participantAdapter.token = 'UnregisteredAdapter' }).join('\n'), /participantAdapter token|participantAdapter is not registered/u)
+  assert.match(mutate((value) => { value.queues[0].participantAdapter.file = 'src/backend/Infrastructure/Operations/ReleaseDrainParticipants.cs' }).join('\n'), /participantAdapter token|participantAdapter is not registered/u)
+})
+
+test('writer primitive mutations fail closed instead of becoming universal WriteAsync', () => {
+  assert.match(mutate((value) => {
+    value.queues.find((queue) => queue.channelBehavior.writerPrimitive.includes('TryWrite')).channelBehavior.writerPrimitive = 'WriteAsync'
+  }).join('\n'), /writer primitive does not match/u)
+})
+
+test('protected audit and security queues cannot be downgraded to warning-only best effort', () => {
+  assert.match(mutate((value) => {
+    const target = value.queues.find((queue) => /audit|security|risk|challenge/iu.test(`${queue.queueId} ${queue.owner.type}`))
+    const bestEffort = value.queues.find((queue) => queue.deliveryClass === 'best-effort')
+    target.deliveryClass = 'best-effort'
+    target.classProof = structuredClone(bestEffort.classProof)
+  }).join('\n'), /protected audit\/security queue cannot be best-effort/u)
+})
+
 test('a newly discovered bounded channel fails closed until cataloged', () => {
   const discovered = [...currentDiscovery()]
   discovered.push({ discoveryKey: 'src/backend/FutureQueue.cs#FutureQueue._channel', file: 'src/backend/FutureQueue.cs', ownerType: 'FutureQueue', target: '_channel', creationKind: 'direct', factory: null, line: 4 })
@@ -117,6 +150,25 @@ test('stable ordering and digest reject reorder or content drift', () => {
   const clean = catalog()
   clean.queues[0].disposition += '-drift'
   assert.match(validateBoundedChannelCatalog(defaultCatalogPath, { catalog: clean, discovered: currentDiscovery() }).join('\n'), /digest does not match/u)
+})
+
+test('terminal receipt binds current source, catalog, aggregate, matrix, mutations, and zero warnings', () => {
+  const receipt = buildBoundedQueueAcceptanceReceipt()
+  const participantQueues = catalog().queues.filter((queue) => queue.drainParticipant)
+  assert.equal(receipt.schema, 'fsusblog.bounded-queue-acceptance.v1')
+  assert.equal(receipt.perQueue.length, participantQueues.length)
+  assert.deepEqual(receipt.perQueue.map((queue) => queue.queueId), participantQueues.map((queue) => queue.queueId))
+  assert.ok(receipt.perQueue.every((queue) => queue.scenarios.length === 10 && queue.participantAdapter.token))
+  assert.equal(receipt.matrix.enumeration, 'BoundedQueueDeliveryCatalog.Embedded.DrainParticipants')
+  assert.equal(receipt.matrix.fixtureCount, participantQueues.length * 10)
+  assert.deepEqual(receipt.drainAggregate.participantQueueIds, participantQueues.map((queue) => queue.queueId))
+  assert.equal(receipt.mutationResults.length, 8)
+  assert.deepEqual(receipt.warnings, [])
+  assert.match(receipt.contentDigest, /^sha256:[a-f0-9]{64}$/u)
+  assert.deepEqual(verifyBoundedQueueAcceptanceReceipt(receipt), receipt)
+  const tampered = structuredClone(receipt)
+  tampered.warnings.push('mutation warning')
+  assert.throws(() => verifyBoundedQueueAcceptanceReceipt(tampered), /does not match current source/u)
 })
 
 test('published JSON schema owns the catalog shape', () => {
