@@ -60,5 +60,6 @@ test('security updates cannot bypass required checks with branch automerge', () 
 });
 
 test('no freshness workflow is created by platform automerge', () => {
-    assert.equal(fs.existsSync(path.join(root, '.github/workflows/dependency-freshness.yml')), false);
+    assert.equal(JSON.stringify(renovate).includes('dependency-freshness.yml'), false);
+    assert.equal(JSON.stringify(renovate).includes('run-dependency-freshness-schedule'), false);
 });
