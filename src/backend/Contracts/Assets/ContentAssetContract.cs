@@ -25,6 +25,12 @@ public static class ContentAssetStates
         => value is Active or PendingDelete;
 }
 
+/// <summary>Durable cleanup states that prohibit restoring references after byte deletion begins.</summary>
+public static class ContentAssetCleanupMarkers
+{
+    public const string DeletePending = "content_asset_delete_pending";
+}
+
 /// <summary>
 /// Content asset domain record. Identity flows exclusively through
 /// <see cref="AssetId"/> and <see cref="AssetStorageKey"/>; public URLs are a
