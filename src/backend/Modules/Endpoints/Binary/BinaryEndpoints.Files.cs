@@ -67,13 +67,13 @@ public static partial class BinaryEndpoints
             return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "资产标识非法"), aeds);
         }
 
-        AssetDeleteResult result = await assetStore.DeleteAsync(assetId, cancellationToken);
-        if (result == AssetDeleteResult.Referenced)
+        AssetDeleteOutcome outcome = await assetStore.DeleteAsync(assetId, cancellationToken);
+        if (outcome.Result == AssetDeleteResult.Referenced)
         {
             return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Conflict, "资产仍被引用，无法删除"), aeds);
         }
 
-        return result == AssetDeleteResult.Deleted
+        return outcome.Result == AssetDeleteResult.Deleted
             ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
             : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "文件不存在或已被移除"), aeds);
     }
