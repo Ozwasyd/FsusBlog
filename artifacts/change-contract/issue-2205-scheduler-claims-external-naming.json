@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/post-runtime-accepted-claims.mjs",
+                "tools/test-matrix/content-addressed-evidence-store.mjs",
+                "tools/test-matrix/scheduler-run-owner.mjs",
+                "tools/test-matrix/scheduler.mjs"
+            ],
+            "reason": "Preserve caller-visible scheduler process environment keys and current receipt identities at the source boundary while internal verification, publication and read-only store options retain their existing naming."
+        }
+    ]
+}
