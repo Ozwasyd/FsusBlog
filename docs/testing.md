@@ -1023,6 +1023,8 @@ Registry v2 fixes exact positive/negative/boundary/failure membership, producer 
 
 The rollout CLI delegates sealed receipt verification to `tools/deployment/release-rollout-evidence-receipt-contract.mjs`, which owns the single ordered rollout stage list and replays stage/attempt/output, recovery, artifact and auxiliary byte bindings with the producer's semantic validators. Its caller supplies the explicit byte reader and verification time; the contract neither discovers nor produces evidence. The CLI opens regular non-symlink inputs and the verifier snapshots each supplied path once, so hashing and JSON validation consume the same bytes.
 
+The post-runtime registry replays that same rollout verifier through its pinned current-run reader, including nested command outputs and artifact bytes. The canonical rollout receipt has no `contentDigest`; its explicit reference carries the byte digest and `contentDigest: null`, without inventing a producer seal. Rollout IDs use the producer's canonical validator and must equal the referenced rollout identity; a run-shaped name cannot replace source/run/reference binding.
+
 `fsusblog.post-runtime-accepted-claims.v1` only accepts #2205 accepted terminal authority. The validator rereads `fsusblog.global-claim-exactness-terminal-receipt.v1` through explicit current-run path, recalculates file SHA-256 and canonical content digest, and replays the terminal validator; source/worktree, migration-ledger digest, producer/tool ​​version must be exactly consistent with the complete claim set. The validator only reads existing terminal receipts and does not run or repair upstream evidence.
 
 Focused validation：

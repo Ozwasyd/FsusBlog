@@ -21,6 +21,7 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { digestValue, isPlainObject } from '../fact-extractors/lib/canonicalize.mjs'
+import { validateRolloutId, verifyReleaseRolloutEvidence } from '../deployment/release-rollout-evidence-receipt-contract.mjs'
 import { validateBrowserContractReceipt, validatePublicPreviewEvidenceBinding } from '../release/browser-contract-receipt-contract.mjs'
 import { projectPublicPreviewQualityRegistry, validatePublicPreviewQualityManifestValue } from '../release/public-preview-quality-receipt-contract.mjs'
 import { parseMatrix } from './parse-matrix.mjs'
@@ -1471,9 +1472,9 @@ function validateTypedSourceState(sourceState, repositoryRoot, producerId,
         candidateId: `${sourceState.runId}:candidate`,
         fixtureId: `${sourceState.runId}:fixture`,
         runtimeId: `${sourceState.runId}:runtime`,
-        browserIdentity: `${sourceState.runId}:browser-contract`,
-        rolloutId: `${sourceState.runId}:rollout`
+        browserIdentity: `${sourceState.runId}:browser-contract`
     }
+    if (sourceState.rolloutId !== undefined) validateRolloutId(sourceState.rolloutId)
     if (Object.entries(scopedIdentities).some(([field, expected]) =>
         sourceIdentityFields.includes(field) && sourceState[field] !== expected)
         || (sourceIdentityFields.includes('releaseId')
@@ -1605,9 +1606,10 @@ function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, lab
 {
     assertExactKeys(ref, ['path', 'fileDigest', 'contentDigest', 'schema', 'role'], label)
     const preview = contract.schema === 'fsusblog.public-preview-screenshot-verification.v1'
+    const rollout = contract.schema === 'fsusblog.release-rollout-evidence.v1'
     if (ref.schema !== contract.schema || ref.role !== contract.role
         || !digestPattern.test(ref.fileDigest ?? '')
-        || (preview ? ref.contentDigest !== null : !digestPattern.test(ref.contentDigest ?? ''))
+        || (preview || rollout ? ref.contentDigest !== null : !digestPattern.test(ref.contentDigest ?? ''))
         || ref.fileDigest === ref.contentDigest)
     {
         fail(`${label} schema/role/digest contract is invalid`)
@@ -1651,6 +1653,25 @@ function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, lab
         {
             fail(`${label} canonical preview quality mismatch: ${qualityErrors.join('; ')}`)
         }
+    }
+    else if (rollout)
+    {
+        assertExactKeys(current.value, ['schema', 'status', 'rolloutId', 'kind', 'source', 'target',
+            'gatewayGeneration', 'rollback', 'stages', 'recoveries', 'artifacts', 'auxiliary', 'errors',
+            'sealedAtUtc'], `${label} canonical rollout`)
+        const verification = verifyReleaseRolloutEvidence(current.value, {
+            evidencePath: ref.path,
+            now: Date.now(),
+            readBytes: (file) =>
+            {
+                if (typeof file !== 'string') fail(`${label} nested rollout path must be explicit`)
+                const relative = path.isAbsolute(file) ? path.relative(repositoryRoot, file) : file
+                if (!relative.startsWith('.tmp/') || unsafeReceiptPath.test(relative))
+                    fail(`${label} nested rollout bytes must belong to the current run`)
+                return readPinnedRepositoryFile(repositoryRoot, relative, `${label} nested rollout bytes`).bytes
+            }
+        })
+        if (verification.status !== 'pass') fail(`${label} canonical rollout contract: ${verification.errors.join('; ')}`)
     }
     else if (current.value.schema !== contract.schema
         || !digestPattern.test(prefixedDigest(current.value.contentDigest))

@@ -9,6 +9,7 @@ import test from 'node:test'
 import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs'
 import { BehaviorId } from '../../tools/contracts/behavior-contract-catalog.mjs'
 import { sealBrowserContractReceipt } from '../../tools/release/test-evidence-receipts.mjs'
+import { createReleaseRolloutEvidenceFixture } from './support/release-rollout-evidence-fixture.mjs'
 import {
     acceptedClaimsSchema,
     authorityDigest,
@@ -80,7 +81,7 @@ function producerReceipt(classId = 'route-response-error')
         runtimeId: 'run-1:runtime',
         browserIdentity: 'run-1:browser-contract',
         releaseId: '20260830123456-abcdef123456',
-        rolloutId: 'run-1:rollout',
+        rolloutId: 'run-1-rollout',
         runId: 'run-1',
         attemptId: 'attempt-0001',
         fixtureId: 'run-1:fixture',
@@ -116,6 +117,15 @@ function producerReceipt(classId = 'route-response-error')
     }
     const embeddedDocument = (contract) =>
     {
+        if (contract.schema === 'fsusblog.release-rollout-evidence.v1')
+        {
+            const base = path.join(receiptRepositoryRoot, '.tmp/release-rollout')
+            fs.mkdirSync(base, { recursive: true })
+            return createReleaseRolloutEvidenceFixture({
+                rolloutId: sourceState.rolloutId ?? `${sourceState.runId}-rollout`,
+                target: { ...createReleaseRolloutEvidenceFixture().target, releaseId: sourceState.releaseId }
+            }).createFinalEvidence(fs.mkdtempSync(path.join(base, `${classId}-`))).value
+        }
         const source = {
             commit: sourceState.sourceCommit,
             worktreeFingerprint: sourceState.worktreeFingerprint
@@ -148,10 +158,6 @@ function producerReceipt(classId = 'route-response-error')
                 qualityAudit: true, qualityPolicyDigest: previewQuality.policyDigest, quality: structuredClone(previewQuality),
                 images: Object.fromEntries(Array.from({ length: 9 }, (_, index) =>
                     [`screenshot-${index + 1}`, `${index + 1}`.repeat(64)]))
-            },
-            'fsusblog.release-rollout-evidence.v1': {
-                rolloutId: sourceState.rolloutId,
-                target: { releaseId: sourceState.releaseId }
             },
             'fsusblog.runtime-role-observation.v1': { observationDigest: digest('1') }
         }
@@ -852,6 +858,64 @@ test('re-sealed embedded build and fixture receipts remain bound to outer source
     }
 })
 
+test('canonical rollout references replay nested bytes and semantics without invented seals or IDs', () =>
+{
+    const classId = 'blue-green-containment'
+    const producerId = registry.producers[0].producerId
+    const write = (file, value) =>
+    {
+        const bytes = Buffer.from(`${JSON.stringify(value, null, 2)}\n`)
+        fs.writeFileSync(file, bytes)
+        return `sha256:${createHash('sha256').update(bytes).digest('hex')}`
+    }
+    for (const [mutate, expected] of [
+        [(value) => { value.unregistered = true }, /canonical rollout.*missing or unknown fields/u],
+        [(value) => { value.stages.pop() }, /stage order is incomplete/u],
+        [(value) => { fs.appendFileSync(value.stages[0].evidence.path, 'drift') }, /changed after seal/u],
+        [(value) => {
+            const metadata = value.artifacts.resourceBudget
+            const artifact = JSON.parse(fs.readFileSync(metadata.path, 'utf8'))
+            artifact.withinBudget = false
+            metadata.sha256 = write(metadata.path, artifact)
+            metadata.bytes = fs.statSync(metadata.path).size
+        }, /exceeded resource budget/u],
+        [(value) => { value.stages[0].evidence.path = path.join(receiptRepositoryRoot, 'config/schemas/post-runtime-observation-result.schema.json') }, /current run/u],
+        [(value) => { value.stages[0].evidence.path = path.join(receiptRepositoryRoot, '.tmp/history/old.json') }, /current run/u],
+        [(value, upstream) => { upstream.rolloutEvidenceRef.contentDigest = digest('f') }, /schema\/role\/digest contract/u],
+        [(value) => {
+            const directory = fs.mkdtempSync(path.join(receiptRepositoryRoot, '.tmp/release-rollout/swapped-'))
+            const other = createReleaseRolloutEvidenceFixture({
+                rolloutId: 'other-run-rollout',
+                target: { ...createReleaseRolloutEvidenceFixture().target, releaseId: value.target.releaseId }
+            }).createFinalEvidence(directory).value
+            Object.assign(value, other)
+        }, /rolloutId does not bind the outer source identity/u]
+    ])
+    {
+        const receipt = producerReceipt(classId)
+        assert.doesNotThrow(() => validateProducerReceiptAgainstRegistry({ registry, producerId, receipt, classId }))
+        const sourcePath = path.join(receiptRepositoryRoot, receipt.sourceReceiptRef.path)
+        const source = JSON.parse(fs.readFileSync(sourcePath, 'utf8'))
+        const upstreamPath = path.join(receiptRepositoryRoot, source.upstreamRef.path)
+        const upstream = JSON.parse(fs.readFileSync(upstreamPath, 'utf8'))
+        const rolloutPath = path.join(receiptRepositoryRoot, upstream.rolloutEvidenceRef.path)
+        const rollout = JSON.parse(fs.readFileSync(rolloutPath, 'utf8'))
+        assert.equal(upstream.rolloutEvidenceRef.contentDigest, null)
+        assert.equal(Object.hasOwn(rollout, 'contentDigest'), false)
+        mutate(rollout, upstream)
+        upstream.rolloutEvidenceRef.fileDigest = write(rolloutPath, rollout)
+        const nextUpstream = seal(upstream)
+        source.upstreamRef.fileDigest = write(upstreamPath, nextUpstream)
+        source.upstreamRef.contentDigest = nextUpstream.contentDigest
+        const nextSource = seal(source)
+        receipt.sourceReceiptRef.fileDigest = write(sourcePath, nextSource)
+        receipt.sourceReceiptRef.contentDigest = nextSource.contentDigest
+        assert.throws(() => validateProducerReceiptAgainstRegistry({
+            registry, producerId, receipt: seal(receipt), classId
+        }), expected)
+    }
+})
+
 test('run, attempt, fixture and profile identities are typed and bind independent authorities', () =>
 {
     const producerId = registry.producers[0].producerId
@@ -899,7 +963,7 @@ test('run, attempt, fixture and profile identities are typed and bind independen
             () => validateProducerReceiptAgainstRegistry({
                 registry, producerId, receipt: seal(invalid), classId
             }),
-            /scoped candidate\/runtime\/browser\/release identity is invalid/u)
+            /scoped candidate\/runtime\/browser\/release identity is invalid|rolloutId is invalid/u)
     }
 
     const swappedIdentities = structuredClone(base)

@@ -64,6 +64,12 @@ const TRAFFIC_POLICY_STAGES = Object.freeze(['status:planned', ...ROLLOUT_STAGES
 const SHA256 = /^sha256:[0-9a-f]{64}$/u
 const HMAC_SHA256 = /^hmac-sha256:[0-9a-f]{64}$/u
 
+export function validateRolloutId(value) {
+  const id = String(value ?? '')
+  if (!/^[0-9A-Za-z][0-9A-Za-z._-]{7,127}$/u.test(id)) throw new Error('rolloutId is invalid')
+  return id
+}
+
 export function validateRecoveryResolution(records, errors) {
   for (let index = 0; index < records.length; index += 1) {
     const record = records[index]
