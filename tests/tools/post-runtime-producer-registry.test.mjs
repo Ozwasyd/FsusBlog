@@ -12,6 +12,8 @@ import { sealBrowserContractReceipt } from '../../tools/release/test-evidence-re
 import { deriveBrowserObservedRawFacts } from '../../tools/test-evidence/browser-contract-observed-facts.mjs'
 import { selectBrowserContractScenarios } from '../browser-contract/contract-core.mjs'
 import { createReleaseRolloutEvidenceFixture } from './support/release-rollout-evidence-fixture.mjs'
+import { createCanonicalPreparedFixture, createCanonicalProbeSourceFixture,
+    createCanonicalAotSourceFixture, createCanonicalHydrationFixtureObservation } from './support/canonical-post-runtime-source-fixture.mjs'
 import {
     acceptedClaimsSchema,
     authorityDigest,
@@ -119,6 +121,7 @@ function producerReceipt(classId = 'route-response-error')
     }
     const embeddedDocument = (contract) =>
     {
+        if (contract.schema === 'fsusblog.fixture-prepare-state.v1') return createCanonicalPreparedFixture(sourceState)
         if (contract.schema === 'fsusblog.release-rollout-evidence.v1')
         {
             const base = path.join(receiptRepositoryRoot, '.tmp/release-rollout')
@@ -170,7 +173,7 @@ function producerReceipt(classId = 'route-response-error')
     {
         const receiptPaths = {
             'fsusblog.ci-production-build-receipt.v1': '.tmp/ci-production-build/receipt.json',
-            'fsusblog.fixture-receipt.v2': '.tmp/fixtures/run-1/prepare-state.json',
+            'fsusblog.fixture-prepare-state.v1': '.tmp/fixtures/run-1/prepare-state.json',
             'fsusblog.post-runtime-candidate-plan.v1': '.tmp/post-runtime-plan/run-1/attempt-0001/candidate-plan.json',
             'fsusblog.spa-manifest-descriptor.v1': '.tmp/aot-manifest/spa-manifest-descriptor.json',
             'fsusblog.browser-contract-receipt.v2': '.tmp/browser-contract/receipt.json',
@@ -184,8 +187,8 @@ function producerReceipt(classId = 'route-response-error')
             embeddedDocument(contract),
             contract.role)
     }
-    const canonicalRerunCommand = 'node tools/test-evidence/runtime-observation-probes.mjs route'
-    const independentVerifyCommand = 'node tools/test-evidence/runtime-observation-raw.mjs verify'
+    let canonicalRerunCommand = 'node tools/test-evidence/runtime-observation-probes.mjs route'
+    let independentVerifyCommand = 'node tools/test-evidence/runtime-observation-raw.mjs verify'
     const upstreamBody = {
         schema: definition.sourceReceipt.schema,
         producerId: producer.producerId,
@@ -262,13 +265,51 @@ function producerReceipt(classId = 'route-response-error')
             role
         }
     }
-    if (classId === 'browser-behavior-contract')
+    if (definition.sourceReceipt.role === 'probe')
+    {
+        const canonicalSource = { commit: sourceState.sourceCommit, worktreeFingerprint: sourceState.worktreeFingerprint }
+        const buildReceipt = seal({ schema: 'fsusblog.ci-production-build-receipt.v1', sourceState: canonicalSource })
+        const buildRef = writeDependency('.tmp/ci-production-build/receipt.json', buildReceipt, 'production-build')
+        sourceState.buildIdentity = buildReceipt.contentDigest
+        const prepared = createCanonicalPreparedFixture(sourceState)
+        const fixtureRef = writeDependency('.tmp/fixtures/run-1/prepare-state.json', prepared, 'fixture')
+        const plan = seal({
+            schema: 'fsusblog.post-runtime-candidate-plan.v1', producerId: producer.producerId,
+            status: 'planned', sourceState: canonicalSource,
+            build: { receipt: buildRef.path, receiptContentDigest: buildReceipt.contentDigest },
+            candidate: { ...allSourceState, releaseId: allSourceState.releaseId },
+            observations: [{ classId, receiptPath: `.tmp/current-run/${classId}.json` }],
+            identityAuthorityRefs: { plan: refs.candidatePlanRef, attempt: refs.attemptAuthorityRef,
+                fixture: refs.fixtureAuthorityRef, profile: refs.profileAuthorityRef }
+        })
+        const planRef = writeDependency('.tmp/post-runtime-plan/run-1/attempt-0001/candidate-plan.json', plan, 'candidate-plan')
+        const { upstream: probe, sourceState: probeIdentity } = createCanonicalProbeSourceFixture(classId, {
+            candidatePlan: { relative: planRef.path, fileDigest: planRef.fileDigest, value: plan },
+            build: { ref: { path: buildRef.path, contentDigest: buildRef.fileDigest }, value: buildReceipt },
+            fixture: { ref: { path: fixtureRef.path, contentDigest: fixtureRef.fileDigest }, value: prepared },
+            output: upstreamRelative
+        }, { producer, sourceState })
+        Object.assign(sourceState, probeIdentity)
+        canonicalRerunCommand = probe.canonicalRerunCommand
+        independentVerifyCommand = probe.independentVerifyCommand
+        for (const field of definition.requiredSemanticFactFields)
+            semanticFacts[field] = field.endsWith('Digest')
+                ? authorityDigest(probe.rawFacts[rawFieldFor(field)]) : probe.rawFacts[field]
+        Object.assign(upstreamRef, writeDependency(upstreamRelative, probe, 'probe'))
+    }
+    if (['browser-behavior-contract', 'aot-spa-hydration'].includes(classId))
     {
         const canonicalSource = {
             commit: sourceState.sourceCommit,
             worktreeFingerprint: sourceState.worktreeFingerprint
         }
-        const buildReceipt = seal({ schema: 'fsusblog.ci-production-build-receipt.v1', sourceState: canonicalSource })
+        const assetRoot = path.join(receiptRepositoryRoot, '.tmp/retained-assets', allSourceState.releaseId)
+        const manifestRelative = path.relative(receiptRepositoryRoot, path.join(assetRoot, '.vite/manifest.json'))
+        const manifestRef = writeDependency(manifestRelative, { 'src/main.ts': { file: 'assets/main.js', isEntry: true } })
+        const inventoryRef = writeDependency(path.relative(receiptRepositoryRoot, path.join(assetRoot, 'asset-manifest.json')),
+            { schema: 'fsusblog.release-assets.v1', releaseId: allSourceState.releaseId, files: [] })
+        const buildReceipt = seal({ schema: 'fsusblog.ci-production-build-receipt.v1', sourceState: canonicalSource,
+            artifacts: [{ path: 'frontend-dist/.vite/manifest.json', sha256: manifestRef.fileDigest }] })
         const buildRef = writeDependency('.tmp/ci-production-build/receipt.json', buildReceipt)
         sourceState.buildIdentity = buildReceipt.contentDigest
         const build = { receipt: buildRef.path, receiptContentDigest: buildReceipt.contentDigest,
@@ -283,8 +324,9 @@ function producerReceipt(classId = 'route-response-error')
                 candidateId: sourceState.candidateId, runtimeId: sourceState.runtimeId,
                 browserId: sourceState.browserIdentity, runId: sourceState.runId,
                 attemptId: sourceState.attemptId, fixtureId: sourceState.fixtureId,
-                profileId: sourceState.profileId
+                profileId: sourceState.profileId, releaseId: allSourceState.releaseId
             },
+            observations: [{ classId, receiptPath: `.tmp/current-run/${classId}.json` }],
             identityAuthorityRefs: { plan: refs.candidatePlanRef, attempt: refs.attemptAuthorityRef,
                 fixture: refs.fixtureAuthorityRef, profile: refs.profileAuthorityRef }
         })
@@ -305,7 +347,10 @@ function producerReceipt(classId = 'route-response-error')
             planDigest: browserPlan.contentDigest, renderingObservation: {
                 locale: 'zh-CN', deviceScaleFactor: 1, colorScheme: 'light', renderer: 'SwiftShader fixture renderer'
             } })
-        const preview = JSON.parse(fs.readFileSync(path.join(receiptRepositoryRoot, upstreamBody.publicPreviewRef.path), 'utf8'))
+        const publicPreviewRef = upstreamBody.publicPreviewRef ?? embeddedReference('publicPreviewRef', {
+            schema: 'fsusblog.public-preview-screenshot-verification.v1', role: 'public-preview'
+        })
+        const preview = JSON.parse(fs.readFileSync(path.join(receiptRepositoryRoot, publicPreviewRef.path), 'utf8'))
         let browser = sealBrowserContractReceipt({
             ...upstreamBody,
             sourceState: canonicalSource,
@@ -316,25 +361,53 @@ function producerReceipt(classId = 'route-response-error')
             playwright: { chromiumRevision: '123456', browserIdentity: { plan: browserPlan, actual: browserActual } },
             topology: { browserLaunchCount: 1, maxConcurrentBrowserRoots: 1, retries: 0, contextCount: selectBrowserContractScenarios().length },
             build,
-            fixture: { namespace: 'run-1', lifecycle: { identity: { runId: sourceState.runId } } },
+            fixture: { namespace: 'run-1', lifecycle: { identity: { runId: sourceState.runId, attemptId: sourceState.attemptId } } },
             runIdentity: { commit: sourceState.sourceCommit, runId: sourceState.runId,
                 attemptId: sourceState.attemptId, namespace: 'run-1' },
             scenarios: selectBrowserContractScenarios().map(({ id, capability }) => ({
                 id, capability, status: 'success', classification: 'clean', issues: [], artifacts: [],
                 startedAt: '2026-09-07T00:00:00.000Z', finishedAt: '2026-09-07T00:00:00.001Z',
-                durationMs: 1, error: null
+                durationMs: 1, error: null,
+                ...(id === 'public-hydration-history-reload' ? { observation: createCanonicalHydrationFixtureObservation(allSourceState.releaseId) } : {})
             })),
-            publicPreview: { ...preview, captureContextCount: 9, evidencePath: upstreamBody.publicPreviewRef.path,
-                evidenceFileDigest: upstreamBody.publicPreviewRef.fileDigest },
+            schema: 'fsusblog.browser-contract-receipt.v2',
+            publicPreview: { ...preview, captureContextCount: 9, evidencePath: publicPreviewRef.path,
+                evidenceFileDigest: publicPreviewRef.fileDigest },
+            publicPreviewRef,
             candidatePlanRef
         })
         browser = sealBrowserContractReceipt({ ...browser, rawFacts: deriveBrowserObservedRawFacts(browser, preview) })
+        if (classId === 'aot-spa-hydration')
+        {
+            const descriptor = seal({ schema: 'fsusblog.spa-manifest-descriptor.v1',
+                releaseId: allSourceState.releaseId, sourceCommit: sourceState.sourceCommit,
+                worktreeFingerprint: sourceState.worktreeFingerprint, buildReceiptDigest: buildReceipt.contentDigest,
+                assetRoot, manifestPath: path.join(assetRoot, '.vite/manifest.json'),
+                manifestDigest: manifestRef.fileDigest, assetInventoryDigest: inventoryRef.fileDigest })
+            const inputs = {
+                manifest: { value: descriptor, ref: writeDependency('.tmp/aot-manifest/spa-manifest-descriptor.json', descriptor, 'spa-manifest') },
+                browserContract: { value: browser, ref: writeDependency('.tmp/browser-contract/receipt.json', browser, 'browser-contract') }
+            }
+            const readBytes = (file) => fs.readFileSync(file)
+            const { upstream: aot } = createCanonicalAotSourceFixture({ candidate: { ref: candidatePlanRef },
+                plan: candidatePlan, inputs, producer, readBytes }, buildReceipt)
+            for (const field of definition.requiredSemanticFactFields)
+                semanticFacts[field] = field.endsWith('Digest')
+                    ? authorityDigest(aot.rawFacts[rawFieldFor(field)]) : aot.rawFacts[field]
+            canonicalRerunCommand = aot.canonicalRerunCommand
+            independentVerifyCommand = aot.independentVerifyCommand
+            Object.assign(upstreamRef, writeDependency(upstreamRelative, aot, 'aot'))
+            sourceState.artifactDigest = manifestRef.fileDigest
+        }
+        else
+        {
         for (const field of definition.requiredSemanticFactFields)
             semanticFacts[field] = field.endsWith('Digest')
                 ? authorityDigest(browser.rawFacts[rawFieldFor(field)]) : browser.rawFacts[field]
         const browserRef = writeDependency(upstreamRelative, browser, 'browser')
         Object.assign(upstreamRef, browserRef)
         sourceState.artifactDigest = browserRef.fileDigest
+        }
     }
     const sourceReceipt = seal({
         schema: sourceReceiptSchema,
@@ -755,6 +828,92 @@ test('canonical Browser source keeps its sealer fields and rejects re-sealed ide
     }
 })
 
+test('canonical probe and AOT observations reject re-sealed semantic and retained-byte drift', () =>
+{
+    const write = (file, value, shouldSeal = true) => {
+        const document = shouldSeal ? seal(value) : value
+        fs.writeFileSync(file, `${JSON.stringify(document, null, 2)}\n`)
+        return { fileDigest: `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`,
+            contentDigest: document.contentDigest ?? null }
+    }
+    const mutateDependency = (upstream, key, mutate) => {
+        const ref = key === 'plan' ? upstream.candidatePlanRef : upstream.evidenceRefs[key]
+        const file = path.join(receiptRepositoryRoot, ref.path)
+        const value = JSON.parse(fs.readFileSync(file, 'utf8'))
+        mutate(value)
+        Object.assign(ref, write(file, value))
+    }
+    for (const classId of ['route-response-error', 'cache-search-outbox-convergence', 'session-cookie-runtime', 'aot-spa-hydration'])
+    {
+        const cases = classId === 'aot-spa-hydration' ? [
+            [(upstream) => { upstream.rawFacts.serverHtml = 're-sealed-invention' }, /raw semantic facts mismatch/u],
+            [(upstream) => mutateDependency(upstream, 'plan', (value) => { value.candidate.runtimeId = 'other:runtime' }), /identity mismatch/u],
+            [(upstream) => mutateDependency(upstream, 'browserContract', (value) => {
+                value.scenarios.find(({ id }) => id === 'public-hydration-history-reload').observation.direct.hydrated = false
+            }), /not coherent/u],
+            [(upstream) => mutateDependency(upstream, 'manifest', (value) => { value.manifestPath += '/..' }), /not canonical/u],
+            [(upstream) => mutateDependency(upstream, 'manifest', (value) => {
+                value.assetRoot = path.join(os.tmpdir(), value.releaseId)
+                value.manifestPath = path.join(value.assetRoot, '.vite/manifest.json')
+            }), /must belong to the current run/u],
+            [(upstream) => {
+                const descriptor = JSON.parse(fs.readFileSync(path.join(receiptRepositoryRoot, upstream.evidenceRefs.manifest.path), 'utf8'))
+                fs.appendFileSync(descriptor.manifestPath, ' ')
+            }, /bytes do not exact-match/u],
+            [(upstream) => mutateDependency(upstream, 'manifest', (value) => { value.releaseId = '20260907000000-ffffffffffff' }), /candidate build/u]
+        ] : [
+            [(upstream) => { upstream.rawFacts[Object.keys(upstream.rawFacts)[0]] = 're-sealed-invention' }, /raw semantic facts mismatch/u],
+            [(upstream, receipt, source) => {
+                upstream.facts.coherent = false
+                upstream.sourceState.artifactDigest = authorityDigest(upstream.facts)
+                receipt.sourceState.artifactDigest = upstream.sourceState.artifactDigest
+                source.sourceState.artifactDigest = upstream.sourceState.artifactDigest
+            }, /facts are partial or incoherent/u],
+            [(upstream) => { upstream.provenance.syntheticSemanticResult = true }, /authority\/build\/facts identity mismatch/u],
+            [(upstream) => mutateDependency(upstream, 'plan', (value) => { value.candidate.runId = 'other-run' }), /runId does not bind/u]
+        ]
+        for (const [mutate, expected] of cases)
+        {
+            const receipt = producerReceipt(classId)
+            const sourcePath = path.join(receiptRepositoryRoot, receipt.sourceReceiptRef.path)
+            const source = JSON.parse(fs.readFileSync(sourcePath, 'utf8'))
+            const upstreamPath = path.join(receiptRepositoryRoot, source.upstreamRef.path)
+            const upstream = JSON.parse(fs.readFileSync(upstreamPath, 'utf8'))
+            mutate(upstream, receipt, source)
+            Object.assign(source.upstreamRef, write(upstreamPath, upstream))
+            Object.assign(receipt.sourceReceiptRef, write(sourcePath, source))
+            assert.throws(() => validateProducerReceiptAgainstRegistry({ registry,
+                producerId: registry.producers[0].producerId, receipt: seal(receipt), classId }), expected)
+        }
+    }
+})
+
+test('AOT retained artifacts reject symlink and hardlink aliases', () =>
+{
+    for (const kind of ['symlink', 'hardlink'])
+    {
+        const classId = 'aot-spa-hydration'
+        const receipt = producerReceipt(classId)
+        const source = JSON.parse(fs.readFileSync(path.join(receiptRepositoryRoot, receipt.sourceReceiptRef.path), 'utf8'))
+        const upstream = JSON.parse(fs.readFileSync(path.join(receiptRepositoryRoot, source.upstreamRef.path), 'utf8'))
+        const manifest = JSON.parse(fs.readFileSync(path.join(receiptRepositoryRoot, upstream.evidenceRefs.manifest.path), 'utf8'))
+        const original = `${manifest.manifestPath}.retained-original`
+        fs.renameSync(manifest.manifestPath, original)
+        try
+        {
+            if (kind === 'symlink') fs.symlinkSync(original, manifest.manifestPath)
+            else fs.linkSync(original, manifest.manifestPath)
+            assert.throws(() => validateProducerReceiptAgainstRegistry({ registry,
+                producerId: registry.producers[0].producerId, receipt, classId }), /symlink|single-link|hard link|regular file/u)
+        }
+        finally
+        {
+            fs.unlinkSync(manifest.manifestPath)
+            fs.renameSync(original, manifest.manifestPath)
+        }
+    }
+})
+
 test('canonical pure receipt modules retain transitive no-I/O and no-execution boundaries', (context) =>
 {
     const repositoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-pure-receipt-'))
@@ -845,7 +1004,7 @@ test('re-sealed embedded build and fixture receipts remain bound to outer source
             embedded.sourceState.commit = 'f'.repeat(40)
         }],
         ['fixtureReceipt', 'runId', (embedded) => {
-            embedded.executionIdentity.runId = 'other-run'
+            embedded.plan.executionIdentity.runId = 'other-run'
         }]
     ])
     {
@@ -857,11 +1016,11 @@ test('re-sealed embedded build and fixture receipts remain bound to outer source
         const embeddedPath = path.join(receiptRepositoryRoot, upstream[referenceField].path)
         const embedded = JSON.parse(fs.readFileSync(embeddedPath, 'utf8'))
         mutate(embedded)
-        const resealedEmbedded = seal(embedded)
+        const resealedEmbedded = referenceField === 'fixtureReceipt' ? embedded : seal(embedded)
         fs.writeFileSync(embeddedPath, `${JSON.stringify(resealedEmbedded, null, 2)}\n`)
         upstream[referenceField].fileDigest = `sha256:${createHash('sha256')
             .update(fs.readFileSync(embeddedPath)).digest('hex')}`
-        upstream[referenceField].contentDigest = resealedEmbedded.contentDigest
+        upstream[referenceField].contentDigest = resealedEmbedded.contentDigest ?? null
         const resealedUpstream = seal(upstream)
         fs.writeFileSync(upstreamPath, `${JSON.stringify(resealedUpstream, null, 2)}\n`)
         source.upstreamRef.fileDigest = `sha256:${createHash('sha256')

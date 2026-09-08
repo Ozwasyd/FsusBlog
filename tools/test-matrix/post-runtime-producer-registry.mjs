@@ -25,6 +25,9 @@ import { validateRolloutId, verifyReleaseRolloutEvidence } from '../deployment/r
 import { validateBrowserContractReceipt, validatePublicPreviewEvidenceBinding } from '../release/browser-contract-receipt-contract.mjs'
 import { projectPublicPreviewQualityRegistry, validatePublicPreviewQualityManifestValue } from '../release/public-preview-quality-receipt-contract.mjs'
 import { deriveBrowserObservedRawFacts } from '../test-evidence/browser-contract-observed-facts.mjs'
+import { deriveProbeRawFacts, verifyFacts as verifyProbeFacts } from '../test-evidence/runtime-observation-probe-facts.mjs'
+import { deriveAotSpaHydrationRawFacts, normalizeAotSpaHydrationFacts } from '../test-evidence/aot-spa-hydration-observed-facts.mjs'
+import { projectPreparedPublicIds } from '../test-fixtures/receipt/prepared-public-projection-contract.mjs'
 import { parseMatrix } from './parse-matrix.mjs'
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -63,7 +66,7 @@ const rawFactSourceSchemas = Object.freeze({
 })
 const embeddedIdentityCapabilities = Object.freeze({
     'fsusblog.ci-production-build-receipt.v1': ['sourceCommit', 'worktreeFingerprint'],
-    'fsusblog.fixture-receipt.v2': [
+    'fsusblog.fixture-prepare-state.v1': [
         'sourceCommit', 'worktreeFingerprint', 'runId', 'profileId'
     ],
     'fsusblog.post-runtime-candidate-plan.v1': [
@@ -86,8 +89,10 @@ const releaseIdentityPattern = /^[0-9]{14}-[a-f0-9]{12}$/u
 const readerFirewallEntry = 'tools/test-matrix/post-runtime-producer-registry.mjs'
 const pureReceiptContracts = new Set([
     'tools/test-evidence/runtime-observation-probe-facts.mjs',
+    'tools/test-evidence/runtime-observation-probe-receipt-contract.mjs',
     'tools/test-evidence/browser-contract-observed-facts.mjs',
     'tools/test-evidence/aot-spa-hydration-observed-facts.mjs',
+    'tools/test-evidence/aot-spa-hydration-source-contract.mjs',
     'tools/test-fixtures/receipt/prepared-public-projection-contract.mjs',
     'tools/deployment/release-rollout-evidence-receipt-contract.mjs',
     'tools/docs/behavior-doc-static-admission-contract.mjs',
@@ -1615,9 +1620,10 @@ function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, lab
     assertExactKeys(ref, ['path', 'fileDigest', 'contentDigest', 'schema', 'role'], label)
     const preview = contract.schema === 'fsusblog.public-preview-screenshot-verification.v1'
     const rollout = contract.schema === 'fsusblog.release-rollout-evidence.v1'
+    const preparedFixture = contract.schema === 'fsusblog.fixture-prepare-state.v1'
     if (ref.schema !== contract.schema || ref.role !== contract.role
         || !digestPattern.test(ref.fileDigest ?? '')
-        || (preview || rollout ? ref.contentDigest !== null : !digestPattern.test(ref.contentDigest ?? ''))
+        || (preview || rollout || preparedFixture ? ref.contentDigest !== null : !digestPattern.test(ref.contentDigest ?? ''))
         || ref.fileDigest === ref.contentDigest)
     {
         fail(`${label} schema/role/digest contract is invalid`)
@@ -1661,6 +1667,13 @@ function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, lab
         {
             fail(`${label} canonical preview quality mismatch: ${qualityErrors.join('; ')}`)
         }
+    }
+    else if (preparedFixture)
+    {
+        if (current.value.schema !== contract.schema || current.value.terminalState !== 'prepared'
+            || Object.hasOwn(current.value, 'contentDigest'))
+            fail(`${label} canonical prepared fixture schema/status mismatch`)
+        projectPreparedPublicIds(current.value)
     }
     else if (rollout)
     {
@@ -1766,8 +1779,8 @@ export function extractSemanticFactsFromRawReceipt(upstream, definition, produce
 
 function identityProjection(value)
 {
-    const execution = value?.executionIdentity ?? {}
-    const source = value?.sourceState ?? value?.sourceIdentity ?? execution.source ?? {}
+    const execution = value?.executionIdentity ?? value?.plan?.executionIdentity ?? {}
+    const source = value?.sourceState ?? value?.sourceIdentity ?? execution.source ?? execution.sourceIdentity ?? {}
     const candidate = value?.candidate ?? value?.target ?? {}
     const run = value?.runIdentity ?? {}
     return {
@@ -1783,8 +1796,90 @@ function identityProjection(value)
         runId: source.runId ?? run.runId ?? candidate.runId ?? execution.runId,
         attemptId: source.attemptId ?? candidate.attemptId,
         fixtureId: source.fixtureId ?? candidate.fixtureId,
-        profileId: source.profileId ?? candidate.profileId ?? value?.profileIdentity?.profileId
+        profileId: source.profileId ?? candidate.profileId ?? value?.profileIdentity?.profileId ?? value?.plan?.profileIdentity?.profileId
     }
+}
+
+function validateCandidateIdentityAuthorityBindings(plan, envelope, producerId, label)
+{
+    if (plan.status !== 'planned' || plan.producerId !== producerId)
+        fail(`${label} candidate plan is not a planned producer authority`)
+    const refs = plan.identityAuthorityRefs
+    assertExactKeys(refs, ['plan', 'attempt', 'fixture', 'profile'], `${label} candidate identity authorities`)
+    for (const [role, field] of [['plan', 'candidatePlanRef'], ['attempt', 'attemptAuthorityRef'],
+        ['fixture', 'fixtureAuthorityRef'], ['profile', 'profileAuthorityRef']])
+    {
+        if (digestValue(refs[role]) !== digestValue(envelope[field]))
+            fail(`${label} candidate ${role} authority differs from the observation`)
+    }
+}
+
+function probeSourceProjection(repositoryRoot, upstream, sourceState, contract, envelope, producerId)
+{
+    const label = `producer ${producerId} probe upstream`
+    const plan = replayEmbeddedReference(repositoryRoot, upstream.candidatePlanRef,
+        contract.referenceContracts.candidatePlanRef, sourceState, `${label} candidatePlanRef`)
+    validateCandidateIdentityAuthorityBindings(plan, envelope, producerId, label)
+    const build = replayEmbeddedReference(repositoryRoot, upstream.buildReceipt,
+        contract.referenceContracts.buildReceipt, sourceState, `${label} buildReceipt`)
+    const prepared = replayEmbeddedReference(repositoryRoot, upstream.fixtureReceipt,
+        contract.referenceContracts.fixtureReceipt, sourceState, `${label} fixtureReceipt`)
+    if (upstream.terminalStatus !== 'verified' || upstream.provenance?.mode !== 'local-real-runtime'
+        || upstream.provenance?.syntheticSemanticResult !== false
+        || upstream.provenance?.rerunCommand !== upstream.canonicalRerunCommand
+        || plan.build?.receipt !== upstream.buildReceipt.path
+        || prefixedDigest(plan.build?.receiptContentDigest) !== prefixedDigest(build.contentDigest)
+        || prefixedDigest(build.contentDigest) !== sourceState.buildIdentity
+        || authorityDigest(upstream.facts) !== sourceState.artifactDigest)
+        fail(`${label} canonical probe authority/build/facts identity mismatch`)
+    const projection = projectPreparedPublicIds(prepared)
+    verifyProbeFacts(upstream.kind, upstream.facts, {
+        fixtureProjection: { ...projection, prepareStateDigest: upstream.fixtureReceipt.fileDigest },
+        expectedReleaseId: plan.candidate?.releaseId
+    })
+    if (digestValue(upstream.rawFacts) !== digestValue(deriveProbeRawFacts(upstream.kind, upstream.facts)))
+        fail(`${label} raw semantic facts mismatch: canonical probe observations do not replay`)
+    return identityProjection(upstream)
+}
+
+function aotSourceProjection(repositoryRoot, upstream, sourceState, contract, envelope, producerId)
+{
+    const label = `producer ${producerId} AOT upstream`
+    assertExactKeys(upstream.sourceState, ['commit', 'worktreeFingerprint'], `${label} sourceState`)
+    const plan = replayEmbeddedReference(repositoryRoot, upstream.candidatePlanRef,
+        contract.referenceContracts.candidatePlanRef, sourceState, `${label} candidatePlanRef`)
+    validateCandidateIdentityAuthorityBindings(plan, envelope, producerId, label)
+    if (digestValue(plan.sourceState) !== digestValue(upstream.sourceState))
+        fail(`${label} source differs from canonical candidate plan`)
+    const build = readCurrentJsonBytes(repositoryRoot, plan.build?.receipt, `${label} immutable build`).value
+    if (build.schema !== 'fsusblog.ci-production-build-receipt.v1'
+        || receiptDigest(build) !== prefixedDigest(build.contentDigest)
+        || prefixedDigest(build.contentDigest) !== prefixedDigest(plan.build?.receiptContentDigest)
+        || prefixedDigest(build.contentDigest) !== sourceState.buildIdentity
+        || digestValue(build.sourceState) !== digestValue(plan.sourceState))
+        fail(`${label} immutable build source/content identity mismatch`)
+    const inputs = Object.fromEntries(['manifest', 'browserContract'].map((key) => [key, {
+        value: replayEmbeddedReference(repositoryRoot, upstream.evidenceRefs[key],
+            contract.referenceContracts[`evidenceRefs.${key}`], sourceState, `${label} ${key}`)
+    }]))
+    // Normalize and project from one descriptor-pinned byte view, never reopen between phases.
+    const retained = new Map()
+    const readBytes = (file) =>
+    {
+        if (typeof file !== 'string' || !path.isAbsolute(file) || path.resolve(file) !== file)
+            fail(`${label} retained artifact path must be absolute and canonical`)
+        const relative = path.relative(repositoryRoot, file)
+        if (!relative.startsWith('.tmp/') || unsafeReceiptPath.test(relative)
+            || relative.normalize('NFKC').toLowerCase().split('/').some((segment) => segment === 'docs'
+                || segment.startsWith('doc-claim') || segment.startsWith('markdown-reader')))
+            fail(`${label} retained artifact bytes must belong to the current run`)
+        if (!retained.has(file)) retained.set(file, readPinnedRepositoryFile(repositoryRoot, relative, `${label} retained artifact`).bytes)
+        return retained.get(file)
+    }
+    const normalized = normalizeAotSpaHydrationFacts(inputs, plan, build, { readBytes })
+    if (digestValue(upstream.rawFacts) !== digestValue(deriveAotSpaHydrationRawFacts(inputs, { readBytes })))
+        fail(`${label} raw semantic facts mismatch: canonical AOT observations do not replay`)
+    return { ...identityProjection(plan), artifactDigest: normalized.manifestDigest }
 }
 
 function browserSourceProjection(repositoryRoot, upstream, current, sourceState, contract, envelope, producerId)
@@ -1799,20 +1894,7 @@ function browserSourceProjection(repositoryRoot, upstream, current, sourceState,
     assertExactKeys(upstream.sourceState, ['commit', 'worktreeFingerprint'], `${label} sourceState`)
     const plan = replayEmbeddedReference(repositoryRoot, upstream.candidatePlanRef,
         contract.referenceContracts.candidatePlanRef, sourceState, `${label} candidatePlanRef`)
-    if (plan.status !== 'planned' || plan.producerId !== producerId)
-    {
-        fail(`${label} candidate plan is not a planned producer authority`)
-    }
-    const refs = plan.identityAuthorityRefs
-    assertExactKeys(refs, ['plan', 'attempt', 'fixture', 'profile'], `${label} candidate identity authorities`)
-    for (const [role, field] of [['plan', 'candidatePlanRef'], ['attempt', 'attemptAuthorityRef'],
-        ['fixture', 'fixtureAuthorityRef'], ['profile', 'profileAuthorityRef']])
-    {
-        if (digestValue(refs[role]) !== digestValue(envelope[field]))
-        {
-            fail(`${label} candidate ${role} authority differs from the observation`)
-        }
-    }
+    validateCandidateIdentityAuthorityBindings(plan, envelope, producerId, label)
     const build = upstream.build
     const binding = upstream.buildBinding
     assertExactKeys(binding, ['schema', 'receipt', 'receiptContentDigest', 'sourceState', 'profile'],
@@ -1933,13 +2015,17 @@ function validateSourceReceiptRef(repositoryRoot, ref, sourceState, producer, pr
     }
     const expectedSourceFields = definition.requiredIdentityFields
         .filter((field) => !['producerId', 'toolVersion', 'contentDigest'].includes(field))
-    if (contract.role !== 'browser')
+    if (!['browser', 'aot'].includes(contract.role))
     {
         assertExactKeys(upstream.sourceState, expectedSourceFields,
             `producer ${producerId} source receipt upstream sourceState`)
     }
     const projected = contract.role === 'browser'
         ? browserSourceProjection(repositoryRoot, upstream, upstreamCurrent, sourceState, contract, envelope, producerId)
+        : contract.role === 'probe'
+            ? probeSourceProjection(repositoryRoot, upstream, sourceState, contract, envelope, producerId)
+        : contract.role === 'aot'
+            ? aotSourceProjection(repositoryRoot, upstream, sourceState, contract, envelope, producerId)
         : identityProjection(upstream)
     for (const required of expectedSourceFields)
     {
