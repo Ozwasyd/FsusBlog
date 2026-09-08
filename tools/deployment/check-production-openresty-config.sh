@@ -24,6 +24,8 @@ command -v openssl >/dev/null 2>&1 || {
 
 mkdir -p "$workRoot/fsusblog" "$workRoot/certificates"
 printf '%s\n' 'server 127.0.0.1:8081;' >"$workRoot/fsusblog/active-upstream.conf"
+printf '%s\n' 'fsusblog:x:1654:1654:FsusBlog gateway:/nonexistent:/sbin/nologin' >"$workRoot/passwd"
+printf '%s\n' 'fsusblog:x:1654:' >"$workRoot/group"
 openssl req \
     -x509 \
     -nodes \
@@ -49,6 +51,8 @@ docker run \
     --mount "type=bind,src=$root/ops/gateway/production-openresty.conf,dst=/etc/openresty/nginx.conf,readonly" \
     --mount "type=bind,src=$workRoot/fsusblog,dst=/etc/openresty/fsusblog,readonly" \
     --mount "type=bind,src=$workRoot/certificates,dst=/etc/letsencrypt/live/fsus.blog,readonly" \
+    --mount "type=bind,src=$workRoot/passwd,dst=/etc/passwd,readonly" \
+    --mount "type=bind,src=$workRoot/group,dst=/etc/group,readonly" \
     --entrypoint openresty \
     "$openRestyImage" \
     -t \
