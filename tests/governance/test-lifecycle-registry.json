@@ -3748,6 +3748,105 @@
             ]
         },
         {
+            "file": "tests/tools/public-shell-locale-matrix.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/public-shell-locale-matrix.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/public-shell-locale-harness.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/public-shell-locale-harness.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/public-shell-locale-first-response.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/public-shell-locale-first-response.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/public-shell-locale-hydration.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/public-shell-locale-hydration.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/public-shell-locale-network.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/public-shell-locale-network.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/public-shell-locale-switch.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/public-shell-locale-switch.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/public-shell-locale-failure.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/public-shell-locale-failure.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/public-shell-locale-legacy-governance.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/public-shell-locale-legacy-governance.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/public-shell-locale-aggregate.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/public-shell-locale-aggregate.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/long-soak-measurement-authority.test.mjs",
             "owner": "manual-diagnostic:tests/tools/long-soak-measurement-authority.test.mjs",
             "executionCategory": "manual-diagnostic",

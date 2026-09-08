@@ -45,6 +45,8 @@ import {
     resolveBrowserContractRunIdentity
 } from './prepare-fixture.mjs';
 import { capturePublicPreviewGallery } from './public-preview-gallery.mjs';
+import { admitPublicShellLocaleHarness, observePublicShellLocaleProbe } from './public-shell-locale-harness.mjs';
+import { createPublicShellLocaleMatrix } from './public-shell-locale-matrix.mjs';
 import {
     browserContractAppReadyTimeoutMs,
     browserContractScenarioRunners,
@@ -375,6 +377,14 @@ async function main()
         expectedSourceState: build.sourceState,
         expectedBuild: build
     });
+    const localeMatrix = await createPublicShellLocaleMatrix(root);
+    const localeHarness = await admitPublicShellLocaleHarness({
+        root,
+        matrix: localeMatrix,
+        prepared: preparedFixture,
+        buildReceiptFile,
+        env: fixtureEnv
+    });
     const selectedScenarios = selectBrowserContractScenarios(fixture.capabilities);
     const managed = await loadManagedPlaywright();
     const receipt = createBrowserContractReceipt({
@@ -427,6 +437,7 @@ async function main()
             let context = null;
             let page = null;
             let audit = null;
+            let localeProbe = null;
             // Playwright traces serialize BrowserContext options and raw network
             // headers. Only the explicit anonymous allowlist may retain that raw
             // evidence; every authenticated or future role remains fail closed.
@@ -475,10 +486,33 @@ async function main()
                 page.setDefaultTimeout(browserContractAppReadyTimeoutMs);
                 page.setDefaultNavigationTimeout(browserContractAppReadyTimeoutMs);
                 audit = createPageAudit(page);
+                if (scenario.id === 'public-hydration-history-reload')
+                {
+                    localeProbe = observePublicShellLocaleProbe(page, localeHarness.identity, {
+                        signal: terminationController.signal,
+                        matrix: localeMatrix
+                    });
+                }
                 const observation = await runner({ browser, context, page, fixture, audit, scenario, outputRoot });
                 if (observation !== undefined)
                 {
                     scenarioReceipt.observation = observation;
+                }
+                if (localeProbe)
+                {
+                    const observation = await localeProbe.finish();
+                    const probeFile = path.join(runOutputRoot, 'public-shell-locale-probe.json');
+                    const probeBindingFile = path.join(runOutputRoot, 'public-shell-locale-probe-binding.json');
+                    await writeBrowserContractReceipt(probeFile, observation);
+                    await writeBrowserContractReceipt(probeBindingFile, {
+                        schema: 'fsusblog.public-shell-locale-probe-binding.v1',
+                        evidenceKind: 'diagnostic-probe',
+                        qualificationEligible: false,
+                        identity: localeHarness.identity,
+                        artifact: relative(probeFile),
+                        digest: sha256File(probeFile)
+                    });
+                    scenarioReceipt.artifacts.push(relative(probeFile), relative(probeBindingFile));
                 }
                 if (browserDisconnected)
                 {
@@ -517,6 +551,7 @@ async function main()
             }
             finally
             {
+                localeProbe?.dispose();
                 scenarioReceipt.issues = audit?.issues ?? [];
                 if (context)
                 {
