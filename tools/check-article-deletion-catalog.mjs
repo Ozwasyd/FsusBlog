@@ -23,11 +23,21 @@ const requiredRelations = [
     'article_rights_snapshot',
     'article_rights_proof',
     'article_publish_proof',
+    'content_asset',
+    'content_asset_reference:article',
+    'content_asset_reference:draft',
+    'content_asset_reference:revision',
+    'content_asset_cleanup_queue',
+    'article_mutation_outbox',
+    'local illustration file'
+];
+const retiredAssetRelations = [
     'article_asset_reference:article',
     'article_asset_reference:draft',
     'article_asset_reference:revision',
-    'article_mutation_outbox',
-    'local illustration file'
+    'article_asset_cleanup_queue',
+    'asset_library_article_ref',
+    'asset_library_item.source_article_id'
 ];
 
 const failures = [];
@@ -64,8 +74,15 @@ for (const required of requiredRelations)
         failures.push(`required relation is uncatalogued: ${required}`);
     }
 }
+for (const retired of retiredAssetRelations)
+{
+    if (byName.has(retired))
+    {
+        failures.push(`retired asset relation is still catalogued: ${retired}`);
+    }
+}
 
-for (const table of ['article', 'article_body', 'article_draft', 'article_tag', 'asset_library_article_ref', 'public_article_projection', 'article_public_taxonomy_projection', 'article_view_seed'])
+for (const table of ['article', 'article_body', 'article_draft', 'article_tag', 'public_article_projection', 'article_public_taxonomy_projection', 'article_view_seed'])
 {
     if (byName.get(table)?.policy !== 'delete')
     {
@@ -74,6 +91,24 @@ for (const table of ['article', 'article_body', 'article_draft', 'article_tag', 
     if (!kernel.includes(table))
     {
         failures.push(`${table} is absent from ArticleDeletionKernel`);
+    }
+}
+for (const mutableSource of ['content_asset_reference:article', 'content_asset_reference:draft'])
+{
+    if (byName.get(mutableSource)?.policy !== 'delete')
+    {
+        failures.push(`${mutableSource} must use delete policy`);
+    }
+}
+if (byName.get('content_asset_reference:revision')?.policy !== 'preserve')
+{
+    failures.push('content_asset_reference:revision must use preserve policy');
+}
+for (const delayedCleanup of ['content_asset', 'content_asset_cleanup_queue', 'local illustration file'])
+{
+    if (byName.get(delayedCleanup)?.policy !== 'async_cleanup')
+    {
+        failures.push(`${delayedCleanup} must use async_cleanup policy`);
     }
 }
 for (const retained of ['article_revision', 'article_publication', 'article_rights_snapshot', 'article_mutation_outbox', 'comment_moderation_event'])

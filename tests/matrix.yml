@@ -3224,6 +3224,7 @@ tiers:
           - authentication-session-permission
           - configuration-error-security-policy
           - article-comment-lifecycle-outbox
+          - article-scale-plan-static-governance
       artifacts:
           [
               .tmp/gate-logs,
@@ -3479,6 +3480,10 @@ tiers:
           - docs/testing.md
           - docs/testing/evidence-projection-contract.md
           - tools/test/lanes/static-governance.sh
+          - tools/test/check-article-scale-plan-governance.mjs
+          - tests/fixtures/governance/article-scale-plan-governance.json
+          - tests/tools/article-scale-plan-governance.test.mjs
+          - src/backend/Services/Fixtures/DataScale/ArticleScalePlan.cs
           - docs/testing/issue-1174-csharp-entrypoint-ownership.md
           - .editorconfig
           - Directory.Build.props

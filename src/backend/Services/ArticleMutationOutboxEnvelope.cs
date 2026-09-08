@@ -77,6 +77,7 @@ public sealed record ArticleMutationOutboxEnvelope(
 
 public static class ArticleMutationOutboxEnvelopeCodec
 {
+    public const string CurrentSchemaId = "fsusblog.article-mutation-outbox-envelope.v2";
     public const int CurrentSchemaVersion = 2;
 
     public static ArticleMutationOutboxEnvelope Read(ArticleMutationOutboxEvent item)
