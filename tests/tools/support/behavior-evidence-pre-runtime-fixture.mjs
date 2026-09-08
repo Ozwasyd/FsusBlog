@@ -509,4 +509,3 @@ function join(inputs, overrides = {})
 }
 
 export { SOURCE_COMMIT, WORKTREE_FP, EXTRACTOR_DIGEST, INPUT_DIGEST, RUN_ID, stable, digestReceipt, digestReceiptWithNullField, makeCatalog, catalogDigest, makeFactExtractorRegistry, REGISTRY_DIGEST, makeFact, makeOwner, makeTestEvidence, defaultEvidence, makeParseReceipt, makeVerification, makeGenerated, makeStaticAdmission, makeClaim, makeVerificationResult, makeMutationEvidence, happyBundle, join };
-
