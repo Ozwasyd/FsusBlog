@@ -801,7 +801,6 @@ public sealed class EndpointSecurityTestServer : IDisposable
                 BlockScore: 100,
                 MaxRiskScore: 200,
                 DefaultRiskTtlSeconds: 600,
-                ZeroRiskCacheTtlSeconds: 3,
                 FixedIpPermitLimit: permitLimit,
                 FixedIpQueueLimit: 0,
                 VerifiedCrawlerFixedIpPermitLimit: permitLimit,

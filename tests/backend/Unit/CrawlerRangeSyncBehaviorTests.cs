@@ -228,7 +228,6 @@ public sealed class CrawlerRangeSyncBehaviorTests
             100,
             200,
             600,
-            3,
             100,
             2,
             1000,
