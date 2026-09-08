@@ -1,6 +1,6 @@
 # RiskControl production tracking plan
 
-RiskControl 收敛所有风险信号、裁决、challenge、proof、enforcement、审计和管理策略。当前感知挑战面只包含 `perceptionCharacterV3`、`perceptionLocalizationV2` 与 `perceptionMicroInteractionV2`；V2 只承担 Localization 和 Micro-interaction，不承担字符或文本任务。所有 provider 共享 `SecurityChallengeEnvelope`、`SecurityChallengeAssignment` 与一次性 proof 契约。
+RiskControl consolidates all risk signals, decisions, challenges, proofs, enforcement, audit, and admin policy. The current perception challenge surface contains only `perceptionCharacterV3`, `perceptionLocalizationV2`, and `perceptionMicroInteractionV2`; V2 serves Localization and Micro-interaction only, not character or text tasks. All providers share `SecurityChallengeEnvelope`, `SecurityChallengeAssignment`, and the one-time proof contract.
 
 ## Production architecture
 
@@ -8,28 +8,28 @@ RiskControl 收敛所有风险信号、裁决、challenge、proof、enforcement�
 Risk Signal -> Risk Score -> Risk Decision -> Challenge Orchestration -> Proof Verification -> Enforcement -> Audit / Metrics / Admin Policy
 ```
 
-- endpoint 通过 `WithRiskAction(...)` 声明 action 与 route key；业务 handler 不自行选择 challenge。
-- `SecurityChallengeOrchestrator` 只从已注册 provider 中按服务端策略顺序签发 assignment；缺 provider、非法 kind、持久化失败或 proof mint 失败都 fail closed。
-- `SecurityChallengeEnvelope` 是 required member 的权威有序集合。客户端不得重排、删除、替换或自行降级成员。
-- provider verify 成功后只 mint 统一 `X-Fsus-Challenge-Proof`；业务 filter 一次性消费并验证 action、route、subject、IP、device、kind、policy version 与 expiry 绑定。
-- 浏览器 proof 只存进程内，不进入 URL、Web Storage、BroadcastChannel、日志或重连状态。
+- Endpoints declare the action and route key through `WithRiskAction(...)`; business handlers do not select challenges.
+- `SecurityChallengeOrchestrator` issues assignments only from registered providers in server-policy order; a missing provider, invalid kind, persistence failure, or proof-mint failure fails closed.
+- `SecurityChallengeEnvelope` is the authoritative ordered set of required members. Clients must not reorder, delete, replace, or self-degrade members.
+- After provider verification succeeds, only the unified `X-Fsus-Challenge-Proof` is minted; a business filter consumes it once and verifies action, route, subject, IP, device, kind, policy version, and expiry bindings.
+- Browser proofs remain in process memory and never enter URLs, Web Storage, BroadcastChannel, logs, or reconnect state.
 
 ## Current challenge policy
 
-V3 是字符感知挑战的唯一当前实现。LocalizationV2 与 MicroInteractionV2 继续使用 `fsu.challenge/perception-sealed@v2`、AEAD sealed token、坐标/步骤响应、render recipe 与 `RecipeHash`。公开 payload 不包含期望答案、期望坐标、期望步骤或语义标签；服务端解封后校验 assignment、recipe、action、route、subject、IP、device 与 policy binding，再通过 Redis attempt gate 和 consume-once。
+V3 is the sole current implementation for character-perception challenges. LocalizationV2 and MicroInteractionV2 continue to use `fsu.challenge/perception-sealed@v2`, an AEAD sealed token, coordinate/step responses, a render recipe, and `RecipeHash`. The public payload omits the expected answer, coordinates, steps, and semantic labels; after unsealing, the server verifies assignment, recipe, action, route, subject, IP, device, and policy bindings, then applies the Redis attempt gate and consume-once.
 
-策略只引用当前 manifest 中存在且 provider-ready 的 kind。客户端上报能力不足时只能回送低基数原因和原 assignment binding；服务端重新读取当前策略，撤销旧 assignment，并改发仍被策略允许的成员或拒绝。客户端不能指定替代 kind。
+Policy references only kinds present in the current manifest and provider-ready. When a client reports insufficient capability, it may return only a low-cardinality reason and the original assignment binding; the server rereads current policy, revokes the old assignment, and issues another policy-allowed member or rejects. Clients cannot choose a substitute kind.
 
 ## Rollout and rollback
 
-生产按 `observe -> enforce -> strict` 渐进，并保留 `disabled` 与事故期 `lockdown`。无需重启的回退通过 admin binary policy API 把受影响 action 切换到 `observe`，或恢复 last-known-good snapshot；不得通过恢复已退休 provider、别名 parser、JSON fallback 或弱绑定 proof 回退。
+Production progresses through `observe -> enforce -> strict` while retaining `disabled` and incident-only `lockdown`. A no-restart rollback uses the admin binary policy API to switch affected actions to `observe` or restores the last-known-good snapshot; never roll back by restoring retired providers, an alias parser, a JSON fallback, or weakly bound proofs.
 
-每个阶段必须覆盖：
+Every stage must cover:
 
-- 匿名请求：公开读、匿名评论与 notification preflight 的 challenge/proof binding。
-- 登录请求：Passkey、恢复流程及登录态评论不能绕过当前策略。
-- admin 请求：策略写入仍要求 admin principal、`system.config` 与 `X-Fsus-Mfa-Proof`。
-- notification stream：只使用 path-bound 短效 grant，重连不复用 proof。
-- binary：issue、verify、envelope、proof 与业务恢复全程只走 AEDS；未知或退休数值 kind fail closed。
+- Anonymous requests: challenge/proof binding for public reads, anonymous comments, and notification preflight.
+- Authenticated requests: Passkey, recovery, and authenticated comments cannot bypass current policy.
+- Admin requests: policy writes still require the admin principal, `system.config`, and `X-Fsus-Mfa-Proof`.
+- Notification stream: use only a path-bound short-lived grant; reconnects must not reuse proofs.
+- Binary: issue, verify, envelope, proof, and business resumption use AEDS throughout; unknown or retired numeric kinds fail closed.
 
-切换后记录 active policy version、readiness、issue/verify/replay/revoke 指标、428/429、Redis/PostgreSQL 错误率和回滚演练结果。具体操作见 [RiskControl production rollout gates](risk-control-rollout.md)。
+After each switch, record the active policy version, readiness, issue/verify/replay/revoke metrics, 428/429 rates, Redis/PostgreSQL error rates, and rollback-drill results. See [RiskControl production rollout gates](risk-control-rollout.md) for operations.

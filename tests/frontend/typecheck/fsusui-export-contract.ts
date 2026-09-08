@@ -149,15 +149,30 @@ const emptyStateProps = {
   titleTag: 'p',
 } satisfies Partial<EmptyStateProps>
 
-const markdownMode: MarkdownEditorMode = 'write'
+const markdownMode: MarkdownEditorMode = 'source'
 const markdownCommand: MarkdownEditorCommand = {
-  apply: (value) => ({
-    nextSelection: { end: value.length, start: value.length },
-    value,
-  }),
+  group: 'contract',
   key: 'contract',
   label: 'Contract',
+  run: (context) => ({
+    focus: 'editor',
+    transaction: {
+      changes: [],
+      history: 'skip',
+      origin: 'command',
+      selection: context.selection,
+    },
+  }),
 }
+// @ts-expect-error The public mode contract no longer accepts write.
+const legacyMarkdownMode: MarkdownEditorMode = 'write'
+const legacyMarkdownCommand: MarkdownEditorCommand = {
+  ...markdownCommand,
+  // @ts-expect-error Commands use run(context), not the removed apply path.
+  apply: (value: string) => ({ value }),
+}
+void legacyMarkdownMode
+void legacyMarkdownCommand
 const motionPreset: MotionPresetName = 'surface-settle'
 const themeMode: ThemeMode = themeModes[0]
 const perceptionKind: PerceptionChallengeKind = 'localization'

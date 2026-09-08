@@ -38,10 +38,10 @@ function fixture(context) {
 test('canonical repository keeps one base, one production overlay, one minimal development example, and one operator template', () => {
   const result = checkAppsettingsAuthority({ root: repositoryRoot, policyFile: policyPath })
   assert.deepEqual(result.errors, [])
-  assert.equal(result.developmentLeafCount, 11)
+  assert.equal(result.developmentLeafCount, 13)
   assert.equal(result.productionSectionCount, 22)
   assert.ok(result.productionEnvironmentKeyCount >= 50)
-  assert.equal(result.templateConsumerCount, 15)
+  assert.equal(result.templateConsumerCount, 13)
 })
 
 test('one scan exposes full-copy resurrection, redundant development values, unsafe production values, env drift, and stale consumers', (context) => {

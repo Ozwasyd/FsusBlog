@@ -375,6 +375,27 @@ test('raw Passed counters without a concrete execution row are rejected', () =>
     );
 });
 
+test('backend platform filter composition preserves every production exclusion', () =>
+{
+    const base = 'Category!=Integration&Category!=Performance&Fixture!=LocalRedis';
+    assert.equal(
+        composeBackendPlatformFilter(base, 'win32'),
+        '(Category!=Integration&Category!=Performance&Fixture!=LocalRedis)&Platform!=Unix'
+    );
+    for (const platform of ['linux', 'darwin'])
+    {
+        assert.equal(composeBackendPlatformFilter(base, platform), base);
+    }
+    assert.throws(
+        () => composeBackendPlatformFilter('', 'win32'),
+        /backend base test filter is required/u
+    );
+    assert.throws(
+        () => composeBackendPlatformFilter(base, 'freebsd'),
+        /unsupported backend runtime platform/u
+    );
+});
+
 test('backend Production union consumes the canonical Unix platform plan', () =>
 {
     const source = '/repo/tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll';
@@ -399,12 +420,23 @@ test('backend Production union consumes the canonical Unix platform plan', () =>
         source,
         traits: { Category: ['Integration'], Platform: ['Unix'] }
     };
+    const localRedis = {
+        id: 'local-redis',
+        fullyQualifiedName: 'Example.Tests.LocalRedis.Case',
+        displayName: 'Example.Tests.LocalRedis.Case',
+        source,
+        traits: { Fixture: ['LocalRedis'] }
+    };
 
-    assert.deepEqual(projectProductionUnionRecords([portable, unix, integration], 'win32'), [portable]);
-    assert.deepEqual(projectProductionUnionRecords([portable, unix, integration], 'linux'), [portable, unix]);
-    assert.deepEqual(projectProductionUnionRecords([portable, unix, integration], 'darwin'), [portable, unix]);
-    const windows = projectProductionPlatformPlan([portable, unix, integration], 'win32');
-    assert.equal(windows.executionFilter, '(Category!=Integration&Category!=Performance)&Platform!=Unix');
+    const records = [portable, unix, integration, localRedis];
+    assert.deepEqual(projectProductionUnionRecords(records, 'win32'), [portable]);
+    assert.deepEqual(projectProductionUnionRecords(records, 'linux'), [portable, unix]);
+    assert.deepEqual(projectProductionUnionRecords(records, 'darwin'), [portable, unix]);
+    const windows = projectProductionPlatformPlan(records, 'win32');
+    assert.equal(
+        windows.executionFilter,
+        '(Category!=Integration&Category!=Performance&Fixture!=LocalRedis)&Platform!=Unix'
+    );
     assert.equal(windows.platformTests.length, 1);
     assert.equal(windows.platformTests[0].result, 'not-selected');
 });

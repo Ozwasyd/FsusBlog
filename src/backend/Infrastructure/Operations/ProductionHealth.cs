@@ -317,6 +317,11 @@ public sealed record RuntimeHealthSnapshot(
     PublicHotReadRuntimeSnapshot? PublicHotRead,
     AuditLogRuntimeSnapshot? AuditLog) : IProductionHealthCheck
 {
+    public RequiredQueueHealthSnapshot? RequiredQueues
+    {
+        get; init;
+    }
+
     public DbConcurrencyGateDiagnostics? DbGateClasses
     {
         get; init;
@@ -334,6 +339,23 @@ public sealed record RuntimeHealthSnapshot(
         get; init;
     }
 }
+
+public sealed record RequiredQueueHealthSnapshot(
+    string Status,
+    IReadOnlyDictionary<string, RequiredQueueHealthEntry> Queues) : IProductionHealthCheck;
+
+public sealed record RequiredQueueHealthEntry(
+    string QueueId,
+    long Queued,
+    long InFlight,
+    long DurablePending,
+    long Committed,
+    long DurableAccepted,
+    long Requeued,
+    long TerminalFailed,
+    string? LastDisposition,
+    string? LastItemReference,
+    string? LastFailureReason);
 
 public static class ProductionLivenessProbe
 {
@@ -589,6 +611,7 @@ public sealed class ProductionReadinessProbe(
             ?.CreateSnapshot();
         PublicHotReadStore? publicHotReadStore = serviceProvider.GetService<PublicHotReadStore>();
         AuditLogRuntimeState? auditLogRuntime = serviceProvider.GetService<AuditLogRuntimeState>();
+        RequiredQueueHealthSnapshot requiredQueues = CaptureRequiredQueueHealth();
         PublicHotArtifactUpdateQueue? publicHotQueue = serviceProvider.GetService<PublicHotArtifactUpdateQueue>();
         Task<PublicHotReadRuntimeSnapshot?> publicHotReadTask = Task.Run(
             () => publicHotReadStore?.CreateRuntimeSnapshot(),
@@ -613,6 +636,7 @@ public sealed class ProductionReadinessProbe(
                     && !publicHotRead.ResidentByteBudgetExceeded))
             && (publicHotQuiescence?.Drained ?? true)
             && (commentMutationOutbox?.PoisonCount ?? 0) == 0
+            && string.Equals(requiredQueues.Status, "ok", StringComparison.Ordinal)
             ? "ok"
             : "degraded";
 
@@ -629,8 +653,38 @@ public sealed class ProductionReadinessProbe(
             DbGateClasses = dbGateClasses,
             PublicArticleProjection = publicArticleProjection,
             CommentMutationOutbox = commentMutationOutbox,
-            PublicHotQuiescence = publicHotQuiescence
+            PublicHotQuiescence = publicHotQuiescence,
+            RequiredQueues = requiredQueues
         };
+    }
+
+    private RequiredQueueHealthSnapshot CaptureRequiredQueueHealth()
+    {
+        var queues = new Dictionary<string, RequiredQueueHealthEntry>(StringComparer.Ordinal);
+        if (serviceProvider.GetService<AuditLogChannel>() is { } audit)
+        {
+            AuditLogChannelSnapshot s = audit.Snapshot();
+            queues["audit-log"] = new("audit-log", s.QueuedCount, s.InFlightCount, s.DurablePendingCount, s.CommittedCount, s.DurableAcceptedCount, s.RequeuedCount, s.TerminalFailureCount, s.LastDisposition, s.LastItemReference, s.LastFailureReason);
+        }
+        if (serviceProvider.GetService<AdminAuditLogChannel>() is { } admin)
+        {
+            AdminAuditLogChannelSnapshot s = admin.Snapshot();
+            queues["admin-audit-log"] = new("admin-audit-log", s.QueuedCount, s.InFlightCount, s.DurablePendingCount, s.CommittedCount, s.DurableAcceptedCount, s.RequeuedCount, s.TerminalFailureCount, s.LastDisposition, s.LastItemReference, s.LastFailureReason);
+        }
+        if (serviceProvider.GetService<SecurityRiskEventWriteQueue>() is { } risk)
+        {
+            SecurityRiskEventWriteQueueSnapshot s = risk.Snapshot();
+            queues["security-risk-event"] = new("security-risk-event", s.QueuedCount, s.InFlightCount, s.DurablePendingCount, s.CommittedCount, s.DurableAcceptedCount, s.RequeuedCount, s.TerminalFailureCount, s.LastDisposition, s.LastItemReference, s.LastFailureReason);
+        }
+        if (serviceProvider.GetService<ChallengeV2AuditEventQueue>() is { } challenge)
+        {
+            ChallengeV2AuditEventQueueSnapshot s = challenge.Snapshot();
+            queues["challenge-v2-event"] = new("challenge-v2-event", s.NormalQueuedCount + s.HighValueQueuedCount, s.InFlightCount, s.DurablePendingCount, s.CommittedCount, s.DurableAcceptedCount, s.RequeuedCount, s.TerminalFailureCount, s.LastDisposition, s.LastItemReference, s.LastFailureReason);
+        }
+
+        return new RequiredQueueHealthSnapshot(
+            queues.Values.Any(static item => item.TerminalFailed > 0) ? "failed" : "ok",
+            queues);
     }
 
     private static async Task<PublicHotQuiescenceResult?> ReadPublicHotQuiescenceAsync(

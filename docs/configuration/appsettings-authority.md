@@ -9,7 +9,7 @@ FsusBlog has one shared application configuration base and one runtime productio
 | Shared non-secret defaults and configuration shape | `src/backend/appsettings.json` |
 | Production policy, production-safe defaults and fail-closed empty values | `src/backend/appsettings.Production.json` |
 | Local development-only differences | `src/backend/appsettings.Development.example.json` |
-| Production operator input example | `.env.production.example` |
+| Production operator input example | `config/examples/.env.production.example` |
 | Real production secrets and cryptographic material | Environment variables or mounted files outside Git |
 
 The retired full JSON examples are not replaced. A resolved configuration may be generated as temporary CI evidence, but must not become another hand-maintained authority.
@@ -28,7 +28,7 @@ src/backend/appsettings.json
 The Git-tracked production environment example is never loaded directly. Operators create the private input and replace every placeholder:
 
 ```bash
-cp .env.production.example .env.production
+cp config/examples/.env.production.example .env.production
 $EDITOR .env.production
 ```
 

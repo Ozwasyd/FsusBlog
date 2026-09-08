@@ -1,27 +1,21 @@
-# 阅读排版契约
+# Reading Typography Contract
 
-本文只拥有 [`surface-profiles.md`](surface-profiles.md) 中 `reading` 内容的排版。Article、About、Comment 与管理端 Preview 共用 `MarkdownRenderer` 和 `markdown.css`，正文基础基线为 16px、400 字重与 1.8 行高；中文文章叙事正文遵循书籍与经典刊物排版规范，使用两端齐行对齐（`text-align: justify`）、0.015em 微字距补偿与 2em 段落首行缩进；各级标题保持左对齐；document mode（About、法律与政策页面）保持段落零首行缩进与左对齐。入口只声明 `article`、`about` 或 `preview` 语义，不允许在调用方重写正文、引用、列表、标题或代码字体。
+This document owns `reading` content from [`surface-profiles.md`](surface-profiles.md). Article, About, Comment, and admin Preview share `MarkdownRenderer` and `markdown.css`. The body baseline is `16px`, weight `400`, line-height `1.8`. Chinese narrative text uses `text-align: justify`, `0.015em` tracking compensation, and `2em` first-line indent; headings stay left-aligned. Document mode (About, legal, and policy) uses left alignment and no paragraph indent. Entrypoints declare only `article`, `about`, or `preview`; callers must not redefine body, quote, list, heading, or code typography.
 
-## Display、reading 与 metadata
+## Display, reading, and metadata
 
-- `display`：文章列表标题使用 18/20/24px 与 1.25/1.2 行高、700 字重；页面级 H1 另由 [`page-title-scale.md`](page-title-scale.md) 约束。
-- `reading`：列表摘要使用 14/16px、400、1.7；长文正文与引用使用 16px/400/1.8。Markdown paragraph 只有一条权威规则。
-- `metadata`：日期、分类、状态、阅读量和动作使用 12px 或 14px，不能用装饰性微缩文字承载信息。信息文本消费达到 AA 的 muted/tertiary；decorative token 只用于点和 marker。
+- `display`: list titles use `18/20/24px`, line-height `1.25/1.2`, weight `700`; page H1 follows [`page-title-scale.md`](page-title-scale.md).
+- `reading`: list summaries use `14/16px`, `400`, `1.7`; long-form body and quotes use `16px/400/1.8`. Markdown paragraphs have one authoritative rule.
+- `metadata`: dates, categories, status, reading counts, and actions use `12px` or `14px`; muted/tertiary text must meet AA. Decorative tokens are only for dots and markers.
 
-AOT emergency、hydration 与 SPA takeover 使用同一 reading role、行高和 metadata 档位。Markdown blockquote 继承正文排版，不另行缩小；账户导航、task controls 和其他非阅读文本由 FsusUI 及对应 task 领域文档拥有。
+AOT emergency, hydration, and SPA takeover use the same reading roles and metadata tiers. Blockquotes inherit body typography. Account navigation, task controls, and other non-reading text belong to FsusUI and their task contracts.
 
-## 加载字重
+## Weights, headings, and document mode
 
-Reading renderer 只使用 font loader 已确认存在的正文、强调和标题字重，不依赖浏览器合成缺失字重。弱层级用语义颜色表达；正文、metadata/操作强调与标题分别选择已加载的 reading role。通用字体与组件排版权威仍在当前 FsusUI 基线。
+The renderer uses only font-loader-confirmed body, emphasis, and heading weights; it never relies on synthetic missing weights. `ArticleCommentComposer` identity labels, badges, toggles, drafts, empty previews, feedback, and metrics, and the desktop TOC title use `700`. Blockquotes declare no local weight and inherit Markdown root `400`.
 
-`ArticleCommentComposer` 的身份标签、badge、toggle、draft、empty preview、feedback 与 metrics 使用 700；desktop TOC title 使用 700；blockquote 不声明局部字重，继承 Markdown 根的 400。
+Markdown H1 is `24px`; H2-H6 are `20px`, all left-aligned. The article-mode H1 is a chapter heading at `1.4em/700` with `3em` top spacing. Preview/editor does not inherit article-only overrides; choose `article` mode explicitly for a faithful preview. About, privacy, guidelines, and copyright use `mode="about"` and `markdown-body--document`: natural tracking, `text-autospace: normal`, zero paragraph indent, zero list horizontal margin, and `1.5em` marker padding. Article/preview/editor do not inherit these overrides. Paragraphs, quotes, lists, and code blocks share one reading column; quotes remain `16px/400/1.8`.
 
-## Markdown heading 与 document mode
+Fenced, inline, comment, audit/detail preview, AOT/SSR, and hydrated code use `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace`. Code blocks use reading-surface fill and neutral borders; long lines scroll inside the block and never widen the reading container.
 
-正文内标题使用 24px H1 与 20px H2-H6，均保持左对齐；30px 只保留给页面级标题。Article mode 的 Markdown H1 是 chapter heading，不是第二个 page title，使用 1.4em/700、左对齐和 3em 上间距。Preview/editor 不自动继承 article-only override；需要忠实文章预览时必须显式选择 article mode。
-
-About、privacy、guidelines 与 copyright 使用 `mode="about"` 和 `markdown-body--document`。Document mode 保持自然字距、`text-autospace: normal`、段落零首行缩进、列表零横向 margin 与 1.5em marker padding；article/preview/editor 不继承这些 document overrides。段落、blockquote、列表和代码块从同一阅读列起始，blockquote 继承 16px/400/1.8。
-
-fenced code、inline code、comment code、audit/detail preview、AOT/SSR 与 hydrated 内容统一使用 `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace`。代码块使用阅读面语义填充和中性边界，长行只在块内横向滚动，不扩大 reading container。
-
-`data-fsus-surface="reading"` 在所有 motion preference 下都禁止 blur、glow、motion trail、shimmer、pulse、translate、scale、stagger 和 scroll reveal。正文、标题、图片与代码块静态出现；复制反馈、focus/target 定位、阅读进度状态和 media overlay 可以使用功能动效。Light/Dark 只替换语义颜色；375px、768px、1440px 与 150% zoom 不改变 DOM 顺序和排版角色。
+`data-fsus-surface="reading"` forbids blur, glow, motion trail, shimmer, pulse, translate, scale, stagger, and scroll reveal under every motion preference. Body, headings, images, and code blocks appear statically. Copy feedback, focus/target positioning, reading-progress state, and media-overlay settle may use functional motion; Light/Dark changes semantic colors only. 375px, 768px, 1440px, and 150% zoom keep DOM order and typography roles unchanged.

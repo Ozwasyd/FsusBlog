@@ -100,7 +100,7 @@ test('canonical contract inventories settings, environment inputs, mounted files
     const canonical = checkBackendConfigurationContract({ root: repositoryRoot });
     assert.deepEqual(canonical.errors, []);
     assert.equal(canonical.report.status, 'ok');
-    assert.equal(canonical.report.counts.applicationSettings, 226);
+    assert.equal(canonical.report.counts.applicationSettings, 228);
     assert.equal(canonical.report.counts.environmentVariables, 242);
     assert.equal(canonical.report.counts.mountedFiles, 4);
     assert.match(canonical.generatedReference, /not an input template/u);
@@ -127,7 +127,7 @@ test('canonical contract inventories settings, environment inputs, mounted files
 test('one scan reports a missing variable classification, stale alias, and usable tracked secret', (context) =>
 {
     const { root } = createFixture(context);
-    fs.appendFileSync(path.join(root, '.env.production.example'), '\nUNDECLARED_DEPLOYMENT_CONTROL=1\n');
+    fs.appendFileSync(path.join(root, 'config/examples/.env.production.example'), '\nUNDECLARED_DEPLOYMENT_CONTROL=1\n');
     const composePath = path.join(root, 'ops/docker/docker-compose.production.yml');
     fs.writeFileSync(
         composePath,
@@ -202,7 +202,7 @@ test('tracked variable ownership and generated reference are deterministic contr
         fs.readFileSync(path.join(root, contract.authorities.generatedReference), 'utf8'),
         renderBackendConfigurationReference(contract));
 
-    const envPath = path.join(root, '.env.production.example');
+    const envPath = path.join(root, 'config/examples/.env.production.example');
     fs.writeFileSync(
         envPath,
         fs.readFileSync(envPath, 'utf8').replace('FSUSBLOG_BLUE_PORT=8081\n', ''));
