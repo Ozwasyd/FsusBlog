@@ -6,6 +6,7 @@ using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Spa;
+using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -16,11 +17,17 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.StaticFiles;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+
+using SqlSugar;
+
 namespace FsusBlog.Server.Tests;
 
 public sealed class WebApplicationCompositionExtensionsTests
@@ -769,6 +776,49 @@ public sealed class WebApplicationCompositionExtensionsTests
         await StaticNoCacheEntryAssets_ReturnNotModifiedWhenEtagMatches("/search/index.manifest.aeds", "manifest-v1");
         await StaticNoCacheEntryAssets_ReturnNotModifiedWhenEtagMatches("/search/index.bin", "legacy-index-v1");
         await StaticNoCacheEntryAssets_ReturnNotModifiedWhenEtagMatches("/manifest.webmanifest", "{\"name\":\"FsusBlog\"}");
+    }
+
+    [Fact]
+    public async Task PublicAssetRead_ServesPhysicalFileWithoutResolvingDatabase()
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"fsus-public-asset-{Guid.NewGuid():N}");
+        ReleaseStoragePaths paths = ReleaseStorageTestPaths.Create(root);
+        Directory.CreateDirectory(paths.PublicAssetRoot);
+        Directory.CreateDirectory(paths.ImmutableAssetRoot);
+        Directory.CreateDirectory(Path.Combine(root, "wwwroot"));
+        byte[] expected = "public-asset-direct-read"u8.ToArray();
+        string assetPath = Path.Combine(paths.PublicAssetRoot, "illustration", "direct.png");
+        Directory.CreateDirectory(Path.GetDirectoryName(assetPath)!);
+        await File.WriteAllBytesAsync(assetPath, expected);
+
+        try
+        {
+            WebApplicationBuilder builder = WebApplication.CreateBuilder(new WebApplicationOptions
+            {
+                ApplicationName = typeof(WebApplicationCompositionExtensionsTests).Assembly.GetName().Name,
+                ContentRootPath = root,
+                EnvironmentName = Environments.Development,
+                WebRootPath = Path.Combine(root, "wwwroot")
+            });
+            builder.WebHost.UseTestServer();
+            builder.Services.AddSingleton(paths);
+            builder.Services.AddSingleton<ISqlSugarClient>(static _ =>
+                throw new InvalidOperationException("Public asset read resolved the database."));
+
+            await using WebApplication app = builder.Build();
+            app.UseFsusStaticAssets();
+            await app.StartAsync();
+            using HttpClient client = app.GetTestClient();
+
+            byte[] actual = await client.GetByteArrayAsync("/uploads/illustration/direct.png");
+
+            Assert.Equal(expected, actual);
+            await app.StopAsync();
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
