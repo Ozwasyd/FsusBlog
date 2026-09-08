@@ -11,9 +11,13 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Services.PrivateAssets;
 
-internal interface IPrivateAssetRecordSource
+internal interface IPrivateAssetMetadataSource
 {
     Task<AssetRecord?> FindAsync(AssetId assetId, CancellationToken cancellationToken);
+}
+
+internal interface IPrivateAssetRecordSource : IPrivateAssetMetadataSource
+{
 
     Task<AssetRecord?> PrepareCommitAsync(
         AssetRecord expected,
@@ -649,6 +653,17 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
             InvalidOperationException or
             IOException or
             UnauthorizedAccessException)
+        {
+            return null;
+        }
+
+        return ToReadHandle(valid);
+    }
+
+    internal static PrivateAssetReadHandle? ToValidatedReadMetadata(AssetRecord? record)
+    {
+        if (!TryValidateActivePrivateRecord(record, out AssetRecord valid)
+            || valid.StorageKey != CreateStorageKey(valid.Id, valid.Extension))
         {
             return null;
         }

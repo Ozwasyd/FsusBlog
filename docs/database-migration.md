@@ -246,6 +246,30 @@ The descriptor is an online Expand with compatible-code rollback. An older relea
 ignores both columns, so rollback leaves them in place rather than dropping stored
 descriptions.
 
+## Author Article Pins Expand
+
+`20260904-post-author-article-pins` is an additive, transactional Post-CodeFirst
+Expand. It creates the sole private `author_article_pin_collection` and normalized
+`author_article_pin` authority plus append-only receipts and an idempotency ledger.
+The collection key is the authenticated admin-principal identity and configured
+site scope; each member stores only the stable article ID, server-assigned bounded
+order key, collection revisions, request/receipt references and SHA-256 digests.
+The pin tables never copy title, slug, content or public ranking fields and never
+write article metadata or public counters.
+
+The collection owner has an `ON DELETE CASCADE` principal foreign key. Pin rows do
+not hold an article foreign key: permanent article deletion must not be blocked by
+a private navigation feature, and permission/lifecycle-safe cleanup is owned by the
+downstream read projection. The trusted write boundary still fail-closes before a
+new pin when the stable article ID is absent, deleted or in the deleted lifecycle
+state. Owner/site advisory transaction locks serialize CAS and idempotency, and
+authority snapshots take the same lock so collection revision, count, members and
+digest come from one committed state.
+
+No-restart rollback retains these additive tables while an older release ignores
+them. Do not drop the ledger during the compatibility window; pause pin callers at
+the authenticated server edge and preserve receipts for verification.
+
 ## Zero-Downtime Migration Qualification
 
 Release migration qualification is an isolated Test-topology gate around the production
