@@ -48,7 +48,7 @@ public sealed partial class FileService : IFileService
     private readonly ILogger<FileService> _logger;
     private readonly ReleaseStoragePaths _storagePaths;
     private readonly string _folderPath;
-    private readonly string _cleanSubFolderWeb;
+    private readonly PublicAssetUrlCodec _publicAssetUrlCodec = new();
     private readonly string _sandboxAbsolutePath;
     private readonly string _sessionRootPath;
     private readonly string _sessionRootAbsolutePath;
@@ -93,8 +93,6 @@ public sealed partial class FileService : IFileService
         _sessionRootAbsolutePath = _sessionRootPath.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
             ? _sessionRootPath
             : _sessionRootPath + Path.DirectorySeparatorChar;
-
-        _cleanSubFolderWeb = "/uploads/illustration";
 
         Directory.CreateDirectory(_folderPath);
         EnsureRestrictedDirectory(_sessionRootPath);
@@ -440,7 +438,8 @@ public sealed partial class FileService : IFileService
             string extension = "." + record.TargetFormat.TrimStart('.').ToLowerInvariant();
             string fileName = $"{normalizedUploadId}{extension}";
             string finalPath = Path.Combine(_folderPath, fileName);
-            string relativeUrl = $"{_cleanSubFolderWeb}/{fileName}";
+            AssetId assetId = AssetId.FromGuid(Guid.ParseExact(normalizedUploadId, "N"));
+            AssetStorageKey storageKey = AssetStorageKey.Parse($"illustration/{fileName}");
             string tempPath = Path.Combine(GetSessionPath(normalizedUploadId), $"assembled{extension}");
             string expectedHash = NormalizeHash(sha256);
             if (expectedHash.Length == 0)
@@ -451,7 +450,7 @@ public sealed partial class FileService : IFileService
             if (string.Equals(record.Status, "completed", StringComparison.Ordinal))
             {
                 CommittedUploadResolution completed = await TryResolveCommittedUploadAsync(
-                    normalizedUploadId,
+                    assetId,
                     expectedHash,
                     cancellationToken);
                 if (completed.Found)
@@ -502,10 +501,10 @@ public sealed partial class FileService : IFileService
             }
 
             Result<UploadCompleteDto> commit = await CommitVerifiedUploadAsync(
-                normalizedUploadId,
+                assetId,
                 sourcePath,
                 finalPath,
-                relativeUrl,
+                storageKey,
                 record.MimeType,
                 record.OwnerAdminPrincipalId,
                 assembled,
@@ -528,16 +527,17 @@ public sealed partial class FileService : IFileService
     }
 
     private async Task<Result<UploadCompleteDto>> CommitVerifiedUploadAsync(
-        string uploadId,
+        AssetId assetId,
         string sourcePath,
         string finalPath,
-        string relativeUrl,
+        AssetStorageKey storageKey,
         string mimeType,
         long ownerAdminPrincipalId,
         AssembledUploadFile assembled,
         string targetFormat,
         CancellationToken cancellationToken)
     {
+        string uploadId = assetId.Value.ToString("N");
         string commitTempRoot = GetUploadCommitTempRoot();
         string commitTempPath = Path.Combine(
             commitTempRoot,
@@ -553,7 +553,7 @@ public sealed partial class FileService : IFileService
             catch (IOException) when (File.Exists(finalPath))
             {
                 CommittedUploadResolution concurrentCommit = await TryResolveCommittedUploadAsync(
-                    uploadId,
+                    assetId,
                     assembled.Sha256,
                     cancellationToken);
                 if (!concurrentCommit.Found)
@@ -567,9 +567,9 @@ public sealed partial class FileService : IFileService
                 }
 
                 Result concurrentLedger = await RegisterCommittedAssetAsync(
-                    uploadId,
+                    assetId,
                     finalPath,
-                    relativeUrl,
+                    storageKey,
                     ownerAdminPrincipalId,
                     assembled,
                     targetFormat,
@@ -580,9 +580,9 @@ public sealed partial class FileService : IFileService
             }
 
             Result committedLedger = await RegisterCommittedAssetAsync(
-                uploadId,
+                assetId,
                 finalPath,
-                relativeUrl,
+                storageKey,
                 ownerAdminPrincipalId,
                 assembled,
                 targetFormat,
@@ -592,11 +592,12 @@ public sealed partial class FileService : IFileService
                 return Result<UploadCompleteDto>.Failure(committedLedger.Error);
             }
 
+            string publicUrl = _publicAssetUrlCodec.ToPublicPath(storageKey);
             return Result<UploadCompleteDto>.Success(new UploadCompleteDto
             {
                 UploadId = uploadId,
-                Url = relativeUrl,
-                RelativeUrl = relativeUrl,
+                Url = publicUrl,
+                RelativeUrl = publicUrl,
                 MimeType = mimeType,
                 TotalBytes = assembled.Length
             });
@@ -618,9 +619,9 @@ public sealed partial class FileService : IFileService
     }
 
     private async Task<Result> RegisterCommittedAssetAsync(
-        string uploadId,
+        AssetId assetId,
         string finalPath,
-        string relativeUrl,
+        AssetStorageKey storageKey,
         long ownerAdminPrincipalId,
         AssembledUploadFile assembled,
         string targetFormat,
@@ -633,15 +634,9 @@ public sealed partial class FileService : IFileService
             return Result.Success();
         }
 
-        if (!Guid.TryParseExact(uploadId, "N", out Guid assetId) || assetId == Guid.Empty)
+        if (assetId.Value == Guid.Empty)
         {
             return Result.Failure(ErrorCode.InfraFailure, "上传成品资产标识非法");
-        }
-
-        var codec = new PublicAssetUrlCodec();
-        if (!codec.TryGetStorageKey(relativeUrl, out AssetStorageKey storageKey))
-        {
-            return Result.Failure(ErrorCode.InfraFailure, "上传成品存储标识非法");
         }
 
         byte[] committedBytes = await File.ReadAllBytesAsync(finalPath, cancellationToken).ConfigureAwait(false);
@@ -674,7 +669,7 @@ public sealed partial class FileService : IFileService
                     @OwnerId, 'active', @Now, @Now)
                 ON CONFLICT (storage_key) DO NOTHING;
                 """,
-                new SugarParameter("@AssetId", assetId),
+                new SugarParameter("@AssetId", assetId.Value),
                 new SugarParameter("@StorageKey", storageKey.Value),
                 new SugarParameter("@MediaType", media.MediaType),
                 new SugarParameter("@Extension", extension),
@@ -690,7 +685,7 @@ public sealed partial class FileService : IFileService
                 .ToListAsync(cancellationToken);
             ContentAsset? persisted = matches.SingleOrDefault();
             bool exactMatch = persisted is not null
-                && persisted.AssetId == assetId
+                && persisted.AssetId == assetId.Value
                 && persisted.StorageClass == "public"
                 && persisted.MimeType == media.MediaType
                 && persisted.Extension == extension
@@ -706,16 +701,17 @@ public sealed partial class FileService : IFileService
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            _logger.LogError(exception, "Content asset ledger commit failed for {UploadId}", uploadId);
+            _logger.LogError(exception, "Content asset ledger commit failed for {AssetId}", assetId);
             return Result.Failure(ErrorCode.InfraFailure, "上传成品资产记录提交失败");
         }
     }
 
     private async Task<CommittedUploadResolution> TryResolveCommittedUploadAsync(
-        string uploadId,
+        AssetId assetId,
         string expectedSha256,
         CancellationToken cancellationToken)
     {
+        string uploadId = assetId.Value.ToString("N");
         string[] candidates = s_allowedExtensions
             .Select(extension => Path.Combine(_folderPath, uploadId + extension))
             .Where(File.Exists)
@@ -761,14 +757,15 @@ public sealed partial class FileService : IFileService
             }
         }
 
-        string relativeUrl = $"{_cleanSubFolderWeb}/{Path.GetFileName(finalPath)}";
+        AssetStorageKey storageKey = AssetStorageKey.Parse($"illustration/{Path.GetFileName(finalPath)}");
+        string publicUrl = _publicAssetUrlCodec.ToPublicPath(storageKey);
         return new CommittedUploadResolution(
             true,
             Result<UploadCompleteDto>.Success(new UploadCompleteDto
             {
                 UploadId = uploadId,
-                Url = relativeUrl,
-                RelativeUrl = relativeUrl,
+                Url = publicUrl,
+                RelativeUrl = publicUrl,
                 MimeType = MimeTypeForExtension(extension),
                 TotalBytes = new FileInfo(finalPath).Length
             }));
