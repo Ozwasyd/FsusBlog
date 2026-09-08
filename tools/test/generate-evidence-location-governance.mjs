@@ -127,6 +127,8 @@ const canonicalCallerOverrides = new Map(Object.entries({
         'node tools/runtime-profiles/run-runtime-publish-matrix.mjs'],
     'tools/test-fixtures/receipt/observations.mjs': ['tools/test-fixtures/receipt/index.mjs',
         'node --test tests/tools/fixture-receipt.test.mjs'],
+    'tools/test-fixtures/receipt/postconditions.mjs': ['tools/test-fixtures/receipt/index.mjs',
+        'node tools/test-fixtures/cli.mjs verify'],
     'tools/test-matrix/artifact-digest-table.mjs': ['tests/tools/artifact-digest-table.test.mjs',
         'node --test tests/tools/artifact-digest-table.test.mjs'],
     'tools/test-matrix/content-addressed-evidence-store.mjs': ['tests/tools/content-addressed-evidence-store.test.mjs',

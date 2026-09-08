@@ -315,7 +315,37 @@ test('every registry authority declares an executable producer and exact publica
     }
     assert.deepEqual(Object.fromEntries(['cli', 'library-caller', 'workflow'].map((classification) =>
         [classification, [...sourceClasses.values()].filter((value) => value === classification).length])),
-    { cli: 47, 'library-caller': 19, workflow: 2 });
+    { cli: 47, 'library-caller': 20, workflow: 2 });
+});
+
+test('fixture postconditions bind the verify CLI through the receipt library', () =>
+{
+    const generated = generateEvidenceLocationGovernance();
+    const source = 'tools/test-fixtures/receipt/postconditions.mjs';
+    const entry = generated.registry.entries.find((item) => item.producerSource === source);
+    assert(entry);
+    assert.equal(entry.producerBindingClass, 'library-caller');
+    assert.equal(entry.producerCallsite, 'tools/test-fixtures/receipt/index.mjs');
+    assert.equal(entry.producerExecutable, 'node tools/test-fixtures/cli.mjs verify');
+    const index = fs.readFileSync(path.join(repositoryRoot, entry.producerCallsite), 'utf8');
+    assert.match(index, /verifyCapabilityPostconditions[\s\S]*from '\.\/postconditions\.mjs'/u);
+    const orchestrator = fs.readFileSync(path.join(repositoryRoot, 'tools/test-fixtures/orchestrator.mjs'), 'utf8');
+    assert.match(orchestrator, /verifyCapabilityPostconditions[\s\S]*from '\.\/receipt\/index\.mjs'/u);
+    assert.match(orchestrator, /verifyCapabilityPostconditions\(\{/u);
+    const cli = spawnSync(process.execPath, ['tools/test-fixtures/cli.mjs', 'verify'], {
+        cwd: repositoryRoot, encoding: 'utf8', timeout: 10000
+    });
+    assert.ifError(cli.error);
+    assert.equal(cli.status, 1);
+    assert.match(cli.stderr, /verify requires --receipt/u);
+    const library = spawnSync(process.execPath, [source, 'verify'], {
+        cwd: repositoryRoot, encoding: 'utf8', timeout: 10000
+    });
+    assert.ifError(library.error);
+    assert.equal(library.status, 0);
+    assert.equal(library.stdout, '');
+    assert.equal(library.stderr, '');
+    assert(generated.scan.findings.some((item) => item.file === source));
 });
 
 test('clean-attempt evidence retains its finding and binds the real CLI through its library caller', () =>
