@@ -1,5 +1,6 @@
 using System.Collections.Frozen;
 using System.Diagnostics;
+using System.Net;
 
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Entities;
@@ -10,10 +11,13 @@ using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -22,6 +26,7 @@ using NSubstitute;
 using SqlSugar;
 
 using StackExchange.Redis;
+using StackExchange.Redis.Profiling;
 
 namespace FsusBlog.Server.Tests;
 
@@ -62,8 +67,6 @@ public sealed class DistributedInvalidationTargetConvergenceIntegrationTests(
         AssertResidencyUnchanged(before, nodes.Target.LocalCache.SnapshotResidency(), CachePolicyId.SystemSeo);
         Assert.Equal(AppliedState, InboxState(nodes.Connection));
         Assert.False(nodes.Target.LastResult!.FullReconcile);
-        Assert.Equal(0, nodes.Target.RedisFallbackCommands);
-        Assert.Equal(0, nodes.Target.DatabaseFallbackCommands);
     }
 
     [Fact]
@@ -73,22 +76,50 @@ public sealed class DistributedInvalidationTargetConvergenceIntegrationTests(
         nodes.SeedBoth(articles: [1, 2], seedSeo: true, seedCategory: true);
         Assert.True(nodes.Target.HotRead.Current.TryGetArticle(2, out PublicBinaryArtifact beforeTwo));
         byte[] unchanged = beforeTwo.Frame.ToArray();
+        await using KestrelHotReadHost kestrel = await KestrelHotReadHost.StartAsync(nodes.Target.HotRead);
+        _ = nodes.DrainSourceRedisCommands();
+        string[] redisStartupCommands = nodes.DrainTargetRedisCommands();
+        Assert.Contains(redisStartupCommands, static command => command is "SUBSCRIBE" or "PSUBSCRIBE");
 
-        _ = await nodes.Source.Bus.PublishAsync(
+        HotReadHttpEvidence beforeHttp = await kestrel.GetArticleAsync(2);
+        Assert.True(
+            beforeHttp.StatusCode == HttpStatusCode.OK,
+            $"Kestrel article request failed: status={beforeHttp.StatusCode}; body={System.Text.Encoding.UTF8.GetString(beforeHttp.Body)}");
+        Assert.Equal(unchanged, beforeHttp.Body);
+        Assert.Equal(beforeTwo.Version.ToString(System.Globalization.CultureInfo.InvariantCulture), beforeHttp.HotReadVersion);
+        Assert.Equal(AedsFrameHeader.CurrentVersion.ToString(System.Globalization.CultureInfo.InvariantCulture), beforeHttp.FrameVersion);
+        Assert.Equal(beforeTwo.ETag, beforeHttp.ETag);
+        _ = nodes.DrainSourceRedisCommands();
+        _ = nodes.DrainTargetRedisCommands();
+
+        DistributedInvalidationPublishResult published = await nodes.Source.Bus.PublishAsync(
             new DistributedInvalidationRequest(
                 DistributedInvalidationEventKinds.ArticleMutation,
                 ["article-list", "hot-articles", "stats"],
                 ["article:1"],
                 ["article-detail:1", "public-aot", "public-hot-read"]));
         await EventuallyAsync(() => InboxState(nodes.Connection) == AppliedState);
+        Assert.Contains("PUBLISH", nodes.DrainSourceRedisCommands());
 
         Assert.True(nodes.Target.HotRead.IsReady);
         Assert.False(nodes.Target.HotRead.Current.TryGetArticle(1, out _));
         Assert.True(nodes.Target.HotRead.Current.TryGetArticle(2, out PublicBinaryArtifact remaining));
         Assert.Equal(unchanged, remaining.Frame.ToArray());
         Assert.False(nodes.Target.LastResult!.FullReconcile);
-        Assert.Equal(0, nodes.Target.RedisFallbackCommands);
-        Assert.Equal(0, nodes.Target.DatabaseFallbackCommands);
+
+        DistributedInvalidationInboxEntity inbox = Assert.IsType<DistributedInvalidationInboxEntity>(ReadInbox(nodes.Connection));
+        Assert.Equal(published.EventId, inbox.EventId);
+        Assert.Equal("node-b", inbox.TargetNodeId);
+        Assert.Equal(AppliedState, inbox.ApplyState);
+
+        _ = nodes.DrainTargetRedisCommands();
+        HotReadHttpEvidence afterHttp = await kestrel.GetArticleAsync(2);
+        Assert.Equal(HttpStatusCode.OK, afterHttp.StatusCode);
+        Assert.Equal(beforeHttp.Body, afterHttp.Body);
+        Assert.Equal(beforeHttp.HotReadVersion, afterHttp.HotReadVersion);
+        Assert.Equal(beforeHttp.FrameVersion, afterHttp.FrameVersion);
+        Assert.Equal(beforeHttp.ETag, afterHttp.ETag);
+        Assert.Empty(nodes.DrainTargetRedisCommands());
     }
 
     [Fact]
@@ -136,10 +167,13 @@ public sealed class DistributedInvalidationTargetConvergenceIntegrationTests(
     }
 
     private static string InboxState(string connection)
+        => ReadInbox(connection)?.ApplyState ?? string.Empty;
+
+    private static DistributedInvalidationInboxEntity? ReadInbox(string connection)
     {
         using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connection);
         DistributedInvalidationInboxEntity? inbox = db.Queryable<DistributedInvalidationInboxEntity>().First();
-        return inbox?.ApplyState ?? string.Empty;
+        return inbox;
     }
 
     private static DistributedInvalidationRequest CommentRequest()
@@ -182,6 +216,102 @@ public sealed class DistributedInvalidationTargetConvergenceIntegrationTests(
         }
     }
 
+    private readonly record struct HotReadHttpEvidence(
+        HttpStatusCode StatusCode,
+        byte[] Body,
+        string? HotReadVersion,
+        string? FrameVersion,
+        string? ETag);
+
+    private sealed class KestrelHotReadHost : IAsyncDisposable
+    {
+        private readonly WebApplication _app;
+        private readonly HttpClient _client;
+
+        private KestrelHotReadHost(WebApplication app, HttpClient client)
+        {
+            _app = app;
+            _client = client;
+        }
+
+        public static async Task<KestrelHotReadHost> StartAsync(PublicHotReadStore store)
+        {
+            WebApplicationBuilder builder = WebApplication.CreateBuilder(new WebApplicationOptions
+            {
+                EnvironmentName = Environments.Production
+            });
+            builder.Configuration["AllowedHosts"] = "127.0.0.1;localhost";
+            builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
+            builder.Services.AddRouting();
+            builder.Services.Configure<PublicHotReadOptions>(options =>
+            {
+                options.Enabled = true;
+                options.FailOpenWhenNotReady = false;
+                options.EnableDiagnosticHeaders = true;
+            });
+            builder.Services
+                .AddSingleton(store)
+                .AddSingleton<PublicHotReadEarlyDataPlaneRuntimeState>()
+                .AddSingleton<PublicHotReadClassifierCounters>()
+                .AddSingleton<PublicHotReadCounters>();
+
+            WebApplication app = builder.Build();
+            app.UseFsusPublicHotReadClassifier();
+            app.UseFsusPublicHotReadFastPath();
+            app.Run(static context =>
+            {
+                context.Response.StatusCode = StatusCodes.Status404NotFound;
+                return Task.CompletedTask;
+            });
+            await app.StartAsync().ConfigureAwait(false);
+
+            IServerAddressesFeature addresses = app.Services
+                .GetRequiredService<Microsoft.AspNetCore.Hosting.Server.IServer>()
+                .Features
+                .Get<IServerAddressesFeature>()
+                ?? throw new InvalidOperationException("Kestrel did not expose a bound address.");
+            HttpClient client = new(new HttpClientHandler
+            {
+                UseProxy = false
+            })
+            {
+                BaseAddress = new Uri(addresses.Addresses.Single()),
+                Timeout = TimeSpan.FromSeconds(10)
+            };
+            return new KestrelHotReadHost(app, client);
+        }
+
+        public async Task<HotReadHttpEvidence> GetArticleAsync(int articleId)
+        {
+            using HttpRequestMessage request = new(
+                HttpMethod.Get,
+                $"/api/binary/article/{articleId}.aeds");
+            request.Headers.TryAddWithoutValidation("Accept", "application/octet-stream");
+            request.Headers.TryAddWithoutValidation("Accept-Encoding", "identity");
+            using HttpResponseMessage response = await _client
+                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead)
+                .ConfigureAwait(false);
+            return new(
+                response.StatusCode,
+                await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false),
+                Header(response, "X-Fsus-HotRead-Version"),
+                Header(response, "X-Fsus-Frame-Version"),
+                Header(response, "ETag"));
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            _client.Dispose();
+            await _app.StopAsync().ConfigureAwait(false);
+            await _app.DisposeAsync().ConfigureAwait(false);
+        }
+
+        private static string? Header(HttpResponseMessage response, string name)
+            => response.Headers.TryGetValues(name, out IEnumerable<string>? values)
+                ? values.SingleOrDefault()
+                : null;
+    }
+
     private sealed class NodePair : IAsyncDisposable
     {
         private NodePair(
@@ -190,6 +320,8 @@ public sealed class DistributedInvalidationTargetConvergenceIntegrationTests(
             string channel,
             ConnectionMultiplexer sourceRedis,
             ConnectionMultiplexer targetRedis,
+            ProfilingSession sourceRedisProfile,
+            ProfilingSession targetRedisProfile,
             ServiceProvider sourceServices,
             ServiceProvider targetServices,
             NodeHarness source,
@@ -200,6 +332,8 @@ public sealed class DistributedInvalidationTargetConvergenceIntegrationTests(
             Channel = channel;
             SourceRedis = sourceRedis;
             TargetRedis = targetRedis;
+            _sourceRedisProfile = sourceRedisProfile;
+            _targetRedisProfile = targetRedisProfile;
             SourceServices = sourceServices;
             TargetServices = targetServices;
             Source = source;
@@ -226,6 +360,15 @@ public sealed class DistributedInvalidationTargetConvergenceIntegrationTests(
         {
             get;
         }
+        private readonly ProfilingSession _sourceRedisProfile;
+        private readonly ProfilingSession _targetRedisProfile;
+
+        public string[] DrainSourceRedisCommands()
+            => _sourceRedisProfile.FinishProfiling().Select(static item => item.Command).ToArray();
+
+        public string[] DrainTargetRedisCommands()
+            => _targetRedisProfile.FinishProfiling().Select(static item => item.Command).ToArray();
+
         public ServiceProvider SourceServices
         {
             get;
@@ -253,6 +396,10 @@ public sealed class DistributedInvalidationTargetConvergenceIntegrationTests(
             string channel = $"invalidation-{Guid.CreateVersion7():N}";
             ConnectionMultiplexer sourceRedis = await redis.ConnectAsync();
             ConnectionMultiplexer targetRedis = await redis.ConnectAsync();
+            var sourceRedisProfile = new ProfilingSession();
+            var targetRedisProfile = new ProfilingSession();
+            sourceRedis.RegisterProfiler(() => sourceRedisProfile);
+            targetRedis.RegisterProfiler(() => targetRedisProfile);
             ServiceProvider sourceServices = CreateLedgerServices(connection);
             ServiceProvider targetServices = CreateLedgerServices(connection);
             var source = NodeHarness.Create("node-a", ["node-a", "node-b"], channel, prefix, sourceRedis, sourceServices);
@@ -266,6 +413,8 @@ public sealed class DistributedInvalidationTargetConvergenceIntegrationTests(
                 channel,
                 sourceRedis,
                 targetRedis,
+                sourceRedisProfile,
+                targetRedisProfile,
                 sourceServices,
                 targetServices,
                 source,
@@ -348,8 +497,6 @@ public sealed class DistributedInvalidationTargetConvergenceIntegrationTests(
         }
         public int ApplierCount => _counting.Applied;
         public DistributedInvalidationLocalApplyResult? LastResult => _counting.LastResult;
-        public int RedisFallbackCommands => 0;
-        public int DatabaseFallbackCommands => 0;
 
         public static NodeHarness Create(
             string nodeId,
