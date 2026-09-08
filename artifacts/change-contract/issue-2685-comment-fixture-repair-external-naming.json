@@ -1,0 +1,27 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Fixtures/CommentFixtureSeeder.cs",
+                "src/backend/Services/Fixtures/CommentThreadFixturePort.cs",
+                "tools/test-fixtures/producers/comment-moderation-producer.mjs",
+                "tools/test-fixtures/receipt/comment-cleanup-contract.mjs",
+                "tools/test-fixtures/receipt/producer-receipt.mjs",
+                "tools/test/comment-fixture-governance.mjs",
+                "tools/test/run-comment-fixture-simulated-runtime.mjs"
+            ],
+            "reason": "preserve caller-visible fixture environment and receipt field spelling while internal C# and JavaScript identifiers retain repository-native naming"
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/bootstrap-acceptance-env.sh",
+                "tools/dev/start.sh",
+                "tools/test/lanes/_suite-support.sh"
+            ],
+            "reason": "preserve exported fixture environment variable spelling while shell-local aliases remain lower camel case"
+        }
+    ]
+}
