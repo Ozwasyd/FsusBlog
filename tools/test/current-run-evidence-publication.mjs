@@ -11,6 +11,7 @@ export const EVIDENCE_PUBLICATION_POINTER_SCHEMA = 'fsusblog.evidence-reference-
 export const EVIDENCE_TERMINAL_HANDOFF_SCHEMA = 'fsusblog.current-run-evidence-terminal-handoff.v1';
 export const EVIDENCE_TERMINAL_HANDOFF_PREFIX = 'FSUSBLOG_CURRENT_RUN_EVIDENCE_HANDOFF=';
 export const releaseFinalDirectConsumerIds = Object.freeze([
+    'evidence-consumer.test-matrix.behavior-evidence-pre-runtime',
     'evidence-consumer.release-final.direct.behavior-consistency',
     'evidence-consumer.release-final.direct.behavior-post-runtime',
     'evidence-consumer.release-final.direct.browser-contract',

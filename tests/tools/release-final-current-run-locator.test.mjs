@@ -17,6 +17,7 @@ import { completeEvidenceLocatorRegistryEntry } from '../../tools/test/evidence-
 
 const d = (value) => `sha256:${value.repeat(64)}`;
 const payloadSchemas = {
+    'evidence-consumer.test-matrix.behavior-evidence-pre-runtime': 'fsusblog.behavior-evidence-pre-runtime-receipt.v1',
     'evidence-consumer.release-final.direct.behavior-consistency': 'fsusblog.behavior-document-consistency-final-report.v1',
     'evidence-consumer.release-final.direct.behavior-post-runtime': 'fsusblog.behavior-evidence-post-runtime-receipt.v1',
     'evidence-consumer.release-final.direct.browser-contract': 'fsusblog.browser-contract-receipt.v2',
@@ -88,7 +89,7 @@ test('release-final locates the exact parent and every canonical direct child', 
         const result = locateReleaseFinalDirectEvidence({ context: f.context, parentPath: f.parentPath,
             registry: f.registry, repositoryRoot: f.root });
         assert.deepEqual(Object.keys(result.directEvidence).sort(),
-            ['behaviorConsistency', 'behaviorPostRuntime', 'browserContract', 'browserlessCorrectness', 'productionBuild', 'publicPreview']);
+            ['behaviorConsistency', 'behaviorPostRuntime', 'behaviorPreRuntime', 'browserContract', 'browserlessCorrectness', 'productionBuild', 'publicPreview']);
     }
     finally { fs.rmSync(f.root, { recursive: true, force: true }); }
 });
