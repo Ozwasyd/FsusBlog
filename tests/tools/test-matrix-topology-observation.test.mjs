@@ -456,9 +456,9 @@ test('7) command group membership drop changes observation digest', () =>
     assert.equal(baseline.status, 'ok', baseline.failureReasons?.join('\n'))
     const matrixPath = path.join(directory, 'tests/matrix.yml')
     let text = readFileSync(matrixPath, 'utf8')
-    // Remove one known frontend-static-governance command id line.
+    // Remove one known frontend-static-governance command entry.
     const removed = text.replace(
-      /\n\s*- \{id: "frontend-style-full"[^\n]*\}/u,
+      /\n            - id: "frontend-style-full"\n[\s\S]*?(?=\n            - id: )/u,
       '\n'
     )
     assert.notEqual(removed, text)
