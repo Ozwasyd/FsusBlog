@@ -10,6 +10,15 @@ import {
 import {
     validateReleaseReliabilityQualifiedBinding
 } from './release-reliability-qualified-receipt.mjs';
+import {
+    validateRequiredEvidenceCatalogBinding
+} from '../test-matrix/required-evidence-catalog.mjs';
+import {
+    assertPreRuntimeQualified
+} from '../test-matrix/behavior-evidence-pre-runtime.mjs';
+import {
+    validatePostRuntimeReceipt
+} from '../test-matrix/behavior-evidence-post-runtime.mjs';
 import { requireCleanAttemptConsumerAdmission } from './browser-release-clean-attempt-consumers.mjs';
 
 export const browserlessCorrectnessReceiptSchema = 'fsusblog.browserless-correctness-receipt.v1';
@@ -48,7 +57,24 @@ function seal(value)
 
 export function sha256File(file)
 {
-    return `sha256:${crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`;
+    return sha256Bytes(fs.readFileSync(file));
+}
+
+function sha256Bytes(bytes)
+{
+    return `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}`;
+}
+
+function readBoundBehaviorReceipt(file, receipt, validator)
+{
+    const bytes = fs.readFileSync(file);
+    const parsed = JSON.parse(bytes.toString('utf8'));
+    validator(parsed);
+    if (JSON.stringify(canonicalize(parsed)) !== JSON.stringify(canonicalize(receipt)))
+    {
+        throw new Error('release-final behavior receipt object/file mismatch');
+    }
+    return { receipt: parsed, fileDigest: sha256Bytes(bytes) };
 }
 
 export function productionBuildBinding(receipt, receiptPath)
@@ -1162,6 +1188,33 @@ export function validateBrowserDiagnosticsReceipt(receipt, {
     return errors;
 }
 
+export function assertReleaseFinalBehaviorIdentity({
+    preRuntimeReceipt: pre,
+    postRuntimeReceipt: post,
+    releaseCommit,
+    expectedWorktreeFingerprint = null
+})
+{
+    if (!pre?.runIdentity || !pre?.sourceIdentity?.worktreeFingerprint
+        || post?.sourceIdentity?.commit !== releaseCommit)
+    {
+        throw new Error('post-runtime behavior evidence source commit mismatch or missing identity');
+    }
+    if (post.preRuntimeReceiptDigest !== pre.contentDigest)
+    {
+        throw new Error('post-runtime behavior evidence pre-runtime receipt mismatch');
+    }
+    if (post.runIdentity !== pre.runIdentity
+        || post.sourceIdentity.commit !== pre.sourceIdentity?.commit
+        || post.sourceIdentity.worktreeFingerprint !== pre.sourceIdentity.worktreeFingerprint
+        || (expectedWorktreeFingerprint !== null
+            && normalizeFingerprint(pre.sourceIdentity.worktreeFingerprint)
+                !== normalizeFingerprint(expectedWorktreeFingerprint)))
+    {
+        throw new Error('pre/post-runtime behavior evidence identity mismatch');
+    }
+}
+
 export function createReleaseFinalTestEvidenceBinding({
     commitSha,
     buildReceipt,
@@ -1170,12 +1223,15 @@ export function createReleaseFinalTestEvidenceBinding({
     correctnessReceiptPath,
     browserContractReceipt,
     browserContractReceiptPath,
+    preRuntimeReceipt,
+    preRuntimeReceiptPath,
     postRuntimeReceipt,
     postRuntimeReceiptPath,
     consistencyFinalReport,
     consistencyFinalReportPath,
     releaseDomainProjectionReceipts,
     releaseReliabilityQualifiedReceipt,
+    requiredEvidenceCatalogBinding,
     locatorEvidence = null,
     now = () => new Date()
 })
@@ -1201,6 +1257,24 @@ export function createReleaseFinalTestEvidenceBinding({
     {
         throw new Error([...correctnessErrors, ...contractErrors].join('; '));
     }
+    assertPreRuntimeQualified(preRuntimeReceipt);
+    const qualifiedPostRuntime = validatePostRuntimeReceipt(postRuntimeReceipt);
+    if (qualifiedPostRuntime.status !== 'ok')
+    {
+        throw new Error(`post-runtime behavior evidence is not qualified: ${qualifiedPostRuntime.failureReasons.join('; ')}`);
+    }
+    assertReleaseFinalBehaviorIdentity({
+        preRuntimeReceipt,
+        postRuntimeReceipt,
+        releaseCommit: commitSha,
+        expectedWorktreeFingerprint: build.sourceState.worktreeFingerprint
+    });
+    const preRuntimeInput = readBoundBehaviorReceipt(
+        preRuntimeReceiptPath, preRuntimeReceipt, assertPreRuntimeQualified
+    );
+    const postRuntimeInput = readBoundBehaviorReceipt(
+        postRuntimeReceiptPath, postRuntimeReceipt, validatePostRuntimeReceipt
+    );
     const releaseDomains = createReleaseDomainProjectionBindings(
         releaseDomainProjectionReceipts
     );
@@ -1215,6 +1289,12 @@ export function createReleaseFinalTestEvidenceBinding({
     if (reliabilityErrors.length > 0)
     {
         throw new Error(reliabilityErrors.join('; '));
+    }
+    const requiredEvidenceCatalogErrors =
+        validateRequiredEvidenceCatalogBinding(requiredEvidenceCatalogBinding);
+    if (requiredEvidenceCatalogErrors.length > 0)
+    {
+        throw new Error(requiredEvidenceCatalogErrors.join('; '));
     }
     return seal({
         schema: releaseFinalTestEvidenceBindingSchema,
@@ -1238,8 +1318,14 @@ export function createReleaseFinalTestEvidenceBinding({
             behaviorPostRuntime: {
                 schema: postRuntimeReceipt.schema,
                 path: String(postRuntimeReceiptPath).replaceAll(path.sep, '/'),
-                fileDigest: sha256File(postRuntimeReceiptPath),
-                contentDigest: postRuntimeReceipt.contentDigest
+                fileDigest: postRuntimeInput.fileDigest,
+                contentDigest: postRuntimeInput.receipt.contentDigest
+            },
+            behaviorPreRuntime: {
+                schema: preRuntimeReceipt.schema,
+                path: String(preRuntimeReceiptPath).replaceAll(path.sep, '/'),
+                fileDigest: preRuntimeInput.fileDigest,
+                contentDigest: preRuntimeInput.receipt.contentDigest
             },
             behaviorConsistencyFinal: {
                 schema: consistencyFinalReport.schema,
@@ -1252,6 +1338,7 @@ export function createReleaseFinalTestEvidenceBinding({
             ),
             releaseDomains
         },
+        requiredEvidenceCatalog: structuredClone(requiredEvidenceCatalogBinding),
         locatorEvidence: locatorEvidence ? structuredClone(locatorEvidence) : null,
         generatedAt: now().toISOString()
     });
@@ -1281,7 +1368,13 @@ export function validateReleaseFinalTestEvidenceBinding(binding)
     {
         errors.push('release-final binding source/build identity mismatch');
     }
-    for (const key of ['correctness', 'browserContract', 'behaviorPostRuntime', 'behaviorConsistencyFinal'])
+    for (const key of [
+        'correctness',
+        'browserContract',
+        'behaviorPreRuntime',
+        'behaviorPostRuntime',
+        'behaviorConsistencyFinal'
+    ])
     {
         if (!isDigest(binding?.receipts?.[key]?.fileDigest))
         {
@@ -1296,6 +1389,11 @@ export function validateReleaseFinalTestEvidenceBinding(binding)
         !== 'fsusblog.behavior-evidence-post-runtime-receipt.v1')
     {
         errors.push('release-final binding behaviorPostRuntime schema is invalid');
+    }
+    if (binding?.receipts?.behaviorPreRuntime?.schema
+        !== 'fsusblog.behavior-evidence-pre-runtime-receipt.v1')
+    {
+        errors.push('release-final binding behaviorPreRuntime schema is invalid');
     }
     if (binding?.receipts?.behaviorConsistencyFinal?.schema
         !== 'fsusblog.behavior-document-consistency-final-report.v1')
@@ -1315,6 +1413,9 @@ export function validateReleaseFinalTestEvidenceBinding(binding)
     errors.push(...validateReleaseDomainProjectionBindings(
         binding?.receipts?.releaseDomains
     ));
+    errors.push(...validateRequiredEvidenceCatalogBinding(
+        binding?.requiredEvidenceCatalog
+    ));
     if (binding?.locatorEvidence !== null)
     {
         if (!isDigest(binding?.locatorEvidence?.manifestInputDigest)
@@ -1324,7 +1425,7 @@ export function validateReleaseFinalTestEvidenceBinding(binding)
             errors.push('release-final locator evidence digests are invalid');
         }
         const directDigests = binding?.locatorEvidence?.directInputDigests;
-        if (!directDigests || Object.keys(directDigests).length !== 6
+        if (!directDigests || Object.keys(directDigests).length !== 7
             || Object.values(directDigests).some((digest) => !isDigest(digest)))
         {
             errors.push('release-final locator direct input digests are incomplete');

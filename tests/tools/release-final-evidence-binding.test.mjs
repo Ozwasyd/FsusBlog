@@ -73,6 +73,17 @@ test('missing evidence reports producer commands without spawning a fallback', (
             path.join(root, 'tools/ci/check-job-summaries.mjs'),
             path.join(finalizerRoot, 'tools/ci/check-job-summaries.mjs')
         );
+        for (const file of [
+            'current-run-evidence-transport.mjs',
+            'current-run-evidence-locator.mjs',
+            'evidence-location-contract.mjs'
+        ])
+        {
+            copyFileSync(
+                path.join(root, 'tools/test', file),
+                path.join(finalizerRoot, 'tools/test', file)
+            );
+        }
         const governanceStub = path.join(finalizerRoot, 'tools/test/run-matrix-governance-once.sh');
         writeFileSync(governanceStub, '#!/usr/bin/env bash\nexit 0\n');
         chmodSync(governanceStub, 0o755);

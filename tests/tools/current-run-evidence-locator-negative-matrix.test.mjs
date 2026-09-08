@@ -30,6 +30,7 @@ import { generateCurrentRunEvidenceLocationAcceptance } from '../../tools/test/g
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const d = (value) => `sha256:${value.repeat(64)}`;
 const payloadSchemas = {
+    'evidence-consumer.test-matrix.behavior-evidence-pre-runtime': 'fsusblog.behavior-evidence-pre-runtime-receipt.v1',
     'evidence-consumer.release-final.direct.behavior-consistency': 'fsusblog.behavior-document-consistency-final-report.v1',
     'evidence-consumer.release-final.direct.behavior-post-runtime': 'fsusblog.behavior-evidence-post-runtime-receipt.v1',
     'evidence-consumer.release-final.direct.browser-contract': 'fsusblog.browser-contract-receipt.v2',
