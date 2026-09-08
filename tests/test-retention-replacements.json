@@ -12020,6 +12020,38 @@
                 "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#FsusBlog.Server.Tests.PublicAotDocumentComposerTests.ExtractAttributeValue_QuotedAttribute_ReturnsExactValue#case-0001"
             ],
             "reason": "The single-quoted attribute case retains its complete HTML input and exact expected URL as a stable Theory row."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/utils/errors.test.ts#detects-aborterror-by-name-490ac4e0ae",
+            "path": "tests/frontend/unit/utils/errors.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/errors.test.ts#detects-abort-positive-input-name-aborterror-29181d7abd"
+            ],
+            "reason": "Issue #2610 retains name=AbortError as an independent named positive row with a fresh factory and exact true oracle."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/utils/errors.test.ts#detects-powaborterror-by-name-3a2f034989",
+            "path": "tests/frontend/unit/utils/errors.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/errors.test.ts#detects-abort-positive-input-name-powaborterror-7a8d147e1a"
+            ],
+            "reason": "Issue #2610 retains name=PowAbortError as an independent named positive row with a fresh factory and exact true oracle."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/utils/errors.test.ts#detects-canceled-message-2ccf1e3f79",
+            "path": "tests/frontend/unit/utils/errors.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/errors.test.ts#detects-abort-positive-input-message-canceled-5127ae189c"
+            ],
+            "reason": "Issue #2610 retains message=canceled as an independent named positive row with a fresh factory and exact true oracle."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/utils/errors.test.ts#detects-abort-related-messages-4c79e50cb1",
+            "path": "tests/frontend/unit/utils/errors.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/errors.test.ts#detects-abort-positive-input-message-the-operation-was-a-702b7d3b35"
+            ],
+            "reason": "Issue #2610 retains message=The operation was aborted due to timeout as an independent named positive row with a fresh factory and exact true oracle."
         }
     ],
     "assertionReplacements": [
@@ -12155,6 +12187,27 @@
                 "Assert.True(positiveResolvedInsideRoot)"
             ],
             "reason": "All four Unix filesystem proof owners are selected by the canonical platform plan instead of returning fake Passed results: exact-delete proves the expiration root is non-enumerable; upload-root records actual 0700 mode, convergence from an overbroad existing root, six group/other deny assertions and owner artifact usability; the six request-path cases bind real complete, abort and expired public operations to exact postconditions; and the canonical path owner binds a real outside-root symlink rejection, an inside-root positive control and cleanup."
+        },
+        {
+            "before": "vitest:toBe:isAbortError(e):equality:true",
+            "after": [
+                "vitest:toBe:isAbortError(factory()), caseName:equality:true"
+            ],
+            "reason": "Issue #2610 preserves each positive isAbortError true oracle in the named factory table; per-case ownership remains in deletedTests."
+        },
+        {
+            "before": "vitest:toBe:isAbortError(new Error('canceled')):equality:true",
+            "after": [
+                "vitest:toBe:isAbortError(factory()), caseName:equality:true"
+            ],
+            "reason": "Issue #2610 preserves each positive isAbortError true oracle in the named factory table; per-case ownership remains in deletedTests."
+        },
+        {
+            "before": "vitest:toBe:isAbortError(new Error('The operation was aborted due to timeout')):equality:true",
+            "after": [
+                "vitest:toBe:isAbortError(factory()), caseName:equality:true"
+            ],
+            "reason": "Issue #2610 preserves each positive isAbortError true oracle in the named factory table; per-case ownership remains in deletedTests."
         }
     ]
 }
