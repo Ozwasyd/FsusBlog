@@ -10,11 +10,6 @@
             "id": "shell-environment-variable",
             "paths": ["tools/test/bundles/behavior-document-consistency-final.sh"],
             "reason": "Forward existing scheduler-owned environment keys without renaming the external shell contract."
-        },
-        {
-            "id": "css-like-contract",
-            "paths": ["docs/testing.md"],
-            "reason": "Document existing externally named test tiers and CLI contracts without applying internal identifier naming."
         }
     ]
 }
