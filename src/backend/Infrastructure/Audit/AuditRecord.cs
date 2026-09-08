@@ -5,6 +5,7 @@ using System.Text;
 
 using FsusBlog.Server.Infrastructure;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Security;
 
 using Serilog.Context;
 
@@ -237,7 +238,9 @@ internal sealed record RequestAuditContextSnapshot(
         return new RequestAuditContextSnapshot(
             actorType,
             context.TraceIdentifier,
-            context.Request.Path.HasValue ? context.Request.Path.Value : null,
+            context.Request.Path.HasValue
+                ? PrivateAssetRoutePrivacy.RedactPath(context.Request.Path)
+                : null,
             context.Request.Method,
             string.IsNullOrWhiteSpace(accountId) ? null : accountId,
             string.IsNullOrWhiteSpace(adminPrincipalId) ? null : adminPrincipalId,
