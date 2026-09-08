@@ -78,14 +78,17 @@ PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 \
 node ../../tests/frontend/e2e/article-editor-recovery-persistent-probe.mjs
 ```
 
-真实 host reboot 必须使用显式两阶段交接，不能用上述 browser-process probe
-替代。OS evidence 必须放在当前 checkout 的 ignored persistent `.tmp/`，不得放入
-重启时可能清空的 `/tmp`。prepare 写入 immutable coordinates、exact base URL/origin、
-Linux boot identity SHA-256、实现 SHA-256、persistent profile path、正文 hash、截图
-hash 和后续 exact 命令，但不声称已经重启；用户授权并完成主机重启、在同一 worktree
-重新启动同一 origin 的 Vite 后，verify 才能读取同一 profile。verify 在启动浏览器前
-读取当前 boot identity；同一 boot、boot identity 不可读、origin 或实现 hash 不一致
-都 fail closed，不生成 OS verification：
+A real host reboot must use an explicit two-phase handoff; the browser-process probe
+above is not a substitute. OS evidence must be stored in the current checkout's
+ignored persistent `.tmp/`, never in `/tmp`, which may be cleared during reboot.
+prepare writes immutable coordinates, the exact base URL/origin, the Linux boot
+identity SHA-256, the implementation SHA-256, the persistent profile path, the body
+hash, the screenshot hash and the subsequent exact commands, but does not claim that
+a reboot has occurred. After the user authorizes and completes the host reboot and
+the same origin's Vite is restarted in the same worktree, verify can read the same
+profile. verify reads the current boot identity before launching the browser; the
+same boot, an unreadable boot identity, or an origin or implementation hash mismatch
+all fail closed and produce no OS verification:
 
 ```bash
 mkdir -p ../../.tmp
@@ -95,21 +98,22 @@ FSUSBLOG_ARTICLE_RECOVERY_EVIDENCE_DIR="$articleRecoveryOsEvidenceDir" \
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 \
 node ../../tests/frontend/e2e/article-editor-recovery-persistent-probe.mjs
 
-# 用户授权并完成真实主机重启，且同一 Vite origin 已恢复后：
+# After the user authorizes and completes a real host reboot, and the same Vite origin has recovered:
 FSUSBLOG_ARTICLE_RECOVERY_PROBE_MODE=os-restart-verify \
 FSUSBLOG_ARTICLE_RECOVERY_EVIDENCE_DIR="$articleRecoveryOsEvidenceDir" \
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 \
 node ../../tests/frontend/e2e/article-editor-recovery-persistent-probe.mjs
 
-# 证据收集完成后显式删除含未发布正文的 persistent profile：
+# After evidence collection, explicitly delete the persistent profile containing unpublished body content:
 FSUSBLOG_ARTICLE_RECOVERY_PROBE_MODE=os-restart-cleanup \
 FSUSBLOG_ARTICLE_RECOVERY_EVIDENCE_DIR="$articleRecoveryOsEvidenceDir" \
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 \
 node ../../tests/frontend/e2e/article-editor-recovery-persistent-probe.mjs
 ```
 
-完成后只用 handoff 记录的 exact cleanup command 删除该 task-owned profile；必须保持
-同一 worktree、origin 和 implementation，不能用宽泛目录删除替代 owner cleanup。
+After completion, use only the exact cleanup command recorded by the handoff to
+delete that task-owned profile. The same worktree, origin and implementation must be
+preserved; broad-directory deletion is not a substitute for owner cleanup.
 
 ## Risk and rollback
 

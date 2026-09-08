@@ -8,6 +8,124 @@ namespace FsusBlog.Server.Tests;
 public sealed class CacheMissCoordinatorTests
 {
     [Fact]
+    public async Task CoordinateAsync_AcquireThrows_StillRecordsLeaseWait()
+    {
+        CacheCoordinationObservation? captured = null;
+        var cache = new CoordinatingCache
+        {
+            TryAcquireLeaseHandler = async (_, _, _, _, _) =>
+            {
+                captured = CacheCoordinationObservation.Current;
+                await Task.Delay(10);
+                throw new InvalidOperationException("acquire-failed");
+            }
+        };
+        using var singleFlight = new CacheSingleFlightCoordinator(cache);
+        var coordinator = new CacheMissCoordinator(singleFlight, cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.CoordinateAsync<string>(
+            CachePolicyId.ArticleDetail, "acquire-failure",
+            _ => Task.FromResult(new CacheReadResult<string>(false, default)),
+            _ => throw new InvalidOperationException("unexpected-rebuild"), "acquire-failure"));
+        Assert.NotNull(captured);
+        Assert.True(captured.LeaseWait > TimeSpan.Zero);
+        Assert.Equal(0, captured.RebuildCount);
+        Assert.Equal("not-owned", captured.ReleaseOutcome);
+        Assert.Equal(0, singleFlight.ActiveEntryCount);
+    }
+
+    [Fact]
+    public async Task CoordinateAsync_CancellationDuringLeaseAcquire_RetiresEntryWithoutRelease()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var acquireStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int rebuilds = 0;
+        int releases = 0;
+        var cache = new CoordinatingCache
+        {
+            TryAcquireLeaseHandler = async (_, _, _, _, token) =>
+            {
+                acquireStarted.SetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, token);
+                return false;
+            },
+            ReleaseHandler = _ =>
+            {
+                Interlocked.Increment(ref releases);
+                return Task.FromResult(true);
+            }
+        };
+        using var singleFlight = new CacheSingleFlightCoordinator(cache);
+        var coordinator = new CacheMissCoordinator(singleFlight, cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
+        Task<string?> run = coordinator.CoordinateAsync(
+            CachePolicyId.ArticleDetail,
+            "cancel-during-acquire",
+            static _ => Task.FromResult(new CacheReadResult<string>(false, default)),
+            _ =>
+            {
+                Interlocked.Increment(ref rebuilds);
+                return Task.FromResult<string?>("unexpected");
+            },
+            "cancel-during-acquire",
+            cancellation.Token);
+
+        await acquireStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
+        Assert.Equal(0, rebuilds);
+        Assert.Equal(0, releases);
+        Assert.Equal(0, singleFlight.ActiveEntryCount);
+    }
+
+    [Fact]
+    public async Task CoordinateAsync_CancellationDuringContendedWait_RetiresEntryWithoutReleaseOrFinalRead()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var leaseAttempted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int reads = 0;
+        int rebuilds = 0;
+        int releases = 0;
+        var cache = new CoordinatingCache
+        {
+            TryAcquireLeaseHandler = (_, _, _, _, _) =>
+            {
+                leaseAttempted.SetResult();
+                return Task.FromResult(false);
+            },
+            ReleaseHandler = _ =>
+            {
+                Interlocked.Increment(ref releases);
+                return Task.FromResult(true);
+            }
+        };
+        using var singleFlight = new CacheSingleFlightCoordinator(cache);
+        var coordinator = new CacheMissCoordinator(singleFlight, cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
+        Task<string?> run = coordinator.CoordinateAsync(
+            CachePolicyId.ArticleDetail,
+            "cancel-during-wait",
+            _ =>
+            {
+                Interlocked.Increment(ref reads);
+                return Task.FromResult(new CacheReadResult<string>(false, default));
+            },
+            _ =>
+            {
+                Interlocked.Increment(ref rebuilds);
+                return Task.FromResult<string?>("unexpected");
+            },
+            "cancel-during-wait",
+            cancellation.Token,
+            new CacheRebuildStrategy(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2)));
+
+        await leaseAttempted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
+        Assert.Equal(2, reads);
+        Assert.Equal(0, rebuilds);
+        Assert.Equal(0, releases);
+        Assert.Equal(0, singleFlight.ActiveEntryCount);
+    }
+
+    [Fact]
     public async Task CoordinateAsync_IntegerIdentityHit_ReturnsBeforeStringCoordination()
     {
         var cache = new CoordinatingCache();
@@ -77,8 +195,7 @@ public sealed class CacheMissCoordinatorTests
             "system-page",
             strategy: new CacheRebuildStrategy(
                 TimeSpan.FromMilliseconds(200),
-                TimeSpan.FromMilliseconds(300),
-                TimeSpan.FromMilliseconds(20)));
+                TimeSpan.FromMilliseconds(300), TimeSpan.FromSeconds(1)));
 
         Assert.Null(value);
         Assert.Equal(0, rebuildCount);
@@ -181,58 +298,43 @@ public sealed class CacheMissCoordinatorTests
     }
 
     [Fact]
-    public async Task CoordinateAsync_LeaseTimeout_ReelectsSingleFallbackRebuilder()
+    public async Task CoordinateAsync_LeaseTimeout_FailsWithoutReacquiringOrRebuilding()
     {
-        const int CallersCount = 16;
         int leaseAttempts = 0;
+        int reads = 0;
         var cache = new CoordinatingCache
         {
-            DisableLocalSingleFlight = true,
             TryAcquireLeaseHandler = (_, _, _, _, _) =>
             {
-                int attempt = Interlocked.Increment(ref leaseAttempts);
-                return Task.FromResult(attempt == CallersCount + 1);
+                Interlocked.Increment(ref leaseAttempts);
+                return Task.FromResult(false);
             }
         };
         var coordinator = new CacheMissCoordinator(cache, cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
-        string? current = null;
-        int rebuildCount = 0;
-        var strategy = new CacheRebuildStrategy(
-            TimeSpan.FromMilliseconds(100),
-            TimeSpan.FromMilliseconds(40),
-            TimeSpan.FromMilliseconds(5));
 
-        Task<string?>[] callers = Enumerable.Range(0, CallersCount)
-            .Select(_ => coordinator.CoordinateAsync(
+        CacheCoordinationException failure = await Assert.ThrowsAsync<CacheCoordinationException>(
+            () => coordinator.CoordinateAsync<string>(
                 CachePolicyId.ArticleDetail,
-                "timeout-hot:42",
-                _ => Task.FromResult(current is null
-                    ? new CacheReadResult<string>(false, default)
-                    : new CacheReadResult<string>(true, current)),
-                async _ =>
+                "contended",
+                _ =>
                 {
-                    Interlocked.Increment(ref rebuildCount);
-                    await Task.Delay(25);
-                    current = "fallback-rebuilt";
-                    return current;
+                    reads++;
+                    return Task.FromResult(new CacheReadResult<string>(false, default));
                 },
+                _ => throw new InvalidOperationException("A non-owner must never rebuild."),
                 "article-detail",
-                strategy: strategy))
-            .ToArray();
+                strategy: new CacheRebuildStrategy(TimeSpan.FromSeconds(1), TimeSpan.FromMilliseconds(10), TimeSpan.FromSeconds(4))));
 
-        string?[] results = await Task.WhenAll(callers).WaitAsync(TimeSpan.FromSeconds(10));
-
-        Assert.All(results, result => Assert.Equal("fallback-rebuilt", result));
-        Assert.Equal(1, rebuildCount);
-        Assert.True(leaseAttempts > CallersCount);
+        Assert.Equal("refill-timeout", failure.Reason);
+        Assert.Equal(1, leaseAttempts);
+        Assert.Equal(3, reads);
     }
 
     [Fact]
-    public async Task CoordinateAsync_RebuildSemaphoreLimitsSameKeyConcurrency()
+    public async Task CoordinateAsync_SingleFlightLimitsSameKeyConcurrency()
     {
         var cache = new CoordinatingCache
         {
-            DisableLocalSingleFlight = true,
             TryAcquireLeaseHandler = static (_, _, _, _, _) => Task.FromResult(true)
         };
         var coordinator = new CacheMissCoordinator(cache, cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
@@ -273,6 +375,199 @@ public sealed class CacheMissCoordinatorTests
         Assert.Equal(1, maxActiveRebuilds);
     }
 
+    [Theory]
+    [InlineData("success")]
+    [InlineData("rebuild-failure")]
+    [InlineData("publish-failure")]
+    [InlineData("cancel")]
+    public async Task CoordinateAsync_OwnerExit_ReleasesLeaseAndRetiresEntry(string exit)
+    {
+        using var cancellation = new CancellationTokenSource();
+        int reads = 0;
+        int releases = 0;
+        var cache = new CoordinatingCache
+        {
+            TryAcquireLeaseHandler = static (_, _, _, _, _) => Task.FromResult(true),
+            ReleaseHandler = token =>
+            {
+                Assert.False(token.IsCancellationRequested);
+                releases++;
+                return Task.FromResult(true);
+            }
+        };
+        using var singleFlight = new CacheSingleFlightCoordinator(cache);
+        var coordinator = new CacheMissCoordinator(singleFlight, cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
+        Task<string?> run = coordinator.CoordinateAsync<string>(
+            CachePolicyId.ArticleDetail, "owner-exit",
+            _ =>
+            {
+                reads++;
+                return Task.FromResult(new CacheReadResult<string>(false, default));
+            },
+            token =>
+            {
+                Assert.Equal(2, reads);
+                Assert.Equal(1, singleFlight.ActiveEntryCount);
+                if (exit == "cancel")
+                {
+                    cancellation.Cancel();
+                    token.ThrowIfCancellationRequested();
+                }
+                if (exit != "success")
+                {
+                    throw new InvalidOperationException(exit);
+                }
+                return Task.FromResult<string?>("built");
+            }, "owner-exit", cancellation.Token);
+
+        if (exit == "success")
+        {
+            Assert.Equal("built", await run);
+        }
+        else if (exit == "cancel")
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
+        }
+        else
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => run);
+        }
+        Assert.Equal(1, releases);
+        Assert.Equal(0, singleFlight.ActiveEntryCount);
+    }
+
+    [Fact]
+    public async Task CoordinateAsync_LostRenewal_CancelsRebuildBeforePublish()
+    {
+        bool published = false;
+        int releases = 0;
+        var cache = new CoordinatingCache
+        {
+            TryAcquireLeaseHandler = static (_, _, _, _, _) => Task.FromResult(true),
+            RenewHandler = static _ => Task.FromResult(false),
+            ReleaseHandler = _ =>
+            {
+                releases++;
+                return Task.FromResult(false);
+            }
+        };
+        using var singleFlight = new CacheSingleFlightCoordinator(cache);
+        var coordinator = new CacheMissCoordinator(singleFlight, cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => coordinator.CoordinateAsync<string>(
+            CachePolicyId.ArticleDetail, "lost-renewal",
+            _ => Task.FromResult(new CacheReadResult<string>(false, default)),
+            async token =>
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, token);
+                published = true;
+                return "obsolete";
+            }, "lost-renewal",
+            strategy: new CacheRebuildStrategy(TimeSpan.FromMilliseconds(150), TimeSpan.Zero, TimeSpan.FromSeconds(1))));
+        Assert.False(published);
+        Assert.Equal(1, releases);
+        Assert.Equal(0, singleFlight.ActiveEntryCount);
+    }
+
+    [Fact]
+    public async Task SingleFlight_HighCardinality_RetiresEveryKey()
+    {
+        var cache = new CoordinatingCache();
+        using var singleFlight = new CacheSingleFlightCoordinator(cache);
+        for (int key = 0; key < 100_000; key++)
+        {
+            await using (await singleFlight.AcquireAsync(CachePolicyId.ArticleDetail, key.ToString(System.Globalization.CultureInfo.InvariantCulture)))
+            {
+                Assert.Equal(1, singleFlight.ActiveEntryCount);
+            }
+            Assert.Equal(0, singleFlight.ActiveEntryCount);
+        }
+    }
+
+    [Fact]
+    public async Task CoordinateAsync_SuccessfulRenewal_AllowsRebuildPastInitialTtl()
+    {
+        int renewals = 0;
+        var cache = new CoordinatingCache
+        {
+            TryAcquireLeaseHandler = static (_, _, _, _, _) => Task.FromResult(true),
+            RenewHandler = _ =>
+            {
+                Interlocked.Increment(ref renewals);
+                return Task.FromResult(true);
+            }
+        };
+        using var singleFlight = new CacheSingleFlightCoordinator(cache);
+        var coordinator = new CacheMissCoordinator(singleFlight, cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
+        string? result = await coordinator.CoordinateAsync<string>(
+            CachePolicyId.ArticleDetail, "renewed",
+            _ => Task.FromResult(new CacheReadResult<string>(false, default)),
+            async token =>
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(750), token);
+                return "built";
+            }, "renewed",
+            strategy: new CacheRebuildStrategy(TimeSpan.FromMilliseconds(500), TimeSpan.Zero, TimeSpan.FromSeconds(4)));
+        Assert.Equal("built", result);
+        Assert.True(renewals >= 2);
+        Assert.Equal(0, singleFlight.ActiveEntryCount);
+    }
+
+    [Fact]
+    public async Task CoordinateAsync_RenewalCancellationCallbackThrows_StillReleasesLease()
+    {
+        int releases = 0;
+        var renewed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cache = new CoordinatingCache
+        {
+            TryAcquireLeaseHandler = static (_, _, _, _, _) => Task.FromResult(true),
+            RenewHandler = async token =>
+            {
+                using CancellationTokenRegistration registration = token.Register(() => throw new InvalidOperationException("callback"));
+                renewed.SetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, token);
+                return true;
+            },
+            ReleaseHandler = _ =>
+            {
+                releases++;
+                return Task.FromResult(true);
+            }
+        };
+        using var singleFlight = new CacheSingleFlightCoordinator(cache);
+        var coordinator = new CacheMissCoordinator(singleFlight, cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
+        await Assert.ThrowsAnyAsync<Exception>(() => coordinator.CoordinateAsync<string>(
+            CachePolicyId.ArticleDetail, "callback-failure",
+            _ => Task.FromResult(new CacheReadResult<string>(false, default)),
+            async _ =>
+            {
+                await renewed.Task;
+                return "built";
+            }, "callback-failure",
+            strategy: new CacheRebuildStrategy(TimeSpan.FromMilliseconds(500), TimeSpan.Zero, TimeSpan.FromSeconds(4))));
+        Assert.Equal(1, releases);
+        Assert.Equal(0, singleFlight.ActiveEntryCount);
+    }
+
+    [Fact]
+    public void PublicationScope_NestedDispose_RestoresParentAndRetiresChild()
+    {
+        Assert.Null(CacheRebuildLeaseScope.Current);
+        var cache = new CoordinatingCache();
+        using (var parent = new CacheRebuildLeaseScope(cache, CachePolicyId.ArticleDetail, "outer", "outer-value", CancellationToken.None))
+        {
+            CacheRebuildLeaseScope child;
+            using (child = new CacheRebuildLeaseScope(cache, CachePolicyId.ArticleDetail, "inner", "inner-value", CancellationToken.None))
+            {
+                Assert.Same(child, CacheRebuildLeaseScope.Current);
+                Assert.Same(parent, child.Parent);
+            }
+            Assert.Same(parent, CacheRebuildLeaseScope.Current);
+            Assert.Throws<CacheCoordinationException>(() => child.EnsureActive());
+            parent.EnsureActive();
+        }
+        Assert.Null(CacheRebuildLeaseScope.Current);
+    }
+
     private sealed class CoordinatingCache : IUnifiedCache
     {
         private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new(StringComparer.Ordinal);
@@ -283,10 +578,9 @@ public sealed class CacheMissCoordinatorTests
         }
             = static (_, _, _, _, _) => Task.FromResult(false);
 
-        public bool DisableLocalSingleFlight
-        {
-            get; init;
-        }
+        public Func<CancellationToken, Task<bool>> ReleaseHandler { get; init; } = static _ => Task.FromResult(true);
+
+        public Func<CancellationToken, Task<bool>> RenewHandler { get; init; } = static _ => Task.FromResult(true);
 
         public Task<CacheReadResult<T>> TryGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
@@ -315,6 +609,12 @@ public sealed class CacheMissCoordinatorTests
         public Task<bool> TryAcquireLeaseAsync(CachePolicyId policyId, string identity, string value, TimeSpan ttl, CancellationToken cancellationToken = default)
             => TryAcquireLeaseHandler(policyId, identity, value, ttl, cancellationToken);
 
+        public Task<bool> TryRenewLeaseAsync(CachePolicyId policyId, string identity, string expectedValue, TimeSpan ttl, CancellationToken cancellationToken = default)
+            => RenewHandler(cancellationToken);
+
+        public Task<bool> TryReleaseLeaseAsync(CachePolicyId policyId, string identity, string expectedValue, CancellationToken cancellationToken = default)
+            => ReleaseHandler(cancellationToken);
+
         public Task<bool> ConsumeOnceAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
@@ -335,11 +635,6 @@ public sealed class CacheMissCoordinatorTests
 
         public async Task<IAsyncDisposable> AcquireSingleFlightAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
         {
-            if (DisableLocalSingleFlight)
-            {
-                return NoopAsyncDisposable.Instance;
-            }
-
             string key = $"{(int)policyId}:{identity}";
             SemaphoreSlim semaphore = _locks.GetOrAdd(key, static _ => new SemaphoreSlim(1, 1));
             await semaphore.WaitAsync(cancellationToken);
@@ -358,11 +653,5 @@ public sealed class CacheMissCoordinatorTests
             }
         }
 
-        private sealed class NoopAsyncDisposable : IAsyncDisposable
-        {
-            public static readonly NoopAsyncDisposable Instance = new();
-
-            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-        }
     }
 }

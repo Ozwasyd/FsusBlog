@@ -548,23 +548,20 @@ function loadBaseline()
     {
         fail(`baseline schema must be ${baselineSchema}`);
     }
-    if (document.configurationSha256 !== configurationDigest())
-    {
-        fail('frontend style baseline configuration digest is stale');
-    }
     if (!Array.isArray(document.files))
     {
         fail('frontend style baseline files must be an array');
         return new Map();
     }
     const currentSourceStateSha256 = sourceStateDigest();
-    if (document.sourceStateSha256 !== currentSourceStateSha256)
+    // A drifted configuration or source-state digest must not authorize residual
+    // exemptions. Return an empty map so checked files are held to a clean slate
+    // instead of failing closed before any file-level lint results are considered.
+    if (document.configurationSha256 !== configurationDigest()
+        || document.sourceStateSha256 !== currentSourceStateSha256
+        || document.generatedFrom !== `source-state:${currentSourceStateSha256}`)
     {
-        fail(`frontend style baseline source-state digest is stale: expected ${currentSourceStateSha256}`);
-    }
-    if (document.generatedFrom !== `source-state:${currentSourceStateSha256}`)
-    {
-        fail('frontend style baseline generatedFrom does not match the current source-state digest');
+        return new Map();
     }
     return new Map(document.files.map((entry) => [entry.path, entry]));
 }

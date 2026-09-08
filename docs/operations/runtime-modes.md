@@ -1,10 +1,10 @@
 # Runtime mode gates
 
-FsusBlog v1.3.0 继续使用同一个仓库、同一个 Server 项目和同一个应用发布物。运行模式只决定进程启动哪些运行时职责，不生成固定业务服务、sidecar 或第二套部署包。
+FsusBlog v1.3.0 continues to use one repository, one Server project, and one application artifact. A runtime mode selects which runtime responsibilities the process starts; it does not create fixed business services, sidecars, or a second deployment package.
 
-## 配置
+## Configuration
 
-默认不需要配置：
+No configuration is required by default:
 
 ```json
 {
@@ -14,13 +14,13 @@ FsusBlog v1.3.0 继续使用同一个仓库、同一个 Server 项目和同一�
 }
 ```
 
-支持的 `Mode`：
+Supported `Mode` values:
 
-- `single`：默认模式。完整业务能力在本进程执行，调用保持 local in-process；不启动 cluster foundation，不启用 adaptive scheduler，也不订阅跨节点 Public AOT invalidation。
-- `static-role`：同一程序按 `StaticRoles` 启动固定后台职责，不进行自动迁移。可选角色为 `web`、`content`、`security`、`audit`、`maintenance`；至少配置一个角色。
-- `adaptive`：同一程序启动 cluster foundation、Redis membership heartbeat、distributed-invalidation gate 与 adaptive responsibility scheduler。调度器按 capability、health、load 和稳定性策略分配职责，并通过 lease/fencing 控制 module runtime eligibility。
+- `single`: the default mode. Full business capability runs in this process with local in-process calls; it starts no cluster foundation, enables no adaptive scheduler, and subscribes to no cross-node Public AOT invalidation.
+- `static-role`: the same program starts fixed background responsibilities from `StaticRoles` without automatic migration. Available roles are `web`, `content`, `security`, `audit`, and `maintenance`; at least one role is required.
+- `adaptive`: the same program starts cluster foundation, Redis membership heartbeat, the distributed-invalidation gate, and the adaptive responsibility scheduler. The scheduler assigns responsibilities by capability, health, load, and stability policy, using lease/fencing to control module runtime eligibility.
 
-静态角色示例：
+Static-role example:
 
 ```json
 {
@@ -31,7 +31,7 @@ FsusBlog v1.3.0 继续使用同一个仓库、同一个 Server 项目和同一�
 }
 ```
 
-`static-role` 默认从角色推导稳定 capability；也可以为 `static-role` 或 `adaptive` 显式配置：
+`static-role` derives stable capabilities from roles by default. `static-role` and `adaptive` may also configure them explicitly:
 
 ```json
 {
@@ -50,35 +50,27 @@ FsusBlog v1.3.0 继续使用同一个仓库、同一个 Server 项目和同一�
 }
 ```
 
-capability 只接受 catalog 中的稳定值；adaptive 未声明 capability 会 fail closed。`NodeId` 可省略并使用当前 host/process identity；每次进程启动仍生成新的 `instanceId`，用于拒绝上一进程的迟到 heartbeat 或 draining 写入。
+Capabilities accept only stable catalog values; `adaptive` fails closed when a capability is undeclared. `NodeId` may be omitted to use the current host/process identity. Every process start still creates a new `instanceId` to reject late heartbeats or draining writes from the previous process.
 
-环境变量可使用 `RuntimeMode__Mode` 与 `RuntimeMode__StaticRoles__0` 等标准 ASP.NET Core 键。未知 mode、未知 role 或空的 `static-role` 集合会在 `builder.Build()` 前失败，避免以不明确职责启动。
+Environment variables may use standard ASP.NET Core keys such as `RuntimeMode__Mode` and `RuntimeMode__StaticRoles__0`. An unknown mode, unknown role, or empty `static-role` set fails before `builder.Build()`, preventing startup with ambiguous responsibilities.
 
-## 启动与健康语义
+## Startup and health semantics
 
-`RuntimeModeRuntimeState.Capture()` 是运行模式健康快照的权威来源，包含 mode、静态角色、cluster/membership/scheduler/distributed-invalidation gate、local invocation 边界以及 cluster foundation 是否已启动。启动日志输出同一份计划；`single` 会明确记录相关分布式能力为 `disabled`。
+`RuntimeModeRuntimeState.Capture()` is the authority for the runtime-mode health snapshot. It includes mode, static roles, the cluster/membership/scheduler/distributed-invalidation gates, local-invocation boundary, and whether cluster foundation started. Startup logs emit the same plan; `single` explicitly records related distributed capabilities as `disabled`.
 
-`single` 仅移除跨节点 invalidation subscriber 且不启动 membership heartbeat，本机 worker 和本地失效路径继续工作。`static-role` 只裁剪归属已登记角色的后台 worker；生命周期、启动校验和未知的核心 hosted service 保持启用，避免因新增 worker 未登记而静默停机。`adaptive` 不改变 HTTP 入口或发布物，也不在业务层引入节点位置依赖。
+`single` removes only the cross-node invalidation subscriber and does not start membership heartbeat; local workers and local invalidation continue. `static-role` trims only background workers owned by registered roles; lifecycle, startup validation, and unknown core hosted services remain enabled, preventing silent shutdown when a new worker is not registered. `adaptive` changes neither HTTP entry points nor the artifact and introduces no node-location dependency in business code.
 
-多节点 membership 视图位于 runtime-scoped Redis hash。heartbeat 超时按 `Alive -> Suspect -> Dead` 收敛；`Draining` 与 `Maintenance` 由运维显式控制，failure detector 不覆盖。受保护的 `GET /api/ops/cluster/nodes` 只允许 independent admin principal + `system.config` + `fixed_ip`，用于后台或诊断查看节点、capability、低敏资源提示与 active responsibility。
+The multi-node membership view lives in a runtime-scoped Redis hash. Heartbeat timeouts converge as `Alive -> Suspect -> Dead`; operations explicitly control `Draining` and `Maintenance`, which the failure detector does not override. The protected `GET /api/ops/cluster/nodes` permits only an independent admin principal + `system.config` + `fixed_ip` and supports backend/diagnostic views of nodes, capabilities, low-sensitivity resource hints, and active responsibility.
 
-同一路由的 `scheduler` 字段给出 responsibility/replica assignment graph、
-placement score/reason 与未分配原因。调度每轮只选择 Alive、network-reachable
-且 capability 匹配的节点；cooldown、minimum runtime、hysteresis 与 migration
-cost 阻止短时负载变化造成迁移，节点失效则立即重新选择。高压只做 bounded
-scale-out，低压每轮至多缩一个 replica。
+The same route's `scheduler` field gives the responsibility/replica assignment graph, placement score/reason, and unassigned reason. Each round selects only Alive, network-reachable nodes whose capabilities match; cooldown, minimum runtime, hysteresis, and migration cost prevent short-lived load changes from migrating work, while a failed node is replaced immediately. High pressure performs only bounded scale-out; low pressure removes at most one replica per round.
 
-可热更新 `Runtime:Scheduler:Enabled=false` 停止 assignment 并释放本机
-responsibility lease；这不会停止 Kestrel、公开读取、登录、admin、
-notification stream 或 binary endpoint。恢复前先确认所有 mandatory
-responsibility 至少有一个健康 capability candidate。完整边界见
-[`adaptive-responsibility-scheduler.md`](../architecture/adaptive-responsibility-scheduler.md)。
+Hot-update `Runtime:Scheduler:Enabled=false` to stop assignment and release the local responsibility lease. This does not stop Kestrel, public reads, login, admin, the notification stream, or binary endpoints. Before restoring it, confirm that every mandatory responsibility has at least one healthy capability candidate. See the full boundary in [`adaptive-responsibility-scheduler.md`](../architecture/adaptive-responsibility-scheduler.md).
 
-## 有状态职责协议
+## Stateful responsibility protocol
 
-`static-role` 和 `adaptive` 中的有状态职责不能只依赖 membership 判断 owner，必须取得 `responsibility + resource` lease。lease TTL 到期后才允许另一节点接管；每次新 acquire 产生单调递增 fencing token，renew/release 只接受原 `leaseId + token`。因此旧节点即使从长暂停恢复，也不能覆盖新 owner 已写入的状态。
+Stateful responsibilities in `static-role` and `adaptive` cannot infer an owner from membership alone; they must acquire a `responsibility + resource` lease. Another node may take over only after the lease TTL expires. Each new acquire creates a monotonically increasing fencing token, and renew/release accepts only the original `leaseId + token`. An old node therefore cannot overwrite state written by a new owner after recovering from a long pause.
 
-后台任务默认采用：
+Background tasks default to:
 
 ```text
 scheduling: at-least-once
@@ -88,16 +80,16 @@ long task: compare-version checkpoint
 terminal failure: dead letter or explicit compensation-required
 ```
 
-任务接管流程固定为：
+Task takeover is fixed as:
 
-1. 新节点在旧 TTL 到期后取得更大的 fencing token；
-2. 用同一 idempotency key 读取 task record；
-3. 从最后成功 checkpoint version 恢复；
-4. 每次 checkpoint、complete 或 failure transition 都复核当前 lease；
-5. 达到最大重试次数后进入 dead letter；已登记补偿的任务进入 `CompensationRequired`，不自动伪造成功。
+1. The new node obtains a larger fencing token after the old TTL expires.
+2. It reads the task record with the same idempotency key.
+3. It resumes from the last successful checkpoint version.
+4. It rechecks the current lease at every checkpoint, complete, or failure transition.
+5. After the maximum retries, it enters dead letter; a task with registered compensation enters `CompensationRequired` and never fabricates success.
 
-当前 cluster failure detector 已使用 `cluster:failure-detector` lease，避免每个节点同时写 membership 状态转换。后续 search index、media、moderation、notification 与 scheduler worker 接入时必须按各自资源或 partition 建 key，不能共用一个全局锁，也不能绕过 idempotency record。
+The current cluster failure detector uses the `cluster:failure-detector` lease so nodes do not concurrently write membership transitions. Future search-index, media, moderation, notification, and scheduler workers must key by their own resource or partition; they may not share one global lock or bypass the idempotency record.
 
-## 风险与回退
+## Risk and rollback
 
-运行模式在 DI 容器构建前固定，不支持进程内热切换。配置错误会 fail closed。Redis state-control 不可用或 lease renew 丢失时，worker 必须停止新的 checkpoint/critical write；不得降级为进程内多写者。无需重启的局部降级是把节点标记为 `Draining` 或 `Maintenance` 并移除 active responsibility，等待 lease TTL 后由健康节点接管；公开读取、登录、admin、binary 与 notification stream 继续工作。若静态角色或 adaptive 基础组件整体异常，把 `RuntimeMode:Mode` 恢复为 `single` 并启动下一进程代际；不需要迁移数据、切换镜像或部署另一类服务。回退不得通过添加固定业务 sidecar、清空 fencing counter、删除 idempotency record 或让 single hot path 经过跨节点协议完成。
+The runtime mode is fixed before DI-container construction and cannot hot-switch in process. Configuration errors fail closed. If Redis state-control is unavailable or lease renew is lost, the worker must stop new checkpoints/critical writes; it must not degrade into in-process multi-writer behavior. A no-restart local downgrade marks the node `Draining` or `Maintenance`, removes active responsibility, and lets a healthy node take over after the lease TTL; public reads, login, admin, binary, and the notification stream continue. If static-role or adaptive foundations fail as a whole, restore `RuntimeMode:Mode` to `single` and start the next process generation; no data migration, image switch, or other service deployment is needed. Rollback must not add a fixed business sidecar, clear the fencing counter, delete the idempotency record, or route the single hot path through a cross-node protocol.

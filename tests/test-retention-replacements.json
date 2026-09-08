@@ -9955,8 +9955,8 @@
             "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.PublicAotDocumentComposer_AvoidsRegexForLiteralHeadAndAttributeChecks",
             "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#PublicAotDocumentComposerTests.ExtractAttributeValue_DoubleQuotes_ReturnsValue",
-                "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#PublicAotDocumentComposerTests.ExtractAttributeValue_SingleQuotes_ReturnsValue",
+                "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#FsusBlog.Server.Tests.PublicAotDocumentComposerTests.ExtractAttributeValue_QuotedAttribute_ReturnsExactValue#case-0000",
+                "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#FsusBlog.Server.Tests.PublicAotDocumentComposerTests.ExtractAttributeValue_QuotedAttribute_ReturnsExactValue#case-0001",
                 "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#PublicAotDocumentComposerTests.ComposeDocument_WithTemplateVariants_InjectsBySentinel",
                 "shell:tools/test/lanes/backend-benchmark-regression.sh"
             ],
@@ -11972,9 +11972,67 @@
                 "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.StripMarkdown_BlankContent_ReturnsEmpty#case-0001"
             ],
             "reason": "The three-space StripMarkdown Fact becomes the stable spaces row of the sole blank-content Theory while retaining the production StripMarkdown call, maxLength 100 and exact empty-string result."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.ExtractIllustrationUrls_EmptyContent_ReturnsEmptyList#case-0000",
+            "path": "tests/backend/Unit/ImageHelperTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.ExtractIllustrationUrls_ContentWithoutIllustrations_ReturnsEmpty#case-0000"
+            ],
+            "reason": "The empty illustration-content Fact becomes the stable empty-content row of the sole no-illustration Theory while retaining the production ExtractIllustrationUrls call, non-null empty result and no placeholder/default URL oracle."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.ExtractIllustrationUrls_NoIllustrations_ReturnsEmptyList#case-0000",
+            "path": "tests/backend/Unit/ImageHelperTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.ExtractIllustrationUrls_ContentWithoutIllustrations_ReturnsEmpty#case-0001"
+            ],
+            "reason": "The plain Markdown no-image Fact becomes the stable plain-markdown-no-image row of the sole no-illustration Theory while retaining the production ExtractIllustrationUrls call, non-null empty result and no placeholder/default URL oracle."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.GetFirstIllustration_EmptyContent_ReturnsNull#case-0000",
+            "path": "tests/backend/Unit/ImageHelperTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.GetFirstIllustration_ContentWithoutIllustration_ReturnsNull#case-0000"
+            ],
+            "reason": "The empty-content Fact becomes the stable empty-content Theory row retaining the real GetFirstIllustration call and exact null assertion."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.GetFirstIllustration_NoIllustration_ReturnsNull#case-0000",
+            "path": "tests/backend/Unit/ImageHelperTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/ImageHelperTests.cs#FsusBlog.Server.Tests.Unit.ImageHelperTests.GetFirstIllustration_ContentWithoutIllustration_ReturnsNull#case-0001"
+            ],
+            "reason": "The plain-content-no-image Fact becomes the stable plain-content-no-image Theory row retaining the real GetFirstIllustration call and exact null assertion."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#FsusBlog.Server.Tests.PublicAotDocumentComposerTests.ExtractAttributeValue_DoubleQuotes_ReturnsValue#case-0000",
+            "path": "tests/backend/Unit/PublicAotDocumentComposerTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#FsusBlog.Server.Tests.PublicAotDocumentComposerTests.ExtractAttributeValue_QuotedAttribute_ReturnsExactValue#case-0000"
+            ],
+            "reason": "The double-quoted attribute case retains its complete HTML input and exact expected URL as a stable Theory row."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#FsusBlog.Server.Tests.PublicAotDocumentComposerTests.ExtractAttributeValue_SingleQuotes_ReturnsValue#case-0000",
+            "path": "tests/backend/Unit/PublicAotDocumentComposerTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#FsusBlog.Server.Tests.PublicAotDocumentComposerTests.ExtractAttributeValue_QuotedAttribute_ReturnsExactValue#case-0001"
+            ],
+            "reason": "The single-quoted attribute case retains its complete HTML input and exact expected URL as a stable Theory row."
         }
     ],
     "assertionReplacements": [
+        {
+            "before": "Assert.True(bytesAfterAmbiguous > exactBytes)",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/PerceptionCharacterV3ArtifactPoolTests.cs#PerceptionCharacterV3Tests.BudgetedLeaseAtomicallyAccountsExactBytesQuotasAndRetryIdentity"
+            ],
+            "after": [
+                "xunit:Equal:await AssertBudgetStateAsync(\"ambiguous-reply\", 2, bytesAfterAmbiguous):equality:bytesAfterAmbiguous"
+            ],
+            "reason": "Issue 2527 retains the same budgeted lease test ID under the canonical LocalRedis producer only. Exact burned artifact bytes, lease counters, operation identities and inventory replace the weak ambiguous-reply increase assertion; ordinary backend membership excludes Fixture=LocalRedis and missing fixture identity fails closed."
+        },
         {
             "before": "behavior:${caseGroup.id} keeps viewport boundaries usable",
             "replacementTestIds": [
