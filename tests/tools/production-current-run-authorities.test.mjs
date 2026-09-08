@@ -4,6 +4,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import {
+    happyBundle,
+    join,
+    RUN_ID
+} from './support/behavior-evidence-pre-runtime-fixture.mjs';
 
 import {
     digestValue,
@@ -157,22 +162,14 @@ test('frontend authority rejects a stage receipt from another source', () =>
 
 function behaviorEvidenceReceipt({ runId, registryDigest, source = sourceState })
 {
-    const receipt = {
-        schema: 'fsusblog.behavior-evidence-pre-runtime-receipt.v1',
-        scope: 'pre-runtime',
-        runIdentity: runId,
-        sourceIdentity: {
-            commit: source.commit,
-            worktreeFingerprint: source.worktreeFingerprint
-        },
-        behaviorIds: ['document-lifecycle-governance'],
-        buildIdentities: {},
-        registryDigest,
-        runtimeCandidateSpawnCountBeforeReceipt: 0,
-        status: 'ok',
-        failureReasons: [],
-        contentDigest: null
+    const receipt = join(happyBundle());
+    // Reseal identity mutations so negative cases reach the authority checks.
+    receipt.runIdentity = runId;
+    receipt.sourceIdentity = {
+        commit: source.commit,
+        worktreeFingerprint: source.worktreeFingerprint
     };
+    receipt.registryDigest = registryDigest;
     receipt.contentDigest = `sha256:${digestValue(
         Object.fromEntries(Object.entries(receipt).filter(([key]) => key !== 'contentDigest'))
     )}`;
@@ -184,11 +181,8 @@ test('behavior readiness authority requires a qualified exact-run source-bound r
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-behavior-ready-'));
     try
     {
-        const runId = 'behavior-authority-test';
-        const registry = {
-            schema: 'fsusblog.behavior-fact-extractor-registry.v1',
-            extractors: []
-        };
+        const runId = RUN_ID;
+        const registry = happyBundle().factExtractorRegistry;
         const registryFile = path.join(root, 'config', 'contracts', 'behavior-fact-extractors.json');
         fs.mkdirSync(path.dirname(registryFile), { recursive: true });
         fs.writeFileSync(registryFile, `${JSON.stringify(registry)}\n`);
