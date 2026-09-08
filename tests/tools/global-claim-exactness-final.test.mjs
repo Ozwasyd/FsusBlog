@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
+import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs'
 import {
     buildGlobalClaimExactnessReceipt,
     globalExactnessScopeId,
@@ -129,16 +130,53 @@ test('global exactness terminal receipt is ok with warnings=0', async () =>
     const receipt = await buildGlobalClaimExactnessReceipt({
         repositoryRoot: root,
         observationReceiptPaths: receipts,
+        runId: 'global-claim-exactness-test',
         sourceCommit: first.sourceCommit,
         worktreeFingerprint: first.worktreeFingerprint
     })
-    validateGlobalClaimExactnessReceipt(receipt)
+    validateGlobalClaimExactnessReceipt(receipt, { expectedRunId: 'global-claim-exactness-test' })
+    assert.equal(receipt.runId, 'global-claim-exactness-test')
+    await assert.rejects(() => buildGlobalClaimExactnessReceipt({
+        repositoryRoot: root,
+        observationReceiptPaths: receipts,
+        sourceCommit: first.sourceCommit,
+        worktreeFingerprint: first.worktreeFingerprint
+    }), /runId is required/u)
+    const crossRun = structuredClone(receipt)
+    crossRun.runId = 'global-claim-exactness-other-run'
+    crossRun.contentDigest = digestValue({ ...crossRun, contentDigest: null })
+    assert.throws(() => validateGlobalClaimExactnessReceipt(crossRun, {
+        expectedRunId: 'global-claim-exactness-test'
+    }), /runId mismatch/u)
+    const expanded = structuredClone(receipt)
+    expanded.unclaimedAuthority = true
+    expanded.contentDigest = digestValue({ ...expanded, contentDigest: null })
+    assert.throws(() => validateGlobalClaimExactnessReceipt(expanded), /fields are not sealed/u)
     assert.equal(receipt.scopeId, globalExactnessScopeId)
     assert.equal(receipt.counts.requiredBehaviors, 9)
     assert.equal(receipt.counts.scopes, 6)
     assert.equal(receipt.counts.missing, 0)
     assert.equal(receipt.counts.extra, 0)
     assert.equal(receipt.counts.warnings, 0)
+    assert.equal(receipt.claimAcceptance.length,
+        receipt.counts.generatedClaimCount + receipt.counts.proseClaimCount)
+    assert.equal(new Set(receipt.claimAcceptance.map((claim) => claim.claimId)).size,
+        receipt.claimAcceptance.length)
+    assert.ok(receipt.claimAcceptance
+        .filter((claim) => claim.behaviorId === 'browserless-production-correctness')
+        .every((claim) => /^sha256:[a-f0-9]{64}$/u.test(claim.claimDigest)))
+
+    for (const mutate of [
+        (value) => value.claimAcceptance.push(structuredClone(value.claimAcceptance[0])),
+        (value) => { value.claimAcceptance[0].claimDigest = 'sha256:invalid' }
+    ])
+    {
+        const changed = structuredClone(receipt)
+        mutate(changed)
+        changed.contentDigest = digestValue({ ...changed, contentDigest: null })
+        assert.throws(() => validateGlobalClaimExactnessReceipt(changed),
+            /global exactness claim acceptance is invalid/u)
+    }
 })
 
 test('global exactness fails closed on ledger, claim and observation tamper', async () =>
@@ -148,6 +186,7 @@ test('global exactness fails closed on ledger, claim and observation tamper', as
     const base = {
         repositoryRoot: root,
         observationReceiptPaths: receipts,
+        runId: 'global-claim-exactness-test',
         sourceCommit: first.sourceCommit,
         worktreeFingerprint: first.worktreeFingerprint
     }

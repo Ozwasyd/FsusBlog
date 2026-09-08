@@ -18,12 +18,18 @@ export const MANDATORY_BURN_TEST =
     'FsusBlog.Server.Tests.Unit.PerceptionCharacterV3Tests.ArtifactPoolBurnSurvivesCancellationProcessInterruptionAndAmbiguousReply';
 export const REDIS_LUA_TEST =
     'FsusBlog.Server.Tests.Unit.PerceptionCharacterV3Tests.RedisLua_IsLinearizableBoundedBindingAwareAndFailClosed';
+export const BUDGETED_LEASE_TEST =
+    'FsusBlog.Server.Tests.Unit.PerceptionCharacterV3Tests.BudgetedLeaseAtomicallyAccountsExactBytesQuotasAndRetryIdentity';
 export const LOCAL_REDIS_PLANNED_TESTS = Object.freeze([
     MANDATORY_BURN_TEST,
-    REDIS_LUA_TEST
+    REDIS_LUA_TEST,
+    BUDGETED_LEASE_TEST
 ]);
 export const LOCAL_REDIS_FILTER =
     `Fixture=LocalRedis&(${LOCAL_REDIS_PLANNED_TESTS.map((testId) => `FullyQualifiedName=${testId}`).join('|')})`;
+export const BUDGET_CASE_IDS = Object.freeze([
+    'first-lease', 'operation-retry', 'subject-rejected', 'egress-rejected', 'ambiguous-reply', 'ambiguous-retry'
+]);
 export const REDIS_LUA_CASE_IDS = Object.freeze([
     'anonymous-device-issuance-reuse-and-cookie-policy',
     'same-challenge-correct-race-exactly-one-success',
@@ -109,6 +115,7 @@ export function reconcileLocalRedisOutcome({
     redisLuaCallsBefore,
     redisLuaCallsAfter,
     redisLuaCaseEvidence,
+    redisBudgetEvidence,
     plannedTestIds = LOCAL_REDIS_PLANNED_TESTS,
     runId,
     sourceCommit,
@@ -147,6 +154,10 @@ export function reconcileLocalRedisOutcome({
     {
         throw new Error('LocalRedis run and source identity are required');
     }
+    if (prefixNamespace !== `test:perception-v3-local-redis:${runId}:`)
+    {
+        throw new Error('LocalRedis prefix namespace must belong to the current run');
+    }
     if (!Array.isArray(plannedTestIds) || plannedTestIds.length === 0)
     {
         throw new Error('LocalRedis planned test IDs are required');
@@ -158,6 +169,10 @@ export function reconcileLocalRedisOutcome({
     if (plannedTestIds.some((testId) => !CANONICAL_LOCAL_REDIS_TESTS.includes(testId)))
     {
         throw new Error('LocalRedis planned test IDs must belong to the canonical owner');
+    }
+    if (JSON.stringify(plannedTestIds) !== JSON.stringify(LOCAL_REDIS_PLANNED_TESTS))
+    {
+        throw new Error('LocalRedis planned test IDs must match the exact producer filter');
     }
 
     const results = parseTrxResults(trxContent);
@@ -222,6 +237,29 @@ export function reconcileLocalRedisOutcome({
     if (failedRedisLuaCaseIds.length > 0)
         failureCodes.push('redis-lua-case-not-passed');
 
+    const budgetCases = redisBudgetEvidence?.cases ?? [];
+    if (redisBudgetEvidence?.schema !== 'fsusblog.perception-character-v3-budget-cases.v1' ||
+        redisBudgetEvidence?.testId !== BUDGETED_LEASE_TEST ||
+        redisBudgetEvidence?.runId !== runId ||
+        redisBudgetEvidence?.endpoint !== endpoint ||
+        redisBudgetEvidence?.prefixNamespace !== `${prefixNamespace}budgeted-lease:`)
+    {
+        failureCodes.push('budget-case-identity-mismatch');
+    }
+    if (!Array.isArray(budgetCases) || budgetCases.length !== BUDGET_CASE_IDS.length ||
+        BUDGET_CASE_IDS.some((id, index) => budgetCases[index]?.id !== id))
+    {
+        failureCodes.push('budget-case-inventory-mismatch');
+    }
+    if (!Array.isArray(budgetCases) || budgetCases.some((entry, index) =>
+        entry?.outcome !== 'passed' || entry?.leases !== (index < 4 ? 1 : 2) ||
+        !Number.isSafeInteger(entry?.bytes) || entry.bytes <= 0 || entry.bytes !== entry.burnedBytes ||
+        (index < 4 && entry.bytes !== budgetCases[0]?.bytes) ||
+        (index >= 4 && (entry.bytes <= budgetCases[0]?.bytes || entry.bytes !== budgetCases[4]?.bytes))))
+    {
+        failureCodes.push('budget-case-accounting-mismatch');
+    }
+
     const receipt = {
         schema: 'fsusblog.perception-character-v3-redis-fixture.v1',
         producer: 'perception-character-v3-redis-fixture',
@@ -257,6 +295,7 @@ export function reconcileLocalRedisOutcome({
                 Number.isSafeInteger(redisLuaCallsAfter) &&
                 redisLuaCallsAfter > redisLuaCallsBefore
         },
+        redisBudgetEvidence: redisBudgetEvidence ?? null,
         redisLuaCaseEvidence: {
             schema: redisLuaCaseEvidence?.schema ?? null,
             testId: redisLuaCaseEvidence?.testId ?? null,
@@ -327,6 +366,7 @@ function main()
         'redis-lua-calls-before',
         'redis-lua-calls-after',
         'redis-lua-case-evidence',
+        'redis-budget-evidence',
         'cleanup-verified',
         'output'
     ];
@@ -377,6 +417,9 @@ function main()
         redisLuaCallsBefore: Number(args['redis-lua-calls-before']),
         redisLuaCallsAfter: Number(args['redis-lua-calls-after']),
         redisLuaCaseEvidence,
+        redisBudgetEvidence: fs.existsSync(args['redis-budget-evidence'])
+            ? JSON.parse(fs.readFileSync(args['redis-budget-evidence'], 'utf8'))
+            : null,
         runId: args['run-id'],
         sourceCommit: args['source-commit'],
         sourceFingerprint: args['source-fingerprint']

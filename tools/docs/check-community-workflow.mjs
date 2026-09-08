@@ -35,14 +35,15 @@ const required = [
   '.github/workflows/codeql.yml',
   '.github/workflows/dependency-review.yml',
   '.github/workflows/scorecard.yml',
-    'CONTRIBUTING.md',
-    'SUPPORT.md',
-    'SECURITY.md',
-    'CHANGELOG.md',
-    'docs/releases/public-preview-policy.md',
-    'docs/open-source-readiness.md',
-    'docs/repository-governance.md',
-    'docs/reports/open-source-readiness/v1.1.0-public-preview/readiness-checklist.md'
+  'docs/CONTRIBUTING.md',
+  'docs/SUPPORT.md',
+  'docs/SECURITY.md',
+  'docs/CODE_OF_CONDUCT.md',
+  'CHANGELOG.md',
+  'docs/releases/public-preview-policy.md',
+  'docs/open-source-readiness.md',
+  'docs/repository-governance.md',
+  'docs/reports/open-source-readiness/v1.1.0-public-preview/readiness-checklist.md'
 ]
 
 const contents = new Map(required.map((path) => [path, read(path)]))
@@ -50,7 +51,7 @@ const newIssueForms = new Set([
   '.github/ISSUE_TEMPLATE/documentation.yml',
   '.github/ISSUE_TEMPLATE/deployment_support.yml',
   '.github/ISSUE_TEMPLATE/accessibility_ui.yml',
-    '.github/ISSUE_TEMPLATE/governance_process.yml'
+  '.github/ISSUE_TEMPLATE/governance_process.yml'
 ]);
 
 includes('.github/ISSUE_TEMPLATE/bug_report.yml', contents.get('.github/ISSUE_TEMPLATE/bug_report.yml'), 'Release ID or full commit SHA');
@@ -128,32 +129,32 @@ includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), 'security/pol
 includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), 'security/zk/contracts/ @Ozwasyd')
 includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), 'security/zk/provenance/ @Ozwasyd')
 includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), 'tests/fixtures/evidence/ @Ozwasyd')
-includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), 'SECURITY.md @Ozwasyd')
+includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), '/docs/SECURITY.md @Ozwasyd')
 includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), 'src/backend/Infrastructure/Auth/ @Ozwasyd')
-includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'docs/development.md')
-includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'documentation reports')
-includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'deployment/self-hosting reports')
-includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'accessibility/UI reports')
-includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'governance/process reports')
-includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'SUPPORT.md');
-includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'CODEOWNERS');
-includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'docs/repository-governance.md');
-includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'Public Preview Stability Policy');
-includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'canonical ReleaseId or full commit SHA');
-includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'SECURITY.md');
-includes('SUPPORT.md', contents.get('SUPPORT.md'), 'no production SLA');
-includes('SUPPORT.md', contents.get('SUPPORT.md'), 'SECURITY.md');
-includes('SUPPORT.md', contents.get('SUPPORT.md'), 'Deployment / self-hosting report')
-includes('SUPPORT.md', contents.get('SUPPORT.md'), 'tokens, API keys, passwords, session IDs, cookies')
-includes('SUPPORT.md', contents.get('SUPPORT.md'), 'production domains')
-includes('SUPPORT.md', contents.get('SUPPORT.md'), 'real IP addresses')
-includes('SUPPORT.md', contents.get('SUPPORT.md'), 'real email addresses');
-includes('SUPPORT.md', contents.get('SUPPORT.md'), 'production logs');
-includes('SUPPORT.md', contents.get('SUPPORT.md'), 'database exports');
-includes('SUPPORT.md', contents.get('SUPPORT.md'), 'canonical ReleaseId or full commit SHA');
+includes('docs/CONTRIBUTING.md', contents.get('docs/CONTRIBUTING.md'), 'docs/development.md')
+includes('docs/CONTRIBUTING.md', contents.get('docs/CONTRIBUTING.md'), 'documentation reports')
+includes('docs/CONTRIBUTING.md', contents.get('docs/CONTRIBUTING.md'), 'deployment/self-hosting reports')
+includes('docs/CONTRIBUTING.md', contents.get('docs/CONTRIBUTING.md'), 'accessibility/UI reports')
+includes('docs/CONTRIBUTING.md', contents.get('docs/CONTRIBUTING.md'), 'governance/process reports')
+includes('docs/CONTRIBUTING.md', contents.get('docs/CONTRIBUTING.md'), 'SUPPORT.md');
+includes('docs/CONTRIBUTING.md', contents.get('docs/CONTRIBUTING.md'), 'CODEOWNERS');
+includes('docs/CONTRIBUTING.md', contents.get('docs/CONTRIBUTING.md'), 'docs/repository-governance.md');
+includes('docs/CONTRIBUTING.md', contents.get('docs/CONTRIBUTING.md'), 'Public Preview Stability Policy');
+includes('docs/CONTRIBUTING.md', contents.get('docs/CONTRIBUTING.md'), 'canonical ReleaseId or full commit SHA');
+includes('docs/CONTRIBUTING.md', contents.get('docs/CONTRIBUTING.md'), 'SECURITY.md');
+includes('docs/SUPPORT.md', contents.get('docs/SUPPORT.md'), 'no production SLA');
+includes('docs/SUPPORT.md', contents.get('docs/SUPPORT.md'), 'SECURITY.md');
+includes('docs/SUPPORT.md', contents.get('docs/SUPPORT.md'), 'Deployment / self-hosting report')
+includes('docs/SUPPORT.md', contents.get('docs/SUPPORT.md'), 'tokens, API keys, passwords, session IDs, cookies')
+includes('docs/SUPPORT.md', contents.get('docs/SUPPORT.md'), 'production domains')
+includes('docs/SUPPORT.md', contents.get('docs/SUPPORT.md'), 'real IP addresses')
+includes('docs/SUPPORT.md', contents.get('docs/SUPPORT.md'), 'real email addresses');
+includes('docs/SUPPORT.md', contents.get('docs/SUPPORT.md'), 'production logs');
+includes('docs/SUPPORT.md', contents.get('docs/SUPPORT.md'), 'database exports');
+includes('docs/SUPPORT.md', contents.get('docs/SUPPORT.md'), 'canonical ReleaseId or full commit SHA');
 includes('CHANGELOG.md', contents.get('CHANGELOG.md'), 'Product SemVer is not a release coordinate');
 includes('docs/releases/public-preview-policy.md', contents.get('docs/releases/public-preview-policy.md'), 'current source of truth');
-includes('SECURITY.md', contents.get('SECURITY.md'), 'Do not report security vulnerabilities as public GitHub issues');
+includes('docs/SECURITY.md', contents.get('docs/SECURITY.md'), 'Do not report security vulnerabilities as public GitHub issues');
 includes('.github/ISSUE_TEMPLATE/config.yml', contents.get('.github/ISSUE_TEMPLATE/config.yml'), 'security/advisories/new');
 includes('.github/ISSUE_TEMPLATE/config.yml', contents.get('.github/ISSUE_TEMPLATE/config.yml'), 'SUPPORT.md');
 includes('.github/ISSUE_TEMPLATE/config.yml', contents.get('.github/ISSUE_TEMPLATE/config.yml'), 'blank_issues_enabled: false')
