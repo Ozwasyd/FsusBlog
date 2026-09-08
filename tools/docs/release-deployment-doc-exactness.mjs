@@ -8,46 +8,461 @@
  */
 
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { lstatSync, readFileSync, realpathSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { digestValue } from '../fact-extractors/identity.mjs'
+import { digestValue, sealSourceIdentity } from '../fact-extractors/identity.mjs'
 import { readFactObservationReceipt } from '../fact-extractors/reader.mjs'
 import {
     buildBehaviorDocExactnessReceipt,
     validateBehaviorDocExactnessReceipt
 } from './behavior-doc-exactness.mjs'
-import { parseRepositoryClaims } from './doc-claim.mjs'
+import { parseDocumentClaims, parseRepositoryClaims } from './doc-claim.mjs'
 import { renderSectionFromReceipt } from './generated-fact-sections/generator.mjs'
 import { parseGeneratedMarkers } from './generated-fact-sections/markers.mjs'
 import { verifyProseClaims } from './prose-claim-verifier/verifier.mjs'
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 export const releaseDeploymentScopeId = 'protocol-release-deployment-ownership'
-export const releaseDeploymentBehaviorIds = Object.freeze([
-    'release-final-aggregate-contract',
-    'deployment-blue-green-runtime-role'
-])
+export const releaseDeploymentDomains = Object.freeze(['release', 'deployment'])
 export const releaseDeploymentExactnessSchema = 'fsusblog.release-deployment-doc-exactness-receipt.v1'
 
+const strictUtf8Decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: false })
+const decodeStrictUtf8 = (bytes, label) =>
+{
+    if (bytes.subarray(0, 3).equals(Buffer.from([0xef, 0xbb, 0xbf])))
+        throw new Error(`${label} must not contain a UTF-8 BOM`)
+    let source
+    try
+    {
+        source = strictUtf8Decoder.decode(bytes)
+    }
+    catch
+    {
+        throw new Error(`${label} is not strict UTF-8`)
+    }
+    if (source.includes('\r')) throw new Error(`${label} must use canonical LF line endings`)
+    if (/[\t ]+$/mu.test(source)) throw new Error(`${label} must not contain trailing horizontal whitespace`)
+    return source
+}
+const readStrictUtf8 = (file, label = file) => decodeStrictUtf8(readFileSync(file), label)
 const readJson = (repositoryRoot, relative) =>
-    JSON.parse(readFileSync(path.join(repositoryRoot, relative), 'utf8'))
+    JSON.parse(readStrictUtf8(path.join(repositoryRoot, relative), relative))
 
-const forbiddenSurfaces = Object.freeze([
-    ['manual-runtime-role-table', /(?:^\|\s*模式\s*\|(?:\n\|[^\n]*){1,8})|(?:^\|\s*Mode\s*\|[^\n]*\n(?:\|[^\n]*\n){0,2}[^\n]*`?(?:single|static-role|adaptive)`?)/im],
-    ['manual-stage-table', /^\|\s*(?:stage|phase|阶段|階段)\s*\|/imu],
-    ['finalizer-as-rerun', /(?:release[- ]final|finalizer|收尾)[^\n]{0,80}(?:re-?runs?\b|rerun|再跑一次|重新运行|重新運行)/iu],
-    ['job-success-authority', /(?:job|ci|workflow)[^\n]{0,40}(?:success|succeeded|成功)[^\n]{0,60}(?:authority|proof|权威|權威|证据|證據|代替|取代|replace)/iu],
-    ['auto-spawn-evidence', /(?:auto|自动|自動)[^\n]{0,10}(?:spawn|rerun|re-run|produce|生成|重跑)[^\n]{0,30}(?:allowed|permitted|is ok|允许|允許|即可|可以)|(?:may be auto|可以自动|可以自動)[^\n]{0,30}(?:spawn|produce|rerun|生成|重跑)/iu],
-    ['unknown-active-standby', /unknown[^\n]{0,40}active[^\n]{0,60}(?:standby|safe|备用|備用|安全)|(?:把|将|將)[^\n]{0,20}unknown[^\n]{0,30}(?:当|當)[^\n]{0,10}(?:standby|备用|備用)/iu],
-    ['active-cleanup-allowed', /(?:cleanup|gc|delete|清除|删除|刪除|清掉)[^\n]{0,50}(?:active release|active artifact|当前\s*active|當前\s*active|active slot|active volume|active schema)/iu],
-    ['compose-workflow-role-authority', /compose[^\n]{0,60}(?:runtime[- ]role|角色|模式)[^\n]{0,40}(?:authority|truth|权威|權威|真源)|(?:runtime[- ]role|角色|模式)[^\n]{0,60}compose[^\n]{0,40}(?:authority|truth|权威|權威|真源)/iu],
-    ['waiver', /(?:release|deployment|blue[- ]green|runtime|role|slot|fact|document)[ -]?waiver|(?:部署|蓝绿|藍綠|运行时|運行時|事实|事實|文档|文件)豁免/iu],
-    ['hidden-compatibility', /<details\b[^>]*>[\s\S]{0,500}(?:legacy|compat)|compat(?:ibility)?[- ]table|current[- ]equivalent/iu],
-    ['overbroad-claim', /(?:one|single|一个|一個)[^\n]{0,60}claim[^\n]{0,80}(?:all|every|全部)[^\n]{0,30}(?:behavior|behaviour|行为|行為)/iu],
-    ['self-certification', /(?:lastReviewedAt\s*:|lastVerifiedCommit\s*:|manual(?:ly)?[- ]approved\s*:|self[- ]certified)/iu]
+const markdownAstVersion = 'fsusblog.release-deployment-markdown-ast.v1'
+const protectedProseOwnershipVersion = 'fsusblog.release-deployment-protected-prose-ownership.v2'
+
+const headingPattern = /^(#{1,6})\s+(.+?)\s*#*\s*$/u
+const fencePattern = /^\s*(`{3,}|~{3,})/u
+const listPattern = /^\s*(?:[-*+]\s+|\d+[.)]\s+)/u
+const tablePattern = /^\s*\|.*\|\s*$/u
+const quotePattern = /^\s*>/u
+const htmlCommentPattern = /^\s*<!--/u
+const htmlPrePattern = /^\s*<pre(?:\s|>)/iu
+const indentedCodePattern = /^(?: {4}|\t)\S/u
+const lineBody = (lines) => lines.join('\n').trimEnd()
+const protectedNodeTypes = new Set([
+    'heading',
+    'fenced-code'
 ])
+const nodeDigest = (node) => digestValue({
+    astVersion: markdownAstVersion,
+    nodeType: node.nodeType,
+    headingPath: node.headingPath,
+    body: node.body
+})
+const protectedNodeKey = (entry) => `${entry.nodeType}\0${entry.contentDigest}`
+const releaseProtectedNodeKey = (entry) => `${entry.nodeType}\0${digestValue({
+    astVersion: markdownAstVersion,
+    nodeType: entry.nodeType,
+    body: entry.body
+})}`
+const retiredReleaseFinalHeading = '`release-final` — final publish credential'
+const belongsToRetiredReleaseFinalSection = (node) =>
+    node.body.trim() === retiredReleaseFinalHeading
+    || (node.nodeType !== 'heading'
+        && node.headingPath.at(-1)?.trim() === retiredReleaseFinalHeading)
+
+function assertCanonicalRepositoryPath(relativePath, { docsOnly = false } = {})
+{
+    if (typeof relativePath !== 'string' || relativePath.length === 0
+        || relativePath !== relativePath.normalize('NFC')
+        || relativePath.includes('\\') || relativePath.includes('\0')
+        || path.posix.isAbsolute(relativePath) || path.posix.normalize(relativePath) !== relativePath
+        || relativePath.split('/').some((segment) => !segment || segment === '.' || segment === '..')
+        || (docsOnly && (!relativePath.startsWith('docs/') || !relativePath.endsWith('.md'))))
+        throw new Error(`non-canonical repository path ${String(relativePath)}`)
+    return relativePath
+}
+
+function git(repositoryRoot, args)
+{
+    return execFileSync('git', args, {
+        cwd: repositoryRoot,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe']
+    }).trim()
+}
+
+export function resolveReleaseDeploymentProtectedBase(
+    repositoryRoot,
+    approvedBaseRef = process.env.FSUSBLOG_PR_BASE_REF || 'origin/master'
+)
+{
+    if (typeof approvedBaseRef !== 'string' || approvedBaseRef.length === 0
+        || approvedBaseRef.includes('\0') || approvedBaseRef.includes('\n'))
+        throw new Error('release/deployment protected base ref is invalid')
+    const commit = git(repositoryRoot, ['rev-parse', '--verify', `${approvedBaseRef}^{commit}`])
+    if (!/^[0-9a-f]{40}$/u.test(commit)) throw new Error('release/deployment protected base is not a commit')
+    try
+    {
+        git(repositoryRoot, ['merge-base', '--is-ancestor', commit, 'HEAD'])
+    }
+    catch
+    {
+        throw new Error('release/deployment protected base is not an ancestor of HEAD')
+    }
+    return commit
+}
+
+function readProtectedGitFile(repositoryRoot, commit, relativePath, { docsOnly = false } = {})
+{
+    assertCanonicalRepositoryPath(relativePath, { docsOnly })
+    if (!/^[0-9a-f]{40}$/u.test(commit)) throw new Error('invalid protected base commit')
+    const treeEntry = git(repositoryRoot, ['ls-tree', commit, '--', relativePath])
+        .match(/^(100644|100755) blob ([0-9a-f]{40,64})\t(.+)$/u)
+    if (!treeEntry || treeEntry[3] !== relativePath)
+        throw new Error(`${relativePath} has no regular blob at protected base ${commit}`)
+    const bytes = execFileSync('git', ['show', `${commit}:${relativePath}`], {
+        cwd: repositoryRoot,
+        stdio: ['ignore', 'pipe', 'pipe']
+    })
+    return {
+        blob: treeEntry[2],
+        source: decodeStrictUtf8(bytes, `${commit}:${relativePath}`)
+    }
+}
+
+function readCanonicalTrackedFile(repositoryRoot, relativePath, { docsOnly = false } = {})
+{
+    assertCanonicalRepositoryPath(relativePath, { docsOnly })
+    const canonicalRoot = realpathSync(repositoryRoot)
+    let current = canonicalRoot
+    const segments = relativePath.split('/')
+    for (const [index, segment] of segments.entries())
+    {
+        current = path.join(current, segment)
+        const stat = lstatSync(current)
+        if (stat.isSymbolicLink()) throw new Error(`${relativePath} traverses a symbolic link`)
+        if (index < segments.length - 1 && !stat.isDirectory())
+            throw new Error(`${relativePath} traverses a non-directory`)
+        if (index === segments.length - 1 && (!stat.isFile() || stat.nlink !== 1))
+            throw new Error(`${relativePath} must be a singly-linked regular file`)
+    }
+    const resolved = realpathSync(current)
+    if (resolved !== path.join(canonicalRoot, ...segments)
+        || !resolved.startsWith(`${canonicalRoot}${path.sep}`))
+        throw new Error(`${relativePath} resolves outside the repository`)
+    const source = readStrictUtf8(resolved, relativePath)
+    const tracked = git(canonicalRoot, ['ls-files', '--', relativePath]).split('\n').filter(Boolean)
+    if (tracked.length !== 1 || tracked[0] !== relativePath)
+        throw new Error(`${relativePath} is not one exact canonical Git path`)
+    const stage = git(canonicalRoot, ['ls-files', '--stage', '--', relativePath])
+        .match(/^(100644|100755) ([0-9a-f]{40,64}) 0\t(.+)$/u)
+    if (!stage || stage[3] !== relativePath) throw new Error(`${relativePath} has no canonical stage-0 Git blob`)
+    const headBlob = git(canonicalRoot, ['rev-parse', `HEAD:${relativePath}`])
+    const worktreeBlob = git(canonicalRoot, ['hash-object', '--no-filters', relativePath])
+    if (stage[2] !== headBlob || worktreeBlob !== headBlob)
+        throw new Error(`${relativePath} HEAD/index/worktree blobs differ`)
+    return source
+}
+
+export function readCanonicalReleaseDeploymentDocument(repositoryRoot, documentPath)
+{
+    return readCanonicalTrackedFile(repositoryRoot, documentPath, { docsOnly: true })
+}
+
+function pushProseNode(nodes, documentPath, nodeType, startIndex, endIndex, body, headingPath)
+{
+    if (!body.trim()) return
+    const node = {
+        documentPath,
+        nodeType,
+        startLine: startIndex + 1,
+        endLine: endIndex + 1,
+        headingPath: [...headingPath],
+        body
+    }
+    nodes.push({ ...node, contentDigest: nodeDigest(node) })
+}
+
+export function parseReleaseDeploymentMarkdownAst(
+    source,
+    documentPath = 'inline.md',
+    { ownedSpans = [] } = {}
+)
+{
+    const lines = String(source).split(/\r?\n/u)
+    const nodes = []
+    const headingStack = []
+    let index = 0
+
+    while (index < lines.length)
+    {
+        const line = lines[index]
+        const ownedSpan = ownedSpans.find((entry) =>
+            index + 1 >= entry.startLine && index + 1 <= entry.endLine)
+        if (ownedSpan)
+        {
+            index = ownedSpan.endLine
+            continue
+        }
+        if (!line.trim())
+        {
+            index += 1
+            continue
+        }
+
+        const heading = line.match(headingPattern)
+        if (heading)
+        {
+            const level = heading[1].length
+            const title = heading[2].trim()
+            while (headingStack.length > 0 && headingStack.at(-1).level >= level) headingStack.pop()
+            pushProseNode(nodes, documentPath, 'heading', index, index, title,
+                headingStack.map((entry) => entry.title))
+            headingStack.push({ level, title })
+            index += 1
+            continue
+        }
+
+        const fence = line.match(fencePattern)
+        if (fence)
+        {
+            const start = index
+            const marker = fence[1][0]
+            const minimumLength = fence[1].length
+            const closingFence = new RegExp(`^\\s*${marker === '`' ? '`' : '~'}{${minimumLength},}\\s*$`, 'u')
+            index += 1
+            while (index < lines.length && !closingFence.test(lines[index])) index += 1
+            if (index < lines.length) index += 1
+            pushProseNode(nodes, documentPath, 'fenced-code', start, index - 1,
+                lineBody(lines.slice(start, index)), headingStack.map((entry) => entry.title))
+            continue
+        }
+
+        const generatedBegin = line.match(/^\s*<!--\s*FSUSBLOG-GENERATED:BEGIN\s+([a-z][a-z0-9]*(?:[.-][a-z0-9]+)*)\s*-->\s*$/u)
+        if (generatedBegin)
+        {
+            const sectionId = generatedBegin[1]
+            index += 1
+            while (index < lines.length)
+            {
+                const generatedEnd = lines[index]
+                    .match(/^\s*<!--\s*FSUSBLOG-GENERATED:END\s+([a-z][a-z0-9]*(?:[.-][a-z0-9]+)*)\s*-->\s*$/u)
+                if (generatedEnd)
+                {
+                    if (generatedEnd[1] !== sectionId)
+                        throw new Error(`generated section ${sectionId} ended by ${generatedEnd[1]} in ${documentPath}:${index + 1}`)
+                    break
+                }
+                index += 1
+            }
+            if (index >= lines.length) throw new Error(`generated section ${sectionId} is unclosed in ${documentPath}`)
+            index += 1
+            continue
+        }
+        if (/^\s*<!--\s*FSUSBLOG-GENERATED:END\b/u.test(line))
+            throw new Error(`orphan generated section end in ${documentPath}:${index + 1}`)
+
+        if (htmlCommentPattern.test(line))
+        {
+            const start = index
+            const carrierLines = []
+            let carrierEnd = start
+            while (index < lines.length)
+            {
+                const terminator = lines[index].indexOf('-->')
+                if (terminator < 0)
+                {
+                    carrierLines.push(lines[index])
+                    carrierEnd = index
+                    index += 1
+                    continue
+                }
+                carrierLines.push(lines[index].slice(0, terminator + 3))
+                carrierEnd = index
+                const tail = lines[index].slice(terminator + 3)
+                if (tail.trim()) lines[index] = tail
+                else index += 1
+                break
+            }
+            pushProseNode(nodes, documentPath, 'html-comment', start, carrierEnd,
+                lineBody(carrierLines), headingStack.map((entry) => entry.title))
+            continue
+        }
+
+        if (htmlPrePattern.test(line))
+        {
+            const start = index
+            const carrierLines = []
+            let carrierEnd = start
+            while (index < lines.length)
+            {
+                const terminator = lines[index].search(/<\/pre>/iu)
+                if (terminator < 0)
+                {
+                    carrierLines.push(lines[index])
+                    carrierEnd = index
+                    index += 1
+                    continue
+                }
+                carrierLines.push(lines[index].slice(0, terminator + '</pre>'.length))
+                carrierEnd = index
+                const tail = lines[index].slice(terminator + '</pre>'.length)
+                if (tail.trim()) lines[index] = tail
+                else index += 1
+                break
+            }
+            pushProseNode(nodes, documentPath, 'html-pre', start, carrierEnd,
+                lineBody(carrierLines), headingStack.map((entry) => entry.title))
+            continue
+        }
+
+        if (indentedCodePattern.test(line))
+        {
+            const start = index
+            index += 1
+            while (index < lines.length && (indentedCodePattern.test(lines[index]) || !lines[index].trim())) index += 1
+            pushProseNode(nodes, documentPath, 'indented-code', start, index - 1,
+                lineBody(lines.slice(start, index)), headingStack.map((entry) => entry.title))
+            continue
+        }
+
+        if (quotePattern.test(line))
+        {
+            const start = index
+            const quoteLines = []
+            while (index < lines.length && quotePattern.test(lines[index]))
+            {
+                quoteLines.push(lines[index].replace(/^\s*(?:>\s*)+/u, ''))
+                index += 1
+            }
+            const firstContent = quoteLines.findIndex((entry) => entry.trim())
+            const callout = firstContent >= 0
+                ? quoteLines[firstContent].match(/^\[!(?:IMPORTANT|WARNING|CAUTION|NOTE|TIP)\]\s*(.*)$/iu)
+                : null
+            if (callout)
+            {
+                quoteLines[firstContent] = callout[1]
+                pushProseNode(nodes, documentPath, 'callout', start, index - 1,
+                    lineBody(quoteLines), headingStack.map((entry) => entry.title))
+            }
+            else
+            {
+                pushProseNode(nodes, documentPath, 'quote', start, index - 1,
+                    lineBody(quoteLines), headingStack.map((entry) => entry.title))
+            }
+            continue
+        }
+
+        const start = index
+        let nodeType = 'paragraph'
+        if (listPattern.test(line)) nodeType = 'list'
+        else if (tablePattern.test(line)) nodeType = 'table'
+        const bodyLines = []
+        while (index < lines.length)
+        {
+            const current = lines[index]
+            if (!current.trim()) break
+            if (index > start && (headingPattern.test(current) || fencePattern.test(current)
+                || htmlCommentPattern.test(current) || htmlPrePattern.test(current)
+                || quotePattern.test(current) || indentedCodePattern.test(current))) break
+            if (nodeType === 'list' && index > start && !listPattern.test(current)
+                && !/^\s{2,}\S/u.test(current)) break
+            if (nodeType === 'table' && !tablePattern.test(current)) break
+            if (nodeType === 'paragraph' && index > start
+                && (listPattern.test(current) || tablePattern.test(current))) break
+            bodyLines.push(current)
+            index += 1
+        }
+        pushProseNode(nodes, documentPath, nodeType, start, index - 1,
+            lineBody(bodyLines), headingStack.map((entry) => entry.title))
+    }
+    return nodes
+}
+
+export function extractReleaseDeploymentProseNodes(source, documentPath = 'inline.md')
+{
+    const claims = parseDocumentClaims(source, { documentPath, documentStatus: 'current' })
+    const ownedSpans = claims.flatMap((claim) => [
+        {
+            startLine: claim.location.claimStartLine,
+            endLine: claim.location.claimEndLine
+        },
+        ...(claim.declaration.claimType === 'generated-section' ? [] : [{
+            startLine: claim.location.bodyStartLine,
+            endLine: claim.location.bodyEndLine
+        }])
+    ]).sort((left, right) => left.startLine - right.startLine)
+    return parseReleaseDeploymentMarkdownAst(source, documentPath, { ownedSpans })
+}
+
+function scanClosedProseOwnership(
+    source,
+    documentPath,
+    protectedNodes = [],
+    protectedTypes = protectedNodeTypes,
+    protectedKey = protectedNodeKey
+)
+{
+    const nodes = extractReleaseDeploymentProseNodes(source, documentPath)
+    const protectedSequence = protectedNodes
+        .filter((entry) => protectedTypes.has(entry.nodeType))
+        .map((entry) => protectedKey(entry))
+    let protectedIndex = 0
+    const findings = []
+    for (const node of nodes)
+    {
+        if (protectedTypes.has(node.nodeType))
+        {
+            const key = protectedKey(node)
+            const matchingIndex = protectedSequence.indexOf(key, protectedIndex)
+            if (matchingIndex >= 0)
+            {
+                protectedIndex = matchingIndex + 1
+                continue
+            }
+        }
+        findings.push({
+            classId: 'manual-deployment-authority',
+            documentPath,
+            evidence: `${node.nodeType}:${node.startLine}-${node.endLine}`
+        })
+    }
+    return findings
+}
+
+const semanticScannerIdentity = Object.freeze([
+    markdownAstVersion,
+    protectedProseOwnershipVersion
+])
+export function selectReleaseDeploymentBehaviorIds(catalog)
+{
+    const domains = new Set(releaseDeploymentDomains)
+    return catalog.contracts
+        .filter((contract) => contract.status === 'active'
+            && contract.documentationPolicy === 'required'
+            && domains.has(contract.domain))
+        .map((contract) => contract.id)
+        .sort((left, right) => left.localeCompare(right))
+}
+
+export const releaseDeploymentBehaviorIds = Object.freeze(selectReleaseDeploymentBehaviorIds(
+    readJson(root, 'config/contracts/behavior-contracts.json')
+))
 
 function seal(value)
 {
@@ -56,39 +471,76 @@ function seal(value)
     return result
 }
 
-function sourceOutsideGeneratedSections(source)
-{
-    const lines = source.split(/\r?\n/u)
-    let generated = false
-    let fenced = false
-    return lines.map((line) =>
-    {
-        if (/^\s*```/u.test(line)) fenced = !fenced
-        if (line.includes('FSUSBLOG-GENERATED:BEGIN')) generated = true
-        const retained = generated || fenced ? '' : line
-        if (line.includes('FSUSBLOG-GENERATED:END')) generated = false
-        return retained
-    }).join('\n')
-}
-
-export function scanReleaseDeploymentDocResidue(repositoryRoot, documentPaths)
+export function scanReleaseDeploymentDocResidue(
+    repositoryRoot,
+    documentPaths,
+    { approvedBaseRef } = {}
+)
 {
     const findings = []
-    for (const documentPath of [...new Set(documentPaths)].sort())
+    const protectedBase = resolveReleaseDeploymentProtectedBase(repositoryRoot, approvedBaseRef)
+    const protectedCatalog = JSON.parse(readProtectedGitFile(
+        repositoryRoot,
+        protectedBase,
+        'config/contracts/behavior-contracts.json'
+    ).source)
+    const selected = protectedCatalog.contracts.filter((entry) => entry.status === 'active'
+        && entry.documentationPolicy === 'required'
+        && releaseDeploymentDomains.includes(entry.domain))
+    const expectedDocuments = [...new Set(selected.flatMap((entry) => entry.documents))].sort()
+    const actualDocuments = [...new Set(documentPaths)].sort()
+    if (JSON.stringify(actualDocuments) !== JSON.stringify(expectedDocuments))
+        throw new Error('release/deployment document roster differs from the protected BehaviorCatalog')
+    for (const documentPath of actualDocuments)
     {
-        const source = sourceOutsideGeneratedSections(readFileSync(path.join(repositoryRoot, documentPath), 'utf8'))
-        for (const [classId, pattern] of forbiddenSurfaces)
-        {
-            const match = source.match(pattern)
-            if (match) findings.push({ classId, documentPath, evidence: match[0].slice(0, 160) })
-        }
+        assertCanonicalRepositoryPath(documentPath, { docsOnly: true })
+        const owners = selected.filter((entry) => entry.documents.includes(documentPath))
+        if (owners.length === 0) throw new Error(`${documentPath} is outside the release/deployment BehaviorCatalog roster`)
+        const currentSource = readCanonicalTrackedFile(repositoryRoot, documentPath, { docsOnly: true })
+        const protectedDocument = readProtectedGitFile(repositoryRoot, protectedBase, documentPath, {
+            docsOnly: true
+        })
+        const protectedNodes = extractReleaseDeploymentProseNodes(
+            protectedDocument.source,
+            documentPath
+        ).filter((node) => !belongsToRetiredReleaseFinalSection(node))
+        const protectedTypes = owners.every((entry) => entry.domain === 'release')
+            ? new Set(protectedNodes.map((entry) => entry.nodeType))
+            : protectedNodeTypes
+        const protectedKey = owners.every((entry) => entry.domain === 'release')
+            ? releaseProtectedNodeKey
+            : protectedNodeKey
+        findings.push(...scanReleaseDeploymentSourceResidue(
+            currentSource,
+            documentPath,
+            {
+                protectedNodes,
+                protectedTypes,
+                protectedKey
+            }
+        ))
     }
     return findings
 }
 
-export function runReleaseDeploymentDocMutationCases()
+export function scanReleaseDeploymentSourceResidue(
+    source,
+    documentPath = 'inline.md',
+    { protectedNodes, protectedHeadingNodes = [], protectedTypes, protectedKey } = {}
+)
 {
-    const samples = [
+    return scanClosedProseOwnership(
+        source,
+        documentPath,
+        protectedNodes ?? protectedHeadingNodes,
+        protectedTypes,
+        protectedKey
+    )
+}
+
+export function runReleaseDeploymentDocMutationCases(structuralRows = [])
+{
+    const lexicalSamples = [
         ['manual-runtime-role-table', '| Mode | Responsibility |\n| --- | --- |\n| `single` | owns everything |'],
         ['manual-stage-table', '| Stage | Owner |\n| --- | --- |\n| release-final | aggregate |'],
         ['finalizer-as-rerun', 'release-final re-runs every producer to confirm success'],
@@ -102,11 +554,80 @@ export function runReleaseDeploymentDocMutationCases()
         ['overbroad-claim', 'one claim covers all behaviors'],
         ['self-certification', 'lastVerifiedCommit: deadbeef']
     ]
-    const rows = samples.map(([classId, source]) => ({
+    const semanticSamples = [
+        ['renamed-manual-section', '## Traffic handoff\nThe controller verifies the candidate and reloads the gateway upstream.'],
+        ['reordered-manual-sections', '## Recovery procedure\nRestore the former serving slot.\n## Promotion steps\nPromote the standby and switch traffic.'],
+        ['extra-active-section', '## Active slot maintenance\nThe operator must retain the serving slot until the drain finishes.'],
+        ['synonymous-manual-command', '## Operator sequence\nInvoke the cutover utility, promote standby, then retire the former serving slot.'],
+        ['synonymous-manual-claim', '## Service transfer\nA standby becomes serving after the proxy is reloaded; fallback reactivates the former slot.'],
+        ['unowned-qualification-claim', '## Deployment conclusion\nThe blue/green deployment claim is eligible and runtime-role ownership is verified.'],
+        ['synonymous-qualification-claim', '## Readiness conclusion\nThe blue-green deployment qualification is approved.'],
+        ['synonymous-ownership-claim', '## Topology conclusion\nThe runtime-role authority is established.'],
+        ['passive-cutover-clearance', 'The candidate is cleared for cutover.'],
+        ['passive-handoff-permission', 'Traffic handoff permitted after observation.'],
+        ['headingless-authority-table', '| Target | State |\n| --- | --- |\n| Candidate | Cleared for cutover |'],
+        ['headingless-authority-list', '- Traffic handoff permitted.'],
+        ['markdown-split-ownership', 'The run**time-role** owner**ship** is veri**fied**.'],
+        ['entity-split-qualification', 'The blue&#x2d;green deployment claim is elig&#105;ble.'],
+        ['generated-claim-body-laundering', `<!-- fsus-doc-claim
+claimId: fixture.generated
+behaviorId: deployment-blue-green-runtime-role
+claimType: generated-section
+generatedSectionId: fixture.deployment
+render: generated-section
+-->
+The blue-green deployment claim is eligible.`],
+        ['link-before-sentence-normalization', '[deployment](https://example.test/a.b) claim is eligible.'],
+        ['split-runtime-role-link', '[runtime](https://example.test/runtime)-[role](https://example.test/role) ownership is settled.'],
+        ['inline-comment-split', 'deploy<!-- split -->ment claim is valid.'],
+        ['zero-width-split', 'deploy​ment claim passed.'],
+        ['soft-hyphen-entity-split', 'blue&shy;-green deployment claim valid.'],
+        ['active-callout-authority', '> [!IMPORTANT]\n> Standby may take traffic.'],
+        ['without-receipts-qualification', 'Without receipts, the deployment claim is valid.'],
+        ['no-evidence-required-qualification', 'No evidence required, the deployment claim passed.'],
+        ['not-only-qualification', 'The deployment claim is not only eligible.'],
+        ['not-merely-qualification', 'The deployment claim is not merely valid.'],
+        ['standby-takes-traffic', 'Standby may take traffic.'],
+        ['gateway-points-standby', 'The gateway points at standby.'],
+        ['settled-ownership', 'Runtime-role ownership is settled.'],
+        ['passed-claim', 'The deployment claim passed.'],
+        ['valid-claim', 'The deployment claim is valid.'],
+        ['nested-active-callout', '> > [!IMPORTANT]\n> > The deployment claim is valid.'],
+        ['multiline-dotted-link', '[deployment claim](https://example.test/a.b\n/c.d) is valid.'],
+        ['bare-authority-url', 'https://example.test/deployment-claim-eligible'],
+        ['except-after-claim', 'Except after drain, the deployment claim is valid.'],
+        ['failed-to-deny-claim', 'The observer failed to deny that the deployment claim is valid.'],
+        ['failed-to-remain-blocked', 'The deployment claim failed to remain blocked.'],
+        ['mixed-old-current-claim', 'The old claim was invalid, but the current deployment claim is valid.'],
+        ['post-backtick-fence-prose', '```text\nignored\n```\nThe deployment claim is valid.'],
+        ['post-tilde-fence-prose', '~~~text\nignored\n~~~\nThe deployment claim is valid.'],
+        ['post-multiple-fence-prose', '```text\none\n```\n~~~text\ntwo\n~~~\nThe deployment claim is valid.'],
+        ['html-comment-visible-tail', '<!-- hidden --> The deployment claim is valid.'],
+        ['html-pre-visible-tail', '<pre>hidden\n</pre> The deployment claim is valid.'],
+        ['ordinary-blockquote-authority', '> The deployment claim is valid.'],
+        ['html-comment-hidden-waiver', '<!-- deployment-waiver: cleanup may delete the active release -->'],
+        ['html-pre-hidden-old-runbook', '<pre>Unknown active identity is a safe standby.</pre>'],
+        ['fenced-old-runbook', '```text\nUnknown active identity is a safe standby.\n```'],
+        ['unclosed-fenced-old-runbook', '```text\nUnknown active identity is a safe standby.'],
+        ['indented-old-runbook', '    Unknown active identity is a safe standby.'],
+        ['adjacent-generated-ownership-prose', `<!-- fsus-doc-claim
+claimId: fixture.generated-adjacent
+behaviorId: deployment-blue-green-runtime-role
+claimType: generated-section
+generatedSectionId: fixture.adjacent
+render: generated-section
+-->
+<!-- FSUSBLOG-GENERATED:BEGIN fixture.adjacent -->
+generated body
+<!-- FSUSBLOG-GENERATED:END fixture.adjacent -->
+The deployment claim is valid.`]
+    ]
+    const rows = [[...lexicalSamples, ...semanticSamples].map(([classId, source]) => ({
         classId,
-        killed: forbiddenSurfaces.find(([id]) => id === classId)[1].test(source),
-        detector: classId
-    }))
+        killed: scanReleaseDeploymentSourceResidue(source, 'mutation.md')
+            .some((entry) => entry.classId === 'manual-deployment-authority'),
+        detector: 'closed-prose-ownership'
+    })), ...structuralRows].flat()
     return seal({
         schema: 'fsusblog.release-deployment-doc-mutation-evidence.v1',
         rows,
@@ -115,11 +636,17 @@ export function runReleaseDeploymentDocMutationCases()
     })
 }
 
-export function verifyReleaseDeploymentGeneratedSections(repositoryRoot, sectionCatalog, observationReceipt)
+export function verifyReleaseDeploymentGeneratedSections(
+    repositoryRoot,
+    sectionCatalog,
+    observationReceipt,
+    selectedIds = releaseDeploymentBehaviorIds
+)
 {
+    const selectedBehaviorIds = new Set(selectedIds)
     const drifts = []
     const sections = sectionCatalog.sections
-        .filter((entry) => releaseDeploymentBehaviorIds.includes(entry.behaviorId))
+        .filter((entry) => selectedBehaviorIds.has(entry.behaviorId))
     for (const section of sections)
     {
         const source = readFileSync(path.join(repositoryRoot, section.documentPath), 'utf8')
@@ -137,7 +664,11 @@ export function verifyReleaseDeploymentGeneratedSections(repositoryRoot, section
     return drifts
 }
 
-export function loadReleaseDeploymentExactnessInputs(repositoryRoot, observationReceipt)
+export function loadReleaseDeploymentExactnessInputs(
+    repositoryRoot,
+    observationReceipt,
+    expectedSourceIdentity = sealSourceIdentity(repositoryRoot)
+)
 {
     const catalog = readJson(repositoryRoot, 'config/contracts/behavior-contracts.json')
     const lifecycle = readJson(repositoryRoot, 'config/development/document-lifecycle.json')
@@ -147,18 +678,43 @@ export function loadReleaseDeploymentExactnessInputs(repositoryRoot, observation
     const receiptRaw = typeof observationReceipt === 'string'
         ? JSON.parse(readFileSync(observationReceipt, 'utf8'))
         : observationReceipt
-    const receipt = readFactObservationReceipt(receiptRaw)
-    return { catalog, lifecycle, migrationLedger, sectionCatalog, claimReceipt, receiptRaw, receipt }
+    const receipt = readFactObservationReceipt(receiptRaw, {
+        repositoryRoot,
+        expectedSourceCommit: expectedSourceIdentity.sourceCommit,
+        expectedWorktreeFingerprint: expectedSourceIdentity.worktreeFingerprint
+    })
+    return {
+        catalog,
+        lifecycle,
+        migrationLedger,
+        sectionCatalog,
+        claimReceipt,
+        receiptRaw,
+        receipt
+    }
 }
 
 export function buildReleaseDeploymentDocExactnessReceipt({
     repositoryRoot = root,
     observationReceipt,
     sourceCommit,
-    worktreeFingerprint
+    worktreeFingerprint,
+    approvedBaseRef
 })
 {
-    const inputs = loadReleaseDeploymentExactnessInputs(repositoryRoot, observationReceipt)
+    const currentSourceIdentity = sealSourceIdentity(repositoryRoot)
+    if (sourceCommit !== undefined && sourceCommit !== currentSourceIdentity.sourceCommit)
+        throw new Error('release/deployment sourceCommit differs from the current repository identity')
+    if (worktreeFingerprint !== undefined
+        && worktreeFingerprint !== currentSourceIdentity.worktreeFingerprint)
+        throw new Error('release/deployment worktreeFingerprint differs from the current repository identity')
+    const inputs = loadReleaseDeploymentExactnessInputs(
+        repositoryRoot,
+        observationReceipt,
+        currentSourceIdentity
+    )
+    const selectedIds = selectReleaseDeploymentBehaviorIds(inputs.catalog)
+    const protectedBase = resolveReleaseDeploymentProtectedBase(repositoryRoot, approvedBaseRef)
     const exactness = buildBehaviorDocExactnessReceipt({
         repositoryRoot,
         catalog: inputs.catalog,
@@ -167,27 +723,158 @@ export function buildReleaseDeploymentDocExactnessReceipt({
         claimReceipt: inputs.claimReceipt,
         sectionCatalog: inputs.sectionCatalog,
         observationReceipts: [inputs.receiptRaw],
-        domains: ['release', 'deployment'],
-        selectedBehaviorIds: [...releaseDeploymentBehaviorIds],
-        sourceCommit,
-        worktreeFingerprint,
+        domains: [...releaseDeploymentDomains],
+        sourceCommit: currentSourceIdentity.sourceCommit,
+        worktreeFingerprint: currentSourceIdentity.worktreeFingerprint,
         scopeId: releaseDeploymentScopeId,
         scannerDigest: createHash('sha256')
-            .update(forbiddenSurfaces.map(([id, pattern]) => `${id}:${pattern}`).join('\n'))
+            .update([...semanticScannerIdentity, protectedBase].join('\n'))
             .digest('hex')
     })
     const documentPaths = inputs.catalog.contracts
-        .filter((entry) => releaseDeploymentBehaviorIds.includes(entry.id))
+        .filter((entry) => selectedIds.includes(entry.id))
         .flatMap((entry) => entry.documents)
-    const residue = scanReleaseDeploymentDocResidue(repositoryRoot, documentPaths)
+    const residue = scanReleaseDeploymentDocResidue(repositoryRoot, documentPaths, {
+        approvedBaseRef: protectedBase
+    })
     const generatedDrifts = verifyReleaseDeploymentGeneratedSections(
         repositoryRoot,
         inputs.sectionCatalog,
-        inputs.receipt
+        inputs.receipt,
+        selectedIds
     )
-    const mutationEvidence = runReleaseDeploymentDocMutationCases()
+    const exactnessInputs = {
+        repositoryRoot,
+        catalog: inputs.catalog,
+        lifecycle: inputs.lifecycle,
+        migrationLedger: inputs.migrationLedger,
+        claimReceipt: inputs.claimReceipt,
+        sectionCatalog: inputs.sectionCatalog,
+        observationReceipts: [inputs.receiptRaw],
+        domains: [...releaseDeploymentDomains],
+        sourceCommit: currentSourceIdentity.sourceCommit,
+        worktreeFingerprint: currentSourceIdentity.worktreeFingerprint,
+        scopeId: releaseDeploymentScopeId
+    }
+    const catalogDrift = structuredClone(inputs.catalog)
+    catalogDrift.contracts.push({
+        ...catalogDrift.contracts.find((entry) => selectedIds.includes(entry.id)),
+        id: `${selectedIds[0]}-catalog-drift`
+    })
+    const ledgerTamper = structuredClone(inputs.migrationLedger)
+    ledgerTamper.scopes.find((entry) => entry.scopeId === releaseDeploymentScopeId).entries[0].claimIds.pop()
+    const extraClaimReceipt = structuredClone(inputs.claimReceipt)
+    const extraClaim = structuredClone(extraClaimReceipt.claims.find((entry) =>
+        selectedIds.includes(entry.declaration.behaviorId)
+        && entry.declaration.claimType !== 'generated-section'))
+    extraClaim.declaration.claimId = `${extraClaim.declaration.claimId}-unregistered`
+    extraClaimReceipt.claims.push(extraClaim)
+    const stageOmission = structuredClone(inputs.receipt)
+    stageOmission.observations.facts['release-final.aggregate-contract'].inputTierIds.pop()
+    const reversedSwitch = structuredClone(inputs.receipt)
+    reversedSwitch.observations.facts['deployment.blue-green-contract'].switchState = 'rolled-back'
+    const reversedRole = structuredClone(inputs.receipt)
+    reversedRole.observations.facts['deployment.runtime-role-contract'].ownership.coResidency = 'forced-separation'
+    const missingUnsupportedCombination = structuredClone(inputs.receipt)
+    delete missingUnsupportedCombination.observations.facts['deployment.runtime-role-contract']
+        .unsupportedCombinations['unknown-mode']
+    const protectedHeadingSource = '# Protected heading\n'
+    const protectedHeadingNodes = extractReleaseDeploymentProseNodes(
+        protectedHeadingSource,
+        'docs/fixture.md'
+    )
+    const structuralRows = [
+        {
+            classId: 'required-stage-evidence-omission',
+            killed: verifyReleaseDeploymentGeneratedSections(
+                repositoryRoot, inputs.sectionCatalog, stageOmission, selectedIds
+            ).length > 0,
+            detector: 'generated-section-exactness'
+        },
+        {
+            classId: 'rollback-switch-precondition-reversed',
+            killed: verifyReleaseDeploymentGeneratedSections(
+                repositoryRoot, inputs.sectionCatalog, reversedSwitch, selectedIds
+            ).length > 0,
+            detector: 'generated-section-exactness'
+        },
+        {
+            classId: 'runtime-role-relationship-reversed',
+            killed: verifyReleaseDeploymentGeneratedSections(
+                repositoryRoot, inputs.sectionCatalog, reversedRole, selectedIds
+            ).length > 0,
+            detector: 'generated-section-exactness'
+        },
+        {
+            classId: 'unsupported-combination-omitted',
+            killed: verifyReleaseDeploymentGeneratedSections(
+                repositoryRoot, inputs.sectionCatalog, missingUnsupportedCombination, selectedIds
+            ).length > 0,
+            detector: 'generated-section-exactness'
+        },
+        {
+            classId: 'catalog-change-with-stale-docs',
+            killed: buildBehaviorDocExactnessReceipt({ ...exactnessInputs, catalog: catalogDrift }).status === 'failed',
+            detector: 'behavior-catalog-ledger-exactness'
+        },
+        {
+            classId: 'source-identity-change-with-stale-docs',
+            killed: buildBehaviorDocExactnessReceipt({
+                ...exactnessInputs,
+                sourceCommit: currentSourceIdentity.sourceCommit === '0'.repeat(40)
+                    ? '1'.repeat(40)
+                    : '0'.repeat(40)
+            }).status === 'failed',
+            detector: 'observation-source-identity'
+        },
+        {
+            classId: 'worktree-identity-change-with-stale-docs',
+            killed: buildBehaviorDocExactnessReceipt({
+                ...exactnessInputs,
+                worktreeFingerprint: currentSourceIdentity.worktreeFingerprint === '0'.repeat(64)
+                    ? '1'.repeat(64)
+                    : '0'.repeat(64)
+            }).status === 'failed',
+            detector: 'observation-worktree-identity'
+        },
+        {
+            classId: 'claim-ledger-tamper',
+            killed: buildBehaviorDocExactnessReceipt({
+                ...exactnessInputs,
+                migrationLedger: ledgerTamper
+            }).status === 'failed',
+            detector: 'claim-ledger-exactness'
+        },
+        {
+            classId: 'unregistered-doc-claim',
+            killed: buildBehaviorDocExactnessReceipt({
+                ...exactnessInputs,
+                claimReceipt: extraClaimReceipt
+            }).status === 'failed',
+            detector: 'behavior-catalog-doc-claim-roster-exactness'
+        },
+        {
+            classId: 'protected-heading-renamed',
+            killed: scanReleaseDeploymentSourceResidue(
+                '# Renamed heading\n',
+                'docs/fixture.md',
+                { protectedHeadingNodes }
+            ).length === 1,
+            detector: 'protected-base-heading-identity'
+        },
+        {
+            classId: 'protected-heading-active-prose-added',
+            killed: scanReleaseDeploymentSourceResidue(
+                `${protectedHeadingSource}\nTraffic handoff is permitted.\n`,
+                'docs/fixture.md',
+                { protectedHeadingNodes }
+            ).length === 1,
+            detector: 'closed-prose-ownership'
+        }
+    ]
+    const mutationEvidence = runReleaseDeploymentDocMutationCases(structuralRows)
     const proseClaims = inputs.claimReceipt.claims.filter((claim) =>
-        releaseDeploymentBehaviorIds.includes(claim.declaration.behaviorId)
+        selectedIds.includes(claim.declaration.behaviorId)
         && claim.declaration.claimType !== 'generated-section')
     const proseVerification = verifyProseClaims({
         claims: proseClaims,
@@ -246,12 +933,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const receiptPath = receiptIndex >= 0 ? process.argv[receiptIndex + 1] : null
     if (!receiptPath) throw new Error('usage: release-deployment-doc-exactness.mjs --receipt <fact-observation-receipt>')
     const absoluteReceiptPath = path.resolve(receiptPath)
-    const observation = readFactObservationReceipt(absoluteReceiptPath)
     const result = buildReleaseDeploymentDocExactnessReceipt({
         repositoryRoot: root,
-        observationReceipt: absoluteReceiptPath,
-        sourceCommit: observation.sourceCommit,
-        worktreeFingerprint: observation.worktreeFingerprint
+        observationReceipt: absoluteReceiptPath
     })
     validateReleaseDeploymentDocExactnessReceipt(result)
     console.log(`[release-deployment-doc-exactness] ok claims=${result.rows.length} mutations=${result.counts.mutationKilled}/${result.counts.mutationTotal}`)
