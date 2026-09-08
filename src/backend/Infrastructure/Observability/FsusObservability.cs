@@ -129,7 +129,7 @@ public static class FsusObservability
     private static readonly Histogram<double> s_riskScoreAtomicUpdateElapsed = s_meter.CreateHistogram<double>("fsus.security.risk_score.atomic_update_elapsed_ms", "ms");
     private static readonly Counter<long> s_riskScoreRedisRoundTrips = s_meter.CreateCounter<long>("fsus.security.risk_score.redis_round_trips");
     private static readonly Counter<long> s_riskScoreConflictAvoided = s_meter.CreateCounter<long>("fsus.security.risk_score.conflict_avoided");
-    private static readonly Counter<long> s_zeroRiskCacheHit = s_meter.CreateCounter<long>("fsus.security.risk_score.zero_cache_hit");
+    private static readonly Counter<long> s_publicHotReadRiskProjectionAccess = s_meter.CreateCounter<long>("fsus.security.public_hot_read_risk_projection.access");
     private static readonly Counter<long> s_auditChainTailCacheAccess = s_meter.CreateCounter<long>("fsus.audit.chain_tail.cache_access");
     private static readonly Histogram<double> s_auditChainTailQueryElapsed = s_meter.CreateHistogram<double>("fsus.audit.chain_tail.query_elapsed_ms", "ms");
     private static readonly Histogram<double> s_auditBatchSize = s_meter.CreateHistogram<double>("fsus.audit.batch.size");
@@ -620,14 +620,15 @@ public static class FsusObservability
         });
     }
 
-    public static void RecordZeroRiskCacheHit(bool zeroRiskCacheHit)
+    public static void RecordPublicHotReadRiskProjection(string source)
     {
         TryRecord(() =>
         {
-            if (zeroRiskCacheHit)
-            {
-                s_zeroRiskCacheHit.Add(1);
-            }
+            TagList tags = CreateBaseTags(
+                "security",
+                "public_hot_read_risk_projection",
+                NormalizeTelemetryValue(source, "unknown-policy-action"));
+            s_publicHotReadRiskProjectionAccess.Add(1, tags);
         });
     }
 
