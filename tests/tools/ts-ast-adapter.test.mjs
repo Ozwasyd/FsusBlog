@@ -164,6 +164,38 @@ test.each([
         && reference.assemblyKind === 'production')));
 });
 
+test('vitest facts follow local helper calls to production owners', () =>
+{
+    const root = mkdtempSync(path.join(tmpdir(), 'fsusblog-ts-adapter-helper-closure-'));
+    temporaryRoots.push(root);
+    write(root, 'src/frontend/src/utils/errors.ts', `
+export function isAbortError(value: unknown): boolean {
+    return Boolean(value);
+}
+`);
+    write(root, 'tests/frontend/unit/errors-helper.test.ts', `
+import { test, expect } from 'vitest';
+import { isAbortError } from '@/utils/errors';
+
+function invokeProduction(value: unknown): boolean {
+    return isAbortError(value);
+}
+
+test('helper closure retains production ownership', () => {
+    expect(invokeProduction(null)).toBe(false);
+});
+`);
+    const report = runAdapter(root, [{ path: 'tests/frontend/unit/errors-helper.test.ts', adapter: 'vitest' }]);
+    assert.deepEqual(report.diagnostics, []);
+    assert.equal(report.testCases.length, 1);
+    const facts = report.testCases[0].methodFacts;
+    assert.ok(facts.invocations.some((invocation) => invocation.methodName === 'invokeProduction'));
+    assert.ok(facts.productionSymbolReferences.some((reference) =>
+        reference.methodName === 'isAbortError'
+        && reference.assembly === 'src/frontend/src/utils/errors.ts'
+        && reference.assemblyKind === 'production'));
+});
+
 const nativeClosedTableFixture = `
 import test from 'node:test';
 import assert from 'node:assert/strict';
