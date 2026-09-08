@@ -1,0 +1,25 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+                "src/backend/Services/Authoring/AuthorArticlePinApplicationFacade.cs",
+                "src/backend/Services/Authoring/AuthorArticlePinReconciliationSink.cs",
+                "src/backend/Services/Authoring/AuthorArticlePinStore.cs",
+                "src/backend/Services/Authoring/SqlAuthorArticlePinArticleProjectionSource.cs",
+                "src/backend/Services/Authoring/SqlAuthorArticlePinPermissionAuthority.cs",
+                "tools/governance/check-author-article-pin-projection.mjs"
+            ],
+            "reason": "The registered C# and Node.js surfaces preserve caller-visible process configuration spellings such as SITE_BASEURL while article pin runtime and governance symbols follow repository naming rules."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/Fixtures/postgres-test-collections.json"
+            ],
+            "reason": "The PostgreSQL test manifest preserves its existing external JSON field spellings while C# fixture and test class symbols follow repository naming rules."
+        }
+    ]
+}
