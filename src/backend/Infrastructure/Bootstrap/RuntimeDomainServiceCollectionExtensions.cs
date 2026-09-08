@@ -125,6 +125,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IAuthorSavedViewQueryValidator, AuthorSavedViewQueryValidator>();
         services.AddScoped<IAuthorSavedViewPersistence, PostgresAuthorSavedViewPersistence>();
         services.AddScoped<IAuthorSavedViewStore, AuthorSavedViewStore>();
+        services.AddScoped<IAuthorArticlePinStore, AuthorArticlePinStore>();
         services.AddScoped<AuthoringContentTransferService>();
         services.AddScoped<IAuthoringContentExport>(sp => sp.GetRequiredService<AuthoringContentTransferService>());
         services.AddScoped<IAuthoringContentImport>(sp => sp.GetRequiredService<AuthoringContentTransferService>());

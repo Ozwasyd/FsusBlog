@@ -112,9 +112,18 @@ public sealed class SchemaMigrationCatalogTests
                 SchemaMigrationCatalogDependency dependency = Assert.Single(catalog.Dependencies);
                 Assert.Equal(AuthoringCanvasDocumentMigrationDefinitions.MigrationId, dependency.MigrationId);
                 Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase);
+            },
+            catalog =>
+            {
+                Assert.Equal("current-20260904", catalog.CatalogId);
+                Assert.Equal(new DateOnly(2026, 9, 4), catalog.StartVersion);
+                Assert.Equal(new DateOnly(2026, 9, 4), catalog.EndVersion);
+                SchemaMigrationCatalogDependency dependency = Assert.Single(catalog.Dependencies);
+                Assert.Equal(TaxonomyDescriptionMigrationDefinitions.MigrationId, dependency.MigrationId);
+                Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase);
             });
-        Assert.Equal(137, manifest.Descriptors.Count);
-        const string ExpectedPlanFingerprint = "7A94BDE5396AC231BD65B179F06B7D6233ACB983D98FF3B4280A9E05378CEDA2";
+        Assert.Equal(138, manifest.Descriptors.Count);
+        const string ExpectedPlanFingerprint = "2F6026130A6667AA83190973DFF348D92F425DE543F67B4DA07B3FDB2EFA859A";
         string actualPlanFingerprint = ComputePlanFingerprint(manifest.Descriptors);
         Assert.True(
             string.Equals(ExpectedPlanFingerprint, actualPlanFingerprint, StringComparison.Ordinal),
@@ -376,7 +385,7 @@ public sealed class SchemaMigrationCatalogTests
 
         Assert.Same(first, second);
         Assert.Same(manifest, first);
-        Assert.Equal(137, first.Count);
+        Assert.Equal(138, first.Count);
         Assert.Equal(first.Count, first.Select(static descriptor => descriptor.MigrationId).Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(
             ComputePlanFingerprint(manifest),

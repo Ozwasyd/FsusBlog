@@ -34,7 +34,7 @@ internal sealed class SchemaMigrationManifest
             SchemaMigrationCatalog20260826.Create(),
             SchemaMigrationCatalog20260828.Create(),
             SchemaMigrationCatalog20260829.Create(),
-            SchemaMigrationCatalog20260904SavedViews.Create()
+            Create20260904Catalog()
         ],
         [
             new SchemaMigrationVersionGap(
@@ -65,6 +65,32 @@ internal sealed class SchemaMigrationManifest
                 new DateOnly(2026, 8, 30),
                 new DateOnly(2026, 9, 3))
         ]);
+
+    private static SchemaMigrationCatalog Create20260904Catalog()
+    {
+        SchemaMigrationCatalog[] catalogs =
+        [
+            SchemaMigrationCatalog20260904.Create(),
+            SchemaMigrationCatalog20260904SavedViews.Create()
+        ];
+        return new SchemaMigrationCatalog(
+            CatalogId: "current-20260904-authoring",
+            StartVersion: new DateOnly(2026, 9, 4),
+            EndVersion: new DateOnly(2026, 9, 4),
+            GapPolicy: SchemaMigrationGapPolicy.AllowSparseVersions,
+            Dependencies: Array.AsReadOnly(
+            [
+                .. catalogs.SelectMany(static catalog => catalog.Dependencies)
+                    .Distinct()
+                    .OrderBy(static dependency => dependency.MigrationId, StringComparer.Ordinal)
+                    .ThenBy(static dependency => dependency.Phase)
+            ]),
+            Descriptors: Array.AsReadOnly(
+            [
+                .. catalogs.SelectMany(static catalog => catalog.Descriptors)
+                    .Order(SchemaMigrationExecutionOrder.Instance)
+            ]));
+    }
 
     internal IReadOnlyList<SchemaMigrationCatalog> Catalogs
     {
