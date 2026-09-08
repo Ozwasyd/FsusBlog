@@ -8,7 +8,7 @@
         "package": "@playwright/test",
         "version": "1.59.1",
         "lockPath": "src/frontend/package-lock.json",
-        "lockDigest": "sha256:9dde5d26547222886b296be6269aaf190064c199c10f6b0b7c67cb625707c541"
+        "lockDigest": "sha256:5ac41379b980dd091a36aa7d54879fe9bebe16e2422e9db0538eea436d530500"
     },
     "capabilities": {
         "sealedPublicDispatchApi": false,
@@ -45,5 +45,5 @@
             "test-list-public-cli"
         ]
     },
-    "contentDigest": "sha256:103024a238b0be1bf7a87df72f17e2f263ecc5f0a44da81bd44e6ce5435e355b"
+    "contentDigest": "sha256:c7119895b4289568565e625d887c5f1e0960f85c499aa054843f1eb893130d42"
 }
