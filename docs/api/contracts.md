@@ -791,6 +791,30 @@ server observations 及 caller direction/cancel policy 重新验证 membership�
 permission、schema、expiry 和 digest；drift 必须拒绝，不能自动 rebase。此 contract 不执行 server writer、DB、filesystem、
 Vault materialization、watcher 或 conflict resolution。
 
+### Article embed provider contract
+
+`src/shared/Contracts/ArticleEmbeds/` 是文章嵌入 target、provider request/result 与 dependency
+coordinate 的唯一 closed/versioned authority。source grammar 只消费 FsusUI
+`@ozwasyd/element-plus/markdown-runtime` 的 `parseMarkdownEmbedLine` 投影：directive 必须提供
+`target`、`mode=article|heading|block` 与 raw range；属性顺序、escaping、行首独占和 malformed
+diagnostics 仍由 FsusUI #290 parser 独占，Blog 不解析 Markdown，也不提供 regex、alias、include
+或 mode inference。
+
+target token 使用稳定且与 route、title、slug、display text、URL、file path、endpoint 和 raw DB ID
+分离的 portable identity。article 是 `article:<canonical-lowercase-uuid>`；heading 是
+`article:<uuid>#heading:<canonical-lowercase-uuid>`；block 是 `article:<uuid>#<canonical-anchor>`，
+其中 #289 anchor 不含 `^`。request 绑定 host portable article/document epoch/source revision/raw
+range、scope、actor/site/permission context、provider runtime/version、cancellation signal 与 content
+digest。result 只携带 resolved coordinate、Markdown 或 renderer-owned safe projection reference、
+typed attribution、visibility/lifecycle/permission、budgets、closed error 与 digests；HTML、DOM、Vue
+component、iframe 和 private service object 都不是合法 payload。
+
+relation、article package 与 document export 必须直接复用
+`ArticleEmbedDependencyCoordinate`/`DependencyDigest`，不得另建 target codec。authoring scope 只声明
+可使用 current authorized target；publication-plan scope 只接受 frozen public target coordinate。
+本合同不执行 resolution、publication freeze/finalization、cache、relation edge、rendering 或 UI；
+这些行为由后续 issue 实现。
+
 ### `ArticleListItemResponse`
 
 ```json
