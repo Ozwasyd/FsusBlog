@@ -11,6 +11,12 @@ import {
     locateReleaseReliabilityQualifiedReceipt,
     releaseReliabilityScenarioIds
 } from '../../tools/release/release-reliability-qualified-receipt.mjs';
+import {
+    beginCurrentRunEvidencePublication,
+    finalizeCurrentRunEvidencePublication
+} from '../../tools/test/current-run-evidence-publication.mjs';
+import { governanceContentDigest } from '../../tools/test/evidence-location-contract.mjs';
+import { packCurrentRunEvidenceTransport } from '../../tools/test/current-run-evidence-transport.mjs';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
 const commit = 'a'.repeat(40);
@@ -724,26 +730,82 @@ test('downloaded qualified receipt artifacts restore into the canonical locator 
     context.after(() => fs.rmSync(root, { recursive: true, force: true }));
     const downloaded = path.join(root, 'downloaded');
     const restored = path.join(root, 'restored');
-    const source = path.join(
-        downloaded,
-        'release-reliability-artifact',
-        '.tmp/release-reliability/restored-run/qualified-receipt.json'
-    );
-    writeJson(source, { schema: 'fixture.downloaded-qualified-receipt' });
+    fs.mkdirSync(path.join(root, 'artifacts/current-run'), { recursive: true });
+    fs.mkdirSync(path.join(root, 'release-reliability/restored-run'), { recursive: true });
+    const digest = (value) => `sha256:${value.repeat(64)}`;
+    const contextBody = {
+        schema: 'fsusblog.current-run-evidence-context.v1',
+        schedulerRunId: 'run-1',
+        attemptId: 'attempt-1',
+        sourceCommit: commit,
+        worktreeFingerprint,
+        candidateIdentity: { id: 'candidate', digest: digest('c') },
+        buildIdentity: { id: 'build', digest: digest('d') },
+        ownedRoots: ['artifacts/current-run', 'release-reliability']
+    };
+    const evidenceContext = { ...contextBody, contentDigest: governanceContentDigest(contextBody) };
+    const outputPath = 'artifacts/current-run/reference.json';
+    const payloadPath = 'release-reliability/restored-run/qualified-receipt.json';
+    const authorityId = 'release-reliability-fresh.current-run';
+    const producerId = 'release-reliability-fresh.producer';
+    const session = beginCurrentRunEvidencePublication({
+        authorityId,
+        context: evidenceContext,
+        outputPath,
+        payloadPath,
+        producerId,
+        repositoryRoot: root
+    });
+    writeJson(path.join(root, payloadPath), { schema: 'fixture.downloaded-qualified-receipt' });
+    const published = finalizeCurrentRunEvidencePublication({
+        authorityId,
+        context: evidenceContext,
+        outputPath,
+        payloadPath,
+        payloadSchema: 'fixture.downloaded-qualified-receipt',
+        producerId,
+        repositoryRoot: root,
+        sessionId: session.sessionId,
+        terminalStatus: 'success'
+    });
+    const manifestPath = 'artifacts/current-run/transport-manifest.json';
+    packCurrentRunEvidenceTransport({
+        context: evidenceContext,
+        repositoryRoot: root,
+        archivePath: 'artifacts/current-run/transport-archive.json',
+        manifestPath,
+        transportRunId: 'transport-1',
+        downloadRunId: 'download-1',
+        objects: [{
+            authorityId,
+            producerId,
+            receiptSchema: 'fsusblog.current-run-evidence-reference.v1',
+            originalRef: {
+                path: outputPath,
+                contentDigest: published.receipt.contentDigest,
+                producerReceiptDigest: published.receipt.producerReceiptDigest
+            },
+            files: [{ path: outputPath }, { path: payloadPath }]
+        }]
+    });
+    fs.rmSync(path.join(root, outputPath));
+    fs.rmSync(path.join(root, payloadPath));
     const result = spawnSync('bash', [
         path.join(repositoryRoot, 'tools/operations/restore-downloaded-artifacts.sh'),
         downloaded,
         restored
     ], {
         cwd: repositoryRoot,
-        encoding: 'utf8'
+        encoding: 'utf8',
+        env: {
+            ...process.env,
+            FSUSBLOG_REPOSITORY_ROOT: root,
+            FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST: path.join(root, manifestPath)
+        }
     });
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(
-        JSON.parse(fs.readFileSync(path.join(
-            restored,
-            'release-reliability/restored-run/qualified-receipt.json'
-        ), 'utf8')),
+        JSON.parse(fs.readFileSync(path.join(restored, payloadPath), 'utf8')),
         { schema: 'fixture.downloaded-qualified-receipt' }
     );
 });

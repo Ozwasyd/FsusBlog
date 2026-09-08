@@ -17,10 +17,49 @@ public readonly record struct NotificationStreamFanoutEnqueueResult(
     string Reason)
 {
     public bool Accepted => Status is NotificationStreamFanoutEnqueueStatus.Enqueued or NotificationStreamFanoutEnqueueStatus.Coalesced;
+
+    internal NotificationStreamFanoutInputIdentity Input
+    {
+        get; init;
+    }
+
+    internal NotificationStreamFanoutInputIdentity? RetainedPending
+    {
+        get; init;
+    }
+
+    internal NotificationStreamFanoutInputIdentity? SupersededPending
+    {
+        get; init;
+    }
+
+    internal NotificationStreamFanoutInputDisposition InputDisposition
+    {
+        get; init;
+    }
+}
+
+internal readonly record struct NotificationStreamFanoutInputIdentity(
+    Guid QueueId,
+    long InputId,
+    long EventId,
+    NotificationStreamTarget Target,
+    NotificationStreamDeliveryPolicy Policy,
+    string CoalescingKey);
+
+internal enum NotificationStreamFanoutInputDisposition
+{
+    Pending,
+    DuplicateOfPending,
+    DurableBacklogTransferred,
+    NotAdmitted,
+    DiagnosticDropped
 }
 
 public sealed class NotificationStreamLocalFanoutQueue
 {
+    private readonly Guid _queueId = Guid.NewGuid();
+    private long _nextInputId;
     private readonly Channel<NotificationStreamLocalFanoutWorkItem> _lossless;
     private readonly Channel<string> _stateKeys;
     private readonly Channel<string> _lowKeys;
@@ -40,6 +79,10 @@ public sealed class NotificationStreamLocalFanoutQueue
     private long _coalescedCount;
     private long _droppedCount;
     private int _nextLane;
+    private readonly object _deliveryGate = new();
+    private readonly NotificationStreamDeliveryAccounting _delivery = new();
+
+    internal NotificationStreamDeliverySnapshot DeliverySnapshot => _delivery.Snapshot();
 
     public NotificationStreamLocalFanoutQueue(IConfiguration configuration)
     {
@@ -62,16 +105,56 @@ public sealed class NotificationStreamLocalFanoutQueue
         string coalescingKey,
         long eventId,
         TimeProvider? timeProvider = null)
+        => TryEnqueue(frame, target, policy, coalescingKey, eventId, null, timeProvider);
+
+    internal NotificationStreamFanoutEnqueueResult TryEnqueue(
+        SharedNotificationStreamFrame frame,
+        NotificationStreamTarget target,
+        NotificationStreamDeliveryPolicy policy,
+        string coalescingKey,
+        long eventId,
+        NotificationStreamBacklogAcceptance? acceptance,
+        TimeProvider? timeProvider = null)
     {
         DateTimeOffset now = (timeProvider ?? TimeProvider.System).GetUtcNow();
-        var item = new NotificationStreamLocalFanoutWorkItem(frame, target, policy, coalescingKey, eventId, now);
-        return policy.Priority switch
+        lock (_deliveryGate)
         {
-            NotificationStreamPriorityClass.Lossless => TryEnqueueLossless(item),
-            NotificationStreamPriorityClass.State => TryEnqueueLatest(item, _stateLatest, _stateKeys, _stateGate, _stateCapacity, _stateByteBudget, ref _stateBytes),
-            NotificationStreamPriorityClass.Low => TryEnqueueLatest(item, _lowLatest, _lowKeys, _lowGate, _lowCapacity, _lowByteBudget, ref _lowBytes),
-            _ => throw new InvalidOperationException($"Unknown notification stream priority: {policy.Priority}.")
-        };
+            var identity = new NotificationStreamFanoutInputIdentity(
+                _queueId,
+                checked(++_nextInputId),
+                eventId,
+                target,
+                policy,
+                coalescingKey);
+            var item = new NotificationStreamLocalFanoutWorkItem(frame, target, policy, coalescingKey,
+                eventId, now, Acceptance: acceptance, Identity: identity);
+            NotificationStreamFanoutEnqueueResult result = policy.Priority switch
+            {
+                NotificationStreamPriorityClass.Lossless => TryEnqueueLossless(item),
+                NotificationStreamPriorityClass.State => TryEnqueueLatest(item, _stateLatest, _stateKeys, _stateGate, _stateCapacity, _stateByteBudget, ref _stateBytes),
+                NotificationStreamPriorityClass.Low => TryEnqueueLatest(item, _lowLatest, _lowKeys, _lowGate, _lowCapacity, _lowByteBudget, ref _lowBytes),
+                _ => throw new InvalidOperationException($"Unknown notification stream priority: {policy.Priority}.")
+            };
+            if (result.Status == NotificationStreamFanoutEnqueueStatus.Enqueued)
+            {
+                _delivery.Transition(queued: 1);
+                result = result with { RetainedPending = identity };
+            }
+            else if (!result.Accepted)
+            {
+                RecordUndelivered(item, result.Reason);
+                result = result with
+                {
+                    InputDisposition = item.Policy.LossPolicy == NotificationStreamLossPolicy.DiagnosticDrop
+                        ? NotificationStreamFanoutInputDisposition.DiagnosticDropped
+                        : item.Acceptance?.Matches(item.EventId, item.Target) == true
+                            ? NotificationStreamFanoutInputDisposition.DurableBacklogTransferred
+                            : NotificationStreamFanoutInputDisposition.NotAdmitted
+                };
+            }
+
+            return result with { Input = identity };
+        }
     }
 
     public long CoalescedCount => Volatile.Read(ref _coalescedCount);
@@ -86,9 +169,13 @@ public sealed class NotificationStreamLocalFanoutQueue
             for (int offset = 0; offset < 3; offset++)
             {
                 int lane = (start + offset) % 3;
-                if (TryDequeueLane(lane, out NotificationStreamLocalFanoutWorkItem item))
+                lock (_deliveryGate)
                 {
-                    return item;
+                    if (TryDequeueLane(lane, out NotificationStreamLocalFanoutWorkItem item))
+                    {
+                        _delivery.Transition(queued: -1, inFlight: 1);
+                        return item;
+                    }
                 }
             }
 
@@ -121,6 +208,27 @@ public sealed class NotificationStreamLocalFanoutQueue
         return Reject(item.Policy, "lossless-frame-budget");
     }
 
+    internal void CompleteDelivery(NotificationStreamLocalFanoutWorkItem item, bool dispatched, bool terminal, string reason)
+    {
+        if (!dispatched)
+        {
+            RecordUndelivered(item, reason);
+        }
+
+        _delivery.Transition(inFlight: -1, fanoutExpanded: dispatched ? 1 : 0, terminal: terminal ? 1 : 0);
+    }
+
+    private void RecordUndelivered(NotificationStreamLocalFanoutWorkItem item, string reason)
+    {
+        bool diagnostic = item.Policy.LossPolicy == NotificationStreamLossPolicy.DiagnosticDrop;
+        bool accepted = item.Acceptance?.Matches(item.EventId, item.Target) == true;
+        _delivery.Transition(
+            replay: !diagnostic && !accepted ? 1 : 0,
+            transferred: !diagnostic && accepted ? 1 : 0,
+            dropped: diagnostic ? 1 : 0,
+            reason: reason);
+    }
+
     private NotificationStreamFanoutEnqueueResult TryEnqueueLatest(
         NotificationStreamLocalFanoutWorkItem item,
         Dictionary<string, NotificationStreamLocalFanoutWorkItem> latest,
@@ -134,10 +242,66 @@ public sealed class NotificationStreamLocalFanoutQueue
         {
             if (latest.TryGetValue(item.CoalescingKey, out NotificationStreamLocalFanoutWorkItem existing))
             {
+                NotificationStreamFanoutEnqueueResult RejectPending(string reason)
+                    => Reject(item.Policy, reason) with
+                    {
+                        RetainedPending = existing.Identity
+                    };
+
+                if (item.Target != existing.Target || item.Policy != existing.Policy)
+                {
+                    return RejectPending("coalescing-identity-conflict");
+                }
+
+                if (item.EventId <= 0 || existing.EventId <= 0)
+                {
+                    return RejectPending("coalescing-cursor-unavailable");
+                }
+
+                // The publisher appends to the scoped Redis backlog before admission.
+                // Compare transport cursors only within this pending identity.
+                if (item.EventId <= existing.EventId)
+                {
+                    if (item.EventId == existing.EventId
+                        && !item.Frame.Memory.Span.SequenceEqual(existing.Frame.Memory.Span))
+                    {
+                        return RejectPending("coalescing-cursor-content-conflict");
+                    }
+
+                    bool duplicate = item.EventId == existing.EventId;
+                    if (!duplicate && item.Acceptance?.Matches(item.EventId, item.Target) != true)
+                    {
+                        return RejectPending("stale-input-backlog-unproven");
+                    }
+                    if (!duplicate)
+                    {
+                        RecordUndelivered(item, "stale-input-durable-backlog");
+                    }
+                    latest[item.CoalescingKey] = existing with
+                    {
+                        CoalescedOccurrences = existing.CoalescedOccurrences + 1
+                    };
+                    Interlocked.Increment(ref _coalescedCount);
+                    NotificationStreamMetrics.RecordFanoutCoalesced(item.Policy);
+                    return new NotificationStreamFanoutEnqueueResult(
+                        NotificationStreamFanoutEnqueueStatus.Coalesced, "latest-cursor-retained")
+                    {
+                        RetainedPending = existing.Identity,
+                        InputDisposition = duplicate
+                            ? NotificationStreamFanoutInputDisposition.DuplicateOfPending
+                            : NotificationStreamFanoutInputDisposition.DurableBacklogTransferred
+                    };
+                }
+
+                // A newer input's proof cannot retire this independently owned pending item.
+                if (existing.Acceptance?.Matches(existing.EventId, existing.Target) != true)
+                {
+                    return RejectPending("pending-backlog-unproven");
+                }
                 long nextBytes = queuedBytes - existing.Frame.Length + item.Frame.Length;
                 if (nextBytes > byteBudget)
                 {
-                    return Reject(item.Policy, "coalesced-byte-budget");
+                    return RejectPending("coalesced-byte-budget");
                 }
 
                 item = item with
@@ -147,10 +311,15 @@ public sealed class NotificationStreamLocalFanoutQueue
                 item.Frame.Retain();
                 latest[item.CoalescingKey] = item;
                 queuedBytes = nextBytes;
+                RecordUndelivered(existing, "superseded-pending-durable-backlog");
                 existing.Frame.Release();
                 Interlocked.Increment(ref _coalescedCount);
                 NotificationStreamMetrics.RecordFanoutCoalesced(item.Policy);
-                return new NotificationStreamFanoutEnqueueResult(NotificationStreamFanoutEnqueueStatus.Coalesced, "latest-state-replaced");
+                return new NotificationStreamFanoutEnqueueResult(NotificationStreamFanoutEnqueueStatus.Coalesced, "latest-state-replaced")
+                {
+                    RetainedPending = item.Identity,
+                    SupersededPending = existing.Identity
+                };
             }
 
             if (latest.Count >= capacity || queuedBytes + item.Frame.Length > byteBudget)
@@ -263,7 +432,9 @@ internal readonly record struct NotificationStreamLocalFanoutWorkItem(
     string CoalescingKey,
     long EventId,
     DateTimeOffset EnqueuedAtUtc,
-    long CoalescedOccurrences = 0);
+    long CoalescedOccurrences = 0,
+    NotificationStreamBacklogAcceptance? Acceptance = null,
+    NotificationStreamFanoutInputIdentity Identity = default);
 
 public sealed class NotificationStreamLocalFanoutWorker(
     NotificationStreamLocalFanoutQueue queue,
@@ -275,33 +446,63 @@ public sealed class NotificationStreamLocalFanoutWorker(
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            NotificationStreamLocalFanoutWorkItem item = await queue.DequeueAsync(stoppingToken).ConfigureAwait(false);
-            try
-            {
-                TimeSpan age = timeProvider.GetUtcNow() - item.EnqueuedAtUtc;
-                if (age > item.Policy.MaximumUsefulAge)
-                {
-                    connectionManager.RequireRecovery(
-                        item.Target,
-                        item.Policy,
-                        item.EventId,
-                        "local_fanout_max_age");
-                    NotificationStreamMetrics.RecordFanoutExpired(item.Policy, age);
-                    continue;
-                }
+            await ProcessOnceAsync(stoppingToken).ConfigureAwait(false);
+        }
+    }
 
-                NotificationStreamMetrics.RecordFanoutLatency(age, item.Target);
-                int delivered = connectionManager.Publish(
-                    item.Frame,
+    internal async Task ProcessOnceAsync(CancellationToken stoppingToken)
+    {
+        NotificationStreamLocalFanoutWorkItem item = await queue.DequeueAsync(stoppingToken).ConfigureAwait(false);
+        bool dispatched = false;
+        bool terminal = false;
+        string reason = "local-fanout-incomplete";
+        try
+        {
+            stoppingToken.ThrowIfCancellationRequested();
+            TimeSpan age = timeProvider.GetUtcNow() - item.EnqueuedAtUtc;
+            if (age > item.Policy.MaximumUsefulAge)
+            {
+                connectionManager.RequireRecovery(
                     item.Target,
                     item.Policy,
                     item.EventId,
-                    item.CoalescedOccurrences);
-                logger.LogDebug("notification-stream-local-fanout-delivered {Delivered} {Priority}", delivered, item.Policy.Priority);
+                    "local_fanout_max_age");
+                NotificationStreamMetrics.RecordFanoutExpired(item.Policy, age);
+                reason = "local_fanout_max_age";
+                return;
             }
-            catch (Exception ex)
+
+            NotificationStreamMetrics.RecordFanoutLatency(age, item.Target);
+            NotificationStreamFanoutDispatchResult delivered = connectionManager.Publish(
+                item.Frame,
+                item.Target,
+                item.Policy,
+                item.EventId,
+                item.CoalescedOccurrences,
+                item.Acceptance);
+            dispatched = delivered.Rejected == 0;
+            reason = dispatched ? "local-fanout-dispatched" : "local-fanout-admission-rejected";
+            logger.LogDebug("notification-stream-local-fanout-delivered {Delivered} {Priority}", delivered.Accepted, item.Policy.Priority);
+        }
+        catch (Exception ex)
+        {
+            reason = stoppingToken.IsCancellationRequested ? "local-fanout-cancelled" : "local-fanout-failed";
+            try
             {
-                logger.LogWarning(ex, "notification-stream-local-fanout-failed");
+                connectionManager.RequireRecovery(item.Target, item.Policy, item.EventId, reason);
+            }
+            catch (Exception recoveryException)
+            {
+                terminal = true;
+                logger.LogError(recoveryException, "notification-stream-local-fanout-recovery-failed");
+            }
+            logger.LogWarning(ex, "notification-stream-local-fanout-failed");
+        }
+        finally
+        {
+            try
+            {
+                queue.CompleteDelivery(item, dispatched, terminal, reason);
             }
             finally
             {

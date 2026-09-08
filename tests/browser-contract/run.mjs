@@ -14,6 +14,7 @@ import {
     sha256File,
     validateBrowserContractReceipt
 } from '../../tools/release/test-evidence-receipts.mjs';
+import { requireCleanAttemptConsumerAdmission } from '../../tools/release/browser-release-clean-attempt-consumers.mjs';
 import { loadTemporalContext } from '../../tools/test/temporal-context.mjs';
 import {
     bindCorrectnessProducerTemporalArtifacts,
@@ -173,6 +174,21 @@ function expectedSourceState()
         );
     }
     return { commit, worktreeFingerprint };
+}
+
+function enforceConfiguredCleanAttemptAdmission()
+{
+    try
+    {
+        requireCleanAttemptConsumerAdmission({
+            consumerId: 'browser-contract',
+            repositoryRoot: root
+        });
+    }
+    catch (error)
+    {
+        throw new BrowserContractFailure(error.message, 'contract');
+    }
 }
 
 async function verifyImmutableBuild(sourceState)
@@ -535,6 +551,8 @@ async function main()
             evidencePath: relative(publicPreviewEvidenceFile),
             evidenceFileDigest: sha256File(publicPreviewEvidenceFile)
         };
+
+        enforceConfiguredCleanAttemptAdmission();
 
         closingBrowser = true;
         await browser.close();

@@ -515,18 +515,17 @@ public sealed class PublicAotDocumentComposerTests
         Assert.Contains("id=\"fsus-aot-shell\"", result);
     }
 
-    [Fact]
-    public void ExtractAttributeValue_DoubleQuotes_ReturnsValue()
+    [Theory]
+    [InlineData("double-quoted", "<script src=\"/assets/entry.js\">", "/assets/entry.js")]
+    [InlineData("single-quoted", "<script src='/assets/entry.js'>", "/assets/entry.js")]
+    public void ExtractAttributeValue_QuotedAttribute_ReturnsExactValue(
+        string caseName,
+        string html,
+        string expected)
     {
-        string result = PublicAotDocumentComposer.ExtractAttributeValue("<script src=\"/assets/entry.js\">", "src");
-        Assert.Equal("/assets/entry.js", result);
-    }
-
-    [Fact]
-    public void ExtractAttributeValue_SingleQuotes_ReturnsValue()
-    {
-        string result = PublicAotDocumentComposer.ExtractAttributeValue("<script src='/assets/entry.js'>", "src");
-        Assert.Equal("/assets/entry.js", result);
+        _ = caseName;
+        string result = PublicAotDocumentComposer.ExtractAttributeValue(html, "src");
+        Assert.Equal(expected, result);
     }
 
     [Fact]
@@ -534,6 +533,15 @@ public sealed class PublicAotDocumentComposerTests
     {
         string result = PublicAotDocumentComposer.ExtractAttributeValue("<script type=\"module\">", "src");
         Assert.Equal(string.Empty, result);
+    }
+
+    [Fact]
+    public void ExtractAttributeValue_TargetAttributeAfterOtherQuotedAttribute_ReturnsExactValue()
+    {
+        string result = PublicAotDocumentComposer.ExtractAttributeValue(
+            "<script type=\"module\" src='/assets/entry.js'>",
+            "src");
+        Assert.Equal("/assets/entry.js", result);
     }
 
     [Fact]
