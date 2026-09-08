@@ -23,6 +23,8 @@ import {
 import {
     createRequiredEvidenceCatalogBinding
 } from '../../tools/test-matrix/required-evidence-catalog.mjs';
+import { digestCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs';
+import { authorityDigest, loadPostRuntimeProducerRegistry } from '../../tools/test-matrix/post-runtime-producer-registry.mjs';
 
 function canonicalize(value)
 {
@@ -651,6 +653,54 @@ test('browserless correctness rejects stale scheduler summaries even when the co
         .some((error) => error.includes('scheduler run identity mismatch')));
 });
 
+// Structural binding fixture only; it contains no replay-qualified runtime results.
+function postRuntimeBindingShape(pre)
+{
+    const registry = loadPostRuntimeProducerRegistry();
+    const catalog = JSON.parse(fs.readFileSync(new URL('../../config/contracts/behavior-contracts.json', import.meta.url), 'utf8'));
+    const classes = Object.fromEntries(registry.producers.map((producer) => [producer.producerId,
+        [...new Set(Object.values(producer.requiredObservations).flat())].sort()]));
+    const results = registry.producers.flatMap((producer) => classes[producer.producerId].map((classId) => ({
+        behaviorId: producer.behaviorId, producerId: producer.producerId, classId, status: 'ok',
+        extractorId: catalog.contracts.find((behavior) => behavior.id === producer.behaviorId).factExtractorId,
+        contentDigest: authorityDigest({ classId, producerId: producer.producerId })
+    })));
+    const reference = (name, contentDigest = authorityDigest({ name })) => ({
+        ref: `.tmp/current-run/${name}.json`, fileDigest: authorityDigest({ bytes: name }), contentDigest
+    });
+    return sealDocument({
+        schema: 'fsusblog.behavior-evidence-post-runtime-receipt.v1', scope: 'post-runtime',
+        runIdentity: pre.runIdentity, sourceIdentity: pre.sourceIdentity,
+        preRuntimeReceiptDigest: pre.contentDigest,
+        candidateIdentity: {
+            sourceCommit: pre.sourceIdentity.commit, worktreeFingerprint: pre.sourceIdentity.worktreeFingerprint,
+            runId: pre.runIdentity, attemptId: 'attempt-0001', candidateId: 'candidate',
+            buildIdentity: authorityDigest({ build: 1 }), artifactDigest: authorityDigest({ artifact: 1 }),
+            runtimeId: 'runtime', browserIdentity: 'browser', releaseId: '20260830123456-abcdef123456',
+            rolloutId: 'rollout', fixtureId: 'fixture', profileId: 'acceptance-representative'
+        },
+        executionIdentity: {
+            ...pre.sourceIdentity, schedulerRunId: pre.runIdentity, attemptId: 'attempt-0001',
+            candidateIdentityDigest: authorityDigest({ candidate: 1 }), buildIdentityDigest: authorityDigest({ build: 1 })
+        },
+        executionContext: reference('context'), schedulerEvidence: reference('scheduler'),
+        registryDigest: authorityDigest(registry), catalogDigest: `sha256:${digestCatalog(catalog)}`,
+        behaviorIds: registry.producers.map((producer) => producer.behaviorId),
+        requiredRuntimeProducers: registry.producers.map((producer) => producer.producerId),
+        requiredProducerClasses: classes, observedProducerClasses: structuredClone(classes),
+        observedBehaviorResults: results,
+        documentClaimDigests: Object.fromEntries(registry.producers.flatMap((producer) =>
+            producer.acceptedClaimRefs.map((claimId) => [claimId, authorityDigest({ claimId })]))),
+        documentClaimTerminals: Object.fromEntries(registry.producers.map((producer) =>
+            [producer.behaviorId, authorityDigest({ terminal: producer.producerId })])),
+        observationRefs: results.map((result) => reference(result.classId, result.contentDigest)),
+        acceptedClaimRefs: registry.producers.map((producer) => reference(producer.producerId)),
+        missing: [], orphans: [], conflicts: [], stale: [], diagnostics: [],
+        findingCounts: { missing: 0, orphans: 0, conflicts: 0, stale: 0, diagnostics: 0 },
+        releaseFinalSpawnCountBeforeReceipt: 0, failureReasons: [], status: 'ok'
+    });
+}
+
 test('release-final binding seals raw receipt digests and rejects cross-build identity', (context) =>
 {
     const build = buildFixture(context);
@@ -664,7 +714,7 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         schema: 'fsusblog.behavior-evidence-pre-runtime-receipt.v1',
         scope: 'pre-runtime',
         runIdentity: 'run-1151',
-        sourceIdentity: build.sourceState,
+        sourceIdentity: { ...build.sourceState, worktreeFingerprint: `sha256:${build.sourceState.worktreeFingerprint}` },
         status: 'ok',
         behaviorIds: [],
         buildIdentities: {},
@@ -673,16 +723,7 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         failureReasons: []
     });
     const preRuntimeFile = path.join(build.directory, 'behavior-pre-runtime.json');
-    const postRuntime = sealDocument({
-        schema: 'fsusblog.behavior-evidence-post-runtime-receipt.v1',
-        scope: 'post-runtime',
-        runIdentity: 'run-1151',
-        sourceIdentity: build.sourceState,
-        preRuntimeReceiptDigest: preRuntime.contentDigest,
-        releaseFinalSpawnCountBeforeReceipt: 0,
-        failureReasons: [],
-        status: 'ok'
-    });
+    const postRuntime = postRuntimeBindingShape(preRuntime);
     const postRuntimeFile = path.join(build.directory, 'behavior-post-runtime.json');
     const consistencyFinal = sealDocument({
         schema: 'fsusblog.behavior-document-consistency-final-report.v1',
@@ -851,6 +892,14 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
     {
         const boundPostRuntime = sealDocument({
             ...postRuntime,
+            executionIdentity: { ...postRuntime.executionIdentity,
+                worktreeFingerprint: name === 'other worktree'
+                    ? preRuntimeReceipt.sourceIdentity.worktreeFingerprint
+                    : postRuntime.executionIdentity.worktreeFingerprint },
+            candidateIdentity: { ...postRuntime.candidateIdentity,
+                worktreeFingerprint: name === 'other worktree'
+                    ? preRuntimeReceipt.sourceIdentity.worktreeFingerprint
+                    : postRuntime.candidateIdentity.worktreeFingerprint },
             sourceIdentity: name === 'other worktree'
                 ? preRuntimeReceipt.sourceIdentity
                 : postRuntime.sourceIdentity,
@@ -882,9 +931,9 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         ['schema', sealDocument({ ...postRuntime, schema: 'forged' }), /schema\/scope mismatch/u],
         ['scope', sealDocument({ ...postRuntime, scope: 'pre-runtime' }), /schema\/scope mismatch/u],
         ['failed', sealDocument({ ...postRuntime, status: 'failed', failureReasons: ['runtime failed'] }), /not qualified: runtime failed/u],
-        ['diagnostic', sealDocument({ ...postRuntime, status: 'diagnostic' }), /status must be ok or failed/u],
+        ['diagnostic', sealDocument({ ...postRuntime, status: 'diagnostic' }), /\/status must be equal to one of the allowed values/u],
         ['failures', sealDocument({ ...postRuntime, failureReasons: ['runtime failed'] }), /status=ok cannot include failures/u],
-        ['early spawn', sealDocument({ ...postRuntime, releaseFinalSpawnCountBeforeReceipt: 1 }), /releaseFinalSpawnCountBeforeReceipt must be 0/u]
+        ['early spawn', sealDocument({ ...postRuntime, releaseFinalSpawnCountBeforeReceipt: 1 }), /\/releaseFinalSpawnCountBeforeReceipt must be equal to constant/u]
     ];
     for (const [name, postRuntimeReceipt, errorPattern] of postRuntimeMutations)
     {
@@ -918,7 +967,9 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         ...postRuntime, status: 'failed', failureReasons: ['post failed']
     })));
     fs.writeFileSync(stalePostFile, JSON.stringify(sealDocument({
-        ...postRuntime, runIdentity: 'another-run'
+        ...postRuntime, runIdentity: 'another-run',
+        candidateIdentity: { ...postRuntime.candidateIdentity, runId: 'another-run' },
+        executionIdentity: { ...postRuntime.executionIdentity, schedulerRunId: 'another-run' }
     })));
     for (const [name, prePath, postPath, errorPattern] of [
         ['good pre object failed file', badPreFile, postRuntimeFile, /pre-runtime|qualified/u],

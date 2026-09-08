@@ -79,6 +79,8 @@ export function verifyReleaseFinalPostRuntimeAuthority({
     const input = directEvidence.behaviorPostRuntime;
     const post = validatePostRuntimeReceipt(input.receipt, { repositoryRoot });
     const schedulerVerificationContext = schedulerAuthority.readSchedulerVerificationContext({
+        root: repositoryRoot,
+        runsRoot: path.join(repositoryRoot, '.tmp/test-runs'),
         file: environment.FSUSBLOG_SCHEDULER_VERIFICATION_CONTEXT,
         expectedContentDigest: environment.FSUSBLOG_SCHEDULER_VERIFICATION_CONTEXT_DIGEST,
         expectedCandidateIdentityDigest: environment.FSUSBLOG_SCHEDULER_CANDIDATE_IDENTITY_DIGEST,
