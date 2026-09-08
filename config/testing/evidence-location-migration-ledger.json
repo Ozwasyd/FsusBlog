@@ -15,7 +15,7 @@
         "evidence-selection.schema-search",
         "evidence-selection.timestamp-sort"
     ],
-    "scanDigest": "sha256:26148d1c21475f911b9f3cad11efdb1ab2dcb26d215f9c77220fd67b91014385",
+    "scanDigest": "sha256:63b66084f38aaa8e5b29d1308d682775061cfef2193a60480d6b362185d403d0",
     "entries": [
         {
             "findingId": "796fa8284a86adb9",
@@ -534,16 +534,16 @@
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#485219f0d509ca73"
         },
         {
-            "findingId": "b20aebeb88f4170a",
+            "findingId": "de0dbad081fa69d1",
             "consumerId": "evidence-consumer.tests.browser-contract.run",
-            "location": "tests/browser-contract/run.mjs:410",
+            "location": "tests/browser-contract/run.mjs:420",
             "oldSelectionRule": "evidence-selection.first-match",
             "classification": "not-evidence",
             "newAuthorityId": null,
             "locatorMode": "not-applicable",
             "action": "close exact location and rule as non-evidence behavior",
             "owner": "test-evidence-governance",
-            "proofTest": "tests/tools/evidence-location-governance.test.mjs#b20aebeb88f4170a"
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#de0dbad081fa69d1"
         },
         {
             "findingId": "0c207e9927f3d000",
@@ -3774,6 +3774,18 @@
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#d53e011d4fb2a6a7"
         },
         {
+            "findingId": "9f69306113480295",
+            "consumerId": "evidence-consumer.test-matrix.verify-public-shell-locale",
+            "location": "tools/test-matrix/verify-public-shell-locale.mjs:50",
+            "oldSelectionRule": "evidence-selection.first-match",
+            "classification": "not-evidence",
+            "newAuthorityId": null,
+            "locatorMode": "not-applicable",
+            "action": "close exact location and rule as non-evidence behavior",
+            "owner": "test-matrix-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#9f69306113480295"
+        },
+        {
             "findingId": "f6099b0ee600e0b1",
             "consumerId": "evidence-consumer.test-observations.flaky-observer-execution",
             "location": "tools/test-observations/flaky-observer-execution.mjs:119",
@@ -4482,5 +4494,5 @@
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#231c081ffc1efc86"
         }
     ],
-    "contentDigest": "sha256:061e6fe4f682faade39a915808f370689675661a6397d8c306751d9cf14520fc"
+    "contentDigest": "sha256:5930676352e61f0fdec7c6b70dda2d6caf9a46340ffa4407956d1e44f1781f37"
 }
