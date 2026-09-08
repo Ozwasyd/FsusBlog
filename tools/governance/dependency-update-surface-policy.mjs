@@ -25,7 +25,7 @@ export function validate(candidateCatalog, candidateConfig, { root, trackedFiles
         if (exclusionPaths.has(exclusion.path)) report('catalog-exclusion-duplicate', exclusion.path)
         exclusionPaths.add(exclusion.path)
     }
-    for (const dependency of discoverPackages()) {
+    for (const dependency of discoverPackages(candidateCatalog)) {
         const owners = (candidateCatalog.items ?? []).filter(item => item.manager === dependency.manager
             && item.packageName === dependency.packageName
             && item.files.includes(dependency.file)
@@ -34,7 +34,7 @@ export function validate(candidateCatalog, candidateConfig, { root, trackedFiles
         if (owners.length === 0) report('catalog-missing-package', detail)
         if (owners.length > 1) report('catalog-duplicate-owner', detail)
     }
-    const packages = discoverPackages()
+    const packages = discoverPackages(candidateCatalog)
     for (const item of (candidateCatalog.items ?? []).filter(candidate => candidate.fieldPaths)) {
         for (const fieldPath of item.fieldPaths) {
             const matched = packages.some(dependency => dependency.manager === item.manager
@@ -49,7 +49,7 @@ export function validate(candidateCatalog, candidateConfig, { root, trackedFiles
         if (!(candidateCatalog.items ?? []).some(item => item.files.includes(lock))) report('catalog-missing-lock', lock)
     }
 
-    const fields = discoverExternalFields(candidateConfig)
+    const fields = discoverExternalFields(candidateConfig, candidateCatalog)
     const fieldManagers = new Map()
     for (const field of fields) {
         const identity = `${field.file}:${field.start}:${field.end}`

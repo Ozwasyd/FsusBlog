@@ -360,7 +360,10 @@ test('atomic apply deletes and writes as one unit and rolls everything back on v
             assert.throws(() => applyReplacementTransaction({
                 root: rollbackRoot,
                 transaction,
-                verifyAfter: () => { throw new Error('verification failed'); }
+                verifyAfter: () =>
+                {
+                    throw new Error('verification failed');
+                }
             }), /verification failed/u);
             assert.equal(readFileSync(path.join(rollbackRoot, 'tests/OldTests.cs'), 'utf8'), 'before:tests/OldTests.cs\n');
             assert.equal(existsSync(path.join(rollbackRoot, 'tests/NewTests.cs')), false);
