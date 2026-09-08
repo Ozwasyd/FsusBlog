@@ -127,7 +127,7 @@ claimType: binary-relation
 factPath: facts.article.scheduled.dueTransition
 render: relation-subject-predicate-object
 -->
-At or before the worker's current time, a due scheduled transition creates a new publication coordinate and switches the current pointer without creating another revision when `scheduledPublishAt` or `pendingPublicationAt` is due.
+scheduled due transition creates new publication coordinate and switches current pointer without creating another revision when scheduledPublishAt or pendingPublicationAt is at or before the worker current time.
 
 <!-- fsus-doc-claim
 claimId: article-comment-lifecycle-outbox.scheduled-stale
@@ -136,7 +136,7 @@ claimType: binary-relation
 factPath: facts.article.scheduled.replaceCancelStale
 render: relation-subject-predicate-object
 -->
-Replacement cancellation or a stale schedule does not switch the current publication pointer before a due row is successfully claimed when the due predicate no longer matches or the row loses its `FOR UPDATE SKIP LOCKED` claim.
+replacement cancellation or stale schedule does-not-switch current publication pointer before a due row is successfully claimed when the due predicate no longer matches or the row loses the FOR UPDATE SKIP LOCKED claim.
 
 <!-- fsus-doc-claim
 claimId: article-comment-lifecycle-outbox.restore-causal
@@ -145,4 +145,4 @@ claimType: binary-relation
 factPath: facts.article.restore.causal
 render: relation-subject-predicate-object
 -->
-Restore creates a new publication coordinate without reviving the old publication or creating a new revision when a soft-deleted article is restored from its existing current revision.
+restore creates new publication coordinate without reviving the old publication or creating a new revision when a soft-deleted article is restored from its existing current revision.
