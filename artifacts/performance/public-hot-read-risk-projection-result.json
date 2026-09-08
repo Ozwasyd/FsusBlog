@@ -1,0 +1,37 @@
+{
+    "schema": "fsusblog.public-hot-read-risk-projection-evidence.v1",
+    "issue": "#1837",
+    "status": "deterministic-local-simulation",
+    "externalE2E": false,
+    "tests": [
+        {
+            "name": "PublicHotReadL0LookupStaysBoundedAndDoesNotUseRedisOrDatabase",
+            "result": "passed"
+        },
+        {
+            "name": "PublicHotReadDualNodeProjectionConvergesAndReplaysAfterRestart",
+            "result": "passed"
+        },
+        {
+            "name": "PublicHotReadDisconnectWithPositiveRiskFailsClosedWithoutWaiting",
+            "result": "passed"
+        },
+        {
+            "name": "PublicHotReadUnknownModeMatrixFailsClosedForEnforcingPolicies",
+            "result": "passed"
+        },
+        {
+            "name": "PublicHotReadProjectionRecoversFromCapacityVersionAndPubSubLoss",
+            "result": "passed"
+        },
+        {
+            "name": "PublicHotReadCrawlerSocialAndPowRegressionsRemainEnforced",
+            "result": "passed"
+        }
+    ],
+    "limits": [
+        "The six tests are deterministic local simulations; they are not external dual-process PostgreSQL plus Redis end-to-end evidence.",
+        "L0 zero-command evidence covers projection lookup and allow-path reads; reject-side risk-signal persistence writes remain intentional and are measured separately.",
+        "The existing SecurityFixtureCompositionRootIntegrationTests run against local PostgreSQL and Redis, but do not claim dual-node projection end-to-end coverage."
+    ]
+}
