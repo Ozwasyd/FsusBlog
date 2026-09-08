@@ -7,7 +7,8 @@
                 "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
                 "src/backend/Services/Authoring/AuthoringRevisionComparePackageReader.cs",
                 "src/core/Services/Articles/RevisionCompareContracts.cs",
-                "src/core/Services/Articles/RevisionComparePlanner.cs"
+                "src/core/Services/Articles/RevisionComparePlanner.cs",
+                "tools/governance/check-revision-compare-authority.mjs"
             ],
             "reason": "Preserve existing caller-visible process configuration spelling covered by the trusted C# surface registry without claiming new environment access."
         },
