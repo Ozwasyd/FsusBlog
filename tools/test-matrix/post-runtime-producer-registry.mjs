@@ -93,6 +93,9 @@ const pureReceiptContracts = new Set([
     'tools/test-evidence/browser-contract-observed-facts.mjs',
     'tools/test-evidence/aot-spa-hydration-observed-facts.mjs',
     'tools/test-evidence/aot-spa-hydration-source-contract.mjs',
+    'tools/test-evidence/release-authority-bundle-contract.mjs',
+    'tools/test-evidence/release-authority-facts-contract.mjs',
+    'tools/fact-extractors/post-runtime/receipt-seal-contract.mjs',
     'tools/test-fixtures/receipt/prepared-public-projection-contract.mjs',
     'tools/deployment/release-rollout-evidence-receipt-contract.mjs',
     'tools/docs/behavior-doc-static-admission-contract.mjs',
@@ -276,8 +279,10 @@ process.stdin.on('end', () => {
             && literal(node.arguments[1]) && /^https?:\/\//u.test(node.arguments[1].value)))
     const walk = (node, enclosingFunction = null, parent = null) => {
         if (!node || typeof node !== 'object') return
+        const plainDataKey = parent?.type === 'Property' && parent.key === node
+            && parent.computed === false && parent.shorthand === false
         if (process.argv[3] === 'pure' && node.type === 'Identifier'
-            && ['process', 'globalThis', 'global'].includes(node.name))
+            && ['process', 'globalThis', 'global'].includes(node.name) && !plainDataKey)
             throw new Error('ambient process/global capability is forbidden in a pure receipt contract')
         if (process.argv[3] === 'pure')
         {

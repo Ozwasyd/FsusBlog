@@ -926,6 +926,8 @@ test('canonical pure receipt modules retain transitive no-I/O and no-execution b
     assert.doesNotThrow(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry))
     fs.writeFileSync(entryFile, 'export const origin = value => new URL(value).origin\n')
     assert.doesNotThrow(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry))
+    fs.writeFileSync(entryFile, 'export const value = { process: "typed-observation", global: null, globalThis: 1 }\n')
+    assert.doesNotThrow(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry))
     fs.writeFileSync(entryFile, "export const pathname = value => new URL(value, 'https://fsusblog.invalid').pathname\n")
     assert.doesNotThrow(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry))
     for (const source of [
@@ -944,6 +946,12 @@ test('canonical pure receipt modules retain transitive no-I/O and no-execution b
         "import { spawn } from 'node:child_process'\nexport const run = spawn\n",
         "export const dependency = import('node:path')\n",
         "export const capability = process.getBuiltinModule('fs')\n",
+        'export const capability = { process }\n',
+        'export const capability = { [process]: true }\n',
+        'export const capability = { process: process }\n',
+        'export const capability = { process: globalThis }\n',
+        'const process = {}; export const capability = process\n',
+        'export const capability = value => value.process\n',
         "import './doc-claim.mjs'\n",
         "import './fake-receipt-contract.mjs'\n",
         "import '../contracts/transitive-helper.mjs'\n"
@@ -960,6 +968,9 @@ test('canonical pure receipt modules retain transitive no-I/O and no-execution b
         'tools/test-evidence/runtime-observation-probe-facts.mjs',
         'tools/test-evidence/browser-contract-observed-facts.mjs',
         'tools/test-evidence/aot-spa-hydration-observed-facts.mjs',
+        'tools/test-evidence/release-authority-bundle-contract.mjs',
+        'tools/test-evidence/release-authority-facts-contract.mjs',
+        'tools/fact-extractors/post-runtime/receipt-seal-contract.mjs',
         'tools/test-fixtures/receipt/prepared-public-projection-contract.mjs',
         'tools/deployment/release-rollout-evidence-receipt-contract.mjs',
         'tools/release/browser-contract-receipt-contract.mjs',
