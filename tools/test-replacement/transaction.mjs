@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
     existsSync,
+    linkSync,
     mkdirSync,
     mkdtempSync,
     readFileSync,
@@ -771,7 +772,12 @@ export function applyReplacementTransaction({
         rmSync(temporaryRoot, { recursive: true, force: true });
         fail(`receipt path already exists: ${path.relative(root, absoluteReceiptPath)}`);
     }
-    let receiptWritten = false;
+    let receiptTemporaryRoot = null;
+    let receiptPublished = false;
+    let applicationFailed = false;
+    let applicationError = null;
+    let receipt = null;
+    const rollbackErrors = [];
     try
     {
         for (const change of transaction.changes)
@@ -812,7 +818,7 @@ export function applyReplacementTransaction({
         {
             verifyAfter(transaction);
         }
-        const receipt = {
+        receipt = {
             schema: REPLACEMENT_RECEIPT_SCHEMA,
             transactionId: transaction.transactionId,
             transactionDigest: transaction.contentDigest,
@@ -852,36 +858,72 @@ export function applyReplacementTransaction({
         if (absoluteReceiptPath !== null)
         {
             mkdirSync(path.dirname(absoluteReceiptPath), { recursive: true });
-            writeFileSync(absoluteReceiptPath, `${JSON.stringify(receipt, null, 2)}\n`, { flag: 'wx' });
-            receiptWritten = true;
+            receiptTemporaryRoot = mkdtempSync(path.join(path.dirname(absoluteReceiptPath), '.replacement-receipt-'));
+            const stagedReceipt = path.join(receiptTemporaryRoot, 'receipt.json');
+            writeFileSync(stagedReceipt, `${JSON.stringify(receipt, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
+            // A complete receipt becomes visible without replacing a racing publisher's file.
+            linkSync(stagedReceipt, absoluteReceiptPath);
+            receiptPublished = true;
         }
-        return receipt;
     }
     catch (error)
     {
-        if (absoluteReceiptPath !== null && receiptWritten)
-        {
-            rmSync(absoluteReceiptPath, { force: true });
-        }
+        applicationFailed = true;
+        applicationError = error;
         for (const [relative, bytes] of originals)
         {
-            const absolute = path.join(root, relative);
-            if (bytes === null)
+            try
             {
-                rmSync(absolute, { force: true });
+                const absolute = path.join(root, relative);
+                if (bytes === null)
+                {
+                    rmSync(absolute, { force: true });
+                }
+                else
+                {
+                    mkdirSync(path.dirname(absolute), { recursive: true });
+                    writeFileSync(absolute, bytes);
+                }
             }
-            else
+            catch (rollbackError)
             {
-                mkdirSync(path.dirname(absolute), { recursive: true });
-                writeFileSync(absolute, bytes);
+                rollbackErrors.push(rollbackError);
             }
         }
-        throw error;
     }
-    finally
+    const cleanupErrors = [];
+    for (const ownedRoot of [receiptTemporaryRoot, temporaryRoot])
     {
-        rmSync(temporaryRoot, { recursive: true, force: true });
+        if (ownedRoot === null)
+        {
+            continue;
+        }
+        try
+        {
+            rmSync(ownedRoot, { recursive: true, force: true });
+        }
+        catch (error)
+        {
+            cleanupErrors.push(error);
+        }
     }
+    if (rollbackErrors.length > 0 || cleanupErrors.length > 0)
+    {
+        // Cleanup is outside rollback: publication already commits the applied sources.
+        const errors = [...(applicationFailed ? [applicationError] : []), ...rollbackErrors, ...cleanupErrors];
+        throw new AggregateError(
+            errors,
+            receiptPublished
+                ? 'receipt published; applied sources retained; owned staging cleanup failed'
+                : 'replacement transaction rollback or staging cleanup failed',
+            { cause: errors[0] }
+        );
+    }
+    if (applicationFailed)
+    {
+        throw applicationError;
+    }
+    return receipt;
 }
 
 function isTestSource(file)
