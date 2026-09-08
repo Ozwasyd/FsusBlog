@@ -62,12 +62,19 @@ internal static class RuntimeRoleObservationHost
             throw new InvalidOperationException("--deployment-observation is required");
         }
 
-        RuntimeRoleObservation observation = Observe(ReadDeploymentProbe(deploymentObservation));
-        string directory = Path.GetDirectoryName(Path.GetFullPath(output))
+        string repositoryRoot = Path.GetFullPath(Directory.GetCurrentDirectory());
+        string outputPath = ResolveContainedWritableFile(repositoryRoot, output, "output");
+        string deploymentObservationPath = ResolveContainedRegularFile(
+            repositoryRoot,
+            deploymentObservation,
+            "deployment-observation",
+            allowAbsolute: true);
+        RuntimeRoleObservation observation = Observe(ReadDeploymentProbe(deploymentObservationPath));
+        string directory = Path.GetDirectoryName(outputPath)
             ?? throw new InvalidOperationException("output directory is invalid");
         Directory.CreateDirectory(directory);
-        File.WriteAllText(output, JsonSerializer.Serialize(observation, s_json) + "\n", new UTF8Encoding(false));
-        Console.WriteLine($"[runtime-role-observation] ok output={output} digest={observation.ObservationDigest}");
+        File.WriteAllText(outputPath, JsonSerializer.Serialize(observation, s_json) + "\n", new UTF8Encoding(false));
+        Console.WriteLine($"[runtime-role-observation] ok output={outputPath} digest={observation.ObservationDigest}");
         return 0;
     }
 
@@ -229,30 +236,57 @@ internal static class RuntimeRoleObservationHost
     private static string ResolveContainedRegularFile(
         string repositoryRoot,
         string relativePath,
-        string label)
+        string label,
+        bool allowAbsolute = false)
     {
         string root = Path.GetFullPath(repositoryRoot).TrimEnd(Path.DirectorySeparatorChar);
         string rootPhysical = Path.GetFullPath(
             new DirectoryInfo(root).ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? root);
         if (!string.Equals(root, rootPhysical, StringComparison.Ordinal)
-            || Path.IsPathRooted(relativePath)
-            || relativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                .Any(static segment => segment is "" or "." or ".."))
+            || (!allowAbsolute && Path.IsPathRooted(relativePath)))
+        {
+            throw new InvalidOperationException($"runtime_role_source_path_not_canonical:{label}");
+        }
+        string normalizedInput = relativePath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+        string[] rawSegments = normalizedInput.Split(Path.DirectorySeparatorChar);
+        int rootSegmentOffset = Path.IsPathRooted(normalizedInput) ? 1 : 0;
+        if (rawSegments.Skip(rootSegmentOffset).Any(static segment => segment is "" or "." or ".."))
+        {
+            throw new InvalidOperationException($"runtime_role_source_path_not_canonical:{label}");
+        }
+        string candidate = allowAbsolute && Path.IsPathRooted(relativePath)
+            ? Path.GetFullPath(normalizedInput)
+            : Path.GetFullPath(Path.Combine(root, normalizedInput));
+        string relative = Path.GetRelativePath(root, candidate);
+        string[] segments = relative.Split(
+            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+            StringSplitOptions.RemoveEmptyEntries);
+        if (relative is "." or ".."
+            || relative.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+            || Path.IsPathRooted(relative)
+            || relative.StartsWith($".git{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+            || segments.Any(static segment => segment is "." or ".."))
         {
             throw new InvalidOperationException($"runtime_role_source_path_not_canonical:{label}");
         }
         string current = root;
-        foreach (string segment in relativePath.Split(
-            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
-            StringSplitOptions.RemoveEmptyEntries))
+        foreach (string segment in segments)
         {
             current = Path.Combine(current, segment);
             FileSystemInfo metadata = Directory.Exists(current)
                 ? new DirectoryInfo(current)
                 : new FileInfo(current);
-            if (!metadata.Exists || metadata.LinkTarget is not null)
+            if (metadata.LinkTarget is not null)
             {
                 throw new InvalidOperationException($"runtime_role_source_symlink_or_missing:{label}");
+            }
+            if (!metadata.Exists)
+            {
+                if (string.Equals(Path.GetFullPath(current), candidate, StringComparison.Ordinal))
+                {
+                    break;
+                }
+                continue;
             }
             string physical = Path.GetFullPath(
                 metadata.ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? metadata.FullName);
@@ -263,11 +297,79 @@ internal static class RuntimeRoleObservationHost
                 throw new InvalidOperationException($"runtime_role_source_physical_escape:{label}");
             }
         }
-        if (!File.Exists(current) || new FileInfo(current).LinkTarget is not null)
+        if (!File.Exists(candidate) || new FileInfo(candidate).LinkTarget is not null)
         {
             throw new InvalidOperationException($"runtime_role_source_not_regular:{label}");
         }
-        return current;
+        return candidate;
+    }
+
+    private static string ResolveContainedWritableFile(
+        string repositoryRoot,
+        string suppliedPath,
+        string label)
+    {
+        string root = Path.GetFullPath(repositoryRoot).TrimEnd(Path.DirectorySeparatorChar);
+        string rootPhysical = Path.GetFullPath(
+            new DirectoryInfo(root).ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? root);
+        if (!string.Equals(root, rootPhysical, StringComparison.Ordinal)
+            || string.IsNullOrWhiteSpace(suppliedPath))
+        {
+            throw new InvalidOperationException($"runtime_role_output_path_not_canonical:{label}");
+        }
+        string normalizedInput = suppliedPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+        string[] rawSegments = normalizedInput.Split(Path.DirectorySeparatorChar);
+        int rootSegmentOffset = Path.IsPathRooted(normalizedInput) ? 1 : 0;
+        if (rawSegments.Skip(rootSegmentOffset)
+            .Any(static segment => segment is "" or "." or ".."))
+        {
+            throw new InvalidOperationException($"runtime_role_output_path_not_canonical:{label}");
+        }
+        string candidate = Path.IsPathRooted(normalizedInput)
+            ? Path.GetFullPath(normalizedInput)
+            : Path.GetFullPath(Path.Combine(root, normalizedInput));
+        string relative = Path.GetRelativePath(root, candidate);
+        string[] segments = relative.Split(
+            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+            StringSplitOptions.RemoveEmptyEntries);
+        if (relative is "." or ".."
+            || relative.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+            || Path.IsPathRooted(relative)
+            || relative.StartsWith($".git{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+            || segments.Any(static segment => segment is "." or ".."))
+        {
+            throw new InvalidOperationException($"runtime_role_output_path_not_canonical:{label}");
+        }
+        string current = root;
+        foreach (string segment in segments)
+        {
+            current = Path.Combine(current, segment);
+            FileSystemInfo metadata = Directory.Exists(current)
+                ? new DirectoryInfo(current)
+                : new FileInfo(current);
+            if (metadata.LinkTarget is not null)
+            {
+                throw new InvalidOperationException($"runtime_role_output_path_symlink:{label}");
+            }
+            if (!metadata.Exists)
+            {
+                break;
+            }
+            string physical = Path.GetFullPath(
+                metadata.ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? metadata.FullName);
+            if (!string.Equals(physical, Path.GetFullPath(current), StringComparison.Ordinal)
+                || (!physical.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+                    && !string.Equals(physical, root, StringComparison.Ordinal)))
+            {
+                throw new InvalidOperationException($"runtime_role_output_path_escape:{label}");
+            }
+        }
+        if (Directory.Exists(candidate)
+            || (File.Exists(candidate) && new FileInfo(candidate).LinkTarget is not null))
+        {
+            throw new InvalidOperationException($"runtime_role_output_path_not_regular:{label}");
+        }
+        return candidate;
     }
 
     private static void ValidateDeploymentBinding(
