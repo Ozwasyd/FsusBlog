@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Articles/Bulk/ArticleBulkExecutionFramework.cs",
+                "src/backend/Services/Articles/Bulk/ArticleBulkFileJournalAuthority.cs",
+                "src/backend/Services/Articles/Bulk/ArticleBulkOperationRegistry.cs",
+                "src/backend/Services/Articles/Bulk/ArticleBulkPlanAuthority.cs"
+            ],
+            "reason": "Preserve caller-visible process environment spelling while keeping internal C# option symbols under the repository naming map."
+        }
+    ]
+}
