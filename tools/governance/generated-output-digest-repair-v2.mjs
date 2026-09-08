@@ -5,6 +5,7 @@ export const generatedOutputDigestRepairSchema = 'fsusblog.post-merge-generated-
 
 const revisionPattern = /^[a-f0-9]{40}$/u;
 const digestPattern = /^[a-f0-9]{64}$/u;
+const objectPattern = /^[a-f0-9]{40}$/u;
 const pathPattern = /^(?!\/)(?!.*(?:^|\/)\.{1,2}(?:\/|$))[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*$/u;
 const maximumBlobBytes = 16 * 1024 * 1024;
 const maximumHistoryRevisions = 128;
@@ -54,23 +55,27 @@ function contentDigest(value)
 
 function validateIdentity(identity, label)
 {
-    exactKeys(identity, ['mode', 'sha256'], label);
-    requireValue(regularBlobModes.has(identity.mode) && digestPattern.test(identity.sha256),
-        `${label} must bind a regular blob mode and SHA-256`);
+    exactKeys(identity, ['mode', 'object', 'sha256'], label);
+    requireValue(regularBlobModes.has(identity.mode) && objectPattern.test(identity.object)
+        && digestPattern.test(identity.sha256), `${label} must bind a regular blob mode, Git object and SHA-256`);
 }
 
-function observedBlob(blob, label)
+function observedBlob(blob, label, { git = false } = {})
 {
-    exactKeys(blob, ['mode', 'bytes'], label);
+    exactKeys(blob, git ? ['mode', 'object', 'bytes'] : ['mode', 'bytes'], label);
     requireValue(regularBlobModes.has(blob.mode) && Buffer.isBuffer(blob.bytes)
-        && blob.bytes.length <= maximumBlobBytes, `${label} is not a bounded regular blob`);
-    return { identity: { mode: blob.mode, sha256: sha256(blob.bytes) }, bytes: blob.bytes };
+        && blob.bytes.length <= maximumBlobBytes
+        && (!git || objectPattern.test(blob.object)), `${label} is not a bounded regular blob`);
+    return {
+        identity: { mode: blob.mode, ...(git ? { object: blob.object } : {}), sha256: sha256(blob.bytes) },
+        bytes: blob.bytes
+    };
 }
 
 function validateProducer(producer)
 {
     exactKeys(producer, ['id', 'repairClass', 'manifest', 'command', 'closure', 'digestInputs',
-        'output', 'outputSchema', 'protectedPolicyPaths'], 'trusted producer');
+        'output', 'outputSchema', 'protectedPolicyPaths', 'qualification'], 'trusted producer');
     requireValue(producer.id === 'correctness-attempt-producers' && producer.repairClass === 'digest-refresh',
         'producer or repair class is not supported');
     requireValue(pathPattern.test(producer.manifest) && pathPattern.test(producer.output)
@@ -88,19 +93,43 @@ function validateProducer(producer)
         && !producer.closure.includes(producer.manifest), 'trusted closure is incomplete or contains output metadata');
     requireValue(producer.outputSchema === 'fsusblog.correctness-attempt-producers.v1',
         'trusted output schema is unsupported');
+    exactKeys(producer.qualification, ['sourceParent', 'sourceCommit', 'mergedPullRequest',
+        'mergeCommit', 'outerBaseCommit', 'outerHeadCommit'],
+    'trusted source qualification');
+    for (const revision of [producer.qualification.sourceParent, producer.qualification.sourceCommit,
+        producer.qualification.mergeCommit, producer.qualification.outerBaseCommit,
+        producer.qualification.outerHeadCommit])
+        requireValue(revisionPattern.test(revision), 'trusted source qualification revision is invalid');
+    requireValue(Number.isSafeInteger(producer.qualification.mergedPullRequest)
+        && producer.qualification.mergedPullRequest > 0,
+    'trusted source qualification pull request is invalid');
+    requireValue(producer.qualification.sourceParent === producer.qualification.outerBaseCommit,
+        'trusted source qualification parent must equal the outer merge base');
 }
 
 function validateManifest(evidence, producer, base, head, changedFiles)
 {
     exactKeys(evidence, ['schema', 'producerId', 'repairClass', 'sourceParent', 'sourceCommit',
-        'mergedPullRequest', 'mergeCommit', 'baseCommit', 'command', 'closure', 'output'], 'manifest');
+        'mergedPullRequest', 'mergeCommit', 'outerBaseCommit',
+        'outerHeadCommit', 'baseCommit', 'command', 'closure', 'output'], 'manifest');
     requireValue(evidence.schema === generatedOutputDigestRepairSchema && evidence.producerId === producer.id
         && evidence.repairClass === producer.repairClass, 'schema, producer or repair class mismatch');
-    for (const revision of [evidence.sourceParent, evidence.sourceCommit, evidence.mergeCommit, evidence.baseCommit, base, head])
+    for (const revision of [evidence.sourceParent, evidence.sourceCommit, evidence.mergeCommit,
+        evidence.outerBaseCommit, evidence.outerHeadCommit, evidence.baseCommit, base, head])
         requireValue(typeof revision === 'string' && revisionPattern.test(revision), 'complete revision identities are required');
-    requireValue(evidence.baseCommit === base && base !== head, 'candidate base identity mismatch');
+    requireValue(evidence.baseCommit === base && base !== head,
+        'candidate base identity mismatch');
+    for (const [label, actual, expected] of [
+        ['source parent', evidence.sourceParent, producer.qualification.sourceParent],
+        ['source commit', evidence.sourceCommit, producer.qualification.sourceCommit],
+        ['merged pull request', evidence.mergedPullRequest, producer.qualification.mergedPullRequest],
+        ['merge commit', evidence.mergeCommit, producer.qualification.mergeCommit],
+        ['outer base', evidence.outerBaseCommit, producer.qualification.outerBaseCommit],
+        ['outer head', evidence.outerHeadCommit, producer.qualification.outerHeadCommit]
+    ])
+        requireValue(actual === expected, `${label} does not match the trusted canonical qualification`);
     requireValue(Number.isSafeInteger(evidence.mergedPullRequest) && evidence.mergedPullRequest > 0,
-        'merged pull request identity is invalid');
+    'merged pull request identity is invalid');
     same(evidence.command, producer.command, 'manifest cannot choose a different command');
     requireValue(Array.isArray(evidence.closure) && evidence.closure.length === producer.closure.length,
         'manifest closure cardinality mismatch');
@@ -136,15 +165,16 @@ export function verifyGeneratedOutputDigestRepairV2({ evidence, producer, reposi
     const readBlob = (revision, file) =>
     {
         const key = `${revision}:${file}`;
-        if (!blobCache.has(key)) blobCache.set(key, observedBlob(repository.blob(revision, file), key));
+        if (!blobCache.has(key)) blobCache.set(key, observedBlob(repository.blob(revision, file), key, { git: true }));
         return blobCache.get(key);
     };
     const commit = (revision) =>
     {
         const value = repository.commit(revision);
-        exactKeys(value, ['commit', 'parents', 'subject'], 'commit observation');
+        exactKeys(value, ['commit', 'parents', 'subject', 'message'], 'commit observation');
         requireValue(value.commit === revision && Array.isArray(value.parents)
-            && value.parents.every((entry) => revisionPattern.test(entry)) && typeof value.subject === 'string',
+            && value.parents.every((entry) => revisionPattern.test(entry)) && typeof value.subject === 'string'
+            && typeof value.message === 'string',
         'commit observation is not exact');
         return value;
     };
@@ -153,9 +183,10 @@ export function verifyGeneratedOutputDigestRepairV2({ evidence, producer, reposi
     const merge = commit(evidence.mergeCommit);
     requireValue(merge.parents.length === 2
         && new RegExp(`^Merge pull request #${evidence.mergedPullRequest}\\b`, 'u').test(merge.subject),
-    'outer merge does not identify the recorded merged pull request');
+    'merge commit does not identify the recorded merged pull request');
     const [mergeBase, mergeHead] = merge.parents;
-    requireValue(repository.isAncestor(evidence.sourceParent, mergeBase)
+    requireValue(evidence.sourceParent === mergeBase && evidence.outerBaseCommit === mergeBase
+        && evidence.outerHeadCommit === mergeHead
         && repository.isAncestor(evidence.mergeCommit, base)
         && repository.isAncestor(base, head), 'source, merge, base or candidate ancestry mismatch');
     const branch = repository.firstParentRevisions(mergeBase, mergeHead, maximumHistoryRevisions);
@@ -236,12 +267,17 @@ export function verifyGeneratedOutputDigestRepairV2({ evidence, producer, reposi
         same(passes[0].identity, passes[1].identity, 'fresh replays are nondeterministic');
         return passes[0];
     };
+    const replayIdentity = (identity) => ({ mode: identity.mode, sha256: identity.sha256 });
     const parentReplay = replay(evidence.sourceParent);
-    same(parentReplay.identity, evidence.output.parent, 'source parent was not canonically synchronized');
+    same(replayIdentity(parentReplay.identity), replayIdentity(evidence.output.parent),
+        'source parent was not canonically synchronized');
     const sourceReplay = replay(evidence.sourceCommit);
-    same(sourceReplay.identity, evidence.output.expected, 'source event does not produce the expected drift');
-    same(replay(base).identity, sourceReplay.identity, 'base replay drifted from the source owner');
-    same(replay(head).identity, sourceReplay.identity, 'candidate replay drifted from the source owner');
+    same(replayIdentity(sourceReplay.identity), replayIdentity(evidence.output.expected),
+        'source event does not produce the expected drift');
+    same(replayIdentity(replay(base).identity), replayIdentity(sourceReplay.identity),
+        'base replay drifted from the source owner');
+    same(replayIdentity(replay(head).identity), replayIdentity(sourceReplay.identity),
+        'candidate replay drifted from the source owner');
 
     const parseOutput = (blob, revision) =>
     {
@@ -268,7 +304,6 @@ export function verifyGeneratedOutputDigestRepairV2({ evidence, producer, reposi
         producerId: producer.id,
         sourceCommit: evidence.sourceCommit,
         baseCommit: base,
-        candidateCommit: head,
         output: { path: producer.output, ...sourceReplay.identity },
         producerCount: after.entries.length,
         replayIsolations: usedIsolations.size

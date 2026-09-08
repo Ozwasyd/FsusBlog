@@ -6,6 +6,7 @@ import {
     generatedOutputDigestRepairSchema,
     verifyGeneratedOutputDigestRepairV2
 } from '../../tools/governance/generated-output-digest-repair-v2.mjs';
+import { buildGeneratedOutputDigestRepairManifest } from '../../tools/governance/generate-generated-output-digest-repair-manifest.mjs';
 
 function sorted(value)
 {
@@ -20,6 +21,11 @@ function digest(bytes)
     return createHash('sha256').update(bytes).digest('hex');
 }
 
+function gitObject(bytes)
+{
+    return createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
+}
+
 function seal(document)
 {
     return { ...document, contentDigest: `sha256:${digest(JSON.stringify(sorted(document)))}` };
@@ -32,8 +38,24 @@ function bytes(document)
 
 function identity(content, mode = '100644')
 {
-    return { mode, sha256: digest(content) };
+    return { mode, object: gitObject(content), sha256: digest(content) };
 }
+
+test('digest repair manifest producer rejects a non-canonical qualification tuple before reading candidate blobs', () =>
+{
+    assert.throws(() => buildGeneratedOutputDigestRepairManifest({
+        repository: { blob() { throw new Error('candidate blob must not be read'); } },
+        revisions: {
+            sourceParent: '0'.repeat(40),
+            sourceCommit: '1'.repeat(40),
+            mergeCommit: '2'.repeat(40),
+            outerBaseCommit: '0'.repeat(40),
+            outerHeadCommit: '1'.repeat(40),
+            baseCommit: '3'.repeat(40),
+            headCommit: '4'.repeat(40)
+        }
+    }), /trusted canonical source and outer merge tuple/u);
+});
 
 function fixture({ entries = null, sourceDigests = null, badSeal = false } = {})
 {
@@ -48,7 +70,15 @@ function fixture({ entries = null, sourceDigests = null, badSeal = false } = {})
         digestInputs: ['tests/matrix.yml'],
         output: 'config/testing/correctness-attempt-producers.json',
         outputSchema: 'fsusblog.correctness-attempt-producers.v1',
-        protectedPolicyPaths: ['tools/governance/policy.mjs']
+        protectedPolicyPaths: ['tools/governance/policy.mjs'],
+        qualification: {
+            sourceParent: revisions.parent,
+            sourceCommit: revisions.source,
+            mergedPullRequest: 3271,
+            mergeCommit: revisions.merge,
+            outerBaseCommit: revisions.parent,
+            outerHeadCommit: revisions.source
+        }
     };
     const parentFiles = new Map([
         ['tests/matrix.yml', Buffer.from('tiers: [unit]\n')],
@@ -73,12 +103,12 @@ function fixture({ entries = null, sourceDigests = null, badSeal = false } = {})
     for (const [revision, files] of blobs)
         files.set(producer.output, revision === revisions.head ? expectedOutput : parentOutput);
     const commits = new Map([
-        [revisions.parent, { commit: revisions.parent, parents: [], subject: 'synchronized producer' }],
-        [revisions.source, { commit: revisions.source, parents: [revisions.parent], subject: 'change matrix and parser' }],
-        [revisions.merge, { commit: revisions.merge, parents: [revisions.parent, revisions.source], subject: 'Merge pull request #42 from owner/source' }],
-        [revisions.base, { commit: revisions.base, parents: [revisions.merge], subject: 'trusted policy bootstrap' }],
-        [revisions.head, { commit: revisions.head, parents: [revisions.base], subject: 'repair inventory' }],
-        [revisions.intermediate, { commit: revisions.intermediate, parents: [revisions.source], subject: 'intermediate change' }]
+        [revisions.parent, { commit: revisions.parent, parents: [], subject: 'synchronized producer', message: 'synchronized producer' }],
+        [revisions.source, { commit: revisions.source, parents: [revisions.parent], subject: 'change matrix and parser', message: 'change matrix and parser\n\nRefs: #3270' }],
+        [revisions.merge, { commit: revisions.merge, parents: [revisions.parent, revisions.source], subject: 'Merge pull request #3271 from owner/source', message: 'Merge pull request #3271 from owner/source' }],
+        [revisions.base, { commit: revisions.base, parents: [revisions.merge], subject: 'trusted policy bootstrap', message: 'trusted policy bootstrap' }],
+        [revisions.head, { commit: revisions.head, parents: [revisions.base], subject: 'repair inventory', message: 'repair inventory' }],
+        [revisions.intermediate, { commit: revisions.intermediate, parents: [revisions.source], subject: 'intermediate change', message: 'intermediate change' }]
     ]);
     const changes = new Map([
         [`${revisions.parent}:${revisions.source}`, ['tests/matrix.yml', 'tools/parser.mjs', 'docs/unrelated.md']],
@@ -94,8 +124,10 @@ function fixture({ entries = null, sourceDigests = null, badSeal = false } = {})
         repairClass: producer.repairClass,
         sourceParent: revisions.parent,
         sourceCommit: revisions.source,
-        mergedPullRequest: 42,
+        mergedPullRequest: 3271,
         mergeCommit: revisions.merge,
+        outerBaseCommit: revisions.parent,
+        outerHeadCommit: revisions.source,
         baseCommit: revisions.base,
         command: structuredClone(producer.command),
         closure: producer.closure.map((file) => ({ path: file,
@@ -109,7 +141,8 @@ function fixture({ entries = null, sourceDigests = null, badSeal = false } = {})
         blob(revision, file)
         {
             calls.push(['blob', revision, file]);
-            return { mode: '100644', bytes: blobs.get(revision).get(file) };
+            const bytes = blobs.get(revision).get(file);
+            return { mode: '100644', object: gitObject(bytes), bytes };
         },
         commit(revision) { return commits.get(revision); },
         isAncestor() { return true; },
@@ -142,6 +175,7 @@ test('digest repair policy accepts one merged multi-file source event including 
 
 const preflightCases = [
     ['unknown manifest authority', (state) => { state.evidence.approved = true; }, /invalid closed shape/u],
+    ['candidate commit is not manifest-selectable', (state) => { state.evidence.candidateCommit = state.revisions.head; }, /invalid closed shape/u],
     ['unregistered producer', (state) => { state.evidence.producerId = 'testing-docs'; }, /producer or repair class mismatch/u],
     ['unknown repair class', (state) => { state.evidence.repairClass = 'full-regeneration'; }, /repair class mismatch/u],
     ['alternate command', (state) => { state.evidence.command.arguments[0] = 'tools/other.mjs'; }, /different command/u],
@@ -149,8 +183,8 @@ const preflightCases = [
     ['duplicate closure path', (state) => { state.evidence.closure[1].path = state.evidence.closure[0].path; }, /trusted closure/u],
     ['escaping output path', (state) => { state.evidence.output.path = '../output.json'; }, /different output/u],
     ['symlink manifest mode', (state) => { state.evidence.closure[0].source.mode = '120000'; }, /regular blob mode/u],
-    ['wrong source parent', (state) => { state.evidence.sourceParent = 'f'.repeat(40); }, /exact recorded single parent/u],
-    ['wrong pull request', (state) => { state.evidence.mergedPullRequest = 43; }, /recorded merged pull request/u],
+    ['wrong source parent', (state) => { state.evidence.sourceParent = 'f'.repeat(40); }, /trusted canonical qualification|exact recorded single parent/u],
+    ['wrong merged pull request', (state) => { state.evidence.mergedPullRequest = 43; }, /trusted canonical qualification/u],
     ['wrong base', (state) => { state.evidence.baseCommit = state.revisions.source; }, /base identity mismatch/u],
     ['candidate policy authority', (state) => { state.repository.authorityRevision = state.revisions.head; }, /trusted base/u],
     ['candidate source edit', (state) => { state.options.changedFiles.push('tools/parser.mjs'); }, /only its exact manifest and output/u],

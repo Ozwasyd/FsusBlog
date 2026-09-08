@@ -6,6 +6,8 @@ import { join, resolve } from 'node:path'
 
 import commitlintConfig from '../../commitlint.config.mjs'
 import { changeContract } from './change-contract-registry.mjs'
+import { createGeneratedOutputDigestRepairRepository } from './generated-output-digest-repair-repository.mjs'
+import { verifyGeneratedOutputDigestRepairV2 } from './generated-output-digest-repair-v2.mjs'
 
 const genericSummaries = new Set([
     'apply fixes',
@@ -2169,6 +2171,93 @@ function generatedEvidenceSchema(root, head, evidencePath) {
     }
 }
 
+function authorityCheckoutForGeneratedDigestRepair(root, base, authorityRoot) {
+    if (authorityRoot) {
+        try {
+            const revision = execFileSync(
+                'git',
+                ['rev-parse', '--verify', 'HEAD'],
+                exactRevisionGitOptions(authorityRoot, { encoding: 'utf8' })
+            ).trim()
+            if (revision === base) return { path: authorityRoot, cleanup: null }
+        } catch {
+            // Fall through to a fresh detached checkout of the exact base.
+        }
+    }
+    const temporaryRoot = mkdtempSync(join(tmpdir(), 'fsusblog-generated-digest-authority-'))
+    try {
+        execFileSync(
+            'git',
+            ['worktree', 'add', '--detach', temporaryRoot, base],
+            exactRevisionGitOptions(root, { stdio: 'ignore' })
+        )
+    } catch (error) {
+        rmSync(temporaryRoot, { recursive: true, force: true })
+        throw error
+    }
+    return {
+        path: temporaryRoot,
+        cleanup: () => {
+            try {
+                execFileSync('git', ['worktree', 'remove', '--force', temporaryRoot],
+                    exactRevisionGitOptions(root, { stdio: 'ignore' }))
+            } finally {
+                rmSync(temporaryRoot, { recursive: true, force: true })
+            }
+        }
+    }
+}
+
+export function validatePostMergeGeneratedOutputDigestRepair(
+    parsedBody,
+    evidence,
+    { root, base, head, changedFiles, authorityRoot, repository = null },
+    errors
+) {
+    const producer = changeContract.generatedOutputDigestRepairProducers.find(
+        (entry) => entry.id === evidence.producerId
+    )
+    if (!producer) {
+        errors.push(`Post-merge generated digest repair producer is not trusted: ${evidence.producerId ?? 'missing'}`)
+        return
+    }
+    if (parsedBody.generatedDigest !== producer.manifest) {
+        errors.push('Post-merge generated digest repair must use the trusted canonical manifest path')
+    }
+    if (!sameStrings(repositoryPaths(parsedBody.generatorSource), producer.closure)) {
+        errors.push('Post-merge generated digest repair Generator source must match the complete trusted closure')
+    }
+    if (!sameStrings(repositoryPaths(parsedBody.generatedOutputs), [producer.output])) {
+        errors.push('Post-merge generated digest repair Generated outputs must match the trusted output')
+    }
+    if (!root || !fullShaPattern.test(base ?? '') || !fullShaPattern.test(head ?? '')) return
+
+    let authority = null
+    try {
+        authority = repository
+            ? { path: null, cleanup: null }
+            : authorityCheckoutForGeneratedDigestRepair(root, base, authorityRoot)
+        const trustedRepository = repository ?? createGeneratedOutputDigestRepairRepository({
+            root,
+            authorityRoot: authority.path,
+            base,
+            producer
+        })
+        verifyGeneratedOutputDigestRepairV2({
+            evidence,
+            producer,
+            repository: trustedRepository,
+            base,
+            head,
+            changedFiles
+        })
+    } catch (error) {
+        errors.push(`Post-merge generated digest repair cannot verify canonical closure and isolated replays: ${error instanceof Error ? error.message : String(error)}`)
+    } finally {
+        authority?.cleanup?.()
+    }
+}
+
 export function validatePostMergeGeneratedOutputRepair(
     parsedBody,
     evidence,
@@ -2461,13 +2550,14 @@ export function validatePostMergeGeneratedOutputRepair(
     }
 }
 
-function validateGeneratedEvidence(parsedBody, { root, base, head, changedFiles }, errors) {
+function validateGeneratedEvidence(parsedBody, { root, base, head, changedFiles, authorityRoot, repository }, errors) {
     const declaredSources = repositoryPaths(parsedBody.generatorSource)
     const declaredOutputs = repositoryPaths(parsedBody.generatedOutputs)
     const evidenceSchema = generatedEvidenceSchema(root, head, parsedBody.generatedDigest)
     const repairSchemas = new Set([
         changeContract.evidenceSchemas.postMergeGeneratedOutputRepair,
-        changeContract.evidenceSchemas.postMergeGeneratedOutputRepairDag
+        changeContract.evidenceSchemas.postMergeGeneratedOutputRepairDag,
+        changeContract.evidenceSchemas.postMergeGeneratedOutputDigestRepair
     ])
     const expectedSchema = repairSchemas.has(evidenceSchema)
         ? evidenceSchema
@@ -2496,6 +2586,15 @@ function validateGeneratedEvidence(parsedBody, { root, base, head, changedFiles 
             parsedBody,
             evidence,
             { root, base, head, changedFiles },
+            errors
+        )
+        return
+    }
+    if (evidence.schema === changeContract.evidenceSchemas.postMergeGeneratedOutputDigestRepair) {
+        validatePostMergeGeneratedOutputDigestRepair(
+            parsedBody,
+            evidence,
+            { root, base, head, changedFiles, authorityRoot, repository },
             errors
         )
         return
@@ -3090,7 +3189,8 @@ function validateChangedPaths(parsedTitle, parsedBody, changedFiles, context, er
         )
         const repair = [
             changeContract.evidenceSchemas.postMergeGeneratedOutputRepair,
-            changeContract.evidenceSchemas.postMergeGeneratedOutputRepairDag
+            changeContract.evidenceSchemas.postMergeGeneratedOutputRepairDag,
+            changeContract.evidenceSchemas.postMergeGeneratedOutputDigestRepair
         ].includes(evidenceSchema)
         if (sources.length === 0) errors.push('Generator source must list repository-relative paths')
         if (outputs.length === 0) errors.push('Generated outputs must list repository-relative changed paths')
@@ -3752,6 +3852,7 @@ export function validateRepositorySources(root) {
         'config/development/authoritative-development-docs.json',
         'config/schemas/external-naming-exceptions.schema.json',
         'config/schemas/post-merge-external-naming-evidence-repair.schema.json',
+        'config/schemas/post-merge-generated-output-digest-repair.schema.json',
         'config/schemas/post-merge-generated-output-repair-dag.schema.json',
         'config/schemas/post-merge-generated-output-repair.schema.json',
         'docs/development/change-contract.md',
@@ -3816,6 +3917,19 @@ export function validateRepositorySources(root) {
                 ...step.generatorClosure,
                 ...step.outputs
             ])
+        ]),
+        ...changeContract.generatedOutputDigestRepairProducers.flatMap((producer) => [
+            producer.id,
+            producer.repairClass,
+            producer.manifest,
+            producer.command.executable,
+            ...producer.command.arguments,
+            ...producer.closure,
+            ...producer.digestInputs,
+            producer.output,
+            producer.outputSchema,
+            ...producer.protectedPolicyPaths,
+            ...Object.values(producer.qualification).filter((value) => typeof value === 'string')
         ])
     ]) {
         if (!registrySource.includes(`'${value}'`)) errors.push(`candidate registry missing trusted value ${value}`)

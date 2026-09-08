@@ -23,6 +23,7 @@ import {
     validateGeneratedRepairDagEventOrder,
     reviewedDagHistoryAdmission,
     validatePostMergeGeneratedOutputRepair,
+    validatePostMergeGeneratedOutputDigestRepair,
     validatePrContract,
     pullRequestActor,
     readFileAtRevision,
@@ -1376,6 +1377,27 @@ test('registry is the unique ordered type/scope source consumed by commitlint', 
         repairDagSchema.properties.schema.const,
         changeContract.evidenceSchemas.postMergeGeneratedOutputRepairDag
     )
+    const digestRepairSchema = JSON.parse(readFileSync(
+        resolve(root, 'config/schemas/post-merge-generated-output-digest-repair.schema.json'),
+        'utf8'
+    ))
+    assert.equal(
+        digestRepairSchema.properties.schema.const,
+        changeContract.evidenceSchemas.postMergeGeneratedOutputDigestRepair
+    )
+    assert.ok(digestRepairSchema.required.includes('mergeCommit'))
+    assert.ok(!digestRepairSchema.required.includes('candidateCommit'))
+    assert.deepEqual(changeContract.generatedOutputDigestRepairProducers.map((entry) => entry.id), [
+        'correctness-attempt-producers'
+    ])
+    assert.deepEqual(changeContract.generatedOutputDigestRepairProducers[0].qualification, {
+        sourceParent: 'ba72ac65c7395b876c26aa040f500c677d55678c',
+        sourceCommit: 'b3f3e6f108ff3d021a83c1b3b2efb96e0b82ed20',
+        mergedPullRequest: 3271,
+        mergeCommit: 'a0b44ab7f7096e631f11731b0ac26cd8dea66fc2',
+        outerBaseCommit: 'ba72ac65c7395b876c26aa040f500c677d55678c',
+        outerHeadCommit: 'd9f4a947f46c83278275f5bbf8fb0d651b3862e5'
+    })
     assert.deepEqual(changeContract.generatedOutputRepairProducers[1], {
         id: 'backend-evidence-path-authority',
         source: 'tests/matrix.yml',
@@ -1437,6 +1459,26 @@ test('registry is the unique ordered type/scope source consumed by commitlint', 
             ],
             outputs: ['config/testing/current-run-evidence-location-acceptance.json']
         }
+    ])
+})
+
+test('digest-repair v2 dispatch rejects an untrusted producer before adapter construction', () => {
+    const errors = []
+    validatePostMergeGeneratedOutputDigestRepair(
+        {
+            generatedDigest: 'artifacts/change-contract/correctness-producer-inventory-post-merge-repair.json',
+            generatorSource: changeContract.generatedOutputDigestRepairProducers[0].closure.join(', '),
+            generatedOutputs: changeContract.generatedOutputDigestRepairProducers[0].output
+        },
+        {
+            schema: changeContract.evidenceSchemas.postMergeGeneratedOutputDigestRepair,
+            producerId: 'unregistered-producer'
+        },
+        { root: null, base: null, head: null, changedFiles: [] },
+        errors
+    )
+    assert.deepEqual(errors, [
+        'Post-merge generated digest repair producer is not trusted: unregistered-producer'
     ])
 })
 

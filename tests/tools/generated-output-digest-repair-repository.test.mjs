@@ -6,8 +6,49 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+import { generatedOutputDigestRepairProducers } from '../../tools/governance/change-contract-registry.mjs';
 import { createGeneratedOutputDigestRepairRepository } from '../../tools/governance/generated-output-digest-repair-repository.mjs';
 import { generatedOutputDigestRepairSchema, verifyGeneratedOutputDigestRepairV2 } from '../../tools/governance/generated-output-digest-repair-v2.mjs';
+
+const adapterTest = (name, fn) => test(name, {
+    skip: process.platform === 'linux' ? false : 'requires Linux Bubblewrap/strace namespace support'
+}, fn);
+
+test('canonical registry qualification binds the real merged PR and complete regular-blob closure', () =>
+{
+    const root = path.resolve(import.meta.dirname, '../..');
+    const producer = generatedOutputDigestRepairProducers[0];
+    const qualification = producer.qualification;
+    const git = (...args) => execFileSync('git', ['-c', 'advice.graftFileDeprecated=false', ...args], {
+        cwd: root,
+        env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1', GIT_GRAFT_FILE: '/dev/null' },
+        encoding: 'utf8'
+    }).trim();
+    const commit = (revision) => {
+        const fields = git('show', '-s', '--format=%H%x00%P%x00%s', revision).split('\0');
+        return { revision: fields[0], parents: fields[1] ? fields[1].split(' ') : [], subject: fields[2] };
+    };
+    const source = commit(qualification.sourceCommit);
+    const merge = commit(qualification.mergeCommit);
+    assert.equal(source.revision, qualification.sourceCommit);
+    assert.deepEqual(source.parents, [qualification.sourceParent]);
+    assert.equal(merge.revision, qualification.mergeCommit);
+    assert.deepEqual(merge.parents, [qualification.outerBaseCommit, qualification.outerHeadCommit]);
+    assert.match(merge.subject, /^Merge pull request #3271\b/u);
+    const sourceChanges = git('diff', '--name-only', qualification.sourceParent, qualification.sourceCommit)
+        .split('\n').filter(Boolean);
+    assert.ok(sourceChanges.includes('tests/matrix.yml'));
+    assert.ok(sourceChanges.includes('tools/yaml/parse-document.mjs'));
+    assert.ok(!sourceChanges.includes(producer.output));
+    for (const revision of [qualification.sourceParent, qualification.sourceCommit])
+    {
+        for (const file of producer.closure)
+        {
+            const entry = git('ls-tree', revision, '--', file);
+            assert.match(entry, /^(100644|100755) blob [0-9a-f]{40}\t/u, `${revision}:${file}`);
+        }
+    }
+});
 
 function fixture(t, extra = '')
 {
@@ -31,7 +72,7 @@ function fixture(t, extra = '')
     return { root, git, base, producer, repository };
 }
 
-test('real sparse sandbox reads Git inputs and writes only the output at a fixed point', (t) =>
+adapterTest('real sparse sandbox reads Git inputs and writes only the output at a fixed point', (t) =>
 {
     const { repository, producer, base, root } = fixture(t);
     const result = repository.replay({ revision: base, producer, attempt: 0 });
@@ -44,7 +85,7 @@ test('real sparse sandbox reads Git inputs and writes only the output at a fixed
     assert.equal(fs.existsSync(result.isolationId), false);
 });
 
-test('candidate PATH executables cannot replace bwrap, strace or ldd', (t) =>
+adapterTest('candidate PATH executables cannot replace bwrap, strace or ldd', (t) =>
 {
     const { repository, producer, base, root } = fixture(t);
     const executables = path.join(root, 'candidate-bin');
@@ -70,7 +111,7 @@ test('candidate PATH executables cannot replace bwrap, strace or ldd', (t) =>
 
 for (const name of ['bwrap', 'strace', 'ldd'])
 {
-    test(`trusted ${name} rejects a redirected executable before execution`, (t) =>
+    adapterTest(`trusted ${name} rejects a redirected executable before execution`, (t) =>
     {
         const { repository, producer, base, root } = fixture(t);
         const original = fs.realpathSync;
@@ -79,7 +120,7 @@ for (const name of ['bwrap', 'strace', 'ldd'])
         assert.throws(() => repository.replay({ revision: base, producer, attempt: 0 }), /replaced or redirected/u);
     });
 
-    test(`trusted ${name} rejects replacement bytes between fresh replays`, (t) =>
+    adapterTest(`trusted ${name} rejects replacement bytes between fresh replays`, (t) =>
     {
         const { repository, producer, base } = fixture(t);
         repository.replay({ revision: base, producer, attempt: 0 });
@@ -91,7 +132,7 @@ for (const name of ['bwrap', 'strace', 'ldd'])
     });
 }
 
-test('trusted executable rejects same-byte inode replacement between fresh replays', (t) =>
+adapterTest('trusted executable rejects same-byte inode replacement between fresh replays', (t) =>
 {
     const { repository, producer, base } = fixture(t);
     repository.replay({ revision: base, producer, attempt: 0 });
@@ -105,7 +146,7 @@ test('trusted executable rejects same-byte inode replacement between fresh repla
     assert.throws(() => repository.replay({ revision: base, producer, attempt: 1 }), /trusted runtime identity drifted/u);
 });
 
-test('trusted executable rejects task-owned system path observations', (t) =>
+adapterTest('trusted executable rejects task-owned system path observations', (t) =>
 {
     const { repository, producer, base } = fixture(t);
     const original = fs.lstatSync;
@@ -133,7 +174,7 @@ for (const [name, file, syscallResult, accepted, bootstrap = false] of [
     ['failed cgroup sibling probe', '/sys/fs/cgroup/memory.current', '-1 ENOENT (No such file or directory)', false]
 ])
 {
-    test(`syscall observation mutation ${name} is ${accepted ? 'accepted' : 'rejected'}`, (t) =>
+    adapterTest(`syscall observation mutation ${name} is ${accepted ? 'accepted' : 'rejected'}`, (t) =>
     {
         const { repository, producer, base } = fixture(t);
         const original = fs.readFileSync;
@@ -165,14 +206,14 @@ for (const [name, extra] of [
     ['network', "const net = await import('node:net'); const server = net.createServer(); server.on('error', () => {}); server.listen(0); server.unref();"]
 ])
 {
-    test(`real sparse sandbox rejects caught ${name} attempts`, (t) =>
+    adapterTest(`real sparse sandbox rejects caught ${name} attempts`, (t) =>
     {
         const { repository, producer, base } = fixture(t, extra);
         assert.throws(() => repository.replay({ revision: base, producer, attempt: 0 }), /attempted|denied/u);
     });
 }
 
-test('exact Git blobs ignore replacement refs and reject symlink modes', (t) =>
+adapterTest('exact Git blobs ignore replacement refs and reject symlink modes', (t) =>
 {
     const { repository, git, base, root } = fixture(t);
     fs.writeFileSync(path.join(root, 'input.txt'), 'replacement\n');
@@ -190,7 +231,11 @@ test('exact Git blobs ignore replacement refs and reject symlink modes', (t) =>
 
 function identity(blob)
 {
-    return { mode: blob.mode, sha256: createHash('sha256').update(blob.bytes).digest('hex') };
+    return {
+        mode: blob.mode,
+        object: blob.object,
+        sha256: createHash('sha256').update(blob.bytes).digest('hex')
+    };
 }
 
 function historyFixture(t, { revertClosure = false, nondeterministic = false } = {})
@@ -201,6 +246,7 @@ function historyFixture(t, { revertClosure = false, nondeterministic = false } =
         manifest: 'repair.json', closure: ['input.txt', 'tools/generate.mjs', 'tools/parser.mjs'],
         output: 'output.json', digestInputs: ['input.txt'], outputSchema: 'fsusblog.correctness-attempt-producers.v1',
         command: { executable: 'node', arguments: ['tools/generate.mjs', '--write'] },
+        qualification: {},
         protectedPolicyPaths: ['policy.mjs'] };
     fs.writeFileSync(path.join(root, 'tools/parser.mjs'), 'export const parse = value => value.trim();\n');
     fs.writeFileSync(path.join(root, 'tools/generate.mjs'), `
@@ -229,10 +275,10 @@ ${nondeterministic ? "fs.appendFileSync('output.json', String(Math.random()));" 
     fs.writeFileSync(path.join(root, 'tools/parser.mjs'), 'export const parse = value => value.trimStart().trimEnd();\n');
     fs.writeFileSync(path.join(root, 'unrelated.md'), 'source event also owns documentation\n');
     git('add', '.');
-    git('commit', '-qm', 'multi-file source event including parser');
+    git('commit', '-qm', 'multi-file source event including parser\n\nRefs: #3270');
     const sourceCommit = git('rev-parse', 'HEAD');
     git('switch', '-q', initialBranch);
-    git('merge', '--no-ff', '-qm', 'Merge pull request #42 from owner/source', sourceCommit);
+    git('merge', '--no-ff', '-qm', 'Merge pull request #3271 from owner/source', sourceCommit);
     const mergeCommit = git('rev-parse', 'HEAD');
     if (revertClosure)
     {
@@ -247,27 +293,40 @@ ${nondeterministic ? "fs.appendFileSync('output.json', String(Math.random()));" 
     git('add', '.');
     git('commit', '-qm', 'trusted policy bootstrap');
     const base = git('rev-parse', 'HEAD');
+    producer.qualification = {
+        sourceParent,
+        sourceCommit,
+        mergedPullRequest: 3271,
+        mergeCommit,
+        outerBaseCommit: sourceParent,
+        outerHeadCommit: sourceCommit
+    };
     const authorityRoot = path.join(root, 'authority');
     git('worktree', 'add', '--detach', authorityRoot, base);
     const repository = createGeneratedOutputDigestRepairRepository({ root, authorityRoot, base, producer });
     execFileSync(process.execPath, producer.command.arguments, { cwd: root });
-    const expected = identity({ mode: '100644', bytes: fs.readFileSync(path.join(root, producer.output)) });
+    git('add', producer.output);
+    git('commit', '-qm', 'repair generated digest output');
+    const candidateCommit = git('rev-parse', 'HEAD');
+    const expected = identity(repository.blob(candidateCommit, producer.output));
     const evidence = { schema: generatedOutputDigestRepairSchema, producerId: producer.id, repairClass: producer.repairClass,
-        sourceParent, sourceCommit, mergedPullRequest: 42, mergeCommit, baseCommit: base, command: producer.command,
+        sourceParent, sourceCommit, mergedPullRequest: 3271,
+        mergeCommit, outerBaseCommit: sourceParent, outerHeadCommit: sourceCommit,
+        baseCommit: base, command: producer.command,
         closure: producer.closure.map(file => ({ path: file, parent: identity(repository.blob(sourceParent, file)),
             source: identity(repository.blob(sourceCommit, file)) })),
         output: { path: producer.output, parent: identity(repository.blob(sourceParent, producer.output)),
             source: identity(repository.blob(sourceCommit, producer.output)), base: identity(repository.blob(base, producer.output)),
             expected, candidate: expected } };
     fs.writeFileSync(path.join(root, producer.manifest), JSON.stringify(evidence));
-    git('add', producer.output, producer.manifest);
-    git('commit', '-qm', 'repair generated digest only');
+    git('add', producer.manifest);
+    git('commit', '-qm', 'repair generated digest manifest');
     const head = git('rev-parse', 'HEAD');
     return { ...state, producer, evidence, repository, base, head,
         options: { producer, evidence, repository, base, head, changedFiles: repository.changedPaths(base, head) } };
 }
 
-test('real Git multi-file source and parser event verifies across all eight fresh replay instances', (t) =>
+adapterTest('real Git multi-file source and parser event verifies across all eight fresh replay instances', (t) =>
 {
     const { options } = historyFixture(t);
     const result = verifyGeneratedOutputDigestRepairV2(options);
@@ -276,13 +335,13 @@ test('real Git multi-file source and parser event verifies across all eight fres
     assert.equal(result.producerCount, 1);
 });
 
-test('real Git closure change-revert history is rejected before replay', (t) =>
+adapterTest('real Git closure change-revert history is rejected before replay', (t) =>
 {
     const { options } = historyFixture(t, { revertClosure: true });
     assert.throws(() => verifyGeneratedOutputDigestRepairV2(options), /closure changed after source/u);
 });
 
-test('real replay rejects an omitted imported module from its declared closure', (t) =>
+adapterTest('real replay rejects an omitted imported module from its declared closure', (t) =>
 {
     const { root, git, producer, base } = historyFixture(t);
     const incomplete = { ...producer, closure: producer.closure.filter(file => file !== 'tools/parser.mjs') };
@@ -292,7 +351,7 @@ test('real replay rejects an omitted imported module from its declared closure',
         /outside declared closure|canonical sandbox producer failed/u);
 });
 
-test('real nondeterministic producer fails fixed-point verification', (t) =>
+adapterTest('real nondeterministic producer fails fixed-point verification', (t) =>
 {
     const { options } = historyFixture(t, { nondeterministic: true });
     assert.throws(() => verifyGeneratedOutputDigestRepairV2(options), /not a fixed point/u);

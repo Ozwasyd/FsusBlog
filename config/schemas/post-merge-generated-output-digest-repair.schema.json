@@ -12,6 +12,8 @@
         "sourceCommit",
         "mergedPullRequest",
         "mergeCommit",
+        "outerBaseCommit",
+        "outerHeadCommit",
         "baseCommit",
         "command",
         "closure",
@@ -38,6 +40,12 @@
             "minimum": 1
         },
         "mergeCommit": {
+            "$ref": "#/$defs/revision"
+        },
+        "outerBaseCommit": {
+            "$ref": "#/$defs/revision"
+        },
+        "outerHeadCommit": {
             "$ref": "#/$defs/revision"
         },
         "baseCommit": {
@@ -141,6 +149,7 @@
             "additionalProperties": false,
             "required": [
                 "mode",
+                "object",
                 "sha256"
             ],
             "properties": {
@@ -149,6 +158,10 @@
                         "100644",
                         "100755"
                     ]
+                },
+                "object": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
                 },
                 "sha256": {
                     "type": "string",

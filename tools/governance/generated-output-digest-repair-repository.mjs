@@ -47,9 +47,10 @@ function exactPath(value)
 function exactPhysicalRoot(root)
 {
     const absolute = path.resolve(root);
-    requireValue(fs.realpathSync(absolute) === absolute && fs.lstatSync(absolute).isDirectory(),
+    const canonical = fs.realpathSync(absolute);
+    requireValue(fs.realpathSync(canonical) === canonical && fs.lstatSync(canonical).isDirectory(),
         'repository root must be a canonical physical directory');
-    return absolute;
+    return canonical;
 }
 
 function fileSnapshot(file)
@@ -208,7 +209,7 @@ export function createGeneratedOutputDigestRepairRepository({ root, authorityRoo
         requireValue(entry && entry.file === file && regularModes.has(entry.mode), 'Git path is not one exact regular blob');
         // Reuse the current contract's bounded exact-blob reader. It also
         // disables replacement objects and verifies declared/read byte lengths.
-        return { mode: entry.mode, bytes: readFileAtRevision(repositoryRoot, revision, file) };
+        return { mode: entry.mode, object: entry.object, bytes: readFileAtRevision(repositoryRoot, revision, file) };
     };
     let runtime = null;
     const loadRuntime = () =>
@@ -335,8 +336,9 @@ export function createGeneratedOutputDigestRepairRepository({ root, authorityRoo
         commit(revision)
         {
             exactRevision(revision);
-            const [commit, parents, subject] = git(['show', '-s', '--format=%H%x00%P%x00%s', revision]).toString('utf8').trimEnd().split('\0');
-            return { commit, parents: parents ? parents.split(' ') : [], subject };
+            const fields = git(['show', '-s', '--format=%H%x00%P%x00%s%x00%B', revision]).toString('utf8').trimEnd().split('\0');
+            const [commit, parents, subject, ...message] = fields;
+            return { commit, parents: parents ? parents.split(' ') : [], subject, message: message.join('\0') };
         },
         isAncestor,
         firstParentRevisions(ancestor, descendant, maximum)
