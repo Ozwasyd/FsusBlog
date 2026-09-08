@@ -4,6 +4,21 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 
+import { readFreshnessPullPages } from './dependency-freshness-pulls.mjs'
+import { collectDependencySupersession } from './dependency-pull-supersession.mjs'
+import { readLatestDotnetSdk } from './dependency-dotnet-registry.mjs'
+import { readLatestNuget } from './dependency-nuget-registry.mjs'
+import { registryRelease } from './dependency-registry-release.mjs'
+import { readLatestGitRef } from './dependency-git-registry.mjs'
+import { createDockerRegistryReader, dockerRepository, readDockerHubPublication, readLatestDocker, readMcrPublication } from './dependency-docker-registry.mjs'
+import { readGhcrPublication } from './dependency-ghcr-publication.mjs'
+import { collectRegistryResults } from './dependency-registry-batch.mjs'
+import { readLatestNpm } from './dependency-npm-registry.mjs'
+import { readLatestNode } from './dependency-node-registry.mjs'
+import { readLatestGithubTag } from './dependency-github-tags.mjs'
+import { resolveDependencyPullTarget } from './dependency-pull-target.mjs'
+import { createDependencySourceReader } from './dependency-source-reader.mjs'
+
 import {
     clone,
     currentSimulation,
@@ -43,78 +58,77 @@ function githubHeaders() {
     return token ? { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' } : { Accept: 'application/vnd.github+json' }
 }
 
-async function liveLatest(item) {
+async function liveLatest(item, currentVersion) {
+    if (item.datasource === 'docker') {
+        const origin = dockerRepository(item.packageName).origin
+        if (!['https://registry-1.docker.io', 'https://ghcr.io', 'https://mcr.microsoft.com'].includes(origin)) {
+            throw new Error(`docker publication provider missing for ${item.packageName}`)
+        }
+        return readLatestDocker(item.packageName, currentVersion, createDockerRegistryReader(item.packageName),
+            (name, tag, digest) => origin === 'https://ghcr.io'
+                ? readGhcrPublication(name, tag, digest, fetchJson, githubHeaders())
+                : origin === 'https://mcr.microsoft.com' ? readMcrPublication(name, tag, digest, fetchJson)
+                : readDockerHubPublication(name, tag, digest, fetchJson))
+    }
+    if (item.datasource === 'dotnet-version' && item.packageName === 'dotnet-sdk') {
+        return readLatestDotnetSdk(fetchJson)
+    }
     if (item.datasource === 'npm') {
-        const body = await fetchJson(`https://registry.npmjs.org/${encodeURIComponent(item.packageName)}`)
-        const latest = body['dist-tags']?.latest
-        if (!latest) throw new Error(`npm latest missing for ${item.packageName}`)
-        return { latestStable: latest, releasedAt: body.time?.[latest] ?? new Date().toISOString() }
+        return readLatestNpm(item, root, fetchJson, process.env.GITHUB_TOKEN || process.env.GH_TOKEN)
     }
     if (item.datasource === 'nuget') {
-        const body = await fetchJson(`https://api.nuget.org/v3-flatcontainer/${item.packageName.toLowerCase()}/index.json`)
-        const versions = (body.versions ?? []).filter(version => !/[-]/u.test(version))
-        const latest = versions.at(-1)
-        if (!latest) throw new Error(`nuget latest missing for ${item.packageName}`)
-        return { latestStable: latest, releasedAt: new Date().toISOString() }
+        return readLatestNuget(item.packageName, fetchJson)
     }
     if (item.datasource === 'node-version') {
-        const body = await fetchJson('https://nodejs.org/dist/index.json')
-        const latest = body.find(entry => entry.lts)?.version?.replace(/^v/u, '')
-        if (!latest) throw new Error('node-version latest missing')
-        return { latestStable: latest, releasedAt: new Date().toISOString() }
+        return readLatestNode(fetchJson)
     }
     if (item.datasource === 'git-refs') {
-        const repo = String(item.packageName).replace(/^https:\/\/github.com\//u, '').replace(/\.git$/u, '')
-        const body = await fetchJson(`https://api.github.com/repos/${repo}/commits/master`, githubHeaders())
-        if (!body.sha) throw new Error(`git-refs latest missing for ${item.packageName}`)
-        return { latestStable: body.sha, releasedAt: body.commit?.committer?.date ?? new Date().toISOString() }
+        return readLatestGitRef(item.packageName, fetchJson, githubHeaders())
     }
-    if (item.datasource === 'github-tags' || item.datasource === 'github-releases') {
+    if (item.datasource === 'github-tags') {
+        const release = await readLatestGithubTag(item.packageName, fetchJson, githubHeaders())
+        return /^[0-9a-f]{40}$/u.test(currentVersion ?? '')
+            ? { ...release, latestStable: release.targetDigest, targetTag: release.latestStable }
+            : release
+    }
+    if (item.datasource === 'github-releases') {
         const body = await fetchJson(`https://api.github.com/repos/${item.packageName}/releases/latest`, githubHeaders())
         const latest = body.tag_name
         if (!latest) throw new Error(`github latest missing for ${item.packageName}`)
-        return { latestStable: latest, releasedAt: body.published_at ?? new Date().toISOString() }
+        return registryRelease(latest, body.published_at, `${item.datasource}:${item.packageName}`)
     }
     throw new Error(`unsupported live datasource ${item.datasource}`)
 }
 
-function parseRenovatePullRequests(pulls, catalog) {
-    const items = catalog.items ?? []
-    return pulls.flatMap(pull => {
-        if (pull.user?.login !== 'renovate[bot]' && pull.user?.type !== 'Bot') return []
-        return items.flatMap(item => {
-            const mentionsPackage = `${pull.title ?? ''} ${pull.body ?? ''}`.includes(item.packageName)
-            const versionMatch = /to (?:v)?(\S+)/u.exec(pull.title ?? '')
-            if (!mentionsPackage || !versionMatch) return []
-            return [{
-                number: pull.number,
-                state: pull.state,
-                dependencyId: item.id,
-                packageName: item.packageName,
-                group: item.group,
-                targetVersion: versionMatch[1]
-            }]
-        })
-    })
-}
-
 async function loadLiveSnapshot(catalog, currentVersions) {
     const registries = { byId: {} }
-    const settled = await Promise.allSettled((catalog.items ?? []).map(async item => {
-        const latest = await liveLatest(item)
+    const settled = await collectRegistryResults(catalog.items ?? [], async item => {
+        const latest = await liveLatest(item, currentVersions[item.id]?.currentVersion)
         registries.byId[item.id] = latest
         registries[item.datasource] ??= {}
         registries[item.datasource][item.packageName] ??= latest
-    }))
+    })
     const failed = settled.filter(result => result.status === 'rejected')
     if (failed.length > 0) {
         throw new Error(failed.map(result => result.reason?.message ?? String(result.reason)).slice(0, 8).join('; '))
     }
     const repository = process.env.GITHUB_REPOSITORY || 'Ozwasyd/FsusBlog'
-    const pulls = await fetchJson(`https://api.github.com/repos/${repository}/pulls?state=open&per_page=100`, githubHeaders())
-    if (!Array.isArray(pulls)) throw new Error('github pull request payload is not an array')
-    void currentVersions
-    return { registries, pullRequests: parseRenovatePullRequests(pulls, catalog) }
+    const pulls = await readFreshnessPullPages(page => fetchJson(
+        `https://api.github.com/repos/${repository}/pulls?state=open&per_page=100&page=${page}`, githubHeaders()))
+    const supersession = await collectDependencySupersession({
+        pulls,
+        catalog,
+        readPullRequest: number => fetchJson(`https://api.github.com/repos/${repository}/pulls/${number}`, githubHeaders())
+    })
+    const readFileAtHead = createDependencySourceReader({ repository, fetchJson, headers: githubHeaders() })
+    const config = readJson('renovate.json5')
+    const pullRequests = []
+    for (const mapping of supersession.pullRequests) {
+        pullRequests.push(mapping.state === 'open' ? await resolveDependencyPullTarget({
+            mapping, item: catalog.items.find(item => item.id === mapping.dependencyId), config, readFileAtHead
+        }) : mapping)
+    }
+    return { registries, pullRequests, supersession: supersession.relations }
 }
 
 function writeResult(result) {
@@ -259,6 +273,8 @@ if (fixturePath) {
         result.errors.push(...extractErrors)
         if (extractErrors.length > 0) result.status = 'fail'
         result.evidenceClass = 'live-registry'
+        result.pullRequests = liveSnapshot.pullRequests
+        result.supersession = liveSnapshot.supersession
         writeResult(result)
         if (result.status !== 'pass') process.exitCode = 1
     } catch (error) {
