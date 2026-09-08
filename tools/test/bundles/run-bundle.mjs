@@ -168,7 +168,7 @@ function prepareRuntimeOrderSessionLayout()
         force: true,
         preserveTimestamps: true
     });
-    fs.cpSync(productionBuildLayout.backendWebRoot, runtimeBackendWebRoot, {
+    fs.cpSync(productionBuildLayout.frontendDist, runtimeBackendWebRoot, {
         recursive: true,
         force: true,
         preserveTimestamps: true

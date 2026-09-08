@@ -140,13 +140,27 @@ test('runtime bundle loads its generated environment only after bootstrap and be
     const stepEnvironment = source.indexOf('...(step.env ?? {})', runtimeEnvironment);
     assert.ok(processEnvironment >= 0 && runtimeEnvironment > processEnvironment && stepEnvironment > runtimeEnvironment);
 
-    const bootstrapExecution = /if \(step\.id === 'bootstrap'\)\s*\{\s*const runtimeLayout = prepareProductionRuntimeLayout\(productionBuildLayout\)/u
-        .exec(source)?.index ?? -1;
+    const bootstrapExecution = source.indexOf("if (step.id === 'bootstrap')");
     const environmentRead = source.indexOf('...readRuntimeEnvironment(root, namespace)', bootstrapExecution);
     assert.ok(bootstrapExecution >= 0 && environmentRead > bootstrapExecution);
     assert.doesNotMatch(source.slice(bootstrapExecution, environmentRead), /source\s+[^\n]*\.env/u);
     assert.match(source.slice(bootstrapExecution, environmentRead), /prepareProductionRuntimeLayout\(productionBuildLayout\)/u);
+    assert.match(source.slice(bootstrapExecution, environmentRead), /prepareRuntimeOrderSessionLayout\(\)/u);
     assert.match(source.slice(environmentRead, environmentRead + 300), /\.\.\.productionRuntimeChildEnvironment/u);
+});
+
+test('runtime-order sessions materialize both mutable static roots from the sealed frontend artifact', () =>
+{
+    const source = readFileSync(new URL('../../tools/test/bundles/run-bundle.mjs', import.meta.url), 'utf8');
+    const start = source.indexOf('function prepareRuntimeOrderSessionLayout()');
+    const end = source.indexOf('\n}\n\nfunction bundleDirectory', start);
+    assert.ok(start >= 0 && end > start);
+    const body = source.slice(start, end);
+    assert.equal(
+        body.match(/fs\.cpSync\(productionBuildLayout\.frontendDist,/gu)?.length,
+        2
+    );
+    assert.doesNotMatch(body, /fs\.cpSync\(productionBuildLayout\.backendWebRoot,/u);
 });
 
 test('runtime correctness runner does not resolve, wrap, or emit counted Chromium admission', () =>
