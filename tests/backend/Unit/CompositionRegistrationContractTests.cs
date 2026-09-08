@@ -112,12 +112,14 @@ public sealed class CompositionRegistrationContractTests
     }
 
     [Theory]
-    [InlineData("Development", true, true)]
-    [InlineData("Development", false, false)]
-    [InlineData("Production", true, false)]
+    [InlineData("Development", true, false, true)]
+    [InlineData("Development", false, true, true)]
+    [InlineData("Development", false, false, false)]
+    [InlineData("Production", true, true, false)]
     public void CommentFixtureComposition_IsActualHostDevelopmentAndFlagBound(
         string hostEnvironmentName,
         bool allowLocalCommentFixture,
+        bool allowLocalAuthFixture,
         bool expectedRegistered)
     {
         IConfiguration configuration = new ConfigurationBuilder()
@@ -125,7 +127,8 @@ public sealed class CompositionRegistrationContractTests
             {
                 // Deliberately conflicts with the Production host test case.
                 ["ASPNETCORE_ENVIRONMENT"] = Environments.Development,
-                ["fsus:allowLocalCommentFixture"] = allowLocalCommentFixture.ToString()
+                ["fsus:allowLocalCommentFixture"] = allowLocalCommentFixture.ToString(),
+                [LocalAuthFixtureEndpoints.AllowLocalAuthFixtureConfigurationKey] = allowLocalAuthFixture.ToString()
             })
             .Build();
         IHostEnvironment hostEnvironment = Substitute.For<IHostEnvironment>();

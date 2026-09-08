@@ -120,6 +120,20 @@ public sealed class CommentAnonymousFixtureProviderTests
             httpContext,
             testSession,
             CreateRequest()));
+
+        IConfiguration authFixtureConfiguration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [LocalAuthFixtureEndpoints.AllowLocalAuthFixtureConfigurationKey] = "true",
+                [LocalAuthFixtureEndpoints.LocalAuthFixtureSecretConfigurationKey] = "local-fixture-secret"
+            })
+            .Build();
+        Assert.True(CommentAnonymousFixtureProvider.IsActivationAllowed(
+            environment,
+            authFixtureConfiguration,
+            httpContext,
+            testSession,
+            CreateRequest()));
     }
 
     [Fact]
@@ -304,6 +318,7 @@ public sealed class CommentAnonymousFixtureProviderTests
         {
             request with { Owner = $"{Owner}-other" },
             request with { TestSession = "fx-fedcba9876543210fedcba98" },
+            request with { PlanDigest = Digest('9') },
             request with { SemanticRole = "region-manual-review" },
             request with { ArticleId = 43 },
             request with { Content = "different fixture content" },
@@ -359,10 +374,38 @@ public sealed class CommentAnonymousFixtureProviderTests
         Assert.False((binding with { PlanDigest = "invalid" }).IsValid());
     }
 
+    [Fact]
+    public void CleanupLedgerHydration_RequiresExactOuterPlanAndOwnedIdentity()
+    {
+        CommentFixturePortBinding binding = CreateBinding();
+        CommentAnonymousFixtureOperationReference reference = CreateOperationReference();
+        var expected = new CommentThreadFixtureOwnedIdentity(
+            CommentId,
+            42,
+            "pending",
+            CommentAuthorModes.ZkAnonymous,
+            null,
+            Digest('8'),
+            1,
+            false,
+            $"sha256:{reference.OperationPlanDigest}");
+
+        Assert.True(CommentThreadFixturePort.IsExactAnonymousOperationReference(reference, binding, expected));
+        Assert.False(CommentThreadFixturePort.IsExactAnonymousOperationReference(
+            reference with { PlanDigest = Digest('9') }, binding, expected));
+        Assert.False(CommentThreadFixturePort.IsExactAnonymousOperationReference(
+            reference with { Owner = $"{Owner}-other" }, binding, expected));
+        Assert.False(CommentThreadFixturePort.IsExactAnonymousOperationReference(
+            reference with { CommentId = CommentId + 1 }, binding, expected));
+        Assert.False(CommentThreadFixturePort.IsExactAnonymousOperationReference(
+            reference, binding, expected with { ActorMode = CommentAuthorModes.Public }));
+    }
+
     private static CommentAnonymousFixtureCreateRequest CreateRequest()
         => new(
             Owner,
             TestSession,
+            Digest('6'),
             "pending",
             42,
             "fixture content",
@@ -402,6 +445,7 @@ public sealed class CommentAnonymousFixtureProviderTests
             new string('a', 64),
             Owner,
             TestSession,
+            Digest('6'),
             "pending",
             42,
             new string('b', 64),

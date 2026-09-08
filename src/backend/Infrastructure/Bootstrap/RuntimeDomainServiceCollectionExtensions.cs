@@ -103,9 +103,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
     private static bool ShouldAddLocalCommentFixtureServices(
         IConfiguration? configuration,
         IHostEnvironment? hostEnvironment)
-        => configuration is not null
-            && hostEnvironment?.IsDevelopment() == true
-            && configuration.GetValue<bool>(LocalCommentFixtureEndpoints.AllowConfigurationKey);
+        => LocalCommentFixtureEndpoints.IsEnabled(configuration, hostEnvironment);
 
     private static IServiceCollection AddUserRuntimePorts(this IServiceCollection services)
     {

@@ -149,8 +149,64 @@ async function invokeBackend(context, path, body, signal)
     const text = await response.text();
     let payload;
     try { payload = text ? JSON.parse(text) : null; } catch { payload = null; }
-    if (!response.ok) throw new Error(`comment fixture backend failed HTTP ${response.status}: ${payload?.detail ?? text.slice(0, 400)}`);
+    if (!response.ok) throw createCommentFixtureBackendError(response.status, payload, text, body);
     return payload;
+}
+
+function matchesCommentFixturePlanBinding(binding, plan)
+{
+    return plan?.schema === 'fsusblog.comment-fixture-plan.v1'
+        && /^sha256:[a-f0-9]{64}$/u.test(plan?.planDigest)
+        && binding?.runId === plan?.runId && binding?.namespace === plan?.namespace
+        && binding?.testSession === plan?.testSession
+        && binding?.owner === `comment-fixture:${plan?.namespace}:${plan?.runId}`
+        && binding?.profileId === plan?.profileId
+        && JSON.stringify(binding?.capabilities) === JSON.stringify(plan?.capabilities)
+        && binding?.articleId === plan?.articleReference?.articleId
+        && binding?.authProducerResultDigest === plan?.identityReferences?.authProducerResultDigest
+        && JSON.stringify(binding?.authPrepareReferenceDigests) === JSON.stringify(plan?.identityReferences?.authPrepareReferenceDigests)
+        && binding?.publicContentProducerResultDigest === plan?.articleReference?.publicContentProducerResultDigest
+        && binding?.articleProjectionDigest === plan?.articleReference?.articleProjectionDigest
+        && binding?.inventoryDigest === plan?.inventoryDigest
+        && binding?.capabilityCatalogDigest === plan?.capabilityCatalogDigest
+        && binding?.variantCatalogDigest === plan?.variantCatalogDigest
+        && binding?.temporalContextDigest === plan?.temporalContextDigest
+        && binding?.producerPlanDigest === plan?.producerPlanDigest
+        && binding?.planDigest === plan?.planDigest;
+}
+
+export function createCommentFixtureBackendError(httpStatus, payload, text, plan)
+{
+    const detail = payload?.message ?? payload?.originalError?.message ?? payload?.detail ?? String(text ?? '').slice(0, 400);
+    const recoveryReceipt = payload?.recoveryReceipt;
+    const recoveryBinding = recoveryReceipt?.binding ?? recoveryReceipt;
+    const cleanupResult = payload?.cleanupResult;
+    const cleanupBinding = cleanupResult?.binding ?? cleanupResult;
+    const exactRecovery = payload?.schema === 'fsusblog.comment-fixture-prepare-failure.v1'
+        && ['failed', 'canceled'].includes(payload?.status)
+        && recoveryReceipt && matchesCommentFixturePlanBinding(recoveryBinding, plan)
+        && (!cleanupResult || matchesCommentFixturePlanBinding(cleanupBinding, plan))
+        ? Object.freeze({
+            schema: payload.schema,
+            status: payload.status,
+            originalError: payload.originalError ?? null,
+            cleanupError: payload.cleanupError ?? null,
+            recoveryReceipt,
+            cleanupResult: cleanupResult ?? null
+        })
+        : null;
+    const error = new Error(
+        `comment fixture backend failed HTTP ${httpStatus}: ${detail}`,
+        exactRecovery ? { cause: exactRecovery } : undefined);
+    error.name = 'CommentFixtureBackendError';
+    error.httpStatus = httpStatus;
+    if (exactRecovery)
+    {
+        error.recovery = exactRecovery;
+        error.recoveryReceipt = exactRecovery.recoveryReceipt;
+        error.cleanupResult = exactRecovery.cleanupResult;
+    }
+    return error;
 }
 
 async function observeBackendTemporalContext(context, signal)
@@ -191,21 +247,7 @@ function normalizeResult(raw, context, plan, temporalObservation)
     const moderationBinding = raw?.moderation?.binding;
     if (!raw || raw.producerId !== PRODUCER_ID || raw.strategy !== STRATEGY
         || raw.planDigest !== plan.planDigest || raw.inventoryDigest !== plan.inventoryDigest
-        || cleanupBinding?.runId !== plan.runId || cleanupBinding?.namespace !== plan.namespace
-        || cleanupBinding?.testSession !== plan.testSession || cleanupBinding?.owner !== `comment-fixture:${plan.namespace}:${plan.runId}`
-        || cleanupBinding?.profileId !== plan.profileId
-        || JSON.stringify(cleanupBinding?.capabilities) !== JSON.stringify(plan.capabilities)
-        || cleanupBinding?.articleId !== plan.articleReference.articleId
-        || cleanupBinding?.authProducerResultDigest !== plan.identityReferences.authProducerResultDigest
-        || JSON.stringify(cleanupBinding?.authPrepareReferenceDigests) !== JSON.stringify(plan.identityReferences.authPrepareReferenceDigests)
-        || cleanupBinding?.publicContentProducerResultDigest !== plan.articleReference.publicContentProducerResultDigest
-        || cleanupBinding?.articleProjectionDigest !== plan.articleReference.articleProjectionDigest
-        || cleanupBinding?.inventoryDigest !== plan.inventoryDigest
-        || cleanupBinding?.capabilityCatalogDigest !== plan.capabilityCatalogDigest
-        || cleanupBinding?.variantCatalogDigest !== plan.variantCatalogDigest
-        || cleanupBinding?.temporalContextDigest !== plan.temporalContextDigest
-        || cleanupBinding?.producerPlanDigest !== plan.producerPlanDigest
-        || cleanupBinding?.planDigest !== plan.planDigest
+        || !matchesCommentFixturePlanBinding(cleanupBinding, plan)
         || JSON.stringify(moderationBinding) !== JSON.stringify(cleanupBinding)
         || raw.capabilityCatalogDigest !== plan.capabilityCatalogDigest
         || raw.variantCatalogDigest !== plan.variantCatalogDigest

@@ -11,6 +11,78 @@ import {
     COMMENT_FIXTURE_REPOSITORY_ROOT,
     verifyCommentFixtureAcceptanceReceipt
 } from '../../tools/test/comment-fixture-governance.mjs';
+import { createCommentFixtureBackendError } from '../../tools/test-fixtures/producers/comment-moderation-producer.mjs';
+
+test('comment producer preserves only exact-plan structured recovery payloads', () =>
+{
+    const digest = (value) => `sha256:${value.repeat(64)}`;
+    const plan = {
+        schema: 'fsusblog.comment-fixture-plan.v1',
+        runId: 'run-1',
+        namespace: 'comment-test',
+        testSession: 'fx-0123456789abcdef01234567',
+        profileId: 'comments-moderation',
+        capabilities: ['comment.threaded'],
+        articleReference: {
+            articleId: 42,
+            publicContentProducerResultDigest: digest('a'),
+            articleProjectionDigest: digest('b')
+        },
+        identityReferences: {
+            authProducerResultDigest: digest('c'),
+            authPrepareReferenceDigests: [digest('d'), digest('e'), digest('f')]
+        },
+        inventoryDigest: digest('1'),
+        capabilityCatalogDigest: digest('2'),
+        variantCatalogDigest: digest('3'),
+        temporalContextDigest: digest('4'),
+        producerPlanDigest: digest('5'),
+        planDigest: digest('6')
+    };
+    const binding = {
+        runId: plan.runId,
+        namespace: plan.namespace,
+        testSession: plan.testSession,
+        owner: `comment-fixture:${plan.namespace}:${plan.runId}`,
+        profileId: plan.profileId,
+        capabilities: plan.capabilities,
+        articleId: plan.articleReference.articleId,
+        authProducerResultDigest: plan.identityReferences.authProducerResultDigest,
+        authPrepareReferenceDigests: plan.identityReferences.authPrepareReferenceDigests,
+        publicContentProducerResultDigest: plan.articleReference.publicContentProducerResultDigest,
+        articleProjectionDigest: plan.articleReference.articleProjectionDigest,
+        inventoryDigest: plan.inventoryDigest,
+        capabilityCatalogDigest: plan.capabilityCatalogDigest,
+        variantCatalogDigest: plan.variantCatalogDigest,
+        temporalContextDigest: plan.temporalContextDigest,
+        producerPlanDigest: plan.producerPlanDigest,
+        planDigest: plan.planDigest
+    };
+    const payload = {
+        schema: 'fsusblog.comment-fixture-prepare-failure.v1',
+        status: 'failed',
+        message: 'fixture preparation failed',
+        originalError: { type: 'InvalidOperationException', message: 'original' },
+        cleanupError: { type: 'InvalidOperationException', message: 'cleanup' },
+        recoveryReceipt: { schema: 'fsusblog.comment-thread-fixture-cleanup.v1', binding, ownedComments: {} },
+        cleanupResult: null
+    };
+
+    const exact = createCommentFixtureBackendError(500, payload, '', plan);
+    assert.equal(exact.name, 'CommentFixtureBackendError');
+    assert.equal(exact.httpStatus, 500);
+    assert.equal(exact.cause, exact.recovery);
+    assert.equal(exact.recovery.originalError.message, 'original');
+    assert.equal(exact.recovery.cleanupError.message, 'cleanup');
+    assert.equal(exact.recoveryReceipt, payload.recoveryReceipt);
+
+    const crossPlan = structuredClone(payload);
+    crossPlan.recoveryReceipt.binding.planDigest = digest('9');
+    const rejected = createCommentFixtureBackendError(500, crossPlan, '', plan);
+    assert.equal(rejected.recovery, undefined);
+    assert.equal(rejected.recoveryReceipt, undefined);
+    assert.equal(rejected.cause, undefined);
+});
 
 test('comment governance kills required mutations but refuses terminal acceptance without runtime evidence', () =>
 {

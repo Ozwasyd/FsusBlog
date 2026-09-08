@@ -41,6 +41,7 @@ public sealed record CommentFixtureZkAuthorityEvidence(
 public sealed record CommentAnonymousFixtureCreateRequest(
     string Owner,
     string TestSession,
+    string PlanDigest,
     string SemanticRole,
     int ArticleId,
     string Content,
@@ -73,6 +74,7 @@ public sealed record CommentAnonymousFixtureOperationReference(
     string OperationPlanDigest,
     string Owner,
     string TestSession,
+    string PlanDigest,
     string SemanticRole,
     int ArticleId,
     string ContentDigest,
@@ -101,7 +103,7 @@ public sealed class CommentAnonymousFixtureOperationLedger(
     IConfiguration configuration,
     IDataProtectionProvider dataProtectionProvider) : ICommentAnonymousFixtureOperationLedger
 {
-    private const string Schema = "fsusblog.comment-anonymous-fixture-operation.v1";
+    private const string Schema = "fsusblog.comment-anonymous-fixture-operation.v2";
     private static readonly SemaphoreSlim s_gate = new(1, 1);
     private static readonly JsonSerializerOptions s_json = new()
     {
@@ -109,7 +111,7 @@ public sealed class CommentAnonymousFixtureOperationLedger(
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow
     };
     private readonly IDataProtector _protector = dataProtectionProvider.CreateProtector(
-        "FsusBlog.CommentAnonymousFixtureOperationLedger.v1");
+        "FsusBlog.CommentAnonymousFixtureOperationLedger.v2");
     private readonly string _root = Path.Combine(
         Path.GetFullPath(configuration["FSUSBLOG_DATA_ROOT"] ?? Path.Combine(AppContext.BaseDirectory, "data")),
         "test-fixtures",
@@ -153,6 +155,7 @@ public sealed class CommentAnonymousFixtureOperationLedger(
                 reference.OperationPlanDigest,
                 reference.Owner,
                 reference.TestSession,
+                reference.PlanDigest,
                 reference.SemanticRole,
                 reference.ArticleId,
                 reference.ContentDigest,
@@ -214,12 +217,14 @@ public sealed class CommentAnonymousFixtureOperationLedger(
             || stored.CommentId <= 0 || stored.ArticleId <= 0
             || string.IsNullOrWhiteSpace(stored.Owner)
             || !HttpTestSessionKeyScope.IsValidSessionId(stored.TestSession)
+            || !IsCanonicalDigest(stored.PlanDigest)
             || string.IsNullOrWhiteSpace(stored.ProtectedManagementSecret))
             throw new InvalidOperationException("Anonymous fixture operation ledger entry is invalid.");
         return new CommentAnonymousFixtureOperationReference(
             stored.OperationPlanDigest,
             stored.Owner,
             stored.TestSession,
+            stored.PlanDigest,
             stored.SemanticRole,
             stored.ArticleId,
             stored.ContentDigest,
@@ -246,11 +251,18 @@ public sealed class CommentAnonymousFixtureOperationLedger(
         => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(
             JsonSerializer.Serialize(stored with { RecordDigest = string.Empty }, s_json))));
 
+    private static bool IsCanonicalDigest(string? value)
+        => value is not null
+            && value.StartsWith("sha256:", StringComparison.Ordinal)
+            && value.Length == 71
+            && value.AsSpan(7).IndexOfAnyExcept("0123456789abcdef") < 0;
+
     private sealed record StoredReference(
         string Schema,
         string OperationPlanDigest,
         string Owner,
         string TestSession,
+        string PlanDigest,
         string SemanticRole,
         int ArticleId,
         string ContentDigest,
@@ -509,6 +521,7 @@ public sealed class CommentAnonymousFixtureProvider(
             operationPlanDigest,
             request.Owner,
             request.TestSession,
+            request.PlanDigest,
             request.SemanticRole,
             request.ArticleId,
             Digest("content", request.Content),
@@ -549,10 +562,9 @@ public sealed class CommentAnonymousFixtureProvider(
         ITestSessionContext testSessionContext,
         CommentAnonymousFixtureCreateRequest request)
     {
-        string expectedSecret = configuration[LocalCommentFixtureEndpoints.SecretConfigurationKey] ?? string.Empty;
+        string expectedSecret = LocalCommentFixtureEndpoints.ResolveSecret(configuration);
         string providedSecret = context?.Request.Headers[LocalCommentFixtureEndpoints.SecretHeaderName].ToString() ?? string.Empty;
-        return environment.IsDevelopment()
-            && configuration.GetValue<bool>(LocalCommentFixtureEndpoints.AllowConfigurationKey)
+        return LocalCommentFixtureEndpoints.IsEnabled(configuration, environment)
             && context is not null
             && context.Connection.RemoteIpAddress is { } remote
             && IPAddress.IsLoopback(remote)
@@ -560,6 +572,7 @@ public sealed class CommentAnonymousFixtureProvider(
             && !string.IsNullOrWhiteSpace(providedSecret)
             && FixedTimeEquals(expectedSecret.Trim(), providedSecret.Trim())
             && HttpTestSessionKeyScope.IsValidSessionId(request.TestSession)
+            && IsCanonicalDigest(request.PlanDigest)
             && testSessionContext.IsActive
             && StringComparer.Ordinal.Equals(testSessionContext.SessionId, request.TestSession)
             && StringComparer.Ordinal.Equals(
@@ -595,6 +608,7 @@ public sealed class CommentAnonymousFixtureProvider(
             Schema = "fsusblog.comment-fixture-zk-operation-plan.v1",
             request.Owner,
             request.TestSession,
+            request.PlanDigest,
             request.SemanticRole,
             ArticleId = request.ArticleId.ToString(CultureInfo.InvariantCulture),
             ContentDigest = Digest("content", request.Content),
@@ -656,6 +670,7 @@ public sealed class CommentAnonymousFixtureProvider(
             || existing.OperationPlanDigest != operationPlanDigest
             || existing.Owner != request.Owner
             || existing.TestSession != request.TestSession
+            || existing.PlanDigest != request.PlanDigest
             || existing.SemanticRole != request.SemanticRole
             || existing.ArticleId != request.ArticleId
             || existing.ContentDigest != Digest("content", request.Content)
@@ -804,6 +819,12 @@ public sealed class CommentAnonymousFixtureProvider(
 
     private static string Digest(params string[] parts)
         => Convert.ToHexStringLower(DeriveBytes(parts));
+
+    private static bool IsCanonicalDigest(string? value)
+        => value is not null
+            && value.StartsWith("sha256:", StringComparison.Ordinal)
+            && value.Length == 71
+            && value.AsSpan(7).IndexOfAnyExcept("0123456789abcdef") < 0;
 
     private static bool FixedTimeEquals(string expected, string actual)
     {

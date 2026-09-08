@@ -28,8 +28,7 @@ public static class LocalCommentFixtureEndpoints
 
     public static void MapLocalCommentFixtureEndpoints(this WebApplication app)
     {
-        bool allow = app.Configuration.GetValue<bool>(AllowConfigurationKey);
-        if (!app.Environment.IsDevelopment() || !allow)
+        if (!IsEnabled(app.Configuration, app.Environment))
             return;
 
         app.MapPost("/api/local/comment-fixture/prepare", async (
@@ -188,13 +187,26 @@ public static class LocalCommentFixtureEndpoints
         EndpointFilterDelegate next)
     {
         IConfiguration configuration = context.HttpContext.RequestServices.GetRequiredService<IConfiguration>();
-        string expected = configuration[SecretConfigurationKey] ?? string.Empty;
+        string expected = ResolveSecret(configuration);
         string provided = context.HttpContext.Request.Headers[SecretHeaderName].ToString();
         if (string.IsNullOrWhiteSpace(expected) || string.IsNullOrWhiteSpace(provided)
             || !FixedTimeEquals(expected.Trim(), provided.Trim()))
             return Results.Unauthorized();
         return await next(context);
     }
+
+    internal static bool IsEnabled(
+        IConfiguration? configuration,
+        IHostEnvironment? environment)
+        => configuration is not null
+            && environment?.IsDevelopment() == true
+            && (configuration.GetValue<bool>(AllowConfigurationKey)
+                || configuration.GetValue<bool>(LocalAuthFixtureEndpoints.AllowLocalAuthFixtureConfigurationKey));
+
+    internal static string ResolveSecret(IConfiguration configuration)
+        => configuration[SecretConfigurationKey]
+            ?? configuration[LocalAuthFixtureEndpoints.LocalAuthFixtureSecretConfigurationKey]
+            ?? string.Empty;
 
     private static async ValueTask<object?> RequireLoopback(
         EndpointFilterInvocationContext context,

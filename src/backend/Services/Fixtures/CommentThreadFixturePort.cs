@@ -383,7 +383,10 @@ public sealed class CommentThreadFixturePort(
                     cancellationToken).ConfigureAwait(false);
                 continue;
             }
-            string secret = RequireAnonymousCapability(receipt.Binding.Owner, receipt.Binding.TestSession, row.Id);
+            string secret = await RequireAnonymousCapabilityAsync(
+                receipt.Binding,
+                expected,
+                cancellationToken).ConfigureAwait(false);
             await RequireAnonymousDeleteAsync(row, secret, cancellationToken).ConfigureAwait(false);
             anonymousCapabilities.Remove(receipt.Binding.Owner, receipt.Binding.TestSession, row.Id);
             await anonymousOperations.RemoveAsync(RawDigest(expected.OperationPlanDigest), CancellationToken.None)
@@ -550,6 +553,7 @@ public sealed class CommentThreadFixturePort(
                 new CommentAnonymousFixtureCreateRequest(
                     plan.Binding.Owner,
                     plan.Binding.TestSession,
+                    plan.Binding.PlanDigest,
                     operation.SemanticRole,
                     plan.Binding.ArticleId,
                     operation.Content,
@@ -780,6 +784,49 @@ public sealed class CommentThreadFixturePort(
         => anonymousCapabilities.TryGet(owner, testSession, commentId, out string secret)
             ? secret
             : throw new InvalidOperationException("Anonymous fixture capability is unavailable; outer isolated namespace cleanup is required.");
+
+    private async Task<string> RequireAnonymousCapabilityAsync(
+        CommentFixturePortBinding binding,
+        CommentThreadFixtureOwnedIdentity expected,
+        CancellationToken cancellationToken)
+    {
+        if (anonymousCapabilities.TryGet(binding.Owner, binding.TestSession, expected.CommentId, out string secret))
+            return secret;
+        CommentAnonymousFixtureOperationReference? reference = await anonymousOperations.ReadAsync(
+            RawDigest(expected.OperationPlanDigest),
+            cancellationToken).ConfigureAwait(false);
+        if (!IsExactAnonymousOperationReference(reference, binding, expected))
+            throw new InvalidOperationException("Anonymous fixture durable capability reference is missing, stale, or cross-plan.");
+        anonymousCapabilities.Store(binding.Owner, binding.TestSession, expected.CommentId, reference!.ManagementSecret);
+        return reference.ManagementSecret;
+    }
+
+    internal static bool IsExactAnonymousOperationReference(
+        CommentAnonymousFixtureOperationReference? reference,
+        CommentFixturePortBinding binding,
+        CommentThreadFixtureOwnedIdentity expected)
+    {
+        string operationPlanDigest = RawDigest(expected.OperationPlanDigest);
+        return reference is not null
+            && expected.ActorMode == CommentAuthorModes.ZkAnonymous
+            && expected.AccountId is null
+            && reference.OperationPlanDigest == operationPlanDigest
+            && reference.PlanDigest == binding.PlanDigest
+            && reference.Owner == binding.Owner
+            && reference.TestSession == binding.TestSession
+            && reference.SemanticRole == expected.SemanticRole
+            && reference.ArticleId == expected.ArticleId
+            && reference.CommentId == expected.CommentId
+            && !string.IsNullOrWhiteSpace(reference.ManagementSecret)
+            && reference.Comment.Created
+            && reference.Comment.CommentId == expected.CommentId
+            && reference.Comment.ManagementSecret is null
+            && reference.AuthorityEvidence.SemanticRole == expected.SemanticRole
+            && reference.AuthorityEvidence.OperationPlanDigest == operationPlanDigest
+            && reference.AuthorityEvidence.Simulation
+            && !reference.AuthorityEvidence.ProductionUsable
+            && !reference.AuthorityEvidence.TicketExposed;
+    }
 
     private async Task RequireAnonymousDeleteAsync(
         Comment row,
