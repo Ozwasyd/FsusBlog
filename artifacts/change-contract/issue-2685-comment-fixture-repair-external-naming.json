@@ -2,6 +2,13 @@
     "schema": "fsusblog.external-naming-exceptions.v1",
     "exceptions": [
         {
+            "id": "acceptance-secret-runtime-environment",
+            "paths": [
+                "tools/bootstrap-acceptance-env.sh"
+            ],
+            "reason": "preserve the caller-visible acceptance secret and fixture environment keys at the shell bootstrap boundary"
+        },
+        {
             "id": "environment-variable",
             "paths": [
                 "src/backend/Services/Fixtures/CommentFixtureSeeder.cs",
@@ -17,7 +24,6 @@
         {
             "id": "shell-environment-variable",
             "paths": [
-                "tools/bootstrap-acceptance-env.sh",
                 "tools/dev/start.sh",
                 "tools/test/lanes/_suite-support.sh"
             ],
