@@ -18,8 +18,13 @@ public sealed class AuthorArticlePinStoreIntegrationTests(PostgresSchemaMigratio
     public async Task Store_EnforcesCasIdempotencyOrderingIsolationAndZeroArticleMutation()
     {
         using SqlSugarClient db = await CreateDatabaseAsync(64);
-        var store = new AuthorArticlePinStore(db, TimeProvider.System);
+        var authorizer = new LocalMutationAuthorizer();
+        var store = CreateStore(db, authorizer);
         ArticleMetadata baseline = await ReadArticleMetadataAsync(db, 1);
+
+        var unboundStore = new AuthorArticlePinStore(db, TimeProvider.System);
+        await Assert.ThrowsAsync<AuthorArticlePinAccessDeniedException>(() => unboundStore.AddAsync(
+            new AddAuthorArticlePinCommand(s_owner, 1, 0, Guid.CreateVersion7())));
 
         AuthorArticlePinCollectionSnapshot empty = await store.GetAuthoritySnapshotAsync(s_owner);
         Assert.Equal(0, empty.Revision);
@@ -52,7 +57,7 @@ public sealed class AuthorArticlePinStoreIntegrationTests(PostgresSchemaMigratio
 
         using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(
             db.CurrentConnectionConfig.ConnectionString);
-        var secondStore = new AuthorArticlePinStore(secondDb, TimeProvider.System);
+        var secondStore = CreateStore(secondDb);
         var rapidCommand = new AddAuthorArticlePinCommand(s_owner, 2, 1, Guid.CreateVersion7());
         AuthorArticlePinWriteReceipt[] rapid = await Task.WhenAll(
             store.AddAsync(rapidCommand),
@@ -94,6 +99,9 @@ public sealed class AuthorArticlePinStoreIntegrationTests(PostgresSchemaMigratio
             new RemoveAuthorArticlePinCommand(s_owner, 4, revision, Guid.CreateVersion7()));
         revision = removed.Revision;
         Assert.DoesNotContain(4, await ReadOrderAsync(store));
+        Assert.Contains(authorizer.Requests, static articleIds => articleIds.SequenceEqual([4, 1]));
+        Assert.Contains(authorizer.Requests, static articleIds => articleIds.SequenceEqual([3, 4]));
+        Assert.Contains(authorizer.Requests, static articleIds => articleIds.SequenceEqual([60]));
 
         Assert.Empty((await store.GetAuthoritySnapshotAsync(new AuthorArticlePinOwner(2, "primary-site"))).Pins);
         Assert.Empty((await store.GetAuthoritySnapshotAsync(new AuthorArticlePinOwner(1, "secondary-site"))).Pins);
@@ -130,8 +138,8 @@ public sealed class AuthorArticlePinStoreIntegrationTests(PostgresSchemaMigratio
         using SqlSugarClient db = await CreateDatabaseAsync(64);
         using SqlSugarClient writerDb = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
         using SqlSugarClient readerDb = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
-        var writer = new AuthorArticlePinStore(writerDb, TimeProvider.System);
-        var reader = new AuthorArticlePinStore(readerDb, TimeProvider.System);
+        var writer = CreateStore(writerDb);
+        var reader = CreateStore(readerDb);
 
         Task writerTask = Task.Run(async () =>
         {
@@ -177,7 +185,7 @@ public sealed class AuthorArticlePinStoreIntegrationTests(PostgresSchemaMigratio
     public async Task Verifier_ReplaysHistoryAndRejectsConsistentDualTableTamperOrphansAndInvalidTransitions()
     {
         using SqlSugarClient db = await CreateDatabaseAsync(8);
-        var store = new AuthorArticlePinStore(db, TimeProvider.System);
+        var store = CreateStore(db);
         string metadataBefore = await ReadAllArticleMetadataAsync(db);
 
         AuthorArticlePinWriteReceipt addOne = await store.AddAsync(
@@ -294,7 +302,7 @@ public sealed class AuthorArticlePinStoreIntegrationTests(PostgresSchemaMigratio
     public async Task Store_UsesBoundedSetOperationsAtOneThousandPins_AndMigrationIsIdempotent()
     {
         using SqlSugarClient db = await CreateDatabaseAsync(1_100);
-        var store = new AuthorArticlePinStore(db, TimeProvider.System);
+        var store = CreateStore(db);
         Guid[] pinIds = Enumerable.Range(1, AuthorArticlePinContract.MaxPinsPerOwner)
             .Select(index => Guid.Parse($"01991f50-8850-7f63-82ab-{index:000000000000}"))
             .ToArray();
@@ -420,6 +428,11 @@ public sealed class AuthorArticlePinStoreIntegrationTests(PostgresSchemaMigratio
     private static async Task<int[]> ReadOrderAsync(IAuthorArticlePinStore store)
         => [.. (await store.GetAuthoritySnapshotAsync(s_owner)).Pins.Select(static pin => pin.ArticleId)];
 
+    private static AuthorArticlePinStore CreateStore(
+        ISqlSugarClient db,
+        LocalMutationAuthorizer? authorizer = null)
+        => new(db, TimeProvider.System, authorizer ?? new LocalMutationAuthorizer());
+
     private static async Task UpdateBothHistoryRowsAsync(
         SqlSugarClient db,
         Guid requestId,
@@ -474,4 +487,24 @@ public sealed class AuthorArticlePinStoreIntegrationTests(PostgresSchemaMigratio
         int Views,
         long CurrentRevisionId,
         DateTime MetadataUpdatedAt);
+
+    private sealed class LocalMutationAuthorizer : IAuthorArticlePinMutationAuthorizer
+    {
+        public List<int[]> Requests { get; } = [];
+
+        public Task AuthorizeAsync(
+            AuthorArticlePinOwner owner,
+            IReadOnlyList<int> articleIds,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if ((owner != s_owner && owner != new AuthorArticlePinOwner(1, "cancelled-site"))
+                || articleIds.Count == 0)
+            {
+                throw new AuthorArticlePinAccessDeniedException();
+            }
+            Requests.Add([.. articleIds]);
+            return Task.CompletedTask;
+        }
+    }
 }
