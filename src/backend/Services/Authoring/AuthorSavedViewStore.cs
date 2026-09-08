@@ -193,6 +193,10 @@ public interface IAuthorSavedViewStore
         ReorderAuthorSavedViewsCommand command,
         CancellationToken cancellationToken = default);
 
+    Task<AuthorSavedViewWriteReceipt> MovePinnedAsync(
+        MoveAuthorSavedViewsCommand command,
+        CancellationToken cancellationToken = default);
+
     Task<AuthorSavedViewWriteReceipt> SetDefaultAsync(
         SetDefaultAuthorSavedViewCommand command,
         CancellationToken cancellationToken = default);
@@ -220,6 +224,7 @@ public sealed class AuthorSavedViewStore(
     private const string RenameCommand = "rename";
     private const string PinCommand = "set-pinned";
     private const string ReorderCommand = "reorder-pinned";
+    private const string MoveCommand = "move-pinned";
     private const string DefaultCommand = "set-default";
     private const string RetireCommand = "retire";
     private const string DeleteCommand = "delete";
@@ -289,10 +294,7 @@ public sealed class AuthorSavedViewStore(
     {
         AuthorSavedViewContract.ValidateOwner(owner);
         ValidateGuid(viewId, "saved_view_identity_invalid");
-        return await persistence.ReadAsync(
-            owner,
-            snapshot => snapshot.Views.FirstOrDefault(view => view.Id == viewId),
-            cancellationToken).ConfigureAwait(false);
+        return await persistence.ReadViewAsync(owner, viewId, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<AuthorSavedViewPage> ListAsync(
@@ -311,37 +313,7 @@ public sealed class AuthorSavedViewStore(
             throw new AuthorSavedViewValidationException("saved_view_cursor_invalid");
         }
 
-        return await persistence.ReadAsync(
-            owner,
-            snapshot =>
-            {
-                AuthorSavedView[] ordered =
-                [
-                    .. snapshot.Views
-                        .Where(static view => view.LifecycleState == AuthorSavedViewLifecycleState.Active)
-                        .OrderByDescending(static view => view.Pinned)
-                        .ThenBy(static view => view.OrderKey)
-                        .ThenBy(static view => view.Id)
-                ];
-                if (cursor is not null)
-                {
-                    ordered =
-                    [
-                        .. ordered.Where(view => ComparePosition(view, cursor) > 0)
-                    ];
-                }
-
-                AuthorSavedView[] page = [.. ordered.Take(limit + 1)];
-                AuthorSavedViewPageCursor? next = page.Length > limit
-                    ? Cursor(page[limit - 1])
-                    : null;
-                return new AuthorSavedViewPage(
-                    [.. page.Take(limit)],
-                    next,
-                    snapshot.Collection.Revision,
-                    snapshot.Collection.DefaultViewId);
-            },
-            cancellationToken).ConfigureAwait(false);
+        return await persistence.ReadPageAsync(owner, cursor, limit, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<AuthorSavedViewWriteReceipt> UpdateAsync(
@@ -567,6 +539,117 @@ public sealed class AuthorSavedViewStore(
                     commandDigest);
                 Guid subject = command.OrderedViewIds.FirstOrDefault();
                 return Mutation(collection, changed, [], subject, ReorderCommand, commandDigest, now);
+            });
+    }
+
+    public Task<AuthorSavedViewWriteReceipt> MovePinnedAsync(
+        MoveAuthorSavedViewsCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        AuthorSavedViewContract.ValidateOwner(command.Owner);
+        ValidateGuid(command.RequestId, "saved_view_request_identity_invalid");
+        if (command.MovedViewIds.Count is < 1 or > AuthorSavedViewStorageContract.MaxViewsPerOwner
+            || command.MovedViewIds.Any(static id => id == Guid.Empty)
+            || command.MovedViewIds.Distinct().Count() != command.MovedViewIds.Count
+            || command.BeforeViewId == Guid.Empty
+            || command.BeforeViewId is Guid before && command.MovedViewIds.Contains(before)
+            || command.ExpectedViewRevisions.Count != command.MovedViewIds.Count
+            || command.ExpectedViewRevisions.Keys.Any(id => !command.MovedViewIds.Contains(id)))
+        {
+            throw new AuthorSavedViewValidationException("saved_view_move_invalid");
+        }
+        string commandDigest = AuthorSavedViewStorageContract.ComputeCommandDigest(
+            MoveCommand,
+            command.ExpectedCollectionRevision,
+            string.Join(',', command.MovedViewIds),
+            command.BeforeViewId,
+            string.Join(',', command.ExpectedViewRevisions.OrderBy(static item => item.Key)
+                .Select(static item => $"{item.Key:D}:{item.Value}")));
+
+        return MutateAsync(
+            command.Owner,
+            command.RequestId,
+            commandDigest,
+            command.ExpectedCollectionRevision,
+            cancellationToken,
+            transaction =>
+            {
+                AuthorSavedView[] pinned =
+                [
+                    .. Active(transaction.Views)
+                        .Where(static view => view.Pinned)
+                        .OrderBy(static view => view.OrderKey)
+                        .ThenBy(static view => view.Id)
+                ];
+                Dictionary<Guid, AuthorSavedView> byId = pinned.ToDictionary(static view => view.Id);
+                foreach (Guid movedId in command.MovedViewIds)
+                {
+                    if (!byId.TryGetValue(movedId, out AuthorSavedView? moved))
+                    {
+                        throw new AuthorSavedViewValidationException("saved_view_move_set_mismatch");
+                    }
+                    EnsureViewRevision(moved, command.ExpectedViewRevisions[movedId]);
+                }
+                if (command.BeforeViewId is Guid anchorId && !byId.ContainsKey(anchorId))
+                {
+                    throw new AuthorSavedViewValidationException("saved_view_move_anchor_invalid");
+                }
+
+                HashSet<Guid> movedIds = command.MovedViewIds.ToHashSet();
+                var reordered = pinned.Where(view => !movedIds.Contains(view.Id)).ToList();
+                int insertionIndex = command.BeforeViewId is Guid anchor
+                    ? reordered.FindIndex(view => view.Id == anchor)
+                    : reordered.Count;
+                reordered.InsertRange(
+                    insertionIndex,
+                    command.MovedViewIds.Select(id => byId[id]));
+
+                DateTime now = UtcNow;
+                var changed = new List<AuthorSavedView>();
+                for (int index = 0; index < reordered.Count; index++)
+                {
+                    AuthorSavedView view = reordered[index];
+                    long orderKey = index + 1;
+                    if (view.OrderKey == orderKey)
+                    {
+                        continue;
+                    }
+                    changed.Add(view with
+                    {
+                        Revision = view.Revision + 1,
+                        OrderKey = orderKey,
+                        UpdatedAtUtc = now,
+                        ContentDigest = AuthorSavedViewStorageContract.ComputeViewDigest(
+                            view.Owner,
+                            view.Id,
+                            view.Revision + 1,
+                            view.Name,
+                            view.QueryDigest,
+                            view.DependencyDigest,
+                            true,
+                            orderKey,
+                            view.LifecycleState)
+                    });
+                }
+                if (changed.Count == 0)
+                {
+                    throw new AuthorSavedViewValidationException("saved_view_move_noop");
+                }
+
+                AuthorSavedViewCollection collection = BuildCollection(
+                    command.Owner,
+                    transaction.Collection.Revision + 1,
+                    transaction.Collection.DefaultViewId,
+                    transaction.Collection.ActiveViewCount,
+                    commandDigest);
+                return Mutation(
+                    collection,
+                    changed,
+                    [],
+                    command.MovedViewIds[0],
+                    MoveCommand,
+                    commandDigest,
+                    now);
             });
     }
 
@@ -836,7 +919,11 @@ public sealed class AuthorSavedViewStore(
                 reasons.Add($"saved_view_history_default_invalid:{receipt.ReceiptId:D}");
             }
             VerifyDefaultTransition(receipt, beforeReplay, replay, reasons);
-            VerifyReplayOrdering(receipt, replay, requireContiguous: receipt.CommandKind == ReorderCommand, reasons);
+            VerifyReplayOrdering(
+                receipt,
+                replay,
+                requireContiguous: receipt.CommandKind is ReorderCommand or MoveCommand,
+                reasons);
 
             collectionRevision = receipt.CollectionRevision;
             defaultViewId = receipt.DefaultViewId;
@@ -994,6 +1081,8 @@ public sealed class AuthorSavedViewStore(
                     .SetEquals(before.Where(static item => item.Value.Pinned
                         && item.Value.LifecycleState == AuthorSavedViewLifecycleState.Active)
                         .Select(static item => item.Key)),
+            MoveCommand => changes.Count > 0
+                && changes.All(static change => change.ChangeKind == AuthorSavedViewHistoryChangeKind.Upsert),
             _ => false
         };
         if (!exactSet)
@@ -1026,7 +1115,7 @@ public sealed class AuthorSavedViewStore(
                     && previous.DependencyDigest == next.DependencyDigest
                     && previous.LifecycleState == next.LifecycleState
                     && (next.Pinned ? next.OrderKey > 0 : next.OrderKey == 0),
-                ReorderCommand => previous.Name == next.Name
+                ReorderCommand or MoveCommand => previous.Name == next.Name
                     && previous.QueryDigest == next.QueryDigest
                     && previous.DependencyDigest == next.DependencyDigest
                     && previous.Pinned && next.Pinned
@@ -1669,20 +1758,6 @@ public sealed class AuthorSavedViewStore(
         }
     }
 
-    private static int ComparePosition(AuthorSavedView view, AuthorSavedViewPageCursor cursor)
-    {
-        int pinned = cursor.Pinned.CompareTo(view.Pinned);
-        if (pinned != 0)
-        {
-            return pinned;
-        }
-        int order = view.OrderKey.CompareTo(cursor.OrderKey);
-        return order != 0 ? order : view.Id.CompareTo(cursor.ViewId);
-    }
-
-    private static AuthorSavedViewPageCursor Cursor(AuthorSavedView view)
-        => new(view.Pinned, view.OrderKey, view.Id);
-
     private static void ValidateIdentity(AuthorSavedViewOwner owner, Guid viewId, Guid requestId)
     {
         AuthorSavedViewContract.ValidateOwner(owner);
@@ -1731,9 +1806,15 @@ public sealed class AuthorSavedViewStore(
 /// </summary>
 public interface IAuthorSavedViewPersistence
 {
-    Task<T> ReadAsync<T>(
+    Task<AuthorSavedView?> ReadViewAsync(
         AuthorSavedViewOwner owner,
-        Func<AuthorSavedViewPersistenceSnapshot, T> read,
+        Guid viewId,
+        CancellationToken cancellationToken = default);
+
+    Task<AuthorSavedViewPage> ReadPageAsync(
+        AuthorSavedViewOwner owner,
+        AuthorSavedViewPageCursor? cursor,
+        int limit,
         CancellationToken cancellationToken = default);
 
     Task<T> ExecuteAsync<T>(
@@ -1934,6 +2015,14 @@ public sealed record ReorderAuthorSavedViewsCommand(
     long ExpectedCollectionRevision,
     Guid RequestId,
     IReadOnlyList<Guid> OrderedViewIds,
+    IReadOnlyDictionary<Guid, long> ExpectedViewRevisions);
+
+public sealed record MoveAuthorSavedViewsCommand(
+    AuthorSavedViewOwner Owner,
+    long ExpectedCollectionRevision,
+    Guid RequestId,
+    IReadOnlyList<Guid> MovedViewIds,
+    Guid? BeforeViewId,
     IReadOnlyDictionary<Guid, long> ExpectedViewRevisions);
 
 public sealed record SetDefaultAuthorSavedViewCommand(

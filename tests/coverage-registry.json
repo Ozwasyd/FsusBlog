@@ -987,6 +987,23 @@
             ]
         },
         {
+            "id": "backend-author-saved-view-postgres-boundaries",
+            "description": "Author Saved View production dependency resolution and persistence retain PostgreSQL-backed taxonomy facts, fail-closed unavailable upstreams, bounded 0/1/1000 paging, single/batch pinned moves and one-statement audit history writes.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "tests/backend/Integration/AuthorSavedViewPostgresIntegrationTests.cs",
+                "tests/backend/Unit/AuthorSavedViewStoreTests.cs"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Reject a production provider that forges unavailable dependency facts, an owner read that materializes an unbounded snapshot, per-view reorder or audit writes, cross-owner/site reads, or a 1000-view page and move that loses deterministic ordering, CAS or receipt history.",
+            "minimumRequirement": "The backend unit lane must exercise bounded collection and batch-move semantics, and the integration lane must use real PostgreSQL to resolve taxonomy facts, fail closed for unavailable upstreams, page 1000 views, persist one batch reorder and verify one batched audit insert.",
+            "tierIds": [
+                "backend-unit",
+                "integration"
+            ]
+        },
+        {
             "id": "backend-static",
             "description": "Backend Static is covered by declared repository evidence that exercise the named behavior.",
             "owner": "ServerContractAgent",

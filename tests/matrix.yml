@@ -2662,6 +2662,7 @@ tiers:
           - backend-race-idempotency-model
           - backend-fault-race-readiness
           - backend-search-index-utf8-scalar-owner
+          - backend-author-saved-view-postgres-boundaries
           - backend-audit-behavior
           - backend-operations-readiness-behavior
           - backend-public-aot-artifact-behavior
@@ -2720,6 +2721,10 @@ tiers:
           - src/migration/SchemaMigrationExecution.cs
           - src/migration/SchemaMigrationManifest.cs
           - tests/backend/Unit/SearchIndexServiceTests.cs
+          - tests/backend/Unit/AuthorSavedViewStoreTests.cs
+          - tests/backend/Integration/AuthorSavedViewPostgresIntegrationTests.cs
+          - tools/governance/check-author-saved-view-storage-contract.mjs
+          - tests/tools/author-saved-view-storage-contract.test.mjs
           - tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs
           - tests/backend/Unit/UserSecurityStepUpServiceTests.cs
           - tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs
@@ -4573,6 +4578,7 @@ tiers:
           - backend-physical-account-subject-retirement
           - backend-online-schema-migration-protocol
           - backend-admin-console-persistence-behavior
+          - backend-author-saved-view-postgres-boundaries
           - backend-audit-behavior
           - backend-operations-readiness-behavior
           - backend-log-cleanup-behavior
@@ -4605,6 +4611,7 @@ tiers:
           - docs/anonymous-identity-smoke-flow.md
           - tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs
           - tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs
+          - tests/backend/Integration/AuthorSavedViewPostgresIntegrationTests.cs
           - tests/backend/Integration/UserSessionRevocationIntegrationTests.cs
           - tests/backend/user-session-revocation-evidence.json
           - tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs
