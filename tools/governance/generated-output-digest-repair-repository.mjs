@@ -19,7 +19,8 @@ const sandboxRoot = '/work';
 const sandboxNode = '/runtime/node';
 const trustedSystemPath = '/usr/bin:/bin';
 const sandboxExecutablePaths = Object.freeze({ bwrap: '/usr/bin/bwrap', strace: '/usr/bin/strace', ldd: '/usr/bin/ldd' });
-const absentRuntimeProbes = new Set(['/sys/devices/system/cpu/online', '/sys/devices/system/cpu/cpu0/tsc_freq_khz']);
+const absentRuntimeProbes = new Set(['/sys/devices/system/cpu/online', '/sys/devices/system/cpu/cpu0/tsc_freq_khz',
+    '/sys/fs/cgroup/memory.max', '/sys/fs/cgroup/memory.high']);
 
 function requireValue(condition, message)
 {
@@ -90,9 +91,7 @@ function parseTrace(text, producer, runtimeFiles)
 {
     const reads = new Set();
     const writes = new Set();
-    const runtimeDirectories = new Set(runtimeFiles.map((file) => path.posix.dirname(file)));
     let nodeExecutions = 0;
-    let producerLoaded = false;
     let deniedOperations = 0;
     const supervisorPids = new Set();
     const lines = text.split('\n');
@@ -112,7 +111,6 @@ function parseTrace(text, producer, runtimeFiles)
             const directoryDescriptor = line.match(/\bopenat(?:2)?\((?:AT_FDCWD|\d+)<([^>]+)>,/u)?.[1];
             const file = path.posix.resolve(directoryDescriptor ?? sandboxRoot, opened.file);
             requireValue(!opened.file.includes('\\'), 'escaped syscall path is unverifiable');
-            if (file === `${sandboxRoot}/${producer.command.arguments[0]}`) producerLoaded = true;
             if (file.startsWith(`${sandboxRoot}/`))
             {
                 const relative = file.slice(sandboxRoot.length + 1);
@@ -127,15 +125,13 @@ function parseTrace(text, producer, runtimeFiles)
                     if (!/\)\s+= -1/u.test(line)) reads.add(relative);
                 }
             }
-            // Successful non-repository reads during the Node execution are
-            // limited by the sparse mount namespace to its runtime files and
-            // procfs. Failed loader probes beneath those directories disclose
-            // no additional host data; no other host directories are mounted.
+            // Successful non-repository file reads must match an exact mount;
+            // sharing a mounted runtime file's directory confers no authority.
             else if (opened.flags.includes('O_WRONLY') || opened.flags.includes('O_RDWR'))
                 requireValue(false, `attempted write outside canonical output: ${file}`);
             else if (nodeExecutions > 0 && !runtimeFiles.includes(file) && !file.startsWith('/proc/')
-                && !file.startsWith('/dev/') && !runtimeDirectories.has(path.posix.dirname(file))
-                && ((producerLoaded && !absentRuntimeProbes.has(file)) || !/\)\s+= -1 ENOENT/u.test(line)))
+                && !file.startsWith('/dev/')
+                && (!absentRuntimeProbes.has(file) || !/\)\s+= -1 ENOENT/u.test(line)))
             {
                 requireValue(false, `attempted read outside the sparse runtime and source mounts: ${file}`);
             }
@@ -272,7 +268,7 @@ export function createGeneratedOutputDigestRepairRepository({ root, authorityRoo
                 assertRuntimeIdentities(tools.identities);
                 const trace = path.join(temporaryRoot, `pass-${pass}.strace`);
                 const sandboxArgs = [
-                    '--unshare-user', '--unshare-net', '--unshare-pid', '--unshare-ipc', '--unshare-uts',
+                    '--unshare-user', '--unshare-net', '--unshare-pid', '--unshare-ipc', '--unshare-uts', '--unshare-cgroup',
                     '--die-with-parent', '--new-session', '--cap-drop', 'ALL', '--clearenv',
                     '--setenv', 'LANG', 'C.UTF-8', '--setenv', 'LC_ALL', 'C.UTF-8', '--setenv', 'TZ', 'UTC',
                     '--setenv', 'OPENSSL_CONF', '/dev/null',
