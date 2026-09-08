@@ -491,7 +491,7 @@ commandGroups:
               access: "write"
               stage: "postbuild"
               reason: "Consumes the completed frontend dist tree and owns its asset-budget evidence."
-              consumedInputs: ["src/frontend/dist"]
+              consumedInputs: ["src/frontend/dist", "config/performance/static-client-payload-budget.v1.json", "config/schemas/static-client-payload-budget.schema.json", "tools/operations/static-client-payload-budget.mjs", "tests/frontend/checks/static/check-asset-size-budget.mjs"]
               ownedOutputs: [".tmp/frontend/asset-size-budget.json"]
               dependsOn: []
               resources: {cpuWeight: 1, memoryWeight: 0.75, minCpuUnits: 1, exclusiveResources: ["frontend-dist", "frontend-static-output"]}
@@ -2465,6 +2465,12 @@ tiers:
               tools/fact-extractors/openapi-aeds/extract.mjs,
               tools/contracts/check-openapi-sync.mjs,
               tests/tools/openapi-aeds-observation.test.mjs,
+              config/performance/static-client-payload-budget.v1.json,
+              config/schemas/static-client-payload-budget.schema.json,
+              tools/operations/static-client-payload-budget.mjs,
+              tests/frontend/checks/static/check-asset-size-budget.mjs,
+              tools/operations/check-publish-artifact-slimness.mjs,
+              tests/tools/static-client-payload-budget.test.mjs,
           ]
       ciJob: frontend-static-governance
       localOnly: false
@@ -3225,6 +3231,7 @@ tiers:
           - configuration-error-security-policy
           - article-comment-lifecycle-outbox
           - article-scale-plan-static-governance
+          - static-client-payload-baseline-contract
       artifacts:
           [
               .tmp/gate-logs,
@@ -3241,6 +3248,12 @@ tiers:
       evidence:
           - .tmp/gate-logs
           - .tmp/docs
+          - config/performance/static-client-payload-budget.v1.json
+          - config/schemas/static-client-payload-budget.schema.json
+          - tools/operations/static-client-payload-budget.mjs
+          - tests/frontend/checks/static/check-asset-size-budget.mjs
+          - tools/operations/check-publish-artifact-slimness.mjs
+          - tests/tools/static-client-payload-budget.test.mjs
           - .tmp/release-evidence/test-plan.json
           - .tmp/release-evidence/doc-sync-summary.json
           - .tmp/release-evidence/test-retention-audit.json
@@ -8462,6 +8475,14 @@ tiers:
       fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/release-evidence.sh
+      cacheInputs:
+          [
+              tools/test/lanes/release-evidence.sh,
+              tools/operations/check-publish-artifact-slimness.mjs,
+              tools/operations/static-client-payload-budget.mjs,
+              config/performance/static-client-payload-budget.v1.json,
+              config/schemas/static-client-payload-budget.schema.json,
+          ]
       executionDependsOn:
           [
               fast,
