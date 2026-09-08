@@ -9,6 +9,7 @@ import {
     collectProductionToolchain,
     verifyProductionBuildReceipt
 } from '../ci/production-build-artifacts.mjs';
+import { requireCleanAttemptConsumerAdmission } from '../release/browser-release-clean-attempt-consumers.mjs';
 import { snapshotGitWorktree } from '../test-matrix/scheduler.mjs';
 
 const digestPattern = /^sha256:[0-9a-f]{64}$/u;
@@ -1274,6 +1275,10 @@ export function createCandidateReceipt({
     createdAt
 })
 {
+    requireCleanAttemptConsumerAdmission({
+        consumerId: 'release-reliability',
+        repositoryRoot
+    });
     const receipt = {
         schema: 'fsusblog.release-reliability-candidate-receipt.v1',
         invocationId,

@@ -31,15 +31,13 @@ No object store, CDN or remote image API participates in this protocol.
 
 ## Operational rollback and degradation
 
-To stop physical cleanup without restarting the application, move queue deadlines forward in PostgreSQL:
+To stop physical cleanup without restarting the application, move queue deadlines forward in PostgreSQL using the [canonical cleanup-pause runbook](article-deletion-lifecycle.md#file-cleanup-and-operational-degradation). This leaves authoring and deletion available while retaining files. Do not delete ledger rows to pause cleanup. An application rollback must preserve `content_asset`, `content_asset_reference`, and `content_asset_cleanup_queue` because they remain the metadata, reference, and cleanup authorities.
 
 ```sql
 UPDATE article_asset_cleanup_queue
 SET not_before_utc = (now() AT TIME ZONE 'utc') + interval '7 days',
     updated_at_utc = now() AT TIME ZONE 'utc';
 ```
-
-This leaves authoring and deletion available while retaining files. Do not delete ledger rows to pause cleanup. An application rollback must preserve `content_asset`, `content_asset_reference`, and `content_asset_cleanup_queue` because they remain the metadata, reference, and cleanup authorities.
 ## Current rights fields
 
 <!-- fsus-doc-claim

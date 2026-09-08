@@ -1,6 +1,6 @@
 # HTTP/3 + QUIC local-equivalent experiment
 
-This is a Kestrel-only, single-process experiment for issue #1176. It does not publish a public endpoint, configure nginx/CDN, or support a claim about the public Internet. HTTP/3 remains off by default.
+This is a Kestrel-only, single-process experiment for issue #1176. It does not publish a public endpoint, configure nginx/CDN, or support a public-Internet claim. HTTP/3 remains off by default; the [testing strategy](../testing.md) remains the canonical test policy.
 
 ## Runtime contract
 

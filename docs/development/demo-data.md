@@ -25,7 +25,7 @@ The seed also creates a disabled mock `admin principal` handle,
 It has no Passkey credential and is not a root administrator.
 
 For real local admin access, use the local Passkey injection flow in
-[docs/development.md](../development.md#本地-passkey-注入), then complete the
+[docs/development.md](../development.md#local-passkey-injection), then complete the
 root admin bootstrap flow. Do not add password-based demo admins.
 
 ## Seed Contents
@@ -42,15 +42,13 @@ The seed inserts or refreshes:
 - one pending anonymous moderation queue comment
 - fictional audit/security events
 
-The seed does not include real production content, real domains, real emails, real IP addresses, real logs, tokens, or private identifiers.
+No real production content, real domains, real emails, real IP addresses, real logs, tokens, or private identifiers are included in the seed.
 
 The demo covers are deterministic SVG fixtures under
 `src/frontend/public/fixtures/`. They use the same `center-80` crop-safe area as
 the public home and article-detail renderers. Removing either `coverimageurl`
 is supported and intentionally falls back to the complete text hierarchy; the
 seed does not establish a requirement that published articles have covers.
-
-No real personal data, production logs, production domains, tokens, emails, or IP addresses are included.
 
 ## Repeatability
 

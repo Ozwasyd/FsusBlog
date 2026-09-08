@@ -307,7 +307,9 @@ checkpoint. During or after a qualified Contract, the marker is authoritative. I
 isolate writes and restore a verified backup or apply a forward repair with a
 compatible retained release.
 
-## 字段最终态表
+<a id="字段最终态表"></a>
+
+## Final-state field table
 
 The table below is the authoritative final-state inventory for legacy identity
 columns that are either removed from the physical schema or retained only for an
@@ -408,7 +410,7 @@ This migration does not write or serve a legacy `rights.aeds` artifact. Public r
 
 ## Account Subject Physical Projection Cutover
 
-本节是 account subject Expand、resumable backfill、完成查询与 rolling-schema nullable 边界的唯一迁移事实源。安全消费者与失败语义见 [账号 subject 物理投影](security.md#账号-subject-物理投影)，永久启动顺序见 [生产启动保护](architecture.md#生产启动保护)；迁移文档不重复维护请求期认证规则。
+This section is the sole migration authority for account-subject Expand, resumable backfill, completion queries, and the rolling-schema nullable boundary. The security consumer and failure semantics are in [Account Subject Physical Projection](security.md#account-subject-physical-projection); the permanent startup order is in [Production Startup Protection](architecture.md#production-startup-protection). This migration document does not duplicate request-time authentication rules.
 
 The anonymous-account cutover preserves existing accounts and comments. `20260711-pre-account-subject-hash-expand` adds nullable `sys_user.account_subject_hash` so the old and new binaries can overlap during a rolling deployment. `20260711-post-account-subject-hash-backfill` then scans missing or malformed rows in `id` keyset batches of 256 and computes each digest with the same C# `AccountSubjectHasher` used by account creation. The migration intentionally does not duplicate .NET case-folding in PostgreSQL SQL, and it is non-transactional so an interrupted run resumes from rows that still need projection.
 
@@ -434,13 +436,13 @@ Rollback does not require a destructive data action. Route traffic back to the p
 
 ## Retired runtime fallback migrations
 
-以下 finalization 是不可逆 cutover 的当前迁移入口，而不是请求期兼容开关：
+The following finalizers are current migration entry points for irreversible cutovers, not request-time compatibility switches:
 
-- `20260709-post-site-subscription-hmac-finalize` 将 subscription identity 固定为 `hmac-v1`，隔离 `sha256-legacy` rows，并断言遗留计数为零；运行时安全语义由 [作者工作台、订阅与 RUM 隐私](security.md#作者工作台订阅与-rum-隐私) 拥有。
-- `20260418-post-content-cleanup` 完成 `article_body` / `ArticleBody.MarkdownContent` 读取模型。候选环境缺失该 history 时必须保持 out of traffic 并补齐 migration，不能恢复 `a.content` schema probe 或 `COALESCE` fallback。
-- `20260709-post-clear-legacy-public-artifacts` 通过 `ClearLegacyPublicArtifactsStep` 一次性清理 legacy ArticleDetail AEDS artifact。该步骤不补偿且不重新暴露 admin manual clear action；当前 artifact 缺失时使用 rights recompute 与受支持的 V3 rebuild。
+- `20260709-post-site-subscription-hmac-finalize` fixes subscription identity to `hmac-v1`, isolates `sha256-legacy` rows, and asserts that the legacy count is zero; runtime security semantics are owned by [Authoring, comments, subscriptions, and telemetry](security.md#authoring-comments-subscriptions-and-telemetry).
+- `20260418-post-content-cleanup` completes the `article_body` / `ArticleBody.MarkdownContent` read model. If the candidate lacks this history, it must remain out of traffic until the migration is supplied; it must not restore the `a.content` schema probe or `COALESCE` fallback.
+- `20260709-post-clear-legacy-public-artifacts` clears legacy ArticleDetail AEDS artifacts once through `ClearLegacyPublicArtifactsStep`. The step is non-compensating and does not re-expose an admin manual-clear action; a missing current artifact uses rights recompute and the supported V3 rebuild.
 
-这些 migration 的生产 history/count 仍属于 release evidence；本地源码、测试通过或旧 issue 状态不能替代外部观察。
+Production history/count for these migrations remains release evidence; local source, passing tests, or an old issue status cannot replace external observation.
 
 The anonymous account schema keeps `sys_user` as its account container:
 
@@ -458,17 +460,17 @@ When `FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1` is enabled, application code must not 
 
 ## Content AssetId Cutover
 
-`20260826-post-content-asset-id-cutover` 是 exclusive、transactional 的一次性 Contract migration。它在同一事务中建立 `content_asset`、`content_asset_reference` 与 `content_asset_cleanup_queue`，然后从 current article、draft、revision、旧引用记录与 public asset root 枚举完整资产集。每个文件必须现场重算 byte length、SHA-256、MIME/extension 和图片尺寸；文件缺失、无法识别的本地 URL/媒体或 storage-key/hash 冲突都会列出定位键并回滚整个 migration。
+`20260826-post-content-asset-id-cutover` is an exclusive, transactional one-time Contract migration. In one transaction it creates `content_asset`, `content_asset_reference`, and `content_asset_cleanup_queue`, then enumerates the complete asset set from current articles, drafts, revisions, legacy references, and the public asset root. Each file must have byte length, SHA-256, MIME/extension, and image dimensions recomputed on site; missing files, unresolvable local URL/media, or storage-key/hash conflicts list the locating key and roll back the entire migration.
 
-`20260828-post-authoring-canvas-document` 是 additive、transactional 的
-Post-CodeFirst Expand migration。它建立 normalized private canvas document、
-node、frame membership、edge、receipt 与 idempotency tables；closed checks、
-owner/site index、document-scoped foreign keys 和 digest constraints 与
-[authoring canvas document boundary](architecture/authoring-canvas-document-boundary.md)
-一致。该 migration 不复制 article content，不建立 article/relation/property
-foreign key，也不导入 transient graph positions。
+`20260828-post-authoring-canvas-document` is an additive, transactional
+Post-CodeFirst Expand migration. It creates normalized private canvas document,
+node, frame membership, edge, receipt, and idempotency tables; closed checks,
+owner/site index, document-scoped foreign keys, and digest constraints follow the
+[authoring canvas document boundary](architecture/authoring-canvas-document-boundary.md).
+This migration does not copy article content, create article/relation/property
+foreign keys, or import transient graph positions.
 
-文件名为 canonical N-format UUID 时复用该 `AssetId`；为既有资产兼容也接受 canonical D-format，其余文件分配新 ID。最终引用边只从当前 source 内容重建。旧 cleanup due/retry/error 状态会迁移到 AssetId queue，但最终仍有引用的资产会取消清理并回到 `active`。验证通过后迁移删除四张 URL-identity 旧表；运行时不双写、不建 view/trigger alias，也不在新表缺行时回扫旧结构。Rollback 只能从已验证的 pre-cutover backup/WAL 恢复到隔离环境；不得在 live schema 重建 URL-identity 表。
+When a filename is a canonical N-format UUID, the migration reuses that `AssetId`; canonical D-format is also accepted for existing assets, and all other files receive a new ID. Final reference edges are rebuilt only from current source content. Legacy cleanup due/retry/error states move to the AssetId queue, while assets still referenced at the end are cancelled and returned to `active`. After verification, the migration drops four URL-identity legacy tables; runtime does not dual-write, create view/trigger aliases, or rescan the old structure when a new-table row is missing. Rollback can restore only a verified pre-cutover backup/WAL into an isolated environment; it must not rebuild URL-identity tables in the live schema.
 
 ## Read Event Retirement
 

@@ -1,24 +1,24 @@
-# 文章发布坐标迁移与一致性验证
+# Article publication-coordinate migration and consistency verification
 
-## 迁移范围
+The [publication-coordinate contract](../api/article-publication-revisions.md) defines the API model; this document defines its verification matrix.
 
-`20260719-pre-article-publication-coordinates` 执行 expand/backfill；
-`20260719-post-article-publication-consistency` 在 CodeFirst 完成后安装检查视图：
+## Migration scope
 
-1. 为 `article` 增加当前修订、当前发布和待发布时间；
-2. 创建不可变 `article_publication` 表和唯一版本号约束；
-3. 为 outbox 增加修订与发布坐标；
-4. 为历史文章补齐修订、权利快照和公开发布记录；
-5. 为尚未处理的历史 outbox 事件绑定迁移事务时的稳定坐标；
-6. 创建 `article_publication_consistency_v1` 只读一致性视图。
+`20260719-pre-article-publication-coordinates` performs expand/backfill;
+`20260719-post-article-publication-consistency` installs the check view after CodeFirst:
 
-迁移不会改写已处理事件。历史 pending/retry 事件无法恢复其原始时刻不存在的发布
-坐标，因此明确绑定到迁移事务中的当前稳定版本；迁移后的所有新事件必须在写入时
-携带精确坐标。
+1. add current revision, publication, and pending-publication time to `article`;
+2. create immutable `article_publication` with a unique version constraint;
+3. add revision/publication coordinates to the outbox;
+4. backfill historical articles with revision, rights snapshot, and public publication records;
+5. bind unprocessed historical outbox events to the migration transaction's stable coordinate;
+6. create read-only view `article_publication_consistency_v1`.
 
-## 一致性查询
+The migration never rewrites processed events. Historical pending/retry events cannot recover a publication coordinate absent at their original time, so they explicitly bind to the migration transaction's current stable version. Every post-migration event must carry exact coordinates when written.
 
-部署前后运行：
+## Consistency query
+
+Run before and after deployment:
 
 ```sql
 SELECT issue, COUNT(*)
@@ -27,21 +27,21 @@ GROUP BY issue
 ORDER BY issue;
 ```
 
-预期结果为空。检查器覆盖：公开文章缺少发布指针、发布记录缺少修订、发布记录中的
-修订号不匹配、权利快照不匹配，以及 pending/retry outbox 缺少精确修订坐标。
+The expected result is empty. The checker covers a public article without a publication pointer, a publication without a revision, revision-number and rights-snapshot mismatches, and pending/retry outbox entries without exact revision coordinates.
 
-## 本地验收矩阵
+## Local acceptance matrix
 
-验收只使用本地 PostgreSQL、固定 UTC 时间、单进程 worker 和仓库内数据：
+Acceptance uses only local PostgreSQL, a fixed UTC clock, a single-process
+worker, and repository data:
 
-- 匿名请求：公开列表与详情保持同一 `publicationNo`，定时点前仍读旧版本；
-- 登录请求：私有详情可见当前编辑 `revisionNo`，公开坐标仍保持旧版本；
-- admin 请求：立即发布、定时发布、归档、恢复、修订回滚均经过统一转换入口；
-- 状态矩阵：固定 UTC 时钟覆盖 5×5 源/目标组合，以及 create、rollback、restore、scheduled worker 的操作约束；
-- validation：未知枚举、缺失/到期计划时间、非定时状态夹带时间、直接写 `Deleted` 各自断言稳定 error details code；
-- notification stream：事件预览与 outbox 固定到相同修订/发布坐标；
-- binary：新坐标随列表/详情投影传递，旧缓存版本仍可读取；
-- AOT、搜索、缓存：同一文章的公开内容与发布记录所指修订一致；
-- 失败注入：发布记录、指针或 outbox 任一步失败时事务回滚，旧公开版本保持可读。
+- anonymous: list/detail retain the same `publicationNo`; before the scheduled time, the old version remains readable;
+- signed-in: private detail exposes current editing `revisionNo` while the public coordinate remains old;
+- admin: immediate/scheduled publish, archive, restore, and revision rollback use the shared transition entry point;
+- state matrix: a fixed UTC clock covers all 5x5 source/target combinations and create, rollback, restore, and scheduled-worker constraints;
+- validation: unknown enums, missing/expired schedule time, time on a non-scheduled state, and direct `Deleted` writes each assert a stable error details code;
+- notification stream: event preview and outbox retain identical revision/publication coordinates;
+- binary: new coordinates flow through list/detail projections and old cache versions remain readable;
+- AOT, search, and cache: each article's public content and publication record point to the same revision;
+- fault injection: failure in a publication record, pointer, or outbox write rolls back the transaction and leaves the old public version readable.
 
-不使用完整生产环境、PR、release 或外部验证平台作为本议题验收条件。
+Full production environments, PRs, releases, and external validation platforms are not acceptance requirements for this issue.

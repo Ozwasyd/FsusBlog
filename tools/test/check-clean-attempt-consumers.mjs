@@ -32,6 +32,17 @@ try
             throw new Error(`${relative} must call the unified verifier exactly once`);
         }
     }
+    for (const consumer of direct.consumers)
+    {
+        for (const entrypoint of consumer.entrypoints)
+        {
+            const source = fs.readFileSync(path.join(root, entrypoint), 'utf8');
+            if (!/requireCleanAttemptConsumerAdmission\s*\(/u.test(source))
+            {
+                throw new Error(`${entrypoint} must call requireCleanAttemptConsumerAdmission`);
+            }
+        }
+    }
     const semanticSource = fs.readFileSync(path.join(root, adapters[2]), 'utf8');
     if (/child_process|readdirSync|statSync|from\s+['"][^'"]*(?:immutable-build|release-projection|release-finalizer)-adapter/u.test(semanticSource))
     {

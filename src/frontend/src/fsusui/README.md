@@ -1,8 +1,6 @@
 # FsusUI Adapter Boundary
 
-`src/frontend/src/fsusui/` is the FsusBlog adapter boundary for FsusUI. Code here may import `@ozwasyd/element-plus` and package subpaths, normalize them into Blog-owned names, and expose stable contracts to the rest of the application.
-
-`src/frontend/src/components/ui/` is the Blog shell layer. Files there may compose FsusUI-backed adapters, but their props, emits, slots and copy must stay shaped around FsusBlog workflows. They must not become a second FsusUI barrel or a place for package runtime internals.
+`src/frontend/src/fsusui/` is the FsusBlog adapter boundary for FsusUI: code here may import `@ozwasyd/element-plus` and package subpaths, normalize them into Blog-owned names, and expose stable application contracts. `src/frontend/src/components/ui/` is the Blog shell layer; its files may compose FsusUI-backed adapters, but props, emits, slots, and copy must stay shaped around FsusBlog workflows rather than becoming a second FsusUI barrel or package-runtime internals.
 
 ## Adapter API
 
@@ -16,33 +14,15 @@ the behavior it adds beyond its package re-exports.
 | Semantic policy adapter | `blogMotion.ts`, `dialog.ts`, `primitiveAdapters.ts`, `publicShell.ts`, `renderPipeline.ts` | Map an explicit Blog policy to a public FsusUI contract without duplicating package markup or CSS. |
 | Barrel | `index.ts` | Publish the stable Blog-side adapter surface; it contains no implementation. |
 
-Type-preserving component adapters must use named re-exports. `as Component`,
-namespace casts and one-line wrapper components erase package prop, slot and emit
-types and are forbidden. Runtime adapters are allowed only when they install a
-provider, activate a package runtime, invoke a programmatic API or translate a
-real FsusBlog policy. Semantic adapters may choose policy values, but must not
-copy generic FsusUI DOM, styles or internal BEM selectors into Blog code.
+Type-preserving component adapters must use named re-exports; `as Component`, namespace casts, and one-line wrapper components erase package prop, slot, and emit types and are forbidden. Runtime adapters are allowed only when they install a provider, activate a package runtime, invoke a programmatic API, or translate a real FsusBlog policy. Semantic adapters may choose policy values but must not copy generic FsusUI DOM, styles, or internal BEM selectors into Blog code.
 
-`taskPageHeader.ts` is the only account/admin task-heading boundary. It re-exports
-the upstream `FsusTaskPageHeader` as `FsusUiTaskPageHeader`, preserving its
-typed props and slots. FsusBlog owns page copy, actions and the composition
-margin after the header; it must not recreate the component's title,
-description, action layout or mobile stacking CSS.
+`taskPageHeader.ts` is the only account/admin task-heading boundary. It re-exports the upstream `FsusTaskPageHeader` as `FsusUiTaskPageHeader`, preserving typed props and slots. FsusBlog owns page copy, actions, and the composition margin after the header; it must not recreate the component's title, description, action layout, or mobile stacking CSS.
 
-Identity and profile settings must consume the generic settings/resource
-primitives through this boundary. FsusBlog owns account data, security policy,
-confirmation flows and copy; it must not recreate generic resource rows,
-metadata layout, inline action placement, empty states or destructive panels.
+Identity and profile settings must consume the generic settings/resource primitives through this boundary. FsusBlog owns account data, security policy, confirmation flows, and copy; it must not recreate generic resource rows, metadata layout, inline action placement, empty states, or destructive panels.
 
-`publicShell.ts` re-exports the alias-resolved `ElPublicShell` component and
-defines the stable `inline | menu | bottom | none` mobile-navigation policy.
-`PublicBlogLayoutShell` selects `menu` explicitly; workspace alias resolution is
-source consumption, not an npm publication.
+`publicShell.ts` re-exports the alias-resolved `ElPublicShell` component and defines the stable `inline | menu | bottom | none` mobile-navigation policy. `PublicBlogLayoutShell` selects `menu` explicitly; workspace alias resolution is source consumption, not an npm publication.
 
-`theme.ts` re-exports the FsusUI public theme-mode contract. It must import
-`ThemeMode`, `ResolvedTheme`, `themeModes`, `normalizeThemeMode`, `syncThemeMode`
-and test helpers from `@ozwasyd/element-plus/theme` instead of declaring local
-equivalents.
+`theme.ts` re-exports the FsusUI public theme-mode contract. It must import `ThemeMode`, `ResolvedTheme`, `themeModes`, `normalizeThemeMode`, `syncThemeMode`, and test helpers from `@ozwasyd/element-plus/theme` instead of declaring local equivalents.
 
 `motion.ts` owns the auditable Blog-side motion boundary: it re-exports the FsusUI runtime (`FsuMotion`, `vMotion`, `useScrollReveal`, `runMotion`, motion types) and keeps Blog-owned surface mappings such as `FsusBlogMotionSurface` and `fsusBlogMotionPresets`. `blogMotion.ts` remains as a compatibility re-export for existing call sites. `perceptionCharacterChallenge.ts` exposes the public character primitive and protocol-neutral media types; V3 transport and workflow code consume only this adapter. Add new adapters to `index.ts` only when they are intended as general Blog adapter API; otherwise import them explicitly from call sites.
 
@@ -70,9 +50,7 @@ the checker allowlist.
 
 ## Theme Runtime Split
 
-`fsusui/theme.ts` owns only the FsusUI adapter contract: downstream Blog code gets the canonical `ThemeMode` type and theme-mode helpers from FsusUI through this file.
-
-`src/frontend/src/services/themeRuntime.ts` remains Blog-owned. It wraps that FsusUI contract with the Blog storage key, SSR boot order, Vue readonly state and `system` mode synchronization required by the public shell.
+`fsusui/theme.ts` owns only the FsusUI adapter contract, providing downstream Blog code with the canonical `ThemeMode` type and theme-mode helpers from FsusUI. `src/frontend/src/services/themeRuntime.ts` remains Blog-owned; it wraps that contract with the Blog storage key, SSR boot order, Vue readonly state, and `system` mode synchronization required by the public shell.
 
 ## Enforcement
 

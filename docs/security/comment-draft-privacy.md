@@ -1,51 +1,44 @@
 # Comment draft privacy
 
-## 安全目标
+## Security goals
 
-评论草稿按发布身份分成两个边界：
+Draft persistence follows the publishing identity:
 
-- `zk_anonymous`：正文仅保存在当前 Vue 组件内存；刷新、关闭标签页或重启浏览器后不可恢复。
-- `public`：用户明确打开“公开显示我的名称”后，正文可以 best-effort 写入 `localStorage`，用于刷新和浏览器重启后的恢复。
+- `zk_anonymous`: the body exists only in current Vue-component memory and cannot be recovered after refresh, tab close, or browser restart.
+- `public`: after the user explicitly enables “show my name publicly,” the body may be best-effort persisted in `localStorage` for refresh/restart recovery.
 
-当前阶段不提供 PRF 加密 vault，也不把匿名正文写入 `sessionStorage`、IndexedDB 或 Cache Storage。未来若引入加密持久化，必须单独完成 key lifecycle、cross-account unlinkability、recovery、migration 与浏览器备份威胁模型，不能复用 credential vault 的结论。
+There is no PRF-encrypted vault, and anonymous bodies never enter `sessionStorage`, IndexedDB, or Cache Storage. Future encrypted persistence needs a separate key-lifecycle, cross-account-unlinkability, recovery, migration, and browser-backup threat-model review; it cannot reuse the [credential-vault](comment-privacy-credential-vault.md) conclusion.
 
-## 存储契约
+## Storage contract
 
-公开草稿使用 `fsus:comment-public-draft:v2:<local-scope>:<article>:<reply>`。`local-scope` 是浏览器端密码学随机值，不由 account id 哈希或编码得到；账号退出、切换、过期、删除和 panic wipe 时 scope 与草稿一起删除，因此不同账号生命周期无法通过 key 比较。payload 只包含：
+The public key is `fsus:comment-public-draft:v2:<local-scope>:<article>:<reply>`. `local-scope` is browser-cryptographic random data, never an account-id hash/encoding. Logout, account switch, expiry, deletion, and panic wipe delete the scope with its draft, so keys cannot compare account lifecycles. The payload contains only schema `version = 2`, public body, `savedAt`, and `policyHash`; it excludes `authorMode`, `publicSendConfirmed`, account id, and anonymous credential/proof. Initialization does not migrate `fsus:comment-draft:v1:*` (which may contain raw account IDs and anonymous plaintext); it deletes those entries.
 
-- schema `version = 2`；
-- public 正文；
-- `savedAt`；
-- `policyHash`。
+## Lifecycle and cleanup
 
-payload 不保存 `authorMode`、`publicSendConfirmed`、account id 或匿名 credential/proof。旧 `fsus:comment-draft:v1:*` 可能同时含原始账号 ID 和匿名明文，初始化时不迁移正文，直接删除。
-
-## 状态与清理
-
-| 事件 | public 持久草稿 | anonymous 内存草稿 | 发布行为 |
+| Event | Public persistent draft | Anonymous memory draft | Publish behavior |
 | --- | --- | --- | --- |
-| public 编辑、policy hash 相同 | 保存并可自动恢复 public 模式 | 无 | 正常 |
-| public 切到 anonymous | 先删除同一公开副本 | 正文留在当前内存 | 删除失败则匿名 fail closed |
-| policy hash 改变 | 保留为待审查候选 | 不自动载入 | 用户点“审查草稿”后正文才进入编辑器，身份重置 |
-| logout / account switch / session expiry / account deletion | 清除 scope 与全部草稿 | 清除 | 新账号重新生成 scope |
-| credential revoked / issuer key rotation / root retired / epoch changed | 不影响无关 public 草稿 | 清除当前匿名正文 | 重新准备 credential 后再编辑 |
-| feature disabled | 不影响无关 public 草稿 | 清除当前匿名正文 | 匿名入口关闭，public 仍需明确选择 |
-| panic / shared-device / migration failure | 清除 scope、legacy 与全部草稿 | 清除 | 只允许从干净状态重新开始 |
+| Public edit with the same policy hash | Save and auto-restore public mode | None | Normal |
+| Public → anonymous | Delete the matching public copy first | Keep current memory | Deletion failure fails anonymous closed |
+| Policy hash change | Keep as review candidate | Do not auto-load | User explicitly reviews; body enters editor and identity resets |
+| Logout/account switch/session expiry/account deletion | Delete scope and all drafts | Clear | New account creates a new scope |
+| Credential revoked/issuer-key rotation/root retired/epoch changed | Unrelated public drafts survive | Clear current anonymous body | Prepare a new credential before editing |
+| Feature disabled | Unrelated public drafts survive | Clear current anonymous body | Anonymous entry closes; public still requires explicit choice |
+| Panic/shared-device/migration failure | Delete scope, legacy entries, and all drafts | Clear | Restart only from clean state |
 
-存储 API 完全不可用时，公开草稿退化为内存行为，匿名模式不会获得新的持久 sink。若浏览器允许读取旧副本但拒绝删除，界面显示清理失败并暂停匿名提交，避免磁盘上的公开副本与新匿名正文形成可关联副本。
+If storage APIs are unavailable, public drafts become memory-only and anonymous mode gains no persistent sink. If an old copy is readable but cannot be deleted, show cleanup failure and pause anonymous submission so the disk copy cannot be linked to new anonymous text.
 
-## 自动化门禁
+## Automated gates
 
-`tools/security/check-comment-draft-privacy.mjs` 约束：
+`tools/security/check-comment-draft-privacy.mjs` requires that:
 
-1. composer 不直接拥有 Web Storage、IndexedDB 或 Cache Storage 写入 sink；
-2. 唯一持久 owner 的类型与运行时校验只接受 public draft payload；
-3. 存储 owner 不含 account id、author mode、public confirmation 或 `zk_anonymous`；
-4. registry 同时登记 v2 public prefix、local scope 与 v1 legacy purge；
-5. 扫描 frontend source，拒绝匿名模式与浏览器持久写入重新相邻出现。
+1. The composer owns no Web Storage, IndexedDB, or Cache Storage write sink.
+2. The sole persistent owner and runtime validator accept only public payloads.
+3. The owner contains no account id, author mode, public confirmation, or `zk_anonymous`.
+4. The registry records the v2 public prefix, local scope, and v1 legacy purge.
+5. Frontend scanning rejects anonymous mode becoming adjacent to persistent browser writes.
 
-定向行为测试覆盖 public/anonymous 切换、同 policy 恢复、policy 变化显式审查、账号切换、credential epoch 清理、legacy 清理失败和 scope 轮换。
+Focused behavior tests cover public/anonymous switching, same-policy recovery, explicit review after policy changes, account switch, credential-epoch cleanup, legacy cleanup failure, and scope rotation.
 
-## 风险与无需重启的降级
+## Risk and no-restart degradation
 
-公开草稿仍是浏览器明文，因此只允许保存用户已明确选择公开署名的正文；站点数据备份、浏览器同步和恶意扩展仍可读取它。遇到清理或匿名生命周期异常时，可通过 reloadable 配置热更新 `AnonymousIdentity:ZkAnonymousCommentsEnabled=false` 或 `AnonymousIdentity:ZkProd:Enabled=false`。下一次 policy 刷新触发 `feature-disabled` purge，匿名内存正文被清除，公开评论与公开草稿继续工作；需要更强处置时使用现有 panic wipe 清除所有 FsusBlog 私有浏览器状态。该降级不改变 admin、notification stream 或 binary API 契约，也不需要服务端重启。
+Public drafts remain browser plaintext and may be read by site backups, browser sync, or malicious extensions; only explicitly public-name content may persist. On cleanup or anonymous-lifecycle failure, hot-reload `AnonymousIdentity:ZkAnonymousCommentsEnabled=false` or `AnonymousIdentity:ZkProd:Enabled=false`. The next policy refresh performs a `feature-disabled` purge, clears anonymous memory, and leaves public comments and drafts working. Stronger response uses the existing panic wipe for all FsusBlog private browser state. This does not change admin, notification-stream, or binary API contracts and needs no backend restart.
