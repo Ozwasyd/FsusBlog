@@ -1,6 +1,6 @@
 # Digest-only generated repair v2 implementation draft
 
-Status: implementation design for #3275, not a current authority or an accepted repair receipt. The current contract remains [Change contract](../../docs/development/change-contract.md). #3274 stays generated-only and cannot use this policy until a separate owner-controlled policy bootstrap has entered the trusted base.
+Status: implementation design for #3275, not a current authority or an accepted repair receipt. The current contract remains [Change contract](../../docs/development/change-contract.md). The original #3274 inventory baseline was independently resolved by merged PR #3282 using its ordinary generated binding; no additional baseline is needed. This reusable v2 policy is not enabled until its canonical closure, checker dispatch and separate owner-controlled trusted-policy bootstrap are complete.
 
 ## First checkpoint
 
@@ -88,6 +88,6 @@ Source history may contain a later owner-controlled policy bootstrap that is out
 2. Add a minimal v2-only dispatch and trusted registration after shared-writer coordination. Preserve all v1 and DAG v2 behavior and run their existing regression suites.
 3. Add the canonical manifest producer using the same adapter, then update the maintained Change contract paragraph without changing the old acceptance semantics.
 4. Review and land the policy bootstrap through the existing authority path. An expected old-checker policy rejection is not a successful check.
-5. Only after that base exists, refresh #3274 by a normal merge and replace its invalid ordinary binding with the v2 manifest. Verify it using the trusted-base checker and the actual eight fresh replay instances.
+5. For a future independently authorized repair, require the enabled policy in its trusted base, then verify its v2 manifest using the trusted-base checker and the actual eight fresh replay instances. Do not recreate the already merged #3274 baseline.
 
-Estimated remaining work: one source owner, approximately two to four hours for the adapter, narrow dispatch, real-history negatives and independent review; the estimate does not include waiting for policy promotion or claim acceptance for #3274.
+Remaining work is the canonical closure qualification, narrow dispatch and registration, manifest producer, maintained contract update and independent policy review. The small real-Git tests above are not production qualification and the resolved #3274 baseline does not activate this policy.
