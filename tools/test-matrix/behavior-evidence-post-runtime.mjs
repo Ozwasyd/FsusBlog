@@ -6,6 +6,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { digestCatalog } from '../contracts/behavior-contract-catalog.mjs'
 import * as schedulerOwner from './scheduler-run-owner.mjs'
+import * as schedulerAuthority from './scheduler.mjs'
 import { assertPreRuntimeQualified } from './behavior-evidence-pre-runtime.mjs'
 import { validateCurrentRunEvidenceContext } from '../test/evidence-location-contract.mjs'
 import { validateJsonSchema } from './schema-validator/validate.mjs'
@@ -19,6 +20,49 @@ import {
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 export const postRuntimeReceiptSchema = 'fsusblog.behavior-evidence-post-runtime-receipt.v1'
+
+export function verifyPostRuntimeSchedulerEvidence({
+    admission, reference, verificationMode, schedulerVerificationContext,
+    schedulerOutputRefs, repositoryRoot = root
+})
+{
+    if (!['running', 'completed-tier', 'completed-run'].includes(verificationMode))
+    {
+        fail('explicit scheduler verification mode is required')
+    }
+    if (!schedulerVerificationContext) fail('independent scheduler verification context is required')
+    if (typeof schedulerAuthority.assertSchedulerVerificationContext !== 'function')
+    {
+        fail('canonical scheduler verification context authority is required from #2205')
+    }
+    schedulerAuthority.assertSchedulerVerificationContext(schedulerVerificationContext)
+    const expected = schedulerVerificationContext
+    if (admission.runId !== expected.runId || admission.targetTierId !== expected.targetTierId
+        || admission.currentTierId !== 'behavior-evidence-post-runtime'
+        || authorityDigest(admission.sourceState) !== authorityDigest(expected.sourceState)
+        || admission.schedulerCandidateIdentityDigest !== expected.expectedCandidateIdentityDigest)
+    {
+        fail('scheduler admission does not match independent caller context')
+    }
+    const runsRoot = path.join(repositoryRoot, '.tmp/test-runs')
+    if (verificationMode === 'running')
+    {
+        const activity = schedulerOwner.schedulerTierAdmissionActivity({ runsRoot, admission, reference })
+        if (activity.status !== 'active') fail(`scheduler admission is not authoritative: ${activity.status}:${activity.reason}`)
+        return activity
+    }
+    return schedulerAuthority.verifyCompletedSchedulerTierEvidence({
+        root: repositoryRoot, runsRoot, runId: expected.runId,
+        tierId: 'behavior-evidence-post-runtime', admission, admissionReference: reference,
+        expectedSourceState: expected.sourceState,
+        expectedCandidateIdentityDigest: expected.expectedCandidateIdentityDigest,
+        tiers: expected.tiers,
+        expectedOutputRefs: schedulerOutputRefs ?? schedulerAuthority.collectSchedulerVerificationOutputRefs({
+            context: expected, tierId: 'behavior-evidence-post-runtime', root: repositoryRoot
+        }),
+        mode: verificationMode
+    })
+}
 
 const stable = (value) => Array.isArray(value)
     ? value.map(stable)
@@ -290,6 +334,9 @@ export function joinBehaviorEvidencePostRuntime({
     acceptedClaimsReceipts,
     executionContext,
     schedulerEvidence,
+    verificationMode,
+    schedulerVerificationContext,
+    schedulerOutputRefs,
     repositoryRoot = root,
     ...unsupported
 } = {})
@@ -334,15 +381,14 @@ export function joinBehaviorEvidencePostRuntime({
     }
     const expectedRef = `.tmp/test-runs/${admission.runId}/scheduler-admissions/${admission.schedulerOwnerToken}-${admission.admissionSequence}-${admission.currentTierId}.json`
     if (scheduler.ref !== expectedRef) fail('scheduler admission path identity mismatch')
-    const activity = schedulerOwner.schedulerTierAdmissionActivity({
-        runsRoot: path.join(repositoryRoot, '.tmp/test-runs'), admission,
+    verifyPostRuntimeSchedulerEvidence({
+        repositoryRoot, admission, verificationMode, schedulerVerificationContext, schedulerOutputRefs,
         reference: {
             schema: admission.schema, ref: scheduler.ref, fileDigest: scheduler.fileDigest,
             contentDigest: admission.contentDigest, currentTierId: admission.currentTierId,
             admissionSequence: admission.admissionSequence
         }
     })
-    if (activity.status !== 'active') fail(`scheduler admission is not authoritative: ${activity.status}:${activity.reason}`)
     const receipt = {
         schema: postRuntimeReceiptSchema, scope: 'post-runtime', runIdentity: pre.runIdentity,
         sourceIdentity: pre.sourceIdentity,
@@ -414,6 +460,11 @@ function parseArgs(argv)
         else if (arg === '--accepted-claims') options.acceptedClaimsReceipts.push(argv[++index])
         else if (arg === '--scheduler-evidence') options.schedulerEvidence = argv[++index]
         else if (arg === '--execution-context') options.executionContext = argv[++index]
+        else if (arg === '--verification-mode') options.verificationMode = argv[++index]
+        else if (arg === '--scheduler-context') options.schedulerContext = argv[++index]
+        else if (arg === '--scheduler-context-digest') options.schedulerContextDigest = argv[++index]
+        else if (arg === '--scheduler-run-id') options.schedulerRunId = argv[++index]
+        else if (arg === '--scheduler-candidate-digest') options.schedulerCandidateDigest = argv[++index]
         else if (arg === '--verify-receipt') options.verifyReceipt = argv[++index]
         else if (arg === '--out') options.out = argv[++index]
         else fail(`unknown argument ${arg}`)
@@ -426,6 +477,22 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     try
     {
         const options = parseArgs(process.argv.slice(2))
+        if (!['running', 'completed-tier', 'completed-run'].includes(options.verificationMode))
+        {
+            fail('explicit scheduler verification mode is required')
+        }
+        if (!options.verifyReceipt && options.verificationMode !== 'running') fail('receipt production requires running verification')
+        if (typeof schedulerAuthority.readSchedulerVerificationContext !== 'function')
+        {
+            fail('canonical scheduler verification context authority is required from #2205')
+        }
+        const schedulerVerificationContext = schedulerAuthority.readSchedulerVerificationContext({
+            file: options.schedulerContext,
+            expectedContentDigest: options.schedulerContextDigest,
+            expectedRunId: options.schedulerRunId,
+            expectedSourceState: await schedulerAuthority.snapshotSourceState(root),
+            expectedCandidateIdentityDigest: options.schedulerCandidateDigest
+        })
         if (options.observationDirectory)
         {
             if (options.observationReceipts.length > 0) fail('observation directory and explicit receipt list are mutually exclusive')
@@ -438,7 +505,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
             observationReceipts: options.observationReceipts,
             acceptedClaimsReceipts: options.acceptedClaimsReceipts,
             executionContext: options.executionContext,
-            schedulerEvidence: options.schedulerEvidence
+            schedulerEvidence: options.schedulerEvidence,
+            verificationMode: options.verificationMode,
+            schedulerVerificationContext
         }
         if (options.verifyReceipt && options.out) fail('--verify-receipt and --out are mutually exclusive')
         const receipt = options.verifyReceipt

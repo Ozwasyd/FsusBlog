@@ -15,6 +15,7 @@ import {
     joinBehaviorEvidencePostRuntime,
     joinPostRuntimeIdentities,
     postRuntimeObservationPaths,
+    verifyPostRuntimeSchedulerEvidence,
     validatePostRuntimeReceipt
 } from '../../tools/test-matrix/behavior-evidence-post-runtime.mjs'
 import { authorityDigest, loadPostRuntimeProducerRegistry } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
@@ -22,6 +23,18 @@ import { authorityDigest, loadPostRuntimeProducerRegistry } from '../../tools/te
 const commit = 'a'.repeat(40)
 const worktreeFingerprint = 'b'.repeat(64)
 const runId = 'post-runtime-round-1'
+
+test('scheduler replay requires an explicit phase and independent caller context before inspecting admission', () =>
+{
+    for (const verificationMode of [undefined, 'active', 'success', 'auto'])
+    {
+        assert.throws(() => verifyPostRuntimeSchedulerEvidence({ verificationMode }), /explicit scheduler verification mode/u)
+    }
+    for (const verificationMode of ['running', 'completed-tier', 'completed-run'])
+    {
+        assert.throws(() => verifyPostRuntimeSchedulerEvidence({ verificationMode }), /independent scheduler verification context/u)
+    }
+})
 
 test('post-runtime class paths derive only the current registry roster published by the observation bundle', () =>
 {

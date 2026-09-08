@@ -27,6 +27,11 @@ ARGS=(
     --accepted-claims "$CLAIMS_DIR/accepted-claims.json"
     --execution-context "$CONTEXT"
     --scheduler-evidence "$SCHEDULER_EVIDENCE"
+    --verification-mode running
+    --scheduler-run-id "$RUN_ID"
+    --scheduler-context "${FSUSBLOG_SCHEDULER_VERIFICATION_CONTEXT:?FSUSBLOG_SCHEDULER_VERIFICATION_CONTEXT is required}"
+    --scheduler-context-digest "${FSUSBLOG_SCHEDULER_VERIFICATION_CONTEXT_DIGEST:?FSUSBLOG_SCHEDULER_VERIFICATION_CONTEXT_DIGEST is required}"
+    --scheduler-candidate-digest "${FSUSBLOG_SCHEDULER_CANDIDATE_IDENTITY_DIGEST:?FSUSBLOG_SCHEDULER_CANDIDATE_IDENTITY_DIGEST is required}"
 )
 
 "$NODE_BIN" "$ROOT_DIR/tools/test-matrix/behavior-evidence-post-runtime.mjs" "${ARGS[@]}" --out "$OUTPUT"
