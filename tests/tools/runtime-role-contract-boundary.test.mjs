@@ -5,6 +5,7 @@ import test from 'node:test'
 
 import { root } from '../../tools/fact-extractors/registry.mjs'
 import { resolveDotnetProjectSourceClosure } from '../../tools/fact-extractors/identity.mjs'
+import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs'
 
 const runtimeProject = 'tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj'
 
@@ -47,6 +48,9 @@ test('runtime-role schemas are independent strict contracts', () => {
   assert.notEqual(observation, deployment)
   assert.ok(observation.properties.deploymentAuthority)
   assert.ok(deployment.properties.ownership)
+  assert.match(validateJsonSchema({}, observation).join('\n'), /must have required property/u)
+  assert.match(validateJsonSchema({}, deployment).join('\n'), /must have required property/u)
+  assert.match(validateJsonSchema({ schema: 'fsusblog.runtime-role-observation.v2', extra: true }, observation).join('\n'), /must NOT have additional properties/u)
 })
 
 test('runtime-role CLI validates both output paths against the repository root', () => {
