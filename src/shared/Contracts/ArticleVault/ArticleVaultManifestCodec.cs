@@ -156,6 +156,12 @@ public static class ArticleVaultManifestCodec
     public static string ComputeSha256(ReadOnlySpan<byte> bytes)
         => Convert.ToHexStringLower(SHA256.HashData(bytes));
 
+    internal static byte[] SerializeCanonical<T>(T value)
+        => JsonSerializer.SerializeToUtf8Bytes(value, s_jsonOptions);
+
+    internal static T? DeserializeCanonical<T>(ReadOnlySpan<byte> utf8)
+        => JsonSerializer.Deserialize<T>(utf8, s_jsonOptions);
+
     public static VaultSourceByteIdentity CaptureSourceBytes(ReadOnlySpan<byte> bytes)
     {
         bool hasUtf8Bom = bytes.Length >= 3
