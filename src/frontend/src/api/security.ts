@@ -45,7 +45,6 @@ export interface AntiCrawlerPolicyOptions {
   blockScore: number
   maxRiskScore: number
   defaultRiskTtlSeconds: number
-  zeroRiskCacheTtlSeconds: number
   fixedIpPermitLimit: number
   fixedIpQueueLimit: number
   verifiedCrawlerFixedIpPermitLimit: number

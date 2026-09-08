@@ -293,7 +293,6 @@ const draft = reactive<AntiCrawlerPolicyOptions>({
   blockScore: 100,
   maxRiskScore: 200,
   defaultRiskTtlSeconds: 600,
-  zeroRiskCacheTtlSeconds: 3,
   fixedIpPermitLimit: 100,
   fixedIpQueueLimit: 2,
   verifiedCrawlerFixedIpPermitLimit: 1000,
