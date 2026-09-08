@@ -59,6 +59,10 @@ public sealed class ArticleTemplateContractTests
         ArticleTemplateWriteReceipt replay = await store.CreateAsync(create);
         Assert.True(replay.IsIdempotentReplay);
         Assert.Equal(created.ReceiptId, replay.ReceiptId);
+        Assert.Equal("article_template_receipt_invalid", Assert.Throws<ArticleTemplateValidationException>(
+            () => ArticleTemplateContract.ValidateReceipt(created with { AuditReference = Guid.Empty })).Code);
+        Assert.Equal("article_template_audit_digest_invalid", Assert.Throws<ArticleTemplateValidationException>(
+            () => ArticleTemplateContract.ValidateReceipt(created with { AuditDigest = new string('0', 64) })).Code);
 
         Guid versionTwoId = Guid.NewGuid();
         ArticleTemplateWriteReceipt versioned = await store.CreateVersionAsync(new(
