@@ -98,7 +98,7 @@ public readonly record struct PublicHotReadRiskProjectionUpdate(
                 return true;
             }
         }
-        catch (JsonException or ArgumentException or NotSupportedException)
+        catch (Exception ex) when (ex is JsonException or ArgumentException or NotSupportedException)
         {
             // Invalid Pub/Sub data is ignored. Durable PostgreSQL replay remains
             // the recovery source and no request is allowed to consult Redis.
