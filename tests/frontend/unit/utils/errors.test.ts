@@ -3,22 +3,25 @@ import { getErrorMessage, isAbortError } from '@/utils/errors'
 import { AppError, AppErrorCode } from '@/utils/appError'
 
 describe('isAbortError', () => {
-  it('detects AbortError by name', () => {
-    const e = Object.assign(new Error('abort'), { name: 'AbortError' })
-    expect(isAbortError(e)).toBe(true)
-  })
-
-  it('detects PowAbortError by name', () => {
-    const e = Object.assign(new Error('abort'), { name: 'PowAbortError' })
-    expect(isAbortError(e)).toBe(true)
-  })
-
-  it('detects "canceled" message', () => {
-    expect(isAbortError(new Error('canceled'))).toBe(true)
-  })
-
-  it('detects abort-related messages', () => {
-    expect(isAbortError(new Error('The operation was aborted due to timeout'))).toBe(true)
+  it.each([
+    {
+      caseName: 'name=AbortError',
+      factory: () => Object.assign(new Error('abort'), { name: 'AbortError' })
+    },
+    {
+      caseName: 'name=PowAbortError',
+      factory: () => Object.assign(new Error('abort'), { name: 'PowAbortError' })
+    },
+    {
+      caseName: 'message=canceled',
+      factory: () => new Error('canceled')
+    },
+    {
+      caseName: 'message=The operation was aborted due to timeout',
+      factory: () => new Error('The operation was aborted due to timeout')
+    }
+  ])('detects abort-positive input: $caseName', ({ caseName, factory }) => {
+    expect(isAbortError(factory()), caseName).toBe(true)
   })
 
   it('returns false for normal errors', () => {
@@ -27,6 +30,10 @@ describe('isAbortError', () => {
 
   it('returns false for null', () => {
     expect(isAbortError(null)).toBe(false)
+  })
+
+  it('returns false for similar non-abort messages', () => {
+    expect(isAbortError(new Error('The operation completed; abort diagnostics were not triggered'))).toBe(false)
   })
 })
 
