@@ -21,6 +21,7 @@ using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.NotificationStream;
+using FsusBlog.Server.Services.PrivateAssets;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Services.Taxonomy;
 using FsusBlog.Server.Services.Telemetry;
@@ -28,6 +29,7 @@ using FsusBlog.Server.Services.VisitLog;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
 
@@ -214,6 +216,24 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<FileService>();
         services.AddSingleton<IFileService>(sp => sp.GetRequiredService<FileService>());
         services.AddScoped<IAssetStore, LocalContentAssetStore>();
+        services.AddScoped<SqlPrivateAssetRecordSource>();
+        services.AddScoped<IPrivateAssetRecordSource>(sp => sp.GetRequiredService<SqlPrivateAssetRecordSource>());
+        services.AddScoped<IPrivateAssetMetadataSource>(sp => sp.GetRequiredService<SqlPrivateAssetRecordSource>());
+        services.AddSingleton<IPrivateAssetWritePolicy, PrivateAssetWritePolicy>();
+        services.AddScoped<LocalPrivateAssetStore>();
+        services.AddScoped<IPrivateAssetStore>(sp => sp.GetRequiredService<LocalPrivateAssetStore>());
+        services.AddScoped<IPrivateAssetExistenceProbe>(sp => sp.GetRequiredService<LocalPrivateAssetStore>());
+        services.AddOptions<PrivateAssetTicketOptions>()
+            .BindConfiguration("PrivateAssets")
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<PrivateAssetTicketOptions>, PrivateAssetTicketOptionsValidator>();
+        services.AddSingleton<PrivateAssetTicketService>();
+        services.AddScoped<PrivateAssetAccessService>();
+        services.AddScoped<IPrivateAssetAccessService>(sp => sp.GetRequiredService<PrivateAssetAccessService>());
+        services.AddScoped<IPrivateAssetTicketRedemptionService>(sp => sp.GetRequiredService<PrivateAssetAccessService>());
+        services.AddScoped<IPrivateAssetResponseWriter>(static sp => PrivateAssetResponseWriterFactory.Create(
+            sp.GetRequiredService<IHostEnvironment>(),
+            sp.GetRequiredService<IPrivateAssetStore>()));
         if (!OpenApiExportMode.IsEnabled())
         {
             services.AddHostedService<UploadSessionCleanupWorker>();
@@ -285,6 +305,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<ICacheOneTimeStore>(sp => sp.GetRequiredService<UnifiedCache>());
         services.AddSingleton<ICacheOneTimeExchangeStore>(sp => sp.GetRequiredService<UnifiedCache>());
         services.AddSingleton<ICacheInvalidationStore>(sp => sp.GetRequiredService<UnifiedCache>());
+        services.AddSingleton<ICacheLocalInvalidator>(sp => sp.GetRequiredService<UnifiedCache>());
         services.AddSingleton<ICacheLeaseStore>(sp => sp.GetRequiredService<UnifiedCache>());
         services.AddSingleton<ICacheDiagnostics>(sp => sp.GetRequiredService<UnifiedCache>());
         services.AddSingleton<IOwnedFrameCache>(sp => sp.GetRequiredService<UnifiedCache>());

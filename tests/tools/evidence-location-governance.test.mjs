@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -315,6 +316,50 @@ test('every registry authority declares an executable producer and exact publica
     assert.deepEqual(Object.fromEntries(['cli', 'library-caller', 'workflow'].map((classification) =>
         [classification, [...sourceClasses.values()].filter((value) => value === classification).length])),
     { cli: 47, 'library-caller': 19, workflow: 2 });
+});
+
+test('clean-attempt evidence retains its finding and binds the real CLI through its library caller', () =>
+{
+    const generated = generateEvidenceLocationGovernance();
+    const source = 'tools/release/clean-attempt-evidence-source.mjs';
+    const caller = 'tools/release/browser-release-clean-attempt-consumers.mjs';
+    const executable = 'tools/release/test-evidence-receipts-cli.mjs';
+    const entry = generated.registry.entries.find((item) => item.producerSource === source);
+    assert(entry);
+    assert.equal(entry.producerBindingClass, 'library-caller');
+    assert.equal(entry.producerCallsite, caller);
+    assert.equal(entry.producerExecutable, `node ${executable} create-correctness`);
+    assert.notEqual(entry.producerCallsite, entry.producerSource);
+    const finding = generated.scan.findings.find((item) => item.file === source
+        && item.ruleId === 'evidence-selection.first-match');
+    assert(finding, 'library evidence access must remain in the scanner inventory');
+    const ledgerEntry = generated.ledger.entries.find((item) => item.findingId === finding.findingId);
+    assert.equal(ledgerEntry.classification, 'correctness-selection');
+    assert.equal(ledgerEntry.newAuthorityId, entry.authorityId);
+    assert.equal(ledgerEntry.location, `${source}:${finding.line}`);
+
+    const callerSource = fs.readFileSync(path.join(repositoryRoot, caller), 'utf8');
+    assert.match(callerSource, /import \{ loadConfiguredCleanAttemptEvidence \} from '\.\/clean-attempt-evidence-source\.mjs'/u);
+    assert.match(callerSource, /loadConfiguredCleanAttemptEvidence\(\{ repositoryRoot, environment \}\)/u);
+    const executableSource = fs.readFileSync(path.join(repositoryRoot, executable), 'utf8');
+    assert.match(executableSource, /requireCleanAttemptConsumerAdmission\(\{/u);
+    assert.match(executableSource, /options\.command === 'create-correctness'\) createCorrectness\(options\)/u);
+
+    // An unsupported command proves the real entry point runs without producing evidence.
+    const probeArguments = ['locator-entry-probe'];
+    const cli = spawnSync(process.execPath, [executable, ...probeArguments], {
+        cwd: repositoryRoot, encoding: 'utf8', timeout: 10000
+    });
+    assert.ifError(cli.error);
+    assert.equal(cli.status, 1);
+    assert.match(cli.stderr, /usage: test-evidence-receipts-cli\.mjs create-correctness/u);
+    const library = spawnSync(process.execPath, [source, ...probeArguments], {
+        cwd: repositoryRoot, encoding: 'utf8', timeout: 10000
+    });
+    assert.ifError(library.error);
+    assert.equal(library.status, 0);
+    assert.equal(library.stdout, '');
+    assert.equal(library.stderr, '');
 });
 
 test('false positives and helper calls retain exact rule and actual consumer locations', () =>

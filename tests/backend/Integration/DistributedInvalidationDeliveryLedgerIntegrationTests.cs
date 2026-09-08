@@ -357,7 +357,8 @@ public sealed class DistributedInvalidationDeliveryLedgerIntegrationTests(
             prefix,
             sourceRedis,
             sourceServices,
-            new RecordingApplier());
+            new RecordingApplier(),
+            enableIngressLedger: true);
         using DistributedInvalidationBus target = CreateBus(
             "node-b",
             ["node-a", "node-b"],
@@ -365,7 +366,8 @@ public sealed class DistributedInvalidationDeliveryLedgerIntegrationTests(
             prefix,
             targetRedis,
             targetServices,
-            targetApplier);
+            targetApplier,
+            enableIngressLedger: true);
         await source.StartAsync(CancellationToken.None);
         await target.StartAsync(CancellationToken.None);
         await Task.Delay(TimeSpan.FromMilliseconds(150));
@@ -378,7 +380,7 @@ public sealed class DistributedInvalidationDeliveryLedgerIntegrationTests(
         };
         await sourceRedis.GetSubscriber().PublishAsync(
             RedisChannel.Literal($"{prefix}{channel}"),
-            JsonSerializer.Serialize(mismatch));
+            JsonSerializer.Serialize(mismatch, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
         await EventuallyAsync(async () =>
         {
             using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connection);
@@ -589,7 +591,8 @@ public sealed class DistributedInvalidationDeliveryLedgerIntegrationTests(
         string prefix,
         IConnectionMultiplexer redis,
         ServiceProvider services,
-        RecordingApplier applier)
+        RecordingApplier applier,
+        bool enableIngressLedger = false)
     {
         var options = new DistributedInvalidationOptions
         {
@@ -604,7 +607,12 @@ public sealed class DistributedInvalidationDeliveryLedgerIntegrationTests(
         };
         var scope = new TestRuntimeScope(prefix);
         return new DistributedInvalidationBus(
-            new RedisDistributedInvalidationTransport(redis, scope, options, TimeProvider.System),
+            new RedisDistributedInvalidationTransport(
+                redis,
+                scope,
+                options,
+                TimeProvider.System,
+                enableIngressLedger ? services.GetRequiredService<IServiceScopeFactory>() : null),
             applier,
             new DistributedInvalidationEventFactory(options, scope, TimeProvider.System),
             options,
