@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import fs, { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -373,6 +374,267 @@ test('atomic apply deletes and writes as one unit and rolls everything back on v
     {
         rmSync(root, { recursive: true, force: true });
     }
+});
+
+function receiptFixture(run)
+{
+    const root = mkdtempSync(path.join(os.tmpdir(), 'fsus-replacement-receipt-'));
+    const transaction = plan({ afterCases: [{ id: 'new', path: 'tests/OldTests.cs' }] });
+    assert.equal(transaction.changes.length, 6);
+    for (const item of transaction.changes)
+    {
+        const absolute = path.join(root, item.path);
+        mkdirSync(path.dirname(absolute), { recursive: true });
+        const bytes = item.kind === 'source' ? `before:${item.path}\n`
+            : item.path === 'tests/matrix.yml' ? 'tiers: []\n'
+                : item.kind === 'generated-doc' ? 'old\n' : '{}\n';
+        writeFileSync(absolute, bytes);
+    }
+    const receiptPath = path.join(root, 'receipts', 'final.json');
+    mkdirSync(path.dirname(receiptPath));
+    const evidencePath = path.join(root, 'receipts', 'existing-evidence.json');
+    writeFileSync(evidencePath, 'existing evidence\n');
+    const evidenceInode = fs.statSync(evidencePath).ino;
+    try
+    {
+        run({ root, transaction, receiptPath });
+        assert.equal(readFileSync(evidencePath, 'utf8'), 'existing evidence\n');
+        assert.equal(fs.statSync(evidencePath).ino, evidenceInode);
+    }
+    finally
+    {
+        rmSync(root, { recursive: true, force: true });
+    }
+}
+
+function withFilesystemFault(operation, fault, run)
+{
+    const original = fs[operation];
+    fs[operation] = (...args) => fault(original, ...args);
+    syncBuiltinESMExports();
+    try
+    {
+        return run();
+    }
+    finally
+    {
+        fs[operation] = original;
+        syncBuiltinESMExports();
+    }
+}
+
+function assertAppliedState(root, transaction, state)
+{
+    for (const item of transaction.changes)
+    {
+        const absolute = path.join(root, item.path);
+        assert.equal(existsSync(absolute), item[`${state}Exists`], `${state} existence: ${item.path}`);
+        assert.equal(hash(existsSync(absolute) ? readFileSync(absolute) : ''), item[`${state}Digest`], `${state} digest: ${item.path}`);
+    }
+}
+
+function assertNoOwnedStaging(root)
+{
+    assert.deepEqual(fs.readdirSync(root).filter((name) => name.startsWith('.replacement-transaction-')), []);
+    assert.deepEqual(fs.readdirSync(path.join(root, 'receipts')).filter((name) => name.startsWith('.replacement-receipt-')), []);
+}
+
+test('receipt publication exposes a complete validated receipt only after all six files pass verification', () =>
+{
+    receiptFixture(({ root, transaction, receiptPath }) =>
+    {
+        const receipt = applyReplacementTransaction({
+            root,
+            transaction,
+            receiptPath,
+            verifyAfter: () =>
+            {
+                assertAppliedState(root, transaction, 'after');
+                assert.equal(existsSync(receiptPath), false);
+            }
+        });
+        assert.deepEqual(JSON.parse(readFileSync(receiptPath, 'utf8')), receipt);
+        validateReplacementReceipt(receipt, { transaction });
+        assertAppliedState(root, transaction, 'after');
+        assertNoOwnedStaging(root);
+    });
+});
+
+test('partial receipt staging write restores all six files without publishing terminal bytes', () =>
+{
+    receiptFixture(({ root, transaction, receiptPath }) =>
+    {
+        let injected = false;
+        withFilesystemFault('writeFileSync', (original, file, bytes, options) =>
+        {
+            if (String(file).includes('.replacement-receipt-') && path.basename(file) === 'receipt.json')
+            {
+                injected = true;
+                original(file, bytes.slice(0, 23), options);
+                assert.equal(readFileSync(file, 'utf8'), bytes.slice(0, 23));
+                assert.equal(existsSync(receiptPath), false);
+                throw new Error('partial receipt write');
+            }
+            return original(file, bytes, options);
+        }, () => assert.throws(() => applyReplacementTransaction({ root, transaction, receiptPath }), /partial receipt write/u));
+        assert.equal(injected, true);
+        assertAppliedState(root, transaction, 'before');
+        assert.equal(existsSync(receiptPath), false);
+        assertNoOwnedStaging(root);
+    });
+});
+
+test('preexisting receipt retains its exact bytes and inode without applying any files', () =>
+{
+    receiptFixture(({ root, transaction, receiptPath }) =>
+    {
+        writeFileSync(receiptPath, 'existing terminal\n');
+        const inode = fs.statSync(receiptPath).ino;
+        assert.throws(() => applyReplacementTransaction({ root, transaction, receiptPath }), /receipt path already exists/u);
+        assert.equal(readFileSync(receiptPath, 'utf8'), 'existing terminal\n');
+        assert.equal(fs.statSync(receiptPath).ino, inode);
+        assertAppliedState(root, transaction, 'before');
+        assertNoOwnedStaging(root);
+    });
+});
+
+test('racing receipt publication preserves the other publisher inode and rolls back all six files', () =>
+{
+    receiptFixture(({ root, transaction, receiptPath }) =>
+    {
+        let inode = null;
+        withFilesystemFault('linkSync', (original, source, destination) =>
+        {
+            assert.equal(destination, receiptPath);
+            writeFileSync(destination, 'racing terminal\n', { flag: 'wx' });
+            inode = fs.statSync(destination).ino;
+            return original(source, destination);
+        }, () => assert.throws(() => applyReplacementTransaction({ root, transaction, receiptPath }), { code: 'EEXIST' }));
+        assert.notEqual(inode, null);
+        assert.equal(readFileSync(receiptPath, 'utf8'), 'racing terminal\n');
+        assert.equal(fs.statSync(receiptPath).ino, inode);
+        assertAppliedState(root, transaction, 'before');
+        assertNoOwnedStaging(root);
+    });
+});
+
+test('receipt link I/O failure leaves no final receipt and restores all six files', () =>
+{
+    receiptFixture(({ root, transaction, receiptPath }) =>
+    {
+        let injected = false;
+        withFilesystemFault('linkSync', (_original, source, destination) =>
+        {
+            injected = true;
+            validateReplacementReceipt(JSON.parse(readFileSync(source, 'utf8')), { transaction });
+            assert.equal(destination, receiptPath);
+            throw Object.assign(new Error('receipt link I/O failure'), { code: 'EIO' });
+        }, () => assert.throws(() => applyReplacementTransaction({ root, transaction, receiptPath }), { code: 'EIO' }));
+        assert.equal(injected, true);
+        assertAppliedState(root, transaction, 'before');
+        assert.equal(existsSync(receiptPath), false);
+        assertNoOwnedStaging(root);
+    });
+});
+
+test('each of six staging write and rename failures restores the complete before state', () =>
+{
+    for (const operation of ['writeFileSync', 'renameSync'])
+    {
+        for (let slot = 0; slot < 6; slot += 1)
+        {
+            receiptFixture(({ root, transaction, receiptPath }) =>
+            {
+                let seen = 0;
+                let injected = false;
+                withFilesystemFault(operation, (original, file, ...args) =>
+                {
+                    if (String(file).includes('.replacement-transaction-') && seen++ === slot)
+                    {
+                        injected = true;
+                        // Exercise a real partial write or a completed rename, then fail.
+                        if (operation === 'writeFileSync')
+                        {
+                            original(file, String(args[0]).slice(0, 2));
+                        }
+                        else
+                        {
+                            original(file, ...args);
+                        }
+                        throw new Error(`injected ${operation} slot ${slot}`);
+                    }
+                    return original(file, ...args);
+                }, () => assert.throws(() => applyReplacementTransaction({ root, transaction, receiptPath }), /injected/u));
+                assert.equal(injected, true, `${operation} slot ${slot}`);
+                assertAppliedState(root, transaction, 'before');
+                assert.equal(existsSync(receiptPath), false);
+                assertNoOwnedStaging(root);
+            });
+        }
+    }
+});
+
+test('null and undefined verification failures remain failures and preserve the original thrown value', () =>
+{
+    for (const thrownValue of [null, undefined])
+    {
+        receiptFixture(({ root, transaction, receiptPath }) =>
+        {
+            let failed = false;
+            let actual = 'not thrown';
+            try
+            {
+                applyReplacementTransaction({
+                    root,
+                    transaction,
+                    receiptPath,
+                    verifyAfter: () =>
+                    {
+                        throw thrownValue;
+                    }
+                });
+            }
+            catch (error)
+            {
+                failed = true;
+                actual = error;
+            }
+            assert.equal(failed, true);
+            assert.equal(actual, thrownValue);
+            assertAppliedState(root, transaction, 'before');
+            assert.equal(existsSync(receiptPath), false);
+            assertNoOwnedStaging(root);
+        });
+    }
+});
+
+test('post-publication cleanup failure preserves the complete receipt and all six applied files', () =>
+{
+    receiptFixture(({ root, transaction, receiptPath }) =>
+    {
+        let retainedStaging = null;
+        withFilesystemFault('rmSync', (original, target, options) =>
+        {
+            if (path.basename(target).startsWith('.replacement-receipt-'))
+            {
+                retainedStaging = target;
+                throw new Error('owned staging cleanup fault');
+            }
+            return original(target, options);
+        }, () => assert.throws(() => applyReplacementTransaction({ root, transaction, receiptPath }), (error) =>
+        {
+            assert.match(error.message, /receipt published; applied sources retained/u);
+            assert.equal(error.errors.length, 1);
+            assert.match(error.errors[0].message, /owned staging cleanup fault/u);
+            return true;
+        }));
+        validateReplacementReceipt(JSON.parse(readFileSync(receiptPath, 'utf8')), { transaction });
+        assertAppliedState(root, transaction, 'after');
+        assert.notEqual(retainedStaging, null);
+        assert.deepEqual(fs.readdirSync(root).filter((name) => name.startsWith('.replacement-transaction-')), []);
+        rmSync(retainedStaging, { recursive: true });
+        assertNoOwnedStaging(root);
+    });
 });
 
 test('diff checker detects deleted tests, renamed tests and removed discoverable cases', () =>
