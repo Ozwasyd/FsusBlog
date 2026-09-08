@@ -10,6 +10,13 @@
                 "tools/test/current-run-evidence-publication.mjs"
             ],
             "reason": "Preserve caller-visible current-run authority IDs, receipt JSON fields, and process environment keys while binding canonical release-final replay."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/required-evidence-catalog.mjs"
+            ],
+            "reason": "Preserve process environment and caller-facing tool identities while validating the canonical authority catalog binding."
         }
     ]
 }
