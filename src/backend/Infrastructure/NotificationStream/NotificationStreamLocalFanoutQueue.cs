@@ -4,6 +4,14 @@ using FsusBlog.Shared.Contracts.NotificationStream;
 
 namespace FsusBlog.Server.Infrastructure.NotificationStream;
 
+internal readonly record struct NotificationStreamFanoutLaneSnapshot(
+    int LosslessQueued,
+    int StateQueued,
+    int LowQueued,
+    long CoalescedCount,
+    long DroppedCount,
+    long Sequence);
+
 public enum NotificationStreamFanoutEnqueueStatus
 {
     Enqueued,
@@ -83,6 +91,15 @@ public sealed class NotificationStreamLocalFanoutQueue
     private readonly NotificationStreamDeliveryAccounting _delivery = new();
 
     internal NotificationStreamDeliverySnapshot DeliverySnapshot => _delivery.Snapshot();
+
+    internal NotificationStreamFanoutLaneSnapshot LaneSnapshot()
+        => new(
+            _lossless.Reader.CanCount ? _lossless.Reader.Count : 0,
+            _stateKeys.Reader.CanCount ? _stateKeys.Reader.Count : 0,
+            _lowKeys.Reader.CanCount ? _lowKeys.Reader.Count : 0,
+            Volatile.Read(ref _coalescedCount),
+            Volatile.Read(ref _droppedCount),
+            DeliverySnapshot.Sequence);
 
     public NotificationStreamLocalFanoutQueue(IConfiguration configuration)
     {
