@@ -264,6 +264,7 @@ internal static class RuntimeRoleObservationHost
         if (relative is "." or ".."
             || relative.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
             || Path.IsPathRooted(relative)
+            || relative == ".git"
             || relative.StartsWith($".git{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
             || segments.Any(static segment => segment is "." or ".."))
         {
@@ -335,6 +336,7 @@ internal static class RuntimeRoleObservationHost
         if (relative is "." or ".."
             || relative.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
             || Path.IsPathRooted(relative)
+            || relative == ".git"
             || relative.StartsWith($".git{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
             || segments.Any(static segment => segment is "." or ".."))
         {
