@@ -1,0 +1,75 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.dev/schemas/fsusui-release-event.schema.json",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schemaVersion",
+        "package",
+        "version",
+        "distTag",
+        "registry",
+        "sourceRepository",
+        "sourceCommit",
+        "releaseTag",
+        "candidateSha256",
+        "candidateManifestSha256",
+        "crossGateReceiptSha256",
+        "npmIntegrity",
+        "npmTarballSha256",
+        "publishRunId"
+    ],
+    "properties": {
+        "schemaVersion": {
+            "const": 1
+        },
+        "package": {
+            "const": "@ozwasyd/element-plus"
+        },
+        "version": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+        },
+        "distTag": {
+            "const": "latest"
+        },
+        "registry": {
+            "const": "https://registry.npmjs.org/"
+        },
+        "sourceRepository": {
+            "const": "Ozwasyd/FsusUI"
+        },
+        "sourceCommit": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{40}$"
+        },
+        "releaseTag": {
+            "type": "string",
+            "pattern": "^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+        },
+        "candidateSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+        },
+        "candidateManifestSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+        },
+        "crossGateReceiptSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+        },
+        "npmIntegrity": {
+            "type": "string",
+            "pattern": "^sha512-[A-Za-z0-9+/]{86}==$"
+        },
+        "npmTarballSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+        },
+        "publishRunId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+        }
+    }
+}

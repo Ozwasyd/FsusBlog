@@ -38,6 +38,6 @@ Historical evidence must retain its original paths and snapshot hashes. Any late
 
 ## Support and Rollback
 
-There is no production support, uptime guarantee, or response-time commitment. Support routing is documented in [SUPPORT.md](../../SUPPORT.md).
+There is no production support, uptime guarantee, or response-time commitment. Support routing is documented in [SUPPORT.md](../SUPPORT.md).
 
 This documentation-only policy can be rolled back without restarting the application. If a wording or link regression is discovered, revert the documentation commit and keep existing immutable ReleaseId artifacts unchanged; no runtime, schema, binary, notification stream, or deployment behavior changes in this policy.

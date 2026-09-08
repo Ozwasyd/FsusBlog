@@ -1,0 +1,87 @@
+{
+    "schema": "fsusblog.test-replacement-receipt.v1",
+    "transactionId": "issue-2608-quoted-attribute-theory",
+    "transactionDigest": "sha256:8bf3037bb8c8539b852e520b7aad251ca19699d5a02def9696171fdc3d30a1db",
+    "beforeTestIds": [
+        "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#FsusBlog.Server.Tests.PublicAotDocumentComposerTests.ExtractAttributeValue_DoubleQuotes_ReturnsValue#case-0000",
+        "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#FsusBlog.Server.Tests.PublicAotDocumentComposerTests.ExtractAttributeValue_SingleQuotes_ReturnsValue#case-0000"
+    ],
+    "afterTestIds": [
+        "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#FsusBlog.Server.Tests.PublicAotDocumentComposerTests.ExtractAttributeValue_QuotedAttribute_ReturnsExactValue#case-0000",
+        "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#FsusBlog.Server.Tests.PublicAotDocumentComposerTests.ExtractAttributeValue_QuotedAttribute_ReturnsExactValue#case-0001"
+    ],
+    "sourceDiffs": [
+        {
+            "path": "tests/backend/Unit/PublicAotDocumentComposerTests.cs",
+            "beforeDigest": "sha256:de98a2564a956bbfad3f105800b78a25701a760119e107c4ea92aae9fea9fd63",
+            "afterDigest": "sha256:470d324d29b5db31b22eee5c5d0b0cdcee924704065947f1ff922f7c89e3769c",
+            "beforeExists": true,
+            "afterExists": true
+        }
+    ],
+    "catalogDiffs": [
+        {
+            "path": "tests/test-retention-replacements.json",
+            "beforeDigest": "sha256:6f40372f3e3b9a9c088d6a1a0ff9b325441e9df8a0d4a08ac7a3aa34b2ed7c00",
+            "afterDigest": "sha256:bfc401e92d45539c3fb9c8a8a0d16842895cd674dfd608bec7722c2c9826b9a1",
+            "beforeExists": true,
+            "afterExists": true
+        },
+        {
+            "path": "tests/backend/Fixtures/backend-test-requirements.json",
+            "beforeDigest": "sha256:3e5f18b0915c868bd41785c9fa9ea71b9aaa1e141990d1e1fb759d2ede1ed1f9",
+            "afterDigest": "sha256:3e5f18b0915c868bd41785c9fa9ea71b9aaa1e141990d1e1fb759d2ede1ed1f9",
+            "beforeExists": true,
+            "afterExists": true
+        },
+        {
+            "path": "tests/coverage-registry.json",
+            "beforeDigest": "sha256:56e2415977e018da14b84fd9395d178a9eb61204b1c1606e092f7d22ba04ed32",
+            "afterDigest": "sha256:56e2415977e018da14b84fd9395d178a9eb61204b1c1606e092f7d22ba04ed32",
+            "beforeExists": true,
+            "afterExists": true
+        },
+        {
+            "path": "tests/matrix.yml",
+            "beforeDigest": "sha256:a299c05b7de4c335e59f3d689460702375826db1b889722115af91c45b35f517",
+            "afterDigest": "sha256:a299c05b7de4c335e59f3d689460702375826db1b889722115af91c45b35f517",
+            "beforeExists": true,
+            "afterExists": true
+        },
+        {
+            "path": "docs/testing.generated.md",
+            "beforeDigest": "sha256:d319ae7573d7b4a7812c82edc5b7bc74f70b47c916c40d8bc7139f4a65c73805",
+            "afterDigest": "sha256:d319ae7573d7b4a7812c82edc5b7bc74f70b47c916c40d8bc7139f4a65c73805",
+            "beforeExists": true,
+            "afterExists": true
+        }
+    ],
+    "verificationOutcomes": [
+        {
+            "id": "transaction-schema",
+            "status": "passed"
+        },
+        {
+            "id": "before-source-identity",
+            "status": "passed"
+        },
+        {
+            "id": "atomic-file-application",
+            "status": "passed"
+        },
+        {
+            "id": "after-source-identity",
+            "status": "passed"
+        },
+        {
+            "id": "catalog-closure",
+            "status": "passed"
+        },
+        {
+            "id": "independent-post-apply",
+            "status": "passed"
+        }
+    ],
+    "verification": "passed",
+    "contentDigest": "sha256:eedc199831e6e69375bb9f5f280e904a923f439bf42ef11a8e29fae57e0f8be8"
+}
