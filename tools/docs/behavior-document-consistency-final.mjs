@@ -6,9 +6,11 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { digestCatalog } from '../contracts/behavior-contract-catalog.mjs'
+import { sealSourceIdentity } from '../fact-extractors/identity.mjs'
 import { parseMatrix } from '../test-matrix/parse-matrix.mjs'
 import { assertPreRuntimeQualified } from '../test-matrix/behavior-evidence-pre-runtime.mjs'
-import { validatePostRuntimeReceipt } from '../test-matrix/behavior-evidence-post-runtime.mjs'
+import { validatePostRuntimeReceipt, verifyBehaviorEvidencePostRuntime } from '../test-matrix/behavior-evidence-post-runtime.mjs'
+import { readSchedulerVerificationContext } from '../test-matrix/scheduler.mjs'
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 export const finalReportSchema = 'fsusblog.behavior-document-consistency-final-report.v1'
@@ -205,12 +207,13 @@ export function buildFinalConsistencyReport({
     catalog,
     migrationLedger,
     matrix,
-    zeroLegacyScan = null
+    zeroLegacyScan = null,
+    repositoryRoot = root
 } = {})
 {
     const admission = validateSealed(loadJson(staticAdmissionReceipt), 'static admission')
     const pre = assertPreRuntimeQualified(loadJson(preRuntimeReceipt))
-    const post = validatePostRuntimeReceipt(loadJson(postRuntimeReceipt))
+    const post = validatePostRuntimeReceipt(loadJson(postRuntimeReceipt), { repositoryRoot })
     if (post.status !== 'ok') fail('post-runtime receipt status is not ok')
     const owner = validateSealed(loadJson(ownerReceipt), 'owner receipt')
     const claims = validateSealed(loadJson(docClaimParseReceipt), 'DocClaim parse receipt', { requireOk: false })
@@ -299,7 +302,7 @@ export function buildFinalConsistencyReport({
     const authorityDuplicates = duplicateSummaryAuthorities(parsedMatrix.tiers)
     if (sccs.length > 0) failures.push(`matrix dependency SCCs: ${sccs.map((entry) => entry.join('+')).join(',')}`)
     if (authorityDuplicates.length > 0) failures.push(`duplicate summary authorities: ${authorityDuplicates.map((entry) => entry.authority).join(',')}`)
-    const legacy = zeroLegacyScan ?? scanZeroLegacyGovernance(root)
+    const legacy = zeroLegacyScan ?? scanZeroLegacyGovernance(repositoryRoot)
     if (legacy.findings.length > 0) failures.push(`zero-legacy scan found ${legacy.findings.length} active residue(s)`)
     if (admission.candidateSpawnCountBeforeReceipt !== 0 || pre.runtimeCandidateSpawnCountBeforeReceipt !== 0 || post.releaseFinalSpawnCountBeforeReceipt !== 0)
     {
@@ -312,7 +315,7 @@ export function buildFinalConsistencyReport({
         worktreeIdentity: { root: admission.worktree?.root ?? null },
         buildIdentity: {
             minimalContractBuildDigest: admission.minimalContractBuild?.contentDigest ? `sha256:${normalizeDigest(admission.minimalContractBuild.contentDigest)}` : null,
-            candidateBuildReceiptDigest: post.candidateIdentity?.buildReceiptDigest ?? null
+            candidateBuildIdentityDigest: post.executionIdentity.buildIdentityDigest
         },
         toolchainIdentity: admission.toolchain,
         runtimeIdentity: { runId: admission.run?.id, candidate: post.candidateIdentity },
@@ -365,17 +368,69 @@ export function buildFinalConsistencyReport({
     return report
 }
 
+export function buildVerifiedFinalConsistencyReport(options, repositoryRoot = root)
+{
+    for (const field of ['postRuntimeReceipt', 'preRuntimeReceipt', 'runId',
+        'schedulerVerificationContextFile', 'schedulerVerificationContextDigest', 'candidateIdentityDigest'])
+    {
+        if (typeof options[field] !== 'string' || options[field].trim().length === 0)
+            fail(`terminal qualification requires explicit ${field}`)
+    }
+    const source = sealSourceIdentity(repositoryRoot)
+    const schedulerVerificationContext = readSchedulerVerificationContext({
+        root: repositoryRoot,
+        runsRoot: path.join(repositoryRoot, '.tmp/test-runs'),
+        file: options.schedulerVerificationContextFile,
+        expectedContentDigest: options.schedulerVerificationContextDigest,
+        expectedRunId: options.runId,
+        expectedSourceState: { commit: source.sourceCommit, worktreeFingerprint: source.worktreeFingerprint },
+        expectedCandidateIdentityDigest: options.candidateIdentityDigest
+    })
+    const inputs = { ...options, repositoryRoot }
+    for (const field of ['staticAdmissionReceipt', 'preRuntimeReceipt', 'postRuntimeReceipt', 'ownerReceipt',
+        'docClaimParseReceipt', 'docClaimVerificationReceipt', 'generatedSectionReceipt', 'catalog', 'migrationLedger', 'matrix'])
+    {
+        if (typeof inputs[field] === 'string') inputs[field] = path.resolve(repositoryRoot, inputs[field])
+    }
+    inputs.factObservationReceipts = (options.factObservationReceipts ?? [])
+        .map((file) => typeof file === 'string' ? path.resolve(repositoryRoot, file) : file)
+    const post = validatePostRuntimeReceipt(loadJson(inputs.postRuntimeReceipt), { repositoryRoot })
+    const verified = verifyBehaviorEvidencePostRuntime({
+        repositoryRoot,
+        receipt: inputs.postRuntimeReceipt,
+        preRuntimeReceipt: inputs.preRuntimeReceipt,
+        catalog: path.join(repositoryRoot, 'config/contracts/behavior-contracts.json'),
+        registry: path.join(repositoryRoot, 'config/testing/post-runtime-producer-registry.json'),
+        observationReceipts: post.observationRefs.map((reference) => reference.ref),
+        acceptedClaimsReceipts: post.acceptedClaimRefs.map((reference) => reference.ref),
+        executionContext: post.executionContext.ref,
+        schedulerEvidence: post.schedulerEvidence.ref,
+        verificationMode: 'completed-tier',
+        schedulerVerificationContext
+    })
+    return buildFinalConsistencyReport({ ...inputs, postRuntimeReceipt: verified,
+        zeroLegacyScan: scanZeroLegacyGovernance(repositoryRoot) })
+}
+
 function parseArgs(argv)
 {
     const options = { facts: [] }
+    const seen = new Set()
     for (let index = 0; index < argv.length; index += 1)
     {
         const value = argv[index + 1]
+        if (value == null || value.startsWith('--')) fail(`${argv[index]} requires one value`)
+        if (argv[index] !== '--fact' && seen.has(argv[index])) fail(`duplicate argument ${argv[index]}`)
+        seen.add(argv[index])
         switch (argv[index])
         {
             case '--static-admission': options.staticAdmissionReceipt = value; break
             case '--pre-runtime': options.preRuntimeReceipt = value; break
             case '--post-runtime': options.postRuntimeReceipt = value; break
+            case '--run-id': options.runId = value; break
+            case '--scheduler-verification-context': options.schedulerVerificationContextFile = value; break
+            case '--scheduler-verification-context-digest': options.schedulerVerificationContextDigest = value; break
+            case '--candidate-identity-digest': options.candidateIdentityDigest = value; break
             case '--owner': options.ownerReceipt = value; break
             case '--fact': options.facts.push(value); break
             case '--doc-claim-parse': options.docClaimParseReceipt = value; break
@@ -392,12 +447,12 @@ function parseArgs(argv)
     return options
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
+export function runBehaviorDocumentConsistencyFinalCli(argv, repositoryRoot = root)
 {
     try
     {
-        const options = parseArgs(process.argv.slice(2))
-        const report = buildFinalConsistencyReport({ ...options, factObservationReceipts: options.facts })
+        const options = parseArgs(argv)
+        const report = buildVerifiedFinalConsistencyReport({ ...options, factObservationReceipts: options.facts }, repositoryRoot)
         validateFinalReport(report)
         if (options.out)
         {
@@ -406,10 +461,16 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
         }
         if (report.status !== 'ok') fail(report.failureReasons.join('; '))
         console.log(`[behavior-document-consistency-final] ok behaviors=${report.behaviorNodes.length}`)
+        return 0
     }
     catch (error)
     {
         console.error(error.message)
-        process.exitCode = 1
+        return 1
     }
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
+{
+    process.exitCode = runBehaviorDocumentConsistencyFinalCli(process.argv.slice(2))
 }

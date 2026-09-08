@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": ["tools/docs/behavior-document-consistency-final.mjs"],
+            "reason": "Preserve terminal process environment and scheduler caller CLI identities while requiring independent authority pins."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": ["tools/test/bundles/behavior-document-consistency-final.sh"],
+            "reason": "Forward existing scheduler-owned environment keys without renaming the external shell contract."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": ["docs/testing.md"],
+            "reason": "Document existing externally named test tiers and CLI contracts without applying internal identifier naming."
+        }
+    ]
+}
