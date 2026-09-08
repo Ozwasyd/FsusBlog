@@ -145,10 +145,51 @@ public sealed class ArticleBulkPlanAuthorityTests
             Assert.Throws<ArticleBulkContractException>(() => authority.ValidateForExecution(tampered)).Code);
     }
 
+    [Fact]
+    public async Task ReplanRequiresNewIdentityAndNewExplicitConfirmation()
+    {
+        string[] ids = ["article-1"];
+        var authority = new ArticleBulkPlanAuthority(
+            new SelectionAuthority(ids),
+            new PreflightAuthority(),
+            new TestTimeProvider(s_now));
+        ArticleBulkPlan original = await authority.CreateAsync(Request("category.add", ids));
+        ArticleBulkPlanConfirmation originalConfirmation = authority.RecordExplicitConfirmation(
+            original,
+            "confirmation-original",
+            s_now);
+
+        ArticleBulkPlanRequest replanRequest = Request("category.add", ids) with
+        {
+            PlanIdentity = "plan-2",
+            ReplanOfPlanDigest = original.ContentDigest
+        };
+        ArticleBulkPlan replanned = await authority.ReplanAsync(original, replanRequest);
+        ArticleBulkPlanConfirmation replannedConfirmation = authority.RecordExplicitConfirmation(
+            replanned,
+            "confirmation-replanned",
+            s_now);
+
+        Assert.NotEqual(original.PlanIdentity, replanned.PlanIdentity);
+        Assert.NotEqual(original.ContentDigest, replanned.ContentDigest);
+        Assert.Equal(original.ContentDigest, replanned.ReplanOfPlanDigest);
+        Assert.NotEqual(originalConfirmation.ContentDigest, replannedConfirmation.ContentDigest);
+        Assert.Equal(
+            "article-bulk.replan-identity-invalid",
+            (await Assert.ThrowsAsync<ArticleBulkContractException>(() => authority.ReplanAsync(
+                original,
+                replanRequest with
+                {
+                    PlanIdentity = original.PlanIdentity
+                }))).Code);
+    }
+
     private static ArticleBulkPlanRequest Request(
         string operationId,
         IReadOnlyList<string> ids,
         ArticleBulkSelectionKind kind = ArticleBulkSelectionKind.Explicit) => new(
+        "plan-1",
+        null,
         operationId,
         operationId == "category.add"
             ? Parameters(("categoryId", "category-1"))

@@ -671,7 +671,11 @@ public sealed class ArticleBulkFileJournalAuthorityTests
                 planAuthority,
                 time,
                 journal,
-                new ArticleBulkExecutionFramework(planAuthority, journal, time));
+                new ArticleBulkExecutionFramework(
+                    planAuthority,
+                    journal,
+                    new DeterministicExecutionAuthority(),
+                    time));
         }
 
         internal FileFixture Restart()
@@ -683,11 +687,16 @@ public sealed class ArticleBulkFileJournalAuthorityTests
                 planAuthority,
                 time,
                 restarted,
-                new ArticleBulkExecutionFramework(planAuthority, restarted, time));
+                new ArticleBulkExecutionFramework(
+                    planAuthority,
+                    restarted,
+                    new DeterministicExecutionAuthority(),
+                    time));
         }
 
         internal Task<ArticleBulkAdmission> AdmitAsync() => Framework.AdmitAsync(
             Plan,
+            Confirmation(Plan),
             "plan-store:one",
             "attempt-1",
             "idempotency-1",
@@ -695,6 +704,21 @@ public sealed class ArticleBulkFileJournalAuthorityTests
             Plan.Source,
             Plan.PolicyDigest,
             Plan.PermissionPolicyDigest);
+
+        private static ArticleBulkPlanConfirmation Confirmation(ArticleBulkPlan plan)
+        {
+            var unsigned = new ArticleBulkPlanConfirmation(
+                "confirmation-1",
+                plan.PlanIdentity,
+                plan.ContentDigest,
+                plan.Actor.AuthorityDigest,
+                s_now,
+                string.Empty);
+            return unsigned with
+            {
+                ContentDigest = ArticleBulkDigest.Of(unsigned)
+            };
+        }
 
         internal async Task<(ArticleBulkJournalHead Head, ArticleBulkJournalAppendReceipt Receipt)>
             StartExecutingAsync(ArticleBulkJournalHead head)
@@ -726,6 +750,8 @@ public sealed class ArticleBulkFileJournalAuthorityTests
             string operationId,
             ImmutableArray<string> articleIds)
             => new(
+                "plan-1",
+                null,
                 operationId,
                 new Dictionary<string, JsonElement>(StringComparer.Ordinal)
                 {
@@ -784,6 +810,28 @@ public sealed class ArticleBulkFileJournalAuthorityTests
                 await Task.Yield();
             }
         }
+    }
+
+    private sealed class DeterministicExecutionAuthority : IArticleBulkExecutionAuthority
+    {
+        public Task<ArticleBulkExecutionAuthoritySnapshot> ReadCurrentAsync(
+            ArticleBulkPlan plan,
+            CancellationToken cancellationToken)
+            => Task.FromResult(new ArticleBulkExecutionAuthoritySnapshot(
+                plan.PolicyDigest,
+                plan.PermissionPolicyDigest,
+                ArticleBulkDigest.Of("execution-authority"),
+                !plan.Executable && plan.Strategy == ArticleBulkExecutionStrategy.AllOrNothing
+                    ? ArticleBulkDigest.Of("canonical-zero-write")
+                    : null));
+
+        public Task ValidateGroupOutcomeAsync(
+            ArticleBulkPlan plan,
+            ArticleBulkGroupCommitOutcome outcome,
+            string? groupReceiptDigest,
+            string? zeroWriteProofDigest,
+            CancellationToken cancellationToken)
+            => Task.CompletedTask;
     }
 
     private static async IAsyncEnumerable<string> Stream(

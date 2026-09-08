@@ -23,6 +23,8 @@ internal sealed record ArticleBulkActor(string UserId, string SiteId, string Aut
 internal sealed record ArticleBulkSource(string Commit, string BuildDigest);
 
 internal sealed record ArticleBulkPlanRequest(
+    string PlanIdentity,
+    string? ReplanOfPlanDigest,
     string OperationId,
     IReadOnlyDictionary<string, JsonElement> Parameters,
     ArticleBulkSelection Selection,
@@ -103,6 +105,8 @@ internal sealed record ArticleBulkImpactFacts(
 
 internal sealed record ArticleBulkPlan(
     string Schema,
+    string PlanIdentity,
+    string? ReplanOfPlanDigest,
     string OperationId,
     int OperationVersion,
     string RegistryDigest,
@@ -124,7 +128,7 @@ internal sealed record ArticleBulkPlan(
     ArticleBulkImpactFacts Impact,
     string ContentDigest)
 {
-    internal const string CurrentSchema = "fsusblog.article-bulk.plan.v1";
+    internal const string CurrentSchema = "fsusblog.article-bulk.plan.v2";
 
     internal IEnumerable<ArticleBulkPlanItem> Items => ItemChunks.SelectMany(static chunk => chunk.Items);
 }
@@ -141,8 +145,25 @@ internal sealed class ArticleBulkPlanAuthority(
         ArticleBulkPlanRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (request.ReplanOfPlanDigest is not null)
+        {
+            throw new ArticleBulkContractException("article-bulk.replan-parent-unexpected");
+        }
+
+        return await CreateCoreAsync(request, requireReplanParent: false, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<ArticleBulkPlan> CreateCoreAsync(
+        ArticleBulkPlanRequest request,
+        bool requireReplanParent,
+        CancellationToken cancellationToken)
+    {
         ArgumentNullException.ThrowIfNull(request);
         ValidateRequest(request);
+        if (requireReplanParent != (request.ReplanOfPlanDigest is not null))
+        {
+            throw new ArticleBulkContractException("article-bulk.replan-parent-invalid");
+        }
         ArticleBulkOperationRegistry.Validate(ArticleBulkOperationRegistry.Current);
         ArticleBulkOperation operation = ArticleBulkOperationRegistry.Get(request.OperationId);
         FrozenDictionary<string, object> parameters =
@@ -202,6 +223,8 @@ internal sealed class ArticleBulkPlanAuthority(
         string frozenSetDigest = ArticleBulkDigest.Of(articleIds);
         var unsigned = new ArticleBulkPlan(
             ArticleBulkPlan.CurrentSchema,
+            request.PlanIdentity,
+            request.ReplanOfPlanDigest,
             operation.Id,
             operation.Version,
             ArticleBulkOperationRegistry.Current.ContentDigest,
@@ -228,6 +251,48 @@ internal sealed class ArticleBulkPlanAuthority(
         };
     }
 
+    internal async Task<ArticleBulkPlan> ReplanAsync(
+        ArticleBulkPlan previousPlan,
+        ArticleBulkPlanRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateIntegrity(previousPlan);
+        if (request.ReplanOfPlanDigest != previousPlan.ContentDigest
+            || request.PlanIdentity == previousPlan.PlanIdentity)
+        {
+            throw new ArticleBulkContractException("article-bulk.replan-identity-invalid");
+        }
+
+        return await CreateCoreAsync(request, requireReplanParent: true, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal ArticleBulkPlanConfirmation RecordExplicitConfirmation(
+        ArticleBulkPlan plan,
+        string confirmationIdentity,
+        DateTimeOffset confirmedAtUtc)
+    {
+        ValidateForExecution(plan);
+        if (!IsBoundedOpaqueValue(confirmationIdentity, 256)
+            || confirmedAtUtc.Offset != TimeSpan.Zero
+            || confirmedAtUtc < plan.CreatedAtUtc
+            || confirmedAtUtc >= plan.ExpiresAtUtc)
+        {
+            throw new ArticleBulkContractException("article-bulk.confirmation-invalid");
+        }
+
+        var unsigned = new ArticleBulkPlanConfirmation(
+            confirmationIdentity,
+            plan.PlanIdentity,
+            plan.ContentDigest,
+            plan.Actor.AuthorityDigest,
+            confirmedAtUtc,
+            string.Empty);
+        return unsigned with
+        {
+            ContentDigest = ArticleBulkDigest.Of(unsigned)
+        };
+    }
+
     internal async Task VerifyAsync(
         ArticleBulkPlan plan,
         CancellationToken cancellationToken = default)
@@ -236,6 +301,8 @@ internal sealed class ArticleBulkPlanAuthority(
         ValidateForExecution(plan);
 
         var request = new ArticleBulkPlanRequest(
+            plan.PlanIdentity,
+            plan.ReplanOfPlanDigest,
             plan.OperationId,
             ToJsonParameters(plan.NormalizedParameters),
             plan.Selection,
@@ -245,7 +312,10 @@ internal sealed class ArticleBulkPlanAuthority(
             plan.PermissionPolicyDigest,
             plan.CreatedAtUtc,
             plan.ExpiresAtUtc);
-        ArticleBulkPlan recomputed = await CreateAsync(request, cancellationToken).ConfigureAwait(false);
+        ArticleBulkPlan recomputed = await CreateCoreAsync(
+            request,
+            requireReplanParent: plan.ReplanOfPlanDigest is not null,
+            cancellationToken).ConfigureAwait(false);
         if (recomputed.ContentDigest != plan.ContentDigest)
         {
             throw new ArticleBulkContractException("article-bulk.plan-drift");
@@ -259,6 +329,42 @@ internal sealed class ArticleBulkPlanAuthority(
         if (now >= plan.ExpiresAtUtc)
         {
             throw new ArticleBulkContractException("article-bulk.plan-expired");
+        }
+    }
+
+    internal async Task ValidateCurrentArticlesForExecutionAsync(
+        ArticleBulkPlan plan,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateForExecution(plan);
+        ArticleBulkOperation operation = ArticleBulkOperationRegistry.Get(plan.OperationId);
+        ArticleBulkPlanItem[] expected = [.. plan.Items];
+        int observed = 0;
+        await foreach (ArticleBulkArticleObservation observation in preflightAuthority
+            .ObserveAsync(
+                expected.Select(static item => item.ArticleId).ToArray(),
+                operation,
+                plan.NormalizedParameters,
+                plan.Actor,
+                cancellationToken)
+            .WithCancellation(cancellationToken).ConfigureAwait(false))
+        {
+            if (observed >= expected.Length || observation.ArticleId != expected[observed].ArticleId)
+            {
+                throw new ArticleBulkContractException("article-bulk.execution-article-order-drift");
+            }
+
+            ArticleBulkPlanItem current = SealItem(observation, operation, plan.NormalizedParameters, plan.Actor);
+            if (current.ContentDigest != expected[observed].ContentDigest)
+            {
+                throw new ArticleBulkContractException("article-bulk.execution-article-drift");
+            }
+            observed++;
+        }
+
+        if (observed != expected.Length)
+        {
+            throw new ArticleBulkContractException("article-bulk.execution-preflight-incomplete");
         }
     }
 
@@ -283,6 +389,8 @@ internal sealed class ArticleBulkPlanAuthority(
                 plan.OperationId,
                 ToJsonParameters(plan.NormalizedParameters));
             ValidateRequest(new ArticleBulkPlanRequest(
+                plan.PlanIdentity,
+                plan.ReplanOfPlanDigest,
                 plan.OperationId,
                 ToJsonParameters(plan.NormalizedParameters),
                 plan.Selection,
@@ -313,6 +421,8 @@ internal sealed class ArticleBulkPlanAuthority(
             ? eligible > 0
             : blocked == 0;
         if (plan.Schema != ArticleBulkPlan.CurrentSchema
+            || !IsBoundedOpaqueValue(plan.PlanIdentity, 256)
+            || plan.ReplanOfPlanDigest is not null && !IsDigest(plan.ReplanOfPlanDigest)
             || plan.RegistryDigest != ArticleBulkOperationRegistry.Current.ContentDigest
             || plan.OperationVersion != operation.Version
             || plan.Strategy != operation.Strategy
@@ -472,7 +582,9 @@ internal sealed class ArticleBulkPlanAuthority(
         {
             throw new ArticleBulkContractException("article-bulk.plan-expiry-invalid");
         }
-        if (!Enum.IsDefined(request.Selection.Kind)
+        if (!IsBoundedOpaqueValue(request.PlanIdentity, 256)
+            || request.ReplanOfPlanDigest is not null && !IsDigest(request.ReplanOfPlanDigest)
+            || !Enum.IsDefined(request.Selection.Kind)
             || request.Selection.ArticleIds.Length > MaximumItems
             || request.Selection.ArticleIds.Distinct(StringComparer.Ordinal).Count() != request.Selection.ArticleIds.Length
             || request.Selection.ArticleIds.Any(static articleId => !IsBoundedOpaqueValue(articleId, 256))
@@ -507,6 +619,8 @@ internal sealed class ArticleBulkPlanAuthority(
     private static string DigestPlan(ArticleBulkPlan plan) => ArticleBulkDigest.Of(new
     {
         plan.Schema,
+        plan.PlanIdentity,
+        plan.ReplanOfPlanDigest,
         plan.OperationId,
         plan.OperationVersion,
         plan.RegistryDigest,

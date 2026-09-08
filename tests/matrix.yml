@@ -3236,6 +3236,7 @@ tiers:
           - article-embed-relations-static-governance
           - article-scale-plan-static-governance
           - static-client-payload-baseline-contract
+          - article-bulk-authority-static-governance
       artifacts:
           [
               .tmp/gate-logs,
@@ -3535,6 +3536,10 @@ tiers:
           - tests/fixtures/governance/article-scale-plan-governance.json
           - tests/tools/article-scale-plan-governance.test.mjs
           - src/backend/Services/Fixtures/DataScale/ArticleScalePlan.cs
+          - tools/governance/check-article-bulk-authorities.mjs
+          - tests/tools/article-bulk-authorities.test.mjs
+          - src/backend/Services/Articles/Bulk/ArticleBulkOperationRegistry.cs
+          - src/backend/Services/Articles/Bulk/ArticleBulkCanonicalCommandOwners.cs
           - docs/testing/issue-1174-csharp-entrypoint-ownership.md
           - .editorconfig
           - Directory.Build.props
