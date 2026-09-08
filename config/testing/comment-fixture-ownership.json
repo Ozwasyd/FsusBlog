@@ -1,0 +1,144 @@
+{
+    "schema": "fsusblog.comment-fixture-ownership.v1",
+    "inventory": "config/testing/comment-fixture-inventory.json",
+    "producer": {
+        "id": "comment-moderation",
+        "implementation": "tools/test-fixtures/producers/comment-moderation-producer.mjs",
+        "strategy": "transaction-fixture"
+    },
+  "ports": [
+        {
+            "id": "comment-moderation-lifecycle",
+            "implementation": "src/backend/Services/Fixtures/CommentModerationFixturePort.cs",
+            "storageWrites": "production-authoring-moderation-commands"
+        },
+        {
+            "id": "comment-thread-lifecycle",
+            "implementation": "src/backend/Services/Fixtures/CommentThreadFixturePort.cs",
+      "storageWrites": "production-comment-command-and-management-services"
+    }
+  ],
+  "supportImplementations": [
+    {
+      "id": "comment-anonymous-production-adapter",
+      "implementation": "src/backend/Services/Fixtures/CommentAnonymousFixtureProvider.cs",
+      "portId": "comment-thread-lifecycle"
+    }
+  ],
+    "composition": {
+        "implementation": "src/backend/Services/Fixtures/CommentFixtureSeeder.cs",
+        "delegatesTo": [
+            "comment-moderation-lifecycle",
+            "comment-thread-lifecycle"
+        ]
+    },
+    "gateways": [
+        {
+            "id": "loopback-http",
+            "implementation": "src/backend/Modules/Endpoints/LocalCommentFixtureEndpoints.cs",
+            "delegatesTo": "comment-fixture-composition"
+        }
+    ],
+    "capabilityOwners": [
+        {
+            "capabilityId": "comment.actor.public",
+            "portId": "comment-thread-lifecycle"
+        },
+        {
+            "capabilityId": "comment.actor.zk-anonymous",
+            "portId": "comment-thread-lifecycle"
+        },
+        {
+            "capabilityId": "comment.delete.reply",
+            "portId": "comment-thread-lifecycle"
+        },
+        {
+            "capabilityId": "comment.delete.root",
+            "portId": "comment-thread-lifecycle"
+        },
+        {
+            "capabilityId": "comment.moderation.approved",
+            "portId": "comment-moderation-lifecycle"
+        },
+        {
+            "capabilityId": "comment.moderation.pending",
+            "portId": "comment-moderation-lifecycle"
+        },
+        {
+            "capabilityId": "comment.moderation.rejected",
+            "portId": "comment-moderation-lifecycle"
+        },
+        {
+            "capabilityId": "comment.moderation.spam",
+            "portId": "comment-moderation-lifecycle"
+        },
+        {
+            "capabilityId": "comment.queue.exact-membership",
+            "portId": "comment-moderation-lifecycle"
+        },
+        {
+            "capabilityId": "comment.region.global",
+            "portId": "comment-moderation-lifecycle"
+        },
+        {
+            "capabilityId": "comment.region.manual-review",
+            "portId": "comment-moderation-lifecycle"
+        },
+        {
+            "capabilityId": "comment.signal.verified",
+            "portId": "comment-moderation-lifecycle"
+        },
+        {
+            "capabilityId": "comment.thread.depth-boundary",
+            "portId": "comment-thread-lifecycle"
+        },
+        {
+            "capabilityId": "comment.thread.nested",
+            "portId": "comment-thread-lifecycle"
+        },
+        {
+            "capabilityId": "comment.thread.reply",
+            "portId": "comment-thread-lifecycle"
+        },
+        {
+            "capabilityId": "comment.thread.root",
+            "portId": "comment-thread-lifecycle"
+        },
+        {
+            "capabilityId": "comment.version.edited",
+            "portId": "comment-thread-lifecycle"
+        }
+    ],
+    "consumers": [
+        {
+            "id": "browser-contract-fixture",
+            "implementation": "tests/browser-contract/default-fixture-provider.mjs",
+            "reads": "verified-producer-receipt"
+        },
+        {
+            "id": "fixture-orchestrator",
+            "implementation": "tools/test-fixtures/orchestrator.mjs",
+            "receiptSchema": "fsusblog.fixture-receipt.v2"
+        }
+    ],
+    "privacy": {
+        "ordinaryArtifactFields": [
+            "actorMode",
+            "commentId",
+            "contentDigest",
+            "moderationStatus",
+            "outboxEventId",
+            "parentId",
+            "regionPolicyVersion",
+            "rootId",
+            "signalRef"
+        ],
+        "forbiddenFields": [
+            "anonymousTicket",
+            "cookie",
+            "managementSecret",
+            "privateCredential",
+            "token"
+        ]
+    }
+}

@@ -210,6 +210,10 @@ function buildPrivateRuntimeHandles()
     {
         handles.localAuthFixtureSecret = process.env.FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET;
     }
+    if (process.env.FSUSBLOG_LOCAL_COMMENT_FIXTURE_SECRET)
+    {
+        handles.localCommentFixtureSecret = process.env.FSUSBLOG_LOCAL_COMMENT_FIXTURE_SECRET;
+    }
     if (process.env.FSUSBLOG_LOCAL_MESSAGING_FIXTURE_SECRET)
     {
         handles.localMessagingFixtureSecret = process.env.FSUSBLOG_LOCAL_MESSAGING_FIXTURE_SECRET;
