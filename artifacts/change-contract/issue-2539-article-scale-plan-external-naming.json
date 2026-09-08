@@ -1,0 +1,43 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/ArticleMutationOutboxEnvelope.cs",
+                "src/backend/Services/ArticleMutationOutboxProducer.cs",
+                "src/backend/Services/ArticleMutationSideEffects.cs",
+                "src/backend/Services/Fixtures/DataScale/ArticleScalePlan.cs",
+                "tools/test/check-article-scale-plan-governance.mjs"
+            ],
+            "reason": "Production and governance machine identifiers preserve their caller-visible schema, factory, edge, and rule spelling while internal C# and JavaScript symbols follow repository naming."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/static-governance.sh"
+            ],
+            "reason": "The static lane preserves repository-owned process environment spelling while its shell function identifiers follow repository naming."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "config/testing/current-run-evidence-location-acceptance.json",
+                "config/testing/evidence-location-migration-ledger.json",
+                "config/testing/evidence-locator-registry.json",
+                "tests/fixtures/governance/article-scale-plan-governance.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Generated authorities and test governance preserve stable JSON schema, key, producer, consumer, rule, and lifecycle identifiers across their canonical projections."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md",
+                "tests/coverage-registry.json"
+            ],
+            "reason": "The generated matrix documentation and coverage authority change atomically while preserving their externally visible Markdown, tier, and registry identifier spelling."
+        }
+    ]
+}

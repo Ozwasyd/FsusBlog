@@ -1,0 +1,28 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/matrix.yml"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "1463a2dba0e5c1b81e3660efde2d38b4cd9f2df3311db310440db3edfbe85073"
+        },
+        {
+            "path": "docs/testing.generated.md",
+            "sha256": "887669887684f0ead2cb4c30342917ebdf714f8c8e87d61f57033c7c8844cb24"
+        },
+        {
+            "path": "config/testing/evidence-locator-registry.json",
+            "sha256": "2ace8f346d7814e5e054d1ff3e7c87cbc0d55b74a19c340d32ac09c31361df5e"
+        },
+        {
+            "path": "config/testing/evidence-location-migration-ledger.json",
+            "sha256": "29ef284975c8ba850e00309d5f8c76c173c4095f54f44dfc63a4173315720994"
+        },
+        {
+            "path": "config/testing/current-run-evidence-location-acceptance.json",
+            "sha256": "3d6e94b178ef1edd2026e6d56c47c78af45be6a538f254fd6e2a6d5b73112b04"
+        }
+    ]
+}
