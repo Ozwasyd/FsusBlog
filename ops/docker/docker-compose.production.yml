@@ -152,6 +152,11 @@ networks:
 volumes:
     fsus-storage:
         name: ${FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME:?Set the migrated shared public-assets volume explicitly}
+        driver: local
+        driver_opts:
+            type: none
+            o: bind
+            device: /var/lib/fsusblog/storage
     fsus-aot-cache:
         name: ${FSUSBLOG_SLOT_AOT_CACHE_VOLUME:?Set slot-specific AOT cache volume}
     fsus-logs:
