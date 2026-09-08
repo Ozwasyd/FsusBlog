@@ -25,10 +25,14 @@ import {
   validateProducerReceiptAgainstRegistry
 } from '../test-matrix/post-runtime-producer-registry.mjs'
 import { verifyCanonicalReleaseAuthorities } from './canonical-release-authorities.mjs'
+import {
+  buildReleaseReadinessAuthorityBundle,
+  releaseReadinessAuthorityBundleSchema
+} from './release-authority-bundle-contract.mjs'
+export { releaseReadinessAuthorityBundleSchema } from './release-authority-bundle-contract.mjs'
 
 export const releaseReadinessSourceSchema = 'fsusblog.release-identity-readiness-current-run.v1'
 export const releaseReadinessObservationSchema = 'fsusblog.observation.release-identity-readiness.v1'
-export const releaseReadinessAuthorityBundleSchema = 'fsusblog.release-identity-readiness-authority-bundle.v1'
 
 const digestPattern = /^sha256:[a-f0-9]{64}$/u
 const commitPattern = /^[a-f0-9]{40}$/u
@@ -518,15 +522,7 @@ export function produceReleaseReadinessAuthorityBundle({
   const authorities = verifyCanonicalReleaseAuthorities({
     candidatePlan: plan, rolloutEvidence, runtimeRoleAdmission, repositoryRoot
   })
-  return seal({
-    schema: releaseReadinessAuthorityBundleSchema,
-    sourceState: plan.sourceState,
-    candidatePlanRef: planInput.ref,
-    rolloutEvidenceRef: authorities.rollout.ref,
-    runtimeRoleAdmissionRef: authorities.runtimeRole.admission.ref,
-    authorityDigest: authorities.authorityDigest,
-    canonicalRerunCommand: `node tools/test-evidence/release-readiness-raw.mjs bundle-authorities --candidate-plan ${planInput.ref.path} --rollout-evidence ${authorities.rollout.ref.path} --runtime-role-admission ${authorities.runtimeRole.admission.ref.path}`
-  })
+  return buildReleaseReadinessAuthorityBundle({ planInput, plan, authorities })
 }
 
 function releaseAuthorityBundle(sourceReceipt, plan, repositoryRoot)

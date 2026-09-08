@@ -25,11 +25,15 @@ import {
 } from '../test-matrix/post-runtime-producer-registry.mjs'
 import { productionBuildBinding } from '../release/test-evidence-receipts.mjs'
 import { verifyCanonicalReleaseAuthorities } from './canonical-release-authorities.mjs'
+import {
+  buildBlueGreenAuthorityBundle,
+  canonicalAuthorityBundleSchema
+} from './release-authority-bundle-contract.mjs'
+export { canonicalAuthorityBundleSchema } from './release-authority-bundle-contract.mjs'
 
 export const sourceReceiptSchema = 'fsusblog.blue-green-containment-source-receipt.v1'
 export const sourceBundleSchema = 'fsusblog.blue-green-containment-source-bundle.v1'
 export const failureReceiptSchema = 'fsusblog.observation.blue-green-containment.failure.v1'
-export const canonicalAuthorityBundleSchema = 'fsusblog.blue-green-containment-authority-bundle.v1'
 
 const classId = 'blue-green-containment'
 const digestPattern = /^sha256:[a-f0-9]{64}$/u
@@ -593,15 +597,7 @@ export function produceBlueGreenAuthorityBundle({
   const authorities = verifyCanonicalReleaseAuthorities({
     candidatePlan: context.plan, rolloutEvidence, runtimeRoleAdmission, repositoryRoot
   })
-  return seal({
-    schema: canonicalAuthorityBundleSchema,
-    sourceState: context.plan.sourceState,
-    candidatePlanRef: context.candidatePlanRef,
-    rolloutEvidenceRef: authorities.rollout.ref,
-    runtimeRoleAdmissionRef: authorities.runtimeRole.admission.ref,
-    authorityDigest: authorities.authorityDigest,
-    canonicalRerunCommand: `node tools/test-evidence/blue-green-containment-raw.mjs bundle-authorities --candidate-plan ${candidatePlan} --rollout-evidence ${authorities.rollout.ref.path} --runtime-role-admission ${authorities.runtimeRole.admission.ref.path}`
-  })
+  return buildBlueGreenAuthorityBundle({ candidatePlan, context, authorities })
 }
 
 function loadCanonicalAuthorityBundle(sourceReceipt, context, repositoryRoot)
