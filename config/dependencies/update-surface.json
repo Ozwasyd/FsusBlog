@@ -2468,7 +2468,6 @@
         ".github/workflows/change-contract.yml",
         ".github/workflows/codeql.yml",
         ".github/workflows/daily-operations-checks.yml",
-        ".github/workflows/dependency-freshness.yml",
         ".github/workflows/dependency-review.yml",
         ".github/workflows/monthly-ip-anonymization-scan.yml",
         ".github/workflows/physical-execution-platforms.yml",
@@ -2556,7 +2555,6 @@
         ".github/workflows/browser-diagnostics.yml",
         ".github/workflows/change-contract.yml",
         ".github/workflows/daily-operations-checks.yml",
-        ".github/workflows/dependency-freshness.yml",
         ".github/workflows/monthly-ip-anonymization-scan.yml",
         ".github/workflows/physical-execution-platforms.yml",
         ".github/workflows/production-image-verification.yml",
@@ -2643,7 +2641,6 @@
         ".github/workflows/browser-diagnostics.yml",
         ".github/workflows/change-contract.yml",
         ".github/workflows/daily-operations-checks.yml",
-        ".github/workflows/dependency-freshness.yml",
         ".github/workflows/monthly-ip-anonymization-scan.yml",
         ".github/workflows/production-image-verification.yml",
         ".github/workflows/quality-gate.yml"
