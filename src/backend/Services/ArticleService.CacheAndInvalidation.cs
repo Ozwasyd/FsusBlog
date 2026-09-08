@@ -66,7 +66,7 @@ public partial class ArticleService
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        await _redis.SortedSetAddAsync(redisKey, entries);
+        await CacheRebuildLeaseScope.PublishSortedSetAsync(_redis, redisKey, entries, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         return ids;
     }

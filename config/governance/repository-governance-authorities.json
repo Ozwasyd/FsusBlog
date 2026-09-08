@@ -204,7 +204,7 @@
             "inputs": [
                 "AGENTS.md",
                 "CHANGELOG.md",
-                "CONTRIBUTING.md",
+                "docs/CONTRIBUTING.md",
                 "README.md",
                 "ROADMAP.md",
                 "config/development/authoritative-development-docs.json",
@@ -313,8 +313,8 @@
                 ".github/ISSUE_TEMPLATE/**",
                 ".github/PULL_REQUEST_TEMPLATE.md",
                 ".github/labeler.yml",
-                "CONTRIBUTING.md",
-                "SECURITY.md",
+                "docs/CONTRIBUTING.md",
+                "docs/SECURITY.md",
                 "tools/docs/check-community-workflow.mjs",
                 "tools/docs/check-github-label-governance.mjs"
             ],

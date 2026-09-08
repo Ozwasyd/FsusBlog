@@ -1,14 +1,12 @@
 # Security Policy
 
-Do not report security vulnerabilities as public GitHub issues.
-
-Use GitHub private vulnerability reporting for this repository:
+Do not report security vulnerabilities as public GitHub issues. Use GitHub private vulnerability reporting for this repository:
 
 ```text
 https://github.com/Ozwasyd/FsusBlog/security/advisories/new
 ```
 
-If private vulnerability reporting is unavailable, contact the repository owner through a private channel first and do not publish exploit details until a maintainer confirms a disclosure path.
+If private reporting is unavailable, contact the repository owner through a private channel first; do not publish exploit details until a maintainer confirms a disclosure path.
 
 ## Supported Scope
 
@@ -26,15 +24,7 @@ Do not use the security channel for general bugs, feature requests, spam reports
 
 ## What To Include
 
-Please include:
-
-- affected version or commit SHA
-- affected endpoint, page, workflow, or package
-- impact summary
-- minimal reproduction steps or proof of concept
-- sanitized logs or screenshots if useful
-- whether the issue reproduces on fresh demo data
-- any known mitigations
+Please include the affected version or commit SHA, endpoint/page/workflow/package, impact summary, minimal reproduction steps or proof of concept, sanitized logs or screenshots if useful, whether the issue reproduces on fresh demo data, and any known mitigations.
 
 Remove tokens, cookies, private domains, real emails, real IP addresses, production logs, and personal data before submitting evidence.
 

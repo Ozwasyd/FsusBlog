@@ -8,8 +8,8 @@ internal static partial class XunitAdapterProgram
         FileLinePositionSpan lineSpan = tree.GetLineSpan(node.Span);
         return new Span
         {
-            Start = new Position { Line = lineSpan.StartLinePosition.Line, Column = lineSpan.StartLinePosition.Character },
-            End = new Position { Line = lineSpan.EndLinePosition.Line, Column = lineSpan.EndLinePosition.Character }
+            Start = new Position { Line = lineSpan.StartLinePosition.Line + 1, Column = lineSpan.StartLinePosition.Character + 1 },
+            End = new Position { Line = lineSpan.EndLinePosition.Line + 1, Column = lineSpan.EndLinePosition.Character + 1 }
         };
     }
 

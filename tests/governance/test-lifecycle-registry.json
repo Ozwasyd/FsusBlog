@@ -5646,6 +5646,38 @@
                 "source-text",
                 "runtime"
             ]
+        },
+        {
+            "file": "tests/tools/agent-context-routing.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "agent-context-routing",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
+        },
+        {
+            "file": "tests/tools/blog-ui-orchestration.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "blog-ui-orchestration",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         }
     ]
 }

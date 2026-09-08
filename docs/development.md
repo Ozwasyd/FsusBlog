@@ -1,22 +1,22 @@
-# 本地开发指南
+# Local development guide
 
-本文件说明如何在本机搭建 FsusBlog 完整开发环境。
+This guide sets up a complete FsusBlog development environment locally.
 
 ---
 
-## 编码规范与权威文档门禁
+## Coding standards and authoritative-document gates
 
-跨语言代码风格统一见 [development/coding-conventions.md](development/coding-conventions.md)。该规范以 Microsoft .NET C# 约定为母规范，集中定义语言映射、外部契约例外和 generated/vendor/fixture 分类；`AGENTS.md` 只保留代理角色与操作边界。
+The cross-language style authority is [development/coding-conventions.md](development/coding-conventions.md). It derives its mappings from Microsoft .NET C# conventions and defines external-contract exceptions plus generated/vendor/fixture classifications; `AGENTS.md` retains only agent role and operating boundaries.
 
-ownership、安全边界、TODO lifecycle、公共 API 文档与性能声明等级见 [development/code-intent-governance.md](development/code-intent-governance.md)。该文档消费编码规范而不建立新的同级风格权威。
+[Code intent governance](development/code-intent-governance.md) covers ownership, security boundaries, TODO lifecycle, public API documentation, and performance-claim levels. It consumes the coding authority rather than creating a peer style authority.
 
-FsusBlog 专项检查的统一身份、共享 inventory/cache、changed-file dependency closure、执行摘要以及分类复杂度/职责预算见 [development/custom-rule-platform.md](development/custom-rule-platform.md)。新增或迁移 custom rule 时必须同步 machine-readable registry；通用语言规则继续由编译器或 AST 工具负责。
+The [custom rule platform](development/custom-rule-platform.md) defines shared identity, inventory/cache, changed-file dependency closure, execution summaries, and category-based complexity/responsibility budgets for FsusBlog checks. Adding or migrating a custom rule requires updating its machine-readable registry; compiler or AST tools remain responsible for language-generic rules.
 
-commit/squash title、PR classification、纯格式与命名迁移、performance/generated evidence、release-note label 和 rollback metadata 见 [development/change-contract.md](development/change-contract.md)。它约束 Git/review 元数据，不建立第二套源码命名规范。
+[Change contract](development/change-contract.md) defines commit/squash titles, PR classification, format and naming migrations, performance/generated evidence, release-note labels, and rollback metadata. It governs Git/review metadata and does not create a second source-code naming system.
 
-文档的 current/proposed/historical/generated/retired 状态、owner、完整索引、工单关联、替代关系和仓库路径迁移记录见 [development/document-lifecycle.md](development/document-lifecycle.md)。这些字段来自显式 metadata，不得从文件名、工单关闭状态或更新时间推断权威性。
+[Document lifecycle](development/document-lifecycle.md) defines current/proposed/historical/generated/retired status, ownership, the complete index, issue associations, supersession, and repository path migrations. These fields come from explicit metadata; authority must not be inferred from filenames, issue closure, or update time.
 
-修改开发文档中的路径、symbol、命令或规范入口后运行：
+After changing a path, symbol, command, or standards entry point in a development document, run:
 
 ```bash
 node tools/docs/check-authoritative-development-docs.mjs
@@ -24,44 +24,38 @@ node tools/governance/check-code-intent.mjs
 node tools/governance/check-rule-platform.mjs --mode changed --base origin/master
 ```
 
-门禁会聚合失效路径、退休 symbol、缺失命令、坏链接、style owner 漂移和未分类例外，全部修正后才成功。
+The gates aggregate invalid paths, retired symbols, missing commands, broken links, style-owner drift, and unclassified exceptions; they succeed only after all findings are fixed.
 
 ---
 
-## 环境要求
+## Environment requirements
 
-| 工具 | 版本要求 | 用途 |
+| Tool | Version | Purpose |
 | ------ | --------- | ------ |
-| .NET SDK | 10.0+ | 后端编译与运行 |
-| Node.js | 20 LTS+ | 前端依赖与构建 |
-| npm | 10+ | 前端包管理 |
-| Docker + Docker Compose | 最新稳定版 | PostgreSQL、Redis、后端容器 |
-| Emscripten SDK | 最新稳定版 | 仅在本地重新构建 Wasm 时需要 |
+| .NET SDK | 10.0+ | Backend build and runtime |
+| Node.js | 20 LTS+ | Frontend dependencies and build |
+| npm | 10+ | Frontend package management |
+| Docker + Docker Compose | Latest stable release | PostgreSQL, Redis, and backend containers |
+| Emscripten SDK | Latest stable release | Required only to rebuild Wasm locally |
 
-验证安装：
+Verify the installation:
 
 ```bash
-dotnet --version          # 应输出 10.x.x
-node --version            # 应输出 v20.x.x
-npm --version             # 应输出 10.x.x
-docker compose version    # 应输出 v2.x.x
+dotnet --version          # should print 10.x.x
+node --version            # should print v20.x.x
+npm --version             # should print 10.x.x
+docker compose version    # should print v2.x.x
 ```
 
 ---
 
-## 首次配置
+## First-time setup
 
-### NuGet 依赖版本
+### NuGet package versions
 
-根级 [`Directory.Packages.props`](../Directory.Packages.props) 是仓库内 NuGet
-版本的唯一权威。`.csproj` 只声明是否引用 package，并在项目处保留
-`PrivateAssets`、`IncludeAssets` 等引用语义；不得在 `PackageReference` 中写
-`Version`、嵌套 `Version` 或 `VersionOverride`。
+The root [`Directory.Packages.props`](../Directory.Packages.props) is the repository's sole NuGet version authority. `.csproj` files declare package references and retain project-level reference semantics such as `PrivateAssets` and `IncludeAssets`; never put `Version`, nested `Version`, or `VersionOverride` in a `PackageReference`.
 
-升级 NuGet package 时只编辑 `Directory.Packages.props`，然后重新生成并提交每个
-受影响项目自己的 `packages.lock.json`。新增、删除 `ProjectReference`，或修改被引用
-项目的 package/project 依赖边时，也必须用非 locked restore 生成器更新所有受影响
-consumer 的 lock graph；`--locked-mode` 只用于验证，不会修复过期图。提交前运行：
+When upgrading a NuGet package, edit only `Directory.Packages.props`, then regenerate and commit each affected project's own `packages.lock.json`. Adding or removing a `ProjectReference`, or changing a referenced project's package/project dependency edge, also requires the non-locked restore generator to update every affected consumer lock graph; `--locked-mode` validates but does not repair a stale graph. Before committing, run:
 
 ```bash
 dotnet restore FsusBlog.slnx --locked-mode
@@ -69,31 +63,28 @@ node tools/governance/check-central-package-management.mjs
 bash tools/security/check-supply-chain-audit.sh
 ```
 
-`Directory.Build.props` 继续统一启用 `RestorePackagesWithLockFile`，并在 CI 或
-GitHub Actions 下启用 `RestoreLockedMode`；不得通过删除 lockfile 或关闭 locked
-restore 规避版本漂移。
+`Directory.Build.props` continues to enable `RestorePackagesWithLockFile`, and CI or GitHub Actions enables `RestoreLockedMode`; do not avoid version drift by deleting lockfiles or disabling locked restore.
 
-### 1. FsusUI 私有组件库
+### 1. FsusUI private component library
 
-前端组件库通过 GitHub Packages 分发，安装前需设置个人访问令牌：
+The frontend component library is distributed through GitHub Packages. Set a personal access token before installing it:
 
 ```bash
 export GITHUB_PACKAGES_TOKEN=your_github_personal_access_token
 ```
 
-建议将其写入 shell profile（`~/.bashrc` 或 `~/.zshrc`）以持久化。
-令牌需要 `read:packages` 权限。
+To persist it, add it to a shell profile (`~/.bashrc` or `~/.zshrc`). The token requires `read:packages` permission.
 
-### 2. Wasm 预构建产物
+### 2. Wasm prebuilt artifacts
 
-仓库不内置预编译 Wasm。首次开发前，确保 `src/frontend/wasm/` 目录下有已构建的 `.wasm` 文件：
+The repository does not include precompiled Wasm. Before the first development run, ensure that `src/frontend/wasm/` contains a built `.wasm` file:
 
 ```bash
 cd src/frontend
 npm run ensure:wasm
 ```
 
-若本地需重新构建 Wasm（需已安装 Emscripten SDK）：
+To rebuild Wasm locally (Emscripten SDK required):
 
 ```bash
 npm run build:wasm
@@ -101,96 +92,100 @@ npm run build:wasm
 
 ---
 
-## 启动开发环境
+## Start the development environment
 
-### 一键启动（推荐）
+### One-command startup (recommended)
 
 ```bash
-# 默认零数据：不写业务 row / auth identity / session / security reset
+# Default zero-data mode: writes no business rows, auth identity, session, or security reset
 ./tools/dev/start.sh
 
-# 显式 demo 数据集（fixture profile catalog id）
+# Explicit demo dataset (fixture profile catalog id)
 ./tools/dev/start.sh --fixture-profile demo-public
 
-# 显式 acceptance 代表态 auth/public fixtures
+# Explicit acceptance representative auth/public fixtures
 ./tools/dev/start.sh --fixture-profile acceptance-representative
 ```
 
-该入口会启动：
+This entry point starts:
 
-- PostgreSQL（默认 `127.0.0.1:5432`）
-- Redis（默认 `127.0.0.1:6379`）
-- ASP.NET Core backend（`http://127.0.0.1:7568`）
-- Vite frontend（`http://127.0.0.1:3000`）
-- 仅在 `--fixture-profile` 显式选择 catalog id 时写入对应 fixture（默认 `none`）
+- PostgreSQL (default `127.0.0.1:5432`)
+- Redis (default `127.0.0.1:6379`)
+- ASP.NET Core backend (`http://127.0.0.1:7568`)
+- Vite frontend (`http://127.0.0.1:3000`)
+- The selected fixture only when `--fixture-profile` explicitly names a catalog ID (default `none`)
 
-清理本地开发容器和 volume：
+To clean up local development containers and volumes:
 
 ```bash
 ./tools/dev/start.sh --cleanup
 ```
 
-Demo seed 详情见 [development/demo-data.md](development/demo-data.md)。Fixture profile catalog 见 [testing/fixture-capability-catalog.md](testing/fixture-capability-catalog.md)。
+See [development/demo-data.md](development/demo-data.md) for demo seed details and [testing/fixture-capability-catalog.md](testing/fixture-capability-catalog.md) for the fixture-profile catalog.
 
-### 手动启动后端依赖
+### Start backend dependencies manually
 
-一键入口不可用时，可先启动本地依赖：
+If the one-command entry point is unavailable, start local dependencies first:
 
 ```bash
 docker compose -f ops/development/dependencies.compose.yml up -d postgres redis
 ```
 
-随后启动 ASP.NET Core 后端：
+Then start the ASP.NET Core backend:
 
 ```bash
 dotnet run --project src/backend/FsusBlog.Server.csproj --urls http://127.0.0.1:7568
-# 或通过 Visual Studio / Rider 的 "Debug / NativeServer" 配置启动
+# Or use Visual Studio / Rider's "Debug / NativeServer" configuration
 ```
 
-### 手动启动前端开发服务器
+### Start the frontend development server manually
 
 ```bash
-npm --prefix src/frontend ci                 # 首次或依赖变更后需执行
-npm --prefix src/frontend run dev:debug      # Vite HMR，监听 0.0.0.0:3000
-npm --prefix src/frontend run dev:ssr        # 仅调试后端 public shell SSR proxy
+npm --prefix src/frontend ci                 # Run first or after dependency changes
+npm --prefix src/frontend run dev:debug      # Vite HMR on 0.0.0.0:3000
+npm --prefix src/frontend run dev:ssr        # Debug only the backend public-shell SSR proxy
 ```
 
-默认 `dev` / `dev:debug` 由 Vite 直接服务公开页入口与 `/src` 资源，适合编辑前端样式、公开页交互和本地 FsusUI HMR。不要在这类工作中启用后端 public shell SSR proxy。
+By default, `dev` / `dev:debug` let Vite serve public-page entry points and `/src` resources directly. They are intended for frontend styles, public-page interactions, and local FsusUI HMR; do not enable the backend public-shell SSR proxy for this work.
 
-`dev:ssr` 会通过 `VITE_PUBLIC_SHELL_PROXY=1` 把公开 SEO 路由代理到本地后端，只用于验证后端 SSR 壳、AOT 回填和预编译公开页输出。使用前需要确认后端正在 `http://127.0.0.1:7568` 运行。
+`dev:ssr` sets `VITE_PUBLIC_SHELL_PROXY=1` and proxies public SEO routes to the local backend. Use it only to validate the backend SSR shell, AOT backfill, and precompiled public-page output; confirm that the backend is running at `http://127.0.0.1:7568` first.
 
-dev 模式下，Vite 会通过 `transformIndexHtml` 注入 `public-shell-critical.css?direct` 与 `public-page.css?direct`，让公开页首屏 CSS 进入 Vite module graph，支持 source CSS HMR 并避免 hydration 后才补 link 的 FOUC。生产模式不使用 `?direct`，运行时只在没有可用样式表时启用 emergency fallback（`/public-shell-emergency.css`）。
+In dev mode, Vite uses `transformIndexHtml` to inject `public-shell-critical.css?direct` and `public-page.css?direct`, placing first-paint public-page CSS in the Vite module graph for source CSS HMR and avoiding FOUC from links added only after hydration. Production does not use `?direct`; runtime enables the emergency fallback (`/public-shell-emergency.css`) only when no usable stylesheet is available.
 
-`public/public-shell-emergency.css` 由 `npm run generate:public-shell-emergency` 从 `src/assets/public-page.css` 里的 `emergency:keep` 区块生成，并同步写入 `dist/server/public-shell-emergency.css`。贡献者只应编辑源 CSS 中 `/* emergency:keep-start */` 与 `/* emergency:keep-end */` 之间的最小首屏规则；未标记的普通公开页规则不会进入 emergency fallback。
+`public/public-shell-emergency.css` is generated by `npm run generate:public-shell-emergency` from the `emergency:keep` block in `src/assets/public-page.css` and is also written to `dist/server/public-shell-emergency.css`. Contributors should edit only the minimal first-paint rules between `/* emergency:keep-start */` and `/* emergency:keep-end */` in the source CSS; ordinary public-page rules without those markers do not enter the emergency fallback.
 
-### 常用访问地址
+### Common URLs
 
-| 地址 | 用途 |
+| URL | Purpose |
 | ------ | ------ |
-| `http://127.0.0.1:3000` | Vite 前端开发壳（HMR） |
-| `http://127.0.0.1:7568` | ASP.NET Core API（Debug 本地运行） |
-| `http://127.0.0.1:8080` | 生产构建预览（Release 容器） |
+| `http://127.0.0.1:3000` | Vite frontend development shell (HMR) |
+| `http://127.0.0.1:7568` | ASP.NET Core API (local Debug run) |
+| `http://127.0.0.1:8080` | Production-build preview (Release container) |
 
-### 本地 Passkey 注入
+<a id="本地-passkey-注入"></a>
 
-当前 anonymous identity mode 下，旧 `sys_user` 密码登录和旧 `role=admin`
-不再授予登录或后台权限。Demo seed 只创建匿名账号容器 `demo-reader` 和禁用的
-mock admin principal `demo-admin` 用于归属展示；它们不是登录凭据。首次本地登录
-应通过浏览器 Passkey ceremony 创建凭据；自动化或无物理认证器环境可以把
-Passkey 注入到浏览器的 WebAuthn virtual authenticator，再走真实的注册 /
-admin bootstrap 完成流程。
+### Local Passkey injection
 
-本地无 HTTPS 豁免只适用于 loopback origin：
+Under the current anonymous identity mode, legacy `sys_user` password login and legacy
+`role=admin` no longer grant login or admin access. Demo seed creates only the anonymous
+account container `demo-reader` and a disabled mock admin principal `demo-admin` for
+attribution display; neither is a login credential. For the first local login, create a
+credential through the browser Passkey ceremony. Automation or environments without a
+physical authenticator may inject a Passkey into the browser's WebAuthn virtual
+authenticator, then complete the real registration/admin bootstrap flow.
 
-- 推荐使用 `http://localhost:3000` 做 Passkey 注册、登录和 admin bootstrap。
-- 如必须使用 `http://127.0.0.1:3000`，后端启动前把
-  `Fido2__ServerDomain` 设为 `127.0.0.1`，并把 `Fido2__Origins__0`
-  设为 `http://127.0.0.1:3000`。不要在同一枚凭据上混用 `localhost`
-  与 `127.0.0.1`，WebAuthn 凭据按 RP ID 隔离。
-- LAN IP、Docker bridge IP、自定义内网域名仍必须使用 HTTPS 和匹配的
-  `Fido2:ServerDomain` / `Fido2:Origins`；本地豁免不得扩展到生产或共享环境。
+The local HTTPS exemption applies only to loopback origins:
 
-Playwright / Chromium 注入示例：
+- Prefer `http://localhost:3000` for Passkey registration, login, and admin bootstrap.
+- If `http://127.0.0.1:3000` is required, set `Fido2__ServerDomain` to `127.0.0.1`
+  and `Fido2__Origins__0` to `http://127.0.0.1:3000` before starting the backend. Do not
+  mix `localhost` and `127.0.0.1` for one credential; WebAuthn credentials are isolated
+  by RP ID.
+- LAN IPs, Docker bridge IPs, and custom internal domains still require HTTPS and matching
+  `Fido2:ServerDomain` / `Fido2:Origins`; the local exemption must not extend to production
+  or shared environments.
+
+Playwright / Chromium injection example:
 
 ```ts
 const context = await browser.newContext({ baseURL: 'http://localhost:3000' })
@@ -212,42 +207,44 @@ await cdp.send('WebAuthn.addVirtualAuthenticator', {
 await page.goto('/login')
 ```
 
-上面的注入只创建浏览器侧虚拟认证器。随后仍必须通过正常 UI 或二进制 API
-执行 Passkey 注册、Recovery Key 绑定或
-`/api/binary/auth/admin/bootstrap/passkey/begin|complete`。不要直接向
-`passkey_credential` 或 `admin_passkey_credential` 插入固定私钥 / 公钥行；
-这样会绕过 challenge 消费、origin 校验和审计链路，也无法证明浏览器实际持有凭据。
+The injection above creates only a browser-side virtual authenticator. You must still use
+the normal UI or binary API to perform Passkey registration, Recovery Key binding, or
+`/api/binary/auth/admin/bootstrap/passkey/begin|complete`. Do not insert fixed private-key
+or public-key rows directly into `passkey_credential` or `admin_passkey_credential`; doing
+so bypasses challenge consumption, origin validation, and the audit path, and cannot prove
+that the browser holds the credential.
 
-如果要创建本地 root admin principal，请在后端启动前提供一次性 bootstrap token：
+To create a local root admin principal, provide a one-time bootstrap token before starting
+the backend:
 
 ```bash
 export FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN=local-dev-bootstrap-token
 /opt/homebrew/bin/bash ./tools/dev/start.sh --fixture-profile none
 ```
 
-然后使用同一个 loopback origin 完成 admin bootstrap Passkey ceremony。root
-admin 一旦存在，bootstrap 端点会固定拒绝再次初始化；需要重建本地身份时清理
-dev PostgreSQL / Redis volume 后重新启动。
+Then complete the admin-bootstrap Passkey ceremony on the same loopback origin. Once a root
+admin exists, the bootstrap endpoint permanently rejects reinitialization; to rebuild local
+identity, clean the dev PostgreSQL / Redis volumes and restart.
 
 ---
 
-## 开发环境配置
+## Development configuration
 
-### 后端配置 authority
+### Backend configuration authority
 
-`src/backend/appsettings.json` 是唯一共享 base。开发环境只在确有本机差异时创建被 Git 忽略的 overlay：
+`src/backend/appsettings.json` is the sole shared base. Create the Git-ignored development overlay only when local differences are necessary:
 
 ```bash
 cp src/backend/appsettings.Development.example.json src/backend/appsettings.Development.json
 ```
 
-该示例只包含 loopback PostgreSQL/Redis、local auth fixture、insecure local cookie、synthetic release fence 和 localhost browser origin 等 11 个有意覆盖的 leaf；不得把 base 全量复制进去。ASP.NET Core 会按 base < `appsettings.Development.json` < environment variable < command line 合并。
+The example contains only 11 intentional leaf overrides for loopback PostgreSQL/Redis, the local auth fixture, the insecure local cookie, the synthetic release fence, and the localhost browser origin; do not copy the entire base into it. ASP.NET Core merges settings in this order: base < `appsettings.Development.json` < environment variable < command line.
 
-Production 使用已跟踪的 `appsettings.Production.json` 作为真实 fail-closed policy overlay，操作者从 `.env.production.example` 创建私有 `.env.production`。完整生产优先级为 base < Production overlay < `.env.production`/Compose environment < command line；真实 secret 继续由 environment、user-secrets 或 mounted file 提供，不能进入 tracked JSON/example。详见 [appsettings authority](configuration/appsettings-authority.md)。
+Production uses the tracked `appsettings.Production.json` as its real fail-closed policy overlay. Operators create a private `.env.production` from `config/examples/.env.production.example`. The full production precedence is base < Production overlay < `.env.production`/Compose environment < command line; real secrets must come from the environment, user-secrets, or a mounted file and must not enter tracked JSON/examples. See [appsettings authority](configuration/appsettings-authority.md).
 
-### 前端代理配置
+### Frontend proxy configuration
 
-Vite 通过 `vite.config.ts` 中的 `proxy` 配置将 `/api/` 请求转发到后端：
+Vite forwards `/api/` requests to the backend through the `proxy` configuration in `vite.config.ts`:
 
 ```typescript
 import { defineConfig } from 'vite'
@@ -264,144 +261,147 @@ export default defineConfig({
 })
 ```
 
-`/health` 端点需直接访问后端端口（默认 `http://127.0.0.1:7568`），不经过 Vite proxy。
+The `/health` endpoint must be called directly on the backend port (default `http://127.0.0.1:7568`), not through the Vite proxy.
 
-前端代码中所有 API 调用使用相对路径，无需在开发/生产间切换 base URL。
+All frontend API calls use relative paths, so no base-URL switch is needed between development and production.
 
 ---
 
-## 常用 npm 脚本
+## Common npm scripts
 
-### 开发
+### Development
 
-| 命令 | 说明 |
+| Command | Description |
 | ------ | ------ |
-| `npm run generate:public-page-manifest` | 从 `src/shared/Contracts/Outputs/PublicPageContracts.cs` 生成前端 public page manifest |
-| `npm run generate:public-shell-emergency` | 从 `src/assets/public-page.css` 的 `emergency:keep` 区块生成公开页 emergency CSS |
-| `npm run dev` | 启动 Vite 开发服务器（源码入口，适合前端样式与本地 FsusUI HMR） |
-| `npm run dev:debug` | 启动 Vite 开发服务器（源码入口，HMR，host 0.0.0.0:3000） |
-| `npm run dev:ssr` | 设置 `VITE_PUBLIC_SHELL_PROXY=1` 后启动后端 public shell SSR proxy 调试模式 |
-| `npm run build:release` | 生产构建（输出到 `dist/`） |
+| `npm run generate:public-page-manifest` | Generate the frontend public-page manifest from `src/shared/Contracts/Outputs/PublicPageContracts.cs` |
+| `npm run generate:public-shell-emergency` | Generate public-page emergency CSS from the `emergency:keep` block in `src/assets/public-page.css` |
+| `npm run dev` | Start the Vite development server (source entry, frontend styles and local FsusUI HMR) |
+| `npm run dev:debug` | Start the Vite development server (source entry, HMR, host `0.0.0.0:3000`) |
+| `npm run dev:ssr` | Set `VITE_PUBLIC_SHELL_PROXY=1` and start backend public-shell SSR-proxy debug mode |
+| `npm run build:release` | Build for production (output to `dist/`) |
 
-`dev`、`dev:debug`、`dev:ssr`、`test:unit:*` 和 `build:release` 会自动先同步 public page manifest，避免前端 AOT 页面身份与 shared C# 契约漂移。
+`dev`, `dev:debug`, `dev:ssr`, `test:unit:*`, and `build:release` first synchronize the public-page manifest automatically, preventing drift between frontend AOT page identity and the shared C# contract.
 
 ### Wasm
 
-| 命令 | 说明 |
+| Command | Description |
 | ------ | ------ |
-| `npm run ensure:wasm` | 检查并拉取 Wasm 预构建产物 |
-| `npm run build:wasm` | 本地重新编译 Wasm（需 Emscripten） |
-| `npm run deps:wasm-codec` | 更新 Wasm 相关依赖 |
-| `npm run deps:freshness` | 以 local-controlled-simulation 判定 `update-surface.json` 三态 freshness；缺 registry/GitHub 输入时 fail closed |
+| `npm run ensure:wasm` | Check for and fetch Wasm prebuilt artifacts |
+| `npm run build:wasm` | Recompile Wasm locally (Emscripten required) |
+| `npm run deps:wasm-codec` | Update Wasm dependencies |
+| `npm run deps:freshness` | Evaluate the three-state freshness of `update-surface.json` with local-controlled-simulation; fail closed when registry/GitHub inputs are missing |
 
-### 静态检查
+### Static checks
 
-| 命令 | 说明 |
+| Command | Description |
 | ------ | ------ |
-| `npm run check:modern-standards` | 验证现代 Web 标准兼容性 |
-| `npm run check:error-code-alignment` | 验证前后端错误码一致性 |
-| `npm run check:security-consistency` | 验证鉴权语义一致性 |
+| `npm run check:modern-standards` | Check modern Web standards compatibility |
+| `npm run check:error-code-alignment` | Check frontend/backend error-code alignment |
+| `npm run check:security-consistency` | Check authentication-semantics consistency |
 
 ### AOT / SEO
 
-| 命令 | 说明 |
+| Command | Description |
 | ------ | ------ |
-| `npm run check:aot` | 验证 AOT 契约合规性 |
-| `npm run check:public-seo-smoke` | 公开页 SEO 冒烟测试 |
-| `npm run check:public-hydration` | 公开页 hydration 冒烟 |
-| `npm run warm:public-aot` | 预热公开页 AOT 缓存 |
+| `npm run check:aot` | Check AOT contract compliance |
+| `npm run check:public-seo-smoke` | Run the public-page SEO smoke test |
+| `npm run check:public-hydration` | Run the public-page hydration smoke test |
+| `npm run warm:public-aot` | Warm the public-page AOT cache |
 
-Public AOT eligibility 由 `src/shared/Contracts/Outputs/PublicPageContracts.cs`
-生成到 `src/frontend/src/public-renderers/generated/publicPageManifest.ts`，
-并由 `tests/frontend/checks/public/public-hydration-matrix.registry.json`
-记录 Search / Account 等非 AOT 路由策略。Home、ArticleDetail、Filter、
-Archive、About、Privacy、Guidelines、Copyright 可以生成匿名 Public AOT shell。
-`/search` 当前只允许 SPA fallback：搜索查询空间无界，直接写入 AOT 会造成
-cache explosion、搜索索引陈旧和 hydration routeKey 漂移。`/user/profile`
-以及 account/messages/auth-required 路由必须保持 runtime-only：这些页面依赖用户态，
-不得写入公开 AOT cache，也不得输出 `fsus-aot-hydration-props` 或
-`data-public-hydration-kind`。
+Public AOT eligibility is generated from `src/shared/Contracts/Outputs/PublicPageContracts.cs`
+into `src/frontend/src/public-renderers/generated/publicPageManifest.ts`; non-AOT route
+policies such as Search / Account are recorded in
+`tests/frontend/checks/public/public-hydration-matrix.registry.json`. Home, ArticleDetail,
+Filter, Archive, About, Privacy, Guidelines, and Copyright may generate an anonymous Public
+AOT shell. `/search` allows only SPA fallback because its unbounded query space would cause
+cache explosion, stale search indexes, and hydration `routeKey` drift. `/user/profile` and
+account/messages/auth-required routes remain runtime-only: they depend on user state and must
+not write to the public AOT cache or emit `fsus-aot-hydration-props` or
+`data-public-hydration-kind`.
 
-### 测试（分层）
+### Layered tests
 
-| 命令 | 说明 |
+| Command | Description |
 | ------ | ------ |
-| `npm run test:fast` | 纯单元测试，无外部依赖 |
-| `npm run test:integration` | 集成测试（需 Docker） |
+| `npm run test:fast` | Unit tests only; no external dependencies |
+| `npm run test:integration` | Integration tests (Docker required) |
 | `npm run test:ci` | fast + integration |
-| `npm run test:acceptance` | 全量 Playwright E2E |
-| `npm run test:visual` | 视觉回归测试 |
-| `npm run test:production` | 全量发布门控 |
+| `npm run test:acceptance` | Full Playwright E2E suite |
+| `npm run test:visual` | Visual regression tests |
+| `npm run test:production` | Full release gate |
 
-详细分层规则见 [testing.md](testing.md)。
+See [testing.md](testing.md) for the complete tier rules.
 
 ---
 
-## Visual Studio / Rider 调试
+## Visual Studio / Rider debugging
 
-### 推荐启动配置
+### Recommended launch profiles
 
-| 配置名 | 场景 |
+| Profile | Scenario |
 | -------- | ------ |
-| `Debug / Client + Docker` | 最接近生产的调试（推荐） |
-| `Debug / Client + NativeServer` | 更快的 C# 迭代 |
+| `Debug / Client + Docker` | Production-like debugging (recommended) |
+| `Debug / Client + NativeServer` | Faster C# iteration |
 
-`FsusBlog.slnLaunch` 包含上述启动配置定义，并仅引用 `FsusBlog.slnx` 中的真实项目路径。后端原生 profile 位于 `src/backend/Properties/launchSettings.json`，Compose profile 由 `ops/docker/docker-compose.dcproj` 所有并位于 `ops/docker/Properties/launchSettings.json`；完整所有权规则见 [configuration layout](configuration-layout.md)。
-默认 F5 入口统一为 `http://127.0.0.1:3000`。
+`FsusBlog.slnLaunch` defines these launch profiles and references only real project paths from
+`FsusBlog.slnx`. The backend-native profile is in `src/backend/Properties/launchSettings.json`;
+the Compose profile is owned by `ops/docker/docker-compose.dcproj` and lives in
+`ops/docker/Properties/launchSettings.json`. See [configuration layout](configuration-layout.md)
+for ownership rules. The default F5 browser entry is `http://127.0.0.1:3000`.
 
-### 调试技巧
+### Debugging tips
 
-- **后端断点**：使用 `Debug / NativeServer` 配置，直接在 C# 代码打断点
-- **Binary 解码调试**：在 `wasmDecode.worker.ts` 中设置 `debugMode = true`，Worker 会输出详细解码日志
-- **Notification stream 调试**：访问 `http://127.0.0.1:7568/api/notifications/stream` 观察 AEDS WebSocket 事件流
-- **缓存调试**：L1 缓存在进程内，重启即清空；L2 Redis 缓存可通过 `redis-cli FLUSHDB` 清空
+- **Backend breakpoints**: use `Debug / NativeServer` and set breakpoints in C# code.
+- **Binary decoding**: set `debugMode = true` in `wasmDecode.worker.ts` for detailed worker logs.
+- **Notification stream**: visit `http://127.0.0.1:7568/api/notifications/stream` to inspect AEDS WebSocket events.
+- **Cache**: L1 is in-process and clears on restart; clear L2 Redis with `redis-cli FLUSHDB`.
 
 ---
 
-## 常见问题
+## Frequently asked questions
 
-### `npm ci` 失败：`403 Forbidden from GitHub Packages`
+### `npm ci` fails: `403 Forbidden from GitHub Packages`
 
 ```bash
-# 确认令牌已设置
+# Confirm that the token is set
 echo $GITHUB_PACKAGES_TOKEN
-# 重新设置并重试
+# Set it again and retry
 export GITHUB_PACKAGES_TOKEN=your_token
 npm ci
 ```
 
-### 后端启动失败：`Redis connection refused`
+### Backend startup fails: `Redis connection refused`
 
 ```bash
-# 确认 Docker 容器已启动
+# Confirm that the Docker containers are running
 docker compose -f ops/development/dependencies.compose.yml ps
-# 重启 Redis
+# Restart Redis
 docker compose -f ops/development/dependencies.compose.yml restart redis
 ```
 
-### Wasm 解码失败
+### Wasm decoding fails
 
-运行时不会回退到文本 API。先检查 `wasm/` 目录是否有 `.wasm` 文件：
+Runtime does not fall back to a text API. First check whether `wasm/` contains a `.wasm` file:
 
 ```bash
 ls src/frontend/wasm/
-# 若为空，执行：
+# If it is empty, run:
 cd src/frontend && npm run ensure:wasm
 ```
 
-### 数据库迁移未执行
+### Database migration did not run
 
-后端首次启动会自动执行 SqlSugar CodeFirst 迁移（`SchemaMigration`）。
-若需手动触发，重启后端进程即可。
+The backend runs SqlSugar CodeFirst migration (`SchemaMigration`) on first startup. Restart
+the backend process to trigger it manually.
 
 ---
 
-## 参见
+## See also
 
-- [development/coding-conventions.md](development/coding-conventions.md) — 跨语言编码规范、命名映射与外部契约例外
-- [testing.md](testing.md) — 完整测试分层策略
-- [wasm.md](wasm.md) — WebAssembly 工具链与构建指南
-- [production.md](production.md) — 生产部署配置
-- [development/demo-data.md](development/demo-data.md) — 本地 demo seed data
-- [troubleshooting.md](troubleshooting.md) — 常见开发环境故障排查
-- [../README.md](../README.md) — 项目概述与快速开始
+- [development/coding-conventions.md](development/coding-conventions.md) — Cross-language coding conventions, naming map, and external-contract exceptions
+- [testing.md](testing.md) — Complete test-tier strategy
+- [wasm.md](wasm.md) — WebAssembly toolchain and build guide
+- [production.md](production.md) — Production deployment configuration
+- [development/demo-data.md](development/demo-data.md) — Local demo seed data
+- [troubleshooting.md](troubleshooting.md) — Common development-environment failures
+- [../README.md](../README.md) — Project overview and quickstart

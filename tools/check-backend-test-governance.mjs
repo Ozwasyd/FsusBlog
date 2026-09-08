@@ -514,6 +514,7 @@ function scanLocalRedisFixtureGovernance(relativePath, source)
 
         if (
             (match[2] === 'ArtifactPoolBurnSurvivesCancellationProcessInterruptionAndAmbiguousReply' ||
+             match[2] === 'BudgetedLeaseAtomicallyAccountsExactBytesQuotasAndRetryIdentity' ||
              match[2] === 'RedisLua_IsLinearizableBoundedBindingAwareAndFailClosed' ||
              relativePath.includes('local-redis-fixture-governance')) &&
             bodySource.includes('FSUSBLOG_TEST_REDIS') &&

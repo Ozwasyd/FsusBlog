@@ -1,7 +1,8 @@
 # Anonymous credential blind issuance threat model
 
-Scope: RFC 9474 issuance in issue #1136. This model does not authorize the
-not-yet-built v5 presentation circuit.
+Scope: RFC 9474 issuance for issue #1136; this model does not authorize the
+not-yet-built v5 presentation circuit. The protocol decision is the
+[anonymous-credential blind-issuance ADR](../architecture/decisions/ADR-Anonymous-Credential-Blind-Issuance.md).
 
 ## Assets and trust boundaries
 
@@ -26,15 +27,15 @@ not-yet-built v5 presentation circuit.
 | Use non-current proof artifacts with the v5 credential | exact circuit/layout binding and strict decoder/config checks; production disabled | availability remains blocked until a real v5 ceremony/prover/verifier exists |
 | Exfiltrate issuer key | DER-only local file, path denylist, 0600 permission, zeroized managed buffers, bounded signer concurrency | BouncyCastle big integers and runtime process memory are not guaranteed to be physically zeroizable; host compromise remains out of scope |
 
-## Negative cases required before release
+## Release negatives
 
 - zero/short blinded representative rejects;
 - wrong SPKI hash, modulus, exponent or key id rejects;
 - malformed opening and tampered blind signature reject;
 - non-current layout rejects and no compatibility issuance route exists;
 - reload disable rejects metadata and signing without signer reconstruction;
-- anonymous unauthenticated, ordinary login and admin principals cannot use the
-  blind issue route; only `anonymous_account` may proceed to eligibility;
+- anonymous, ordinary-login, and admin principals cannot use the blind-issue
+  route; only `anonymous_account` may proceed to eligibility;
 - notification stream and unrelated binary endpoints keep their existing
   authentication and frame behavior.
 
