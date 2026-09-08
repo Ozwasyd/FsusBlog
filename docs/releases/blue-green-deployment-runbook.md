@@ -53,6 +53,18 @@ Rollback always advances generation monotonically. Database downgrade is outside
 
 Slot status, preflight output, gateway transition, fence ownership, notification restart, source drain and rollback are execution receipts. They belong to the run-scoped release evidence bundle, not this document. The receipt must bind the same release manifest, full commit, image digest, rollout ID and target environment; absent or failed steps stay absent or failed.
 
+Runtime-role admission is a separate compiled observation boundary. The
+producer's output follows
+`config/schemas/runtime-role-observation.schema.json`
+(`fsusblog.runtime-role-observation.v2`) and its repository-contained
+deployment probe follows
+`config/schemas/runtime-role-deployment-observation.schema.json`
+(`fsusblog.runtime-role-deployment-observation.v1`). These schemas describe
+the runtime-mode, ownership, source-binding, effective-Compose and volume
+topology records; they do not turn synthetic blue/green library proofs into a
+production rollout receipt. The blue/green claim remains ineligible until a
+run-scoped release evidence bundle proves the live slot transitions above.
+
 ## Local validation
 
 ```bash

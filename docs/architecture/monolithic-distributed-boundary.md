@@ -36,6 +36,29 @@ render: key-value-table
 | unsupportedCombinations | {"static-role-empty":"runtime_static_roles_required","static-role-unknown":"runtime_static_role_invalid:unknown","unknown-mode":"runtime_mode_invalid:unsupported"} |
 <!-- FSUSBLOG-GENERATED:END deployment.runtime-roles -->
 
+## Runtime-role observation contract
+
+The compiled producer emits `fsusblog.runtime-role-observation.v2`, whose
+independent JSON Schema is
+`config/schemas/runtime-role-observation.schema.json`. Its deployment input is
+the separately sealed
+`fsusblog.runtime-role-deployment-observation.v1` contract at
+`config/schemas/runtime-role-deployment-observation.schema.json`; the input
+must remain claim-eligible and bind the current policy, Server project,
+production Dockerfile and Compose source digests.
+
+The minimal contract build source identity follows the actual reachable .NET
+`ProjectReference` graph. It includes every non-generated compile input,
+explicit linked build item, project file, imported `Directory.*` build file and
+project `packages.lock.json`. This closure is part of the content-addressed
+build key, so a source or lock-file change cannot reuse an older runtime-role
+assembly.
+
+The producer accepts `--output` and `--deployment-observation` only as regular
+paths physically contained by the current repository root. Absolute paths are
+allowed for the build host's repository-contained staging directory; traversal,
+`.git`, missing deployment inputs and symlinked path segments fail closed.
+
 All three modes use the same FsusBlog program and artifact. During a transient remote-dependency failure, nodes retain local invalidation and authoritative-data fallback while transport retries; no business artifact switch is required. To disable cluster components completely, set `Runtime:Mode` back to `single` and rolling-restart because hosted-service DI composition is fixed at startup. In `single`, the local publisher branch must register before Redis transport so no remote hot path exists.
 
 ## Project and deployment-topology guard
