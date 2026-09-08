@@ -1,8 +1,6 @@
 # Changelog
 
-This is the current repository changelog. Work may be aggregated under `Unreleased`; publishing archives that content under the exact canonical ReleaseId generated for the immutable build.
-
-Product SemVer is not a release coordinate. A published heading must use:
+This is the current repository changelog. Work may be aggregated under `Unreleased`; when published, that content is archived under the exact canonical ReleaseId generated for the immutable build. Product SemVer is not a release coordinate; a published heading must use:
 
 ```text
 ## 20260720143025-32a785eabb20

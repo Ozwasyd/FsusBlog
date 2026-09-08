@@ -69,10 +69,7 @@ rationale
 - `enum-set`, `ordered-set`, `map`, and `transition-set` must use `generated-section` for exact tabular facts; free-prose fuzzy comparison is rejected.
 - Unknown `claimType` values fail; they are never defaulted to `scalar`.
 
-DocClaim 的 `claimType` 描述语义 render；exactness ownership 另按闭集分成
-`generated-section` 与 `prose-claim`：前者只有 generator receipt 可以证明，后者是所有
-非 `generated-section` 的 executable claim，只有 `ProseClaimVerifier` 可以计入
-`verifiedClaimCount`。generated section 的数量、存在或通过状态不得折算成 prose 已验证数量。
+DocClaim `claimType` describes the semantic render. Exactness ownership is a closed split between `generated-section` and `prose-claim`: only a generator receipt can prove the former, while the latter covers every executable claim other than `generated-section` and only `ProseClaimVerifier` may count it in `verifiedClaimCount`. A generated section's count, presence, or pass status must never be counted as a prose-verified claim.
 
 ## Location rules
 
@@ -212,17 +209,9 @@ node --test tests/tools/generated-fact-sections.test.mjs
 
 ## Verification
 
-[`config/contracts/document-claim-migration-ledger.json`](../../config/contracts/document-claim-migration-ledger.json)
-覆盖 BehaviorCatalog 中全部 `active` 且 `documentationPolicy: required` 的 behavior。checker
-双向核对 behavior、current lifecycle document、claim ID 与 generated section ID：漏项、额外项、
-重复项、historical owner、错误 marker anchor 或已退役副本都 fail closed。
+[`config/contracts/document-claim-migration-ledger.json`](../../config/contracts/document-claim-migration-ledger.json) covers every `active` behavior in BehaviorCatalog with `documentationPolicy: required`. The checker cross-checks behaviors, current lifecycle documents, claim IDs, and generated section IDs in both directions; omissions, extras, duplicates, historical owners, incorrect marker anchors, or retired copies all fail closed.
 
-Content domain 的 terminal exactness gate 是
-[`tools/docs/content-doc-exactness.mjs`](../../tools/docs/content-doc-exactness.mjs)。它从 current
-admission 的 prose/generated/content observation 产生 13 类 mutation evidence，再把每个 claim
-绑定到 current authority、heading path、source range、document digest 与 component digest。独立
-`verify` 必须显式重读同一组 component files 并重算完整 terminal receipt；只重签 self-reported
-counter、row 或 authority digest 不能通过。
+The content domain's terminal exactness gate is [`tools/docs/content-doc-exactness.mjs`](../../tools/docs/content-doc-exactness.mjs), which reads current admission's prose/generated/content observations to produce 13 mutation-evidence classes, then binds each claim to its current authority, heading path, source range, document digest, and component digest. Independent `verify` must reread the same component files and recompute the complete terminal receipt; resigning only a self-reported counter, row, or authority digest cannot pass.
 
 ```bash
 node tools/docs/check-doc-claim.mjs
