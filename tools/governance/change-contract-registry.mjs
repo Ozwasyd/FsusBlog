@@ -190,7 +190,7 @@ export const generatedOutputRepairDagReviewedHistories = Object.freeze([
         synchronizedRevision: 'e805a72c5171916f761701fc4dbd3116953d4d20',
         synchronizedMerge: '182ffa102d7c322be9e01e98e2d3ee38554f52b0',
         reviewedRevision: 'c7084b001a0c220538cbaca8f7305b1f3777493c',
-        historySha256: '5c19bf753b05cceeb66fad8ef35994feb3b3e2ea45b73efa39c8f2eeda81e80a',
+        historySha256: 'ed618bd63059ca03c9b116c2eddba0581981ee99b4697d7dfa6e3159b7eceb33',
         legacyClosure: Object.freeze([
             Object.freeze({ path: 'tools/test/evidence-location-contract.mjs', mode: '100644', object: '84def85f972e8e9bc5e137b51847f7f71108c85d' }),
             Object.freeze({ path: 'tools/test/evidence-location-scanner.mjs', mode: '100644', object: 'c1a9bf9d5faa8c5271d0c14d5274907e0ac52b5a' }),

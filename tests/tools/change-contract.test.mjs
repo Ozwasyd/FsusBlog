@@ -59,7 +59,7 @@ test('reviewed generated repair DAG policy suffix only moves to the loaded base 
     const temporary = mkdtempSync(join(tmpdir(), 'fsusblog-reviewed-policy-epoch-'));
     const registration = changeContract.generatedOutputRepairDagReviewedHistories[0];
     const graph = changeContract.generatedOutputRepairDags[0];
-    const base = registration.reviewedRevision;
+    const historicalBase = registration.reviewedRevision;
     const env = {
         ...process.env, GIT_NO_REPLACE_OBJECTS: '1', GIT_INDEX_FILE: join(temporary, 'index'),
         GIT_AUTHOR_NAME: 'Fixture', GIT_AUTHOR_EMAIL: 'fixture@example.invalid',
@@ -67,7 +67,7 @@ test('reviewed generated repair DAG policy suffix only moves to the loaded base 
     };
     const git = (args, input) => execFileSync('git', args, { cwd: root, env, input, encoding: 'utf8' }).trim();
     const policyPath = 'tools/governance/check-change-contract.mjs';
-    const oldPolicy = git(['show', `${base}:${policyPath}`]);
+    const oldPolicy = git(['show', `${historicalBase}:${policyPath}`]);
     const currentPolicy = `${oldPolicy}\n// reviewed current policy epoch\n`;
     const create = (parent, changes) =>
     {
@@ -79,18 +79,27 @@ test('reviewed generated repair DAG policy suffix only moves to the loaded base 
         }
         return git(['commit-tree', git(['write-tree']), '-p', parent, '-m', 'fix(governance): bind fixture policy epoch']);
     };
+    let base;
     const merge = (head) => git(['commit-tree', git(['rev-parse', `${head}^{tree}`]), '-p', base, '-p', head,
         '-m', 'Merge pull request #3241 from fixture/reviewed-policy']);
-    const admit = (revision) => reviewedDagHistoryAdmission(root, graph, registration.synchronizedMerge,
-        registration.synchronizedRevision, revision);
     try
     {
-        assert.ok(admit(base));
+        const newlyTrustedPath = 'config/schemas/post-merge-generated-output-digest-repair.schema.json';
+        const newlyTrustedContent = git(['show', `HEAD:${newlyTrustedPath}`]);
+        base = create(historicalBase, [[newlyTrustedPath, newlyTrustedContent]]);
+        const admit = (revision) => reviewedDagHistoryAdmission(root, graph, registration.synchronizedMerge,
+            registration.synchronizedRevision, revision);
+        const baseAdmission = admit(base);
+        assert.ok(baseAdmission);
+        assert.equal(baseAdmission.admittedPolicyRevisions.has(base), true);
         const current = create(base, [[policyPath, currentPolicy]]);
         const merged = merge(current);
         assert.ok(admit(merged).admittedPolicyRevisions.has(current));
         const intermediate = create(base, [[policyPath, `${oldPolicy}\n// unregistered intermediate\n`]]);
         assert.throws(() => admit(merge(create(intermediate, [[policyPath, currentPolicy]]))), /unregistered intermediate/u);
+        const newPathIntermediate = create(base, [[newlyTrustedPath, 'unregistered intermediate\n']]);
+        assert.throws(() => admit(merge(create(newPathIntermediate, [[newlyTrustedPath, newlyTrustedContent]]))),
+            /unregistered intermediate/u);
         const rollback = create(current, [[policyPath, `${oldPolicy}\n`]]);
         assert.throws(() => admit(merge(create(rollback, [[policyPath, currentPolicy]]))), /rolled back/u);
         for (const mixedPath of ['tools/test/evidence-location-scanner.mjs', 'config/testing/evidence-location-migration-ledger.json'])
@@ -146,7 +155,21 @@ test('reviewed generated repair DAG history seals complete original epoch topolo
     const reviewedRevision = 'c7084b001a0c220538cbaca8f7305b1f3777493c';
     const synchronizedRevision = 'e805a72c5171916f761701fc4dbd3116953d4d20';
     const history = inspectGeneratedRepairDagHistory(root, graph, synchronizedMerge, reviewedRevision, synchronizedRevision);
-    assert.equal(history.sha256, '5c19bf753b05cceeb66fad8ef35994feb3b3e2ea45b73efa39c8f2eeda81e80a');
+    assert.equal(history.sha256, 'ed618bd63059ca03c9b116c2eddba0581981ee99b4697d7dfa6e3159b7eceb33');
+    const newlyTrustedDigestRepairPolicyPaths = [
+        'config/schemas/post-merge-generated-output-digest-repair.schema.json',
+        'tools/governance/generate-generated-output-digest-repair-manifest.mjs',
+        'tools/governance/generated-output-digest-repair-repository.mjs',
+        'tools/governance/generated-output-digest-repair-v2.mjs'
+    ];
+    assert.deepEqual(
+        changeContract.trustedPolicyFiles.filter((path) => newlyTrustedDigestRepairPolicyPaths.includes(path)).sort(),
+        newlyTrustedDigestRepairPolicyPaths.slice().sort()
+    );
+    assert.deepEqual(
+        history.protectedPaths.filter((path) => newlyTrustedDigestRepairPolicyPaths.includes(path)).sort(),
+        newlyTrustedDigestRepairPolicyPaths.slice().sort()
+    );
     assert.equal(history.nodes.length, 83);
     assert.equal(history.outerRevisions.length, 16);
     const oldNode = history.nodes.find((entry) => entry.revision === '6ee54e39cccdd8e7b0b958b3f93bf1c224068155');

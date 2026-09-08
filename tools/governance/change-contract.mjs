@@ -1143,6 +1143,11 @@ export function reviewedDagHistoryAdmission(root, graph, synchronizedMerge, sync
         }
         return { path, mode: match[1], object: match[2] };
     };
+    const policyPathIdentity = (revision, path) =>
+    {
+        const entry = entryAt(revision, path);
+        return entry.mode === null ? null : `${entry.mode}:${entry.object}`;
+    };
     for (const branch of history.branches)
     {
         for (const revision of branch.branchRevisions)
@@ -1171,10 +1176,10 @@ export function reviewedDagHistoryAdmission(root, graph, synchronizedMerge, sync
     const admittedPolicyRevisions = new Set();
     const admittedPolicyOuter = new Set();
     const initialPolicy = new Map(changeContract.trustedPolicyFiles.map((path) => [
-        path, revisionPathIdentity(root, registration.reviewedRevision, path)
+        path, policyPathIdentity(registration.reviewedRevision, path)
     ]));
     const currentPolicy = new Map(changeContract.trustedPolicyFiles.map((path) => [
-        path, revisionPathIdentity(root, base, path)
+        path, policyPathIdentity(base, path)
     ]));
     const graphPaths = new Set(graph.steps.flatMap((step) => [...step.outputs, ...step.generatorClosure]));
     const suffixRevisions = new Set(nodes.keys());
@@ -1201,8 +1206,8 @@ export function reviewedDagHistoryAdmission(root, graph, synchronizedMerge, sync
         const policyChanges = changed.filter((path) => currentPolicy.has(path));
         for (const [path, currentIdentity] of currentPolicy)
         {
-            const actualIdentity = revisionPathIdentity(root, revision, path);
-            const parentIdentity = revisionPathIdentity(root, parents[0], path);
+            const actualIdentity = policyPathIdentity(revision, path);
+            const parentIdentity = policyPathIdentity(parents[0], path);
             const initialIdentity = initialPolicy.get(path);
             if (![initialIdentity, currentIdentity].includes(actualIdentity)
                 || (![initialIdentity, currentIdentity].includes(parentIdentity) && !nodes.has(parents[0])))
@@ -1223,7 +1228,7 @@ export function reviewedDagHistoryAdmission(root, graph, synchronizedMerge, sync
             throw new Error(`current policy transition changed generator closure or outputs: ${revision}`);
         }
         if (parents.length === 2 && policyChanges.some((path) => (
-            revisionPathIdentity(root, revision, path) !== revisionPathIdentity(root, parents[1], path)
+            policyPathIdentity(revision, path) !== policyPathIdentity(parents[1], path)
         )))
         {
             throw new Error(`current policy merge does not preserve its authoritative second parent: ${revision}`);
