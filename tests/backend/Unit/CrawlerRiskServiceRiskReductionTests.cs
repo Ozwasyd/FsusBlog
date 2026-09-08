@@ -6,7 +6,6 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
 
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using NSubstitute;
@@ -28,9 +27,7 @@ public sealed class CrawlerRiskServiceRiskReductionTests
             .Returns(85L);
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
-        using var zeroRiskCache = new MemoryCache(new MemoryCacheOptions());
-        zeroRiskCache.Set("crawler-risk:zero:198.51.100.16", (byte)1, TimeSpan.FromMinutes(1));
-        var service = new CrawlerRiskService(cache, cache, cache, cache, zeroRiskCache, policy, NullLogger<CrawlerRiskService>.Instance);
+        var service = new CrawlerRiskService(cache, cache, cache, cache, policy, NullLogger<CrawlerRiskService>.Instance);
         var context = new DefaultHttpContext();
         context.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.16");
         context.Request.Path = "/article/42";
@@ -62,7 +59,6 @@ public sealed class CrawlerRiskServiceRiskReductionTests
             Arg.Any<string>(),
             Arg.Any<TimeSpan?>(),
             Arg.Any<CancellationToken>());
-        Assert.False(zeroRiskCache.TryGetValue("crawler-risk:zero:198.51.100.16", out byte _));
         policy.Received(1).RecordRiskEvent(Arg.Is<AntiCrawlerRiskEventResponse>(item =>
             item.ScoreDelta == 25 &&
             item.TotalScore == 85));
@@ -74,8 +70,7 @@ public sealed class CrawlerRiskServiceRiskReductionTests
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
-        using var zeroRiskCache = new MemoryCache(new MemoryCacheOptions());
-        var service = new CrawlerRiskService(cache, cache, cache, cache, zeroRiskCache, policy, NullLogger<CrawlerRiskService>.Instance);
+        var service = new CrawlerRiskService(cache, cache, cache, cache, policy, NullLogger<CrawlerRiskService>.Instance);
         var context = new DefaultHttpContext();
         context.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.15");
         context.Request.Path = "/article/42";
@@ -120,8 +115,7 @@ public sealed class CrawlerRiskServiceRiskReductionTests
             .Returns("60");
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
-        using var zeroRiskCache = new MemoryCache(new MemoryCacheOptions());
-        var service = new CrawlerRiskService(cache, cache, cache, cache, zeroRiskCache, policy, NullLogger<CrawlerRiskService>.Instance);
+        var service = new CrawlerRiskService(cache, cache, cache, cache, policy, NullLogger<CrawlerRiskService>.Instance);
         var context = new DefaultHttpContext();
         context.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.17");
         context.Request.Path = "/article/42";
@@ -173,7 +167,6 @@ public sealed class CrawlerRiskServiceRiskReductionTests
                 BlockScore: 100,
                 MaxRiskScore: 200,
                 DefaultRiskTtlSeconds: 600,
-                ZeroRiskCacheTtlSeconds: 3,
                 FixedIpPermitLimit: 100,
                 FixedIpQueueLimit: 2,
                 VerifiedCrawlerFixedIpPermitLimit: 1000,

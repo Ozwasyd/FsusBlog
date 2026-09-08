@@ -1,0 +1,22 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+        "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+        "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationMetadata.cs",
+        "src/backend/Services/Authoring/AuthorSavedViewContracts.cs",
+        "src/backend/Services/Authoring/AuthorSavedViewStore.cs",
+        "src/backend/Services/Authoring/PostgresAuthorSavedViewPersistence.cs",
+        "src/migration/Catalogs/SchemaMigrationCatalog20260904SavedViews.cs",
+        "src/migration/Definitions/AuthorSavedViewMigrationDefinitions.cs",
+        "src/migration/OfflineMigrationCatalogEntries.generated.cs",
+        "src/migration/SchemaMigrationManifest.cs",
+        "tools/governance/check-author-saved-view-query-contract.mjs",
+        "tools/governance/check-author-saved-view-storage-contract.mjs"
+            ],
+            "reason": "The registered C# surfaces preserve caller-visible process environment spellings while Saved View query, dependency, and DI symbols follow repository naming rules."
+        }
+    ]
+}

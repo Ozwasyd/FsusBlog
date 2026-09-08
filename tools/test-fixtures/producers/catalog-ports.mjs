@@ -599,7 +599,35 @@ export function createAuditRecordsPort(catalogs = readFixtureCatalogs())
 
 export function createCommentModerationPort(catalogs = readFixtureCatalogs())
 {
-    return createStructuralBusinessPort(catalogProducer('comment-moderation', catalogs), 'commentModerationAdapter');
+    const producer = catalogProducer('comment-moderation', catalogs);
+    return basePort(producer, {
+        identityRoleRequests: [
+            { ownerProducerId: 'auth-session', consumerProducerId: 'comment-moderation', role: 'admin', capabilityId: 'auth.admin.full-permission' },
+            { ownerProducerId: 'auth-session', consumerProducerId: 'comment-moderation', role: 'primary-author', capabilityId: 'auth.user.active' },
+            { ownerProducerId: 'auth-session', consumerProducerId: 'comment-moderation', role: 'secondary-author', capabilityId: 'auth.user.active' }
+        ],
+        async prepare(context, signal)
+        {
+            requireConsumedProducerOutputs(producer, context);
+            const { prepareCommentModeration } = await import('./comment-moderation-producer.mjs');
+            const result = await prepareCommentModeration(context, signal);
+            return {
+                ...result,
+                ...variantOutputFromTypedPlan(context, producer.id),
+                postconditions: [...producer.receiptPostconditions]
+            };
+        },
+        async verify(context, result)
+        {
+            const { verifyCommentModeration } = await import('./comment-moderation-producer.mjs');
+            return verifyCommentModeration(context, result);
+        },
+        async cleanup(context, result, signal)
+        {
+            const { cleanupCommentModeration } = await import('./comment-moderation-producer.mjs');
+            await cleanupCommentModeration(context, result, signal);
+        }
+    });
 }
 
 /** Full default registry for catalog producers. */

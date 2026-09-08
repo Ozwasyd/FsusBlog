@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/DocumentExport/DocumentExportContracts.cs",
+                "src/backend/Services/DocumentExport/DocumentExportContractValidator.cs",
+                "src/backend/Services/DocumentExport/DocumentExportDigest.cs"
+            ],
+            "reason": "the registry glob governs all C# source files; this contract-only slice adds no process-environment access or environment-variable keys and preserves its closed external schema and provider identity spellings"
+        }
+    ]
+}

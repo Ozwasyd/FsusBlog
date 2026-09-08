@@ -153,7 +153,6 @@ public sealed class SecurityFixtureCompositionRootIntegrationTests(
             cache,
             cache,
             cache,
-            memory,
             policy,
             NullLogger<CrawlerRiskService>.Instance);
         IAnonymousCredentialService credentialService = new AnonymousCredentialService(db);
