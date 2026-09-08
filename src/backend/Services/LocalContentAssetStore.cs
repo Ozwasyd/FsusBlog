@@ -13,13 +13,15 @@ public sealed class LocalContentAssetStore(
     IPrivateAssetStore privateAssetStore,
     ILogger<LocalContentAssetStore> logger) : IAssetStore
 {
+    private const int ReferenceSummaryLimit = 16;
+
     private readonly string _publicRoot = Path.GetFullPath(storagePaths.PublicAssetRoot);
 
-    public async Task<AssetDeleteResult> DeleteAsync(
+    public async Task<AssetDeleteOutcome> DeleteAsync(
         AssetId assetId,
         CancellationToken cancellationToken = default)
     {
-        AssetDeleteResult outcome = AssetDeleteResult.NotFound;
+        AssetDeleteOutcome outcome = new(AssetDeleteResult.NotFound);
         ContentAsset? deletion = null;
         var prepare = await db.Ado.UseTranAsync(async () =>
         {
@@ -33,16 +35,30 @@ public sealed class LocalContentAssetStore(
                 .FirstAsync(cancellationToken);
             if (asset is null)
             {
-                outcome = AssetDeleteResult.NotFound;
+                outcome = new AssetDeleteOutcome(AssetDeleteResult.NotFound);
                 return;
             }
 
-            bool referenced = await db.Queryable<ContentAssetReference>()
+            int sourceCount = await db.Queryable<ContentAssetReference>()
                 .Where(reference => reference.AssetId == asset.AssetId)
-                .AnyAsync(cancellationToken);
-            if (referenced)
+                .CountAsync(cancellationToken);
+            if (sourceCount > 0)
             {
-                outcome = AssetDeleteResult.Referenced;
+                List<ContentAssetReference> references = await db.Queryable<ContentAssetReference>()
+                    .Where(reference => reference.AssetId == asset.AssetId)
+                    .OrderBy(reference => reference.SourceKind)
+                    .OrderBy(reference => reference.SourceKey)
+                    .Take(ReferenceSummaryLimit)
+                    .ToListAsync(cancellationToken);
+                outcome = new AssetDeleteOutcome(
+                    AssetDeleteResult.Referenced,
+                    new AssetDeleteReferenceSummary(
+                        sourceCount,
+                        [.. references.Select(static reference => new AssetDeleteReferenceLocation(
+                            reference.SourceKind,
+                            reference.SourceKey,
+                            reference.ArticleId,
+                            reference.ReferenceCount))]));
                 return;
             }
 
@@ -138,12 +154,14 @@ public sealed class LocalContentAssetStore(
                 .Where(item => item.AssetId == assetId.Value
                     && item.State == ContentAssetStates.PendingDelete)
                 .ExecuteCommandAsync(cancellationToken);
-            if (deleted != 1)
+            if (deleted == 0 && await db.Queryable<ContentAsset>()
+                .Where(item => item.AssetId == assetId.Value)
+                .AnyAsync(cancellationToken))
             {
-                throw new InvalidOperationException("content_asset_delete_finalize_row_mismatch");
+                throw new InvalidOperationException("content_asset_delete_finalize_state_changed");
             }
 
-            outcome = AssetDeleteResult.Deleted;
+            outcome = new AssetDeleteOutcome(AssetDeleteResult.Deleted);
         }).ConfigureAwait(false);
         if (!finalize.IsSuccess)
         {

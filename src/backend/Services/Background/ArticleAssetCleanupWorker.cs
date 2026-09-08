@@ -89,9 +89,9 @@ public sealed class ArticleAssetCleanupService(
 
             try
             {
-                AssetDeleteResult outcome = await assetStore.DeleteAsync(candidateAssetId.Value, cancellationToken)
+                AssetDeleteOutcome outcome = await assetStore.DeleteAsync(candidateAssetId.Value, cancellationToken)
                     .ConfigureAwait(false);
-                if (outcome == AssetDeleteResult.Referenced)
+                if (outcome.Result == AssetDeleteResult.Referenced)
                 {
                     await CancelCleanupAsync(candidateAssetId.Value, cancellationToken).ConfigureAwait(false);
                 }
@@ -111,7 +111,8 @@ public sealed class ArticleAssetCleanupService(
 
     private Task<int> CancelCleanupAsync(AssetId assetId, CancellationToken cancellationToken)
         => db.Deleteable<ContentAssetCleanupQueueItem>()
-            .Where(item => item.AssetId == assetId.Value)
+            .Where(item => item.AssetId == assetId.Value
+                && (item.LastError == null || item.LastError != ContentAssetCleanupMarkers.DeletePending))
             .ExecuteCommandAsync(cancellationToken);
 
     private async Task RecordFailureAsync(AssetId assetId, Exception? exception, CancellationToken cancellationToken)
@@ -127,10 +128,8 @@ public sealed class ArticleAssetCleanupService(
             """
             UPDATE content_asset_cleanup_queue
             SET attempt_count = attempt_count + 1,
-                last_error = CASE
-                    WHEN last_error = @DeletePendingMarker THEN last_error
-                    ELSE @LastError
-                END,
+                last_error = CASE WHEN last_error = @DeletePendingMarker
+                    THEN last_error ELSE @LastError END,
                 not_before_utc = @NotBeforeUtc,
                 updated_at_utc = @UpdatedAtUtc
             WHERE asset_id = @AssetId;

@@ -76,14 +76,33 @@ public sealed class PublicAssetUrlCodec
             return false;
         }
 
-        string path = url.AbsolutePath;
-        if (!path.StartsWith(RoutePrefix, StringComparison.Ordinal)
-            || path.IndexOf('%') >= 0)
+        if (!TryGetOriginalPath(url, out string path)
+            || !path.StartsWith(RoutePrefix, StringComparison.Ordinal))
         {
             return false;
         }
 
         return AssetStorageKey.TryParse(path[RoutePrefix.Length..], out storageKey);
+    }
+
+    private static bool TryGetOriginalPath(Uri value, out string path)
+    {
+        path = string.Empty;
+        string original = value.OriginalString;
+        if (original.IndexOfAny(['?', '#', '%', '\0', '\\']) >= 0)
+        {
+            return false;
+        }
+
+        int schemeSeparator = original.IndexOf("://", StringComparison.Ordinal);
+        if (schemeSeparator < 0)
+        {
+            return false;
+        }
+
+        int pathStart = original.IndexOf('/', schemeSeparator + 3);
+        path = pathStart < 0 ? "/" : original[pathStart..];
+        return true;
     }
 
     private static bool IsHttpBase(Uri value)

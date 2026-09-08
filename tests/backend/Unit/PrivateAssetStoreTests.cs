@@ -1111,7 +1111,7 @@ public sealed class PrivateAssetStorePostgresIntegrationTests(PostgresSchemaMigr
             privateStore,
             NullLogger<LocalContentAssetStore>.Instance);
 
-        Assert.Equal(AssetDeleteResult.Deleted, await cleanupStore.DeleteAsync(assetId));
+        Assert.Equal(AssetDeleteResult.Deleted, (await cleanupStore.DeleteAsync(assetId)).Result);
         Assert.False(File.Exists(finalPath));
         Assert.Null(db.Queryable<ContentAsset>().InSingle(assetId.Value));
         Assert.Null(db.Queryable<ContentAssetCleanupQueueItem>().InSingle(assetId.Value));
@@ -1257,7 +1257,7 @@ public sealed class PrivateAssetStorePostgresIntegrationTests(PostgresSchemaMigr
         });
 
         using SqlSugarClient deleteDb = PostgresSqlSugarTestClient.Create(connectionString);
-        Task<AssetDeleteResult> deleteTask = CreateContentStore(deleteDb, paths, blockingBytes)
+        Task<AssetDeleteOutcome> deleteTask = CreateContentStore(deleteDb, paths, blockingBytes)
             .DeleteAsync(assetId);
         await enteredDelete.Task.WaitAsync(TimeSpan.FromSeconds(10));
 
@@ -1271,11 +1271,13 @@ public sealed class PrivateAssetStorePostgresIntegrationTests(PostgresSchemaMigr
 
         Assert.False(referenceAttempt.IsSuccess);
         Assert.Contains(
-            "content_asset_reference_repair_in_progress",
+            "content_asset_reference_delete_in_progress",
             referenceAttempt.ErrorException?.ToString(),
             StringComparison.Ordinal);
         releaseDelete.SetResult();
-        Assert.Equal(AssetDeleteResult.Deleted, await deleteTask.WaitAsync(TimeSpan.FromSeconds(10)));
+        Assert.Equal(
+            AssetDeleteResult.Deleted,
+            (await deleteTask.WaitAsync(TimeSpan.FromSeconds(10))).Result);
 
         using SqlSugarClient assertDb = PostgresSqlSugarTestClient.Create(connectionString);
         Assert.Null(assertDb.Queryable<ContentAsset>().InSingle(assetId.Value));
@@ -1314,7 +1316,7 @@ public sealed class PrivateAssetStorePostgresIntegrationTests(PostgresSchemaMigr
             LocalPrivateAssetStore cleanupPrivateStore = CreatePrivateStore(cleanupDb, paths);
             Assert.Equal(
                 AssetDeleteResult.Deleted,
-                await CreateContentStore(cleanupDb, paths, cleanupPrivateStore).DeleteAsync(assetId));
+                (await CreateContentStore(cleanupDb, paths, cleanupPrivateStore).DeleteAsync(assetId)).Result);
         }
 
         releaseRead.SetResult();

@@ -61,7 +61,7 @@
         "check:test-execution-optimization": "node ../../tests/frontend/checks/static/check-test-execution-optimization-contract.mjs && node ../../tests/frontend/checks/static/check-test-execution-helpers.mjs && node ../../tools/check-postgres-test-collections.mjs",
         "check:browser-contract-fixture": "node --test ../../tests/tools/browser-contract-fixture.test.mjs ../../tests/tools/browser-session-isolation.test.mjs",
         "deps:wasm-codec": "bash ../../tools/frontend/install-wasm-codec-deps.sh",
-        "deps:freshness": "node ../../tools/governance/check-dependency-freshness.mjs --root ../.. --fixtures ../../tests/fixtures/governance/dependency-freshness.json",
+        "deps:freshness": "node ../../tools/governance/check-dependency-freshness.mjs --root ../..",
         "ensure:wasm": "node ../../tools/frontend/ensure-wasm.mjs ensure",
         "verify:wasm": "node ../../tools/frontend/ensure-wasm.mjs status",
         "build:wasm": "bash ./wasm/build.sh",

@@ -234,9 +234,18 @@ internal sealed class ArticleAssetReferenceStore(ISqlSugarClient db, TimeProvide
             throw new InvalidOperationException("content_asset_reference_asset_state_invalid");
         }
 
+        bool deleting = await db.Queryable<ContentAssetCleanupQueueItem>()
+            .Where(item => expected.Contains(item.AssetId)
+                && item.LastError == ContentAssetCleanupMarkers.DeletePending)
+            .AnyAsync(cancellationToken);
+        if (deleting)
+        {
+            throw new InvalidOperationException("content_asset_reference_delete_in_progress");
+        }
+
         bool repairFenced = await db.Queryable<ContentAssetCleanupQueueItem>()
             .Where(item => expected.Contains(item.AssetId)
-                && item.LastError != null)
+                && item.LastError == ContentAssetCleanupMarkers.PrivateCommitRepair)
             .AnyAsync(cancellationToken);
         if (repairFenced)
         {
