@@ -3,10 +3,10 @@
 
 # GitHub and community workflow
 .github/ @Ozwasyd
-CONTRIBUTING.md @Ozwasyd
-SECURITY.md @Ozwasyd
-CODE_OF_CONDUCT.md @Ozwasyd
-SUPPORT.md @Ozwasyd
+/docs/CONTRIBUTING.md @Ozwasyd
+/docs/SECURITY.md @Ozwasyd
+/docs/CODE_OF_CONDUCT.md @Ozwasyd
+/docs/SUPPORT.md @Ozwasyd
 
 # Backend, shared contracts, and backend tests
 src/backend/ @Ozwasyd

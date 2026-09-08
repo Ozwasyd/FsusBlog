@@ -1,10 +1,10 @@
 # Data Protection Key Ring At-Rest Protection
 
-FsusBlog 的 Cookie、antiforgery token 和应用内 Data Protection payload 共用 ASP.NET Core Data Protection。生产蓝绿实例共享同一个可写 key ring，并固定使用 application discriminator `FsusBlog`。共享卷只保存经过 X.509 RSA 证书加密的 key XML；证书私钥来自独立只读 secret mount，不与 key ring、镜像或站点备份共存。
+FsusBlog Cookie, antiforgery tokens, and application Data Protection payloads share ASP.NET Core Data Protection. Production blue/green instances use one writable key ring and the fixed application discriminator `FsusBlog`. The shared volume contains only key XML encrypted with an X.509 RSA certificate; the certificate private key comes from a separate read-only secret mount and never shares the key ring, image, or site backup.
 
 ## Production configuration
 
-配置源可以是受控 JSON、secret provider 或环境变量。密码不得提交到仓库；环境变量使用 .NET 双下划线映射，例如 `DataProtection__KeyProtection__CurrentCertificate__Password`。
+The configuration source may be controlled JSON, a secret provider, or environment variables. Never commit passwords; .NET double-underscore mapping uses keys such as `DataProtection__KeyProtection__CurrentCertificate__Password`.
 
 ```json
 {
@@ -28,58 +28,48 @@ FsusBlog 的 Cookie、antiforgery token 和应用内 Data Protection payload 共
 }
 ```
 
-当前证书必须是位于有效期内、包含 RSA 私钥的 PKCS#12/PFX。previous certificate 也必须包含 RSA 私钥，但允许证书自然过期后继续用于限定窗口内的历史 key 解密。证书路径不得位于 `KeyRingPath` 内。两个 slot 必须看到相同的 key ring、current certificate 和 previous certificate 集合。
+The current certificate must be an in-validity PKCS#12/PFX containing an RSA private key. A previous certificate must also contain an RSA private key, although it may naturally expire while remaining usable for historical-key decryption during the bounded window. Certificate paths must not be under `KeyRingPath`. Both slots must see the same key ring, current certificate, and previous-certificate set.
 
-生产启动会在服务注册和 `ProductionStartupValidator` 两层 fail closed：
+Production startup fails closed in both service registration and `ProductionStartupValidator` when:
 
-- `Mode`、共享 ring、application name 或当前证书配置缺失；
-- protector mode 不是 `Certificate`；
-- 当前/历史证书不存在、密码错误、格式错误或缺少 RSA 私钥；
-- 当前证书尚未生效或已经过期；
-- 现有 `key-*.xml` 不含 Data Protection `encryptedSecret` 包装，或 XML 无法安全读取；
-- 证书私钥路径位于共享 key ring 内。
+- `Mode`, shared ring, application name, or current-certificate configuration is missing, or protector mode is not `Certificate`;
+- a current/historical certificate is missing, has a wrong password or format, lacks an RSA private key, or the current certificate is not yet valid/has expired; or
+- an existing `key-*.xml` lacks a Data Protection `encryptedSecret` wrapper, cannot be read safely, or has a certificate private-key path inside the shared ring.
 
-错误只报告固定配置类别，不输出证书密码、私钥、key id、物理路径或 key XML。
+Errors report only a fixed configuration category; they never output certificate passwords, private keys, key ids, physical paths, or key XML.
 
 ## Initial migration from a plaintext ring
 
-新增 protector 不会自动重写已经存在的明文 Data Protection key。为避免把“新 key 已加密”误报成“整个 ring 已安全”，生产启动会拒绝包含任何明文 key 的 ring。
+Adding a protector does not rewrite existing plaintext Data Protection keys. To avoid treating “new keys are encrypted” as “the whole ring is safe,” production startup rejects any ring containing a plaintext key.
 
-首次迁移必须使用受控维护窗口：
+The initial migration requires a controlled maintenance window:
 
-1. 保持当前 active slot 服务流量，冻结会生成新 Data Protection payload 的切换操作。
-2. 备份旧 ring 到访问受控、加密的迁移介质；不要把当前/历史 PFX 放入同一备份。
-3. 为 candidate 准备空的共享 ring 和 current PFX，启动后生成的 key XML 必须包含 `encryptedSecret`，且不得包含明文 `masterKey`。
-4. 运行匿名公开读、登录、admin、notification stream 和 binary smoke。切换到新 ring 会使旧 Cookie/antiforgery/Data Protection payload 失效，因此必须把重新登录作为显式迁移影响，而不是静默兼容。
-5. 只有 candidate 验证完成后切流。旧 ring 保留在隔离介质中直到回退窗口结束，不得重新挂回新旧 slot 的共享路径。
+1. Keep the active slot serving traffic and freeze switches that create new Data Protection payloads; back up the old ring to controlled, encrypted migration media without current or historical PFX files.
+2. Give the candidate an empty shared ring and current PFX; generated XML must contain `encryptedSecret` and no plaintext `masterKey`. Run anonymous public-read, login, admin, notification-stream, and binary smoke checks—switching rings invalidates old Cookie, antiforgery, and Data Protection payloads, so re-login is an explicit migration impact.
+3. Shift traffic only after candidate verification. Keep the old ring on isolated media until rollback ends and never remount it on either slot's shared path.
 
-若业务要求旧 payload 在迁移后继续有效，必须先提供经过独立审查的离线 key re-encryption 工具；当前运行时代码不会自动读取明文 key 再原地改写。
+If old payloads must remain valid after migration, first provide an independently reviewed offline key re-encryption tool. Current runtime code does not read plaintext keys and rewrite them in place.
 
 ## Certificate rollover and blue-green sequence
 
-证书轮换使用“双证书预发布”，不会删除或覆盖历史 key：
+Certificate rollover uses “dual-certificate prepublication” and never deletes or overwrites historical keys:
 
-1. 将新证书 B 以只读 secret 同时挂载到 blue 和 green；两槽仍以 A 为 current，并把 B 加入 previous/decrypt 集合。验证两槽都能读取现有 payload。
-2. 更新两槽配置，使 B 成为 current、A 进入 previous。先启动 candidate；旧 key 仍由 A 解密，新 key 只由 B 加密。
-3. 在 candidate 上触发新 key 生成，验证两个都配置 A+B 的 slot 能双向读取旧/新 payload，再切流。
-4. 保留 A，直到所有由 A 加密的 key 及其 payload 最大生命周期结束。之后在维护变更中先移除 A 的解密配置，再删除 A secret；不要删除仍被 ring 引用的 key XML。
+1. Mount B as a read-only secret on blue and green, keep A current on both, add B to previous/decrypt, and verify both slots read existing payloads. Then make B current and A previous on both; A decrypts old keys and only B encrypts new ones.
+2. Trigger new-key generation on the candidate and verify A+B slots read old/new payloads both ways before shifting traffic. Retain A until every A-encrypted key/payload reaches maximum lifetime; remove A decrypt configuration before deleting its secret, and never delete ring-referenced XML.
 
-不要只在 candidate 挂载 B。active slot 若没有 B 私钥，就无法解密 candidate 生成的新 key，回切后会造成会话中断。
+Do not mount B only on the candidate. If the active slot lacks B's private key, it cannot decrypt a new key generated by the candidate and rollback will interrupt sessions.
 
 ## Monitoring and rollback without restarting the active slot
 
-上线前检查 candidate readiness、固定类别启动错误和共享 ring 读写探针；探针不得返回 key 文件名或内容。运行时若 candidate 出现解密错误：
+Before release, check candidate readiness, fixed-category startup errors, and shared-ring read/write probes; probes must not return key filenames or contents. If the candidate reports decryption errors:
 
-1. 不修改共享 ring、不删除 key、不撤销 current/previous certificate。
-2. 通过现有蓝绿入口把流量切回仍健康的 active slot；active slot 不需要重启。
-3. drain candidate，保留失败证据的低基数类别，修复证书集合或 secret mount 后再启动新的 candidate。
+1. Do not modify the shared ring, delete keys, or revoke current/previous certificates; return traffic through the existing blue/green entry point to the healthy active slot without restarting it.
+2. Drain the candidate, retain a low-cardinality failure category, fix the certificate set or secret mount, and start a new candidate.
 
-只要两个 slot 在轮换前已同时拥有 current+previous 私钥，回切不会改变 Cookie、notification stream 或 binary API 语义。若错误来自误删旧证书或 key，只能从分别受控的 secret/key-ring 备份恢复；不得通过临时关闭 at-rest protector、允许明文 key 或改变 `ApplicationName` 进行降级。
+If both slots had current and previous private keys before rollover, rollback does not change Cookie, notification-stream, or binary API semantics. If an old certificate or key was deleted accidentally, restore it only from separately controlled secret/key-ring backups; do not degrade by disabling the at-rest protector, allowing plaintext keys, or changing `ApplicationName`.
 
 ## Verification checklist
 
-- 新生成的每个 `key-*.xml` 都包含 `encryptedSecret`，不含明文 `masterKey`。
-- 不持有 current/previous 私钥的 provider 无法解密共享 ring payload。
-- blue/green 使用相同 `FsusBlog` discriminator，可双向读取轮换前后 payload。
-- production 缺少 protector、证书错误和遗留明文 ring 均 fail closed。
-- 匿名、登录、admin、notification stream 和 AEDS binary 路由行为不因 key-at-rest protector 改变。
+- Every new `key-*.xml` contains `encryptedSecret` and no plaintext `masterKey`; a provider without current/previous private keys cannot decrypt shared-ring payloads.
+- blue/green uses the same `FsusBlog` discriminator and reads pre-/post-rollover payloads both ways; missing production protectors, certificate errors, and legacy plaintext rings fail closed.
+- Anonymous, login, admin, notification-stream, and AEDS binary routes do not change because of the at-rest protector.

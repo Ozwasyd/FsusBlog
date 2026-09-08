@@ -1,16 +1,16 @@
-# PrivateSurfaceRuntime 验证清单
+# PrivateSurfaceRuntime Verification Checklist
 
-Issue #1244 的聚焦验证覆盖以下场景：
+Issue #1244 focused verification covers:
 
-- 匿名请求：公共路由不使用私有 generation，不因私有清理而重挂载。
-- 登录请求：`login` 广播视为账号切换，旧身份请求先中止，旧私有组件树销毁后回到公共安全路由。
-- admin 请求：`admin-logout` 只清理管理会话，保留有效账户会话，并跳转身份页。
-- notification stream：任一账户失效路径同步停止 stream、清理 cursor 和订阅状态。
-- binary：未修改 AEDS 帧、binary 端点、Worker 解码协议或回退语义；现有 binary 契约门禁保持适用。
+- Anonymous requests: public routes use no private generation and are not remounted by private cleanup.
+- Authenticated requests: a `login` broadcast is an account switch; old-identity requests stop first, then the old private component tree is destroyed before returning to a safe public route.
+- Admin requests: `admin-logout` clears only the admin session, preserves a valid account session, and navigates to the identity page.
+- Notification stream: every account-invalidating path stops the stream and clears cursor/subscription state synchronously.
+- Binary: AEDS frames, binary endpoints, Worker decoding protocol, and fallback semantics are unchanged; existing binary-contract gates remain applicable.
 
-JSDOM 用例会挂载带旧账号内容的私有组件，向模拟 BroadcastChannel 分别发送 `logout` 与 `expired`，并断言：请求 signal 已 abort、Pinia 身份已清空、旧 DOM 已卸载、随机 generation 已轮换且不含账号标识、清理完成前不会恢复私有 DOM、最终触发安全替换导航。
+JSDOM cases mount private components containing old-account content, send `logout` and `expired` through a simulated `BroadcastChannel`, and assert that the request signal is aborted, Pinia identity is cleared, old DOM is unmounted, the random generation rotates without an account identifier, private DOM is not restored before cleanup completes, and safe replacement navigation ultimately fires.
 
-建议聚焦命令：
+Suggested focused commands:
 
 ```bash
 npx vitest run --config vitest.config.ts \
