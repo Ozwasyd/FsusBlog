@@ -3,6 +3,7 @@ using System.Text.Json;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services.Fixtures;
 
 using Microsoft.Extensions.Configuration;
