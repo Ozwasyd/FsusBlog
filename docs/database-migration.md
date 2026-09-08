@@ -446,16 +446,6 @@ owner/site index, document-scoped foreign keys, and digest constraints follow th
 This migration does not copy article content, create article/relation/property
 foreign keys, or import transient graph positions.
 
-`20260906-post-authoring-canvas-operation-journal` is an additive Expand migration.
-Beside the existing canvas document authority, it adds an append-only operation
-journal, typed forward and inverse fact rows, sealed command headers with per-command
-before and after facts, a bounded undo/redo head, and idempotent recovery receipts.
-Runtime code must lock the document coordinate, revalidate sealed before facts, CAS
-update canvas-owned rows, and append the journal and receipt within one PostgreSQL
-transaction. These tables do not create article, relation, property, or workspace
-foreign keys, and neither receipts nor ordinary logs carry plaintext note or article
-content.
-
 When a filename is a canonical N-format UUID, the migration reuses that `AssetId`; canonical D-format is also accepted for existing assets, and all other files receive a new ID. Final reference edges are rebuilt only from current source content. Legacy cleanup due/retry/error states move to the AssetId queue, while assets still referenced at the end are cancelled and returned to `active`. After verification, the migration drops four URL-identity legacy tables; runtime does not dual-write, create view/trigger aliases, or rescan the old structure when a new-table row is missing. Rollback can restore only a verified pre-cutover backup/WAL into an isolated environment; it must not rebuild URL-identity tables in the live schema.
 
 ## Read Event Retirement

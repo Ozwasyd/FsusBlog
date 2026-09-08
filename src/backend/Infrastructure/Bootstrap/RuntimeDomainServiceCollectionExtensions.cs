@@ -125,9 +125,6 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IAuthoringCanvasReferenceFactSource, AuthoringCanvasReferenceFactSource>();
         services.AddSingleton<AuthoringCanvasReferenceProjectionCache>();
         services.AddScoped<AuthoringCanvasReferenceResolver>();
-        services.AddScoped<IAuthoringCanvasOperationReferenceValidator, AuthoringCanvasOperationReferenceValidator>();
-        services.AddScoped<IAuthoringCanvasOperationTransaction, PostgresAuthoringCanvasOperationTransaction>();
-        services.AddScoped<AuthoringCanvasOperationEngine>();
         services.AddScoped<AuthoringContentTransferService>();
         services.AddScoped<IAuthoringContentExport>(sp => sp.GetRequiredService<AuthoringContentTransferService>());
         services.AddScoped<IAuthoringContentImport>(sp => sp.GetRequiredService<AuthoringContentTransferService>());

@@ -13,7 +13,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AuthoringCanvasServiceRegistrationTests
 {
     [Fact]
-    public void RuntimeDomainServices_ResolveOneProductionReferenceAndOperationAuthority()
+    public void RuntimeDomainServices_ResolveOneProductionReferenceAuthority()
     {
         var services = new ServiceCollection();
         services.AddSingleton(TimeProvider.System);
@@ -28,12 +28,7 @@ public sealed class AuthoringCanvasServiceRegistrationTests
             scope.ServiceProvider.GetRequiredService<IAuthoringCanvasArticleReferenceReader>());
         Assert.IsType<AuthoringCanvasReferenceFactSource>(
             scope.ServiceProvider.GetRequiredService<IAuthoringCanvasReferenceFactSource>());
-        Assert.IsType<PostgresAuthoringCanvasOperationTransaction>(
-            scope.ServiceProvider.GetRequiredService<IAuthoringCanvasOperationTransaction>());
-        Assert.IsType<AuthoringCanvasOperationReferenceValidator>(
-            scope.ServiceProvider.GetRequiredService<IAuthoringCanvasOperationReferenceValidator>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<AuthoringCanvasReferenceResolver>());
-        Assert.NotNull(scope.ServiceProvider.GetRequiredService<AuthoringCanvasOperationEngine>());
         Assert.Empty(scope.ServiceProvider.GetServices<IAuthoringCanvasCoordinateFactProvider>());
     }
 }
