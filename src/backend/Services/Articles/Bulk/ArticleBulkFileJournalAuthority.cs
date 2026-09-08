@@ -672,7 +672,18 @@ internal sealed class ArticleBulkFileJournalAuthority : IArticleBulkJournalAutho
             || !IsContentDigest(envelope.Head.PlanDigest)
             || envelope.Head.State != envelope.Event.ResultingState
             || envelope.Head.EventCount != ordinal + 1
+            || envelope.Head.EventCount > MaximumJournalEvents
             || envelope.Head.LastEventDigest != envelope.Event.ContentDigest
+            || envelope.Head.ActiveArticleIds.IsDefault
+            || envelope.Head.ActiveArticleIds.Length > 256
+            || envelope.Head.ActiveArticleIds.Distinct(StringComparer.Ordinal).Count()
+                != envelope.Head.ActiveArticleIds.Length
+            || envelope.Head.ActiveArticleIds.Any(static articleId =>
+                !IsBoundedOpaqueValue(articleId, 256))
+            || envelope.Head.AdmittedCount is < 0 or > 10_000
+            || envelope.Head.SucceededCount is < 0 or > 10_000
+            || envelope.Head.FailedCount is < 0 or > 10_000
+            || envelope.Head.CancelledCount is < 0 or > 10_000
             || envelope.Head.ContentDigest
                 != ArticleBulkDigest.Of(envelope.Head with
                 {
@@ -794,6 +805,7 @@ internal sealed class ArticleBulkFileJournalAuthority : IArticleBulkJournalAutho
         }
         if (append.Event.AttemptId != snapshot.Head.AttemptId
             || append.Event.Ordinal != snapshot.Head.EventCount
+            || append.Event.Ordinal >= MaximumJournalEvents
             || append.Event.PreviousEventDigest != snapshot.Head.LastEventDigest
             || append.Event.ContentDigest != ArticleBulkDigest.Of(append.Event with
             {
@@ -828,6 +840,8 @@ internal sealed class ArticleBulkFileJournalAuthority : IArticleBulkJournalAutho
             || append.NextHead.ActiveArticleIds.Length > 256
             || append.NextHead.ActiveArticleIds.Distinct(StringComparer.Ordinal).Count()
                 != append.NextHead.ActiveArticleIds.Length
+            || append.NextHead.ActiveArticleIds.Any(static articleId =>
+                !IsBoundedOpaqueValue(articleId, 256))
             || append.NextHead.AdmittedCount is < 0 or > 10_000
             || append.NextHead.SucceededCount is < 0 or > 10_000
             || append.NextHead.FailedCount is < 0 or > 10_000
@@ -847,12 +861,23 @@ internal sealed class ArticleBulkFileJournalAuthority : IArticleBulkJournalAutho
             append.AggregateReceipt,
             "article-bulk.journal-append-invalid");
 
-        if (append.ItemReceipts.Any(receipt => receipt.AttemptId != snapshot.Request.AttemptId
+        if (append.ItemReceipts.IsDefault
+            || append.ItemReceipts.Any(receipt => receipt.ContentDigest
+                    != ArticleBulkDigest.Of(receipt with
+                    {
+                        ContentDigest = string.Empty
+                    })
+                || receipt.AttemptId != snapshot.Request.AttemptId
                 || receipt.PlanDigest != snapshot.Request.PlanDigest
                 || receipt.RegistryDigest != snapshot.Request.RegistryDigest
                 || receipt.OperationId != snapshot.Request.OperationId)
             || append.AggregateReceipt is not null
-                && (append.AggregateReceipt.AttemptId != snapshot.Request.AttemptId
+                && (append.AggregateReceipt.ContentDigest
+                        != ArticleBulkDigest.Of(append.AggregateReceipt with
+                        {
+                            ContentDigest = string.Empty
+                        })
+                    || append.AggregateReceipt.AttemptId != snapshot.Request.AttemptId
                     || append.AggregateReceipt.RequestDigest != snapshot.Request.ContentDigest
                     || append.AggregateReceipt.PlanDigest != snapshot.Request.PlanDigest
                     || append.AggregateReceipt.RegistryDigest != snapshot.Request.RegistryDigest
