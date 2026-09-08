@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
+using System.Text.Json;
 
 using FsusBlog.Shared.Contracts.Security;
 
@@ -159,9 +160,19 @@ public sealed partial class PerceptionCharacterV3Tests
     [Trait("Fixture", "LocalRedis")]
     public async Task BudgetedLeaseAtomicallyAccountsExactBytesQuotasAndRetryIdentity()
     {
-        string? connectionString = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_REDIS");
-        if (string.IsNullOrWhiteSpace(connectionString))
-            return;
+        string connectionString = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_REDIS")
+            ?? throw new InvalidOperationException("FSUSBLOG_TEST_REDIS environment variable is not set.");
+        Assert.False(string.IsNullOrWhiteSpace(connectionString));
+        string runId = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_LOCAL_REDIS_RUN_ID")
+            ?? throw new InvalidOperationException("LocalRedis run identity is required.");
+        Assert.False(string.IsNullOrWhiteSpace(runId));
+        Assert.DoesNotContain(":", runId);
+        string redisPrefixRoot = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_REDIS_PREFIX")
+            ?? throw new InvalidOperationException("LocalRedis prefix is required.");
+        Assert.Equal($"test:perception-v3-local-redis:{runId}:", redisPrefixRoot);
+        string evidencePath = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_REDIS_BUDGET_EVIDENCE")
+            ?? throw new InvalidOperationException("LocalRedis budget evidence path is required.");
+        Assert.False(string.IsNullOrWhiteSpace(evidencePath));
         string poolRoot = Path.Combine(Path.GetTempPath(), "fsusblog-v3-budget-pool-" + Guid.CreateVersion7().ToString("N"));
         string generation = "runtime-budget-generation";
         byte[] key = RandomNumberGenerator.GetBytes(32);
@@ -169,7 +180,8 @@ public sealed partial class PerceptionCharacterV3Tests
         {
             await GeneratePoolAsync(poolRoot, generation, key);
             await using ConnectionMultiplexer redis = await ConnectionMultiplexer.ConnectAsync(connectionString);
-            string redisPrefix = "test:perception-v3-budget:" + Guid.CreateVersion7().ToString("N") + ":";
+            string redisPrefix = redisPrefixRoot + "budgeted-lease:";
+            Assert.Empty(redis.GetServer(redis.GetEndPoints()[0]).Keys(pattern: redisPrefix + "*"));
             var keyScope = new TestRuntimeKeyScope(redisPrefix);
             await using var redisCleanup = new RedisPrefixCleanup(redis, redisPrefix);
             var options = new PerceptionCharacterV3ArtifactPoolOptions
@@ -182,6 +194,13 @@ public sealed partial class PerceptionCharacterV3Tests
             var pool = new RedisPerceptionCharacterV3ArtifactPool(redis, keyScope, options, s_root);
             await pool.InitializeAsync(CancellationToken.None);
             long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var observations = new List<object>();
+            using JsonDocument manifest = JsonDocument.Parse(await File.ReadAllTextAsync(
+                Path.Combine(poolRoot, generation, "manifest.json")));
+            Dictionary<string, long> artifactSizes = manifest.RootElement.GetProperty("entries")
+                .EnumerateArray().ToDictionary(
+                    entry => entry.GetProperty("entryId").GetString()!,
+                    entry => entry.GetProperty("artifactBytes").GetInt64());
             PerceptionCharacterV3LeaseBudget firstBudget = Budget("operation-1", now);
 
             PerceptionCharacterV3PoolLeaseResult first = await pool.LeaseBudgetedAsync(
@@ -190,9 +209,11 @@ public sealed partial class PerceptionCharacterV3Tests
                 CancellationToken.None);
             await using PerceptionCharacterV3ArtifactLease firstLease = Assert.IsType<PerceptionCharacterV3ArtifactLease>(first.Lease);
             long exactBytes = firstLease.Artifact.LongLength;
+            Assert.Equal(artifactSizes[firstLease.EntryId], exactBytes);
             RedisKey minuteBytesKey = keyScope.PrefixKey(
                 $"security:perception-v3-pool:{generation}:budget:bytes:minute:{now / 60_000}");
             Assert.Equal(exactBytes, (long)await redis.GetDatabase().StringGetAsync(minuteBytesKey));
+            await AssertBudgetStateAsync("first-lease", 1, exactBytes);
 
             PerceptionCharacterV3PoolLeaseResult retry = await pool.LeaseBudgetedAsync(
                 PerceptionCharacterV3Representation.Visual,
@@ -202,6 +223,7 @@ public sealed partial class PerceptionCharacterV3Tests
             Assert.Null(retry.Lease);
             Assert.Equal(exactBytes, (long)await redis.GetDatabase().StringGetAsync(minuteBytesKey));
             Assert.Equal(8, (await pool.GetInventoryAsync(CancellationToken.None)).VisualReady);
+            await AssertBudgetStateAsync("operation-retry", 1, exactBytes);
 
             PerceptionCharacterV3PoolLeaseResult subjectLimited = await pool.LeaseBudgetedAsync(
                 PerceptionCharacterV3Representation.Visual,
@@ -211,7 +233,9 @@ public sealed partial class PerceptionCharacterV3Tests
                 },
                 CancellationToken.None);
             Assert.Equal(PerceptionCharacterV3PoolLeaseOutcome.SubjectQuotaExhausted, subjectLimited.Outcome);
+            Assert.Null(subjectLimited.Lease);
             Assert.Equal(8, (await pool.GetInventoryAsync(CancellationToken.None)).VisualReady);
+            await AssertBudgetStateAsync("subject-rejected", 1, exactBytes);
 
             PerceptionCharacterV3PoolLeaseResult byteLimited = await pool.LeaseBudgetedAsync(
                 PerceptionCharacterV3Representation.Visual,
@@ -221,11 +245,16 @@ public sealed partial class PerceptionCharacterV3Tests
                 },
                 CancellationToken.None);
             Assert.Equal(PerceptionCharacterV3PoolLeaseOutcome.EgressBudgetExhausted, byteLimited.Outcome);
+            Assert.Null(byteLimited.Lease);
             Assert.Equal(exactBytes, (long)await redis.GetDatabase().StringGetAsync(minuteBytesKey));
+            await AssertBudgetStateAsync("egress-rejected", 1, exactBytes);
 
             int discardReply = 1;
             var ambiguousPool = new RedisPerceptionCharacterV3ArtifactPool(
-                redis, keyScope, options, s_root, () => Interlocked.Exchange(ref discardReply, 0) == 1);
+                redis, keyScope, options, s_root, () =>
+                    (long)redis.GetDatabase().HashGet(
+                        keyScope.PrefixKey($"security:perception-v3-pool:{generation}:inventory"),
+                        "visual-ready") == 7 && Interlocked.Exchange(ref discardReply, 0) == 1);
             await ambiguousPool.InitializeAsync(CancellationToken.None);
             PerceptionCharacterV3LeaseBudget ambiguousBudget = Budget("operation-ambiguous", now) with
             {
@@ -237,16 +266,68 @@ public sealed partial class PerceptionCharacterV3Tests
                     ambiguousBudget,
                     CancellationToken.None));
             long bytesAfterAmbiguous = (long)await redis.GetDatabase().StringGetAsync(minuteBytesKey);
-            Assert.True(bytesAfterAmbiguous > exactBytes);
             Assert.Equal(7, (await pool.GetInventoryAsync(CancellationToken.None)).VisualReady);
+            Assert.Equal(bytesAfterAmbiguous, await AssertBudgetStateAsync("ambiguous-reply", 2, bytesAfterAmbiguous));
 
             PerceptionCharacterV3PoolLeaseResult ambiguousRetry = await pool.LeaseBudgetedAsync(
                 PerceptionCharacterV3Representation.Visual,
                 ambiguousBudget,
                 CancellationToken.None);
             Assert.Equal(PerceptionCharacterV3PoolLeaseOutcome.AlreadyAccounted, ambiguousRetry.Outcome);
+            Assert.Null(ambiguousRetry.Lease);
             Assert.Equal(bytesAfterAmbiguous, (long)await redis.GetDatabase().StringGetAsync(minuteBytesKey));
             Assert.Equal(7, (await pool.GetInventoryAsync(CancellationToken.None)).VisualReady);
+            await AssertBudgetStateAsync("ambiguous-retry", 2, bytesAfterAmbiguous);
+            await File.WriteAllTextAsync(evidencePath, JsonSerializer.Serialize(new
+            {
+                schema = "fsusblog.perception-character-v3-budget-cases.v1",
+                testId = "FsusBlog.Server.Tests.Unit.PerceptionCharacterV3Tests.BudgetedLeaseAtomicallyAccountsExactBytesQuotasAndRetryIdentity",
+                runId,
+                prefixNamespace = redisPrefix,
+                endpoint = redis.GetEndPoints()[0] is System.Net.DnsEndPoint dns
+                    ? $"{dns.Host}:{dns.Port}"
+                    : redis.GetEndPoints()[0].ToString(),
+                cases = observations
+            }));
+
+            async Task<long> AssertBudgetStateAsync(string id, int leases, long bytes)
+            {
+                IDatabase database = redis.GetDatabase();
+                string generationPrefix = redisPrefix + $"security:perception-v3-pool:{generation}:";
+                RedisKey[] burned = redis.GetServer(redis.GetEndPoints()[0])
+                    .Keys(pattern: generationPrefix + "entry:*").ToArray();
+                Assert.Equal(leases, burned.Length);
+                long burnedBytes = 0;
+                foreach (RedisKey entryKey in burned)
+                {
+                    Assert.Equal("burned", (string?)await database.StringGetAsync(entryKey));
+                    burnedBytes += artifactSizes[entryKey.ToString()[(generationPrefix.Length + "entry:".Length)..]];
+                }
+                Assert.Equal(bytes, burnedBytes);
+                Assert.Equal(bytes, (long)await database.StringGetAsync(minuteBytesKey));
+                Assert.Equal(leases, (long)await database.StringGetAsync(
+                    generationPrefix + $"budget:lease:minute:{now / 60_000}"));
+                Assert.Equal(leases, await database.SortedSetLengthAsync(generationPrefix + "budget:rolling-hour"));
+                Assert.Equal(leases, redis.GetServer(redis.GetEndPoints()[0])
+                    .Keys(pattern: generationPrefix + "budget:operation:*").Count());
+                Assert.Equal(1, (long)await database.StringGetAsync(
+                    generationPrefix + $"quota:subject:subject:minute:{now / 60_000}"));
+                var inventory = await pool.GetInventoryAsync(CancellationToken.None);
+                Assert.Equal(9 - leases, inventory.VisualReady);
+                Assert.Equal(1, inventory.AudioReady);
+                Assert.Equal(9 - leases, (long)await database.HashGetAsync(generationPrefix + "inventory", "visual-ready"));
+                Assert.Equal(leases, (long)await database.HashGetAsync(generationPrefix + "inventory", "visual-leased"));
+                Assert.Equal(10 - leases, (long)await database.HashGetAsync(generationPrefix + "inventory", "total-ready"));
+                observations.Add(new
+                {
+                    id,
+                    outcome = "passed",
+                    leases,
+                    bytes,
+                    burnedBytes
+                });
+                return burnedBytes;
+            }
         }
         finally
         {

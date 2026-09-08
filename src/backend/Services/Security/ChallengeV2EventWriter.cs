@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Channels;
 
 using FsusBlog.Server.Entities;
@@ -95,7 +97,7 @@ public sealed record ChallengeV2AuditEvent(
         string challengeKind,
         string action)
         => new(
-            attempt,
+            EnsureAttemptId(attempt),
             eventKind,
             Normalize(challengeKind, 64),
             Normalize(action, 96),
@@ -111,13 +113,49 @@ public sealed record ChallengeV2AuditEvent(
 
         return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
     }
+
+    private static SecurityChallengeAttemptRequest EnsureAttemptId(SecurityChallengeAttemptRequest attempt)
+        => !string.IsNullOrWhiteSpace(attempt.AttemptId)
+            ? attempt
+            : attempt with
+            {
+                AttemptId = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join(
+                    '\0',
+                    attempt.ChallengeId,
+                    attempt.Outcome,
+                    attempt.Reason,
+                    attempt.PayloadHash,
+                    attempt.ClientIpHash,
+                    attempt.DeviceFpHash,
+                    attempt.TraceId,
+                    attempt.Traceparent,
+                    attempt.AttemptedAtUtc?.ToUniversalTime().Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture))))).AsSpan(0, 32).ToString()
+            };
 }
 
 public sealed record ChallengeV2AuditEventQueueSnapshot(
     long NormalQueuedCount,
     long HighValueQueuedCount,
     long DroppedLowValueCount,
-    long DroppedHighValueCount);
+    long DroppedHighValueCount,
+    long InFlightCount = 0,
+    long DurablePendingCount = 0,
+    long DurableAcceptedCount = 0,
+    long CommittedCount = 0,
+    long RequeuedCount = 0,
+    long RejectedCount = 0,
+    long TerminalFailureCount = 0,
+    long Sequence = 0,
+    string? LastDisposition = null,
+    string? LastFailureReason = null,
+    string? LastItemReference = null)
+{
+    public long OutstandingCount => Math.Max(0, NormalQueuedCount)
+        + Math.Max(0, HighValueQueuedCount)
+        + Math.Max(0, InFlightCount)
+        + Math.Max(0, DurablePendingCount)
+        + Math.Max(0, TerminalFailureCount);
+}
 
 public interface IChallengeV2AuditEventWriter
 {
@@ -128,18 +166,33 @@ public sealed class ChallengeV2AuditEventQueue : IChallengeV2AuditEventWriter
 {
     private readonly Channel<ChallengeV2AuditEvent> _normal;
     private readonly Channel<ChallengeV2AuditEvent> _highValue;
+    private readonly IServiceScopeFactory? _scopeFactory;
     private readonly ILogger<ChallengeV2AuditEventQueue> _logger;
     private long _normalQueuedCount;
     private long _highValueQueuedCount;
     private long _droppedLowValueCount;
     private long _droppedHighValueCount;
+    private long _inFlightCount;
+    private long _durablePendingCount;
+    private long _durableAcceptedCount;
+    private long _committedCount;
+    private long _requeuedCount;
+    private long _rejectedCount;
+    private long _terminalFailureCount;
+    private long _sequence;
+    private string? _lastDisposition;
+    private string? _lastFailureReason;
+    private string? _lastItemReference;
+    private int _completed;
 
     public ChallengeV2AuditEventQueue(
         IOptions<ChallengeV2EventWriterOptions> options,
-        ILogger<ChallengeV2AuditEventQueue> logger)
+        ILogger<ChallengeV2AuditEventQueue> logger,
+        IServiceScopeFactory? scopeFactory = null)
     {
         ChallengeV2EventWriterOptions value = options.Value;
         _logger = logger;
+        _scopeFactory = scopeFactory;
         _normal = CreateChannel(Math.Clamp(value.Capacity, 1, 1_000_000));
         _highValue = CreateChannel(Math.Clamp(value.HighValueCapacity, 1, 1_000_000));
     }
@@ -148,11 +201,16 @@ public sealed class ChallengeV2AuditEventQueue : IChallengeV2AuditEventWriter
 
     public ChannelReader<ChallengeV2AuditEvent> HighValueReader => _highValue.Reader;
 
-    public ValueTask WriteAsync(ChallengeV2AuditEvent auditEvent, CancellationToken cancellationToken = default)
+    public async ValueTask WriteAsync(ChallengeV2AuditEvent auditEvent, CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            await WriteFallbackAsync(auditEvent, CancellationToken.None).ConfigureAwait(false);
+            return;
+        }
+
         Channel<ChallengeV2AuditEvent> channel = auditEvent.IsHighValue ? _highValue : _normal;
-        if (channel.Writer.TryWrite(auditEvent))
+        if (Volatile.Read(ref _completed) == 0 && channel.Writer.TryWrite(auditEvent))
         {
             if (auditEvent.IsHighValue)
             {
@@ -163,7 +221,16 @@ public sealed class ChallengeV2AuditEventQueue : IChallengeV2AuditEventWriter
                 Interlocked.Increment(ref _normalQueuedCount);
             }
 
-            return ValueTask.CompletedTask;
+            SetDisposition("queued", ItemReference(auditEvent));
+
+            return;
+        }
+
+        Interlocked.Increment(ref _rejectedCount);
+        if (_scopeFactory is not null)
+        {
+            await WriteFallbackAsync(auditEvent, CancellationToken.None).ConfigureAwait(false);
+            return;
         }
 
         if (auditEvent.IsHighValue)
@@ -189,7 +256,9 @@ public sealed class ChallengeV2AuditEventQueue : IChallengeV2AuditEventWriter
                 auditEvent.Attempt.Reason);
         }
 
-        return ValueTask.CompletedTask;
+        MarkTerminalFailure(1, ItemReference(auditEvent), "admission-rejected:fallback-unavailable");
+
+        return;
     }
 
     public bool TryRead(out ChallengeV2AuditEvent? auditEvent)
@@ -197,6 +266,8 @@ public sealed class ChallengeV2AuditEventQueue : IChallengeV2AuditEventWriter
         if (_highValue.Reader.TryRead(out ChallengeV2AuditEvent? high))
         {
             MarkRead(ref _highValueQueuedCount);
+            Interlocked.Increment(ref _inFlightCount);
+            SetDisposition("in-flight", ItemReference(high));
             auditEvent = high;
             return true;
         }
@@ -204,6 +275,8 @@ public sealed class ChallengeV2AuditEventQueue : IChallengeV2AuditEventWriter
         if (_normal.Reader.TryRead(out ChallengeV2AuditEvent? normal))
         {
             MarkRead(ref _normalQueuedCount);
+            Interlocked.Increment(ref _inFlightCount);
+            SetDisposition("in-flight", ItemReference(normal));
             auditEvent = normal;
             return true;
         }
@@ -230,7 +303,154 @@ public sealed class ChallengeV2AuditEventQueue : IChallengeV2AuditEventWriter
             Volatile.Read(ref _normalQueuedCount),
             Volatile.Read(ref _highValueQueuedCount),
             Volatile.Read(ref _droppedLowValueCount),
-            Volatile.Read(ref _droppedHighValueCount));
+            Volatile.Read(ref _droppedHighValueCount),
+            Volatile.Read(ref _inFlightCount),
+            Volatile.Read(ref _durablePendingCount),
+            Volatile.Read(ref _durableAcceptedCount),
+            Volatile.Read(ref _committedCount),
+            Volatile.Read(ref _requeuedCount),
+            Volatile.Read(ref _rejectedCount),
+            Volatile.Read(ref _terminalFailureCount),
+            Volatile.Read(ref _sequence),
+            Volatile.Read(ref _lastDisposition),
+            Volatile.Read(ref _lastFailureReason),
+            Volatile.Read(ref _lastItemReference));
+
+    public void Complete(Exception? error = null)
+    {
+        if (Interlocked.Exchange(ref _completed, 1) != 0)
+        {
+            return;
+        }
+
+        _highValue.Writer.TryComplete(error);
+        _normal.Writer.TryComplete(error);
+        SetDisposition("closed", error?.Message);
+    }
+
+    internal void MarkCommitted(int count)
+    {
+        Decrement(ref _inFlightCount, count);
+        Interlocked.Add(ref _committedCount, Math.Max(0, count));
+        SetDisposition("committed", null);
+    }
+
+    internal void MarkDurablePending(int count)
+    {
+        Interlocked.Add(ref _durablePendingCount, Math.Max(0, count));
+        SetDisposition("durable-pending", null);
+    }
+
+    internal void MarkDurableAccepted(int count)
+    {
+        Decrement(ref _durablePendingCount, count);
+        Decrement(ref _inFlightCount, count);
+        Interlocked.Add(ref _durableAcceptedCount, Math.Max(0, count));
+        SetDisposition("durable-accepted", null);
+    }
+
+    internal void MarkTerminalFailure(int count, string? itemReference, string reason)
+    {
+        if (count <= 0)
+        {
+            return;
+        }
+
+        Decrement(ref _inFlightCount, count);
+        Interlocked.Add(ref _terminalFailureCount, count);
+        SetDisposition("terminal-failed", itemReference, reason);
+    }
+
+    internal void MarkDurableFailed(int count, string? itemReference, string reason)
+    {
+        Decrement(ref _durablePendingCount, count);
+        MarkTerminalFailure(count, itemReference, reason);
+    }
+
+    internal bool TryRequeue(ChallengeV2AuditEvent auditEvent)
+    {
+        Channel<ChallengeV2AuditEvent> channel = auditEvent.IsHighValue ? _highValue : _normal;
+        if (!channel.Writer.TryWrite(auditEvent))
+        {
+            return false;
+        }
+
+        if (auditEvent.IsHighValue)
+        {
+            Interlocked.Increment(ref _highValueQueuedCount);
+        }
+        else
+        {
+            Interlocked.Increment(ref _normalQueuedCount);
+        }
+
+        Decrement(ref _inFlightCount, 1);
+        Interlocked.Increment(ref _requeuedCount);
+        SetDisposition("requeued", ItemReference(auditEvent));
+        return true;
+    }
+
+    internal async Task WriteFallbackAsync(ChallengeV2AuditEvent auditEvent, CancellationToken cancellationToken)
+    {
+        MarkDurablePending(1);
+        try
+        {
+            await using AsyncServiceScope scope = _scopeFactory is null
+                ? throw new InvalidOperationException("challenge-v2 durable fallback unavailable")
+                : _scopeFactory.CreateAsyncScope();
+            ISecurityChallengePersistenceService persistence = scope.ServiceProvider.GetRequiredService<ISecurityChallengePersistenceService>();
+            await persistence.RecordAttemptAsync(auditEvent.Attempt, cancellationToken).ConfigureAwait(false);
+            MarkDurableAccepted(1);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            MarkDurableFailed(1, ItemReference(auditEvent), $"fallback-failed:{ex.GetType().Name}");
+            _logger.LogError(ex, "challenge-v2 durable admission fallback failed. ChallengeId={ChallengeId}", auditEvent.Attempt.ChallengeId);
+            throw new InvalidOperationException($"challenge-v2 durable fallback failed for {auditEvent.Attempt.ChallengeId}", ex);
+        }
+        catch (OperationCanceledException)
+        {
+            MarkDurableFailed(1, ItemReference(auditEvent), "fallback-cancelled");
+            throw;
+        }
+    }
+
+    private static string ItemReference(ChallengeV2AuditEvent auditEvent)
+        => auditEvent.Attempt.AttemptId ?? auditEvent.Attempt.ChallengeId;
+
+    private static void Decrement(ref long value, long count)
+    {
+        if (count <= 0)
+        {
+            return;
+        }
+
+        long current;
+        do
+        {
+            current = Volatile.Read(ref value);
+            if (current <= 0)
+            {
+                return;
+            }
+        }
+        while (Interlocked.CompareExchange(ref value, Math.Max(0, current - count), current) != current);
+    }
+
+    private void SetDisposition(string disposition, string? itemReference, string? failureReason = null)
+    {
+        Interlocked.Increment(ref _sequence);
+        Volatile.Write(ref _lastDisposition, disposition);
+        if (itemReference is not null)
+        {
+            Volatile.Write(ref _lastItemReference, itemReference);
+        }
+
+        if (failureReason is not null)
+        {
+            Volatile.Write(ref _lastFailureReason, failureReason);
+        }
+    }
 
     private static Channel<ChallengeV2AuditEvent> CreateChannel(int capacity)
         => Channel.CreateBounded<ChallengeV2AuditEvent>(new BoundedChannelOptions(capacity)
@@ -276,6 +496,7 @@ public sealed class ChallengeV2AuditEventWriterWorker(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var batch = new List<ChallengeV2AuditEvent>(_batchSize);
+        bool persistenceStarted = false;
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -294,14 +515,21 @@ public sealed class ChallengeV2AuditEventWriterWorker(
 
                 batch.Add(first);
                 await FillBatchUntilFlushWindowAsync(batch, stoppingToken);
+                persistenceStarted = true;
                 await PersistSafelyAsync(batch, stoppingToken);
+                persistenceStarted = false;
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
+                if (!persistenceStarted)
+                {
+                    RequeueOrTerminal(batch, "writer-cancelled");
+                }
                 break;
             }
             catch (Exception ex)
             {
+                RequeueOrTerminal(batch, "worker-exception");
                 _logger.LogError(ex, "challenge-v2-audit writer loop recovered from an unexpected failure.");
             }
         }
@@ -335,13 +563,42 @@ public sealed class ChallengeV2AuditEventWriterWorker(
                 _scopeFactory,
                 "challenge_v2_audit_flush");
             ISecurityChallengePersistenceService persistence = scope.ServiceProvider.GetRequiredService<ISecurityChallengePersistenceService>();
-            foreach (ChallengeV2AuditEvent item in batch)
+            for (int i = 0; i < batch.Count; i++)
             {
-                await persistence.RecordAttemptAsync(item.Attempt, cancellationToken);
+                ChallengeV2AuditEvent item = batch[i];
+                try
+                {
+                    await persistence.RecordAttemptAsync(item.Attempt, cancellationToken);
+                    _queue.MarkCommitted(1);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    RequeueOrTerminal(batch.Skip(i), "persist-cancelled");
+                    throw;
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    if (!_queue.TryRequeue(item))
+                    {
+                        _queue.MarkTerminalFailure(1, item.Attempt.AttemptId, $"worker-failure:{ex.GetType().Name}");
+                    }
+
+                    _logger.LogWarning(
+                        ex,
+                        "challenge-v2-audit-event-persist-failed ChallengeId={ChallengeId} AttemptId={AttemptId} EventKind={EventKind}",
+                        item.Attempt.ChallengeId,
+                        item.Attempt.AttemptId,
+                        item.EventKind.Value);
+                }
             }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            RequeueOrTerminal(batch, "worker-failure");
             ChallengeV2AuditEvent first = batch[0];
             _logger.LogWarning(
                 ex,
@@ -352,6 +609,17 @@ public sealed class ChallengeV2AuditEventWriterWorker(
                 first.Action,
                 first.EventKind.Value,
                 first.Attempt.Reason);
+        }
+    }
+
+    private void RequeueOrTerminal(IEnumerable<ChallengeV2AuditEvent> events, string reason)
+    {
+        foreach (ChallengeV2AuditEvent item in events)
+        {
+            if (!_queue.TryRequeue(item))
+            {
+                _queue.MarkTerminalFailure(1, item.Attempt.AttemptId, reason);
+            }
         }
     }
 

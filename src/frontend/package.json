@@ -29,6 +29,7 @@
         "format:fix": "node ../../tools/frontend/check-frontend-style.mjs --mode changed --fix",
         "typecheck": "npm run typecheck:published-fsusui",
         "typecheck:published-fsusui": "vue-tsc --noEmit -p tsconfig.fsusui-published.json",
+        "verify:fsusui-candidate": "node ../../tools/dependencies/verify-fsusui-candidate.mjs",
         "typecheck:local-fsusui": "node ./scripts/run-local-fsusui-typecheck.mjs",
         "test:fast": "bash ../../tools/test.sh fast",
         "test:integration": "bash ../../tools/test.sh integration",

@@ -3,6 +3,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { verifyCandidateBoundaryInput } from '../../../../tools/dependencies/verify-fsusui-candidate.mjs';
+
 // Boundary contract: src/frontend/src/fsusui/README.md
 
 const defaultRepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
@@ -339,7 +341,19 @@ function checkPackageMarkdownDependencies()
         }
     }
 
-    if (pkg.dependencies?.['@ozwasyd/element-plus'] !== '1.5.1')
+    if (process.env.FSUSBLOG_FSUSUI_CANDIDATE !== undefined
+        || process.env.FSUSBLOG_FSUSUI_CANDIDATE_SHA256 !== undefined)
+    {
+        try
+        {
+            verifyCandidateBoundaryInput(repoRoot);
+        }
+        catch (error)
+        {
+            warn(packageJsonPath, 'fsusui-candidate', error.message);
+        }
+    }
+    else if (pkg.dependencies?.['@ozwasyd/element-plus'] !== '1.5.1')
     {
         warn(packageJsonPath, 'fsusui-version', '@ozwasyd/element-plus must stay on 1.5.1 for Markdown feature ownership');
     }

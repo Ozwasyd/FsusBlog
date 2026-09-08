@@ -165,7 +165,22 @@ public sealed class SecurityRiskEventStore(ISqlSugarClient db) : ISecurityRiskEv
     public async Task AppendAsync(SecurityRiskEventWrite write, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        await db.Insertable(ToEntity(write)).ExecuteCommandAsync();
+        SecurityRiskEvent entity = ToEntity(write);
+        try
+        {
+            await db.Insertable(entity).ExecuteCommandAsync();
+        }
+        catch (Exception)
+        {
+            if (!await IsAlreadyPersistedAsync(entity.Id, cancellationToken).ConfigureAwait(false))
+            {
+                throw;
+            }
+
+            // The stable event id is the commit receipt. A replay after an
+            // acknowledged insert is an idempotent no-op, never a second risk
+            // contribution.
+        }
     }
 
     /// <summary>Normalizes and persists a non-empty batch of security-risk events.</summary>
@@ -189,8 +204,25 @@ public sealed class SecurityRiskEventStore(ISqlSugarClient db) : ISecurityRiskEv
             entities.Add(ToEntity(write));
         }
 
-        await db.Insertable(entities).ExecuteCommandAsync();
+        try
+        {
+            await db.Insertable(entities).ExecuteCommandAsync();
+        }
+        catch (Exception)
+        {
+            // A partial batch commit or a duplicate event must be reduced to
+            // per-event idempotent writes before the worker records disposition.
+            foreach (SecurityRiskEventWrite write in writes)
+            {
+                await AppendAsync(write, cancellationToken).ConfigureAwait(false);
+            }
+        }
     }
+
+    private async Task<bool> IsAlreadyPersistedAsync(string id, CancellationToken cancellationToken)
+        => await db.Queryable<SecurityRiskEvent>()
+            .AnyAsync(item => item.Id == id, cancellationToken)
+            .ConfigureAwait(false);
 
     /// <summary>Queries recent persisted events using bounded administrative filters.</summary>
     /// <param name="query">The event filters and requested result limit.</param>
@@ -444,9 +476,9 @@ public sealed class SecurityRiskEventSink(
         {
             int totalScore = await TryReadHotCacheAsync(signal.Context.GetClientIp(), cancellationToken);
             SecurityRiskEventWrite write = BuildWrite(signal, totalScore);
-            if (!eventQueue.TryWrite(write))
+            if (!await eventQueue.EnqueueAsync(write, cancellationToken).ConfigureAwait(false))
             {
-                FsusObservability.RecordSecurityRiskEvent(signal.Source, signal.Reason.ToString(), signal.Action, "queue_full");
+                FsusObservability.RecordSecurityRiskEvent(signal.Source, signal.Reason.ToString(), signal.Action, "durable_fallback");
             }
         }
         catch (Exception ex)

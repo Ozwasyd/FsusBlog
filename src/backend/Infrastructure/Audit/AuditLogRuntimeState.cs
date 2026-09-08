@@ -55,7 +55,18 @@ public sealed class AuditLogRuntimeState(AuditLogChannel channel)
             Volatile.Read(ref _fallbackWriteCount),
             FromTicks(Volatile.Read(ref _lastWriteSuccessTicks)),
             FromTicks(Volatile.Read(ref _lastWriteFailureTicks)),
-            FromTicks(Volatile.Read(ref _lastFallbackWriteTicks)));
+            FromTicks(Volatile.Read(ref _lastFallbackWriteTicks)),
+            channel.InFlightCount,
+            channel.DurablePendingCount,
+            channel.DurableAcceptedCount,
+            channel.CommittedCount,
+            channel.RequeuedCount,
+            channel.RejectedCount,
+            channel.TerminalFailureCount,
+            channel.Sequence,
+            channel.LastDisposition,
+            channel.LastFailureReason,
+            channel.LastItemReference);
     }
 
     private static DateTime? FromTicks(long ticks)
@@ -71,4 +82,15 @@ public sealed record AuditLogRuntimeSnapshot(
     long FallbackWriteCount,
     DateTime? LastWriteSuccessUtc,
     DateTime? LastWriteFailureUtc,
-    DateTime? LastFallbackWriteUtc);
+    DateTime? LastFallbackWriteUtc,
+    long InFlightCount = 0,
+    long DurablePendingCount = 0,
+    long DurableAcceptedCount = 0,
+    long CommittedCount = 0,
+    long RequeuedCount = 0,
+    long RejectedCount = 0,
+    long TerminalFailureCount = 0,
+    long Sequence = 0,
+    string? LastDisposition = null,
+    string? LastFailureReason = null,
+    string? LastItemReference = null);

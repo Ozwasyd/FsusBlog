@@ -146,6 +146,12 @@ public static class FsusObservability
     private static readonly Histogram<double> s_adminAuditBatchSize = s_meter.CreateHistogram<double>("fsus.admin.audit.batch_size");
     private static readonly Histogram<double> s_adminAuditWriteElapsed = s_meter.CreateHistogram<double>("fsus.admin.audit.write_elapsed_ms", "ms");
     private static readonly Histogram<double> s_cacheOperationDuration = s_meter.CreateHistogram<double>("fsus.cache.operation.duration", "ms");
+    private static readonly Histogram<long> s_cacheCoordinationRedisCommands = s_meter.CreateHistogram<long>("fsus.cache.coordination.redis_commands");
+    private static readonly Histogram<double> s_cacheCoordinationLocalWait = s_meter.CreateHistogram<double>("fsus.cache.coordination.local_wait", "ms");
+    private static readonly Histogram<double> s_cacheCoordinationLeaseWait = s_meter.CreateHistogram<double>("fsus.cache.coordination.lease_wait", "ms");
+    private static readonly Histogram<long> s_cacheCoordinationRebuilds = s_meter.CreateHistogram<long>("fsus.cache.coordination.rebuild_count");
+    private static readonly Counter<long> s_cacheCoordinationRelease = s_meter.CreateCounter<long>("fsus.cache.coordination.release");
+    private static readonly Histogram<long> s_cacheCoordinationActiveEntries = s_meter.CreateHistogram<long>("fsus.cache.coordination.active_entries");
     private static readonly Histogram<double> s_dbOperationDuration = s_meter.CreateHistogram<double>("fsus.db.operation.duration", "ms");
     private static readonly Histogram<double> s_aotRenderDuration = s_meter.CreateHistogram<double>("fsus.aot.render.duration", "ms");
     private static readonly Histogram<double> s_searchOperationDuration = s_meter.CreateHistogram<double>("fsus.search.operation.duration", "ms");
@@ -451,6 +457,21 @@ public static class FsusObservability
         state.Record();
         s_cacheOperationCounter.Add(1, state.Tags);
         s_cacheOperationDuration.Record(duration.TotalMilliseconds, state.Tags);
+    }
+
+    internal static void RecordCacheCoordination(string policy, long redisCommands, TimeSpan localWait, TimeSpan leaseWait, int rebuilds, string releaseOutcome, int? activeEntries)
+    {
+        var tags = new TagList { { "fsus.cache.policy", policy } };
+        s_cacheCoordinationRedisCommands.Record(redisCommands, tags);
+        s_cacheCoordinationLocalWait.Record(localWait.TotalMilliseconds, tags);
+        s_cacheCoordinationLeaseWait.Record(leaseWait.TotalMilliseconds, tags);
+        s_cacheCoordinationRebuilds.Record(rebuilds, tags);
+        if (activeEntries.HasValue)
+        {
+            s_cacheCoordinationActiveEntries.Record(activeEntries.Value, tags);
+        }
+        tags.Add("fsus.cache.release.outcome", releaseOutcome);
+        s_cacheCoordinationRelease.Add(1, tags);
     }
 
     public static IReadOnlyList<CacheOperationRuntimeCounter> GetCacheOperationCounters()

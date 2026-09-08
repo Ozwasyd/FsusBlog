@@ -1,60 +1,60 @@
-# Passkey 测试治理与保留映射
+# Passkey test governance and retention mapping
 
-本文记录 GitHub issue #1044 对 Passkey 测试的精简边界、#1181 增补的 WebAuthn counter 状态机行为，以及 #2331 将注册容量伪模型迁移到真实 PostgreSQL completion 的边界。目标是删除 C# record/constructor 编译器语义断言和私有 SQL 源码形状断言，同时保留缓存安全、匿名账号 metadata、随机 handle ownership、原子注册容量、实体映射、counter 分类和 PostgreSQL 并发行为。
+This document records the reduced Passkey-test boundary from GitHub issue #1044, the WebAuthn counter state-machine behavior added by #1181, and #2331's migration of pseudo registration capacity to real PostgreSQL completion. The goal is to remove C# record/constructor compiler-semantic assertions and private SQL source-shape assertions while retaining cache security, anonymous-account metadata, random-handle ownership, atomic registration capacity, entity mapping, counter classification, and PostgreSQL concurrency behavior.
 
 ## Before / after
 
-统计口径为 `tests/backend/Unit/PasskeyServiceTests.cs`，并单列其 PostgreSQL replacement owner `PasskeySignCountConcurrencyTests.cs`。Theory 的每个数据行按一个展开 case 计数。
+The count covers `tests/backend/Unit/PasskeyServiceTests.cs` and separately its PostgreSQL replacement owner `PasskeySignCountConcurrencyTests.cs`. Each Theory data row counts as one expanded case.
 
-| 指标 | Before | After | 变化 |
+| Metric | Before | After | Change |
 | ------ | -------- | ------- | ------ |
-| `PasskeyServiceTests` 测试方法 | 33 | 9 | -24（-72.7%） |
-| `PasskeyServiceTests` 展开 case | 39 | 20 | -19（-48.7%） |
-| `PasskeyServiceTests` 行数 | 560 | 168 | -392（-70.0%） |
-| 加上 `PasskeySignCountConcurrencyTests` 的测试方法 | 37 | 14 | -23（-62.2%） |
-| 两文件总行数 | 809 | 592 | -217（-26.8%） |
+| `PasskeyServiceTests` test methods | 33 | 9 | -24 (-72.7%) |
+| `PasskeyServiceTests` expanded cases | 39 | 20 | -19 (-48.7%) |
+| `PasskeyServiceTests` lines | 560 | 168 | -392 (-70.0%) |
+| Test methods including `PasskeySignCountConcurrencyTests` | 37 | 14 | -23 (-62.2%) |
+| Total lines in both files | 809 | 592 | -217 (-26.8%) |
 
 ## Retention replacement
 
-机器可读的逐 test ID 声明位于 [`tests/test-retention-replacements.json`](../tests/test-retention-replacements.json)。语义映射如下：
+The machine-readable per-test-ID declaration is [`tests/test-retention-replacements.json`](../tests/test-retention-replacements.json). Its semantic mapping is:
 
-| 删除或合并的旧证据 | 当前 owner | 保留理由 |
+| Removed or merged old evidence | Current owner | Retention reason |
 | -------------------- | ------------ | ---------- |
-| `CachePolicyId_PasskeyValues_AreDistinct` | 两个 stable numeric value 测试 | `24` 与 `25` 的精确持久化契约已经蕴含 distinct |
-| registry presence、`SecurityCritical`、L1/L2 TTL、jitter、tags、domain/resource 的 8 个碎片方法 | `CachePolicyRegistry_PasskeyPolicies_PreserveSecurityContract` | 两个 policy ID 作为同一表驱动 theory 的数据行，全部原断言仍在 |
-| registration/authentication key 的两个独立方法 | `CachePolicy_PasskeyChallenge_BuildKeyUsesPolicyDomainAndResource` | 一个 theory 同时锁定两个完整 key |
-| empty/whitespace identity 两个方法 | `CachePolicy_PasskeyChallenge_EmptyIdentityNormalizesToDefault` | 两个输入成为一个 normalization theory 的数据行 |
-| 4 个 metadata 碎片方法 | `BuildAnonymousSafeMetadata_MapsAccountLabelsAndPreservesStoredRandomHandle` | 直接调用实际 metadata 映射，覆盖匿名 fallback、public handle trim、legacy 隔离与 defensive copy |
-| stored random handle ownership 与 internal account ID source search | `CredentialOwnership_AcceptsStoredRandomHandleAndRejectsInternalAccountIdDerivation` | 直接验证 stored handle 成功、`BitConverter.GetBytes(accountId)` 失败、缺失 handle 失败 |
-| `PasskeyRegistrationLimitRace_StopsAtConfiguredLimit` 与测试内 `BoundedCredentialSet` | `PasskeyRegistrationProjectionIntegrationTests` 的 capacity、full-account、credential-ID conflict 三个 PostgreSQL owner | 真实 `PasskeyService` completion 通过账户行锁串行化同一账户的容量决策，同时证明不同账户不互锁、projection/read model/cache 与响应一致 |
-| Passkey begin 的 POD/model/service 私有块源码读取 | `PodBinaryCodecTests.PasskeyRegisterBegin_RoundTrip_PreservesOptions` + metadata behavior + stable-handle race | wire、label 和并发持久化由各自的可观察行为 owner 覆盖 |
-| `PasskeyCredential.AccountId` 与 legacy `UserId` source search | `PasskeyCredential_UsesAccountIdColumnAndIndexWithoutLegacyUserId` | 反射锁定真实 entity column/index，避免依赖 service 局部变量名 |
-| optimistic sign-count SQL/private helper shape | `PasskeySignCountConcurrencyTests.UserPasskeySignCount_ConcurrentStaleRowVersionAllowsOnlyOneUpdate` | 两个 PostgreSQL stale writer 只能一个成功，最终计数为新值 |
-| signCount 布尔源码形状与 clone 文案 | classifier matrix + `PasskeyCounterRollbackIntegrationTests` | `0 -> 0`、单调推进、non-monotonic risk、默认 session 隔离和显式账户响应均由可观察行为覆盖 |
-| CAS conflict 统一当成 rollback | `PasskeySignCountConcurrencyTests.UserPasskeyAssertion_ConcurrentCasConflictReloadsWithoutCloneResponse` | 两个已验证 assertion 竞争 stale rowVersion 后都安全收敛，最终 counter 单调且不撤销 Session |
-| stable handle `FOR UPDATE`/SQL shape | `PasskeySignCountConcurrencyTests.StablePasskeyUserHandle_ConcurrentFirstRegistrationReturnsOneFinalHandle` | 两个真实 service/DB 并发初始化得到同一最终持久化 handle |
-| last-credential delete SQL/private helper shape | `PasskeySignCountConcurrencyTests.RemoveCredentialAsync_ConcurrentDeletesKeepOnePasskeyWithoutRecovery` | 两个公开 service delete 并发调用只允许一个成功，最后 credential 与 flag 保持安全 |
-| 6 个 `PasskeyCredentialSummaryDto_*` constructor/record 测试 | `PodBinaryCodecTests.PasskeyCredentialList_RoundTrip_PreservesCredentials` | 实际 AEDS list round trip 保留 nullable 字段、ID、时间和两个 backup flag；record equality 不再作为业务契约 |
+| `CachePolicyId_PasskeyValues_AreDistinct` | two stable numeric-value tests | The exact persistence contract for `24` and `25` already implies distinctness |
+| 8 fragment methods for registry presence, `SecurityCritical`, L1/L2 TTL, jitter, tags, domain, and resource | `CachePolicyRegistry_PasskeyPolicies_PreserveSecurityContract` | The two policy IDs are data rows in one table-driven theory, retaining every original assertion |
+| Two independent registration/authentication-key methods | `CachePolicy_PasskeyChallenge_BuildKeyUsesPolicyDomainAndResource` | One theory locks both complete keys |
+| Two empty/whitespace-identity methods | `CachePolicy_PasskeyChallenge_EmptyIdentityNormalizesToDefault` | Both inputs are rows in one normalization theory |
+| 4 metadata fragment methods | `BuildAnonymousSafeMetadata_MapsAccountLabelsAndPreservesStoredRandomHandle` | Directly calls the real metadata mapping, covering anonymous fallback, public-handle trim, legacy isolation, and defensive copy |
+| Stored random-handle ownership and internal-account-ID source search | `CredentialOwnership_AcceptsStoredRandomHandleAndRejectsInternalAccountIdDerivation` | Directly verifies stored-handle success, `BitConverter.GetBytes(accountId)` failure, and missing-handle failure |
+| `PasskeyRegistrationLimitRace_StopsAtConfiguredLimit` and test-local `BoundedCredentialSet` | The capacity, full-account, and credential-ID-conflict PostgreSQL owners in `PasskeyRegistrationProjectionIntegrationTests` | Real `PasskeyService` completion serializes same-account capacity decisions with the account row lock, while proving different accounts do not lock each other and projection/read model/cache and response stay consistent |
+| Private POD/model/service source reads for Passkey begin | `PodBinaryCodecTests.PasskeyRegisterBegin_RoundTrip_PreservesOptions` + metadata behavior + stable-handle race | Observable behavior owners cover wire, label, and concurrent persistence |
+| `PasskeyCredential.AccountId` and legacy `UserId` source search | `PasskeyCredential_UsesAccountIdColumnAndIndexWithoutLegacyUserId` | Reflection locks the real entity column/index without depending on service-local variable names |
+| Optimistic sign-count SQL/private-helper shape | `PasskeySignCountConcurrencyTests.UserPasskeySignCount_ConcurrentStaleRowVersionAllowsOnlyOneUpdate` | Of two PostgreSQL stale writers, only one succeeds and the final count is the new value |
+| signCount boolean source shape and clone wording | classifier matrix + `PasskeyCounterRollbackIntegrationTests` | Observable behavior covers `0 -> 0`, monotonic advance, non-monotonic risk, default session isolation, and explicit account response |
+| Treating every CAS conflict as rollback | `PasskeySignCountConcurrencyTests.UserPasskeyAssertion_ConcurrentCasConflictReloadsWithoutCloneResponse` | Two verified assertions competing on a stale rowVersion converge safely; the final counter is monotonic and no Session is revoked |
+| Stable-handle `FOR UPDATE`/SQL shape | `PasskeySignCountConcurrencyTests.StablePasskeyUserHandle_ConcurrentFirstRegistrationReturnsOneFinalHandle` | Two real service/DB concurrent initializations produce the same final persisted handle |
+| Last-credential delete SQL/private-helper shape | `PasskeySignCountConcurrencyTests.RemoveCredentialAsync_ConcurrentDeletesKeepOnePasskeyWithoutRecovery` | Two concurrent public service deletes allow only one success; the final credential and flag remain safe |
+| 6 `PasskeyCredentialSummaryDto_*` constructor/record tests | `PodBinaryCodecTests.PasskeyCredentialList_RoundTrip_PreservesCredentials` | Real AEDS list round-trip preserves nullable fields, ID, time, and both backup flags; record equality is no longer a business contract |
 
 ## Mutation evidence ownership
 
-下表声明 mutation target、应由哪个行为测试杀死，以及失败信号。当前 issue 阶段按任务约束只落地代码，不运行 mutation 或其他验证；运行结果必须由后续统一验证绑定当前 source state 后写入 release evidence，本文不预填成功状态。
+The table declares each mutation target, the behavioral test that must kill it, and the failure signal. The current issue phase lands code only and runs neither mutation nor other validation by task constraint; later unified verification must bind results to the current source state and write them to release evidence. This document pre-fills no success status.
 
-| Mutation target | Evidence owner | 预期失败信号 |
+| Mutation target | Evidence owner | Expected failure signal |
 | ----------------- | ---------------- | -------------- |
-| 改动 Passkey cache policy numeric ID | 两个 stable numeric value 测试 | 精确整数不相等 |
-| 关闭 `SecurityCritical`，改变 TTL/jitter/tags/domain/resource | consolidated policy theory | 对应 policy row 断言失败 |
-| 删除 identity trim/default normalization | key normalization theory | empty/whitespace key 不再等于 `...:default` |
-| metadata 恢复 internal ID/username label，或直接返回 caller byte array | metadata theory | label、handle 内容或 defensive-copy 断言失败 |
-| credential ownership 接受 account-ID-derived bytes | ownership behavior | negative case 变为 true |
-| entity 恢复 `UserId`/旧 column/index | entity reflection contract | property、column 或 index 断言失败 |
-| 注册容量恢复事务外 count-then-insert，或移除账户级 PostgreSQL row lock | registration-capacity PostgreSQL race | `MaxCredentialsPerUser-1` 的两个不同 credential completion 同时成功、最终数量超过上限或 projection/cache side effect 重复 |
-| stable handle 初始化失去并发串行化 | stable-handle PostgreSQL race | 两个返回值/持久化值不一致 |
-| sign-count 更新失去 stale row guard | sign-count PostgreSQL race | 两个 writer 同时成功或最终计数异常 |
-| `0 -> 0` 恢复为风险、登录与 step-up 分叉，或默认撤销全账号 Session | counter classifier + integration state machine | 分类、成功结果、audit response action 或 Session mock 断言失败 |
-| CAS conflict 不重读或误报 clone | concurrent assertion PostgreSQL race | 两个 assertion 不能同时安全完成、最终 counter 不是最大值或触发 Session revoke |
-| 最后一枚 credential 删除失去事务保护 | concurrent public delete race | 两次删除同时成功或剩余数变为 0 |
+| Change the Passkey cache-policy numeric ID | two stable numeric-value tests | Exact integers differ |
+| Disable `SecurityCritical` or change TTL/jitter/tags/domain/resource | consolidated policy theory | The corresponding policy-row assertion fails |
+| Remove identity trim/default normalization | key-normalization theory | An empty/whitespace key no longer equals `...:default` |
+| Restore internal ID/username labels in metadata or return the caller's byte array directly | metadata theory | Label, handle content, or defensive-copy assertion fails |
+| Let credential ownership accept account-ID-derived bytes | ownership behavior | The negative case becomes true |
+| Restore `UserId`/the old entity column/index | entity reflection contract | Property, column, or index assertion fails |
+| Restore transaction-outside count-then-insert for registration capacity or remove the account-level PostgreSQL row lock | registration-capacity PostgreSQL race | Two different credential completions at `MaxCredentialsPerUser-1` succeed together, the final count exceeds the limit, or projection/cache side effects duplicate |
+| Remove concurrent serialization from stable-handle initialization | stable-handle PostgreSQL race | Returned and persisted values differ |
+| Remove the stale-row guard from sign-count updates | sign-count PostgreSQL race | Both writers succeed or the final count is abnormal |
+| Restore `0 -> 0` as a risk, split login and step-up, or revoke every account Session by default | counter classifier + integration state machine | Classification, success result, audit response action, or Session mock assertion fails |
+| Do not reread on CAS conflict or falsely report a clone | concurrent assertion PostgreSQL race | Both assertions cannot safely complete, the final counter is not the maximum, or Session revoke occurs |
+| Remove transaction protection from last-credential deletion | concurrent public delete race | Both deletes succeed or the remaining count becomes 0 |
 
-## 统一验证入口
+## Unified verification entry point
 
-后续验证阶段必须覆盖 auth/security focused tests、`Category=Concurrency` PostgreSQL tests、backend unit、retention audit、critical mutation slice 和完全 fresh production tier。任何结果只有在绑定当前 commit、worktree fingerprint 与同一 production run id 后才可作为 #1044 的完成证据。
+Later verification must cover auth/security focused tests, `Category=Concurrency` PostgreSQL tests, backend unit tests, retention audit, the critical mutation slice, and a completely fresh production tier. A result qualifies as #1044 completion evidence only after binding it to the current commit, worktree fingerprint, and the same production run ID.

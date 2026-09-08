@@ -1,6 +1,6 @@
 # Frontend Navigation Privacy
 
-Issue #1247 defines which state may appear in browser-visible URLs and history. The policy applies before a private route is committed and before a login return target is produced.
+Issue #1247 defines state allowed in browser-visible URLs/history. The policy runs before private-route commit and login-return construction; principal separation is covered by [frontend account/admin route boundaries](frontend-session-route-boundaries.md), and memory cleanup by [private-surface runtime](private-surface-runtime.md).
 
 ## Route state classes
 
@@ -13,11 +13,11 @@ Every named route declares one of four `routeState` values.
 | `session-sensitive` | Route may host MFA, recovery, challenge, step-up, or proof state; payload stays in memory | Falls back to the account or admin landing page |
 | `memory-only` | Private object selection and drafts stay in component memory | Falls back to the account or admin landing page |
 
-`routeState` and `allowLoginRedirect` are static route metadata. A new private route is not recoverable merely because its path begins with `/user`: the route name, state class, and recovery flag must all opt in. Dynamic params are not copied into a login redirect.
+`routeState` and `allowLoginRedirect` are static metadata. A private route is not recoverable merely because its path begins with `/user`: its name, state class, and recovery flag must opt in, and dynamic params are never copied into a login redirect.
 
 ## Private query declaration
 
-`privateNavigationPolicy.ts` is the authoritative field policy. Undeclared fields and every private fragment are discarded. Declared values are validated, not merely truncated.
+`privateNavigationPolicy.ts` is authoritative: undeclared fields and every private fragment are discarded; declared values are validated, not merely truncated.
 
 | Route | Recoverable fields | Value boundary | Memory-only examples |
 | --- | --- | --- | --- |
@@ -28,16 +28,16 @@ Every named route declares one of four `routeState` values.
 | `ManageModerationRegions` | `region` | bounded low-cardinality token | policy payload |
 | `ManageAuditLog` | `action`, `outcome`, `severity`, `source`, `type`, `targetType` | bounded low-cardinality tokens | actor, target id, date range, investigation details |
 
-Credential-like names such as `token`, `proof`, `challenge`, `mfa`, and `recovery` are never declared. Account and article search text and conversation selection remain in memory, so refresh safely returns to an unselected/default view.
+Credential-like names (`token`, `proof`, `challenge`, `mfa`, `recovery`) are never declared. Account/article searches and conversation selection stay in memory, so refresh returns to an unselected/default view.
 
 ## Redirect and history behavior
 
-External, protocol-relative, backslash, control-character, unnamed, dynamic-object, session-sensitive, and memory-only redirect targets fail closed. Safe private targets are reconstructed from the route name and validated query policy; the incoming `fullPath`, params, and fragment are never copied.
+External, protocol-relative, backslash, control-character, unnamed, dynamic-object, `session-sensitive`, and `memory-only` redirect targets fail closed. Safe private targets are rebuilt from the route name and validated query policy; incoming `fullPath`, params, and fragments are never copied.
 
-Private route guards replace a dirty URL before it reaches browser history. Back/forward therefore sees only the sanitized entry. A refresh with unrecoverable object state loads the safe route default without echoing the discarded identifier.
+Guards replace a dirty URL before browser history; back/forward sees only the sanitized entry. Refresh with unrecoverable object state loads the safe default without echoing the discarded identifier.
 
 ## Risk and no-restart rollback
 
-Removing `allowLoginRedirect` or changing a route to `session-sensitive`/`memory-only` immediately degrades its next login recovery to `/user/identity` or `/user/manage`. Removing a field from the query policy immediately strips it on the next navigation. These are frontend asset changes and require no backend restart; during rollout, the older bundle remains bounded by the server's existing authorization checks.
+Removing `allowLoginRedirect` or changing a route to `session-sensitive`/`memory-only` sends its next login recovery to `/user/identity` or `/user/manage`; removing a query field strips it on the next navigation. These frontend asset changes need no backend restart, and the older rollout bundle remains bounded by server authorization.
 
-The conservative failure mode loses convenience state, never authentication or authorization state. Notification stream envelopes and AEDS binary payloads remain outside URL construction and are unchanged by this policy.
+Conservative failure loses convenience state, never authentication/authorization state. Notification envelopes and AEDS binary payloads remain outside URL construction and unchanged.

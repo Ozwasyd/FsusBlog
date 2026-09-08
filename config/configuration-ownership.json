@@ -42,6 +42,19 @@
             "status": "manual"
         },
         {
+            "id": "fsusui-release-event-schema",
+            "owner": "dependency-update-governance",
+            "canonicalPath": "config/dependencies/fsusui-release-event.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/dependencies/verify-fsusui-release-event.mjs",
+                "tests/tools/fsusui-release-event.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/fsusui-release-event.test.mjs",
+            "changePolicy": "manual-update-with-closed-schema-validation",
+            "status": "manual"
+        },
+        {
             "id": "dependency-exceptions",
             "owner": "dependency-update-governance",
             "canonicalPath": "config/dependencies/exceptions.json",
@@ -425,6 +438,12 @@
             "id": "clean-attempt-consumer-inventory-schema",
             "owner": "test-attempt-governance",
             "canonicalPath": "config/schemas/clean-attempt-consumer-inventory.schema.json",
+            "pathType": "file"
+        },
+        {
+            "id": "clean-attempt-evidence-input-schema",
+            "owner": "test-attempt-governance",
+            "canonicalPath": "config/schemas/clean-attempt-evidence-input.schema.json",
             "pathType": "file"
         },
         {
@@ -1068,6 +1087,17 @@
             "rejectedPaths": [
                 "backend-configuration-contract.json",
                 "config/backend-configuration-contract.json"
+            ]
+        },
+        {
+            "id": "backend-environment-examples",
+            "owner": "backend-configuration-governance",
+            "canonicalPath": "config/examples",
+            "pathType": "directory",
+            "recursive": true,
+            "rejectedPaths": [
+                ".env.example",
+                ".env.production.example"
             ]
         },
         {

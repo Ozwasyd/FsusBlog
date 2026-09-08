@@ -1,10 +1,10 @@
 # Comment mutation outbox
 
-评论命令的数据库事务只提交权威状态与最小 Outbox 标识。模型调用、缓存版本推进、notification stream、站内信和审计投影不再决定请求事务能否提交；worker 在提交后可靠恢复这些副作用。
+The comment-command transaction commits only authoritative state and the minimal Outbox identity. Model calls, cache-version advancement, notification-stream and site-message delivery, and audit projection no longer decide whether the request transaction commits; a post-commit worker recovers those side effects reliably.
 
-## 事务与事件
+## Transaction and events
 
-同一事务写入 `comment` / `comment_region_compliance` 与下列事件：
+The same transaction writes `comment` / `comment_region_compliance` and these events:
 
 - `CommentCreated`
 - `CommentModerationChanged`
@@ -13,9 +13,9 @@
 - `CommentReplyNotificationRequested`
 - `CommentVisibilityChanged`
 
-事件仅保存 event/comment/article/root/parent/account/reply-target/admin actor、前后审核状态和时间。`payload_json` 由 writer 强制重写为 `{}`，数据库约束也拒绝其他值；评论正文、IP hash、匿名证明、nullifier、ticket 与 credential 不进入 Outbox。
+Events store only event/comment/article/root/parent/account/reply-target/admin actor, before/after moderation state, and time. The writer forces `payload_json` to `{}`, and the database rejects any other value; comment body, IP hash, anonymous proof, nullifier, ticket, and credential never enter the Outbox.
 
-## 交付状态机
+## Delivery state machine
 
 ```text
 pending/failed -> processing -> processed
@@ -26,32 +26,32 @@ pending/failed -> processing -> processed
 expired processing lease -> processing
 ```
 
-每个 processing event 都有独立的 `claim_token`、`claimed_by`、`lease_generation`、`claimed_at`、`lease_expires_at` 和 `last_heartbeat_at`。worker 从 reloadable `CommentMutationOutbox:ClaimLeaseSeconds`（默认 60，范围 30..300）与 `HeartbeatSeconds`（严格小于 lease 的三分之一）读取策略；只有后台 heartbeat 按 event 的 id、token、worker 与 generation 续租且必须影响恰好一行，并在同一成功点累计 `renewed` 与 `heartbeat`。consumer 开始前、外部调用返回后、checkpoint 写入前和 outbox 完成前的 ownership check 也检查同一 guard 的 affected row，但不延长 lease、不更新 `last_heartbeat_at`，也不计作 renewal。0 行、过期或短时 heartbeat 失败会把该 event 标为 lost，停止其后续副作用，旧 owner 不得写 checkpoint、failed 或 processed 覆盖新 owner。
+Each processing event has its own `claim_token`, `claimed_by`, `lease_generation`, `claimed_at`, `lease_expires_at`, and `last_heartbeat_at`. The worker reads reloadable `CommentMutationOutbox:ClaimLeaseSeconds` (default 60, range 30..300) and `HeartbeatSeconds` (strictly less than one third of the lease). Only the background heartbeat renews by event id, token, worker, and generation; it must affect exactly one row and increments `renewed` and `heartbeat` at that same success point. Ownership checks before the consumer, after an external call, before checkpoint write, and before Outbox completion use the same affected-row guard, but do not extend the lease, update `last_heartbeat_at`, or count as renewal. Zero rows, an expired lease, or a short heartbeat failure marks the event `lost`, stops later side effects, and prevents the old owner from writing a checkpoint, `failed`, or `processed` over the new owner.
 
-每个 `event id + consumer name` 在 `comment_mutation_outbox_delivery` 只有一行，并使用 `pending -> processing -> completed|retryable-failed|terminal-failed` 状态机。consumer 在任何副作用之前，以当前 event 的 claim token、worker 和 lease generation 原子 reservation；仅 reservation owner 能执行、写失败或写入带语义 `result_digest` 的 completed。completed 必须有匹配 digest 才能跳过；有效 processing 属于其他 owner 时 fail-closed，过期 processing 或 retryable-failed 才可接管；terminal-failed 阻止 event 进入 processed。delivery lease 仅镜像 event claim fence，不单独续租。外部交付还使用稳定键：notification stream 使用 `comment-outbox:{eventId}:realtime`，站内信使用已有的 deterministic source-event id。模型和人工状态变化继续使用数据库 CAS，重复事件不能重复状态转换。
+`comment_mutation_outbox_delivery` has one row per `event id + consumer name` and uses `pending -> processing -> completed|retryable-failed|terminal-failed`. Before any side effect, the consumer atomically reserves with the event's current claim token, worker, and lease generation. Only the reservation owner may execute, record a failure, or write `completed` with a semantic `result_digest`. `completed` can be skipped only with a matching digest; live processing owned by another worker fails closed, while only expired processing or `retryable-failed` can be taken over. `terminal-failed` prevents the event from becoming `processed`. The delivery lease mirrors the event claim fence and is not renewed independently. External delivery uses stable keys: notification stream uses `comment-outbox:{eventId}:realtime`, and site messages use the existing deterministic source-event id. Model and manual state changes retain database CAS, so duplicate events cannot repeat a state transition.
 
-终态转换同样是 claim-fenced 的 SQL compare-and-swap：`processed` 只允许当前 owner 在所有该事件必需 consumer 均有 `completed` receipt，且每个 `result_digest` 都精确匹配由事件与 consumer 派生的预期值时写入；delivery rows 的这组 exact digest 是 event terminal result 的权威绑定。`failed` 只允许当前 owner 在至少一个 delivery 已记录 `retryable-failed` 或 `terminal-failed` 后写入。任一终态 UPDATE 影响行数不是一行即视为 claim lost，旧 owner 不得覆盖新 owner 或累计 processed/failed 指标。已完成 receipt 的 digest 不匹配时先以当前 event claim 将该 delivery 标为 terminal-failed，再进入 event 失败路径。
+Terminal transitions are claim-fenced SQL compare-and-swap operations. The current owner may write `processed` only when every required consumer has a `completed` receipt and every `result_digest` exactly matches the event/consumer-derived expectation; that exact digest set is the authoritative binding for the event's terminal result. The owner may write `failed` only after at least one delivery has recorded `retryable-failed` or `terminal-failed`. Any terminal UPDATE affecting other than one row means claim loss; the old owner cannot overwrite the new owner or increment `processed`/`failed` metrics. A completed receipt with a mismatched digest is first changed to `terminal-failed` under the current event claim, then follows the event failure path.
 
-worker 总是按 `occurred_at_utc, id` claim，但不依赖绝对有序：实时发布前重新读取当前评论。旧的 approve 事件看到当前行已隐藏/删除时不发送 `CommentAdded`；旧的 hide 事件看到当前行已重新 approve 时不发送 `CommentRemoved`。缓存失效允许重复执行且采用当前 aggregate scope。
+The worker always claims by `occurred_at_utc, id` but does not require absolute ordering; it rereads the current comment before realtime delivery. An old approve event sends no `CommentAdded` when the current row is hidden/deleted, and an old hide event sends no `CommentRemoved` when the current row is approved again. Cache invalidation may repeat and uses the current aggregate scope.
 
-## 故障注入覆盖
+## Fault-injection coverage
 
-- 权威事务提交前中断：comment 与 Outbox 一起回滚。
-- 提交后、模型调用前中断：pending `CommentCreated` 被重启后的 worker reclaim。
-- cache、realtime 或 notification 前中断：已完成且 digest 可验证的 consumer checkpoint 保留；reservation 未完成的 consumer 仅在 delivery lease 过期后重试。
-- consumer 暂时不可用：事件进入 `failed`，按指数退避重试，十次后进入 `poison`。
-- 重复投递：原子 reservation 让任意 consumer（包括 cache-version）只由一个 owner 执行；实时流与站内信再由稳定幂等键兜底。
-- 删除/审核并发或乱序：consumer 读取当前 authoritative state，禁止旧事件重新公开。
+- interruption before the authoritative transaction commits: comment and Outbox roll back together;
+- interruption after commit and before the model call: a restarted worker reclaims pending `CommentCreated`;
+- interruption before cache, realtime, or notification delivery: completed, digest-verifiable consumer checkpoints remain, and an unfinished reservation is retried only after its delivery lease expires;
+- temporary consumer unavailability: the event enters `failed`, retries with exponential backoff, and enters `poison` after ten attempts;
+- duplicate delivery: atomic reservation gives each consumer, including `cache-version`, one owner, with stable idempotency keys as a second guard for realtime and site messages;
+- concurrent or out-of-order deletion/moderation: consumers read authoritative current state and cannot republish an old event.
 
-## 可观测性与回退
+## Observability and rollback
 
-`/api/ops/health/ready-detail` 的 `runtime.commentMutationOutbox` 返回 backlog、failed、poison、oldest age、processed、last completed、last error、owned、renewed、lost、reclaimed 和 oldest lease age。`fsus.comment_outbox.processed.count`、`failed.count`、`claim_lost.count`、`heartbeat.count`、`backlog`、`oldest_age_seconds`、`poison` 提供对应指标；poison 非零使 runtime readiness degraded。
+`runtime.commentMutationOutbox` in `/api/ops/health/ready-detail` returns backlog, failed, poison, oldest age, processed, last completed, last error, owned, renewed, lost, reclaimed, and oldest lease age. The corresponding metrics are `fsus.comment_outbox.processed.count`, `failed.count`, `claim_lost.count`, `heartbeat.count`, `backlog`, `oldest_age_seconds`, and `poison`; non-zero poison degrades runtime readiness.
 
-无需重启的 fail-closed 回退：把 reloadable `CommentMutationOutbox:Enabled` 设为 `false`，worker 停止 claim，权威评论事务仍持续写 pending。排查 PostgreSQL、模型、Redis/notification stream 或 message delivery 后恢复为 `true`，积压会自动继续。不要删除事件、checkpoint，或把未知副作用手工改为 completed。
+For a no-restart fail-closed rollback, set reloadable `CommentMutationOutbox:Enabled` to `false`. The worker stops claiming while authoritative comment transactions continue writing pending events. After PostgreSQL, model, Redis/notification-stream, or message delivery issues are repaired, restore `true` and the backlog resumes. Do not delete events or checkpoints, or manually mark an unknown side effect completed.
 
-## 风险边界
+## Risk boundary
 
-暂停 worker 会延迟公开缓存、实时流和通知，但不会丢失权威评论状态。恢复时可能产生短时积压压力；按 backlog age 与 failed/poison 观察并逐批释放。此设计不引入外部消息系统，单进程开发使用内置 hosted worker；多实例仍复用 `IBackgroundWorkerLease` leader election。
+Pausing the worker delays public cache, realtime, and notification delivery but does not lose authoritative comment state. Recovery may create short-lived backlog pressure; release batches while watching backlog age and failed/poison counts. This design adds no external messaging system: single-process development uses the built-in hosted worker, while multiple instances reuse `IBackgroundWorkerLease` leader election.
 ## Current comment outbox edges
 
 <!-- fsus-doc-claim

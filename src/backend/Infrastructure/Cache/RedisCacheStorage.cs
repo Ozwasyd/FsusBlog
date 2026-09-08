@@ -444,9 +444,7 @@ internal sealed class UnifiedCache(
             cancellationToken.ThrowIfCancellationRequested();
             using OwnedAedsFrameReadLease writeLease = frame.AcquireReadLease();
             RedisValue redisValue = writeLease.Memory;
-            await _db.StringSetAsync(key, redisValue, l2Ttl, When.Always, CommandFlags.None).ConfigureAwait(false);
-            cancellationToken.ThrowIfCancellationRequested();
-            await RegisterKeyAsync(policyId, key).ConfigureAwait(false);
+            await PublishValueAsync(policyId, key, redisValue, l2Ttl, cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             installed = SetOwnedL1(policy, l1Key, key, frame);
 
@@ -513,9 +511,7 @@ internal sealed class UnifiedCache(
         TimeSpan? l2Ttl = ResolveL2Expiry(key, policy, l2TtlOverride);
         byte[] cachedValue = CopyRawBytes(value);
         cancellationToken.ThrowIfCancellationRequested();
-        await _db.StringSetAsync(key, cachedValue, l2Ttl, When.Always, CommandFlags.None).ConfigureAwait(false);
-        cancellationToken.ThrowIfCancellationRequested();
-        await RegisterKeyAsync(policyId, key).ConfigureAwait(false);
+        await PublishValueAsync(policyId, key, cachedValue, l2Ttl, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         SetL1(policy, l1Key, key, cachedValue);
         telemetry.RecordOperation("set", policyName, "l2", "ok", FsusObservability.GetElapsed(startedAt));
@@ -1949,9 +1945,103 @@ return {1, source}
         CacheIdentity cacheIdentity = CacheIdentity.FromString(identity);
         CacheL1Key l1Key = cacheIdentity.ToL1Key(keyScope.ScopeToken, policyId);
         string key = BuildRedisKey(policy, cacheIdentity);
-        await _db.StringSetAsync(key, Array.Empty<byte>(), policy.NegativeTtl).ConfigureAwait(false);
-        await RegisterKeyAsync(policyId, key).ConfigureAwait(false);
+        await PublishValueAsync(policyId, key, Array.Empty<byte>(), policy.NegativeTtl, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         SetL1(policy, l1Key, key, Array.Empty<byte>());
+    }
+
+    internal async Task PublishSortedSetAsync(IDatabase database, string key, SortedSetEntry[] entries, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        CacheRebuildLeaseScope scope = CacheRebuildLeaseScope.Current ?? throw new CacheCoordinationException("publication-without-lease", CachePolicyId.TopArticles);
+        scope.EnsureActive();
+        if (!ReferenceEquals(database.Multiplexer, _db.Multiplexer) || database.Database != _db.Database)
+        {
+            throw new CacheCoordinationException("publication-store-mismatch", scope.PolicyId);
+        }
+        var keys = new List<RedisKey> { key };
+        var values = new List<RedisValue>();
+        for (CacheRebuildLeaseScope? lease = scope; lease is not null; lease = lease.Parent)
+        {
+            if (!ReferenceEquals(lease.Store, this))
+            {
+                throw new CacheCoordinationException("publication-store-mismatch", scope.PolicyId);
+            }
+            keys.Add(BuildKey(lease.PolicyId, lease.Identity));
+            values.Add(lease.Value);
+        }
+        foreach (SortedSetEntry entry in entries)
+        {
+            values.Add(entry.Score);
+            values.Add(entry.Element);
+        }
+        const string Script = """
+for i = 2, #KEYS do
+  if redis.call('GET', KEYS[i]) ~= ARGV[i - 1] then return 0 end
+end
+redis.call('ZADD', KEYS[1], unpack(ARGV, #KEYS))
+return 1
+""";
+        RedisResult result = await _db.ScriptEvaluateAsync(Script, keys.ToArray(), values.ToArray()).ConfigureAwait(false);
+        if ((long)result != 1)
+        {
+            throw new CacheCoordinationException("publication-lease-lost", scope.PolicyId);
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        scope.EnsureActive();
+    }
+
+    private async Task PublishValueAsync(CachePolicyId policyId, string key, RedisValue value, TimeSpan? ttl, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        CacheRebuildLeaseScope? scope = CacheRebuildLeaseScope.Current;
+        if (scope is null)
+        {
+            await _db.StringSetAsync(key, value, ttl, When.Always, CommandFlags.None).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            await RegisterKeyAsync(policyId, key).ConfigureAwait(false);
+            return;
+        }
+
+        scope.EnsureActive();
+        bool register = ResolvePolicy(policyId).RegisterKeysForPrefixInvalidation;
+        var keys = new List<RedisKey> { key, register ? ResolveRegistryKey(policyId) : key };
+        var values = new List<RedisValue> { value, ttl.HasValue ? Math.Max(1, checked((long)ttl.Value.TotalMilliseconds)) : 0, register ? 1 : 0 };
+        for (CacheRebuildLeaseScope? lease = scope; lease is not null; lease = lease.Parent)
+        {
+            if (!ReferenceEquals(lease.Store, this))
+            {
+                throw new CacheCoordinationException("publication-store-mismatch", policyId);
+            }
+            keys.Add(BuildKey(lease.PolicyId, lease.Identity));
+            values.Add(lease.Value);
+        }
+
+        // The authority check and publication share a Redis linearization point.
+        // Checking a token before issuing SET would leave a lease-expiry race.
+        const string Script = """
+for i = 3, #KEYS do
+  if redis.call('GET', KEYS[i]) ~= ARGV[i + 1] then return 0 end
+end
+if ARGV[3] == '1' then
+  local registryType = redis.call('TYPE', KEYS[2]).ok
+  if registryType ~= 'none' and registryType ~= 'set' then return -1 end
+end
+if tonumber(ARGV[2]) > 0 then
+  redis.call('SET', KEYS[1], ARGV[1], 'PX', ARGV[2])
+else
+  redis.call('SET', KEYS[1], ARGV[1])
+end
+if ARGV[3] == '1' then redis.call('SADD', KEYS[2], KEYS[1]) end
+return 1
+""";
+        RedisResult result = await _db.ScriptEvaluateAsync(Script, keys.ToArray(), values.ToArray()).ConfigureAwait(false);
+        if ((long)result != 1)
+        {
+            throw new CacheCoordinationException((long)result == 0 ? "publication-lease-lost" : "publication-registry-invalid", policyId);
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        scope.EnsureActive();
     }
 
     private static TimeSpan ApplyDeterministicJitter(string cacheKey, TimeSpan baseTtl, double jitterRatio)
