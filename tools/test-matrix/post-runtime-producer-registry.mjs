@@ -83,6 +83,7 @@ const attemptIdentityPattern = /^attempt-[0-9]{4}$/u
 const releaseIdentityPattern = /^[0-9]{14}-[a-f0-9]{12}$/u
 const readerFirewallEntry = 'tools/test-matrix/post-runtime-producer-registry.mjs'
 const pureReceiptContracts = new Set([
+    'tools/deployment/release-rollout-evidence-receipt-contract.mjs',
     'tools/docs/behavior-doc-static-admission-contract.mjs',
     'tools/docs/behavior-doc-minimal-contract-build-contract.mjs',
     'tools/release/browser-contract-receipt-contract.mjs',
@@ -245,11 +246,41 @@ process.stdin.on('end', () => {
         if (!literal(node)) throw new Error('non-literal ' + kind + ' dependency')
         dependencies.push({ kind, specifier: node.value })
     }
-    const walk = (node, enclosingFunction = null) => {
+    const bindsUrl = (node) => {
+        if (!node) return false
+        if (node.type === 'Identifier') return node.name === 'URL'
+        if (node.type === 'RestElement') return bindsUrl(node.argument)
+        if (node.type === 'AssignmentPattern') return bindsUrl(node.left)
+        if (node.type === 'ArrayPattern') return node.elements.some(bindsUrl)
+        if (node.type === 'ObjectPattern') return node.properties.some(item => bindsUrl(item.value ?? item.argument))
+        return false
+    }
+    const writesUrl = (node) => {
+        const current = unwrap(node)
+        return bindsUrl(current) || (current?.type === 'MemberExpression' && writesUrl(current.object))
+    }
+    const walk = (node, enclosingFunction = null, parent = null) => {
         if (!node || typeof node !== 'object') return
         if (process.argv[3] === 'pure' && node.type === 'Identifier'
             && ['process', 'globalThis', 'global'].includes(node.name))
             throw new Error('ambient process/global capability is forbidden in a pure receipt contract')
+        if (process.argv[3] === 'pure')
+        {
+            if (node.type === 'Identifier' && node.name === 'URL'
+                && !(parent?.type === 'NewExpression' && parent.callee === node && parent.arguments.length === 1))
+                throw new Error('URL capability outside standard value parsing is forbidden in a pure receipt contract')
+            if (node.type === 'Identifier' && ['fetch', 'WebSocket', 'XMLHttpRequest', 'EventSource'].includes(node.name))
+                throw new Error('network capability is forbidden in a pure receipt contract')
+            if ((node.type === 'VariableDeclarator' && bindsUrl(node.id))
+                || (['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression'].includes(node.type)
+                    && (bindsUrl(node.id) || node.params.some(bindsUrl)))
+                || (['ClassDeclaration', 'ClassExpression'].includes(node.type) && bindsUrl(node.id))
+                || (node.type === 'CatchClause' && bindsUrl(node.param))
+                || (node.type?.startsWith('Import') && bindsUrl(node.local))
+                || (node.type === 'AssignmentExpression' && writesUrl(node.left))
+                || (node.type === 'UpdateExpression' && writesUrl(node.argument)))
+                throw new Error('shadowed or mutable URL is forbidden in a pure receipt contract')
+        }
         const functionName = (node.type === 'FunctionDeclaration' || node.type === 'FunctionExpression'
             || node.type === 'ArrowFunctionExpression') ? (node.id?.name ?? enclosingFunction) : enclosingFunction
         if (node.type === 'VariableDeclarator' && node.id?.type === 'Identifier'
@@ -342,7 +373,8 @@ process.stdin.on('end', () => {
             throw new Error('computed module factory method is forbidden in the reader closure')
         if (node.type === 'NewExpression' && node.callee?.type === 'Identifier' && node.callee.name === 'URL')
         {
-            if (!literal(node.arguments[0]) || forbiddenReaderPath(node.arguments[0].value))
+            const pureValueParser = process.argv[3] === 'pure' && node.arguments.length === 1
+            if (!pureValueParser && (!literal(node.arguments[0]) || forbiddenReaderPath(node.arguments[0].value)))
                 throw new Error('dynamic or documentation URL is forbidden in the reader closure')
         }
         if (node.type === 'CallExpression' && node.callee?.type === 'MemberExpression'
@@ -391,8 +423,8 @@ process.stdin.on('end', () => {
         for (const [key, value] of Object.entries(node))
         {
             if (key === 'start' || key === 'end') continue
-            if (Array.isArray(value)) value.forEach((entry) => walk(entry, functionName))
-            else walk(value, functionName)
+            if (Array.isArray(value)) value.forEach((entry) => walk(entry, functionName, node))
+            else walk(value, functionName, node)
         }
     }
     for (const statement of ast.body ?? [])

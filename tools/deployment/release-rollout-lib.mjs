@@ -3,23 +3,8 @@ import path from 'node:path';
 import { isValidReleaseId } from '../release/release-id.mjs';
 
 export const ROLLOUT_SCHEMA = 'fsusblog.release-rollout-state.v1';
-export const ROLLOUT_STAGES = Object.freeze([
-  'manifest-validate',
-  'capacity-preflight',
-  'backup-restore-gate',
-  'expand-migration',
-  'asset-materialize',
-  'candidate-start',
-  'candidate-readiness',
-    'candidate-smoke',
-    'compatibility-smoke',
-    'gateway-switch',
-    'source-drain',
-    'active-fence',
-    'public-verify',
-    'source-stop',
-    'release-evidence'
-]);
+import { ROLLOUT_STAGES } from './release-rollout-evidence-receipt-contract.mjs';
+export { ROLLOUT_STAGES };
 
 const DIGEST = /^sha256:[0-9a-f]{64}$/u;
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u;

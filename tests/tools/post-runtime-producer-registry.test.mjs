@@ -747,8 +747,19 @@ test('canonical pure receipt modules retain transitive no-I/O and no-execution b
     const entryFile = path.join(repositoryRoot, entry)
     fs.writeFileSync(entryFile, "import path from 'node:path'\nexport const normalize = path.resolve\n")
     assert.doesNotThrow(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry))
+    fs.writeFileSync(entryFile, 'export const origin = value => new URL(value).origin\n')
+    assert.doesNotThrow(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry))
     for (const source of [
         "import fs from 'node:fs'\nexport const reader = fs\n",
+        "import fs from 'node:fs'\nexport const reader = value => fs.readFileSync(new URL(value))\n",
+        'export const resolve = value => new URL(value, import.meta.url)\n',
+        'export const origin = (value, URL) => new URL(value).origin\n',
+        'const { URL } = {}; export const origin = value => new URL(value).origin\n',
+        'URL = class {}; export const origin = value => new URL(value).origin\n',
+        'URL.prototype.origin = 1; export const origin = value => new URL(value).origin\n',
+        "Object.defineProperty(URL.prototype, 'origin', { get() {} }); export const origin = value => new URL(value).origin\n",
+        "import { URL } from 'node:url'; export const origin = value => new URL(value).origin\n",
+        'export const reader = value => fetch(new URL(value))\n',
         "import { spawn } from 'node:child_process'\nexport const run = spawn\n",
         "export const dependency = import('node:path')\n",
         "export const capability = process.getBuiltinModule('fs')\n",
@@ -765,6 +776,7 @@ test('canonical pure receipt modules retain transitive no-I/O and no-execution b
         assert.throws(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry), /forbidden/u)
     }
     for (const canonical of [entry, 'tools/docs/behavior-doc-minimal-contract-build-contract.mjs',
+        'tools/deployment/release-rollout-evidence-receipt-contract.mjs',
         'tools/release/browser-contract-receipt-contract.mjs',
         'tools/release/public-preview-quality-receipt-contract.mjs'])
     {
