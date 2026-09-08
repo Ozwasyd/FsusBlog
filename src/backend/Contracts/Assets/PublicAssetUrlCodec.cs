@@ -15,6 +15,11 @@ public sealed class PublicAssetUrlCodec
     public Uri ToPublicUrl(AssetRecord record, Uri publicBase)
     {
         ArgumentNullException.ThrowIfNull(record);
+        if (!string.Equals(record.StorageClass, "public", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Only public content assets can be encoded as public URLs.");
+        }
+
         if (!IsHttpBase(publicBase))
         {
             throw new ArgumentException(

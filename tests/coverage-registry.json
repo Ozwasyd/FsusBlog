@@ -5085,6 +5085,25 @@
             ]
         },
         {
+            "id": "perception-character-v3-cutover-local-redis",
+            "description": "Issue 2529 retains RedisStore_RetiresAllV3NamespacesAndEnvelopeIdempotently exclusively in the canonical LocalRedis producer with real namespace retirement, active-generation retention, envelope and database revocation, and exact idempotency evidence.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "tests/backend/Unit/PerceptionCharacterV3ContractCutoverTests.cs",
+                "tools/test/perception-character-v3-redis-fixture.sh",
+                "tools/test/perception-redis-producer.mjs",
+                "tests/tools/perception-character-v3-redis-fixture.test.mjs",
+                ".tmp/test-results/backend/perception-character-v3-redis-producer.json"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Reject missing Redis, missing or stale current-run cutover evidence, mismatched endpoint/prefix/source identity, missing or failed individual test outcome, duplicate or unplanned execution, incomplete namespace retirement, active-generation loss, envelope or database revocation drift, non-idempotent receipt/mutation, observed pool leasing, and unverified prefix cleanup.",
+            "minimumRequirement": "Execute RedisStore_RetiresAllV3NamespacesAndEnvelopeIdempotently exactly once in real isolated Redis; retire state, active identity, device/IP and old-generation namespaces while retaining the active generation, revoke the envelope and exactly two database rows, and prove a repeated request is idempotent with no pool lease. Ordinary unit Passed is not evidence for this test.",
+            "tierIds": [
+                "perception-character-v3-release-gate"
+            ]
+        },
+        {
             "id": "configuration-layout-governance",
             "description": "Repository and backend runtime configuration have one canonical owner, semantic contract, environment classification and fail-closed drift gate.",
             "owner": "ServerContractAgent",
