@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import test from 'node:test';
+import { pathToFileURL } from 'node:url';
 
-import {
+const root = path.resolve(import.meta.dirname, '../..');
+const {
     checkArticleEmbedContract,
     checkArticleEmbedContractSources,
     readArticleEmbedSources
-} from '../../tools/governance/check-article-embed-contract.mjs';
+} = await import(pathToFileURL(path.join(root, 'tools/governance/check-article-embed-contract.mjs')).href);
 
 const contractPath = 'src/shared/Contracts/ArticleEmbeds/ArticleEmbedContracts.cs';
 const codecPath = 'src/shared/Contracts/ArticleEmbeds/ArticleEmbedTargetCodec.cs';

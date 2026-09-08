@@ -18,6 +18,7 @@ public static class ArticleEmbedSchemas
     public const string CanonicalSerialization = "length-prefixed-utf8-v1";
 }
 
+/// <summary>Identifies which closed target grammar the upstream parser selected.</summary>
 public enum ArticleEmbedTargetKind : byte
 {
     Article = 1,
@@ -25,24 +26,28 @@ public enum ArticleEmbedTargetKind : byte
     Block = 3
 }
 
+/// <summary>Separates permission-aware authoring resolution from public publication planning.</summary>
 public enum ArticleEmbedRequestedScope : byte
 {
     Authoring = 1,
     PublicationPlan = 2
 }
 
+/// <summary>States whether a provider returned a complete coordinate or a classified failure.</summary>
 public enum ArticleEmbedProviderResultStatus : byte
 {
     Resolved = 1,
     Failed = 2
 }
 
+/// <summary>Limits provider content to Markdown or a renderer-owned inert projection.</summary>
 public enum ArticleEmbedProjectionKind : byte
 {
     Markdown = 1,
     SafeProjection = 2
 }
 
+/// <summary>Reports the provider-observed target visibility without collapsing unknown into private.</summary>
 public enum ArticleEmbedVisibilityStatus : byte
 {
     Public = 1,
@@ -50,6 +55,7 @@ public enum ArticleEmbedVisibilityStatus : byte
     Unknown = 3
 }
 
+/// <summary>Reports the provider-observed target publication lifecycle.</summary>
 public enum ArticleEmbedLifecycleStatus : byte
 {
     Draft = 1,
@@ -60,6 +66,7 @@ public enum ArticleEmbedLifecycleStatus : byte
     Unknown = 6
 }
 
+/// <summary>Reports whether the request actor may resolve the selected target.</summary>
 public enum ArticleEmbedPermissionStatus : byte
 {
     Allowed = 1,
@@ -93,8 +100,10 @@ public enum ArticleEmbedErrorCode : byte
     StaleRuntime = 21
 }
 
+/// <summary>Preserves the parser-provided half-open UTF-16 range in the host Markdown source.</summary>
 public sealed record ArticleEmbedSourceRange(int Start, int End);
 
+/// <summary>Identifies the host document and the epoch that invalidates replaced documents.</summary>
 public sealed record ArticleEmbedDocumentIdentity(string Id, long Epoch);
 
 /// <summary>
@@ -115,17 +124,20 @@ public sealed record ArticleEmbedDirectiveProjection(
     ArticleEmbedTargetKind Mode,
     ArticleEmbedSourceRange RawRange);
 
+/// <summary>Binds resolution to the actor, site and permission snapshot supplied by the caller.</summary>
 public sealed record ArticleEmbedActorContext(
     string ActorIdentity,
     string SiteIdentity,
     string PermissionContextDigest);
 
+/// <summary>Binds a result to the exact provider implementation and runtime digest.</summary>
 public sealed record ArticleEmbedRuntimeContext(
     string ProviderId,
     int ProviderVersion,
     string RuntimeVersion,
     string RuntimeDigest);
 
+/// <summary>Defines the complete immutable input accepted by an article embed provider.</summary>
 public sealed record ArticleEmbedProviderRequest(
     string Schema,
     int SchemaVersion,
@@ -148,12 +160,14 @@ public sealed record ArticleEmbedSafeProjectionReference(
     string ProjectionIdentity,
     string ContentDigest);
 
+/// <summary>Provides safe display attribution tied to the resolved source revision.</summary>
 public sealed record ArticleEmbedAttribution(
     string SourcePortableArticleIdentity,
     long SourceRevision,
     string DisplayText,
     string AttributionDigest);
 
+/// <summary>Records the bounded depth, node, byte and elapsed-time cost of resolution.</summary>
 public sealed record ArticleEmbedBudgetObservation(
     int Depth,
     int Nodes,
@@ -173,10 +187,12 @@ public sealed record ArticleEmbedDependencyCoordinate(
     string ProjectionDigest,
     string DependencyDigest);
 
+/// <summary>Pairs a closed machine-readable error with a non-sensitive provider reason code.</summary>
 public sealed record ArticleEmbedError(
     ArticleEmbedErrorCode Code,
     string SafeReasonCode);
 
+/// <summary>Returns either one fully bound safe projection coordinate or one classified failure.</summary>
 public sealed record ArticleEmbedProviderResult(
     string Schema,
     int SchemaVersion,
@@ -193,6 +209,7 @@ public sealed record ArticleEmbedProviderResult(
     ArticleEmbedError? Error,
     string ResultDigest);
 
+/// <summary>Represents deterministic contract validation without throwing across provider boundaries.</summary>
 public readonly record struct ArticleEmbedValidationResult(bool IsValid, string? ReasonCode)
 {
     public static ArticleEmbedValidationResult Valid() => new(true, null);
