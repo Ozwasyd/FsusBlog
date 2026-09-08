@@ -2418,8 +2418,15 @@ function parseArgs(argumentsList)
     {
         throw new Error('use --receipt, --candidate/--attestation-out, or --candidate/--attestation/--finalize-out');
     }
-    if (!fs.existsSync(repositoryRoot) || !fs.lstatSync(repositoryRoot).isDirectory()
-        || fs.lstatSync(repositoryRoot).isSymbolicLink() || fs.realpathSync(repositoryRoot) !== repositoryRoot)
+    if (!fs.existsSync(repositoryRoot))
+    {
+        throw new Error('approved root must be one real canonical directory');
+    }
+    repositoryRoot = fs.realpathSync(repositoryRoot);
+    const repositoryMetadata = fs.lstatSync(repositoryRoot);
+    if (!repositoryMetadata.isDirectory()
+        || repositoryMetadata.isSymbolicLink()
+        || fs.realpathSync(repositoryRoot) !== repositoryRoot)
     {
         throw new Error('approved root must be one real canonical directory');
     }

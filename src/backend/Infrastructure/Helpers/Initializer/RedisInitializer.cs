@@ -78,7 +78,12 @@ internal interface IRedisConnectionMultiplexerFactory
 internal sealed class StackExchangeRedisConnectionMultiplexerFactory : IRedisConnectionMultiplexerFactory
 {
     public async Task<IConnectionMultiplexer> CreateAsync(ConfigurationOptions options)
-        => await ConnectionMultiplexer.ConnectAsync(options).ConfigureAwait(false);
+    {
+        ConnectionMultiplexer connection = await ConnectionMultiplexer.ConnectAsync(options).ConfigureAwait(false);
+        // This factory owns a newly-created connection; never re-register on a shared holder.
+        connection.RegisterProfiler(static () => CacheCoordinationObservation.Current?.RedisProfile!);
+        return connection;
+    }
 }
 
 internal sealed class RedisConnectionMultiplexerHolder

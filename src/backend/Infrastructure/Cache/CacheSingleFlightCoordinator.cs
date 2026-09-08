@@ -7,6 +7,8 @@ public sealed class CacheSingleFlightCoordinator(ICacheKeyResolver keyResolver) 
     private readonly ConcurrentDictionary<string, Entry> _entries = new(StringComparer.Ordinal);
     private int _disposed;
 
+    public int ActiveEntryCount => _entries.Count;
+
     public Task<IAsyncDisposable> AcquireAsync(
         CachePolicyId policyId,
         string identity,

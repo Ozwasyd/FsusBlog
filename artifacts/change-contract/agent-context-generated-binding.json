@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        ".agents/skills/fsusblog-design-conformance/contracts/blog-ui-stage-policy.json",
+        ".agents/skills/fsusblog-design-conformance/scripts/ui-stage-policy.mjs",
+        "tests/matrix.yml"
+    ],
+    "outputs": [
+        {
+            "path": "docs/testing.generated.md",
+            "sha256": "3e2a841c3f56b58e4988d30fd238db9148e386ec425d71255bdc781fb25af792"
+        }
+    ]
+}
