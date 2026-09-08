@@ -61,7 +61,7 @@ public sealed class ContentAssetDeleteEndpointTests
     {
         AssetId assetId = AssetId.Parse(CanonicalAssetId);
         IAssetStore store = Substitute.For<IAssetStore>();
-        store.DeleteAsync(assetId, Arg.Any<CancellationToken>()).Returns(outcome);
+        store.DeleteAsync(assetId, Arg.Any<CancellationToken>()).Returns(new AssetDeleteOutcome(outcome));
         var aeds = new AedsEncoder();
         DefaultHttpContext context = CreateContext(CanonicalAssetId);
 

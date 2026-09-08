@@ -50,6 +50,10 @@ public sealed class ArticleAssetReferenceLifecycleTests(PostgresSchemaMigrationF
         Assert.Equal(typeof(AssetId), method.GetParameters()[0].ParameterType);
         Assert.Equal(typeof(Task<AssetDeleteOutcome>), method.ReturnType);
         Assert.DoesNotContain(
+            typeof(AssetDeleteOutcome).GetMethods(
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static),
+            static candidate => candidate.Name == "op_Implicit");
+        Assert.DoesNotContain(
             typeof(AssetDeleteOutcome)
                 .GetProperties()
                 .Concat(typeof(AssetDeleteReferenceSummary).GetProperties())

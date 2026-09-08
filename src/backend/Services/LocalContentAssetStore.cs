@@ -20,7 +20,7 @@ public sealed class LocalContentAssetStore(
         AssetId assetId,
         CancellationToken cancellationToken = default)
     {
-        AssetDeleteOutcome outcome = AssetDeleteResult.NotFound;
+        AssetDeleteOutcome outcome = new(AssetDeleteResult.NotFound);
         string? deletionPath = null;
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
@@ -34,7 +34,7 @@ public sealed class LocalContentAssetStore(
                 .FirstAsync(cancellationToken);
             if (asset is null)
             {
-                outcome = AssetDeleteResult.NotFound;
+                outcome = new AssetDeleteOutcome(AssetDeleteResult.NotFound);
                 return;
             }
 
@@ -136,7 +136,7 @@ public sealed class LocalContentAssetStore(
             {
                 throw new InvalidOperationException("content_asset_delete_finalize_state_changed");
             }
-            outcome = AssetDeleteResult.Deleted;
+            outcome = new AssetDeleteOutcome(AssetDeleteResult.Deleted);
         }).ConfigureAwait(false);
 
         if (!finalize.IsSuccess)

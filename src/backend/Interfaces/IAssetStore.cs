@@ -24,14 +24,7 @@ public sealed record AssetDeleteReferenceSummary(
 
 public readonly record struct AssetDeleteOutcome(
     AssetDeleteResult Result,
-    AssetDeleteReferenceSummary? ReferenceSummary = null)
-{
-    public static implicit operator AssetDeleteOutcome(AssetDeleteResult result)
-        => new(result);
-
-    public static implicit operator AssetDeleteResult(AssetDeleteOutcome outcome)
-        => outcome.Result;
-}
+    AssetDeleteReferenceSummary? ReferenceSummary = null);
 
 public interface IAssetStore
 {

@@ -89,9 +89,9 @@ public sealed class ArticleAssetCleanupService(
 
             try
             {
-                AssetDeleteResult outcome = await assetStore.DeleteAsync(candidateAssetId.Value, cancellationToken)
+                AssetDeleteOutcome outcome = await assetStore.DeleteAsync(candidateAssetId.Value, cancellationToken)
                     .ConfigureAwait(false);
-                if (outcome == AssetDeleteResult.Referenced)
+                if (outcome.Result == AssetDeleteResult.Referenced)
                 {
                     await CancelCleanupAsync(candidateAssetId.Value, cancellationToken).ConfigureAwait(false);
                 }
