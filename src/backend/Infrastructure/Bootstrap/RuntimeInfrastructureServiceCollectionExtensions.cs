@@ -192,6 +192,10 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<ICrawlerRiskService>(sp => sp.GetRequiredService<CrawlerRiskService>());
         services.AddSingleton<IReadProofRateLimitPartitioner, ReadProofRateLimitPartitioner>();
         services.AddSingleton<ISecurityRiskPseudonymizer, SecurityRiskPseudonymizer>();
+        services.Configure<PublicHotReadRiskProjectionOptions>(configuration.GetSection(PublicHotReadRiskProjectionOptions.SectionName));
+        services.AddSingleton<PublicHotReadRiskProjection>();
+        services.AddSingleton<IPublicHotReadRiskProjection>(sp => sp.GetRequiredService<PublicHotReadRiskProjection>());
+        services.AddSingleton<IPublicHotReadRiskProjectionPublisher, RedisPublicHotReadRiskProjectionPublisher>();
         services.AddSingleton<IVisitLogIpPseudonymizer, VisitLogIpPseudonymizer>();
         services.AddScoped<ISecurityRiskEventStore, SecurityRiskEventStore>();
         services.AddScoped<IRiskScoreEngine, RiskScoreEngine>();
@@ -204,6 +208,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         if (!OpenApiExportMode.IsEnabled())
         {
             services.AddHostedService<SecurityRiskEventWriterWorker>();
+            services.AddHostedService<PublicHotReadRiskProjectionWorker>();
             services.AddHostedService(sp => sp.GetRequiredService<CrawlerUpdateWorker>());
         }
         services.AddSingleton<ISearchIndexService, SearchIndexService>();

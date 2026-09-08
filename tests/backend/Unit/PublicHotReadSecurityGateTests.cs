@@ -11,6 +11,7 @@ using FsusBlog.Server.Models.Security;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 using NSubstitute;
 namespace FsusBlog.Server.Tests.Unit;
@@ -38,7 +39,7 @@ public sealed class PublicHotReadSecurityGateTests
             AttachCandidateFeature(context);
 
             await middleware.InvokeAsync(context, CreateGate(
-                CreateRiskScoreReader(),
+                CreateProjection(),
                 sink,
                 CreateDecisionService(kind)));
 
@@ -59,7 +60,7 @@ public sealed class PublicHotReadSecurityGateTests
         DefaultHttpContext challengeContext = CreateContext();
         AttachCandidateFeature(challengeContext);
         await challengeMiddleware.InvokeAsync(challengeContext, CreateGate(
-            CreateRiskScoreReader(),
+            CreateProjection(),
             challengeSink,
             CreateDecisionService(RiskDecisionKind.Challenge)));
         Assert.False(challengeNextCalled);
@@ -74,8 +75,8 @@ public sealed class PublicHotReadSecurityGateTests
     public async Task SecurityGate_AllowWritesNoRiskEventAndEndpointFallbackReusesTheDecision()
     {
         var sink = new CapturingRiskSink();
-        ISecurityRiskScoreReader reader = CreateRiskScoreReader();
-        PublicReadSecurityGate gate = CreateGate(reader, sink, CreateDecisionService(RiskDecisionKind.Allow));
+        IPublicHotReadRiskProjection projection = CreateProjection();
+        PublicReadSecurityGate gate = CreateGate(projection, sink, CreateDecisionService(RiskDecisionKind.Allow));
         var filter = new RiskAwarePublicReadFilter(gate);
         DefaultHttpContext context = CreateContext();
         AttachCandidateFeature(context);
@@ -97,14 +98,16 @@ public sealed class PublicHotReadSecurityGateTests
         Assert.True(endpointCalled);
         Assert.Empty(sink.Signals);
         Assert.NotNull(context.Features.Get<PublicReadSecurityGateResultFeature>());
-        await reader.Received(1).GetRiskScoreAsync(context, context.RequestAborted);
+        Assert.Equal(
+            PublicHotReadRiskProjectionSources.LocalPositive,
+            context.Items[PublicHotReadRiskProjectionItemKeys.Source]);
     }
 
     [Fact]
     public async Task SecurityGate_DisabledPublicReadSkipsRiskScoreLookupAndStillUsesDecisionService()
     {
         var sink = new CapturingRiskSink();
-        ISecurityRiskScoreReader reader = Substitute.For<ISecurityRiskScoreReader>();
+        IPublicHotReadRiskProjection projection = Substitute.For<IPublicHotReadRiskProjection>();
         IRiskDecisionService decision = CreateDecisionService(RiskDecisionKind.Allow);
         SecurityRiskPolicySnapshotV2 policy = CreatePolicy();
         policy = policy with
@@ -118,7 +121,7 @@ public sealed class PublicHotReadSecurityGateTests
                 }
             }
         };
-        PublicReadSecurityGate gate = CreateGate(reader, sink, decision, policy: policy);
+        PublicReadSecurityGate gate = CreateGate(projection, sink, decision, policy: policy);
         DefaultHttpContext context = CreateContext();
         AttachCandidateFeature(context);
         bool nextCalled = false;
@@ -132,11 +135,36 @@ public sealed class PublicHotReadSecurityGateTests
 
         Assert.True(nextCalled);
         Assert.Empty(sink.Signals);
-        await reader.DidNotReceiveWithAnyArgs().GetRiskScoreAsync((HttpContext)default!, default);
+        _ = projection.DidNotReceiveWithAnyArgs().Lookup((HttpContext)default!);
+        Assert.Equal(
+            PublicHotReadRiskProjectionSources.PolicyDisabled,
+            context.Items[PublicHotReadRiskProjectionItemKeys.Source]);
         _ = decision.Received(1).Decide(
             Arg.Any<RiskControlContext>(),
             policy,
             0);
+    }
+
+    [Fact]
+    public async Task DynamicRiskAwareFilter_KeepsStrongRiskScoreReaderAndNeverUsesL0Projection()
+    {
+        var sink = new CapturingRiskSink();
+        IPublicHotReadRiskProjection projection = Substitute.For<IPublicHotReadRiskProjection>();
+        ISecurityRiskScoreReader scoreReader = Substitute.For<ISecurityRiskScoreReader>();
+        scoreReader.GetRiskScoreAsync(Arg.Any<HttpContext>(), Arg.Any<CancellationToken>()).Returns(50);
+        IRiskDecisionService decision = CreateDecisionService(RiskDecisionKind.Allow);
+        PublicReadSecurityGate gate = CreateGate(projection, sink, decision, riskScoreReader: scoreReader);
+        DefaultHttpContext context = CreateContext();
+        context.Request.Path = "/api/binary/comment/42/thread/7";
+        var filter = new RiskAwarePublicReadFilter(gate);
+        object? result = await filter.InvokeAsync(
+            new TestEndpointFilterInvocationContext(context),
+            _ => ValueTask.FromResult<object?>("dynamic-ok"));
+
+        Assert.Equal("dynamic-ok", result);
+        Assert.Null(context.Features.Get<PublicHotReadRequestFeature>());
+        _ = projection.DidNotReceiveWithAnyArgs().Lookup((HttpContext)default!);
+        await scoreReader.Received(1).GetRiskScoreAsync(context, context.RequestAborted);
     }
 
     [Theory]
@@ -145,9 +173,9 @@ public sealed class PublicHotReadSecurityGateTests
     public async Task SecurityGate_VerifiedCrawlerAndSocialPreviewCanUseZeroRiskAllowPath(string identityFlag)
     {
         var sink = new CapturingRiskSink();
-        ISecurityRiskScoreReader reader = Substitute.For<ISecurityRiskScoreReader>();
+        IPublicHotReadRiskProjection projection = Substitute.For<IPublicHotReadRiskProjection>();
         IRiskDecisionService decision = CreateDecisionService(RiskDecisionKind.Allow);
-        PublicReadSecurityGate gate = CreateGate(reader, sink, decision);
+        PublicReadSecurityGate gate = CreateGate(projection, sink, decision);
         DefaultHttpContext context = CreateContext();
         context.Items[identityFlag] = true;
         AttachCandidateFeature(context);
@@ -162,7 +190,12 @@ public sealed class PublicHotReadSecurityGateTests
 
         Assert.True(nextCalled);
         Assert.Empty(sink.Signals);
-        await reader.DidNotReceiveWithAnyArgs().GetRiskScoreAsync((HttpContext)default!, default);
+        _ = projection.DidNotReceiveWithAnyArgs().Lookup((HttpContext)default!);
+        Assert.Equal(
+            identityFlag == "VerifiedCrawler"
+                ? PublicHotReadRiskProjectionSources.VerifiedCrawler
+                : PublicHotReadRiskProjectionSources.SocialPreview,
+            context.Items[PublicHotReadRiskProjectionItemKeys.Source]);
         _ = decision.Received(1).Decide(
             Arg.Any<RiskControlContext>(),
             Arg.Any<SecurityRiskPolicySnapshotV2>(),
@@ -181,7 +214,7 @@ public sealed class PublicHotReadSecurityGateTests
 
         await middleware.InvokeAsync(
             context,
-            CreateGate(CreateRiskScoreReader(), sink, CreateDecisionService(RiskDecisionKind.Challenge)));
+            CreateGate(CreateProjection(), sink, CreateDecisionService(RiskDecisionKind.Challenge)));
 
         Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
         SecurityRiskSignal signal = Assert.Single(sink.Signals);
@@ -206,7 +239,7 @@ public sealed class PublicHotReadSecurityGateTests
         await middleware.InvokeAsync(
             context,
             CreateGate(
-                CreateRiskScoreReader(),
+                CreateProjection(),
                 sink,
                 CreateDecisionService(RiskDecisionKind.Challenge),
                 powService));
@@ -228,13 +261,15 @@ public sealed class PublicHotReadSecurityGateTests
     }
 
     private static PublicReadSecurityGate CreateGate(
-        ISecurityRiskScoreReader riskScoreReader,
+        IPublicHotReadRiskProjection riskProjection,
         ISecurityRiskSignalSink riskSignalSink,
         IRiskDecisionService riskDecisionService,
         IPowService? powService = null,
-        SecurityRiskPolicySnapshotV2? policy = null)
+        SecurityRiskPolicySnapshotV2? policy = null,
+        ISecurityRiskScoreReader? riskScoreReader = null)
         => new(
-            riskScoreReader,
+            riskProjection,
+            riskScoreReader ?? CreateRiskScoreReader(),
             riskSignalSink,
             CreatePolicyProvider(policy),
             new RiskControlContextFactory(),
@@ -242,6 +277,13 @@ public sealed class PublicHotReadSecurityGateTests
             NullLogger<PublicReadSecurityGate>.Instance,
             powService ?? Substitute.For<IPowService>(),
             new AdaptivePowGovernor(Substitute.For<IUnifiedCache>()));
+
+    private static ISecurityRiskScoreReader CreateRiskScoreReader()
+    {
+        var reader = Substitute.For<ISecurityRiskScoreReader>();
+        reader.GetRiskScoreAsync(Arg.Any<HttpContext>(), Arg.Any<CancellationToken>()).Returns(50);
+        return reader;
+    }
 
     private static string CreateStructurallyValidPowProof()
     {
@@ -279,15 +321,24 @@ public sealed class PublicHotReadSecurityGateTests
         };
         context.Request.Method = HttpMethods.Get;
         context.Request.Path = "/api/binary/article/42.aeds";
+        context.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("198.51.100.1");
         context.Response.Body = new MemoryStream();
         return context;
     }
 
-    private static ISecurityRiskScoreReader CreateRiskScoreReader()
+    private static IPublicHotReadRiskProjection CreateProjection()
     {
-        var reader = Substitute.For<ISecurityRiskScoreReader>();
-        reader.GetRiskScoreAsync(Arg.Any<HttpContext>(), Arg.Any<CancellationToken>()).Returns(50);
-        return reader;
+        var projection = new PublicHotReadRiskProjection(
+            Options.Create(new PublicHotReadRiskProjectionOptions()),
+            new SecurityRiskPseudonymizer(1, new byte[32]),
+            TimeProvider.System);
+        Assert.True(projection.ApplyIdentity(
+            "198.51.100.1",
+            50,
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow.AddMinutes(10),
+            Guid.NewGuid().ToString("N")));
+        return projection;
     }
 
     private static ISecurityRiskPolicyProvider CreatePolicyProvider(SecurityRiskPolicySnapshotV2? policy = null)

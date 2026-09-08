@@ -1,5 +1,6 @@
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Filters;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
@@ -10,6 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 
 public sealed class PublicReadSecurityGate(
+    IPublicHotReadRiskProjection riskProjection,
     ISecurityRiskScoreReader riskScoreReader,
     ISecurityRiskSignalSink riskSignalSink,
     ISecurityRiskPolicyProvider riskPolicyProvider,
@@ -25,6 +27,7 @@ public sealed class PublicReadSecurityGate(
     {
         EnsurePublicReadRiskMetadata(httpContext);
 
+        bool isPublicHotReadL0 = httpContext.Features.Get<PublicHotReadRequestFeature>()?.RequiresSecurityGate == true;
         RiskControlContext riskContext = riskContextFactory.Create(httpContext);
         SecurityRiskPolicySnapshotV2 riskPolicy = riskPolicyProvider.CurrentRiskPolicyV2;
         if (riskContext.VerifiedCrawler || riskContext.SocialPreviewBot)
@@ -32,14 +35,59 @@ public sealed class PublicReadSecurityGate(
             RiskDecision crawlerDecision = riskDecisionService.Decide(riskContext, riskPolicy, 0);
             if (crawlerDecision.Kind == RiskDecisionKind.Allow)
             {
+                if (isPublicHotReadL0)
+                {
+                    RecordProjectionSource(
+                        httpContext,
+                        riskContext.VerifiedCrawler
+                            ? PublicHotReadRiskProjectionSources.VerifiedCrawler
+                            : PublicHotReadRiskProjectionSources.SocialPreview);
+                }
+
                 return null;
             }
         }
 
-        int riskScore = riskPolicy.RequiresRiskScoreLookup(riskContext.ActionName)
-            ? await riskScoreReader.GetRiskScoreAsync(httpContext, httpContext.RequestAborted)
-            : 0;
-        RiskDecision decision = riskDecisionService.Decide(riskContext, riskPolicy, riskScore);
+        PublicHotReadRiskProjectionLookup projection = PublicHotReadRiskProjectionLookup.Unknown;
+        RiskDecision decision;
+        if (!riskPolicy.RequiresRiskScoreLookup(riskContext.ActionName))
+        {
+            if (isPublicHotReadL0)
+            {
+                RecordProjectionSource(httpContext, PublicHotReadRiskProjectionSources.PolicyDisabled);
+            }
+
+            decision = riskDecisionService.Decide(riskContext, riskPolicy, 0);
+        }
+        else if (isPublicHotReadL0)
+        {
+            // This lookup is intentionally synchronous and process-local. The
+            // public hot-read admission boundary must never await Redis, SQL,
+            // filesystem, or HTTP when risk state is missing or stale.
+            projection = riskProjection.Lookup(httpContext);
+            RecordProjectionSource(httpContext, projection.Source);
+            decision = riskDecisionService.Decide(riskContext, riskPolicy, projection.Known ? projection.Score : 0);
+            if (!projection.Known && IsEnforcingRiskMode(riskPolicy, riskContext.ActionName))
+            {
+                decision = FailClosedForUnknownProjection(
+                    riskContext,
+                    riskPolicy,
+                    riskDecisionService,
+                    decision);
+            }
+        }
+        else
+        {
+            // Dynamic public reads (for example comment queries) do not belong
+            // to the L0 artifact data plane. Keep their existing strong Redis /
+            // durable fallback semantics and do not weaken them to the local
+            // eventually-convergent projection.
+            int riskScore = await riskScoreReader.GetRiskScoreAsync(
+                httpContext,
+                httpContext.RequestAborted);
+            decision = riskDecisionService.Decide(riskContext, riskPolicy, riskScore);
+        }
+
         if (decision.Kind == RiskDecisionKind.Allow)
         {
             return null;
@@ -130,6 +178,56 @@ public sealed class PublicReadSecurityGate(
                     StatusCode = statusCode
                 },
                 httpContext);
+
+    private static bool IsEnforcingRiskMode(SecurityRiskPolicySnapshotV2 policy, string actionName)
+    {
+        SecurityRiskActionPolicy actionPolicy = policy.ResolveActionPolicy(actionName);
+        string mode = SecuritySystemModes.Normalize(actionPolicy.ModeOverride ?? policy.GlobalMode);
+        return SecuritySystemModes.IsEnforcing(mode);
+    }
+
+    private static RiskDecision FailClosedForUnknownProjection(
+        RiskControlContext context,
+        SecurityRiskPolicySnapshotV2 policy,
+        IRiskDecisionService decisionService,
+        RiskDecision resolved)
+    {
+        int failClosedScore = Math.Max(
+            policy.MaxRiskScore,
+            policy.ResolveActionPolicy(context.ActionName).Thresholds.BlockScore);
+        RiskDecision fallback = decisionService.Decide(context, policy, failClosedScore);
+        if (fallback.Kind == RiskDecisionKind.Allow)
+        {
+            // A policy with challenge subsystems disabled must still not turn
+            // an unprovable score into an allow. The normal PoW branch below
+            // remains the fail-closed response.
+            fallback = resolved with
+            {
+                Kind = RiskDecisionKind.Challenge,
+                Reasons = [.. resolved.Reasons, "risk_projection_unknown_fail_closed"]
+            };
+        }
+        else
+        {
+            fallback = fallback with
+            {
+                Reasons = [.. fallback.Reasons, "risk_projection_unknown_fail_closed"]
+            };
+        }
+
+        return fallback;
+    }
+
+    private static void RecordProjectionSource(HttpContext httpContext, string source)
+    {
+        httpContext.Items[PublicHotReadRiskProjectionItemKeys.Source] = source;
+        FsusObservability.RecordPublicHotReadRiskProjection(source);
+    }
+}
+
+public static class PublicHotReadRiskProjectionItemKeys
+{
+    public const string Source = "__fsus_public_hot_read_risk_projection_source";
 }
 
 public sealed class PublicHotReadSecurityGateMiddleware(RequestDelegate next)
