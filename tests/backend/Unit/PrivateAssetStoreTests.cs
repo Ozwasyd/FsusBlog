@@ -134,6 +134,189 @@ public sealed class PrivateAssetStoreTests
     }
 
     [Fact]
+    public async Task RepeatedReadsReuseTheIdentityOfTheActuallyOpenedFile()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+
+        using var directory = new TemporaryDirectory();
+        byte[] bytes = Encoding.UTF8.GetBytes("identity-cached-private");
+        AssetRecord record = CreateRecord(bytes);
+        var source = new TestRecordSource(record);
+        var hasher = new CountingContentHasher();
+        var store = CreateStore(directory.Path, source, hasher);
+        await store.CreateAsync(WriteRequest(record.Id, bytes));
+
+        Assert.NotNull(await store.ValidateAsync(record.Id));
+        Assert.NotNull(await store.ValidateAsync(record.Id));
+        await using PrivateAssetReadHandle first = Assert.IsType<PrivateAssetReadHandle>(
+            await store.OpenReadAsync(record.Id));
+        await using PrivateAssetReadHandle second = Assert.IsType<PrivateAssetReadHandle>(
+            await store.OpenReadAsync(record.Id));
+
+        Assert.Equal(0, hasher.Count);
+    }
+
+    [Fact]
+    public async Task FirstReadAfterStoreRestartHashesOnceAndThenUsesOpenedFileIdentity()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+
+        using var directory = new TemporaryDirectory();
+        byte[] bytes = Encoding.UTF8.GetBytes("restart-private-identity");
+        AssetRecord record = CreateRecord(bytes);
+        var source = new TestRecordSource(record);
+        await CreateStore(directory.Path, source).CreateAsync(WriteRequest(record.Id, bytes));
+        var hasher = new CountingContentHasher();
+        var restarted = CreateStore(directory.Path, source, hasher);
+
+        Assert.NotNull(await restarted.ValidateAsync(record.Id));
+        Assert.NotNull(await restarted.ValidateAsync(record.Id));
+        await using PrivateAssetReadHandle handle = Assert.IsType<PrivateAssetReadHandle>(
+            await restarted.OpenReadAsync(record.Id));
+
+        Assert.Equal(1, hasher.Count);
+    }
+
+    [Fact]
+    public async Task ChangedIdentityInvalidatesCachedValidationAndRehashes()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+
+        using var directory = new TemporaryDirectory();
+        byte[] bytes = Encoding.UTF8.GetBytes("identity-original");
+        byte[] replacement = Encoding.UTF8.GetBytes("identity-tampered");
+        AssetRecord record = CreateRecord(bytes);
+        var source = new TestRecordSource(record);
+        var hasher = new CountingContentHasher();
+        var store = CreateStore(directory.Path, source, hasher);
+        await store.CreateAsync(WriteRequest(record.Id, bytes));
+        string path = Path.Combine(
+            ReleaseStorageTestPaths.Create(directory.Path).PrivateAssetRoot,
+            record.StorageKey.Value.Replace('/', Path.DirectorySeparatorChar));
+        await File.WriteAllBytesAsync(path, replacement);
+
+        Assert.Null(await store.ValidateAsync(record.Id));
+        Assert.Equal(1, hasher.Count);
+    }
+
+    [Fact]
+    public async Task ReplacedPathCannotReuseValidationFromThePreviousOpenedFile()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+
+        using var directory = new TemporaryDirectory();
+        byte[] bytes = Encoding.UTF8.GetBytes("same-bytes-new-inode");
+        AssetRecord record = CreateRecord(bytes);
+        var source = new TestRecordSource(record);
+        var hasher = new CountingContentHasher();
+        var store = CreateStore(directory.Path, source, hasher);
+        await store.CreateAsync(WriteRequest(record.Id, bytes));
+        string path = Path.Combine(
+            ReleaseStorageTestPaths.Create(directory.Path).PrivateAssetRoot,
+            record.StorageKey.Value.Replace('/', Path.DirectorySeparatorChar));
+        string replaced = path + ".replaced";
+        File.Move(path, replaced);
+        await File.WriteAllBytesAsync(path, bytes);
+        File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+
+        Assert.NotNull(await store.ValidateAsync(record.Id));
+        Assert.Equal(1, hasher.Count);
+    }
+
+    [Fact]
+    public async Task IdentityChangeDuringHashFailsClosed()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+
+        using var directory = new TemporaryDirectory();
+        byte[] bytes = Encoding.UTF8.GetBytes("concurrent-original");
+        byte[] replacement = Encoding.UTF8.GetBytes("concurrent-tampered");
+        AssetRecord record = CreateRecord(bytes);
+        var source = new TestRecordSource(record);
+        await CreateStore(directory.Path, source).CreateAsync(WriteRequest(record.Id, bytes));
+        string path = Path.Combine(
+            ReleaseStorageTestPaths.Create(directory.Path).PrivateAssetRoot,
+            record.StorageKey.Value.Replace('/', Path.DirectorySeparatorChar));
+        var hasher = new MutatingContentHasher(path, replacement);
+        var restarted = CreateStore(directory.Path, source, hasher);
+
+        Assert.Null(await restarted.ValidateAsync(record.Id));
+        Assert.Equal(1, hasher.Count);
+        Assert.Equal(replacement, await File.ReadAllBytesAsync(path));
+    }
+
+    [Fact]
+    public void FileIdentityRequiresEveryStatxFieldAndARegularFile()
+    {
+        Assert.True(PrivateAssetAnchoredFileSystem.HasTrustedIdentityMetadata(
+            PrivateAssetAnchoredFileSystem.StatxIdentityMask,
+            (ushort)(PrivateAssetAnchoredFileSystem.RegularFileMode | 0x180)));
+
+        uint[] requiredBits = [0x1, 0x40, 0x80, 0x100, 0x200];
+        foreach (uint missing in requiredBits)
+        {
+            Assert.False(PrivateAssetAnchoredFileSystem.HasTrustedIdentityMetadata(
+                PrivateAssetAnchoredFileSystem.StatxIdentityMask & ~missing,
+                PrivateAssetAnchoredFileSystem.RegularFileMode));
+        }
+
+        Assert.False(PrivateAssetAnchoredFileSystem.HasTrustedIdentityMetadata(
+            PrivateAssetAnchoredFileSystem.StatxIdentityMask,
+            0x4000));
+    }
+
+    [Fact]
+    public void ValidationCacheAdmissionRemainsBoundedUnderConcurrency()
+    {
+        const int MaximumEntries = 32;
+        var cache = new PrivateAssetValidationCache(MaximumEntries);
+
+        Parallel.For(0, 512, index =>
+        {
+            AssetRecord record = CreateRecord(BitConverter.GetBytes(index));
+            cache.Remember(
+                record,
+                new PrivateAssetFileIdentity(1, 2, (ulong)index, 4, 5, 6, 7, 8));
+        });
+
+        Assert.InRange(cache.Count, 1, MaximumEntries);
+    }
+
+    [Fact]
+    public void ValidationCacheBindsTheCallerExpectedHashAndOpenedIdentity()
+    {
+        AssetRecord record = CreateRecord([1, 2, 3]);
+        var cache = new PrivateAssetValidationCache(4);
+        var identity = new PrivateAssetFileIdentity(1, 2, 3, 4, 5, 6, 7, 8);
+        cache.Remember(record, identity);
+
+        Assert.True(cache.Matches(record, record.Sha256!, identity));
+        Assert.False(cache.Matches(record, new string('0', 64), identity));
+        Assert.False(cache.Matches(
+            record,
+            record.Sha256!,
+            identity with
+            {
+                Inode = 9
+            }));
+    }
+
+    [Fact]
     public void Constructor_RejectsCrossDeviceCommitRoot()
     {
         if (!OperatingSystem.IsLinux() || !Directory.Exists("/dev/shm"))
@@ -658,6 +841,22 @@ public sealed class PrivateAssetStoreTests
     private static LocalPrivateAssetStore CreateStore(string root, TestRecordSource source)
         => new(source, new PrivateAssetWritePolicy(), ReleaseStorageTestPaths.Create(root));
 
+    private static LocalPrivateAssetStore CreateStore(
+        string root,
+        TestRecordSource source,
+        IPrivateAssetContentHasher contentHasher)
+    {
+        ReleaseStoragePaths paths = ReleaseStorageTestPaths.Create(root);
+        Directory.CreateDirectory(paths.PrivateAssetRoot);
+        Directory.CreateDirectory(paths.UploadCommitRoot);
+        return new LocalPrivateAssetStore(
+            source,
+            new PrivateAssetWritePolicy(),
+            paths,
+            new PrivateAssetAnchoredFileSystem(paths.PrivateAssetRoot, paths.UploadCommitRoot),
+            contentHasher);
+    }
+
     private static PrivateAssetWriteRequest WriteRequest(AssetId assetId, byte[] content)
         => new(assetId, new MemoryStream(content), PrivateAssetWritePurpose.BinaryAttachment);
 
@@ -747,6 +946,36 @@ public sealed class PrivateAssetStoreTests
                 State = ContentAssetState.Active
             };
             return Task.FromResult(true);
+        }
+    }
+
+    private sealed class CountingContentHasher : IPrivateAssetContentHasher
+    {
+        public int Count
+        {
+            get; private set;
+        }
+
+        public async Task<byte[]> HashAsync(Stream content, CancellationToken cancellationToken)
+        {
+            Count++;
+            return await SHA256.HashDataAsync(content, cancellationToken);
+        }
+    }
+
+    private sealed class MutatingContentHasher(string path, byte[] replacement) : IPrivateAssetContentHasher
+    {
+        public int Count
+        {
+            get; private set;
+        }
+
+        public async Task<byte[]> HashAsync(Stream content, CancellationToken cancellationToken)
+        {
+            Count++;
+            byte[] hash = await SHA256.HashDataAsync(content, cancellationToken);
+            await File.WriteAllBytesAsync(path, replacement, cancellationToken);
+            return hash;
         }
     }
 

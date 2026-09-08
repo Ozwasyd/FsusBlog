@@ -25,12 +25,15 @@ public sealed class PrivateAssetDurabilityTests
             await using AnchoredTemporaryFile first = fileSystem.CreateTemporary();
             await first.Stream.WriteAsync(new byte[] { 1, 2, 3 });
             first.Stream.Flush(flushToDisk: true);
-            fileSystem.Commit(first, "ab/asset.bin");
+            fileSystem.Commit(first, "ab/asset.bin", RequireIdentity(fileSystem, first));
             await using AnchoredTemporaryFile second = fileSystem.CreateTemporary();
             await second.Stream.WriteAsync(new byte[] { 4, 5, 6 });
             second.Stream.Flush(flushToDisk: true);
 
-            Assert.Throws<IOException>(() => fileSystem.Commit(second, "ab/asset.bin"));
+            Assert.Throws<IOException>(() => fileSystem.Commit(
+                second,
+                "ab/asset.bin",
+                RequireIdentity(fileSystem, second)));
 
             Assert.Equal(new byte[] { 1, 2, 3 }, await File.ReadAllBytesAsync(Path.Combine(privateRoot, "ab/asset.bin")));
             Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(commitRoot, "private-assets")));
@@ -67,8 +70,12 @@ public sealed class PrivateAssetDurabilityTests
             sync.FailNext = afterPublication
                 ? PrivateAssetDirectoryDurabilityPoint.Published
                 : PrivateAssetDirectoryDurabilityPoint.ParentCreated;
+            PrivateAssetFileIdentity identity = RequireIdentity(fileSystem, temporary);
 
-            Assert.Throws<PrivateAssetDurabilityException>(() => fileSystem.Commit(temporary, StorageKey));
+            Assert.Throws<PrivateAssetDurabilityException>(() => fileSystem.Commit(
+                temporary,
+                StorageKey,
+                identity));
             Assert.Equal(afterPublication, File.Exists(Path.Combine(privateRoot, StorageKey)));
             sync.Points.Clear();
 
@@ -78,7 +85,7 @@ public sealed class PrivateAssetDurabilityTests
             }
             else
             {
-                fileSystem.Commit(temporary, StorageKey);
+                fileSystem.Commit(temporary, StorageKey, identity);
             }
 
             Assert.Equal(PrivateAssetDirectoryDurabilityPoint.ParentCreated, sync.Points[0]);
@@ -119,7 +126,10 @@ public sealed class PrivateAssetDurabilityTests
             const string StorageKey = "cd/asset.bin";
             sync.FailNext = PrivateAssetDirectoryDurabilityPoint.CommitSource;
 
-            Assert.Throws<PrivateAssetDurabilityException>(() => fileSystem.Commit(temporary, StorageKey));
+            Assert.Throws<PrivateAssetDurabilityException>(() => fileSystem.Commit(
+                temporary,
+                StorageKey,
+                RequireIdentity(fileSystem, temporary)));
             Assert.Equal(expected, await File.ReadAllBytesAsync(Path.Combine(privateRoot, StorageKey)));
             Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(commitRoot, "private-assets")));
             Assert.DoesNotContain(PrivateAssetDirectoryDurabilityPoint.Published, sync.Points);
@@ -138,6 +148,46 @@ public sealed class PrivateAssetDurabilityTests
             Directory.Delete(root, recursive: true);
         }
     }
+
+    [Fact]
+    public async Task CommitRejectsMutationAfterTheHashedIdentityWasCaptured()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+
+        string root = Path.Combine(Path.GetTempPath(), $"fsus-private-hash-identity-{Guid.NewGuid():N}");
+        string privateRoot = Path.Combine(root, "private");
+        string commitRoot = Path.Combine(root, "commit");
+        Directory.CreateDirectory(privateRoot);
+        Directory.CreateDirectory(commitRoot);
+        try
+        {
+            var fileSystem = new PrivateAssetAnchoredFileSystem(privateRoot, commitRoot);
+            await using AnchoredTemporaryFile temporary = fileSystem.CreateTemporary();
+            await temporary.Stream.WriteAsync(new byte[] { 1, 2, 3 });
+            temporary.Stream.Flush(flushToDisk: true);
+            PrivateAssetFileIdentity hashedIdentity = RequireIdentity(fileSystem, temporary);
+            await temporary.Stream.WriteAsync(new byte[] { 4 });
+            temporary.Stream.Flush(flushToDisk: true);
+
+            Assert.Throws<PrivateAssetDurabilityException>(() => fileSystem.Commit(
+                temporary,
+                "ef/asset.bin",
+                hashedIdentity));
+            Assert.False(File.Exists(Path.Combine(privateRoot, "ef/asset.bin")));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static PrivateAssetFileIdentity RequireIdentity(
+        PrivateAssetAnchoredFileSystem fileSystem,
+        AnchoredTemporaryFile temporary)
+        => Assert.IsType<PrivateAssetFileIdentity>(fileSystem.TryGetIdentity(temporary.Stream));
 
     internal sealed class FaultingDirectorySync : IPrivateAssetDirectorySync
     {

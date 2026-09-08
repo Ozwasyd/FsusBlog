@@ -244,10 +244,96 @@ internal sealed class PrivateAssetWritePolicy : IPrivateAssetWritePolicy
             : $".{extension.ToLowerInvariant()}";
 }
 
+internal interface IPrivateAssetContentHasher
+{
+    Task<byte[]> HashAsync(Stream content, CancellationToken cancellationToken);
+}
+
+internal sealed class Sha256PrivateAssetContentHasher : IPrivateAssetContentHasher
+{
+    public async Task<byte[]> HashAsync(Stream content, CancellationToken cancellationToken)
+        => await SHA256.HashDataAsync(content, cancellationToken);
+}
+
+internal sealed class PrivateAssetValidationCache
+{
+    private readonly Dictionary<AssetId, ValidatedPrivateAsset> _entries = [];
+    private readonly object _gate = new();
+    private readonly int _maximumEntries;
+
+    public PrivateAssetValidationCache(int maximumEntries)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumEntries);
+        _maximumEntries = maximumEntries;
+    }
+
+    public int Count
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _entries.Count;
+            }
+        }
+    }
+
+    public bool Matches(
+        AssetRecord record,
+        string expectedHash,
+        PrivateAssetFileIdentity identity)
+    {
+        lock (_gate)
+        {
+            return _entries.TryGetValue(record.Id, out ValidatedPrivateAsset? cached)
+                && cached.StorageKey == record.StorageKey
+                && cached.SizeBytes == record.SizeBytes
+                && string.Equals(cached.Sha256, record.Sha256, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(cached.Sha256, expectedHash, StringComparison.OrdinalIgnoreCase)
+                && cached.Identity == identity;
+        }
+    }
+
+    public void Remember(AssetRecord record, PrivateAssetFileIdentity identity)
+    {
+        lock (_gate)
+        {
+            if (!_entries.ContainsKey(record.Id) && _entries.Count >= _maximumEntries)
+            {
+                AssetId evicted = _entries.Keys.First();
+                _entries.Remove(evicted);
+            }
+
+            _entries[record.Id] = new ValidatedPrivateAsset(
+                record.StorageKey,
+                record.SizeBytes,
+                record.Sha256!,
+                identity);
+        }
+    }
+
+    public void Remove(AssetId assetId)
+    {
+        lock (_gate)
+        {
+            _entries.Remove(assetId);
+        }
+    }
+
+    private sealed record ValidatedPrivateAsset(
+        AssetStorageKey StorageKey,
+        long SizeBytes,
+        string Sha256,
+        PrivateAssetFileIdentity Identity);
+}
+
 internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPrivateAssetExistenceProbe
 {
     private const int BufferSize = 128 * 1024;
+    private const int MaximumValidationCacheEntries = 4096;
     private const long MaximumAssetBytes = 1024L * 1024L * 1024L;
+    private readonly PrivateAssetValidationCache _validationCache = new(MaximumValidationCacheEntries);
+    private readonly IPrivateAssetContentHasher _contentHasher;
     private readonly IPrivateAssetRecordSource _records;
     private readonly IPrivateAssetWritePolicy _writePolicy;
     private readonly string _privateRoot;
@@ -267,9 +353,20 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
         IPrivateAssetWritePolicy writePolicy,
         ReleaseStoragePaths storagePaths,
         PrivateAssetAnchoredFileSystem? fileSystem)
+        : this(records, writePolicy, storagePaths, fileSystem, new Sha256PrivateAssetContentHasher())
+    {
+    }
+
+    internal LocalPrivateAssetStore(
+        IPrivateAssetRecordSource records,
+        IPrivateAssetWritePolicy writePolicy,
+        ReleaseStoragePaths storagePaths,
+        PrivateAssetAnchoredFileSystem? fileSystem,
+        IPrivateAssetContentHasher contentHasher)
     {
         _records = records;
         _writePolicy = writePolicy;
+        _contentHasher = contentHasher;
         _privateRoot = Path.GetFullPath(storagePaths.PrivateAssetRoot);
         _commitRoot = Path.GetFullPath(storagePaths.UploadCommitRoot);
         try
@@ -334,9 +431,10 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
 
         string actualHash;
         long actualLength;
+        PrivateAssetFileIdentity? hashedIdentity;
         try
         {
-            (actualHash, actualLength) = await WriteTemporaryAsync(
+            (actualHash, actualLength, hashedIdentity) = await WriteTemporaryAsync(
                 request.Content,
                 temporary.Stream,
                 cancellationToken);
@@ -349,23 +447,30 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
             }
 
             await using FileStream? existing = _fileSystem.TryOpenRead(record.StorageKey.Value);
-            if (existing is not null
+            PrivateAssetContentValidation existingValidation = existing is not null
                 && existing.Length == actualLength
-                && await HasExpectedHashAsync(existing, actualHash, cancellationToken))
+                    ? await ValidateContentAsync(record, existing, actualHash, cancellationToken)
+                    : default;
+            if (existingValidation.IsValid)
             {
                 if (prepared is null)
                 {
+                    RememberValidation(record, existingValidation.Identity);
                     return record.StorageKey;
                 }
 
+                PrivateAssetFileIdentity? durableIdentity = null;
                 if (!await _records.PublishAndCompleteCommitAsync(
                         prepared,
-                        () => _fileSystem.SyncExistingEntry(record.StorageKey.Value),
+                        () => durableIdentity = SyncExistingIdentity(
+                            record.StorageKey.Value,
+                            existingValidation.Identity),
                         cancellationToken))
                 {
                     throw new InvalidOperationException("private_asset_commit_state_conflict");
                 }
 
+                RememberValidation(prepared, durableIdentity);
                 return prepared.StorageKey;
             }
 
@@ -385,9 +490,13 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
             }
 
             await temporary.Stream.FlushAsync(cancellationToken);
+            PrivateAssetFileIdentity? publishedIdentity = null;
             if (!await _records.PublishAndCompleteCommitAsync(
                     prepared,
-                    () => _fileSystem.Commit(temporary, record.StorageKey.Value),
+                    () => publishedIdentity = _fileSystem.Commit(
+                        temporary,
+                        record.StorageKey.Value,
+                        hashedIdentity),
                     cancellationToken))
             {
                 AssetRecord? current = await _records.FindAsync(record.Id, cancellationToken);
@@ -410,6 +519,7 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
                 throw new InvalidOperationException("private_asset_commit_repair_required");
             }
 
+            RememberValidation(prepared, publishedIdentity);
             return prepared.StorageKey;
         }
         catch (PrivateAssetDurabilityException)
@@ -419,19 +529,34 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
         catch (IOException)
         {
             await using FileStream? winner = _fileSystem.TryOpenRead(record.StorageKey.Value);
-            if (winner is not null
+            PrivateAssetContentValidation winnerValidation = winner is not null
                 && winner.Length == record.SizeBytes
-                && await HasExpectedHashAsync(winner, record.Sha256!, cancellationToken))
+                    ? await ValidateContentAsync(record, winner, record.Sha256!, cancellationToken)
+                    : default;
+            if (winnerValidation.IsValid)
             {
                 AssetRecord? racePrepared = prepared
                     ?? await _records.PrepareCommitAsync(record, cancellationToken);
-                if (racePrepared is not null
-                    && await _records.PublishAndCompleteCommitAsync(
-                        racePrepared,
-                        () => _fileSystem.SyncExistingEntry(record.StorageKey.Value),
-                        cancellationToken))
+                if (racePrepared is not null)
                 {
-                    return racePrepared.StorageKey;
+                    try
+                    {
+                        PrivateAssetFileIdentity? durableIdentity = null;
+                        if (await _records.PublishAndCompleteCommitAsync(
+                                racePrepared,
+                                () => durableIdentity = SyncExistingIdentity(
+                                    record.StorageKey.Value,
+                                    winnerValidation.Identity),
+                                cancellationToken))
+                        {
+                            RememberValidation(racePrepared, durableIdentity);
+                            return racePrepared.StorageKey;
+                        }
+                    }
+                    catch (PrivateAssetDurabilityException)
+                    {
+                        throw new InvalidOperationException("private_asset_commit_durability_failed");
+                    }
                 }
             }
 
@@ -448,6 +573,7 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
         AssetId assetId,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         AssetRecord? record = await _records.FindAsync(assetId, cancellationToken);
         if (!TryValidateActivePrivateRecord(record, out AssetRecord valid)
             || valid.StorageKey != CreateStorageKey(valid.Id, valid.Extension))
@@ -461,7 +587,11 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
             content = _fileSystem.TryOpenRead(valid.StorageKey.Value);
             if (content is null
                 || content.Length != valid.SizeBytes
-                || !await HasExpectedHashAsync(content, valid.Sha256!, cancellationToken))
+                || !(await ValidateContentAsync(
+                    valid,
+                    content,
+                    valid.Sha256!,
+                    cancellationToken)).IsValid)
             {
                 return null;
             }
@@ -488,6 +618,7 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
         AssetId assetId,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         AssetRecord? record = await _records.FindAsync(assetId, cancellationToken);
         if (!TryValidateActivePrivateRecord(record, out AssetRecord valid))
         {
@@ -505,7 +636,11 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
             await using FileStream? content = _fileSystem.TryOpenRead(valid.StorageKey.Value);
             if (content is null
                 || content.Length != valid.SizeBytes
-                || !await HasExpectedHashAsync(content, valid.Sha256!, cancellationToken))
+                || !(await ValidateContentAsync(
+                    valid,
+                    content,
+                    valid.Sha256!,
+                    cancellationToken)).IsValid)
             {
                 return null;
             }
@@ -529,6 +664,7 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
             return;
         }
 
+        _validationCache.Remove(assetId);
         try
         {
             _fileSystem.Delete(record.StorageKey.Value);
@@ -656,7 +792,7 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
         return normalized;
     }
 
-    private static async Task<(string Hash, long Length)> WriteTemporaryAsync(
+    private async Task<(string Hash, long Length, PrivateAssetFileIdentity? Identity)> WriteTemporaryAsync(
         Stream source,
         FileStream destination,
         CancellationToken cancellationToken)
@@ -681,7 +817,10 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
 
             await destination.FlushAsync(cancellationToken);
             destination.Flush(flushToDisk: true);
-            return (Convert.ToHexStringLower(hasher.GetHashAndReset()), length);
+            return (
+                Convert.ToHexStringLower(hasher.GetHashAndReset()),
+                length,
+                _fileSystem.TryGetIdentity(destination));
         }
         finally
         {
@@ -689,14 +828,74 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
         }
     }
 
-    private static async Task<bool> HasExpectedHashAsync(
-        Stream content,
+    private async Task<PrivateAssetContentValidation> ValidateContentAsync(
+        AssetRecord record,
+        FileStream content,
         string expectedHash,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        PrivateAssetFileIdentity? before = _fileSystem.TryGetIdentity(content);
+        if (before is { } observed
+            && _validationCache.Matches(record, expectedHash, observed))
+        {
+            return new PrivateAssetContentValidation(true, observed);
+        }
+
+        _validationCache.Remove(record.Id);
+        PrivateAssetContentValidation validation = await HashStableContentAsync(
+            content,
+            expectedHash,
+            before,
+            cancellationToken);
+        if (validation.IsValid)
+        {
+            RememberValidation(record, validation.Identity);
+        }
+
+        return validation;
+    }
+
+    private async Task<PrivateAssetContentValidation> HashStableContentAsync(
+        FileStream content,
+        string expectedHash,
+        PrivateAssetFileIdentity? before,
+        CancellationToken cancellationToken)
+    {
         content.Position = 0;
-        byte[] actual = await SHA256.HashDataAsync(content, cancellationToken);
-        return CryptographicOperations.FixedTimeEquals(actual, Convert.FromHexString(expectedHash));
+        byte[] actual = await _contentHasher.HashAsync(content, cancellationToken);
+        content.Position = 0;
+        PrivateAssetFileIdentity? after = _fileSystem.TryGetIdentity(content);
+        if (before != after
+            || !CryptographicOperations.FixedTimeEquals(actual, Convert.FromHexString(expectedHash)))
+        {
+            return default;
+        }
+
+        return new PrivateAssetContentValidation(true, after);
+    }
+
+    private PrivateAssetFileIdentity? SyncExistingIdentity(
+        string storageKey,
+        PrivateAssetFileIdentity? verifiedIdentity)
+    {
+        PrivateAssetFileIdentity? durableIdentity = _fileSystem.SyncExistingEntry(storageKey);
+        if (verifiedIdentity != durableIdentity)
+        {
+            throw new PrivateAssetDurabilityException("private_asset_existing_identity_changed");
+        }
+
+        return durableIdentity;
+    }
+
+    private void RememberValidation(AssetRecord record, PrivateAssetFileIdentity? identity)
+    {
+        if (identity is not { } observed)
+        {
+            return;
+        }
+
+        _validationCache.Remember(record, observed);
     }
 
     private async Task QuarantineUnownedFinalAsync(
@@ -705,8 +904,17 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
         CancellationToken cancellationToken)
     {
         await using FileStream? content = _fileSystem.TryOpenRead(storageKey.Value);
-        if (content is null
-            || !await HasExpectedHashAsync(content, expectedHash, cancellationToken))
+        if (content is null)
+        {
+            return;
+        }
+
+        PrivateAssetFileIdentity? before = _fileSystem.TryGetIdentity(content);
+        if (!(await HashStableContentAsync(
+            content,
+            expectedHash,
+            before,
+            cancellationToken)).IsValid)
         {
             return;
         }
@@ -731,6 +939,10 @@ internal sealed partial class LocalPrivateAssetStore : IPrivateAssetStore, IPriv
             record.SizeBytes,
             record.Sha256!,
             content);
+
+    private readonly record struct PrivateAssetContentValidation(
+        bool IsValid,
+        PrivateAssetFileIdentity? Identity);
 
     private static void EnsureRestrictedDirectory(string path)
     {

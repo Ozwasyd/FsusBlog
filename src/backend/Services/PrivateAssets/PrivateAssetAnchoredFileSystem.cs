@@ -26,6 +26,15 @@ internal sealed partial class PrivateAssetAnchoredFileSystem
     private const int AtCurrentWorkingDirectory = -100;
     private const int AtFollowSymbolicLink = 0x400;
     private const uint RenameNoReplace = 1;
+    private const uint StatxType = 0x1;
+    private const uint StatxModifiedTime = 0x40;
+    private const uint StatxChangedTime = 0x80;
+    private const uint StatxInode = 0x100;
+    private const uint StatxSize = 0x200;
+    internal const uint StatxIdentityMask =
+        StatxType | StatxModifiedTime | StatxChangedTime | StatxInode | StatxSize;
+    internal const ushort RegularFileMode = 0x8000;
+    private const ushort FileTypeMask = 0xF000;
     private const uint StatxBasicStats = 0x7FF;
     private readonly string _privateRoot;
     private readonly string _commitRoot;
@@ -91,7 +100,10 @@ internal sealed partial class PrivateAssetAnchoredFileSystem
         }
     }
 
-    public void Commit(AnchoredTemporaryFile temporary, string storageKey)
+    public PrivateAssetFileIdentity? Commit(
+        AnchoredTemporaryFile temporary,
+        string storageKey,
+        PrivateAssetFileIdentity? hashedIdentity)
     {
         if (!OperatingSystem.IsLinux())
         {
@@ -99,7 +111,13 @@ internal sealed partial class PrivateAssetAnchoredFileSystem
             Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
             File.Move(temporary.FallbackPath!, finalPath, overwrite: false);
             EnsureRestrictedFileFallback(finalPath);
-            return;
+            return null;
+        }
+
+        if (hashedIdentity is not { } expectedIdentity
+            || ReadIdentity(temporary.Stream.SafeFileHandle) != expectedIdentity)
+        {
+            throw new PrivateAssetDurabilityException("private_asset_hashed_identity_changed");
         }
 
         using SafeFileHandle finalDirectory = OpenStorageParent(storageKey, create: true, out string fileName);
@@ -134,6 +152,19 @@ internal sealed partial class PrivateAssetAnchoredFileSystem
             renamed = true;
             _directorySync.Sync(stagingDirectory, PrivateAssetDirectoryDurabilityPoint.CommitSource);
             _directorySync.Sync(finalDirectory, PrivateAssetDirectoryDurabilityPoint.Published);
+            using SafeFileHandle published = OpenFileAt(
+                finalDirectory,
+                fileName,
+                "private_asset_commit_identity_open_failed");
+            PrivateAssetFileIdentity publishedIdentity = ReadIdentity(published);
+            PrivateAssetFileIdentity temporaryIdentity = ReadIdentity(temporary.Stream.SafeFileHandle);
+            if (publishedIdentity != temporaryIdentity
+                || !publishedIdentity.HasSameContentVersion(expectedIdentity))
+            {
+                throw new PrivateAssetDurabilityException("private_asset_commit_identity_changed");
+            }
+
+            return publishedIdentity;
         }
         finally
         {
@@ -149,30 +180,29 @@ internal sealed partial class PrivateAssetAnchoredFileSystem
         }
     }
 
-    public void SyncExistingEntry(string storageKey)
+    public PrivateAssetFileIdentity? SyncExistingEntry(string storageKey)
     {
         if (!OperatingSystem.IsLinux())
         {
-            return;
+            return null;
         }
 
         using SafeFileHandle directory = OpenStorageParent(storageKey, create: false, out string fileName, syncParents: true);
-        int descriptor = OpenAt(
-            FileDescriptor(directory),
+        using SafeFileHandle handle = OpenFileAt(
+            directory,
             fileName,
-            OpenReadOnly | OpenCloseOnExec | OpenNoFollow,
-            0);
-        if (descriptor < 0)
-        {
-            throw FileSystemFailure("private_asset_existing_publish_open_failed");
-        }
-
-        using var handle = new SafeFileHandle(new IntPtr(descriptor), ownsHandle: true);
+            "private_asset_existing_publish_open_failed");
         using SafeFileHandle commitRoot = OpenDirectoryHandle(_commitRoot);
         using SafeFileHandle stagingDirectory = OpenOrCreateDirectory(commitRoot, "private-assets");
         _directorySync.Sync(stagingDirectory, PrivateAssetDirectoryDurabilityPoint.CommitSource);
         _directorySync.Sync(directory, PrivateAssetDirectoryDurabilityPoint.ExistingPublication);
+        return ReadIdentity(handle);
     }
+
+    public PrivateAssetFileIdentity? TryGetIdentity(FileStream content)
+        => OperatingSystem.IsLinux()
+            ? ReadIdentity(content.SafeFileHandle)
+            : null;
 
     public FileStream? TryOpenRead(string storageKey)
     {
@@ -362,6 +392,24 @@ internal sealed partial class PrivateAssetAnchoredFileSystem
         return new SafeFileHandle(new IntPtr(descriptor), ownsHandle: true);
     }
 
+    private static SafeFileHandle OpenFileAt(
+        SafeFileHandle parent,
+        string name,
+        string failure)
+    {
+        int descriptor = OpenAt(
+            FileDescriptor(parent),
+            name,
+            OpenReadOnly | OpenCloseOnExec | OpenNoFollow,
+            0);
+        if (descriptor < 0)
+        {
+            throw FileSystemFailure(failure);
+        }
+
+        return new SafeFileHandle(new IntPtr(descriptor), ownsHandle: true);
+    }
+
     private SafeFileHandle OpenOrCreateDirectory(SafeFileHandle parent, string name)
     {
         int descriptor = OpenAt(
@@ -462,6 +510,38 @@ internal sealed partial class PrivateAssetAnchoredFileSystem
             throw new InvalidOperationException("private_asset_roots_cross_device");
         }
     }
+
+    private static PrivateAssetFileIdentity ReadIdentity(SafeFileHandle handle)
+    {
+        if (Statx(
+                FileDescriptor(handle),
+                string.Empty,
+                AtEmptyPath,
+                StatxBasicStats,
+                out LinuxStatx stat) != 0)
+        {
+            throw new PrivateAssetDurabilityException("private_asset_file_identity_failed");
+        }
+
+        if (!HasTrustedIdentityMetadata(stat.Mask, stat.Mode))
+        {
+            throw new PrivateAssetDurabilityException("private_asset_file_identity_incomplete");
+        }
+
+        return new PrivateAssetFileIdentity(
+            stat.DeviceMajor,
+            stat.DeviceMinor,
+            stat.Inode,
+            stat.Size,
+            stat.ModifyTime.Seconds,
+            stat.ModifyTime.Nanoseconds,
+            stat.ChangeTime.Seconds,
+            stat.ChangeTime.Nanoseconds);
+    }
+
+    internal static bool HasTrustedIdentityMetadata(uint mask, ushort mode)
+        => (mask & StatxIdentityMask) == StatxIdentityMask
+            && (mode & FileTypeMask) == RegularFileMode;
 
     private static void RequireMode(SafeFileHandle handle, uint mode, string error)
     {
@@ -633,6 +713,25 @@ internal sealed partial class PrivateAssetAnchoredFileSystem
 internal sealed record AnchoredTemporaryFile(string Name, string? FallbackPath, FileStream Stream) : IAsyncDisposable
 {
     public ValueTask DisposeAsync() => Stream.DisposeAsync();
+}
+
+internal readonly record struct PrivateAssetFileIdentity(
+    uint DeviceMajor,
+    uint DeviceMinor,
+    ulong Inode,
+    ulong Size,
+    long ModifiedSeconds,
+    uint ModifiedNanoseconds,
+    long ChangedSeconds,
+    uint ChangedNanoseconds)
+{
+    public bool HasSameContentVersion(PrivateAssetFileIdentity other)
+        => DeviceMajor == other.DeviceMajor
+            && DeviceMinor == other.DeviceMinor
+            && Inode == other.Inode
+            && Size == other.Size
+            && ModifiedSeconds == other.ModifiedSeconds
+            && ModifiedNanoseconds == other.ModifiedNanoseconds;
 }
 
 internal enum PrivateAssetDirectoryDurabilityPoint
