@@ -34,11 +34,13 @@ Public runtime accepts AEDS v2 only. Binary endpoints return typed BinaryResults
 
 The deployed layers are:
 
-    Network: Nginx/OpenResty TLS termination, HTTPS enforcement, unknown-Host rejection, and trusted client-IP forwarding.
-    Transport: HTTPS only; production startup rejects HTTP CORS origins.
-    Application: PoW -> rate limiting -> authentication -> MFA/Passkey -> RBAC.
-    Data: BCrypt password hashes, short-lived JWTs, isolated sessions, and cryptographically secure randomness.
-    Client: SameSite, HttpOnly, and Secure cookies; CSP, XFO, XCTO, Referrer-Policy, Permissions-Policy; and human-read proof.
+```text
+Network: Nginx/OpenResty TLS termination, HTTPS enforcement, unknown-Host rejection, and trusted client-IP forwarding.
+Transport: HTTPS only; production startup rejects HTTP CORS origins.
+Application: PoW -> rate limiting -> authentication -> MFA/Passkey -> RBAC.
+Data: BCrypt password hashes, short-lived JWTs, isolated sessions, and cryptographically secure randomness.
+Client: SameSite, HttpOnly, and Secure cookies; CSP, XFO, XCTO, Referrer-Policy, Permissions-Policy; and human-read proof.
+```
 
 ## Untrusted assets, privacy, and key separation
 
@@ -64,7 +66,7 @@ Logs, audit, metrics, and structured fallback never print raw client IP. PoW/cra
 
 Filesystem paths and local script execution first use Path.GetFullPath and then Path.GetRelativePath to prove the expected root; string StartsWith is insufficient. LocalAuth may execute only tests/frontend/fixtures/prepare-auth-smoke-users.mjs. Public AOT hydration sidecars stay under the web root, SSR worker scripts under the frontend client root, and upload/image/integrity assets under PublicAssetRoot or the instance-scoped UploadSessionRoot/UploadCommitRoot sandbox. Absolute paths, .. escape, out-of-root paths, control-character log input, and similar violations are rejected or degraded without echoing path details. Unix `Platform=Unix` canonical-boundary evidence uses `CanonicalPathBoundary`: it creates a real outside-root directory link and an inside-root link; Windows records the test ID as `not-selected` and does not claim junction/reparse-point coverage.
 
-Before expensive DB, regex, tokenizer, or ArrayPool work, anonymous/background text has explicit bounds: search keyword 128 characters; search-index body 256 KiB; CJK continuous segment 4096 runes; ContentFilter 256 KiB before renting ArrayPool<char>; authoring binary body 1 MiB with independent draft MaxLength; comments 1000 characters/4096 UTF-8 bytes by default and at most 3000/12288 through the hot anonymous-comment policy; comment frames 16 KiB; subscription email 254 characters; navigation snapshot path 512 characters; LocalAuth redirect 2048 characters and storage-state JSON 256 KiB; audit page number 50000. Over-limit input returns validation/empty/fail-closed before the expensive path and is not delegated only to Kestrel or database Take. Passkey assertion JSON is separately limited to 64 KiB and 32 nesting levels; the parser rejects before JsonSerializerOptions initialization or deserialization and never enters the Passkey domain service.
+Before expensive DB, regex, tokenizer, or ArrayPool work, anonymous/background text has explicit bounds: search keyword 128 characters; search-index body 256 KiB; CJK continuous segment 4096 runes; ContentFilter 256 KiB before renting `ArrayPool<char>`; authoring binary body 1 MiB with independent draft MaxLength; comments 1000 characters/4096 UTF-8 bytes by default and at most 3000/12288 through the hot anonymous-comment policy; comment frames 16 KiB; subscription email 254 characters; navigation snapshot path 512 characters; LocalAuth redirect 2048 characters and storage-state JSON 256 KiB; audit page number 50000. Over-limit input returns validation/empty/fail-closed before the expensive path and is not delegated only to Kestrel or database Take. Passkey assertion JSON is separately limited to 64 KiB and 32 nesting levels; the parser rejects before JsonSerializerOptions initialization or deserialization and never enters the Passkey domain service.
 
 AEDS pooled response buffers are sensitivity-first. Unknown, auth, session, MFA, Passkey, anonymous-credential, admin/private, and error frames always use clearArray:true. Only a frame individually registered in AedsFrameSensitivity as a public immutable response may skip final clearing after Seal(frameType). An intermediate buffer replaced during writer growth is always cleared because its frame type is not yet known. New frames default to clearing; global clearArray:false is forbidden. If public classification or cache ownership is suspect, existing cache action/version invalidation clears the raw frame and PublicHotRead snapshot so requests rebuild through L2/dynamic paths; sensitive and unknown frames are unaffected and no restart or clearing relaxation is allowed.
 
@@ -78,7 +80,6 @@ Any Cookie, Authorization, X-Fsus-Csrf-Token or common CSRF header, authenticate
 
 If allowlist or proxy-cache behavior is suspect, hot-set ResponseCompressionPolicy:Enabled=false; the next request disables general endpoint compression without restart while auth/admin/account/notification/binary remain identity. Re-enable only after negative header/cache/BREACH smoke. This switch does not change PublicHotRead immutable-variant negotiation.
 
-<a id="proof-of-work-pow"></a>
 ## Proof of Work, rate limiting, and RiskControl
 
 Generated security catalogs below own challenge kinds, verification/cache windows, numeric bounds, rate policies, and fail modes. This section provides relationships and runtime behavior, not a second policy table.
@@ -89,7 +90,7 @@ PerceptionCharacterV3 allocation is controlled only by IPerceptionCharacterV3Res
 
 ShieldMiddleware classifies requests before ordinary endpoints. Exact search crawler and social-preview families precede generic bot|spider|crawler matching. Googlebot, Google-InspectionTool, bingbot, and msnbot require CIDR validation; Baiduspider and Sogou require rDNS plus forward DNS. Only validated crawlers set `HttpContext.Items["VerifiedCrawler"] = true`. In observe mode, a failed verification is allowed through with a FakeCrawler risk event but never gets the verified flag or high-quota partition. Twitterbot, facebookexternalhit, Discordbot, Slackbot, TelegramBot, LinkedInBot, and WhatsApp may GET/HEAD only public HTML, OG/static resources, and robots.txt, never /api/**. Unknown bots, tool UAs, and empty UAs receive a light 403 and a fsus.security.event.count signal; traversal, double slash, backslash, and double-encoded paths call Abort() and record a metric.
 
-CrawlerUpdateWorker's source order is official HTTPS JSON (Google googlebot.json or Bing bingbot.json), local last-known-good snapshot, Security:CrawlerCidrs:* configuration, then empty degraded. URLs are HTTPS on developers.google.com or www.bing.com with the default HTTPS port only; startup, admin updates, and worker requests enforce this and reject invalid URLs without falling back to an old URL. Snapshot paths are relative, canonicalized under FSUSBLOG_DATA_ROOT/security, and reject absolute, .., drive-letter, or colon paths. The default interval is 1440 minutes and the minimum is 30; reloadable CidrAutoUpdateEnabled, CidrUpdateIntervalMinutes, CidrMinUpdateIntervalMinutes, provider URLs, and snapshot path are observable through admin-only GET /api/ops/crawler-ranges/status and /api/binary/admin/security/anti-crawler/crawler-ranges/status, with manual POST /api/binary/admin/security/anti-crawler/crawler-ranges/sync.
+CrawlerUpdateWorker's source order is official HTTPS JSON (Google googlebot.json or Bing bingbot.json), local last-known-good snapshot, Security:CrawlerCidrs:* configuration, then empty degraded. URLs are HTTPS on developers.google.com or <www.bing.com> with the default HTTPS port only; startup, admin updates, and worker requests enforce this and reject invalid URLs without falling back to an old URL. Snapshot paths are relative, canonicalized under FSUSBLOG_DATA_ROOT/security, and reject absolute, .., drive-letter, or colon paths. The default interval is 1440 minutes and the minimum is 30; reloadable CidrAutoUpdateEnabled, CidrUpdateIntervalMinutes, CidrMinUpdateIntervalMinutes, provider URLs, and snapshot path are observable through admin-only GET /api/ops/crawler-ranges/status and /api/binary/admin/security/anti-crawler/crawler-ranges/status, with manual POST /api/binary/admin/security/anti-crawler/crawler-ranges/sync.
 
 ISecurityRiskSignalSink, ISecurityRiskScoreReader, and ISecurityRiskPolicyProvider carry a stable source for Shield, RateLimiter, PoW, HumanReadProof, public-read, pospace, device-fingerprint, region-policy, comment-governance, admin-step-up, and risk-control. Unknown reason numbers retain their original numeric string. Redis serves the risk hot path and PostgreSQL the audit path; persistence failure does not alter the current decision, and raw IP/device data is not stored. RiskDecisionService maps context, active policy, and score to allow/challenge/block; public reads move artifact bytes only after their gate.
 
@@ -161,8 +162,8 @@ The lease defaults are explicitly `NotificationStream:MaxConnectionsGlobal=10000
 
 ## Authentication, CORS, and CSRF
 
-<a id="account-subject-physical-projection"></a>
-<a id="账号-subject-物理投影"></a>
+### Account subject physical projection
+
 Authentication, session facts, methods, strengths, TTLs, cookies, credential
 limits, migration, and directional relations are canonical in [User session
 authentication context](security/user-session-authentication-context.md).
@@ -171,13 +172,11 @@ legacy account-subject anchor above. Admin permission sets and challenge kinds
 are generated below. Refresh, replay-family, Passkey counter, Passkey metadata,
 and frontend route/refresh details remain in their linked child documents.
 
-Only explicitly configured origins in `appsettings.json / Cors:AllowedOrigins` are accepted. Production startup rejects any http:// origin; Development may allow http://localhost:* for Vite HMR.
+Only explicitly configured origins in `appsettings.json / Cors:AllowedOrigins` are accepted. Production startup rejects any http:// origin; Development may allow <http://localhost>:* for Vite HMR.
 
-Refresh uses SameSite=Strict, HttpOnly, Secure cookies. Production auth cookies use __Host-* with Path=/, no Domain, HttpOnly, Secure, SameSite=Strict. Secure transport reads only __Host-AccessToken, __Host-RefreshToken, __Host-SessionId, __Host-AdminAccessToken, and __Host-AdminSessionId. Local insecure transport may write only the current unprefixed names; old unprefixed cookies are delete-only on logout/clear and never read as fallback. `AuthCookies:AllowInsecureTransportCookies` controls only local insecure transport, and `AllowLegacyPlainCookieRead` must never be restored. SameSite=Strict blocks cross-site automatic Cookie delivery.
+Refresh uses SameSite=Strict, HttpOnly, Secure cookies. Production auth cookies use `__Host-*` with Path=/, no Domain, HttpOnly, Secure, SameSite=Strict. Secure transport reads only `__Host-AccessToken`, `__Host-RefreshToken`, `__Host-SessionId`, `__Host-AdminAccessToken`, and `__Host-AdminSessionId`. Local insecure transport may write only the current unprefixed names; old unprefixed cookies are delete-only on logout/clear and never read as fallback. `AuthCookies:AllowInsecureTransportCookies` controls only local insecure transport, and `AllowLegacyPlainCookieRead` must never be restored. SameSite=Strict blocks cross-site automatic Cookie delivery.
 
 The main frontend credential is the HttpOnly session cookie/AEDS auth frame. Credentialed binary mutation may send X-Fsus-Csrf-Token when the `<meta name="fsus-csrf-token">` tag or XSRF-TOKEN cookie exists, but binary mutation has no token issuance/expiry contract. The effective boundary is SameSite=Strict plus UseFsusCsrfOriginGuard(): a credentialed unsafe request must provide a trusted absolute HTTP(S) Origin or, when Origin is absent, a trusted Referer. UseAntiforgery() remains for endpoints with explicit antiforgery metadata; an endpoint without that metadata must not be described as token-validated. Anonymous high-privacy requests set credentials=omit and send neither token nor Cookie. High-risk writes add PoW, admin step-up, RBAC, and no-store metadata.
-
-<a id="作者工作台订阅与-rum-隐私"></a>
 
 ## Authoring, comments, subscriptions, and telemetry
 
@@ -185,7 +184,7 @@ Plugin manifests request but do not grant access. The closed typed capability ca
 
 Subscription ownership uses only the hmac-v1 identity derived from Subscription:EmailHashPepper. Runtime rejects sha256-legacy, OR fallback, and LegacySha256EmailHash; finalize isolates legacy rows and requires zero remain. Cutover problems pause subscription mutation and use an isolated recovery database. site_subscription stores only HMAC-SHA256(normalizedEmail), hash_version, channel, enabled state, and unsubscribe time; it stores no email or profile. Public unsubscribe needs X-Fsus-Subscription-Proof bound to the keyed hash/channel and a TTL: non-consuming validation precedes the successful DB update and one-use consumption, so timeout/cancel/transaction failure may retry the same proof. Missing/replay/expired/mismatch returns 428. The default implementation has no SMTP, third-party mail, or Web Push provider; an external mail domain may receive only this service's opaque proof over TLS, keeps proof nonce/traceId audit, and never sends clear email back. RSS/Atom/JSON Feed is primary; channel=email is only explicit preference until a provider gate, unsubscribe smoke, and review exist.
 
-All /api/binary/author/** routes require an independent admin principal and declared `AdminPermissions.*`: article.write covers drafts/previews/revisions/assets/import-export/AI; comment.moderate covers the queue; anonymous.comment.configure, anonymous.nullifier.block, and anonymous.credential.revoke cover anonymous governance; audit.read covers audit; system.config covers runtime/cache/integrity operations. External /api/author/** JSON and internal bridge are removed.
+All `/api/binary/author/**` routes require an independent admin principal and declared `AdminPermissions.*`: article.write covers drafts/previews/revisions/assets/import-export/AI; comment.moderate covers the queue; anonymous.comment.configure, anonymous.nullifier.block, and anonymous.credential.revoke cover anonymous governance; audit.read covers audit; system.config covers runtime/cache/integrity operations. External /api/author/** JSON and internal bridge are removed.
 
 Server drafts are uniquely ownerAdminPrincipalId+draftKey and are the durable cross-device authority. The browser journal fsusblog-article-recovery-journal is only an unconfirmed window in IndexedDB; there is no fsus:article-draft:* localStorage owner/full-text fallback. fsusblog.article-recovery-journal.v1 binds one-way admin identity, article scope, tab ownership, base/server/client revisions, and source hash. Payload is deterministic gzip-v1 typed bytes; raw content string is absent. Logical body and compressed payload are each at most 1 MiB; TTL is 12 hours; one identity/article has at most eight tab versions and the browser at most 32 records/4 MiB compressed. One writer keeps one in-flight and one newest pending snapshot; rapid input replaces intermediate state and lifecycle flushes request the same owner. Unknown/old schema, unsupported codec, corruption, expiry, decompressed hash/byte mismatch, or cap overflow is deleted on read, not migrated. Missing compression/decompression fails soft as unavailable and never stores raw text. Server acknowledgement deletes only an exact client revision/source-hash match, never newer input. Publish/delete/discard, admin/account logout, switch, expiry, privacy cleanup, and shared-device cleanup delete the journal. IndexedDB/private-mode/quota failure only gives a quiet notice; it never falls back to localStorage, extends retention, or overwrites newer server state. Compression is not encryption; local compressed Markdown has the same privacy risk as plaintext and cannot contain attachment bytes, upload tokens, Cookie, proof, or credentials. Cross-device recovery uses admin Cookie and /api/binary/author/drafts/{draftKey}; drafts never enter PublicAOT, Service Worker shell cache, or search index.
 
@@ -223,7 +222,6 @@ Structured audit keeps `source/type/action/outcome/severity/actor/target/trace/p
 
 ## Audit, retention, and secret recovery
 
-<a id="审计级别"></a>
 Ordinary audit covers low-risk reads, previews, and operations asynchronously.
 High-value audit covers admin/security/audit, investigation hash reads, admin
 step-up, PoW/moderation policy, comment visibility, irreversible repairs,
@@ -243,17 +241,21 @@ AuditRetentionCatalog gives every action finite full/pseudonym/aggregate ages, a
 
 Single-author production secret rotation first creates a site backup:
 
-    tools/operations/backup-site.sh
+```bash
+tools/operations/backup-site.sh
+```
 
 JWT rotation follows the two-phase blue/green runbook, updating Jwt__KeyVersion, Jwt__SecretKey, and expiring Jwt__PreviousKeys; immediate single-key replacement and permanent no-kid acceptance are forbidden. PoW, sealed perception, Recovery Key, PublicAot, MFA, anonymous credentials, VisitLog, moderation, and risk pseudonym keys rotate independently. Data Protection appends keys and encrypts every XML key with the independent X.509 protector; `data-protection-keyring.tar.gz` never includes the certificate private key; old keys/certificates are removed only after cookie, pending-MFA, recovery, and previous-certificate windows expire. Redis ACL/password changes precede ConnectionStrings__Redis/RedisOptions__Configuration; after restart verify /api/binary/author/ops/health, and Redis data is not a recovery source. PostgreSQL credentials change before ConnectionStrings__DefaultConnection while the old credential remains through readiness; failure restores the old string or a recent dump. Domain/server migration restores database/uploads/DataProtection and config, updates SITE_BASEURL, CORS_ALLOWED_HOSTS, APP_ALLOWED_HOSTS, and Fido2/WebAuthn origin/domain, then runs health, ops, sitemap/feed, login, and MFA smoke. High-value operations write structured audit; dangerous authoring operations first show changed-field diffs and destructive/bulk, backup, and integrity fixes require admin Passkey step-up. See [Site Backup Envelope Encryption](security/site-backup-envelope.md).
 
 ## Test fixtures, deployment, and supply chain
 
+API and security changes must explicitly assess anonymous, authenticated-user, admin, notification-stream, and binary paths. For each path, record actual verification results or a specific reason it does not apply; this applicability assessment does not require running the entire test suite for every change.
+
 Tests must not embed reusable admin/user passwords, JWT signing keys, or production domains. Real UI acceptance reads FSUSBLOG_USER_PASSWORD and FSUSBLOG_ADMIN_PASSWORD; fixture tokens require explicit FSUSBLOG_TEST_SESSION_SECRET or test-only Jwt__SecretKey. Playwright/smoke may use the explicit loginWithFixtureSessionBypass name for a short-lived local session; storage state is cleaned and never committed. Browser-native WebSocket cannot carry Playwright X-Fsus-Test-Session, so isolated Development/Test notification preflight may bridge the validated session id into a path-bound HttpOnly SameSite=Strict cookie before upgrade. Production does not register the bridge, and the bridge cookie is not an identity credential or readable outside notifications. SQL fixtures may connect only to fsusblog-dev*, fsusblog-test*, or fsusblog-ci* containers; admin-draft raw-cookie cleanup only targets localhost/127.0.0.1/::1.
 
 Production OpenResty explicitly allows `TLSv1.2 TLSv1.3`, modern AEAD cipher/curves, no session tickets, and Strict-Transport-Security: max-age=31536000; includeSubDomains; preload. The gateway supplies CSP/COOP/COEP/CORP and X-Permitted-Cross-Domain-Policies: none. Generated upstream is a one-line 127.0.0.1:8081 or :8082 include; operator hostnames, arbitrary ports, multiple servers, and request concatenation are forbidden. Traffic shift/rollback uses a host exclusive lock and validates the full config around atomic rename; loopback plus matching X-Fsus-Release-Id/X-Fsus-Release-Slot and immutable release state are required. These headers are non-sensitive deployment identity, not permission. Evidence stores slot/release/digest, booleans, time, failure phase, and recovery action, never credentials or full production config. Production appsettings declares AllowedHosts without wildcard; Docker build context excludes .env/.env.*. GitHub Actions uses: is pinned to a 40-character commit SHA with the source tag in a comment; Docker accepts detached VCPKG_COMMIT; external Wasm release artifacts require SHA256SUMS at frontend build.
 
-Related-reading uses only public article categories/tags/body keywords/time, not likes, follows, login, subscription email, or profile. SEO preview uses current form and SEO config only, never publishes/caches a route; prepublish errors block, while warnings continue only with an author reason and prepublish-warning-override audit. Favicon/PWA/logo/wordmark/admin/login URLs are empty, site-absolute, or HTTP(S) absolute only; javascript/data/protocol-relative/NUL values fail. Images extend img-src only. Default assets are /favicons/* and /social/* from the repository; old root favicon, Apple Touch Icon, and /icons/* entries and local Downloads references are forbidden. Upload accepts raster PNG/JPG/WebP and ICO products; generated icon sets contain no SVG. Hand-entered SVG is a cleaned safe URL only; raw SVG upload/transform requires MIME/header, script/event/external-link sanitization, admin+PoW, and audit.
+Related-reading uses only public article categories/tags/body keywords/time, not likes, follows, login, subscription email, or profile. SEO preview uses current form and SEO config only, never publishes/caches a route; prepublish errors block, while warnings continue only with an author reason and prepublish-warning-override audit. Favicon/PWA/logo/wordmark/admin/login URLs are empty, site-absolute, or HTTP(S) absolute only; javascript/data/protocol-relative/NUL values fail. Images extend img-src only. Default assets are `/favicons/*` and `/social/*` from the repository; old root favicon, Apple Touch Icon, and `/icons/*` entries and local Downloads references are forbidden. Upload accepts raster PNG/JPG/WebP and ICO products; generated icon sets contain no SVG. Hand-entered SVG is a cleaned safe URL only; raw SVG upload/transform requires MIME/header, script/event/external-link sanitization, admin+PoW, and audit.
 
 The asset library is admin-only, uses canonical UUID AssetId, and converts PublicAssetUrlCodec to safe relative AssetStorageKey only at its boundary. DeleteAsync(AssetId) under the AssetId lock rejects article/draft/revision references; orphans wait for delayed cleanup and a restored reference cancels deletion. No anonymous directory browsing exists. See [Service Worker private-cache boundary](security/service-worker-cache-boundary.md) for offline scope.
 
@@ -415,7 +417,7 @@ render: enum-set
 -->
 
 <!-- FSUSBLOG-GENERATED:BEGIN security.challenge.retired-kinds -->
-_empty set_
+`empty set`
 <!-- FSUSBLOG-GENERATED:END security.challenge.retired-kinds -->
 
 <!-- fsus-doc-claim

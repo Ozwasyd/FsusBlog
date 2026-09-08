@@ -227,7 +227,9 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
     {
         services.AddSingleton<AuditLogEventMapper>();
         services.AddSingleton<AuditSerilogEnricher>();
-        services.AddSingleton<AuditLogChannel>();
+        services.AddSingleton<AuditLogChannel>(sp => new AuditLogChannel(
+            sp.GetRequiredService<IServiceScopeFactory>(),
+            sp.GetRequiredService<ILogger<AuditLogChannel>>()));
         services.AddSingleton<AuditLogRuntimeState>();
         services.AddSingleton<AuditSerilogSink>();
         services.AddSingleton<IAuditFallbackWriter, AuditFallbackWriter>();

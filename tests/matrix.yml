@@ -5,7 +5,21 @@ governance:
     retention:
         baseline: tests/test-retention-before.json
         replacementLedger: tests/test-retention-replacements.json
-        postBaselines: [tests/admin-inline-empty-state-retirement-baseline.json, tests/anonymous-nullifier-concurrency-retirement-baseline.json, tests/ci-local-matrix-retirement-baseline.json, tests/lightweight-acceptance-baseline.json, tests/moderation-regions-datalist-retirement-baseline.json, tests/public-aot-byte-shape-retirement-baseline.json, tests/public-article-reading-layout-retirement-baseline.json, tests/public-response-compression-retirement-baseline.json, tests/sensitive-endpoint-session-retirement-baseline.json, tests/service-composition-registration-baseline.json, tests/test-asset-lifecycle-retirement-baseline.json, tests/test-governance-modernization-baseline.json, tests/timing-policy-retirement-baseline.json, tests/upload-range-retirement-baseline.json]
+        postBaselines:
+            - tests/admin-inline-empty-state-retirement-baseline.json
+            - tests/anonymous-nullifier-concurrency-retirement-baseline.json
+            - tests/ci-local-matrix-retirement-baseline.json
+            - tests/lightweight-acceptance-baseline.json
+            - tests/moderation-regions-datalist-retirement-baseline.json
+            - tests/public-aot-byte-shape-retirement-baseline.json
+            - tests/public-article-reading-layout-retirement-baseline.json
+            - tests/public-response-compression-retirement-baseline.json
+            - tests/sensitive-endpoint-session-retirement-baseline.json
+            - tests/service-composition-registration-baseline.json
+            - tests/test-asset-lifecycle-retirement-baseline.json
+            - tests/test-governance-modernization-baseline.json
+            - tests/timing-policy-retirement-baseline.json
+            - tests/upload-range-retirement-baseline.json
         auditOutput: .tmp/release-evidence/test-retention-audit.json
         automaticDeletion: false
     sourceLocking:
@@ -17,7 +31,10 @@ governance:
             - {path: tests/frontend/unit/view-contracts/coverArt.test.ts, reason: "checked-in cover artifact fixtures"}
         delegatedOwners: []
     retiredTiers:
-        - {from: backend-chaos, to: backend-concurrency, coverageIds: [backend-fault-race-readiness, backend-race-idempotency-model], reason: "backend-chaos duplicated the same Category=Concurrency selection; backend-concurrency owns the fault/race evidence."}
+        - from: backend-chaos
+          to: backend-concurrency
+          coverageIds: [backend-fault-race-readiness, backend-race-idempotency-model]
+          reason: "backend-chaos duplicated the same Category=Concurrency selection; backend-concurrency owns the fault/race evidence."
         - from: ux-viewport-canary-parity
           to: ux-viewport-boundaries
           coverageIds: [ux-viewport-plan-progress, ux-viewport-boundary-full, ux-viewport-visual]
@@ -70,61 +87,1014 @@ commandGroups:
         schema: "fsusblog.frontend-static-command-manifest.v2"
         lane: "frontend-static-governance"
         commands:
-            - {id: "frontend-style-full", script: "lint:full", access: "write", stage: "blocking-prebuild", reason: "Runs the baseline-aware AST ESLint, Vue template and Stylelint gate over every governed frontend and Node source before other frontend governance checks.", consumedInputs: ["config/development/frontend-style-*.json", "config/schemas/frontend-style-reviewed-residual.schema.json", "eslint.config.mjs", "stylelint.config.mjs", "src/frontend/src", "src/frontend/wasm/web", "src/frontend/scripts", "src/frontend/public", "tools/**/*.mjs", "tests/**/*.mjs", "tools/frontend/check-frontend-style.mjs", "tools/frontend/reviewed-residual-classification.mjs", "tools/frontend/style-toolchain"], ownedOutputs: [".tmp/frontend-style/eslint.cache", ".tmp/frontend-style/eslint.cache-key"], dependsOn: [], resources: {cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1, exclusiveResources: ["frontend-style-cache"]}}
-            - {id: "frontend-style-fixtures", command: ["node", "../../tests/tools/frontend-style.test.mjs"], access: "write", stage: "concurrent", reason: "Exercises positive and negative AST style fixtures, reviewed residual admission, baseline invalidation, fixer idempotency and locale-stable diagnostics in isolated temporary repositories.", consumedInputs: ["config/development/frontend-style-*.json", "config/schemas/frontend-style-reviewed-residual.schema.json", "eslint.config.mjs", "stylelint.config.mjs", "src/frontend/package.json", "tests/tools/frontend-style.test.mjs", "tools/frontend/check-frontend-style.mjs", "tools/frontend/reviewed-residual-classification.mjs", "tools/frontend/style-toolchain"], ownedOutputs: ["os-temp://fsusblog-frontend-style-unique"], dependsOn: ["frontend-style-full"], resources: {cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "frontend-test-governance", script: "check:frontend-test-governance", access: "read", stage: "blocking-prebuild", reason: "Validates the Vitest and test-lane admission contract, locale catalog projections, and the ten-locale × domain fail-closed static gate before test execution starts.", consumedInputs: ["src/frontend/vitest*.{ts,mjs}", "src/frontend/package.json", "src/frontend/src/locales", "src/frontend/src/bootstrap/globalLoaderCopy.ts", "src/shared/Contracts/Localization/locale-catalog.json", "src/shared/Contracts/Localization/LocaleCatalog.g.cs", "tools/contracts/generate-locale-catalog.mjs", "tools/contracts/check-locale-catalog.mjs", "tools/frontend/check-locale-domain-static.mjs", "tests/tools/locale-catalog.test.mjs", "tests/tools/locale-domain-static.test.mjs", "tests/frontend", "tools/test"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "locale-domain-static-fixtures", command: ["node", "--test", "../../tests/tools/locale-domain-static.test.mjs"], access: "write", stage: "concurrent", reason: "Exercises the eight required locale-domain static counterexamples and diagnostic contract without network access.", consumedInputs: ["src/frontend/src/locales", "src/frontend/src/bootstrap/globalLoaderCopy.ts", "src/shared/Contracts/Localization/locale-catalog.json", "tools/frontend/check-locale-domain-static.mjs", "tests/tools/locale-domain-static.test.mjs"], ownedOutputs: ["os-temp://fsusblog-locale-domain-static-unique"], dependsOn: ["frontend-test-governance"], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "locale-domain-bundles", script: "check:locale-domain-bundles", access: "write", stage: "postbuild", reason: "Rejects any locale/domain dictionary from the static initial client graph and records per-entry raw/gzip/brotli evidence after frontend dist is available.", consumedInputs: ["src/frontend/dist", "src/shared/Contracts/Localization/locale-catalog.json", "src/frontend/src/locales/localeDomains.ts", "tools/frontend/check-locale-domain-bundles.mjs"], ownedOutputs: [".tmp/frontend/locale-domain-bundles.json"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: ["frontend-dist", "frontend-static-output"]}}
-            - {id: "layout-archetype-governance", script: "check:layout-archetype-governance", access: "read", stage: "concurrent", reason: "Validates the representative layout registry, visual-change ledger, and source ownership boundaries without starting browser or production services.", consumedInputs: ["src/frontend/src", "tests/frontend/fixtures/layout-*", "tests/frontend/e2e/visual", "tests/frontend/checks/static/check-layout-archetype-governance.mjs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "page-title-scale", script: "check:page-title-scale", access: "read", stage: "concurrent", reason: "Audits public, auth, error, account, and admin page-title roles from source without writing shared output.", consumedInputs: ["src/frontend/src", "tests/frontend/checks/static/check-page-title-scale.mjs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "public-shell-css-ownership", script: "check:public-shell-css-ownership", access: "read", stage: "concurrent", reason: "Validates public-shell CSS ownership, emergency-source generation, and shell authority documentation without mutating generated output.", consumedInputs: ["src/frontend/src", "src/frontend/public/public-shell-emergency.css", "src/frontend/package.json", "tools/frontend/generate-public-shell-emergency.mjs", "docs/frontend/public-shell-ownership.md", "tests/frontend/checks/static/check-public-shell-css-ownership.mjs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "internal-selector-governance", script: "check:internal-selector-governance", access: "read", stage: "concurrent", reason: "Fail-closes unregistered deep and direct Element Plus selectors, expired exceptions, stale entries, and monotonic budget growth without network access.", consumedInputs: ["src/frontend/src", "src/frontend/package.json", "tests/frontend/internal-selector-registry.json", "tests/frontend/internal-selector-migration-evidence.json", "tests/frontend/checks/static/check-internal-selector-governance.mjs", "tests/frontend/checks/static/internal-selector-governance-lib.mjs", "docs/frontend/internal-selector-governance.md"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "radius-scale-contract", script: "check:radius-scale-contract", access: "read", stage: "concurrent", reason: "Scans frontend source and public layout documentation for the approved radius scale without writing shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json", "docs/public-layout-rules.md", "tests/frontend/checks/static/check-radius-scale-contract.mjs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "frontend-test-layout", script: "check:frontend-test-layout", access: "read", stage: "blocking-prebuild", reason: "Rejects a secondary frontend test root and validates canonical setup, support, fixture, runner, and transform-cache ownership before Vitest starts.", consumedInputs: ["tests/governance/frontend-test-layout.json", "tests/frontend", "src/frontend/vitest*.{ts,mjs}", "src/frontend/vite.config.ts", "tools/test/frontend-vitest-transform-cache.mjs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "csharp-entrypoint-ownership", script: "check:csharp-entrypoint-ownership", access: "read", stage: "blocking-prebuild", reason: "Rejects C# entrypoints under the JavaScript frontend root and any executable source without explicit project or file-app ownership before frontend build work starts.", consumedInputs: ["tests/governance/csharp-entrypoint-ownership.json", "src", "benchmarks", "tests/backend", "tools"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "test-execution-optimization", script: "check:test-execution-optimization", access: "read", stage: "blocking-prebuild", reason: "Fail-closes invalid production test topology before Vitest consumes that topology.", consumedInputs: ["tools/test", "tests/matrix.yml", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "backend-production-build-authority", command: ["node", "../../tools/test/check-backend-production-build-authority.mjs"], access: "read", stage: "blocking-prebuild", reason: "Rejects Debug compatibility builds and governance postlude testhosts in Production fresh while auditing every canonical Release backend artifact consumer.", consumedInputs: ["tests/governance/backend-production-build-consumers.json", "tools/test/bundles/run-bundle.mjs", "tools/test/run-backend-production-shards.mjs", "tools/test/project-rights-v3-evidence.mjs", "tools/test/project-evidence.mjs", "tools/test/lanes/project-privacy-zk-production.mjs", "tools/test/lanes/cross-stack-contract.sh"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "browser-contract-fixture", script: "check:browser-contract-fixture", access: "write", stage: "concurrent", reason: "Exercises the sealed single-namespace fixture lifecycle through injected providers and process-unique temporary roots without starting a browser or shared services.", consumedInputs: ["tests/browser-contract", "tests/tools/browser-contract-fixture.test.mjs", "tests/tools/browser-session-isolation.test.mjs", "src/frontend/package.json"], ownedOutputs: ["os-temp://fsus-browser-contract-fixture-unique"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "openapi-sync", script: "check:openapi-sync", access: "read", stage: "concurrent", reason: "Canonical current-run owner validates the checked-in OpenAPI document once for Cross-stack and Privacy/ZK consumers.", consumedInputs: ["src/shared/Contracts/Validation/fsusblog.openapi.json", "src/backend", "src/shared/Contracts", "src/frontend/src", "tests/contracts/openapi-policy.yml"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "openapi-generated-contract", script: "check:contract:openapi", access: "read", stage: "concurrent", reason: "Canonical owner validates generated cross-stack contract projection once.", consumedInputs: ["src/shared/Contracts/Validation/fsusblog.openapi.json", "tests/frontend/fixtures/cross-stack-contract-matrix.json", "tests/frontend/fixtures/cross-stack-contract-matrix.generated.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "frontend-routes", script: "check:frontend-routes", access: "read", stage: "concurrent", reason: "Canonical owner validates generated frontend routes once.", consumedInputs: ["src/frontend/src/generated/fsusBinaryRoutes.ts", "src/shared/Contracts/Validation/fsusblog.openapi.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "openapi-consumers", script: "check:consumer:openapi", access: "read", stage: "concurrent", reason: "Canonical owner validates OpenAPI consumers once.", consumedInputs: ["src/shared/Contracts/Validation/fsusblog.openapi.json", "src/frontend/src"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "api-parity", script: "check:contract:api-parity", access: "read", stage: "concurrent", reason: "Reads API declarations only and does not mutate Vitest inputs or results.", consumedInputs: ["src/frontend/src/api", "src/shared/Contracts", "docs/api"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "binary-import-boundaries", script: "check:binary-import-boundaries", access: "read", stage: "concurrent", reason: "Builds the frontend import graph and validates the binary contracts, adapter, transport, worker, and composition boundaries without writing shared output.", consumedInputs: ["src/frontend/src/contracts", "src/frontend/src/codecs", "src/frontend/src/api", "src/frontend/src/adapters/binary", "src/frontend/src/services/binaryTransport.ts", "src/frontend/src/composition", "src/frontend/src/workers/wasmDecode.worker.ts"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "frame-schema", script: "check:contract:frame-schema", access: "read", stage: "concurrent", reason: "Reads generated frame contracts without writing generated contract files.", consumedInputs: ["src/core/Algorithms", "src/shared/Contracts", "src/frontend/src/generated"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "security-matrices", script: "check:security:matrices", access: "read", stage: "concurrent", reason: "Canonical current-run owner of security matrix and schema validation used by Privacy/ZK consumers.", consumedInputs: ["security/matrices", "tools/security/check-security-matrices.mjs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "cross-stack-test-governance", script: "check:cross-stack-test-governance", access: "read", stage: "concurrent", reason: "Audits cross-stack test declarations independently of Vitest outputs.", consumedInputs: ["tests/frontend", "tests/backend", "src/shared/Contracts"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "cross-stack-receipt-fixtures", command: ["node", "--test", "../../tests/tools/cross-stack-receipt-join.test.mjs"], access: "write", stage: "concurrent", reason: "Exercises current-run receipt joins and fail-closed mutations in process-unique temporary repositories.", consumedInputs: ["tests/fixtures/evidence-projection/cross-stack-assertion-ownership.json", "tests/tools/cross-stack-receipt-join.test.mjs", "tools/test-matrix/cross-stack-receipts.mjs"], ownedOutputs: ["os-temp://fsus-cross-stack-join-unique"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "modern-standards", script: "check:modern-standards", access: "read", stage: "concurrent", reason: "Scans source standards without touching build or test artifacts.", consumedInputs: ["src/frontend/src", "tests/frontend"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "frontend-source-rule-host", command: ["node", "../../tools/frontend/run-source-rule-host.mjs"], access: "write", stage: "concurrent", reason: "Builds one commit- and worktree-bound frontend source index, executes migrated read-only rules in one resident Node process, and emits independent fail-closed receipts plus before/after process and source-read evidence.", consumedInputs: ["src/frontend/src", "src/frontend/public/public-shell-emergency.css", "src/frontend/package.json", "docs/design/reading-typography.md", "tools/frontend/source-index.mjs", "tools/frontend/source-rule-host.mjs", "tools/frontend/rules"], ownedOutputs: [".tmp/frontend/source-rule-host"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: ["frontend-source-rule-evidence"]}}
-            - {id: "author-ai-assist", script: "check:author-ai-assist", access: "read", stage: "concurrent", reason: "Canonical current-run owner validates the author AI assist boundary once for release-domain projection.", consumedInputs: ["src/backend", "src/frontend/src", "src/frontend/package.json", "docs/security.md", "docs/operations.md"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "result-boundaries", script: "check:result-boundaries", access: "read", stage: "concurrent", reason: "Checks result boundaries from source only.", consumedInputs: ["src/frontend/src", "src/shared/Contracts"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "error-code-alignment", script: "check:error-code-alignment", access: "read", stage: "concurrent", reason: "Compares error-code declarations without producing shared output.", consumedInputs: ["src/frontend/src", "src/shared/Contracts", "docs/api"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "runtime-message-branching", script: "check:no-runtime-message-branching", access: "read", stage: "concurrent", reason: "Scans runtime message handling and does not share Vitest state.", consumedInputs: ["src/frontend/src"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "security-consistency", script: "check:security-consistency", access: "read", stage: "concurrent", reason: "Reads security contracts without changing generated contracts or test results.", consumedInputs: ["src/frontend/src", "src/backend/Infrastructure", "docs/security.md"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "retired-character-challenge-residue", command: ["node", "../../tools/security/check-retired-character-challenge-residue.mjs"], access: "read", stage: "blocking-prebuild", reason: "Rejects retired character challenge identifiers and artifacts across repository-owned source, documentation, generated files, and package outputs.", consumedInputs: ["src", "docs", "config", "security", "tests", "tools", "*.tgz", "*.wasm"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "retired-character-challenge-residue-fixture", command: ["node", "--test", "../../tests/security/retired-character-challenge-residue.test.mjs"], access: "write", stage: "concurrent", reason: "Exercises tracked, untracked, ignored static, binary, package, and historical-note residue cases in isolated temporary repositories.", consumedInputs: ["tools/security/check-retired-character-challenge-residue.mjs", "tests/security/retired-character-challenge-residue.test.mjs"], ownedOutputs: ["os-temp://fsus-residue-unique"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "security-challenge-kind-cutover-verifier", command: ["node", "--test", "../../tests/security/security-challenge-kind-cutover-verifier.test.mjs"], access: "write", stage: "concurrent", reason: "Proves cutover receipts bind the exact operator-supplied numeric-to-wire target map and reject remapped or tampered evidence.", consumedInputs: ["tools/security/verify-security-challenge-kind-cutover.mjs", "tests/security/security-challenge-kind-cutover-verifier.test.mjs"], ownedOutputs: ["os-temp://fsus-kind-cutover-verifier-unique"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "server-try-catch", script: "check:server-try-catch", access: "read", stage: "concurrent", reason: "Performs a source-only server exception-pattern audit.", consumedInputs: ["src/backend"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "asset-size-budget", script: "check:asset-size-budget", access: "write", stage: "postbuild", reason: "Consumes the completed frontend dist tree and owns its asset-budget evidence.", consumedInputs: ["src/frontend/dist"], ownedOutputs: [".tmp/frontend/asset-size-budget.json"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.75, minCpuUnits: 1, exclusiveResources: ["frontend-dist", "frontend-static-output"]}}
-            - {id: "public-private-data-leakage", script: "check:public-private-data-leakage", access: "read", stage: "concurrent", reason: "Audits public/private source boundaries without writing shared artifacts.", consumedInputs: ["src/frontend/src", "src/backend", "src/shared/Contracts"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "public-aot-contracts", script: "check:public-aot-contracts", access: "read", stage: "postbuild", reason: "Validates public AOT output only after the frontend build marker is available.", consumedInputs: ["src/frontend/dist", "src/frontend/src/public-renderers", "src/shared/Contracts"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: ["frontend-dist"]}}
-            - {id: "public-distribution-contract", script: "check:public-distribution-contract", access: "read", stage: "postbuild", reason: "Canonical current-run owner validates immutable public distribution assets once for release-domain projection.", consumedInputs: ["src/frontend/dist", "src/frontend/public", "src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: ["frontend-dist"]}}
-            - {id: "public-page-manifest-sync", script: "check:public-page-manifest-sync", access: "read", stage: "concurrent", reason: "Validates the generated public page manifest once under the canonical frontend static producer so Rights V3 can project this rule without a second checker launch.", consumedInputs: ["src/frontend/src/public-renderers", "src/frontend/src/generated", "tools/frontend/generate-public-page-manifest.mjs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "pwa-offline-policy", script: "check:pwa-offline-policy", access: "read", stage: "concurrent", reason: "Reads PWA policy sources independently from build and Vitest outputs.", consumedInputs: ["src/frontend", "docs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "local-fsusui-public-shell-motion", script: "check:local-fsusui-public-shell-motion", access: "read", stage: "concurrent", reason: "Verifies that the local FsusUI alias and theme source own public-shell motion without browser geometry.", consumedInputs: ["src/frontend/scripts/fsusui-local.ts", "../FsusUI/vue/packages/theme-chalk/src", "../FsusUI/vue/packages/theme-chalk/dist"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "markdown-render-budget", script: "check:markdown-render-budget", access: "write", stage: "isolated", reason: "Owns the markdown structure producer artifact and current-run receipt exactly once before the receipt-only frontend-render-structure join.", consumedInputs: ["src/frontend/src/components/ui/MarkdownEditorAdapter.vue", "src/frontend/src/components/ui/MarkdownRenderer.vue", "src/frontend/src/fsusui/markdown.ts", "src/frontend/package.json", "tests/frontend/checks/perf/check-markdown-render-budget.mjs"], ownedOutputs: [".tmp/frontend/markdown-render-budget.json", ".tmp/frontend/receipts/markdown-render-budget.json"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: ["frontend-static-output", "frontend-render-pressure"]}}
-            - {id: "views-constraints", script: "check:views-constraints", access: "write", stage: "final", reason: "The standalone CI aggregate preserves package-script compatibility; local production expands the explicit commands below.", consumedInputs: ["src/frontend/src", "src/frontend/package.json", "src/frontend/dist", "tests/frontend/checks/static"], ownedOutputs: [".tmp/frontend/asset-size-budget.json", ".tmp/frontend/dom-depth-static.json", ".tmp/frontend/receipts/dom-depth-static.json", ".tmp/frontend/route-asset-budget.json"], dependsOn: ["asset-size-budget", "public-aot-contracts"], resources: {cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: ["frontend-dist", "frontend-static-output", "frontend-render-pressure"]}, localCommands: [{id: "views-constraints:core", command: ["node", "../../tests/frontend/checks/static/check-views-constraints.mjs"], access: "read", stage: "concurrent", reason: "Checks view structure from source without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:admin-tokens", script: "check:admin-tokens", access: "read", stage: "concurrent", reason: "Audits admin tokens from source only.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:foundation-token-governance", script: "check:foundation-token-governance", access: "read", stage: "concurrent", reason: "Audits foundation tokens from source only.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:motion-governance", script: "check:motion-governance", access: "read", stage: "concurrent", reason: "Audits motion contracts without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:admin-task-feedback", script: "check:admin-task-feedback", access: "read", stage: "concurrent", reason: "Audits admin task feedback without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:admin-eyebrow-governance", script: "check:admin-eyebrow-governance", access: "read", stage: "concurrent", reason: "Audits admin eyebrow copy without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:admin-empty-state-governance", script: "check:admin-empty-state-governance", access: "read", stage: "concurrent", reason: "Audits admin empty states without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:admin-dashboard-panel-identity", script: "check:admin-dashboard-panel-identity", access: "read", stage: "concurrent", reason: "Audits dashboard panel identity without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:admin-system-tabs-governance", script: "check:admin-system-tabs-governance", access: "read", stage: "concurrent", reason: "Audits system tabs without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:audit-facet-summary", script: "check:audit-facet-summary", access: "read", stage: "concurrent", reason: "Audits facet summaries without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:admin-a11y-governance", script: "check:admin-a11y-governance", access: "read", stage: "concurrent", reason: "Audits admin accessibility without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:integrity-page-governance", script: "check:integrity-page-governance", access: "read", stage: "concurrent", reason: "Audits integrity page source without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:profile-page-governance", script: "check:profile-page-governance", access: "read", stage: "concurrent", reason: "Audits profile page source without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:admin-user-manage-governance", script: "check:admin-user-manage-governance", access: "read", stage: "concurrent", reason: "Audits user management source without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:comment-thread-view-contract-identity", script: "check:comment-thread-view-contract-identity", access: "read", stage: "concurrent", reason: "Audits comment-thread contracts without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:comment-markdown-renderer-boundary", script: "check:comment-markdown-renderer-boundary", access: "read", stage: "concurrent", reason: "Audits the comment markdown renderer boundary without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:policy-modal-boundary", script: "check:policy-modal-boundary", access: "read", stage: "concurrent", reason: "Audits policy modal boundaries without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:locale-api-erasure", script: "check:locale-api-erasure", access: "read", stage: "concurrent", reason: "Audits locale API erasure without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:moderation-regions-datalist", script: "check:moderation-regions-datalist", access: "read", stage: "concurrent", reason: "Audits moderation regions datalist boundaries without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:user-comments-page-governance", script: "check:user-comments-page-governance", access: "read", stage: "concurrent", reason: "Audits user comments source without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:article-editor-workspace-governance", script: "check:article-editor-workspace-governance", access: "read", stage: "concurrent", reason: "Audits editor workspace source without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:public-empty-state-governance", script: "check:public-empty-state-governance", access: "read", stage: "concurrent", reason: "Audits public empty states without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:markdown-editor-state-governance", script: "check:markdown-editor-state-governance", access: "read", stage: "concurrent", reason: "Audits editor state without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:visual-density-governance", script: "check:visual-density-governance", access: "read", stage: "concurrent", reason: "Audits visual density without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:shell-material-governance", script: "check:shell-material-governance", access: "read", stage: "concurrent", reason: "Audits shell material without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:messages-inbox-governance", script: "check:messages-inbox-governance", access: "read", stage: "concurrent", reason: "Audits inbox source without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:public-reading-motion", script: "check:public-reading-motion", access: "read", stage: "concurrent", reason: "Audits public reading motion without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:public-anti-ai-visual", script: "check:public-anti-ai-visual", access: "read", stage: "concurrent", reason: "Audits public visual language without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:public-brand-hardcoding", script: "check:public-brand-hardcoding", access: "read", stage: "concurrent", reason: "Audits public brand constants without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:default-brand-assets", script: "check:default-brand-assets", access: "read", stage: "concurrent", reason: "Audits default brand assets without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/public", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:public-editorial-governance", script: "check:public-editorial-governance", access: "read", stage: "concurrent", reason: "Audits editorial layout without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:public-copy-governance", script: "check:public-copy-governance", access: "read", stage: "concurrent", reason: "Audits public copy without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:copy-centralization", script: "check:copy-centralization", access: "read", stage: "concurrent", reason: "Audits copy centralization without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:json-long-id-governance", script: "check:json-long-id-governance", access: "read", stage: "concurrent", reason: "Audits long identifier handling without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:row-state-motion", script: "check:row-state-motion", access: "read", stage: "concurrent", reason: "Audits row-state motion without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:runtime-entry-reachability", script: "check:runtime-entry-reachability", access: "read", stage: "concurrent", reason: "Audits production runtime entry reachability without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:dom-depth-static", script: "check:dom-depth-static", access: "write", stage: "isolated", reason: "Owns browserless DOM-depth structure evidence and must not collide with other evidence writers.", consumedInputs: ["src/frontend/src"], ownedOutputs: [".tmp/frontend/dom-depth-static.json", ".tmp/frontend/receipts/dom-depth-static.json"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: ["frontend-static-output", "frontend-render-pressure"]}}, {id: "views-constraints:performance-governance", script: "check:performance-governance", access: "read", stage: "concurrent", reason: "Audits performance policy without writing evidence.", consumedInputs: ["src/frontend/src", "src/frontend/package.json", "docs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:route-asset-budget", script: "check:route-asset-budget", access: "write", stage: "postbuild", reason: "Consumes frontend dist and owns route asset-budget evidence.", consumedInputs: ["src/frontend/dist"], ownedOutputs: [".tmp/frontend/route-asset-budget.json"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.75, minCpuUnits: 1, exclusiveResources: ["frontend-dist", "frontend-static-output"]}}, {id: "views-constraints:public-performance-batch", script: "check:public-performance-batch", access: "read", stage: "final", reason: "Runs after all public performance inputs and evidence owners have settled.", consumedInputs: [".tmp/frontend/asset-size-budget.json", ".tmp/frontend/route-asset-budget.json", ".tmp/release-evidence/frontend-render-structure-summary.json", "docs/performance-public-batch.md"], ownedOutputs: [], dependsOn: ["asset-size-budget", "views-constraints:dom-depth-static", "views-constraints:route-asset-budget"], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: ["frontend-static-output", "frontend-render-pressure"]}}, {id: "views-constraints:public-atomic-takeover-governance", script: "check:public-atomic-takeover-governance", access: "read", stage: "concurrent", reason: "Audits atomic takeover source without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:public-bootstrap-causal-zero-residue", script: "check:public-bootstrap-causal-zero-residue", access: "read", stage: "concurrent", reason: "Audits public bootstrap causal zero-residue across production, tests, fixtures, docs, and bundles.", consumedInputs: ["src/frontend/src", "src/frontend/package.json", "tests/frontend", "docs/architecture", "docs/frontend"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:document-viewport-source", script: "check:document-viewport-source", access: "read", stage: "concurrent", reason: "Enforces sole document viewport authoring in index.html with viewport-fit=cover and rejects runtime/backend copies.", consumedInputs: ["src/frontend/index.html", "src/frontend/src", "src/frontend/package.json", "src/backend/Infrastructure/PublicAot", "docs/frontend"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:canonical-viewport-safe-area", script: "check:canonical-viewport-safe-area", access: "read", stage: "concurrent", reason: "Enforces Blog consumer-only use of FsusUI canonical safe-area/viewport tokens and rejects env()/vh dual-write residues.", consumedInputs: ["src/frontend/src", "src/frontend/package.json", "docs/frontend"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:public-dev-mode-governance", script: "check:public-dev-mode-governance", access: "read", stage: "concurrent", reason: "Audits public development-mode behavior without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:fsusui-typecheck-modes", script: "check:fsusui-typecheck-modes", access: "read", stage: "blocking-prebuild", reason: "Validates FsusUI alias and typecheck modes used by Vitest before admission.", consumedInputs: ["src/frontend/tsconfig*.json", "src/frontend/vite*.{ts,mjs}", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:fsusui-boundary", script: "check:fsusui-boundary", access: "read", stage: "concurrent", reason: "Audits the FsusUI source boundary without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:fsusui-boundary-fixture", script: "check:fsusui-boundary-fixture", access: "read", stage: "concurrent", reason: "Runs isolated boundary fixtures without repository output.", consumedInputs: ["tests/frontend/fixtures", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}]}
-            - {id: "public-hot-read-fastpath", command: ["bash", "../../tools/check-public-hot-read-fastpath.sh"], access: "read", stage: "concurrent", reason: "Audits the public hot-read source path without shared output.", consumedInputs: ["src/backend", "src/frontend/src", "tools"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "historical-residue", command: ["bash", "../../tools/check-historical-residue.sh"], access: "read", stage: "concurrent", reason: "Scans repository residue without shared output.", consumedInputs: ["src", "tests", "tools", "docs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "historical-residue-fixture", command: ["node", "../../tests/frontend/checks/static/check-historical-residue-fixture.mjs"], access: "read", stage: "concurrent", reason: "Runs unique temporary fixtures without repository output.", consumedInputs: ["tests/frontend/checks/static", "tools/check-historical-residue.sh"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "test-fixture-secret-governance", script: "check:test-fixture-secret-governance", access: "read", stage: "concurrent", reason: "Audits fixture secrets from source only.", consumedInputs: ["tests", "src/frontend"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "test-fixture-secret-governance-fixture", command: ["node", "../../tests/frontend/checks/static/check-test-fixture-secret-governance-fixture.mjs"], access: "read", stage: "concurrent", reason: "Runs unique secret-governance fixtures without repository output.", consumedInputs: ["tests/frontend/checks/static", "tests/frontend/fixtures"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "cache-governance", command: ["bash", "../../tools/check-cache-governance.sh"], access: "read", stage: "concurrent", reason: "Audits cache declarations without shared output.", consumedInputs: ["src/backend/Infrastructure/Cache", "src/backend/Program.cs", "docs/architecture.md"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "test-hygiene", command: ["bash", "../../tools/check-test-hygiene.sh"], access: "read", stage: "concurrent", reason: "Audits test source hygiene without shared output.", consumedInputs: ["tests", "tools/test"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "slo-definition", command: ["node", "../../tools/operations/check-slo-definition.mjs"], access: "read", stage: "concurrent", reason: "Reads SLO definitions without shared output.", consumedInputs: ["operations", "docs", "tools/operations"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "release-evidence-self-test", command: ["node", "../../tools/operations/check-release-evidence-manifest.mjs", "--self-test"], access: "write", stage: "concurrent", reason: "Writes only a process-unique OS temporary fixture tree and can overlap repository tests.", consumedInputs: ["tools/operations/check-release-evidence-manifest.mjs"], ownedOutputs: ["os-temp://fsus-release-manifest-unique"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
-            - {id: "release-slo-alerts-self-test", command: ["node", "../../tools/operations/check-release-slo-alerts.mjs", "--self-test"], access: "write", stage: "concurrent", reason: "Writes only a process-unique OS temporary fixture tree and can overlap repository tests.", consumedInputs: ["tools/operations/check-release-slo-alerts.mjs"], ownedOutputs: ["os-temp://fsus-slo-alerts-unique"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+            - id: "frontend-style-full"
+              script: "lint:full"
+              access: "write"
+              stage: "blocking-prebuild"
+              reason: "Runs the baseline-aware AST ESLint, Vue template and Stylelint gate over every governed frontend and Node source before other frontend governance checks."
+              consumedInputs:
+                  - "config/development/frontend-style-*.json"
+                  - "config/schemas/frontend-style-reviewed-residual.schema.json"
+                  - "eslint.config.mjs"
+                  - "stylelint.config.mjs"
+                  - "src/frontend/src"
+                  - "src/frontend/wasm/web"
+                  - "src/frontend/scripts"
+                  - "src/frontend/public"
+                  - "tools/**/*.mjs"
+                  - "tests/**/*.mjs"
+                  - "tools/frontend/check-frontend-style.mjs"
+                  - "tools/frontend/reviewed-residual-classification.mjs"
+                  - "tools/frontend/style-toolchain"
+              ownedOutputs: [".tmp/frontend-style/eslint.cache", ".tmp/frontend-style/eslint.cache-key"]
+              dependsOn: []
+              resources: {cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1, exclusiveResources: ["frontend-style-cache"]}
+            - id: "frontend-style-fixtures"
+              command: ["node", "../../tests/tools/frontend-style.test.mjs"]
+              access: "write"
+              stage: "concurrent"
+              reason: "Exercises positive and negative AST style fixtures, reviewed residual admission, baseline invalidation, fixer idempotency and locale-stable diagnostics in isolated temporary repositories."
+              consumedInputs:
+                  - "config/development/frontend-style-*.json"
+                  - "config/schemas/frontend-style-reviewed-residual.schema.json"
+                  - "eslint.config.mjs"
+                  - "stylelint.config.mjs"
+                  - "src/frontend/package.json"
+                  - "tests/tools/frontend-style.test.mjs"
+                  - "tools/frontend/check-frontend-style.mjs"
+                  - "tools/frontend/reviewed-residual-classification.mjs"
+                  - "tools/frontend/style-toolchain"
+              ownedOutputs: ["os-temp://fsusblog-frontend-style-unique"]
+              dependsOn: ["frontend-style-full"]
+              resources: {cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: []}
+            - id: "frontend-test-governance"
+              script: "check:frontend-test-governance"
+              access: "read"
+              stage: "blocking-prebuild"
+              reason: "Validates the Vitest and test-lane admission contract, locale catalog projections, and the ten-locale × domain fail-closed static gate before test execution starts."
+              consumedInputs:
+                  - "src/frontend/vitest*.{ts,mjs}"
+                  - "src/frontend/package.json"
+                  - "src/frontend/src/locales"
+                  - "src/frontend/src/bootstrap/globalLoaderCopy.ts"
+                  - "src/shared/Contracts/Localization/locale-catalog.json"
+                  - "src/shared/Contracts/Localization/LocaleCatalog.g.cs"
+                  - "tools/contracts/generate-locale-catalog.mjs"
+                  - "tools/contracts/check-locale-catalog.mjs"
+                  - "tools/frontend/check-locale-domain-static.mjs"
+                  - "tests/tools/locale-catalog.test.mjs"
+                  - "tests/tools/locale-domain-static.test.mjs"
+                  - "tests/frontend"
+                  - "tools/test"
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}
+            - id: "locale-domain-static-fixtures"
+              command: ["node", "--test", "../../tests/tools/locale-domain-static.test.mjs"]
+              access: "write"
+              stage: "concurrent"
+              reason: "Exercises the eight required locale-domain static counterexamples and diagnostic contract without network access."
+              consumedInputs:
+                  - "src/frontend/src/locales"
+                  - "src/frontend/src/bootstrap/globalLoaderCopy.ts"
+                  - "src/shared/Contracts/Localization/locale-catalog.json"
+                  - "tools/frontend/check-locale-domain-static.mjs"
+                  - "tests/tools/locale-domain-static.test.mjs"
+              ownedOutputs: ["os-temp://fsusblog-locale-domain-static-unique"]
+              dependsOn: ["frontend-test-governance"]
+              resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}
+            - id: "locale-domain-bundles"
+              script: "check:locale-domain-bundles"
+              access: "write"
+              stage: "postbuild"
+              reason: "Rejects any locale/domain dictionary from the static initial client graph and records per-entry raw/gzip/brotli evidence after frontend dist is available."
+              consumedInputs: ["src/frontend/dist", "src/shared/Contracts/Localization/locale-catalog.json", "src/frontend/src/locales/localeDomains.ts", "tools/frontend/check-locale-domain-bundles.mjs"]
+              ownedOutputs: [".tmp/frontend/locale-domain-bundles.json"]
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: ["frontend-dist", "frontend-static-output"]}
+            - id: "layout-archetype-governance"
+              script: "check:layout-archetype-governance"
+              access: "read"
+              stage: "concurrent"
+              reason: "Validates the representative layout registry, visual-change ledger, and source ownership boundaries without starting browser or production services."
+              consumedInputs: ["src/frontend/src", "tests/frontend/fixtures/layout-*", "tests/frontend/e2e/visual", "tests/frontend/checks/static/check-layout-archetype-governance.mjs"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "page-title-scale"
+              script: "check:page-title-scale"
+              access: "read"
+              stage: "concurrent"
+              reason: "Audits public, auth, error, account, and admin page-title roles from source without writing shared output."
+              consumedInputs: ["src/frontend/src", "tests/frontend/checks/static/check-page-title-scale.mjs"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "public-shell-css-ownership"
+              script: "check:public-shell-css-ownership"
+              access: "read"
+              stage: "concurrent"
+              reason: "Validates public-shell CSS ownership, emergency-source generation, and shell authority documentation without mutating generated output."
+              consumedInputs:
+                  - "src/frontend/src"
+                  - "src/frontend/public/public-shell-emergency.css"
+                  - "src/frontend/package.json"
+                  - "tools/frontend/generate-public-shell-emergency.mjs"
+                  - "docs/frontend/public-shell-ownership.md"
+                  - "tests/frontend/checks/static/check-public-shell-css-ownership.mjs"
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "internal-selector-governance"
+              script: "check:internal-selector-governance"
+              access: "read"
+              stage: "concurrent"
+              reason: "Fail-closes unregistered deep and direct Element Plus selectors, expired exceptions, stale entries, and monotonic budget growth without network access."
+              consumedInputs:
+                  - "src/frontend/src"
+                  - "src/frontend/package.json"
+                  - "tests/frontend/internal-selector-registry.json"
+                  - "tests/frontend/internal-selector-migration-evidence.json"
+                  - "tests/frontend/checks/static/check-internal-selector-governance.mjs"
+                  - "tests/frontend/checks/static/internal-selector-governance-lib.mjs"
+                  - "docs/frontend/internal-selector-governance.md"
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "radius-scale-contract"
+              script: "check:radius-scale-contract"
+              access: "read"
+              stage: "concurrent"
+              reason: "Scans frontend source and public layout documentation for the approved radius scale without writing shared output."
+              consumedInputs: ["src/frontend/src", "src/frontend/package.json", "docs/public-layout-rules.md", "tests/frontend/checks/static/check-radius-scale-contract.mjs"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "frontend-test-layout"
+              script: "check:frontend-test-layout"
+              access: "read"
+              stage: "blocking-prebuild"
+              reason: "Rejects a secondary frontend test root and validates canonical setup, support, fixture, runner, and transform-cache ownership before Vitest starts."
+              consumedInputs: ["tests/governance/frontend-test-layout.json", "tests/frontend", "src/frontend/vitest*.{ts,mjs}", "src/frontend/vite.config.ts", "tools/test/frontend-vitest-transform-cache.mjs"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}
+            - id: "csharp-entrypoint-ownership"
+              script: "check:csharp-entrypoint-ownership"
+              access: "read"
+              stage: "blocking-prebuild"
+              reason: "Rejects C# entrypoints under the JavaScript frontend root and any executable source without explicit project or file-app ownership before frontend build work starts."
+              consumedInputs: ["tests/governance/csharp-entrypoint-ownership.json", "src", "benchmarks", "tests/backend", "tools"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}
+            - id: "test-execution-optimization"
+              script: "check:test-execution-optimization"
+              access: "read"
+              stage: "blocking-prebuild"
+              reason: "Fail-closes invalid production test topology before Vitest consumes that topology."
+              consumedInputs: ["tools/test", "tests/matrix.yml", "src/frontend/package.json"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}
+            - id: "backend-production-build-authority"
+              command: ["node", "../../tools/test/check-backend-production-build-authority.mjs"]
+              access: "read"
+              stage: "blocking-prebuild"
+              reason: "Rejects Debug compatibility builds and governance postlude testhosts in Production fresh while auditing every canonical Release backend artifact consumer."
+              consumedInputs:
+                  - "tests/governance/backend-production-build-consumers.json"
+                  - "tools/test/bundles/run-bundle.mjs"
+                  - "tools/test/run-backend-production-shards.mjs"
+                  - "tools/test/project-rights-v3-evidence.mjs"
+                  - "tools/test/project-evidence.mjs"
+                  - "tools/test/lanes/project-privacy-zk-production.mjs"
+                  - "tools/test/lanes/cross-stack-contract.sh"
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}
+            - id: "browser-contract-fixture"
+              script: "check:browser-contract-fixture"
+              access: "write"
+              stage: "concurrent"
+              reason: "Exercises the sealed single-namespace fixture lifecycle through injected providers and process-unique temporary roots without starting a browser or shared services."
+              consumedInputs: ["tests/browser-contract", "tests/tools/browser-contract-fixture.test.mjs", "tests/tools/browser-session-isolation.test.mjs", "src/frontend/package.json"]
+              ownedOutputs: ["os-temp://fsus-browser-contract-fixture-unique"]
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}
+            - id: "openapi-sync"
+              script: "check:openapi-sync"
+              access: "read"
+              stage: "concurrent"
+              reason: "Canonical current-run owner validates the checked-in OpenAPI document once for Cross-stack and Privacy/ZK consumers."
+              consumedInputs: ["src/shared/Contracts/Validation/fsusblog.openapi.json", "src/backend", "src/shared/Contracts", "src/frontend/src", "tests/contracts/openapi-policy.yml"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "openapi-generated-contract"
+              script: "check:contract:openapi"
+              access: "read"
+              stage: "concurrent"
+              reason: "Canonical owner validates generated cross-stack contract projection once."
+              consumedInputs: ["src/shared/Contracts/Validation/fsusblog.openapi.json", "tests/frontend/fixtures/cross-stack-contract-matrix.json", "tests/frontend/fixtures/cross-stack-contract-matrix.generated.json"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "frontend-routes"
+              script: "check:frontend-routes"
+              access: "read"
+              stage: "concurrent"
+              reason: "Canonical owner validates generated frontend routes once."
+              consumedInputs: ["src/frontend/src/generated/fsusBinaryRoutes.ts", "src/shared/Contracts/Validation/fsusblog.openapi.json"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "openapi-consumers"
+              script: "check:consumer:openapi"
+              access: "read"
+              stage: "concurrent"
+              reason: "Canonical owner validates OpenAPI consumers once."
+              consumedInputs: ["src/shared/Contracts/Validation/fsusblog.openapi.json", "src/frontend/src"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "api-parity"
+              script: "check:contract:api-parity"
+              access: "read"
+              stage: "concurrent"
+              reason: "Reads API declarations only and does not mutate Vitest inputs or results."
+              consumedInputs: ["src/frontend/src/api", "src/shared/Contracts", "docs/api"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "binary-import-boundaries"
+              script: "check:binary-import-boundaries"
+              access: "read"
+              stage: "concurrent"
+              reason: "Builds the frontend import graph and validates the binary contracts, adapter, transport, worker, and composition boundaries without writing shared output."
+              consumedInputs:
+                  - "src/frontend/src/contracts"
+                  - "src/frontend/src/codecs"
+                  - "src/frontend/src/api"
+                  - "src/frontend/src/adapters/binary"
+                  - "src/frontend/src/services/binaryTransport.ts"
+                  - "src/frontend/src/composition"
+                  - "src/frontend/src/workers/wasmDecode.worker.ts"
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "frame-schema"
+              script: "check:contract:frame-schema"
+              access: "read"
+              stage: "concurrent"
+              reason: "Reads generated frame contracts without writing generated contract files."
+              consumedInputs: ["src/core/Algorithms", "src/shared/Contracts", "src/frontend/src/generated"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "security-matrices"
+              script: "check:security:matrices"
+              access: "read"
+              stage: "concurrent"
+              reason: "Canonical current-run owner of security matrix and schema validation used by Privacy/ZK consumers."
+              consumedInputs: ["security/matrices", "tools/security/check-security-matrices.mjs"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "cross-stack-test-governance"
+              script: "check:cross-stack-test-governance"
+              access: "read"
+              stage: "concurrent"
+              reason: "Audits cross-stack test declarations independently of Vitest outputs."
+              consumedInputs: ["tests/frontend", "tests/backend", "src/shared/Contracts"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "cross-stack-receipt-fixtures"
+              command: ["node", "--test", "../../tests/tools/cross-stack-receipt-join.test.mjs"]
+              access: "write"
+              stage: "concurrent"
+              reason: "Exercises current-run receipt joins and fail-closed mutations in process-unique temporary repositories."
+              consumedInputs: ["tests/fixtures/evidence-projection/cross-stack-assertion-ownership.json", "tests/tools/cross-stack-receipt-join.test.mjs", "tools/test-matrix/cross-stack-receipts.mjs"]
+              ownedOutputs: ["os-temp://fsus-cross-stack-join-unique"]
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "modern-standards"
+              script: "check:modern-standards"
+              access: "read"
+              stage: "concurrent"
+              reason: "Scans source standards without touching build or test artifacts."
+              consumedInputs: ["src/frontend/src", "tests/frontend"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "frontend-source-rule-host"
+              command: ["node", "../../tools/frontend/run-source-rule-host.mjs"]
+              access: "write"
+              stage: "concurrent"
+              reason: >-
+                "Builds one commit- and worktree-bound frontend source index, executes migrated read-only rules in one resident Node process, and emits independent fail-closed receipts plus before/after process and source-read evidence."
+              consumedInputs:
+                  - "src/frontend/src"
+                  - "src/frontend/public/public-shell-emergency.css"
+                  - "src/frontend/package.json"
+                  - "docs/design/reading-typography.md"
+                  - "tools/frontend/source-index.mjs"
+                  - "tools/frontend/source-rule-host.mjs"
+                  - "tools/frontend/rules"
+              ownedOutputs: [".tmp/frontend/source-rule-host"]
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: ["frontend-source-rule-evidence"]}
+            - id: "author-ai-assist"
+              script: "check:author-ai-assist"
+              access: "read"
+              stage: "concurrent"
+              reason: "Canonical current-run owner validates the author AI assist boundary once for release-domain projection."
+              consumedInputs: ["src/backend", "src/frontend/src", "src/frontend/package.json", "docs/security.md", "docs/operations.md"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "result-boundaries"
+              script: "check:result-boundaries"
+              access: "read"
+              stage: "concurrent"
+              reason: "Checks result boundaries from source only."
+              consumedInputs: ["src/frontend/src", "src/shared/Contracts"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "error-code-alignment"
+              script: "check:error-code-alignment"
+              access: "read"
+              stage: "concurrent"
+              reason: "Compares error-code declarations without producing shared output."
+              consumedInputs: ["src/frontend/src", "src/shared/Contracts", "docs/api"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "runtime-message-branching"
+              script: "check:no-runtime-message-branching"
+              access: "read"
+              stage: "concurrent"
+              reason: "Scans runtime message handling and does not share Vitest state."
+              consumedInputs: ["src/frontend/src"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "security-consistency"
+              script: "check:security-consistency"
+              access: "read"
+              stage: "concurrent"
+              reason: "Reads security contracts without changing generated contracts or test results."
+              consumedInputs: ["src/frontend/src", "src/backend/Infrastructure", "docs/security.md"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "retired-character-challenge-residue"
+              command: ["node", "../../tools/security/check-retired-character-challenge-residue.mjs"]
+              access: "read"
+              stage: "blocking-prebuild"
+              reason: "Rejects retired character challenge identifiers and artifacts across repository-owned source, documentation, generated files, and package outputs."
+              consumedInputs: ["src", "docs", "config", "security", "tests", "tools", "*.tgz", "*.wasm"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}
+            - id: "retired-character-challenge-residue-fixture"
+              command: ["node", "--test", "../../tests/security/retired-character-challenge-residue.test.mjs"]
+              access: "write"
+              stage: "concurrent"
+              reason: "Exercises tracked, untracked, ignored static, binary, package, and historical-note residue cases in isolated temporary repositories."
+              consumedInputs: ["tools/security/check-retired-character-challenge-residue.mjs", "tests/security/retired-character-challenge-residue.test.mjs"]
+              ownedOutputs: ["os-temp://fsus-residue-unique"]
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "security-challenge-kind-cutover-verifier"
+              command: ["node", "--test", "../../tests/security/security-challenge-kind-cutover-verifier.test.mjs"]
+              access: "write"
+              stage: "concurrent"
+              reason: "Proves cutover receipts bind the exact operator-supplied numeric-to-wire target map and reject remapped or tampered evidence."
+              consumedInputs: ["tools/security/verify-security-challenge-kind-cutover.mjs", "tests/security/security-challenge-kind-cutover-verifier.test.mjs"]
+              ownedOutputs: ["os-temp://fsus-kind-cutover-verifier-unique"]
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "server-try-catch"
+              script: "check:server-try-catch"
+              access: "read"
+              stage: "concurrent"
+              reason: "Performs a source-only server exception-pattern audit."
+              consumedInputs: ["src/backend"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "asset-size-budget"
+              script: "check:asset-size-budget"
+              access: "write"
+              stage: "postbuild"
+              reason: "Consumes the completed frontend dist tree and owns its asset-budget evidence."
+              consumedInputs: ["src/frontend/dist"]
+              ownedOutputs: [".tmp/frontend/asset-size-budget.json"]
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.75, minCpuUnits: 1, exclusiveResources: ["frontend-dist", "frontend-static-output"]}
+            - id: "public-private-data-leakage"
+              script: "check:public-private-data-leakage"
+              access: "read"
+              stage: "concurrent"
+              reason: "Audits public/private source boundaries without writing shared artifacts."
+              consumedInputs: ["src/frontend/src", "src/backend", "src/shared/Contracts"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "public-aot-contracts"
+              script: "check:public-aot-contracts"
+              access: "read"
+              stage: "postbuild"
+              reason: "Validates public AOT output only after the frontend build marker is available."
+              consumedInputs: ["src/frontend/dist", "src/frontend/src/public-renderers", "src/shared/Contracts"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: ["frontend-dist"]}
+            - id: "public-distribution-contract"
+              script: "check:public-distribution-contract"
+              access: "read"
+              stage: "postbuild"
+              reason: "Canonical current-run owner validates immutable public distribution assets once for release-domain projection."
+              consumedInputs: ["src/frontend/dist", "src/frontend/public", "src/frontend/src", "src/frontend/package.json"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: ["frontend-dist"]}
+            - id: "public-page-manifest-sync"
+              script: "check:public-page-manifest-sync"
+              access: "read"
+              stage: "concurrent"
+              reason: "Validates the generated public page manifest once under the canonical frontend static producer so Rights V3 can project this rule without a second checker launch."
+              consumedInputs: ["src/frontend/src/public-renderers", "src/frontend/src/generated", "tools/frontend/generate-public-page-manifest.mjs"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "pwa-offline-policy"
+              script: "check:pwa-offline-policy"
+              access: "read"
+              stage: "concurrent"
+              reason: "Reads PWA policy sources independently from build and Vitest outputs."
+              consumedInputs: ["src/frontend", "docs"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "local-fsusui-public-shell-motion"
+              script: "check:local-fsusui-public-shell-motion"
+              access: "read"
+              stage: "concurrent"
+              reason: "Verifies that the local FsusUI alias and theme source own public-shell motion without browser geometry."
+              consumedInputs: ["src/frontend/scripts/fsusui-local.ts", "../FsusUI/vue/packages/theme-chalk/src", "../FsusUI/vue/packages/theme-chalk/dist"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "markdown-render-budget"
+              script: "check:markdown-render-budget"
+              access: "write"
+              stage: "isolated"
+              reason: "Owns the markdown structure producer artifact and current-run receipt exactly once before the receipt-only frontend-render-structure join."
+              consumedInputs:
+                  - "src/frontend/src/components/ui/MarkdownEditorAdapter.vue"
+                  - "src/frontend/src/components/ui/MarkdownRenderer.vue"
+                  - "src/frontend/src/fsusui/markdown.ts"
+                  - "src/frontend/package.json"
+                  - "tests/frontend/checks/perf/check-markdown-render-budget.mjs"
+              ownedOutputs: [".tmp/frontend/markdown-render-budget.json", ".tmp/frontend/receipts/markdown-render-budget.json"]
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: ["frontend-static-output", "frontend-render-pressure"]}
+            - id: "views-constraints"
+              script: "check:views-constraints"
+              access: "write"
+              stage: "final"
+              reason: "The standalone CI aggregate preserves package-script compatibility; local production expands the explicit commands below."
+              consumedInputs: ["src/frontend/src", "src/frontend/package.json", "src/frontend/dist", "tests/frontend/checks/static"]
+              ownedOutputs: [".tmp/frontend/asset-size-budget.json", ".tmp/frontend/dom-depth-static.json", ".tmp/frontend/receipts/dom-depth-static.json", ".tmp/frontend/route-asset-budget.json"]
+              dependsOn: ["asset-size-budget", "public-aot-contracts"]
+              resources: {cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: ["frontend-dist", "frontend-static-output", "frontend-render-pressure"]}
+              localCommands:
+                  - id: "views-constraints:core"
+                    command: ["node", "../../tests/frontend/checks/static/check-views-constraints.mjs"]
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Checks view structure from source without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:admin-tokens"
+                    script: "check:admin-tokens"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits admin tokens from source only."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:foundation-token-governance"
+                    script: "check:foundation-token-governance"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits foundation tokens from source only."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:motion-governance"
+                    script: "check:motion-governance"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits motion contracts without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:admin-task-feedback"
+                    script: "check:admin-task-feedback"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits admin task feedback without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:admin-eyebrow-governance"
+                    script: "check:admin-eyebrow-governance"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits admin eyebrow copy without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:admin-empty-state-governance"
+                    script: "check:admin-empty-state-governance"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits admin empty states without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:admin-dashboard-panel-identity"
+                    script: "check:admin-dashboard-panel-identity"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits dashboard panel identity without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:admin-system-tabs-governance"
+                    script: "check:admin-system-tabs-governance"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits system tabs without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:audit-facet-summary"
+                    script: "check:audit-facet-summary"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits facet summaries without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:admin-a11y-governance"
+                    script: "check:admin-a11y-governance"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits admin accessibility without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:integrity-page-governance"
+                    script: "check:integrity-page-governance"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits integrity page source without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:profile-page-governance"
+                    script: "check:profile-page-governance"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits profile page source without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:admin-user-manage-governance"
+                    script: "check:admin-user-manage-governance"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits user management source without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:comment-thread-view-contract-identity"
+                    script: "check:comment-thread-view-contract-identity"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits comment-thread contracts without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:comment-markdown-renderer-boundary"
+                    script: "check:comment-markdown-renderer-boundary"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits the comment markdown renderer boundary without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:policy-modal-boundary"
+                    script: "check:policy-modal-boundary"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits policy modal boundaries without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:locale-api-erasure"
+                    script: "check:locale-api-erasure"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits locale API erasure without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:moderation-regions-datalist"
+                    script: "check:moderation-regions-datalist"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits moderation regions datalist boundaries without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:user-comments-page-governance"
+                    script: "check:user-comments-page-governance"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits user comments source without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:article-editor-workspace-governance"
+                    script: "check:article-editor-workspace-governance"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits editor workspace source without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:public-empty-state-governance"
+                    script: "check:public-empty-state-governance"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits public empty states without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:markdown-editor-state-governance"
+                    script: "check:markdown-editor-state-governance"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits editor state without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:visual-density-governance"
+                    script: "check:visual-density-governance"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits visual density without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:shell-material-governance"
+                    script: "check:shell-material-governance"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits shell material without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:messages-inbox-governance"
+                    script: "check:messages-inbox-governance"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits inbox source without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:public-reading-motion"
+                    script: "check:public-reading-motion"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits public reading motion without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:public-anti-ai-visual"
+                    script: "check:public-anti-ai-visual"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits public visual language without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:public-brand-hardcoding"
+                    script: "check:public-brand-hardcoding"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits public brand constants without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:default-brand-assets"
+                    script: "check:default-brand-assets"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits default brand assets without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/public", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:public-editorial-governance"
+                    script: "check:public-editorial-governance"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits editorial layout without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:public-copy-governance"
+                    script: "check:public-copy-governance"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits public copy without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:copy-centralization"
+                    script: "check:copy-centralization"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits copy centralization without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:json-long-id-governance"
+                    script: "check:json-long-id-governance"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits long identifier handling without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:row-state-motion"
+                    script: "check:row-state-motion"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits row-state motion without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:runtime-entry-reachability"
+                    script: "check:runtime-entry-reachability"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits production runtime entry reachability without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:dom-depth-static"
+                    script: "check:dom-depth-static"
+                    access: "write"
+                    stage: "isolated"
+                    reason: "Owns browserless DOM-depth structure evidence and must not collide with other evidence writers."
+                    consumedInputs: ["src/frontend/src"]
+                    ownedOutputs: [".tmp/frontend/dom-depth-static.json", ".tmp/frontend/receipts/dom-depth-static.json"]
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: ["frontend-static-output", "frontend-render-pressure"]}
+                  - id: "views-constraints:performance-governance"
+                    script: "check:performance-governance"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits performance policy without writing evidence."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json", "docs"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:route-asset-budget"
+                    script: "check:route-asset-budget"
+                    access: "write"
+                    stage: "postbuild"
+                    reason: "Consumes frontend dist and owns route asset-budget evidence."
+                    consumedInputs: ["src/frontend/dist"]
+                    ownedOutputs: [".tmp/frontend/route-asset-budget.json"]
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.75, minCpuUnits: 1, exclusiveResources: ["frontend-dist", "frontend-static-output"]}
+                  - id: "views-constraints:public-performance-batch"
+                    script: "check:public-performance-batch"
+                    access: "read"
+                    stage: "final"
+                    reason: "Runs after all public performance inputs and evidence owners have settled."
+                    consumedInputs: [".tmp/frontend/asset-size-budget.json", ".tmp/frontend/route-asset-budget.json", ".tmp/release-evidence/frontend-render-structure-summary.json", "docs/performance-public-batch.md"]
+                    ownedOutputs: []
+                    dependsOn: ["asset-size-budget", "views-constraints:dom-depth-static", "views-constraints:route-asset-budget"]
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: ["frontend-static-output", "frontend-render-pressure"]}
+                  - id: "views-constraints:public-atomic-takeover-governance"
+                    script: "check:public-atomic-takeover-governance"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits atomic takeover source without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:public-bootstrap-causal-zero-residue"
+                    script: "check:public-bootstrap-causal-zero-residue"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits public bootstrap causal zero-residue across production, tests, fixtures, docs, and bundles."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json", "tests/frontend", "docs/architecture", "docs/frontend"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:document-viewport-source"
+                    script: "check:document-viewport-source"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Enforces sole document viewport authoring in index.html with viewport-fit=cover and rejects runtime/backend copies."
+                    consumedInputs: ["src/frontend/index.html", "src/frontend/src", "src/frontend/package.json", "src/backend/Infrastructure/PublicAot", "docs/frontend"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:canonical-viewport-safe-area"
+                    script: "check:canonical-viewport-safe-area"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Enforces Blog consumer-only use of FsusUI canonical safe-area/viewport tokens and rejects env()/vh dual-write residues."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json", "docs/frontend"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:public-dev-mode-governance"
+                    script: "check:public-dev-mode-governance"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits public development-mode behavior without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:fsusui-typecheck-modes"
+                    script: "check:fsusui-typecheck-modes"
+                    access: "read"
+                    stage: "blocking-prebuild"
+                    reason: "Validates FsusUI alias and typecheck modes used by Vitest before admission."
+                    consumedInputs: ["src/frontend/tsconfig*.json", "src/frontend/vite*.{ts,mjs}", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:fsusui-boundary"
+                    script: "check:fsusui-boundary"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Audits the FsusUI source boundary without shared output."
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+                  - id: "views-constraints:fsusui-boundary-fixture"
+                    script: "check:fsusui-boundary-fixture"
+                    access: "read"
+                    stage: "concurrent"
+                    reason: "Runs isolated boundary fixtures without repository output."
+                    consumedInputs: ["tests/frontend/fixtures", "src/frontend/package.json"]
+                    ownedOutputs: []
+                    dependsOn: []
+                    resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "public-hot-read-fastpath"
+              command: ["bash", "../../tools/check-public-hot-read-fastpath.sh"]
+              access: "read"
+              stage: "concurrent"
+              reason: "Audits the public hot-read source path without shared output."
+              consumedInputs: ["src/backend", "src/frontend/src", "tools"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "historical-residue"
+              command: ["bash", "../../tools/check-historical-residue.sh"]
+              access: "read"
+              stage: "concurrent"
+              reason: "Scans repository residue without shared output."
+              consumedInputs: ["src", "tests", "tools", "docs"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "historical-residue-fixture"
+              command: ["node", "../../tests/frontend/checks/static/check-historical-residue-fixture.mjs"]
+              access: "read"
+              stage: "concurrent"
+              reason: "Runs unique temporary fixtures without repository output."
+              consumedInputs: ["tests/frontend/checks/static", "tools/check-historical-residue.sh"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}
+            - id: "test-fixture-secret-governance"
+              script: "check:test-fixture-secret-governance"
+              access: "read"
+              stage: "concurrent"
+              reason: "Audits fixture secrets from source only."
+              consumedInputs: ["tests", "src/frontend"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "test-fixture-secret-governance-fixture"
+              command: ["node", "../../tests/frontend/checks/static/check-test-fixture-secret-governance-fixture.mjs"]
+              access: "read"
+              stage: "concurrent"
+              reason: "Runs unique secret-governance fixtures without repository output."
+              consumedInputs: ["tests/frontend/checks/static", "tests/frontend/fixtures"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}
+            - id: "cache-governance"
+              command: ["bash", "../../tools/check-cache-governance.sh"]
+              access: "read"
+              stage: "concurrent"
+              reason: "Audits cache declarations without shared output."
+              consumedInputs: ["src/backend/Infrastructure/Cache", "src/backend/Program.cs", "docs/architecture.md"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "test-hygiene"
+              command: ["bash", "../../tools/check-test-hygiene.sh"]
+              access: "read"
+              stage: "concurrent"
+              reason: "Audits test source hygiene without shared output."
+              consumedInputs: ["tests", "tools/test"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "slo-definition"
+              command: ["node", "../../tools/operations/check-slo-definition.mjs"]
+              access: "read"
+              stage: "concurrent"
+              reason: "Reads SLO definitions without shared output."
+              consumedInputs: ["operations", "docs", "tools/operations"]
+              ownedOutputs: []
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
+            - id: "release-evidence-self-test"
+              command: ["node", "../../tools/operations/check-release-evidence-manifest.mjs", "--self-test"]
+              access: "write"
+              stage: "concurrent"
+              reason: "Writes only a process-unique OS temporary fixture tree and can overlap repository tests."
+              consumedInputs: ["tools/operations/check-release-evidence-manifest.mjs"]
+              ownedOutputs: ["os-temp://fsus-release-manifest-unique"]
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}
+            - id: "release-slo-alerts-self-test"
+              command: ["node", "../../tools/operations/check-release-slo-alerts.mjs", "--self-test"]
+              access: "write"
+              stage: "concurrent"
+              reason: "Writes only a process-unique OS temporary fixture tree and can overlap repository tests."
+              consumedInputs: ["tools/operations/check-release-slo-alerts.mjs"]
+              ownedOutputs: ["os-temp://fsus-slo-alerts-unique"]
+              dependsOn: []
+              resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
     frontend-runtime-contracts:
         schema: "fsusblog.test-command-manifest.v1"
         lane: "frontend-runtime-contracts"
@@ -762,7 +1732,9 @@ tiers:
       prDefault: true
       smartGateMode: always
       retentionClass: must-keep
-      triggerReason: every runtime/browser/production/release candidate requires a source-bound BehaviorGraph pre-runtime evidence receipt joining static admission, current-run test evidence, and per-behavior mutation evidence before any candidate can start
+      triggerReason: >-
+        every runtime/browser/production/release candidate requires a source-bound BehaviorGraph pre-runtime evidence receipt joining static admission, current-run test evidence, and per-behavior mutation evidence before any candidate can
+        start
 
     - id: behavior-evidence-post-runtime
       executionClass: coordination
@@ -2039,7 +3011,10 @@ tiers:
           - id: integrity-proof-source-results
             path: .tmp/test-results/backend/integrity-proof-source.json
       requiresEvidenceFrom: [backend-unit]
-      command: node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/integrity-proof-verification.json --producer .tmp/test-results/backend/evidence-producers/backend-unit.json --output .tmp/release-evidence/integrity-proof-verification.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace "$FSUSBLOG_TEST_NAMESPACE"
+      command: >-
+        node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/integrity-proof-verification.json --producer .tmp/test-results/backend/evidence-producers/backend-unit.json --output
+        .tmp/release-evidence/integrity-proof-verification.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace
+        "$FSUSBLOG_TEST_NAMESPACE"
       executionDependsOn: []
       services: []
       parallelizable: true
@@ -2523,6 +3498,15 @@ tiers:
           - tools/governance/check-dependency-required-checks.mjs
           - tests/fixtures/governance/dependency-required-checks.json
           - tests/tools/dependency-required-checks.test.mjs
+          - config/dependencies/fsusui-release-event.schema.json
+          - tools/dependencies/verify-fsusui-release-event.mjs
+          - tests/tools/fsusui-release-event.test.mjs
+          - tools/dependencies/verify-fsusui-candidate.mjs
+          - tools/dependencies/fsusui-candidate-package-smoke.mjs
+          - tests/tools/fsusui-candidate.test.mjs
+          - tests/frontend/checks/static/check-fsusui-boundary.mjs
+          - tests/frontend/checks/static/check-fsusui-typecheck-modes.mjs
+          - docs/frontend/fsusui-typecheck-modes.md
           - renovate.json5
           - tools/governance/dependency-automerge.mjs
           - tools/governance/check-dependency-automerge.mjs
@@ -2543,6 +3527,9 @@ tiers:
           - config/development/document-lifecycle.json
           - config/development/document-inventory.generated.json
           - tests/tools/authoritative-development-docs.test.mjs
+          - tests/tools/agent-context-routing.test.mjs
+          - tests/tools/blog-ui-orchestration.test.mjs
+          - .agents/skills/fsusblog-design-conformance
           - tests/tools/document-lifecycle.test.mjs
           - tests/tools/public-design-document-authority.test.mjs
           - docs/frontend/public-shell-ownership.md
@@ -3476,7 +4463,16 @@ tiers:
       smartGateMode: conditional
       retentionClass: must-keep
       triggerPaths: [src/backend/Infrastructure/SchemaMigration, src/backend/Infrastructure/Testing, tools/db, tools/test/execution-envelope-services.mjs, tools/test/lanes/current-schema-bootstrap-integration.sh]
-      triggerFiles: [config/testing/test-execution-service-catalog.json, src/backend/Program.cs, tests/tools/current-schema-bootstrap-integration.test.mjs, tests/tools/current-schema-materialization-receipt.test.mjs, tests/tools/fixture-catalog.test.mjs, tools/bootstrap-acceptance-env.sh, tools/test/lanes/homogeneous-two-node-fixture.sh, tools/testing/fixture-catalog.mjs, tests/matrix.yml]
+      triggerFiles:
+          - config/testing/test-execution-service-catalog.json
+          - src/backend/Program.cs
+          - tests/tools/current-schema-bootstrap-integration.test.mjs
+          - tests/tools/current-schema-materialization-receipt.test.mjs
+          - tests/tools/fixture-catalog.test.mjs
+          - tools/bootstrap-acceptance-env.sh
+          - tools/test/lanes/homogeneous-two-node-fixture.sh
+          - tools/testing/fixture-catalog.mjs
+          - tests/matrix.yml
       triggerCoverage: [current-schema-bootstrap, current-schema-physical-exactness, current-schema-receipt-lifecycle]
       triggerReason: current-schema materialization, PostgreSQL observation, verifier exactness, service identity, or terminal receipt lifecycle changed
 
@@ -7426,7 +8422,7 @@ tiers:
       risk: critical
       cadence: push
       requiredFor: production
-      coverage: [perception-character-v3-breaking-release]
+      coverage: [perception-character-v3-breaking-release, perception-character-v3-budget-local-redis]
       artifacts:
           [
               .tmp/security/perception-character-v3/release-gate,
@@ -7671,7 +8667,10 @@ tiers:
       requiredCoverageIds: [release-admin-console]
       requiredArtifactDeclarations: [{id: frontend-unit-shard-results, path: .tmp/frontend/frontend-unit-shard.json}]
       requiresEvidenceFrom: [frontend-unit-shard]
-      command: node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-admin-console.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-admin-console.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace "$FSUSBLOG_TEST_NAMESPACE"
+      command: >-
+        node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-admin-console.json --producer-directory .tmp/test-results/evidence-producers --output
+        .tmp/release-evidence/projections/release-admin-console.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace
+        "$FSUSBLOG_TEST_NAMESPACE"
       executionDependsOn: []
       services: []
       parallelizable: true
@@ -7724,7 +8723,9 @@ tiers:
       requiredCoverageIds: [release-auth-flow]
       requiredArtifactDeclarations: [{id: frontend-unit-shard-results, path: .tmp/frontend/frontend-unit-shard.json}]
       requiresEvidenceFrom: [frontend-unit-shard]
-      command: node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-auth-flow.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-auth-flow.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace "$FSUSBLOG_TEST_NAMESPACE"
+      command: >-
+        node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-auth-flow.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-auth-flow.json
+        --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace "$FSUSBLOG_TEST_NAMESPACE"
       executionDependsOn: []
       services: []
       parallelizable: true
@@ -7771,7 +8772,10 @@ tiers:
       requiredCoverageIds: [release-authoring-flow]
       requiredArtifactDeclarations: [{id: test-quality-summary, path: .tmp/release-evidence/test-quality-summary.json}]
       requiresEvidenceFrom: [test-quality-lint]
-      command: node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-authoring-flow.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-authoring-flow.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace "$FSUSBLOG_TEST_NAMESPACE"
+      command: >-
+        node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-authoring-flow.json --producer-directory .tmp/test-results/evidence-producers --output
+        .tmp/release-evidence/projections/release-authoring-flow.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace
+        "$FSUSBLOG_TEST_NAMESPACE"
       executionDependsOn: []
       services: []
       parallelizable: true
@@ -7818,7 +8822,10 @@ tiers:
       requiredCoverageIds: [release-private-preview]
       requiredArtifactDeclarations: [{id: test-quality-summary, path: .tmp/release-evidence/test-quality-summary.json}]
       requiresEvidenceFrom: [test-quality-lint]
-      command: node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-private-preview.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-private-preview.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace "$FSUSBLOG_TEST_NAMESPACE"
+      command: >-
+        node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-private-preview.json --producer-directory .tmp/test-results/evidence-producers --output
+        .tmp/release-evidence/projections/release-private-preview.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace
+        "$FSUSBLOG_TEST_NAMESPACE"
       executionDependsOn: []
       services: []
       parallelizable: true
@@ -7865,7 +8872,10 @@ tiers:
       requiredCoverageIds: [release-error-boundary]
       requiredArtifactDeclarations: [{id: test-quality-summary, path: .tmp/release-evidence/test-quality-summary.json}]
       requiresEvidenceFrom: [test-quality-lint]
-      command: node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-error-boundary.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-error-boundary.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace "$FSUSBLOG_TEST_NAMESPACE"
+      command: >-
+        node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-error-boundary.json --producer-directory .tmp/test-results/evidence-producers --output
+        .tmp/release-evidence/projections/release-error-boundary.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace
+        "$FSUSBLOG_TEST_NAMESPACE"
       executionDependsOn: []
       services: []
       parallelizable: true
@@ -7916,7 +8926,10 @@ tiers:
               {id: browser-diagnostics-release-runtime-receipt, path: .tmp/browser-diagnostics/release-runtime-receipt.json},
           ]
       requiresEvidenceFrom: [browser-diagnostics-manual]
-      command: node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-rbac-negative.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-rbac-negative.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace "$FSUSBLOG_TEST_NAMESPACE"
+      command: >-
+        node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-rbac-negative.json --producer-directory .tmp/test-results/evidence-producers --output
+        .tmp/release-evidence/projections/release-rbac-negative.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace
+        "$FSUSBLOG_TEST_NAMESPACE"
       executionDependsOn: []
       services: []
       parallelizable: true
@@ -7970,7 +8983,10 @@ tiers:
       requiredCoverageIds: [release-aot-generation]
       requiredArtifactDeclarations: [{id: release-evidence-plan, path: .tmp/release-evidence/test-plan.json}]
       requiresEvidenceFrom: [release-evidence]
-      command: node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-aot-generation.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-aot-generation.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace "$FSUSBLOG_TEST_NAMESPACE"
+      command: >-
+        node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-aot-generation.json --producer-directory .tmp/test-results/evidence-producers --output
+        .tmp/release-evidence/projections/release-aot-generation.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace
+        "$FSUSBLOG_TEST_NAMESPACE"
       executionDependsOn: []
       services: []
       parallelizable: true
@@ -8021,7 +9037,10 @@ tiers:
               {id: browser-diagnostics-release-runtime-receipt, path: .tmp/browser-diagnostics/release-runtime-receipt.json},
           ]
       requiresEvidenceFrom: [browser-diagnostics-manual]
-      command: node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-aot-consumption.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-aot-consumption.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace "$FSUSBLOG_TEST_NAMESPACE"
+      command: >-
+        node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-aot-consumption.json --producer-directory .tmp/test-results/evidence-producers --output
+        .tmp/release-evidence/projections/release-aot-consumption.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace
+        "$FSUSBLOG_TEST_NAMESPACE"
       executionDependsOn: []
       services: []
       parallelizable: true
@@ -8075,7 +9094,10 @@ tiers:
       requiredCoverageIds: [release-static-asset-digest-coherence]
       requiredArtifactDeclarations: [{id: release-evidence-plan, path: .tmp/release-evidence/test-plan.json}]
       requiresEvidenceFrom: [release-evidence]
-      command: node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-static-asset-digest-coherence.json --producer-directory .tmp/test-results/evidence-producers --output .tmp/release-evidence/projections/release-static-asset-digest-coherence.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace "$FSUSBLOG_TEST_NAMESPACE"
+      command: >-
+        node tools/test/project-evidence.mjs --catalog tests/fixtures/evidence-projection/release-static-asset-digest-coherence.json --producer-directory .tmp/test-results/evidence-producers --output
+        .tmp/release-evidence/projections/release-static-asset-digest-coherence.json --root . --commit "$FSUSBLOG_TEST_SOURCE_COMMIT" --worktree-fingerprint "$FSUSBLOG_TEST_SOURCE_FINGERPRINT" --run-id "$FSUSBLOG_TEST_RUN_ID" --namespace
+        "$FSUSBLOG_TEST_NAMESPACE"
       executionDependsOn: []
       services: []
       parallelizable: true

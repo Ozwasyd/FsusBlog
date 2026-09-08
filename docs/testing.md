@@ -1354,4 +1354,10 @@ render: enum-set
 - `visual-public`
 - `wasm-build-artifacts`
 - `wasm-fuzz-regression`
+<!-- #2527 current LocalRedis budget evidence -->
+
+`BudgetedLeaseAtomicallyAccountsExactBytesQuotasAndRetryIdentity` is executed only by the canonical LocalRedis producer; ordinary discovery excludes it with `Fixture!=LocalRedis`. The test binds the current run, Redis endpoint, assembly and `budgeted-lease` prefix and records six independent accounting observations. Missing Redis, stale or cross-run prefixes, byte/inventory mismatches, duplicate execution, and cleanup failures fail closed.
+
+`FSUSBLOG_TEST_REDIS_HOST` defaults to `127.0.0.1`; only `host.docker.internal` is additionally permitted for an isolated Linux test container to reach the local Docker-published port. Other addresses are rejected before startup. This configuration cannot connect to an external Redis; the endpoint and evidence remain bound to the same local Docker fixture.
+
 <!-- FSUSBLOG-GENERATED:END testing.tiers -->

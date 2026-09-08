@@ -308,7 +308,7 @@
             "source": "src/backend/Infrastructure/Filters/BannedUserMiddleware.cs",
             "sourceToken": "class BannedUserMiddleware",
             "documents": [
-                "AGENTS.md"
+                "docs/architecture.md"
             ],
             "documentToken": "BannedUserMiddleware"
         },
@@ -317,7 +317,7 @@
             "source": "src/backend/Infrastructure/Results/BinaryFrameResult.cs",
             "sourceToken": "class BinaryFrameResult",
             "documents": [
-                "AGENTS.md"
+                "docs/architecture.md"
             ],
             "documentToken": "BinaryFrameResult"
         },
@@ -326,7 +326,7 @@
             "source": "src/backend/Infrastructure/Results/BinaryFrameResult.cs",
             "sourceToken": "class BinaryPreencodedFrameResult",
             "documents": [
-                "AGENTS.md"
+                "docs/architecture.md"
             ],
             "documentToken": "BinaryPreencodedFrameResult"
         },
@@ -335,7 +335,7 @@
             "source": "src/core/Cache/PodBinaryCodec.Common.cs",
             "sourceToken": "static partial class PodBinaryCodec",
             "documents": [
-                "AGENTS.md"
+                "docs/architecture.md"
             ],
             "documentToken": "PodBinaryCodec.WriteArticlePage"
         },
@@ -344,7 +344,7 @@
             "source": "src/core/Algorithms/AedsFrameBufferWriter.cs",
             "sourceToken": "class AedsFrameBufferWriter",
             "documents": [
-                "AGENTS.md"
+                "docs/architecture.md"
             ],
             "documentToken": "AedsFrameBufferWriter"
         },
@@ -353,7 +353,7 @@
             "source": "src/backend/Infrastructure/Results/BinaryResults.cs",
             "sourceToken": "BinaryFrameResult Frame(",
             "documents": [
-                "AGENTS.md"
+                "docs/architecture.md"
             ],
             "documentToken": "BinaryResults.Frame"
         }
