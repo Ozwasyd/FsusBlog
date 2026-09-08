@@ -9,6 +9,8 @@ import test from 'node:test'
 import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs'
 import { BehaviorId } from '../../tools/contracts/behavior-contract-catalog.mjs'
 import { sealBrowserContractReceipt } from '../../tools/release/test-evidence-receipts.mjs'
+import { deriveBrowserObservedRawFacts } from '../../tools/test-evidence/browser-contract-observed-facts.mjs'
+import { selectBrowserContractScenarios } from '../browser-contract/contract-core.mjs'
 import { createReleaseRolloutEvidenceFixture } from './support/release-rollout-evidence-fixture.mjs'
 import {
     acceptedClaimsSchema,
@@ -304,7 +306,7 @@ function producerReceipt(classId = 'route-response-error')
                 locale: 'zh-CN', deviceScaleFactor: 1, colorScheme: 'light', renderer: 'SwiftShader fixture renderer'
             } })
         const preview = JSON.parse(fs.readFileSync(path.join(receiptRepositoryRoot, upstreamBody.publicPreviewRef.path), 'utf8'))
-        const browser = sealBrowserContractReceipt({
+        let browser = sealBrowserContractReceipt({
             ...upstreamBody,
             sourceState: canonicalSource,
             status: 'success', classification: 'clean', error: null,
@@ -312,16 +314,24 @@ function producerReceipt(classId = 'route-response-error')
             finalization: { state: 'complete', primary: { status: 'success' },
                 cleanup: { status: 'success' }, persistence: { attemptCount: 1 } },
             playwright: { chromiumRevision: '123456', browserIdentity: { plan: browserPlan, actual: browserActual } },
-            topology: { browserLaunchCount: 1, maxConcurrentBrowserRoots: 1, retries: 0, contextCount: 1 },
+            topology: { browserLaunchCount: 1, maxConcurrentBrowserRoots: 1, retries: 0, contextCount: selectBrowserContractScenarios().length },
             build,
             fixture: { namespace: 'run-1', lifecycle: { identity: { runId: sourceState.runId } } },
             runIdentity: { commit: sourceState.sourceCommit, runId: sourceState.runId,
                 attemptId: sourceState.attemptId, namespace: 'run-1' },
-            scenarios: [{ id: 'browser-source', status: 'success', classification: 'clean', issues: [], artifacts: [] }],
+            scenarios: selectBrowserContractScenarios().map(({ id, capability }) => ({
+                id, capability, status: 'success', classification: 'clean', issues: [], artifacts: [],
+                startedAt: '2026-09-07T00:00:00.000Z', finishedAt: '2026-09-07T00:00:00.001Z',
+                durationMs: 1, error: null
+            })),
             publicPreview: { ...preview, captureContextCount: 9, evidencePath: upstreamBody.publicPreviewRef.path,
                 evidenceFileDigest: upstreamBody.publicPreviewRef.fileDigest },
             candidatePlanRef
         })
+        browser = sealBrowserContractReceipt({ ...browser, rawFacts: deriveBrowserObservedRawFacts(browser, preview) })
+        for (const field of definition.requiredSemanticFactFields)
+            semanticFacts[field] = field.endsWith('Digest')
+                ? authorityDigest(browser.rawFacts[rawFieldFor(field)]) : browser.rawFacts[field]
         const browserRef = writeDependency(upstreamRelative, browser, 'browser')
         Object.assign(upstreamRef, browserRef)
         sourceState.artifactDigest = browserRef.fileDigest
@@ -712,6 +722,8 @@ test('canonical Browser source keeps its sealer fields and rejects re-sealed ide
         [(value) => { value.candidatePlanRef.fileDigest = digest('f') }, /candidatePlanRef file digest mismatch/u],
         [(value) => { value.candidatePlanRef.path = '.tmp/latest/plan.json' }, /explicit current-run JSON path/u],
         [(value) => { value.status = 'failure' }, /canonical Browser contract/u],
+        [(value) => { value.rawFacts.network.requestFailureCount = 3 }, /raw semantic facts do not replay/u],
+        [(value) => { value.scenarios[0].observation = { retainedButChanged: true } }, /raw semantic facts do not replay/u],
         [mutatePreview((value) => { value.captureContextCount = 9 }), /canonical preview has missing or unknown fields/u],
         [mutatePreview((value) => { delete value.qualityAudit }), /canonical preview has missing or unknown fields/u],
         [mutatePreview((value) => { value.qualityAudit = false }), /canonical preview quality mismatch/u],
@@ -755,10 +767,14 @@ test('canonical pure receipt modules retain transitive no-I/O and no-execution b
     assert.doesNotThrow(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry))
     fs.writeFileSync(entryFile, 'export const origin = value => new URL(value).origin\n')
     assert.doesNotThrow(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry))
+    fs.writeFileSync(entryFile, "export const pathname = value => new URL(value, 'https://fsusblog.invalid').pathname\n")
+    assert.doesNotThrow(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry))
     for (const source of [
         "import fs from 'node:fs'\nexport const reader = fs\n",
         "import fs from 'node:fs'\nexport const reader = value => fs.readFileSync(new URL(value))\n",
         'export const resolve = value => new URL(value, import.meta.url)\n',
+        "export const resolve = value => new URL(value, 'file:///tmp/').pathname\n",
+        'export const resolve = (value, base) => new URL(value, base).pathname\n',
         'export const origin = (value, URL) => new URL(value).origin\n',
         'const { URL } = {}; export const origin = value => new URL(value).origin\n',
         'URL = class {}; export const origin = value => new URL(value).origin\n',
@@ -782,6 +798,10 @@ test('canonical pure receipt modules retain transitive no-I/O and no-execution b
         assert.throws(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry), /forbidden/u)
     }
     for (const canonical of [entry, 'tools/docs/behavior-doc-minimal-contract-build-contract.mjs',
+        'tools/test-evidence/runtime-observation-probe-facts.mjs',
+        'tools/test-evidence/browser-contract-observed-facts.mjs',
+        'tools/test-evidence/aot-spa-hydration-observed-facts.mjs',
+        'tools/test-fixtures/receipt/prepared-public-projection-contract.mjs',
         'tools/deployment/release-rollout-evidence-receipt-contract.mjs',
         'tools/release/browser-contract-receipt-contract.mjs',
         'tools/release/public-preview-quality-receipt-contract.mjs'])

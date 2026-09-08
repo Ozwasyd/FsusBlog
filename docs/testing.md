@@ -1025,6 +1025,8 @@ The rollout CLI delegates sealed receipt verification to `tools/deployment/relea
 
 The post-runtime registry replays that same rollout verifier through its pinned current-run reader, including nested command outputs and artifact bytes. The canonical rollout receipt has no `contentDigest`; its explicit reference carries the byte digest and `contentDigest: null`, without inventing a producer seal. Rollout IDs use the producer's canonical validator and must equal the referenced rollout identity; a run-shaped name cannot replace source/run/reference binding.
 
+Browser raw facts are re-derived with the producer's `tools/test-evidence/browser-contract-observed-facts.mjs` from the canonical scenario set, retained observations and verified preview quality reports before accepting the envelope's semantic digests. A re-sealed raw-fact object cannot replace those underlying observations. Prepared public-content IDs are projected by the shared pure `tools/test-fixtures/receipt/prepared-public-projection-contract.mjs`; the projection remains navigation-only and does not stand in for a verified fixture receipt.
+
 `fsusblog.post-runtime-accepted-claims.v1` only accepts #2205 accepted terminal authority. The validator rereads `fsusblog.global-claim-exactness-terminal-receipt.v1` through explicit current-run path, recalculates file SHA-256 and canonical content digest, and replays the terminal validator; source/worktree, migration-ledger digest, producer/tool ​​version must be exactly consistent with the complete claim set. The validator only reads existing terminal receipts and does not run or repair upstream evidence.
 
 Focused validation：

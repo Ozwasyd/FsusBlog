@@ -24,6 +24,7 @@ import { digestValue, isPlainObject } from '../fact-extractors/lib/canonicalize.
 import { validateRolloutId, verifyReleaseRolloutEvidence } from '../deployment/release-rollout-evidence-receipt-contract.mjs'
 import { validateBrowserContractReceipt, validatePublicPreviewEvidenceBinding } from '../release/browser-contract-receipt-contract.mjs'
 import { projectPublicPreviewQualityRegistry, validatePublicPreviewQualityManifestValue } from '../release/public-preview-quality-receipt-contract.mjs'
+import { deriveBrowserObservedRawFacts } from '../test-evidence/browser-contract-observed-facts.mjs'
 import { parseMatrix } from './parse-matrix.mjs'
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -84,6 +85,10 @@ const attemptIdentityPattern = /^attempt-[0-9]{4}$/u
 const releaseIdentityPattern = /^[0-9]{14}-[a-f0-9]{12}$/u
 const readerFirewallEntry = 'tools/test-matrix/post-runtime-producer-registry.mjs'
 const pureReceiptContracts = new Set([
+    'tools/test-evidence/runtime-observation-probe-facts.mjs',
+    'tools/test-evidence/browser-contract-observed-facts.mjs',
+    'tools/test-evidence/aot-spa-hydration-observed-facts.mjs',
+    'tools/test-fixtures/receipt/prepared-public-projection-contract.mjs',
     'tools/deployment/release-rollout-evidence-receipt-contract.mjs',
     'tools/docs/behavior-doc-static-admission-contract.mjs',
     'tools/docs/behavior-doc-minimal-contract-build-contract.mjs',
@@ -260,6 +265,9 @@ process.stdin.on('end', () => {
         const current = unwrap(node)
         return bindsUrl(current) || (current?.type === 'MemberExpression' && writesUrl(current.object))
     }
+    const pureUrlParser = (node) => node?.type === 'NewExpression'
+        && (node.arguments.length === 1 || (node.arguments.length === 2
+            && literal(node.arguments[1]) && /^https?:\/\//u.test(node.arguments[1].value)))
     const walk = (node, enclosingFunction = null, parent = null) => {
         if (!node || typeof node !== 'object') return
         if (process.argv[3] === 'pure' && node.type === 'Identifier'
@@ -268,7 +276,7 @@ process.stdin.on('end', () => {
         if (process.argv[3] === 'pure')
         {
             if (node.type === 'Identifier' && node.name === 'URL'
-                && !(parent?.type === 'NewExpression' && parent.callee === node && parent.arguments.length === 1))
+                && !(pureUrlParser(parent) && parent.callee === node))
                 throw new Error('URL capability outside standard value parsing is forbidden in a pure receipt contract')
             if (node.type === 'Identifier' && ['fetch', 'WebSocket', 'XMLHttpRequest', 'EventSource'].includes(node.name))
                 throw new Error('network capability is forbidden in a pure receipt contract')
@@ -374,7 +382,7 @@ process.stdin.on('end', () => {
             throw new Error('computed module factory method is forbidden in the reader closure')
         if (node.type === 'NewExpression' && node.callee?.type === 'Identifier' && node.callee.name === 'URL')
         {
-            const pureValueParser = process.argv[3] === 'pure' && node.arguments.length === 1
+            const pureValueParser = process.argv[3] === 'pure' && pureUrlParser(node)
             if (!pureValueParser && (!literal(node.arguments[0]) || forbiddenReaderPath(node.arguments[0].value)))
                 throw new Error('dynamic or documentation URL is forbidden in the reader closure')
         }
@@ -1840,6 +1848,8 @@ function browserSourceProjection(repositoryRoot, upstream, current, sourceState,
         expectedCommit: sourceState.sourceCommit, evidenceFileDigest: upstream.publicPreviewRef.fileDigest
     })
     if (previewErrors.length !== 0) fail(`${label} canonical preview binding: ${previewErrors.join('; ')}`)
+    if (digestValue(upstream.rawFacts) !== digestValue(deriveBrowserObservedRawFacts(upstream, preview)))
+        fail(`${label} raw semantic facts do not replay from canonical Browser observations`)
     return {
         ...identityProjection(plan),
         sourceCommit: upstream.sourceState.commit,
