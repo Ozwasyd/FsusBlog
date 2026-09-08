@@ -437,13 +437,141 @@ function verifyCommentMatrix(id) {
   return (ctx) => {
     const db = ctx.observations?.database
     if (!db) return fail(id, 'database observation required')
-    const comments = entitiesOf(db, 'comment')
+    const comments = entitiesOf(db, 'comment').filter((item) => item.owned !== false)
     const owned = requireOwnedIds(comments, id)
     if (!owned.ok) return fail(id, owned.reason)
+    if (new Set(owned.ids).size !== owned.ids.length) return fail(id, 'comment identities are duplicated')
     for (const comment of comments) {
       if (!comment.fields?.articleId) return fail(id, `comment ${comment.id} missing articleId`)
-      if (id === 'comment-threaded' && comment.fields?.parentId == null && comment.fields?.threadDepth == null) {
-        return fail(id, `comment ${comment.id} missing thread relation`)
+    }
+
+    const one = (role) => comments.filter((item) => item.fields?.semanticRole === role)
+    if (id === 'comment-moderation-matrix') {
+      const expected = {
+        'approved-root': { status: 'approved', publicVisible: true, queueMember: false, queueBucket: 'approved', queueOrder: -1 },
+        pending: { status: 'pending', publicVisible: false, queueMember: true, queueBucket: 'pending' },
+        rejected: { status: 'rejected', publicVisible: false, queueMember: true, queueBucket: 'rejected' },
+        spam: { status: 'spam', runtimeStatus: 'rejected', publicVisible: false, queueMember: true, queueBucket: 'rejected' }
+      }
+      const queuePositions = new Set()
+      const queueSizes = new Map()
+      for (const [role, state] of Object.entries(expected)) {
+        const matches = one(role)
+        if (matches.length !== 1) return fail(id, `${role} must use one independent comment identity`)
+        const fields = matches[0].fields ?? {}
+        const queueOrder = fields.queueOrder
+        const queueMembershipSize = fields.queueMembershipSize
+        const queuePositionValid = Number.isSafeInteger(queueOrder)
+          && Number.isSafeInteger(queueMembershipSize) && queueMembershipSize >= 0
+          && (state.queueMember
+            ? queueOrder >= 0 && queueOrder < queueMembershipSize
+            : queueOrder === -1)
+        if (fields.moderationStatus !== state.status
+          || fields.publicVisible !== state.publicVisible
+          || fields.queueMember !== state.queueMember
+          || fields.queueBucket !== state.queueBucket
+          || !queuePositionValid) {
+          return fail(id, `${role} public/admin/queue projection mismatch`)
+        }
+        if (state.queueMember) {
+          const position = `${state.queueBucket}:${queueOrder}`
+          if (queuePositions.has(position)) return fail(id, `${role} queue order is duplicated`)
+          queuePositions.add(position)
+          if (queueSizes.has(state.queueBucket) && queueSizes.get(state.queueBucket) !== queueMembershipSize) {
+            return fail(id, `${role} queue membership size disagrees within its bucket`)
+          }
+          queueSizes.set(state.queueBucket, queueMembershipSize)
+        }
+        if (state.runtimeStatus && fields.moderationRuntimeStatus !== state.runtimeStatus) {
+          return fail(id, `${role} runtime moderation projection mismatch`)
+        }
+        if (!Array.isArray(fields.outboxEventIds) || fields.outboxEventIds.length === 0
+          || new Set(fields.outboxEventIds).size !== fields.outboxEventIds.length
+          || fields.outboxEventIds.some((eventId) => !/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iu.test(eventId))) {
+          return fail(id, `${role} lacks exact outbox evidence`)
+        }
+        if (role !== 'pending'
+          && (!Array.isArray(fields.moderationEventIds) || fields.moderationEventIds.length === 0
+            || new Set(fields.moderationEventIds).size !== fields.moderationEventIds.length
+            || fields.moderationEventIds.some((eventId) => !/^[1-9][0-9]*$/u.test(String(eventId)))
+            || !fields.moderatedByAdminPrincipalId || !fields.moderatedAt)) {
+          return fail(id, `${role} lacks admin moderation audit evidence`)
+        }
+      }
+      const spam = one('spam')[0]?.fields ?? {}
+      if (!Array.isArray(spam.signalEvidence) || spam.signalEvidence.length === 0
+        || spam.signalEvidence.some((evidence) => String(evidence?.commentId) !== String(one('spam')[0].id)
+          || !/^[1-9][0-9]*$/u.test(String(evidence?.signalId ?? ''))
+          || typeof evidence?.provider !== 'string' || evidence.provider.length === 0
+          || typeof evidence?.contractVersion !== 'string' || evidence.contractVersion.length === 0
+          || typeof evidence?.classification !== 'string' || evidence.classification.length === 0
+          || !Number.isFinite(evidence?.confidence) || evidence.confidence < 0 || evidence.confidence > 1
+          || !/^sha256:[a-f0-9]{64}$/u.test(String(evidence?.evidenceDigest ?? '')))) {
+        return fail(id, 'spam lacks provider/version/classification evidence')
+      }
+      return pass(id, { commentIds: Object.keys(expected).map((role) => String(one(role)[0].id)).sort() })
+    }
+
+    if (id === 'comment-threaded') {
+      const requiredRoles = [
+        'approved-root', 'approved-reply', 'approved-nested', 'depth-root', 'edited',
+        'deleted-root', 'deleted-root-child', 'deleted-reply-parent', 'deleted-reply'
+      ]
+      for (const role of requiredRoles) {
+        if (one(role).length !== 1) return fail(id, `${role} must use one independent comment identity`)
+      }
+      const root = one('approved-root')[0]
+      const reply = one('approved-reply')[0]
+      const nested = one('approved-nested')[0]
+      if (root.fields?.parentId != null || root.fields?.replyToCommentId != null
+        || Number(root.fields?.threadDepth) !== 0 || String(root.fields?.rootId) !== String(root.id)
+        || String(reply.fields?.parentId) !== String(root.id)
+        || String(reply.fields?.replyToCommentId) !== String(root.id)
+        || String(reply.fields?.rootId) !== String(root.id) || Number(reply.fields?.threadDepth) !== 1
+        || String(nested.fields?.parentId) !== String(reply.id)
+        || String(nested.fields?.replyToCommentId) !== String(reply.id)
+        || String(nested.fields?.rootId) !== String(root.id) || Number(nested.fields?.threadDepth) !== 2) {
+        return fail(id, 'root/reply/nested relation projection mismatch')
+      }
+      const depths = comments.filter((item) => /^depth-(?:root|[0-9]+)$/u.test(item.fields?.semanticRole ?? ''))
+        .sort((left, right) => Number(left.fields?.threadDepth) - Number(right.fields?.threadDepth))
+      if (depths.length < 3 || depths[0].fields?.semanticRole !== 'depth-root'
+        || Number(depths[0].fields?.threadDepth) !== 0
+        || depths.some((item, index) => Number(item.fields?.threadDepth) !== index
+          || (index > 0 && String(item.fields?.parentId) !== String(depths[index - 1].id)))
+        || depths[0].fields?.depthOverrunFailureCode !== 'comment_thread_depth_limit') {
+        return fail(id, 'depth boundary or overrun rejection evidence mismatch')
+      }
+      const edited = one('edited')[0]?.fields ?? {}
+      const history = edited.history ?? []
+      if (Number(edited.currentVersion) < 2 || !Array.isArray(history) || history.length < 2
+        || Math.max(...history.map((item) => Number(item.version))) !== Number(edited.currentVersion)
+        || new Set(history.map((item) => Number(item.version))).size !== history.length
+        || !history.some((item) => item.operation === 'created')
+        || !history.some((item) => item.operation === 'edited')) {
+        return fail(id, 'edited comment history/current version mismatch')
+      }
+      for (const role of ['deleted-root', 'deleted-reply']) {
+        const fields = one(role)[0]?.fields ?? {}
+        if (fields.isDeleted !== true || !Array.isArray(fields.history)
+          || !fields.history.some((item) => item.operation === 'deleted')) {
+          return fail(id, `${role} is not a versioned soft delete`)
+        }
+      }
+      if (one('deleted-root-child')[0]?.fields?.publicVisible !== true) {
+        return fail(id, 'deleted root child is not visible through the placeholder chain')
+      }
+      const deletedRoot = one('deleted-root')[0]
+      const deletedChild = one('deleted-root-child')[0]
+      if (String(deletedChild.fields?.parentId) !== String(deletedRoot.id)
+        || String(deletedChild.fields?.replyToCommentId) !== String(deletedRoot.id)
+        || String(deletedChild.fields?.rootId) !== String(deletedRoot.id)
+        || Number(deletedChild.fields?.threadDepth) !== 1) {
+        return fail(id, 'deleted root child relation does not point to the deleted root')
+      }
+      const actorModes = new Set(comments.map((item) => item.fields?.actorMode))
+      if (!actorModes.has('public') || !actorModes.has('zk_anonymous')) {
+        return fail(id, 'canonical public/zk_anonymous actor matrix is incomplete')
       }
     }
     return pass(id, { commentIds: owned.ids })
@@ -559,9 +687,36 @@ function verifyModerationPolicy(ctx) {
   const id = 'moderation-policy-matrix'
   const db = ctx.observations?.database
   if (!db) return fail(id, 'database observation required')
-  const rows = (db.entities ?? []).filter((item) => item.kind === 'moderation-policy' || item.kind === 'other')
-  const owned = requireOwnedIds(rows.length ? rows : db.entities, id)
+  const rows = entitiesOf(db, 'moderation-policy').filter((item) => item.owned !== false)
+  const owned = requireOwnedIds(rows, id)
   if (!owned.ok) return fail(id, owned.reason)
+  if (new Set(owned.ids).size !== 2 || rows.length !== 2) return fail(id, 'region policy states must use exactly two independent identities')
+  const global = rows.filter((item) => item.fields?.semanticRole === 'region-global')
+  const manual = rows.filter((item) => item.fields?.semanticRole === 'region-manual-review')
+  if (global.length !== 1 || manual.length !== 1) return fail(id, 'global/manual-review region matrix is incomplete')
+  for (const row of rows) {
+    const fields = row.fields ?? {}
+    if (!fields.regionCode || !fields.regionPolicyVersion
+      || !Array.isArray(fields.regionEvidence) || fields.regionEvidence.length === 0
+      || fields.regionEvidence.some((evidence) => String(evidence?.commentId) !== String(row.id)
+        || !['comment_region_compliance', 'comment_blocked_region'].includes(evidence?.source)
+        || typeof evidence?.regionCode !== 'string' || evidence.regionCode.length === 0
+        || evidence?.policyVersion !== fields.regionPolicyVersion
+        || !/^sha256:[a-f0-9]{64}$/u.test(String(evidence?.decisionDigest ?? '')))
+      || !Array.isArray(fields.outboxEventIds) || fields.outboxEventIds.length === 0
+      || fields.outboxEventIds.some((eventId) => !/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iu.test(eventId))) {
+      return fail(id, `region role ${fields.semanticRole ?? row.id} lacks policy/evidence/outbox binding`)
+    }
+  }
+  if (global[0].fields?.regionCode === manual[0].fields?.regionCode) {
+    return fail(id, 'global/manual-review roles use the same region state')
+  }
+  if (global[0].fields?.regionRequiresManualReview !== false
+    || global[0].fields?.publicVisible !== true || global[0].fields?.queueMember !== false
+    || manual[0].fields?.regionRequiresManualReview !== true
+    || manual[0].fields?.publicVisible !== false || manual[0].fields?.queueMember !== true) {
+    return fail(id, 'global/manual-review public and queue projections disagree with policy evidence')
+  }
   return pass(id, { ids: owned.ids })
 }
 

@@ -168,7 +168,11 @@
             "strategy": "transaction-fixture",
             "reuseVerifier": "fixture-receipt",
             "implementationPaths": [
-                "tests/browser-contract/default-fixture-provider.mjs"
+                "src/backend/Modules/Endpoints/LocalCommentFixtureEndpoints.cs",
+                "src/backend/Services/Fixtures/CommentFixtureSeeder.cs",
+                "src/backend/Services/Fixtures/CommentModerationFixturePort.cs",
+                "src/backend/Services/Fixtures/CommentThreadFixturePort.cs",
+                "tools/test-fixtures/producers/comment-moderation-producer.mjs"
             ],
             "provides": [
                 "comment.moderation-matrix",
@@ -176,14 +180,19 @@
                 "moderation.policy-matrix"
             ],
             "consumes": [
+                "auth.admin.full-permission",
+                "auth.user.active",
                 "public.article.published"
             ],
             "stateDomains": [
+                "fixture.auth-identities",
                 "fixture.public-content",
                 "postgres.article",
+                "postgres.auth",
                 "postgres.comment",
                 "postgres.settings",
-                "redis.cache.public"
+                "redis.cache.public",
+                "redis.session"
             ],
             "receiptPostconditions": [
                 "comment-moderation-matrix",
