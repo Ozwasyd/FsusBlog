@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -172,6 +172,78 @@ export function deterministicSequenceIdentity(items)
 {
     assert(Array.isArray(items), 'sequence identity input must be an array')
     return canonicalDigest(items)
+}
+
+// The child calls record only after the corresponding oracle has succeeded.
+// A failed/incomplete child never publishes a completed execution document.
+export function createRandomExecutionRecorder({ canonicalTestId, streamId, environment = process.env })
+{
+    if (!environment.FSUSBLOG_RANDOM_EXECUTION_DIR) return null
+    const seeds = JSON.parse(environment.FSUSBLOG_RANDOM_STREAMS_JSON ?? '{}')
+    const derivedSeed = seeds[`${canonicalTestId}\u0000${streamId}`]
+    assert(/^seed256:[a-f0-9]{64}$/u.test(derivedSeed ?? ''), 'child execution stream is missing')
+    const caseIdentities = []
+    return {
+        record(value)
+        {
+            caseIdentities.push(deterministicCaseIdentity({ derivedSeed, caseIndex: caseIdentities.length, value }))
+        },
+        complete()
+        {
+            assert(/^[a-z0-9-]+$/u.test(streamId), 'child execution stream filename is invalid')
+            const document = {
+                canonicalTestId, streamId, derivedSeed,
+                runId: nonEmpty(environment.FSUSBLOG_RANDOM_EXECUTION_RUN, 'child run'),
+                attemptId: nonEmpty(environment.FSUSBLOG_RANDOM_EXECUTION_ATTEMPT, 'child attempt'),
+                replayPlanDigest: environment.FSUSBLOG_REPLAY_PLAN_DIGEST,
+                caseIdentities, transitionIdentities: [], outcome: 'passed'
+            }
+            assert(sha256Pattern.test(document.replayPlanDigest ?? ''), 'child replay plan is missing')
+            writeFileSync(path.join(environment.FSUSBLOG_RANDOM_EXECUTION_DIR, `${streamId}.json`),
+                `${JSON.stringify(document)}\n`, { flag: 'wx' })
+        }
+    }
+}
+
+export function validateRandomExecutionObservation(document, { consumer, stream, runId, attemptId, planDigest })
+{
+    const fields = ['canonicalTestId', 'streamId', 'derivedSeed', 'runId', 'attemptId',
+        'replayPlanDigest', 'caseIdentities', 'transitionIdentities', 'outcome']
+    assert(document && Object.keys(document).sort().join('\0') === fields.sort().join('\0'),
+        'child execution observation fields are not exact')
+    for (const [field, expected] of Object.entries({ canonicalTestId: consumer.canonicalTestId,
+        streamId: consumer.streamId, derivedSeed: stream.derivedSeed, runId, attemptId,
+        replayPlanDigest: planDigest, outcome: 'passed' }))
+    {
+        assert(typeof expected === 'string' && expected.length > 0 && document[field] === expected,
+            `child execution observation ${field} mismatch`)
+    }
+    for (const field of ['caseIdentities', 'transitionIdentities'])
+    {
+        const values = document[field]
+        assert(Array.isArray(values) && values.every((value) => sha256Pattern.test(value))
+            && new Set(values).size === values.length, `child execution observation ${field} is invalid`)
+    }
+    assert(document.caseIdentities.length >= consumer.budget.iterations,
+        'child execution observation reduced iteration budget')
+    assert(document.transitionIdentities.length >= consumer.budget.transitions,
+        'child execution observation reduced transition budget')
+    return document
+}
+
+export function readRandomExecutionObservation({ binding, directory, consumer, stream, runId, attemptId, planDigest })
+{
+    const expected = path.resolve(root, directory, `${consumer.streamId}.json`)
+    const relative = path.relative(root, expected)
+    assert(relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative),
+        'child execution observation escapes repository')
+    assert(binding?.streamId === consumer.streamId && path.resolve(root, binding.ref) === expected
+        && realpathSync(expected) === expected, 'child execution observation path mismatch')
+    const bytes = readFileSync(expected)
+    assert(binding.digest === `sha256:${createHash('sha256').update(bytes).digest('hex')}`,
+        'child execution observation bytes drifted')
+    return validateRandomExecutionObservation(JSON.parse(bytes.toString('utf8')),
+        { consumer, stream, runId, attemptId, planDigest })
 }
 
 export function createRandomStreamReceipt({

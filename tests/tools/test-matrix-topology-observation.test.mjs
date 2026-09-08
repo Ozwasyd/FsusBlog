@@ -80,7 +80,9 @@ function fixtureRepository(options = {})
     'tools/test-matrix/behavior-evidence-pre-runtime.mjs',
     'tools/test-matrix/release-domain-projection-receipt.mjs',
     'tools/test/run-native-tests.mjs',
+    'tools/test/run-runtime-order-equivalence.mjs',
     'tools/test/verify-release-reliability-receipt.mjs',
+    'tools/test-runtime/order-equivalence.mjs',
     'tools/test/lanes'
   ])
   {
@@ -273,7 +275,7 @@ test('live matrix projects typed topology / release-final / production-fresh fac
   }
   assert.equal(facts['release-final.output-schema'], 'fsusblog.release-final-test-evidence-binding.v1')
   const releaseFinal = facts['release-final.aggregate-contract']
-  assert.equal(releaseFinal.inputCount, 21)
+  assert.equal(releaseFinal.inputCount, 22)
   assert.deepEqual(releaseFinal.selectedTierIds, ['release-final'])
   assert.equal(releaseFinal.artifactOnly, true)
   assert.equal(releaseFinal.executesTestCommands, false)

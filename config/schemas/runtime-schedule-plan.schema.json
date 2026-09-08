@@ -1,0 +1,80 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.runtime-schedule-plan.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "planId",
+        "kind",
+        "seed",
+        "concurrencyCap",
+        "orderedStepIds",
+        "runtimeStepCatalogDigest",
+        "stateCatalogDigest",
+        "clockDigest",
+        "replayDigest",
+        "envelopeDigest",
+        "contentDigest"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.runtime-schedule-plan.v1"
+        },
+        "planId": {
+            "type": "string",
+            "minLength": 1
+        },
+        "kind": {
+            "enum": [
+                "canonical",
+                "fully-serial",
+                "reverse-ready",
+                "shuffled"
+            ]
+        },
+        "seed": {
+            "type": [
+                "integer",
+                "null"
+            ]
+        },
+        "concurrencyCap": {
+            "type": "integer",
+            "minimum": 1
+        },
+        "orderedStepIds": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+                "type": "string",
+                "minLength": 1
+            }
+        },
+        "runtimeStepCatalogDigest": {
+            "$ref": "#/$defs/digest"
+        },
+        "stateCatalogDigest": {
+            "$ref": "#/$defs/digest"
+        },
+        "clockDigest": {
+            "$ref": "#/$defs/digest"
+        },
+        "replayDigest": {
+            "$ref": "#/$defs/digest"
+        },
+        "envelopeDigest": {
+            "$ref": "#/$defs/digest"
+        },
+        "contentDigest": {
+            "$ref": "#/$defs/digest"
+        }
+    },
+    "$defs": {
+        "digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+    }
+}

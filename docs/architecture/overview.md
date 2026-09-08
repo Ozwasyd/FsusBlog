@@ -305,6 +305,7 @@ render: enum-set
 - `production-build-artifacts->production-correctness`
 - `production-build-artifacts->production-xss-fast`
 - `production-build-artifacts->production-xss-release`
+- `production-build-artifacts->runtime-order-equivalence`
 - `production-correctness->behavior-evidence-post-runtime`
 - `production-correctness->production`
 - `release->acceptance`

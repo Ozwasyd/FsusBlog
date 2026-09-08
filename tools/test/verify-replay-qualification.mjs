@@ -6,7 +6,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 import { canonicalDigest, canonicalJson, validateReplayPlan, validateReplayReceipt } from './execution-replay-contract.mjs'
-import { deriveRandomConsumerStream, loadRandomStreamInventory, validateRandomStreamReceipt } from './random-streams.mjs'
+import { deriveRandomConsumerStream, loadRandomStreamInventory, validateRandomStreamReceipt, readRandomExecutionObservation } from './random-streams.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 
@@ -60,6 +60,33 @@ function verifyRandomizedResult(result, pointer, randomInventory)
     validateReplayReceipt(receipt)
     if (plan.planDigest !== result.plan.digest || receipt.receiptDigest !== result.receipt.digest) fail(pointer, 'inline plan or receipt digest mismatch')
     const consumers = new Map(randomInventory.consumers.map((consumer) => [`${consumer.producerId}\0${consumer.streamId}`, consumer]))
+    const expectedConsumers = randomInventory.consumers.filter((consumer) => consumer.producerId === result.producerId)
+    for (const [attemptId, receipts] of [['initial', result.actual.inline], ['replay', result.repeatedActual.inline]])
+    {
+        const attempt = result.processEvidence?.[attemptId]
+        if (attempt?.attemptId !== attemptId || !Array.isArray(attempt.processes)
+            || attempt.processes.length === 0 || attempt.processes.some((entry) => entry.code !== 0 || entry.signal !== null))
+            fail(pointer, 'child process attempt is missing or failed')
+        const bindings = attempt.processes.flatMap((entry) => entry.evidence?.observations ?? [])
+        const expectedIds = expectedConsumers.map((consumer) => consumer.streamId).sort()
+        if (canonicalJson(bindings.map((entry) => entry.streamId).sort()) !== canonicalJson(expectedIds)
+            || canonicalJson(receipts.map((entry) => entry.streamId).sort()) !== canonicalJson(expectedIds))
+            fail(pointer, 'child execution observations do not exact-cover current consumers')
+        for (const consumer of expectedConsumers)
+        {
+            const observation = readRandomExecutionObservation({
+                binding: bindings.find((entry) => entry.streamId === consumer.streamId),
+                directory: attempt.evidenceDirectory, consumer,
+                stream: deriveRandomConsumerStream({ rootSeed: plan.rootSeed, consumer }),
+                runId: plan.run.id, attemptId, planDigest: plan.planDigest
+            })
+            const randomReceipt = receipts.find((entry) => entry.streamId === consumer.streamId)
+            if (randomReceipt.executedIterations !== observation.caseIdentities.length
+                || canonicalJson(randomReceipt.caseIdentities) !== canonicalJson(observation.caseIdentities)
+                || canonicalJson(randomReceipt.transitionIdentities) !== canonicalJson(observation.transitionIdentities))
+                fail(pointer, 'random receipt differs from child executed cases')
+        }
+    }
     for (const [index, randomReceipt] of result.actual.inline.entries())
     {
         const consumer = consumers.get(`${randomReceipt.producerId}\0${randomReceipt.streamId}`)

@@ -8,6 +8,11 @@ import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { createProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs'
 import {
+  behaviorTest,
+  concurrencyHarnessId,
+  runRealConcurrencyHarness
+} from '../../tools/contracts/behavior-test.mjs'
+import {
   createEmptySlotState,
   readSlotState,
   recordSlotStart,
@@ -78,7 +83,8 @@ function releaseInput(releaseId, imageDigest)
   }
 }
 
-test('slot state uses atomic durable files and preserves independent release identities', (t) => {
+behaviorTest('deployment-blue-green-runtime-role', 'positive',
+  'slot state uses atomic durable files and preserves independent release identities', (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-slot-state-'))
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
   const stateFile = path.join(directory, 'deployment', 'slots.json')
@@ -320,7 +326,10 @@ test('slot scripts coexist, remain idempotent, preserve active slot on candidate
   assert.equal(JSON.parse(restartRead.stdout).activeSlot, 'blue')
 })
 
-test('slot start rejects a valid receipt outside the retained current-release authority', (t) => {
+behaviorTest('deployment-blue-green-runtime-role', 'negative', {
+  title: 'slot start rejects a valid receipt outside the retained current-release authority',
+  invariantIds: ['active-release-identity-retention']
+}, (t) => {
   const fixture = createScriptFixture(t)
   const manifest = writeManifest(fixture.directory, 'blue.json', blueRelease, blueDigest)
   const authority = ensureSpaAuthority(fixture, manifest, 'blue')
@@ -336,6 +345,40 @@ test('slot start rejects a valid receipt outside the retained current-release au
   assert.notEqual(rejected.status, 0)
   assert.match(rejected.stderr, /must use the current retained release authority/u)
   assert.doesNotMatch(fs.readFileSync(fixture.dockerLog, 'utf8'), /^(?:pull|up):/mu)
+})
+
+behaviorTest('deployment-blue-green-runtime-role', 'concurrency', {
+  title: 'concurrent blue-green state plans preserve active and candidate identities',
+  concurrencyHarness: concurrencyHarnessId
+}, async () => {
+  const initial = createEmptySlotState('2026-07-11T00:00:00.000Z')
+  recordSlotStart(initial, {
+    slot: 'blue',
+    releaseId: blueRelease,
+    imageRef: `ghcr.io/fsusblog/app@${blueDigest}`,
+    imageDigest: blueDigest,
+    startedAt: '2026-07-11T01:00:00.000Z',
+    environment: { FSUSBLOG_BLUE_PORT: '18081', FSUSBLOG_GREEN_PORT: '18082' }
+  })
+  setActiveSlot(initial, { slot: 'blue', kind: 'bootstrap', changedAt: '2026-07-11T01:01:00.000Z' })
+
+  const results = await runRealConcurrencyHarness([
+    async () => {
+      const snapshot = structuredClone(initial)
+      assert.throws(() => recordSlotStop(snapshot, { slot: 'blue' }), /refusing to stop active slot/u)
+      return snapshot.activeSlot
+    },
+    async () => {
+      const snapshot = structuredClone(initial)
+      const generation = reserveRuntimeGeneration(snapshot, {
+        slot: 'green',
+        reservedAt: '2026-07-11T02:00:00.000Z'
+      })
+      return { activeSlot: snapshot.activeSlot, generation }
+    }
+  ])
+
+  assert.deepEqual(results, ['blue', { activeSlot: 'blue', generation: 2 }])
 })
 
 test('slot preflight blocks occupied ports, insufficient resources, invalid slots and bad digests without touching active', (t) => {

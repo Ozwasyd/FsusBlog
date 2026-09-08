@@ -223,6 +223,7 @@ This index is generated from explicit metadata in `config/development/document-l
 - [Release domain projection ledger](testing/release-domain-projection-ledger.md)
 - [Repository governance authorities](testing/repository-governance-authorities.md)
 - [Runtime Scenario Host](testing/runtime-scenario-host.md)
+- [Runtime state isolation and order equivalence](testing/runtime-state-equivalence.md)
 - [Issue #1037: security-hardening boundary-test replacements](testing/security-hardening-boundary-replacements.md)
 - [Backend security Roslyn source policy](testing/security-hardening-source-policy.md)
 - [Static governance resident hosts and receipt join](testing/static-governance-resident-hosts.md)

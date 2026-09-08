@@ -1,0 +1,42 @@
+{
+  "schema": "fsusblog.generated-output-binding.v1",
+  "sources": [
+    "config/development/document-lifecycle.json",
+    "tests/coverage-registry.json",
+    "tests/matrix.yml"
+  ],
+  "outputs": [
+    {
+      "path": "config/development/document-inventory.generated.json",
+      "sha256": "4e41ee06b6f2fda7dfa593b65c26fd1ad3e88712b0e2f9b8e0385e54352a615c"
+    },
+    {
+      "path": "config/testing/correctness-attempt-producers.json",
+      "sha256": "4aaa918f27d3cf277d32a12eb9759a1495853dc7c059d0e3fbf036e6a1c7b93d"
+    },
+    {
+      "path": "config/testing/fixture-consumer-inventory.generated.json",
+      "sha256": "9a01ca774387148c25bb4f5dc9d1fe520c63712bebb7c169b54a944f6a7682e5"
+    },
+    {
+      "path": "config/testing/fixture-profile-matrix.generated.json",
+      "sha256": "0207e63393cb6d0093d937b877a32cca8d4c23592a79edc24721d0bd7541eb33"
+    },
+    {
+      "path": "docs/index.md",
+      "sha256": "37230e482c33d0ef751773871262452fe94433f3c92101d0caa27ffa2fb63050"
+    },
+        {
+            "path": "docs/testing.generated.md",
+            "sha256": "ebd47859cbe396c78ed98fcc49579be687002092345ebbad2e84575886ee0a31"
+        },
+        {
+            "path": "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
+            "sha256": "02e4bb259bb0216d88745fdb43bad65f07cc349db1f300d9fddf62c82ed037a2"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/execution-dependency-contract.json",
+            "sha256": "bf65cdbb6d1ca912d4adc41e4d46befd3217f33aaa5c15cdfc83177d24c32543"
+        }
+  ]
+}

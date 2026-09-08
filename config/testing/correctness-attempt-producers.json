@@ -2,11 +2,11 @@
     "schema": "fsusblog.correctness-attempt-producers.v1",
     "generatedBy": "tools/test/generate-correctness-attempt-producers.mjs",
     "sourceDigests": {
-        "config/testing/release-reliability-scenario-catalog.json": "sha256:b61558320c2c55f860dc4606b4680ca41085179b1b219053869d0296c301b354",
-        "tests/matrix.yml": "sha256:471bba84830ec41c6c4a1825855cc6b645aee767a030922997978c03933512af",
-        "tools/test-matrix/production-fresh-run-bound-outputs.mjs": "sha256:68c78054efb4a77b9e368fb079a9bb749b8edff24bc6d8375f7970555292c638",
+        "config/testing/release-reliability-scenario-catalog.json": "sha256:9a15d61126bf915108fc7e4ac9a91a132b6583a61bfbed64615e48eab6083d32",
+        "tests/matrix.yml": "sha256:3dba6701411b4b25f9c8acbe5d26680d2fbb502daae3b30568061ea5e7bc5bee",
+        "tools/test-matrix/production-fresh-run-bound-outputs.mjs": "sha256:68aa97c378721a429272b9c47060e3a255d1e255dd003c0805ec11510d81287c",
         "config/testing/replay-qualification-producers.json": "sha256:5610b07e0acb3862fff2d4a4d294993f8e3e181398a80b14c4589f43d4855398",
-        "config/testing/test-execution-envelope-applicability.json": "sha256:55f4febb3368d39d49f511b4b92219a11fe7aa3c65afd7ea136d874825aac3d0",
+        "config/testing/test-execution-envelope-applicability.json": "sha256:792b856a28962d359d13d9b81e0688588179abfe6fbc557d94a14749d140cc8c",
         "tools/test/attempt-runner.mjs": "sha256:53cdf7bdd46a4147400e3393decf29017534babc3ddfa6eb3446743de7018451",
         "tools/test/temporal-context.mjs": "sha256:982bee7411c0fb1c206d09a3bb21c9898ecca0d6564518e76d11f8768164cd66"
     },
@@ -3110,6 +3110,35 @@
             ],
             "authorityBindings": {
                 "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:risk-control-test-matrix",
+                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
+                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
+            }
+        },
+        {
+            "producerId": "matrix:runtime-order-equivalence",
+            "domain": "test-producers",
+            "producerKind": "integration",
+            "sourceAuthority": "tests/matrix.yml",
+            "canonicalCommand": "node tools/test/run-runtime-order-equivalence.mjs --all-required-schedules --output .tmp/release-evidence/runtime-order-equivalence.json",
+            "logicalTierIds": [
+                "runtime-order-equivalence"
+            ],
+            "policyId": "correctness-first-attempt",
+            "allowedRetries": 0,
+            "firstFailureBlocksQualification": true,
+            "frameworkRetrySetting": 0,
+            "artifactOwner": "ServerContractAgent",
+            "executionOwner": "tools/run-test-matrix.mjs",
+            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
+            "migrationState": "migrated",
+            "qualificationEligible": true,
+            "externalAuthorityKinds": [
+                "execution-envelope",
+                "replay-plan",
+                "temporal-context"
+            ],
+            "authorityBindings": {
+                "executionEnvelope": "config/testing/test-execution-envelope-applicability.json#producer:runtime-order-equivalence",
                 "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
                 "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
             }
@@ -6258,5 +6287,5 @@
             }
         }
     ],
-    "contentDigest": "sha256:22f0a11d58f0e0aa9e21a0272a45c0fdd5586edd9f7923620e935015e805bab9"
+    "contentDigest": "sha256:5bf72de36642ec728b302571f866591af015895e657eefc61e3dc720cad99618"
 }

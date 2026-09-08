@@ -19,7 +19,8 @@ import {
     joinBehaviorTestEvidence,
     parseBehaviorBindingsFromSource,
     scanBehaviorTestBindings,
-    validateExactBehaviorCoverage
+    validateExactBehaviorCoverage,
+    xunitObservationMatchesBinding
 } from '../../tools/contracts/behavior-test-binding.mjs';
 import {
     behaviorTest,
@@ -498,6 +499,18 @@ behaviorTest('code-intent-governance', 'negative', 'missing invariant', () => {}
         catalogDigest: 'd'.repeat(64)
     });
     assert.ok(scanned.errors.some((error) => /requires invariantIds or reasonId/u.test(error)));
+});
+
+test('xUnit Theory display suffixes map only to their exact planned method binding', () =>
+{
+    const binding = 'xunit-trx:UserSessionSensitiveEndpointIntegrationTests#ExpiredTokenOrSession_IsRejectedBeforeBusinessWithNoDatabaseWrite';
+    assert.equal(xunitObservationMatchesBinding(`${binding}(scenarioName: "jwt")`, binding), true);
+    assert.equal(xunitObservationMatchesBinding(binding, binding), true);
+    assert.equal(xunitObservationMatchesBinding(`${binding}Extra(scenarioName: "jwt")`, binding), false);
+    assert.equal(xunitObservationMatchesBinding(
+        'xunit-trx:AnotherClass#ExpiredTokenOrSession_IsRejectedBeforeBusinessWithNoDatabaseWrite(scenarioName: "jwt")',
+        binding
+    ), false);
 });
 
 test('6) previous-round TRX/observations cannot satisfy this round', () =>

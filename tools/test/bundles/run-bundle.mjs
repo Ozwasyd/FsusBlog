@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable import-x/no-relative-parent-imports -- Repository contract tests and tool authorities intentionally compose sibling owner modules. */
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
@@ -22,7 +23,6 @@ import { writeIntegrityProofProducer } from '../../test-matrix/integrity-proof-p
 import {
     artifactSubstitutionBindingDigest,
     matrixGeneratedRuntimePaths,
-    resolveLocalProfileResources,
     resolveArtifactSubstitutions,
     resolveFrontendVitestAdmissionFloor, performanceMixedWindowFloorMs, validatePerformanceDeadlineEvidence
 } from '../../test-matrix/local-profile.mjs';
@@ -69,6 +69,21 @@ import {
     waitForRunBoundMarker
 } from '../../test-matrix/run-bound-marker.mjs';
 import { readSchedulerProducerTerminalFailure } from '../../test-matrix/scheduler-run-owner.mjs';
+import {
+    assertRuntimeAuthorityUnchanged,
+    loadRuntimeStateAuthority
+} from '../../test-runtime/catalog.mjs';
+import {
+    createProductionBoundaryCollector,
+    stepMutatesRuntimeState
+} from '../../test-runtime/production-boundary-collector.mjs';
+import { validateRuntimeExecutionSessionReceipt } from '../../test-runtime/runtime-execution-session.mjs';
+import {
+    orderStepsByPlan,
+    runtimeStepCatalogDigest,
+    validateRuntimeSchedulePlan
+} from '../../test-runtime/schedule-plan.mjs';
+import { createStateConflictPolicy } from '../../test-runtime/state-conflict.mjs';
 import { backendTopologyDefaults } from '../backend-production-topology.mjs';
 import {
     assertCorrectnessAttemptExecutionOwner,
@@ -103,6 +118,14 @@ const finalizeExisting = process.argv.includes('--finalize-existing');
 const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
 const profile = matrix.localProfiles?.[profileId];
 const bundle = profile?.bundles?.find((entry) => entry.id === bundleId);
+const runtimeStateAuthority = bundleId === 'runtime-browser'
+    ? loadRuntimeStateAuthority()
+    : null;
+const runtimeStateConflictPolicy = runtimeStateAuthority
+    ? createStateConflictPolicy(runtimeStateAuthority, {
+      assertCurrent: () => assertRuntimeAuthorityUnchanged(runtimeStateAuthority)
+    })
+    : null;
 const matrixTiers = new Map(matrix.tiers.map((tier) => [tier.id, tier]));
 const productionFreshOutputRoot = String(process.env.FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT ?? '').trim();
 const runOutputRoot = productionFreshOutputRoot ? path.resolve(productionFreshOutputRoot) : null;
@@ -124,6 +147,44 @@ function outputDirectory(partition, ...segments)
         return path.join(runOutputRoot, partition, ...segments);
     }
     return null;
+}
+
+function prepareRuntimeOrderSessionLayout()
+{
+    const sessionRoot = path.resolve(String(process.env.FSUSBLOG_RUNTIME_ORDER_SESSION_ROOT ?? ''));
+    if (!runtimeOrderResultFile || !sessionRoot
+      || !sessionRoot.startsWith(`${root}${path.sep}`))
+    {
+        throw new Error('runtime-order mutable layout requires a repository-contained session root');
+    }
+    const runtimeRoot = path.join(sessionRoot, 'mutable', 'runtime-layout');
+    const runtimeFrontendDist = path.join(runtimeRoot, 'frontend', 'dist');
+    const runtimeBackendWebRoot = path.join(runtimeRoot, 'backend', 'wwwroot');
+    fs.rmSync(runtimeRoot, { recursive: true, force: true });
+    fs.mkdirSync(path.dirname(runtimeFrontendDist), { recursive: true, mode: 0o700 });
+    fs.mkdirSync(path.dirname(runtimeBackendWebRoot), { recursive: true, mode: 0o700 });
+    fs.cpSync(productionBuildLayout.frontendDist, runtimeFrontendDist, {
+        recursive: true,
+        force: true,
+        preserveTimestamps: true
+    });
+    fs.cpSync(productionBuildLayout.backendWebRoot, runtimeBackendWebRoot, {
+        recursive: true,
+        force: true,
+        preserveTimestamps: true
+    });
+    return {
+        runtimeRoot,
+        runtimeFrontendDist,
+        runtimeBackendWebRoot,
+        environment: {
+            FSUSBLOG_FRONTEND_DIST_ROOT: runtimeFrontendDist,
+            FSUSBLOG_BACKEND_WEBROOT: runtimeBackendWebRoot,
+            FSUSBLOG_WEB_ROOT: runtimeBackendWebRoot,
+            FSUSBLOG_RETENTION_WEBROOT_DIR: runtimeBackendWebRoot,
+            ASPNETCORE_WEBROOT: runtimeBackendWebRoot
+        }
+    };
 }
 
 function bundleDirectory(...segments)
@@ -282,6 +343,12 @@ let performanceDeadlineEvidence = null;
 let finalizedResourceUtilization = null;
 let frontendPerfAdmissionEvidence = null;
 let schedulerTerminalReceipts = {};
+let runtimeScheduleExecution = null;
+let runtimeScheduleControl = null;
+const runtimeOrderResultFile = String(process.env.FSUSBLOG_RUNTIME_ORDER_RESULT_FILE ?? '').trim();
+const runtimeOrderBoundaryCollector = bundleId === 'runtime-browser' && runtimeOrderResultFile
+    ? await createProductionBoundaryCollector()
+    : null;
 
 if (!bundleId || !bundle)
 {
@@ -428,7 +495,9 @@ function installShutdownForwarding()
                     finalizeBundleResourceUtilization('partial', new Error(`bundle cancelled by ${signal}`));
                 }
                 catch
-                {}
+                {
+                    // The primary cancellation path retains the process signal authority.
+                }
                 process.exit(exitCode);
             });
         });
@@ -1919,11 +1988,50 @@ function bundleDagCapacityForSteps(steps)
     const stepExclusiveResources = steps.flatMap((entry) => entry.resources?.exclusiveResources ?? []);
     return {
         ...capacity,
+        ...(runtimeScheduleControl
+            ? { maxParallel: Math.min(capacity.maxParallel, runtimeScheduleControl.plan.concurrencyCap) }
+            : {}),
         exclusiveResources: [...new Set([
             ...(capacity.exclusiveResources ?? []),
             ...stepExclusiveResources
-        ])]
+        ])],
+        ...(runtimeStateConflictPolicy ? { stateConflictPolicy: runtimeStateConflictPolicy } : {})
     };
+}
+
+function resolveRuntimeScheduleControl(steps)
+{
+    const planFile = String(process.env.FSUSBLOG_RUNTIME_SCHEDULE_PLAN ?? '').trim();
+    if (!planFile)
+    {
+        return null;
+    }
+    const sessionReceiptFile = String(process.env.FSUSBLOG_RUNTIME_SESSION_RECEIPT ?? '').trim();
+    if (!sessionReceiptFile)
+    {
+        throw new Error('explicit runtime schedule requires a sealed RuntimeExecutionSession receipt');
+    }
+    const plan = JSON.parse(fs.readFileSync(path.resolve(planFile), 'utf8'));
+    const sessionReceipt = JSON.parse(fs.readFileSync(path.resolve(sessionReceiptFile), 'utf8'));
+    validateRuntimeExecutionSessionReceipt(sessionReceipt);
+    if (sessionReceipt.identity.runId !== schedulerRunId()
+      || sessionReceipt.identity.sourceCommit !== process.env.FSUSBLOG_TEST_SOURCE_COMMIT
+      || sessionReceipt.identity.sourceFingerprint !== process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT)
+    {
+        throw new Error('runtime schedule session receipt is stale for the current scheduler source/run');
+    }
+    validateRuntimeSchedulePlan(plan, {
+        steps,
+        allowedCaps: [...new Set([1, Math.min(2, bundleDagCapacity().maxParallel), bundleDagCapacity().maxParallel])],
+        expected: {
+            runtimeStepCatalogDigest: runtimeStepCatalogDigest(steps),
+            stateCatalogDigest: runtimeStateAuthority.catalogDigest,
+            clockDigest: sessionReceipt.identity.clockDigest,
+            replayDigest: sessionReceipt.identity.replayDigest,
+            envelopeDigest: sessionReceipt.identity.envelopeDigest
+        }
+    });
+    return { plan, sessionReceipt, planFile: path.resolve(planFile), sessionReceiptFile: path.resolve(sessionReceiptFile) };
 }
 
 function bundleDeadlineMs()
@@ -2746,7 +2854,11 @@ async function waitForFrontendTestCapacity(targetCpuUnits, timeoutMs = bundleDea
 async function executeRuntimeStepBody(step)
 {
     beginPhysicalProducer(step);
-    const readinessWait = step.id === 'backend-build-ready'
+    const runtimeOrderCoordination = runtimeOrderBoundaryCollector
+      && ['backend-build-ready', 'frontend-build-ready', 'behavior-evidence-ready', 'production-build-artifacts-ready'].includes(step.id);
+    const readinessWait = runtimeOrderCoordination
+        ? () => runtimeOrderBoundaryCollector.verifyCoordination(step.id)
+        : step.id === 'backend-build-ready'
         ? waitForBackendBuildReady
         : step.id === 'backend-tests-ready'
       ? waitForBackendTestsReady
@@ -2778,11 +2890,14 @@ async function executeRuntimeStepBody(step)
         let executableStep = step;
         if (step.id === 'bootstrap')
         {
-            const runtimeLayout = prepareProductionRuntimeLayout(productionBuildLayout);
+            const runtimeLayout = runtimeOrderBoundaryCollector
+                ? prepareRuntimeOrderSessionLayout()
+                : prepareProductionRuntimeLayout(productionBuildLayout);
             executableStep = {
                 ...step,
                 env: {
                     ...productionRuntimeChildEnvironment,
+                    ...(runtimeLayout.environment ?? {}),
                     ...(step.env ?? {})
                 }
             };
@@ -2824,7 +2939,24 @@ async function executeRuntimeStepBody(step)
             const namespace = String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '').trim();
             runtimeChildEnvironment = {
                 ...readRuntimeEnvironment(root, namespace),
-                ...productionRuntimeChildEnvironment
+                ...productionRuntimeChildEnvironment,
+                ...(runtimeOrderBoundaryCollector
+                    ? (() =>
+                    {
+                        const runtimeRoot = path.join(
+                            path.resolve(process.env.FSUSBLOG_RUNTIME_ORDER_SESSION_ROOT),
+                            'mutable', 'runtime-layout');
+                        const frontend = path.join(runtimeRoot, 'frontend', 'dist');
+                        const backend = path.join(runtimeRoot, 'backend', 'wwwroot');
+                        return {
+                            FSUSBLOG_FRONTEND_DIST_ROOT: frontend,
+                            FSUSBLOG_BACKEND_WEBROOT: backend,
+                            FSUSBLOG_WEB_ROOT: backend,
+                            FSUSBLOG_RETENTION_WEBROOT_DIR: backend,
+                            ASPNETCORE_WEBROOT: backend
+                        };
+                    })()
+                    : {})
             };
             console.log(`[local-production:${bundleId}] loaded runtime environment namespace=${namespace}`);
         }
@@ -2851,13 +2983,36 @@ async function executeRuntimeStepBody(step)
 
 async function executeRuntimeStep(step)
 {
+    const observeBoundaries = runtimeOrderBoundaryCollector
+      && stepMutatesRuntimeState(runtimeStateAuthority, step.id);
+    if (observeBoundaries)
+    {
+        runtimeOrderBoundaryCollector.beginResetBarriers(step.id);
+    }
+    const beforeCapture = observeBoundaries
+        ? await runtimeOrderBoundaryCollector.capture('before-mutating-step', step.id)
+        : null;
+    let result;
     if (step.id === 'runtime-state-stable')
     {
-        const result = await executeRuntimeStepBody(step);
+        result = await executeRuntimeStepBody(step);
         publishCurrentRunMarker('runtime-state-ready', step.id);
-        return result;
     }
-    return executeRuntimeStepBody(step);
+    else
+    {
+        result = await executeRuntimeStepBody(step);
+    }
+    if (observeBoundaries)
+    {
+        const afterCapture = await runtimeOrderBoundaryCollector.capture('after-mutating-step', step.id);
+        await runtimeOrderBoundaryCollector.completeResetBarriers({
+            producerStepId: step.id,
+            processResult: result,
+            beforeCapture,
+            afterCapture
+        });
+    }
+    return result;
 }
 
 async function waitForBenchmarkBuildReady()
@@ -3473,12 +3628,134 @@ async function run()
     }
     else
     {
-        const steps = bundleId === 'runtime-browser' ? runtimeSteps() : performanceSteps();
+        const canonicalSteps = bundleId === 'runtime-browser' ? runtimeSteps() : performanceSteps();
+        runtimeScheduleControl = bundleId === 'runtime-browser'
+            ? resolveRuntimeScheduleControl(canonicalSteps)
+            : null;
+        const steps = runtimeScheduleControl
+            ? orderStepsByPlan(canonicalSteps, runtimeScheduleControl.plan)
+            : canonicalSteps;
+        const actualStepOrder = [];
+        if (runtimeOrderBoundaryCollector)
+        {
+            prepareRuntimeOrderSessionLayout();
+            await runtimeOrderBoundaryCollector.capture('before-runtime');
+        }
         await executeBundleStepDag(
             steps,
             () => bundleDagCapacityForSteps(steps),
-      bundleId === 'runtime-browser' ? executeRuntimeStep : executePerformanceStep
+      bundleId === 'runtime-browser'
+          ? async (step) =>
+          {
+              actualStepOrder.push(step.id);
+              return executeRuntimeStep(step);
+          }
+          : executePerformanceStep
         );
+        const runtimeBoundaryEvidence = runtimeOrderBoundaryCollector
+            ? await (async () =>
+            {
+                await runtimeOrderBoundaryCollector.capture('after-runtime');
+                return runtimeOrderBoundaryCollector.finish();
+            })()
+            : { captures: [], resetReceipts: [] };
+        const runtimeBoundaryCaptures = runtimeBoundaryEvidence.captures;
+        if (runtimeScheduleControl)
+        {
+            if (JSON.stringify(actualStepOrder) !== JSON.stringify(runtimeScheduleControl.plan.orderedStepIds))
+            {
+                throw new Error('explicit runtime schedule planned/actual order mismatch');
+            }
+            runtimeScheduleExecution = {
+                schema: 'fsusblog.runtime-schedule-execution.v1',
+                planId: runtimeScheduleControl.plan.planId,
+                planDigest: runtimeScheduleControl.plan.contentDigest,
+                sessionId: runtimeScheduleControl.sessionReceipt.identity.sessionId,
+                concurrencyCap: runtimeScheduleControl.plan.concurrencyCap,
+                actualStepOrder,
+                boundarySnapshotCount: runtimeBoundaryCaptures.length
+            };
+            if (runtimeOrderResultFile)
+            {
+                const overlaps = [];
+                const executed = [...stepExecutionResults.entries()]
+                    .filter(([, result]) => Number.isFinite(result?.startedAtMs) && Number.isFinite(result?.finishedAtMs));
+                for (let leftIndex = 0; leftIndex < executed.length; leftIndex += 1)
+                {
+                    for (let rightIndex = leftIndex + 1; rightIndex < executed.length; rightIndex += 1)
+                    {
+                        const [leftId, left] = executed[leftIndex];
+                        const [rightId, right] = executed[rightIndex];
+                        if (Math.max(left.startedAtMs, right.startedAtMs) >= Math.min(left.finishedAtMs, right.finishedAtMs))
+                        {
+                            continue;
+                        }
+                        const evaluation = runtimeStateConflictPolicy.evaluate(leftId, rightId);
+                        overlaps.push({
+                            leftStepId: leftId,
+                            rightStepId: rightId,
+                            provenNonConflicting: evaluation.conflict === false,
+                            catalogDigest: runtimeStateAuthority.catalogDigest
+                        });
+                    }
+                }
+                const executedAssertionIds = [...new Set(
+                    [...memberEvidence.values()].flatMap((evidence) => evidence.testIds)
+                )].sort();
+                const outcomes = Object.fromEntries(Object.entries(schedulerTerminalReceipts)
+                    .sort(([left], [right]) => left.localeCompare(right))
+                    .map(([stepId, receipt]) => [stepId, {
+                        terminalState: receipt.terminalState,
+                        reasonCode: receipt.reasonCode,
+                        dependencyOutcomes: receipt.dependencyOutcomes
+                    }]));
+                const postconditions = Object.fromEntries(actualStepOrder.map((stepId) => [
+                    stepId,
+                    {
+                        declared: runtimeStateAuthority.steps[stepId]?.postconditions ?? [],
+                        status: schedulerTerminalReceipts[stepId]?.terminalState === 'success' ? 'satisfied' : 'failed'
+                    }
+                ]));
+                const afterRuntime = runtimeBoundaryCaptures.find((capture) => (
+                    capture.snapshot.boundary === 'after-runtime'
+                ));
+                if (!afterRuntime)
+                {
+                    throw new Error('production runtime-order execution lacks after-runtime snapshot');
+                }
+                const document = {
+                    schema: 'fsusblog.production-runtime-order-execution.v1',
+                    status: 'success',
+                    identity: runtimeScheduleControl.sessionReceipt.identity,
+                    planId: runtimeScheduleControl.plan.planId,
+                    planDigest: runtimeScheduleControl.plan.contentDigest,
+                    executedStepIds: actualStepOrder,
+                    executedAssertionIds,
+                    outcomes,
+                    postconditions,
+                    terminalClass: 'success',
+                    boundarySnapshots: runtimeBoundaryCaptures,
+                    finalSnapshot: afterRuntime.snapshot,
+                    finalFragments: afterRuntime.fragments,
+                    resetReceipts: runtimeBoundaryEvidence.resetReceipts,
+                    processRefs: executed.map(([stepId, result]) => ({
+                        stepId,
+                        logFile: relative(result.logFile),
+                        logEvidenceDigest: result.logEvidence?.contentDigest ?? null
+                    })),
+                    lifecycleRefs: [runtimeScheduleControl.sessionReceiptFile],
+                    overlaps,
+                    attemptFailures: []
+                };
+                const absoluteResultFile = path.resolve(runtimeOrderResultFile);
+                if (!absoluteResultFile.startsWith(`${path.resolve(process.env.FSUSBLOG_RUNTIME_ORDER_SESSION_ROOT)}${path.sep}`))
+                {
+                    throw new Error('runtime-order execution result escapes the session-owned root');
+                }
+                fs.mkdirSync(path.dirname(absoluteResultFile), { recursive: true, mode: 0o700 });
+                fs.writeFileSync(absoluteResultFile, `${JSON.stringify(document, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
+            }
+        }
     }
 
     if (!finalizeExisting)
@@ -3596,6 +3873,7 @@ async function run()
         schedulerTerminalReceipts,
         schedulerTerminalReceiptIds: Object.keys(schedulerTerminalReceipts),
         schedulerTerminalReceiptRequired: true,
+        ...(runtimeScheduleExecution ? { runtimeScheduleExecution } : {}),
         members,
         generatedAt: new Date().toISOString()
     };

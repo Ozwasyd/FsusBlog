@@ -290,6 +290,9 @@ test('backend production partition environment replaces every inherited STEP and
         .filter(([key]) => !key.startsWith('FSUSBLOG_DOCKER_'))), {
         KEEP: 'yes',
         FSUSBLOG_REPO_ROOT: root,
+        LC_ALL: 'C.UTF-8',
+        LANG: 'C.UTF-8',
+        LC_MESSAGES: 'C.UTF-8',
         DOTNET_PROCESSOR_COUNT: '2',
         FSUSBLOG_BACKEND_CPU_BUDGET: '2',
         FSUSBLOG_STEP_CPU_BUDGET: '2',

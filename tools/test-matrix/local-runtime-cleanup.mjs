@@ -32,8 +32,8 @@ const runtimeProcessIdentitySchema = 'fsusblog.local-runtime-process-identity.v1
 const cleanupReceiptSchema = 'fsusblog.production-fresh.runtime-cleanup-receipt.v1';
 const containerActions = new Set(['skipped-external-name', 'retained-external', 'blocked-active-owner', 'already-absent', 'blocked-ownership-mismatch', 'blocked-identity-incomplete', 'removed', 'remove-failed']);
 const containerPostObservations = new Set(['not-observed', 'retained', 'name-absent', 'not-removed', 'name-and-id-absent', 'id-still-present', 'name-still-present', 'removal-unconfirmed']);
-const processActions = new Set(['retained-external', 'blocked-active-owner', 'blocked', 'terminated', 'already-absent', 'termination-unconfirmed']);
-const processPostObservations = new Set(['retained', 'not-observed', 'group-still-live', 'leader-and-group-absent', 'not-terminated', 'leader-or-group-still-live']);
+const processActions = new Set(['retained-external', 'blocked-active-owner', 'blocked', 'blocked-identity-incomplete', 'removed', 'remove-failed', 'terminated', 'already-absent', 'termination-unconfirmed']);
+const processPostObservations = new Set(['retained', 'not-observed', 'group-still-live', 'leader-and-group-absent', 'not-terminated', 'leader-or-group-still-live', 'not-removed', 'name-and-id-absent', 'removal-unconfirmed']);
 
 function canonicalJson(value)
 {

@@ -484,6 +484,18 @@ test('minimal contract build uses only a content-addressed root and never ambien
         Object.keys(hostDeclarations).length
     );
     assert.match(result.receipt.buildRoot, /^\.tmp\/behavior-doc-contract-builds\/[a-f0-9]{64}$/u);
+    for (const [artifactId, artifact] of Object.entries(result.receipt.artifacts))
+    {
+        const expectedReceiptDigest = digestValue({
+            schema: `fsusblog.${artifactId}-build-receipt.v1`,
+            artifactId,
+            artifactPath: hostDeclarations[artifactId].output,
+            artifactDigest: artifact.artifactDigest,
+            configuration: 'Release'
+        });
+        assert.equal(result.buildIdentities[artifactId].receiptDigest, expectedReceiptDigest);
+        assert.notEqual(result.buildIdentities[artifactId].receiptDigest, result.receipt.contentDigest);
+    }
     assert.equal(fs.readFileSync(ambient, 'utf8'), '{"stale":true}\n');
 });
 
