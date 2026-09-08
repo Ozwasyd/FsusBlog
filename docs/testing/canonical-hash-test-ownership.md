@@ -1,6 +1,6 @@
 # Canonical hash test ownership
 
-Article content and Article Rights canonical hashing use four distinct evidence layers. A failure should identify one contract, invariant, or architecture boundary rather than expose an implementation fragment as if it were product behavior.
+Article content and Article Rights canonical hashing use four distinct evidence layers; see the [Article Canonical Hash](../integrity/article-canonical-hash.md) and [Article Rights Canonical Hash](../integrity/article-rights-canonical-hash.md) contracts. A failure identifies one contract, invariant, or architecture boundary rather than exposing an implementation fragment as product behavior.
 
 ## Evidence layers
 

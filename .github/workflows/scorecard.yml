@@ -7,9 +7,9 @@ on:
             - master
         paths:
             - .github/**
-            - SECURITY.md
-            - SUPPORT.md
-            - CONTRIBUTING.md
+            - docs/SECURITY.md
+            - docs/SUPPORT.md
+            - docs/CONTRIBUTING.md
             - docs/open-source-readiness.md
             - docs/repository-governance.md
             - docs/reports/open-source-readiness/**

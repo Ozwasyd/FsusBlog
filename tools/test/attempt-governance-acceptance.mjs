@@ -24,6 +24,7 @@ export const attemptGovernanceAcceptanceSchema = 'fsusblog.attempt-governance-ac
 
 export const acceptanceAuthorityFiles = Object.freeze([
     'config/schemas/clean-attempt-consumer-inventory.schema.json',
+    'config/schemas/clean-attempt-evidence-input.schema.json',
     'config/schemas/correctness-attempt-producers.schema.json',
     'config/schemas/producer-semantic-outcome-candidate.schema.json',
     'config/schemas/retry-disposition-registry.schema.json',
@@ -42,6 +43,7 @@ export const acceptanceTestFiles = Object.freeze([
     'tests/tools/attempt-provenance.test.mjs',
     'tests/tools/browser-release-clean-attempt-consumers.test.mjs',
     'tests/tools/build-projection-clean-attempt-consumers.test.mjs',
+    'tests/tools/clean-attempt-evidence-source.test.mjs',
     'tests/tools/correctness-attempt-browser-contract.test.mjs',
     'tests/tools/correctness-attempt-build-release.test.mjs',
     'tests/tools/correctness-attempt-migration.test.mjs',

@@ -28,11 +28,11 @@ const files = {
   troubleshooting: read('docs/troubleshooting.md'),
   start: read('tools/dev/start.sh'),
   compose: read('ops/development/dependencies.compose.yml'),
-  env: read('.env.example'),
+  env: read('config/examples/.env.example'),
   appsettingsDev: read('src/backend/appsettings.Development.example.json'),
   appsettingsBase: read('src/backend/appsettings.json'),
   appsettingsProduction: read('src/backend/appsettings.Production.json'),
-  envProduction: read('.env.production.example'),
+  envProduction: read('config/examples/.env.production.example'),
   configurationAuthority: read('docs/configuration/appsettings-authority.md')
 }
 
@@ -107,7 +107,7 @@ for (const token of [
 }
 
 for (const [path, source] of Object.entries({
-  '.env.example': files.env,
+  'config/examples/.env.example': files.env,
   'src/backend/appsettings.Development.example.json': files.appsettingsDev
 })) {
   includes(path, source, 'localhost')
@@ -116,8 +116,8 @@ for (const [path, source] of Object.entries({
 
 includes('src/backend/appsettings.json', files.appsettingsBase, '"ConnectionStrings"')
 includes('src/backend/appsettings.Production.json', files.appsettingsProduction, '"SecretKey": ""')
-includes('.env.production.example', files.envProduction, 'Jwt__SecretKey=CHANGE_ME_')
-includes('.env.production.example', files.envProduction, 'DB_PASSWORD=CHANGE_ME_')
+includes('config/examples/.env.production.example', files.envProduction, 'Jwt__SecretKey=CHANGE_ME_')
+includes('config/examples/.env.production.example', files.envProduction, 'DB_PASSWORD=CHANGE_ME_')
 for (const token of [
   'appsettings.json',
   'appsettings.Production.json',

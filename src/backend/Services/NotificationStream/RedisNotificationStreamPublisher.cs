@@ -80,7 +80,8 @@ internal sealed class RedisNotificationStreamPublisher(
                     target,
                     policy,
                     coalescingKey,
-                    eventId);
+                    eventId,
+                    new CommittedBacklogAcceptance(eventId, route));
                 if (enqueue.Status == NotificationStreamFanoutEnqueueStatus.ReplayRequired)
                 {
                     connectionManager.RequireRecovery(
@@ -126,6 +127,26 @@ internal sealed class RedisNotificationStreamPublisher(
                 }
             }
         }
+    }
+
+    private sealed class CommittedBacklogAcceptance(long eventId, string route) : NotificationStreamBacklogAcceptance
+    {
+        internal long EventId { get; } = eventId;
+        internal string Route { get; } = route;
+    }
+
+    internal static bool MatchesBacklogAcceptance(
+        NotificationStreamBacklogAcceptance acceptance,
+        long eventId,
+        NotificationStreamTarget target)
+    {
+        if (acceptance is not CommittedBacklogAcceptance committed || committed.EventId != eventId)
+        {
+            return false;
+        }
+
+        var route = NotificationStreamTargetRouteCodec.TryEncode(target);
+        return route.IsSuccess && string.Equals(route.Value, committed.Route, StringComparison.Ordinal);
     }
 
     private static string ResolveCoalescingKey<TPayload>(
