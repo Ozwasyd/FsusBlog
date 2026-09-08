@@ -10,6 +10,32 @@ function seal(value)
     return receipt;
 }
 
+/** Synthetic static admission envelope shared by value-contract tests only. */
+export function createRuntimeRoleStaticV3Fixture(runId, source, {
+    repositoryRoot,
+    extractorIds = ['runtime-role'],
+    minimalContractBuild = createRuntimeRoleMinimalV3Fixture(runId, source)
+} = {})
+{
+    return seal({
+        schema: 'fsusblog.behavior-doc-static-admission-receipt.v1',
+        run: { id: runId },
+        source: { commit: source.sourceCommit, worktreeFingerprint: source.worktreeFingerprint },
+        worktree: { root: repositoryRoot },
+        toolchain: { node: 'v24.0.0', dotnet: '10.0.100', platform: 'linux', architecture: 'x64', directoryBuildPropsDigest: '1'.repeat(64) },
+        authorityDigests: Object.fromEntries(['catalog', 'claim', 'extractorRegistry', 'generatedSectionCatalog',
+            'generatedRenderer', 'proseRenderer', 'mutationCatalog'].map((key) => [key, '2'.repeat(64)])),
+        implementationOwner: { status: 'ok', bindingCount: 1, contentDigest: '3'.repeat(64) },
+        factObservations: Object.fromEntries(extractorIds.map((id) => [id,
+            { status: 'ok', extractorDigest: '4'.repeat(64), semanticDigest: '5'.repeat(64), contentDigest: '6'.repeat(64) }])),
+        minimalContractBuild,
+        generated: { status: 'ok', documentCount: 0, contentDigest: '7'.repeat(64) },
+        prose: { status: 'ok', verifiedClaimCount: 0, contentDigest: '8'.repeat(64) },
+        mutationFixtures: { status: 'ok', caseCount: 9, contentDigest: '9'.repeat(64) },
+        candidateSpawnCountBeforeReceipt: 0, status: 'ok', failureReasons: [], durationMs: 1
+    })
+}
+
 export function createRuntimeRoleMinimalV3Fixture(runId, source)
 {
     const buildRoot = `.tmp/behavior-doc-contract-builds/${'b'.repeat(64)}`;
