@@ -222,7 +222,10 @@ internal sealed class ArticleBulkPlanAuthority(
             chunks,
             impact,
             string.Empty);
-        return unsigned with { ContentDigest = DigestPlan(unsigned) };
+        return unsigned with
+        {
+            ContentDigest = DigestPlan(unsigned)
+        };
     }
 
     internal async Task VerifyAsync(
@@ -316,7 +319,10 @@ internal sealed class ArticleBulkPlanAuthority(
             || !IsDigest(plan.SelectionAuthorityDigest)
             || !IsDigest(plan.SelectionResolutionDigest)
             || plan.ParametersDigest != ArticleBulkDigest.Of(normalizedParameters.OrderBy(static pair => pair.Key))
-            || plan.ContentDigest != DigestPlan(plan with { ContentDigest = string.Empty })
+            || plan.ContentDigest != DigestPlan(plan with
+            {
+                ContentDigest = string.Empty
+            })
             || selected > MaximumItems
             || plan.FrozenSetDigest != ArticleBulkDigest.Of(plan.Items.Select(static item => item.ArticleId).ToArray())
             || plan.Items.Select(static item => item.ArticleId).Distinct(StringComparer.Ordinal).Count() != selected
@@ -324,7 +330,10 @@ internal sealed class ArticleBulkPlanAuthority(
                 || chunk.Items.Length is < 1 or > ItemChunkSize
                 || chunk.ContentDigest != ArticleBulkDigest.Of(chunk.Items)).Any()
             || plan.Items.Any(static item => item.ContentDigest
-                != ArticleBulkDigest.Of(item with { ContentDigest = string.Empty }))
+                != ArticleBulkDigest.Of(item with
+                {
+                    ContentDigest = string.Empty
+                }))
             || plan.Items.Any(static item => !IsBoundedOpaqueValue(item.ArticleId, 256)
                 || !Enum.IsDefined(item.Status)
                 || !IsBoundedOpaqueValue(item.ReasonCode, 128)
@@ -436,7 +445,13 @@ internal sealed class ArticleBulkPlanAuthority(
                 observation.StateDigest
             }),
             string.Empty);
-        return unsigned with { ContentDigest = ArticleBulkDigest.Of(unsigned with { ContentDigest = string.Empty }) };
+        return unsigned with
+        {
+            ContentDigest = ArticleBulkDigest.Of(unsigned with
+            {
+                ContentDigest = string.Empty
+            })
+        };
     }
 
     private static ImmutableArray<ArticleBulkPlanItemChunk> Chunk(ImmutableArray<ArticleBulkPlanItem> items)

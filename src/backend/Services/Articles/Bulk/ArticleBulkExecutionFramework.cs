@@ -1254,9 +1254,9 @@ internal sealed class ArticleBulkExecutionFramework(
             ValidateItemReceiptShape(receipt);
             planBinding.EligibleItems.TryGetValue(receipt.ArticleId, out ArticleBulkPlanItem? receiptPlanItem);
             if (receipt.ContentDigest != ArticleBulkDigest.Of(receipt with
-                {
-                    ContentDigest = string.Empty
-                })
+            {
+                ContentDigest = string.Empty
+            })
                 || receipt.PlanDigest != plan.ContentDigest
                 || receipt.RegistryDigest != plan.RegistryDigest
                 || receipt.OperationId != plan.OperationId

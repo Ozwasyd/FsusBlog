@@ -51,7 +51,10 @@ public sealed class ArticleBulkRegistryTests
         Assert.Throws<ArticleBulkContractException>(() => ArticleBulkOperationRegistry.Get("sql.execute"));
         Assert.Throws<ArticleBulkContractException>(() => ArticleBulkOperationRegistry.Get("ai.rewrite"));
         Assert.Throws<ArticleBulkContractException>(() => ArticleBulkOperationRegistry.Validate(
-            ArticleBulkOperationRegistry.Current with { ContentDigest = ArticleBulkDigest.Of("tampered") }));
+            ArticleBulkOperationRegistry.Current with
+            {
+                ContentDigest = ArticleBulkDigest.Of("tampered")
+            }));
         Assert.Throws<ArticleBulkContractException>(() => ArticleBulkOperationRegistry.NormalizeParameters(
             "category.add",
             Parameters(("categoryId", "category-1"), ("hidden", "value"))));

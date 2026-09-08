@@ -8,6 +8,7 @@ using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
+[Collection(ArticleBulkMemoryMeasurementCollection.Name)]
 public sealed class ArticleBulkFileJournalAuthorityTests
 {
     private static readonly DateTimeOffset s_now = new(2026, 9, 4, 18, 0, 0, TimeSpan.Zero);
@@ -415,7 +416,7 @@ public sealed class ArticleBulkFileJournalAuthorityTests
         ArticleBulkOperation operation = ArticleBulkOperationRegistry.Get(fixture.Plan.OperationId);
         var receiptChunks = ImmutableArray.CreateBuilder<ArticleBulkReceiptChunk>();
         for (int offset = 0;
-            offset < fixture.Plan.Items.Length;
+            offset < fixture.Plan.Items.Count();
             offset += ArticleBulkExecutionFramework.ReceiptChunkSize)
         {
             ImmutableArray<ArticleBulkItemReceipt> receipts =
@@ -503,9 +504,9 @@ public sealed class ArticleBulkFileJournalAuthorityTests
             "references",
             "00000000000000000000.json");
         string json = await File.ReadAllTextAsync(referencePath);
-        const string marker = "\"envelopeDigest\":\"sha256:";
-        int digestOffset = json.IndexOf(marker, StringComparison.Ordinal) + marker.Length;
-        Assert.True(digestOffset >= marker.Length);
+        const string Marker = "\"envelopeDigest\":\"sha256:";
+        int digestOffset = json.IndexOf(Marker, StringComparison.Ordinal) + Marker.Length;
+        Assert.True(digestOffset >= Marker.Length);
         char[] tampered = json.ToCharArray();
         tampered[digestOffset] = tampered[digestOffset] == '0' ? '1' : '0';
         await File.WriteAllTextAsync(referencePath, new string(tampered));

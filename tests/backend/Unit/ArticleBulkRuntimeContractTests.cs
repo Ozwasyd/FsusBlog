@@ -9,6 +9,7 @@ using Xunit.Abstractions;
 
 namespace FsusBlog.Server.Tests.Unit;
 
+[Collection(ArticleBulkMemoryMeasurementCollection.Name)]
 public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
 {
     private static readonly DateTimeOffset s_now = DateTimeOffset.Parse("2026-09-04T12:00:00Z");
@@ -975,12 +976,12 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
             string executionIdentityDigest,
             CancellationToken cancellationToken)
         {
-            if (IdempotencyKey is null)
+            if (IdempotencyKey is null || IdempotencyKey != idempotencyKey)
             {
                 return Task.FromResult(new ArticleBulkIdempotencyResolution(
                     ArticleBulkIdempotencyKind.Missing, null, null, null));
             }
-            if (IdempotencyKey != idempotencyKey || Head!.ExecutionIdentityDigest != executionIdentityDigest)
+            if (Head!.ExecutionIdentityDigest != executionIdentityDigest)
             {
                 return Task.FromResult(new ArticleBulkIdempotencyResolution(
                     ArticleBulkIdempotencyKind.Conflict, Request, Head, TerminalReceipt));
@@ -1094,4 +1095,10 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
     }
 
     private sealed class InjectedJournalCrashException : Exception;
+}
+
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class ArticleBulkMemoryMeasurementCollection
+{
+    public const string Name = nameof(ArticleBulkMemoryMeasurementCollection);
 }

@@ -169,7 +169,10 @@ internal static partial class ArticleBulkOperationRegistry
             || candidate.CommandOwners.Count != expected.CommandOwners.Count
             || candidate.CommandOwners.Any(pair => !expected.CommandOwners.TryGetValue(pair.Key, out var ids)
                 || !pair.Value.SequenceEqual(ids))
-            || candidate.ContentDigest != DigestRegistry(candidate with { ContentDigest = string.Empty }))
+            || candidate.ContentDigest != DigestRegistry(candidate with
+            {
+                ContentDigest = string.Empty
+            }))
         {
             throw new ArticleBulkContractException("article-bulk.registry-tampered");
         }
@@ -184,7 +187,10 @@ internal static partial class ArticleBulkOperationRegistry
                 static group => group.Select(static operation => operation.Id).Order(StringComparer.Ordinal).ToImmutableArray(),
                 StringComparer.Ordinal);
         var unsigned = new ArticleBulkRegistrySnapshot(Schema, Version, null, operations, owners, string.Empty);
-        return unsigned with { ContentDigest = DigestRegistry(unsigned) };
+        return unsigned with
+        {
+            ContentDigest = DigestRegistry(unsigned)
+        };
     }
 
     private static string DigestRegistry(ArticleBulkRegistrySnapshot registry)

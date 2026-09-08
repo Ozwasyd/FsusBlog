@@ -100,7 +100,10 @@ public sealed class ArticleBulkPlanAuthorityTests
         Assert.Equal(calls, selection.Calls);
 
         ArticleBulkContractException tampered = Assert.Throws<ArticleBulkContractException>(() =>
-            authority.ValidateForExecution(plan with { PolicyDigest = ArticleBulkDigest.Of("tampered") }));
+            authority.ValidateForExecution(plan with
+            {
+                PolicyDigest = ArticleBulkDigest.Of("tampered")
+            }));
         Assert.Equal("article-bulk.plan-tampered", tampered.Code);
         time.UtcNow = plan.ExpiresAtUtc;
         Assert.Equal("article-bulk.plan-expired",
@@ -170,8 +173,16 @@ public sealed class ArticleBulkPlanAuthorityTests
 
     private sealed class SelectionAuthority(IEnumerable<string> ids) : IArticleBulkSelectionAuthority
     {
-        internal IReadOnlyList<string> Ids { get; set; } = [.. ids];
-        internal int Calls { get; private set; }
+        internal IReadOnlyList<string> Ids
+        {
+            get;
+            set;
+        } = [.. ids];
+        internal int Calls
+        {
+            get;
+            private set;
+        }
 
         public Task<ArticleBulkSelectionResolution> ResolveAsync(
             ArticleBulkSelection selection,
@@ -188,7 +199,11 @@ public sealed class ArticleBulkPlanAuthorityTests
 
     private sealed class PreflightAuthority(string? blockedArticleId = null) : IArticleBulkPreflightAuthority
     {
-        internal int Count { get; private set; }
+        internal int Count
+        {
+            get;
+            private set;
+        }
 
         public async IAsyncEnumerable<ArticleBulkArticleObservation> ObserveAsync(
             IReadOnlyList<string> orderedArticleIds,
