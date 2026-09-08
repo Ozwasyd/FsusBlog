@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fsusblog.local/contracts/article-vault-metadata-manifest.schema.json",
+  "title": "FsusBlog article Vault metadata manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schemaVersion",
+    "siteIdentity",
+    "vaultIdentity",
+    "deviceIdentity",
+    "portableArticleIdentity",
+    "serverArticleIdentity",
+    "title",
+    "summary",
+    "slug",
+    "taxonomySha256",
+    "propertiesSha256",
+    "contentSha256"
+  ],
+  "properties": {
+    "schema": { "const": "fsusblog.article-vault.metadata.v1" },
+    "schemaVersion": { "const": 1 },
+    "siteIdentity": { "$ref": "#/$defs/identity" },
+    "vaultIdentity": { "$ref": "#/$defs/identity" },
+    "deviceIdentity": { "$ref": "#/$defs/identity" },
+    "portableArticleIdentity": { "$ref": "#/$defs/identity" },
+    "serverArticleIdentity": { "$ref": "#/$defs/nullableIdentity" },
+    "title": { "type": "string", "minLength": 1 },
+    "summary": { "oneOf": [{ "type": "string" }, { "type": "null" }] },
+    "slug": { "type": "string", "minLength": 1 },
+    "taxonomySha256": { "$ref": "#/$defs/sha256" },
+    "propertiesSha256": { "$ref": "#/$defs/sha256" },
+    "contentSha256": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "identity": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128,
+      "pattern": "^[^\\s/\\\\]+$"
+    },
+    "nullableIdentity": {
+      "oneOf": [{ "$ref": "#/$defs/identity" }, { "type": "null" }]
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

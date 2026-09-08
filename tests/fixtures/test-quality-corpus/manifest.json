@@ -147,56 +147,56 @@
             "testId": "xunit:tests/xunit/QualityCorpusTests.cs#FsusBlog.QualityCorpus.QualityCorpusTests.XunitExactState#case-0000",
             "expectedOutcome": "passed",
             "expectedRules": [],
-            "expectedLine": 7
+            "expectedLine": 8
         },
         {
             "displayName": "QualityCorpusTests.FluentExactState",
             "testId": "xunit:tests/xunit/QualityCorpusTests.cs#FsusBlog.QualityCorpus.QualityCorpusTests.FluentExactState#case-0000",
             "expectedOutcome": "passed",
             "expectedRules": [],
-            "expectedLine": 13
+            "expectedLine": 14
         },
         {
             "displayName": "QualityCorpusTests.CustomAssertionHelper",
             "testId": "xunit:tests/xunit/QualityCorpusTests.cs#FsusBlog.QualityCorpus.QualityCorpusTests.CustomAssertionHelper#case-0000",
             "expectedOutcome": "passed",
             "expectedRules": [],
-            "expectedLine": 19
+            "expectedLine": 20
         },
         {
             "displayName": "QualityCorpusTests.EmptyMaskedBySibling",
             "testId": "xunit:tests/xunit/QualityCorpusTests.cs#FsusBlog.QualityCorpus.QualityCorpusTests.EmptyMaskedBySibling#case-0000",
             "expectedOutcome": "failed",
             "expectedRules": ["TQ-ZERO-OUTCOME"],
-            "expectedLine": 25
+            "expectedLine": 26
         },
         {
             "displayName": "QualityCorpusTests.TestToTestWrapper",
             "testId": "xunit:tests/xunit/QualityCorpusTests.cs#FsusBlog.QualityCorpus.QualityCorpusTests.TestToTestWrapper#case-0000",
             "expectedOutcome": "failed",
             "expectedRules": ["TQ-TEST-TO-TEST", "TQ-ZERO-OUTCOME"],
-            "expectedLine": 31
+            "expectedLine": 32
         },
         {
             "displayName": "QualityCorpusTests.ForwarderTarget",
             "testId": "xunit:tests/xunit/QualityCorpusTests.cs#FsusBlog.QualityCorpus.QualityCorpusTests.ForwarderTarget#case-0000",
             "expectedOutcome": "passed",
             "expectedRules": [],
-            "expectedLine": 37
+            "expectedLine": 38
         },
         {
             "displayName": "QualityCorpusTests.StaticParameterizedCases [case 0: [1]]",
             "testId": "xunit:tests/xunit/QualityCorpusTests.cs#FsusBlog.QualityCorpus.QualityCorpusTests.StaticParameterizedCases#case-0000",
             "expectedOutcome": "passed",
             "expectedRules": [],
-            "expectedLine": 43
+            "expectedLine": 44
         },
         {
             "displayName": "QualityCorpusTests.StaticParameterizedCases [case 1: [2]]",
             "testId": "xunit:tests/xunit/QualityCorpusTests.cs#FsusBlog.QualityCorpus.QualityCorpusTests.StaticParameterizedCases#case-0001",
             "expectedOutcome": "passed",
             "expectedRules": [],
-            "expectedLine": 43
+            "expectedLine": 44
         },
         {
             "displayName": "shell-structured.sh",

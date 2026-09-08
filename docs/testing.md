@@ -100,7 +100,7 @@ generatedSectionId: testing.coverage-entry-count
 render: scalar
 -->
 <!-- FSUSBLOG-GENERATED:BEGIN testing.coverage-entry-count -->
-264
+265
 <!-- FSUSBLOG-GENERATED:END testing.coverage-entry-count -->
 
 `config/testing/content-shape-catalog.json` is the only editable `ContentShapeCatalog` for Unicode, script, positive and negative eligibility, and content consumer applicability. `tools/testing/content-shape-catalog.mjs` generates and checks `config/testing/content-field-contracts.generated.json` from the current `ArticlePublicationValidator`, `CommentLimits` and comment binary endpoints; tests must not copy article/comment characters or UTF-8 byte limits. The "character" count semantics of production are fixed to .NET UTF-16 `string.Length`, and the byte count is fixed to `Encoding.UTF8.GetByteCount`. The generator separately records Unicode scalar and grapheme statistics, but they must not be used to replace the production judgment. The 1000 UTF-16 unit upper limit of the current comment will constrain all legal Unicode text before the 4096-byte upper limit, so the byte boundary case is still an independent dimension evidence, rather than pretending to be an overall positive input that can be achieved alone.
@@ -1328,10 +1328,14 @@ render: enum-set
 - `visual-public`
 - `wasm-build-artifacts`
 - `wasm-fuzz-regression`
+<!-- FSUSBLOG-GENERATED:END testing.tiers -->
+
 <!-- #2527 current LocalRedis budget evidence -->
 
 `BudgetedLeaseAtomicallyAccountsExactBytesQuotasAndRetryIdentity` is executed only by the canonical LocalRedis producer; ordinary discovery excludes it with `Fixture!=LocalRedis`. The test binds the current run, Redis endpoint, assembly and `budgeted-lease` prefix and records six independent accounting observations. Missing Redis, stale or cross-run prefixes, byte/inventory mismatches, duplicate execution, and cleanup failures fail closed.
 
 `FSUSBLOG_TEST_REDIS_HOST` defaults to `127.0.0.1`; only `host.docker.internal` is additionally permitted for an isolated Linux test container to reach the local Docker-published port. Other addresses are rejected before startup. This configuration cannot connect to an external Redis; the endpoint and evidence remain bound to the same local Docker fixture.
 
-<!-- FSUSBLOG-GENERATED:END testing.tiers -->
+<!-- #2529 current LocalRedis cutover evidence -->
+
+`RedisStore_RetiresAllV3NamespacesAndEnvelopeIdempotently` is executed exactly once by the same canonical LocalRedis producer; ordinary discovery excludes it with `Fixture!=LocalRedis`. It binds the current run, Redis endpoint, source identity and `cutover` prefix, then records real Redis evidence for state/active-identity/device/IP/old-generation retirement, active-generation retention, envelope revocation, the exact database revoke, repeated receipt/mutation idempotency and zero pool leases. Missing Redis, manifest identity, fresh evidence, exact planned/executed/outcome binding, stale or cross-run evidence, observed pool leasing, and cleanup failures fail closed.

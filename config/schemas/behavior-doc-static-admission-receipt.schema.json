@@ -397,6 +397,9 @@
                         }
                     }
                 },
+                "sourceDigest": {
+                    "$ref": "#/$defs/digest"
+                },
                 "artifacts": {
                     "type": "object",
                     "additionalProperties": false,
@@ -455,6 +458,10 @@
                     "$ref": "#/$defs/digest"
                 },
                 "path": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "artifactPath": {
                     "type": "string",
                     "minLength": 1
                 },

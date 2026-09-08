@@ -36,7 +36,8 @@ function archive(manifest, duplicate = false) {
     return gzipSync(Buffer.concat([entry, ...(duplicate ? [entry] : []), Buffer.alloc(1024)]));
 }
 
-function fixture({ manifest = { name: packageName, version: '1.5.2' }, tarball = archive(manifest) } = {}) {
+function fixture({ manifest = { name: packageName, version: '1.5.2' }, tarball = archive(manifest), candidateManifestSha256 } = {}) {
+    const manifestBytes = Buffer.from(JSON.stringify(manifest));
     const payload = {
         schemaVersion: 1,
         package: packageName,
@@ -47,7 +48,7 @@ function fixture({ manifest = { name: packageName, version: '1.5.2' }, tarball =
         sourceCommit: 'a'.repeat(40),
         releaseTag: 'v1.5.2',
         candidateSha256: sha256(tarball),
-        candidateManifestSha256: 'b'.repeat(64),
+        candidateManifestSha256: candidateManifestSha256 ?? sha256(manifestBytes),
         crossGateReceiptSha256: 'c'.repeat(64),
         npmIntegrity: integrity(tarball),
         npmTarballSha256: sha256(tarball),
@@ -86,6 +87,7 @@ test('simulation: same candidate bytes traverse HTTP metadata, latest, archive a
     assert.deepEqual(requireVerifiedFsusuiEvent(receipt), data.payload);
     assert.equal(receipt.rawPayloadSha256, sha256(raw));
     assert.equal(receipt.npmTarballSha256, sha256(data.tarball));
+    assert.equal(receipt.npmManifestSha256, data.payload.candidateManifestSha256);
     assert.equal(receipt.npmVersionMetadataSha256, sha256(JSON.stringify(data.version)));
     assert.equal(receipt.npmLatestMetadataSha256, sha256(JSON.stringify(data.latest)));
     assert.equal(receipt.verifiedAt, now().toISOString());
@@ -158,14 +160,14 @@ for (const [label, mutate, error] of [
     });
 }
 
-for (const [label, tarball, error] of [
-    ['wrong package name', archive({ name: 'other', version: '1.5.2' }), /tarball name\/version/],
-    ['wrong package version', archive({ name: packageName, version: '1.5.3' }), /tarball name\/version/],
-    ['invalid archive', Buffer.from('not a gzip tar archive'), /tarball package/],
-    ['duplicate manifest', archive({ name: packageName, version: '1.5.2' }, true), /tarball package/]
+for (const [label, fixtureOptions, error] of [
+    ['wrong package name', { manifest: { name: 'other', version: '1.5.2' } }, /tarball name\/version/],
+    ['wrong package version', { manifest: { name: packageName, version: '1.5.3' } }, /tarball name\/version/],
+    ['invalid archive', { tarball: Buffer.from('not a gzip tar archive') }, /tarball package/],
+    ['duplicate manifest', { manifest: { name: packageName, version: '1.5.2' }, tarball: archive({ name: packageName, version: '1.5.2' }, true) }, /tarball package/]
 ]) {
     test(`simulation: rejects ${label} even when all cryptographic digests agree`, async (t) => {
-        const data = fixture({ tarball });
+        const data = fixture(fixtureOptions);
         const transport = await registryFixture(t, data);
         await assert.rejects(verifyFsusuiReleaseEvent(JSON.stringify(data.payload), { transport, now }), error);
     });
@@ -227,7 +229,12 @@ test('simulation: decompressed package manifest size is bounded independently of
 });
 
 test('simulation: duplicate package identity inside a valid tarball is rejected', async (t) => {
-    const data = fixture({ tarball: archive(Buffer.from('{"name":"other","name":"@ozwasyd/element-plus","version":"1.5.2"}')) });
+    const manifestBytes = Buffer.from('{"name":"other","name":"@ozwasyd/element-plus","version":"1.5.2"}');
+    const data = fixture({
+        tarball: archive(manifestBytes),
+        manifest: { name: packageName, version: '1.5.2' },
+        candidateManifestSha256: sha256(manifestBytes)
+    });
     const transport = await registryFixture(t, data);
     await assert.rejects(verifyFsusuiReleaseEvent(JSON.stringify(data.payload), { transport, now }), /duplicate/);
 });
