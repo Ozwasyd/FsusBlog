@@ -13,6 +13,25 @@ node tools/governance/bounded-channel-contracts.mjs
 node --test tests/tools/bounded-channel-contracts.test.mjs
 ```
 
+## Catalog-driven bounded queue drain matrix
+
+`drainParticipant: true` in the sole bounded-channel catalog is the participant admission boundary. `BoundedQueueDeliveryCatalog` loads that same embedded catalog, and `BoundedQueueDrainAggregator` accepts exactly one registered adapter receipt for every participant queue. A receipt is current-run and content-addressed: it binds queue identity, delivery class, generation, sequence, queued/in-flight/durable-pending/terminal counts, commit postcondition, and any class-valid drop proof. Missing, duplicate, unknown, stale, cross-run, underflowed, observer-unavailable, or digest-mismatched observations fail closed.
+
+The release drain wrapper and `ProductionHealth` both consume the aggregate; health, readiness, and qualification are not computed from a second queue list or a `QueuedCount`-only shortcut. Queue adapters only expose existing queue-owned snapshots. The PublicHot adapter remains a wrapper around the authoritative PublicHot activity/quiescence APIs and does not copy or change PublicHot delivery behavior.
+
+`tests/backend/Unit/BoundedQueueDrainAggregatorTests.cs` enumerates `BoundedQueueDeliveryCatalog.Embedded.DrainParticipants` and executes the deterministic ten-case matrix for each queue: `exact-drain`, `queued-pending`, `in-flight-pending`, `durable-pending`, `terminal-failure`, `commit-postcondition-unknown`, `drop-proof-mutation`, `worker-crash`, `cancel-timeout`, and `restart-generation-regression`. The test asserts `catalog participant count × 10` fixtures, keeps peer receipts unchanged when one queue fails, and requires identical health/readiness/qualification status from the aggregate. Per-queue failure semantics, proof references, qualification impact, and recovery disposition remain in the catalog and are the queue-specific runbook; no universal delivery policy is inferred.
+
+Run the static gate and current-source terminal receipt with:
+
+```bash
+node tools/governance/bounded-channel-contracts.mjs
+node tools/governance/bounded-channel-contracts.mjs --receipt
+node --test tests/tools/bounded-channel-contracts.test.mjs
+dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --filter "FullyQualifiedName~BoundedQueueDrainAggregatorTests"
+```
+
+The receipt schema is `fsusblog.bounded-queue-acceptance.v1`. It binds the catalog digest, every participant and adapter source, the ten scenarios, the aggregate source/schema, all mutation results, and `warnings: []`; a verifier must rebuild it from the current source before accepting it. A changed catalog or source requires the catalog gate, matrix, and receipt to be rerun. This lane does not change individual queue delivery implementations, add a runner/catalog, or alter the PublicHot authoritative contract.
+
 ## Media shape authority
 
 `config/testing/media-shape-catalog.json` is the only closed/versioned MediaShapeCatalog. It registers MIME, extension, magic and independent codec fact owners of JPEG, PNG, SVG and WebP respectively, and fixes six aspect contracts, ten types of consumer applicability, ten canonical positive shapes and eight single-fault negative shapes. The catalog only saves AssetId-compatible generator digest refs and does not save absolute path, public URL, storage path or second asset ledger; `no-cover` explicitly does not generate bytes, URL or default images. `tools/test-fixtures/media-shape-catalog.mjs` performs independent fail-closed verification of the catalog and each shape's content digest, matrix integrity, format/MIME/extension, orientation/alpha/dimensions, single-fault, consumer isolation, and unique authority.

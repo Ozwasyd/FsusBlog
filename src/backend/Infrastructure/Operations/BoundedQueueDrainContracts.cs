@@ -19,11 +19,20 @@ public sealed record BoundedChannelQueueContract(
 
 public interface IBoundedQueueDrainCatalog
 {
-    string Digest { get; }
+    string Digest
+    {
+        get;
+    }
 
-    IReadOnlyList<BoundedChannelQueueContract> Queues { get; }
+    IReadOnlyList<BoundedChannelQueueContract> Queues
+    {
+        get;
+    }
 
-    IReadOnlyList<BoundedChannelQueueContract> DrainParticipants { get; }
+    IReadOnlyList<BoundedChannelQueueContract> DrainParticipants
+    {
+        get;
+    }
 }
 
 public sealed record BoundedQueueDropProof(
@@ -160,7 +169,10 @@ public sealed record BoundedQueueParticipantReceipt(
 
 public interface IBoundedQueueDrainParticipant
 {
-    string QueueId { get; }
+    string QueueId
+    {
+        get;
+    }
 
     string AdapterToken => GetType().Name;
 
