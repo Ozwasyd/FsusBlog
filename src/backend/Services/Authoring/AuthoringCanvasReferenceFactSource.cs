@@ -163,7 +163,10 @@ public sealed class AuthoringCanvasReferenceFactSource(
                 target.NodeType == AuthoringCanvasNodeType.ArticleReference
                     ? display.ContextSnippet
                     : coordinateSnippet,
-                $"/manage/article/edit/{target.TargetArticleId}"));
+                $"/manage/article/edit/{target.TargetArticleId}")
+            {
+                DisplayProjectionReference = projectionReference
+            });
         }
         return result;
     }

@@ -43,8 +43,24 @@ public sealed class AuthoringCanvasReferenceFactSourceTests
         Assert.Equal(20, facts[0].ResolvedRevision);
         Assert.Equal("Current 101", facts[0].Title);
         Assert.Equal("/manage/article/edit/101", facts[0].StableRoute);
+        Assert.Equal(
+            AuthoringCanvasContract.ComputeCommandDigest(
+                "canvas-reference-display",
+                101,
+                20,
+                "Current 101",
+                "Context 101"),
+            facts[0].DisplayProjectionReference);
         Assert.Equal(11, facts[1].ResolvedRevision);
         Assert.Equal("Pinned 102", facts[1].Title);
+        Assert.Equal(
+            AuthoringCanvasContract.ComputeCommandDigest(
+                "canvas-reference-display",
+                102,
+                22,
+                "Current 102",
+                "Context 102"),
+            facts[1].DisplayProjectionReference);
         Assert.Equal(AuthoringCanvasReferenceCoordinateState.SourceStale, facts[1].CoordinateState);
         Assert.Null(facts[1].ContextSnippet);
     }

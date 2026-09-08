@@ -48,6 +48,7 @@ public sealed class AuthoringCanvasReferenceResolverTests
             Assert.Equal($"Article {projection.TargetArticleId}", projection.Title);
             Assert.NotNull(projection.ContextSnippet);
             Assert.NotNull(projection.OpenIntent);
+            Assert.Equal(new string('e', 64), projection.DisplayProjectionReference);
             Assert.Equal(64, projection.ContentDigest.Length);
         });
         Assert.False(first.Projections[0].UpdateAvailable);
@@ -156,7 +157,7 @@ public sealed class AuthoringCanvasReferenceResolverTests
             [
                 "NodeId", "NodeType", "TargetArticleId", "TargetHeadingIdentity", "TargetBlockIdentity",
                 "Status", "Title", "ContextSnippet", "TargetRevision", "CurrentTargetRevision", "OpenIntent",
-                "UpdateAvailable", "ContentDigest"
+                "UpdateAvailable", "ContentDigest", "DisplayProjectionReference"
             ],
             PropertyNames(projectionJson));
         Assert.Equal(
@@ -166,6 +167,42 @@ public sealed class AuthoringCanvasReferenceResolverTests
                 "CacheHitCount", "ElapsedMilliseconds", "Items", "ContentDigest"
             ],
             PropertyNames(receiptJson));
+    }
+
+    [Fact]
+    public async Task OperationValidator_BindsReferenceStateAndCanonicalDisplayProjection()
+    {
+        AuthoringCanvasNode unresolved = Reference(901);
+        var source = new DeterministicFactSource(target => Fact(target));
+        var validator = new AuthoringCanvasOperationReferenceValidator(CreateResolver([unresolved], source));
+        AuthoringCanvasNode current = unresolved with
+        {
+            DisplayProjectionReference = new string('e', 64),
+            ReferenceState = AuthoringCanvasReferenceState.Current
+        };
+        var request = new AuthoringCanvasOperationReferenceValidationRequest(
+            Guid.CreateVersion7(),
+            Request([unresolved]).CanvasId,
+            17,
+            CanvasDigest,
+            s_owner,
+            [current]);
+
+        string digest = await validator.ValidateAsync(request);
+
+        Assert.Equal(64, digest.Length);
+        AuthoringCanvasValidationException wrongState = await Assert.ThrowsAsync<AuthoringCanvasValidationException>(
+            () => validator.ValidateAsync(request with
+            {
+                References = [current with { ReferenceState = AuthoringCanvasReferenceState.Unresolved }]
+            }));
+        Assert.Equal("canvas_operation_reference_validation_mismatch", wrongState.Code);
+        AuthoringCanvasValidationException wrongProjection = await Assert.ThrowsAsync<AuthoringCanvasValidationException>(
+            () => validator.ValidateAsync(request with
+            {
+                References = [current with { DisplayProjectionReference = new string('f', 64) }]
+            }));
+        Assert.Equal("canvas_operation_reference_validation_mismatch", wrongProjection.Code);
     }
 
     [Fact]
@@ -513,7 +550,10 @@ public sealed class AuthoringCanvasReferenceResolverTests
             false,
             $"Article {target.TargetArticleId}",
             $"Context for article {target.TargetArticleId}",
-            $"/author/articles/{target.TargetArticleId}");
+            $"/author/articles/{target.TargetArticleId}")
+        {
+            DisplayProjectionReference = new string('e', 64)
+        };
 
     private static AuthoringCanvasReferenceFact DeniedFact(AuthoringCanvasNode node)
         => DeniedFact(new AuthoringCanvasReferenceTarget(

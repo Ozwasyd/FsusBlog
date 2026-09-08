@@ -83,6 +83,7 @@ public static partial class AuthoringCanvasReferenceContract
             if (fact.Title is not null
                 || fact.ContextSnippet is not null
                 || fact.StableRoute is not null
+                || fact.DisplayProjectionReference is not null
                 || fact.CurrentRevision != 0
                 || fact.ResolvedRevision != 0)
             {
@@ -112,6 +113,11 @@ public static partial class AuthoringCanvasReferenceContract
             MaxContextSnippetLength,
             "canvas_reference_context_invalid");
         ValidateOptionalRoute(fact.StableRoute);
+        if (fact.DisplayProjectionReference is not null
+            && !DigestPattern().IsMatch(fact.DisplayProjectionReference))
+        {
+            throw new AuthoringCanvasValidationException("canvas_reference_display_projection_invalid");
+        }
     }
 
     public static string ComputeTargetDigest(AuthoringCanvasReferenceTarget target)
@@ -133,6 +139,7 @@ public static partial class AuthoringCanvasReferenceContract
             projection.TargetArticleId,
             projection.TargetHeadingIdentity,
             projection.TargetBlockIdentity,
+            projection.DisplayProjectionReference,
             (int)projection.Status,
             projection.Title,
             projection.ContextSnippet,
@@ -324,7 +331,10 @@ public sealed record AuthoringCanvasReferenceFact(
     bool TargetChangedSinceProjection,
     string? Title,
     string? ContextSnippet,
-    string? StableRoute);
+    string? StableRoute)
+{
+    public string? DisplayProjectionReference { get; init; }
+}
 
 public sealed record AuthoringCanvasReferenceFactQuery(
     Guid CanvasId,
@@ -373,7 +383,10 @@ public sealed record AuthoringCanvasReferenceProjection(
     long? CurrentTargetRevision,
     AuthoringCanvasOpenIntent? OpenIntent,
     bool UpdateAvailable,
-    string ContentDigest);
+    string ContentDigest)
+{
+    public string? DisplayProjectionReference { get; init; }
+}
 
 public sealed record AuthoringCanvasReferenceResolutionReceiptItem(
     Guid NodeId,

@@ -197,6 +197,10 @@ public sealed class AuthoringCanvasReferenceResolver(
             status is AuthoringCanvasReferenceProjectionStatus.PinnedStale
                 or AuthoringCanvasReferenceProjectionStatus.TargetUpdated,
             string.Empty);
+        projection = projection with
+        {
+            DisplayProjectionReference = contentVisible ? fact.DisplayProjectionReference : null
+        };
         return projection with
         {
             ContentDigest = AuthoringCanvasReferenceContract.ComputeProjectionDigest(projection)
