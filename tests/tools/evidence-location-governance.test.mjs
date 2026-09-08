@@ -18,6 +18,10 @@ import {
     scanEvidenceLocations
 } from '../../tools/test/evidence-location-scanner.mjs';
 import { generateCurrentRunEvidenceLocationAcceptance } from '../../tools/test/generate-current-run-evidence-location-acceptance.mjs';
+import {
+    beginRegisteredCurrentRunEvidenceProducer,
+    finalizeRegisteredCurrentRunEvidenceProducer
+} from '../../tools/test/run-current-run-evidence-producer.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const load = (name) => JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'config/testing', name), 'utf8'));
@@ -316,6 +320,85 @@ test('every registry authority declares an executable producer and exact publica
     assert.deepEqual(Object.fromEntries(['cli', 'library-caller', 'workflow'].map((classification) =>
         [classification, [...sourceClasses.values()].filter((value) => value === classification).length])),
     { cli: 47, 'library-caller': 19, workflow: 2 });
+});
+
+test('fixture postconditions remain an import-only helper and cannot masquerade as a receipt CLI', (context) =>
+{
+    const source = 'tools/test-fixtures/receipt/postconditions.mjs';
+    const generated = generateEvidenceLocationGovernance();
+    const findings = generated.scan.findings.filter((entry) => entry.file === source);
+    assert.equal(findings.length, 6);
+    assert(findings.every((entry) => entry.ruleId === 'evidence-selection.first-match'));
+    const findingIds = new Set(findings.map((entry) => entry.findingId));
+    const ledgerEntries = generated.ledger.entries.filter((entry) => findingIds.has(entry.findingId));
+    assert.equal(ledgerEntries.length, findings.length);
+    assert(ledgerEntries.every((entry) => entry.classification === 'not-evidence'
+        && entry.newAuthorityId === null
+        && entry.locatorMode === 'not-applicable'
+        && entry.action === 'close exact location and rule as non-evidence behavior'));
+    assert.equal(generated.registry.entries.some((entry) => entry.producerSource === source), false);
+
+    const sourceText = fs.readFileSync(path.join(repositoryRoot, source), 'utf8');
+    assert.match(sourceText, /export function runPostcondition/u);
+    assert.match(sourceText, /export function verifyCapabilityPostconditions/u);
+    assert.doesNotMatch(sourceText, /process\.argv\[1\].*fileURLToPath/su);
+    const direct = spawnSync(process.execPath, [source], {
+        cwd: repositoryRoot,
+        encoding: 'utf8',
+        timeout: 10000
+    });
+    assert.ifError(direct.error);
+    assert.equal(direct.status, 0);
+    assert.equal(direct.stdout, '');
+    assert.equal(direct.stderr, '');
+
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'postconditions-cli-masquerade-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    fs.mkdirSync(path.join(root, 'config/testing'), { recursive: true });
+    fs.mkdirSync(path.join(root, 'artifacts/current-run'), { recursive: true });
+    const consumerId = 'evidence-consumer.test-fixtures.receipt.postconditions';
+    const fakeEntry = {
+        ...generated.registry.entries.find((entry) => entry.publicationMode === 'hooked'),
+        consumerId,
+        authorityId: `${consumerId}.current-run`,
+        producerId: `${consumerId}.producer`,
+        producerSource: source,
+        producerCallsite: source,
+        producerExecutable: `node ${source}`,
+        producerBindingClass: 'cli',
+        producerCommand: `FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER=${consumerId} node --import ./tools/test/current-run-evidence-producer-hook.mjs ${source}`,
+        outputBindingKey: 'FSUSBLOG_TEST_FIXTURES_RECEIPT_POSTCONDITIONS_EVIDENCE_PATH',
+        handoffBindingKey: 'FSUSBLOG_TEST_FIXTURES_RECEIPT_POSTCONDITIONS_EVIDENCE_HANDOFF_PATH',
+        payloadBindingKey: 'FSUSBLOG_TEST_FIXTURES_RECEIPT_POSTCONDITIONS_EVIDENCE_PAYLOAD_PATH',
+        checkpointCommand: `node tools/test/attach-current-run-evidence-checkpoint.mjs --consumer ${consumerId}`
+    };
+    const fakeRegistry = seal({
+        schema: 'fsusblog.evidence-locator-registry.v1',
+        version: 1,
+        entries: [fakeEntry]
+    });
+    fs.writeFileSync(path.join(root, 'config/testing/evidence-locator-registry.json'),
+        `${JSON.stringify(fakeRegistry, null, 4)}\n`);
+    const currentRunContext = seal({
+        schema: 'fsusblog.current-run-evidence-context.v1',
+        schedulerRunId: 'run-postconditions-negative',
+        attemptId: 'attempt-postconditions-negative',
+        sourceCommit: 'a'.repeat(40),
+        worktreeFingerprint: `sha256:${'b'.repeat(64)}`,
+        candidateIdentity: { id: 'candidate', digest: `sha256:${'c'.repeat(64)}` },
+        buildIdentity: { id: 'build', digest: `sha256:${'d'.repeat(64)}` },
+        ownedRoots: ['artifacts/current-run']
+    });
+    fs.writeFileSync(path.join(root, 'context.json'), `${JSON.stringify(currentRunContext, null, 4)}\n`);
+    const environment = {
+        FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER: consumerId,
+        FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT: 'context.json',
+        [fakeEntry.outputBindingKey]: 'artifacts/current-run/postconditions-reference.json',
+        [fakeEntry.payloadBindingKey]: 'artifacts/current-run/postconditions-payload.json'
+    };
+    const session = beginRegisteredCurrentRunEvidenceProducer({ environment, repositoryRoot: root });
+    assert.throws(() => finalizeRegisteredCurrentRunEvidenceProducer(session),
+        /producer payload is missing after terminal success/u);
 });
 
 test('clean-attempt evidence retains its finding and binds the real CLI through its library caller', () =>

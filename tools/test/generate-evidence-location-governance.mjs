@@ -38,10 +38,20 @@ const diagnosticPrograms = new Set([
     'tests/browser-diagnostics/run.mjs',
     'tools/operations/check-evidence-metrics.mjs'
 ]);
+// These exact library modules contain evidence vocabulary but cannot publish a
+// terminal receipt themselves. Their scanner findings remain in the ledger as
+// closed non-evidence behavior; they must not acquire a synthetic CLI owner.
+const nonEvidenceProgramOverrides = new Set([
+    'tools/test-fixtures/receipt/postconditions.mjs'
+]);
 const evidenceProgramName = /(?:artifact|evidence|flaky|manifest|quality-gate|receipt|release-final|report|summary)/iu;
 
 function programClassification(file)
 {
+    if (nonEvidenceProgramOverrides.has(file))
+    {
+        return 'not-evidence';
+    }
     if (correctnessPrograms.has(file))
     {
         return 'correctness-selection';
