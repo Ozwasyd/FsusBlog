@@ -80,11 +80,11 @@
         },
         {
             "id": "release-data-scale-outer",
-            "measurementBudgetMs": 600000,
+            "measurementBudgetMs": 1260000,
             "startupMarginMs": 20000,
             "finalizationMarginMs": 30000,
             "terminationMarginMs": 10000,
-            "outerTimeoutMs": 660000
+            "outerTimeoutMs": 1320000
         },
         {
             "id": "release-mutation-outer",
@@ -552,7 +552,7 @@
                 "cost": "high",
                 "timeoutPolicyId": "release-data-scale-outer"
             },
-            "schedulerProfileDigest": "sha256:fad85b52a56a048d25c8f830abb931f749ab6700f3d7d57fcad7d2391ee8bc60",
+            "schedulerProfileDigest": "sha256:bdb7957a6dc8d228058f22615459edbb75e350fa50da22e80ae3991ab95660ab",
             "identityTools": [
                 "bash",
                 "docker",
@@ -973,5 +973,6 @@
                 }
             }
         }
-    ]
+    ],
+    "contentDigest": "sha256:c514891b4e2be80d7a508778fbf4d604b0ce823c174b38f3df61d907f2ccfd6d"
 }

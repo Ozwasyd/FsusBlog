@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import {
   createDeterministicRandom,
+  createRandomExecutionRecorder,
   deriveRandomConsumerStream,
   generateDiagnosticRootSeed,
   loadRandomStreamInventory,
@@ -56,6 +57,7 @@ const randomStream = deriveRandomConsumerStream({
   rootSeed: rootSeedResolution.rootSeed,
   consumer: resolveRandomConsumer(randomInventory, randomConsumer)
 })
+const execution = createRandomExecutionRecorder(randomConsumer)
 
 function positiveInteger(value, fallback) {
   const parsed = Number.parseInt(String(value ?? ''), 10)
@@ -253,10 +255,12 @@ try {
         throw new Error(`wasm_fuzz_tier_differential:${JSON.stringify(results)}`)
       }
       seedsRun += 1
+      execution?.record({ corpus: entry.id, seed, inputDigest: createHash('sha256').update(input).digest('hex'), results })
     }
   }
 
   const generatedAt = new Date().toISOString()
+  execution?.complete()
   await writeEvidence({
     status: 'ok',
     executionSource: 'fresh-wasm-runtime',

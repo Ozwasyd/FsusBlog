@@ -39,6 +39,7 @@ import {
     joinBehaviorGraph,
     behaviorGraphSchema
 } from '../contracts/behavior-graph-join.mjs';
+import { validateJsonSchema } from './schema-validator/validate.mjs';
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -46,6 +47,12 @@ export const preRuntimeReceiptSchema = 'fsusblog.behavior-evidence-pre-runtime-r
 export const staticAdmissionReceiptSchema = 'fsusblog.behavior-doc-static-admission-receipt.v1';
 export const testEvidenceReceiptSchema = 'fsusblog.behavior-test-evidence-receipt.v1';
 export const mutationEvidenceReceiptSchema = 'fsusblog.mutation-evidence-receipt.v1';
+
+const canonicalCatalogPath = path.join(root, 'config/contracts/behavior-contracts.json');
+const canonicalReceiptSchemaPath = path.join(
+    root,
+    'config/schemas/behavior-evidence-pre-runtime-receipt.schema.json'
+);
 
 const commitPattern = /^[a-f0-9]{40}$/u;
 const digestPattern = /^[a-f0-9]{64}$/u;
@@ -123,13 +130,14 @@ function requireField(value, label)
     return value;
 }
 
-function requireDigestMatch(receipt, label)
+function requireDigestMatch(receipt, label, convention = 'omitted-field')
 {
-    const expected = digestValue(
-        Object.fromEntries(Object.entries(receipt).filter(([key]) => key !== 'contentDigest'))
-    );
+    const content = convention === 'null-field'
+        ? { ...receipt, contentDigest: null }
+        : Object.fromEntries(Object.entries(receipt).filter(([key]) => key !== 'contentDigest'));
+    const expected = digestValue(content);
     const actual = normalizeDigest(receipt.contentDigest);
-    if (actual !== expected && receipt.contentDigest !== expected && receipt.contentDigest !== `sha256:${expected}`)
+    if (actual !== expected)
     {
         fail(`${label} contentDigest mismatch`);
     }
@@ -173,6 +181,46 @@ function requirePreRuntimeBehaviorIds(catalog)
         );
     }
     return new Set(preRuntimeIds);
+}
+
+function requireExactKeys(value, expectedKeys, label)
+{
+    if (!isPlainObject(value))
+    {
+        fail(`${label} must be an object`);
+    }
+    const actual = Object.keys(value).sort();
+    const expected = [...expectedKeys].sort();
+    if (actual.join('\0') !== expected.join('\0'))
+    {
+        fail(`${label} must exactly cover current pre-runtime behaviorIds`);
+    }
+}
+
+function requireCurrentRunIdentity(entries)
+{
+    const present = entries.filter((entry) => entry.value != null && entry.value !== '');
+    if (present.length === 0)
+    {
+        return null;
+    }
+    for (const entry of present)
+    {
+        if (typeof entry.value !== 'string')
+        {
+            fail(`${entry.label} run identity is invalid`);
+        }
+    }
+    const expected = present[0].value;
+    const mismatched = present.filter((entry) => entry.value !== expected);
+    if (mismatched.length > 0)
+    {
+        fail(
+            `run identity mismatch: expected ${expected}; `
+      + present.map((entry) => `${entry.label}=${entry.value}`).join(', ')
+        );
+    }
+    return expected;
 }
 
 /**
@@ -396,7 +444,7 @@ export function joinBehaviorEvidencePreRuntime(options = {})
     {
         fail('static admission receipt schema mismatch');
     }
-    requireDigestMatch(admission, 'static admission receipt');
+    requireDigestMatch(admission, 'static admission receipt', 'null-field');
     if (admission.status !== 'ok')
     {
         fail(`static admission receipt status is not ok: ${admission.status}`);
@@ -433,12 +481,15 @@ export function joinBehaviorEvidencePreRuntime(options = {})
     const testEvidenceDigests = (options.testEvidenceReceipts ?? []).map((entry, index) =>
     {
         const receipt = loadJson(entry);
-        return normalizeDigest(receipt.contentDigest) ?? fail(`test evidence receipt ${index} contentDigest invalid`);
+        const digest = normalizeDigest(receipt.contentDigest)
+            ?? fail(`test evidence receipt ${index} contentDigest invalid`);
+        return `sha256:${digest}`;
     });
 
     // 3. Mutation evidence receipt (#1751/#2187).
     let mutationDigest = null;
     let mutationRawDigest = null;
+    let mutationRunIdentity = null;
     if (options.mutationEvidenceReceipt != null)
     {
         const mutation = loadJson(options.mutationEvidenceReceipt);
@@ -458,6 +509,7 @@ export function joinBehaviorEvidencePreRuntime(options = {})
             fail('mutation evidence receipt contentDigest invalid');
         }
         mutationRawDigest = `${normalizeDigest(mutation.rawReportDigest)}/${normalizeDigest(mutation.rawTraceDigest)}`;
+        mutationRunIdentity = mutation.runId ?? null;
     }
 
     // 4. BehaviorGraph join (#1749). The join validates every remaining sealed
@@ -506,6 +558,13 @@ export function joinBehaviorEvidencePreRuntime(options = {})
     {
         fail('BehaviorGraph receipt contentDigest invalid');
     }
+    const runIdentity = requireCurrentRunIdentity([
+        { label: 'requested', value: options.runIdentity ?? null },
+        { label: 'BehaviorGraph', value: graph.runIdentity?.id ?? null },
+        { label: 'static admission', value: admission.run?.id ?? null },
+        { label: 'test evidence', value: testEvidence.run?.id ?? null },
+        { label: 'mutation evidence', value: mutationRunIdentity }
+    ]);
 
     // 5. Aggregate per-behavior evidence from the joined graph.
     const requiredTestKinds = {};
@@ -599,7 +658,7 @@ export function joinBehaviorEvidencePreRuntime(options = {})
     const receipt = {
         schema: preRuntimeReceiptSchema,
         scope: 'pre-runtime',
-        runIdentity: options.runIdentity ?? graph.runIdentity?.id ?? admission.run?.id ?? null,
+        runIdentity,
         sourceIdentity: {
             commit: sourceCommit,
             worktreeFingerprint: `sha256:${fp}`
@@ -644,6 +703,7 @@ export function joinBehaviorEvidencePreRuntime(options = {})
         Object.fromEntries(Object.entries(receipt).filter(([key]) => key !== 'contentDigest'))
     )}`;
     validatePreRuntimeReceipt(receipt, {
+        behaviorCatalog: catalog,
         factExtractorRegistry: options.factExtractorRegistry
     });
     return receipt;
@@ -657,6 +717,12 @@ export function validatePreRuntimeReceipt(receipt, options = {})
     if (!isPlainObject(receipt))
     {
         fail('receipt must be an object');
+    }
+    const receiptSchema = loadJson(canonicalReceiptSchemaPath);
+    const schemaErrors = validateJsonSchema(receipt, receiptSchema);
+    if (schemaErrors.length > 0)
+    {
+        fail(`receipt schema validation failed: ${schemaErrors.join('; ')}`);
     }
     if (receipt.schema !== preRuntimeReceiptSchema)
     {
@@ -716,6 +782,48 @@ export function validatePreRuntimeReceipt(receipt, options = {})
     if (!prefixedDigestPattern.test(String(receipt.registryDigest ?? '')))
     {
         fail('registryDigest must be a prefixed sha256 digest');
+    }
+
+    if (options.behaviorCatalog != null)
+    {
+        const catalog = loadJson(options.behaviorCatalog);
+        const expectedIds = [...requirePreRuntimeBehaviorIds(catalog)].sort();
+        const actualIds = [...receipt.behaviorIds].sort();
+        if (actualIds.join('\0') !== expectedIds.join('\0'))
+        {
+            fail('behaviorIds do not exactly match current pre-runtime catalog authority');
+        }
+        requireExactKeys(receipt.requiredTestKinds, expectedIds, 'requiredTestKinds');
+        requireExactKeys(receipt.observedTestKinds, expectedIds, 'observedTestKinds');
+        requireExactKeys(receipt.mutationStatus, expectedIds, 'mutationStatus');
+        for (const behaviorId of expectedIds)
+        {
+            const contract = catalog.contracts.find((entry) => entry.id === behaviorId);
+            const requiredKinds = [...(contract.requiredTestKinds ?? [])].sort();
+            if ([...receipt.requiredTestKinds[behaviorId]].sort().join('\0') !== requiredKinds.join('\0'))
+            {
+                fail(`${behaviorId} requiredTestKinds differs from current catalog authority`);
+            }
+            const mutation = receipt.mutationStatus[behaviorId];
+            const mutationRequired = contract.mutationPolicy?.mutationRequired === true;
+            if (mutation.behaviorId !== behaviorId || mutation.mutationRequired !== mutationRequired)
+            {
+                fail(`${behaviorId} mutation policy differs from current catalog authority`);
+            }
+            if (receipt.status === 'ok'
+                && (requiredKinds.some((kind) => !receipt.observedTestKinds[behaviorId].includes(kind))
+                    || mutation.qualified !== true || mutation.failures.length > 0
+                    || (mutationRequired && mutation.mutationStatus !== 'ok')
+                    || mutation.mutationStatus === 'failed'))
+            {
+                fail(`${behaviorId} status=ok requires qualified test and mutation evidence`);
+            }
+        }
+        if (receipt.status === 'ok'
+      && (receipt.missing.length > 0 || receipt.orphans.length > 0 || receipt.conflicts.length > 0))
+        {
+            fail('status=ok requires empty missing, orphan, and conflict sets');
+        }
     }
 
     if (options.factExtractorRegistry != null)
@@ -789,6 +897,7 @@ export function assertRuntimeCandidateAdmissionAllowed({
     receipt,
     expectedCommit,
     expectedWorktreeFingerprint,
+    behaviorCatalog = canonicalCatalogPath,
     factExtractorRegistry = path.join(root, 'config/contracts/behavior-fact-extractors.json')
 } = {})
 {
@@ -797,7 +906,7 @@ export function assertRuntimeCandidateAdmissionAllowed({
         fail('runtime candidate admission refused: pre-runtime receipt is missing');
     }
     const loaded = loadJson(receipt);
-    validatePreRuntimeReceipt(loaded, { factExtractorRegistry });
+    validatePreRuntimeReceipt(loaded, { behaviorCatalog, factExtractorRegistry });
     if (loaded.status !== 'ok')
     {
         fail(

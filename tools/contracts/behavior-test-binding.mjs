@@ -1019,6 +1019,13 @@ export function joinBehaviorTestEvidence({
                 }
             }
         }
+        if (!matched && binding.framework === 'xunit-trx')
+        {
+            const theoryCases = [...observationByTestId.entries()]
+                .filter(([testId]) => xunitObservationMatchesBinding(testId, binding.canonicalTestId))
+                .map(([, candidate]) => candidate);
+            matched = theoryCases.find((candidate) => candidate.outcome !== 'passed') ?? theoryCases[0];
+        }
         const executed = Boolean(matched);
         const outcome = matched?.outcome ?? 'missing';
         if (executed && outcome === 'skipped')
@@ -1141,6 +1148,18 @@ export function joinBehaviorTestEvidence({
     };
     receipt.contentDigest = digestValue(receipt);
     return receipt;
+}
+
+export function xunitObservationMatchesBinding(observationTestId, bindingTestId)
+{
+    const observation = String(observationTestId ?? '');
+    const binding = String(bindingTestId ?? '');
+    if (!observation.startsWith('xunit-trx:') || !binding.startsWith('xunit-trx:'))
+    {
+        return false;
+    }
+    return observation === binding
+        || (observation.startsWith(`${binding}(`) && observation.endsWith(')'));
 }
 
 export function validateExactBehaviorCoverage(receipt)

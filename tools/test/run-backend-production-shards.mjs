@@ -1274,6 +1274,9 @@ export function backendPartitionEnvironment(env, { processors, memoryGiB, namesp
   }
   return {
     ...env,
+    LC_ALL: env.LC_ALL ?? 'C.UTF-8',
+    LANG: env.LANG ?? 'C.UTF-8',
+    LC_MESSAGES: env.LC_MESSAGES ?? 'C.UTF-8',
     FSUSBLOG_REPO_ROOT: root,
     DOTNET_PROCESSOR_COUNT: String(processors),
     FSUSBLOG_BACKEND_CPU_BUDGET: String(processors),

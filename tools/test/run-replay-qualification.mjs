@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn, spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { readFileSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
@@ -18,13 +19,11 @@ import {
 } from './execution-replay-contract.mjs'
 import { buildExecutionReplayCommand } from './execution-replay-verifier.mjs'
 import {
-    createDeterministicRandom,
     createRandomStreamReceipt,
     deriveRandomConsumerStream,
-    deterministicCaseIdentity,
-    loadRandomStreamInventory
+    loadRandomStreamInventory,
+    readRandomExecutionObservation
 } from './random-streams.mjs'
-import { createFuzzCaseReceipt } from './fuzz-random-stream.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const inventoryFile = path.join(root, 'config/testing/replay-qualification-producers.json')
@@ -58,6 +57,8 @@ function atomicJson(file, value)
 }
 
 function readJson(file) { return JSON.parse(readFileSync(file, 'utf8')) }
+
+function fileDigest(file) { return `sha256:${createHash('sha256').update(readFileSync(file)).digest('hex')}` }
 
 function owned(file, label)
 {
@@ -182,29 +183,172 @@ async function qualifyTopology(producer, topology, options, requiredPerturbation
     return { ...base, contentDigest: canonicalDigest(base) }
 }
 
-function randomConsumerReceipt(consumer, rootSeed)
+function randomConsumerReceipt(consumer, rootSeed, evidence)
 {
     const stream = deriveRandomConsumerStream({ rootSeed, consumer })
-    const random = createDeterministicRandom(stream.derivedSeed)
-    const executedIterations = Math.max(consumer.budget.iterations, consumer.budget.transitions)
-    const cases = Array.from({ length: executedIterations }, (_, index) => ({ index, value: random() }))
-    if (consumer.kind === 'fuzz')
-    {
-        return createFuzzCaseReceipt({ consumer, stream, cases, executedIterations })
-    }
     return createRandomStreamReceipt({
         consumer,
         stream,
-        caseIdentities: cases.map((value, caseIndex) => deterministicCaseIdentity({
-            derivedSeed: stream.derivedSeed,
-            caseIndex,
-            value
-        })),
-        transitionIdentities: Array.from({ length: consumer.budget.transitions }, (_, index) =>
-            canonicalDigest({ stream: stream.streamDigest, transition: index })),
-        executedIterations,
+        caseIdentities: evidence.caseIdentities,
+        transitionIdentities: evidence.transitionIdentities,
+        executedIterations: evidence.caseIdentities.length,
+        artifact: { digest: evidence.artifactDigest, generationCount: 1 },
         outcome: 'passed'
     })
+}
+
+function decodeXml(value)
+{
+    return value.replaceAll('&quot;', '"').replaceAll('&apos;', "'")
+        .replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&')
+}
+
+function trxResults(file)
+{
+    const document = readFileSync(file, 'utf8')
+    const results = [...document.matchAll(/<UnitTestResult\b([^>]*)\/?\s*>/gu)].map((match) =>
+    {
+        const attributes = Object.fromEntries([...match[1].matchAll(/([A-Za-z][A-Za-z0-9]*)="([^"]*)"/gu)]
+            .map((entry) => [entry[1], decodeXml(entry[2])]))
+        return { name: attributes.testName, outcome: attributes.outcome }
+    }).filter((entry) => entry.name && entry.outcome)
+    if (results.length === 0 || results.some((entry) => entry.outcome !== 'Passed'))
+        fail('backend randomized producer TRX is empty or contains a non-passing result')
+    return results.sort((left, right) => left.name.localeCompare(right.name))
+}
+
+function vitestResults(file)
+{
+    const document = readJson(file)
+    const results = (document.testResults ?? []).flatMap((suite) => suite.assertionResults ?? [])
+        .map((entry) => ({ name: entry.fullName ?? entry.title, title: entry.title, outcome: entry.status }))
+    if (results.length === 0 || results.some((entry) => entry.outcome !== 'passed'))
+        fail('frontend randomized producer JSON is empty or contains a non-passing result')
+    return results.sort((left, right) => left.name.localeCompare(right.name))
+}
+
+function consumerMethod(consumer)
+{
+    return decodeURIComponent(consumer.canonicalTestId.slice(consumer.canonicalTestId.indexOf('#') + 1))
+}
+
+function evidenceBinding(consumer, processSemantic, observation)
+{
+    return {
+        producerId: consumer.producerId,
+        canonicalTestId: consumer.canonicalTestId,
+        streamId: consumer.streamId,
+        caseIdentities: observation.caseIdentities,
+        transitionIdentities: observation.transitionIdentities,
+        artifactDigest: canonicalDigest({
+            schema: 'fsusblog.randomized-producer-observation.v1',
+            consumer: {
+                producerId: consumer.producerId,
+                canonicalTestId: consumer.canonicalTestId,
+                streamId: consumer.streamId
+            },
+            processSemantic,
+            caseIdentities: observation.caseIdentities,
+            transitionIdentities: observation.transitionIdentities
+        })
+    }
+}
+
+function parseProcessEvidence({ producerId, evidence, consumers, plan, processEvidence })
+{
+    const file = owned(evidence.ref, 'randomized producer evidence')
+    if (fileDigest(file) !== evidence.digest) fail(`${producerId} producer evidence bytes drifted`)
+    const childObservation = (consumer) =>
+    {
+        const binding = evidence.observations?.find((entry) => entry.streamId === consumer.streamId)
+            ?? fail(`${producerId} child execution observation is missing`)
+        return readRandomExecutionObservation({ binding, directory: processEvidence.evidenceDirectory,
+            consumer, stream: deriveRandomConsumerStream({ rootSeed: plan.rootSeed, consumer }),
+            runId: plan.run.id, attemptId: processEvidence.attemptId, planDigest: plan.planDigest
+        })
+    }
+    if (evidence.kind === 'dotnet-trx')
+    {
+        const results = trxResults(file)
+        const semantic = { kind: evidence.kind, results }
+        const bindings = consumers.map((consumer) =>
+        {
+            const method = consumerMethod(consumer)
+            const matches = results.filter((entry) => entry.name === method || entry.name.endsWith(`.${method}`))
+            if (matches.length !== 1) fail(`${producerId} producer evidence must execute ${consumer.canonicalTestId} exact-once`)
+            return evidenceBinding(consumer, semantic, childObservation(consumer))
+        })
+        return { semantic, bindings }
+    }
+    if (evidence.kind === 'vitest-json')
+    {
+        const results = vitestResults(file)
+        const semantic = { kind: evidence.kind, role: evidence.role, results }
+        const bindings = consumers.filter((consumer) => evidence.role === 'property').map((consumer) =>
+        {
+            const title = consumerMethod(consumer)
+            const matches = results.filter((entry) => entry.title === title || entry.name.endsWith(title))
+            if (matches.length !== 1) fail(`${producerId} producer evidence must execute ${consumer.canonicalTestId} exact-once`)
+            return evidenceBinding(consumer, semantic, childObservation(consumer))
+        })
+        return { semantic, bindings }
+    }
+    if (evidence.kind === 'wasm-fuzz-summary')
+    {
+        const summary = readJson(file)
+        const consumer = consumers.length === 1 ? consumers[0] : fail('wasm fuzz evidence must own exact-one consumer')
+        const stream = deriveRandomConsumerStream({ rootSeed: plan.rootSeed, consumer })
+        if (summary.status !== 'ok' || summary.executionSource !== 'fresh-wasm-runtime'
+            || summary.evidenceClass !== 'correctness' || summary.qualificationEligible !== true
+            || summary.replayPlanDigest !== plan.planDigest
+            || canonicalDigest(summary.randomStream) !== canonicalDigest(stream)
+            || !Number.isInteger(summary.seedsRun) || summary.seedsRun < consumer.budget.iterations
+            || !Array.isArray(summary.seedPlan) || summary.seedPlan.reduce((sum, entry) => sum + Number(entry.count ?? 0), 0) !== summary.seedsRun
+            || !Array.isArray(summary.crashes) || summary.crashes.length !== 0)
+            fail('wasm fuzz producer summary is not qualified for the sealed stream and plan')
+        const semantic = {
+            kind: evidence.kind,
+            executionSource: summary.executionSource,
+            evidenceClass: summary.evidenceClass,
+            qualificationEligible: summary.qualificationEligible,
+            randomStream: summary.randomStream,
+            replayPlanDigest: summary.replayPlanDigest,
+            corpus: summary.corpus,
+            seedsRun: summary.seedsRun,
+            seedsPerCorpus: summary.seedsPerCorpus,
+            seedPlan: summary.seedPlan,
+            crashes: summary.crashes,
+            decoder: summary.decoder,
+            blocker: summary.blocker
+        }
+        const observation = childObservation(consumer)
+        if (observation.caseIdentities.length !== summary.seedsRun) fail('wasm summary and executed cases differ')
+        return { semantic, bindings: [evidenceBinding(consumer, semantic, observation)] }
+    }
+    fail(`${producerId} producer evidence kind is unsupported: ${evidence.kind}`)
+}
+
+export function reopenRandomizedProducerEvidence({ producerId, consumers, processEvidence, plan })
+{
+    if (!Array.isArray(processEvidence?.processes) || processEvidence.processes.length === 0)
+        fail(`${producerId} randomized producer has no process evidence`)
+    const parsed = processEvidence.processes.map((entry) =>
+    {
+        if (entry.code !== 0 || entry.signal !== null || !entry.evidence) fail(`${producerId} randomized process did not complete successfully`)
+        return parseProcessEvidence({ producerId, evidence: entry.evidence, consumers, plan, processEvidence })
+    })
+    const bindings = parsed.flatMap((entry) => entry.bindings)
+    const expectedKeys = consumers.map((consumer) => `${consumer.canonicalTestId}\0${consumer.streamId}`).sort()
+    const actualKeys = bindings.map((binding) => `${binding.canonicalTestId}\0${binding.streamId}`).sort()
+    if (new Set(actualKeys).size !== actualKeys.length || JSON.stringify(actualKeys) !== JSON.stringify(expectedKeys))
+        fail(`${producerId} randomized producer evidence does not exact-cover current consumers`)
+    const observationDigest = canonicalDigest({
+        schema: 'fsusblog.randomized-producer-attempt-observation.v1',
+        producerId,
+        semantics: parsed.map((entry) => entry.semantic)
+    })
+    if (processEvidence.observationDigest !== observationDigest) fail(`${producerId} randomized producer observation digest drifted`)
+    return { bindings, observationDigest }
 }
 
 function qualificationSourceIdentity()
@@ -240,14 +384,16 @@ function randomStreamEnvironment(consumers, rootSeed)
     })))
 }
 
-function randomizedProducerCommands(producerId, workers)
+function randomizedProducerCommands(producerId, workers, evidenceDirectory)
 {
     if (producerId === 'backend-property')
     {
         return [{
             executable: 'dotnet',
-            args: ['test', 'tests/backend/FsusBlog.Server.Tests.csproj', '--no-build', '--filter', 'Category=Property', '--verbosity', 'quiet'],
-            cwd: root
+            args: ['test', 'tests/backend/FsusBlog.Server.Tests.csproj', '--no-build', '--filter', 'Category=Property', '--verbosity', 'quiet',
+                '--results-directory', evidenceDirectory, '--logger', 'trx;LogFileName=backend-property.trx'],
+            cwd: root,
+            evidence: { kind: 'dotnet-trx', file: path.join(evidenceDirectory, 'backend-property.trx') }
         }]
     }
     if (producerId === 'frontend-property-model-perf')
@@ -258,13 +404,17 @@ function randomizedProducerCommands(producerId, workers)
             {
                 executable: process.execPath,
                 args: [path.join(root, 'tools/test/run-random-stream-producer.mjs'), '--producer', producerId, '--',
-                    vitest, 'run', '--config', 'vitest.property.config.ts', ...workerArguments],
-                cwd: path.join(root, 'src/frontend')
+                    vitest, 'run', '--config', 'vitest.property.config.ts', ...workerArguments,
+                    '--reporter=json', `--outputFile=${path.join(evidenceDirectory, 'frontend-property.json')}`],
+                cwd: path.join(root, 'src/frontend'),
+                evidence: { kind: 'vitest-json', role: 'property', file: path.join(evidenceDirectory, 'frontend-property.json') }
             },
             {
                 executable: vitest,
-                args: ['run', '--config', 'vitest.model.config.ts', ...workerArguments],
-                cwd: path.join(root, 'src/frontend')
+                args: ['run', '--config', 'vitest.model.config.ts', ...workerArguments,
+                    '--reporter=json', `--outputFile=${path.join(evidenceDirectory, 'frontend-model.json')}`],
+                cwd: path.join(root, 'src/frontend'),
+                evidence: { kind: 'vitest-json', role: 'model', file: path.join(evidenceDirectory, 'frontend-model.json') }
             }
         ]
     }
@@ -273,22 +423,27 @@ function randomizedProducerCommands(producerId, workers)
         return [{
             executable: process.execPath,
             args: [path.join(root, 'tools/security/run-wasm-fuzz.mjs')],
-            cwd: root
+            cwd: root,
+            evidence: { kind: 'wasm-fuzz-summary', file: path.join(evidenceDirectory, 'wasm', 'summary.json') }
         }]
     }
     fail(`randomized producer command is not owned: ${producerId}`)
 }
 
-async function runRandomizedProducer({ producerId, consumers, workers, options, plan, attempt, directory })
+export async function runRandomizedProducer({ producerId, consumers, workers, options, plan, attempt, directory })
 {
-    const commands = randomizedProducerCommands(producerId, workers)
     const evidenceDirectory = path.join(directory, attempt)
+    mkdirSync(evidenceDirectory, { recursive: true })
+    const commands = randomizedProducerCommands(producerId, workers, evidenceDirectory)
     const environment = {
         ...process.env,
         FSUSBLOG_RANDOM_STREAMS_JSON: randomStreamEnvironment(consumers, options.rootSeed),
         FSUSBLOG_REPLAY_MODE: 'qualification',
         FSUSBLOG_REPLAY_ROOT_SEED: options.rootSeed,
         FSUSBLOG_REPLAY_PLAN_DIGEST: plan.planDigest,
+        FSUSBLOG_RANDOM_EXECUTION_DIR: evidenceDirectory,
+        FSUSBLOG_RANDOM_EXECUTION_RUN: plan.run.id,
+        FSUSBLOG_RANDOM_EXECUTION_ATTEMPT: attempt,
         FSUSBLOG_STEP_CPU_BUDGET: String(workers),
         FSUSBLOG_VITEST_MAX_WORKERS: String(workers),
         FSUSBLOG_WASM_FUZZ_SEEDS_PER_CORPUS: '64',
@@ -304,13 +459,35 @@ async function runRandomizedProducer({ producerId, consumers, workers, options, 
         processes.push({
             ...result,
             executable: command.executable,
-            argumentsDigest: canonicalDigest(command.args)
+            argumentsDigest: canonicalDigest(command.args),
+            evidence: {
+                kind: command.evidence.kind,
+                ...(command.evidence.role ? { role: command.evidence.role } : {}),
+                ref: path.relative(root, command.evidence.file).replaceAll(path.sep, '/'),
+                digest: fileDigest(command.evidence.file),
+                observations: (command.evidence.role === 'model' ? [] : consumers).map((consumer) =>
+                {
+                    const file = path.join(evidenceDirectory, `${consumer.streamId}.json`)
+                    return { streamId: consumer.streamId, ref: path.relative(root, file), digest: fileDigest(file) }
+                })
+            }
         })
     }
-    return {
+    const processEvidence = {
         processes,
-        evidenceDirectory: path.relative(root, evidenceDirectory).replaceAll(path.sep, '/')
+        attemptId: attempt,
+        evidenceDirectory: path.relative(root, evidenceDirectory).replaceAll(path.sep, '/'),
+        observationDigest: null
     }
+    processEvidence.observationDigest = canonicalDigest({
+        schema: 'fsusblog.randomized-producer-attempt-observation.v1',
+        producerId,
+        semantics: processes.map((entry) => parseProcessEvidence({
+            producerId, evidence: entry.evidence, consumers, plan, processEvidence
+        }).semantic)
+    })
+    reopenRandomizedProducerEvidence({ producerId, consumers, processEvidence, plan })
+    return processEvidence
 }
 
 async function randomizedResult({ producerId, consumers, topology, options, requiredPerturbations })
@@ -350,9 +527,6 @@ async function randomizedResult({ producerId, consumers, topology, options, requ
             environmentDigest: canonicalDigest({ inputs: 'sealed-random-stream-plan' })
         }
     })
-    const actualReceipts = consumers.map((consumer) => randomConsumerReceipt(consumer, options.rootSeed))
-    const repeatedReceipts = [...consumers].reverse().map((consumer) => randomConsumerReceipt(consumer, options.rootSeed)).reverse()
-    if (canonicalDigest(actualReceipts) !== canonicalDigest(repeatedReceipts)) fail(`${producerId}/${topology} random replay drift`)
     const producerDirectory = path.join(options.outputDirectory, 'producer-evidence', producerId, topology)
     const initialProcess = await runRandomizedProducer({
         producerId, consumers, workers, options, plan, attempt: 'initial', directory: producerDirectory
@@ -360,6 +534,16 @@ async function randomizedResult({ producerId, consumers, topology, options, requ
     const replayProcess = await runRandomizedProducer({
         producerId, consumers, workers, options, plan, attempt: 'replay', directory: producerDirectory
     })
+    const initialEvidence = reopenRandomizedProducerEvidence({ producerId, consumers, processEvidence: initialProcess, plan })
+    const replayEvidence = reopenRandomizedProducerEvidence({ producerId, consumers, processEvidence: replayProcess, plan })
+    const binding = (evidence, consumer) => evidence.bindings.find((candidate) =>
+        candidate.canonicalTestId === consumer.canonicalTestId && candidate.streamId === consumer.streamId)
+        ?? fail(`${producerId}/${topology} lacks observed evidence for ${consumer.canonicalTestId}`)
+    const actualReceipts = consumers.map((consumer) => randomConsumerReceipt(consumer, options.rootSeed, binding(initialEvidence, consumer)))
+    const repeatedReceipts = consumers.map((consumer) => randomConsumerReceipt(consumer, options.rootSeed, binding(replayEvidence, consumer)))
+    if (canonicalDigest(actualReceipts) !== canonicalDigest(repeatedReceipts)
+        || initialEvidence.observationDigest !== replayEvidence.observationDigest)
+        fail(`${producerId}/${topology} random replay drift`)
     const initialProcessIds = initialProcess.processes.map((entry) => entry.processId)
     const replayProcessIds = replayProcess.processes.map((entry) => entry.processId)
     if (initialProcessIds.some((processId) => replayProcessIds.includes(processId)))
@@ -492,8 +676,11 @@ async function main()
     process.stdout.write(`${JSON.stringify(receipt, null, 2)}\n`)
 }
 
-main().catch((error) =>
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
-    process.stderr.write(`${error instanceof Error ? error.stack : String(error)}\n`)
-    process.exitCode = 1
-})
+    main().catch((error) =>
+    {
+        process.stderr.write(`${error instanceof Error ? error.stack : String(error)}\n`)
+        process.exitCode = 1
+    })
+}
