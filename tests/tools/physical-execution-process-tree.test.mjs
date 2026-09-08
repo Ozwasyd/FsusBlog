@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
+import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
 import net from 'node:net';
@@ -17,7 +18,7 @@ const {
     runPhysicalExecution,
     terminatePhysicalExecutionAuthoritySync
 } = await import(new URL("../../tools/test/physical-execution-process-tree.mjs", import.meta.url));
-const { processGroupMemberIdentities } = await import(new URL("../../tools/test/process-identity.mjs", import.meta.url));
+const { collectProcessGroupOrJobIdentity, collectProcessIdentity, processGroupMemberIdentities } = await import(new URL("../../tools/test/process-identity.mjs", import.meta.url));
 const { runBoundExecution } = await import(new URL("../../tools/test/run-once.mjs", import.meta.url));
 
 const quiet = { write()
@@ -193,7 +194,18 @@ function createStubSystemdExecution({
                 }
                 if (handshake === 'child' || handshake === 'result')
                 {
-                    fs.writeFileSync(path.join(state.controlRoot, 'child.json'), '{"pid":202}\n');
+                    const admission = JSON.parse(fs.readFileSync(path.join(state.controlRoot, 'admission.json'), 'utf8'));
+                    fs.writeFileSync(path.join(state.controlRoot, 'child.json'), JSON.stringify({
+                        pid: 202,
+                        nonce: 'a'.repeat(64),
+                        authorityId: admission.authorityId,
+                        command: JSON.parse(fs.readFileSync(path.join(state.controlRoot, 'command.json'), 'utf8')),
+                        environmentDigest: `sha256:${createHash('sha256').update(fs.readFileSync(path.join(state.controlRoot, 'environment.json'), 'utf8').trim()).digest('hex')}`,
+                        executables: [],
+                        startIdentity: 'stub-202',
+                        processGroup: 202,
+                        cgroup: '0::/user.slice/fsusblog-stub.scope\n'
+                    }));
                 }
                 if (handshake === 'result')
                 {
@@ -304,8 +316,10 @@ function createStubSystemdExecution({
             {
                 throw Object.assign(new Error('stub cgroup permission denied'), { code: 'EACCES' });
             }
-            return [...state.members];
+            return state.cgroupReadCount === 1 ? [...state.members, 202] : [...state.members];
         },
+        readExecutableSnapshot: () => [],
+        resolvePython: () => process.execPath,
         readProcessIdentity(pid)
         {
             return {
@@ -313,12 +327,18 @@ function createStubSystemdExecution({
                 pid,
                 processStartIdentity: `stub-${pid}`,
                 executableDigest: `executable-${pid}`,
-                commandDigest: `command-${pid}`
+                executablePath: fs.realpathSync(process.execPath),
+                commandDigest: `sha256:${createHash('sha256').update([
+                    process.execPath,
+                    '-I',
+                    '-S',
+                    fileURLToPath(new URL('../../tools/test/physical-execution-linux-preexec.py', import.meta.url))
+                ].join('\0')).digest('hex')}`
             };
         },
         readProcessGroupIdentity(pid)
         {
-            onCommandProcessGroupObserved?.({ state, child, pid });
+            queueMicrotask(() => onCommandProcessGroupObserved?.({ state, child, pid }));
             return {
                 status: 'verified',
                 value: {
@@ -1157,7 +1177,7 @@ test('Linux systemd adapter cleanup treats command results as evidence and final
     await t.test('turns final cgroup EACCES into secondary cleanup evidence', async () =>
     {
         const { adapter, state } = createStubSystemdExecution({
-            cgroupReadErrorAt: 2,
+            cgroupReadErrorAt: 3,
             finalizeTransition: { emitTerminal: true, loadState: 'not-found', members: [] }
         });
         const error = await adapter.run(options).catch((value) => value);
@@ -1345,6 +1365,266 @@ test('Linux systemd adapter cleanup treats command results as evidence and final
         assert.equal(fs.existsSync(state.controlRoot), true);
         fs.rmSync(state.controlRoot, { recursive: true, force: true });
     });
+});
+
+test('Linux systemd admission preserves short-lived commands and exec errors', {
+    skip: process.platform !== 'linux'
+}, async (t) =>
+{
+    const capability = spawnSync('systemctl', ['--user', 'show-environment'], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe']
+    });
+    if (capability.status !== 0)
+    {
+        t.skip(`systemd user cgroup authority unavailable: ${String(capability.stderr).trim()}`);
+        return;
+    }
+    const cwd = temporaryRoot('systemd-preexec');
+    t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
+    const missingInterpreter = path.join(cwd, 'missing-interpreter');
+    fs.writeFileSync(missingInterpreter, '#!/fsusblog/nonexistent/interpreter\n', {
+        mode: 0o700
+    });
+    const firstPath = path.join(cwd, 'first');
+    const secondPath = path.join(cwd, 'second');
+    fs.mkdirSync(firstPath);
+    fs.mkdirSync(secondPath);
+    for (const name of ['loop', 'denied', 'busy', 'plain'])
+    {
+        fs.copyFileSync('/usr/bin/true', path.join(secondPath, name));
+    }
+    fs.symlinkSync('loop', path.join(firstPath, 'loop'));
+    fs.writeFileSync(path.join(firstPath, 'denied'), 'not executable', { mode: 0o600 });
+    fs.copyFileSync('/usr/bin/true', path.join(firstPath, 'busy'));
+    const busyDescriptor = fs.openSync(path.join(firstPath, 'busy'), 'r+');
+    t.after(() => fs.closeSync(busyDescriptor));
+    fs.writeFileSync(path.join(firstPath, 'plain'), 'exit 7\n', { mode: 0o700 });
+    const searchEnvironment = { ...process.env, PATH: `${firstPath}:${secondPath}` };
+    const cases = [
+        { name: 'immediate success', command: ['/usr/bin/true'], repeats: 16 },
+        { name: 'immediate nonzero', command: ['/usr/bin/false'], exitCode: 1 },
+        { name: 'missing executable', command: [path.join(cwd, 'absent')], code: 'ENOENT' },
+        { name: 'missing shebang interpreter', command: [missingInterpreter], code: 'ENOENT' },
+        { name: 'PATH ELOOP does not execute a later candidate', command: ['loop'], code: 'ELOOP', env: searchEnvironment },
+        { name: 'PATH EACCES permits the next candidate', command: ['denied'], env: searchEnvironment },
+        { name: 'PATH entries retain trailing slash semantics', command: ['denied'], env: { ...searchEnvironment, PATH: `${firstPath}/:${secondPath}/` } },
+        { name: 'PATH ETXTBSY does not execute a later candidate', command: ['busy'], code: 'ETXTBSY', env: searchEnvironment },
+        { name: 'ENOEXEC retains the native shell fallback', command: ['plain'], exitCode: 7, env: searchEnvironment }
+    ];
+    for (const entry of cases)
+    {
+        await t.test(entry.name, async () =>
+        {
+            const native = spawnSync(entry.command[0], entry.command.slice(1), {
+                cwd,
+                env: entry.env ?? process.env,
+                detached: true,
+                stdio: 'ignore'
+            });
+            assert.equal(native.error?.code, entry.code);
+            if (!entry.code)
+            {
+                assert.equal(native.status, entry.exitCode ?? 0);
+            }
+            for (let attempt = 0; attempt < (entry.repeats ?? 1); attempt += 1)
+            {
+                const adapter = createPhysicalExecutionLinuxSystemdAdapter();
+                let failure;
+                const evidence = await adapter.run({
+                    command: entry.command,
+                    cwd,
+                    env: entry.env ?? process.env,
+                    policy: fastPolicy,
+                    stdout: quiet,
+                    stderr: quiet,
+                    schema: physicalExecutionProcessTreeSchema
+                }).catch((error) =>
+                {
+                    failure = error;
+                    return error.physicalExecution;
+                });
+                assert.equal(evidence?.postObservation, 'zero-members');
+                assert.equal(evidence?.cleanup.status, 'verified');
+                assert.equal(evidence?.controlRoot, null);
+                assert.equal(evidence?.logComplete, true);
+                if (entry.code)
+                {
+                    assert.equal(failure?.code, entry.code);
+                }
+                else if (entry.exitCode)
+                {
+                    assert.equal(failure?.exitCode, entry.exitCode);
+                    assert.equal(failure?.signal, null);
+                }
+                else
+                {
+                    assert.equal(failure, undefined);
+                }
+            }
+        });
+    }
+});
+
+test('Linux pre-exec barrier rejects forged and stale releases before target execution', {
+    skip: process.platform !== 'linux'
+}, async (t) =>
+{
+    async function readCarrier(file, supervisor)
+    {
+        const deadline = Date.now() + 5000;
+        while (!fs.existsSync(file))
+        {
+            assert.equal(supervisor.exitCode, null);
+            assert.ok(Date.now() < deadline, `carrier deadline: ${path.basename(file)}`);
+            await new Promise((resolve) => setTimeout(resolve, 5));
+        }
+        return fs.readFileSync(file, 'utf8').trim();
+    }
+    for (const mode of ['invalid-signature', 'stale-registration', 'valid'])
+    {
+        await t.test(mode, async () =>
+        {
+            const root = temporaryRoot('independent-preexec-barrier');
+            const marker = path.join(root, 'target.json');
+            const customizationMarker = path.join(root, 'customized');
+            fs.writeFileSync(path.join(root, 'sitecustomize.py'),
+                `open(${JSON.stringify(customizationMarker)}, "w").close()\n`);
+            const environment = { ...process.env, PYTHONPATH: root, PYTHONHOME: path.join(root, 'missing-home') };
+            const command = [process.execPath, '-e',
+                `require('fs').writeFileSync(${JSON.stringify(marker)}, JSON.stringify({path:process.env.PYTHONPATH,home:process.env.PYTHONHOME,args:process.argv.slice(1)}))`,
+                '', 'argument with spaces'];
+            const keys = generateKeyPairSync('ed25519');
+            for (const [name, value] of Object.entries({
+                command,
+                environment,
+                admission: {
+                    authorityId: mode,
+                    python: process.env.FSUSBLOG_PYTHON ?? 'python3',
+                    publicKey: keys.publicKey.export({ type: 'spki', format: 'pem' })
+                }
+            }))
+            {
+                fs.writeFileSync(path.join(root, `${name}.json`), JSON.stringify(value), { mode: 0o600 });
+            }
+            const supervisor = spawn(process.execPath, [
+                fileURLToPath(new URL('../../tools/test/physical-execution-linux-systemd-bootstrap.mjs', import.meta.url)), root
+            ], { env: environment, stdio: 'ignore' });
+            const terminal = new Promise((resolve) => supervisor.once('exit', resolve));
+            let helperPid;
+            try
+            {
+                await readCarrier(path.join(root, 'ready'), supervisor);
+                fs.writeFileSync(path.join(root, 'start'), 'start\n', { mode: 0o600 });
+                const registration = await readCarrier(path.join(root, 'child.json'), supervisor);
+                const observed = JSON.parse(registration);
+                helperPid = observed.pid;
+                assert.equal(collectProcessIdentity(helperPid).status, 'verified');
+                assert.deepEqual(observed.command, command);
+                assert.equal(observed.environmentDigest, `sha256:${createHash('sha256').update(JSON.stringify(environment)).digest('hex')}`);
+                assert.equal(fs.existsSync(marker), false);
+                assert.equal(fs.existsSync(customizationMarker), false);
+                const released = mode === 'stale-registration'
+                    ? JSON.stringify({ ...observed, nonce: 'b'.repeat(64) }) : registration;
+                const signingKey = mode === 'invalid-signature'
+                    ? generateKeyPairSync('ed25519').privateKey : keys.privateKey;
+                fs.writeFileSync(path.join(root, 'release.json'), JSON.stringify({
+                    registration: released,
+                    signature: sign(null, Buffer.from(released), signingKey).toString('base64')
+                }), { mode: 0o600 });
+                const result = JSON.parse(await readCarrier(path.join(root, 'result.json'), supervisor));
+                if (mode === 'valid')
+                {
+                    assert.equal(result.exitCode, 0);
+                    assert.deepEqual(JSON.parse(fs.readFileSync(marker, 'utf8')), {
+                        path: root, home: environment.PYTHONHOME, args: ['', 'argument with spaces']
+                    });
+                }
+                else
+                {
+                    assert.match(result.spawnError.message, /release signature is invalid/u);
+                    assert.equal(fs.existsSync(marker), false);
+                }
+                assert.equal(await waitForProcessAbsence(helperPid, 1000), true);
+                assert.equal(fs.existsSync(customizationMarker), false);
+            }
+            finally
+            {
+                if (helperPid && processExists(helperPid))
+                {
+                    process.kill(-helperPid, 'SIGKILL');
+                }
+                fs.writeFileSync(path.join(root, 'finalize'), 'finalize\n', { mode: 0o600 });
+                supervisor.kill('SIGTERM');
+                await terminal;
+                fs.rmSync(root, { recursive: true, force: true });
+            }
+        });
+    }
+});
+
+test('Linux systemd admission rejects a changed target environment carrier', {
+    skip: process.platform !== 'linux'
+}, async (t) =>
+{
+    const root = temporaryRoot('preexec-environment-admission');
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const marker = path.join(root, 'target');
+    const adapter = createPhysicalExecutionLinuxSystemdAdapter({
+        spawnProcess(executable, args, options)
+        {
+            const environmentFile = path.join(args.at(-1), 'environment.json');
+            const environment = JSON.parse(fs.readFileSync(environmentFile, 'utf8'));
+            fs.writeFileSync(environmentFile, JSON.stringify({ ...environment, TARGET_VALUE: 'changed' }));
+            return spawn(executable, args, options);
+        }
+    });
+    const failure = await adapter.run({
+        command: ['/bin/sh', '-c', `touch ${JSON.stringify(marker)}`],
+        cwd: root, env: { ...process.env, TARGET_VALUE: 'original' },
+        policy: fastPolicy, stdout: quiet, stderr: quiet,
+        schema: physicalExecutionProcessTreeSchema
+    }).catch((error) => error);
+    assert.match(failure.message, /pre-exec command admission is invalid/u);
+    assert.equal(failure.physicalExecution.postObservation, 'zero-members');
+    assert.equal(failure.physicalExecution.cleanup.status, 'verified');
+    assert.equal(fs.existsSync(marker), false);
+});
+
+test('Linux systemd abort before admission never executes the target', {
+    skip: process.platform !== 'linux'
+}, async (t) =>
+{
+    const root = temporaryRoot('preexec-admission-abort');
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const marker = path.join(root, 'target');
+    const controller = new AbortController();
+    let observed = false;
+    const adapter = createPhysicalExecutionLinuxSystemdAdapter({
+        readProcessGroupIdentity(pid)
+        {
+            const identity = collectProcessGroupOrJobIdentity(pid, { platform: 'linux' });
+            observed = true;
+            assert.equal(fs.existsSync(marker), false);
+            controller.abort(new Error('abort before admission release'));
+            return identity;
+        }
+    });
+    const failure = await adapter.run({
+        command: ['/bin/sh', '-c', `touch ${JSON.stringify(marker)}`],
+        cwd: root,
+        env: process.env,
+        signal: controller.signal,
+        policy: fastPolicy,
+        stdout: quiet,
+        stderr: quiet,
+        schema: physicalExecutionProcessTreeSchema
+    }).catch((error) => error);
+    assert.equal(observed, true);
+    assert.match(failure.message, /abort before admission release/u);
+    assert.equal(failure.physicalExecution.postObservation, 'zero-members');
+    assert.equal(failure.physicalExecution.cleanup.status, 'verified');
+    assert.equal(fs.existsSync(marker), false);
 });
 
 test('Linux systemd adapter finalizes failed and cancelled supervisors without control-root or unit leaks', {
