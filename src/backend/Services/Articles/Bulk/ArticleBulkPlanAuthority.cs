@@ -151,6 +151,10 @@ internal sealed class ArticleBulkPlanAuthority(
         ArticleBulkSelectionResolution resolution = await selectionAuthority
             .ResolveAsync(request.Selection, request.Actor, cancellationToken)
             .ConfigureAwait(false);
+        if (!IsDigest(resolution.AuthorityDigest) || !IsDigest(resolution.ResolutionDigest))
+        {
+            throw new ArticleBulkContractException("article-bulk.selection-receipt-invalid");
+        }
         ImmutableArray<string> articleIds = await FreezeSelectionAsync(
             request.Selection,
             resolution,
@@ -247,20 +251,100 @@ internal sealed class ArticleBulkPlanAuthority(
 
     internal void ValidateForExecution(ArticleBulkPlan plan)
     {
-        ArgumentNullException.ThrowIfNull(plan);
+        ValidateIntegrity(plan);
         DateTimeOffset now = timeProvider.GetUtcNow();
         if (now >= plan.ExpiresAtUtc)
         {
             throw new ArticleBulkContractException("article-bulk.plan-expired");
         }
-        if (plan.RegistryDigest != ArticleBulkOperationRegistry.Current.ContentDigest
+    }
+
+    internal void ValidateIntegrity(ArticleBulkPlan plan)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        if (plan.NormalizedParameters is null
+            || plan.ItemChunks.IsDefault
+            || plan.Selection.ArticleIds.IsDefault
+            || plan.Impact.SideEffectOwners.IsDefault
+            || plan.Impact.WarningCodes.IsDefault
+            || plan.Impact.ErrorCodes.IsDefault)
+        {
+            throw new ArticleBulkContractException("article-bulk.plan-tampered");
+        }
+        ArticleBulkOperation operation;
+        FrozenDictionary<string, object> normalizedParameters;
+        try
+        {
+            operation = ArticleBulkOperationRegistry.Get(plan.OperationId);
+            normalizedParameters = ArticleBulkOperationRegistry.NormalizeParameters(
+                plan.OperationId,
+                ToJsonParameters(plan.NormalizedParameters));
+            ValidateRequest(new ArticleBulkPlanRequest(
+                plan.OperationId,
+                ToJsonParameters(plan.NormalizedParameters),
+                plan.Selection,
+                plan.Actor,
+                plan.Source,
+                plan.PolicyDigest,
+                plan.PermissionPolicyDigest,
+                plan.CreatedAtUtc,
+                plan.ExpiresAtUtc));
+        }
+        catch (ArticleBulkContractException)
+        {
+            throw new ArticleBulkContractException("article-bulk.plan-tampered");
+        }
+
+        int selected = plan.Items.Count();
+        int eligible = plan.Items.Count(static item => item.Status == ArticleBulkPlanItemStatus.Eligible);
+        int blocked = selected - eligible;
+        ImmutableArray<string> expectedWarnings = blocked > 0
+            && operation.Strategy == ArticleBulkExecutionStrategy.PerItemIsolated
+            ? ["article-bulk.partial-plan"]
+            : [];
+        ImmutableArray<string> expectedErrors = blocked > 0
+            && operation.Strategy == ArticleBulkExecutionStrategy.AllOrNothing
+            ? ["article-bulk.atomic-preflight-blocked"]
+            : [];
+        bool expectedExecutable = operation.Strategy == ArticleBulkExecutionStrategy.PerItemIsolated
+            ? eligible > 0
+            : blocked == 0;
+        if (plan.Schema != ArticleBulkPlan.CurrentSchema
+            || plan.RegistryDigest != ArticleBulkOperationRegistry.Current.ContentDigest
+            || plan.OperationVersion != operation.Version
+            || plan.Strategy != operation.Strategy
+            || !IsDigest(plan.SelectionAuthorityDigest)
+            || !IsDigest(plan.SelectionResolutionDigest)
+            || plan.ParametersDigest != ArticleBulkDigest.Of(normalizedParameters.OrderBy(static pair => pair.Key))
             || plan.ContentDigest != DigestPlan(plan with { ContentDigest = string.Empty })
+            || selected > MaximumItems
             || plan.FrozenSetDigest != ArticleBulkDigest.Of(plan.Items.Select(static item => item.ArticleId).ToArray())
+            || plan.Items.Select(static item => item.ArticleId).Distinct(StringComparer.Ordinal).Count() != selected
             || plan.ItemChunks.Where((chunk, index) => chunk.Index != index
                 || chunk.Items.Length is < 1 or > ItemChunkSize
                 || chunk.ContentDigest != ArticleBulkDigest.Of(chunk.Items)).Any()
             || plan.Items.Any(static item => item.ContentDigest
-                != ArticleBulkDigest.Of(item with { ContentDigest = string.Empty })))
+                != ArticleBulkDigest.Of(item with { ContentDigest = string.Empty }))
+            || plan.Items.Any(static item => !IsBoundedOpaqueValue(item.ArticleId, 256)
+                || !Enum.IsDefined(item.Status)
+                || !IsBoundedOpaqueValue(item.ReasonCode, 128)
+                || item.ExpectedRevision is not null && !IsBoundedOpaqueValue(item.ExpectedRevision, 256)
+                || item.Lifecycle is not null && !IsBoundedOpaqueValue(item.Lifecycle, 64)
+                || item.PermissionDigest is not null && !IsDigest(item.PermissionDigest)
+                || item.StateDigest is not null && !IsDigest(item.StateDigest)
+                || item.DependencyDigests.IsDefault
+                || item.DependencyDigests.Length > 64
+                || item.DependencyDigests.Any(static digest => !IsDigest(digest))
+                || !IsDigest(item.ProposedChangeDigest))
+            || plan.Executable != expectedExecutable
+            || plan.Impact.SelectedCount != selected
+            || plan.Impact.EligibleCount != eligible
+            || plan.Impact.BlockedCount != blocked
+            || plan.Impact.EstimatedBatches != (eligible + ItemChunkSize - 1) / ItemChunkSize
+            || plan.Impact.RequiresZeroWrite != (operation.Strategy == ArticleBulkExecutionStrategy.AllOrNothing)
+            || !plan.Impact.SideEffectOwners.SequenceEqual(operation.SideEffectOwners)
+            || !plan.Impact.WarningCodes.SequenceEqual(expectedWarnings)
+            || !plan.Impact.ErrorCodes.SequenceEqual(expectedErrors))
         {
             throw new ArticleBulkContractException("article-bulk.plan-tampered");
         }
@@ -276,7 +360,7 @@ internal sealed class ArticleBulkPlanAuthority(
         await foreach (string articleId in resolution.OrderedArticleIds
             .WithCancellation(cancellationToken).ConfigureAwait(false))
         {
-            if (string.IsNullOrWhiteSpace(articleId) || !seen.Add(articleId) || ids.Count == MaximumItems)
+            if (!IsBoundedOpaqueValue(articleId, 256) || !seen.Add(articleId) || ids.Count == MaximumItems)
             {
                 throw new ArticleBulkContractException("article-bulk.selection-invalid");
             }
@@ -298,6 +382,17 @@ internal sealed class ArticleBulkPlanAuthority(
         IReadOnlyDictionary<string, object> parameters,
         ArticleBulkActor actor)
     {
+        if (!IsBoundedOpaqueValue(observation.ArticleId, 256)
+            || observation.Revision is not null && !IsBoundedOpaqueValue(observation.Revision, 256)
+            || observation.Lifecycle is not null && !IsBoundedOpaqueValue(observation.Lifecycle, 64)
+            || observation.PermissionDigest is not null && !IsDigest(observation.PermissionDigest)
+            || observation.StateDigest is not null && !IsDigest(observation.StateDigest)
+            || observation.DependencyDigests.IsDefault
+            || observation.DependencyDigests.Length > 64
+            || observation.DependencyDigests.Any(static digest => !IsDigest(digest)))
+        {
+            throw new ArticleBulkContractException("article-bulk.preflight-observation-invalid");
+        }
         string reason;
         bool eligible;
         if (!observation.Exists || !observation.Permitted || observation.SiteId != actor.SiteId)
@@ -362,15 +457,18 @@ internal sealed class ArticleBulkPlanAuthority(
         {
             throw new ArticleBulkContractException("article-bulk.plan-expiry-invalid");
         }
-        if (request.Selection.ArticleIds.Length > MaximumItems
+        if (!Enum.IsDefined(request.Selection.Kind)
+            || request.Selection.ArticleIds.Length > MaximumItems
             || request.Selection.ArticleIds.Distinct(StringComparer.Ordinal).Count() != request.Selection.ArticleIds.Length
+            || request.Selection.ArticleIds.Any(static articleId => !IsBoundedOpaqueValue(articleId, 256))
             || !IsDigest(request.Selection.IdentityDigest)
             || (request.Selection.Kind is ArticleBulkSelectionKind.Explicit or ArticleBulkSelectionKind.CurrentPage
                 && request.Selection.AuthorityId is not null)
             || (request.Selection.Kind is ArticleBulkSelectionKind.SavedView or ArticleBulkSelectionKind.Query
-                && (string.IsNullOrWhiteSpace(request.Selection.AuthorityId)
+                && (!IsBoundedOpaqueValue(request.Selection.AuthorityId, 256)
                     || request.Selection.ArticleIds.Length != 0))
-            || string.IsNullOrWhiteSpace(request.Actor.UserId) || string.IsNullOrWhiteSpace(request.Actor.SiteId)
+            || !IsBoundedOpaqueValue(request.Actor.UserId, 256)
+            || !IsBoundedOpaqueValue(request.Actor.SiteId, 256)
             || !IsDigest(request.Actor.AuthorityDigest) || !IsDigest(request.Source.BuildDigest)
             || !IsDigest(request.PolicyDigest) || !IsDigest(request.PermissionPolicyDigest)
             || request.Source.Commit.Length != 40 || request.Source.Commit.Any(static value => !char.IsAsciiHexDigitLower(value)))
@@ -379,12 +477,17 @@ internal sealed class ArticleBulkPlanAuthority(
         }
     }
 
-    // Keeps request validation pure. Current expiry is enforced by VerifyAsync at execution time.
+    // Keeps request validation pure. Current expiry is enforced at execution admission time.
     private static readonly DateTimeOffset s_timeProviderStaticGuard = DateTimeOffset.UnixEpoch;
 
-    private static bool IsDigest(string value) =>
-        value.Length == 71 && value.StartsWith("sha256:", StringComparison.Ordinal)
+    private static bool IsDigest(string? value) =>
+        value is not null && value.Length == 71 && value.StartsWith("sha256:", StringComparison.Ordinal)
         && value.AsSpan(7).IndexOfAnyExcept("0123456789abcdef") < 0;
+
+    private static bool IsBoundedOpaqueValue(string? value, int maximumLength) =>
+        !string.IsNullOrWhiteSpace(value)
+        && value.Length <= maximumLength
+        && value.All(static character => !char.IsControl(character));
 
     private static string DigestPlan(ArticleBulkPlan plan) => ArticleBulkDigest.Of(new
     {

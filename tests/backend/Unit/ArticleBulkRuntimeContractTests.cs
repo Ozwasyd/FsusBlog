@@ -74,6 +74,19 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         Assert.Single(fixture.Journal.Events);
 
         fixture.Time.UtcNow = fixture.Plan.ExpiresAtUtc;
+        ArticleBulkAdmission expiredDuplicate = await fixture.Framework.AdmitAsync(
+            fixture.Plan,
+            "plan-store:one",
+            "attempt-expired-duplicate",
+            "idempotency-1",
+            fixture.Plan.Actor,
+            fixture.Plan.Source,
+            fixture.Plan.PolicyDigest,
+            fixture.Plan.PermissionPolicyDigest);
+        Assert.True(expiredDuplicate.IsExisting);
+        Assert.Equal(first.Head.ContentDigest, expiredDuplicate.Head.ContentDigest);
+        Assert.Single(fixture.Journal.Events);
+
         ArticleBulkContractException expired = await Assert.ThrowsAsync<ArticleBulkContractException>(() =>
             fixture.Framework.AdmitAsync(
                 fixture.Plan,
@@ -88,7 +101,7 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public async Task ExecutorRejectsPolicyAndSelectionDriftBeforeJournalCreation()
+    public async Task ExecutorRejectsCurrentIdentityDriftWithoutRerunningDynamicSelection()
     {
         string[] ids = ["article-1", "article-2"];
         var time = new MutableTimeProvider(s_now);
@@ -115,18 +128,21 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
                 Digest("changed-policy"),
                 plan.PermissionPolicyDigest))).Code);
 
+        int selectionCalls = selection.ResolveCalls;
         selection.ResolvedIds = ["article-1", "article-3"];
-        Assert.Equal("article-bulk.plan-drift",
-            (await Assert.ThrowsAsync<ArticleBulkContractException>(() => framework.AdmitAsync(
-                plan,
-                "plan-store:drift",
-                "attempt-selection-drift",
-                "idempotency-selection-drift",
-                plan.Actor,
-                plan.Source,
-                plan.PolicyDigest,
-                plan.PermissionPolicyDigest))).Code);
-        Assert.Empty(journal.Events);
+        ArticleBulkAdmission admission = await framework.AdmitAsync(
+            plan,
+            "plan-store:sealed-selection",
+            "attempt-sealed-selection",
+            "idempotency-sealed-selection",
+            plan.Actor,
+            plan.Source,
+            plan.PolicyDigest,
+            plan.PermissionPolicyDigest);
+        Assert.Equal(selectionCalls, selection.ResolveCalls);
+        Assert.Equal(["article-1", "article-2"], plan.Items.Select(static item => item.ArticleId));
+        Assert.Equal(ArticleBulkExecutionState.Planned, admission.Head.State);
+        Assert.Single(journal.Events);
     }
 
     [Fact]
@@ -136,17 +152,20 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         ArticleBulkAdmission admission = await fixture.AdmitAsync();
         (ArticleBulkJournalHead admitted, _) = await fixture.Framework.AppendAsync(
             admission.Head,
+            fixture.Plan,
             ArticleBulkJournalEventKind.Admitted,
             ArticleBulkExecutionState.Admitted);
 
         await Assert.ThrowsAsync<ArticleBulkContractException>(() => fixture.Framework.AppendAsync(
             admission.Head,
+            fixture.Plan,
             ArticleBulkJournalEventKind.Admitted,
             ArticleBulkExecutionState.Admitted));
 
         fixture.Journal.CrashAfterProvisionalEvent = true;
         await Assert.ThrowsAsync<InjectedJournalCrashException>(() => fixture.Framework.AppendAsync(
             admitted,
+            fixture.Plan,
             ArticleBulkJournalEventKind.ExecutionStarted,
             ArticleBulkExecutionState.Executing));
         Assert.Equal(2, fixture.Journal.Events.Count);
@@ -154,25 +173,39 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
 
         (ArticleBulkJournalHead executing, _) = await fixture.Framework.AppendAsync(
             admitted,
+            fixture.Plan,
             ArticleBulkJournalEventKind.ExecutionStarted,
             ArticleBulkExecutionState.Executing);
+        ArticleBulkContractException outsidePlan = await Assert.ThrowsAsync<ArticleBulkContractException>(() =>
+            fixture.Framework.AppendAsync(
+                executing,
+                fixture.Plan,
+                ArticleBulkJournalEventKind.ItemAdmitted,
+                ArticleBulkExecutionState.Executing,
+                articleId: "article-outside-plan",
+                nextItemStatus: ArticleBulkItemStatus.Admitted));
+        Assert.Equal("article-bulk.journal-article-unbound", outsidePlan.Code);
         (ArticleBulkJournalHead itemAdmitted, _) = await fixture.Framework.AppendAsync(
             executing,
+            fixture.Plan,
             ArticleBulkJournalEventKind.ItemAdmitted,
             ArticleBulkExecutionState.Executing,
             articleId: "article-00000",
             nextItemStatus: ArticleBulkItemStatus.Admitted);
         (ArticleBulkJournalHead itemStarted, _) = await fixture.Framework.AppendAsync(
             itemAdmitted,
+            fixture.Plan,
             ArticleBulkJournalEventKind.ItemStarted,
             ArticleBulkExecutionState.Executing,
             articleId: "article-00000",
+            commandOwner: ArticleBulkOperationRegistry.Get(fixture.Plan.OperationId).CommandOwner,
             expectedItemStatus: ArticleBulkItemStatus.Admitted,
             nextItemStatus: ArticleBulkItemStatus.Executing);
         ArticleBulkItemReceipt itemReceipt = fixture.SuccessReceipt("article-00000");
         ArticleBulkContractException unboundCommand = await Assert.ThrowsAsync<ArticleBulkContractException>(() =>
             fixture.Framework.AppendAsync(
                 itemStarted,
+                fixture.Plan,
                 ArticleBulkJournalEventKind.ItemTerminal,
                 ArticleBulkExecutionState.Executing,
                 articleId: "article-00000",
@@ -182,9 +215,10 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
                 reasonCode: "succeeded",
                 expectedItemStatus: ArticleBulkItemStatus.Executing,
                 nextItemStatus: ArticleBulkItemStatus.Succeeded));
-        Assert.Equal("article-bulk.item-journal-binding-invalid", unboundCommand.Code);
+        Assert.Equal("article-bulk.journal-command-unbound", unboundCommand.Code);
         (ArticleBulkJournalHead itemTerminal, _) = await fixture.Framework.AppendAsync(
             itemStarted,
+            fixture.Plan,
             ArticleBulkJournalEventKind.ItemTerminal,
             ArticleBulkExecutionState.Executing,
             articleId: "article-00000",
@@ -196,9 +230,11 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
             nextItemStatus: ArticleBulkItemStatus.Succeeded);
         await Assert.ThrowsAsync<ArticleBulkContractException>(() => fixture.Framework.AppendAsync(
             itemTerminal,
+            fixture.Plan,
             ArticleBulkJournalEventKind.ItemStarted,
             ArticleBulkExecutionState.Executing,
             articleId: "article-00000",
+            commandOwner: ArticleBulkOperationRegistry.Get(fixture.Plan.OperationId).CommandOwner,
             expectedItemStatus: ArticleBulkItemStatus.Admitted,
             nextItemStatus: ArticleBulkItemStatus.Executing));
 
@@ -236,6 +272,7 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         ArticleBulkAggregateReceipt aggregate = fixture.Aggregate(terminalState, succeeded, failed);
         (head, _) = await fixture.Framework.AppendAsync(
             head,
+            fixture.Plan,
             ArticleBulkJournalEventKind.ExecutionTerminal,
             terminalState,
             aggregateReceipt: aggregate,
@@ -254,15 +291,18 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         ArticleBulkJournalHead head = await fixture.StartExecutingAsync();
         (head, _) = await fixture.Framework.AppendAsync(
             head,
+            fixture.Plan,
             ArticleBulkJournalEventKind.ItemAdmitted,
             ArticleBulkExecutionState.Executing,
             articleId: "article-00000",
             nextItemStatus: ArticleBulkItemStatus.Admitted);
         (head, _) = await fixture.Framework.AppendAsync(
             head,
+            fixture.Plan,
             ArticleBulkJournalEventKind.ItemStarted,
             ArticleBulkExecutionState.Executing,
             articleId: "article-00000",
+            commandOwner: ArticleBulkOperationRegistry.Get(fixture.Plan.OperationId).CommandOwner,
             expectedItemStatus: ArticleBulkItemStatus.Admitted,
             nextItemStatus: ArticleBulkItemStatus.Executing);
 
@@ -295,8 +335,10 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         ArticleBulkJournalHead head = await fixture.StartExecutingAsync();
         (head, _) = await fixture.Framework.AppendAsync(
             head,
+            fixture.Plan,
             ArticleBulkJournalEventKind.GroupCommitStarted,
-            ArticleBulkExecutionState.Executing);
+            ArticleBulkExecutionState.Executing,
+            commandOwner: ArticleBulkOperationRegistry.Get(fixture.Plan.OperationId).CommandOwner);
 
         ArticleBulkJournalHead resumed = await fixture.Framework.ResumeAsync(
             fixture.Journal.Request!,
@@ -318,24 +360,29 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         ArticleBulkJournalHead executing = await perItem.StartExecutingAsync();
         (ArticleBulkJournalHead admittedItem, _) = await perItem.Framework.AppendAsync(
             executing,
+            perItem.Plan,
             ArticleBulkJournalEventKind.ItemAdmitted,
             ArticleBulkExecutionState.Executing,
             articleId: "article-00000",
             nextItemStatus: ArticleBulkItemStatus.Admitted);
         (ArticleBulkJournalHead started, _) = await perItem.Framework.AppendAsync(
             admittedItem,
+            perItem.Plan,
             ArticleBulkJournalEventKind.ItemStarted,
             ArticleBulkExecutionState.Executing,
             articleId: "article-00000",
+            commandOwner: ArticleBulkOperationRegistry.Get(perItem.Plan.OperationId).CommandOwner,
             expectedItemStatus: ArticleBulkItemStatus.Admitted,
             nextItemStatus: ArticleBulkItemStatus.Executing);
         (ArticleBulkJournalHead cancelling, _) = await perItem.Framework.AppendAsync(
             started,
+            perItem.Plan,
             ArticleBulkJournalEventKind.CancelRequested,
             ArticleBulkExecutionState.Cancelling,
             reasonCode: "user-requested");
         await Assert.ThrowsAsync<ArticleBulkContractException>(() => perItem.Framework.AppendAsync(
             cancelling,
+            perItem.Plan,
             ArticleBulkJournalEventKind.ItemAdmitted,
             ArticleBulkExecutionState.Cancelling,
             articleId: "article-new"));
@@ -354,11 +401,14 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         ArticleBulkJournalHead atomicExecuting = await atomic.StartExecutingAsync();
         (ArticleBulkJournalHead commitStarted, _) = await atomic.Framework.AppendAsync(
             atomicExecuting,
+            atomic.Plan,
             ArticleBulkJournalEventKind.GroupCommitStarted,
-            ArticleBulkExecutionState.Executing);
+            ArticleBulkExecutionState.Executing,
+            commandOwner: ArticleBulkOperationRegistry.Get(atomic.Plan.OperationId).CommandOwner);
         ArticleBulkContractException tooLate = await Assert.ThrowsAsync<ArticleBulkContractException>(() =>
             atomic.Framework.AppendAsync(
                 commitStarted,
+                atomic.Plan,
                 ArticleBulkJournalEventKind.CancelRequested,
                 ArticleBulkExecutionState.Cancelling));
         Assert.Equal("article-bulk.cancel-too-late", tooLate.Code);
@@ -367,6 +417,7 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         ArticleBulkJournalHead cancellable = await beforeCommit.StartExecutingAsync();
         (cancellable, _) = await beforeCommit.Framework.AppendAsync(
             cancellable,
+            beforeCommit.Plan,
             ArticleBulkJournalEventKind.CancelRequested,
             ArticleBulkExecutionState.Cancelling,
             reasonCode: "user-requested");
@@ -393,15 +444,20 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         ArticleBulkJournalHead head = await fixture.StartExecutingAsync();
         (head, _) = await fixture.Framework.AppendAsync(
             head,
+            fixture.Plan,
             ArticleBulkJournalEventKind.GroupCommitStarted,
-            ArticleBulkExecutionState.Executing);
+            ArticleBulkExecutionState.Executing,
+            commandOwner: ArticleBulkOperationRegistry.Get(fixture.Plan.OperationId).CommandOwner);
         ArticleBulkGroupCommitOutcome outcome = commitSucceeds
             ? ArticleBulkGroupCommitOutcome.Committed
             : ArticleBulkGroupCommitOutcome.FailedZeroWrite;
         (head, _) = await fixture.Framework.AppendAsync(
             head,
+            fixture.Plan,
             ArticleBulkJournalEventKind.GroupCommitTerminal,
             ArticleBulkExecutionState.Executing,
+            commandOwner: ArticleBulkOperationRegistry.Get(fixture.Plan.OperationId).CommandOwner,
+            commandReceiptDigest: commitSucceeds ? Digest("group-commit") : null,
             groupOutcome: outcome,
             groupReceiptDigest: commitSucceeds ? Digest("group-commit") : null,
             zeroWriteProofDigest: commitSucceeds ? null : Digest("zero-write"));
@@ -412,6 +468,7 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         ];
         (head, _) = await fixture.Framework.AppendAsync(
             head,
+            fixture.Plan,
             ArticleBulkJournalEventKind.ReceiptChunkRecorded,
             ArticleBulkExecutionState.Executing,
             receiptChunk: receipts,
@@ -428,6 +485,7 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
             zeroWriteProofDigest: commitSucceeds ? null : Digest("zero-write"));
         (head, _) = await fixture.Framework.AppendAsync(
             head,
+            fixture.Plan,
             ArticleBulkJournalEventKind.ExecutionTerminal,
             terminalState,
             groupOutcome: outcome,
@@ -454,6 +512,7 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
             failed: 1);
         (head, _) = await fixture.Framework.AppendAsync(
             head,
+            fixture.Plan,
             ArticleBulkJournalEventKind.ExecutionTerminal,
             ArticleBulkExecutionState.Partial,
             aggregateReceipt: aggregate,
@@ -468,6 +527,14 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
 
         Assert.Equal("article-00001", Assert.Single(retry.Request.FailedItems).ArticleId);
         Assert.Equal(ArticleBulkJournalEventKind.RetryRequested, fixture.Journal.Events[^1].Kind);
+        ArticleBulkContractException duplicate = await Assert.ThrowsAsync<ArticleBulkContractException>(() =>
+            fixture.Framework.CreateRetryAsync(
+                fixture.Journal.Request!,
+                fixture.Plan,
+                retry.Head,
+                "attempt-retry",
+                new Dictionary<string, string> { ["article-00001"] = "revision-new" }));
+        Assert.Equal("article-bulk.retry-already-requested", duplicate.Code);
         await Assert.ThrowsAsync<ArticleBulkContractException>(() => fixture.Framework.CreateRetryAsync(
             fixture.Journal.Request!,
             fixture.Plan,
@@ -492,12 +559,28 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
             failed: 0);
         (head, _) = await fixture.Framework.AppendAsync(
             head,
+            fixture.Plan,
             ArticleBulkJournalEventKind.ExecutionTerminal,
             ArticleBulkExecutionState.Completed,
             aggregateReceipt: aggregate,
             reasonCode: "completed");
 
         await fixture.Framework.VerifyExecutionAsync(fixture.Journal.Request!, fixture.Plan, head);
+
+        ArticleBulkItemReceipt originalReceipt = fixture.Journal.ItemReceipts["article-00000"];
+        ArticleBulkItemReceipt wrongOwner = originalReceipt with
+        {
+            CanonicalCommandOwner = "non-canonical-command",
+            ContentDigest = string.Empty
+        };
+        fixture.Journal.ItemReceipts["article-00000"] = wrongOwner with
+        {
+            ContentDigest = ArticleBulkDigest.Of(wrongOwner)
+        };
+        Assert.Equal("article-bulk.item-receipt-invalid",
+            (await Assert.ThrowsAsync<ArticleBulkContractException>(() =>
+                fixture.Framework.VerifyExecutionAsync(fixture.Journal.Request!, fixture.Plan, head))).Code);
+        fixture.Journal.ItemReceipts["article-00000"] = originalReceipt;
 
         ArticleBulkAggregateReceipt summaryOnly = aggregate with
         {
@@ -565,6 +648,7 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
             failed: 0);
         (head, _) = await fixture.Framework.AppendAsync(
             head,
+            fixture.Plan,
             ArticleBulkJournalEventKind.ExecutionTerminal,
             ArticleBulkExecutionState.Completed,
             aggregateReceipt: aggregate,
@@ -732,10 +816,12 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
             ArticleBulkAdmission admission = await AdmitAsync();
             (ArticleBulkJournalHead admitted, _) = await Framework.AppendAsync(
                 admission.Head,
+                Plan,
                 ArticleBulkJournalEventKind.Admitted,
                 ArticleBulkExecutionState.Admitted);
             (ArticleBulkJournalHead executing, _) = await Framework.AppendAsync(
                 admitted,
+                Plan,
                 ArticleBulkJournalEventKind.ExecutionStarted,
                 ArticleBulkExecutionState.Executing);
             return executing;
@@ -777,20 +863,24 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         {
             (head, _) = await Framework.AppendAsync(
                 head,
+                Plan,
                 ArticleBulkJournalEventKind.ItemAdmitted,
                 ArticleBulkExecutionState.Executing,
                 articleId: articleId,
                 nextItemStatus: ArticleBulkItemStatus.Admitted);
             (head, _) = await Framework.AppendAsync(
                 head,
+                Plan,
                 ArticleBulkJournalEventKind.ItemStarted,
                 ArticleBulkExecutionState.Executing,
                 articleId: articleId,
+                commandOwner: ArticleBulkOperationRegistry.Get(Plan.OperationId).CommandOwner,
                 expectedItemStatus: ArticleBulkItemStatus.Admitted,
                 nextItemStatus: ArticleBulkItemStatus.Executing);
             ArticleBulkItemReceipt receipt = Receipt(articleId, succeeded);
             (head, _) = await Framework.AppendAsync(
                 head,
+                Plan,
                 ArticleBulkJournalEventKind.ItemTerminal,
                 ArticleBulkExecutionState.Executing,
                 articleId: articleId,
@@ -967,7 +1057,7 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         }
 
         public async IAsyncEnumerable<IReadOnlyList<ArticleBulkJournalEvent>> ReadEventBatchesAsync(
-            string attemptId,
+            ArticleBulkJournalHead sealedHead,
             int maximumBatchSize,
             [EnumeratorCancellation] CancellationToken cancellationToken)
         {
@@ -982,7 +1072,7 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         }
 
         public async IAsyncEnumerable<ArticleBulkItemReceipt> ReadItemReceiptsAsync(
-            string attemptId,
+            ArticleBulkJournalHead sealedHead,
             [EnumeratorCancellation] CancellationToken cancellationToken)
         {
             foreach (ArticleBulkItemReceipt receipt in ItemReceipts.Values)
