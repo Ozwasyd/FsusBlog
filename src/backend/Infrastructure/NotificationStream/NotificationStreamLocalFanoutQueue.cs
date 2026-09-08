@@ -155,7 +155,10 @@ public sealed class NotificationStreamLocalFanoutQueue
             if (result.Status == NotificationStreamFanoutEnqueueStatus.Enqueued)
             {
                 _delivery.Transition(queued: 1);
-                result = result with { RetainedPending = identity };
+                result = result with
+                {
+                    RetainedPending = identity
+                };
             }
             else if (!result.Accepted)
             {
@@ -170,7 +173,10 @@ public sealed class NotificationStreamLocalFanoutQueue
                 };
             }
 
-            return result with { Input = identity };
+            return result with
+            {
+                Input = identity
+            };
         }
     }
 

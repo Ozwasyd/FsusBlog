@@ -50,11 +50,20 @@ public sealed class BoundedQueueDeliveryCatalog : IBoundedQueueDrainCatalog
         DrainParticipants = participantList;
     }
 
-    public string Digest { get; }
+    public string Digest
+    {
+        get;
+    }
 
-    public IReadOnlyList<BoundedChannelQueueContract> Queues { get; }
+    public IReadOnlyList<BoundedChannelQueueContract> Queues
+    {
+        get;
+    }
 
-    public IReadOnlyList<BoundedChannelQueueContract> DrainParticipants { get; }
+    public IReadOnlyList<BoundedChannelQueueContract> DrainParticipants
+    {
+        get;
+    }
 
     public static BoundedQueueDeliveryCatalog Embedded => s_embedded.Value;
 
