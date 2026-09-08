@@ -15,7 +15,7 @@
         "evidence-selection.schema-search",
         "evidence-selection.timestamp-sort"
     ],
-    "scanDigest": "sha256:9b4fe843bcd6984c67b6927c26adeaa8678b51f35b79482c804af091da6d5dc7",
+    "scanDigest": "sha256:41abb0f688f94b10da8d3b02c653bce59041953d7e7cd48dec4abd9d8b65dad7",
     "entries": [
         {
             "findingId": "796fa8284a86adb9",
@@ -102,28 +102,28 @@
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#fa29c42bf8007ee0"
         },
         {
-            "findingId": "4f6bb594e5306b4e",
+            "findingId": "be25f96d134dfb6e",
             "consumerId": "evidence-consumer.artifacts.change-contract.generated-repair-history-bootstrap-binding",
-            "location": "artifacts/change-contract/generated-repair-history-bootstrap-binding.json:13",
+            "location": "artifacts/change-contract/generated-repair-history-bootstrap-binding.json:17",
             "oldSelectionRule": "evidence-selection.latest-newest",
             "classification": "not-evidence",
             "newAuthorityId": null,
             "locatorMode": "not-applicable",
             "action": "close exact location and rule as non-evidence behavior",
             "owner": "test-evidence-governance",
-            "proofTest": "tests/tools/evidence-location-governance.test.mjs#4f6bb594e5306b4e"
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#be25f96d134dfb6e"
         },
         {
-            "findingId": "8f7ad6baa97e6856",
+            "findingId": "ba838eb1812b5f81",
             "consumerId": "evidence-consumer.artifacts.change-contract.generated-repair-history-bootstrap-binding",
-            "location": "artifacts/change-contract/generated-repair-history-bootstrap-binding.json:13",
+            "location": "artifacts/change-contract/generated-repair-history-bootstrap-binding.json:17",
             "oldSelectionRule": "evidence-selection.pointer-without-identity",
             "classification": "not-evidence",
             "newAuthorityId": null,
             "locatorMode": "not-applicable",
             "action": "close exact location and rule as non-evidence behavior",
             "owner": "test-evidence-governance",
-            "proofTest": "tests/tools/evidence-location-governance.test.mjs#8f7ad6baa97e6856"
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#ba838eb1812b5f81"
         },
         {
             "findingId": "129619971853756a",
@@ -1962,28 +1962,100 @@
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#8ef9cf4b54798b1f"
         },
         {
-            "findingId": "745de386bc246e86",
+            "findingId": "98c6201509f83d89",
             "consumerId": "evidence-consumer.governance.change-contract-registry",
-            "location": "tools/governance/change-contract-registry.mjs:285",
+            "location": "tools/governance/change-contract-registry.mjs:254",
             "oldSelectionRule": "evidence-selection.latest-newest",
             "classification": "not-evidence",
             "newAuthorityId": null,
             "locatorMode": "not-applicable",
             "action": "close exact location and rule as non-evidence behavior",
             "owner": "test-evidence-governance",
-            "proofTest": "tests/tools/evidence-location-governance.test.mjs#745de386bc246e86"
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#98c6201509f83d89"
         },
         {
-            "findingId": "fff7ffab042306de",
+            "findingId": "dcdf8e7698c5a8e8",
             "consumerId": "evidence-consumer.governance.change-contract-registry",
-            "location": "tools/governance/change-contract-registry.mjs:285",
+            "location": "tools/governance/change-contract-registry.mjs:254",
             "oldSelectionRule": "evidence-selection.pointer-without-identity",
             "classification": "not-evidence",
             "newAuthorityId": null,
             "locatorMode": "not-applicable",
             "action": "close exact location and rule as non-evidence behavior",
             "owner": "test-evidence-governance",
-            "proofTest": "tests/tools/evidence-location-governance.test.mjs#fff7ffab042306de"
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#dcdf8e7698c5a8e8"
+        },
+        {
+            "findingId": "4be25b4b1f86aa21",
+            "consumerId": "evidence-consumer.governance.change-contract-registry",
+            "location": "tools/governance/change-contract-registry.mjs:261",
+            "oldSelectionRule": "evidence-selection.latest-newest",
+            "classification": "not-evidence",
+            "newAuthorityId": null,
+            "locatorMode": "not-applicable",
+            "action": "close exact location and rule as non-evidence behavior",
+            "owner": "test-evidence-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#4be25b4b1f86aa21"
+        },
+        {
+            "findingId": "2fdac8265a5c4dc3",
+            "consumerId": "evidence-consumer.governance.change-contract-registry",
+            "location": "tools/governance/change-contract-registry.mjs:261",
+            "oldSelectionRule": "evidence-selection.pointer-without-identity",
+            "classification": "not-evidence",
+            "newAuthorityId": null,
+            "locatorMode": "not-applicable",
+            "action": "close exact location and rule as non-evidence behavior",
+            "owner": "test-evidence-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#2fdac8265a5c4dc3"
+        },
+        {
+            "findingId": "3073c68ed4290eaf",
+            "consumerId": "evidence-consumer.governance.change-contract-registry",
+            "location": "tools/governance/change-contract-registry.mjs:272",
+            "oldSelectionRule": "evidence-selection.latest-newest",
+            "classification": "not-evidence",
+            "newAuthorityId": null,
+            "locatorMode": "not-applicable",
+            "action": "close exact location and rule as non-evidence behavior",
+            "owner": "test-evidence-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#3073c68ed4290eaf"
+        },
+        {
+            "findingId": "e2e66fa9fbe3f44a",
+            "consumerId": "evidence-consumer.governance.change-contract-registry",
+            "location": "tools/governance/change-contract-registry.mjs:272",
+            "oldSelectionRule": "evidence-selection.pointer-without-identity",
+            "classification": "not-evidence",
+            "newAuthorityId": null,
+            "locatorMode": "not-applicable",
+            "action": "close exact location and rule as non-evidence behavior",
+            "owner": "test-evidence-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#e2e66fa9fbe3f44a"
+        },
+        {
+            "findingId": "3a05ee35ea88b283",
+            "consumerId": "evidence-consumer.governance.change-contract-registry",
+            "location": "tools/governance/change-contract-registry.mjs:343",
+            "oldSelectionRule": "evidence-selection.latest-newest",
+            "classification": "not-evidence",
+            "newAuthorityId": null,
+            "locatorMode": "not-applicable",
+            "action": "close exact location and rule as non-evidence behavior",
+            "owner": "test-evidence-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#3a05ee35ea88b283"
+        },
+        {
+            "findingId": "81ba14e14a7e6e19",
+            "consumerId": "evidence-consumer.governance.change-contract-registry",
+            "location": "tools/governance/change-contract-registry.mjs:343",
+            "oldSelectionRule": "evidence-selection.pointer-without-identity",
+            "classification": "not-evidence",
+            "newAuthorityId": null,
+            "locatorMode": "not-applicable",
+            "action": "close exact location and rule as non-evidence behavior",
+            "owner": "test-evidence-governance",
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#81ba14e14a7e6e19"
         },
         {
             "findingId": "a6614227ff69e6e7",
@@ -4782,5 +4854,5 @@
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#231c081ffc1efc86"
         }
     ],
-    "contentDigest": "sha256:1e592eaaaf1a6c2c97ef11725da973186c1b8812b5c51ce9a111d4803b999059"
+    "contentDigest": "sha256:de15225e90d108889b1c36d7d098e45eda975ab0abbd759c6db7b15c9c2146a1"
 }

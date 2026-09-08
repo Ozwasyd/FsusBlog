@@ -1092,6 +1092,64 @@ export function validateGeneratedRepairDagEventOrder(sourceEvents, expectedEvent
     return [];
 }
 
+export function inspectGeneratedRepairDagEpochBootstrapHistory(root, graph, synchronizedMerge, base)
+{
+    if (![synchronizedMerge, base].every((revision) => fullShaPattern.test(revision ?? ''))
+        || !gitFirstParentChainIncludes(root, synchronizedMerge, base))
+    {
+        throw new Error('epoch bootstrap history requires exact first-parent boundaries');
+    }
+    const protectedPaths = [...new Set([
+        ...graph.steps.flatMap((step) => step.outputs),
+        ...graph.steps.flatMap((step) => step.generatorClosure),
+        ...changeContract.trustedPolicyFiles
+    ])].sort();
+    const events = protectedPaths.flatMap((path) => (
+        gitFullHistoryRevisionsForPath(root, synchronizedMerge, base, path).map((revision) => {
+            const parents = gitRevisionParents(root, revision);
+            return {
+                path,
+                revision,
+                parents,
+                identity: revisionPathIdentity(root, revision, path),
+                parentIdentities: parents.map((parent) => revisionPathIdentity(root, parent, path))
+            };
+        })
+    ));
+    if (events.length > generatedOutputRepairDagMaximumRevisions)
+    {
+        throw new Error(`epoch bootstrap protected history exceeds ${generatedOutputRepairDagMaximumRevisions} events`);
+    }
+    const history = { synchronizedMerge, base, protectedPaths, events };
+    return {
+        ...history,
+        sha256: createHash('sha256').update(JSON.stringify(history)).digest('hex')
+    };
+}
+
+export function validateGeneratedRepairDagEpochBootstrapHistory(
+    root, graph, synchronizedMerge, base, expectedSha256
+)
+{
+    if (!sha256Pattern.test(expectedSha256 ?? ''))
+    {
+        return ['Generated repair DAG epoch bootstrap history seal is malformed'];
+    }
+    try
+    {
+        const history = inspectGeneratedRepairDagEpochBootstrapHistory(root, graph, synchronizedMerge, base);
+        return history.sha256 === expectedSha256
+            ? []
+            : ['Generated repair DAG epoch bootstrap protected history seal changed'];
+    }
+    catch (error)
+    {
+        return [`Generated repair DAG epoch bootstrap history is invalid: ${
+            error instanceof Error ? error.message : String(error)
+        }`];
+    }
+}
+
 export function validateGeneratedRepairDagEpochAnchor(root, graph, registration)
 {
     const errors = [];
@@ -1101,6 +1159,7 @@ export function validateGeneratedRepairDagEpochAnchor(root, graph, registration)
             'schema', 'id', 'producerId', 'synchronizedRevision', 'synchronizedParent',
             'synchronizedTree', 'synchronizedMerge', 'synchronizedPullRequest', 'mergeParents',
             'mergeTree', 'historySha256', 'staleOuterOutputs', 'bootstrapBase',
+            'bootstrapHistorySha256', 'bootstrapOutputs',
             'bootstrapBindingManifest', 'bootstrapExternalNamingManifest', 'bootstrapSources',
             'bootstrapPaths', 'legacyClosure', 'sourceBranches'
         ]))
@@ -1116,7 +1175,8 @@ export function validateGeneratedRepairDagEpochAnchor(root, graph, registration)
         || ![registration.synchronizedRevision, registration.synchronizedParent,
             registration.synchronizedTree, registration.synchronizedMerge,
             registration.mergeTree, registration.bootstrapBase].every((value) => fullShaPattern.test(value ?? ''))
-        || !sha256Pattern.test(registration.historySha256 ?? ''))
+        || !sha256Pattern.test(registration.historySha256 ?? '')
+        || !sha256Pattern.test(registration.bootstrapHistorySha256 ?? ''))
     {
         fail('identity fields are malformed');
         return errors;
@@ -1131,6 +1191,8 @@ export function validateGeneratedRepairDagEpochAnchor(root, graph, registration)
         || registration.staleOuterOutputs.length === 0
         || !registration.staleOuterOutputs.every((path) => graphOutputs.includes(path))
         || new Set(registration.staleOuterOutputs).size !== registration.staleOuterOutputs.length
+        || !Array.isArray(registration.bootstrapOutputs)
+        || !sameStrings(registration.bootstrapOutputs, graphOutputs)
         || !repositoryPathPattern.test(registration.bootstrapBindingManifest ?? '')
         || !repositoryPathPattern.test(registration.bootstrapExternalNamingManifest ?? '')
         || !Array.isArray(registration.bootstrapSources)
@@ -1142,7 +1204,7 @@ export function validateGeneratedRepairDagEpochAnchor(root, graph, registration)
         || !sameStrings(registration.bootstrapPaths, [
             registration.bootstrapBindingManifest,
             registration.bootstrapExternalNamingManifest,
-            ...registration.staleOuterOutputs,
+            ...registration.bootstrapOutputs,
             'docs/development/change-contract.md',
             'tests/tools/change-contract.test.mjs',
             ...registration.bootstrapSources
@@ -1214,6 +1276,16 @@ export function validateGeneratedRepairDagEpochAnchor(root, graph, registration)
         {
             fail('minimal epoch history seal changed');
         }
+        if (validateGeneratedRepairDagEpochBootstrapHistory(
+            root,
+            graph,
+            registration.synchronizedMerge,
+            registration.bootstrapBase,
+            registration.bootstrapHistorySha256
+        ).length > 0)
+        {
+            fail('bootstrap protected history seal changed');
+        }
     }
     catch (error)
     {
@@ -1238,9 +1310,9 @@ export function validateGeneratedRepairDagEpochBootstrap(
         || parsedBody.generatedDigest !== registration.bootstrapBindingManifest
         || parsedBody.externalExceptionManifest !== registration.bootstrapExternalNamingManifest
         || !sameStrings(repositoryPaths(parsedBody.generatorSource), registration.bootstrapSources)
-        || !sameStrings(repositoryPaths(parsedBody.generatedOutputs), registration.staleOuterOutputs)
+        || !sameStrings(repositoryPaths(parsedBody.generatedOutputs), registration.bootstrapOutputs)
         || !sameStrings(evidence.sources, registration.bootstrapSources)
-        || !sameStrings(evidence.outputs?.map((entry) => entry?.path), registration.staleOuterOutputs)
+        || !sameStrings(evidence.outputs?.map((entry) => entry?.path), registration.bootstrapOutputs)
         || !sameStrings(changedFiles, registration.bootstrapPaths))
     {
         fail('base, declarations, manifest, or exact changed-path set differs from the one-time registration');
@@ -1249,18 +1321,6 @@ export function validateGeneratedRepairDagEpochBootstrap(
     try
     {
         const closurePaths = [...new Set(graph.steps.flatMap((step) => step.generatorClosure))];
-        const protectedPaths = [...new Set([
-            ...closurePaths,
-            ...graph.steps.flatMap((step) => step.outputs),
-            ...changeContract.trustedPolicyFiles
-        ])];
-        for (const path of protectedPaths)
-        {
-            if (gitFullHistoryRevisionsForPath(root, registration.synchronizedMerge, base, path).length > 0)
-            {
-                fail(`protected history changed after the registered outer boundary: ${path}`);
-            }
-        }
         for (const path of closurePaths)
         {
             const identity = revisionPathIdentity(root, registration.synchronizedRevision, path);
@@ -1284,7 +1344,7 @@ export function validateGeneratedRepairDagEpochBootstrap(
         {
             fail('outer drift differs from the registered stale-output subset');
         }
-        if (!sameStrings(baseReplay.changedPaths, registration.staleOuterOutputs))
+        if (!sameStrings(baseReplay.changedPaths, registration.bootstrapOutputs))
         {
             fail('current base drift differs from the registered stale-output subset');
         }

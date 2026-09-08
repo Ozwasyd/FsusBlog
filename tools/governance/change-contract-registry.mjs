@@ -253,7 +253,13 @@ export const generatedOutputRepairDagEpochAnchors = Object.freeze([
             'config/testing/evidence-location-migration-ledger.json',
             'config/testing/current-run-evidence-location-acceptance.json'
         ]),
-        bootstrapBase: 'cde6a9627c744c4a82ec3c10ac34b4c482a8fab7',
+        bootstrapBase: 'e0aac1abb1fd78b0e1774d50463093b35745bc14',
+        bootstrapHistorySha256: 'e8360bac9c07ac4c9dc3d8b63ba41ff9d59e5ef7e2a919517e0c4d46887cd5ec',
+        bootstrapOutputs: Object.freeze([
+            'config/testing/evidence-locator-registry.json',
+            'config/testing/evidence-location-migration-ledger.json',
+            'config/testing/current-run-evidence-location-acceptance.json'
+        ]),
         bootstrapBindingManifest: 'artifacts/change-contract/generated-repair-history-bootstrap-binding.json',
         bootstrapExternalNamingManifest: 'artifacts/change-contract/generated-repair-history-bootstrap-external-naming.json',
         bootstrapSources: Object.freeze([

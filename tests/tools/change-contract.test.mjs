@@ -21,6 +21,8 @@ import {
     inspectGeneratedRepairDagHistory,
     validateReviewedGeneratedRepairDagEvents,
     validateGeneratedRepairDagEventOrder,
+    inspectGeneratedRepairDagEpochBootstrapHistory,
+    validateGeneratedRepairDagEpochBootstrapHistory,
     validateGeneratedRepairDagEpochAnchor,
     validateGeneratedRepairDagEpochBootstrap,
     reviewedDagHistoryAdmission,
@@ -176,6 +178,59 @@ test('reviewed generated repair DAG epoch seals the canonical head and stale out
         'config/testing/evidence-location-migration-ledger.json',
         'config/testing/current-run-evidence-location-acceptance.json'
     ]);
+    assert.deepEqual(admission.registration.bootstrapOutputs, [
+        'config/testing/evidence-locator-registry.json',
+        'config/testing/evidence-location-migration-ledger.json',
+        'config/testing/current-run-evidence-location-acceptance.json'
+    ]);
+    const bootstrapHistory = inspectGeneratedRepairDagEpochBootstrapHistory(
+        root, graph, registration.synchronizedMerge, registration.bootstrapBase
+    );
+    assert.equal(bootstrapHistory.events.length, 86);
+    assert.equal(bootstrapHistory.protectedPaths.length, 15);
+    assert.equal(bootstrapHistory.sha256, registration.bootstrapHistorySha256);
+    assert.deepEqual(bootstrapHistory.events[0], {
+        path: 'config/testing/current-run-evidence-location-acceptance.json',
+        revision: 'e0aac1abb1fd78b0e1774d50463093b35745bc14',
+        parents: [
+            'b3a9146a557773b970d4a605d750977e1509271b',
+            'f1a53bce3796d35be566c9b641cb7b521fc0d2db'
+        ],
+        identity: '100644:964a7c386c76aec3f1eef4d9e9c40fc51b4c81b2',
+        parentIdentities: [
+            '100644:88d48fb8200ae9615c6c65eee43753e88f404200',
+            '100644:964a7c386c76aec3f1eef4d9e9c40fc51b4c81b2'
+        ]
+    });
+    assert.deepEqual(Object.keys(bootstrapHistory.events[0]), [
+        'path', 'revision', 'parents', 'identity', 'parentIdentities'
+    ]);
+    assert.deepEqual(
+        [...bootstrapHistory.events].map((entry) => entry.path),
+        [...bootstrapHistory.events].map((entry) => entry.path).sort()
+    );
+    const restoredPolicy = bootstrapHistory.events.find((entry) => (
+        entry.path === 'tools/governance/change-contract.mjs'
+        && entry.revision === '292e2220919d5442b9ac89f6625d21768d0ee6dc'
+    ));
+    assert.equal(restoredPolicy.identity, '100644:a3e5e6ec576d231a4c301475c5e2c1544998bd4a');
+    assert.notEqual(restoredPolicy.identity, restoredPolicy.parentIdentities[0]);
+    assert.equal(restoredPolicy.identity, restoredPolicy.parentIdentities[1]);
+    const { sha256: ignoredBootstrapSha256, ...sealedProjection } = bootstrapHistory;
+    const projectionDigest = (value) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+    for (const mutate of [
+        (value) => value.events.reverse(),
+        (value) => value.events[0].parents.pop(),
+        (value) => value.events[0].parentIdentities.pop(),
+        (value) => { value.events[0].identity = '100644:' + '0'.repeat(40); },
+        (value) => value.events.pop(),
+        (value) => value.events.push(structuredClone(value.events[0]))
+    ])
+    {
+        const changed = structuredClone(sealedProjection);
+        mutate(changed);
+        assert.notEqual(projectionDigest(changed), registration.bootstrapHistorySha256);
+    }
     assert.match(validateGeneratedRepairDagEpochBootstrap(
         root,
         graph,
@@ -190,7 +245,11 @@ test('reviewed generated repair DAG epoch seals the canonical head and stale out
         ['topology', (entry) => entry.mergeParents.reverse()],
         ['tree', (entry) => { entry.mergeTree = '0'.repeat(40); }],
         ['history', (entry) => { entry.historySha256 = '0'.repeat(64); }],
+        ['bootstrap history', (entry) => { entry.bootstrapHistorySha256 = '0'.repeat(64); }],
         ['outputs', (entry) => { entry.staleOuterOutputs.pop(); }],
+        ['missing registry', (entry) => { entry.bootstrapOutputs.shift(); }],
+        ['extra registry', (entry) => { entry.bootstrapOutputs.push('config/testing/extra-registry.json'); }],
+        ['wrong registry', (entry) => { entry.bootstrapOutputs[0] = entry.bootstrapOutputs[1]; }],
         ['policy', (entry) => { entry.bootstrapSources.pop(); }],
         ['extra path', (entry) => { entry.bootstrapPaths.push('unregistered.txt'); }],
         ['extra field', (entry) => { entry.latest = 'HEAD'; }],
@@ -201,6 +260,164 @@ test('reviewed generated repair DAG epoch seals the canonical head and stale out
         const changed = structuredClone(registration);
         mutate(changed);
         assert.notDeepEqual(validateGeneratedRepairDagEpochAnchor(root, graph, changed), [], label);
+    }
+});
+
+function createEpochBootstrapHistoryFixture({
+    reverseMergeParents = false,
+    omitPolicyTransition = false,
+    omitOutputRollback = false,
+    duplicateTransition = false,
+    retainExecutableMode = false
+} = {})
+{
+    const repository = mkdtempSync(join(tmpdir(), 'fsusblog-epoch-bootstrap-history-'));
+    const graph = changeContract.generatedOutputRepairDags[0];
+    const protectedPaths = [...new Set([
+        ...graph.steps.flatMap((step) => step.outputs),
+        ...graph.steps.flatMap((step) => step.generatorClosure),
+        ...changeContract.trustedPolicyFiles
+    ])];
+    const policyPath = 'tools/governance/check-change-contract.mjs';
+    const outputPath = 'config/testing/current-run-evidence-location-acceptance.json';
+    const executablePath = 'tools/test/generate-evidence-location-governance.mjs';
+    const environment = {
+        ...process.env,
+        GIT_AUTHOR_NAME: 'Fixture',
+        GIT_AUTHOR_EMAIL: 'fixture@example.invalid',
+        GIT_AUTHOR_DATE: '2001-01-01T00:00:00Z',
+        GIT_COMMITTER_NAME: 'Fixture',
+        GIT_COMMITTER_EMAIL: 'fixture@example.invalid',
+        GIT_COMMITTER_DATE: '2001-01-01T00:00:00Z'
+    };
+    const git = (arguments_, options = {}) => execFileSync('git', arguments_, {
+        cwd: repository,
+        env: environment,
+        encoding: 'utf8',
+        ...options
+    }).trim();
+    const commit = (message) =>
+    {
+        git(['add', '.']);
+        git(['commit', '-qm', message]);
+        return git(['rev-parse', 'HEAD']);
+    };
+    execFileSync('git', ['init', '-q', '-b', 'master'], { cwd: repository });
+    execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: repository });
+    execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: repository });
+    for (const path of protectedPaths) writeRepositoryFile(repository, path, `baseline:${path}\n`);
+    const synchronizedMerge = commit('fixture epoch baseline');
+
+    if (!omitPolicyTransition)
+    {
+        writeRepositoryFile(repository, policyPath, 'policy:changed\n');
+        commit('fixture policy change');
+        writeRepositoryFile(repository, policyPath, `baseline:${policyPath}\n`);
+        commit('fixture policy rollback');
+    }
+
+    const mergeBase = git(['rev-parse', 'HEAD']);
+    git(['checkout', '-q', '-b', 'side']);
+    writeRepositoryFile(repository, outputPath, 'output:side\n');
+    const side = commit('fixture side output change');
+    git(['checkout', '-q', 'master']);
+    writeRepositoryFile(repository, outputPath, 'output:first-parent\n');
+    const firstParent = commit('fixture first-parent output change');
+    const mergeParents = reverseMergeParents ? [side, firstParent] : [firstParent, side];
+    const mergeTree = git(['rev-parse', `${side}^{tree}`]);
+    const merge = git([
+        'commit-tree', mergeTree,
+        '-p', mergeParents[0],
+        '-p', mergeParents[1],
+        '-m', 'fixture ordered output merge'
+    ]);
+    git(['update-ref', 'refs/heads/master', merge, firstParent]);
+    git(['reset', '--hard', '-q', merge]);
+
+    if (!omitOutputRollback)
+    {
+        writeRepositoryFile(repository, outputPath, `baseline:${outputPath}\n`);
+        commit('fixture output rollback');
+    }
+    chmodSync(join(repository, executablePath), 0o755);
+    commit('fixture executable mode drift');
+    if (!retainExecutableMode)
+    {
+        chmodSync(join(repository, executablePath), 0o644);
+        commit('fixture executable mode rollback');
+    }
+    if (duplicateTransition)
+    {
+        writeRepositoryFile(repository, policyPath, 'policy:changed-again\n');
+        commit('fixture duplicate policy change');
+        writeRepositoryFile(repository, policyPath, `baseline:${policyPath}\n`);
+        commit('fixture duplicate policy rollback');
+    }
+    return {
+        repository,
+        graph,
+        synchronizedMerge,
+        mergeBase,
+        base: git(['rev-parse', 'HEAD'])
+    };
+}
+
+test('epoch bootstrap history fixture seals ordered events, identities, modes, and rollbacks', () =>
+{
+    const fixtures = [];
+    try
+    {
+        const canonical = createEpochBootstrapHistoryFixture();
+        fixtures.push(canonical);
+        const history = inspectGeneratedRepairDagEpochBootstrapHistory(
+            canonical.repository, canonical.graph, canonical.synchronizedMerge, canonical.base
+        );
+        assert.equal(history.sha256, '9d3837dca944507426b36e864826068a39710f37774afae352f1570df688da40');
+        assert.deepEqual(validateGeneratedRepairDagEpochBootstrapHistory(
+            canonical.repository,
+            canonical.graph,
+            canonical.synchronizedMerge,
+            canonical.base,
+            history.sha256
+        ), []);
+        assert.ok(history.events.some((entry) => entry.parents.length === 2
+            && entry.parentIdentities.length === 2
+            && entry.identity === entry.parentIdentities[1]
+            && entry.identity !== entry.parentIdentities[0]));
+        assert.ok(history.events.some((entry) => entry.identity.startsWith('100755:')));
+        for (const path of [
+            'tools/governance/check-change-contract.mjs',
+            'config/testing/current-run-evidence-location-acceptance.json',
+            'tools/test/generate-evidence-location-governance.mjs'
+        ])
+        {
+            const events = history.events.filter((entry) => entry.path === path);
+            assert.ok(events.length >= 2, path);
+            assert.equal(events[0].identity, events.at(-1).parentIdentities[0], path);
+        }
+
+        for (const options of [
+            { reverseMergeParents: true },
+            { omitPolicyTransition: true },
+            { omitOutputRollback: true },
+            { duplicateTransition: true },
+            { retainExecutableMode: true }
+        ])
+        {
+            const changed = createEpochBootstrapHistoryFixture(options);
+            fixtures.push(changed);
+            assert.notDeepEqual(validateGeneratedRepairDagEpochBootstrapHistory(
+                changed.repository,
+                changed.graph,
+                changed.synchronizedMerge,
+                changed.base,
+                history.sha256
+            ), [], JSON.stringify(options));
+        }
+    }
+    finally
+    {
+        for (const fixture of fixtures) rmSync(fixture.repository, { recursive: true, force: true });
     }
 });
 

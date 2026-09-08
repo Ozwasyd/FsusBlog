@@ -7,7 +7,7 @@
                 "config/testing/evidence-location-migration-ledger.json",
                 "config/testing/current-run-evidence-location-acceptance.json"
             ],
-            "reason": "Preserve canonical generated JSON wire keys while refreshing the full evidence-location DAG from its reviewed source."
+            "reason": "Preserve canonical generated JSON wire keys while atomically closing the registered evidence-location bootstrap epoch."
         },
         {
             "id": "environment-variable",
