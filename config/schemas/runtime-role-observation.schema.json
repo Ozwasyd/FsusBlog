@@ -240,21 +240,33 @@
             ],
             "properties": {
                 "image": {
-                    "type": [
-                        "string",
-                        "null"
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
                     ]
                 },
                 "build": {
-                    "type": [
-                        "object",
-                        "null"
+                    "anyOf": [
+                        {
+                            "type": "object"
+                        },
+                        {
+                            "type": "null"
+                        }
                     ]
                 },
                 "pullPolicy": {
-                    "type": [
-                        "string",
-                        "null"
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
                     ]
                 },
                 "profiles": {
@@ -266,17 +278,29 @@
                     }
                 },
                 "entrypoint": {
-                    "type": [
-                        "array",
-                        "string",
-                        "null"
+                    "anyOf": [
+                        {
+                            "type": "array"
+                        },
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
                     ]
                 },
                 "command": {
-                    "type": [
-                        "array",
-                        "string",
-                        "null"
+                    "anyOf": [
+                        {
+                            "type": "array"
+                        },
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
                     ]
                 }
             }
@@ -421,9 +445,13 @@
                     "minLength": 1
                 },
                 "volumeName": {
-                    "type": [
-                        "string",
-                        "null"
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
                     ]
                 },
                 "access": {
