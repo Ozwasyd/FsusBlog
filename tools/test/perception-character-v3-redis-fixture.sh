@@ -4,6 +4,15 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
+redis_host="${FSUSBLOG_TEST_REDIS_HOST:-127.0.0.1}"
+case "$redis_host" in
+    127.0.0.1 | host.docker.internal) ;;
+    *)
+        echo "[perception-redis-fixture] ERROR: Redis host must identify the local Docker host" >&2
+        exit 1
+        ;;
+esac
+
 command -v docker >/dev/null 2>&1 || {
     echo "[perception-redis-fixture] ERROR: docker is required but not installed or not found in PATH" >&2
     exit 1
@@ -54,8 +63,9 @@ fi
 trx_dir="$ROOT_DIR/.tmp/test-results/backend"
 trx_file="$trx_dir/perception-character-v3-redis-${run_suffix}.trx"
 redis_lua_case_evidence="$trx_dir/perception-character-v3-redis-lua-cases-${run_suffix}.json"
+redis_budget_evidence="$trx_dir/perception-character-v3-budget-cases-${run_suffix}.json"
 mkdir -p "$trx_dir"
-rm -f "$trx_file" "$redis_lua_case_evidence"
+rm -f "$trx_file" "$redis_lua_case_evidence" "$redis_budget_evidence"
 
 output_receipt="$ROOT_DIR/.tmp/test-results/backend/perception-character-v3-redis-producer.json"
 configuration="${FSUSBLOG_TEST_CONFIGURATION:-Release}"
@@ -65,7 +75,11 @@ source_fingerprint="${FSUSBLOG_TEST_SOURCE_FINGERPRINT:-$(node --input-type=modu
 
 filter="$("${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/perception-redis-producer.mjs" --print-filter)"
 
-if docker exec "$container" redis-cli --raw --scan --pattern "${redis_prefix}*" | grep -q .; then
+if ! initial_keys="$(docker exec "$container" redis-cli --raw --scan --pattern "${redis_prefix}*")"; then
+    echo "[perception-redis-fixture] ERROR: failed to inspect the Redis prefix" >&2
+    exit 1
+fi
+if [[ -n "$initial_keys" ]]; then
     echo "[perception-redis-fixture] ERROR: Redis prefix is polluted before the test: $redis_prefix" >&2
     exit 1
 fi
@@ -78,12 +92,14 @@ RedisLuaCalls() {
 redis_lua_calls_before="$(RedisLuaCalls)"
 test_status=0
 
-FSUSBLOG_TEST_REDIS="127.0.0.1:${port},abortConnect=true" \
+FSUSBLOG_TEST_REDIS="${redis_host}:${port},abortConnect=true" \
     FSUSBLOG_TEST_REDIS_PREFIX="$redis_prefix" \
     FSUSBLOG_TEST_LOCAL_REDIS_RUN_ID="$run_suffix" \
     FSUSBLOG_TEST_REDIS_CASE_EVIDENCE="$redis_lua_case_evidence" \
+    FSUSBLOG_TEST_REDIS_BUDGET_EVIDENCE="$redis_budget_evidence" \
     dotnet test "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj" \
     --configuration "$configuration" \
+    -m:1 \
     --no-restore \
     --filter "$filter" \
     --logger "trx;LogFileName=$trx_file" \
@@ -91,7 +107,9 @@ FSUSBLOG_TEST_REDIS="127.0.0.1:${port},abortConnect=true" \
 
 redis_lua_calls_after="$(RedisLuaCalls)"
 cleanup_verified=true
-if docker exec "$container" redis-cli --raw --scan --pattern "${redis_prefix}*" | grep -q .; then
+if ! remaining_keys="$(docker exec "$container" redis-cli --raw --scan --pattern "${redis_prefix}*")"; then
+    cleanup_verified=false
+elif [[ -n "$remaining_keys" ]]; then
     cleanup_verified=false
 fi
 
@@ -99,7 +117,7 @@ producer_status=0
 "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/perception-redis-producer.mjs" \
     --trx "$trx_file" \
     --container "$container" \
-    --endpoint "127.0.0.1:${port}" \
+    --endpoint "${redis_host}:${port}" \
     --assembly "$test_assembly" \
     --filter "$filter" \
     --prefix "$redis_prefix" \
@@ -109,6 +127,7 @@ producer_status=0
     --redis-lua-calls-before "$redis_lua_calls_before" \
     --redis-lua-calls-after "$redis_lua_calls_after" \
     --redis-lua-case-evidence "$redis_lua_case_evidence" \
+    --redis-budget-evidence "$redis_budget_evidence" \
     --cleanup-verified "$cleanup_verified" \
     --output "$output_receipt" || producer_status=$?
 

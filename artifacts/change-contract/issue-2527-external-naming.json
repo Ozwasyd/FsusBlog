@@ -1,0 +1,36 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/perception-redis-producer.mjs"
+            ],
+            "reason": "Preserve caller-visible Redis fixture environment keys while extending the canonical LocalRedis producer with current-run budgeted-lease evidence."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/perception-character-v3-redis-fixture.sh"
+            ],
+            "reason": "Preserve exported LocalRedis process environment spellings at the canonical shell runner boundary."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
+                "tests/backend/Fixtures/backend-test-requirements.json"
+            ],
+            "reason": "Preserve serialized sourceDigest, contentDigest, sources and requirements JSON keys consumed by canonical correctness and backend evidence tooling."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "tests/coverage-registry.json",
+                "tools/check-backend-test-governance.mjs"
+            ],
+            "reason": "Preserve registered coverage and backend governance identifiers while adding the budgeted-lease LocalRedis owner without renaming existing search-index UTF-8 scalar contract IDs."
+        }
+    ]
+}

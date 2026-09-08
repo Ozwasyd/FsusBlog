@@ -2,50 +2,38 @@
 
 ## Security claim
 
-`sys_audit_log` 的 `RecordMac` 仍只证明记录由持有 `Audit:TamperEvidenceKey` 的一方产生。它不是 WORM，也不能阻止同一 HMAC key 持有者重写整条数据库历史。
+`sys_audit_log`'s `RecordMac` proves only that a holder of `Audit:TamperEvidenceKey` produced the record; it is not WORM and cannot stop that HMAC-key holder rewriting database history.
 
-detached checkpoint 在这个边界之外增加一套本地、可导出的证明：按 `sys_audit_log.id` 顺序重算现有 audit canonical record hash，把 `id`、`chain_id`、`prev_hash`、stored/canonical record hash、record MAC 与原始 context payload digest 固化为 record snapshot，再复用现有 Merkle builder 生成 order-sensitive root。checkpoint manifest 绑定：
+A detached checkpoint adds a local, exportable proof: recompute the existing audit canonical record hash in `sys_audit_log.id` order, freeze `id`, `chain_id`, `prev_hash`, stored/canonical record hash, record MAC, and raw context-payload digest in a record snapshot, then reuse the existing Merkle builder for an order-sensitive root. Its manifest binds:
 
-- 单调 `sequence` 与前一 checkpoint digest；
-- `fromRecordId` / `toRecordId` / `recordCount`；
-- Merkle root 与范围末尾 audit record head hash；
-- UTC 创建时间、独立 trust domain 和签名 key identity。
+- monotonic `sequence` plus the previous checkpoint digest; `fromRecordId` / `toRecordId` / `recordCount`; the Merkle root plus the range's final audit-record head hash; and UTC creation time, independent trust domain, and signing-key identity.
 
-checkpoint 使用独立 `AuditCheckpointKeyRecord` 的 `ECDSA_P256_SHA256` 私钥签名，domain 为 `fsusblog.audit.detached-checkpoint.v1`。该 key 不得复用 Audit HMAC、JWT、PoW、Perception、Site Integrity publish-proof 或 Data Protection key。独立 verifier 只需要 checkpoint 公钥、导入的 checkpoint packages、数据库只读 record source 和可选 expected detached head；它不需要 Audit HMAC 或 checkpoint 私钥。
+The checkpoint is signed by the independent `ECDSA_P256_SHA256` private key in `AuditCheckpointKeyRecord`, domain `fsusblog.audit.detached-checkpoint.v1`. Do not reuse it for Audit HMAC, JWT, PoW, Perception, Site Integrity publish-proof, or Data Protection. An independent verifier needs only the checkpoint public key, imported packages, read-only database record source, and optional expected detached head—not Audit HMAC or the checkpoint private key.
 
 ## What verification detects
 
-完整 chain verification 会 fail closed 检测：
+Complete chain verification fails closed on:
 
-- 数据库记录字段或原始 `context_payload` 修改；
-- 持有 Audit HMAC 的攻击者重算 `RecordHash` / `RecordMac` / `PrevHash` 后重写历史；
-- checkpoint 范围中的记录删除、替换或重排；
-- audit chain link 断裂；
-- checkpoint 文件内容、签名、文件名 digest identity 篡改；
-- checkpoint sequence 缺口、前驱 digest 不一致或 record range 重叠；
-- unknown/wrong/expired/revoked/compromised checkpoint key；
-- verifier 持有较新 expected detached head 时，本地 checkpoint tail 被删除或回滚。
+- changed database fields or raw `context_payload`; history rewritten by an Audit-HMAC holder recomputing `RecordHash` / `RecordMac` / `PrevHash`; deleted, replaced, or reordered records in a range; a broken audit-chain link; tampered checkpoint content, signature, or filename digest identity; sequence gaps, predecessor-digest mismatch, or overlapping ranges; an unknown, wrong, expired, revoked, or compromised key; or local checkpoint-tail deletion/rollback when the verifier has a newer expected detached head.
 
-expected head 是 `trustDomain + sequence + checkpointDigest + signingKeyId`。只有把它导出到独立信任域并在验证时重新提供，才能检测“删除最新若干本地 checkpoint”这种 tail rollback。若 expected head 和 checkpoint 文件都只留在同一台机器、同一账号和同一备份域，特权攻击者可以一起删除它们。
+The expected head is `trustDomain + sequence + checkpointDigest + signingKeyId`. Export it to an independent trust domain and supply it during verification to detect deletion of the newest local checkpoints; if it and the files remain on the same machine, account, and backup domain, a privileged attacker can delete both.
 
 ## Local file transport
 
-`LocalFileAuditCheckpointTransport` 同时实现 pluggable `IAuditCheckpointExporter` / `IAuditCheckpointImporter`：
+`LocalFileAuditCheckpointTransport` implements pluggable `IAuditCheckpointExporter` and `IAuditCheckpointImporter`:
 
-1. 每个 sequence 先以 `FileMode.CreateNew` 获取独占 sequence lock；
-2. canonical JSON package 写入同目录唯一临时文件并 `Flush(flushToDisk: true)`；
-3. 使用 `File.Move(..., overwrite: false)` 原子发布；
-4. 最终文件名绑定零填充 sequence 和 signed envelope digest；
-5. importer 拒绝非 canonical JSON、unknown fields、文件名/digest 不一致与损坏 package。
+1. `FileMode.CreateNew` obtains an exclusive sequence lock; canonical JSON goes to a unique same-directory temporary file and `Flush(flushToDisk: true)`.
+2. `File.Move(..., overwrite: false)` publishes atomically; the final filename binds zero-padded sequence and signed-envelope digest.
+3. Import rejects non-canonical JSON, unknown fields, filename/digest mismatches, and damaged packages.
 
-这提供 append-only create-new 语义和并发 writer 冲突检测，但本地普通文件系统不是 WORM。root/管理员、宿主机特权进程、磁盘管理员或能改写同一备份的人仍可删除整个目录。真正抵抗同主机特权删除需要把 package、public key registry 和 expected head 交给外部保管/WORM/公证域；本 issue 只提供 export/import 接口，不接入 TSA、S3 Object Lock、公共链或任何网络服务。
+This gives append-only create-new semantics and concurrent-writer conflict detection, but an ordinary filesystem is not WORM: root/admin, a privileged host process, disk administrator, or same-backup writer can delete the directory. Resisting same-host privileged deletion requires external custody or a WORM/notary domain for the package, public-key registry, and expected head. This issue provides only export/import interfaces, not TSA, S3 Object Lock, a public chain, or a network service.
 
 ## Key rotation
 
-轮换时，新 checkpoint 只使用 current private key；独立 verifier registry 保留旧 public key，即可验证旧 checkpoint。旧 private key 不应继续分发。revoked key 只验证撤销时间之前的 checkpoint；compromised key 的所有 checkpoint 都拒绝。public registry 与 exported expected head 应进入和 checkpoint 文件不同的受控发布/备份流程。
+During rotation, new checkpoints use only the current private key while the independent verifier registry retains old public keys for old checkpoints. Do not distribute old private keys. A revoked key verifies only pre-revocation checkpoints; every checkpoint from a compromised key is rejected. Release/backup the public registry and exported expected head separately from checkpoint files under controlled custody.
 
 ## Integration and rollback
 
-中央组合根注册 SQL record source、reload-aware hosted worker、file/export boundary 与 verifier。生产配置通过 `Audit:DetachedCheckpoint` 提供相对 data-root 目录、有界执行周期/批量、唯一 current key identity，以及独立的 SPKI/PKCS#8 DER 路径；私钥文件在 Unix 上不得宽于 0600。worker 每轮先验证已有 checkpoint 与数据库，再创建下一批并用新 expected head 复验。实现不新增 HTTP/admin API，也不接入外部服务。
+The composition root registers the SQL record source, reload-aware worker, file/export boundary, and verifier. `Audit:DetachedCheckpoint` supplies a data-root-relative directory, bounded period/batch, one current key identity, and separate SPKI/PKCS#8 DER paths; Unix private-key files must be at most 0600. Each round verifies existing checkpoints against the database, creates the next batch, and rechecks it with the new expected head. No HTTP/admin API or external service is added.
 
-无需重启的安全回退是热更新 `Audit:DetachedCheckpoint:Enabled=false`，停止 checkpoint creator/scheduler，仅保留现有 Audit HMAC 写入和只读 package；不得在签名 key 缺失、文件 append 冲突或 verification 失败时生成无签名 checkpoint、覆盖旧文件或标记为成功。停止 creator 会降低 detached evidence freshness，但不会改变匿名、登录、admin、notification stream 或 binary API wire 语义。
+No-restart rollback hot-updates `Audit:DetachedCheckpoint:Enabled=false`, stopping the creator/scheduler while retaining Audit-HMAC writes and read-only packages. If the signing key is missing, append conflicts, or verification fails, never create an unsigned checkpoint, overwrite an old file, or mark success. Evidence becomes less fresh, but anonymous, login, admin, notification-stream, and binary API wire semantics do not change.

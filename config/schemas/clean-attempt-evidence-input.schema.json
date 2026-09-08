@@ -1,0 +1,189 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/schemas/clean-attempt-evidence-input.v1.json",
+    "title": "FsusBlog clean-attempt evidence source",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "consumerId",
+        "membership",
+        "expected",
+        "evidenceRoot",
+        "authorityRoot",
+        "authorityReferences",
+        "authorityVerificationReceipts",
+        "aggregateReference",
+        "domainReceiptReference",
+        "expectedIdentity",
+        "transport"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.clean-attempt-evidence-input.v1"
+        },
+        "consumerId": {
+            "type": "string",
+            "minLength": 1
+        },
+        "membership": {
+            "type": "object"
+        },
+        "expected": {
+            "type": "object"
+        },
+        "evidenceRoot": {
+            "type": "string",
+            "minLength": 1
+        },
+        "authorityRoot": {
+            "type": "string",
+            "minLength": 1
+        },
+        "authorityReferences": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "kind",
+                    "artifactPath",
+                    "artifactDigest",
+                    "artifactFileDigest",
+                    "verificationReceiptPath",
+                    "verificationReceiptDigest"
+                ],
+                "properties": {
+                    "kind": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "artifactPath": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "artifactDigest": {
+                        "type": "string",
+                        "pattern": "^sha256:[0-9a-f]{64}$"
+                    },
+                    "artifactFileDigest": {
+                        "type": "string",
+                        "pattern": "^sha256:[0-9a-f]{64}$"
+                    },
+                    "verificationReceiptPath": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "verificationReceiptDigest": {
+                        "type": "string",
+                        "pattern": "^sha256:[0-9a-f]{64}$"
+                    }
+                }
+            }
+        },
+        "authorityVerificationReceipts": {
+            "type": "object"
+        },
+        "aggregateReference": {
+            "$ref": "#/$defs/fileReference"
+        },
+        "domainReceiptReference": {
+            "$ref": "#/$defs/fileReference"
+        },
+        "expectedIdentity": {
+            "$ref": "#/$defs/identity"
+        },
+        "transport": {
+            "anyOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "repositoryRoot",
+                        "transportManifestPath",
+                        "authorityId",
+                        "referencePath"
+                    ],
+                    "properties": {
+                        "repositoryRoot": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "transportManifestPath": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "authorityId": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "referencePath": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "$defs": {
+        "fileReference": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "path",
+                "digest",
+                "fileDigest"
+            ],
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "digest": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                },
+                "fileDigest": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                }
+            }
+        },
+        "identity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "sourceCommit",
+                "worktreeFingerprint",
+                "schedulerRunId",
+                "producerId"
+            ],
+            "properties": {
+                "sourceCommit": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                },
+                "worktreeFingerprint": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                },
+                "schedulerRunId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "producerId": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            }
+        }
+    }
+}

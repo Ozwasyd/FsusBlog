@@ -1,18 +1,20 @@
 # Internal Application API AEDS-only Policy
 
-本文档定义 FsusBlog 的协议治理规则：**Internal Application API AEDS-only**。
+This document defines FsusBlog's protocol governance: **internal application APIs are AEDS-only**. The browser-to-server application protocol is converged on AEDS v2 frames; do not spread `JsonApiResponse<T>`, `response.json()`, or JSON error envelopes. RSS, health probes, JSON Feed, build tools, and third-party provider contracts are outside this API class and are not required to use AEDS.
 
-目标是把浏览器与服务端之间的内部应用协议收敛到 AEDS v2 frame，避免继续扩散 `JsonApiResponse<T>`、`response.json()` 和 JSON error envelope。RSS、健康探针、JSON Feed、构建工具和第三方 provider contract 不属于内部应用 API，不强制 AEDS 化。
+Canonical references are [API design](design.md), [API contracts](contracts.md), [schema and error reference](schemas-and-errors.md), the [allowlist](../../tools/contracts/aeds-only-policy.allowlist.json), and the [policy gate](../../tools/contracts/check-aeds-only-policy.mjs). The shell entry point is [`tools/check-aeds-only-policy.sh`](../../tools/check-aeds-only-policy.sh); the focused observation test is [`tests/tools/openapi-aeds-observation.test.mjs`](../../tests/tools/openapi-aeds-observation.test.mjs).
 
-## 内部应用 API 定义
+<a id="内部应用-api-定义"></a>
 
-满足任一条件的端点属于内部应用 API：
+## Internal application API definition
 
-- 由 FsusBlog 前端运行时直接调用，用于站点 UI、公开阅读、认证、作者后台、管理后台、通知或遥测。
-- 位于 `/api/**`，且不是标准协议、健康探针、构建/运维工具专用入口。
-- 返回业务 DTO、错误 envelope、分页数据、操作结果或管理控制台数据。
+An endpoint is an internal application API when any of the following is true:
 
-内部应用 API 的默认选择是：
+- FsusBlog's frontend runtime calls it for site UI, public reading, authentication, authoring, administration, notifications, or telemetry.
+- It is under `/api/**` and is not a standard protocol, health probe, or build/operations-tool-only entry point.
+- It returns a business DTO, error envelope, pagination data, operation result, or administration-console data.
+
+The default contract is:
 
 ```text
 request:  application/octet-stream AEDS v2 frame
@@ -20,36 +22,38 @@ response: application/octet-stream AEDS v2 frame
 error:    AedsFrameType.ApiError
 ```
 
-## AEDS-only 目标
+## AEDS-only requirements
 
-- 新内部应用 API 必须使用 AEDS request/response frame。
-- 写操作成功优先返回 `EmptySuccess` 或 `MutationId`。
-- 失败、鉴权拒绝、限流、协议错误和异常兜底统一返回 `ApiError` frame。
-- 前端必须通过 binary adapter 解码，不得新增内部 `response.json()` 调用。
-- 新增 frame type、POD codec、Wasm/TS adapter 时必须同步 golden fixture 或 contract/static test。
+- New internal application APIs use AEDS request and response frames.
+- Successful writes should return `EmptySuccess` or `MutationId` where applicable.
+- Failures, authorization denials, rate limits, protocol errors, and exception fallbacks use an `ApiError` frame.
+- Frontend callers decode through a binary adapter; do not add internal `response.json()` calls.
+- A new frame type, POD codec, or Wasm/TypeScript adapter must ship with a golden fixture or contract/static test.
 
-## 允许豁免
+<a id="允许豁免"></a>
 
-以下路径允许保留 JSON/XML/text，并必须登记在 `tools/contracts/aeds-only-policy.allowlist.json`：
+## Permitted exemptions
 
-| 范围 | 路径 / contract | 理由 |
+The following JSON/XML/text paths are permitted only when registered in `tools/contracts/aeds-only-policy.allowlist.json`:
+
+| Scope | Path / contract | Reason |
 | ------ | ------------------ | ------ |
-| Health | `/health/live`, `/health/ready` | Kubernetes/systemd/监控探针消费 JSON；`/health/ready` 只暴露最小 `status` / `checkedAt` |
-| Feed | `/feed/rss.xml`, `/feed/atom.xml`, `/feed/feed.json` | RSS/Atom/JSON Feed 标准协议 |
-| SEO | `/sitemap.xml`, `/robots.txt` | 搜索引擎标准入口 |
-| Ops probe | `/api/ops/health/ready-detail`, `/api/ops/crawler-ranges/status` | admin-only 运维诊断；公网 `/health/ready` 只返回最小状态，后台生产 UI 使用 AEDS 路径读取业务运维数据 |
-| PublicAOT tooling | `/internal/public-aot/manifest`、`/internal/public-aot/health` | 构建/backfill 工具 manifest 与 SSR worker 诊断，非浏览器运行时 API |
-| Local fixture tooling | `/__local/auth-fixture/status`、`/api/local/auth-fixture/status`、`/api/local/demo-fixture/prepare`、`/api/local/public-content-fixture/prepare`、`/__local/public-content-fixture/prepare`、`/__local/temporal-observation` | Development-only fixture producer / observation 探针；仅 loopback + shared-secret 可调用，生产启动校验拒绝开启 |
-| Third-party moderation provider | HTTP JSON provider contract | 外部 provider 兼容协议 |
-| Evidence/tool/docs | `.tmp/release-evidence/**`, `tools/**`, `docs/**`, tests | 构建、测试、审计、证据文件，不是 runtime API |
+| Health | `/health/live`, `/health/ready` | Kubernetes/systemd/monitoring probes consume JSON; `/health/ready` exposes only `status` and `checkedAt`. |
+| Feed | `/feed/rss.xml`, `/feed/atom.xml`, `/feed/feed.json` | RSS, Atom, and JSON Feed standard protocols. |
+| SEO | `/sitemap.xml`, `/robots.txt` | Search-engine standard entry points. |
+| Operations probe | `/api/ops/health/ready-detail`, `/api/ops/crawler-ranges/status` | Admin-only operations diagnostics; public `/health/ready` stays minimal, while the production admin UI reads business operations data through AEDS paths. |
+| Public AOT tooling | `/internal/public-aot/manifest`, `/internal/public-aot/health` | Build/backfill manifest and SSR-worker diagnostics, not browser runtime APIs. |
+| Local fixture tooling | `/__local/auth-fixture/status`, `/api/local/auth-fixture/status`, `/api/local/demo-fixture/prepare`, `/api/local/public-content-fixture/prepare`, `/__local/public-content-fixture/prepare`, `/__local/temporal-observation` | Development-only fixture producers/observation probes; loopback plus shared-secret access only, and production startup validation refuses to enable them. |
+| Third-party moderation provider | HTTP JSON provider contract | External provider compatibility protocol. |
+| Evidence/tool/docs | `.tmp/release-evidence/**`, `tools/**`, `docs/**`, tests | Build, test, audit, and evidence files, not runtime APIs. |
 
-豁免不得使用宽泛通配。每个登记项必须绑定具体文件、路径/范围、匹配 pattern 和理由。
+Exemptions may not use broad wildcards. Each entry must bind a concrete file, path or scope, matching pattern, and reason.
 
-## #105 收敛结果
+## #105 convergence result
 
-`must-migrate` 清单必须为空。#105 后以下旧内部 JSON 路径不再作为外部 API 暴露：
+The `must-migrate` set must be empty. After #105, these former internal JSON paths are no longer exposed as external APIs:
 
-| 旧路径 | 当前入口 |
+| Former path | Current entry point |
 | -------- | ---------- |
 | `/api/public/articles/{articleId}/related` | `/api/binary/article/{articleId}/related.aeds` |
 | `/api/read-proof/challenge`, `/api/read-proof/submit` | `/api/binary/read-proof/challenge.aeds`, `/api/binary/read-proof/submit.aeds` |
@@ -57,20 +61,20 @@ error:    AedsFrameType.ApiError
 | `/api/subscriptions` | `/api/binary/subscriptions` |
 | `/api/author/**` | `/api/binary/author/**` |
 | `/api/admin/security/**` | `/api/binary/admin/security/**` |
-| `/api/notifications/stream/preflight` JSON failure envelope | `204` success 或 AEDS `ApiError` failure frame |
+| `/api/notifications/stream/preflight` JSON failure envelope | `204` success or an AEDS `ApiError` failure frame |
 
-`JsonApiResponse<T>` 只允许在登记的工具/compat 文件内出现。项目初期内部 API 不承诺历史兼容；author/security 后台已直接挂载为原生 `/api/binary/**` AEDS endpoint，不保留运行时 internal bridge compatibility allowlist。旧数据库迁移和旧用户/旧评论清除是例外维护项，但不得作为浏览器可达业务 API 的 JSON bridge 放行理由。
+`JsonApiResponse<T>` is permitted only in registered tool/compatibility files. Internal APIs do not promise early-project historical compatibility. The authoring and security backends are mounted directly as native `/api/binary/**` AEDS endpoints, with no runtime internal-bridge compatibility allowlist. Legacy database migration and old-user/old-comment cleanup remain maintenance exceptions, but never justify a JSON bridge for a browser-reachable business API.
 
-## 新端点选择规则
+## New endpoint selection
 
-1. 浏览器运行时调用的新 `/api/**` 端点默认使用 AEDS。
-2. 如果认为必须返回 JSON/XML/text，先判断是否属于外部标准协议、健康探针、构建工具或第三方 provider contract。
-3. 合法豁免必须新增 allowlist entry，并在文档中写明路径、consumer、保留理由和退出条件。
-4. 不确定时按内部应用 API 处理，使用 AEDS。
+1. A new browser-runtime `/api/**` endpoint defaults to AEDS.
+2. If JSON/XML/text appears necessary, first establish that the endpoint is an external standard protocol, health probe, build/operations tool, or third-party provider contract.
+3. A valid exemption requires a new allowlist entry documenting its path, consumer, retention reason, and exit condition.
+4. When uncertain, classify the endpoint as an internal application API and use AEDS.
 
-## 错误语义
+## Error semantics
 
-内部应用 API 错误统一映射到 `AedsFrameType.ApiError`：
+Internal application API errors map to `AedsFrameType.ApiError` with:
 
 ```text
 ErrorCode
@@ -80,18 +84,18 @@ message
 details / reason code
 ```
 
-JSON envelope 错误只允许在明确豁免链路使用。新增业务错误码必须同步 `docs/api/schemas-and-errors.md`、AEDS golden fixture 或 contract test。
+JSON error envelopes are limited to explicitly exempted paths. A new business error code must update [schemas-and-errors.md](schemas-and-errors.md) and a corresponding AEDS golden fixture or contract test.
 
-## 前端 adapter 规则
+## Frontend adapter rules
 
-- 内部 API 必须通过 `requestBinaryOnly`、frame adapter 或明确的 AEDS request codec 调用。
-- 不得在 `src/frontend/src/api/**` 新增未登记的 `response.json()`、`Accept: application/json`、`Content-Type: application/json` 或 `JSON.stringify` request body。
-- 迁移期 JSON adapter 必须集中在登记文件中，不能在 Vue component 或 composable 内散落解析逻辑。
-- AEDS adapter 必须覆盖成功 frame、`ApiError`、wrong content-type、wrong frame type 和 decoder failure。
+- Call internal APIs through `requestBinaryOnly`, a frame adapter, or an explicit AEDS request codec.
+- Do not add unregistered `response.json()`, `Accept: application/json`, `Content-Type: application/json`, or `JSON.stringify` request bodies under `src/frontend/src/api/**`.
+- Keep migration-era JSON adapters in registered files; do not scatter parsing through Vue components or composables.
+- An AEDS adapter must cover success frames, `ApiError`, wrong content type, wrong frame type, and decoder failure.
 
-## Gate 与 Inventory
+## Gate and inventory
 
-协议治理由以下文件执行：
+The policy is enforced by:
 
 ```text
 tools/contracts/aeds-only-policy.allowlist.json
@@ -99,34 +103,32 @@ tools/contracts/check-aeds-only-policy.mjs
 tools/check-aeds-only-policy.sh
 ```
 
-脚本扫描后端 endpoint/health/preflight 文件与前端 runtime API adapter 文件，输出：
+The scanner covers backend endpoint/health/preflight files and frontend runtime API adapters, writing:
 
 ```text
 .tmp/gate-logs/aeds-only-policy-inventory.json
 ```
 
-分类：
-
-| 分类 | 含义 | Gate 行为 |
+| Classification | Meaning | Gate behavior |
 | ------ | ------ | ----------- |
-| `allowed-exemption` | 标准协议、健康探针、工具专用 JSON | 允许 |
-| `must-migrate` | 已登记但仍未完成的内部 JSON | 阻断 |
-| `test-tool-docs-only` | 测试/工具/文档 JSON | 允许，不扫描 runtime |
-| `unknown` | 未登记 JSON 残留 | 阻断 |
+| `allowed-exemption` | Standard protocol, health probe, or tool-only JSON | Allowed |
+| `must-migrate` | Registered internal JSON not yet migrated | Blocks |
+| `test-tool-docs-only` | Test/tool/document JSON | Allowed; runtime is not scanned |
+| `unknown` | Unregistered JSON residue | Blocks |
 
-`static-governance` 会运行 `tools/check-aeds-only-policy.sh`。新增 JSON 使用必须先登记，否则 fast gate 失败。
+`static-governance` runs `tools/check-aeds-only-policy.sh`. Register new JSON usage before adding it; otherwise the fast gate fails.
 
-## Contract 要求
+## Contract requirements
 
-新增或迁移 AEDS API 时至少同步：
+Adding or migrating an AEDS API must update at least:
 
 - `src/core/Algorithms/AedsFrameType.cs`
 - `src/shared/Contracts/Validation/aeds-protocol.json`
-- 对应 POD codec / TS adapter / Wasm decoder 映射
-- golden fixture 或 contract/static test
-- `docs/api/contracts.md` 与 quick reference
+- the corresponding POD codec, TypeScript adapter, and Wasm decoder mapping
+- a golden fixture or contract/static test
+- [`docs/api/contracts.md`](contracts.md) and this quick reference
 
-迁移完成的 JSON 路径必须删除 allowlist 中的 `must-migrate` entry，并确认 scanner inventory 不再出现对应项。
+After migration, remove the JSON path's `must-migrate` entry from the allowlist and verify that it no longer appears in the scanner inventory.
 ## Current public protocol
 
 <!-- fsus-doc-claim
@@ -143,9 +145,7 @@ AEDS
 
 ### Current protocol state partitions
 
-Active frame identities, retired numeric values and migration-only reservations are disjoint
-parts of the observed protocol. A frame name containing historical terminology is not retired
-unless the typed partition says so; migration-only reservations are not current frames.
+Active frame identities, retired numeric values and migration-only reservations are disjoint parts of the observed protocol. A frame name containing historical terminology is not retired unless the typed partition says so; migration-only reservations are not current frames.
 
 <!-- fsus-doc-claim
 claimId: binary-api-aeds-contract.aeds-only

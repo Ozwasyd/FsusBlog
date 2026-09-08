@@ -21,6 +21,7 @@ FsusBlog has one generic configuration root: `config/`. Framework-discovered fil
 | ZK verification-key manifests | `config/zk/**` | Backend ZK security |
 | ASP.NET runtime configuration | `src/backend/appsettings.json`, `src/backend/appsettings.Production.json` | `src/backend/FsusBlog.Server.csproj` content root |
 | Development example overlay | `src/backend/appsettings.Development.example.json` | `src/backend/FsusBlog.Server.csproj` content root |
+| Backend environment examples | `config/examples/.env.example`, `config/examples/.env.production.example` | Backend configuration governance; tracked templates only |
 | Backend launch profile | `src/backend/Properties/launchSettings.json` | `src/backend/FsusBlog.Server.csproj` |
 | Docker Compose launch profile | `ops/docker/Properties/launchSettings.json` | `ops/docker/docker-compose.dcproj` |
 
@@ -320,6 +321,8 @@ render: key-value-table
 | key_56697369744c6f673a497050736575646f6e796d697a6174696f6e3a50726576696f757345706f6368 | {"identity":"VisitLog:IpPseudonymization:PreviousEpoch","value":{"layer":"canonical-catalog","nullable":true,"requiredStatus":"optional","requiredWhen":"optional","secret":false,"valueType":"nullable-integer"}} |
 | key_56697369744c6f673a497050736575646f6e796d697a6174696f6e3a50726576696f75734b6579 | {"identity":"VisitLog:IpPseudonymization:PreviousKey","value":{"layer":"canonical-catalog","nullable":true,"requiredStatus":"conditional","requiredWhen":"when the owning feature is enabled","secret":true,"valueType":"secret-string"}} |
 | key_667375733a616c6c6f774c6f63616c4175746846697874757265 | {"identity":"fsus:allowLocalAuthFixture","value":{"layer":"canonical-catalog","nullable":false,"requiredStatus":"optional","requiredWhen":"optional","secret":false,"valueType":"boolean"}} |
+| key_667375733a616c6c6f774c6f63616c536563757269747946697874757265 | {"identity":"fsus:allowLocalSecurityFixture","value":{"layer":"canonical-catalog","nullable":false,"requiredStatus":"optional","requiredWhen":"optional","secret":false,"valueType":"boolean"}} |
+| key_667375733a6c6f63616c536563757269747946697874757265536563726574 | {"identity":"fsus:localSecurityFixtureSecret","value":{"layer":"canonical-catalog","nullable":false,"requiredStatus":"conditional","requiredWhen":"when local security fixture endpoints are enabled","secret":true,"valueType":"secret-string"}} |
 <!-- FSUSBLOG-GENERATED:END configuration.keys -->
 
 ## Current generated defaults and production requirements

@@ -1,9 +1,6 @@
 # Adaptive responsibility scheduler
 
-FsusBlog keeps one homogeneous application artifact. The adaptive scheduler changes
-which node is eligible to express a runtime responsibility; it does not split modules
-into fixed services, start a second application binary, or make domain code depend on
-node addresses.
+FsusBlog keeps one homogeneous application artifact. The adaptive scheduler changes which node may express a runtime responsibility; it does not split modules into fixed services, start a second application binary, or make domain code depend on node addresses. The [monolithic distributed boundary](monolithic-distributed-boundary.md) is the canonical deployment contract.
 
 ## Responsibility model
 
@@ -59,11 +56,7 @@ the same lease identity and fencing token; loss removes local activation and fai
 closed. A replacement can activate only after the prior lease expires or is released,
 and receives a larger fencing token.
 
-Activation is consumed by the existing module invocation router. In adaptive mode, an
-explicit local activation view must confirm the required capability before the router
-uses the local path; remote targets must advertise the active capability in membership.
-The scheduler never invokes repositories, DB contexts, controllers, or mutable domain
-objects. `single` continues to bypass membership and serialization.
+Activation feeds the existing [module invocation router](module-invocation-boundary.md). In adaptive mode, an explicit local activation view must confirm the required capability before the router uses the local path; remote targets must advertise the active capability in membership. The scheduler never invokes repositories, DB contexts, controllers, or mutable domain objects. `single` continues to bypass membership and serialization.
 
 The homogeneous Kestrel host remains available on every running node. A
 `web.api.listener` assignment represents module placement eligibility and operational

@@ -713,6 +713,17 @@
       ]
     },
     {
+      "id": "BACKEND-PERCEPTION-V3-BUDGET-LOCAL-REDIS",
+      "risk": "critical",
+      "coverage": "Issue 2527: BudgetedLeaseAtomicallyAccountsExactBytesQuotasAndRetryIdentity is not selected by ordinary unit lanes. The canonical LocalRedis producer executes it exactly once with current run/prefix/endpoint/source/assembly and individual TRX outcome binding; exact bytes, retry, subject and egress rejection, ambiguous accounting and burned inventory must agree in real Redis.",
+      "evidencePaths": [
+        "tests/backend/Unit/PerceptionCharacterV3ArtifactPoolTests.cs",
+        "tools/test/perception-redis-producer.mjs",
+        "tests/tools/perception-character-v3-redis-fixture.test.mjs",
+        ".tmp/test-results/backend/perception-character-v3-redis-producer.json"
+      ]
+    },
+    {
       "id": "BACKEND-PRIVACY-ZK-COMMENT-GATE",
       "risk": "critical",
       "coverage": "Privacy/ZK anonymous comment release gate covering credential-free submit, fail-closed proof handling, scoped ticket/nullifier behavior, moderation/log redaction and deterministic high-concurrency pressure cases",

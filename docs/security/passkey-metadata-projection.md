@@ -1,64 +1,59 @@
-# Passkey metadata 与 PasskeyEnabled 投影
+# Passkey metadata and PasskeyEnabled projection
 
-本文定义普通账号 Passkey assertion 元数据和 `sys_user.passkey_enabled` 的安全边界。WebAuthn credential 集合是物理事实源；布尔字段只用于减少常用账号快照的查询成本。
+This document defines the security boundary for ordinary-account Passkey assertion metadata and `sys_user.passkey_enabled`. The WebAuthn credential set is the physical source of truth; the Boolean projection only reduces common account-snapshot query cost.
 
-## Assertion 元数据
+## Assertion metadata
 
-登录与普通账号 step-up 都在 FIDO 验证成功后解析 authenticator data，并复用 `PasskeyService` 的同一个 CAS 更新：
+Login and ordinary-account step-up both parse authenticator data after successful FIDO verification and use the same `PasskeyService` CAS update:
 
-| 值 | 来源 | 持久化规则 |
+| Value | Source | Persistence rule |
 | --- | --- | --- |
-| `SignCount` | 已验证 assertion | 与原 counter 和 PostgreSQL `xmin` rowVersion 一起比较后推进 |
-| `LastUsedAt` | 服务端 UTC 时间 | 只随成功 CAS 更新 |
-| `BackupEligible` | authenticator data BE flag | 与 counter/LastUsedAt 同一 SQL statement 更新 |
-| `BackupState` | authenticator data BS flag | 与 counter/LastUsedAt 同一 SQL statement 更新，可由 false 变为 true 或反向变化 |
-| flags snapshot version | 服务端常量 `1` | 表示当前解析 BE/BS 的代码语义；不作为身份、授权或设备指纹持久化 |
+| `SignCount` | verified assertion | Advance only after comparing the original counter and PostgreSQL `xmin` rowVersion. |
+| `LastUsedAt` | server UTC time | Update only with a successful CAS. |
+| `BackupEligible` | authenticator-data BE flag | Update in the same SQL statement as counter/LastUsedAt. |
+| `BackupState` | authenticator-data BS flag | Update in the same SQL statement as counter/LastUsedAt; it may change in either direction. |
+| flags snapshot version | server constant `1` | Identifies the current BE/BS parsing semantics; it is not persisted as identity, authorization, or a device fingerprint. |
 
-CAS 失败后重新读取 counter 与 rowVersion。数据库已被更新到当前 assertion 的 counter 或更高值时，不允许较旧 assertion 回写 BE/BS；仍需推进时只重试一次完整 metadata CAS。无法收敛时返回 `credential_metadata_conflict`，不能创建登录 Session。BE/BS 变化本身不是 compromise 信号，也不会撤销现有 Session。
+After CAS failure, re-read counter and rowVersion. If the database already reached the current assertion's counter or higher, an older assertion may not write BE/BS; if advancement is still needed, retry one complete metadata CAS only. If it cannot converge, return `credential_metadata_conflict` and do not create a login Session. BE/BS changes are not compromise signals and do not revoke existing Sessions.
 
-`PasskeyMetadata:AssertionUpdateMode` 默认执行完整更新。发生 Fido2NetLib flags 解析或数据库兼容事故时，可通过 reload-capable 配置源热更新为 `counter_only`；下一次请求仍更新 counter 与 LastUsedAt，但暂时冻结 BE/BS，不关闭签名验证、counter 检查或 CAS。修复后删除该覆盖即可恢复完整更新，无需重启。
+`PasskeyMetadata:AssertionUpdateMode` defaults to full updates. If Fido2NetLib flag parsing or database compatibility fails, hot-update a reload-capable source to `counter_only`; the next request still updates counter and LastUsedAt but freezes BE/BS temporarily without disabling signature validation, counter checks, or CAS. Remove the override after repair to restore full updates without a restart.
 
-## PasskeyEnabled 事实源
+## PasskeyEnabled source of truth
 
-权威关系固定为：
+The invariant is:
 
 ```text
 EXISTS(passkey_credential WHERE account_id = sys_user.id)
     == sys_user.passkey_enabled
 ```
 
-注册把 credential insert 与 `PasskeyEnabled=true` 放在同一事务。Recovery Key 补绑已经在同一事务插入 credential、按策略撤销旧 credential 并设为 true。删除凭据在行锁事务中完成，并按剩余事实集合把投影设为 true 或 false。账号注销在同一事务删除全部 credential 并把投影归零。业务授权、WebAuthn allow-list 和恢复判断继续读取 credential 事实集合，不得只信任布尔投影。
+Registration inserts the credential and `PasskeyEnabled=true` in one transaction. Recovery Key binding likewise inserts the credential, revokes old credentials per policy, and sets the projection true in one transaction. Credential deletion uses a row-lock transaction and sets the projection from the remaining fact set. Account deletion removes all credentials and zeros the projection in one transaction. Business authorization, WebAuthn allow-lists, and recovery decisions continue to read the credential facts, never the Boolean alone.
 
-startup 在 schema compatibility 与 account subject invariant 后运行 `passkeyProjectionInvariant`。发现漂移只记录数量与固定原因 `credential_fact_mismatch`，不记录 account ID、credential ID、public key、user handle 或 authenticator data，并阻止后续 bootstrap task。
+After schema compatibility and the account-subject invariant, startup runs `passkeyProjectionInvariant`. Drift records only a count and fixed reason `credential_fact_mismatch`, never account ID, credential ID, public key, user handle, or authenticator data, and blocks later bootstrap tasks.
 
-## 离线检查与修复
+## Offline check and repair
 
-使用与 backend 相同的 secret/env-file 输入运行只读检查：
-
-```bash
-dotnet run --project src/backend/FsusBlog.Server.csproj -- \
-  passkey-projection --check --env-file /run/secrets/fsusblog.env
-```
-
-检查输出只包含 `status`、mode 和数量。发现 drift 后，在停止并发 schema/manual mutation 或处于受控维护窗口时执行：
+Run the read-only check with the same secret/env-file inputs as the backend:
 
 ```bash
-dotnet run --project src/backend/FsusBlog.Server.csproj -- \
-  passkey-projection --repair --confirm-repair \
-  --env-file /run/secrets/fsusblog.env
+dotnet run --project src/backend/FsusBlog.Server.csproj -- passkey-projection --check --env-file /run/secrets/fsusblog.env
 ```
 
-repair 只从 credential `EXISTS` 重建布尔值。受影响账号的 `AccountSnapshotVersion` 在数据库事务提交前逐一递增；Redis 失效失败会回滚数据库 mutation，已成功的额外 version bump 是安全的。输出和日志仍只有数量，不包含被修复账号列表。
+The check output contains only `status`, mode, and counts. After drift is found, stop concurrent schema/manual mutations or use a controlled maintenance window before running:
 
-## 凭据列表与恢复提示
+```bash
+dotnet run --project src/backend/FsusBlog.Server.csproj -- passkey-projection --repair --confirm-repair --env-file /run/secrets/fsusblog.env
+```
 
-现有 Passkey credential list 只返回内部管理 row ID、友好名称、创建/最近使用时间、AAGUID 类别和 BE/BS；不返回 WebAuthn credential ID、public key、user handle 或原始 authenticator flags。内部 row ID 仅用于已认证的重命名/删除路由，不是 WebAuthn 标识。
+Repair rebuilds the Boolean only from credential `EXISTS`. It increments each affected account's `AccountSnapshotVersion` before the database transaction commits; Redis-invalidation failure rolls back the database mutation, while an already-successful extra version bump is safe. Output and logs still contain counts only, not the repaired-account list.
 
-IdentityCenter 只用 credential 数、`BackupEligible` 和账号 `recoveryEnabled` 状态派生恢复建议：只有一枚不可备份 credential 且无 Recovery Key 时建议增加第二枚 Passkey 或创建 Recovery Key；已有多枚 credential、可备份 credential 或 Recovery Key 时不重复提示。提示只是本地派生展示，不阻止登录，也不上传新数据。当前 Session 的创建 credential 必须等 Session provenance 契约提供可信关联后再标记，不能用 AAGUID、User-Agent、IP 或猜测的设备指纹代替。
+## Credential list and recovery hint
 
-## 风险与回退
+The existing Passkey credential list returns only internal management row ID, friendly name, creation/last-use times, AAGUID category, and BE/BS; it does not return the WebAuthn credential ID, public key, user handle, or raw authenticator flags. The internal row ID is only for authenticated rename/delete routes and is not a WebAuthn identifier.
 
-- metadata CAS 失败会拒绝当前 assertion，不会产生“Session 已创建但 metadata 未提交”的半认证状态。
-- `counter_only` 是无需重启的 flags 更新降级；不得回退到 blind update。
-- projection repair 失败保持旧投影并返回非零退出码；再次检查仍能看到 drift。
-- startup gate 的紧急回退是把流量保留在上一服务槽，先运行离线 repair，再重新启用候选槽；不得通过让业务只信任 `PasskeyEnabled` 绕过 gate。
+IdentityCenter derives a recovery hint only from credential count, `BackupEligible`, and account `recoveryEnabled`: it suggests a second Passkey or Recovery Key only when there is one non-backupable credential and no Recovery Key; it does not repeat the hint when multiple or backupable credentials or a Recovery Key exist. The hint is local derived display, does not block login, and uploads no new data. Marking the credential that created the current Session waits for a trusted Session-provenance contract; do not substitute AAGUID, User-Agent, IP, or a guessed device fingerprint.
+
+## Risk and rollback
+
+- Metadata CAS failure rejects the assertion and never creates a “Session created but metadata not committed” partial-authentication state; `counter_only` is the no-restart flags-update degradation, never a blind update.
+- Repair failure retains the old projection and returns non-zero while a subsequent check still exposes drift. For emergency startup-gate rollback, keep traffic on the previous slot, run offline repair, then re-enable the candidate; never make business code trust only `PasskeyEnabled`.
