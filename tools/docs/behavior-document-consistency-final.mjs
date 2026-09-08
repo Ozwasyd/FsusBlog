@@ -12,7 +12,8 @@ import {
 } from '../fact-extractors/receipt.mjs'
 import { parseMatrix } from '../test-matrix/parse-matrix.mjs'
 import { assertPreRuntimeQualified } from '../test-matrix/behavior-evidence-pre-runtime.mjs'
-import { validatePostRuntimeReceipt } from '../test-matrix/behavior-evidence-post-runtime.mjs'
+import { validatePostRuntimeReceipt, verifyBehaviorEvidencePostRuntime } from '../test-matrix/behavior-evidence-post-runtime.mjs'
+import { loadPostRuntimeProducerRegistry } from '../test-matrix/post-runtime-producer-registry.mjs'
 import { validateBehaviorDocStaticAdmissionReceipt } from './behavior-doc-static-admission.mjs'
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -314,83 +315,37 @@ function auditStaticComponentBinding({
 
 function auditPostRuntimeBinding(post, pre, activeContracts)
 {
-    const contracts = activeContracts
-        .filter((contract) => contract.evidenceStage === 'post-runtime')
-        .sort((left, right) => left.id.localeCompare(right.id))
-    const expectedBehaviorIds = contracts.map((contract) => contract.id)
-    const expectedProducerTierIds = contracts.map((contract) => contract.runtimeEvidence?.producerTierId).sort()
-    const results = Array.isArray(post.observedBehaviorResults) ? post.observedBehaviorResults : []
-    const observedBehaviorIds = results.map((result) => result?.behaviorId).sort()
-    const observedProducerTierIds = results.map((result) => result?.producerTierId).sort()
+    const contracts = activeContracts.filter((contract) => contract.evidenceStage === 'post-runtime')
+    const expectedBehaviorIds = contracts.map((contract) => contract.id).sort()
+    const registry = loadPostRuntimeProducerRegistry()
+    const expectedProducerIds = registry.producers.map((producer) => producer.producerId).sort()
+    const results = post.observedBehaviorResults
     const errors = []
-
-    if (contracts.length === 0) errors.push('catalog has no post-runtime release behavior')
     if (normalizeDigest(post.preRuntimeReceiptDigest) !== normalizeDigest(pre.contentDigest))
     {
         errors.push('pre-runtime receipt digest mismatch')
     }
     errors.push(...exactStringListErrors('declared post-runtime behavior IDs', post.behaviorIds, expectedBehaviorIds))
-    errors.push(...exactStringListErrors('declared runtime producer IDs', post.requiredRuntimeProducers, expectedProducerTierIds))
-    errors.push(...exactStringListErrors('observed post-runtime behavior IDs', observedBehaviorIds, expectedBehaviorIds))
-
-    for (const contract of contracts)
-    {
-        const matches = results.filter((result) => result?.behaviorId === contract.id)
-        if (matches.length !== 1) continue
-        const [result] = matches
-        if (result.producerTierId !== contract.runtimeEvidence?.producerTierId)
-        {
-            errors.push(`${contract.id} producer does not match the catalog authority`)
-        }
-        if (result.observationSchema !== contract.runtimeEvidence?.observationSchema)
-        {
-            errors.push(`${contract.id} observation schema does not match the catalog authority`)
-        }
-        if (result.status !== 'ok' || !/^sha256:[a-f0-9]{64}$/u.test(result.evidenceDigest ?? ''))
-        {
-            errors.push(`${contract.id} lacks one qualified content-addressed observation`)
-        }
-    }
-
-    const expectedClaimIds = expectedBehaviorIds
-    const observedClaimIds = Object.keys(post.documentClaimDigests ?? {}).sort()
-    errors.push(...exactStringListErrors('post-runtime document claim behavior IDs', observedClaimIds, expectedClaimIds))
-    for (const behaviorId of expectedClaimIds)
-    {
-        if (normalizeDigest(post.documentClaimDigests?.[behaviorId]) !== normalizeDigest(pre.staticClaimVerificationDigest))
-        {
-            errors.push(`${behaviorId} document claim digest does not match pre-runtime verification`)
-        }
-    }
-
-    for (const field of ['buildReceiptDigest', 'runtimeEvidenceDigest', 'browserContractDigest'])
-    {
-        if (!/^sha256:[a-f0-9]{64}$/u.test(post.candidateIdentity?.[field] ?? ''))
-        {
-            errors.push(`candidate identity ${field} is missing`)
-        }
-    }
-    for (const field of ['missing', 'orphans', 'conflicts'])
-    {
-        if (!Array.isArray(post[field]) || post[field].length !== 0)
-        {
-            errors.push(`post-runtime ${field} must be an empty array`)
-        }
-    }
-
+    errors.push(...exactStringListErrors('declared runtime producer IDs', post.requiredRuntimeProducers, expectedProducerIds))
+    const expectedClaimIds = [...new Set(registry.producers.flatMap((producer) => producer.acceptedClaimRefs))].sort()
+    errors.push(...exactStringListErrors('post-runtime document claim IDs', Object.keys(post.documentClaimDigests), expectedClaimIds))
+    // The canonical post-runtime validator owns class cardinality, source identity,
+    // and observation/claim terminal bindings. One behavior may have several classes.
+    // Claim digests identify individual accepted claims, not the pre-runtime bundle.
     return {
         expectedPreRuntimeReceiptDigest: pre.contentDigest,
-        observedPreRuntimeReceiptDigest: post.preRuntimeReceiptDigest ?? null,
+        observedPreRuntimeReceiptDigest: post.preRuntimeReceiptDigest,
         expectedBehaviorIds,
-        declaredBehaviorIds: Array.isArray(post.behaviorIds) ? [...post.behaviorIds].sort() : [],
-        observedBehaviorIds,
-        expectedProducerTierIds,
-        declaredProducerTierIds: Array.isArray(post.requiredRuntimeProducers) ? [...post.requiredRuntimeProducers].sort() : [],
-        observedProducerTierIds,
+        declaredBehaviorIds: [...post.behaviorIds].sort(),
+        observedBehaviorIds: [...new Set(results.map((result) => result.behaviorId))].sort(),
+        expectedProducerIds,
+        declaredProducerIds: [...post.requiredRuntimeProducers].sort(),
+        observedProducerIds: [...new Set(results.map((result) => result.producerId))].sort(),
+        expectedClaimIds,
+        observedClaimIds: Object.keys(post.documentClaimDigests).sort(),
         errors: [...new Set(errors)].sort()
     }
 }
-
 function scanObjectKeys(value, file, findings, negated = false, location = '$')
 {
     if (Array.isArray(value))
@@ -604,7 +559,7 @@ export function buildFinalConsistencyReport({
         worktreeIdentity: { root: admission.worktree?.root ?? null },
         buildIdentity: {
             minimalContractBuildDigest: admission.minimalContractBuild?.contentDigest ? `sha256:${normalizeDigest(admission.minimalContractBuild.contentDigest)}` : null,
-            candidateBuildReceiptDigest: post.candidateIdentity?.buildReceiptDigest ?? null
+            candidateBuildIdentityDigest: post.executionIdentity.buildIdentityDigest
         },
         toolchainIdentity: admission.toolchain,
         runtimeIdentity: { runId: admission.run?.id, candidate: post.candidateIdentity },
@@ -659,6 +614,27 @@ export function buildFinalConsistencyReport({
     return report
 }
 
+export function buildVerifiedFinalConsistencyReport(options)
+{
+    if (typeof options.postRuntimeReceipt !== 'string' || typeof options.preRuntimeReceipt !== 'string')
+    {
+        fail('terminal qualification requires explicit post-runtime and pre-runtime receipt paths')
+    }
+    const post = validatePostRuntimeReceipt(loadJson(options.postRuntimeReceipt))
+    const verified = verifyBehaviorEvidencePostRuntime({
+        repositoryRoot: root,
+        receipt: options.postRuntimeReceipt,
+        preRuntimeReceipt: options.preRuntimeReceipt,
+        catalog: path.join(root, 'config/contracts/behavior-contracts.json'),
+        registry: path.join(root, 'config/testing/post-runtime-producer-registry.json'),
+        observationReceipts: post.observationRefs.map((reference) => reference.ref),
+        acceptedClaimsReceipts: post.acceptedClaimRefs.map((reference) => reference.ref),
+        executionContext: post.executionContext.ref,
+        schedulerEvidence: post.schedulerEvidence.ref
+    })
+    return buildFinalConsistencyReport({ ...options, postRuntimeReceipt: verified })
+}
+
 function parseArgs(argv)
 {
     const options = { facts: [] }
@@ -691,7 +667,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     try
     {
         const options = parseArgs(process.argv.slice(2))
-        const report = buildFinalConsistencyReport({ ...options, factObservationReceipts: options.facts })
+        const report = buildVerifiedFinalConsistencyReport({ ...options, factObservationReceipts: options.facts })
         validateFinalReport(report)
         if (options.out)
         {

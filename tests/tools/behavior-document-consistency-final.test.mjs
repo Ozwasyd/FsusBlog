@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import test from 'node:test'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { spawnSync } from 'node:child_process'
+import { authorityDigest, loadPostRuntimeProducerRegistry } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
 
 import {
     digestCatalog
@@ -13,6 +18,7 @@ import {
 import { hostDeclarations } from '../../tools/docs/behavior-doc-minimal-contract-build.mjs'
 import {
     buildFinalConsistencyReport,
+    buildVerifiedFinalConsistencyReport,
     validateFinalReport
 } from '../../tools/docs/behavior-document-consistency-final.mjs'
 import {
@@ -76,94 +82,50 @@ function minimalBuildReceipt()
 
 function fixture(overrides = {})
 {
-    const catalog = {
-        schema: 'fsusblog.behavior-contract-catalog.v1',
-        digestAlgorithm: 'sha256',
-        canonicalSerialization: 'json-utf8-v1',
-        domains: ['testing'],
-        extractors: [{ id: 'alpha-facts', path: 'tools/alpha.mjs' }],
-        contracts: [{
-            id: 'alpha-behavior', domain: 'testing', risk: 'high', status: 'active',
-            implementationOwnerCardinality: 'one', allowedImplementationOwnerRoles: [],
-            factExtractorId: 'alpha-facts', requiredTestKinds: ['positive'],
-            documentationPolicy: 'required', documentationRationale: 'Alpha is current.',
-            allowedClaimTypes: ['behavioral'], releaseQualification: true,
-            evidenceStage: 'pre-runtime', coverageIds: ['alpha'], documents: ['docs/alpha.md']
-        }, {
-            id: 'runtime-behavior', domain: 'testing', risk: 'critical', status: 'active',
-            implementationOwnerCardinality: 'one', allowedImplementationOwnerRoles: [],
-            factExtractorId: 'alpha-facts', requiredTestKinds: ['runtime'],
-            documentationPolicy: 'required', documentationRationale: 'Runtime is current.',
-            allowedClaimTypes: ['behavioral'], releaseQualification: true,
-            evidenceStage: 'post-runtime',
-            runtimeEvidence: {
-                producerTierId: 'production-correctness',
-                observationSchema: 'fsusblog.browserless-correctness-receipt.v1'
-            },
-            coverageIds: ['runtime'], documents: ['docs/runtime.md']
-        }]
-    }
+    // Complete current graph, but synthetic component evidence: never qualification.
+    const catalog = JSON.parse(fs.readFileSync(new URL('../../config/contracts/behavior-contracts.json', import.meta.url), 'utf8'))
+    const registry = loadPostRuntimeProducerRegistry()
+    const active = catalog.contracts.filter((entry) => entry.status === 'active' && entry.releaseQualification)
+    const preContracts = active.filter((entry) => entry.evidenceStage === 'pre-runtime')
     const catalogHash = digestCatalog(catalog)
     const owner = sealOwnerBindingReceipt({
         schema: 'fsusblog.behavior-owner-binding-receipt.v1',
         catalogDigest: catalogHash,
         worktreeDigest: fingerprint,
         status: 'ok',
-        bindingCount: 2,
-        bindings: [
-            {
-                behaviorId: 'alpha-behavior', language: 'csharp',
-                sourcePath: 'src/alpha.cs', symbol: 'Alpha', bindingKind: 'attribute',
-                sourceDigest: '6'.repeat(64), catalogDigest: catalogHash,
-                worktreeDigest: fingerprint, status: 'ok'
-            },
-            {
-                behaviorId: 'runtime-behavior', language: 'csharp',
-                sourcePath: 'src/runtime.cs', symbol: 'Runtime', bindingKind: 'attribute',
-                sourceDigest: '7'.repeat(64), catalogDigest: catalogHash,
-                worktreeDigest: fingerprint, status: 'ok'
-            }
-        ],
+        bindingCount: active.length,
+        bindings: active.map((entry) => ({
+            behaviorId: entry.id, language: 'csharp', sourcePath: 'src/fixture.cs',
+            symbol: 'Fixture', bindingKind: 'attribute', sourceDigest: '6'.repeat(64),
+            catalogDigest: catalogHash, worktreeDigest: fingerprint, status: 'ok'
+        })),
         errors: []
     })
-    const fact = buildFactObservationReceipt({
-        extractorId: 'alpha-facts',
-        behaviorIds: ['alpha-behavior', 'runtime-behavior'],
-        sourceCommit: commit,
-        worktreeFingerprint: fingerprint,
-        buildIdentity: null,
-        extractorDigest: '8'.repeat(64),
-        registryDigest: '9'.repeat(64),
-        consumedInputDigests: [{ path: 'config/alpha.json', digest: 'a'.repeat(64) }],
-        observations: { alphaValue: true, runtimeValue: 'qualified' },
-        status: 'ok'
-    })
+    const facts = [...new Set(active.map((entry) => entry.factExtractorId))].map((extractorId) =>
+        buildFactObservationReceipt({
+            extractorId,
+            behaviorIds: active.filter((entry) => entry.factExtractorId === extractorId).map((entry) => entry.id),
+            sourceCommit: commit, worktreeFingerprint: fingerprint, buildIdentity: null,
+            extractorDigest: '8'.repeat(64), registryDigest: '9'.repeat(64),
+            consumedInputDigests: [{ path: 'config/fixture.json', digest: 'a'.repeat(64) }],
+            observations: { alphaValue: true }, status: 'ok'
+        }))
     const claims = sealBare({
         schema: 'fsusblog.doc-claim-parse-receipt.v1',
         digestAlgorithm: 'sha256',
         canonicalSerialization: 'json-utf8-v1',
         behaviorCatalogDigest: catalogHash,
-        claims: [
-            {
-                declaration: {
-                    behaviorId: 'alpha-behavior', claimId: 'alpha.current',
-                    claimType: 'behavioral', factPath: 'alphaValue', render: 'scalar'
-                },
-                location: { documentPath: 'docs/alpha.md' }
+        claims: active.map((entry) => ({
+            declaration: {
+                behaviorId: entry.id, claimId: `${entry.id}.fixture`,
+                claimType: 'behavioral', factPath: 'alphaValue', render: 'scalar'
             },
-            {
-                declaration: {
-                    behaviorId: 'runtime-behavior', claimId: 'runtime.current',
-                    claimType: 'behavioral', factPath: 'runtimeValue', render: 'scalar'
-                },
-                location: { documentPath: 'docs/runtime.md' }
-            }
-        ]
+            location: { documentPath: entry.documents?.[0] ?? 'docs/fixture.md' }
+        }))
     })
-    const factObservationDigests = [{
-        extractorId: fact.extractorId,
-        contentDigest: fact.contentDigest
-    }]
+    const factObservationDigests = facts.map((fact) => ({
+        extractorId: fact.extractorId, contentDigest: fact.contentDigest
+    }))
     const verification = sealDocClaimVerificationReceipt({
         sourceCommit: commit,
         worktreeFingerprint: fingerprint,
@@ -202,16 +164,14 @@ function fixture(overrides = {})
             generatedSectionCatalog: generated.sectionCatalogDigest, generatedRenderer: 'c'.repeat(64),
             proseRenderer: 'd'.repeat(64), mutationCatalog: 'e'.repeat(64)
         },
-        implementationOwner: { status: 'ok', bindingCount: 2, contentDigest: owner.contentDigest },
-        factObservations: {
-            [fact.extractorId]: {
-                status: 'ok', extractorDigest: fact.extractorDigest,
-                semanticDigest: semanticDigestFromReceipt(fact), contentDigest: fact.contentDigest
-            }
-        },
+        implementationOwner: { status: 'ok', bindingCount: active.length, contentDigest: owner.contentDigest },
+        factObservations: Object.fromEntries(facts.map((fact) => [fact.extractorId, {
+            status: 'ok', extractorDigest: fact.extractorDigest,
+            semanticDigest: semanticDigestFromReceipt(fact), contentDigest: fact.contentDigest
+        }])),
         minimalContractBuild: minimalBuildReceipt(),
         generated: { status: 'ok', documentCount: 0, contentDigest: generated.contentDigest },
-        prose: { status: 'ok', verifiedClaimCount: 2, contentDigest: verification.contentDigest },
+        prose: { status: 'ok', verifiedClaimCount: claims.claims.length, contentDigest: verification.contentDigest },
         mutationFixtures: { status: 'ok', caseCount: 1, contentDigest: 'f'.repeat(64) },
         candidateSpawnCountBeforeReceipt: 0,
         status: 'ok', failureReasons: [], durationMs: 1
@@ -221,29 +181,58 @@ function fixture(overrides = {})
         runIdentity: runId, sourceIdentity: { commit, worktreeFingerprint: `sha256:${fingerprint}` },
         buildIdentities: {}, registryDigest: `sha256:${'9'.repeat(64)}`,
         catalogDigest: `sha256:${catalogHash}`, staticClaimVerificationDigest: `sha256:${verification.contentDigest}`,
-        behaviorIds: ['alpha-behavior'], requiredTestKinds: { 'alpha-behavior': ['positive'] },
-        observedTestKinds: { 'alpha-behavior': ['positive'] }, mutationStatus: {},
+        behaviorIds: preContracts.map((entry) => entry.id),
+        requiredTestKinds: Object.fromEntries(preContracts.map((entry) => [entry.id, entry.requiredTestKinds])),
+        observedTestKinds: Object.fromEntries(preContracts.map((entry) => [entry.id, entry.requiredTestKinds])),
+        mutationStatus: Object.fromEntries(active.filter((entry) => entry.mutationPolicy?.mutationRequired)
+            .map((entry) => [entry.id, { qualified: true, mutationStatus: 'passed' }])),
         runtimeCandidateSpawnCountBeforeReceipt: 0, status: 'ok', failureReasons: []
     })
+    const reference = (name, contentDigest = authorityDigest({ name })) => ({
+        ref: `.tmp/current-run/${name}.json`, fileDigest: authorityDigest({ bytes: name }), contentDigest
+    })
+    const results = registry.producers.flatMap((producer) =>
+        [...new Set(Object.values(producer.requiredObservations).flat())].sort().map((classId) => ({
+            behaviorId: producer.behaviorId, producerId: producer.producerId,
+            extractorId: catalog.contracts.find((entry) => entry.id === producer.behaviorId).factExtractorId,
+            classId, status: 'ok', contentDigest: authorityDigest({ classId })
+        })))
+    const producerClasses = Object.fromEntries(registry.producers.map((producer) => [producer.producerId,
+        results.filter((result) => result.producerId === producer.producerId).map((result) => result.classId)]))
     const post = seal({
         schema: 'fsusblog.behavior-evidence-post-runtime-receipt.v1', scope: 'post-runtime',
         runIdentity: runId, sourceIdentity: { commit, worktreeFingerprint: `sha256:${fingerprint}` },
-        candidateIdentity: { buildReceiptDigest: `sha256:${'d'.repeat(64)}`, runtimeEvidenceDigest: `sha256:${'e'.repeat(64)}`, browserContractDigest: `sha256:${'f'.repeat(64)}` },
+        candidateIdentity: {
+            sourceCommit: commit, worktreeFingerprint: `sha256:${fingerprint}`,
+            buildIdentity: authorityDigest({ build: 1 }), artifactDigest: authorityDigest({ artifact: 1 }),
+            candidateId: `${runId}:candidate`, runtimeId: `${runId}:runtime`,
+            browserIdentity: `${runId}:browser-contract`, releaseId: '20260830123456-abcdef123456',
+            rolloutId: `${runId}:rollout`, runId, attemptId: 'attempt-0001',
+            fixtureId: `${runId}:fixture`, profileId: 'acceptance-representative'
+        },
+        executionIdentity: {
+            commit, worktreeFingerprint: `sha256:${fingerprint}`, schedulerRunId: runId, attemptId: 'attempt-0001',
+            candidateIdentityDigest: authorityDigest({ candidate: 1 }), buildIdentityDigest: authorityDigest({ build: 1 })
+        },
+        executionContext: reference('context'), schedulerEvidence: reference('admission'),
         preRuntimeReceiptDigest: pre.contentDigest, catalogDigest: `sha256:${catalogHash}`,
-        behaviorIds: ['runtime-behavior'], requiredRuntimeProducers: ['production-correctness'],
-        observedBehaviorResults: [{
-            behaviorId: 'runtime-behavior', producerTierId: 'production-correctness',
-            observationSchema: 'fsusblog.browserless-correctness-receipt.v1', status: 'ok',
-            evidenceDigest: `sha256:${'e'.repeat(64)}`
-        }],
-        documentClaimDigests: { 'runtime-behavior': pre.staticClaimVerificationDigest },
-        missing: [], orphans: [], conflicts: [], releaseFinalSpawnCountBeforeReceipt: 0,
-        status: 'ok', failureReasons: []
+        registryDigest: authorityDigest(registry),
+        behaviorIds: registry.producers.map((producer) => producer.behaviorId),
+        requiredRuntimeProducers: registry.producers.map((producer) => producer.producerId),
+        requiredProducerClasses: producerClasses, observedProducerClasses: structuredClone(producerClasses),
+        observedBehaviorResults: results,
+        documentClaimDigests: Object.fromEntries(registry.producers.flatMap((producer) => producer.acceptedClaimRefs.map((claimId) => [claimId, authorityDigest({ claimId })]))),
+        documentClaimTerminals: Object.fromEntries(registry.producers.map((producer) => [producer.behaviorId, authorityDigest({ terminal: 1 })])),
+        observationRefs: results.map((result) => reference(result.classId, result.contentDigest)),
+        acceptedClaimRefs: registry.producers.map((producer) => reference(producer.producerId)),
+        missing: [], orphans: [], conflicts: [], stale: [], diagnostics: [],
+        findingCounts: { missing: 0, orphans: 0, conflicts: 0, stale: 0, diagnostics: 0 },
+        releaseFinalSpawnCountBeforeReceipt: 0, status: 'ok', failureReasons: []
     })
-    const migrationLedger = { schema: 'fixture', scopes: [{ scopeId: 'alpha', entries: [
-        { behaviorId: 'alpha-behavior', documentPath: 'docs/alpha.md', claimIds: ['alpha.current'], generatedSectionIds: [] },
-        { behaviorId: 'runtime-behavior', documentPath: 'docs/runtime.md', claimIds: ['runtime.current'], generatedSectionIds: [] }
-    ] }] }
+    const migrationLedger = { schema: 'fixture', scopes: [{ scopeId: 'fixture', entries: active.map((entry) => ({
+        behaviorId: entry.id, documentPath: entry.documents?.[0] ?? 'docs/fixture.md',
+        claimIds: [`${entry.id}.fixture`], generatedSectionIds: []
+    })) }] }
     const matrix = { tiers: [
         { id: 'static', executionDependsOn: [], summaryAuthority: null },
         { id: 'pre', executionDependsOn: ['static'], summaryAuthority: null },
@@ -251,7 +240,7 @@ function fixture(overrides = {})
     ] }
     return {
         staticAdmissionReceipt: admission, preRuntimeReceipt: pre, postRuntimeReceipt: post,
-        ownerReceipt: owner, factObservationReceipts: [fact], docClaimParseReceipt: claims,
+        ownerReceipt: owner, factObservationReceipts: facts, docClaimParseReceipt: claims,
         docClaimVerificationReceipt: verification, generatedSectionReceipt: generated,
         catalog, migrationLedger, matrix, zeroLegacyScan: { scannedFileCount: 10, findings: [] },
         ...overrides
@@ -289,9 +278,9 @@ test('self-consistent substitute static component receipts cannot escape the adm
             {
                 const fact = structuredClone(input.factObservationReceipts[0])
                 fact.observations.alphaValue = false
-                input.factObservationReceipts = [sealBare(Object.fromEntries(
+                input.factObservationReceipts[0] = sealBare(Object.fromEntries(
                     Object.entries(fact).filter(([key]) => key !== 'contentDigest')
-                ))]
+                ))
             },
             expected: /content digest does not match static admission/u
         },
@@ -337,7 +326,7 @@ test('self-consistent substitute static component receipts cannot escape the adm
     }
 })
 
-test('post-runtime seal must bind the exact pre-runtime receipt and one observation per catalog behavior', async (context) =>
+test('post-runtime seal must bind the exact pre-runtime receipt and the complete class graph', async (context) =>
 {
     const cases = [
         {
@@ -354,15 +343,51 @@ test('post-runtime seal must bind the exact pre-runtime receipt and one observat
             {
                 post.observedBehaviorResults.push(structuredClone(post.observedBehaviorResults[0]))
             },
-            expected: /observed post-runtime behavior IDs contains duplicate entries/u
+            expected: /exact-match joined results|schema validation failed/u,
+            rejects: true
         },
         {
             name: 'nullable candidate identity in an ok seal',
             mutate(post)
             {
-                post.candidateIdentity.runtimeEvidenceDigest = null
+                post.candidateIdentity.candidateId = null
             },
-            expected: /candidate identity runtimeEvidenceDigest is missing/u
+            expected: /schema validation failed/u,
+            rejects: true
+        },
+        {
+            name: 'one class missing from a multi-class behavior',
+            mutate(post)
+            {
+                post.observedBehaviorResults.pop()
+            },
+            expected: /exact-match joined results/u,
+            rejects: true
+        },
+        {
+            name: 'missing individually accepted claim',
+            mutate(post)
+            {
+                delete post.documentClaimDigests[Object.keys(post.documentClaimDigests)[0]]
+            },
+            expected: /post-runtime document claim IDs does not match/u
+        },
+        {
+            name: 'orphan individually accepted claim',
+            mutate(post)
+            {
+                post.documentClaimDigests['orphan.claim'] = authorityDigest({ orphan: true })
+            },
+            expected: /post-runtime document claim IDs does not match/u
+        },
+        {
+            name: 'legacy behavior-keyed aggregate does not replace accepted claims',
+            mutate(post)
+            {
+                post.documentClaimDigests = Object.fromEntries(post.behaviorIds.map((id) =>
+                    [id, authorityDigest({ staticBundle: true })]))
+            },
+            expected: /post-runtime document claim IDs does not match/u
         }
     ]
     for (const scenario of cases)
@@ -373,6 +398,11 @@ test('post-runtime seal must bind the exact pre-runtime receipt and one observat
             const post = structuredClone(input.postRuntimeReceipt)
             scenario.mutate(post)
             input.postRuntimeReceipt = seal(post)
+            if (scenario.rejects)
+            {
+                assert.throws(() => buildFinalConsistencyReport(input), scenario.expected)
+                return
+            }
             const report = buildFinalConsistencyReport(input)
             assert.equal(report.status, 'failed')
             assert.match(report.failureReasons.join('\n'), scenario.expected)
@@ -390,9 +420,10 @@ test('stale identities, graph cycles and legacy residue fail without repairing p
         matrix: { tiers: [{ id: 'a', executionDependsOn: ['b'] }, { id: 'b', executionDependsOn: ['a'] }] },
         zeroLegacyScan: { scannedFileCount: 10, findings: [{ file: 'config/active.json', rule: 'forbidden-machine-field:lastReviewedAt', location: '$.lastReviewedAt' }] }
     })
+    assert.throws(() => buildFinalConsistencyReport(input), /identities do not match/u)
+    input.postRuntimeReceipt = fixture().postRuntimeReceipt
     const report = buildFinalConsistencyReport(input)
     assert.equal(report.status, 'failed')
-    assert.ok(report.failureReasons.some((reason) => reason.includes('identity mismatch')))
     assert.ok(report.failureReasons.some((reason) => reason.includes('SCC')))
     assert.ok(report.failureReasons.some((reason) => reason.includes('zero-legacy')))
 })
@@ -402,4 +433,50 @@ test('tampered input receipt is rejected before final aggregation', () =>
     const input = fixture()
     input.ownerReceipt.bindings = []
     assert.throws(() => buildFinalConsistencyReport(input), /contentDigest mismatch/u)
+})
+
+test('formal terminal rejects in-memory qualification and sealed reports without raw current inputs', () =>
+{
+    const input = fixture()
+    assert.equal(buildFinalConsistencyReport(input).status, 'ok')
+    assert.throws(() => buildVerifiedFinalConsistencyReport(input), /explicit post-runtime and pre-runtime receipt paths/u)
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-terminal-raw-'))
+    try
+    {
+        const post = path.join(directory, 'post.json')
+        fs.writeFileSync(post, JSON.stringify(input.postRuntimeReceipt))
+        assert.throws(() => buildVerifiedFinalConsistencyReport({
+            ...input, postRuntimeReceipt: post, preRuntimeReceipt: path.join(directory, 'pre.json')
+        }), /outside|contained|repository|current/u)
+    }
+    finally
+    {
+        fs.rmSync(directory, { recursive: true, force: true })
+    }
+})
+
+test('formal terminal CLI cannot publish a self-consistent seal whose referenced raw evidence is missing', () =>
+{
+    fs.mkdirSync(new URL('../../.tmp/', import.meta.url), { recursive: true })
+    const directory = fs.mkdtempSync(new URL('../../.tmp/terminal-raw-', import.meta.url))
+    try
+    {
+        const input = fixture()
+        const post = path.join(directory, 'post.json')
+        const pre = path.join(directory, 'pre.json')
+        const output = path.join(directory, 'report.json')
+        fs.writeFileSync(post, JSON.stringify(input.postRuntimeReceipt))
+        fs.writeFileSync(pre, JSON.stringify(input.preRuntimeReceipt))
+        const result = spawnSync(process.execPath, [
+            new URL('../../tools/docs/behavior-document-consistency-final.mjs', import.meta.url).pathname,
+            '--post-runtime', post, '--pre-runtime', pre, '--out', output
+        ], { encoding: 'utf8' })
+        assert.equal(result.status, 1)
+        assert.match(result.stderr, /ENOENT|missing/u)
+        assert.equal(fs.existsSync(output), false)
+    }
+    finally
+    {
+        fs.rmSync(directory, { recursive: true, force: true })
+    }
 })
