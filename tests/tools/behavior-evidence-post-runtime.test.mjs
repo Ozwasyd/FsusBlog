@@ -382,15 +382,8 @@ test('post-runtime join rejects the retired pre/runtime/browser fixture-only inp
 
 test('release-final consumer rejects pre/post digest run source and worktree mismatch', async (context) =>
 {
-    const behaviorCatalog = catalog()
-    const candidate = candidateFixture(context)
-    const pre = preRuntime(behaviorCatalog)
-    const post = joinBehaviorEvidencePostRuntime({
-        preRuntimeReceipt: pre,
-        catalog: behaviorCatalog,
-        browserContractReceipt: candidate.browserContract,
-        runtimeEvidenceReceipts: [candidate.correctness]
-    })
+    const pre = identityInputs().preRuntimeReceipt
+    const post = seal({ ...joinedReceiptShape(), preRuntimeReceiptDigest: pre.contentDigest })
     assert.deepEqual(assertReleaseFinalBehaviorAuthorityBinding({
         preRuntimeReceipt: pre,
         postRuntimeReceipt: post,
@@ -406,6 +399,14 @@ test('release-final consumer rejects pre/post digest run source and worktree mis
     {
         await context.test(name, () =>
         {
+            mutation.executionIdentity = { ...post.executionIdentity,
+                schedulerRunId: mutation.runIdentity,
+                commit: mutation.sourceIdentity.commit,
+                worktreeFingerprint: mutation.sourceIdentity.worktreeFingerprint }
+            mutation.candidateIdentity = { ...post.candidateIdentity,
+                runId: mutation.runIdentity,
+                sourceCommit: mutation.sourceIdentity.commit,
+                worktreeFingerprint: mutation.sourceIdentity.worktreeFingerprint }
             const resealed = seal(Object.fromEntries(
                 Object.entries(mutation).filter(([key]) => key !== 'contentDigest')
             ))

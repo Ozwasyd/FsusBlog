@@ -13,10 +13,7 @@ import {
     validatePostRuntimeReceipt,
     verifyBehaviorEvidencePostRuntime
 } from '../test-matrix/behavior-evidence-post-runtime.mjs';
-import {
-    collectSchedulerVerificationOutputRefs,
-    readSchedulerVerificationContext
-} from '../test-matrix/scheduler.mjs';
+import * as schedulerAuthority from '../test-matrix/scheduler.mjs';
 import { authorityDigest } from '../test-matrix/post-runtime-producer-registry.mjs';
 import { validateCurrentRunEvidenceContext } from '../test/evidence-location-contract.mjs';
 import {
@@ -81,7 +78,7 @@ export function verifyReleaseFinalPostRuntimeAuthority({
     const context = validateCurrentRunEvidenceContext(currentRunContext);
     const input = directEvidence.behaviorPostRuntime;
     const post = validatePostRuntimeReceipt(input.receipt, { repositoryRoot });
-    const schedulerVerificationContext = readSchedulerVerificationContext({
+    const schedulerVerificationContext = schedulerAuthority.readSchedulerVerificationContext({
         file: environment.FSUSBLOG_SCHEDULER_VERIFICATION_CONTEXT,
         expectedContentDigest: environment.FSUSBLOG_SCHEDULER_VERIFICATION_CONTEXT_DIGEST,
         expectedCandidateIdentityDigest: environment.FSUSBLOG_SCHEDULER_CANDIDATE_IDENTITY_DIGEST,
@@ -91,7 +88,7 @@ export function verifyReleaseFinalPostRuntimeAuthority({
             worktreeFingerprint: context.worktreeFingerprint.replace(/^sha256:/u, '')
         }
     });
-    const schedulerOutputRefs = collectSchedulerVerificationOutputRefs({
+    const schedulerOutputRefs = schedulerAuthority.collectSchedulerVerificationOutputRefs({
         context: schedulerVerificationContext,
         tierId: 'behavior-evidence-post-runtime',
         root: repositoryRoot
