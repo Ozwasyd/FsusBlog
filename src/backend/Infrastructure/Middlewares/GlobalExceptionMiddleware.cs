@@ -5,6 +5,7 @@ using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Results;
+using FsusBlog.Server.Infrastructure.Security;
 
 namespace FsusBlog.Server.Infrastructure.Middlewares;
 
@@ -42,7 +43,7 @@ public partial class GlobalExceptionMiddleware(RequestDelegate _next, ILogger<Gl
         if (ex is OperationCanceledException)
         {
             // 这种情况下，客户端已经断开，写入 Response 没有意义
-            LogClientCanceled(context.Request.Path.Value ?? string.Empty);
+            LogClientCanceled(PrivateAssetRoutePrivacy.RedactPath(context.Request.Path));
             return;
         }
 
@@ -52,7 +53,7 @@ public partial class GlobalExceptionMiddleware(RequestDelegate _next, ILogger<Gl
             ? (int)HttpStatusCode.NotImplemented
             : BinaryResults.MapStatusCode(error);
 
-        string path = context.Request.Path.Value ?? string.Empty;
+        string path = PrivateAssetRoutePrivacy.RedactPath(context.Request.Path);
 
         // 5. 【日志分级】
         // 500+ 记录 Error (需要报警)，4xx 记录 Warning (无需报警)

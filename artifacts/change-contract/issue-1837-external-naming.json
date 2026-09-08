@@ -1,0 +1,33 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/backend-qps-scenario-catalog.json"
+            ],
+            "reason": "Preserve canonical JSON catalog keys while the risk-filter governance contract is updated."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Bootstrap/RuntimeInfrastructureServiceCollectionExtensions.cs",
+                "src/backend/Infrastructure/Observability/FsusObservability.cs",
+                "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSecurityGateMiddleware.cs",
+                "src/backend/Infrastructure/Security/CrawlerRiskService.cs",
+                "src/backend/Infrastructure/Security/PublicHotReadRiskProjection.cs",
+                "src/backend/Infrastructure/Security/SecurityRiskEventPersistence.cs",
+                "src/backend/Models/Security/SecurityAdminModels.cs"
+            ],
+            "reason": "Preserve process environment spelling while the security runtime owners add the local projection boundary."
+        },
+        {
+            "id": "risk-policy-provider-consistency",
+            "paths": [
+                "docs/security.md",
+                "src/backend/Services/Security/SecurityAdminPolicyService.cs"
+            ],
+            "reason": "Keep the security policy documentation and admin policy owner aligned with the risk projection contract."
+        }
+    ]
+}

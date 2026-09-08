@@ -18,6 +18,10 @@ import {
     validateFormatOnlyPullRequest,
     validatePerformancePullRequest,
     validateGeneratedRepairPassThroughException,
+    inspectGeneratedRepairDagHistory,
+    validateReviewedGeneratedRepairDagEvents,
+    validateGeneratedRepairDagEventOrder,
+    reviewedDagHistoryAdmission,
     validatePostMergeGeneratedOutputRepair,
     validatePrContract,
     pullRequestActor,
@@ -28,6 +32,134 @@ import {
 
 const root = resolve(import.meta.dirname, '../..')
 const fixtures = resolve(root, 'tests/fixtures/governance/change-contract')
+
+test('reviewed and later generic DAG events retain one global replay order', () =>
+{
+    const registered = changeContract.generatedOutputRepairDagReviewedHistories[0].sourceBranches.flatMap((branch) => (
+        branch.transitions.map((sourceRevision) => ({
+            sourceRevision, mergedPullRequest: branch.mergedPullRequest, mergeCommit: branch.mergeCommit
+        }))
+    ));
+    const later = { sourceRevision: 'a'.repeat(40), mergedPullRequest: 3241, mergeCommit: 'b'.repeat(40) };
+    const expected = [...registered, later];
+    assert.deepEqual(validateGeneratedRepairDagEventOrder(expected, expected), []);
+    for (const actual of [
+        [later, ...registered],
+        [...registered.slice(0, 8), later, ...registered.slice(8)],
+        [...registered.slice(0, 15), later, registered[15]]
+    ])
+    {
+        assert.match(validateGeneratedRepairDagEventOrder(actual, expected).join('\n'), /complete global replay order/u);
+    }
+});
+
+test('reviewed generated repair DAG policy suffix only moves to the loaded base epoch', () =>
+{
+    const temporary = mkdtempSync(join(tmpdir(), 'fsusblog-reviewed-policy-epoch-'));
+    const registration = changeContract.generatedOutputRepairDagReviewedHistories[0];
+    const graph = changeContract.generatedOutputRepairDags[0];
+    const base = registration.reviewedRevision;
+    const env = {
+        ...process.env, GIT_NO_REPLACE_OBJECTS: '1', GIT_INDEX_FILE: join(temporary, 'index'),
+        GIT_AUTHOR_NAME: 'Fixture', GIT_AUTHOR_EMAIL: 'fixture@example.invalid',
+        GIT_COMMITTER_NAME: 'Fixture', GIT_COMMITTER_EMAIL: 'fixture@example.invalid'
+    };
+    const git = (args, input) => execFileSync('git', args, { cwd: root, env, input, encoding: 'utf8' }).trim();
+    const policyPath = 'tools/governance/check-change-contract.mjs';
+    const oldPolicy = git(['show', `${base}:${policyPath}`]);
+    const currentPolicy = `${oldPolicy}\n// reviewed current policy epoch\n`;
+    const create = (parent, changes) =>
+    {
+        git(['read-tree', parent]);
+        for (const [path, text] of changes)
+        {
+            const object = git(['hash-object', '-w', '--stdin'], text);
+            git(['update-index', '--add', '--cacheinfo', `100644,${object},${path}`]);
+        }
+        return git(['commit-tree', git(['write-tree']), '-p', parent, '-m', 'fix(governance): bind fixture policy epoch']);
+    };
+    const merge = (head) => git(['commit-tree', git(['rev-parse', `${head}^{tree}`]), '-p', base, '-p', head,
+        '-m', 'Merge pull request #3241 from fixture/reviewed-policy']);
+    const admit = (revision) => reviewedDagHistoryAdmission(root, graph, registration.synchronizedMerge,
+        registration.synchronizedRevision, revision);
+    try
+    {
+        assert.ok(admit(base));
+        const current = create(base, [[policyPath, currentPolicy]]);
+        const merged = merge(current);
+        assert.ok(admit(merged).admittedPolicyRevisions.has(current));
+        const intermediate = create(base, [[policyPath, `${oldPolicy}\n// unregistered intermediate\n`]]);
+        assert.throws(() => admit(merge(create(intermediate, [[policyPath, currentPolicy]]))), /unregistered intermediate/u);
+        const rollback = create(current, [[policyPath, `${oldPolicy}\n`]]);
+        assert.throws(() => admit(merge(create(rollback, [[policyPath, currentPolicy]]))), /rolled back/u);
+        for (const mixedPath of ['tools/test/evidence-location-scanner.mjs', 'config/testing/evidence-location-migration-ledger.json'])
+        {
+            const content = git(['show', `${base}:${mixedPath}`]);
+            const mixed = create(base, [[policyPath, currentPolicy], [mixedPath, `${content}\n \n`]]);
+            assert.throws(() => admit(merge(mixed)), /changed generator closure or outputs/u);
+        }
+    }
+    finally
+    {
+        rmSync(temporary, { recursive: true, force: true });
+    }
+});
+
+test('reviewed generated repair DAG source events preserve all sixteen historical transitions', () =>
+{
+    const registration = changeContract.generatedOutputRepairDagReviewedHistories[0];
+    const observed = structuredClone(registration.sourceBranches);
+    const events = observed.flatMap((branch) => branch.transitions.map((sourceRevision) => ({
+        sourceRevision, mergedPullRequest: branch.mergedPullRequest, mergeCommit: branch.mergeCommit
+    })));
+    assert.equal(events.length, 16);
+    assert.equal(observed.length, 2);
+    assert.deepEqual(validateReviewedGeneratedRepairDagEvents(registration, observed, events), []);
+    for (const mutate of [
+        (rows) => rows.pop(),
+        (rows) => rows.push(structuredClone(rows[0])),
+        (rows) => rows.reverse(),
+        (rows) =>
+        {
+            rows[1].mergeCommit = '380bc3b0114b6b19ac4524a346d46fcf8dd08ef5';
+        }
+    ])
+    {
+        const changed = structuredClone(events);
+        mutate(changed);
+        assert.match(validateReviewedGeneratedRepairDagEvents(registration, observed, changed).join('\n'),
+            /every replayed transition exactly once/u);
+    }
+    const missingObserved = structuredClone(observed);
+    missingObserved[1].transitions.pop();
+    assert.match(validateReviewedGeneratedRepairDagEvents(registration, missingObserved, events).join('\n'),
+        /complete registered order/u);
+    assert.match(validateReviewedGeneratedRepairDagEvents(registration, [...observed, observed[0]], events).join('\n'),
+        /complete registered order/u);
+});
+
+test('reviewed generated repair DAG history seals complete original epoch topology', () =>
+{
+    const graph = changeContract.generatedOutputRepairDags.find((entry) => entry.id === 'evidence-location-governance');
+    const synchronizedMerge = '182ffa102d7c322be9e01e98e2d3ee38554f52b0';
+    const reviewedRevision = 'c7084b001a0c220538cbaca8f7305b1f3777493c';
+    const synchronizedRevision = 'e805a72c5171916f761701fc4dbd3116953d4d20';
+    const history = inspectGeneratedRepairDagHistory(root, graph, synchronizedMerge, reviewedRevision, synchronizedRevision);
+    assert.equal(history.sha256, '5c19bf753b05cceeb66fad8ef35994feb3b3e2ea45b73efa39c8f2eeda81e80a');
+    assert.equal(history.nodes.length, 83);
+    assert.equal(history.outerRevisions.length, 16);
+    const oldNode = history.nodes.find((entry) => entry.revision === '6ee54e39cccdd8e7b0b958b3f93bf1c224068155');
+    assert.deepEqual(oldNode.entries.find((entry) => entry.path === 'tools/test/evidence-location-scanner.mjs'), {
+        path: 'tools/test/evidence-location-scanner.mjs', mode: '100644', object: 'c1a9bf9d5faa8c5271d0c14d5274907e0ac52b5a'
+    });
+    assert.throws(() => inspectGeneratedRepairDagHistory(root, graph, reviewedRevision, synchronizedMerge, synchronizedRevision),
+        /exact first-parent boundaries/u);
+    assert.throws(() => inspectGeneratedRepairDagHistory(root, graph, synchronizedMerge, reviewedRevision, synchronizedMerge),
+        /synchronized source/u);
+    const shortened = inspectGeneratedRepairDagHistory(root, graph, synchronizedMerge,
+        '43961f1b7f89c117773ad25dfeb4554bdbba3e72', synchronizedRevision);
+    assert.notEqual(shortened.sha256, history.sha256);
+});
 
 function fixture(kind, name) {
     return readFileSync(resolve(fixtures, kind, name), 'utf8')
@@ -2408,6 +2540,15 @@ test('post-merge generated repair DAG rejects untrusted candidate and history co
             /candidate changed executable or trusted policy before replay/u
         )
         assert.equal(existsSync(candidateMarker), false)
+
+        const policyCandidate = createPostMergeRepairDagFixture({
+            mutateManifest: (_manifest, repository) =>
+            {
+                writeRepositoryFile(repository, 'tools/governance/check-change-contract.mjs', '// candidate policy change\n');
+            }
+        });
+        assert.match(validatePostMergeRepairDagFixture(policyCandidate).join('\n'),
+            /candidate changed executable or trusted policy before replay/u);
 
         const historyMarker = join(temporaryRoot, 'history-executed')
         const history = createPostMergeRepairDagFixture({ historyExecutionMarker: historyMarker })

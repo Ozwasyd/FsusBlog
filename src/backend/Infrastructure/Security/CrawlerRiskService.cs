@@ -6,8 +6,6 @@ using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
 
-using Microsoft.Extensions.Caching.Memory;
-
 namespace FsusBlog.Server.Infrastructure.Security;
 
 // Compatibility alias kept for existing callers while new code moves to SecurityRiskReason.
@@ -32,7 +30,6 @@ public enum CrawlerRiskReason
 /// Maintains the low-latency crawler risk score while honoring runtime anti-crawler policy modes.
 /// </summary>
 /// <param name="cache">Unified cache used for atomic, expiring risk-score updates.</param>
-/// <param name="zeroRiskCache">Local negative cache for identities that currently have no risk score.</param>
 /// <param name="securityPolicy">Runtime policy and administrative risk-event projection.</param>
 /// <param name="logger">Logger for privacy-safe risk-score transitions.</param>
 public sealed class CrawlerRiskService(
@@ -40,7 +37,6 @@ public sealed class CrawlerRiskService(
     ICacheStringReader cacheReader,
     ICacheStringWriter cacheWriter,
     ICacheInvalidationStore invalidation,
-    IMemoryCache zeroRiskCache,
     ISecurityAdminPolicyService securityPolicy,
     ILogger<CrawlerRiskService> logger) : ICrawlerRiskService, ISecurityRiskSignalSink, ISecurityRiskScoreReader
 {
@@ -81,17 +77,29 @@ public sealed class CrawlerRiskService(
     /// <returns>A value task that completes when the signal has been applied or intentionally ignored by policy.</returns>
     public async ValueTask AddRiskAsync(SecurityRiskSignal signal, CancellationToken cancellationToken = default)
     {
+        _ = await AddRiskAndGetScoreAsync(signal, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Applies a signal and returns the exact post-atomic-update score. The event
+    /// sink uses this value to update the public projection without a second
+    /// Redis read or a stale read-modify-write race.
+    /// </summary>
+    public async Task<int> AddRiskAndGetScoreAsync(
+        SecurityRiskSignal signal,
+        CancellationToken cancellationToken = default)
+    {
         AntiCrawlerPolicyOptions antiCrawlerOptions = securityPolicy.Current.Options;
         bool isAntiCrawlerSignal = string.Equals(signal.Source, SecurityRiskSources.AntiCrawler, StringComparison.OrdinalIgnoreCase);
         if (isAntiCrawlerSignal && string.Equals(SecuritySystemModes.Normalize(antiCrawlerOptions.Mode), SecuritySystemModes.Disabled, StringComparison.Ordinal))
         {
-            return;
+            return 0;
         }
 
         string ip = signal.Context.GetClientIp();
         if (string.IsNullOrWhiteSpace(ip))
         {
-            return;
+            return 0;
         }
 
         int scoreDelta = signal.Score;
@@ -114,7 +122,6 @@ public sealed class CrawlerRiskService(
         if (scoreDelta > 0)
         {
             long startedAt = Stopwatch.GetTimestamp();
-            zeroRiskCache.Remove(ZeroRiskCacheKey(ip));
             long updated = await counters.IncrementClampedWithExpiryAsync(
                 CachePolicyId.SecurityPowRisk,
                 ip,
@@ -134,13 +141,11 @@ public sealed class CrawlerRiskService(
             next = Math.Clamp(current + scoreDelta, 0, antiCrawlerOptions.MaxRiskScore);
             if (next > 0)
             {
-                zeroRiskCache.Remove(ZeroRiskCacheKey(ip));
                 await cacheWriter.SetStringAsync(CachePolicyId.SecurityPowRisk, ip, next.ToString(System.Globalization.CultureInfo.InvariantCulture), effectiveTtl, cancellationToken);
             }
             else
             {
                 await invalidation.RemoveAsync(CachePolicyId.SecurityPowRisk, ip, cancellationToken);
-                zeroRiskCache.Set(ZeroRiskCacheKey(ip), (byte)1, TimeSpan.FromSeconds(antiCrawlerOptions.ZeroRiskCacheTtlSeconds));
             }
         }
 
@@ -180,6 +185,8 @@ public sealed class CrawlerRiskService(
             scoreDelta,
             next,
             (int)effectiveTtl.TotalSeconds);
+
+        return next;
     }
 
     /// <summary>
@@ -252,7 +259,6 @@ public sealed class CrawlerRiskService(
             return;
         }
 
-        zeroRiskCache.Remove(ZeroRiskCacheKey(subject.Identity));
         await invalidation.RemoveAsync(CachePolicyId.SecurityPowRisk, subject.Identity, cancellationToken);
         securityPolicy.UpsertRiskSnapshot(new SecurityRiskSnapshotResponse(
             subject.Identity,
@@ -265,13 +271,6 @@ public sealed class CrawlerRiskService(
 
     private async Task<int> GetRiskScoreForIpAsync(string ip, CancellationToken cancellationToken)
     {
-        string zeroRiskKey = ZeroRiskCacheKey(ip);
-        if (zeroRiskCache.TryGetValue(zeroRiskKey, out byte _))
-        {
-            FsusObservability.RecordZeroRiskCacheHit(zeroRiskCacheHit: true);
-            return 0;
-        }
-
         string? existing = await cacheReader.GetStringAsync(CachePolicyId.SecurityPowRisk, ip, cancellationToken);
         int current = 0;
         if (!string.IsNullOrWhiteSpace(existing) && int.TryParse(existing, out int value))
@@ -283,12 +282,8 @@ public sealed class CrawlerRiskService(
             }
         }
 
-        zeroRiskCache.Set(zeroRiskKey, (byte)1, TimeSpan.FromSeconds(securityPolicy.Current.Options.ZeroRiskCacheTtlSeconds));
         return 0;
     }
-
-    private static string ZeroRiskCacheKey(string ip)
-        => string.Concat("crawler-risk:zero:", ip);
 
     private static SecurityRiskReason ToSecurityRiskReason(CrawlerRiskReason reason)
         => reason switch

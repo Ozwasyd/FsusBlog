@@ -1,0 +1,15 @@
+{
+  "schema": "fsusblog.generated-output-binding.v1",
+  "sources": [
+    "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationMetadata.cs",
+    "src/migration/Catalogs/SchemaMigrationCatalog20260904SavedViews.cs",
+    "src/migration/Definitions/AuthorSavedViewMigrationDefinitions.cs",
+    "src/migration/SchemaMigrationManifest.cs"
+  ],
+  "outputs": [
+    {
+      "path": "src/migration/OfflineMigrationCatalogEntries.generated.cs",
+      "sha256": "d474075adbb68b4a8160644a69a29bcae685d0c0b28e459736af20a4a4229f44"
+    }
+  ]
+}

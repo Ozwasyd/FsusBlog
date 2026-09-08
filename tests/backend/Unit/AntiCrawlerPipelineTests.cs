@@ -250,7 +250,6 @@ public sealed class AntiCrawlerPipelineTests
             BlockScore: 100,
             MaxRiskScore: 200,
             DefaultRiskTtlSeconds: 600,
-            ZeroRiskCacheTtlSeconds: 3,
             FixedIpPermitLimit: 1,
             FixedIpQueueLimit: 0,
             VerifiedCrawlerFixedIpPermitLimit: 3,

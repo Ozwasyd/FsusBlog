@@ -1,3 +1,5 @@
+using FsusBlog.Server.Infrastructure.Security;
+
 namespace FsusBlog.Server.Infrastructure.Middlewares;
 
 public sealed partial class AnonymousGatewayHeaderGuardMiddleware
@@ -91,7 +93,7 @@ public sealed partial class AnonymousGatewayHeaderGuardMiddleware
             LogRejectedGatewayHeader(
                 _logger,
                 context.TraceIdentifier,
-                context.Request.Path.Value ?? string.Empty,
+                PrivateAssetRoutePrivacy.RedactPath(context.Request.Path),
                 headerName,
                 reason);
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
