@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { digestValue } from '../fact-extractors/lib/canonicalize.mjs';
 import { validateMinimalContractBuildReceipt } from './behavior-doc-minimal-contract-build-contract.mjs';
+import { validateMinimalContractBuildReceipt as validateMinimalContractBuildReceiptV3 } from './behavior-doc-minimal-contract-build-v3-contract.mjs';
 
 export const behaviorDocAdmissionReceiptSchema =
     'fsusblog.behavior-doc-static-admission-receipt.v1';
@@ -58,14 +59,24 @@ function receiptDigestValid(receipt)
     return typeof digest === 'string' && digest === digestValue(copy);
 }
 
-export function validateBehaviorDocStaticAdmissionReceipt(receipt, {
+export function validateBehaviorDocStaticAdmissionReceipt(receipt, options = {})
+{
+    return validateAdmission(receipt, options, validateMinimalContractBuildReceipt);
+}
+
+export function validateBehaviorDocStaticAdmissionReceiptV3(receipt, options = {})
+{
+    return validateAdmission(receipt, options, validateMinimalContractBuildReceiptV3);
+}
+
+function validateAdmission(receipt, {
     expectedRunId = null,
     expectedSourceIdentity = null,
     expectedWorktree = null,
     artifactRepositoryRoot = null,
     expectedExtractorIds = null,
     readArtifactDigest = null
-} = {})
+} = {}, validateMinimalReceipt)
 {
     if (receipt?.schema !== behaviorDocAdmissionReceiptSchema)
     {
@@ -195,7 +206,7 @@ export function validateBehaviorDocStaticAdmissionReceipt(receipt, {
             throw new Error('BehaviorDoc admission fact observation roster drifted');
         }
     }
-    validateMinimalContractBuildReceipt(receipt.minimalContractBuild, {
+    validateMinimalReceipt(receipt.minimalContractBuild, {
         repositoryRoot: artifactRepositoryRoot,
         readArtifactDigest,
         expectedRunId: receipt.run.id,
