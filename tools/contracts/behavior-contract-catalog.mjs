@@ -469,6 +469,7 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root)
         'tests/tools/behavior-test-binding.test.mjs',
         'tests/tools/behavior-graph-join.test.mjs',
         'tests/tools/behavior-evidence-pre-runtime.test.mjs',
+        'tests/tools/support/behavior-evidence-pre-runtime-fixture.mjs',
         'tests/tools/behavior-evidence-post-runtime.test.mjs',
         'tests/tools/behavior-document-consistency-final.test.mjs',
         'tests/tools/changed-critical-mutation.test.mjs',
