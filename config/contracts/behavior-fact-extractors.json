@@ -65,6 +65,8 @@
                 "src/backend/Infrastructure/Distributed/Cluster/ClusterMembershipContracts.cs",
                 "tools/contracts/FsusBlog.RuntimeRoleObservation/Models.cs",
                 "tools/contracts/FsusBlog.RuntimeRoleObservation/Program.cs",
+                "config/schemas/runtime-role-observation.schema.json",
+                "config/schemas/runtime-role-deployment-observation.schema.json",
                 "tools/deployment/slot-lib.mjs",
                 "tools/deployment/release-rollout-lib.mjs",
                 "tools/storage/release-gc.mjs",

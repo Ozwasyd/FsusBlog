@@ -151,6 +151,229 @@ export function computeConsumedInputDigests(repositoryRoot, consumedInputs)
     }));
 }
 
+const projectReferencePattern = /<ProjectReference\b[^>]*\bInclude\s*=\s*"([^"]+)"[^>]*>/gu;
+const projectItemPattern = /<(Compile|EmbeddedResource|Content|AdditionalFiles)\b([^>]*)>/gu;
+const includeAttributePattern = /\bInclude\s*=\s*"([^"]+)"/u;
+const removeAttributePattern = /\bRemove\s*=\s*"([^"]+)"/u;
+const wildcardPattern = /[*?[]/u;
+
+function repositoryRelativePath(repositoryRoot, absolutePath, label)
+{
+    const root = path.resolve(repositoryRoot);
+    const absolute = path.resolve(absolutePath);
+    const relative = path.relative(root, absolute).replaceAll(path.sep, '/');
+    if (relative.length === 0 || relative === '..' || relative.startsWith('../') || path.isAbsolute(relative))
+    {
+        throw new Error(`${label} must remain inside the repository: ${absolutePath}`);
+    }
+    return relative;
+}
+
+function walkRegularFiles(absoluteDirectory, repositoryRoot, files)
+{
+    for (const entry of readdirSync(absoluteDirectory, { withFileTypes: true }).sort((left, right) =>
+        left.name.localeCompare(right.name)))
+    {
+        if (entry.name === '.git' || entry.name === 'bin' || entry.name === 'node_modules' || entry.name === 'obj')
+        {
+            continue;
+        }
+        const absolute = path.join(absoluteDirectory, entry.name);
+        const metadata = lstatSync(absolute);
+        if (metadata.isSymbolicLink())
+        {
+            throw new Error(`dotnet project source closure contains a symbolic link: ${repositoryRelativePath(repositoryRoot, absolute, 'source')}`);
+        }
+        if (metadata.isDirectory())
+        {
+            walkRegularFiles(absolute, repositoryRoot, files);
+        }
+        else if (metadata.isFile())
+        {
+            files.push(absolute);
+        }
+        else
+        {
+            throw new Error(`dotnet project source closure contains a non-regular path: ${repositoryRelativePath(repositoryRoot, absolute, 'source')}`);
+        }
+    }
+}
+
+function globAnchor(projectDirectory, include)
+{
+    const wildcardIndex = include.search(wildcardPattern);
+    const prefix = include.slice(0, wildcardIndex);
+    const separator = prefix.lastIndexOf('/');
+    return path.resolve(projectDirectory, separator < 0 ? '.' : prefix.slice(0, separator));
+}
+
+function itemFiles(repositoryRoot, projectDirectory, include)
+{
+    const normalized = include.replaceAll('\\', '/');
+    if (normalized.includes('$(')) return [];
+    const absolute = path.resolve(projectDirectory, normalized);
+    if (wildcardPattern.test(normalized))
+    {
+        const anchor = globAnchor(projectDirectory, normalized);
+        if (!existsSync(anchor)) return [];
+        const candidates = [];
+        walkRegularFiles(anchor, repositoryRoot, candidates);
+        return candidates;
+    }
+    if (!existsSync(absolute)) return [];
+    const metadata = lstatSync(absolute);
+    if (metadata.isSymbolicLink())
+    {
+        throw new Error(`dotnet project item contains a symbolic link: ${repositoryRelativePath(repositoryRoot, absolute, 'item')}`);
+    }
+    if (metadata.isDirectory())
+    {
+        const candidates = [];
+        walkRegularFiles(absolute, repositoryRoot, candidates);
+        return candidates;
+    }
+    return metadata.isFile() ? [absolute] : [];
+}
+
+function globRegExp(pattern)
+{
+    let expression = '^';
+    for (let index = 0; index < pattern.length; index++)
+    {
+        const character = pattern[index];
+        if (character === '*')
+        {
+            expression += '.*';
+        }
+        else if (character === '?')
+        {
+            expression += '.';
+        }
+        else
+        {
+            expression += character.replace(/[\\^$+?.()|{}]/gu, '\\$&');
+        }
+    }
+    return new RegExp(`${expression}$`, 'u');
+}
+
+function projectItems(projectText, projectDirectory, repositoryRoot)
+{
+    const includeFiles = [];
+    const compileRemovals = [];
+    for (const match of projectText.matchAll(projectItemPattern))
+    {
+        const attributes = match[2];
+        const include = attributes.match(includeAttributePattern)?.[1];
+        const remove = attributes.match(removeAttributePattern)?.[1];
+        if (match[1] === 'Compile' && remove != null)
+        {
+            compileRemovals.push(remove.replaceAll('\\', '/'));
+        }
+        if (include != null)
+        {
+            includeFiles.push({ itemType: match[1], include });
+        }
+    }
+    const files = [];
+    for (const item of includeFiles)
+    {
+        for (const absolute of itemFiles(repositoryRoot, projectDirectory, item.include))
+        {
+            if (item.itemType !== 'Compile' || !compileRemovals.some((removal) =>
+                globRegExp(removal).test(path.relative(projectDirectory, absolute).replaceAll(path.sep, '/'))))
+            {
+                files.push(absolute);
+            }
+        }
+    }
+    return { files, compileRemovals };
+}
+
+function directoryBuildInputs(repositoryRoot, projectDirectory)
+{
+    const inputs = [];
+    let current = path.resolve(projectDirectory);
+    const root = path.resolve(repositoryRoot);
+    while (current === root || current.startsWith(`${root}${path.sep}`))
+    {
+        for (const name of ['Directory.Build.props', 'Directory.Build.targets', 'Directory.Packages.props', 'Directory.Packages.targets'])
+        {
+            const candidate = path.join(current, name);
+            if (existsSync(candidate)) inputs.push(candidate);
+        }
+        if (current === root) break;
+        current = path.dirname(current);
+    }
+    return inputs;
+}
+
+/**
+ * Resolve the repository-owned source inputs used by the SDK project graph.
+ *
+ * The SDK supplies the default Compile glob, so listing only hand-picked C#
+ * files is not a valid build identity. This resolver follows every reachable
+ * ProjectReference, includes every non-generated project source file plus
+ * explicit linked build items, and seals each project's package lock file and
+ * imported Directory.* build inputs.
+ */
+export function resolveDotnetProjectSourceClosure(repositoryRoot, projectPaths)
+{
+    const root = path.resolve(repositoryRoot);
+    const queue = [...new Set((projectPaths ?? []).map((project) => String(project).replaceAll(path.sep, '/')))];
+    if (queue.length === 0) throw new Error('dotnet project source closure requires a root project');
+    const visited = new Set();
+    const inputs = new Set([
+        ...['global.json', 'NuGet.config', 'nuget.config'].filter((relative) => existsSync(path.join(root, relative)))
+    ]);
+    while (queue.length > 0)
+    {
+        const relativeProject = queue.shift();
+        const projectAbsolute = resolveContainedPath(root, relativeProject, 'file');
+        const normalizedProject = repositoryRelativePath(root, projectAbsolute, 'project');
+        if (visited.has(normalizedProject)) continue;
+        visited.add(normalizedProject);
+        inputs.add(normalizedProject);
+        const projectDirectory = path.dirname(projectAbsolute);
+        const projectText = readFileSync(projectAbsolute, 'utf8');
+        for (const imported of directoryBuildInputs(root, projectDirectory))
+        {
+            inputs.add(repositoryRelativePath(root, imported, 'build input'));
+        }
+        const lockFile = path.join(projectDirectory, 'packages.lock.json');
+        if (existsSync(lockFile)) inputs.add(repositoryRelativePath(root, lockFile, 'lock file'));
+
+        const allProjectFiles = [];
+        walkRegularFiles(projectDirectory, root, allProjectFiles);
+        const { files: explicitFiles, compileRemovals } = projectItems(projectText, projectDirectory, root);
+        const removedCompile = compileRemovals.map((removal) => globRegExp(removal));
+        for (const absolute of allProjectFiles)
+        {
+            const relativeToProject = path.relative(projectDirectory, absolute).replaceAll(path.sep, '/');
+            if (path.extname(absolute).toLowerCase() === '.cs'
+                && !removedCompile.some((removal) => removal.test(relativeToProject)))
+            {
+                inputs.add(repositoryRelativePath(root, absolute, 'compile input'));
+            }
+        }
+        for (const absolute of explicitFiles)
+        {
+            inputs.add(repositoryRelativePath(root, absolute, 'project item'));
+        }
+        for (const match of projectText.matchAll(projectReferencePattern))
+        {
+            const referencedAbsolute = path.resolve(projectDirectory, match[1].replaceAll('\\', '/'));
+            const referencedRelative = repositoryRelativePath(root, referencedAbsolute, 'project reference');
+            if (!existsSync(referencedAbsolute))
+            {
+                throw new Error(`dotnet project reference is missing: ${referencedRelative}`);
+            }
+            queue.push(referencedRelative);
+        }
+    }
+    return [...inputs].sort();
+}
+
 export function validateBuildIdentity(buildIdentity, requiredBuildArtifact)
 {
     if (requiredBuildArtifact == null)

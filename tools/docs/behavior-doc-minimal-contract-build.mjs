@@ -8,6 +8,7 @@ import {
   digestPath,
   digestValue,
   resolveContainedPath,
+  resolveDotnetProjectSourceClosure,
   sealSourceIdentity
 } from '../fact-extractors/identity.mjs'
 import { loadRegistry } from '../fact-extractors/registry.mjs'
@@ -101,9 +102,12 @@ function artifactDigest(repositoryRoot, relativePath) {
 
 export function minimalContractSourceClosureDigests(repositoryRoot, compiledExtractors) {
   const consumedInputs = compiledExtractors.flatMap((extractor) => extractor.consumedInputs)
+  const dotnetProjectInputs = resolveDotnetProjectSourceClosure(repositoryRoot, [
+    ...Object.values(hostDeclarations).map((entry) => entry.project)
+  ])
   return computeConsumedInputDigests(repositoryRoot, [
     ...consumedInputs,
-    ...Object.values(hostDeclarations).map((entry) => entry.project),
+    ...dotnetProjectInputs,
     'config/contracts/behavior-fact-extractors.json',
     'tools/docs/behavior-doc-minimal-contract-build.mjs',
     'tools/fact-extractors/identity.mjs',
