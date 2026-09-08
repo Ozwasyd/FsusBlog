@@ -14,6 +14,7 @@ import { parseMatrix } from '../test-matrix/parse-matrix.mjs'
 import { assertPreRuntimeQualified } from '../test-matrix/behavior-evidence-pre-runtime.mjs'
 import { validatePostRuntimeReceipt, verifyBehaviorEvidencePostRuntime } from '../test-matrix/behavior-evidence-post-runtime.mjs'
 import { loadPostRuntimeProducerRegistry } from '../test-matrix/post-runtime-producer-registry.mjs'
+import { readSchedulerVerificationContext, snapshotSourceState } from '../test-matrix/scheduler.mjs'
 import { validateBehaviorDocStaticAdmissionReceipt } from './behavior-doc-static-admission.mjs'
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -614,12 +615,29 @@ export function buildFinalConsistencyReport({
     return report
 }
 
-export function buildVerifiedFinalConsistencyReport(options)
+export async function buildVerifiedFinalConsistencyReport(options)
 {
     if (typeof options.postRuntimeReceipt !== 'string' || typeof options.preRuntimeReceipt !== 'string')
     {
         fail('terminal qualification requires explicit post-runtime and pre-runtime receipt paths')
     }
+    for (const field of ['runId', 'schedulerVerificationContextFile', 'schedulerVerificationContextDigest', 'candidateIdentityDigest'])
+    {
+        if (typeof options[field] !== 'string' || options[field].trim().length === 0)
+        {
+            fail(`terminal qualification requires explicit ${field}`)
+        }
+    }
+    const sourceState = await snapshotSourceState(root)
+    const schedulerVerificationContext = readSchedulerVerificationContext({
+        root,
+        runsRoot: path.join(root, '.tmp/test-runs'),
+        file: options.schedulerVerificationContextFile,
+        expectedContentDigest: options.schedulerVerificationContextDigest,
+        expectedRunId: options.runId,
+        expectedSourceState: sourceState,
+        expectedCandidateIdentityDigest: options.candidateIdentityDigest
+    })
     const post = validatePostRuntimeReceipt(loadJson(options.postRuntimeReceipt))
     const verified = verifyBehaviorEvidencePostRuntime({
         repositoryRoot: root,
@@ -630,7 +648,9 @@ export function buildVerifiedFinalConsistencyReport(options)
         observationReceipts: post.observationRefs.map((reference) => reference.ref),
         acceptedClaimsReceipts: post.acceptedClaimRefs.map((reference) => reference.ref),
         executionContext: post.executionContext.ref,
-        schedulerEvidence: post.schedulerEvidence.ref
+        schedulerEvidence: post.schedulerEvidence.ref,
+        verificationMode: 'completed-tier',
+        schedulerVerificationContext
     })
     return buildFinalConsistencyReport({ ...options, postRuntimeReceipt: verified })
 }
@@ -646,6 +666,10 @@ function parseArgs(argv)
             case '--static-admission': options.staticAdmissionReceipt = value; break
             case '--pre-runtime': options.preRuntimeReceipt = value; break
             case '--post-runtime': options.postRuntimeReceipt = value; break
+            case '--run-id': options.runId = value; break
+            case '--scheduler-verification-context': options.schedulerVerificationContextFile = value; break
+            case '--scheduler-verification-context-digest': options.schedulerVerificationContextDigest = value; break
+            case '--candidate-identity-digest': options.candidateIdentityDigest = value; break
             case '--owner': options.ownerReceipt = value; break
             case '--fact': options.facts.push(value); break
             case '--doc-claim-parse': options.docClaimParseReceipt = value; break
@@ -667,7 +691,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     try
     {
         const options = parseArgs(process.argv.slice(2))
-        const report = buildVerifiedFinalConsistencyReport({ ...options, factObservationReceipts: options.facts })
+        const report = await buildVerifiedFinalConsistencyReport({ ...options, factObservationReceipts: options.facts })
         validateFinalReport(report)
         if (options.out)
         {

@@ -15,6 +15,10 @@ if [[ "${#FACT_ARGS[@]}" -eq 0 ]]; then
 fi
 
 exec "$NODE_BIN" "$ROOT_DIR/tools/docs/behavior-document-consistency-final.mjs" \
+    --run-id "${FSUSBLOG_TEST_RUN_ID:?current scheduler run identity is required}" \
+    --scheduler-verification-context "${FSUSBLOG_SCHEDULER_VERIFICATION_CONTEXT:?canonical scheduler verification context is required}" \
+    --scheduler-verification-context-digest "${FSUSBLOG_SCHEDULER_VERIFICATION_CONTEXT_DIGEST:?scheduler context digest is required}" \
+    --candidate-identity-digest "${FSUSBLOG_SCHEDULER_CANDIDATE_IDENTITY_DIGEST:?scheduler candidate identity is required}" \
   --static-admission "${FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RECEIPT:-$ROOT_DIR/.tmp/behavior-doc-static-admission/receipt.json}" \
   --pre-runtime "${FSUSBLOG_BEHAVIOR_PRE_RUNTIME_RECEIPT:-$ROOT_DIR/.tmp/behavior-evidence-pre-runtime/receipt.json}" \
   --post-runtime "${FSUSBLOG_BEHAVIOR_POST_RUNTIME_RECEIPT:-$ROOT_DIR/.tmp/behavior-evidence-post-runtime/receipt.json}" \

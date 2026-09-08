@@ -435,19 +435,30 @@ test('tampered input receipt is rejected before final aggregation', () =>
     assert.throws(() => buildFinalConsistencyReport(input), /contentDigest mismatch/u)
 })
 
-test('formal terminal rejects in-memory qualification and sealed reports without raw current inputs', () =>
+test('formal terminal rejects in-memory qualification and sealed reports without independently pinned scheduler inputs', async () =>
 {
     const input = fixture()
     assert.equal(buildFinalConsistencyReport(input).status, 'ok')
-    assert.throws(() => buildVerifiedFinalConsistencyReport(input), /explicit post-runtime and pre-runtime receipt paths/u)
+    await assert.rejects(() => buildVerifiedFinalConsistencyReport(input), /explicit post-runtime and pre-runtime receipt paths/u)
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-terminal-raw-'))
     try
     {
         const post = path.join(directory, 'post.json')
         fs.writeFileSync(post, JSON.stringify(input.postRuntimeReceipt))
-        assert.throws(() => buildVerifiedFinalConsistencyReport({
+        await assert.rejects(() => buildVerifiedFinalConsistencyReport({
             ...input, postRuntimeReceipt: post, preRuntimeReceipt: path.join(directory, 'pre.json')
-        }), /outside|contained|repository|current/u)
+        }), /explicit runId/u)
+        const independent = {
+            ...input, postRuntimeReceipt: post, preRuntimeReceipt: path.join(directory, 'pre.json'),
+            runId, schedulerVerificationContextFile: path.join(directory, 'context.json'),
+            schedulerVerificationContextDigest: `sha256:${'c'.repeat(64)}`,
+            candidateIdentityDigest: `sha256:${'d'.repeat(64)}`
+        }
+        for (const field of ['schedulerVerificationContextFile', 'schedulerVerificationContextDigest', 'candidateIdentityDigest'])
+        {
+            await assert.rejects(() => buildVerifiedFinalConsistencyReport({ ...independent, [field]: undefined }),
+                new RegExp(`explicit ${field}`, 'u'))
+        }
     }
     finally
     {
@@ -455,7 +466,7 @@ test('formal terminal rejects in-memory qualification and sealed reports without
     }
 })
 
-test('formal terminal CLI cannot publish a self-consistent seal whose referenced raw evidence is missing', () =>
+test('formal terminal CLI cannot publish a self-consistent seal without independent scheduler authority', () =>
 {
     fs.mkdirSync(new URL('../../.tmp/', import.meta.url), { recursive: true })
     const directory = fs.mkdtempSync(new URL('../../.tmp/terminal-raw-', import.meta.url))
@@ -472,7 +483,7 @@ test('formal terminal CLI cannot publish a self-consistent seal whose referenced
             '--post-runtime', post, '--pre-runtime', pre, '--out', output
         ], { encoding: 'utf8' })
         assert.equal(result.status, 1)
-        assert.match(result.stderr, /ENOENT|missing/u)
+        assert.match(result.stderr, /explicit runId/u)
         assert.equal(fs.existsSync(output), false)
     }
     finally
