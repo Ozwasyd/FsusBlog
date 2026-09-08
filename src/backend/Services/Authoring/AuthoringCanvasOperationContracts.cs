@@ -502,6 +502,13 @@ public interface IAuthoringCanvasOperationTransaction
         long afterRevision,
         int limit,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<AuthoringCanvasOperationReceipt>> ReadReceiptsAsync(
+        AuthoringCanvasOwner owner,
+        Guid canvasId,
+        long afterRevision,
+        int limit,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record AuthoringCanvasOperationReferenceValidationRequest(

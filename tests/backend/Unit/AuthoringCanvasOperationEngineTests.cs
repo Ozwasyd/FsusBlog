@@ -105,6 +105,7 @@ public sealed class AuthoringCanvasOperationEngineTests
         Assert.Equal(ungrouped, authority.Nodes[frameId]);
         Assert.Empty(authority.Edges);
         Assert.Equal(viewport, authority.Header.Viewport);
+        Assert.Equal(unpinned, Assert.Single(authority.LastValidatedReferences));
 
         string receiptJson = JsonSerializer.Serialize(receipt);
         Assert.DoesNotContain(ReceiptCanary, receiptJson, StringComparison.Ordinal);
@@ -696,6 +697,11 @@ public sealed class AuthoringCanvasOperationEngineTests
             get; private set;
         }
 
+        public IReadOnlyList<AuthoringCanvasNode> LastValidatedReferences
+        {
+            get; private set;
+        } = [];
+
         public string HistoryDigest => Audit.Count == 0
             ? AuthoringCanvasOperationContract.EmptyHistoryDigest
             : AuthoringCanvasContract.ComputeCommandDigest(
@@ -803,6 +809,18 @@ public sealed class AuthoringCanvasOperationEngineTests
             cancellationToken.ThrowIfCancellationRequested();
             return Task.FromResult<IReadOnlyList<AuthoringCanvasOperationJournalEntry>>(
                 Audit.Where(entry => entry.Revision > afterRevision).Take(limit).ToArray());
+        }
+
+        public Task<IReadOnlyList<AuthoringCanvasOperationReceipt>> ReadReceiptsAsync(
+            AuthoringCanvasOwner owner,
+            Guid canvasId,
+            long afterRevision,
+            int limit,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult<IReadOnlyList<AuthoringCanvasOperationReceipt>>(
+                Receipts.Where(receipt => receipt.Revision > afterRevision).Take(limit).ToArray());
         }
 
         public Task<AuthoringCanvasOperationReceipt?> RecoverAsync(
@@ -944,6 +962,7 @@ public sealed class AuthoringCanvasOperationEngineTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             ReferenceValidationCount++;
+            LastValidatedReferences = request.References.ToArray();
             if (RejectReferences)
             {
                 throw new AuthoringCanvasValidationException("canvas_reference_target_unavailable");

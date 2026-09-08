@@ -174,6 +174,38 @@ public sealed class AuthoringCanvasReferenceFactSourceTests
         Assert.Equal("multiple_authoring_canvas_coordinate_fact_providers", exception.Message);
     }
 
+    [Fact]
+    public async Task Source_RejectsMismatchedArticleIdentityAndRevisionFacts()
+    {
+        AuthoringCanvasReferenceTarget target = Target(401, AuthoringCanvasNodeType.ArticleReference);
+        var reader = new DeterministicArticleReader
+        {
+            Records = new Dictionary<int, AuthoringCanvasArticleReferenceRecord>
+            {
+                [401] = Record(402, 50, "Wrong article")
+            }
+        };
+        var source = new AuthoringCanvasReferenceFactSource(reader, []);
+        AuthoringCanvasReferenceAuthorityCoordinate coordinate = await source.ReadAuthorityCoordinateAsync(
+            s_owner,
+            AuthoringCanvasReferencePermission.ArticleRead);
+
+        AuthoringCanvasValidationException identity = await Assert.ThrowsAsync<AuthoringCanvasValidationException>(
+            () => source.ReadBatchAsync(Query([target], coordinate)));
+        Assert.Equal("canvas_reference_article_fact_set_invalid", identity.Code);
+
+        reader.Records = new Dictionary<int, AuthoringCanvasArticleReferenceRecord>
+        {
+            [401] = Record(401, 50, "Wrong revision") with
+            {
+                CurrentDisplay = new AuthoringCanvasArticleRevisionDisplayFact(49, "Wrong revision", null)
+            }
+        };
+        AuthoringCanvasValidationException revision = await Assert.ThrowsAsync<AuthoringCanvasValidationException>(
+            () => source.ReadBatchAsync(Query([target], coordinate)));
+        Assert.Equal("canvas_reference_article_fact_set_invalid", revision.Code);
+    }
+
     private static AuthoringCanvasReferenceFactQuery Query(
         IReadOnlyList<AuthoringCanvasReferenceTarget> targets,
         AuthoringCanvasReferenceAuthorityCoordinate coordinate)

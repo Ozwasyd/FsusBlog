@@ -333,7 +333,10 @@ public sealed record AuthoringCanvasReferenceFact(
     string? ContextSnippet,
     string? StableRoute)
 {
-    public string? DisplayProjectionReference { get; init; }
+    public string? DisplayProjectionReference
+    {
+        get; init;
+    }
 }
 
 public sealed record AuthoringCanvasReferenceFactQuery(
@@ -385,7 +388,10 @@ public sealed record AuthoringCanvasReferenceProjection(
     bool UpdateAvailable,
     string ContentDigest)
 {
-    public string? DisplayProjectionReference { get; init; }
+    public string? DisplayProjectionReference
+    {
+        get; init;
+    }
 }
 
 public sealed record AuthoringCanvasReferenceResolutionReceiptItem(

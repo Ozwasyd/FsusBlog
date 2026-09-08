@@ -37,7 +37,21 @@ public sealed class AuthoringCanvasOperationEngine
     write(repositoryRoot, 'src/backend/Services/Authoring/PostgresAuthoringCanvasOperationTransaction.cs', `
 public sealed class PostgresAuthoringCanvasOperationTransaction : IAuthoringCanvasOperationTransaction
 {
-    public void Commit() { db.Ado.UseTranAsync(); var sql = "pg_try_advisory_xact_lock"; }
+    public void Commit()
+    {
+        db.Ado.UseTranAsync();
+        var sql = "pg_try_advisory_xact_lock";
+        var kinds = new[] {
+            AuthoringCanvasOperationKind.CreateReference,
+            AuthoringCanvasOperationKind.PinTargetRevision,
+            AuthoringCanvasOperationKind.UnpinTargetRevision
+        };
+    }
+    public void ReadReceiptsAsync()
+    {
+        ValidateStoredReceipt(ReadReceipt(reader));
+        AuthoringCanvasOperationContract.ComputeReceiptDigest(receipt);
+    }
 }
 `);
     write(repositoryRoot, 'src/backend/Services/Authoring/AuthoringCanvasOperationVerifier.cs', `
@@ -110,6 +124,36 @@ test('rejects verifier reuse of engine transaction or database authority', (t) =
         '\npublic class IllicitVerifierReuse { void Run() { var engine = new AuthoringCanvasOperationEngine(); transaction.ReadJournal(); } }\n');
 
     assert.match(violations(repositoryRoot), /must not call the engine, transaction, or database authority/u);
+});
+
+test('rejects an unpin path without reference evidence', (t) =>
+{
+    const repositoryRoot = fixture(t);
+    const transaction = path.join(
+        repositoryRoot,
+        'src/backend/Services/Authoring/PostgresAuthoringCanvasOperationTransaction.cs');
+    fs.writeFileSync(
+        transaction,
+        fs.readFileSync(transaction, 'utf8').replace(
+            'AuthoringCanvasOperationKind.UnpinTargetRevision',
+            'AuthoringCanvasOperationKind.PinTargetRevision'));
+
+    assert.match(violations(repositoryRoot), /create, pin, and unpin must all require reference evidence/u);
+});
+
+test('rejects stored receipt reads without digest validation', (t) =>
+{
+    const repositoryRoot = fixture(t);
+    const transaction = path.join(
+        repositoryRoot,
+        'src/backend/Services/Authoring/PostgresAuthoringCanvasOperationTransaction.cs');
+    fs.writeFileSync(
+        transaction,
+        fs.readFileSync(transaction, 'utf8').replace(
+            'ValidateStoredReceipt(ReadReceipt(reader));',
+            'ReadReceipt(reader);'));
+
+    assert.match(violations(repositoryRoot), /stored receipts must be readable and digest-validated/u);
 });
 
 test('rejects client command loops and reference auto-linking', (t) =>

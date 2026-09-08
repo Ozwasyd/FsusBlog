@@ -79,7 +79,7 @@ public sealed class AuthoringCanvasOperationTransactionIntegrationTests(Postgres
         Assert.Equal(0, redone.RedoDepth);
 
         AuthoringCanvasHistoryWindow redoneHistory = await transaction.ReadHistoryAsync(s_owner, canvasId);
-        AuthoringCanvasOperationReceipt undoneAgain = await engine.UndoAsync(new AuthoringCanvasHistoryRequest(
+        _ = await engine.UndoAsync(new AuthoringCanvasHistoryRequest(
             Guid.CreateVersion7(),
             canvasId,
             s_owner,
@@ -107,10 +107,17 @@ public sealed class AuthoringCanvasOperationTransactionIntegrationTests(Postgres
         AuthoringCanvasOperationVerificationResult verified = AuthoringCanvasOperationVerifier.Verify(
             initial,
             await transaction.ReadJournalAsync(s_owner, canvasId, 0, 10_000),
-            [applied, undone, redone, undoneAgain, branched],
+            await transaction.ReadReceiptsAsync(s_owner, canvasId, 0, 10_000),
             current);
         Assert.True(verified.Valid, string.Join(',', verified.Reasons));
         Assert.Single(currentHistory.UndoEntries);
+
+        await db.Ado.ExecuteCommandAsync(
+            "UPDATE authoring_canvas_operation_receipt SET undo_depth = 99 WHERE journal_id = @JournalId;",
+            new SugarParameter("@JournalId", branched.JournalId));
+        AuthoringCanvasValidationException receiptTamper = await Assert.ThrowsAsync<AuthoringCanvasValidationException>(
+            () => transaction.ReadReceiptsAsync(s_owner, canvasId, 0, 10_000));
+        Assert.Equal("canvas_operation_receipt_digest_invalid", receiptTamper.Code);
 
         await db.Ado.ExecuteCommandAsync(
             """

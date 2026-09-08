@@ -33,6 +33,7 @@ public static class AuthoringCanvasOperationVerifier
         string contentDigest = initial.Header.ContentDigest;
         Guid? parentJournalId = null;
         var entries = new Dictionary<Guid, AuthoringCanvasOperationJournalEntry>();
+        var requestIds = new HashSet<Guid>();
         var undo = new List<Guid>();
         var redo = new List<Guid>();
         ValidateState(nodes, edges, viewport, "initial", reasons);
@@ -53,6 +54,7 @@ public static class AuthoringCanvasOperationVerifier
                     ref contentDigest,
                     ref parentJournalId,
                     entries,
+                    requestIds,
                     undo,
                     redo,
                     reasons);
@@ -109,6 +111,7 @@ public static class AuthoringCanvasOperationVerifier
         ref string contentDigest,
         ref Guid? parentJournalId,
         Dictionary<Guid, AuthoringCanvasOperationJournalEntry> entries,
+        ISet<Guid> requestIds,
         IList<Guid> undo,
         IList<Guid> redo,
         ICollection<string> reasons)
@@ -118,6 +121,10 @@ public static class AuthoringCanvasOperationVerifier
         {
             reasons.Add($"journal_identity_invalid:{entryIdentity}");
         }
+        if (entry.RequestId == Guid.Empty || !requestIds.Add(entry.RequestId))
+        {
+            reasons.Add($"journal_request_identity_invalid:{entryIdentity}");
+        }
         if (entry.CanvasId != canvasId
             || entry.Revision != revision + 1
             || entry.ParentJournalId != parentJournalId
@@ -126,7 +133,6 @@ public static class AuthoringCanvasOperationVerifier
             reasons.Add($"journal_chain_invalid:{entryIdentity}");
         }
         if (!Enum.IsDefined(entry.Mode)
-            || entry.RequestId == Guid.Empty
             || entry.ActorUserId <= 0
             || entry.CommandKinds.Count is < 1 or > AuthoringCanvasOperationContract.MaxCommandsPerTransaction
             || entry.Commands.Count != entry.CommandKinds.Count
@@ -220,6 +226,7 @@ public static class AuthoringCanvasOperationVerifier
     {
         var byJournal = new Dictionary<Guid, AuthoringCanvasOperationReceipt>(receipts.Count);
         var receiptIds = new HashSet<Guid>();
+        var requestIds = new HashSet<Guid>();
         foreach (AuthoringCanvasOperationReceipt receipt in receipts)
         {
             if (receipt is null)
@@ -230,6 +237,10 @@ public static class AuthoringCanvasOperationVerifier
             if (receipt.ReceiptId == Guid.Empty || !receiptIds.Add(receipt.ReceiptId))
             {
                 reasons.Add($"operation_receipt_identity_invalid:{receipt.ReceiptId:D}");
+            }
+            if (receipt.RequestId == Guid.Empty || !requestIds.Add(receipt.RequestId))
+            {
+                reasons.Add($"operation_receipt_request_invalid:{receipt.RequestId:D}");
             }
             if (receipt.JournalId == Guid.Empty || !byJournal.TryAdd(receipt.JournalId, receipt))
             {

@@ -105,6 +105,20 @@ export function checkAuthoringCanvasOperationAuthority(repositoryRoot = root)
     {
         violations.push(`${transactionFile}: transaction must be the atomic canvas-local adapter`);
     }
+    if (![
+        'CreateReference',
+        'PinTargetRevision',
+        'UnpinTargetRevision'
+    ].every((kind) => transaction.includes(`AuthoringCanvasOperationKind.${kind}`)))
+    {
+        violations.push(`${transactionFile}: create, pin, and unpin must all require reference evidence`);
+    }
+    if (!/\bReadReceiptsAsync\s*\(/u.test(transaction)
+        || !/\bValidateStoredReceipt\s*\(\s*ReadReceipt\s*\(/u.test(transaction)
+        || !/\bComputeReceiptDigest\s*\(/u.test(transaction))
+    {
+        violations.push(`${transactionFile}: stored receipts must be readable and digest-validated`);
+    }
     if (!/\bAuthoringCanvasOperationReceipt\b/u.test(verifier)
         || !/\bVerifyEntry\s*\(/u.test(verifier)
         || !/\bInverseFacts\b/u.test(verifier))

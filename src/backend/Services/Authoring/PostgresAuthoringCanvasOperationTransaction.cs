@@ -270,6 +270,46 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
         return ids.Select(id => RequireEntry(entries, id)).ToArray();
     }
 
+    public async Task<IReadOnlyList<AuthoringCanvasOperationReceipt>> ReadReceiptsAsync(
+        AuthoringCanvasOwner owner,
+        Guid canvasId,
+        long afterRevision,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        AuthoringCanvasContract.ValidateOwner(owner);
+        if (canvasId == Guid.Empty || afterRevision < 0 || limit is < 1 or > 10_000)
+        {
+            throw new AuthoringCanvasValidationException("canvas_operation_receipt_query_invalid");
+        }
+
+        var receipts = new List<AuthoringCanvasOperationReceipt>();
+        using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT receipt_id, request_id, canvas_id, revision, mode, journal_id,
+                   target_journal_id, command_count, command_kinds, affected_node_ids,
+                   affected_edge_ids, undo_depth, redo_depth, status, reasons,
+                   transaction_digest, journal_digest, canvas_content_digest, receipt_digest
+            FROM authoring_canvas_operation_receipt
+            WHERE canvas_id = @CanvasId
+              AND owner_admin_principal_id = @OwnerAdminPrincipalId
+              AND site_scope = @SiteScope
+              AND revision > @AfterRevision
+            ORDER BY revision
+            LIMIT @Limit;
+            """,
+            new SugarParameter("@CanvasId", canvasId),
+            new SugarParameter("@OwnerAdminPrincipalId", owner.AdminPrincipalId),
+            new SugarParameter("@SiteScope", owner.SiteScope),
+            new SugarParameter("@AfterRevision", afterRevision),
+            new SugarParameter("@Limit", limit)).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            receipts.Add(ValidateStoredReceipt(ReadReceipt(reader)));
+        }
+        return receipts;
+    }
+
     public async Task<AuthoringCanvasHistoryWindow> ReadHistoryAsync(
         AuthoringCanvasOwner owner,
         Guid canvasId,
@@ -853,7 +893,7 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
             new SugarParameter("@SiteScope", owner.SiteScope),
             new SugarParameter("@RequestId", requestId)).ConfigureAwait(false);
         return await reader.ReadAsync(cancellationToken).ConfigureAwait(false)
-            ? ReadReceipt(reader)
+            ? ValidateStoredReceipt(ReadReceipt(reader))
             : null;
     }
 
@@ -1150,6 +1190,32 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
             reader.GetString(reader.GetOrdinal("canvas_content_digest")),
             reader.GetString(reader.GetOrdinal("receipt_digest")));
 
+    private static AuthoringCanvasOperationReceipt ValidateStoredReceipt(
+        AuthoringCanvasOperationReceipt receipt)
+    {
+        if (receipt.ReceiptId == Guid.Empty
+            || receipt.RequestId == Guid.Empty
+            || receipt.CanvasId == Guid.Empty
+            || receipt.JournalId == Guid.Empty
+            || receipt.Revision < 2
+            || !Enum.IsDefined(receipt.Mode)
+            || receipt.CommandCount is < 1 or > AuthoringCanvasOperationContract.MaxCommandsPerTransaction
+            || receipt.CommandCount != receipt.CommandKinds.Count
+            || receipt.CommandKinds.Any(static kind => !Enum.IsDefined(kind))
+            || receipt.UndoDepth is < 0 or > AuthoringCanvasOperationContract.MaxUndoDepth
+            || receipt.RedoDepth is < 0 or > AuthoringCanvasOperationContract.MaxUndoDepth
+            || receipt.Status != AuthoringCanvasOperationStatus.Committed
+            || receipt.Reasons.Count != 0
+            || !string.Equals(
+                receipt.ReceiptDigest,
+                AuthoringCanvasOperationContract.ComputeReceiptDigest(receipt),
+                StringComparison.Ordinal))
+        {
+            throw new AuthoringCanvasValidationException("canvas_operation_receipt_digest_invalid");
+        }
+        return receipt;
+    }
+
     private static AuthoringCanvasOperationReceipt AsReplay(AuthoringCanvasOperationReceipt receipt)
     {
         receipt = receipt with
@@ -1231,7 +1297,8 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
                 && (plan.TargetJournalId is null || plan.TruncatedRedoJournalIds.Count != 0))
             || (plan.Mode == AuthoringCanvasJournalMode.Apply
                 && plan.CommandKinds.Any(static kind => kind is AuthoringCanvasOperationKind.CreateReference
-                    or AuthoringCanvasOperationKind.PinTargetRevision)
+                    or AuthoringCanvasOperationKind.PinTargetRevision
+                    or AuthoringCanvasOperationKind.UnpinTargetRevision)
                 && string.Equals(
                     plan.ReferenceValidationDigest,
                     NoReferenceValidationDigest,

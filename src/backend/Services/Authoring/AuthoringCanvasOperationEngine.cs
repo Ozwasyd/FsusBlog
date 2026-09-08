@@ -289,7 +289,8 @@ public sealed class AuthoringCanvasOperationEngine(
                 Node: not null
             })
             .Select(static fact => fact.Node!)
-            .DistinctBy(static node => node.Id)
+            .GroupBy(static node => node.Id)
+            .Select(static group => group.Last())
             .ToArray();
         if (references.Length == 0)
         {

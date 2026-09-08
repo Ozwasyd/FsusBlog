@@ -61,6 +61,7 @@ public sealed class AuthoringCanvasReferenceFactSource(
 
         IReadOnlyDictionary<int, AuthoringCanvasArticleReferenceRecord> articleFacts =
             await articles.ReadBatchAsync(query.Targets, cancellationToken).ConfigureAwait(false);
+        ValidateArticleFactSet(query.Targets, articleFacts);
         IReadOnlyDictionary<Guid, AuthoringCanvasCoordinateFact> coordinateFacts =
             _coordinateProvider is null
                 ? new Dictionary<Guid, AuthoringCanvasCoordinateFact>()
@@ -200,6 +201,31 @@ public sealed class AuthoringCanvasReferenceFactSource(
             1 => materialized[0],
             _ => throw new InvalidOperationException("multiple_authoring_canvas_coordinate_fact_providers")
         };
+    }
+
+    private static void ValidateArticleFactSet(
+        IReadOnlyList<AuthoringCanvasReferenceTarget> targets,
+        IReadOnlyDictionary<int, AuthoringCanvasArticleReferenceRecord> facts)
+    {
+        var requested = targets.Select(static target => target.TargetArticleId).ToHashSet();
+        foreach ((int articleId, AuthoringCanvasArticleReferenceRecord article) in facts)
+        {
+            if (!requested.Contains(articleId)
+                || article is null
+                || article.ArticleId != articleId
+                || !Enum.IsDefined(article.State)
+                || article.CurrentRevision < 0
+                || article.CurrentDisplay is null
+                || article.PinnedDisplays is null
+                || article.CurrentDisplay.Revision != article.CurrentRevision
+                || (article.State == AuthoringCanvasArticleState.Current && article.CurrentRevision <= 0)
+                || article.PinnedDisplays.Any(static pair => pair.Key <= 0
+                    || pair.Value is null
+                    || pair.Value.Revision != pair.Key))
+            {
+                throw new AuthoringCanvasValidationException("canvas_reference_article_fact_set_invalid");
+            }
+        }
     }
 
     private static void ValidateCoordinateFact(
