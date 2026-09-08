@@ -26,6 +26,8 @@ public sealed class AuthorSavedViewContractTests
             Condition(AuthorSavedViewFieldKind.Property, "property:priority", "property.equals", "option:high"),
             Condition(AuthorSavedViewFieldKind.RelationState,
                 "relation:outbound-state", "identity.equals", "relation-state:broken"),
+            Condition(AuthorSavedViewFieldKind.ContentCheckState,
+                "content-check:prepublish", "identity.equals", "content-check-state:blocked"),
             new AuthorSavedViewCondition(
                 new AuthorSavedViewFieldReference(AuthorSavedViewFieldKind.Date,
                     AuthorSavedViewContract.PublishedAtField),
@@ -37,7 +39,7 @@ public sealed class AuthorSavedViewContractTests
         AuthorSavedViewQueryValidationResult result = await validator.ValidateAsync(s_owner, query);
 
         Assert.True(result.IsValid, string.Join(',', result.Reasons));
-        Assert.Equal(7, result.Query.Conditions.Count);
+        Assert.Equal(8, result.Query.Conditions.Count);
         Assert.DoesNotContain(
             typeof(AuthorSavedViewQuery).GetProperties(),
             property => property.Name.Contains("Group", StringComparison.OrdinalIgnoreCase)
@@ -46,12 +48,13 @@ public sealed class AuthorSavedViewContractTests
                 || property.Name.Contains("Script", StringComparison.OrdinalIgnoreCase)
                 || property.Name.Contains("Result", StringComparison.OrdinalIgnoreCase)
                 || property.Name.Contains("Permission", StringComparison.OrdinalIgnoreCase));
-        Assert.Equal(10, AuthorSavedViewContract.Operators.Count);
+        Assert.Equal(12, AuthorSavedViewContract.Operators.Count);
         Assert.All(AuthorSavedViewContract.Operators.Values, descriptor =>
         {
             Assert.NotEmpty(descriptor.PermissionOwner);
             Assert.NotEmpty(descriptor.QueryOwner);
             Assert.True(Enum.IsDefined(descriptor.NullSemantics));
+            Assert.True(Enum.IsDefined(descriptor.DefaultSemantics));
             Assert.True(Enum.IsDefined(descriptor.CaseSemantics));
             Assert.True(Enum.IsDefined(descriptor.DateBoundary));
             Assert.True(Enum.IsDefined(descriptor.Cardinality));
@@ -61,6 +64,22 @@ public sealed class AuthorSavedViewContractTests
         IList<AuthorSavedViewFieldKind> fieldKinds = Assert.IsAssignableFrom<IList<AuthorSavedViewFieldKind>>(
             AuthorSavedViewContract.Operators["identity.equals"].FieldKinds);
         Assert.Throws<NotSupportedException>(() => fieldKinds.Add(AuthorSavedViewFieldKind.Property));
+        Assert.Equal(Enum.GetValues<AuthorSavedViewFieldKind>().Length, AuthorSavedViewContract.Fields.Count);
+        Assert.All(AuthorSavedViewContract.Fields.Values, field =>
+        {
+            Assert.All(field.OperatorIds, operatorId => Assert.Contains(operatorId, AuthorSavedViewContract.Operators));
+            Assert.True(field.IdentityKind == AuthorSavedViewFieldIdentityKind.Exact
+                ? field.ExactIdentities.Count > 0 && field.StableIdentityPrefix is null
+                : field.ExactIdentities.Count == 0 && field.StableIdentityPrefix is not null);
+        });
+        Assert.All(AuthorSavedViewContract.Operators.Values, descriptor =>
+            Assert.All(descriptor.FieldKinds, kind =>
+                Assert.Contains(descriptor.Id, AuthorSavedViewContract.Fields[kind].OperatorIds)));
+        IDictionary fieldRegistry = Assert.IsAssignableFrom<IDictionary>(AuthorSavedViewContract.Fields);
+        Assert.Throws<NotSupportedException>(() => fieldRegistry.Add(AuthorSavedViewFieldKind.Tag, new object()));
+        IList<string> tagOperators = Assert.IsAssignableFrom<IList<string>>(
+            AuthorSavedViewContract.Fields[AuthorSavedViewFieldKind.Tag].OperatorIds);
+        Assert.Throws<NotSupportedException>(() => tagOperators.Add("second.operator"));
     }
 
     [Fact]
@@ -234,10 +253,311 @@ public sealed class AuthorSavedViewContractTests
             Query([Condition(AuthorSavedViewFieldKind.Tag, "tag:stable", "date.before", "2026-01-01")])));
 
         var tamperingValidator = new AuthorSavedViewQueryValidator(
-            new AuthorSavedViewDependencyCatalog([new TestDependencyProvider { Tamper = true }]));
+            new AuthorSavedViewDependencyCatalog([new TestDependencyProvider { TamperDependency = true }]));
         await Assert.ThrowsAsync<AuthorSavedViewValidationException>(() => tamperingValidator.ValidateAsync(
             s_owner,
             Query([Condition(AuthorSavedViewFieldKind.Tag, "tag:stable", "identity.equals", "tag:stable")])));
+    }
+
+    [Fact]
+    public async Task ClosedRegistries_RejectUnknownFieldsOperatorsDuplicatesAndRecursiveShapesBeforeProviders()
+    {
+        var provider = new TestDependencyProvider();
+        var validator = new AuthorSavedViewQueryValidator(new AuthorSavedViewDependencyCatalog([provider]));
+
+        await AssertValidationCode(
+            "saved_view_operator_unknown",
+            () => validator.ValidateAsync(
+                s_owner,
+                Query([Condition(AuthorSavedViewFieldKind.Tag, "tag:stable", "future.operator", "tag:stable")])));
+        await AssertValidationCode(
+            "saved_view_field_identity_unknown",
+            () => validator.ValidateAsync(
+                s_owner,
+                Query([Condition(AuthorSavedViewFieldKind.Tag, "category:wrong", "identity.equals", "tag:stable")])));
+        await AssertValidationCode(
+            "saved_view_field_kind_unknown",
+            () => validator.ValidateAsync(
+                s_owner,
+                Query([Condition((AuthorSavedViewFieldKind)999, "future:field", "identity.equals", "future:value")])));
+
+        AuthorSavedViewCondition duplicate = Condition(
+            AuthorSavedViewFieldKind.Tag,
+            "tag:stable",
+            "identity.equals",
+            "tag:stable");
+        await AssertValidationCode(
+            "saved_view_condition_duplicate",
+            () => validator.ValidateAsync(s_owner, Query([duplicate, duplicate])));
+
+        Assert.Equal(0, provider.ConditionCalls);
+        Assert.Equal(
+            ["SchemaVersion", "Conditions", "Sort", "Projection", "PageSize"],
+            typeof(AuthorSavedViewQuery).GetProperties().Select(static property => property.Name));
+        Assert.Equal(
+            ["Field", "OperatorId", "Values", "TimeZoneId"],
+            typeof(AuthorSavedViewCondition).GetProperties().Select(static property => property.Name));
+        Assert.DoesNotContain(
+            typeof(AuthorSavedViewQuery).GetProperties().Concat(typeof(AuthorSavedViewCondition).GetProperties()),
+            property => property.PropertyType == typeof(AuthorSavedViewQuery)
+                || property.PropertyType == typeof(AuthorSavedViewCondition)
+                || property.Name.Contains("Expression", StringComparison.OrdinalIgnoreCase)
+                || property.Name.Contains("Group", StringComparison.OrdinalIgnoreCase)
+                || property.Name.Contains("Json", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task SchemaNullDefaultDateTimezoneAndPagePolicies_AreExplicitAndClosed()
+    {
+        Assert.Equal(AuthorSavedViewContract.SchemaVersion, AuthorSavedViewContract.SchemaPolicy.CurrentVersion);
+        Assert.Equal(
+            AuthorSavedViewOldSchemaDisposition.ExplicitMigrationRequired,
+            AuthorSavedViewContract.SchemaPolicy.OldSchemaDisposition);
+        Assert.Equal(
+            AuthorSavedViewFutureSchemaDisposition.Reject,
+            AuthorSavedViewContract.SchemaPolicy.FutureSchemaDisposition);
+        Assert.Equal(
+            AuthorSavedViewSchemaVersionStatus.MigrationRequired,
+            AuthorSavedViewContract.ClassifySchemaVersion(0));
+        Assert.Equal(
+            AuthorSavedViewSchemaVersionStatus.Current,
+            AuthorSavedViewContract.ClassifySchemaVersion(AuthorSavedViewContract.SchemaVersion));
+        Assert.Equal(
+            AuthorSavedViewSchemaVersionStatus.FutureUnsupported,
+            AuthorSavedViewContract.ClassifySchemaVersion(AuthorSavedViewContract.SchemaVersion + 1));
+
+        AuthorSavedViewOperatorDescriptor missing = AuthorSavedViewContract.Operators["value.is-missing"];
+        AuthorSavedViewOperatorDescriptor present = AuthorSavedViewContract.Operators["value.is-present"];
+        Assert.Equal(AuthorSavedViewNullSemantics.MissingOnly, missing.NullSemantics);
+        Assert.Equal(AuthorSavedViewNullSemantics.PresentOnly, present.NullSemantics);
+        Assert.Equal(AuthorSavedViewDefaultSemantics.DistinctFromMissing, missing.DefaultSemantics);
+        Assert.Equal(AuthorSavedViewDefaultSemantics.DistinctFromMissing, present.DefaultSemantics);
+        Assert.Equal(AuthorSavedViewOperatorCardinality.None, missing.Cardinality);
+        Assert.Equal(AuthorSavedViewOperatorCardinality.None, present.Cardinality);
+
+        var expectedDateBoundaries = new Dictionary<string, AuthorSavedViewDateBoundary>
+        {
+            ["date.before"] = AuthorSavedViewDateBoundary.ExclusiveUpper,
+            ["date.on-or-before"] = AuthorSavedViewDateBoundary.InclusiveUpper,
+            ["date.after"] = AuthorSavedViewDateBoundary.ExclusiveLower,
+            ["date.on-or-after"] = AuthorSavedViewDateBoundary.InclusiveLower,
+            ["date.between"] = AuthorSavedViewDateBoundary.InclusiveRange
+        };
+        Assert.All(expectedDateBoundaries, pair =>
+            Assert.Equal(pair.Value, AuthorSavedViewContract.Operators[pair.Key].DateBoundary));
+
+        var validator = new AuthorSavedViewQueryValidator(
+            new AuthorSavedViewDependencyCatalog([new TestDependencyProvider()]));
+        Assert.True((await validator.ValidateAsync(
+            s_owner,
+            Query([Condition(AuthorSavedViewFieldKind.Property, "property:priority", "value.is-missing")]))).IsValid);
+        Assert.True((await validator.ValidateAsync(
+            s_owner,
+            Query([
+                new(
+                    new(AuthorSavedViewFieldKind.Date, AuthorSavedViewContract.PublishedAtField),
+                    "date.before",
+                    ["2026-09-07"],
+                    "UTC")
+            ]))).IsValid);
+        Assert.True((await validator.ValidateAsync(
+            s_owner,
+            Query([]) with
+            {
+                Sort = StatusSort() with
+                {
+                    NullPlacement = AuthorSavedViewNullPlacement.First
+                }
+            })).IsValid);
+        Assert.True((await validator.ValidateAsync(
+            s_owner,
+            Query([]) with
+            {
+                Sort = new(
+                    new(AuthorSavedViewFieldKind.Date, AuthorSavedViewContract.UpdatedAtField),
+                    AuthorSavedViewSortDirection.Descending,
+                    AuthorSavedViewNullPlacement.Last,
+                    "temporal",
+                    TimeZoneId: "UTC")
+            })).IsValid);
+
+        await AssertValidationCode(
+            "saved_view_operator_cardinality_invalid",
+            () => validator.ValidateAsync(
+                s_owner,
+                Query([Condition(
+                    AuthorSavedViewFieldKind.Property,
+                    "property:priority",
+                    "value.is-missing",
+                    "option:default")])));
+        await AssertValidationCode(
+            "saved_view_date_timezone_required",
+            () => validator.ValidateAsync(
+                s_owner,
+                Query([Condition(
+                    AuthorSavedViewFieldKind.Date,
+                    AuthorSavedViewContract.PublishedAtField,
+                    "date.before",
+                    "2026-09-07")])));
+        await AssertValidationCode(
+            "saved_view_timezone_invalid",
+            () => validator.ValidateAsync(
+                s_owner,
+                Query([
+                    new(
+                        new(AuthorSavedViewFieldKind.Date, AuthorSavedViewContract.PublishedAtField),
+                        "date.before",
+                        ["2026-09-07"],
+                        "Not/A-Time-Zone")
+                ])));
+        await AssertValidationCode(
+            "saved_view_timezone_not_applicable",
+            () => validator.ValidateAsync(
+                s_owner,
+                Query([
+                    new(
+                        new(AuthorSavedViewFieldKind.Tag, "tag:stable"),
+                        "identity.equals",
+                        ["tag:stable"],
+                        "UTC")
+                ])));
+        await AssertValidationCode(
+            "saved_view_page_size_invalid",
+            () => validator.ValidateAsync(
+                s_owner,
+                Query([]) with
+                {
+                    PageSize = AuthorSavedViewContract.MaxPageSize + 1
+                }));
+        await AssertValidationCode(
+            "saved_view_sort_unknown",
+            () => validator.ValidateAsync(
+                s_owner,
+                Query([]) with
+                {
+                    Sort = StatusSort() with
+                    {
+                        NullPlacement = (AuthorSavedViewNullPlacement)999
+                    }
+                }));
+        await AssertValidationCode(
+            "saved_view_sort_tie_breaker_invalid",
+            () => validator.ValidateAsync(
+                s_owner,
+                Query([]) with
+                {
+                    Sort = StatusSort() with
+                    {
+                        StableTieBreaker = "article.updated-at"
+                    }
+                }));
+    }
+
+    [Fact]
+    public async Task Providers_ReturnFactsOnlyAndCannotTamperDependencyOperatorCanonicalSortOrProjection()
+    {
+        Assert.DoesNotContain(
+            typeof(AuthorSavedViewDependencyFact).GetProperties(),
+            property => property.PropertyType == typeof(AuthorSavedViewOperatorDescriptor));
+        Assert.All(
+            typeof(IAuthorSavedViewDependencyProvider).GetMethods(),
+            method => Assert.Contains(
+                nameof(AuthorSavedViewDependencyFact),
+                method.ReturnType.ToString(),
+                StringComparison.Ordinal));
+
+        AuthorSavedViewOperatorDescriptor registered = AuthorSavedViewContract.Operators["identity.equals"];
+        Assert.True(AuthorSavedViewContract.IsRegisteredOperatorDescriptor(registered));
+        Assert.False(AuthorSavedViewContract.IsRegisteredOperatorDescriptor(
+            registered with
+            {
+                QueryOwner = "second-query-owner"
+            }));
+
+        foreach (TestDependencyProvider provider in new[]
+        {
+            new TestDependencyProvider { TamperDependency = true },
+            new TestDependencyProvider { TamperOperator = true },
+            new TestDependencyProvider { TamperAuthorityRevision = true }
+        })
+        {
+            var validator = new AuthorSavedViewQueryValidator(new AuthorSavedViewDependencyCatalog([provider]));
+            await AssertValidationCode(
+                "saved_view_dependency_fact_tampered",
+                () => validator.ValidateAsync(
+                    s_owner,
+                    Query([Condition(
+                        AuthorSavedViewFieldKind.Tag,
+                        "tag:stable",
+                        "identity.equals",
+                        "tag:stable")])));
+        }
+
+        var canonicalTamper = new AuthorSavedViewQueryValidator(
+            new AuthorSavedViewDependencyCatalog([new TestDependencyProvider { TamperCanonicalCount = true }]));
+        await AssertValidationCode(
+            "saved_view_dependency_values_tampered",
+            () => canonicalTamper.ValidateAsync(
+                s_owner,
+                Query([Condition(AuthorSavedViewFieldKind.Tag, "tag:stable", "identity.equals", "tag:stable")])));
+
+        var sortTamper = new AuthorSavedViewQueryValidator(
+            new AuthorSavedViewDependencyCatalog([
+                new TestDependencyProvider { ReturnSortFact = true, TamperSortFact = true }
+            ]));
+        await AssertValidationCode(
+            "saved_view_dependency_fact_tampered",
+            () => sortTamper.ValidateAsync(
+                s_owner,
+                Query([]) with
+                {
+                    Sort = new(
+                        new(AuthorSavedViewFieldKind.Tag, "tag:stable"),
+                        AuthorSavedViewSortDirection.Ascending,
+                        AuthorSavedViewNullPlacement.Last,
+                        "ordinal")
+                }));
+
+        var projectionTamper = new AuthorSavedViewQueryValidator(
+            new AuthorSavedViewDependencyCatalog([
+                new TestDependencyProvider { ReturnProjectionFact = true, TamperProjectionFact = true }
+            ]));
+        await AssertValidationCode(
+            "saved_view_dependency_fact_tampered",
+            () => projectionTamper.ValidateAsync(
+                s_owner,
+                Query([]) with
+                {
+                    Projection = [new(AuthorSavedViewFieldKind.Tag, "tag:stable")]
+                }));
+    }
+
+    [Fact]
+    public async Task MissingProductionProviders_FailClosedWithoutForgingExternalAuthority()
+    {
+        var validator = new AuthorSavedViewQueryValidator(new AuthorSavedViewDependencyCatalog([]));
+        AuthorSavedViewQueryValidationResult taxonomy = await validator.ValidateAsync(
+            s_owner,
+            Query([Condition(AuthorSavedViewFieldKind.Tag, "tag:stable", "identity.equals", "tag:stable")]));
+        AuthorSavedViewQueryValidationResult fullText = await validator.ValidateAsync(
+            s_owner,
+            Query([Condition(
+                AuthorSavedViewFieldKind.FullText,
+                AuthorSavedViewContract.AuthorSearchField,
+                "author-search.match",
+                "query-ref:42")]));
+
+        Assert.False(taxonomy.IsValid);
+        Assert.Equal(AuthorSavedViewDependencyStatus.Unknown, taxonomy.Resolutions[0].Status);
+        Assert.False(fullText.IsValid);
+        Assert.Equal(AuthorSavedViewDependencyStatus.MigrationRequired, fullText.Resolutions[0].Status);
+    }
+
+    private static async Task AssertValidationCode(string expectedCode, Func<Task> action)
+    {
+        AuthorSavedViewValidationException exception =
+            await Assert.ThrowsAsync<AuthorSavedViewValidationException>(action);
+        Assert.Equal(expectedCode, exception.Code);
     }
 
     private static AuthorSavedViewQuery Query(IReadOnlyList<AuthorSavedViewCondition> conditions)
@@ -266,9 +586,41 @@ public sealed class AuthorSavedViewContractTests
     {
         public AuthorSavedViewDependencyStatus Status { get; set; } = AuthorSavedViewDependencyStatus.Current;
         public string LabelRevision { get; set; } = "authority-v1";
-        public bool Tamper
+        public bool TamperDependency
         {
             get; set;
+        }
+        public bool TamperOperator
+        {
+            get; set;
+        }
+        public bool TamperCanonicalCount
+        {
+            get; set;
+        }
+        public bool TamperAuthorityRevision
+        {
+            get; set;
+        }
+        public bool ReturnSortFact
+        {
+            get; set;
+        }
+        public bool TamperSortFact
+        {
+            get; set;
+        }
+        public bool ReturnProjectionFact
+        {
+            get; set;
+        }
+        public bool TamperProjectionFact
+        {
+            get; set;
+        }
+        public int ConditionCalls
+        {
+            get; private set;
         }
         public bool ReuseMutableCanonicalBuffer
         {
@@ -276,82 +628,85 @@ public sealed class AuthorSavedViewContractTests
         }
         public List<string> MutableCanonicalBuffer { get; } = ["tag:b", "tag:a"];
 
-        public ValueTask<AuthorSavedViewDependencyResolution?> ResolveConditionAsync(
+        public ValueTask<AuthorSavedViewDependencyFact?> ResolveConditionAsync(
             AuthorSavedViewOwner owner,
             AuthorSavedViewCondition condition,
             CancellationToken cancellationToken = default)
         {
+            ConditionCalls++;
             if (condition.Field.Kind is AuthorSavedViewFieldKind.LifecycleStatus or AuthorSavedViewFieldKind.Date)
             {
-                return ValueTask.FromResult<AuthorSavedViewDependencyResolution?>(null);
+                return ValueTask.FromResult<AuthorSavedViewDependencyFact?>(null);
             }
-            AuthorSavedViewOperatorDescriptor descriptor = Descriptor(condition);
             IReadOnlyList<string> canonical = ReuseMutableCanonicalBuffer
                 ? MutableCanonicalBuffer
                 : condition.Values;
-            return ValueTask.FromResult<AuthorSavedViewDependencyResolution?>(new(
-                Tamper ? new(condition.Field.Kind, "tampered") : condition.Field,
-                condition.OperatorId,
+            if (TamperCanonicalCount)
+            {
+                canonical = [.. canonical, "tampered:extra"];
+            }
+            return ValueTask.FromResult<AuthorSavedViewDependencyFact?>(new(
+                TamperDependency ? new(condition.Field.Kind, $"{condition.Field.Identity}:tampered") : condition.Field,
+                TamperOperator ? "future.operator" : condition.OperatorId,
                 Status,
-                LabelRevision,
-                descriptor,
+                TamperAuthorityRevision ? "invalid revision" : LabelRevision,
                 canonical));
         }
 
-        public ValueTask<AuthorSavedViewDependencyResolution?> ResolveSortAsync(
+        public ValueTask<AuthorSavedViewDependencyFact?> ResolveSortAsync(
             AuthorSavedViewOwner owner,
             AuthorSavedViewSort sort,
             CancellationToken cancellationToken = default)
-            => ValueTask.FromResult<AuthorSavedViewDependencyResolution?>(null);
+            => ValueTask.FromResult<AuthorSavedViewDependencyFact?>(ReturnSortFact
+                ? new(
+                    TamperSortFact ? new(sort.Field.Kind, $"{sort.Field.Identity}:tampered") : sort.Field,
+                    "sort",
+                    Status,
+                    LabelRevision,
+                    [])
+                : null);
 
-        public ValueTask<AuthorSavedViewDependencyResolution?> ResolveProjectionAsync(
+        public ValueTask<AuthorSavedViewDependencyFact?> ResolveProjectionAsync(
             AuthorSavedViewOwner owner,
             AuthorSavedViewFieldReference field,
             CancellationToken cancellationToken = default)
-            => ValueTask.FromResult<AuthorSavedViewDependencyResolution?>(null);
-
-        private static AuthorSavedViewOperatorDescriptor Descriptor(AuthorSavedViewCondition condition)
-            => AuthorSavedViewContract.FindBuiltInOperator(condition.OperatorId)
-                ?? new(
-                    condition.OperatorId,
-                    [condition.Field.Kind],
-                    AuthorSavedViewValueKind.StableIdentity,
-                    AuthorSavedViewOperatorCardinality.Single,
-                    AuthorSavedViewNullSemantics.AuthorityOwned,
-                    AuthorSavedViewCaseSemantics.AuthorityOwned,
-                    AuthorSavedViewDateBoundary.AuthorityOwned,
-                    "typed-property-authority",
-                    "typed-property-query");
+            => ValueTask.FromResult<AuthorSavedViewDependencyFact?>(ReturnProjectionFact
+                ? new(
+                    TamperProjectionFact ? new(field.Kind, $"{field.Identity}:tampered") : field,
+                    "projection",
+                    Status,
+                    LabelRevision,
+                    [])
+                : null);
     }
 
     private sealed class CancellingProvider(CancellationTokenSource cancellation)
         : IAuthorSavedViewDependencyProvider
     {
-        public ValueTask<AuthorSavedViewDependencyResolution?> ResolveConditionAsync(
+        public ValueTask<AuthorSavedViewDependencyFact?> ResolveConditionAsync(
             AuthorSavedViewOwner owner,
             AuthorSavedViewCondition condition,
             CancellationToken cancellationToken = default)
         {
             cancellation.Cancel();
-            return ValueTask.FromResult<AuthorSavedViewDependencyResolution?>(new(
+            return ValueTask.FromResult<AuthorSavedViewDependencyFact?>(new(
                 condition.Field,
                 condition.OperatorId,
                 AuthorSavedViewDependencyStatus.Current,
                 "authority-v1",
-                AuthorSavedViewContract.FindBuiltInOperator(condition.OperatorId)!,
                 condition.Values));
         }
 
-        public ValueTask<AuthorSavedViewDependencyResolution?> ResolveSortAsync(
+        public ValueTask<AuthorSavedViewDependencyFact?> ResolveSortAsync(
             AuthorSavedViewOwner owner,
             AuthorSavedViewSort sort,
             CancellationToken cancellationToken = default)
-            => ValueTask.FromResult<AuthorSavedViewDependencyResolution?>(null);
+            => ValueTask.FromResult<AuthorSavedViewDependencyFact?>(null);
 
-        public ValueTask<AuthorSavedViewDependencyResolution?> ResolveProjectionAsync(
+        public ValueTask<AuthorSavedViewDependencyFact?> ResolveProjectionAsync(
             AuthorSavedViewOwner owner,
             AuthorSavedViewFieldReference field,
             CancellationToken cancellationToken = default)
-            => ValueTask.FromResult<AuthorSavedViewDependencyResolution?>(null);
+            => ValueTask.FromResult<AuthorSavedViewDependencyFact?>(null);
     }
 }

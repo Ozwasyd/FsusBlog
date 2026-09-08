@@ -13,6 +13,7 @@ namespace FsusBlog.Server.Services.Authoring;
 public static class AuthorSavedViewContract
 {
     public const int SchemaVersion = 1;
+    public const int MinimumSupportedSchemaVersion = 1;
     public const int MaxConditions = 64;
     public const int MaxValuesPerCondition = 64;
     public const int MaxProjectionFields = 32;
@@ -28,6 +29,54 @@ public static class AuthorSavedViewContract
     public const string PublishedAtField = "article.published-at";
     public const string AuthorSearchField = "author-search.current";
 
+    private static readonly ReadOnlyDictionary<AuthorSavedViewFieldKind, AuthorSavedViewFieldDescriptor> s_fields =
+        new(new Dictionary<AuthorSavedViewFieldKind, AuthorSavedViewFieldDescriptor>
+        {
+            [AuthorSavedViewFieldKind.LifecycleStatus] = ExactField(
+                AuthorSavedViewFieldKind.LifecycleStatus,
+                [LifecycleStatusField],
+                ["identity.equals", "identity.any-of"],
+                requiresDependencyProvider: false),
+            [AuthorSavedViewFieldKind.Category] = AuthorityField(
+                AuthorSavedViewFieldKind.Category,
+                "category:",
+                ["identity.equals", "identity.any-of"]),
+            [AuthorSavedViewFieldKind.Tag] = AuthorityField(
+                AuthorSavedViewFieldKind.Tag,
+                "tag:",
+                ["identity.equals", "identity.any-of"]),
+            [AuthorSavedViewFieldKind.FullText] = ExactField(
+                AuthorSavedViewFieldKind.FullText,
+                [AuthorSearchField],
+                ["author-search.match"],
+                requiresDependencyProvider: true),
+            [AuthorSavedViewFieldKind.Property] = AuthorityField(
+                AuthorSavedViewFieldKind.Property,
+                "property:",
+                ["property.equals", "property.any-of", "value.is-missing", "value.is-present"]),
+            [AuthorSavedViewFieldKind.RelationState] = AuthorityField(
+                AuthorSavedViewFieldKind.RelationState,
+                "relation:",
+                ["identity.equals", "identity.any-of"]),
+            [AuthorSavedViewFieldKind.ContentCheckState] = AuthorityField(
+                AuthorSavedViewFieldKind.ContentCheckState,
+                "content-check:",
+                ["identity.equals", "identity.any-of"]),
+            [AuthorSavedViewFieldKind.Date] = ExactField(
+                AuthorSavedViewFieldKind.Date,
+                [CreatedAtField, UpdatedAtField, PublishedAtField],
+                [
+                    "value.is-missing",
+                    "value.is-present",
+                    "date.before",
+                    "date.on-or-before",
+                    "date.after",
+                    "date.on-or-after",
+                    "date.between"
+                ],
+                requiresDependencyProvider: false)
+        });
+
     private static readonly ReadOnlyDictionary<string, AuthorSavedViewOperatorDescriptor> s_operators =
         new(new Dictionary<string, AuthorSavedViewOperatorDescriptor>(StringComparer.Ordinal)
         {
@@ -42,6 +91,7 @@ public static class AuthorSavedViewContract
                 AuthorSavedViewValueKind.StableIdentity,
                 AuthorSavedViewOperatorCardinality.Single,
                 AuthorSavedViewNullSemantics.NullNeverMatches,
+                AuthorSavedViewDefaultSemantics.NotApplicable,
                 AuthorSavedViewCaseSemantics.StableIdentityOrdinal,
                 AuthorSavedViewDateBoundary.NotApplicable,
                 "owning-domain",
@@ -57,6 +107,7 @@ public static class AuthorSavedViewContract
                 AuthorSavedViewValueKind.StableIdentity,
                 AuthorSavedViewOperatorCardinality.MultipleSet,
                 AuthorSavedViewNullSemantics.NullNeverMatches,
+                AuthorSavedViewDefaultSemantics.NotApplicable,
                 AuthorSavedViewCaseSemantics.StableIdentityOrdinal,
                 AuthorSavedViewDateBoundary.NotApplicable,
                 "owning-domain",
@@ -67,6 +118,7 @@ public static class AuthorSavedViewContract
                 AuthorSavedViewValueKind.None,
                 AuthorSavedViewOperatorCardinality.None,
                 AuthorSavedViewNullSemantics.MissingOnly,
+                AuthorSavedViewDefaultSemantics.DistinctFromMissing,
                 AuthorSavedViewCaseSemantics.NotApplicable,
                 AuthorSavedViewDateBoundary.NotApplicable,
                 "owning-domain",
@@ -77,6 +129,7 @@ public static class AuthorSavedViewContract
                 AuthorSavedViewValueKind.None,
                 AuthorSavedViewOperatorCardinality.None,
                 AuthorSavedViewNullSemantics.PresentOnly,
+                AuthorSavedViewDefaultSemantics.DistinctFromMissing,
                 AuthorSavedViewCaseSemantics.NotApplicable,
                 AuthorSavedViewDateBoundary.NotApplicable,
                 "owning-domain",
@@ -97,10 +150,17 @@ public static class AuthorSavedViewContract
                 AuthorSavedViewValueKind.Text,
                 AuthorSavedViewOperatorCardinality.Single,
                 AuthorSavedViewNullSemantics.NullNeverMatches,
+                AuthorSavedViewDefaultSemantics.NotApplicable,
                 AuthorSavedViewCaseSemantics.AuthorSearchOwned,
                 AuthorSavedViewDateBoundary.NotApplicable,
                 "author-search-contract",
-                "author-search-query")
+                "author-search-query"),
+            ["property.equals"] = PropertyOperator(
+                "property.equals",
+                AuthorSavedViewOperatorCardinality.Single),
+            ["property.any-of"] = PropertyOperator(
+                "property.any-of",
+                AuthorSavedViewOperatorCardinality.MultipleSet)
         });
 
     private static readonly HashSet<string> s_lifecycleStatuses = new(StringComparer.Ordinal)
@@ -112,7 +172,26 @@ public static class AuthorSavedViewContract
         "archived"
     };
 
+    public static AuthorSavedViewSchemaVersionPolicy SchemaPolicy
+    {
+        get;
+    } = new(
+        SchemaVersion,
+        MinimumSupportedSchemaVersion,
+        AuthorSavedViewOldSchemaDisposition.ExplicitMigrationRequired,
+        AuthorSavedViewFutureSchemaDisposition.Reject);
+
+    public static IReadOnlyDictionary<AuthorSavedViewFieldKind, AuthorSavedViewFieldDescriptor> Fields => s_fields;
+
     public static IReadOnlyDictionary<string, AuthorSavedViewOperatorDescriptor> Operators => s_operators;
+
+    public static AuthorSavedViewSchemaVersionStatus ClassifySchemaVersion(int schemaVersion)
+        => schemaVersion switch
+        {
+            SchemaVersion => AuthorSavedViewSchemaVersionStatus.Current,
+            < MinimumSupportedSchemaVersion => AuthorSavedViewSchemaVersionStatus.MigrationRequired,
+            _ => AuthorSavedViewSchemaVersionStatus.FutureUnsupported
+        };
 
     public static void ValidateOwner(AuthorSavedViewOwner owner)
     {
@@ -127,10 +206,13 @@ public static class AuthorSavedViewContract
     public static void ValidateQueryShape(AuthorSavedViewQuery query)
     {
         ArgumentNullException.ThrowIfNull(query);
-        if (query.SchemaVersion != SchemaVersion)
+        ArgumentNullException.ThrowIfNull(query.Conditions);
+        ArgumentNullException.ThrowIfNull(query.Projection);
+        AuthorSavedViewSchemaVersionStatus schemaStatus = ClassifySchemaVersion(query.SchemaVersion);
+        if (schemaStatus != AuthorSavedViewSchemaVersionStatus.Current)
         {
             throw new AuthorSavedViewValidationException(
-                query.SchemaVersion > SchemaVersion
+                schemaStatus == AuthorSavedViewSchemaVersionStatus.FutureUnsupported
                     ? "saved_view_query_future_schema"
                     : "saved_view_query_old_schema");
         }
@@ -145,16 +227,12 @@ public static class AuthorSavedViewContract
             ValidateConditionShape(condition);
         }
 
-        string[] duplicateConditions =
-        [
-            .. query.Conditions
-                .GroupBy(
-                    static condition => $"{(int)condition.Field.Kind}:{condition.Field.Identity}:{condition.OperatorId}",
-                    StringComparer.Ordinal)
-                .Where(static group => group.Count() > 1)
-                .Select(static group => group.Key)
-        ];
-        if (duplicateConditions.Length > 0)
+        if (query.Conditions
+            .GroupBy(static condition => (
+                condition.Field.Kind,
+                condition.Field.Identity,
+                condition.OperatorId))
+            .Any(static group => group.Skip(1).Any()))
         {
             throw new AuthorSavedViewValidationException("saved_view_condition_duplicate");
         }
@@ -171,8 +249,11 @@ public static class AuthorSavedViewContract
         AuthorSavedViewQuery query,
         IReadOnlyDictionary<int, IReadOnlyList<string>> canonicalValues)
     {
+        ArgumentNullException.ThrowIfNull(canonicalValues);
         ValidateQueryShape(query);
-        if (canonicalValues.Count != query.Conditions.Count)
+        if (canonicalValues.Count != query.Conditions.Count
+            || Enumerable.Range(0, query.Conditions.Count).Any(index =>
+                !canonicalValues.TryGetValue(index, out IReadOnlyList<string>? values) || values is null))
         {
             throw new AuthorSavedViewValidationException("saved_view_canonical_values_incomplete");
         }
@@ -235,6 +316,7 @@ public static class AuthorSavedViewContract
     public static string ComputeDependencyDigest(
         IReadOnlyList<AuthorSavedViewDependencyResolution> resolutions)
     {
+        ArgumentNullException.ThrowIfNull(resolutions);
         var canonical = new CanonicalDigestBuilder();
         foreach (AuthorSavedViewDependencyResolution resolution in resolutions
             .OrderBy(static item => item.Dependency.Kind)
@@ -253,14 +335,27 @@ public static class AuthorSavedViewContract
     public static AuthorSavedViewOperatorDescriptor? FindBuiltInOperator(string operatorId)
         => s_operators.GetValueOrDefault(operatorId);
 
+    public static bool IsRegisteredOperatorDescriptor(AuthorSavedViewOperatorDescriptor descriptor)
+    {
+        AuthorSavedViewOperatorDescriptor? registered = FindBuiltInOperator(descriptor.Id);
+        return registered is not null
+            && registered.ValueKind == descriptor.ValueKind
+            && registered.Cardinality == descriptor.Cardinality
+            && registered.NullSemantics == descriptor.NullSemantics
+            && registered.DefaultSemantics == descriptor.DefaultSemantics
+            && registered.CaseSemantics == descriptor.CaseSemantics
+            && registered.DateBoundary == descriptor.DateBoundary
+            && string.Equals(registered.PermissionOwner, descriptor.PermissionOwner, StringComparison.Ordinal)
+            && string.Equals(registered.QueryOwner, descriptor.QueryOwner, StringComparison.Ordinal)
+            && registered.FieldKinds.SequenceEqual(descriptor.FieldKinds);
+    }
+
+    public static AuthorSavedViewFieldDescriptor? FindField(AuthorSavedViewFieldKind kind)
+        => s_fields.GetValueOrDefault(kind);
+
     public static bool IsBuiltInField(AuthorSavedViewFieldReference field)
-        => field.Kind switch
-        {
-            AuthorSavedViewFieldKind.LifecycleStatus => field.Identity == LifecycleStatusField,
-            AuthorSavedViewFieldKind.Date => field.Identity is CreatedAtField or UpdatedAtField or PublishedAtField,
-            AuthorSavedViewFieldKind.FullText => field.Identity == AuthorSearchField,
-            _ => false
-        };
+        => FindField(field.Kind) is { RequiresDependencyProvider: false } descriptor
+            && descriptor.AcceptsIdentity(field.Identity);
 
     internal static bool IsLifecycleStatus(string value)
         => s_lifecycleStatuses.Contains(value);
@@ -275,10 +370,51 @@ public static class AuthorSavedViewContract
             AuthorSavedViewValueKind.LocalDate,
             cardinality,
             AuthorSavedViewNullSemantics.NullNeverMatches,
+            AuthorSavedViewDefaultSemantics.NotApplicable,
             AuthorSavedViewCaseSemantics.NotApplicable,
             boundary,
             "article-date-contract",
             "canonical-article-query");
+
+    private static AuthorSavedViewOperatorDescriptor PropertyOperator(
+        string id,
+        AuthorSavedViewOperatorCardinality cardinality)
+        => new(
+            id,
+            FieldKinds(AuthorSavedViewFieldKind.Property),
+            AuthorSavedViewValueKind.AuthorityOwned,
+            cardinality,
+            AuthorSavedViewNullSemantics.AuthorityOwned,
+            AuthorSavedViewDefaultSemantics.AuthorityOwned,
+            AuthorSavedViewCaseSemantics.AuthorityOwned,
+            AuthorSavedViewDateBoundary.AuthorityOwned,
+            "typed-property-authority",
+            "author-search-query");
+
+    private static AuthorSavedViewFieldDescriptor ExactField(
+        AuthorSavedViewFieldKind kind,
+        IReadOnlyList<string> exactIdentities,
+        IReadOnlyList<string> operatorIds,
+        bool requiresDependencyProvider)
+        => new(
+            kind,
+            AuthorSavedViewFieldIdentityKind.Exact,
+            Array.AsReadOnly(exactIdentities.ToArray()),
+            null,
+            Array.AsReadOnly(operatorIds.ToArray()),
+            requiresDependencyProvider);
+
+    private static AuthorSavedViewFieldDescriptor AuthorityField(
+        AuthorSavedViewFieldKind kind,
+        string stableIdentityPrefix,
+        IReadOnlyList<string> operatorIds)
+        => new(
+            kind,
+            AuthorSavedViewFieldIdentityKind.AuthorityStableIdentity,
+            Array.Empty<string>(),
+            stableIdentityPrefix,
+            Array.AsReadOnly(operatorIds.ToArray()),
+            RequiresDependencyProvider: true);
 
     private static IReadOnlyList<AuthorSavedViewFieldKind> FieldKinds(
         params AuthorSavedViewFieldKind[] values)
@@ -287,13 +423,31 @@ public static class AuthorSavedViewContract
     private static void ValidateConditionShape(AuthorSavedViewCondition condition)
     {
         ArgumentNullException.ThrowIfNull(condition);
-        if (!Enum.IsDefined(condition.Field.Kind))
+        ArgumentNullException.ThrowIfNull(condition.Field);
+        ArgumentNullException.ThrowIfNull(condition.Values);
+        AuthorSavedViewFieldDescriptor? field = FindField(condition.Field.Kind);
+        if (field is null)
         {
             throw new AuthorSavedViewValidationException("saved_view_field_kind_unknown");
         }
 
         ValidateIdentity(condition.Field.Identity, "saved_view_field_identity_invalid");
         ValidateIdentity(condition.OperatorId, "saved_view_operator_identity_invalid");
+        if (!field.AcceptsIdentity(condition.Field.Identity))
+        {
+            throw new AuthorSavedViewValidationException("saved_view_field_identity_unknown");
+        }
+
+        AuthorSavedViewOperatorDescriptor? descriptor = FindBuiltInOperator(condition.OperatorId);
+        if (descriptor is null)
+        {
+            throw new AuthorSavedViewValidationException("saved_view_operator_unknown");
+        }
+        if (!field.OperatorIds.Contains(condition.OperatorId, StringComparer.Ordinal)
+            || !descriptor.FieldKinds.Contains(condition.Field.Kind))
+        {
+            throw new AuthorSavedViewValidationException("saved_view_operator_field_incompatible");
+        }
         if (condition.Values.Count > MaxValuesPerCondition)
         {
             throw new AuthorSavedViewValidationException("saved_view_condition_value_budget_exceeded");
@@ -318,7 +472,9 @@ public static class AuthorSavedViewContract
     private static void ValidateSort(AuthorSavedViewSort sort)
     {
         ArgumentNullException.ThrowIfNull(sort);
-        if (!Enum.IsDefined(sort.Field.Kind)
+        ArgumentNullException.ThrowIfNull(sort.Field);
+        AuthorSavedViewFieldDescriptor? field = FindField(sort.Field.Kind);
+        if (field is null
             || !Enum.IsDefined(sort.Direction)
             || !Enum.IsDefined(sort.NullPlacement))
         {
@@ -326,6 +482,10 @@ public static class AuthorSavedViewContract
         }
 
         ValidateIdentity(sort.Field.Identity, "saved_view_sort_field_invalid");
+        if (!field.AcceptsIdentity(sort.Field.Identity))
+        {
+            throw new AuthorSavedViewValidationException("saved_view_sort_field_unknown");
+        }
         if (!string.Equals(sort.StableTieBreaker, ArticleIdentityTieBreaker, StringComparison.Ordinal))
         {
             throw new AuthorSavedViewValidationException("saved_view_sort_tie_breaker_invalid");
@@ -372,11 +532,17 @@ public static class AuthorSavedViewContract
 
         foreach (AuthorSavedViewFieldReference field in projection)
         {
-            if (!Enum.IsDefined(field.Kind))
+            ArgumentNullException.ThrowIfNull(field);
+            AuthorSavedViewFieldDescriptor? descriptor = FindField(field.Kind);
+            if (descriptor is null)
             {
                 throw new AuthorSavedViewValidationException("saved_view_projection_field_kind_unknown");
             }
             ValidateIdentity(field.Identity, "saved_view_projection_field_invalid");
+            if (!descriptor.AcceptsIdentity(field.Identity))
+            {
+                throw new AuthorSavedViewValidationException("saved_view_projection_field_unknown");
+            }
         }
 
         if (projection.Distinct().Count() != projection.Count)
@@ -545,7 +711,8 @@ public sealed class AuthorSavedViewQueryValidator(
 
         AuthorSavedViewOperatorDescriptor descriptor = resolution.Operator;
         if (!string.Equals(descriptor.Id, condition.OperatorId, StringComparison.Ordinal)
-            || !descriptor.FieldKinds.Contains(condition.Field.Kind))
+            || !descriptor.FieldKinds.Contains(condition.Field.Kind)
+            || !AuthorSavedViewContract.IsRegisteredOperatorDescriptor(descriptor))
         {
             throw new AuthorSavedViewValidationException("saved_view_operator_field_incompatible");
         }
@@ -665,20 +832,19 @@ public sealed class AuthorSavedViewDependencyCatalog(
         AuthorSavedViewCondition condition,
         CancellationToken cancellationToken = default)
     {
-        AuthorSavedViewOperatorDescriptor? builtIn = AuthorSavedViewContract.FindBuiltInOperator(condition.OperatorId);
-        if (AuthorSavedViewContract.IsBuiltInField(condition.Field))
+        AuthorSavedViewOperatorDescriptor descriptor = AuthorSavedViewContract.FindBuiltInOperator(condition.OperatorId)
+            ?? throw new AuthorSavedViewValidationException("saved_view_operator_unknown");
+        AuthorSavedViewFieldDescriptor field = AuthorSavedViewContract.FindField(condition.Field.Kind)
+            ?? throw new AuthorSavedViewValidationException("saved_view_field_kind_unknown");
+        if (!field.AcceptsIdentity(condition.Field.Identity)
+            || !field.OperatorIds.Contains(condition.OperatorId, StringComparer.Ordinal)
+            || !descriptor.FieldKinds.Contains(condition.Field.Kind))
         {
-            if (builtIn is null || !builtIn.FieldKinds.Contains(condition.Field.Kind))
-            {
-                return Unknown(condition.Field, condition.OperatorId, AuthorSavedViewDependencyStatus.TypeOrOperatorIncompatible);
-            }
+            throw new AuthorSavedViewValidationException("saved_view_operator_field_incompatible");
+        }
 
-            if (condition.Field.Kind == AuthorSavedViewFieldKind.FullText)
-            {
-                return await ResolveFromProvidersAsync(owner, condition, cancellationToken).ConfigureAwait(false)
-                    ?? Unknown(condition.Field, condition.OperatorId, AuthorSavedViewDependencyStatus.MigrationRequired, builtIn);
-            }
-
+        if (!field.RequiresDependencyProvider)
+        {
             if (condition.Field.Kind == AuthorSavedViewFieldKind.LifecycleStatus
                 && condition.Values.Any(value => !AuthorSavedViewContract.IsLifecycleStatus(value)))
             {
@@ -686,7 +852,7 @@ public sealed class AuthorSavedViewDependencyCatalog(
                     condition.Field,
                     condition.OperatorId,
                     AuthorSavedViewDependencyStatus.TypeOrOperatorIncompatible,
-                    builtIn);
+                    descriptor);
             }
 
             return new AuthorSavedViewDependencyResolution(
@@ -694,12 +860,23 @@ public sealed class AuthorSavedViewDependencyCatalog(
                 condition.OperatorId,
                 AuthorSavedViewDependencyStatus.Current,
                 "saved-view-contract-v1",
-                builtIn,
+                descriptor,
                 [.. condition.Values]);
         }
 
-        return await ResolveFromProvidersAsync(owner, condition, cancellationToken).ConfigureAwait(false)
-            ?? Unknown(condition.Field, condition.OperatorId, AuthorSavedViewDependencyStatus.Unknown, builtIn);
+        AuthorSavedViewDependencyFact? fact = await ResolveFromProvidersAsync(
+            owner,
+            condition,
+            cancellationToken).ConfigureAwait(false);
+        if (fact is null)
+        {
+            AuthorSavedViewDependencyStatus missingStatus = condition.Field.Kind == AuthorSavedViewFieldKind.FullText
+                ? AuthorSavedViewDependencyStatus.MigrationRequired
+                : AuthorSavedViewDependencyStatus.Unknown;
+            return Unknown(condition.Field, condition.OperatorId, missingStatus, descriptor);
+        }
+
+        return ResolutionFromFact(condition.Field, condition.OperatorId, descriptor, fact);
     }
 
     public async ValueTask<AuthorSavedViewDependencyResolution> ResolveSortAsync(
@@ -713,31 +890,30 @@ public sealed class AuthorSavedViewDependencyCatalog(
             return Projection(sort.Field, "sort", AuthorSavedViewDependencyStatus.Current, "saved-view-contract-v1");
         }
 
-        var resolutions = new List<AuthorSavedViewDependencyResolution>();
+        var facts = new List<AuthorSavedViewDependencyFact>();
         foreach (IAuthorSavedViewDependencyProvider provider in _providers)
         {
-            AuthorSavedViewDependencyResolution? resolution = await provider.ResolveSortAsync(
+            AuthorSavedViewDependencyFact? fact = await provider.ResolveSortAsync(
                 owner,
                 sort,
                 cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
-            if (resolution is not null)
+            if (fact is not null)
             {
-                resolutions.Add(resolution);
+                facts.Add(fact);
             }
         }
-        if (resolutions.Count > 1)
+        if (facts.Count == 0)
         {
-            return resolutions[0] with
+            return Projection(sort.Field, "sort", AuthorSavedViewDependencyStatus.Unknown, "unavailable");
+        }
+        AuthorSavedViewDependencyFact selected = facts.Count == 1
+            ? facts[0]
+            : facts[0] with
             {
                 Status = AuthorSavedViewDependencyStatus.DuplicateAuthority
             };
-        }
-        if (resolutions.Count == 1)
-        {
-            return resolutions[0];
-        }
-        return Projection(sort.Field, "sort", AuthorSavedViewDependencyStatus.Unknown, "unavailable");
+        return ProjectionFromFact(sort.Field, "sort", selected);
     }
 
     public async ValueTask<AuthorSavedViewDependencyResolution> ResolveProjectionAsync(
@@ -751,79 +927,115 @@ public sealed class AuthorSavedViewDependencyCatalog(
             return Projection(field, "projection", AuthorSavedViewDependencyStatus.Current, "saved-view-contract-v1");
         }
 
-        var resolutions = new List<AuthorSavedViewDependencyResolution>();
+        var facts = new List<AuthorSavedViewDependencyFact>();
         foreach (IAuthorSavedViewDependencyProvider provider in _providers)
         {
-            AuthorSavedViewDependencyResolution? resolution = await provider.ResolveProjectionAsync(
+            AuthorSavedViewDependencyFact? fact = await provider.ResolveProjectionAsync(
                 owner,
                 field,
                 cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
-            if (resolution is not null)
+            if (fact is not null)
             {
-                resolutions.Add(resolution);
+                facts.Add(fact);
             }
         }
-        if (resolutions.Count > 1)
+        if (facts.Count == 0)
         {
-            return resolutions[0] with
+            return Projection(field, "projection", AuthorSavedViewDependencyStatus.Unknown, "unavailable");
+        }
+        AuthorSavedViewDependencyFact selected = facts.Count == 1
+            ? facts[0]
+            : facts[0] with
             {
                 Status = AuthorSavedViewDependencyStatus.DuplicateAuthority
             };
-        }
-        if (resolutions.Count == 1)
-        {
-            return resolutions[0];
-        }
-        return Projection(field, "projection", AuthorSavedViewDependencyStatus.Unknown, "unavailable");
+        return ProjectionFromFact(field, "projection", selected);
     }
 
-    private async ValueTask<AuthorSavedViewDependencyResolution?> ResolveFromProvidersAsync(
+    private async ValueTask<AuthorSavedViewDependencyFact?> ResolveFromProvidersAsync(
         AuthorSavedViewOwner owner,
         AuthorSavedViewCondition condition,
         CancellationToken cancellationToken)
     {
-        var resolutions = new List<AuthorSavedViewDependencyResolution>();
+        var facts = new List<AuthorSavedViewDependencyFact>();
         foreach (IAuthorSavedViewDependencyProvider provider in _providers)
         {
-            AuthorSavedViewDependencyResolution? resolution = await provider.ResolveConditionAsync(
+            AuthorSavedViewDependencyFact? fact = await provider.ResolveConditionAsync(
                 owner,
                 condition,
                 cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
-            if (resolution is not null)
+            if (fact is not null)
             {
-                resolutions.Add(resolution);
+                facts.Add(fact);
             }
         }
-        return resolutions.Count switch
+        return facts.Count switch
         {
             0 => null,
-            1 => resolutions[0],
-            _ => resolutions[0] with { Status = AuthorSavedViewDependencyStatus.DuplicateAuthority }
+            1 => facts[0],
+            _ => facts[0] with { Status = AuthorSavedViewDependencyStatus.DuplicateAuthority }
         };
+    }
+
+    private static AuthorSavedViewDependencyResolution ResolutionFromFact(
+        AuthorSavedViewFieldReference expectedField,
+        string expectedOperatorId,
+        AuthorSavedViewOperatorDescriptor descriptor,
+        AuthorSavedViewDependencyFact fact)
+    {
+        ValidateFact(expectedField, expectedOperatorId, fact, allowCanonicalValues: true);
+        return new AuthorSavedViewDependencyResolution(
+            fact.Dependency,
+            fact.OperatorId,
+            fact.Status,
+            fact.AuthorityRevision,
+            descriptor,
+            fact.CanonicalValues);
+    }
+
+    private static AuthorSavedViewDependencyResolution ProjectionFromFact(
+        AuthorSavedViewFieldReference expectedField,
+        string expectedOperation,
+        AuthorSavedViewDependencyFact fact)
+    {
+        ValidateFact(expectedField, expectedOperation, fact, allowCanonicalValues: false);
+        return Projection(expectedField, expectedOperation, fact.Status, fact.AuthorityRevision);
+    }
+
+    private static void ValidateFact(
+        AuthorSavedViewFieldReference expectedField,
+        string expectedOperatorId,
+        AuthorSavedViewDependencyFact fact,
+        bool allowCanonicalValues)
+    {
+        ArgumentNullException.ThrowIfNull(fact);
+        ArgumentNullException.ThrowIfNull(fact.Dependency);
+        ArgumentNullException.ThrowIfNull(fact.CanonicalValues);
+        if (fact.Dependency != expectedField
+            || !string.Equals(fact.OperatorId, expectedOperatorId, StringComparison.Ordinal)
+            || !Enum.IsDefined(fact.Status)
+            || string.IsNullOrWhiteSpace(fact.AuthorityRevision)
+            || fact.AuthorityRevision.Length > AuthorSavedViewContract.MaxIdentityLength
+            || fact.AuthorityRevision.Any(static character => char.IsControl(character) || char.IsWhiteSpace(character))
+            || (!allowCanonicalValues && fact.CanonicalValues.Count != 0))
+        {
+            throw new AuthorSavedViewValidationException("saved_view_dependency_fact_tampered");
+        }
     }
 
     private static AuthorSavedViewDependencyResolution Unknown(
         AuthorSavedViewFieldReference field,
         string operatorId,
         AuthorSavedViewDependencyStatus status,
-        AuthorSavedViewOperatorDescriptor? descriptor = null)
+        AuthorSavedViewOperatorDescriptor descriptor)
         => new(
             field,
             operatorId,
             status,
             "unavailable",
-            descriptor ?? new AuthorSavedViewOperatorDescriptor(
-                operatorId,
-                [field.Kind],
-                AuthorSavedViewValueKind.Text,
-                AuthorSavedViewOperatorCardinality.MultipleSet,
-                AuthorSavedViewNullSemantics.AuthorityOwned,
-                AuthorSavedViewCaseSemantics.AuthorityOwned,
-                AuthorSavedViewDateBoundary.AuthorityOwned,
-                "unavailable",
-                "unavailable"),
+            descriptor,
             []);
 
     private static AuthorSavedViewDependencyResolution Projection(
@@ -842,6 +1054,7 @@ public sealed class AuthorSavedViewDependencyCatalog(
                 AuthorSavedViewValueKind.None,
                 AuthorSavedViewOperatorCardinality.None,
                 AuthorSavedViewNullSemantics.AuthorityOwned,
+                AuthorSavedViewDefaultSemantics.AuthorityOwned,
                 AuthorSavedViewCaseSemantics.AuthorityOwned,
                 AuthorSavedViewDateBoundary.AuthorityOwned,
                 "owning-domain",
@@ -869,23 +1082,46 @@ public interface IAuthorSavedViewDependencyCatalog
 
 public interface IAuthorSavedViewDependencyProvider
 {
-    ValueTask<AuthorSavedViewDependencyResolution?> ResolveConditionAsync(
+    ValueTask<AuthorSavedViewDependencyFact?> ResolveConditionAsync(
         AuthorSavedViewOwner owner,
         AuthorSavedViewCondition condition,
         CancellationToken cancellationToken = default);
 
-    ValueTask<AuthorSavedViewDependencyResolution?> ResolveSortAsync(
+    ValueTask<AuthorSavedViewDependencyFact?> ResolveSortAsync(
         AuthorSavedViewOwner owner,
         AuthorSavedViewSort sort,
         CancellationToken cancellationToken = default);
 
-    ValueTask<AuthorSavedViewDependencyResolution?> ResolveProjectionAsync(
+    ValueTask<AuthorSavedViewDependencyFact?> ResolveProjectionAsync(
         AuthorSavedViewOwner owner,
         AuthorSavedViewFieldReference field,
         CancellationToken cancellationToken = default);
 }
 
 public readonly record struct AuthorSavedViewOwner(long AdminPrincipalId, string SiteScope);
+
+public enum AuthorSavedViewSchemaVersionStatus
+{
+    Current = 0,
+    MigrationRequired = 1,
+    FutureUnsupported = 2
+}
+
+public enum AuthorSavedViewOldSchemaDisposition
+{
+    ExplicitMigrationRequired = 0
+}
+
+public enum AuthorSavedViewFutureSchemaDisposition
+{
+    Reject = 0
+}
+
+public sealed record AuthorSavedViewSchemaVersionPolicy(
+    int CurrentVersion,
+    int MinimumSupportedVersion,
+    AuthorSavedViewOldSchemaDisposition OldSchemaDisposition,
+    AuthorSavedViewFutureSchemaDisposition FutureSchemaDisposition);
 
 public enum AuthorSavedViewFieldKind
 {
@@ -906,7 +1142,14 @@ public enum AuthorSavedViewValueKind
     Text = 2,
     LocalDate = 3,
     Number = 4,
-    Boolean = 5
+    Boolean = 5,
+    AuthorityOwned = 6
+}
+
+public enum AuthorSavedViewFieldIdentityKind
+{
+    Exact = 0,
+    AuthorityStableIdentity = 1
 }
 
 public enum AuthorSavedViewOperatorCardinality
@@ -923,6 +1166,13 @@ public enum AuthorSavedViewNullSemantics
     MissingOnly = 1,
     PresentOnly = 2,
     AuthorityOwned = 3
+}
+
+public enum AuthorSavedViewDefaultSemantics
+{
+    NotApplicable = 0,
+    DistinctFromMissing = 1,
+    AuthorityOwned = 2
 }
 
 public enum AuthorSavedViewCaseSemantics
@@ -973,6 +1223,25 @@ public sealed record AuthorSavedViewFieldReference(
     AuthorSavedViewFieldKind Kind,
     string Identity);
 
+public sealed record AuthorSavedViewFieldDescriptor(
+    AuthorSavedViewFieldKind Kind,
+    AuthorSavedViewFieldIdentityKind IdentityKind,
+    IReadOnlyList<string> ExactIdentities,
+    string? StableIdentityPrefix,
+    IReadOnlyList<string> OperatorIds,
+    bool RequiresDependencyProvider)
+{
+    public bool AcceptsIdentity(string identity)
+        => IdentityKind switch
+        {
+            AuthorSavedViewFieldIdentityKind.Exact => ExactIdentities.Contains(identity, StringComparer.Ordinal),
+            AuthorSavedViewFieldIdentityKind.AuthorityStableIdentity => StableIdentityPrefix is not null
+                && identity.StartsWith(StableIdentityPrefix, StringComparison.Ordinal)
+                && identity.Length > StableIdentityPrefix.Length,
+            _ => false
+        };
+}
+
 public sealed record AuthorSavedViewCondition(
     AuthorSavedViewFieldReference Field,
     string OperatorId,
@@ -1000,6 +1269,7 @@ public sealed record AuthorSavedViewOperatorDescriptor(
     AuthorSavedViewValueKind ValueKind,
     AuthorSavedViewOperatorCardinality Cardinality,
     AuthorSavedViewNullSemantics NullSemantics,
+    AuthorSavedViewDefaultSemantics DefaultSemantics,
     AuthorSavedViewCaseSemantics CaseSemantics,
     AuthorSavedViewDateBoundary DateBoundary,
     string PermissionOwner,
@@ -1011,6 +1281,13 @@ public sealed record AuthorSavedViewDependencyResolution(
     AuthorSavedViewDependencyStatus Status,
     string AuthorityRevision,
     AuthorSavedViewOperatorDescriptor Operator,
+    IReadOnlyList<string> CanonicalValues);
+
+public sealed record AuthorSavedViewDependencyFact(
+    AuthorSavedViewFieldReference Dependency,
+    string OperatorId,
+    AuthorSavedViewDependencyStatus Status,
+    string AuthorityRevision,
     IReadOnlyList<string> CanonicalValues);
 
 public sealed record AuthorSavedViewQueryValidationResult(
