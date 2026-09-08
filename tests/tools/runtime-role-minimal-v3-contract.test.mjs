@@ -5,7 +5,7 @@ import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs'
 import { validateMinimalContractBuildReceipt } from '../../tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs'
 import { validateBehaviorDocStaticAdmissionReceipt, validateBehaviorDocStaticAdmissionReceiptV3 } from '../../tools/docs/behavior-doc-static-admission-contract.mjs'
 import { root, validatePostRuntimeReaderFirewall } from '../../tools/test-matrix/post-runtime-producer-registry.mjs'
-import { createRuntimeRoleMinimalV3Fixture } from './support/runtime-role-minimal-v3-fixture.mjs'
+import { createRuntimeRoleMinimalV3Fixture, createRuntimeRoleStaticV3Fixture } from './support/runtime-role-minimal-v3-fixture.mjs'
 
 const identity = { sourceCommit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) }
 const seal = (value) => {
@@ -18,22 +18,7 @@ const options = { expectedRunId: 'v3-contract-test', expectedSourceIdentity: ide
 
 test('explicit static admission v3 uses the same complete admission gate and never falls back to v1', () =>
 {
-    const admission = seal({
-        schema: 'fsusblog.behavior-doc-static-admission-receipt.v1',
-        run: { id: 'v3-contract-test' },
-        source: { commit: identity.sourceCommit, worktreeFingerprint: identity.worktreeFingerprint },
-        worktree: { root },
-        toolchain: { node: 'v24.0.0', dotnet: '10.0.100', platform: 'linux', architecture: 'x64', directoryBuildPropsDigest: '1'.repeat(64) },
-        authorityDigests: Object.fromEntries(['catalog', 'claim', 'extractorRegistry', 'generatedSectionCatalog',
-            'generatedRenderer', 'proseRenderer', 'mutationCatalog'].map((key) => [key, '2'.repeat(64)])),
-        implementationOwner: { status: 'ok', bindingCount: 1, contentDigest: '3'.repeat(64) },
-        factObservations: { 'runtime-role': { status: 'ok', extractorDigest: '4'.repeat(64), semanticDigest: '5'.repeat(64), contentDigest: '6'.repeat(64) } },
-        minimalContractBuild: fixture(),
-        generated: { status: 'ok', documentCount: 0, contentDigest: '7'.repeat(64) },
-        prose: { status: 'ok', verifiedClaimCount: 0, contentDigest: '8'.repeat(64) },
-        mutationFixtures: { status: 'ok', caseCount: 9, contentDigest: '9'.repeat(64) },
-        candidateSpawnCountBeforeReceipt: 0, status: 'ok', failureReasons: [], durationMs: 1
-    })
+    const admission = createRuntimeRoleStaticV3Fixture('v3-contract-test', identity, { repositoryRoot: root })
     const expected = { ...options, expectedWorktree: root, expectedExtractorIds: ['runtime-role'] }
     assert.equal(validateBehaviorDocStaticAdmissionReceiptV3(admission, expected), admission)
     assert.throws(() => validateBehaviorDocStaticAdmissionReceipt(admission, expected), /artifact .* invalid/u)
@@ -62,6 +47,25 @@ test('canonical runtime-role v3 value validator preserves exact build and oracle
     assert.equal(receipt.artifacts['runtime-role-observation'].buildReceipt.schema,
         'fsusblog.runtime-role-observation-build-receipt.v3')
     validatePostRuntimeReaderFirewall(root, 'tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs')
+})
+
+test('shared static v3 fixture preserves explicit run, source, extractor and minimal-build inputs', () =>
+{
+    const source = { sourceCommit: 'c'.repeat(40), worktreeFingerprint: 'd'.repeat(64) }
+    const runId = 'shared-static-v3-fixture'
+    const minimalContractBuild = createRuntimeRoleMinimalV3Fixture(runId, source)
+    const before = structuredClone(minimalContractBuild)
+    const extractorIds = ['first-extractor', 'second-extractor']
+    const admission = createRuntimeRoleStaticV3Fixture(runId, source, {
+        repositoryRoot: root, extractorIds, minimalContractBuild
+    })
+    assert.equal(validateBehaviorDocStaticAdmissionReceiptV3(admission, {
+        expectedRunId: runId, expectedSourceIdentity: source,
+        expectedWorktree: root, expectedExtractorIds: extractorIds
+    }), admission)
+    assert.deepEqual(admission.minimalContractBuild, minimalContractBuild)
+    assert.notEqual(admission.minimalContractBuild, minimalContractBuild)
+    assert.deepEqual(minimalContractBuild, before)
 })
 
 test('canonical runtime-role v3 rejects re-sealed legacy, partial and coordinated identity drift', () =>
