@@ -22,6 +22,39 @@ public sealed class ArticleTemplateContractTests
             () => ArticleTemplateSource.FromUtf8("<script>alert(1)</script>")).Code);
         Assert.Equal("article_template_dynamic_source_forbidden", Assert.Throws<ArticleTemplateValidationException>(
             () => ArticleTemplateSource.FromUtf8("{% include 'remote' %}")).Code);
+
+        ArticleTemplateSource maximum = ArticleTemplateSource.FromUtf8(
+            new string('a', ArticleTemplateContract.MaxSourceBytes));
+        Assert.Equal(ArticleTemplateContract.MaxSourceBytes, maximum.Length);
+        Assert.Equal("article_template_source_budget_exceeded", Assert.Throws<ArticleTemplateBudgetExceededException>(
+            () => ArticleTemplateSource.FromUtf8(new string('a', ArticleTemplateContract.MaxSourceBytes + 1))).Code);
+        Assert.Equal("article_template_variable_budget_exceeded", Assert.Throws<ArticleTemplateBudgetExceededException>(
+            () => ArticleTemplateSource.FromUtf8(string.Concat(
+                Enumerable.Repeat("{{title}}", ArticleTemplateContract.MaxVariableOccurrences + 1)))).Code);
+    }
+
+    [Fact]
+    public void ClosedSchemas_DoNotOwnArticleStateOrAutomaticTemplatePreferences()
+    {
+        Type[] closedTypes =
+        [
+            typeof(ArticleTemplateDefinition),
+            typeof(ArticleTemplateVersion),
+            typeof(ArticleTemplateDefaults),
+            typeof(CreateArticleTemplateCommand),
+            typeof(CreateArticleTemplateVersionCommand)
+        ];
+        string[] forbidden =
+        [
+            "DefaultTemplate", "LastTemplate", "RecentTemplate", "PublicationStatus",
+            "Views", "Comments", "History", "Session", "ArticleRevision", "DraftId"
+        ];
+
+        Assert.All(closedTypes, type => Assert.All(
+            forbidden,
+            name => Assert.DoesNotContain(type.GetProperties(), property => property.Name.Contains(
+                name,
+                StringComparison.OrdinalIgnoreCase))));
     }
 
     [Fact]
@@ -79,21 +112,82 @@ public sealed class ArticleTemplateContractTests
                 ArticleTemplateSource.FromUtf8("stale"), new ArticleTemplateDefaults())));
         Assert.Equal("article_template_version_cas_stale", stale.Code);
 
+        ArticleTemplateWriteReceipt renamed = await store.RenameAsync(new(
+            actor, templateId, Guid.NewGuid(), 2, 2, "Renamed", "updated"));
+        Assert.Equal(3, renamed.TemplateRevision);
+        Assert.Equal("Renamed", (await store.GetAsync(actor, templateId))!.Name);
+
         ArticleTemplateConflictException activeDelete = await Assert.ThrowsAsync<ArticleTemplateConflictException>(
-            () => store.DeleteAsync(new(actor, templateId, Guid.NewGuid(), 2, 2)));
+            () => store.DeleteAsync(new(actor, templateId, Guid.NewGuid(), 3, 3)));
         Assert.Equal("article_template_delete_requires_retired", activeDelete.Code);
-        await store.RetireAsync(new(actor, templateId, Guid.NewGuid(), 2, 2));
+        await store.RetireAsync(new(actor, templateId, Guid.NewGuid(), 3, 3));
 
         persistence.UsageCount = 1;
         ArticleTemplateConflictException usedDelete = await Assert.ThrowsAsync<ArticleTemplateConflictException>(
-            () => store.DeleteAsync(new(actor, templateId, Guid.NewGuid(), 3, 3)));
+            () => store.DeleteAsync(new(actor, templateId, Guid.NewGuid(), 4, 4)));
         Assert.Equal("article_template_delete_in_use", usedDelete.Code);
 
         persistence.UsageCount = 0;
-        ArticleTemplateWriteReceipt deleted = await store.DeleteAsync(new(actor, templateId, Guid.NewGuid(), 3, 3));
+        ArticleTemplateWriteReceipt deleted = await store.DeleteAsync(new(actor, templateId, Guid.NewGuid(), 4, 4));
         Assert.Equal(ArticleTemplateDeleteDisposition.TombstonedHistoryPreserved, deleted.DeleteDisposition);
         Assert.Equal(2, persistence.Versions.Count);
         await Assert.ThrowsAsync<ArticleTemplateAccessDeniedException>(() => store.GetAsync(actor, templateId));
+    }
+
+    [Fact]
+    public async Task Store_PagesZeroOneAndOneThousandTemplatesAndVersionsWithinBudget()
+    {
+        var persistence = new TestPersistence();
+        ArticleTemplateStore store = CreateStore(persistence);
+        ArticleTemplateActor actor = Actor(AdminPermissions.ArticleWrite);
+        ArticleTemplateScope scope = ArticleTemplateContract.PersonalScope(actor.AdminPrincipalId);
+        Assert.Empty((await store.ListAsync(actor, scope, null, 100)).Items);
+
+        for (int index = 0; index < ArticleTemplateContract.MaxTemplatesPerScope; index++)
+        {
+            ArticleTemplateDefinition definition = Definition(scope, index);
+            persistence.Definitions.Add(definition.TemplateId, definition);
+        }
+        int templateCount = 0;
+        ArticleTemplatePageCursor? templateCursor = null;
+        do
+        {
+            ArticleTemplatePage page = await store.ListAsync(actor, scope, templateCursor, 100);
+            templateCount += page.Items.Count;
+            templateCursor = page.NextCursor;
+        }
+        while (templateCursor is not null);
+        Assert.Equal(ArticleTemplateContract.MaxTemplatesPerScope, templateCount);
+        await Assert.ThrowsAsync<ArticleTemplateBudgetExceededException>(() => store.CreateAsync(new(
+            actor, scope, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 0, "overflow", null,
+            ArticleTemplateSource.FromUtf8(string.Empty), new ArticleTemplateDefaults())));
+
+        ArticleTemplateDefinition first = persistence.Definitions.Values.First();
+        persistence.Definitions[first.TemplateId] = first with
+        {
+            CurrentVersionNumber = ArticleTemplateContract.MaxVersionsPerTemplate,
+            CurrentVersionId = Guid.Parse("ffffffff-ffff-ffff-ffff-ffffffffffff"),
+            ContentDigest = string.Empty
+        };
+        persistence.Definitions[first.TemplateId] = persistence.Definitions[first.TemplateId] with
+        {
+            ContentDigest = ArticleTemplateContract.ComputeDefinitionDigest(persistence.Definitions[first.TemplateId])
+        };
+        for (int index = 1; index <= ArticleTemplateContract.MaxVersionsPerTemplate; index++)
+        {
+            persistence.Versions.Add(Version(first.TemplateId, index));
+        }
+        int versionCount = 0;
+        int? versionCursor = null;
+        do
+        {
+            ArticleTemplateVersionPage page = await store.ListVersionsAsync(
+                actor, first.TemplateId, versionCursor, 100);
+            versionCount += page.Items.Count;
+            versionCursor = page.NextVersionNumber;
+        }
+        while (versionCursor is not null);
+        Assert.Equal(ArticleTemplateContract.MaxVersionsPerTemplate, versionCount);
     }
 
     [Fact]
@@ -157,6 +251,52 @@ public sealed class ArticleTemplateContractTests
 
     private static ArticleTemplateActor Actor(params string[] permissions) => new(42, permissions);
 
+    private static ArticleTemplateDefinition Definition(ArticleTemplateScope scope, int index)
+    {
+        var definition = new ArticleTemplateDefinition(
+            ArticleTemplateContract.SchemaVersion,
+            Guid.CreateVersion7(),
+            scope,
+            $"template-{index:D4}",
+            $"TEMPLATE-{index:D4}",
+            null,
+            ArticleTemplateStatus.Active,
+            1,
+            Guid.CreateVersion7(),
+            1,
+            s_now,
+            s_now,
+            string.Empty);
+        return definition with
+        {
+            ContentDigest = ArticleTemplateContract.ComputeDefinitionDigest(definition)
+        };
+    }
+
+    private static ArticleTemplateVersion Version(Guid templateId, int versionNumber)
+    {
+        ArticleTemplateSource source = ArticleTemplateSource.FromUtf8(string.Empty);
+        var defaults = new ArticleTemplateDefaults();
+        string defaultsDigest = ArticleTemplateContract.ComputeDefaultsDigest(defaults);
+        var version = new ArticleTemplateVersion(
+            ArticleTemplateContract.SchemaVersion,
+            templateId,
+            versionNumber == ArticleTemplateContract.MaxVersionsPerTemplate
+                ? Guid.Parse("ffffffff-ffff-ffff-ffff-ffffffffffff")
+                : Guid.CreateVersion7(),
+            versionNumber,
+            42,
+            s_now,
+            source,
+            defaults,
+            defaultsDigest,
+            string.Empty);
+        return version with
+        {
+            ContentDigest = ArticleTemplateContract.ComputeVersionDigest(version)
+        };
+    }
+
     private sealed class FixedTimeProvider(DateTime value) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => new(value);
@@ -206,11 +346,24 @@ public sealed class ArticleTemplateContractTests
             ArticleTemplatePageCursor? cursor,
             int limit,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(new ArticleTemplatePage(
-                Definitions.Values.Where(item => item.Scope == scope && item.Status != ArticleTemplateStatus.Deleted)
-                    .OrderBy(item => item.NameKey, StringComparer.Ordinal).Take(limit).ToArray(),
-                null,
+        {
+            IEnumerable<ArticleTemplateDefinition> query = Definitions.Values
+                .Where(item => item.Scope == scope && item.Status != ArticleTemplateStatus.Deleted)
+                .OrderBy(item => item.NameKey, StringComparer.Ordinal)
+                .ThenBy(item => item.TemplateId);
+            if (cursor is not null)
+            {
+                query = query.Where(item => string.CompareOrdinal(item.NameKey, cursor.NameKey) > 0
+                    || (item.NameKey == cursor.NameKey && item.TemplateId.CompareTo(cursor.TemplateId) > 0));
+            }
+            ArticleTemplateDefinition[] candidates = [.. query.Take(limit + 1)];
+            bool hasMore = candidates.Length > limit;
+            ArticleTemplateDefinition[] items = [.. candidates.Take(limit)];
+            return Task.FromResult(new ArticleTemplatePage(
+                items,
+                hasMore ? new(items[^1].NameKey, items[^1].TemplateId) : null,
                 _scopeRevision));
+        }
 
         public Task<ArticleTemplateVersion?> GetVersionAsync(
             Guid templateId,
@@ -224,11 +377,17 @@ public sealed class ArticleTemplateContractTests
             int? afterVersionNumber,
             int limit,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(new ArticleTemplateVersionPage(
-                Versions.Where(item => item.TemplateId == templateId
-                        && (!afterVersionNumber.HasValue || item.VersionNumber < afterVersionNumber))
-                    .OrderByDescending(item => item.VersionNumber).Take(limit).ToArray(),
-                null));
+        {
+            ArticleTemplateVersion[] candidates = [.. Versions.Where(item => item.TemplateId == templateId
+                    && (!afterVersionNumber.HasValue || item.VersionNumber < afterVersionNumber))
+                .OrderByDescending(item => item.VersionNumber)
+                .Take(limit + 1)];
+            bool hasMore = candidates.Length > limit;
+            ArticleTemplateVersion[] items = [.. candidates.Take(limit)];
+            return Task.FromResult(new ArticleTemplateVersionPage(
+                items,
+                hasMore ? items[^1].VersionNumber : null));
+        }
 
         public async Task<ArticleTemplateWriteReceipt> ExecuteAsync(
             ArticleTemplateScope scope,
