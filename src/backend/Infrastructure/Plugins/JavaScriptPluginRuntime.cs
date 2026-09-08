@@ -425,6 +425,9 @@ public sealed class JavaScriptPluginRuntime(
         return ValueTask.CompletedTask;
     }
 
+    internal IReadOnlyList<JavaScriptPluginRuntimeSnapshot> GetLoadedSnapshots()
+        => _plugins.Select(static pair => pair.Value.GetSnapshot()).ToArray();
+
     public JavaScriptPluginRuntimeSnapshot GetSnapshot(string pluginId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);

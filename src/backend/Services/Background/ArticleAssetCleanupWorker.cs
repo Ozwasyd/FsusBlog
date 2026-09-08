@@ -22,6 +22,9 @@ public sealed class ArticleAssetCleanupQueue
 
     public bool TryRequestScan() => _signals.Writer.TryWrite(0);
 
+    internal int QueuedCount
+        => _signals.Reader.CanCount ? _signals.Reader.Count : (_signals.Reader.TryPeek(out _) ? 1 : 0);
+
     internal void Drain()
     {
         while (_signals.Reader.TryRead(out _))
