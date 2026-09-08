@@ -180,6 +180,103 @@ public sealed class RevisionComparePlannerTests
     }
 
     [Fact]
+    public async Task VerifyAsync_RejectsRehashedReceiptBindingTamper()
+    {
+        RevisionComparePackage baseline = Package(RevisionCompareSourceKind.HistoricalRevision, 11, 1, "base");
+        RevisionComparePackage current = Package(RevisionCompareSourceKind.CurrentRevision, 12, 2, "current");
+        var reader = new DelegateReader((_, selector, _) => Task.FromResult(
+            RevisionComparePackageReadResult.Available(selector.RevisionId == 11 ? baseline : current)));
+        RevisionComparePlanResult planned = await new RevisionComparePlanner(reader).CreateAsync(Request());
+        RevisionComparePlanReceipt receipt = planned.Bundle!.Receipt;
+        RevisionComparePlanReceipt[] tamperedReceipts =
+        [
+            receipt with { SchemaVersion = receipt.SchemaVersion + 1 },
+            receipt with { RequestId = Guid.Parse("9e8be2c4-fb3b-4af7-9a8e-e632c181583e") },
+            receipt with { ReasonCode = "accepted-rehashed" },
+            receipt with { BasePackageDigest = receipt.ComparePackageDigest },
+            receipt with { ComparePackageDigest = receipt.BasePackageDigest },
+            receipt with { CancellationIdentity = "compare:7:rehashed" }
+        ];
+
+        foreach (RevisionComparePlanReceipt tamperedReceipt in tamperedReceipts)
+        {
+            RevisionComparePlanBundle tampered = planned.Bundle with
+            {
+                Receipt = ResealReceipt(tamperedReceipt)
+            };
+
+            Assert.False(RevisionComparePlanVerifier.LocalBundleValid(tampered));
+        }
+    }
+
+    [Fact]
+    public async Task VerifyAsync_ReappliesRehashedPlanBudget()
+    {
+        RevisionComparePackage baseline = Package(RevisionCompareSourceKind.HistoricalRevision, 11, 1, "base");
+        RevisionComparePackage current = Package(RevisionCompareSourceKind.CurrentRevision, 12, 2, "current");
+        var reader = new DelegateReader((_, selector, _) => Task.FromResult(
+            RevisionComparePackageReadResult.Available(selector.RevisionId == 11 ? baseline : current)));
+        RevisionComparePlanResult planned = await new RevisionComparePlanner(reader).CreateAsync(Request());
+        RevisionComparePlan plan = ResealPlan(
+            planned.Bundle!.Plan,
+            planned.Bundle.Plan.Budgets with
+            {
+                MaxSourceBytes = 4
+            });
+        RevisionComparePlanReceipt receipt = ResealReceipt(planned.Bundle.Receipt with
+        {
+            PlanDigest = plan.ContentDigest
+        });
+        var tampered = new RevisionComparePlanBundle(
+            plan,
+            planned.Bundle.BasePackage,
+            planned.Bundle.ComparePackage,
+            receipt);
+
+        RevisionComparePlanVerification verification = await new RevisionComparePlanVerifier(reader).VerifyAsync(
+            tampered,
+            DateTimeOffset.UtcNow);
+
+        Assert.False(verification.Valid);
+        Assert.Equal(RevisionComparePlanStatus.BudgetExceeded, verification.Status);
+        Assert.Equal("revision_compare_source_budget_exceeded", verification.ReasonCode);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_RejectsTamperedFreshPackageWithMatchingReference()
+    {
+        RevisionComparePackage baseline = Package(RevisionCompareSourceKind.HistoricalRevision, 11, 1, "base");
+        RevisionComparePackage current = Package(RevisionCompareSourceKind.CurrentRevision, 12, 2, "current");
+        var tamperedCurrent = new RevisionComparePackage(
+            current.ArticleId,
+            current.SourceKind,
+            current.SourceIdentity,
+            current.RevisionId,
+            current.RevisionNo,
+            current.ServerRevision,
+            current.DocumentEpoch,
+            [.. Encoding.UTF8.GetBytes("CURRENT")],
+            current.SourceDigest,
+            current.Metadata,
+            current.Snapshots,
+            current.PackageDigest);
+        bool tampered = false;
+        var reader = new DelegateReader((_, selector, _) => Task.FromResult(
+            RevisionComparePackageReadResult.Available(
+                selector.RevisionId == 11 ? baseline : tampered ? tamperedCurrent : current)));
+        RevisionComparePlanResult planned = await new RevisionComparePlanner(reader).CreateAsync(Request());
+        tampered = true;
+
+        RevisionComparePlanVerification verification = await new RevisionComparePlanVerifier(reader).VerifyAsync(
+            planned.Bundle!,
+            DateTimeOffset.UtcNow);
+
+        Assert.False(verification.Valid);
+        Assert.Equal(RevisionComparePlanStatus.Tampered, verification.Status);
+        Assert.Equal("revision_compare_package_tampered", verification.ReasonCode);
+    }
+
+    [Fact]
     public async Task CreateAsync_RejectsUnknownMetadataFieldWithoutReadingSources()
     {
         var reader = new DelegateReader((_, _, _) => throw new InvalidOperationException("reader should not run"));
@@ -405,6 +502,52 @@ public sealed class RevisionComparePlannerTests
             Budgets(),
             "compare:7:11:12",
             DateTimeOffset.UtcNow.AddMinutes(5));
+
+    private static RevisionComparePlan ResealPlan(
+        RevisionComparePlan plan,
+        RevisionCompareBudgets budgets)
+    {
+        var request = new RevisionComparePlanRequest(
+            plan.ArticleId,
+            plan.Reader,
+            plan.BaseSelector,
+            plan.CompareSelector,
+            plan.Options,
+            budgets,
+            plan.CancellationIdentity,
+            plan.ExpiresAtUtc);
+        string contentDigest = RevisionCompareCanonical.PlanDigest(
+            request,
+            plan.BasePackage,
+            plan.ComparePackage);
+        return new RevisionComparePlan(
+            plan.SchemaVersion,
+            plan.PlannerVersion,
+            plan.ArticleId,
+            plan.Reader,
+            plan.BaseSelector,
+            plan.CompareSelector,
+            plan.BasePackage,
+            plan.ComparePackage,
+            plan.Options,
+            budgets,
+            plan.CancellationIdentity,
+            plan.ExpiresAtUtc,
+            contentDigest);
+    }
+
+    private static RevisionComparePlanReceipt ResealReceipt(RevisionComparePlanReceipt receipt)
+        => receipt with
+        {
+            ContentDigest = RevisionCompareCanonical.ReceiptDigest(
+                receipt.RequestId,
+                receipt.Status,
+                receipt.ReasonCode,
+                receipt.PlanDigest,
+                receipt.BasePackageDigest,
+                receipt.ComparePackageDigest,
+                receipt.CancellationIdentity)
+        };
 
     private static RevisionCompareBudgets Budgets()
         => new(1_024, 100, 1_000, 32_768, 1_048_576, 100, 10, 1_000);

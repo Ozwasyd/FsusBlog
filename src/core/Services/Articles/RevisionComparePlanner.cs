@@ -63,16 +63,9 @@ public sealed class RevisionComparePlanner(IRevisionComparePackageReader package
             string? validationCode = ValidatePackages(request, basePackage, comparePackage);
             if (validationCode is not null)
             {
-                RevisionComparePlanStatus status = validationCode.Contains("stale", StringComparison.Ordinal)
-                    ? RevisionComparePlanStatus.Stale
-                    : validationCode.Contains("budget", StringComparison.Ordinal)
-                        ? RevisionComparePlanStatus.BudgetExceeded
-                        : validationCode.Contains("tampered", StringComparison.Ordinal)
-                            ? RevisionComparePlanStatus.Tampered
-                            : RevisionComparePlanStatus.Invalid;
                 return Failure(
                     request,
-                    status,
+                    ValidationStatus(validationCode),
                     validationCode,
                     basePackage.PackageDigest,
                     comparePackage.PackageDigest);
@@ -147,7 +140,7 @@ public sealed class RevisionComparePlanner(IRevisionComparePackageReader package
         return Failure(request, status, reason);
     }
 
-    private static string? ValidatePackages(
+    internal static string? ValidatePackages(
         RevisionComparePlanRequest request,
         RevisionComparePackage basePackage,
         RevisionComparePackage comparePackage)
@@ -199,6 +192,15 @@ public sealed class RevisionComparePlanner(IRevisionComparePackageReader package
             ? "revision_compare_memory_budget_exceeded"
             : null;
     }
+
+    internal static RevisionComparePlanStatus ValidationStatus(string validationCode)
+        => validationCode.Contains("stale", StringComparison.Ordinal)
+            ? RevisionComparePlanStatus.Stale
+            : validationCode.Contains("budget", StringComparison.Ordinal)
+                ? RevisionComparePlanStatus.BudgetExceeded
+                : validationCode.Contains("tampered", StringComparison.Ordinal)
+                    ? RevisionComparePlanStatus.Tampered
+                    : RevisionComparePlanStatus.Invalid;
 
     internal static bool MatchesSelector(
         int articleId,
@@ -317,6 +319,14 @@ public sealed class RevisionComparePlanVerifier(IRevisionComparePackageReader pa
             {
                 return Invalid("revision_compare_source_stale", RevisionComparePlanStatus.Stale);
             }
+            RevisionComparePackage basePackage = baseRead.Package;
+            RevisionComparePackage comparePackage = compareRead.Package;
+            RevisionComparePlanRequest request = Request(bundle.Plan);
+            string? validationCode = RevisionComparePlanner.ValidatePackages(request, basePackage, comparePackage);
+            if (validationCode is not null)
+            {
+                return Invalid(validationCode, RevisionComparePlanner.ValidationStatus(validationCode));
+            }
             if (!RevisionCompareCanonical.ReferenceMatches(bundle.Plan.BasePackage, baseRead.Package)
                 || !RevisionCompareCanonical.ReferenceMatches(bundle.Plan.ComparePackage, compareRead.Package))
             {
@@ -343,21 +353,28 @@ public sealed class RevisionComparePlanVerifier(IRevisionComparePackageReader pa
             || !RevisionComparePackageSeal.Verify(bundle.ComparePackage)
             || !RevisionCompareCanonical.ReferenceMatches(bundle.Plan.BasePackage, bundle.BasePackage)
             || !RevisionCompareCanonical.ReferenceMatches(bundle.Plan.ComparePackage, bundle.ComparePackage)
+            || bundle.Receipt.SchemaVersion != RevisionCompareContract.SchemaVersion
+            || bundle.Receipt.RequestId != bundle.Plan.Reader.RequestId
             || bundle.Receipt.Status != RevisionComparePlanStatus.Accepted
-            || !string.Equals(bundle.Receipt.PlanDigest, bundle.Plan.ContentDigest, StringComparison.Ordinal))
+            || !string.Equals(bundle.Receipt.ReasonCode, "accepted", StringComparison.Ordinal)
+            || !string.Equals(bundle.Receipt.PlanDigest, bundle.Plan.ContentDigest, StringComparison.Ordinal)
+            || !string.Equals(
+                bundle.Receipt.BasePackageDigest,
+                bundle.Plan.BasePackage.PackageDigest,
+                StringComparison.Ordinal)
+            || !string.Equals(
+                bundle.Receipt.ComparePackageDigest,
+                bundle.Plan.ComparePackage.PackageDigest,
+                StringComparison.Ordinal)
+            || !string.Equals(
+                bundle.Receipt.CancellationIdentity,
+                bundle.Plan.CancellationIdentity,
+                StringComparison.Ordinal))
         {
             return false;
         }
 
-        var request = new RevisionComparePlanRequest(
-            bundle.Plan.ArticleId,
-            bundle.Plan.Reader,
-            bundle.Plan.BaseSelector,
-            bundle.Plan.CompareSelector,
-            bundle.Plan.Options,
-            bundle.Plan.Budgets,
-            bundle.Plan.CancellationIdentity,
-            bundle.Plan.ExpiresAtUtc);
+        RevisionComparePlanRequest request = Request(bundle.Plan);
         try
         {
             RevisionCompareContract.ValidateRequest(request);
@@ -382,6 +399,17 @@ public sealed class RevisionComparePlanVerifier(IRevisionComparePackageReader pa
         return string.Equals(expectedPlan, bundle.Plan.ContentDigest, StringComparison.Ordinal)
             && string.Equals(expectedReceipt, bundle.Receipt.ContentDigest, StringComparison.Ordinal);
     }
+
+    private static RevisionComparePlanRequest Request(RevisionComparePlan plan)
+        => new(
+            plan.ArticleId,
+            plan.Reader,
+            plan.BaseSelector,
+            plan.CompareSelector,
+            plan.Options,
+            plan.Budgets,
+            plan.CancellationIdentity,
+            plan.ExpiresAtUtc);
 
     private static RevisionComparePlanVerification Invalid(
         string reasonCode,
