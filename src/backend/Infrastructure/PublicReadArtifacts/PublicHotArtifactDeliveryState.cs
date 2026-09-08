@@ -33,7 +33,8 @@ public sealed record PublicHotArtifactObligation(
     IReadOnlyList<int> ArticleIds, bool RequiresFullRebuild, IReadOnlyDictionary<int, long> ExpectedReleaseIds,
     int AttemptNumber, PublicHotArtifactObligationState State, PublicHotArtifactFailureKind LastFailureKind,
     DateTimeOffset NextEligibleAt, IReadOnlyList<PublicHotArtifactAttemptEvidence> Attempts,
-    long PublishedGeneration = 0)
+    long PublishedGeneration = 0,
+    IReadOnlyList<string>? FragmentKeys = null)
 {
     public bool Recovered => AttemptNumber > 1;
     public bool IsTerminal => State == PublicHotArtifactObligationState.FailedTerminal;
@@ -247,7 +248,8 @@ internal sealed class InMemoryPublicHotArtifactDeliveryStateStore : IPublicHotAr
             generation,
             update.DirtyReason,
             update.ArticleId is int articleId ? [articleId] : [],
-            update.ArticleId is null,
+            update.RequiresFullRebuild
+                || update.DeliveryClass == PublicHotArtifactDeliveryClass.FullRebuildMarker,
             update.ExpectedReleaseId is long releaseId
                 && update.ArticleId is int expectedArticleId
                     ? new Dictionary<int, long> { { expectedArticleId, releaseId } }
@@ -256,7 +258,9 @@ internal sealed class InMemoryPublicHotArtifactDeliveryStateStore : IPublicHotAr
             PublicHotArtifactObligationState.Pending,
             PublicHotArtifactFailureKind.None,
             DateTimeOffset.MinValue,
-            []);
+            [],
+            0,
+            update.FragmentKeys ?? []);
     private static PublicHotArtifactObligation Merge(PublicHotArtifactObligation o, long g, PublicHotArtifactUpdate u)
     {
         var articles = o.ArticleIds.ToHashSet();
@@ -271,7 +275,15 @@ internal sealed class InMemoryPublicHotArtifactDeliveryStateStore : IPublicHotAr
             DirtyReasons = o.DirtyReasons | u.DirtyReason,
             ArticleIds = articles.Order().ToArray(),
             ExpectedReleaseIds = releases,
-            RequiresFullRebuild = o.RequiresFullRebuild || u.ArticleId is null,
+            RequiresFullRebuild = o.RequiresFullRebuild
+                || u.RequiresFullRebuild
+                || u.DeliveryClass == PublicHotArtifactDeliveryClass.FullRebuildMarker,
+            FragmentKeys = (o.FragmentKeys ?? [])
+                .Concat(u.FragmentKeys ?? [])
+                .Where(static value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)
+                .ToArray(),
             State = o.IsTerminal ? PublicHotArtifactObligationState.Pending : o.State,
             LastFailureKind = o.IsTerminal ? PublicHotArtifactFailureKind.None : o.LastFailureKind,
             NextEligibleAt = o.IsTerminal ? DateTimeOffset.MinValue : o.NextEligibleAt
@@ -305,7 +317,7 @@ public sealed class RedisPublicHotArtifactDeliveryStateStore(IConnectionMultiple
     private RedisKey Key(string suffix) => scope.PrefixKey(Base + ":" + suffix);
     private RedisKey LegacyKey(string suffix) => scope.PrefixKey("public-hot-read:{delivery}:" + suffix);
     // Lua owns every state transition; JSON is a single durable schema so a record can be inspected/replayed atomically.
-    private static readonly LuaScript s_mergeScript = LuaScript.Prepare("local g=redis.call('INCR',KEYS[1]); local id=redis.call('GET',KEYS[2]); local r; if not id then id=tostring(g); r={obligationId=id,targetGeneration=g,dirtyReasons=tonumber(ARGV[3]),articleIds={},requiresFullRebuild=(ARGV[4]=='1'),expectedReleaseIds={},attemptNumber=0,state=0,lastFailureKind=0,nextEligibleAt=0,attempts={},publishedGeneration=0}; redis.call('SET',KEYS[2],id) else local raw=redis.call('GET',KEYS[3]..id); r=cjson.decode(raw); if r.state==2 then id=tostring(g); r={obligationId=id,targetGeneration=g,dirtyReasons=tonumber(ARGV[3]),articleIds={},requiresFullRebuild=(ARGV[4]=='1'),expectedReleaseIds={},attemptNumber=0,state=0,lastFailureKind=0,nextEligibleAt=0,attempts={},publishedGeneration=0}; redis.call('SET',KEYS[2],id) else r.targetGeneration=math.max(r.targetGeneration,g); r.dirtyReasons=bit.bor(r.dirtyReasons,tonumber(ARGV[3])); if r.state==4 then if redis.call('GET',KEYS[4])==id then redis.call('DEL',KEYS[4]) end; r.state=0; r.lastFailureKind=0; r.nextEligibleAt=0 end; if ARGV[4]=='1' then r.requiresFullRebuild=true end end end; if ARGV[1]~='' then local seen=false; for _,v in ipairs(r.articleIds) do if v==tonumber(ARGV[1]) then seen=true end end; if not seen then table.insert(r.articleIds,tonumber(ARGV[1])) end; if ARGV[2]~='' then r.expectedReleaseIds[ARGV[1]]=tonumber(ARGV[2]) end end; redis.call('SET',KEYS[3]..id,cjson.encode(r)); return cjson.encode(r)");
+    private static readonly LuaScript s_mergeScript = LuaScript.Prepare("local g=redis.call('INCR',KEYS[1]); local id=redis.call('GET',KEYS[2]); local r; if not id then id=tostring(g); r={obligationId=id,targetGeneration=g,dirtyReasons=tonumber(ARGV[3]),articleIds={},requiresFullRebuild=(ARGV[4]=='1'),expectedReleaseIds={},attemptNumber=0,state=0,lastFailureKind=0,nextEligibleAt=0,attempts={},publishedGeneration=0,fragmentKeys={}}; redis.call('SET',KEYS[2],id) else local raw=redis.call('GET',KEYS[3]..id); r=cjson.decode(raw); if r.state==2 then id=tostring(g); r={obligationId=id,targetGeneration=g,dirtyReasons=tonumber(ARGV[3]),articleIds={},requiresFullRebuild=(ARGV[4]=='1'),expectedReleaseIds={},attemptNumber=0,state=0,lastFailureKind=0,nextEligibleAt=0,attempts={},publishedGeneration=0,fragmentKeys={}}; redis.call('SET',KEYS[2],id) else r.targetGeneration=math.max(r.targetGeneration,g); r.dirtyReasons=bit.bor(r.dirtyReasons,tonumber(ARGV[3])); if r.state==4 then if redis.call('GET',KEYS[4])==id then redis.call('DEL',KEYS[4]) end; r.state=0; r.lastFailureKind=0; r.nextEligibleAt=0 end; if ARGV[4]=='1' then r.requiresFullRebuild=true end end end; if ARGV[1]~='' then local seen=false; for _,v in ipairs(r.articleIds) do if v==tonumber(ARGV[1]) then seen=true end end; if not seen then table.insert(r.articleIds,tonumber(ARGV[1])) end; if ARGV[2]~='' then r.expectedReleaseIds[ARGV[1]]=tonumber(ARGV[2]) end end; if type(r.fragmentKeys)~='table' then r.fragmentKeys={} end; if ARGV[5]~='' then for frag in string.gmatch(ARGV[5],'[^'..string.char(31)..']+') do local seen=false; for _,v in ipairs(r.fragmentKeys) do if v==frag then seen=true end end; if not seen then table.insert(r.fragmentKeys,frag) end end end; redis.call('SET',KEYS[3]..id,cjson.encode(r)); return cjson.encode(r)");
     private static readonly LuaScript s_claimScript = LuaScript.Prepare("local id=redis.call('GET',KEYS[1]); if not id then return false end; local k=KEYS[2]..id; local r=cjson.decode(redis.call('GET',k)); if (r.state~=0 and r.state~=3) or r.nextEligibleAt>tonumber(ARGV[1]) then return false end; r.state=1; r.attemptNumber=r.attemptNumber+1; redis.call('SET',k,cjson.encode(r)); return cjson.encode(r)");
     private static readonly LuaScript s_recoverScript = LuaScript.Prepare("local id=redis.call('GET',KEYS[1]); if not id then return 0 end; local k=KEYS[2]..id; local r=cjson.decode(redis.call('GET',k)); if r.state==1 then r.state=0;r.nextEligibleAt=tonumber(ARGV[1]);redis.call('SET',k,cjson.encode(r));return 1 end;return 0");
     private static readonly LuaScript s_completeScript = LuaScript.Prepare("local id=redis.call('GET',KEYS[1]); if not id or id~=ARGV[1] then return 0 end; local k=KEYS[2]..id; local r=cjson.decode(redis.call('GET',k)); if r.state~=1 or r.attemptNumber~=tonumber(ARGV[2]) then return 0 end; table.insert(r.attempts,{attemptNumber=tonumber(ARGV[2]),stage=3,failureKind=0,recordedAt=tonumber(ARGV[5]),detail='published'}); if r.targetGeneration>tonumber(ARGV[3]) then r.state=0;r.nextEligibleAt=tonumber(ARGV[4]);redis.call('SET',k,cjson.encode(r));return 0 end; r.state=2;r.publishedGeneration=tonumber(ARGV[3]);r.nextEligibleAt='terminal';redis.call('SET',k,cjson.encode(r));return 1");
@@ -335,7 +347,17 @@ public sealed class RedisPublicHotArtifactDeliveryStateStore(IConnectionMultiple
     public async Task<PublicHotArtifactObligation> MergeAsync(PublicHotArtifactUpdate u, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        RedisResult result = await _db.ScriptEvaluateAsync(s_mergeScript.ExecutableScript, new RedisKey[] { Key("generation"), Key("active"), Key("record:"), Key("terminal") }, new RedisValue[] { u.ArticleId?.ToString() ?? "", u.ExpectedReleaseId?.ToString() ?? "", (int)u.DirtyReason, u.ArticleId is null ? "1" : "0" }).ConfigureAwait(false);
+        RedisResult result = await _db.ScriptEvaluateAsync(
+            s_mergeScript.ExecutableScript,
+            new RedisKey[] { Key("generation"), Key("active"), Key("record:"), Key("terminal") },
+            new RedisValue[]
+            {
+                u.ArticleId?.ToString() ?? "",
+                u.ExpectedReleaseId?.ToString() ?? "",
+                (int)u.DirtyReason,
+                u.RequiresFullRebuild || u.DeliveryClass == PublicHotArtifactDeliveryClass.FullRebuildMarker ? "1" : "0",
+                u.FragmentKeys is { Count: > 0 } ? string.Join('\u001f', u.FragmentKeys) : ""
+            }).ConfigureAwait(false);
         return Deserialize((string)result!);
     }
     public async Task<PublicHotArtifactObligation?> ClaimEligibleAsync(DateTimeOffset now, CancellationToken ct)
@@ -401,7 +423,8 @@ public sealed class RedisPublicHotArtifactDeliveryStateStore(IConnectionMultiple
         // schema collections before binding the durable record.
         string normalized = value
             .Replace("\"articleIds\":{}", "\"articleIds\":[]", StringComparison.Ordinal)
-            .Replace("\"attempts\":{}", "\"attempts\":[]", StringComparison.Ordinal);
+            .Replace("\"attempts\":{}", "\"attempts\":[]", StringComparison.Ordinal)
+            .Replace("\"fragmentKeys\":{}", "\"fragmentKeys\":[]", StringComparison.Ordinal);
         return JsonSerializer.Deserialize<PublicHotArtifactObligation>(normalized, _json)
             ?? throw new InvalidOperationException("public-hot obligation record is corrupt");
     }

@@ -2439,6 +2439,8 @@ async function runBackendTests()
   const distributedContractClasses = [
     'DistributedContractFastTests',
     'DistributedInvalidationBusTests',
+    'DistributedInvalidationTargetResolverTests',
+    'DistributedInvalidationLocalApplierTests',
     'PublicAotBackfillLeaseTests',
     'ArticleMutationProjectionCheckpointTests',
     'ArticleMutationOutboxFailurePropagationTests'

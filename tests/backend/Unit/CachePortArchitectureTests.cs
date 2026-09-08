@@ -51,7 +51,8 @@ public sealed class CachePortArchitectureTests
             typeof(ICacheInvalidationStore),
             typeof(ICacheLeaseStore),
             typeof(ICacheSingleFlightCoordinator),
-            typeof(ICacheDiagnostics)
+            typeof(ICacheDiagnostics),
+            typeof(ICacheLocalInvalidator)
         ];
         Assert.All(contracts, static contract =>
         {
