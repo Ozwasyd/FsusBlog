@@ -50,6 +50,6 @@ It should not be treated as:
 
 ## Reporting Issues
 
-Use [CONTRIBUTING.md](../CONTRIBUTING.md) and the GitHub issue templates for normal reports. Do not file security vulnerabilities as public issues; use [SECURITY.md](../SECURITY.md).
+Use [CONTRIBUTING.md](CONTRIBUTING.md) and the GitHub issue templates for normal reports. Do not file security vulnerabilities as public issues; use [SECURITY.md](SECURITY.md).
 
 See [ROADMAP.md](../ROADMAP.md) for capability stages, dependencies, and completion conditions.

@@ -64,7 +64,37 @@ internal sealed class NotificationStreamSessionService(
             }
 
             long replayStarted = Stopwatch.GetTimestamp();
-            var replay = await backlogStore.ReplayAsync(cursor, handshake.UserId, handshake.Groups, cancellationToken);
+            NotificationStreamReplayBatch replay;
+            try
+            {
+                replay = await backlogStore.ReplayAsync(cursor, handshake.UserId, handshake.Groups, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                manager.RecordReplayReadFailure("replay-read-exception", 1);
+                logger.LogWarning(ex, "notification-stream-replay-read-exception {ConnectionId}", connectionId);
+                await CloseSocketAsync(
+                    socket,
+                    sendGate,
+                    NotificationStreamRestartProtocol.ReplayRequired("replay-read-exception"));
+                return;
+            }
+
+            if (replay.RetryableFailure)
+            {
+                manager.RecordReplayReadFailure(replay.FailureReason ?? "replay-read-failed", replay.Attempts);
+                ReleaseReplayFrames(replay.Frames);
+                await CloseSocketAsync(
+                    socket,
+                    sendGate,
+                    NotificationStreamRestartProtocol.ReplayRequired(replay.FailureReason ?? "replay-read-failed"));
+                return;
+            }
+
             if (replay.MissedGap)
             {
                 ReleaseReplayFrames(replay.Frames);
@@ -73,6 +103,11 @@ internal sealed class NotificationStreamSessionService(
                     sendGate,
                     NotificationStreamRestartProtocol.Resolve(replayMissed: true, serviceRestartRequested: false));
                 return;
+            }
+
+            if (cursor.HasValue && replay.IsSuccessful)
+            {
+                manager.ResolveReplayReadFailure();
             }
 
             if (restartCoordinator?.IsRestartRequested == true)
@@ -160,58 +195,15 @@ internal sealed class NotificationStreamSessionService(
         {
             while (!cancellationToken.IsCancellationRequested && socket.State == WebSocketState.Open)
             {
-                SharedNotificationStreamFrame? frame;
                 try
                 {
-                    frame = await connection.Reader.ReadAsync(cancellationToken);
+                    await WriteNextQueuedFrameAsync(socket, connection, sendGate, cancellationToken, drillSendDelay);
                 }
                 catch (ChannelClosedException)
                 {
                     break;
                 }
 
-                try
-                {
-                    if (connection.IsClosed)
-                    {
-                        break;
-                    }
-
-                    await SendQueuedFrameAsync(socket, connection, frame.Memory, sendGate, drillSendDelay, cancellationToken);
-                }
-                finally
-                {
-                    connection.AcknowledgeDequeuedFrame();
-                    frame.Release();
-                }
-
-                if (socket.State != WebSocketState.Open)
-                {
-                    break;
-                }
-
-                while (connection.Reader.TryRead(out frame))
-                {
-                    try
-                    {
-                        if (connection.IsClosed)
-                        {
-                            break;
-                        }
-
-                        await SendQueuedFrameAsync(socket, connection, frame.Memory, sendGate, drillSendDelay, cancellationToken);
-                    }
-                    finally
-                    {
-                        connection.AcknowledgeDequeuedFrame();
-                        frame.Release();
-                    }
-
-                    if (socket.State != WebSocketState.Open)
-                    {
-                        break;
-                    }
-                }
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -231,6 +223,41 @@ internal sealed class NotificationStreamSessionService(
                 : NotificationStreamRestartProtocol.Resolve(
                     replayMissed: false,
                     serviceRestartRequested: restartCoordinator?.IsRestartRequested == true));
+    }
+
+    internal static async Task WriteNextQueuedFrameAsync(
+        WebSocket socket,
+        NotificationStreamConnection connection,
+        SemaphoreSlim sendGate,
+        CancellationToken cancellationToken,
+        TimeSpan? drillSendDelay = null)
+    {
+        NotificationStreamWriteLease lease = await connection.ReadForWriteAsync(cancellationToken).ConfigureAwait(false);
+        bool written = false;
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (connection.IsClosed)
+            {
+                return;
+            }
+
+            await SendQueuedFrameAsync(socket, connection, lease.Frame.Memory, sendGate, drillSendDelay, cancellationToken)
+                .ConfigureAwait(false);
+            written = true;
+        }
+        finally
+        {
+            try
+            {
+                connection.CompleteSocketWrite(lease, written,
+                    cancellationToken.IsCancellationRequested ? "connection-write-cancelled" : "connection-write-incomplete");
+            }
+            finally
+            {
+                lease.Frame.Release();
+            }
+        }
     }
 
     private static async Task SendQueuedFrameAsync(
@@ -275,10 +302,12 @@ internal sealed class NotificationStreamSessionService(
         await sendGate.WaitAsync(cancellationToken);
         try
         {
-            if (socket.State == WebSocketState.Open)
+            if (socket.State != WebSocketState.Open)
             {
-                await socket.SendAsync(frame, WebSocketMessageType.Binary, endOfMessage: true, cancellationToken);
+                throw new WebSocketException("Notification stream socket closed before write.");
             }
+
+            await socket.SendAsync(frame, WebSocketMessageType.Binary, endOfMessage: true, cancellationToken);
         }
         finally
         {

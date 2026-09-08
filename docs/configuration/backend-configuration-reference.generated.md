@@ -5,7 +5,7 @@
 
 ASP.NET Core precedence remains: base appsettings < Production overlay < environment/Compose < explicit command line.
 
-- Application settings: 226
+- Application settings: 228
 - Tracked environment variables: 242
 - Mounted file classes: 4
 
@@ -88,6 +88,8 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 | `Fido2:ServerDomain` | `FIDO2_SERVER_DOMAIN`, `Fido2__ServerDomain` | Passkey and WebAuthn setting: ServerDomain | `string` | Development, Production | required: Production | no | environment, repository-base; safe-non-secret-default | startup: ProductionStartupValidator | `<value matching the declared type>` |
 | `Fido2:ServerName` | `FIDO2_SERVER_NAME`, `Fido2__ServerName` | Passkey and WebAuthn setting: ServerName | `string` | Development, Production | optional: optional | no | environment, repository-base; safe-non-secret-default | consumer: Fido2 startup binding | `<value matching the declared type>` |
 | `fsus:allowLocalAuthFixture` | None | Local development tooling setting: allowLocalAuthFixture | `boolean` | Development | optional: optional | no | repository-development-overlay; safe-non-secret-default | consumer: development-only host guard | `true or false` |
+| `fsus:allowLocalSecurityFixture` | None | Security and risk control setting: allowLocalSecurityFixture | `boolean` | Development | optional: optional | no | repository-development-overlay; safe-non-secret-default | consumer: development-only host guard | `true or false` |
+| `fsus:localSecurityFixtureSecret` | None | Security and risk control setting: localSecurityFixtureSecret | `secret-string` | Development | conditional: when local security fixture endpoints are enabled | yes | repository-development-overlay; known-development-fixture-only; Production overlay must be empty | feature-gate: development-only host guard | `<external secret; never a usable tracked value>` |
 | `FSUSBLOG_ANONYMOUS_IDENTITY_MODE` | `FSUSBLOG_ANONYMOUS_IDENTITY_MODE` | Anonymous identity and credentials setting: FSUSBLOG_ANONYMOUS_IDENTITY_MODE | `integer` | Production | required: Production | no | environment; safe-non-secret-default | startup: ProductionStartupValidator | `<integer>` |
 | `FSUSBLOG_COMMIT_SHA` | `FSUSBLOG_COMMIT_SHA` | Release and deployment lifecycle setting: FSUSBLOG_COMMIT_SHA | `sha` | Production | optional: optional | no | environment; safe-non-secret-default | consumer: release identity and lifecycle validator | `<commit or artifact digest>` |
 | `FSUSBLOG_DATA_ROOT` | `FSUSBLOG_DATA_ROOT` | Release and deployment lifecycle setting: FSUSBLOG_DATA_ROOT | `path` | Production | optional: optional | no | environment, mounted-file; safe-non-secret-default | consumer: release identity and lifecycle validator | `/mounted/operator/path` |
@@ -244,8 +246,8 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 
 | Variable | Class | Owner | Projects to | Secret | Tracked sources |
 | --- | --- | --- | --- | --- | --- |
-| `ACTIVE_RELEASE_FENCE_REFRESH_INTERVAL_MS` | deployment-control | active-release-fence | `ActiveReleaseFence:RefreshIntervalMs` | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
-| `ACTIVE_RELEASE_FENCE_STALE_THRESHOLD_SECONDS` | deployment-control | active-release-fence | `ActiveReleaseFence:StaleThresholdSeconds` | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `ACTIVE_RELEASE_FENCE_REFRESH_INTERVAL_MS` | deployment-control | active-release-fence | `ActiveReleaseFence:RefreshIntervalMs` | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `ACTIVE_RELEASE_FENCE_STALE_THRESHOLD_SECONDS` | deployment-control | active-release-fence | `ActiveReleaseFence:StaleThresholdSeconds` | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
 | `ACTIVE_WORKER_OBSERVER_SERVICE_ROOTS` | tooling-only | development-tooling | None | no | `tools/deployment/zero-downtime-rehearsal.sh` |
 | `ActiveReleaseFence__RefreshIntervalMs` | application-configuration | release-lifecycle | `ActiveReleaseFence:RefreshIntervalMs` | no | `ops/docker/docker-compose.production.yml` |
 | `ActiveReleaseFence__StaleThresholdSeconds` | application-configuration | release-lifecycle | `ActiveReleaseFence:StaleThresholdSeconds` | no | `ops/docker/docker-compose.production.yml` |
@@ -273,7 +275,7 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 | `AnonymousIdentity__ZkVerifier__NativeGroth16__VerifyingKeyPath` | application-configuration | release-lifecycle | `AnonymousIdentity:ZkVerifier:NativeGroth16:VerifyingKeyPath` | no | `ops/docker/docker-compose.production.yml` |
 | `AnonymousIdentity__ZkVerifier__NativeGroth16__VerifyingKeySha256` | application-configuration | release-lifecycle | `AnonymousIdentity:ZkVerifier:NativeGroth16:VerifyingKeySha256` | no | `ops/docker/docker-compose.production.yml` |
 | `AnonymousIdentity__ZkVerifier__VerifyingKeyHash` | application-configuration | release-lifecycle | `AnonymousIdentity:ZkVerifier:VerifyingKeyHash` | no | `ops/docker/docker-compose.production.yml` |
-| `APP_ALLOWED_HOSTS` | deployment-control | hosting | `AllowedHosts` | no | `.env.example`, `.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `APP_ALLOWED_HOSTS` | deployment-control | hosting | `AllowedHosts` | no | `config/examples/.env.example`, `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
 | `ASPNETCORE_ENVIRONMENT` | application-configuration | release-lifecycle | `ASPNETCORE_ENVIRONMENT` | no | `ops/docker/docker-compose.development-backend.yml`, `ops/docker/docker-compose.production.yml`, `tools/deployment/rehearsal-schema-qualification-probe.mjs`, `tools/deployment/release-rollout.sh` |
 | `BASH_REMATCH` | tooling-only | development-tooling | None | no | `tools/deployment/slot-common.sh` |
 | `BASH_SOURCE` | tooling-only | development-tooling | None | no | `tools/deploy-production.sh`, `tools/deployment/check-production-openresty-config.sh`, `tools/deployment/deployment-control.sh`, `tools/deployment/gateway-recover.sh`, `tools/deployment/gateway-rollback.sh`, `tools/deployment/gateway-switch.sh`, `tools/deployment/release-rollout-recovery.sh`, `tools/deployment/release-rollout.sh`, `tools/deployment/slot-common.sh`, `tools/deployment/slot-inspect.sh`, `tools/deployment/slot-preflight.sh`, `tools/deployment/slot-start.sh`, `tools/deployment/slot-status.sh`, `tools/deployment/slot-stop.sh`, `tools/deployment/zero-downtime-rehearsal.sh`, `tools/deployment/zero-downtime-topology.sh` |
@@ -281,26 +283,26 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 | `COMPlus_DbgEnableMiniDump` | tooling-only | development-tooling | None | no | `ops/docker/docker-compose.production.yml` |
 | `ConnectionStrings__DefaultConnection` | application-configuration | release-lifecycle | `ConnectionStrings:DefaultConnection` | no | `ops/docker/docker-compose.development-backend.yml`, `ops/docker/docker-compose.production.yml` |
 | `ConnectionStrings__Redis` | application-configuration | release-lifecycle | `ConnectionStrings:Redis` | no | `ops/docker/docker-compose.development-backend.yml`, `ops/docker/docker-compose.production.yml` |
-| `CORS_ALLOWED_HOSTS` | application-configuration | hosting | `CORS_ALLOWED_HOSTS` | no | `.env.example`, `.env.production.example`, `ops/docker/docker-compose.development-backend.yml`, `ops/docker/docker-compose.production.yml` |
+| `CORS_ALLOWED_HOSTS` | application-configuration | hosting | `CORS_ALLOWED_HOSTS` | no | `config/examples/.env.example`, `config/examples/.env.production.example`, `ops/docker/docker-compose.development-backend.yml`, `ops/docker/docker-compose.production.yml` |
 | `DataProtection__ApplicationName` | application-configuration | release-lifecycle | `DataProtection:ApplicationName` | no | `ops/docker/docker-compose.production.yml` |
 | `DataProtection__KeyRingPath` | application-configuration | release-lifecycle | `DataProtection:KeyRingPath` | no | `ops/docker/docker-compose.production.yml` |
-| `DB_NAME` | deployment-control | data | None | no | `.env.production.example`, `ops/docker/docker-compose.production.yml`, `ops/docker/docker-compose.zero-downtime.yml` |
-| `DB_PASSWORD` | deployment-control | data | None | yes | `.env.production.example`, `ops/docker/docker-compose.production.yml`, `ops/docker/docker-compose.zero-downtime.yml` |
-| `DB_USER` | deployment-control | data | None | no | `.env.production.example`, `ops/docker/docker-compose.production.yml`, `ops/docker/docker-compose.zero-downtime.yml` |
+| `DB_NAME` | deployment-control | data | None | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml`, `ops/docker/docker-compose.zero-downtime.yml` |
+| `DB_PASSWORD` | deployment-control | data | None | yes | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml`, `ops/docker/docker-compose.zero-downtime.yml` |
+| `DB_USER` | deployment-control | data | None | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml`, `ops/docker/docker-compose.zero-downtime.yml` |
 | `Deployment__NotificationStreamDrillEnabled` | application-configuration | release-lifecycle | `Deployment:NotificationStreamDrillEnabled` | no | `ops/docker/docker-compose.production.yml` |
 | `DOTNET_CLI_HOME` | tooling-only | development-tooling | None | no | `ops/docker/docker-compose.development-backend.yml` |
 | `DOTNET_DbgEnableMiniDump` | tooling-only | development-tooling | None | no | `ops/docker/docker-compose.production.yml` |
 | `DOTNET_EnableDiagnostics` | tooling-only | development-tooling | None | no | `ops/docker/docker-compose.production.yml` |
 | `DOTNET_USE_POLLING_FILE_WATCHER` | tooling-only | development-tooling | None | no | `ops/docker/docker-compose.development-backend.yml` |
 | `DOTNET_WATCH_SUPPRESS_BROWSER_REFRESH` | tooling-only | development-tooling | None | no | `ops/docker/docker-compose.development-backend.yml` |
-| `EXTERNAL_DB_HOST` | deployment-control | data | None | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
-| `EXTERNAL_REDIS_HOST` | deployment-control | data | None | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `EXTERNAL_DB_HOST` | deployment-control | data | None | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `EXTERNAL_REDIS_HOST` | deployment-control | data | None | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
 | `Fido2__Origins__0` | application-configuration | release-lifecycle | `Fido2:Origins` | no | `ops/docker/docker-compose.production.yml` |
 | `Fido2__ServerDomain` | application-configuration | release-lifecycle | `Fido2:ServerDomain` | no | `ops/docker/docker-compose.production.yml` |
 | `Fido2__ServerName` | application-configuration | release-lifecycle | `Fido2:ServerName` | no | `ops/docker/docker-compose.production.yml` |
-| `FIDO2_SERVER_DOMAIN` | deployment-control | passkeys | `Fido2:ServerDomain` | no | `.env.example`, `.env.production.example`, `ops/docker/docker-compose.production.yml` |
-| `FIDO2_SERVER_NAME` | deployment-control | passkeys | `Fido2:ServerName` | no | `.env.example`, `.env.production.example`, `ops/docker/docker-compose.production.yml` |
-| `FSUSBLOG_ANONYMOUS_IDENTITY_MODE` | application-configuration | anonymous-identity | `FSUSBLOG_ANONYMOUS_IDENTITY_MODE` | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `FIDO2_SERVER_DOMAIN` | deployment-control | passkeys | `Fido2:ServerDomain` | no | `config/examples/.env.example`, `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `FIDO2_SERVER_NAME` | deployment-control | passkeys | `Fido2:ServerName` | no | `config/examples/.env.example`, `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `FSUSBLOG_ANONYMOUS_IDENTITY_MODE` | application-configuration | anonymous-identity | `FSUSBLOG_ANONYMOUS_IDENTITY_MODE` | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_ASPNETCORE_ENVIRONMENT` | application-configuration | release-lifecycle | `ASPNETCORE_ENVIRONMENT` | no | `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_ASSET_BROWSER_BINDING_KEY_FILE` | secret-file-path | release-lifecycle | None | no | `tools/deployment/release-asset-compatibility-probe.mjs` |
 | `FSUSBLOG_ASSET_CHECKPOINT_TIMEOUT_SECONDS` | deployment-control | release-lifecycle | None | no | `tools/deployment/release-rollout.sh` |
@@ -308,7 +310,7 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 | `FSUSBLOG_BACKUP_RESTORE_EVIDENCE` | deployment-control | release-lifecycle | None | no | `tools/deployment/release-rollout.sh` |
 | `FSUSBLOG_BACKUP_RESTORE_MAX_AGE_SECONDS` | deployment-control | release-lifecycle | None | no | `tools/deployment/release-rollout.sh` |
 | `FSUSBLOG_BASE_URL` | deployment-control | release-lifecycle | None | no | `tools/deployment/release-notification-probe.mjs` |
-| `FSUSBLOG_BLUE_PORT` | deployment-control | release-lifecycle | None | no | `.env.production.example`, `tools/deploy-production.sh`, `tools/deployment/release-rollout-recovery.sh`, `tools/deployment/release-rollout.sh`, `tools/deployment/slot-common.sh`, `tools/deployment/zero-downtime-rehearsal.sh`, `tools/deployment/zero-downtime-topology.sh` |
+| `FSUSBLOG_BLUE_PORT` | deployment-control | release-lifecycle | None | no | `config/examples/.env.production.example`, `tools/deploy-production.sh`, `tools/deployment/release-rollout-recovery.sh`, `tools/deployment/release-rollout.sh`, `tools/deployment/slot-common.sh`, `tools/deployment/zero-downtime-rehearsal.sh`, `tools/deployment/zero-downtime-topology.sh` |
 | `FSUSBLOG_CANDIDATE_SMOKE_CONCURRENCY` | deployment-control | release-lifecycle | None | no | `tools/deployment/release-rollout.sh` |
 | `FSUSBLOG_CHALLENGE_KIND_CUTOVER_TARGET_MAP` | deployment-control | security | None | no | `tools/deployment/release-rollout.sh` |
 | `FSUSBLOG_COMMIT_SHA` | release-identity | release-lifecycle | `FSUSBLOG_COMMIT_SHA` | no | `ops/docker/docker-compose.production.yml` |
@@ -320,23 +322,23 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 | `FSUSBLOG_DEPLOYMENT_CONTROL_ORIGIN` | deployment-control | release-lifecycle | None | no | `tools/deployment/active-release-fence.mjs`, `tools/deployment/deployment-control.sh`, `tools/deployment/gateway-recover.sh`, `tools/deployment/gateway-switch.sh`, `tools/deployment/notification-stream-restart.mjs`, `tools/deployment/release-rollout-recovery.sh`, `tools/deployment/release-rollout.sh` |
 | `FSUSBLOG_DEPLOYMENT_GENERATION` | release-identity | release-lifecycle | `FSUSBLOG_DEPLOYMENT_GENERATION` | no | `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_DEPLOYMENT_LOCK_FD` | deployment-control | release-lifecycle | None | no | `tools/deployment/release-rollout-recovery.sh`, `tools/deployment/release-rollout.sh`, `tools/deployment/slot-common.sh` |
-| `FSUSBLOG_DEPLOYMENT_LOCK_FILE` | deployment-control | release-lifecycle | None | no | `.env.production.example`, `tools/deployment/slot-common.sh` |
+| `FSUSBLOG_DEPLOYMENT_LOCK_FILE` | deployment-control | release-lifecycle | None | no | `config/examples/.env.production.example`, `tools/deployment/slot-common.sh` |
 | `FSUSBLOG_DEPLOYMENT_MODE` | application-configuration | release-lifecycle | `FSUSBLOG_DEPLOYMENT_MODE` | no | `ops/docker/docker-compose.production.yml` |
-| `FSUSBLOG_DEPLOYMENT_NOTIFICATION_DRILL_ENABLED` | deployment-control | release-lifecycle | `Deployment:NotificationStreamDrillEnabled` | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
-| `FSUSBLOG_DEV_POSTGRES_DB` | deployment-control | release-lifecycle | None | no | `.env.example`, `ops/development/dependencies.compose.yml` |
-| `FSUSBLOG_DEV_POSTGRES_PASSWORD` | deployment-control | release-lifecycle | None | yes | `.env.example`, `ops/development/dependencies.compose.yml` |
-| `FSUSBLOG_DEV_POSTGRES_PORT` | deployment-control | release-lifecycle | None | no | `.env.example`, `ops/development/dependencies.compose.yml` |
-| `FSUSBLOG_DEV_POSTGRES_USER` | deployment-control | release-lifecycle | None | no | `.env.example`, `ops/development/dependencies.compose.yml` |
-| `FSUSBLOG_DEV_REDIS_PORT` | deployment-control | release-lifecycle | None | no | `.env.example`, `ops/development/dependencies.compose.yml` |
-| `FSUSBLOG_DRAIN_TIMEOUT_SECONDS` | application-configuration | release-lifecycle | `FSUSBLOG_DRAIN_TIMEOUT_SECONDS` | no | `.env.production.example`, `ops/docker/docker-compose.production.yml`, `tools/deployment/deployment-control.sh`, `tools/deployment/gateway-recover.sh`, `tools/deployment/gateway-switch.sh`, `tools/deployment/release-rollout-recovery.sh`, `tools/deployment/release-rollout.sh`, `tools/deployment/slot-preflight.sh` |
-| `FSUSBLOG_GATEWAY_ACTIVE_UPSTREAM` | deployment-control | release-lifecycle | None | no | `.env.production.example`, `tools/deployment/gateway-recover.sh`, `tools/deployment/gateway-switch.sh` |
+| `FSUSBLOG_DEPLOYMENT_NOTIFICATION_DRILL_ENABLED` | deployment-control | release-lifecycle | `Deployment:NotificationStreamDrillEnabled` | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `FSUSBLOG_DEV_POSTGRES_DB` | deployment-control | release-lifecycle | None | no | `config/examples/.env.example`, `ops/development/dependencies.compose.yml` |
+| `FSUSBLOG_DEV_POSTGRES_PASSWORD` | deployment-control | release-lifecycle | None | yes | `config/examples/.env.example`, `ops/development/dependencies.compose.yml` |
+| `FSUSBLOG_DEV_POSTGRES_PORT` | deployment-control | release-lifecycle | None | no | `config/examples/.env.example`, `ops/development/dependencies.compose.yml` |
+| `FSUSBLOG_DEV_POSTGRES_USER` | deployment-control | release-lifecycle | None | no | `config/examples/.env.example`, `ops/development/dependencies.compose.yml` |
+| `FSUSBLOG_DEV_REDIS_PORT` | deployment-control | release-lifecycle | None | no | `config/examples/.env.example`, `ops/development/dependencies.compose.yml` |
+| `FSUSBLOG_DRAIN_TIMEOUT_SECONDS` | application-configuration | release-lifecycle | `FSUSBLOG_DRAIN_TIMEOUT_SECONDS` | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml`, `tools/deployment/deployment-control.sh`, `tools/deployment/gateway-recover.sh`, `tools/deployment/gateway-switch.sh`, `tools/deployment/release-rollout-recovery.sh`, `tools/deployment/release-rollout.sh`, `tools/deployment/slot-preflight.sh` |
+| `FSUSBLOG_GATEWAY_ACTIVE_UPSTREAM` | deployment-control | release-lifecycle | None | no | `config/examples/.env.production.example`, `tools/deployment/gateway-recover.sh`, `tools/deployment/gateway-switch.sh` |
 | `FSUSBLOG_GATEWAY_ALLOW_HTTP_PROBE` | deployment-control | release-lifecycle | None | no | `tools/deployment/active-release-fence.mjs`, `tools/deployment/deployment-control.sh`, `tools/deployment/gateway-recover.sh`, `tools/deployment/gateway-switch.sh`, `tools/deployment/invoke-perception-character-v3-cutover.mjs`, `tools/deployment/invoke-security-challenge-kind-cutover.mjs`, `tools/deployment/notification-stream-restart.mjs`, `tools/deployment/release-asset-compatibility-probe.mjs`, `tools/deployment/release-rollout-recovery.sh`, `tools/deployment/release-rollout.sh`, `tools/deployment/release-traffic-probe.mjs` |
-| `FSUSBLOG_GATEWAY_CONFIG_FILE` | deployment-control | release-lifecycle | None | no | `.env.production.example`, `tools/deployment/gateway-recover.sh`, `tools/deployment/gateway-switch.sh` |
-| `FSUSBLOG_GATEWAY_EVIDENCE_DIR` | deployment-control | release-lifecycle | None | no | `.env.production.example`, `tools/deployment/gateway-recover.sh`, `tools/deployment/gateway-switch.sh`, `tools/deployment/release-rollout.sh` |
+| `FSUSBLOG_GATEWAY_CONFIG_FILE` | deployment-control | release-lifecycle | None | no | `config/examples/.env.production.example`, `tools/deployment/gateway-recover.sh`, `tools/deployment/gateway-switch.sh` |
+| `FSUSBLOG_GATEWAY_EVIDENCE_DIR` | deployment-control | release-lifecycle | None | no | `config/examples/.env.production.example`, `tools/deployment/gateway-recover.sh`, `tools/deployment/gateway-switch.sh`, `tools/deployment/release-rollout.sh` |
 | `FSUSBLOG_GATEWAY_PROBE_INTERVAL_SECONDS` | deployment-control | release-lifecycle | None | no | `tools/deployment/gateway-recover.sh`, `tools/deployment/gateway-switch.sh` |
 | `FSUSBLOG_GATEWAY_PROBE_TIMEOUT_SECONDS` | deployment-control | release-lifecycle | None | no | `tools/deployment/gateway-recover.sh`, `tools/deployment/gateway-switch.sh` |
-| `FSUSBLOG_GATEWAY_PUBLIC_PROBE_URL` | deployment-control | release-lifecycle | None | no | `.env.production.example`, `tools/deployment/gateway-recover.sh`, `tools/deployment/gateway-switch.sh`, `tools/deployment/release-rollout-recovery.sh`, `tools/deployment/release-rollout.sh` |
-| `FSUSBLOG_GREEN_PORT` | deployment-control | release-lifecycle | None | no | `.env.production.example`, `tools/deploy-production.sh`, `tools/deployment/release-rollout-recovery.sh`, `tools/deployment/release-rollout.sh`, `tools/deployment/slot-common.sh`, `tools/deployment/zero-downtime-rehearsal.sh`, `tools/deployment/zero-downtime-topology.sh` |
+| `FSUSBLOG_GATEWAY_PUBLIC_PROBE_URL` | deployment-control | release-lifecycle | None | no | `config/examples/.env.production.example`, `tools/deployment/gateway-recover.sh`, `tools/deployment/gateway-switch.sh`, `tools/deployment/release-rollout-recovery.sh`, `tools/deployment/release-rollout.sh` |
+| `FSUSBLOG_GREEN_PORT` | deployment-control | release-lifecycle | None | no | `config/examples/.env.production.example`, `tools/deploy-production.sh`, `tools/deployment/release-rollout-recovery.sh`, `tools/deployment/release-rollout.sh`, `tools/deployment/slot-common.sh`, `tools/deployment/zero-downtime-rehearsal.sh`, `tools/deployment/zero-downtime-topology.sh` |
 | `FSUSBLOG_IMAGE_DIGEST` | release-identity | release-lifecycle | `FSUSBLOG_IMAGE_DIGEST` | no | `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_IMAGE_REF` | release-identity | release-lifecycle | `FSUSBLOG_IMAGE_REF` | no | `ops/docker/docker-compose.production.yml`, `tools/deploy-production.sh` |
 | `FSUSBLOG_INSTANCE_STORAGE_ROOT` | application-configuration | release-lifecycle | `FSUSBLOG_INSTANCE_STORAGE_ROOT` | no | `ops/docker/docker-compose.production.yml` |
@@ -369,7 +371,7 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 | `FSUSBLOG_REHEARSAL_SLOT_STATE_FILE` | deployment-control | release-lifecycle | None | no | `tools/deployment/zero-downtime-topology.sh` |
 | `FSUSBLOG_REHEARSAL_WORK_DIR` | deployment-control | release-lifecycle | None | no | `tools/deployment/zero-downtime-topology.sh` |
 | `FSUSBLOG_RELEASE_ASSET_ROOT` | application-configuration | release-lifecycle | `FSUSBLOG_RELEASE_ASSET_ROOT` | no | `ops/docker/docker-compose.production.yml` |
-| `FSUSBLOG_RELEASE_ASSET_STORE` | deployment-control | release-lifecycle | None | no | `.env.production.example`, `ops/docker/docker-compose.production.yml`, `tools/deployment/release-rollout-recovery.sh`, `tools/deployment/release-rollout.sh`, `tools/deployment/slot-start.sh` |
+| `FSUSBLOG_RELEASE_ASSET_STORE` | deployment-control | release-lifecycle | None | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml`, `tools/deployment/release-rollout-recovery.sh`, `tools/deployment/release-rollout.sh`, `tools/deployment/slot-start.sh` |
 | `FSUSBLOG_RELEASE_CREATED_AT_UTC` | deployment-control | release-lifecycle | None | no | `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_RELEASE_DERIVED_ROOT` | application-configuration | release-lifecycle | `FSUSBLOG_RELEASE_DERIVED_ROOT` | no | `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_RELEASE_ID` | release-identity | release-lifecycle | `FSUSBLOG_RELEASE_ID` | no | `ops/docker/docker-compose.production.yml`, `tools/deploy-production.sh`, `tools/deployment/slot-common.sh` |
@@ -404,7 +406,7 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 | `FSUSBLOG_ROLLOUT_REHEARSAL_HOLD_TIMEOUT_SECONDS` | deployment-control | release-lifecycle | None | no | `tools/deployment/release-rollout.sh` |
 | `FSUSBLOG_ROLLOUT_RESOURCE_BUDGET_EVIDENCE` | deployment-control | release-lifecycle | None | no | `tools/deployment/release-rollout.sh` |
 | `FSUSBLOG_ROLLOUT_SOURCE_MANIFEST` | deployment-control | release-lifecycle | None | no | `tools/deployment/release-rollout.sh` |
-| `FSUSBLOG_ROLLOUT_STATE_FILE` | deployment-control | release-lifecycle | None | no | `tools/deployment/release-rollout.sh`, `tools/deployment/rollout-state.mjs` |
+| `FSUSBLOG_ROLLOUT_STATE_FILE` | deployment-control | release-lifecycle | None | no | `tools/deployment/release-rollout.sh`, `tools/deployment/rollout-state.mjs`, `tools/deployment/slot-start.sh`, `tools/deployment/slot-stop.sh` |
 | `FSUSBLOG_ROLLOUT_TRAFFIC_BINDING_KEY_FILE` | secret-file-path | release-lifecycle | None | no | `tools/deployment/release-rollout.sh` |
 | `FSUSBLOG_ROLLOUT_TRAFFIC_CONCURRENCY` | deployment-control | release-lifecycle | None | no | `tools/deployment/release-rollout.sh` |
 | `FSUSBLOG_ROLLOUT_TRAFFIC_INTERVAL_MS` | deployment-control | release-lifecycle | None | no | `tools/deployment/release-rollout.sh` |
@@ -412,9 +414,9 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 | `FSUSBLOG_ROLLOUT_WORKER_EVENT_LEDGER` | deployment-control | release-lifecycle | None | no | `tools/deployment/release-rollout.sh` |
 | `FSUSBLOG_ROLLOUT_WORKER_RECONCILIATION_EVIDENCE` | deployment-control | release-lifecycle | None | no | `tools/deployment/release-rollout.sh` |
 | `FSUSBLOG_SCHEMA_QUALIFICATION_ENABLED` | deployment-control | release-lifecycle | `SchemaMigration:QualificationEnabled` | no | `ops/docker/docker-compose.production.yml` |
-| `FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME` | deployment-control | release-lifecycle | None | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
-| `FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME` | deployment-control | release-lifecycle | None | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
-| `FSUSBLOG_SHARED_RELEASE_DERIVED_VOLUME` | deployment-control | release-lifecycle | None | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME` | deployment-control | release-lifecycle | None | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME` | deployment-control | release-lifecycle | None | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `FSUSBLOG_SHARED_RELEASE_DERIVED_VOLUME` | deployment-control | release-lifecycle | None | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_SHARED_STORAGE_ROOT` | application-configuration | release-lifecycle | `FSUSBLOG_SHARED_STORAGE_ROOT` | no | `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_SLOT_AOT_CACHE_VOLUME` | deployment-control | release-lifecycle | None | no | `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_SLOT_CPU_LIMIT` | deployment-control | release-lifecycle | None | no | `ops/docker/docker-compose.production.yml` |
@@ -422,40 +424,40 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 | `FSUSBLOG_SLOT_DATA_VOLUME` | deployment-control | release-lifecycle | None | no | `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_SLOT_HEALTH_INTERVAL_SECONDS` | deployment-control | release-lifecycle | None | no | `tools/deployment/slot-start.sh` |
 | `FSUSBLOG_SLOT_HEALTH_TIMEOUT_SECONDS` | deployment-control | release-lifecycle | None | no | `tools/deployment/slot-start.sh` |
-| `FSUSBLOG_SLOT_IMAGE_PULL_RESERVE_MB` | deployment-control | release-lifecycle | None | no | `.env.production.example`, `tools/deployment/slot-preflight.sh` |
+| `FSUSBLOG_SLOT_IMAGE_PULL_RESERVE_MB` | deployment-control | release-lifecycle | None | no | `config/examples/.env.production.example`, `tools/deployment/slot-preflight.sh` |
 | `FSUSBLOG_SLOT_LOGS_VOLUME` | deployment-control | release-lifecycle | None | no | `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_SLOT_MEMORY_LIMIT` | deployment-control | release-lifecycle | None | no | `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_SLOT_MEMORY_RESERVATION` | deployment-control | release-lifecycle | None | no | `ops/docker/docker-compose.production.yml` |
-| `FSUSBLOG_SLOT_MIN_AVAILABLE_MEMORY_MB` | deployment-control | release-lifecycle | None | no | `.env.production.example`, `tools/deployment/slot-preflight.sh` |
-| `FSUSBLOG_SLOT_MIN_FREE_DISK_MB` | deployment-control | release-lifecycle | None | no | `.env.production.example`, `tools/deployment/slot-preflight.sh` |
+| `FSUSBLOG_SLOT_MIN_AVAILABLE_MEMORY_MB` | deployment-control | release-lifecycle | None | no | `config/examples/.env.production.example`, `tools/deployment/slot-preflight.sh` |
+| `FSUSBLOG_SLOT_MIN_FREE_DISK_MB` | deployment-control | release-lifecycle | None | no | `config/examples/.env.production.example`, `tools/deployment/slot-preflight.sh` |
 | `FSUSBLOG_SLOT_PORT` | deployment-control | release-lifecycle | None | no | `ops/docker/docker-compose.production.yml` |
-| `FSUSBLOG_SLOT_STATE_FILE` | deployment-control | release-lifecycle | None | no | `.env.production.example`, `tools/deployment/gateway-rollback.sh`, `tools/deployment/slot-common.sh`, `tools/deployment/slot-state.mjs` |
+| `FSUSBLOG_SLOT_STATE_FILE` | deployment-control | release-lifecycle | None | no | `config/examples/.env.production.example`, `tools/deployment/gateway-rollback.sh`, `tools/deployment/slot-common.sh`, `tools/deployment/slot-state.mjs` |
 | `FSUSBLOG_SPA_MANIFEST_DESCRIPTOR` | application-configuration | release-lifecycle | `FSUSBLOG_SPA_MANIFEST_DESCRIPTOR` | no | `ops/docker/docker-compose.production.yml` |
-| `FSUSBLOG_STOP_GRACE_PERIOD` | deployment-control | release-lifecycle | None | no | `.env.production.example`, `ops/docker/docker-compose.production.yml`, `tools/deployment/slot-preflight.sh` |
+| `FSUSBLOG_STOP_GRACE_PERIOD` | deployment-control | release-lifecycle | None | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml`, `tools/deployment/slot-preflight.sh` |
 | `FSUSBLOG_WORKER_LEDGER_TIMEOUT_SECONDS` | deployment-control | release-lifecycle | None | no | `tools/deployment/release-rollout.sh` |
-| `FSUSBLOG_ZK_BLIND_ISSUER_ENABLED` | deployment-control | anonymous-identity | `AnonymousCredentialIssuer:BlindRsa:Enabled` | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
-| `FSUSBLOG_ZK_CONFIG_DIR` | secret-file-path | anonymous-identity | None | no | `.env.production.example`, `ops/docker/docker-compose.production.yml`, `tools/deploy-production.sh` |
-| `FSUSBLOG_ZK_CREDENTIAL_READY` | deployment-control | anonymous-identity | `AnonymousIdentity:ZkProd:CredentialReady` | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
-| `FSUSBLOG_ZK_GROTH16_VERIFYING_KEY` | secret-file-path | anonymous-identity | `AnonymousIdentity:ZkVerifier:NativeGroth16:VerifyingKeyPath` | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
-| `FSUSBLOG_ZK_ISSUER_PRIVATE_KEY` | secret-file-path | anonymous-identity | `AnonymousCredentialIssuer:BlindRsa:PrivateKeyPath` | yes | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
-| `FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_HASH` | deployment-control | anonymous-identity | `AnonymousCredentialIssuer:BlindRsa:PublicKeyHash` | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
-| `FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_ID` | deployment-control | anonymous-identity | `AnonymousCredentialIssuer:IssuerPublicKeyId` | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
-| `FSUSBLOG_ZK_NATIVE_VERIFIER_LIB` | deployment-control | anonymous-identity | `AnonymousIdentity:ZkVerifier:NativeGroth16:LibraryPath` | no | `.env.production.example`, `ops/docker/docker-compose.production.yml`, `tools/deploy-production.sh` |
-| `FSUSBLOG_ZK_PROD_ENABLED` | deployment-control | anonymous-identity | `AnonymousIdentity:ZkProd:Enabled` | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `FSUSBLOG_ZK_BLIND_ISSUER_ENABLED` | deployment-control | anonymous-identity | `AnonymousCredentialIssuer:BlindRsa:Enabled` | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `FSUSBLOG_ZK_CONFIG_DIR` | secret-file-path | anonymous-identity | None | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml`, `tools/deploy-production.sh` |
+| `FSUSBLOG_ZK_CREDENTIAL_READY` | deployment-control | anonymous-identity | `AnonymousIdentity:ZkProd:CredentialReady` | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `FSUSBLOG_ZK_GROTH16_VERIFYING_KEY` | secret-file-path | anonymous-identity | `AnonymousIdentity:ZkVerifier:NativeGroth16:VerifyingKeyPath` | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `FSUSBLOG_ZK_ISSUER_PRIVATE_KEY` | secret-file-path | anonymous-identity | `AnonymousCredentialIssuer:BlindRsa:PrivateKeyPath` | yes | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_HASH` | deployment-control | anonymous-identity | `AnonymousCredentialIssuer:BlindRsa:PublicKeyHash` | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_ID` | deployment-control | anonymous-identity | `AnonymousCredentialIssuer:IssuerPublicKeyId` | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `FSUSBLOG_ZK_NATIVE_VERIFIER_LIB` | deployment-control | anonymous-identity | `AnonymousIdentity:ZkVerifier:NativeGroth16:LibraryPath` | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml`, `tools/deploy-production.sh` |
+| `FSUSBLOG_ZK_PROD_ENABLED` | deployment-control | anonymous-identity | `AnonymousIdentity:ZkProd:Enabled` | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_ZK_PROD_SMOKE_EVIDENCE` | deployment-control | anonymous-identity | None | no | `tools/deploy-production.sh` |
 | `FSUSBLOG_ZK_ROOT_BOOTSTRAP_EVIDENCE` | deployment-control | anonymous-identity | None | no | `tools/deploy-production.sh` |
-| `FSUSBLOG_ZK_SECRET_DIR` | secret-file-path | anonymous-identity | None | no | `.env.production.example`, `ops/docker/docker-compose.production.yml`, `tools/deploy-production.sh` |
-| `FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST` | secret-file-path | anonymous-identity | `AnonymousIdentity:ZkProd:TrustedSetupManifestPath` | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
-| `FSUSBLOG_ZK_TRUSTED_SETUP_VERIFIED` | deployment-control | anonymous-identity | `AnonymousIdentity:ZkProd:TrustedSetupVerified` | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `FSUSBLOG_ZK_SECRET_DIR` | secret-file-path | anonymous-identity | None | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml`, `tools/deploy-production.sh` |
+| `FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST` | secret-file-path | anonymous-identity | `AnonymousIdentity:ZkProd:TrustedSetupManifestPath` | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `FSUSBLOG_ZK_TRUSTED_SETUP_VERIFIED` | deployment-control | anonymous-identity | `AnonymousIdentity:ZkProd:TrustedSetupVerified` | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
 | `FSUSBLOG_ZK_VERIFIER_ENABLED` | deployment-control | anonymous-identity | None | no | `ops/docker/docker-compose.production.yml` |
-| `FSUSBLOG_ZK_VERIFYING_KEY_HASH` | deployment-control | anonymous-identity | `AnonymousIdentity:ZkProd:VerifyingKeyHash`, `AnonymousIdentity:ZkVerifier:NativeGroth16:VerifyingKeySha256`, `AnonymousIdentity:ZkVerifier:VerifyingKeyHash` | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
-| `FSUSBLOG_ZK_VERIFYING_KEY_MANIFEST` | secret-file-path | anonymous-identity | `AnonymousIdentity:ZkProd:VerifyingKeyManifestPath` | no | `.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `FSUSBLOG_ZK_VERIFYING_KEY_HASH` | deployment-control | anonymous-identity | `AnonymousIdentity:ZkProd:VerifyingKeyHash`, `AnonymousIdentity:ZkVerifier:NativeGroth16:VerifyingKeySha256`, `AnonymousIdentity:ZkVerifier:VerifyingKeyHash` | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `FSUSBLOG_ZK_VERIFYING_KEY_MANIFEST` | secret-file-path | anonymous-identity | `AnonymousIdentity:ZkProd:VerifyingKeyManifestPath` | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
 | `GENERATION` | tooling-only | development-tooling | None | no | `tools/deployment/deployment-control.sh` |
-| `GITHUB_PACKAGES_TOKEN` | tooling-only | development-tooling | None | yes | `.env.example` |
+| `GITHUB_PACKAGES_TOKEN` | tooling-only | development-tooling | None | yes | `config/examples/.env.example` |
 | `HOME` | tooling-only | development-tooling | None | no | `ops/docker/docker-compose.development-backend.yml` |
-| `Jwt__KeyVersion` | application-configuration | release-lifecycle | `Jwt:KeyVersion` | no | `.env.production.example` |
-| `Jwt__RotationWindowDays` | application-configuration | release-lifecycle | `Jwt:RotationWindowDays` | no | `.env.production.example` |
-| `Jwt__SecretKey` | application-configuration | release-lifecycle | `Jwt:SecretKey` | yes | `.env.production.example` |
+| `Jwt__KeyVersion` | application-configuration | release-lifecycle | `Jwt:KeyVersion` | no | `config/examples/.env.production.example` |
+| `Jwt__RotationWindowDays` | application-configuration | release-lifecycle | `Jwt:RotationWindowDays` | no | `config/examples/.env.production.example` |
+| `Jwt__SecretKey` | application-configuration | release-lifecycle | `Jwt:SecretKey` | yes | `config/examples/.env.production.example` |
 | `LAST_ROLLOUT_STATUS` | tooling-only | development-tooling | None | no | `tools/deployment/zero-downtime-rehearsal.sh` |
 | `LOCAL_GID` | tooling-only | development-tooling | None | no | `ops/docker/docker-compose.development-backend.yml` |
 | `LOCAL_UID` | tooling-only | development-tooling | None | no | `ops/docker/docker-compose.development-backend.yml` |
@@ -468,19 +470,19 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 | `PERCEPTION_V3_POOL_MANIFEST` | deployment-control | release-lifecycle | None | no | `tools/deployment/release-rollout.sh` |
 | `PERCEPTION_V3_RELEASE_TARGET` | deployment-control | release-lifecycle | None | no | `tools/deployment/release-rollout.sh` |
 | `PUBLIC_PROBE_URL` | tooling-only | development-tooling | None | no | `tools/deployment/gateway-recover.sh`, `tools/deployment/gateway-switch.sh`, `tools/deployment/release-rollout-recovery.sh`, `tools/deployment/release-rollout.sh` |
-| `REDIS_PASSWORD` | deployment-control | data | None | yes | `.env.production.example`, `ops/docker/docker-compose.production.yml`, `ops/docker/docker-compose.zero-downtime.yml` |
+| `REDIS_PASSWORD` | deployment-control | data | None | yes | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml`, `ops/docker/docker-compose.zero-downtime.yml` |
 | `RedisOptions__Configuration` | application-configuration | release-lifecycle | `RedisOptions:Configuration` | no | `ops/docker/docker-compose.development-backend.yml`, `ops/docker/docker-compose.production.yml` |
 | `REQUESTED_MODES` | tooling-only | development-tooling | None | no | `tools/deployment/zero-downtime-rehearsal.sh` |
 | `REQUESTED_ROLLOUT_ID` | tooling-only | development-tooling | None | no | `tools/deployment/release-rollout.sh` |
-| `REVERSE_PROXY_KNOWN_NETWORKS` | deployment-control | release-lifecycle | None | no | `.env.production.example`, `ops/docker/docker-compose.production.yml`, `tools/deploy-production.sh` |
-| `REVERSE_PROXY_KNOWN_PROXIES` | deployment-control | release-lifecycle | None | no | `.env.production.example`, `ops/docker/docker-compose.production.yml`, `tools/deploy-production.sh` |
+| `REVERSE_PROXY_KNOWN_NETWORKS` | deployment-control | release-lifecycle | None | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml`, `tools/deploy-production.sh` |
+| `REVERSE_PROXY_KNOWN_PROXIES` | deployment-control | release-lifecycle | None | no | `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml`, `tools/deploy-production.sh` |
 | `ReverseProxy__KnownNetworks` | application-configuration | release-lifecycle | `ReverseProxy:KnownNetworks` | no | `ops/docker/docker-compose.production.yml` |
 | `ReverseProxy__KnownProxies` | application-configuration | release-lifecycle | `ReverseProxy:KnownProxies` | no | `ops/docker/docker-compose.production.yml` |
 | `ROLLOUT_ARGS` | tooling-only | development-tooling | None | no | `tools/deployment/zero-downtime-rehearsal.sh` |
 | `ROLLOUT_ENV` | tooling-only | development-tooling | None | no | `tools/deployment/zero-downtime-rehearsal.sh` |
 | `SchemaMigration__QualificationEnabled` | application-configuration | release-lifecycle | `SchemaMigration:QualificationEnabled` | no | `ops/docker/docker-compose.production.yml` |
 | `Seo__BaseUrl` | application-configuration | release-lifecycle | `Seo:BaseUrl` | no | `ops/docker/docker-compose.development-backend.yml`, `ops/docker/docker-compose.production.yml` |
-| `SITE_BASEURL` | deployment-control | public-origin | `Fido2:Origins`, `Seo:BaseUrl` | no | `.env.example`, `.env.production.example`, `ops/docker/docker-compose.production.yml` |
+| `SITE_BASEURL` | deployment-control | public-origin | `Fido2:Origins`, `Seo:BaseUrl` | no | `config/examples/.env.example`, `config/examples/.env.production.example`, `ops/docker/docker-compose.production.yml` |
 | `TARGET_RELEASE` | tooling-only | development-tooling | None | no | `tools/deployment/release-rollout.sh` |
 | `TIMEOUT_SECONDS` | tooling-only | development-tooling | None | no | `tools/deployment/deployment-control.sh` |
 | `TMPDIR` | tooling-only | development-tooling | None | no | `tools/deployment/check-production-openresty-config.sh` |

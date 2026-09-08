@@ -1,38 +1,38 @@
-# 评论树查询计划与基准证据
+# Comment-tree query plan and benchmark evidence
 
-> 2026-07-19；对应 issue #1201。该证据只使用本机临时 PostgreSQL 16 容器，不连接生产数据库。
+> 2026-07-19; issue #1201. This evidence uses only a local temporary PostgreSQL 16 container and never connects to production.
 
-## 结论
+## Conclusion
 
-评论树继续使用已有的 adjacency list（`parent_id`、`root_id`、`depth`）和 PostgreSQL recursive CTE。路径读取按主键逐级回溯；根节点、直接子节点和同级窗口都使用现有 `(article_id, parent_id, id)` 索引。没有为了 #1201 新增 closure table、物化路径列或写放大索引。
+The comment tree continues to use the existing adjacency list (`parent_id`, `root_id`, `depth`) and a PostgreSQL recursive CTE. Path reads walk back by primary key; roots, direct children, and sibling windows use the existing `(article_id, parent_id, id)` index. No closure table, materialized-path column, or write-amplifying index was added for #1201.
 
-节点的 `childCount` 必须批量计算。最初的逐节点相关子查询在 1,001,001 行数据上产生 101 次全表扫描，耗时约 12.9 秒；实现因此改成“先取当前 cursor 窗口，再用同一个 `visible_chain` 批量按 `parent_id` 聚合”，禁止 N+1 count。
+`childCount` is computed in batch. The initial per-node correlated subquery caused 101 full-table scans on 1,001,001 rows and took about 12.9 seconds. The implementation now first takes the current cursor window, then aggregates by `parent_id` over the same `visible_chain`, prohibiting N+1 counts.
 
-## 可复现数据集
+## Reproducible dataset
 
-脚本：`tools/performance/comment-tree-benchmark.sql`
+Script: `tools/performance/comment-tree-benchmark.sql`.
 
-- PostgreSQL 16 Alpine，本机缓存镜像；`jit=off`，`work_mem=64MB`。
-- 宽树：5,000 个根节点，每个根 199 个直接子节点，共 1,000,000 行。
-- 深树：单独文章中的 1,001 层链，用于验证递归路径的最坏形状。
-- 两个既有索引等价物：`(article_id, parent_id, id)`、`(article_id, root_id, id)`。
-- 每条查询使用 `EXPLAIN (ANALYZE, BUFFERS, TIMING OFF, FORMAT JSON)`；数据表在脚本结束时删除。
+- PostgreSQL 16 Alpine with a locally cached image; `jit=off`, `work_mem=64MB`.
+- Wide tree: 5,000 roots with 199 direct children each, 1,000,000 rows total.
+- Deep tree: a separate article with a 1,001-level chain for the worst recursive-path shape.
+- Two existing index equivalents: `(article_id, parent_id, id)` and `(article_id, root_id, id)`.
+- Each query uses `EXPLAIN (ANALYZE, BUFFERS, TIMING OFF, FORMAT JSON)`; the table is dropped at script end.
 
-## 测量结果
+## Measurements
 
-| 查询 | 返回规模 | Execution Time | 主要计划 | 临时块 |
+| Query | Returned rows | Execution Time | Main plan | Temp blocks |
 | --- | ---: | ---: | --- | ---: |
-| 根评论 keyset cursor | 51 | 2.520 ms | `idx_comment_tree_article_parent_id` Index Scan + top-N | 0 |
-| 直接子节点 cursor + 批量 child count | 101 | 1.171 ms | parent index page + batched count join | 0 |
-| 1,001 层祖先路径 | 1,001 | 3.271 ms | Recursive Union + primary-key Index Scan | 0 |
-| 永久链接同级窗口 | 11 | 0.144 ms | parent index forward/backward scans + Merge Append | 0 |
+| Root-comment keyset cursor | 51 | 2.520 ms | `idx_comment_tree_article_parent_id` Index Scan + top-N | 0 |
+| Direct-child cursor + batched child count | 101 | 1.171 ms | parent-index page + batched count join | 0 |
+| 1,001-level ancestor path | 1,001 | 3.271 ms | Recursive Union + primary-key Index Scan | 0 |
+| Permalink sibling window | 11 | 0.144 ms | parent-index forward/backward scans + Merge Append | 0 |
 
-以上是开发机单次、缓存已热的查询计划证据，不替代 #1202 的生产等价 p50/p95/p99 门禁。#1201 的门禁关注计划形状：禁止 cursor `OFFSET`、禁止逐节点 count、祖先每层必须走主键、同级窗口必须走 parent keyset index。
+These are single, hot-cache query-plan measurements on a development machine; they do not replace the #1202 production-equivalent p50/p95/p99 gate. The #1201 gate checks plan shape: no cursor `OFFSET`, no per-node count, a primary-key lookup at every ancestor level, and a parent keyset index for sibling windows.
 
-## 风险与回退
+## Risk and rollback
 
-- `CommentThreads:RecursiveReadsEnabled=false` 会通过 reloadable configuration 立即关闭 roots/children/permalink 递归读取，统一返回 AEDS `ApiError` 503；不需要重启。
-- `CommentThreads:MaxDepth` 默认 32，范围 2–256；`CommentThreads:MaxChildrenPerNode` 默认 500，范围 1–10,000。下调后只限制新写入，不破坏已有祖先链。
-- 每个父节点的直接回复额度在事务内使用 PostgreSQL advisory transaction lock 串行检查；删除、隐藏或拒绝不返还槽位，避免并发绕过。
-- 永久链接递归 CTE 记录已访问 ID、拒绝环路并在 257 个节点停止；服务端随后校验 root/parent/depth 连续性，损坏链统一降级为 `unavailable`。
-- 旧的 thread-wide 扁平 reply 端点暂留给滚动发布兼容，但新前端不调用；关闭 recursive reads 后公共文章正文仍可用。
+- Reloadable `CommentThreads:RecursiveReadsEnabled=false` immediately disables recursive root/child/permalink reads and returns a uniform AEDS `ApiError` 503; no restart is required.
+- `CommentThreads:MaxDepth` defaults to 32 and ranges from 2–256; `CommentThreads:MaxChildrenPerNode` defaults to 500 and ranges from 1–10,000. Lowering either limits only new writes and does not break existing ancestor chains.
+- Each parent's direct-reply quota is checked serially inside a transaction using a PostgreSQL advisory transaction lock; deletion, hiding, or rejection does not return a slot, preventing concurrent bypass.
+- The permalink recursive CTE records visited IDs, rejects cycles, and stops at 257 nodes; the server then checks root/parent/depth continuity and degrades a corrupt chain to `unavailable`.
+- The former thread-wide flat-reply endpoint remains temporarily for rolling-release compatibility, but the new frontend does not call it; public article bodies remain available when recursive reads are disabled.

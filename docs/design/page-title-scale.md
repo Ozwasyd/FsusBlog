@@ -1,13 +1,9 @@
-# 页面级标题比例
+# Page-Level Title Scale
 
-本文只拥有 FsusBlog 产品级标题层级；通用 typography、组件标题 geometry 和字体 token 由当前 FsusUI 基线拥有。页面档案及其主视觉焦点见 [`surface-profiles.md`](surface-profiles.md)。
+This document owns FsusBlog page-title hierarchy only. Generic typography, component title geometry, and font tokens belong to the active FsusUI baseline; page profiles and visual focus are defined in [`surface-profiles.md`](surface-profiles.md).
 
-FsusBlog 的页面级标题统一使用编辑出版式 24/30px 比例：375px 等移动视口为 24px，640px 起为 30px，字重 700，移动端行高至少 1.25，桌面端至少 1.2，不使用负字距。
+Use the editorial `24/30px` scale: `24px` at a 375px mobile viewport and `30px` from 640px, weight `700`, line-height at least `1.25` on mobile and `1.2` on desktop, with no negative letter-spacing. It applies to public filter pages, account/admin pages, login/registration/recovery, and 403/404. An error code is a supporting `14px` label, not an H1. Keep exactly one semantic H1; separate the title and description by `16px`, then the description and first form/filter/primary action by `24px`. Description text is `14px/400`.
 
-该比例覆盖公共筛选页、账户与管理页、登录/注册/恢复页以及 403/404。错误码是 14px 的辅助标签，不占用 H1；每页只保留一个语义 H1。标题和说明相距 16px，说明为 14px/400，说明和首个表单、筛选或主操作相距 24px。
+AOT/SSR, hydration, and SPA takeover reuse the same Vue component and `text-2xl sm:text-3xl` geometry; no second first-paint scale exists. Light/Dark changes color roles only. 150% zoom and reduced motion do not change hierarchy, DOM order, or scale. Static gates reject `text-4xl` or larger display utilities, gradient, glow, text-shadow, or multiple H1s on public, auth, and error pages; the account gate fixes `24px` mobile / `30px` desktop.
 
-AOT/SSR、hydration 和 SPA takeover 复用同一 Vue 页面组件与相同 `text-2xl sm:text-3xl` 几何，不维护第二套首帧字号。Light/Dark 只切换颜色角色；150% 缩放与 reduced-motion 不改变标题层级、DOM 顺序或字号档位。
-
-静态门禁拒绝公共、认证和错误页面重新使用 `text-4xl` 及更大 display utility，也拒绝 gradient、glow、text-shadow 或多 H1。账户标题的 CSS 门禁同时固定 24px mobile / 30px desktop，防止旧的全视口 24px 规则回流。
-
-文章详情 header 是该页面唯一 page-title authority，沿用 24/30px、700 和已加载字重；中文多行标题使用 1.15 行高，不用负字距。Article mode 内的 Markdown H1 只是章节标题，具体排版由 [`reading-typography.md`](reading-typography.md) 负责，不得居中或形成第二个 page title。About/document mode、Markdown sanitization 与 metadata separator 不受 page-title 规则重写。
+Article detail has one page-title authority: its header uses `24/30px`, weight `700`, and the loaded weight. Multiline Chinese titles use line-height `1.15` without negative tracking. Markdown H1 inside `article` mode is a left-aligned chapter heading, not a second page title; its typography belongs to [`reading-typography.md`](reading-typography.md). About/document mode, sanitization, and metadata separators are not rewritten by this scale.

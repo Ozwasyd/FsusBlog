@@ -1,76 +1,44 @@
-# 文章修订与发布坐标
+# Article Revisions and Publication Coordinates
 
-## 目标
+Canonical details live in the [API contracts](contracts.md) and [API design](design.md); the [publication-consistency tests](../testing/article-publication-consistency.md) are the verification reference for this model.
 
-文章的可编辑状态与公开状态使用两个独立坐标：
+## Purpose
 
-- `current_revision_id` 指向后台当前编辑修订；
-- `current_publication_id` 指向公开侧当前发布记录。
+Editing and public state use independent coordinates:
 
-发布记录是不可变快照，固定关联 `article_revision_id`、`revision_no`、
-`rights_snapshot_id`、可选的 `responsibility_snapshot_id`、发布时间和转换类型。
-公开 AOT、AEDS、搜索与缓存投影必须从该发布坐标读取，不能在消费事件时猜测
-“最新修订”。
+- `current_revision_id` points to the current authoring revision.
+- `current_publication_id` points to the current public publication record.
 
-## 状态转换
+A publication is an immutable snapshot bound to `article_revision_id`, `revision_no`, `rights_snapshot_id`, optional `responsibility_snapshot_id`, publication time, and transition type. Public AOT, AEDS, search, and cache projections read that publication coordinate; event consumers must never infer the “latest revision.”
 
-所有写入经 `ArticlePublicationTransitionWriter` 收口：
+## State transitions
 
-Allowed/forbidden transition tables 由 [`contracts.md`](contracts.md) 的 generated
-sections 拥有；scheduled、rollback、restore 与 delete 的坐标关系由本文件和相邻
-current authority 中的 generated sections/受控 prose claims 拥有。
+All writes go through `ArticlePublicationTransitionWriter`. The [API contracts](contracts.md) own the generated allowed/forbidden transition tables; this document and adjacent current authorities own the scheduled, rollback, restore, and delete coordinate relationships through their generated sections and controlled prose claims.
 
-## 历史版本包与回滚
+## Historical packages and rollback
 
-单条修订详情是可读的完整历史版本包，包含正文修订、不可变 Rights V3 快照、可选
-responsibility 快照，以及该修订关联的 release 坐标。缺失必要 rights 快照时详情以
-`packageComplete=false` 明示不完整；服务端不得从当前策略或默认策略补写一个看似完整的
-历史包。
+A single-revision detail is a readable historical package containing the body revision, immutable Rights V3 snapshot, optional responsibility snapshot, and associated release coordinates. If a required rights snapshot is missing, return `packageComplete=false`; never synthesize a complete- looking package from the current or default policy.
 
-回滚请求使用 AEDS JSON `ArticleRevisionRollbackRequest(213)`，必须提交
-`baseRevisionId`、目标状态与 8..500 字符的审计原因。服务端在同一事务内检查
-`baseRevisionId`，复制源 revision 的正文、分类、标签、rights 和 responsibility，随后
-创建全新的 revision、rights/responsibility 绑定与 release。新 revision 记录源
-revision、执行 admin principal 和原因；旧 revision/publication 永不重新启用或修改。
-冲突返回 `article_revision_conflict` 且不产生任何 revision、release 或 outbox。
+Rollback uses AEDS JSON `ArticleRevisionRollbackRequest(213)` with `baseRevisionId`, target status, and an 8..500-character audit reason. In one transaction the server checks `baseRevisionId`, copies the source body, categories, tags, rights, and responsibility, then creates a new revision, rights/responsibility bindings, and release. The new revision records the source revision, executing admin principal, and reason. Old revisions and publications are never re-enabled or modified. `article_revision_conflict` returns without creating a revision, release, or outbox entry.
 
-无论目标状态是否公开，rollback 都分配新的 release 坐标，outbox 也只携带新
-revision/release。`Draft` 与 `Archived` 的新 release 不会进入公开读取；`Published` 才会
-切换公开投影。这样公开 AOT、search、feed、binary cache 和 notification stream 不会把
-旧 publication 当成新变更重放。
+Every rollback receives new release coordinates, regardless of target visibility, and its outbox contains only the new revision/release. A `Draft` or `Archived` release is not publicly readable; only `Published` switches public projections. Therefore public AOT, search, feed, binary cache, and notification stream cannot replay an old publication as a new change.
 
-定时任务在同一数据库事务中锁定候选文章、创建发布记录、更新文章指针并写入
-outbox。失败时整个批次回滚，旧发布版本继续可读。
+The scheduler locks candidate articles, creates the publication, updates the article pointer, and writes the outbox in one database transaction. A failure rolls back the batch and leaves the old publication readable.
 
-## 投影契约
+## Projection contract
 
-文章列表和详情投影携带以下坐标：
+Article list and detail projections carry `currentRevisionId` / `revisionNo` and `currentPublicationId` / `publicationNo`. Public title, summary, cover, category, body, tags, rights snapshot, and responsibility snapshot all come from the version fixed by `current_publication_id`; private authoring reads continue to show the current editing revision. Outbox events store exact coordinates in both columns and payload, and consumers process only the event's version.
 
-- `currentRevisionId` / `revisionNo`
-- `currentPublicationId` / `publicationNo`
+## Revision body comparison contract
 
-公开请求的标题、摘要、封面、分类、正文、标签、权利快照与责任快照均来自
-`current_publication_id` 固定的版本。后台私有请求继续显示当前编辑修订。
-outbox 事件同时在列和 payload 中保存精确坐标；消费者只处理事件给出的版本。
+Revision body comparison consumes only a sealed compare plan reverified by `RevisionComparePlanVerifier`. The plan fixes the base and compare package digests, raw Markdown SHA-256 digests, article/revision or draft coordinates, reader scope, expiry, cancellation identity, and resource budget. Before execution, the service rereads the exact package reference; it must not reinterpret `latest` or a current pointer as another revision. The package remains the authority for body content, metadata, and snapshots.
 
-## 修订正文比较契约
+## Risks and no-restart rollback
 
-修订正文比较只消费通过 `RevisionComparePlanVerifier` 复核的 sealed compare plan。plan
-固定 base/compare package digest、raw Markdown SHA-256、article/revision 或 draft
-coordinates、reader scope、到期时间、取消 identity 与资源预算；执行前重新读取 exact package
-reference，不能把 `latest` 或 current pointer 重新解释成另一修订。正文与 metadata/snapshots
-仍由 package 持有。
+Risks include legacy rows missing revision, rights, or responsibility snapshots, incomplete projection coordinates during migration, and old cache formats. Deploy expand-first: add nullable rollback-provenance columns and indexes, then enable the new code. An incomplete historical package fails closed; it is never filled from current/default policy. Cache readers accept the old format while writers emit the new one.
 
-## 风险与无重启回退
+To downgrade, stop the scheduled-publish worker and outbox consumer while retaining pending events, switch traffic to code compatible with the old columns, and hide rollback. Keep the new database columns and indexes. On recovery, restart the worker and continue projection from exact event coordinates; neither PostgreSQL nor Redis needs a restart.
 
-主要风险是旧数据缺少修订、权利或责任快照，迁移期间投影坐标不完整，以及旧缓存
-格式仍驻留。部署采用 expand-first：先增加可空的 rollback provenance 列与索引，再启用
-新代码。历史包不完整时回滚 fail closed，不从当前策略或默认值猜测。服务端缓存读取器
-兼容旧版本，写入器使用新版本。
-
-需要降级时，先停止定时发布 worker 和 outbox 消费（保留待处理事件），再将应用流量
-切回兼容旧列的代码并暂时隐藏回滚入口；数据库新增列和索引保持不删除。恢复新代码后重新启动 worker，
-按事件内精确坐标继续投影，不需要重启 PostgreSQL 或 Redis。
 ## Current publication coordinates
 
 <!-- fsus-doc-claim
@@ -91,7 +59,9 @@ render: enum-set
 - `rightsSnapshotId`
 <!-- FSUSBLOG-GENERATED:END content.article.publication-coordinates -->
 
-## 受控 publication 因果事实
+<a id="受控-publication-因果事实"></a>
+
+## Controlled publication causality facts
 
 <!-- fsus-doc-claim
 claimId: article-comment-lifecycle-outbox.scheduled-boundary
@@ -148,7 +118,7 @@ claimType: binary-relation
 factPath: facts.article.scheduled.preDueCurrent
 render: relation-subject-predicate-object
 -->
-scheduled transition before due preserves old current publication coordinate when an article already has a current publication and pendingPublicationAt is still in the future。
+Before due time, a scheduled transition preserves the old current publication coordinate when the article already has a current publication and `pendingPublicationAt` is still in the future.
 
 <!-- fsus-doc-claim
 claimId: article-comment-lifecycle-outbox.scheduled-due
@@ -157,7 +127,7 @@ claimType: binary-relation
 factPath: facts.article.scheduled.dueTransition
 render: relation-subject-predicate-object
 -->
-scheduled due transition creates new publication coordinate and switches current pointer without creating another revision when scheduledPublishAt or pendingPublicationAt is at or before the worker current time。
+At or before the worker's current time, a due scheduled transition creates a new publication coordinate and switches the current pointer without creating another revision when `scheduledPublishAt` or `pendingPublicationAt` is due.
 
 <!-- fsus-doc-claim
 claimId: article-comment-lifecycle-outbox.scheduled-stale
@@ -166,7 +136,7 @@ claimType: binary-relation
 factPath: facts.article.scheduled.replaceCancelStale
 render: relation-subject-predicate-object
 -->
-replacement cancellation or stale schedule does-not-switch current publication pointer before a due row is successfully claimed when the due predicate no longer matches or the row loses the FOR UPDATE SKIP LOCKED claim。
+Replacement cancellation or a stale schedule does not switch the current publication pointer before a due row is successfully claimed when the due predicate no longer matches or the row loses its `FOR UPDATE SKIP LOCKED` claim.
 
 <!-- fsus-doc-claim
 claimId: article-comment-lifecycle-outbox.restore-causal
@@ -175,4 +145,4 @@ claimType: binary-relation
 factPath: facts.article.restore.causal
 render: relation-subject-predicate-object
 -->
-restore creates new publication coordinate without reviving the old publication or creating a new revision when a soft-deleted article is restored from its existing current revision。
+Restore creates a new publication coordinate without reviving the old publication or creating a new revision when a soft-deleted article is restored from its existing current revision.
