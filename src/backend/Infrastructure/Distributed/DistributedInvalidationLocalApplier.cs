@@ -44,7 +44,7 @@ public sealed class DistributedInvalidationLocalApplier : IDistributedInvalidati
         _runtimeKeyScope = runtimeKeyScope;
     }
 
-    public DistributedInvalidationLocalApplier(
+    internal DistributedInvalidationLocalApplier(
         CacheLocalStore localCache,
         PublicAotFileShellCache publicAotCache,
         PublicAotInvalidationTracker publicAotInvalidationTracker,
