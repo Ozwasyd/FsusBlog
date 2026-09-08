@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import {
+  buildIdentitySchema,
   computeConsumedInputDigests,
   digestPath,
   digestValue,
@@ -188,7 +189,7 @@ export function validateMinimalContractBuildReceipt(receipt, {
   if (receipt == null || typeof receipt !== 'object' || Array.isArray(receipt)) {
     throw new Error('minimal contract build receipt must be an object')
   }
-  if (!hasExactKeys(receipt, [
+  const sealedKeys = [
     'schema',
     'runId',
     'sourceCommit',
@@ -201,7 +202,9 @@ export function validateMinimalContractBuildReceipt(receipt, {
     'status',
     'failureReasons',
     'contentDigest'
-  ])) {
+  ]
+  const sealedKeysWithSourceDigest = [...sealedKeys.slice(0, -3), 'sourceDigest', ...sealedKeys.slice(-3)]
+  if (!hasExactKeys(receipt, sealedKeys) && !hasExactKeys(receipt, sealedKeysWithSourceDigest)) {
     throw new Error('minimal contract build receipt fields are not sealed')
   }
   const copy = structuredClone(receipt)
@@ -249,6 +252,9 @@ export function validateMinimalContractBuildReceipt(receipt, {
       || !/^[a-f0-9]{64}$/u.test(entry.digest ?? ''))) {
     throw new Error('minimal contract build source closure is incomplete')
   }
+  if (receipt.sourceDigest != null && receipt.sourceDigest !== digestValue(receipt.sourceClosureDigests)) {
+    throw new Error('minimal contract build sourceDigest mismatch')
+  }
   const artifactIds = Object.keys(receipt.artifacts ?? {}).sort()
   if (JSON.stringify(artifactIds) !== JSON.stringify(Object.keys(hostDeclarations).sort())) {
     throw new Error('minimal contract build artifact roster is incomplete')
@@ -258,14 +264,18 @@ export function validateMinimalContractBuildReceipt(receipt, {
     const expectedArtifactPath = cachedArtifactPath(receipt.buildRoot, declaration)
     if (artifact?.project !== declaration.project
       || artifact?.path !== expectedArtifactPath
-      || !hasExactKeys(artifact, ['project', 'projectDigest', 'path', 'artifactDigest'])
+      || (!hasExactKeys(artifact, ['project', 'projectDigest', 'path', 'artifactDigest'])
+        && !hasExactKeys(artifact, ['project', 'projectDigest', 'path', 'artifactPath', 'artifactDigest']))
+      || (artifact.artifactPath != null && artifact.artifactPath !== declaration.output)
       || !/^[a-f0-9]{64}$/u.test(artifact?.projectDigest ?? '')
       || !/^[a-f0-9]{64}$/u.test(artifact?.artifactDigest ?? '')) {
       throw new Error(`minimal contract build artifact ${artifactId} is invalid`)
     }
     if (repositoryRoot !== null
       && (artifactDigest(repositoryRoot, artifact.project) !== artifact.projectDigest
-        || artifactDigest(repositoryRoot, artifact.path) !== artifact.artifactDigest)) {
+        || artifactDigest(repositoryRoot, artifact.path) !== artifact.artifactDigest
+        || (artifact.artifactPath != null && fs.existsSync(path.join(repositoryRoot, artifact.artifactPath))
+          && artifactDigest(repositoryRoot, artifact.artifactPath) !== artifact.artifactDigest))) {
       throw new Error(`minimal contract build artifact ${artifactId} digest mismatch`)
     }
   }
@@ -275,21 +285,17 @@ export function validateMinimalContractBuildReceipt(receipt, {
 export function buildIdentitiesFromMinimalReceipt(receipt) {
   validateMinimalContractBuildReceipt(receipt)
   return Object.fromEntries(Object.entries(receipt.artifacts).map(([artifactId, artifact]) => {
-    const declaration = hostDeclarations[artifactId]
-    if (declaration == null) throw new Error(`minimal contract build has unknown artifact ${artifactId}`)
-    const receiptBody = {
-      schema: `fsusblog.${artifactId}-build-receipt.v1`,
-      artifactId,
-      artifactPath: declaration.output,
-      artifactDigest: artifact.artifactDigest,
-      configuration: 'Release'
-    }
+    if (hostDeclarations[artifactId] == null) throw new Error(`minimal contract build has unknown artifact ${artifactId}`)
+    const sourceDigests = structuredClone(receipt.sourceClosureDigests)
     return [
       artifactId,
       {
+        schema: buildIdentitySchema,
         artifactId,
-        receiptDigest: digestValue(receiptBody),
-        artifactDigest: artifact.artifactDigest
+        receiptDigest: receipt.contentDigest,
+        artifactDigest: artifact.artifactDigest,
+        sourceDigests,
+        sourceDigest: receipt.sourceDigest ?? digestValue(sourceDigests)
       }
     ]
   }))
@@ -313,7 +319,8 @@ function reusableReceipt({
     })
     if (receipt.buildKey !== buildKey
       || digestValue(receipt.toolchain) !== digestValue(toolchain)
-      || digestValue(receipt.sourceClosureDigests) !== digestValue(sourceClosureDigests)) {
+      || digestValue(receipt.sourceClosureDigests) !== digestValue(sourceClosureDigests)
+      || receipt.sourceDigest !== digestValue(sourceClosureDigests)) {
       return null
     }
     return receipt
@@ -471,6 +478,7 @@ export function runMinimalContractBuild({
             path.posix.join(cacheRelative, buildKey),
             declaration
           ),
+          artifactPath: declaration.output,
           artifactDigest: digestPath(stagingRoot, declaration.cacheFile)
         }
       }
@@ -484,6 +492,7 @@ export function runMinimalContractBuild({
         buildKey,
         buildRoot: path.posix.join(cacheRelative, buildKey),
         sourceClosureDigests,
+        sourceDigest: digestValue(sourceClosureDigests),
         artifacts,
         status: 'ok',
         failureReasons: []
@@ -515,9 +524,13 @@ export function runMinimalContractBuild({
   })
   publishCanonicalObservations(repositoryRoot, receipt)
   const receiptFile = path.join(buildRoot, 'receipt.json')
+  const identityReceiptFile = path.join(buildRoot, 'receipts', `${normalizedRunId}.json`)
+  fs.mkdirSync(path.dirname(identityReceiptFile), { recursive: true })
+  fs.writeFileSync(identityReceiptFile, `${JSON.stringify(receipt, null, 2)}\n`)
   return {
     receipt,
     receiptFile,
+    identityReceiptFile,
     buildIdentities: buildIdentitiesFromMinimalReceipt(receipt),
     cacheHit
   }

@@ -129,6 +129,9 @@ public partial class ContentFilterService : IContentFilterService, IDisposable, 
         }
     }
 
+    internal int ReloadQueuedCount
+        => _reloadQueue.Reader.CanCount ? _reloadQueue.Reader.Count : 0;
+
     private static void EnsureFileExists(string path)
     {
         if (!File.Exists(path))

@@ -21,6 +21,7 @@ using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.NotificationStream;
+using FsusBlog.Server.Services.PrivateAssets;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Services.Taxonomy;
 using FsusBlog.Server.Services.Telemetry;
@@ -214,6 +215,11 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<FileService>();
         services.AddSingleton<IFileService>(sp => sp.GetRequiredService<FileService>());
         services.AddScoped<IAssetStore, LocalContentAssetStore>();
+        services.AddScoped<IPrivateAssetRecordSource, SqlPrivateAssetRecordSource>();
+        services.AddSingleton<IPrivateAssetWritePolicy, PrivateAssetWritePolicy>();
+        services.AddScoped<LocalPrivateAssetStore>();
+        services.AddScoped<IPrivateAssetStore>(sp => sp.GetRequiredService<LocalPrivateAssetStore>());
+        services.AddScoped<IPrivateAssetExistenceProbe>(sp => sp.GetRequiredService<LocalPrivateAssetStore>());
         if (!OpenApiExportMode.IsEnabled())
         {
             services.AddHostedService<UploadSessionCleanupWorker>();
@@ -285,6 +291,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<ICacheOneTimeStore>(sp => sp.GetRequiredService<UnifiedCache>());
         services.AddSingleton<ICacheOneTimeExchangeStore>(sp => sp.GetRequiredService<UnifiedCache>());
         services.AddSingleton<ICacheInvalidationStore>(sp => sp.GetRequiredService<UnifiedCache>());
+        services.AddSingleton<ICacheLocalInvalidator>(sp => sp.GetRequiredService<UnifiedCache>());
         services.AddSingleton<ICacheLeaseStore>(sp => sp.GetRequiredService<UnifiedCache>());
         services.AddSingleton<ICacheDiagnostics>(sp => sp.GetRequiredService<UnifiedCache>());
         services.AddSingleton<IOwnedFrameCache>(sp => sp.GetRequiredService<UnifiedCache>());

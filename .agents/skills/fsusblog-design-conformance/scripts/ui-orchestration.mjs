@@ -18,19 +18,54 @@ const schemaNames = [
     'ui-system-adjudication-receipt.schema.json',
     'ux-acceptance-receipt.schema.json'
 ]
+const schemaTitles = {
+    baseline: 'fsusblog-design-conformance.fsusui-baseline-identity.v1',
+    classification: 'fsusblog-design-conformance.ui-classification-receipt.v2',
+    adjudication: 'fsusblog-design-conformance.ui-system-adjudication-receipt.v2',
+    uxAcceptance: 'fsusblog-design-conformance.ux-acceptance-receipt.v2'
+}
 const HASH = /^[a-f0-9]{64}$/u
 const SHA = /^[a-f0-9]{40}$/u
 const REQUIRED_SKILL_IDS = policy.requiredSkillIds
 const FORBIDDEN_RECEIPT_KEYS = new Set([
+    'actor',
     'actualModel',
     'actualEffort',
     'actualProfile',
+    'capacity',
+    'checkpoint',
+    'dispatch',
+    'effort',
     'executionShape',
+    'executionRoute',
     'executionRouteDecisionDigest',
+    'executionRuntime',
+    'lease',
+    'leaseDigest',
+    'model',
+    'profile',
+    'provider',
+    'route',
+    'routeDecision',
+    'routeDigest',
+    'runtime',
+    'runtimeCapabilities',
+    'runtimePermission',
+    'runtimePermissions',
+    'runtimeProfile',
+    'runtimeDecision',
+    'schedulerRoute',
+    'schedulerRuntime',
     'routingPolicyDigest',
+    'retry',
     'slicePolicyDigest',
     'workPlanDigest',
     'sliceDigest',
+    'stage',
+    'stageOrder',
+    'selectedEffort',
+    'selectedModel',
+    'selectedProfile',
     'compiledPromptDigest',
     'dispatchReceiptDigest',
     'writeLease',
@@ -43,6 +78,16 @@ const FORBIDDEN_RECEIPT_KEYS = new Set([
     'humanDecisionRequestSchema',
     'humanDecisionRequestStatus',
     'humanDecisionRequestDigest'
+])
+const BUNDLE_KEYS = new Set([
+    'adjudication',
+    'adjudicationClassification',
+    'baseline',
+    'behaviorGreen',
+    'classification',
+    'consumerWorkaround',
+    'overlappingImplementationOwner',
+    'uxAcceptance'
 ])
 
 export class BlogUiContractError extends Error {
@@ -149,7 +194,48 @@ function assertNoOrchestrationFields(value, path = 'receipt') {
     }
 }
 
+function assertReceiptShape(value, schemaTitle, code, receiptPath) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        fail(code)
+    }
+    const schema = schemaNames
+        .map((name) => JSON.parse(readFileSync(
+            path.resolve(contractRoot, name),
+            'utf8'
+        )))
+        .find((candidate) => candidate.title === schemaTitle)
+    if (!schema || !schema.properties) {
+        fail('blog-ui-schema-invalid', schemaTitle)
+    }
+    for (const key of Object.keys(value)) {
+        if (Object.hasOwn(schema.properties, key)) continue
+        if (FORBIDDEN_RECEIPT_KEYS.has(key)) {
+            fail('blog-ui-orchestration-authority-leak', `${receiptPath}.${key}`)
+        }
+        fail('blog-ui-receipt-shape', `${receiptPath}.${key}`)
+    }
+}
+
+function assertBundleShape(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        fail('blog-ui-bundle-shape')
+    }
+    for (const key of Object.keys(value)) {
+        if (BUNDLE_KEYS.has(key)) continue
+        if (FORBIDDEN_RECEIPT_KEYS.has(key)) {
+            fail('blog-ui-orchestration-authority-leak', `bundle.${key}`)
+        }
+        fail('blog-ui-bundle-shape', `bundle.${key}`)
+    }
+}
+
 function validateBaseline(input) {
+    assertReceiptShape(
+        input,
+        schemaTitles.baseline,
+        'blog-ui-baseline-identity',
+        'baseline'
+    )
     if (input?.schema !==
             'fsusblog-design-conformance.fsusui-baseline-identity.v1' ||
         input.repository !== 'Ozwasyd/FsusUI' ||
@@ -182,6 +268,12 @@ function validateBaseline(input) {
 function validateClassification(input) {
     assertDomainPolicy(input)
     assertNoOrchestrationFields(input, 'classification')
+    assertReceiptShape(
+        input,
+        schemaTitles.classification,
+        'blog-ui-authority-binding',
+        'classification'
+    )
     if (input?.schema !==
             'fsusblog-design-conformance.ui-classification-receipt.v2' ||
         input.repository !== 'Ozwasyd/FsusBlog' ||
@@ -217,6 +309,12 @@ function validateClassification(input) {
 export function sealBlogUiAdjudication(input, classification) {
     assertDomainPolicy(input)
     assertNoOrchestrationFields(input, 'adjudication')
+    assertReceiptShape(
+        input,
+        schemaTitles.adjudication,
+        'blog-ui-adjudication-binding',
+        'adjudication'
+    )
     if (input?.schema !==
             'fsusblog-design-conformance.ui-system-adjudication-receipt.v2' ||
         input.repository !== 'Ozwasyd/FsusBlog' ||
@@ -274,6 +372,12 @@ function validateUxAcceptance(input, classification) {
     if (!input) fail('blog-ui-ux-acceptance-required')
     assertDomainPolicy(input)
     assertNoOrchestrationFields(input, 'uxAcceptance')
+    assertReceiptShape(
+        input,
+        schemaTitles.uxAcceptance,
+        'blog-ui-ux-acceptance-binding',
+        'uxAcceptance'
+    )
     if (input.schema !==
             'fsusblog-design-conformance.ux-acceptance-receipt.v2' ||
         input.repository !== 'Ozwasyd/FsusBlog' ||
@@ -588,6 +692,7 @@ export function mutateBlogUiBundle(source, id) {
 }
 
 export function validateBlogUiBundle(input) {
+    assertBundleShape(input)
     if (input?.overlappingImplementationOwner === true) {
         fail('blog-ui-owner-overlap')
     }

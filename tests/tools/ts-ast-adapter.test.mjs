@@ -128,6 +128,74 @@ test('top level', () => { assert.ok(true) })
     assert.ok(report.suiteRecords.some((entry) => entry.suitePath === 'suite'));
 });
 
+test('vitest object rows preserve named identity and resolve aliased production imports', () =>
+{
+    const root = mkdtempSync(path.join(tmpdir(), 'fsusblog-ts-adapter-object-rows-'));
+    temporaryRoots.push(root);
+    write(root, 'src/frontend/src/utils/errors.ts', `
+export function isAbortError(value: unknown): boolean {
+    return Boolean(value);
+}
+`);
+    write(root, 'tests/frontend/unit/errors.test.ts', `
+import { test, expect } from 'vitest';
+import { isAbortError } from '@/utils/errors';
+
+test.each([
+    { caseName: 'abort-error', expected: true },
+    { caseName: 'regular-error', expected: false }
+])('$caseName', ({ expected }) => {
+    expect(isAbortError(expected)).toBe(expected);
+});
+`);
+    const report = runAdapter(root, [{ path: 'tests/frontend/unit/errors.test.ts', adapter: 'vitest' }]);
+    assert.deepEqual(report.diagnostics, []);
+    assert.equal(report.testCases.length, 2);
+    assert.deepEqual(report.testCases.map((entry) => entry.displayName), ['abort-error', 'regular-error']);
+    assert.equal(new Set(report.testCases.map((entry) => entry.id)).size, 2);
+    assert.ok(report.testCases.every((entry) => entry.identity === 'static'));
+    assert.deepEqual(
+        report.testCases.map((entry) => entry.traits.find((trait) => trait.name === 'DataRow')?.value),
+        ['abort-error', 'regular-error']
+    );
+    assert.ok(report.testCases.every((entry) => entry.methodFacts.productionSymbolReferences.some((reference) =>
+        reference.methodName === 'isAbortError'
+        && reference.assembly === 'src/frontend/src/utils/errors.ts'
+        && reference.assemblyKind === 'production')));
+});
+
+test('vitest facts follow local helper calls to production owners', () =>
+{
+    const root = mkdtempSync(path.join(tmpdir(), 'fsusblog-ts-adapter-helper-closure-'));
+    temporaryRoots.push(root);
+    write(root, 'src/frontend/src/utils/errors.ts', `
+export function isAbortError(value: unknown): boolean {
+    return Boolean(value);
+}
+`);
+    write(root, 'tests/frontend/unit/errors-helper.test.ts', `
+import { test, expect } from 'vitest';
+import { isAbortError } from '@/utils/errors';
+
+function invokeProduction(value: unknown): boolean {
+    return isAbortError(value);
+}
+
+test('helper closure retains production ownership', () => {
+    expect(invokeProduction(null)).toBe(false);
+});
+`);
+    const report = runAdapter(root, [{ path: 'tests/frontend/unit/errors-helper.test.ts', adapter: 'vitest' }]);
+    assert.deepEqual(report.diagnostics, []);
+    assert.equal(report.testCases.length, 1);
+    const facts = report.testCases[0].methodFacts;
+    assert.ok(facts.invocations.some((invocation) => invocation.methodName === 'invokeProduction'));
+    assert.ok(facts.productionSymbolReferences.some((reference) =>
+        reference.methodName === 'isAbortError'
+        && reference.assembly === 'src/frontend/src/utils/errors.ts'
+        && reference.assemblyKind === 'production'));
+});
+
 const nativeClosedTableFixture = `
 import test from 'node:test';
 import assert from 'node:assert/strict';

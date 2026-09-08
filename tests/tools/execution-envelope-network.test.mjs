@@ -8,6 +8,10 @@ import test from 'node:test';
 import { Writable } from 'node:stream';
 
 import {
+    finalizeRunOwnedDirectories,
+    prepareRunOwnedDirectories
+} from '../../tools/test/execution-envelope-directories.mjs';
+import {
     finalizeNetworkSandbox,
     loadExecutionNetworkPolicy,
     prepareNetworkSandbox,
@@ -229,18 +233,18 @@ test('systemd address policy permits an exact current-run loopback service and d
         context.skip(`systemd user authority unavailable: ${String(capability.stderr).trim()}`);
         return;
     }
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-network-loopback-'));
-    const directories = Object.fromEntries([
-        'home', 'temp', 'npmCache', 'nugetPackages', 'dotnetHome', 'toolCache'
-    ].map((name) => {
-        const value = path.join(directory, name);
-        fs.mkdirSync(value, { recursive: true, mode: 0o700 });
-        return [name, value];
-    }));
+    const directoryEnvelope = prepareRunOwnedDirectories({
+        repositoryRoot: process.cwd(),
+        cwd: process.cwd(),
+        runId: `network-loopback-${process.pid}`,
+        producerId: 'systemd-loopback',
+        attemptId: 'current-run'
+    });
+    const directories = directoryEnvelope.fragment.directories;
     const server = net.createServer((socket) => socket.end());
     context.after(() => {
         server.close();
-        fs.rmSync(directory, { recursive: true, force: true });
+        finalizeRunOwnedDirectories(directoryEnvelope);
     });
     await new Promise((resolve, reject) => {
         server.once('error', reject);
@@ -248,14 +252,11 @@ test('systemd address policy permits an exact current-run loopback service and d
     });
     const port = server.address().port;
     const environment = {
+        ...directoryEnvelope.environment,
         PATH: process.env.PATH,
         LANG: 'C.UTF-8',
         LC_ALL: 'C.UTF-8',
         TZ: 'UTC',
-        HOME: directories.home,
-        TMPDIR: directories.temp,
-        TMP: directories.temp,
-        TEMP: directories.temp
     };
     const prepared = prepareNetworkSandbox({
         command: [
@@ -265,7 +266,7 @@ test('systemd address policy permits an exact current-run loopback service and d
         ],
         cwd: process.cwd(),
         directories,
-        writableRoots: Object.values(directories),
+        writableRoots: directoryEnvelope.fragment.writableRoots,
         plannedEndpoints: [{
             id: 'current-run-service',
             protocol: 'tcp',
@@ -299,4 +300,114 @@ test('systemd address policy permits an exact current-run loopback service and d
         stderr: quiet
     });
     assert.equal(finalizeNetworkSandbox(prepared).admission, 'planned-actual-exact');
+});
+
+test('physical runner permits declared canonical outputs and denies undeclared/read-only paths', {
+    skip: process.platform !== 'linux'
+}, async (context) =>
+{
+    const capability = spawnSync('systemctl', ['--user', 'show-environment'], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe']
+    });
+    if (capability.status !== 0)
+    {
+        context.skip(`systemd user authority unavailable: ${String(capability.stderr).trim()}`);
+        return;
+    }
+
+    const runId = `network-permission-${process.pid}-${Date.now()}`;
+    const declaredSuffix = `${process.pid}-${Date.now()}`;
+    const declaredOutput = `.tmp/gate-logs/physical-runner-${declaredSuffix}.json`;
+    const environmentOutput = `.tmp/env/physical-runner-${declaredSuffix}.json`;
+    const declaredFile = path.resolve(process.cwd(), declaredOutput);
+    const environmentFile = path.resolve(process.cwd(), environmentOutput);
+    const undeclaredFile = path.resolve(
+        process.cwd(),
+        `.tmp/physical-runner-undeclared-${declaredSuffix}.txt`
+    );
+    const readOnlyFile = path.resolve(process.cwd(), 'AGENTS.md');
+    const readOnlyBefore = fs.readFileSync(readOnlyFile);
+    fs.writeFileSync(undeclaredFile, 'unchanged');
+
+    const directoryEnvelope = prepareRunOwnedDirectories({
+        repositoryRoot: process.cwd(),
+        cwd: process.cwd(),
+        runId,
+        producerId: 'systemd-output-ownership',
+        attemptId: 'declared-canonical-output',
+        outputs: [declaredOutput, environmentOutput]
+    });
+    let networkFinalized = false;
+    let directoryFinalized = false;
+    let networkSandbox = null;
+    context.after(() => {
+        if (networkSandbox && !networkFinalized)
+        {
+            finalizeNetworkSandbox(networkSandbox);
+        }
+        if (!directoryFinalized)
+        {
+            finalizeRunOwnedDirectories(directoryEnvelope);
+        }
+        for (const file of [declaredFile, environmentFile, undeclaredFile])
+        {
+            fs.rmSync(file, { force: true });
+        }
+    });
+
+    const environment = {
+        ...directoryEnvelope.environment,
+        PATH: process.env.PATH,
+        LANG: 'C.UTF-8',
+        LC_ALL: 'C.UTF-8',
+        TZ: 'UTC'
+    };
+    networkSandbox = prepareNetworkSandbox({
+        command: [
+            process.execPath,
+            '-e',
+            [
+                "const fs = require('node:fs')",
+                `const deny = (target) => { try { fs.writeFileSync(target, 'changed'); process.exitCode = 42; } catch (error) { if (!['EACCES', 'EPERM', 'EROFS'].includes(error.code)) throw error; } }`,
+                `fs.writeFileSync(${JSON.stringify(declaredFile)}, 'declared')`,
+                `fs.writeFileSync(${JSON.stringify(environmentFile)}, 'environment')`,
+                `deny(${JSON.stringify(undeclaredFile)})`,
+                `deny(${JSON.stringify(readOnlyFile)})`,
+                "console.log('write-ownership-verified')"
+            ].join(';')
+        ],
+        cwd: process.cwd(),
+        directories: directoryEnvelope.fragment.directories,
+        writableRoots: directoryEnvelope.fragment.writableRoots,
+        environment,
+        policy
+    });
+    const quiet = new Writable({ write(_chunk, _encoding, callback) { callback(); } });
+    await runPhysicalExecution({
+        command: networkSandbox.command,
+        cwd: process.cwd(),
+        env: environment,
+        controlEnv: process.env,
+        linuxPrivateNetwork: networkSandbox.linuxPrivateNetwork,
+        linuxNetworkPolicy: networkSandbox.linuxNetworkPolicy,
+        linuxReadWritePaths: networkSandbox.linuxReadWritePaths,
+        stdout: quiet,
+        stderr: quiet
+    });
+
+    assert.equal(fs.readFileSync(declaredFile, 'utf8'), 'declared');
+    assert.equal(fs.readFileSync(environmentFile, 'utf8'), 'environment');
+    assert.equal(fs.readFileSync(undeclaredFile, 'utf8'), 'unchanged');
+    assert.deepEqual(fs.readFileSync(readOnlyFile), readOnlyBefore);
+    assert.ok(networkSandbox.linuxReadWritePaths.includes(
+        path.dirname(declaredFile)
+    ));
+    assert.ok(networkSandbox.linuxReadWritePaths.includes(
+        path.dirname(environmentFile)
+    ));
+    assert.equal(finalizeNetworkSandbox(networkSandbox).admission, 'planned-actual-exact');
+    networkFinalized = true;
+    assert.equal(finalizeRunOwnedDirectories(directoryEnvelope).cleanup.status, 'complete');
+    directoryFinalized = true;
 });

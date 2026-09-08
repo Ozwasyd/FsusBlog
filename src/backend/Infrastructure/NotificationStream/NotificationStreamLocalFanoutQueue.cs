@@ -4,6 +4,14 @@ using FsusBlog.Shared.Contracts.NotificationStream;
 
 namespace FsusBlog.Server.Infrastructure.NotificationStream;
 
+internal readonly record struct NotificationStreamFanoutLaneSnapshot(
+    int LosslessQueued,
+    int StateQueued,
+    int LowQueued,
+    long CoalescedCount,
+    long DroppedCount,
+    long Sequence);
+
 public enum NotificationStreamFanoutEnqueueStatus
 {
     Enqueued,
@@ -84,6 +92,15 @@ public sealed class NotificationStreamLocalFanoutQueue
 
     internal NotificationStreamDeliverySnapshot DeliverySnapshot => _delivery.Snapshot();
 
+    internal NotificationStreamFanoutLaneSnapshot LaneSnapshot()
+        => new(
+            _lossless.Reader.CanCount ? _lossless.Reader.Count : 0,
+            _stateKeys.Reader.CanCount ? _stateKeys.Reader.Count : 0,
+            _lowKeys.Reader.CanCount ? _lowKeys.Reader.Count : 0,
+            Volatile.Read(ref _coalescedCount),
+            Volatile.Read(ref _droppedCount),
+            DeliverySnapshot.Sequence);
+
     public NotificationStreamLocalFanoutQueue(IConfiguration configuration)
     {
         int legacyCapacity = Math.Clamp(configuration.GetValue<int?>("NotificationStream:LocalFanoutQueueCapacity") ?? 4096, 12, 65_536);
@@ -138,7 +155,10 @@ public sealed class NotificationStreamLocalFanoutQueue
             if (result.Status == NotificationStreamFanoutEnqueueStatus.Enqueued)
             {
                 _delivery.Transition(queued: 1);
-                result = result with { RetainedPending = identity };
+                result = result with
+                {
+                    RetainedPending = identity
+                };
             }
             else if (!result.Accepted)
             {
@@ -153,7 +173,10 @@ public sealed class NotificationStreamLocalFanoutQueue
                 };
             }
 
-            return result with { Input = identity };
+            return result with
+            {
+                Input = identity
+            };
         }
     }
 

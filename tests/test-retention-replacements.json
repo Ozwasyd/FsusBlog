@@ -12034,6 +12034,20 @@
             "reason": "Issue 2527 retains the same budgeted lease test ID under the canonical LocalRedis producer only. Exact burned artifact bytes, lease counters, operation identities and inventory replace the weak ambiguous-reply increase assertion; ordinary backend membership excludes Fixture=LocalRedis and missing fixture identity fails closed."
         },
         {
+            "before": "if (string.IsNullOrWhiteSpace(connectionString)) { return; }",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/PerceptionCharacterV3ContractCutoverTests.cs#PerceptionCharacterV3ContractCutoverTests.RedisStore_RetiresAllV3NamespacesAndEnvelopeIdempotently"
+            ],
+            "after": [
+                "Assert.True(first.Accepted)",
+                "Assert.True(repeated.Idempotent)",
+                "Assert.Equal(2, first.Mutation.ChallengeRowsRevoked)",
+                "Assert.False(await database.KeyExistsAsync(stateKey))",
+                "Assert.True(await database.KeyExistsAsync(activePoolKey))"
+            ],
+            "reason": "Issue 2529 removes the LocalRedis cutover early return and retains the same test under the canonical producer only. Real Redis namespace retirement, active-generation retention, envelope and database revocation, repeated receipt/mutation idempotency and no pool lease replace silent skip behavior; missing current-run identity, evidence or cleanup fails closed."
+        },
+        {
             "before": "behavior:${caseGroup.id} keeps viewport boundaries usable",
             "replacementTestIds": [
                 "node-test:tests/tools/ux-viewport-plan.test.mjs#shared-planner-preserves-the-exact-smoke-visual-and-boun-7d7d1654db"

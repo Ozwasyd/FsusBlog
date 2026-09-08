@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fsusblog.local/contracts/article-vault-article-manifest.schema.json",
+  "title": "FsusBlog article Vault article manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schemaVersion",
+    "siteIdentity",
+    "vaultIdentity",
+    "deviceIdentity",
+    "portableArticleIdentity",
+    "serverArticleIdentity",
+    "pathProjection",
+    "coordinates",
+    "operationWatermarks",
+    "state",
+    "contentSha256"
+  ],
+  "properties": {
+    "schema": { "const": "fsusblog.article-vault.article.v1" },
+    "schemaVersion": { "const": 1 },
+    "siteIdentity": { "$ref": "#/$defs/identity" },
+    "vaultIdentity": { "$ref": "#/$defs/identity" },
+    "deviceIdentity": { "$ref": "#/$defs/identity" },
+    "portableArticleIdentity": { "$ref": "#/$defs/identity" },
+    "serverArticleIdentity": {
+      "oneOf": [{ "$ref": "#/$defs/identity" }, { "type": "null" }]
+    },
+    "pathProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relativePath", "projectionSha256"],
+      "properties": {
+        "relativePath": { "$ref": "#/$defs/relativePath" },
+        "projectionSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "coordinates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base", "local", "server"],
+      "properties": {
+        "base": { "$ref": "#/$defs/coordinate" },
+        "local": { "$ref": "#/$defs/coordinate" },
+        "server": { "$ref": "#/$defs/coordinate" }
+      }
+    },
+    "operationWatermarks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sequence",
+        "lastPlannedOperationIdentity",
+        "lastAppliedOperationIdentity",
+        "lastReceiptSha256",
+        "applyingOperationIdentity",
+        "conflictOperationIdentity",
+        "blockedReasonCode"
+      ],
+      "properties": {
+        "sequence": { "type": "integer", "minimum": 0 },
+        "lastPlannedOperationIdentity": { "$ref": "#/$defs/nullableIdentity" },
+        "lastAppliedOperationIdentity": { "$ref": "#/$defs/nullableIdentity" },
+        "lastReceiptSha256": { "$ref": "#/$defs/nullableSha256" },
+        "applyingOperationIdentity": { "$ref": "#/$defs/nullableIdentity" },
+        "conflictOperationIdentity": { "$ref": "#/$defs/nullableIdentity" },
+        "blockedReasonCode": {
+          "oneOf": [
+            { "type": "string", "pattern": "^[a-z0-9_-]{3,128}$" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "state": {
+      "enum": [
+        "untracked",
+        "clean",
+        "local-modified",
+        "server-modified",
+        "both-modified",
+        "local-created",
+        "server-created",
+        "local-deleted",
+        "server-deleted",
+        "conflicted",
+        "applying",
+        "synced",
+        "blocked"
+      ]
+    },
+    "contentSha256": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "identity": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128,
+      "pattern": "^[^\\s/\\\\]+$"
+    },
+    "nullableIdentity": {
+      "oneOf": [{ "$ref": "#/$defs/identity" }, { "type": "null" }]
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "nullableSha256": {
+      "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?!\\.fsus(?:/|$))(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)(?!.*\\\\).+$"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "byteLength",
+        "hasUtf8Bom",
+        "newlineStyle",
+        "trailingWhitespaceLineCount",
+        "hasFinalNewline"
+      ],
+      "properties": {
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "byteLength": { "type": "integer", "minimum": 0 },
+        "hasUtf8Bom": { "type": "boolean" },
+        "newlineStyle": { "enum": ["none", "lf", "cr-lf", "mixed"] },
+        "trailingWhitespaceLineCount": { "type": "integer", "minimum": 0 },
+        "hasFinalNewline": { "type": "boolean" }
+      }
+    },
+    "coordinate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "schemaVersion",
+        "present",
+        "deleted",
+        "serverRevision",
+        "source",
+        "metadataManifestSha256",
+        "dependencySha256",
+        "lifecycle",
+        "permissionSha256",
+        "contentSha256"
+      ],
+      "properties": {
+        "schema": { "const": "fsusblog.article-vault.coordinate.v1" },
+        "schemaVersion": { "const": 1 },
+        "present": { "type": "boolean" },
+        "deleted": { "type": "boolean" },
+        "serverRevision": { "oneOf": [{ "type": "integer", "minimum": 1 }, { "type": "null" }] },
+        "source": { "oneOf": [{ "$ref": "#/$defs/source" }, { "type": "null" }] },
+        "metadataManifestSha256": { "$ref": "#/$defs/nullableSha256" },
+        "dependencySha256": { "$ref": "#/$defs/nullableSha256" },
+        "lifecycle": {
+          "oneOf": [
+            { "enum": ["draft", "scheduled", "published", "archived", "deleted"] },
+            { "type": "null" }
+          ]
+        },
+        "permissionSha256": { "$ref": "#/$defs/nullableSha256" },
+        "contentSha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

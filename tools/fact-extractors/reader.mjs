@@ -33,7 +33,7 @@ export function readFactObservationReceipt(source, options = {})
         worktreeFingerprint: receipt.worktreeFingerprint,
         buildIdentity: receipt.buildIdentity == null
             ? null
-            : Object.freeze({ ...receipt.buildIdentity }),
+            : deepFreeze(structuredClone(receipt.buildIdentity)),
         extractorDigest: receipt.extractorDigest,
         registryDigest: receipt.registryDigest,
         consumedInputDigests: Object.freeze(receipt.consumedInputDigests.map((entry) => Object.freeze({ ...entry }))),
