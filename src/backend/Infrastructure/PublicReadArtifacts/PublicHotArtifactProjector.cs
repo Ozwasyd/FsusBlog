@@ -49,6 +49,13 @@ public interface IVersionedPublicHotArtifactProjector
         CancellationToken ct);
 }
 
+public interface IPublicHotTaxonomyProjector
+{
+    Task<PublicHotReadSnapshot> RebuildAfterTaxonomyMutationAsync(
+        PublicHotReadSnapshot current,
+        CancellationToken ct);
+}
+
 internal sealed record PublicArticleFrameSelection(
     IReadOnlyList<int> ArticleIds,
     int PublicArticleCount,
@@ -68,7 +75,7 @@ public sealed class PublicHotArtifactProjector(
     ArticleBodyRepairQueue articleBodyRepairQueue,
     TimeProvider timeProvider,
     ILogger<PublicHotArtifactProjector> logger)
-    : IPublicHotArtifactProjector, IVersionedPublicHotArtifactProjector
+    : IPublicHotArtifactProjector, IVersionedPublicHotArtifactProjector, IPublicHotTaxonomyProjector
 {
     private const int MaxPageSize = 100;
     private const int MaxHotArticlesCount = 100;
@@ -109,6 +116,16 @@ public sealed class PublicHotArtifactProjector(
                 new TimeoutException("db-gate-timeout:public-hot-read-view-delta")),
             ct);
     }
+
+    public Task<PublicHotReadSnapshot> RebuildAfterTaxonomyMutationAsync(
+        PublicHotReadSnapshot current,
+        CancellationToken ct)
+        => dbConcurrencyGate.ExecuteAsync(
+            "public-hot-read-taxonomy-delta",
+            gateCt => BuildTaxonomySnapshotCoreAsync(current, gateCt),
+            _ => Task.FromException<PublicHotReadSnapshot>(
+                new TimeoutException("db-gate-timeout:public-hot-read-taxonomy-delta")),
+            ct);
 
     public Task<PublicHotReadSnapshot> BuildInitialSnapshotAsync(CancellationToken ct)
         => BuildSnapshotAsync([], ct);
@@ -279,6 +296,49 @@ public sealed class PublicHotArtifactProjector(
             listFrames.ToFrozenDictionary(),
             current.CategoryFrame,
             current.TagFrame,
+            html,
+            PublicHotReadPublicationEvidence.CreateVerified(version, projectionCutoff),
+            current.PublicArticleCount,
+            current.ArticleFrameLimit);
+    }
+
+    private async Task<PublicHotReadSnapshot> BuildTaxonomySnapshotCoreAsync(
+        PublicHotReadSnapshot current,
+        CancellationToken ct)
+    {
+        long started = Stopwatch.GetTimestamp();
+        PublicHotReadOptions value = options.Value;
+        DateTimeOffset projectionCutoff = timeProvider.GetUtcNow();
+        long version = projectionCutoff.ToUnixTimeMilliseconds();
+        var listFrames = current.ListArtifacts.ToDictionary(static pair => pair.Key, static pair => pair.Value);
+        IReadOnlyList<int> categoryIds = await db.Queryable<Category>()
+            .Select(category => category.Id)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        IReadOnlyList<int> tagIds = await db.Queryable<Tag>()
+            .Select(tag => tag.Id)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        PublicHotDeltaScope scope = new(
+            NormalizeIds(categoryIds),
+            NormalizeIds(tagIds),
+            RebuildHotFrames: true,
+            RebuildFeaturedFrames: true);
+        int rebuiltListFrames = await AddAffectedListFramesAsync(listFrames, scope, version, value, ct).ConfigureAwait(false);
+        PublicBinaryArtifact categoryFrame = await BuildCategoryFrameAsync(version, value, ct).ConfigureAwait(false);
+        PublicBinaryArtifact tagFrame = await BuildTagFrameAsync(version, value, ct).ConfigureAwait(false);
+        FrozenDictionary<string, PublicHtmlArtifact> html = current.HtmlArtifacts.ToFrozenDictionary(StringComparer.Ordinal);
+        FsusObservability.RecordPublicHotDelta(
+            changedArticles: 0,
+            rebuiltListFrames,
+            rebuiltTaxonomyFrames: 2,
+            FsusObservability.GetElapsed(started));
+        return new PublicHotReadSnapshot(
+            version,
+            current.ArticleArtifacts.ToFrozenDictionary(),
+            listFrames.ToFrozenDictionary(),
+            categoryFrame,
+            tagFrame,
             html,
             PublicHotReadPublicationEvidence.CreateVerified(version, projectionCutoff),
             current.PublicArticleCount,

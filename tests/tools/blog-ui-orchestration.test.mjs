@@ -114,6 +114,50 @@ test('all decision and verification classes remain domain facts without route bi
     }
 });
 
+test('receipt shape rejects external scheduler route and runtime claims', () =>
+{
+    for (const field of [
+        'model', 'profile', 'route', 'runtime', 'runtimeProfile', 'lease', 'stage', 'retry'
+    ])
+    {
+        const bundle = createValidBlogUiBundle();
+        bundle.classification[field] = 'external-scheduler-value';
+        assert.throws(() => validateBlogUiBundle(reseal(bundle)), {
+            code: 'blog-ui-orchestration-authority-leak'
+        });
+    }
+    const bundle = createValidBlogUiBundle();
+    bundle.classification.waiver = true;
+    assert.throws(() => validateBlogUiBundle(reseal(bundle)), {
+        code: 'blog-ui-receipt-shape'
+    });
+
+    for (const field of ['route', 'runtime', 'model'])
+    {
+        const topLevel = createValidBlogUiBundle();
+        topLevel[field] = 'external-scheduler-value';
+        assert.throws(() => validateBlogUiBundle(topLevel), {
+            code: 'blog-ui-orchestration-authority-leak'
+        });
+    }
+});
+
+test('baseline runtime identity drift cannot cross the active candidate binding', () =>
+{
+    const bundle = createValidBlogUiBundle();
+    bundle.classification.fsusUIBaseline.packageVersion = '0.35.0';
+    seal(bundle.classification.fsusUIBaseline, 'baselineDigest');
+    assert.throws(() => validateBlogUiBundle(reseal(bundle)), {
+        code: 'blog-ui-authority-binding'
+    });
+
+    const invalid = createValidBlogUiBundle();
+    invalid.classification.fsusUIBaseline.gitHead = 'not-a-commit';
+    assert.throws(() => validateBlogUiBundle(reseal(invalid)), {
+        code: 'blog-ui-baseline-identity'
+    });
+});
+
 test('system-design disputes require matching adjudication without model or route fields', () =>
 {
     const result = validateBlogUiBundle(createValidBlogUiBundle({
@@ -206,6 +250,22 @@ test('freshly signed adjudication for a different classification is rejected', (
     assert.throws(() => validateBlogUiBundle(bundle), { code: 'blog-ui-adjudication-binding' });
 });
 
+test('adjudication cannot cross candidate identity even with a fresh receipt digest', () =>
+{
+    for (const [field, value] of [
+        ['candidateSha', '9'.repeat(40)],
+        ['candidateIdentityDigest', 'e'.repeat(64)]
+    ])
+    {
+        const bundle = createValidBlogUiBundle();
+        bundle.adjudication[field] = value;
+        seal(bundle.adjudication, 'adjudicationDigest');
+        assert.throws(() => validateBlogUiBundle(bundle), {
+            code: 'blog-ui-adjudication-binding'
+        });
+    }
+});
+
 test('policy rejects unknown fields and restored orchestration ownership claims', () =>
 {
     const mutations = [
@@ -276,6 +336,9 @@ test('Skill and execution-policy docs declare external shared orchestration', ()
         assert.match(text, /shared orchestration|external/iu);
         assert.doesNotMatch(text, /sole execution-profile and route registry|exact model\/effort bindings|gpt-5\.6-sol/u);
     }
+    assert.match(execution, /Migration and rollback validation limits/iu);
+    assert.match(execution, /do not validate.*external scheduler/isu);
+    assert.match(execution, /tests\/tools\/public-design-document-authority\.test\.mjs/iu);
 });
 
 test('self-check CLI refuses to pretend it validated a supplied receipt file', () =>

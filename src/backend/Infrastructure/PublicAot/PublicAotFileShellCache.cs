@@ -84,6 +84,31 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
     internal long DistributedMemoryInvalidationGenerationForTests
         => Volatile.Read(ref _distributedMemoryInvalidationGeneration);
 
+    internal async Task<int> ApplyDistributedInvalidationAsync(
+        IReadOnlyCollection<string> cacheKeys,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        string[] distinctKeys = [.. cacheKeys
+            .Where(static key => !string.IsNullOrWhiteSpace(key))
+            .Distinct(StringComparer.Ordinal)];
+        if (distinctKeys.Length == 0)
+        {
+            return 0;
+        }
+
+        PublicAotBatchInvalidationStats stats = PublicAotBatchInvalidationStats.Empty;
+        foreach (string cacheKey in distinctKeys)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            stats = stats.Add(cacheKey.EndsWith(":", StringComparison.Ordinal)
+                ? await RemoveByPrefixLocalAsync(cacheKey, cancellationToken).ConfigureAwait(false)
+                : await RemoveManyLocalAsync([cacheKey], cancellationToken).ConfigureAwait(false));
+        }
+        Interlocked.Increment(ref _distributedMemoryInvalidationGeneration);
+        return stats.InvalidatedKeys;
+    }
+
     internal void InvalidateDistributedMemoryState()
     {
         Interlocked.Increment(ref _memoryGeneration);
@@ -212,14 +237,32 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         }
 
         long started = Stopwatch.GetTimestamp();
+        PublicAotBatchInvalidationStats stats = await RemoveByPrefixLocalAsync(prefix, cancellationToken).ConfigureAwait(false);
+
+        await PublishInvalidationAsync(PublicAotInvalidationMessage.Prefix(prefix)).ConfigureAwait(false);
+        RecordInvalidation("prefix", stats.WithPublish(), Stopwatch.GetElapsedTime(started));
+    }
+
+    private async Task<PublicAotBatchInvalidationStats> RemoveByPrefixLocalAsync(
+        string prefix,
+        CancellationToken cancellationToken)
+    {
         string registryKey = ResolveRegistryKey(prefix, out bool requiresPrefixFilter);
-        PublicAotBatchInvalidationStats stats = await RemoveRegisteredKeysBatchAsync(registryKey, prefix, requiresPrefixFilter, cancellationToken).ConfigureAwait(false);
-        if (stats.InvalidatedKeys == 0)
+        PublicAotBatchInvalidationStats stats = await RemoveRegisteredKeysBatchAsync(
+                registryKey,
+                prefix,
+                requiresPrefixFilter,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (stats.InvalidatedKeys == 0
+            && !string.Equals(registryKey, PublicAotCacheRegistry.GlobalRegistryKey, StringComparison.Ordinal))
         {
-            if (!string.Equals(registryKey, PublicAotCacheRegistry.GlobalRegistryKey, StringComparison.Ordinal))
-            {
-                stats = stats.Add(await RemoveRegisteredKeysBatchAsync(PublicAotCacheRegistry.GlobalRegistryKey, prefix, requiresPrefixFilter: true, cancellationToken).ConfigureAwait(false));
-            }
+            stats = stats.Add(await RemoveRegisteredKeysBatchAsync(
+                    PublicAotCacheRegistry.GlobalRegistryKey,
+                    prefix,
+                    requiresPrefixFilter: true,
+                    cancellationToken)
+                .ConfigureAwait(false));
         }
 
         string[] indexedKeys = _commitJournal.EnumerateTransactions()
@@ -235,9 +278,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
             prefix,
             indexedKeys.Length,
             removedOrphans);
-
-        await PublishInvalidationAsync(PublicAotInvalidationMessage.Prefix(prefix)).ConfigureAwait(false);
-        RecordInvalidation("prefix", stats.WithPublish(), Stopwatch.GetElapsedTime(started));
+        return stats;
     }
 
     public async Task InvalidateAllAsync(CancellationToken cancellationToken = default)

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -110,4 +111,17 @@ test('new routing and policy regressions are registered with the existing govern
         assert.ok(read('tests/matrix.yml').includes(entries[0].file));
         assert.ok(read('docs/testing.generated.md').includes(entries[0].file));
     }
+});
+
+test('testing documentation remains bound to its ordinary canonical producer', () =>
+{
+    const binding = JSON.parse(read('artifacts/change-contract/agent-context-generated-binding.json'));
+    assert.equal(binding.schema, 'fsusblog.generated-output-binding.v1');
+    assert.ok(binding.sources.includes('tests/matrix.yml'));
+    const output = binding.outputs.find((entry) => entry.path === 'docs/testing.generated.md');
+    assert.ok(output);
+    const digest = createHash('sha256')
+        .update(read('docs/testing.generated.md'))
+        .digest('hex');
+    assert.equal(output.sha256, digest);
 });
