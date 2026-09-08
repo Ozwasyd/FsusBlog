@@ -42,6 +42,7 @@ public interface IArticleMutationSideEffectCoordinator
 
 public static class ArticleMutationReplayEdges
 {
+    public const string ContractId = "fsusblog.article-mutation-replay-edges.v1";
     public const string PublicAotInvalidation = "public-aot-invalidation";
     public const string HttpCacheInvalidation = "http-cache-invalidation";
     public const string SearchProjection = "search-projection";

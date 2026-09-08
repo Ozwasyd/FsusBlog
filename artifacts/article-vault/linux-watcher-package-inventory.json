@@ -1,0 +1,72 @@
+{
+    "schema": "fsusblog.article-vault.linux-watcher-package-inventory.v1",
+    "owner": "LinuxArticleVaultWatcherAgent",
+    "issue": 2672,
+    "baseCommit": "7e0a5784314183e1f06989afb12d0e554dcb494c",
+    "contractCommits": {
+        "articleVaultManifest": "8de9638d739026af817e670f608608a06c9e0e2b",
+        "articleVaultSyncPlan": "c895b7d2393ae2bb78100d67499a9dc6c95414c6"
+    },
+    "package": {
+        "project": "src/article-vault/linux/FsusBlog.ArticleVault.Linux.csproj",
+        "assembly": "FsusBlog.ArticleVault.Linux",
+        "targetFramework": "net10.0",
+        "platform": "linux",
+        "productionSources": [
+            "src/article-vault/linux/LinuxVaultRawFactCodec.cs",
+            "src/article-vault/linux/LinuxVaultWatchContracts.cs",
+            "src/article-vault/linux/LinuxVaultWatcherSession.cs",
+            "src/article-vault/linux/LinuxVaultRootVerifier.cs",
+            "src/article-vault/linux/InotifyNative.cs"
+        ]
+    },
+    "publicSymbols": [
+        "FsusBlog.ArticleVault.Linux.LinuxVaultWatcherSchemas",
+        "FsusBlog.ArticleVault.Linux.LinuxVaultFactClass",
+        "FsusBlog.ArticleVault.Linux.LinuxVaultPathDisposition",
+        "FsusBlog.ArticleVault.Linux.LinuxVaultFilesystemSemantics",
+        "FsusBlog.ArticleVault.Linux.LinuxVaultWatcherOptions",
+        "FsusBlog.ArticleVault.Linux.LinuxVaultWatchRequest",
+        "FsusBlog.ArticleVault.Linux.LinuxVaultWatchIdentity",
+        "FsusBlog.ArticleVault.Linux.LinuxVaultWatermark",
+        "FsusBlog.ArticleVault.Linux.LinuxVaultRawFact",
+        "FsusBlog.ArticleVault.Linux.LinuxVaultRawFactCodec",
+        "FsusBlog.ArticleVault.Linux.LinuxVaultWatcherSession",
+        "FsusBlog.ArticleVault.Linux.LinuxVaultWatcherException"
+    ],
+    "nativeBoundary": {
+        "library": "libc",
+        "entryPoints": [
+            "free",
+            "inotify_add_watch",
+            "inotify_init1",
+            "inotify_rm_watch",
+            "read",
+            "realpath"
+        ],
+        "requiredFlags": [
+            "IN_CLOEXEC",
+            "IN_NONBLOCK"
+        ],
+        "eventRecord": "inotify_event"
+    },
+    "tests": {
+        "project": "tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj",
+        "sources": [
+            "tests/article-vault/linux/LinuxVaultRawFactContractTests.cs",
+            "tests/article-vault/linux/LinuxVaultRootSecurityTests.cs",
+            "tests/article-vault/linux/LinuxVaultWatcherExt4Tests.cs"
+        ],
+        "focusedCommand": "dotnet test tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj --no-restore --filter Category=LinuxArticleVaultWatcher"
+    },
+    "documentation": "docs/architecture/article-vault-linux-watcher.md",
+    "forbiddenDependencies": [
+        "filesystem polling",
+        "filesystem event normalization",
+        "local materialization",
+        "sync planner invocation",
+        "server writer invocation",
+        "Windows watcher",
+        "macOS watcher"
+    ]
+}

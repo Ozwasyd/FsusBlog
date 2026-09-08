@@ -1,0 +1,32 @@
+{
+  "schema": "fsusblog.external-naming-exceptions.v1",
+  "exceptions": [
+    {
+      "id": "environment-variable",
+      "paths": [
+        "src/article-vault/linux/InotifyNative.cs",
+        "src/article-vault/linux/LinuxVaultRawFactCodec.cs",
+        "src/article-vault/linux/LinuxVaultRootVerifier.cs",
+        "src/article-vault/linux/LinuxVaultWatchContracts.cs",
+        "src/article-vault/linux/LinuxVaultWatcherSession.cs"
+      ],
+      "reason": "Caller-visible Linux native entrypoints, platform masks, schema keys, and stable reason codes retain their external spelling while internal C# symbols follow repository style."
+    },
+    {
+      "id": "json-wire-key",
+      "paths": [
+        "config/development/document-inventory.generated.json",
+        "config/development/document-lifecycle.json",
+        "tests/article-vault/linux/packages.lock.json"
+      ],
+      "reason": "Document lifecycle and NuGet lock schemas retain their established external JSON key spelling."
+    },
+    {
+      "id": "css-like-contract",
+      "paths": [
+        "docs/architecture/article-vault-linux-watcher.md"
+      ],
+      "reason": "The current architecture document preserves caller-visible schema, mask, and reason-code spelling while prose and internal symbols follow repository conventions."
+    }
+  ]
+}

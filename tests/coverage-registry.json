@@ -5233,6 +5233,24 @@
             ]
         },
         {
+            "id": "article-scale-plan-static-governance",
+            "description": "ArticleScalePlan remains the sole closed provider-neutral scale graph contract and rejects source-level modulo, simplified graph, sentinel hash, manual derived-state, and duplicate plan authority mutations.",
+            "owner": "ContentAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "src/backend/Services/Fixtures/DataScale/ArticleScalePlan.cs",
+                "tools/test/check-article-scale-plan-governance.mjs",
+                "tests/fixtures/governance/article-scale-plan-governance.json",
+                "tests/tools/article-scale-plan-governance.test.mjs"
+            ],
+            "assertionType": "static",
+            "failClosedRule": "The checker fails when the plan schema or type gains a second backend owner, or when any ArticleScale or scale-plan backend context introduces ID/status modulo, a simplified graph declaration, placeholder or recompute hashes, or manual Redis, search, AOT, or hot-read declarations.",
+            "minimumRequirement": "Canonical source scanning plus isolated owner-root and repo-level overlay mutations must kill each forbidden class without scanning test fixtures as production source or treating the production outbox edge catalog reference as a manual declaration.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "production-xss-fast",
             "description": "Managed Chromium verifies representative FsusUI XSS corpus categories through production AOT, hydration, SPA, comments, About and private preview surfaces.",
             "owner": "InteropGlueAgent",
