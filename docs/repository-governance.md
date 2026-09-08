@@ -78,8 +78,7 @@ is a delegated manager for `config/testing/fsusui-baseline.json` and is still
 enumerated by `npm run deps:freshness`; it is not an ignore rule. Freshness is
 fail-closed and assigns each catalog item exactly one of `current`,
 `latest-target-pr`, or a dated exception in `config/dependencies/exceptions.json`.
-Updates remain
-reviewer-controlled and never automerged. The App
+The freshness workflow does not merge or close upgrade PRs. The App
 installation, permissions, live Dependency Dashboard, and real update pull requests
 are `external-unverified`; local acceptance uses the official config validator,
 full dry-run, and `local-controlled-simulation` fixtures and does not claim those
@@ -88,6 +87,51 @@ Review, the denied-license policy, and the normal CI gates.
 Dependency Review runs when pull requests change package locks, project files, or
 workflow files, blocks high-severity dependency changes, and denies the configured
 AGPL/GPL/LGPL license families.
+
+### Freshness execution and identities
+
+From `src/frontend`, `npm run deps:freshness` invokes the unique producer
+`tools/governance/check-dependency-freshness.mjs`. Its default evidence class is
+`live-registry`; explicit `--fixtures` selects `local-controlled-simulation`.
+Use `--output` with an existing parent directory to retain the structured result.
+Registry, permission, source-extraction and pagination failures fail closed; a
+missing registry snapshot is not evidence that every dependency is outdated.
+
+Current npm versions come from the owned lockfile resolutions, not the lower
+bound of a manifest range. Action identities use actual `uses` references, not
+version comments. Pinned Docker identities retain `tag@sha256:...`; multiple
+Dockerfile flavors use a sorted JSON array encoded in the version string, with
+each flavor independently queried. Node targets include stable Current releases,
+not only LTS. Action targets come from stable Action tags and their release
+metadata, excluding unrelated bundle releases. Publication times come from the
+upstream record, never the time the checker happened to observe it. npm registry
+routing respects the root and manifest-adjacent `.npmrc` scope ownership.
+
+PR targets are extracted from registered data files at the exact PR head using
+the same extractor. Git commit/tree identity, regular-file mode and blob hash
+bind those reads; candidate code is never executed. The original Renovate target
+declaration remains available as `declaredTargetVersion`. Check collection
+revalidates declarations and source targets before and after reading current-head
+workflow attempts. Missing checks remain unsuccessful under the existing
+required-checks catalog. Explicit supersession uses reciprocal PR-body lines
+`Supersedes: #123` and `Superseded by: #456`; a shared package name alone does not
+establish a successor.
+
+`.github/workflows/dependency-freshness.yml` runs every six hours or by manual
+dispatch on `master`, serializing the fixed `dependency-freshness-blockers`
+concurrency group without cancelling an earlier run. It consumes the structured
+producer result and maintains one `Dependency freshness blockers` issue. Recovery
+closes that issue; a later blocker reopens it. Required-check failures persisting
+for 24 hours add `dependency-blocked` to the affected PR; recovery removes only
+that label. Read or permission failures cannot produce an issue-closing plan.
+The scheduled entry point rejects fixture evidence and non-default-branch runs.
+
+The delegated FsusUI baseline record is separate from local frontend source
+consumption. Freshness enumeration neither updates that baseline nor modifies
+the local FsusUI repository, and a newer upstream commit is not UI qualification.
+Local tests simulate issue/label transitions and unavailable external execution;
+they do not establish that GitHub scheduling, App installation or remote checks
+actually ran.
 
 CodeQL runs on pull requests and default-branch pushes that touch the monorepo source roots:
 
@@ -112,13 +156,13 @@ Allowed exceptions:
 
 | Scope | Allowed workflow | Justification |
 | ------- | ------------------ | --------------- |
-| `pull-requests: read` | `dependency-review.yml`, `scorecard.yml` | Dependency Review needs PR metadata to inspect dependency changes. Scorecard needs read-only PR metadata in private repositories to evaluate review and branch-protection signals. |
+| `pull-requests: read` | `dependency-review.yml`, `scorecard.yml`, `dependency-freshness.yml` | Dependency Review and Scorecard inspect PR metadata; freshness binds dependency targets and current-head checks. |
 | `pull-requests: write` | `labeler.yml` | The path labeler applies labels to pull requests; it does not check out or execute PR code. |
-| `issues: write` | `issue-triage.yml` | Issue triage applies labels and status labels to public issue forms. |
+| `issues: write` | `issue-triage.yml`, `dependency-freshness.yml` | Issue triage applies form labels; freshness maintains its fixed-title blocker issue and the `dependency-blocked` PR label through the Issues API. |
 | `issues: read` | `scorecard.yml` | Scorecard needs read-only issue metadata in private repositories for maintainer/security posture checks. |
 | `checks: read` | `scorecard.yml` | Scorecard needs read-only check metadata in private repositories to detect SAST and branch-protection signals. |
-| `packages: read` | `quality-gate.yml` | Quality Gate may install the private `@ozwasyd` frontend package in trusted CI contexts. |
-| `actions: read` | `codeql.yml`, `scorecard.yml` | CodeQL and Scorecard use read-only workflow metadata while running private-repository artifact-mode posture checks. |
+| `packages: read` | `quality-gate.yml`, `dependency-freshness.yml` | Quality Gate may install private packages; freshness reads scoped npm and GHCR publication metadata in a trusted default-branch run. |
+| `actions: read` | `codeql.yml`, `scorecard.yml`, `dependency-freshness.yml` | Posture checks and freshness read workflow metadata; freshness binds required checks to exact PR heads and run attempts. |
 
 Rules for untrusted code:
 
