@@ -289,7 +289,7 @@ All frontend API calls use relative paths, so no base-URL switch is needed betwe
 | `npm run ensure:wasm` | Check for and fetch Wasm prebuilt artifacts |
 | `npm run build:wasm` | Recompile Wasm locally (Emscripten required) |
 | `npm run deps:wasm-codec` | Update Wasm dependencies |
-| `npm run deps:freshness` | Query live registry/GitHub inputs for three-state freshness of `update-surface.json`; only explicit `--fixtures` uses local-controlled-simulation, and unavailable inputs fail closed |
+| `npm run deps:freshness` | Query live registry/GitHub inputs and emit the three-state freshness of `update-surface.json`; only explicit `--fixtures` uses local-controlled-simulation, and unavailable inputs fail closed |
 
 ### Static checks
 

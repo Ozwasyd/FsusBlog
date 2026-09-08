@@ -48,7 +48,7 @@ public sealed class AuthoringAssetLibraryService(ISqlSugarClient db) : IAuthorin
                 FROM orphan
                 ON CONFLICT (asset_id) DO UPDATE
                 SET not_before_utc = LEAST(content_asset_cleanup_queue.not_before_utc, EXCLUDED.not_before_utc),
-                    last_error = NULL,
+                    last_error = content_asset_cleanup_queue.last_error,
                     updated_at_utc = EXCLUDED.updated_at_utc
                 RETURNING asset_id
             )
