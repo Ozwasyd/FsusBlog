@@ -724,6 +724,18 @@
       ]
     },
     {
+      "id": "BACKEND-PERCEPTION-V3-CUTOVER-LOCAL-REDIS",
+      "risk": "critical",
+      "coverage": "Issue 2529: RedisStore_RetiresAllV3NamespacesAndEnvelopeIdempotently is executed exactly once by the canonical LocalRedis producer, never by ordinary lanes, and binds fresh current-run evidence to the real Redis endpoint and isolated prefix. The test retires every V3 namespace while retaining the active generation, revokes envelopes and database rows, proves idempotency without leasing the pool, and fails closed on missing or stale evidence and cleanup.",
+      "evidencePaths": [
+        "tests/backend/Unit/PerceptionCharacterV3ContractCutoverTests.cs",
+        "tools/test/perception-character-v3-redis-fixture.sh",
+        "tools/test/perception-redis-producer.mjs",
+        "tests/tools/perception-character-v3-redis-fixture.test.mjs",
+        ".tmp/test-results/backend/perception-character-v3-redis-producer.json"
+      ]
+    },
+    {
       "id": "BACKEND-PRIVACY-ZK-COMMENT-GATE",
       "risk": "critical",
       "coverage": "Privacy/ZK anonymous comment release gate covering credential-free submit, fail-closed proof handling, scoped ticket/nullifier behavior, moderation/log redaction and deterministic high-concurrency pressure cases",

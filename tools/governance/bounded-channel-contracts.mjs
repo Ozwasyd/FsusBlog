@@ -16,6 +16,8 @@ const deliveryClasses = new Set(['required', 'best-effort', 'coalescible', 'repl
 const dispositionKinds = new Set(['implemented', 'not-applicable', 'successor-required'])
 const publicHotAuthorities = [1629, 1630, 1631]
   .map((issue) => `https://github.com/Ozwasyd/FsusBlog/issues/${issue}`)
+const drainParticipantSource = 'src/backend/Infrastructure/Operations/BoundedQueueDrainParticipants.cs'
+const drainParticipantRegistrationSource = 'src/backend/Infrastructure/Operations/ActiveReleaseFenceHosting.cs'
 
 function canonical(value) {
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`
@@ -73,6 +75,13 @@ export function validateBoundedChannelCatalog(catalogPath = defaultCatalogPath, 
   duplicate(catalog.queues.map((queue) => queue.queueId), 'queue ID')
   duplicate(catalog.queues.map((queue) => queue.discoveryKey), 'discovery key')
   duplicate(catalog.queues.map((queue) => queue.owner?.id), 'owner')
+  duplicate(
+    catalog.queues
+      .filter((queue) => queue.drainParticipant === true)
+      .map((queue) => queue.participantAdapter?.token)
+      .filter(Boolean),
+    'drain participant adapter'
+  )
   const sortedIds = catalog.queues.map((queue) => queue.queueId)
   if (JSON.stringify(sortedIds) !== JSON.stringify([...sortedIds].sort())) errors.push('catalog queues must have stable queueId ordering')
   const catalogKeys = new Set(catalog.queues.map((queue) => queue.discoveryKey))
@@ -82,16 +91,30 @@ export function validateBoundedChannelCatalog(catalogPath = defaultCatalogPath, 
   if (catalog.digest !== deliveryCatalogDigest(catalog.queues)) errors.push('catalog digest does not match stable canonical queue ordering')
   for (const queue of catalog.queues) validateQueue(queue, discovered.find((item) => item.discoveryKey === queue.discoveryKey), errors, readSource)
   if (new Set(catalog.queues.map((queue) => queue.deliveryClass)).size < 2) errors.push('catalog must not assign every queue one delivery class')
+  const catalogText = options.catalogText ?? fs.readFileSync(catalogPath, 'utf8')
+  if (/\bwildcardSuppression\b|directory-level suppression|private fallback unregistered/iu.test(`${catalogText}\n${JSON.stringify(catalog)}`)) {
+    errors.push('catalog must not use directory-level suppression or unregistered private fallbacks')
+  }
   return errors
 }
 
 function validateQueue(queue, discovery, errors, readSource) {
   const label = queue.queueId || '<unknown>'
-  rejectUnknownKeys(queue, new Set(['queueId', 'discoveryKey', 'owner', 'deliveryClass', 'channelBehavior', 'writerCallsites', 'readerCallsites', 'drain', 'fallback', 'failureSemantics', 'evidenceSources', 'proofTestIds', 'classProof', 'disposition', 'implementationOwner', 'authoritativeContracts']), label, errors)
+  rejectUnknownKeys(queue, new Set(['queueId', 'discoveryKey', 'owner', 'deliveryClass', 'drainParticipant', 'participantAdapter', 'channelBehavior', 'writerCallsites', 'readerCallsites', 'drain', 'fallback', 'failureSemantics', 'evidenceSources', 'proofTestIds', 'classProof', 'disposition', 'implementationOwner', 'authoritativeContracts']), label, errors)
   for (const field of ['queueId', 'discoveryKey', 'deliveryClass', 'implementationOwner', 'disposition']) {
     if (!presentString(queue[field])) errors.push(`${label}.${field} is required`)
   }
   if (!deliveryClasses.has(queue.deliveryClass)) errors.push(`${label} has unknown delivery class`)
+  if (typeof queue.drainParticipant !== 'boolean') errors.push(`${label}.drainParticipant must be a boolean`)
+  if (queue.drainParticipant === true) {
+    if (!queue.participantAdapter) errors.push(`${label} drain participant requires participantAdapter`)
+    else {
+      validateReference(queue.participantAdapter, `${label}.participantAdapter`, errors, readSource)
+      validateDrainParticipantBinding(queue, errors, readSource)
+    }
+  } else if (queue.participantAdapter) {
+    errors.push(`${label} participantAdapter is only valid when drainParticipant is true`)
+  }
   if (!queue.owner || !presentString(queue.owner.id) || !presentString(queue.owner.file) || !presentString(queue.owner.type) || !presentString(queue.owner.slot)) {
     errors.push(`${label} has unknown owner`)
   } else if (discovery && (queue.owner.file !== discovery.file || queue.owner.type !== discovery.ownerType || queue.owner.slot !== discovery.target)) {
@@ -121,6 +144,30 @@ function validateQueue(queue, discovery, errors, readSource) {
     if (JSON.stringify(queue.authoritativeContracts) !== JSON.stringify(publicHotAuthorities)) errors.push(`${label} PublicHot authority must reference #1629-#1631 exactly`)
     if (Object.hasOwn(queue, 'copiedAuthority')) errors.push(`${label} PublicHot contract must not copy authoritative logic`)
   } else if (queue.authoritativeContracts !== undefined) errors.push(`${label} non-PublicHot queue must not declare PublicHot authority`)
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')
+}
+
+function validateDrainParticipantBinding(queue, errors, readSource) {
+  const reference = queue.participantAdapter
+  const token = reference?.token
+  if (!presentString(token)) return
+  const source = readSource(reference.file)
+  if (source !== null) {
+    const classPattern = new RegExp(`\\bclass\\s+${escapeRegExp(token)}\\b[\\s\\S]{0,480}:\\s*IBoundedQueueDrainParticipant\\b`, 'u')
+    if (!classPattern.test(source)) errors.push(`${queue.queueId}.participantAdapter token must implement IBoundedQueueDrainParticipant`)
+    const queueIdToken = `QueueId => "${queue.queueId}"`
+    if (!source.includes(queueIdToken)) errors.push(`${queue.queueId}.participantAdapter must bind QueueId exactly once`)
+  }
+  const registrations = readSource(drainParticipantRegistrationSource)
+  if (registrations === null) {
+    errors.push(`${queue.queueId}.participantAdapter registration source is missing`)
+  } else {
+    const registration = `ServiceDescriptor.Singleton<IBoundedQueueDrainParticipant, ${token}>()`
+    if (!registrations.includes(registration)) errors.push(`${queue.queueId}.participantAdapter is not registered in ${drainParticipantRegistrationSource}`)
+  }
 }
 
 function rejectUnknownKeys(value, allowed, label, errors) {
