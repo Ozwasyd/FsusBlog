@@ -280,7 +280,8 @@ public sealed class CommentAnonymousFixtureProviderTests
         }
         finally
         {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
         }
     }
 
@@ -300,12 +301,16 @@ public sealed class CommentAnonymousFixtureProviderTests
             await ledger.StoreAsync(reference, CancellationToken.None);
 
             await Assert.ThrowsAsync<InvalidOperationException>(() => ledger.StoreAsync(
-                reference with { CommentId = CommentId + 1 },
+                reference with
+                {
+                    CommentId = CommentId + 1
+                },
                 CancellationToken.None));
         }
         finally
         {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
         }
     }
 
@@ -364,14 +369,38 @@ public sealed class CommentAnonymousFixtureProviderTests
         CommentFixturePortBinding binding = CreateBinding();
 
         Assert.True(binding.IsValid());
-        Assert.False((binding with { ProfileId = string.Empty }).IsValid());
-        Assert.False((binding with { Capabilities = ["moderation.policy-matrix", "comment.threaded"] }).IsValid());
-        Assert.False((binding with { ArticleId = 0 }).IsValid());
-        Assert.False((binding with { AuthProducerResultDigest = "invalid" }).IsValid());
-        Assert.False((binding with { AuthPrepareReferenceDigests = [Digest('a'), Digest('b')] }).IsValid());
-        Assert.False((binding with { TemporalContextDigest = "invalid" }).IsValid());
-        Assert.False((binding with { ProducerPlanDigest = "invalid" }).IsValid());
-        Assert.False((binding with { PlanDigest = "invalid" }).IsValid());
+        Assert.False((binding with
+        {
+            ProfileId = string.Empty
+        }).IsValid());
+        Assert.False((binding with
+        {
+            Capabilities = ["moderation.policy-matrix", "comment.threaded"]
+        }).IsValid());
+        Assert.False((binding with
+        {
+            ArticleId = 0
+        }).IsValid());
+        Assert.False((binding with
+        {
+            AuthProducerResultDigest = "invalid"
+        }).IsValid());
+        Assert.False((binding with
+        {
+            AuthPrepareReferenceDigests = [Digest('a'), Digest('b')]
+        }).IsValid());
+        Assert.False((binding with
+        {
+            TemporalContextDigest = "invalid"
+        }).IsValid());
+        Assert.False((binding with
+        {
+            ProducerPlanDigest = "invalid"
+        }).IsValid());
+        Assert.False((binding with
+        {
+            PlanDigest = "invalid"
+        }).IsValid());
     }
 
     [Fact]
@@ -392,13 +421,25 @@ public sealed class CommentAnonymousFixtureProviderTests
 
         Assert.True(CommentThreadFixturePort.IsExactAnonymousOperationReference(reference, binding, expected));
         Assert.False(CommentThreadFixturePort.IsExactAnonymousOperationReference(
-            reference with { PlanDigest = Digest('9') }, binding, expected));
+            reference with
+            {
+                PlanDigest = Digest('9')
+            }, binding, expected));
         Assert.False(CommentThreadFixturePort.IsExactAnonymousOperationReference(
-            reference with { Owner = $"{Owner}-other" }, binding, expected));
+            reference with
+            {
+                Owner = $"{Owner}-other"
+            }, binding, expected));
         Assert.False(CommentThreadFixturePort.IsExactAnonymousOperationReference(
-            reference with { CommentId = CommentId + 1 }, binding, expected));
+            reference with
+            {
+                CommentId = CommentId + 1
+            }, binding, expected));
         Assert.False(CommentThreadFixturePort.IsExactAnonymousOperationReference(
-            reference, binding, expected with { ActorMode = CommentAuthorModes.Public }));
+            reference, binding, expected with
+            {
+                ActorMode = CommentAuthorModes.Public
+            }));
     }
 
     private static CommentAnonymousFixtureCreateRequest CreateRequest()

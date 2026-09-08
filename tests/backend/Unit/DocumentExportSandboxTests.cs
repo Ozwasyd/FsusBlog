@@ -1,3 +1,4 @@
+using System.Runtime.Versioning;
 using System.Text;
 
 using FsusBlog.Server.Services.DocumentExport;
@@ -138,6 +139,8 @@ public sealed class DocumentExportSandboxTests : IDisposable
     }
 
     [Fact]
+    [Trait("Platform", "Unix")]
+    [UnsupportedOSPlatform("windows")]
     public async Task PreStartFailureCleansRunDirectoryAndSealsReceiptWithoutClaimingIsolation()
     {
         (DocumentExportFrozenInput input, DocumentExportTask task) = DocumentExportTestToolFixture.ValidTask();

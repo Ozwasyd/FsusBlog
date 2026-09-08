@@ -487,13 +487,25 @@ public sealed class BoundedQueueDrainAggregatorTests
 
         public string AdapterToken => adapterToken;
 
-        public string? ForcedRunId { get; set; }
+        public string? ForcedRunId
+        {
+            get; set;
+        }
 
-        public bool ThrowOnObserve { get; set; }
+        public bool ThrowOnObserve
+        {
+            get; set;
+        }
 
-        public bool TamperDigest { get; set; }
+        public bool TamperDigest
+        {
+            get; set;
+        }
 
-        public Action? OnObserve { get; set; }
+        public Action? OnObserve
+        {
+            get; set;
+        }
 
         public void Set(
             long? generation = null,
@@ -510,13 +522,20 @@ public sealed class BoundedQueueDrainAggregatorTests
                 _sequence++;
             }
 
-            if (generation.HasValue) _generation = generation.Value;
-            if (sequence.HasValue) _sequence = sequence.Value;
-            if (queued.HasValue) _queued = queued.Value;
-            if (inFlight.HasValue) _inFlight = inFlight.Value;
-            if (durablePending.HasValue) _durablePending = durablePending.Value;
-            if (terminalFailures.HasValue) _terminalFailures = terminalFailures.Value;
-            if (postcondition.HasValue) _postcondition = postcondition.Value;
+            if (generation.HasValue)
+                _generation = generation.Value;
+            if (sequence.HasValue)
+                _sequence = sequence.Value;
+            if (queued.HasValue)
+                _queued = queued.Value;
+            if (inFlight.HasValue)
+                _inFlight = inFlight.Value;
+            if (durablePending.HasValue)
+                _durablePending = durablePending.Value;
+            if (terminalFailures.HasValue)
+                _terminalFailures = terminalFailures.Value;
+            if (postcondition.HasValue)
+                _postcondition = postcondition.Value;
             _dropProof = dropProof;
         }
 
@@ -542,7 +561,10 @@ public sealed class BoundedQueueDrainAggregatorTests
                 _dropProof,
                 [],
                 s_observedAt);
-            return TamperDigest ? receipt with { ContentDigest = "sha256:tampered" } : receipt;
+            return TamperDigest ? receipt with
+            {
+                ContentDigest = "sha256:tampered"
+            } : receipt;
         }
 
         public string DeliveryClass => _deliveryClass;
