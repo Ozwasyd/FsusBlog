@@ -16,6 +16,7 @@ import {
     evidenceLocationDigest,
     scanEvidenceLocations
 } from '../../tools/test/evidence-location-scanner.mjs';
+import { generateCurrentRunEvidenceLocationAcceptance } from '../../tools/test/generate-current-run-evidence-location-acceptance.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const load = (name) => JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'config/testing', name), 'utf8'));
@@ -136,6 +137,75 @@ test('generated repository registry and unique ledger match a fresh full-reposit
     assert.deepEqual(repeated.ledger, generated.ledger);
 });
 
+test('clean-attempt evidence library keeps its exact scanner finding and canonical source authority', () =>
+{
+    const generated = generateEvidenceLocationGovernance();
+    const finding = generated.scan.findings.find((entry) =>
+        entry.file === 'tools/release/clean-attempt-evidence-source.mjs');
+    assert.deepEqual(finding, {
+        findingId: '83d7c210423e1bb7',
+        ruleId: 'evidence-selection.first-match',
+        file: 'tools/release/clean-attempt-evidence-source.mjs',
+        line: 357,
+        column: 19,
+        function: '<module>',
+        excerpt: 'const candidate = authorityReferences.find((item) => item.kind === reference.kind);',
+        indirectVia: null
+    });
+
+    const authority = generated.registry.entries.find((entry) =>
+        entry.producerSource === 'tools/release/clean-attempt-evidence-source.mjs');
+    assert.deepEqual({
+        producerSource: authority.producerSource,
+        producerCallsite: authority.producerCallsite,
+        producerExecutable: authority.producerExecutable,
+        producerBindingClass: authority.producerBindingClass,
+        producerCommand: authority.producerCommand
+    }, {
+        producerSource: 'tools/release/clean-attempt-evidence-source.mjs',
+        producerCallsite: 'tools/release/browser-release-clean-attempt-consumers.mjs',
+        producerExecutable: 'node tools/release/test-evidence-receipts-cli.mjs create-correctness',
+        producerBindingClass: 'library-caller',
+        producerCommand: 'FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER=evidence-consumer.release.clean-attempt-evidence-source node --import ./tools/test/current-run-evidence-producer-hook.mjs tools/release/test-evidence-receipts-cli.mjs create-correctness'
+    });
+    assert.equal(generated.ledger.entries.find((entry) => entry.findingId === finding.findingId).newAuthorityId,
+        authority.authorityId);
+});
+
+test('clean-attempt import-only library cannot masquerade as its executable correctness CLI', () =>
+{
+    const generated = generateEvidenceLocationGovernance();
+    const authority = generated.registry.entries.find((entry) =>
+        entry.producerSource === 'tools/release/clean-attempt-evidence-source.mjs');
+    const source = fs.readFileSync(path.join(repositoryRoot, authority.producerSource), 'utf8');
+    const caller = fs.readFileSync(path.join(repositoryRoot, authority.producerCallsite), 'utf8');
+    const executable = fs.readFileSync(path.join(repositoryRoot, 'tools/release/test-evidence-receipts-cli.mjs'), 'utf8');
+
+    assert.match(source, /export function readCleanAttemptEvidenceSource/u);
+    assert.doesNotMatch(source, /process\.argv\[1\].*fileURLToPath/su);
+    assert.match(caller, /from ['"]\.\/clean-attempt-evidence-source\.mjs['"]/u);
+    assert.match(caller, /requireCleanAttemptConsumerAdmission\s*\(/u);
+    assert.match(executable, /if \(process\.argv\[1\].*fileURLToPath/su);
+    assert.match(executable, /options\.command === 'create-correctness'/u);
+    assert.doesNotMatch(authority.producerExecutable,
+        /clean-attempt-evidence-source\.mjs(?:\s|$)/u);
+});
+
+test('fresh governance and acceptance producers reach a byte-identical fixed point', () =>
+{
+    const firstGovernance = generateEvidenceLocationGovernance();
+    const secondGovernance = generateEvidenceLocationGovernance();
+    assert.equal(JSON.stringify(secondGovernance.registry), JSON.stringify(firstGovernance.registry));
+    assert.equal(JSON.stringify(secondGovernance.ledger), JSON.stringify(firstGovernance.ledger));
+
+    const firstAcceptance = generateCurrentRunEvidenceLocationAcceptance();
+    const secondAcceptance = generateCurrentRunEvidenceLocationAcceptance();
+    assert.equal(JSON.stringify(secondAcceptance), JSON.stringify(firstAcceptance));
+    assert.equal(firstAcceptance.registryDigest, firstGovernance.registry.contentDigest);
+    assert.equal(firstAcceptance.ledgerDigest, firstGovernance.ledger.contentDigest);
+    assert.equal(firstAcceptance.scannerDigest, firstGovernance.scan.contentDigest);
+});
+
 test('ledger rejects missing duplicate orphan and newly discovered findings', () =>
 {
     const generated = generateEvidenceLocationGovernance();
@@ -244,7 +314,7 @@ test('every registry authority declares an executable producer and exact publica
     }
     assert.deepEqual(Object.fromEntries(['cli', 'library-caller', 'workflow'].map((classification) =>
         [classification, [...sourceClasses.values()].filter((value) => value === classification).length])),
-    { cli: 47, 'library-caller': 18, workflow: 2 });
+    { cli: 47, 'library-caller': 19, workflow: 2 });
 });
 
 test('false positives and helper calls retain exact rule and actual consumer locations', () =>
