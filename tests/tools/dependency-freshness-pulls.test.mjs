@@ -12,6 +12,19 @@ test('shared producer mapping preserves bot, dependency, group and exact target 
     }]);
     pulls[0].user = { login: 'human', type: 'User' };
     assert.deepEqual(parseRenovatePullRequests(pulls, catalog), []);
+    pulls[0].user = { login: 'other[bot]', type: 'Bot' };
+    assert.deepEqual(parseRenovatePullRequests(pulls, catalog), []);
+});
+
+test('declared package rows do not create substring dependency identities', () => {
+    const result = parseRenovatePullRequests([{
+        number: 4, state: 'open', title: 'Update vue-router to v5.0.0', user: { login: 'renovate[bot]', type: 'Bot' },
+        body: '| Package | Update | New value |\n| --- | --- | --- |\n| vue-router | major | 5.0.0 |'
+    }], { items: [
+        { id: 'vue', packageName: 'vue', group: 'runtime' },
+        { id: 'router', packageName: 'vue-router', group: 'runtime' }
+    ] });
+    assert.deepEqual(result.map((mapping) => mapping.dependencyId), ['router']);
 });
 
 test('open PR beyond the first page is included in canonical mapping', async () => {
