@@ -1,6 +1,8 @@
-# 单体分布式架构边界
+# Monolithic distributed architecture boundary
 
-## 运行模式
+## Invariants
+
+## Runtime modes
 
 <!-- fsus-doc-claim
 claimId: deployment-blue-green-runtime-role.runtime-roles
@@ -22,13 +24,16 @@ render: key-value-table
 | unsupportedCombinations | {"static-role-empty":"runtime_static_roles_required","static-role-unknown":"runtime_static_role_invalid:unknown","unknown-mode":"runtime_mode_invalid:unsupported"} |
 <!-- FSUSBLOG-GENERATED:END deployment.runtime-roles -->
 
-## 项目与部署拓扑守卫
+## Project and deployment-topology guard
 
 ```bash
 node tools/governance/check-monolithic-distributed-architecture.mjs
 node --test tests/tools/monolithic-distributed-architecture.test.mjs
 node tools/run-test-matrix.mjs validate
 ```
+
+## Distributed Runtime issue boundary
+
 ## Current execution classes
 
 <!-- fsus-doc-claim

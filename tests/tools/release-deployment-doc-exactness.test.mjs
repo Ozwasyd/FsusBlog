@@ -185,9 +185,11 @@ test('actual deployment documents retain exact AST coverage across fences and ow
         'docs/architecture/monolithic-distributed-boundary.md': [
             ['heading', 1, 1],
             ['heading', 3, 3],
-            ['heading', 25, 25],
-            ['fenced-code', 27, 31],
-            ['heading', 32, 32]
+            ['heading', 5, 5],
+            ['heading', 27, 27],
+            ['fenced-code', 29, 33],
+            ['heading', 35, 35],
+            ['heading', 37, 37]
         ]
     }
     for (const [documentPath, spans] of Object.entries(expected))
