@@ -1,23 +1,11 @@
 # Backend security Roslyn source policy
 
-`security/policies/backend-source-policy.json` 是 #1037 唯一的源码形状治理入口。实现位于
-`tools/security/FsusBlog.SecuritySourceAnalyzer`，使用 Roslyn syntax tree 报告文件、行、列和
-稳定 rule ID；它不以 `Contains`/`DoesNotContain` 包装生产源码。
+`security/policies/backend-source-policy.json` is #1037's sole source-shape authority. `tools/security/FsusBlog.SecuritySourceAnalyzer` uses Roslyn syntax trees to report file, line, column, and stable rule ID; it never wraps production source in `Contains`/`DoesNotContain`. See the [security model](../security.md) for the wider contract.
 
-当前规则拒绝安全目录中的 `Random.Shared` 与 `new Random`、敏感值的普通忽略大小写比较、
-raw sensitive structured-log placeholder、非日志输出中的 raw exception detail，并校验
-Argon2 memory/iteration 与 recovery-key PBKDF2 最低值。v2 policy 还要求稳定 policy ID、semver、
-owner、fail-closed analyzer identity、至少两个文档入口，并为每条 rule 声明 `severity=error`、
-rationale 和 repository-relative include scope；scope 是允许列表，不得自动扩大到 generated、
-fixture、仓库外路径或无关业务目录。
+Current rules reject `Random.Shared`/`new Random` in security directories, ordinary case-insensitive comparisons of sensitive values, raw sensitive structured-log placeholders, and raw exception details outside logs; they also check Argon2 memory/iteration and recovery-key PBKDF2 minima. Policy v2 requires stable policy ID, semver, owner, fail-closed analyzer identity, at least two documentation entries, and each rule's `severity=error`, rationale, and repository-relative include scope. Scope is an allowlist and cannot expand to generated/fixture, external, or unrelated business paths.
 
-`tests/backend/Fixtures/security-source-analysis/positive.cs` 必须零诊断；`negative.cs` 必须同时
-触发 `FSUSBLOGSEC001` 至 `FSUSBLOGSEC008`。Node harness 先分析仓库，再以相同已构建 analyzer
-分析两个 fixture，并要求所有 fixture 诊断只来自 negative 文件。
+`tests/backend/Fixtures/security-source-analysis/positive.cs` must produce zero diagnostics; `negative.cs` must trigger every `FSUSBLOGSEC001` through `FSUSBLOGSEC008`. The Node harness analyzes the repository first, then both fixtures with the same built analyzer, and requires all fixture diagnostics to come only from `negative.cs`.
 
-中央合并时应把 `node --test tests/tools/security-source-analyzer.test.mjs` 接入
-`static-governance`，并在 coverage registry 中以一个独占 coverage ID 绑定 policy、analyzer、
-fixtures、harness 和 #1037 evidence。禁止添加最大错误数；一次运行必须保留全部诊断。
+At central merge, wire `node --test tests/tools/security-source-analyzer.test.mjs` into `static-governance` and bind policy, analyzer, fixtures, harness, and #1037 evidence to one exclusive coverage ID. Do not add a maximum-error allowance; one run must retain every diagnostic.
 
-单独运行 `node --test tests/tools/security-source-analyzer.test.mjs` 可重现 policy schema、仓库正例和
-负向 Roslyn fixture；是否通过只以当前运行输出为准，文档本身不冒充 fresh evidence。
+Run the command standalone to reproduce policy-schema, repository-positive, and negative Roslyn-fixture checks. Only current output determines pass/fail; this document is not fresh evidence.

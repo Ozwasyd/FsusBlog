@@ -23,7 +23,7 @@ Only the current event enters consumers. PublicAOT uses the envelope before/afte
 
 Authority transactions treat the outbox insert as part of the write, not a post-commit notification. If production of a responsibility, publication, or article mutation event fails, its snapshot/current pointer and event all roll back together. Operators must repair the producer or schema and retry the authority command; they must not synthesize a latest-state event outside that transaction.
 
-For a no-restart rollback, reload `ArticleMutationOutbox:Enabled=false` to stop new claims while authority writes continue to retain pending events. Re-enable it after repair for idempotent replay. Rollback must not delete v2 columns, events, or edge evidence.
+For the no-restart path, use the [claim-lease fallback](article-mutation-outbox-claim-lease.md#no-restart-fallback): reload `ArticleMutationOutbox:Enabled=false` to stop new claims while authority writes retain pending events, then re-enable it after repair for idempotent replay. Rollback must not delete v2 columns, events, or edge evidence.
 
 ## Verification
 

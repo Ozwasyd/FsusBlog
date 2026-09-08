@@ -1,10 +1,10 @@
 # AEDS v2 Protocol (Little Endian)
 
-This file is the current wire protocol specification. AEDS v2 is the only accepted runtime frame version; v1 frames are rejected by server, TypeScript, Worker, and Wasm decoders.
+This is the current wire protocol specification. AEDS v2 is the only accepted runtime frame version; server, TypeScript, Worker, and Wasm decoders reject v1 frames.
 
 ## Generated Contract Surfaces
 
-`src/shared/Contracts/Validation/aeds-protocol.json` is the single machine-readable source for the v2 header and active frame types. Run `node tools/frontend/generate-aeds-protocol.mjs` after changing the manifest. The generator owns these files; do not edit them by hand:
+`src/shared/Contracts/Validation/aeds-protocol.json` is the single machine-readable source for the v2 header and active frame types. After changing the manifest, run `node tools/frontend/generate-aeds-protocol.mjs`; the generator owns these files, which must not be edited by hand:
 
 - `src/core/Algorithms/AedsFrameType.cs`
 - `src/shared/AedsFrameType.cs`
@@ -12,14 +12,13 @@ This file is the current wire protocol specification. AEDS v2 is the only accept
 - `src/frontend/src/wasm/web/protocol/frame.ts`
 - `src/frontend/wasm/aeds/include/aeds_frame.hpp`
 
-Core, backend, benchmarks, and backend tests import the generated Shared packed header instead of defining another `AedsFrameHeader`. `node tools/frontend/generate-aeds-protocol.mjs --check` fails when any generated surface is stale. The cross-stack frame-schema check also compiles the production C++ decoder, runs every active manifest value through it, and decodes a C# golden frame. C++ callers use generated `IsKnownFrameType`; values absent from the active manifest, including retired slots, must be rejected rather than silently accepted.
+Core, backend, benchmarks, and backend tests import the generated Shared packed header rather than defining another `AedsFrameHeader`. `node tools/frontend/generate-aeds-protocol.mjs --check` fails for any stale generated surface. The cross-stack frame-schema check also compiles the production C++ decoder, runs every active manifest value through it, and decodes a C# golden frame. C++ callers use generated `IsKnownFrameType`; values absent from the active manifest, including retired slots, must be rejected rather than silently accepted.
 
 Access profiles do not alter this wire protocol. `src/shared/Contracts/Validation/aeds-access-profiles.json` generates C#/TypeScript/C++ reader constants for existing payload layouts, while the frame header, CRC, frame type and POD layout authorities remain unchanged. A projection reader validates the complete frame and payload before returning selected fields; it may not skip CRC, range, UTF-8, reserved-byte, count or trailing-byte checks. The default `publicArticleListCard` profile reads 76-byte and 100-byte ArticleList records; the legal 56-byte layout routes to the canonical decoder, and unknown or malformed layouts fail closed. See `docs/architecture/aeds-access-projections.md`.
 
 ## Frame Layout
 
-- Header: 16 bytes
-- Payload: compact POD bytes (from `PodBinaryCodec`)
+- Header: 16 bytes; payload: compact POD bytes (from `PodBinaryCodec`).
 
 | Offset | Size | Field | Type |
 | --- | ---: | --- | --- |
@@ -35,9 +34,7 @@ All `*UnixMs` payload fields are signed `int64` milliseconds from the UTC Unix e
 
 ## CRC Rules
 
-- `PayloadCrc16 = CRC16(payload bytes)`
-- CRC16 uses polynomial `0xA001` with initial value `0xffff`.
-- v2 does not include a header CRC. Header integrity is validated by magic, version, header length, frame type, payload length, and transport framing.
+`PayloadCrc16 = CRC16(payload bytes)`, using polynomial `0xA001` with initial value `0xffff`. v2 has no header CRC; header integrity is validated by magic, version, header length, frame type, payload length, and transport framing.
 
 ## Flags Registry
 
@@ -129,14 +126,14 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `177`: reserved; no decoder or compatibility path
 - `178`: reserved; no decoder or compatibility path
 - `179`: AnonymousCredentialRootSnapshot
-- `180`: retired (precise-anonymous-credential-ticket-request); 必须按退休 frame fail closed
-- `181`: retired (precise-anonymous-credential-ticket-response); 必须按退休 frame fail closed
+- `180`: retired (precise-anonymous-credential-ticket-request); must fail closed as a retired frame
+- `181`: retired (precise-anonymous-credential-ticket-response); must fail closed as a retired frame
 - `182`: AnonymousCommentCreateRequest
 - `183`: AnonymousPrivacyStateSnapshot
 - `184`: PerceptionSealedChallengeV2
 - `185`: PerceptionSealedResultV2
-- `186`: RetiredCredentialSpecificRevocationRequest (永久拒绝，不得重新承载 handle/body)
-- `187`: RetiredCredentialSpecificRevocationResponse (永久保留编号，不再发送)
+- `186`: RetiredCredentialSpecificRevocationRequest (permanently rejected; must not carry handle/body again)
+- `187`: RetiredCredentialSpecificRevocationResponse (number permanently reserved; no longer sent)
 - `196`: AnonymousCredentialRevocationSnapshot
 - `197`: AnonymousCredentialRevocationDelta
 - `205`: CommentCreateResult
@@ -215,15 +212,15 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `PasskeyRegisterCompleteRequest` payload: `PasskeyRegisterCompleteRequestPod`, `int32 transports[count]`, followed by blob payload for credential id/raw id/clientDataBytes/attestation object/friendly name/MFA proof token.
 - `PasskeyLoginCompleteRequest` payload: `PasskeyLoginCompleteRequestPod` followed by blob payload for credential id/raw id/clientDataBytes/authenticator data/signature/user handle.
 - `PasskeyCredentialFriendlyNameUpdateRequest` payload: `PasskeyCredentialFriendlyNameUpdateRequestPod` followed by blob payload for credential friendly name.
-- `AuthLoginFlow` payload: `AuthLoginFlowPod`；字段语义为 `accountId`、`identityKind`、`authPhase`、`mfaMode`、`challengeToken`。原定长文本槽位只承载 `identityKind` 和 reserved bytes，不再承载 legacy username 或 role。
-- `CurrentUserSnapshot` payload: `CurrentUserSnapshotPod`；仅保留给 admin-only accountId 查询、迁移和 refresh-token 兼容路径，不再作为 `/api/binary/auth/me` 的用户侧输出，也不再支持 username lookup。字段语义为 `accountId`、`identityKind`、`status`、`banReason`、`deletedAt`，不再暴露 username/role。
-- `IdentityAccountSnapshot` payload: `IdentityAccountSnapshotPod` followed by blob payload for public handle、anonymous credential status/level、identity kind and ban reason. It is the `/api/binary/auth/me` output and must not expose internal username or role.
+- `AuthLoginFlow` payload: `AuthLoginFlowPod`; field semantics are `accountId`, `identityKind`, `authPhase`, `mfaMode`, and `challengeToken`. The old fixed-length text slots carry only `identityKind` and reserved bytes; they no longer carry legacy username or role.
+- `CurrentUserSnapshot` payload: `CurrentUserSnapshotPod`; retained only for admin-only accountId queries, migration, and the refresh-token compatibility path. It is no longer the user-facing output of `/api/binary/auth/me` and does not support username lookup. Field semantics are `accountId`, `identityKind`, `status`, `banReason`, and `deletedAt`; username/role are not exposed.
+- `IdentityAccountSnapshot` payload: `IdentityAccountSnapshotPod` followed by blob payload for public handle, anonymous credential status/level, identity kind, and ban reason. It is the `/api/binary/auth/me` output and must not expose internal username or role.
 - `AuthSessionList` payload: `int32 count` followed by 500-byte `UserSessionSummaryPod[count]`. Each POD carries created/last-seen timestamps, current/optional flags, session id, coarse device label, authentication method/strength, duration policy, and an optional Passkey friendly name. It never carries an internal credential row id, device fingerprint, raw user agent/IP, token, long-lived MFA flag, or user id.
 - `AdminSessionList` payload: `int32 count` followed by `AdminSessionSummaryPod[count]`; records expose admin session id, device fingerprint, user agent, timestamps and status flags, but not raw IP.
 - `MfaSetupStart` payload: `MfaSetupStartPod` followed by blob payload for secret/OTP auth URL/issuer/account.
 - `MfaSetupVerify` payload: `MfaSetupVerifyPod` followed by `MfaRecoveryCodePod[count]`.
 - `MfaProfile` payload: `MfaProfilePod`.
-- `MfaChallengeResult` payload: `MfaChallengeResultPod`；当登录 challenge 完成并包含 `user` 时，只返回 `accountId` 与 `identityKind`，不返回 legacy username/role。
+- `MfaChallengeResult` payload: `MfaChallengeResultPod`; when a login challenge completes with `user`, it returns only `accountId` and `identityKind`, never legacy username/role.
 - `ConversationList` payload: when `hasMore=true`, a 17-byte cursor envelope (`int32 0x4D534743`, `int32 version=1`, `byte hasMore`, `Utf8SliceRef nextCursor`) precedes `int32 total`, `int32 count`, `ConversationListItemPod[count]`, followed by the shared blob used by the cursor and subject/preview slices. A terminal/legacy payload may omit the envelope and starts at `total`; decoders normalize it to `nextCursor=null, hasMore=false` and reject unknown envelope versions or a missing cursor when `hasMore=true`.
 - `ConversationDetail` payload: `ConversationDetailPod`, `int32 count`, `ConversationMessagePod[count]`, followed by shared blob payload for subject/body slices.
 - `ConversationDetailV2` payload: `ConversationDetailV2Pod` (including `ReadSnapshotMessageId`), `int32 count`, `ConversationMessagePod[count]`, followed by shared blob payload for subject/body slices.

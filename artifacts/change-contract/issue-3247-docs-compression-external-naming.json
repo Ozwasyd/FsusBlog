@@ -1,0 +1,140 @@
+{
+  "schema": "fsusblog.external-naming-exceptions.v1",
+  "exceptions": [
+    {
+      "id": "environment-variable",
+      "paths": [
+        "tools/docs/check-perception-sealed-v2-docs.mjs",
+        "tools/docs/check-public-preview-docs.mjs",
+        "tools/docs/document-lifecycle.mjs"
+      ],
+      "reason": "Process environment spelling is external while option variables remain internal."
+    },
+    {
+      "id": "risk-policy-provider-consistency",
+      "paths": [
+        "docs/security.md"
+      ],
+      "reason": "The current security contract and its four runtime policy/provider owners must change atomically for the same caller-visible configuration mapping."
+    },
+    {
+      "id": "post-runtime-observation-authority",
+      "paths": [
+        "docs/api/article-publication-revisions.md",
+        "docs/architecture/monolithic-distributed-boundary.md",
+        "docs/architecture/repository-layout.md"
+      ],
+      "reason": "The generated Behavior catalog sources, schemas, projections and documentation authorities must change atomically with their post-runtime observation and governance tooling while preserving existing external JSON, document, environment and tooling identifiers; internal C#, JavaScript and Shell symbols remain governed by the repository mapping."
+    },
+    {
+      "id": "content-doc-exactness-authority",
+      "paths": [
+        "docs/api/contracts.md",
+        "docs/api/design.md",
+        "docs/architecture/article-mutation-outbox-versioning.md",
+        "docs/architecture/comment-mutation-outbox.md",
+        "docs/development/code-intent-governance.md",
+        "docs/development/doc-claim-protocol.md"
+      ],
+      "reason": "The content exactness catalogs, current documentation authorities, test registries and receipt tooling must change atomically while preserving existing external JSON, Markdown marker, command-line and receipt identifiers; internal JavaScript symbols remain governed by the repository mapping."
+    },
+    {
+      "id": "auth-security-doc-exactness-authority",
+      "paths": [
+        "docs/api/schemas-and-errors.md",
+        "docs/security/user-session-authentication-context.md"
+      ],
+      "reason": "The typed auth/security observations, exact migration ledger, generated and controlled-prose authorities, and terminal verifier must change atomically while preserving their existing external JSON, document and tooling identifiers; internal JavaScript and C# symbols remain governed by the repository mapping."
+    },
+    {
+      "id": "json-wire-key",
+      "paths": [
+        "config/development/document-inventory.generated.json"
+      ],
+      "reason": "Wire and schema keys remain stable while runtime adapters follow internal naming."
+    },
+    {
+      "id": "css-like-contract",
+      "paths": [
+        "docs/api/aeds-only-policy.md",
+        "docs/api/quick-reference.md",
+        "docs/architecture/adaptive-responsibility-scheduler.md",
+        "docs/architecture/article-asset-reference-lifecycle.md",
+        "docs/architecture/dependency-injection-lifetime-validation.md",
+        "docs/architecture/distributed-cache-invalidation.md",
+        "docs/architecture/message-center-responsibilities.md",
+        "docs/architecture/plugin-foundation.md",
+        "docs/assets/screenshots/README.md",
+        "docs/design/governance.md",
+        "docs/design/page-title-scale.md",
+        "docs/design/reading-typography.md",
+        "docs/design/surface-profiles.md",
+        "docs/design/task-surface-geometry.md",
+        "docs/development/change-contract.md",
+        "docs/development/coding-conventions.md",
+        "docs/development/demo-data.md",
+        "docs/fonts/font-loading-planner.md",
+        "docs/frontend/admin-dashboard-workbench.md",
+        "docs/frontend/admin-information-architecture.md",
+        "docs/frontend/console-welcome-callout.md",
+        "docs/frontend/internal-selector-governance.md",
+        "docs/frontend/public-shell-ownership.md",
+        "docs/integrity/admin-console.md",
+        "docs/integrity/article-responsibility.md",
+        "docs/operations/runtime-modes.md",
+        "docs/release-evidence/perception-v2.md",
+        "docs/schema-migrations/atomic-account-enrollment.md",
+        "docs/security/anonymous-credential-blind-issuance-threat-model.md",
+        "docs/security/audit-detached-checkpoints.md",
+        "docs/security/comment-draft-privacy.md",
+        "docs/security/comment-privacy-credential-vault.md",
+        "docs/security/content-credentials-key-lifecycle.md",
+        "docs/security/data-protection-key-ring.md",
+        "docs/security/frontend-navigation-privacy.md",
+        "docs/security/frontend-session-refresh-coordination.md",
+        "docs/security/frontend-session-route-boundaries.md",
+        "docs/security/frontend-telemetry-privacy.md",
+        "docs/security/jwt-key-rotation.md",
+        "docs/security/passkey-counter-risk-response.md",
+        "docs/security/passkey-metadata-projection.md",
+        "docs/security/private-request-generations.md",
+        "docs/security/private-surface-runtime.md",
+        "docs/security/public-hot-read-cross-cutting-controls.md",
+        "docs/security/refresh-token-family-revoke.md",
+        "docs/security/refresh-token-lineage.md",
+        "docs/security/security-domain-layout.md",
+        "docs/security/site-backup-envelope.md",
+        "docs/security/user-session-metadata-privacy.md",
+        "docs/testing/admin-console-behavior-tests.md",
+        "docs/testing/article-list-keyset-pagination.md",
+        "docs/testing/article-publication-consistency.md",
+        "docs/testing/backend-production-topology-calibration.md",
+        "docs/testing/browser-capability-risk-budget.md",
+        "docs/testing/browser-contract.md",
+        "docs/testing/browser-geometry-motion-focus.md",
+        "docs/testing/browser-readiness-contract.md",
+        "docs/testing/canonical-hash-test-ownership.md",
+        "docs/testing/content-addressed-evidence-storage.md",
+        "docs/testing/frontend-private-runtime-governance.md",
+        "docs/testing/frontend-source-index.md",
+        "docs/testing/http3-local-equivalent-experiment.md",
+        "docs/testing/private-request-generations.md",
+        "docs/testing/private-surface-runtime.md",
+        "docs/testing/release-domain-projection-ledger.md",
+        "docs/testing/repository-governance-authorities.md",
+        "docs/testing/runtime-scenario-host.md",
+        "docs/testing/security-hardening-boundary-replacements.md",
+        "docs/testing/security-hardening-source-policy.md",
+        "docs/testing/static-governance-resident-hosts.md",
+        "docs/testing/test-asset-lifecycle-governance.md",
+        "docs/testing/test-lifecycle-governance.md",
+        "docs/testing/wasm-build-receipt.md",
+        "docs/themes/runtime-lifecycle.md",
+        "docs/themes/token-schema.md",
+        "docs/ux/usability-test-script.md",
+        "docs/zk/anonymous-credential-root-bootstrap.md"
+      ],
+      "reason": "DOM and token spelling is preserved only when documented as a caller-visible contract."
+    }
+  ]
+}

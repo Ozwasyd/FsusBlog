@@ -150,7 +150,7 @@ For local automation, inject a WebAuthn virtual authenticator into the browser
 context before running the Passkey ceremony. The authenticator injection is only
 browser-side state; the server credential must still be created through normal
 Passkey registration or admin bootstrap endpoints. See
-[docs/development.md](development.md#本地-passkey-注入).
+[docs/development.md](development.md#local-passkey-injection).
 
 Relevant logs: browser console and backend auth logs.
 

@@ -7,19 +7,19 @@ FsusBlog is in Public Preview for development, evaluation, code review, and pers
 | Area | File |
 | ------ | ------ |
 | Repository license | [LICENSE](../LICENSE) |
-| Security reporting | [SECURITY.md](../SECURITY.md) |
-| Support routing | [SUPPORT.md](../SUPPORT.md) |
-| Contribution workflow | [CONTRIBUTING.md](../CONTRIBUTING.md) |
+| Security reporting | [SECURITY.md](SECURITY.md) |
+| Support routing | [SUPPORT.md](SUPPORT.md) |
+| Contribution workflow | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Issue form taxonomy | [.github/ISSUE_TEMPLATE/](../.github/ISSUE_TEMPLATE/) |
 | Label taxonomy | [docs/repository-labels.md](repository-labels.md) |
 | Repository governance | [docs/repository-governance.md](repository-governance.md) |
-| Code of conduct | [CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md) |
+| Code of conduct | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
 | Known limitations | [docs/known-limitations.md](known-limitations.md) |
 | Current preview policy | [docs/releases/public-preview-policy.md](releases/public-preview-policy.md) |
 
 ## Safe Configuration Examples
 
-Runtime configuration starts from `src/backend/appsettings.json`; Production adds the checked-in `src/backend/appsettings.Production.json` overlay. The only backend example is the minimal development overlay at `src/backend/appsettings.Development.example.json`, while production operators copy `.env.production.example` to a private `.env.production` and replace every `CHANGE_ME` value. The root `.env.example` remains the local-development environment template. Do not recreate standalone full appsettings examples or commit a production env file.
+Runtime configuration starts from `src/backend/appsettings.json`; Production adds the checked-in `src/backend/appsettings.Production.json` overlay. The only backend example is the minimal development overlay at `src/backend/appsettings.Development.example.json`, while production operators copy `config/examples/.env.production.example` to a private `.env.production` and replace every `CHANGE_ME` value. The local-development environment template is `config/examples/.env.example`. Do not recreate standalone full appsettings examples or commit a production env file.
 
 Do not commit copied `.env`, production `appsettings*.json`, database exports, Redis dumps, log bundles, or generated local credentials.
 

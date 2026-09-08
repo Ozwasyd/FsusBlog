@@ -1,137 +1,136 @@
 # FsusBlog Client
 
-Vue 3 SPA 前端，集成 WebAssembly 解码引擎、Service Worker 离线搜索和公开页静态 hydration。
+Vue 3 SPA integrating a WebAssembly decoder, Service Worker offline search, and static hydration for public pages.
 
-## 项目定位
+## Scope
 
-- **SPA + 公开页 hydration**：未登录访问走 AOT 预渲染 HTML shell，登录后 hydration 接管。
-- **Binary 协议**：应用 API 走 AEDS v2 Binary 帧，小载荷主线程 TypeScript 解码，大载荷交给 Wasm Web Worker。
-- **本地搜索**：Service Worker 缓存静态索引，Wasm 引擎在浏览器内本地排序，无服务端在线检索。
-- **类型安全**：TypeScript strict mode，Pinia 状态机，Vue Router 类型化路由。
+- **SPA + public hydration:** anonymous visits use an AOT-rendered HTML shell; Vue takes over after login.
+- **Binary protocol:** application APIs use AEDS v2 frames; TypeScript decodes small payloads on the main thread and a Wasm Web Worker handles large ones.
+- **Local search:** the Service Worker caches a static index and Wasm ranks it in-browser; there is no online server search.
+- **Type safety:** TypeScript strict mode, Pinia state machines, and typed Vue Router routes.
 
-## 目录结构
+## Layout
 
 ```text
 src/frontend/
 ├── src/
-│   ├── api/                # AEDS binary client + 各域 API 函数
-│   ├── adapters/           # Binary payload → contract 数据映射
-│   ├── codecs/             # 无业务归属的 binary reader 与 request encoder
-│   ├── composition/        # decoder registry 与 transport 组合根
-│   ├── contracts/          # API/adapter/worker 共享的无运行时依赖类型
-│   ├── composables/        # 业务组合函数（usePasskeyLogin, usePasskeyManagement 等）
-│   ├── store/              # Pinia 状态机（article, comment, auth 等）
-│   ├── views/              # 页面组件（auth/, user/, public/ 等）
-│   ├── components/         # 可复用 UI 组件
-│   ├── workers/            # Web Worker（wasmDecode.worker.ts）
-│   ├── router/             # Vue Router 路由定义
-│   ├── layouts/            # 页面布局框架
-│   ├── helpers/            # 工具函数
-│   ├── services/           # 业务服务层
-│   ├── public-renderers/   # 公开页 hydration 渲染器
-│   └── bootstrap/          # 应用启动逻辑
-├── wasm/                   # C++23 Wasm 解码器源码
-│   ├── aeds/               # AEDS v2 解码器
-│   ├── CMakeLists.txt      # CMake 构建配置
-│   └── build.sh            # Emscripten 构建脚本
+│   ├── api/                # AEDS binary client and domain API functions
+│   ├── adapters/           # Binary payload → contract mapping
+│   ├── codecs/             # Business-neutral binary readers and request encoders
+│   ├── composition/        # Decoder registry and transport composition root
+│   ├── contracts/          # Runtime-free API/adapter/worker shared types
+│   ├── composables/        # Business composables (for example, passkey login/management)
+│   ├── store/              # Pinia state machines (article, comment, auth, ...)
+│   ├── views/              # Page components (auth/, user/, public/, ...)
+│   ├── components/         # Reusable UI components
+│   ├── workers/            # Web Workers (wasmDecode.worker.ts)
+│   ├── router/             # Vue Router route definitions
+│   ├── layouts/            # Page layout frames
+│   ├── helpers/            # Utility functions
+│   ├── services/           # Business services
+│   ├── public-renderers/   # Public-page hydration renderers
+│   └── bootstrap/          # Application startup
+├── wasm/                   # C++23 Wasm decoder source
+│   ├── aeds/               # AEDS v2 decoder
+│   ├── CMakeLists.txt      # CMake build configuration
+│   └── build.sh            # Emscripten build script
 ├── tests/
-│   ├── checks/             # Node.js 检查脚本（static/security/runtime/wasm/public）
-│   ├── e2e/                # Playwright E2E 用例
-│   ├── fixtures/           # 测试夹具与账号准备脚本
-│   └── support/            # 共享 HTTP/auth/binary/Playwright 辅助工具
-├── scripts/                # 构建、Wasm、公开页生成、本地工具脚本
-├── public/                 # 静态公开资源
+│   ├── checks/             # Node.js gates (static/security/runtime/wasm/public)
+│   ├── e2e/                # Playwright E2E specs
+│   ├── fixtures/           # Test fixtures and account setup scripts
+│   └── support/            # Shared HTTP/auth/binary/Playwright helpers
+├── scripts/                # Build, Wasm, public-page generation, and local tools
+├── public/                 # Static public assets
 ├── package.json
 ├── vite.config.ts
 ├── tsconfig.json
 └── playwright.config.ts
 ```
 
-## 环境要求
+## Requirements
 
-- Node.js 20+，npm 10+
-- `GITHUB_PACKAGES_TOKEN` 环境变量（FsusUI 私有包授权）
-- Emscripten SDK（可选，仅需本地重新构建 Wasm 时）
-- 后端服务运行在 `http://127.0.0.1:7568`（`npm run dev:debug` 会自动代理）
+- Node.js 20+ and npm 10+.
+- `GITHUB_PACKAGES_TOKEN` for the private FsusUI package.
+- Emscripten SDK only when rebuilding Wasm locally.
+- Backend at `http://127.0.0.1:7568`; `npm run dev:debug` proxies to it.
 
-## 浏览器运行时基线
+## Browser runtime baseline
 
-浏览器端 TypeScript 与 Vite 生产输出统一锁定为 ES2022；Node/Vite 构建工具继续使用隔离的 ES2023 配置。ES2022 不代表完整的浏览器或 Web Platform 支持声明，DOM、Service Worker、WebAuthn、Trusted Types、Wasm 等能力仍通过 feature detection 与浏览器矩阵独立治理。完整约束与回退规则见 [Browser Runtime Baseline](../../docs/frontend/browser-runtime-baseline.md)。
+Browser TypeScript and Vite production output are fixed at ES2022; Node/Vite build tooling keeps an isolated ES2023 configuration. ES2022 is not a full browser/Web Platform support claim: DOM, Service Worker, WebAuthn, Trusted Types, and Wasm remain governed by feature detection and the browser matrix. See [Browser Runtime Baseline](../../docs/frontend/browser-runtime-baseline.md) for constraints and rollback.
 
-## 安装
+## Install
 
 ```bash
 export GITHUB_PACKAGES_TOKEN=your_github_packages_token
 npm ci
 ```
 
-## 常用命令
+## Common commands
 
-| 命令 | 说明 |
+| Command | Purpose |
 | ------ | ------ |
-| `npm run dev:debug` | 启动开发服务器（端口 3000，HMR，代理到 7568） |
-| `npm run build` | 生产 Release 构建（等同 `build:release`） |
-| `npm run preview` | 本地预览 Release 构建产物（端口 8080） |
-| `npm run build:wasm` | 重新编译 C++23 Wasm 解码器（需 Emscripten） |
+| `npm run dev:debug` | Dev server on port 3000 with HMR and proxy to 7568. |
+| `npm run build` | Production release build (`build:release`). |
+| `npm run preview` | Preview release output on port 8080. |
+| `npm run build:wasm` | Rebuild the C++23 Wasm decoder (Emscripten required). |
 
-## 测试
+## Tests
 
-前端测试通过 `npm run check:*` 脚本和 `../tools/test.sh <tier>` 分级运行。
+Run frontend tests through `npm run check:*` and tiered `../tools/test.sh <tier>`.
 
-**静态检查**（无需运行服务）：
+**Static checks** (no service required):
 
 ```bash
-npm run check:modern-standards        # 语言版本与 ES2022 浏览器基线
-npm run check:result-boundaries       # Result<T> 边界规范
-npm run check:security-consistency    # 安全配置一致性
-npm run check:error-code-alignment    # 错误码对齐
-npm run check:binary-import-boundaries # Binary API/transport/adapter 无环依赖
-npm run check:views-constraints       # 视图层约束
-npm run check:server-try-catch        # try-catch 规范
+npm run check:modern-standards        # Language version and ES2022 baseline
+npm run check:result-boundaries       # Result<T> boundaries
+npm run check:security-consistency    # Security configuration consistency
+npm run check:error-code-alignment    # Error-code alignment
+npm run check:binary-import-boundaries # Acyclic binary API/transport/adapter imports
+npm run check:views-constraints       # View-layer constraints
+npm run check:server-try-catch        # try/catch policy
 ```
 
-**Wasm 检查**（需构建产物）：
+**Wasm checks** (built artifacts required):
 
 ```bash
-npm run check:aot                     # AOT / Wasm 完整性
-npm run check:image-codec-wasm        # 图片编解码 Wasm 检查
+npm run check:aot                     # AOT / Wasm integrity
+npm run check:image-codec-wasm        # Image-codec Wasm checks
 ```
 
-**运行时检查**（需启动完整调试栈 3000/7568）：
+**Runtime checks** (full debug stack on 3000/7568 required):
 
 ```bash
-npm run check:notification-stream-runtime             # notification stream 连接弹性
-npm run check:notification-stream-live                # notification stream 协议握手 / 重连冒烟
-npm run check:api-contracts           # 统一 API 响应契约矩阵
-npm run check:binary-contract-smoke      # Binary 状态与帧类型对齐
-npm run check:search-runtime          # 搜索功能冒烟
-npm run check:sw-search-runtime       # Service Worker 搜索
-npm run check:public-hydration        # 公开页 hydration 一致性
+npm run check:notification-stream-runtime             # Stream connection resilience
+npm run check:notification-stream-live                # Handshake/reconnect smoke
+npm run check:api-contracts                           # Unified API response matrix
+npm run check:binary-contract-smoke                   # Binary state/frame alignment
+npm run check:search-runtime                          # Search smoke test
+npm run check:sw-search-runtime                       # Service Worker search
+npm run check:public-hydration                        # Public hydration consistency
 ```
 
-**E2E（需完整调试栈）**：
+**E2E** (full debug stack required):
 
 ```bash
-npx playwright test                   # 全量 E2E
+npx playwright test                   # All E2E
 npx playwright test tests/e2e/acceptance/
 ```
 
-测试布局详见 [tests/frontend/README.md](../../tests/frontend/README.md)。
+See [tests/frontend/README.md](../../tests/frontend/README.md) for test layout.
 
-## Wasm 解码器
+## Wasm decoder
 
-`wasm/` 目录包含 C++23 Freestanding 实现的 AEDS v2 解码器：
+`wasm/` contains the freestanding C++23 AEDS v2 decoder:
 
-- 无 STL 容器，无堆分配，无异常传播
-- `alloc_buffer` / `free_buffer`：浏览器侧分配
-- `decode_aeds`：16-byte 帧头验证 + CRC16 payload 校验 + compact POD 解码
-- 解码逻辑运行在独立 Web Worker（`workers/wasmDecode.worker.ts`），不阻塞主线程
+- no STL containers, heap allocation, or exception propagation;
+- `alloc_buffer` / `free_buffer` for browser-side allocation;
+- `decode_aeds` for 16-byte header validation, CRC16 payload validation, and compact POD decoding;
+- decoding in a dedicated `workers/wasmDecode.worker.ts` Web Worker, keeping the main thread unblocked.
 
-本地重新构建 Wasm：
+Rebuild Wasm locally (with an activated Emscripten SDK):
 
 ```bash
-# 需要 Emscripten SDK 已激活
 npm run build:wasm
 ```
 
-协议规格见 [../core/Algorithms/AEDS_V2_PROTOCOL.md](../core/Algorithms/AEDS_V2_PROTOCOL.md)。
+See the [AEDS v2 protocol specification](../core/Algorithms/AEDS_V2_PROTOCOL.md).

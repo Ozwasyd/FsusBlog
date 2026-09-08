@@ -2,20 +2,20 @@
 
 ## Security invariant
 
-Refresh rotation remains a compare-and-swap on `sessionId + current refresh hash + active expiry`. If the presented hash no longer identifies the active row, the replay path must not perform a separate read followed by a later revoke. It executes one PostgreSQL transaction whose data-changing statement:
+Refresh rotation remains a compare-and-swap on `sessionId + current refresh hash + active expiry`; the complete token lineage is in [Refresh Token lineage](refresh-token-lineage.md). If the presented hash no longer identifies the active row, replay never does a separate read then revoke. One PostgreSQL data-changing transaction:
 
 1. selects the requested active session only when its current hash differs from the stale presented hash;
-2. locks that row with `FOR UPDATE`;
-3. revokes every active session for the same account whose `deviceFingerprint` is `IS NOT DISTINCT FROM` the target family value;
-4. returns the revoked row versions and publishes revoked session-validation snapshots before transaction commit.
+2. locks it with `FOR UPDATE`;
+3. revokes every same-account active session whose `deviceFingerprint` is `IS NOT DISTINCT FROM` the target family value;
+4. returns revoked row versions and publishes revoked session-validation snapshots before commit.
 
-The equality direction matters: `currentHash == staleHash` is not evidence that another holder won rotation, while `currentHash != staleHash` closes the replay window. No raw refresh token, session id, device fingerprint or account id is emitted in metrics.
+Equality direction matters: `currentHash == staleHash` is not evidence another holder won; `currentHash != staleHash` closes the replay window. Metrics emit no raw refresh token, session id, device fingerprint, or account id.
 
 ## Failure and rollback
 
-Redis snapshot publication failure rolls back PostgreSQL. If Redis was published but the database commit fails, the service best-effort invalidates those snapshots; retaining a revoked snapshot is the safe temporary failure mode. A transaction failure returns refresh failure and never issues a replacement token.
+Redis publication failure rolls back PostgreSQL. If Redis published but commit fails, best-effort invalidation runs; retaining a revoked snapshot is the safe temporary mode. Any transaction failure returns refresh failure and never issues a replacement token.
 
-There is no runtime switch that restores the read-then-update path. No-restart degradation uses the existing `Security:UserSessionValidation:DistributedCacheEnabled=false` DB-only mode: PostgreSQL remains the revocation truth and replay family revoke stays enabled. Image rollback is safe only to a release that preserves the same atomic transaction invariant; otherwise keep the current release and clear ordinary sessions.
+No runtime switch restores read-then-update. No-restart degradation uses `Security:UserSessionValidation:DistributedCacheEnabled=false` DB-only mode: PostgreSQL remains revocation truth and family revoke stays enabled. Image rollback is safe only to a release preserving this atomic invariant; otherwise keep the current release and clear ordinary sessions.
 
 ## Observation and response
 
@@ -24,8 +24,8 @@ There is no runtime switch that restores the read-then-update path. No-restart d
 - `fsus.auth.refresh.family_revoke_window_count` counts replay windows atomically closed.
 - `auth_refresh_family_revoke` fires when the five-minute window count is above zero and blocks release closeout pending investigation.
 
-Repeated stale requests after a family is revoked are idempotent: they do not change `revokedAt`, do not recreate an active holder, and do not publish another revoked snapshot.
+Repeated stale requests after family revocation are idempotent: they do not change `revokedAt`, recreate an active holder, or publish another revoked snapshot.
 
 ## Scenario coverage
 
-Focused tests cover the initial stale-token path, two concurrent refreshes with one CAS winner, repeated replay thrash, same-device family revocation, different-device preservation, and immediate rejection of already-issued ordinary principals. Anonymous requests and public Binary reads have no session row and do not enter this code. Independent admin-principal sessions are stored separately and are not revoked. Notification stream behavior is unchanged; ordinary streams observe session invalidation on their next authenticated boundary and retain the existing reconnect/replay protocol.
+Focused tests cover the initial stale-token path, two concurrent refreshes with one CAS winner, replay thrash, same-device family revocation, different-device preservation, and immediate rejection of already-issued ordinary principals. Anonymous/public Binary reads have no session row; independent admin-principal sessions are separate and not revoked. Notification behavior is unchanged: ordinary streams observe invalidation at the next authenticated boundary and retain reconnect/replay.

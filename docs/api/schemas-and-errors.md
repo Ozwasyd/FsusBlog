@@ -1,250 +1,251 @@
-# 错误码、Binary 帧格式与 POD 大小目录
+# Error Codes, Binary Frame Format, and POD Size Catalog
 
-本文件是 FsusBlog 错误码枚举、AEDS v2 二进制帧格式规格和 POD 类型大小的**完整参考**。
-
----
-
-## 目录
-
-- [错误码枚举](#错误码枚举)
-- [负响应](#负响应)
-- [生产就绪详情](#生产就绪详情)
-- [AEDS v2 帧格式](#aeds-v2-帧格式)
-- [AedsFrameType 枚举](#aedsframetype-枚举)
-- [POD 大小目录](#pod-大小目录)
-- [C++ POD 对齐规则](#c-pod-对齐规则)
+This document is the **complete reference** for FsusBlog error-code enums, the AEDS v2 binary frame format, and POD type sizes.
 
 ---
 
-## 生产就绪详情
+## Contents
 
-公开 `GET /health/ready` 固定只返回 `status` 与 `checkedAt`。受保护的 `GET /api/ops/health/ready-detail` 需要 admin `audit.read` 权限；其 `checks.release` 是 JSON 运维检查，不是 AEDS frame，字段为 `status`、`releaseId`、`releaseSlot`、完整 `commitSha`、不可变 `imageRef=repository@sha256:...`、`imageDigest` 与可选 `error`。`checks.deployment` 额外返回 release/slot/mode/state/generation、`canReceiveTraffic`、`canClaimBackgroundWork` 和 drain snapshot；Draining 会绕过 readiness cache 立即把整体结果变为 `not_ready`。所有应用响应 header 另带 `X-Fsus-Release-Id`、`X-Fsus-Release-Slot`，仅用于网关核验实际 upstream，不改变 body 或 AEDS frame。生产环境缺少任一发布身份字段、使用可变 release/image 引用或 digest 不一致时，`checks.release.status=failed`、`error=release_identity_invalid`，整体 readiness 必须为 `not_ready`。
+- [Error-code enum](#error-code-enum)
+- [Negative responses](#negative-responses)
+- [Production-readiness details](#production-readiness-details)
+- [AEDS v2 frame format](#aeds-v2-frame-format)
+- [AedsFrameType enum](#aedsframetype-enum)
+- [POD size catalog](#pod-size-catalog)
+- [C++ POD alignment rules](#c-pod-alignment-rules)
 
-发布控制的 JSON schema 为：请求 `{releaseId:string,slot:string,generation:int64,timeoutSeconds?:int32}`；响应 `{accepted:boolean,idempotent:boolean,status:string,errorCode?:string,snapshot:DeploymentRuntimeSnapshot}`。status 直接返回 snapshot。只有 admin `system.config` + loopback source 可访问；错误 identity/generation/state 返回 409，`trusted_host_required` 返回 403。drain 超时的 snapshot 必须保持 `drained=false,timedOut=true` 并列出 `blockers`，禁止把硬终止改写为成功。public-hot drain participant 在首个 activity observation 缺失时使用 `public_hot_activity_unavailable`，静止条件未满足时使用 `public_hot_not_quiescent`，并在 `blockers` 中列出每个未合格字段的精确当前值（如 `in-flight-batch-count=1`、`store-state=Building`、`published-generation=5<requested-drain-generation=7`）；任何字段 unavailable/negative/unknown 或 collector failure 都视为阻塞，不得假设为 0。notification stream 在 Candidate/Draining 分别返回 `deployment_not_active` / `deployment_draining` 和 503 可重试语义。
+---
 
-Active-release fence 的 ops JSON 只在 `/api/ops/deployment/fence/status|acquire|revoke` 使用，身份键为 `releaseId + slot + generation + imageDigest`；generation 必须正数且单调，CAS expected identity 不匹配时 409，不能把 Redis 断连当作本地成功。Notification restart 请求同样绑定 release/slot/generation，成功连接以 WebSocket close code `1012` 表示可识别服务重启，并通过 cursor replay 恢复。演练发布请求 `{releaseId,slot,generation,drillId,count,dryRun}` 的 `count` 为 1..32；生产配置默认关闭并返回 404，启用也不会绕过 admin `system.config`、loopback、active runtime 或 fence 校验。
+<a id="生产就绪详情"></a>
 
-Schema migration qualification 使用窄 JSON 负响应，不进入 AEDS `ApiError` 枚举：
+## Production-readiness details
 
-| route | HTTP | JSON code | 语义 |
+Public `GET /health/ready` always returns only `status` and `checkedAt`. Protected `GET /api/ops/health/ready-detail` requires admin `audit.read`; its `checks.release` is a JSON operations check, not an AEDS frame, with `status`, `releaseId`, `releaseSlot`, full `commitSha`, immutable `imageRef=repository@sha256:...`, `imageDigest`, and optional `error`. `checks.deployment` also returns release/slot/mode/state/generation, `canReceiveTraffic`, `canClaimBackgroundWork`, and a drain snapshot; Draining bypasses the readiness cache and immediately makes the overall result `not_ready`. Every application response also carries `X-Fsus-Release-Id` and `X-Fsus-Release-Slot` for gateway verification of the actual upstream only; they do not change the body or AEDS frame. If production lacks any release-identity field, uses a mutable release/image reference, or has a mismatched digest, `checks.release.status=failed`, `error=release_identity_invalid`, and overall readiness must be `not_ready`.
+
+The deployment-control JSON schema is request `{releaseId:string,slot:string,generation:int64,timeoutSeconds?:int32}` and response `{accepted:boolean,idempotent:boolean,status:string,errorCode?:string,snapshot:DeploymentRuntimeSnapshot}`; `status` is returned directly from the snapshot. Access requires admin `system.config` plus a loopback source. Invalid identity/generation/state returns 409; `trusted_host_required` returns
+403. A drain-timeout snapshot must retain `drained=false,timedOut=true` and list `blockers`; hard
+termination must not be rewritten as success. A public-hot drain participant uses `public_hot_activity_unavailable` when its first activity observation is missing and `public_hot_not_quiescent` when quiescence is not met, listing each failing field's exact current value in `blockers` (for example `in-flight-batch-count=1`, `store-state=Building`, and `published-generation=5<requested-drain-generation=7`). Any unavailable/negative/unknown field or collector failure blocks the drain; never assume zero. The notification stream returns `deployment_not_active` / `deployment_draining` with retryable 503 semantics in Candidate/Draining.
+
+Active-release fence ops JSON is used only at `/api/ops/deployment/fence/status|acquire|revoke`, with identity key `releaseId + slot + generation + imageDigest`. `generation` must be positive and monotonic; a CAS expected-identity mismatch returns 409, and a Redis disconnect is never treated as local success. Notification-restart requests bind the same release/slot/generation; a successful connection uses WebSocket close code `1012` for an identifiable service restart and recovers through cursor replay. The drill-release request `{releaseId,slot,generation,drillId,count,dryRun}` bounds `count` to 1..32. Production configuration is disabled by default and returns 404; enabling it does not bypass admin `system.config`, loopback, active-runtime, or fence checks.
+
+Schema-migration qualification uses narrow JSON negative responses and does not enter the AEDS `ApiError` enum:
+
+| Route | HTTP | JSON code | Meaning |
 | --- | ---: | --- | --- |
-| `POST /api/release-evidence/schema-bridge/write` | 400 | `schema_qualification_write_invalid` | operationId/sequence 不满足有界 tooling contract |
-| `GET /api/release-evidence/schema-qualification/readiness` | 503 | `schema_incompatible` | 隔离资格场景已标记 missing Expand，candidate 不可继续 |
+| `POST /api/release-evidence/schema-bridge/write` | 400 | `schema_qualification_write_invalid` | operationId/sequence violates the bounded tooling contract. |
+| `GET /api/release-evidence/schema-qualification/readiness` | 503 | `schema_incompatible` | The isolated qualification scenario is marked missing Expand; the candidate cannot continue. |
 
-两条 route 只在 environment 精确为 `Test` 且
-`SchemaMigration:QualificationEnabled=true` 时存在，注册后仍要求 admin
-`system.config` + `fixed_ip`。响应携带 release ID/slot header 和 `no-store`；生产不
-注册，因此不得把这些 code 当作公开 runtime compatibility fallback。
+Both routes exist only when the environment is exactly `Test` and `SchemaMigration:QualificationEnabled=true`; once registered they still require admin `system.config` plus `fixed_ip`. Responses carry release ID/slot headers and `no-store`. They are not registered in production, so these codes must not be treated as public runtime compatibility fallbacks.
 
 ---
 
-## 错误码枚举
+<a id="错误码枚举"></a>
 
-### Public HTML 负响应
+## Error-code enum
 
-公共 HTML 不使用 AEDS `ApiError` body。搜索 query 超过 2048 字符、规范化后的 `q` 超过 128 字符或含非空白控制字符时返回 400；无效路径或不存在/不可公开实体返回 404；只有数据模型明确永久删除时才返回 410；provider、DB gate 或其它临时依赖故障返回 503 + `Retry-After: 5`。这些响应统一为独立 `noindex,follow` HTML，带 `Cache-Control: no-store`、`X-Robots-Tag: noindex, follow`、`X-Fsus-Public-Aot-Backfill: none`，不带 canonical、`og:url`、`BlogPosting`、SPA boot 或 hydration payload。
+### Public HTML negative responses
 
-| HTTP | `X-Fsus-Public-Aot-State` | 重试语义 |
+Public HTML does not use an AEDS `ApiError` body. A search query over 2048 characters, normalized `q` over 128 characters, or a non-whitespace control character returns 400; an invalid path or missing/non-public entity returns 404; 410 is reserved for an explicitly permanent deletion; a provider, DB gate, or other transient dependency failure returns 503 with `Retry-After: 5`. These responses are standalone `noindex,follow` HTML with `Cache-Control: no-store`, `X-Robots-Tag: noindex, follow`, and `X-Fsus-Public-Aot-Backfill: none`; they contain no canonical, `og:url`, `BlogPosting`, SPA boot, or hydration payload.
+
+| HTTP | `X-Fsus-Public-Aot-State` | Retry semantics |
 | ------ | --------------------------- | ---------- |
-| 400 | `invalid-request` | 缩短/修正搜索 query；不得按成功搜索页缓存 |
-| 404 | `not-found` | 修改 URL 或等待内容真正公开；不得缓存为成功页 |
-| 410 | `gone` | 仅明确永久删除；当前文章删除模型未使用 |
-| 503 | `transient-failure` | 可重试，读取 `Retry-After` |
+| 400 | `invalid-request` | Shorten/correct the search query; never cache as a successful search page. |
+| 404 | `not-found` | Change the URL or wait until content is truly public; never cache as a successful page. |
+| 410 | `gone` | Explicit permanent deletion only; the current article-deletion model does not use it. |
+| 503 | `transient-failure` | Retry according to `Retry-After`. |
 
-GET 与 HEAD 返回相同状态和关键头；HEAD 保留与 GET 相同的 `Content-Length`，但 body 为空。除 `/` 外的尾斜杠不是负响应，而是 301 到无尾斜杠 canonical。
+GET and HEAD return the same status and key headers; HEAD preserves GET's `Content-Length` but has an empty body. A trailing slash other than `/` is not a negative response: it redirects 301 to the no-trailing-slash canonical.
 
-标签名称 URL 也不是成功响应：`/tag/{name}` 先按 Unicode NFC + invariant case lookup 解析当前名称或 `tag_url_alias`，成功时 301 到唯一 `/tag/{id}`；query 原样保留。无法解析或名称归一化后存在歧义时返回上述 404，不得返回首页、名称 self-canonical 或多跳 redirect。
+Tag-name URLs are not success responses either: `/tag/{name}` resolves the current name or `tag_url_alias` using Unicode NFC plus invariant-case lookup, then redirects 301 to the unique `/tag/{id}` while preserving the query unchanged. An unresolved or normalization-ambiguous name returns the 404 above; never return the home page, a name self-canonical, or a multi-hop redirect.
 
-搜索 query 的 canonical order 为 `q`、`sort`、`page`。空值、重复项、未知项、默认 `sort=relevance`、默认 `page=1`、非法 sort/page 通过 301 删除或规范化；无查询词统一到 `/search`。成功搜索 HTML 与上述 400 均为 `noindex,follow`，但只有 400 使用 `no-store` 独立状态页。
+Search-query canonical order is `q`, `sort`, `page`. Empty, duplicate, or unknown items, default `sort=relevance`, default `page=1`, and invalid sort/page values are removed or normalized through 301; no query term normalizes to `/search`. Successful search HTML and the 400 above are both `noindex,follow`, but only 400 uses a standalone `no-store` status page.
 
-错误码以固定宽度 UTF-8 字段写入 AEDS `ApiError` frame，按模块分组。
+Error codes are written as fixed-width UTF-8 fields in the AEDS `ApiError` frame, grouped by module.
 
-消息内容校验错误使用 `ErrorCode.Validation`：`message_subject_empty`、
-`message_body_empty`、`message_subject_scalar_limit_exceeded`、
-`message_subject_grapheme_limit_exceeded`、`message_subject_utf8_limit_exceeded` 以及对应的
-`message_body_*`。frame 超过共享 20 KiB 上限时由 binary binder 返回 Validation。错误响应不得
-回显原始主题或正文，且任何超限失败都不得产生会话、消息、outbox 或 unread 变更。
+Message-content validation errors use `ErrorCode.Validation`: `message_subject_empty`, `message_body_empty`、`message_subject_scalar_limit_exceeded`、 `message_subject_grapheme_limit_exceeded`, `message_subject_utf8_limit_exceeded`, and the corresponding `message_body_*` codes. The binary binder returns Validation when a frame exceeds the shared 20 KiB limit. Error responses must not echo the original subject or body, and an over-limit failure must not mutate conversations, messages, outbox, or unread state.
 
-### 通用错误
+### General errors
 
-| 错误码 | HTTP 状态 | 含义 |
+| Error code | HTTP status | Meaning |
 | -------- | ----------- | ------ |
-| `InvalidRequest` | 400 | 请求参数格式无效 |
-| `Conflict` | 409 | 当前请求与已提交状态冲突；`draft_conflict` 表示草稿 `expectedServerRevision` stale，details 仅含当前版本、更新时间和截断标题摘要，客户端停止自动保存并重读比较；`article_responsibility_version_conflict` 表示 stale `expectedVersion`，客户端须重读 `ArticleResponsibilityHistory(228)` 后人工合并；refresh 短竞争窗口内表示其他标签页已完成轮换，不撤销 session family |
-| `NotFound` | 404 | 资源不存在 |
-| `Unauthorized` | 401 | 未认证或令牌失效 |
-| `Forbidden` | 403 | 权限不足 |
-| `RateLimited` | 429 | 请求频率超限 |
-| `InfraFailure` | 500 | 基础设施无法完成当前契约；taxonomy 写入后的 PublicHot delivery failure 可能已提交数据库 mutation，客户端须先重读管理端 taxonomy 状态再决定是否重试 |
-| `InternalError` | 500 | 服务端内部错误 |
+| `InvalidRequest` | 400 | Request-parameter format is invalid. |
+| `Conflict` | 409 | The request conflicts with committed state. `draft_conflict` means stale `expectedServerRevision`; details contain only the current version, update time, and truncated title summary, so the client stops autosave and rereads for comparison. `article_responsibility_version_conflict` means stale `expectedVersion`; reread `ArticleResponsibilityHistory(228)` and merge manually. During the short refresh race window it means another tab completed rotation; do not revoke the session family. |
+| `NotFound` | 404 | Resource does not exist. |
+| `Unauthorized` | 401 | Not authenticated or token is invalid. |
+| `Forbidden` | 403 | Insufficient permission. |
+| `RateLimited` | 429 | Request rate exceeded. |
+| `InfraFailure` | 500 | Infrastructure cannot complete the contract. A PublicHot delivery failure after a taxonomy write may follow a committed database mutation; reread admin taxonomy state before deciding whether to retry. |
+| `InternalError` | 500 | Internal server error. |
 
-### Authentication, PoW, MFA, Recovery and Passkey errors
+### Authentication, PoW, MFA, Recovery, and Passkey errors
 
-这些 domain error 的 active/retired/migration-only 集合、operation/condition 与 transport mapping 只由本文末尾的 generated domain-error sections 承载；不再保留手写的第二错误表。
+The active/retired/migration-only sets, operation/condition metadata, and transport mappings for these domain errors are carried only by the generated domain-error sections at the end of this document; no second hand-written error table is maintained.
 
-### 内容错误
+### Content errors
 
-| 错误码 | HTTP 状态 | 含义 |
+| Error code | HTTP status | Meaning |
 | -------- | ----------- | ------ |
-| `ArticleNotFound` | 404 | 文章不存在 |
-| `CommentNotFound` | 404 | 评论不存在 |
-| `CommentContentEmpty` | 400 | 评论内容为空 |
-| `CommentContentTooLong` | 400 | 评论内容超出长度限制 |
-| `CategoryNotFound` | 404 | 分类不存在 |
-| `TagNotFound` | 404 | 标签不存在 |
+| `ArticleNotFound` | 404 | Article does not exist. |
+| `CommentNotFound` | 404 | Comment does not exist. |
+| `CommentContentEmpty` | 400 | Comment content is empty. |
+| `CommentContentTooLong` | 400 | Comment content exceeds the length limit. |
+| `CategoryNotFound` | 404 | Category does not exist. |
+| `TagNotFound` | 404 | Tag does not exist. |
 
-评论创建幂等边界的固定失败语义：public 缺失/非法 `X-Fsus-Client-Mutation-Id` 返回
-`400 comment_client_mutation_id_required` / `comment_client_mutation_id_invalid`；public 相同账号与 mutation id、
-或 anonymous 相同 ticket 承诺携带不同规范化请求时返回 `409 comment_mutation_content_conflict`。
-动态 fail-close 返回 `503 comment_mutation_idempotency_disabled`。
+Fixed comment-create idempotency failures: a public request missing or carrying an invalid `X-Fsus-Client-Mutation-Id` returns `400 comment_client_mutation_id_required` / `comment_client_mutation_id_invalid`; a public account with the same mutation ID, or an anonymous ticket commitment with a different normalized request, returns `409 comment_mutation_content_conflict`. Dynamic fail-closed mode returns `503 comment_mutation_idempotency_disabled`.
 
-### 消息系统错误
+### Messaging-system errors
 
-| 错误码 | HTTP 状态 | 含义 |
+| Error code | HTTP status | Meaning |
 | -------- | ----------- | ------ |
-| `ConversationNotFound` | 404 | 对话不存在 |
-| `ConversationClosed` | 400 | 对话已关闭，无法回复 |
-| `MessageNotFound` | 404 | 消息不存在 |
-| `MessageRevoked` | 400 | 消息已撤回 |
+| `ConversationNotFound` | 404 | Conversation does not exist. |
+| `ConversationClosed` | 400 | Conversation is closed; replies are not allowed. |
+| `MessageNotFound` | 404 | Message does not exist. |
+| `MessageRevoked` | 400 | Message has been revoked. |
 
-消息写入幂等边界的固定失败语义：缺失/非法 `X-Fsus-Client-Mutation-Id` 返回 `400`
-`client_mutation_id_required` / `client_mutation_id_invalid`；相同 mutation id 携带不同规范化内容
-返回 `409 client_mutation_content_conflict`。系统消息缺失/非法
-`X-Fsus-Source-Event-Id` 返回 `400 source_event_id_required` / `source_event_id_invalid`，相同来源
-坐标内容变化返回 `409 source_event_content_conflict`。动态 fail-close 返回
-`503 message_mutation_idempotency_disabled`。
+Fixed message-write idempotency failures: missing/invalid `X-Fsus-Client-Mutation-Id` returns `400` `client_mutation_id_required` / `client_mutation_id_invalid`; the same mutation ID with different normalized content returns `409 client_mutation_content_conflict`. System messages with a missing/invalid `X-Fsus-Source-Event-Id` return `400 source_event_id_required` / `source_event_id_invalid`; content changes under the same source coordinates return `409 source_event_content_conflict`. Dynamic fail-closed mode returns `503 message_mutation_idempotency_disabled`.
 
-### Binary / 文件上传错误
+### Binary / file-upload errors
 
-| 错误码 | HTTP 状态 | 含义 |
+| Error code | HTTP status | Meaning |
 | -------- | ----------- | ------ |
-| `UploadNotFound` | 404 | 上传任务不存在 |
-| `UploadExpired` | 400 | 上传任务已过期 |
-| `UploadPartMissing` | 400 | 分片未完整上传 |
-| `FileTooLarge` | 400 | 文件超出大小限制 |
-| `FileTypeNotAllowed` | 400 | 文件类型不允许 |
+| `UploadNotFound` | 404 | Upload task does not exist. |
+| `UploadExpired` | 400 | Upload task has expired. |
+| `UploadPartMissing` | 400 | Upload parts are incomplete. |
+| `FileTooLarge` | 400 | File exceeds the size limit. |
+| `FileTypeNotAllowed` | 400 | File type is not allowed. |
 
-### Notification Stream 握手失败码
+<a id="notification-stream-握手失败码"></a>
 
-Notification stream preflight 与 WebSocket 握手失败会在 `X-Fsus-Notification-Stream-Error-Code` 头、JSON preflight body 或 AEDS `ApiError` frame 中携带以下传输级失败码：
+### Notification Stream handshake-failure codes
 
-| 失败码 | HTTP 状态 | 含义 |
+Notification-stream preflight and WebSocket handshake failures carry the following transport-level codes in the `X-Fsus-Notification-Stream-Error-Code` header, JSON preflight body, or AEDS `ApiError` frame:
+
+| Failure code | HTTP status | Meaning |
 | -------- | ----------- | ------ |
-| `websocket_required` | 426 | 正式通知通道不是 WebSocket upgrade |
-| `protocol_mismatch` | 409 | 缺失或不接受 `fsus-aeds.v2` 子协议 |
-| `auth_failed` | 401 | 携带认证头但认证失败 |
-| `pow_failed` | 401/400 | 匿名连接提交了无效 legacy PoW |
-| `risk_challenge_required` | 428 | 匿名 `notification.subscribe` 需要 completed aggregate RiskControl proof，且未提供 legacy `pow` 兼容 proof |
-| `risk_challenge_rejected` | 428 | aggregate proof 缺失，envelope 未完成/失败/过期/撤销/重放，或 action/route/identity/envelope/ordered requiredKinds 绑定不匹配 |
-| `risk_challenge_kind_mismatch` | 428 | 最后 member header kind 或 aggregate claims 的 ordered requiredKinds 与当前裁决要求不一致 |
-| `risk_control_blocked` | 429 | 当前风险裁决阻断匿名订阅 |
-| `risk_control_throttled` | 429 | 当前风险裁决要求限流 / 降速，通知订阅不进入业务通道 |
-| `account_blocked` | 423 | Notification stream 握手期登录用户处于封禁状态 |
-| `ACCOUNT_BANNED_WRITE_LOCKED` | 423 | 受限会话尝试普通业务写入，作为 Binary `ApiError.Details` 返回 |
-| `account_deleted` | 401 | 登录用户不存在、已删除或已停用 |
-| `notification_handshake_failed` | 500 | 未分类握手失败 |
+| `websocket_required` | 426 | The formal notification channel is not a WebSocket upgrade. |
+| `protocol_mismatch` | 409 | `fsus-aeds.v2` subprotocol is missing or not accepted. |
+| `auth_failed` | 401 | Authentication failed despite an auth header. |
+| `pow_failed` | 401/400 | Anonymous connection supplied invalid legacy PoW. |
+| `risk_challenge_required` | 428 | Anonymous `notification.subscribe` requires a completed aggregate RiskControl proof and supplied no legacy `pow` compatibility proof. |
+| `risk_challenge_rejected` | 428 | Aggregate proof is missing, the envelope is incomplete/failed/expired/revoked/replayed, or action/route/identity/envelope/ordered-requiredKinds binding mismatches. |
+| `risk_challenge_kind_mismatch` | 428 | The final member header kind or aggregate claim's ordered requiredKinds disagrees with the current decision. |
+| `risk_control_blocked` | 429 | The current risk decision blocks anonymous subscription. |
+| `risk_control_throttled` | 429 | The current risk decision requires throttling; the subscription does not enter the business channel. |
+| `account_blocked` | 423 | A signed-in user is banned during the notification-stream handshake. |
+| `ACCOUNT_BANNED_WRITE_LOCKED` | 423 | A restricted session attempts an ordinary business write; returned in Binary `ApiError.Details`. |
+| `account_deleted` | 401 | Signed-in user is missing, deleted, or disabled. |
+| `notification_handshake_failed` | 500 | Unclassified handshake failure. |
 
 ---
 
-RiskControl aggregate verify 的公开失败面保持有界：缺少 `envelopeId` 的旧 verify wire、非 UUIDv7 envelopeId 或结构无效在 decode/validation 阶段返回 `security_challenge_verify_request_invalid`；有效 envelope/member 但 envelopeId、ordinal、action、route、identity、policy 或 member binding 不符时，服务端内部可记录 `challenge_envelope_binding_mismatch`，对 binary caller 统一返回 HTTP 428 + `challenge_failed`，避免形成 binding oracle。member 失败、过期、撤销、重放、顺序错乱、Redis CAS/TTL miss、incomplete aggregate proof 与 requiredKinds mismatch 同样 fail closed，不新增公开 JSON fallback。capability catalog 的 `capability_unavailable` / `executor_unavailable` 等仍是签发/readiness 的内部受控 reason，不承诺新增 public 客户端版本错误码。
+The public failure surface for RiskControl aggregate verification is bounded. Legacy verify wire without `envelopeId`, a non-UUIDv7 envelopeId, or malformed structure returns `security_challenge_verify_request_invalid` during decode/validation. For a valid envelope/member with mismatched envelopeId, ordinal, action, route, identity, policy, or member binding, the server may record `challenge_envelope_binding_mismatch` internally but returns HTTP 428 + `challenge_failed` to binary callers, avoiding a binding oracle. Member failure, expiry, revocation, replay, ordering errors, Redis CAS/TTL miss, incomplete aggregate proof, and requiredKinds mismatch also fail closed; no public JSON fallback is added. `capability_unavailable` / `executor_unavailable` and similar capability-catalog values remain controlled internal issue/readiness reasons; no new public client version error code is promised.
 
 ---
 
-封禁类错误不得依赖 Redis 黑名单是否命中：服务端以 `sys_user.Status/BanReason` 为真源，`SecurityBlacklistUser` 只做无过期缓存；缓存 miss 会回查数据库并回填后再返回 `AccountBanned`、`account_blocked` 或写入锁 `ACCOUNT_BANNED_WRITE_LOCKED`。封禁账号可以持有受限会话完成登出、撤销会话、删除本人账号等安全收尾动作；普通业务写入统一由服务端返回 `423 Locked`，不能只依赖前端禁用按钮。
+Ban errors must not depend on a Redis blacklist hit. The server of record is `sys_user.Status/BanReason`; `SecurityBlacklistUser` is only a non-expiring cache. A cache miss rechecks and repopulates the database before returning `AccountBanned`, `account_blocked`, or the write lock `ACCOUNT_BANNED_WRITE_LOCKED`. A banned account may retain a restricted session for logout, session revocation, account deletion, and other security cleanup; ordinary business writes always return `423 Locked` from the server and must not rely only on disabled frontend controls.
 
-## 负响应
+<a id="负响应"></a>
 
-L0 artifact fast path 的负响应不写 AEDS frame body，固定 `Cache-Control: no-store`，避免缓存未就绪、方法不匹配或内容协商失败结果。`400` / `404` / `405` / `406` / `416` / `503` 的语义以 [design.md#l0-artifact-http-语义](design.md#l0-artifact-http-语义) 和 `PublicHotReadFastPath` 为准；active revocation tombstone 使用 `410 Gone`、`Cache-Control: no-store, no-cache, must-revalidate`、`X-Fsus-Generation: <decimal>` 与 `X-Fsus-Revoked: g<generation>`，不带 body、ETag 或 Content-Encoding。`503` 默认带 `Retry-After: 1`，`Range` 请求返回 `416` 并声明 `Accept-Ranges: none`。这些负响应必须带公开 HTML artifact 同款静态浏览器安全头，包括 `Content-Security-Policy`、`X-Frame-Options`、`X-Content-Type-Options`、`Referrer-Policy`、`Permissions-Policy`、COEP、COOP 和 CORP。
+## Negative responses
 
-常规 AEDS binary 端点的业务失败使用 `AedsFrameType.ApiError = 251`；notification stream preflight / WebSocket 握手失败还会写 `X-Fsus-Notification-Stream-Error-Code` 与 `X-Fsus-Notification-Stream-Status-Code`。
+Negative responses from the L0 artifact fast path write no AEDS frame body and always use `Cache-Control: no-store`, preventing caching of not-ready, method-mismatch, or content-negotiation failures. Semantics for `400` / `404` / `405` / `406` / `416` / `503` follow [design.md#l0-artifact-http-semantics](design.md#l0-artifact-http-semantics) and `PublicHotReadFastPath`. An active revocation tombstone uses `410 Gone`, `Cache-Control: no-store, no-cache, must-revalidate`, `X-Fsus-Generation: <decimal>`, and `X-Fsus-Revoked: g<generation>`, with no body, ETag, or Content-Encoding. `503` defaults to `Retry-After: 1`; a `Range` request returns `416` with `Accept-Ranges: none`. These negative responses carry the same static browser-security headers as public HTML artifacts, including `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, COEP, COOP, and CORP.
 
-强匿名 ticket / submit endpoint 的登录态污染失败使用 AEDS `ApiError`，HTTP status 为 `403`，`Code=Forbidden`，`Details=anonymous_identity_contaminated`；用户态 message 固定为“匿名发布请求不能携带登录态，请刷新后重试。”。
+Business failures on ordinary AEDS binary endpoints use `AedsFrameType.ApiError = 251`; notification-stream preflight/WebSocket handshake failures also write `X-Fsus-Notification-Stream-Error-Code` and `X-Fsus-Notification-Stream-Status-Code`.
 
-## AEDS v2 帧格式
+Login-state contamination on strong-anonymous ticket/submit endpoints uses AEDS `ApiError` with HTTP 403, `Code=Forbidden`, and `Details=anonymous_identity_contaminated`; the user-facing message is fixed as: “An anonymous submission request cannot carry login state; refresh and try again.”
 
-权威规格：`src/core/Algorithms/AEDS_V2_PROTOCOL.md`（当前运行时只接受 v2 frame）
+<a id="aeds-v2-帧格式"></a>
 
-### 帧头布局（16 字节，小端序）
+## AEDS v2 frame format
+
+Authoritative specification: `src/core/Algorithms/AEDS_V2_PROTOCOL.md` (the current runtime accepts v2 frames only).
+
+### Frame header layout (16 bytes, little-endian)
 
 ```text
-偏移   大小   字段           类型      说明
- 0      4    Magic          uint32   固定值 0x53444541 ("AEDS" 小端序)
- 4      1    Version        uint8    协议版本，当前为 2
- 5      1    HeaderLength   uint8    帧头长度，当前固定为 16
- 6      2    Flags          uint16   保留标志位，当前填 0
- 8      2    FrameType      uint16   帧类型（见 AedsFrameType 枚举）
-10      4    PayloadLength  uint32   载荷字节数（不含帧头）
-14      2    PayloadCrc16   uint16   载荷 CRC16
+Offset  Size  Field          Type     Meaning
+ 0       4    Magic          uint32   Fixed value 0x53444541 ("AEDS" little-endian)
+ 4       1    Version        uint8    Protocol version, currently 2
+ 5       1    HeaderLength   uint8    Header length, fixed at 16
+ 6       2    Flags          uint16   Reserved flags, currently 0
+ 8       2    FrameType      uint16   Frame type (see the AedsFrameType enum)
+10       4    PayloadLength  uint32   Payload bytes, excluding the header
+14       2    PayloadCrc16   uint16   Payload CRC16
 ```
 
-**总帧大小** = 16（帧头）+ PayloadLength（载荷）
+**Total frame size** = 16 (header) + PayloadLength (payload)
 
-### CRC16 计算规则
+### CRC16 calculation
 
 ```text
 PayloadCrc16 = CRC16(payload_bytes)
 ```
 
-CRC16 使用 Modbus 多项式 `0xA001`，初始值 `0xffff`。v2 删除 header CRC；header 只做字段边界与版本校验。
+CRC16 uses the Modbus polynomial `0xA001` with initial value `0xffff`. v2 removes the header CRC; the header is validated only for field boundaries and version.
 
-### Flags 登记
+<a id="flags-登记"></a>
 
-当前生产协议不启用 `NoPayloadCrc` 或协议内 `PayloadCompressed`。request frame 必须写 `Flags = 0`，服务端请求 binder 对非零 flags 返回协议校验失败；response frame 默认也写 `0`。如果后续采用 response-only flag，必须同步更新 `aeds-protocol.json`、负向 contract matrix、TypeScript/Worker/Wasm decoder 与本文件。
+### Flags registry
 
-HTTP `Content-Encoding: br|gzip` 是 artifact-level transport compression，不占用 AEDS flags；浏览器 fetch 解压后，客户端仍按原始 AEDS frame 计算 payload CRC16。
+The current production protocol enables neither `NoPayloadCrc` nor in-protocol `PayloadCompressed`. Request frames must write `Flags = 0`; the server request binder rejects non-zero flags with protocol validation failure, and response frames also default to `0`. If a response-only flag is introduced, update `aeds-protocol.json`, the negative contract matrix, TypeScript/Worker/Wasm decoders, and this document together.
 
-### 解码校验流程
+HTTP `Content-Encoding: br|gzip` is artifact-level transport compression and does not consume AEDS flags; after browser fetch decompression, clients still calculate payload CRC16 over the original AEDS frame.
 
-1. 读取 16 字节帧头
-2. 验证 Magic == `0x53444541`
-3. 验证 Version == 2，HeaderLength == 16
-4. 验证 PayloadLength 不超过安全上限（见 POD 大小目录）
-5. 按 PayloadLength 读取载荷字节
-6. 计算载荷 CRC16 并与 PayloadCrc16 比对
-7. 按 FrameType 解析 payload layout
+### Decoder validation flow
 
-AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端和前端不做旧 frame fallback。
+1. Read the 16-byte frame header.
+2. Verify Magic == `0x53444541`.
+3. Verify Version == 2 and HeaderLength == 16.
+4. Verify PayloadLength does not exceed the safe limit (see the POD size catalog).
+5. Read payload bytes according to PayloadLength.
+6. Compute payload CRC16 and compare it with PayloadCrc16.
+7. Parse the payload layout by FrameType.
 
-任一校验失败 → 丢弃帧。Binary 调用链不得把错误重新包装成文本响应；可恢复的服务端错误使用 `ApiError` 帧返回。
+AEDS v1 frames, unknown versions, and invalid header lengths are rejected directly; server and frontend do not provide an old-frame fallback.
 
-### 载荷结构
+Any validation failure → discard the frame. The binary call chain must not re-wrap errors as text responses; recoverable server errors use an `ApiError` frame.
 
-高频公开与统计 frame 使用 compact layout，载荷由计数、固定数值记录、共享 UTF-8 blob 与 `Utf8SliceRef` 组成：
+### Payload structure
+
+Frequent public and statistics frames use a compact layout composed of counts, fixed numeric records, a shared UTF-8 blob, and `Utf8SliceRef` values:
 
 ```text
 [count/meta] [blobLength:int32 + blob] [fixed numeric records] [slice refs into blob]
 ```
 
-- `ArticleList`：writer 先写 cursor envelope v2：`magic:int32=0x41535046`、`version:int32=2`、`hasMore:byte`、`total:int32`、`nextCursor:bytes`，再写 `count:int32`、`tagRecordCount:int32`、共享 blob、每篇当前 100B article record、每个 tag 12B record。cursor 是最大 64B 的 canonical base64url opaque token，`hasMore=true` 时必须非空；decoder 只读兼容 envelope v1 及 56B/76B article record。100B record 在旧 76B 生命周期字段后追加 `currentRevisionId:int64`、`revisionNo:int32`、`currentPublicationId:int64`、`publicationNo:int32`。
-- `ArticleSearch`：当前 FAS4 payload 在计数前写 magic/version，并为每条 article 写入同一组 24B publication 坐标；无 magic/version 的旧 payload 仅保留读取兼容。离线 search shard/package/manifest 与 Wasm result 使用 version 4，doc metadata/result item 为 76B。
-- `ArticleHot`：`count:int32`、共享 blob、每篇 16B record。
-- `Category` / `Tag`：`count:int32`、共享 blob、每条 16B record。
-- `AdminStats`：80B `SiteStatsPod`、共享 blob、popular 16B record、recent comment 56B author-snapshot record、region 12B record。阅读摘要字段为 `totalReads`、`humanVerifiedReads`、`uniqueViewerKeyEstimate`、`articleReads`、`siteReads`，不包含账号身份拆分。
-- 写请求、认证、上传和少量复杂详情 frame 仍使用 v2 header 包裹的 POD + blob 结构；线格式只接受 v2。
+- `ArticleList`: the writer first emits cursor envelope v2: `magic:int32=0x41535046`, `version:int32=2`, `hasMore:byte`, `total:int32`, and `nextCursor:bytes`; then `count:int32`, `tagRecordCount:int32`, the shared blob, one current 100B article record per article, and one 12B record per tag. The cursor is a canonical base64url opaque token of at most 64B and must be non-empty when `hasMore=true`; the decoder retains read compatibility with envelope v1 and 56B/76B article records. The 100B record appends `currentRevisionId:int64`, `revisionNo:int32`, `currentPublicationId:int64`, and `publicationNo:int32` after the old 76B lifecycle fields.
+- `ArticleSearch`: current FAS4 payload writes magic/version before counts and the same 24B publication coordinates for every article; payloads without magic/version remain read-compatible only. Offline search shard/package/manifest and Wasm results use version 4, with 76B doc metadata/result items.
+- `ArticleHot`: `count:int32`, shared blob, and one 16B record per article.
+- `Category` / `Tag`: `count:int32`, shared blob, and one 16B record per item.
+- `AdminStats`: 80B `SiteStatsPod`, shared blob, 16B popular records, 56B recent-comment author-snapshot records, and 12B region records. Reading-summary fields are `totalReads`, `humanVerifiedReads`, `uniqueViewerKeyEstimate`, `articleReads`, and `siteReads`; no account-identity breakdown is included.
+- Write, authentication, upload, and a few complex-detail frames still use POD + blob wrapped in the v2 header; the wire format accepts v2 only.
 
-当前兼容的 payload 字典化落点是 shared UTF-8 blob + `Utf8SliceRef`：ArticleList/ArticleSearch/Conversation records 不重复内嵌文本，category/tag/title/summary/body 均通过 slice 引用共享 blob。后续若新增 ArticleList category/tag dictionary layout，应以新版本 payload/golden fixture 登记，不复用未标记的旧 record layout。
+The current compatible payload-dictionary boundary is a shared UTF-8 blob plus `Utf8SliceRef`: ArticleList/ArticleSearch/Conversation records do not duplicate embedded text; category/tag/title/ summary/body all reference the shared blob through slices. Any future ArticleList category/tag dictionary layout must be registered with a new payload version and golden fixture, never reused as an unmarked old record layout.
 
 ---
 
-## AedsFrameType 枚举
+<a id="aedsframetype-枚举"></a>
 
-生成输入：`src/shared/Contracts/Validation/aeds-protocol.json`
+## AedsFrameType enum
 
-生成产物：`src/core/Algorithms/AedsFrameType.cs`、`src/shared/AedsFrameHeader.cs`、`src/frontend/wasm/web/protocol/frame.ts`
+Generation input: `src/shared/Contracts/Validation/aeds-protocol.json`
 
-已退休且不得复用的 AEDS 数值记录在 `retiredFrameValues`：`40` 为 legacy admin password reset slot，`43`/`44`/`45`/`46` 为 legacy username/password auth slots。这些数值不生成 frame 名、POD、codec 或 OpenAPI 契约；解码器收到对应 raw frame type 时按 retired frame 拒绝。
+Generated outputs: `src/core/Algorithms/AedsFrameType.cs`, `src/shared/AedsFrameHeader.cs`, and `src/frontend/wasm/web/protocol/frame.ts`.
 
-| 值 | 名称 | POD 类型 | 对应二进制端点 / 用途 |
+Retired, non-reusable AEDS values are recorded in `retiredFrameValues`: `40` is the legacy admin password-reset slot and `43`/`44`/`45`/`46` are legacy username/password-auth slots. These values generate no frame name, POD, codec, or OpenAPI contract; a decoder rejects the corresponding raw frame type as retired.
+
+| Value | Name | POD type | Binary endpoint / purpose |
 | ---- | ------ | --------- | ---------------- |
 | 0 | `Unknown` | — | — |
-| 1 | `ArticleList` | `ArticleListPod` | `GET /api/binary/article/list/home/{page}/{size}.aeds`；分类/标签列表见 `quick-reference.md` |
-| 2 | `ArticleDetail` | 当前 V5 detail/tag/rights records；只读兼容 V4/V3 | `GET /api/binary/article/{id}.aeds` |
+| 1 | `ArticleList` | `ArticleListPod` | `GET /api/binary/article/list/home/{page}/{size}.aeds`; see `quick-reference.md` for category/tag lists. |
+| 2 | `ArticleDetail` | Current V5 detail/tag/rights records; read compatibility with V4/V3 | `GET /api/binary/article/{id}.aeds` |
 | 3 | `ArticleHot` | `ArticleListPod` | `GET /api/binary/article/hot/{size}.aeds` |
-| 4 | `ArticleSearch` | `ArticleListPod` | 搜索索引 / author cache 诊断，不暴露旧文本业务路径 |
-| 5 | `CommentArticleCursor` | `CommentThreadItemPod` + item blob | `GET /api/binary/comment/{articleId}`；每个 item blob 在 content 后追加必备 `CommentAuthorView` payload 与可空 `replyToAuthor` payload |
-| 6 | `CommentUserCursor` | `CommentPod` | `GET /api/binary/comment/me` 当前用户可归因评论记录；可选 `articleId` 仅用于认证私有 ownership overlay |
+| 4 | `ArticleSearch` | `ArticleListPod` | Search index/author-cache diagnostics; does not expose an old text business path. |
+| 5 | `CommentArticleCursor` | `CommentThreadItemPod` + item blob | `GET /api/binary/comment/{articleId}`; each item blob appends the required `CommentAuthorView` payload and optional `replyToAuthor` payload after content. |
+| 6 | `CommentUserCursor` | `CommentPod` | `GET /api/binary/comment/me` attributable records for the current user; optional `articleId` is only an authenticated private ownership overlay. |
 | 7 | `AdminStats` | `AdminStatsPod` | — |
-| 8 | `CommentThreadReplyCursor` | `CommentReplyItemPod` + item blob | `GET /api/binary/comment/{articleId}/thread/{rootId}`；每个 reply item blob 在 content 后追加必备 `CommentAuthorView` payload 与可空 `replyToAuthor` payload |
+| 8 | `CommentThreadReplyCursor` | `CommentReplyItemPod` + item blob | `GET /api/binary/comment/{articleId}/thread/{rootId}`; each reply item blob appends the required `CommentAuthorView` payload and optional `replyToAuthor` payload after content. |
 | 9 | `CategoryList` | compact taxonomy records | `GET /api/binary/category.aeds` |
 | 10 | `TagList` | compact taxonomy records | `GET /api/binary/tag.aeds` |
 | 11 | `RecentCommentStats` | compact stats records | `GET /api/binary/stats/recent-comments` |
@@ -254,7 +255,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 15 | `ArticleFeatured` | compact article records | `GET /api/binary/article/featured/{size}.aeds` |
 | 16 | `TrashClearResponse` | `TrashClearResponsePod` | `DELETE /api/binary/admin/article/trash` |
 | 17 | `AdminUserList` | compact anonymous account records | `GET /api/binary/admin/users` |
-| 18 | `AuthLoginFlow` | auth flow；`AuthPhase=1 authenticated / 2 mfa_required / 3 enrollment_required` | anonymous bootstrap、enrollment status/complete、Passkey login complete |
+| 18 | `AuthLoginFlow` | Auth flow; `AuthPhase=1 authenticated / 2 mfa_required / 3 enrollment_required` | Anonymous bootstrap, enrollment status/complete, and Passkey login complete. |
 | 19 | `CurrentUserSnapshot` | admin-only account status snapshot without username/role | admin-only accountId query / refresh-token compatibility |
 | 20 | `UploadInit` | `UploadInitPod` | `POST /api/binary/upload/init` |
 | 21 | `UploadStatus` | `UploadStatusPod` | `GET /api/binary/upload/{id}` |
@@ -264,149 +265,129 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 25 | `AuthSessionList` | privacy-safe `UserSessionSummaryPod[count]` without credential id, fingerprint, token, raw user agent/IP, or user id | `GET /api/binary/auth/sessions` |
 | 26 | `SiteComplianceConfig` | `SiteComplianceConfigPod` | `GET /api/binary/system/compliance` |
 | 170 | `AdminSessionList` | `AdminSessionSummaryPod[count]` | `GET /api/binary/auth/admin/sessions` |
-| 171 | `SecurityChallengeAssignment` | `SecurityChallengeAssignmentPod` | ordered envelope 中的单个 RiskControl member assignment |
-| 172 | `SecurityChallengeEnvelope` | `SecurityChallengeEnvelopePod` + `SecurityChallengeAssignmentPod[]` | UUIDv7 envelope 与 1..8 个 ordered required members；单 challenge 同样使用 |
+| 171 | `SecurityChallengeAssignment` | `SecurityChallengeAssignmentPod` | One RiskControl member assignment in an ordered envelope. |
+| 172 | `SecurityChallengeEnvelope` | `SecurityChallengeEnvelopePod` + `SecurityChallengeAssignmentPod[]` | UUIDv7 envelope with 1..8 ordered required members; also used for a single challenge. |
 | 30 | `PowChallenge` | `PowChallengePod` | `GET /api/binary/auth/pow-challenge` |
-| 31 | `UploadInitRequest` | `UploadInitRequestPod` | `POST /api/binary/upload/init` 请求体 |
-| 32 | `UploadCompleteRequest` | `UploadCompleteRequestPod` | `POST /api/binary/upload/{id}/complete` 请求体 |
-| 33 | `CategoryWriteRequest` | current `TaxonomyMetadataMutationRequestPod` + description blob；legacy 128-byte `NameMutationRequestPod` accepted during migration | `POST /api/binary/category`、`PUT /api/binary/category/{id:int}` 请求体 |
-| 34 | `TagWriteRequest` | current `TaxonomyMetadataMutationRequestPod` + description blob；legacy 128-byte `NameMutationRequestPod` accepted during migration | `POST /api/binary/tag`、`PUT /api/binary/tag/{id:int}` 请求体 |
-| 35 | `SeoConfigUpdateRequest` | `SeoConfigPod` | `PUT /api/binary/system/seo` 请求体 |
-| 36 | `PageContentUpdateRequest` | `PageContentPod` | `PUT /api/binary/system/page` 请求体 |
-| 63 | `PasskeyRegisterBegin` | `PasskeyRegisterBeginPod` | 普通注册与首枚 enrollment/admin bootstrap begin 复用；POD 字段使用 `accountHandle`/`accountName`/`accountDisplayName` |
-| 64 | `PasskeyLoginBegin` | `PasskeyLoginBeginPod` | `POST /api/binary/auth/passkey/login/begin`；admin login begin 复用 |
+| 31 | `UploadInitRequest` | `UploadInitRequestPod` | Request body for `POST /api/binary/upload/init`. |
+| 32 | `UploadCompleteRequest` | `UploadCompleteRequestPod` | Request body for `POST /api/binary/upload/{id}/complete`. |
+| 33 | `CategoryWriteRequest` | Current `TaxonomyMetadataMutationRequestPod` + description blob; legacy 128-byte `NameMutationRequestPod` accepted during migration | Request body for `POST /api/binary/category` and `PUT /api/binary/category/{id:int}`. |
+| 34 | `TagWriteRequest` | Current `TaxonomyMetadataMutationRequestPod` + description blob; legacy 128-byte `NameMutationRequestPod` accepted during migration | Request body for `POST /api/binary/tag` and `PUT /api/binary/tag/{id:int}`. |
+| 35 | `SeoConfigUpdateRequest` | `SeoConfigPod` | Request body for `PUT /api/binary/system/seo`. |
+| 36 | `PageContentUpdateRequest` | `PageContentPod` | Request body for `PUT /api/binary/system/page`. |
+| 63 | `PasskeyRegisterBegin` | `PasskeyRegisterBeginPod` | Reused by ordinary registration and first enrollment/admin-bootstrap begin; POD fields use `accountHandle`/`accountName`/`accountDisplayName`. |
+| 64 | `PasskeyLoginBegin` | `PasskeyLoginBeginPod` | `POST /api/binary/auth/passkey/login/begin`; reused by admin login begin. |
 | 65 | `PasskeyCredentialList` | `PasskeyCredentialSummaryPod[]` | `GET /api/binary/auth/passkey/credentials` |
-| 66 | `PasskeyRegisterCompleteRequest` | `PasskeyRegisterCompleteRequestPod` | 普通注册、首枚 enrollment 与 admin bootstrap complete 请求体 |
-| 67 | `PasskeyLoginCompleteRequest` | `PasskeyLoginCompleteRequestPod` | `POST /api/binary/auth/passkey/login/complete`；admin login complete 请求体 |
-| 68 | `PasskeyCredentialFriendlyNameUpdateRequest` | `PasskeyCredentialFriendlyNameUpdateRequestPod` | `PUT /api/binary/auth/passkey/credentials/{id}/name` 请求体 |
-| 212 | `PasskeySignalState` | `PasskeySignalStatePod` + `PasskeySignalCredentialPod[]` | Passkey 注册/删除响应与 `GET /api/binary/auth/passkey/signal-state`；含单调 revision 和服务端权威完整凭证集 |
-| 214 | `AnonymousCommentCreateResult` | JSON-in-AEDS | 强匿名创建结果；首次成功附带 `managementSecret`，幂等 replay 为空；响应 `no-store` |
-| 215 | `CommentManagementChallengeRequest` | JSON-in-AEDS | challenge purpose 与可选匿名 capability；敏感值只允许 request body |
-| 216 | `CommentManagementChallengeResponse` | JSON-in-AEDS | 5 分钟一次性 challenge、过期时间与当前评论版本 |
-| 217 | `CommentAuthorEditRequest` | JSON-in-AEDS | expectedVersion、正文、challenge；匿名请求额外携带 capability |
-| 218 | `CommentAuthorMutationResult` | JSON-in-AEDS | edit/delete/appeal 的稳定结果码、当前版本与重新审核状态 |
-| 219 | `CommentAuthorStatusRequest` | JSON-in-AEDS | delete/status challenge；匿名请求额外携带 capability |
-| 220 | `CommentAuthorStatusResult` | JSON-in-AEDS | capability-scoped 当前审核/删除/编辑状态，不包含历史正文 |
-| 221 | `CommentAuthorAppealRequest` | JSON-in-AEDS | 匿名申诉原因、challenge 与 capability |
-| 222 | `CommentRevisionList` | JSON-in-AEDS | admin-only 修订内容、SHA-256、操作、时间与 actor mode |
-| 223 | `CommentReportRequest` | JSON-in-AEDS | 固定 reason code、可选说明；匿名入口额外携带 comment-scoped credential |
-| 224 | `CommentReportResult` | JSON-in-AEDS | report id、是否重复；不代表评论可见性变化 |
-| 225 | `CommentModerationTimeline` | JSON-in-AEDS | admin-only append-only 事件、重建投影与一致性标记 |
-| 226 | `CommentAppealDecisionRequest` | JSON-in-AEDS | granted/denied、复核理由；admin step-up |
-| 227 | `CommentAppealDecisionResult` | JSON-in-AEDS | 申诉决定结果与 appeal id |
-| 69 | `NotificationEvent` | binary notification value | `/api/notifications/stream` WebSocket 事件；`CommentAdded` payload 的 `comment` 字段使用 `author` / `replyToAuthor` 作者快照，不允许恢复 legacy identity fields |
-| 70 | `NotificationHeartbeat` | `int64 timestampUnixMs` | `/api/notifications/stream` WebSocket 心跳 |
-| 71 | `PublicAotBootstrap` | binary tagged value | Public AOT HTML bootstrap / hydration（两者必须携带与 HTML/response 一致的 canonical `renderLocale`）；`GET /api/public/navigation-snapshot.aeds?path=...` 的 `public-navigation-snapshot` envelope（含 schema/version/SHA-256 digest 的 `PublicSeoHeadModel`） |
-| 72 | `SiteComplianceConfigUpdateRequest` | `SiteComplianceConfigPod` | `PUT /api/binary/system/compliance` 请求体 |
-| 159 | `RecoveryKeyCreateResponse` | `RecoveryKeyCreateResponsePod` | `POST /api/binary/auth/recovery-key/create`、`/rotate` 响应 |
-| 160 | `RecoveryKeyVerifyRequest` | `RecoveryKeyVerifyRequestPod` | `POST /api/binary/auth/recovery-key/verify` 请求体；不携带 account id，服务端从 Recovery Key lookup id 定位 |
-| 161 | `RecoveryKeyVerifyResponse` | `RecoveryKeyVerifyResponsePod` | Recovery Key 验证成功响应；只返回 recovery session token 与过期时间 |
-| 162 | `RecoveryKeySessionRequest` | `StringMutationRequestPod` | Recovery session token 请求体；用于 Passkey recovery begin |
-| 163 | `IdentityAccountSnapshot` | `IdentityAccountSnapshotPod` | `GET /api/binary/auth/me`；匿名身份 account id、identity kind、public handle、Passkey/Recovery/TOTP/anonymous credential 和状态字段；不暴露 internalUserId；access 到期时间只通过 `X-Fsus-Access-Expires-At-Utc` HTTP header 传递，不占 POD |
-| 164 | `CommentPolicySnapshot` | `CommentPolicySnapshotPod` | 评论 composer 渲染前策略：anonymous/public/ZK 开关、完整 ZK-Prod 原始位与受控 unavailable reason、默认 author mode、语言列表、策略 snapshot hash；前端 41-byte layout 映射 client contract v3，旧/损坏 layout 一律 `contract_invalid` |
-| 165 | `CommentPolicyUpdateRequest` | `CommentPolicyUpdateRequestPod` | admin 匿名评论策略 patch 请求体 |
-| 166 | `CommentCreateV2Request` | `CommentCreateV2RequestPod` | 登录态 public 新评论；必须 explicit opt-in。旧 `anonymous` 返回 `anonymous_author_mode_retired` 且零业务写，`zk_anonymous` 返回 `anonymous_ticket_required`；legacy scope/proof 槽只保留 wire layout |
-| 167 | `CommentAuthorView` | `CommentAuthorViewPod` | 评论作者展示投影；评论 cursor 必须显式携带，客户端不得从 legacy identity string 伪造匿名/公开显示名 |
-| 177 | reserved | none | 未分配；无 decoder 或兼容路径 |
-| 178 | reserved | none | 未分配；无 decoder 或兼容路径 |
-| 179 | `AnonymousCredentialRootSnapshot` | `AnonymousCredentialRootSnapshotPod` | 匿名凭证 root/verifying-key snapshot；包含 issuer public key hash、credential/revocation root；`GET /api/binary/anonymous-credential/root` 与 `/circuit` 响应 |
-| 180 | retired | — | 旧精确属性 ticket request；必须按未知/退休 frame fail closed |
-| 181 | retired | — | 旧精确属性 ticket response；必须按未知/退休 frame fail closed |
-| 198 | `AnonymousCommentTicketRequest` | `AnonymousCommentTicketRequestPod` | v5/layout 6 最小资格谓词、root hashes、proof 与 canonical public inputs；不携带精确属性 |
-| 199 | `AnonymousCommentTicketResponse` | `AnonymousCommentTicketResponsePod` | expiry、`common` / `unknown` rate class、审核谓词、opaque ticket 与 moderation subject hash |
-| 200 | `SecurityChallengeCancelRequest` | `SecurityChallengeCancelRequestPod` + shared blob | 撤销 action/route/device/policy 绑定的 aggregate challenge envelope；响应为 `EmptySuccess` |
-| 205 | `CommentCreateResult` | `CommentCreateResultPod` | 40-byte 完整创建结果：comment/root/parent ID、createdAt、moderation/visibility、公开可见与 idempotency replay 标记 |
-| 201 | `ConversationReadRequest` | `ConversationReadRequestPod` | 账号 mark-read 显式 `readThroughMessageId` |
-| 202 | `AccountConversationReplyRequest` | `AccountConversationReplyRequestPod` + shared blob | 账号回复正文与显式读取位置；admin 回复继续使用 frame 60 |
-| 203 | `ConversationDetailV2` | `ConversationDetailV2Pod` + message records/blob | 对话详情与可见 `readSnapshotMessageId` |
-| 204 | `ConversationDetailV3` | `ConversationDetailV3Pod` + message records/blob | 固定消息页、`previousCursor`、`hasOlder` 与读取快照 |
-| 206 | `AdminConversationList` | `AdminConversationListItemPod` + shared blob | admin-only 列表；原列表记录 + 最小对方 account id/status |
-| 207 | `AdminConversationDetail` | `AdminConversationDetailPod` + message records/blob | admin-only 详情；V3 header + 最小对方 account id/status |
-| 208 | `CommentTreeRootCursor` | cursor envelope + `CommentTreeNodePod` records | 根节点 keyset 页；每根仅内联直接子节点预览 |
-| 209 | `CommentChildCursor` | `CommentChildCursorPod` + `CommentTreeNodePod` records | 指定父节点的直接子节点 keyset 页 |
-| 210 | `CommentPermalinkContext` | `CommentPermalinkContextPod` + node records | 永久链接祖先、目标与兄弟窗口；不可见目标统一 `unavailable` |
-| 211 | `ConversationStatusMutationResult` | `ConversationStatusMutationResultPod` | 状态 CAS 结果；previous/current status + `changed`/`no_change` outcome |
-| 213 | `ArticleRevisionRollbackRequest` | AEDS JSON `{baseRevisionId,targetStatus,reason}` | admin revision rollback 请求；目标仅 Draft/Published/Archived，创建新 revision/release，不复用历史行 |
+| 66 | `PasskeyRegisterCompleteRequest` | `PasskeyRegisterCompleteRequestPod` | Request body for ordinary registration, first enrollment, and admin-bootstrap complete. |
+| 67 | `PasskeyLoginCompleteRequest` | `PasskeyLoginCompleteRequestPod` | `POST /api/binary/auth/passkey/login/complete`; request body for admin login complete. |
+| 68 | `PasskeyCredentialFriendlyNameUpdateRequest` | `PasskeyCredentialFriendlyNameUpdateRequestPod` | Request body for `PUT /api/binary/auth/passkey/credentials/{id}/name`. |
+| 212 | `PasskeySignalState` | `PasskeySignalStatePod` + `PasskeySignalCredentialPod[]` | Passkey register/delete responses and `GET /api/binary/auth/passkey/signal-state`; includes monotonic revision and the server-authoritative complete credential set. |
+| 214 | `AnonymousCommentCreateResult` | JSON-in-AEDS | Strong-anonymous create result; first success includes `managementSecret`, idempotent replay is empty, and the response is `no-store`. |
+| 215 | `CommentManagementChallengeRequest` | JSON-in-AEDS | Challenge purpose and optional anonymous capability; sensitive values are allowed only in the request body. |
+| 216 | `CommentManagementChallengeResponse` | JSON-in-AEDS | Five-minute one-time challenge, expiry, and current comment version. |
+| 217 | `CommentAuthorEditRequest` | JSON-in-AEDS | `expectedVersion`, body, and challenge; anonymous requests also carry capability. |
+| 218 | `CommentAuthorMutationResult` | JSON-in-AEDS | Stable edit/delete/appeal result code, current version, and re-moderation state. |
+| 219 | `CommentAuthorStatusRequest` | JSON-in-AEDS | Delete/status challenge; anonymous requests also carry capability. |
+| 220 | `CommentAuthorStatusResult` | JSON-in-AEDS | Capability-scoped current moderation/deletion/edit status; no historical body. |
+| 221 | `CommentAuthorAppealRequest` | JSON-in-AEDS | Anonymous appeal reason, challenge, and capability. |
+| 222 | `CommentRevisionList` | JSON-in-AEDS | Admin-only revision body, SHA-256, operation, time, and actor mode. |
+| 223 | `CommentReportRequest` | JSON-in-AEDS | Fixed reason code and optional note; anonymous entry also carries a comment-scoped credential. |
+| 224 | `CommentReportResult` | JSON-in-AEDS | Report ID and duplicate flag; does not indicate a visibility change. |
+| 225 | `CommentModerationTimeline` | JSON-in-AEDS | Admin-only append-only events, rebuilt projection, and consistency marker. |
+| 226 | `CommentAppealDecisionRequest` | JSON-in-AEDS | Granted/denied and review reason; admin step-up. |
+| 227 | `CommentAppealDecisionResult` | JSON-in-AEDS | Appeal decision result and appeal ID. |
+| 69 | `NotificationEvent` | Binary notification value | `/api/notifications/stream` WebSocket event; `CommentAdded` payload `comment` uses `author` / `replyToAuthor` snapshots and must not restore legacy identity fields. |
+| 70 | `NotificationHeartbeat` | `int64 timestampUnixMs` | `/api/notifications/stream` WebSocket heartbeat. |
+| 71 | `PublicAotBootstrap` | Binary tagged value | Public AOT HTML bootstrap/hydration (both must carry canonical `renderLocale` matching HTML/response); `GET /api/public/navigation-snapshot.aeds?path=...` public-navigation-snapshot envelope with schema/version/SHA-256 digest `PublicSeoHeadModel`. |
+| 72 | `SiteComplianceConfigUpdateRequest` | `SiteComplianceConfigPod` | Request body for `PUT /api/binary/system/compliance`. |
+| 159 | `RecoveryKeyCreateResponse` | `RecoveryKeyCreateResponsePod` | Responses for `POST /api/binary/auth/recovery-key/create` and `/rotate`. |
+| 160 | `RecoveryKeyVerifyRequest` | `RecoveryKeyVerifyRequestPod` | Request body for `POST /api/binary/auth/recovery-key/verify`; carries no account ID, which the server locates from the Recovery Key lookup ID. |
+| 161 | `RecoveryKeyVerifyResponse` | `RecoveryKeyVerifyResponsePod` | Successful Recovery Key verification; returns only the recovery-session token and expiry. |
+| 162 | `RecoveryKeySessionRequest` | `StringMutationRequestPod` | Recovery-session token request body for Passkey recovery begin. |
+| 163 | `IdentityAccountSnapshot` | `IdentityAccountSnapshotPod` | `GET /api/binary/auth/me`; anonymous account ID, identity kind, public handle, Passkey/Recovery/TOTP/anonymous-credential and status fields; does not expose internalUserId; access expiry is carried only in the `X-Fsus-Access-Expires-At-Utc` HTTP header and does not consume POD space. |
+| 164 | `CommentPolicySnapshot` | `CommentPolicySnapshotPod` | Pre-render comment-composer policy: anonymous/public/ZK switches, complete raw ZK-Prod bit and controlled unavailable reason, default author mode, language list, and policy snapshot hash; frontend 41-byte layout maps to client contract v3, while old/corrupt layouts always return `contract_invalid`. |
+| 165 | `CommentPolicyUpdateRequest` | `CommentPolicyUpdateRequestPod` | Admin anonymous-comment policy patch request body. |
+| 166 | `CommentCreateV2Request` | `CommentCreateV2RequestPod` | Signed-in public comment; explicit opt-in required. Legacy `anonymous` returns `anonymous_author_mode_retired` with zero business writes; `zk_anonymous` returns `anonymous_ticket_required`; legacy scope/proof slots remain wire layout only. |
+| 167 | `CommentAuthorView` | `CommentAuthorViewPod` | Comment-author display projection; comment cursors must carry it explicitly, and clients must not fabricate anonymous/public names from legacy identity strings. |
+| 177 | reserved | none | Unassigned; no decoder or compatibility path. |
+| 178 | reserved | none | Unassigned; no decoder or compatibility path. |
+| 179 | `AnonymousCredentialRootSnapshot` | `AnonymousCredentialRootSnapshotPod` | Anonymous-credential root/verifying-key snapshot with issuer public-key hash and credential/revocation root; responses for `GET /api/binary/anonymous-credential/root` and `/circuit`. |
+| 180 | retired | — | Legacy precise-attribute ticket request; fail closed as unknown/retired frame. |
+| 181 | retired | — | Legacy precise-attribute ticket response; fail closed as unknown/retired frame. |
+| 198 | `AnonymousCommentTicketRequest` | `AnonymousCommentTicketRequestPod` | v5/layout-6 minimum qualification predicate, root hashes, proof, and canonical public inputs; carries no precise attributes. |
+| 199 | `AnonymousCommentTicketResponse` | `AnonymousCommentTicketResponsePod` | Expiry, `common` / `unknown` rate class, moderation predicate, opaque ticket, and moderation-subject hash. |
+| 200 | `SecurityChallengeCancelRequest` | `SecurityChallengeCancelRequestPod` + shared blob | Revokes an aggregate challenge envelope bound to action/route/device/policy; response is `EmptySuccess`. |
+| 205 | `CommentCreateResult` | `CommentCreateResultPod` | Complete 40-byte create result: comment/root/parent IDs, createdAt, moderation/visibility, public-visible, and idempotency-replay markers. |
+| 201 | `ConversationReadRequest` | `ConversationReadRequestPod` | Account mark-read with explicit `readThroughMessageId`. |
+| 202 | `AccountConversationReplyRequest` | `AccountConversationReplyRequestPod` + shared blob | Account reply body and explicit read position; admin replies continue to use frame 60. |
+| 203 | `ConversationDetailV2` | `ConversationDetailV2Pod` + message records/blob | Conversation detail and visible `readSnapshotMessageId`. |
+| 204 | `ConversationDetailV3` | `ConversationDetailV3Pod` + message records/blob | Fixed message page, `previousCursor`, `hasOlder`, and read snapshot. |
+| 206 | `AdminConversationList` | `AdminConversationListItemPod` + shared blob | Admin-only list with the original list record plus minimal counterparty account ID/status. |
+| 207 | `AdminConversationDetail` | `AdminConversationDetailPod` + message records/blob | Admin-only detail with V3 header plus minimal counterparty account ID/status. |
+| 208 | `CommentTreeRootCursor` | cursor envelope + `CommentTreeNodePod` records | Root keyset page; each root inlines direct-child previews only. |
+| 209 | `CommentChildCursor` | `CommentChildCursorPod` + `CommentTreeNodePod` records | Direct-child keyset page for a specified parent. |
+| 210 | `CommentPermalinkContext` | `CommentPermalinkContextPod` + node records | Permalink ancestors, target, and sibling window; an invisible target is uniformly `unavailable`. |
+| 211 | `ConversationStatusMutationResult` | `ConversationStatusMutationResultPod` | Status CAS result with previous/current status and `changed`/`no_change` outcome. |
+| 213 | `ArticleRevisionRollbackRequest` | AEDS JSON `{baseRevisionId,targetStatus,reason}` | Admin revision rollback request; target is only Draft/Published/Archived, creates a new revision/release, and never reuses a historical row. |
 
-`ConversationList(56)` 与 `ConversationDetailV3(204)` 的 wire layout 不因 admin queue state
-新增字段。相同 `unreadCount` 字段按 viewer 使用不同事实源：账号读取 participant state，
-admin 读取 `msg_admin_queue_state`；公共/账号 frame 不暴露 admin queue version、admin session
-或管理主体标识。admin queue 动态关闭时使用 `ApiError(251)` details
-`message_admin_queue_projection_disabled`。
+The wire layouts of `ConversationList(56)` and `ConversationDetailV3(204)` gain no fields for admin queue state. The same `unreadCount` field uses a viewer-specific source of truth: account reads use participant state, while admin reads use `msg_admin_queue_state`; public/account frames expose neither admin queue version, admin session, nor management-principal identity. When the admin queue is dynamically disabled, use `ApiError(251)` details `message_admin_queue_projection_disabled`.
 
-`AdminConversationList(206)` / `AdminConversationDetail(207)` 只允许 admin 路由发送；增加的
-`counterpartyAccountId:int64` 和 `counterpartyAccountStatus:int32` 不得进入账号端
-`ConversationList(56)` / `ConversationDetailV3(204)`。status 仅接受 `0..3`，account id 为 0 时
-status 必须为 `3=missing`。动态关闭 admin account projection 时返回 `ApiError(251)` details
-`message_admin_account_projection_disabled`，不得复用账号 frame 作为回退。
+`AdminConversationList(206)` / `AdminConversationDetail(207)` may be sent only by admin routes. The added `counterpartyAccountId:int64` and `counterpartyAccountStatus:int32` must not enter account `ConversationList(56)` / `ConversationDetailV3(204)`. `status` accepts only `0..3`; when account ID is 0, status must be `3=missing`. When the admin account projection is dynamically disabled, return `ApiError(251)` details `message_admin_account_projection_disabled`; do not reuse an account frame as fallback.
 
-账号与 admin 回复在同一事务屏障内锁定会话、校验 status、插入消息、更新 activity/unread，
-并且只在提交成功后发布 delivery event。会话不存在返回 `404`；closed 或锁后状态冲突返回
-`409`；事务基础设施失败返回 `503`。动态关闭 `Messages:ReplyWritesEnabled` 时两个 reply
-端点固定返回 `503` + `message_reply_writes_disabled`，读取和显式重开仍可使用。
+Account and admin replies lock the conversation, validate status, insert the message, and update activity/unread within one transaction barrier, publishing a delivery event only after commit. Missing conversation returns `404`; closed or post-lock status conflict returns `409`; transaction infrastructure failure returns `503`. When `Messages:ReplyWritesEnabled` is dynamically disabled, both reply endpoints always return `503` + `message_reply_writes_disabled`; reads and explicit reopen remain available.
 
-状态更新请求必须携带 1..256 字符审计原因；缺失或超限返回 `400` +
-`conversation_status_reason_invalid`。不允许的状态机边返回 `409` +
-`conversation_status_transition_invalid`；CAS 后发现其它目标状态返回 `409`。相同目标状态返回
-frame 208 的 `no_change`，不属于错误。动态关闭 `Messages:StatusMutationsEnabled` 时返回
-`503` + `message_status_mutations_disabled`，不得降级为无审计或直接实时发布。
+Status updates must carry a 1..256-character audit reason; missing or over-limit reasons return `400` + `conversation_status_reason_invalid`. A disallowed state-machine edge returns `409` + `conversation_status_transition_invalid`; discovering another target state after CAS returns `409`. The same target state returns frame 208's `no_change` and is not an error. When `Messages:StatusMutationsEnabled` is dynamically disabled, return `503` + `message_status_mutations_disabled`; do not degrade to an unaudited or direct live publish.
 
-系统消息目标错误固定区分：目标不存在为 `404 system_message_target_not_found`，已注销为
-`404 system_message_target_deleted`，普通消息投递到受限账号为
-`403 system_message_target_restricted`，未知账户状态为
-`403 system_message_target_status_invalid`。目标锁定/校验热关闭时，新 source event 返回
-`503 system_message_target_validation_disabled`；已提交的同摘要 replay 不受影响。
+System-message target failures are distinct: missing target is `404 system_message_target_not_found`, deleted target is `404 system_message_target_deleted`, ordinary delivery to a restricted account is `403 system_message_target_restricted`, and unknown account state is `403 system_message_target_status_invalid`. When target locking/validation is hot-disabled, a new source event returns `503 system_message_target_validation_disabled`; a committed replay with the same digest is unaffected.
 
-`msg_participant_state.unreadcount` 与 `msg_admin_queue_state.unreadcount` 必须 `>= 0`。两表的
-`lastreadmessageid` 非空时必须引用同一 conversation 的非 internal `msg_message`，普通事务中
-不得从已有值后退或清空。受控 unread repair transaction 可把历史无效游标重置为 null 后重算；
-维护开关关闭时不执行修复，不放宽这些数据库约束。
-| 182 | `AnonymousCommentCreateRequest` | `AnonymousCommentCreateRequestPod` | `POST /api/binary/comment/anonymous` 请求体；不包含 user id、username、Authorization token 或 public handle |
-| 183 | `AnonymousPrivacyStateSnapshot` | `AnonymousPrivacyStateSnapshotPod` | 前端匿名隐私状态快照 |
-| 184 | `PerceptionSealedChallengeV2` | `PerceptionSealedChallengeV2Pod` | `fsu.challenge/perception-sealed@v2` issue payload；只覆盖 Localization 与 MicroInteraction |
-| 185 | `PerceptionSealedResultV2` | `PerceptionSealedResultV2Pod` | `fsu.challenge/perception-sealed@v2` verify payload；只支持 coordinates 与 steps response payload |
-| nested | `PerceptionCharacterV3Issue` | `PerceptionCharacterV3IssuePod` | frame 175 内按 assignment `kind=14` 判别的 typed union；final 4-bit PNG/Ogg Opus bytes + opaque state |
-| nested | `PerceptionCharacterV3Verify` | `PerceptionCharacterV3VerifyPod` | frame 174 内按 `kind=14` 判别的 typed union；只含 answer + opaque state |
-| 186 | `RetiredCredentialSpecificRevocationRequest` | 无 | 永久 retired；不得复用或解析 body |
-| 187 | `RetiredCredentialSpecificRevocationResponse` | 无 | 永久 retired；服务端不发送 |
-| 196 | `AnonymousCredentialRevocationSnapshot` | `AnonymousCredentialRevocationArtifactPod` | 公共 full revoked-set snapshot |
-| 197 | `AnonymousCredentialRevocationDelta` | `AnonymousCredentialRevocationArtifactPod` | 公共 append-only delta |
-| 193 | `BlindCredentialIssuerMetadata` | `BlindCredentialIssuerMetadataPod` | `GET /api/binary/anonymous-credential/blind-issuer`；RFC 9474 profile 与 3072-bit RSA DER SPKI |
-| 194 | `BlindCredentialIssueRequest` | `BlindCredentialIssueRequestPod` | `POST /api/binary/anonymous-credential/blind-issue`；384B blinded representative |
-| 195 | `BlindCredentialIssueResponse` | `BlindCredentialIssueResponsePod` | 384B blind signature；浏览器本地 unblind/verify |
-| 189 | `AuthAnonymousBootstrapRequest` | `AuthAnonymousBootstrapRequestPod` | `POST /api/binary/auth/anonymous/bootstrap` 请求体；只含规范确认和可选 public handle，不含旧注册密码字段 |
-| 190 | `AuthUpdatePublicHandleRequest` | `StringMutationRequestPod` | `PUT /api/binary/auth/public-handle` 请求体；保存或清空当前账号 public handle |
-| 240 | `EmptySuccess` | `EmptySuccessPod` | 通用空成功响应 |
-| 241 | `MutationId` | `MutationIdPod` / `ArticleMutationResultPod` | 通用变更 ID 响应；文章 create/update/rollback 使用 48B 强类型结果 |
-| 243 | `TaxonomyExactMetadata` | compact id/name/nullable description | `GET /api/binary/category/{id}.aeds`, `GET /api/binary/tag/{id}.aeds`, `GET /api/binary/tag/by-name.aeds` |
-| 251 | `ApiError` | `ApiErrorPod` | 二进制错误响应 |
+`msg_participant_state.unreadcount` and `msg_admin_queue_state.unreadcount` must be `>= 0`. When either table's non-null `lastreadmessageid` is set, it must reference a non-internal `msg_message` in the same conversation; ordinary transactions must not move it backward or clear it. A controlled unread-repair transaction may reset an invalid historical cursor to null and recompute; when the maintenance switch is off, no repair runs and these database constraints are not relaxed.
+| 182 | `AnonymousCommentCreateRequest` | `AnonymousCommentCreateRequestPod` | Request body for `POST /api/binary/comment/anonymous`; contains no user ID, username, Authorization token, or public handle. |
+| 183 | `AnonymousPrivacyStateSnapshot` | `AnonymousPrivacyStateSnapshotPod` | Frontend anonymous-privacy state snapshot. |
+| 184 | `PerceptionSealedChallengeV2` | `PerceptionSealedChallengeV2Pod` | `fsu.challenge/perception-sealed@v2` issue payload; covers Localization and MicroInteraction only. |
+| 185 | `PerceptionSealedResultV2` | `PerceptionSealedResultV2Pod` | `fsu.challenge/perception-sealed@v2` verify payload; supports coordinates and steps response payload only. |
+| nested | `PerceptionCharacterV3Issue` | `PerceptionCharacterV3IssuePod` | Typed union in frame 175 selected by assignment `kind=14`; final 4-bit PNG/Ogg Opus bytes plus opaque state. |
+| nested | `PerceptionCharacterV3Verify` | `PerceptionCharacterV3VerifyPod` | Typed union in frame 174 selected by `kind=14`; contains answer plus opaque state only. |
+| 186 | `RetiredCredentialSpecificRevocationRequest` | none | Permanently retired; never reuse or parse the body. |
+| 187 | `RetiredCredentialSpecificRevocationResponse` | none | Permanently retired; server never sends it. |
+| 196 | `AnonymousCredentialRevocationSnapshot` | `AnonymousCredentialRevocationArtifactPod` | Public full revoked-set snapshot. |
+| 197 | `AnonymousCredentialRevocationDelta` | `AnonymousCredentialRevocationArtifactPod` | Public append-only delta. |
+| 193 | `BlindCredentialIssuerMetadata` | `BlindCredentialIssuerMetadataPod` | `GET /api/binary/anonymous-credential/blind-issuer`; RFC 9474 profile and 3072-bit RSA DER SPKI. |
+| 194 | `BlindCredentialIssueRequest` | `BlindCredentialIssueRequestPod` | `POST /api/binary/anonymous-credential/blind-issue`; 384B blinded representative. |
+| 195 | `BlindCredentialIssueResponse` | `BlindCredentialIssueResponsePod` | 384B blind signature; browser performs local unblind/verify. |
+| 189 | `AuthAnonymousBootstrapRequest` | `AuthAnonymousBootstrapRequestPod` | Request body for `POST /api/binary/auth/anonymous/bootstrap`; only normative confirmation and optional public handle, no legacy registration-password fields. |
+| 190 | `AuthUpdatePublicHandleRequest` | `StringMutationRequestPod` | Request body for `PUT /api/binary/auth/public-handle`; saves or clears the current account's public handle. |
+| 240 | `EmptySuccess` | `EmptySuccessPod` | Generic empty-success response. |
+| 241 | `MutationId` | `MutationIdPod` / `ArticleMutationResultPod` | Generic mutation-ID response; article create/update/rollback use the 48B typed result. |
+| 243 | `TaxonomyExactMetadata` | compact id/name/nullable description | `GET /api/binary/category/{id}.aeds`, `GET /api/binary/tag/{id}.aeds`, `GET /api/binary/tag/by-name.aeds`. |
+| 251 | `ApiError` | `ApiErrorPod` | Binary error response. |
 
 ---
 
-## POD 大小目录
+<a id="pod-大小目录"></a>
 
-源码：`src/shared/Contracts/Validation/PodSizeCatalog.cs`
+## POD size catalog
 
-以下尺寸为**编译期常量**，C# 和 C++ 两侧必须保持一致。任何修改须同时更新：
+Source: `src/shared/Contracts/Validation/PodSizeCatalog.cs`
 
-1. `PodSizeCatalog.cs` 中对应字段
-2. C++ 头文件中的 `static_assert` 验证
-3. 本表格
+The following sizes are **compile-time constants** and must stay identical in C# and C++. Any change must update all of the following together:
 
-### 基本类型
+1. The corresponding field in `PodSizeCatalog.cs`.
+2. The C++ header's `static_assert`.
+3. This table.
 
-| 类型 | 字节数 |
+### Primitive types
+
+| Type | Bytes |
 | ------ | -------- |
 | `Utf8Fixed32` | 32 |
 | `Utf8Fixed64` | 64 |
 | `Utf8Fixed128` | 128 |
 | `Utf8Fixed256` | 256 |
 | `Utf8Fixed512` | 512 |
-| `Utf8SliceRef` | 8（int32 Offset + int32 Length） |
+| `Utf8SliceRef` | 8 (`int32 Offset` + `int32 Length`) |
 
-### 信封
+### Envelopes
 
-| 类型 | 字节数 |
+| Type | Bytes |
 | ------ | -------- |
 | `PodEnvelopeHeader` | 16 |
 | `PageEnvelope` | 8 |
@@ -414,21 +395,21 @@ frame 208 的 `no_change`，不属于错误。动态关闭 `Messages:StatusMutat
 | `PagedPodEnvelope` | 24 |
 | `CursorPodEnvelope` | 32 |
 
-### 通用响应 POD
+### Common response PODs
 
-| 类型 | 字节数 |
+| Type | Bytes |
 | ------ | -------- |
 | `EmptySuccessPod` | 4 |
 | `CommentCreateResultPod` | 40 |
 | `MutationIdPod` | 8 |
 | `ApiErrorPod` | 584 |
 
-### 文章 POD
+### Article PODs
 
-| 类型 | 字节数 |
+| Type | Bytes |
 | ------ | -------- |
-| `ArticleListPod` | ~512（含 Title/Summary 字段） |
-| `ArticleDetailPod` | legacy；公开运行时不再接受 |
+| `ArticleListPod` | ~512 (including Title/Summary fields) |
+| `ArticleDetailPod` | Legacy; no longer accepted by the public runtime. |
 | `ArticleDetailV3HeaderPod` | 44 |
 | `ArticleDetailV3RecordPod` | 84 |
 | `ArticleDetailV4HeaderPod` | 44 |
@@ -437,20 +418,16 @@ frame 208 的 `no_change`，不属于错误。动态关闭 `Messages:StatusMutat
 | `ArticleDetailTagV3RecordPod` | 12 |
 | `ArticleRightsV3RecordPod` | 112 |
 | `ArticleMutationResultPod` | 48 |
-| `ArticleWriteRequestPod` | 40（固定前缀；后接 tags/blob/lifecycle/rights 段） |
+| `ArticleWriteRequestPod` | 40 (fixed prefix, followed by tags/blob/lifecycle/rights segments) |
 | `ArticleRightsWriteRequestPod` | 40 |
 
-`ArticleWriteRequest` 当前写入版本为 V5。在 V4 rights 段和 rights blob 后追加 `baseRevisionId:int64`；create 写 `0`，update 必须写正数。既有 `status:int32`、`scheduledPublishAtUnixMs:int64` 后写入
-`version=5` 与 `rightsMutation:int32`：`0=preserve`、`1=replace`、`2=reset`。`replace` 必须携带完整 rights
-payload；`reset` 不得同时携带 replacement payload。V3 rights payload 只读兼容为 `replace`；rights 功能加入前、
-仅含文章主体和 lifecycle tail 的旧 payload 只读兼容为 `preserve`。文章 create/update 的 frame type 仍为
-`MutationId(241)`，但文章 payload 使用 48B `ArticleMutationResultPod`：`articleId:int32`、`revisionId:int64`、`revisionNo:int32`、`releaseId:int64`、`releaseNo:int32`、`status:int32`、`rightsSnapshotId:int64`、`rightsRevisionNo:int32`、`idempotencyReplay:uint8`、`errorCode:uint8`、`outcome:uint8`、`reserved:uint8`；`outcome=0` 是 `applied`，`outcome=1` 是 `no_change`。其他通用 mutation 继续使用 8B `MutationIdPod`。完全相同的 update 返回当前 revision/release/rights 坐标与 `no_change`，且不新增 revision、publication、outbox、notification 或缓存失效。create 缺失/非法 mutation id、同键异内容和运行时停用分别使用 `article_client_mutation_id_required`、`article_client_mutation_id_invalid`、`article_mutation_content_conflict`、`article_mutation_idempotency_disabled`。`article_revision_conflict` 使用 HTTP 409 `ApiError`，details 为当前 revision 坐标、status 和 updatedAt；不暴露 `xmin`。草稿保存与丢弃的 `draft_conflict` 同样使用 HTTP 409 `ApiError`，details 固定为 `{currentServerRevision:int64|null,currentUpdatedAt:datetime|null,titleSummary:string|null}`；不得放入 content、summary、rights、tagIds 或其它未发布内容。
+`ArticleWriteRequest` currently writes version V5. After the V4 rights segment and rights blob it appends `baseRevisionId:int64`; create writes `0`, while update must write a positive value. After the existing `status:int32` and `scheduledPublishAtUnixMs:int64`, it writes `version=5` and `rightsMutation:int32`: `0=preserve`, `1=replace`, `2=reset`. `replace` must carry a complete rights payload; `reset` must not carry a replacement payload. V3 rights payloads are read-compatible as `replace`; pre-rights payloads containing only the article body and lifecycle tail are read-compatible as `preserve`. Article create/update still use frame type `MutationId(241)`, but the article payload uses the 48B `ArticleMutationResultPod`: `articleId:int32`, `revisionId:int64`, `revisionNo:int32`, `releaseId:int64`, `releaseNo:int32`, `status:int32`, `rightsSnapshotId:int64`, `rightsRevisionNo:int32`, `idempotencyReplay:uint8`, `errorCode:uint8`, `outcome:uint8`, and `reserved:uint8`; `outcome=0` is `applied` and `outcome=1` is `no_change`. Other generic mutations continue using the 8B `MutationIdPod`. An identical update returns current revision/release/rights coordinates and `no_change`, without creating a revision, publication, outbox, notification, or cache invalidation. Missing/invalid create mutation IDs, same-key different content, and runtime disablement use `article_client_mutation_id_required`, `article_client_mutation_id_invalid`, `article_mutation_content_conflict`, and `article_mutation_idempotency_disabled`, respectively. `article_revision_conflict` uses HTTP 409 `ApiError` with current revision coordinates, status, and updatedAt in details; `xmin` is not exposed. Draft save/discard `draft_conflict` likewise uses HTTP 409 `ApiError` with fixed details `{currentServerRevision:int64|null,currentUpdatedAt:datetime|null, titleSummary:string|null}`; content, summary, rights, tagIds, and other unpublished content are forbidden.
 
-Notification stream 的 `ArticleChangedPayload` schema 为 `{articleId:int32,action:string,eventTime:datetime,preview?:ArticleListItemResponse|null,revisionId?:decimal-string|null,releaseId?:decimal-string|null}`。v2 mutation 必须填充两个坐标，legacy v1 可空；decimal string 避免 AEDS notification value 解码后越过 JavaScript safe-integer 边界。它不改变 AEDS frame type。
+The notification-stream `ArticleChangedPayload` schema is `{articleId:int32,action:string,eventTime:datetime,preview?:ArticleListItemResponse|null,revisionId?:decimal-string|null,releaseId?:decimal-string|null}`. v2 mutations must fill both coordinates; legacy v1 may leave them null. Decimal strings prevent AEDS notification values from exceeding JavaScript's safe-integer boundary after decoding. This does not change the AEDS frame type.
 
-### 评论 POD
+### Comment PODs
 
-| 类型 | 字节数 |
+| Type | Bytes |
 | ------ | -------- |
 | `CommentPod` | ~256 |
 | `CommentPolicySnapshotPod` | 41 |
@@ -470,11 +447,11 @@ Notification stream 的 `ArticleChangedPayload` schema 为 `{articleId:int32,act
 | `AnonymousCommentCreateRequestPod` | 72 |
 | `AnonymousPrivacyStateSnapshotPod` | 66 |
 
-### 评论 cursor item blob
+### Comment cursor item blob
 
-递归树的 `CommentTreeNodePod` 固定保存 `id/parentId/rootId/replyToCommentId/depth/childCount/isDeleted/hasMoreChildren/createTime/content`；节点后跟 content 与 `CommentAuthorView` blob。root frame 在每个根节点后写入 `uint8 previewCount + 3 reserved zero bytes`，再写该数量的直接子节点；child frame 只写平级直接子节点；permalink frame 依次写 ancestors、可选 target、siblings。所有 reserved 字段必须为零，所有 ID 必须保持完整 64-bit 十进制值。
+The recursive tree's `CommentTreeNodePod` always stores `id/parentId/rootId/replyToCommentId/depth/childCount/isDeleted/hasMoreChildren/createTime/content`; each node is followed by content and a `CommentAuthorView` blob. A root frame writes `uint8 previewCount + 3 reserved zero bytes` after each root, then that many direct children; a child frame writes direct siblings only; a permalink frame writes ancestors, optional target, and siblings in sequence. Every reserved field must be zero, and every ID must remain a complete 64-bit decimal value.
 
-`CommentThreadItemPod`、`CommentReplyPreviewItemPod` 与 `CommentReplyItemPod` 的固定 POD 中仍只保存 content 的 slice ref；对应 blob 的布局为：
+The fixed PODs for `CommentThreadItemPod`, `CommentReplyPreviewItemPod`, and `CommentReplyItemPod` still store only a content slice ref; the corresponding blob layout is:
 
 ```text
 content bytes
@@ -484,15 +461,15 @@ replyToAuthorLength:int32
 replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 ```
 
-`authorLength` 必须大于 0。`replyToAuthorLength` 为 0 表示没有回复目标作者；非 0 时必须是完整 `CommentAuthorView` payload。前端 adapter 对缺失 author、长度越界或尾部多余 bytes 返回协议错误，不能回退到旧 identity display。
+`authorLength` must be greater than 0. `replyToAuthorLength=0` means no reply-target author; a non-zero value must be a complete `CommentAuthorView` payload. The frontend adapter returns a protocol error for a missing author, out-of-range length, or trailing bytes; it must not fall back to the old identity display.
 
-### 评论作者存储投影
+### Comment-author storage projection
 
-`comment.user_id` 允许为 `NULL`，匿名默认评论不再依赖真实用户外键展示作者；强匿名回复同样写入 `reply_to_user_id = NULL`，只通过 `reply_to_comment_id` 读取被回复评论的作者快照。`comment.user_id` 与 `comment.reply_to_user_id` 只作为显式 public/可归因评论和 legacy 回复兼容字段保留，不得用于默认匿名评论查询；admin 审核归因使用 `moderated_by_admin_principal_id`，不得继续写 `moderated_by_user_id`。账号侧 `CommentUserCursor` 只返回显式 public/可归因评论，不作为强匿名评论找回入口。新增作者投影列包括 `author_mode`、`public_handle`、`anonymous_handle`、`anonymous_display_name`、`anonymous_display_language`、`anonymous_nullifier_hash`、`anonymous_scope`、`moderation_subject_hash`、`credential_level`、`reputation_bucket` 和 `account_age_bucket`。公开读取端优先输出 `anonymous_display_name` / `public_handle`，再兼容 legacy `sys_user.username`。旧 `idx_comment_user_id_desc` 不再是最终态索引；可归因账号侧读取只使用 partial index `idx_comment_attributable_public_user_id_desc`，谓词固定为 `author_mode = 'public' AND user_id IS NOT NULL`。
+`comment.user_id` may be `NULL`; anonymous default comments no longer display authors through a real user foreign key. Strong-anonymous replies likewise write `reply_to_user_id = NULL` and resolve the replied author's snapshot only through `reply_to_comment_id`. `comment.user_id` and `comment.reply_to_user_id` remain only as compatibility fields for explicit public/attributable comments and legacy replies; they must not drive default anonymous-comment queries. Admin moderation attribution uses `moderated_by_admin_principal_id`, never `moderated_by_user_id`. Account-side `CommentUserCursor` returns explicit public/attributable comments only and is not a recovery path for strong-anonymous comments. New author-projection columns include `author_mode`, `public_handle`, `anonymous_handle`, `anonymous_display_name`, `anonymous_display_language`, `anonymous_nullifier_hash`, `anonymous_scope`, `moderation_subject_hash`, `credential_level`, `reputation_bucket`, and `account_age_bucket`. Public reads prefer `anonymous_display_name` / `public_handle`, then support legacy `sys_user.username`. The old `idx_comment_user_id_desc` is not the final-state index; attributable account reads use only partial index `idx_comment_attributable_public_user_id_desc`, whose predicate is fixed at `author_mode = 'public' AND user_id IS NOT NULL`.
 
-### 消息 POD
+### Messaging PODs
 
-| 类型 | 字节数 |
+| Type | Bytes |
 | ------ | -------- |
 | `MessagePod` | ~512 |
 | `ConversationListItemPod` | 76 |
@@ -503,14 +480,11 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 | `ConversationReadRequestPod` | 8 |
 | `AccountConversationReplyRequestPod` | 16 |
 
-`ConversationList(56)` 有后续页时在 legacy `total + count` 前增加 17B cursor envelope：
-`magic:int32=0x4D534743`、`version:int32=1`、`hasMore:byte`、
-`nextCursor:Utf8SliceRef`。无后续页仍可使用 legacy layout；decoder 必须把 legacy layout
-归一化为 `nextCursor=null / hasMore=false`，并拒绝未知版本或缺失 cursor 的分页 frame。
+When `ConversationList(56)` has another page, a 17B cursor envelope precedes legacy `total + count`: `magic:int32=0x4D534743`, `version:int32=1`, `hasMore:byte`, and `nextCursor:Utf8SliceRef`. A no-next-page response may still use the legacy layout; the decoder must normalize it to `nextCursor=null / hasMore=false` and reject paged frames with unknown versions or a missing cursor.
 
-### 用户 / 认证 POD
+### User / authentication PODs
 
-| 类型 | 字节数 |
+| Type | Bytes |
 | ------ | -------- |
 | `UserPod` | ~256 |
 | `AuthLoginFlowPod` | 168 |
@@ -520,23 +494,23 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 | `AdminSessionSummaryPod` | 356 |
 | `MfaChallengeResultPod` | 296 |
 
-### 系统 POD
+### System PODs
 
-| 类型 | 字节数 |
+| Type | Bytes |
 | ------ | -------- |
 | `SystemPod` | ~128 |
 | `SeoConfigPod` | 5000 |
 | `SiteComplianceConfigPod` | 1709 |
 
-### 统计 POD
+### Statistics PODs
 
-| 类型 | 字节数 |
+| Type | Bytes |
 | ------ | -------- |
 | `AdminStatsPod` | ~64 |
 
-### 文件 / PoW POD
+### File / PoW PODs
 
-| 类型 | 字节数 |
+| Type | Bytes |
 | ------ | -------- |
 | `FileUploadOutputPod` | 640 |
 | `UploadInitPod` | 568 |
@@ -549,9 +523,9 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 | `UploadCompleteRequestPod` | 64 |
 | `PowChallengePod` | 204 |
 
-### 安全挑战 POD
+### Security-challenge PODs
 
-| 类型 | 字节数 |
+| Type | Bytes |
 | ------ | -------- |
 | `SecurityChallengeAssignmentPod` | 664 |
 | `SecurityChallengeEnvelopePod` | 132 |
@@ -563,62 +537,65 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 | `PerceptionCharacterV3IssuePod` | 256 |
 | `PerceptionCharacterV3VerifyPod` | 156 |
 
-> 精确值以 `PodSizeCatalog.cs` 为准；`PodContractValidation.AreAllPodModelsReferenceFree()` 在测试和启动时校验。
+> Exact values come from `PodSizeCatalog.cs`; `PodContractValidation.AreAllPodModelsReferenceFree()`
+> validates them in tests and at startup.
 
 ---
 
-## C++ POD 对齐规则
+<a id="c-pod-对齐规则"></a>
 
-源码：`src/shared/Contracts/CPP_ALIGNMENT_CHECKLIST.md`
+## C++ POD alignment rules
 
-### 类型映射
+Source: `src/shared/Contracts/CPP_ALIGNMENT_CHECKLIST.md`
 
-| C# 类型 | C++ 类型 | 大小 |
+### Type mapping
+
+| C# type | C++ type | Bytes |
 | --------- | --------- | ------ |
-| `int` / `int32_t` 值类型 | `std::int32_t` | 4 |
-| `long` / `int64_t` 值类型 | `std::int64_t` | 8 |
+| `int` / `int32_t` value type | `std::int32_t` | 4 |
+| `long` / `int64_t` value type | `std::int64_t` | 8 |
 | `byte` / `uint8_t` | `std::uint8_t` | 1 |
-| `bool` 值语义 | `std::uint8_t`（0/1） | 1 |
+| `bool` value semantics | `std::uint8_t` (0/1) | 1 |
 | `Utf8Fixed32` | `uint8_t[32]` | 32 |
 | `Utf8Fixed64` | `uint8_t[64]` | 64 |
 | `Utf8Fixed128` | `uint8_t[128]` | 128 |
 | `Utf8Fixed256` | `uint8_t[256]` | 256 |
 | `Utf8Fixed512` | `uint8_t[512]` | 512 |
 | `Utf8SliceRef` | `struct { int32_t Offset; int32_t Length; }` | 8 |
-| `DateTime` / `DateTimeOffset` | `std::int64_t`（Unix 毫秒） | 8 |
-| 可空值 `T?` | `T Value; uint8_t HasValue;`（+对齐填充） | 取决于 T |
+| `DateTime` / `DateTimeOffset` | `std::int64_t` (Unix milliseconds) | 8 |
+| Nullable `T?` | `T Value; uint8_t HasValue;` (+alignment padding) | Depends on T |
 
-### 字符串长度预算
+### String-length budgets
 
-| 用途 | 固定宽度类型 |
+| Use | Fixed-width type |
 | ------ | ------------ |
-| 匿名账号 public handle | `Utf8Fixed64` |
+| Anonymous-account public handle | `Utf8Fixed64` |
 | identity kind / anonymous credential status / level | `Utf8Fixed32` |
-| 分类名 / 标签名 / 地区 | `Utf8Fixed128` |
-| 文章标题 / 简短 ID | `Utf8Fixed256` |
+| Category name / tag name / region | `Utf8Fixed128` |
+| Article title / short ID | `Utf8Fixed256` |
 | URL / Base URL | `Utf8Fixed256` |
-| Token / 长字符串 | `Utf8Fixed512` |
-| 长文本（正文 / 摘要） | `Utf8SliceRef`（指向 blob 区） |
+| Token / long string | `Utf8Fixed512` |
+| Long text (body / summary) | `Utf8SliceRef` (points into blob area) |
 
-### 关键约束
+### Key constraints
 
-1. 所有 POD 类型**不得包含引用类型**（string、class、数组引用）
-2. 使用 `PodContractValidation.AreAllPodModelsReferenceFree()` 在单元测试和启动时断言
-3. 结构体字段按**从大到小**顺序声明，避免隐式填充
-4. C++ 端需用 `static_assert(sizeof(T) == expected)` 验证每个 POD 大小
-5. `PodSizeCatalog` 中的值是跨语言对齐的**权威来源**
+1. All POD types **must not contain reference types** (string, class, or array references).
+2. Assert `PodContractValidation.AreAllPodModelsReferenceFree()` in unit tests and at startup.
+3. Declare struct fields in **largest-to-smallest** order to avoid implicit padding.
+4. The C++ side must verify each POD size with `static_assert(sizeof(T) == expected)`.
+5. Values in `PodSizeCatalog` are the **authoritative source** for cross-language alignment.
 
 ---
 
-## 参见
+## See also
 
-- [design.md](design.md) — API 设计哲学
-- [contracts.md](contracts.md) — 响应 DTO 完整定义
-- [quick-reference.md](quick-reference.md) — 端点速查表
-- `src/core/Algorithms/AEDS_V2_PROTOCOL.md` — 完整协议规格
-- `src/shared/Contracts/Validation/aeds-protocol.json` — 帧类型与 AEDS header 的生成输入
-- `tools/frontend/generate-aeds-protocol.mjs` — 生成并校验三端协议常量
-- `src/shared/Contracts/Validation/PodSizeCatalog.cs` — POD 大小权威源码
+- [design.md](design.md) — API design principles
+- [contracts.md](contracts.md) — Complete response DTO definitions
+- [quick-reference.md](quick-reference.md) — Route quick reference
+- `src/core/Algorithms/AEDS_V2_PROTOCOL.md` — Complete protocol specification
+- `src/shared/Contracts/Validation/aeds-protocol.json` — Generation input for frame types and AEDS headers
+- `tools/frontend/generate-aeds-protocol.mjs` — Generate and validate protocol constants in all three stacks
+- `src/shared/Contracts/Validation/PodSizeCatalog.cs` — Authoritative POD-size source
 
 ## Current generated domain errors and transport mappings
 
@@ -708,31 +685,22 @@ render: key-value-table
 | key_636f64653a56616c69646174696f6e | {"identity":"code:Validation","value":{"direction":"error-code-to-status","errorCode":"Validation","httpStatus":400}} |
 <!-- FSUSBLOG-GENERATED:END api.error-transport-mappings -->
 
-## 文章/线程评论策略错误
+## Article/thread comment-policy errors
 
-admin authoring JSON 使用既有 AEDS frame envelope，不新增公开文本 fallback。并发更新要求 `expectedPolicyVersion`；版本不符返回 `409 comment_policy_version_conflict`。评论写入可返回 `comment_policy_closed`、`comment_thread_locked`、`comment_slow_mode_active`；这些状态不改变公共读取结果。
+Admin authoring JSON uses the existing AEDS frame envelope; no public text fallback is added. Concurrent updates require `expectedPolicyVersion`; a mismatch returns `409 comment_policy_version_conflict`. Comment writes may return `comment_policy_closed`, `comment_thread_locked`, or `comment_slow_mode_active`; these states do not change public reads.
 
-## 评论审核队列错误
+## Comment-moderation queue errors
 
-- `400 comment_moderation_cursor_invalid`：cursor 不是当前版本的合法 opaque keyset。
-- `400 comment_moderation_precondition_required`：单条或批量审核缺少评论/claim 并发前置条件。
-- `400 comment_moderation_claim_invalid`：lease/SLA/note/escalation 或 token 形状无效。
-- `409 comment_moderation_claim_conflict`：claim 已被占用、过期、续租或释放所携带的 owner/token/generation/row version 已过时。
-- `409 comment_moderation_conflict`：评论状态、评论 row version 或 claim 条件在决策前变化；事务不写评论、outbox、审计或 claim 完成状态。
+- `400 comment_moderation_cursor_invalid`: cursor is not a valid opaque keyset for the current version.
+- `400 comment_moderation_precondition_required`: single or bulk moderation lacks comment/claim concurrency preconditions.
+- `400 comment_moderation_claim_invalid`: lease/SLA/note/escalation or token shape is invalid.
+- `409 comment_moderation_claim_conflict`: the claim is occupied or expired, or owner/token/generation/row version supplied for renewal/release is stale.
+- `409 comment_moderation_conflict`: comment status, comment row version, or claim condition changed before the decision; the transaction writes no comment, outbox, audit, or completed-claim state.
 ## Plugin Admin frames and stable errors
 
-`PluginAdminSnapshot` (233) 使用 authoring JSON payload，并固定包含 summary、
-manifest summary、permission plan、versioned config、bounded metrics/logs/errors
-和 node states。`PluginPackageInstallRequest` (232) 的 payload 是 `.fspkg` 原始 bytes；
-`PluginAdminMutationRequest` (234) 是带 `action`、`capabilities`、`confirmed`、
-`expectedConfigVersion` 与可选 `config` 的 authoring JSON payload。
+`PluginAdminSnapshot` (233) uses an authoring JSON payload and always includes summary, manifest summary, permission plan, versioned config, bounded metrics/logs/errors, and node states. `PluginPackageInstallRequest` (232) carries raw `.fspkg` bytes; `PluginAdminMutationRequest` (234) is an authoring JSON payload with `action`, `capabilities`, `confirmed`, `expectedConfigVersion`, and optional `config`.
 
-插件控制面只返回低基数错误：`plugin_not_found`、
-`plugin_package_invalid`、`plugin_install_confirmation_required`、
-`plugin_dangerous_action_confirmation_required`、`plugin_action_invalid`、
-`plugin_action_validation_failed`、`plugin_config_version_conflict`、
-`plugin_lifecycle_conflict`、`plugin_runtime_action_failed`。包内容、Schema path、
-runtime exception message、日志正文和签名细节不得进入 `ApiError`。
+The plugin control plane returns only low-cardinality errors: `plugin_not_found`, `plugin_package_invalid`, `plugin_install_confirmation_required`, `plugin_dangerous_action_confirmation_required`, `plugin_action_invalid`, `plugin_action_validation_failed`, `plugin_config_version_conflict`, `plugin_lifecycle_conflict`, and `plugin_runtime_action_failed`. Package content, Schema paths, runtime exception messages, log bodies, and signature details must not enter `ApiError`.
 
 ## Current public error categories
 
@@ -752,9 +720,7 @@ render: scalar
 
 ### Public error authority reference
 
-The API/protocol domain does not own a second error catalog. Every observed operation links its
-`ApiError` transport response to the stable error behavior below; the active error IDs and their
-transport mappings remain generated by that single authority elsewhere in this document.
+The API/protocol domain does not own a second error catalog. Every observed operation links its `ApiError` transport response to the stable error behavior below; the active error IDs and their transport mappings remain generated by that single authority elsewhere in this document.
 
 <!-- fsus-doc-claim
 claimId: binary-api-aeds-contract.public-error-reference-state
