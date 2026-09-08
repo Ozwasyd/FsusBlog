@@ -314,6 +314,7 @@ function copyMinimalBuildFixture(repositoryRoot)
         'src/backend/FsusBlog.Server.csproj',
         'src/core/FsusBlog.Core.csproj',
         'src/shared/FsusBlog.Shared.csproj',
+        'tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj',
         ...registry.extractors
             .filter((extractor) => extractor.kind === 'compiled-assembly')
             .flatMap((extractor) => extractor.consumedInputs),
