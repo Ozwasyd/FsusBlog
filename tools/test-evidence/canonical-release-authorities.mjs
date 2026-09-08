@@ -1,125 +1,76 @@
-import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { validateBehaviorDocStaticAdmissionReceipt } from '../docs/behavior-doc-static-admission.mjs'
-import { digestValue, stable } from '../fact-extractors/lib/canonicalize.mjs'
-import { explicitJson } from '../fact-extractors/post-runtime/adapter.mjs'
-import { validateReleaseManifest } from '../release/release-manifest.mjs'
+import { verifyCanonicalReleaseAuthorityValues } from './canonical-release-authorities-value-contract.mjs'
 
 const fail = (message) => { throw new Error(`[canonical-release-authorities] ${message}`) }
 const bytesDigest = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`
-const normalized = (value) => String(value ?? '').replace(/^sha256:/u, '')
+export const canonicalAuthorityMaxBytes = 64 * 1024 * 1024
 
-function input(relative, label, repositoryRoot)
+export function createCanonicalReleaseAuthorityReader(repositoryRoot)
 {
-  const opened = explicitJson(relative, label, repositoryRoot)
-  if (opened.relative === null) fail(`${label} requires a persisted current-run JSON file`)
-  const absolute = path.join(repositoryRoot, opened.relative)
-  const bytes = fs.readFileSync(absolute)
-  return {
-    value: opened.value,
-    ref: {
-      path: opened.relative,
-      fileDigest: bytesDigest(bytes),
-      contentDigest: opened.value?.contentDigest ?? null
+  const root = path.resolve(repositoryRoot)
+  const resolve = (file) => {
+    if (typeof file !== 'string' || file.length === 0 || file.includes('\\')
+      || file.split('/').includes('..')) fail('evidence path contains traversal or is invalid')
+    const absolute = path.resolve(root, file)
+    if (!absolute.startsWith(`${root}${path.sep}`)
+      || /(?:^|[/\\])(?:latest|history|historical)(?:[/\\]|$)/iu.test(file))
+      fail('evidence path must be a current-run file inside the repository')
+    if (fs.realpathSync(root) !== root) fail('repository root must be canonical and non-symlink')
+    for (let cursor = absolute; cursor !== root; cursor = path.dirname(cursor))
+    {
+      const stat = fs.lstatSync(cursor)
+      if (stat.isSymbolicLink()) fail('evidence path must not traverse a symlink')
+      if (cursor === absolute && !stat.isFile()) fail('evidence input must be a regular file')
+    }
+    if (fs.realpathSync(absolute) !== absolute) fail('evidence path must be canonical and non-symlink')
+    return absolute
+  }
+  const readBytes = (file) => {
+    const absolute = resolve(file)
+    const descriptor = fs.openSync(absolute, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW)
+    try
+    {
+      const before = fs.fstatSync(descriptor, { bigint: true })
+      if (!before.isFile() || before.nlink !== 1n || before.size > BigInt(canonicalAuthorityMaxBytes))
+        fail('evidence input must be a bounded regular single-link file')
+      const bytes = fs.readFileSync(descriptor)
+      const after = fs.fstatSync(descriptor, { bigint: true })
+      const current = fs.lstatSync(absolute, { bigint: true })
+      if (resolve(file) !== absolute || !current.isFile() || current.isSymbolicLink()
+        || current.nlink !== 1n || BigInt(bytes.length) !== before.size
+        || ['dev', 'ino', 'mode', 'nlink', 'size', 'mtimeNs', 'ctimeNs'].some(field =>
+          before[field] !== after[field] || after[field] !== current[field]))
+        fail('evidence input changed while reading')
+      return bytes
+    }
+    finally
+    {
+      fs.closeSync(descriptor)
     }
   }
-}
-
-function referencedJson(metadata, label, repositoryRoot)
-{
-  if (!metadata || typeof metadata.path !== 'string' || !/^sha256:[a-f0-9]{64}$/u.test(metadata.sha256 ?? ''))
-  {
-    fail(`${label} reference is invalid`)
+  const readJson = (relative, label) => {
+    if (typeof relative !== 'string' || !relative.endsWith('.json'))
+      fail(`${label} requires a persisted current-run JSON file`)
+    const absolute = resolve(relative)
+    const bytes = readBytes(relative)
+    const value = JSON.parse(bytes.toString('utf8'))
+    return { value, ref: {
+      path: path.relative(root, absolute).replaceAll(path.sep, '/'),
+      fileDigest: bytesDigest(bytes), contentDigest: value?.contentDigest ?? null
+    } }
   }
-  const relative = path.isAbsolute(metadata.path)
-    ? path.relative(repositoryRoot, metadata.path).replaceAll(path.sep, '/')
-    : metadata.path
-  const current = input(relative, label, repositoryRoot)
-  if (current.ref.fileDigest !== metadata.sha256) fail(`${label} bytes changed after rollout seal`)
-  return current
-}
-
-function verifyRollout(relative, repositoryRoot)
-{
-  const rollout = input(relative, 'release rollout evidence', repositoryRoot)
-  const command = spawnSync(process.execPath, [
-    path.join(repositoryRoot, 'tools/deployment/release-rollout-evidence.mjs'),
-    'verify', '--evidence', path.join(repositoryRoot, rollout.ref.path)
-  ], { cwd: repositoryRoot, encoding: 'utf8' })
-  let report = null
-  try { report = JSON.parse(command.stdout.trim().split('\n').at(-1)) } catch { report = null }
-  if (command.status !== 0 || report?.status !== 'pass' || report.rolloutId !== rollout.value.rolloutId)
-  {
-    fail(`canonical release rollout verifier rejected evidence: ${report?.errors?.join('; ') || command.stderr.trim()}`)
-  }
-  return { ...rollout, report }
-}
-
-function verifyRuntimeRole(relative, plan, repositoryRoot)
-{
-  const admission = input(relative, 'runtime-role static admission', repositoryRoot)
-  validateBehaviorDocStaticAdmissionReceipt(admission.value, {
-    expectedSourceIdentity: {
-      sourceCommit: plan.sourceState.commit,
-      worktreeFingerprint: normalized(plan.sourceState.worktreeFingerprint)
-    },
-    expectedWorktree: repositoryRoot
-  })
-  const minimal = admission.value.minimalContractBuild
-  const artifact = minimal?.artifacts?.['runtime-role-observation']
-  const buildReceipt = artifact?.buildReceipt
-  if (buildReceipt?.schema !== 'fsusblog.runtime-role-observation-build-receipt.v3'
-    || buildReceipt.sourceCommit !== plan.sourceState.commit
-    || normalized(buildReceipt.worktreeFingerprint) !== normalized(plan.sourceState.worktreeFingerprint))
-  {
-    fail('runtime-role authority is not the merged typed v3 producer contract')
-  }
-  const observation = input(artifact.path, 'content-addressed runtime-role observation', repositoryRoot)
-  const deployment = input(artifact.deploymentArtifactPath, 'content-addressed deployment observation', repositoryRoot)
-  if (normalized(observation.ref.fileDigest) !== artifact.artifactDigest
-    || normalized(deployment.ref.fileDigest) !== artifact.deploymentArtifactDigest
-    || observation.value.schema !== 'fsusblog.runtime-role-observation.v2'
-    || deployment.value.ownership?.claimEligible !== true
-    || observation.value.ownership?.claimEligible !== true
-    || observation.value.deploymentAuthority?.observationDigest !== deployment.value.observationDigest
-    || normalized(deployment.value.observationDigest) !== normalized(buildReceipt.deploymentObservationDigest))
-  {
-    fail('runtime-role/deployment raw artifacts are stale, synthetic, or not claim eligible')
-  }
-  return { admission, minimal, artifact, buildReceipt, observation, deployment }
+  return { readJson, readBytes }
 }
 
 export function verifyCanonicalReleaseAuthorities({ candidatePlan: plan, rolloutEvidence, runtimeRoleAdmission, repositoryRoot })
 {
   if (!plan || !repositoryRoot) fail('candidate plan and repository root are required')
-  const rollout = verifyRollout(rolloutEvidence, repositoryRoot)
-  const runtimeRole = verifyRuntimeRole(runtimeRoleAdmission, plan, repositoryRoot)
-  const manifest = referencedJson(rollout.value.auxiliary?.releaseManifest, 'release manifest', repositoryRoot)
-  const manifestErrors = validateReleaseManifest(manifest.value, {
-    requireRegistryDigest: true,
-    requireConcreteRuntimeProfile: true,
-    expectedReleaseId: plan.candidate.releaseId,
-    expectedImageDigest: rollout.value.target?.imageDigest,
-    expectedCommitSha: plan.sourceState.commit
+  return verifyCanonicalReleaseAuthorityValues({
+    candidatePlan: plan, rolloutEvidence, runtimeRoleAdmission, repositoryRoot,
+    ...createCanonicalReleaseAuthorityReader(repositoryRoot),
+    now: Date.now()
   })
-  if (manifestErrors.length > 0) fail(`release manifest rejected: ${manifestErrors.join('; ')}`)
-  if (rollout.value.status !== 'pass' || rollout.value.rolloutId !== plan.candidate.rolloutId
-    || rollout.value.target?.releaseId !== plan.candidate.releaseId)
-  {
-    fail('rollout/candidate release identities do not exact-match')
-  }
-  return {
-    rollout,
-    runtimeRole,
-    manifest,
-    authorityDigest: `sha256:${digestValue(stable({
-      rollout: rollout.ref.fileDigest,
-      runtimeRole: runtimeRole.observation.ref.fileDigest,
-      deployment: runtimeRole.deployment.ref.fileDigest,
-      manifest: manifest.ref.fileDigest
-    }))}`
-  }
 }
