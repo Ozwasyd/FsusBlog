@@ -5282,6 +5282,29 @@
             ]
         },
         {
+            "id": "article-embed-relations-static-governance",
+            "description": "Article embed relation edges remain one closed derivation over verified authoring resolutions and sealed publication plans: revision-independent edge identities, scope-separated current and frozen families, per-edge dependency receipts, precise invalidation tickets with monotone generations, bounded actor-bound cache keys and query receipts without content or hidden-edge counts.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationContracts.cs",
+                "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationContractValidator.cs",
+                "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDeriver.cs",
+                "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationVerifier.cs",
+                "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDigest.cs",
+                "tests/backend/Unit/ArticleEmbedRelationDeriverTests.cs",
+                "tools/governance/check-article-embed-relations.mjs",
+                "tests/tools/article-embed-relations.test.mjs",
+                "docs/api/contracts.md"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "The checker fails on duplicate relation derivers, verifiers, edges, edge sets or receipts; regex or rendered-source parsing; HTML, DOM, component or iframe payloads; authoring resolver or publication planner reuse; latest-target, title, slug, route or URL resolution; persistent or second caches and stores; business writes inside the contract boundary; missing source verification, scope, transition, generation, dedup or actor-binding guards; missing edge, set, ticket, key or receipt digest sealing; content-bearing receipts; missing frozen-only delivery policy; and verifiers that call deriver entry points or skip source re-verification and digest recomputation.",
+            "minimumRequirement": "Focused C# tests cover authoring and frozen derivations, dependency receipts, unverified and blocked source rejection, precise reconcile transitions for target updates, removals, non-public states, host and context drift, frozen immutability, scope-separated and actor-bound queries, bounded cache keys and edge, set, ticket, receipt and query tamper; independent Node mutations kill duplicate authorities, forbidden inputs, removed guards, content-bearing receipts and deriver-calling verifiers.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "article-scale-plan-static-governance",
             "description": "ArticleScalePlan remains the sole closed provider-neutral scale graph contract and rejects source-level modulo, simplified graph, sentinel hash, manual derived-state, and duplicate plan authority mutations.",
             "owner": "ContentAgent",

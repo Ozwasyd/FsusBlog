@@ -90,6 +90,10 @@ StaticArticleEmbedPublication() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-article-embed-publication.mjs"
     Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/article-embed-publication.test.mjs"
 }
+StaticArticleEmbedRelations() {
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-article-embed-relations.mjs"
+    Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/article-embed-relations.test.mjs"
+}
 StaticArticleScalePlanGovernance() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/check-article-scale-plan-governance.mjs"
     Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/article-scale-plan-governance.test.mjs"
@@ -201,6 +205,7 @@ RunApplicationStaticPrechecksPhase() {
         article-embed-contract StaticArticleEmbedContract \
         article-embed-authoring StaticArticleEmbedAuthoring \
         article-embed-publication StaticArticleEmbedPublication \
+        article-embed-relations StaticArticleEmbedRelations \
         article-scale-plan-governance StaticArticleScalePlanGovernance \
         central-package-management StaticCentralPackageManagement \
         dependency-update-surface StaticDependencyUpdateSurface \

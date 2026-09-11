@@ -3227,6 +3227,7 @@ tiers:
           - article-embed-contract-static-governance
           - article-embed-authoring-static-governance
           - article-embed-publication-static-governance
+          - article-embed-relations-static-governance
           - article-scale-plan-static-governance
       artifacts:
           [
@@ -3509,6 +3510,14 @@ tiers:
           - src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationPlanner.cs
           - src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationVerifier.cs
           - src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationDigest.cs
+          - tools/governance/check-article-embed-relations.mjs
+          - tests/tools/article-embed-relations.test.mjs
+          - tests/backend/Unit/ArticleEmbedRelationDeriverTests.cs
+          - src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationContracts.cs
+          - src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationContractValidator.cs
+          - src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDeriver.cs
+          - src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationVerifier.cs
+          - src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDigest.cs
           - tools/test/check-article-scale-plan-governance.mjs
           - tests/fixtures/governance/article-scale-plan-governance.json
           - tests/tools/article-scale-plan-governance.test.mjs
