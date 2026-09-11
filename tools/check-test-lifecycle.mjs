@@ -10,8 +10,7 @@ import {
 } from './retention/audit-input.mjs';
 import {
     buildLifecycleReport,
-    classifyNodeRegistryEntry,
-    isNodeTestFile,
+    reconcileLifecycleRegistry,
     renderLifecycleMatrix
 } from './test-lifecycle/lifecycle.mjs';
 
@@ -94,45 +93,31 @@ if (options.writeRegistry)
 {
     const existingRegistry = fs.existsSync(registryPath)
         ? JSON.parse(fs.readFileSync(registryPath, 'utf8'))
-        : { nodeTests: [] };
-    const existingStaticGovernance = new Map(
-        (existingRegistry.nodeTests ?? [])
-            .filter((entry) => entry.staticGovernance)
-            .map((entry) => [entry.file, entry.staticGovernance])
-    );
-    const nodeTests = audit.files
-        .filter(({ path: file }) => isNodeTestFile(file))
-        .map(({ path: file }) =>
+        : {
+            schema: 'fsusblog.test-lifecycle-registry.v1',
+            policy: {
+                newNodeTestsRequireExplicitOwner: true,
+                timeOrAgeMayDecideLifecycle: false
+            },
+            nodeTests: []
+        };
+    const reconciliation = reconcileLifecycleRegistry({ root, audit, registry: existingRegistry });
+    if (reconciliation.errors.length > 0)
+    {
+        for (const error of reconciliation.errors)
         {
-            const staticGovernance = existingStaticGovernance.get(file);
-            return {
-                file,
-                ...(staticGovernance
-                    ? {
-                        owner: 'repository-governance:static-node-contracts',
-                        executionCategory: 'repository-governance',
-                        lifecycle: 'canonical-execution',
-                        physicalExecutionCount: 1,
-                        classifications: classifyNodeRegistryEntry(
-                            root,
-                            file,
-                            fs.readFileSync(path.join(root, file), 'utf8')
-                        ).classifications,
-                        staticGovernance
-                      }
-                    : classifyNodeRegistryEntry(root, file, fs.readFileSync(path.join(root, file), 'utf8')))
-            };
-        });
+            console.error(`[test-lifecycle] ${error}`);
+        }
+        process.exit(1);
+    }
+    if (reconciliation.additions.length === 0)
+    {
+        console.log(`[test-lifecycle] registry already current nodeTests=${existingRegistry.nodeTests.length}`);
+        process.exit(0);
+    }
     fs.mkdirSync(path.dirname(registryPath), { recursive: true });
-    fs.writeFileSync(registryPath, `${JSON.stringify({
-        schema: 'fsusblog.test-lifecycle-registry.v1',
-        policy: {
-            newNodeTestsRequireExplicitOwner: true,
-            timeOrAgeMayDecideLifecycle: false
-        },
-        nodeTests
-    }, null, 4)}\n`);
-    console.log(`[test-lifecycle] wrote registry nodeTests=${nodeTests.length}`);
+    fs.writeFileSync(registryPath, `${JSON.stringify(reconciliation.registry, null, 4)}\n`);
+    console.log(`[test-lifecycle] wrote registry nodeTests=${reconciliation.registry.nodeTests.length} added=${reconciliation.additions.length}`);
     process.exit(0);
 }
 

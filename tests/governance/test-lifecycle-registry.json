@@ -5803,6 +5803,437 @@
                 "category": "pure-file-validation",
                 "physicalOwner": "host:pure-file"
             }
+        },
+        {
+            "file": "tests/tools/author-article-pin-authority.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/author-article-pin-authority.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "migration",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/author-article-pin-projection.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/author-article-pin-projection.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/author-saved-view-query-contract.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/author-saved-view-query-contract.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/author-saved-view-storage-contract.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/author-saved-view-storage-contract.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "migration",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/authoring-canvas-operation-authority.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/authoring-canvas-operation-authority.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/authoring-canvas-reference-authority.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/authoring-canvas-reference-authority.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/clean-attempt-evidence-source.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/clean-attempt-evidence-source.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/comment-fixture-cleanup.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/comment-fixture-cleanup.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/comment-fixture-contract.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/comment-fixture-contract.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "compatibility-wrapper"
+            ]
+        },
+        {
+            "file": "tests/tools/comment-fixture-governance.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/comment-fixture-governance.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/comment-fixture-postconditions.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/comment-fixture-postconditions.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-blocker-checks.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-blocker-checks.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-blocker-github.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-blocker-github.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-blocker-pull-snapshot.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-blocker-pull-snapshot.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-blocker-snapshot.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-blocker-snapshot.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-blocker-state.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-blocker-state.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-current-action.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-current-action.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-current-docker.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-current-docker.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-current-npm.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-current-npm.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-docker-registry.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-docker-registry.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "compatibility-wrapper",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-dotnet-registry.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-dotnet-registry.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-freshness-blockers.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-freshness-blockers.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-freshness-entrypoint.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-freshness-entrypoint.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-freshness-pulls.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-freshness-pulls.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-freshness-schedule.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-freshness-schedule.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-ghcr-publication.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-ghcr-publication.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-git-registry.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-git-registry.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-github-tags.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-github-tags.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-node-registry.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-node-registry.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-npm-registry.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-npm-registry.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-nuget-registry.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-nuget-registry.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-pull-supersession.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-pull-supersession.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-pull-target.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-pull-target.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-registry-batch.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-registry-batch.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-registry-release.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-registry-release.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-source-flow.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-source-flow.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/dependency-source-reader.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/dependency-source-reader.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/fixture-runtime-scope.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/fixture-runtime-scope.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/fsusui-candidate.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/fsusui-release-event.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/fsusui-release-train.test.mjs",
+            "owner": "workflow-lint:fsusui-release-train.yml",
+            "executionCategory": "workflow-only",
+            "lifecycle": "conditional-governance",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "migration",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/revision-compare-authority.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/revision-compare-authority.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
         }
     ]
 }
