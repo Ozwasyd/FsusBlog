@@ -5236,6 +5236,29 @@
             ]
         },
         {
+            "id": "article-embed-authoring-static-governance",
+            "description": "Article embed authoring resolution remains one closed deterministic resolver over sealed authority snapshots: permission-safe current targets, safe projections, typed attribution, authoring-only eligibility marks, cycle and budget bounds, stale cancellation, per-resolution memoization, receipts and independent verification without HTML, latest reuse, title resolution or cross-user caches.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringContracts.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringContractValidator.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringResolver.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringVerifier.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringDigest.cs",
+                "tests/backend/Unit/ArticleEmbedAuthoringResolverTests.cs",
+                "tools/governance/check-article-embed-authoring.mjs",
+                "tests/tools/article-embed-authoring.test.mjs",
+                "docs/api/contracts.md"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "The checker fails on duplicate authoring resolvers, verifiers, snapshots, resolutions or receipts; regex or rendered-source parsing; HTML, DOM, component or iframe payloads; latest or publication-plan target reuse; title, slug, route or URL resolution; persistent or cross-user caches; missing cycle, budget, scope, staleness or binding guards; receipts or open-source intents carrying target content; and verifiers that skip re-validation, re-decoding or digest recomputation.",
+            "minimumRequirement": "Focused C# tests cover article, heading and block current targets, private/draft/scheduled/archived/deleted and permission states, missing or duplicate coordinates, self and multi-hop cycles, shared subtrees, depth/node/byte/time/message budgets, drift and abort staleness, cache-key binding, local failure isolation, update-available facts and receipt/result tamper; independent Node mutations kill duplicate authorities, forbidden resolution inputs, persistent caches, removed guards and content-carrying receipts.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "article-scale-plan-static-governance",
             "description": "ArticleScalePlan remains the sole closed provider-neutral scale graph contract and rejects source-level modulo, simplified graph, sentinel hash, manual derived-state, and duplicate plan authority mutations.",
             "owner": "ContentAgent",
