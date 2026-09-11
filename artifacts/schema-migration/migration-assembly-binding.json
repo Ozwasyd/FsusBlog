@@ -1,12 +1,12 @@
 {
   "schema": "fsusblog.migration-assembly-binding.v1",
   "receipt": "artifacts/schema-migration/migration-assembly-receipt.json",
-  "receiptSha256": "b454e6e76ac3e6f6d3b1abf210c20318326f484512b08d27617945d9988bd2f3",
-  "sourceContentDigest": "8216844e0ab78b3305a1c35e0bb90a3800aec26216d8038deeeb457801b463cb",
-  "testContentDigest": "c77d189d9bddc63218e4668514209e4c42d99fc1301fbbfde5c02d03ab67176e",
-  "verificationInputDigest": "e0dc39373508bafb2b045ac6f1533e0722e8093a9648f2bac6a8dd0e6ed016dd",
+  "receiptSha256": "abbaf6476279e7645ee03e491f13243ecc521f6c78b7669746c090335f840aeb",
+  "sourceContentDigest": "1daae11289589400f4550375eceef0f2ef0407cd5670cd71256051e1407bda83",
+  "testContentDigest": "76f94b7943be55cfb9a07080ea38c72b48c74392a77d2898ea6c4b9831dec4ef",
+  "verificationInputDigest": "46dafc02bb1be79ff598473de7fabda4f85d3c18454ecac5bed4b4f3d2dec0ea",
   "sourceBaseCommit": "b70e6d928bf63963e17a260369b1485990f7d079",
   "movedFileCount": 76,
   "deletedOldPathCount": 72,
-  "verificationDigest": "1ed96e839b3b64933b82ba23c9dc2ba4097412d32def22f0866fec1be6d84374"
+  "verificationDigest": "efb6fe82c80978b54c51faad2dc68e3c786ffb4dafe9ca01ffac86c1d5915dca"
 }
