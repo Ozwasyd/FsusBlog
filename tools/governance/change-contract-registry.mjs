@@ -190,7 +190,7 @@ export const generatedOutputRepairDagReviewedHistories = Object.freeze([
         synchronizedRevision: 'e805a72c5171916f761701fc4dbd3116953d4d20',
         synchronizedMerge: '182ffa102d7c322be9e01e98e2d3ee38554f52b0',
         reviewedRevision: 'c7084b001a0c220538cbaca8f7305b1f3777493c',
-        historySha256: '5c19bf753b05cceeb66fad8ef35994feb3b3e2ea45b73efa39c8f2eeda81e80a',
+        historySha256: 'ed618bd63059ca03c9b116c2eddba0581981ee99b4697d7dfa6e3159b7eceb33',
         legacyClosure: Object.freeze([
             Object.freeze({ path: 'tools/test/evidence-location-contract.mjs', mode: '100644', object: '84def85f972e8e9bc5e137b51847f7f71108c85d' }),
             Object.freeze({ path: 'tools/test/evidence-location-scanner.mjs', mode: '100644', object: 'c1a9bf9d5faa8c5271d0c14d5274907e0ac52b5a' }),
@@ -289,6 +289,73 @@ export const generatedOutputRepairDags = Object.freeze([
     })
 ])
 
+// The correctness inventory is the only producer admitted by digest-refresh
+// v2.  The qualification tuple is deliberately fixed to the real source
+// event that introduced the multi-file closure drift; a candidate manifest
+// cannot select a more convenient source or outer merge.
+export const generatedOutputDigestRepairProducers = Object.freeze([
+    Object.freeze({
+        id: 'correctness-attempt-producers',
+        repairClass: 'digest-refresh',
+        manifest: 'artifacts/change-contract/correctness-producer-inventory-post-merge-repair.json',
+        command: Object.freeze({
+            executable: 'node',
+            arguments: Object.freeze([
+                'tools/test/generate-correctness-attempt-producers.mjs',
+                '--write'
+            ])
+        }),
+        closure: Object.freeze([
+            'config/testing/release-reliability-scenario-catalog.json',
+            'config/testing/replay-qualification-producers.json',
+            'config/testing/test-execution-envelope-applicability.json',
+            'tests/matrix.yml',
+            'tools/test-matrix/parse-matrix.mjs',
+            'tools/test-matrix/production-fresh-run-bound-outputs.mjs',
+            'tools/test/attempt-provenance.mjs',
+            'tools/test/attempt-runner.mjs',
+            'tools/test/correctness-attempt-producers.mjs',
+            'tools/test/generate-correctness-attempt-producers.mjs',
+            'tools/test/measurement-noise-envelope.mjs',
+            'tools/test/temporal-context.mjs',
+            'tools/yaml/parse-document.mjs'
+        ]),
+        digestInputs: Object.freeze([
+            'config/testing/release-reliability-scenario-catalog.json',
+            'config/testing/replay-qualification-producers.json',
+            'config/testing/test-execution-envelope-applicability.json',
+            'tests/matrix.yml',
+            'tools/test-matrix/production-fresh-run-bound-outputs.mjs',
+            'tools/test/attempt-runner.mjs',
+            'tools/test/temporal-context.mjs'
+        ]),
+        output: 'config/testing/correctness-attempt-producers.json',
+        outputSchema: 'fsusblog.correctness-attempt-producers.v1',
+        protectedPolicyPaths: Object.freeze([
+            '.github/PULL_REQUEST_TEMPLATE.md',
+            '.github/release.yml',
+            '.github/workflows/change-contract.yml',
+            'commitlint.config.mjs',
+            'config/schemas/post-merge-generated-output-digest-repair.schema.json',
+            'config/schemas/post-merge-generated-output-repair-dag.schema.json',
+            'tools/governance/change-contract-registry.mjs',
+            'tools/governance/change-contract.mjs',
+            'tools/governance/check-change-contract.mjs',
+            'tools/governance/generate-generated-output-digest-repair-manifest.mjs',
+            'tools/governance/generated-output-digest-repair-repository.mjs',
+            'tools/governance/generated-output-digest-repair-v2.mjs'
+        ]),
+        qualification: Object.freeze({
+            sourceParent: 'ba72ac65c7395b876c26aa040f500c677d55678c',
+            sourceCommit: 'b3f3e6f108ff3d021a83c1b3b2efb96e0b82ed20',
+            mergedPullRequest: 3271,
+            mergeCommit: 'a0b44ab7f7096e631f11731b0ac26cd8dea66fc2',
+            outerBaseCommit: 'ba72ac65c7395b876c26aa040f500c677d55678c',
+            outerHeadCommit: 'd9f4a947f46c83278275f5bbf8fb0d651b3862e5'
+        })
+    })
+])
+
 // A pull request is evaluated by the checker from its trusted base revision.
 // These files define that checker or one of its release/review adapters, so a
 // candidate PR cannot replace them while relying on the old checker to approve
@@ -300,9 +367,13 @@ export const trustedPolicyFiles = Object.freeze([
     '.github/workflows/change-contract.yml',
     'commitlint.config.mjs',
     'config/schemas/post-merge-generated-output-repair-dag.schema.json',
+    'config/schemas/post-merge-generated-output-digest-repair.schema.json',
     'tools/governance/change-contract-registry.mjs',
     'tools/governance/change-contract.mjs',
-    'tools/governance/check-change-contract.mjs'
+    'tools/governance/check-change-contract.mjs',
+    'tools/governance/generated-output-digest-repair-repository.mjs',
+    'tools/governance/generated-output-digest-repair-v2.mjs',
+    'tools/governance/generate-generated-output-digest-repair-manifest.mjs'
 ])
 
 export const changeContract = Object.freeze({
@@ -319,12 +390,14 @@ export const changeContract = Object.freeze({
     generatedOutputRepairPassThroughExceptions,
     generatedOutputRepairDags,
     generatedOutputRepairDagReviewedHistories,
+    generatedOutputDigestRepairProducers,
     trustedPolicyFiles,
     evidenceSchemas: Object.freeze({
         externalNamingExceptions: 'fsusblog.external-naming-exceptions.v1',
         formatIdempotence: 'fsusblog.format-idempotence-evidence.v1',
         generatedOutput: 'fsusblog.generated-output-binding.v1',
         postMergeGeneratedOutputRepair: 'fsusblog.post-merge-generated-output-repair.v1',
+        postMergeGeneratedOutputDigestRepair: 'fsusblog.post-merge-generated-output-repair.v2',
         postMergeGeneratedOutputRepairDag: 'fsusblog.post-merge-generated-output-repair-dag.v2',
         postMergeExternalNamingEvidenceRepair: 'fsusblog.post-merge-external-naming-evidence-repair.v1',
         performanceClaim: 'fsusblog.performance-claim-evidence.v1'
