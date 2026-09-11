@@ -5259,6 +5259,29 @@
             ]
         },
         {
+            "id": "article-embed-publication-static-governance",
+            "description": "Article embed publication planning remains one closed deterministic planner over sealed public authority snapshots: frozen public revision coordinates, flat dependency edges, public-only rejection, cycle and budget bounds, sealed receipts, commit gating and independent verification without authoring caches, latest reuse, business writes or content-bearing receipts.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationContracts.cs",
+                "src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationContractValidator.cs",
+                "src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationPlanner.cs",
+                "src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationVerifier.cs",
+                "src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationDigest.cs",
+                "tests/backend/Unit/ArticleEmbedPublicationPlannerTests.cs",
+                "tools/governance/check-article-embed-publication.mjs",
+                "tests/tools/article-embed-publication.test.mjs",
+                "docs/api/contracts.md"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "The checker fails on duplicate publication planners, verifiers, authorities, plans or receipts; regex or rendered-source parsing; HTML, DOM, component or iframe payloads; authoring resolver, cache, latest-target or previous-result reuse; title, slug, route or URL resolution; persistent or cross-user caches; business writes or transport inside the contract boundary; missing cycle, budget, scope, public-only or retention guards; missing commit gating or fixed-time digest comparison; content-bearing receipts; missing authority, edge or delivery-policy bindings; and verifiers that call the planner or skip re-validation, re-decoding or digest recomputation.",
+            "minimumRequirement": "Focused C# tests cover frozen article, heading and block coordinates, every non-public lifecycle/visibility/permission/package state, missing or duplicate coordinates, self and multi-hop cycles, shared-subtree dedup, depth/node/byte/time/message budgets, host-source/actor/runtime/generation drift, abort, later-revision immutability, commit gating and edge/receipt/plan tamper; independent Node mutations kill duplicate authorities, forbidden inputs, removed guards, content-bearing receipts and planner-calling verifiers.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "article-scale-plan-static-governance",
             "description": "ArticleScalePlan remains the sole closed provider-neutral scale graph contract and rejects source-level modulo, simplified graph, sentinel hash, manual derived-state, and duplicate plan authority mutations.",
             "owner": "ContentAgent",

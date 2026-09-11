@@ -86,6 +86,10 @@ StaticArticleEmbedAuthoring() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-article-embed-authoring.mjs"
     Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/article-embed-authoring.test.mjs"
 }
+StaticArticleEmbedPublication() {
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-article-embed-publication.mjs"
+    Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/article-embed-publication.test.mjs"
+}
 StaticArticleScalePlanGovernance() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/check-article-scale-plan-governance.mjs"
     Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/article-scale-plan-governance.test.mjs"
@@ -196,6 +200,7 @@ RunApplicationStaticPrechecksPhase() {
         fixture-mutation-recovery-governance StaticFixtureMutationRecoveryGovernance \
         article-embed-contract StaticArticleEmbedContract \
         article-embed-authoring StaticArticleEmbedAuthoring \
+        article-embed-publication StaticArticleEmbedPublication \
         article-scale-plan-governance StaticArticleScalePlanGovernance \
         central-package-management StaticCentralPackageManagement \
         dependency-update-surface StaticDependencyUpdateSurface \
