@@ -141,20 +141,29 @@ public partial class ArticleService
         return string.IsNullOrWhiteSpace(normalized) ? fallback : normalized;
     }
 
-    private Task RecordArticleMutationOutboxAsync(
+    private async Task<string> RecordArticleMutationOutboxAsync(
         int articleId,
         string eventType,
         ArticleVersionCoordinates version,
         DateTime createdAt,
         ArticleMutationScopeSnapshot? before = null,
         ArticleMutationScopeSnapshot? after = null)
-        => _db.Insertable(ArticleMutationOutboxProducer.Create(
+    {
+        ArticleMutationOutboxEvent outbox = ArticleMutationOutboxProducer.Create(
             articleId,
             eventType,
             version,
             before,
             after,
-            createdAt)).ExecuteCommandAsync();
+            createdAt);
+        await _db.Insertable(outbox).ExecuteCommandAsync().ConfigureAwait(false);
+        if (IsArticleVaultGroupTransaction)
+        {
+            (_articleVaultOutboxReferences
+                ?? throw new InvalidOperationException("article_vault_outbox_capture_missing"))[articleId] = outbox.EventId;
+        }
+        return outbox.EventId;
+    }
 
     private async Task RecordArticleMutationOutboxAsync(int articleId, string eventType)
     {
@@ -352,13 +361,12 @@ public partial class ArticleService
         {
             if (requiresPublicFence)
             {
-                await _mutationFence.BeginPublicMutationFenceAsync(id, ct).ConfigureAwait(false);
-                fenceEstablished = true;
+                fenceEstablished = await EstablishArticlePublicMutationFenceAsync(id, ct).ConfigureAwait(false);
             }
 
             bool articleUpdated = false;
             ArticleVersionCoordinates? noChangeVersion = null;
-            var result = await _db.Ado.UseTranAsync(async () =>
+            ArticleMutationTransactionResult result = await ExecuteArticleMutationTransactionAsync(async () =>
             {
                 ArticlePublicationValidationResult validation = await _publicationValidator.ValidateAsync(
                     new ArticlePublicationValidationInput(
@@ -496,6 +504,22 @@ public partial class ArticleService
                     ArticleMutationOutcome.NoChange));
                 return true;
             }
+            if (mutationCommitted && IsArticleVaultGroupTransaction)
+            {
+                EnqueueArticleVaultPostCommitAction(id, async () =>
+                {
+                    await InvalidateCache(id).ConfigureAwait(false);
+                    await InvalidatePublicAotAsync(
+                        id,
+                        MergeIds([state.CategoryId], [dto.CategoryId]),
+                        MergeIds(state.TagIds, tagIds),
+                        "update").ConfigureAwait(false);
+                    ArticleListItemResponse? realtimePreview = await LoadRealtimePreviewAsync(id)
+                        .ConfigureAwait(false);
+                    await _mutationSideEffects.AfterUpdatedAsync(id, realtimePreview).ConfigureAwait(false);
+                });
+                return true;
+            }
             if (mutationCommitted)
             {
                 await InvalidateCache(id);
@@ -527,7 +551,7 @@ public partial class ArticleService
         }
         finally
         {
-            if (fenceEstablished && !mutationCommitted)
+            if (fenceEstablished && !mutationCommitted && !IsArticleVaultGroupTransaction)
             {
                 await RecoverAbortedPublicMutationFenceAsync(id, "article-update-fence-aborted").ConfigureAwait(false);
             }
