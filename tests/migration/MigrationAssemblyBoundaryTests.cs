@@ -30,9 +30,9 @@ public sealed class MigrationAssemblyBoundaryTests
     {
         SchemaMigrationManifest manifest = SchemaMigrationManifest.Current;
 
-        Assert.Equal(140, manifest.Descriptors.Count);
+        Assert.Equal(141, manifest.Descriptors.Count);
         Assert.Equal(
-            "DFBA905508A2C91BEF7165E3DBAABCC3262E64333D2A544829208FB044D54B37",
+            "CBDF95217BA09438E97CEE0FF42F07872198951232DAB3E74D4F22C4CBA16071",
             ComputePlanFingerprint(manifest.Descriptors));
         Assert.Equal(
             manifest.Descriptors.Count,

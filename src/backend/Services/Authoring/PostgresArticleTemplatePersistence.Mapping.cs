@@ -84,8 +84,14 @@ public sealed partial class PostgresArticleTemplatePersistence
             new("@CommandKind", receipt.CommandKind),
             new("@CommandDigest", receipt.CommandDigest),
             new("@TemplateId", receipt.TemplateId),
-            new("@VersionId", DbValue(receipt.VersionId)),
-            new("@VersionNumber", DbValue(receipt.VersionNumber)),
+            new(
+                "@VersionId",
+                receipt.VersionId.HasValue ? receipt.VersionId.Value : DBNull.Value,
+                System.Data.DbType.Guid),
+            new(
+                "@VersionNumber",
+                receipt.VersionNumber.HasValue ? receipt.VersionNumber.Value : DBNull.Value,
+                System.Data.DbType.Int32),
             new("@ScopeKind", (short)receipt.Scope.Kind),
             new("@OwnerAdminPrincipalId", ScopeOwnerKey(receipt.Scope)),
             new("@PreviousScopeRevision", receipt.PreviousScopeRevision),

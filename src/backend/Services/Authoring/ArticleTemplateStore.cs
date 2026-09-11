@@ -65,7 +65,7 @@ public sealed class ArticleTemplateStore(
                 await referenceAuthority.ValidateAsync(command.Actor, command.Scope, command.Defaults, token)
                     .ConfigureAwait(false);
 
-                DateTime now = timeProvider.GetUtcNow().UtcDateTime;
+                DateTime now = CanonicalTimestamp(timeProvider);
                 ArticleTemplateVersion version = CreateVersion(
                     command.TemplateId,
                     command.VersionId,
@@ -546,7 +546,7 @@ public sealed class ArticleTemplateStore(
                 {
                     throw new ArticleTemplateConflictException("article_template_revision_cas_stale");
                 }
-                DateTime now = timeProvider.GetUtcNow().UtcDateTime;
+                DateTime now = CanonicalTimestamp(timeProvider);
                 var planned = await planner(snapshot, definition, now, token).ConfigureAwait(false);
                 ArticleTemplateVersion currentVersion = planned.Version
                     ?? snapshot.TargetVersions.SingleOrDefault(
@@ -705,6 +705,14 @@ public sealed class ArticleTemplateStore(
         };
         ArticleTemplateContract.ValidateReceipt(receipt);
         return receipt;
+    }
+
+    private static DateTime CanonicalTimestamp(TimeProvider timeProvider)
+    {
+        // PostgreSQL timestamp columns persist microsecond precision; drop the sub-microsecond
+        // residue so stored rows recompute byte-identical digests on read.
+        DateTime now = timeProvider.GetUtcNow().UtcDateTime;
+        return new DateTime(now.Ticks - now.Ticks % TimeSpan.TicksPerMicrosecond, DateTimeKind.Utc);
     }
 
     private static void EnsureNameAvailable(

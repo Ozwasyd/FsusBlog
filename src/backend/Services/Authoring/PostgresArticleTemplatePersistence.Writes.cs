@@ -86,13 +86,34 @@ public sealed partial class PostgresArticleTemplatePersistence
             new SugarParameter("@VariableCount", version.Source.VariableTokens.Count),
             new SugarParameter("@TitlePlaceholder", DbValue(defaults.TitlePlaceholder)),
             new SugarParameter("@SummaryPlaceholder", DbValue(defaults.SummaryPlaceholder)),
-            new SugarParameter("@CategoryId", DbValue(defaults.CategoryId)),
-            new SugarParameter("@RightsProfileId", DbValue(defaults.RightsProfile?.ProfileId)),
-            new SugarParameter("@RightsProfileRevision", DbValue(defaults.RightsProfile?.Revision)),
-            new SugarParameter("@ResponsibilityProfileId", DbValue(defaults.ResponsibilityProfile?.ProfileId)),
-            new SugarParameter("@ResponsibilityProfileRevision", DbValue(defaults.ResponsibilityProfile?.Revision)),
-            new SugarParameter("@PrepublishProfileId", DbValue(defaults.PrepublishProfile?.ProfileId)),
-            new SugarParameter("@PrepublishProfileRevision", DbValue(defaults.PrepublishProfile?.Revision)),
+            new SugarParameter(
+                "@CategoryId",
+                defaults.CategoryId.HasValue ? defaults.CategoryId.Value : DBNull.Value,
+                System.Data.DbType.Int32),
+            new SugarParameter(
+                "@RightsProfileId",
+                defaults.RightsProfile?.ProfileId is Guid rightsId ? rightsId : DBNull.Value,
+                System.Data.DbType.Guid),
+            new SugarParameter(
+                "@RightsProfileRevision",
+                defaults.RightsProfile?.Revision is long rightsRevision ? rightsRevision : DBNull.Value,
+                System.Data.DbType.Int64),
+            new SugarParameter(
+                "@ResponsibilityProfileId",
+                defaults.ResponsibilityProfile?.ProfileId is Guid responsibilityId ? responsibilityId : DBNull.Value,
+                System.Data.DbType.Guid),
+            new SugarParameter(
+                "@ResponsibilityProfileRevision",
+                defaults.ResponsibilityProfile?.Revision is long responsibilityRevision ? responsibilityRevision : DBNull.Value,
+                System.Data.DbType.Int64),
+            new SugarParameter(
+                "@PrepublishProfileId",
+                defaults.PrepublishProfile?.ProfileId is Guid prepublishId ? prepublishId : DBNull.Value,
+                System.Data.DbType.Guid),
+            new SugarParameter(
+                "@PrepublishProfileRevision",
+                defaults.PrepublishProfile?.Revision is long prepublishRevision ? prepublishRevision : DBNull.Value,
+                System.Data.DbType.Int64),
             new SugarParameter("@DefaultsDigest", version.DefaultsDigest),
             new SugarParameter("@ContentDigest", version.ContentDigest)).ConfigureAwait(false);
 

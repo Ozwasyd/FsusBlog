@@ -268,6 +268,18 @@ public sealed class AuditLogStore(
             ? record.OccurredAtUtc.ToUniversalTime().ToString("yyyyMMdd", CultureInfo.InvariantCulture)
             : record.ChainId.Trim();
 
+    /// <summary>
+    /// Drops the cached tail for a chain that an in-transaction writer has just extended.
+    /// The next batch re-reads the durable tail so its prev_hash binds the committed row.
+    /// </summary>
+    internal static void InvalidateChainTail(string chainId)
+    {
+        if (!string.IsNullOrWhiteSpace(chainId))
+        {
+            s_chainTailCache.TryRemove(chainId, out _);
+        }
+    }
+
     internal static void ClearChainTailCacheForTests()
         => s_chainTailCache.Clear();
 

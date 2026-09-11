@@ -328,6 +328,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
             TaxonomyDescriptionMigrationDefinitions.MigrationId,
             AuthorArticlePinMigrationDefinitions.MigrationId,
             AuthorSavedViewMigrationDefinitions.MigrationId,
+            ArticleTemplateAuthorityMigrationDefinitions.MigrationId,
             ArticleVaultExecutionMigrationDefinitions.MigrationId,
             ContentAssetCutoverMigrationDefinitions.PrototypeShapeMigrationId,
             ContentAssetCutoverMigrationDefinitions.MigrationId

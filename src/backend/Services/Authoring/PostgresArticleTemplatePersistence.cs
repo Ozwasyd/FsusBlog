@@ -1,6 +1,9 @@
 using System.Data.Common;
+using System.Globalization;
 
 using FsusBlog.Server.Contracts.Assets;
+using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Auth;
 
 using SqlSugar;
 
@@ -8,12 +11,16 @@ namespace FsusBlog.Server.Services.Authoring;
 
 /// <summary>
 /// PostgreSQL adapter for the exact-one article-template authority. All mutations take a
-/// scope advisory lock and atomically persist CAS state, immutable versions, receipt, and
-/// idempotency binding.
+/// scope advisory lock and atomically persist CAS state, immutable versions, receipt,
+/// signed audit link, and idempotency binding.
 /// </summary>
-public sealed partial class PostgresArticleTemplatePersistence(ISqlSugarClient db)
+public sealed partial class PostgresArticleTemplatePersistence(
+    ISqlSugarClient db,
+    IConfiguration configuration)
     : IArticleTemplatePersistence
 {
+    private readonly byte[]? _tamperKey = AuditTamperEvidence.ResolveKey(configuration);
+
     private const string DefinitionColumns =
         "schema_version, template_id, scope_kind, owner_admin_principal_id, name, name_key, "
         + "description, status, revision, current_version_id, current_version_number, "
@@ -154,6 +161,7 @@ public sealed partial class PostgresArticleTemplatePersistence(ISqlSugarClient d
         ArticleTemplateContract.ValidateScope(scope);
         ArgumentNullException.ThrowIfNull(planner);
         ArticleTemplateWriteReceipt? result = null;
+        var pendingChainIds = new List<string>(1);
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -243,6 +251,10 @@ public sealed partial class PostgresArticleTemplatePersistence(ISqlSugarClient d
                 await InsertVersionAsync(mutation.VersionToInsert).ConfigureAwait(false);
             }
             await InsertReceiptAsync(mutation.Receipt).ConfigureAwait(false);
+            AuthoringSignedAuditWriter.ChainWrite auditWrite = await AuthoringSignedAuditWriter
+                .InsertAsync(db, _tamperKey, BuildReceiptAuditRecord(mutation.Receipt), cancellationToken)
+                .ConfigureAwait(false);
+            pendingChainIds.Add(auditWrite.ChainId);
             await db.Ado.ExecuteCommandAsync(
                 """
                 INSERT INTO article_template_idempotency(
@@ -267,8 +279,29 @@ public sealed partial class PostgresArticleTemplatePersistence(ISqlSugarClient d
             }
             throw new InvalidOperationException("article_template_transaction_failed");
         }
+        foreach (string chainId in pendingChainIds)
+        {
+            AuditLogStore.InvalidateChainTail(chainId);
+        }
         return result ?? throw new ArticleTemplateIntegrityException("article_template_transaction_result_missing");
     }
+
+    private static AuditRecord BuildReceiptAuditRecord(ArticleTemplateWriteReceipt receipt)
+        => new(
+            Source: AuditSourceCatalog.Article,
+            Type: AuditTypeCatalog.Business,
+            OccurredAtUtc: receipt.OccurredAtUtc,
+            EventInfo: receipt.AuditDigest,
+            ContextPayload: null,
+            Action: AdminPermissions.ArticleWrite,
+            Outcome: AuditOutcomeCatalog.Success,
+            Severity: AuditSeverityCatalog.Info,
+            ActorType: AuditActorTypeCatalog.Admin,
+            ActorId: receipt.ActorAdminPrincipalId.ToString(CultureInfo.InvariantCulture),
+            TargetType: "article-template-receipt",
+            TargetId: receipt.AuditReference.ToString("N"),
+            IsHighValue: true,
+            ReasonCode: receipt.CommandKind);
 
     public async Task<ArticleTemplateVerificationSnapshot?> ReadVerificationSnapshotAsync(
         Guid templateId,
