@@ -3514,6 +3514,10 @@ tiers:
           - tools/governance/check-dependency-required-checks.mjs
           - tests/fixtures/governance/dependency-required-checks.json
           - tests/tools/dependency-required-checks.test.mjs
+          - tools/governance/cross-repository-dependency-acceptance.mjs
+          - tests/fixtures/governance/cross-repository-dependency-acceptance.json
+          - tests/fixtures/governance/ui-freshness-cli-safety.txt
+          - tests/tools/cross-repository-dependency-acceptance.test.mjs
           - config/dependencies/fsusui-release-event.schema.json
           - tools/dependencies/verify-fsusui-release-event.mjs
           - tests/tools/fsusui-release-event.test.mjs

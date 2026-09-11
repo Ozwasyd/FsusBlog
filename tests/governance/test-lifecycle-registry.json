@@ -946,6 +946,17 @@
             ]
         },
         {
+            "file": "tests/tools/cross-repository-dependency-acceptance.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/cross-stack-receipt-join.test.mjs",
             "owner": "repository-governance:test-asset-behavior",
             "executionCategory": "repository-governance",
