@@ -146,6 +146,34 @@
       ]
     },
     {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog20260904.cs",
+      "sha256": "86001745566191e2950eac947307ab29da84065c56021aa0feb96ad81e51dbc6",
+      "symbols": [
+        "SchemaMigrationCatalog20260904"
+      ]
+    },
+    {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog20260904SavedViews.cs",
+      "sha256": "9ccf6bb8d77a6ee877d2dcd62315439b84d8f4367f59f9519038d745c609113a",
+      "symbols": [
+        "SchemaMigrationCatalog20260904SavedViews"
+      ]
+    },
+    {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog20260906AuthoringCanvasOperations.cs",
+      "sha256": "f71810b57242aaab7313e233ad6a015de50b2b2612e46105787af34fbc3a60dc",
+      "symbols": [
+        "SchemaMigrationCatalog20260906AuthoringCanvasOperations"
+      ]
+    },
+    {
+      "path": "src/migration/Catalogs/SchemaMigrationCatalog20260907.cs",
+      "sha256": "84d9e3f7730250353b1d0fd32feeb211a208bd44a821b7e7f6c6d1925a0412b3",
+      "symbols": [
+        "SchemaMigrationCatalog20260907"
+      ]
+    },
+    {
       "path": "src/migration/ContentAssetCutoverBackfillStep.cs",
       "sha256": "29588506016e563ca48eda80c23c9c6f53cc46695e439752bb49f11c75b6162a",
       "symbols": [
@@ -251,6 +279,20 @@
       ]
     },
     {
+      "path": "src/migration/Definitions/ArticleVaultExecutionMigrationDefinitions.cs",
+      "sha256": "ecdb8f7c0ab523b829515afc47ba3ed7b3da36e84242936e7ce05dc1ca415dc8",
+      "symbols": [
+        "ArticleVaultExecutionMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/AuthorArticlePinMigrationDefinitions.cs",
+      "sha256": "2b586025ffa0e044b8ce17b07a20d3360d15b3ac88bb23efaff1b0568915136b",
+      "symbols": [
+        "AuthorArticlePinMigrationDefinitions"
+      ]
+    },
+    {
       "path": "src/migration/Definitions/AuthoringAndIntegrityMigrationDefinitions.cs",
       "sha256": "4ee3530bbcfc417d60ad03de18a9df1136ddc2b618f104ebc91131a6e9809121",
       "symbols": [
@@ -263,6 +305,20 @@
       "symbols": [
         "AuthoringCanvasDocumentMigrationDefinitions",
         "ledgers"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/AuthoringCanvasOperationJournalMigrationDefinitions.cs",
+      "sha256": "bb25f2fde8fe0b2935bad4a4d9c9ec0aa646ca533bd9d60399bd2d66b911bccd",
+      "symbols": [
+        "AuthoringCanvasOperationJournalMigrationDefinitions"
+      ]
+    },
+    {
+      "path": "src/migration/Definitions/AuthorSavedViewMigrationDefinitions.cs",
+      "sha256": "ca930cd1b3699bb934032b068e97bcf33eed05a055569bb698f0e8df7104cdf7",
+      "symbols": [
+        "AuthorSavedViewMigrationDefinitions"
       ]
     },
     {
@@ -531,7 +587,7 @@
     },
     {
       "path": "src/migration/OfflineMigrationCatalogEntries.generated.cs",
-      "sha256": "7e3c386574df90db43af7bedd697f9082e55fd8dc5015427939290d5b4f16422",
+      "sha256": "4132a6ad1b69186804537e0969d4985b2709610b27bc2ced3d53358a5675f68c",
       "symbols": [
         "OfflineMigrationCatalogEntries",
         "OfflineMigrationClassification",
@@ -611,7 +667,7 @@
     },
     {
       "path": "src/migration/SchemaMigrationManifest.cs",
-      "sha256": "79c70deb15553d24badcf36127fc852cda53667095798d064702e9ec2e20d710",
+      "sha256": "ec18f3ccc43c856447f7a96fd02e14f8112f7f513c03c0cf1343de814bddf89d",
       "symbols": [
         "SchemaMigrationManifest"
       ]
@@ -1010,6 +1066,46 @@
         ]
       },
       {
+        "newPath": "src/migration/Catalogs/SchemaMigrationCatalog20260904.cs",
+        "newSha256": "86001745566191e2950eac947307ab29da84065c56021aa0feb96ad81e51dbc6",
+        "oldFiles": [],
+        "movedSymbols": [],
+        "newSymbols": [
+          "SchemaMigrationCatalog20260904"
+        ],
+        "oldPathsDeleted": []
+      },
+      {
+        "newPath": "src/migration/Catalogs/SchemaMigrationCatalog20260904SavedViews.cs",
+        "newSha256": "9ccf6bb8d77a6ee877d2dcd62315439b84d8f4367f59f9519038d745c609113a",
+        "oldFiles": [],
+        "movedSymbols": [],
+        "newSymbols": [
+          "SchemaMigrationCatalog20260904SavedViews"
+        ],
+        "oldPathsDeleted": []
+      },
+      {
+        "newPath": "src/migration/Catalogs/SchemaMigrationCatalog20260906AuthoringCanvasOperations.cs",
+        "newSha256": "f71810b57242aaab7313e233ad6a015de50b2b2612e46105787af34fbc3a60dc",
+        "oldFiles": [],
+        "movedSymbols": [],
+        "newSymbols": [
+          "SchemaMigrationCatalog20260906AuthoringCanvasOperations"
+        ],
+        "oldPathsDeleted": []
+      },
+      {
+        "newPath": "src/migration/Catalogs/SchemaMigrationCatalog20260907.cs",
+        "newSha256": "84d9e3f7730250353b1d0fd32feeb211a208bd44a821b7e7f6c6d1925a0412b3",
+        "oldFiles": [],
+        "movedSymbols": [],
+        "newSymbols": [
+          "SchemaMigrationCatalog20260907"
+        ],
+        "oldPathsDeleted": []
+      },
+      {
         "newPath": "src/migration/ContentAssetCutoverBackfillStep.cs",
         "newSha256": "29588506016e563ca48eda80c23c9c6f53cc46695e439752bb49f11c75b6162a",
         "oldFiles": [
@@ -1312,6 +1408,26 @@
         ]
       },
       {
+        "newPath": "src/migration/Definitions/ArticleVaultExecutionMigrationDefinitions.cs",
+        "newSha256": "ecdb8f7c0ab523b829515afc47ba3ed7b3da36e84242936e7ce05dc1ca415dc8",
+        "oldFiles": [],
+        "movedSymbols": [],
+        "newSymbols": [
+          "ArticleVaultExecutionMigrationDefinitions"
+        ],
+        "oldPathsDeleted": []
+      },
+      {
+        "newPath": "src/migration/Definitions/AuthorArticlePinMigrationDefinitions.cs",
+        "newSha256": "2b586025ffa0e044b8ce17b07a20d3360d15b3ac88bb23efaff1b0568915136b",
+        "oldFiles": [],
+        "movedSymbols": [],
+        "newSymbols": [
+          "AuthorArticlePinMigrationDefinitions"
+        ],
+        "oldPathsDeleted": []
+      },
+      {
         "newPath": "src/migration/Definitions/AuthoringAndIntegrityMigrationDefinitions.cs",
         "newSha256": "4ee3530bbcfc417d60ad03de18a9df1136ddc2b618f104ebc91131a6e9809121",
         "oldFiles": [
@@ -1352,6 +1468,26 @@
         "oldPathsDeleted": [
           "src/backend/Infrastructure/SchemaMigration/Definitions/AuthoringCanvasDocumentMigrationDefinitions.cs"
         ]
+      },
+      {
+        "newPath": "src/migration/Definitions/AuthoringCanvasOperationJournalMigrationDefinitions.cs",
+        "newSha256": "bb25f2fde8fe0b2935bad4a4d9c9ec0aa646ca533bd9d60399bd2d66b911bccd",
+        "oldFiles": [],
+        "movedSymbols": [],
+        "newSymbols": [
+          "AuthoringCanvasOperationJournalMigrationDefinitions"
+        ],
+        "oldPathsDeleted": []
+      },
+      {
+        "newPath": "src/migration/Definitions/AuthorSavedViewMigrationDefinitions.cs",
+        "newSha256": "ca930cd1b3699bb934032b068e97bcf33eed05a055569bb698f0e8df7104cdf7",
+        "oldFiles": [],
+        "movedSymbols": [],
+        "newSymbols": [
+          "AuthorSavedViewMigrationDefinitions"
+        ],
+        "oldPathsDeleted": []
       },
       {
         "newPath": "src/migration/Definitions/CommentAuthorModeRetirementMigrationDefinitions.cs",
@@ -2096,7 +2232,7 @@
       },
       {
         "newPath": "src/migration/OfflineMigrationCatalogEntries.generated.cs",
-        "newSha256": "7e3c386574df90db43af7bedd697f9082e55fd8dc5015427939290d5b4f16422",
+        "newSha256": "4132a6ad1b69186804537e0969d4985b2709610b27bc2ced3d53358a5675f68c",
         "oldFiles": [],
         "movedSymbols": [],
         "newSymbols": [
@@ -2260,7 +2396,7 @@
       },
       {
         "newPath": "src/migration/SchemaMigrationManifest.cs",
-        "newSha256": "79c70deb15553d24badcf36127fc852cda53667095798d064702e9ec2e20d710",
+        "newSha256": "ec18f3ccc43c856447f7a96fd02e14f8112f7f513c03c0cf1343de814bddf89d",
         "oldFiles": [
           {
             "path": "src/backend/Infrastructure/SchemaMigration/SchemaMigrationManifest.cs",
@@ -2433,7 +2569,7 @@
       "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs"
     ]
   },
-  "contentDigest": "e474df0b99f2ac151126e304df949c307c354fa7d6787a8b063eb8cb1e00893b",
+  "contentDigest": "8216844e0ab78b3305a1c35e0bb90a3800aec26216d8038deeeb457801b463cb",
   "testFiles": [
     {
       "path": "tests/migration/FsusBlog.Migration.Tests.csproj",
@@ -2441,7 +2577,7 @@
     },
     {
       "path": "tests/migration/MigrationAssemblyBoundaryTests.cs",
-      "sha256": "180e30d8fd613ce5878be24033d3ab7c91c283bd0b4b9267ed40ff3733202957"
+      "sha256": "dfbc04b8eca2b37fb404ff0e2256f13e07798fad685e4d172320dc36348987b9"
     },
     {
       "path": "tests/migration/OfflineMigrationCommandLineTests.cs",
@@ -2460,22 +2596,22 @@
       "sha256": "5ab89b14fd6de0fcdea83656facca23980405c604230da63deab3aaf57d0011e"
     }
   ],
-  "testContentDigest": "dbb0aa722ddad984a6918a7a68b4d72e4d4f17fb7fb63b87be34a3664843dcac",
-  "verificationInputDigest": "5f2239d9d36b7b5aa1367aa9aa2e19d90fd9e9cfffafcd6850d87d2fe23d74fe",
+  "testContentDigest": "c77d189d9bddc63218e4668514209e4c42d99fc1301fbbfde5c02d03ab67176e",
+  "verificationInputDigest": "e0dc39373508bafb2b045ac6f1533e0722e8093a9648f2bac6a8dd0e6ed016dd",
   "verificationResults": [
     {
       "command": "dotnet build src/migration/FsusBlog.Migration.csproj -c Release --no-restore",
       "status": "passed",
       "exitCode": 0,
-      "inputDigest": "5f2239d9d36b7b5aa1367aa9aa2e19d90fd9e9cfffafcd6850d87d2fe23d74fe",
-      "summary": "0 Warning(s) | 0 Error(s) | Time Elapsed 00:00:00.55"
+      "inputDigest": "e0dc39373508bafb2b045ac6f1533e0722e8093a9648f2bac6a8dd0e6ed016dd",
+      "summary": "0 個警告 | 0 個錯誤 | 經過時間 00:00:00.73"
     },
     {
       "command": "dotnet test tests/migration/FsusBlog.Migration.Tests.csproj -c Release --no-restore",
       "status": "passed",
       "exitCode": 0,
-      "inputDigest": "5f2239d9d36b7b5aa1367aa9aa2e19d90fd9e9cfffafcd6850d87d2fe23d74fe",
-      "summary": "Test run for <repo>/tests/migration/bin/Release/net10.0/FsusBlog.Migration.Tests.dll (.NETCoreApp,Version=v10.0) | A total of 1 test files matched the specified pattern. | Passed!  - Failed:     0, Passed:    36, Skipped:     0, Total:    36, Duration: 198 ms - FsusBlog.Migration.Tests.dll (net10.0)"
+      "inputDigest": "e0dc39373508bafb2b045ac6f1533e0722e8093a9648f2bac6a8dd0e6ed016dd",
+      "summary": "<repo>/tests/migration/bin/Release/net10.0/FsusBlog.Migration.Tests.dll 的測試回合 (.NETCoreApp,Version=v10.0) | 總共有 1 個測試檔案與指定的模式相符。 | 已通過! - 失敗:     0，通過:    36，略過:     0，總計:    36，持續時間: 129 ms - FsusBlog.Migration.Tests.dll (net10.0)"
     }
   ]
 }
