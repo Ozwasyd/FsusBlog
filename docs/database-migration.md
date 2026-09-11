@@ -270,6 +270,29 @@ No-restart rollback retains these additive tables while an older release ignores
 them. Do not drop the ledger during the compatibility window; pause pin callers at
 the authenticated server edge and preserve receipts for verification.
 
+## Article Vault Execution Expand
+
+`20260907-post-article-vault-execution` is an additive, transactional
+Post-CodeFirst Expand. It creates the server-owned sealed execution-bundle table,
+the group idempotency/result ledger, and the terminal execution-result table.
+Primary and unique keys bind plan reference, site, Vault, plan digest, group and
+result identities; digest checks reject malformed stored seals. Group and terminal
+rows reference their sealed bundle with `ON DELETE RESTRICT`, so cleanup cannot
+remove the execution authority while auditable outcomes remain.
+
+The canonical article transaction persists a successful group receipt together
+with article, revision, relationship, outbox and audit facts. A failed attempt is
+recorded only after that transaction has rolled back: its `committed=false` group
+receipt contains failed operations without outbox/audit references and is an
+idempotency/audit-control fact, not a committed group or article mutation. A
+terminal-result write may follow the group commit; replay recovers the immutable
+group receipt and does not repeat the canonical writer.
+
+No-restart rollback routes callers to compatible code and leaves all three
+additive tables in place. Do not drop sealed bundles or ledgers during the N-1
+window, and do not reconstruct missing terminal results by scanning or writing
+local Vault files.
+
 ## Zero-Downtime Migration Qualification
 
 Release migration qualification is an isolated Test-topology gate around the production
