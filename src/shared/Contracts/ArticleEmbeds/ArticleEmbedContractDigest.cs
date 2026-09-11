@@ -114,6 +114,16 @@ public static class ArticleEmbedContractDigest
         return true;
     }
 
+    /// <summary>Canonical typed-attribution digest shared by authoring resolution and verification.</summary>
+    public static string ComputeAttribution(string sourcePortableArticleIdentity, long sourceRevision, string displayText)
+        => Compute(writer =>
+        {
+            writer.Add("fsusblog.article-embed-attribution.v1");
+            writer.Add(sourcePortableArticleIdentity);
+            writer.Add(sourceRevision);
+            writer.Add(displayText);
+        });
+
     private static void AddTarget(CanonicalWriter writer, ArticleEmbedTargetIdentity target)
     {
         writer.Add(target.PortableArticleIdentity);
@@ -122,7 +132,8 @@ public static class ArticleEmbedContractDigest
         writer.Add(target.BlockAnchor);
     }
 
-    private static string Compute(Action<CanonicalWriter> write)
+    /// <summary>The single canonical length-prefixed UTF-8 serialization reused by every embed slice digest.</summary>
+    internal static string Compute(Action<CanonicalWriter> write)
     {
         using var stream = new MemoryStream();
         var writer = new CanonicalWriter(stream);
@@ -130,7 +141,7 @@ public static class ArticleEmbedContractDigest
         return Convert.ToHexStringLower(SHA256.HashData(stream.GetBuffer().AsSpan(0, checked((int)stream.Length))));
     }
 
-    private sealed class CanonicalWriter(MemoryStream stream)
+    internal sealed class CanonicalWriter(MemoryStream stream)
     {
         public void Add(string? value)
         {

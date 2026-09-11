@@ -815,6 +815,32 @@ relation、article package 与 document export 必须直接复用
 本合同不执行 resolution、publication freeze/finalization、cache、relation edge、rendering 或 UI；
 这些行为由后续 issue 实现。
 
+### Article embed authoring resolution contract
+
+`src/shared/Contracts/ArticleEmbeds/Authoring/` 是 authoring scope embed resolution 的唯一
+authority。`ArticleEmbedAuthoringResolver.Resolve` 只接受 sealed #2454 authoring requests 与
+caller-verified `ArticleEmbedAuthoritySnapshot`（绑定 host article/document epoch、source
+revision/digest、actor/site/permission context、provider runtime 与 material locale/theme）；
+它不解析 Markdown、不读 rendered output、不修改 target 或 host source，也不把 memo state 保留到
+resolution 之外。任何 host/source/actor/runtime/authority-generation drift 或 abort signal 都让
+结果以 closed stale error 失败，而不是静默沿用旧状态。
+
+article mode 返回整个 target body projection；heading mode 只返回 exact heading subtree；block
+mode 只返回 #289 canonical anchor target。missing/duplicate/invalid coordinate 一律 fail closed，
+绝不 first-match。private/draft/unpublished target 仅在 current actor 有权时可见，并明确标记
+`AuthoringOnly`/`not-publication-eligible`，不得被 cache 或 receipt 误投公开。cycle detection 使用
+stable host/target article+kind+anchor expansion path，self-cycle、多跳 cycle 与 shared subtree 在
+stack overflow 前就以 typed failure 结束；depth、expanded node、source byte、elapsed time 与
+authority message budget 逐 request/graph 累计并封闭上限。局部 embed failure 只影响该节点，不替换
+整篇文档；`ArticleEmbedOpenSourceIntent` 只携带 stable target navigation coordinate，host editor
+没有 target mutation API。
+
+每次 resolution 产出 sealed `ArticleEmbedAuthoringReceipt`：只记录 host/target identities、
+permission/lifecycle、graph/budget/cache fact、status、timing 与 content digest，绝不记录无权
+content。`ArticleEmbedAuthoringVerifier` 独立重算每个节点的 expected outcome、cycle/budget
+legitimacy、memoization exactness 与全部 digest；任何 tamper 都 fail closed。本 slice 不执行
+publication plan/freeze、relation index、cache invalidation、AOT 或 UI。
+
 ### `ArticleListItemResponse`
 
 ```json
