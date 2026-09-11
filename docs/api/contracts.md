@@ -871,6 +871,36 @@ wall-clock/abort 结果只在合法 preempt 时被接受。public delivery 只�
 artifact（`publication-frozen-artifact` policy），本 slice 不执行 relation edge store、cache
 invalidation、publication write、AOT 或 UI。
 
+### Article embed relation edge contract
+
+`src/shared/Contracts/ArticleEmbeds/Relations/` 定义 #1808 relation authority 持久化的 embed 边的唯一
+canonical shape。`ArticleEmbedRelationDeriver` 是纯投影：每个入口先独立 re-verify 其来源（#2455
+`ArticleEmbedAuthoringVerifier` / #2456 `ArticleEmbedPublicationVerifier`），未通过或 blocked 来源只
+产出 closed rejection，绝不产生 edge。它不解析 source、不扫描 rendered output、不读 store/cache、不
+改写 host 或 target 内容。
+
+每条 `ArticleEmbedRelationEdge` 绑定 scope（`Authoring` / `FrozenPublication`）、status、
+owner article/revision（directive 所在文章；host 为顶层，resolved target 为嵌套）、source range、
+`ArticleEmbedTargetIdentity`、resolved 与 latest-observed revision、观测到的 visibility/lifecycle/
+permission 与 dependency digest。`EdgeIdentity` 与 revision 无关，重推导幂等去重；`EdgeDigest` 密封
+全记录。authoring 边承载 `Current`/`UpdateAvailable`/`Stale`/`Broken`；frozen 边永远是 `Frozen` 且
+`Reconcile` 直接拒绝 frozen edge set——后续 target update 不能改写 frozen edge，每个 frozen edge 附
+一条 sealed `ArticleEmbedDependencyReceipt` 绑定 plan digest、publication edge digest 与 sealed
+coordinate。
+
+`Reconcile` 对 authoring edge set 在 fresh authority snapshot 下重算每边 status：host binding 或
+derivation context（actor/runtime/locale/theme）漂移→`Stale`，target 消失或歧义→`Broken`，
+permission/lifecycle/visibility 失格→`Broken`，latest 超过 resolved→`UpdateAvailable`。只对
+status 实际变化的边产出 sealed `ArticleEmbedInvalidationTicket`（绑定 edge identity、from/to
+status、closed reason、原 family cache key digest 与单调递增 reconcile generation）——精准失效，
+绝不 family flush。`ArticleEmbedRelationCacheKey` 绑定 host document id/epoch/revision、scope、
+provider runtime、permission/site context 与 material locale/theme，authoring 与 frozen family 永不
+共享。`Query` 只在 scope 匹配且 caller actor/runtime 等于 recorded derivation context 时返回 sealed
+receipt：public delivery 仅接受 frozen-publication edge set（`frozen-edge-artifact-only`），
+authoring 查询仅接受 authoring set；receipt 只携带 per-edge digests 与 status，绝不携带 content 或
+隐藏边计数。`ArticleEmbedRelationVerifier` 独立重验证来源、重推导 edge、重算全部 digest 并检查
+ticket 只覆盖真实变化的边。本 slice 不执行 relation store、cache、AOT 或 UI——#1808 负责持久化。
+
 ### `ArticleListItemResponse`
 
 ```json
