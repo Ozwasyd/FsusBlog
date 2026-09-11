@@ -10,6 +10,8 @@ namespace FsusBlog.Server.Services;
 
 public static class ArticleMutationOutboxProducer
 {
+    public const string FactoryId = "fsusblog.article-mutation-outbox-producer.v1";
+
     public static async Task<ArticleMutationOutboxEvent> CreateForVersionAsync(
         ISqlSugarClient db,
         int articleId,

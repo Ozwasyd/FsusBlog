@@ -746,7 +746,6 @@ public sealed class ShieldMiddlewareTests
                 100,
                 200,
                 600,
-                3,
                 100,
                 2,
                 1000,

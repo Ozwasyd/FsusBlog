@@ -78,6 +78,10 @@ StaticMonolithicDistributedArchitecture() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_
 StaticBehaviorMutationGovernance() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-behavior-mutation-governance.mjs"; }
 StaticPostRuntimeProducerRegistry() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-matrix/post-runtime-producer-registry.mjs"; }
 StaticFixtureMutationRecoveryGovernance() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-fixture-mutation-recovery-governance.mjs"; }
+StaticArticleScalePlanGovernance() {
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/check-article-scale-plan-governance.mjs"
+    Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/article-scale-plan-governance.test.mjs"
+}
 StaticCsharpStyle() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/dotnet/check-csharp-style.mjs" --mode full
 }
@@ -181,6 +185,7 @@ RunApplicationStaticPrechecksPhase() {
         behavior-mutation-governance StaticBehaviorMutationGovernance \
         post-runtime-producer-registry StaticPostRuntimeProducerRegistry \
         fixture-mutation-recovery-governance StaticFixtureMutationRecoveryGovernance \
+        article-scale-plan-governance StaticArticleScalePlanGovernance \
         central-package-management StaticCentralPackageManagement \
         dependency-update-surface StaticDependencyUpdateSurface \
         dependency-freshness StaticDependencyFreshness \

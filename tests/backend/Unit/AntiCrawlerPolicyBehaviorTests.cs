@@ -120,7 +120,6 @@ public sealed class AntiCrawlerPolicyBehaviorTests
             BlockScore: null,
             MaxRiskScore: null,
             DefaultRiskTtlSeconds: null,
-            ZeroRiskCacheTtlSeconds: null,
             FixedIpPermitLimit: null,
             FixedIpQueueLimit: null,
             VerifiedCrawlerFixedIpPermitLimit: null,

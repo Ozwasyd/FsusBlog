@@ -416,7 +416,6 @@ public sealed class RiskDecisionServiceTests
                 BlockScore: 100,
                 MaxRiskScore: 200,
                 DefaultRiskTtlSeconds: 600,
-                ZeroRiskCacheTtlSeconds: 3,
                 FixedIpPermitLimit: 100,
                 FixedIpQueueLimit: 2,
                 VerifiedCrawlerFixedIpPermitLimit: 1000,
