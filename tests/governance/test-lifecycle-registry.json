@@ -6257,6 +6257,16 @@
             ]
         },
         {
+            "file": "tests/tools/article-embed-publication.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
             "file": "tests/tools/generated-output-digest-repair-repository.test.mjs",
             "owner": "manual-diagnostic:tests/tools/generated-output-digest-repair-repository.test.mjs",
             "executionCategory": "manual-diagnostic",

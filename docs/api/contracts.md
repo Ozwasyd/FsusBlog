@@ -841,6 +841,36 @@ content。`ArticleEmbedAuthoringVerifier` 独立重算每个节点的 expected o
 legitimacy、memoization exactness 与全部 digest；任何 tamper 都 fail closed。本 slice 不执行
 publication plan/freeze、relation index、cache invalidation、AOT 或 UI。
 
+### Article embed publication freeze contract
+
+`src/shared/Contracts/ArticleEmbeds/Publication/` 是 publication-plan scope embed freezing 的唯一
+authority。`ArticleEmbedPublicationPlanner.Plan` 只接受 sealed #2454 `PublicationPlan` requests 与
+sealed `ArticleEmbedPublicationAuthority`（绑定 host article/document epoch、current host
+revision/source digest、publication request id、expected revision、authority generation、
+actor/site/permission context、provider runtime、material locale/theme、frozen artifact retention
+与逐 target 的 public facts）；它不解析 Markdown、不读 rendered output、不查询 authoring cache、
+latest target 或任何 previous resolution，也不执行 DB/route/UI/business write。
+
+每条 evaluated embed occurrence 产生一条 flat `ArticleEmbedPublicationEdge`：owner 是包含该
+directive 的 document（host 或已 freeze 的 public target），edge 记录 owner identity/revision、
+parser directive projection、target identity、exact `ArticleEmbedDependencyCoordinate`
+（frozen public revision + heading/block coordinate + projection identity/digest）、depth 与
+latest-observed fact。private、draft、scheduled/unpublished、archived、deleted、unknown、
+permission-denied/unknown、revision-package-incomplete、missing 或 ambiguous target 一律产生
+blocked edge；任何 blocked edge 使整个 plan `Blocked`，publication writer 必须以
+`ValidateForCommit` 的 sealed+current-authority 检查为准，不得部分写入。后续 target update
+不改写已 sealed plan 中的 coordinate；新的 publication build 在新的 authority snapshot 下重新
+freeze。cycle、depth、expanded-node、source-byte、elapsed 与 authority-message bound 与 authoring
+共享同一 closed budget 语义并在 plan 内累计。
+
+sealed `ArticleEmbedPublicationReceipt` 只记录 host binding、authority generation/digest、
+permission context、graph digest、budget meters 与 per-request 结果（identities/status/digest/
+descendant counts），绝不记录 target content。`ArticleEmbedPublicationVerifier` 独立重算期望
+edge graph、cycle/budget/memoization legitimacy 与 edge/graph/receipt/plan digest；无法重放的
+wall-clock/abort 结果只在合法 preempt 时被接受。public delivery 只消费 sealed plan 的 frozen
+artifact（`publication-frozen-artifact` policy），本 slice 不执行 relation edge store、cache
+invalidation、publication write、AOT 或 UI。
+
 ### `ArticleListItemResponse`
 
 ```json
