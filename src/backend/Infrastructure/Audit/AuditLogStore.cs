@@ -13,6 +13,10 @@ namespace FsusBlog.Server.Infrastructure.Audit;
 public interface IAuditLogStore
 {
     Task WriteBatchAsync(IReadOnlyList<AuditRecord> records, CancellationToken cancellationToken);
+
+    void InvalidateChainTailCache(IEnumerable<string> chainIds)
+    {
+    }
 }
 
 public sealed class AuditLogStore(
@@ -110,6 +114,14 @@ public sealed class AuditLogStore(
         }
 
         FsusObservability.RecordAuditBatchWrite(records.Count, FsusObservability.GetElapsed(startedAt));
+    }
+
+    public void InvalidateChainTailCache(IEnumerable<string> chainIds)
+    {
+        foreach (string chainId in chainIds.Where(static item => !string.IsNullOrWhiteSpace(item)))
+        {
+            s_chainTailCache.TryRemove(chainId, out _);
+        }
     }
 
     private static AuditLogInsertBatchShape BuildInsertBatchShape(int recordCount)
