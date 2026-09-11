@@ -308,6 +308,22 @@
             }
         },
         {
+            "file": "tests/tools/article-embed-contract.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper"
+            ],
+            "staticGovernance": {
+                "id": "article-embed-contract",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
+        },
+        {
             "file": "tests/tools/article-scale-plan-governance.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",
@@ -6223,6 +6239,57 @@
         {
             "file": "tests/tools/revision-compare-authority.test.mjs",
             "owner": "manual-diagnostic:tests/tools/revision-compare-authority.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/article-embed-authoring.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "perf"
+            ]
+        },
+        {
+            "file": "tests/tools/article-embed-publication.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/article-embed-relations.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
+            "file": "tests/tools/generated-output-digest-repair-repository.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/generated-output-digest-repair-repository.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/generated-output-digest-repair-v2.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/generated-output-digest-repair-v2.test.mjs",
             "executionCategory": "manual-diagnostic",
             "lifecycle": "manual-diagnostic",
             "physicalExecutionCount": 0,
