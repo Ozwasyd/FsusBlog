@@ -25,6 +25,12 @@ const owned = [
     "src/migration/Definitions/ArticleTemplateAuthorityMigrationDefinitions.cs",
     "src/migration/Catalogs/SchemaMigrationCatalog20260905ArticleTemplates.cs",
     "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+    "src/backend/Services/Authoring/ArticleTemplateExpansionContracts.cs",
+    "src/backend/Services/Authoring/ArticleTemplateExpansionDigest.cs",
+    "src/backend/Services/Authoring/ArticleTemplateExpansionEngine.cs",
+    "src/backend/Services/Authoring/ArticleTemplateExpansionPlanner.cs",
+    "src/backend/Services/Authoring/ArticleTemplateExpansionVerifier.cs",
+    "src/backend/Services/Authoring/PostgresArticleTemplateExpansionAuthority.cs",
 ];
 
 function fixture() {
@@ -159,4 +165,46 @@ test("governance rejects missing immutable guard", () => {
             error.includes("article_template_immutable_guard"),
         ),
     );
+});
+
+test("governance rejects a second expansion planner or article identity in plans", () => {
+    const target = fixture();
+    mutate(target, owned[17], (source) =>
+        source.concat(
+            "\npublic sealed class ArticleTemplateExpansionPlannerCopy { }\n",
+        ),
+    );
+    let errors = checkArticleTemplateAuthority(target);
+    assert.ok(
+        errors.some((error) => error.includes("second expansion engine")),
+    );
+
+    const other = fixture();
+    mutate(other, owned[17], (source) =>
+        source.concat("\n// Guid ArticleId\n"),
+    );
+    errors = checkArticleTemplateAuthority(other);
+    assert.ok(
+        errors.some((error) =>
+            error.includes("must not carry article identity"),
+        ),
+    );
+});
+
+test("governance rejects HTML round-trips and name lookups in expansion", () => {
+    const target = fixture();
+    mutate(target, owned[19], (source) =>
+        source.concat("\n// Markdig.ToHtml round-trip\n"),
+    );
+    let errors = checkArticleTemplateAuthority(target);
+    assert.ok(
+        errors.some((error) => error.includes("HTML rendering round-trips")),
+    );
+
+    const other = fixture();
+    mutate(other, owned[22], (source) =>
+        source.concat("\n// lookup by tag.Name == value\n"),
+    );
+    errors = checkArticleTemplateAuthority(other);
+    assert.ok(errors.some((error) => error.includes("resolution by name")));
 });

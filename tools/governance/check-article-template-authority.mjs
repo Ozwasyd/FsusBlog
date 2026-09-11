@@ -36,6 +36,26 @@ const catalogFile =
     "src/migration/Catalogs/SchemaMigrationCatalog20260905ArticleTemplates.cs";
 const registrationFile =
     "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs";
+const expansionContractFile =
+    "src/backend/Services/Authoring/ArticleTemplateExpansionContracts.cs";
+const expansionDigestFile =
+    "src/backend/Services/Authoring/ArticleTemplateExpansionDigest.cs";
+const expansionEngineFile =
+    "src/backend/Services/Authoring/ArticleTemplateExpansionEngine.cs";
+const expansionPlannerFile =
+    "src/backend/Services/Authoring/ArticleTemplateExpansionPlanner.cs";
+const expansionVerifierFile =
+    "src/backend/Services/Authoring/ArticleTemplateExpansionVerifier.cs";
+const expansionAuthorityFile =
+    "src/backend/Services/Authoring/PostgresArticleTemplateExpansionAuthority.cs";
+const expansionFiles = [
+    expansionContractFile,
+    expansionDigestFile,
+    expansionEngineFile,
+    expansionPlannerFile,
+    expansionVerifierFile,
+    expansionAuthorityFile,
+];
 
 const ownedFiles = [
     storeFile,
@@ -46,6 +66,7 @@ const ownedFiles = [
     auditWriterFile,
     migrationFile,
     catalogFile,
+    ...expansionFiles,
 ];
 
 function walk(directory) {
@@ -264,6 +285,77 @@ export function checkArticleTemplateAuthority(repositoryRoot = root) {
         );
     }
 
+    const expansionClassExpectations = new Map([
+        ["ArticleTemplateExpansionEngine", expansionEngineFile],
+        ["ArticleTemplateExpansionPlanner", expansionPlannerFile],
+        ["ArticleTemplateExpansionVerifier", expansionVerifierFile],
+        ["PostgresArticleTemplateExpansionAuthority", expansionAuthorityFile],
+    ]);
+    const expansionClasses = new Set();
+    for (const absolute of templateFiles) {
+        const relative = path.relative(repositoryRoot, absolute);
+        const source = readFileSync(absolute, "utf8");
+        for (const match of source.matchAll(
+            /\bclass\s+([A-Za-z0-9_]*ArticleTemplateExpansion(?:Engine|Planner|Verifier|Authority)[A-Za-z0-9_]*)\b/gu,
+        )) {
+            expansionClasses.add(`${relative}:${match[1]}`);
+        }
+    }
+    for (const [className, relative] of expansionClassExpectations) {
+        if (!expansionClasses.has(`${relative}:${className}`)) {
+            violations.push(
+                `missing expansion authority ${className} in ${relative}`,
+            );
+        }
+        expansionClasses.delete(`${relative}:${className}`);
+    }
+    if (expansionClasses.size > 0) {
+        violations.push(
+            `second expansion engine or planner is forbidden: ${[...expansionClasses].join(", ")}`,
+        );
+    }
+
+    const expansionContractSource = readFileSync(
+        path.join(repositoryRoot, expansionContractFile),
+        "utf8",
+    );
+    if (
+        /\b(?:ArticleId|DraftId|RevisionId|PublicationStatus|PublishedAt)\b/u.test(
+            expansionContractSource,
+        )
+    ) {
+        violations.push(
+            `${expansionContractFile}: expansion plans must not carry article identity or execution state`,
+        );
+    }
+    const expansionEngineSource = readFileSync(
+        path.join(repositoryRoot, expansionEngineFile),
+        "utf8",
+    );
+    if (
+        /\b(?:ToHtml|Markdig|HtmlAgilityPack|Markdown\.Render|DOMPurify)\b/u.test(
+            expansionEngineSource,
+        )
+    ) {
+        violations.push(
+            `${expansionEngineFile}: HTML rendering round-trips are forbidden in expansion`,
+        );
+    }
+    if (!/\bReplace\b/u.test(expansionEngineSource)) {
+        violations.push(
+            `${expansionEngineFile}: closed marker substitution must stay byte-preserving`,
+        );
+    }
+    const expansionAuthoritySource = readFileSync(
+        path.join(repositoryRoot, expansionAuthorityFile),
+        "utf8",
+    );
+    if (/\.Name\s*==|name_key|Where\(.*Name/iu.test(expansionAuthoritySource)) {
+        violations.push(
+            `${expansionAuthorityFile}: reference resolution by name is forbidden`,
+        );
+    }
+
     const registrationSource = readFileSync(
         path.join(repositoryRoot, registrationFile),
         "utf8",
@@ -272,6 +364,9 @@ export function checkArticleTemplateAuthority(repositoryRoot = root) {
         "AddScoped<IArticleTemplateStore, ArticleTemplateStore>",
         "AddScoped<IArticleTemplatePersistence, PostgresArticleTemplatePersistence>",
         "AddScoped<IArticleTemplateVerifier, ArticleTemplateVerifier>",
+        "AddScoped<IArticleTemplateExpansionPlanner, ArticleTemplateExpansionPlanner>",
+        "AddScoped<IArticleTemplateExpansionVerifier, ArticleTemplateExpansionVerifier>",
+        "AddScoped<IArticleTemplateExpansionAuthority, PostgresArticleTemplateExpansionAuthority>",
     ]) {
         const occurrences = registrationSource.split(registration).length - 1;
         if (occurrences !== 1) {
