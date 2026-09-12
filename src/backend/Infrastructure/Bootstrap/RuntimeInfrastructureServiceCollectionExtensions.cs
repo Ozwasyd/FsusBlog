@@ -59,6 +59,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddFsusClusterMembership(configuration);
         services.AddFsusModuleInvocation(configuration);
         services.AddFsusAdaptiveScheduler(configuration);
+        services.AddAuthoringExtensionHost(configuration);
         services.AddPluginFoundation(configuration);
         services.AddIdentityRuntime();
         services.AddBackgroundRuntime();
