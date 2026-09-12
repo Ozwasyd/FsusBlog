@@ -1,0 +1,31 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "config/development/document-inventory.generated.json",
+                "config/development/document-lifecycle.json",
+                "docs/architecture/authoring-extension-host-boundary.md",
+                "docs/security/authoring-extension-capability-isolation.md"
+            ],
+            "reason": "Preserve existing caller-visible JSON and Markdown identifiers while the lifecycle producer records service isolation semantics."
+        },
+        {
+            "id": "auth-security-doc-exactness-authority",
+            "paths": [
+                "docs/security.md"
+            ],
+            "reason": "Preserve the current security document's caller-visible exactness identifiers while recording the service isolation boundary."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionServiceBroker.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionServiceIoBroker.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/LinuxBubblewrapAuthoringServiceRuntime.cs"
+            ],
+            "reason": "Preserve caller-visible process environment spellings while service isolation keeps repository-owned C# identifiers."
+        }
+    ]
+}
