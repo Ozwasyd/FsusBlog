@@ -158,6 +158,8 @@
                                     :saving="submitting"
                                     :status-text="editorSaveStatusText"
                                     :status-tone="editorSaveStatusTone"
+                                    :command-surfaces="authoringCommandSurfaces"
+                                    :document-identity="authoringDocumentIdentity"
                                     @save="saveDraftNow"
                                     @draft-save="saveDraftNow"
                                     @submit="requestSubmit"
@@ -756,6 +758,7 @@ import ArticleWriteSidebar from '@/components/admin/article/ArticleWriteSidebar.
 import ArticleWriteTitleField from '@/components/admin/article/ArticleWriteTitleField.vue';
 import FsusDialog from '@/components/ui/FsusDialog.vue';
 import ImageUploadOptionsPanel from '@/components/ui/ImageUploadOptionsPanel.vue';
+import type { FsusUiAuthoringSurfaceOptions } from '@/fsusui/authoringCommands';
 import { useAdminArticleWrite } from '@/composables/useAdminArticleWrite';
 import {
     useArticleWriteInspector,
@@ -819,6 +822,7 @@ const {
     seoChecking,
     seoStatusText,
     articleForm,
+    authoringDocumentIdentity,
     articleRightsUsingSiteDefaults,
     articleRightsInheritanceText,
     articleRightsLicenseOptions,
@@ -863,6 +867,12 @@ const {
     resumeImageUpload,
     leaveEditor
 } = useAdminArticleWrite();
+const authoringCommandSurfaces: FsusUiAuthoringSurfaceOptions = Object.freeze({
+    toolbar: true,
+    selectionToolbar: true,
+    slashMenu: true,
+    commandPalette: true
+});
 const {
     busy: taskFeedbackBusy,
     isHighlighted: isTaskHighlighted

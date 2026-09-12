@@ -26,7 +26,10 @@ const inspectorStatePath = path.join(
 const seoPath = path.join(repoRoot, 'src/frontend/src/components/admin/article/ArticleSeoPreviewPanel.vue');
 const titleFieldPath = path.join(repoRoot, 'src/frontend/src/components/admin/article/ArticleWriteTitleField.vue');
 const commandBarPath = path.join(repoRoot, 'src/frontend/src/components/admin/article/ArticleWriteCommandBar.vue');
+const articleWriteEditorPath = path.join(repoRoot, 'src/frontend/src/components/admin/article/ArticleWriteEditor.vue');
+const markdownEditorAdapterPath = path.join(repoRoot, 'src/frontend/src/components/ui/MarkdownEditorAdapter.vue');
 const markdownEditorPath = path.join(repoRoot, 'src/frontend/src/components/ui/MarkdownTextEditor.vue');
+const authoringCommandAdapterPath = path.join(repoRoot, 'src/frontend/src/fsusui/authoringCommands.ts');
 const accessibilityPath = path.join(repoRoot, 'src/frontend/src/components/admin/article/articleEditorAccessibility.ts');
 const productionFixturePath = path.join(repoRoot, 'tests/frontend/fixtures/articleEditorProductionVisual.ts');
 const productionFixtureContractPath = path.join(repoRoot, 'tests/frontend/fixtures/article-editor-production-contract.json');
@@ -73,7 +76,10 @@ const inspectorState = read(inspectorStatePath);
 const seo = read(seoPath);
 const titleField = read(titleFieldPath);
 const commandBar = read(commandBarPath);
+const articleWriteEditor = read(articleWriteEditorPath);
+const markdownEditorAdapter = read(markdownEditorAdapterPath);
 const markdownEditor = read(markdownEditorPath);
+const authoringCommandAdapter = read(authoringCommandAdapterPath);
 const accessibility = read(accessibilityPath);
 const productionFixture = read(productionFixturePath);
 const productionFixtureContract = JSON.parse(read(productionFixtureContractPath));
@@ -589,6 +595,80 @@ for (const token of ['ArticleWriteTitleField', 'articleEditorFixtureReady'])
         fail(productionFixturePath, 1, `Article editor production fixture is missing ${token}`);
     }
 }
+for (const state of [
+    'ready',
+    'permission-denied',
+    'pending',
+    'error',
+    'stale',
+    'generation-replaced',
+    'aborted',
+    'thousand'
+])
+{
+    if (!productionFixtureContract.authoringStates?.includes(state))
+    {
+        fail(productionFixtureContractPath, 1, `Article editor authoring fixture must cover ${state}`);
+    }
+}
+if (JSON.stringify(productionFixtureContract.authoringSurfaces) !== JSON.stringify([
+    'toolbar', 'selection', 'slash', 'palette'
+]))
+{
+    fail(productionFixtureContractPath, 1, 'Article editor authoring fixture must cover exactly four command surfaces');
+}
+if (productionFixtureContract.maximumAuthoringContributions !== 1000)
+{
+    fail(productionFixtureContractPath, 1, 'Article editor authoring fixture must bind the 1000 contribution limit');
+}
+for (const token of [
+    'ArticleWriteEditor',
+    'createFsusUiAuthoringCommands',
+    "params.get('authoring')",
+    '__articleEditorFixtureOpenAuthoringPalette',
+    '__articleEditorFixtureReplaceAuthoringGeneration',
+    '__articleEditorFixtureReplaceAuthoringDocument',
+    'Array.from({ length: 1000 }'
+])
+{
+    if (!productionFixture.includes(token))
+    {
+        fail(productionFixturePath, 1, `Article editor authoring fixture is missing ${token}`);
+    }
+}
+for (const [file, source, tokens] of [
+    [writePath, write, [':command-surfaces="authoringCommandSurfaces"', ':document-identity="authoringDocumentIdentity"']],
+    [articleWriteEditorPath, articleWriteEditor, [':authoring-commands="authoringCommands"', ':command-surfaces="commandSurfaces"', ':document-identity="documentIdentity"']],
+    [markdownEditorAdapterPath, markdownEditorAdapter, [':authoring-commands="authoringCommands"', ':command-surfaces="commandSurfaces"', ':document-identity="documentIdentity"']],
+    [markdownEditorPath, markdownEditor, [
+        ':commands="fsusUiCommands"',
+        ':surfaces="commandSurfaces"',
+        ':document-identity="documentIdentity"',
+        '@selection-change="trackAuthoringSelection"',
+        '@transaction="trackAuthoringTransaction"',
+        'mergeFsusUiAuthoringCommands',
+        'Authoring command selection or document binding is stale.'
+    ]],
+    [authoringCommandAdapterPath, authoringCommandAdapter, [
+        "'fsusblog.authoring-command-projection.v1'",
+        'maximumAuthoringCommandContributions = 1000',
+        'matchesContext(projection, context)',
+        'createSelectionIdentity(context)',
+        'context.dispatch.dispatch({',
+        'expectedRevision: invocation.sourceRevision',
+        'authority.isCurrent(projection)',
+        "return { focus: 'none' as const }"
+    ]]
+])
+{
+    for (const token of tokens)
+    {
+        if (!source.includes(token))
+        {
+            fail(file, 1, `Article editor authoring command closure is missing ${token}`);
+        }
+    }
+}
 for (const token of [
     'ArticleWriteInspectorShell',
     'ArticleWriteSidebar',
@@ -652,6 +732,23 @@ for (const token of [
     if (!productionFixtureSpec.includes(token))
     {
         fail(productionFixtureSpecPath, 1, `Article editor production fixture acceptance is missing ${token}`);
+    }
+}
+for (const token of [
+    'one command identity is keyboard and screen-reader discoverable on all four surfaces',
+    "'permission-denied', 'pending', 'error'",
+    'stale revision, selection drift, generation replacement and document abort never commit a late result',
+    'one thousand contributions have bounded palette search, grouping and cancellation',
+    'mobile touch keeps extension commands reachable without horizontal overflow',
+    "'Control+Shift+K'",
+    "getByRole('dialog', { name: '命令面板' })",
+    "getByRole('menu', { name: '块插入命令' })",
+    "getByRole('toolbar', { name: '选区工具' })"
+])
+{
+    if (!productionFixtureSpec.includes(token))
+    {
+        fail(productionFixtureSpecPath, 1, `Article editor authoring acceptance is missing ${token}`);
     }
 }
 

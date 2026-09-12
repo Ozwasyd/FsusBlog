@@ -17,6 +17,18 @@
   "zoom": [1, 1.5, 2],
   "inspectorViews": ["publish", "rights", "check", "preview", "versions", "resources"],
   "states": ["empty", "loading", "error", "success", "partial"],
+  "authoringStates": [
+    "ready",
+    "permission-denied",
+    "pending",
+    "error",
+    "stale",
+    "generation-replaced",
+    "aborted",
+    "thousand"
+  ],
+  "authoringSurfaces": ["toolbar", "selection", "slash", "palette"],
+  "maximumAuthoringContributions": 1000,
   "inputModalities": ["keyboard", "touch"],
   "largeContent": {
     "rightsParagraphs": 24,
