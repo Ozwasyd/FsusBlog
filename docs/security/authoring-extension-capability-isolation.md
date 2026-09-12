@@ -45,15 +45,38 @@ identities and any extension/contribution collision with them. Registry schema a
 enum values contribute to the registry identity, so a vocabulary change cannot
 silently reuse an older contract identity.
 
+## Package supply-chain isolation
+
+A package manifest is trusted only after the archive digest and ECDSA signature
+verify against the exact selected publisher key in the complete bounded keyset.
+The keyset identity covers every publisher key, public-key digest, validity window,
+and revocation time; adding, removing, rotating, expiring, or revoking a key changes
+that identity. Package identity also covers the signature, trust result,
+source/provenance references, manifest and contract identities, archive, payload,
+content, entrypoint, and schema declarations.
+
+Only opaque local approved-source identities enter the production composition.
+PAT/bearer markers, URLs, query/fragment syntax, traversal, dynamic downloads,
+post-install execution, and runtime self-update have no package authority. Staged
+content is host-owned, content-addressed, and read-only after independent
+verification. A fresh read rechecks archive and extracted-file digests rather than
+trusting filesystem metadata.
+
+Atomic activation does not grant a capability or execute a contribution. A schema
+change remains fail-closed until the later migration owner exists. Failed health,
+content, or receipt checks restore the previous verified package and never restore
+revoked permissions, because permissions are outside this package authority.
+
 ## Stage boundary
 
-This contract stage does not verify package signatures or trust, issue or persist
-grants, resolve execution, start a worker/service, broker I/O, expose RPC, mutate a
-document, or manage lifecycle state. An enum declaration is never executable
-authority. Each later child must recheck the verified identity and implement its
-own fail-closed acceptance before any operation can occur.
+The current stages validate the contract and package supply chain, but do not issue
+or persist grants, resolve execution, start a worker/service, broker I/O, expose
+RPC, mutate a document, migrate extension data, or manage runtime lifecycle state.
+A verified archive and an enum declaration are never executable authority. Each
+later child must recheck the verified package identity and implement its own
+fail-closed acceptance before any operation can occur.
 
 The general [plugin sandbox](plugin-sandbox.md) continues to own `.fspkg` Hook
 execution through its Level 1 Jint/Lua application sandbox. Neither subsystem may
-reuse the other's manifest, capability registry, identity, grant, lifecycle, or
-fallback authority implicitly.
+reuse the other's manifest, capability registry, package store, identity, grant,
+lifecycle, or fallback authority implicitly.

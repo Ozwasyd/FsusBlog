@@ -10,7 +10,8 @@ public sealed class LocalAuthoringPackageReceiptStore : IAuthoringPackageReceipt
         MaxDepth = 8,
         PropertyNameCaseInsensitive = false,
         ReadCommentHandling = JsonCommentHandling.Disallow,
-        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow
+        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+        RespectRequiredConstructorParameters = true
     };
 
     private readonly string _rootPath;
@@ -137,16 +138,10 @@ public sealed class LocalAuthoringPackageReceiptStore : IAuthoringPackageReceipt
             cancellationToken.ThrowIfCancellationRequested();
             RejectReparsePoint(path);
             byte[] bytes = await ReadBoundedAsync(path, 64 * 1024, cancellationToken);
-            AuthoringPackageReceipt receipt;
-            try
-            {
-                receipt = JsonSerializer.Deserialize<AuthoringPackageReceipt>(bytes, s_json)
-                    ?? throw new AuthoringExtensionContractException("Package receipt is missing.");
-            }
-            catch (JsonException exception)
-            {
-                throw new AuthoringExtensionContractException($"Package receipt JSON is not closed: {exception.GetType().Name}.");
-            }
+            AuthoringPackageReceipt receipt = AuthoringPackageClosedJson.Deserialize<AuthoringPackageReceipt>(
+                bytes,
+                s_json,
+                "Package receipt");
 
             sequence++;
             ValidateReceipt(receipt);
@@ -180,7 +175,15 @@ public sealed class LocalAuthoringPackageReceiptStore : IAuthoringPackageReceipt
             !IsSha256(receipt.PreviousReceiptSha256) ||
             !IsSha256(receipt.ReceiptSha256) ||
             (receipt.PreviousPackageIdentity is not null && !IsSha256(receipt.PreviousPackageIdentity)) ||
-            (receipt.PreviousPackageSha256 is not null && !IsSha256(receipt.PreviousPackageSha256)))
+            (receipt.PreviousPackageSha256 is not null && !IsSha256(receipt.PreviousPackageSha256)) ||
+            (receipt.PreviousPackageIdentity is null) != (receipt.PreviousPackageSha256 is null) ||
+            (receipt.Outcome == AuthoringPackageOutcome.Committed && receipt.FailureCode is not null) ||
+            (receipt.Outcome != AuthoringPackageOutcome.Committed && string.IsNullOrWhiteSpace(receipt.FailureCode)) ||
+            receipt.TrustStatus != AuthoringPackageTrustStatus.Trusted ||
+            !AuthoringPackageReferencePolicy.IsBoundedIdentifier(receipt.ExtensionId) ||
+            !AuthoringPackageReferencePolicy.IsBoundedIdentifier(receipt.Publisher) ||
+            !AuthoringPackageReferencePolicy.IsBoundedIdentifier(receipt.KeyId) ||
+            receipt.Version.Length > 64 || !Version.TryParse(receipt.Version, out _))
         {
             throw new AuthoringExtensionContractException("Package receipt contains an invalid or unbounded identity.");
         }
