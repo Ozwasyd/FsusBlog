@@ -243,8 +243,14 @@ public sealed class ArticleTemplateExpansionTests
         internal StubReferenceAuthority References { get; } = new();
         internal StubExpansionAuthority ExpansionAuthority { get; } = new();
         internal MutableTimeProvider Clock { get; } = new(s_now);
-        internal ArticleTemplateExpansionPlanner Planner { get; }
-        internal ArticleTemplateExpansionVerifier Verifier { get; }
+        internal ArticleTemplateExpansionPlanner Planner
+        {
+            get;
+        }
+        internal ArticleTemplateExpansionVerifier Verifier
+        {
+            get;
+        }
 
         internal ArticleTemplateDefinition Definition
         {
@@ -317,7 +323,10 @@ public sealed class ArticleTemplateExpansionTests
 
     private sealed class StubReferenceAuthority : IArticleTemplateReferenceAuthority
     {
-        internal bool Reject { get; set; }
+        internal bool Reject
+        {
+            get; set;
+        }
 
         public Task ValidateAsync(
             ArticleTemplateActor actor,
