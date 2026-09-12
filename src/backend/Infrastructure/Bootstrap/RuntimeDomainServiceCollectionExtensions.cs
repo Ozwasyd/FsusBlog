@@ -10,6 +10,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Articles;
+using FsusBlog.Server.Services.ArticleVault;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Distribution;
@@ -45,6 +46,16 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IArticleViewFlushSink, ArticleServiceViewFlushSink>();
         services.AddHostedService<ArticleViewFlushWorker>();
         services.AddScoped<ArticleService>();
+        services.AddScoped<PostgresArticleVaultExecutionStore>();
+        services.AddScoped<IArticleVaultExecutionStore>(
+            serviceProvider => serviceProvider.GetRequiredService<PostgresArticleVaultExecutionStore>());
+        services.AddScoped<IArticleVaultTransactionalGroupResultStore>(
+            serviceProvider => serviceProvider.GetRequiredService<PostgresArticleVaultExecutionStore>());
+        services.AddScoped<IArticleVaultCurrentObservationAuthority>(
+            serviceProvider => serviceProvider.GetRequiredService<ArticleService>());
+        services.AddScoped<IArticleVaultCanonicalGroupWriter>(
+            serviceProvider => serviceProvider.GetRequiredService<ArticleService>());
+        services.AddScoped<IArticleVaultSyncPlanExecutor, ArticleVaultSyncPlanExecutor>();
         services.AddScoped<IArticlePublicationValidator, ArticlePublicationValidator>();
         services.AddScoped<CommentCommandService>();
         services.AddScoped<ICommentMutationOutbox, CommentMutationOutboxWriter>();
@@ -157,6 +168,16 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IAuthorSavedViewPersistence, PostgresAuthorSavedViewPersistence>();
         services.AddScoped<IAuthorSavedViewStore, AuthorSavedViewStore>();
         services.AddScoped<IAuthorArticlePinStore, AuthorArticlePinStore>();
+        services.AddScoped<IArticleTemplatePersistence, PostgresArticleTemplatePersistence>();
+        services.AddScoped<IArticleTemplateStore, ArticleTemplateStore>();
+        services.AddScoped<IArticleTemplatePermissionAuthority, ArticleTemplatePermissionAuthority>();
+        services.AddScoped<IArticleTemplateReferenceAuthority, PostgresArticleTemplateReferenceAuthority>();
+        services.AddScoped<IArticleTemplateVerifier, ArticleTemplateVerifier>();
+        services.AddScoped<IArticleTemplateExpansionAuthority, PostgresArticleTemplateExpansionAuthority>();
+        services.AddScoped<IArticleTemplateExpansionPlanner, ArticleTemplateExpansionPlanner>();
+        services.AddScoped<IArticleTemplateExpansionVerifier, ArticleTemplateExpansionVerifier>();
+        services.AddScoped<IArticleCreatePersistence, PostgresArticleCreatePersistence>();
+        services.AddScoped<IArticleCreateStore, ArticleCreateStore>();
         services.AddScoped<AuthoringContentTransferService>();
         services.AddScoped<IAuthoringContentExport>(sp => sp.GetRequiredService<AuthoringContentTransferService>());
         services.AddScoped<IAuthoringContentImport>(sp => sp.GetRequiredService<AuthoringContentTransferService>());

@@ -96,13 +96,25 @@ public sealed class DocumentExportSystemdCgroupAuthority
         ControlEnvironmentDigest = DocumentExportDigest.Compute(_controlEnvironment);
     }
 
-    public DocumentExportSystemdCgroupAuthorityContract Contract { get; }
+    public DocumentExportSystemdCgroupAuthorityContract Contract
+    {
+        get;
+    }
 
-    public int CpuPollIntervalMilliseconds { get; }
+    public int CpuPollIntervalMilliseconds
+    {
+        get;
+    }
 
-    public string IdentityDigest { get; }
+    public string IdentityDigest
+    {
+        get;
+    }
 
-    public string ControlEnvironmentDigest { get; }
+    public string ControlEnvironmentDigest
+    {
+        get;
+    }
 
     public static DocumentExportSystemdCgroupAuthorityContract DiscoverInstalledContract()
     {
@@ -828,27 +840,60 @@ public sealed class DocumentExportSystemdCgroupAuthority
             _lastObservation = initialObservation;
         }
 
-        public string UnitName { get; }
+        public string UnitName
+        {
+            get;
+        }
 
-        public string ControlGroup { get; }
+        public string ControlGroup
+        {
+            get;
+        }
 
-        public string CgroupPath { get; }
+        public string CgroupPath
+        {
+            get;
+        }
 
-        public int RootProcessId { get; }
+        public int RootProcessId
+        {
+            get;
+        }
 
-        public long RootProcessStartIdentity { get; }
+        public long RootProcessStartIdentity
+        {
+            get;
+        }
 
-        public string RootProcessStartIdentitySource { get; }
+        public string RootProcessStartIdentitySource
+        {
+            get;
+        }
 
-        public long CpuBudgetMicroseconds { get; }
+        public long CpuBudgetMicroseconds
+        {
+            get;
+        }
 
-        public long RuntimeMaxMicroseconds { get; }
+        public long RuntimeMaxMicroseconds
+        {
+            get;
+        }
 
-        public long MemoryLimitBytes { get; }
+        public long MemoryLimitBytes
+        {
+            get;
+        }
 
-        public int TasksLimit { get; }
+        public int TasksLimit
+        {
+            get;
+        }
 
-        public DocumentExportCgroupObservation InitialObservation { get; }
+        public DocumentExportCgroupObservation InitialObservation
+        {
+            get;
+        }
 
         public async Task<DocumentExportCgroupObservation> ObserveAsync(
             CancellationToken cancellationToken = default)

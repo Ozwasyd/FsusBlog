@@ -12052,6 +12052,54 @@
                 "vitest:tests/frontend/unit/utils/errors.test.ts#detects-abort-positive-input-message-the-operation-was-a-702b7d3b35"
             ],
             "reason": "Issue #2610 retains message=The operation was aborted due to timeout as an independent named positive row with a fresh factory and exact true oracle."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs#FsusBlog.Server.Tests.Unit.SecurityChallengeBinaryEndpointTests.IssueAsync_IncompatibleAccept_ReturnsApiError406#case-0000",
+            "path": "tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs#FsusBlog.Server.Tests.Unit.SecurityChallengeBinaryEndpointTests.IssueAsync_UnacceptableAcceptHeader_ReturnsApiError406#case-0000"
+            ],
+            "reason": "Issue #2609 retains the incompatible media-type Accept rejection as the named incompatible-media-type Theory row with the exact 406 status and decoded ApiError oracles."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs#FsusBlog.Server.Tests.Unit.SecurityChallengeBinaryEndpointTests.IssueAsync_BinaryAcceptWithZeroQuality_ReturnsApiError406#case-0000",
+            "path": "tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs#FsusBlog.Server.Tests.Unit.SecurityChallengeBinaryEndpointTests.IssueAsync_UnacceptableAcceptHeader_ReturnsApiError406#case-0001"
+            ],
+            "reason": "Issue #2609 retains the binary q-zero Accept rejection as the named binary-q-zero Theory row with the exact 406 status and decoded ApiError oracles."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/composables/staticPageSiteTitle.test.ts#keeps-the-about-page-view-free-of-shell-owned-site-ident-7eed1b8f83",
+            "path": "tests/frontend/unit/composables/staticPageSiteTitle.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/composables/staticPageSiteTitle.test.ts#keeps-the-about-page-view-free-of-shell-owned-site-ident-77cc83db2f"
+            ],
+            "reason": "Issue #2613 retains the about page shell-identity case as the named about corpus row driven by the shared mountStaticPageWithShellIdentity harness."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/composables/staticPageSiteTitle.test.ts#keeps-policy-page-views-free-of-shell-owned-site-identit-0e6a7426e3",
+            "path": "tests/frontend/unit/composables/staticPageSiteTitle.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/composables/staticPageSiteTitle.test.ts#keeps-the-privacy-page-view-free-of-shell-owned-site-ide-51c0aed3e6"
+            ],
+            "reason": "Issue #2613 retains the privacy page shell-identity case as the named privacy corpus row driven by the shared mountStaticPageWithShellIdentity harness."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/utils/errors.test.ts#maps-known-validation-message-invalid-totp-6255105f67",
+            "path": "tests/frontend/unit/utils/errors.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/errors.test.ts#maps-known-validation-message-invalid-totp-4335a6d31b"
+            ],
+            "reason": "Issue #2611 retains the INVALID_TOTP Validation mapping as the named invalid-totp corpus row with the exact localized copy oracle."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/utils/errors.test.ts#maps-known-validation-message-baseurl-protocol-invalid-5bc7392574",
+            "path": "tests/frontend/unit/utils/errors.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/errors.test.ts#maps-known-validation-message-invalid-base-url-protocol-5999797f98"
+            ],
+            "reason": "Issue #2611 retains the BASEURL_PROTOCOL_INVALID Validation mapping as the named invalid-base-url-protocol corpus row with the exact localized copy oracle."
         }
     ],
     "assertionReplacements": [
@@ -12218,6 +12266,57 @@
                 "vitest:toBe:isAbortError(factory()), caseName:equality:true"
             ],
             "reason": "Issue #2610 preserves each positive isAbortError true oracle in the named factory table; per-case ownership remains in deletedTests."
+        },
+        {
+            "before": "vitest:toBe:wrapper.findComponent(Child).vm.staticPageView.header.title:equality:'\u5173\u4e8e'",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/composables/staticPageSiteTitle.test.ts#keeps-the-about-page-view-free-of-shell-owned-site-ident-77cc83db2f"
+            ],
+            "after": [
+                "vitest:toBe:staticPageView.header.title:equality:pageCase.title"
+            ],
+            "reason": "Issue #2613 preserves each page title oracle as the case-bound pageCase.title assertion; per-case ownership remains in deletedTests."
+        },
+        {
+            "before": "vitest:toBe:wrapper.findComponent(Child).vm.staticPageView.header.title:equality:'\u9690\u79c1\u653f\u7b56'",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/composables/staticPageSiteTitle.test.ts#keeps-the-privacy-page-view-free-of-shell-owned-site-ide-51c0aed3e6"
+            ],
+            "after": [
+                "vitest:toBe:staticPageView.header.title:equality:pageCase.title"
+            ],
+            "reason": "Issue #2613 preserves each page title oracle as the case-bound pageCase.title assertion; per-case ownership remains in deletedTests."
+        },
+        {
+            "before": "vitest:toHaveProperty:wrapper.findComponent(Child).vm.staticPageView:predicate:'footer'",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/composables/staticPageSiteTitle.test.ts#keeps-the-about-page-view-free-of-shell-owned-site-ident-77cc83db2f",
+                "vitest:tests/frontend/unit/composables/staticPageSiteTitle.test.ts#keeps-the-privacy-page-view-free-of-shell-owned-site-ide-51c0aed3e6"
+            ],
+            "after": [
+                "vitest:toHaveProperty:staticPageView:predicate:'footer'"
+            ],
+            "reason": "Issue #2613 preserves the shell-owned footer absence oracle in the shared harness case body; per-case ownership remains in deletedTests."
+        },
+        {
+            "before": "vitest:toBe:getErrorMessage(e, 'fallback'):equality:'\u9a8c\u8bc1\u7801\u65e0\u6548\uff0c\u8bf7\u91cd\u8bd5'",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/errors.test.ts#maps-known-validation-message-invalid-totp-4335a6d31b"
+            ],
+            "after": [
+                "vitest:toBe:getErrorMessage(error, 'fallback'):equality:expected"
+            ],
+            "reason": "Issue #2611 preserves each Validation mapping oracle in the named case table; per-case ownership remains in deletedTests."
+        },
+        {
+            "before": "vitest:toBe:getErrorMessage(e, 'fallback'):equality:'\u7ad9\u70b9URL\u534f\u8bae\u4e0d\u5408\u6cd5'",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/errors.test.ts#maps-known-validation-message-invalid-base-url-protocol-5999797f98"
+            ],
+            "after": [
+                "vitest:toBe:getErrorMessage(error, 'fallback'):equality:expected"
+            ],
+            "reason": "Issue #2611 preserves each Validation mapping oracle in the named case table; per-case ownership remains in deletedTests."
         }
     ]
 }

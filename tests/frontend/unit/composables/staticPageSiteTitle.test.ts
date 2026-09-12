@@ -1,5 +1,5 @@
-import { mount } from '@vue/test-utils'
-import { createPinia, setActivePinia } from 'pinia'
+import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { computed, defineComponent } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useStaticPage } from '@/composables/useStaticPage'
@@ -10,6 +10,15 @@ const mockGetPageData = vi.hoisted(() => vi.fn())
 const mockGetSiteConfig = vi.hoisted(() => vi.fn())
 const mockGetSiteComplianceConfig = vi.hoisted(() => vi.fn())
 const mockConsumePublicPageSeed = vi.hoisted(() => vi.fn())
+const seenPiniaInstances = new WeakSet<object>()
+const seenWrapperInstances = new WeakSet<object>()
+
+type StaticPageShellIdentityCase = {
+  caseName: string
+  kind: 'About' | 'Privacy'
+  slug: string
+  title: string
+}
 
 vi.mock('@/api/system', () => ({
   getPageData: mockGetPageData,
@@ -25,10 +34,38 @@ vi.mock('@/bootstrap/publicHydrationBootstrap', () => ({
   readPublicHydrationPayload: vi.fn(() => null)
 }))
 
+function mountStaticPageWithShellIdentity(pageCase: StaticPageShellIdentityCase) {
+  const pinia = createPinia()
+  setActivePinia(pinia)
+
+  const Child = defineComponent({
+    setup() {
+      const { staticPageView } = useStaticPage({
+        kind: pageCase.kind,
+        slug: pageCase.slug,
+        title: pageCase.title
+      })
+      return { staticPageView }
+    },
+    template: '<div />'
+  })
+  const wrapper = mount(defineComponent({
+    components: { Child },
+    setup() {
+      providePublicSiteIdentity(computed(() => createPublicSiteIdentity({ siteTitle: 'Shell Blog' })))
+    },
+    template: '<Child />'
+  }), {
+    global: {
+      plugins: [pinia]
+    }
+  })
+
+  return { Child, pinia, wrapper }
+}
+
 describe('static public page identity ownership', () => {
   beforeEach(() => {
-    const pinia = createPinia()
-    setActivePinia(pinia)
     vi.clearAllMocks()
     mockGetPageData.mockResolvedValue({ content: 'Static page content' })
     mockGetSiteConfig.mockResolvedValue(null)
@@ -39,66 +76,34 @@ describe('static public page identity ownership', () => {
     })
   })
 
-  it('keeps the about page view free of shell-owned site identity', () => {
-    const pinia = createPinia()
-    setActivePinia(pinia)
+  it.each([
+    { caseName: 'about', kind: 'About' as const, slug: 'about', title: '关于' },
+    { caseName: 'privacy', kind: 'Privacy' as const, slug: 'privacy', title: '隐私政策' }
+  ])('keeps the $caseName page view free of shell-owned site identity', async (pageCase) => {
+    const { Child, pinia, wrapper } = mountStaticPageWithShellIdentity(pageCase)
 
-    const Child = defineComponent({
-      setup() {
-        const { staticPageView } = useStaticPage({
-          kind: 'About',
-          slug: 'about',
-          title: '关于'
-        })
-        return { staticPageView }
-      },
-      template: '<div />'
-    })
-    const wrapper = mount(defineComponent({
-      components: { Child },
-      setup() {
-        providePublicSiteIdentity(computed(() => createPublicSiteIdentity({ siteTitle: 'Shell Blog' })))
-      },
-      template: '<Child />'
-    }), {
-      global: {
-        plugins: [pinia]
-      }
-    })
+    try {
+      await flushPromises()
+      const staticPageView = wrapper.findComponent(Child).vm.staticPageView
 
-    expect(wrapper.findComponent(Child).vm.staticPageView).not.toHaveProperty('footer')
-    expect(wrapper.findComponent(Child).vm.staticPageView.header.title).toBe('关于')
-  })
-
-  it('keeps policy page views free of shell-owned site identity', () => {
-    const pinia = createPinia()
-    setActivePinia(pinia)
-
-    const Child = defineComponent({
-      setup() {
-        const { staticPageView } = useStaticPage({
-          kind: 'Privacy',
-          slug: 'privacy',
-          title: '隐私政策'
-        })
-        return { staticPageView }
-      },
-      template: '<div />'
-    })
-    const wrapper = mount(defineComponent({
-      components: { Child },
-      setup() {
-        providePublicSiteIdentity(computed(() => createPublicSiteIdentity({ siteTitle: 'Shell Blog' })))
-      },
-      template: '<Child />'
-    }), {
-      global: {
-        plugins: [pinia]
-      }
-    })
-
-    expect(wrapper.findComponent(Child).vm.staticPageView).not.toHaveProperty('footer')
-    expect(wrapper.findComponent(Child).vm.staticPageView.header.title).toBe('隐私政策')
+      expect(seenPiniaInstances.has(pinia)).toBe(false)
+      expect(seenWrapperInstances.has(wrapper)).toBe(false)
+      seenPiniaInstances.add(pinia)
+      seenWrapperInstances.add(wrapper)
+      expect(getActivePinia()).toBe(pinia)
+      expect(staticPageView).not.toHaveProperty('footer')
+      expect(staticPageView.header.title).toBe(pageCase.title)
+      expect(JSON.stringify(staticPageView.header)).not.toContain('Shell Blog')
+      expect(staticPageView.body.content).not.toContain('Shell Blog')
+      expect(mockConsumePublicPageSeed).toHaveBeenCalledTimes(1)
+      expect(mockConsumePublicPageSeed).toHaveBeenCalledWith(pageCase.kind, { fullPath: undefined })
+      expect(mockGetPageData).toHaveBeenCalledTimes(1)
+      expect(mockGetPageData.mock.calls[0]?.[0]).toBe(pageCase.slug)
+    } finally {
+      wrapper.unmount()
+      setActivePinia(undefined)
+      expect(wrapper.exists()).toBe(false)
+    }
   })
 
   it('does not preserve stale hydration titles inside static page content contracts', () => {

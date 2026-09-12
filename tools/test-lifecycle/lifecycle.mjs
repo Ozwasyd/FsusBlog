@@ -184,6 +184,56 @@ export function validateLifecycleRegistry({ audit, registry })
     return errors;
 }
 
+export function reconcileLifecycleRegistry({ root, audit, registry })
+{
+    const discoveredNodeFiles = audit.files
+        .map(({ path: file }) => file)
+        .filter((file) => isNodeTestFile(file));
+    const discoveredCounts = new Map();
+    for (const file of discoveredNodeFiles)
+    {
+        discoveredCounts.set(file, (discoveredCounts.get(file) ?? 0) + 1);
+    }
+    const duplicateFiles = [...discoveredCounts.entries()]
+        .filter(([, count]) => count > 1)
+        .map(([file]) => file)
+        .sort();
+    if (duplicateFiles.length > 0)
+    {
+        return {
+            errors: duplicateFiles.map((file) => `audit contains duplicate Node test file: ${file}`),
+            registry: null,
+            additions: []
+        };
+    }
+
+    const errors = validateLifecycleRegistry({ audit, registry })
+        .filter((error) => !error.startsWith('unowned Node test: '));
+    if (errors.length > 0)
+    {
+        return { errors, registry: null, additions: [] };
+    }
+
+    const entries = Array.isArray(registry?.nodeTests) ? registry.nodeTests : [];
+    const registeredFiles = new Set(entries.map(({ file }) => file));
+    const additions = discoveredNodeFiles
+        .filter((file) => !registeredFiles.has(file))
+        .sort()
+        .map((file) => ({
+            file,
+            ...classifyNodeRegistryEntry(root, file, fs.readFileSync(path.join(root, file), 'utf8'))
+        }));
+
+    return {
+        errors: [],
+        registry: {
+            ...registry,
+            nodeTests: [...entries, ...additions]
+        },
+        additions
+    };
+}
+
 export function buildLifecycleReport({ audit, registry })
 {
     const errors = validateLifecycleRegistry({ audit, registry });
