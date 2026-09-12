@@ -55,7 +55,7 @@ public static class WebApplicationBuilderCompositionExtensions
             .Enrich.With(services.GetRequiredService<AuditSerilogEnricher>())
             .WriteTo.Logger(audit => audit
                 .Filter.ByIncludingOnly(AuditLogEventMapper.IsAuditCandidate)
-                .WriteTo.Sink(services.GetRequiredService<AuditSerilogSink>())));
+                .WriteTo.Sink(new DeferredAuditSerilogSink(services))));
 
         builder.Services.Configure<ForwardedHeadersOptions>(options =>
         {

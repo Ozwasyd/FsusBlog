@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection;
+
 using Serilog.Core;
 using Serilog.Events;
 
@@ -78,4 +80,18 @@ public sealed class AuditSerilogSink(AuditLogChannel channel, AuditLogEventMappe
 
         _channel.TryWrite(record);
     }
+}
+
+// The Serilog Logger singleton resolves its sinks inside the Logger factory itself.
+// AuditSerilogSink transitively requires ILogger<>, so resolving it there re-enters
+// the in-progress Logger resolution and deadlocks the service provider lock.
+// Deferring resolution to the first emitted event breaks the construction-time cycle.
+internal sealed class DeferredAuditSerilogSink(IServiceProvider services) : ILogEventSink
+{
+    private readonly Lazy<AuditSerilogSink> _inner = new(
+        services.GetRequiredService<AuditSerilogSink>,
+        LazyThreadSafetyMode.ExecutionAndPublication);
+
+    public void Emit(LogEvent logEvent)
+        => _inner.Value.Emit(logEvent);
 }
