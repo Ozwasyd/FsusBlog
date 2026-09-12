@@ -185,10 +185,11 @@ The main frontend credential is the HttpOnly session cookie/AEDS auth frame. Cre
 ## Authoring, comments, subscriptions, and telemetry
 
 The authoring extension host has a separate internal/experimental default-deny
-manifest contract. Its closed capabilities are requests only; validation grants no
-document, network, filesystem, database, DOM, process, or host-private authority.
-This stage installs no runtime or grant path and adds no HTTP/AEDS or stable Shared
-ABI. See
+manifest and signed package boundary. Its closed capabilities are requests only;
+verified content-addressed staging and atomic package activation grant no document,
+network, filesystem, database, DOM, process, or host-private authority. These
+stages install no execution or grant path and add no HTTP/AEDS or stable Shared ABI.
+See
 [Authoring extension capability and isolation boundary](security/authoring-extension-capability-isolation.md).
 
 Plugin manifests request but do not grant access. The closed typed capability catalog defaults to an empty grant; Sensitive capabilities require explicit administrator confirmation and must be a subset of the signed manifest. database.raw, raw filesystem/network, process, reflection, assembly loading, IServiceProvider, unrestricted CLR, and network.unrestricted are not grantable. Each Host API call rechecks its grant. Level 1 JavaScript/Lua disables CLR import and enforces timeout, memory, instruction, call-depth, output, log, and cancellation budgets; Lua is limited to `string/table/math/utf8`, login hooks require `user.auth.hook`, and `cluster-once`/`scheduled`/`leased` hooks require idempotency and fencing. Jint runs with `AllowClr` disabled. Degraded/Quarantined recovery requires administrator confirmation. Use [Plugin permission and sandbox boundary](security/plugin-sandbox.md), [Controlled Lua plugin runtime](architecture/lua-plugin-runtime.md), [Plugin Hook Dispatcher](architecture/plugin-hook-dispatcher.md), and [TypeScript plugin SDK and Jint runtime](plugins/typescript-sdk.md) for the full domain contract. No concrete Lua engine is currently in the dependency graph, so the default adapter fails closed.
