@@ -1676,7 +1676,7 @@ RunFrontendRuntimeContractsLane() {
 }
 
 RunFrontendFastStaticGovernanceGroupBody() {
-    RunInClient "${FSUSBLOG_NODE:-node}" \
+    RunInClient env FSUSBLOG_STATIC_PAYLOAD_BUDGET_MODE=authoritative "${FSUSBLOG_NODE:-node}" \
         ../../tools/test/run-command-manifest.mjs \
         --matrix-group frontend-static-governance
 }

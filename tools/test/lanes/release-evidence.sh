@@ -41,7 +41,8 @@ CheckFlakyEvidence() {
 }
 
 CheckArtifactSlimness() {
-    Run "$ROOT_DIR/tools/operations/check-publish-artifact-slimness.mjs"
+    Run env FSUSBLOG_STATIC_PAYLOAD_BUDGET_MODE=authoritative \
+        "$ROOT_DIR/tools/operations/check-publish-artifact-slimness.mjs"
 }
 
 CheckEvidenceMetrics() {

@@ -73,6 +73,8 @@ Admin code is split by domain rather than one oversized `route-admin` chunk:
 
 `check:asset-size-budget` enforces raw, gzip, and brotli budgets for `route-admin-*`. After a Vite build, `check:route-asset-budget` reads `.vite/manifest.json`, reports route-level raw/gzip/brotli first-entry cost, async dependency count, and forbidden public imports, and writes `.tmp/frontend/route-asset-budget.json` for CI evidence. ECharts remains within the lazy `echartsRuntime` boundary and must not be imported directly by public routes or ordinary components.
 
+The total static-client payload budget is a byte-exact, audited-baseline-no-growth contract in `config/performance/static-client-payload-budget.v1.json`. Its baseline records the file count, total bytes, root, UTF-8 byte path order, record format, inventory algorithm, and content-bound inventory digest of the accepted client output; `maxTotalBytes.derivation` is fixed to `baseline.totalBytes`, so updating the audit cannot add implicit headroom. `node tools/operations/static-client-payload-budget.mjs --root src/frontend/dist --check` is the sole executable reproduction/checker. Both `check:asset-size-budget` and `check-publish-artifact-slimness.mjs` load the authority and enforce both its total-byte and file-count ceilings. Budget environment overrides require explicit `FSUSBLOG_STATIC_PAYLOAD_BUDGET_MODE=diagnostic`, produce `qualificationEligible: false`, and are rejected by authoritative release and production paths.
+
 ## Public image delivery
 
 Public images require explicit delivery metadata:
