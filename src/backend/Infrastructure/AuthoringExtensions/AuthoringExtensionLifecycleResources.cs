@@ -33,14 +33,15 @@ public sealed class AuthoringExtensionLifecycleResources(
     public async ValueTask ActivateAtomicallyAsync(
         VerifiedAuthoringPackage package,
         ImmutableArray<AuthoringExecutionTarget> targets,
+        long generation,
         CancellationToken cancellationToken)
     {
         await _lifecycleGate.WaitAsync(cancellationToken);
         try
         {
-            if (targets.IsDefault)
+            if (targets.IsDefault || generation < 1)
             {
-                throw new AuthoringExtensionContractException("Lifecycle activation targets are missing.");
+                throw new AuthoringExtensionContractException("Lifecycle activation targets or generation are missing.");
             }
 
             string historyKey = HistoryKey(package);
@@ -73,7 +74,7 @@ public sealed class AuthoringExtensionLifecycleResources(
             lock (_lock)
             {
                 _targetHistory[historyKey] = [.. targets];
-                _active.Add(package.Contract.Manifest.Id, new ActiveResources());
+                _active.Add(package.Contract.Manifest.Id, new ActiveResources(generation));
             }
         }
         finally
@@ -84,27 +85,61 @@ public sealed class AuthoringExtensionLifecycleResources(
 
     public async ValueTask TrackWorkerAsync(
         string extensionId,
+        long generation,
         IAuthoringWorkerSandboxInstance worker,
         CancellationToken cancellationToken = default)
     {
-        if (!TryTrack(extensionId, worker, static (resources, instance) => resources.Workers.Add(instance)))
+        if (cancellationToken.IsCancellationRequested)
         {
-            await worker.TerminateAsync("lifecycle-not-active", CancellationToken.None);
-            await worker.DisposeAsync();
+            await TerminateAndDisposeWorkerAsync(worker, "lifecycle-track-cancelled");
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        if (!TryTrack(extensionId, generation, worker, static (resources, instance) => resources.Workers.Add(instance)))
+        {
+            await TerminateAndDisposeWorkerAsync(worker, "lifecycle-not-active");
             throw new AuthoringExtensionContractException("Worker started outside an active lifecycle generation.");
         }
     }
 
     public async ValueTask TrackServiceAsync(
         string extensionId,
+        long generation,
         IAuthoringServiceProcess service,
         CancellationToken cancellationToken = default)
     {
-        if (!TryTrack(extensionId, service, static (resources, process) => resources.Services.Add(process)))
+        if (cancellationToken.IsCancellationRequested)
         {
-            await service.TerminateTreeAsync("lifecycle-not-active", CancellationToken.None);
-            await service.DisposeAsync();
+            await TerminateAndDisposeServiceAsync(service, "lifecycle-track-cancelled");
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        if (!TryTrack(extensionId, generation, service, static (resources, process) => resources.Services.Add(process)))
+        {
+            await TerminateAndDisposeServiceAsync(service, "lifecycle-not-active");
             throw new AuthoringExtensionContractException("Service started outside an active lifecycle generation.");
+        }
+    }
+
+    public async ValueTask ReleaseWorkerAsync(
+        string extensionId,
+        long generation,
+        IAuthoringWorkerSandboxInstance worker)
+    {
+        if (TryRelease(extensionId, generation, worker, static resources => resources.Workers))
+        {
+            await worker.DisposeAsync();
+        }
+    }
+
+    public async ValueTask ReleaseServiceAsync(
+        string extensionId,
+        long generation,
+        IAuthoringServiceProcess service)
+    {
+        if (TryRelease(extensionId, generation, service, static resources => resources.Services))
+        {
+            await service.DisposeAsync();
         }
     }
 
@@ -116,46 +151,64 @@ public sealed class AuthoringExtensionLifecycleResources(
         await _lifecycleGate.WaitAsync(cancellationToken);
         try
         {
-            ActiveResources? resources;
+            IAuthoringWorkerSandboxInstance[] workers;
+            IAuthoringServiceProcess[] services;
             lock (_lock)
             {
-                if (!_active.TryGetValue(extensionId, out resources))
+                if (!_active.TryGetValue(extensionId, out ActiveResources? resources))
                 {
-                    resources = null;
+                    workers = [];
+                    services = [];
+                }
+                else if (generation < 1 || resources.Generation > generation)
+                {
+                    throw new AuthoringExtensionContractException(
+                        "Lifecycle resource revocation generation is older than the active generation.");
                 }
                 else
                 {
                     resources.Revoking = true;
+                    workers = [.. resources.Workers];
+                    services = [.. resources.Services];
+                    resources.Workers.Clear();
+                    resources.Services.Clear();
                 }
             }
 
-            int workerFailures = 0;
-            int serviceFailures = 0;
-            if (resources is not null)
+            List<IAuthoringWorkerSandboxInstance> workerFailures = [];
+            List<IAuthoringServiceProcess> serviceFailures = [];
+            foreach (IAuthoringWorkerSandboxInstance worker in workers)
             {
-                foreach (IAuthoringWorkerSandboxInstance worker in resources.Workers)
+                try
                 {
-                    try
-                    {
-                        await worker.TerminateAsync("lifecycle-revoked", CancellationToken.None);
-                        await worker.DisposeAsync();
-                    }
-                    catch
-                    {
-                        workerFailures++;
-                    }
+                    await TerminateAndDisposeWorkerAsync(worker, "lifecycle-revoked");
                 }
-
-                foreach (IAuthoringServiceProcess service in resources.Services)
+                catch
                 {
-                    try
+                    workerFailures.Add(worker);
+                }
+            }
+
+            foreach (IAuthoringServiceProcess service in services)
+            {
+                try
+                {
+                    await TerminateAndDisposeServiceAsync(service, "lifecycle-revoked");
+                }
+                catch
+                {
+                    serviceFailures.Add(service);
+                }
+            }
+
+            if (workerFailures.Count > 0 || serviceFailures.Count > 0)
+            {
+                lock (_lock)
+                {
+                    if (_active.TryGetValue(extensionId, out ActiveResources? resources))
                     {
-                        await service.TerminateTreeAsync("lifecycle-revoked", CancellationToken.None);
-                        await service.DisposeAsync();
-                    }
-                    catch
-                    {
-                        serviceFailures++;
+                        resources.Workers.AddRange(workerFailures);
+                        resources.Services.AddRange(serviceFailures);
                     }
                 }
             }
@@ -165,8 +218,8 @@ public sealed class AuthoringExtensionLifecycleResources(
                 CancellationToken.None);
             var report = new AuthoringLifecycleResourceReport(
                 host.ContributionRegistrations,
-                workerFailures,
-                serviceFailures,
+                workerFailures.Count,
+                serviceFailures.Count,
                 host.RpcRequests,
                 host.Grants,
                 host.ScheduledJobs,
@@ -180,6 +233,43 @@ public sealed class AuthoringExtensionLifecycleResources(
             }
 
             return report;
+        }
+        finally
+        {
+            _lifecycleGate.Release();
+        }
+    }
+
+    public async ValueTask<bool> RebindGenerationAsync(
+        string extensionId,
+        long expectedGeneration,
+        long replacementGeneration,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(extensionId) || expectedGeneration < 1 || replacementGeneration < 1)
+        {
+            throw new AuthoringExtensionContractException("Lifecycle generation rebind is missing or invalid.");
+        }
+
+        await _lifecycleGate.WaitAsync(cancellationToken);
+        try
+        {
+            lock (_lock)
+            {
+                if (!_active.TryGetValue(extensionId, out ActiveResources? resources))
+                {
+                    return false;
+                }
+
+                if (resources.Generation != expectedGeneration || resources.Revoking)
+                {
+                    throw new AuthoringExtensionContractException(
+                        "Lifecycle generation rebind is stale or already revoking.");
+                }
+
+                resources.Generation = replacementGeneration;
+                return true;
+            }
         }
         finally
         {
@@ -241,24 +331,98 @@ public sealed class AuthoringExtensionLifecycleResources(
 
     private bool TryTrack<T>(
         string extensionId,
+        long generation,
         T resource,
         Action<ActiveResources, T> add)
         where T : class
     {
-        if (string.IsNullOrWhiteSpace(extensionId) || resource is null)
+        if (string.IsNullOrWhiteSpace(extensionId) || generation < 1 || resource is null)
         {
             return false;
         }
 
         lock (_lock)
         {
-            if (!_active.TryGetValue(extensionId, out ActiveResources? resources) || resources.Revoking)
+            if (!_active.TryGetValue(extensionId, out ActiveResources? resources) ||
+                resources.Generation != generation || resources.Revoking)
             {
                 return false;
             }
 
             add(resources, resource);
             return true;
+        }
+    }
+
+    private bool TryRelease<T>(
+        string extensionId,
+        long generation,
+        T resource,
+        Func<ActiveResources, List<T>> select)
+        where T : class
+    {
+        lock (_lock)
+        {
+            if (generation < 1 ||
+                !_active.TryGetValue(extensionId, out ActiveResources? resources) ||
+                generation > resources.Generation)
+            {
+                return false;
+            }
+
+            List<T> tracked = select(resources);
+            int index = tracked.FindIndex(candidate => ReferenceEquals(candidate, resource));
+            if (index < 0)
+            {
+                return false;
+            }
+
+            tracked.RemoveAt(index);
+            return true;
+        }
+    }
+
+    private static async ValueTask TerminateAndDisposeWorkerAsync(
+        IAuthoringWorkerSandboxInstance worker,
+        string reason)
+    {
+        bool terminated = false;
+        try
+        {
+            await worker.TerminateAsync(reason, CancellationToken.None);
+            terminated = true;
+        }
+        catch
+        {
+        }
+
+        await worker.DisposeAsync();
+        if (!terminated)
+        {
+            throw new AuthoringExtensionContractException(
+                "Lifecycle could not confirm worker termination before disposal.");
+        }
+    }
+
+    private static async ValueTask TerminateAndDisposeServiceAsync(
+        IAuthoringServiceProcess service,
+        string reason)
+    {
+        bool terminated = false;
+        try
+        {
+            await service.TerminateTreeAsync(reason, CancellationToken.None);
+            terminated = true;
+        }
+        catch
+        {
+        }
+
+        await service.DisposeAsync();
+        if (!terminated)
+        {
+            throw new AuthoringExtensionContractException(
+                "Lifecycle could not confirm service-tree termination before disposal.");
         }
     }
 
@@ -284,8 +448,10 @@ public sealed class AuthoringExtensionLifecycleResources(
             package.Contract.Manifest.PackageSha256,
             package.Contract.Manifest.ContentSha256);
 
-    private sealed class ActiveResources
+    private sealed class ActiveResources(long generation)
     {
+        public long Generation { get; set; } = generation;
+
         public List<IAuthoringWorkerSandboxInstance> Workers { get; } = [];
 
         public List<IAuthoringServiceProcess> Services { get; } = [];

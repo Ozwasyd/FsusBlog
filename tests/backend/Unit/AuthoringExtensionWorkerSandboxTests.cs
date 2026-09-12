@@ -22,7 +22,8 @@ public sealed class AuthoringExtensionWorkerSandboxTests
         AuthoringWorkerExecutionResult result = await fixture.Sandbox.ExecuteAsync(
             fixture.Package,
             fixture.Target,
-            fixture.Request);
+            fixture.Request,
+            1);
 
         Assert.Equal(AuthoringWorkerResultStatus.Completed, result.Status);
         Assert.Equal([4, 5, 6], result.Response?.Payload);
@@ -38,7 +39,8 @@ public sealed class AuthoringExtensionWorkerSandboxTests
         AuthoringWorkerExecutionResult changed = await fixture.Sandbox.ExecuteAsync(
             fixture.Package,
             fixture.Target,
-            fixture.Request with { SourceRevision = fixture.Request.SourceRevision + 1 });
+            fixture.Request with { SourceRevision = fixture.Request.SourceRevision + 1 },
+            1);
         Assert.NotEqual(receipt.InstanceIdentity, changed.Receipt?.InstanceIdentity);
     }
 
@@ -68,7 +70,7 @@ public sealed class AuthoringExtensionWorkerSandboxTests
         WorkerFixture fixture = await CreateFixtureAsync(instance);
 
         await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
-            await fixture.Sandbox.ExecuteAsync(fixture.Package, fixture.Target, fixture.Request));
+            await fixture.Sandbox.ExecuteAsync(fixture.Package, fixture.Target, fixture.Request, 1));
         Assert.Equal("capability-probe-failed", instance.TerminationReason);
     }
 
@@ -87,7 +89,7 @@ public sealed class AuthoringExtensionWorkerSandboxTests
         WorkerFixture fixture = await CreateFixtureAsync(new TestInstance(report));
 
         await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
-            await fixture.Sandbox.ExecuteAsync(fixture.Package, fixture.Target, fixture.Request));
+            await fixture.Sandbox.ExecuteAsync(fixture.Package, fixture.Target, fixture.Request, 1));
     }
 
     [Fact]
@@ -103,7 +105,8 @@ public sealed class AuthoringExtensionWorkerSandboxTests
         AuthoringWorkerExecutionResult result = await fixture.Sandbox.ExecuteAsync(
             fixture.Package,
             fixture.Target,
-            request);
+            request,
+            1);
 
         Assert.Equal(AuthoringWorkerResultStatus.TimedOut, result.Status);
         Assert.Null(result.Response);
@@ -119,7 +122,8 @@ public sealed class AuthoringExtensionWorkerSandboxTests
         AuthoringWorkerExecutionResult result = await fixture.Sandbox.ExecuteAsync(
             fixture.Package,
             fixture.Target,
-            fixture.Request);
+            fixture.Request,
+            1);
 
         Assert.Equal(AuthoringWorkerResultStatus.Crashed, result.Status);
         Assert.Null(result.Response);
@@ -133,7 +137,8 @@ public sealed class AuthoringExtensionWorkerSandboxTests
         AuthoringWorkerExecutionResult result = await stale.Sandbox.ExecuteAsync(
             stale.Package,
             stale.Target,
-            stale.Request);
+            stale.Request,
+            1);
         Assert.Equal(AuthoringWorkerResultStatus.Stale, result.Status);
 
         WorkerFixture drift = await CreateFixtureAsync();
@@ -144,7 +149,8 @@ public sealed class AuthoringExtensionWorkerSandboxTests
                 drift.Request with
                 {
                     RuntimeIdentity = new string('0', 64)
-                }));
+                },
+                1));
     }
 
     [Fact]
@@ -166,7 +172,8 @@ public sealed class AuthoringExtensionWorkerSandboxTests
                     Contents = contents
                 },
                 fixture.Target,
-                fixture.Request));
+                fixture.Request,
+                1));
     }
 
     [Fact]
@@ -178,12 +185,14 @@ public sealed class AuthoringExtensionWorkerSandboxTests
             await fixture.Sandbox.ExecuteAsync(
                 fixture.Package,
                 fixture.Target with { ExtensionVersion = "9.9.9" },
-                fixture.Request));
+                fixture.Request,
+                1));
         await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
             await fixture.Sandbox.ExecuteAsync(
                 fixture.Package,
                 fixture.Target,
-                fixture.Request with { RequestId = "bad\nrequest" }));
+                fixture.Request with { RequestId = "bad\nrequest" },
+                1));
     }
 
     [Fact]
@@ -389,9 +398,12 @@ public sealed class AuthoringExtensionWorkerSandboxTests
             now.AddSeconds(5),
             [1, 2, 3]);
         instance ??= new TestInstance(ClosedReport());
+        var lifecycleResources = new AuthoringExtensionLifecycleResources(new LifecycleHostResources());
+        await lifecycleResources.ActivateAtomicallyAsync(package, [target], 1, CancellationToken.None);
         var sandbox = new AuthoringExtensionWorkerSandbox(
             new TestRuntime(instance),
             new RevisionGate(currentRevision),
+            lifecycleResources,
             new FixedTimeProvider(now));
         return new WorkerFixture(package, target, request, sandbox);
     }
@@ -421,6 +433,19 @@ public sealed class AuthoringExtensionWorkerSandboxTests
         public ValueTask<IAuthoringWorkerSandboxInstance> StartAsync(
             AuthoringWorkerLaunchDescriptor descriptor,
             CancellationToken cancellationToken) => ValueTask.FromResult<IAuthoringWorkerSandboxInstance>(instance);
+    }
+
+    private sealed class LifecycleHostResources : IAuthoringLifecycleHostResourceAuthority
+    {
+        public ValueTask ActivateAtomicallyAsync(
+            VerifiedAuthoringPackage package,
+            ImmutableArray<AuthoringExecutionTarget> targets,
+            CancellationToken cancellationToken) => ValueTask.CompletedTask;
+
+        public ValueTask<AuthoringLifecycleHostResourceReport> RevokeAllAsync(
+            string extensionId,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult(new AuthoringLifecycleHostResourceReport(0, 0, 0, 0, 0));
     }
 
     private sealed class TestInstance(AuthoringWorkerCapabilityReport report) : IAuthoringWorkerSandboxInstance
