@@ -78,6 +78,10 @@ FsusUI supplies the visual system and reusable UI foundation. FsusBlog owns appl
 
 The frontend fast gate runs `check:fsusui-boundary` in strict-by-default mode, so any FsusUI boundary warning fails before merge.
 
+## Standalone document export boundary
+
+Document export freezes the caller's source, metadata, properties, assets, required fonts, canonical renderer identity, and reading-style authority before provider selection. The closed catalog declares `self-contained-html`, `pdf`, `docx`, and `epub`; only `self-contained-html` has an implementation in the current slice.
+
 ## Standard Protocol Exemptions
 
 Not every public output is an internal AEDS API. The following are standard external protocols or operational outputs and are documented separately from internal binary contracts:

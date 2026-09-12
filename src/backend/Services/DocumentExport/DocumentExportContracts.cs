@@ -58,7 +58,11 @@ public sealed record DocumentExportAsset(
     string MediaType,
     string Sha256,
     ImmutableArray<byte> Bytes,
-    string AltText);
+    string AltText,
+    string Role,
+    string FontFamily,
+    int FontWeight,
+    string FontStyle);
 
 /// <summary>
 /// Complete immutable provider input. The content digest covers the source bytes,
@@ -75,6 +79,7 @@ public sealed record DocumentExportFrozenInput(
     string MetadataDigest,
     string PropertyDigest,
     string AssetManifestDigest,
+    string FontManifestDigest,
     string RendererId,
     string RendererVersion,
     string RendererDigest,
@@ -82,6 +87,7 @@ public sealed record DocumentExportFrozenInput(
     string ThemeProfile,
     string Locale,
     ImmutableArray<DocumentExportAsset> Assets,
+    string ReadingStyleAuthorityDigest,
     string ContentDigest);
 
 public sealed record DocumentExportTask(
@@ -98,6 +104,8 @@ public sealed record DocumentExportTask(
     string MetadataDigest,
     string PropertyDigest,
     string AssetManifestDigest,
+    string FontManifestDigest,
+    string ReadingStyleAuthorityDigest,
     string RendererDigest,
     string FormatId,
     string ProviderId,
@@ -188,6 +196,9 @@ public sealed record DocumentExportProviderReceipt(
     string RendererId,
     string RendererVersion,
     string RendererDigest,
+    string AssetManifestDigest,
+    string FontManifestDigest,
+    string ReadingStyleAuthorityDigest,
     string ToolId,
     string ToolVersion,
     string SandboxReceiptDigest,
@@ -210,13 +221,13 @@ public sealed record DocumentExportProviderReceipt(
 /// </summary>
 public static class DocumentExportContractCatalog
 {
-    public const string InputSchema = "fsusblog.document-export-frozen-input.v1";
-    public const string TaskSchema = "fsusblog.document-export-task.v1";
-    public const string ResultSchema = "fsusblog.document-export-provider-result.v1";
+    public const string InputSchema = "fsusblog.document-export-frozen-input.v2";
+    public const string TaskSchema = "fsusblog.document-export-task.v2";
+    public const string ResultSchema = "fsusblog.document-export-provider-result.v2";
     public const string AttemptReceiptSchema = "fsusblog.document-export-attempt-receipt.v1";
     public const string SandboxPlanSchema = "fsusblog.document-export-sandbox-plan.v1";
-    public const string RendererRequestSchema = "fsusblog.document-export-renderer-request.v1";
-    public const string RendererResponseSchema = "fsusblog.document-export-renderer-response.v1";
+    public const string RendererRequestSchema = "fsusblog.document-export-renderer-request.v2";
+    public const string RendererResponseSchema = "fsusblog.document-export-renderer-response.v2";
     public const string SandboxClass = "document-export-isolated-process-v1";
     public const string NetworkPolicy = "deny-all-except-declared-loopback-v1";
 
@@ -254,14 +265,14 @@ public static class DocumentExportContractCatalog
                 "self-contained-html",
                 "document-export.self-contained-html",
                 "FsusBlog.Server.Services.DocumentExport.SelfContainedHtmlDocumentExportProvider",
-                "1",
+                "2",
                 "text/html",
                 ".html",
                 "fsusui.markdown-renderer",
                 "current-v1",
                 "canonical-markdown-renderer",
                 "current-v1",
-                "deterministic-html-v1",
+                "deterministic-html-v2",
                 implementationAvailable: true,
                 pageEbookDisposition: DocumentExportFeatureDisposition.WarningWithPreservedFallback),
             CreateProvider(
@@ -338,7 +349,7 @@ public static class DocumentExportContractCatalog
         [
             new(
                 "document-export.self-contained-html",
-                "deterministic-html-v1",
+                "deterministic-html-v2",
                 true,
                 Array.Empty<string>()),
             new(

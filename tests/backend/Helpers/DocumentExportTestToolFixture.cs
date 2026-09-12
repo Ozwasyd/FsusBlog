@@ -92,9 +92,17 @@ internal sealed class DocumentExportTestToolFixture : IDisposable
             inputId = input.InputId,
             inputDigest = input.ContentDigest,
             sourceDigest = input.SourceDigest,
+            assetManifestDigest = input.AssetManifestDigest,
+            fontManifestDigest = input.FontManifestDigest,
+            readingStyleAuthorityDigest = input.ReadingStyleAuthorityDigest,
+            markdownUtf8 = input.MarkdownUtf8,
             rendererId = input.RendererId,
             rendererVersion = input.RendererVersion,
             rendererDigest = input.RendererDigest,
+            layoutProfile = input.LayoutProfile,
+            themeProfile = input.ThemeProfile,
+            locale = input.Locale,
+            assets = input.Assets,
             mode,
             title
         });
@@ -318,27 +326,47 @@ internal sealed class DocumentExportTestToolFixture : IDisposable
                 sleep(60);
             }
             verify_isolation();
+            char *schema = json_string(request, "schema");
             char *input_id = json_string(request, "inputId");
             char *input_digest = json_string(request, "inputDigest");
             char *source_digest = json_string(request, "sourceDigest");
+            char *asset_manifest_digest = json_string(request, "assetManifestDigest");
+            char *font_manifest_digest = json_string(request, "fontManifestDigest");
+            char *reading_style_authority_digest = json_string(request, "readingStyleAuthorityDigest");
             char *renderer_id = json_string(request, "rendererId");
             char *renderer_version = json_string(request, "rendererVersion");
             char *renderer_digest = json_string(request, "rendererDigest");
+            char *layout_profile = json_string(request, "layoutProfile");
+            char *theme_profile = json_string(request, "themeProfile");
+            char *locale = json_string(request, "locale");
+            if (strcmp(schema, "fsusblog.document-export-renderer-request.v2") ||
+                strcmp(layout_profile, "document-reading-v1") ||
+                (strcmp(theme_profile, "light-v1") && strcmp(theme_profile, "dark-v1")) ||
+                !locale[0] || !strstr(request, "\"markdownUtf8\":") ||
+                !strstr(request, "\"assets\":[")) {
+                fprintf(stderr, "request-contract");
+                return 68;
+            }
             const char *fragment = "FRAGMENT_LITERAL";
             FILE *output = fopen("/sandbox/output/response.json", "wb");
             if (!output) return 67;
             fprintf(output,
-                "{\"schema\":\"fsusblog.document-export-renderer-response.v1\","
+                "{\"schema\":\"fsusblog.document-export-renderer-response.v2\","
                 "\"inputId\":\"%s\",\"inputDigest\":\"%s\",\"sourceDigest\":\"%s\","
+                "\"assetManifestDigest\":\"%s\",\"fontManifestDigest\":\"%s\","
+                "\"readingStyleAuthorityDigest\":\"%s\","
                 "\"rendererId\":\"%s\",\"rendererVersion\":\"%s\",\"rendererDigest\":\"%s\","
                 "\"title\":\"\\u79bb\\u7ebf\\u6587\\u6863\",\"htmlFragment\":\"%s\","
                 "\"observedFeatures\":[\"headings\",\"links\",\"images\",\"tables\",\"code-shiki\","
                 "\"mermaid\",\"katex-latex\",\"footnotes\",\"anchors\",\"embeds\",\"captions\","
                 "\"cjk\",\"rtl\",\"emoji\",\"page-ebook-limits\"],\"contentDigest\":\"RESPONSE_DIGEST\"}",
-                input_id, input_digest, source_digest, renderer_id, renderer_version, renderer_digest, fragment);
+                input_id, input_digest, source_digest, asset_manifest_digest, font_manifest_digest,
+                reading_style_authority_digest, renderer_id, renderer_version, renderer_digest, fragment);
             fclose(output);
-            free(request); free(input_id); free(input_digest); free(source_digest);
+            free(request); free(schema); free(input_id); free(input_digest); free(source_digest);
             free(renderer_id); free(renderer_version); free(renderer_digest);
+            free(asset_manifest_digest); free(font_manifest_digest); free(reading_style_authority_digest);
+            free(layout_profile); free(theme_profile); free(locale);
             return 0;
         }
         """;

@@ -10,6 +10,14 @@ namespace FsusBlog.Server.Services.DocumentExport;
 public static partial class DocumentExportContractValidator
 {
     private const int MaximumIdentifierLength = 160;
+    private static readonly HashSet<string> s_embeddableImageMediaTypes = new(StringComparer.Ordinal)
+    {
+        "image/avif",
+        "image/gif",
+        "image/jpeg",
+        "image/png",
+        "image/webp"
+    };
 
     public static DocumentExportFrozenInput Seal(DocumentExportFrozenInput input)
     {
@@ -123,7 +131,10 @@ public static partial class DocumentExportContractValidator
                 || provider.ToolchainId != canonical.ToolchainId
                 || provider.ToolchainVersion != canonical.ToolchainVersion
                 || provider.NormalizationPolicy != canonical.NormalizationPolicy
-                || provider.ImplementationAvailable != canonical.ImplementationAvailable)
+                || provider.ImplementationAvailable != canonical.ImplementationAvailable
+                || provider.Budgets != canonical.Budgets
+                || provider.Delivery != canonical.Delivery
+                || !provider.Features.SequenceEqual(canonical.Features))
             {
                 throw new InvalidOperationException($"Document export provider '{provider.ProviderId}' registry identity drifted.");
             }
@@ -176,7 +187,14 @@ public static partial class DocumentExportContractValidator
         RequireIdentifier(input.LayoutProfile, nameof(input.LayoutProfile));
         RequireIdentifier(input.ThemeProfile, nameof(input.ThemeProfile));
         RequireIdentifier(input.Locale, nameof(input.Locale));
-        ValidateAssets(input.Assets, input.AssetManifestDigest);
+        if (input.ReadingStyleAuthorityDigest != DocumentExportReadingStyleAuthority.AuthorityDigest
+            || input.LayoutProfile != DocumentExportReadingStyleAuthority.LayoutProfile
+            || input.ThemeProfile is not (DocumentExportReadingStyleAuthority.LightThemeProfile
+                or DocumentExportReadingStyleAuthority.DarkThemeProfile))
+        {
+            throw new InvalidDataException("Document export reading style authority or presentation profile drifted.");
+        }
+        ValidateAssets(input.Assets, input.AssetManifestDigest, input.FontManifestDigest);
 
         DocumentExportFrozenInput unsigned = input with
         {
@@ -202,6 +220,8 @@ public static partial class DocumentExportContractValidator
             || !string.Equals(task.MetadataDigest, input.MetadataDigest, StringComparison.Ordinal)
             || !string.Equals(task.PropertyDigest, input.PropertyDigest, StringComparison.Ordinal)
             || !string.Equals(task.AssetManifestDigest, input.AssetManifestDigest, StringComparison.Ordinal)
+            || !string.Equals(task.FontManifestDigest, input.FontManifestDigest, StringComparison.Ordinal)
+            || !string.Equals(task.ReadingStyleAuthorityDigest, input.ReadingStyleAuthorityDigest, StringComparison.Ordinal)
             || !string.Equals(task.RendererDigest, input.RendererDigest, StringComparison.Ordinal))
         {
             throw new InvalidDataException("Document export task is not bound to the exact frozen input identity.");
@@ -234,14 +254,18 @@ public static partial class DocumentExportContractValidator
         string metadataDigest,
         string propertyDigest,
         string assetManifestDigest,
-        string rendererDigest)
+        string fontManifestDigest,
+        string rendererDigest,
+        string readingStyleAuthorityDigest)
     {
         Validate(input);
         if (!string.Equals(input.SourceDigest, sourceDigest, StringComparison.Ordinal)
             || !string.Equals(input.MetadataDigest, metadataDigest, StringComparison.Ordinal)
             || !string.Equals(input.PropertyDigest, propertyDigest, StringComparison.Ordinal)
             || !string.Equals(input.AssetManifestDigest, assetManifestDigest, StringComparison.Ordinal)
-            || !string.Equals(input.RendererDigest, rendererDigest, StringComparison.Ordinal))
+            || !string.Equals(input.FontManifestDigest, fontManifestDigest, StringComparison.Ordinal)
+            || !string.Equals(input.RendererDigest, rendererDigest, StringComparison.Ordinal)
+            || !string.Equals(input.ReadingStyleAuthorityDigest, readingStyleAuthorityDigest, StringComparison.Ordinal))
         {
             throw new InvalidDataException("Document export frozen input drifted after admission.");
         }
@@ -268,6 +292,9 @@ public static partial class DocumentExportContractValidator
             || receipt.RendererId != input.RendererId
             || receipt.RendererVersion != input.RendererVersion
             || receipt.RendererDigest != input.RendererDigest
+            || receipt.AssetManifestDigest != input.AssetManifestDigest
+            || receipt.FontManifestDigest != input.FontManifestDigest
+            || receipt.ReadingStyleAuthorityDigest != input.ReadingStyleAuthorityDigest
             || receipt.OutputMediaType != provider.OutputMediaType
             || receipt.OutputExtension != provider.OutputExtension
             || receipt.NormalizationPolicy != provider.NormalizationPolicy
@@ -333,7 +360,50 @@ public static partial class DocumentExportContractValidator
         }
     }
 
-    private static void ValidateAssets(IReadOnlyList<DocumentExportAsset> assets, string manifestDigest)
+    internal static string ComputeAssetManifestDigest(IReadOnlyList<DocumentExportAsset> assets)
+    {
+        object manifest = assets
+            .OrderBy(asset => asset.AssetId, StringComparer.Ordinal)
+            .Select(asset => new
+            {
+                asset.AssetId,
+                asset.MediaType,
+                asset.Sha256,
+                Length = (long)asset.Bytes.Length,
+                asset.AltText,
+                asset.Role,
+                asset.FontFamily,
+                asset.FontWeight,
+                asset.FontStyle
+            })
+            .ToArray();
+        return DocumentExportDigest.Compute(manifest);
+    }
+
+    internal static string ComputeFontManifestDigest(IReadOnlyList<DocumentExportAsset> assets)
+    {
+        object manifest = assets
+            .Where(DocumentExportReadingStyleAuthority.IsFont)
+            .OrderBy(asset => asset.FontFamily, StringComparer.Ordinal)
+            .ThenBy(asset => asset.FontWeight)
+            .Select(asset => new
+            {
+                asset.AssetId,
+                asset.MediaType,
+                asset.Sha256,
+                Length = (long)asset.Bytes.Length,
+                asset.FontFamily,
+                asset.FontWeight,
+                asset.FontStyle
+            })
+            .ToArray();
+        return DocumentExportDigest.Compute(manifest);
+    }
+
+    private static void ValidateAssets(
+        IReadOnlyList<DocumentExportAsset> assets,
+        string manifestDigest,
+        string fontManifestDigest)
     {
         ArgumentNullException.ThrowIfNull(assets);
         var ids = new HashSet<string>(StringComparer.Ordinal);
@@ -344,6 +414,10 @@ public static partial class DocumentExportContractValidator
             if (!ids.Add(asset.AssetId)
                 || string.IsNullOrWhiteSpace(asset.MediaType)
                 || !asset.MediaType.Contains('/', StringComparison.Ordinal)
+                || asset.AltText is null
+                || asset.Role is null
+                || asset.FontFamily is null
+                || asset.FontStyle is null
                 || asset.AltText.Length > 512)
             {
                 throw new ArgumentException("Document export asset metadata is invalid.", nameof(assets));
@@ -358,13 +432,49 @@ public static partial class DocumentExportContractValidator
             {
                 throw new ArgumentException("Document export assets exceed the frozen input budget.", nameof(assets));
             }
+
+            bool validRole = asset.Role switch
+            {
+                "image" => s_embeddableImageMediaTypes.Contains(asset.MediaType)
+                    && asset.FontFamily.Length == 0
+                    && asset.FontWeight == 0
+                    && asset.FontStyle == "normal",
+                "font" => asset.MediaType == "font/woff2"
+                    && asset.AltText.Length == 0
+                    && asset.FontFamily.Length > 0
+                    && asset.FontWeight is >= 100 and <= 900
+                    && asset.FontWeight % 100 == 0
+                    && asset.FontStyle == "normal"
+                    && asset.Bytes.Length >= 4
+                    && asset.Bytes.AsSpan()[..4].SequenceEqual("wOF2"u8),
+                _ => false
+            };
+            if (!validRole)
+            {
+                throw new InvalidDataException($"Document export asset '{asset.AssetId}' role metadata is not closed.");
+            }
         }
 
-        object manifest = assets
-            .OrderBy(asset => asset.AssetId, StringComparer.Ordinal)
-            .Select(asset => new { asset.AssetId, asset.MediaType, asset.Sha256, Length = (long)asset.Bytes.Length })
+        DocumentExportRequiredFont[] actualFonts = assets
+            .Where(DocumentExportReadingStyleAuthority.IsFont)
+            .Select(asset => new DocumentExportRequiredFont(asset.FontFamily, asset.FontWeight, asset.FontStyle))
+            .OrderBy(font => font.Family, StringComparer.Ordinal)
+            .ThenBy(font => font.Weight)
             .ToArray();
-        RequireContentDigest(manifestDigest, DocumentExportDigest.Compute(manifest), nameof(manifestDigest));
+        DocumentExportRequiredFont[] requiredFonts = DocumentExportReadingStyleAuthority.RequiredFonts
+            .OrderBy(font => font.Family, StringComparer.Ordinal)
+            .ThenBy(font => font.Weight)
+            .ToArray();
+        if (!actualFonts.SequenceEqual(requiredFonts))
+        {
+            throw new InvalidDataException("Document export font assets do not close the reading typography authority.");
+        }
+
+        RequireContentDigest(manifestDigest, ComputeAssetManifestDigest(assets), nameof(manifestDigest));
+        RequireContentDigest(
+            fontManifestDigest,
+            ComputeFontManifestDigest(assets),
+            nameof(fontManifestDigest));
     }
 
     private static void ValidateBudgets(DocumentExportResourceBudgets budgets)
@@ -466,9 +576,16 @@ public static partial class DocumentExportContractValidator
             DocumentExportNormalizationContract normalization = normalizations.SingleOrDefault(
                 candidate => string.Equals(candidate.ProviderId, provider.ProviderId, StringComparison.Ordinal))
                 ?? throw new InvalidOperationException($"Document export provider '{provider.ProviderId}' has no normalization contract.");
+            DocumentExportNormalizationContract canonical = DocumentExportContractCatalog.Normalizations.Single(
+                candidate => string.Equals(candidate.ProviderId, provider.ProviderId, StringComparison.Ordinal));
             bool isHtml = string.Equals(provider.FormatId, "self-contained-html", StringComparison.Ordinal);
             if (normalization.Policy != provider.NormalizationPolicy
+                || normalization.Policy != canonical.Policy
                 || normalization.ByteIdenticalForEqualFrozenInput != isHtml
+                || normalization.ByteIdenticalForEqualFrozenInput != canonical.ByteIdenticalForEqualFrozenInput
+                || !normalization.NormalizedMetadataFields.SequenceEqual(
+                    canonical.NormalizedMetadataFields,
+                    StringComparer.Ordinal)
                 || isHtml && normalization.NormalizedMetadataFields.Count != 0
                 || !isHtml && normalization.NormalizedMetadataFields.Count == 0
                 || normalization.NormalizedMetadataFields.Any(string.IsNullOrWhiteSpace))
