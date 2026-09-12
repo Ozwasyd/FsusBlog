@@ -10,6 +10,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Articles;
+using FsusBlog.Server.Services.ArticleVault;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Distribution;
@@ -45,6 +46,16 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IArticleViewFlushSink, ArticleServiceViewFlushSink>();
         services.AddHostedService<ArticleViewFlushWorker>();
         services.AddScoped<ArticleService>();
+        services.AddScoped<PostgresArticleVaultExecutionStore>();
+        services.AddScoped<IArticleVaultExecutionStore>(
+            serviceProvider => serviceProvider.GetRequiredService<PostgresArticleVaultExecutionStore>());
+        services.AddScoped<IArticleVaultTransactionalGroupResultStore>(
+            serviceProvider => serviceProvider.GetRequiredService<PostgresArticleVaultExecutionStore>());
+        services.AddScoped<IArticleVaultCurrentObservationAuthority>(
+            serviceProvider => serviceProvider.GetRequiredService<ArticleService>());
+        services.AddScoped<IArticleVaultCanonicalGroupWriter>(
+            serviceProvider => serviceProvider.GetRequiredService<ArticleService>());
+        services.AddScoped<IArticleVaultSyncPlanExecutor, ArticleVaultSyncPlanExecutor>();
         services.AddScoped<IArticlePublicationValidator, ArticlePublicationValidator>();
         services.AddScoped<CommentCommandService>();
         services.AddScoped<ICommentMutationOutbox, CommentMutationOutboxWriter>();

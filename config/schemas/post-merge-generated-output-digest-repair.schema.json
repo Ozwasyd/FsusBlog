@@ -1,0 +1,173 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/schemas/post-merge-generated-output-repair.v2.json",
+    "title": "Canonical digest-only generated output repair",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "producerId",
+        "repairClass",
+        "sourceParent",
+        "sourceCommit",
+        "mergedPullRequest",
+        "mergeCommit",
+        "outerBaseCommit",
+        "outerHeadCommit",
+        "baseCommit",
+        "command",
+        "closure",
+        "output"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.post-merge-generated-output-repair.v2"
+        },
+        "producerId": {
+            "const": "correctness-attempt-producers"
+        },
+        "repairClass": {
+            "const": "digest-refresh"
+        },
+        "sourceParent": {
+            "$ref": "#/$defs/revision"
+        },
+        "sourceCommit": {
+            "$ref": "#/$defs/revision"
+        },
+        "mergedPullRequest": {
+            "type": "integer",
+            "minimum": 1
+        },
+        "mergeCommit": {
+            "$ref": "#/$defs/revision"
+        },
+        "outerBaseCommit": {
+            "$ref": "#/$defs/revision"
+        },
+        "outerHeadCommit": {
+            "$ref": "#/$defs/revision"
+        },
+        "baseCommit": {
+            "$ref": "#/$defs/revision"
+        },
+        "command": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "executable",
+                "arguments"
+            ],
+            "properties": {
+                "executable": {
+                    "const": "node"
+                },
+                "arguments": {
+                    "type": "array",
+                    "prefixItems": [
+                        {
+                            "$ref": "#/$defs/path"
+                        },
+                        {
+                            "const": "--write"
+                        }
+                    ],
+                    "minItems": 2,
+                    "maxItems": 2
+                }
+            }
+        },
+        "closure": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 256,
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "path",
+                    "parent",
+                    "source"
+                ],
+                "properties": {
+                    "path": {
+                        "$ref": "#/$defs/path"
+                    },
+                    "parent": {
+                        "$ref": "#/$defs/blob"
+                    },
+                    "source": {
+                        "$ref": "#/$defs/blob"
+                    }
+                }
+            }
+        },
+        "output": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "path",
+                "parent",
+                "source",
+                "base",
+                "expected",
+                "candidate"
+            ],
+            "properties": {
+                "path": {
+                    "$ref": "#/$defs/path"
+                },
+                "parent": {
+                    "$ref": "#/$defs/blob"
+                },
+                "source": {
+                    "$ref": "#/$defs/blob"
+                },
+                "base": {
+                    "$ref": "#/$defs/blob"
+                },
+                "expected": {
+                    "$ref": "#/$defs/blob"
+                },
+                "candidate": {
+                    "$ref": "#/$defs/blob"
+                }
+            }
+        }
+    },
+    "$defs": {
+        "revision": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+        },
+        "path": {
+            "type": "string",
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+        },
+        "blob": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "mode",
+                "object",
+                "sha256"
+            ],
+            "properties": {
+                "mode": {
+                    "enum": [
+                        "100644",
+                        "100755"
+                    ]
+                },
+                "object": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                },
+                "sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                }
+            }
+        }
+    }
+}

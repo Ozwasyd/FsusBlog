@@ -204,7 +204,10 @@
                             "_viewWriteBuffer",
                             "_publicationValidator",
                             "_articleBodyRepairQueue",
-                            "_timeProvider"
+                            "_timeProvider",
+                            "_vaultAuditLogStore",
+                            "_vaultExecutionStore",
+                            "_vaultGroupResultStore"
                         ]
                     }
                 ],

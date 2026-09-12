@@ -13,6 +13,10 @@
     <Project Path="src/core/FsusBlog.Core.csproj" />
     <Project Path="src/shared/FsusBlog.Shared.csproj" />
   </Folder>
+  <Folder Name="/Article Vault/">
+    <Project Path="src/article-vault/linux/FsusBlog.ArticleVault.Linux.csproj" />
+    <Project Path="tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj" />
+  </Folder>
   <Folder Name="/Quality/">
     <Project Path="tests/backend/FsusBlog.Server.Tests.csproj" />
     <Project Path="tests/migration/FsusBlog.Migration.Tests.csproj" />

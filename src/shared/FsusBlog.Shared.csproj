@@ -9,6 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Contracts/ArticleEmbeds/article-embed-contract.schema.json"
+                      LogicalName="FsusBlog.Contracts.ArticleEmbeds.article-embed-contract.schema.json" />
     <EmbeddedResource Include="Contracts/ArticleVault/article-vault-root-manifest.schema.json"
                       LogicalName="FsusBlog.Contracts.ArticleVault.article-vault-root-manifest.schema.json" />
     <EmbeddedResource Include="Contracts/ArticleVault/article-vault-article-manifest.schema.json"

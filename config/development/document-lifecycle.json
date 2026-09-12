@@ -274,6 +274,17 @@
             "supersededBy": null
         },
         {
+            "path": "docs/architecture/article-vault-linux-watcher.md",
+            "status": "current",
+            "owner": "backend",
+            "relatedIssues": [
+                2672,
+                2675
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/architecture/comment-attribution-privacy-boundary.md",
             "status": "current",
             "owner": "backend",

@@ -49,10 +49,9 @@ public partial class ArticleService
         bool mutationCommitted = false;
         try
         {
-            await _mutationFence.BeginPublicMutationFenceAsync(id, ct).ConfigureAwait(false);
-            fenceEstablished = true;
+            fenceEstablished = await EstablishArticlePublicMutationFenceAsync(id, ct).ConfigureAwait(false);
             bool success = false;
-            var result = await _db.Ado.UseTranAsync(async () =>
+            ArticleMutationTransactionResult result = await ExecuteArticleMutationTransactionAsync(async () =>
             {
                 int updated = await _db.Ado.ExecuteCommandAsync(
                     """
@@ -85,6 +84,17 @@ public partial class ArticleService
             });
             ct.ThrowIfCancellationRequested();
             mutationCommitted = result.IsSuccess && success;
+            if (mutationCommitted && IsArticleVaultGroupTransaction)
+            {
+                EnqueueArticleVaultPostCommitAction(id, async () =>
+                {
+                    await InvalidateCache(id).ConfigureAwait(false);
+                    await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, "delete")
+                        .ConfigureAwait(false);
+                    await _mutationSideEffects.AfterDeletedAsync(id).ConfigureAwait(false);
+                });
+                return true;
+            }
             if (mutationCommitted)
             {
                 await InvalidateCache(id);
@@ -97,7 +107,7 @@ public partial class ArticleService
         }
         finally
         {
-            if (fenceEstablished && !mutationCommitted)
+            if (fenceEstablished && !mutationCommitted && !IsArticleVaultGroupTransaction)
             {
                 await RecoverAbortedPublicMutationFenceAsync(id, "article-delete-fence-aborted").ConfigureAwait(false);
             }

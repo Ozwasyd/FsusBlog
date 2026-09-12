@@ -3231,6 +3231,11 @@ tiers:
           - authentication-session-permission
           - configuration-error-security-policy
           - article-comment-lifecycle-outbox
+          - article-embed-contract-static-governance
+          - article-embed-authoring-static-governance
+          - article-embed-publication-static-governance
+          - article-embed-relations-static-governance
+          - article-scale-plan-static-governance
       artifacts:
           [
               .tmp/gate-logs,
@@ -3492,6 +3497,44 @@ tiers:
           - docs/testing.md
           - docs/testing/evidence-projection-contract.md
           - tools/test/lanes/static-governance.sh
+          - tools/governance/check-article-embed-contract.mjs
+          - tests/tools/article-embed-contract.test.mjs
+          - tests/backend/Unit/ArticleEmbedContractTests.cs
+          - src/shared/Contracts/ArticleEmbeds/ArticleEmbedContracts.cs
+          - src/shared/Contracts/ArticleEmbeds/ArticleEmbedTargetCodec.cs
+          - src/shared/Contracts/ArticleEmbeds/ArticleEmbedContractValidator.cs
+          - src/shared/Contracts/ArticleEmbeds/ArticleEmbedContractDigest.cs
+          - src/shared/Contracts/ArticleEmbeds/article-embed-contract.schema.json
+          - src/shared/FsusBlog.Shared.csproj
+          - docs/api/contracts.md
+          - tools/governance/check-article-embed-authoring.mjs
+          - tests/tools/article-embed-authoring.test.mjs
+          - tests/backend/Unit/ArticleEmbedAuthoringResolverTests.cs
+          - src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringContracts.cs
+          - src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringContractValidator.cs
+          - src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringResolver.cs
+          - src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringVerifier.cs
+          - src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringDigest.cs
+          - tools/governance/check-article-embed-publication.mjs
+          - tests/tools/article-embed-publication.test.mjs
+          - tests/backend/Unit/ArticleEmbedPublicationPlannerTests.cs
+          - src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationContracts.cs
+          - src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationContractValidator.cs
+          - src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationPlanner.cs
+          - src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationVerifier.cs
+          - src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationDigest.cs
+          - tools/governance/check-article-embed-relations.mjs
+          - tests/tools/article-embed-relations.test.mjs
+          - tests/backend/Unit/ArticleEmbedRelationDeriverTests.cs
+          - src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationContracts.cs
+          - src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationContractValidator.cs
+          - src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDeriver.cs
+          - src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationVerifier.cs
+          - src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDigest.cs
+          - tools/test/check-article-scale-plan-governance.mjs
+          - tests/fixtures/governance/article-scale-plan-governance.json
+          - tests/tools/article-scale-plan-governance.test.mjs
+          - src/backend/Services/Fixtures/DataScale/ArticleScalePlan.cs
           - docs/testing/issue-1174-csharp-entrypoint-ownership.md
           - .editorconfig
           - Directory.Build.props
@@ -3511,6 +3554,10 @@ tiers:
           - tools/governance/check-dependency-required-checks.mjs
           - tests/fixtures/governance/dependency-required-checks.json
           - tests/tools/dependency-required-checks.test.mjs
+          - tools/governance/cross-repository-dependency-acceptance.mjs
+          - tests/fixtures/governance/cross-repository-dependency-acceptance.json
+          - tests/fixtures/governance/ui-freshness-cli-safety.txt
+          - tests/tools/cross-repository-dependency-acceptance.test.mjs
           - config/dependencies/fsusui-release-event.schema.json
           - tools/dependencies/verify-fsusui-release-event.mjs
           - tests/tools/fsusui-release-event.test.mjs
