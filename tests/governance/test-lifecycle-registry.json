@@ -6333,6 +6333,199 @@
             "classifications": [
                 "behavior"
             ]
+        },
+        {
+            "file": "tests/tools/aot-generation-observer.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/aot-generation-observer.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/fixture-auth-state-observer.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/fixture-auth-state-observer.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/fixture-file-tree-observer.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/fixture-file-tree-observer.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/fixture-object-storage-observer.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/fixture-object-storage-observer.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/postgres-redis-state-observer.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/postgres-redis-state-observer.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/production-current-run-authorities.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/production-current-run-authorities.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/production-observer-authority.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/production-observer-authority.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/production-observer-ports.integration.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/production-observer-ports.integration.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/production-runtime-order-provider.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/production-runtime-order-provider.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/reset-postcondition-state-barrier.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/reset-postcondition-state-barrier.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/runtime-config-observer.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/runtime-config-observer.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/runtime-execution-session.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/runtime-execution-session.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/runtime-order-equivalence.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/runtime-order-equivalence.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/runtime-order-identity.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/runtime-order-identity.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/runtime-schedule-plan.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/runtime-schedule-plan.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/runtime-state-conflict-scheduler.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/runtime-state-conflict-scheduler.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "runtime"
+            ]
+        },
+        {
+            "file": "tests/tools/runtime-state-observer-registry.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/runtime-state-observer-registry.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/runtime-state-snapshot.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/runtime-state-snapshot.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/runtime-topology-observer.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/runtime-topology-observer.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "runtime"
+            ]
         }
     ]
 }
