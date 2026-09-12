@@ -12140,6 +12140,30 @@
                 "vitest:tests/frontend/unit/utils/errors.test.ts#maps-known-validation-message-invalid-base-url-protocol-5999797f98"
             ],
             "reason": "Issue #2611 retains the BASEURL_PROTOCOL_INVALID Validation mapping as the named invalid-base-url-protocol corpus row with the exact localized copy oracle."
+        },
+        {
+            "id": "node-test:tests/tools/repository-governance-authority.test.mjs#input-only-change-invalidates-an-otherwise-internally-co-6de2395b8f",
+            "path": "tests/tools/repository-governance-authority.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/repository-governance-authority.test.mjs#governance-receipt-identity-invalidation-mutation-table--9cf116aa35"
+            ],
+            "reason": "Issue #2615 retains the input-tree receipt invalidation case as the named input-tree mutation-table row with the exact expected and unexpected reason oracles."
+        },
+        {
+            "id": "node-test:tests/tools/repository-governance-authority.test.mjs#checker-source-change-invalidates-checker-identity-even--9b540fdc59",
+            "path": "tests/tools/repository-governance-authority.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/repository-governance-authority.test.mjs#governance-receipt-identity-invalidation-mutation-table--ed2ece7d56"
+            ],
+            "reason": "Issue #2615 retains the checker-source receipt invalidation case as the named checker-source mutation-table row with the exact expected and unexpected reason oracles."
+        },
+        {
+            "id": "node-test:tests/tools/repository-governance-authority.test.mjs#parser-and-toolchain-identity-change-invalidates-reuse-df25b1999b",
+            "path": "tests/tools/repository-governance-authority.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/repository-governance-authority.test.mjs#governance-receipt-identity-invalidation-mutation-table--3340203fd7"
+            ],
+            "reason": "Issue #2615 retains the parser-toolchain receipt invalidation case as the named parser-toolchain mutation-table row with the exact expected and unexpected reason oracles."
         }
     ],
     "assertionReplacements": [
@@ -12371,6 +12395,39 @@
                 "vitest:toBe:getErrorMessage(error, 'fallback'):equality:expected"
             ],
             "reason": "Issue #2611 preserves each Validation mapping oracle in the named case table; per-case ownership remains in deletedTests."
+        },
+        {
+            "before": "node-assert:ok:result.errors.includes('input tree digest mismatch'):predicate:true",
+            "replacementTestIds": [
+                "node-test:tests/tools/repository-governance-authority.test.mjs#governance-receipt-identity-invalidation-mutation-table--9cf116aa35"
+            ],
+            "after": [
+                "node-assert:ok:afterMutation.errors.includes(mutationCase.expectedReason):predicate:true",
+                "node-assert:deepEqual:afterMutation.errors:equality:mutationCase.expectedErrors"
+            ],
+            "reason": "Issue #2615 preserves the input-tree exact invalidation reason oracle in the closed mutation table; per-case ownership remains in deletedTests."
+        },
+        {
+            "before": "node-assert:ok:result.errors.includes('checker source digest mismatch'):predicate:true",
+            "replacementTestIds": [
+                "node-test:tests/tools/repository-governance-authority.test.mjs#governance-receipt-identity-invalidation-mutation-table--ed2ece7d56"
+            ],
+            "after": [
+                "node-assert:ok:afterMutation.errors.includes(mutationCase.expectedReason):predicate:true",
+                "node-assert:deepEqual:afterMutation.errors:equality:mutationCase.expectedErrors"
+            ],
+            "reason": "Issue #2615 preserves the checker-source exact invalidation reason oracle in the closed mutation table; per-case ownership remains in deletedTests."
+        },
+        {
+            "before": "node-assert:ok:result.errors.includes('parser/toolchain identity mismatch'):predicate:true",
+            "replacementTestIds": [
+                "node-test:tests/tools/repository-governance-authority.test.mjs#governance-receipt-identity-invalidation-mutation-table--3340203fd7"
+            ],
+            "after": [
+                "node-assert:ok:afterMutation.errors.includes(mutationCase.expectedReason):predicate:true",
+                "node-assert:deepEqual:afterMutation.errors:equality:mutationCase.expectedErrors"
+            ],
+            "reason": "Issue #2615 preserves the parser-toolchain exact invalidation reason oracle in the closed mutation table; per-case ownership remains in deletedTests."
         }
     ]
 }
