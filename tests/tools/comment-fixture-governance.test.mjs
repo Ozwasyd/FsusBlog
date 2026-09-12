@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
@@ -11,7 +11,65 @@ import {
     COMMENT_FIXTURE_REPOSITORY_ROOT,
     verifyCommentFixtureAcceptanceReceipt
 } from '../../tools/test/comment-fixture-governance.mjs';
+import { digestCommentFixtureValue } from '../../tools/test/comment-fixture-contract.mjs';
+import { collectSimulatedCommentFixtureRuntimeEvidence } from '../../tools/test/run-comment-fixture-simulated-runtime.mjs';
+import { normalizeCleanupContract as normalizeCommentCleanupContract } from '../../tools/test-fixtures/receipt/comment-cleanup-contract.mjs';
+import {
+    buildProducerReceipt,
+    digestCanonical,
+    validateProducerReceipt
+} from '../../tools/test-fixtures/receipt/index.mjs';
+import {
+    buildFixtureVariantPlan,
+    buildProducerFixtureVariantPlan,
+    fixtureCatalogDigest,
+    readFixtureCatalogs
+} from '../../tools/testing/fixture-catalog.mjs';
 import { createCommentFixtureBackendError } from '../../tools/test-fixtures/producers/comment-moderation-producer.mjs';
+
+const cliEvidenceRoot = path.join(COMMENT_FIXTURE_REPOSITORY_ROOT, '.tmp/test-evidence');
+const cliRuntimeEvidence = path.join(cliEvidenceRoot, 'comment-fixture-runtime.json');
+const cliCleanupReceipt = path.join(cliEvidenceRoot, 'comment-fixture-cleanup.json');
+const cliAcceptanceReceipt = path.join(cliEvidenceRoot, 'comment-fixture-acceptance.json');
+
+function clearCommentFixtureCliEvidence()
+{
+    for (const target of [cliRuntimeEvidence, cliCleanupReceipt, cliAcceptanceReceipt])
+        rmSync(target, { force: true });
+}
+
+function runCommentFixtureCli()
+{
+    return spawnSync(process.execPath, ['tools/test/check-comment-fixture-governance.mjs'], {
+        cwd: COMMENT_FIXTURE_REPOSITORY_ROOT,
+        encoding: 'utf8'
+    });
+}
+
+test('comment correctness entrypoints require verified FixtureReceipt authority', () =>
+{
+    const browser = readFileSync(
+        path.join(COMMENT_FIXTURE_REPOSITORY_ROOT, 'tests/browser-contract/default-fixture-provider.mjs'),
+        'utf8');
+    const pendingStart = browser.indexOf('async function pendingComment');
+    const pending = browser.slice(
+        pendingStart,
+        browser.indexOf('\nexport async function', pendingStart + 1));
+    assert.match(pending, /readFixtureReceipt[\s\S]*requireVerified:\s*true/u);
+    assert.match(pending, /producerReceipts/u);
+    assert.doesNotMatch(pending, /prepare-state\.json|producerOutputs/u);
+
+    for (const relativePath of [
+        'tools/bootstrap-acceptance-env.sh',
+        'tools/dev/start.sh',
+        'tools/test/lanes/_suite-support.sh'
+    ])
+    {
+        const source = readFileSync(path.join(COMMENT_FIXTURE_REPOSITORY_ROOT, relativePath), 'utf8');
+        assert.match(source, /comments-moderation|comment-moderation/u);
+        assert.match(source, /fixture-receipt|FIXTURE_RECEIPT/u);
+    }
+});
 
 test('comment producer preserves only exact-plan structured recovery payloads', () =>
 {
@@ -101,28 +159,103 @@ test('comment governance kills required mutations but refuses terminal acceptanc
     );
 });
 
-test('canonical runtime fixture can exercise terminal verification without becoming CLI evidence', () =>
+test('synthetic canonical runtime fixture cannot become terminal CLI evidence', () =>
 {
     const cleanup = buildCommentFixtureCleanupReceipt();
     const runtimeEvidence = buildCanonicalCommentFixtureRuntimeEvidence();
     const acceptance = buildCommentFixtureAcceptanceReceipt(cleanup, runtimeEvidence);
 
+    assert.equal(acceptance.status, 'rejected');
+    assert.ok(acceptance.violations.some((item) => item.id === 'runtime.provenance'));
+    assert.throws(
+        () => verifyCommentFixtureAcceptanceReceipt(acceptance, cleanup, runtimeEvidence),
+        /not terminal accepted/u
+    );
+});
+
+test('two parallel local-simulated producer invocations produce terminal acceptance and exact sentinels', async () =>
+{
+    const cleanup = buildCommentFixtureCleanupReceipt();
+    const runtimeEvidence = await collectSimulatedCommentFixtureRuntimeEvidence();
+    const cleanupContract = normalizeCommentCleanupContract({
+        kind: 'comment-exact-receipt',
+        receipt: runtimeEvidence.runs[0].cleanupReceipt
+    });
+    assert.deepEqual(cleanupContract.receipt, runtimeEvidence.runs[0].cleanupReceipt);
+    const catalogs = readFixtureCatalogs();
+    const run = runtimeEvidence.runs[0];
+    const variantByCapability = new Map(
+        catalogs.variant.variants
+            .filter((item) => item.ownerProducerId === 'comment-moderation'
+                && item.validityClass === 'canonical-positive')
+            .map((item) => [item.capabilityId, item.id]));
+    const capabilityForRole = (role) => role.startsWith('region-')
+        ? 'moderation.policy-matrix'
+        : ['approved-root', 'pending', 'rejected', 'spam'].includes(role)
+            ? 'comment.moderation-matrix'
+            : 'comment.threaded';
+    const databaseObservation = structuredClone(run.observations.database);
+    for (const entity of databaseObservation.entities)
+        entity.variantId = variantByCapability.get(capabilityForRole(entity.fields.semanticRole));
+    const fixtureVariantIds = [...variantByCapability.values()].sort();
+    const variantPlan = buildFixtureVariantPlan(fixtureVariantIds, catalogs);
+    const producerVariantPlan = buildProducerFixtureVariantPlan({
+        producerId: 'comment-moderation',
+        variantIds: fixtureVariantIds,
+        fixtureVariantIds,
+        fixtureVariantPlanDigest: variantPlan.variantPlanDigest,
+        catalogs
+    });
+    const catalogProducer = catalogs.producer.producers.find((item) => item.id === 'comment-moderation');
+    const producerReceipt = buildProducerReceipt({
+        producerId: 'comment-moderation',
+        strategy: 'transaction-fixture',
+        runId: run.cleanupReceipt.binding.runId,
+        namespace: run.cleanupReceipt.binding.namespace,
+        source: runtimeEvidence.source,
+        fixtureCatalogDigest: fixtureCatalogDigest(catalogs),
+        profileId: 'comments-moderation',
+        expandedCapabilityDigest: digestCanonical(run.capabilities),
+        fixtureVariantIds,
+        variantPlanDigest: variantPlan.variantPlanDigest,
+        producerVariantPlanDigest: producerVariantPlan.producerVariantPlanDigest,
+        producedVariantIds: fixtureVariantIds,
+        serviceGeneration: 'simulated-generation',
+        providedCapabilities: run.capabilities,
+        ownedStateDomains: catalogProducer.stateDomains,
+        entityIdentities: databaseObservation.entities.map((item) => ({
+            kind: item.kind,
+            id: item.id,
+            variantId: item.variantId
+        })),
+        postconditionObservations: [],
+        cleanupContract: {
+            kind: 'comment-exact-receipt',
+            receipt: run.cleanupReceipt
+        },
+        databaseObservation,
+        redisObservation: run.observations.redis,
+        cacheObservation: run.observations.cache,
+        catalogs
+    });
+    assert.deepEqual(producerReceipt.cleanupContract.receipt, run.cleanupReceipt);
+    assert.deepEqual(validateProducerReceipt(producerReceipt, { catalogs }), producerReceipt);
+    const acceptance = buildCommentFixtureAcceptanceReceipt(cleanup, runtimeEvidence);
     assert.equal(acceptance.status, 'accepted');
     assert.deepEqual(acceptance.violations, []);
-    assert.deepEqual(verifyCommentFixtureAcceptanceReceipt(
-        acceptance,
-        cleanup,
-        runtimeEvidence), acceptance);
-
-    const tampered = structuredClone(acceptance);
-    tampered.parallelRerun.status = 'rejected';
-    assert.throws(
-        () => verifyCommentFixtureAcceptanceReceipt(tampered, cleanup, runtimeEvidence),
-        /tampered, or not terminal accepted/u
-    );
+    assert.equal(acceptance.ports.length, 2);
+    assert.equal(acceptance.runtimeInvocations.authorityClass, 'local-simulated-producer-invocation');
+    assert.equal(acceptance.cacheQueueReadModel.status, 'accepted');
+    assert.deepEqual(
+        verifyCommentFixtureAcceptanceReceipt(acceptance, cleanup, runtimeEvidence),
+        acceptance);
 
     const crossDomainCleanup = structuredClone(runtimeEvidence);
-    crossDomainCleanup.cleanups[0].deletedCommentIds.push(999999);
+    crossDomainCleanup.cleanups[0].crossDomainAfter.securityDigest = `sha256:${'0'.repeat(64)}`;
+    crossDomainCleanup.runs[0].producerInvocation.cleanupResultDigest =
+        digestCommentFixtureValue(crossDomainCleanup.cleanups[0]);
+    crossDomainCleanup.invocationSetDigest = digestCommentFixtureValue(
+        crossDomainCleanup.runs.map((run) => run.producerInvocation));
     const rejected = buildCommentFixtureAcceptanceReceipt(cleanup, crossDomainCleanup);
     assert.equal(rejected.status, 'rejected');
     assert.ok(rejected.violations.some((item) => item.id === 'runtime.cleanup-1'));
@@ -149,15 +282,40 @@ test('comment terminal verifier requires two independent canonical production ru
     assert.ok(acceptance.violations.some((item) => item.detail?.includes('cleanup verification')));
 });
 
-test('comment governance CLI cannot write terminal artifacts without canonical runtime evidence', () =>
+test('comment governance CLI fails closed when canonical no-arg evidence is missing', () =>
 {
-    const output = path.join(COMMENT_FIXTURE_REPOSITORY_ROOT, '.tmp/test-evidence/comment-fixture-acceptance.json');
-    rmSync(output, { force: true });
-    const result = spawnSync(process.execPath, ['tools/test/check-comment-fixture-governance.mjs'], {
-        cwd: COMMENT_FIXTURE_REPOSITORY_ROOT,
-        encoding: 'utf8'
-    });
+    clearCommentFixtureCliEvidence();
+    const result = runCommentFixtureCli();
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /canonical-runtime-evidence/u);
-    assert.equal(existsSync(output), false);
+    assert.match(result.stderr, /comment-fixture-runtime\.json/u);
+    assert.equal(existsSync(cliCleanupReceipt), false);
+    assert.equal(existsSync(cliAcceptanceReceipt), false);
+});
+
+test('comment governance CLI fails closed when canonical no-arg evidence is invalid', () =>
+{
+    clearCommentFixtureCliEvidence();
+    mkdirSync(cliEvidenceRoot, { recursive: true, mode: 0o700 });
+    writeFileSync(cliRuntimeEvidence, '{}\n', { mode: 0o600 });
+    const result = runCommentFixtureCli();
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /not terminal accepted/u);
+    assert.equal(existsSync(cliCleanupReceipt), false);
+    assert.equal(existsSync(cliAcceptanceReceipt), false);
+    clearCommentFixtureCliEvidence();
+});
+
+test('comment governance CLI consumes canonical no-arg current-run evidence', async () =>
+{
+    clearCommentFixtureCliEvidence();
+    mkdirSync(cliEvidenceRoot, { recursive: true, mode: 0o700 });
+    const runtimeEvidence = await collectSimulatedCommentFixtureRuntimeEvidence();
+    writeFileSync(cliRuntimeEvidence, `${JSON.stringify(runtimeEvidence, null, 4)}\n`, { mode: 0o600 });
+    const result = runCommentFixtureCli();
+    assert.equal(result.status, 0, result.stderr);
+    const acceptance = JSON.parse(readFileSync(cliAcceptanceReceipt, 'utf8'));
+    assert.equal(acceptance.status, 'accepted');
+    assert.deepEqual(acceptance.warnings, []);
+    assert.deepEqual(acceptance.violations, []);
+    clearCommentFixtureCliEvidence();
 });

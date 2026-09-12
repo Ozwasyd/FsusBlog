@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/check-comment-fixture-governance.mjs",
+                "tools/test/comment-fixture-governance.mjs",
+                "tools/test/run-comment-fixture-simulated-runtime.mjs"
+            ],
+            "reason": "preserve caller-visible receipt field spelling while internal JavaScript identifiers retain repository-native naming"
+        }
+    ]
+}
