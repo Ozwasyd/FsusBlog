@@ -383,7 +383,7 @@ if [[ "$DEMO_TRANSITION_ACTION" == "cleanup" ]]; then
 fi
 
 echo "[dev-start] invoking unique fixture orchestrator for profile ${PROFILE_ID}..."
-# The none, demo-public, and closed account-messaging profiles publish verified
+# The none, demo-public, account-messaging, and comments-moderation profiles publish verified
 # FixtureReceipts. A repeated
 # demo-public run first cleans the exact identities sealed by its prior receipt.
 DEV_FIXTURE_ARGS=(
@@ -410,7 +410,7 @@ if [[ "$PROFILE_ID" == "demo-public" ]]; then
     fi
 fi
 FIXTURE_RECEIPT_PUBLISHED=0
-if [[ "$PROFILE_ID" == "none" || "$PROFILE_ID" == "demo-public" || "$PROFILE_ID" == "account-messaging" ]]; then
+if [[ "$PROFILE_ID" == "none" || "$PROFILE_ID" == "demo-public" || "$PROFILE_ID" == "account-messaging" || "$PROFILE_ID" == "comments-moderation" ]]; then
     DEV_FIXTURE_ARGS+=(--fixture-receipt "$FIXTURE_RECEIPT")
     FIXTURE_RECEIPT_PUBLISHED=1
 else

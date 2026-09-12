@@ -13,6 +13,7 @@ import { releaseProductionBuildConsumer } from '../../tools/ci/production-build-
 import { executionServiceImageReference } from '../../tools/test/execution-envelope-services.mjs';
 import { loadTemporalContext } from '../../tools/test/temporal-context.mjs';
 import { cleanupLocalRuntime } from '../../tools/test-matrix/local-runtime-cleanup.mjs';
+import { readFixtureReceipt } from '../../tools/test-fixtures/receipt/fixture-receipt.mjs';
 
 const responseSchema = 'fsusblog.browser-contract-fixture-provider-response.v1';
 const requestSchema = 'fsusblog.browser-contract-fixture-provider-request.v1';
@@ -1167,8 +1168,15 @@ async function pendingComment(request)
 {
     const state = await readPreparedProviderState(request);
     const article = await publishedArticle(request);
-    const prepareState = JSON.parse(await readFile(path.join(request.resources.fixtureRoot, 'prepare-state.json'), 'utf8'));
-    const producer = prepareState.producerOutputs?.['comment-moderation'];
+    const receipt = readFixtureReceipt(path.join(request.resources.fixtureRoot, 'fixture-receipt.json'), {
+        requireVerified: true
+    });
+    if (receipt.executionIdentity?.namespace !== request.identity.namespace
+        || receipt.executionIdentity?.runId !== state.runtimeRunId)
+    {
+        fail('canonical comment FixtureReceipt is stale or cross-run');
+    }
+    const producer = receipt.producerReceipts?.find((item) => item.producerId === 'comment-moderation');
     const pending = producer?.observations?.database?.entities?.filter((item) =>
         item?.kind === 'comment' && item?.fields?.semanticRole === 'pending') ?? [];
     if (producer?.producerId !== 'comment-moderation'

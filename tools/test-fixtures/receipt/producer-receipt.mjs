@@ -20,6 +20,7 @@ import {
     normalizeDatabaseObservation,
     normalizeRedisObservation
 } from './observations.mjs';
+import { normalizeCleanupContract as normalizeCommentCleanupContract } from './comment-cleanup-contract.mjs';
 import { normalizeCleanupContract as normalizeMessagingCleanupContract } from './messaging-cleanup-contract.mjs';
 import {
     ENTITY_IDENTITY_KINDS,
@@ -35,7 +36,9 @@ import {
 
 function normalizeCleanupContract(value)
 {
-    return value?.kind === 'messaging-exact-receipt'
+    return value?.kind === 'comment-exact-receipt'
+        ? normalizeCommentCleanupContract(value)
+        : value?.kind === 'messaging-exact-receipt'
         ? normalizeMessagingCleanupContract(value)
         : normalizeSecurityCleanupContract(value);
 }
@@ -308,6 +311,10 @@ export function buildProducerReceipt({
     if (sealedCleanupContract.kind === 'messaging-exact-receipt' && id !== 'account-messaging')
     {
         throw new Error('messaging exact cleanup receipt belongs only to account-messaging');
+    }
+    if (sealedCleanupContract.kind === 'comment-exact-receipt' && id !== 'comment-moderation')
+    {
+        throw new Error('comment exact cleanup receipt belongs only to comment-moderation');
     }
 
     const body = {

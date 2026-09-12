@@ -2056,7 +2056,8 @@ ResolveFixtureProfilePlan() {
 
 InvokeFixtureOrchestrator() {
     # Unique FixtureOrchestrator entry (#1709 + #1710 FixtureReceipt).
-    # none profile verifies to FixtureReceipt v2; non-none producers land observations in #1712+.
+    # Comment correctness and none publish FixtureReceipt v2; unrelated incomplete
+    # profiles remain explicit prepared-only evidence.
     local orchestratorPlan="$FIXTURE_DIR/orchestrator-plan.json"
     local prepareStateFile="$FIXTURE_DIR/prepare-state.json"
     local -a runArgs=(
@@ -2076,9 +2077,9 @@ InvokeFixtureOrchestrator() {
         --pg-container "$POSTGRES_CONTAINER"
         --redis-container "$REDIS_CONTAINER"
     )
-    # FixtureReceipt is the sole authority. none always verifies; other profiles skip verify
-    # until business producers publish observations (#1712+) — never write a fake verified receipt.
-    if [[ "$FIXTURE_PROFILE_ID" == "none" ]]; then
+    # FixtureReceipt is the sole authority. Comment correctness consumers require
+    # the fully verified producer receipt; unrelated incomplete profiles remain prepared-only.
+    if [[ "$FIXTURE_PROFILE_ID" == "none" || ",${FIXTURE_PRODUCER_IDS}," == *",comment-moderation,"* ]]; then
         runArgs+=(--fixture-receipt "$FIXTURE_RECEIPT_FILE")
     else
         runArgs+=(--skip-verify)
@@ -2133,7 +2134,7 @@ InvokeFixtureOrchestrator() {
             --out "$PUBLIC_ID_PROJECTION_FILE" >/dev/null
         Log "public fixture navigation projection: ${PUBLIC_ID_PROJECTION_FILE}"
     fi
-    if [[ "$FIXTURE_PROFILE_ID" == "none" && -f "$FIXTURE_RECEIPT_FILE" ]]; then
+    if [[ -f "$FIXTURE_RECEIPT_FILE" ]]; then
         FIXTURE_RECEIPT_DIGEST="$("${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-fixtures/cli.mjs" receipt-digest --file "$FIXTURE_RECEIPT_FILE")"
         FIXTURE_RECEIPT_TERMINAL_STATUS="verified"
         Log "fixture receipt (verified): ${FIXTURE_RECEIPT_FILE} digest=${FIXTURE_RECEIPT_DIGEST}"
