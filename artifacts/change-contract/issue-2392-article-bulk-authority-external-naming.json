@@ -1,0 +1,37 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Articles/Bulk/ArticleBulkCanonicalCommandOwners.cs",
+                "src/backend/Services/Articles/Bulk/ArticleBulkOperationRegistry.cs",
+                "tools/governance/check-article-bulk-authorities.mjs"
+            ],
+            "reason": "Preserve caller-visible environment spellings while the registry, command-owner catalog, and checker keep internal identifiers under repository naming rules."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/backend/Fixtures/backend-evidence-path-authority.generated.json"
+            ],
+            "reason": "Preserve canonical serialized governance keys while registering the ArticleBulk authority and its generated evidence projections."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md",
+                "tests/coverage-registry.json"
+            ],
+            "reason": "Preserve the registered external coverage and generated-document identifiers while adding ArticleBulk static-governance ownership."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/static-governance.sh"
+            ],
+            "reason": "Preserve the caller-visible FSUSBLOG_NODE process environment spelling used by the canonical static-governance lane."
+        }
+    ]
+}

@@ -5440,6 +5440,24 @@
             ]
         },
         {
+            "id": "article-bulk-authority-static-governance",
+            "description": "Article bulk operations keep one exact bidirectional registry-to-command-owner mapping, with no undeclared operation, duplicate owner, or parallel registry authority.",
+            "owner": "ContentAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "src/backend/Services/Articles/Bulk/ArticleBulkOperationRegistry.cs",
+                "src/backend/Services/Articles/Bulk/ArticleBulkCanonicalCommandOwners.cs",
+                "tools/governance/check-article-bulk-authorities.mjs",
+                "tests/tools/article-bulk-authorities.test.mjs"
+            ],
+            "assertionType": "static",
+            "failClosedRule": "The checker fails when a registered bulk operation lacks exactly one canonical owner, an owner declares an unregistered or duplicate operation, owner strategy metadata diverges from the registry, or another production source declares a competing registry or command-owner catalog.",
+            "minimumRequirement": "Repository scanning must cover production, configuration, documentation, scripts, tests, and tooling, while isolated mutations prove registry-owner mismatch and unregistered command declarations are rejected.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "production-xss-fast",
             "description": "Managed Chromium verifies representative FsusUI XSS corpus categories through production AOT, hydration, SPA, comments, About and private preview surfaces.",
             "owner": "InteropGlueAgent",
