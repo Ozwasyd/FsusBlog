@@ -747,10 +747,10 @@ Schema migration no longer uses runtime service partial. `SchemaMigrationRegistr
 ## Authoring extension host boundary
 
 The authoring extension host starts with a separate internal/experimental closed
-manifest and registry contract. Its execution-class values reserve the reviewed
-Hybrid mapping but do not install or run a Worker/Wasm module, owned service, or
-host adapter. It adds no HTTP/AEDS or stable Shared ABI and does not widen the
-generic `.fspkg` Hook plugin system. See the focused
+manifest/registry and verified content-addressed package supply chain. Its atomic
+package pointer and append-only receipts do not install or run a Worker/Wasm
+module, owned service, or host adapter. It adds no HTTP/AEDS or stable Shared ABI
+and does not widen the generic `.fspkg` Hook plugin system. See the focused
 [authoring extension host boundary](architecture/authoring-extension-host-boundary.md).
 
 ## Plugin foundation boundary

@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 namespace FsusBlog.Server.Infrastructure.AuthoringExtensions;
 
@@ -223,14 +224,14 @@ public sealed class EcdsaAuthoringPackageTrustVerifier(
                 string.Empty);
         }
 
+        string keysetIdentity = ComputeKeysetIdentity(publisherKeys);
         AuthoringPackagePublisherKey? key = publisherKeys.SingleOrDefault(candidate =>
             string.Equals(candidate.KeyId, keyId, StringComparison.Ordinal));
         if (key is null)
         {
-            return Decision(AuthoringPackageTrustStatus.Untrusted, publisher, keyId, now, now, string.Empty);
+            return Decision(AuthoringPackageTrustStatus.Untrusted, publisher, keyId, now, now, keysetIdentity);
         }
 
-        string keyIdentity = ComputeKeyIdentity(key);
         if (key.RevokedAt is { } revokedAt && revokedAt <= now)
         {
             return Decision(
@@ -239,7 +240,7 @@ public sealed class EcdsaAuthoringPackageTrustVerifier(
                 keyId,
                 now,
                 key.ValidUntil,
-                keyIdentity);
+                keysetIdentity);
         }
 
         if (now < key.ValidFrom || now >= key.ValidUntil)
@@ -250,7 +251,7 @@ public sealed class EcdsaAuthoringPackageTrustVerifier(
                 keyId,
                 now,
                 key.ValidUntil,
-                keyIdentity);
+                keysetIdentity);
         }
 
         bool valid;
@@ -276,7 +277,7 @@ public sealed class EcdsaAuthoringPackageTrustVerifier(
             keyId,
             now,
             key.ValidUntil,
-            keyIdentity);
+            keysetIdentity);
     }
 
     private static AuthoringPackageTrustDecision Decision(
@@ -288,17 +289,26 @@ public sealed class EcdsaAuthoringPackageTrustVerifier(
         string keysetIdentity) =>
         new(status, publisher, keyId, evaluatedAt, validUntil, keysetIdentity);
 
-    private static string ComputeKeyIdentity(AuthoringPackagePublisherKey key)
+    private static string ComputeKeysetIdentity(ImmutableArray<AuthoringPackagePublisherKey> keys)
     {
-        string publicKeySha256 = Convert.ToHexStringLower(SHA256.HashData(key.SubjectPublicKeyInfo.AsSpan()));
-        string material = string.Join('\n',
-            "fsusblog.authoring-package.publisher-key.v1",
-            key.Publisher,
-            key.KeyId,
-            publicKeySha256,
-            key.ValidFrom.UtcTicks,
-            key.ValidUntil.UtcTicks,
-            key.RevokedAt?.UtcTicks ?? 0);
+        IEnumerable<string> keyFields = keys
+            .OrderBy(static key => key.KeyId, StringComparer.Ordinal)
+            .SelectMany(static key => new[]
+            {
+                key.Publisher,
+                key.KeyId,
+                Convert.ToHexStringLower(SHA256.HashData(key.SubjectPublicKeyInfo.AsSpan())),
+                key.ValidFrom.UtcTicks.ToString(CultureInfo.InvariantCulture),
+                key.ValidUntil.UtcTicks.ToString(CultureInfo.InvariantCulture),
+                (key.RevokedAt?.UtcTicks ?? 0).ToString(CultureInfo.InvariantCulture)
+            });
+        string material = string.Join(
+            "\n",
+            new[]
+            {
+                "fsusblog.authoring-package.publisher-keyset.v1",
+                keys.Length.ToString(CultureInfo.InvariantCulture)
+            }.Concat(keyFields));
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(material)));
     }
 }
@@ -654,11 +664,85 @@ internal static class AuthoringPackageReferencePolicy
     }
 }
 
+internal static class AuthoringPackageClosedJson
+{
+    public static T Deserialize<T>(
+        ReadOnlySpan<byte> utf8Json,
+        JsonSerializerOptions options,
+        string subject)
+    {
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(utf8Json.ToArray(), new JsonDocumentOptions
+            {
+                CommentHandling = JsonCommentHandling.Disallow,
+                MaxDepth = options.MaxDepth
+            });
+            RejectDuplicateProperties(document.RootElement, subject);
+            return JsonSerializer.Deserialize<T>(utf8Json, options) ??
+                throw new AuthoringExtensionContractException($"{subject} is missing.");
+        }
+        catch (JsonException exception)
+        {
+            throw new AuthoringExtensionContractException($"{subject} JSON is not closed: {exception.GetType().Name}.");
+        }
+    }
+
+    private static void RejectDuplicateProperties(JsonElement element, string subject)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            foreach (JsonProperty property in element.EnumerateObject())
+            {
+                if (!names.Add(property.Name))
+                {
+                    throw new AuthoringExtensionContractException($"{subject} contains a duplicate property.");
+                }
+
+                RejectDuplicateProperties(property.Value, subject);
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement item in element.EnumerateArray())
+            {
+                RejectDuplicateProperties(item, subject);
+            }
+        }
+    }
+}
+
+public interface IAuthoringPackageCompatibilityPrecheck
+{
+    ValueTask<bool> IsCompatibleAsync(
+        VerifiedAuthoringPackage? current,
+        VerifiedAuthoringPackage candidate,
+        CancellationToken cancellationToken);
+}
+
+public sealed class SchemaStableAuthoringPackageCompatibilityPrecheck : IAuthoringPackageCompatibilityPrecheck
+{
+    public ValueTask<bool> IsCompatibleAsync(
+        VerifiedAuthoringPackage? current,
+        VerifiedAuthoringPackage candidate,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(candidate);
+        bool compatible = current is null ||
+            current.Contract.Manifest.StateSchemaVersion == candidate.Contract.Manifest.StateSchemaVersion &&
+            current.Contract.Manifest.DataSchemaVersion == candidate.Contract.Manifest.DataSchemaVersion;
+        return ValueTask.FromResult(compatible);
+    }
+}
+
 public sealed class AuthoringPackageActivationCoordinator(
     IAuthoringPackageStore packageStore,
     IAuthoringPackageHealthProbe healthProbe,
     IAuthoringPackageReceiptStore receiptStore,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider,
+    IAuthoringPackageCompatibilityPrecheck compatibilityPrecheck)
 {
     public async ValueTask<AuthoringPackageReceipt> InstallOrUpdateAsync(
         VerifiedAuthoringPackage package,
@@ -687,6 +771,16 @@ public sealed class AuthoringPackageActivationCoordinator(
         if (await packageStore.ContainsAsync(package.PackageIdentity, cancellationToken))
         {
             return await RecordAsync(package, old, AuthoringPackageOutcome.Rejected, "package-replay", cancellationToken);
+        }
+
+        if (!await compatibilityPrecheck.IsCompatibleAsync(old, package, cancellationToken))
+        {
+            return await RecordAsync(
+                package,
+                old,
+                AuthoringPackageOutcome.Rejected,
+                "schema-migration-required",
+                cancellationToken);
         }
 
         await packageStore.StageAsync(package, cancellationToken);

@@ -1,0 +1,32 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "config/development/document-inventory.generated.json",
+                "config/development/document-lifecycle.json",
+                "docs/architecture/authoring-extension-host-boundary.md",
+                "docs/security/authoring-extension-capability-isolation.md"
+            ],
+            "reason": "Preserve existing caller-visible JSON and Markdown identifiers while the lifecycle producer records the package supply-chain contract."
+        },
+        {
+            "id": "auth-security-doc-exactness-authority",
+            "paths": [
+                "docs/security.md"
+            ],
+            "reason": "Preserve the current security document's caller-visible exactness identifiers while recording the package supply-chain boundary."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionPackages.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringPackageProductionActivation.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/LocalAuthoringPackageReceiptStore.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/LocalAuthoringPackageStore.cs"
+            ],
+            "reason": "Preserve caller-visible process environment spellings while the package supply-chain implementation keeps repository-owned C# identifiers."
+        }
+    ]
+}
