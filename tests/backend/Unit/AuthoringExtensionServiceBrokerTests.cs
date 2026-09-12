@@ -21,7 +21,8 @@ public sealed class AuthoringExtensionServiceBrokerTests
         AuthoringServiceExecutionResult result = await fixture.Broker.ExecuteAsync(
             fixture.Package,
             fixture.Target,
-            fixture.Request);
+            fixture.Request,
+            1);
 
         Assert.Equal(AuthoringServiceResultStatus.Completed, result.Status);
         Assert.Equal([4, 5], result.Response?.Payload);
@@ -41,7 +42,7 @@ public sealed class AuthoringExtensionServiceBrokerTests
         ServiceFixture fixture = await CreateFixtureAsync(process);
 
         await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
-            await fixture.Broker.ExecuteAsync(fixture.Package, fixture.Target, fixture.Request));
+            await fixture.Broker.ExecuteAsync(fixture.Package, fixture.Target, fixture.Request, 1));
         Assert.Equal("process-ownership-rejected", process.TerminationReason);
     }
 
@@ -54,7 +55,8 @@ public sealed class AuthoringExtensionServiceBrokerTests
         AuthoringServiceExecutionResult result = await fixture.Broker.ExecuteAsync(
             fixture.Package,
             fixture.Target,
-            fixture.Request);
+            fixture.Request,
+            1);
 
         Assert.Equal(AuthoringServiceResultStatus.Rejected, result.Status);
         Assert.Equal("readiness-rejected", process.TerminationReason);
@@ -72,7 +74,8 @@ public sealed class AuthoringExtensionServiceBrokerTests
             fixture.Request with
             {
                 Deadline = DateTimeOffset.UtcNow.AddMilliseconds(10)
-            });
+            },
+            1);
 
         Assert.Equal(AuthoringServiceResultStatus.TimedOut, result.Status);
         Assert.Equal("cancelled-or-timeout", process.TerminationReason);
@@ -87,7 +90,8 @@ public sealed class AuthoringExtensionServiceBrokerTests
         AuthoringServiceExecutionResult result = await fixture.Broker.ExecuteAsync(
             fixture.Package,
             fixture.Target,
-            fixture.Request);
+            fixture.Request,
+            1);
 
         Assert.Equal(AuthoringServiceResultStatus.Stale, result.Status);
         Assert.Null(result.Response);
@@ -106,7 +110,8 @@ public sealed class AuthoringExtensionServiceBrokerTests
                 {
                     ExtensionVersion = "9.9.9"
                 },
-                fixture.Request));
+                fixture.Request,
+                1));
         await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
             await fixture.Broker.ExecuteAsync(
                 fixture.Package,
@@ -114,7 +119,8 @@ public sealed class AuthoringExtensionServiceBrokerTests
                 fixture.Request with
                 {
                     DocumentId = "document\n2"
-                }));
+                },
+                1));
     }
 
     [Theory]
@@ -644,9 +650,12 @@ public sealed class AuthoringExtensionServiceBrokerTests
         process ??= new TestProcess();
         process.RuntimeIdentity = target.RuntimeIdentity;
         process.ExecutableSha256 = executableDigest;
+        var lifecycleResources = new AuthoringExtensionLifecycleResources(new LifecycleHostResources());
+        await lifecycleResources.ActivateAtomicallyAsync(package, [target], 1, CancellationToken.None);
         var broker = new AuthoringExtensionServiceBroker(
             new TestRuntime(process),
             new RevisionGate(currentRevision),
+            lifecycleResources,
             new FixedTimeProvider(now));
         return new ServiceFixture(package, target, request, broker);
     }
@@ -662,6 +671,19 @@ public sealed class AuthoringExtensionServiceBrokerTests
         public ValueTask<IAuthoringServiceProcess> StartAsync(
             AuthoringServiceLaunchDescriptor descriptor,
             CancellationToken cancellationToken) => ValueTask.FromResult<IAuthoringServiceProcess>(process);
+    }
+
+    private sealed class LifecycleHostResources : IAuthoringLifecycleHostResourceAuthority
+    {
+        public ValueTask ActivateAtomicallyAsync(
+            VerifiedAuthoringPackage package,
+            ImmutableArray<AuthoringExecutionTarget> targets,
+            CancellationToken cancellationToken) => ValueTask.CompletedTask;
+
+        public ValueTask<AuthoringLifecycleHostResourceReport> RevokeAllAsync(
+            string extensionId,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult(new AuthoringLifecycleHostResourceReport(0, 0, 0, 0, 0));
     }
 
     private sealed class TestProcess : IAuthoringServiceProcess

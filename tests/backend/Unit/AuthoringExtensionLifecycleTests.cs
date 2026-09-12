@@ -15,7 +15,7 @@ public sealed class AuthoringExtensionLifecycleTests
             fixture.Package,
             fixture.Targets);
 
-        Assert.Equal(AuthoringLifecycleState.Enabled, receipt.State);
+        Assert.Equal(AuthoringLifecycleState.Running, receipt.State);
         Assert.Equal(1, fixture.Resources.ActivationCount);
         Assert.Equal(fixture.Targets.Length, fixture.Resources.LastTargetCount);
     }
@@ -61,6 +61,7 @@ public sealed class AuthoringExtensionLifecycleTests
     {
         var state = new StateStore { FailMigration = true };
         LifecycleFixture fixture = CreateFixture(stateStore: state);
+        await fixture.Coordinator.EnableAsync(fixture.Package, fixture.Targets);
         VerifiedAuthoringPackage next = CreatePackage("2.0.0", stateSchemaVersion: 2);
         ImmutableArray<AuthoringExecutionTarget> nextTargets = CreateTargets(next);
         AuthoringStateMigrationPlan plan = CreatePlan(fixture.Package, next);
@@ -71,7 +72,10 @@ public sealed class AuthoringExtensionLifecycleTests
         Assert.True(state.BackupCalled);
         Assert.True(state.RollbackCalled);
         Assert.Equal(fixture.Package, fixture.Resources.LastActivatedPackage);
-        Assert.Equal(AuthoringLifecycleState.RollbackRequired, fixture.Receipts.Latest?.State);
+        Assert.Contains(
+            fixture.Receipts.All,
+            receipt => receipt.State == AuthoringLifecycleState.RollbackRequired);
+        Assert.Equal(AuthoringLifecycleState.Running, fixture.Receipts.Latest?.State);
     }
 
     [Fact]
@@ -174,11 +178,11 @@ public sealed class AuthoringExtensionLifecycleTests
         ImmutableArray<AuthoringExecutionTarget> targets = CreateTargets(package);
         var host = new HostResources();
         var resources = new AuthoringExtensionLifecycleResources(host);
-        await resources.ActivateAtomicallyAsync(package, targets, CancellationToken.None);
+        await resources.ActivateAtomicallyAsync(package, targets, 1, CancellationToken.None);
         var worker = new TrackedWorker();
         var service = new TrackedService();
-        await resources.TrackWorkerAsync(package.Contract.Manifest.Id, worker);
-        await resources.TrackServiceAsync(package.Contract.Manifest.Id, service);
+        await resources.TrackWorkerAsync(package.Contract.Manifest.Id, 1, worker);
+        await resources.TrackServiceAsync(package.Contract.Manifest.Id, 1, service);
 
         AuthoringLifecycleResourceReport report = await resources.RevokeAllAsync(
             package.Contract.Manifest.Id,
@@ -200,10 +204,10 @@ public sealed class AuthoringExtensionLifecycleTests
         ImmutableArray<AuthoringExecutionTarget> targets = CreateTargets(package);
         var host = new HostResources();
         var resources = new AuthoringExtensionLifecycleResources(host);
-        await resources.ActivateAtomicallyAsync(package, targets, CancellationToken.None);
+        await resources.ActivateAtomicallyAsync(package, targets, 1, CancellationToken.None);
         Assert.True((await resources.RevokeAllAsync(package.Contract.Manifest.Id, 2, CancellationToken.None)).IsEmpty);
 
-        await resources.ActivateAtomicallyAsync(package, [], CancellationToken.None);
+        await resources.ActivateAtomicallyAsync(package, [], 3, CancellationToken.None);
 
         Assert.Equal(2, host.ActivationCount);
         Assert.Equal(targets.Length, host.LastTargetCount);
@@ -212,22 +216,210 @@ public sealed class AuthoringExtensionLifecycleTests
             await new AuthoringExtensionLifecycleResources(new HostResources()).ActivateAtomicallyAsync(
                 unknown,
                 [],
+                1,
                 CancellationToken.None));
     }
 
-    private static LifecycleFixture CreateFixture(
-        ResourceAuthority? resources = null,
-        StateStore? stateStore = null)
+    [Fact]
+    public async Task RuntimeResources_OlderGenerationCannotRevokeNewGeneration()
     {
         VerifiedAuthoringPackage package = CreatePackage("1.0.0", 1);
-        resources ??= new ResourceAuthority();
-        stateStore ??= new StateStore();
+        ImmutableArray<AuthoringExecutionTarget> targets = CreateTargets(package);
+        var host = new HostResources();
+        var resources = new AuthoringExtensionLifecycleResources(host);
+        await resources.ActivateAtomicallyAsync(package, targets, 5, CancellationToken.None);
+
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await resources.RevokeAllAsync(package.Contract.Manifest.Id, 4, CancellationToken.None));
+
+        Assert.Equal(0, host.RevocationCount);
+        Assert.True((await resources.RevokeAllAsync(
+            package.Contract.Manifest.Id,
+            5,
+            CancellationToken.None)).IsEmpty);
+        Assert.Equal(1, host.RevocationCount);
+    }
+
+    [Fact]
+    public async Task RuntimeResources_StaleGenerationCannotTrackWorker()
+    {
+        VerifiedAuthoringPackage package = CreatePackage("1.0.0", 1);
+        var resources = new AuthoringExtensionLifecycleResources(new HostResources());
+        await resources.ActivateAtomicallyAsync(package, CreateTargets(package), 2, CancellationToken.None);
+        var worker = new TrackedWorker();
+
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await resources.TrackWorkerAsync(package.Contract.Manifest.Id, 1, worker));
+
+        Assert.True(worker.Terminated);
+        Assert.True(worker.Disposed);
+        Assert.True((await resources.RevokeAllAsync(
+            package.Contract.Manifest.Id,
+            2,
+            CancellationToken.None)).IsEmpty);
+    }
+
+    [Fact]
+    public async Task RuntimeResources_ReleaseRacingRevokeDisposesExactlyOnce()
+    {
+        VerifiedAuthoringPackage package = CreatePackage("1.0.0", 1);
+        ImmutableArray<AuthoringExecutionTarget> targets = CreateTargets(package);
+        var resources = new AuthoringExtensionLifecycleResources(new HostResources());
+        await resources.ActivateAtomicallyAsync(package, targets, 1, CancellationToken.None);
+        var worker = new BlockingTrackedWorker();
+        await resources.TrackWorkerAsync(package.Contract.Manifest.Id, 1, worker);
+
+        Task<AuthoringLifecycleResourceReport> revoke = resources.RevokeAllAsync(
+            package.Contract.Manifest.Id,
+            1,
+            CancellationToken.None).AsTask();
+        await worker.TerminationStarted.Task;
+        await resources.ReleaseWorkerAsync(package.Contract.Manifest.Id, 1, worker);
+        worker.AllowTermination.SetResult();
+
+        Assert.True((await revoke).IsEmpty);
+        Assert.Equal(1, worker.DisposeCount);
+    }
+
+    [Fact]
+    public async Task RuntimeResources_TerminationFailureRemainsReportedAfterDisposal()
+    {
+        VerifiedAuthoringPackage package = CreatePackage("1.0.0", 1);
+        var resources = new AuthoringExtensionLifecycleResources(new HostResources());
+        await resources.ActivateAtomicallyAsync(package, CreateTargets(package), 1, CancellationToken.None);
+        var worker = new FailingTerminationWorker();
+        await resources.TrackWorkerAsync(package.Contract.Manifest.Id, 1, worker);
+
+        AuthoringLifecycleResourceReport report = await resources.RevokeAllAsync(
+            package.Contract.Manifest.Id,
+            1,
+            CancellationToken.None);
+
+        Assert.Equal(1, report.WorkerInstances);
+        Assert.True(worker.Disposed);
+    }
+
+    [Fact]
+    public async Task EnableAsync_RunningReceiptFailureRevokesActivatedGeneration()
+    {
+        var receipts = new ReceiptStore
+        {
+            FailAppend = static receipt => receipt.State == AuthoringLifecycleState.Running
+        };
+        LifecycleFixture fixture = CreateFixture(receiptStore: receipts);
+
+        await Assert.ThrowsAsync<IOException>(async () =>
+            await fixture.Coordinator.EnableAsync(fixture.Package, fixture.Targets));
+
+        Assert.Equal(1, fixture.Resources.RevocationCount);
+        Assert.Equal(fixture.Resources.LastActivationGeneration, fixture.Resources.LastRevocationGeneration);
+        Assert.Equal(AuthoringLifecycleState.Crashed, fixture.Receipts.Latest?.State);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_RunningReceiptFailureCleansNewResourcesBeforeStateRollback()
+    {
+        List<string> trace = [];
+        var resources = new ResourceAuthority { Trace = trace };
+        var state = new StateStore { Trace = trace };
+        var receipts = new ReceiptStore();
+        LifecycleFixture fixture = CreateFixture(resources, state, receipts);
+        await fixture.Coordinator.EnableAsync(fixture.Package, fixture.Targets);
+        trace.Clear();
+        receipts.FailAppend = static receipt =>
+            receipt.State == AuthoringLifecycleState.Running && receipt.Version == "2.0.0";
+        VerifiedAuthoringPackage next = CreatePackage("2.0.0", 2);
+
+        await Assert.ThrowsAsync<IOException>(async () =>
+            await fixture.Coordinator.UpdateAsync(
+                fixture.Package,
+                next,
+                CreateTargets(next),
+                CreatePlan(fixture.Package, next)));
+
+        int newActivation = trace.FindIndex(static item => item.StartsWith("activate:2.0.0:", StringComparison.Ordinal));
+        int newRevocation = trace.FindIndex(newActivation + 1, static item => item.StartsWith("revoke:", StringComparison.Ordinal));
+        int rollback = trace.IndexOf("rollback");
+        int oldReactivation = trace.FindIndex(static item => item.StartsWith("activate:1.0.0:", StringComparison.Ordinal));
+        Assert.True(newActivation >= 0);
+        Assert.True(newRevocation > newActivation);
+        Assert.True(rollback > newRevocation);
+        Assert.True(oldReactivation > rollback);
+        Assert.Equal(AuthoringLifecycleState.Running, receipts.Latest?.State);
+    }
+
+    [Fact]
+    public async Task RuntimeHealth_ReceiptFailureRestoresPriorResourceGeneration()
+    {
+        var resources = new ResourceAuthority();
+        var receipts = new ReceiptStore();
+        LifecycleFixture fixture = CreateFixture(resources: resources, receiptStore: receipts);
+        AuthoringLifecycleReceipt running = await fixture.Coordinator.EnableAsync(fixture.Package, fixture.Targets);
+        receipts.FailAppend = static receipt => receipt.State == AuthoringLifecycleState.Degraded;
+
+        await Assert.ThrowsAsync<IOException>(async () =>
+            await fixture.Coordinator.MarkDegradedAsync(
+                fixture.Package,
+                running.Generation,
+                "health-probe-failed"));
+
+        Assert.Equal(running.Generation, resources.ActiveGeneration);
+        Assert.Equal(running, receipts.Latest);
+    }
+
+    [Fact]
+    public async Task RuntimeHealth_RebindsTrackingReleaseAndDisableToCurrentGeneration()
+    {
+        VerifiedAuthoringPackage package = CreatePackage("1.0.0", 1);
+        ImmutableArray<AuthoringExecutionTarget> targets = CreateTargets(package);
+        var host = new HostResources();
+        var resources = new AuthoringExtensionLifecycleResources(host);
         var receipts = new ReceiptStore();
         var coordinator = new AuthoringExtensionLifecycleCoordinator(
             resources,
             new Preflight(true),
+            new StateStore(),
+            receipts,
+            new AuthoringCapabilityGrantCatalogStub());
+        AuthoringLifecycleReceipt running = await coordinator.EnableAsync(package, targets);
+        AuthoringLifecycleReceipt degraded = await coordinator.MarkDegradedAsync(
+            package,
+            running.Generation,
+            "health-probe-failed");
+        var worker = new TrackedWorker();
+        await resources.TrackWorkerAsync(package.Contract.Manifest.Id, degraded.Generation, worker);
+
+        AuthoringLifecycleReceipt recovered = await coordinator.MarkRecoveredAsync(
+            package,
+            degraded.Generation);
+        await resources.ReleaseWorkerAsync(package.Contract.Manifest.Id, degraded.Generation, worker);
+        var service = new TrackedService();
+        await resources.TrackServiceAsync(package.Contract.Manifest.Id, recovered.Generation, service);
+        AuthoringLifecycleReceipt disabled = await coordinator.DisableAsync(package);
+
+        Assert.Equal(degraded.Generation + 1, recovered.Generation);
+        Assert.True(worker.Disposed);
+        Assert.True(service.Terminated);
+        Assert.True(service.Disposed);
+        Assert.Equal(AuthoringLifecycleState.Disabled, disabled.State);
+        Assert.Equal(1, host.RevocationCount);
+    }
+
+    private static LifecycleFixture CreateFixture(
+        ResourceAuthority? resources = null,
+        StateStore? stateStore = null,
+        ReceiptStore? receiptStore = null)
+    {
+        VerifiedAuthoringPackage package = CreatePackage("1.0.0", 1);
+        resources ??= new ResourceAuthority();
+        stateStore ??= new StateStore();
+        ReceiptStore receipts = receiptStore ?? new ReceiptStore();
+        var coordinator = new AuthoringExtensionLifecycleCoordinator(
+            resources,
+            new Preflight(true),
             stateStore,
-            receipts);
+            receipts,
+            new AuthoringCapabilityGrantCatalogStub());
         return new LifecycleFixture(
             package,
             CreateTargets(package),
@@ -328,6 +520,26 @@ public sealed class AuthoringExtensionLifecycleTests
             get; private set;
         }
 
+        public long ActiveGeneration
+        {
+            get; private set;
+        }
+
+        public long LastActivationGeneration
+        {
+            get; private set;
+        }
+
+        public long LastRevocationGeneration
+        {
+            get; private set;
+        }
+
+        public List<string>? Trace
+        {
+            get; init;
+        }
+
         public VerifiedAuthoringPackage? LastActivatedPackage
         {
             get; private set;
@@ -336,11 +548,15 @@ public sealed class AuthoringExtensionLifecycleTests
         public ValueTask ActivateAtomicallyAsync(
             VerifiedAuthoringPackage package,
             ImmutableArray<AuthoringExecutionTarget> targets,
+            long generation,
             CancellationToken cancellationToken)
         {
             ActivationCount++;
             LastTargetCount = targets.Length;
             LastActivatedPackage = package;
+            ActiveGeneration = generation;
+            LastActivationGeneration = generation;
+            Trace?.Add($"activate:{package.Contract.Manifest.Version}:{generation}");
             return ValueTask.CompletedTask;
         }
 
@@ -350,7 +566,34 @@ public sealed class AuthoringExtensionLifecycleTests
             CancellationToken cancellationToken)
         {
             RevocationCount++;
+            LastRevocationGeneration = generation;
+            Trace?.Add($"revoke:{generation}");
+            if (RevokeReport.IsEmpty)
+            {
+                ActiveGeneration = 0;
+            }
             return ValueTask.FromResult(RevokeReport);
+        }
+
+        public ValueTask<bool> RebindGenerationAsync(
+            string extensionId,
+            long expectedGeneration,
+            long replacementGeneration,
+            CancellationToken cancellationToken)
+        {
+            if (ActiveGeneration == 0)
+            {
+                return ValueTask.FromResult(false);
+            }
+
+            if (ActiveGeneration != expectedGeneration)
+            {
+                throw new AuthoringExtensionContractException("test generation is stale");
+            }
+
+            ActiveGeneration = replacementGeneration;
+            Trace?.Add($"rebind:{expectedGeneration}:{replacementGeneration}");
+            return ValueTask.FromResult(true);
         }
     }
 
@@ -425,6 +668,65 @@ public sealed class AuthoringExtensionLifecycleTests
             Terminated = true;
             return ValueTask.CompletedTask;
         }
+
+        public ValueTask DisposeAsync()
+        {
+            Disposed = true;
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class BlockingTrackedWorker : IAuthoringWorkerSandboxInstance
+    {
+        public TaskCompletionSource TerminationStarted
+        {
+            get;
+        } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource AllowTermination
+        {
+            get;
+        } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public int DisposeCount
+        {
+            get; private set;
+        }
+
+        public AuthoringWorkerCapabilityReport CapabilityReport => throw new NotSupportedException();
+
+        public ValueTask<AuthoringWorkerResponse> ExecuteAsync(
+            AuthoringWorkerRequest request,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public async ValueTask TerminateAsync(string reason, CancellationToken cancellationToken)
+        {
+            TerminationStarted.TrySetResult();
+            await AllowTermination.Task;
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            DisposeCount++;
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class FailingTerminationWorker : IAuthoringWorkerSandboxInstance
+    {
+        public AuthoringWorkerCapabilityReport CapabilityReport => throw new NotSupportedException();
+
+        public bool Disposed
+        {
+            get; private set;
+        }
+
+        public ValueTask<AuthoringWorkerResponse> ExecuteAsync(
+            AuthoringWorkerRequest request,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public ValueTask TerminateAsync(string reason, CancellationToken cancellationToken) =>
+            ValueTask.FromException(new IOException("termination failed"));
 
         public ValueTask DisposeAsync()
         {
@@ -511,14 +813,21 @@ public sealed class AuthoringExtensionLifecycleTests
             get; set;
         }
 
+        public List<string>? Trace
+        {
+            get; init;
+        }
+
         public ValueTask BackupAsync(AuthoringStateMigrationPlan plan, CancellationToken cancellationToken)
         {
             BackupCalled = true;
+            Trace?.Add("backup");
             return ValueTask.CompletedTask;
         }
 
         public ValueTask ApplyAsync(AuthoringStateMigrationPlan plan, CancellationToken cancellationToken)
         {
+            Trace?.Add("apply");
             if (FailMigration)
             {
                 throw new InvalidOperationException("migration failed");
@@ -530,6 +839,7 @@ public sealed class AuthoringExtensionLifecycleTests
         public ValueTask RollbackAsync(AuthoringStateMigrationPlan plan, CancellationToken cancellationToken)
         {
             RollbackCalled = true;
+            Trace?.Add("rollback");
             return ValueTask.CompletedTask;
         }
 
@@ -546,9 +856,16 @@ public sealed class AuthoringExtensionLifecycleTests
 
     private sealed class ReceiptStore : IAuthoringLifecycleReceiptStore
     {
+        public List<AuthoringLifecycleReceipt> All { get; } = [];
+
         public AuthoringLifecycleReceipt? Latest
         {
             get; private set;
+        }
+
+        public Func<AuthoringLifecycleReceipt, bool>? FailAppend
+        {
+            get; set;
         }
 
         public ValueTask<AuthoringLifecycleReceipt?> GetLatestAsync(
@@ -557,12 +874,18 @@ public sealed class AuthoringExtensionLifecycleTests
 
         public ValueTask AppendAsync(AuthoringLifecycleReceipt receipt, CancellationToken cancellationToken)
         {
+            if (FailAppend?.Invoke(receipt) == true)
+            {
+                throw new IOException("receipt persistence failed");
+            }
+
             if (Latest is not null && receipt.Sequence != Latest.Sequence + 1)
             {
                 throw new AuthoringExtensionContractException("Lifecycle receipt sequence is not append-only.");
             }
 
             Latest = receipt;
+            All.Add(receipt);
             return ValueTask.CompletedTask;
         }
     }
