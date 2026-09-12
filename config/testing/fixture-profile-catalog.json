@@ -9,6 +9,7 @@
                 "comment.moderation-matrix",
                 "comment.threaded",
                 "messages.thread",
+                "moderation.policy-matrix",
                 "notifications.unread",
                 "public.article.draft",
                 "public.article.published",
