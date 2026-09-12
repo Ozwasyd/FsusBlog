@@ -13,6 +13,9 @@
     :saving="saving"
     :status-text="statusText"
     :status-tone="statusTone"
+    :authoring-commands="authoringCommands"
+    :command-surfaces="commandSurfaces"
+    :document-identity="documentIdentity"
     @save="$emit('draft-save')"
     @draft-save="$emit('draft-save')"
     @submit="$emit('submit')"
@@ -24,6 +27,11 @@
 import { computed, ref } from 'vue'
 import ArticleBodyMarkdownPreview from '@/components/admin/article/ArticleBodyMarkdownPreview.vue'
 import MarkdownEditorAdapter from '@/components/ui/MarkdownEditorAdapter.vue'
+import type {
+  FsusUiAuthoringCommand,
+  FsusUiAuthoringDocumentIdentity,
+  FsusUiAuthoringSurfaceOptions
+} from '@/fsusui/authoringCommands'
 
 type EditorLayoutMode = 'standard' | 'focus' | 'fullscreen'
 
@@ -34,10 +42,16 @@ const props = withDefaults(defineProps<{
   statusText?: string
   statusTone?: 'quiet' | 'danger'
   layoutMode?: EditorLayoutMode
+  authoringCommands?: readonly FsusUiAuthoringCommand[]
+  commandSurfaces?: FsusUiAuthoringSurfaceOptions
+  documentIdentity?: FsusUiAuthoringDocumentIdentity
 }>(), {
   layoutMode: 'standard',
   statusText: '',
-  statusTone: 'quiet'
+  statusTone: 'quiet',
+  authoringCommands: () => [],
+  commandSurfaces: () => ({ toolbar: true }),
+  documentIdentity: undefined
 })
 
 const emit = defineEmits<{
@@ -48,7 +62,10 @@ const emit = defineEmits<{
   (e: 'upload-img', files: File[], callback: (urls: string[]) => void, onError: (message: string) => void): void
 }>()
 
-const adapterRef = ref<{ insertMarkdownAtCursor?: (markdown: string) => boolean } | null>(null)
+const adapterRef = ref<{
+  insertMarkdownAtCursor?: (markdown: string) => boolean
+  openCommandPalette?: () => void
+} | null>(null)
 
 const content = computed({
   get: () => props.modelValue,
@@ -76,7 +93,12 @@ function insertMarkdownAtCursor(markdown: string): boolean {
   return adapterRef.value?.insertMarkdownAtCursor?.(markdown) === true
 }
 
+function openCommandPalette(): void {
+  adapterRef.value?.openCommandPalette?.()
+}
+
 defineExpose({
-  insertMarkdownAtCursor
+  insertMarkdownAtCursor,
+  openCommandPalette
 })
 </script>
