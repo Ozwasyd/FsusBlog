@@ -215,7 +215,7 @@ npm --prefix src/frontend run dev:debug
 ### Visual Studio debugging
 
 - Default launch profile: `Debug / Client + Docker` (closest to production)
-- Secondary launch profile: `Debug / Client + NativeServer` (faster C# iteration)
+- Secondary launch profile: `Debug / Client + NativeServer` (C#-only iteration without frontend rebuild)
 - The default `F5` browser entry is `http://127.0.0.1:3000`
 
 ### Release-build switch

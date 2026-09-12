@@ -341,7 +341,7 @@ See [testing.md](testing.md) for the complete tier rules.
 | Profile | Scenario |
 | -------- | ------ |
 | `Debug / Client + Docker` | Production-like debugging (recommended) |
-| `Debug / Client + NativeServer` | Faster C# iteration |
+| `Debug / Client + NativeServer` | C#-only iteration without frontend rebuild |
 
 `FsusBlog.slnLaunch` defines these launch profiles and references only real project paths from
 `FsusBlog.slnx`. The backend-native profile is in `src/backend/Properties/launchSettings.json`;
