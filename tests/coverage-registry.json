@@ -5233,6 +5233,98 @@
             ]
         },
         {
+            "id": "article-embed-contract-static-governance",
+            "description": "Article embed targets, provider requests and results, dependency coordinates, parser ownership, and failure taxonomy remain one closed versioned shared contract without a parallel resolver or executable UI payload.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "src/shared/Contracts/ArticleEmbeds/ArticleEmbedContracts.cs",
+                "src/shared/Contracts/ArticleEmbeds/ArticleEmbedTargetCodec.cs",
+                "src/shared/Contracts/ArticleEmbeds/ArticleEmbedContractValidator.cs",
+                "src/shared/Contracts/ArticleEmbeds/ArticleEmbedContractDigest.cs",
+                "src/shared/Contracts/ArticleEmbeds/article-embed-contract.schema.json",
+                "tests/backend/Unit/ArticleEmbedContractTests.cs",
+                "tools/governance/check-article-embed-contract.mjs",
+                "tests/tools/article-embed-contract.test.mjs",
+                "docs/api/contracts.md"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "The checker fails on duplicate embed codecs, provider request/result or dependency-coordinate owners; parser authority or mode drift; compatibility aliases; remote/file targets; mode inference; database identity; open schemas; and HTML, DOM, component or service-object provider payloads.",
+            "minimumRequirement": "Focused C# tests cover canonical article, heading and block targets, request/result validation, public publication-plan constraints, digests, budgets and the closed error taxonomy; independent Node mutations kill duplicate authorities, parser drift, compatibility paths, inferred modes, open schemas and executable payload fields.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
+            "id": "article-embed-authoring-static-governance",
+            "description": "Article embed authoring resolution remains one closed deterministic resolver over sealed authority snapshots: permission-safe current targets, safe projections, typed attribution, authoring-only eligibility marks, cycle and budget bounds, stale cancellation, per-resolution memoization, receipts and independent verification without HTML, latest reuse, title resolution or cross-user caches.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringContracts.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringContractValidator.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringResolver.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringVerifier.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringDigest.cs",
+                "tests/backend/Unit/ArticleEmbedAuthoringResolverTests.cs",
+                "tools/governance/check-article-embed-authoring.mjs",
+                "tests/tools/article-embed-authoring.test.mjs",
+                "docs/api/contracts.md"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "The checker fails on duplicate authoring resolvers, verifiers, snapshots, resolutions or receipts; regex or rendered-source parsing; HTML, DOM, component or iframe payloads; latest or publication-plan target reuse; title, slug, route or URL resolution; persistent or cross-user caches; missing cycle, budget, scope, staleness or binding guards; receipts or open-source intents carrying target content; and verifiers that skip re-validation, re-decoding or digest recomputation.",
+            "minimumRequirement": "Focused C# tests cover article, heading and block current targets, private/draft/scheduled/archived/deleted and permission states, missing or duplicate coordinates, self and multi-hop cycles, shared subtrees, depth/node/byte/time/message budgets, drift and abort staleness, cache-key binding, local failure isolation, update-available facts and receipt/result tamper; independent Node mutations kill duplicate authorities, forbidden resolution inputs, persistent caches, removed guards and content-carrying receipts.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
+            "id": "article-embed-publication-static-governance",
+            "description": "Article embed publication planning remains one closed deterministic planner over sealed public authority snapshots: frozen public revision coordinates, flat dependency edges, public-only rejection, cycle and budget bounds, sealed receipts, commit gating and independent verification without authoring caches, latest reuse, business writes or content-bearing receipts.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationContracts.cs",
+                "src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationContractValidator.cs",
+                "src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationPlanner.cs",
+                "src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationVerifier.cs",
+                "src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationDigest.cs",
+                "tests/backend/Unit/ArticleEmbedPublicationPlannerTests.cs",
+                "tools/governance/check-article-embed-publication.mjs",
+                "tests/tools/article-embed-publication.test.mjs",
+                "docs/api/contracts.md"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "The checker fails on duplicate publication planners, verifiers, authorities, plans or receipts; regex or rendered-source parsing; HTML, DOM, component or iframe payloads; authoring resolver, cache, latest-target or previous-result reuse; title, slug, route or URL resolution; persistent or cross-user caches; business writes or transport inside the contract boundary; missing cycle, budget, scope, public-only or retention guards; missing commit gating or fixed-time digest comparison; content-bearing receipts; missing authority, edge or delivery-policy bindings; and verifiers that call the planner or skip re-validation, re-decoding or digest recomputation.",
+            "minimumRequirement": "Focused C# tests cover frozen article, heading and block coordinates, every non-public lifecycle/visibility/permission/package state, missing or duplicate coordinates, self and multi-hop cycles, shared-subtree dedup, depth/node/byte/time/message budgets, host-source/actor/runtime/generation drift, abort, later-revision immutability, commit gating and edge/receipt/plan tamper; independent Node mutations kill duplicate authorities, forbidden inputs, removed guards, content-bearing receipts and planner-calling verifiers.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
+            "id": "article-embed-relations-static-governance",
+            "description": "Article embed relation edges remain one closed derivation over verified authoring resolutions and sealed publication plans: revision-independent edge identities, scope-separated current and frozen families, per-edge dependency receipts, precise invalidation tickets with monotone generations, bounded actor-bound cache keys and query receipts without content or hidden-edge counts.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationContracts.cs",
+                "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationContractValidator.cs",
+                "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDeriver.cs",
+                "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationVerifier.cs",
+                "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDigest.cs",
+                "tests/backend/Unit/ArticleEmbedRelationDeriverTests.cs",
+                "tools/governance/check-article-embed-relations.mjs",
+                "tests/tools/article-embed-relations.test.mjs",
+                "docs/api/contracts.md"
+            ],
+            "assertionType": "contract",
+            "failClosedRule": "The checker fails on duplicate relation derivers, verifiers, edges, edge sets or receipts; regex or rendered-source parsing; HTML, DOM, component or iframe payloads; authoring resolver or publication planner reuse; latest-target, title, slug, route or URL resolution; persistent or second caches and stores; business writes inside the contract boundary; missing source verification, scope, transition, generation, dedup or actor-binding guards; missing edge, set, ticket, key or receipt digest sealing; content-bearing receipts; missing frozen-only delivery policy; and verifiers that call deriver entry points or skip source re-verification and digest recomputation.",
+            "minimumRequirement": "Focused C# tests cover authoring and frozen derivations, dependency receipts, unverified and blocked source rejection, precise reconcile transitions for target updates, removals, non-public states, host and context drift, frozen immutability, scope-separated and actor-bound queries, bounded cache keys and edge, set, ticket, receipt and query tamper; independent Node mutations kill duplicate authorities, forbidden inputs, removed guards, content-bearing receipts and deriver-calling verifiers.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "article-scale-plan-static-governance",
             "description": "ArticleScalePlan remains the sole closed provider-neutral scale graph contract and rejects source-level modulo, simplified graph, sentinel hash, manual derived-state, and duplicate plan authority mutations.",
             "owner": "ContentAgent",

@@ -80,5 +80,27 @@ dotnet test tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj -
 
 The tests use actual inotify records on the repository's ext4 filesystem. They
 also use an isolated user and mount namespace for the bind-mount rejection
-case. These focused tests qualify issue #2672 only; they are not the full Linux
-agent qualification owned by issue #2675.
+case. These focused tests qualify issue #2672 only.
+
+## Platform qualification
+
+Issue #2675 seals the full Linux filesystem-agent qualification in
+`artifacts/article-vault/linux-agent-qualification.json`. The manifest binds
+the kernel interface, ext4 mount semantics, agent and protocol identities, the
+sealed command, and every case to its test method; it also declares which
+still-open dependency layers (#2110, #2112, #2113, #2114, and the #1909 server
+writer side) are simulated at contract level inside the test harness. Nothing
+in the qualification modifies production code or substitutes for the
+Windows/macOS qualifications.
+
+```bash
+dotnet test tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj --no-restore --filter Category=LinuxArticleVaultAgentQualification
+```
+
+Each run writes an append-only, privacy-safe `evidence.jsonl` and a sealed
+`receipt.json` under `.tmp/article-vault-linux-qualification/`. The receipt is
+independently verifiable with:
+
+```bash
+node tools/test/verify-linux-vault-agent-qualification.mjs --receipt .tmp/article-vault-linux-qualification/<run>/receipt.json
+```

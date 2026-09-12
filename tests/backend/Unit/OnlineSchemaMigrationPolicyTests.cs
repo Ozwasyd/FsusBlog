@@ -327,6 +327,8 @@ public sealed class OnlineSchemaMigrationPolicyTests
             AuthoringCanvasDocumentMigrationDefinitions.MigrationId,
             TaxonomyDescriptionMigrationDefinitions.MigrationId,
             AuthorArticlePinMigrationDefinitions.MigrationId,
+            AuthorSavedViewMigrationDefinitions.MigrationId,
+            ArticleVaultExecutionMigrationDefinitions.MigrationId,
             ContentAssetCutoverMigrationDefinitions.PrototypeShapeMigrationId,
             ContentAssetCutoverMigrationDefinitions.MigrationId
         };

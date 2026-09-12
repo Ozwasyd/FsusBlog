@@ -502,7 +502,8 @@ public static class LinuxVaultBindMountProbeProgram
     {
         if (args.Length != 2 || args[0] != "--bind-probe")
         {
-            return 64;
+            // Issue #2675 qualification probes keep this assembly's single startup object.
+            return LinuxVaultAgentProbeProgram.Main(args);
         }
 
         try

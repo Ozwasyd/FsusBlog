@@ -23,6 +23,7 @@ import {
     validateGeneratedRepairDagEventOrder,
     reviewedDagHistoryAdmission,
     validatePostMergeGeneratedOutputRepair,
+    validatePostMergeGeneratedOutputDigestRepair,
     validatePrContract,
     pullRequestActor,
     readFileAtRevision,
@@ -58,7 +59,7 @@ test('reviewed generated repair DAG policy suffix only moves to the loaded base 
     const temporary = mkdtempSync(join(tmpdir(), 'fsusblog-reviewed-policy-epoch-'));
     const registration = changeContract.generatedOutputRepairDagReviewedHistories[0];
     const graph = changeContract.generatedOutputRepairDags[0];
-    const base = registration.reviewedRevision;
+    const historicalBase = registration.reviewedRevision;
     const env = {
         ...process.env, GIT_NO_REPLACE_OBJECTS: '1', GIT_INDEX_FILE: join(temporary, 'index'),
         GIT_AUTHOR_NAME: 'Fixture', GIT_AUTHOR_EMAIL: 'fixture@example.invalid',
@@ -66,7 +67,7 @@ test('reviewed generated repair DAG policy suffix only moves to the loaded base 
     };
     const git = (args, input) => execFileSync('git', args, { cwd: root, env, input, encoding: 'utf8' }).trim();
     const policyPath = 'tools/governance/check-change-contract.mjs';
-    const oldPolicy = git(['show', `${base}:${policyPath}`]);
+    const oldPolicy = git(['show', `${historicalBase}:${policyPath}`]);
     const currentPolicy = `${oldPolicy}\n// reviewed current policy epoch\n`;
     const create = (parent, changes) =>
     {
@@ -78,18 +79,27 @@ test('reviewed generated repair DAG policy suffix only moves to the loaded base 
         }
         return git(['commit-tree', git(['write-tree']), '-p', parent, '-m', 'fix(governance): bind fixture policy epoch']);
     };
+    let base;
     const merge = (head) => git(['commit-tree', git(['rev-parse', `${head}^{tree}`]), '-p', base, '-p', head,
         '-m', 'Merge pull request #3241 from fixture/reviewed-policy']);
-    const admit = (revision) => reviewedDagHistoryAdmission(root, graph, registration.synchronizedMerge,
-        registration.synchronizedRevision, revision);
     try
     {
-        assert.ok(admit(base));
+        const newlyTrustedPath = 'config/schemas/post-merge-generated-output-digest-repair.schema.json';
+        const newlyTrustedContent = git(['show', `HEAD:${newlyTrustedPath}`]);
+        base = create(historicalBase, [[newlyTrustedPath, newlyTrustedContent]]);
+        const admit = (revision) => reviewedDagHistoryAdmission(root, graph, registration.synchronizedMerge,
+            registration.synchronizedRevision, revision);
+        const baseAdmission = admit(base);
+        assert.ok(baseAdmission);
+        assert.equal(baseAdmission.admittedPolicyRevisions.has(base), true);
         const current = create(base, [[policyPath, currentPolicy]]);
         const merged = merge(current);
         assert.ok(admit(merged).admittedPolicyRevisions.has(current));
         const intermediate = create(base, [[policyPath, `${oldPolicy}\n// unregistered intermediate\n`]]);
         assert.throws(() => admit(merge(create(intermediate, [[policyPath, currentPolicy]]))), /unregistered intermediate/u);
+        const newPathIntermediate = create(base, [[newlyTrustedPath, 'unregistered intermediate\n']]);
+        assert.throws(() => admit(merge(create(newPathIntermediate, [[newlyTrustedPath, newlyTrustedContent]]))),
+            /unregistered intermediate/u);
         const rollback = create(current, [[policyPath, `${oldPolicy}\n`]]);
         assert.throws(() => admit(merge(create(rollback, [[policyPath, currentPolicy]]))), /rolled back/u);
         for (const mixedPath of ['tools/test/evidence-location-scanner.mjs', 'config/testing/evidence-location-migration-ledger.json'])
@@ -145,7 +155,21 @@ test('reviewed generated repair DAG history seals complete original epoch topolo
     const reviewedRevision = 'c7084b001a0c220538cbaca8f7305b1f3777493c';
     const synchronizedRevision = 'e805a72c5171916f761701fc4dbd3116953d4d20';
     const history = inspectGeneratedRepairDagHistory(root, graph, synchronizedMerge, reviewedRevision, synchronizedRevision);
-    assert.equal(history.sha256, '5c19bf753b05cceeb66fad8ef35994feb3b3e2ea45b73efa39c8f2eeda81e80a');
+    assert.equal(history.sha256, 'ed618bd63059ca03c9b116c2eddba0581981ee99b4697d7dfa6e3159b7eceb33');
+    const newlyTrustedDigestRepairPolicyPaths = [
+        'config/schemas/post-merge-generated-output-digest-repair.schema.json',
+        'tools/governance/generate-generated-output-digest-repair-manifest.mjs',
+        'tools/governance/generated-output-digest-repair-repository.mjs',
+        'tools/governance/generated-output-digest-repair-v2.mjs'
+    ];
+    assert.deepEqual(
+        changeContract.trustedPolicyFiles.filter((path) => newlyTrustedDigestRepairPolicyPaths.includes(path)).sort(),
+        newlyTrustedDigestRepairPolicyPaths.slice().sort()
+    );
+    assert.deepEqual(
+        history.protectedPaths.filter((path) => newlyTrustedDigestRepairPolicyPaths.includes(path)).sort(),
+        newlyTrustedDigestRepairPolicyPaths.slice().sort()
+    );
     assert.equal(history.nodes.length, 83);
     assert.equal(history.outerRevisions.length, 16);
     const oldNode = history.nodes.find((entry) => entry.revision === '6ee54e39cccdd8e7b0b958b3f93bf1c224068155');
@@ -1376,6 +1400,27 @@ test('registry is the unique ordered type/scope source consumed by commitlint', 
         repairDagSchema.properties.schema.const,
         changeContract.evidenceSchemas.postMergeGeneratedOutputRepairDag
     )
+    const digestRepairSchema = JSON.parse(readFileSync(
+        resolve(root, 'config/schemas/post-merge-generated-output-digest-repair.schema.json'),
+        'utf8'
+    ))
+    assert.equal(
+        digestRepairSchema.properties.schema.const,
+        changeContract.evidenceSchemas.postMergeGeneratedOutputDigestRepair
+    )
+    assert.ok(digestRepairSchema.required.includes('mergeCommit'))
+    assert.ok(!digestRepairSchema.required.includes('candidateCommit'))
+    assert.deepEqual(changeContract.generatedOutputDigestRepairProducers.map((entry) => entry.id), [
+        'correctness-attempt-producers'
+    ])
+    assert.deepEqual(changeContract.generatedOutputDigestRepairProducers[0].qualification, {
+        sourceParent: 'ba72ac65c7395b876c26aa040f500c677d55678c',
+        sourceCommit: 'b3f3e6f108ff3d021a83c1b3b2efb96e0b82ed20',
+        mergedPullRequest: 3271,
+        mergeCommit: 'a0b44ab7f7096e631f11731b0ac26cd8dea66fc2',
+        outerBaseCommit: 'ba72ac65c7395b876c26aa040f500c677d55678c',
+        outerHeadCommit: 'd9f4a947f46c83278275f5bbf8fb0d651b3862e5'
+    })
     assert.deepEqual(changeContract.generatedOutputRepairProducers[1], {
         id: 'backend-evidence-path-authority',
         source: 'tests/matrix.yml',
@@ -1437,6 +1482,26 @@ test('registry is the unique ordered type/scope source consumed by commitlint', 
             ],
             outputs: ['config/testing/current-run-evidence-location-acceptance.json']
         }
+    ])
+})
+
+test('digest-repair v2 dispatch rejects an untrusted producer before adapter construction', () => {
+    const errors = []
+    validatePostMergeGeneratedOutputDigestRepair(
+        {
+            generatedDigest: 'artifacts/change-contract/correctness-producer-inventory-post-merge-repair.json',
+            generatorSource: changeContract.generatedOutputDigestRepairProducers[0].closure.join(', '),
+            generatedOutputs: changeContract.generatedOutputDigestRepairProducers[0].output
+        },
+        {
+            schema: changeContract.evidenceSchemas.postMergeGeneratedOutputDigestRepair,
+            producerId: 'unregistered-producer'
+        },
+        { root: null, base: null, head: null, changedFiles: [] },
+        errors
+    )
+    assert.deepEqual(errors, [
+        'Post-merge generated digest repair producer is not trusted: unregistered-producer'
     ])
 })
 
