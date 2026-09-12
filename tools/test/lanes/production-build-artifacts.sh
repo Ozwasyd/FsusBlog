@@ -207,6 +207,7 @@ CREATE_ARGS=(
     --input .gitignore
     --input .dockerignore
     --input config/build/backend-docker-inputs.json
+    --input config/build/backend-restore.xml
     --input ops/docker/FsusBlog.Server.Dockerfile
     --input tools/build-final-image.sh
     --input tools/docker/backend-input-closure.mjs

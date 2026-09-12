@@ -4,16 +4,48 @@ on:
     pull_request:
         paths:
             - .github/workflows/production-image-verification.yml
+            - .editorconfig
+            - .globalconfig
+            - Directory.Build.props
+            - Directory.Build.targets
+            - Directory.Packages.props
+            - global.json
+            - build/artifacts/native-zk/**
             - config/build/backend-docker-inputs.json
+            - config/build/backend-restore.xml
             - config/deployment/production-compose-environment.json
+            - config/moderation/**
+            - config/testing/bounded-channel-delivery-contracts.json
             - config/testing/fsusui-baseline.json
             - docs/architecture/repository-layout.md
             - ops/docker/**
             - ops/gateway/**
+            - src/.editorconfig
+            - src/.globalconfig
+            - src/Directory.Build.props
+            - src/Directory.Build.targets
+            - src/Directory.Packages.props
+            - src/global.json
+            - src/backend/**
+            - src/core/**
+            - src/shared/**
             - tests/browser-diagnostics/local-fsusui-identity.mjs
             - tests/tools/production-build-workflow.test.mjs
             - tests/tools/backend-docker-input-closure.test.mjs
             - tools/build-final-image.sh
+            - tools/.editorconfig
+            - tools/.globalconfig
+            - tools/Directory.Build.props
+            - tools/Directory.Build.targets
+            - tools/Directory.Packages.props
+            - tools/global.json
+            - tools/architecture/.editorconfig
+            - tools/architecture/.globalconfig
+            - tools/architecture/Directory.Build.props
+            - tools/architecture/Directory.Build.targets
+            - tools/architecture/Directory.Packages.props
+            - tools/architecture/global.json
+            - tools/architecture/FsusBlog.DiLifetimeAnalyzer/**
             - tools/docker/backend-input-closure.mjs
             - tools/docker/backend-input-environment.mjs
             - tools/deployment/check-production-compose-environment.mjs
@@ -80,9 +112,8 @@ jobs:
                   dotnet-version: 10.0.x
             - name: Install backend evaluation isolation
               run: sudo apt-get update && sudo apt-get install --yes bubblewrap python3
-            - name: Verify candidate backend input closure
+            - name: Verify candidate backend input cache
               run: |
-                  node --test tests/tools/backend-docker-input-closure.test.mjs
                   node tools/docker/backend-input-closure.mjs probe-buildkit \
                     --output .tmp/backend-docker-input-buildkit-probe.json
             - name: Upload backend input cache evidence

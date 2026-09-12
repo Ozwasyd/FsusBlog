@@ -7,6 +7,8 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 const { runPhysicalExecution } = await import(new URL('../../tools/test/physical-execution-process-tree.mjs', import.meta.url));
+const { loadMatrix } = await import(new URL('../../tools/docs/lib/matrix.mjs', import.meta.url));
+const { loadStaticGovernanceRegistry, buildStaticGovernanceExecutionPlan } = await import(new URL('../../tools/test/static-governance-host.mjs', import.meta.url));
 const { createBackendIdentity, backendEnvironmentCommand } = await import(new URL('../../tools/docker/backend-input-environment.mjs', import.meta.url));
 const {
     parseBuildkitProgress,
@@ -47,7 +49,7 @@ test('production workflow requires backend cache proof before both final image f
         assert.ok(workflow.includes(`- ${input}`), input);
     }
     assert.match(cacheJob, /needs: contracts/u);
-    assert.match(cacheJob, /node --test tests\/tools\/backend-docker-input-closure\.test\.mjs/u);
+    assert.doesNotMatch(workflow, /node\s+--test[^\n]*tests\/tools\/backend-docker-input-closure\.test\.mjs/u);
     assert.match(cacheJob, /backend-input-closure\.mjs probe-buildkit[\s\S]*--output \.tmp\/backend-docker-input-buildkit-probe\.json/u);
     assert.match(cacheJob, /\.tmp\/backend-docker-input-buildkit-probe\.json\.d\/\*\*/u);
     assert.match(imageJob, /needs: \[contracts, backend-input-cache\]/u);
@@ -56,6 +58,87 @@ test('production workflow requires backend cache proof before both final image f
         assert.match(source, /apt-get install --yes bubblewrap python3/u);
         assert.match(source, /\.tmp\/backend-input-evaluations\/\*\*/u);
     }
+});
+
+test('backend closure fixtures have one canonical lifecycle matrix and coverage owner', () =>
+{
+    const file = 'tests/tools/backend-docker-input-closure.test.mjs';
+    const registryFile = path.join(root, 'tests/governance/test-lifecycle-registry.json');
+    const lifecycle = JSON.parse(fs.readFileSync(registryFile, 'utf8'));
+    const owners = lifecycle.nodeTests.filter(entry => entry.file === file);
+    assert.equal(owners.length, 1);
+    assert.equal(owners[0].owner, 'repository-governance:static-node-contracts');
+    assert.equal(owners[0].lifecycle, 'canonical-execution');
+    assert.equal(owners[0].physicalExecutionCount, 1);
+    assert.equal(owners[0].staticGovernance.category, 'real-subprocess-lifecycle');
+    const plan = buildStaticGovernanceExecutionPlan(loadStaticGovernanceRegistry(registryFile, root));
+    assert.equal(plan.hosts.flatMap(host => host.checks).filter(check => check.file === file).length, 1);
+    const coverage = JSON.parse(fs.readFileSync(path.join(root, 'tests/coverage-registry.json'), 'utf8'));
+    const bindings = coverage.entries.filter(entry => entry.evidencePaths.includes(file));
+    assert.equal(bindings.length, 1);
+    assert.equal(bindings[0].id, 'backend-docker-input-closure');
+    assert.deepEqual(bindings[0].tierIds, ['static-governance']);
+    const matrix = loadMatrix();
+    const tier = matrix.tiers.find(entry => entry.id === 'static-governance');
+    assert.equal(tier.coverage.filter(id => id === bindings[0].id).length, 1);
+    assert.equal(tier.evidence.filter(input => input === file).length, 1);
+    const producer = matrix.tiers.find(entry => entry.id === 'production-build-artifacts');
+    for (const input of ['config/build/backend-docker-inputs.json', 'config/build/backend-restore.xml',
+        'tools/docker/backend-input-closure.mjs', 'tools/docker/backend-input-environment.mjs',
+        'ops/docker/FsusBlog.Server.Dockerfile', 'tools/build-final-image.sh'])
+    {
+        assert.ok(producer.triggerPaths.includes(input), `missing production trigger: ${input}`);
+    }
+    const lane = fs.readFileSync(path.join(root, 'tools/test/lanes/production-build-artifacts.sh'), 'utf8');
+    assert.equal([...lane.matchAll(/--input config\/build\/backend-restore\.xml/gu)].length, 1);
+    const workflow = fs.readFileSync(path.join(root, '.github/workflows/quality-gate.yml'), 'utf8');
+    const canonicalJob = workflow.slice(workflow.indexOf('\n    fast-static-governance:\n'), workflow.indexOf('\n    fast-summary:\n'));
+    assert.match(canonicalJob, /apt-get install --yes bubblewrap python3/u);
+    assert.match(canonicalJob, /\.\/tools\/test\.sh static-governance --no-deps/u);
+});
+
+test('production image PR filters cover declared backend inputs and implicit project ancestors', () =>
+{
+    const inventory = JSON.parse(fs.readFileSync(path.join(root, 'config/build/backend-docker-inputs.json'), 'utf8'));
+    const workflow = fs.readFileSync(path.join(root, '.github/workflows/production-image-verification.yml'), 'utf8');
+    const pullRequest = workflow.split('\n    pull_request:\n')[1]?.split('\n    schedule:\n')[0];
+    assert.ok(pullRequest);
+    const filters = [...pullRequest.matchAll(/^\x20{12}- ([^\r\n]+)$/gmu)].map(match => match[1]);
+    const inputs = new Set([...inventory.restoreFiles, ...inventory.imports,
+        inventory.restoreConfigFile, ...inventory.allowedExternalItemFiles]);
+    for (const sourceRoot of [...inventory.allowedExternalItemRoots, ...inventory.optionalPublishRoots])
+    {
+        inputs.add(`${sourceRoot}/nested/closure-trigger-probe`);
+    }
+    for (const project of inventory.projects)
+    {
+        let directory = path.posix.dirname(project.path);
+        inputs.add(`${directory}/nested/ClosureTriggerProbe.cs`);
+        while (true)
+        {
+            for (const name of ['.editorconfig', '.globalconfig', 'Directory.Build.props',
+                'Directory.Build.targets', 'Directory.Packages.props', 'global.json'])
+            {
+                inputs.add(path.posix.join(directory, name));
+            }
+            if (directory === '.')
+            {
+                break;
+            }
+            directory = path.posix.dirname(directory);
+        }
+    }
+    // Admit only literal paths and literal subtree filters; GitHub ** includes dotfiles.
+    for (const filter of filters)
+    {
+        const literal = filter.endsWith('/**') ? filter.slice(0, -3) : filter;
+        assert.ok(!['*', '?', '[', ']', '{', '}', '!'].some(token => literal.includes(token)), `unsupported path filter: ${filter}`);
+    }
+    const missing = patterns => [...inputs].filter(input => !patterns.some(pattern =>
+        pattern.endsWith('/**') ? input.startsWith(pattern.slice(0, -2)) : input === pattern));
+    assert.deepEqual(missing(filters), []);
+    assert.ok(missing(filters.filter(pattern => pattern !== inventory.restoreConfigFile)).includes(inventory.restoreConfigFile));
+    assert.ok(missing(filters.filter(pattern => pattern !== 'src/core/**')).includes('src/core/nested/ClosureTriggerProbe.cs'));
 });
 
 test('backend evaluation uses synthetic identity and a closed mount/environment map', () =>

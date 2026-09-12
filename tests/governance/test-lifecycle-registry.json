@@ -400,6 +400,22 @@
             ]
         },
         {
+            "file": "tests/tools/backend-docker-input-closure.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "backend-docker-input-closure",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
+        },
+        {
             "file": "tests/tools/backend-physical-topology.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",

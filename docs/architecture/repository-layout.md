@@ -80,6 +80,15 @@ restore/compile/publish vertex 命中真实 BuildKit cache，backend/MSBuild 输
 实际 SDK image 与 root-context witness 还会双向证明 `.env` 等无关文件存在于 build
 context 但没有进入 `/src`。
 
+闭包测试的唯一 physical owner 是 lifecycle registry 中的
+`backend-docker-input-closure` real-subprocess entry，由 matrix 的 `static-governance`
+执行，并绑定同名 coverage entry；production-image workflow 不再重复 raw 执行测试。
+该 workflow 的 PR filters 覆盖 inventory 声明的 project、restore、external item 与
+publish roots，也覆盖各 project ancestor 的隐式 MSBuild/editor/SDK 配置。
+production-build-artifacts 同时绑定 restore XML，并在 matrix 中声明 inventory、restore、
+checker 和 Dockerfile 的触发输入。Local closure/materialization fixtures 不能替代实际
+BuildKit cache、SDK image 文件排除或 cold final-image runtime 验收。
+
 ## Language entrypoint ownership
 
 `src/frontend/` is owned by `FsusBlog.Client.esproj`, Vite, and the JavaScript/TypeScript toolchain; it may not contain a C# application entry point. Every C# source file must be within a `.csproj` directory boundary or explicitly registered as a file-based app with owner, dependency declaration, invocation command, tests, and output contract. `tests/governance/repository-source-layout.json` binds this language boundary to `tests/governance/csharp-entrypoint-ownership.json` and `tools/check-csharp-entrypoint-ownership.mjs`; protocol-fixture generators also need stable `generate`/`check` commands and may not hard-code `/tmp` or `/var/tmp`. See [`docs/testing/issue-1174-csharp-entrypoint-ownership.md`](../testing/issue-1174-csharp-entrypoint-ownership.md) for the full decision.
