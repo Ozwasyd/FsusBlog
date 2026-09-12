@@ -287,14 +287,21 @@ public sealed class AuthoringServiceGrantValidator(
 public sealed class AuthoringExtensionServiceBroker(
     IAuthoringServiceProcessRuntime runtime,
     IAuthoringDocumentRevisionGate revisionGate,
+    AuthoringExtensionLifecycleResources lifecycleResources,
     TimeProvider timeProvider)
 {
     public async ValueTask<AuthoringServiceExecutionResult> ExecuteAsync(
         VerifiedAuthoringPackage package,
         AuthoringExecutionTarget target,
         AuthoringServiceRequest request,
+        long lifecycleGeneration,
         CancellationToken cancellationToken = default)
     {
+        if (lifecycleGeneration < 1)
+        {
+            throw new AuthoringExtensionContractException("Service lifecycle generation is missing.");
+        }
+
         ValidateRequest(package, target, request);
         AuthoringPackageEntry executable = package.Contents.Entries.Single(entry =>
             string.Equals(entry.Path, target.EntrypointIdentity, StringComparison.Ordinal));
@@ -323,8 +330,15 @@ public sealed class AuthoringExtensionServiceBroker(
             package.Contract.Manifest.Limits.MaximumRequestBytes,
             package.Contract.Manifest.Limits.MaximumResponseBytes,
             package.Contract.Manifest.Limits.WallClock);
-        await using IAuthoringServiceProcess process = await runtime.StartAsync(launch, cancellationToken);
-        if (process.Ownership.Mechanism == AuthoringProcessOwnershipMechanism.None ||
+        IAuthoringServiceProcess process = await runtime.StartAsync(launch, cancellationToken);
+        await lifecycleResources.TrackServiceAsync(
+            target.ExtensionId,
+            lifecycleGeneration,
+            process,
+            cancellationToken);
+        try
+        {
+            if (process.Ownership.Mechanism == AuthoringProcessOwnershipMechanism.None ||
             !process.Ownership.DescendantsContained ||
             !process.Ownership.DetachedChildrenPrevented ||
             string.IsNullOrWhiteSpace(process.Ownership.IsolationIdentity))
@@ -396,13 +410,18 @@ public sealed class AuthoringExtensionServiceBroker(
             return Rejected(AuthoringServiceResultStatus.Stale, "stale-document");
         }
 
-        return new AuthoringServiceExecutionResult(
-            AuthoringServiceResultStatus.Completed,
-            response with
-            {
-                Payload = [.. response.Payload]
-            },
-            "completed");
+            return new AuthoringServiceExecutionResult(
+                AuthoringServiceResultStatus.Completed,
+                response with
+                {
+                    Payload = [.. response.Payload]
+                },
+                "completed");
+        }
+        finally
+        {
+            await lifecycleResources.ReleaseServiceAsync(target.ExtensionId, lifecycleGeneration, process);
+        }
     }
 
     private static void ValidateRequest(

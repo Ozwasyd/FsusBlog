@@ -136,6 +136,7 @@ public interface IAuthoringDocumentRevisionGate
 public sealed class AuthoringExtensionWorkerSandbox(
     IAuthoringWorkerSandboxRuntime runtime,
     IAuthoringDocumentRevisionGate revisionGate,
+    AuthoringExtensionLifecycleResources lifecycleResources,
     TimeProvider timeProvider)
 {
     private static readonly ImmutableHashSet<string> s_allowedImports =
@@ -147,8 +148,14 @@ public sealed class AuthoringExtensionWorkerSandbox(
         VerifiedAuthoringPackage package,
         AuthoringExecutionTarget target,
         AuthoringWorkerRequest request,
+        long lifecycleGeneration,
         CancellationToken cancellationToken = default)
     {
+        if (lifecycleGeneration < 1)
+        {
+            throw new AuthoringExtensionContractException("Worker lifecycle generation is missing.");
+        }
+
         ValidateRequest(package, target, request);
         AuthoringPackageEntry module = package.Contents.Entries.Single(entry =>
             string.Equals(entry.Path, target.EntrypointIdentity, StringComparison.Ordinal));
@@ -184,16 +191,23 @@ public sealed class AuthoringExtensionWorkerSandbox(
             package.Contract.Manifest.Limits.MemoryBytes,
             package.Contract.Manifest.Limits.MaximumRequestBytes,
             package.Contract.Manifest.Limits.MaximumResponseBytes);
-        await using IAuthoringWorkerSandboxInstance instance = await runtime.StartAsync(launch, cancellationToken);
+        IAuthoringWorkerSandboxInstance instance = await runtime.StartAsync(launch, cancellationToken);
+        await lifecycleResources.TrackWorkerAsync(
+            target.ExtensionId,
+            lifecycleGeneration,
+            instance,
+            cancellationToken);
         try
         {
-            ValidateCapabilities(instance.CapabilityReport);
-        }
-        catch
-        {
-            await instance.TerminateAsync("capability-probe-failed", CancellationToken.None);
-            throw;
-        }
+            try
+            {
+                ValidateCapabilities(instance.CapabilityReport);
+            }
+            catch
+            {
+                await instance.TerminateAsync("capability-probe-failed", CancellationToken.None);
+                throw;
+            }
 
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         TimeSpan remaining = request.Deadline - timeProvider.GetUtcNow();
@@ -264,24 +278,29 @@ public sealed class AuthoringExtensionWorkerSandbox(
                 request.Payload.Length);
         }
 
-        return new AuthoringWorkerExecutionResult(
-            AuthoringWorkerResultStatus.Completed,
-            response with
-            {
-                Payload = [.. response.Payload]
-            },
-            "completed",
-            request.Payload.Length,
-            response.Payload.Length)
-        {
-            Receipt = CreateReceipt(
-                launch,
-                request,
+            return new AuthoringWorkerExecutionResult(
                 AuthoringWorkerResultStatus.Completed,
+                response with
+                {
+                    Payload = [.. response.Payload]
+                },
                 "completed",
                 request.Payload.Length,
                 response.Payload.Length)
-        };
+            {
+                Receipt = CreateReceipt(
+                    launch,
+                    request,
+                    AuthoringWorkerResultStatus.Completed,
+                    "completed",
+                    request.Payload.Length,
+                    response.Payload.Length)
+            };
+        }
+        finally
+        {
+            await lifecycleResources.ReleaseWorkerAsync(target.ExtensionId, lifecycleGeneration, instance);
+        }
     }
 
     private static void ValidateRequest(
