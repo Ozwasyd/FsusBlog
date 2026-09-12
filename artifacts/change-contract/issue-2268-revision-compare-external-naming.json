@@ -1,0 +1,46 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+                "src/backend/Services/Authoring/AuthoringRevisionComparePackageReader.cs",
+                "src/core/Services/Articles/RevisionCompareContracts.cs",
+                "src/core/Services/Articles/RevisionComparePlanner.cs",
+                "tools/governance/check-revision-compare-authority.mjs"
+            ],
+            "reason": "Preserve caller-visible process and plan-contract spelling on the trusted C# and Node surfaces while internal implementation symbols retain repository naming."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/static-governance.sh"
+            ],
+            "reason": "Preserve the static lane process-environment keys while the shell function and local aliases follow repository naming."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/api/article-publication-revisions.md"
+            ],
+            "reason": "Preserve the current revision API document's caller-visible identifiers and plan-contract terminology while documenting the maintained compare authority."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve stable generated and governance JSON schema keys while registering the canonical plan-authority evidence producers."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md",
+                "tests/coverage-registry.json"
+            ],
+            "reason": "Preserve the generated matrix documentation and coverage registry's external tier and evidence identifiers while binding the plan-only coverage entry."
+        }
+    ]
+}
