@@ -76,7 +76,12 @@ public sealed record AuthoringRpcEnvelope(
     string PolicyDigest,
     string GrantDigest,
     DateTimeOffset Deadline,
-    AuthoringRpcPayload Payload);
+    AuthoringRpcPayload Payload)
+{
+    public string SiteIdentity { get; init; } = string.Empty;
+
+    public string Purpose { get; init; } = string.Empty;
+}
 
 public sealed record AuthoringCapabilityGrant(
     string GrantId,
@@ -94,7 +99,15 @@ public sealed record AuthoringCapabilityGrant(
     DateTimeOffset IssuedAt,
     DateTimeOffset ExpiresAt,
     string ApprovalReceiptId,
-    string GrantDigest);
+    string RequestId,
+    string GrantDigest)
+{
+    public long? DocumentEpoch { get; init; }
+
+    public long? SourceRevision { get; init; }
+
+    public string? SnapshotSha256 { get; init; }
+}
 
 public sealed record AuthoringGrantRequest(
     string RequestId,
@@ -110,7 +123,14 @@ public sealed record AuthoringGrantRequest(
     string? Destination,
     string? CanonicalRoot,
     TimeSpan TimeToLive,
-    string ApprovalReceiptId);
+    string ApprovalReceiptId)
+{
+    public long? DocumentEpoch { get; init; }
+
+    public long? SourceRevision { get; init; }
+
+    public string? SnapshotSha256 { get; init; }
+}
 
 public sealed record AuthoringMutationApproval(
     string PlanId,
@@ -153,27 +173,11 @@ public sealed class AuthoringCapabilityGrantAuthority(
         AuthoringGrantRequest request,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(request);
         ValidateGrantRequest(request);
         DateTimeOffset issuedAt = timeProvider.GetUtcNow();
-        string grantId = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
-            System.Text.Encoding.UTF8.GetBytes(string.Join('\n',
-                request.RequestId,
-                request.RuntimeIdentity,
-                request.ExtensionId,
-                request.ExtensionVersion,
-                request.ContributionId,
-                request.ExecutionClass,
-                request.Capability,
-                request.DocumentId,
-                request.SiteIdentity,
-                request.Purpose,
-                request.Destination ?? string.Empty,
-                request.CanonicalRoot ?? string.Empty,
-                issuedAt.UtcTicks,
-                request.TimeToLive.Ticks,
-                request.ApprovalReceiptId))));
         var grant = new AuthoringCapabilityGrant(
-            grantId,
+            string.Empty,
             request.RuntimeIdentity,
             request.ExtensionId,
             request.ExtensionVersion,
@@ -188,7 +192,19 @@ public sealed class AuthoringCapabilityGrantAuthority(
             issuedAt,
             issuedAt + request.TimeToLive,
             request.ApprovalReceiptId,
-            grantId);
+            request.RequestId,
+            string.Empty)
+        {
+            DocumentEpoch = request.DocumentEpoch,
+            SourceRevision = request.SourceRevision,
+            SnapshotSha256 = request.SnapshotSha256
+        };
+        string grantId = ComputeGrantDigest(grant);
+        grant = grant with
+        {
+            GrantId = grantId,
+            GrantDigest = grantId
+        };
         await store.StoreAsync(grant, cancellationToken);
         return grant;
     }
@@ -199,16 +215,24 @@ public sealed class AuthoringCapabilityGrantAuthority(
         AuthoringCapability capability,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(envelope);
         AuthoringCapabilityGrant? grant = await store.FindAsync(grantId, cancellationToken);
         if (grant is null || grant.ExpiresAt <= timeProvider.GetUtcNow() ||
             grant.Capability != capability ||
             !string.Equals(grant.GrantDigest, grantId, StringComparison.Ordinal) ||
+            !string.Equals(grant.GrantDigest, ComputeGrantDigest(grant), StringComparison.Ordinal) ||
             !string.Equals(grant.RuntimeIdentity, envelope.RuntimeIdentity, StringComparison.Ordinal) ||
             !string.Equals(grant.ExtensionId, envelope.ExtensionId, StringComparison.Ordinal) ||
             !string.Equals(grant.ExtensionVersion, envelope.ExtensionVersion, StringComparison.Ordinal) ||
             !string.Equals(grant.ContributionId, envelope.ContributionId, StringComparison.Ordinal) ||
             grant.ExecutionClass != envelope.ExecutionClass ||
             !string.Equals(grant.DocumentId, envelope.DocumentId, StringComparison.Ordinal) ||
+            grant.DocumentEpoch is not null && grant.DocumentEpoch != envelope.DocumentEpoch ||
+            grant.SourceRevision is not null && grant.SourceRevision != envelope.SourceRevision ||
+            grant.SnapshotSha256 is not null &&
+                !string.Equals(grant.SnapshotSha256, envelope.SnapshotSha256, StringComparison.Ordinal) ||
+            !string.Equals(grant.SiteIdentity, envelope.SiteIdentity, StringComparison.Ordinal) ||
+            !string.Equals(grant.Purpose, envelope.Purpose, StringComparison.Ordinal) ||
             !string.Equals(envelope.GrantDigest, grant.GrantDigest, StringComparison.Ordinal))
         {
             throw new AuthoringExtensionContractException("Capability grant is missing, expired, revoked, or outside the exact scope.");
@@ -220,31 +244,85 @@ public sealed class AuthoringCapabilityGrantAuthority(
     public ValueTask RevokeAsync(string grantId, CancellationToken cancellationToken = default) =>
         store.RevokeAsync(grantId, cancellationToken);
 
+    public static string ComputeGrantDigest(AuthoringCapabilityGrant grant)
+    {
+        ArgumentNullException.ThrowIfNull(grant);
+        string material = string.Join('\n',
+            grant.RequestId,
+            grant.RuntimeIdentity,
+            grant.ExtensionId,
+            grant.ExtensionVersion,
+            grant.ContributionId,
+            grant.ExecutionClass,
+            grant.Capability,
+            grant.DocumentId,
+            grant.DocumentEpoch?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
+            grant.SourceRevision?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
+            grant.SnapshotSha256 ?? string.Empty,
+            grant.SiteIdentity,
+            grant.Purpose,
+            grant.Destination ?? string.Empty,
+            grant.CanonicalRoot ?? string.Empty,
+            grant.IssuedAt.UtcTicks,
+            (grant.ExpiresAt - grant.IssuedAt).Ticks,
+            grant.ApprovalReceiptId);
+        return Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(material)));
+    }
+
     private static void ValidateGrantRequest(AuthoringGrantRequest request)
     {
         if (!Enum.IsDefined(request.ExecutionClass) || !Enum.IsDefined(request.Capability) ||
-            string.IsNullOrWhiteSpace(request.RequestId) ||
-            request.RuntimeIdentity.Length != 64 ||
-            string.IsNullOrWhiteSpace(request.ExtensionId) ||
-            string.IsNullOrWhiteSpace(request.ExtensionVersion) ||
-            string.IsNullOrWhiteSpace(request.ContributionId) ||
-            string.IsNullOrWhiteSpace(request.DocumentId) ||
-            string.IsNullOrWhiteSpace(request.SiteIdentity) ||
-            string.IsNullOrWhiteSpace(request.Purpose) ||
+            !IsBoundedField(request.RequestId, 256) ||
+            !IsDigest(request.RuntimeIdentity) ||
+            !IsBoundedField(request.ExtensionId, 128) ||
+            !IsBoundedField(request.ExtensionVersion, 64) ||
+            !IsBoundedField(request.ContributionId, 256) ||
+            !IsBoundedField(request.DocumentId, 256) ||
+            !IsBoundedField(request.SiteIdentity, 256) ||
+            !IsBoundedField(request.Purpose, 256) ||
             request.Purpose.Equals("all", StringComparison.OrdinalIgnoreCase) ||
             request.TimeToLive <= TimeSpan.Zero || request.TimeToLive > TimeSpan.FromHours(24) ||
-            string.IsNullOrWhiteSpace(request.ApprovalReceiptId))
+            !IsBoundedField(request.ApprovalReceiptId, 256))
         {
             throw new AuthoringExtensionContractException("Grant request must be exact, bounded, explicitly approved, and purpose-bound.");
         }
 
-        if ((request.Capability == AuthoringCapability.NetworkDestination && string.IsNullOrWhiteSpace(request.Destination)) ||
-            (request.Capability is AuthoringCapability.FileSystemRootRead or AuthoringCapability.FileSystemRootProposeWrite &&
-            string.IsNullOrWhiteSpace(request.CanonicalRoot)))
+        bool scopeIsExact = request.Capability switch
+        {
+            AuthoringCapability.NetworkDestination =>
+                IsBoundedField(request.Destination, 2048) && request.CanonicalRoot is null,
+            AuthoringCapability.FileSystemRootRead or AuthoringCapability.FileSystemRootProposeWrite =>
+                request.Destination is null && IsBoundedField(request.CanonicalRoot, 4096),
+            _ => request.Destination is null && request.CanonicalRoot is null
+        };
+        if (!scopeIsExact)
         {
             throw new AuthoringExtensionContractException("I/O grants require an exact destination or canonical root.");
         }
+
+        bool hasExactDocumentRevision = request.DocumentEpoch >= 1 &&
+            request.SourceRevision >= 0 && IsDigest(request.SnapshotSha256);
+        bool hasNoDocumentRevision = request.DocumentEpoch is null &&
+            request.SourceRevision is null && request.SnapshotSha256 is null;
+        if (request.Capability == AuthoringCapability.DocumentFullRead
+            ? !hasExactDocumentRevision
+            : !hasNoDocumentRevision)
+        {
+            throw new AuthoringExtensionContractException(
+                "Full-document grants require one exact document epoch, revision, and snapshot digest.");
+        }
     }
+
+    private static bool IsBoundedField(string? value, int maximumLength) =>
+        !string.IsNullOrWhiteSpace(value) &&
+        value.Length <= maximumLength &&
+        value == value.Trim() &&
+        !value.ContainsAny(['\0', '\r', '\n']);
+
+    private static bool IsDigest(string? value) =>
+        value?.Length == 64 && value.All(static character =>
+            character is >= '0' and <= '9' or >= 'a' and <= 'f');
 }
 
 public sealed class AuthoringExtensionRpcAuthority(
@@ -291,14 +369,18 @@ public sealed class AuthoringExtensionRpcAuthority(
             }
         }
 
-        return await transaction.ApplyAsync(plan with
+        AuthoringTransactionReceipt receipt = await transaction.ApplyAsync(plan with
         {
             Mutations = [.. plan.Mutations]
         }, cancellationToken);
+        ValidateTransactionReceipt(receipt, plan);
+        return receipt;
     }
 
     public void ValidateEnvelope(AuthoringRpcEnvelope envelope)
     {
+        ArgumentNullException.ThrowIfNull(envelope);
+        ArgumentNullException.ThrowIfNull(envelope.Payload);
         int payloadCount =
             (envelope.Payload.DocumentRange is null ? 0 : 1) +
             (envelope.Payload.MutationPlan is null ? 0 : 1) +
@@ -311,6 +393,13 @@ public sealed class AuthoringExtensionRpcAuthority(
             !Enum.IsDefined(envelope.ExecutionClass) || payloadCount != 1 ||
             envelope.Deadline <= timeProvider.GetUtcNow() ||
             envelope.DocumentEpoch < 1 || envelope.SourceRevision < 0 ||
+            !IsBoundedField(envelope.ExtensionId, 128) ||
+            !IsBoundedField(envelope.ExtensionVersion, 64) ||
+            !IsBoundedField(envelope.ContributionId, 256) ||
+            !IsBoundedField(envelope.RequestId, 256) ||
+            !IsBoundedField(envelope.DocumentId, 256) ||
+            !IsBoundedField(envelope.SiteIdentity, 256) ||
+            !IsBoundedField(envelope.Purpose, 256) ||
             new[]
             {
                 envelope.RuntimeIdentity,
@@ -321,7 +410,7 @@ public sealed class AuthoringExtensionRpcAuthority(
                 envelope.SchemaDigest,
                 envelope.PolicyDigest,
                 envelope.GrantDigest
-            }.Any(static digest => digest.Length != 64))
+            }.Any(static digest => !IsDigest(digest)))
         {
             throw new AuthoringExtensionContractException("RPC envelope is unknown, untyped, unbounded, stale, or incompletely identity-bound.");
         }
@@ -334,8 +423,12 @@ public sealed class AuthoringExtensionRpcAuthority(
     {
         if (!approval.Approved ||
             !string.Equals(approval.PlanId, plan.PlanId, StringComparison.Ordinal) ||
-            string.IsNullOrWhiteSpace(approval.ApprovalReceiptId) ||
-            approval.PreviewDigest.Length != 64 ||
+            !IsBoundedField(plan.PlanId, 256) ||
+            !IsBoundedField(plan.DocumentId, 256) ||
+            !IsBoundedField(plan.SelectionIdentity, 256) ||
+            !IsBoundedField(approval.ApprovalReceiptId, 256) ||
+            !IsDigest(approval.PreviewDigest) ||
+            !IsDigest(plan.ExpectedSnapshotSha256) ||
             !string.Equals(plan.DocumentId, envelope.DocumentId, StringComparison.Ordinal) ||
             plan.DocumentEpoch != envelope.DocumentEpoch ||
             plan.ExpectedSourceRevision != envelope.SourceRevision ||
@@ -347,7 +440,8 @@ public sealed class AuthoringExtensionRpcAuthority(
 
         foreach (AuthoringMutation mutation in plan.Mutations)
         {
-            if (!Enum.IsDefined(mutation.Operation) ||
+            if (mutation is null || mutation.Range is null || mutation.Text is null ||
+                !Enum.IsDefined(mutation.Operation) ||
                 mutation.Range.Start < 0 || mutation.Range.End < mutation.Range.Start ||
                 mutation.Text.Length > 1024 * 1024 ||
                 mutation.Text.Contains("<script", StringComparison.OrdinalIgnoreCase))
@@ -355,5 +449,66 @@ public sealed class AuthoringExtensionRpcAuthority(
                 throw new AuthoringExtensionContractException("Mutation contains an invalid range or executable markup.");
             }
         }
+
+        AuthoringTextRange[] orderedRanges = [.. plan.Mutations
+            .Select(static mutation => mutation.Range)
+            .OrderBy(static range => range.Start)
+            .ThenBy(static range => range.End)];
+        for (int index = 1; index < orderedRanges.Length; index++)
+        {
+            if (orderedRanges[index].Start < orderedRanges[index - 1].End)
+            {
+                throw new AuthoringExtensionContractException("Mutation ranges overlap; nearest-match merging is forbidden.");
+            }
+        }
     }
+
+    public static string ComputeTransactionReceiptDigest(AuthoringTransactionReceipt receipt)
+    {
+        ArgumentNullException.ThrowIfNull(receipt);
+        string material = string.Join('\n',
+            receipt.TransactionId,
+            receipt.PlanId,
+            receipt.DocumentId,
+            receipt.PreviousRevision,
+            receipt.NewRevision,
+            receipt.HistoryEntryId,
+            receipt.SelectionIdentity,
+            receipt.Dirty);
+        return Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(material)));
+    }
+
+    private static void ValidateTransactionReceipt(
+        AuthoringTransactionReceipt receipt,
+        AuthoringMutationPlan plan)
+    {
+        if (receipt is null ||
+            !IsBoundedField(receipt.TransactionId, 256) ||
+            !string.Equals(receipt.PlanId, plan.PlanId, StringComparison.Ordinal) ||
+            !string.Equals(receipt.DocumentId, plan.DocumentId, StringComparison.Ordinal) ||
+            receipt.PreviousRevision != plan.ExpectedSourceRevision ||
+            receipt.NewRevision <= receipt.PreviousRevision ||
+            !IsBoundedField(receipt.HistoryEntryId, 256) ||
+            !string.Equals(receipt.SelectionIdentity, plan.SelectionIdentity, StringComparison.Ordinal) ||
+            !receipt.Dirty ||
+            !string.Equals(
+                receipt.ReceiptDigest,
+                ComputeTransactionReceiptDigest(receipt),
+                StringComparison.Ordinal))
+        {
+            throw new AuthoringExtensionContractException(
+                "Canonical transaction receipt is stale, tampered, or incompletely bound.");
+        }
+    }
+
+    private static bool IsBoundedField(string? value, int maximumLength) =>
+        !string.IsNullOrWhiteSpace(value) &&
+        value.Length <= maximumLength &&
+        value == value.Trim() &&
+        !value.ContainsAny(['\0', '\r', '\n']);
+
+    private static bool IsDigest(string? value) =>
+        value?.Length == 64 && value.All(static character =>
+            character is >= '0' and <= '9' or >= 'a' and <= 'f');
 }

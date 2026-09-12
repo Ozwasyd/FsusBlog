@@ -132,13 +132,41 @@ Actual detached-child, namespace, DNS/TLS, and symlink probes are runtime eviden
 The light static checks in this stack do not replace those tests; until they run,
 terminal process/network/filesystem isolation remains unverified.
 
+## Exact grants and transactional document RPC
+
+Capability issuance is default-deny and produces a digest-bound grant over the
+request, runtime, extension/version, contribution/class, capability, document,
+site, purpose, optional exact broker destination/root, approval receipt, and
+bounded TTL. The authority recomputes the stored grant digest on every use, so a
+changed version, class, site, document, purpose, scope, schema-derived runtime
+identity, expiry, revocation, or stored-field tamper cannot reuse the grant.
+`all` purposes and broad or mixed I/O scopes are rejected. Full-document consent
+also binds the exact epoch, revision, and snapshot digest; those fields are
+forbidden on grants that do not request full-document content.
+
+The RPC envelope carries only immutable closed DTOs. Mutation requests require an
+explicit preview approval and exact snapshot/revision/selection identity. The host
+rejects overlapping or invalid ranges, executable markup, stale revisions,
+alternate-method bypasses, duplicate request IDs, and transaction receipts whose
+plan, document, revision, history, selection, dirty flag, or canonical digest is
+inconsistent. Receipt records contain references and digests, not document text,
+state bytes, credentials, or secret payloads.
+
+This source boundary does not itself authorize a concrete editor adapter or
+consent surface. The required FsusUI consent/document-owner artifacts are separate
+dependencies. Reserved read/query/broker/diagnostic/state method enum values have
+no implicit handler or fallback authority; absent a reviewed production owner they
+remain unavailable. This is intentionally not an HTTP, AEDS, browser, or shared
+stable ABI.
+
 ## Stage boundary
 
 The current stages validate the contract and package supply chain, resolve fixed
-execution classes, and can run verified Wasm in the isolated Linux worker. They do
-not issue or persist permission grants. They can run an owned Linux service and
-enforce already-issued opaque network/file grants, but do not expose document RPC,
-mutate a document, migrate extension data, or manage runtime lifecycle state. Each later
+execution classes, can run verified Wasm in the isolated Linux worker, and define
+one exact grant and transactional mutation authority. They can run an owned Linux
+service and enforce already-issued opaque network/file grants. Production grant
+persistence, consent UI, canonical document composition, the other reserved RPC
+handlers, data migration, and runtime lifecycle state remain unavailable. Each later
 child must recheck the verified package identity and implement its own fail-closed
 acceptance before any additional operation can occur.
 

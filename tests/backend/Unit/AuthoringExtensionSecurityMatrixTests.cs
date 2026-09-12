@@ -200,7 +200,11 @@ public sealed class AuthoringExtensionSecurityMatrixTests
             new string('d', 64),
             grantDigest,
             now.AddMinutes(1),
-            new AuthoringRpcPayload(DocumentRange: new AuthoringTextRange(0, 8)));
+            new AuthoringRpcPayload(DocumentRange: new AuthoringTextRange(0, 8)))
+        {
+            SiteIdentity = "site-1",
+            Purpose = "read-range"
+        };
 
     private sealed class GrantStore : IAuthoringCapabilityGrantStore
     {
