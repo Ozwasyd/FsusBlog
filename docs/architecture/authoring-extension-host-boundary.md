@@ -117,6 +117,29 @@ host API mapping, and proof tests; a fake verifier or package-provided module ca
 stand in for that evidence. Resolution itself does not start a worker/service,
 invoke adapter logic, grant a capability, expose RPC, or mutate a document.
 
+## Isolated Worker/Wasm runtime
+
+`AuthoringExtensionWorkerSandbox` consumes only a ready
+`IsolatedWorkerWasm` target whose package, version, contribution kind, and exact
+entrypoint still match the verified package. Each launch has a separate instance
+identity over the resolver identity, document epoch/revision, request identity,
+host API, request/result schemas, and policy digest. Request and response byte
+ceilings remain distinct; results are accepted only while the document revision is
+current.
+
+The Linux implementation executes the verified module under bubblewrap with fresh
+mount, network, PID, and user namespaces, a cleared environment, no capabilities,
+read-only module/runner/runtime binds, and no Wasm imports. Before compilation it
+requires exactly one unshared memory with a declared maximum no larger than the
+manifest budget; memory growth and result bounds are rechecked after execution.
+Timeout, cancellation, trap, malformed output, and stale revision terminate the
+owned process tree. Its closed receipt records only identities, digests, limits,
+sizes, status, and stable reason, never document/request IDs or payload bytes.
+
+This sandbox does not expose RPC, permissions, services, extension lifecycle, or a
+concrete contribution. Lifecycle-owned update/revoke invalidation is layered later;
+the runtime itself creates no cross-plugin or cross-document cache.
+
 ## Stability and rollback
 
 The contract and package store are currently internal/experimental and may change only by advancing
