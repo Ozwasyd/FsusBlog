@@ -36,8 +36,23 @@ Resource declarations cover positive CPU time, wall time, memory, request/respon
 size, concurrency, queue, and object-depth bounds, plus explicit restart, network,
 file, and state byte ceilings. A zero brokered-I/O ceiling declares no such budget;
 negative or host-exceeding values fail closed. These values are included in the
-contract identity. This stage validates requested ceilings only; later runtime
-stages own measurement, cancellation, quarantine, and telemetry.
+contract identity. Runtime admission uses those exact ceilings and binds its queue
+gate to the policy digest; policy drift cannot inherit another policy's capacity.
+
+Linux runtime measurement is host-owned and reads only the owned sandbox process's
+CPU, resident memory, and I/O counters. Brokered restart/network/file/state counters
+enter the same measurement record. Missing or failed measurement is itself a
+breach: no plugin result is accepted, the exact lifecycle generation is
+quarantined, and core continuity is rechecked. Live breach cancellation and final
+measurement are both required, so a process cannot continue merely because its
+result would otherwise fit the response limit.
+
+Telemetry contains only bounded identities, stable reason codes, counters, and a
+timestamp. It excludes content, source text, document IDs as content, payloads,
+credentials, and free-form exception text. Collection creates no export authority;
+support bundles require a separate explicit approval. Durable telemetry storage and
+real Linux pressure/escape/starvation evidence remain uncomposed acceptance
+blockers rather than grounds for a simulated production claim.
 
 The authoring registry also receives closed core command, route, property,
 saved-view operator, and security-policy identity sets. It rejects duplicate core
@@ -189,11 +204,13 @@ recovery evidence.
 The current stages validate the contract and package supply chain, resolve fixed
 execution classes, can run verified Wasm in the isolated Linux worker, and define
 one exact grant and transactional mutation authority. They can run an owned Linux
-service and enforce already-issued opaque network/file grants. Production grant
-persistence, consent UI, canonical document composition, the other reserved RPC
-handlers, data migration, and runtime lifecycle state remain unavailable. Each later
-child must recheck the verified package identity and implement its own fail-closed
-acceptance before any additional operation can occur.
+service, enforce already-issued opaque network/file grants, and apply host-owned
+runtime measurement plus generation-bound quarantine. Production grant/lifecycle/
+telemetry persistence, consent UI, canonical document composition, support-bundle
+authorization, the other reserved RPC handlers, and real pressure/starvation
+evidence remain unavailable. Each later child must recheck the verified package
+identity and implement its own fail-closed acceptance before any additional
+operation can occur.
 
 The general [plugin sandbox](plugin-sandbox.md) continues to own `.fspkg` Hook
 execution through its Level 1 Jint/Lua application sandbox. Neither subsystem may
