@@ -203,7 +203,8 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
                 throw new AuthoringExtensionContractException("Worker runtime did not complete its bounded module readiness probe.");
             }
 
-            string namespaceIdentity = ObserveNamespaceIsolation(FindSandboxProcessId(process.Id));
+            int sandboxProcessId = FindSandboxProcessId(process.Id);
+            string namespaceIdentity = ObserveNamespaceIsolation(sandboxProcessId);
             string profileIdentity = ComputeProfileIdentity(descriptor, namespaceIdentity);
             var capabilities = new AuthoringWorkerCapabilityReport(
                 ready.Dom,
@@ -220,6 +221,7 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
                 profileIdentity);
             return new LinuxBubblewrapWorkerInstance(
                 process,
+                sandboxProcessId,
                 instanceRoot,
                 descriptor,
                 capabilities,
@@ -498,16 +500,21 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
 
     private sealed class LinuxBubblewrapWorkerInstance(
         Process process,
+        int sandboxProcessId,
         string instanceRoot,
         AuthoringWorkerLaunchDescriptor descriptor,
         AuthoringWorkerCapabilityReport capabilityReport,
         JsonSerializerOptions json,
-        Task stderrDrain) : IAuthoringWorkerSandboxInstance
+        Task stderrDrain) : IAuthoringWorkerSandboxInstance, IAuthoringMeasuredRuntimeInstance
     {
         private readonly SemaphoreSlim _messageLock = new(1, 1);
         private bool _terminated;
 
         public AuthoringWorkerCapabilityReport CapabilityReport { get; } = capabilityReport;
+
+        public string RuntimeIdentity => descriptor.RuntimeIdentity;
+
+        public int ProcessId => sandboxProcessId;
 
         public async ValueTask<AuthoringWorkerResponse> ExecuteAsync(
             AuthoringWorkerRequest request,
