@@ -222,6 +222,34 @@ production receipt/state/grant stores and a real host registration owner are sti
 required before restart recovery or atomic data deletion can be claimed as
 terminal acceptance.
 
+## Resource budgets, crash isolation, and telemetry
+
+Every runtime operation is admitted against the exact resource policy from its
+verified manifest: CPU and wall time, resident memory, request and response bytes,
+concurrency and queue depth, restart count, and brokered network, file, and state
+bytes. The gate is bound to the runtime and policy digest; another policy cannot
+reuse an existing gate. There is no unlimited default, background retry, or
+best-effort measurement mode. A missing measurement authority fails before the
+operation and quarantines that lifecycle generation.
+
+Linux worker and service processes expose their owned sandbox PID only to the
+host measurement wrapper. The wrapper registers that PID with the `/proc`
+measurement authority and freezes its last observation on disposal. CPU, resident
+memory, and process I/O are sampled during execution; the broker ledger contributes
+restart and network/file/state usage. Crossing a live ceiling cancels execution,
+discards the result, revokes the exact generation through lifecycle resources, and
+requires an explicit quarantine-clear approval before reactivation. A runtime
+crash follows the same containment path, and the host rechecks core continuity
+before returning a closed result.
+
+Budget telemetry is a closed metadata record over runtime/package/contribution,
+policy, lifecycle generation, stable reason, elapsed/resource counters, and time.
+It has no payload, source text, document contents, credential, grant secret, or
+free-text failure field. This internal record is not a support bundle or export
+permission. Durable content-addressed telemetry storage, explicitly authorized
+support-bundle export, and real Linux pressure/starvation evidence remain external
+production blockers; static and unit coverage cannot substitute for them.
+
 ## Stability and rollback
 
 The contract, package store, and RPC are currently internal/experimental and may change only by advancing
