@@ -50,7 +50,8 @@ public sealed class LocalAuthoringPackageStore : IAuthoringPackageStore, IAuthor
         MaxDepth = 16,
         PropertyNameCaseInsensitive = false,
         ReadCommentHandling = JsonCommentHandling.Disallow,
-        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow
+        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+        RespectRequiredConstructorParameters = true
     };
 
     private readonly string _packagesRoot;
@@ -430,16 +431,10 @@ public sealed class LocalAuthoringPackageStore : IAuthoringPackageStore, IAuthor
         RejectReparsePoint(metadataPath);
         byte[] archive = await ReadBoundedAsync(archivePath, 128 * 1024 * 1024, cancellationToken);
         byte[] metadataBytes = await ReadBoundedAsync(metadataPath, 1024 * 1024, cancellationToken);
-        StoredPackageMetadata metadata;
-        try
-        {
-            metadata = JsonSerializer.Deserialize<StoredPackageMetadata>(metadataBytes, s_json)
-                ?? throw new AuthoringExtensionContractException("Stored package metadata is missing.");
-        }
-        catch (JsonException exception)
-        {
-            throw new AuthoringExtensionContractException($"Stored package metadata is not closed: {exception.GetType().Name}.");
-        }
+        StoredPackageMetadata metadata = AuthoringPackageClosedJson.Deserialize<StoredPackageMetadata>(
+            metadataBytes,
+            s_json,
+            "Stored package metadata");
 
         if (metadata.SchemaVersion != StoreSchemaVersion ||
             !string.Equals(metadata.PackageIdentity, expectedPackageIdentity, StringComparison.Ordinal) ||
@@ -535,19 +530,26 @@ public sealed class LocalAuthoringPackageStore : IAuthoringPackageStore, IAuthor
     {
         RejectReparsePoint(path);
         byte[] bytes = await ReadBoundedAsync(path, 64 * 1024, cancellationToken);
-        AuthoringPackageActivationState state;
-        try
-        {
-            state = JsonSerializer.Deserialize<AuthoringPackageActivationState>(bytes, s_json)
-                ?? throw new AuthoringExtensionContractException("Package activation state is missing.");
-        }
-        catch (JsonException exception)
-        {
-            throw new AuthoringExtensionContractException($"Package activation state is not closed: {exception.GetType().Name}.");
-        }
+        AuthoringPackageActivationState state = AuthoringPackageClosedJson.Deserialize<AuthoringPackageActivationState>(
+            bytes,
+            s_json,
+            "Package activation state");
 
         ValidateExtensionId(state.ExtensionId);
         ValidateDigest(state.CurrentPackageIdentity, "active package identity");
+        ValidateDigest(state.CurrentArchiveSha256, "active archive identity");
+        ValidateDigest(state.CurrentPackageSha256, "active package payload identity");
+        ValidateDigest(state.CurrentContentSha256, "active content identity");
+        ValidateDigest(state.CurrentContractIdentity, "active contract identity");
+        ValidateDigest(state.CurrentKeysetIdentity, "active keyset identity");
+        if (!Version.TryParse(state.CurrentVersion, out _) || state.CurrentVersion.Length > 64 ||
+            !AuthoringPackageReferencePolicy.IsBoundedIdentifier(state.CurrentPublisher) ||
+            !AuthoringPackageReferencePolicy.IsBoundedIdentifier(state.CurrentKeyId) ||
+            state.CurrentTrustStatus != AuthoringPackageTrustStatus.Trusted)
+        {
+            throw new AuthoringExtensionContractException("Package activation state identity or trust status is invalid.");
+        }
+
         if (state.PreviousPackageIdentity is not null)
         {
             ValidateDigest(state.PreviousPackageIdentity, "previous package identity");

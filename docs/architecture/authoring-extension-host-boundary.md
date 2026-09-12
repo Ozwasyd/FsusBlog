@@ -53,11 +53,49 @@ and security-policy authority IDs; collisions across any extension or core
 authority fail closed. This registry validates contracts only. It does not install,
 persist, grant, activate, dispatch, or execute an extension.
 
+## Verified package and atomic version switch
+
+An authoring package enters production composition only through an exact opaque
+`approved-source/` catalog reference. The verifier binds the signed archive,
+manifest, complete publisher keyset identity, trust status, source/provenance
+references, package/content/entrypoint digests, and contract identity into one
+content-addressed package identity. Unknown, unsigned, untrusted, revoked, expired,
+malformed, incompatible, or tampered inputs fail before staging. Package paths are
+relative and bounded; traversal, links/reparse points, duplicate paths, directory
+entries, remote URLs/imports, post-install scripts, and undeclared entrypoints are
+rejected.
+
+`LocalAuthoringPackageStore` is the single activation/recovery authority. It writes
+an independently reverified package to a private staging directory, verifies the
+stored archive and extracted files, atomically renames the content-addressed
+directory, and makes it read-only. Activation uses an atomic generation-bound
+pointer and retains the previous package until the new pointer, integrity/health
+probe, and append-only receipt succeed. Any switch, probe, content, or receipt
+failure restores the exact old pointer (or deactivates a failed first install) and
+removes only the failed candidate.
+
+Schema-stable updates are the only package updates admitted at this stage. A state
+or data schema change records `schema-migration-required` without staging or
+switching; the later bounded lifecycle/migration owner must authorize such a
+transition. Downgrades, replays, same-version/different-content collisions, and
+publisher changes are likewise rejected and receipted. Key rotation is accepted
+only when the candidate verifies under the current complete publisher keyset.
+Fresh-process recovery independently verifies the archive, extracted content,
+activation pointer, health result, and latest extension receipt before accepting an
+active package.
+
+Package receipts are closed, bounded, append-only, and hash chained across all
+extensions. They record the operation/outcome, current and previous identities,
+trust/keyset result, content digests, and stable failure code without storing a
+secret. Stored package metadata, activation pointers, and receipts reject missing,
+duplicate, or unknown fields before their digests are accepted.
+
 ## Stability and rollback
 
-The contract is currently internal/experimental and may change only by advancing
+The contract and package store are currently internal/experimental and may change only by advancing
 its closed schema or registry version and updating its validators and tests in the
 same change. Unsupported host API ranges, platforms, entrypoint mappings, versions,
 or registry identities remain rejected; compatibility never falls back to the
-generic plugin system or a less isolated class. Rolling back this stage removes no
-runtime or durable state because this boundary creates neither.
+generic plugin system or a less isolated class. Package rollback restores the last
+verified pointer and retains content-addressed evidence; it does not activate a
+runtime or restore any permission.
