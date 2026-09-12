@@ -2331,6 +2331,8 @@ async function runBackendTests()
   const distributedContractClasses = [
     'DistributedContractFastTests',
     'DistributedInvalidationBusTests',
+    'DistributedInvalidationTargetResolverTests',
+    'DistributedInvalidationLocalApplierTests',
     'PublicAotBackfillLeaseTests',
     'ArticleMutationProjectionCheckpointTests',
     'ArticleMutationOutboxFailurePropagationTests'
@@ -3144,7 +3146,7 @@ async function runFrontendTests()
     const staticTestIds = (entries) => entries.map((entry) => `frontend-static:${entry.id}`);
     const staticStageStep = (stage, options = {}) => commandStep(
         `frontend-static-${stage}`,
-        `FSUSBLOG_LOCAL_STATIC_PHASE=${stage} FSUSBLOG_LOCAL_STATIC_EVIDENCE_FILE=${shellQuote(relative(staticEvidence[stage]))} FSUSBLOG_COMMAND_MANIFEST_WORKERS="$FSUSBLOG_STEP_CPU_BUDGET" node tools/test/local-static-governance.mjs`,
+        `FSUSBLOG_LOCAL_STATIC_PHASE=${stage} FSUSBLOG_LOCAL_STATIC_EVIDENCE_FILE=${shellQuote(relative(staticEvidence[stage]))} FSUSBLOG_COMMAND_MANIFEST_WORKERS="$FSUSBLOG_STEP_CPU_BUDGET" FSUSBLOG_STATIC_PAYLOAD_BUDGET_MODE=authoritative node tools/test/local-static-governance.mjs`,
         ['frontend-static-governance'],
         {
             ...options,

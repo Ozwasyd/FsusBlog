@@ -12,7 +12,7 @@ Production is a single-host Docker VPS deployment with two fixed application slo
 
 The app container owns only application runtime state. Persistent state is kept in PostgreSQL, Redis, and Docker volumes:
 
-- shared `${FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME}`: migrated durable storage mounted at `/app/storage` (`FSUSBLOG_SHARED_STORAGE_ROOT=/app/storage/shared` → `PublicAssetRoot`/`PrivateAssetRoot`; instance temps under `/app/storage/instances`)
+- shared `${FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME}`: a local bind-backed volume whose single host root is `/var/lib/fsusblog/storage`, mounted only into the app at `/app/storage` (`FSUSBLOG_SHARED_STORAGE_ROOT=/app/storage/shared` → `PublicAssetRoot`/`PrivateAssetRoot`; instance temps under `/app/storage/instances`). The host OpenResty worker runs as the dedicated `fsusblog` account with the same numeric UID as the container `APP_UID`, and its only private-byte mapping is the `internal` alias `/var/lib/fsusblog/storage/shared/assets/private/`; the ticket-bearing external location has `access_log off`.
 - shared `${FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME}`: DataProtection keyring under `/app/data-protection/keyring`; both slots keep `ApplicationName=FsusBlog`
 - slot-local `fsusblog-aot-cache-{blue|green}`: public AOT shell cache under `/app/wwwroot/aot-cache`
 - slot-local `fsusblog-logs-{blue|green}`: rolling Serilog files under `/app/Logs`

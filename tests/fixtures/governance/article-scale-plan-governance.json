@@ -1,0 +1,41 @@
+{
+    "schema": "fsusblog.article-scale-plan-governance-mutations.v1",
+    "mutations": [
+        {
+            "id": "status-modulo",
+            "path": "src/backend/Services/ArticleScaleModuloPlan.cs",
+            "source": "internal static ArticleScaleVariant Choose(int articleId) => articleId % 5 == 0 ? ArticleScaleVariant.Deleted : ArticleScaleVariant.Published;\n",
+            "expectedRuleId": "status-modulo"
+        },
+        {
+            "id": "simplified-graph",
+            "path": "src/backend/Services/ArticleScaleSimplifiedPlan.cs",
+            "source": "internal static class ArticleScaleGraphMutation { private const string GraphVariant = \"simplified-graph\"; }\n",
+            "expectedRuleId": "simplified-graph"
+        },
+        {
+            "id": "sentinel-hash",
+            "path": "src/backend/Services/ArticleScaleSentinelPlan.cs",
+            "source": "internal static class ArticleScaleHashMutation { private const string ContentDigest = \"sentinel\"; }\n",
+            "expectedRuleId": "sentinel-hash"
+        },
+        {
+            "id": "manual-derived-state",
+            "path": "src/backend/Services/ArticleScaleManualEdgePlan.cs",
+            "source": "internal sealed record RedisSearchEdge(string ArticleScalePlanKey);\n",
+            "expectedRuleId": "manual-derived-state"
+        },
+        {
+            "id": "second-plan-schema",
+            "path": "src/backend/Services/OtherArticleScaleSchema.cs",
+            "source": "internal static class OtherArticleScaleSchema { internal const string Schema = \"fsusblog.article-scale-plan.v2\"; }\n",
+            "expectedRuleId": "second-plan-schema"
+        },
+        {
+            "id": "second-plan-type",
+            "path": "src/backend/Services/Fixtures/DataScale/OtherPlan.cs",
+            "source": "internal sealed record ArticleScalePlan(string Schema);\n",
+            "expectedRuleId": "second-plan-type"
+        }
+    ]
+}

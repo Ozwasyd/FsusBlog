@@ -45,30 +45,11 @@
             "pattern": "^[a-f0-9]{64}$"
         },
         "buildIdentity": {
-            "type": [
-                "object",
-                "null"
-            ],
-            "additionalProperties": false,
-            "required": [
-                "artifactId",
-                "receiptDigest",
-                "artifactDigest"
-            ],
-            "properties": {
-                "artifactId": {
-                    "type": "string",
-                    "minLength": 1
-                },
-                "receiptDigest": {
-                    "type": "string",
-                    "pattern": "^[a-f0-9]{64}$"
-                },
-                "artifactDigest": {
-                    "type": "string",
-                    "pattern": "^[a-f0-9]{64}$"
-                }
-            }
+            "anyOf": [
+                { "type": "null" },
+                { "$ref": "#/$defs/legacyBuildIdentity" },
+                { "$ref": "#/$defs/canonicalBuildIdentity" }
+            ]
         },
         "extractorDigest": {
             "type": "string",
@@ -126,6 +107,41 @@
         }
     },
     "$defs": {
+        "legacyBuildIdentity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["artifactId", "receiptDigest", "artifactDigest"],
+            "properties": {
+                "artifactId": { "type": "string", "minLength": 1 },
+                "receiptDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                "artifactDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+            }
+        },
+        "canonicalBuildIdentity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["schema", "artifactId", "receiptDigest", "artifactDigest", "sourceDigests", "sourceDigest"],
+            "properties": {
+                "schema": { "const": "fsusblog.build-identity.v1" },
+                "artifactId": { "type": "string", "minLength": 1 },
+                "receiptDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                "artifactDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                "sourceDigests": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["path", "digest"],
+                        "properties": {
+                            "path": { "type": "string", "minLength": 1 },
+                            "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+                        }
+                    }
+                },
+                "sourceDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+            }
+        },
         "observationValue": {
             "description": "Stable typed observation values only. No free-form source, logs, or Markdown.",
             "oneOf": [

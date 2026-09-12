@@ -1,0 +1,87 @@
+{
+  "schema": "fsusblog.test-replacement-receipt.v1",
+  "transactionId": "issue-2611-validation-message-corpus",
+  "transactionDigest": "sha256:e6cf210d7417bbdba287e75cc89419c95a1feaaf187a5d25e1879d0b2ed703ee",
+  "beforeTestIds": [
+    "vitest:tests/frontend/unit/utils/errors.test.ts#maps-known-validation-message-invalid-totp-6255105f67",
+    "vitest:tests/frontend/unit/utils/errors.test.ts#maps-known-validation-message-baseurl-protocol-invalid-5bc7392574"
+  ],
+  "afterTestIds": [
+    "vitest:tests/frontend/unit/utils/errors.test.ts#maps-known-validation-message-invalid-totp-4335a6d31b",
+    "vitest:tests/frontend/unit/utils/errors.test.ts#maps-known-validation-message-invalid-base-url-protocol-5999797f98"
+  ],
+  "sourceDiffs": [
+    {
+      "path": "tests/frontend/unit/utils/errors.test.ts",
+      "beforeDigest": "sha256:7f29264ec41487062c5cd66a6d7595f59698ce0233b5bb87b8b7b252c3c2b1b3",
+      "afterDigest": "sha256:0f55dedd4f20e8695072fca94f2fbbd124b961be7e8ac5725f34b0d06479c55b",
+      "beforeExists": true,
+      "afterExists": true
+    }
+  ],
+  "catalogDiffs": [
+    {
+      "path": "tests/test-retention-replacements.json",
+      "beforeDigest": "sha256:b5a54b450ee3d8f77a63c2212f86757b4a3188d8dc642dfa07e1f51df2c029b6",
+      "afterDigest": "sha256:77cffdf5460fcd672b16b99e4b53581a0d6d9ab8c31c9227b3b5911187c976f3",
+      "beforeExists": true,
+      "afterExists": true
+    },
+    {
+      "path": "tests/backend/Fixtures/backend-test-requirements.json",
+      "beforeDigest": "sha256:5a3924ade4afbd7aec299a6e75c5d5a348b7aa4e4ff6b811aebdab3a73143127",
+      "afterDigest": "sha256:5a3924ade4afbd7aec299a6e75c5d5a348b7aa4e4ff6b811aebdab3a73143127",
+      "beforeExists": true,
+      "afterExists": true
+    },
+    {
+      "path": "tests/coverage-registry.json",
+      "beforeDigest": "sha256:7533f533a066cfa776ee5e05dc8b57280ded3de3d3b3a116c8e891a655c3259f",
+      "afterDigest": "sha256:7533f533a066cfa776ee5e05dc8b57280ded3de3d3b3a116c8e891a655c3259f",
+      "beforeExists": true,
+      "afterExists": true
+    },
+    {
+      "path": "tests/matrix.yml",
+      "beforeDigest": "sha256:27e851c965065743be01f072541dbee41103fe370fbe30c686d685134b8b3799",
+      "afterDigest": "sha256:27e851c965065743be01f072541dbee41103fe370fbe30c686d685134b8b3799",
+      "beforeExists": true,
+      "afterExists": true
+    },
+    {
+      "path": "docs/testing.generated.md",
+      "beforeDigest": "sha256:0bdd33ef4efaee2e7ee8e02af20b95662d4e81ed3178e74aa65a974738e2d236",
+      "afterDigest": "sha256:0bdd33ef4efaee2e7ee8e02af20b95662d4e81ed3178e74aa65a974738e2d236",
+      "beforeExists": true,
+      "afterExists": true
+    }
+  ],
+  "verificationOutcomes": [
+    {
+      "id": "transaction-schema",
+      "status": "passed"
+    },
+    {
+      "id": "before-source-identity",
+      "status": "passed"
+    },
+    {
+      "id": "atomic-file-application",
+      "status": "passed"
+    },
+    {
+      "id": "after-source-identity",
+      "status": "passed"
+    },
+    {
+      "id": "catalog-closure",
+      "status": "passed"
+    },
+    {
+      "id": "independent-post-apply",
+      "status": "passed"
+    }
+  ],
+  "verification": "passed",
+  "contentDigest": "sha256:bf7cef2aabb79e8612ef8f16aa03e3d247d2df9a1d80e607a4d49191e0822c29"
+}

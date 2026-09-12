@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:f2784b999fd2d833da4e3be3ccf76aaacd72c81004a72ee4d7050476dfc3f272",
+    "policyDigest": "sha256:73000983eb35fe922b151764a9e30525266a9a90b4da3a1b40552ef73a419454",
     "documents": [
         {
             "path": "docs/CODE_OF_CONDUCT.md",
@@ -398,6 +398,21 @@
             "supersedes": [],
             "supersededBy": null,
             "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/architecture/article-vault-linux-watcher.md",
+            "title": "Article Vault Linux watcher boundary",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                2672,
+                2675
+            ],
             "producer": null
         },
         {

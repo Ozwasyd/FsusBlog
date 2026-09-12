@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationMetadata.cs",
+        "src/migration/Catalogs/SchemaMigrationCatalog20260904.cs",
+        "src/migration/Definitions/AuthorArticlePinMigrationDefinitions.cs",
+        "src/migration/SchemaMigrationManifest.cs"
+    ],
+    "outputs": [
+        {
+            "path": "src/backend/Infrastructure/SchemaMigration/SchemaAllowedExtraLinkNames.generated.cs",
+            "sha256": "b823cf8491df757481a2bfce519ae525f756f3012870a70d3473805813b26926"
+        },
+        {
+            "path": "src/migration/OfflineMigrationCatalogEntries.generated.cs",
+            "sha256": "9cfa60e9bd817e54e9d6f6b83214953b73319ad53d29974b3be0db4390774215"
+        }
+    ]
+}

@@ -246,6 +246,53 @@ The descriptor is an online Expand with compatible-code rollback. An older relea
 ignores both columns, so rollback leaves them in place rather than dropping stored
 descriptions.
 
+## Author Article Pins Expand
+
+`20260904-post-author-article-pins` is an additive, transactional Post-CodeFirst
+Expand. It creates the sole private `author_article_pin_collection` and normalized
+`author_article_pin` authority plus append-only receipts and an idempotency ledger.
+The collection key is the authenticated admin-principal identity and configured
+site scope; each member stores only the stable article ID, server-assigned bounded
+order key, collection revisions, request/receipt references and SHA-256 digests.
+The pin tables never copy title, slug, content or public ranking fields and never
+write article metadata or public counters.
+
+The collection owner has an `ON DELETE CASCADE` principal foreign key. Pin rows do
+not hold an article foreign key: permanent article deletion must not be blocked by
+a private navigation feature, and permission/lifecycle-safe cleanup is owned by the
+downstream read projection. The trusted write boundary still fail-closes before a
+new pin when the stable article ID is absent, deleted or in the deleted lifecycle
+state. Owner/site advisory transaction locks serialize CAS and idempotency, and
+authority snapshots take the same lock so collection revision, count, members and
+digest come from one committed state.
+
+No-restart rollback retains these additive tables while an older release ignores
+them. Do not drop the ledger during the compatibility window; pause pin callers at
+the authenticated server edge and preserve receipts for verification.
+
+## Article Vault Execution Expand
+
+`20260907-post-article-vault-execution` is an additive, transactional
+Post-CodeFirst Expand. It creates the server-owned sealed execution-bundle table,
+the group idempotency/result ledger, and the terminal execution-result table.
+Primary and unique keys bind plan reference, site, Vault, plan digest, group and
+result identities; digest checks reject malformed stored seals. Group and terminal
+rows reference their sealed bundle with `ON DELETE RESTRICT`, so cleanup cannot
+remove the execution authority while auditable outcomes remain.
+
+The canonical article transaction persists a successful group receipt together
+with article, revision, relationship, outbox and audit facts. A failed attempt is
+recorded only after that transaction has rolled back: its `committed=false` group
+receipt contains failed operations without outbox/audit references and is an
+idempotency/audit-control fact, not a committed group or article mutation. A
+terminal-result write may follow the group commit; replay recovers the immutable
+group receipt and does not repeat the canonical writer.
+
+No-restart rollback routes callers to compatible code and leaves all three
+additive tables in place. Do not drop sealed bundles or ledgers during the N-1
+window, and do not reconstruct missing terminal results by scanning or writing
+local Vault files.
+
 ## Zero-Downtime Migration Qualification
 
 Release migration qualification is an isolated Test-topology gate around the production

@@ -1,0 +1,87 @@
+{
+  "schema": "fsusblog.test-replacement-receipt.v1",
+  "transactionId": "issue-2609-unacceptable-accept-theory",
+  "transactionDigest": "sha256:4ecf59c266c0a857d31a11596ac6c9e8e3a56cdf619908f5609f5acfd17ff3eb",
+  "beforeTestIds": [
+    "xunit:tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs#FsusBlog.Server.Tests.Unit.SecurityChallengeBinaryEndpointTests.IssueAsync_IncompatibleAccept_ReturnsApiError406#case-0000",
+    "xunit:tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs#FsusBlog.Server.Tests.Unit.SecurityChallengeBinaryEndpointTests.IssueAsync_BinaryAcceptWithZeroQuality_ReturnsApiError406#case-0000"
+  ],
+  "afterTestIds": [
+    "xunit:tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs#FsusBlog.Server.Tests.Unit.SecurityChallengeBinaryEndpointTests.IssueAsync_UnacceptableAcceptHeader_ReturnsApiError406#case-0000",
+    "xunit:tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs#FsusBlog.Server.Tests.Unit.SecurityChallengeBinaryEndpointTests.IssueAsync_UnacceptableAcceptHeader_ReturnsApiError406#case-0001"
+  ],
+  "sourceDiffs": [
+    {
+      "path": "tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs",
+      "beforeDigest": "sha256:161d4e979fd94ab3ad8f352519a505577890a6a572a1392539845585a3c09454",
+      "afterDigest": "sha256:b49343d105a0e91077c380b161466e2e24732db9afb6990f2f7e9917581c8b11",
+      "beforeExists": true,
+      "afterExists": true
+    }
+  ],
+  "catalogDiffs": [
+    {
+      "path": "tests/test-retention-replacements.json",
+      "beforeDigest": "sha256:bfb60e8209614908f06088d6935c65e3c764bffb0faf72190edee43b729905d2",
+      "afterDigest": "sha256:b5a54b450ee3d8f77a63c2212f86757b4a3188d8dc642dfa07e1f51df2c029b6",
+      "beforeExists": true,
+      "afterExists": true
+    },
+    {
+      "path": "tests/backend/Fixtures/backend-test-requirements.json",
+      "beforeDigest": "sha256:5a3924ade4afbd7aec299a6e75c5d5a348b7aa4e4ff6b811aebdab3a73143127",
+      "afterDigest": "sha256:5a3924ade4afbd7aec299a6e75c5d5a348b7aa4e4ff6b811aebdab3a73143127",
+      "beforeExists": true,
+      "afterExists": true
+    },
+    {
+      "path": "tests/coverage-registry.json",
+      "beforeDigest": "sha256:7533f533a066cfa776ee5e05dc8b57280ded3de3d3b3a116c8e891a655c3259f",
+      "afterDigest": "sha256:7533f533a066cfa776ee5e05dc8b57280ded3de3d3b3a116c8e891a655c3259f",
+      "beforeExists": true,
+      "afterExists": true
+    },
+    {
+      "path": "tests/matrix.yml",
+      "beforeDigest": "sha256:27e851c965065743be01f072541dbee41103fe370fbe30c686d685134b8b3799",
+      "afterDigest": "sha256:27e851c965065743be01f072541dbee41103fe370fbe30c686d685134b8b3799",
+      "beforeExists": true,
+      "afterExists": true
+    },
+    {
+      "path": "docs/testing.generated.md",
+      "beforeDigest": "sha256:0bdd33ef4efaee2e7ee8e02af20b95662d4e81ed3178e74aa65a974738e2d236",
+      "afterDigest": "sha256:0bdd33ef4efaee2e7ee8e02af20b95662d4e81ed3178e74aa65a974738e2d236",
+      "beforeExists": true,
+      "afterExists": true
+    }
+  ],
+  "verificationOutcomes": [
+    {
+      "id": "transaction-schema",
+      "status": "passed"
+    },
+    {
+      "id": "before-source-identity",
+      "status": "passed"
+    },
+    {
+      "id": "atomic-file-application",
+      "status": "passed"
+    },
+    {
+      "id": "after-source-identity",
+      "status": "passed"
+    },
+    {
+      "id": "catalog-closure",
+      "status": "passed"
+    },
+    {
+      "id": "independent-post-apply",
+      "status": "passed"
+    }
+  ],
+  "verification": "passed",
+  "contentDigest": "sha256:7fdae14eb93a3641aac2e4f9521678f21ad3bd859f14a2b63310e7c1b5be2713"
+}

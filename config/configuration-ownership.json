@@ -591,6 +591,18 @@
             "pathType": "file"
         },
         {
+            "id": "comment-fixture-inventory",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/testing/comment-fixture-inventory.json",
+            "pathType": "file"
+        },
+        {
+            "id": "comment-fixture-ownership",
+            "owner": "test-fixture-catalog",
+            "canonicalPath": "config/testing/comment-fixture-ownership.json",
+            "pathType": "file"
+        },
+        {
             "id": "messaging-fixture-inventory",
             "owner": "test-fixture-catalog",
             "canonicalPath": "config/testing/messaging-fixture-inventory.json",
@@ -1106,6 +1118,38 @@
             "exclusiveBasename": true
         },
         {
+            "id": "static-client-payload-budget",
+            "owner": "frontend-performance-governance",
+            "canonicalPath": "config/performance/static-client-payload-budget.v1.json",
+            "pathType": "file",
+            "exclusiveBasename": true,
+            "consumers": [
+                "tests/frontend/checks/static/check-asset-size-budget.mjs",
+                "tests/tools/static-client-payload-budget.test.mjs",
+                "tools/operations/check-publish-artifact-slimness.mjs",
+                "tools/operations/static-client-payload-budget.mjs"
+            ],
+            "validationCommand": "node tools/operations/static-client-payload-budget.mjs --validate-config",
+            "changePolicy": "manual-update-from-audited-client-output-with-no-growth-derivation",
+            "status": "manual"
+        },
+        {
+            "id": "static-client-payload-budget-schema",
+            "owner": "frontend-performance-governance",
+            "canonicalPath": "config/schemas/static-client-payload-budget.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "config/performance/static-client-payload-budget.v1.json",
+                "tests/frontend/checks/static/check-asset-size-budget.mjs",
+                "tests/tools/static-client-payload-budget.test.mjs",
+                "tools/operations/check-publish-artifact-slimness.mjs",
+                "tools/operations/static-client-payload-budget.mjs"
+            ],
+            "validationCommand": "node tools/operations/static-client-payload-budget.mjs --validate-config",
+            "changePolicy": "manual-update-with-closed-schema-validation",
+            "status": "manual"
+        },
+        {
             "id": "zero-downtime-resource-policy",
             "owner": "operations-deployment",
             "canonicalPath": "config/deployment/zero-downtime-resource-policy.json",
@@ -1408,6 +1452,12 @@
             "id": "browser-readiness-migrations",
             "owner": "browser-test-governance",
             "canonicalPath": "config/testing/browser-readiness-migrations.json",
+            "pathType": "file"
+        },
+        {
+            "id": "public-shell-locale-gate",
+            "owner": "browser-test-governance",
+            "canonicalPath": "config/testing/public-shell-locale-gate.json",
             "pathType": "file"
         },
         {

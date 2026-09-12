@@ -7,7 +7,12 @@ import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const { buildLifecycleReport, classifyNodeRegistryEntry, validateLifecycleRegistry } = await import(
+const {
+    buildLifecycleReport,
+    classifyNodeRegistryEntry,
+    reconcileLifecycleRegistry,
+    validateLifecycleRegistry
+} = await import(
     pathToFileURL(path.join(root, 'tools/test-lifecycle/lifecycle.mjs')).href
 );
 const { loadRetentionAuditInput, resolveRetentionAudit } = await import(
@@ -189,6 +194,84 @@ test('registry classification resolves lane, authority, workflow and package-scr
         classifyNodeRegistryEntry(fixtureRoot, 'tests/tools/package-owner.test.mjs', 'test("behavior", () => {})').owner,
         'package-script:test:package-owner'
     );
+});
+
+test('registry reconciliation preserves explicit owners and reaches a byte-identical fixed point', (context) =>
+{
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-lifecycle-reconcile-'));
+    context.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }));
+    const write = (relative, content) =>
+    {
+        const target = path.join(fixtureRoot, relative);
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.writeFileSync(target, content);
+    };
+    const testSource = 'import test from "node:test";\ntest("registered behavior", () => {});\n';
+    write('tests/tools/runner.test.mjs', testSource);
+    write('tests/tools/new-owner.test.mjs', testSource);
+    write('tools/test/lanes/static-governance.sh', 'STATIC_GOVERNANCE_FILES=()\n');
+    write('src/frontend/package.json', JSON.stringify({ scripts: {} }));
+    fs.mkdirSync(path.join(fixtureRoot, '.github/workflows'), { recursive: true });
+
+    const explicit = registry({
+        owner: 'repository-governance:high-value-release-gate',
+        executionCategory: 'repository-governance',
+        lifecycle: 'canonical-execution',
+        physicalExecutionCount: 1,
+        classifications: ['runtime']
+    });
+    const reconcileAudit = {
+        files: [
+            { path: 'tests/tools/new-owner.test.mjs' },
+            { path: 'tests/tools/runner.test.mjs' }
+        ]
+    };
+    const first = reconcileLifecycleRegistry({
+        root: fixtureRoot,
+        audit: reconcileAudit,
+        registry: explicit
+    });
+    assert.deepEqual(first.errors, []);
+    assert.equal(first.additions.length, 1);
+    assert.equal(first.additions[0].file, 'tests/tools/new-owner.test.mjs');
+    assert.deepEqual(first.registry.nodeTests[0], explicit.nodeTests[0]);
+
+    const firstBytes = `${JSON.stringify(first.registry, null, 4)}\n`;
+    const second = reconcileLifecycleRegistry({
+        root: fixtureRoot,
+        audit: reconcileAudit,
+        registry: JSON.parse(firstBytes)
+    });
+    assert.deepEqual(second.errors, []);
+    assert.deepEqual(second.additions, []);
+    assert.equal(`${JSON.stringify(second.registry, null, 4)}\n`, firstBytes);
+});
+
+test('registry reconciliation rejects entries whose Node test no longer exists', () =>
+{
+    const result = reconcileLifecycleRegistry({
+        root,
+        audit: { files: [] },
+        registry: registry()
+    });
+    assert.match(result.errors.join('\n'), /registry references missing Node test/u);
+    assert.equal(result.registry, null);
+    assert.deepEqual(result.additions, []);
+});
+
+test('registry reconciliation rejects duplicate unowned Node test paths', (context) =>
+{
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-lifecycle-duplicate-'));
+    context.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }));
+    const file = 'tests/tools/duplicate.test.mjs';
+    const result = reconcileLifecycleRegistry({
+        root: fixtureRoot,
+        audit: { files: [{ path: file }, { path: file }] },
+        registry: { schema: 'fsusblog.test-lifecycle-registry.v1', nodeTests: [] }
+    });
+    assert.deepEqual(result.errors, [`audit contains duplicate Node test file: ${file}`]);
+    assert.equal(result.registry, null);
+    assert.deepEqual(result.additions, []);
 });
 
 test('lifecycle audit input rejects invalid or stale artifacts and never invokes the standalone producer', async (context) =>

@@ -17,22 +17,32 @@ The writing node completes existing local/shared invalidation, creates the durab
 
 Each receipt's channel/count/expected/topology digest enters `DistributedInvalidationRuntimeSnapshot`; a non-`delivered` receipt also enters cache-runtime degraded detail. Redis errors or insufficient delivery do not rewrite a successful business mutation as failed, but the publisher must return `Degraded`, never record `Published`, and never hide the condition as a debug log.
 
-The receiving node converges local derived state in this order:
+The receiving node resolves every canonical `CacheTags`/`RouteKeys`/`ArtifactKeys` value before touching local state. Partial resolution must not apply a subset and then fall back to a second broad pass. Each known kind has one owner:
 
-1. Clear in-process L1 indexes and entries.
-2. Clear Public AOT memory and file-metadata views without deleting shared or local-disk artifacts.
-3. Mark Public AOT fully invalid and clear route quarantine.
-4. Retire the current PublicHotRead snapshot so requests return to the authoritative read path.
-5. Queue one full PublicHotRead rebuild and obtain its apply generation.
-6. Persist `applied` and the generation in the target inbox, then atomically write the target ACK to the source outbox.
+- `article_mutation`: the named article detail, list/hot/stats generations, and the matching AOT/HotRead article and list fragments.
+- `comment_mutation`: comment cursor/version/stats and the affected article comment surface only. Article detail bodies, taxonomy, and unrelated shells stay resident.
+- `taxonomy_mutation`: category/tag frames, related list generations, and the matching public routes. Unrelated article detail frames stay resident.
+- `system_page_mutation`: the exact slug's AOT/HotRead HTML route.
+- `seo_mutation` / `compliance_mutation`: SEO/compliance keys and the public shell HTML they own, never binary article frames.
+- `public_aot_artifact_updated` / `public_hot_read_version_published`: only the artifact or version named by the event.
 
-These steps converge only the node-local view. The respective domain documents remain authoritative for L1, Public AOT, and PublicHotRead storage, version, and rebuild contracts; other cache/AOT documents must not duplicate this bus protocol.
+After the plan is exact, local apply is target-scoped:
+
+1. Invalidate only the resolved L1 policy identities. Unrelated policy entries, bytes, and hit rates must not change.
+2. Invalidate only the resolved Public AOT route/artifact metadata. SEO/compliance may clear the public shell set they own, but must not clear unrelated article/taxonomy artifacts.
+3. Publish an immutable PublicHotRead snapshot fragment copy-on-write for the resolved routes. The store stays ready; comments must not retire article, taxonomy, home, or other unrelated artifacts.
+4. Queue a durable fragment rebuild obligation for those same targets. Known events must not enqueue `FullRebuildMarker`.
+5. Persist `applied` and the generation in the target inbox only after the exact local invalidation and the fragment rebuild obligation are durable, then atomically write the target ACK to the source outbox.
+
+Unknown schema/target, target-resolution failure, integrity-proof failure, and a durable recovery watermark that requires a full rebuild establish a named `FullReconcile` obligation. That disaster-recovery entry may clear local L1, Public AOT memory, and PublicHotRead readiness and queue a full rebuild. It is not a silent fallback for a known event, and there is no legacy broad-applier mode, dual apply, compatibility adapter, or `Runtime:UseLegacyDistributedInvalidation` switch.
+
+The local apply receipt records resolved target count, actual L1 policy/entry/byte counts, AOT route count, PublicHotRead fragment count, whether full reconcile ran, and the reconcile reason. These steps converge only the node-local view. The respective domain documents remain authoritative for L1, Public AOT, and PublicHotRead storage, version, and rebuild contracts; other cache/AOT documents must not duplicate this bus protocol.
 
 ## Replay, retry, and loop prevention
 
 The bus uses `runtimeScope:eventId` as replay identity. A source ignores its own message; the receiver calls the local applier directly, never re-enters dispatch or publish, and therefore cannot loop. The target durably upserts an inbox by `(runtimeScope,eventId,targetNodeId)`, then atomically claims `pending|retryable-failed` as `applying` with a database condition; in-process collections do not establish correctness. A duplicate payload is complete only when the durable inbox is already `applied`; a different payload digest for the same event ID marks both inbox and source outbox `terminal-failed` in one transaction.
 
-The local applier returns a structured result containing memory invalidation, AOT memory invalidation, AOT generation mark, HotRead snapshot retirement, rebuild obligation (`durable`, `queued`, `rejected`, or `failed`), and local-apply terminal status. The bus records `applied` only when the first four stages succeed and the obligation is `durable` (with obligation ID and generation) or `queued`. `rejected` or unknown/null/incomplete results become `retryable-failed` after bounded in-process retries and may be claimed by durable replay; an explicit terminal result becomes `terminal-failed` and is not applied again. Startup recovery first changes an interrupted `applying` to `retryable-failed`. The runtime snapshot separately counts `received`, `local-invalidated`, `rebuild-obligated`, and `applied`, rather than substituting log detail for phase fields.
+The local applier returns a structured result containing memory invalidation, AOT memory invalidation, AOT generation mark, HotRead fragment publication, rebuild obligation (`durable`, `queued`, `rejected`, or `failed`), local-apply terminal status, and the exact-target receipt fields. The bus records `applied` only when the exact local stages succeed, full reconcile did not run, and the obligation is `durable` (with obligation ID and generation) or `queued`. `rejected` or unknown/null/incomplete results become `retryable-failed` after bounded in-process retries and may be claimed by durable replay; an explicit terminal result, including an unresolved target that established `FullReconcile`, becomes `terminal-failed` and is not applied again. Startup recovery first changes an interrupted `applying` to `retryable-failed`. The runtime snapshot separately counts `received`, `local-invalidated`, `rebuild-obligated`, and `applied`, rather than substituting log detail for phase fields.
 
 ## Degraded operation and recovery
 

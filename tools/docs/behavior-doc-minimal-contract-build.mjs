@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import {
+  buildIdentitySchema,
   computeConsumedInputDigests,
   digestPath,
   digestValue,
@@ -162,21 +163,17 @@ export function validateMinimalContractBuildReceipt(receipt, options = {}) {
 export function buildIdentitiesFromMinimalReceipt(receipt) {
   validateMinimalContractBuildReceipt(receipt)
   return Object.fromEntries(Object.entries(receipt.artifacts).map(([artifactId, artifact]) => {
-    const declaration = hostDeclarations[artifactId]
-    if (declaration == null) throw new Error(`minimal contract build has unknown artifact ${artifactId}`)
-    const receiptBody = {
-      schema: `fsusblog.${artifactId}-build-receipt.v1`,
-      artifactId,
-      artifactPath: declaration.output,
-      artifactDigest: artifact.artifactDigest,
-      configuration: 'Release'
-    }
+    if (hostDeclarations[artifactId] == null) throw new Error(`minimal contract build has unknown artifact ${artifactId}`)
+    const sourceDigests = structuredClone(receipt.sourceClosureDigests)
     return [
       artifactId,
       {
+        schema: buildIdentitySchema,
         artifactId,
-        receiptDigest: digestValue(receiptBody),
-        artifactDigest: artifact.artifactDigest
+        receiptDigest: receipt.contentDigest,
+        artifactDigest: artifact.artifactDigest,
+        sourceDigests,
+        sourceDigest: receipt.sourceDigest ?? digestValue(sourceDigests)
       }
     ]
   }))
@@ -200,7 +197,8 @@ function reusableReceipt({
     })
     if (receipt.buildKey !== buildKey
       || digestValue(receipt.toolchain) !== digestValue(toolchain)
-      || digestValue(receipt.sourceClosureDigests) !== digestValue(sourceClosureDigests)) {
+      || digestValue(receipt.sourceClosureDigests) !== digestValue(sourceClosureDigests)
+      || receipt.sourceDigest !== digestValue(sourceClosureDigests)) {
       return null
     }
     return receipt
@@ -358,6 +356,7 @@ export function runMinimalContractBuild({
             path.posix.join(cacheRelative, buildKey),
             declaration
           ),
+          artifactPath: declaration.output,
           artifactDigest: digestPath(stagingRoot, declaration.cacheFile)
         }
       }
@@ -371,6 +370,7 @@ export function runMinimalContractBuild({
         buildKey,
         buildRoot: path.posix.join(cacheRelative, buildKey),
         sourceClosureDigests,
+        sourceDigest: digestValue(sourceClosureDigests),
         artifacts,
         status: 'ok',
         failureReasons: []
@@ -402,9 +402,13 @@ export function runMinimalContractBuild({
   })
   publishCanonicalObservations(repositoryRoot, receipt)
   const receiptFile = path.join(buildRoot, 'receipt.json')
+  const identityReceiptFile = path.join(buildRoot, 'receipts', `${normalizedRunId}.json`)
+  fs.mkdirSync(path.dirname(identityReceiptFile), { recursive: true })
+  fs.writeFileSync(identityReceiptFile, `${JSON.stringify(receipt, null, 2)}\n`)
   return {
     receipt,
     receiptFile,
+    identityReceiptFile,
     buildIdentities: buildIdentitiesFromMinimalReceipt(receipt),
     cacheHit
   }

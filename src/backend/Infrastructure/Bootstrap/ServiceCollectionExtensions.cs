@@ -161,14 +161,17 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    public static IServiceCollection AddFsusRuntimeServices(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddFsusRuntimeServices(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        IHostEnvironment? hostEnvironment = null)
     {
         return services
             .AddFsusDependencyGraphValidation()
             .AddFsusRuntimeSecurityAndLifecycleServices(configuration)
             .AddFsusRuntimeInfrastructureServices(configuration)
             .AddFsusRuntimePublicAotServices()
-            .AddFsusRuntimeDomainServices()
+            .AddFsusRuntimeDomainServices(configuration, hostEnvironment)
             .AddActiveReleaseFencing();
     }
 

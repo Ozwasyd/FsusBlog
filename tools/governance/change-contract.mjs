@@ -6,6 +6,8 @@ import { join, resolve } from 'node:path'
 
 import commitlintConfig from '../../commitlint.config.mjs'
 import { changeContract } from './change-contract-registry.mjs'
+import { createGeneratedOutputDigestRepairRepository } from './generated-output-digest-repair-repository.mjs'
+import { verifyGeneratedOutputDigestRepairV2 } from './generated-output-digest-repair-v2.mjs'
 
 const genericSummaries = new Set([
     'apply fixes',
@@ -655,7 +657,7 @@ function worktreeOutputState(worktree, path) {
     const physicalRoot = realpathSync(lexicalRoot)
     const physicalPath = realpathSync(lexicalPath)
     const stat = lstatSync(lexicalPath)
-    if (physicalPath !== lexicalPath || !stat.isFile() || stat.isSymbolicLink()) {
+    if (!stat.isFile() || stat.isSymbolicLink()) {
         throw new Error(`producer DAG output is not one canonical regular file: ${path}`)
     }
     if (physicalPath !== physicalRoot && !physicalPath.startsWith(`${physicalRoot}/`)) {
@@ -679,6 +681,34 @@ function replayGeneratedOutputDag(root, revision, graph, guard) {
             ['worktree', 'add', '--detach', worktree, revision],
             exactRevisionGitOptions(root, { stdio: 'ignore' })
         )
+        const inputEntries = execFileSync('git', ['ls-tree', '-r', '-z', revision],
+            exactRevisionGitOptions(root)).toString('utf8').split('\x00').filter(Boolean);
+        const lexicalRoot = resolve(worktree)
+        const physicalRoot = realpathSync(worktree)
+        for (const entry of inputEntries)
+        {
+            const match = /^(100644|100755) blob ([0-9a-f]{40})\t(.+)$/u.exec(entry);
+            if (!match)
+            {
+                throw new Error('producer DAG input is not one canonical regular file');
+            }
+            const inputPath = resolve(lexicalRoot, match[3]);
+            if (!inputPath.startsWith(`${lexicalRoot}/`))
+            {
+                throw new Error(`producer DAG input resolves outside its original tree: ${match[3]}`);
+            }
+            const physicalPath = realpathSync(inputPath)
+            if (physicalPath !== physicalRoot && !physicalPath.startsWith(`${physicalRoot}/`))
+            {
+                throw new Error(`producer DAG input resolves outside its original tree: ${match[3]}`);
+            }
+            const stat = lstatSync(inputPath);
+            if (!stat.isFile() || stat.isSymbolicLink()
+                || ((stat.mode & 0o111) !== 0) !== (match[1] === '100755'))
+            {
+                throw new Error(`producer DAG input mode differs from its Git entry: ${match[3]}`);
+            }
+        }
         const runPass = () => {
             for (const step of graph.steps) {
                 const before = new Map(graphOutputs.map((path) => [
@@ -935,6 +965,293 @@ function dagEvidenceExceedsBounds(evidence, errors) {
 function revisionPathIdentity(root, revision, path) {
     const blob = resolveRevisionBlob(root, revision, path)
     return `${blob.mode}:${blob.object}`
+}
+
+// Historical repair admission records Git objects, never an overlaid worktree.
+// The returned seal is review data; it is not itself permission to run a producer.
+export function inspectGeneratedRepairDagHistory(root, graph, synchronizedMerge, reviewedRevision, synchronizedRevision)
+{
+    if (!fullShaPattern.test(synchronizedMerge ?? '') || !fullShaPattern.test(reviewedRevision ?? '')
+        || !fullShaPattern.test(synchronizedRevision ?? '')
+        || !gitFirstParentChainIncludes(root, synchronizedMerge, reviewedRevision))
+    {
+        throw new Error('reviewed DAG history requires exact first-parent boundaries');
+    }
+    const protectedPaths = [...new Set([
+        ...graph.steps.flatMap((step) => step.outputs),
+        ...graph.steps.flatMap((step) => step.generatorClosure),
+        ...changeContract.trustedPolicyFiles
+    ])].sort();
+    const synchronizedParents = gitRevisionParents(root, synchronizedMerge);
+    if (synchronizedParents.length !== 2
+        || !gitFirstParentChainIncludes(root, synchronizedRevision, synchronizedParents[1])
+        || gitRevisionIsAncestor(root, synchronizedRevision, synchronizedParents[0]))
+    {
+        throw new Error('reviewed DAG synchronized source must belong only to its merge head');
+    }
+    const revisions = new Set([synchronizedMerge, synchronizedRevision]);
+    const branches = [];
+    const include = (revision) =>
+    {
+        revisions.add(revision);
+        for (const parent of gitRevisionParents(root, revision))
+        {
+            revisions.add(parent);
+        }
+        if (revisions.size > generatedOutputRepairDagMaximumRevisions)
+        {
+            throw new Error('reviewed DAG history exceeds the revision bound');
+        }
+    };
+    const outerRevisions = gitFirstParentRange(root, synchronizedMerge, reviewedRevision);
+    for (const outerRevision of outerRevisions)
+    {
+        include(outerRevision);
+        const parents = gitRevisionParents(root, outerRevision);
+        if (parents.length !== 2)
+        {
+            continue;
+        }
+        const branchRevisions = gitPullRequestBranchFirstParentRange(root, parents[0], parents[1]);
+        for (const revision of branchRevisions)
+        {
+            include(revision);
+        }
+        branches.push({
+            outerRevision,
+            parents,
+            mergeBase: gitMergeBase(root, parents[0], parents[1]),
+            branchRevisions
+        });
+    }
+    const nodes = [...revisions].sort().map((revision) => ({
+        revision,
+        parents: gitRevisionParents(root, revision),
+        entries: protectedPaths.map((path) =>
+        {
+            const line = execFileSync('git', ['ls-tree', revision, '--', path],
+                exactRevisionGitOptions(root, { encoding: 'utf8' })).trim();
+            if (line === '')
+            {
+                return { path, mode: null, object: null };
+            }
+            const match = /^(100644|100755) blob ([0-9a-f]{40})\t(.+)$/u.exec(line);
+            if (!match || match[3] !== path)
+            {
+                throw new Error(`reviewed DAG history contains a nonregular protected entry: ${revision}: ${path}`);
+            }
+            return { path, mode: match[1], object: match[2] };
+        })
+    }));
+    const history = { synchronizedMerge, synchronizedRevision, reviewedRevision, protectedPaths, outerRevisions, branches, nodes };
+    return {
+        ...history,
+        sha256: createHash('sha256').update(JSON.stringify(history)).digest('hex')
+    };
+}
+
+export function validateReviewedGeneratedRepairDagEvents(registration, observedBranches, sourceEvents)
+{
+    const expectedBranches = registration.sourceBranches;
+    if (!Array.isArray(observedBranches) || !Array.isArray(sourceEvents)
+        || JSON.stringify(observedBranches) !== JSON.stringify(expectedBranches))
+    {
+        return ['reviewed DAG outer branches and replayed transitions must match the complete registered order'];
+    }
+    if (new Set(observedBranches.map((branch) => branch.mergeCommit)).size !== observedBranches.length)
+    {
+        return ['reviewed DAG outer merge identities must be unique'];
+    }
+    const expectedEvents = expectedBranches.flatMap((branch) => branch.transitions.map((sourceRevision) => ({
+        sourceRevision,
+        mergedPullRequest: branch.mergedPullRequest,
+        mergeCommit: branch.mergeCommit
+    })));
+    if (sourceEvents.length !== expectedEvents.length || sourceEvents.some((event, index) => (
+        !event || !sameStrings(Object.keys(event), ['sourceRevision', 'mergedPullRequest', 'mergeCommit'])
+        || event.sourceRevision !== expectedEvents[index].sourceRevision
+        || event.mergedPullRequest !== expectedEvents[index].mergedPullRequest
+        || event.mergeCommit !== expectedEvents[index].mergeCommit
+    )))
+    {
+        return ['reviewed DAG source events must match every replayed transition exactly once and in order'];
+    }
+    return [];
+}
+
+export function validateGeneratedRepairDagEventOrder(sourceEvents, expectedEvents)
+{
+    if (!Array.isArray(sourceEvents) || sourceEvents.length !== expectedEvents.length
+        || sourceEvents.some((event, index) => (
+            !event || !sameStrings(Object.keys(event), ['sourceRevision', 'mergedPullRequest', 'mergeCommit'])
+            || event.sourceRevision !== expectedEvents[index].sourceRevision
+            || event.mergedPullRequest !== expectedEvents[index].mergedPullRequest
+            || event.mergeCommit !== expectedEvents[index].mergeCommit
+        )))
+    {
+        return ['Post-merge generated repair DAG sourceEvents must match the complete global replay order'];
+    }
+    return [];
+}
+
+export function reviewedDagHistoryAdmission(root, graph, synchronizedMerge, synchronizedRevision, base)
+{
+    const registration = changeContract.generatedOutputRepairDagReviewedHistories.find((entry) => (
+        entry.producerId === graph.id && entry.synchronizedMerge === synchronizedMerge
+        && entry.synchronizedRevision === synchronizedRevision
+    ));
+    if (!registration || !gitFirstParentChainIncludes(root, registration.reviewedRevision, base))
+    {
+        return null;
+    }
+    const history = inspectGeneratedRepairDagHistory(root, graph, synchronizedMerge,
+        registration.reviewedRevision, synchronizedRevision);
+    if (history.sha256 !== registration.historySha256)
+    {
+        throw new Error('reviewed DAG history object, mode, topology, or boundary seal changed');
+    }
+    const nodes = new Map(history.nodes.map((node) => [node.revision, node]));
+    for (const registeredBranch of registration.sourceBranches)
+    {
+        const branch = history.branches.find((entry) => entry.outerRevision === registeredBranch.mergeCommit);
+        if (!branch || !mergeCommitNamesPullRequest(root, registeredBranch.mergeCommit, registeredBranch.mergedPullRequest)
+            || new Set(registeredBranch.transitions).size !== registeredBranch.transitions.length
+            || registeredBranch.transitions.some((revision) => (
+                !branch.branchRevisions.includes(revision) || gitRevisionIsAncestor(root, revision, branch.parents[0])
+            )))
+        {
+            throw new Error('reviewed DAG transition registration does not match its exact merge provenance');
+        }
+    }
+    const entryAt = (revision, path) =>
+    {
+        const node = nodes.get(revision);
+        if (node)
+        {
+            return node.entries.find((entry) => entry.path === path);
+        }
+        const line = execFileSync('git', ['ls-tree', revision, '--', path],
+            exactRevisionGitOptions(root, { encoding: 'utf8' })).trim();
+        if (!line)
+        {
+            return { path, mode: null, object: null };
+        }
+        const match = /^(100644|100755) blob ([0-9a-f]{40})\t(.+)$/u.exec(line);
+        if (!match || match[3] !== path)
+        {
+            throw new Error('reviewed DAG import contains a nonregular entry');
+        }
+        return { path, mode: match[1], object: match[2] };
+    };
+    const policyPathIdentity = (revision, path) =>
+    {
+        const entry = entryAt(revision, path);
+        return entry.mode === null ? null : `${entry.mode}:${entry.object}`;
+    };
+    for (const branch of history.branches)
+    {
+        for (const revision of branch.branchRevisions)
+        {
+            const node = nodes.get(revision);
+            const changed = history.protectedPaths.filter((path) => (
+                JSON.stringify(entryAt(revision, path)) !== JSON.stringify(entryAt(node.parents[0], path))
+            ));
+            if (!changed.length)
+            {
+                continue;
+            }
+            const imported = node.parents.length === 2
+                && gitRevisionIsAncestor(root, node.parents[1], branch.parents[0])
+                && changed.every((path) => JSON.stringify(entryAt(revision, path))
+                    === JSON.stringify(entryAt(node.parents[1], path)));
+            const reviewedPolicyTransition = registration.sourceBranches.some((entry) => (
+                entry.mergeCommit === branch.outerRevision && entry.transitions.includes(revision)
+            )) && changed.every((path) => changeContract.trustedPolicyFiles.includes(path));
+            if (!imported && !reviewedPolicyTransition)
+            {
+                throw new Error(`reviewed DAG historical change is neither exact authoritative import nor reviewed policy: ${revision}`);
+            }
+        }
+    }
+    const admittedPolicyRevisions = new Set();
+    const admittedPolicyOuter = new Set();
+    const initialPolicy = new Map(changeContract.trustedPolicyFiles.map((path) => [
+        path, policyPathIdentity(registration.reviewedRevision, path)
+    ]));
+    const currentPolicy = new Map(changeContract.trustedPolicyFiles.map((path) => [
+        path, policyPathIdentity(base, path)
+    ]));
+    const graphPaths = new Set(graph.steps.flatMap((step) => [...step.outputs, ...step.generatorClosure]));
+    const suffixRevisions = new Set(nodes.keys());
+    const inspectPolicyRevision = (revision) =>
+    {
+        if (nodes.has(revision))
+        {
+            return;
+        }
+        const parents = gitRevisionParents(root, revision);
+        for (const value of [revision, ...parents])
+        {
+            suffixRevisions.add(value);
+        }
+        if (suffixRevisions.size > generatedOutputRepairDagMaximumRevisions)
+        {
+            throw new Error('current policy epoch exceeds the aggregate revision bound');
+        }
+        if (![1, 2].includes(parents.length))
+        {
+            throw new Error('current policy epoch has invalid parent topology');
+        }
+        const changed = gitChangedPaths(root, parents[0], revision);
+        const policyChanges = changed.filter((path) => currentPolicy.has(path));
+        for (const [path, currentIdentity] of currentPolicy)
+        {
+            const actualIdentity = policyPathIdentity(revision, path);
+            const parentIdentity = policyPathIdentity(parents[0], path);
+            const initialIdentity = initialPolicy.get(path);
+            if (![initialIdentity, currentIdentity].includes(actualIdentity)
+                || (![initialIdentity, currentIdentity].includes(parentIdentity) && !nodes.has(parents[0])))
+            {
+                throw new Error(`current policy epoch contains an unregistered intermediate identity: ${revision}: ${path}`);
+            }
+            if (parentIdentity === currentIdentity && actualIdentity !== currentIdentity)
+            {
+                throw new Error(`current policy epoch rolled back after reaching trusted base: ${revision}: ${path}`);
+            }
+        }
+        if (policyChanges.length === 0)
+        {
+            return;
+        }
+        if (changed.some((path) => graphPaths.has(path)))
+        {
+            throw new Error(`current policy transition changed generator closure or outputs: ${revision}`);
+        }
+        if (parents.length === 2 && policyChanges.some((path) => (
+            policyPathIdentity(revision, path) !== policyPathIdentity(parents[1], path)
+        )))
+        {
+            throw new Error(`current policy merge does not preserve its authoritative second parent: ${revision}`);
+        }
+        admittedPolicyRevisions.add(revision);
+    };
+    for (const outer of gitFirstParentRange(root, registration.reviewedRevision, base))
+    {
+        const parents = gitRevisionParents(root, outer);
+        if (parents.length === 2)
+        {
+            for (const revision of gitPullRequestBranchFirstParentRange(root, parents[0], parents[1]))
+            {
+                inspectPolicyRevision(revision);
+            }
+        }
+        inspectPolicyRevision(outer);
+        if (admittedPolicyRevisions.has(outer))
+        {
+            admittedPolicyOuter.add(outer);
+        }
+    }
+    return { registration, history, nodes, coveredOuter: new Set(history.outerRevisions), admittedPolicyRevisions, admittedPolicyOuter };
 }
 
 function gitBoundedAncestryGraph(root, descendant, boundaries, maximum = 128) {
@@ -1200,6 +1517,8 @@ function preflightDagReplayHistory(
     if (unexpectedCandidatePaths.length > 0) {
         throw new Error(`candidate changed unrelated paths before replay: ${unexpectedCandidatePaths.join(', ')}`)
     }
+    const reviewed = reviewedDagHistoryAdmission(root, graph, synchronizedMergeCommit, synchronizedRevision, base);
+    guard.reviewedHistory = reviewed;
 
     const revisions = new Set()
     const trackRevision = (revision) => {
@@ -1227,7 +1546,9 @@ function preflightDagReplayHistory(
         if (parents.length > 0) {
             const protectedChanges = gitChangedPaths(root, parents[0], revision)
                 .filter((path) => protectedPaths.has(path))
-            if (protectedChanges.length > 0) {
+            if (protectedChanges.length > 0 && !reviewed?.coveredOuter.has(revision)
+                && !reviewed?.admittedPolicyOuter.has(revision))
+            {
                 throw new Error(
                     `outer history changed outputs or policy closure before replay: ${revision}: ${protectedChanges.join(', ')}`
                 )
@@ -1246,7 +1567,13 @@ function preflightDagReplayHistory(
             for (const parent of gitRevisionParents(root, branchRevision)) trackRevision(parent)
         }
         for (const path of protectedPaths) {
-            if (gitFullHistoryRevisionsForPath(root, branchBase, parents[1], path).length > 0) {
+            const pathHistory = gitFullHistoryRevisionsForPath(root, branchBase, parents[1], path);
+            if (pathHistory.some((sourceRevision) => (
+                !reviewed?.coveredOuter.has(revision)
+                && !(changeContract.trustedPolicyFiles.includes(path)
+                    && (reviewed?.nodes.has(sourceRevision) || reviewed?.admittedPolicyRevisions.has(sourceRevision)))
+            )))
+            {
                 throw new Error(
                     `source branch changed outputs or policy closure before replay: ${revision}: ${path}`
                 )
@@ -1258,8 +1585,13 @@ function preflightDagReplayHistory(
         revisionPathIdentity(root, base, path)
     ]))
     for (const revision of revisions) {
+        const historicalNode = reviewed?.nodes.get(revision);
+        const legacyEpoch = historicalNode && reviewed.registration.legacyClosure.every((entry) => (
+            JSON.stringify(historicalNode.entries.find((actual) => actual.path === entry.path)) === JSON.stringify(entry)
+        ));
         for (const [path, identity] of trustedClosure) {
-            if (revisionPathIdentity(root, revision, path) !== identity) {
+            if (revisionPathIdentity(root, revision, path) !== identity && !legacyEpoch)
+            {
                 throw new Error(`generator closure is not trusted before replay: ${revision}: ${path}`)
             }
         }
@@ -1456,8 +1788,10 @@ function validatePostMergeGeneratedOutputRepairDag(
                 || declaredOwner.revision !== owner) {
                 errors.push(`Post-merge generated repair DAG synchronized output owner is stale: ${path}`)
             }
+            const historicalChanges = gitFullHistoryRevisionsForPath(root, evidence.synchronizedMergeCommit, base, path);
             if (gitFullHistoryRevisionsForPath(root, evidence.synchronizedRevision, synchronizedHead, path).length > 0
-                || gitFullHistoryRevisionsForPath(root, evidence.synchronizedMergeCommit, base, path).length > 0) {
+                || historicalChanges.some((revision) => !replayGuard.reviewedHistory?.nodes.has(revision)))
+            {
                 errors.push(`Post-merge generated repair DAG synchronized revision is not the last output owner: ${path}`)
             }
         }
@@ -1567,14 +1901,50 @@ function validatePostMergeGeneratedOutputRepairDag(
             previousOuter = outerRevision
             previousOuterReplay = outerReplay
         }
+        const reviewed = replayGuard.reviewedHistory;
+        const replayedEventsByOuter = new Map();
+        const reviewedMergeIds = new Set(reviewed?.registration.sourceBranches.map((branch) => branch.mergeCommit) ?? []);
+        if (reviewed)
+        {
+            const observedBranches = [];
+            for (const outer of discoveredEvents.filter((event) => reviewedMergeIds.has(event.mergeCommit)))
+            {
+                const registeredBranch = reviewed.registration.sourceBranches.find((branch) => branch.mergeCommit === outer.mergeCommit);
+                const transitions = [];
+                for (const revision of gitPullRequestBranchFirstParentRange(root, ...outer.parents))
+                {
+                    const parents = gitRevisionParents(root, revision);
+                    if (outputVectorChanged(verifiedDagReplay(root, parents[0], graph, replayGuard),
+                        verifiedDagReplay(root, revision, graph, replayGuard)))
+                    {
+                        transitions.push(revision);
+                    }
+                }
+                observedBranches.push({
+                    mergeCommit: outer.mergeCommit,
+                    mergedPullRequest: registeredBranch.mergedPullRequest,
+                    transitions
+                });
+                replayedEventsByOuter.set(outer.mergeCommit, transitions.map((sourceRevision) => ({
+                    sourceRevision,
+                    mergedPullRequest: registeredBranch.mergedPullRequest,
+                    mergeCommit: outer.mergeCommit
+                })));
+            }
+            errors.push(...validateReviewedGeneratedRepairDagEvents(reviewed.registration, observedBranches,
+                sourceEvents.filter((event) => reviewedMergeIds.has(event?.mergeCommit))));
+        }
+        const genericSourceEvents = sourceEvents.filter((event) => !reviewedMergeIds.has(event?.mergeCommit));
+        const genericDiscoveredEvents = discoveredEvents.filter((event) => !reviewedMergeIds.has(event.mergeCommit));
         if (!sameStringSequence(
-            sourceEvents.map((event) => event?.mergeCommit),
-            discoveredEvents.map((event) => event.mergeCommit)
+            genericSourceEvents.map((event) => event?.mergeCommit),
+            genericDiscoveredEvents.map((event) => event.mergeCommit)
         )) {
             errors.push('Post-merge generated repair DAG sourceEvents omit, duplicate, or reorder canonical transitions')
         }
-        for (const [index, event] of sourceEvents.entries()) {
-            const discovered = discoveredEvents[index]
+        for (const [index, event] of genericSourceEvents.entries())
+        {
+            const discovered = genericDiscoveredEvents[index];
             if (!discovered || !event || typeof event !== 'object' || Array.isArray(event)
                 || !sameStrings(Object.keys(event), ['sourceRevision', 'mergedPullRequest', 'mergeCommit'])
                 || !fullShaPattern.test(event.sourceRevision ?? '')
@@ -1600,14 +1970,18 @@ function validatePostMergeGeneratedOutputRepairDag(
             ])
             const branchBase = gitMergeBase(root, mergeBase, mergeHead)
             for (const path of protectedPaths) {
-                if (gitFullHistoryRevisionsForPath(root, branchBase, mergeHead, path).length > 0) {
+                if (gitFullHistoryRevisionsForPath(root, branchBase, mergeHead, path).some((revision) => (
+                    !(changeContract.trustedPolicyFiles.includes(path) && reviewed?.admittedPolicyRevisions.has(revision))
+                )))
+                {
                     errors.push(`Post-merge generated repair DAG source event full history changed outputs or policy closure: ${path}`)
                 }
             }
             for (const revision of branchRevisions) {
                 const parents = gitRevisionParents(root, revision)
                 const protectedChanges = gitChangedPaths(root, parents[0], revision)
-                    .filter((path) => protectedPaths.has(path))
+                    .filter((path) => protectedPaths.has(path)
+                        && !(changeContract.trustedPolicyFiles.includes(path) && reviewed?.admittedPolicyRevisions.has(revision)));
                 if (protectedChanges.length > 0) {
                     errors.push(`Post-merge generated repair DAG source event history changed outputs or policy closure: ${protectedChanges.join(', ')}`)
                 }
@@ -1618,6 +1992,11 @@ function validatePostMergeGeneratedOutputRepairDag(
             if (semanticTransitions.length !== 1 || semanticTransitions[0]?.revision !== event.sourceRevision) {
                 errors.push(`Post-merge generated repair DAG source event must contain one exact canonical transition: ${event.sourceRevision}`)
             }
+            replayedEventsByOuter.set(discovered.mergeCommit, semanticTransitions.map(({ revision }) => ({
+                sourceRevision: revision,
+                mergedPullRequest: event.mergedPullRequest,
+                mergeCommit: discovered.mergeCommit
+            })));
             const sourceParents = gitRevisionParents(root, event.sourceRevision)
             if (![1, 2].includes(sourceParents.length)
                 || (sourceParents.length === 2 && sourceParents[1] !== mergeBase)) {
@@ -1625,10 +2004,14 @@ function validatePostMergeGeneratedOutputRepairDag(
             }
             const sourceChanges = gitChangedPaths(root, sourceParents[0], event.sourceRevision)
             const protectedChanges = sourceChanges.filter((path) => protectedPaths.has(path))
+                .filter((path) => !(changeContract.trustedPolicyFiles.includes(path)
+                    && reviewed?.admittedPolicyRevisions.has(event.sourceRevision)));
             if (protectedChanges.length > 0) {
                 errors.push(`Post-merge generated repair DAG source event changed outputs or policy closure: ${protectedChanges.join(', ')}`)
             }
         }
+        const expectedGlobalEvents = discoveredEvents.flatMap((event) => replayedEventsByOuter.get(event.mergeCommit) ?? []);
+        errors.push(...validateGeneratedRepairDagEventOrder(sourceEvents, expectedGlobalEvents));
     } catch (error) {
         errors.push(`Post-merge generated repair DAG cannot verify sealed history and isolated replays: ${error instanceof Error ? error.message : String(error)}`)
     }
@@ -1790,6 +2173,93 @@ function generatedEvidenceSchema(root, head, evidencePath) {
         return readJsonAtRevision(root, head, evidencePath)?.schema ?? null
     } catch {
         return null
+    }
+}
+
+function authorityCheckoutForGeneratedDigestRepair(root, base, authorityRoot) {
+    if (authorityRoot) {
+        try {
+            const revision = execFileSync(
+                'git',
+                ['rev-parse', '--verify', 'HEAD'],
+                exactRevisionGitOptions(authorityRoot, { encoding: 'utf8' })
+            ).trim()
+            if (revision === base) return { path: authorityRoot, cleanup: null }
+        } catch {
+            // Fall through to a fresh detached checkout of the exact base.
+        }
+    }
+    const temporaryRoot = mkdtempSync(join(tmpdir(), 'fsusblog-generated-digest-authority-'))
+    try {
+        execFileSync(
+            'git',
+            ['worktree', 'add', '--detach', temporaryRoot, base],
+            exactRevisionGitOptions(root, { stdio: 'ignore' })
+        )
+    } catch (error) {
+        rmSync(temporaryRoot, { recursive: true, force: true })
+        throw error
+    }
+    return {
+        path: temporaryRoot,
+        cleanup: () => {
+            try {
+                execFileSync('git', ['worktree', 'remove', '--force', temporaryRoot],
+                    exactRevisionGitOptions(root, { stdio: 'ignore' }))
+            } finally {
+                rmSync(temporaryRoot, { recursive: true, force: true })
+            }
+        }
+    }
+}
+
+export function validatePostMergeGeneratedOutputDigestRepair(
+    parsedBody,
+    evidence,
+    { root, base, head, changedFiles, authorityRoot, repository = null },
+    errors
+) {
+    const producer = changeContract.generatedOutputDigestRepairProducers.find(
+        (entry) => entry.id === evidence.producerId
+    )
+    if (!producer) {
+        errors.push(`Post-merge generated digest repair producer is not trusted: ${evidence.producerId ?? 'missing'}`)
+        return
+    }
+    if (parsedBody.generatedDigest !== producer.manifest) {
+        errors.push('Post-merge generated digest repair must use the trusted canonical manifest path')
+    }
+    if (!sameStrings(repositoryPaths(parsedBody.generatorSource), producer.closure)) {
+        errors.push('Post-merge generated digest repair Generator source must match the complete trusted closure')
+    }
+    if (!sameStrings(repositoryPaths(parsedBody.generatedOutputs), [producer.output])) {
+        errors.push('Post-merge generated digest repair Generated outputs must match the trusted output')
+    }
+    if (!root || !fullShaPattern.test(base ?? '') || !fullShaPattern.test(head ?? '')) return
+
+    let authority = null
+    try {
+        authority = repository
+            ? { path: null, cleanup: null }
+            : authorityCheckoutForGeneratedDigestRepair(root, base, authorityRoot)
+        const trustedRepository = repository ?? createGeneratedOutputDigestRepairRepository({
+            root,
+            authorityRoot: authority.path,
+            base,
+            producer
+        })
+        verifyGeneratedOutputDigestRepairV2({
+            evidence,
+            producer,
+            repository: trustedRepository,
+            base,
+            head,
+            changedFiles
+        })
+    } catch (error) {
+        errors.push(`Post-merge generated digest repair cannot verify canonical closure and isolated replays: ${error instanceof Error ? error.message : String(error)}`)
+    } finally {
+        authority?.cleanup?.()
     }
 }
 
@@ -2085,13 +2555,14 @@ export function validatePostMergeGeneratedOutputRepair(
     }
 }
 
-function validateGeneratedEvidence(parsedBody, { root, base, head, changedFiles }, errors) {
+function validateGeneratedEvidence(parsedBody, { root, base, head, changedFiles, authorityRoot, repository }, errors) {
     const declaredSources = repositoryPaths(parsedBody.generatorSource)
     const declaredOutputs = repositoryPaths(parsedBody.generatedOutputs)
     const evidenceSchema = generatedEvidenceSchema(root, head, parsedBody.generatedDigest)
     const repairSchemas = new Set([
         changeContract.evidenceSchemas.postMergeGeneratedOutputRepair,
-        changeContract.evidenceSchemas.postMergeGeneratedOutputRepairDag
+        changeContract.evidenceSchemas.postMergeGeneratedOutputRepairDag,
+        changeContract.evidenceSchemas.postMergeGeneratedOutputDigestRepair
     ])
     const expectedSchema = repairSchemas.has(evidenceSchema)
         ? evidenceSchema
@@ -2120,6 +2591,15 @@ function validateGeneratedEvidence(parsedBody, { root, base, head, changedFiles 
             parsedBody,
             evidence,
             { root, base, head, changedFiles },
+            errors
+        )
+        return
+    }
+    if (evidence.schema === changeContract.evidenceSchemas.postMergeGeneratedOutputDigestRepair) {
+        validatePostMergeGeneratedOutputDigestRepair(
+            parsedBody,
+            evidence,
+            { root, base, head, changedFiles, authorityRoot, repository },
             errors
         )
         return
@@ -2714,7 +3194,8 @@ function validateChangedPaths(parsedTitle, parsedBody, changedFiles, context, er
         )
         const repair = [
             changeContract.evidenceSchemas.postMergeGeneratedOutputRepair,
-            changeContract.evidenceSchemas.postMergeGeneratedOutputRepairDag
+            changeContract.evidenceSchemas.postMergeGeneratedOutputRepairDag,
+            changeContract.evidenceSchemas.postMergeGeneratedOutputDigestRepair
         ].includes(evidenceSchema)
         if (sources.length === 0) errors.push('Generator source must list repository-relative paths')
         if (outputs.length === 0) errors.push('Generated outputs must list repository-relative changed paths')
@@ -3376,6 +3857,7 @@ export function validateRepositorySources(root) {
         'config/development/authoritative-development-docs.json',
         'config/schemas/external-naming-exceptions.schema.json',
         'config/schemas/post-merge-external-naming-evidence-repair.schema.json',
+        'config/schemas/post-merge-generated-output-digest-repair.schema.json',
         'config/schemas/post-merge-generated-output-repair-dag.schema.json',
         'config/schemas/post-merge-generated-output-repair.schema.json',
         'docs/development/change-contract.md',
@@ -3440,6 +3922,19 @@ export function validateRepositorySources(root) {
                 ...step.generatorClosure,
                 ...step.outputs
             ])
+        ]),
+        ...changeContract.generatedOutputDigestRepairProducers.flatMap((producer) => [
+            producer.id,
+            producer.repairClass,
+            producer.manifest,
+            producer.command.executable,
+            ...producer.command.arguments,
+            ...producer.closure,
+            ...producer.digestInputs,
+            producer.output,
+            producer.outputSchema,
+            ...producer.protectedPolicyPaths,
+            ...Object.values(producer.qualification).filter((value) => typeof value === 'string')
         ])
     ]) {
         if (!registrySource.includes(`'${value}'`)) errors.push(`candidate registry missing trusted value ${value}`)

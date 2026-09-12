@@ -438,6 +438,132 @@ public sealed class PublicHotReadSnapshot
         return _htmlBaseByPath.TryGetValue(path, out html) && !html.Bytes.IsEmpty;
     }
 
+    internal PublicHotReadSnapshot WithoutArticle(int articleId)
+    {
+        if (articleId <= 0 || !_articleFramesById.ContainsKey(articleId))
+        {
+            return this;
+        }
+
+        Dictionary<int, PublicBinaryArtifact> articles = _articleFramesById.ToDictionary();
+        articles.Remove(articleId);
+        return new PublicHotReadSnapshot(
+            Version + 1,
+            articles.ToFrozenDictionary(),
+            _listFrames,
+            _categoryFrame,
+            _tagFrame,
+            _htmlBaseByPath,
+            PublicationEvidence.WithSourceVersion(Version + 1),
+            _htmlOverlayByPath,
+            _htmlRemovedPaths,
+            _htmlFrameCount,
+            PublicArticleCount,
+            ArticleFrameLimit);
+    }
+
+    internal PublicHotReadSnapshot WithoutList(PublicListKey listKey)
+    {
+        if (!_listFrames.ContainsKey(listKey))
+        {
+            return this;
+        }
+
+        Dictionary<PublicListKey, PublicBinaryArtifact> lists = _listFrames.ToDictionary();
+        lists.Remove(listKey);
+        return new PublicHotReadSnapshot(
+            Version + 1,
+            _articleFramesById,
+            lists.ToFrozenDictionary(),
+            _categoryFrame,
+            _tagFrame,
+            _htmlBaseByPath,
+            PublicationEvidence.WithSourceVersion(Version + 1),
+            _htmlOverlayByPath,
+            _htmlRemovedPaths,
+            _htmlFrameCount,
+            PublicArticleCount,
+            ArticleFrameLimit);
+    }
+
+    internal PublicHotReadSnapshot WithoutCategory()
+        => _categoryFrame.Frame.IsEmpty
+            ? this
+            : new PublicHotReadSnapshot(
+                Version + 1,
+                _articleFramesById,
+                _listFrames,
+                default,
+                _tagFrame,
+                _htmlBaseByPath,
+                PublicationEvidence.WithSourceVersion(Version + 1),
+                _htmlOverlayByPath,
+                _htmlRemovedPaths,
+                _htmlFrameCount,
+                PublicArticleCount,
+                ArticleFrameLimit);
+
+    internal PublicHotReadSnapshot WithoutTag()
+        => _tagFrame.Frame.IsEmpty
+            ? this
+            : new PublicHotReadSnapshot(
+                Version + 1,
+                _articleFramesById,
+                _listFrames,
+                _categoryFrame,
+                default,
+                _htmlBaseByPath,
+                PublicationEvidence.WithSourceVersion(Version + 1),
+                _htmlOverlayByPath,
+                _htmlRemovedPaths,
+                _htmlFrameCount,
+                PublicArticleCount,
+                ArticleFrameLimit);
+
+    internal PublicHotReadSnapshot WithoutAllArticles()
+        => _articleFramesById.Count == 0
+            ? this
+            : new PublicHotReadSnapshot(
+                Version + 1,
+                FrozenDictionary<int, PublicBinaryArtifact>.Empty,
+                _listFrames,
+                _categoryFrame,
+                _tagFrame,
+                _htmlBaseByPath,
+                PublicationEvidence.WithSourceVersion(Version + 1),
+                _htmlOverlayByPath,
+                _htmlRemovedPaths,
+                _htmlFrameCount,
+                PublicArticleCount,
+                ArticleFrameLimit);
+
+    internal PublicHotReadSnapshot WithoutListsOfKind(PublicListKind kind)
+    {
+        Dictionary<PublicListKey, PublicBinaryArtifact> lists = _listFrames.ToDictionary();
+        bool changed = false;
+        foreach (PublicListKey key in lists.Keys.Where(item => item.Kind == kind).ToArray())
+        {
+            lists.Remove(key);
+            changed = true;
+        }
+
+        return changed
+            ? new PublicHotReadSnapshot(
+                Version + 1,
+                _articleFramesById,
+                lists.ToFrozenDictionary(),
+                _categoryFrame,
+                _tagFrame,
+                _htmlBaseByPath,
+                PublicationEvidence.WithSourceVersion(Version + 1),
+                _htmlOverlayByPath,
+                _htmlRemovedPaths,
+                _htmlFrameCount,
+                PublicArticleCount,
+                ArticleFrameLimit)
+            : this;
+    }
+
     public PublicHotReadSnapshot WithHtml(string path, PublicHtmlArtifact html)
     {
         bool existed = TryGetHtml(path, out _);
@@ -815,6 +941,117 @@ public class PublicHotReadStore
 
     internal long DistributedInvalidationGenerationForTests
         => Volatile.Read(ref _distributedInvalidationGeneration);
+
+    internal int ApplyDistributedFragments(IReadOnlyList<string> fragments)
+    {
+        ArgumentNullException.ThrowIfNull(fragments);
+        if (fragments.Count == 0)
+        {
+            return 0;
+        }
+
+        lock (_gate)
+        {
+            PublicHotReadSnapshot current = Current;
+            if (current.Version <= 0)
+            {
+                Interlocked.Increment(ref _distributedInvalidationGeneration);
+                return 0;
+            }
+
+            PublicHotReadSnapshot next = current;
+            int processed = 0;
+            foreach (string fragment in fragments.Distinct(StringComparer.Ordinal))
+            {
+                next = ApplyOneDistributedFragment(next, fragment);
+                processed++;
+            }
+
+            if (!ReferenceEquals(next, current))
+            {
+                Publish(next);
+            }
+
+            Interlocked.Increment(ref _distributedInvalidationGeneration);
+            return processed;
+        }
+    }
+
+    private static PublicHotReadSnapshot ApplyOneDistributedFragment(PublicHotReadSnapshot next, string fragment)
+        => fragment switch
+        {
+            "taxonomy:category" => next.WithoutCategory(),
+            "taxonomy:tag" => next.WithoutTag(),
+            "article:*" => next.WithoutAllArticles(),
+            "list:home" => next.WithoutListsOfKind(PublicListKind.Home),
+            "list:archive" => next.WithoutListsOfKind(PublicListKind.Archive),
+            "list:hot" => next.WithoutListsOfKind(PublicListKind.Hot),
+            "list:featured" => next.WithoutListsOfKind(PublicListKind.Featured),
+            "list:category" => next.WithoutListsOfKind(PublicListKind.Category),
+            "list:tag" => next.WithoutListsOfKind(PublicListKind.Tag),
+            "comments:*" => next,
+            _ when fragment.StartsWith("comment-policy", StringComparison.Ordinal) => next,
+            _ when fragment.StartsWith("taxonomy:category:", StringComparison.Ordinal) => next.WithoutCategory(),
+            _ when fragment.StartsWith("taxonomy:tag:", StringComparison.Ordinal) => next.WithoutTag(),
+            _ when TryParseArticleFragment(fragment, out int articleId, out bool commentsOnly)
+                => commentsOnly ? next : next.WithoutArticle(articleId),
+            _ when fragment.StartsWith("html:", StringComparison.Ordinal)
+                => RemoveDistributedHtml(next, fragment[5..]),
+            _ when fragment.StartsWith("public-hot-read:v", StringComparison.Ordinal)
+                => next,
+            _ => throw new InvalidDataException($"distributed hot-read fragment is unsupported: {fragment}")
+        };
+
+    private static PublicHotReadSnapshot RemoveDistributedHtml(PublicHotReadSnapshot snapshot, string routeKey)
+    {
+        if (string.IsNullOrWhiteSpace(routeKey))
+        {
+            throw new InvalidDataException("distributed hot-read html fragment is empty");
+        }
+
+        PublicHotReadSnapshot next = snapshot.WithoutHtml(PublicHotReadRouteKeys.HtmlPath(routeKey));
+        foreach (LocaleDescriptor locale in LocaleCatalog.Enabled)
+        {
+            next = next.WithoutHtml(PublicHotReadRouteKeys.LocalizeHtmlPath(
+                PublicHotReadRouteKeys.HtmlPath(routeKey),
+                locale.Code));
+        }
+
+        return next;
+    }
+
+    private static bool TryParseArticleFragment(string fragment, out int articleId, out bool commentsOnly)
+    {
+        articleId = 0;
+        commentsOnly = false;
+        if (!fragment.StartsWith("article:", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> value = fragment.AsSpan("article:".Length);
+        int separator = value.IndexOf(':');
+        ReadOnlySpan<char> id = separator < 0 ? value : value[..separator];
+        if (!int.TryParse(id, out articleId) || articleId <= 0)
+        {
+            articleId = 0;
+            return false;
+        }
+
+        if (separator < 0)
+        {
+            return true;
+        }
+
+        if (value[(separator + 1)..].SequenceEqual("comments"))
+        {
+            commentsOnly = true;
+            return true;
+        }
+
+        articleId = 0;
+        return false;
+    }
 
     internal void InvalidateDistributedSnapshot(string reason)
     {

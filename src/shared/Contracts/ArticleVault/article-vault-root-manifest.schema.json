@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fsusblog.local/contracts/article-vault-root-manifest.schema.json",
+  "title": "FsusBlog article Vault root manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schemaVersion",
+    "controlTreeVersion",
+    "controlTree",
+    "siteIdentity",
+    "vaultIdentity",
+    "deviceIdentity",
+    "articles",
+    "operationReceipts",
+    "contentSha256"
+  ],
+  "properties": {
+    "schema": { "const": "fsusblog.article-vault.root.v1" },
+    "schemaVersion": { "const": 1 },
+    "controlTreeVersion": { "const": "fsusblog.article-vault.control-tree.v1" },
+    "controlTree": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rootManifestPath", "articleManifestDirectory", "receiptDirectory"],
+      "properties": {
+        "rootManifestPath": { "const": ".fsus/vault.json" },
+        "articleManifestDirectory": { "const": ".fsus/articles" },
+        "receiptDirectory": { "const": ".fsus/receipts" }
+      }
+    },
+    "siteIdentity": { "$ref": "#/$defs/identity" },
+    "vaultIdentity": { "$ref": "#/$defs/identity" },
+    "deviceIdentity": { "$ref": "#/$defs/identity" },
+    "articles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["portableArticleIdentity", "manifestPath", "manifestSha256", "relativePath"],
+        "properties": {
+          "portableArticleIdentity": { "$ref": "#/$defs/identity" },
+          "manifestPath": { "type": "string", "pattern": "^\\.fsus/articles/[^/]+\\.json$" },
+          "manifestSha256": { "$ref": "#/$defs/sha256" },
+          "relativePath": { "$ref": "#/$defs/relativePath" }
+        }
+      }
+    },
+    "operationReceipts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["operationIdentity", "sequence", "receiptPath", "receiptSha256"],
+        "properties": {
+          "operationIdentity": { "$ref": "#/$defs/identity" },
+          "sequence": { "type": "integer", "minimum": 0 },
+          "receiptPath": { "type": "string", "pattern": "^\\.fsus/receipts/[^/]+\\.json$" },
+          "receiptSha256": { "$ref": "#/$defs/sha256" }
+        }
+      }
+    },
+    "contentSha256": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "identity": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128,
+      "pattern": "^[^\\s/\\\\]+$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?!\\.fsus(?:/|$))(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)(?!.*\\\\).+$"
+    }
+  }
+}

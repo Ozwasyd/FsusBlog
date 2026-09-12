@@ -11,6 +11,7 @@ using FsusBlog.Core.Services.Articles;
 using FsusBlog.Core.Services.Gateways;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Helpers;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Content;
 using FsusBlog.Server.Infrastructure.Execution;
@@ -23,6 +24,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services.Articles;
+using FsusBlog.Server.Services.ArticleVault;
 using FsusBlog.Server.Services.Background;
 
 using Npgsql;
@@ -59,7 +61,10 @@ public partial class ArticleService(
     IArticleViewWriteBuffer _viewWriteBuffer,
     IArticlePublicationValidator _publicationValidator,
     ArticleBodyRepairQueue _articleBodyRepairQueue,
-    TimeProvider? _timeProvider = null) : IArticleCoreGateway, IArticleMutationCommandService
+    TimeProvider? _timeProvider = null,
+    IAuditLogStore? _vaultAuditLogStore = null,
+    IArticleVaultExecutionStore? _vaultExecutionStore = null,
+    IArticleVaultTransactionalGroupResultStore? _vaultGroupResultStore = null) : IArticleCoreGateway, IArticleMutationCommandService
 #pragma warning restore IDE1006
 {
     private readonly record struct TrashArticleRow(int Id, int CategoryId, string? CoverImageUrl);
@@ -731,11 +736,10 @@ public partial class ArticleService(
         {
             if (requiresPublicFence)
             {
-                await _mutationFence.BeginPublicMutationFenceAsync(null, ct).ConfigureAwait(false);
-                fenceEstablished = true;
+                fenceEstablished = await EstablishArticlePublicMutationFenceAsync(null, ct).ConfigureAwait(false);
             }
 
-            var result = await _db.Ado.UseTranAsync(async () =>
+            ArticleMutationTransactionResult<ArticleMutationResult> result = await ExecuteArticleMutationTransactionAsync(async () =>
             {
                 ArticlePublicationValidationResult validation = await _publicationValidator.ValidateAsync(
                     new ArticlePublicationValidationInput(
@@ -843,6 +847,21 @@ public partial class ArticleService(
                 return default;
             }
 
+            if (result.IsSuccess && IsArticleVaultGroupTransaction)
+            {
+                int createdArticleId = result.Data.ArticleId;
+                EnqueueArticleVaultPostCommitAction(null, async () =>
+                {
+                    await InvalidateCache().ConfigureAwait(false);
+                    await InvalidatePublicAotAsync(null, [dto.CategoryId], tagIds, "create").ConfigureAwait(false);
+                    ArticleListItemResponse? realtimePreview = await LoadRealtimePreviewAsync(createdArticleId)
+                        .ConfigureAwait(false);
+                    await _mutationSideEffects.AfterCreatedAsync(article, createdArticleId, realtimePreview)
+                        .ConfigureAwait(false);
+                });
+                return result.Data;
+            }
+
             if (result.IsSuccess)
             {
                 await InvalidateCache();
@@ -873,7 +892,7 @@ public partial class ArticleService(
         }
         finally
         {
-            if (fenceEstablished && !mutationCommitted)
+            if (fenceEstablished && !mutationCommitted && !IsArticleVaultGroupTransaction)
             {
                 await RecoverAbortedPublicMutationFenceAsync(null, "article-create-fence-aborted").ConfigureAwait(false);
             }

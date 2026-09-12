@@ -311,6 +311,9 @@ export async function runBehaviorDocStaticAdmission({
                 repositoryRoot,
                 registry,
                 buildIdentity,
+                buildReceiptPath: extractor.requiredBuildArtifact === null
+                    ? null
+                    : minimalBuild.identityReceiptFile,
                 useCache: false
             });
             if (result.receipt.status !== 'ok')

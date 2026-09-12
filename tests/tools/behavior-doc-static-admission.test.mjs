@@ -106,23 +106,17 @@ function fakeMinimalReceipt(runId, source)
     });
 }
 
-test('minimal build identity binds the child build receipt digest', () =>
+test('minimal build identity preserves the canonical receipt and source digest binding', () =>
 {
     const receipt = fakeMinimalReceipt('minimal-build-identity', {
         sourceCommit: 'a'.repeat(40),
         worktreeFingerprint: 'b'.repeat(64)
     });
     const identity = buildIdentitiesFromMinimalReceipt(receipt)['runtime-role-observation'];
-    const expectedReceiptDigest = digestValue({
-        schema: 'fsusblog.runtime-role-observation-build-receipt.v1',
-        artifactId: 'runtime-role-observation',
-        artifactPath: hostDeclarations['runtime-role-observation'].output,
-        artifactDigest: receipt.artifacts['runtime-role-observation'].artifactDigest,
-        configuration: 'Release'
-    });
-
-    assert.equal(identity.receiptDigest, expectedReceiptDigest);
-    assert.notEqual(identity.receiptDigest, receipt.contentDigest);
+    assert.equal(identity.schema, 'fsusblog.build-identity.v1');
+    assert.equal(identity.receiptDigest, receipt.contentDigest);
+    assert.deepEqual(identity.sourceDigests, receipt.sourceClosureDigests);
+    assert.equal(identity.sourceDigest, digestValue(receipt.sourceClosureDigests));
 });
 
 function validAdmissionReceipt({

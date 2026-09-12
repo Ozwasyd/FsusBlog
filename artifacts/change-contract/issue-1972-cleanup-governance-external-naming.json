@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/Fixtures/background-service-classification.json"
+            ],
+            "reason": "Preserve the serialized classification fields and the registered AssetId cleanup queue and ledger names while correcting the worker governance record."
+        }
+    ]
+}

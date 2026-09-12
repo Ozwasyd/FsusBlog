@@ -1,3 +1,4 @@
+using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Infrastructure.CoreBridge.Adapters;
 using FsusBlog.Server.Infrastructure.CoreBridge.Caching;
 using FsusBlog.Server.Infrastructure.CoreBridge.Gateways;
@@ -6,8 +7,10 @@ using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Privacy;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Articles;
+using FsusBlog.Server.Services.ArticleVault;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Distribution;
@@ -20,9 +23,12 @@ namespace FsusBlog.Server.Infrastructure.Bootstrap;
 
 internal static class RuntimeDomainServiceCollectionExtensions
 {
-    public static IServiceCollection AddFsusRuntimeDomainServices(this IServiceCollection services)
+    public static IServiceCollection AddFsusRuntimeDomainServices(
+        this IServiceCollection services,
+        IConfiguration? configuration = null,
+        IHostEnvironment? hostEnvironment = null)
     {
-        services.AddContentRuntimeServices();
+        services.AddContentRuntimeServices(configuration, hostEnvironment);
         services.AddUserRuntimePorts();
         services.AddGeneralDomainServices();
         services.AddCoreBridgeServices();
@@ -31,12 +37,25 @@ internal static class RuntimeDomainServiceCollectionExtensions
         return services;
     }
 
-    private static IServiceCollection AddContentRuntimeServices(this IServiceCollection services)
+    private static IServiceCollection AddContentRuntimeServices(
+        this IServiceCollection services,
+        IConfiguration? configuration,
+        IHostEnvironment? hostEnvironment)
     {
         services.AddSingleton<IArticleViewWriteBuffer, ArticleViewWriteBuffer>();
         services.AddScoped<IArticleViewFlushSink, ArticleServiceViewFlushSink>();
         services.AddHostedService<ArticleViewFlushWorker>();
         services.AddScoped<ArticleService>();
+        services.AddScoped<PostgresArticleVaultExecutionStore>();
+        services.AddScoped<IArticleVaultExecutionStore>(
+            serviceProvider => serviceProvider.GetRequiredService<PostgresArticleVaultExecutionStore>());
+        services.AddScoped<IArticleVaultTransactionalGroupResultStore>(
+            serviceProvider => serviceProvider.GetRequiredService<PostgresArticleVaultExecutionStore>());
+        services.AddScoped<IArticleVaultCurrentObservationAuthority>(
+            serviceProvider => serviceProvider.GetRequiredService<ArticleService>());
+        services.AddScoped<IArticleVaultCanonicalGroupWriter>(
+            serviceProvider => serviceProvider.GetRequiredService<ArticleService>());
+        services.AddScoped<IArticleVaultSyncPlanExecutor, ArticleVaultSyncPlanExecutor>();
         services.AddScoped<IArticlePublicationValidator, ArticlePublicationValidator>();
         services.AddScoped<CommentCommandService>();
         services.AddScoped<ICommentMutationOutbox, CommentMutationOutboxWriter>();
@@ -71,6 +90,15 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IArticleEndpointService, ArticleEndpointService>();
         services.AddScoped<FsusBlog.Server.Services.Fixtures.IPublicContentFixtureSeeder, FsusBlog.Server.Services.Fixtures.PublicContentFixtureSeeder>();
         services.AddScoped<FsusBlog.Server.Services.Fixtures.IMessagingFixtureSeeder, FsusBlog.Server.Services.Fixtures.MessagingFixtureSeeder>();
+        if (ShouldAddLocalCommentFixtureServices(configuration, hostEnvironment))
+        {
+            services.AddScoped<FsusBlog.Server.Services.Fixtures.ICommentThreadFixturePort, FsusBlog.Server.Services.Fixtures.CommentThreadFixturePort>();
+            services.AddScoped<FsusBlog.Server.Services.Fixtures.ICommentModerationFixturePort, FsusBlog.Server.Services.Fixtures.CommentModerationFixturePort>();
+            services.AddSingleton<FsusBlog.Server.Services.Fixtures.ICommentAnonymousFixtureCapabilityVault, FsusBlog.Server.Services.Fixtures.CommentAnonymousFixtureCapabilityVault>();
+            services.AddSingleton<FsusBlog.Server.Services.Fixtures.ICommentAnonymousFixtureOperationLedger, FsusBlog.Server.Services.Fixtures.CommentAnonymousFixtureOperationLedger>();
+            services.AddScoped<FsusBlog.Server.Services.Fixtures.ICommentAnonymousFixtureProvider, FsusBlog.Server.Services.Fixtures.CommentAnonymousFixtureProvider>();
+            services.AddScoped<FsusBlog.Server.Services.Fixtures.ICommentFixtureSeeder, FsusBlog.Server.Services.Fixtures.CommentFixtureSeeder>();
+        }
         services.AddScoped<FsusBlog.Server.Services.Fixtures.IDemoFixtureSeeder, FsusBlog.Server.Services.Fixtures.DemoFixtureSeeder>();
         services.AddScoped<FsusBlog.Server.Services.Fixtures.IAuditFixtureProducer, FsusBlog.Server.Services.Fixtures.AuditFixtureProducer>();
         services.AddScoped<ICommentQueryService, CommentQueryService>();
@@ -83,6 +111,11 @@ internal static class RuntimeDomainServiceCollectionExtensions
         }
         return services;
     }
+
+    private static bool ShouldAddLocalCommentFixtureServices(
+        IConfiguration? configuration,
+        IHostEnvironment? hostEnvironment)
+        => LocalCommentFixtureEndpoints.IsEnabled(configuration, hostEnvironment);
 
     private static IServiceCollection AddUserRuntimePorts(this IServiceCollection services)
     {
@@ -120,7 +153,31 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<AuthoringDraftLifecycleService>();
         services.AddScoped<IAuthoringDraftLifecycle>(sp => sp.GetRequiredService<AuthoringDraftLifecycleService>());
         services.AddScoped<IAuthoringPrepublishPolicy>(sp => sp.GetRequiredService<AuthoringDraftLifecycleService>());
+        services.AddScoped<IAuthoringRevisionCompareAuthority, AuthoringRevisionCompareAuthority>();
+        services.AddScoped<IAuthoringRevisionCompareDraftContextAuthority, AuthoringRevisionCompareDraftContextAuthority>();
+        services.AddScoped<IRevisionComparePackageReader, AuthoringRevisionComparePackageReader>();
+        services.AddScoped<RevisionComparePlanner>();
+        services.AddScoped<RevisionComparePlanVerifier>();
         services.AddScoped<IAuthoringCanvasDocumentStore, AuthoringCanvasDocumentStore>();
+        services.AddScoped<IAuthoringCanvasArticleReferenceReader, PostgresAuthoringCanvasArticleReferenceReader>();
+        services.AddScoped<IAuthoringCanvasReferenceFactSource, AuthoringCanvasReferenceFactSource>();
+        services.AddSingleton<AuthoringCanvasReferenceProjectionCache>();
+        services.AddScoped<AuthoringCanvasReferenceResolver>();
+        services.AddScoped<IAuthorSavedViewDependencyCatalog, AuthorSavedViewDependencyCatalog>();
+        services.AddScoped<IAuthorSavedViewQueryValidator, AuthorSavedViewQueryValidator>();
+        services.AddScoped<IAuthorSavedViewPersistence, PostgresAuthorSavedViewPersistence>();
+        services.AddScoped<IAuthorSavedViewStore, AuthorSavedViewStore>();
+        services.AddScoped<IAuthorArticlePinStore, AuthorArticlePinStore>();
+        services.AddScoped<IArticleTemplatePersistence, PostgresArticleTemplatePersistence>();
+        services.AddScoped<IArticleTemplateStore, ArticleTemplateStore>();
+        services.AddScoped<IArticleTemplatePermissionAuthority, ArticleTemplatePermissionAuthority>();
+        services.AddScoped<IArticleTemplateReferenceAuthority, PostgresArticleTemplateReferenceAuthority>();
+        services.AddScoped<IArticleTemplateVerifier, ArticleTemplateVerifier>();
+        services.AddScoped<IArticleTemplateExpansionAuthority, PostgresArticleTemplateExpansionAuthority>();
+        services.AddScoped<IArticleTemplateExpansionPlanner, ArticleTemplateExpansionPlanner>();
+        services.AddScoped<IArticleTemplateExpansionVerifier, ArticleTemplateExpansionVerifier>();
+        services.AddScoped<IArticleCreatePersistence, PostgresArticleCreatePersistence>();
+        services.AddScoped<IArticleCreateStore, ArticleCreateStore>();
         services.AddScoped<AuthoringContentTransferService>();
         services.AddScoped<IAuthoringContentExport>(sp => sp.GetRequiredService<AuthoringContentTransferService>());
         services.AddScoped<IAuthoringContentImport>(sp => sp.GetRequiredService<AuthoringContentTransferService>());

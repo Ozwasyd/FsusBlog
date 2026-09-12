@@ -2,15 +2,15 @@
     "schema": "fsusblog.current-run-evidence-location-acceptance.v1",
     "sourceDigests": {
         "config/testing/evidence-locator-registry.json": "sha256:59289ad034f3d0d4c1944e2de5472e696a706c804f8941157243befb9f441749",
-        "config/testing/evidence-location-migration-ledger.json": "sha256:a290abe826ec9a7c692654590567ad5a535de3a763ec75ae46fd8e30fca1bc50",
+        "config/testing/evidence-location-migration-ledger.json": "sha256:afe648f1d512a71b716d58e971431e499f3cd6a82349beea32a7bca9656cb137",
         "tools/test/evidence-location-scanner.mjs": "sha256:5d554791088fc092c944ed010a0f66a69ed30655e7621e622cf27d2967a325b6",
         "tools/test/current-run-evidence-locator.mjs": "sha256:a3477d14e62b2e6a30bc48e16eaf417e49996fdab58e39ae064f1c7ac07b0653",
         "tools/test/current-run-evidence-transport.mjs": "sha256:74b09545ad37fb5b5dcacb56726a4ae0e46c6c664d6775b8ba109867816f0f28",
-        "tools/test/generate-evidence-location-governance.mjs": "sha256:1e8e4324963fa7802339c89c390230c2b09ed96e3671cc127e220284a537d8a7"
+        "tools/test/generate-evidence-location-governance.mjs": "sha256:989c7b28dc9ee72dd69233860f5f4082ae62de6100fddb2784416dffb95dc10e"
     },
     "registryDigest": "sha256:7cf3c25d696cfaf8aa9029933983727e84cc040f8deead4749c93e664b71343b",
-    "ledgerDigest": "sha256:61a57f70abd8d47d662c9fd26b12fbd98e64b3e28cc53e6a0bff56e2b9d54d9d",
-    "scannerDigest": "sha256:9e7ef8affb8fa4faf5a8973373b143d73ad90bead5c5748878dfe9dd3cf22914",
+    "ledgerDigest": "sha256:7b45b8d781612e687d79b6b68d074437a3972b8fc7c105b952253d830b40a370",
+    "scannerDigest": "sha256:9b4fe843bcd6984c67b6927c26adeaa8678b51f35b79482c804af091da6d5dc7",
     "locatorDigest": "sha256:a3477d14e62b2e6a30bc48e16eaf417e49996fdab58e39ae064f1c7ac07b0653",
     "transportDigest": "sha256:74b09545ad37fb5b5dcacb56726a4ae0e46c6c664d6775b8ba109867816f0f28",
     "consumerInventory": [
@@ -520,7 +520,7 @@
         }
     ],
     "consumerCount": 72,
-    "findingCount": 372,
+    "findingCount": 397,
     "warnings": [],
-    "contentDigest": "sha256:2edca05b9d93366a1ea5379e1307be43b813921434f0c3bb951ec1b3f891272a"
+    "contentDigest": "sha256:e1b2de71cf1515b4387338299a4f19e61a577d4c05698692e3dec8d0c7f4a503"
 }

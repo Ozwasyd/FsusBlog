@@ -20,10 +20,13 @@ export const REDIS_LUA_TEST =
     'FsusBlog.Server.Tests.Unit.PerceptionCharacterV3Tests.RedisLua_IsLinearizableBoundedBindingAwareAndFailClosed';
 export const BUDGETED_LEASE_TEST =
     'FsusBlog.Server.Tests.Unit.PerceptionCharacterV3Tests.BudgetedLeaseAtomicallyAccountsExactBytesQuotasAndRetryIdentity';
+export const CUTOVER_TEST =
+    'FsusBlog.Server.Tests.Unit.PerceptionCharacterV3ContractCutoverTests.RedisStore_RetiresAllV3NamespacesAndEnvelopeIdempotently';
 export const LOCAL_REDIS_PLANNED_TESTS = Object.freeze([
     MANDATORY_BURN_TEST,
     REDIS_LUA_TEST,
-    BUDGETED_LEASE_TEST
+    BUDGETED_LEASE_TEST,
+    CUTOVER_TEST
 ]);
 export const LOCAL_REDIS_FILTER =
     `Fixture=LocalRedis&(${LOCAL_REDIS_PLANNED_TESTS.map((testId) => `FullyQualifiedName=${testId}`).join('|')})`;
@@ -116,6 +119,7 @@ export function reconcileLocalRedisOutcome({
     redisLuaCallsAfter,
     redisLuaCaseEvidence,
     redisBudgetEvidence,
+    redisCutoverEvidence,
     plannedTestIds = LOCAL_REDIS_PLANNED_TESTS,
     runId,
     sourceCommit,
@@ -260,6 +264,68 @@ export function reconcileLocalRedisOutcome({
         failureCodes.push('budget-case-accounting-mismatch');
     }
 
+    const cutoverIdentityMatches = redisCutoverEvidence?.schema ===
+            'fsusblog.security.perception-character-v3-cutover-fixture.v1' &&
+        redisCutoverEvidence?.testId === CUTOVER_TEST &&
+        redisCutoverEvidence?.runId === runId &&
+        redisCutoverEvidence?.prefixNamespace === `${prefixNamespace}cutover:` &&
+        redisCutoverEvidence?.endpoint === endpoint &&
+        redisCutoverEvidence?.sourceCommit === sourceCommit &&
+        redisCutoverEvidence?.sourceFingerprint === sourceFingerprint;
+    if (!redisCutoverEvidence)
+        failureCodes.push('redis-cutover-evidence-missing');
+    else if (!cutoverIdentityMatches)
+        failureCodes.push('redis-cutover-evidence-identity-mismatch');
+    if (redisCutoverEvidence?.status !== 'passed')
+        failureCodes.push('redis-cutover-evidence-not-passed');
+
+    const cutoverNamespace = redisCutoverEvidence?.namespaceRetirement;
+    if (cutoverNamespace?.stateKeysRetired !== true ||
+        cutoverNamespace?.activeIdentityKeysRetired !== true ||
+        cutoverNamespace?.deviceKeysRetired !== true ||
+        cutoverNamespace?.oldPoolGenerationsRevoked !== true ||
+        cutoverNamespace?.activeGenerationRetained !== true ||
+        cutoverNamespace?.envelopeRevoked !== true)
+    {
+        failureCodes.push('redis-cutover-namespace-retirement-mismatch');
+    }
+
+    const cutoverDatabaseRevoke = redisCutoverEvidence?.databaseRevoke;
+    if (cutoverDatabaseRevoke?.commandCount !== 1 || cutoverDatabaseRevoke?.rowsRevoked !== 2)
+        failureCodes.push('redis-cutover-database-revoke-mismatch');
+
+    const cutoverIdempotency = redisCutoverEvidence?.idempotency;
+    if (cutoverIdempotency?.repeatedAccepted !== true ||
+        cutoverIdempotency?.repeatedIdempotent !== true ||
+        cutoverIdempotency?.receiptFingerprintStable !== true ||
+        cutoverIdempotency?.mutationStable !== true)
+    {
+        failureCodes.push('redis-cutover-idempotency-mismatch');
+    }
+    if (cutoverIdempotency?.poolLeaseCount !== 0)
+        failureCodes.push('redis-cutover-pool-lease-observed');
+
+    const firstCutoverMutation = redisCutoverEvidence?.first?.mutation;
+    const secondCutoverMutation = redisCutoverEvidence?.second?.mutation;
+    const expectedCutoverMutation = {
+        challengeRowsRevoked: 2,
+        stateKeysRetired: 1,
+        activeIdentityKeysRetired: 1,
+        deviceKeysRetired: 2,
+        oldPoolGenerationsRevoked: 1,
+        envelopesRevoked: 1
+    };
+    const cutoverMutationMatches = [firstCutoverMutation, secondCutoverMutation].every((mutation) =>
+        mutation && Object.entries(expectedCutoverMutation).every(([key, value]) => mutation[key] === value));
+    if (!cutoverMutationMatches)
+        failureCodes.push('redis-cutover-mutation-mismatch');
+    if (JSON.stringify(firstCutoverMutation) !== JSON.stringify(secondCutoverMutation) ||
+        redisCutoverEvidence?.first?.receiptFingerprint !== redisCutoverEvidence?.second?.receiptFingerprint ||
+        redisCutoverEvidence?.first?.targetFingerprint !== redisCutoverEvidence?.second?.targetFingerprint)
+    {
+        failureCodes.push('redis-cutover-fingerprint-mismatch');
+    }
+
     const receipt = {
         schema: 'fsusblog.perception-character-v3-redis-fixture.v1',
         producer: 'perception-character-v3-redis-fixture',
@@ -296,6 +362,22 @@ export function reconcileLocalRedisOutcome({
                 redisLuaCallsAfter > redisLuaCallsBefore
         },
         redisBudgetEvidence: redisBudgetEvidence ?? null,
+        redisCutoverEvidence: {
+            schema: redisCutoverEvidence?.schema ?? null,
+            testId: redisCutoverEvidence?.testId ?? null,
+            runId: redisCutoverEvidence?.runId ?? null,
+            prefixNamespace: redisCutoverEvidence?.prefixNamespace ?? null,
+            endpoint: redisCutoverEvidence?.endpoint ?? null,
+            sourceCommit: redisCutoverEvidence?.sourceCommit ?? null,
+            sourceFingerprint: redisCutoverEvidence?.sourceFingerprint ?? null,
+            identityMatches: cutoverIdentityMatches,
+            status: redisCutoverEvidence?.status ?? null,
+            namespaceRetirement: cutoverNamespace ?? null,
+            databaseRevoke: cutoverDatabaseRevoke ?? null,
+            idempotency: cutoverIdempotency ?? null,
+            first: redisCutoverEvidence?.first ?? null,
+            second: redisCutoverEvidence?.second ?? null
+        },
         redisLuaCaseEvidence: {
             schema: redisLuaCaseEvidence?.schema ?? null,
             testId: redisLuaCaseEvidence?.testId ?? null,
@@ -367,6 +449,7 @@ function main()
         'redis-lua-calls-after',
         'redis-lua-case-evidence',
         'redis-budget-evidence',
+        'cutover-evidence',
         'cleanup-verified',
         'output'
     ];
@@ -405,6 +488,19 @@ function main()
             redisLuaCaseEvidence = { parseFailed: true };
         }
     }
+    let redisCutoverEvidence = null;
+    const redisCutoverEvidencePath = path.resolve(args['cutover-evidence']);
+    if (fs.existsSync(redisCutoverEvidencePath))
+    {
+        try
+        {
+            redisCutoverEvidence = JSON.parse(fs.readFileSync(redisCutoverEvidencePath, 'utf8'));
+        }
+        catch
+        {
+            redisCutoverEvidence = { parseFailed: true };
+        }
+    }
     const receipt = reconcileLocalRedisOutcome({
         trxContent,
         container: args.container,
@@ -417,9 +513,10 @@ function main()
         redisLuaCallsBefore: Number(args['redis-lua-calls-before']),
         redisLuaCallsAfter: Number(args['redis-lua-calls-after']),
         redisLuaCaseEvidence,
-        redisBudgetEvidence: fs.existsSync(args['redis-budget-evidence'])
-            ? JSON.parse(fs.readFileSync(args['redis-budget-evidence'], 'utf8'))
+        redisBudgetEvidence: fs.existsSync(path.resolve(args['redis-budget-evidence']))
+            ? JSON.parse(fs.readFileSync(path.resolve(args['redis-budget-evidence']), 'utf8'))
             : null,
+        redisCutoverEvidence,
         runId: args['run-id'],
         sourceCommit: args['source-commit'],
         sourceFingerprint: args['source-fingerprint']

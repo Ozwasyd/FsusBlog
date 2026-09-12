@@ -3,22 +3,25 @@ import { getErrorMessage, isAbortError } from '@/utils/errors'
 import { AppError, AppErrorCode } from '@/utils/appError'
 
 describe('isAbortError', () => {
-  it('detects AbortError by name', () => {
-    const e = Object.assign(new Error('abort'), { name: 'AbortError' })
-    expect(isAbortError(e)).toBe(true)
-  })
-
-  it('detects PowAbortError by name', () => {
-    const e = Object.assign(new Error('abort'), { name: 'PowAbortError' })
-    expect(isAbortError(e)).toBe(true)
-  })
-
-  it('detects "canceled" message', () => {
-    expect(isAbortError(new Error('canceled'))).toBe(true)
-  })
-
-  it('detects abort-related messages', () => {
-    expect(isAbortError(new Error('The operation was aborted due to timeout'))).toBe(true)
+  it.each([
+    {
+      caseName: 'name=AbortError',
+      factory: () => Object.assign(new Error('abort'), { name: 'AbortError' })
+    },
+    {
+      caseName: 'name=PowAbortError',
+      factory: () => Object.assign(new Error('abort'), { name: 'PowAbortError' })
+    },
+    {
+      caseName: 'message=canceled',
+      factory: () => new Error('canceled')
+    },
+    {
+      caseName: 'message=The operation was aborted due to timeout',
+      factory: () => new Error('The operation was aborted due to timeout')
+    }
+  ])('detects abort-positive input: $caseName', ({ caseName, factory }) => {
+    expect(isAbortError(factory()), caseName).toBe(true)
   })
 
   it('returns false for normal errors', () => {
@@ -27,6 +30,10 @@ describe('isAbortError', () => {
 
   it('returns false for null', () => {
     expect(isAbortError(null)).toBe(false)
+  })
+
+  it('returns false for similar non-abort messages', () => {
+    expect(isAbortError(new Error('The operation completed; abort diagnostics were not triggered'))).toBe(false)
   })
 })
 
@@ -44,14 +51,25 @@ describe('getErrorMessage', () => {
     expect(getErrorMessage(e, 'fallback')).toBe('access denied')
   })
 
-  it('maps known Validation message INVALID_TOTP', () => {
-    const e = new AppError(AppErrorCode.Validation, 'INVALID_TOTP')
-    expect(getErrorMessage(e, 'fallback')).toBe('验证码无效，请重试')
+  it.each([
+    {
+      caseName: 'invalid TOTP',
+      rawMessage: 'INVALID_TOTP',
+      expected: '验证码无效，请重试'
+    },
+    {
+      caseName: 'invalid base URL protocol',
+      rawMessage: 'BASEURL_PROTOCOL_INVALID',
+      expected: '站点URL协议不合法'
+    }
+  ])('maps known Validation message $caseName', ({ rawMessage, expected }) => {
+    const error = new AppError(AppErrorCode.Validation, rawMessage)
+    expect(getErrorMessage(error, 'fallback')).toBe(expected)
   })
 
-  it('maps known Validation message BASEURL_PROTOCOL_INVALID', () => {
-    const e = new AppError(AppErrorCode.Validation, 'BASEURL_PROTOCOL_INVALID')
-    expect(getErrorMessage(e, 'fallback')).toBe('站点URL协议不合法')
+  it('returns an unknown Validation message unchanged', () => {
+    const error = new AppError(AppErrorCode.Validation, 'UNKNOWN_VALIDATION_MESSAGE')
+    expect(getErrorMessage(error, 'fallback')).toBe('UNKNOWN_VALIDATION_MESSAGE')
   })
 
   it('maps known ProtocolFailure messages', () => {

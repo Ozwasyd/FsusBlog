@@ -1,0 +1,5 @@
+const a = execSync(`npm view "${name}" version 2>/dev/null`)
+const b = execSync(`gh api --paginate --slurp "repos/${repo}/tags?per_page=100" 2>/dev/null`)
+const c = execSync(`gh pr list --state open --json title,headRefName,number,url,body,createdAt,statusCheckRollup,labels --limit 100 2>/dev/null`)
+const d = execSync(`curl -sSL "${url}" 2>/dev/null`)
+writeFreshnessReport(outputPath, report, repoRoot)

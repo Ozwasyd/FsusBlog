@@ -772,6 +772,135 @@ Passkey complete、MFA verify 与匿名 bootstrap 的成功响应只表示服务
 
 源码：`src/shared/Contracts/Outputs/ServerResponseContracts.cs`
 
+### Article Vault sync plans
+
+Article Vault 的 closed manifest、coordinate 与 source-byte contracts 位于
+`src/shared/Contracts/ArticleVault/`。唯一 planner
+`ArticleVaultSyncPlanner.Build` 只接受已通过 #2103 validator 的 root/article manifests、
+显式 content-addressed server observations，以及调用方明确给出的 atomic group/dependency
+集合。`pull`、`push`、`sync` 只作为同一个 planner 的 direction policy；planner 不扫描目录，
+也不读取 `mtime`、title、slug、latest receipt 或 import fallback 来发现状态。
+
+sealed plan 使用 `fsusblog.article-vault.sync-plan.v1`，冻结 exact article membership、
+base/local/server coordinates、server revision、permission/lifecycle preconditions、dependency
+拓扑顺序、no-op/conflict decisions、expiry、cancel policy、idempotency key、candidate identity 与
+content digest。任一 unresolved dependency、identity/schema ambiguity 或 invalid manifest 不产生
+partial plan；three-way conflict 产生 `blocked` plan 且 operation order 为空。
+`ArticleVaultSyncPlanVerifier.VerifyCurrent` 在交给后续 executor 前以显式 current manifests 与
+server observations 及 caller direction/cancel policy 重新验证 membership、coordinate、revision、
+permission、schema、expiry 和 digest；drift 必须拒绝，不能自动 rebase。此 contract 不执行 server writer、DB、filesystem、
+Vault materialization、watcher 或 conflict resolution。
+
+### Article embed provider contract
+
+`src/shared/Contracts/ArticleEmbeds/` 是文章嵌入 target、provider request/result 与 dependency
+coordinate 的唯一 closed/versioned authority。source grammar 只消费 FsusUI
+`@ozwasyd/element-plus/markdown-runtime` 的 `parseMarkdownEmbedLine` 投影：directive 必须提供
+`target`、`mode=article|heading|block` 与 raw range；属性顺序、escaping、行首独占和 malformed
+diagnostics 仍由 FsusUI #290 parser 独占，Blog 不解析 Markdown，也不提供 regex、alias、include
+或 mode inference。
+
+target token 使用稳定且与 route、title、slug、display text、URL、file path、endpoint 和 raw DB ID
+分离的 portable identity。article 是 `article:<canonical-lowercase-uuid>`；heading 是
+`article:<uuid>#heading:<canonical-lowercase-uuid>`；block 是 `article:<uuid>#<canonical-anchor>`，
+其中 #289 anchor 不含 `^`。request 绑定 host portable article/document epoch/source revision/raw
+range、scope、actor/site/permission context、provider runtime/version、cancellation signal 与 content
+digest。result 只携带 resolved coordinate、Markdown 或 renderer-owned safe projection reference、
+typed attribution、visibility/lifecycle/permission、budgets、closed error 与 digests；HTML、DOM、Vue
+component、iframe 和 private service object 都不是合法 payload。
+
+relation、article package 与 document export 必须直接复用
+`ArticleEmbedDependencyCoordinate`/`DependencyDigest`，不得另建 target codec。authoring scope 只声明
+可使用 current authorized target；publication-plan scope 只接受 frozen public target coordinate。
+本合同不执行 resolution、publication freeze/finalization、cache、relation edge、rendering 或 UI；
+这些行为由后续 issue 实现。
+
+### Article embed authoring resolution contract
+
+`src/shared/Contracts/ArticleEmbeds/Authoring/` 是 authoring scope embed resolution 的唯一
+authority。`ArticleEmbedAuthoringResolver.Resolve` 只接受 sealed #2454 authoring requests 与
+caller-verified `ArticleEmbedAuthoritySnapshot`（绑定 host article/document epoch、source
+revision/digest、actor/site/permission context、provider runtime 与 material locale/theme）；
+它不解析 Markdown、不读 rendered output、不修改 target 或 host source，也不把 memo state 保留到
+resolution 之外。任何 host/source/actor/runtime/authority-generation drift 或 abort signal 都让
+结果以 closed stale error 失败，而不是静默沿用旧状态。
+
+article mode 返回整个 target body projection；heading mode 只返回 exact heading subtree；block
+mode 只返回 #289 canonical anchor target。missing/duplicate/invalid coordinate 一律 fail closed，
+绝不 first-match。private/draft/unpublished target 仅在 current actor 有权时可见，并明确标记
+`AuthoringOnly`/`not-publication-eligible`，不得被 cache 或 receipt 误投公开。cycle detection 使用
+stable host/target article+kind+anchor expansion path，self-cycle、多跳 cycle 与 shared subtree 在
+stack overflow 前就以 typed failure 结束；depth、expanded node、source byte、elapsed time 与
+authority message budget 逐 request/graph 累计并封闭上限。局部 embed failure 只影响该节点，不替换
+整篇文档；`ArticleEmbedOpenSourceIntent` 只携带 stable target navigation coordinate，host editor
+没有 target mutation API。
+
+每次 resolution 产出 sealed `ArticleEmbedAuthoringReceipt`：只记录 host/target identities、
+permission/lifecycle、graph/budget/cache fact、status、timing 与 content digest，绝不记录无权
+content。`ArticleEmbedAuthoringVerifier` 独立重算每个节点的 expected outcome、cycle/budget
+legitimacy、memoization exactness 与全部 digest；任何 tamper 都 fail closed。本 slice 不执行
+publication plan/freeze、relation index、cache invalidation、AOT 或 UI。
+
+### Article embed publication freeze contract
+
+`src/shared/Contracts/ArticleEmbeds/Publication/` 是 publication-plan scope embed freezing 的唯一
+authority。`ArticleEmbedPublicationPlanner.Plan` 只接受 sealed #2454 `PublicationPlan` requests 与
+sealed `ArticleEmbedPublicationAuthority`（绑定 host article/document epoch、current host
+revision/source digest、publication request id、expected revision、authority generation、
+actor/site/permission context、provider runtime、material locale/theme、frozen artifact retention
+与逐 target 的 public facts）；它不解析 Markdown、不读 rendered output、不查询 authoring cache、
+latest target 或任何 previous resolution，也不执行 DB/route/UI/business write。
+
+每条 evaluated embed occurrence 产生一条 flat `ArticleEmbedPublicationEdge`：owner 是包含该
+directive 的 document（host 或已 freeze 的 public target），edge 记录 owner identity/revision、
+parser directive projection、target identity、exact `ArticleEmbedDependencyCoordinate`
+（frozen public revision + heading/block coordinate + projection identity/digest）、depth 与
+latest-observed fact。private、draft、scheduled/unpublished、archived、deleted、unknown、
+permission-denied/unknown、revision-package-incomplete、missing 或 ambiguous target 一律产生
+blocked edge；任何 blocked edge 使整个 plan `Blocked`，publication writer 必须以
+`ValidateForCommit` 的 sealed+current-authority 检查为准，不得部分写入。后续 target update
+不改写已 sealed plan 中的 coordinate；新的 publication build 在新的 authority snapshot 下重新
+freeze。cycle、depth、expanded-node、source-byte、elapsed 与 authority-message bound 与 authoring
+共享同一 closed budget 语义并在 plan 内累计。
+
+sealed `ArticleEmbedPublicationReceipt` 只记录 host binding、authority generation/digest、
+permission context、graph digest、budget meters 与 per-request 结果（identities/status/digest/
+descendant counts），绝不记录 target content。`ArticleEmbedPublicationVerifier` 独立重算期望
+edge graph、cycle/budget/memoization legitimacy 与 edge/graph/receipt/plan digest；无法重放的
+wall-clock/abort 结果只在合法 preempt 时被接受。public delivery 只消费 sealed plan 的 frozen
+artifact（`publication-frozen-artifact` policy），本 slice 不执行 relation edge store、cache
+invalidation、publication write、AOT 或 UI。
+
+### Article embed relation edge contract
+
+`src/shared/Contracts/ArticleEmbeds/Relations/` 定义 #1808 relation authority 持久化的 embed 边的唯一
+canonical shape。`ArticleEmbedRelationDeriver` 是纯投影：每个入口先独立 re-verify 其来源（#2455
+`ArticleEmbedAuthoringVerifier` / #2456 `ArticleEmbedPublicationVerifier`），未通过或 blocked 来源只
+产出 closed rejection，绝不产生 edge。它不解析 source、不扫描 rendered output、不读 store/cache、不
+改写 host 或 target 内容。
+
+每条 `ArticleEmbedRelationEdge` 绑定 scope（`Authoring` / `FrozenPublication`）、status、
+owner article/revision（directive 所在文章；host 为顶层，resolved target 为嵌套）、source range、
+`ArticleEmbedTargetIdentity`、resolved 与 latest-observed revision、观测到的 visibility/lifecycle/
+permission 与 dependency digest。`EdgeIdentity` 与 revision 无关，重推导幂等去重；`EdgeDigest` 密封
+全记录。authoring 边承载 `Current`/`UpdateAvailable`/`Stale`/`Broken`；frozen 边永远是 `Frozen` 且
+`Reconcile` 直接拒绝 frozen edge set——后续 target update 不能改写 frozen edge，每个 frozen edge 附
+一条 sealed `ArticleEmbedDependencyReceipt` 绑定 plan digest、publication edge digest 与 sealed
+coordinate。
+
+`Reconcile` 对 authoring edge set 在 fresh authority snapshot 下重算每边 status：host binding 或
+derivation context（actor/runtime/locale/theme）漂移→`Stale`，target 消失或歧义→`Broken`，
+permission/lifecycle/visibility 失格→`Broken`，latest 超过 resolved→`UpdateAvailable`。只对
+status 实际变化的边产出 sealed `ArticleEmbedInvalidationTicket`（绑定 edge identity、from/to
+status、closed reason、原 family cache key digest 与单调递增 reconcile generation）——精准失效，
+绝不 family flush。`ArticleEmbedRelationCacheKey` 绑定 host document id/epoch/revision、scope、
+provider runtime、permission/site context 与 material locale/theme，authoring 与 frozen family 永不
+共享。`Query` 只在 scope 匹配且 caller actor/runtime 等于 recorded derivation context 时返回 sealed
+receipt：public delivery 仅接受 frozen-publication edge set（`frozen-edge-artifact-only`），
+authoring 查询仅接受 authoring set；receipt 只携带 per-edge digests 与 status，绝不携带 content 或
+隐藏边计数。`ArticleEmbedRelationVerifier` 独立重验证来源、重推导 edge、重算全部 digest 并检查
+ticket 只覆盖真实变化的边。本 slice 不执行 relation store、cache、AOT 或 UI——#1808 负责持久化。
+
 ### `ArticleListItemResponse`
 
 ```json

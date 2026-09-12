@@ -29,11 +29,16 @@ The scheduler locks candidate articles, creates the publication, updates the art
 
 Article list and detail projections carry `currentRevisionId` / `revisionNo` and `currentPublicationId` / `publicationNo`. Public title, summary, cover, category, body, tags, rights snapshot, and responsibility snapshot all come from the version fixed by `current_publication_id`; private authoring reads continue to show the current editing revision. Outbox events store exact coordinates in both columns and payload, and consumers process only the event's version.
 
+## Revision body comparison contract
+
+Revision body comparison consumes only a sealed compare plan reverified by `RevisionComparePlanVerifier`. The plan fixes the base and compare package digests, raw Markdown SHA-256 digests, article/revision or draft coordinates, reader scope, expiry, cancellation identity, and resource budget. Before execution, the service rereads the exact package reference; it must not reinterpret `latest` or a current pointer as another revision. The package remains the authority for body content, metadata, and snapshots.
+
 ## Risks and no-restart rollback
 
 Risks include legacy rows missing revision, rights, or responsibility snapshots, incomplete projection coordinates during migration, and old cache formats. Deploy expand-first: add nullable rollback-provenance columns and indexes, then enable the new code. An incomplete historical package fails closed; it is never filled from current/default policy. Cache readers accept the old format while writers emit the new one.
 
 To downgrade, stop the scheduled-publish worker and outbox consumer while retaining pending events, switch traffic to code compatible with the old columns, and hide rollback. Keep the new database columns and indexes. On recovery, restart the worker and continue projection from exact event coordinates; neither PostgreSQL nor Redis needs a restart.
+
 ## Current publication coordinates
 
 <!-- fsus-doc-claim
