@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
 
@@ -144,6 +145,53 @@ public sealed class AuthoringExtensionPackagePersistenceTests
         Assert.Equal(
             AuthoringPackageTrustStatus.Untrusted,
             (await valid.VerifyAsync("acme", "key-1", archive, new byte[64], default)).Status);
+    }
+
+    [Fact]
+    public async Task EcdsaTrustVerifier_KeysetIdentityBindsCompletePublisherKeyset()
+    {
+        using ECDsa signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using ECDsa additional = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        byte[] archive = Encoding.UTF8.GetBytes("archive");
+        byte[] signature = signer.SignData(
+            archive,
+            HashAlgorithmName.SHA256,
+            DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+        var selected = new AuthoringPackagePublisherKey(
+            "acme",
+            "key-1",
+            ImmutableArray.Create(signer.ExportSubjectPublicKeyInfo()),
+            s_now.AddHours(-1),
+            s_now.AddHours(1));
+        var extra = new AuthoringPackagePublisherKey(
+            "acme",
+            "key-2",
+            ImmutableArray.Create(additional.ExportSubjectPublicKeyInfo()),
+            s_now.AddHours(-1),
+            s_now.AddHours(1));
+        var oneKey = new EcdsaAuthoringPackageTrustVerifier(
+            new LocalAuthoringPackageKeyset([selected]),
+            new FixedTimeProvider(s_now));
+        var twoKeys = new EcdsaAuthoringPackageTrustVerifier(
+            new LocalAuthoringPackageKeyset([extra, selected]),
+            new FixedTimeProvider(s_now));
+
+        AuthoringPackageTrustDecision first = await oneKey.VerifyAsync(
+            "acme",
+            "key-1",
+            archive,
+            signature,
+            default);
+        AuthoringPackageTrustDecision second = await twoKeys.VerifyAsync(
+            "acme",
+            "key-1",
+            archive,
+            signature,
+            default);
+
+        Assert.Equal(AuthoringPackageTrustStatus.Trusted, first.Status);
+        Assert.Equal(AuthoringPackageTrustStatus.Trusted, second.Status);
+        Assert.NotEqual(first.KeysetIdentity, second.KeysetIdentity);
     }
 
     [Fact]
@@ -309,6 +357,68 @@ public sealed class AuthoringExtensionPackagePersistenceTests
             await fresh.GetLastAsync(default));
     }
 
+    [Fact]
+    public async Task ReceiptStore_MissingDefaultEnumField_FailsClosed()
+    {
+        using var directory = new TemporaryDirectory();
+        PackageFixture fixture = CreatePackage("1.0.0", "first payload");
+        ProductionRuntime runtime = CreateRuntime(directory.Path, fixture.Trust);
+        _ = await runtime.Activation.InstallOrUpdateAsync(fixture.Artifact);
+        string receiptPath = Assert.Single(Directory.EnumerateFiles(
+            Path.Combine(directory.Path, "receipts"),
+            "receipt-*.json"));
+        MakeWritable(receiptPath);
+        JsonObject receipt = JsonNode.Parse(await File.ReadAllTextAsync(receiptPath))!.AsObject();
+        Assert.True(receipt.Remove("operation"));
+        await File.WriteAllTextAsync(receiptPath, receipt.ToJsonString());
+
+        var fresh = new LocalAuthoringPackageReceiptStore(Path.Combine(directory.Path, "receipts"));
+
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fresh.GetLastAsync(default));
+    }
+
+    [Fact]
+    public async Task Store_DuplicateMetadataOrMissingDefaultTrustField_FailsClosed()
+    {
+        using var duplicateDirectory = new TemporaryDirectory();
+        PackageFixture duplicateFixture = CreatePackage("1.0.0", "first payload");
+        ProductionRuntime duplicateRuntime = CreateRuntime(duplicateDirectory.Path, duplicateFixture.Trust);
+        AuthoringPackageReceipt duplicateReceipt = await duplicateRuntime.Activation.InstallOrUpdateAsync(
+            duplicateFixture.Artifact);
+        string metadataPath = Path.Combine(
+            duplicateDirectory.Path,
+            "store",
+            "packages",
+            duplicateReceipt.PackageIdentity,
+            "metadata.json");
+        MakeWritable(metadataPath);
+        string metadata = await File.ReadAllTextAsync(metadataPath);
+        await File.WriteAllTextAsync(metadataPath, metadata.Insert(metadata.Length - 1, ",\"schemaVersion\":1"));
+        ProductionRuntime duplicateFresh = CreateRuntime(duplicateDirectory.Path, duplicateFixture.Trust);
+
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await duplicateFresh.Store.ContainsAsync(duplicateReceipt.PackageIdentity, default));
+
+        using var missingDirectory = new TemporaryDirectory();
+        PackageFixture missingFixture = CreatePackage("1.0.0", "second payload");
+        ProductionRuntime missingRuntime = CreateRuntime(missingDirectory.Path, missingFixture.Trust);
+        _ = await missingRuntime.Activation.InstallOrUpdateAsync(missingFixture.Artifact);
+        string activationPath = Path.Combine(
+            missingDirectory.Path,
+            "store",
+            "active",
+            "acme.author-tools.json");
+        MakeWritable(activationPath);
+        JsonObject activation = JsonNode.Parse(await File.ReadAllTextAsync(activationPath))!.AsObject();
+        Assert.True(activation.Remove("currentTrustStatus"));
+        await File.WriteAllTextAsync(activationPath, activation.ToJsonString());
+        ProductionRuntime missingFresh = CreateRuntime(missingDirectory.Path, missingFixture.Trust);
+
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await missingFresh.Store.GetActivationStateAsync("acme.author-tools", default));
+    }
+
     [Theory]
     [InlineData("../worker/main.wasm")]
     [InlineData("worker\\main.wasm")]
@@ -460,7 +570,8 @@ public sealed class AuthoringExtensionPackagePersistenceTests
             store,
             health,
             receipts,
-            new FixedTimeProvider(s_now));
+            new FixedTimeProvider(s_now),
+            new SchemaStableAuthoringPackageCompatibilityPrecheck());
 
         Assert.Throws<AuthoringExtensionContractException>(() =>
             new AuthoringPackageProductionActivation(
@@ -486,7 +597,12 @@ public sealed class AuthoringExtensionPackagePersistenceTests
             AuthoringHostPlatform.ServerLinux);
         var receipts = new LocalAuthoringPackageReceiptStore(Path.Combine(root, "receipts"));
         var health = new AuthoringPackageIntegrityHealthProbe(verifier, AuthoringHostPlatform.ServerLinux);
-        var coordinator = new AuthoringPackageActivationCoordinator(store, health, receipts, new FixedTimeProvider(s_now));
+        var coordinator = new AuthoringPackageActivationCoordinator(
+            store,
+            health,
+            receipts,
+            new FixedTimeProvider(s_now),
+            new SchemaStableAuthoringPackageCompatibilityPrecheck());
         var activation = new AuthoringPackageProductionActivation(
             verifier,
             coordinator,
