@@ -12068,6 +12068,102 @@
                 "xunit:tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs#FsusBlog.Server.Tests.Unit.SecurityChallengeBinaryEndpointTests.IssueAsync_UnacceptableAcceptHeader_ReturnsApiError406#case-0001"
             ],
             "reason": "Issue #2609 retains the binary q-zero Accept rejection as the named binary-q-zero Theory row with the exact 406 status and decoded ApiError oracles."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/utils/contentFilter.test.ts#accepts-normal-comment-c668ebe04a",
+            "path": "tests/frontend/unit/utils/contentFilter.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-normal-comment-ordinary-text-17ea0126ce"
+            ],
+            "reason": "Issue #2614 retains the normal-comment allow-publish case as the named normal-comment corpus row with the exact isValid oracle, empty message, and caller-input immutability assertions."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-ad-spam-text-so-post-publish-moderation-can-handl-9fd06a14b4",
+            "path": "tests/frontend/unit/utils/contentFilter.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-ad-spam-post-moderation-adverti-d0473f3b07"
+            ],
+            "reason": "Issue #2614 retains the ad-spam-post-moderation allow-publish case as the named ad-spam-post-moderation corpus row with the exact isValid oracle, empty message, and caller-input immutability assertions."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-zero-width-obfuscation-text-for-post-publish-mode-329c72a270",
+            "path": "tests/frontend/unit/utils/contentFilter.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-zero-width-obfuscation-zero-wid-e35d30489a"
+            ],
+            "reason": "Issue #2614 retains the zero-width-obfuscation allow-publish case as the named zero-width-obfuscation corpus row with the exact isValid oracle, empty message, and caller-input immutability assertions."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-full-width-and-confusable-ad-terms-for-post-publi-bae42cd918",
+            "path": "tests/frontend/unit/utils/contentFilter.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-full-width-confusable-ad-full-w-ec7554ed32"
+            ],
+            "reason": "Issue #2614 retains the full-width-confusable-ad allow-publish case as the named full-width-confusable-ad corpus row with the exact isValid oracle, empty message, and caller-input immutability assertions."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/utils/contentFilter.test.ts#accepts-text-with-common-legitimate-words-containing-3a93069c29",
+            "path": "tests/frontend/unit/utils/contentFilter.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-legitimate-xi-word-legitimate-t-38059d3687"
+            ],
+            "reason": "Issue #2614 retains the legitimate-xi-word allow-publish case as the named legitimate-xi-word corpus row with the exact isValid oracle, empty message, and caller-input immutability assertions."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/composables/staticPageSiteTitle.test.ts#keeps-the-about-page-view-free-of-shell-owned-site-ident-7eed1b8f83",
+            "path": "tests/frontend/unit/composables/staticPageSiteTitle.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/composables/staticPageSiteTitle.test.ts#keeps-the-about-page-view-free-of-shell-owned-site-ident-77cc83db2f"
+            ],
+            "reason": "Issue #2613 retains the about page shell-identity case as the named about corpus row driven by the shared mountStaticPageWithShellIdentity harness."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/composables/staticPageSiteTitle.test.ts#keeps-policy-page-views-free-of-shell-owned-site-identit-0e6a7426e3",
+            "path": "tests/frontend/unit/composables/staticPageSiteTitle.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/composables/staticPageSiteTitle.test.ts#keeps-the-privacy-page-view-free-of-shell-owned-site-ide-51c0aed3e6"
+            ],
+            "reason": "Issue #2613 retains the privacy page shell-identity case as the named privacy corpus row driven by the shared mountStaticPageWithShellIdentity harness."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/utils/errors.test.ts#maps-known-validation-message-invalid-totp-6255105f67",
+            "path": "tests/frontend/unit/utils/errors.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/errors.test.ts#maps-known-validation-message-invalid-totp-4335a6d31b"
+            ],
+            "reason": "Issue #2611 retains the INVALID_TOTP Validation mapping as the named invalid-totp corpus row with the exact localized copy oracle."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/utils/errors.test.ts#maps-known-validation-message-baseurl-protocol-invalid-5bc7392574",
+            "path": "tests/frontend/unit/utils/errors.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/errors.test.ts#maps-known-validation-message-invalid-base-url-protocol-5999797f98"
+            ],
+            "reason": "Issue #2611 retains the BASEURL_PROTOCOL_INVALID Validation mapping as the named invalid-base-url-protocol corpus row with the exact localized copy oracle."
+        },
+        {
+            "id": "node-test:tests/tools/repository-governance-authority.test.mjs#input-only-change-invalidates-an-otherwise-internally-co-6de2395b8f",
+            "path": "tests/tools/repository-governance-authority.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/repository-governance-authority.test.mjs#governance-receipt-identity-invalidation-mutation-table--9cf116aa35"
+            ],
+            "reason": "Issue #2615 retains the input-tree receipt invalidation case as the named input-tree mutation-table row with the exact expected and unexpected reason oracles."
+        },
+        {
+            "id": "node-test:tests/tools/repository-governance-authority.test.mjs#checker-source-change-invalidates-checker-identity-even--9b540fdc59",
+            "path": "tests/tools/repository-governance-authority.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/repository-governance-authority.test.mjs#governance-receipt-identity-invalidation-mutation-table--ed2ece7d56"
+            ],
+            "reason": "Issue #2615 retains the checker-source receipt invalidation case as the named checker-source mutation-table row with the exact expected and unexpected reason oracles."
+        },
+        {
+            "id": "node-test:tests/tools/repository-governance-authority.test.mjs#parser-and-toolchain-identity-change-invalidates-reuse-df25b1999b",
+            "path": "tests/tools/repository-governance-authority.test.mjs",
+            "replacementTestIds": [
+                "node-test:tests/tools/repository-governance-authority.test.mjs#governance-receipt-identity-invalidation-mutation-table--3340203fd7"
+            ],
+            "reason": "Issue #2615 retains the parser-toolchain receipt invalidation case as the named parser-toolchain mutation-table row with the exact expected and unexpected reason oracles."
         }
     ],
     "assertionReplacements": [
@@ -12234,6 +12330,104 @@
                 "vitest:toBe:isAbortError(factory()), caseName:equality:true"
             ],
             "reason": "Issue #2610 preserves each positive isAbortError true oracle in the named factory table; per-case ownership remains in deletedTests."
+        },
+        {
+            "before": "vitest:toBe:r.isValid:equality:true",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-normal-comment-ordinary-text-17ea0126ce",
+                "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-ad-spam-post-moderation-adverti-d0473f3b07",
+                "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-zero-width-obfuscation-zero-wid-e35d30489a",
+                "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-full-width-confusable-ad-full-w-ec7554ed32",
+                "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-legitimate-xi-word-legitimate-t-38059d3687"
+            ],
+            "after": [
+                "vitest:toBe:r.isValid:equality:true"
+            ],
+            "reason": "Issue #2614 preserves each allow-publish isValid oracle in the named corpus rows; per-case ownership remains in deletedTests."
+        },
+        {
+            "before": "vitest:toBe:wrapper.findComponent(Child).vm.staticPageView.header.title:equality:'\u5173\u4e8e'",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/composables/staticPageSiteTitle.test.ts#keeps-the-about-page-view-free-of-shell-owned-site-ident-77cc83db2f"
+            ],
+            "after": [
+                "vitest:toBe:staticPageView.header.title:equality:pageCase.title"
+            ],
+            "reason": "Issue #2613 preserves each page title oracle as the case-bound pageCase.title assertion; per-case ownership remains in deletedTests."
+        },
+        {
+            "before": "vitest:toBe:wrapper.findComponent(Child).vm.staticPageView.header.title:equality:'\u9690\u79c1\u653f\u7b56'",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/composables/staticPageSiteTitle.test.ts#keeps-the-privacy-page-view-free-of-shell-owned-site-ide-51c0aed3e6"
+            ],
+            "after": [
+                "vitest:toBe:staticPageView.header.title:equality:pageCase.title"
+            ],
+            "reason": "Issue #2613 preserves each page title oracle as the case-bound pageCase.title assertion; per-case ownership remains in deletedTests."
+        },
+        {
+            "before": "vitest:toHaveProperty:wrapper.findComponent(Child).vm.staticPageView:predicate:'footer'",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/composables/staticPageSiteTitle.test.ts#keeps-the-about-page-view-free-of-shell-owned-site-ident-77cc83db2f",
+                "vitest:tests/frontend/unit/composables/staticPageSiteTitle.test.ts#keeps-the-privacy-page-view-free-of-shell-owned-site-ide-51c0aed3e6"
+            ],
+            "after": [
+                "vitest:toHaveProperty:staticPageView:predicate:'footer'"
+            ],
+            "reason": "Issue #2613 preserves the shell-owned footer absence oracle in the shared harness case body; per-case ownership remains in deletedTests."
+        },
+        {
+            "before": "vitest:toBe:getErrorMessage(e, 'fallback'):equality:'\u9a8c\u8bc1\u7801\u65e0\u6548\uff0c\u8bf7\u91cd\u8bd5'",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/errors.test.ts#maps-known-validation-message-invalid-totp-4335a6d31b"
+            ],
+            "after": [
+                "vitest:toBe:getErrorMessage(error, 'fallback'):equality:expected"
+            ],
+            "reason": "Issue #2611 preserves each Validation mapping oracle in the named case table; per-case ownership remains in deletedTests."
+        },
+        {
+            "before": "vitest:toBe:getErrorMessage(e, 'fallback'):equality:'\u7ad9\u70b9URL\u534f\u8bae\u4e0d\u5408\u6cd5'",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/errors.test.ts#maps-known-validation-message-invalid-base-url-protocol-5999797f98"
+            ],
+            "after": [
+                "vitest:toBe:getErrorMessage(error, 'fallback'):equality:expected"
+            ],
+            "reason": "Issue #2611 preserves each Validation mapping oracle in the named case table; per-case ownership remains in deletedTests."
+        },
+        {
+            "before": "node-assert:ok:result.errors.includes('input tree digest mismatch'):predicate:true",
+            "replacementTestIds": [
+                "node-test:tests/tools/repository-governance-authority.test.mjs#governance-receipt-identity-invalidation-mutation-table--9cf116aa35"
+            ],
+            "after": [
+                "node-assert:ok:afterMutation.errors.includes(mutationCase.expectedReason):predicate:true",
+                "node-assert:deepEqual:afterMutation.errors:equality:mutationCase.expectedErrors"
+            ],
+            "reason": "Issue #2615 preserves the input-tree exact invalidation reason oracle in the closed mutation table; per-case ownership remains in deletedTests."
+        },
+        {
+            "before": "node-assert:ok:result.errors.includes('checker source digest mismatch'):predicate:true",
+            "replacementTestIds": [
+                "node-test:tests/tools/repository-governance-authority.test.mjs#governance-receipt-identity-invalidation-mutation-table--ed2ece7d56"
+            ],
+            "after": [
+                "node-assert:ok:afterMutation.errors.includes(mutationCase.expectedReason):predicate:true",
+                "node-assert:deepEqual:afterMutation.errors:equality:mutationCase.expectedErrors"
+            ],
+            "reason": "Issue #2615 preserves the checker-source exact invalidation reason oracle in the closed mutation table; per-case ownership remains in deletedTests."
+        },
+        {
+            "before": "node-assert:ok:result.errors.includes('parser/toolchain identity mismatch'):predicate:true",
+            "replacementTestIds": [
+                "node-test:tests/tools/repository-governance-authority.test.mjs#governance-receipt-identity-invalidation-mutation-table--3340203fd7"
+            ],
+            "after": [
+                "node-assert:ok:afterMutation.errors.includes(mutationCase.expectedReason):predicate:true",
+                "node-assert:deepEqual:afterMutation.errors:equality:mutationCase.expectedErrors"
+            ],
+            "reason": "Issue #2615 preserves the parser-toolchain exact invalidation reason oracle in the closed mutation table; per-case ownership remains in deletedTests."
         }
     ]
 }
