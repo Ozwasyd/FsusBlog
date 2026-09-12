@@ -12,9 +12,10 @@ import {
 
 try
 {
-    const evidencePath = process.argv[2];
-    if (!evidencePath) throw new Error('usage: check-comment-fixture-governance.mjs <canonical-runtime-evidence.json>');
-    const runtimeEvidence = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), evidencePath), 'utf8'));
+    const evidencePath = process.argv[2]
+        ? path.resolve(process.cwd(), process.argv[2])
+        : path.join(COMMENT_FIXTURE_REPOSITORY_ROOT, '.tmp/test-evidence/comment-fixture-runtime.json');
+    const runtimeEvidence = JSON.parse(fs.readFileSync(evidencePath, 'utf8'));
     const cleanup = buildCommentFixtureCleanupReceipt();
     const acceptance = buildCommentFixtureAcceptanceReceipt(cleanup, runtimeEvidence);
     verifyCommentFixtureAcceptanceReceipt(acceptance, cleanup, runtimeEvidence);

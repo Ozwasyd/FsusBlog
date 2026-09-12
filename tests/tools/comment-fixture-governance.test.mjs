@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
@@ -26,6 +26,25 @@ import {
     readFixtureCatalogs
 } from '../../tools/testing/fixture-catalog.mjs';
 import { createCommentFixtureBackendError } from '../../tools/test-fixtures/producers/comment-moderation-producer.mjs';
+
+const cliEvidenceRoot = path.join(COMMENT_FIXTURE_REPOSITORY_ROOT, '.tmp/test-evidence');
+const cliRuntimeEvidence = path.join(cliEvidenceRoot, 'comment-fixture-runtime.json');
+const cliCleanupReceipt = path.join(cliEvidenceRoot, 'comment-fixture-cleanup.json');
+const cliAcceptanceReceipt = path.join(cliEvidenceRoot, 'comment-fixture-acceptance.json');
+
+function clearCommentFixtureCliEvidence()
+{
+    for (const target of [cliRuntimeEvidence, cliCleanupReceipt, cliAcceptanceReceipt])
+        rmSync(target, { force: true });
+}
+
+function runCommentFixtureCli()
+{
+    return spawnSync(process.execPath, ['tools/test/check-comment-fixture-governance.mjs'], {
+        cwd: COMMENT_FIXTURE_REPOSITORY_ROOT,
+        encoding: 'utf8'
+    });
+}
 
 test('comment correctness entrypoints require verified FixtureReceipt authority', () =>
 {
@@ -263,15 +282,40 @@ test('comment terminal verifier requires two independent canonical production ru
     assert.ok(acceptance.violations.some((item) => item.detail?.includes('cleanup verification')));
 });
 
-test('comment governance CLI cannot write terminal artifacts without canonical runtime evidence', () =>
+test('comment governance CLI fails closed when canonical no-arg evidence is missing', () =>
 {
-    const output = path.join(COMMENT_FIXTURE_REPOSITORY_ROOT, '.tmp/test-evidence/comment-fixture-acceptance.json');
-    rmSync(output, { force: true });
-    const result = spawnSync(process.execPath, ['tools/test/check-comment-fixture-governance.mjs'], {
-        cwd: COMMENT_FIXTURE_REPOSITORY_ROOT,
-        encoding: 'utf8'
-    });
+    clearCommentFixtureCliEvidence();
+    const result = runCommentFixtureCli();
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /canonical-runtime-evidence/u);
-    assert.equal(existsSync(output), false);
+    assert.match(result.stderr, /comment-fixture-runtime\.json/u);
+    assert.equal(existsSync(cliCleanupReceipt), false);
+    assert.equal(existsSync(cliAcceptanceReceipt), false);
+});
+
+test('comment governance CLI fails closed when canonical no-arg evidence is invalid', () =>
+{
+    clearCommentFixtureCliEvidence();
+    mkdirSync(cliEvidenceRoot, { recursive: true, mode: 0o700 });
+    writeFileSync(cliRuntimeEvidence, '{}\n', { mode: 0o600 });
+    const result = runCommentFixtureCli();
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /not terminal accepted/u);
+    assert.equal(existsSync(cliCleanupReceipt), false);
+    assert.equal(existsSync(cliAcceptanceReceipt), false);
+    clearCommentFixtureCliEvidence();
+});
+
+test('comment governance CLI consumes canonical no-arg current-run evidence', async () =>
+{
+    clearCommentFixtureCliEvidence();
+    mkdirSync(cliEvidenceRoot, { recursive: true, mode: 0o700 });
+    const runtimeEvidence = await collectSimulatedCommentFixtureRuntimeEvidence();
+    writeFileSync(cliRuntimeEvidence, `${JSON.stringify(runtimeEvidence, null, 4)}\n`, { mode: 0o600 });
+    const result = runCommentFixtureCli();
+    assert.equal(result.status, 0, result.stderr);
+    const acceptance = JSON.parse(readFileSync(cliAcceptanceReceipt, 'utf8'));
+    assert.equal(acceptance.status, 'accepted');
+    assert.deepEqual(acceptance.warnings, []);
+    assert.deepEqual(acceptance.violations, []);
+    clearCommentFixtureCliEvidence();
 });
