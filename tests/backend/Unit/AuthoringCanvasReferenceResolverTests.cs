@@ -31,7 +31,10 @@ public sealed class AuthoringCanvasReferenceResolverTests
             _ => throw new InvalidOperationException()
         });
         AuthoringCanvasReferenceResolver resolver = CreateResolver(nodes, source);
-        AuthoringCanvasReferenceResolutionRequest request = Request(nodes);
+        AuthoringCanvasReferenceResolutionRequest request = Request(nodes) with
+        {
+            TargetWorkspaceGroupId = "research-group-b"
+        };
 
         AuthoringCanvasReferenceResolutionBatch first = await resolver.ResolveAsync(request);
         AuthoringCanvasReferenceResolutionBatch cached = await resolver.ResolveAsync(request);
@@ -55,11 +58,24 @@ public sealed class AuthoringCanvasReferenceResolverTests
         Assert.True(first.Projections[2].UpdateAvailable);
         Assert.Equal(6, first.Projections[2].OpenIntent!.Revision);
         Assert.Equal(AuthoringCanvasOpenIntentMode.OpenOrActivate, first.Projections[2].OpenIntent!.Mode);
+        Assert.All(first.Projections, static projection =>
+            Assert.Equal("research-group-b", projection.OpenIntent!.TargetGroupId));
         Assert.Equal(1, source.BatchReadCount);
         Assert.Equal(3, cached.Receipt.CacheHitCount);
         Assert.Equal(first.ContentDigest, cached.ContentDigest);
         Assert.Equal(3, first.Receipt.Items.Count);
         Assert.All(first.Receipt.Items, static item => Assert.Equal(64, item.ContentDigest.Length));
+        Assert.Equal(first.Projections[1].TargetHeadingIdentity, first.Receipt.Items[1].TargetHeadingIdentity);
+        Assert.Equal(first.Projections[2].TargetBlockIdentity, first.Receipt.Items[2].TargetBlockIdentity);
+        Assert.Equal(first.Projections[1].Title, first.Receipt.Items[1].Title);
+        Assert.Equal(first.Projections[1].ContextSnippet, first.Receipt.Items[1].ContextSnippet);
+        Assert.Equal(first.Projections[1].OpenIntent, first.Receipt.Items[1].OpenIntent);
+        Assert.Equal(
+            [
+                "NodeId", "TargetArticleId", "TargetHeadingIdentity", "TargetBlockIdentity",
+                "TargetRevision", "Status", "Title", "ContextSnippet", "OpenIntent", "ContentDigest"
+            ],
+            PropertyNames(JsonSerializer.Serialize(first.Receipt.Items[1])));
     }
 
     [Fact]
@@ -146,8 +162,9 @@ public sealed class AuthoringCanvasReferenceResolverTests
         Assert.Null(denied.TargetRevision);
         Assert.Null(denied.CurrentTargetRevision);
         AuthoringCanvasReferenceResolutionReceiptItem deniedReceipt = result.Receipt.Items[3];
-        Assert.False(deniedReceipt.PreviewIncluded);
-        Assert.False(deniedReceipt.OpenIntentIncluded);
+        Assert.Null(deniedReceipt.Title);
+        Assert.Null(deniedReceipt.ContextSnippet);
+        Assert.Null(deniedReceipt.OpenIntent);
 
         string projectionJson = JsonSerializer.Serialize(denied);
         string receiptJson = JsonSerializer.Serialize(result.Receipt);
@@ -279,7 +296,7 @@ public sealed class AuthoringCanvasReferenceResolverTests
     }
 
     [Fact]
-    public async Task ResolveAsync_RejectsStaleCanvasCoordinatesAndCancelledWork()
+    public async Task ResolveAsync_RejectsStaleOutOfOrderAndCancelledWorkBeforeCaching()
     {
         AuthoringCanvasNode node = Reference(501);
         var source = new DeterministicFactSource(target => Fact(target));
@@ -298,6 +315,48 @@ public sealed class AuthoringCanvasReferenceResolverTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             CreateResolver([node], source).ResolveAsync(request, cancelled.Token));
         Assert.Equal(0, source.BatchReadCount);
+
+        var racingSource = new DeterministicFactSource(target => Fact(target));
+        var racingCache = new AuthoringCanvasReferenceProjectionCache();
+        IAuthoringCanvasDocumentStore racingStore = Substitute.For<IAuthoringCanvasDocumentStore>();
+        racingStore.GetAsync(s_owner, request.CanvasId, Arg.Any<CancellationToken>()).Returns(
+            Task.FromResult<AuthoringCanvasDocumentHeader?>(Header(
+                request.CanvasId,
+                [node],
+                request.CanvasRevision,
+                request.CanvasContentDigest)),
+            Task.FromResult<AuthoringCanvasDocumentHeader?>(Header(
+                request.CanvasId,
+                [node],
+                request.CanvasRevision + 1,
+                new string('f', 64))));
+        var racingResolver = new AuthoringCanvasReferenceResolver(
+            racingStore,
+            racingSource,
+            racingCache,
+            TimeProvider.System);
+
+        await Assert.ThrowsAsync<AuthoringCanvasRevisionConflictException>(() =>
+            racingResolver.ResolveAsync(request));
+        Assert.Equal(1, racingSource.BatchReadCount);
+        Assert.Equal(0, racingCache.EntryCount);
+
+        using var cancelledAfterFacts = new CancellationTokenSource();
+        var cancelledSource = new DeterministicFactSource(target => Fact(target))
+        {
+            AfterBatchRead = cancelledAfterFacts.Cancel
+        };
+        var cancelledCache = new AuthoringCanvasReferenceProjectionCache();
+        var cancelledResolver = new AuthoringCanvasReferenceResolver(
+            CanvasStore([node]),
+            cancelledSource,
+            cancelledCache,
+            TimeProvider.System);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            cancelledResolver.ResolveAsync(request, cancelledAfterFacts.Token));
+        Assert.Equal(1, cancelledSource.BatchReadCount);
+        Assert.Equal(0, cancelledCache.EntryCount);
     }
 
     [Fact]
@@ -439,6 +498,11 @@ public sealed class AuthoringCanvasReferenceResolverTests
             AuthoringCanvasReferenceContract.ValidateRequest(Request(
                 [new AuthoringCanvasNode(Guid.CreateVersion7(), AuthoringCanvasNodeType.PlainTextNote, 0, s_geometry,
                     NoteSource: "note")])));
+        Assert.Throws<AuthoringCanvasValidationException>(() =>
+            AuthoringCanvasReferenceContract.ValidateRequest(Request([reference]) with
+            {
+                TargetWorkspaceGroupId = " "
+            }));
 
         var target = new AuthoringCanvasReferenceTarget(
             reference.Id,
@@ -471,20 +535,31 @@ public sealed class AuthoringCanvasReferenceResolverTests
     {
         IAuthoringCanvasDocumentStore store = Substitute.For<IAuthoringCanvasDocumentStore>();
         store.GetAsync(s_owner, Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(call => Task.FromResult<AuthoringCanvasDocumentHeader?>(new(
+            .Returns(call => Task.FromResult<AuthoringCanvasDocumentHeader?>(Header(
                 call.ArgAt<Guid>(1),
-                s_owner,
-                AuthoringCanvasContract.SchemaVersion,
+                nodes,
                 revision,
-                "Research",
-                new AuthoringCanvasViewport(0, 0, 1),
-                nodes.Count,
-                0,
-                DateTime.UnixEpoch,
-                DateTime.UnixEpoch,
                 CanvasDigest)));
         return store;
     }
+
+    private static AuthoringCanvasDocumentHeader Header(
+        Guid canvasId,
+        IReadOnlyList<AuthoringCanvasNode> nodes,
+        long revision,
+        string contentDigest)
+        => new(
+            canvasId,
+            s_owner,
+            AuthoringCanvasContract.SchemaVersion,
+            revision,
+            "Research",
+            new AuthoringCanvasViewport(0, 0, 1),
+            nodes.Count,
+            0,
+            DateTime.UnixEpoch,
+            DateTime.UnixEpoch,
+            contentDigest);
 
     private static AuthoringCanvasReferenceResolutionRequest Request(IReadOnlyList<AuthoringCanvasNode> nodes)
         => new(
@@ -611,6 +686,11 @@ public sealed class AuthoringCanvasReferenceResolverTests
             get; private set;
         }
 
+        public Action? AfterBatchRead
+        {
+            get; init;
+        }
+
         public Task<AuthoringCanvasReferenceAuthorityCoordinate> ReadAuthorityCoordinateAsync(
             AuthoringCanvasOwner owner,
             AuthoringCanvasReferencePermission permission,
@@ -658,6 +738,7 @@ public sealed class AuthoringCanvasReferenceResolverTests
                     "unexpected",
                     "/unexpected"));
             }
+            AfterBatchRead?.Invoke();
             return Task.FromResult<IReadOnlyList<AuthoringCanvasReferenceFact>>(result);
         }
     }

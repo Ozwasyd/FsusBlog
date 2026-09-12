@@ -38,19 +38,29 @@ public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresS
                 article_id integer NOT NULL,
                 title varchar(256) NOT NULL,
                 summary varchar(512) NULL,
-                body text NULL);
+                body text NULL,
+                created_by_admin_principal_id bigint NOT NULL);
             INSERT INTO admin_principal(id, status, isroot, permissions)
-            VALUES (73, 'active', false, E'article.write\n');
-            INSERT INTO article(id, title, summary, status, isdeleted, current_revision_id)
-            VALUES (204, 'Current title', 'Current summary', 2, false, 9002);
-            INSERT INTO article_revision(id, article_id, title, summary, body)
             VALUES
-                (9001, 204, 'Pinned title', 'Pinned summary', @BodyCanary),
-                (9002, 204, 'Current revision title', 'Current revision summary', @BodyCanary);
+                (73, 'active', false, E'article.write\n'),
+                (74, 'active', false, E'article.write\n'),
+                (75, 'active', true, '');
+            INSERT INTO article(id, title, summary, status, isdeleted, current_revision_id)
+            VALUES
+                (204, 'Current title', 'Current summary', 2, false, 9002),
+                (205, 'Other account title', 'Other account summary', 2, false, 9010);
+            INSERT INTO article_revision(
+                id, article_id, title, summary, body, created_by_admin_principal_id)
+            VALUES
+                (9001, 204, 'Pinned title', 'Pinned summary', @BodyCanary, 73),
+                (9002, 204, 'Current revision title', 'Current revision summary', @BodyCanary, 73),
+                (9010, 205, 'Other account revision', 'Other account summary', @BodyCanary, 74);
             """,
             new SugarParameter("@BodyCanary", BodyCanary));
         var reader = new PostgresAuthoringCanvasArticleReferenceReader(db);
-        var source = new AuthoringCanvasReferenceFactSource(reader, []);
+        var source = new AuthoringCanvasReferenceFactSource(
+            reader,
+            new AuthoringCanvasCoordinateFactProvider([]));
         Guid currentNodeId = Guid.CreateVersion7();
         Guid pinnedNodeId = Guid.CreateVersion7();
         Guid headingNodeId = Guid.CreateVersion7();
@@ -76,6 +86,57 @@ public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresS
         string serialized = JsonSerializer.Serialize(facts);
         Assert.DoesNotContain(BodyCanary, serialized, StringComparison.Ordinal);
         Assert.DoesNotContain("body", serialized, StringComparison.OrdinalIgnoreCase);
+
+        var otherAccount = new AuthoringCanvasOwner(74, "primary-site");
+        AuthoringCanvasReferenceAuthorityCoordinate otherAccountCoordinate =
+            await source.ReadAuthorityCoordinateAsync(
+                otherAccount,
+                AuthoringCanvasReferencePermission.ArticleRead);
+        IReadOnlyList<AuthoringCanvasReferenceFact> otherAccountFacts = await source.ReadBatchAsync(
+            Query(otherAccount, otherAccountCoordinate, [Target(Guid.CreateVersion7())]));
+        AuthoringCanvasReferenceFact hiddenFromOtherAccount = Assert.Single(otherAccountFacts);
+        Assert.Equal(
+            AuthoringCanvasArticleState.PermissionDeniedOrUnknown,
+            hiddenFromOtherAccount.ArticleState);
+        Assert.Null(hiddenFromOtherAccount.Title);
+        Assert.Null(hiddenFromOtherAccount.ContextSnippet);
+        Assert.Null(hiddenFromOtherAccount.StableRoute);
+
+        AuthoringCanvasReferenceTarget missingTarget = Target(Guid.CreateVersion7()) with
+        {
+            TargetArticleId = 999
+        };
+        AuthoringCanvasReferenceFact missing = Assert.Single(await source.ReadBatchAsync(
+            Query(coordinate, [missingTarget])));
+        Assert.Equal(AuthoringCanvasArticleState.Missing, missing.ArticleState);
+        Assert.Null(missing.Title);
+        Assert.Null(missing.ContextSnippet);
+        Assert.Null(missing.StableRoute);
+
+        var rootOwner = new AuthoringCanvasOwner(75, "primary-site");
+        AuthoringCanvasReferenceAuthorityCoordinate rootCoordinate =
+            await source.ReadAuthorityCoordinateAsync(
+                rootOwner,
+                AuthoringCanvasReferencePermission.ArticleRead);
+        AuthoringCanvasReferenceFact rootFact = Assert.Single(await source.ReadBatchAsync(
+            Query(rootOwner, rootCoordinate, [Target(Guid.CreateVersion7())])));
+        Assert.Equal(AuthoringCanvasArticleState.Current, rootFact.ArticleState);
+        Assert.Equal("Current title", rootFact.Title);
+
+        var otherSite = new AuthoringCanvasOwner(73, "other-site");
+        AuthoringCanvasReferenceAuthorityCoordinate otherSiteCoordinate =
+            await source.ReadAuthorityCoordinateAsync(
+                otherSite,
+                AuthoringCanvasReferencePermission.ArticleRead);
+        IReadOnlyList<AuthoringCanvasReferenceFact> otherSiteFacts = await source.ReadBatchAsync(
+            Query(otherSite, otherSiteCoordinate, [Target(Guid.CreateVersion7())]));
+        AuthoringCanvasReferenceFact hiddenFromOtherSite = Assert.Single(otherSiteFacts);
+        Assert.Equal(
+            AuthoringCanvasArticleState.PermissionDeniedOrUnknown,
+            hiddenFromOtherSite.ArticleState);
+        Assert.Null(hiddenFromOtherSite.Title);
+        Assert.Null(hiddenFromOtherSite.ContextSnippet);
+        Assert.Null(hiddenFromOtherSite.StableRoute);
 
         await db.Ado.ExecuteCommandAsync(
             "UPDATE admin_principal SET permissions = '' WHERE id = 73;");
@@ -113,11 +174,17 @@ public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresS
     private static AuthoringCanvasReferenceFactQuery Query(
         AuthoringCanvasReferenceAuthorityCoordinate coordinate,
         IReadOnlyList<AuthoringCanvasReferenceTarget> targets)
+        => Query(s_owner, coordinate, targets);
+
+    private static AuthoringCanvasReferenceFactQuery Query(
+        AuthoringCanvasOwner owner,
+        AuthoringCanvasReferenceAuthorityCoordinate coordinate,
+        IReadOnlyList<AuthoringCanvasReferenceTarget> targets)
         => new(
             Guid.Parse("018f5f93-2997-7c8a-9a47-0242ac120201"),
             7,
             new string('c', 64),
-            s_owner,
+            owner,
             AuthoringCanvasReferencePermission.ArticleRead,
             coordinate,
             targets);

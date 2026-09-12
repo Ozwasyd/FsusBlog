@@ -11,15 +11,12 @@ namespace FsusBlog.Server.Services.Authoring;
 
 /// <summary>
 /// Production adapter for canvas reference facts. Article metadata is read in bounded SQL batches;
-/// optional heading/block coordinates stay behind their typed source authority.
+/// heading/block coordinates stay behind their typed, fail-closed source authority.
 /// </summary>
 public sealed class AuthoringCanvasReferenceFactSource(
     IAuthoringCanvasArticleReferenceReader articles,
-    IEnumerable<IAuthoringCanvasCoordinateFactProvider> coordinateProviders) : IAuthoringCanvasReferenceFactSource
+    IAuthoringCanvasCoordinateFactProvider coordinateProvider) : IAuthoringCanvasReferenceFactSource
 {
-    private readonly IAuthoringCanvasCoordinateFactProvider? _coordinateProvider =
-        ResolveCoordinateProvider(coordinateProviders);
-
     public async Task<AuthoringCanvasReferenceAuthorityCoordinate> ReadAuthorityCoordinateAsync(
         AuthoringCanvasOwner owner,
         AuthoringCanvasReferencePermission permission,
@@ -60,20 +57,23 @@ public sealed class AuthoringCanvasReferenceFactSource(
         }
 
         IReadOnlyDictionary<int, AuthoringCanvasArticleReferenceRecord> articleFacts =
-            await articles.ReadBatchAsync(query.Targets, cancellationToken).ConfigureAwait(false);
+            await articles.ReadBatchAsync(
+                query.Owner,
+                query.Permission,
+                query.Targets,
+                cancellationToken).ConfigureAwait(false);
         ValidateArticleFactSet(query.Targets, articleFacts);
         IReadOnlyDictionary<Guid, AuthoringCanvasCoordinateFact> coordinateFacts =
-            _coordinateProvider is null
-                ? new Dictionary<Guid, AuthoringCanvasCoordinateFact>()
-                : await _coordinateProvider.ReadBatchAsync(
-                    new AuthoringCanvasCoordinateFactQuery(
-                        query.CanvasId,
-                        query.CanvasRevision,
-                        query.CanvasContentDigest,
-                        query.Owner,
-                        query.Targets.Where(static target => target.NodeType is
-                            AuthoringCanvasNodeType.HeadingReference or AuthoringCanvasNodeType.BlockReference).ToArray()),
-                    cancellationToken).ConfigureAwait(false);
+            await coordinateProvider.ReadBatchAsync(
+                new AuthoringCanvasCoordinateFactQuery(
+                    query.CanvasId,
+                    query.CanvasRevision,
+                    query.CanvasContentDigest,
+                    query.Owner,
+                    query.Targets.Where(static target => target.NodeType is
+                        AuthoringCanvasNodeType.HeadingReference or AuthoringCanvasNodeType.BlockReference).ToArray()),
+                cancellationToken).ConfigureAwait(false);
+        ValidateCoordinateFactSet(query.Targets, coordinateFacts);
 
         AuthoringCanvasArticleReadAuthority verifiedAuthority = await articles.ReadAuthorityAsync(
             query.Owner,
@@ -191,18 +191,6 @@ public sealed class AuthoringCanvasReferenceFactSource(
                 authority.Authorized),
             authority.PermissionFingerprint);
 
-    private static IAuthoringCanvasCoordinateFactProvider? ResolveCoordinateProvider(
-        IEnumerable<IAuthoringCanvasCoordinateFactProvider> providers)
-    {
-        IAuthoringCanvasCoordinateFactProvider[] materialized = providers.Take(2).ToArray();
-        return materialized.Length switch
-        {
-            0 => null,
-            1 => materialized[0],
-            _ => throw new InvalidOperationException("multiple_authoring_canvas_coordinate_fact_providers")
-        };
-    }
-
     private static void ValidateArticleFactSet(
         IReadOnlyList<AuthoringCanvasReferenceTarget> targets,
         IReadOnlyDictionary<int, AuthoringCanvasArticleReferenceRecord> facts)
@@ -225,6 +213,23 @@ public sealed class AuthoringCanvasReferenceFactSource(
             {
                 throw new AuthoringCanvasValidationException("canvas_reference_article_fact_set_invalid");
             }
+        }
+    }
+
+    private static void ValidateCoordinateFactSet(
+        IReadOnlyList<AuthoringCanvasReferenceTarget> targets,
+        IReadOnlyDictionary<Guid, AuthoringCanvasCoordinateFact> facts)
+    {
+        var requested = targets
+            .Where(static target => target.NodeType is
+                AuthoringCanvasNodeType.HeadingReference or AuthoringCanvasNodeType.BlockReference)
+            .Select(static target => target.NodeId)
+            .ToHashSet();
+        if (facts.Any(pair => !requested.Contains(pair.Key)
+                || pair.Value is null
+                || pair.Value.NodeId != pair.Key))
+        {
+            throw new AuthoringCanvasValidationException("canvas_reference_coordinate_fact_set_invalid");
         }
     }
 
@@ -308,6 +313,8 @@ public interface IAuthoringCanvasArticleReferenceReader
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyDictionary<int, AuthoringCanvasArticleReferenceRecord>> ReadBatchAsync(
+        AuthoringCanvasOwner owner,
+        AuthoringCanvasReferencePermission permission,
         IReadOnlyList<AuthoringCanvasReferenceTarget> targets,
         CancellationToken cancellationToken = default);
 }
@@ -328,8 +335,8 @@ public sealed record AuthoringCanvasCoordinateFact(
     string? ContextSnippet);
 
 /// <summary>
-/// Optional typed authority supplied by #1808/#1868. Absence is a stable SourceStale projection,
-/// never a startup failure or guessed coordinate.
+/// Production coordinate boundary. Its registered implementation delegates to at most one typed
+/// external authority and returns no guessed facts when that authority is unavailable.
 /// </summary>
 public interface IAuthoringCanvasCoordinateFactProvider
 {
@@ -339,36 +346,117 @@ public interface IAuthoringCanvasCoordinateFactProvider
 }
 
 /// <summary>
-/// PostgreSQL reader for existing article and immutable revision authorities. It never selects an
-/// article body, rendered HTML, DOM, relation, property, workspace, or graph-layout column.
+/// Optional typed ingress for the heading/block authority owned outside this boundary. Production
+/// composition always resolves one provider; when the external authority is unavailable the
+/// provider returns no guessed facts and the resolver projects SourceStale.
+/// </summary>
+public interface IAuthoringCanvasExternalCoordinateAuthority
+{
+    Task<IReadOnlyDictionary<Guid, AuthoringCanvasCoordinateFact>> ReadBatchAsync(
+        AuthoringCanvasCoordinateFactQuery query,
+        CancellationToken cancellationToken = default);
+}
+
+public sealed class AuthoringCanvasCoordinateFactProvider(
+    IEnumerable<IAuthoringCanvasExternalCoordinateAuthority> authorities)
+    : IAuthoringCanvasCoordinateFactProvider
+{
+    private readonly IAuthoringCanvasExternalCoordinateAuthority? _authority = Resolve(authorities);
+
+    public async Task<IReadOnlyDictionary<Guid, AuthoringCanvasCoordinateFact>> ReadBatchAsync(
+        AuthoringCanvasCoordinateFactQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (query.Targets.Count > AuthoringCanvasReferenceContract.MaxBatchSize)
+        {
+            throw new AuthoringCanvasBudgetExceededException("canvas_reference_coordinate_batch_budget_exceeded");
+        }
+        return _authority is null
+            ? new Dictionary<Guid, AuthoringCanvasCoordinateFact>()
+            : await _authority.ReadBatchAsync(query, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static IAuthoringCanvasExternalCoordinateAuthority? Resolve(
+        IEnumerable<IAuthoringCanvasExternalCoordinateAuthority> authorities)
+    {
+        IAuthoringCanvasExternalCoordinateAuthority[] materialized = authorities.Take(2).ToArray();
+        return materialized.Length switch
+        {
+            0 => null,
+            1 => materialized[0],
+            _ => throw new InvalidOperationException("multiple_authoring_canvas_external_coordinate_authorities")
+        };
+    }
+}
+
+/// <summary>
+/// PostgreSQL reader for existing article and immutable revision authorities. It is restricted to
+/// primary-site articles attributed to the requesting admin principal and never selects an article
+/// body, rendered HTML, DOM, relation, property, workspace, or graph-layout column.
 /// </summary>
 public sealed class PostgresAuthoringCanvasArticleReferenceReader(ISqlSugarClient db)
     : IAuthoringCanvasArticleReferenceReader
 {
+    private const string PrimarySiteScope = "primary-site";
+
     public async Task<AuthoringCanvasArticleReadAuthority> ReadAuthorityAsync(
         AuthoringCanvasOwner owner,
         AuthoringCanvasReferencePermission permission,
         CancellationToken cancellationToken = default)
     {
+        AuthoringCanvasContract.ValidateOwner(owner);
+        if (!Enum.IsDefined(permission))
+        {
+            throw new AuthoringCanvasValidationException("canvas_reference_permission_invalid");
+        }
         cancellationToken.ThrowIfCancellationRequested();
         using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
-            WITH content_authority AS (
+            WITH principal AS (
+                SELECT id, status, isroot, permissions,
+                       xmin::text::bigint AS principal_generation
+                FROM admin_principal
+                WHERE id = @AdminPrincipalId
+            ), accessible_articles AS (
+                SELECT article.id AS article_id
+                FROM article
+                CROSS JOIN principal p
+                WHERE @SiteScope = 'primary-site'
+                  AND p.status = @ActiveStatus
+                  AND (p.isroot OR @RequiredPermission = ANY(string_to_array(p.permissions, E'\n')))
+                  AND (p.isroot OR EXISTS (
+                      SELECT 1
+                      FROM article_revision ownership
+                      WHERE ownership.article_id = article.id
+                        AND ownership.created_by_admin_principal_id = p.id))
+            ), content_authority AS (
                 SELECT GREATEST(
-                           COALESCE((SELECT MAX(xmin::text::bigint) FROM article), 1),
-                           COALESCE((SELECT MAX(xmin::text::bigint) FROM article_revision), 1)
+                           COALESCE((
+                               SELECT MAX(article.xmin::text::bigint)
+                               FROM article
+                               JOIN accessible_articles access ON access.article_id = article.id), 1),
+                           COALESCE((
+                               SELECT MAX(revision.xmin::text::bigint)
+                               FROM article_revision revision
+                               JOIN accessible_articles access ON access.article_id = revision.article_id), 1)
                        ) AS content_generation,
-                       (SELECT COUNT(*) FROM article) AS article_count,
-                       (SELECT COUNT(*) FROM article_revision) AS revision_count
+                       (SELECT COUNT(*) FROM accessible_articles) AS article_count,
+                       (SELECT COUNT(*)
+                          FROM article_revision revision
+                          JOIN accessible_articles access ON access.article_id = revision.article_id) AS revision_count
             )
             SELECT p.id, p.status, p.isroot, p.permissions,
-                   p.xmin::text::bigint AS principal_generation,
+                   p.principal_generation,
                    c.content_generation, c.article_count, c.revision_count
-            FROM admin_principal p
-            CROSS JOIN content_authority c
-            WHERE p.id = @AdminPrincipalId;
+            FROM principal p
+            CROSS JOIN content_authority c;
             """,
-            new SugarParameter("@AdminPrincipalId", owner.AdminPrincipalId)).ConfigureAwait(false);
+            new SugarParameter("@AdminPrincipalId", owner.AdminPrincipalId),
+            new SugarParameter("@SiteScope", owner.SiteScope),
+            new SugarParameter("@ActiveStatus", AdminPrincipalStatus.Active),
+            new SugarParameter("@RequiredPermission", AdminPermissions.ArticleWrite)).ConfigureAwait(false);
         if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
             return new AuthoringCanvasArticleReadAuthority(
@@ -385,6 +473,7 @@ public sealed class PostgresAuthoringCanvasArticleReferenceReader(ISqlSugarClien
         bool isRoot = reader.GetBoolean(reader.GetOrdinal("isroot"));
         string permissions = reader.GetString(reader.GetOrdinal("permissions"));
         bool authorized = string.Equals(status, AdminPrincipalStatus.Active, StringComparison.Ordinal)
+            && string.Equals(owner.SiteScope, PrimarySiteScope, StringComparison.Ordinal)
             && (isRoot || permissions.Split(
                 '\n',
                 StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Contains(
@@ -400,9 +489,16 @@ public sealed class PostgresAuthoringCanvasArticleReferenceReader(ISqlSugarClien
     }
 
     public async Task<IReadOnlyDictionary<int, AuthoringCanvasArticleReferenceRecord>> ReadBatchAsync(
+        AuthoringCanvasOwner owner,
+        AuthoringCanvasReferencePermission permission,
         IReadOnlyList<AuthoringCanvasReferenceTarget> targets,
         CancellationToken cancellationToken = default)
     {
+        AuthoringCanvasContract.ValidateOwner(owner);
+        if (!Enum.IsDefined(permission))
+        {
+            throw new AuthoringCanvasValidationException("canvas_reference_permission_invalid");
+        }
         if (targets.Count > AuthoringCanvasReferenceContract.MaxBatchSize)
         {
             throw new AuthoringCanvasBudgetExceededException("canvas_reference_batch_budget_exceeded");
@@ -416,15 +512,42 @@ public sealed class PostgresAuthoringCanvasArticleReferenceReader(ISqlSugarClien
         var articles = new Dictionary<int, MutableArticleFact>(articleIds.Length);
         using (DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
-            SELECT id, title, summary, status, isdeleted, current_revision_id
+            SELECT id, title, summary, status, isdeleted, current_revision_id,
+                   EXISTS (
+                       SELECT 1
+                       FROM admin_principal p
+                       WHERE p.id = @AdminPrincipalId
+                         AND p.status = @ActiveStatus
+                         AND (p.isroot OR @RequiredPermission = ANY(string_to_array(p.permissions, E'\n')))
+                         AND (p.isroot OR EXISTS (
+                             SELECT 1
+                             FROM article_revision ownership
+                             WHERE ownership.article_id = article.id
+                               AND ownership.created_by_admin_principal_id = p.id))
+                   ) AS has_access
             FROM article
-            WHERE id = ANY(@ArticleIds);
+            WHERE id = ANY(@ArticleIds)
+              AND @SiteScope = 'primary-site';
             """,
-            ArrayParameter("@ArticleIds", articleIds)).ConfigureAwait(false))
+            ArrayParameter("@ArticleIds", articleIds),
+            new SugarParameter("@AdminPrincipalId", owner.AdminPrincipalId),
+            new SugarParameter("@SiteScope", owner.SiteScope),
+            new SugarParameter("@ActiveStatus", AdminPrincipalStatus.Active),
+            new SugarParameter("@RequiredPermission", AdminPermissions.ArticleWrite)).ConfigureAwait(false))
         {
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
                 int articleId = reader.GetInt32(reader.GetOrdinal("id"));
+                bool hasAccess = reader.GetBoolean(reader.GetOrdinal("has_access"));
+                if (!hasAccess)
+                {
+                    articles.Add(articleId, new MutableArticleFact(
+                        articleId,
+                        AuthoringCanvasArticleState.PermissionDeniedOrUnknown,
+                        0,
+                        Display(0, null, null)));
+                    continue;
+                }
                 bool deleted = reader.GetBoolean(reader.GetOrdinal("isdeleted"));
                 var status = (ArticleStatus)reader.GetInt32(reader.GetOrdinal("status"));
                 AuthoringCanvasArticleState state = deleted || status == ArticleStatus.Deleted
@@ -460,9 +583,25 @@ public sealed class PostgresAuthoringCanvasArticleReferenceReader(ISqlSugarClien
                 """
                 SELECT id, article_id, title, summary
                 FROM article_revision
-                WHERE id = ANY(@RevisionIds);
+                WHERE id = ANY(@RevisionIds)
+                  AND @SiteScope = 'primary-site'
+                  AND EXISTS (
+                      SELECT 1
+                      FROM admin_principal p
+                      WHERE p.id = @AdminPrincipalId
+                        AND p.status = @ActiveStatus
+                        AND (p.isroot OR @RequiredPermission = ANY(string_to_array(p.permissions, E'\n')))
+                        AND (p.isroot OR EXISTS (
+                            SELECT 1
+                            FROM article_revision ownership
+                            WHERE ownership.article_id = article_revision.article_id
+                              AND ownership.created_by_admin_principal_id = p.id)));
                 """,
-                ArrayParameter("@RevisionIds", pinnedRevisionIds)).ConfigureAwait(false);
+                ArrayParameter("@RevisionIds", pinnedRevisionIds),
+                new SugarParameter("@AdminPrincipalId", owner.AdminPrincipalId),
+                new SugarParameter("@SiteScope", owner.SiteScope),
+                new SugarParameter("@ActiveStatus", AdminPrincipalStatus.Active),
+                new SugarParameter("@RequiredPermission", AdminPermissions.ArticleWrite)).ConfigureAwait(false);
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
                 int articleId = reader.GetInt32(reader.GetOrdinal("article_id"));

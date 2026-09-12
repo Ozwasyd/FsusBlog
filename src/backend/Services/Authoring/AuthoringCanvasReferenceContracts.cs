@@ -12,6 +12,7 @@ public static partial class AuthoringCanvasReferenceContract
     public const int MaxContextSnippetLength = 320;
     public const int MaxRouteLength = 512;
     public const int MaxPermissionFingerprintLength = 128;
+    public const int MaxWorkspaceGroupIdLength = 128;
     public const int DefaultCacheCapacity = 4_096;
 
     [GeneratedRegex("^[0-9a-f]{64}$", RegexOptions.CultureInvariant)]
@@ -33,6 +34,7 @@ public static partial class AuthoringCanvasReferenceContract
         {
             throw new AuthoringCanvasValidationException("canvas_reference_permission_invalid");
         }
+        ValidateOptionalWorkspaceGroupId(request.TargetWorkspaceGroupId);
         if (request.Nodes.Count > MaxBatchSize)
         {
             throw new AuthoringCanvasBudgetExceededException("canvas_reference_batch_budget_exceeded");
@@ -150,6 +152,7 @@ public static partial class AuthoringCanvasReferenceContract
             projection.OpenIntent?.HeadingIdentity,
             projection.OpenIntent?.BlockIdentity,
             projection.OpenIntent?.StableRoute,
+            projection.OpenIntent?.TargetGroupId,
             projection.OpenIntent is null ? null : (int)projection.OpenIntent.Mode,
             projection.UpdateAvailable);
 
@@ -165,6 +168,7 @@ public static partial class AuthoringCanvasReferenceContract
             request.Owner.AdminPrincipalId,
             request.Owner.SiteScope,
             (int)request.Permission,
+            request.TargetWorkspaceGroupId,
             coordinate.Generation,
             coordinate.ContentDigest,
             coordinate.PermissionFingerprint,
@@ -187,10 +191,27 @@ public static partial class AuthoringCanvasReferenceContract
             request.Owner.AdminPrincipalId,
             request.Owner.SiteScope,
             (int)request.Permission,
+            request.TargetWorkspaceGroupId,
             coordinate.Generation,
             coordinate.ContentDigest,
             coordinate.PermissionFingerprint,
-            string.Join(',', items.Select(static item => item.ContentDigest)),
+            string.Join(',', items.Select(static item => HashCanonical(
+                item.NodeId,
+                item.TargetArticleId,
+                item.TargetHeadingIdentity,
+                item.TargetBlockIdentity,
+                item.TargetRevision,
+                (int)item.Status,
+                item.Title,
+                item.ContextSnippet,
+                item.OpenIntent?.ArticleId,
+                item.OpenIntent?.Revision,
+                item.OpenIntent?.HeadingIdentity,
+                item.OpenIntent?.BlockIdentity,
+                item.OpenIntent?.StableRoute,
+                item.OpenIntent?.TargetGroupId,
+                item.OpenIntent is null ? null : (int)item.OpenIntent.Mode,
+                item.ContentDigest))),
             batchDigest,
             targetCount,
             cacheHitCount,
@@ -236,6 +257,20 @@ public static partial class AuthoringCanvasReferenceContract
             || route.Any(static character => char.IsControl(character)))
         {
             throw new AuthoringCanvasValidationException("canvas_reference_route_invalid");
+        }
+    }
+
+    private static void ValidateOptionalWorkspaceGroupId(string? value)
+    {
+        if (value is null)
+        {
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(value)
+            || value.Length > MaxWorkspaceGroupIdLength
+            || value.Any(static character => char.IsControl(character)))
+        {
+            throw new AuthoringCanvasValidationException("canvas_reference_workspace_group_invalid");
         }
     }
 
@@ -300,7 +335,8 @@ public sealed record AuthoringCanvasReferenceResolutionRequest(
     string CanvasContentDigest,
     AuthoringCanvasOwner Owner,
     AuthoringCanvasReferencePermission Permission,
-    IReadOnlyList<AuthoringCanvasNode> Nodes);
+    IReadOnlyList<AuthoringCanvasNode> Nodes,
+    string? TargetWorkspaceGroupId = null);
 
 public enum AuthoringCanvasReferencePermission
 {
@@ -366,7 +402,8 @@ public sealed record AuthoringCanvasOpenIntent(
     string? HeadingIdentity,
     string? BlockIdentity,
     string StableRoute,
-    AuthoringCanvasOpenIntentMode Mode = AuthoringCanvasOpenIntentMode.OpenOrActivate);
+    AuthoringCanvasOpenIntentMode Mode = AuthoringCanvasOpenIntentMode.OpenOrActivate,
+    string? TargetGroupId = null);
 
 public enum AuthoringCanvasOpenIntentMode
 {
@@ -397,10 +434,13 @@ public sealed record AuthoringCanvasReferenceProjection(
 public sealed record AuthoringCanvasReferenceResolutionReceiptItem(
     Guid NodeId,
     int TargetArticleId,
+    string? TargetHeadingIdentity,
+    string? TargetBlockIdentity,
     long? TargetRevision,
     AuthoringCanvasReferenceProjectionStatus Status,
-    bool PreviewIncluded,
-    bool OpenIntentIncluded,
+    string? Title,
+    string? ContextSnippet,
+    AuthoringCanvasOpenIntent? OpenIntent,
     string ContentDigest);
 
 public sealed record AuthoringCanvasReferenceResolutionReceipt(

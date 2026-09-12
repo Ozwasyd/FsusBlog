@@ -1,0 +1,30 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasReferenceContracts.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasReferenceFactSource.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasReferenceResolver.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasReferenceVerifier.cs"
+            ],
+            "reason": "Preserve the established AuthoringCanvas contract and production authority spellings while repairing the reference resolver boundary."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-canvas-document-boundary.md"
+            ],
+            "reason": "Preserve the established architecture document tokens and external contract spellings while documenting the reference authority boundary."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve lifecycle registry JSON keys and canonical test identifiers while assigning the reference suite to its physical owner."
+        }
+    ]
+}

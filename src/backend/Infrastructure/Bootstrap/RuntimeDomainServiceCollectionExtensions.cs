@@ -167,9 +167,11 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IAuthoringRevisionCompareService, AuthoringRevisionCompareService>();
         services.AddScoped<IAuthoringCanvasDocumentStore, AuthoringCanvasDocumentStore>();
         services.AddScoped<IAuthoringCanvasArticleReferenceReader, PostgresAuthoringCanvasArticleReferenceReader>();
+        services.AddScoped<IAuthoringCanvasCoordinateFactProvider, AuthoringCanvasCoordinateFactProvider>();
         services.AddScoped<IAuthoringCanvasReferenceFactSource, AuthoringCanvasReferenceFactSource>();
         services.AddSingleton<AuthoringCanvasReferenceProjectionCache>();
         services.AddScoped<AuthoringCanvasReferenceResolver>();
+        services.AddScoped<AuthoringCanvasReferenceVerifier>();
         services.AddScoped<IAuthorSavedViewDependencyProvider, PostgresAuthorSavedViewDependencyProvider>();
         services.AddScoped<IAuthorSavedViewDependencyCatalog, AuthorSavedViewDependencyCatalog>();
         services.AddScoped<IAuthorSavedViewQueryValidator, AuthorSavedViewQueryValidator>();

@@ -46,6 +46,27 @@ One owner/site pair may hold 100 canvases. One canvas may hold 10,000 nodes and
 and note fields have contract constants and database checks. Exceeding a budget
 fails before the record is stored and is never reported as a truncated success.
 
+## Reference resolution and privacy
+
+The reference resolver reads article metadata in bounded PostgreSQL arrays and
+never selects article bodies, rendered HTML or editable target state. Production
+article facts are restricted to the primary site and to articles attributed to
+an active `ArticleWrite` admin principal; an active root may read all articles. A different principal, wrong site or
+revoked principal receives only `permission-denied/unknown` for an existing
+inaccessible target, without its title, snippet, route, revision or projection
+facts; a confirmed absent target remains `missing`. Heading and block coordinates enter
+through exactly one typed provider. Until the external heading/block authority
+is present, that provider returns no guessed coordinate and the resolver emits
+`source-stale`.
+
+The cache is non-authoritative and binds document, node, stable target,
+principal, site, permission fingerprint and authority generation. The resolver
+rechecks the document revision and digest after asynchronous fact reads before
+it caches or returns a result. Receipts bind stable heading/block identities,
+authorized title and bounded context, exact revision and the actual open intent.
+An optional target group is carried only in that intent; resolution never
+creates a session or mutates workspace/group state.
+
 Deleting a node cascades all incident canvas edges. A member node must first be
 removed from its group frame, which keeps frame membership and the frame digest
 atomic. Deleting a canvas removes only its owned document, nodes, frame
@@ -64,6 +85,6 @@ fails when a second canvas store, browser-local authority, executable/arbitrary
 payload field, graph-position reuse or article/relation/property/graph write is
 introduced.
 
-This boundary does not resolve reference content and does not implement an
-operation history, undo/redo, runtime route, UI, edge-to-link conversion,
-package exchange, collaboration, plug-in nodes or public canvases.
+This boundary does not inline-edit or copy referenced content and does not
+implement an operation history, undo/redo, runtime route, UI, edge-to-link
+conversion, package exchange, collaboration, plug-in nodes or public canvases.
