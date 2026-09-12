@@ -42,6 +42,27 @@ test('second planner and package-reader authorities fail closed', () =>
     );
     assert.match(
         diagnostics((fixture) => fixture.set(
+            'src/core/Services/Articles/AlternativeRevisionSourceDiffEngine.cs',
+            'public sealed class AlternativeRevisionSourceDiffEngine { }'
+        )),
+        /expected exact-one source diff engine/u
+    );
+    assert.match(
+        diagnostics((fixture) => fixture.set(
+            'src/core/Services/Articles/AlternativeRevisionMarkdownStructure.cs',
+            'public sealed class AlternativeRevisionMarkdownStructure : IRevisionMarkdownStructureProvider { }'
+        )),
+        /expected exact-one canonical Markdown structure provider/u
+    );
+    assert.match(
+        diagnostics((fixture) => fixture.set(
+            'src/backend/Services/Authoring/AlternativeRevisionCompareService.cs',
+            'public sealed class AlternativeRevisionCompareService : IAuthoringRevisionCompareService { }'
+        )),
+        /expected exact-one revision compare service/u
+    );
+    assert.match(
+        diagnostics((fixture) => fixture.set(
             'src/backend/Services/Authoring/AlternativeRevisionCompareDraftContextProvider.cs',
             'public sealed class AlternativeRevisionCompareDraftContextProvider : IAuthoringRevisionCompareDraftContextProvider { }'
         )),
@@ -121,6 +142,36 @@ test('metadata authority remains core-owned and exact-one', () =>
     );
 });
 
+test('diff engine rejects HTML formatting AI main-thread and second-body mutations', () =>
+{
+    const mutations = [
+        ['HtmlDocument', /HTML diff authority/u],
+        ['FormatMarkdown', /format-before-diff/u],
+        ['AiSummary', /AI summary or quality score/u],
+        ['MarkdownContent', /second Markdown body store/u],
+        ['Regex', /heading regex authority/u]
+    ];
+    for (const [token, expected] of mutations)
+    {
+        assert.match(
+            diagnostics((fixture) =>
+            {
+                const relative = 'src/core/Services/Articles/RevisionSourceDiff.cs';
+                fixture.set(relative, `${fixture.get(relative)}\n// ${token}\n`);
+            }),
+            expected
+        );
+    }
+    assert.match(
+        diagnostics((fixture) =>
+        {
+            const relative = 'src/core/Services/Articles/RevisionSourceDiff.cs';
+            fixture.set(relative, fixture.get(relative).replace('Task.Run(', 'RunInline('));
+        }),
+        /worker task/u
+    );
+});
+
 test('admission budgets and canonical matrix wiring fail closed when removed', () =>
 {
     assert.match(
@@ -137,7 +188,7 @@ test('admission budgets and canonical matrix wiring fail closed when removed', (
     lane.set(
         'tools/test/lanes/static-governance.sh',
         lane.get('tools/test/lanes/static-governance.sh').replaceAll(
-            'revision-compare-authority StaticRevisionComparePlanAuthority',
+            'revision-compare-authority StaticRevisionCompareAuthority',
             'revision-compare-authority RemovedRevisionCompareAuthority'
         )
     );

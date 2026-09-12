@@ -2724,6 +2724,8 @@ tiers:
           - tests/backend/Unit/RevisionComparePlannerTests.cs
           - src/core/Services/Articles/RevisionCompareCanonical.cs
           - src/core/Services/Articles/RevisionCompareContract.cs
+          - tests/backend/Unit/AuthoringRevisionCompareServiceTests.cs
+          - tests/backend/Unit/RevisionSourceDiffTests.cs
           - src/core/Services/Articles/RevisionCompareContracts.cs
           - src/core/Services/Articles/RevisionCompareMetadataRegistry.cs
           - src/core/Services/Articles/RevisionComparePackages.cs
@@ -2733,7 +2735,10 @@ tiers:
           - src/core/Services/Articles/RevisionComparePlans.cs
           - src/core/Services/Articles/RevisionCompareSourceEnums.cs
           - src/core/Services/Articles/RevisionCompareStatusEnums.cs
+          - src/core/Services/Articles/RevisionMarkdownStructure.cs
+          - src/core/Services/Articles/RevisionSourceDiff.cs
           - src/backend/Services/Authoring/AuthoringRevisionComparePackageReader.cs
+          - src/backend/Services/Authoring/AuthoringRevisionCompareService.cs
           - src/backend/Services/SearchIndexService.Dictionary.cs
           - src/backend/Properties/AssemblyInfo.cs
           - tests/backend/FsusBlog.Server.Tests.csproj

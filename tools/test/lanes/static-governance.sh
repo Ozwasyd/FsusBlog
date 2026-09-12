@@ -56,7 +56,7 @@ StaticTestReplacementDiff() {
     fi
 }
 StaticArticleCoreTestApi() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-article-core-test-api.mjs"; }
-StaticRevisionComparePlanAuthority() {
+StaticRevisionCompareAuthority() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-revision-compare-authority.mjs"
     Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/revision-compare-authority.test.mjs"
 }
@@ -232,7 +232,7 @@ RunTestAssetGovernancePhase() {
         browser-test-migration StaticBrowserTestMigration \
         test-replacement-diff StaticTestReplacementDiff \
         test-lifecycle StaticTestLifecycle \
-        revision-compare-authority StaticRevisionComparePlanAuthority \
+        revision-compare-authority StaticRevisionCompareAuthority \
         canonical-node-behavior StaticTestAssetBehavior \
         article-core-test-api StaticArticleCoreTestApi \
         backend-governance StaticBackendGovernance \
