@@ -13,7 +13,7 @@ internal static class SchemaMigrationCatalog20260906AuthoringCanvasOperations
             Dependencies:
             [
                 new SchemaMigrationCatalogDependency(
-                    TaxonomyDescriptionMigrationDefinitions.MigrationId,
+                    ArticleTemplateAuthorityMigrationDefinitions.MigrationId,
                     SchemaMigrationPhase.PostCodeFirst)
             ],
             Descriptors:
