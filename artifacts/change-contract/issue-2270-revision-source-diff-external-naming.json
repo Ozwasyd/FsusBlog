@@ -1,0 +1,63 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+                "src/backend/Services/Authoring/AuthoringRevisionCompareService.cs",
+                "src/core/Services/Articles/RevisionCompareContract.cs",
+                "src/core/Services/Articles/RevisionMarkdownStructure.cs",
+                "src/core/Services/Articles/RevisionMarkdownStructureAuthority.cs",
+                "src/core/Services/Articles/RevisionMarkdownStructureParser.cs",
+                "src/core/Services/Articles/RevisionMarkdownStructureProvider.cs",
+                "src/core/Services/Articles/RevisionMarkdownStructureSnapshotSeal.cs",
+                "src/core/Services/Articles/RevisionSourceDiff.cs",
+                "src/core/Services/Articles/RevisionSourceDiffHunks.cs",
+                "src/core/Services/Articles/RevisionSourceDiffLineInternals.cs",
+                "src/core/Services/Articles/RevisionSourceDiffLineMatching.cs",
+                "src/core/Services/Articles/RevisionSourceDiffReceipts.cs",
+                "src/core/Services/Articles/RevisionSourceDiffResults.cs",
+                "src/core/Services/Articles/RevisionSourceDiffResultVerifier.cs",
+                "src/core/Services/Articles/RevisionSourceDiffStructureProjection.cs",
+                "src/core/Services/Articles/RevisionSourceDiffValues.cs",
+                "src/core/Services/Articles/RevisionSourceDiffVerifier.cs",
+                "src/core/Services/Articles/RevisionSourceDiffVerifierCoordinates.cs",
+                "src/core/Services/Articles/RevisionSourceDiffWordInternals.cs",
+                "src/core/Services/Articles/RevisionSourceDiffWordMatching.cs",
+                "tools/governance/check-revision-compare-authority.mjs",
+                "tools/governance/revision-compare-authority-rules.mjs"
+            ],
+            "reason": "Preserve caller-visible process and diff-contract spelling on the trusted C# and Node surfaces while internal implementation symbols retain repository naming."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/static-governance.sh"
+            ],
+            "reason": "Preserve the static lane process-environment keys while promoting the plan-only lane to the final diff authority."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/api/article-publication-revisions.md"
+            ],
+            "reason": "Preserve the current revision API document's caller-visible identifiers and diff-contract terminology while documenting the maintained source-diff semantics."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json"
+            ],
+            "reason": "Preserve stable generated JSON schema keys while extending the canonical evidence producer inventory to the final diff authority."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md",
+                "tests/coverage-registry.json"
+            ],
+            "reason": "Preserve the generated matrix documentation and coverage registry's external tier and evidence identifiers while extending the final diff coverage entry."
+        }
+    ]
+}

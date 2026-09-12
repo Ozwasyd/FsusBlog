@@ -149,7 +149,12 @@ test('diff engine rejects HTML formatting AI main-thread and second-body mutatio
         ['FormatMarkdown', /format-before-diff/u],
         ['AiSummary', /AI summary or quality score/u],
         ['MarkdownContent', /second Markdown body store/u],
-        ['Regex', /heading regex authority/u]
+        ['CurrentDraft', /draft mutation or fragment insertion authority/u],
+        ['Fragment', /draft mutation or fragment insertion authority/u],
+        ['Regex', /heading regex authority/u],
+        ['AtxLevel', /private heading parser authority/u],
+        ['SetextLevel', /private heading parser authority/u],
+        ['TryFence', /private heading parser authority/u]
     ];
     for (const [token, expected] of mutations)
     {
@@ -169,6 +174,24 @@ test('diff engine rejects HTML formatting AI main-thread and second-body mutatio
             fixture.set(relative, fixture.get(relative).replace('Task.Run(', 'RunInline('));
         }),
         /worker task/u
+    );
+    assert.match(
+        diagnostics((fixture) =>
+        {
+            const prefix = 'src/core/Services/Articles/RevisionSourceDiff';
+            for (const [relative, source] of fixture)
+            {
+                if (!relative.startsWith(prefix)) continue;
+                fixture.set(
+                    relative,
+                    source.replaceAll(
+                        'IRevisionMarkdownStructureAuthority',
+                        'RemovedRevisionMarkdownStructureAuthority'
+                    )
+                );
+            }
+        }),
+        /canonical Markdown structure authority/u
     );
 });
 

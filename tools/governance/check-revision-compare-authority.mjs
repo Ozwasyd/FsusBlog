@@ -5,6 +5,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { diffAuthorityViolations } from './revision-compare-authority-rules.mjs';
+
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const contractsFile = 'src/core/Services/Articles/RevisionCompareContracts.cs';
 const contractFiles = [
@@ -24,15 +26,37 @@ const plannerFile = 'src/core/Services/Articles/RevisionComparePlanner.cs';
 const readerFile = 'src/backend/Services/Authoring/AuthoringRevisionComparePackageReader.cs';
 const serviceFile = 'src/backend/Services/Authoring/AuthoringRevisionCompareService.cs';
 const diffFile = 'src/core/Services/Articles/RevisionSourceDiff.cs';
-const structureFile = 'src/core/Services/Articles/RevisionMarkdownStructure.cs';
+const diffFiles = [
+    diffFile,
+    'src/core/Services/Articles/RevisionSourceDiffValues.cs',
+    'src/core/Services/Articles/RevisionSourceDiffHunks.cs',
+    'src/core/Services/Articles/RevisionSourceDiffResults.cs',
+    'src/core/Services/Articles/RevisionSourceDiffLineMatching.cs',
+    'src/core/Services/Articles/RevisionSourceDiffWordMatching.cs',
+    'src/core/Services/Articles/RevisionSourceDiffStructureProjection.cs',
+    'src/core/Services/Articles/RevisionSourceDiffReceipts.cs',
+    'src/core/Services/Articles/RevisionSourceDiffLineInternals.cs',
+    'src/core/Services/Articles/RevisionSourceDiffWordInternals.cs',
+    'src/core/Services/Articles/RevisionSourceDiffVerifier.cs',
+    'src/core/Services/Articles/RevisionSourceDiffVerifierCoordinates.cs',
+    'src/core/Services/Articles/RevisionSourceDiffResultVerifier.cs'
+];
+const structureFile = 'src/core/Services/Articles/RevisionMarkdownStructureProvider.cs';
+const structureFiles = [
+    'src/core/Services/Articles/RevisionMarkdownStructure.cs',
+    'src/core/Services/Articles/RevisionMarkdownStructureAuthority.cs',
+    'src/core/Services/Articles/RevisionMarkdownStructureParser.cs',
+    structureFile,
+    'src/core/Services/Articles/RevisionMarkdownStructureSnapshotSeal.cs'
+];
 const registrationFile = 'src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs';
 const requiredFiles = [
     ...contractFiles,
     plannerFile,
     readerFile,
     serviceFile,
-    diffFile,
-    structureFile,
+    ...diffFiles,
+    ...structureFiles,
     registrationFile
 ];
 const laneFile = 'tools/test/lanes/static-governance.sh';
@@ -139,6 +163,10 @@ export function checkRevisionCompareAuthoritySources(sources)
         }
         for (const match of source.matchAll(/\bclass\s+([A-Za-z0-9_]*RevisionSourceDiffEngine[A-Za-z0-9_]*)\b/gu))
         {
+            if (match[1] === 'RevisionSourceDiffEngine' && relative !== diffFile && /\bpartial\s+class\s+RevisionSourceDiffEngine\b/u.test(source))
+            {
+                continue;
+            }
             diffEngines.push(`${relative}:${match[1]}`);
         }
         const compareServiceCount = countMatches(source, /:\s*IAuthoringRevisionCompareService\b/gu);
@@ -297,8 +325,8 @@ export function checkRevisionCompareAuthoritySources(sources)
         }
     }
 
-    const diffSource = sources.get(diffFile);
-    const structureSource = sources.get(structureFile);
+    const diffSource = diffFiles.map((relative) => sources.get(relative)).join('\n');
+    const structureSource = structureFiles.map((relative) => sources.get(relative)).join('\n');
     const serviceSource = sources.get(serviceFile);
     const forbiddenDiffPatterns = [
         ['HTML diff authority', /\b(?:HtmlDocument|DocumentFragment|innerHTML|outerHTML|querySelector)\b/u],
@@ -307,18 +335,17 @@ export function checkRevisionCompareAuthoritySources(sources)
         ['second Markdown body store', /\bMarkdownContent\b/u],
         ['heading regex authority', /\bRegex\b|ParseHeadings|HeadingRegex/u]
     ];
-    for (const [label, pattern] of forbiddenDiffPatterns)
-    {
-        if (pattern.test(diffSource) || pattern.test(structureSource))
-        {
-            violations.push(`${diffFile}: ${label} is forbidden`);
-        }
-    }
-    if (!/Task\.Run\s*\(/u.test(diffSource)
-        || !/ComputeAsync\s*\(\s*RevisionComparePlanBundle\s+bundle/u.test(diffSource))
-    {
-        violations.push(`${diffFile}: diff engine must execute from a sealed plan on a worker task`);
-    }
+    const forbiddenDiffOnlyPatterns = [
+        ['draft mutation or fragment insertion authority', /\b(?:CurrentDraft|Fragment)\b/u],
+        ['private heading parser authority', /\b(?:AtxLevel|SetextLevel|TryFence)\b/u]
+    ];
+    violations.push(...diffAuthorityViolations({
+        diffFile,
+        diffSource,
+        structureSource,
+        forbiddenDiffPatterns,
+        forbiddenDiffOnlyPatterns
+    }));
     if (!/planVerifier\.VerifyAsync/u.test(diffSource)
         || !/diffEngine\.ComputeAsync/u.test(serviceSource))
     {
