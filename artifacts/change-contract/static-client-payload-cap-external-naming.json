@@ -22,7 +22,6 @@
         {
             "id": "environment-variable",
             "paths": [
-                "tests/frontend/checks/static/check-asset-size-budget.mjs",
                 "tools/operations/check-publish-artifact-slimness.mjs",
                 "tools/operations/static-client-payload-budget.mjs",
                 "tools/test/bundles/run-bundle.mjs"
