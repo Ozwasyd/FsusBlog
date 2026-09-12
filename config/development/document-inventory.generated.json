@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:b225b650fc878f048fad378294c8c3c89779666f6325ed54a993f90a920af009",
+    "policyDigest": "sha256:4b761b5753f5cae19569ed13878a2289e8a6b600420962b9d5a7c0a2cc63c4e3",
     "documents": [
         {
             "path": "docs/CODE_OF_CONDUCT.md",
@@ -446,7 +446,8 @@
                 2139,
                 2140,
                 2141,
-                2142
+                2142,
+                2143
             ],
             "producer": null
         },
@@ -2932,7 +2933,8 @@
                 2139,
                 2140,
                 2141,
-                2142
+                2142,
+                2143
             ],
             "producer": null
         },
