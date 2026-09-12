@@ -420,7 +420,11 @@ public sealed class AuthoringCommandContributionTests
             new string('c', 64),
             grant.GrantDigest,
             now.AddMinutes(1),
-            new AuthoringRpcPayload(MutationPlan: plan));
+            new AuthoringRpcPayload(MutationPlan: plan))
+        {
+            SiteIdentity = "site-1",
+            Purpose = "format-selection"
+        };
         var approval = new AuthoringMutationApproval(
             plan.PlanId,
             true,
@@ -582,7 +586,7 @@ public sealed class AuthoringCommandContributionTests
             CancellationToken cancellationToken)
         {
             CallCount++;
-            return ValueTask.FromResult(new AuthoringTransactionReceipt(
+            var receipt = new AuthoringTransactionReceipt(
                 "transaction-1",
                 plan.PlanId,
                 plan.DocumentId,
@@ -591,7 +595,11 @@ public sealed class AuthoringCommandContributionTests
                 "history-1",
                 plan.SelectionIdentity,
                 true,
-                new string('e', 64)));
+                string.Empty);
+            return ValueTask.FromResult(receipt with
+            {
+                ReceiptDigest = AuthoringExtensionRpcAuthority.ComputeTransactionReceiptDigest(receipt)
+            });
         }
     }
 
