@@ -147,6 +147,13 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
                     nodeCount,
                     edgeCount,
                     now).ConfigureAwait(false);
+                await PersistDocumentReceiptAsync(
+                    plan,
+                    revision,
+                    contentDigest,
+                    nodeCount,
+                    edgeCount,
+                    now).ConfigureAwait(false);
                 await PersistHistoryStateAsync(
                     plan,
                     revision,
@@ -348,13 +355,7 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
             plan.Owner,
             plan.CanvasId,
             cancellationToken).ConfigureAwait(false);
-        bool documentFactsValid = integrity.Valid
-            || (integrity.Reasons.Count == 1
-                && string.Equals(
-                    integrity.Reasons[0],
-                    "document_receipt_digest_mismatch",
-                    StringComparison.Ordinal));
-        if (!documentFactsValid
+        if (!integrity.Valid
             || integrity.CanvasId != lockedHeader.Id
             || integrity.Revision != lockedHeader.Revision
             || !string.Equals(integrity.ContentDigest, lockedHeader.ContentDigest, StringComparison.Ordinal)
@@ -783,6 +784,56 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
         {
             throw new AuthoringCanvasRevisionConflictException(plan.ExpectedRevision, header.Revision);
         }
+    }
+
+    private async Task PersistDocumentReceiptAsync(
+        AuthoringCanvasOperationPlan plan,
+        long revision,
+        string contentDigest,
+        int nodeCount,
+        int edgeCount,
+        DateTime now)
+    {
+        Guid receiptId = Guid.CreateVersion7();
+        string commandKind = plan.Mode switch
+        {
+            AuthoringCanvasJournalMode.Apply => "canvas-operation-apply",
+            AuthoringCanvasJournalMode.Undo => "canvas-operation-undo",
+            AuthoringCanvasJournalMode.Redo => "canvas-operation-redo",
+            _ => throw new AuthoringCanvasValidationException("canvas_operation_mode_invalid")
+        };
+        await db.Ado.ExecuteCommandAsync(
+            """
+            INSERT INTO authoring_canvas_receipt(
+                receipt_id, canvas_id, owner_admin_principal_id, site_scope, revision,
+                command_kind, node_count, edge_count, status, reason_code,
+                command_digest, content_digest, created_at_utc)
+            VALUES (
+                @ReceiptId, @CanvasId, @OwnerAdminPrincipalId, @SiteScope, @Revision,
+                @CommandKind, @NodeCount, @EdgeCount, 'applied', NULL,
+                @CommandDigest, @ContentDigest, @CreatedAtUtc);
+
+            INSERT INTO authoring_canvas_idempotency(
+                canvas_id, owner_admin_principal_id, site_scope, request_id, receipt_id,
+                revision, command_kind, node_count, edge_count, command_digest,
+                content_digest, created_at_utc)
+            VALUES (
+                @CanvasId, @OwnerAdminPrincipalId, @SiteScope, @RequestId, @ReceiptId,
+                @Revision, @CommandKind, @NodeCount, @EdgeCount, @CommandDigest,
+                @ContentDigest, @CreatedAtUtc);
+            """,
+            new SugarParameter("@ReceiptId", receiptId),
+            new SugarParameter("@CanvasId", plan.CanvasId),
+            new SugarParameter("@OwnerAdminPrincipalId", plan.Owner.AdminPrincipalId),
+            new SugarParameter("@SiteScope", plan.Owner.SiteScope),
+            new SugarParameter("@RequestId", plan.RequestId),
+            new SugarParameter("@Revision", revision),
+            new SugarParameter("@CommandKind", commandKind),
+            new SugarParameter("@NodeCount", nodeCount),
+            new SugarParameter("@EdgeCount", edgeCount),
+            new SugarParameter("@CommandDigest", plan.TransactionDigest),
+            new SugarParameter("@ContentDigest", contentDigest),
+            new SugarParameter("@CreatedAtUtc", now)).ConfigureAwait(false);
     }
 
     private async Task PersistHistoryStateAsync(
