@@ -349,6 +349,21 @@ const runtimeOrderResultFile = String(process.env.FSUSBLOG_RUNTIME_ORDER_RESULT_
 const runtimeOrderBoundaryCollector = bundleId === 'runtime-browser' && runtimeOrderResultFile
     ? await createProductionBoundaryCollector()
     : null;
+if (runtimeOrderBoundaryCollector)
+{
+    const runtimeOrderSessionRoot = path.resolve(
+        String(process.env.FSUSBLOG_RUNTIME_ORDER_SESSION_ROOT ?? '').trim()
+    );
+    if (!runtimeOrderSessionRoot.startsWith(`${root}${path.sep}`))
+    {
+        throw new Error('runtime-order digest table requires a repository-contained session root');
+    }
+    const runtimeOrderGeneratedRoot = path.join(runtimeOrderSessionRoot, 'mutable', 'generated');
+    fs.mkdirSync(runtimeOrderGeneratedRoot, { recursive: true, mode: 0o700 });
+    const runtimeOrderDigestTable = path.join(runtimeOrderGeneratedRoot, 'artifact-digest-table.json');
+    process.env.FSUSBLOG_ARTIFACT_DIGEST_TABLE = runtimeOrderDigestTable;
+    productionRuntimeChildEnvironment.FSUSBLOG_ARTIFACT_DIGEST_TABLE = runtimeOrderDigestTable;
+}
 
 if (!bundleId || !bundle)
 {

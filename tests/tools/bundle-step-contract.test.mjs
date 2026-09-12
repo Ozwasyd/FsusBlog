@@ -163,6 +163,20 @@ test('runtime-order sessions materialize both mutable static roots from the seal
     assert.doesNotMatch(body, /fs\.cpSync\(productionBuildLayout\.backendWebRoot,/u);
 });
 
+test('runtime-order sessions keep the artifact digest table inside the session mutable root', () =>
+{
+    const source = readFileSync(new URL('../../tools/test/bundles/run-bundle.mjs', import.meta.url), 'utf8');
+    const collector = source.indexOf('const runtimeOrderBoundaryCollector =');
+    const tableCreation = source.indexOf('createArtifactDigestTable({');
+    assert.ok(collector >= 0 && tableCreation > collector);
+    const block = source.slice(collector, tableCreation);
+    assert.match(block, /process\.env\.FSUSBLOG_RUNTIME_ORDER_SESSION_ROOT/u);
+    assert.match(block, /mutable', 'generated'\)/u);
+    assert.match(block, /process\.env\.FSUSBLOG_ARTIFACT_DIGEST_TABLE = runtimeOrderDigestTable/u);
+    assert.match(block, /productionRuntimeChildEnvironment\.FSUSBLOG_ARTIFACT_DIGEST_TABLE = runtimeOrderDigestTable/u);
+    assert.doesNotMatch(block, /FSUSBLOG_ARTIFACT_DIGEST_TABLE = path\.join\(productionBuildLayout/u);
+});
+
 test('runtime correctness runner does not resolve, wrap, or emit counted Chromium admission', () =>
 {
     const source = readFileSync(new URL('../../tools/test/bundles/run-bundle.mjs', import.meta.url), 'utf8');
