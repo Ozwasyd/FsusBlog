@@ -25,6 +25,8 @@ const authorityIds = [
     'community-governance'
 ];
 
+const receiptInvalidationFixtureRoots = new Set();
+
 function runGit(root, args)
 {
     const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
@@ -137,38 +139,94 @@ test('receipt seals source, complete inputs, checker, toolchain, rules and outpu
     })).valid, true);
 });
 
-test('input-only change invalidates an otherwise internally consistent receipt', async (context) =>
+for (const mutationCase of Object.freeze([
+    Object.freeze({
+        caseName: 'input-tree',
+        authorityId: 'test-asset-governance',
+        targetPath: 'inputs/authority-1.txt',
+        replacementContent: 'changed test asset\n',
+        expectedReason: 'input tree digest mismatch',
+        expectedErrors: Object.freeze([
+            'input tree digest mismatch',
+            'source worktree fingerprint mismatch'
+        ]),
+        unexpectedReasons: Object.freeze([
+            'checker source digest mismatch',
+            'parser/toolchain identity mismatch'
+        ])
+    }),
+    Object.freeze({
+        caseName: 'checker-source',
+        authorityId: 'community-governance',
+        targetPath: 'checkers/authority-4.mjs',
+        replacementContent: 'console.log("changed checker")\n',
+        expectedReason: 'checker source digest mismatch',
+        expectedErrors: Object.freeze([
+            'input tree digest mismatch',
+            'checker source digest mismatch',
+            'source worktree fingerprint mismatch'
+        ]),
+        unexpectedReasons: Object.freeze(['parser/toolchain identity mismatch'])
+    }),
+    Object.freeze({
+        caseName: 'parser-toolchain',
+        authorityId: 'document-governance',
+        targetPath: 'toolchains/authority-3.json',
+        replacementContent: '{"parser":99}\n',
+        expectedReason: 'parser/toolchain identity mismatch',
+        expectedErrors: Object.freeze([
+            'input tree digest mismatch',
+            'parser/toolchain identity mismatch',
+            'source worktree fingerprint mismatch'
+        ]),
+        unexpectedReasons: Object.freeze(['checker source digest mismatch'])
+    })
+]))
 {
-    const { root, manifest } = fixture();
-    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
-    const receipt = await createGovernanceReceipt({ root, manifest, authorityId: 'test-asset-governance', write: false });
-    write(root, 'inputs/authority-1.txt', 'changed test asset\n');
-    const result = await verifyGovernanceReceipt({ root, manifest, authorityId: 'test-asset-governance', receipt });
-    assert.equal(result.valid, false);
-    assert.ok(result.errors.includes('input tree digest mismatch'));
-});
+    test(`governance receipt identity invalidation mutation table [${mutationCase.caseName}:${mutationCase.authorityId}]`, async (context) =>
+    {
+        const { root, manifest } = fixture();
+        assert.equal(receiptInvalidationFixtureRoots.has(root), false);
+        receiptInvalidationFixtureRoots.add(root);
+        context.after(() =>
+        {
+            fs.rmSync(root, { recursive: true, force: true });
+            assert.equal(fs.existsSync(root), false);
+        });
+        const receipt = await createGovernanceReceipt({
+            root,
+            manifest,
+            authorityId: mutationCase.authorityId,
+            write: false
+        });
+        const beforeMutation = await verifyGovernanceReceipt({
+            root,
+            manifest,
+            authorityId: mutationCase.authorityId,
+            receipt
+        });
+        assert.deepEqual(beforeMutation, { valid: true, errors: [] });
 
-test('checker-source change invalidates checker identity even when receipt bytes are untouched', async (context) =>
-{
-    const { root, manifest } = fixture();
-    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
-    const receipt = await createGovernanceReceipt({ root, manifest, authorityId: 'community-governance', write: false });
-    write(root, 'checkers/authority-4.mjs', 'console.log("changed checker")\n');
-    const result = await verifyGovernanceReceipt({ root, manifest, authorityId: 'community-governance', receipt });
-    assert.equal(result.valid, false);
-    assert.ok(result.errors.includes('checker source digest mismatch'));
-});
+        write(root, mutationCase.targetPath, mutationCase.replacementContent);
 
-test('parser and toolchain identity change invalidates reuse', async (context) =>
-{
-    const { root, manifest } = fixture();
-    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
-    const receipt = await createGovernanceReceipt({ root, manifest, authorityId: 'document-governance', write: false });
-    write(root, 'toolchains/authority-3.json', '{"parser":99}\n');
-    const result = await verifyGovernanceReceipt({ root, manifest, authorityId: 'document-governance', receipt });
-    assert.equal(result.valid, false);
-    assert.ok(result.errors.includes('parser/toolchain identity mismatch'));
-});
+        const afterMutation = await verifyGovernanceReceipt({
+            root,
+            manifest,
+            authorityId: mutationCase.authorityId,
+            receipt
+        });
+        assert.equal(afterMutation.valid, false);
+        assert.ok(
+            afterMutation.errors.includes(mutationCase.expectedReason),
+            `${mutationCase.caseName} did not report ${mutationCase.expectedReason}: ${afterMutation.errors.join('; ')}`
+        );
+        assert.deepEqual(afterMutation.errors, mutationCase.expectedErrors);
+        for (const unexpectedReason of mutationCase.unexpectedReasons)
+        {
+            assert.equal(afterMutation.errors.includes(unexpectedReason), false);
+        }
+    });
+}
 
 test('tampered rule IDs or command-output digests cannot be repaired by retaining the old outer digest', async (context) =>
 {

@@ -13,6 +13,10 @@ namespace FsusBlog.Server.Infrastructure.Audit;
 public interface IAuditLogStore
 {
     Task WriteBatchAsync(IReadOnlyList<AuditRecord> records, CancellationToken cancellationToken);
+
+    void InvalidateChainTailCache(IEnumerable<string> chainIds)
+    {
+    }
 }
 
 public sealed class AuditLogStore(
@@ -110,6 +114,14 @@ public sealed class AuditLogStore(
         }
 
         FsusObservability.RecordAuditBatchWrite(records.Count, FsusObservability.GetElapsed(startedAt));
+    }
+
+    public void InvalidateChainTailCache(IEnumerable<string> chainIds)
+    {
+        foreach (string chainId in chainIds.Where(static item => !string.IsNullOrWhiteSpace(item)))
+        {
+            s_chainTailCache.TryRemove(chainId, out _);
+        }
     }
 
     private static AuditLogInsertBatchShape BuildInsertBatchShape(int recordCount)
@@ -255,6 +267,18 @@ public sealed class AuditLogStore(
         => string.IsNullOrWhiteSpace(record.ChainId)
             ? record.OccurredAtUtc.ToUniversalTime().ToString("yyyyMMdd", CultureInfo.InvariantCulture)
             : record.ChainId.Trim();
+
+    /// <summary>
+    /// Drops the cached tail for a chain that an in-transaction writer has just extended.
+    /// The next batch re-reads the durable tail so its prev_hash binds the committed row.
+    /// </summary>
+    internal static void InvalidateChainTail(string chainId)
+    {
+        if (!string.IsNullOrWhiteSpace(chainId))
+        {
+            s_chainTailCache.TryRemove(chainId, out _);
+        }
+    }
 
     internal static void ClearChainTailCacheForTests()
         => s_chainTailCache.Clear();

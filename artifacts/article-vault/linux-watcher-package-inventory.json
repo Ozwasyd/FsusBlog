@@ -44,19 +44,19 @@
             "read",
             "realpath"
         ],
-        "requiredFlags": [
-            "IN_CLOEXEC",
-            "IN_NONBLOCK"
-        ],
+        "requiredFlags": ["IN_CLOEXEC", "IN_NONBLOCK"],
         "eventRecord": "inotify_event"
     },
     "tests": {
         "project": "tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj",
         "sources": [
+            "tests/article-vault/linux/LinuxVaultAgentHarness.cs",
+            "tests/article-vault/linux/LinuxVaultAgentQualificationTests.cs",
             "tests/article-vault/linux/LinuxVaultRawFactContractTests.cs",
             "tests/article-vault/linux/LinuxVaultRootSecurityTests.cs",
             "tests/article-vault/linux/LinuxVaultWatcherExt4Tests.cs"
         ],
+        "qualificationCommand": "dotnet test tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj --no-restore --filter Category=LinuxArticleVaultAgentQualification",
         "focusedCommand": "dotnet test tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj --no-restore --filter Category=LinuxArticleVaultWatcher"
     },
     "documentation": "docs/architecture/article-vault-linux-watcher.md",

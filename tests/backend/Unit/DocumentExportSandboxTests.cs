@@ -146,8 +146,12 @@ public sealed class DocumentExportSandboxTests : IDisposable
         (DocumentExportFrozenInput input, DocumentExportTask task) = DocumentExportTestToolFixture.ValidTask();
         DocumentExportSandboxRuntime sandbox = _fixture.CreateSandbox();
         Directory.CreateDirectory(_fixture.RunsRoot);
-        UnixFileMode originalMode = File.GetUnixFileMode(_fixture.RunsRoot);
-        File.SetUnixFileMode(_fixture.RunsRoot, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        UnixFileMode? originalMode = null;
+        if (!OperatingSystem.IsWindows())
+        {
+            originalMode = File.GetUnixFileMode(_fixture.RunsRoot);
+            File.SetUnixFileMode(_fixture.RunsRoot, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        }
         try
         {
             DocumentExportSandboxExecutionException exception = await Assert.ThrowsAsync<DocumentExportSandboxExecutionException>(
@@ -175,7 +179,8 @@ public sealed class DocumentExportSandboxTests : IDisposable
         }
         finally
         {
-            File.SetUnixFileMode(_fixture.RunsRoot, originalMode);
+            if (!OperatingSystem.IsWindows() && originalMode is { } mode)
+                File.SetUnixFileMode(_fixture.RunsRoot, mode);
         }
     }
 

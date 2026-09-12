@@ -38,6 +38,73 @@ const diagnosticPrograms = new Set([
     'tests/browser-diagnostics/run.mjs',
     'tools/operations/check-evidence-metrics.mjs'
 ]);
+// These exact findings select fixture entities inside an import-only verifier;
+// they do not select evidence locations. Pin the complete scanner identity and
+// source excerpt so a new or repurposed selector cannot inherit the exception.
+const nonEvidenceFindingOverrides = new Map([
+    {
+        findingId: '0161ebbad5c102e4',
+        ruleId: 'evidence-selection.first-match',
+        file: 'tools/test-fixtures/receipt/postconditions.mjs',
+        line: 461,
+        column: 24,
+        function: 'verifyCommentMatrix',
+        excerpt: 'const fields = matches[0].fields ?? {}',
+        indirectVia: null
+    },
+    {
+        findingId: '93c19c86428bad07',
+        ruleId: 'evidence-selection.first-match',
+        file: 'tools/test-fixtures/receipt/postconditions.mjs',
+        line: 503,
+        column: 38,
+        function: 'verifyCommentMatrix',
+        excerpt: "|| spam.signalEvidence.some((evidence) => String(evidence?.commentId) !== String(one('spam')[0].id)",
+        indirectVia: null
+    },
+    {
+        findingId: 'bda3eb9cd23f19ee',
+        ruleId: 'evidence-selection.first-match',
+        file: 'tools/test-fixtures/receipt/postconditions.mjs',
+        line: 523,
+        column: 13,
+        function: 'verifyCommentMatrix',
+        excerpt: "const root = one('approved-root')[0]",
+        indirectVia: null
+    },
+    {
+        findingId: 'dad5302ebd3636da',
+        ruleId: 'evidence-selection.first-match',
+        file: 'tools/test-fixtures/receipt/postconditions.mjs',
+        line: 561,
+        column: 24,
+        function: 'verifyCommentMatrix',
+        excerpt: "if (one('deleted-root-child')[0]?.fields?.publicVisible !== true) {",
+        indirectVia: null
+    },
+    {
+        findingId: '53dda5d48e67b80f',
+        ruleId: 'evidence-selection.first-match',
+        file: 'tools/test-fixtures/receipt/postconditions.mjs',
+        line: 564,
+        column: 40,
+        function: 'verifyCommentMatrix',
+        excerpt: "const deletedRoot = one('deleted-root')[0]",
+        indirectVia: null
+    },
+    {
+        findingId: '1eab0cd97c6edc4c',
+        ruleId: 'evidence-selection.first-match',
+        file: 'tools/test-fixtures/receipt/postconditions.mjs',
+        line: 565,
+        column: 41,
+        function: 'verifyCommentMatrix',
+        excerpt: "const deletedChild = one('deleted-root-child')[0]",
+        indirectVia: null
+    }
+].map((finding) => [finding.findingId, Object.freeze(finding)]));
+const nonEvidenceOverrideFiles = new Set([...nonEvidenceFindingOverrides.values()]
+    .map((finding) => finding.file));
 const evidenceProgramName = /(?:artifact|evidence|flaky|manifest|quality-gate|receipt|release-final|report|summary)/iu;
 
 function programClassification(file)
@@ -55,6 +122,49 @@ function programClassification(file)
         return 'correctness-selection';
     }
     return 'not-evidence';
+}
+
+export function validateEvidenceLocationClassificationOverrides(scan)
+{
+    const errors = [];
+    const findingsById = new Map(scan.findings.map((finding) => [finding.findingId, finding]));
+    for (const [findingId, expected] of nonEvidenceFindingOverrides)
+    {
+        const actual = findingsById.get(findingId);
+        if (!actual)
+        {
+            errors.push(`non-evidence finding override is missing: ${findingId}`);
+            continue;
+        }
+        for (const field of ['ruleId', 'file', 'line', 'column', 'function', 'excerpt', 'indirectVia'])
+        {
+            if (actual[field] !== expected[field])
+            {
+                errors.push(`non-evidence finding override ${findingId} changed ${field}`);
+            }
+        }
+    }
+    for (const finding of scan.findings)
+    {
+        if (nonEvidenceOverrideFiles.has(finding.file)
+            && !nonEvidenceFindingOverrides.has(finding.findingId))
+        {
+            errors.push(`unreviewed evidence selector in import-only module: ${finding.findingId} ${finding.file}:${finding.line}`);
+        }
+    }
+    if (errors.length > 0)
+    {
+        throw new Error(errors.join('\n'));
+    }
+}
+
+function findingClassification(finding)
+{
+    if (nonEvidenceFindingOverrides.has(finding.findingId))
+    {
+        return 'not-evidence';
+    }
+    return programClassification(finding.file);
 }
 
 function stableSlug(value)
@@ -217,7 +327,7 @@ function buildGovernance(scan)
 {
     const entries = scan.findings.map((finding) =>
     {
-        const classification = programClassification(finding.file);
+        const classification = findingClassification(finding);
         const consumerId = consumerIdFor(finding.file);
         const applicable = classification !== 'not-evidence';
         return {
@@ -240,7 +350,7 @@ function buildGovernance(scan)
         };
     });
     const applicableFiles = [...new Set(scan.findings
-        .filter((finding) => programClassification(finding.file) !== 'not-evidence')
+        .filter((finding) => findingClassification(finding) !== 'not-evidence')
         .map((finding) => finding.file))].sort();
     const registryEntries = applicableFiles.map((file) =>
     {
@@ -368,6 +478,7 @@ function serialized(value)
 export function generateEvidenceLocationGovernance({ root = repositoryRoot } = {})
 {
     const scan = scanEvidenceLocations({ root });
+    validateEvidenceLocationClassificationOverrides(scan);
     const { registry, ledger } = buildGovernance(scan);
     verifyEvidenceLocationGovernance({ registry, ledger, scan });
     return { scan, registry, ledger };

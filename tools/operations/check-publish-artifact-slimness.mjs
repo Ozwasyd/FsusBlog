@@ -4,15 +4,48 @@ import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import {
+  loadStaticClientPayloadBudget,
+  parsePositiveFiniteSafeBudget,
+  resolveStaticPayloadBudgetExecution
+} from './static-client-payload-budget.mjs'
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const defaultPublishDir = path.join(rootDir, 'src', 'backend', 'bin', 'Release', 'net10.0', 'publish')
 const defaultOutFile = path.join(rootDir, '.tmp', 'release-evidence', 'publish-artifacts-summary.json')
+const staticClientPayloadBudget = loadStaticClientPayloadBudget()
+const budgetOverrideEnvironmentNames = [
+  'FSUSBLOG_PUBLISH_CLIENT_RUNTIME_MAX_MIB',
+  'FSUSBLOG_PUBLISH_WWWROOT_MAX_MIB',
+  'FSUSBLOG_PUBLISH_MAX_FILE_COUNT'
+]
+const budgetExecution = resolveStaticPayloadBudgetExecution(process.env, budgetOverrideEnvironmentNames)
+const budgetAuthority = {
+  schema: staticClientPayloadBudget.schema,
+  budgetModel: staticClientPayloadBudget.budgetModel,
+  baseline: staticClientPayloadBudget.baseline,
+  ...budgetExecution
+}
 
 const defaultBudgets = {
-  clientRuntimeMaxMiB: Number(process.env.FSUSBLOG_PUBLISH_CLIENT_RUNTIME_MAX_MIB || 50),
-  wwwRootMaxMiB: Number(process.env.FSUSBLOG_PUBLISH_WWWROOT_MAX_MIB || 80),
-  maxFileCount: Number(process.env.FSUSBLOG_PUBLISH_MAX_FILE_COUNT || 5000)
+  clientRuntimeMaxBytes: parsePositiveFiniteSafeBudget(
+    process.env.FSUSBLOG_PUBLISH_CLIENT_RUNTIME_MAX_MIB,
+    'FSUSBLOG_PUBLISH_CLIENT_RUNTIME_MAX_MIB',
+    { defaultValue: 50, multiplier: 1024 * 1024 }
+  ),
+  wwwRootMaxBytes: process.env.FSUSBLOG_PUBLISH_WWWROOT_MAX_MIB === undefined
+    ? staticClientPayloadBudget.maxTotalBytes
+    : parsePositiveFiniteSafeBudget(
+        process.env.FSUSBLOG_PUBLISH_WWWROOT_MAX_MIB,
+        'FSUSBLOG_PUBLISH_WWWROOT_MAX_MIB',
+        { multiplier: 1024 * 1024 }
+      ),
+  wwwRootMaxFileCount: staticClientPayloadBudget.maxFileCount,
+  maxFileCount: parsePositiveFiniteSafeBudget(
+    process.env.FSUSBLOG_PUBLISH_MAX_FILE_COUNT,
+    'FSUSBLOG_PUBLISH_MAX_FILE_COUNT',
+    { defaultValue: 5000 }
+  )
 }
 
 function parseArgs(argv) {
@@ -147,7 +180,9 @@ function validatePublishDir(publishDir, budgets = defaultBudgets, requirePublish
       status: requirePublishDir ? 'blocked' : 'missing',
       publishDir,
       budgets,
+      budgetAuthority,
       wwwrootBytes: 0,
+      wwwrootFileCount: 0,
       clientRuntimeBytes: 0,
       totalPublishBytes: 0,
       fileCount: 0,
@@ -170,7 +205,9 @@ function validatePublishDir(publishDir, budgets = defaultBudgets, requirePublish
       status: 'skipped',
       publishDir,
       budgets,
+      budgetAuthority,
       wwwrootBytes: sumBytes(wwwrootFiles),
+      wwwrootFileCount: wwwrootFiles.length,
       clientRuntimeBytes: 0,
       totalPublishBytes: sumBytes(publishFiles),
       fileCount: publishFiles.length,
@@ -202,11 +239,14 @@ function validatePublishDir(publishDir, budgets = defaultBudgets, requirePublish
   const clientRuntimeBytes = sumBytes(clientRuntimeFiles)
   const wwwrootBytes = sumBytes(wwwrootFiles)
   const totalPublishBytes = sumBytes(publishFiles)
-  if (clientRuntimeBytes > budgets.clientRuntimeMaxMiB * 1024 * 1024) {
-    violations.push(`ClientRuntime exceeds budget: ${clientRuntimeBytes} bytes > ${budgets.clientRuntimeMaxMiB} MiB`)
+  if (clientRuntimeBytes > budgets.clientRuntimeMaxBytes) {
+    violations.push(`ClientRuntime exceeds budget: ${clientRuntimeBytes} bytes > ${budgets.clientRuntimeMaxBytes} bytes`)
   }
-  if (wwwrootBytes > budgets.wwwRootMaxMiB * 1024 * 1024) {
-    violations.push(`wwwroot exceeds budget: ${wwwrootBytes} bytes > ${budgets.wwwRootMaxMiB} MiB`)
+  if (wwwrootBytes > budgets.wwwRootMaxBytes) {
+    violations.push(`wwwroot exceeds budget: ${wwwrootBytes} bytes > ${budgets.wwwRootMaxBytes} bytes`)
+  }
+  if (wwwrootFiles.length > budgets.wwwRootMaxFileCount) {
+    violations.push(`wwwroot file count exceeds budget: ${wwwrootFiles.length} > ${budgets.wwwRootMaxFileCount}`)
   }
   if (publishFiles.length > budgets.maxFileCount) {
     violations.push(`publish file count exceeds budget: ${publishFiles.length} > ${budgets.maxFileCount}`)
@@ -216,7 +256,9 @@ function validatePublishDir(publishDir, budgets = defaultBudgets, requirePublish
     status: violations.length === 0 ? 'ok' : 'blocked',
     publishDir,
     budgets,
+    budgetAuthority,
     wwwrootBytes,
+    wwwrootFileCount: wwwrootFiles.length,
     clientRuntimeBytes,
     totalPublishBytes,
     fileCount: publishFiles.length,
@@ -261,6 +303,26 @@ function runSelfTest() {
     if (ok.status !== 'ok') {
       throw new Error(`expected valid fixture to pass: ${ok.violations.join('; ')}`)
     }
+
+    const overBudgetFile = path.join(publishDir, 'wwwroot', 'assets', 'over-budget.bin')
+    fs.writeFileSync(overBudgetFile, '')
+    fs.truncateSync(overBudgetFile, staticClientPayloadBudget.maxTotalBytes + 1)
+    const overBudget = validatePublishDir(publishDir, defaultBudgets, true)
+    if (overBudget.status !== 'blocked' || !overBudget.violations.some((violation) => violation.includes('wwwroot exceeds budget'))) {
+      throw new Error('expected audited static-client baseline growth to block')
+    }
+    fs.rmSync(overBudgetFile)
+
+    const overFileCountDir = path.join(publishDir, 'wwwroot', 'file-count-fixture')
+    fs.mkdirSync(overFileCountDir)
+    for (let index = 0; index < staticClientPayloadBudget.maxFileCount; index += 1) {
+      fs.writeFileSync(path.join(overFileCountDir, String(index)), '')
+    }
+    const overFileCount = validatePublishDir(publishDir, defaultBudgets, true)
+    if (overFileCount.status !== 'blocked' || !overFileCount.violations.some((violation) => violation.includes('wwwroot file count exceeds budget'))) {
+      throw new Error('expected audited static-client file-count growth to block')
+    }
+    fs.rmSync(overFileCountDir, { recursive: true, force: true })
 
     writeFixture(publishDir, {
       'FsusBlog.ClientRuntime/src/main.ts': 'export {}'

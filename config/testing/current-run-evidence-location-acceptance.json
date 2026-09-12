@@ -1,16 +1,16 @@
 {
     "schema": "fsusblog.current-run-evidence-location-acceptance.v1",
     "sourceDigests": {
-        "config/testing/evidence-locator-registry.json": "sha256:ac5e4322e896fd36bcd133e841bb3acdaeb537a2db0da3b06a5dab9c3dd38437",
-        "config/testing/evidence-location-migration-ledger.json": "sha256:c6ce6aba2b2175ff537ed34da64dbde54a91ffe3139261eeef9ec50c38dbf241",
+        "config/testing/evidence-locator-registry.json": "sha256:59289ad034f3d0d4c1944e2de5472e696a706c804f8941157243befb9f441749",
+        "config/testing/evidence-location-migration-ledger.json": "sha256:7e9991205ed53d2a9c284efc9d4ac07b0294416cc63dd5d972558de5a0e9f19c",
         "tools/test/evidence-location-scanner.mjs": "sha256:5d554791088fc092c944ed010a0f66a69ed30655e7621e622cf27d2967a325b6",
         "tools/test/current-run-evidence-locator.mjs": "sha256:a3477d14e62b2e6a30bc48e16eaf417e49996fdab58e39ae064f1c7ac07b0653",
         "tools/test/current-run-evidence-transport.mjs": "sha256:74b09545ad37fb5b5dcacb56726a4ae0e46c6c664d6775b8ba109867816f0f28",
-        "tools/test/generate-evidence-location-governance.mjs": "sha256:65a37f95d05993fa447c9550a3b9ae3839dd66a554cc772a0d7e13e7e352423f"
+        "tools/test/generate-evidence-location-governance.mjs": "sha256:33f4fc399b3af18d4b540f9fc892237f30220e4a00a54e1579671bcf940f1a4a"
     },
-    "registryDigest": "sha256:0bef64c9746916ca101ff3d8b62db71c2a35e0363954d2cc95606315293624fe",
-    "ledgerDigest": "sha256:9978d3d1918068904121ccd041ebaf03d58a9f04d9a5cb22f09c87b963c0866d",
-    "scannerDigest": "sha256:32e6527b9745157ac61ecaebfa11e80aa9a60049a1ec27cf5ddd386336eaf5d9",
+    "registryDigest": "sha256:7cf3c25d696cfaf8aa9029933983727e84cc040f8deead4749c93e664b71343b",
+    "ledgerDigest": "sha256:89a6404edb4eb47930a2e1d399be8d5cbcd68b39f9a67707661d5d6f10b5da6e",
+    "scannerDigest": "sha256:e90e4c0e2fea3ee6a2299449011f367ed04af6d7e41e74b8cc88a13512a4c0ef",
     "locatorDigest": "sha256:a3477d14e62b2e6a30bc48e16eaf417e49996fdab58e39ae064f1c7ac07b0653",
     "transportDigest": "sha256:74b09545ad37fb5b5dcacb56726a4ae0e46c6c664d6775b8ba109867816f0f28",
     "consumerInventory": [
@@ -302,13 +302,6 @@
             "publicationMode": "hooked"
         },
         {
-            "consumerId": "evidence-consumer.test-fixtures.receipt.postconditions",
-            "authorityId": "evidence-consumer.test-fixtures.receipt.postconditions.current-run",
-            "producerId": "evidence-consumer.test-fixtures.receipt.postconditions.producer",
-            "locatorMode": "explicit-run-path",
-            "publicationMode": "hooked"
-        },
-        {
             "consumerId": "evidence-consumer.test-matrix.artifact-digest-table",
             "authorityId": "evidence-consumer.test-matrix.artifact-digest-table.current-run",
             "producerId": "evidence-consumer.test-matrix.artifact-digest-table.producer",
@@ -526,8 +519,8 @@
             "publicationMode": "parent"
         }
     ],
-    "consumerCount": 73,
-    "findingCount": 405,
+    "consumerCount": 72,
+    "findingCount": 414,
     "warnings": [],
-    "contentDigest": "sha256:c90729e624de8a60c3d8651108d8a586cb676b0c31693601b8a40628f5acda45"
+    "contentDigest": "sha256:0967cb4dce1abc8ea89c34543bf05791985bc3aeb2bb8402364d672f44392e2d"
 }

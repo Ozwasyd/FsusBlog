@@ -143,9 +143,7 @@ public sealed class CommentAnonymousFixtureOperationLedger(
         {
             Directory.CreateDirectory(_root);
             if (!OperatingSystem.IsWindows())
-            {
                 File.SetUnixFileMode(_root, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-            }
             if (File.Exists(path))
             {
                 CommentAnonymousFixtureOperationReference existing = ReadCore(path, reference.OperationPlanDigest);
@@ -188,9 +186,7 @@ public sealed class CommentAnonymousFixtureOperationLedger(
                     new UTF8Encoding(false),
                     cancellationToken).ConfigureAwait(false);
                 if (!OperatingSystem.IsWindows())
-                {
                     File.SetUnixFileMode(temporaryPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
-                }
                 File.Move(temporaryPath, path, overwrite: false);
             }
             finally

@@ -800,13 +800,13 @@ function callFacts(ctx, body, caseId, testIdByCallbackName)
     const visitedLocalFunctions = new Set();
     let asyncSeen = false;
 
-    const visit = (node) =>
+    const visit = (node, ownsCallbackReturns = true) =>
     {
         if (ts.isAwaitExpression(node))
         {
             asyncSeen = true;
         }
-        if (ts.isReturnStatement(node))
+        if (ownsCallbackReturns && ts.isReturnStatement(node))
         {
             const text = ctx.source.slice(node.getStart(ctx.sourceFile), node.getEnd()).replace(/\s+/gu, ' ').trim().slice(0, 240);
             if (!returnStatements.includes(text))
@@ -865,11 +865,13 @@ function callFacts(ctx, body, caseId, testIdByCallbackName)
                 if (localFunctionBody && !visitedLocalFunctions.has(identity.rootName))
                 {
                     visitedLocalFunctions.add(identity.rootName);
-                    visit(localFunctionBody);
+                    visit(localFunctionBody, false);
                 }
             }
         }
-        ts.forEachChild(node, visit);
+        // Helper and nested callback returns exit their own function, not this test.
+        const childOwnsCallbackReturns = ownsCallbackReturns && !ts.isFunctionLike(node);
+        ts.forEachChild(node, child => visit(child, childOwnsCallbackReturns));
     };
     visit(body);
     return {

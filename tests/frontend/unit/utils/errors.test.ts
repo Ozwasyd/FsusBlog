@@ -51,14 +51,25 @@ describe('getErrorMessage', () => {
     expect(getErrorMessage(e, 'fallback')).toBe('access denied')
   })
 
-  it('maps known Validation message INVALID_TOTP', () => {
-    const e = new AppError(AppErrorCode.Validation, 'INVALID_TOTP')
-    expect(getErrorMessage(e, 'fallback')).toBe('验证码无效，请重试')
+  it.each([
+    {
+      caseName: 'invalid TOTP',
+      rawMessage: 'INVALID_TOTP',
+      expected: '验证码无效，请重试'
+    },
+    {
+      caseName: 'invalid base URL protocol',
+      rawMessage: 'BASEURL_PROTOCOL_INVALID',
+      expected: '站点URL协议不合法'
+    }
+  ])('maps known Validation message $caseName', ({ rawMessage, expected }) => {
+    const error = new AppError(AppErrorCode.Validation, rawMessage)
+    expect(getErrorMessage(error, 'fallback')).toBe(expected)
   })
 
-  it('maps known Validation message BASEURL_PROTOCOL_INVALID', () => {
-    const e = new AppError(AppErrorCode.Validation, 'BASEURL_PROTOCOL_INVALID')
-    expect(getErrorMessage(e, 'fallback')).toBe('站点URL协议不合法')
+  it('returns an unknown Validation message unchanged', () => {
+    const error = new AppError(AppErrorCode.Validation, 'UNKNOWN_VALIDATION_MESSAGE')
+    expect(getErrorMessage(error, 'fallback')).toBe('UNKNOWN_VALIDATION_MESSAGE')
   })
 
   it('maps known ProtocolFailure messages', () => {
