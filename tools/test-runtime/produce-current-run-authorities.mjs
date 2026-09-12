@@ -135,7 +135,14 @@ async function produceBuildAuthorities({ runId, attemptId, sourceState })
         await run(path.join(root, 'tools', 'test', 'run-with-dotnet-release-build-lock.sh'), [
             path.join(root, 'tools', 'build-with-data-env.sh'),
             'dotnet', 'build', path.join(root, 'src/backend/FsusBlog.Server.csproj'),
-            '-c', 'Release', '--no-restore', '--no-incremental', '-warnaserror', '-v', 'minimal', '/p:NuGetAudit=false'
+            '-c', 'Release', '--no-restore', '--no-incremental', '-warnaserror', '-v', 'minimal',
+            '/p:NuGetAudit=false', `-p:FsusBlogCommitSha=${sourceState.commit}`
+        ], env);
+        await run(path.join(root, 'tools', 'test', 'run-with-dotnet-release-build-lock.sh'), [
+            path.join(root, 'tools', 'build-with-data-env.sh'),
+            'dotnet', 'build', path.join(root, 'src/migration/FsusBlog.Migration.csproj'),
+            '-c', 'Release', '--no-restore', '--no-dependencies', '--no-incremental',
+            '-warnaserror', '-v', 'minimal', '/p:NuGetAudit=false'
         ], env);
         await run(path.join(root, 'tools', 'test', 'run-with-dotnet-release-build-lock.sh'), [
             path.join(root, 'tools', 'build-with-data-env.sh'),
