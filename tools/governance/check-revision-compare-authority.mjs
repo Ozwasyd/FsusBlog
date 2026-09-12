@@ -7,11 +7,24 @@ import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const contractsFile = 'src/core/Services/Articles/RevisionCompareContracts.cs';
+const contractFiles = [
+    'src/core/Services/Articles/RevisionCompareSourceEnums.cs',
+    'src/core/Services/Articles/RevisionCompareStatusEnums.cs',
+    contractsFile,
+    'src/core/Services/Articles/RevisionComparePackages.cs',
+    'src/core/Services/Articles/RevisionComparePackageReaderContracts.cs',
+    'src/core/Services/Articles/RevisionComparePlans.cs',
+    'src/core/Services/Articles/RevisionCompareMetadataRegistry.cs',
+    'src/core/Services/Articles/RevisionComparePackageSeal.cs',
+    'src/core/Services/Articles/RevisionCompareContract.cs',
+    'src/core/Services/Articles/RevisionCompareCanonical.cs'
+];
+const metadataRegistryFile = 'src/core/Services/Articles/RevisionCompareMetadataRegistry.cs';
 const plannerFile = 'src/core/Services/Articles/RevisionComparePlanner.cs';
 const readerFile = 'src/backend/Services/Authoring/AuthoringRevisionComparePackageReader.cs';
 const registrationFile = 'src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs';
 const requiredFiles = [
-    contractsFile,
+    ...contractFiles,
     plannerFile,
     readerFile,
     registrationFile
@@ -150,7 +163,7 @@ export function checkRevisionCompareAuthoritySources(sources)
     {
         violations.push(`expected exact-one production draft context provider ${readerFile}; found ${draftProviders.join(', ') || '<none>'}`);
     }
-    const expectedMetadata = `${contractsFile}:RevisionCompareMetadataRegistry`;
+    const expectedMetadata = `${metadataRegistryFile}:RevisionCompareMetadataRegistry`;
     if (metadataAuthorities.length !== 1 || metadataAuthorities[0] !== expectedMetadata)
     {
         violations.push(`expected exact-one revision compare metadata authority ${expectedMetadata}; found ${metadataAuthorities.join(', ') || '<none>'}`);
@@ -200,7 +213,7 @@ export function checkRevisionCompareAuthoritySources(sources)
         violations.push(`${readerFile}: permission and article admission must precede every source read`);
     }
 
-    const contractsSource = sources.get(contractsFile);
+    const contractsSource = contractFiles.map((relative) => sources.get(relative)).join('\n');
     for (const required of [
         'BasePackageReference',
         'ComparePackageReference',

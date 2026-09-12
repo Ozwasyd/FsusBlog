@@ -6265,16 +6265,6 @@
             ]
         },
         {
-            "file": "tests/tools/revision-compare-authority.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/revision-compare-authority.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
-            "classifications": [
-                "behavior"
-            ]
-        },
-        {
             "file": "tests/tools/article-embed-authoring.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",

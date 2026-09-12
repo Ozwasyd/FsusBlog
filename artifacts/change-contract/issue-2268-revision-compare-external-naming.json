@@ -6,8 +6,17 @@
             "paths": [
                 "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
                 "src/backend/Services/Authoring/AuthoringRevisionComparePackageReader.cs",
+                "src/core/Services/Articles/RevisionCompareCanonical.cs",
+                "src/core/Services/Articles/RevisionCompareContract.cs",
                 "src/core/Services/Articles/RevisionCompareContracts.cs",
+                "src/core/Services/Articles/RevisionCompareMetadataRegistry.cs",
+                "src/core/Services/Articles/RevisionComparePackages.cs",
+                "src/core/Services/Articles/RevisionComparePackageReaderContracts.cs",
+                "src/core/Services/Articles/RevisionComparePackageSeal.cs",
                 "src/core/Services/Articles/RevisionComparePlanner.cs",
+                "src/core/Services/Articles/RevisionComparePlans.cs",
+                "src/core/Services/Articles/RevisionCompareSourceEnums.cs",
+                "src/core/Services/Articles/RevisionCompareStatusEnums.cs",
                 "tools/governance/check-revision-compare-authority.mjs"
             ],
             "reason": "Preserve caller-visible process and plan-contract spelling on the trusted C# and Node surfaces while internal implementation symbols retain repository naming."
@@ -30,9 +39,11 @@
             "id": "json-wire-key",
             "paths": [
                 "config/testing/correctness-attempt-producers.json",
+                "config/testing/current-run-evidence-location-acceptance.json",
+                "config/testing/evidence-location-migration-ledger.json",
                 "tests/governance/test-lifecycle-registry.json"
             ],
-            "reason": "Preserve stable generated and governance JSON schema keys while registering the canonical plan-authority evidence producers."
+            "reason": "Preserve stable generated, locator, and governance JSON schema keys while registering the canonical plan-authority evidence producers."
         },
         {
             "id": "search-index-utf8-scalar-owner",
