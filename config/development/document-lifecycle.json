@@ -266,6 +266,17 @@
             "supersededBy": null
         },
         {
+            "path": "docs/architecture/authoring-extension-host-boundary.md",
+            "status": "current",
+            "owner": "backend",
+            "relatedIssues": [
+                1914,
+                2137
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/architecture/article-revision-concurrency.md",
             "status": "current",
             "owner": "backend",
@@ -3157,6 +3168,17 @@
             "status": "current",
             "owner": "security",
             "relatedIssues": [],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/security/authoring-extension-capability-isolation.md",
+            "status": "current",
+            "owner": "security",
+            "relatedIssues": [
+                1914,
+                2137
+            ],
             "supersedes": [],
             "supersededBy": null
         },

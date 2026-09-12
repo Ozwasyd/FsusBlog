@@ -1,0 +1,39 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "config/development/document-inventory.generated.json",
+                "config/development/document-lifecycle.json",
+                "docs/architecture/authoring-extension-host-boundary.md",
+                "docs/architecture/plugin-foundation.md",
+                "docs/security/authoring-extension-capability-isolation.md",
+                "docs/security/plugin-sandbox.md"
+            ],
+            "reason": "Preserve existing caller-visible JSON and Markdown identifiers while the lifecycle producer registers internal authoring-extension documents."
+        },
+        {
+            "id": "auth-security-doc-exactness-authority",
+            "paths": [
+                "docs/security.md"
+            ],
+            "reason": "Preserve the current security document's caller-visible exactness identifiers while adding the internal authoring-extension isolation boundary."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionContracts.cs"
+            ],
+            "reason": "Preserve caller-visible process environment spellings while internal C# identifiers remain under the repository naming map."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/current-run-evidence-location-acceptance.json",
+                "config/testing/evidence-location-migration-ledger.json"
+            ],
+            "reason": "Preserve canonical evidence-location ledger and current-run acceptance JSON schema keys while recording the issue-bound contract finding."
+        }
+    ]
+}
