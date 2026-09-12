@@ -12,16 +12,15 @@ import {
     validateEvidenceLocationMigrationLedger,
     verifyEvidenceLocationGovernance
 } from '../../tools/test/evidence-location-contract.mjs';
-import { generateEvidenceLocationGovernance } from '../../tools/test/generate-evidence-location-governance.mjs';
+import {
+    generateEvidenceLocationGovernance,
+    validateEvidenceLocationClassificationOverrides
+} from '../../tools/test/generate-evidence-location-governance.mjs';
 import {
     evidenceLocationDigest,
     scanEvidenceLocations
 } from '../../tools/test/evidence-location-scanner.mjs';
 import { generateCurrentRunEvidenceLocationAcceptance } from '../../tools/test/generate-current-run-evidence-location-acceptance.mjs';
-import {
-    beginRegisteredCurrentRunEvidenceProducer,
-    finalizeRegisteredCurrentRunEvidenceProducer
-} from '../../tools/test/run-current-run-evidence-producer.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const load = (name) => JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'config/testing', name), 'utf8'));
@@ -327,8 +326,43 @@ test('fixture postconditions remain an import-only helper and cannot masquerade 
     const source = 'tools/test-fixtures/receipt/postconditions.mjs';
     const generated = generateEvidenceLocationGovernance();
     const findings = generated.scan.findings.filter((entry) => entry.file === source);
-    assert.equal(findings.length, 6);
-    assert(findings.every((entry) => entry.ruleId === 'evidence-selection.first-match'));
+    assert.deepEqual(findings.map((entry) => ({
+        findingId: entry.findingId,
+        line: entry.line,
+        column: entry.column,
+        function: entry.function,
+        excerpt: entry.excerpt
+    })), [
+        { findingId: '0161ebbad5c102e4', line: 461, column: 24, function: 'verifyCommentMatrix',
+            excerpt: 'const fields = matches[0].fields ?? {}' },
+        { findingId: '93c19c86428bad07', line: 503, column: 38, function: 'verifyCommentMatrix',
+            excerpt: "|| spam.signalEvidence.some((evidence) => String(evidence?.commentId) !== String(one('spam')[0].id)" },
+        { findingId: 'bda3eb9cd23f19ee', line: 523, column: 13, function: 'verifyCommentMatrix',
+            excerpt: "const root = one('approved-root')[0]" },
+        { findingId: 'dad5302ebd3636da', line: 561, column: 24, function: 'verifyCommentMatrix',
+            excerpt: "if (one('deleted-root-child')[0]?.fields?.publicVisible !== true) {" },
+        { findingId: '53dda5d48e67b80f', line: 564, column: 40, function: 'verifyCommentMatrix',
+            excerpt: "const deletedRoot = one('deleted-root')[0]" },
+        { findingId: '1eab0cd97c6edc4c', line: 565, column: 41, function: 'verifyCommentMatrix',
+            excerpt: "const deletedChild = one('deleted-root-child')[0]" }
+    ]);
+    assert(findings.every((entry) => entry.ruleId === 'evidence-selection.first-match'
+        && entry.file === source && entry.indirectVia === null));
+    const sourceText = fs.readFileSync(path.join(repositoryRoot, source), 'utf8');
+    const mutationRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'postconditions-selector-mutation-'));
+    context.after(() => fs.rmSync(mutationRoot, { recursive: true, force: true }));
+    fs.mkdirSync(path.dirname(path.join(mutationRoot, source)), { recursive: true });
+    fs.writeFileSync(path.join(mutationRoot, source), `${sourceText}\nfunction selectEvidenceMutation() {\n`
+        + '  const candidates = [];\n  return candidates[0];\n}\n');
+    const addedSelector = scanEvidenceLocations({ root: mutationRoot, files: [source] });
+    assert.throws(() => validateEvidenceLocationClassificationOverrides(addedSelector),
+        /unreviewed evidence selector in import-only module/u);
+    fs.writeFileSync(path.join(mutationRoot, source),
+        sourceText.replace('const fields = matches[0].fields ?? {}',
+            'const fields = matches.at(0).fields ?? {}'));
+    const replacedSelector = scanEvidenceLocations({ root: mutationRoot, files: [source] });
+    assert.throws(() => validateEvidenceLocationClassificationOverrides(replacedSelector),
+        /non-evidence finding override 0161ebbad5c102e4 changed (?:column|excerpt)/u);
     const findingIds = new Set(findings.map((entry) => entry.findingId));
     const ledgerEntries = generated.ledger.entries.filter((entry) => findingIds.has(entry.findingId));
     assert.equal(ledgerEntries.length, findings.length);
@@ -338,7 +372,6 @@ test('fixture postconditions remain an import-only helper and cannot masquerade 
         && entry.action === 'close exact location and rule as non-evidence behavior'));
     assert.equal(generated.registry.entries.some((entry) => entry.producerSource === source), false);
 
-    const sourceText = fs.readFileSync(path.join(repositoryRoot, source), 'utf8');
     assert.match(sourceText, /export function runPostcondition/u);
     assert.match(sourceText, /export function verifyCapabilityPostconditions/u);
     assert.doesNotMatch(sourceText, /process\.argv\[1\].*fileURLToPath/su);
@@ -352,8 +385,9 @@ test('fixture postconditions remain an import-only helper and cannot masquerade 
     assert.equal(direct.stdout, '');
     assert.equal(direct.stderr, '');
 
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'postconditions-cli-masquerade-'));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'postconditions-hook-negative-'));
     context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    fs.cpSync(path.join(repositoryRoot, 'tools'), path.join(root, 'tools'), { recursive: true });
     fs.mkdirSync(path.join(root, 'config/testing'), { recursive: true });
     fs.mkdirSync(path.join(root, 'artifacts/current-run'), { recursive: true });
     const consumerId = 'evidence-consumer.test-fixtures.receipt.postconditions';
@@ -389,16 +423,31 @@ test('fixture postconditions remain an import-only helper and cannot masquerade 
         buildIdentity: { id: 'build', digest: `sha256:${'d'.repeat(64)}` },
         ownedRoots: ['artifacts/current-run']
     });
-    fs.writeFileSync(path.join(root, 'context.json'), `${JSON.stringify(currentRunContext, null, 4)}\n`);
-    const environment = {
-        FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER: consumerId,
-        FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT: 'context.json',
-        [fakeEntry.outputBindingKey]: 'artifacts/current-run/postconditions-reference.json',
-        [fakeEntry.payloadBindingKey]: 'artifacts/current-run/postconditions-payload.json'
-    };
-    const session = beginRegisteredCurrentRunEvidenceProducer({ environment, repositoryRoot: root });
-    assert.throws(() => finalizeRegisteredCurrentRunEvidenceProducer(session),
-        /producer payload is missing after terminal success/u);
+    const contextPath = 'context.json';
+    const outputPath = 'artifacts/current-run/postconditions-reference.json';
+    const payloadPath = 'artifacts/current-run/postconditions-payload.json';
+    fs.writeFileSync(path.join(root, contextPath), `${JSON.stringify(currentRunContext, null, 4)}\n`);
+    const hooked = spawnSync(process.execPath,
+        ['--import', './tools/test/current-run-evidence-producer-hook.mjs', source], {
+            cwd: root,
+            encoding: 'utf8',
+            timeout: 10000,
+            env: {
+                ...process.env,
+                FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER: consumerId,
+                FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT: contextPath,
+                [fakeEntry.outputBindingKey]: outputPath,
+                [fakeEntry.payloadBindingKey]: payloadPath
+            }
+        });
+    assert.ifError(hooked.error);
+    assert.equal(hooked.status, 1);
+    assert.equal(hooked.stdout, '');
+    assert.equal(hooked.stderr,
+        '[current-run-evidence-producer] producer payload is missing after terminal success\n');
+    assert.equal(fs.existsSync(path.join(root, outputPath)), false);
+    assert.equal(fs.existsSync(path.join(root, payloadPath)), false);
+    assert.equal(fs.existsSync(path.join(root, `${outputPath}.handoff.json`)), false);
 });
 
 test('clean-attempt evidence retains its finding and binds the real CLI through its library caller', () =>

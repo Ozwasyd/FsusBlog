@@ -6,7 +6,7 @@
         "tools/test/evidence-location-scanner.mjs": "sha256:5d554791088fc092c944ed010a0f66a69ed30655e7621e622cf27d2967a325b6",
         "tools/test/current-run-evidence-locator.mjs": "sha256:a3477d14e62b2e6a30bc48e16eaf417e49996fdab58e39ae064f1c7ac07b0653",
         "tools/test/current-run-evidence-transport.mjs": "sha256:74b09545ad37fb5b5dcacb56726a4ae0e46c6c664d6775b8ba109867816f0f28",
-        "tools/test/generate-evidence-location-governance.mjs": "sha256:c6eb2de19f45703dddcb824b16781cba1d69e12f7f95ae139e53e9c737e9088e"
+        "tools/test/generate-evidence-location-governance.mjs": "sha256:989c7b28dc9ee72dd69233860f5f4082ae62de6100fddb2784416dffb95dc10e"
     },
     "registryDigest": "sha256:7cf3c25d696cfaf8aa9029933983727e84cc040f8deead4749c93e664b71343b",
     "ledgerDigest": "sha256:7b45b8d781612e687d79b6b68d074437a3972b8fc7c105b952253d830b40a370",
@@ -522,5 +522,5 @@
     "consumerCount": 72,
     "findingCount": 397,
     "warnings": [],
-    "contentDigest": "sha256:6818b7f5d872be18de94cf6b1258e9453a5886103f9ba2fad4d24ccadd95eaf0"
+    "contentDigest": "sha256:e1b2de71cf1515b4387338299a4f19e61a577d4c05698692e3dec8d0c7f4a503"
 }
