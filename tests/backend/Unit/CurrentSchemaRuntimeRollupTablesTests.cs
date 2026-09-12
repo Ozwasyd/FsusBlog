@@ -1,7 +1,9 @@
 using System.Data;
 using System.Globalization;
+using System.Text.RegularExpressions;
 
 using FsusBlog.Migration;
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
@@ -12,25 +14,142 @@ namespace FsusBlog.Server.Tests;
 public sealed class CurrentSchemaRuntimeRollupTablesTests
 {
     [Fact]
-    public void RuntimeRollupCatalog_MatchesPostCodeFirstEnsureTableSteps()
+    public void RuntimeRollupCatalog_MatchesPostCodeFirstMigrationDdl()
     {
-        string[] migrationIds =
+        ISchemaMigrationDescriptor[] descriptors =
         [
-            "20260629-post-visit-log-stats-rollup",
-            "20260629-post-author-analytics-rollups"
+            SecurityAndProjectionMigrationDefinitions.BuildVisitLogStatsRollupMigration(),
+            AuthoringAndIntegrityMigrationDefinitions.BuildAuthorAnalyticsRollupMigration(),
+            LegacyIdentityMigrationDefinitions.BuildPublicArticleProjectionMigration(),
+            AuthoringAndIntegrityMigrationDefinitions.BuildActiveReleaseFenceDurableWitnessMigration(),
+            AuthoringAndIntegrityMigrationDefinitions.BuildActiveReleaseFencedCommitLedgerMigration(),
+            PluginRegistryMigrationDefinitions.BuildMigration(),
+            ThemeRegistryMigrationDefinitions.BuildMigration(),
+            ThemeActivationRuntimeMigrationDefinitions.BuildMigration(),
+            CustomizationMigrationDefinitions.BuildMigration(),
+            AuthoringCanvasDocumentMigrationDefinitions.BuildMigration(),
+            AuthorArticlePinMigrationDefinitions.BuildMigration(),
+            AuthorSavedViewMigrationDefinitions.BuildMigration(),
+            ArticleTemplateAuthorityMigrationDefinitions.BuildMigration(),
+            AuthoringCanvasOperationJournalMigrationDefinitions.BuildMigration(),
+            ArticleCreateAuthorityMigrationDefinitions.BuildMigration()
         ];
-        Dictionary<string, string> ensureTables = new SchemaMigrationRegistry()
-            .GetDescriptors()
-            .Where(descriptor => migrationIds.Contains(descriptor.MigrationId, StringComparer.Ordinal))
-            .SelectMany(static descriptor => descriptor.Steps.OfType<EnsureTableStep>())
-            .ToDictionary(static step => step.TableName, static step => step.CreateSql, StringComparer.Ordinal);
+        var expectedTables = new Dictionary<string, string>(StringComparer.Ordinal);
+        var tableMigration = new Dictionary<string, string>(StringComparer.Ordinal);
+        var expectedExtras = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (ISchemaMigrationDescriptor descriptor in descriptors)
+        {
+            foreach ((string tableName, string sql, bool isTable) in ExtractStatements(descriptor))
+            {
+                if (isTable)
+                {
+                    Assert.False(
+                        expectedTables.ContainsKey(tableName),
+                        $"duplicate CREATE TABLE for {tableName}");
+                    expectedTables[tableName] = sql;
+                    tableMigration[tableName] = descriptor.MigrationId;
+                }
+                else
+                {
+                    if (!expectedExtras.TryGetValue(descriptor.MigrationId, out List<string>? extras))
+                    {
+                        expectedExtras[descriptor.MigrationId] = extras = [];
+                    }
+                    extras.Add(sql);
+                }
+            }
+        }
 
         Assert.Equal(
-            ensureTables.Keys.Order(StringComparer.Ordinal),
+            expectedTables.Keys.Order(StringComparer.Ordinal),
             CurrentSchemaRuntimeRollupTables.TableNames.Order(StringComparer.Ordinal));
+        var actualExtras = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         foreach (CurrentSchemaRuntimeRollupTable table in CurrentSchemaRuntimeRollupTables.Tables)
         {
-            Assert.Equal(ensureTables[table.TableName], table.CreateSql);
+            Assert.Equal(expectedTables[table.TableName], table.CreateSql);
+            string migrationId = tableMigration[table.TableName];
+            if (!actualExtras.TryGetValue(migrationId, out List<string>? extras))
+            {
+                actualExtras[migrationId] = extras = [];
+            }
+            if (table.AdditionalSql is { } additional)
+            {
+                extras.AddRange(additional);
+            }
+        }
+        foreach ((string migrationId, List<string> expected) in expectedExtras)
+        {
+            Assert.Equal(
+                expected.Order(StringComparer.Ordinal),
+                (actualExtras.TryGetValue(migrationId, out List<string>? actual) ? actual : [])
+                    .Order(StringComparer.Ordinal));
+        }
+    }
+
+    private static IEnumerable<(string TableName, string Sql, bool IsTable)> ExtractStatements(
+        ISchemaMigrationDescriptor descriptor)
+    {
+        string? firstTable = null;
+        var pendingExtras = new List<string>();
+        foreach (SchemaMigrationStep step in descriptor.Steps)
+        {
+            switch (step)
+            {
+                case EnsureTableStep ensureTable:
+                    firstTable ??= ensureTable.TableName;
+                    yield return (ensureTable.TableName, ensureTable.CreateSql, true);
+                    break;
+                case CreateIndexStep createIndex:
+                    pendingExtras.Add(createIndex.CreateSql);
+                    break;
+                case RawSqlStep raw:
+                    foreach (string statement in SplitStatements(raw.Sql))
+                    {
+                        if (Regex.Match(statement, @"CREATE TABLE IF NOT EXISTS (\w+)") is { Success: true } tableMatch)
+                        {
+                            firstTable ??= tableMatch.Groups[1].Value;
+                            yield return (tableMatch.Groups[1].Value, statement, true);
+                        }
+                        else
+                        {
+                            pendingExtras.Add(statement);
+                        }
+                    }
+                    break;
+                case EnsureColumnStep ensureColumn:
+                    pendingExtras.Add(
+                        $"ALTER TABLE {ensureColumn.TableName} ADD COLUMN IF NOT EXISTS {ensureColumn.ColumnName} {ensureColumn.ColumnDefinition};");
+                    break;
+            }
+        }
+        Assert.NotNull(firstTable);
+        foreach (string extra in pendingExtras)
+        {
+            yield return (firstTable, extra, false);
+        }
+    }
+
+    private static IEnumerable<string> SplitStatements(string sql)
+    {
+        var current = new List<string>();
+        bool inDollarBody = false;
+        foreach (string line in sql.Split('\n'))
+        {
+            current.Add(line);
+            if (Regex.Matches(line, @"\$\$").Count % 2 == 1)
+            {
+                inDollarBody = !inDollarBody;
+            }
+            if (line.TrimEnd().EndsWith(';') && !inDollarBody)
+            {
+                yield return string.Join('\n', current).Trim('\n');
+                current.Clear();
+            }
+        }
+        string rest = string.Join('\n', current).Trim('\n');
+        if (rest.Length > 0)
+        {
+            yield return rest;
         }
     }
 
@@ -52,6 +171,8 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
     public async Task ApplyEnsureTableSteps_CreatesStatsRollupTablesQueryableAsEmpty()
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        var inspector = new SchemaModelInspector();
+        db.CodeFirst.InitTables(inspector.GetManagedEntityTypes().ToArray());
         await CurrentSchemaRuntimeRollupTables.ApplyEnsureTableStepsAsync(db, CancellationToken.None);
 
         DataTable stats = await db.Ado.GetDataTableAsync("""
