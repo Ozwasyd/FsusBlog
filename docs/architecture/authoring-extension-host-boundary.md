@@ -188,6 +188,42 @@ dependencies; until those reviewed artifacts are composed, the RPC authority is
 fail-closed and this issue remains a Draft/Refs delivery rather than production
 activation evidence.
 
+## Command contribution and editor projection
+
+The internal `authoring/commands.v1.json` package entry is the only command
+contribution source. It must match every declared `Command` or
+`CommandPaletteMetadata` contribution exactly and binds command, extension,
+version, package/content/runtime, execution class, localization references,
+closed `when` conditions, requested capabilities, input/result schemas,
+preferred surfaces, and shortcut request. Unknown JSON members, duplicate
+properties or identities, core command collisions, and registries above 1000
+commands fail before activation.
+
+FsusBlog projects that closed record into the public FsusUI command contract.
+Toolbar, selection toolbar, slash menu, and command palette consume the same
+command object and therefore the same visible/enabled/pending/error state; Blog
+does not maintain a second editor command registry. Dynamic selection,
+writability, and source-mode facts come from the FsusUI command context. Online
+and extension-enabled facts are explicit host projection fields rather than
+ambient browser inference.
+
+Invocation binds the package/runtime identity, lifecycle generation, exact
+document identity and epoch, source revision, selection identity, request, and
+required capabilities. Permission, lifecycle, document, revision, selection, or
+result-identity drift aborts or rejects the result. The only accepted document
+change is a bounded transaction submitted through the public FsusUI dispatcher
+with `expectedRevision`; direct source, DOM, or nearest-revision mutation is not
+an alternative.
+
+The ManageWriteArticle prop path and production-component fixture exercise this
+consumer boundary, including four-surface discovery, state transitions, aborts,
+mobile reachability, and the 1000-command bound. They do not create a production
+host-to-browser feed. Until a separately authorized internal projection owner
+and active worker/service runtime owner are composed, the real route has no
+extension commands and this slice remains Draft/Refs rather than production
+activation evidence. No HTTP, AEDS, or second editor authority may be added to
+fill that gap implicitly.
+
 ## Closed lifecycle and generation ownership
 
 The lifecycle coordinator is the sole internal state machine for install/enable,

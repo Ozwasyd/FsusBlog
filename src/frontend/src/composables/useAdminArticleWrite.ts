@@ -886,6 +886,15 @@ export function useAdminArticleWrite()
             ? null
             : (window as Window & { BroadcastChannel?: typeof BroadcastChannel; }).BroadcastChannel ?? null
     });
+    const authoringDocumentEpoch = ref(1);
+    const authoringDocumentIdentity = computed(() => Object.freeze({
+        id: `article-${articleId.value ?? 'new'}:${recoveryCoordinator.tabId}`,
+        epoch: authoringDocumentEpoch.value
+    }));
+    const replaceAuthoringDocumentEpoch = (): void =>
+    {
+        authoringDocumentEpoch.value += 1;
+    };
     let unsubscribeArticleRecoveryCoordination: (() => void) | null = null;
     let disposeArticleRecoveryLifecycle: (() => void) | null = null;
 
@@ -1468,6 +1477,7 @@ export function useAdminArticleWrite()
             const previousServerDraftSyncPaused = serverDraftSyncPaused.value;
             clearDraftSaveTimer();
             suppressDraftSave = true;
+            replaceAuthoringDocumentEpoch();
             articleForm.content = recovery.content;
             pendingDraft.value = null;
             serverDraftSyncPaused.value = false;
@@ -1823,6 +1833,7 @@ export function useAdminArticleWrite()
                 }
             }
 
+            replaceAuthoringDocumentEpoch();
             await loadArticleDetailIntoForm(new AbortController().signal);
             await refreshArticleRevisions();
             selectedRevision.value = null;
@@ -2654,6 +2665,14 @@ export function useAdminArticleWrite()
         }
     );
 
+    watch(articleId, (next, previous) =>
+    {
+        if (next !== previous)
+        {
+            replaceAuthoringDocumentEpoch();
+        }
+    });
+
     watch(
         () => articleForm.content,
         (content) =>
@@ -2810,6 +2829,7 @@ export function useAdminArticleWrite()
         seoChecking,
         seoStatusText,
         articleForm,
+        authoringDocumentIdentity,
         articleRightsUsingSiteDefaults,
         articleRightsInheritanceText,
         articleRightsLicenseOptions,
