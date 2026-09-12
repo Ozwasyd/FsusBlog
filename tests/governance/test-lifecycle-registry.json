@@ -6329,6 +6329,26 @@
             "classifications": [
                 "behavior"
             ]
+        },
+        {
+            "file": "tests/tools/article-create-authority.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/article-create-authority.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
+        },
+        {
+            "file": "tests/tools/article-template-authority.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/article-template-authority.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "behavior"
+            ]
         }
     ]
 }
