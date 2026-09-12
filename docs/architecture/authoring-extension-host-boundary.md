@@ -250,6 +250,25 @@ permission. Durable content-addressed telemetry storage, explicitly authorized
 support-bundle export, and real Linux pressure/starvation evidence remain external
 production blockers; static and unit coverage cannot substitute for them.
 
+## Terminal security matrix
+
+`config/testing/authoring-extension-terminal-matrix.json` is the canonical
+test-only inventory for the Hybrid host chain. Its checker extracts every closed
+manifest/resource field and contribution, capability, execution, platform,
+entrypoint, RPC, lifecycle, migration, uninstall, and budget registry directly
+from the implementation and binds each registry to one positive, negative, and
+owner fixture. Registry drift, a missing suite, an unknown evidence item, a
+non-passing artifact, or an artifact digest mismatch fails closed.
+
+The checker can emit a terminal receipt only from the complete current-run
+artifact set. That receipt binds the catalog, checker, sources, suites, per-domain
+evidence digests, zero warnings, and its own digest. The ordinary audit currently
+declares the unresolved trusted-adapter, Linux runtime/broker/pressure, canonical
+document/consent, durable lifecycle, browser/Avalonia, and rendered core-editor
+evidence as blockers. A checker self-test or source-ready stage cannot convert
+those blockers into terminal acceptance. The canonical CI receipt join is also
+unregistered and remains an explicit blocker rather than an audit-mode pass.
+
 ## Stability and rollback
 
 The contract, package store, and RPC are currently internal/experimental and may change only by advancing
