@@ -12052,6 +12052,22 @@
                 "vitest:tests/frontend/unit/utils/errors.test.ts#detects-abort-positive-input-message-the-operation-was-a-702b7d3b35"
             ],
             "reason": "Issue #2610 retains message=The operation was aborted due to timeout as an independent named positive row with a fresh factory and exact true oracle."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs#FsusBlog.Server.Tests.Unit.SecurityChallengeBinaryEndpointTests.IssueAsync_IncompatibleAccept_ReturnsApiError406#case-0000",
+            "path": "tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs#FsusBlog.Server.Tests.Unit.SecurityChallengeBinaryEndpointTests.IssueAsync_UnacceptableAcceptHeader_ReturnsApiError406#case-0000"
+            ],
+            "reason": "Issue #2609 retains the incompatible media-type Accept rejection as the named incompatible-media-type Theory row with the exact 406 status and decoded ApiError oracles."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs#FsusBlog.Server.Tests.Unit.SecurityChallengeBinaryEndpointTests.IssueAsync_BinaryAcceptWithZeroQuality_ReturnsApiError406#case-0000",
+            "path": "tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs#FsusBlog.Server.Tests.Unit.SecurityChallengeBinaryEndpointTests.IssueAsync_UnacceptableAcceptHeader_ReturnsApiError406#case-0001"
+            ],
+            "reason": "Issue #2609 retains the binary q-zero Accept rejection as the named binary-q-zero Theory row with the exact 406 status and decoded ApiError oracles."
         }
     ],
     "assertionReplacements": [
