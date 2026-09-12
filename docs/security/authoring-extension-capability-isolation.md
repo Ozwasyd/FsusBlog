@@ -67,6 +67,27 @@ change remains fail-closed until the later migration owner exists. Failed health
 content, or receipt checks restore the previous verified package and never restore
 revoked permissions, because permissions are outside this package authority.
 
+## Hybrid resolver and in-process denial
+
+Resolution first rechecks the exact active package identity. A copied, updated,
+uninstalled, or content-drifted package cannot produce a ready target. Third-party
+packages cannot select `TrustedHostAdapter`; unsupported Worker/Wasm or service
+platforms do not fall back to trusted execution, a WebView, iframe, browser shim,
+or a class chosen by the package.
+
+Trusted descriptors are checked-in host records, not package payload. The resolver
+matches contribution kind/ID, source digest, host API, platform, and the SHA-256 of
+the already loaded assembly before returning a target. It never calls
+`Assembly.Load`, reflection activation, dynamic import, `eval`, or an arbitrary
+callback, and the target carries no editor reference, DOM node, Pinia store,
+FsusUI-private instance, database/Redis/service object, or executable payload.
+
+The production registry is empty until a real reviewed adapter artifact and owner
+exist. Consequently no trusted adapter is currently ready, and simulated module
+verification is not production evidence. This fail-closed absence is the remaining
+terminal acceptance blocker for the concrete-adapter portion of this boundary; it
+does not weaken Worker/Wasm or service class isolation.
+
 ## Stage boundary
 
 The current stages validate the contract and package supply chain, but do not issue

@@ -63,10 +63,23 @@ public sealed class AuthoringExtensionPackagePersistenceTests
             await runtime.Activation.InstallOrUpdateAsync(artifact));
         AuthoringPackageReceipt installed = await runtime.Activation.InstallOrUpdateFromSourceAsync(
             artifact.SourceReference);
+        VerifiedAuthoringPackage active = Assert.IsType<VerifiedAuthoringPackage>(
+            await runtime.Store.GetActiveAsync("acme.author-tools", default));
+        AuthoringExecutionTarget resolved = await runtime.ExecutionResolver.ResolveAsync(
+            active,
+            "acme.command.format",
+            AuthoringHostPlatform.ServerLinux);
         AuthoringPackageReceipt uninstalled = await runtime.Activation.UninstallPackageAsync(
             "acme.author-tools");
+        AuthoringExecutionTarget stale = await runtime.ExecutionResolver.ResolveAsync(
+            active,
+            "acme.command.format",
+            AuthoringHostPlatform.ServerLinux);
 
         Assert.Equal(AuthoringPackageTrustStatus.Trusted, installed.TrustStatus);
+        Assert.Equal(AuthoringExecutionResolutionStatus.Ready, resolved.Status);
+        Assert.Equal(AuthoringExecutionClass.IsolatedWorkerWasm, resolved.ExecutionClass);
+        Assert.Equal(AuthoringExecutionResolutionStatus.BlockedPackageNotActive, stale.Status);
         Assert.Matches("^[0-9a-f]{64}$", installed.KeysetIdentity);
         Assert.Equal(AuthoringPackageOperation.Uninstall, uninstalled.Operation);
         Assert.Equal(AuthoringPackageOutcome.Committed, uninstalled.Outcome);
