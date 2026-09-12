@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "release-locator-current-run-authority",
+            "paths": [
+                "config/testing/evidence-location-migration-ledger.json",
+                "config/testing/evidence-locator-registry.json",
+                "tools/test/generate-evidence-location-governance.mjs"
+            ],
+            "reason": "The sealed release locator ledger, registry, and governance producer keep their caller-visible environment variable and artifact naming stable while the scanner exemptions are rebound to exact finding identities."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/current-run-evidence-location-acceptance.json"
+            ],
+            "reason": "The current-run acceptance binding keeps its wire key spelling stable while its producer-bound content digest is refreshed for the exact finding overrides."
+        }
+    ]
+}
