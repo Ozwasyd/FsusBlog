@@ -64,6 +64,7 @@ public sealed class LinuxBubblewrapAuthoringServiceRuntime : IAuthoringServicePr
             string isolationIdentity = ComputeProfileIdentity(descriptor, namespaceIdentity);
             return new LinuxBubblewrapServiceProcess(
                 process,
+                serviceProcessId,
                 instanceRoot,
                 descriptor,
                 health,
@@ -432,16 +433,19 @@ public sealed class LinuxBubblewrapAuthoringServiceRuntime : IAuthoringServicePr
 
     private sealed class LinuxBubblewrapServiceProcess(
         Process process,
+        int serviceProcessId,
         string instanceRoot,
         AuthoringServiceLaunchDescriptor descriptor,
         AuthoringServiceHealthReport health,
         AuthoringProcessOwnershipReport ownership,
-        Task stderrDrain) : IAuthoringServiceProcess
+        Task stderrDrain) : IAuthoringServiceProcess, IAuthoringOwnedServiceProcessObservation
     {
         private readonly SemaphoreSlim _transportLock = new(1, 1);
         private bool _terminated;
 
         public AuthoringProcessOwnershipReport Ownership { get; } = ownership;
+
+        public int ProcessId => serviceProcessId;
 
         public ValueTask<AuthoringServiceHealthReport> GetHealthAsync(CancellationToken cancellationToken) =>
             _terminated || process.HasExited
