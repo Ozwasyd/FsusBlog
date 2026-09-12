@@ -20,6 +20,9 @@
             :toolbars-exclude="['save']"
             :loading="loading"
             :saving="saving"
+            :authoring-commands="authoringCommands"
+            :command-surfaces="commandSurfaces"
+            :document-identity="documentIdentity"
             @save="$emit('draft-save')"
             @draft-save="$emit('draft-save')"
             @submit="$emit('submit')"
@@ -72,6 +75,11 @@
 import { computed, ref } from 'vue';
 
 import MarkdownEditorAdapter from '@/components/ui/MarkdownEditorAdapter.vue';
+import type {
+    FsusUiAuthoringCommand,
+    FsusUiAuthoringDocumentIdentity,
+    FsusUiAuthoringSurfaceOptions
+} from '@/fsusui/authoringCommands';
 import type { MarkdownEditorMode } from '@/ui-contracts/markdownEditor';
 
 defineOptions({ name: 'ArticleWriteEditor' });
@@ -84,8 +92,19 @@ const props = withDefaults(defineProps<{
     loading?: boolean;
     saving?: boolean;
     layoutMode?: EditorLayoutMode;
+    authoringCommands?: readonly FsusUiAuthoringCommand[];
+    commandSurfaces?: FsusUiAuthoringSurfaceOptions;
+    documentIdentity?: FsusUiAuthoringDocumentIdentity;
 }>(), {
-    layoutMode: 'standard'
+    layoutMode: 'standard',
+    authoringCommands: () => [],
+    commandSurfaces: () => ({
+        toolbar: true,
+        selectionToolbar: true,
+        slashMenu: true,
+        commandPalette: true
+    }),
+    documentIdentity: undefined
 });
 
 const emit = defineEmits<{
@@ -96,7 +115,10 @@ const emit = defineEmits<{
     (e: 'upload-img', files: File[], callback: (urls: string[]) => void, onError: (message: string) => void): void;
 }>();
 
-const adapterRef = ref<{ insertMarkdownAtCursor?: (markdown: string) => boolean; } | null>(null);
+const adapterRef = ref<{
+    insertMarkdownAtCursor?: (markdown: string) => boolean;
+    openCommandPalette?: () => void;
+} | null>(null);
 const persistedSurface = ref<PersistedAuthoringSurface>('source');
 const sourceCompareOpen = ref(false);
 
@@ -145,8 +167,14 @@ function insertMarkdownAtCursor(markdown: string): boolean
     return adapterRef.value?.insertMarkdownAtCursor?.(markdown) === true;
 }
 
+function openCommandPalette(): void
+{
+    adapterRef.value?.openCommandPalette?.();
+}
+
 defineExpose({
-    insertMarkdownAtCursor
+    insertMarkdownAtCursor,
+    openCommandPalette
 });
 </script>
 

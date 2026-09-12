@@ -23,6 +23,9 @@
             :saving="saving"
             :class="editorClass"
             :toolbars-exclude="mergedToolbarsExclude"
+            :authoring-commands="authoringCommands"
+            :command-surfaces="commandSurfaces"
+            :document-identity="documentIdentity"
             @on-save="emit('save')"
             @on-draft-save="emit('draft-save')"
             @on-submit="emit('submit')"
@@ -35,6 +38,11 @@
 import { computed, ref } from 'vue';
 
 import { resolveMarkdownEditorProvider } from '@/components/ui/markdownEditorProvider';
+import type {
+    FsusUiAuthoringCommand,
+    FsusUiAuthoringDocumentIdentity,
+    FsusUiAuthoringSurfaceOptions
+} from '@/fsusui/authoringCommands';
 import type {
     MarkdownEditorChrome,
     MarkdownEditorMode,
@@ -59,6 +67,9 @@ const props = withDefaults(defineProps<{
     statusDensity?: MarkdownEditorStatusDensity;
     showModeSwitcher?: boolean;
     toolbarDensity?: 'minimal' | 'standard' | 'full';
+    authoringCommands?: readonly FsusUiAuthoringCommand[];
+    commandSurfaces?: FsusUiAuthoringSurfaceOptions;
+    documentIdentity?: FsusUiAuthoringDocumentIdentity;
 }>(), {
     placeholder: '',
     textareaId: undefined,
@@ -72,7 +83,15 @@ const props = withDefaults(defineProps<{
     chrome: 'framed',
     statusDensity: 'minimal',
     showModeSwitcher: true,
-    toolbarDensity: 'standard'
+    toolbarDensity: 'standard',
+    authoringCommands: () => [],
+    commandSurfaces: () => ({
+        toolbar: true,
+        selectionToolbar: true,
+        slashMenu: true,
+        commandPalette: true
+    }),
+    documentIdentity: undefined
 });
 
 const emit = defineEmits<{
@@ -84,7 +103,10 @@ const emit = defineEmits<{
 }>();
 
 const provider = computed(() => resolveMarkdownEditorProvider());
-const editorRef = ref<{ insertMarkdownAtCursor?: (markdown: string) => boolean; } | null>(null);
+const editorRef = ref<{
+    insertMarkdownAtCursor?: (markdown: string) => boolean;
+    openCommandPalette?: () => void;
+} | null>(null);
 
 const content = computed({
     get: () => props.modelValue,
@@ -107,8 +129,14 @@ function insertMarkdownAtCursor(markdown: string): boolean
     return editorRef.value?.insertMarkdownAtCursor?.(markdown) === true;
 }
 
+function openCommandPalette(): void
+{
+    editorRef.value?.openCommandPalette?.();
+}
+
 defineExpose({
-    insertMarkdownAtCursor
+    insertMarkdownAtCursor,
+    openCommandPalette
 });
 </script>
 

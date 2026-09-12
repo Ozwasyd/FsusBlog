@@ -160,6 +160,8 @@
                             <ArticleWriteEditor
                                 ref="articleEditorRef"
                                 v-model="articleForm.content"
+                                :command-surfaces="authoringCommandSurfaces"
+                                :document-identity="authoringDocumentIdentity"
                                 :loading="pageLoading"
                                 :saving="submitting"
                                 @save="saveDraftNow"
@@ -764,6 +766,7 @@ import {
     useArticleWriteInspector,
     type ArticleWriteInspectorView
 } from '@/composables/useArticleWriteInspector';
+import type { FsusUiAuthoringSurfaceOptions } from '@/fsusui/authoringCommands';
 import { ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE } from '@/services/articleRecoveryJournal';
 import { showErrorToast } from '@/utils/errorPresentation';
 
@@ -825,6 +828,7 @@ const {
     seoChecking,
     seoStatusText,
     articleForm,
+    authoringDocumentIdentity,
     articleRightsUsingSiteDefaults,
     articleRightsInheritanceText,
     articleRightsLicenseOptions,
@@ -869,6 +873,12 @@ const {
     resumeImageUpload,
     leaveEditor
 } = useAdminArticleWrite();
+const authoringCommandSurfaces: FsusUiAuthoringSurfaceOptions = Object.freeze({
+    toolbar: true,
+    selectionToolbar: true,
+    slashMenu: true,
+    commandPalette: true
+});
 const {
     busy: taskFeedbackBusy,
     isHighlighted: isTaskHighlighted

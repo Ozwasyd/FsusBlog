@@ -183,7 +183,7 @@ if (contract.includes("'write' |"))
 }
 
 for (const token of [
-    "import { ElMarkdownEditor",
+    'ElMarkdownEditor,',
     'defaultMarkdownEditorCommands',
     'composeArticleBodyEditorCommands',
     "'@ozwasyd/element-plus'",
