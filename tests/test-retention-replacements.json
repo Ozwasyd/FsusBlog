@@ -12068,6 +12068,22 @@
                 "xunit:tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs#FsusBlog.Server.Tests.Unit.SecurityChallengeBinaryEndpointTests.IssueAsync_UnacceptableAcceptHeader_ReturnsApiError406#case-0001"
             ],
             "reason": "Issue #2609 retains the binary q-zero Accept rejection as the named binary-q-zero Theory row with the exact 406 status and decoded ApiError oracles."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/utils/errors.test.ts#maps-known-validation-message-invalid-totp-6255105f67",
+            "path": "tests/frontend/unit/utils/errors.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/errors.test.ts#maps-known-validation-message-invalid-totp-4335a6d31b"
+            ],
+            "reason": "Issue #2611 retains the INVALID_TOTP Validation mapping as the named invalid-totp corpus row with the exact localized copy oracle."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/utils/errors.test.ts#maps-known-validation-message-baseurl-protocol-invalid-5bc7392574",
+            "path": "tests/frontend/unit/utils/errors.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/errors.test.ts#maps-known-validation-message-invalid-base-url-protocol-5999797f98"
+            ],
+            "reason": "Issue #2611 retains the BASEURL_PROTOCOL_INVALID Validation mapping as the named invalid-base-url-protocol corpus row with the exact localized copy oracle."
         }
     ],
     "assertionReplacements": [
@@ -12234,6 +12250,26 @@
                 "vitest:toBe:isAbortError(factory()), caseName:equality:true"
             ],
             "reason": "Issue #2610 preserves each positive isAbortError true oracle in the named factory table; per-case ownership remains in deletedTests."
+        },
+        {
+            "before": "vitest:toBe:getErrorMessage(e, 'fallback'):equality:'\u9a8c\u8bc1\u7801\u65e0\u6548\uff0c\u8bf7\u91cd\u8bd5'",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/errors.test.ts#maps-known-validation-message-invalid-totp-4335a6d31b"
+            ],
+            "after": [
+                "vitest:toBe:getErrorMessage(error, 'fallback'):equality:expected"
+            ],
+            "reason": "Issue #2611 preserves each Validation mapping oracle in the named case table; per-case ownership remains in deletedTests."
+        },
+        {
+            "before": "vitest:toBe:getErrorMessage(e, 'fallback'):equality:'\u7ad9\u70b9URL\u534f\u8bae\u4e0d\u5408\u6cd5'",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/errors.test.ts#maps-known-validation-message-invalid-base-url-protocol-5999797f98"
+            ],
+            "after": [
+                "vitest:toBe:getErrorMessage(error, 'fallback'):equality:expected"
+            ],
+            "reason": "Issue #2611 preserves each Validation mapping oracle in the named case table; per-case ownership remains in deletedTests."
         }
     ]
 }
