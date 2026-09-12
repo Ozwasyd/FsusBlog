@@ -242,6 +242,7 @@ public sealed class AuthoringPackageProductionActivation
 
 public sealed record LocalAuthoringPackageRuntime(
     AuthoringPackageProductionActivation Activation,
+    AuthoringExecutionResolver ExecutionResolver,
     LocalAuthoringPackageStore Store,
     LocalAuthoringPackageReceiptStore Receipts,
     LocalAuthoringPackageKeyset Keyset,
@@ -287,6 +288,11 @@ public static class LocalAuthoringPackageComposition
             timeProvider,
             platform,
             sources);
-        return new LocalAuthoringPackageRuntime(activation, store, receipts, keyset, sources);
+        var executionResolver = new AuthoringExecutionResolver(
+            new ClosedTrustedAuthoringAdapterRegistry([]),
+            new CheckedInAuthoringAdapterSourceVerifier(AppContext.BaseDirectory),
+            new LoadedAssemblyTrustedAuthoringAdapterModuleVerifier(),
+            new ActiveAuthoringInstalledPackageAuthority(store));
+        return new LocalAuthoringPackageRuntime(activation, executionResolver, store, receipts, keyset, sources);
     }
 }
