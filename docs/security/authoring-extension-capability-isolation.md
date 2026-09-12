@@ -159,6 +159,31 @@ no implicit handler or fallback authority; absent a reviewed production owner th
 remain unavailable. This is intentionally not an HTTP, AEDS, browser, or shared
 stable ABI.
 
+## Lifecycle revocation and state ownership
+
+Lifecycle receipts are closed, monotonically sequenced, generation-bound, and
+hash chained. Disable, update, rollback, and uninstall address the exact active
+generation; a delayed old-generation revoke cannot remove newer resources.
+Workers and service processes enter the active set before use and are released by
+reference, while a concurrent revoke owns termination and disposal after removing
+the same reference. Termination failure remains a non-empty resource report even
+if disposal succeeds, so the lifecycle cannot publish a false disabled state.
+
+State scope includes extension/version, site, user, optional document, and schema.
+Migration requires equal site/user/document coordinates and exact old/new versions
+and schema declarations. Only rename-key, delete-extension-key, and set-default
+transforms exist; record, byte, transform-count, and duration ceilings are
+mandatory. Uninstall does not imply deletion. A separate retained-data approval
+binds package, scope, record count, byte count, and approval receipt before the
+extension-owned state authority may delete anything.
+
+This stage has no automatic self-enable/update, compatibility shim, package scan,
+or command/UI registration. The generic host-resource port is deliberately
+uncomposed until a production owner can atomically revoke registrations, RPC,
+grants, jobs, and surfaces and persist lifecycle/state evidence. The in-memory
+test doubles prove state-machine behavior only; they are not restart or production
+recovery evidence.
+
 ## Stage boundary
 
 The current stages validate the contract and package supply chain, resolve fixed
