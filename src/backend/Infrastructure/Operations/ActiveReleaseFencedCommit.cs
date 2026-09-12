@@ -117,7 +117,8 @@ internal static class ActiveReleaseFencedCommitSql
 public sealed class ActiveReleaseTransactionalCommitGuard(
     IActiveReleaseExecutionContextAccessor executionContext,
     IConfiguration configuration,
-    IHostEnvironment environment) : IActiveReleaseTransactionalCommitGuard
+    IHostEnvironment environment,
+    IReleaseIdentityProvider releaseIdentity) : IActiveReleaseTransactionalCommitGuard
 {
     public Task<ActiveReleaseFencedCommitReceipt> EnlistAsync(
         ISqlSugarClient db,
@@ -153,10 +154,13 @@ public sealed class ActiveReleaseTransactionalCommitGuard(
                 "The active release transactional commit guard must run inside the business PostgreSQL transaction.");
         }
 
+        ReleaseIdentitySnapshot localIdentity = releaseIdentity.Current;
         if (environment.IsDevelopment()
             && configuration.GetValue(ActiveReleaseFenceAvailabilityPolicy.AllowSyntheticLocalFenceKey, false)
-            && string.Equals(ticket.ReleaseId, "local-unversioned", StringComparison.Ordinal)
-            && string.Equals(ticket.Slot, "local", StringComparison.Ordinal))
+            && !localIdentity.Configured
+            && string.Equals(localIdentity.ReleaseSlot, "local", StringComparison.Ordinal)
+            && string.Equals(ticket.ReleaseId, localIdentity.ReleaseId, StringComparison.Ordinal)
+            && string.Equals(ticket.Slot, localIdentity.ReleaseSlot, StringComparison.Ordinal))
         {
             ActiveReleaseFencedCommitMetrics.RecordEnlist("synthetic-local", normalizedScope);
             return new ActiveReleaseFencedCommitReceipt(
