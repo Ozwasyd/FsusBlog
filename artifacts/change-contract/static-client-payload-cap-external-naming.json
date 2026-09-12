@@ -1,0 +1,41 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/performance/static-client-payload-budget.v1.json",
+                "config/schemas/static-client-payload-budget.schema.json",
+                "config/testing/correctness-attempt-producers.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "The audited static payload budget, its schema, and the regenerated governance authorities keep their wire key spelling stable while the byte-exact ceiling is introduced."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md",
+                "tests/coverage-registry.json"
+            ],
+            "reason": "The regenerated testing document and coverage registry keep their documented scalar spelling while recording the new payload budget check."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/frontend/checks/static/check-asset-size-budget.mjs",
+                "tools/operations/check-publish-artifact-slimness.mjs",
+                "tools/operations/static-client-payload-budget.mjs",
+                "tools/test/bundles/run-bundle.mjs"
+            ],
+            "reason": "The budget checker and its two enforcing gates keep their external environment variable spelling while the audit-derived ceiling replaces duplicated defaults."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/_suite-support.sh",
+                "tools/test/lanes/release-evidence.sh"
+            ],
+            "reason": "The lane wrappers keep their external shell environment spelling while wiring the audited budget into release evidence."
+        }
+    ]
+}
