@@ -271,7 +271,12 @@ public static class LocalAuthoringPackageComposition
             platform);
         var receipts = new LocalAuthoringPackageReceiptStore(Path.Combine(rootPath, "receipts"));
         var health = new AuthoringPackageIntegrityHealthProbe(verifier, platform);
-        var coordinator = new AuthoringPackageActivationCoordinator(store, health, receipts, timeProvider);
+        var coordinator = new AuthoringPackageActivationCoordinator(
+            store,
+            health,
+            receipts,
+            timeProvider,
+            new SchemaStableAuthoringPackageCompatibilityPrecheck());
         var activation = new AuthoringPackageProductionActivation(
             verifier,
             coordinator,

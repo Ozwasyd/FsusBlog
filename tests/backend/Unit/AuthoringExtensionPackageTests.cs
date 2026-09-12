@@ -17,7 +17,7 @@ public sealed class AuthoringExtensionPackageTests
             AuthoringHostPlatform.ServerLinux);
         var store = new TestPackageStore();
         var receipts = new TestReceiptStore();
-        var coordinator = new AuthoringPackageActivationCoordinator(store, new TestHealthProbe(true), receipts, TimeProvider.System);
+        var coordinator = CreateCoordinator(store, new TestHealthProbe(true), receipts);
 
         AuthoringPackageReceipt receipt = await coordinator.InstallOrUpdateAsync(verified);
 
@@ -178,7 +178,7 @@ public sealed class AuthoringExtensionPackageTests
         await store.StageAsync(old, default);
         await store.ActivateAsync(old.Contract.Manifest.Id, old.PackageIdentity, default);
         var receipts = new TestReceiptStore();
-        var coordinator = new AuthoringPackageActivationCoordinator(store, new TestHealthProbe(false), receipts, TimeProvider.System);
+        var coordinator = CreateCoordinator(store, new TestHealthProbe(false), receipts);
 
         await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
             await coordinator.InstallOrUpdateAsync(next));
@@ -203,7 +203,8 @@ public sealed class AuthoringExtensionPackageTests
             store,
             new TestHealthProbe(true),
             new TestReceiptStore(),
-            TimeProvider.System);
+            TimeProvider.System,
+            new SchemaStableAuthoringPackageCompatibilityPrecheck());
 
         AuthoringPackageReceipt receipt = await coordinator.InstallOrUpdateAsync(collision);
 
@@ -233,7 +234,8 @@ public sealed class AuthoringExtensionPackageTests
             store,
             new TestHealthProbe(true),
             new TestReceiptStore(),
-            TimeProvider.System);
+            TimeProvider.System,
+            new SchemaStableAuthoringPackageCompatibilityPrecheck());
 
         AuthoringPackageReceipt takeoverReceipt = await coordinator.InstallOrUpdateAsync(takeover);
         AuthoringPackageReceipt rotationReceipt = await coordinator.InstallOrUpdateAsync(rotation);
@@ -262,13 +264,42 @@ public sealed class AuthoringExtensionPackageTests
             store,
             new TestHealthProbe(true),
             new TestReceiptStore(),
-            TimeProvider.System);
+            TimeProvider.System,
+            new SchemaStableAuthoringPackageCompatibilityPrecheck());
 
         AuthoringPackageReceipt downgradeReceipt = await coordinator.InstallOrUpdateAsync(downgrade);
         AuthoringPackageReceipt replayReceipt = await coordinator.InstallOrUpdateAsync(old);
 
         Assert.Equal("downgrade-or-replay", downgradeReceipt.FailureCode);
         Assert.Equal("downgrade-or-replay", replayReceipt.FailureCode);
+        Assert.Equal(old, await store.GetActiveAsync(old.Contract.Manifest.Id, default));
+    }
+
+    [Fact]
+    public async Task Update_SchemaChangeWithoutMigrationAuthority_IsRejectedBeforeStaging()
+    {
+        PackageFixture oldFixture = CreatePackage("1.0.0", "old-package");
+        PackageFixture nextFixture = CreatePackage("2.0.0", "next-package", stateSchemaVersion: 2);
+        VerifiedAuthoringPackage old = await oldFixture.Verifier.VerifyAsync(
+            oldFixture.Artifact,
+            AuthoringHostPlatform.ServerLinux);
+        VerifiedAuthoringPackage next = await nextFixture.Verifier.VerifyAsync(
+            nextFixture.Artifact,
+            AuthoringHostPlatform.ServerLinux);
+        var store = new TestPackageStore();
+        await store.StageAsync(old, default);
+        await store.ActivateAsync(old.Contract.Manifest.Id, old.PackageIdentity, default);
+        var receipts = new TestReceiptStore();
+        AuthoringPackageActivationCoordinator coordinator = CreateCoordinator(
+            store,
+            new TestHealthProbe(true),
+            receipts);
+
+        AuthoringPackageReceipt rejected = await coordinator.InstallOrUpdateAsync(next);
+
+        Assert.Equal(AuthoringPackageOutcome.Rejected, rejected.Outcome);
+        Assert.Equal("schema-migration-required", rejected.FailureCode);
+        Assert.Equal(1, store.StageCount);
         Assert.Equal(old, await store.GetActiveAsync(old.Contract.Manifest.Id, default));
     }
 
@@ -291,7 +322,8 @@ public sealed class AuthoringExtensionPackageTests
             store,
             new TestHealthProbe(true),
             new TestReceiptStore(),
-            TimeProvider.System);
+            TimeProvider.System,
+            new SchemaStableAuthoringPackageCompatibilityPrecheck());
 
         await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
             await coordinator.InstallOrUpdateAsync(package));
@@ -310,7 +342,9 @@ public sealed class AuthoringExtensionPackageTests
         ImmutableArray<byte> signature = default,
         string sourceReference = "approved-source/catalog-1",
         string provenanceReference = "provenance/build-1",
-        int minimumHostApi = 1)
+        int minimumHostApi = 1,
+        int stateSchemaVersion = 1,
+        int dataSchemaVersion = 1)
     {
         byte[] archive = System.Text.Encoding.UTF8.GetBytes(archiveText);
         entries = entries.IsDefault ? [CreateEntry("worker/main.wasm", "wasm")] : entries;
@@ -320,6 +354,8 @@ public sealed class AuthoringExtensionPackageTests
             Version = version,
             Publisher = publisher,
             HostApi = new AuthoringHostApiRange(minimumHostApi, minimumHostApi),
+            StateSchemaVersion = stateSchemaVersion,
+            DataSchemaVersion = dataSchemaVersion,
             PackageSha256 = AuthoringPackageVerifier.ComputePackageDigest(entries),
             ContentSha256 = AuthoringPackageVerifier.ComputeContentDigest(entries),
             Contributions =
@@ -366,6 +402,16 @@ public sealed class AuthoringExtensionPackageTests
             ImmutableArray.Create(bytes),
             Convert.ToHexStringLower(SHA256.HashData(bytes)));
     }
+
+    private static AuthoringPackageActivationCoordinator CreateCoordinator(
+        IAuthoringPackageStore store,
+        IAuthoringPackageHealthProbe health,
+        IAuthoringPackageReceiptStore receipts) => new(
+        store,
+        health,
+        receipts,
+        TimeProvider.System,
+        new SchemaStableAuthoringPackageCompatibilityPrecheck());
 
     private sealed record PackageFixture(
         AuthoringPackageArtifact Artifact,
@@ -461,6 +507,11 @@ public sealed class AuthoringExtensionPackageTests
             get; init;
         }
 
+        public int StageCount
+        {
+            get; private set;
+        }
+
         public ValueTask<VerifiedAuthoringPackage?> GetActiveAsync(string extensionId, CancellationToken cancellationToken) =>
             ValueTask.FromResult(_active);
 
@@ -469,6 +520,7 @@ public sealed class AuthoringExtensionPackageTests
 
         public ValueTask StageAsync(VerifiedAuthoringPackage package, CancellationToken cancellationToken)
         {
+            StageCount++;
             _packages.Add(package.PackageIdentity, package);
             return ValueTask.CompletedTask;
         }
