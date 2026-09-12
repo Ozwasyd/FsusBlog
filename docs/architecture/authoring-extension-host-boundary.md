@@ -188,6 +188,40 @@ dependencies; until those reviewed artifacts are composed, the RPC authority is
 fail-closed and this issue remains a Draft/Refs delivery rather than production
 activation evidence.
 
+## Closed lifecycle and generation ownership
+
+The lifecycle coordinator is the sole internal state machine for install/enable,
+permission-pending, start/run, disable, update/migrate/rollback, failure,
+uninstall, retained data, and separately approved removal. Every transition is a
+closed enum edge and advances a hash-chained receipt generation. Restore reads the
+latest receipt authority; it never scans package directories, timestamps, or a
+last-active marker to infer enabled state.
+
+Activation is all-or-nothing across the complete verified target set. Worker and
+service instances are registered against the exact active generation. A stale
+generation cannot register or revoke a newer instance; health transitions rebind
+the existing resources before publishing their new receipt generation. Release
+and revoke remove one reference under the same lock, so their race has exactly one
+disposal owner. If the final `Running` receipt cannot be appended, the coordinator
+first revokes the newly activated generation, then records the closed failure and
+rolls state back. Late results are accepted only for the current `Running`
+generation.
+
+Migration plans bind old/new extension versions, site, user, optional document,
+schema versions, transform registry, record/byte/time ceilings, backup and rollback
+references, and content digest. The transform vocabulary cannot execute arbitrary
+database, filesystem, or network code. Uninstall first revokes registrations,
+RPC/jobs/surfaces, grants, workers, and services, then retains extension-owned
+state by default. Data deletion is a separate exact approval whose measured scope
+must still match; core documents, history, assets, and another extension's state
+are outside that authority.
+
+This commit defines the generic lifecycle/resource interfaces and orchestration;
+it does not register a command contribution or a second editor authority. Durable
+production receipt/state/grant stores and a real host registration owner are still
+required before restart recovery or atomic data deletion can be claimed as
+terminal acceptance.
+
 ## Stability and rollback
 
 The contract, package store, and RPC are currently internal/experimental and may change only by advancing

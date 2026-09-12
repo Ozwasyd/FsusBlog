@@ -290,14 +290,21 @@ public sealed class AuthoringServiceGrantValidator(
 public sealed class AuthoringExtensionServiceBroker(
     IAuthoringServiceProcessRuntime runtime,
     IAuthoringDocumentRevisionGate revisionGate,
+    AuthoringExtensionLifecycleResources lifecycleResources,
     TimeProvider timeProvider)
 {
     public async ValueTask<AuthoringServiceExecutionResult> ExecuteAsync(
         VerifiedAuthoringPackage package,
         AuthoringExecutionTarget target,
         AuthoringServiceRequest request,
+        long lifecycleGeneration,
         CancellationToken cancellationToken = default)
     {
+        if (lifecycleGeneration < 1)
+        {
+            throw new AuthoringExtensionContractException("Service lifecycle generation is missing.");
+        }
+
         ValidateRequest(package, target, request);
         AuthoringPackageEntry executable = package.Contents.Entries.Single(entry =>
             string.Equals(entry.Path, target.EntrypointIdentity, StringComparison.Ordinal));
@@ -326,86 +333,98 @@ public sealed class AuthoringExtensionServiceBroker(
             package.Contract.Manifest.Limits.MaximumRequestBytes,
             package.Contract.Manifest.Limits.MaximumResponseBytes,
             package.Contract.Manifest.Limits.WallClock);
-        await using IAuthoringServiceProcess process = await runtime.StartAsync(launch, cancellationToken);
-        if (process.Ownership.Mechanism == AuthoringProcessOwnershipMechanism.None ||
+        IAuthoringServiceProcess process = await runtime.StartAsync(launch, cancellationToken);
+        await lifecycleResources.TrackServiceAsync(
+            target.ExtensionId,
+            lifecycleGeneration,
+            process,
+            cancellationToken);
+        try
+        {
+            if (process.Ownership.Mechanism == AuthoringProcessOwnershipMechanism.None ||
             !process.Ownership.DescendantsContained ||
             !process.Ownership.DetachedChildrenPrevented ||
             string.IsNullOrWhiteSpace(process.Ownership.IsolationIdentity))
-        {
-            await process.TerminateTreeAsync("process-ownership-rejected", CancellationToken.None);
-            throw new AuthoringExtensionContractException("Service process tree is not host-owned and escape-resistant.");
-        }
-
-        AuthoringServiceHealthReport health = await process.GetHealthAsync(cancellationToken);
-        if (!health.ProtocolHandshakeComplete ||
-            !string.Equals(health.RuntimeIdentity, target.RuntimeIdentity, StringComparison.Ordinal) ||
-            !string.Equals(health.ExecutableSha256, executable.ContentSha256, StringComparison.Ordinal) ||
-            !string.Equals(health.TransportSchemaReference, "authoring-service-transport/v1", StringComparison.Ordinal))
-        {
-            await process.TerminateTreeAsync("readiness-rejected", CancellationToken.None);
-            return Rejected(AuthoringServiceResultStatus.Rejected, "readiness-rejected");
-        }
-
-        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        TimeSpan remaining = request.Deadline - timeProvider.GetUtcNow();
-        if (remaining <= TimeSpan.Zero)
-        {
-            await process.TerminateTreeAsync("deadline-expired", CancellationToken.None);
-            return Rejected(AuthoringServiceResultStatus.TimedOut, "deadline-expired");
-        }
-
-        deadline.CancelAfter(remaining);
-        AuthoringServiceResponse response;
-        try
-        {
-            response = await process.ExecuteAsync(request with
             {
-                OpaqueGrantIds = [.. request.OpaqueGrantIds],
-                Payload = [.. request.Payload]
-            }, deadline.Token);
-        }
-        catch (OperationCanceledException) when (deadline.IsCancellationRequested)
-        {
-            await process.TerminateTreeAsync("cancelled-or-timeout", CancellationToken.None);
-            return Rejected(
-                cancellationToken.IsCancellationRequested
-                    ? AuthoringServiceResultStatus.Cancelled
-                    : AuthoringServiceResultStatus.TimedOut,
-                "cancelled-or-timeout");
-        }
-        catch
-        {
-            await process.TerminateTreeAsync("service-crashed", CancellationToken.None);
-            return Rejected(AuthoringServiceResultStatus.Crashed, "service-crashed");
-        }
+                await process.TerminateTreeAsync("process-ownership-rejected", CancellationToken.None);
+                throw new AuthoringExtensionContractException("Service process tree is not host-owned and escape-resistant.");
+            }
 
-        if (response is null || response.SchemaVersion != request.SchemaVersion ||
-            !string.Equals(response.RuntimeIdentity, request.RuntimeIdentity, StringComparison.Ordinal) ||
-            !string.Equals(response.RequestId, request.RequestId, StringComparison.Ordinal) ||
-            response.Payload.IsDefault ||
-            response.Payload.Length > package.Contract.Manifest.Limits.MaximumResponseBytes)
-        {
-            await process.TerminateTreeAsync("response-rejected", CancellationToken.None);
-            return Rejected(AuthoringServiceResultStatus.Rejected, "response-rejected");
-        }
-
-        if (!await revisionGate.IsCurrentAsync(
-                request.DocumentId,
-                request.DocumentEpoch,
-                request.SourceRevision,
-                cancellationToken))
-        {
-            await process.TerminateTreeAsync("stale-document", CancellationToken.None);
-            return Rejected(AuthoringServiceResultStatus.Stale, "stale-document");
-        }
-
-        return new AuthoringServiceExecutionResult(
-            AuthoringServiceResultStatus.Completed,
-            response with
+            AuthoringServiceHealthReport health = await process.GetHealthAsync(cancellationToken);
+            if (!health.ProtocolHandshakeComplete ||
+                !string.Equals(health.RuntimeIdentity, target.RuntimeIdentity, StringComparison.Ordinal) ||
+                !string.Equals(health.ExecutableSha256, executable.ContentSha256, StringComparison.Ordinal) ||
+                !string.Equals(health.TransportSchemaReference, "authoring-service-transport/v1", StringComparison.Ordinal))
             {
-                Payload = [.. response.Payload]
-            },
-            "completed");
+                await process.TerminateTreeAsync("readiness-rejected", CancellationToken.None);
+                return Rejected(AuthoringServiceResultStatus.Rejected, "readiness-rejected");
+            }
+
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            TimeSpan remaining = request.Deadline - timeProvider.GetUtcNow();
+            if (remaining <= TimeSpan.Zero)
+            {
+                await process.TerminateTreeAsync("deadline-expired", CancellationToken.None);
+                return Rejected(AuthoringServiceResultStatus.TimedOut, "deadline-expired");
+            }
+
+            deadline.CancelAfter(remaining);
+            AuthoringServiceResponse response;
+            try
+            {
+                response = await process.ExecuteAsync(request with
+                {
+                    OpaqueGrantIds = [.. request.OpaqueGrantIds],
+                    Payload = [.. request.Payload]
+                }, deadline.Token);
+            }
+            catch (OperationCanceledException) when (deadline.IsCancellationRequested)
+            {
+                await process.TerminateTreeAsync("cancelled-or-timeout", CancellationToken.None);
+                return Rejected(
+                    cancellationToken.IsCancellationRequested
+                        ? AuthoringServiceResultStatus.Cancelled
+                        : AuthoringServiceResultStatus.TimedOut,
+                    "cancelled-or-timeout");
+            }
+            catch
+            {
+                await process.TerminateTreeAsync("service-crashed", CancellationToken.None);
+                return Rejected(AuthoringServiceResultStatus.Crashed, "service-crashed");
+            }
+
+            if (response is null || response.SchemaVersion != request.SchemaVersion ||
+                !string.Equals(response.RuntimeIdentity, request.RuntimeIdentity, StringComparison.Ordinal) ||
+                !string.Equals(response.RequestId, request.RequestId, StringComparison.Ordinal) ||
+                response.Payload.IsDefault ||
+                response.Payload.Length > package.Contract.Manifest.Limits.MaximumResponseBytes)
+            {
+                await process.TerminateTreeAsync("response-rejected", CancellationToken.None);
+                return Rejected(AuthoringServiceResultStatus.Rejected, "response-rejected");
+            }
+
+            if (!await revisionGate.IsCurrentAsync(
+                    request.DocumentId,
+                    request.DocumentEpoch,
+                    request.SourceRevision,
+                    cancellationToken))
+            {
+                await process.TerminateTreeAsync("stale-document", CancellationToken.None);
+                return Rejected(AuthoringServiceResultStatus.Stale, "stale-document");
+            }
+
+            return new AuthoringServiceExecutionResult(
+                AuthoringServiceResultStatus.Completed,
+                response with
+                {
+                    Payload = [.. response.Payload]
+                },
+                "completed");
+        }
+        finally
+        {
+            await lifecycleResources.ReleaseServiceAsync(target.ExtensionId, lifecycleGeneration, process);
+        }
     }
 
     private static void ValidateRequest(
