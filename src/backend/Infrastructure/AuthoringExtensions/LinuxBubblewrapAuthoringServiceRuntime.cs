@@ -438,12 +438,17 @@ public sealed class LinuxBubblewrapAuthoringServiceRuntime : IAuthoringServicePr
         AuthoringServiceLaunchDescriptor descriptor,
         AuthoringServiceHealthReport health,
         AuthoringProcessOwnershipReport ownership,
-        Task stderrDrain) : IAuthoringServiceProcess, IAuthoringOwnedServiceProcessObservation
+        Task stderrDrain) :
+        IAuthoringServiceProcess,
+        IAuthoringOwnedServiceProcessObservation,
+        IAuthoringMeasuredRuntimeInstance
     {
         private readonly SemaphoreSlim _transportLock = new(1, 1);
         private bool _terminated;
 
         public AuthoringProcessOwnershipReport Ownership { get; } = ownership;
+
+        public string RuntimeIdentity => descriptor.RuntimeIdentity;
 
         public int ProcessId => serviceProcessId;
 

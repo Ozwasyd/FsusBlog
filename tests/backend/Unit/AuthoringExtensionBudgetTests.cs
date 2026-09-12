@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Diagnostics;
 
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
 
@@ -92,6 +93,143 @@ public sealed class AuthoringExtensionBudgetTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_LiveMeasurementBreach_CancelsBeforeWallLimit()
+    {
+        BudgetFixture fixture = CreateFixture(new MeasurementSource(
+            s_zero,
+            new AuthoringResourceMeasurement(TimeSpan.Zero, 20_000, 0, 0, 0, 0, 0, 0)));
+        var operation = new NeverCompletesOperation();
+
+        AuthoringBudgetResult<string> result = await fixture.Supervisor.ExecuteAsync(
+            fixture.Identity,
+            fixture.Budget with
+            {
+                MaximumWallTime = TimeSpan.FromSeconds(2)
+            },
+            operation);
+
+        Assert.Equal(AuthoringBudgetStatus.Breached, result.Status);
+        Assert.Equal("memory-budget-exceeded", result.StableReason);
+        Assert.Equal(1, operation.CallCount);
+        Assert.Single(fixture.Containment.Reasons);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_MissingMeasurementAuthority_FailsClosedBeforeOperation()
+    {
+        var containment = new Containment();
+        var telemetry = new TelemetrySink();
+        var core = new CoreContinuity();
+        var supervisor = new AuthoringExtensionBudgetSupervisor(
+            new FailingMeasurementSource(),
+            containment,
+            telemetry,
+            core,
+            TimeProvider.System);
+        BudgetFixture fixture = CreateFixture(new MeasurementSource(s_zero, s_zero));
+        var operation = new CountingOperation();
+
+        AuthoringBudgetResult<string> result = await supervisor.ExecuteAsync(
+            fixture.Identity,
+            fixture.Budget,
+            operation);
+
+        Assert.Equal(AuthoringBudgetStatus.Breached, result.Status);
+        Assert.Equal("measurement-authority-failed", result.StableReason);
+        Assert.Equal(0, operation.CallCount);
+        Assert.Single(containment.Reasons);
+        Assert.Single(telemetry.Items);
+        Assert.Equal(1, core.ProbeCount);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AdmissionBreach_DoesNotStartOperation()
+    {
+        BudgetFixture fixture = CreateFixture(new MeasurementSource(
+            new AuthoringResourceMeasurement(TimeSpan.Zero, 20_000, 0, 0, 0, 0, 0, 0),
+            s_zero));
+        var operation = new CountingOperation();
+
+        AuthoringBudgetResult<string> result = await fixture.Supervisor.ExecuteAsync(
+            fixture.Identity,
+            fixture.Budget,
+            operation);
+
+        Assert.Equal(AuthoringBudgetStatus.Breached, result.Status);
+        Assert.Equal("memory-budget-exceeded", result.StableReason);
+        Assert.Equal(0, operation.CallCount);
+        Assert.Single(fixture.Containment.Reasons);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_RuntimeGateRejectsPolicyDrift()
+    {
+        BudgetFixture fixture = CreateFixture(new MeasurementSource(s_zero, s_zero));
+        Assert.Equal(
+            AuthoringBudgetStatus.Completed,
+            (await fixture.Supervisor.ExecuteAsync(
+                fixture.Identity,
+                fixture.Budget,
+                new Operation<string>("ok"))).Status);
+
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Supervisor.ExecuteAsync(
+                fixture.Identity with
+                {
+                    PolicyDigest = new string('d', 64)
+                },
+                fixture.Budget,
+                new Operation<string>("must-not-run")));
+    }
+
+    [Fact]
+    public void FromManifest_UsesEveryManifestResourceCeiling()
+    {
+        AuthoringResourceLimits limits = AuthoringExtensionContractsTests.CreateManifest().Limits;
+
+        AuthoringResourceBudget budget = AuthoringExtensionBudgetSupervisor.FromManifest(limits);
+
+        Assert.Equal(limits.MaximumCpuTime, budget.MaximumCpuTime);
+        Assert.Equal(limits.WallClock, budget.MaximumWallTime);
+        Assert.Equal(limits.MemoryBytes, budget.MaximumMemoryBytes);
+        Assert.Equal(limits.MaximumRequestBytes, budget.MaximumInboundBytes);
+        Assert.Equal(limits.MaximumResponseBytes, budget.MaximumOutboundBytes);
+        Assert.Equal(limits.MaximumConcurrentCalls, budget.MaximumConcurrency);
+        Assert.Equal(limits.MaximumQueueDepth, budget.MaximumQueueDepth);
+        Assert.Equal(limits.MaximumRestarts, budget.MaximumRestarts);
+        Assert.Equal(limits.MaximumNetworkBytes, budget.MaximumNetworkBytes);
+        Assert.Equal(limits.MaximumFileBytes, budget.MaximumFileBytes);
+        Assert.Equal(limits.MaximumStateBytes, budget.MaximumStateBytes);
+    }
+
+    [Fact]
+    public async Task LinuxMeasurementSource_ReportsOwnedProcessAndBrokerLedger()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+
+        BudgetFixture fixture = CreateFixture(new MeasurementSource(s_zero, s_zero));
+        using Process process = Process.GetCurrentProcess();
+        var source = new LinuxProcAuthoringResourceMeasurementSource();
+        source.Register(fixture.Identity.RuntimeIdentity, process.Id);
+        source.RecordRestart(fixture.Identity.RuntimeIdentity);
+        source.RecordBrokeredUsage(fixture.Identity.RuntimeIdentity, 11, 12, 13);
+
+        AuthoringResourceMeasurement measured = await source.MeasureAsync(
+            fixture.Identity,
+            CancellationToken.None);
+
+        Assert.True(measured.MemoryBytes > 0);
+        Assert.Equal(1, measured.Restarts);
+        Assert.Equal(11, measured.NetworkBytes);
+        Assert.Equal(12, measured.FileBytes);
+        Assert.Equal(13, measured.StateBytes);
+        source.Unregister(fixture.Identity.RuntimeIdentity, process.Id);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_RuntimeCrash_IsContainedAndCoreRemainsAvailable()
     {
         BudgetFixture fixture = CreateFixture(new MeasurementSource(s_zero, s_zero));
@@ -158,6 +296,22 @@ public sealed class AuthoringExtensionBudgetTests
         Assert.DoesNotContain(names, name => name.Contains("Source", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(names, name => name.Contains("Secret", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(names, name => name.Contains("Text", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task Telemetry_HashesDocumentAndRequestIdentities()
+    {
+        BudgetFixture fixture = CreateFixture(new MeasurementSource(s_zero, s_zero));
+
+        AuthoringBudgetResult<string> result = await fixture.Supervisor.ExecuteAsync(
+            fixture.Identity,
+            fixture.Budget,
+            new Operation<string>("ok"));
+
+        Assert.NotEqual(fixture.Identity.DocumentId, result.Telemetry.Identity.DocumentIdentityDigest);
+        Assert.NotEqual(fixture.Identity.RequestId, result.Telemetry.Identity.RequestIdentityDigest);
+        Assert.Equal(64, result.Telemetry.Identity.DocumentIdentityDigest.Length);
+        Assert.Equal(64, result.Telemetry.Identity.RequestIdentityDigest.Length);
     }
 
     [Fact]
@@ -287,9 +441,29 @@ public sealed class AuthoringExtensionBudgetTests
             ValueTask.FromResult(++_calls % 2 == 1 ? before : after);
     }
 
+    private sealed class FailingMeasurementSource : IAuthoringResourceMeasurementSource
+    {
+        public ValueTask<AuthoringResourceMeasurement> MeasureAsync(
+            AuthoringBudgetIdentity identity,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromException<AuthoringResourceMeasurement>(
+                new AuthoringExtensionContractException("measurement unavailable"));
+    }
+
     private sealed class Operation<T>(T value) : IAuthoringBudgetedRuntimeOperation<T>
     {
         public ValueTask<T> ExecuteAsync(CancellationToken cancellationToken) => ValueTask.FromResult(value);
+    }
+
+    private sealed class CountingOperation : IAuthoringBudgetedRuntimeOperation<string>
+    {
+        public int CallCount { get; private set; }
+
+        public ValueTask<string> ExecuteAsync(CancellationToken cancellationToken)
+        {
+            CallCount++;
+            return ValueTask.FromResult("unexpected");
+        }
     }
 
     private sealed class NeverCompletesOperation : IAuthoringBudgetedRuntimeOperation<string>
