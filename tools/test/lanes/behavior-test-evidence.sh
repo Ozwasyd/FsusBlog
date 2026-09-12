@@ -47,6 +47,8 @@ NODE_TEST_FILES=(
     tests/tools/document-lifecycle.test.mjs
     tests/tools/release-reliability-receipt.test.mjs
     tests/tools/test-asset-audit.test.mjs
+    tests/tools/deployment-slots.test.mjs
+    tests/tools/release-final-execution-graph.test.mjs
     tests/tools/test-matrix-topology.test.mjs
     tests/tools/zero-downtime-rehearsal.test.mjs
 )
