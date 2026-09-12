@@ -38,7 +38,9 @@ public sealed class AuthoringExtensionRpcTests
         {
             envelope => envelope with { ExtensionVersion = "2.0.0" },
             envelope => envelope with { ExecutionClass = AuthoringExecutionClass.OutOfProcessService },
-            envelope => envelope with { DocumentId = "document-2" }
+            envelope => envelope with { DocumentId = "document-2" },
+            envelope => envelope with { SiteIdentity = "site-2" },
+            envelope => envelope with { Purpose = "other-purpose" }
         })
         {
             RpcFixture fixture = await CreateFixtureAsync();
@@ -98,6 +100,39 @@ public sealed class AuthoringExtensionRpcTests
                 markup.Approval));
     }
 
+    [Fact]
+    public async Task ApplyMutationAsync_OverlappingRangesRejectWithoutNearestMatch()
+    {
+        RpcFixture fixture = await CreateFixtureAsync();
+        AuthoringMutationPlan plan = fixture.Envelope.Payload.MutationPlan! with
+        {
+            Mutations =
+            [
+                new AuthoringMutation(AuthoringMutationOperation.Replace, new AuthoringTextRange(0, 2), "a"),
+                new AuthoringMutation(AuthoringMutationOperation.Replace, new AuthoringTextRange(1, 3), "b")
+            ]
+        };
+
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Authority.ApplyMutationAsync(
+                fixture.Envelope with
+                {
+                    Payload = new AuthoringRpcPayload(MutationPlan: plan)
+                },
+                fixture.Approval));
+        Assert.Equal(0, fixture.Transaction.CallCount);
+    }
+
+    [Fact]
+    public async Task ApplyMutationAsync_TamperedTransactionReceiptFailsClosed()
+    {
+        RpcFixture fixture = await CreateFixtureAsync(tamperReceipt: true);
+
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Authority.ApplyMutationAsync(fixture.Envelope, fixture.Approval));
+        Assert.Equal(1, fixture.Transaction.CallCount);
+    }
+
     [Theory]
     [InlineData(AuthoringRpcMethod.DocumentFullRead)]
     [InlineData((AuthoringRpcMethod)999)]
@@ -150,6 +185,61 @@ public sealed class AuthoringExtensionRpcTests
             Destination = null
         };
         await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () => await authority.IssueAsync(request));
+
+        request = CreateGrantRequest() with
+        {
+            Capability = AuthoringCapability.DocumentRangeRead,
+            Destination = "example.test"
+        };
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () => await authority.IssueAsync(request));
+    }
+
+    [Fact]
+    public async Task GrantAuthority_FullDocumentGrantRequiresExactRevisionScope()
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        var store = new GrantStore();
+        var authority = new AuthoringCapabilityGrantAuthority(store, new FixedTimeProvider(now));
+        AuthoringGrantRequest request = CreateGrantRequest() with
+        {
+            Capability = AuthoringCapability.DocumentFullRead
+        };
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () => await authority.IssueAsync(request));
+
+        request = request with
+        {
+            DocumentEpoch = 1,
+            SourceRevision = 2,
+            SnapshotSha256 = new string('c', 64)
+        };
+        AuthoringCapabilityGrant grant = await authority.IssueAsync(request);
+        RpcFixture fixture = await CreateFixtureAsync();
+        AuthoringRpcEnvelope envelope = fixture.Envelope with
+        {
+            Method = AuthoringRpcMethod.DocumentFullRead,
+            GrantDigest = grant.GrantDigest,
+            Payload = new AuthoringRpcPayload(QueryReference: "full-document/v1")
+        };
+
+        await authority.RequireAsync(grant.GrantId, envelope, AuthoringCapability.DocumentFullRead);
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await authority.RequireAsync(
+                grant.GrantId,
+                envelope with { SourceRevision = 3 },
+                AuthoringCapability.DocumentFullRead));
+    }
+
+    [Fact]
+    public async Task GrantAuthority_TamperedStoredGrantFailsDigestVerification()
+    {
+        RpcFixture fixture = await CreateFixtureAsync();
+        fixture.Store.Tamper(
+            fixture.Envelope.GrantDigest,
+            static grant => grant with { Purpose = "tampered-purpose" });
+
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Authority.ApplyMutationAsync(fixture.Envelope, fixture.Approval));
+        Assert.Equal(0, fixture.Transaction.CallCount);
     }
 
     [Fact]
@@ -180,7 +270,8 @@ public sealed class AuthoringExtensionRpcTests
 
     private static async ValueTask<RpcFixture> CreateFixtureAsync(
         bool storeGrant = true,
-        bool currentRevision = true)
+        bool currentRevision = true,
+        bool tamperReceipt = false)
     {
         DateTimeOffset now = DateTimeOffset.UtcNow;
         var store = new GrantStore();
@@ -219,19 +310,23 @@ public sealed class AuthoringExtensionRpcTests
             new string('1', 64),
             grant.GrantDigest,
             now.AddMinutes(1),
-            new AuthoringRpcPayload(MutationPlan: plan));
+            new AuthoringRpcPayload(MutationPlan: plan))
+        {
+            SiteIdentity = "site-1",
+            Purpose = "format-selection"
+        };
         var approval = new AuthoringMutationApproval(
             plan.PlanId,
             true,
             "approval-1",
             new string('2', 64));
-        var transaction = new TransactionPort();
+        var transaction = new TransactionPort(tamperReceipt);
         var authority = new AuthoringExtensionRpcAuthority(
             grants,
             transaction,
             new RevisionGate(currentRevision),
             new FixedTimeProvider(now));
-        return new RpcFixture(authority, grants, envelope, approval, transaction);
+        return new RpcFixture(authority, grants, envelope, approval, transaction, store);
     }
 
     private static AuthoringGrantRequest CreateGrantRequest() => new(
@@ -255,7 +350,8 @@ public sealed class AuthoringExtensionRpcTests
         AuthoringCapabilityGrantAuthority Grants,
         AuthoringRpcEnvelope Envelope,
         AuthoringMutationApproval Approval,
-        TransactionPort Transaction);
+        TransactionPort Transaction,
+        GrantStore Store);
 
     private sealed class GrantStore : IAuthoringCapabilityGrantStore
     {
@@ -279,9 +375,14 @@ public sealed class AuthoringExtensionRpcTests
             _grants.Remove(grantId);
             return ValueTask.CompletedTask;
         }
+
+        public void Tamper(
+            string grantId,
+            Func<AuthoringCapabilityGrant, AuthoringCapabilityGrant> mutate) =>
+            _grants[grantId] = mutate(_grants[grantId]);
     }
 
-    private sealed class TransactionPort : IAuthoringCanonicalDocumentTransaction
+    private sealed class TransactionPort(bool tamperReceipt = false) : IAuthoringCanonicalDocumentTransaction
     {
         public int CallCount
         {
@@ -293,7 +394,7 @@ public sealed class AuthoringExtensionRpcTests
             CancellationToken cancellationToken)
         {
             CallCount++;
-            return ValueTask.FromResult(new AuthoringTransactionReceipt(
+            var receipt = new AuthoringTransactionReceipt(
                 "transaction-1",
                 plan.PlanId,
                 plan.DocumentId,
@@ -302,7 +403,13 @@ public sealed class AuthoringExtensionRpcTests
                 "history-1",
                 plan.SelectionIdentity,
                 true,
-                new string('3', 64)));
+                string.Empty);
+            return ValueTask.FromResult(receipt with
+            {
+                ReceiptDigest = tamperReceipt
+                    ? new string('3', 64)
+                    : AuthoringExtensionRpcAuthority.ComputeTransactionReceiptDigest(receipt)
+            });
         }
     }
 
