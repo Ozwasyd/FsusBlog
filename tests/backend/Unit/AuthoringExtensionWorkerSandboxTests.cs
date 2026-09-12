@@ -26,6 +26,23 @@ public sealed class AuthoringExtensionWorkerSandboxTests
 
         Assert.Equal(AuthoringWorkerResultStatus.Completed, result.Status);
         Assert.Equal([4, 5, 6], result.Response?.Payload);
+        AuthoringWorkerExecutionReceipt receipt = Assert.IsType<AuthoringWorkerExecutionReceipt>(result.Receipt);
+        Assert.Matches("^[0-9a-f]{64}$", receipt.InstanceIdentity);
+        Assert.Matches("^[0-9a-f]{64}$", receipt.DocumentIdentitySha256);
+        Assert.Matches("^[0-9a-f]{64}$", receipt.RequestIdentitySha256);
+        string storedReceipt = JsonSerializer.Serialize(receipt);
+        Assert.DoesNotContain("document-1", storedReceipt, StringComparison.Ordinal);
+        Assert.DoesNotContain("request-1", storedReceipt, StringComparison.Ordinal);
+        Assert.DoesNotContain("AQID", storedReceipt, StringComparison.Ordinal);
+
+        AuthoringWorkerExecutionResult changed = await fixture.Sandbox.ExecuteAsync(
+            fixture.Package,
+            fixture.Target,
+            fixture.Request with
+            {
+                SourceRevision = fixture.Request.SourceRevision + 1
+            });
+        Assert.NotEqual(receipt.InstanceIdentity, changed.Receipt?.InstanceIdentity);
     }
 
     [Theory]
@@ -156,6 +173,47 @@ public sealed class AuthoringExtensionWorkerSandboxTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_TargetOrClosedRequestDrift_FailsBeforeRuntimeStart()
+    {
+        WorkerFixture fixture = await CreateFixtureAsync();
+
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Sandbox.ExecuteAsync(
+                fixture.Package,
+                fixture.Target with
+                {
+                    ExtensionVersion = "9.9.9"
+                },
+                fixture.Request));
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Sandbox.ExecuteAsync(
+                fixture.Package,
+                fixture.Target,
+                fixture.Request with
+                {
+                    RequestId = "bad\nrequest"
+                }));
+    }
+
+    [Fact]
+    public void LinuxRuntimeSource_EnforcesDeclaredMemoryAndClosedModuleBoundary()
+    {
+        string source = File.ReadAllText(Path.Combine(
+            BackendTestPaths.RepositoryRoot,
+            "src/backend/Infrastructure/AuthoringExtensions/LinuxBubblewrapAuthoringWorkerRuntime.cs"));
+
+        Assert.Contains("inspectMemoryPolicy(moduleBytes)", source, StringComparison.Ordinal);
+        Assert.Contains("wasm-memory-policy-invalid", source, StringComparison.Ordinal);
+        Assert.Contains("--unshare-all", source, StringComparison.Ordinal);
+        Assert.Contains("imports.length !== 0", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("eval(", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("WebView", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("iframe", source, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("node:net", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("node:child_process", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     [SupportedOSPlatform("linux")]
     public async Task LinuxRuntime_ExecutesVerifiedWasmInsideObservedNamespaces()
     {
@@ -173,6 +231,7 @@ public sealed class AuthoringExtensionWorkerSandboxTests
             TimeSpan.FromSeconds(5)));
         var descriptor = new AuthoringWorkerLaunchDescriptor(
             new string('a', 64),
+            new string('9', 64),
             "acme.author-tools",
             "1.0.0",
             new string('b', 64),
@@ -184,6 +243,7 @@ public sealed class AuthoringExtensionWorkerSandboxTests
             new string('f', 64),
             [.. module],
             131_072,
+            1024,
             1024);
 
         await using IAuthoringWorkerSandboxInstance instance = await runtime.StartAsync(descriptor, CancellationToken.None);
@@ -240,6 +300,7 @@ public sealed class AuthoringExtensionWorkerSandboxTests
                 TimeSpan.FromSeconds(5)));
             var descriptor = new AuthoringWorkerLaunchDescriptor(
                 new string('a', 64),
+                new string('9', 64),
                 "acme.author-tools",
                 "1.0.0",
                 new string('b', 64),
@@ -251,6 +312,7 @@ public sealed class AuthoringExtensionWorkerSandboxTests
                 new string('f', 64),
                 [.. module],
                 131_072,
+                1024,
                 1024);
 
             await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
