@@ -2,15 +2,15 @@
     "schema": "fsusblog.current-run-evidence-location-acceptance.v1",
     "sourceDigests": {
         "config/testing/evidence-locator-registry.json": "sha256:59289ad034f3d0d4c1944e2de5472e696a706c804f8941157243befb9f441749",
-        "config/testing/evidence-location-migration-ledger.json": "sha256:ad3b765cecb959497a76d75327f57bf588e21f90cfed504abd18e17c220b97ae",
+        "config/testing/evidence-location-migration-ledger.json": "sha256:2aa9de5b0b82364f86f9c719393bc6b22ee060ee9f35aaae7043c5e42c324379",
         "tools/test/evidence-location-scanner.mjs": "sha256:fba2fe9d1e0376cb55a26dbde9db25ff052319c3865ea640af99ac396adadadd",
         "tools/test/current-run-evidence-locator.mjs": "sha256:4adddfe04b45a9f0323fca2a23318aa3b4d85e79f5d3aa0d2e00bb9ec0fffda3",
         "tools/test/current-run-evidence-transport.mjs": "sha256:d6a4b4dfe0394cbe05c3be2fec5ba360b4b6b8cc28483ea3b9cc7b28e282dd5d",
         "tools/test/generate-evidence-location-governance.mjs": "sha256:2de56bc874d779be29c9cb137a97a2b14c74adbf5a324c1abedbc72281dcd69e"
     },
     "registryDigest": "sha256:7cf3c25d696cfaf8aa9029933983727e84cc040f8deead4749c93e664b71343b",
-    "ledgerDigest": "sha256:c37e329a4fbaad13437840b7405830b245ddd8c6ab56f2738bd2b1b3b93b7cb2",
-    "scannerDigest": "sha256:b6ceffea634eea3ae210459a12c7765509c06a9782aa739dd152f5bbdfba5ea5",
+    "ledgerDigest": "sha256:215547ef1cbafcdcba1a15018e0602b5a0c247461a82c4b5001803922627e485",
+    "scannerDigest": "sha256:9471cc6b46c65790b16e67938d192b6e6cde483308d7d88a43679cc7b1ca66ed",
     "locatorDigest": "sha256:4adddfe04b45a9f0323fca2a23318aa3b4d85e79f5d3aa0d2e00bb9ec0fffda3",
     "transportDigest": "sha256:d6a4b4dfe0394cbe05c3be2fec5ba360b4b6b8cc28483ea3b9cc7b28e282dd5d",
     "consumerInventory": [
@@ -520,7 +520,7 @@
         }
     ],
     "consumerCount": 72,
-    "findingCount": 396,
+    "findingCount": 401,
     "warnings": [],
-    "contentDigest": "sha256:09abda39c59b51322e5f6992a94395cc4fa084ccab000fd56bbcdd2223b134b6"
+    "contentDigest": "sha256:9045e9b7febec3fb22317ac66f4b93c7033f050bf6ed72f89ff6df839f4bcd95"
 }
