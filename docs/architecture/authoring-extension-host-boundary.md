@@ -160,9 +160,37 @@ reparse boundaries, reads only bounded regular files, and stages proposed writes
 under a private non-reparse host root for later approval. This stage defines no
 document RPC, permission decision, lifecycle, or concrete provider.
 
+## Versioned RPC and canonical mutation boundary
+
+All execution classes share the internal schema-version-1 RPC envelope. The
+envelope binds runtime, extension/version, package/content, contribution/class,
+request, document epoch/revision/snapshot, host API/schema/policy/grant, deadline,
+site, and purpose identities. Its method and payload vocabularies are closed and
+bounded; unknown methods, multiple payload variants, malformed digests, expired
+requests, or unbound identity fields fail closed. These immutable value records do
+not expose a live editor, DOM, Vue/Pinia state, service provider, database object,
+callback, or direct source replacement authority.
+
+The implemented host operation is the mutation path: a plugin returns a bounded
+insert/replace/delete plan, the host rechecks its exact grant, document snapshot,
+revision, non-overlapping ranges, approval and preview receipt, then delegates once
+to `IAuthoringCanonicalDocumentTransaction`. Duplicate request IDs, stale plans,
+nearest-match application, automatic rebasing, executable markup, and tampered
+transaction receipts are rejected. Full-document grants additionally bind one
+exact document epoch, revision, and snapshot digest; other grants cannot smuggle a
+destination, root, or revision scope.
+
+The registry reserves the remaining read/query/broker/diagnostic/state method
+identities, but this stage does not invent production handlers for them. In
+particular it does not create a browser, HTTP, or AEDS bridge. A real canonical
+document transaction owner and the machine-driven consent UI remain external
+dependencies; until those reviewed artifacts are composed, the RPC authority is
+fail-closed and this issue remains a Draft/Refs delivery rather than production
+activation evidence.
+
 ## Stability and rollback
 
-The contract and package store are currently internal/experimental and may change only by advancing
+The contract, package store, and RPC are currently internal/experimental and may change only by advancing
 its closed schema or registry version and updating its validators and tests in the
 same change. Unsupported host API ranges, platforms, entrypoint mappings, versions,
 or registry identities remain rejected; compatibility never falls back to the
