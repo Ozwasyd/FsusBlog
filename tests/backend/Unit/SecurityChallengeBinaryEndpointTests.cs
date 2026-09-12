@@ -1008,50 +1008,63 @@ public sealed class SecurityChallengeBinaryEndpointTests
         await stateService.DidNotReceive().RevokeAsync(Arg.Any<SecurityChallengeEnvelopeBindingRequest>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
-    [Fact]
-    public async Task IssueAsync_IncompatibleAccept_ReturnsApiError406()
+    [Theory]
+    [InlineData("incompatible-media-type", "application/json")]
+    [InlineData("binary-q-zero", "application/octet-stream;q=0")]
+    public async Task IssueAsync_UnacceptableAcceptHeader_ReturnsApiError406(
+        string caseName,
+        string acceptHeader)
     {
         var aeds = new AedsEncoder();
         var context = CreateContext(AedsFrameType.SecurityChallengeIssueRequest, BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "should_not_read")));
-        context.Request.Headers.Accept = "application/json";
+        context.Request.Headers.Accept = acceptHeader;
+        var requestContext = Substitute.For<IBinaryEndpointRequestContext>();
+        requestContext.ReadFrameAsync(
+                Arg.Any<HttpContext>(),
+                Arg.Any<IAedsEncoder>(),
+                Arg.Any<AedsFrameType>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<int?>())
+            .Returns(BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "should_not_read")));
+        context.RequestServices = new ServiceCollection()
+            .AddSingleton(requestContext)
+            .BuildServiceProvider();
+        var riskScoreReader = Substitute.For<ISecurityRiskScoreReader>();
+        var riskPolicyProvider = Substitute.For<ISecurityRiskPolicyProvider>();
+        var riskContextFactory = Substitute.For<IRiskControlContextFactory>();
+        var riskDecisionService = Substitute.For<IRiskDecisionService>();
+        var challengeOrchestrator = Substitute.For<ISecurityChallengeOrchestrator>();
+        var riskSink = Substitute.For<ISecurityRiskSignalSink>();
+        var poSpaceUnsupportedReissueService = Substitute.For<IPoSpaceUnsupportedReissueService>();
 
         BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeIssueAsync(
             context,
             aeds,
-            new FixedRiskScoreReader(50),
-            new FixedRiskPolicyProvider(CreatePolicy("security.pow")),
-            new RiskControlContextFactory(),
-            new RiskDecisionService(),
-            new FakeChallengeOrchestrator(),
-            new NullRiskSink(),
-            CancellationToken.None);
+            riskScoreReader,
+            riskPolicyProvider,
+            riskContextFactory,
+            riskDecisionService,
+            challengeOrchestrator,
+            riskSink,
+            CancellationToken.None,
+            poSpaceUnsupportedReissueService);
 
         AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
         Assert.Equal(StatusCodes.Status406NotAcceptable, context.Response.StatusCode);
         Assert.Equal(AedsFrameType.ApiError, decoded.FrameType);
-    }
-
-    [Fact]
-    public async Task IssueAsync_BinaryAcceptWithZeroQuality_ReturnsApiError406()
-    {
-        var aeds = new AedsEncoder();
-        var context = CreateContext(AedsFrameType.SecurityChallengeIssueRequest, BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "should_not_read")));
-        context.Request.Headers.Accept = "application/octet-stream;q=0";
-
-        BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeIssueAsync(
-            context,
-            aeds,
-            new FixedRiskScoreReader(50),
-            new FixedRiskPolicyProvider(CreatePolicy("security.pow")),
-            new RiskControlContextFactory(),
-            new RiskDecisionService(),
-            new FakeChallengeOrchestrator(),
-            new NullRiskSink(),
-            CancellationToken.None);
-
-        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
-        Assert.Equal(StatusCodes.Status406NotAcceptable, context.Response.StatusCode);
-        Assert.Equal(AedsFrameType.ApiError, decoded.FrameType);
+        Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Payload, out var errorPod), caseName);
+        Assert.Equal(StatusCodes.Status406NotAcceptable, errorPod.HttpStatus);
+        ErrorDetail error = PodBinaryCodec.ToErrorDetail(errorPod);
+        Assert.Equal(ErrorDetail.Create(ErrorCode.Validation, "binary_accept_required"), error);
+        Assert.DoesNotContain("should_not_read", error.Message, StringComparison.Ordinal);
+        Assert.Empty(requestContext.ReceivedCalls());
+        Assert.Empty(riskScoreReader.ReceivedCalls());
+        Assert.Empty(riskPolicyProvider.ReceivedCalls());
+        Assert.Empty(riskContextFactory.ReceivedCalls());
+        Assert.Empty(riskDecisionService.ReceivedCalls());
+        Assert.Empty(challengeOrchestrator.ReceivedCalls());
+        Assert.Empty(riskSink.ReceivedCalls());
+        Assert.Empty(poSpaceUnsupportedReissueService.ReceivedCalls());
     }
 
     [Fact]
