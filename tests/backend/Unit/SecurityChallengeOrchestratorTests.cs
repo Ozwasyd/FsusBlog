@@ -7,10 +7,12 @@ using FsusBlog.Shared.Contracts.Security;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class SecurityChallengeOrchestratorTests
 {
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public void CostClasses_PutCredentialAndProofPrerequisitesBeforeScarceArtifacts()
     {

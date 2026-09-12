@@ -9,11 +9,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 using SqlSugar;
+using FsusBlog.Shared.Contracts.Governance;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class UserBootstrapLoginMfaBoundaryTests
 {
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public void DependencyGraph_BootstrapAndLoginOwnPersistenceWithoutUserServiceCallback()
     {

@@ -3,10 +3,12 @@ using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Services.Moderation;
 
 using Microsoft.Extensions.Configuration;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class CommentModerationDispositionPolicyTests
 {
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     [Theory]
     [InlineData(CommentModerationStatus.Pending, CommentModerationStatus.Pending, false)]
     [InlineData(CommentModerationStatus.Pending, CommentModerationStatus.Approved, true)]

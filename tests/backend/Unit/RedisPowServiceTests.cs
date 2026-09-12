@@ -13,10 +13,12 @@ using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class RedisPowServiceTests
 {
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public async Task VerifyAsync_ConsumesValidProofOnce()
     {

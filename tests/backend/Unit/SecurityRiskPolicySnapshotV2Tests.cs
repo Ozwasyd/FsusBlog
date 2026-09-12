@@ -3,10 +3,12 @@ using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
 
 using Microsoft.Extensions.Configuration;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class SecurityRiskPolicySnapshotV2Tests
 {
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public void LegacyAdapter_PreservesDefaultPublicReadChallengeAndBlockBehavior()
     {

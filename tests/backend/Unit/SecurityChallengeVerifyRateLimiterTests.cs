@@ -6,12 +6,14 @@ using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.Security;
 
 using Microsoft.AspNetCore.Http;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class SecurityChallengeVerifyRateLimiterTests
 {
     private static readonly DateTimeOffset s_baselineNow = new(2026, 6, 20, 12, 0, 0, TimeSpan.Zero);
 
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public async Task TryAcquireAsync_UsesSharedUnifiedCacheWindowCounterWithoutRawIdentity()
     {

@@ -21,10 +21,12 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 
 using SqlSugar;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class RecoveryKeyServiceTests
 {
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public void RecoveryKeyService_UsesIndependentPepperedPbkdfHashing()
     {

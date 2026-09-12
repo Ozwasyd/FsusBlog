@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 
 using NSubstitute;
+using FsusBlog.Shared.Contracts.Governance;
 
 using SqlSugar;
 
@@ -27,6 +28,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
     ArticleDestructiveMutationDatabaseFixture classDatabase)
     : IClassFixture<ArticleDestructiveMutationDatabaseFixture>, IAsyncLifetime
 {
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     [Fact]
     public async Task DeleteAndRestore_EnforceStateMachineAndRestoreToDraft()
     {

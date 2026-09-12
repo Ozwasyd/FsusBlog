@@ -7,10 +7,12 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AdminPrincipalSecurityContractTests
 {
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Theory]
     [InlineData("Production", "true", false)]
     [InlineData("Development", null, false)]

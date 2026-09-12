@@ -18,12 +18,14 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
 using NSubstitute;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class UserSecurityStepUpServiceTests
 {
     private const string StableAccountSubjectHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public async Task MfaEnabledAccount_RequiresActionBoundOneTimeProof()
     {

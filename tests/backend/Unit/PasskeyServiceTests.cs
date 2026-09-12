@@ -5,6 +5,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Security;
 
 using SqlSugar;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests;
 
 /// <summary>
@@ -14,6 +15,7 @@ namespace FsusBlog.Server.Tests;
 /// </summary>
 public sealed class PasskeyServiceTests
 {
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Theory]
     [InlineData(0, 0, PasskeyCounterOutcome.Unsupported)]
     [InlineData(0, 1, PasskeyCounterOutcome.Advanced)]

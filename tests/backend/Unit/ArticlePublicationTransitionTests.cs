@@ -3,6 +3,7 @@ using System.Text.Json;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Services;
+using FsusBlog.Shared.Contracts.Governance;
 
 namespace FsusBlog.Server.Tests;
 
@@ -10,6 +11,7 @@ public sealed class ArticlePublicationTransitionTests
 {
     private static readonly DateTime s_now = new(2026, 7, 19, 8, 0, 0, DateTimeKind.Utc);
 
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     [Fact]
     public void CreatePlan_NewScheduledArticle_StoresScheduledDeadline()
     {

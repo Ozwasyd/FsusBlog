@@ -8,11 +8,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 using SqlSugar;
+using FsusBlog.Shared.Contracts.Governance;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class CommentCommandBoundaryTests
 {
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     [Fact]
     public void DependencyGraph_CommandDependsOnlyOnDatabaseLoggerAndNarrowPorts()
     {

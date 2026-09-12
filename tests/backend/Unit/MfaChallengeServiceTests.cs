@@ -7,6 +7,7 @@ using FsusBlog.Server.Services.Security;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using FsusBlog.Shared.Contracts.Governance;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class MfaChallengeServiceTests
@@ -15,6 +16,7 @@ public sealed class MfaChallengeServiceTests
     private static readonly string s_atomicSubjectHash = new string('b', AccountSubjectHashRequirement.Sha256HexLength);
     private static readonly string s_lockedSubjectHash = new string('c', AccountSubjectHashRequirement.Sha256HexLength);
 
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     [Fact]
     public async Task RecordFailureAsync_SameAccountSubjectHashSharesCounterAcrossAccountIds()
     {
