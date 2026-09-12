@@ -1,0 +1,25 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "config/development/document-lifecycle.json",
+        "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionContracts.cs"
+    ],
+    "outputs": [
+        {
+            "path": "config/development/document-inventory.generated.json",
+            "sha256": "f74ee2eadf7e0587c8c1a291e0409739004ed7fd48012e5090e34a85a51447e5"
+        },
+        {
+            "path": "docs/index.md",
+            "sha256": "597097d2eb939155c507777901d913d812ed9f918e401a31f680cb23014ca439"
+        },
+        {
+            "path": "config/testing/current-run-evidence-location-acceptance.json",
+            "sha256": "b75a069e1b78a8c1e413b2e06845566c945f758ae7e7a10aecb69f9188c61290"
+        },
+        {
+            "path": "config/testing/evidence-location-migration-ledger.json",
+            "sha256": "6fefa4ac434c49b13a32fbe419d0d910dbf910b47367d543bbe1412ad5f05811"
+        }
+    ]
+}

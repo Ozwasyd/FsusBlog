@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
 using FsusBlog.Server.Tests.TestInfrastructure;
@@ -29,6 +30,62 @@ public sealed class AuthoringExtensionContractsTests
         });
 
         Assert.NotEqual(original.ContractIdentity, changed.ContractIdentity);
+        Assert.Equal(AuthoringExtensionContractValidator.RegistryIdentity, original.RegistryIdentity);
+    }
+
+    [Fact]
+    public void CreateRegistry_ProducesStableSnapshotAndRejectsTamperedContract()
+    {
+        VerifiedAuthoringExtensionContract contract = AuthoringExtensionContractValidator.Verify(CreateManifest());
+        AuthoringCoreAuthorityRegistry core = CreateCoreAuthorities();
+
+        AuthoringExtensionRegistrySnapshot first = AuthoringExtensionContractValidator.CreateRegistry([contract], core);
+        AuthoringExtensionRegistrySnapshot second = AuthoringExtensionContractValidator.CreateRegistry([contract], core);
+        AuthoringExtensionRegistrySnapshot coreChanged = AuthoringExtensionContractValidator.CreateRegistry(
+            [contract],
+            core with
+            {
+                CommandIds = [.. core.CommandIds, "fsusblog.core.command.publish"]
+            });
+
+        Assert.Equal(64, first.RegistryIdentity.Length);
+        Assert.Equal(first.RegistryIdentity, second.RegistryIdentity);
+        Assert.NotEqual(first.RegistryIdentity, coreChanged.RegistryIdentity);
+        Assert.Equal(contract.ContractIdentity, Assert.Single(first.Contracts).ContractIdentity);
+        Assert.Throws<AuthoringExtensionContractException>(() =>
+            AuthoringExtensionContractValidator.CreateRegistry(
+                [contract with { ContractIdentity = new string('0', 64) }],
+                core));
+        Assert.Throws<AuthoringExtensionContractException>(() =>
+            AuthoringExtensionContractValidator.CreateRegistry(
+                [contract with { RegistryIdentity = new string('0', 64) }],
+                core));
+    }
+
+    [Fact]
+    public void CreateRegistry_DuplicateOrCoreAuthorityIdentity_FailsClosed()
+    {
+        AuthoringExtensionManifest original = CreateManifest();
+        VerifiedAuthoringExtensionContract first = AuthoringExtensionContractValidator.Verify(original);
+        VerifiedAuthoringExtensionContract duplicateContribution = AuthoringExtensionContractValidator.Verify(
+            original with
+            {
+                Id = "other.author-tools",
+                PackageSha256 = new string('d', 64),
+                ContentSha256 = new string('e', 64)
+            });
+
+        Assert.Throws<AuthoringExtensionContractException>(() =>
+            AuthoringExtensionContractValidator.CreateRegistry(
+                [first, duplicateContribution],
+                CreateCoreAuthorities()));
+        Assert.Throws<AuthoringExtensionContractException>(() =>
+            AuthoringExtensionContractValidator.CreateRegistry(
+                [first],
+                CreateCoreAuthorities() with
+                {
+                    CommandIds = [original.Contributions[0].Id]
+                }));
     }
 
     [Fact]
@@ -51,7 +108,9 @@ public sealed class AuthoringExtensionContractsTests
     [Theory]
     [InlineData("https://host/module.wasm")]
     [InlineData("eval();")]
+    [InlineData("import('module.wasm')")]
     [InlineData("../module.wasm")]
+    [InlineData("worker\\module.wasm")]
     public void Verify_ArbitraryEntrypoint_FailsClosed(string entrypoint)
     {
         AuthoringContributionDeclaration contribution = CreateManifest().Contributions[0];
@@ -104,6 +163,35 @@ public sealed class AuthoringExtensionContractsTests
     }
 
     [Fact]
+    public void ParseAndVerify_MissingTopLevelOrNestedField_FailsClosed()
+    {
+        JsonObject missingPublisher = JsonNode.Parse(JsonSerializer.Serialize(CreateManifest()))!.AsObject();
+        missingPublisher.Remove(nameof(AuthoringExtensionManifest.Publisher));
+        JsonObject missingCpuLimit = JsonNode.Parse(JsonSerializer.Serialize(CreateManifest()))!.AsObject();
+        missingCpuLimit[nameof(AuthoringExtensionManifest.Limits)]!
+            .AsObject()
+            .Remove(nameof(AuthoringResourceLimits.MaximumCpuTime));
+
+        Assert.Throws<AuthoringExtensionContractException>(() =>
+            AuthoringExtensionContractValidator.ParseAndVerify(
+                System.Text.Encoding.UTF8.GetBytes(missingPublisher.ToJsonString()),
+                AuthoringHostPlatform.ServerLinux));
+        Assert.Throws<AuthoringExtensionContractException>(() =>
+            AuthoringExtensionContractValidator.ParseAndVerify(
+                System.Text.Encoding.UTF8.GetBytes(missingCpuLimit.ToJsonString()),
+                AuthoringHostPlatform.ServerLinux));
+    }
+
+    [Fact]
+    public void ParseAndVerify_ManifestSizeBound_FailsClosed()
+    {
+        Assert.Throws<AuthoringExtensionContractException>(() =>
+            AuthoringExtensionContractValidator.ParseAndVerify(
+                new byte[AuthoringExtensionContractValidator.MaximumManifestBytes + 1],
+                AuthoringHostPlatform.ServerLinux));
+    }
+
+    [Fact]
     public void Verify_DefaultPermissionsAreExplicitlyEmpty_AndBroadIdentifierIsRejected()
     {
         AuthoringContributionDeclaration contribution = CreateManifest().Contributions[0];
@@ -117,6 +205,44 @@ public sealed class AuthoringExtensionContractsTests
             AuthoringExtensionContractValidator.Verify(CreateManifest() with
             {
                 Contributions = [contribution with { Id = "*" }]
+            }));
+        Assert.Throws<AuthoringExtensionContractException>(() =>
+            AuthoringExtensionContractValidator.Verify(CreateManifest() with
+            {
+                Id = $"a.{new string('b', AuthoringExtensionContractValidator.MaximumIdentifierLength)}"
+            }));
+    }
+
+    [Fact]
+    public void Verify_SchemaVersionDigestAndBudgetBounds_FailClosed()
+    {
+        AuthoringExtensionManifest manifest = CreateManifest();
+
+        Assert.Throws<AuthoringExtensionContractException>(() =>
+            AuthoringExtensionContractValidator.Verify(manifest with
+            {
+                RegistryVersion = 2
+            }));
+        Assert.Throws<AuthoringExtensionContractException>(() =>
+            AuthoringExtensionContractValidator.Verify(manifest with
+            {
+                PackageSha256 = new string('A', 64)
+            }));
+        Assert.Throws<AuthoringExtensionContractException>(() =>
+            AuthoringExtensionContractValidator.Verify(manifest with
+            {
+                Limits = manifest.Limits with
+                {
+                    MaximumCpuTime = TimeSpan.Zero
+                }
+            }));
+        Assert.Throws<AuthoringExtensionContractException>(() =>
+            AuthoringExtensionContractValidator.Verify(manifest with
+            {
+                Limits = manifest.Limits with
+                {
+                    MaximumNetworkBytes = -1
+                }
             }));
     }
 
@@ -157,9 +283,14 @@ public sealed class AuthoringExtensionContractsTests
     [Fact]
     public void ContractSource_HasOneRegistryAndNoGenericExecutableRegistrationSurface()
     {
-        string source = File.ReadAllText(Path.Combine(
+        string sourceDirectory = Path.Combine(
             BackendTestPaths.RepositoryRoot,
-            "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionContracts.cs"));
+            "src/backend/Infrastructure/AuthoringExtensions");
+        string source = string.Join(
+            "\n",
+            Directory.EnumerateFiles(sourceDirectory, "*.cs", SearchOption.TopDirectoryOnly)
+                .Order(StringComparer.Ordinal)
+                .Select(File.ReadAllText));
 
         Assert.Equal(1, Count(source, "enum AuthoringContributionKind"));
         Assert.Equal(1, Count(source, "enum AuthoringCapability"));
@@ -167,6 +298,8 @@ public sealed class AuthoringExtensionContractsTests
         Assert.DoesNotContain("dynamic ", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Delegate", source, StringComparison.Ordinal);
         Assert.DoesNotContain("object Payload", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Dictionary<string, object", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("JsonElement Payload", source, StringComparison.Ordinal);
     }
 
     private static int Count(string value, string fragment) =>
@@ -199,16 +332,29 @@ public sealed class AuthoringExtensionContractsTests
                     AuthoringCapability.DocumentMutationRequest))
         ],
         Limits: new AuthoringResourceLimits(
+            TimeSpan.FromSeconds(2),
             TimeSpan.FromSeconds(5),
             64 * 1024 * 1024,
             64 * 1024,
             64 * 1024,
             2,
             8,
-            8),
+            8,
+            1,
+            0,
+            0,
+            1024 * 1024),
         StateSchemaVersion: 1,
         DataSchemaVersion: 1,
         UpdatePolicy: AuthoringUpdatePolicy.AtomicSwitchWithRollback,
         MigrationPolicy: AuthoringMigrationPolicy.HostDeclarativeOnly,
-        UninstallPolicy: AuthoringUninstallPolicy.RemoveAuthorityRetainData);
+        UninstallPolicy: AuthoringUninstallPolicy.RemoveAuthorityRetainData,
+        AllowExecutionFallback: false);
+
+    private static AuthoringCoreAuthorityRegistry CreateCoreAuthorities() => new(
+        CommandIds: ["fsusblog.core.command.save"],
+        RouteIds: ["/admin/article/write"],
+        PropertyIds: ["article.title"],
+        SavedViewOperatorIds: ["saved-view.and"],
+        SecurityPolicyIds: ["security.authoring"]);
 }

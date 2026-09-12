@@ -6,6 +6,12 @@ requests are interpreted by the separate default-deny
 [plugin sandbox boundary](../security/plugin-sandbox.md); native C# loading, Raw
 SQL, a public marketplace and automatic updates remain unavailable.
 
+This `.fspkg` Registry and Hook namespace does not own the separate
+[authoring extension manifest registry](authoring-extension-host-boundary.md).
+Authoring extension manifests and execution declarations cannot be registered in
+or inferred from `plugin_registry`, and neither system supplies a compatibility
+fallback for the other.
+
 ## Package boundary
 
 A plugin package uses the `.fspkg` extension and is a zip archive. The minimum
