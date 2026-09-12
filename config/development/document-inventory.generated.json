@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:e30be154b0ebd2c00a034d636007c06e8adcab5ebfd8a37eb95b0d027595d31f",
+    "policyDigest": "sha256:4aaa0deffbefce22e735a7a1c0e8b3781d6cd632dd8bac7d2785d9e2e932cc06",
     "documents": [
         {
             "path": "docs/CODE_OF_CONDUCT.md",
@@ -427,6 +427,21 @@
             "relatedIssues": [
                 2482,
                 2484
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/architecture/authoring-extension-host-boundary.md",
+            "title": "Authoring extension host boundary",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1914,
+                2137
             ],
             "producer": null
         },
@@ -2880,6 +2895,21 @@
             "supersedes": [],
             "supersededBy": null,
             "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/security/authoring-extension-capability-isolation.md",
+            "title": "Authoring extension capability and isolation boundary",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "security",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1914,
+                2137
+            ],
             "producer": null
         },
         {
