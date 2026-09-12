@@ -6,6 +6,7 @@ using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Infrastructure.PublicAot;
 
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using Serilog.Events;
@@ -308,4 +309,35 @@ public class AuditLogEventMapperTests
         return payload;
     }
 
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// DeferredAuditSerilogSink
+// ──────────────────────────────────────────────────────────────────────────────
+
+public class DeferredAuditSerilogSinkTests
+{
+    [Fact]
+    public void Emit_ResolvesSinkLazilyAndWritesMappedRecord()
+    {
+        var channel = new AuditLogChannel();
+        var services = new ServiceCollection();
+        services.AddSingleton<AuditLogEventMapper>();
+        services.AddSingleton(channel);
+        services.AddSingleton<AuditSerilogSink>();
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        var sink = new DeferredAuditSerilogSink(provider);
+        var ev = new LogEvent(
+            DateTimeOffset.UtcNow,
+            LogEventLevel.Information,
+            exception: null,
+            new MessageTemplateParser().Parse("audit deferred"),
+            [new LogEventProperty(AuditPropertyNames.Source, new ScalarValue(AuditSourceCatalog.Auth))]);
+
+        sink.Emit(ev);
+
+        AuditLogChannelSnapshot snapshot = channel.Snapshot();
+        Assert.Equal(1, snapshot.QueuedCount);
+    }
 }
