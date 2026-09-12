@@ -119,6 +119,14 @@ public interface IAuthoringServiceProcess : IAsyncDisposable
     ValueTask TerminateTreeAsync(string reason, CancellationToken cancellationToken);
 }
 
+internal interface IAuthoringOwnedServiceProcessObservation
+{
+    int ProcessId
+    {
+        get;
+    }
+}
+
 public interface IAuthoringServiceProcessRuntime
 {
     ValueTask<IAuthoringServiceProcess> StartAsync(
@@ -158,12 +166,12 @@ public sealed class AuthoringServiceGrantValidator(
     {
         if (!IsOpaqueGrantId(grant.GrantId) ||
             !string.Equals(grant.RuntimeIdentity, runtimeIdentity, StringComparison.Ordinal) ||
-            string.IsNullOrWhiteSpace(grant.Host) ||
+            !IsClosedValue(grant.Host, 253) ||
             grant.Host.Contains("/", StringComparison.Ordinal) ||
             Uri.CheckHostName(grant.Host) != UriHostNameType.Dns ||
             grant.Port is < 1 or > 65535 ||
             !grant.RequireTls ||
-            string.IsNullOrWhiteSpace(grant.Purpose) ||
+            !IsClosedValue(grant.Purpose, 128) ||
             grant.MaximumBytes is < 1 or > 64 * 1024 * 1024 ||
             grant.ExpiresAt <= timeProvider.GetUtcNow())
         {
@@ -197,9 +205,11 @@ public sealed class AuthoringServiceGrantValidator(
             Path.GetPathRoot(grant.CanonicalRoot) == grant.CanonicalRoot ||
             allowedFileRoots is null ||
             !allowedFileRoots.Contains(Path.TrimEndingDirectorySeparator(Path.GetFullPath(grant.CanonicalRoot))) ||
+            IsControlRoot(grant.CanonicalRoot) ||
             Path.IsPathFullyQualified(grant.RelativePath) ||
             grant.RelativePath.Contains("..", StringComparison.Ordinal) ||
-            string.IsNullOrWhiteSpace(grant.Purpose) ||
+            !IsClosedValue(grant.RelativePath, 512) ||
+            !IsClosedValue(grant.Purpose, 128) ||
             grant.MaximumBytes is < 1 or > 64 * 1024 * 1024 ||
             grant.ExpiresAt <= timeProvider.GetUtcNow())
         {
@@ -221,9 +231,21 @@ public sealed class AuthoringServiceGrantValidator(
         return path;
     }
 
-    private static bool IsOpaqueGrantId(string value) =>
-        value.Length == 64 && value.All(static character =>
+    private static bool IsOpaqueGrantId(string? value) =>
+        value is not null && value.Length == 64 && value.All(static character =>
             character is >= '0' and <= '9' or >= 'a' and <= 'f');
+
+    private static bool IsClosedValue(string? value, int maximumLength) =>
+        !string.IsNullOrWhiteSpace(value) && value.Length <= maximumLength && !value.Any(char.IsControl);
+
+    private static bool IsControlRoot(string root)
+    {
+        string normalized = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
+        string userProfile = Path.TrimEndingDirectorySeparator(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+        return string.Equals(normalized, userProfile, StringComparison.Ordinal) ||
+            normalized is "/home" or "/root" or "/etc" or "/proc" or "/sys" or "/dev";
+    }
 
     private static ImmutableArray<IPAddress> SortAddresses(ImmutableArray<IPAddress> addresses) =>
         addresses.IsDefault
@@ -357,7 +379,7 @@ public sealed class AuthoringExtensionServiceBroker(
             return Rejected(AuthoringServiceResultStatus.Crashed, "service-crashed");
         }
 
-        if (response.SchemaVersion != request.SchemaVersion ||
+        if (response is null || response.SchemaVersion != request.SchemaVersion ||
             !string.Equals(response.RuntimeIdentity, request.RuntimeIdentity, StringComparison.Ordinal) ||
             !string.Equals(response.RequestId, request.RequestId, StringComparison.Ordinal) ||
             response.Payload.IsDefault ||
@@ -391,8 +413,16 @@ public sealed class AuthoringExtensionServiceBroker(
         AuthoringExecutionTarget target,
         AuthoringServiceRequest request)
     {
+        AuthoringContributionDeclaration? contribution = package.Contract.Manifest.Contributions.SingleOrDefault(
+            item => string.Equals(item.Id, target.ContributionId, StringComparison.Ordinal));
         if (target.Status != AuthoringExecutionResolutionStatus.Ready ||
             target.ExecutionClass != AuthoringExecutionClass.OutOfProcessService ||
+            contribution is null || contribution.ExecutionClass != target.ExecutionClass ||
+            contribution.Kind != target.ContributionKind ||
+            !string.Equals(contribution.Entrypoint.PathOrAdapterId, target.EntrypointIdentity, StringComparison.Ordinal) ||
+            !string.Equals(package.Contract.Manifest.Id, target.ExtensionId, StringComparison.Ordinal) ||
+            !string.Equals(package.Contract.Manifest.Version, target.ExtensionVersion, StringComparison.Ordinal) ||
+            !string.Equals(package.Contract.Manifest.PackageSha256, target.PackageSha256, StringComparison.Ordinal) ||
             request.SchemaVersion != 1 ||
             request.Payload.IsDefault ||
             request.Payload.Length > package.Contract.Manifest.Limits.MaximumRequestBytes ||
@@ -401,7 +431,8 @@ public sealed class AuthoringExtensionServiceBroker(
             request.OpaqueGrantIds.Distinct(StringComparer.Ordinal).Count() != request.OpaqueGrantIds.Length ||
             request.OpaqueGrantIds.Any(static id => !IsOpaqueGrantId(id)) ||
             request.DocumentEpoch < 1 || request.SourceRevision < 0 ||
-            string.IsNullOrWhiteSpace(request.RequestId) ||
+            !IsClosedValue(request.DocumentId, 256) ||
+            !IsClosedValue(request.RequestId, 128) ||
             !string.Equals(request.RuntimeIdentity, target.RuntimeIdentity, StringComparison.Ordinal) ||
             !string.Equals(request.ExtensionId, target.ExtensionId, StringComparison.Ordinal) ||
             !string.Equals(request.Version, target.ExtensionVersion, StringComparison.Ordinal) ||
@@ -416,9 +447,12 @@ public sealed class AuthoringExtensionServiceBroker(
         AuthoringServiceResultStatus status,
         string reason) => new(status, null, reason);
 
-    private static bool IsOpaqueGrantId(string value) =>
-        value.Length == 64 && value.All(static character =>
+    private static bool IsOpaqueGrantId(string? value) =>
+        value is not null && value.Length == 64 && value.All(static character =>
             character is >= '0' and <= '9' or >= 'a' and <= 'f');
+
+    private static bool IsClosedValue(string? value, int maximumLength) =>
+        !string.IsNullOrWhiteSpace(value) && value.Length <= maximumLength && !value.Any(char.IsControl);
 
     private static string DigestIdentity(string material) =>
         Convert.ToHexStringLower(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(material)));
