@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace FsusBlog.Server.Infrastructure.AuthoringExtensions;
 
@@ -46,8 +48,19 @@ public sealed record AuthoringBudgetIdentity(
     long LifecycleGeneration,
     string PolicyDigest);
 
+public sealed record AuthoringBudgetTelemetryIdentity(
+    string RuntimeIdentity,
+    string ExtensionId,
+    string ExtensionVersion,
+    string PackageSha256,
+    string ContributionId,
+    string DocumentIdentityDigest,
+    string RequestIdentityDigest,
+    long LifecycleGeneration,
+    string PolicyDigest);
+
 public sealed record AuthoringBudgetTelemetry(
-    AuthoringBudgetIdentity Identity,
+    AuthoringBudgetTelemetryIdentity Identity,
     AuthoringBudgetStatus Status,
     string StableReason,
     long WallMilliseconds,
@@ -113,8 +126,11 @@ public sealed class AuthoringExtensionBudgetSupervisor(
         CancellationToken cancellationToken = default)
     {
         Validate(identity, budget);
-        BudgetGate gate = _gates.GetOrAdd(identity.RuntimeIdentity, _ => new BudgetGate(budget.MaximumConcurrency));
-        if (!gate.TryQueue(budget.MaximumQueueDepth))
+        BudgetGate gate = _gates.GetOrAdd(
+            identity.RuntimeIdentity,
+            _ => new BudgetGate(identity.PolicyDigest, budget.MaximumConcurrency, budget.MaximumQueueDepth));
+        gate.RequirePolicy(identity.PolicyDigest, budget.MaximumConcurrency, budget.MaximumQueueDepth);
+        if (!gate.TryQueue())
         {
             return await CompleteAsync<T>(
                 identity,
@@ -123,7 +139,7 @@ public sealed class AuthoringExtensionBudgetSupervisor(
                 default,
                 TimeSpan.Zero,
                 new AuthoringResourceMeasurement(default, 0, 0, 0, 0, 0, 0, 0),
-                cancellationToken);
+                CancellationToken.None);
         }
 
         try
@@ -137,9 +153,67 @@ public sealed class AuthoringExtensionBudgetSupervisor(
         }
 
         var stopwatch = Stopwatch.StartNew();
-        AuthoringResourceMeasurement before = await measurements.MeasureAsync(identity, cancellationToken);
+        AuthoringResourceMeasurement before;
+        try
+        {
+            before = await measurements.MeasureAsync(identity, cancellationToken);
+        }
+        catch
+        {
+            stopwatch.Stop();
+            gate.Exit();
+            await containment.QuarantineAsync(
+                identity,
+                "measurement-authority-failed",
+                CancellationToken.None);
+            if (!await coreContinuity.IsCoreAvailableAsync(CancellationToken.None))
+            {
+                throw new AuthoringExtensionContractException(
+                    "Extension failure crossed the core continuity boundary.");
+            }
+
+            return await CompleteAsync<T>(
+                identity,
+                AuthoringBudgetStatus.Breached,
+                "measurement-authority-failed",
+                default,
+                stopwatch.Elapsed,
+                new AuthoringResourceMeasurement(default, 0, 0, 0, 0, 0, 0, 0),
+                CancellationToken.None);
+        }
+
+        string? admissionBreach = FindAdmissionBreach(before, budget);
+        if (admissionBreach is not null)
+        {
+            stopwatch.Stop();
+            gate.Exit();
+            await containment.QuarantineAsync(identity, admissionBreach, CancellationToken.None);
+            if (!await coreContinuity.IsCoreAvailableAsync(CancellationToken.None))
+            {
+                throw new AuthoringExtensionContractException(
+                    "Extension failure crossed the core continuity boundary.");
+            }
+
+            return await CompleteAsync<T>(
+                identity,
+                AuthoringBudgetStatus.Breached,
+                admissionBreach,
+                default,
+                stopwatch.Elapsed,
+                before,
+                CancellationToken.None);
+        }
+
         using var wallLimit = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         wallLimit.CancelAfter(budget.MaximumWallTime);
+        using var monitorStop = new CancellationTokenSource();
+        Task<string?> monitor = MonitorAsync(
+            identity,
+            before,
+            budget,
+            stopwatch,
+            wallLimit,
+            monitorStop.Token);
         T? value = default;
         AuthoringBudgetStatus status;
         string reason;
@@ -163,19 +237,38 @@ public sealed class AuthoringExtensionBudgetSupervisor(
         }
         finally
         {
+            monitorStop.Cancel();
             stopwatch.Stop();
             gate.Exit();
         }
 
-        AuthoringResourceMeasurement after = await measurements.MeasureAsync(identity, CancellationToken.None);
+        string? liveBreach = await monitor;
+        AuthoringResourceMeasurement after;
+        try
+        {
+            after = await measurements.MeasureAsync(identity, CancellationToken.None);
+        }
+        catch
+        {
+            after = before;
+            status = AuthoringBudgetStatus.Breached;
+            reason = "measurement-authority-failed";
+            value = default;
+        }
         if (status == AuthoringBudgetStatus.Completed)
         {
-            reason = FindBreach(before, after, stopwatch.Elapsed, budget) ?? reason;
+            reason = liveBreach ?? FindBreach(before, after, stopwatch.Elapsed, budget) ?? reason;
             if (reason != "completed")
             {
                 status = AuthoringBudgetStatus.Breached;
                 value = default;
             }
+        }
+        else if (liveBreach is not null)
+        {
+            status = AuthoringBudgetStatus.Breached;
+            reason = liveBreach;
+            value = default;
         }
 
         if (status is AuthoringBudgetStatus.Breached or AuthoringBudgetStatus.Crashed)
@@ -194,27 +287,21 @@ public sealed class AuthoringExtensionBudgetSupervisor(
             value,
             stopwatch.Elapsed,
             after,
-            cancellationToken);
+            CancellationToken.None);
     }
 
-    public static AuthoringResourceBudget FromManifest(
-        AuthoringResourceLimits limits,
-        TimeSpan maximumCpuTime,
-        int maximumRestarts,
-        long maximumNetworkBytes,
-        long maximumFileBytes,
-        long maximumStateBytes) => new(
-            maximumCpuTime,
-            limits.WallClock,
-            limits.MemoryBytes,
-            limits.MaximumRequestBytes,
-            limits.MaximumResponseBytes,
-            limits.MaximumConcurrentCalls,
-            limits.MaximumQueueDepth,
-            maximumRestarts,
-            maximumNetworkBytes,
-            maximumFileBytes,
-            maximumStateBytes);
+    public static AuthoringResourceBudget FromManifest(AuthoringResourceLimits limits) => new(
+        limits.MaximumCpuTime,
+        limits.WallClock,
+        limits.MemoryBytes,
+        limits.MaximumRequestBytes,
+        limits.MaximumResponseBytes,
+        limits.MaximumConcurrentCalls,
+        limits.MaximumQueueDepth,
+        limits.MaximumRestarts,
+        limits.MaximumNetworkBytes,
+        limits.MaximumFileBytes,
+        limits.MaximumStateBytes);
 
     private async ValueTask<AuthoringBudgetResult<T>> CompleteAsync<T>(
         AuthoringBudgetIdentity identity,
@@ -226,7 +313,16 @@ public sealed class AuthoringExtensionBudgetSupervisor(
         CancellationToken cancellationToken)
     {
         var telemetry = new AuthoringBudgetTelemetry(
-            identity,
+            new AuthoringBudgetTelemetryIdentity(
+                identity.RuntimeIdentity,
+                identity.ExtensionId,
+                identity.ExtensionVersion,
+                identity.PackageSha256,
+                identity.ContributionId,
+                Digest(identity.DocumentId),
+                Digest(identity.RequestId),
+                identity.LifecycleGeneration,
+                identity.PolicyDigest),
             status,
             reason,
             (long)wall.TotalMilliseconds,
@@ -242,6 +338,9 @@ public sealed class AuthoringExtensionBudgetSupervisor(
         await telemetrySink.RecordAsync(telemetry, cancellationToken);
         return new AuthoringBudgetResult<T>(status, value, reason, telemetry);
     }
+
+    private static string Digest(string value) =>
+        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
     private static string? FindBreach(
         AuthoringResourceMeasurement before,
@@ -270,11 +369,62 @@ public sealed class AuthoringExtensionBudgetSupervisor(
         return null;
     }
 
+    private static string? FindAdmissionBreach(
+        AuthoringResourceMeasurement measurement,
+        AuthoringResourceBudget budget)
+    {
+        if (measurement.MemoryBytes > budget.MaximumMemoryBytes)
+            return "memory-budget-exceeded";
+        if (measurement.Restarts > budget.MaximumRestarts)
+            return "restart-budget-exceeded";
+        if (measurement.NetworkBytes > budget.MaximumNetworkBytes)
+            return "network-budget-exceeded";
+        if (measurement.FileBytes > budget.MaximumFileBytes)
+            return "file-budget-exceeded";
+        if (measurement.StateBytes > budget.MaximumStateBytes)
+            return "state-budget-exceeded";
+        return null;
+    }
+
+    private async Task<string?> MonitorAsync(
+        AuthoringBudgetIdentity identity,
+        AuthoringResourceMeasurement before,
+        AuthoringResourceBudget budget,
+        Stopwatch stopwatch,
+        CancellationTokenSource executionCancellation,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (true)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(50), timeProvider, cancellationToken);
+                AuthoringResourceMeasurement current = await measurements.MeasureAsync(identity, cancellationToken);
+                string? reason = FindBreach(before, current, stopwatch.Elapsed, budget);
+                if (reason is not null)
+                {
+                    await executionCancellation.CancelAsync();
+                    return reason;
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return null;
+        }
+        catch
+        {
+            await executionCancellation.CancelAsync();
+            return "measurement-authority-failed";
+        }
+    }
+
     private static void Validate(AuthoringBudgetIdentity identity, AuthoringResourceBudget budget)
     {
-        if (identity.RuntimeIdentity.Length != 64 || identity.PackageSha256.Length != 64 ||
-            identity.PolicyDigest.Length != 64 || string.IsNullOrWhiteSpace(identity.ExtensionId) ||
-            string.IsNullOrWhiteSpace(identity.ContributionId) || string.IsNullOrWhiteSpace(identity.RequestId) ||
+        if (!IsDigest(identity.RuntimeIdentity) || !IsDigest(identity.PackageSha256) ||
+            !IsDigest(identity.PolicyDigest) || !IsBounded(identity.ExtensionId) ||
+            !IsBounded(identity.ExtensionVersion) || !IsBounded(identity.ContributionId) ||
+            !IsBounded(identity.DocumentId) || !IsBounded(identity.RequestId) ||
             identity.LifecycleGeneration < 1 ||
             budget.MaximumCpuTime <= TimeSpan.Zero || budget.MaximumWallTime <= TimeSpan.Zero ||
             budget.MaximumMemoryBytes < 1 || budget.MaximumInboundBytes < 1 || budget.MaximumOutboundBytes < 1 ||
@@ -286,13 +436,35 @@ public sealed class AuthoringExtensionBudgetSupervisor(
         }
     }
 
-    private sealed class BudgetGate(int maximumConcurrency)
+    private static bool IsDigest(string? value) =>
+        value is { Length: 64 } && value.All(static character =>
+            character is >= '0' and <= '9' or >= 'a' and <= 'f');
+
+    private static bool IsBounded(string? value) =>
+        value is { Length: > 0 and <= AuthoringExtensionContractValidator.MaximumIdentifierLength } &&
+        !string.IsNullOrWhiteSpace(value) &&
+        !value.Any(char.IsControl);
+
+    private sealed class BudgetGate(
+        string policyDigest,
+        int maximumConcurrency,
+        int maximumQueueDepth)
     {
         private readonly Lock _lock = new();
         private readonly SemaphoreSlim _semaphore = new(maximumConcurrency, maximumConcurrency);
         private int _admitted;
 
-        public bool TryQueue(int maximumQueueDepth)
+        public void RequirePolicy(string candidatePolicyDigest, int candidateConcurrency, int candidateQueueDepth)
+        {
+            if (!string.Equals(policyDigest, candidatePolicyDigest, StringComparison.Ordinal) ||
+                maximumConcurrency != candidateConcurrency || maximumQueueDepth != candidateQueueDepth)
+            {
+                throw new AuthoringExtensionContractException(
+                    "Runtime budget gate is already bound to a different policy.");
+            }
+        }
+
+        public bool TryQueue()
         {
             lock (_lock)
             {
