@@ -130,7 +130,6 @@ public sealed class ArticleTemplateExpansionPlan
         DateTime expiresAtUtc)
     {
         ArgumentNullException.ThrowIfNull(input);
-        ArgumentNullException.ThrowIfNull(scope);
         ArgumentNullException.ThrowIfNull(expandedSource);
         ArgumentNullException.ThrowIfNull(defaults);
         ArgumentNullException.ThrowIfNull(dependencies);

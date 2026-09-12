@@ -23,7 +23,7 @@ public sealed class ArticleTemplateExpansionVerifier(
         {
             violations.Add(new("expansion_plan_digest_tamper", "plan content digest mismatch"));
         }
-        if (plan.ExpiresAtUtc != plan.IssuedAtUtc.Add(ArticleTemplateExpansionPlanner.PlanTimeToLive))
+        if (plan.ExpiresAtUtc != plan.IssuedAtUtc.Add(ArticleTemplateExpansionPlanner.s_planTimeToLive))
         {
             violations.Add(new("expansion_plan_expiry_tamper", "plan expiry does not match issuance ttl"));
         }

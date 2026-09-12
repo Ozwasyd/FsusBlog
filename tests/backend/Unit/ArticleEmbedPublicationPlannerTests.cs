@@ -108,7 +108,10 @@ public sealed class ArticleEmbedPublicationPlannerTests
         ArticleEmbedPermissionStatus permission,
         ArticleEmbedErrorCode expected)
     {
-        var authority = Authority(PublicFacts(ArticleA, 9) with { Permission = permission });
+        var authority = Authority(PublicFacts(ArticleA, 9) with
+        {
+            Permission = permission
+        });
         ArticleEmbedProviderRequest[] requests = [Request("request:one", ArticleA, ArticleEmbedTargetKind.Article, 0)];
 
         ArticleEmbedPublicationPlan plan = ArticleEmbedPublicationPlanner.Plan(requests, authority, s_budgets);
@@ -121,7 +124,10 @@ public sealed class ArticleEmbedPublicationPlannerTests
     [Fact]
     public void IncompleteRevisionPackageBlocksPublication()
     {
-        var authority = Authority(PublicFacts(ArticleA, 9) with { RevisionPackageComplete = false });
+        var authority = Authority(PublicFacts(ArticleA, 9) with
+        {
+            RevisionPackageComplete = false
+        });
         ArticleEmbedProviderRequest[] requests = [Request("request:one", ArticleA, ArticleEmbedTargetKind.Article, 0)];
 
         ArticleEmbedPublicationPlan plan = ArticleEmbedPublicationPlanner.Plan(requests, authority, s_budgets);
@@ -319,7 +325,10 @@ public sealed class ArticleEmbedPublicationPlannerTests
         Assert.Equal(ArticleEmbedErrorCode.StaleSource,
             Assert.Single(ArticleEmbedPublicationPlanner.Plan(driftedHost, authority, s_budgets).Edges).Error!.Code);
 
-        var driftedGeneration = Authority(PublicFacts(ArticleA, 4) with { AuthorityGeneration = 9 });
+        var driftedGeneration = Authority(PublicFacts(ArticleA, 4) with
+        {
+            AuthorityGeneration = 9
+        });
         ArticleEmbedProviderRequest[] requests = [Request("request:f", ArticleA, ArticleEmbedTargetKind.Article, 0)];
         ArticleEmbedPublicationPlan stale = ArticleEmbedPublicationPlanner.Plan(requests, driftedGeneration, s_budgets);
         Assert.Equal(ArticleEmbedErrorCode.StaleTarget, Assert.Single(stale.Edges).Error!.Code);
@@ -377,7 +386,10 @@ public sealed class ArticleEmbedPublicationPlannerTests
         Assert.Equal(ArticleEmbedPublicationPlanStatus.Sealed, sealedPlan.Status);
         Assert.Equal(4, Assert.Single(sealedPlan.Edges).Coordinate!.ResolvedRevision);
 
-        var laterAuthority = Authority(PublicFacts(ArticleA, 9) with { LatestObservedRevision = 9 });
+        var laterAuthority = Authority(PublicFacts(ArticleA, 9) with
+        {
+            LatestObservedRevision = 9
+        });
         ArticleEmbedPublicationPlan later = ArticleEmbedPublicationPlanner.Plan(requests, laterAuthority, s_budgets);
 
         Assert.Equal(ArticleEmbedPublicationPlanStatus.Sealed, later.Status);
@@ -405,12 +417,18 @@ public sealed class ArticleEmbedPublicationPlannerTests
             ArticleEmbedPublicationPlanner.Plan(requests, null, s_budgets).BlockedReasonCode);
         Assert.Equal(
             "article_embed_publication_authority_digest_mismatch",
-            ArticleEmbedPublicationPlanner.Plan(requests, authority with { AuthorityDigest = DigestD }, s_budgets).BlockedReasonCode);
+            ArticleEmbedPublicationPlanner.Plan(requests, authority with
+            {
+                AuthorityDigest = DigestD
+            }, s_budgets).BlockedReasonCode);
         Assert.Equal(
             "frozen_artifact_retention_unavailable",
             ArticleEmbedPublicationPlanner.Plan(
                 requests,
-                ArticleEmbedPublicationContractValidator.Seal(authority with { FrozenArtifactRetention = false }),
+                ArticleEmbedPublicationContractValidator.Seal(authority with
+                {
+                    FrozenArtifactRetention = false
+                }),
                 s_budgets).BlockedReasonCode);
         Assert.Equal(
             "article_embed_publication_requests_missing",
@@ -437,13 +455,22 @@ public sealed class ArticleEmbedPublicationPlannerTests
             "article_embed_publication_plan_stale",
             ArticleEmbedPublicationContractValidator.ValidateForCommit(
                 plan,
-                ArticleEmbedPublicationContractValidator.Seal(authority with { AuthorityGeneration = 2 })).ReasonCode);
+                ArticleEmbedPublicationContractValidator.Seal(authority with
+                {
+                    AuthorityGeneration = 2
+                })).ReasonCode);
         Assert.Equal(
             "article_embed_publication_authority_digest_mismatch",
-            ArticleEmbedPublicationContractValidator.ValidateForCommit(plan, authority with { AuthorityDigest = DigestD }).ReasonCode);
+            ArticleEmbedPublicationContractValidator.ValidateForCommit(plan, authority with
+            {
+                AuthorityDigest = DigestD
+            }).ReasonCode);
         Assert.Equal(
             "article_embed_publication_plan_digest_mismatch",
-            ArticleEmbedPublicationContractValidator.ValidateForCommit(plan with { PlanDigest = DigestD }, authority).ReasonCode);
+            ArticleEmbedPublicationContractValidator.ValidateForCommit(plan with
+            {
+                PlanDigest = DigestD
+            }, authority).ReasonCode);
     }
 
     [Fact]
@@ -460,7 +487,10 @@ public sealed class ArticleEmbedPublicationPlannerTests
         }).Valid);
         Assert.False(ArticleEmbedPublicationVerifier.Verify(requests, authority, s_budgets, plan with
         {
-            Receipt = plan.Receipt with { FrozenEdgeCount = 0 }
+            Receipt = plan.Receipt with
+            {
+                FrozenEdgeCount = 0
+            }
         }).Valid);
         Assert.False(ArticleEmbedPublicationVerifier.Verify(requests, authority, s_budgets, plan with
         {

@@ -95,7 +95,10 @@ public sealed class ArticleEmbedAuthoringResolverTests
         ArticleEmbedLifecycleStatus lifecycle,
         ArticleEmbedErrorCode expected)
     {
-        var snapshot = Snapshot(PublicFacts(ArticleA, 9) with { Lifecycle = lifecycle });
+        var snapshot = Snapshot(PublicFacts(ArticleA, 9) with
+        {
+            Lifecycle = lifecycle
+        });
         ArticleEmbedProviderRequest[] requests = [Request("request:one", ArticleA, ArticleEmbedTargetKind.Article, 0)];
 
         ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
@@ -115,7 +118,10 @@ public sealed class ArticleEmbedAuthoringResolverTests
         ArticleEmbedPermissionStatus permission,
         ArticleEmbedErrorCode expected)
     {
-        var snapshot = Snapshot(PublicFacts(ArticleA, 9) with { Permission = permission });
+        var snapshot = Snapshot(PublicFacts(ArticleA, 9) with
+        {
+            Permission = permission
+        });
         ArticleEmbedProviderRequest[] requests = [Request("request:one", ArticleA, ArticleEmbedTargetKind.Article, 0)];
 
         ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
@@ -289,7 +295,10 @@ public sealed class ArticleEmbedAuthoringResolverTests
     [Fact]
     public void TargetGenerationDriftAndAbortedSignalFailStale()
     {
-        var snapshot = Snapshot(PublicFacts(ArticleA, 4) with { AuthorityGeneration = 9 });
+        var snapshot = Snapshot(PublicFacts(ArticleA, 4) with
+        {
+            AuthorityGeneration = 9
+        });
         ArticleEmbedProviderRequest[] requests = [Request("request:a", ArticleA, ArticleEmbedTargetKind.Article, 0)];
         ArticleEmbedAuthoringResolution stale = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
         Assert.Equal(ArticleEmbedErrorCode.StaleTarget, Assert.Single(stale.Results).Result.Error!.Code);
@@ -327,7 +336,10 @@ public sealed class ArticleEmbedAuthoringResolverTests
     [Fact]
     public void UpdateAvailableComparesLatestAgainstResolvedWithoutMutatingSource()
     {
-        var snapshot = Snapshot(PublicFacts(ArticleA, 4) with { LatestObservedRevision = 7 });
+        var snapshot = Snapshot(PublicFacts(ArticleA, 4) with
+        {
+            LatestObservedRevision = 7
+        });
         ArticleEmbedProviderRequest[] requests = [Request("request:a", ArticleA, ArticleEmbedTargetKind.Article, 0)];
 
         ArticleEmbedAuthoringResolution resolution = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
@@ -357,9 +369,18 @@ public sealed class ArticleEmbedAuthoringResolverTests
             s_actor.SiteIdentity,
             "zh-CN",
             "light");
-        ArticleEmbedAuthoringCacheKey otherActor = first with { PermissionContextDigest = DigestD };
-        ArticleEmbedAuthoringCacheKey otherEpoch = first with { HostDocumentEpoch = 4 };
-        ArticleEmbedAuthoringCacheKey otherLocale = first with { MaterialLocale = "en-US" };
+        ArticleEmbedAuthoringCacheKey otherActor = first with
+        {
+            PermissionContextDigest = DigestD
+        };
+        ArticleEmbedAuthoringCacheKey otherEpoch = first with
+        {
+            HostDocumentEpoch = 4
+        };
+        ArticleEmbedAuthoringCacheKey otherLocale = first with
+        {
+            MaterialLocale = "en-US"
+        };
 
         Assert.NotEqual(
             ArticleEmbedAuthoringDigest.ComputeCacheKey(first),
@@ -386,7 +407,10 @@ public sealed class ArticleEmbedAuthoringResolverTests
             ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, new ArticleEmbedResolutionBudgetLimits(0, 1, 1, 1, 1)).Status);
         Assert.Equal(
             ArticleEmbedAuthoringResolutionStatus.Rejected,
-            ArticleEmbedAuthoringResolver.Resolve(requests, snapshot with { HostSourceRevision = 99 }, s_budgets).Status);
+            ArticleEmbedAuthoringResolver.Resolve(requests, snapshot with
+            {
+                HostSourceRevision = 99
+            }, s_budgets).Status);
         Assert.Equal(
             ArticleEmbedAuthoringResolutionStatus.Rejected,
             ArticleEmbedAuthoringResolver.Resolve(null, snapshot, s_budgets).Status);
@@ -414,7 +438,10 @@ public sealed class ArticleEmbedAuthoringResolverTests
         }).Valid);
         Assert.False(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution with
         {
-            Receipt = resolution.Receipt with { ResolvedCount = 0 }
+            Receipt = resolution.Receipt with
+            {
+                ResolvedCount = 0
+            }
         }).Valid);
         Assert.False(ArticleEmbedAuthoringVerifier.Verify(requests, snapshot, s_budgets, resolution with
         {
