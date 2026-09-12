@@ -76,10 +76,14 @@ public sealed class ActiveReleaseFencedCommitIntegrationTests(PostgresSchemaMigr
         string connectionString = await CreateDatabaseAsync(Release41, "blue", 41, Digest41);
         using SqlSugarClient oldWorkerDb = PostgresSqlSugarTestClient.Create(connectionString);
         var executionContext = new ActiveReleaseExecutionContextAccessor();
+        IConfigurationRoot guardConfiguration = new ConfigurationBuilder()
+            .AddInMemoryCollection()
+            .Build();
         var guard = new ActiveReleaseTransactionalCommitGuard(
             executionContext,
-            new ConfigurationBuilder().AddInMemoryCollection().Build(),
-            HostEnvironment(Environments.Production));
+            guardConfiguration,
+            HostEnvironment(Environments.Production),
+            new ReleaseIdentityProvider(guardConfiguration));
         var mutationWritten = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var resumeAfterPause = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         ActiveReleaseExecutionTicket oldTicket = Ticket(Release41, "blue", 41, Digest41, "paused-worker-41");
@@ -277,10 +281,16 @@ public sealed class ActiveReleaseFencedCommitIntegrationTests(PostgresSchemaMigr
     }
 
     private static ActiveReleaseTransactionalCommitGuard CreateGuard()
-        => new(
+    {
+        IConfigurationRoot configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection()
+            .Build();
+        return new(
             new ActiveReleaseExecutionContextAccessor(),
-            new ConfigurationBuilder().AddInMemoryCollection().Build(),
-            HostEnvironment(Environments.Production));
+            configuration,
+            HostEnvironment(Environments.Production),
+            new ReleaseIdentityProvider(configuration));
+    }
 
     private static IHostEnvironment HostEnvironment(string name)
     {

@@ -1,4 +1,5 @@
 using System.Data;
+using System.Data.Common;
 
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
@@ -24,7 +25,8 @@ public sealed class ActiveReleaseFencedCommitTests
         var guard = new ActiveReleaseTransactionalCommitGuard(
             executionContext,
             configuration,
-            HostEnvironment(Environments.Production));
+            HostEnvironment(Environments.Production),
+            new ReleaseIdentityProvider(configuration));
         ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
         IAdo ado = Substitute.For<IAdo>();
         db.Ado.Returns(ado);
@@ -50,7 +52,8 @@ public sealed class ActiveReleaseFencedCommitTests
         var guard = new ActiveReleaseTransactionalCommitGuard(
             executionContext,
             configuration,
-            HostEnvironment(Environments.Production));
+            HostEnvironment(Environments.Production),
+            new ReleaseIdentityProvider(configuration));
         ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
 
         ActiveReleaseFencedCommitPausedException error =
@@ -93,7 +96,8 @@ public sealed class ActiveReleaseFencedCommitTests
         var guard = new ActiveReleaseTransactionalCommitGuard(
             executionContext,
             configuration,
-            HostEnvironment(Environments.Development));
+            HostEnvironment(Environments.Development),
+            new ReleaseIdentityProvider(configuration));
         ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
         IAdo ado = Substitute.For<IAdo>();
         db.Ado.Returns(ado);
@@ -111,6 +115,82 @@ public sealed class ActiveReleaseFencedCommitTests
         await ado.DidNotReceive().GetDataReaderAsync(
             Arg.Any<string>(),
             Arg.Any<SugarParameter[]>());
+    }
+
+    [Fact]
+    public async Task Enlist_DevelopmentSyntheticLocalFence_PartialReleaseIdentity_DoesNotRequireDurableReleaseRow()
+    {
+        IActiveReleaseExecutionContextAccessor executionContext = Substitute.For<IActiveReleaseExecutionContextAccessor>();
+        var ticket = new ActiveReleaseExecutionTicket(
+            "20260912125730-69b467403020",
+            "local",
+            1,
+            $"sha256:{new string('0', 64)}",
+            "test-process");
+        executionContext.Current.Returns(ticket);
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [ActiveReleaseFenceAvailabilityPolicy.AllowSyntheticLocalFenceKey] = "true",
+                ["FSUSBLOG_RELEASE_ID"] = "20260912125730-69b467403020"
+            })
+            .Build();
+        var guard = new ActiveReleaseTransactionalCommitGuard(
+            executionContext,
+            configuration,
+            HostEnvironment(Environments.Development),
+            new ReleaseIdentityProvider(configuration));
+        ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
+        IAdo ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        ado.Transaction.Returns(Substitute.For<IDbTransaction>());
+
+        ActiveReleaseFencedCommitReceipt receipt = await guard.EnlistAsync(
+            db,
+            "article-outbox-complete",
+            "outbox-42");
+
+        Assert.Equal(ticket.Generation, receipt.Generation);
+        Assert.Equal("article-outbox-complete", receipt.OperationScope);
+        Assert.Equal("outbox-42", receipt.MutationKey);
+        await ado.DidNotReceive().ExecuteCommandAsync(Arg.Any<string>());
+        await ado.DidNotReceive().GetDataReaderAsync(
+            Arg.Any<string>(),
+            Arg.Any<SugarParameter[]>());
+    }
+
+    [Fact]
+    public async Task Enlist_DevelopmentSyntheticLocalFence_ForeignTicket_RequiresDurableReleaseRow()
+    {
+        IActiveReleaseExecutionContextAccessor executionContext = Substitute.For<IActiveReleaseExecutionContextAccessor>();
+        executionContext.Current.Returns(new ActiveReleaseExecutionTicket(
+            "20260912125730-69b467403020",
+            "local",
+            1,
+            $"sha256:{new string('0', 64)}",
+            "test-process"));
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [ActiveReleaseFenceAvailabilityPolicy.AllowSyntheticLocalFenceKey] = "true"
+            })
+            .Build();
+        var guard = new ActiveReleaseTransactionalCommitGuard(
+            executionContext,
+            configuration,
+            HostEnvironment(Environments.Development),
+            new ReleaseIdentityProvider(configuration));
+        ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
+        IAdo ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        ado.Transaction.Returns(Substitute.For<IDbTransaction>());
+        DbDataReader reader = Substitute.For<DbDataReader>();
+        reader.ReadAsync(Arg.Any<CancellationToken>()).Returns(false);
+        ado.GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>())
+            .Returns(reader);
+
+        await Assert.ThrowsAsync<ActiveReleaseFenceLostException>(
+            () => guard.EnlistAsync(db, "article-outbox-complete", "outbox-42"));
     }
 
     [Fact]

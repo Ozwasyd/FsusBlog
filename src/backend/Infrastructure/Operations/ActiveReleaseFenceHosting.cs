@@ -72,6 +72,7 @@ public static class ActiveReleaseFenceServiceCollectionExtensions
         services.TryAddSingleton<IActiveReleaseFence, ActiveReleaseFence>();
         services.TryAddSingleton<IActiveReleaseExecutionContextAccessor, ActiveReleaseExecutionContextAccessor>();
         services.TryAddSingleton<IActiveReleaseCommitGuard, ActiveReleaseCommitGuard>();
+        services.TryAddSingleton<IReleaseIdentityProvider, ReleaseIdentityProvider>();
         services.TryAddSingleton<IActiveReleaseTransactionalCommitGuard, ActiveReleaseTransactionalCommitGuard>();
         services.TryAddSingleton<ISecurityChallengeKindCutoverStore, RedisSecurityChallengeKindCutoverStore>();
         services.TryAddSingleton<SecurityChallengeKindCutover>();
