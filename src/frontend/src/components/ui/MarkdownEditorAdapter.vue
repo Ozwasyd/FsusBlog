@@ -35,6 +35,9 @@
         :class="editorClass"
         aria-labelledby="markdown-editor-title"
         :toolbars-exclude="mergedToolbarsExclude"
+        :authoring-commands="authoringCommands"
+        :command-surfaces="commandSurfaces"
+        :document-identity="documentIdentity"
         @on-save="emit('save')"
         @on-draft-save="emit('draft-save')"
         @on-submit="emit('submit')"
@@ -93,6 +96,11 @@
 import { computed, onBeforeUnmount, ref, watch, type Component } from 'vue'
 import { resolveMarkdownEditorProvider } from '@/components/ui/markdownEditorProvider'
 import { useMediaQuery } from '@/composables/useMediaQuery'
+import type {
+  FsusUiAuthoringCommand,
+  FsusUiAuthoringDocumentIdentity,
+  FsusUiAuthoringSurfaceOptions
+} from '@/fsusui/authoringCommands'
 import type { MarkdownEditorMode } from '@/ui-contracts/markdownEditor'
 
 const props = withDefaults(defineProps<{
@@ -108,6 +116,9 @@ const props = withDefaults(defineProps<{
   saving?: boolean
   statusText?: string
   statusTone?: 'quiet' | 'danger'
+  authoringCommands?: readonly FsusUiAuthoringCommand[]
+  commandSurfaces?: FsusUiAuthoringSurfaceOptions
+  documentIdentity?: FsusUiAuthoringDocumentIdentity
 }>(), {
   placeholder: '',
   textareaId: undefined,
@@ -117,7 +128,10 @@ const props = withDefaults(defineProps<{
   loading: false,
   saving: false,
   statusText: '',
-  statusTone: 'quiet'
+  statusTone: 'quiet',
+  authoringCommands: () => [],
+  commandSurfaces: () => ({ toolbar: true }),
+  documentIdentity: undefined
 })
 
 const emit = defineEmits<{
@@ -130,7 +144,10 @@ const emit = defineEmits<{
 
 const provider = computed(() => resolveMarkdownEditorProvider())
 const mode = ref<MarkdownEditorMode>(provider.value.defaultMode)
-const editorRef = ref<{ insertMarkdownAtCursor?: (markdown: string) => boolean } | null>(null)
+const editorRef = ref<{
+  insertMarkdownAtCursor?: (markdown: string) => boolean
+  openCommandPalette?: () => void
+} | null>(null)
 const debouncedPreviewContent = ref(props.modelValue)
 const manualPreviewContent = ref(props.modelValue)
 const isNarrowEditor = useMediaQuery('(max-width: 767px)', false)
@@ -232,8 +249,13 @@ function insertMarkdownAtCursor(markdown: string): boolean {
   return editorRef.value?.insertMarkdownAtCursor?.(markdown) === true
 }
 
+function openCommandPalette(): void {
+  editorRef.value?.openCommandPalette?.()
+}
+
 defineExpose({
-  insertMarkdownAtCursor
+  insertMarkdownAtCursor,
+  openCommandPalette
 })
 </script>
 

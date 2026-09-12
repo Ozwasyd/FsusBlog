@@ -69,7 +69,10 @@ body {
 }
 
 .article-editor-production-fixture__editor-component {
+  box-sizing: border-box;
+  width: 100%;
   min-height: 32rem;
+  min-width: 0;
 }
 
 .article-editor-production-fixture__inspector-form {
