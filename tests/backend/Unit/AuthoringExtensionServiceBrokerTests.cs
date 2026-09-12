@@ -94,6 +94,23 @@ public sealed class AuthoringExtensionServiceBrokerTests
         Assert.Equal("stale-document", process.TerminationReason);
     }
 
+    [Fact]
+    public async Task ExecuteAsync_TargetOrClosedRequestDrift_FailsBeforeProcessStart()
+    {
+        ServiceFixture fixture = await CreateFixtureAsync();
+
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Broker.ExecuteAsync(
+                fixture.Package,
+                fixture.Target with { ExtensionVersion = "9.9.9" },
+                fixture.Request));
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Broker.ExecuteAsync(
+                fixture.Package,
+                fixture.Target,
+                fixture.Request with { DocumentId = "document\n2" }));
+    }
+
     [Theory]
     [InlineData("localhost")]
     [InlineData("127.0.0.1")]
@@ -161,6 +178,31 @@ public sealed class AuthoringExtensionServiceBrokerTests
             new string('b', 64),
             root,
             relative,
+            AuthoringFileGrantOperation.Read,
+            "import",
+            1024,
+            now.AddMinutes(1));
+
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await validator.ValidateFileAsync(grant, grant.RuntimeIdentity));
+    }
+
+    [Fact]
+    public async Task ValidateFileAsync_UserProfileRootFailsClosedEvenWhenAllowlisted()
+    {
+        string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        Assert.False(string.IsNullOrWhiteSpace(home));
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        var validator = new AuthoringServiceGrantValidator(
+            new AddressResolver([]),
+            new PathVerifier(false),
+            new FixedTimeProvider(now),
+            ImmutableHashSet.Create(StringComparer.Ordinal, Path.TrimEndingDirectorySeparator(home)));
+        var grant = new AuthoringFileGrant(
+            new string('a', 64),
+            new string('b', 64),
+            home,
+            "document.bin",
             AuthoringFileGrantOperation.Read,
             "import",
             1024,
@@ -419,7 +461,19 @@ public sealed class AuthoringExtensionServiceBrokerTests
             Assert.Equal(request.Payload.ToArray(), response.Payload.ToArray());
             Assert.Equal(request.RuntimeIdentity, response.RuntimeIdentity);
 
+            var observed = Assert.IsAssignableFrom<IAuthoringOwnedServiceProcessObservation>(process);
+            AuthoringServiceRequest detachedChildRequest = request with
+            {
+                RequestId = "request-detached-child",
+                Payload = [.. Encoding.ASCII.GetBytes("DETACH_CHILD")]
+            };
+            await process.ExecuteAsync(detachedChildRequest, CancellationToken.None);
+            int detachedChildProcessId = await WaitForSingleChildProcessAsync(observed.ProcessId);
+            Assert.True(Directory.Exists($"/proc/{detachedChildProcessId}"));
+
             await process.TerminateTreeAsync("test-complete", CancellationToken.None);
+            await WaitForProcessExitAsync(detachedChildProcessId);
+            Assert.False(Directory.Exists($"/proc/{detachedChildProcessId}"));
             Assert.False((await process.GetHealthAsync(CancellationToken.None)).ProtocolHandshakeComplete);
             await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
                 await process.ExecuteAsync(request, CancellationToken.None));
@@ -466,6 +520,53 @@ public sealed class AuthoringExtensionServiceBrokerTests
         }
 
         return (await File.ReadAllBytesAsync(output), root);
+    }
+
+    private static async ValueTask<int> WaitForSingleChildProcessAsync(int parentProcessId)
+    {
+        for (int attempt = 0; attempt < 100; attempt++)
+        {
+            int[] children = Directory.EnumerateDirectories("/proc")
+                .Select(static path => Path.GetFileName(path))
+                .Where(static name => int.TryParse(name, out _))
+                .Select(static name => int.Parse(name, System.Globalization.CultureInfo.InvariantCulture))
+                .Where(processId => HasParentProcess(processId, parentProcessId))
+                .ToArray();
+            if (children.Length == 1)
+            {
+                return children[0];
+            }
+            await Task.Delay(10);
+        }
+        throw new Xunit.Sdk.XunitException("Detached child process was not observable through the real /proc tree.");
+    }
+
+    private static bool HasParentProcess(int processId, int expectedParentProcessId)
+    {
+        try
+        {
+            string? parentLine = File.ReadLines($"/proc/{processId}/status")
+                .FirstOrDefault(static line => line.StartsWith("PPid:", StringComparison.Ordinal));
+            return parentLine is not null &&
+                int.TryParse(parentLine.AsSpan(5).Trim(), out int parentProcessId) &&
+                parentProcessId == expectedParentProcessId;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    private static async ValueTask WaitForProcessExitAsync(int processId)
+    {
+        for (int attempt = 0; attempt < 100 && Directory.Exists($"/proc/{processId}"); attempt++)
+        {
+            await Task.Delay(10);
+        }
     }
 
     private static async ValueTask<ServiceFixture> CreateFixtureAsync(
