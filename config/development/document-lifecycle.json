@@ -278,7 +278,8 @@
             "status": "current",
             "owner": "backend",
             "relatedIssues": [
-                2672
+                2672,
+                2675
             ],
             "supersedes": [],
             "supersededBy": null

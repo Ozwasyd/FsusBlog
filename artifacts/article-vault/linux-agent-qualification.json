@@ -1,0 +1,344 @@
+{
+    "schema": "fsusblog.vault-agent-platform-qualification.v1",
+    "issue": 2675,
+    "parentIssue": 2115,
+    "platform": "linux",
+    "environment": {
+        "operatingSystem": "linux",
+        "kernelInterface": "inotify",
+        "kernelEventRecord": "inotify_event",
+        "kernelOverflowSemantic": "IN_Q_OVERFLOW",
+        "mountIdentitySource": "/proc/self/mountinfo",
+        "pathCanonicalization": "realpath(3)",
+        "fileSystem": {
+            "type": "ext4",
+            "acceptedTypes": [
+                "btrfs",
+                "ext4",
+                "f2fs",
+                "xfs"
+            ],
+            "caseSensitive": true,
+            "unicodeNormalization": "none",
+            "atomicReplace": "rename(2) within one mount identity",
+            "queueLimits": [
+                "/proc/sys/fs/inotify/max_queued_events",
+                "/proc/sys/fs/inotify/max_user_watches"
+            ]
+        }
+    },
+    "identities": {
+        "agent": "linux-vault-agent-qualification",
+        "protocols": {
+            "rawFact": "fsusblog.article-vault.linux-raw-fact.v1",
+            "rootManifest": "fsusblog.article-vault.root.v1",
+            "articleManifest": "fsusblog.article-vault.article.v1",
+            "metadataManifest": "fsusblog.article-vault.metadata.v1",
+            "coordinate": "fsusblog.article-vault.coordinate.v1",
+            "controlTree": "fsusblog.article-vault.control-tree.v1",
+            "syncPlan": "fsusblog.article-vault.sync-plan.v1",
+            "serverObservation": "fsusblog.article-vault.server-observation.v1"
+        },
+        "root": {
+            "canonicalization": "absolute path resolving to itself without any symlink component",
+            "controlManifest": ".fsus/vault.json",
+            "controlTree": [
+                ".fsus",
+                ".fsus/articles",
+                ".fsus/receipts"
+            ],
+            "qualificationTemp": ".fsus/tmp",
+            "lease": ".fsus/agent.lease",
+            "binding": "site identity, vault identity, device identity, root manifest SHA-256, canonical root and mount identity"
+        },
+        "source": "VaultSourceByteIdentity (sha256, byteLength, hasUtf8Bom, newlineStyle, trailingWhitespaceLineCount, hasFinalNewline)"
+    },
+    "command": "dotnet test tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj --no-restore --filter Category=LinuxArticleVaultAgentQualification",
+    "testProject": "tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj",
+    "watcherInventory": "artifacts/article-vault/linux-watcher-package-inventory.json",
+    "evidence": {
+        "directory": ".tmp/article-vault-linux-qualification",
+        "evidenceFile": "evidence.jsonl",
+        "receiptFile": "receipt.json",
+        "receiptSchema": "fsusblog.vault-agent-platform-qualification-receipt.v1",
+        "appendOnly": true,
+        "privacy": "records carry case/check ids, reason codes, relative paths, digests, counts and enums only; no article body, token, or private metadata",
+        "verifier": "node tools/test/verify-linux-vault-agent-qualification.mjs"
+    },
+    "dependencies": {
+        "real": [
+            {
+                "issue": 2672,
+                "surface": "src/article-vault/linux native libc inotify watcher (FsusBlog.ArticleVault.Linux)",
+                "note": "merged; no FileSystemWatcher, mock, or polling"
+            },
+            {
+                "issue": 1909,
+                "surface": "src/shared/Contracts/ArticleVault sealed manifests, coordinates, sync planner and plan verifier",
+                "note": "real contract code executes; the server-authority execution side is exercised through sealed observation/materialization receipts (the canonical backend writer landed separately under #2105 and is outside the local agent surface)"
+            }
+        ],
+        "environment": [
+            {
+                "surface": "bind-mounted child rejection and mount-identity binding",
+                "state": "real",
+                "note": "real bind mounts are created inside a bwrap user+mount namespace"
+            },
+            {
+                "surface": "post-open root mount drift",
+                "state": "simulated",
+                "note": "kernel policy denies mount(2) inside unprivileged user namespaces here (apparmor_restrict_unprivileged_userns); the #2672 bind probe covers it where the environment permits; a negative control proves the check discriminates"
+            }
+        ]
+    },
+    "simulatedLayers": [
+        {
+            "issue": 2110,
+            "layer": "stable file snapshots and atomic local materialization",
+            "simulation": "test harness reference: real ext4 reads gated by close/rename proofs or a bounded stability window, and temp file + fsync + atomic rename(2) writes; production implementation remains owned by #2110"
+        },
+        {
+            "issue": 2112,
+            "layer": "filesystem event normalization, observation batches and rescan obligations",
+            "simulation": "deterministic reducer over real raw inotify facts plus a real tree rescan that seals content-addressed rescan receipts"
+        },
+        {
+            "issue": 2113,
+            "layer": "single-writer lease and closed IPC",
+            "simulation": "real O_EXCL lease file under .fsus plus an in-process closed command channel bound to token, uid and protocol version"
+        },
+        {
+            "issue": 2114,
+            "layer": "agent install/start/stop/update/crash/reconnect/unlink lifecycle",
+            "simulation": "harness lifecycle over the real control tree, including a real subprocess killed with SIGKILL mid-materialization and recovered by a second run"
+        },
+        {
+            "issue": 1909,
+            "layer": "server observation and writer authority",
+            "simulation": "the real ArticleVaultSyncPlanner builds and verifies sealed plans; server-side execution is simulated through explicit sealed observations and payloads because the canonical writer (#2105) is a backend executor, not part of the local filesystem-agent surface"
+        }
+    ],
+    "cases": [
+        {
+            "id": "ext4-semantics",
+            "testMethod": "RealExt4_CaseUnicodeAndByteIdentities_AreObservedExactly",
+            "covers": [
+                "case-sensitive distinct names",
+                "unicode NFC/NFD distinct names",
+                "LF/CRLF/BOM/mixed/no-EOL byte identity",
+                "case-collision and unicode-collision normalized kinds"
+            ]
+        },
+        {
+            "id": "mutation-sequences",
+            "testMethod": "RealExt4_RenameMoveReplaceTruncateAndDelete_KeepRawOrdering",
+            "covers": [
+                "ext4 create/edit/move/rename/replace/truncate/delete",
+                "cookie-paired rename diagnostics",
+                "monotonic fact sequence"
+            ]
+        },
+        {
+            "id": "stable-read-gate",
+            "testMethod": "StableRead_PartialAndTruncatedWrites_AreNeverAdmitted",
+            "covers": [
+                "partial write never admitted without close proof",
+                "incomplete-write normalized kind",
+                "counter-example: truncate-to-empty body never uploaded"
+            ]
+        },
+        {
+            "id": "normalization-determinism",
+            "testMethod": "ObservationBatch_DuplicatesOutOfOrderAndCoalescing_NormalizeDeterministically",
+            "covers": [
+                "duplicate and out-of-order raw events normalize deterministically",
+                "batch binds root, watch instance and exact fact watermark"
+            ]
+        },
+        {
+            "id": "rescan-obligations",
+            "testMethod": "RescanObligations_ForcedByOverflowInvalidationRootMoveRestartAndCollision_RebuildWatermarkExactly",
+            "covers": [
+                "bounded queue overflow forces rescan",
+                "watch invalidation forces rescan",
+                "root loss forces rescan",
+                "control-tree case collision forces rescan",
+                "clean/sync admission is zero while the watermark is invalid",
+                "rebuilt watermark binds the rescan receipt exactly"
+            ]
+        },
+        {
+            "id": "kernel-overflow",
+            "testMethod": "RealKernelOverflow_IN_Q_OVERFLOW_DropsNothing_SilentlyAndForcesRescan",
+            "covers": [
+                "real IN_Q_OVERFLOW on this kernel",
+                "overflow never masquerades as no-change",
+                "post-overflow rescan rebuilds the watermark exactly"
+            ]
+        },
+        {
+            "id": "symlink-bind-escape",
+            "testMethod": "Escapes_SymlinkBindMountAndControlTree_FailClosedOnRealExt4",
+            "covers": [
+                "counter-example: symlink escape blocked",
+                "real bind-mounted child blocked inside a user+mount namespace",
+                "real mount-identity binding on a re-bound root",
+                "counter-example: root mount drift (simulated where mount(2) is environment-denied) plus negative control",
+                "control-tree case collision"
+            ]
+        },
+        {
+            "id": "planner-receipts",
+            "testMethod": "PlannerReceipts_ObservationAndMaterialization_AreBidirectionallyExact",
+            "covers": [
+                "real #1909 planner produces a sealed Ready plan",
+                "observation and materialization receipts are bidirectionally exact with operation order",
+                "agent performs no direct save/write outside planned operations",
+                "forged plans and receipts fail closed"
+            ]
+        },
+        {
+            "id": "atomic-replace-failure",
+            "testMethod": "CounterExample_AtomicReplaceFailure_LeavesBaseReceiptAndTargetUntouched",
+            "covers": [
+                "counter-example: atomic replace fails while base updates",
+                "temp + fsync + rename semantics on real ext4"
+            ]
+        },
+        {
+            "id": "dual-agent-lease",
+            "testMethod": "CounterExample_DualAgentAndLeaseSplitBrain_FailClosed",
+            "covers": [
+                "counter-example: two agents materialize at once",
+                "single-writer lease via real O_EXCL",
+                "lease split-brain rejected by sealed binding",
+                "second agent degrades to read-only observation"
+            ]
+        },
+        {
+            "id": "restart-recovery",
+            "testMethod": "CounterExample_RestartNeverSkipsChanges_RescanRecoversExactly",
+            "covers": [
+                "counter-example: restart skips unprocessed changes",
+                "restart forces rescan and rebuilds state from disk"
+            ]
+        },
+        {
+            "id": "ipc-closure",
+            "testMethod": "Ipc_CrossUserOldTokenProtocolMismatchAndAbsolutePath_FailClosed",
+            "covers": [
+                "counter-example: IPC arbitrary absolute path rejected",
+                "old token, revoked token, cross-user and protocol mismatch fail closed",
+                "closed command set only"
+            ]
+        },
+        {
+            "id": "lifecycle-crash",
+            "testMethod": "Lifecycle_ProcessCrashUpdateRollbackAndTeardown_FailClosed",
+            "covers": [
+                "real subprocess kill mid-materialization leaves no admitted content",
+                "stale lease reclaimed, orphan temp cleaned",
+                "update protocol mismatch rolls back without writes",
+                "counter-example: unlink never deletes user Markdown"
+            ]
+        },
+        {
+            "id": "static-mutation",
+            "testMethod": "StaticAndMutation_DegradedAuthorities_StayRejected",
+            "covers": [
+                "static scan rejects managed watcher, polling, mtime, inode, unbounded queue, compat protocol, second planner, markdown unlink, body writes, network",
+                "mutation: compat schema, cookie-as-identity and mtime winner stay rejected"
+            ]
+        },
+        {
+            "id": "privacy-evidence",
+            "testMethod": "PrivacyScan_NoBodyTokenOrPrivateMetadata_FirstFailureAppendOnly",
+            "covers": [
+                "counter-example: logs write full private body",
+                "facts, receipts and evidence carry digests and paths only",
+                "first-failure evidence is append-only"
+            ]
+        },
+        {
+            "id": "manifest-binding",
+            "testMethod": "QualificationManifest_BindsEnvironmentIdentitiesCommandAndCases",
+            "covers": [
+                "kernel, filesystem, agent, protocol, root and source identities bound",
+                "sealed command and case inventory match the live suite"
+            ]
+        }
+    ],
+    "counterExamples": [
+        {
+            "parent": 1,
+            "name": "symlink to a file outside the Vault",
+            "linuxCase": "symlink-bind-escape",
+            "state": "real"
+        },
+        {
+            "parent": 2,
+            "name": "Windows case collision creates two articles",
+            "linuxCase": "ext4-semantics",
+            "state": "platform-specific; the Linux-applicable case-collision check is covered instead"
+        },
+        {
+            "parent": 3,
+            "name": "macOS unicode normalization identity conflict",
+            "linuxCase": "ext4-semantics",
+            "state": "platform-specific; the Linux-applicable unicode-collision check is covered instead"
+        },
+        {
+            "parent": 4,
+            "name": "editor truncates then writes, agent uploads empty body",
+            "linuxCase": "stable-read-gate",
+            "state": "real"
+        },
+        {
+            "parent": 5,
+            "name": "watcher overflow treated as no-change",
+            "linuxCase": "kernel-overflow",
+            "state": "real"
+        },
+        {
+            "parent": 6,
+            "name": "two agents materialize simultaneously",
+            "linuxCase": "dual-agent-lease",
+            "state": "real"
+        },
+        {
+            "parent": 7,
+            "name": "atomic replace fails but base receipt updates",
+            "linuxCase": "atomic-replace-failure",
+            "state": "real"
+        },
+        {
+            "parent": 8,
+            "name": "agent restart skips unprocessed changes",
+            "linuxCase": "restart-recovery",
+            "state": "real"
+        },
+        {
+            "parent": 9,
+            "name": "IPC accepts arbitrary absolute paths",
+            "linuxCase": "ipc-closure",
+            "state": "real"
+        },
+        {
+            "parent": 10,
+            "name": "logs write full private body",
+            "linuxCase": "privacy-evidence",
+            "state": "real"
+        }
+    ],
+    "forbiddenDegradations": [
+        "managed FileSystemWatcher or polling loop",
+        "mtime winner or timestamp ordering",
+        "path, inode or cookie as article identity",
+        "unbounded queue or delivery",
+        "compat or legacy protocol fallback",
+        "second planner, writer or sync authority",
+        "unlink deleting user Markdown",
+        "receipts or logs containing article body, tokens or private metadata"
+    ],
+    "warnings": []
+}
