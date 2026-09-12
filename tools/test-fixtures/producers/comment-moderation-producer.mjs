@@ -175,6 +175,24 @@ function matchesCommentFixturePlanBinding(binding, plan)
         && binding?.planDigest === plan?.planDigest;
 }
 
+function validCrossDomainSentinel(value, plan)
+{
+    return value?.schema === 'fsusblog.comment-fixture-cross-domain-sentinel.v1'
+        && value.articleId === plan?.articleReference?.articleId
+        && JSON.stringify(value.accountIds) === JSON.stringify([
+            plan?.identityReferences?.primaryAccountId,
+            plan?.identityReferences?.secondaryAccountId
+        ].sort((left, right) => left - right))
+        && value.adminPrincipalId === plan?.identityReferences?.adminPrincipalId
+        && ['articleDigest', 'authDigest', 'adminDigest', 'securityDigest']
+            .every((key) => digestPattern.test(String(value[key] ?? '')));
+}
+
+function sameCrossDomainSentinel(left, right)
+{
+    return JSON.stringify(left) === JSON.stringify(right);
+}
+
 export function createCommentFixtureBackendError(httpStatus, payload, text, plan)
 {
     const detail = payload?.message ?? payload?.originalError?.message ?? payload?.detail ?? String(text ?? '').slice(0, 400);
@@ -254,6 +272,10 @@ function normalizeResult(raw, context, plan, temporalObservation)
         || raw.temporalContextDigest !== plan.temporalContextDigest
         || raw.producerPlanDigest !== plan.producerPlanDigest)
         throw new Error('comment fixture backend result is stale or cross-plan');
+    if (!validCrossDomainSentinel(raw.crossDomainBefore, plan)
+        || !sameCrossDomainSentinel(raw.crossDomainBefore, raw.crossDomainAfterPrepare)
+        || !sameCrossDomainSentinel(raw.crossDomainBefore, raw.cleanupReceipt?.crossDomainBefore))
+        throw new Error('comment fixture cross-domain prepare sentinel is missing or changed');
     const proofs = raw.capabilityProofs;
     if (!Array.isArray(proofs) || JSON.stringify(proofs.map((item) => item.capabilityId)) !== JSON.stringify(plan.capabilities)
         || proofs.some((item) => item.status !== 'verified'
@@ -374,6 +396,8 @@ function normalizeResult(raw, context, plan, temporalObservation)
         negativeResults: raw.negativeResults,
         cacheGenerationBefore,
         cacheGenerationAfter,
+        crossDomainBefore: raw.crossDomainBefore,
+        crossDomainAfterPrepare: raw.crossDomainAfterPrepare,
         runtimeSemantics: raw.moderation.runtimeSemantics,
         postconditions: [],
         temporalObservation
@@ -396,7 +420,10 @@ export async function verifyCommentModeration(context, result)
             || !result.observations?.database || !result.observations?.cache
             || !Array.isArray(result.zkAuthorityEvidence) || result.zkAuthorityEvidence.length !== 2
             || result.observations.cache.entries.some((item) => item.matchesDb !== true)
-            || result.capabilityProofs.some((item) => item.status !== 'verified'))
+            || result.capabilityProofs.some((item) => item.status !== 'verified')
+            || result.crossDomainBefore?.schema !== 'fsusblog.comment-fixture-cross-domain-sentinel.v1'
+            || !sameCrossDomainSentinel(result.crossDomainBefore, result.crossDomainAfterPrepare)
+            || !sameCrossDomainSentinel(result.crossDomainBefore, result.cleanupReceipt?.crossDomainBefore))
             throw new Error('comment fixture verified result is incomplete');
         const semantics = result.runtimeSemantics;
         if (semantics?.schema !== 'fsusblog.comment-fixture-runtime-semantics.v1'
@@ -425,11 +452,16 @@ export async function cleanupCommentModeration(context, result, signal)
     const expectedIds = Object.keys(receipt.ownedComments ?? {}).sort((left, right) => BigInt(left) < BigInt(right) ? -1 : 1);
     const deletedIds = (cleanup?.deletedCommentIds ?? []).map(String).sort((left, right) => BigInt(left) < BigInt(right) ? -1 : 1);
     if (cleanup?.schema !== 'fsusblog.comment-thread-fixture-cleanup-result.v1'
+        || receipt.crossDomainBefore?.schema !== 'fsusblog.comment-fixture-cross-domain-sentinel.v1'
+        || cleanup.crossDomainBefore?.schema !== 'fsusblog.comment-fixture-cross-domain-sentinel.v1'
+        || cleanup.crossDomainAfter?.schema !== 'fsusblog.comment-fixture-cross-domain-sentinel.v1'
         || cleanupBinding.runId !== receiptBinding.runId || cleanupBinding.namespace !== receiptBinding.namespace
         || cleanupBinding.testSession !== receiptBinding.testSession
         || cleanupBinding.owner !== receiptBinding.owner || cleanupBinding.inventoryDigest !== receiptBinding.inventoryDigest
         || cleanup.exact !== true || (cleanup.stillPublicCommentIds ?? []).length !== 0
-        || JSON.stringify(deletedIds) !== JSON.stringify(expectedIds))
+        || JSON.stringify(deletedIds) !== JSON.stringify(expectedIds)
+        || !sameCrossDomainSentinel(cleanup.crossDomainBefore, receipt.crossDomainBefore)
+        || !sameCrossDomainSentinel(cleanup.crossDomainAfter, receipt.crossDomainBefore))
         throw new Error('comment fixture cleanup result is incomplete or cross-run');
     return Object.freeze(cleanup);
 }
