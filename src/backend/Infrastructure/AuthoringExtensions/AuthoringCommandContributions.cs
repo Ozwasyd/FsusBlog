@@ -285,7 +285,7 @@ public sealed class AuthoringCommandRegistry
             throw new AuthoringExtensionContractException("Command lifecycle receipt is missing or invalid.");
         }
 
-        if (receipt.State != AuthoringLifecycleState.Enabled)
+        if (receipt.State != AuthoringLifecycleState.Running)
         {
             return [];
         }
@@ -314,6 +314,7 @@ public sealed class AuthoringCommandRegistry
             !Enum.IsDefined(command.ExecutionClass) ||
             !Enum.IsDefined(command.Category) ||
             command.When.IsDefault || command.When.Length > 16 ||
+            command.When.Distinct().Count() != command.When.Length ||
             command.When.Any(static condition =>
                 !Enum.IsDefined(condition.Fact) || !Enum.IsDefined(condition.Operator)) ||
             command.RequiredCapabilities.IsDefault ||
@@ -323,6 +324,8 @@ public sealed class AuthoringCommandRegistry
             !IsBoundedReference(command.Localization.LabelReference, 256) ||
             !IsBoundedReference(command.Localization.DescriptionReference, 256) ||
             command.Localization.KeywordReferences.IsDefault || command.Localization.KeywordReferences.Length > 32 ||
+            command.Localization.KeywordReferences.Distinct(StringComparer.Ordinal).Count() !=
+                command.Localization.KeywordReferences.Length ||
             command.Localization.KeywordReferences.Any(static reference => !IsBoundedReference(reference, 256)) ||
             !IsBoundedReference(command.InputSchemaReference, 256) ||
             !IsBoundedReference(command.ResultSchemaReference, 256) ||
@@ -344,10 +347,11 @@ public sealed class AuthoringCommandRegistry
     }
 
     private static bool IsBoundedReference(string? value, int maximumLength) =>
-        !string.IsNullOrWhiteSpace(value) && value.Length <= maximumLength && value == value.Trim();
+        !string.IsNullOrWhiteSpace(value) && value.Length <= maximumLength && value == value.Trim() &&
+        !value.Any(static character => char.IsControl(character));
 
-    private static bool IsDigest(string value) =>
-        value.Length == 64 && value.All(static character =>
+    private static bool IsDigest(string? value) =>
+        value is not null && value.Length == 64 && value.All(static character =>
             character is >= '0' and <= '9' or >= 'a' and <= 'f');
 }
 
@@ -356,17 +360,20 @@ public sealed class AuthoringCommandExecutionCoordinator
     private readonly ImmutableDictionary<AuthoringExecutionClass, IAuthoringCommandExecutionPort> _ports;
     private readonly IAuthoringDocumentRevisionGate _revisionGate;
     private readonly AuthoringExtensionLifecycleCoordinator _lifecycle;
+    private readonly IAuthoringCapabilityGrantCatalog _grants;
     private readonly TimeProvider _timeProvider;
 
     public AuthoringCommandExecutionCoordinator(
         ImmutableArray<IAuthoringCommandExecutionPort> ports,
         IAuthoringDocumentRevisionGate revisionGate,
         AuthoringExtensionLifecycleCoordinator lifecycle,
+        IAuthoringCapabilityGrantCatalog grants,
         TimeProvider? timeProvider = null)
     {
         _ports = BuildPorts(ports);
         _revisionGate = revisionGate;
         _lifecycle = lifecycle;
+        _grants = grants;
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
@@ -378,14 +385,39 @@ public sealed class AuthoringCommandExecutionCoordinator
         if (context.Input.IsDefault || context.Input.Length > 16 * 1024 * 1024 ||
             !string.Equals(context.RuntimeIdentity, command.RuntimeIdentity, StringComparison.Ordinal) ||
             context.DocumentEpoch < 1 || context.SourceRevision < 0 ||
-            string.IsNullOrWhiteSpace(context.SelectionIdentity) || string.IsNullOrWhiteSpace(context.RequestId) ||
+            !IsBoundedContextIdentity(context.DocumentId, 256) ||
+            !IsBoundedContextIdentity(context.SelectionIdentity, 1024) ||
+            !IsBoundedContextIdentity(context.RequestId, 256) ||
             context.GrantedCapabilities is null ||
             context.GrantedCapabilities.Any(static capability => !Enum.IsDefined(capability)) ||
-            command.RequiredCapabilities.Any(capability => !context.GrantedCapabilities.Contains(capability)) ||
+            !context.GrantedCapabilities.SetEquals(command.RequiredCapabilities) ||
             context.Deadline <= _timeProvider.GetUtcNow() ||
             !_ports.TryGetValue(command.ExecutionClass, out IAuthoringCommandExecutionPort? port))
         {
             throw new AuthoringExtensionContractException("Command execution binding is missing, stale, or unbounded.");
+        }
+
+        ImmutableArray<AuthoringCapabilityGrant> exactGrants = await _grants.FindActiveExactAsync(
+            command.ExtensionId,
+            command.ExtensionVersion,
+            command.ContributionId,
+            context.RuntimeIdentity,
+            command.ExecutionClass,
+            context.DocumentId,
+            cancellationToken);
+        ImmutableHashSet<AuthoringCapability> grantedCapabilities = exactGrants
+            .Select(static grant => grant.Capability)
+            .ToImmutableHashSet();
+        ImmutableHashSet<string> exactGrantIds = exactGrants
+            .Select(static grant => grant.GrantId)
+            .ToImmutableHashSet(StringComparer.Ordinal);
+        if (grantedCapabilities.Count != command.RequiredCapabilities.Length ||
+            exactGrantIds.Count != exactGrants.Length ||
+            command.RequiredCapabilities.Any(capability => !grantedCapabilities.Contains(capability)) ||
+            context.GrantedCapabilities.Any(capability => !grantedCapabilities.Contains(capability)))
+        {
+            throw new AuthoringExtensionContractException(
+                "Command capability scope is missing, revoked, expired, or bound to another document.");
         }
 
         using var deadlineCancellation = new CancellationTokenSource(
@@ -413,11 +445,25 @@ public sealed class AuthoringCommandExecutionCoordinator
                 Input = [.. context.Input]
             },
             executionToken);
+        ImmutableArray<AuthoringCapabilityGrant> currentGrants = await _grants.FindActiveExactAsync(
+            command.ExtensionId,
+            command.ExtensionVersion,
+            command.ContributionId,
+            context.RuntimeIdentity,
+            command.ExecutionClass,
+            context.DocumentId,
+            executionToken);
+        ImmutableHashSet<string> currentGrantIds = currentGrants
+            .Select(static grant => grant.GrantId)
+            .ToImmutableHashSet(StringComparer.Ordinal);
+        bool grantIdentityDrifted = currentGrantIds.Count != currentGrants.Length ||
+            !exactGrantIds.SetEquals(currentGrantIds);
         if (!string.Equals(response.RuntimeIdentity, context.RuntimeIdentity, StringComparison.Ordinal) ||
             !string.Equals(response.RequestId, context.RequestId, StringComparison.Ordinal) ||
             response.LifecycleGeneration != context.LifecycleGeneration ||
             !string.Equals(response.ResultSchemaReference, command.ResultSchemaReference, StringComparison.Ordinal) ||
             response.Result.IsDefault || response.Result.Length > 16 * 1024 * 1024 ||
+            grantIdentityDrifted ||
             _timeProvider.GetUtcNow() >= context.Deadline ||
             !await _revisionGate.IsCurrentAsync(
                 context.DocumentId,
@@ -440,6 +486,10 @@ public sealed class AuthoringCommandExecutionCoordinator
                 }
         };
     }
+
+    private static bool IsBoundedContextIdentity(string? value, int maximumLength) =>
+        !string.IsNullOrWhiteSpace(value) && value.Length <= maximumLength && value == value.Trim() &&
+        !value.Any(static character => char.IsControl(character));
 
     private static ImmutableDictionary<AuthoringExecutionClass, IAuthoringCommandExecutionPort> BuildPorts(
         ImmutableArray<IAuthoringCommandExecutionPort> ports)

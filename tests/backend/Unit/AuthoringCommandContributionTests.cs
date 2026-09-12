@@ -1,7 +1,10 @@
 using System.Collections.Immutable;
+using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
+using Microsoft.CodeAnalysis.CSharp;
 
 namespace FsusBlog.Server.Tests;
 
@@ -155,6 +158,28 @@ public sealed class AuthoringCommandContributionTests
     }
 
     [Fact]
+    public void PackageSourceAndAuthority_UseOneSignedClosedRegistry()
+    {
+        AuthoringCommandContribution command = CreateCommand();
+        (VerifiedAuthoringPackage package, ImmutableArray<AuthoringExecutionTarget> targets) =
+            CreateCommandPackage(command);
+        var source = new VerifiedPackageAuthoringCommandSource();
+        var authority = new AuthoringCommandRegistryAuthority(
+            source,
+            ImmutableHashSet<string>.Empty,
+            ImmutableHashSet<string>.Empty);
+
+        AuthoringCommandAuthorityReport report = authority.Activate(package, targets);
+
+        Assert.Equal(1, report.Commands);
+        Assert.Equal(4, report.Surfaces);
+        Assert.Equivalent(command, authority.Snapshot().Get(command.CommandId), strict: true);
+        Assert.Throws<AuthoringExtensionContractException>(() => authority.Activate(package, targets));
+        Assert.Equal(1, authority.Revoke(command.ExtensionId).Commands);
+        Assert.Throws<AuthoringExtensionContractException>(() => authority.Snapshot().Get(command.CommandId));
+    }
+
+    [Fact]
     public async Task ExecuteAsync_MissingPermissionNeverReachesExecutionPort()
     {
         CommandRuntimeFixture fixture = await CreateRuntimeFixtureAsync();
@@ -177,11 +202,13 @@ public sealed class AuthoringCommandContributionTests
         Assert.Throws<AuthoringExtensionContractException>(() => new AuthoringCommandExecutionCoordinator(
             [fixture.Port, fixture.Port],
             new RevisionGate(true),
-            fixture.Lifecycle));
+            fixture.Lifecycle,
+            fixture.Grants));
         Assert.Throws<AuthoringExtensionContractException>(() => new AuthoringCommandExecutionCoordinator(
             [new TrustedExecutionPort()],
             new RevisionGate(true),
-            fixture.Lifecycle));
+            fixture.Lifecycle,
+            fixture.Grants));
     }
 
     [Fact]
@@ -206,6 +233,38 @@ public sealed class AuthoringCommandContributionTests
 
         await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
             await fixture.Coordinator.ExecuteAsync(fixture.Command, fixture.Context));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_GrantRevocationMakesPendingResultStale()
+    {
+        var port = new ExecutionPort();
+        CommandRuntimeFixture fixture = await CreateRuntimeFixtureAsync(port);
+        port.AfterExecute = async () =>
+            await fixture.Grants.RevokeExtensionAsync(fixture.Command.ExtensionId, CancellationToken.None);
+
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Coordinator.ExecuteAsync(fixture.Command, fixture.Context));
+    }
+
+    [Theory]
+    [InlineData("document", "bad\ndocument")]
+    [InlineData("selection", "bad\tselection")]
+    [InlineData("request", " bad-request")]
+    public async Task ExecuteAsync_UnboundedContextIdentityNeverReachesExecutionPort(string field, string invalid)
+    {
+        CommandRuntimeFixture fixture = await CreateRuntimeFixtureAsync();
+        AuthoringCommandExecutionContext context = field switch
+        {
+            "document" => fixture.Context with { DocumentId = invalid },
+            "selection" => fixture.Context with { SelectionIdentity = invalid },
+            "request" => fixture.Context with { RequestId = invalid },
+            _ => throw new InvalidOperationException()
+        };
+
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Coordinator.ExecuteAsync(fixture.Command, context));
+        Assert.Equal(0, fixture.Port.CallCount);
     }
 
     [Fact]
@@ -259,7 +318,6 @@ public sealed class AuthoringCommandContributionTests
         {
             "addEventListener",
             "keydown",
-            "document.",
             "innerHTML",
             ".splice(",
             "IServiceProvider",
@@ -269,7 +327,19 @@ public sealed class AuthoringCommandContributionTests
         {
             Assert.DoesNotContain(forbidden, source, StringComparison.OrdinalIgnoreCase);
         }
+
+        Assert.False(ContainsIdentifierToken(source, "document"));
+        Assert.False(ContainsIdentifierToken("const message = \"bound to another document.\";", "document"));
+        Assert.True(ContainsIdentifierToken("var body = document.body;", "document"));
     }
+
+    private static bool ContainsIdentifierToken(string source, string identifier) =>
+        CSharpSyntaxTree.ParseText(source)
+            .GetRoot()
+            .DescendantTokens()
+            .Any(token =>
+                token.IsKind(SyntaxKind.IdentifierToken) &&
+                string.Equals(token.ValueText, identifier, StringComparison.OrdinalIgnoreCase));
 
     private static AuthoringCommandRegistry CreateRegistry(ImmutableArray<AuthoringCommandContribution> commands) =>
         new(commands, ImmutableHashSet<string>.Empty, ImmutableHashSet<string>.Empty);
@@ -307,13 +377,15 @@ public sealed class AuthoringCommandContributionTests
     private static async ValueTask<CommandRuntimeFixture> CreateRuntimeFixtureAsync(ExecutionPort? port = null)
     {
         VerifiedAuthoringPackage package = CreatePackage();
+        AuthoringCommandContribution command = CreateCommand();
+        var grantCatalog = new AuthoringCapabilityGrantCatalogStub(CreateActiveGrants(command, "document-1"));
         var receipts = new LifecycleReceiptStore();
         var lifecycle = new AuthoringExtensionLifecycleCoordinator(
             new LifecycleResources(),
             new LifecyclePreflight(),
             new ExtensionStateStore(),
             receipts,
-            new AuthoringCapabilityGrantCatalogStub());
+            grantCatalog);
         AuthoringContributionDeclaration contribution = package.Contract.Manifest.Contributions[0];
         ImmutableArray<AuthoringExecutionTarget> targets =
         [
@@ -335,7 +407,8 @@ public sealed class AuthoringCommandContributionTests
         var coordinator = new AuthoringCommandExecutionCoordinator(
             [port],
             new RevisionGate(true),
-            lifecycle);
+            lifecycle,
+            grantCatalog);
         var context = new AuthoringCommandExecutionContext(
             new string('e', 64),
             "document-1",
@@ -345,15 +418,44 @@ public sealed class AuthoringCommandContributionTests
             "request-1",
             enabled.Generation,
             DateTimeOffset.UtcNow.AddMinutes(1),
-            CreateCommand().RequiredCapabilities.ToImmutableHashSet(),
+            command.RequiredCapabilities.ToImmutableHashSet(),
             [1, 2, 3]);
         return new CommandRuntimeFixture(
-            CreateCommand(),
+            command,
             package,
             lifecycle,
             coordinator,
             port,
-            context);
+            context,
+            grantCatalog);
+    }
+
+    private static ImmutableArray<AuthoringCapabilityGrant> CreateActiveGrants(
+        AuthoringCommandContribution command,
+        string documentId)
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        return
+        [
+            .. command.RequiredCapabilities.Select((capability, index) => new AuthoringCapabilityGrant(
+                new string(index == 0 ? '1' : '2', 64),
+                command.RuntimeIdentity,
+                command.ExtensionId,
+                command.ExtensionVersion,
+                command.ContributionId,
+                command.ExecutionClass,
+                capability,
+                documentId,
+                "site-1",
+                "execute-command",
+                null,
+                null,
+                now,
+                now.AddMinutes(5),
+                $"approval-{index}",
+                $"request-{index}",
+                new string(index == 0 ? '1' : '2', 64)))
+        ];
     }
 
     private static VerifiedAuthoringPackage CreatePackage()
@@ -371,6 +473,52 @@ public sealed class AuthoringCommandContributionTests
                 now,
                 now.AddMinutes(5)),
             new string('f', 64));
+    }
+
+    private static (VerifiedAuthoringPackage Package, ImmutableArray<AuthoringExecutionTarget> Targets)
+        CreateCommandPackage(AuthoringCommandContribution command)
+    {
+        AuthoringExtensionManifest manifest = AuthoringExtensionContractsTests.CreateManifest() with
+        {
+            Contributions =
+            [
+                AuthoringExtensionContractsTests.CreateManifest().Contributions[0] with
+                {
+                    Capabilities = command.RequiredCapabilities
+                }
+            ]
+        };
+        byte[] metadata = JsonSerializer.SerializeToUtf8Bytes(
+            new[] { command },
+            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        VerifiedAuthoringPackage baseline = CreatePackage();
+        var package = baseline with
+        {
+            Contract = AuthoringExtensionContractValidator.Verify(manifest),
+            Contents = new AuthoringPackageArchiveContents(
+                [],
+                [new AuthoringPackageEntry(
+                    VerifiedPackageAuthoringCommandSource.EntryPath,
+                    [.. metadata],
+                    new string('d', 64))])
+        };
+        AuthoringContributionDeclaration declaration = manifest.Contributions[0];
+        ImmutableArray<AuthoringExecutionTarget> targets =
+        [
+            new AuthoringExecutionTarget(
+                AuthoringExecutionResolutionStatus.Ready,
+                declaration.ExecutionClass,
+                manifest.Id,
+                manifest.Version,
+                manifest.PackageSha256,
+                declaration.Id,
+                declaration.Kind,
+                declaration.Entrypoint.PathOrAdapterId,
+                null,
+                command.RuntimeIdentity,
+                null)
+        ];
+        return (package, targets);
     }
 
     private static async ValueTask<TransactionFixture> CreateTransactionFixtureAsync(
@@ -440,7 +588,8 @@ public sealed class AuthoringCommandContributionTests
         AuthoringExtensionLifecycleCoordinator Lifecycle,
         AuthoringCommandExecutionCoordinator Coordinator,
         ExecutionPort Port,
-        AuthoringCommandExecutionContext Context);
+        AuthoringCommandExecutionContext Context,
+        AuthoringCapabilityGrantCatalogStub Grants);
 
     private sealed record TransactionFixture(
         AuthoringExtensionRpcAuthority Rpc,

@@ -1,0 +1,30 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "config/development/document-inventory.generated.json",
+                "config/development/document-lifecycle.json",
+                "docs/architecture/authoring-extension-host-boundary.md",
+                "docs/security/authoring-extension-capability-isolation.md"
+            ],
+            "reason": "Preserve existing caller-visible JSON and Markdown identifiers while the lifecycle producer records command contribution semantics."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringCommandContributions.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringCommandRegistryAuthority.cs"
+            ],
+            "reason": "Preserve caller-visible process environment spellings while the command registry authority keeps repository-owned C# identifiers."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/frontend/fixtures/article-editor-production-contract.json"
+            ],
+            "reason": "Preserve fixture-visible JSON field spellings while the production editor contract remains bound to typed frontend adapters."
+        }
+    ]
+}
