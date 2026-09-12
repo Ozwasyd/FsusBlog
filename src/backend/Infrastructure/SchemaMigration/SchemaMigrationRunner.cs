@@ -63,6 +63,12 @@ public sealed class CurrentSchemaStartupVerifier(
         "article_asset_reference",
         "asset_library_article_ref",
         "asset_library_item",
+        "authoring_canvas_operation_journal",
+        "authoring_canvas_operation_command",
+        "authoring_canvas_operation_command_fact",
+        "authoring_canvas_operation_history_state",
+        "authoring_canvas_operation_fact",
+        "authoring_canvas_operation_receipt",
         "sys_visit_log",
         "__fsus_schema_online_state",
         "__fsus_schema_backfill_progress"
