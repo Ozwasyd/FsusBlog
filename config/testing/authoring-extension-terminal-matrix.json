@@ -1,0 +1,195 @@
+{
+    "schema": "fsusblog.authoring-extension-terminal-matrix.v1",
+    "canonicalCommand": "node tools/security/check-authoring-extension-terminal-matrix.mjs",
+    "registries": [
+        {
+            "id": "manifest-fields",
+            "source": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionContracts.cs",
+            "kind": "record",
+            "symbol": "AuthoringExtensionManifest",
+            "expected": [
+                "SchemaVersion", "RegistryVersion", "Id", "Version", "PackageSha256", "ContentSha256",
+                "Publisher", "SignatureReference", "TrustPolicyReference", "HostApi", "SupportedPlatforms",
+                "Contributions", "Limits", "StateSchemaVersion", "DataSchemaVersion", "UpdatePolicy",
+                "MigrationPolicy", "UninstallPolicy", "AllowExecutionFallback"
+            ],
+            "positiveFixture": "tests/backend/Unit/AuthoringExtensionContractsTests.cs#Verify_ClosedManifest_ReturnsStableIdentity",
+            "negativeFixture": "tests/backend/Unit/AuthoringExtensionContractsTests.cs#ParseAndVerify_MissingTopLevelOrNestedField_FailsClosed",
+            "ownerFixture": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionContracts.cs#AuthoringExtensionManifest"
+        },
+        {
+            "id": "contribution-kinds",
+            "source": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionContracts.cs",
+            "kind": "enum",
+            "symbol": "AuthoringContributionKind",
+            "expected": [
+                "Command", "CommandPaletteMetadata", "ArticleInspectorReadOnly", "ArticleLibraryFilter",
+                "WorkspacePanel", "ArticlePropertyType", "ImportProvider", "ExportProvider",
+                "PrepublishDiagnostic", "MarkdownProvider"
+            ],
+            "positiveFixture": "tests/backend/Unit/AuthoringExtensionContractsTests.cs#Registries_ContainOnlyAdjudicatedClosedValues",
+            "negativeFixture": "tests/backend/Unit/AuthoringExtensionContractsTests.cs#ContractSource_HasOneRegistryAndNoGenericExecutableRegistrationSurface",
+            "ownerFixture": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionContracts.cs#AuthoringContributionKind"
+        },
+        {
+            "id": "capabilities",
+            "source": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionContracts.cs",
+            "kind": "enum",
+            "symbol": "AuthoringCapability",
+            "expected": [
+                "DocumentRangeRead", "DocumentFullRead", "SelectionRead", "DocumentMutationRequest",
+                "ArticleQuery", "NetworkDestination", "FileSystemRootRead", "FileSystemRootProposeWrite",
+                "DiagnosticReport", "StateStorageRead", "StateStorageWrite"
+            ],
+            "positiveFixture": "tests/backend/Unit/AuthoringExtensionContractsTests.cs#Registries_ContainOnlyAdjudicatedClosedValues",
+            "negativeFixture": "tests/backend/Unit/AuthoringExtensionContractsTests.cs#Verify_UnknownCapabilityOrExecutionClass_FailsClosed",
+            "ownerFixture": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionContracts.cs#AuthoringCapability"
+        },
+        {
+            "id": "execution-classes",
+            "source": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionContracts.cs",
+            "kind": "enum",
+            "symbol": "AuthoringExecutionClass",
+            "expected": ["TrustedHostAdapter", "IsolatedWorkerWasm", "OutOfProcessService"],
+            "positiveFixture": "tests/backend/Unit/AuthoringExtensionExecutionResolverTests.cs#ResolveAsync_OwnedAdapter_RequiresExactLoadedModule",
+            "negativeFixture": "tests/backend/Unit/AuthoringExtensionExecutionResolverTests.cs#ResolveAsync_UnsupportedClass_ReturnsBlockedWithoutFallback",
+            "ownerFixture": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs#AuthoringExecutionResolver"
+        },
+        {
+            "id": "host-platforms",
+            "source": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionContracts.cs",
+            "kind": "enum",
+            "symbol": "AuthoringHostPlatform",
+            "expected": ["Browser", "AvaloniaDesktop", "ServerLinux"],
+            "positiveFixture": "tests/backend/Unit/AuthoringExtensionContractsTests.cs#Registries_ContainOnlyAdjudicatedClosedValues",
+            "negativeFixture": "tests/backend/Unit/AuthoringExtensionContractsTests.cs#Verify_FallbackCoreOverrideOrUnsupportedPlatform_FailsClosed",
+            "ownerFixture": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionContracts.cs#AuthoringHostPlatform"
+        },
+        {
+            "id": "entrypoint-formats",
+            "source": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionContracts.cs",
+            "kind": "enum",
+            "symbol": "AuthoringEntrypointFormat",
+            "expected": ["HostAdapterIdentity", "WasmModule", "ServiceExecutable"],
+            "positiveFixture": "tests/backend/Unit/AuthoringExtensionContractsTests.cs#Registries_ContainOnlyAdjudicatedClosedValues",
+            "negativeFixture": "tests/backend/Unit/AuthoringExtensionContractsTests.cs#Verify_ArbitraryEntrypoint_FailsClosed",
+            "ownerFixture": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionContracts.cs#AuthoringEntrypointFormat"
+        },
+        {
+            "id": "rpc-methods",
+            "source": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs",
+            "kind": "enum",
+            "symbol": "AuthoringRpcMethod",
+            "expected": [
+                "DocumentRangeRead", "DocumentFullRead", "SelectionRead", "MutationRequest", "ArticleQuery",
+                "NetworkBrokerRequest", "FileBrokerRequest", "DiagnosticReport", "StateRead", "StateWrite"
+            ],
+            "positiveFixture": "tests/backend/Unit/AuthoringExtensionRpcTests.cs#ApplyMutationAsync_ExactGrantAndCurrentRevision_UsesOneCanonicalTransaction",
+            "negativeFixture": "tests/backend/Unit/AuthoringExtensionRpcTests.cs#ApplyMutationAsync_AlternateOrUnknownMethodCannotBypassMutationAuthority",
+            "ownerFixture": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs#AuthoringExtensionRpcAuthority"
+        },
+        {
+            "id": "lifecycle-states",
+            "source": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionLifecycle.cs",
+            "kind": "enum",
+            "symbol": "AuthoringLifecycleState",
+            "expected": [
+                "Installed", "Enabled", "Disabled", "Updating", "MigrationRequired", "Migrating",
+                "RollbackRequired", "Failed", "Uninstalling", "Removed", "RetainedData",
+                "PermissionPending", "Starting", "Running", "Degraded", "Crashed"
+            ],
+            "positiveFixture": "tests/backend/Unit/AuthoringExtensionLifecycleTests.cs#EnableAsync_CompletePreflight_ActivatesAllContributionsAtomically",
+            "negativeFixture": "tests/backend/Unit/AuthoringExtensionLifecycleTests.cs#DisableAsync_RemainingRuntimeGrantJobOrSurface_FailsClosed",
+            "ownerFixture": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionLifecycle.cs#AuthoringExtensionLifecycleCoordinator"
+        },
+        {
+            "id": "state-transform-kinds",
+            "source": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionLifecycle.cs",
+            "kind": "enum",
+            "symbol": "AuthoringStateTransformKind",
+            "expected": ["RenameKey", "DeleteExtensionKey", "SetDefault"],
+            "positiveFixture": "tests/backend/Unit/AuthoringExtensionLifecycleTests.cs#UpdateAsync_MigrationFailure_RollsBackStateAndOldPackage",
+            "negativeFixture": "tests/backend/Unit/AuthoringExtensionLifecycleTests.cs#UpdateAsync_CrossPluginOrUnboundedMigration_FailsBeforeBackup",
+            "ownerFixture": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionLifecycle.cs#AuthoringStateTransformKind"
+        },
+        {
+            "id": "update-policies",
+            "source": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionContracts.cs",
+            "kind": "enum",
+            "symbol": "AuthoringUpdatePolicy",
+            "expected": ["AtomicSwitchWithRollback"],
+            "positiveFixture": "tests/backend/Unit/AuthoringExtensionPackageTests.cs#VerifyAndActivate_TrustedArchive_CommitsContentAddressedVersion",
+            "negativeFixture": "tests/backend/Unit/AuthoringExtensionPackageTests.cs#Activate_RuntimeSelfModification_IsDetectedAndRolledBack",
+            "ownerFixture": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionContracts.cs#AuthoringUpdatePolicy"
+        },
+        {
+            "id": "migration-policies",
+            "source": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionContracts.cs",
+            "kind": "enum",
+            "symbol": "AuthoringMigrationPolicy",
+            "expected": ["HostDeclarativeOnly"],
+            "positiveFixture": "tests/backend/Unit/AuthoringExtensionLifecycleTests.cs#UpdateAsync_MigrationFailure_RollsBackStateAndOldPackage",
+            "negativeFixture": "tests/backend/Unit/AuthoringExtensionLifecycleTests.cs#UpdateAsync_CrossPluginOrUnboundedMigration_FailsBeforeBackup",
+            "ownerFixture": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionContracts.cs#AuthoringMigrationPolicy"
+        },
+        {
+            "id": "uninstall-policies",
+            "source": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionContracts.cs",
+            "kind": "enum",
+            "symbol": "AuthoringUninstallPolicy",
+            "expected": ["RemoveAuthorityRetainData", "RemoveAuthorityAndDataAfterConsent"],
+            "positiveFixture": "tests/backend/Unit/AuthoringExtensionLifecycleTests.cs#UninstallAsync_RetainsDataAndRevokesAuthority",
+            "negativeFixture": "tests/backend/Unit/AuthoringExtensionLifecycleTests.cs#DeleteOwnedDataAsync_RequiresSeparateExactApprovalAndMeasuredScope",
+            "ownerFixture": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionContracts.cs#AuthoringUninstallPolicy"
+        },
+        {
+            "id": "resource-limit-fields",
+            "source": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionContracts.cs",
+            "kind": "record",
+            "symbol": "AuthoringResourceLimits",
+            "expected": [
+                "MaximumCpuTime", "WallClock", "MemoryBytes", "MaximumRequestBytes", "MaximumResponseBytes",
+                "MaximumConcurrentCalls", "MaximumQueueDepth", "MaximumObjectDepth", "MaximumRestarts",
+                "MaximumNetworkBytes", "MaximumFileBytes", "MaximumStateBytes"
+            ],
+            "positiveFixture": "tests/backend/Unit/AuthoringExtensionBudgetTests.cs#FromManifest_UsesEveryManifestResourceCeiling",
+            "negativeFixture": "tests/backend/Unit/AuthoringExtensionContractsTests.cs#Verify_SchemaVersionDigestAndBudgetBounds_FailClosed",
+            "ownerFixture": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionContracts.cs#AuthoringResourceLimits"
+        },
+        {
+            "id": "budget-statuses",
+            "source": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionBudgets.cs",
+            "kind": "enum",
+            "symbol": "AuthoringBudgetStatus",
+            "expected": ["Completed", "Rejected", "Breached", "Crashed", "Cancelled"],
+            "positiveFixture": "tests/backend/Unit/AuthoringExtensionBudgetTests.cs#ExecuteAsync_WithinBudget_ReturnsValueAndMeasuredTelemetry",
+            "negativeFixture": "tests/backend/Unit/AuthoringExtensionBudgetTests.cs#ExecuteAsync_MeasuredBreach_QuarantinesWithoutReturningValue",
+            "ownerFixture": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionBudgets.cs#AuthoringExtensionBudgetSupervisor"
+        }
+    ],
+    "requiredSuites": [
+        "tests/backend/Unit/AuthoringExtensionContractsTests.cs",
+        "tests/backend/Unit/AuthoringExtensionPackageTests.cs",
+        "tests/backend/Unit/AuthoringExtensionPackagePersistenceTests.cs",
+        "tests/backend/Unit/AuthoringExtensionExecutionResolverTests.cs",
+        "tests/backend/Unit/AuthoringExtensionWorkerSandboxTests.cs",
+        "tests/backend/Unit/AuthoringExtensionServiceBrokerTests.cs",
+        "tests/backend/Unit/AuthoringExtensionRpcTests.cs",
+        "tests/backend/Unit/AuthoringExtensionLifecycleTests.cs",
+        "tests/backend/Unit/AuthoringExtensionBudgetTests.cs",
+        "tests/backend/Unit/AuthoringExtensionSecurityMatrixTests.cs"
+    ],
+    "terminalEvidence": [
+        { "id": "contracts", "state": "source-ready" },
+        { "id": "package", "state": "source-ready" },
+        { "id": "resolver", "state": "blocked-real-trusted-adapter-artifact" },
+        { "id": "sandbox", "state": "blocked-current-linux-runtime-run" },
+        { "id": "broker", "state": "blocked-current-linux-network-filesystem-run" },
+        { "id": "rpc-mutation", "state": "blocked-fsusui-document-consent-authority" },
+        { "id": "lifecycle", "state": "blocked-durable-production-stores-registration" },
+        { "id": "budget", "state": "blocked-current-pressure-starvation-run" },
+        { "id": "platform", "state": "blocked-browser-avalonia-declarations-and-runs" },
+        { "id": "core-conformance", "state": "blocked-rendered-editor-matrix" },
+        { "id": "canonical-ci-receipt-join", "state": "blocked-ci-integration" }
+    ]
+}
