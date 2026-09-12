@@ -4,6 +4,14 @@ FsusBlog plugins are denied all host capabilities by default. A verified package
 manifest is only a request: it does not grant the plugin access to a service,
 database, file, network socket or CLR type.
 
+This document owns only the `.fspkg` Hook and Level 1 Jint/Lua plugin sandbox. The
+separate internal/experimental
+[authoring extension capability and isolation boundary](authoring-extension-capability-isolation.md)
+currently owns only its closed capability requests, execution declarations, and
+contract identity. Those declarations do not enable this boundary's reserved Level
+3/4 profiles, and neither subsystem may reuse the other's manifest, capability
+registry, identity, or fallback authority.
+
 ## Capability approval
 
 `PluginCapability` and `PluginCapabilityCatalog` are the closed runtime vocabulary.
