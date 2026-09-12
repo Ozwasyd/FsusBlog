@@ -67,6 +67,11 @@ public enum RevisionComparePlanStatus
     Tampered = 6
 }
 
+public enum RevisionCompareAdmissionMode
+{
+    BoundedWorkerChunksV1 = 0
+}
+
 public sealed record RevisionCompareSourceSelector(
     RevisionCompareSourceKind Kind,
     long? RevisionId = null,
@@ -332,6 +337,19 @@ public sealed record RevisionComparePackageReference(
     string PackageDigest,
     int SourceByteLength);
 
+public sealed record RevisionCompareAdmission(
+    RevisionCompareAdmissionMode Mode,
+    int BaseSourceByteCount,
+    int CompareSourceByteCount,
+    int BaseLineCount,
+    int CompareLineCount,
+    long InitialEstimatedMemoryBytes,
+    long MinimumEstimatedOutputBytes,
+    int TokenLimit,
+    int HunkLimit,
+    int ChunkLimit,
+    string ContentDigest);
+
 public sealed class RevisionComparePlan
 {
     internal RevisionComparePlan(
@@ -345,6 +363,7 @@ public sealed class RevisionComparePlan
         RevisionComparePackageReference comparePackage,
         RevisionCompareOptions options,
         RevisionCompareBudgets budgets,
+        RevisionCompareAdmission admission,
         string cancellationIdentity,
         DateTimeOffset expiresAtUtc,
         string contentDigest)
@@ -362,6 +381,7 @@ public sealed class RevisionComparePlan
             MetadataFieldIds = options.MetadataFields
         };
         Budgets = budgets;
+        Admission = admission;
         CancellationIdentity = cancellationIdentity;
         ExpiresAtUtc = expiresAtUtc;
         ContentDigest = contentDigest;
@@ -417,6 +437,11 @@ public sealed class RevisionComparePlan
         get;
     }
 
+    public RevisionCompareAdmission Admission
+    {
+        get;
+    }
+
     public string CancellationIdentity
     {
         get;
@@ -441,6 +466,13 @@ public sealed record RevisionComparePlanReceipt(
     string? PlanDigest,
     string? BasePackageDigest,
     string? ComparePackageDigest,
+    RevisionComparePackageReference? BasePackageReference,
+    RevisionComparePackageReference? ComparePackageReference,
+    string PermissionScopeDigest,
+    string MetadataSchemaDigest,
+    string OptionsDigest,
+    string BudgetDigest,
+    string? AdmissionDigest,
     string CancellationIdentity,
     string ContentDigest);
 
@@ -860,7 +892,8 @@ internal static class RevisionCompareCanonical
     public static string PlanDigest(
         RevisionComparePlanRequest request,
         RevisionComparePackageReference basePackage,
-        RevisionComparePackageReference comparePackage)
+        RevisionComparePackageReference comparePackage,
+        RevisionCompareAdmission admission)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         Append(hash, RevisionCompareContract.SchemaVersion);
@@ -873,38 +906,106 @@ internal static class RevisionCompareCanonical
         AppendSelector(hash, request.Compare);
         AppendPackageReference(hash, basePackage);
         AppendPackageReference(hash, comparePackage);
-        Append(hash, (int)request.Options.ViewMode);
-        Append(hash, (int)request.Options.WordSegmentation);
-        Append(hash, request.Options.ContextLineCount);
-        Append(hash, request.Options.HeadingNavigation);
-        foreach (string fieldId in request.Options.MetadataFields.Order(StringComparer.Ordinal))
-        {
-            Append(hash, fieldId);
-        }
-        AppendBudgets(hash, request.Budgets);
+        Append(hash, OptionsDigest(request.Options));
+        Append(hash, BudgetDigest(request.Budgets));
+        Append(hash, admission.ContentDigest);
         Append(hash, request.CancellationIdentity);
         Append(hash, request.ExpiresAtUtc.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
         return Convert.ToHexStringLower(hash.GetHashAndReset());
     }
 
-    public static string ReceiptDigest(
-        Guid requestId,
-        RevisionComparePlanStatus status,
-        string reasonCode,
-        string? planDigest,
-        string? basePackageDigest,
-        string? comparePackageDigest,
-        string cancellationIdentity)
+    public static string PermissionScopeDigest(RevisionComparePlanRequest request)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         Append(hash, RevisionCompareContract.SchemaVersion);
-        Append(hash, requestId);
-        Append(hash, (int)status);
-        Append(hash, reasonCode);
-        Append(hash, planDigest);
-        Append(hash, basePackageDigest);
-        Append(hash, comparePackageDigest);
-        Append(hash, cancellationIdentity);
+        Append(hash, request.ArticleId);
+        Append(hash, request.Reader.AdminPrincipalId);
+        Append(hash, request.Reader.SiteScope);
+        return Convert.ToHexStringLower(hash.GetHashAndReset());
+    }
+
+    public static string MetadataSchemaDigest()
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        Append(hash, RevisionCompareContract.SchemaVersion);
+        foreach (RevisionCompareMetadataDescriptor descriptor in RevisionCompareMetadataRegistry.Descriptors)
+        {
+            Append(hash, descriptor.FieldId);
+            Append(hash, (int)descriptor.ValueType);
+            Append(hash, descriptor.Sensitive);
+            Append(hash, descriptor.Normalization);
+            Append(hash, descriptor.DisplayFormat);
+            Append(hash, descriptor.Authority);
+        }
+        return Convert.ToHexStringLower(hash.GetHashAndReset());
+    }
+
+    public static string OptionsDigest(RevisionCompareOptions options)
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        Append(hash, (int)options.ViewMode);
+        Append(hash, (int)options.WordSegmentation);
+        Append(hash, options.ContextLineCount);
+        Append(hash, options.HeadingNavigation);
+        foreach (string fieldId in options.MetadataFields.Order(StringComparer.Ordinal))
+        {
+            Append(hash, fieldId);
+        }
+        return Convert.ToHexStringLower(hash.GetHashAndReset());
+    }
+
+    public static string BudgetDigest(RevisionCompareBudgets budgets)
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        AppendBudgets(hash, budgets);
+        return Convert.ToHexStringLower(hash.GetHashAndReset());
+    }
+
+    public static string AdmissionDigest(
+        RevisionCompareAdmissionMode mode,
+        int baseSourceByteCount,
+        int compareSourceByteCount,
+        int baseLineCount,
+        int compareLineCount,
+        long initialEstimatedMemoryBytes,
+        long minimumEstimatedOutputBytes,
+        int tokenLimit,
+        int hunkLimit,
+        int chunkLimit)
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        Append(hash, RevisionCompareContract.SchemaVersion);
+        Append(hash, (int)mode);
+        Append(hash, baseSourceByteCount);
+        Append(hash, compareSourceByteCount);
+        Append(hash, baseLineCount);
+        Append(hash, compareLineCount);
+        Append(hash, initialEstimatedMemoryBytes);
+        Append(hash, minimumEstimatedOutputBytes);
+        Append(hash, tokenLimit);
+        Append(hash, hunkLimit);
+        Append(hash, chunkLimit);
+        return Convert.ToHexStringLower(hash.GetHashAndReset());
+    }
+
+    public static string ReceiptDigest(RevisionComparePlanReceipt receipt)
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        Append(hash, receipt.SchemaVersion);
+        Append(hash, receipt.RequestId);
+        Append(hash, (int)receipt.Status);
+        Append(hash, receipt.ReasonCode);
+        Append(hash, receipt.PlanDigest);
+        Append(hash, receipt.BasePackageDigest);
+        Append(hash, receipt.ComparePackageDigest);
+        AppendOptionalPackageReference(hash, receipt.BasePackageReference);
+        AppendOptionalPackageReference(hash, receipt.ComparePackageReference);
+        Append(hash, receipt.PermissionScopeDigest);
+        Append(hash, receipt.MetadataSchemaDigest);
+        Append(hash, receipt.OptionsDigest);
+        Append(hash, receipt.BudgetDigest);
+        Append(hash, receipt.AdmissionDigest);
+        Append(hash, receipt.CancellationIdentity);
         return Convert.ToHexStringLower(hash.GetHashAndReset());
     }
 
@@ -944,6 +1045,17 @@ internal static class RevisionCompareCanonical
         Append(hash, reference.SourceDigest);
         Append(hash, reference.PackageDigest);
         Append(hash, reference.SourceByteLength);
+    }
+
+    private static void AppendOptionalPackageReference(
+        IncrementalHash hash,
+        RevisionComparePackageReference? reference)
+    {
+        Append(hash, reference is not null);
+        if (reference is not null)
+        {
+            AppendPackageReference(hash, reference);
+        }
     }
 
     private static void AppendBudgets(IncrementalHash hash, RevisionCompareBudgets budgets)

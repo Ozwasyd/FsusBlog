@@ -24,6 +24,68 @@ public sealed class RevisionComparePlannerTests
         Assert.Equal(baseline.PackageDigest, first.Bundle.Plan.BasePackage.PackageDigest);
         Assert.Equal(current.SourceDigest, first.Bundle.Plan.ComparePackage.SourceDigest);
         Assert.Equal(Encoding.UTF8.GetBytes("base\r\n"), first.Bundle.BasePackage.RawMarkdown);
+        Assert.Equal(first.Bundle.Plan.BasePackage, first.Bundle.Receipt.BasePackageReference);
+        Assert.Equal(first.Bundle.Plan.ComparePackage, first.Bundle.Receipt.ComparePackageReference);
+        Assert.Equal(first.Bundle.Plan.Admission.ContentDigest, first.Bundle.Receipt.AdmissionDigest);
+        Assert.Equal(
+            RevisionCompareCanonical.PermissionScopeDigest(request),
+            first.Bundle.Receipt.PermissionScopeDigest);
+        Assert.Equal(RevisionCompareCanonical.MetadataSchemaDigest(), first.Bundle.Receipt.MetadataSchemaDigest);
+        Assert.Equal(RevisionCompareCanonical.OptionsDigest(request.Options), first.Bundle.Receipt.OptionsDigest);
+        Assert.Equal(RevisionCompareCanonical.BudgetDigest(request.Budgets), first.Bundle.Receipt.BudgetDigest);
+        Assert.Equal(request.Budgets.MaxTokenCount, first.Bundle.Plan.Admission.TokenLimit);
+        Assert.Equal(
+            request.Budgets.MaxHunksPerChunk * request.Budgets.MaxChunks,
+            first.Bundle.Plan.Admission.HunkLimit);
+        Assert.Equal(request.Budgets.MaxChunks, first.Bundle.Plan.Admission.ChunkLimit);
+    }
+
+    [Fact]
+    public async Task CreateAsync_RejectsImpossibleOutputAdmissionBeforeReturningPlan()
+    {
+        RevisionComparePackage baseline = Package(RevisionCompareSourceKind.HistoricalRevision, 11, 1, "base\n");
+        RevisionComparePackage current = Package(RevisionCompareSourceKind.CurrentRevision, 12, 2, "next\n");
+        var reader = new DelegateReader((_, selector, _) => Task.FromResult(
+            RevisionComparePackageReadResult.Available(selector.RevisionId == 11 ? baseline : current)));
+
+        RevisionComparePlanResult result = await new RevisionComparePlanner(reader).CreateAsync(
+            Request() with
+            {
+                Budgets = Budgets() with
+                {
+                    MaxOutputBytes = 100
+                }
+            });
+
+        Assert.Equal(RevisionComparePlanStatus.BudgetExceeded, result.Status);
+        Assert.Equal("revision_compare_output_budget_exceeded", result.Receipt.ReasonCode);
+        Assert.Null(result.Bundle);
+        Assert.Null(result.Receipt.AdmissionDigest);
+    }
+
+    [Fact]
+    public async Task CreateAsync_RejectsInvalidTokenHunkAndChunkBudgetsBeforeReadingSources()
+    {
+        var reader = new DelegateReader((_, _, _) => throw new InvalidOperationException("reader should not run"));
+        RevisionCompareBudgets[] invalidBudgets =
+        [
+            Budgets() with { MaxTokenCount = 0 },
+            Budgets() with { MaxHunksPerChunk = 0 },
+            Budgets() with { MaxChunks = 0 }
+        ];
+
+        foreach (RevisionCompareBudgets budgets in invalidBudgets)
+        {
+            RevisionComparePlanResult result = await new RevisionComparePlanner(reader).CreateAsync(
+                Request() with
+                {
+                    Budgets = budgets
+                });
+
+            Assert.Equal(RevisionComparePlanStatus.Invalid, result.Status);
+            Assert.Equal("revision_compare_budget_invalid", result.Receipt.ReasonCode);
+            Assert.Null(result.Bundle);
+        }
     }
 
     [Fact]
@@ -41,6 +103,9 @@ public sealed class RevisionComparePlannerTests
         Assert.Equal(RevisionComparePlanStatus.Unavailable, result.Status);
         Assert.Null(result.Receipt.BasePackageDigest);
         Assert.Null(result.Receipt.ComparePackageDigest);
+        Assert.Null(result.Receipt.BasePackageReference);
+        Assert.Null(result.Receipt.ComparePackageReference);
+        Assert.Null(result.Receipt.AdmissionDigest);
         Assert.Null(result.Bundle);
     }
 
@@ -94,6 +159,23 @@ public sealed class RevisionComparePlannerTests
     }
 
     [Fact]
+    public async Task CreateAsync_RejectsExpiredPlanBeforeReadingSources()
+    {
+        var reader = new DelegateReader((_, _, _) =>
+            throw new InvalidOperationException("reader should not run"));
+
+        RevisionComparePlanResult result = await new RevisionComparePlanner(reader).CreateAsync(
+            Request() with
+            {
+                ExpiresAtUtc = DateTimeOffset.UtcNow.AddSeconds(-1)
+            });
+
+        Assert.Equal(RevisionComparePlanStatus.Stale, result.Status);
+        Assert.Equal("revision_compare_plan_expired", result.Receipt.ReasonCode);
+        Assert.Null(result.Bundle);
+    }
+
+    [Fact]
     public async Task CreateAsync_AdmitsByteBudgetBeforeLineScan()
     {
         RevisionComparePackage tooLarge = Package(
@@ -141,6 +223,40 @@ public sealed class RevisionComparePlannerTests
                 Snapshots()));
 
         Assert.Equal("revision_compare_source_budget_exceeded", error.Code);
+    }
+
+    [Fact]
+    public void PackageSeal_CopiesCallerOwnedSourceAndSnapshotPayload()
+    {
+        byte[] source = Encoding.UTF8.GetBytes("original\n");
+        byte[] rights = Encoding.UTF8.GetBytes("sealed-rights");
+        RevisionCompareSnapshot[] snapshots =
+        [
+            RevisionCompareSnapshot.Present(RevisionCompareSnapshotKind.Rights, "rights:11", 1, rights),
+            RevisionCompareSnapshot.NotApplicable(RevisionCompareSnapshotKind.Responsibility),
+            RevisionCompareSnapshot.NotApplicable(RevisionCompareSnapshotKind.Release)
+        ];
+        RevisionComparePackage package = RevisionComparePackageSeal.Create(
+            7,
+            RevisionCompareSourceKind.HistoricalRevision,
+            "revision:11",
+            11,
+            1,
+            null,
+            null,
+            source,
+            Metadata(),
+            snapshots);
+
+        source[0] = (byte)'X';
+        rights[0] = (byte)'X';
+        snapshots[0] = RevisionCompareSnapshot.Missing(RevisionCompareSnapshotKind.Rights);
+
+        Assert.Equal("original\n", Encoding.UTF8.GetString(package.RawMarkdown.AsSpan()));
+        Assert.Equal(
+            "sealed-rights",
+            Encoding.UTF8.GetString(package.Snapshots[0].Payload.AsSpan()));
+        Assert.True(RevisionComparePackageSeal.Verify(package));
     }
 
     [Fact]
@@ -195,6 +311,13 @@ public sealed class RevisionComparePlannerTests
             receipt with { ReasonCode = "accepted-rehashed" },
             receipt with { BasePackageDigest = receipt.ComparePackageDigest },
             receipt with { ComparePackageDigest = receipt.BasePackageDigest },
+            receipt with { BasePackageReference = receipt.ComparePackageReference },
+            receipt with { ComparePackageReference = receipt.BasePackageReference },
+            receipt with { PermissionScopeDigest = new string('a', 64) },
+            receipt with { MetadataSchemaDigest = new string('b', 64) },
+            receipt with { OptionsDigest = new string('c', 64) },
+            receipt with { BudgetDigest = new string('d', 64) },
+            receipt with { AdmissionDigest = new string('e', 64) },
             receipt with { CancellationIdentity = "compare:7:rehashed" }
         ];
 
@@ -225,7 +348,9 @@ public sealed class RevisionComparePlannerTests
             });
         RevisionComparePlanReceipt receipt = ResealReceipt(planned.Bundle.Receipt with
         {
-            PlanDigest = plan.ContentDigest
+            PlanDigest = plan.ContentDigest,
+            BudgetDigest = RevisionCompareCanonical.BudgetDigest(plan.Budgets),
+            AdmissionDigest = plan.Admission.ContentDigest
         });
         var tampered = new RevisionComparePlanBundle(
             plan,
@@ -519,7 +644,8 @@ public sealed class RevisionComparePlannerTests
         string contentDigest = RevisionCompareCanonical.PlanDigest(
             request,
             plan.BasePackage,
-            plan.ComparePackage);
+            plan.ComparePackage,
+            ResealAdmission(plan.Admission, budgets));
         return new RevisionComparePlan(
             plan.SchemaVersion,
             plan.PlannerVersion,
@@ -531,22 +657,40 @@ public sealed class RevisionComparePlannerTests
             plan.ComparePackage,
             plan.Options,
             budgets,
+            ResealAdmission(plan.Admission, budgets),
             plan.CancellationIdentity,
             plan.ExpiresAtUtc,
             contentDigest);
     }
 
+    private static RevisionCompareAdmission ResealAdmission(
+        RevisionCompareAdmission admission,
+        RevisionCompareBudgets budgets)
+    {
+        int hunkLimit = checked(budgets.MaxHunksPerChunk * budgets.MaxChunks);
+        return admission with
+        {
+            TokenLimit = budgets.MaxTokenCount,
+            HunkLimit = hunkLimit,
+            ChunkLimit = budgets.MaxChunks,
+            ContentDigest = RevisionCompareCanonical.AdmissionDigest(
+                admission.Mode,
+                admission.BaseSourceByteCount,
+                admission.CompareSourceByteCount,
+                admission.BaseLineCount,
+                admission.CompareLineCount,
+                admission.InitialEstimatedMemoryBytes,
+                admission.MinimumEstimatedOutputBytes,
+                budgets.MaxTokenCount,
+                hunkLimit,
+                budgets.MaxChunks)
+        };
+    }
+
     private static RevisionComparePlanReceipt ResealReceipt(RevisionComparePlanReceipt receipt)
         => receipt with
         {
-            ContentDigest = RevisionCompareCanonical.ReceiptDigest(
-                receipt.RequestId,
-                receipt.Status,
-                receipt.ReasonCode,
-                receipt.PlanDigest,
-                receipt.BasePackageDigest,
-                receipt.ComparePackageDigest,
-                receipt.CancellationIdentity)
+            ContentDigest = RevisionCompareCanonical.ReceiptDigest(receipt)
         };
 
     private static RevisionCompareBudgets Budgets()

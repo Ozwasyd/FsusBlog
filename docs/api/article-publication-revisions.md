@@ -31,7 +31,9 @@ Article list and detail projections carry `currentRevisionId` / `revisionNo` and
 
 ## Revision body comparison contract
 
-Revision body comparison consumes only a sealed compare plan reverified by `RevisionComparePlanVerifier`. The plan fixes the base and compare package digests, raw Markdown SHA-256 digests, article/revision or draft coordinates, reader scope, expiry, cancellation identity, and resource budget. Before execution, the service rereads the exact package reference; it must not reinterpret `latest` or a current pointer as another revision. The package remains the authority for body content, metadata, and snapshots.
+Revision body comparison consumes only a sealed compare plan reverified by `RevisionComparePlanVerifier`. The plan fixes the base and compare package references, raw Markdown SHA-256 digests, article/revision or draft coordinates, reader permission scope, metadata schema, options, expiry, cancellation identity, and resource budgets. Its admission record binds source bytes, physical-line counts, initial memory and minimum-output estimates, and token, hunk, and chunk limits before diff execution. The receipt independently binds those references and digests. Before execution, the service rereads both exact authorized packages; it must not reinterpret `latest` or a current pointer as another revision.
+
+Historical and current revisions come from the existing authoring revision reader. Current drafts are reread through the existing authoring draft authority and sealed to the owner, primary site, article, draft key, server revision, source bytes, update time, and rights digest. Editing any of those coordinates makes the old document epoch stale. Missing, unauthorized, deleted, cross-article, incomplete, or tampered packages fail closed without returning package coordinates for unavailable sources. Packages remain the only authorities for body content, typed metadata, and rights/responsibility/release snapshots.
 
 ## Risks and no-restart rollback
 
