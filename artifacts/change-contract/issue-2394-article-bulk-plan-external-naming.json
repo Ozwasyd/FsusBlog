@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+                "src/backend/Services/Articles/Bulk/ArticleBulkPlanAuthority.cs",
+                "src/backend/Services/Articles/Bulk/ArticleBulkProductionAuthorities.cs",
+                "src/backend/Services/Articles/Bulk/ArticleBulkServiceCollectionExtensions.cs"
+            ],
+            "reason": "Preserve caller-visible environment spellings while ArticleBulk planning, production ports, dependency injection, and service registration use repository-native identifiers."
+        }
+    ]
+}
