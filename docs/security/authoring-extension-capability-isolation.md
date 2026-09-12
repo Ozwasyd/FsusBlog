@@ -174,6 +174,31 @@ no implicit handler or fallback authority; absent a reviewed production owner th
 remain unavailable. This is intentionally not an HTTP, AEDS, browser, or shared
 stable ABI.
 
+## Command invocation isolation
+
+Command metadata is data, not executable UI authority. The signed closed record
+may request only known context facts, capabilities, surfaces, schemas, and one
+bounded shortcut chord. FsusBlog resolves shortcut conflicts without replacing a
+core or user binding and exposes the same state to every FsusUI command surface.
+An extension cannot install a global keyboard listener, receive a DOM/editor
+object, splice source text, or choose an undeclared execution class.
+
+Execution rechecks an exact active grant set for the command version, runtime,
+class, contribution, and document before and after the isolated call. Revocation
+or grant-identity replacement while work is pending makes the result stale. The
+frontend independently binds lifecycle generation, document epoch/ID, revision,
+selection, request, package/content/runtime, and schemas before it sends one
+canonical FsusUI transaction. Any abort, permission change, document switch,
+selection/revision drift, malformed range, oversized result, or CAS rejection
+commits nothing.
+
+The browser projection has no ambient network, package-loading, or host bridge
+authority. Online/extension-enabled values must arrive as closed host facts, and
+their presence alone grants nothing. The current production route deliberately
+receives no command feed until a reviewed internal owner exists; the fixture and
+test executor are evidence for consumer behavior only, not a production adapter
+or permission boundary.
+
 ## Lifecycle revocation and state ownership
 
 Lifecycle receipts are closed, monotonically sequenced, generation-bound, and

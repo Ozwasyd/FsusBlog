@@ -15,7 +15,8 @@ async function openFixture(
   theme: 'light' | 'dark',
   surface: 'title' | 'editor' | 'command' | 'inspector' | 'recovery' = 'title',
   inspectorState: 'empty' | 'loading' | 'error' | 'success' | 'partial' = 'success',
-  inspectorView?: typeof contract.inspectorViews[number]
+  inspectorView?: typeof contract.inspectorViews[number],
+  authoringState: typeof contract.authoringStates[number] = 'ready'
 ): Promise<void> {
   await page.route('**/__article-editor-production-fixture**', async (route) => {
     await route.fulfill({
@@ -63,7 +64,8 @@ async function openFixture(
     title,
     theme,
     surface,
-    state: inspectorState
+    state: inspectorState,
+    authoring: authoringState
   })
   if (inspectorView) {
     search.set('view', inspectorView)
@@ -93,6 +95,28 @@ async function openFixture(
     await page.reload({ waitUntil: 'domcontentloaded' })
     await waitForFixtureReady(50_000)
   }
+}
+
+async function openAuthoringFixture(
+  page: Page,
+  authoringState: typeof contract.authoringStates[number],
+  theme: 'light' | 'dark' = 'light'
+): Promise<void> {
+  await openFixture(page, 'short', theme, 'editor', 'success', undefined, authoringState)
+}
+
+async function openAuthoringPalette(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    (
+      window as Window & { __articleEditorFixtureOpenAuthoringPalette?: () => void }
+    ).__articleEditorFixtureOpenAuthoringPalette?.()
+  })
+  await expect(page.getByRole('dialog', { name: '命令面板' })).toBeVisible()
+}
+
+async function openAuthoringToolbarOverflow(page: Page): Promise<void> {
+  await page.getByRole('button', { name: /更多命令/u }).click()
+  await expect(page.getByRole('button', { name: '插入提示块' })).toBeVisible()
 }
 
 async function clearFixtureRecovery(page: Page): Promise<void> {
@@ -593,6 +617,177 @@ test.describe('article editor production fixture mode and save status', () => {
           .toHaveCount(viewport.width < 768 ? 0 : 1)
       }
     }
+  })
+})
+
+test.describe('article editor production authoring command registry', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  test('one command identity is keyboard and screen-reader discoverable on all four surfaces', async ({ page }) => {
+    await openAuthoringFixture(page, 'ready')
+    const textbox = page.locator('textarea').first()
+
+    const overflow = page.getByRole('button', { name: /更多命令/u })
+    await overflow.focus()
+    await page.keyboard.press('Enter')
+    const toolbarCommand = page.getByRole('button', { name: '插入提示块' })
+    await expect(toolbarCommand).toBeVisible()
+    await expect(toolbarCommand).toBeEnabled()
+
+    await openAuthoringPalette(page)
+    const palette = page.getByRole('dialog', { name: '命令面板' })
+    const paletteSearch = palette.getByRole('combobox', { name: '搜索命令' })
+    await expect(paletteSearch).toBeFocused()
+    await paletteSearch.fill('提示块')
+    await expect(palette.getByRole('option', { name: /插入提示块/u })).toHaveCount(1)
+    await expect(palette.getByText('1 个命令', { exact: true })).toBeAttached()
+    await page.keyboard.press('Escape')
+    await expect(textbox).toBeFocused()
+
+    await textbox.fill('/')
+    const slashMenu = page.getByRole('menu', { name: '块插入命令' })
+    await expect(slashMenu.getByRole('menuitem', { name: '插入提示块' })).toBeEnabled()
+    await page.keyboard.press('Escape')
+    await expect(textbox).toBeFocused()
+
+    await textbox.fill('选择这段正文')
+    await textbox.selectText()
+    await textbox.dispatchEvent('select')
+    const selectionToolbar = page.getByRole('toolbar', { name: '选区工具' })
+    await expect(selectionToolbar.getByRole('button', { name: '插入提示块' })).toBeEnabled()
+    await selectionToolbar.press('Escape')
+    await expect(textbox).toBeFocused()
+
+    await textbox.press(process.platform === 'darwin' ? 'Meta+Shift+K' : 'Control+Shift+K')
+    await expect.poll(() => page.evaluate(() => (
+      window as Window & { __articleEditorFixtureAuthoringInvocationCount?: () => number }
+    ).__articleEditorFixtureAuthoringInvocationCount?.() ?? 0)).toBe(1)
+    await expect(textbox).toHaveValue(/由扩展宿主验证的提示/u)
+  })
+
+  for (const state of ['permission-denied', 'pending', 'error'] as const) {
+    test(`${state} is the same disabled state on toolbar, palette, slash and selection`, async ({ page }) => {
+      await openAuthoringFixture(page, state)
+      const textbox = page.locator('textarea').first()
+      const expectedReason = {
+        'permission-denied': 'command-permission-insufficient',
+        pending: 'command-pending',
+        error: 'command-error'
+      }[state]
+
+      await openAuthoringToolbarOverflow(page)
+      const toolbarCommand = page.getByRole('button', { name: '插入提示块' })
+      await expect(toolbarCommand).toBeDisabled()
+      const descriptionId = await toolbarCommand.getAttribute('aria-describedby')
+      expect(descriptionId).toBeTruthy()
+      await expect(page.locator(`#${descriptionId}`)).toHaveText(expectedReason)
+
+      await openAuthoringPalette(page)
+      await expect(page.getByRole('dialog', { name: '命令面板' })
+        .getByRole('option', { name: /插入提示块/u })).toBeDisabled()
+      await page.keyboard.press('Escape')
+
+      await textbox.fill('/')
+      await expect(page.getByRole('menu', { name: '块插入命令' })
+        .getByRole('menuitem', { name: '插入提示块' })).toBeDisabled()
+      await page.keyboard.press('Escape')
+
+      await textbox.fill('选择这段正文')
+      await textbox.selectText()
+      await textbox.dispatchEvent('select')
+      await expect(page.getByRole('toolbar', { name: '选区工具' })
+        .getByRole('button', { name: '插入提示块' })).toBeDisabled()
+      expect(await page.evaluate(() => (
+        window as Window & { __articleEditorFixtureAuthoringInvocationCount?: () => number }
+      ).__articleEditorFixtureAuthoringInvocationCount?.() ?? 0)).toBe(0)
+    })
+  }
+
+  test('stale revision, selection drift, generation replacement and document abort never commit a late result', async ({ page }) => {
+    await openAuthoringFixture(page, 'stale')
+    const textbox = page.locator('textarea').first()
+    const original = await textbox.inputValue()
+    await openAuthoringToolbarOverflow(page)
+    await page.getByRole('button', { name: '插入提示块' }).click()
+    await expect(textbox).toHaveValue(original)
+    await expect(page.locator('[id*="command-state-fixture-author-tools-insert-callout-0"]'))
+      .toHaveText('执行失败')
+
+    await page.evaluate(() => (
+      window as Window & {
+        __articleEditorFixtureSetAuthoringState?: (state: 'generation-replaced') => void
+      }
+    ).__articleEditorFixtureSetAuthoringState?.('generation-replaced'))
+    await openAuthoringToolbarOverflow(page)
+    await page.getByRole('button', { name: '插入提示块' }).click()
+    await textbox.focus()
+    await textbox.selectText()
+    await textbox.dispatchEvent('select')
+    await page.evaluate(() => (
+      window as Window & { __articleEditorFixtureResolveAuthoringCommand?: () => void }
+    ).__articleEditorFixtureResolveAuthoringCommand?.())
+    await expect(page.locator('[id*="command-state-fixture-author-tools-insert-callout-0"]'))
+      .toHaveText('执行失败')
+    await expect(textbox).toHaveValue(original)
+
+    await openAuthoringToolbarOverflow(page)
+    await page.getByRole('button', { name: '插入提示块' }).click()
+    await page.evaluate(() => (
+      window as Window & { __articleEditorFixtureReplaceAuthoringGeneration?: () => void }
+    ).__articleEditorFixtureReplaceAuthoringGeneration?.())
+    await expect(page.locator('[id*="command-state-fixture-author-tools-insert-callout-0"]'))
+      .toHaveText('执行失败')
+    await expect(textbox).toHaveValue(original)
+
+    await page.evaluate(() => (
+      window as Window & { __articleEditorFixtureSetAuthoringState?: (state: 'aborted') => void }
+    ).__articleEditorFixtureSetAuthoringState?.('aborted'))
+    await openAuthoringToolbarOverflow(page)
+    await page.getByRole('button', { name: '插入提示块' }).click()
+    await page.evaluate(() => (
+      window as Window & { __articleEditorFixtureReplaceAuthoringDocument?: () => void }
+    ).__articleEditorFixtureReplaceAuthoringDocument?.())
+    await expect(page.locator('[id*="command-state-fixture-author-tools-insert-callout-0"]'))
+      .toHaveText('已取消')
+    await expect(textbox).toHaveValue(original)
+  })
+
+  test('one thousand contributions have bounded palette search, grouping and cancellation', async ({ page }) => {
+    await openAuthoringFixture(page, 'thousand')
+    const textbox = page.locator('textarea').first()
+    const original = await textbox.inputValue()
+    await openAuthoringPalette(page)
+    const palette = page.getByRole('dialog', { name: '命令面板' })
+    await palette.getByRole('combobox', { name: '搜索命令' }).fill('bounded-999')
+    await expect(palette.getByRole('option')).toHaveCount(1)
+    await expect(palette.getByRole('option', { name: /扩展命令 0999/u })).toBeVisible()
+    await expect(palette.getByRole('group', { name: 'extension.insert' })).toBeVisible()
+    await expect(palette.getByText('1 个命令', { exact: true })).toBeAttached()
+    await palette.getByRole('option', { name: /扩展命令 0999/u }).click()
+    await page.evaluate(() => (
+      window as Window & { __articleEditorFixtureReplaceAuthoringGeneration?: () => void }
+    ).__articleEditorFixtureReplaceAuthoringGeneration?.())
+    await page.evaluate(() => (
+      window as Window & { __articleEditorFixtureResolveAuthoringCommand?: () => void }
+    ).__articleEditorFixtureResolveAuthoringCommand?.())
+    await expect(textbox).toHaveValue(original)
+    expect(await page.evaluate(() => (
+      window as Window & { __articleEditorFixtureAuthoringInvocationCount?: () => number }
+    ).__articleEditorFixtureAuthoringInvocationCount?.() ?? 0)).toBe(1)
+  })
+
+  test('mobile touch keeps extension commands reachable without horizontal overflow', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 })
+    await openAuthoringFixture(page, 'ready', 'dark')
+    const overflow = page.getByRole('button', { name: /更多命令/u })
+    await expect(overflow).toBeVisible()
+    const box = await overflow.boundingBox()
+    expect(box).not.toBeNull()
+    expect(box!.height).toBeGreaterThanOrEqual(40)
+    await overflow.tap()
+    await expect(page.getByRole('button', { name: '插入提示块' })).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth))
+      .toBeLessThanOrEqual(1)
   })
 })
 
