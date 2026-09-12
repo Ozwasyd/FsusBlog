@@ -1,0 +1,23 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "config/development/document-inventory.generated.json",
+                "config/development/document-lifecycle.json",
+                "config/testing/authoring-extension-terminal-matrix.json",
+                "docs/architecture/authoring-extension-host-boundary.md",
+                "docs/security/authoring-extension-capability-isolation.md"
+            ],
+            "reason": "Preserve existing caller-visible JSON and Markdown identifiers while the lifecycle producer records terminal evidence governance."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/security/check-authoring-extension-terminal-matrix.mjs"
+            ],
+            "reason": "Preserve caller-visible process environment spellings while the terminal evidence checker keeps repository-owned JavaScript identifiers."
+        }
+    ]
+}
