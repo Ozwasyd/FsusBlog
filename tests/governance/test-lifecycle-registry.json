@@ -4628,6 +4628,23 @@
             ]
         },
         {
+            "file": "tests/tools/static-client-payload-budget.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "perf",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "static-client-payload-budget",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
+        },
+        {
             "file": "tests/tools/static-governance-host.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",

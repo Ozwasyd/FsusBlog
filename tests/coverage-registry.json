@@ -1474,6 +1474,26 @@
             ]
         },
         {
+            "id": "static-client-payload-baseline-contract",
+            "description": "The audited client-dist baseline is reproducible from one byte-ordered content inventory and both runtime gates enforce its exact byte and file-count ceilings without authoritative overrides.",
+            "owner": "InteropGlueAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "config/performance/static-client-payload-budget.v1.json",
+                "config/schemas/static-client-payload-budget.schema.json",
+                "tools/operations/static-client-payload-budget.mjs",
+                "tests/frontend/checks/static/check-asset-size-budget.mjs",
+                "tools/operations/check-publish-artifact-slimness.mjs",
+                "tests/tools/static-client-payload-budget.test.mjs"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "The static-governance lane fails on inventory count, byte total, path ordering, record-format, or content-digest drift; a lax schema; malformed or authoritative overrides; diagnostic evidence presented as qualification; or either runtime gate omitting the baseline file-count ceiling.",
+            "minimumRequirement": "Real subprocess tests must reproduce the accepted inventory, reject same-size content tampering and closed-schema mutations, exercise malformed override classes, prove diagnostic evidence is ineligible, and force both gates past the file-count ceiling.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "frontend-coverage",
             "description": "Frontend Coverage is covered by runtime artifacts that exercise the named behavior.",
             "owner": "InteropGlueAgent",

@@ -115,15 +115,42 @@ public sealed class SchemaMigrationCatalogTests
             },
             catalog =>
             {
-                Assert.Equal("current-20260904", catalog.CatalogId);
+                Assert.Equal("current-20260904-authoring", catalog.CatalogId);
                 Assert.Equal(new DateOnly(2026, 9, 4), catalog.StartVersion);
                 Assert.Equal(new DateOnly(2026, 9, 4), catalog.EndVersion);
                 SchemaMigrationCatalogDependency dependency = Assert.Single(catalog.Dependencies);
                 Assert.Equal(TaxonomyDescriptionMigrationDefinitions.MigrationId, dependency.MigrationId);
                 Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase);
+            },
+            catalog =>
+            {
+                Assert.Equal("current-20260905-article-templates", catalog.CatalogId);
+                Assert.Equal(new DateOnly(2026, 9, 5), catalog.StartVersion);
+                Assert.Equal(new DateOnly(2026, 9, 5), catalog.EndVersion);
+                SchemaMigrationCatalogDependency dependency = Assert.Single(catalog.Dependencies);
+                Assert.Equal(AuthorSavedViewMigrationDefinitions.MigrationId, dependency.MigrationId);
+                Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase);
+            },
+            catalog =>
+            {
+                Assert.Equal("current-20260907-article-vault-execution", catalog.CatalogId);
+                Assert.Equal(new DateOnly(2026, 9, 7), catalog.StartVersion);
+                Assert.Equal(new DateOnly(2026, 9, 7), catalog.EndVersion);
+                SchemaMigrationCatalogDependency dependency = Assert.Single(catalog.Dependencies);
+                Assert.Equal(ArticleTemplateAuthorityMigrationDefinitions.MigrationId, dependency.MigrationId);
+                Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase);
+            },
+            catalog =>
+            {
+                Assert.Equal("current-20260908-article-create", catalog.CatalogId);
+                Assert.Equal(new DateOnly(2026, 9, 8), catalog.StartVersion);
+                Assert.Equal(new DateOnly(2026, 9, 8), catalog.EndVersion);
+                SchemaMigrationCatalogDependency dependency = Assert.Single(catalog.Dependencies);
+                Assert.Equal(ArticleVaultExecutionMigrationDefinitions.MigrationId, dependency.MigrationId);
+                Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase);
             });
-        Assert.Equal(138, manifest.Descriptors.Count);
-        const string ExpectedPlanFingerprint = "2F6026130A6667AA83190973DFF348D92F425DE543F67B4DA07B3FDB2EFA859A";
+        Assert.Equal(142, manifest.Descriptors.Count);
+        const string ExpectedPlanFingerprint = "DDE8C4CD12D9D35F59040305232488277EAB1868EEABB65BA03417915FCEA3DB";
         string actualPlanFingerprint = ComputePlanFingerprint(manifest.Descriptors);
         Assert.True(
             string.Equals(ExpectedPlanFingerprint, actualPlanFingerprint, StringComparison.Ordinal),
@@ -385,7 +412,7 @@ public sealed class SchemaMigrationCatalogTests
 
         Assert.Same(first, second);
         Assert.Same(manifest, first);
-        Assert.Equal(138, first.Count);
+        Assert.Equal(142, first.Count);
         Assert.Equal(first.Count, first.Select(static descriptor => descriptor.MigrationId).Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(
             ComputePlanFingerprint(manifest),

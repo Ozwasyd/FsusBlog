@@ -1,0 +1,76 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsus.blog/schemas/static-client-payload-budget.schema.json",
+    "title": "FsusBlog static client payload budget",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "$schema",
+        "schema",
+        "budgetModel",
+        "baseline",
+        "maxTotalBytes"
+    ],
+    "properties": {
+        "$schema": {
+            "const": "../schemas/static-client-payload-budget.schema.json"
+        },
+        "schema": {
+            "const": "fsusblog.static-client-payload-budget.v1"
+        },
+        "budgetModel": {
+            "const": "audited-baseline-no-growth"
+        },
+        "baseline": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "fileCount",
+                "totalBytes",
+                "root",
+                "pathOrder",
+                "recordFormat",
+                "inventoryAlgorithm",
+                "inventorySha256"
+            ],
+            "properties": {
+                "fileCount": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "totalBytes": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "root": {
+                    "const": "client-dist"
+                },
+                "pathOrder": {
+                    "const": "posix-relative-utf8-byte-ascending"
+                },
+                "recordFormat": {
+                    "const": "path-utf8 NUL size-base10-ascii NUL content-sha256-lowerhex LF"
+                },
+                "inventoryAlgorithm": {
+                    "const": "sha256-path-nul-size-nul-content-sha256-lf-v1"
+                },
+                "inventorySha256": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                }
+            }
+        },
+        "maxTotalBytes": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "derivation"
+            ],
+            "properties": {
+                "derivation": {
+                    "const": "baseline.totalBytes"
+                }
+            }
+        }
+    }
+}

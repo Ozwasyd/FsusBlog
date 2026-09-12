@@ -17,7 +17,7 @@ internal sealed class DocumentExportTestToolFixture : IDisposable
 {
     public const string HostBuildDigestSeed = "test-host-build";
 
-    private static readonly Lazy<DocumentExportSystemdCgroupAuthorityContract> InstalledAuthorityContract =
+    private static readonly Lazy<DocumentExportSystemdCgroupAuthorityContract> s_installedAuthorityContract =
         new(DocumentExportSystemdCgroupAuthority.DiscoverInstalledContract);
 
     public static readonly string DefaultFragment = """
@@ -60,7 +60,7 @@ internal sealed class DocumentExportTestToolFixture : IDisposable
     public string HostBuildDigest => Digest(HostBuildDigestSeed);
 
     public DocumentExportSystemdCgroupAuthority CreateAuthority(int cpuPollIntervalMilliseconds = 10)
-        => new(InstalledAuthorityContract.Value, cpuPollIntervalMilliseconds);
+        => new(s_installedAuthorityContract.Value, cpuPollIntervalMilliseconds);
 
     public DocumentExportSandboxRuntime CreateSandbox(
         DocumentExportToolContract? tool = null,
