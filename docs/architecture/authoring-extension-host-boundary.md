@@ -90,6 +90,33 @@ trust/keyset result, content digests, and stable failure code without storing a
 secret. Stored package metadata, activation pointers, and receipts reject missing,
 duplicate, or unknown fields before their digests are accepted.
 
+## Hybrid execution resolution
+
+`AuthoringExecutionResolver` consumes only an exact package that the package-store
+authority still reports active. It never changes a manifest's execution class.
+Worker/Wasm and owned-service declarations return only their fixed closed target;
+unsupported platform/class combinations return a stable blocked result without an
+in-process or compatibility fallback. The runtime identity covers the active
+package, extension/version/content, contribution kind and class, entrypoint digest,
+host API version, and trusted-adapter identity when applicable.
+
+A trusted adapter descriptor is bounded and names one `fsusblog.authoring.adapter.*`
+identity, contribution kind, host API version, checked-in `src/backend/` source and
+digest, loaded assembly name and digest, review owner, and exact supported-platform
+set. Descriptor fields and platform support enter the trusted-adapter identity.
+Only a package whose publisher is exactly `fsusblog` may resolve that class, and a
+real loaded-module verifier hashes the already loaded assembly file without loading
+package code. Missing, ambiguous, NativeAOT/location-less, reparse, oversized, or
+digest-mismatched modules remain blocked.
+
+The current production composition deliberately uses an empty trusted-adapter
+registry. No concrete FsusUI bridge or other in-process authoring adapter is
+authorized by these host-core contracts. Adding one requires a separately reviewed
+checked-in source artifact, exact source/module digests, review ownership, public
+host API mapping, and proof tests; a fake verifier or package-provided module cannot
+stand in for that evidence. Resolution itself does not start a worker/service,
+invoke adapter logic, grant a capability, expose RPC, or mutate a document.
+
 ## Stability and rollback
 
 The contract and package store are currently internal/experimental and may change only by advancing
