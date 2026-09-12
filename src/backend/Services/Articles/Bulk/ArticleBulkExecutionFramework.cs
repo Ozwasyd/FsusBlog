@@ -53,6 +53,38 @@ internal enum ArticleBulkGroupCommitOutcome
     UnknownRecovery
 }
 
+internal sealed record ArticleBulkPlanConfirmation(
+    string ConfirmationIdentity,
+    string PlanIdentity,
+    string PlanDigest,
+    string ActorAuthorityDigest,
+    DateTimeOffset ConfirmedAtUtc,
+    string ContentDigest);
+
+internal sealed record ArticleBulkExecutionAuthoritySnapshot(
+    string PolicyDigest,
+    string PermissionPolicyDigest,
+    string AuthorityReceiptDigest,
+    string? ZeroWriteProofDigest);
+
+/// <summary>
+/// Production implementations reread current policy/permission authority and validate canonical
+/// group transaction receipts. They must not derive facts from caller-supplied execution fields.
+/// </summary>
+internal interface IArticleBulkExecutionAuthority
+{
+    Task<ArticleBulkExecutionAuthoritySnapshot> ReadCurrentAsync(
+        ArticleBulkPlan plan,
+        CancellationToken cancellationToken);
+
+    Task ValidateGroupOutcomeAsync(
+        ArticleBulkPlan plan,
+        ArticleBulkGroupCommitOutcome outcome,
+        string? groupReceiptDigest,
+        string? zeroWriteProofDigest,
+        CancellationToken cancellationToken);
+}
+
 internal sealed record ArticleBulkExecutionRequest(
     string AttemptId,
     string IdempotencyKey,
@@ -63,6 +95,8 @@ internal sealed record ArticleBulkExecutionRequest(
     ArticleBulkExecutionStrategy Strategy,
     string ParametersDigest,
     string FrozenSetDigest,
+    string ConfirmationDigest,
+    string AdmissionAuthorityReceiptDigest,
     ArticleBulkActor Actor,
     ArticleBulkSource Source,
     string PolicyDigest,
@@ -245,6 +279,7 @@ internal sealed record ArticleBulkRetryAdmission(
 internal sealed class ArticleBulkExecutionFramework(
     ArticleBulkPlanAuthority planAuthority,
     IArticleBulkJournalAuthority journalAuthority,
+    IArticleBulkExecutionAuthority executionAuthority,
     TimeProvider timeProvider)
 {
     internal const int JournalReadBatchSize = 128;
@@ -254,6 +289,7 @@ internal sealed class ArticleBulkExecutionFramework(
 
     internal async Task<ArticleBulkAdmission> AdmitAsync(
         ArticleBulkPlan plan,
+        ArticleBulkPlanConfirmation confirmation,
         string planReference,
         string attemptId,
         string idempotencyKey,
@@ -270,6 +306,7 @@ internal sealed class ArticleBulkExecutionFramework(
             throw new ArticleBulkContractException("article-bulk.execution-request-invalid");
         }
         planAuthority.ValidateIntegrity(plan);
+        ValidateConfirmation(plan, confirmation);
         if (actor != plan.Actor || source != plan.Source || policyDigest != plan.PolicyDigest
             || permissionPolicyDigest != plan.PermissionPolicyDigest)
         {
@@ -285,6 +322,7 @@ internal sealed class ArticleBulkExecutionFramework(
             plan.Strategy,
             plan.ParametersDigest,
             plan.FrozenSetDigest,
+            ConfirmationDigest = confirmation.ContentDigest,
             actor,
             source,
             policyDigest,
@@ -301,6 +339,8 @@ internal sealed class ArticleBulkExecutionFramework(
             plan.Strategy,
             plan.ParametersDigest,
             plan.FrozenSetDigest,
+            confirmation.ContentDigest,
+            string.Empty,
             actor,
             source,
             policyDigest,
@@ -326,18 +366,23 @@ internal sealed class ArticleBulkExecutionFramework(
                 cancellationToken).ConfigureAwait(false);
         }
 
-        // Admission validates the sealed plan and caller-supplied current identities without resolving the
-        // saved view/query again. Full selection/preflight replay is an independent audit operation only.
         planAuthority.ValidateForExecution(plan);
+        ArticleBulkExecutionAuthoritySnapshot authoritySnapshot = await executionAuthority
+            .ReadCurrentAsync(plan, cancellationToken).ConfigureAwait(false);
+        ValidateExecutionAuthoritySnapshot(plan, authoritySnapshot);
+        await planAuthority.ValidateCurrentArticlesForExecutionAsync(plan, cancellationToken).ConfigureAwait(false);
+        request = request with
+        {
+            AdmissionAuthorityReceiptDigest = authoritySnapshot.AuthorityReceiptDigest,
+            ContentDigest = string.Empty
+        };
+        request = request with
+        {
+            ContentDigest = ArticleBulkDigest.Of(request)
+        };
 
         const ArticleBulkExecutionState InitialState = ArticleBulkExecutionState.Planned;
-        string? zeroWriteProofDigest = plan.Executable
-            ? null
-            : ArticleBulkDigest.Of(new
-            {
-                plan.ContentDigest,
-                ZeroWrite = true
-            });
+        string? zeroWriteProofDigest = plan.Executable ? null : authoritySnapshot.ZeroWriteProofDigest;
         ArticleBulkJournalEvent firstEvent = SealEvent(new ArticleBulkJournalEvent(
             attemptId,
             0,
@@ -559,6 +604,15 @@ internal sealed class ArticleBulkExecutionFramework(
             groupReceiptDigest,
             zeroWriteProofDigest,
             aggregateReceipt);
+        if (kind == ArticleBulkJournalEventKind.GroupCommitTerminal)
+        {
+            await executionAuthority.ValidateGroupOutcomeAsync(
+                plan,
+                groupOutcome!.Value,
+                groupReceiptDigest,
+                zeroWriteProofDigest,
+                cancellationToken).ConfigureAwait(false);
+        }
         ImmutableArray<string> active = NextActiveSet(current.ActiveArticleIds, kind, articleId);
         var unsignedEvent = new ArticleBulkJournalEvent(
             current.AttemptId,
@@ -735,7 +789,9 @@ internal sealed class ArticleBulkExecutionFramework(
             || request.OperationId != plan.OperationId
             || request.Strategy != plan.Strategy
             || request.ParametersDigest != plan.ParametersDigest
-            || request.FrozenSetDigest != plan.FrozenSetDigest)
+            || request.FrozenSetDigest != plan.FrozenSetDigest
+            || !IsContentDigest(request.ConfirmationDigest)
+            || !IsContentDigest(request.AdmissionAuthorityReceiptDigest))
         {
             throw new ArticleBulkContractException("article-bulk.execution-request-tampered");
         }
@@ -892,6 +948,8 @@ internal sealed class ArticleBulkExecutionFramework(
             || request.PlanDigest != plan.ContentDigest
             || request.RegistryDigest != plan.RegistryDigest
             || request.FrozenSetDigest != plan.FrozenSetDigest
+            || !IsContentDigest(request.ConfirmationDigest)
+            || !IsContentDigest(request.AdmissionAuthorityReceiptDigest)
             || request.ExecutionIdentityDigest != sealedHead.ExecutionIdentityDigest)
         {
             throw new ArticleBulkContractException("article-bulk.resume-checkpoint-tampered");
@@ -1840,6 +1898,41 @@ internal sealed class ArticleBulkExecutionFramework(
             || !IsContentDigest(receipt.AuthorityReceiptDigest))
         {
             throw new ArticleBulkContractException("article-bulk.journal-authority-receipt-invalid");
+        }
+    }
+
+    private static void ValidateConfirmation(
+        ArticleBulkPlan plan,
+        ArticleBulkPlanConfirmation confirmation)
+    {
+        if (!IsBoundedOpaqueValue(confirmation.ConfirmationIdentity, 256)
+            || confirmation.PlanIdentity != plan.PlanIdentity
+            || confirmation.PlanDigest != plan.ContentDigest
+            || confirmation.ActorAuthorityDigest != plan.Actor.AuthorityDigest
+            || confirmation.ConfirmedAtUtc.Offset != TimeSpan.Zero
+            || confirmation.ConfirmedAtUtc < plan.CreatedAtUtc
+            || confirmation.ConfirmedAtUtc >= plan.ExpiresAtUtc
+            || confirmation.ContentDigest != ArticleBulkDigest.Of(confirmation with
+            {
+                ContentDigest = string.Empty
+            }))
+        {
+            throw new ArticleBulkContractException("article-bulk.confirmation-invalid");
+        }
+    }
+
+    private static void ValidateExecutionAuthoritySnapshot(
+        ArticleBulkPlan plan,
+        ArticleBulkExecutionAuthoritySnapshot snapshot)
+    {
+        bool requiresZeroWriteProof = !plan.Executable
+            && plan.Strategy == ArticleBulkExecutionStrategy.AllOrNothing;
+        if (snapshot.PolicyDigest != plan.PolicyDigest
+            || snapshot.PermissionPolicyDigest != plan.PermissionPolicyDigest
+            || !IsContentDigest(snapshot.AuthorityReceiptDigest)
+            || requiresZeroWriteProof != IsContentDigest(snapshot.ZeroWriteProofDigest))
+        {
+            throw new ArticleBulkContractException("article-bulk.execution-authority-drift");
         }
     }
 

@@ -148,3 +148,19 @@ internal sealed class UnavailableArticleBulkPreflightAuthority : IArticleBulkPre
         CancellationToken cancellationToken)
         => throw new ArticleBulkContractException("article-bulk.preflight-authority-unavailable");
 }
+
+internal sealed class UnavailableArticleBulkExecutionAuthority : IArticleBulkExecutionAuthority
+{
+    public Task<ArticleBulkExecutionAuthoritySnapshot> ReadCurrentAsync(
+        ArticleBulkPlan plan,
+        CancellationToken cancellationToken)
+        => throw new ArticleBulkContractException("article-bulk.execution-authority-unavailable");
+
+    public Task ValidateGroupOutcomeAsync(
+        ArticleBulkPlan plan,
+        ArticleBulkGroupCommitOutcome outcome,
+        string? groupReceiptDigest,
+        string? zeroWriteProofDigest,
+        CancellationToken cancellationToken)
+        => throw new ArticleBulkContractException("article-bulk.transaction-authority-unavailable");
+}

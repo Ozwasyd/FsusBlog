@@ -22,14 +22,6 @@ internal sealed record ArticleBulkActor(string UserId, string SiteId, string Aut
 
 internal sealed record ArticleBulkSource(string Commit, string BuildDigest);
 
-internal sealed record ArticleBulkPlanConfirmation(
-    string ConfirmationIdentity,
-    string PlanIdentity,
-    string PlanDigest,
-    string ActorAuthorityDigest,
-    DateTimeOffset ConfirmedAtUtc,
-    string ContentDigest);
-
 internal sealed record ArticleBulkPlanRequest(
     string PlanIdentity,
     string? ReplanOfPlanDigest,
@@ -337,6 +329,42 @@ internal sealed class ArticleBulkPlanAuthority(
         if (now >= plan.ExpiresAtUtc)
         {
             throw new ArticleBulkContractException("article-bulk.plan-expired");
+        }
+    }
+
+    internal async Task ValidateCurrentArticlesForExecutionAsync(
+        ArticleBulkPlan plan,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateForExecution(plan);
+        ArticleBulkOperation operation = ArticleBulkOperationRegistry.Get(plan.OperationId);
+        ArticleBulkPlanItem[] expected = [.. plan.Items];
+        int observed = 0;
+        await foreach (ArticleBulkArticleObservation observation in preflightAuthority
+            .ObserveAsync(
+                expected.Select(static item => item.ArticleId).ToArray(),
+                operation,
+                plan.NormalizedParameters,
+                plan.Actor,
+                cancellationToken)
+            .WithCancellation(cancellationToken).ConfigureAwait(false))
+        {
+            if (observed >= expected.Length || observation.ArticleId != expected[observed].ArticleId)
+            {
+                throw new ArticleBulkContractException("article-bulk.execution-article-order-drift");
+            }
+
+            ArticleBulkPlanItem current = SealItem(observation, operation, plan.NormalizedParameters, plan.Actor);
+            if (current.ContentDigest != expected[observed].ContentDigest)
+            {
+                throw new ArticleBulkContractException("article-bulk.execution-article-drift");
+            }
+            observed++;
+        }
+
+        if (observed != expected.Length)
+        {
+            throw new ArticleBulkContractException("article-bulk.execution-preflight-incomplete");
         }
     }
 
