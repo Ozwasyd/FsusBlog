@@ -212,6 +212,17 @@ evidence remain unavailable. Each later child must recheck the verified package
 identity and implement its own fail-closed acceptance before any additional
 operation can occur.
 
+The canonical terminal matrix is
+`config/testing/authoring-extension-terminal-matrix.json`; its single local/CI
+command is `node tools/security/check-authoring-extension-terminal-matrix.mjs`.
+Audit mode verifies registry and fixture ownership while reporting external
+blockers. Receipt mode additionally requires one current-run, passing,
+content-digest-bound artifact for every terminal domain and rejects missing,
+unknown, failed, stale, or tampered evidence. Synthetic verifier tests exercise
+only that fail-closed machinery and are never runtime, browser, platform, or
+core-editor evidence. CI receipt-join registration remains blocked until those
+producers and their current-run artifact paths exist.
+
 The general [plugin sandbox](plugin-sandbox.md) continues to own `.fspkg` Hook
 execution through its Level 1 Jint/Lua application sandbox. Neither subsystem may
 reuse the other's manifest, capability registry, package store, identity, grant,

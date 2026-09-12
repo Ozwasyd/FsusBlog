@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "config/development/document-lifecycle.json"
+    ],
+    "outputs": [
+        {
+            "path": "config/development/document-inventory.generated.json",
+            "sha256": "c3203b104df1854965b0f06f6509f3a399361984bd420dfef8ac8ec98223f151"
+        }
+    ]
+}
