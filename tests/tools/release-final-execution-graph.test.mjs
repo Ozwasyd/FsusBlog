@@ -307,7 +307,7 @@ test("release-final exact-set binding rejects deletion, replacement, duplication
     const canonical = loadCanonicalReleaseFinalEvidenceInputs();
     const mutations = [
         {
-            name: "deletion",
+            name: "binding-deletion",
             mutate(tier) {
                 tier.requiresEvidenceFrom.splice(
                     tier.requiresEvidenceFrom.indexOf("browser-contract"),
@@ -320,7 +320,7 @@ test("release-final exact-set binding rejects deletion, replacement, duplication
             ],
         },
         {
-            name: "replacement",
+            name: "binding-replacement",
             mutate(tier) {
                 tier.requiresEvidenceFrom[
                     tier.requiresEvidenceFrom.indexOf("browser-contract")
@@ -332,7 +332,7 @@ test("release-final exact-set binding rejects deletion, replacement, duplication
             ],
         },
         {
-            name: "duplication",
+            name: "binding-duplication",
             mutate(tier) {
                 tier.requiresEvidenceFrom[
                     tier.requiresEvidenceFrom.indexOf("coverage-gate-strict")
@@ -344,7 +344,7 @@ test("release-final exact-set binding rejects deletion, replacement, duplication
             ],
         },
         {
-            name: "addition",
+            name: "binding-addition",
             mutate(tier) {
                 tier.requiresEvidenceFrom.push("validate-matrix");
             },
