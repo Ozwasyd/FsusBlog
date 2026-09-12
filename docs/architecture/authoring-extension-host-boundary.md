@@ -140,6 +140,26 @@ This sandbox does not expose RPC, permissions, services, extension lifecycle, or
 concrete contribution. Lifecycle-owned update/revoke invalidation is layered later;
 the runtime itself creates no cross-plugin or cross-document cache.
 
+## Out-of-process service boundary
+
+The Linux service runtime accepts only an exact verified static x86-64 ELF target.
+It combines `prlimit` memory/CPU/file-descriptor ceilings with a new bubblewrap
+mount, network, PID, and user namespace, an owned session, cleared environment,
+dropped capabilities, a private temporary root, and one read-only executable.
+Readiness is a closed identity/digest/transport handshake, not process liveness or
+an open port. Cancellation, deadline, malformed response, crash, and stale document
+terminate the complete process tree; the production test includes a child that
+creates a new session and ignores `SIGHUP` to verify the host boundary catches it.
+
+The process receives only opaque, short-lived grant IDs. Network access stays in a
+host broker that resolves twice, rejects private/metadata/loopback destinations,
+pins the accepted IP set, requires TLS, disables redirects/cookies/decompression,
+and applies purpose/time/byte bounds. File access stays in a host broker that
+requires an allowlisted exact root and relative path, rejects control roots and
+reparse boundaries, reads only bounded regular files, and stages proposed writes
+under a private non-reparse host root for later approval. This stage defines no
+document RPC, permission decision, lifecycle, or concrete provider.
+
 ## Stability and rollback
 
 The contract and package store are currently internal/experimental and may change only by advancing

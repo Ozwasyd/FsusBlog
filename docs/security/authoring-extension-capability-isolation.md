@@ -110,12 +110,35 @@ identities and omit plaintext IDs, content, payloads, and secrets. Actual namesp
 and escape probes remain part of the Linux runtime test and cannot be replaced by
 the static source checks used during light-only development.
 
+## Out-of-process service isolation
+
+Service packages never receive host sockets, filesystem handles, credentials,
+database/Redis objects, shell access, or generic URL/path APIs. A verified static
+ELF runs in a private bounded bubblewrap/prlimit process tree. Its argv contains
+only runtime/content/executable/transport/grant-set digests; environment and logs
+contain no grant secret or payload credential. A closed readiness handshake must bind
+the runtime, executable, and transport before any request is accepted.
+
+Network grants name one DNS host, port, TLS requirement, purpose, byte ceiling, and
+expiry. Two equal public address resolutions are pinned directly to the socket;
+redirect, userinfo, fragment, arbitrary URL, private/metadata/loopback address,
+rebinding, and oversized response are rejected. File grants name one allowlisted
+non-control root, relative path, operation, purpose, byte ceiling, and expiry;
+canonical containment, every reparse boundary, file type, and size are rechecked.
+Writes remain opaque host-owned proposals until a later permission/RPC owner
+accepts them.
+
+Actual detached-child, namespace, DNS/TLS, and symlink probes are runtime evidence.
+The light static checks in this stack do not replace those tests; until they run,
+terminal process/network/filesystem isolation remains unverified.
+
 ## Stage boundary
 
 The current stages validate the contract and package supply chain, resolve fixed
 execution classes, and can run verified Wasm in the isolated Linux worker. They do
-not issue or persist grants, start an owned service, broker I/O, expose RPC, mutate
-a document, migrate extension data, or manage runtime lifecycle state. Each later
+not issue or persist permission grants. They can run an owned Linux service and
+enforce already-issued opaque network/file grants, but do not expose document RPC,
+mutate a document, migrate extension data, or manage runtime lifecycle state. Each later
 child must recheck the verified package identity and implement its own fail-closed
 acceptance before any additional operation can occur.
 
