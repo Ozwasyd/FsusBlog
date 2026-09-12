@@ -12070,6 +12070,46 @@
             "reason": "Issue #2609 retains the binary q-zero Accept rejection as the named binary-q-zero Theory row with the exact 406 status and decoded ApiError oracles."
         },
         {
+            "id": "vitest:tests/frontend/unit/utils/contentFilter.test.ts#accepts-normal-comment-c668ebe04a",
+            "path": "tests/frontend/unit/utils/contentFilter.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-normal-comment-ordinary-text-17ea0126ce"
+            ],
+            "reason": "Issue #2614 retains the normal-comment allow-publish case as the named normal-comment corpus row with the exact isValid oracle, empty message, and caller-input immutability assertions."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-ad-spam-text-so-post-publish-moderation-can-handl-9fd06a14b4",
+            "path": "tests/frontend/unit/utils/contentFilter.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-ad-spam-post-moderation-adverti-d0473f3b07"
+            ],
+            "reason": "Issue #2614 retains the ad-spam-post-moderation allow-publish case as the named ad-spam-post-moderation corpus row with the exact isValid oracle, empty message, and caller-input immutability assertions."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-zero-width-obfuscation-text-for-post-publish-mode-329c72a270",
+            "path": "tests/frontend/unit/utils/contentFilter.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-zero-width-obfuscation-zero-wid-e35d30489a"
+            ],
+            "reason": "Issue #2614 retains the zero-width-obfuscation allow-publish case as the named zero-width-obfuscation corpus row with the exact isValid oracle, empty message, and caller-input immutability assertions."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-full-width-and-confusable-ad-terms-for-post-publi-bae42cd918",
+            "path": "tests/frontend/unit/utils/contentFilter.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-full-width-confusable-ad-full-w-ec7554ed32"
+            ],
+            "reason": "Issue #2614 retains the full-width-confusable-ad allow-publish case as the named full-width-confusable-ad corpus row with the exact isValid oracle, empty message, and caller-input immutability assertions."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/utils/contentFilter.test.ts#accepts-text-with-common-legitimate-words-containing-3a93069c29",
+            "path": "tests/frontend/unit/utils/contentFilter.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-legitimate-xi-word-legitimate-t-38059d3687"
+            ],
+            "reason": "Issue #2614 retains the legitimate-xi-word allow-publish case as the named legitimate-xi-word corpus row with the exact isValid oracle, empty message, and caller-input immutability assertions."
+        },
+        {
             "id": "vitest:tests/frontend/unit/composables/staticPageSiteTitle.test.ts#keeps-the-about-page-view-free-of-shell-owned-site-ident-7eed1b8f83",
             "path": "tests/frontend/unit/composables/staticPageSiteTitle.test.ts",
             "replacementTestIds": [
@@ -12266,6 +12306,20 @@
                 "vitest:toBe:isAbortError(factory()), caseName:equality:true"
             ],
             "reason": "Issue #2610 preserves each positive isAbortError true oracle in the named factory table; per-case ownership remains in deletedTests."
+        },
+        {
+            "before": "vitest:toBe:r.isValid:equality:true",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-normal-comment-ordinary-text-17ea0126ce",
+                "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-ad-spam-post-moderation-adverti-d0473f3b07",
+                "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-zero-width-obfuscation-zero-wid-e35d30489a",
+                "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-full-width-confusable-ad-full-w-ec7554ed32",
+                "vitest:tests/frontend/unit/utils/contentFilter.test.ts#allows-publish-candidate-legitimate-xi-word-legitimate-t-38059d3687"
+            ],
+            "after": [
+                "vitest:toBe:r.isValid:equality:true"
+            ],
+            "reason": "Issue #2614 preserves each allow-publish isValid oracle in the named corpus rows; per-case ownership remains in deletedTests."
         },
         {
             "before": "vitest:toBe:wrapper.findComponent(Child).vm.staticPageView.header.title:equality:'\u5173\u4e8e'",

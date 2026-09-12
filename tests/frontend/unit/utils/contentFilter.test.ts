@@ -28,11 +28,6 @@ describe('validateCommentContent', () => {
     expect(r.isValid).toBe(false)
   })
 
-  it('accepts normal comment', () => {
-    const r = validateCommentContent('这是一条正常的评论。')
-    expect(r.isValid).toBe(true)
-  })
-
   it('accepts safe text markdown and extracts review text without control markers', () => {
     const r = inspectCommentMarkdownContent('**重点** [官网](https://example.com/docs?q=1) `code`')
     expect(r.isValid).toBe(true)
@@ -79,20 +74,21 @@ describe('validateCommentContent', () => {
     expect(tooLong.message).toContain('1500')
   })
 
-  it('allows ad/spam text so post-publish moderation can handle content risk', () => {
-    const r = validateCommentContent('加微信号123456赚钱')
-    expect(r.isValid).toBe(true)
-  })
+  it.each([
+    ['normal-comment', 'ordinary text', '这是一条正常的评论。'],
+    ['ad-spam-post-moderation', 'advertising text for post-publish moderation', '加微信号123456赚钱'],
+    ['zero-width-obfuscation', 'zero-width obfuscation for post-publish moderation', '加\u200B微\u200B信'],
+    ['full-width-confusable-ad', 'full-width/confusable advertising for post-publish moderation', '加ＶＸ处理'],
+    ['legitimate-xi-word', 'legitimate text containing the “习” character', '坚持学习是好习惯']
+  ])('allows publish candidate %s: %s', (_caseName, _riskCategory, content) => {
+    const callerInput = { content }
+    const originalContent = callerInput.content
 
-  it('allows zero-width obfuscation text for post-publish moderation', () => {
-    // Zero-width space U+200B separating characters to bypass filter
-    const r = validateCommentContent('加\u200B微\u200B信')
-    expect(r.isValid).toBe(true)
-  })
+    const r = validateCommentContent(callerInput.content)
 
-  it('allows full-width and confusable ad terms for post-publish moderation', () => {
-    const r = validateCommentContent('加ＶＸ处理')
     expect(r.isValid).toBe(true)
+    expect(r.message).toBe('')
+    expect(callerInput.content).toBe(originalContent)
   })
 
   it('exposes explainable risk factors for blocked content', () => {
@@ -101,12 +97,6 @@ describe('validateCommentContent', () => {
     expect(risk.factors).toContain('ad')
     expect(risk.factors).toContain('obfuscation')
     expect(risk.firstMatch).toBeTruthy()
-  })
-
-  it('accepts text with common legitimate words containing "习"', () => {
-    // "学习" should not be flagged as it's in the whitelist
-    const r = validateCommentContent('坚持学习是好习惯')
-    expect(r.isValid).toBe(true)
   })
 
   it('normalizes moderation text with NFKC, zero-width stripping, and confusable mapping', () => {
