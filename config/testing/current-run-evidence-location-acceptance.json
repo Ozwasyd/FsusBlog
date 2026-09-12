@@ -2,15 +2,15 @@
     "schema": "fsusblog.current-run-evidence-location-acceptance.v1",
     "sourceDigests": {
         "config/testing/evidence-locator-registry.json": "sha256:906adecfb998cff7b2ceee9376e9c949f9c3dbb01f45a2599482051d75864c7c",
-        "config/testing/evidence-location-migration-ledger.json": "sha256:f59d5a945f528979e51d2a991470e32ea5cd39caad86dbf1689164a89af101c5",
+        "config/testing/evidence-location-migration-ledger.json": "sha256:4387391cc2888d33df57986f2a38d3b0bfcd99795dde1bfaa891f20088b78d75",
         "tools/test/evidence-location-scanner.mjs": "sha256:fba2fe9d1e0376cb55a26dbde9db25ff052319c3865ea640af99ac396adadadd",
         "tools/test/current-run-evidence-locator.mjs": "sha256:4adddfe04b45a9f0323fca2a23318aa3b4d85e79f5d3aa0d2e00bb9ec0fffda3",
         "tools/test/current-run-evidence-transport.mjs": "sha256:d6a4b4dfe0394cbe05c3be2fec5ba360b4b6b8cc28483ea3b9cc7b28e282dd5d",
         "tools/test/generate-evidence-location-governance.mjs": "sha256:2de56bc874d779be29c9cb137a97a2b14c74adbf5a324c1abedbc72281dcd69e"
     },
     "registryDigest": "sha256:5d3a44d6756722e7624df474f8cb77fde0fcb7e027971b6c0a07002f2f42de4b",
-    "ledgerDigest": "sha256:24da35a931984594b891e1d4c3454262d5bf9cba7faceca22c72722459a71824",
-    "scannerDigest": "sha256:ab839a29135a4a6e7f15fdd3b53f5e5e63b76bf7ca9388419130296438e7feb9",
+    "ledgerDigest": "sha256:cb85fca1b7ce9f69297c12602860b93d1e2bc033b89a246068d3129ac39a3f2b",
+    "scannerDigest": "sha256:2bfd154b9ac86877dbbbb47c3cd62ef779fba2dfc12869cb10752221a279eaaf",
     "locatorDigest": "sha256:4adddfe04b45a9f0323fca2a23318aa3b4d85e79f5d3aa0d2e00bb9ec0fffda3",
     "transportDigest": "sha256:d6a4b4dfe0394cbe05c3be2fec5ba360b4b6b8cc28483ea3b9cc7b28e282dd5d",
     "consumerInventory": [
@@ -527,7 +527,7 @@
         }
     ],
     "consumerCount": 73,
-    "findingCount": 399,
+    "findingCount": 404,
     "warnings": [],
-    "contentDigest": "sha256:a29ae0eb79e3cf48e0bba9f16e75e5fe89b5f2630652ce760450e143acf51e58"
+    "contentDigest": "sha256:9eeeee5f69e9a4027195f7d9191000512a5ffb92a6ef5c0598fcb4b2f5c5ff85"
 }
