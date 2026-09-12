@@ -65,6 +65,8 @@ public sealed record CommentFixtureResult(
     IReadOnlyDictionary<string, string> NegativeResults,
     string CacheGenerationBefore,
     string CacheGenerationAfter,
+    CommentFixtureCrossDomainSentinel CrossDomainBefore,
+    CommentFixtureCrossDomainSentinel CrossDomainAfterPrepare,
     CommentThreadFixtureCleanupReceipt CleanupReceipt);
 
 public interface ICommentFixtureSeeder
@@ -130,9 +132,15 @@ public sealed class CommentFixtureSeeder(
         long admin = plan.IdentityReferences.AdminPrincipalId;
         var latest = new Dictionary<string, CommentThreadFixtureEntity>(StringComparer.Ordinal);
         var zkAuthorityEvidence = new List<CommentFixtureZkAuthorityEvidence>();
+        CommentFixtureCrossDomainSentinel? crossDomainBefore = null;
 
         try
         {
+            crossDomainBefore = await threads.ObserveCrossDomainAsync(
+                articleId,
+                [primary, secondary],
+                admin,
+                cancellationToken).ConfigureAwait(false);
             DateTime now = DateTime.UtcNow;
             string cacheIdentity = $"article:{articleId.ToString(CultureInfo.InvariantCulture)}";
             string cacheBefore = await ReadCacheGenerationAsync(cacheIdentity, cancellationToken).ConfigureAwait(false);
@@ -246,10 +254,18 @@ public sealed class CommentFixtureSeeder(
                 cancellationToken).ConfigureAwait(false);
             if (entities.Select(item => item.CommentId).Distinct().Count() != entities.Count)
                 throw new InvalidOperationException("Comment fixture reused an identity across semantic states.");
+            CommentFixtureCrossDomainSentinel crossDomainAfterPrepare = await threads.ObserveCrossDomainAsync(
+                articleId,
+                [primary, secondary],
+                admin,
+                cancellationToken).ConfigureAwait(false);
+            if (!CommentThreadFixturePort.SameCrossDomainSentinel(crossDomainBefore, crossDomainAfterPrepare))
+                throw new InvalidOperationException("Comment fixture prepare changed non-owned article, auth, admin, or security facts.");
             var cleanup = new CommentThreadFixtureCleanupReceipt(
                 CleanupSchema,
                 binding,
-                ToOwnedComments(entities));
+                ToOwnedComments(entities),
+                crossDomainBefore);
             string cacheAfter = await RequireAdvancedCacheGenerationAsync(cacheIdentity, cacheBefore, cancellationToken)
                 .ConfigureAwait(false);
             var proofs = plan.Capabilities.Select(capability => new CommentFixtureCapabilityProof(
@@ -278,6 +294,8 @@ public sealed class CommentFixtureSeeder(
                 overrun.NegativeResults,
                 cacheBefore,
                 cacheAfter,
+                crossDomainBefore,
+                crossDomainAfterPrepare,
                 cleanup);
         }
         catch (Exception preparationError)
@@ -290,7 +308,11 @@ public sealed class CommentFixtureSeeder(
                 foreach ((long id, CommentThreadFixtureOwnedIdentity identity) in threadRecovery.RecoveryReceipt.OwnedComments)
                     owned[id] = identity;
             }
-            var recoveryReceipt = new CommentThreadFixtureCleanupReceipt(CleanupSchema, binding, owned);
+            var recoveryReceipt = new CommentThreadFixtureCleanupReceipt(
+                CleanupSchema,
+                binding,
+                owned,
+                crossDomainBefore);
             CommentThreadFixtureCleanupResult? cleanupResult = null;
             Exception? cleanupError = (preparationError as CommentThreadFixtureRecoveryException)?.CleanupError;
             if (owned.Count > 0)

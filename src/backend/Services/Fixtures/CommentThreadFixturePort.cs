@@ -143,17 +143,30 @@ public sealed record CommentThreadFixtureOwnedIdentity(
     bool IsDeleted,
     string OperationPlanDigest);
 
+public sealed record CommentFixtureCrossDomainSentinel(
+    string Schema,
+    int ArticleId,
+    IReadOnlyList<int> AccountIds,
+    long AdminPrincipalId,
+    string ArticleDigest,
+    string AuthDigest,
+    string AdminDigest,
+    string SecurityDigest);
+
 public sealed record CommentThreadFixtureCleanupReceipt(
     string Schema,
     CommentFixturePortBinding Binding,
-    IReadOnlyDictionary<long, CommentThreadFixtureOwnedIdentity> OwnedComments);
+    IReadOnlyDictionary<long, CommentThreadFixtureOwnedIdentity> OwnedComments,
+    CommentFixtureCrossDomainSentinel? CrossDomainBefore = null);
 
 public sealed record CommentThreadFixtureCleanupResult(
     string Schema,
     CommentFixturePortBinding Binding,
     IReadOnlyList<long> DeletedCommentIds,
     IReadOnlyList<long> StillPublicCommentIds,
-    bool Exact);
+    bool Exact,
+    CommentFixtureCrossDomainSentinel? CrossDomainBefore = null,
+    CommentFixtureCrossDomainSentinel? CrossDomainAfter = null);
 
 public sealed class CommentThreadFixtureRecoveryException(
     string message,
@@ -176,6 +189,12 @@ public interface ICommentThreadFixturePort
 
     Task<IReadOnlyList<CommentThreadFixtureEntity>> ObserveCurrentAsync(
         CommentThreadFixtureObservationPlan plan,
+        CancellationToken cancellationToken = default);
+
+    Task<CommentFixtureCrossDomainSentinel> ObserveCrossDomainAsync(
+        int articleId,
+        IReadOnlyList<int> accountIds,
+        long adminPrincipalId,
         CancellationToken cancellationToken = default);
 
     Task<CommentThreadFixtureCleanupResult> CleanupAsync(
@@ -327,9 +346,56 @@ public sealed class CommentThreadFixturePort(
         return await ObserveAsync(plan.Binding.ArticleId, identities, cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<CommentThreadFixtureCleanupResult> CleanupAsync(
+    public async Task<CommentFixtureCrossDomainSentinel> ObserveCrossDomainAsync(
+        int articleId,
+        IReadOnlyList<int> accountIds,
+        long adminPrincipalId,
+        CancellationToken cancellationToken = default)
+    {
+        int[] usersToObserve = accountIds.Distinct().Order().ToArray();
+        if (articleId <= 0 || adminPrincipalId <= 0 || usersToObserve.Length == 0)
+            throw new InvalidOperationException("Comment cross-domain sentinel identity is invalid.");
+
+        List<Article> articles = await db.Queryable<Article>()
+            .OrderBy(item => item.Id, OrderByType.Asc)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        Article? article = articles.SingleOrDefault(item => item.Id == articleId);
+        List<User> allUsers = await db.Queryable<User>()
+            .OrderBy(item => item.Id, OrderByType.Asc)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        List<User> users = allUsers
+            .Where(item => usersToObserve.Contains(item.Id))
+            .ToList();
+        List<AdminPrincipal> admins = await db.Queryable<AdminPrincipal>()
+            .OrderBy(item => item.Id, OrderByType.Asc)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        AdminPrincipal? admin = admins.SingleOrDefault(item => item.Id == adminPrincipalId);
+        List<SecurityRiskEvent> securityEvents = await db.Queryable<SecurityRiskEvent>()
+            .OrderBy(item => item.Id, OrderByType.Asc)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        if (article is null || users.Count != usersToObserve.Length || admin is null)
+            throw new InvalidOperationException("Comment cross-domain sentinel cannot resolve the exact input facts.");
+
+        return new CommentFixtureCrossDomainSentinel(
+            "fsusblog.comment-fixture-cross-domain-sentinel.v1",
+            articleId,
+            usersToObserve,
+            adminPrincipalId,
+            Digest(JsonSerializer.Serialize(articles)),
+            Digest(JsonSerializer.Serialize(allUsers)),
+            Digest(JsonSerializer.Serialize(admins)),
+            Digest(JsonSerializer.Serialize(securityEvents)));
+    }
+
+    public Task<CommentThreadFixtureCleanupResult> CleanupAsync(
         CommentThreadFixtureCleanupReceipt receipt,
         CancellationToken cancellationToken = default)
+        => CleanupCoreAsync(receipt, requireCrossDomain: true, cancellationToken: cancellationToken);
+
+    private async Task<CommentThreadFixtureCleanupResult> CleanupCoreAsync(
+        CommentThreadFixtureCleanupReceipt receipt,
+        bool requireCrossDomain,
+        CancellationToken cancellationToken)
     {
         if (receipt.Schema != CleanupSchema || !receipt.Binding.IsValid()
             || receipt.OwnedComments.Count == 0
@@ -343,7 +409,9 @@ public sealed class CommentThreadFixturePort(
             || receipt.OwnedComments.Values.Select(item => item.SemanticRole).Distinct(StringComparer.Ordinal).Count()
                 != receipt.OwnedComments.Count
             || receipt.OwnedComments.Values.Select(item => item.OperationPlanDigest).Distinct(StringComparer.Ordinal).Count()
-                != receipt.OwnedComments.Count)
+                != receipt.OwnedComments.Count
+            || requireCrossDomain && receipt.CrossDomainBefore is null
+            || receipt.CrossDomainBefore is not null && !IsValidCrossDomainSentinel(receipt.CrossDomainBefore, receipt.Binding.ArticleId))
             throw new InvalidOperationException("Comment thread cleanup receipt is invalid.");
 
         List<Comment> owned = await db.Queryable<Comment>()
@@ -409,12 +477,25 @@ public sealed class CommentThreadFixturePort(
         }
         if (stillPublic.Count > 0)
             throw new InvalidOperationException("Comment fixture cleanup left an owned comment in the public read model.");
+        CommentFixtureCrossDomainSentinel? crossDomainAfter = null;
+        if (receipt.CrossDomainBefore is not null)
+        {
+            crossDomainAfter = await ObserveCrossDomainAsync(
+                receipt.CrossDomainBefore.ArticleId,
+                receipt.CrossDomainBefore.AccountIds,
+                receipt.CrossDomainBefore.AdminPrincipalId,
+                cancellationToken).ConfigureAwait(false);
+            if (!SameCrossDomainSentinel(receipt.CrossDomainBefore, crossDomainAfter))
+                throw new InvalidOperationException("Comment fixture cleanup changed non-owned article, auth, admin, or security facts.");
+        }
         return new CommentThreadFixtureCleanupResult(
             "fsusblog.comment-thread-fixture-cleanup-result.v1",
             receipt.Binding,
             [.. finalRows.Select(item => item.Id)],
             stillPublic,
-            true);
+            true,
+            receipt.CrossDomainBefore,
+            crossDomainAfter);
     }
 
     private async Task<CommentThreadFixtureCleanupReceipt> BuildCleanupReceiptAsync(
@@ -484,7 +565,10 @@ public sealed class CommentThreadFixturePort(
         {
             try
             {
-                cleanupResult = await CleanupAsync(recoveryReceipt, CancellationToken.None).ConfigureAwait(false);
+                cleanupResult = await CleanupCoreAsync(
+                    recoveryReceipt,
+                    requireCrossDomain: false,
+                    cancellationToken: CancellationToken.None).ConfigureAwait(false);
             }
             catch (Exception error)
             {
@@ -747,6 +831,31 @@ public sealed class CommentThreadFixturePort(
 
     private static bool IsDigest(string value) => value.StartsWith("sha256:", StringComparison.Ordinal)
         && value.Length == 71 && value.AsSpan(7).IndexOfAnyExcept("0123456789abcdef") < 0;
+
+    private static bool IsValidCrossDomainSentinel(CommentFixtureCrossDomainSentinel sentinel, int articleId)
+        => sentinel.Schema == "fsusblog.comment-fixture-cross-domain-sentinel.v1"
+            && sentinel.ArticleId == articleId
+            && sentinel.AccountIds.Count > 0
+            && sentinel.AccountIds.All(item => item > 0)
+            && sentinel.AccountIds.Order().SequenceEqual(sentinel.AccountIds)
+            && sentinel.AccountIds.Distinct().Count() == sentinel.AccountIds.Count
+            && sentinel.AdminPrincipalId > 0
+            && IsDigest(sentinel.ArticleDigest)
+            && IsDigest(sentinel.AuthDigest)
+            && IsDigest(sentinel.AdminDigest)
+            && IsDigest(sentinel.SecurityDigest);
+
+    internal static bool SameCrossDomainSentinel(
+        CommentFixtureCrossDomainSentinel expected,
+        CommentFixtureCrossDomainSentinel actual)
+        => expected.Schema == actual.Schema
+            && expected.ArticleId == actual.ArticleId
+            && expected.AccountIds.SequenceEqual(actual.AccountIds)
+            && expected.AdminPrincipalId == actual.AdminPrincipalId
+            && expected.ArticleDigest == actual.ArticleDigest
+            && expected.AuthDigest == actual.AuthDigest
+            && expected.AdminDigest == actual.AdminDigest
+            && expected.SecurityDigest == actual.SecurityDigest;
 
     private static string OperationPlanDigest(
         CommentFixturePortBinding binding,

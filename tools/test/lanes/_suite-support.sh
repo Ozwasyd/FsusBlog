@@ -403,10 +403,10 @@ InvokeLaneFixtureOrchestrator() {
         --pg-container "${FSUSBLOG_PG_CONTAINER:-}"
         --redis-container "${FSUSBLOG_REDIS_CONTAINER:-${FSUSBLOG_REDIS_CONTAINER_NAME:-}}"
     )
-    if [[ "$profileId" == "none" ]]; then
+    if [[ "$profileId" == "none" || "$profileId" == "comments-moderation" ]]; then
         runArgs+=(--fixture-receipt "$fixtureReceipt")
     else
-        # Honest partial: prepare-state only until producers publish observations (#1712+).
+        # Honest partial: unrelated incomplete profiles remain prepare-state only.
         runArgs+=(--skip-verify)
     fi
     if [[ -n "${FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS:-}" ]]; then
