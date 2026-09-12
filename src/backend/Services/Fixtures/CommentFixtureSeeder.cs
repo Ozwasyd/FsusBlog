@@ -89,7 +89,10 @@ public sealed class CommentFixturePreparationException(
     public CommentThreadFixtureCleanupReceipt RecoveryReceipt { get; } = recoveryReceipt;
     public CommentThreadFixtureCleanupResult? CleanupResult { get; } = cleanupResult;
     public Exception? CleanupError { get; } = cleanupError;
-    public bool WasCanceled { get; } = originalError is OperationCanceledException
+    public bool WasCanceled
+    {
+        get;
+    } = originalError is OperationCanceledException
         || originalError is CommentThreadFixtureRecoveryException { InnerException: OperationCanceledException };
 }
 

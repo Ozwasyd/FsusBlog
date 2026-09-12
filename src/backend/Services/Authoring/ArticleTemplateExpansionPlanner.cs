@@ -12,7 +12,7 @@ public sealed class ArticleTemplateExpansionPlanner(
     IArticleTemplateExpansionAuthority expansionAuthority,
     TimeProvider timeProvider) : IArticleTemplateExpansionPlanner
 {
-    internal static readonly TimeSpan PlanTimeToLive = TimeSpan.FromMinutes(15);
+    internal static readonly TimeSpan s_planTimeToLive = TimeSpan.FromMinutes(15);
 
     public async Task<ArticleTemplateExpansionPlan> PlanAsync(
         ArticleTemplateExpansionInput input,
@@ -83,7 +83,7 @@ public sealed class ArticleTemplateExpansionPlanner(
             dependencies,
             Array.Empty<string>(),
             issued,
-            issued.Add(PlanTimeToLive));
+            issued.Add(s_planTimeToLive));
     }
 
     internal static string ComputeSha256(byte[] payload)
