@@ -10,7 +10,7 @@ the behavior it adds beyond its package re-exports.
 | Classification | Files | Responsibility |
 | --- | --- | --- |
 | Type-preserving re-export | `dangerZone.ts`, `dataList.ts`, `icons.ts`, `keyValueGrid.ts`, `kpiGroup.ts`, `metricPrimitives.ts`, `overlay.ts`, `sectionHeader.ts`, `sectionNav.ts`, `segmentedControl.ts`, `settingsSection.ts`, `siteHeader.ts`, `taskPageHeader.ts`, `theme.ts`, `typedConfirmField.ts` | Rename public package exports without widening component props, slots or emits. `settingsSection.ts` is also the canonical resource-list, metadata-row and inline-actions boundary. |
-| Runtime adapter | `appContext.ts`, `feedback.ts`, `markdown.ts`, `motion.ts`, `result.ts` | Own package runtime setup or invocation that cannot be represented by a re-export alone. |
+| Runtime adapter | `appContext.ts`, `authoringCommands.ts`, `feedback.ts`, `markdown.ts`, `motion.ts`, `result.ts` | Own package runtime setup or invocation that cannot be represented by a re-export alone. |
 | Semantic policy adapter | `blogMotion.ts`, `dialog.ts`, `primitiveAdapters.ts`, `publicShell.ts`, `renderPipeline.ts` | Map an explicit Blog policy to a public FsusUI contract without duplicating package markup or CSS. |
 | Barrel | `index.ts` | Publish the stable Blog-side adapter surface; it contains no implementation. |
 
@@ -25,6 +25,8 @@ Identity and profile settings must consume the generic settings/resource primiti
 `theme.ts` re-exports the FsusUI public theme-mode contract. It must import `ThemeMode`, `ResolvedTheme`, `themeModes`, `normalizeThemeMode`, `syncThemeMode`, and test helpers from `@ozwasyd/element-plus/theme` instead of declaring local equivalents.
 
 `motion.ts` owns the auditable Blog-side motion boundary: it re-exports the FsusUI runtime (`FsuMotion`, `vMotion`, `useScrollReveal`, `runMotion`, motion types) and keeps Blog-owned surface mappings such as `FsusBlogMotionSurface` and `fsusBlogMotionPresets`. `blogMotion.ts` remains as a compatibility re-export for existing call sites. `perceptionCharacterChallenge.ts` exposes the public character primitive and protocol-neutral media types; V3 transport and workflow code consume only this adapter. Add new adapters to `index.ts` only when they are intended as general Blog adapter API; otherwise import them explicitly from call sites.
+
+`authoringCommands.ts` owns the internal/experimental authoring-extension projection boundary. It validates closed host metadata, binds lifecycle/document/revision/selection identity, and submits accepted mutations through the public FsusUI transaction dispatcher; it does not define a browser transport, duplicate the FsusUI command registry, or expose FsusUI internals to extensions.
 
 ## Blog Shells
 

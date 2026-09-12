@@ -25,6 +25,14 @@ import ArticleWriteSidebar from '@/components/admin/article/ArticleWriteSidebar.
 import ArticleWriteTitleField from '@/components/admin/article/ArticleWriteTitleField.vue'
 import { focusFirstArticleValidationError } from '@/components/admin/article/articleEditorAccessibility'
 import {
+  InMemoryAuthoringCommandProjectionAuthority,
+  authoringCommandProjectionSchema,
+  createFsusUiAuthoringCommands,
+  type AuthoringCommandInvocation,
+  type AuthoringCommandProjectionSnapshot,
+  type FsusUiAuthoringCommand
+} from '@/fsusui/authoringCommands'
+import {
   useArticleWriteInspector,
   type ArticleWriteInspectorView
 } from '@/composables/useArticleWriteInspector'
@@ -44,8 +52,53 @@ import contract from './article-editor-production-contract.json'
 
 type FixtureState = 'empty' | 'loading' | 'error' | 'success' | 'partial'
 type FixtureSurface = 'title' | 'editor' | 'command' | 'inspector' | 'recovery'
+type AuthoringFixtureState = typeof contract.authoringStates[number]
 const inspectorViews = contract.inspectorViews as ArticleWriteInspectorView[]
 const fixtureStates = contract.states as FixtureState[]
+const authoringStates = contract.authoringStates as AuthoringFixtureState[]
+
+const fixtureDigest = (character: string): string => character.repeat(64)
+const fixtureProjection = (
+  index = 0,
+  overrides: Partial<AuthoringCommandProjectionSnapshot> = {}
+): AuthoringCommandProjectionSnapshot => ({
+  schema: authoringCommandProjectionSchema,
+  commandId: `fixture.author-tools.insert-callout-${index}`,
+  extensionId: 'fixture.author-tools',
+  extensionVersion: '1.0.0',
+  contributionId: `insert-callout-${index}`,
+  packageSha256: fixtureDigest('a'),
+  contentSha256: fixtureDigest('b'),
+  runtimeIdentity: fixtureDigest('c'),
+  executionClass: 'isolated-worker-wasm',
+  labelReference: `commands.insert-callout-${index}.label`,
+  descriptionReference: `commands.insert-callout-${index}.description`,
+  keywordReferences: [`commands.insert-callout-${index}.keyword`],
+  label: index === 0 ? '插入提示块' : `扩展命令 ${String(index).padStart(4, '0')}`,
+  description: '在当前选区插入由宿主验证的提示块',
+  keywords: [index === 0 ? '提示块' : `bounded-${index}`],
+  category: 'insert',
+  when: [
+    { fact: 'is-document-writable', operator: 'is-true' },
+    { fact: 'is-extension-enabled', operator: 'is-true' }
+  ],
+  hostFacts: { isExtensionEnabled: true, isOnline: true },
+  requiredCapabilities: ['selection-read', 'document-mutation-request'],
+  inputSchemaReference: 'authoring-command-selection/v1',
+  resultSchemaReference: 'authoring-command-mutation/v1',
+  preferredSurfaces: index === 0
+    ? ['toolbar', 'selection', 'slash', 'palette']
+    : ['palette'],
+  shortcutAccepted: index === 0,
+  ...(index === 0
+    ? { shortcut: 'Mod+Shift+K' }
+    : { shortcutReason: 'shortcut-not-requested' }),
+  lifecycleGeneration: 7,
+  visible: true,
+  enabled: true,
+  pending: false,
+  ...overrides
+})
 
 export async function mountArticleEditorProductionFixture(): Promise<void> {
   const params = new URL(window.location.href).searchParams
@@ -64,6 +117,10 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
   const initialInspector = inspectorViews.includes(requestedView ?? 'publish')
     ? requestedView
     : null
+  const requestedAuthoringState = params.get('authoring') as AuthoringFixtureState | null
+  const initialAuthoringState: AuthoringFixtureState = authoringStates.includes(requestedAuthoringState ?? 'ready')
+    ? requestedAuthoringState as AuthoringFixtureState
+    : 'ready'
 
   document.documentElement.classList.toggle('dark', theme === 'dark')
   document.documentElement.dataset.themeMode = theme
@@ -124,6 +181,15 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
       const recoveryOperationError = ref('')
       const state = ref<FixtureState>(fixtureState)
       const editorState = ref<'editing' | 'saving' | 'saved' | 'failed' | 'published'>('editing')
+      const authoringState = ref<AuthoringFixtureState>(initialAuthoringState)
+      const authoringDocumentIdentity = ref({ id: 'fixture-article:fixture-tab', epoch: 1 })
+      const articleEditorRef = ref<{ openCommandPalette?: () => void } | null>(null)
+      const authoringAuthority = new InMemoryAuthoringCommandProjectionAuthority()
+      const authoringCommands = ref<readonly FsusUiAuthoringCommand[]>([])
+      const authoringInvocationCount = ref(0)
+      let pendingAuthoringInvocation: AuthoringCommandInvocation | null = null
+      let resolvePendingAuthoring: ((value: unknown) => void) | null = null
+      let rejectPendingAuthoring: ((reason?: unknown) => void) | null = null
       const actionCounts = reactive({ back: 0, saveDraft: 0, submit: 0 })
       const loadCounts = reactive<Record<ArticleWriteInspectorView, number>>({
         publish: 0,
@@ -140,6 +206,109 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
         failed: '保存失败，请重试',
         published: '发布完成'
       } as const
+      const resultForInvocation = (invocation: AuthoringCommandInvocation) => {
+        const insert = '> 由扩展宿主验证的提示\n'
+        return {
+          commandId: invocation.commandId,
+          contentSha256: invocation.contentSha256,
+          contributionId: invocation.contributionId,
+          documentEpoch: invocation.documentEpoch,
+          documentId: invocation.documentId,
+          executionClass: invocation.executionClass,
+          extensionId: invocation.extensionId,
+          extensionVersion: invocation.extensionVersion,
+          inputSchemaReference: invocation.inputSchemaReference,
+          lifecycleGeneration: invocation.lifecycleGeneration,
+          packageSha256: invocation.packageSha256,
+          requestId: invocation.requestId,
+          resultSchemaReference: invocation.resultSchemaReference,
+          runtimeIdentity: invocation.runtimeIdentity,
+          selectionIdentity: invocation.selectionIdentity,
+          sourceRevision: invocation.sourceRevision,
+          transaction: {
+            changes: [{
+              from: invocation.selection.start,
+              insert,
+              to: invocation.selection.end
+            }],
+            selection: {
+              direction: 'none' as const,
+              start: invocation.selection.start + insert.length,
+              end: invocation.selection.start + insert.length
+            }
+          }
+        }
+      }
+      const executeAuthoringCommand = async (
+        invocation: AuthoringCommandInvocation,
+        signal: AbortSignal
+      ): Promise<unknown> => {
+        authoringInvocationCount.value += 1
+        if (authoringState.value === 'stale') {
+          return {
+            ...resultForInvocation(invocation),
+            sourceRevision: invocation.sourceRevision + 1
+          }
+        }
+        if (authoringState.value === 'generation-replaced' || authoringState.value === 'aborted' ||
+          (authoringState.value === 'thousand' && invocation.commandId.endsWith('-999'))) {
+          pendingAuthoringInvocation = invocation
+          return await new Promise<unknown>((resolve, reject) => {
+            resolvePendingAuthoring = resolve
+            rejectPendingAuthoring = reject
+            signal.addEventListener('abort', () => {
+              reject(new DOMException('Authoring command aborted', 'AbortError'))
+            }, { once: true })
+          })
+        }
+        return resultForInvocation(invocation)
+      }
+      const projectionsForAuthoringState = (
+        nextState: AuthoringFixtureState
+      ): readonly AuthoringCommandProjectionSnapshot[] => {
+        if (nextState === 'thousand') {
+          return Array.from({ length: 1000 }, (_, index) => fixtureProjection(index))
+        }
+        if (nextState === 'permission-denied') {
+          return [fixtureProjection(0, {
+            enabled: false,
+            disabledReason: 'command-permission-insufficient'
+          })]
+        }
+        if (nextState === 'pending') {
+          return [fixtureProjection(0, {
+            enabled: false,
+            pending: true,
+            disabledReason: 'command-pending'
+          })]
+        }
+        if (nextState === 'error') {
+          return [fixtureProjection(0, {
+            enabled: false,
+            disabledReason: 'command-error',
+            errorCode: 'fixture-command-error'
+          })]
+        }
+        return [fixtureProjection()]
+      }
+      const installAuthoringState = (nextState: AuthoringFixtureState): void => {
+        authoringState.value = nextState
+        const projections = authoringAuthority.replace(projectionsForAuthoringState(nextState))
+        authoringCommands.value = createFsusUiAuthoringCommands(
+          projections,
+          executeAuthoringCommand,
+          authoringAuthority
+        )
+      }
+      const resolvePendingAuthoringCommand = (): void => {
+        if (pendingAuthoringInvocation && resolvePendingAuthoring) {
+          resolvePendingAuthoring(resultForInvocation(pendingAuthoringInvocation))
+        }
+        pendingAuthoringInvocation = null
+        resolvePendingAuthoring = null
+        rejectPendingAuthoring = null
+      }
+      installAuthoringState(initialAuthoringState)
       const form = reactive({
         title: contract.titles.mixed,
         content: '用于验证检查器生命周期的正文。',
@@ -335,6 +504,8 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
       }
 
       onUnmounted(() => {
+        authoringAuthority.replace([])
+        rejectPendingAuthoring?.(new DOMException('Fixture unmounted', 'AbortError'))
         unsubscribeRecoveryCoordination?.()
         recoveryCoordinator?.dispose()
         if (recoveryRefreshTimer !== null) {
@@ -356,6 +527,30 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
         __articleEditorFixtureSetInspectorState: (nextState: FixtureState) => {
           state.value = nextState
         },
+        __articleEditorFixtureSetAuthoringState: (nextState: AuthoringFixtureState) => {
+          installAuthoringState(nextState)
+        },
+        __articleEditorFixtureOpenAuthoringPalette: () => {
+          articleEditorRef.value?.openCommandPalette?.()
+        },
+        __articleEditorFixtureReplaceAuthoringGeneration: () => {
+          const projections = authoringAuthority.replace([
+            fixtureProjection(0, { lifecycleGeneration: 8 })
+          ])
+          authoringCommands.value = createFsusUiAuthoringCommands(
+            projections,
+            executeAuthoringCommand,
+            authoringAuthority
+          )
+        },
+        __articleEditorFixtureReplaceAuthoringDocument: () => {
+          authoringDocumentIdentity.value = {
+            id: authoringDocumentIdentity.value.id,
+            epoch: authoringDocumentIdentity.value.epoch + 1
+          }
+        },
+        __articleEditorFixtureResolveAuthoringCommand: resolvePendingAuthoringCommand,
+        __articleEditorFixtureAuthoringInvocationCount: () => authoringInvocationCount.value,
         __articleEditorFixtureOpenInspector: (view: ArticleWriteInspectorView) => {
           openInspector(view)
         },
@@ -491,7 +686,9 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
       ])
 
       const renderEditor = () => h('div', {
-        class: 'write-workspace article-editor-production-fixture__editor-component'
+        class: 'write-workspace article-editor-production-fixture__editor-component',
+        'data-authoring-state': authoringState.value,
+        'data-authoring-generation': authoringAuthority.current(fixtureProjection().commandId)?.lifecycleGeneration
       }, [
         h(ArticleWriteCommandBar, {
           pageTitle: '编辑文章',
@@ -511,7 +708,16 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
             class: 'sr-only'
           }, '正文'),
           h(ArticleWriteEditor, {
+            ref: articleEditorRef,
             modelValue: content.value,
+            authoringCommands: authoringCommands.value,
+            commandSurfaces: {
+              toolbar: true,
+              selectionToolbar: true,
+              slashMenu: true,
+              commandPalette: true
+            },
+            documentIdentity: authoringDocumentIdentity.value,
             loading: editorState.value === 'saving',
             saving: editorState.value === 'saving',
             'onUpdate:modelValue': (value: string) => {
