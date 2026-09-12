@@ -139,6 +139,7 @@ public interface IAuthoringDocumentRevisionGate
 public sealed class AuthoringExtensionWorkerSandbox(
     IAuthoringWorkerSandboxRuntime runtime,
     IAuthoringDocumentRevisionGate revisionGate,
+    AuthoringExtensionLifecycleResources lifecycleResources,
     TimeProvider timeProvider)
 {
     private static readonly ImmutableHashSet<string> s_allowedImports =
@@ -150,8 +151,14 @@ public sealed class AuthoringExtensionWorkerSandbox(
         VerifiedAuthoringPackage package,
         AuthoringExecutionTarget target,
         AuthoringWorkerRequest request,
+        long lifecycleGeneration,
         CancellationToken cancellationToken = default)
     {
+        if (lifecycleGeneration < 1)
+        {
+            throw new AuthoringExtensionContractException("Worker lifecycle generation is missing.");
+        }
+
         ValidateRequest(package, target, request);
         AuthoringPackageEntry module = package.Contents.Entries.Single(entry =>
             string.Equals(entry.Path, target.EntrypointIdentity, StringComparison.Ordinal));
@@ -187,104 +194,116 @@ public sealed class AuthoringExtensionWorkerSandbox(
             package.Contract.Manifest.Limits.MemoryBytes,
             package.Contract.Manifest.Limits.MaximumRequestBytes,
             package.Contract.Manifest.Limits.MaximumResponseBytes);
-        await using IAuthoringWorkerSandboxInstance instance = await runtime.StartAsync(launch, cancellationToken);
+        IAuthoringWorkerSandboxInstance instance = await runtime.StartAsync(launch, cancellationToken);
+        await lifecycleResources.TrackWorkerAsync(
+            target.ExtensionId,
+            lifecycleGeneration,
+            instance,
+            cancellationToken);
         try
         {
-            ValidateCapabilities(instance.CapabilityReport);
-        }
-        catch
-        {
-            await instance.TerminateAsync("capability-probe-failed", CancellationToken.None);
-            throw;
-        }
-
-        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        TimeSpan remaining = request.Deadline - timeProvider.GetUtcNow();
-        if (remaining <= TimeSpan.Zero)
-        {
-            await instance.TerminateAsync("deadline-expired", CancellationToken.None);
-            return Rejected(
-                launch,
-                request,
-                AuthoringWorkerResultStatus.TimedOut,
-                "deadline-expired",
-                request.Payload.Length);
-        }
-
-        deadline.CancelAfter(remaining);
-        AuthoringWorkerResponse response;
-        try
-        {
-            response = await instance.ExecuteAsync(request with
+            try
             {
-                Payload = [.. request.Payload]
-            }, deadline.Token);
-        }
-        catch (OperationCanceledException) when (deadline.IsCancellationRequested)
-        {
-            await instance.TerminateAsync("cancelled-or-timeout", CancellationToken.None);
-            AuthoringWorkerResultStatus status = cancellationToken.IsCancellationRequested
-                ? AuthoringWorkerResultStatus.Cancelled
-                : AuthoringWorkerResultStatus.TimedOut;
-            return Rejected(launch, request, status, "cancelled-or-timeout", request.Payload.Length);
-        }
-        catch
-        {
-            await instance.TerminateAsync("worker-crashed", CancellationToken.None);
-            return Rejected(
-                launch,
-                request,
-                AuthoringWorkerResultStatus.Crashed,
-                "worker-crashed",
-                request.Payload.Length);
-        }
-
-        if (response is null || !IsResponseBound(response, request) ||
-            response.Payload.IsDefault ||
-            response.Payload.Length > package.Contract.Manifest.Limits.MaximumResponseBytes)
-        {
-            await instance.TerminateAsync("response-contract-rejected", CancellationToken.None);
-            return Rejected(
-                launch,
-                request,
-                AuthoringWorkerResultStatus.Rejected,
-                "response-contract-rejected",
-                request.Payload.Length);
-        }
-
-        if (!await revisionGate.IsCurrentAsync(
-                request.DocumentId,
-                request.DocumentEpoch,
-                request.SourceRevision,
-                cancellationToken))
-        {
-            await instance.TerminateAsync("stale-document", CancellationToken.None);
-            return Rejected(
-                launch,
-                request,
-                AuthoringWorkerResultStatus.Stale,
-                "stale-document",
-                request.Payload.Length);
-        }
-
-        return new AuthoringWorkerExecutionResult(
-            AuthoringWorkerResultStatus.Completed,
-            response with
+                ValidateCapabilities(instance.CapabilityReport);
+            }
+            catch
             {
-                Payload = [.. response.Payload]
-            },
-            "completed",
-            request.Payload.Length,
-            response.Payload.Length)
-        {
-            Receipt = CreateReceipt(
-                launch,
-                request,
+                await instance.TerminateAsync("capability-probe-failed", CancellationToken.None);
+                throw;
+            }
+
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            TimeSpan remaining = request.Deadline - timeProvider.GetUtcNow();
+            if (remaining <= TimeSpan.Zero)
+            {
+                await instance.TerminateAsync("deadline-expired", CancellationToken.None);
+                return Rejected(
+                    launch,
+                    request,
+                    AuthoringWorkerResultStatus.TimedOut,
+                    "deadline-expired",
+                    request.Payload.Length);
+            }
+
+            deadline.CancelAfter(remaining);
+            AuthoringWorkerResponse response;
+            try
+            {
+                response = await instance.ExecuteAsync(request with
+                {
+                    Payload = [.. request.Payload]
+                }, deadline.Token);
+            }
+            catch (OperationCanceledException) when (deadline.IsCancellationRequested)
+            {
+                await instance.TerminateAsync("cancelled-or-timeout", CancellationToken.None);
+                AuthoringWorkerResultStatus status = cancellationToken.IsCancellationRequested
+                    ? AuthoringWorkerResultStatus.Cancelled
+                    : AuthoringWorkerResultStatus.TimedOut;
+                return Rejected(launch, request, status, "cancelled-or-timeout", request.Payload.Length);
+            }
+            catch
+            {
+                await instance.TerminateAsync("worker-crashed", CancellationToken.None);
+                return Rejected(
+                    launch,
+                    request,
+                    AuthoringWorkerResultStatus.Crashed,
+                    "worker-crashed",
+                    request.Payload.Length);
+            }
+
+            if (response is null || !IsResponseBound(response, request) ||
+                response.Payload.IsDefault ||
+                response.Payload.Length > package.Contract.Manifest.Limits.MaximumResponseBytes)
+            {
+                await instance.TerminateAsync("response-contract-rejected", CancellationToken.None);
+                return Rejected(
+                    launch,
+                    request,
+                    AuthoringWorkerResultStatus.Rejected,
+                    "response-contract-rejected",
+                    request.Payload.Length);
+            }
+
+            if (!await revisionGate.IsCurrentAsync(
+                    request.DocumentId,
+                    request.DocumentEpoch,
+                    request.SourceRevision,
+                    cancellationToken))
+            {
+                await instance.TerminateAsync("stale-document", CancellationToken.None);
+                return Rejected(
+                    launch,
+                    request,
+                    AuthoringWorkerResultStatus.Stale,
+                    "stale-document",
+                    request.Payload.Length);
+            }
+
+            return new AuthoringWorkerExecutionResult(
                 AuthoringWorkerResultStatus.Completed,
+                response with
+                {
+                    Payload = [.. response.Payload]
+                },
                 "completed",
                 request.Payload.Length,
                 response.Payload.Length)
-        };
+            {
+                Receipt = CreateReceipt(
+                    launch,
+                    request,
+                    AuthoringWorkerResultStatus.Completed,
+                    "completed",
+                    request.Payload.Length,
+                    response.Payload.Length)
+            };
+        }
+        finally
+        {
+            await lifecycleResources.ReleaseWorkerAsync(target.ExtensionId, lifecycleGeneration, instance);
+        }
     }
 
     private static void ValidateRequest(

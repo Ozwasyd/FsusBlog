@@ -312,7 +312,8 @@ public sealed class AuthoringCommandContributionTests
             new LifecycleResources(),
             new LifecyclePreflight(),
             new ExtensionStateStore(),
-            receipts);
+            receipts,
+            new AuthoringCapabilityGrantCatalogStub());
         AuthoringContributionDeclaration contribution = package.Contract.Manifest.Contributions[0];
         ImmutableArray<AuthoringExecutionTarget> targets =
         [
@@ -505,6 +506,7 @@ public sealed class AuthoringCommandContributionTests
         public ValueTask ActivateAtomicallyAsync(
             VerifiedAuthoringPackage package,
             ImmutableArray<AuthoringExecutionTarget> targets,
+            long generation,
             CancellationToken cancellationToken) => ValueTask.CompletedTask;
 
         public ValueTask<AuthoringLifecycleResourceReport> RevokeAllAsync(
@@ -512,6 +514,12 @@ public sealed class AuthoringCommandContributionTests
             long generation,
             CancellationToken cancellationToken) =>
             ValueTask.FromResult(new AuthoringLifecycleResourceReport(0, 0, 0, 0, 0, 0, 0));
+
+        public ValueTask<bool> RebindGenerationAsync(
+            string extensionId,
+            long expectedGeneration,
+            long replacementGeneration,
+            CancellationToken cancellationToken) => ValueTask.FromResult(false);
     }
 
     private sealed class LifecyclePreflight : IAuthoringLifecyclePreflight

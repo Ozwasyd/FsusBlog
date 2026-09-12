@@ -193,9 +193,9 @@ public sealed class AuthoringExtensionBudgetTests
                 null)
         ];
         var resources = new AuthoringExtensionLifecycleResources(new EmptyHostResources());
-        await resources.ActivateAtomicallyAsync(package, targets, CancellationToken.None);
+        await resources.ActivateAtomicallyAsync(package, targets, 1, CancellationToken.None);
         var worker = new TrackedWorker();
-        await resources.TrackWorkerAsync(manifest.Id, worker);
+        await resources.TrackWorkerAsync(manifest.Id, 1, worker);
         var supervisor = new AuthoringExtensionBudgetSupervisor(
             new MeasurementSource(s_zero, new AuthoringResourceMeasurement(
                 TimeSpan.Zero,
@@ -221,13 +221,13 @@ public sealed class AuthoringExtensionBudgetTests
         Assert.True(worker.Terminated);
         Assert.True(worker.Disposed);
         await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
-            await resources.ActivateAtomicallyAsync(package, targets, CancellationToken.None));
+            await resources.ActivateAtomicallyAsync(package, targets, 2, CancellationToken.None));
         await resources.ClearQuarantineAsync(
             manifest.Id,
             "memory-budget-exceeded",
             "explicit-reenable-approval",
             CancellationToken.None);
-        await resources.ActivateAtomicallyAsync(package, targets, CancellationToken.None);
+        await resources.ActivateAtomicallyAsync(package, targets, 3, CancellationToken.None);
         Assert.True((await resources.RevokeAllAsync(manifest.Id, 3, CancellationToken.None)).IsEmpty);
     }
 
