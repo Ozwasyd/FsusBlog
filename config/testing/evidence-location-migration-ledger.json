@@ -15,7 +15,7 @@
         "evidence-selection.schema-search",
         "evidence-selection.timestamp-sort"
     ],
-    "scanDigest": "sha256:0816440f566fbf39da446e85bc2d2e9b55143eec419019aaed8836aaf3838be2",
+    "scanDigest": "sha256:32e6527b9745157ac61ecaebfa11e80aa9a60049a1ec27cf5ddd386336eaf5d9",
     "entries": [
         {
             "findingId": "796fa8284a86adb9",
@@ -654,64 +654,64 @@
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#8dba7aa73e6bff90"
         },
         {
-            "findingId": "c96e37ee3a19f9a3",
+            "findingId": "ecd72da5ff19986e",
             "consumerId": "evidence-consumer.src.backend.services.fixtures.commentfixtureseeder.cs",
-            "location": "src/backend/Services/Fixtures/CommentFixtureSeeder.cs:157",
+            "location": "src/backend/Services/Fixtures/CommentFixtureSeeder.cs:160",
             "oldSelectionRule": "evidence-selection.latest-newest",
             "classification": "not-evidence",
             "newAuthorityId": null,
             "locatorMode": "not-applicable",
             "action": "close exact location and rule as non-evidence behavior",
             "owner": "test-evidence-governance",
-            "proofTest": "tests/tools/evidence-location-governance.test.mjs#c96e37ee3a19f9a3"
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#ecd72da5ff19986e"
         },
         {
-            "findingId": "4412e0fd240d4835",
+            "findingId": "1a8ee91e244d6bb7",
             "consumerId": "evidence-consumer.src.backend.services.fixtures.commentfixtureseeder.cs",
-            "location": "src/backend/Services/Fixtures/CommentFixtureSeeder.cs:168",
+            "location": "src/backend/Services/Fixtures/CommentFixtureSeeder.cs:171",
             "oldSelectionRule": "evidence-selection.latest-newest",
             "classification": "not-evidence",
             "newAuthorityId": null,
             "locatorMode": "not-applicable",
             "action": "close exact location and rule as non-evidence behavior",
             "owner": "test-evidence-governance",
-            "proofTest": "tests/tools/evidence-location-governance.test.mjs#4412e0fd240d4835"
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#1a8ee91e244d6bb7"
         },
         {
-            "findingId": "4f335280837a97e9",
+            "findingId": "dedd1eb62aecbb49",
             "consumerId": "evidence-consumer.src.backend.services.fixtures.commentfixtureseeder.cs",
-            "location": "src/backend/Services/Fixtures/CommentFixtureSeeder.cs:176",
+            "location": "src/backend/Services/Fixtures/CommentFixtureSeeder.cs:179",
             "oldSelectionRule": "evidence-selection.latest-newest",
             "classification": "not-evidence",
             "newAuthorityId": null,
             "locatorMode": "not-applicable",
             "action": "close exact location and rule as non-evidence behavior",
             "owner": "test-evidence-governance",
-            "proofTest": "tests/tools/evidence-location-governance.test.mjs#4f335280837a97e9"
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#dedd1eb62aecbb49"
         },
         {
-            "findingId": "eff9bbaccb523590",
+            "findingId": "e492bdbecc298976",
             "consumerId": "evidence-consumer.src.backend.services.fixtures.commentfixtureseeder.cs",
-            "location": "src/backend/Services/Fixtures/CommentFixtureSeeder.cs:188",
+            "location": "src/backend/Services/Fixtures/CommentFixtureSeeder.cs:191",
             "oldSelectionRule": "evidence-selection.latest-newest",
             "classification": "not-evidence",
             "newAuthorityId": null,
             "locatorMode": "not-applicable",
             "action": "close exact location and rule as non-evidence behavior",
             "owner": "test-evidence-governance",
-            "proofTest": "tests/tools/evidence-location-governance.test.mjs#eff9bbaccb523590"
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#e492bdbecc298976"
         },
         {
-            "findingId": "6808d5abed5d3cba",
+            "findingId": "e3508ae59ff09bba",
             "consumerId": "evidence-consumer.src.backend.services.fixtures.commentfixtureseeder.cs",
-            "location": "src/backend/Services/Fixtures/CommentFixtureSeeder.cs:212",
+            "location": "src/backend/Services/Fixtures/CommentFixtureSeeder.cs:215",
             "oldSelectionRule": "evidence-selection.latest-newest",
             "classification": "not-evidence",
             "newAuthorityId": null,
             "locatorMode": "not-applicable",
             "action": "close exact location and rule as non-evidence behavior",
             "owner": "test-evidence-governance",
-            "proofTest": "tests/tools/evidence-location-governance.test.mjs#6808d5abed5d3cba"
+            "proofTest": "tests/tools/evidence-location-governance.test.mjs#e3508ae59ff09bba"
         },
         {
             "findingId": "0472aeef7515d092",
@@ -4878,5 +4878,5 @@
             "proofTest": "tests/tools/evidence-location-governance.test.mjs#231c081ffc1efc86"
         }
     ],
-    "contentDigest": "sha256:f76d62e0929911b2d84259c2c328c90815848cc0cd0bf5e7a90993f8e43362be"
+    "contentDigest": "sha256:9978d3d1918068904121ccd041ebaf03d58a9f04d9a5cb22f09c87b963c0866d"
 }
