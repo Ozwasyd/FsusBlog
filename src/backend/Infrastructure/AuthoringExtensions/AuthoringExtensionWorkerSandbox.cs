@@ -30,6 +30,7 @@ public sealed record AuthoringWorkerCapabilityReport(
 
 public sealed record AuthoringWorkerLaunchDescriptor(
     string RuntimeIdentity,
+    string InstanceIdentity,
     string ExtensionId,
     string Version,
     string PackageSha256,
@@ -41,7 +42,8 @@ public sealed record AuthoringWorkerLaunchDescriptor(
     string PolicyDigest,
     ImmutableArray<byte> ModuleBytes,
     long MaximumMemoryBytes,
-    int MaximumMessageBytes);
+    int MaximumRequestBytes,
+    int MaximumResponseBytes);
 
 public sealed record AuthoringWorkerRequest(
     int SchemaVersion,
@@ -70,6 +72,36 @@ public sealed record AuthoringWorkerResponse(
 public sealed record AuthoringWorkerExecutionResult(
     AuthoringWorkerResultStatus Status,
     AuthoringWorkerResponse? Response,
+    string StableReason,
+    int RequestBytes,
+    int ResponseBytes)
+{
+    public AuthoringWorkerExecutionReceipt? Receipt
+    {
+        get; init;
+    }
+}
+
+public sealed record AuthoringWorkerExecutionReceipt(
+    string InstanceIdentity,
+    string RuntimeIdentity,
+    string ExtensionId,
+    string ExtensionVersion,
+    string PackageSha256,
+    string ContentSha256,
+    string ContributionId,
+    string ModuleSha256,
+    string DocumentIdentitySha256,
+    long DocumentEpoch,
+    long SourceRevision,
+    string RequestIdentitySha256,
+    string HostApiDigest,
+    string SchemaDigest,
+    string PolicyDigest,
+    long MaximumMemoryBytes,
+    int MaximumRequestBytes,
+    int MaximumResponseBytes,
+    AuthoringWorkerResultStatus Status,
     string StableReason,
     int RequestBytes,
     int ResponseBytes);
@@ -132,23 +164,29 @@ public sealed class AuthoringExtensionWorkerSandbox(
             throw new AuthoringExtensionContractException("Worker module bytes do not match the resolved entrypoint identity.");
         }
 
+        string hostApiDigest = DigestIdentity(string.Join(':',
+            "authoring-host-api",
+            package.Contract.Manifest.HostApi.Minimum,
+            package.Contract.Manifest.HostApi.Maximum));
+        string schemaDigest = DigestIdentity(string.Join('\n',
+            request.RequestSchemaReference,
+            request.ResultSchemaReference));
         var launch = new AuthoringWorkerLaunchDescriptor(
             target.RuntimeIdentity,
+            ComputeInstanceIdentity(target, request, hostApiDigest, schemaDigest),
             target.ExtensionId,
             target.ExtensionVersion,
             target.PackageSha256,
             package.Contract.Manifest.ContentSha256,
             target.ContributionId,
             module.ContentSha256,
-            DigestIdentity(string.Join(':',
-                "authoring-host-api",
-                package.Contract.Manifest.HostApi.Minimum,
-                package.Contract.Manifest.HostApi.Maximum)),
-            DigestIdentity(string.Join('\n', request.RequestSchemaReference, request.ResultSchemaReference)),
+            hostApiDigest,
+            schemaDigest,
             request.PolicyDigest,
             [.. module.Content],
             package.Contract.Manifest.Limits.MemoryBytes,
-            package.Contract.Manifest.Limits.MaximumRequestBytes);
+            package.Contract.Manifest.Limits.MaximumRequestBytes,
+            package.Contract.Manifest.Limits.MaximumResponseBytes);
         await using IAuthoringWorkerSandboxInstance instance = await runtime.StartAsync(launch, cancellationToken);
         try
         {
@@ -165,7 +203,12 @@ public sealed class AuthoringExtensionWorkerSandbox(
         if (remaining <= TimeSpan.Zero)
         {
             await instance.TerminateAsync("deadline-expired", CancellationToken.None);
-            return Rejected(AuthoringWorkerResultStatus.TimedOut, "deadline-expired", request.Payload.Length);
+            return Rejected(
+                launch,
+                request,
+                AuthoringWorkerResultStatus.TimedOut,
+                "deadline-expired",
+                request.Payload.Length);
         }
 
         deadline.CancelAfter(remaining);
@@ -183,20 +226,30 @@ public sealed class AuthoringExtensionWorkerSandbox(
             AuthoringWorkerResultStatus status = cancellationToken.IsCancellationRequested
                 ? AuthoringWorkerResultStatus.Cancelled
                 : AuthoringWorkerResultStatus.TimedOut;
-            return Rejected(status, "cancelled-or-timeout", request.Payload.Length);
+            return Rejected(launch, request, status, "cancelled-or-timeout", request.Payload.Length);
         }
         catch
         {
             await instance.TerminateAsync("worker-crashed", CancellationToken.None);
-            return Rejected(AuthoringWorkerResultStatus.Crashed, "worker-crashed", request.Payload.Length);
+            return Rejected(
+                launch,
+                request,
+                AuthoringWorkerResultStatus.Crashed,
+                "worker-crashed",
+                request.Payload.Length);
         }
 
-        if (!IsResponseBound(response, request) ||
+        if (response is null || !IsResponseBound(response, request) ||
             response.Payload.IsDefault ||
             response.Payload.Length > package.Contract.Manifest.Limits.MaximumResponseBytes)
         {
             await instance.TerminateAsync("response-contract-rejected", CancellationToken.None);
-            return Rejected(AuthoringWorkerResultStatus.Rejected, "response-contract-rejected", request.Payload.Length);
+            return Rejected(
+                launch,
+                request,
+                AuthoringWorkerResultStatus.Rejected,
+                "response-contract-rejected",
+                request.Payload.Length);
         }
 
         if (!await revisionGate.IsCurrentAsync(
@@ -206,7 +259,12 @@ public sealed class AuthoringExtensionWorkerSandbox(
                 cancellationToken))
         {
             await instance.TerminateAsync("stale-document", CancellationToken.None);
-            return Rejected(AuthoringWorkerResultStatus.Stale, "stale-document", request.Payload.Length);
+            return Rejected(
+                launch,
+                request,
+                AuthoringWorkerResultStatus.Stale,
+                "stale-document",
+                request.Payload.Length);
         }
 
         return new AuthoringWorkerExecutionResult(
@@ -217,7 +275,16 @@ public sealed class AuthoringExtensionWorkerSandbox(
             },
             "completed",
             request.Payload.Length,
-            response.Payload.Length);
+            response.Payload.Length)
+        {
+            Receipt = CreateReceipt(
+                launch,
+                request,
+                AuthoringWorkerResultStatus.Completed,
+                "completed",
+                request.Payload.Length,
+                response.Payload.Length)
+        };
     }
 
     private static void ValidateRequest(
@@ -225,17 +292,26 @@ public sealed class AuthoringExtensionWorkerSandbox(
         AuthoringExecutionTarget target,
         AuthoringWorkerRequest request)
     {
+        AuthoringContributionDeclaration? contribution = package.Contract.Manifest.Contributions.SingleOrDefault(
+            item => string.Equals(item.Id, target.ContributionId, StringComparison.Ordinal));
         if (target.Status != AuthoringExecutionResolutionStatus.Ready ||
             target.ExecutionClass != AuthoringExecutionClass.IsolatedWorkerWasm ||
+            contribution is null ||
+            contribution.ExecutionClass != target.ExecutionClass ||
+            contribution.Kind != target.ContributionKind ||
+            !string.Equals(contribution.Entrypoint.PathOrAdapterId, target.EntrypointIdentity, StringComparison.Ordinal) ||
+            !string.Equals(package.Contract.Manifest.Id, target.ExtensionId, StringComparison.Ordinal) ||
+            !string.Equals(package.Contract.Manifest.Version, target.ExtensionVersion, StringComparison.Ordinal) ||
+            !string.Equals(package.Contract.Manifest.PackageSha256, target.PackageSha256, StringComparison.Ordinal) ||
             request.SchemaVersion != 1 ||
             request.Payload.IsDefault ||
             request.Payload.Length > package.Contract.Manifest.Limits.MaximumRequestBytes ||
             request.DocumentEpoch < 1 || request.SourceRevision < 0 ||
-            string.IsNullOrWhiteSpace(request.DocumentId) ||
-            string.IsNullOrWhiteSpace(request.RequestId) ||
-            string.IsNullOrWhiteSpace(request.RequestSchemaReference) ||
-            string.IsNullOrWhiteSpace(request.ResultSchemaReference) ||
-            request.PolicyDigest.Length != 64 ||
+            !IsClosedValue(request.DocumentId, 256) ||
+            !IsClosedValue(request.RequestId, 128) ||
+            !IsClosedValue(request.RequestSchemaReference, 256) ||
+            !IsClosedValue(request.ResultSchemaReference, 256) ||
+            !IsDigest(request.PolicyDigest) ||
             !string.Equals(request.RuntimeIdentity, target.RuntimeIdentity, StringComparison.Ordinal) ||
             !string.Equals(request.ExtensionId, target.ExtensionId, StringComparison.Ordinal) ||
             !string.Equals(request.Version, target.ExtensionVersion, StringComparison.Ordinal) ||
@@ -266,9 +342,73 @@ public sealed class AuthoringExtensionWorkerSandbox(
         string.Equals(response.ResultSchemaReference, request.ResultSchemaReference, StringComparison.Ordinal);
 
     private static AuthoringWorkerExecutionResult Rejected(
+        AuthoringWorkerLaunchDescriptor launch,
+        AuthoringWorkerRequest request,
         AuthoringWorkerResultStatus status,
         string reason,
-        int requestBytes) => new(status, null, reason, requestBytes, 0);
+        int requestBytes) => new(status, null, reason, requestBytes, 0)
+        {
+            Receipt = CreateReceipt(launch, request, status, reason, requestBytes, 0)
+        };
+
+    private static AuthoringWorkerExecutionReceipt CreateReceipt(
+        AuthoringWorkerLaunchDescriptor launch,
+        AuthoringWorkerRequest request,
+        AuthoringWorkerResultStatus status,
+        string reason,
+        int requestBytes,
+        int responseBytes) => new(
+            launch.InstanceIdentity,
+            launch.RuntimeIdentity,
+            launch.ExtensionId,
+            launch.Version,
+            launch.PackageSha256,
+            launch.ContentSha256,
+            launch.ContributionId,
+            launch.ModuleSha256,
+            DigestIdentity(request.DocumentId),
+            request.DocumentEpoch,
+            request.SourceRevision,
+            DigestIdentity(request.RequestId),
+            launch.HostApiDigest,
+            launch.SchemaDigest,
+            launch.PolicyDigest,
+            launch.MaximumMemoryBytes,
+            launch.MaximumRequestBytes,
+            launch.MaximumResponseBytes,
+            status,
+            reason,
+            requestBytes,
+            responseBytes);
+
+    private static string ComputeInstanceIdentity(
+        AuthoringExecutionTarget target,
+        AuthoringWorkerRequest request,
+        string hostApiDigest,
+        string schemaDigest) => DigestIdentity(string.Join('\n',
+            "fsusblog.authoring.worker-instance.v1",
+            target.RuntimeIdentity,
+            target.ExtensionId,
+            target.ExtensionVersion,
+            target.PackageSha256,
+            target.ContributionId,
+            target.ContributionKind,
+            request.DocumentId,
+            request.DocumentEpoch,
+            request.SourceRevision,
+            request.RequestId,
+            hostApiDigest,
+            schemaDigest,
+            request.PolicyDigest));
+
+    private static bool IsClosedValue(string? value, int maximumLength) =>
+        !string.IsNullOrWhiteSpace(value) &&
+        value.Length <= maximumLength &&
+        !value.Any(char.IsControl);
+
+    private static bool IsDigest(string? value) =>
+        value is not null && value.Length == 64 && value.All(static character =>
+            character is >= '0' and <= '9' or >= 'a' and <= 'f');
 
     private static string DigestIdentity(string material) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(material)));
