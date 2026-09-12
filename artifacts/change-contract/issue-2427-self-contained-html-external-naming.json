@@ -1,0 +1,24 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/architecture/overview.md"
+            ],
+            "reason": "preserve the current self-contained HTML export identifiers documented by the architecture authority while internal source names retain repository conventions"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+                "src/backend/Services/DocumentExport/DocumentExportDigest.cs",
+                "src/backend/Services/DocumentExport/DocumentExportHtmlSanitizer.cs",
+                "src/backend/Services/DocumentExport/DocumentExportHtmlVerifier.cs",
+                "src/backend/Services/DocumentExport/DocumentExportReadingStyleAuthority.cs",
+                "src/backend/Services/DocumentExport/SelfContainedHtmlDocumentExportProvider.cs"
+            ],
+            "reason": "the registry glob governs all C# source files; this provider slice preserves its closed renderer, media, CSP and external tool identity spellings without adding process-environment access"
+        }
+    ]
+}

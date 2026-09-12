@@ -28,6 +28,12 @@ internal static class DocumentExportDigest
     internal static byte[] Serialize<T>(T value)
         => JsonSerializer.SerializeToUtf8Bytes(value, s_json);
 
+    internal static Task SerializeAsync<T>(
+        Stream destination,
+        T value,
+        CancellationToken cancellationToken)
+        => JsonSerializer.SerializeAsync(destination, value, s_json, cancellationToken);
+
     internal static T Deserialize<T>(ReadOnlySpan<byte> bytes)
     {
         ValidateNoDuplicateProperties(bytes);
