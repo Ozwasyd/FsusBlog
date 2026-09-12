@@ -74,7 +74,7 @@ for (const forbiddenProductionToken of [
 }
 
 for (const token of [
-  "import { ElMarkdownEditor",
+  'ElMarkdownEditor,',
   "'@ozwasyd/element-plus'",
   '<ElMarkdownEditor',
   ':commands="fsusUiCommands"',
