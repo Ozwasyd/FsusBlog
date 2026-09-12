@@ -5,6 +5,11 @@ import os from 'node:os'
 import { resolve, relative, extname } from 'node:path'
 import { promisify } from 'node:util'
 import { brotliCompress, gzip } from 'node:zlib'
+import {
+  loadStaticClientPayloadBudget,
+  parsePositiveFiniteSafeBudget,
+  resolveStaticPayloadBudgetExecution
+} from '../../../../tools/operations/static-client-payload-budget.mjs'
 
 const gzipAsync = promisify(gzip)
 const brotliCompressAsync = promisify(brotliCompress)
@@ -12,25 +17,52 @@ const brotliCompressAsync = promisify(brotliCompress)
 const repoRoot = resolve(process.cwd(), '../..')
 const distDir = resolve(process.env.FSUSBLOG_FRONTEND_DIST_ROOT || resolve(repoRoot, 'src/frontend/dist'))
 const evidenceDir = resolve(process.env.FSUSBLOG_FRONTEND_OUTPUT_ROOT || resolve(repoRoot, '.tmp/frontend'))
+const staticClientPayloadBudget = loadStaticClientPayloadBudget()
+const budgetOverrideEnvironmentNames = [
+  'FSUSBLOG_ASSET_TOTAL_BUDGET_BYTES',
+  'FSUSBLOG_ASSET_JS_BUDGET_BYTES',
+  'FSUSBLOG_ASSET_CSS_BUDGET_BYTES',
+  'FSUSBLOG_ASSET_APP_CSS_BUDGET_BYTES',
+  'FSUSBLOG_ASSET_WASM_BUDGET_BYTES',
+  'FSUSBLOG_ASSET_JS_GZIP_BUDGET_BYTES',
+  'FSUSBLOG_ASSET_JS_BROTLI_BUDGET_BYTES',
+  'FSUSBLOG_ASSET_WASM_GZIP_BUDGET_BYTES',
+  'FSUSBLOG_ASSET_WASM_BROTLI_BUDGET_BYTES',
+  'FSUSBLOG_ASSET_ADMIN_ROUTE_CHUNK_BUDGET_BYTES',
+  'FSUSBLOG_ASSET_ADMIN_ROUTE_CHUNK_GZIP_BUDGET_BYTES',
+  'FSUSBLOG_ASSET_ADMIN_ROUTE_CHUNK_BROTLI_BUDGET_BYTES',
+  'FSUSBLOG_ASSET_ECHARTS_VENDOR_BUDGET_BYTES',
+  'FSUSBLOG_ASSET_ECHARTS_VENDOR_GZIP_BUDGET_BYTES',
+  'FSUSBLOG_ASSET_ECHARTS_VENDOR_BROTLI_BUDGET_BYTES',
+  'FSUSBLOG_ASSET_ELEMENT_PLUS_VENDOR_BUDGET_BYTES',
+  'FSUSBLOG_ASSET_ELEMENT_PLUS_VENDOR_GZIP_BUDGET_BYTES',
+  'FSUSBLOG_ASSET_ELEMENT_PLUS_VENDOR_BROTLI_BUDGET_BYTES'
+]
+const budgetExecution = resolveStaticPayloadBudgetExecution(process.env, budgetOverrideEnvironmentNames)
+const budget = (name, defaultValue) => parsePositiveFiniteSafeBudget(
+  process.env[name],
+  name,
+  { defaultValue }
+)
 const budgets = {
-  totalBytes: Number(process.env.FSUSBLOG_ASSET_TOTAL_BUDGET_BYTES || 80 * 1024 * 1024),
-  jsBytes: Number(process.env.FSUSBLOG_ASSET_JS_BUDGET_BYTES || 900 * 1024),
-  cssBytes: Number(process.env.FSUSBLOG_ASSET_CSS_BUDGET_BYTES || 600 * 1024),
-  appCssBytes: Number(process.env.FSUSBLOG_ASSET_APP_CSS_BUDGET_BYTES || 720 * 1024),
-  wasmBytes: Number(process.env.FSUSBLOG_ASSET_WASM_BUDGET_BYTES || 220 * 1024),
-  jsGzipBytes: Number(process.env.FSUSBLOG_ASSET_JS_GZIP_BUDGET_BYTES || 300 * 1024),
-  jsBrotliBytes: Number(process.env.FSUSBLOG_ASSET_JS_BROTLI_BUDGET_BYTES || 260 * 1024),
-  wasmGzipBytes: Number(process.env.FSUSBLOG_ASSET_WASM_GZIP_BUDGET_BYTES || 110 * 1024),
-  wasmBrotliBytes: Number(process.env.FSUSBLOG_ASSET_WASM_BROTLI_BUDGET_BYTES || 95 * 1024),
-  adminRouteChunkBytes: Number(process.env.FSUSBLOG_ASSET_ADMIN_ROUTE_CHUNK_BUDGET_BYTES || 430 * 1024),
-  adminRouteChunkGzipBytes: Number(process.env.FSUSBLOG_ASSET_ADMIN_ROUTE_CHUNK_GZIP_BUDGET_BYTES || 120 * 1024),
-  adminRouteChunkBrotliBytes: Number(process.env.FSUSBLOG_ASSET_ADMIN_ROUTE_CHUNK_BROTLI_BUDGET_BYTES || 95 * 1024),
-  echartsVendorBytes: Number(process.env.FSUSBLOG_ASSET_ECHARTS_VENDOR_BUDGET_BYTES || 430 * 1024),
-  echartsVendorGzipBytes: Number(process.env.FSUSBLOG_ASSET_ECHARTS_VENDOR_GZIP_BUDGET_BYTES || 135 * 1024),
-  echartsVendorBrotliBytes: Number(process.env.FSUSBLOG_ASSET_ECHARTS_VENDOR_BROTLI_BUDGET_BYTES || 115 * 1024),
-  elementPlusVendorBytes: Number(process.env.FSUSBLOG_ASSET_ELEMENT_PLUS_VENDOR_BUDGET_BYTES || 1220 * 1024),
-  elementPlusVendorGzipBytes: Number(process.env.FSUSBLOG_ASSET_ELEMENT_PLUS_VENDOR_GZIP_BUDGET_BYTES || 370 * 1024),
-  elementPlusVendorBrotliBytes: Number(process.env.FSUSBLOG_ASSET_ELEMENT_PLUS_VENDOR_BROTLI_BUDGET_BYTES || 310 * 1024)
+  totalBytes: budget('FSUSBLOG_ASSET_TOTAL_BUDGET_BYTES', staticClientPayloadBudget.maxTotalBytes),
+  jsBytes: budget('FSUSBLOG_ASSET_JS_BUDGET_BYTES', 900 * 1024),
+  cssBytes: budget('FSUSBLOG_ASSET_CSS_BUDGET_BYTES', 600 * 1024),
+  appCssBytes: budget('FSUSBLOG_ASSET_APP_CSS_BUDGET_BYTES', 720 * 1024),
+  wasmBytes: budget('FSUSBLOG_ASSET_WASM_BUDGET_BYTES', 220 * 1024),
+  jsGzipBytes: budget('FSUSBLOG_ASSET_JS_GZIP_BUDGET_BYTES', 300 * 1024),
+  jsBrotliBytes: budget('FSUSBLOG_ASSET_JS_BROTLI_BUDGET_BYTES', 260 * 1024),
+  wasmGzipBytes: budget('FSUSBLOG_ASSET_WASM_GZIP_BUDGET_BYTES', 110 * 1024),
+  wasmBrotliBytes: budget('FSUSBLOG_ASSET_WASM_BROTLI_BUDGET_BYTES', 95 * 1024),
+  adminRouteChunkBytes: budget('FSUSBLOG_ASSET_ADMIN_ROUTE_CHUNK_BUDGET_BYTES', 430 * 1024),
+  adminRouteChunkGzipBytes: budget('FSUSBLOG_ASSET_ADMIN_ROUTE_CHUNK_GZIP_BUDGET_BYTES', 120 * 1024),
+  adminRouteChunkBrotliBytes: budget('FSUSBLOG_ASSET_ADMIN_ROUTE_CHUNK_BROTLI_BUDGET_BYTES', 95 * 1024),
+  echartsVendorBytes: budget('FSUSBLOG_ASSET_ECHARTS_VENDOR_BUDGET_BYTES', 430 * 1024),
+  echartsVendorGzipBytes: budget('FSUSBLOG_ASSET_ECHARTS_VENDOR_GZIP_BUDGET_BYTES', 135 * 1024),
+  echartsVendorBrotliBytes: budget('FSUSBLOG_ASSET_ECHARTS_VENDOR_BROTLI_BUDGET_BYTES', 115 * 1024),
+  elementPlusVendorBytes: budget('FSUSBLOG_ASSET_ELEMENT_PLUS_VENDOR_BUDGET_BYTES', 1220 * 1024),
+  elementPlusVendorGzipBytes: budget('FSUSBLOG_ASSET_ELEMENT_PLUS_VENDOR_GZIP_BUDGET_BYTES', 370 * 1024),
+  elementPlusVendorBrotliBytes: budget('FSUSBLOG_ASSET_ELEMENT_PLUS_VENDOR_BROTLI_BUDGET_BYTES', 310 * 1024)
 }
 
 function positiveNumber(value) {
@@ -143,6 +175,13 @@ if (totalBytes > budgets.totalBytes) {
     budgetBytes: budgets.totalBytes
   })
 }
+if (files.length > staticClientPayloadBudget.maxFileCount) {
+  violations.push({
+    path: relative(repoRoot, distDir).replaceAll('\\', '/'),
+    fileCount: files.length,
+    budgetFileCount: staticClientPayloadBudget.maxFileCount
+  })
+}
 
 for (const file of files) {
   const budgetBytes = budgetFor(file)
@@ -186,6 +225,12 @@ for (const file of compressed) {
 const summary = {
   status: violations.length === 0 ? 'ok' : 'blocked',
   generatedAt: new Date().toISOString(),
+  budgetAuthority: {
+    schema: staticClientPayloadBudget.schema,
+    budgetModel: staticClientPayloadBudget.budgetModel,
+    baseline: staticClientPayloadBudget.baseline,
+    ...budgetExecution
+  },
   budgets,
   totalBytes,
   largest: files
