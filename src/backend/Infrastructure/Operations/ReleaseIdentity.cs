@@ -76,11 +76,6 @@ public sealed class ReleaseIdentityProvider(IConfiguration configuration) : IRel
         string createdAtValue = Read(configuration, "FSUSBLOG_RELEASE_CREATED_AT_UTC", "Release:CreatedAtUtc");
         string imageRef = Read(configuration, "FSUSBLOG_IMAGE_REF", "Release:ImageRef");
         string imageDigest = Read(configuration, "FSUSBLOG_IMAGE_DIGEST", "Release:ImageDigest").ToLowerInvariant();
-        bool configured = releaseId.Length > 0
-            && releaseSlot.Length > 0
-            && commitSha.Length > 0
-            && imageRef.Length > 0
-            && imageDigest.Length > 0;
         bool releaseIdParsed = ReleaseIdContract.TryParse(
             releaseId,
             out DateTimeOffset releaseCreatedAtUtc,
@@ -90,9 +85,14 @@ public sealed class ReleaseIdentityProvider(IConfiguration configuration) : IRel
         bool createdAtParsed = !createdAtProvided || ReleaseIdContract.TryParseCreatedAtUtc(
             createdAtValue,
             out configuredCreatedAtUtc);
+        bool configured = releaseId.Length > 0
+            && releaseSlot.Length > 0
+            && commitSha.Length > 0
+            && imageRef.Length > 0
+            && imageDigest.Length > 0
+            && releaseIdParsed;
         bool createdAtConsistent = !configured ||
-            (releaseIdParsed &&
-             createdAtParsed &&
+            (createdAtParsed &&
              (!createdAtProvided ||
               releaseCreatedAtUtc == configuredCreatedAtUtc.AddTicks(-(configuredCreatedAtUtc.Ticks % TimeSpan.TicksPerSecond))));
         return new ReleaseIdentitySnapshot(

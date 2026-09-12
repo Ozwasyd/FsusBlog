@@ -36,11 +36,14 @@ public interface IAuthorArticlePinStore
 
 public sealed class AuthorArticlePinStore(
     ISqlSugarClient db,
-    TimeProvider timeProvider) : IAuthorArticlePinStore
+    TimeProvider timeProvider,
+    IAuthorArticlePinMutationAuthorizer? mutationAuthorizer = null) : IAuthorArticlePinStore
 {
     private const string AddCommand = "add";
     private const string RemoveCommand = "remove";
     private const string ReorderCommand = "reorder";
+    private readonly IAuthorArticlePinMutationAuthorizer _mutationAuthorizer =
+        mutationAuthorizer ?? UnavailableAuthorArticlePinMutationAuthorizer.Instance;
 
     public async Task<AuthorArticlePinWriteReceipt> AddAsync(
         AddAuthorArticlePinCommand command,
@@ -57,6 +60,10 @@ public sealed class AuthorArticlePinStore(
         return await ExecuteTransactionAsync(async () =>
         {
             await AcquireOwnerLockAsync(command.Owner).ConfigureAwait(false);
+            await _mutationAuthorizer.AuthorizeAsync(
+                command.Owner,
+                [command.ArticleId],
+                cancellationToken).ConfigureAwait(false);
             AuthorArticlePinWriteReceipt? replay = await TryReadReplayAsync(
                 command.Owner,
                 command.RequestId,
@@ -194,6 +201,10 @@ public sealed class AuthorArticlePinStore(
         return await ExecuteTransactionAsync(async () =>
         {
             await AcquireOwnerLockAsync(command.Owner).ConfigureAwait(false);
+            await _mutationAuthorizer.AuthorizeAsync(
+                command.Owner,
+                [command.ArticleId],
+                cancellationToken).ConfigureAwait(false);
             AuthorArticlePinWriteReceipt? replay = await TryReadReplayAsync(
                 command.Owner,
                 command.RequestId,
@@ -300,10 +311,17 @@ public sealed class AuthorArticlePinStore(
             command.ExpectedRevision,
             command.MovedArticleIds,
             command.AfterArticleId);
+        int[] authorizedArticleIds = command.AfterArticleId.HasValue
+            ? [.. command.MovedArticleIds, command.AfterArticleId.Value]
+            : [.. command.MovedArticleIds];
 
         return await ExecuteTransactionAsync(async () =>
         {
             await AcquireOwnerLockAsync(command.Owner).ConfigureAwait(false);
+            await _mutationAuthorizer.AuthorizeAsync(
+                command.Owner,
+                authorizedArticleIds,
+                cancellationToken).ConfigureAwait(false);
             AuthorArticlePinWriteReceipt? replay = await TryReadReplayAsync(
                 command.Owner,
                 command.RequestId,

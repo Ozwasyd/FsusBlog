@@ -141,7 +141,7 @@
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 403,
+      "estimatedFacts": 407,
       "tests": [
         {
           "path": "Integration/AccountEnrollmentIntegrationTests.cs",
@@ -423,6 +423,10 @@
         {
           "path": "Integration/AuthoringCanvasDocumentStoreIntegrationTests.cs",
           "class": "AuthoringCanvasDocumentStoreIntegrationTests"
+        },
+        {
+          "path": "Integration/AuthorArticlePinStoreIntegrationTests.cs",
+          "class": "AuthorArticlePinStoreIntegrationTests"
         },
         {
           "path": "Unit/ContentAssetDeleteEndpointTests.cs",
