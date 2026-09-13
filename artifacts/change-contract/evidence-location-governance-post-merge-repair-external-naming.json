@@ -1,0 +1,28 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/current-run-evidence-location-acceptance.json",
+                "config/testing/evidence-location-migration-ledger.json"
+            ],
+            "reason": "Preserve canonical generated JSON wire keys while resealing the exact reviewed PR 3360 evidence-location identities."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/governance/change-contract-registry.mjs",
+                "tools/governance/change-contract.mjs"
+            ],
+            "reason": "Preserve external process environment and Git command names while the exact squash bootstrap remains fail closed."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/change-contract.md"
+            ],
+            "reason": "Preserve documented external schema, command, and metadata spellings for the finite owner bootstrap contract."
+        }
+    ]
+}

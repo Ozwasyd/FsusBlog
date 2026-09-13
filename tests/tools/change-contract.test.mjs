@@ -21,18 +21,36 @@ import {
     inspectGeneratedRepairDagHistory,
     validateReviewedGeneratedRepairDagEvents,
     validateGeneratedRepairDagEventOrder,
+    validateGeneratedRepairDagSquashBootstrapAnchor,
+    validateGeneratedRepairDagSquashBootstrap,
     reviewedDagHistoryAdmission,
     validatePostMergeGeneratedOutputRepair,
     validatePostMergeGeneratedOutputDigestRepair,
     validatePrContract,
+    parsePrBody,
     pullRequestActor,
     readFileAtRevision,
     validateRepositoryBlameIgnore,
-    validateRepositorySources
+    validateRepositorySources,
+    validateTrustedPolicyFiles
 } from '../../tools/governance/change-contract.mjs'
 
 const root = resolve(import.meta.dirname, '../..')
 const fixtures = resolve(root, 'tests/fixtures/governance/change-contract')
+
+function exactBootstrapCandidateTree(git, registration, sourceRevision) {
+    git(['read-tree', registration.bootstrapBase])
+    for (const path of registration.bootstrapPaths) {
+        const entry = git(['ls-tree', sourceRevision, '--', path])
+        const match = /^(?<mode>[0-9]{6}) blob (?<object>[0-9a-f]{40})\t/u.exec(entry)
+        assert.ok(match?.groups, `bootstrap source path must be one exact blob: ${path}`)
+        git([
+            'update-index', '--add', '--cacheinfo',
+            `${match.groups.mode},${match.groups.object},${path}`
+        ])
+    }
+    return git(['write-tree'])
+}
 
 test('reviewed and later generic DAG events retain one global replay order', () =>
 {
@@ -183,6 +201,400 @@ test('reviewed generated repair DAG history seals complete original epoch topolo
     const shortened = inspectGeneratedRepairDagHistory(root, graph, synchronizedMerge,
         '43961f1b7f89c117773ad25dfeb4554bdbba3e72', synchronizedRevision);
     assert.notEqual(shortened.sha256, history.sha256);
+});
+
+test('reviewed squash bootstrap seals only the exact PR 3360 source and one-parent commit', () =>
+{
+    const graph = changeContract.generatedOutputRepairDags.find((entry) => (
+        entry.id === 'evidence-location-governance'
+    ));
+    const registration = changeContract.generatedOutputRepairDagSquashBootstraps.find((entry) => (
+        entry.id === 'evidence-location-governance-pr-3360'
+    ));
+    assert.deepEqual(validateGeneratedRepairDagSquashBootstrapAnchor(root, graph, registration), []);
+    assert.deepEqual(registration.sourceRevisions, [
+        '68faab01b805de6480476a5796c32eb6499b271e',
+        '5258d2a423d8cb583e16261882ac4d7f5dd3bd9d',
+        'd637c9568b50f9d6cc6c8126e3cda2bff7599734'
+    ]);
+    assert.equal(registration.uniqueTransitionSource, registration.sourceRevisions[0]);
+    assert.equal(registration.sourceTree, registration.squashTree);
+    assert.notEqual(registration.sourceTree, '86f2d3b63a0181dad264eb5f2bd8e5e030499f3f');
+    assert.match(validateGeneratedRepairDagSquashBootstrap(
+        root,
+        graph,
+        registration,
+        {
+            generatedDigest: 'wrong.json',
+            generatorSource: '',
+            generatedOutputs: '',
+            externalExceptionManifest: 'none'
+        },
+        { sources: [], outputs: [] },
+        { base: registration.bootstrapBase, head: registration.bootstrapBase, changedFiles: [] }
+    ).join('\n'), /exact changed-path set differs/u);
+
+    const reseal = (entry) => {
+        const { sealSha256: ignoredSeal, ...sealedEntry } = entry;
+        entry.sealSha256 = createHash('sha256').update(JSON.stringify(sealedEntry)).digest('hex');
+    };
+
+    for (const [label, mutate, expected] of [
+        ['seal', (entry) => { entry.sealSha256 = '0'.repeat(64); }, /immutable registration seal changed/u],
+        ['schema', (entry) => { entry.schema += '-latest'; }, /identity fields are malformed/u],
+        ['pull request', (entry) => { entry.sourcePullRequest += 1; }, /identity fields are malformed/u],
+        ['base', (entry) => { entry.sourceBase = entry.squashCommit; }, /exact source, parent, squash, or tree tuple changed/u],
+        ['base tree', (entry) => { entry.sourceBaseTree = '0'.repeat(40); }, /exact source, parent, squash, or tree tuple changed/u],
+        ['identical-tree wrong head', (entry) => { entry.sourceHead = entry.squashCommit; }, /source range, squash range, or changed paths differ/u],
+        ['source tree', (entry) => { entry.sourceTree = '0'.repeat(40); }, /exact source, parent, squash, or tree tuple changed/u],
+        ['source chain', (entry) => { entry.sourceRevisions.splice(1, 1); }, /source range, squash range, or changed paths differ/u],
+        ['hidden change-revert', (entry) => { entry.uniqueTransitionSource = entry.sourceRevisions[1]; }, /bounded path, output, or closure fields are malformed/u],
+        ['squash', (entry) => { entry.squashCommit = entry.sourceHead; }, /exact source, parent, squash, or tree tuple changed/u],
+        ['parent', (entry) => { entry.squashParent = entry.sourceHead; }, /exact source, parent, squash, or tree tuple changed/u],
+        ['squash tree', (entry) => { entry.squashTree = '0'.repeat(40); }, /exact source, parent, squash, or tree tuple changed/u],
+        ['source paths', (entry) => { entry.sourcePaths.pop(); }, /source range, squash range, or changed paths differ/u],
+        ['stale outputs', (entry) => { entry.staleOutputs.pop(); }, /bounded path, output, or closure fields are malformed/u],
+        ['bootstrap base', (entry) => { entry.bootstrapBase = entry.sourceBase; }, /exact source, parent, squash, or tree tuple changed/u],
+        ['binding manifest', (entry) => { entry.bootstrapBindingManifest = 'wrong.json'; }, /bounded path, output, or closure fields are malformed/u],
+        ['external manifest', (entry) => { entry.bootstrapExternalNamingManifest = 'wrong.json'; }, /bounded path, output, or closure fields are malformed/u],
+        ['bootstrap sources', (entry) => { entry.bootstrapSources.pop(); }, /bounded path, output, or closure fields are malformed/u],
+        ['bootstrap outputs', (entry) => { entry.bootstrapOutputs.pop(); }, /bounded path, output, or closure fields are malformed/u],
+        ['bootstrap paths', (entry) => { entry.bootstrapPaths.push('unregistered.txt'); }, /bounded path, output, or closure fields are malformed/u],
+        ['closure object', (entry) => { entry.generatorClosure[0].object = '0'.repeat(40); }, /generator closure identity changed/u],
+        ['extra field', (entry) => { entry.latest = 'HEAD'; }, /fields do not match the closed anchor schema/u],
+        ['pruned head', (entry) => { entry.sourceHead = 'f'.repeat(40); }, /not a valid|bad object|unknown revision|ambiguous argument/iu]
+    ]) {
+        const changed = structuredClone(registration);
+        mutate(changed);
+        if (label !== 'seal') reseal(changed);
+        const errors = validateGeneratedRepairDagSquashBootstrapAnchor(root, graph, changed);
+        assert.match(errors.join('\n'), expected, label);
+    }
+
+    for (const [label, mutate] of [
+        ['command', (entry) => { entry.steps[0].command += ' --tampered'; }],
+        ['steps', (entry) => { entry.steps[0].outputs.pop(); }],
+        ['semantic projection', (entry) => { entry.semanticProjection.id += '-tampered'; }]
+    ]) {
+        const changedGraph = structuredClone(graph);
+        mutate(changedGraph);
+        assert.match(
+            validateGeneratedRepairDagSquashBootstrapAnchor(root, changedGraph, registration).join('\n'),
+            /trusted graph identity changed/u,
+            label
+        );
+    }
+});
+
+test('squash bootstrap rejects hidden generator change-revert before producer execution', () =>
+{
+    const temporary = mkdtempSync(join(tmpdir(), 'fsusblog-squash-bootstrap-preflight-'));
+    const marker = join(temporary, 'producer-executed');
+    const registration = structuredClone(changeContract.generatedOutputRepairDagSquashBootstraps[0]);
+    const graph = changeContract.generatedOutputRepairDags.find((entry) => (
+        entry.id === registration.producerId
+    ));
+    const environment = {
+        ...process.env,
+        GIT_NO_REPLACE_OBJECTS: '1',
+        GIT_INDEX_FILE: join(temporary, 'index'),
+        GIT_AUTHOR_NAME: 'Fixture',
+        GIT_AUTHOR_EMAIL: 'fixture@example.invalid',
+        GIT_COMMITTER_NAME: 'Fixture',
+        GIT_COMMITTER_EMAIL: 'fixture@example.invalid'
+    };
+    const git = (arguments_, input = undefined) => execFileSync('git', arguments_, {
+        cwd: root,
+        env: environment,
+        input,
+        encoding: 'utf8'
+    }).trim();
+    const base = registration.sourceBase;
+    const generatorPath = 'tools/test/generate-evidence-location-governance.mjs';
+    const readmePath = 'README.md';
+    const originalGenerator = git(['show', `${base}:${generatorPath}`]);
+    const originalReadme = git(['show', `${base}:${readmePath}`]);
+    const writeIndexFile = (path, content) => {
+        const object = git(['hash-object', '-w', '--stdin'], content);
+        git(['update-index', '--add', '--cacheinfo', `100644,${object},${path}`]);
+    };
+    const commit = (parent, message) => git([
+        'commit-tree', git(['write-tree']), '-p', parent, '-m', message
+    ]);
+    try {
+        git(['read-tree', base]);
+        writeIndexFile(generatorPath, `${originalGenerator}\nawait import('node:fs').then(({ writeFileSync }) => writeFileSync(${JSON.stringify(marker)}, 'executed\\n'));\n`);
+        writeIndexFile(readmePath, `${originalReadme}\nExact squash bootstrap fixture.\n`);
+        const changedGenerator = commit(base, 'fixture hidden generator change');
+        git(['read-tree', changedGenerator]);
+        writeIndexFile(generatorPath, `${originalGenerator}\n`);
+        const revertedGenerator = commit(changedGenerator, 'fixture hidden generator revert');
+        const sourceTree = git(['show', '-s', '--format=%T', revertedGenerator]);
+        const squash = git(['commit-tree', sourceTree, '-p', base, '-m', 'fixture one-parent squash']);
+        Object.assign(registration, {
+            sourceHead: revertedGenerator,
+            sourceTree,
+            sourceRevisions: [changedGenerator, revertedGenerator],
+            uniqueTransitionSource: changedGenerator,
+            squashCommit: squash,
+            squashParent: base,
+            squashTree: sourceTree,
+            sourcePaths: [readmePath],
+            bootstrapBase: squash
+        });
+        const { sealSha256: ignoredSeal, ...sealedRegistration } = registration;
+        registration.sealSha256 = createHash('sha256')
+            .update(JSON.stringify(sealedRegistration))
+            .digest('hex');
+        const errors = validateGeneratedRepairDagSquashBootstrapAnchor(root, graph, registration);
+        assert.match(errors.join('\n'), /changed or reverted a protected path before replay/u);
+        assert.equal(existsSync(marker), false);
+    } finally {
+        rmSync(temporary, { recursive: true, force: true });
+    }
+});
+
+test('candidate squash bootstrap rejects intermediate protected identities before anchor replay', () =>
+{
+    const temporary = mkdtempSync(join(tmpdir(), 'fsusblog-squash-candidate-preflight-'));
+    const marker = join(temporary, 'candidate-producer-executed');
+    const registration = changeContract.generatedOutputRepairDagSquashBootstraps[0];
+    const graph = changeContract.generatedOutputRepairDags.find((entry) => (
+        entry.id === registration.producerId
+    ));
+    const base = registration.bootstrapBase;
+    const actualHead = execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: root,
+        encoding: 'utf8'
+    }).trim();
+    const parsedBody = parsePrBody(pullRequestBody({
+        type: 'fix',
+        generated: true,
+        externalNaming: true,
+        audience: 'internal',
+        category: 'Internal/Tooling',
+        summary: 'seal saved-view evidence repair',
+        generatorSource: registration.bootstrapSources.join(', '),
+        generatedOutputs: registration.bootstrapOutputs.join(', '),
+        generatedDigest: registration.bootstrapBindingManifest,
+        externalExceptionManifest: registration.bootstrapExternalNamingManifest,
+        externalExceptionId: 'none',
+        externalExceptionPaths: 'none',
+        externalExceptionReason: 'none'
+    }));
+    const evidence = JSON.parse(readFileAtRevision(
+        root,
+        actualHead,
+        registration.bootstrapBindingManifest
+    ).toString('utf8'));
+    const environment = {
+        ...process.env,
+        GIT_NO_REPLACE_OBJECTS: '1',
+        GIT_INDEX_FILE: join(temporary, 'index'),
+        GIT_AUTHOR_NAME: 'Fixture',
+        GIT_AUTHOR_EMAIL: 'fixture@example.invalid',
+        GIT_COMMITTER_NAME: 'Fixture',
+        GIT_COMMITTER_EMAIL: 'fixture@example.invalid'
+    };
+    const git = (arguments_, input = undefined) => execFileSync('git', arguments_, {
+        cwd: root,
+        env: environment,
+        input,
+        encoding: 'utf8'
+    }).trim();
+    const actualTree = exactBootstrapCandidateTree(git, registration, actualHead);
+    const writeIndexFile = (path, content) => {
+        const object = git(['hash-object', '-w', '--stdin'], content);
+        git(['update-index', '--add', '--cacheinfo', `100644,${object},${path}`]);
+    };
+    const createRevision = (parent, changes, message) => {
+        git(['read-tree', parent]);
+        for (const [path, content] of changes) writeIndexFile(path, content);
+        return git(['commit-tree', git(['write-tree']), '-p', parent, '-m', message]);
+    };
+    const createFinal = (parent) => git([
+        'commit-tree', actualTree, '-p', parent, '-m', 'fixture exact final candidate tree'
+    ]);
+    const validate = (head) => validateGeneratedRepairDagSquashBootstrap(
+        root,
+        graph,
+        registration,
+        parsedBody,
+        evidence,
+        { base, head, changedFiles: changedFilesBetween(root, base, head) }
+    ).join('\n');
+    const generatorPath = registration.generatorClosure[2].path;
+    const outputPath = registration.bootstrapOutputs[0];
+    const policyPath = 'tools/governance/change-contract.mjs';
+    const at = (revision, path) => git(['show', `${revision}:${path}`]);
+    const exactAt = (revision, path) => readFileAtRevision(root, revision, path).toString('utf8');
+    try {
+        assert.deepEqual(parsedBody.errors, []);
+
+        const sentinelGraph = structuredClone(graph);
+        const sentinelScript = `require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'executed\\n')`;
+        Object.assign(sentinelGraph.steps[0], {
+            command: `node -e ${sentinelScript}`,
+            executable: 'node',
+            arguments: ['-e', sentinelScript]
+        });
+        const sentinelRegistration = structuredClone(registration);
+        sentinelRegistration.graphSha256 = createHash('sha256')
+            .update(JSON.stringify(sentinelGraph))
+            .digest('hex');
+        const { sealSha256: ignoredSeal, ...sentinelRegistrationFields } = sentinelRegistration;
+        sentinelRegistration.sealSha256 = createHash('sha256')
+            .update(JSON.stringify(sentinelRegistrationFields))
+            .digest('hex');
+        assert.match(validateGeneratedRepairDagSquashBootstrap(
+            root,
+            sentinelGraph,
+            sentinelRegistration,
+            parsedBody,
+            evidence,
+            { base, head: actualHead, changedFiles: [] }
+        ).join('\n'), /base, declarations, manifest, or exact changed-path set differs/u);
+        assert.equal(existsSync(marker), false);
+
+        const generatorRevision = createRevision(base, [[
+            generatorPath,
+            `${at(base, generatorPath)}\nawait import('node:fs').then(({ writeFileSync }) => writeFileSync(${JSON.stringify(marker)}, 'executed\\n'));\n`
+        ]], 'fixture intermediate generator identity');
+        assert.match(
+            validate(createFinal(generatorRevision)),
+            /candidate changed or reverted generator closure before replay/u
+        );
+        assert.equal(existsSync(marker), false);
+
+        const outputRevision = createRevision(base, [[
+            outputPath,
+            `${at(base, outputPath)}\n `
+        ]], 'fixture intermediate output identity');
+        assert.match(
+            validate(createFinal(outputRevision)),
+            /candidate changed or reverted DAG output before its final revision/u
+        );
+
+        const thirdPolicyRevision = createRevision(base, [[
+            policyPath,
+            `${at(base, policyPath)}\n// unregistered intermediate policy identity\n`
+        ]], 'fixture third policy identity');
+        assert.match(
+            validate(createFinal(thirdPolicyRevision)),
+            /candidate policy has an unregistered intermediate identity before replay/u
+        );
+
+        const finalPolicyRevision = createRevision(base, [[
+            policyPath,
+            exactAt(actualHead, policyPath)
+        ]], 'fixture early final policy identity');
+        const policyRollbackRevision = createRevision(finalPolicyRevision, [[
+            policyPath,
+            exactAt(base, policyPath)
+        ]], 'fixture policy identity rollback');
+        assert.match(
+            validate(createFinal(policyRollbackRevision)),
+            /candidate policy rolled back after reaching its final identity before replay/u
+        );
+    } finally {
+        rmSync(temporary, { recursive: true, force: true });
+    }
+});
+
+test('trusted base rejects the candidate policy files used for bootstrap self-validation', () =>
+{
+    const temporary = mkdtempSync(join(tmpdir(), 'fsusblog-squash-trusted-policy-'));
+    const registration = changeContract.generatedOutputRepairDagSquashBootstraps[0];
+    const head = execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: root,
+        encoding: 'utf8'
+    }).trim();
+    try {
+        for (const path of registration.bootstrapSources) {
+            writeRepositoryFile(
+                temporary,
+                path,
+                readFileAtRevision(root, registration.bootstrapBase, path)
+            );
+        }
+        const errors = [];
+        validateTrustedPolicyFiles({
+            root,
+            head,
+            authorityRoot: temporary,
+            changedFiles: registration.bootstrapPaths
+        }, errors);
+        assert.deepEqual(errors, registration.bootstrapSources.map((path) => (
+            `pull request cannot replace trusted change-contract policy source: ${path}`
+        )));
+    } finally {
+        rmSync(temporary, { recursive: true, force: true });
+    }
+});
+
+test('exact PR 3360 owner bootstrap candidate satisfies its candidate policy only', () =>
+{
+    const temporary = mkdtempSync(join(tmpdir(), 'fsusblog-squash-exact-candidate-'));
+    const registration = changeContract.generatedOutputRepairDagSquashBootstraps[0];
+    const sourceRevision = execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: root,
+        encoding: 'utf8'
+    }).trim();
+    const environment = {
+        ...process.env,
+        GIT_NO_REPLACE_OBJECTS: '1',
+        GIT_INDEX_FILE: join(temporary, 'index'),
+        GIT_AUTHOR_NAME: 'Fixture',
+        GIT_AUTHOR_EMAIL: 'fixture@example.invalid',
+        GIT_COMMITTER_NAME: 'Fixture',
+        GIT_COMMITTER_EMAIL: 'fixture@example.invalid'
+    };
+    const git = (arguments_, input = undefined) => execFileSync('git', arguments_, {
+        cwd: root,
+        env: environment,
+        input,
+        encoding: 'utf8'
+    }).trim();
+    try {
+        const tree = exactBootstrapCandidateTree(git, registration, sourceRevision);
+        const head = git([
+            'commit-tree', tree, '-p', registration.bootstrapBase,
+            '-m', 'fixture exact one-parent bootstrap candidate'
+        ]);
+        const changedFiles = changedFilesBetween(root, registration.bootstrapBase, head);
+        assert.deepEqual(
+            [...changedFiles].sort(),
+            [...registration.bootstrapPaths].sort()
+        );
+        const errors = validatePrContract({
+            title: 'fix(governance): seal saved-view evidence repair',
+            body: pullRequestBody({
+                type: 'fix',
+                generated: true,
+                externalNaming: true,
+                audience: 'internal',
+                category: 'Internal/Tooling',
+                summary: 'seal saved-view evidence repair',
+                generatorSource: registration.bootstrapSources.join(', '),
+                generatedOutputs: registration.bootstrapOutputs.join(', '),
+                generatedDigest: registration.bootstrapBindingManifest,
+                externalExceptionManifest: registration.bootstrapExternalNamingManifest,
+                externalExceptionId: 'none',
+                externalExceptionPaths: 'none',
+                externalExceptionReason: 'none'
+            }),
+            labels: ['release-note:internal'],
+            actor: 'maintainer',
+            changedFiles,
+            root,
+            base: registration.bootstrapBase,
+            head,
+            authorityRoot: root
+        });
+        assert.deepEqual(errors, []);
+    } finally {
+        rmSync(temporary, { recursive: true, force: true });
+    }
 });
 
 function fixture(kind, name) {
