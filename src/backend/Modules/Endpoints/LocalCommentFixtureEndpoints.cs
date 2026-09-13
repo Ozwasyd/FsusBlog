@@ -70,7 +70,14 @@ public static class LocalCommentFixtureEndpoints
                         originalError = new
                         {
                             type = ex.InnerException?.GetType().Name ?? "Exception",
-                            message = ex.InnerException?.Message ?? ex.Message
+                            message = ex.InnerException?.Message ?? ex.Message,
+                            inner = ex.InnerException?.InnerException is { } innerError
+                                ? new
+                                {
+                                    type = innerError.GetType().Name,
+                                    message = innerError.Message
+                                }
+                                : null
                         },
                         cleanupError = ex.CleanupError is null
                             ? null
