@@ -38,13 +38,18 @@ public readonly record struct PublicHotReadCounterSnapshot(
     long GzipVariant,
     long SanityFallback,
     long FreshL0Hit = 0,
-    long LastGoodHit = 0);
+    long LastGoodHit = 0,
+    PublicHotReadHitRateReceipt HitRate = default);
 
 public sealed class PublicHotReadCounters
 {
     private readonly CounterStripe[] _stripes = BuildStripes();
     private readonly PublicHotReadCounterMode _mode;
     private readonly int _sampleRate;
+    private long _articleHitAttempts;
+    private long _listHitAttempts;
+    private long _htmlHitAttempts;
+    private long _variantAttempts;
 
     public PublicHotReadCounters(IOptions<PublicHotReadOptions>? options = null)
     {
@@ -55,7 +60,7 @@ public sealed class PublicHotReadCounters
 
     public void ArticleHit(int bytes)
     {
-        if (!ShouldRecordHit())
+        if (!ObserveHit(HitFamily.Article))
         {
             return;
         }
@@ -68,7 +73,7 @@ public sealed class PublicHotReadCounters
     public void ArticleMiss() => Interlocked.Increment(ref PickStripe().ArticleMiss);
     public void ListHit(int bytes)
     {
-        if (!ShouldRecordHit())
+        if (!ObserveHit(HitFamily.List))
         {
             return;
         }
@@ -81,7 +86,7 @@ public sealed class PublicHotReadCounters
     public void ListMiss() => Interlocked.Increment(ref PickStripe().ListMiss);
     public void HtmlHit(int bytes)
     {
-        if (!ShouldRecordHit())
+        if (!ObserveHit(HitFamily.Html))
         {
             return;
         }
@@ -98,7 +103,7 @@ public sealed class PublicHotReadCounters
     public void LastGoodHit() => Interlocked.Increment(ref PickStripe().LastGoodHit);
     public void VariantSelected(string contentEncoding)
     {
-        if (!ShouldRecordHit())
+        if (!ObserveHit(HitFamily.Variant))
         {
             return;
         }
@@ -159,21 +164,33 @@ public sealed class PublicHotReadCounters
             lastGoodHit += reset ? Interlocked.Exchange(ref stripe.LastGoodHit, 0) : Volatile.Read(ref stripe.LastGoodHit);
         }
 
+        long calibratedArticleHit = PublicHotReadHitRateAccounting.ScaleHitSamples(articleHit, _mode, _sampleRate);
+        long calibratedListHit = PublicHotReadHitRateAccounting.ScaleHitSamples(listHit, _mode, _sampleRate);
+        long calibratedHtmlHit = PublicHotReadHitRateAccounting.ScaleHitSamples(htmlHit, _mode, _sampleRate);
+        long observedHitSamples = articleHit + listHit + htmlHit;
+        long calibratedHits = calibratedArticleHit + calibratedListHit + calibratedHtmlHit;
+        long exactMisses = articleMiss + listMiss + htmlMiss;
         return new PublicHotReadCounterSnapshot(
-            articleHit,
+            calibratedArticleHit,
             articleMiss,
-            listHit,
+            calibratedListHit,
             listMiss,
-            htmlHit,
+            calibratedHtmlHit,
             htmlMiss,
             rejected,
-            bytes,
-            identityVariant,
-            brotliVariant,
-            gzipVariant,
+            PublicHotReadHitRateAccounting.ScaleHitSamples(bytes, _mode, _sampleRate),
+            PublicHotReadHitRateAccounting.ScaleHitSamples(identityVariant, _mode, _sampleRate),
+            PublicHotReadHitRateAccounting.ScaleHitSamples(brotliVariant, _mode, _sampleRate),
+            PublicHotReadHitRateAccounting.ScaleHitSamples(gzipVariant, _mode, _sampleRate),
             sanityFallback,
             freshL0Hit,
-            lastGoodHit);
+            lastGoodHit,
+            PublicHotReadHitRateAccounting.Create(
+                _mode,
+                _sampleRate,
+                observedHitSamples,
+                calibratedHits,
+                exactMisses));
     }
 
     private CounterStripe PickStripe()
@@ -182,13 +199,27 @@ public sealed class PublicHotReadCounters
         return _stripes[index];
     }
 
-    private bool ShouldRecordHit()
-        => _mode switch
+    private bool ObserveHit(HitFamily family)
+    {
+        if (_mode == PublicHotReadCounterMode.Off)
         {
-            PublicHotReadCounterMode.Off => false,
-            PublicHotReadCounterMode.Sampled => (Environment.TickCount & int.MaxValue) % _sampleRate == 0,
-            _ => true
+            return false;
+        }
+
+        if (_mode != PublicHotReadCounterMode.Sampled)
+        {
+            return true;
+        }
+
+        long attempt = family switch
+        {
+            HitFamily.Article => Interlocked.Increment(ref _articleHitAttempts),
+            HitFamily.List => Interlocked.Increment(ref _listHitAttempts),
+            HitFamily.Html => Interlocked.Increment(ref _htmlHitAttempts),
+            _ => Interlocked.Increment(ref _variantAttempts)
         };
+        return attempt % _sampleRate == 0;
+    }
 
     private static CounterStripe[] BuildStripes()
     {
@@ -200,6 +231,14 @@ public sealed class PublicHotReadCounters
         }
 
         return stripes;
+    }
+
+    private enum HitFamily : byte
+    {
+        Article = 0,
+        List = 1,
+        Html = 2,
+        Variant = 3
     }
 
     [StructLayout(LayoutKind.Explicit, Size = 128)]

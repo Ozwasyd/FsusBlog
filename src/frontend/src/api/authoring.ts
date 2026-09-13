@@ -646,6 +646,19 @@ export interface HotStatsInvalidationSnapshot {
     lastFlushReason: string | null;
 }
 
+export interface PublicHotReadHitRateReceipt {
+    counterMode: string;
+    sampleRate: number;
+    hitAccounting: string;
+    missAccounting: string;
+    observedHitSamples: number;
+    calibratedHits: number;
+    exactMisses: number;
+    capacityHitRate: number | null;
+    formulaId: string;
+    withheldReason: string | null;
+}
+
 export interface PublicHotReadCounterSnapshot {
     articleHit: number;
     articleMiss: number;
@@ -655,6 +668,7 @@ export interface PublicHotReadCounterSnapshot {
     htmlMiss: number;
     rejected: number;
     bytes: number;
+    hitRate?: PublicHotReadHitRateReceipt;
 }
 
 export interface ArticleCacheDiagnosisResponse {
