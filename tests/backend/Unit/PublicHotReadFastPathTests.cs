@@ -1710,28 +1710,60 @@ public sealed class PublicHotReadFastPathTests
     }
 
     [Fact]
-    public async Task EarlyRateLimiter_ConsumesPublicReadPolicyBeforeWriter()
+    public async Task EarlyRateLimiter_ChargesPublicReadOnlyAfterL0Miss()
     {
-        ServiceProvider services = CreateFastPathServices(CreateReadyEmptyStore(), includeRateLimiter: true);
-        var app = new ApplicationBuilder(services);
-        app.UseFsusPublicHotReadClassifier();
-        app.UseFsusPublicHotReadRateLimiter();
-        bool terminalCalled = false;
-        app.Run(context =>
+        byte[] frame = CreateFrame(AedsFrameType.ArticleDetail);
+        ServiceProvider hitServices = CreateFastPathServices(CreateReadyStoreWithArticle(42, frame), includeRateLimiter: true);
+        var hitApp = new ApplicationBuilder(hitServices);
+        int hitLeaseCount = 0;
+        bool hitTerminalCalled = false;
+        hitApp.UseFsusPublicHotReadClassifier();
+        hitApp.UseFsusPublicHotReadFastPath();
+        hitApp.Use(async (context, next) =>
         {
-            terminalCalled = true;
+            hitLeaseCount++;
+            await next(context);
+        });
+        hitApp.UseFsusPublicHotReadRateLimiter();
+        hitApp.Run(_ =>
+        {
+            hitTerminalCalled = true;
+            return Task.CompletedTask;
+        });
+        DefaultHttpContext hitContext = CreateContext("/api/binary/article/42.aeds");
+        hitContext.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("203.0.113.7");
+        hitContext.RequestServices = hitServices;
+
+        await hitApp.Build()(hitContext);
+
+        Assert.Equal(StatusCodes.Status200OK, hitContext.Response.StatusCode);
+        Assert.Equal(0, hitLeaseCount);
+        Assert.False(hitTerminalCalled);
+        PublicHotReadEarlyPipelineState hitState = Assert.IsType<PublicHotReadEarlyPipelineState>(
+            hitContext.Features.Get<PublicHotReadEarlyPipelineState>());
+        Assert.False(hitState.RateLimitEvaluated);
+
+        ServiceProvider missServices = CreateFastPathServices(CreateReadyEmptyStore(), includeRateLimiter: true);
+        var missApp = new ApplicationBuilder(missServices);
+        bool missTerminalCalled = false;
+        missApp.UseFsusPublicHotReadClassifier();
+        missApp.UseFsusPublicHotReadFastPath();
+        missApp.UseFsusPublicHotReadRateLimiter();
+        missApp.Run(context =>
+        {
+            missTerminalCalled = true;
             PublicHotReadEarlyPipelineState state = Assert.IsType<PublicHotReadEarlyPipelineState>(
                 context.Features.Get<PublicHotReadEarlyPipelineState>());
             Assert.True(state.RateLimitEvaluated);
             return Task.CompletedTask;
         });
-        DefaultHttpContext context = CreateContext("/api/binary/article/42.aeds");
-        context.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("203.0.113.7");
-        context.RequestServices = services;
+        DefaultHttpContext missContext = CreateContext("/api/binary/article/42.aeds");
+        missContext.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("203.0.113.7");
+        missContext.RequestServices = missServices;
 
-        await app.Build()(context);
+        await missApp.Build()(missContext);
 
-        Assert.True(terminalCalled);
+        Assert.True(missTerminalCalled);
     }
 
     [Fact]

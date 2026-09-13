@@ -9,8 +9,20 @@
 | Pattern | Current controls | Constraint |
 | ------ | ---------- | ------ |
 | `global-before-branch` | release/security headers, deployment tracking, Shield/exception/binary boundary, trace correlation | Executes exactly once before the classifier; fast and canonical paths share it automatically. |
-| `early-replayed` | `public_read` limiter, lightweight request audit context | Must be registered on both early and endpoint paths; request execution state prevents a miss fallback from duplicating the lease/context. |
+| `early-replayed` | lightweight request audit context (before L0); `public_read` miss limiter (after L0, before fallback restore) | Must be registered on both early and endpoint paths; request execution state prevents a miss fallback from duplicating the lease/context. Allowlisted L0 hits complete before the `public_read` miss budget is charged. |
 | `endpoint-only/not-applicable` | CORS, antiforgery/CSRF, anonymous gateway header guard, authentication, banned-user, authorization | Must bind executable constraints: exact allowlist, anonymous/no credentials, no gateway-rejected `X-Fsus-*` header, no `Origin`, and `GET`/`HEAD` only; prose exemptions are insufficient. |
+
+## `public_read` limiter vs PublicHotRead L0
+
+Cheap in-process L0 must not share the costly miss/DB bucket. The allow path is `classify → request-audit → security gate → revocation → L0 attempt → public_read miss limiter → fallback restore → endpoint pipeline`.
+
+| Traffic | Limiter | Budget |
+| ------ | ------ | ------ |
+| Allowlisted L0 hit | None of `public_read`. Classifier + security gate still run. The writer completes and does not call `next`, so the miss limiter is not reached. | Separate from miss: L0 is not charged against `public_read`. |
+| Allowlisted L0 miss / sanity fallback that calls `next` | Early `public_read` on the synthetic endpoint, still attached before fallback restore. Endpoint `public_read` is skipped via `RateLimitEvaluated`. | Existing `public_read` partitions (anonymous / verified crawler / social preview). |
+| Non-allowlisted GET or any mutation | Never classified into L0. Endpoint policies (`public_read`, `fixed_ip`, and others) remain in force. Early L0 limiter cannot mark `RateLimitEvaluated` for these requests. | Unchanged endpoint abuse controls. |
+
+Startup validation and `tools/check-public-hot-read-cross-cutting-controls.mjs` require the `public_read` early stage to sit after `public-hot-read-fast-path` and before `public-hot-read-fallback-restore`. Do not move it back in front of L0: that re-starves allowlisted hits when miss traffic fills the same window.
 
 Request audit context adds only trace/path/method and already-present actor fields to logging context; it performs no persistent audit write, database/Redis query, or actor lookup. High-value audit remains triggered only by the original endpoint/service semantics.
 
