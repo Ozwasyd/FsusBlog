@@ -273,7 +273,8 @@ public static partial class PublicHotReadFastPath
             return next(ctx);
         }
 
-        bool lastGood = string.Equals(snapshotState, "last-good", StringComparison.Ordinal);
+        bool lastGood = string.Equals(snapshotState, "last-good", StringComparison.Ordinal)
+            || string.Equals(snapshotState, "sticky", StringComparison.Ordinal);
         if (classified)
         {
             return route.Kind switch
