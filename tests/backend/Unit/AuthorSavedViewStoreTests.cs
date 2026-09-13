@@ -288,6 +288,76 @@ public sealed class AuthorSavedViewStoreTests
     }
 
     [Fact]
+    public async Task Authority_MovesSingleAndBatchWithOneBoundedMutationAndCas()
+    {
+        var persistence = new LocalProductionBoundaryPersistence();
+        var store = Store(persistence);
+        Guid[] viewIds = Enumerable.Range(1, 6)
+            .Select(index => Guid.Parse($"00000000-0000-0000-0000-{index:D12}"))
+            .ToArray();
+        long collectionRevision = 0;
+        foreach ((Guid viewId, int index) in viewIds.Select((id, index) => (id, index)))
+        {
+            await store.CreateAsync(new(
+                viewId,
+                s_owner,
+                collectionRevision++,
+                Guid.CreateVersion7(),
+                $"Move {index + 1}",
+                Query(25)));
+            await store.SetPinnedAsync(new(
+                viewId,
+                s_owner,
+                collectionRevision++,
+                1,
+                Guid.CreateVersion7(),
+                true));
+        }
+
+        AuthorSavedViewWriteReceipt single = await store.MovePinnedAsync(new(
+            s_owner,
+            collectionRevision++,
+            Guid.CreateVersion7(),
+            [viewIds[5]],
+            viewIds[0],
+            new Dictionary<Guid, long> { [viewIds[5]] = 2 }));
+
+        Assert.Equal(6, single.ChangeCount);
+        Assert.Equal(6, persistence.LastMutation!.Upserts.Count);
+        Assert.Equal(
+            [viewIds[5], viewIds[0], viewIds[1], viewIds[2], viewIds[3], viewIds[4]],
+            (await store.ListAsync(s_owner, null, 10)).Items.Select(static view => view.Id));
+
+        AuthorSavedViewWriteReceipt batch = await store.MovePinnedAsync(new(
+            s_owner,
+            collectionRevision++,
+            Guid.CreateVersion7(),
+            [viewIds[1], viewIds[2]],
+            viewIds[5],
+            new Dictionary<Guid, long>
+            {
+                [viewIds[1]] = 3,
+                [viewIds[2]] = 3
+            }));
+
+        Assert.Equal(4, batch.ChangeCount);
+        Assert.Equal(4, persistence.LastMutation!.Upserts.Count);
+        Assert.Equal(
+            [viewIds[1], viewIds[2], viewIds[5], viewIds[0], viewIds[3], viewIds[4]],
+            (await store.ListAsync(s_owner, null, 10)).Items.Select(static view => view.Id));
+        Assert.True((await store.VerifyAsync(s_owner)).Valid);
+
+        await Assert.ThrowsAsync<AuthorSavedViewCollectionRevisionConflictException>(() =>
+            store.MovePinnedAsync(new(
+                s_owner,
+                collectionRevision - 1,
+                Guid.CreateVersion7(),
+                [viewIds[0]],
+                null,
+                new Dictionary<Guid, long> { [viewIds[0]] = 4 })));
+    }
+
+    [Fact]
     public async Task Verifier_DetectsContentAndCollectionTamper()
     {
         var persistence = new LocalProductionBoundaryPersistence();
@@ -678,7 +748,60 @@ public sealed class AuthorSavedViewStoreTests
             get; private set;
         }
 
-        public async Task<T> ReadAsync<T>(
+        public Task<AuthorSavedView?> ReadViewAsync(
+            AuthorSavedViewOwner owner,
+            Guid viewId,
+            CancellationToken cancellationToken = default)
+            => ReadStateAsync(
+                owner,
+                snapshot => snapshot.Views.FirstOrDefault(view => view.Id == viewId),
+                cancellationToken);
+
+        public Task<AuthorSavedViewPage> ReadPageAsync(
+            AuthorSavedViewOwner owner,
+            AuthorSavedViewPageCursor? cursor,
+            int limit,
+            CancellationToken cancellationToken = default)
+            => ReadStateAsync(
+                owner,
+                snapshot =>
+                {
+                    IEnumerable<AuthorSavedView> ordered = snapshot.Views
+                        .Where(static view => view.LifecycleState == AuthorSavedViewLifecycleState.Active)
+                        .OrderByDescending(static view => view.Pinned)
+                        .ThenBy(static view => view.OrderKey)
+                        .ThenBy(static view => view.Id);
+                    if (cursor is not null)
+                    {
+                        ordered = ordered.Where(view => ComparePagePosition(view, cursor) > 0);
+                    }
+                    AuthorSavedView[] page = [.. ordered.Take(limit + 1)];
+                    AuthorSavedView[] items = [.. page.Take(limit)];
+                    AuthorSavedViewPageCursor? next = page.Length > limit
+                        ? new(items[^1].Pinned, items[^1].OrderKey, items[^1].Id)
+                        : null;
+                    return new AuthorSavedViewPage(
+                        items,
+                        next,
+                        snapshot.Collection.Revision,
+                        snapshot.Collection.DefaultViewId);
+                },
+                cancellationToken);
+
+        private static int ComparePagePosition(
+            AuthorSavedView view,
+            AuthorSavedViewPageCursor cursor)
+        {
+            int pinned = (view.Pinned ? 0 : 1).CompareTo(cursor.Pinned ? 0 : 1);
+            if (pinned != 0)
+            {
+                return pinned;
+            }
+            int order = view.OrderKey.CompareTo(cursor.OrderKey);
+            return order != 0 ? order : view.Id.CompareTo(cursor.ViewId);
+        }
+
+        private async Task<T> ReadStateAsync<T>(
             AuthorSavedViewOwner owner,
             Func<AuthorSavedViewPersistenceSnapshot, T> read,
             CancellationToken cancellationToken = default)

@@ -12,7 +12,10 @@ const root = path.resolve(import.meta.dirname, '../..');
 const owned = [
     'src/backend/Services/Authoring/AuthorSavedViewStore.cs',
     'src/backend/Services/Authoring/PostgresAuthorSavedViewPersistence.cs',
+    'src/backend/Services/Authoring/PostgresAuthorSavedViewDependencyProvider.cs',
+    'src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs',
     'tests/backend/Unit/AuthorSavedViewStoreTests.cs',
+    'tests/backend/Integration/AuthorSavedViewPostgresIntegrationTests.cs',
     'src/migration/Definitions/AuthorSavedViewMigrationDefinitions.cs',
     'src/migration/Catalogs/SchemaMigrationCatalog20260904SavedViews.cs'
 ];
@@ -53,9 +56,23 @@ test('governance rejects persistence without the owner-site transaction lock', (
         .some(error => error.includes('pg_advisory_xact_lock')));
 });
 
+test('governance requires database paging, batched audit writes, and production dependency wiring', () => {
+    const target = fixture();
+    mutate(target, owned[1], source => source
+        .replace('LIMIT @ReadLimit', 'LIMIT 1000')
+        .replace('saved_view_history_write_count_mismatch', 'removed_history_batch_guard'));
+    mutate(target, owned[3], source => source.replace(
+        'AddScoped<IAuthorSavedViewDependencyProvider, PostgresAuthorSavedViewDependencyProvider>()',
+        'AddScoped<IAuthorSavedViewDependencyCatalog, AuthorSavedViewDependencyCatalog>()'));
+    const errors = validateAuthorSavedViewStorageContract(target);
+    assert.ok(errors.some(error => error.includes('LIMIT @ReadLimit')));
+    assert.ok(errors.some(error => error.includes('saved_view_history_write_count_mismatch')));
+    assert.ok(errors.some(error => error.includes('dependency registration')));
+});
+
 test('governance rejects JSON, result snapshots, and missing relational history', () => {
     const target = fixture();
-    mutate(target, owned[3], source => source
+    mutate(target, owned[6], source => source
         .replace('CREATE TABLE IF NOT EXISTS author_saved_view_receipt_change', 'CREATE TABLE IF NOT EXISTS removed_receipt_change')
         .concat('\n-- jsonb permission_snapshot article_ids\n'));
     const errors = validateAuthorSavedViewStorageContract(target);
@@ -68,7 +85,7 @@ test('governance rejects removal of CAS, bounds, and verifier coverage', () => {
     mutate(target, owned[0], source => source
         .replaceAll('ExpectedCollectionRevision', 'RemovedCollectionRevision')
         .replace('MaxViewsPerOwner = 1_000', 'MaxViewsPerOwner = 10_000'));
-    mutate(target, owned[2], source => source
+    mutate(target, owned[4], source => source
         .replace('Verifier_DetectsMissingReceiptAndBrokenCollectionRevisionChain', 'RemovedVerifierCoverage'));
     const errors = validateAuthorSavedViewStorageContract(target);
     assert.ok(errors.some(error => error.includes('ExpectedCollectionRevision')));
