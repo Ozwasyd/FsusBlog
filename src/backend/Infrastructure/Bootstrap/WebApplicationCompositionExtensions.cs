@@ -33,10 +33,10 @@ public static class WebApplicationCompositionExtensions
         new("observability-correlation", PublicHotReadPipelineStageClassification.CrossCuttingControl, "observability-correlation", static app => app.UseMiddleware<ObservabilityCorrelationMiddleware>()),
         new("public-hot-read-classifier", PublicHotReadPipelineStageClassification.BranchMechanic, null, static app => app.UseFsusPublicHotReadClassifier()),
         new("public-hot-read-request-audit-context", PublicHotReadPipelineStageClassification.CrossCuttingControl, "request-audit-context", static app => app.UseFsusPublicHotReadRequestAuditContext()),
-        new("public-hot-read-rate-limiter", PublicHotReadPipelineStageClassification.CrossCuttingControl, "public-read-rate-limit", static app => app.UseFsusPublicHotReadRateLimiter()),
         new("public-read-security-gate", PublicHotReadPipelineStageClassification.BranchMechanic, null, static app => app.UseFsusPublicHotReadSecurityGate()),
         new("public-artifact-revocation", PublicHotReadPipelineStageClassification.BranchMechanic, null, static app => app.UseFsusPublicArtifactRevocation()),
         new("public-hot-read-fast-path", PublicHotReadPipelineStageClassification.BranchMechanic, null, static app => app.UseFsusPublicHotReadFastPath()),
+        new("public-hot-read-rate-limiter", PublicHotReadPipelineStageClassification.CrossCuttingControl, "public-read-rate-limit", static app => app.UseFsusPublicHotReadRateLimiter()),
         new("public-hot-read-fallback-restore", PublicHotReadPipelineStageClassification.BranchMechanic, null, static app => app.UseFsusPublicHotReadFallbackRestore()),
         new("endpoint-pipeline", PublicHotReadPipelineStageClassification.BranchMechanic, null, static app => ConfigureEndpointPipeline(app)),
         new("static-assets", PublicHotReadPipelineStageClassification.Infrastructure, null, static app => app.UseFsusStaticAssets())
