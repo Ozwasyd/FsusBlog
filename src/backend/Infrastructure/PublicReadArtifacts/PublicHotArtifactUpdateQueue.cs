@@ -14,7 +14,8 @@ public enum PublicHotArtifactDirtyReason
     Unknown = 0,
     Content = 1,
     ViewProjection = 2,
-    ScheduledPublish = 4
+    ScheduledPublish = 4,
+    SoftRefresh = 8
 }
 
 public enum PublicHotArtifactDeliveryClass
@@ -457,6 +458,12 @@ public sealed class PublicHotArtifactUpdateQueue
             return PublicHotArtifactDirtyReason.ScheduledPublish | PublicHotArtifactDirtyReason.Content;
         }
 
+        if (reason.Contains("last-good", StringComparison.OrdinalIgnoreCase)
+            || reason.Contains("sanity-age-refresh", StringComparison.OrdinalIgnoreCase))
+        {
+            return PublicHotArtifactDirtyReason.SoftRefresh;
+        }
+
         return PublicHotArtifactDirtyReason.Content;
     }
 }
@@ -593,7 +600,7 @@ public sealed class PublicHotArtifactUpdateWorker(
                 queue.RecordProjectorFinished();
             }
 
-            store.Publish(snapshot);
+            PublishSnapshot(store, snapshot, dirtyReason, reason);
             if ((dirtyReason & PublicHotArtifactDirtyReason.Content) != 0)
             {
                 await revocations
@@ -688,7 +695,7 @@ public sealed class PublicHotArtifactUpdateWorker(
             }
             await obligations.RecordStageSuccessAsync(obligation.ObligationId, obligation.AttemptNumber, PublicHotArtifactAttemptStage.Projector, DateTimeOffset.UtcNow, stoppingToken).ConfigureAwait(false);
             stage = PublicHotArtifactAttemptStage.Publish;
-            store.Publish(snapshot);
+            PublishSnapshot(store, snapshot, obligation.DirtyReasons, string.Empty);
             await obligations.RecordStageSuccessAsync(obligation.ObligationId, obligation.AttemptNumber, PublicHotArtifactAttemptStage.Publish, DateTimeOffset.UtcNow, stoppingToken).ConfigureAwait(false);
             stage = PublicHotArtifactAttemptStage.RevocationCompletion;
             if ((obligation.DirtyReasons & PublicHotArtifactDirtyReason.Content) != 0)
@@ -770,6 +777,22 @@ public sealed class PublicHotArtifactUpdateWorker(
 
         lease.Dispose();
         queue.RecordBackgroundClaimFinished();
+    }
+
+    private static void PublishSnapshot(
+        PublicHotReadStore store,
+        PublicHotReadSnapshot snapshot,
+        PublicHotArtifactDirtyReason dirtyReason,
+        string reason)
+    {
+        if (PublicHotReadVersionStickiness.Classify(dirtyReason, reason, store.Current.Version)
+            == PublicHotReadPublishCause.SoftRefresh)
+        {
+            store.PublishSoftRefresh(snapshot);
+            return;
+        }
+
+        store.Publish(snapshot);
     }
 
     private static bool RequiresInitialSnapshot(PublicHotReadSnapshot snapshot)

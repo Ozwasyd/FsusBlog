@@ -214,6 +214,14 @@ public sealed class PublicHotReadOptions
         get; set;
     }
     public TimeSpan MaxSnapshotAge { get; set; } = TimeSpan.FromMinutes(5);
+    /// <summary>
+    /// Short generation pin for public hot-read responses across L0/L1/L2/endpoint.
+    /// Adjacent generations do not flap inside this window without a content
+    /// publish or hard invalidation. Zero disables the pin. The window is
+    /// clamped to <see cref="MaxSnapshotAge"/> so it cannot become a permanent
+    /// stale pin.
+    /// </summary>
+    public TimeSpan VersionStickinessWindow { get; set; } = PublicHotReadVersionStickiness.DefaultWindow;
     public long MaxArticleResidentBytes
     {
         get; set;
@@ -805,6 +813,12 @@ public class PublicHotReadStore
     // not a request-serving last-good store; last-good is _lastGood (strong).
     private readonly List<RetiringSnapshotReference> _retiringSnapshots = [];
     private PublicHotReadSnapshot _lastGood = PublicHotReadSnapshot.Empty;
+    // Strong pin of the generation last served. Distinct from last-good: last-good
+    // is the latest Ready snapshot, while stickiness may keep the previous adjacent
+    // generation requestable for a short window after a soft refresh.
+    private PublicHotReadSnapshot _sticky = PublicHotReadSnapshot.Empty;
+    private long _stickyUntilUtcTicks;
+    private readonly TimeSpan _stickyWindow;
     private int _retainLastGoodUntilPublish;
     private int _coalescedRefreshRequested;
     private string _coalescedRefreshReason = string.Empty;
@@ -840,6 +854,9 @@ public class PublicHotReadStore
                 $"Snapshot age must be at least {s_minimumSnapshotAge}.");
         }
         _maxSnapshotAge = value.MaxSnapshotAge;
+        _stickyWindow = PublicHotReadVersionStickiness.ResolveWindow(
+            value.VersionStickinessWindow,
+            _maxSnapshotAge);
         _compressionPolicy = CompressionPolicy(value);
         _runtime = new PublicHotReadRuntimeSnapshot(
             nameof(PublicHotReadState.NotStarted),
@@ -887,6 +904,12 @@ public class PublicHotReadStore
     }
 
     public virtual void Publish(PublicHotReadSnapshot next)
+        => PublishCore(next, PublicHotReadPublishCause.Content);
+
+    internal void PublishSoftRefresh(PublicHotReadSnapshot next)
+        => PublishCore(next, PublicHotReadPublishCause.SoftRefresh);
+
+    private void PublishCore(PublicHotReadSnapshot next, PublicHotReadPublishCause cause)
     {
         ArgumentNullException.ThrowIfNull(next);
         long overlapBytes;
@@ -985,6 +1008,7 @@ public class PublicHotReadStore
             Volatile.Write(ref _retainLastGoodUntilPublish, 0);
             Volatile.Write(ref _coalescedRefreshRequested, 0);
             Volatile.Write(ref _lastInvalidationReason, string.Empty);
+            UpdateStickyPinLocked(next, now, cause);
             _lastSnapshotOverlapBytes = overlapBytes;
             _lastBudgetViolations = Array.Empty<string>();
             if (current.Version != 0)
@@ -1054,6 +1078,14 @@ public class PublicHotReadStore
 
     internal PublicHotReadSnapshot LastGoodSnapshotForTests
         => Volatile.Read(ref _lastGood);
+
+    internal PublicHotReadSnapshot StickySnapshotForTests
+        => Volatile.Read(ref _sticky);
+
+    internal DateTimeOffset StickyUntilForTests
+        => new(Volatile.Read(ref _stickyUntilUtcTicks), TimeSpan.Zero);
+
+    internal TimeSpan VersionStickinessWindowForTests => _stickyWindow;
 
     internal bool CoalescedRefreshPendingForTests
         => Volatile.Read(ref _coalescedRefreshRequested) == 1;
@@ -1196,6 +1228,7 @@ public class PublicHotReadStore
                     Volatile.Write(ref _current, retained);
                     Volatile.Write(ref _ready, 1);
                     Volatile.Write(ref _retainLastGoodUntilPublish, 1);
+                    KeepStickyPinLocked(retained, _timeProvider.GetUtcNow());
                     TryRequestCoalescedRefreshLocked("last-good:" + reason);
                     SetLifecycleStageLocked("distributed-invalidated-retain-last-good");
                     _runtime = CreateRuntimeSnapshotLocked(
@@ -1215,6 +1248,7 @@ public class PublicHotReadStore
             Volatile.Write(ref _ready, 0);
             Volatile.Write(ref _retainLastGoodUntilPublish, 0);
             Volatile.Write(ref _coalescedRefreshRequested, 0);
+            ClearStickyPinLocked();
             _retiringSnapshots.Clear();
             _lastSnapshotOverlapBytes = 0;
             _lastBudgetViolations = Array.Empty<string>();
@@ -1249,11 +1283,25 @@ public class PublicHotReadStore
             bool ageStale = !cutoff.HasValue || now - cutoff.Value > _maxSnapshotAge;
             if (!ageStale && !retainLastGood)
             {
+                if (TrySelectStickySnapshot(snapshot, now, out PublicHotReadSnapshot pinned))
+                {
+                    snapshot = pinned;
+                    reason = "sticky";
+                    return true;
+                }
+
                 reason = "ok";
                 return true;
             }
 
             PublicHotReadSnapshot candidate = lastGood.Version > 0 ? lastGood : snapshot;
+            if (TrySelectStickySnapshot(candidate, now, out PublicHotReadSnapshot stickyLastGood))
+            {
+                snapshot = stickyLastGood;
+                reason = "sticky";
+                return true;
+            }
+
             if (candidate.Version > 0)
             {
                 snapshot = candidate;
@@ -1323,6 +1371,84 @@ public class PublicHotReadStore
             Volatile.Write(ref _coalescedRefreshRequested, 1);
             Volatile.Write(ref _coalescedRefreshReason, reason);
         }
+    }
+
+    private void UpdateStickyPinLocked(
+        PublicHotReadSnapshot next,
+        DateTimeOffset now,
+        PublicHotReadPublishCause cause)
+    {
+        if (_stickyWindow <= TimeSpan.Zero || next.Version <= 0)
+        {
+            ClearStickyPinLocked();
+            return;
+        }
+
+        PublicHotReadSnapshot existing = Volatile.Read(ref _sticky);
+        long untilTicks = Volatile.Read(ref _stickyUntilUtcTicks);
+        bool pinActive = existing.Version > 0 && untilTicks > 0 && now.UtcTicks < untilTicks;
+        if (cause == PublicHotReadPublishCause.SoftRefresh
+            && pinActive
+            && PublicHotReadVersionStickiness.IsAdjacent(existing.Version, next.Version))
+        {
+            return;
+        }
+
+        Volatile.Write(ref _sticky, next);
+        Volatile.Write(ref _stickyUntilUtcTicks, now.Add(_stickyWindow).UtcTicks);
+    }
+
+    private void KeepStickyPinLocked(PublicHotReadSnapshot retained, DateTimeOffset now)
+    {
+        PublicHotReadSnapshot existing = Volatile.Read(ref _sticky);
+        long untilTicks = Volatile.Read(ref _stickyUntilUtcTicks);
+        if (existing.Version > 0 && untilTicks > 0 && now.UtcTicks < untilTicks)
+        {
+            return;
+        }
+
+        if (retained.Version <= 0 || _stickyWindow <= TimeSpan.Zero)
+        {
+            ClearStickyPinLocked();
+            return;
+        }
+
+        Volatile.Write(ref _sticky, retained);
+        Volatile.Write(ref _stickyUntilUtcTicks, now.Add(_stickyWindow).UtcTicks);
+    }
+
+    private void ClearStickyPinLocked()
+    {
+        Volatile.Write(ref _sticky, PublicHotReadSnapshot.Empty);
+        Volatile.Write(ref _stickyUntilUtcTicks, 0);
+    }
+
+    private bool TrySelectStickySnapshot(
+        PublicHotReadSnapshot current,
+        DateTimeOffset now,
+        out PublicHotReadSnapshot pinned)
+    {
+        pinned = Volatile.Read(ref _sticky);
+        long untilTicks = Volatile.Read(ref _stickyUntilUtcTicks);
+        if (pinned.Version <= 0 || untilTicks <= 0 || now.UtcTicks >= untilTicks)
+        {
+            pinned = PublicHotReadSnapshot.Empty;
+            return false;
+        }
+
+        if (pinned.Version == current.Version)
+        {
+            pinned = PublicHotReadSnapshot.Empty;
+            return false;
+        }
+
+        if (!PublicHotReadVersionStickiness.IsAdjacent(pinned.Version, current.Version))
+        {
+            pinned = PublicHotReadSnapshot.Empty;
+            return false;
+        }
+
+        return true;
     }
 
     internal TimeSpan SnapshotRefreshInterval
