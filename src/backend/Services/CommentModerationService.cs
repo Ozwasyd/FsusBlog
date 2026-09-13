@@ -320,7 +320,29 @@ public sealed class CommentModerationService(
                 new SugarParameter("@Reason", reason),
                 new SugarParameter("@ModeratedAt", moderatedAt),
                 new SugarParameter("@RowVersion", target.RowVersion));
-            if (affected <= 0 || mutationOutbox is null)
+            if (affected <= 0)
+            {
+                return;
+            }
+
+            await db.Insertable(new CommentModerationEvent
+            {
+                CommentId = comment.Id,
+                EventType = nextStatus switch
+                {
+                    CommentModerationStatus.Approved => CommentModerationEventTypes.Approve,
+                    CommentModerationStatus.Rejected => CommentModerationEventTypes.Reject,
+                    CommentModerationStatus.Hidden => CommentModerationEventTypes.Hide,
+                    _ => CommentModerationEventTypes.Pending
+                },
+                PreviousStatus = target.ModerationStatus,
+                NextStatus = nextStatus,
+                ActorType = "system",
+                ReasonCode = reason,
+                TransitionSource = "model",
+                OccurredAtUtc = moderatedAt
+            }).ExecuteCommandAsync(cancellationToken);
+            if (mutationOutbox is null)
             {
                 return;
             }

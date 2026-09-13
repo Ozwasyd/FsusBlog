@@ -2014,6 +2014,9 @@ tiers:
               Directory.Packages.props,
               FsusBlog.slnx,
               global.json,
+              config/build/backend-docker-inputs.json,
+              config/build/backend-restore.xml,
+              ops/docker/FsusBlog.Server.Dockerfile,
               src/backend/**,
               src/core/**,
               src/shared/**,
@@ -2027,6 +2030,9 @@ tiers:
               tools/ci/**,
               tools/contracts/**,
               tools/frontend/**,
+              tools/docker/backend-input-closure.mjs,
+              tools/docker/backend-input-environment.mjs,
+              tools/build-final-image.sh,
               tools/check-wasm-artifact-ownership.mjs,
               tools/build-wasm-artifact.sh,
               tools/test/run-with-dotnet-release-build-lock.sh,
@@ -3192,6 +3198,7 @@ tiers:
       cadence: pr
       requiredFor: fast
       coverage:
+          - backend-docker-input-closure
           - gate-integrity
           - matrix-integrity
           - evidence-schema
@@ -3434,6 +3441,12 @@ tiers:
           - tests/tools/dotnet-release-metadata.test.mjs
           - tests/tools/runtime-publish-profile.test.mjs
           - tests/tools/final-image-toolchain-pin.test.mjs
+          - tests/tools/backend-docker-input-closure.test.mjs
+          - .github/workflows/production-image-verification.yml
+          - tools/docker/backend-input-closure.mjs
+          - tools/docker/backend-input-environment.mjs
+          - config/build/backend-docker-inputs.json
+          - config/build/backend-restore.xml
           - tools/runtime-profiles/runtime-publish-profiles.json
           - tools/runtime-profiles/runtime-publish-profile.mjs
           - tools/runtime-profiles/runtime-publish-isolation.mjs

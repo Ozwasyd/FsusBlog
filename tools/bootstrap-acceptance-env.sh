@@ -512,6 +512,7 @@ FIXTURE_REQUIRES_PUBLIC=0
 FIXTURE_REQUIRES_DEMO=0
 FIXTURE_REQUIRES_LOCAL_AUTH=0
 FIXTURE_REQUIRES_ZK_ANONYMOUS=0
+FIXTURE_REQUIRES_ANTI_SPAM_MODEL=0
 FIXTURE_RECEIPT_FILE=""
 FIXTURE_RECEIPT_DIGEST=""
 FIXTURE_RECEIPT_TERMINAL_STATUS=""
@@ -2050,6 +2051,7 @@ ResolveFixtureProfilePlan() {
     FIXTURE_REQUIRES_DEMO="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.requiresDemoSeed?"1":"0")})')"
     FIXTURE_REQUIRES_LOCAL_AUTH="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.requiresLocalAuthBypass?"1":"0")})')"
     FIXTURE_REQUIRES_ZK_ANONYMOUS="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write((p.producers||[]).includes("comment-moderation")?"1":"0")})')"
+    FIXTURE_REQUIRES_ANTI_SPAM_MODEL="$FIXTURE_REQUIRES_ZK_ANONYMOUS"
 
     Log "planned fixture profile=${FIXTURE_PROFILE_ID} source=${FIXTURE_PROFILE_SOURCE} catalogDigest=${FIXTURE_CATALOG_DIGEST} mutationPolicy=${FIXTURE_MUTATION_POLICY}"
     Log "capabilities=${FIXTURE_CAPABILITY_IDS:-<none>} producers=${FIXTURE_PRODUCER_IDS:-<none>}"
@@ -2071,7 +2073,7 @@ InvokeFixtureOrchestrator() {
         --namespace "${FSUSBLOG_TEST_NAMESPACE:-}"
         --run-id "${FSUSBLOG_TEST_RUN_ID:-}"
         --source-commit "${FSUSBLOG_TEST_SOURCE_COMMIT:?fixture orchestrator source commit is required}"
-        --source-fingerprint "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:?fixture orchestrator source fingerprint is required}"
+        --source-fingerprint "sha256:${FSUSBLOG_TEST_SOURCE_FINGERPRINT#sha256:}"
         --service-generation "sha256:${FSUSBLOG_FIXTURE_SERVICE_GENERATION:?fixture service generation is required}"
         --base-url "$DEBUG_BACKEND_URL"
         --debug-backend-url "$DEBUG_BACKEND_URL"
@@ -2555,6 +2557,81 @@ RequireCurrentSchemaRuntimeReady() {
     Log "current schema runtime topology admission reverified: $expectedAdmissionFile"
 }
 
+EnsureAntiSpamModelRuntime() {
+    # Materialize the local-acceptance portable anti-spam runtime package so the
+    # comment-moderation producer can score the spam matrix role end to end.
+    local targetDir="$1"
+    rm -rf "$targetDir"
+    mkdir -p "$targetDir"
+    "${FSUSBLOG_NODE:-node}" - "$targetDir" <<'FSUSBLOG_ANTI_SPAM_MODEL'
+const fs = require("node:fs");
+const path = require("node:path");
+const crypto = require("node:crypto");
+const dir = process.argv[2];
+const writeJson = (name, value) =>
+    fs.writeFileSync(path.join(dir, name), JSON.stringify(value));
+writeJson("runtime_config.json", {
+    schema: "fsus.antispammodel.runtime-config.v1",
+    runtime_format: "fsus-antispam-portable-runtime-v1",
+    contract_version: "fsusblog-antispam-signal-v1",
+    model_profile: "fsus-antispammodel-local-acceptance",
+    locale: "zh-CN",
+});
+writeJson("model_state.json", {
+    schema: "fsus.antispammodel.model-state.v1",
+    bias: 0,
+});
+writeJson("weights.int8.json", {
+    schema: "fsus.antispammodel.weights-int8.v1",
+    tokens: [
+        { token: "spam", category: "spam_repeat", weight: 92, reason: "spam_repeat" },
+    ],
+});
+writeJson("threshold_policy.json", {
+    schema: "fsus.antispammodel.threshold-policy.v1",
+    profiles: {
+        default: { suspicious: 0.4, risky: 0.7, blocked_candidate: 0.95 },
+    },
+});
+fs.writeFileSync(
+    path.join(dir, "test_vectors.jsonl"),
+    JSON.stringify({
+        text: "fixture spam sample",
+        threshold_profile: "default",
+        expected_label: "risky",
+        expected_primary_reason: "spam_repeat",
+    }) + "\n",
+);
+const artifacts = {};
+for (const name of [
+    "runtime_config.json",
+    "model_state.json",
+    "weights.int8.json",
+    "threshold_policy.json",
+    "test_vectors.jsonl",
+]) {
+    artifacts[name] = crypto
+        .createHash("sha256")
+        .update(fs.readFileSync(path.join(dir, name)))
+        .digest("hex");
+}
+writeJson("manifest.json", {
+    schema: "fsus.antispammodel.portable-runtime.manifest.v1",
+    runtime_format: "fsus-antispam-portable-runtime-v1",
+    model_id: "fsus-antispammodel",
+    model_profile: "fsus-antispammodel-local-acceptance",
+    source: "mainline-release/local-acceptance",
+    channel: "stable",
+    artifacts,
+    provenance: { build_id: "local-acceptance", format_owner: "FsusAntiSpamModel" },
+});
+FSUSBLOG_ANTI_SPAM_MODEL
+    if [[ ! -f "$targetDir/manifest.json" ]]; then
+        Log "failed to materialize the local-acceptance anti-spam model runtime package"
+        return 1
+    fi
+}
+
 EnsureBackend() {
     local pidFile="$TMP_DIR/backend.pid"
     local logFile="$TMP_DIR/backend.log"
@@ -2637,6 +2714,11 @@ EnsureBackend() {
     if [[ "$FIXTURE_REQUIRES_ZK_ANONYMOUS" == "1" ]]; then
         zkAnonymousCommentsEnabled=true
     fi
+    local antiSpamModelRuntimePath=""
+    if [[ "$FIXTURE_REQUIRES_ANTI_SPAM_MODEL" == "1" ]]; then
+        antiSpamModelRuntimePath="$TEST_DATA_ROOT/anti-spam-model-runtime"
+        EnsureAntiSpamModelRuntime "$antiSpamModelRuntimePath" || return 1
+    fi
     FSUSBLOG_TEST_RUN_ID="${FSUSBLOG_TEST_RUN_ID:-direct-$NS_SLUG}" \
         FSUSBLOG_TEST_NAMESPACE="$NS_SLUG" \
         FSUSBLOG_RUNTIME_ROLE=backend \
@@ -2644,7 +2726,7 @@ EnsureBackend() {
         FSUSBLOG_RUNTIME_NO_BUILD=1 \
         FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME="${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" \
         FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID="${FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID:-}" \
-        nohup "${FSUSBLOG_PYTHON:-python3}" -c 'import os, sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' bash -lc "cd $(printf '%q' "$ROOT_DIR") && export FSUSBLOG_DATA_ROOT=$(printf '%q' "$TEST_DATA_ROOT") FSUSBLOG_RELEASE_DERIVED_ROOT=$(printf '%q' "${FSUSBLOG_RELEASE_DERIVED_ROOT:-}") FSUSBLOG_RELEASE_ID=$(printf '%q' "${FSUSBLOG_RELEASE_ID:-}") ConnectionStrings__DefaultConnection=$(printf '%q' "$POSTGRES_CONNECTION") ConnectionStrings__Redis=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__Configuration=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__InstanceName=$(printf '%q' "FsusBlog_${NS_SLUG}_") FSUSBLOG_NOTIFICATION_DRILL_SECRET=$(printf '%q' "$NOTIFICATION_DRILL_SECRET") NotificationStream__DrillSecret=$(printf '%q' "$NOTIFICATION_DRILL_SECRET") Jwt__KeyVersion=$(printf '%q' "$JWT_KEY_VERSION") Jwt__SecretKey=$(printf '%q' "$JWT_SECRET") Jwt__Issuer=$(printf '%q' "$JWT_ISSUER") Jwt__Audience=$(printf '%q' "$JWT_AUDIENCE") Jwt__AccessTokenExpiresMinutes=$(printf '%q' "$JWT_ACCESS_TOKEN_EXPIRES_MINUTES") Security__Pow__SigningKey=$(printf '%q' "$POW_SIGNING_KEY") Security__Pow__BaseDifficulty=$(printf '%q' "$POW_BASE_DIFFICULTY") Security__Pow__MaxDifficulty=$(printf '%q' "$POW_MAX_DIFFICULTY") Security__PerceptionSealedToken__CurrentKeyVersion=dev Security__PerceptionSealedToken__Keys__dev=$(printf '%q' "$PERCEPTION_SEALED_TOKEN_KEY") Security__RecoveryKeyPepper=$(printf '%q' "$RECOVERY_KEY_PEPPER") MfaChallenge__TicketSigningKey=$(printf '%q' "$MFA_TICKET_SIGNING_KEY") HumanReadProof__SigningKey=$(printf '%q' "$HUMAN_READ_PROOF_SIGNING_KEY") HumanReadProof__Dedup__CurrentKey=$(printf '%q' "$HUMAN_READ_PROOF_DEDUP_KEY") ReadAnalyticsPrivacy__NoiseKey=$(printf '%q' "$READ_ANALYTICS_NOISE_KEY") VisitLog__IpPseudonymization__CurrentEpoch=$(printf '%q' "$VISIT_LOG_IP_KEY_EPOCH") VisitLog__IpPseudonymization__CurrentKey=$(printf '%q' "$VISIT_LOG_IP_KEY") Moderation__Pepper=$(printf '%q' "$MODERATION_PEPPER") Moderation__RegionPolicy__IpHashKey=$(printf '%q' "$MODERATION_REGION_IP_HASH_KEY") Subscription__EmailHashPepper=$(printf '%q' "$SUBSCRIPTION_EMAIL_HASH_PEPPER") AnonymousCredentialIssuer__IssuerPublicKeyId=local-acceptance-issuer AnonymousCredentialIssuer__SubjectHashPepper=$(printf '%q' "$ANONYMOUS_SUBJECT_HASH_PEPPER") AnonymousCredentialRoot__AttestationKey=$(printf '%q' "$ANONYMOUS_ROOT_ATTESTATION_KEY") AnonymousCredentialRoot__AttestationKeyId=local-acceptance-root AnonymousIdentity__NullifierPepper=$(printf '%q' "$ANONYMOUS_NULLIFIER_PEPPER") AnonymousIdentity__ZkAnonymousCommentsEnabled=$(printf '%q' "$zkAnonymousCommentsEnabled") FSUSBLOG_ANONYMOUS_IDENTITY_MODE=$(printf '%q' "$ANONYMOUS_IDENTITY_MODE") Security__RiskControl__PublicReadChallenge__Enabled=$(printf '%q' "$RISK_PUBLIC_READ_CHALLENGE_ENABLED") RateLimiting__PublicReadPermitLimit=$(printf '%q' "$PUBLIC_READ_PERMIT_LIMIT") RateLimiting__PublicReadQueueLimit=$(printf '%q' "$PUBLIC_READ_QUEUE_LIMIT") NotificationStream__MaxConnectionsPerAccount=$(printf '%q' "$NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT") PublicAot__BackfillConcurrency=$(printf '%q' "$PUBLIC_AOT_BACKFILL_CONCURRENCY") PublicAot__SsrWorkerCount=$(printf '%q' "$PUBLIC_AOT_SSR_WORKER_COUNT") PublicAot__SsrWorkerScript=$(printf '%q' "$PUBLIC_AOT_SSR_WORKER_SCRIPT") ActiveReleaseFence__AllowSyntheticLocalFence=true RuntimeTuning__ThreadPool__Enabled=true RuntimeTuning__ThreadPool__MinThreadsPerCpu=$(printf '%q' "$RUNTIME_THREADPOOL_MIN_THREADS_PER_CPU") ASPNETCORE_URLS=http://127.0.0.1:${DEBUG_BACKEND_PORT} ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_CONTENTROOT=$(printf '%q' "$backendContentRoot") $backendWebRootExport CORS_ALLOWED_HOSTS=$(printf '%q' "$CORS_ALLOWED_HOSTS_VALUE") AuthCookies__AllowInsecureTransportCookies=true && exec ./tools/build-with-data-env.sh $backendLaunchCommand" >"$logFile" 2>&1 </dev/null &
+        nohup "${FSUSBLOG_PYTHON:-python3}" -c 'import os, sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' bash -lc "cd $(printf '%q' "$ROOT_DIR") && export FSUSBLOG_DATA_ROOT=$(printf '%q' "$TEST_DATA_ROOT") FSUSBLOG_RELEASE_DERIVED_ROOT=$(printf '%q' "${FSUSBLOG_RELEASE_DERIVED_ROOT:-}") FSUSBLOG_RELEASE_ID=$(printf '%q' "${FSUSBLOG_RELEASE_ID:-}") ConnectionStrings__DefaultConnection=$(printf '%q' "$POSTGRES_CONNECTION") ConnectionStrings__Redis=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__Configuration=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__InstanceName=$(printf '%q' "FsusBlog_${NS_SLUG}_") FSUSBLOG_NOTIFICATION_DRILL_SECRET=$(printf '%q' "$NOTIFICATION_DRILL_SECRET") NotificationStream__DrillSecret=$(printf '%q' "$NOTIFICATION_DRILL_SECRET") Jwt__KeyVersion=$(printf '%q' "$JWT_KEY_VERSION") Jwt__SecretKey=$(printf '%q' "$JWT_SECRET") Jwt__Issuer=$(printf '%q' "$JWT_ISSUER") Jwt__Audience=$(printf '%q' "$JWT_AUDIENCE") Jwt__AccessTokenExpiresMinutes=$(printf '%q' "$JWT_ACCESS_TOKEN_EXPIRES_MINUTES") Security__Pow__SigningKey=$(printf '%q' "$POW_SIGNING_KEY") Security__Pow__BaseDifficulty=$(printf '%q' "$POW_BASE_DIFFICULTY") Security__Pow__MaxDifficulty=$(printf '%q' "$POW_MAX_DIFFICULTY") Security__PerceptionSealedToken__CurrentKeyVersion=dev Security__PerceptionSealedToken__Keys__dev=$(printf '%q' "$PERCEPTION_SEALED_TOKEN_KEY") Security__RecoveryKeyPepper=$(printf '%q' "$RECOVERY_KEY_PEPPER") MfaChallenge__TicketSigningKey=$(printf '%q' "$MFA_TICKET_SIGNING_KEY") HumanReadProof__SigningKey=$(printf '%q' "$HUMAN_READ_PROOF_SIGNING_KEY") HumanReadProof__Dedup__CurrentKey=$(printf '%q' "$HUMAN_READ_PROOF_DEDUP_KEY") ReadAnalyticsPrivacy__NoiseKey=$(printf '%q' "$READ_ANALYTICS_NOISE_KEY") VisitLog__IpPseudonymization__CurrentEpoch=$(printf '%q' "$VISIT_LOG_IP_KEY_EPOCH") VisitLog__IpPseudonymization__CurrentKey=$(printf '%q' "$VISIT_LOG_IP_KEY") Moderation__Pepper=$(printf '%q' "$MODERATION_PEPPER") Moderation__RegionPolicy__IpHashKey=$(printf '%q' "$MODERATION_REGION_IP_HASH_KEY") Moderation__AntiSpamModel__RuntimePath=$(printf '%q' "$antiSpamModelRuntimePath") Moderation__AntiSpamModel__RequireSignature=false Subscription__EmailHashPepper=$(printf '%q' "$SUBSCRIPTION_EMAIL_HASH_PEPPER") AnonymousCredentialIssuer__IssuerPublicKeyId=local-acceptance-issuer AnonymousCredentialIssuer__SubjectHashPepper=$(printf '%q' "$ANONYMOUS_SUBJECT_HASH_PEPPER") AnonymousCredentialRoot__AttestationKey=$(printf '%q' "$ANONYMOUS_ROOT_ATTESTATION_KEY") AnonymousCredentialRoot__AttestationKeyId=local-acceptance-root AnonymousIdentity__NullifierPepper=$(printf '%q' "$ANONYMOUS_NULLIFIER_PEPPER") AnonymousIdentity__ZkAnonymousCommentsEnabled=$(printf '%q' "$zkAnonymousCommentsEnabled") FSUSBLOG_ANONYMOUS_IDENTITY_MODE=$(printf '%q' "$ANONYMOUS_IDENTITY_MODE") Security__RiskControl__PublicReadChallenge__Enabled=$(printf '%q' "$RISK_PUBLIC_READ_CHALLENGE_ENABLED") RateLimiting__PublicReadPermitLimit=$(printf '%q' "$PUBLIC_READ_PERMIT_LIMIT") RateLimiting__PublicReadQueueLimit=$(printf '%q' "$PUBLIC_READ_QUEUE_LIMIT") NotificationStream__MaxConnectionsPerAccount=$(printf '%q' "$NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT") PublicAot__BackfillConcurrency=$(printf '%q' "$PUBLIC_AOT_BACKFILL_CONCURRENCY") PublicAot__SsrWorkerCount=$(printf '%q' "$PUBLIC_AOT_SSR_WORKER_COUNT") PublicAot__SsrWorkerScript=$(printf '%q' "$PUBLIC_AOT_SSR_WORKER_SCRIPT") ActiveReleaseFence__AllowSyntheticLocalFence=true RuntimeTuning__ThreadPool__Enabled=true RuntimeTuning__ThreadPool__MinThreadsPerCpu=$(printf '%q' "$RUNTIME_THREADPOOL_MIN_THREADS_PER_CPU") ASPNETCORE_URLS=http://127.0.0.1:${DEBUG_BACKEND_PORT} ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_CONTENTROOT=$(printf '%q' "$backendContentRoot") $backendWebRootExport CORS_ALLOWED_HOSTS=$(printf '%q' "$CORS_ALLOWED_HOSTS_VALUE") AuthCookies__AllowInsecureTransportCookies=true && exec ./tools/build-with-data-env.sh $backendLaunchCommand" >"$logFile" 2>&1 </dev/null &
     local startedPid=$!
     WriteRuntimePidFile "$pidFile" "$startedPid"
     if ! WriteRuntimeProcessIdentity "$pidFile" "$startedPid" backend "$readinessDeadline"; then

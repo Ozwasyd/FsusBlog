@@ -138,6 +138,7 @@ public sealed class MessagingFixtureSeeder(
     private const string Strategy = "transaction-fixture";
     private const int PaginationMessageCount = 52;
     private const int MaxOutboxDrainPasses = 16;
+    private static readonly TimeSpan s_outboxDrainPassDelay = TimeSpan.FromMilliseconds(200);
     private static readonly IReadOnlySet<string> s_noGroups = new HashSet<string>(StringComparer.Ordinal);
     private static readonly IReadOnlySet<string> s_adminGroups = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -747,6 +748,9 @@ public sealed class MessagingFixtureSeeder(
             {
                 throw new InvalidOperationException("Messaging outbox did not reach exact processed state.");
             }
+            // Rows may be in-flight under the hosted worker's claim lease; give the
+            // current claim owner a bounded window to commit before the next pass.
+            await Task.Delay(s_outboxDrainPassDelay, cancellationToken).ConfigureAwait(false);
             await outboxWorker.ProcessPendingAsync(cancellationToken).ConfigureAwait(false);
         }
         throw new InvalidOperationException("Messaging outbox did not converge within the bounded worker drain.");

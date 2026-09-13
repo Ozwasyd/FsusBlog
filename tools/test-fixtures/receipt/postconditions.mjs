@@ -40,7 +40,12 @@ function verifyArticlePublished(ctx) {
   const id = 'article-published'
   const db = ctx.observations?.database
   if (!db) return fail(id, 'database observation required')
-  const articles = entitiesOf(db, 'article').filter((item) => item.owned !== false)
+  const allArticles = entitiesOf(db, 'article').filter((item) => item.owned !== false)
+  // Scoped to the published-capability identities; draft/scheduled/archived
+  // lifecycle articles carry their own postconditions and must not drift this one.
+  const tagged = allArticles.filter((item) => item.capabilityHint === id
+    || item.postconditionId === id)
+  const articles = tagged.length ? tagged : allArticles
   const owned = requireOwnedIds(articles, id)
   if (!owned.ok) return fail(id, owned.reason)
 

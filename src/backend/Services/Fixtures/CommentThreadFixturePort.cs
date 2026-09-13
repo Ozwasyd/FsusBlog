@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
@@ -133,7 +134,8 @@ public sealed record CommentThreadFixtureObservationPlan(
     IReadOnlyDictionary<string, CommentThreadFixtureObservationIdentity> Roles);
 
 public sealed record CommentThreadFixtureOwnedIdentity(
-    long CommentId,
+    // long snowflake ids exceed JS Number precision; carry the id as a string on the wire
+    [property: JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)] long CommentId,
     int ArticleId,
     string SemanticRole,
     string ActorMode,

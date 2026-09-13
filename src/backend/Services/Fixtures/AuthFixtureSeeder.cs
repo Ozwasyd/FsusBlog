@@ -1296,9 +1296,14 @@ public sealed class AuthFixtureSeeder(
 
     private static ClaimsPrincipal ReadIssuedPrincipal(string accessToken)
     {
+        // ReadJwtToken never applies inbound claim mapping, but the production bearer
+        // validation maps the wire nameid claim to ClaimTypes.NameIdentifier. Mirror
+        // that shape here so GetUserId/GetSessionId observe the validated principal.
         JwtSecurityToken token = new JwtSecurityTokenHandler().ReadJwtToken(accessToken);
         return new ClaimsPrincipal(new ClaimsIdentity(
-            token.Claims,
+            token.Claims.Select(claim => claim.Type == "nameid"
+                ? new Claim(ClaimTypes.NameIdentifier, claim.Value)
+                : claim),
             authenticationType: "auth-fixture-issued-token-observation"));
     }
 

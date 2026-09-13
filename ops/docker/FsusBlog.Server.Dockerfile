@@ -213,14 +213,14 @@ ARG TARGET_RUNTIME=linux-musl-x64
 ARG PUBLISH_READY_TO_RUN=false
 WORKDIR /src
 
-COPY ["src/backend/FsusBlog.Server.csproj", "src/backend/"]
-COPY ["src/core/FsusBlog.Core.csproj", "src/core/"]
-COPY ["src/shared/FsusBlog.Shared.csproj", "src/shared/"]
-COPY ["tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj", "tools/architecture/FsusBlog.DiLifetimeAnalyzer/"]
+RUN for input in /.editorconfig /.globalconfig /Directory.Build.props /Directory.Build.targets /Directory.Packages.props /NuGet.Config /NuGet.config /nuget.config /global.json; do test ! -e "$input" && test ! -L "$input" || exit 1; done
 
-RUN dotnet restore "./src/backend/FsusBlog.Server.csproj" --runtime "$TARGET_RUNTIME" /p:PublishReadyToRun="$PUBLISH_READY_TO_RUN" /p:ReadyToRunUseCrossgen2="$PUBLISH_READY_TO_RUN"
+COPY --from=backend-inputs /restore/ /src/
 
-COPY . .
+RUN test "$(cat /src/.backend-input-profile)" = "$(printf '%s\n%s\n%s\n' "$BUILD_CONFIGURATION" "$TARGET_RUNTIME" "$PUBLISH_READY_TO_RUN")"
+RUN dotnet restore "./src/backend/FsusBlog.Server.csproj" --configfile /src/config/build/backend-restore.xml --runtime "$TARGET_RUNTIME" /p:Configuration="$BUILD_CONFIGURATION" /p:PublishReadyToRun="$PUBLISH_READY_TO_RUN" /p:ReadyToRunUseCrossgen2="$PUBLISH_READY_TO_RUN"
+
+COPY --from=backend-inputs /compile/ /src/
 WORKDIR "/src/src/backend"
 
 FROM build AS publish
@@ -234,12 +234,15 @@ ARG TIERED_PGO=true
 ARG QUICK_JIT_FOR_LOOPS=true
 ARG SERVER_GC=true
 ARG NATIVE_AOT=false
+RUN test "$(cat /src/.backend-input-profile)" = "$(printf '%s\n%s\n%s\n' "$BUILD_CONFIGURATION" "$TARGET_RUNTIME" "$PUBLISH_READY_TO_RUN")"
+RUN test "$(cat /src/.backend-publish-profile)" = "$(printf '%s\n' publish "$BUILD_CONFIGURATION" "$TARGET_RUNTIME" "$PUBLISH_READY_TO_RUN" "$PUBLISH_SINGLE_FILE" "$TIERED_PGO" "$QUICK_JIT_FOR_LOOPS" "$SERVER_GC" "$FSUSBLOG_RELEASE_ID" "$FSUSBLOG_COMMIT_SHA")"
 RUN dotnet publish "./FsusBlog.Server.csproj" \
     -c "$BUILD_CONFIGURATION" \
     -r "$TARGET_RUNTIME" \
     -o /app/publish \
     --no-restore \
     --self-contained true \
+    /p:RestoreConfigFile=/src/config/build/backend-restore.xml \
     /p:SkipClientDependenciesForPublish=true \
     /p:SkipClientReleaseBuild=true \
     /p:SkipClientReleaseArtifactCopy=true \
@@ -256,6 +259,7 @@ RUN dotnet publish "./FsusBlog.Server.csproj" \
     /p:ReadyToRunUseCrossgen2="$PUBLISH_READY_TO_RUN"
 
 ARG ZK_NATIVE_ARTIFACT_DIR=build/artifacts/native-zk
+COPY --from=backend-inputs /publish/ /src/
 RUN sh -lc 'set -eu; \
   artifact_dir="/src/${ZK_NATIVE_ARTIFACT_DIR}/${TARGET_RUNTIME}"; \
   if [ -d "$artifact_dir" ]; then \
@@ -271,12 +275,15 @@ RUN sh -lc 'set -eu; \
 FROM build AS publish-debug
 ARG BUILD_CONFIGURATION=Debug
 ARG TARGET_RUNTIME=linux-musl-x64
+RUN test "$(cat /src/.backend-input-profile)" = "$(printf '%s\n%s\n%s\n' "$BUILD_CONFIGURATION" "$TARGET_RUNTIME" false)"
+RUN test "$(cat /src/.backend-publish-profile)" = "$(printf '%s\n' publish-debug "$BUILD_CONFIGURATION" "$TARGET_RUNTIME" false)"
 RUN dotnet publish "./FsusBlog.Server.csproj" \
     -c "$BUILD_CONFIGURATION" \
     -r "$TARGET_RUNTIME" \
     -o /app/publish \
     --no-restore \
     --self-contained false \
+    /p:RestoreConfigFile=/src/config/build/backend-restore.xml \
     /p:UseAppHost=false \
     /p:TieredPGO=false \
     /p:TieredCompilation=true \

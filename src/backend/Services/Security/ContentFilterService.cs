@@ -34,7 +34,7 @@ public partial class ContentFilterService : IContentFilterService, IDisposable, 
 
     private static readonly string[] s_contactRules =
     [
-        "加v", "加微", "加威", "加薇", "加嶶", "vx", "微信", "威信", "薇信", "+v", "qq", "扣扣", "企鹅", "q群", "加群"
+        "加v", "加微", "加威", "加薇", "加嶶", "vx", "微信", "威信", "薇信", "qq", "扣扣", "企鹅", "q群", "加群"
     ];
 
     private static readonly string[] s_topRedLineRules =

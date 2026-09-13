@@ -1,0 +1,78 @@
+{
+    "schema": "fsusblog.backend-docker-inputs.v1",
+    "entryProject": "src/backend/FsusBlog.Server.csproj",
+    "restoreConfigFile": "config/build/backend-restore.xml",
+    "evaluationProperties": {
+        "Configuration": "Release",
+        "RuntimeIdentifier": "linux-musl-x64",
+        "SkipClientDependenciesForPublish": "true",
+        "SkipClientReleaseBuild": "true",
+        "SkipClientReleaseArtifactCopy": "true"
+    },
+    "itemTypes": [
+        "AdditionalFiles",
+        "Compile",
+        "Content",
+        "EditorConfigFiles",
+        "EmbeddedResource",
+        "GlobalAnalyzerConfigFiles"
+    ],
+    "projects": [
+        {
+            "path": "src/backend/FsusBlog.Server.csproj",
+            "references": [
+                "src/core/FsusBlog.Core.csproj",
+                "src/shared/FsusBlog.Shared.csproj",
+                "tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj"
+            ]
+        },
+        {
+            "path": "src/core/FsusBlog.Core.csproj",
+            "references": [
+                "src/shared/FsusBlog.Shared.csproj"
+            ]
+        },
+        {
+            "path": "src/shared/FsusBlog.Shared.csproj",
+            "references": []
+        },
+        {
+            "path": "tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj",
+            "references": []
+        }
+    ],
+    "imports": [
+        "Directory.Build.props",
+        "Directory.Packages.props"
+    ],
+    "restoreFiles": [
+        "config/build/backend-restore.xml",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "src/backend/FsusBlog.Server.csproj",
+        "src/backend/packages.lock.json",
+        "src/core/FsusBlog.Core.csproj",
+        "src/core/packages.lock.json",
+        "src/shared/FsusBlog.Shared.csproj",
+        "src/shared/packages.lock.json",
+        "tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj",
+        "tools/architecture/FsusBlog.DiLifetimeAnalyzer/packages.lock.json"
+    ],
+    "allowedExternalItemRoots": [
+        "config/moderation"
+    ],
+    "allowedExternalItemFiles": [
+        ".editorconfig",
+        "config/testing/bounded-channel-delivery-contracts.json"
+    ],
+    "optionalPublishRoots": [
+        "build/artifacts/native-zk"
+    ],
+    "forbiddenPrefixes": [
+        "build/artifacts/wasm-release",
+        "docs",
+        "release-evidence",
+        "src/frontend",
+        "tests"
+    ]
+}

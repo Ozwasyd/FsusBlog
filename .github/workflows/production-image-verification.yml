@@ -4,13 +4,50 @@ on:
     pull_request:
         paths:
             - .github/workflows/production-image-verification.yml
+            - .editorconfig
+            - .globalconfig
+            - Directory.Build.props
+            - Directory.Build.targets
+            - Directory.Packages.props
+            - global.json
+            - build/artifacts/native-zk/**
+            - config/build/backend-docker-inputs.json
+            - config/build/backend-restore.xml
             - config/deployment/production-compose-environment.json
+            - config/moderation/**
+            - config/testing/bounded-channel-delivery-contracts.json
             - config/testing/fsusui-baseline.json
+            - docs/architecture/repository-layout.md
             - ops/docker/**
             - ops/gateway/**
+            - src/.editorconfig
+            - src/.globalconfig
+            - src/Directory.Build.props
+            - src/Directory.Build.targets
+            - src/Directory.Packages.props
+            - src/global.json
+            - src/backend/**
+            - src/core/**
+            - src/shared/**
             - tests/browser-diagnostics/local-fsusui-identity.mjs
             - tests/tools/production-build-workflow.test.mjs
+            - tests/tools/backend-docker-input-closure.test.mjs
             - tools/build-final-image.sh
+            - tools/.editorconfig
+            - tools/.globalconfig
+            - tools/Directory.Build.props
+            - tools/Directory.Build.targets
+            - tools/Directory.Packages.props
+            - tools/global.json
+            - tools/architecture/.editorconfig
+            - tools/architecture/.globalconfig
+            - tools/architecture/Directory.Build.props
+            - tools/architecture/Directory.Build.targets
+            - tools/architecture/Directory.Packages.props
+            - tools/architecture/global.json
+            - tools/architecture/FsusBlog.DiLifetimeAnalyzer/**
+            - tools/docker/backend-input-closure.mjs
+            - tools/docker/backend-input-environment.mjs
             - tools/deployment/check-production-compose-environment.mjs
             - tools/deployment/check-production-openresty-config.sh
             - tools/deployment/verify-container-termination.mjs
@@ -54,9 +91,47 @@ jobs:
             - name: Validate production OpenResty configuration
               run: tools/deployment/check-production-openresty-config.sh
 
+    backend-input-cache:
+        name: Backend Docker input cache closure
+        needs: contracts
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        steps:
+            - name: Checkout
+              uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+                  persist-credentials: false
+            - name: Setup Node
+              uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - name: Setup .NET
+              uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+              with:
+                  dotnet-version: 10.0.x
+            - name: Install backend evaluation isolation
+              run: sudo apt-get update && sudo apt-get install --yes bubblewrap python3
+            - name: Verify candidate backend input cache
+              run: |
+                  node tools/docker/backend-input-closure.mjs probe-buildkit \
+                    --output .tmp/backend-docker-input-buildkit-probe.json
+            - name: Upload backend input cache evidence
+              if: always()
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              with:
+                  name: backend-input-cache-${{ github.run_id }}-${{ github.run_attempt }}
+                  if-no-files-found: warn
+                  include-hidden-files: true
+                  retention-days: 7
+                  path: |
+                      .tmp/backend-docker-input-buildkit-probe.json
+                      .tmp/backend-docker-input-buildkit-probe.json.d/**
+                      .tmp/backend-input-evaluations/**
+
     final-image:
         name: Final image (${{ matrix.runtime-profile }})
-        needs: contracts
+        needs: [contracts, backend-input-cache]
         runs-on: ubuntu-latest
         timeout-minutes: 90
         strategy:
@@ -97,6 +172,8 @@ jobs:
                   dotnet-version: 10.0.x
             - name: Install locked frontend dependencies
               run: npm --prefix src/frontend ci --ignore-scripts --no-audit
+            - name: Install backend evaluation isolation
+              run: sudo apt-get update && sudo apt-get install --yes bubblewrap python3
             - name: Prepare pinned FsusUI source artifacts
               run: |
                   docker build --pull \
@@ -135,3 +212,4 @@ jobs:
                       .tmp/release-reliability/*/runtime-admission-candidate.json
                       .tmp/release-reliability/*/runtime-admission-receipt.json
                       .tmp/release-reliability/*/runtime-smoke-observation.json
+                      .tmp/backend-input-evaluations/**
