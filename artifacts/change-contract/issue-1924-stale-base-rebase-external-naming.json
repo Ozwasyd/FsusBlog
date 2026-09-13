@@ -1,0 +1,20 @@
+{
+  "schema": "fsusblog.external-naming-exceptions.v1",
+  "exceptions": [
+    {
+      "id": "json-wire-key",
+      "paths": [
+        "tests/fixtures/governance/dependency-automerge.json"
+      ],
+      "reason": "Preserve the serialized dependency automerge fixture keys while adding the stale-base negative policy case."
+    },
+    {
+      "id": "environment-variable",
+      "paths": [
+        "tools/governance/check-dependency-automerge.mjs",
+        "tools/governance/dependency-automerge.mjs"
+      ],
+      "reason": "Preserve existing GitHub and Renovate external contract spellings while enforcing the stale dependency branch rebase policy."
+    }
+  ]
+}

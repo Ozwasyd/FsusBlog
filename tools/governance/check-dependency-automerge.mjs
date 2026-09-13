@@ -58,6 +58,10 @@ export function applyAutomergeMutation(renovate, mutation)
     {
         next.dependencyDashboardApproval = true;
     }
+    else if (mutation === 'disable-stale-base-rebase')
+    {
+        next.rebaseWhen = 'never';
+    }
     return next;
 }
 

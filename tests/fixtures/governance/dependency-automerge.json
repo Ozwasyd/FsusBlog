@@ -25,6 +25,11 @@
             "id": "reject-manual-approval",
             "mutation": "manual-approval",
             "expectedCode": "manual-approval"
+        },
+        {
+            "id": "reject-stale-base-rebase-disabled",
+            "mutation": "disable-stale-base-rebase",
+            "expectedCode": "stale-base-rebase-disabled"
         }
     ],
     "decisionCases": [
