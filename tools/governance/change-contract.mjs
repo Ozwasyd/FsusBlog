@@ -1094,6 +1094,339 @@ export function validateGeneratedRepairDagEventOrder(sourceEvents, expectedEvent
     return [];
 }
 
+function revisionTree(root, revision)
+{
+    return execFileSync('git', ['show', '-s', '--format=%T', revision],
+        exactRevisionGitOptions(root, { encoding: 'utf8' })).trim()
+}
+
+function sameReplayOutputs(left, right, paths)
+{
+    return paths.every((path) => left.outputs.get(path) === right.outputs.get(path))
+}
+
+function generatedRepairDagSquashBootstrapRegistrationErrors(graph, registration)
+{
+    const errors = []
+    const fields = [
+        'schema', 'id', 'sealSha256', 'producerId', 'graphSha256', 'sourcePullRequest', 'sourceBase', 'sourceBaseTree', 'sourceHead',
+        'sourceTree', 'sourceRevisions', 'uniqueTransitionSource', 'squashCommit',
+        'squashParent', 'squashTree', 'sourcePaths', 'staleOutputs', 'bootstrapBase',
+        'bootstrapBindingManifest', 'bootstrapExternalNamingManifest', 'bootstrapSources',
+        'bootstrapOutputs', 'bootstrapPaths', 'generatorClosure'
+    ]
+    if (!registration || typeof registration !== 'object' || Array.isArray(registration)
+        || !sameStrings(Object.keys(registration), fields)) {
+        return ['fields do not match the closed anchor schema']
+    }
+    const { sealSha256, ...sealedRegistration } = registration
+    const actualSeal = createHash('sha256').update(JSON.stringify(sealedRegistration)).digest('hex')
+    if (!sha256Pattern.test(sealSha256 ?? '') || sealSha256 !== actualSeal) {
+        return ['immutable registration seal changed']
+    }
+    const revisions = [
+        registration.sourceBase,
+        registration.sourceBaseTree,
+        registration.sourceHead,
+        registration.sourceTree,
+        registration.uniqueTransitionSource,
+        registration.squashCommit,
+        registration.squashParent,
+        registration.squashTree,
+        registration.bootstrapBase
+    ]
+    if (registration.schema !== 'fsusblog.generated-output-repair-dag-squash-bootstrap-anchor.v1'
+        || typeof registration.id !== 'string' || registration.id.length === 0
+        || registration.id !== 'evidence-location-governance-saved-view-storage-squash-anchor'
+        || registration.producerId !== graph.id
+        || !sha256Pattern.test(registration.graphSha256 ?? '')
+        || registration.sourcePullRequest !== 3360
+        || !revisions.every((revision) => fullShaPattern.test(revision ?? ''))) {
+        return ['identity fields are malformed']
+    }
+    if (registration.graphSha256 !== createHash('sha256').update(JSON.stringify(graph)).digest('hex')) {
+        return ['trusted graph identity changed']
+    }
+    const graphOutputs = graph.steps.flatMap((step) => step.outputs)
+    const closurePaths = [...new Set(graph.steps.flatMap((step) => step.generatorClosure))]
+    if (!Array.isArray(registration.sourceRevisions)
+        || registration.sourceRevisions.length === 0
+        || !registration.sourceRevisions.every((revision) => fullShaPattern.test(revision ?? ''))
+        || new Set(registration.sourceRevisions).size !== registration.sourceRevisions.length
+        || !registration.sourceRevisions.includes(registration.uniqueTransitionSource)
+        || registration.uniqueTransitionSource !== registration.sourceRevisions[0]
+        || !Array.isArray(registration.sourcePaths)
+        || registration.sourcePaths.length === 0
+        || !registration.sourcePaths.every((path) => repositoryPathPattern.test(path ?? ''))
+        || new Set(registration.sourcePaths).size !== registration.sourcePaths.length
+        || !Array.isArray(registration.staleOutputs)
+        || registration.staleOutputs.length === 0
+        || !registration.staleOutputs.every((path) => graphOutputs.includes(path))
+        || new Set(registration.staleOutputs).size !== registration.staleOutputs.length
+        || registration.bootstrapBindingManifest !== graph.manifest
+        || registration.bootstrapExternalNamingManifest !== graph.externalNamingManifest
+        || !sameStrings(registration.bootstrapSources, [
+            'tools/governance/change-contract-registry.mjs',
+            'tools/governance/change-contract.mjs'
+        ])
+        || !sameStrings(registration.bootstrapOutputs, registration.staleOutputs)
+        || !sameStrings(registration.bootstrapPaths, [
+            registration.bootstrapBindingManifest,
+            registration.bootstrapExternalNamingManifest,
+            ...registration.bootstrapOutputs,
+            'docs/development/change-contract.md',
+            'tests/tools/change-contract.test.mjs',
+            ...registration.bootstrapSources
+        ])
+        || !sameStringSequence(registration.generatorClosure.map((entry) => entry?.path), closurePaths)
+        || registration.generatorClosure.some((entry) => (
+            !entry || !sameStrings(Object.keys(entry), ['path', 'mode', 'object'])
+            || !['100644', '100755'].includes(entry.mode)
+            || !fullShaPattern.test(entry.object ?? '')
+        ))) {
+        return ['bounded path, output, or closure fields are malformed']
+    }
+    return errors
+}
+
+export function validateGeneratedRepairDagSquashBootstrapAnchor(root, graph, registration)
+{
+    const errors = []
+    const fail = (message) => errors.push(`Generated repair DAG squash bootstrap anchor is invalid: ${message}`)
+    for (const message of generatedRepairDagSquashBootstrapRegistrationErrors(graph, registration)) fail(message)
+    if (errors.length > 0) return errors
+    const graphOutputs = graph.steps.flatMap((step) => step.outputs)
+    const closurePaths = [...new Set(graph.steps.flatMap((step) => step.generatorClosure))]
+    try {
+        if (registration.sourceBase !== registration.squashParent
+            || gitMergeBase(root, registration.squashCommit, registration.bootstrapBase)
+                !== registration.squashCommit
+            || !sameStringSequence(gitRevisionParents(root, registration.squashCommit), [registration.squashParent])
+            || gitMergeBase(root, registration.sourceBase, registration.sourceHead) !== registration.sourceBase
+            || revisionTree(root, registration.sourceBase) !== registration.sourceBaseTree
+            || registration.sourceBaseTree === registration.sourceTree
+            || revisionTree(root, registration.sourceHead) !== registration.sourceTree
+            || revisionTree(root, registration.squashCommit) !== registration.squashTree
+            || registration.sourceTree !== registration.squashTree) {
+            fail('exact source, parent, squash, or tree tuple changed')
+        }
+        const sourceRevisions = gitPullRequestBranchFirstParentRange(
+            root, registration.sourceBase, registration.sourceHead
+        )
+        if (!sameStringSequence(sourceRevisions, registration.sourceRevisions)
+            || !sameStrings(gitChangedPaths(root, registration.sourceBase, registration.sourceHead),
+                registration.sourcePaths)
+            || !sameStrings(gitChangedPaths(root, registration.squashParent, registration.squashCommit),
+                registration.sourcePaths)) {
+            fail('source range, squash range, or changed paths differ from the reviewed PR')
+        }
+        const protectedPaths = [...new Set([
+            ...graphOutputs,
+            ...closurePaths,
+            ...changeContract.trustedPolicyFiles
+        ])]
+        const protectedIdentities = new Map(protectedPaths.map((path) => [
+            path,
+            revisionPathIdentity(root, registration.sourceBase, path)
+        ]))
+        if (registration.sourcePaths.some((path) => protectedIdentities.has(path))) {
+            fail('reviewed source range includes a protected output, generator, or policy path')
+        }
+        for (const path of protectedPaths) {
+            if (gitFullHistoryRevisionsForPath(
+                root, registration.squashCommit, registration.bootstrapBase, path
+            ).length > 0) {
+                fail(`bootstrap base history changed or reverted a protected path before replay: ${path}`)
+            }
+        }
+        let previousRevision = registration.sourceBase
+        for (const revision of registration.sourceRevisions) {
+            if (!sameStringSequence(gitRevisionParents(root, revision), [previousRevision])) {
+                fail(`source branch chain changed before replay: ${revision}`)
+            }
+            for (const [path, identity] of protectedIdentities) {
+                if (revisionPathIdentity(root, revision, path) !== identity) {
+                    fail(`source branch changed or reverted a protected path before replay: ${revision}: ${path}`)
+                }
+            }
+            previousRevision = revision
+        }
+        if (previousRevision !== registration.sourceHead) {
+            fail('source branch revisions do not terminate at the reviewed head')
+        }
+        for (const entry of registration.generatorClosure) {
+            const identity = `${entry.mode}:${entry.object}`
+            if (protectedIdentities.get(entry.path) !== identity
+                || revisionPathIdentity(root, registration.squashCommit, entry.path) !== identity) {
+                fail(`generator closure identity changed: ${entry.path}`)
+            }
+        }
+        for (const [path, identity] of protectedIdentities) {
+            if (revisionPathIdentity(root, registration.squashCommit, path) !== identity) {
+                fail(`squash changed a protected path before replay: ${path}`)
+            }
+        }
+        if (errors.length > 0) return errors
+        const guard = createDagReplayGuard()
+        const baseReplay = verifiedDagReplay(root, registration.sourceBase, graph, guard)
+        const headReplay = verifiedDagReplay(root, registration.sourceHead, graph, guard)
+        const squashReplay = verifiedDagReplay(root, registration.squashCommit, graph, guard)
+        if (baseReplay.changedPaths.length !== 0) {
+            fail('source base is not a canonical fixed point')
+        }
+        if (!sameStrings(headReplay.changedPaths, registration.staleOutputs)
+            || !sameStrings(squashReplay.changedPaths, registration.staleOutputs)
+            || !sameReplayOutputs(headReplay, squashReplay, graphOutputs)) {
+            fail('source head and squash drift differ from the exact stale-output subset')
+        }
+        const transitions = []
+        let parentReplay = baseReplay
+        for (const revision of registration.sourceRevisions) {
+            const parents = gitRevisionParents(root, revision)
+            if (parents.length !== 1) {
+                fail(`source branch revision has invalid parent topology: ${revision}`)
+                continue
+            }
+            const replay = verifiedDagReplay(root, revision, graph, guard)
+            if (outputVectorChanged(parentReplay, replay)) transitions.push(revision)
+            parentReplay = replay
+        }
+        if (!sameStringSequence(transitions, [registration.uniqueTransitionSource])) {
+            fail('source branch does not contain the one exact canonical transition')
+        }
+    } catch (error) {
+        fail(error instanceof Error ? error.message : String(error))
+    }
+    return errors
+}
+
+export function validateGeneratedRepairDagSquashBootstrap(
+    root,
+    graph,
+    registration,
+    parsedBody,
+    evidence,
+    { base, head, changedFiles }
+) {
+    const errors = []
+    const fail = (message) => errors.push(`Generated repair DAG squash bootstrap is invalid: ${message}`)
+    for (const message of generatedRepairDagSquashBootstrapRegistrationErrors(graph, registration)) fail(message)
+    if (errors.length > 0) return errors
+    if (!parsedBody || typeof parsedBody !== 'object' || Array.isArray(parsedBody)
+        || !evidence || typeof evidence !== 'object' || Array.isArray(evidence)
+        || base !== registration.bootstrapBase
+        || parsedBody.generatedDigest !== registration.bootstrapBindingManifest
+        || parsedBody.externalExceptionManifest !== registration.bootstrapExternalNamingManifest
+        || !sameStrings(repositoryPaths(parsedBody.generatorSource), registration.bootstrapSources)
+        || !sameStrings(repositoryPaths(parsedBody.generatedOutputs), registration.bootstrapOutputs)
+        || !sameStrings(evidence.sources, registration.bootstrapSources)
+        || !sameStrings(evidence.outputs?.map((entry) => entry?.path), registration.bootstrapOutputs)
+        || !sameStrings(changedFiles, registration.bootstrapPaths)) {
+        fail('base, declarations, manifest, or exact changed-path set differs from the registration')
+        return errors
+    }
+    try {
+        const graphOutputs = graph.steps.flatMap((step) => step.outputs)
+        const closurePaths = [...new Set(graph.steps.flatMap((step) => step.generatorClosure))]
+        const candidateRevisions = gitFirstParentRange(root, base, head)
+        if (candidateRevisions.length === 0 || candidateRevisions.at(-1) !== head) {
+            fail('candidate first-parent range does not terminate at the exact head')
+            return errors
+        }
+        const baseClosure = new Map(closurePaths.map((path) => [
+            path,
+            revisionPathIdentity(root, base, path)
+        ]))
+        const baseOutputs = new Map(graphOutputs.map((path) => [
+            path,
+            revisionPathIdentity(root, base, path)
+        ]))
+        const finalOutputs = new Map(graphOutputs.map((path) => [
+            path,
+            revisionPathIdentity(root, head, path)
+        ]))
+        const changedOutputPaths = graphOutputs.filter((path) => (
+            baseOutputs.get(path) !== finalOutputs.get(path)
+        ))
+        if (!sameStrings(changedOutputPaths, registration.bootstrapOutputs)) {
+            fail('candidate final output changes differ from the registered subset')
+        }
+        const basePolicy = new Map(changeContract.trustedPolicyFiles.map((path) => [
+            path,
+            revisionPathIdentity(root, base, path)
+        ]))
+        const finalPolicy = new Map(changeContract.trustedPolicyFiles.map((path) => [
+            path,
+            revisionPathIdentity(root, head, path)
+        ]))
+        const reachedFinalPolicy = new Set()
+        let previousRevision = base
+        for (const revision of candidateRevisions) {
+            if (!sameStringSequence(gitRevisionParents(root, revision), [previousRevision])) {
+                fail(`candidate revision has invalid parent topology before replay: ${revision}`)
+            }
+            for (const [path, identity] of baseClosure) {
+                if (revisionPathIdentity(root, revision, path) !== identity) {
+                    fail(`candidate changed or reverted generator closure before replay: ${revision}: ${path}`)
+                }
+            }
+            for (const [path, identity] of baseOutputs) {
+                const currentIdentity = revisionPathIdentity(root, revision, path)
+                if (revision !== head && currentIdentity !== identity) {
+                    fail(`candidate changed or reverted DAG output before its final revision: ${revision}: ${path}`)
+                }
+                if (revision === head && currentIdentity !== finalOutputs.get(path)) {
+                    fail(`candidate final DAG output identity changed during preflight: ${path}`)
+                }
+            }
+            for (const [path, baseIdentity] of basePolicy) {
+                const finalIdentity = finalPolicy.get(path)
+                const currentIdentity = revisionPathIdentity(root, revision, path)
+                if (currentIdentity !== baseIdentity && currentIdentity !== finalIdentity) {
+                    fail(`candidate policy has an unregistered intermediate identity before replay: ${revision}: ${path}`)
+                }
+                if (currentIdentity === finalIdentity && finalIdentity !== baseIdentity) {
+                    reachedFinalPolicy.add(path)
+                } else if (reachedFinalPolicy.has(path) && currentIdentity === baseIdentity) {
+                    fail(`candidate policy rolled back after reaching its final identity before replay: ${revision}: ${path}`)
+                }
+            }
+            previousRevision = revision
+        }
+        if (errors.length > 0) return errors
+        errors.push(...validateGeneratedRepairDagSquashBootstrapAnchor(root, graph, registration))
+        if (errors.length > 0) return errors
+        for (const path of closurePaths) {
+            const identity = revisionPathIdentity(root, registration.squashCommit, path)
+            if (revisionPathIdentity(root, base, path) !== identity
+                || revisionPathIdentity(root, head, path) !== identity) {
+                fail(`candidate changed generator closure: ${path}`)
+            }
+        }
+        const guard = createDagReplayGuard()
+        const baseReplay = verifiedDagReplay(root, base, graph, guard)
+        const headReplay = verifiedDagReplay(root, head, graph, guard)
+        verifyDagStepConsumption(root, base, graph, guard)
+        if (!sameStrings(baseReplay.changedPaths, registration.staleOutputs)) {
+            fail('bootstrap base drift differs from the registered stale-output subset')
+        }
+        if (headReplay.changedPaths.length !== 0) {
+            fail('candidate is not a canonical fixed point')
+        }
+        for (const output of evidence.outputs ?? []) {
+            if (output.sha256 !== headReplay.outputs.get(output.path)) {
+                fail(`candidate output digest differs from double replay: ${output.path}`)
+            }
+        }
+        if (!sameStringSequence([...headReplay.outputs.keys()], graphOutputs)) {
+            fail('bootstrap replay does not cover the complete DAG output set')
+        }
+    } catch (error) {
+        fail(error instanceof Error ? error.message : String(error))
+    }
+    return errors
+}
+
 export function reviewedDagHistoryAdmission(root, graph, synchronizedMerge, synchronizedRevision, base)
 {
     const registration = changeContract.generatedOutputRepairDagReviewedHistories.find((entry) => (
@@ -2631,6 +2964,26 @@ function validateGeneratedEvidence(parsedBody, { root, base, head, changedFiles,
             errors.push(`Generated output cannot be read from candidate head: ${output.path}: ${error instanceof Error ? error.message : String(error)}`)
         }
     }
+    const squashBootstrap = changeContract.generatedOutputRepairDagSquashBootstraps.find((entry) => (
+        entry.bootstrapBindingManifest === parsedBody.generatedDigest
+    ))
+    if (squashBootstrap) {
+        const graph = changeContract.generatedOutputRepairDags.find((entry) => (
+            entry.id === squashBootstrap.producerId
+        ))
+        if (!graph) {
+            errors.push('Generated repair DAG squash bootstrap producer is not trusted')
+        } else {
+            errors.push(...validateGeneratedRepairDagSquashBootstrap(
+                root,
+                graph,
+                squashBootstrap,
+                parsedBody,
+                evidence,
+                { base, head, changedFiles }
+            ))
+        }
+    }
 }
 
 export function parsePrBody(body) {
@@ -3227,7 +3580,7 @@ function validateChangedPaths(parsedTitle, parsedBody, changedFiles, context, er
     validateExternalNaming(parsedBody, context, errors)
 }
 
-function validateTrustedPolicyFiles({ root, head, authorityRoot, changedFiles }, errors) {
+export function validateTrustedPolicyFiles({ root, head, authorityRoot, changedFiles }, errors) {
     if (!root || !authorityRoot || resolve(root) === resolve(authorityRoot)) return
     const policyChanges = changeContract.trustedPolicyFiles.filter((path) => changedFiles.includes(path))
     for (const path of policyChanges) {
@@ -3922,6 +4275,31 @@ export function validateRepositorySources(root) {
                 ...step.generatorClosure,
                 ...step.outputs
             ])
+        ]),
+        ...changeContract.generatedOutputRepairDagSquashBootstraps.flatMap((entry) => [
+            entry.schema,
+            entry.id,
+            entry.sealSha256,
+            entry.producerId,
+            entry.graphSha256,
+            entry.sourceBase,
+            entry.sourceBaseTree,
+            entry.sourceHead,
+            entry.sourceTree,
+            ...entry.sourceRevisions,
+            entry.uniqueTransitionSource,
+            entry.squashCommit,
+            entry.squashParent,
+            entry.squashTree,
+            ...entry.sourcePaths,
+            ...entry.staleOutputs,
+            entry.bootstrapBase,
+            entry.bootstrapBindingManifest,
+            entry.bootstrapExternalNamingManifest,
+            ...entry.bootstrapSources,
+            ...entry.bootstrapOutputs,
+            ...entry.bootstrapPaths,
+            ...entry.generatorClosure.flatMap((closure) => [closure.path, closure.mode, closure.object])
         ]),
         ...changeContract.generatedOutputDigestRepairProducers.flatMap((producer) => [
             producer.id,

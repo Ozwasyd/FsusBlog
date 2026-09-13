@@ -228,6 +228,83 @@ export const generatedOutputRepairDagReviewedHistories = Object.freeze([
     })
 ]);
 
+// PR #3360 was delivered as one exact squash commit. Its source head and
+// squash commit have the same tree, but the one-parent commit cannot satisfy
+// the ordinary DAG rule that derives immutable PR identity from a two-parent
+// merge. This finite owner bootstrap admits only that reviewed tuple and does
+// not broaden ordinary single-parent history.
+export const generatedOutputRepairDagSquashBootstraps = Object.freeze([
+    Object.freeze({
+        schema: 'fsusblog.generated-output-repair-dag-squash-bootstrap-anchor.v1',
+        id: 'evidence-location-governance-saved-view-storage-squash-anchor',
+        sealSha256: 'b390e4c7c385224e5809d06d1058374123e1364eab93e9651806a3fe23742db5',
+        producerId: 'evidence-location-governance',
+        graphSha256: '7d4cfabdcde34da2885bb51f59060e8be7ad1cba617ca48261162beb160c96d4',
+        sourcePullRequest: 3360,
+        sourceBase: '32a0956af75706bfe9123b078f39be79be3d1bb7',
+        sourceBaseTree: '86f2d3b63a0181dad264eb5f2bd8e5e030499f3f',
+        sourceHead: 'd637c9568b50f9d6cc6c8126e3cda2bff7599734',
+        sourceTree: '0359667e6bb5459b2b13e3fdbd7d248442098f92',
+        sourceRevisions: Object.freeze([
+            '68faab01b805de6480476a5796c32eb6499b271e',
+            '5258d2a423d8cb583e16261882ac4d7f5dd3bd9d',
+            'd637c9568b50f9d6cc6c8126e3cda2bff7599734'
+        ]),
+        uniqueTransitionSource: '68faab01b805de6480476a5796c32eb6499b271e',
+        squashCommit: '496851ed1be5229b628bfb392aec00aa9006898e',
+        squashParent: '32a0956af75706bfe9123b078f39be79be3d1bb7',
+        squashTree: '0359667e6bb5459b2b13e3fdbd7d248442098f92',
+        sourcePaths: Object.freeze([
+            'artifacts/change-contract/issue-2343-saved-view-storage-external-naming.json',
+            'artifacts/change-contract/issue-2343-saved-view-storage-generated-binding.json',
+            'config/testing/correctness-attempt-producers.json',
+            'docs/testing.generated.md',
+            'src/backend/Services/Authoring/AuthorSavedViewStore.cs',
+            'src/backend/Services/Authoring/PostgresAuthorSavedViewPersistence.cs',
+            'tests/backend/Fixtures/postgres-test-collections.json',
+            'tests/backend/Integration/AuthorSavedViewPostgresIntegrationTests.cs',
+            'tests/backend/Unit/AuthorSavedViewStoreTests.cs',
+            'tests/coverage-registry.json',
+            'tests/matrix.yml',
+            'tests/tools/author-saved-view-storage-contract.test.mjs',
+            'tools/governance/check-author-saved-view-storage-contract.mjs'
+        ]),
+        staleOutputs: Object.freeze([
+            'config/testing/evidence-location-migration-ledger.json',
+            'config/testing/current-run-evidence-location-acceptance.json'
+        ]),
+        bootstrapBase: '42949f67aa272a57c6deaf1cb177a614834ce3d9',
+        bootstrapBindingManifest:
+            'artifacts/change-contract/evidence-location-governance-post-merge-repair.json',
+        bootstrapExternalNamingManifest:
+            'artifacts/change-contract/evidence-location-governance-post-merge-repair-external-naming.json',
+        bootstrapSources: Object.freeze([
+            'tools/governance/change-contract-registry.mjs',
+            'tools/governance/change-contract.mjs'
+        ]),
+        bootstrapOutputs: Object.freeze([
+            'config/testing/evidence-location-migration-ledger.json',
+            'config/testing/current-run-evidence-location-acceptance.json'
+        ]),
+        bootstrapPaths: Object.freeze([
+            'artifacts/change-contract/evidence-location-governance-post-merge-repair.json',
+            'artifacts/change-contract/evidence-location-governance-post-merge-repair-external-naming.json',
+            'config/testing/evidence-location-migration-ledger.json',
+            'config/testing/current-run-evidence-location-acceptance.json',
+            'docs/development/change-contract.md',
+            'tests/tools/change-contract.test.mjs',
+            'tools/governance/change-contract-registry.mjs',
+            'tools/governance/change-contract.mjs'
+        ]),
+        generatorClosure: Object.freeze([
+            Object.freeze({ path: 'tools/test/evidence-location-contract.mjs', mode: '100644', object: '84def85f972e8e9bc5e137b51847f7f71108c85d' }),
+            Object.freeze({ path: 'tools/test/evidence-location-scanner.mjs', mode: '100644', object: 'b6947e6697a087580bfcb20b4f31dde5ed36c880' }),
+            Object.freeze({ path: 'tools/test/generate-evidence-location-governance.mjs', mode: '100644', object: '45680e1c8ec359bca3ef1db8e98c7f579fb765d5' }),
+            Object.freeze({ path: 'tools/test/generate-current-run-evidence-location-acceptance.mjs', mode: '100644', object: 'c65104f6c3cdb0d195196c27f4c9b981bcb7b3d2' })
+        ])
+    })
+]);
+
 export const generatedOutputRepairDags = Object.freeze([
     Object.freeze({
         id: 'evidence-location-governance',
@@ -390,6 +467,7 @@ export const changeContract = Object.freeze({
     generatedOutputRepairPassThroughExceptions,
     generatedOutputRepairDags,
     generatedOutputRepairDagReviewedHistories,
+    generatedOutputRepairDagSquashBootstraps,
     generatedOutputDigestRepairProducers,
     trustedPolicyFiles,
     evidenceSchemas: Object.freeze({
