@@ -2680,6 +2680,7 @@ tiers:
           - backend-projection-serialization-behavior
           - pod-binary-codec-batch-allocation
           - backend-unix-platform-membership
+          - revision-compare-authority
       artifacts:
           [
               .tmp/backend-unit,
@@ -2709,6 +2710,21 @@ tiers:
           - tests/backend/Fixtures/platform-runtime-governance/runtime-return.fixture.cs.txt
           - tests/backend/Unit/FsusHostRuntimeTuningTests.cs
           - tests/backend/Unit/PodBinaryCodecBatchAllocationTests.cs
+          - tests/backend/Unit/AuthoringRevisionComparePackageReaderTests.cs
+          - tests/backend/Unit/RevisionComparePlannerPackageTests.cs
+          - tests/backend/Unit/RevisionComparePlannerTests.cs
+          - src/core/Services/Articles/RevisionCompareCanonical.cs
+          - src/core/Services/Articles/RevisionCompareContract.cs
+          - src/core/Services/Articles/RevisionCompareContracts.cs
+          - src/core/Services/Articles/RevisionCompareMetadataRegistry.cs
+          - src/core/Services/Articles/RevisionComparePackages.cs
+          - src/core/Services/Articles/RevisionComparePackageReaderContracts.cs
+          - src/core/Services/Articles/RevisionComparePackageSeal.cs
+          - src/core/Services/Articles/RevisionComparePlanner.cs
+          - src/core/Services/Articles/RevisionComparePlans.cs
+          - src/core/Services/Articles/RevisionCompareSourceEnums.cs
+          - src/core/Services/Articles/RevisionCompareStatusEnums.cs
+          - src/backend/Services/Authoring/AuthoringRevisionComparePackageReader.cs
           - src/backend/Services/SearchIndexService.Dictionary.cs
           - src/backend/Properties/AssemblyInfo.cs
           - tests/backend/FsusBlog.Server.Tests.csproj
@@ -3234,6 +3250,7 @@ tiers:
           - article-embed-authoring-static-governance
           - article-embed-publication-static-governance
           - article-embed-relations-static-governance
+          - revision-compare-authority
           - article-scale-plan-static-governance
           - static-client-payload-baseline-contract
       artifacts:
@@ -3535,6 +3552,8 @@ tiers:
           - tests/fixtures/governance/article-scale-plan-governance.json
           - tests/tools/article-scale-plan-governance.test.mjs
           - src/backend/Services/Fixtures/DataScale/ArticleScalePlan.cs
+          - tools/governance/check-revision-compare-authority.mjs
+          - tests/tools/revision-compare-authority.test.mjs
           - docs/testing/issue-1174-csharp-entrypoint-ownership.md
           - .editorconfig
           - Directory.Build.props

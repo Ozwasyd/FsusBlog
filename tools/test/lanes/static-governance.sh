@@ -56,6 +56,10 @@ StaticTestReplacementDiff() {
     fi
 }
 StaticArticleCoreTestApi() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-article-core-test-api.mjs"; }
+StaticRevisionComparePlanAuthority() {
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-revision-compare-authority.mjs"
+    Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/revision-compare-authority.test.mjs"
+}
 StaticBackendGovernance() { RunTier "static-governance" RunBackendTestGovernanceOnly; }
 StaticGateIntegrity() { Run "$ROOT_DIR/tools/check-gate-integrity.sh" --self-test; }
 StaticFlakyRegistry() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/ci/check-flaky-registry.mjs"; }
@@ -228,6 +232,7 @@ RunTestAssetGovernancePhase() {
         browser-test-migration StaticBrowserTestMigration \
         test-replacement-diff StaticTestReplacementDiff \
         test-lifecycle StaticTestLifecycle \
+        revision-compare-authority StaticRevisionComparePlanAuthority \
         canonical-node-behavior StaticTestAssetBehavior \
         article-core-test-api StaticArticleCoreTestApi \
         backend-governance StaticBackendGovernance \

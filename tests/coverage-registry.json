@@ -5343,6 +5343,38 @@
             ]
         },
         {
+            "id": "revision-compare-authority",
+            "description": "Revision comparison keeps one authorized sealed package and immutable plan chain with bounded admission.",
+            "owner": "ContentAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "src/core/Services/Articles/RevisionCompareCanonical.cs",
+                "src/core/Services/Articles/RevisionCompareContract.cs",
+                "src/core/Services/Articles/RevisionCompareContracts.cs",
+                "src/core/Services/Articles/RevisionCompareMetadataRegistry.cs",
+                "src/core/Services/Articles/RevisionComparePackages.cs",
+                "src/core/Services/Articles/RevisionComparePackageReaderContracts.cs",
+                "src/core/Services/Articles/RevisionComparePackageSeal.cs",
+                "src/core/Services/Articles/RevisionComparePlanner.cs",
+                "src/core/Services/Articles/RevisionComparePlans.cs",
+                "src/core/Services/Articles/RevisionCompareSourceEnums.cs",
+                "src/core/Services/Articles/RevisionCompareStatusEnums.cs",
+                "src/backend/Services/Authoring/AuthoringRevisionComparePackageReader.cs",
+                "tests/backend/Unit/AuthoringRevisionComparePackageReaderTests.cs",
+                "tests/backend/Unit/RevisionComparePlannerPackageTests.cs",
+                "tests/backend/Unit/RevisionComparePlannerTests.cs",
+                "tools/governance/check-revision-compare-authority.mjs",
+                "tests/tools/revision-compare-authority.test.mjs"
+            ],
+            "assertionType": "static",
+            "failClosedRule": "The static lane fails when package authorization, exact source coordinates, bounded admission, immutable plans and receipts, or the single planner, reader, and draft-provider ownership chain is removed, duplicated, or replaced by HTML, DOM, UI metadata, latest-pointer, or second-body authority.",
+            "minimumRequirement": "Focused C# behavior tests cover package and plan tamper, draft and revision drift, immutable caller inputs, cancellation, expiry, size, line, token, memory, output, hunk and chunk admission budgets, while isolated Node mutations kill every forbidden plan or package authority class.",
+            "tierIds": [
+                "backend-unit",
+                "static-governance"
+            ]
+        },
+        {
             "id": "production-xss-fast",
             "description": "Managed Chromium verifies representative FsusUI XSS corpus categories through production AOT, hydration, SPA, comments, About and private preview surfaces.",
             "owner": "InteropGlueAgent",

@@ -154,6 +154,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IAuthoringDraftLifecycle>(sp => sp.GetRequiredService<AuthoringDraftLifecycleService>());
         services.AddScoped<IAuthoringPrepublishPolicy>(sp => sp.GetRequiredService<AuthoringDraftLifecycleService>());
         services.AddScoped<IAuthoringRevisionCompareAuthority, AuthoringRevisionCompareAuthority>();
+        services.AddScoped<IAuthoringRevisionCompareDraftContextProvider, AuthoringRevisionCompareDraftContextProvider>();
         services.AddScoped<IAuthoringRevisionCompareDraftContextAuthority, AuthoringRevisionCompareDraftContextAuthority>();
         services.AddScoped<IRevisionComparePackageReader, AuthoringRevisionComparePackageReader>();
         services.AddScoped<RevisionComparePlanner>();
