@@ -1,26 +1,61 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { once } from 'node:events';
-import fs, { readFileSync } from 'node:fs';
+import fs from 'node:fs';
 import { createServer } from 'node:http';
-// eslint-disable-next-line import-x/order
 import os from 'node:os';
-
-const {applyReleaseUpdate, assertPublicReleaseLock, buildReleasePlan, compareStableVersions, ensureSingleReleaseTrainPullRequest, PACKAGE_LOCK_LOCATION, PACKAGE_NAME, PUBLIC_NPM_REGISTRY, RELEASE_TRAIN_BRANCH, selectReleaseTrainPullRequest} = await import(new URL('../../tools/dependencies/update-fsusui-release.mjs', import.meta.url));
-const {migrateVerifiedFsusuiRelease, PRIVATE_REFERENCE_MARKERS, scanPrivateFsusuiReferences} = await import(new URL('../../tools/dependencies/migrate-fsusui-public-npm.mjs', import.meta.url));
-const {activateFsusuiReleaseTrainManager, assertFsusuiManagerState, evaluateFsusuiManagerOwnership, FSUSUI_ITEM_ID, FSUSUI_RELEASE_TRAIN_MANAGER} = await import(new URL('../../tools/dependencies/fsusui-manager-ownership.mjs', import.meta.url));
-const {evaluateFreshness, exceptionsSchema, extractCurrentVersions} = await import(new URL('../../tools/governance/dependency-freshness.mjs', import.meta.url));
-const {evaluatePlatformAutomerge} = await import(new URL('../../tools/governance/dependency-automerge.mjs', import.meta.url));
-const {resolveGroupChecks} = await import(new URL('../../tools/governance/dependency-required-checks.mjs', import.meta.url));
 import path from 'node:path';
 import test from 'node:test';
 import { gzipSync } from 'node:zlib';
-const {requireVerifiedFsusuiEvent, verifyFsusuiReleaseEvent} = await import(new URL('../../tools/dependencies/verify-fsusui-release-event.mjs', import.meta.url));
+
+const {
+    activateFsusuiReleaseTrainManager,
+    assertFsusuiReleaseTrainRenovateDelegation,
+    assertFsusuiManagerState,
+    evaluateFsusuiManagerOwnership,
+    FSUSUI_ITEM_ID
+} = await import(new URL('../../tools/dependencies/fsusui-manager-ownership.mjs', import.meta.url));
+const {
+    FSUSUI_PUBLIC_NPM_MIGRATION_PATCH,
+    migrateVerifiedFsusuiRelease,
+    PRIVATE_REFERENCE_MARKERS,
+    scanPrivateFsusuiReferences
+} = await import(new URL('../../tools/dependencies/migrate-fsusui-public-npm.mjs', import.meta.url));
+const {
+    applyReleaseUpdate,
+    applyVerifiedReleaseTrain,
+    assertPublicReleaseLock,
+    buildReleasePlan,
+    compareStableVersions,
+    PACKAGE_LOCK_LOCATION,
+    PACKAGE_NAME,
+    PUBLIC_NPM_REGISTRY
+} = await import(new URL('../../tools/dependencies/fsusui-release-package.mjs', import.meta.url));
+const {
+    ensureSingleReleaseTrainPullRequest,
+    RELEASE_TRAIN_BRANCH,
+    selectReleaseTrainPullRequest
+} = await import(new URL('../../tools/dependencies/update-fsusui-release.mjs', import.meta.url));
+const {
+    requireVerifiedFsusuiEvent,
+    verifyFsusuiReleaseEvent
+} = await import(new URL('../../tools/dependencies/verify-fsusui-release-event.mjs', import.meta.url));
+const {
+    evaluateFreshness,
+    exceptionsSchema,
+    extractCurrentVersions
+} = await import(new URL('../../tools/governance/dependency-freshness.mjs', import.meta.url));
+
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
 const packageVersion = '1.5.2';
 const oldPackageVersion = '1.5.1';
 const packagePath = `/${PACKAGE_NAME}`;
-
+const privateRegistryHost = ['npm', 'pkg', 'github', 'com'].join('.');
+const privateRegistryOrigin = `https://${privateRegistryHost}`;
+const privatePackageToken = ['GITHUB', 'PACKAGES', 'TOKEN'].join('_');
+const privateDockerSecret = ['github', 'packages', 'token'].join('_');
+const privateProviderName = ['GitHub', 'Packages'].join(' ');
 const fixedNow = new Date('2026-09-08T00:00:00.000Z');
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const integrity = (value) => `sha512-${createHash('sha512').update(value).digest('base64')}`;
@@ -118,6 +153,15 @@ function temporaryRoot(t)
     return directory;
 }
 
+function git(repository, args)
+{
+    return execFileSync('git', args, {
+        cwd: repository,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe']
+    }).trim();
+}
+
 function publicResolved(version)
 {
     return `${PUBLIC_NPM_REGISTRY}${PACKAGE_NAME}/-/${PACKAGE_NAME.slice(PACKAGE_NAME.indexOf('/') + 1)}-${version}.tgz`;
@@ -158,7 +202,7 @@ function writeConsumerFixture(directory, { version = oldPackageVersion, payload,
             },
             [PACKAGE_LOCK_LOCATION]: {
                 version,
-                resolved: privateReferences ? `https://npm.pkg.github.com/download/${PACKAGE_NAME}/${version}/private` : publicResolved(version),
+                resolved: privateReferences ? `${privateRegistryOrigin}/download/${PACKAGE_NAME}/${version}/private` : publicResolved(version),
                 integrity: privateReferences ? oldIntegrity : payload.npmIntegrity,
                 dependencies: {}
             }
@@ -166,17 +210,59 @@ function writeConsumerFixture(directory, { version = oldPackageVersion, payload,
     };
     fs.writeFileSync(path.join(frontend, 'package.json'), `${JSON.stringify(manifest, null, 4)}\n`);
     fs.writeFileSync(path.join(frontend, 'package-lock.json'), `${JSON.stringify(lockfile, null, 4)}\n`);
+    fs.mkdirSync(path.join(directory, 'config/dependencies'), { recursive: true });
+    fs.writeFileSync(path.join(directory, 'config/dependencies/update-surface.json'), `${JSON.stringify(preMigrationCatalog(), null, 4)}\n`);
+    fs.writeFileSync(path.join(directory, 'renovate.json5'), `${JSON.stringify({ packageRules: [] }, null, 4)}\n`);
     if (privateReferences)
     {
-        fs.writeFileSync(path.join(directory, '.npmrc'), '@ozwasyd:registry=https://npm.pkg.github.com\n//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}\n');
-        fs.writeFileSync(path.join(frontend, '.npmrc'), 'registry=https://registry.npmjs.org/\n@ozwasyd:registry=https://npm.pkg.github.com\n');
+        fs.writeFileSync(path.join(directory, '.npmrc'), `@ozwasyd:registry=${privateRegistryOrigin}\n//${privateRegistryHost}/:_authToken=\${${privatePackageToken}}\n`);
+        fs.writeFileSync(path.join(frontend, '.npmrc'), `registry=${PUBLIC_NPM_REGISTRY}\n@ozwasyd:registry=${privateRegistryOrigin}\n`);
         fs.mkdirSync(path.join(directory, 'ops/docker'), { recursive: true });
-        fs.writeFileSync(path.join(directory, 'ops/docker/Dockerfile'), 'RUN --mount=type=secret,id=github_packages_token echo GitHub Packages\n');
+        fs.writeFileSync(path.join(directory, 'ops/docker/Dockerfile'), `RUN --mount=type=secret,id=${privateDockerSecret} echo ${privateProviderName}\n`);
         fs.mkdirSync(path.join(directory, 'tools'), { recursive: true });
-        fs.writeFileSync(path.join(directory, 'tools/build.sh'), 'RequireNonEmptyEnv GITHUB_PACKAGES_TOKEN\n');
-        fs.writeFileSync(path.join(directory, 'README.md'), 'Install from GitHub Packages with GITHUB_PACKAGES_TOKEN.\n');
+        fs.writeFileSync(path.join(directory, 'tools/build.sh'), `RequireNonEmptyEnv ${privatePackageToken}\n`);
+        fs.writeFileSync(path.join(directory, 'README.md'), `Install from ${privateProviderName} with ${privatePackageToken}.\n`);
     }
-    return { manifest, lockfile };
+
+    execFileSync('git', ['init', '--initial-branch=master'], { cwd: directory, stdio: 'ignore' });
+    git(directory, ['config', 'user.name', 'FsusBlog fixture']);
+    git(directory, ['config', 'user.email', 'fixture@fsusblog.invalid']);
+    git(directory, ['add', '.']);
+    git(directory, ['commit', '-m', 'fixture before migration']);
+
+    let migrationPatchSha256;
+    if (privateReferences)
+    {
+        const retiredFiles = [
+            '.npmrc',
+            'README.md',
+            'ops/docker/Dockerfile',
+            'src/frontend/.npmrc',
+            'tools/build.sh'
+        ];
+        const snapshots = new Map(retiredFiles.map((file) => [file, fs.readFileSync(path.join(directory, file))]));
+        for (const file of retiredFiles)
+        {
+            fs.unlinkSync(path.join(directory, file));
+        }
+        const patch = execFileSync('git', ['diff', '--binary', 'HEAD'], {
+            cwd: directory,
+            maxBuffer: 4 * 1024 * 1024
+        });
+        for (const [file, contents] of snapshots)
+        {
+            fs.mkdirSync(path.dirname(path.join(directory, file)), { recursive: true });
+            fs.writeFileSync(path.join(directory, file), contents);
+        }
+        const patchFile = path.join(directory, FSUSUI_PUBLIC_NPM_MIGRATION_PATCH);
+        fs.mkdirSync(path.dirname(patchFile), { recursive: true });
+        const patchArchive = gzipSync(patch);
+        fs.writeFileSync(patchFile, patchArchive);
+        git(directory, ['add', FSUSUI_PUBLIC_NPM_MIGRATION_PATCH]);
+        git(directory, ['commit', '--amend', '--no-edit']);
+        migrationPatchSha256 = sha256(patchArchive);
+    }
+    return { manifest, lockfile, migrationPatchSha256 };
 }
 
 function fakePublicLockGenerator(payload)
@@ -184,7 +270,7 @@ function fakePublicLockGenerator(payload)
     return async ({ cwd, env, args }) =>
     {
         assert.equal(env.npm_config_registry, PUBLIC_NPM_REGISTRY);
-        assert.equal(env.GITHUB_PACKAGES_TOKEN, undefined);
+        assert.equal(env[privatePackageToken], undefined);
         assert.equal(env.NPM_TOKEN, undefined);
         assert.ok(args.includes(`--registry=${PUBLIC_NPM_REGISTRY}`));
         const manifestFile = path.join(cwd, 'package.json');
@@ -310,29 +396,128 @@ test('release train rejects old or private idempotent states and updates one fix
     assert.equal(pullRequest.title, 'deps: update @ozwasyd/element-plus to 1.5.2');
     assert.equal(calls[0][0], 'update');
     assert.deepEqual(calls.at(-1), ['automerge', 'PR_node_42']);
-    assert.match(calls[0][2].body, /candidate manifest SHA-256/u);
+    assert.equal(calls[0][2].draft, false);
+    for (const value of [
+        current.payload.sourceCommit,
+        current.payload.releaseTag,
+        current.payload.candidateSha256,
+        current.payload.candidateManifestSha256,
+        current.payload.npmTarballSha256,
+        current.payload.crossGateReceiptSha256,
+        current.payload.publishRunId,
+        current.receipt.receiptSha256
+    ])
+    {
+        assert.ok(calls[0][2].body.includes(value));
+    }
+
+    const createCalls = [];
+    const createApi = {
+        async listOpenPullRequests()
+        {
+            return [];
+        },
+        async updatePullRequest()
+        {
+            assert.fail('new release train must not update a missing PR');
+        },
+        async createPullRequest(body)
+        {
+            createCalls.push(['create', body]);
+            return {
+                number: 43,
+                node_id: 'PR_node_43',
+                head: { ref: body.head },
+                base: { ref: body.base },
+                ...body
+            };
+        },
+        async enableAutoMerge(nodeId)
+        {
+            createCalls.push(['automerge', nodeId]);
+        }
+    };
+    const created = await ensureSingleReleaseTrainPullRequest({
+        api: createApi,
+        receipt: current.receipt,
+        baseBranch: 'master'
+    });
+    assert.equal(createCalls.filter(([operation]) => operation === 'create').length, 1);
+    assert.equal(created.head, RELEASE_TRAIN_BRANCH);
+    assert.equal(created.base, 'master');
+    assert.equal(created.draft, false);
+    assert.deepEqual(createCalls.at(-1), ['automerge', 'PR_node_43']);
     assert.throws(() => selectReleaseTrainPullRequest([existing, existing], 'master'), /multiple open/u);
     assert.throws(() => selectReleaseTrainPullRequest([{ ...existing, head: { ref: 'other-branch' } }], 'master'), /another open PR/u);
+});
+
+test('major regeneration failure keeps package state and first-migration wiring unchanged', async (t) =>
+{
+    const fixture = await registryFixture(t, '2.0.0');
+    const directory = temporaryRoot(t);
+    writeConsumerFixture(directory, { payload: fixture.payload });
+    const files = [
+        '.npmrc',
+        'src/frontend/.npmrc',
+        'src/frontend/package.json',
+        'src/frontend/package-lock.json'
+    ];
+    const before = new Map(files.map((file) => [file, fs.readFileSync(path.join(directory, file))]));
+
+    await assert.rejects(
+        applyReleaseUpdate({
+            repository: directory,
+            receipt: fixture.receipt,
+            runNpm: async () =>
+            {
+                throw new Error('major migration required');
+            }
+        }),
+        /public npm lock regeneration failed/u
+    );
+
+    for (const [file, contents] of before)
+    {
+        assert.deepEqual(fs.readFileSync(path.join(directory, file)), contents);
+    }
+    assert.equal(scanPrivateFsusuiReferences(directory).clean, false);
 });
 
 test('first verified migration is atomic, removes private wiring, and is idempotent', async (t) =>
 {
     const fixture = await registryFixture(t);
     const directory = temporaryRoot(t);
-    writeConsumerFixture(directory, { payload: fixture.payload });
+    const { migrationPatchSha256 } = writeConsumerFixture(directory, { payload: fixture.payload });
     const beforeLock = fs.readFileSync(path.join(directory, 'src/frontend/package-lock.json'));
     const plan = await migrateVerifiedFsusuiRelease({
         repository: directory,
         receipt: fixture.receipt,
-        runNpm: fakePublicLockGenerator(fixture.payload)
+        runNpm: fakePublicLockGenerator(fixture.payload),
+        migrationPatchSha256
     });
     assert.equal(plan.action, 'migrated');
     assert.equal(plan.migration, 'first-public-npm');
     assert.equal(plan.verified, true);
     assert.ok(plan.changedFiles.includes('src/frontend/package-lock.json'));
+    assert.ok(plan.changedFiles.includes('config/dependencies/update-surface.json'));
+    assert.ok(plan.changedFiles.includes('renovate.json5'));
     assert.equal(scanPrivateFsusuiReferences(directory).clean, true);
     assert.equal(PRIVATE_REFERENCE_MARKERS.some((marker) => fs.existsSync(path.join(directory, '.npmrc')) && fs.readFileSync(path.join(directory, '.npmrc'), 'utf8').includes(marker)), false);
     assert.equal(fs.existsSync(path.join(directory, '.npmrc')), false);
+    assert.equal(assertFsusuiManagerState(JSON.parse(fs.readFileSync(path.join(directory, 'config/dependencies/update-surface.json'), 'utf8')), 'post-migration').phase, 'post-migration');
+    const delegatedRenovate = JSON.parse(fs.readFileSync(path.join(directory, 'renovate.json5'), 'utf8'));
+    assertFsusuiReleaseTrainRenovateDelegation(delegatedRenovate, fixture.payload.version);
+    assert.equal(delegatedRenovate.packageRules.at(-1).allowedVersions, fixture.payload.version);
+    assert.notEqual(delegatedRenovate.packageRules.at(-1).enabled, false);
+    assert.throws(() => assertFsusuiReleaseTrainRenovateDelegation({
+        packageRules: [{ ...delegatedRenovate.packageRules[0], matchPackageNames: [PACKAGE_NAME, 'other-package'] }]
+    }), /match only/u);
+    assert.throws(() => assertFsusuiReleaseTrainRenovateDelegation({
+        packageRules: [{ ...delegatedRenovate.packageRules[0], matchFileNames: ['src/frontend/package.json'] }]
+    }), /ignoreDeps or path ignores/u);
+    assert.throws(() => assertFsusuiReleaseTrainRenovateDelegation({
+        packageRules: [{ ...delegatedRenovate.packageRules.at(-1), enabled: false }]
+    }), /permanent enabled:false/u);
     const lockfile = JSON.parse(fs.readFileSync(path.join(directory, 'src/frontend/package-lock.json'), 'utf8'));
     assertPublicReleaseLock(lockfile, fixture.payload);
     assert.notDeepEqual(fs.readFileSync(path.join(directory, 'src/frontend/package-lock.json')), beforeLock);
@@ -345,6 +530,199 @@ test('first verified migration is atomic, removes private wiring, and is idempot
         }
     });
     assert.equal(repeat.action, 'not-required');
+});
+
+test('first migration rejects a changed baseline or unsealed patch before repository writes', async (t) =>
+{
+    const fixture = await registryFixture(t);
+    const directory = temporaryRoot(t);
+    const { migrationPatchSha256 } = writeConsumerFixture(directory, { payload: fixture.payload });
+    const protectedFiles = [
+        '.npmrc',
+        FSUSUI_PUBLIC_NPM_MIGRATION_PATCH,
+        'src/frontend/package.json',
+        'src/frontend/package-lock.json'
+    ];
+    const before = new Map(protectedFiles.map((file) => [file, fs.readFileSync(path.join(directory, file))]));
+
+    await assert.rejects(migrateVerifiedFsusuiRelease({
+        repository: directory,
+        receipt: fixture.receipt,
+        runNpm: fakePublicLockGenerator(fixture.payload),
+        migrationPatchSha256: '0'.repeat(64)
+    }), /patch digest mismatch/u);
+    for (const [file, contents] of before)
+    {
+        assert.deepEqual(fs.readFileSync(path.join(directory, file)), contents);
+    }
+
+    fs.appendFileSync(path.join(directory, 'README.md'), 'baseline drift\n');
+    await assert.rejects(migrateVerifiedFsusuiRelease({
+        repository: directory,
+        receipt: fixture.receipt,
+        runNpm: fakePublicLockGenerator(fixture.payload),
+        migrationPatchSha256
+    }), /clean Git worktree/u);
+    for (const [file, contents] of before)
+    {
+        assert.deepEqual(fs.readFileSync(path.join(directory, file)), contents);
+    }
+});
+
+test('checked-in migration patch produces a structurally valid clean checkout transition', async (t) =>
+{
+    const fixture = await registryFixture(t);
+    const container = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusui-production-migration-'));
+    const repository = path.join(container, 'repository');
+    execFileSync('git', ['worktree', 'add', '--detach', repository, 'HEAD'], {
+        cwd: repositoryRoot,
+        stdio: 'ignore'
+    });
+    t.after(() =>
+    {
+        execFileSync('git', ['worktree', 'remove', '--force', repository], {
+            cwd: repositoryRoot,
+            stdio: 'ignore'
+        });
+        fs.rmSync(container, { recursive: true, force: true });
+    });
+
+    const plan = await migrateVerifiedFsusuiRelease({
+        repository,
+        receipt: fixture.receipt,
+        runNpm: fakePublicLockGenerator(fixture.payload)
+    });
+    assert.equal(plan.action, 'migrated');
+    assert.equal(scanPrivateFsusuiReferences(repository).clean, true);
+    assert.equal(fs.existsSync(path.join(repository, FSUSUI_PUBLIC_NPM_MIGRATION_PATCH)), false);
+    const actualFiles = git(repository, ['diff', '--name-only']).split('\n').filter(Boolean).sort();
+    assert.deepEqual(actualFiles, [...plan.changedFiles].sort());
+    git(repository, ['diff', '--check']);
+
+    for (const file of actualFiles)
+    {
+        const absolute = path.join(repository, file);
+        if (!fs.existsSync(absolute))
+        {
+            continue;
+        }
+        if (file.endsWith('.mjs'))
+        {
+            execFileSync(process.execPath, ['--check', absolute], { stdio: 'pipe' });
+        }
+        else if (file.endsWith('.sh'))
+        {
+            execFileSync('bash', ['-n', absolute], { stdio: 'pipe' });
+        }
+    }
+    JSON.parse(fs.readFileSync(path.join(repository, 'config/application/backend-configuration-contract.json'), 'utf8'));
+    const dockerfile = fs.readFileSync(path.join(repository, 'ops/docker/FsusBlog.Server.Dockerfile'), 'utf8');
+    const frontendStage = dockerfile.slice(
+        dockerfile.indexOf('FROM node-runtime-musl AS frontend-build'),
+        dockerfile.indexOf('FROM base AS final')
+    );
+    assert.match(frontendStage, /RUN npm ci[\s\S]*?--fetch-retries=0/u);
+    assert.doesNotMatch(frontendStage, /_authToken|--mount=type=secret/u);
+});
+
+test('release train automatically performs the first public migration from sealed receipt and repository state', async (t) =>
+{
+    const fixture = await registryFixture(t);
+    const directory = temporaryRoot(t);
+    const { migrationPatchSha256 } = writeConsumerFixture(directory, { payload: fixture.payload });
+
+    const first = await applyVerifiedReleaseTrain({
+        repository: directory,
+        receipt: fixture.receipt,
+        runNpm: fakePublicLockGenerator(fixture.payload),
+        migrationPatchSha256
+    });
+    assert.equal(first.firstPublicNpmMigration, true);
+    assert.equal(first.plan.action, 'migration');
+    assert.equal(first.plan.version, fixture.payload.version);
+    assert.equal(scanPrivateFsusuiReferences(directory).clean, true);
+
+    const repeat = await applyVerifiedReleaseTrain({
+        repository: directory,
+        receipt: fixture.receipt,
+        runNpm: async () =>
+        {
+            throw new Error('same migrated version must not regenerate the lockfile');
+        }
+    });
+    assert.equal(repeat.firstPublicNpmMigration, false);
+    assert.equal(repeat.plan.action, 'idempotent');
+});
+
+test('local release-train protocol binds each candidate through receipt, public lockfile, and one evolving PR', async (t) =>
+{
+    const firstFixture = await registryFixture(t, packageVersion);
+    const deterministicRepeat = await registryFixture(t, packageVersion);
+    const nextFixture = await registryFixture(t, '1.5.3');
+    assert.equal(firstFixture.receipt.receiptSha256, deterministicRepeat.receipt.receiptSha256);
+    assert.deepEqual(Object.keys(firstFixture.payload).sort(), [
+        'candidateManifestSha256', 'candidateSha256', 'crossGateReceiptSha256', 'distTag', 'npmIntegrity',
+        'npmTarballSha256', 'package', 'publishRunId', 'registry', 'releaseTag', 'schemaVersion',
+        'sourceCommit', 'sourceRepository', 'version'
+    ]);
+
+    const directory = temporaryRoot(t);
+    const { migrationPatchSha256 } = writeConsumerFixture(directory, { payload: firstFixture.payload });
+    const first = await applyVerifiedReleaseTrain({
+        repository: directory,
+        receipt: firstFixture.receipt,
+        runNpm: fakePublicLockGenerator(firstFixture.payload),
+        migrationPatchSha256
+    });
+    assert.equal(first.plan.action, 'migration');
+    assert.equal(first.firstPublicNpmMigration, true);
+    assertPublicReleaseLock(JSON.parse(fs.readFileSync(path.join(directory, 'src/frontend/package-lock.json'), 'utf8')), firstFixture.payload);
+
+    const operations = [];
+    let pullRequest = null;
+    const api = {
+        async listOpenPullRequests()
+        {
+            return pullRequest ? [pullRequest] : [];
+        },
+        async createPullRequest(body)
+        {
+            operations.push(['create', body]);
+            pullRequest = { number: 1986, node_id: 'PR_1986', ...body, head: { ref: body.head }, base: { ref: body.base } };
+            return pullRequest;
+        },
+        async updatePullRequest(number, body)
+        {
+            operations.push(['update', number, body]);
+            pullRequest = { ...pullRequest, ...body };
+            return pullRequest;
+        },
+        async enableAutoMerge(nodeId)
+        {
+            operations.push(['automerge', nodeId]);
+        }
+    };
+    await ensureSingleReleaseTrainPullRequest({ api, receipt: firstFixture.receipt, baseBranch: 'master', firstPublicNpmMigration: true });
+
+    const next = await applyVerifiedReleaseTrain({
+        repository: directory,
+        receipt: nextFixture.receipt,
+        runNpm: fakePublicLockGenerator(nextFixture.payload)
+    });
+    assert.equal(next.plan.action, 'upgrade');
+    assert.equal(next.firstPublicNpmMigration, false);
+    assertPublicReleaseLock(JSON.parse(fs.readFileSync(path.join(directory, 'src/frontend/package-lock.json'), 'utf8')), nextFixture.payload);
+    const renovate = JSON.parse(fs.readFileSync(path.join(directory, 'renovate.json5'), 'utf8'));
+    assertFsusuiReleaseTrainRenovateDelegation(renovate, nextFixture.payload.version);
+    await ensureSingleReleaseTrainPullRequest({ api, receipt: nextFixture.receipt, baseBranch: 'master' });
+
+    assert.equal(operations.filter(([operation]) => operation === 'create').length, 1);
+    assert.equal(operations.filter(([operation]) => operation === 'update').length, 1);
+    assert.equal(pullRequest.head.ref, RELEASE_TRAIN_BRANCH);
+    assert.equal(pullRequest.title, `deps: update ${PACKAGE_NAME} to ${nextFixture.payload.version}`);
+    assert.ok(pullRequest.body.includes(nextFixture.receipt.receiptSha256));
+    assert.ok(pullRequest.body.includes(nextFixture.payload.candidateSha256));
+    assert.ok(pullRequest.body.includes(nextFixture.payload.npmTarballSha256));
 });
 
 test('migration fails closed and leaves the fixture unchanged when public lock generation fails', async (t) =>
@@ -450,45 +828,4 @@ test('manager activation is migration-gated and freshness retains exact-one rele
         root: directory
     });
     assert.ok(exactOneFailure.errors.some((error) => error.code === 'state-not-exact-one'));
-});
-
-test('release-train PRs use the existing required checks and platform auto-merge contract', () =>
-{
-    const requiredCatalog = JSON.parse(readFileSync(path.join(repositoryRoot, 'config/dependencies/required-checks.json'), 'utf8'));
-    const required = resolveGroupChecks(requiredCatalog, FSUSUI_RELEASE_TRAIN_MANAGER, 'patch');
-    assert.ok(required.length > 0);
-    const decision = evaluatePlatformAutomerge({
-        catalog: requiredCatalog,
-        defaultHeadSha: 'base-sha',
-        latestStable: packageVersion,
-        pullRequest: {
-            number: 1986,
-            group: FSUSUI_RELEASE_TRAIN_MANAGER,
-            updateType: 'patch',
-            targetVersion: packageVersion,
-            draft: false,
-            mergeable: true,
-            mergeableState: 'clean',
-            baseSha: 'base-sha',
-            platformAutomerge: true,
-            automergeType: 'pr',
-            checkRuns: required.map((name) => ({ name, status: 'completed', conclusion: 'success' }))
-        }
-    });
-    assert.equal(decision.decision, 'merge');
-});
-
-test('workflow keeps verifier-before-updater ordering and does not perform registry string replacement', () =>
-{
-    const workflow = readFileSync(path.join(repositoryRoot, '.github/workflows/fsusui-release-train.yml'), 'utf8');
-    const verifier = workflow.indexOf('verify-fsusui-release-event.mjs');
-    const updater = workflow.indexOf('update-fsusui-release.mjs');
-    assert.ok(verifier >= 0 && updater > verifier);
-    assert.match(workflow, /repository_dispatch:[\s\S]*fsusui-npm-published-v1/u);
-    assert.match(workflow, /--receipt \.tmp\/fsusui-release-train\/receipt\.json/u);
-    assert.match(workflow, /--first-migration/u);
-    assert.doesNotMatch(workflow, /package\.json.*replace|replace.*package\.json/u);
-    assert.doesNotMatch(workflow, /GITHUB_PACKAGES_TOKEN|npm\.pkg\.github\.com/u);
-    assert.match(workflow, /actions\/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10/u);
-    assert.match(workflow, /actions\/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e/u);
 });

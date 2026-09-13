@@ -7,6 +7,7 @@ const eventSchema = JSON.parse(readFileSync(new URL('../../config/dependencies/f
 const registry = eventSchema.properties.registry.const;
 const packageName = eventSchema.properties.package.const;
 const receiptSchema = 'fsusblog.verified-fsusui-event.v1';
+export const FSUSUI_RELEASE_EVENT_TYPE = 'fsusui-npm-published-v1';
 const verifiedEvents = new WeakSet();
 const metadataLimit = 4 * 1024 * 1024;
 const tarballLimit = 128 * 1024 * 1024;
@@ -188,6 +189,7 @@ export async function verifyFsusuiReleaseEvent(rawPayload, { transport = fetch, 
     const verifiedAt = now().toISOString();
     return seal({
         schema: receiptSchema,
+        eventType: FSUSUI_RELEASE_EVENT_TYPE,
         rawPayload,
         rawPayloadSha256: digest(rawPayload),
         payload,
@@ -215,6 +217,7 @@ export async function reverifyFsusuiEventReceipt(rawReceipt, options)
     const { receiptSha256, ...body } = receipt;
     requireCondition(receiptSha256 === digest(JSON.stringify(body)), 'receipt digest');
     requireCondition(body.schema === receiptSchema && body.verifierSchema === receiptSchema, 'receipt schema');
+    requireCondition(body.eventType === FSUSUI_RELEASE_EVENT_TYPE, 'receipt event type');
     requireCondition(typeof body.verifiedAt === 'string' && Number.isFinite(Date.parse(body.verifiedAt)), 'receipt verifiedAt');
     const verified = await verifyFsusuiReleaseEvent(body.rawPayload, options);
     const expected = { ...verified, verifiedAt: body.verifiedAt };
