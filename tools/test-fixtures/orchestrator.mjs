@@ -54,10 +54,18 @@ function serializeError(error)
     {
         return null;
     }
-    return {
+    const serialized = {
         name: error instanceof Error ? error.name : 'Error',
         message: error instanceof Error ? error.message : String(error)
     };
+    const cause = error instanceof Error ? error.cause : undefined;
+    if (cause !== undefined && cause !== null)
+    {
+        serialized.cause = cause instanceof Error
+            ? serializeError(cause)
+            : JSON.parse(JSON.stringify(cause));
+    }
+    return serialized;
 }
 
 function temporalContextForProducer(planDocument, producerId)

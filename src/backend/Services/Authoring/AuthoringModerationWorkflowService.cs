@@ -257,9 +257,19 @@ public sealed class AuthoringModerationWorkflowService(
                     throw new InvalidOperationException("Comment moderation claim conflicted.");
                 }
             }
-            if (count > 0 && mutationOutbox is not null)
+            if (count > 0)
             {
-                await EnqueueModerationEventsAsync(current, request.Status, actorAdminPrincipalId, moderatedAt, cancellationToken);
+                await InsertModerationEventAsync(
+                    current,
+                    request.Status,
+                    normalizedReason,
+                    actorAdminPrincipalId,
+                    moderatedAt,
+                    cancellationToken);
+                if (mutationOutbox is not null)
+                {
+                    await EnqueueModerationEventsAsync(current, request.Status, actorAdminPrincipalId, moderatedAt, cancellationToken);
+                }
             }
         });
         if (!transaction.IsSuccess)
@@ -403,6 +413,13 @@ public sealed class AuthoringModerationWorkflowService(
                     }
                 }
 
+                await InsertModerationEventAsync(
+                    row,
+                    request.Status,
+                    normalizedReason,
+                    actorAdminPrincipalId,
+                    moderatedAt,
+                    cancellationToken);
                 if (mutationOutbox is not null)
                 {
                     await EnqueueModerationEventsAsync(row, request.Status, actorAdminPrincipalId, moderatedAt, cancellationToken);
@@ -1025,6 +1042,35 @@ public sealed class AuthoringModerationWorkflowService(
                 PublicArticleChanged: publicArticleChanged,
                 UserCommentsChanged: true),
             cancellationToken);
+    }
+
+    private async Task InsertModerationEventAsync(
+        CommentModerationStateRow row,
+        CommentModerationStatus nextStatus,
+        string? normalizedReason,
+        long actorAdminPrincipalId,
+        DateTime occurredAt,
+        CancellationToken cancellationToken)
+    {
+        string eventType = nextStatus switch
+        {
+            CommentModerationStatus.Approved => CommentModerationEventTypes.Approve,
+            CommentModerationStatus.Rejected => CommentModerationEventTypes.Reject,
+            CommentModerationStatus.Hidden => CommentModerationEventTypes.Hide,
+            _ => CommentModerationEventTypes.Pending
+        };
+        await db.Insertable(new CommentModerationEvent
+        {
+            CommentId = row.Id,
+            EventType = eventType,
+            PreviousStatus = row.Status,
+            NextStatus = nextStatus,
+            ActorType = "admin",
+            ReasonCode = normalizedReason,
+            TransitionSource = "admin",
+            AdminPrincipalId = actorAdminPrincipalId,
+            OccurredAtUtc = occurredAt
+        }).ExecuteCommandAsync(cancellationToken);
     }
 
     private async Task EnqueueModerationEventsAsync(

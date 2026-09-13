@@ -1,7 +1,9 @@
 // fixture-catalog: producer comment-moderation
 using System.Globalization;
 
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Moderation;
@@ -105,10 +107,12 @@ public sealed class CommentFixturePreparationException(
 public sealed class CommentFixtureSeeder(
     ICommentThreadFixturePort threads,
     ICommentModerationFixturePort moderation,
+    IModerationRuntimeStateService runtimeState,
     ICacheStringReader cacheReader,
     IConfiguration configuration) : ICommentFixtureSeeder
 {
     private const string ProducerId = "comment-moderation";
+    private const string ManualReviewFixtureRegion = RegionCodes.UnitedStates;
     private const string Strategy = "transaction-fixture";
     private const string PlanSchema = "fsusblog.comment-fixture-plan.v1";
     private const string CleanupSchema = "fsusblog.comment-thread-fixture-cleanup.v1";
@@ -133,6 +137,7 @@ public sealed class CommentFixtureSeeder(
         var latest = new Dictionary<string, CommentThreadFixtureEntity>(StringComparer.Ordinal);
         var zkAuthorityEvidence = new List<CommentFixtureZkAuthorityEvidence>();
         CommentFixtureCrossDomainSentinel? crossDomainBefore = null;
+        string? manualReviewRegionPriorState = null;
 
         try
         {
@@ -147,6 +152,25 @@ public sealed class CommentFixtureSeeder(
 
             RegionModerationDecision global = moderation.ResolveRegion(
                 Content(owner, "region-global"), articleId, primary, RegionCodes.Global, now);
+            manualReviewRegionPriorState = runtimeState.GetRegionState(ManualReviewFixtureRegion);
+            Result<ModerationRuntimeSnapshot> manualReviewState = runtimeState.SetRegionState(
+                ManualReviewFixtureRegion,
+                ModerationRegionStates.ManualReviewOnly,
+                $"comment fixture manual-review matrix {plan.RunId}",
+                now.AddMinutes(15),
+                null,
+                owner);
+            if (!manualReviewState.IsSuccess)
+                throw new InvalidOperationException("Comment fixture could not enable the manual-review-only region runtime state.");
+            Result<ModerationRuntimeSnapshot> modelState = runtimeState.SetModelRuntime(
+                enabled: true,
+                provider: null,
+                modelProfile: null,
+                thresholdProfile: null,
+                reason: $"comment fixture anti-spam model runtime {plan.RunId}",
+                changedBy: owner);
+            if (!modelState.IsSuccess)
+                throw new InvalidOperationException($"Comment fixture could not enable the anti-spam model runtime: {modelState.Error.Message}.");
             RegionModerationDecision manual = ResolveManualReviewRegion(owner, articleId, secondary, now);
             if (!global.CanPublish || !manual.CanPublish || !manual.RequiresManualReview
                 || StringComparer.OrdinalIgnoreCase.Equals(global.SubmitRegion, manual.SubmitRegion))
@@ -187,7 +211,7 @@ public sealed class CommentFixtureSeeder(
             Merge(latest, zkAuthorityEvidence, nested);
             await ApproveAsync(binding, admin, latest["approved-nested"].CommentId, "approved-nested", cancellationToken).ConfigureAwait(false);
 
-            int maxDepth = Math.Clamp(configuration.GetValue("CommentThreads:MaxDepth", 8), 2, 256);
+            int maxDepth = Math.Clamp(configuration.GetValue("CommentThreads:MaxDepth", CommentCommandService.DefaultMaxThreadDepth), 2, 256);
             long depthParent = latest["depth-root"].CommentId;
             for (int depth = 1; depth <= maxDepth; depth++)
             {
@@ -278,6 +302,13 @@ public sealed class CommentFixtureSeeder(
                 "exact",
                 "exact")).ToArray();
 
+            runtimeState.SetRegionState(
+                ManualReviewFixtureRegion,
+                manualReviewRegionPriorState ?? ModerationRegionStates.Enabled,
+                $"comment fixture restore {plan.RunId}",
+                null,
+                null,
+                owner);
             return new CommentFixtureResult(
                 ProducerId,
                 Strategy,
@@ -300,6 +331,16 @@ public sealed class CommentFixtureSeeder(
         }
         catch (Exception preparationError)
         {
+            if (manualReviewRegionPriorState is not null)
+            {
+                runtimeState.SetRegionState(
+                    ManualReviewFixtureRegion,
+                    manualReviewRegionPriorState,
+                    $"comment fixture restore {plan.RunId}",
+                    null,
+                    null,
+                    owner);
+            }
             var owned = new Dictionary<long, CommentThreadFixtureOwnedIdentity>();
             foreach ((long id, CommentThreadFixtureOwnedIdentity identity) in ToOwnedComments(latest.Values))
                 owned[id] = identity;
@@ -361,7 +402,7 @@ public sealed class CommentFixtureSeeder(
         {
             RegionModerationDecision decision = moderation.ResolveRegion(
                 Content(owner, $"region-review-{region}"), articleId, accountId, region, submittedAtUtc);
-            if (decision.CanPublish && decision.RequiresManualReview)
+            if (decision.CanPublish && decision.RequiresManualReview && !decision.HideUntilReviewed)
                 return decision;
         }
         throw new InvalidOperationException("No current production region policy produced the required manual-review state.");

@@ -432,7 +432,8 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         if (!OpenApiExportMode.IsEnabled())
         {
             services.AddHostedService<LogCleanupService>();
-            services.AddHostedService<ArticleMutationOutboxDispatcher>();
+            services.AddSingleton<ArticleMutationOutboxDispatcher>();
+            services.AddHostedService(static provider => provider.GetRequiredService<ArticleMutationOutboxDispatcher>());
             services.AddHostedService<ArticleAssetCleanupWorker>();
             services.AddHostedService<ArticleBodyRepairWorker>();
             services.AddHostedService<RumTelemetryFlushWorker>();

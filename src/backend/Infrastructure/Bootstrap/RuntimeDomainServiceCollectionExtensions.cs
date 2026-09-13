@@ -105,9 +105,10 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<ICommentEndpointService>(sp => sp.GetRequiredService<CommentCommandService>());
         services.AddScoped<ICommentCommandService>(sp => sp.GetRequiredService<CommentCommandService>());
         services.AddSingleton<CommentMutationOutboxRuntimeState>();
+        services.AddSingleton<CommentMutationOutboxWorker>();
         if (!OpenApiExportMode.IsEnabled())
         {
-            services.AddHostedService<CommentMutationOutboxWorker>();
+            services.AddHostedService(static provider => provider.GetRequiredService<CommentMutationOutboxWorker>());
         }
         return services;
     }

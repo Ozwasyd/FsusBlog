@@ -534,9 +534,14 @@ public sealed class ArticleMutationSideEffectCoordinator(
                                     $"outbox-{normalized}",
                                     version.ReleaseId)
                                 .ConfigureAwait(false);
-                            if (normalized == ArticleMutationEventTypes.Restored)
+                            if (IsPubliclyListed(article))
                             {
                                 await projections.RestoreTopArticleAsync(articleId, article.Views)
+                                    .ConfigureAwait(false);
+                            }
+                            else
+                            {
+                                await projections.RemoveTopArticleAsync(articleId)
                                     .ConfigureAwait(false);
                             }
                         })
@@ -667,6 +672,15 @@ public sealed class ArticleMutationSideEffectCoordinator(
                 : string.Join("; ", failed.Select(static item => $"{item.Key}: {item.Value}"));
             return ArticleMutationReplayResult.Failed(NormalizeReplayError(error), completedDuringReplay, failed);
         }
+    }
+
+    private static bool IsPubliclyListed(Article article)
+    {
+        DateTime now = DateTime.UtcNow;
+        return !article.IsDeleted
+            && article.Status == ArticleStatus.Published
+            && (article.PublishedAt is null || article.PublishedAt <= now)
+            && (article.ScheduledPublishAt is null || article.ScheduledPublishAt <= now);
     }
 
     private async Task<Article?> LoadArticleWithContentAsync(int articleId)

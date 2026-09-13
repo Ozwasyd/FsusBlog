@@ -122,6 +122,20 @@ public sealed class ModernTaggedAcAutomaton<TPayload>
                 continue;
             }
 
+            if (ruleIds.Count == 1)
+            {
+                // A '+' separator that leaves a single component (for example "+v") must not
+                // degrade to a one-letter rule; keep the full pattern as a literal word.
+                int literalWordId = GetOrAddWordId(rule.ToString(), wordToId, ref wordIdCounter);
+                if (!singleRules.TryGetValue(literalWordId, out var existingLiteral)
+                    || taggedRule.Priority < existingLiteral.Priority)
+                {
+                    singleRules[literalWordId] = (payloadIndex, taggedRule.Priority);
+                }
+
+                continue;
+            }
+
             int[] components = [.. ruleIds];
             Array.Sort(components);
             multiRulesTemp.Add(new PendingRule(components, payloadIndex, taggedRule.Priority));

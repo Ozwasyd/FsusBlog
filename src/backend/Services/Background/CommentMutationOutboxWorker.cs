@@ -500,8 +500,9 @@ public sealed class CommentMutationOutboxWorker(
             throw new CommentMutationOutboxTerminalDeliveryException($"comment_outbox_consumer_unknown:{consumer}");
 
         string resultDigest = BuildDeliveryResultDigest(item, consumer);
+        DateTime now = timeProvider.GetUtcNow().UtcDateTime;
         await EnsureClaimOwnedAsync(db, claim, cancellationToken).ConfigureAwait(false);
-        ConsumerReservation reservation = await ReserveDeliveryAsync(db, item, claim, consumer, cancellationToken).ConfigureAwait(false);
+        ConsumerReservation reservation = await ReserveDeliveryAsync(db, item, claim, consumer, now, cancellationToken).ConfigureAwait(false);
         if (reservation == ConsumerReservation.Completed)
         {
             CommentMutationOutboxDelivery completed = await db.Queryable<CommentMutationOutboxDelivery>()
@@ -510,7 +511,7 @@ public sealed class CommentMutationOutboxWorker(
                 .ConfigureAwait(false);
             if (!string.Equals(completed.ResultDigest, resultDigest, StringComparison.Ordinal))
             {
-                await MarkCompletedDeliveryIntegrityFailureAsync(db, item.Id, claim, consumer).ConfigureAwait(false);
+                await MarkCompletedDeliveryIntegrityFailureAsync(db, item.Id, claim, consumer, now).ConfigureAwait(false);
                 throw new CommentMutationOutboxTerminalDeliveryException($"comment_outbox_delivery_result_digest_invalid:{consumer}");
             }
             return;
@@ -528,13 +529,13 @@ public sealed class CommentMutationOutboxWorker(
             await EnsureClaimOwnedAsync(db, claim, cancellationToken).ConfigureAwait(false);
             await action(cancellationToken).ConfigureAwait(false);
             await EnsureClaimOwnedAsync(db, claim, cancellationToken).ConfigureAwait(false);
-            await CompleteDeliveryAsync(db, item.Id, claim, consumer, resultDigest).ConfigureAwait(false);
+            await CompleteDeliveryAsync(db, item.Id, claim, consumer, resultDigest, timeProvider.GetUtcNow().UtcDateTime).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             if (claim.OwnerState == ClaimOwnerState.Owned)
             {
-                await FailDeliveryAsync(db, item.Id, claim, consumer, ex).ConfigureAwait(false);
+                await FailDeliveryAsync(db, item.Id, claim, consumer, ex, timeProvider.GetUtcNow().UtcDateTime).ConfigureAwait(false);
             }
             throw;
         }
@@ -551,6 +552,7 @@ public sealed class CommentMutationOutboxWorker(
         CommentMutationOutboxEvent item,
         ClaimState claim,
         string consumer,
+        DateTime now,
         CancellationToken cancellationToken)
     {
         await using (DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
@@ -558,7 +560,7 @@ public sealed class CommentMutationOutboxWorker(
             WITH owned_claim AS (
                 SELECT id, lease_expires_at FROM comment_mutation_outbox
                 WHERE id = @OutboxId AND status = 'processing' AND claim_token = @ClaimToken AND claimed_by = @ClaimedBy
-                  AND lease_generation = @LeaseGeneration AND lease_expires_at > (now() AT TIME ZONE 'utc')
+                  AND lease_generation = @LeaseGeneration AND lease_expires_at > @Now
             ), reservation AS (
                 INSERT INTO comment_mutation_outbox_delivery(
                     outbox_event_id, consumer_name, status, attempt_count, owner_claim_token, owner_worker_id,
@@ -581,7 +583,7 @@ public sealed class CommentMutationOutboxWorker(
                     updated_at_utc = EXCLUDED.updated_at_utc
                 WHERE comment_mutation_outbox_delivery.status IN ('pending', 'retryable-failed')
                     OR (comment_mutation_outbox_delivery.status = 'processing'
-                       AND (comment_mutation_outbox_delivery.lease_expires_at <= (now() AT TIME ZONE 'utc')
+                       AND (comment_mutation_outbox_delivery.lease_expires_at <= @Now
                             OR comment_mutation_outbox_delivery.lease_generation < EXCLUDED.lease_generation))
                 RETURNING status
             )
@@ -591,6 +593,7 @@ public sealed class CommentMutationOutboxWorker(
             new SugarParameter("@ClaimToken", claim.Event.ClaimToken),
             new SugarParameter("@ClaimedBy", claim.Event.ClaimedBy),
             new SugarParameter("@LeaseGeneration", claim.Event.LeaseGeneration),
+            new SugarParameter("@Now", now),
             new SugarParameter("@Consumer", consumer)))
         {
             if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
@@ -609,7 +612,7 @@ public sealed class CommentMutationOutboxWorker(
         };
     }
 
-    private static async Task CompleteDeliveryAsync(ISqlSugarClient db, long outboxId, ClaimState claim, string consumer, string resultDigest)
+    private static async Task CompleteDeliveryAsync(ISqlSugarClient db, long outboxId, ClaimState claim, string consumer, string resultDigest, DateTime now)
     {
         int updated = await db.Ado.ExecuteCommandAsync(
             """
@@ -620,14 +623,15 @@ public sealed class CommentMutationOutboxWorker(
             WHERE delivery.outbox_event_id = @OutboxId AND delivery.consumer_name = @Consumer
               AND delivery.status = 'processing' AND delivery.owner_claim_token = @ClaimToken
               AND delivery.owner_worker_id = @ClaimedBy AND delivery.lease_generation = @LeaseGeneration
-              AND delivery.lease_expires_at > (now() AT TIME ZONE 'utc')
+              AND delivery.lease_expires_at > @Now
               AND outbox.id = delivery.outbox_event_id AND outbox.status = 'processing'
               AND outbox.claim_token = @ClaimToken AND outbox.claimed_by = @ClaimedBy
-              AND outbox.lease_generation = @LeaseGeneration AND outbox.lease_expires_at > (now() AT TIME ZONE 'utc');
+              AND outbox.lease_generation = @LeaseGeneration AND outbox.lease_expires_at > @Now;
             """,
             new SugarParameter("@OutboxId", outboxId), new SugarParameter("@Consumer", consumer),
             new SugarParameter("@ClaimToken", claim.Event.ClaimToken), new SugarParameter("@ClaimedBy", claim.Event.ClaimedBy),
-            new SugarParameter("@LeaseGeneration", claim.Event.LeaseGeneration), new SugarParameter("@ResultDigest", resultDigest));
+            new SugarParameter("@LeaseGeneration", claim.Event.LeaseGeneration), new SugarParameter("@ResultDigest", resultDigest),
+            new SugarParameter("@Now", now));
         if (updated != 1)
         {
             claim.MarkLost();
@@ -635,7 +639,7 @@ public sealed class CommentMutationOutboxWorker(
         }
     }
 
-    private static async Task MarkCompletedDeliveryIntegrityFailureAsync(ISqlSugarClient db, long outboxId, ClaimState claim, string consumer)
+    private static async Task MarkCompletedDeliveryIntegrityFailureAsync(ISqlSugarClient db, long outboxId, ClaimState claim, string consumer, DateTime now)
     {
         int updated = await db.Ado.ExecuteCommandAsync(
             """
@@ -652,7 +656,7 @@ public sealed class CommentMutationOutboxWorker(
             new SugarParameter("@OutboxId", outboxId), new SugarParameter("@Consumer", consumer),
             new SugarParameter("@Processing", CommentMutationOutboxStatus.Processing),
             new SugarParameter("@ClaimToken", claim.Event.ClaimToken), new SugarParameter("@ClaimedBy", claim.Event.ClaimedBy),
-            new SugarParameter("@LeaseGeneration", claim.Event.LeaseGeneration), new SugarParameter("@Now", DateTime.UtcNow));
+            new SugarParameter("@LeaseGeneration", claim.Event.LeaseGeneration), new SugarParameter("@Now", now));
         if (updated != 1)
         {
             claim.MarkLost();
@@ -660,7 +664,7 @@ public sealed class CommentMutationOutboxWorker(
         }
     }
 
-    private static async Task FailDeliveryAsync(ISqlSugarClient db, long outboxId, ClaimState claim, string consumer, Exception exception)
+    private static async Task FailDeliveryAsync(ISqlSugarClient db, long outboxId, ClaimState claim, string consumer, Exception exception, DateTime now)
     {
         string status = exception is CommentMutationOutboxTerminalDeliveryException
             ? CommentMutationOutboxDeliveryStatus.TerminalFailed
@@ -676,12 +680,13 @@ public sealed class CommentMutationOutboxWorker(
               AND delivery.owner_worker_id = @ClaimedBy AND delivery.lease_generation = @LeaseGeneration
               AND outbox.id = delivery.outbox_event_id AND outbox.status = 'processing'
               AND outbox.claim_token = @ClaimToken AND outbox.claimed_by = @ClaimedBy
-              AND outbox.lease_generation = @LeaseGeneration AND outbox.lease_expires_at > (now() AT TIME ZONE 'utc');
+              AND outbox.lease_generation = @LeaseGeneration AND outbox.lease_expires_at > @Now;
             """,
             new SugarParameter("@Status", status), new SugarParameter("@Error", SanitizeError(exception)),
             new SugarParameter("@FailureKind", exception.GetType().Name), new SugarParameter("@OutboxId", outboxId),
             new SugarParameter("@Consumer", consumer), new SugarParameter("@ClaimToken", claim.Event.ClaimToken),
-            new SugarParameter("@ClaimedBy", claim.Event.ClaimedBy), new SugarParameter("@LeaseGeneration", claim.Event.LeaseGeneration));
+            new SugarParameter("@ClaimedBy", claim.Event.ClaimedBy), new SugarParameter("@LeaseGeneration", claim.Event.LeaseGeneration),
+            new SugarParameter("@Now", now));
         if (updated != 1)
         {
             claim.MarkLost();
