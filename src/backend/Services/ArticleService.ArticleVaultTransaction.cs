@@ -1,3 +1,5 @@
+using FsusBlog.Server.Infrastructure.Execution;
+
 namespace FsusBlog.Server.Services;
 
 public partial class ArticleService
@@ -74,7 +76,10 @@ public partial class ArticleService
             }
         }
 
-        var transaction = await _db.Ado.UseTranAsync(action).ConfigureAwait(false);
+        var transaction = await ExecuteForegroundWriteAsync(
+            "article-publication-write",
+            _ => _db.Ado.UseTranAsync(action),
+            Ct).ConfigureAwait(false);
         return transaction.IsSuccess
             ? ArticleMutationTransactionResult<T>.Succeeded(transaction.Data)
             : ArticleMutationTransactionResult<T>.Failed(
@@ -97,12 +102,26 @@ public partial class ArticleService
             }
         }
 
-        var transaction = await _db.Ado.UseTranAsync(action).ConfigureAwait(false);
+        var transaction = await ExecuteForegroundWriteAsync(
+            "article-publication-write",
+            _ => _db.Ado.UseTranAsync(action),
+            Ct).ConfigureAwait(false);
         return transaction.IsSuccess
             ? ArticleMutationTransactionResult.Succeeded()
             : ArticleMutationTransactionResult.Failed(
                 transaction.ErrorException ?? new InvalidOperationException(transaction.ErrorMessage));
     }
+
+    private Task<T> ExecuteForegroundWriteAsync<T>(
+        string operation,
+        Func<CancellationToken, Task<T>> action,
+        CancellationToken cancellationToken)
+        => _dbConcurrencyGate.ExecuteClassifiedAsync(
+            DbWorkloadClass.ForegroundWrite,
+            operation,
+            action,
+            _ => Task.FromException<T>(new TimeoutException($"db-gate-timeout:{operation}")),
+            cancellationToken);
 
     private sealed record ArticleMutationTransactionResult<T>(
         bool IsSuccess,

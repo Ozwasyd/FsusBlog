@@ -351,7 +351,9 @@ public sealed class DbConcurrencyGate : IClassifiedDbConcurrencyGate
             || operation.Contains("backfill", StringComparison.OrdinalIgnoreCase)
             || operation.Contains("repair", StringComparison.OrdinalIgnoreCase)
             || operation.Contains("outbox", StringComparison.OrdinalIgnoreCase)
-            || operation.Contains("worker", StringComparison.OrdinalIgnoreCase))
+            || operation.Contains("worker", StringComparison.OrdinalIgnoreCase)
+            || operation.Contains("delta", StringComparison.OrdinalIgnoreCase)
+            || operation.Contains("refresh", StringComparison.OrdinalIgnoreCase))
         {
             return DbWorkloadClass.BackgroundProjection;
         }
