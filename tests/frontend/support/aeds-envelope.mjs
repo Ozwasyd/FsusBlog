@@ -76,7 +76,6 @@ const CONVERSATION_LIST_CURSOR_ENVELOPE_MAGIC = 0x4D534743;
 const CONVERSATION_LIST_CURSOR_ENVELOPE_VERSION = 1;
 const CONVERSATION_LIST_CURSOR_ENVELOPE_SIZE = 17;
 const ARTICLE_PAGE_CURSOR_ENVELOPE_MAGIC = 0x41535046;
-const ARTICLE_PAGE_CURSOR_ENVELOPE_LEGACY_VERSION = 1;
 const ARTICLE_PAGE_CURSOR_ENVELOPE_VERSION = 2;
 const ARTICLE_LIST_RECORD_SIZE = 56;
 const ARTICLE_LIST_RECORD_WITH_STATUS_SIZE = 76;
@@ -1363,58 +1362,44 @@ export function decodePublicAotPayload(text)
 function decodeArticlePage(payload)
 {
     const reader = new BinaryReader(payload);
-    let hasCursorMetadata = false;
-    let nextCursorUnixMs = 0;
-    let nextCursor = null;
-    let hasMore = false;
-    let total = reader.readInt32();
-    if (total === ARTICLE_PAGE_CURSOR_ENVELOPE_MAGIC)
+    if (reader.readInt32() !== ARTICLE_PAGE_CURSOR_ENVELOPE_MAGIC)
     {
-        const version = reader.readInt32();
-        if (version === ARTICLE_PAGE_CURSOR_ENVELOPE_LEGACY_VERSION)
-        {
-            nextCursorUnixMs = Number(reader.readInt64());
-            hasMore = reader.readByte() === 1;
-            total = reader.readInt32();
-        }
-        else if (version === ARTICLE_PAGE_CURSOR_ENVELOPE_VERSION)
-        {
-            const hasMoreByte = reader.readByte();
-            if (hasMoreByte > 1)
-            {
-                throw new Error('article_page_cursor_has_more_invalid');
-            }
-            hasMore = hasMoreByte === 1;
-            total = reader.readInt32();
-            const cursorBytes = reader.readBlob();
-            if (cursorBytes.byteLength > 64)
-            {
-                throw new Error('article_page_cursor_length_invalid');
-            }
-            try
-            {
-                nextCursor = cursorBytes.byteLength === 0
-                    ? null
-                    : new TextDecoder('utf-8', { fatal: true }).decode(cursorBytes);
-            }
-            catch
-            {
-                throw new Error('article_page_cursor_utf8_invalid');
-            }
-            if (nextCursor && !/^[A-Za-z0-9_-]+$/.test(nextCursor))
-            {
-                throw new Error('article_page_cursor_format_invalid');
-            }
-            if (hasMore !== Boolean(nextCursor))
-            {
-                throw new Error('article_page_cursor_state_invalid');
-            }
-        }
-        else
-        {
-            throw new Error('article_page_cursor_version_invalid');
-        }
-        hasCursorMetadata = true;
+        throw new Error('article_page_cursor_envelope_missing');
+    }
+    if (reader.readInt32() !== ARTICLE_PAGE_CURSOR_ENVELOPE_VERSION)
+    {
+        throw new Error('article_page_cursor_version_invalid');
+    }
+    const hasMoreByte = reader.readByte();
+    if (hasMoreByte > 1)
+    {
+        throw new Error('article_page_cursor_has_more_invalid');
+    }
+    const hasMore = hasMoreByte === 1;
+    const total = reader.readInt32();
+    const cursorBytes = reader.readBlob();
+    if (cursorBytes.byteLength > 512)
+    {
+        throw new Error('article_page_cursor_length_invalid');
+    }
+    let nextCursor = null;
+    try
+    {
+        nextCursor = cursorBytes.byteLength === 0
+            ? null
+            : new TextDecoder('utf-8', { fatal: true }).decode(cursorBytes);
+    }
+    catch
+    {
+        throw new Error('article_page_cursor_utf8_invalid');
+    }
+    if (nextCursor && !/^[A-Za-z0-9_-]+$/.test(nextCursor))
+    {
+        throw new Error('article_page_cursor_format_invalid');
+    }
+    if (hasMore !== Boolean(nextCursor))
+    {
+        throw new Error('article_page_cursor_state_invalid');
     }
 
     const count = reader.readInt32();
@@ -1493,9 +1478,7 @@ function decodeArticlePage(payload)
     return {
         items,
         total,
-        nextCursor: hasCursorMetadata && hasMore
-            ? nextCursor ?? (nextCursorUnixMs > 0 ? String(nextCursorUnixMs) : null)
-            : null,
+        nextCursor: hasMore ? nextCursor : null,
         hasMore
     };
 }

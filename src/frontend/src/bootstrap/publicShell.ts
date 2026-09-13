@@ -719,53 +719,19 @@ function resolveShellActionNavigation(actionNode: HTMLElement): string | null
         return null;
     }
 
-    if (hydratedPayload?.pageKind === 'Home')
-    {
-        const step = action === 'page-prev' ? -1 : 1;
-        const nextPage = hydratedPayload.currentPage + step;
-        const totalPages = Math.max(1, Math.ceil(hydratedPayload.total / Math.max(1, hydratedPayload.pageSize)));
-        if (nextPage < 1 || nextPage > totalPages)
-        {
-            return null;
-        }
-
-        const target = new URL(window.location.href);
-        if (nextPage <= 1)
-        {
-            target.searchParams.delete('page');
-        }
-        else
-        {
-            target.searchParams.set('page', String(nextPage));
-        }
-
-        return target.toString();
-    }
-
-    const pathname = window.location.pathname;
-    const isFilterSeoPath = /^\/(category|tag)\/\d+\/?$/.test(pathname);
-    if (!isFilterSeoPath)
+    const anchor = actionNode instanceof HTMLAnchorElement
+        ? actionNode
+        : actionNode.closest<HTMLAnchorElement>('a[href]');
+    if (!anchor)
     {
         return null;
     }
 
-    const target = new URL(window.location.href);
-    const currentPageRaw = Number(target.searchParams.get('page') ?? '1');
-    const currentPage = Number.isFinite(currentPageRaw) && currentPageRaw > 0 ? Math.trunc(currentPageRaw) : 1;
-    const step = action === 'page-prev' ? -1 : 1;
-    const nextPage = currentPage + step;
-    if (nextPage < 1)
+    const target = new URL(anchor.href, window.location.href);
+    const page = Number.parseInt(target.searchParams.get('page') ?? '1', 10);
+    if (Number.isFinite(page) && page > 1 && !target.searchParams.get('cursor'))
     {
         return null;
-    }
-
-    if (nextPage <= 1)
-    {
-        target.searchParams.delete('page');
-    }
-    else
-    {
-        target.searchParams.set('page', String(nextPage));
     }
 
     return target.toString();

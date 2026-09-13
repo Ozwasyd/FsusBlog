@@ -34,6 +34,8 @@ internal static class PublicAotRendererPayloadMapper
                 common["pageIndex"] = home.Page;
                 common["pageSize"] = home.Size;
                 common["total"] = home.Total;
+                common["nextCursor"] = home.NextCursor;
+                common["hasMore"] = home.HasMore;
                 common["articles"] = home.Items.Select(ToArticleSummaryPayload).ToArray();
                 common["featuredArticles"] = home.FeaturedArticles.Select(ToFeaturedArticlePayload).ToArray();
                 common["hotArticles"] = home.HotArticles.Select(ToHotArticlePayload).ToArray();
@@ -72,6 +74,8 @@ internal static class PublicAotRendererPayloadMapper
                     ["pageIndex"] = filter.PageIndex,
                     ["pageSize"] = filter.PageSize,
                     ["total"] = filter.Total,
+                    ["nextCursor"] = filter.NextCursor,
+                    ["hasMore"] = filter.HasMore,
                     ["articles"] = filter.Articles.Select(ToArticleSummaryPayload).ToArray()
                 };
                 return common;

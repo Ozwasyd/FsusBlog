@@ -79,18 +79,16 @@ public sealed class TaxonomyFieldAwareInvalidationTests
     [Fact]
     public async Task Dispatch_NoOp_PerformsNoDownstreamWork()
     {
-        IHttpCacheInvalidator http = Substitute.For<IHttpCacheInvalidator>();
         ICacheInvalidationStore cache = Substitute.For<ICacheInvalidationStore>();
-        ITaxonomyCountProjectionService projection = Substitute.For<ITaxonomyCountProjectionService>();
+        ICacheInvalidationDispatcher dispatcher = Substitute.For<ICacheInvalidationDispatcher>();
         IPublicAotInvalidationService publicAot = Substitute.For<IPublicAotInvalidationService>();
 
         await BinaryEndpoints.DispatchTaxonomyUpdateSideEffectsAsync(
             new BinaryEndpoints.TaxonomyUpdateApplyResult(BinaryEndpoints.TaxonomyUpdateOutcome.NoOp, false, false),
             7,
             isCategory: true,
-            http,
             cache,
-            projection,
+            dispatcher,
             publicAot,
             "taxonomy-category-updated",
             CancellationToken.None);
@@ -99,28 +97,26 @@ public sealed class TaxonomyFieldAwareInvalidationTests
             Arg.Any<CachePolicyId>(),
             Arg.Any<string>(),
             Arg.Any<CancellationToken>());
-        await projection.DidNotReceive().BumpFrameVersionAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
-        await http.DidNotReceive().InvalidateAsync(Arg.Any<CacheTag[]>());
-        await publicAot.DidNotReceive().InvalidateFilterRouteFamilyAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
-        await publicAot.DidNotReceive().InvalidateAllAsync(Arg.Any<CancellationToken>());
-        await publicAot.DidNotReceive().InvalidateSeoAsync(Arg.Any<CancellationToken>());
+        await dispatcher.DidNotReceive().InvalidateCategoryTagAsync(Arg.Any<CancellationToken>());
+        await dispatcher.DidNotReceive().InvalidateTaxonomyMetadataAsync(
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task Dispatch_DescriptionOnlyCategory_InvalidatesExactMetadataAndFilterFamilyOnly()
+    public async Task Dispatch_DescriptionOnlyCategory_InvalidatesExactMetadataAndSitemapGeneration()
     {
-        IHttpCacheInvalidator http = Substitute.For<IHttpCacheInvalidator>();
         ICacheInvalidationStore cache = Substitute.For<ICacheInvalidationStore>();
-        ITaxonomyCountProjectionService projection = Substitute.For<ITaxonomyCountProjectionService>();
+        ICacheInvalidationDispatcher dispatcher = Substitute.For<ICacheInvalidationDispatcher>();
         IPublicAotInvalidationService publicAot = Substitute.For<IPublicAotInvalidationService>();
 
         await BinaryEndpoints.DispatchTaxonomyUpdateSideEffectsAsync(
             new BinaryEndpoints.TaxonomyUpdateApplyResult(BinaryEndpoints.TaxonomyUpdateOutcome.Updated, false, true),
             7,
             isCategory: true,
-            http,
             cache,
-            projection,
+            dispatcher,
             publicAot,
             "taxonomy-category-updated",
             CancellationToken.None);
@@ -129,30 +125,30 @@ public sealed class TaxonomyFieldAwareInvalidationTests
             CachePolicyId.TaxonomyExactMetadataFrame,
             TaxonomyExactMetadataCache.ForCategory(7),
             Arg.Any<CancellationToken>());
-        await publicAot.Received(1).InvalidateFilterRouteFamilyAsync("category:7", Arg.Any<CancellationToken>());
-        await projection.DidNotReceive().BumpFrameVersionAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
-        await http.DidNotReceive().InvalidateAsync(Arg.Any<CacheTag[]>());
-        await publicAot.DidNotReceive().InvalidateFilterRouteFamilyAsync("category:70", Arg.Any<CancellationToken>());
-        await publicAot.DidNotReceive().InvalidateFilterRouteFamilyAsync("tag:7", Arg.Any<CancellationToken>());
-        await publicAot.DidNotReceive().InvalidateSeoAsync(Arg.Any<CancellationToken>());
-        await publicAot.DidNotReceive().InvalidateAllAsync(Arg.Any<CancellationToken>());
+        await dispatcher.DidNotReceive().InvalidateCategoryTagAsync(Arg.Any<CancellationToken>());
+        await publicAot.Received(1).InvalidateFilterRouteFamilyAsync(
+            PublicRouteIdentity.BuildCategoryRouteKey(7),
+            Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
+        await dispatcher.Received(1).InvalidateTaxonomyMetadataAsync(
+            PublicRouteIdentity.BuildCategoryRouteKey(7),
+            Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task Dispatch_DescriptionOnlyTag_InvalidatesExactMetadataAndTagFilterFamilyOnly()
+    public async Task Dispatch_DescriptionOnlyTag_InvalidatesExactMetadataAndSitemapGeneration()
     {
-        IHttpCacheInvalidator http = Substitute.For<IHttpCacheInvalidator>();
         ICacheInvalidationStore cache = Substitute.For<ICacheInvalidationStore>();
-        ITaxonomyCountProjectionService projection = Substitute.For<ITaxonomyCountProjectionService>();
+        ICacheInvalidationDispatcher dispatcher = Substitute.For<ICacheInvalidationDispatcher>();
         IPublicAotInvalidationService publicAot = Substitute.For<IPublicAotInvalidationService>();
 
         await BinaryEndpoints.DispatchTaxonomyUpdateSideEffectsAsync(
             new BinaryEndpoints.TaxonomyUpdateApplyResult(BinaryEndpoints.TaxonomyUpdateOutcome.Updated, false, true),
             11,
             isCategory: false,
-            http,
             cache,
-            projection,
+            dispatcher,
             publicAot,
             "taxonomy-tag-updated",
             CancellationToken.None);
@@ -161,26 +157,30 @@ public sealed class TaxonomyFieldAwareInvalidationTests
             CachePolicyId.TaxonomyExactMetadataFrame,
             TaxonomyExactMetadataCache.ForTag(11),
             Arg.Any<CancellationToken>());
-        await publicAot.Received(1).InvalidateFilterRouteFamilyAsync("tag:11", Arg.Any<CancellationToken>());
-        await projection.DidNotReceive().BumpFrameVersionAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
-        await http.DidNotReceive().InvalidateAsync(Arg.Any<CacheTag[]>());
+        await dispatcher.DidNotReceive().InvalidateCategoryTagAsync(Arg.Any<CancellationToken>());
+        await publicAot.Received(1).InvalidateFilterRouteFamilyAsync(
+            PublicRouteIdentity.BuildTagIdRouteKey(11),
+            Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
+        await dispatcher.Received(1).InvalidateTaxonomyMetadataAsync(
+            PublicRouteIdentity.BuildTagIdRouteKey(11),
+            Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task Dispatch_NameAndDescription_FollowsRenameInvalidationPath()
     {
-        IHttpCacheInvalidator http = Substitute.For<IHttpCacheInvalidator>();
         ICacheInvalidationStore cache = Substitute.For<ICacheInvalidationStore>();
-        ITaxonomyCountProjectionService projection = Substitute.For<ITaxonomyCountProjectionService>();
+        ICacheInvalidationDispatcher dispatcher = Substitute.For<ICacheInvalidationDispatcher>();
         IPublicAotInvalidationService publicAot = Substitute.For<IPublicAotInvalidationService>();
 
         await BinaryEndpoints.DispatchTaxonomyUpdateSideEffectsAsync(
             new BinaryEndpoints.TaxonomyUpdateApplyResult(BinaryEndpoints.TaxonomyUpdateOutcome.Updated, true, true),
             7,
             isCategory: true,
-            http,
             cache,
-            projection,
+            dispatcher,
             publicAot,
             "taxonomy-category-updated",
             CancellationToken.None);
@@ -189,9 +189,7 @@ public sealed class TaxonomyFieldAwareInvalidationTests
             CachePolicyId.TaxonomyExactMetadataFrame,
             TaxonomyExactMetadataCache.ForCategory(7),
             Arg.Any<CancellationToken>());
-        await projection.Received(1).BumpFrameVersionAsync("taxonomy-category-updated", Arg.Any<CancellationToken>());
-        await http.Received(1).InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
-        await publicAot.DidNotReceive().InvalidateFilterRouteFamilyAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await dispatcher.Received(1).InvalidateCategoryTagAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -214,9 +212,8 @@ public sealed class TaxonomyFieldAwareInvalidationTests
         Assert.Contains("get_NameChanged", tag, StringComparison.Ordinal);
         Assert.Contains("InsertTaxonomyProjectionOutboxAsync", tag, StringComparison.Ordinal);
         Assert.Contains("TagUrlAlias", tag, StringComparison.Ordinal);
-        Assert.Contains("InvalidateFilterRouteFamilyAsync", dispatch, StringComparison.Ordinal);
-        Assert.Contains("BumpFrameVersionAsync", dispatch, StringComparison.Ordinal);
-        Assert.Contains("ArticleList", dispatch, StringComparison.Ordinal);
+        Assert.Contains("InvalidateCategoryTagAsync", dispatch, StringComparison.Ordinal);
+        Assert.Contains("InvalidateTaxonomyMetadataAsync", dispatch, StringComparison.Ordinal);
         Assert.Contains("ForCategory", dispatch, StringComparison.Ordinal);
         Assert.Contains("ForTag", dispatch, StringComparison.Ordinal);
         Assert.Contains("RemoveAsync", dispatch, StringComparison.Ordinal);

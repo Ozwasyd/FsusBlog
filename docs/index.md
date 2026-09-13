@@ -238,7 +238,6 @@ This index is generated from explicit metadata in `config/development/document-l
 
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Contributing](CONTRIBUTING.md)
-- [Security Policy](SECURITY.md)
 - [Support](SUPPORT.md)
 - [ADR: Playwright replay uses repository-owned sealed lanes](architecture/decisions/ADR-Test-Execution-Replay-Playwright.md)
 - [Content Credentials offline prototype](content-credentials.md)

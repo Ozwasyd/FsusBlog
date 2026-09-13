@@ -10,7 +10,7 @@ export type AedsAccessProfileId = typeof AEDS_ACCESS_PROFILE[keyof typeof AEDS_A
 
 export const ARTICLE_LIST_ACCESS = Object.freeze({
   cursorMagic: 1095979078,
-  cursorVersions: [1, 2] as const,
+  cursorVersions: [2] as const,
   tagRecordBytes: 12,
   supportedPublicCardRecordBytes: [76, 100] as const,
   fallbackPublicCardRecordBytes: [56] as const,

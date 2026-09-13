@@ -43,6 +43,11 @@ internal sealed class PublicAotRouteIdentity(
         }
 
         PublicAotPageDescriptor descriptor = PublicAotPageCatalog.GetRequired(request.Kind);
+        if (PublicRouteIdentity.SupportsPagination(descriptor.PageId))
+        {
+            throw new InvalidOperationException("public_aot_cursor_only_route_required");
+        }
+
         return new PublicAotRouteMatch(
             request.Kind,
             descriptor.PageId,
@@ -51,7 +56,7 @@ internal sealed class PublicAotRouteIdentity(
             request.Path,
             request.QueryString)
         {
-            Page = PublicRouteIdentity.ParsePageRouteKey(request.RouteKey),
+            Page = 1,
             LocaleResolution = localeResolution
         };
     }

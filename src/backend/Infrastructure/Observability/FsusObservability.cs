@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Runtime.CompilerServices;
 
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Security;
 
@@ -29,6 +30,15 @@ public sealed record CacheOperationRuntimeCounter(
     string Layer,
     string Result,
     long Count);
+
+public sealed record CacheL1TelemetryRuntimeSnapshot(
+    int SeriesCount,
+    int SampleRate,
+    long ExactHitCount,
+    long DurationSampleCount,
+    long WeightedDurationSampleCount);
+
+public readonly record struct CachePolicyHitMissRuntimeCounter(long Hits, long Misses);
 
 internal readonly record struct CacheOperationMetricKey(
     string Operation,
@@ -61,6 +71,7 @@ public static class FsusObservability
         "fsus.cache.layer",
         "fsus.cache.operation",
         "fsus.cache.policy",
+        "fsus.cache.sample_rate",
         "fsus.component",
         "fsus.db.operation",
         "fsus.db.system",
@@ -89,11 +100,24 @@ public static class FsusObservability
     private static readonly Meter s_meter = new(MeterName, ServiceVersion);
     private static readonly Counter<long> s_operationCounter = s_meter.CreateCounter<long>("fsus.operation.count");
     private static readonly ConcurrentDictionary<CacheOperationMetricKey, CacheOperationMetricState> s_cacheOperationRuntimeCounters = new();
-    public const string CacheL1CounterMode = "striped";
+    public const int CacheL1DurationSampleRate = 64;
     private const int SecurityEventTagCacheLimit = 256;
     private static readonly ConcurrentDictionary<string, string> s_routeKindCache = new(StringComparer.Ordinal);
     private static readonly Histogram<double> s_operationDuration = s_meter.CreateHistogram<double>("fsus.operation.duration", "ms");
     private static readonly Counter<long> s_cacheOperationCounter = s_meter.CreateCounter<long>("fsus.cache.operation.count");
+    private static readonly Histogram<double> s_cacheL1HitDuration = s_meter.CreateHistogram<double>("fsus.cache.l1.hit.duration", "ms");
+    private static readonly CacheL1MetricState?[] s_cacheL1States = CreateCacheL1States();
+    private static readonly CachePolicyHitMissMetricState?[] s_cachePolicyHitMissStates = CreateCachePolicyHitMissStates();
+    private static long s_cacheL1SampleSequence;
+    private static readonly ObservableCounter<long> s_cacheL1HitCounter = s_meter.CreateObservableCounter(
+        "fsus.cache.l1.hit.count",
+        ObserveCacheL1Hits);
+    private static readonly ObservableCounter<long> s_cacheL1DurationSampleCounter = s_meter.CreateObservableCounter(
+        "fsus.cache.l1.hit.duration.sample.count",
+        ObserveCacheL1DurationSamples);
+    private static readonly ObservableCounter<long> s_cacheL1DurationWeightedCounter = s_meter.CreateObservableCounter(
+        "fsus.cache.l1.hit.duration.weighted_count",
+        ObserveCacheL1DurationWeightedCounts);
     private static readonly Counter<long> s_securityEventCounter = s_meter.CreateCounter<long>("fsus.security.event.count");
     private static readonly Counter<long> s_securityEventTagCacheMissCounter = s_meter.CreateCounter<long>("fsus.observability.tag_cache.miss_count");
     private static readonly Histogram<double> s_securityEventRecordElapsed = s_meter.CreateHistogram<double>("fsus.observability.record_security_event.elapsed", "ms");
@@ -180,6 +204,12 @@ public static class FsusObservability
     private static readonly Counter<long> s_hotArticlesDirtyCounter = s_meter.CreateCounter<long>("fsus.cache.hot_articles.dirty.count");
     private static readonly Counter<long> s_hotArticlesFlushCounter = s_meter.CreateCounter<long>("fsus.cache.hot_articles.flush.count");
     private static readonly Counter<long> s_hotArticlesCoalescedCounter = s_meter.CreateCounter<long>("fsus.cache.hot_articles.flush.coalesced_batches");
+    private static readonly Counter<long> s_articleHotFrameSeedReads = s_meter.CreateCounter<long>("fsus.cache.article_hot_frame.seed_reads");
+    private static readonly Counter<long> s_articleHotFrameWholeBuilds = s_meter.CreateCounter<long>("fsus.cache.article_hot_frame.whole_builds");
+    private static readonly Counter<long> s_articleHotFrameDatabaseCommands = s_meter.CreateCounter<long>("fsus.cache.article_hot_frame.db_commands");
+    private static readonly Histogram<long> s_articleHotFrameBytes = s_meter.CreateHistogram<long>("fsus.cache.article_hot_frame.bytes", "By");
+    private static readonly Counter<long> s_articleHotFrameRedisPublications = s_meter.CreateCounter<long>("fsus.cache.article_hot_frame.redis_publications");
+    private static readonly Counter<long> s_articleHotFrameGenerationRetries = s_meter.CreateCounter<long>("fsus.cache.article_hot_frame.generation_retries");
     private static readonly Counter<long> s_statsDirtyCounter = s_meter.CreateCounter<long>("fsus.cache.stats.dirty.count");
     private static readonly Counter<long> s_statsFlushCounter = s_meter.CreateCounter<long>("fsus.cache.stats.flush.count");
     private static long s_hotArticlesVersionValue;
@@ -327,8 +357,10 @@ public static class FsusObservability
     private static readonly Histogram<double> s_adminSessionListElapsed = s_meter.CreateHistogram<double>("fsus.admin.session.list.elapsed_ms", "ms");
     private static readonly Counter<long> s_adminSessionRevokeOthersCount = s_meter.CreateCounter<long>("fsus.admin.session.revoke_others.count");
     private static readonly Histogram<double> s_adminSessionRevokeOthersElapsed = s_meter.CreateHistogram<double>("fsus.admin.session.revoke_others.elapsed_ms", "ms");
-    private static readonly Counter<long> s_adminSessionValidationDbReadCount = s_meter.CreateCounter<long>("fsus.admin.session.validation.db_read_count");
-    private static readonly Counter<long> s_adminSessionValidationCacheHit = s_meter.CreateCounter<long>("fsus.admin.session.validation.cache_hit");
+    private static readonly Counter<long> s_adminSessionValidationCount = s_meter.CreateCounter<long>("fsus.admin.session.validation.count");
+    private static readonly Histogram<long> s_adminSessionProjectionEntries = s_meter.CreateHistogram<long>("fsus.admin.session.projection.entries");
+    private static readonly Histogram<long> s_adminSessionProjectionBytes = s_meter.CreateHistogram<long>("fsus.admin.session.projection.bytes", "By");
+    private static readonly Histogram<long> s_adminSessionProjectionVersionLag = s_meter.CreateHistogram<long>("fsus.admin.session.projection.version_lag");
     private static readonly Counter<long> s_adminSessionTouchSkipped = s_meter.CreateCounter<long>("fsus.admin.session.touch_skipped");
     private static readonly Histogram<double> s_adminSessionTouchElapsed = s_meter.CreateHistogram<double>("fsus.admin.session.touch_elapsed_ms", "ms");
     private static readonly Histogram<double> s_distributionDiagnosticsElapsed = s_meter.CreateHistogram<double>("fsus.distribution.diagnostics.elapsed_ms", "ms");
@@ -336,8 +368,13 @@ public static class FsusObservability
     private static readonly Counter<long> s_distributionDiagnosticsDbCommandCount = s_meter.CreateCounter<long>("fsus.distribution.diagnostics.db_command_count");
     private static readonly Histogram<double> s_relatedReadingBuildElapsed = s_meter.CreateHistogram<double>("fsus.related_reading.build.elapsed_ms", "ms");
     private static readonly Counter<long> s_relatedReadingBuildCacheAccess = s_meter.CreateCounter<long>("fsus.related_reading.build.cache_access");
+    private static readonly Histogram<long> s_relatedReadingFrameBytes = s_meter.CreateHistogram<long>("fsus.related_reading.frame.bytes", "By");
+    private static readonly Histogram<long> s_relatedReadingBuildAllocationBytes = s_meter.CreateHistogram<long>("fsus.related_reading.build.allocation_bytes", "By");
+    private static readonly Counter<long> s_relatedReadingDbCommandCount = s_meter.CreateCounter<long>("fsus.related_reading.db.command_count");
     private static readonly Histogram<double> s_sitemapBuildElapsed = s_meter.CreateHistogram<double>("fsus.sitemap.build.elapsed_ms", "ms");
     private static readonly Counter<long> s_sitemapBuildCacheAccess = s_meter.CreateCounter<long>("fsus.sitemap.build.cache_access");
+    private static readonly Histogram<long> s_sitemapArtifactResidentBytes = s_meter.CreateHistogram<long>("fsus.sitemap.artifact.resident_bytes", "By");
+    private static readonly Histogram<long> s_sitemapBuildAllocationBytes = s_meter.CreateHistogram<long>("fsus.sitemap.build.allocation_bytes", "By");
     private static readonly Counter<long> s_readinessSnapshotCacheAccess = s_meter.CreateCounter<long>("fsus.readiness.snapshot.cache_access");
     private static readonly Histogram<double> s_readinessSnapshotFreshCheckElapsed = s_meter.CreateHistogram<double>("fsus.readiness.snapshot.fresh_check_elapsed_ms", "ms");
     private static readonly Counter<long> s_readinessSnapshotDependencyCheckCount = s_meter.CreateCounter<long>("fsus.readiness.snapshot.dependency_check_count");
@@ -462,8 +499,37 @@ public static class FsusObservability
             key,
             static metricKey => new CacheOperationMetricState(metricKey));
         state.Record();
+        RecordCachePolicyHitMiss(policyId, result);
         s_cacheOperationCounter.Add(1, state.Tags);
         s_cacheOperationDuration.Record(duration.TotalMilliseconds, state.Tags);
+    }
+
+    public static CacheL1HitObservation BeginCacheL1Hit(CachePolicyId policyId, CacheL1Operation operation)
+    {
+        _ = ResolveCacheL1State(policyId, operation, negative: false);
+        bool sampled = CacheL1SamplingGate.ShouldSample(
+            ref s_cacheL1SampleSequence,
+            CacheL1DurationSampleRate);
+        return sampled
+            ? new CacheL1HitObservation(true, Stopwatch.GetTimestamp())
+            : default;
+    }
+
+    public static void RecordCacheL1Hit(
+        CachePolicyId policyId,
+        CacheL1Operation operation,
+        bool negative,
+        CacheL1HitObservation observation)
+    {
+        CacheL1MetricState state = ResolveCacheL1State(policyId, operation, negative);
+        state.IncrementCount();
+        CachePolicyHitMissMetricState policyState = ResolveCachePolicyHitMissState(policyId);
+        policyState.IncrementHit();
+        if (observation.Sampled)
+        {
+            state.Duration.Record(Stopwatch.GetElapsedTime(observation.StartedAt).TotalMilliseconds, state.Tags);
+            state.IncrementSampleCount();
+        }
     }
 
     internal static void RecordCacheCoordination(string policy, long redisCommands, TimeSpan localWait, TimeSpan leaseWait, int rebuilds, string releaseOutcome, int? activeEntries)
@@ -512,19 +578,261 @@ public static class FsusObservability
 
     public static IReadOnlyList<CacheOperationRuntimeCounter> GetCacheOperationCounters()
     {
-        var counters = new List<CacheOperationRuntimeCounter>(s_cacheOperationRuntimeCounters.Count);
+        var counters = new List<CacheOperationRuntimeCounter>(s_cacheOperationRuntimeCounters.Count + s_cacheL1States.Length);
         foreach ((CacheOperationMetricKey key, CacheOperationMetricState state) in s_cacheOperationRuntimeCounters)
         {
             counters.Add(new CacheOperationRuntimeCounter(key.Operation, key.Policy, key.Layer, key.Result, state.Count));
         }
 
+        foreach (CacheL1MetricState? state in s_cacheL1States)
+        {
+            if (state is not null)
+            {
+                counters.Add(new CacheOperationRuntimeCounter(state.Operation, state.Policy, "l1", state.Result, state.Count));
+            }
+        }
+
         return counters;
+    }
+
+    public static CacheL1TelemetryRuntimeSnapshot GetCacheL1TelemetrySnapshot()
+    {
+        long exactCount = 0;
+        long sampleCount = 0;
+        int seriesCount = 0;
+        foreach (CacheL1MetricState? state in s_cacheL1States)
+        {
+            if (state is null)
+            {
+                continue;
+            }
+
+            seriesCount++;
+            exactCount += state.Count;
+            sampleCount += state.SampleCount;
+        }
+
+        return new CacheL1TelemetryRuntimeSnapshot(
+            seriesCount,
+            CacheL1DurationSampleRate,
+            exactCount,
+            sampleCount,
+            sampleCount * CacheL1DurationSampleRate);
+    }
+
+    public static CachePolicyHitMissRuntimeCounter GetCachePolicyHitMissCounter(CachePolicyId policyId)
+    {
+        CachePolicyHitMissMetricState state = ResolveCachePolicyHitMissState(policyId);
+        return new CachePolicyHitMissRuntimeCounter(
+            state.Hits,
+            state.Misses);
+    }
+
+    private static CacheL1MetricState?[] CreateCacheL1States()
+    {
+        int policySlots = Enum.GetValues<CachePolicyId>().Max(static value => (int)value) + 1;
+        var states = new CacheL1MetricState?[policySlots * 8];
+        string[] operations = ["get", "get_raw", "get_raw_readonly", "get_owned_frame"];
+        foreach (CachePolicyId policyId in Enum.GetValues<CachePolicyId>())
+        {
+            for (int operation = 0; operation < operations.Length; operation++)
+            {
+                states[CacheL1StateIndex(policyId, (CacheL1Operation)operation, negative: false)] =
+                    new CacheL1MetricState(operations[operation], CachePolicyTelemetry.Name(policyId), "hit");
+                states[CacheL1StateIndex(policyId, (CacheL1Operation)operation, negative: true)] =
+                    new CacheL1MetricState(operations[operation], CachePolicyTelemetry.Name(policyId), "hit_negative");
+            }
+        }
+        return states;
+    }
+
+    private static CachePolicyHitMissMetricState?[] CreateCachePolicyHitMissStates()
+    {
+        int policySlots = Enum.GetValues<CachePolicyId>().Max(static value => (int)value) + 1;
+        var states = new CachePolicyHitMissMetricState?[policySlots];
+        foreach (CachePolicyId policyId in Enum.GetValues<CachePolicyId>())
+        {
+            states[(int)policyId] = new CachePolicyHitMissMetricState();
+        }
+
+        return states;
+    }
+
+    private static void RecordCachePolicyHitMiss(string policy, string result)
+    {
+        if (!CachePolicyTelemetry.TryParse(policy, out CachePolicyId policyId))
+        {
+            return;
+        }
+
+        CachePolicyHitMissMetricState state = ResolveCachePolicyHitMissState(policyId);
+        if (result.Contains("hit", StringComparison.OrdinalIgnoreCase))
+        {
+            state.IncrementHit();
+        }
+        else if (result.Contains("miss", StringComparison.OrdinalIgnoreCase))
+        {
+            state.IncrementMiss();
+        }
+    }
+
+    private static CachePolicyHitMissMetricState ResolveCachePolicyHitMissState(CachePolicyId policyId)
+    {
+        int index = (int)policyId;
+        if ((uint)index >= (uint)s_cachePolicyHitMissStates.Length
+            || s_cachePolicyHitMissStates[index] is not { } state)
+        {
+            throw new InvalidOperationException($"cache_policy_metric_not_prebound:{policyId}");
+        }
+
+        return state;
+    }
+
+    private static CacheL1MetricState ResolveCacheL1State(CachePolicyId policyId, CacheL1Operation operation, bool negative)
+    {
+        int index = CacheL1StateIndex(policyId, operation, negative);
+        if ((uint)index >= (uint)s_cacheL1States.Length || s_cacheL1States[index] is not { } state)
+        {
+            throw new InvalidOperationException($"cache_l1_metric_not_prebound:{policyId}:{operation}");
+        }
+        return state;
+    }
+
+    private static int CacheL1StateIndex(CachePolicyId policyId, CacheL1Operation operation, bool negative)
+        => checked(((int)policyId * 8) + ((int)operation * 2) + (negative ? 1 : 0));
+
+    private static IEnumerable<Measurement<long>> ObserveCacheL1Hits()
+    {
+        foreach (CacheL1MetricState? state in s_cacheL1States)
+        {
+            if (state is not null)
+            {
+                yield return new Measurement<long>(state.Count, state.Tags);
+            }
+        }
+    }
+
+    private static IEnumerable<Measurement<long>> ObserveCacheL1DurationSamples()
+    {
+        foreach (CacheL1MetricState? state in s_cacheL1States)
+        {
+            if (state is not null)
+            {
+                yield return new Measurement<long>(state.SampleCount, state.Tags);
+            }
+        }
+    }
+
+    private static IEnumerable<Measurement<long>> ObserveCacheL1DurationWeightedCounts()
+    {
+        foreach (CacheL1MetricState? state in s_cacheL1States)
+        {
+            if (state is not null)
+            {
+                yield return new Measurement<long>(
+                    state.SampleCount * CacheL1DurationSampleRate,
+                    state.Tags);
+            }
+        }
+    }
+
+    private sealed class CacheL1MetricState
+    {
+        public CacheL1MetricState(string operation, string policy, string result)
+        {
+            Operation = operation;
+            Policy = policy;
+            Result = result;
+            var tags = CreateBaseTags("cache", operation, result);
+            tags.Add("fsus.cache.operation", operation);
+            tags.Add("fsus.cache.policy", policy);
+            tags.Add("fsus.cache.layer", "l1");
+            tags.Add("fsus.cache.sample_rate", CacheL1DurationSampleRate);
+            Tags = tags;
+            Duration = s_cacheL1HitDuration;
+        }
+
+        public string Operation
+        {
+            get;
+        }
+
+        public string Policy
+        {
+            get;
+        }
+
+        public string Result
+        {
+            get;
+        }
+
+        public TagList Tags
+        {
+            get;
+        }
+
+        public Histogram<double> Duration
+        {
+            get;
+        }
+
+        private readonly FixedShardedCounter _count = new();
+        private readonly FixedShardedCounter _sampleCount = new();
+
+        public long Count => _count.Read();
+
+        public long SampleCount => _sampleCount.Read();
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void IncrementCount() => _count.Increment();
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void IncrementSampleCount() => _sampleCount.Increment();
+    }
+
+    private sealed class CachePolicyHitMissMetricState
+    {
+        private readonly FixedShardedCounter _hits = new();
+        private readonly FixedShardedCounter _misses = new();
+
+        public long Hits => _hits.Read();
+
+        public long Misses => _misses.Read();
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void IncrementHit() => _hits.Increment();
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void IncrementMiss() => _misses.Increment();
+    }
+
+    private sealed class FixedShardedCounter
+    {
+        private const int ShardCount = 64;
+        private readonly long[] _shards = new long[ShardCount];
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Increment()
+        {
+            int shard = Environment.CurrentManagedThreadId & (ShardCount - 1);
+            Interlocked.Increment(ref _shards[shard]);
+        }
+
+        public long Read()
+        {
+            long total = 0;
+            for (int index = 0; index < _shards.Length; index++)
+            {
+                total += Volatile.Read(ref _shards[index]);
+            }
+
+            return total;
+        }
     }
 
     private sealed class CacheOperationMetricState
     {
-        private const int StripeCount = 32;
-        private readonly long[]? _stripes;
         private long _exactCount;
 
         public CacheOperationMetricState(CacheOperationMetricKey key)
@@ -534,12 +842,6 @@ public static class FsusObservability
             tags.Add("fsus.cache.policy", key.Policy);
             tags.Add("fsus.cache.layer", key.Layer);
             Tags = tags;
-            if (string.Equals(key.Layer, "l1", StringComparison.Ordinal)
-                && (string.Equals(key.Result, "hit", StringComparison.Ordinal)
-                    || string.Equals(key.Result, "hit_negative", StringComparison.Ordinal)))
-            {
-                _stripes = new long[StripeCount];
-            }
         }
 
         public TagList Tags
@@ -551,31 +853,13 @@ public static class FsusObservability
         {
             get
             {
-                if (_stripes is null)
-                {
-                    return Volatile.Read(ref _exactCount);
-                }
-
-                long total = 0;
-                for (int i = 0; i < _stripes.Length; i++)
-                {
-                    total += Volatile.Read(ref _stripes[i]);
-                }
-
-                return total;
+                return Volatile.Read(ref _exactCount);
             }
         }
 
         public void Record()
         {
-            if (_stripes is null)
-            {
-                Interlocked.Increment(ref _exactCount);
-                return;
-            }
-
-            int stripe = Environment.CurrentManagedThreadId & (StripeCount - 1);
-            Interlocked.Increment(ref _stripes[stripe]);
+            Interlocked.Increment(ref _exactCount);
         }
     }
 
@@ -1194,6 +1478,49 @@ public static class FsusObservability
         }
     }
 
+    public static void RecordArticleHotFrameSeed(string frameType, string layer)
+    {
+        TagList tags = default;
+        tags.Add("fsus.aeds.frame_type", frameType);
+        tags.Add("fsus.cache.seed.layer", layer);
+        s_articleHotFrameSeedReads.Add(1, tags);
+    }
+
+    public static void RecordArticleHotFrameWholeBuild(string frameType)
+    {
+        TagList tags = default;
+        tags.Add("fsus.aeds.frame_type", frameType);
+        s_articleHotFrameWholeBuilds.Add(1, tags);
+    }
+
+    public static void RecordArticleHotFrameDatabaseCommand(string frameType)
+    {
+        TagList tags = default;
+        tags.Add("fsus.aeds.frame_type", frameType);
+        s_articleHotFrameDatabaseCommands.Add(1, tags);
+    }
+
+    public static void RecordArticleHotFrameBytes(string frameType, long bytes)
+    {
+        TagList tags = default;
+        tags.Add("fsus.aeds.frame_type", frameType);
+        s_articleHotFrameBytes.Record(Math.Max(0, bytes), tags);
+    }
+
+    public static void RecordArticleHotFrameRedisPublication(string frameType)
+    {
+        TagList tags = default;
+        tags.Add("fsus.aeds.frame_type", frameType);
+        s_articleHotFrameRedisPublications.Add(1, tags);
+    }
+
+    public static void RecordArticleHotFrameGenerationRetry(string frameType)
+    {
+        TagList tags = default;
+        tags.Add("fsus.aeds.frame_type", frameType);
+        s_articleHotFrameGenerationRetries.Add(1, tags);
+    }
+
     public static void RecordCacheRemoveMany(long keys, long redisBatches, TimeSpan elapsed)
     {
         s_cacheRemoveManyKeyCounter.Add(Math.Max(0, keys));
@@ -1802,21 +2129,21 @@ public static class FsusObservability
         });
     }
 
-    public static void RecordAdminSessionValidationDbRead()
+    public static void RecordAdminSessionProjectionValidation(
+        string source,
+        bool valid,
+        long entries,
+        long residentBytes,
+        long versionLag)
     {
         TryRecord(() =>
         {
-            TagList tags = CreateBaseTags("admin-session", "validation", "db_read");
-            s_adminSessionValidationDbReadCount.Add(1, tags);
-        });
-    }
-
-    public static void RecordAdminSessionValidationCacheHit()
-    {
-        TryRecord(() =>
-        {
-            TagList tags = CreateBaseTags("admin-session", "validation", "cache_hit");
-            s_adminSessionValidationCacheHit.Add(1, tags);
+            TagList tags = CreateBaseTags("admin-session", "validation", valid ? "valid" : "invalid");
+            tags.Add("fsus.validation.source", source);
+            s_adminSessionValidationCount.Add(1, tags);
+            s_adminSessionProjectionEntries.Record(Math.Max(0, entries), tags);
+            s_adminSessionProjectionBytes.Record(Math.Max(0, residentBytes), tags);
+            s_adminSessionProjectionVersionLag.Record(Math.Max(0, versionLag), tags);
         });
     }
 
@@ -1867,23 +2194,41 @@ public static class FsusObservability
         });
     }
 
-    public static void RecordRelatedReadingBuild(bool cacheHit, TimeSpan elapsed)
+    public static void RecordRelatedReadingBuild(
+        bool cacheHit,
+        bool negative,
+        long frameBytes,
+        long allocationBytes,
+        long dbCommandCount,
+        TimeSpan elapsed)
     {
         TryRecord(() =>
         {
-            TagList tags = CreateBaseTags("related-reading", "build", cacheHit ? "hit" : "miss");
+            string result = negative
+                ? cacheHit ? "hit_negative" : "miss_negative"
+                : cacheHit ? "hit" : "miss";
+            TagList tags = CreateBaseTags("related-reading", "build", result);
             s_relatedReadingBuildElapsed.Record(elapsed.TotalMilliseconds, tags);
             s_relatedReadingBuildCacheAccess.Add(1, tags);
+            s_relatedReadingFrameBytes.Record(Math.Max(0, frameBytes), tags);
+            s_relatedReadingBuildAllocationBytes.Record(Math.Max(0, allocationBytes), tags);
+            s_relatedReadingDbCommandCount.Add(Math.Max(0, dbCommandCount), tags);
         });
     }
 
-    public static void RecordSitemapBuild(bool cacheHit, TimeSpan elapsed)
+    public static void RecordSitemapBuild(
+        bool cacheHit,
+        long residentBytes,
+        long allocationBytes,
+        TimeSpan elapsed)
     {
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("sitemap", "build", cacheHit ? "hit" : "miss");
             s_sitemapBuildElapsed.Record(elapsed.TotalMilliseconds, tags);
             s_sitemapBuildCacheAccess.Add(1, tags);
+            s_sitemapArtifactResidentBytes.Record(Math.Max(0, residentBytes), tags);
+            s_sitemapBuildAllocationBytes.Record(Math.Max(0, allocationBytes), tags);
         });
     }
 

@@ -7,7 +7,7 @@ using StackExchange.Redis;
 namespace FsusBlog.Server.Infrastructure.Distributed.Cluster;
 
 public sealed class RedisClusterMembershipStore(
-    IConnectionMultiplexer redis,
+    IRedisOperationExecutor redis,
     IRuntimeKeyScope runtimeKeyScope) : IClusterMembershipStore
 {
     private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
@@ -19,10 +19,14 @@ public sealed class RedisClusterMembershipStore(
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        await Database.HashSetAsync(
-            _membershipKey,
-            node.NodeId.Value,
-            JsonSerializer.Serialize(node, s_jsonOptions)).ConfigureAwait(false);
+        await redis.ExecuteAsync(
+                RedisOperationPort.ClusterMembership,
+                (multiplexer, _) => multiplexer.GetDatabase().HashSetAsync(
+                    _membershipKey,
+                    node.NodeId.Value,
+                    JsonSerializer.Serialize(node, s_jsonOptions)),
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public ValueTask MarkHeartbeatAsync(
@@ -53,7 +57,11 @@ public sealed class RedisClusterMembershipStore(
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        HashEntry[] entries = await Database.HashGetAllAsync(_membershipKey).ConfigureAwait(false);
+        HashEntry[] entries = await redis.ExecuteAsync(
+                RedisOperationPort.ClusterMembership,
+                (multiplexer, _) => multiplexer.GetDatabase().HashGetAllAsync(_membershipKey),
+                cancellationToken)
+            .ConfigureAwait(false);
         return entries
             .Select(static entry => JsonSerializer.Deserialize<NodeDescriptor>(
                 entry.Value.ToString(),
@@ -130,39 +138,45 @@ public sealed class RedisClusterMembershipStore(
         }
     }
 
-    private IDatabase Database => redis.GetDatabase();
-
     private async ValueTask UpdateAsync(
         NodeId nodeId,
         Func<NodeDescriptor, NodeDescriptor> update,
         CancellationToken cancellationToken)
     {
-        for (int attempt = 0; attempt < 5; attempt++)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            RedisValue current = await Database.HashGetAsync(
-                _membershipKey,
-                nodeId.Value).ConfigureAwait(false);
-            if (current.IsNullOrEmpty)
-            {
-                return;
-            }
-            NodeDescriptor? descriptor = JsonSerializer.Deserialize<NodeDescriptor>(
-                current.ToString(),
-                s_jsonOptions);
-            if (descriptor is null)
-            {
-                return;
-            }
-            string updated = JsonSerializer.Serialize(update(descriptor), s_jsonOptions);
-            ITransaction transaction = Database.CreateTransaction();
-            transaction.AddCondition(Condition.HashEqual(_membershipKey, nodeId.Value, current));
-            _ = transaction.HashSetAsync(_membershipKey, nodeId.Value, updated);
-            if (await transaction.ExecuteAsync().ConfigureAwait(false))
-            {
-                return;
-            }
-        }
-        throw new InvalidOperationException("cluster_membership_concurrent_update_exhausted");
+        await redis.ExecuteAsync(
+                RedisOperationPort.ClusterMembership,
+                async (multiplexer, deadlineToken) =>
+                {
+                    IDatabase database = multiplexer.GetDatabase();
+                    for (int attempt = 0; attempt < 5; attempt++)
+                    {
+                        deadlineToken.ThrowIfCancellationRequested();
+                        RedisValue current = await database.HashGetAsync(
+                            _membershipKey,
+                            nodeId.Value).ConfigureAwait(false);
+                        if (current.IsNullOrEmpty)
+                        {
+                            return;
+                        }
+                        NodeDescriptor? descriptor = JsonSerializer.Deserialize<NodeDescriptor>(
+                            current.ToString(),
+                            s_jsonOptions);
+                        if (descriptor is null)
+                        {
+                            return;
+                        }
+                        string updated = JsonSerializer.Serialize(update(descriptor), s_jsonOptions);
+                        ITransaction transaction = database.CreateTransaction();
+                        transaction.AddCondition(Condition.HashEqual(_membershipKey, nodeId.Value, current));
+                        _ = transaction.HashSetAsync(_membershipKey, nodeId.Value, updated);
+                        if (await transaction.ExecuteAsync().ConfigureAwait(false))
+                        {
+                            return;
+                        }
+                    }
+                    throw new InvalidOperationException("cluster_membership_concurrent_update_exhausted");
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 }

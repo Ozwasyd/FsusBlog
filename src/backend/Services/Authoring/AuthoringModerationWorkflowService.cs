@@ -11,8 +11,10 @@ using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Projections;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
@@ -28,7 +30,7 @@ namespace FsusBlog.Server.Services.Authoring;
 public sealed class AuthoringModerationWorkflowService(
     ISqlSugarClient db,
     IContentFilterService contentFilter,
-    IBlacklistService blacklistService,
+    IBanStateProjectionObligationCoordinator banStateObligations,
     ICacheInvalidationDispatcher cacheInvalidationDispatcher,
     IMessageRealtimePublisher messageRealtimePublisher,
     IMessageCommandService messageCommandService,
@@ -799,17 +801,31 @@ public sealed class AuthoringModerationWorkflowService(
 
         string effectiveReason = TextHelpers.NormalizeNullable(reason, 256) ?? "评论审核处置";
         var bannedUserIds = new List<int>();
+        var banUpdates = new List<BanStateProjectionUpdate>();
+        DistributedInvalidationEvent? banInvalidation = null;
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
             List<UserBanCandidate> banTargets = await LoadUserBanCandidatesAsync(uniqueUserIds, cancellationToken);
             foreach (UserBanCandidate target in banTargets)
             {
-                if (!await TryBanUserCandidateAsync(target, effectiveReason, cancellationToken))
+                BanStateProjectionUpdate? update = await TryBanUserCandidateAsync(
+                    target,
+                    effectiveReason,
+                    cancellationToken);
+                if (update is null)
                 {
                     continue;
                 }
 
                 bannedUserIds.Add(target.Id);
+                banUpdates.Add(update.Value);
+            }
+
+            if (banUpdates.Count > 0)
+            {
+                banInvalidation = await banStateObligations
+                    .PrepareAsync(banUpdates, cancellationToken)
+                    .ConfigureAwait(false);
             }
         });
         if (!transaction.IsSuccess)
@@ -817,9 +833,12 @@ public sealed class AuthoringModerationWorkflowService(
             throw new InvalidOperationException("Comment moderation user ban failed.", transaction.ErrorException);
         }
 
-        foreach (int userId in bannedUserIds)
+        if (banUpdates.Count > 0)
         {
-            await blacklistService.BanUserAsync(userId, effectiveReason);
+            await banStateObligations.ApplyLocalAndPublishPreparedAsync(
+                banInvalidation,
+                banUpdates,
+                cancellationToken).ConfigureAwait(false);
         }
 
         return bannedUserIds.Count;
@@ -859,23 +878,40 @@ public sealed class AuthoringModerationWorkflowService(
         return candidates;
     }
 
-    private async Task<bool> TryBanUserCandidateAsync(UserBanCandidate target, string reason, CancellationToken cancellationToken)
+    private async Task<BanStateProjectionUpdate?> TryBanUserCandidateAsync(
+        UserBanCandidate target,
+        string reason,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        int updated = await db.Ado.ExecuteCommandAsync(
+        using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
             UPDATE sys_user
             SET status = 1,
-                banreason = @Reason
+                banreason = @Reason,
+                ban_state_generation = ban_state_generation + 1
             WHERE id = @UserId
               AND status <> 2
               AND deleted_at IS NULL
-              AND xmin::text = @RowVersion;
+              AND xmin::text = @RowVersion
+            RETURNING account_subject_hash, status, ban_state_generation;
             """,
             new SugarParameter("@UserId", target.Id),
             new SugarParameter("@Reason", reason),
             new SugarParameter("@RowVersion", target.RowVersion));
-        return updated > 0;
+        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
+        if (reader.IsNull("account_subject_hash"))
+        {
+            throw new InvalidOperationException("moderation ban projection identity is missing");
+        }
+
+        return BanStateProjectionFacts.Create(
+            reader.ReadString("account_subject_hash"),
+            reader.ReadInt32("status"),
+            reader.ReadInt64("ban_state_generation"));
     }
 
     private async Task<CommentModerationStateRow?> LoadCommentModerationStateAsync(long commentId, CancellationToken cancellationToken)

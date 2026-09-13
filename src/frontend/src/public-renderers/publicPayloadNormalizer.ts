@@ -18,6 +18,7 @@ import {
   buildPublicHomeRouteKey,
   buildPublicPrivacyRouteKey,
   parsePositiveInt,
+  parsePublicPaginationCursor,
   parsePublicFilterRouteKey
 } from './publicRouteIdentity';
 
@@ -81,15 +82,20 @@ export const normalizePublicHydrationPayload: PublicPayloadNormalizer = (payload
 
   switch (payload.pageKind) {
     case 'Home':
+    {
+      const nextCursor = parsePublicPaginationCursor(payload.nextCursor);
       return {
         ...payload,
         routeKey,
         currentPage: Number.isFinite(payload.currentPage) && payload.currentPage > 0 ? Math.trunc(payload.currentPage) : 1,
         pageSize: Number.isFinite(payload.pageSize) && payload.pageSize > 0 ? Math.trunc(payload.pageSize) : 10,
         total: Number.isFinite(payload.total) && payload.total >= 0 ? Math.trunc(payload.total) : 0,
+        nextCursor,
+        hasMore: Boolean(payload.hasMore && nextCursor),
         featuredArticles: requireArray(payload.featuredArticles, 'Home.featuredArticles'),
         hotArticles: requireArray(payload.hotArticles, 'Home.hotArticles')
       } as PublicHomeHydrationPayload;
+    }
     case 'ArticleDetail':
       requireObject(payload.rights, 'ArticleDetail.rights');
       requireObject(payload.detailView, 'ArticleDetail.detailView');
@@ -107,6 +113,7 @@ export const normalizePublicHydrationPayload: PublicPayloadNormalizer = (payload
       } as PublicArchiveHydrationPayload;
     case 'Filter': {
       const filterPayload = payload.filter ?? {};
+      const nextCursor = parsePublicPaginationCursor(filterPayload.nextCursor);
       const identity = parsePublicFilterRouteKey(
         payload.filterKey
           ?? filterPayload.filterKey
@@ -137,7 +144,9 @@ export const normalizePublicHydrationPayload: PublicPayloadNormalizer = (payload
             : 10,
           total: Number.isFinite(filterPayload.total) && Number(filterPayload.total) >= 0
             ? Math.trunc(Number(filterPayload.total))
-            : 0
+            : 0,
+          nextCursor,
+          hasMore: Boolean(filterPayload.hasMore && nextCursor)
         }
       } as PublicFilterHydrationPayload;
     }

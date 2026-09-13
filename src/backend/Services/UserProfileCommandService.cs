@@ -3,7 +3,10 @@ using System.Data.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
+using FsusBlog.Server.Infrastructure.Projections;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Security;
@@ -17,9 +20,9 @@ namespace FsusBlog.Server.Services;
 public sealed class UserProfileCommandService(
     ISqlSugarClient db,
     ILogger<UserProfileCommandService> logger,
-    IBlacklistService blacklist,
+    IBanStateProjectionObligationCoordinator banStateObligations,
     ICacheInvalidationStore invalidation,
-    ICacheCounterStore counters,
+    IAccountStateProjectionMutationPublisher accountStates,
     IUserSessionValidationCache sessionValidation) : IUserProfileCommandService
 {
     private const int UserStatusNormal = 0;
@@ -47,7 +50,8 @@ public sealed class UserProfileCommandService(
                     UPDATE sys_user
                     SET public_handle = NULL,
                         passkey_signal_version = passkey_signal_version + 1
-                    WHERE id = @userId;
+                    WHERE id = @userId
+                      AND public_handle IS DISTINCT FROM NULL;
                     """,
                     new SugarParameter[] { new("@userId", userId) })
                 : await db.Ado.ExecuteCommandAsync(
@@ -56,6 +60,7 @@ public sealed class UserProfileCommandService(
                     SET public_handle = @publicHandle,
                         passkey_signal_version = passkey_signal_version + 1
                     WHERE id = @userId
+                      AND public_handle IS DISTINCT FROM @publicHandle
                       AND NOT EXISTS (
                           SELECT 1
                           FROM sys_user
@@ -72,6 +77,13 @@ public sealed class UserProfileCommandService(
             if (updated > 0)
             {
                 await InvalidateAccountSnapshotAsync(userId, cancellationToken).ConfigureAwait(false);
+                return handle.PublicHandle is null
+                    ? (true, "公开称呼已清空")
+                    : (true, "公开称呼已保存");
+            }
+
+            if (await IsPublicHandleCurrentAsync(userId, handle.PublicHandle).ConfigureAwait(false))
+            {
                 return handle.PublicHandle is null
                     ? (true, "公开称呼已清空")
                     : (true, "公开称呼已保存");
@@ -112,6 +124,8 @@ public sealed class UserProfileCommandService(
         DateTime deletedAt = DateTime.UtcNow;
         List<UserSessionValidationCacheState> revokedSessions = [];
         bool publicationAttempted = false;
+        BanStateProjectionUpdate? banUpdate = null;
+        DistributedInvalidationEvent? banInvalidation = null;
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
             await UserSessionConcurrencyGate.AcquireAsync(db, userId);
@@ -151,7 +165,7 @@ public sealed class UserProfileCommandService(
                 .SetColumns(credential => credential.RevokedAtUtc == deletedAt)
                 .Where(credential => credential.AccountId == userId && credential.RevokedAtUtc == null)
                 .ExecuteCommandAsync();
-            await db.Updateable<User>()
+            int updatedAccount = await db.Updateable<User>()
                 .SetColumns(account => account.Status == UserStatusDeleted)
                 .SetColumns(account => account.PublicHandle == null)
                 .SetColumns(account => account.IdentityKind == AnonymousIdentityRuntime.AnonymousAccountKind)
@@ -161,10 +175,28 @@ public sealed class UserProfileCommandService(
                 .SetColumns(account => account.MfaEnabled == false)
                 .SetColumns(account => account.RiskFlags == 0)
                 .SetColumns(account => account.BanReason == null)
+                .SetColumns(account => account.BanStateGeneration == account.BanStateGeneration + 1)
                 .SetColumns(account => account.DeletedAt == deletedAt)
                 .SetColumns(account => account.DeletedReason == "self-service")
                 .Where(account => account.Id == userId)
                 .ExecuteCommandAsync();
+            if (updatedAccount != 1)
+            {
+                throw new InvalidOperationException("account delete authority update failed");
+            }
+
+            User? deletedAccount = await db.Queryable<User>().InSingleAsync(userId);
+            if (deletedAccount?.AccountSubjectHash is null)
+            {
+                throw new InvalidOperationException("account delete projection identity is missing");
+            }
+            banUpdate = BanStateProjectionFacts.Create(
+                deletedAccount.AccountSubjectHash,
+                deletedAccount.Status,
+                deletedAccount.BanStateGeneration);
+            banInvalidation = await banStateObligations
+                .PrepareAsync([banUpdate.Value], cancellationToken)
+                .ConfigureAwait(false);
             await db.Updateable<UserMfaProfile>()
                 .SetColumns(profile => profile.MfaSecretEncrypted == null)
                 .SetColumns(profile => profile.MfaPendingSecretEncrypted == null)
@@ -193,14 +225,17 @@ public sealed class UserProfileCommandService(
             return (false, "账户注销失败，请稍后重试");
         }
 
-        await blacklist.UnbanUserAsync(userId);
+        await banStateObligations.ApplyLocalAndPublishPreparedAsync(
+            banInvalidation,
+            banUpdate is BanStateProjectionUpdate update ? [update] : [],
+            cancellationToken).ConfigureAwait(false);
         await invalidation.RemoveAsync(CachePolicyId.SecurityBlockedUser, userId.ToString());
         await InvalidateAccountSnapshotAsync(userId, cancellationToken).ConfigureAwait(false);
         return (true, "账户已注销");
     }
 
     private Task InvalidateAccountSnapshotAsync(int userId, CancellationToken cancellationToken)
-        => AccountSnapshotCacheInvalidator.BumpVersionAsync(counters, userId, cancellationToken);
+        => accountStates.ProjectCommittedMutationAsync(userId, cancellationToken);
 
     private async Task<bool> UserExistsAsync(int userId)
         => await db.Ado.GetIntAsync(
@@ -210,6 +245,20 @@ public sealed class UserProfileCommandService(
             WHERE id = @userId;
             """,
             new SugarParameter[] { new("@userId", userId) }) > 0;
+
+    private async Task<bool> IsPublicHandleCurrentAsync(int userId, string? publicHandle)
+        => await db.Ado.GetIntAsync(
+            """
+            SELECT COUNT(1)
+            FROM sys_user
+            WHERE id = @userId
+              AND public_handle IS NOT DISTINCT FROM @publicHandle;
+            """,
+            new SugarParameter[]
+            {
+                new("@userId", userId),
+                new("@publicHandle", publicHandle)
+            }) > 0;
 
     private async Task BestEffortInvalidateRevocationSnapshotsAsync(
         IReadOnlyList<UserSessionValidationCacheState> revokedSessions)

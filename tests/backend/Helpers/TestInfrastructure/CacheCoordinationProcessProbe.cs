@@ -3,6 +3,8 @@ using System.Reflection;
 using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Services.Distribution;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.Extensions.Caching.Memory;
@@ -100,6 +102,44 @@ public static class CacheCoordinationProcessProbe
             ?? throw new InvalidOperationException("Missing probe configuration");
         string invocation = Read("INVOCATION");
         using Process self = Process.GetCurrentProcess();
+        if (string.Equals(Read("MODE"), "sitemap-restart", StringComparison.Ordinal))
+        {
+            await using ConnectionMultiplexer sitemapConnection = await ConnectionMultiplexer.ConnectAsync(Read("REDIS"));
+            var sitemapScope = new ProbeScope(Read("PREFIX"));
+            var authority = new RedisPublicAotInvalidationGenerationAuthority(
+                RedisOperationExecutor.ForTestConnection(sitemapConnection),
+                sitemapScope,
+                new ProbeBootstrapGuard());
+            var tracker = new PublicAotInvalidationTracker(authority);
+            await tracker.InitializeAsync(CancellationToken.None);
+            var sitemap = new SitemapArtifactCache(tracker);
+            Console.WriteLine(JsonSerializer.Serialize(new
+            {
+                stage = "ready",
+                invocation,
+                pid = self.Id,
+                start = self.StartTime.ToUniversalTime().Ticks
+            }));
+            if (await Console.In.ReadLineAsync() != invocation)
+            {
+                return 64;
+            }
+            SitemapArtifactSet artifact = await sitemap.GetOrBuildAsync(
+                _ => Task.FromResult(new SitemapArtifactBuildResult(
+                    new SitemapArtifactSet("child-process-sitemap", []),
+                    AllocationBytes: 1)),
+                CancellationToken.None);
+            Console.WriteLine(JsonSerializer.Serialize(new
+            {
+                stage = "complete",
+                invocation,
+                pid = self.Id,
+                generation = tracker.GetSitemapGeneration(),
+                artifactGeneration = artifact.Generation,
+                root = artifact.RootDocument
+            }));
+            return 0;
+        }
         using var capture = new CommandCapture();
         using ILoggerFactory logging = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Information).AddProvider(capture));
         var builder = new NpgsqlDataSourceBuilder(Read("POSTGRES"));
@@ -111,7 +151,7 @@ public static class CacheCoordinationProcessProbe
         using var memory = new MemoryCache(new MemoryCacheOptions());
         var policies = new CachePolicyRegistry();
         var scope = new ProbeScope(Read("PREFIX"));
-        using var cache = new UnifiedCache(memory, connection, policies, scope, NullLogger<UnifiedCache>.Instance);
+        using var cache = new UnifiedCache(connection, policies, scope, NullLogger<UnifiedCache>.Instance);
         using var single = new CacheSingleFlightCoordinator(new CacheKeyResolver(policies, scope, NullLogger<CacheKeyResolver>.Instance));
         var coordinator = new CacheMissCoordinator(single, cache, policies, NullLogger<CacheMissCoordinator>.Instance);
         Console.WriteLine(JsonSerializer.Serialize(new
@@ -170,6 +210,17 @@ public static class CacheCoordinationProcessProbe
     {
         public string ScopeToken => prefix;
         public string PrefixKey(string key) => prefix + key;
+    }
+
+    private sealed class ProbeBootstrapGuard : IPublicAotInvalidationGenerationBootstrapGuard
+    {
+        public void PrepareInitialBootstrap()
+        {
+        }
+
+        public void RecordInitialized(PublicAotInvalidationGenerationState state)
+        {
+        }
     }
 
     private sealed class CommandCapture : ILoggerProvider, ILogger

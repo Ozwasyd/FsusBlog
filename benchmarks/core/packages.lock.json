@@ -20,6 +20,15 @@
                     "System.Management": "9.0.5"
                 }
             },
+            "NSubstitute": {
+                "type": "Direct",
+                "requested": "[5.3.0, )",
+                "resolved": "5.3.0",
+                "contentHash": "lJ47Cps5Qzr86N99lcwd+OUvQma7+fBgr8+Mn+aOC0WrlqMNkdivaYD9IvnZ5Mqo6Ky3LS7ZI+tUq1/s9ERd0Q==",
+                "dependencies": {
+                    "Castle.Core": "5.1.1"
+                }
+            },
             "Acornima": {
                 "type": "Transitive",
                 "resolved": "1.6.2",
@@ -50,6 +59,14 @@
                 "type": "Transitive",
                 "resolved": "0.15.8",
                 "contentHash": "hfucY0ycAsB0SsoaZcaAp9oq5wlWBJcylvEJb9pmvdYUx6PD6S4mDiYnZWjdjAlLhIpe/xtGCwzORfzAzPqvzA=="
+            },
+            "Castle.Core": {
+                "type": "Transitive",
+                "resolved": "5.1.1",
+                "contentHash": "rpYtIczkzGpf+EkZgDr9CClTdemhsrwA/W5hMoPjLkRFnXzH44zDLoovXeKtmxb1ykXK9aJVODSpiJml8CTw2g==",
+                "dependencies": {
+                    "System.Diagnostics.EventLog": "6.0.0"
+                }
             },
             "CommandLineParser": {
                 "type": "Transitive",

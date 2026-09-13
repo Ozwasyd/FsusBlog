@@ -9,8 +9,7 @@ namespace FsusBlog.Server.Infrastructure.Cache;
 internal static class ServerCacheBinaryCodec
 {
     private const uint ArticleListPageMagic = 0x4C434146; // FACL
-    private const uint ArticleDetailMagic = 0x44434146; // FACD
-    private const uint ArticleDetailV4Magic = 0x34444146; // FAD4
+    private const uint ArticleDetailV6Magic = 0x36444146; // FAD6
     private const uint ArticleSearchMagic = 0x53434146; // FACS
     private const uint SeoMagic = 0x4F455346; // FSEO
     private const uint ComplianceMagic = 0x504D4F43; // COMP
@@ -19,8 +18,8 @@ internal static class ServerCacheBinaryCodec
     private const uint RegionStatsMagic = 0x52545346; // FSTR
     private const uint Version = 3;
     private const uint ArticleProjectionVersion = 4;
-    private const uint ArticleDetailV4Version = 4;
-    private const uint ArticleDetailV5Version = 5;
+    private const uint ArticleDetailV6Version = 6;
+    private const uint ArticleDetailProjectionCompleteMarker = 0xC011EC7E;
     private const int ArticleListPageMetadataMarker = -1;
     private const int MaxStringBytes = 2 * 1024 * 1024;
     private const int MaxCollectionCount = 10_000;
@@ -80,9 +79,15 @@ internal static class ServerCacheBinaryCodec
 
     internal static byte[] EncodeArticleDetail(ArticleDetailReadModel value)
     {
+        if (!IsCompleteArticleDetailProjection(value))
+        {
+            throw new InvalidOperationException("Article detail cache payload requires a complete content-block and publication projection.");
+        }
+
         using var stream = new MemoryStream();
         using var writer = CreateWriter(stream);
-        WriteHeader(writer, ArticleDetailV4Magic, ArticleDetailV5Version);
+        WriteHeader(writer, ArticleDetailV6Magic, ArticleDetailV6Version);
+        writer.Write(ArticleDetailProjectionCompleteMarker);
         WriteArticleDetail(writer, value);
         return stream.ToArray();
     }
@@ -94,16 +99,17 @@ internal static class ServerCacheBinaryCodec
             using var reader = CreateReader(bytes);
             uint magic = reader.ReadUInt32();
             uint version = reader.ReadUInt32();
-            bool isV5 = magic == ArticleDetailV4Magic && version == ArticleDetailV5Version;
-            bool isV4 = magic == ArticleDetailV4Magic && version == ArticleDetailV4Version;
-            bool isV3 = magic == ArticleDetailMagic && version == Version;
-            if (!isV3 && !isV4 && !isV5)
+            if (magic != ArticleDetailV6Magic
+                || version != ArticleDetailV6Version
+                || reader.ReadUInt32() != ArticleDetailProjectionCompleteMarker)
             {
                 return (false, null);
             }
 
-            ArticleDetailReadModel item = ReadArticleDetail(reader, isV4 || isV5, isV5);
-            return EnsureFullyRead(reader) ? (true, item) : (false, null);
+            ArticleDetailReadModel item = ReadArticleDetail(reader);
+            return EnsureFullyRead(reader) && IsCompleteArticleDetailProjection(item)
+                ? (true, item)
+                : (false, null);
         }
         catch
         {
@@ -546,10 +552,11 @@ internal static class ServerCacheBinaryCodec
         writer.Write(item.RevisionNo);
         WriteNullableInt64(writer, item.CurrentPublicationId);
         WriteNullableInt32(writer, item.PublicationNo);
+        writer.Write(item.ContentBlockId);
         WriteArticleRights(writer, item.Rights);
     }
 
-    private static ArticleDetailReadModel ReadArticleDetail(BinaryReader reader, bool hasUpdatedAt, bool hasVersionCoordinates)
+    private static ArticleDetailReadModel ReadArticleDetail(BinaryReader reader)
     {
         var item = new ArticleDetailReadModel
         {
@@ -570,23 +577,25 @@ internal static class ServerCacheBinaryCodec
             Status = (FsusBlog.Server.Entities.ArticleStatus)reader.ReadInt32(),
             ScheduledPublishAt = ReadNullableDateTime(reader),
             PublishedAt = ReadNullableDateTime(reader),
-            UpdatedAt = hasUpdatedAt ? ReadNullableDateTime(reader) : null
-        };
-        if (hasVersionCoordinates)
-        {
-            item = item with
-            {
-                CurrentRevisionId = reader.ReadInt64(),
-                RevisionNo = reader.ReadInt32(),
-                CurrentPublicationId = ReadNullableInt64(reader),
-                PublicationNo = ReadNullableInt32(reader)
-            };
-        }
-        return item with
-        {
+            UpdatedAt = ReadNullableDateTime(reader),
+            CurrentRevisionId = reader.ReadInt64(),
+            RevisionNo = reader.ReadInt32(),
+            CurrentPublicationId = ReadNullableInt64(reader),
+            PublicationNo = ReadNullableInt32(reader),
+            ContentBlockId = reader.ReadInt64(),
             Rights = ReadArticleRights(reader)
         };
+        return item;
     }
+
+    private static bool IsCompleteArticleDetailProjection(ArticleDetailReadModel item)
+        => item.Id > 0
+            && !string.IsNullOrWhiteSpace(item.Content)
+            && item.CurrentRevisionId > 0
+            && item.RevisionNo > 0
+            && item.CurrentPublicationId is > 0
+            && item.PublicationNo is > 0
+            && item.ContentBlockId > 0;
 
     private static void WriteArticleRights(BinaryWriter writer, ArticleRightsReadModel rights)
     {

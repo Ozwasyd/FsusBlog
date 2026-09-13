@@ -1,5 +1,6 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
@@ -27,10 +28,10 @@ public sealed class PasskeyProjectionConsistencyIntegrationTests(PostgresSchemaM
         int consistentAccount = await InsertUserAsync(db, passkeyEnabled: true, "consistent-projection");
         await InsertCredentialAsync(db, missingProjectionAccount, "missing-projection-credential");
         await InsertCredentialAsync(db, consistentAccount, "consistent-projection-credential");
-        IUnifiedCache cache = CreateCache();
+        IAccountStateProjectionMutationPublisher accountStates = CreatePublisher();
         var service = new PasskeyProjectionConsistencyService(
             db,
-            cache,
+            accountStates,
             NullLogger<PasskeyProjectionConsistencyService>.Instance);
 
         PasskeyProjectionConsistencyReport before = await service.CheckAsync();
@@ -48,20 +49,14 @@ public sealed class PasskeyProjectionConsistencyIntegrationTests(PostgresSchemaM
         Assert.True((await db.Queryable<User>().SingleAsync(item => item.Id == missingProjectionAccount)).PasskeyEnabled);
         Assert.False((await db.Queryable<User>().SingleAsync(item => item.Id == staleProjectionAccount)).PasskeyEnabled);
         Assert.True((await db.Queryable<User>().SingleAsync(item => item.Id == consistentAccount)).PasskeyEnabled);
-        await cache.Received(1).IncrementAsync(
-            CachePolicyId.AccountSnapshotVersion,
-            missingProjectionAccount.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            1,
+        await accountStates.Received(1).ProjectCommittedMutationAsync(
+            missingProjectionAccount,
             Arg.Any<CancellationToken>());
-        await cache.Received(1).IncrementAsync(
-            CachePolicyId.AccountSnapshotVersion,
-            staleProjectionAccount.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            1,
+        await accountStates.Received(1).ProjectCommittedMutationAsync(
+            staleProjectionAccount,
             Arg.Any<CancellationToken>());
-        await cache.DidNotReceive().IncrementAsync(
-            CachePolicyId.AccountSnapshotVersion,
-            consistentAccount.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            1,
+        await accountStates.DidNotReceive().ProjectCommittedMutationAsync(
+            consistentAccount,
             Arg.Any<CancellationToken>());
     }
 
@@ -72,34 +67,26 @@ public sealed class PasskeyProjectionConsistencyIntegrationTests(PostgresSchemaM
         PostgresSqlSugarTestClient.InitTables(db, typeof(User), typeof(PasskeyCredential));
         int accountId = await InsertUserAsync(db, passkeyEnabled: false, "cache-failure");
         await InsertCredentialAsync(db, accountId, "cache-failure-credential");
-        IUnifiedCache cache = Substitute.For<IUnifiedCache>();
-        cache.IncrementAsync(
-                CachePolicyId.AccountSnapshotVersion,
-                Arg.Any<string>(),
-                1,
-                Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<long>(new InvalidOperationException("cache unavailable")));
+        IAccountStateProjectionMutationPublisher accountStates = Substitute.For<IAccountStateProjectionMutationPublisher>();
+        accountStates.ProjectCommittedMutationAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new InvalidOperationException("projection unavailable")));
         var service = new PasskeyProjectionConsistencyService(
             db,
-            cache,
+            accountStates,
             NullLogger<PasskeyProjectionConsistencyService>.Instance);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.RepairAsync());
 
-        Assert.False((await db.Queryable<User>().SingleAsync(item => item.Id == accountId)).PasskeyEnabled);
-        Assert.False((await service.CheckAsync()).IsConsistent);
+        Assert.True((await db.Queryable<User>().SingleAsync(item => item.Id == accountId)).PasskeyEnabled);
+        Assert.True((await service.CheckAsync()).IsConsistent);
     }
 
-    private static IUnifiedCache CreateCache()
+    private static IAccountStateProjectionMutationPublisher CreatePublisher()
     {
-        IUnifiedCache cache = Substitute.For<IUnifiedCache>();
-        cache.IncrementAsync(
-                CachePolicyId.AccountSnapshotVersion,
-                Arg.Any<string>(),
-                1,
-                Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(1L));
-        return cache;
+        IAccountStateProjectionMutationPublisher publisher = Substitute.For<IAccountStateProjectionMutationPublisher>();
+        publisher.ProjectCommittedMutationAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        return publisher;
     }
 
     private static async Task<int> InsertUserAsync(

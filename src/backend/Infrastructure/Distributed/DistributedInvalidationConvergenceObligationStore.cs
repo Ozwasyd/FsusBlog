@@ -40,13 +40,17 @@ public sealed class DistributedInvalidationConvergenceObligationStore(
         string payload = JsonSerializer.Serialize(invalidation, s_json);
         string payloadDigest = Digest(payload);
         string[] requiredNodes = topology.SubscriberNodeIds.Order(StringComparer.Ordinal).ToArray();
-        string[] ackedNodes = [invalidation.SourceNodeId];
+        string[] ackedNodes = invalidation.Kind == DistributedInvalidationEventKinds.AdminSessionProjectionMutation
+            ? []
+            : [invalidation.SourceNodeId];
         string requiredJson = JsonSerializer.Serialize(requiredNodes, s_json);
         string ackedJson = JsonSerializer.Serialize(ackedNodes, s_json);
         string identity = ComputeSourceMutationIdentity(invalidation);
         string obligationId = Digest($"{invalidation.RuntimeScope}:{invalidation.EventId}");
         DateTime now = timeProvider.GetUtcNow().UtcDateTime;
-        string initialState = requiredNodes.Length == 1 ? CompleteState : PartiallyAckedState;
+        string initialState = ackedNodes.Length == requiredNodes.Length
+            ? CompleteState
+            : ackedNodes.Length == 0 ? PendingState : PartiallyAckedState;
 
         await db.Ado.ExecuteCommandAsync(
             """

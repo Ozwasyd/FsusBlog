@@ -44,26 +44,36 @@ public static partial class BinaryEndpoints
             int page,
             int size,
             string? cursor,
+            string? keyword,
+            string? sort,
             IArticleEndpointService articles,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
-            ServePublicArticleListAsync(page, size, categoryId: null, tagId: null, cursor, articles, aeds, cancellationToken))
+            ServePublicArticleListAsync(page, size, categoryId: null, tagId: null, cursor, keyword, sort, articles, aeds, cancellationToken))
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
         .WithRiskAction(RiskActionNames.PublicRead, "article.list")
+        .WithMetadata(new FsusOpenApiQueryParameterMetadata("cursor", "query://string", Required: false, Nullable: true))
+        .WithMetadata(new FsusOpenApiQueryParameterMetadata("keyword", "query://string", Required: false, Nullable: true))
+        .WithMetadata(new FsusOpenApiQueryParameterMetadata("sort", "query://string", Required: false, Nullable: true))
         .AddEndpointFilterWithMetadata<RiskAwarePublicReadFilter>();
 
         group.MapGet("/article/list/archive/{page:int}/{size:int}.aeds", static (
             int page,
             int size,
             string? cursor,
+            string? keyword,
+            string? sort,
             IArticleEndpointService articles,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
-            ServePublicArticleListAsync(page, size, categoryId: null, tagId: null, cursor, articles, aeds, cancellationToken))
+            ServePublicArticleListAsync(page, size, categoryId: null, tagId: null, cursor, keyword, sort, articles, aeds, cancellationToken))
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
         .WithRiskAction(RiskActionNames.PublicRead, "article.list")
+        .WithMetadata(new FsusOpenApiQueryParameterMetadata("cursor", "query://string", Required: false, Nullable: true))
+        .WithMetadata(new FsusOpenApiQueryParameterMetadata("keyword", "query://string", Required: false, Nullable: true))
+        .WithMetadata(new FsusOpenApiQueryParameterMetadata("sort", "query://string", Required: false, Nullable: true))
         .AddEndpointFilterWithMetadata<RiskAwarePublicReadFilter>();
 
         group.MapGet("/article/list/category/{categoryId:int}/{page:int}/{size:int}.aeds", static (
@@ -71,13 +81,18 @@ public static partial class BinaryEndpoints
             int page,
             int size,
             string? cursor,
+            string? keyword,
+            string? sort,
             IArticleEndpointService articles,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
-            ServePublicArticleListAsync(page, size, categoryId, tagId: null, cursor, articles, aeds, cancellationToken))
+            ServePublicArticleListAsync(page, size, categoryId, tagId: null, cursor, keyword, sort, articles, aeds, cancellationToken))
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
         .WithRiskAction(RiskActionNames.PublicRead, "article.list")
+        .WithMetadata(new FsusOpenApiQueryParameterMetadata("cursor", "query://string", Required: false, Nullable: true))
+        .WithMetadata(new FsusOpenApiQueryParameterMetadata("keyword", "query://string", Required: false, Nullable: true))
+        .WithMetadata(new FsusOpenApiQueryParameterMetadata("sort", "query://string", Required: false, Nullable: true))
         .AddEndpointFilterWithMetadata<RiskAwarePublicReadFilter>();
 
         group.MapGet("/article/list/tag/{tagId:int}/{page:int}/{size:int}.aeds", static (
@@ -85,25 +100,30 @@ public static partial class BinaryEndpoints
             int page,
             int size,
             string? cursor,
+            string? keyword,
+            string? sort,
             IArticleEndpointService articles,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
-            ServePublicArticleListAsync(page, size, categoryId: null, tagId, cursor, articles, aeds, cancellationToken))
+            ServePublicArticleListAsync(page, size, categoryId: null, tagId, cursor, keyword, sort, articles, aeds, cancellationToken))
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
         .WithRiskAction(RiskActionNames.PublicRead, "article.list")
+        .WithMetadata(new FsusOpenApiQueryParameterMetadata("cursor", "query://string", Required: false, Nullable: true))
+        .WithMetadata(new FsusOpenApiQueryParameterMetadata("keyword", "query://string", Required: false, Nullable: true))
+        .WithMetadata(new FsusOpenApiQueryParameterMetadata("sort", "query://string", Required: false, Nullable: true))
         .AddEndpointFilterWithMetadata<RiskAwarePublicReadFilter>();
 
-        group.MapGet("/article/{articleId:int}/related.aeds", static async Task<BinaryFrameResult> (
+        group.MapGet("/article/{articleId:int}/related.aeds", static async Task<IResult> (
             int articleId,
             RelatedReadingService service,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
-            RelatedReadingResponse? response = await service.BuildAsync(articleId, cancellationToken);
-            return response is null
+            OwnedAedsFrameReadLease? frame = await service.BuildFrameAsync(articleId, cancellationToken);
+            return frame is null
                 ? BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "article_not_found"), aeds)
-                : BinaryResults.Frame(aeds, AedsFrameType.ArticleRelatedReading, writer => PodBinaryCodec.WriteRelatedReading(response, writer));
+                : BinaryResults.PreencodedFrame(frame);
         })
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
@@ -111,7 +131,10 @@ public static partial class BinaryEndpoints
         .AddEndpointFilterWithMetadata<RiskAwarePublicReadFilter>()
         .CacheOutput(static builder => builder
             .Expire(TimeSpan.FromMinutes(1))
-            .Tag(CacheTag.ArticleList.ToOutputCacheTag()));
+            .Tag(
+                CacheTag.ArticleList.ToOutputCacheTag(),
+                CacheTag.Category.ToOutputCacheTag(),
+                CacheTag.Tag.ToOutputCacheTag()));
 
         group.MapGet("/article/{id}.aeds", static async Task<IResult> (
             int id,
@@ -235,21 +258,25 @@ public static partial class BinaryEndpoints
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
-        group.MapGet("/admin/article/featured", static async Task<BinaryFrameResult> (
+        group.MapGet("/admin/article/featured", static async Task<IResult> (
             int? size,
             IArticleEndpointService articles,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
             int count = Math.Clamp(size ?? 3, 1, 10);
-            var result = await articles.GetFeaturedArticlesAsync(count, cancellationToken);
-            if (!result.IsSuccess)
+            var payload = await articles.GetFeaturedArticlesAsync(count, cancellationToken);
+            if (payload.HasCachedFrame)
             {
-                return BinaryResults.FromError(result.Error, aeds);
+                return BinaryResults.PreencodedFrame(payload.CachedFrame!);
             }
 
-            IReadOnlyList<FeaturedArticleSummaryDto> featured = result.Value ?? [];
-            return BinaryResults.Frame(aeds, AedsFrameType.ArticleFeatured, writer => PodBinaryCodec.WriteFeaturedArticles(featured, writer));
+            return BinaryResults.FromResult(
+                payload.Result,
+                aeds,
+                AedsFrameType.ArticleFeatured,
+                static (value, writer) => PodBinaryCodec.WriteFeaturedArticles(value, writer),
+                "精选文章数据为空");
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
@@ -547,6 +574,8 @@ public static partial class BinaryEndpoints
         int? categoryId,
         int? tagId,
         string? cursor,
+        string? keyword,
+        string? sort,
         IArticleEndpointService articles,
         IAedsEncoder aeds,
         CancellationToken cancellationToken)
@@ -565,7 +594,8 @@ public static partial class BinaryEndpoints
             canReadDeleted: false,
             status: null,
             canReadPrivate: false,
-            keyword: null,
+            keyword,
+            sort,
             cursor,
             cancellationToken);
         if (payload.HasCachedFrame)

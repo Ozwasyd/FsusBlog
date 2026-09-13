@@ -229,6 +229,7 @@ public sealed class ArticleMutationOutboxDispatcher(
                         item.AggregateId,
                         categoryIds,
                         tagIds,
+                        item.EventId,
                         ct),
                     cancellationToken).ConfigureAwait(false)
                 || !await RunDispatcherEdgeAsync(
@@ -237,7 +238,7 @@ public sealed class ArticleMutationOutboxDispatcher(
                     item,
                     completedAfterReplay,
                     ArticleMutationReplayEdges.HttpCacheInvalidation,
-                    ct => cacheInvalidation.InvalidateArticleMutationAsync(item.AggregateId, ct),
+                    ct => cacheInvalidation.InvalidateArticleMutationAsync(item.AggregateId, item.EventId, ct),
                     cancellationToken).ConfigureAwait(false))
             {
                 return false;

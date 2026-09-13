@@ -13,24 +13,71 @@ public sealed class PublicAotInvalidationTracker
     private DateTimeOffset? _lastInvalidatedAt;
 
     public PublicAotInvalidationTracker(IPublicAotInvalidationGenerationAuthority? authority = null)
-        => _authority = authority ?? new InMemoryPublicAotInvalidationGenerationAuthority();
+    {
+        if (authority is null)
+        {
+            _authority = new InMemoryPublicAotInvalidationGenerationAuthority();
+            _localGenerationMirror = PublicAotInvalidationGenerationStateCodec.CreateEmpty("test");
+            return;
+        }
 
-    public long MarkAll(string? mutationId = null)
-        => Mark("all", AllKey, mutationId);
+        _authority = authority;
+        if (authority is InMemoryPublicAotInvalidationGenerationAuthority inMemory)
+        {
+            _localGenerationMirror = inMemory.Current;
+        }
+    }
 
-    public long MarkPrefix(string prefix, string? mutationId = null)
+    public Task InitializeAsync(CancellationToken cancellationToken)
+        => LoadAndUpdateAsync(cancellationToken);
+
+    public Task<long> MarkAllAsync(
+        string? mutationId = null,
+        CancellationToken cancellationToken = default)
+        => MarkAsync("all", AllKey, mutationId, cancellationToken);
+
+    public Task<long> MarkSitemapAsync(
+        string? mutationId = null,
+        CancellationToken cancellationToken = default)
+        => MarkAsync(
+            "key",
+            PublicAotInvalidationGenerationStateCodec.SitemapCoordinate,
+            mutationId,
+            cancellationToken);
+
+    public Task<long> MarkPrefixAsync(
+        string prefix,
+        string? mutationId = null,
+        CancellationToken cancellationToken = default)
         => string.IsNullOrWhiteSpace(prefix)
-            ? CurrentVersion
-            : Mark("prefix", prefix, mutationId);
+            ? Task.FromResult(CurrentVersion)
+            : MarkAsync("prefix", prefix, mutationId, cancellationToken);
 
-    public long MarkKey(string cacheKey, string? mutationId = null)
+    public Task<long> MarkKeyAsync(
+        string cacheKey,
+        string? mutationId = null,
+        CancellationToken cancellationToken = default)
         => string.IsNullOrWhiteSpace(cacheKey)
-            ? CurrentVersion
-            : Mark("key", cacheKey, mutationId);
+            ? Task.FromResult(CurrentVersion)
+            : MarkAsync("key", cacheKey, mutationId, cancellationToken);
 
     public long GetCurrentVersion(string cacheKey, string pagePrefixKey)
     {
         return LoadState().Current(cacheKey, pagePrefixKey);
+    }
+
+    public long GetLocalGeneration()
+    {
+        PublicAotInvalidationGenerationState? local = Volatile.Read(ref _localGenerationMirror);
+        return (local ?? LoadState()).AllGeneration;
+    }
+
+    public long GetSitemapGeneration()
+    {
+        PublicAotInvalidationGenerationState state = Volatile.Read(ref _localGenerationMirror) ?? LoadState();
+        return Math.Max(
+            state.KeyGenerations.GetValueOrDefault(AllKey),
+            state.KeyGenerations.GetValueOrDefault(PublicAotInvalidationGenerationStateCodec.SitemapCoordinate));
     }
 
     public bool WasInvalidatedAfter(PublicAotBackfillRequest request)
@@ -166,10 +213,15 @@ public sealed class PublicAotInvalidationTracker
 
     private long CurrentVersion => LoadState().AllGeneration;
 
-    private long Mark(string kind, string key, string? mutationId)
+    private async Task<long> MarkAsync(
+        string kind,
+        string key,
+        string? mutationId,
+        CancellationToken cancellationToken)
     {
-        PublicAotInvalidationGenerationState state =
-            _authority.Mark(kind, key, mutationId);
+        PublicAotInvalidationGenerationState state = await _authority
+            .MarkAsync(kind, key, mutationId, cancellationToken)
+            .ConfigureAwait(false);
         UpdateLocalMirror(state);
         _lastInvalidatedAt = DateTimeOffset.UtcNow;
         return state.AllGeneration;
@@ -191,35 +243,20 @@ public sealed class PublicAotInvalidationTracker
 
     private PublicAotInvalidationGenerationState LoadState()
     {
-        for (int attempt = 0; attempt < 4; attempt++)
-        {
-            PublicAotInvalidationGenerationState durable = _authority.Load();
-            PublicAotInvalidationGenerationStateCodec.Validate(durable);
-            PublicAotInvalidationGenerationState? local =
-                Volatile.Read(ref _localGenerationMirror);
-            if (local is not null)
-            {
-                if (!string.Equals(
-                    local.RuntimeScope,
-                    durable.RuntimeScope,
-                    StringComparison.Ordinal))
-                {
-                    throw new InvalidOperationException(
-                        "public-aot-invalidation-generation-durable-regression");
-                }
+        PublicAotInvalidationGenerationState state = Volatile.Read(ref _localGenerationMirror)
+            ?? throw new InvalidOperationException(
+                "public-aot-invalidation-generation-not-initialized");
+        PublicAotInvalidationGenerationStateCodec.Validate(state);
+        return state;
+    }
 
-                if (local.AllGeneration > durable.AllGeneration)
-                {
-                    continue;
-                }
-            }
-
-            UpdateLocalMirror(durable);
-            return durable;
-        }
-
-        throw new InvalidOperationException(
-            "public-aot-invalidation-generation-durable-regression");
+    private async Task LoadAndUpdateAsync(CancellationToken cancellationToken)
+    {
+        PublicAotInvalidationGenerationState durable = await _authority
+            .LoadAsync(cancellationToken)
+            .ConfigureAwait(false);
+        PublicAotInvalidationGenerationStateCodec.Validate(durable);
+        UpdateLocalMirror(durable);
     }
 
     private void UpdateLocalMirror(PublicAotInvalidationGenerationState durable)

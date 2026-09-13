@@ -78,7 +78,7 @@ internal static class DistributedInvalidationServiceCollectionExtensions
 
         services.AddSingleton<IDistributedInvalidationTransport>(
             provider => new RedisDistributedInvalidationTransport(
-                provider.GetRequiredService<IConnectionMultiplexer>(),
+                provider.GetRequiredService<IRedisOperationExecutor>(),
                 provider.GetRequiredService<IRuntimeKeyScope>(),
                 options,
                 provider.GetRequiredService<TimeProvider>(),

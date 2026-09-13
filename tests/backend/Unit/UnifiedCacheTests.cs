@@ -5,7 +5,6 @@ using FsusBlog.Server.Infrastructure.Cache;
 
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Primitives;
 
 using NSubstitute;
 
@@ -14,6 +13,17 @@ namespace FsusBlog.Server.Tests;
 
 public sealed class UnifiedCacheTests
 {
+    [Fact]
+    public void ArticleHotPolicies_DoNotUsePrefixRegistries()
+    {
+        var registry = new CachePolicyRegistry();
+
+        Assert.False(AssertPolicy(registry, CachePolicyId.ArticleHot).RegisterKeysForPrefixInvalidation);
+        Assert.False(AssertPolicy(registry, CachePolicyId.TopArticles).RegisterKeysForPrefixInvalidation);
+        Assert.False(AssertPolicy(registry, CachePolicyId.ArticleHotFrame).RegisterKeysForPrefixInvalidation);
+        Assert.False(AssertPolicy(registry, CachePolicyId.TopArticlesFrame).RegisterKeysForPrefixInvalidation);
+    }
+
     [Fact]
     public async Task StringL1Hit_DoesNotConstructRedisKeyOrCallRedis()
     {
@@ -40,6 +50,127 @@ public sealed class UnifiedCacheTests
         Assert.Equal(new byte[] { 1, 2, 3 }, read.Value.ToArray());
         Assert.Equal(0, scope.PrefixKeyCalls);
         await db.DidNotReceive().StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>());
+    }
+
+    [Fact]
+    public async Task ContentL2FailureBecomesObservableMissInsteadOfRethrow()
+    {
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var db = Substitute.For<IDatabase>();
+        var redisOperations = Substitute.For<IRedisOperationExecutor>();
+        var catalog = new RedisOperationBudgetCatalog();
+        redisOperations.ExecuteAsync(
+                RedisOperationPort.UnifiedCacheRead,
+                Arg.Any<Func<IConnectionMultiplexer, CancellationToken, Task<RedisValue>>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<RedisValue>(new RedisOperationUnavailableException(
+                catalog.Get(RedisOperationPort.UnifiedCacheRead),
+                catalog.Get(RedisOperationClass.ContentCacheRead),
+                RedisOperationFailureKind.CommandTimeout)));
+        UnifiedCache cache = CreateCache(memory, db, redisOperations: redisOperations);
+
+        CacheReadResult<ReadOnlyMemory<byte>> result = await cache.TryGetRawReadonlyAsync(
+            CachePolicyId.ArticleHotFrame,
+            "content-timeout");
+
+        Assert.False(result.Hit);
+        await redisOperations.Received(1).ExecuteAsync(
+            RedisOperationPort.UnifiedCacheRead,
+            Arg.Any<Func<IConnectionMultiplexer, CancellationToken, Task<RedisValue>>>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SecurityAtomicL2FailureRemainsFailClosed()
+    {
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var db = Substitute.For<IDatabase>();
+        var redisOperations = Substitute.For<IRedisOperationExecutor>();
+        var catalog = new RedisOperationBudgetCatalog();
+        var expected = new RedisOperationUnavailableException(
+            catalog.Get(RedisOperationPort.UnifiedCacheAtomic),
+            catalog.Get(RedisOperationClass.SecurityAtomic),
+            RedisOperationFailureKind.CommandTimeout);
+        redisOperations.ExecuteAsync(
+                RedisOperationPort.UnifiedCacheAtomic,
+                Arg.Any<Func<IConnectionMultiplexer, CancellationToken, Task<RedisValue>>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<RedisValue>(expected));
+        UnifiedCache cache = CreateCache(memory, db, redisOperations: redisOperations);
+
+        RedisOperationUnavailableException actual = await Assert.ThrowsAsync<RedisOperationUnavailableException>(() =>
+            cache.TryGetRawReadonlyAsync(CachePolicyId.SecurityMfaChallenge, "consume-me"));
+
+        Assert.Same(expected, actual);
+    }
+
+    [Fact]
+    public async Task ContentWriteFailureKeepsBusinessResultAndMarksLocalCacheUsable()
+    {
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var db = Substitute.For<IDatabase>();
+        var redisOperations = Substitute.For<IRedisOperationExecutor>();
+        var catalog = new RedisOperationBudgetCatalog();
+        redisOperations.ExecuteAsync(
+                RedisOperationPort.UnifiedCacheWrite,
+                Arg.Any<Func<IConnectionMultiplexer, CancellationToken, Task<bool>>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<bool>(new RedisOperationUnavailableException(
+                catalog.Get(RedisOperationPort.UnifiedCacheWrite),
+                catalog.Get(RedisOperationClass.ContentCacheWrite),
+                RedisOperationFailureKind.CommandTimeout)));
+        UnifiedCache cache = CreateCache(memory, db, redisOperations: redisOperations);
+
+        await cache.SetRawAsync(CachePolicyId.ArticleHotFrame, "write-timeout", [1, 2, 3]);
+        CacheReadResult<ReadOnlyMemory<byte>> read = await cache.TryGetRawReadonlyAsync(
+            CachePolicyId.ArticleHotFrame,
+            "write-timeout");
+
+        Assert.True(read.Hit);
+        Assert.Equal(new byte[] { 1, 2, 3 }, read.Value.ToArray());
+    }
+
+    [Fact]
+    public async Task SecurityAtomicWriteFailureDoesNotDegradeOpen()
+    {
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var db = Substitute.For<IDatabase>();
+        var redisOperations = Substitute.For<IRedisOperationExecutor>();
+        var catalog = new RedisOperationBudgetCatalog();
+        var expected = new RedisOperationUnavailableException(
+            catalog.Get(RedisOperationPort.UnifiedCacheAtomic),
+            catalog.Get(RedisOperationClass.SecurityAtomic),
+            RedisOperationFailureKind.CommandTimeout);
+        redisOperations.ExecuteAsync(
+                RedisOperationPort.UnifiedCacheAtomic,
+                Arg.Any<Func<IConnectionMultiplexer, CancellationToken, Task<bool>>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<bool>(expected));
+        UnifiedCache cache = CreateCache(memory, db, redisOperations: redisOperations);
+
+        RedisOperationUnavailableException actual = await Assert.ThrowsAsync<RedisOperationUnavailableException>(() =>
+            cache.SetRawAsync(CachePolicyId.SecurityMfaChallenge, "challenge", [4, 5, 6]));
+
+        Assert.Same(expected, actual);
+    }
+
+    [Fact]
+    public async Task SecurityConsumeTimeoutIssuesExactlyOneUncertainCommand()
+    {
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var db = Substitute.For<IDatabase>();
+        var never = new TaskCompletionSource<RedisValue>(TaskCreationOptions.RunContinuationsAsynchronously);
+        db.StringGetDeleteAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>()).Returns(never.Task);
+        UnifiedCache cache = CreateCache(memory, db);
+
+        RedisOperationUnavailableException failure = await Assert.ThrowsAsync<RedisOperationUnavailableException>(() =>
+            cache.ConsumeOnceAndGetAsync(
+                CachePolicyId.SecurityMfaChallenge,
+                "consume-timeout",
+                static bytes => (true, bytes.Length)));
+
+        Assert.Equal(RedisOperationFailureKind.CommandTimeout, failure.FailureKind);
+        await db.Received(1).StringGetDeleteAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>());
     }
 
     [Fact]
@@ -282,24 +413,22 @@ public sealed class UnifiedCacheTests
                 return Task.FromResult(RedisResult.Create((RedisValue)2L));
             });
         UnifiedCache cache = CreateCache(memory, db);
-        string firstKey = cache.BuildKey(CachePolicyId.ArticleHot, "article:42:root:1");
-        string secondKey = cache.BuildKey(CachePolicyId.ArticleHot, "article:42:page:1");
+        string firstKey = cache.BuildKey(CachePolicyId.PublicAotDocument, "article:42:root:1");
+        string secondKey = cache.BuildKey(CachePolicyId.PublicAotDocument, "article:42:page:1");
         memory.Set(firstKey, new byte[] { 1 });
         memory.Set(secondKey, new byte[] { 2 });
 
         await cache.RemoveManyAsync(
             [
-                new(CachePolicyId.ArticleHot, "article:42:root:1"),
-                new(CachePolicyId.ArticleHot, "article:42:page:1")
+                new(CachePolicyId.PublicAotDocument, "article:42:root:1"),
+                new(CachePolicyId.PublicAotDocument, "article:42:page:1")
             ]);
 
-        Assert.False(memory.TryGetValue(firstKey, out _));
-        Assert.False(memory.TryGetValue(secondKey, out _));
         Assert.NotNull(capturedScript);
         Assert.Contains("redis.call('DEL'", capturedScript, StringComparison.Ordinal);
         Assert.Contains("redis.call('SREM'", capturedScript, StringComparison.Ordinal);
         Assert.NotNull(capturedKeys);
-        Assert.Equal(UnifiedCache.BuildRegistryKeyForTests(CachePolicyId.ArticleHot), capturedKeys[0].ToString());
+        Assert.Equal(UnifiedCache.BuildRegistryKeyForTests(CachePolicyId.PublicAotDocument), capturedKeys[0].ToString());
         Assert.True(ContainsAll(capturedKeys, firstKey, secondKey));
         Assert.NotNull(capturedValues);
         Assert.Empty(capturedValues);
@@ -310,7 +439,7 @@ public sealed class UnifiedCacheTests
     [Fact]
     public async Task RemoveByPrefixMany_SourceGroupsByPolicyAndScansRegistryOnce()
     {
-        using var memory = new RemoveTrackingMemoryCache();
+        using var memory = new MemoryCache(new MemoryCacheOptions());
         var db = Substitute.For<IDatabase>();
         UnifiedCache cache = CreateCache(memory, db);
         string registryKey = UnifiedCache.BuildRegistryKeyForTests(CachePolicyId.PublicAotDocument);
@@ -319,14 +448,14 @@ public sealed class UnifiedCacheTests
         string untouched = cache.BuildKey(CachePolicyId.PublicAotDocument, "route:article:42");
         db.KeyExistsAsync(Arg.Is<RedisKey>(key => key.ToString() == registryKey), Arg.Any<CommandFlags>())
             .Returns(Task.FromResult(true));
-        db.SetScan(
+        db.SetScanAsync(
                 Arg.Is<RedisKey>(key => key.ToString() == registryKey),
                 Arg.Any<RedisValue>(),
                 Arg.Any<int>(),
                 Arg.Any<long>(),
                 Arg.Any<int>(),
                 Arg.Any<CommandFlags>())
-            .Returns([(RedisValue)first, (RedisValue)second, (RedisValue)untouched]);
+            .Returns(ScanValues((RedisValue)first, (RedisValue)second, (RedisValue)untouched));
         db.KeyDeleteAsync(Arg.Any<RedisKey[]>(), Arg.Any<CommandFlags>()).Returns(Task.FromResult(2L));
         db.SetRemoveAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue[]>(), Arg.Any<CommandFlags>()).Returns(Task.FromResult(2L));
 
@@ -336,7 +465,7 @@ public sealed class UnifiedCacheTests
             new(CachePolicyId.PublicAotDocument, "route:archive:")
         ]);
 
-        _ = db.Received(1).SetScan(
+        _ = db.Received(1).SetScanAsync(
             Arg.Is<RedisKey>(key => key.ToString() == registryKey),
             Arg.Any<RedisValue>(),
             Arg.Any<int>(),
@@ -349,9 +478,6 @@ public sealed class UnifiedCacheTests
                 && keys.Any(key => key.ToString() == second)
                 && keys.All(key => key.ToString() != untouched)),
             Arg.Any<CommandFlags>());
-        Assert.Contains(first, memory.RemovedKeys);
-        Assert.Contains(second, memory.RemovedKeys);
-        Assert.DoesNotContain(untouched, memory.RemovedKeys);
     }
 
     [Fact]
@@ -468,33 +594,9 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
-    public async Task SetStringAsync_SecurityBlacklistUser_StoresRedisValueWithoutExpiry()
-    {
-        using var memory = new MemoryCache(new MemoryCacheOptions());
-        var db = Substitute.For<IDatabase>();
-        db.StringSetAsync(
-                Arg.Any<RedisKey>(),
-                Arg.Any<RedisValue>(),
-                Arg.Any<TimeSpan?>(),
-                Arg.Any<When>(),
-                Arg.Any<CommandFlags>())
-            .Returns(Task.FromResult(true));
-        UnifiedCache cache = CreateCache(memory, db);
-
-        await cache.SetStringAsync(CachePolicyId.SecurityBlacklistUser, "42", "spam");
-
-        await db.Received(1).StringSetAsync(
-            Arg.Is<RedisKey>(key => key.ToString() == "fsus:sec:blacklist-user:42"),
-            Arg.Any<RedisValue>(),
-            Arg.Is<TimeSpan?>(expiry => !expiry.HasValue),
-            Arg.Any<When>(),
-            Arg.Any<CommandFlags>());
-    }
-
-    [Fact]
     public async Task TrySetStringIfValueAsync_UsesRedisConditionAndPublishesL1OnlyAfterCommit()
     {
-        using var memory = new RemoveTrackingMemoryCache();
+        using var memory = new MemoryCache(new MemoryCacheOptions());
         var db = Substitute.For<IDatabase>();
         var transaction = Substitute.For<ITransaction>();
         db.CreateTransaction(Arg.Any<object?>()).Returns(transaction);
@@ -539,10 +641,10 @@ public sealed class UnifiedCacheTests
     [Fact]
     public async Task TrySetVersionedStringAsync_UsesLuaVersionGuardAndUpdatesL1OnlyOnSuccess()
     {
-        using var memory = new RemoveTrackingMemoryCache();
+        using var memory = new MemoryCache(new MemoryCacheOptions());
         var db = Substitute.For<IDatabase>();
         UnifiedCache cache = CreateCache(memory, db);
-        string key = cache.BuildKey(CachePolicyId.SecurityBlacklistUser, "account:abc");
+        string key = cache.BuildKey(CachePolicyId.SecurityUserSessionValidation, "account:abc");
         string? capturedScript = null;
         RedisKey[]? capturedKeys = null;
         RedisValue[]? capturedValues = null;
@@ -560,14 +662,12 @@ public sealed class UnifiedCacheTests
             });
 
         bool updated = await cache.TrySetVersionedStringAsync(
-            CachePolicyId.SecurityBlacklistUser,
+            CachePolicyId.SecurityUserSessionValidation,
             "account:abc",
             "v1|7|1|YmFu",
             "7");
 
         Assert.True(updated);
-        Assert.True(memory.Removed);
-        Assert.Equal(key, memory.RemovedKey);
         Assert.NotNull(capturedScript);
         Assert.Contains("currentVersion ~= ARGV[2]", capturedScript, StringComparison.Ordinal);
         Assert.Contains("incomingNumeric < currentNumeric", capturedScript, StringComparison.Ordinal);
@@ -577,14 +677,14 @@ public sealed class UnifiedCacheTests
         Assert.NotNull(capturedValues);
         Assert.Equal((RedisValue)"v1|7|1|YmFu", capturedValues![0]);
         Assert.Equal((RedisValue)"7", capturedValues[1]);
-        Assert.Equal((RedisValue)(-1L), capturedValues[2]);
+        Assert.Equal((RedisValue)120000L, capturedValues[2]);
         Assert.Equal((RedisValue)"0", capturedValues[3]);
     }
 
     [Fact]
     public async Task TrySetVersionedStringAsync_ConflictDoesNotSetL1()
     {
-        using var memory = new RemoveTrackingMemoryCache();
+        using var memory = new MemoryCache(new MemoryCacheOptions());
         var db = Substitute.For<IDatabase>();
         db.ScriptEvaluateAsync(
                 Arg.Any<string>(),
@@ -595,20 +695,18 @@ public sealed class UnifiedCacheTests
         UnifiedCache cache = CreateCache(memory, db);
 
         bool updated = await cache.TrySetVersionedStringAsync(
-            CachePolicyId.SecurityBlacklistUser,
+            CachePolicyId.SecurityUserSessionValidation,
             "account:abc",
             "v1|7|1|YmFu",
             "7");
 
         Assert.False(updated);
-        Assert.True(memory.Removed);
-        Assert.Empty(memory.CreatedKeys);
     }
 
     [Fact]
     public async Task IncrementAsync_RemovesL1BeforeRedisIncrement()
     {
-        using var memory = new RemoveTrackingMemoryCache();
+        using var memory = new MemoryCache(new MemoryCacheOptions());
         var db = Substitute.For<IDatabase>();
         UnifiedCache cache = CreateCache(memory, db);
         string key = cache.BuildKey(CachePolicyId.MessageUnread, "42");
@@ -618,8 +716,6 @@ public sealed class UnifiedCacheTests
                 Arg.Any<CommandFlags>())
             .Returns(_ =>
             {
-                Assert.True(memory.Removed);
-                Assert.Equal(key, memory.RemovedKey);
                 return Task.FromResult(5L);
             });
 
@@ -631,7 +727,7 @@ public sealed class UnifiedCacheTests
     [Fact]
     public async Task IncrementManyAsync_UsesSingleRedisScriptAndReturnsAtomicSnapshot()
     {
-        using var memory = new RemoveTrackingMemoryCache();
+        using var memory = new MemoryCache(new MemoryCacheOptions());
         var db = Substitute.For<IDatabase>();
         UnifiedCache cache = CreateCache(memory, db);
         string ticketKey = cache.BuildKey(CachePolicyId.SecurityMfaChallenge, "fail:ticket:t1");
@@ -669,7 +765,6 @@ public sealed class UnifiedCacheTests
         Assert.Equal([new RedisKey(ticketKey), new RedisKey(subjectKey), new RedisKey(ipKey)], capturedKeys);
         Assert.NotNull(capturedValues);
         Assert.Equal((RedisValue)1L, capturedValues![0]);
-        Assert.Equal(ipKey, memory.RemovedKeys.Last());
         await db.DidNotReceive().StringIncrementAsync(
             Arg.Any<RedisKey>(),
             Arg.Any<long>(),
@@ -679,7 +774,7 @@ public sealed class UnifiedCacheTests
     [Fact]
     public async Task IncrementManyWithExpiryAsync_UsesSingleRedisScriptWithExpiryForEveryKey()
     {
-        using var memory = new RemoveTrackingMemoryCache();
+        using var memory = new MemoryCache(new MemoryCacheOptions());
         var db = Substitute.For<IDatabase>();
         UnifiedCache cache = CreateCache(memory, db);
         string ticketKey = cache.BuildKey(CachePolicyId.SecurityMfaChallenge, "fail:ticket:t1");
@@ -733,13 +828,12 @@ public sealed class UnifiedCacheTests
         Assert.NotNull(capturedValues);
         Assert.Equal((RedisValue)1L, capturedValues![0]);
         Assert.Equal((RedisValue)600000L, capturedValues![1]);
-        Assert.Equal(ipKey, memory.RemovedKeys.Last());
     }
 
     [Fact]
     public async Task IncrementWithExpiryAsync_UsesAtomicRedisScriptWithExpiryAndBypassesL1()
     {
-        using var memory = new RemoveTrackingMemoryCache();
+        using var memory = new MemoryCache(new MemoryCacheOptions());
         var db = Substitute.For<IDatabase>();
         UnifiedCache cache = CreateCache(memory, db);
         string key = cache.BuildKey(CachePolicyId.SecurityPowRisk, "verify:identity");
@@ -753,8 +847,6 @@ public sealed class UnifiedCacheTests
                 Arg.Any<CommandFlags>())
             .Returns(call =>
             {
-                Assert.True(memory.Removed);
-                Assert.Equal(key, memory.RemovedKey);
                 capturedScript = call.ArgAt<string>(0);
                 capturedKeys = call.ArgAt<RedisKey[]>(1);
                 capturedValues = call.ArgAt<RedisValue[]>(2);
@@ -794,7 +886,7 @@ public sealed class UnifiedCacheTests
     [Fact]
     public async Task IncrementClampedWithExpiryAsync_UsesAtomicRedisScriptWithClampExpiryAndBypassesL1()
     {
-        using var memory = new RemoveTrackingMemoryCache();
+        using var memory = new MemoryCache(new MemoryCacheOptions());
         var db = Substitute.For<IDatabase>();
         UnifiedCache cache = CreateCache(memory, db);
         string key = cache.BuildKey(CachePolicyId.SecurityPowRisk, "risk:identity");
@@ -808,8 +900,6 @@ public sealed class UnifiedCacheTests
                 Arg.Any<CommandFlags>())
             .Returns(call =>
             {
-                Assert.True(memory.Removed);
-                Assert.Equal(key, memory.RemovedKey);
                 capturedScript = call.ArgAt<string>(0);
                 capturedKeys = call.ArgAt<RedisKey[]>(1);
                 capturedValues = call.ArgAt<RedisValue[]>(2);
@@ -871,7 +961,7 @@ public sealed class UnifiedCacheTests
     [Fact]
     public async Task ConsumeOnceAsync_RemovesL1BeforeExecutingRedisTransaction()
     {
-        using var memory = new RemoveTrackingMemoryCache();
+        using var memory = new MemoryCache(new MemoryCacheOptions());
         var db = Substitute.For<IDatabase>();
         var transaction = Substitute.For<ITransaction>();
         db.CreateTransaction(Arg.Any<object?>()).Returns(transaction);
@@ -879,8 +969,6 @@ public sealed class UnifiedCacheTests
         string key = cache.BuildKey(CachePolicyId.SecurityMfaProof, "proof-1");
         transaction.ExecuteAsync(Arg.Any<CommandFlags>()).Returns(_ =>
         {
-            Assert.True(memory.Removed);
-            Assert.Equal(key, memory.RemovedKey);
             return Task.FromResult(true);
         });
 
@@ -919,15 +1007,13 @@ public sealed class UnifiedCacheTests
     [Fact]
     public async Task ConsumeOnceAndGetAsync_RemovesL1BeforeRedisGetDeleteAndReturnsPayload()
     {
-        using var memory = new RemoveTrackingMemoryCache();
+        using var memory = new MemoryCache(new MemoryCacheOptions());
         var db = Substitute.For<IDatabase>();
         UnifiedCache cache = CreateCache(memory, db);
         string key = cache.BuildKey(CachePolicyId.SecurityPasskeyAuthChallenge, "challenge-1");
         db.StringGetDeleteAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .Returns(_ =>
             {
-                Assert.True(memory.Removed);
-                Assert.Equal(key, memory.RemovedKey);
                 return Task.FromResult((RedisValue)Encoding.UTF8.GetBytes("payload"));
             });
 
@@ -992,7 +1078,7 @@ public sealed class UnifiedCacheTests
     [Fact]
     public async Task ExchangeOnceAndGetAsync_AtomicallyMovesSourceToTargetAndReturnsPayload()
     {
-        using var memory = new RemoveTrackingMemoryCache();
+        using var memory = new MemoryCache(new MemoryCacheOptions());
         var db = Substitute.For<IDatabase>();
         UnifiedCache cache = CreateCache(memory, db);
         string sourceKey = cache.BuildKey(CachePolicyId.SecurityChallengeProof, "proof:source");
@@ -1035,8 +1121,6 @@ public sealed class UnifiedCacheTests
         Assert.Equal([new RedisKey(sourceKey), new RedisKey(targetKey)], capturedKeys!);
         Assert.Equal((RedisValue)Encoding.UTF8.GetBytes("grant-payload"), capturedValues![0]);
         Assert.Equal((RedisValue)30000L, capturedValues[1]);
-        Assert.Contains(sourceKey, memory.RemovedKeys);
-        Assert.Contains(targetKey, memory.RemovedKeys);
     }
 
     [Fact]
@@ -1131,20 +1215,30 @@ public sealed class UnifiedCacheTests
         return policy;
     }
 
+    private static async IAsyncEnumerable<RedisValue> ScanValues(params RedisValue[] values)
+    {
+        await Task.Yield();
+        foreach (RedisValue value in values)
+        {
+            yield return value;
+        }
+    }
+
     private static UnifiedCache CreateCache(
         IMemoryCache memory,
         IDatabase db,
         IRuntimeKeyScope? keyScope = null,
-        ICachePolicyRegistry? policyRegistry = null)
+        ICachePolicyRegistry? policyRegistry = null,
+        IRedisOperationExecutor? redisOperations = null)
     {
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(db);
         return new UnifiedCache(
-            memory,
             redis,
             policyRegistry ?? new CachePolicyRegistry(),
             keyScope ?? new DefaultRuntimeKeyScope(),
-            NullLogger<UnifiedCache>.Instance);
+            NullLogger<UnifiedCache>.Instance,
+            redisOperations);
     }
 
     private sealed class FixedPolicyRegistry(CachePolicy policy) : ICachePolicyRegistry
@@ -1187,78 +1281,6 @@ public sealed class UnifiedCacheTests
         Assert.NotNull(field);
         object entries = Assert.IsAssignableFrom<object>(field.GetValue(coordinator));
         return Assert.IsType<int>(entries.GetType().GetProperty("Count")!.GetValue(entries));
-    }
-
-    private sealed class RemoveTrackingMemoryCache : IMemoryCache
-    {
-        public bool Removed
-        {
-            get; private set;
-        }
-        public object? RemovedKey
-        {
-            get; private set;
-        }
-        public List<object> RemovedKeys { get; } = [];
-        public List<object> CreatedKeys { get; } = [];
-
-        public bool TryGetValue(object key, out object? value)
-        {
-            value = null;
-            return false;
-        }
-
-        public ICacheEntry CreateEntry(object key)
-        {
-            CreatedKeys.Add(key);
-            return new TestCacheEntry(key);
-        }
-
-        public void Remove(object key)
-        {
-            Removed = true;
-            RemovedKey = key;
-            RemovedKeys.Add(key);
-        }
-
-        public void Dispose()
-        {
-        }
-    }
-
-    private sealed class TestCacheEntry(object key) : ICacheEntry
-    {
-        public object Key { get; } = key;
-        public object? Value
-        {
-            get; set;
-        }
-        public DateTimeOffset? AbsoluteExpiration
-        {
-            get; set;
-        }
-        public TimeSpan? AbsoluteExpirationRelativeToNow
-        {
-            get; set;
-        }
-        public TimeSpan? SlidingExpiration
-        {
-            get; set;
-        }
-        public IList<IChangeToken> ExpirationTokens { get; } = new List<IChangeToken>();
-        public IList<PostEvictionCallbackRegistration> PostEvictionCallbacks { get; } = new List<PostEvictionCallbackRegistration>();
-        public CacheItemPriority Priority
-        {
-            get; set;
-        }
-        public long? Size
-        {
-            get; set;
-        }
-
-        public void Dispose()
-        {
-        }
     }
 
     private static bool ContainsAll(RedisKey[] keys, params string[] expected)

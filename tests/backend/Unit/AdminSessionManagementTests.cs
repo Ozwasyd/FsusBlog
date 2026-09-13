@@ -123,14 +123,20 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
             typeof(AdminPrincipalService),
             "UPDATE admin_session",
             "RETURNING sessionid",
+            "sessionid <> @CurrentSessionId");
+        string revokeAudit = RuntimeMetadataInspection.DescribeMethods(
+            typeof(AdminPrincipalService),
             "WriteAdminSessionRevokeAuditsAsync");
+        string revokeOperation = RuntimeMetadataInspection.DescribeMethods(
+            typeof(AdminPrincipalService),
+            nameof(AdminPrincipalService.RevokeOtherAdminSessionsAsync));
         Assert.Contains("RecordAdminSessionList", list, StringComparison.Ordinal);
         Assert.Contains("UPDATE admin_session", revokeOthers, StringComparison.Ordinal);
         Assert.Contains("RETURNING sessionid", revokeOthers, StringComparison.Ordinal);
         Assert.Contains("sessionid <> @CurrentSessionId", revokeOthers, StringComparison.Ordinal);
         Assert.DoesNotContain("TryRevokeAdminSessionAsync", revokeOthers, StringComparison.Ordinal);
-        Assert.Contains("WriteAdminSessionRevokeAuditsAsync", revokeOthers, StringComparison.Ordinal);
-        Assert.Contains("RecordAdminSessionRevokeOthers", revokeOthers, StringComparison.Ordinal);
+        Assert.Contains("WriteAdminSessionRevokeAuditsAsync", revokeAudit, StringComparison.Ordinal);
+        Assert.Contains("RecordAdminSessionRevokeOthers", revokeOperation, StringComparison.Ordinal);
 
         AssertMetricName("s_adminSessionListReturnedCount", "fsus.admin.session.list.returned_count");
         AssertMetricName("s_adminSessionRevokeOthersCount", "fsus.admin.session.revoke_others.count");

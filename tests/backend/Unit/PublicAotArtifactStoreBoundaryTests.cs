@@ -142,7 +142,7 @@ public sealed class PublicAotArtifactStoreBoundaryTests
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(database);
         var cache = new PublicAotFileShellCache(
             new TestWebHostEnvironment(temp.Root),
-            redis,
+            RedisOperationExecutor.ForTestConnection(redis),
             NullLogger<PublicAotFileShellCache>.Instance);
         var tracker = new PublicAotInvalidationTracker();
         var scheduler = Substitute.For<IPublicAotBackfillScheduler>();
@@ -175,7 +175,7 @@ public sealed class PublicAotArtifactStoreBoundaryTests
 
         for (int generation = 0; generation < 5; generation++)
         {
-            tracker.MarkKey(CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey));
+            _ = await tracker.MarkKeyAsync(CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey));
         }
 
         PublicAotArtifactLookup lookup = store.CreateLookup(new DefaultHttpContext(), match);
@@ -261,10 +261,9 @@ public sealed class PublicAotArtifactStoreBoundaryTests
         };
 
         Assert.True(store.IsCurrentBackfill(request));
-        await tracker.WithInvalidationLockAsync([pagePrefixKey], () =>
+        await tracker.WithInvalidationLockAsync([pagePrefixKey], async () =>
         {
-            tracker.MarkPrefix(pagePrefixKey);
-            return Task.CompletedTask;
+            _ = await tracker.MarkPrefixAsync(pagePrefixKey);
         }, CancellationToken.None);
 
         bool written = await store.WriteBackfillAsync(
@@ -347,25 +346,23 @@ public sealed class PublicAotArtifactStoreBoundaryTests
         Assert.True(store.IsCurrentBackfill(request));
         if (string.Equals(invalidationScope, "global", StringComparison.Ordinal))
         {
-            await tracker.WithGlobalInvalidationLockAsync(() =>
+            await tracker.WithGlobalInvalidationLockAsync(async () =>
             {
-                tracker.MarkAll();
-                return Task.CompletedTask;
+                _ = await tracker.MarkAllAsync();
             }, CancellationToken.None);
         }
         else
         {
-            await tracker.WithInvalidationLockAsync([request.PagePrefixKey], () =>
+            await tracker.WithInvalidationLockAsync([request.PagePrefixKey], async () =>
             {
                 if (string.Equals(invalidationScope, "route", StringComparison.Ordinal))
                 {
-                    tracker.MarkKey(request.InvalidationKey);
+                    _ = await tracker.MarkKeyAsync(request.InvalidationKey);
                 }
                 else
                 {
-                    tracker.MarkPrefix(request.PagePrefixKey);
+                    _ = await tracker.MarkPrefixAsync(request.PagePrefixKey);
                 }
-                return Task.CompletedTask;
             }, CancellationToken.None);
         }
 
@@ -400,10 +397,9 @@ public sealed class PublicAotArtifactStoreBoundaryTests
             CancellationToken.None);
         await writer.FirstWriteEntered.Task;
 
-        Task invalidation = tracker.WithInvalidationLockAsync([request.PagePrefixKey], () =>
+        Task invalidation = tracker.WithInvalidationLockAsync([request.PagePrefixKey], async () =>
         {
-            tracker.MarkPrefix(request.PagePrefixKey);
-            return Task.CompletedTask;
+            _ = await tracker.MarkPrefixAsync(request.PagePrefixKey);
         }, CancellationToken.None);
 
         Assert.False(invalidation.IsCompleted);
@@ -434,10 +430,9 @@ public sealed class PublicAotArtifactStoreBoundaryTests
             beforeCommit: null,
             CancellationToken.None);
         await writer.FirstWriteEntered.Task;
-        Task invalidation = tracker.WithInvalidationLockAsync([oldRequest.PagePrefixKey], () =>
+        Task invalidation = tracker.WithInvalidationLockAsync([oldRequest.PagePrefixKey], async () =>
         {
-            tracker.MarkPrefix(oldRequest.PagePrefixKey);
-            return Task.CompletedTask;
+            _ = await tracker.MarkPrefixAsync(oldRequest.PagePrefixKey);
         }, CancellationToken.None);
         Assert.False(invalidation.IsCompleted);
 
@@ -480,10 +475,9 @@ public sealed class PublicAotArtifactStoreBoundaryTests
             },
             CancellationToken.None);
         await stageEntered.Task;
-        await tracker.WithInvalidationLockAsync([request.PagePrefixKey], () =>
+        await tracker.WithInvalidationLockAsync([request.PagePrefixKey], async () =>
         {
-            tracker.MarkPrefix(request.PagePrefixKey);
-            return Task.CompletedTask;
+            _ = await tracker.MarkPrefixAsync(request.PagePrefixKey);
         }, CancellationToken.None);
         releaseStage.SetResult();
 

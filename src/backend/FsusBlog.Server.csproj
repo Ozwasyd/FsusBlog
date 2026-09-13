@@ -62,6 +62,7 @@
 	<ItemGroup>
 		<EmbeddedResource Include="..\shared\Contracts\Validation\Security\perception-character-v3-contract.json" Link="Contracts\perception-character-v3-contract.json" LogicalName="FsusBlog.PerceptionCharacterV3.Contract.json" />
 		<EmbeddedResource Include="..\..\config\testing\bounded-channel-delivery-contracts.json" Link="Contracts\bounded-channel-delivery-contracts.json" LogicalName="FsusBlog.BoundedChannelDeliveryContracts.json" />
+		<EmbeddedResource Include="..\..\config\runtime\redis-operation-budgets.json" Link="Contracts\redis-operation-budgets.json" LogicalName="FsusBlog.RedisOperationBudgets.json" />
 		<EmbeddedResource Include="..\shared\Contracts\Validation\Security\perception-character-v3-spoken-atlas.json" Link="Contracts\perception-character-v3-spoken-atlas.json" LogicalName="FsusBlog.PerceptionCharacterV3.SpokenAtlas.json" />
 		<Content Include="Dictionaries\**\*.txt">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

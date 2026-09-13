@@ -33,12 +33,9 @@ public sealed class PublicAotRouteManifestTests
             PublicAotRouteManifestProvider.CreateStaticRoute(PublicPageKind.Guidelines, 12),
             PublicAotRouteManifestProvider.CreateStaticRoute(PublicPageKind.Copyright, 13),
             PublicAotRouteManifestProvider.CreateStaticRoute(PublicPageKind.Archive, 20),
-            PublicAotRouteManifestProvider.CreateStaticRoute(PublicPageKind.Home, 0, 2),
             PublicAotRouteManifestProvider.CreateArticleRoute(42, 7, [3, 9], 100),
             PublicAotRouteManifestProvider.CreateCategoryRoute(7, 200),
-            PublicAotRouteManifestProvider.CreateCategoryRoute(7, 200, 2),
-            PublicAotRouteManifestProvider.CreateTagIdRoute(3, "CSharp", 210),
-            PublicAotRouteManifestProvider.CreateTagIdRoute(3, "CSharp", 210, 2)
+            PublicAotRouteManifestProvider.CreateTagIdRoute(3, "CSharp", 210)
         ];
         var registry = new PublicAotRouteRegistry();
 
@@ -58,6 +55,12 @@ public sealed class PublicAotRouteManifestTests
             Assert.Equal(descriptor.CanonicalPath, match.CanonicalPathAndQuery);
             Assert.Contains("seo", descriptor.DependencyKeys);
         }
+
+
+        Assert.DoesNotContain(
+            descriptors,
+            static descriptor => PublicRouteIdentity.IsLegacyPaginatedRouteKey(descriptor.RouteKey)
+                || descriptor.CanonicalPath.Contains("?page=", StringComparison.Ordinal));
     }
 
     [Fact]

@@ -7,6 +7,8 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Fixtures;
@@ -14,6 +16,7 @@ using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.DependencyInjection;
 
 using NSubstitute;
 
@@ -67,22 +70,22 @@ public sealed class AccountProfilePreferenceFixturePostgresTests(PostgresSchemaM
                 "account-profile-preferences"));
         }
 
-        ICacheCounterStore counters = Substitute.For<ICacheCounterStore>();
-        counters.IncrementAsync(
-                CachePolicyId.AccountSnapshotVersion,
-                Arg.Any<string>(),
-                1,
-                Arg.Any<CancellationToken>())
-            .Returns(1L);
         NoopAccountCache cache = new();
+        var accountMutations = Substitute.For<IAccountStateProjectionMutationPublisher>();
         var profileCommands = new UserProfileCommandService(
             db,
             NullLogger<UserProfileCommandService>.Instance,
-            Substitute.For<IBlacklistService>(),
+            Substitute.For<IBanStateProjectionObligationCoordinator>(),
             cache,
-            counters,
+            accountMutations,
             Substitute.For<IUserSessionValidationCache>());
-        var accountReader = new UserAccountReader(db, cache, cache, cache, cache);
+        var sourceServices = new ServiceCollection();
+        sourceServices.AddSingleton(db);
+        await using ServiceProvider sourceProvider = sourceServices.BuildServiceProvider();
+        var accountReader = new UserAccountReader(new AccountStateProjection(
+            new SqlAccountStateProjectionSource(
+                sourceProvider.GetRequiredService<IServiceScopeFactory>(),
+                new AccountStateProjectionRuntimeState())));
         var preferences = new UserLocalePreferenceService(
             db,
             NullLogger<UserLocalePreferenceService>.Instance);

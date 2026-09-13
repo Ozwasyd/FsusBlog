@@ -57,33 +57,33 @@ public sealed class PublicAotBootstrapProviderTests
     }
 
     [Fact]
-    public async Task HomeProvider_UsesPageSpecificSnapshotOnFirstServerRender()
+    public async Task HomeProvider_CarriesFirstPageCursorIntoSnapshot()
     {
         IArticleService articles = Substitute.For<IArticleService>();
         IAotSeoConfigSnapshot seo = Substitute.For<IAotSeoConfigSnapshot>();
         using var cts = new CancellationTokenSource();
-        articles.GetPageListAsync(Arg.Is<ArticlePageQuery>(query => query.Page == 2 && query.Size == 10), cts.Token)
-            .Returns(Result<CorePageResult<ArticleListCoreModel>>.Success(new CorePageResult<ArticleListCoreModel>([], 21)));
+        articles.GetPageListAsync(Arg.Is<ArticlePageQuery>(query => query.Page == 1 && query.Size == 10), cts.Token)
+            .Returns(Result<CorePageResult<ArticleListCoreModel>>.Success(
+                new CorePageResult<ArticleListCoreModel>([], 21, "cursor_home_2", true)));
         articles.GetFeaturedArticlesAsync(new ArticleCountQuery(3), cts.Token)
             .Returns(Result<IReadOnlyList<FeaturedArticleCoreModel>>.Success([]));
         articles.GetHotArticlesAsync(new ArticleCountQuery(5), cts.Token)
             .Returns(Result<IReadOnlyList<PopularArticleCoreModel>>.Success([]));
         seo.GetAsync(cts.Token).Returns(new PublicAotSeoSnapshot("Fsus", "Blog", "https://example.test"));
         var provider = new PublicAotHomeBootstrapProvider(articles, seo);
-        var match = new PublicAotRouteMatch(PublicPageKind.Home, PublicPageId.Home, "home:page:2", "/", "/", "?page=2")
-        {
-            Page = 2
-        };
+        var match = new PublicAotRouteMatch(PublicPageKind.Home, PublicPageId.Home, "home", "/", "/", string.Empty);
 
         var result = await provider.BuildSnapshotAsync(match, cts.Token);
 
         Assert.True(result.IsSuccess, result.Error.Message);
         PublicHomePageSnapshot snapshot = Assert.IsType<PublicHomePageSnapshot>(result.Value);
-        Assert.Equal(2, snapshot.Page);
+        Assert.Equal(1, snapshot.Page);
         Assert.Equal(21, snapshot.Total);
+        Assert.Equal("cursor_home_2", snapshot.NextCursor);
+        Assert.True(snapshot.HasMore);
         await articles.Received(1).GetPageListAsync(
             Arg.Is<ArticlePageQuery>(query =>
-                query.Page == 2 &&
+                query.Page == 1 &&
                 query.Size == 10 &&
                 query.CategoryId == null &&
                 query.TagId == null &&
@@ -92,7 +92,7 @@ public sealed class PublicAotBootstrapProviderTests
                 !query.IncludePrivate &&
                 query.Keyword == null &&
                 query.ListCacheVersion == null &&
-                query.UseSourceCache &&
+                !query.UseSourceCache &&
                 query.Cursor == null),
             cts.Token);
         await articles.Received(1).GetFeaturedArticlesAsync(new ArticleCountQuery(3), cts.Token);
@@ -100,13 +100,10 @@ public sealed class PublicAotBootstrapProviderTests
     }
 
     [Fact]
-    public async Task HomeProvider_ReturnsNotFoundForPageBeyondTotal()
+    public async Task HomeProvider_RejectsDeepPageBeforeAnyRead()
     {
         IArticleService articles = Substitute.For<IArticleService>();
         IAotSeoConfigSnapshot seo = Substitute.For<IAotSeoConfigSnapshot>();
-        articles.GetPageListAsync(Arg.Is<ArticlePageQuery>(query => query.Page == 3 && query.Size == 10), Arg.Any<CancellationToken>())
-            .Returns(Result<CorePageResult<ArticleListCoreModel>>.Success(new CorePageResult<ArticleListCoreModel>([], 11)));
-        seo.GetAsync(Arg.Any<CancellationToken>()).Returns(new PublicAotSeoSnapshot("Fsus", "Blog", "https://example.test"));
         var provider = new PublicAotHomeBootstrapProvider(articles, seo);
         var match = new PublicAotRouteMatch(PublicPageKind.Home, PublicPageId.Home, "home:page:3", "/", "/", "?page=3")
         {
@@ -116,21 +113,22 @@ public sealed class PublicAotBootstrapProviderTests
         var result = await provider.BuildSnapshotAsync(match);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(FsusBlog.Core.Common.ErrorCode.NotFound, result.Error.Code);
-        Assert.Equal("public_aot_page_out_of_range", result.Error.Message);
+        Assert.Equal(FsusBlog.Core.Common.ErrorCode.Validation, result.Error.Code);
+        Assert.Equal("public_aot_cursor_required", result.Error.Message);
+        await articles.DidNotReceiveWithAnyArgs().GetPageListAsync(default, default);
         await articles.DidNotReceive().GetFeaturedArticlesAsync(Arg.Any<ArticleCountQuery>(), Arg.Any<CancellationToken>());
     }
 
     [Theory]
     [InlineData(typeof(PublicAotHomeBootstrapProvider))]
     [InlineData(typeof(PublicAotFilterBootstrapProvider))]
-    public void PaginatedProviders_ReadNormalizedTargetPageAndRejectOverflow(Type provider)
+    public void PaginatedProviders_RejectCursorlessDeepSnapshotRequests(Type provider)
     {
         string build = RuntimeMetadataInspection.DescribeMethods(provider, "BuildSnapshotAsync");
 
-        Assert.Contains("PublicAotRouteMatch.get_Page", build, StringComparison.Ordinal);
-        Assert.Contains("ParsePageRouteKey", build, StringComparison.Ordinal);
-        Assert.Contains("public_aot_page_out_of_range", build, StringComparison.Ordinal);
+        Assert.Contains("AllowsStaticArtifact", build, StringComparison.Ordinal);
+        Assert.DoesNotContain("ParsePageRouteKey", build, StringComparison.Ordinal);
+        Assert.Contains("public_aot_cursor_required", build, StringComparison.Ordinal);
     }
 
     [Fact]

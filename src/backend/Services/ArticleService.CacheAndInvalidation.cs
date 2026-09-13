@@ -29,7 +29,15 @@ public partial class ArticleService
     private async Task<CacheReadResult<List<int>>> TryReadHotArticleSeedAsync(string redisKey, int count, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        RedisValue[] topIds = await _redis.SortedSetRangeByRankAsync(redisKey, 0, count - 1, Order.Descending);
+        RedisValue[] topIds = await _redisOperations.ExecuteAsync(
+                RedisOperationPort.ArticleServiceCache,
+                (multiplexer, _) => multiplexer.GetDatabase().SortedSetRangeByRankAsync(
+                    redisKey,
+                    0,
+                    count - 1,
+                    Order.Descending),
+                cancellationToken)
+            .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         List<int> ids = ExtractOrderedArticleIds(topIds);
         return ids.Count == 0
@@ -37,49 +45,28 @@ public partial class ArticleService
             : new CacheReadResult<List<int>>(true, ids);
     }
 
-    private async Task<List<int>> SeedHotArticlesAsync(string redisKey, int count, CancellationToken cancellationToken)
+    private async Task<string> InvalidateCache(int? articleId = null)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        DateTime now = DateTime.UtcNow;
-        var topFromDb = await _db.Queryable<Article>()
-            .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
-            .Where(article => !article.IsDeleted
-                && article.Status == ArticleStatus.Published
-                && (article.PublishedAt == null || article.PublishedAt <= now)
-                && (article.ScheduledPublishAt == null || article.ScheduledPublishAt <= now))
-            .OrderByDescending((article, publication) => article.Views)
-            .Take(count)
-            .Select((article, publication) => new { article.Id, article.Views })
-            .ToListAsync(cancellationToken);
-
-        if (topFromDb.Count == 0)
-        {
-            return [];
-        }
-
-        var entries = new SortedSetEntry[topFromDb.Count];
-        var ids = new List<int>(topFromDb.Count);
-        for (int i = 0; i < topFromDb.Count; i++)
-        {
-            entries[i] = new SortedSetEntry(topFromDb[i].Id, topFromDb[i].Views);
-            ids.Add(topFromDb[i].Id);
-        }
-
-        cancellationToken.ThrowIfCancellationRequested();
-        await CacheRebuildLeaseScope.PublishSortedSetAsync(_redis, redisKey, entries, cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-        return ids;
+        string mutationId = $"article:{Guid.CreateVersion7():N}";
+        await _cacheInvalidationDispatcher.InvalidateArticleMutationAsync(articleId, mutationId, Ct);
+        return mutationId;
     }
 
-    private async Task InvalidateCache(int? articleId = null)
+    private async Task InvalidatePublicAotAsync(
+        int? articleId,
+        IEnumerable<int>? categoryIds,
+        IEnumerable<int>? tagIds,
+        string operation,
+        string? mutationId = null)
     {
-        await _cacheInvalidationDispatcher.InvalidateArticleMutationAsync(articleId, Ct);
-    }
-
-    private async Task InvalidatePublicAotAsync(int? articleId, IEnumerable<int>? categoryIds, IEnumerable<int>? tagIds, string operation)
-    {
+        string effectiveMutationId = mutationId ?? $"article:{Guid.CreateVersion7():N}";
         await BoundaryExecutor.ExecuteAsync(
-            () => _publicAotInvalidationService.InvalidateArticleMutationAsync(articleId, categoryIds, tagIds, Ct),
+            () => _publicAotInvalidationService.InvalidateArticleMutationAsync(
+                articleId,
+                categoryIds,
+                tagIds,
+                effectiveMutationId,
+                Ct),
             _logger,
             $"invalidate-article-aot:{operation}");
     }
@@ -97,10 +84,21 @@ public partial class ArticleService
             operation);
     }
 
-    private async Task InvalidatePublicAotBatchAsync(IEnumerable<int> articleIds, IEnumerable<int>? categoryIds, IEnumerable<int>? tagIds, string operation)
+    private async Task InvalidatePublicAotBatchAsync(
+        IEnumerable<int> articleIds,
+        IEnumerable<int>? categoryIds,
+        IEnumerable<int>? tagIds,
+        string operation,
+        string? mutationId = null)
     {
+        string effectiveMutationId = mutationId ?? $"article-batch:{Guid.CreateVersion7():N}";
         await BoundaryExecutor.ExecuteAsync(
-            () => _publicAotInvalidationService.InvalidateArticleMutationBatchAsync(articleIds, categoryIds, tagIds, Ct),
+            () => _publicAotInvalidationService.InvalidateArticleMutationBatchAsync(
+                articleIds,
+                categoryIds,
+                tagIds,
+                effectiveMutationId,
+                Ct),
             _logger,
             $"invalidate-article-aot-batch:{operation}");
     }
@@ -518,11 +516,10 @@ public partial class ArticleService
     internal static string BuildArticleSearchIdentity(long version, string normalizedKeyword)
         => string.Concat("search:v", version.ToString(), ":", normalizedKeyword.Replace(':', '_'));
 
-    private static string BuildArticleListIdentity(long version, int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status, bool includePrivate, string keyword)
+    private static string BuildAdminArticleListIdentity(long version, int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status, bool includePrivate, string keyword)
     {
         return string.Concat(
-            "v2:",
-            includePrivate ? "admin:" : "public:",
+            "admin:v2:",
             version.ToString(), ":",
             page.ToString(), ":",
             size.ToString(), ":",
@@ -531,6 +528,8 @@ public partial class ArticleService
             isDeleted ? "1" : "0",
             ":",
             (status ?? -1).ToString(),
+            ":",
+            includePrivate ? "1" : "0",
             ":",
             keyword);
     }

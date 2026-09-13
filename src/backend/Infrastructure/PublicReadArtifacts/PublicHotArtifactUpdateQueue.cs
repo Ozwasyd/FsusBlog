@@ -477,9 +477,6 @@ public sealed class PublicHotArtifactUpdateWorker(
     IOptions<PublicHotReadOptions> options,
     ILogger<PublicHotArtifactUpdateWorker> logger) : BackgroundService
 {
-    private static readonly TimeSpan s_viewProjectionRefreshInterval = TimeSpan.FromSeconds(30);
-    private DateTime _lastViewProjectionRefreshUtc = DateTime.MinValue;
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (queue.Obligations is { } obligations)
@@ -547,21 +544,6 @@ public sealed class PublicHotArtifactUpdateWorker(
                 deliveryGeneration = Math.Max(deliveryGeneration, next.DeliveryGeneration);
                 coalesced++;
                 CollectUpdate(next, articleIds, expectedReleaseIds, fragmentKeys, ref requiresFullRebuild);
-            }
-
-            if (dirtyReason == PublicHotArtifactDirtyReason.ViewProjection)
-            {
-                DateTime now = DateTime.UtcNow;
-                if (now - _lastViewProjectionRefreshUtc < s_viewProjectionRefreshInterval)
-                {
-                    logger.LogInformation(
-                        "public-hot-read-view-refresh-coalesced {Reason} {Coalesced}",
-                        reason,
-                        coalesced);
-                    return;
-                }
-
-                _lastViewProjectionRefreshUtc = now;
             }
 
             long maximumRevocationGeneration = revocations.CurrentGeneration;

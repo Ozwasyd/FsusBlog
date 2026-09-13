@@ -16,7 +16,6 @@ import { useFilterView } from '@/composables/useFilterView'
 
 const mocks = vi.hoisted(() => ({
   getArticles: vi.fn(),
-  searchIndex: vi.fn(),
   getCategoryExactMetadata: vi.fn(),
   getTagExactMetadata: vi.fn(),
   getTagExactMetadataByName: vi.fn(),
@@ -37,10 +36,6 @@ vi.mock('@/api/tag', () => ({
   getTagExactMetadata: mocks.getTagExactMetadata,
   getTagExactMetadataByName: mocks.getTagExactMetadataByName,
   getTags: mocks.getTags
-}))
-
-vi.mock('@/services/localSearch', () => ({
-  searchIndex: mocks.searchIndex
 }))
 
 vi.mock('@/fsusui/markdown', () => ({
@@ -153,17 +148,19 @@ function createCategoryBootstrapSeed(overrides: {
 
 describe('useFilterView exact taxonomy metadata', () => {
   beforeEach(() => {
+    Object.defineProperty(window, 'scrollTo', {
+      configurable: true,
+      value: vi.fn()
+    })
     setActivePinia(createPinia())
     resetPublicRouteSeedStoreForTests()
     mocks.getArticles.mockResolvedValue(emptyArticlePage())
-    mocks.searchIndex.mockResolvedValue(emptyArticlePage())
     mocks.getCategoryExactMetadata.mockReset()
     mocks.getTagExactMetadata.mockReset()
     mocks.getTagExactMetadataByName.mockReset()
     mocks.getCategories.mockReset()
     mocks.getTags.mockReset()
     mocks.getArticles.mockClear()
-    mocks.searchIndex.mockClear()
   })
 
   afterEach(() => {
@@ -245,9 +242,79 @@ describe('useFilterView exact taxonomy metadata', () => {
     expect(mocks.getTags).not.toHaveBeenCalled()
     expect(router.currentRoute.value.path).toBe('/tag/11')
     expect(router.currentRoute.value.query.page).toBe('2')
+    expect(router.currentRoute.value.query.cursor).toBeUndefined()
     expect(router.currentRoute.value.hash).toBe('#section')
+    expect(mocks.getArticles).not.toHaveBeenCalled()
+    expect(api().hasError.value).toBe(true)
     expect(api().filterView.value.header.currentName).toBe('C#')
     expect(api().filterView.value.header.description).toBe('alias-canonical')
+    wrapper.unmount()
+  })
+
+  it('uses response cursors for forward navigation and browser back', async () => {
+    mocks.getCategoryExactMetadata.mockResolvedValue({
+      id: 7,
+      name: '架构',
+      description: null
+    })
+    mocks.getArticles
+      .mockResolvedValueOnce({ items: [], total: 20, hasMore: true, nextCursor: 'cursor_page_2' })
+      .mockResolvedValueOnce({ items: [], total: 20, hasMore: false, nextCursor: null })
+      .mockResolvedValueOnce({ items: [], total: 20, hasMore: true, nextCursor: 'cursor_page_2' })
+
+    const router = await createFilterRouter('/category/7')
+    const { wrapper, api } = mountFilterView(router)
+    await flushPromises()
+
+    expect(mocks.getArticles).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ page: 1, cursor: null, categoryId: 7 }),
+      expect.any(Object)
+    )
+    expect(api().canGoNext.value).toBe(true)
+    expect(api().filterView.value.pagination.nextHref).toBe('/category/7?page=2&cursor=cursor_page_2')
+
+    api().handlePageChange(2)
+    await flushPromises()
+
+    expect(router.currentRoute.value.query).toMatchObject({ page: '2', cursor: 'cursor_page_2' })
+    expect(mocks.getArticles).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ page: 2, cursor: 'cursor_page_2', categoryId: 7 }),
+      expect.any(Object)
+    )
+    expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' })
+
+    router.back()
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.page).toBeUndefined()
+    expect(router.currentRoute.value.query.cursor).toBeUndefined()
+    expect(mocks.getArticles).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({ page: 1, cursor: null, categoryId: 7 }),
+      expect.any(Object)
+    )
+    wrapper.unmount()
+  })
+
+  it('restores a refreshed deep URL only when its opaque cursor is present', async () => {
+    mocks.getCategoryExactMetadata.mockResolvedValue({
+      id: 7,
+      name: '架构',
+      description: null
+    })
+    mocks.getArticles.mockResolvedValue({ items: [], total: 20, hasMore: false, nextCursor: null })
+
+    const router = await createFilterRouter('/category/7?page=2&cursor=cursor_page_2')
+    const { wrapper, api } = mountFilterView(router)
+    await flushPromises()
+
+    expect(api().currentPage.value).toBe(2)
+    expect(mocks.getArticles).toHaveBeenCalledWith(
+      expect.objectContaining({ page: 2, cursor: 'cursor_page_2', categoryId: 7 }),
+      expect.any(Object)
+    )
     wrapper.unmount()
   })
 
@@ -283,9 +350,87 @@ describe('useFilterView exact taxonomy metadata', () => {
     expect(mocks.getTagExactMetadataByName).not.toHaveBeenCalled()
     expect(mocks.getCategories).not.toHaveBeenCalled()
     expect(mocks.getTags).not.toHaveBeenCalled()
-    expect(mocks.searchIndex).toHaveBeenCalled()
+    expect(mocks.getArticles).toHaveBeenCalledWith(
+      expect.objectContaining({
+        page: 1,
+        cursor: null,
+        keyword: 'AOT',
+        sort: 'relevance'
+      }),
+      expect.any(Object)
+    )
     expect(api().filterView.value.header.description).toBeNull()
     expect(api().filterView.value.header.currentName).toBe('“AOT”')
+    wrapper.unmount()
+  })
+
+  it('preserves search sort and opaque cursor across forward navigation and refresh', async () => {
+    mocks.getArticles
+      .mockResolvedValueOnce({ items: [], total: 20, hasMore: true, nextCursor: 'cursor_search_2' })
+      .mockResolvedValueOnce({ items: [], total: 20, hasMore: false, nextCursor: null })
+      .mockResolvedValueOnce({ items: [], total: 20, hasMore: false, nextCursor: null })
+
+    const router = await createFilterRouter('/search?q=AOT&sort=hot')
+    const { wrapper, api } = mountFilterView(router)
+    await flushPromises()
+
+    expect(mocks.getArticles).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        page: 1,
+        cursor: null,
+        keyword: 'AOT',
+        sort: 'hot'
+      }),
+      expect.any(Object)
+    )
+    expect(api().filterView.value.pagination.nextHref)
+      .toBe('/search?q=AOT&sort=hot&page=2&cursor=cursor_search_2')
+
+    api().handlePageChange(2)
+    await flushPromises()
+    expect(router.currentRoute.value.query).toMatchObject({
+      q: 'AOT',
+      sort: 'hot',
+      page: '2',
+      cursor: 'cursor_search_2'
+    })
+    expect(mocks.getArticles).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        page: 2,
+        cursor: 'cursor_search_2',
+        keyword: 'AOT',
+        sort: 'hot'
+      }),
+      expect.any(Object)
+    )
+    wrapper.unmount()
+
+    const refreshRouter = await createFilterRouter('/search?q=AOT&sort=hot&page=2&cursor=cursor_search_2')
+    const refreshMount = mountFilterView(refreshRouter)
+    await flushPromises()
+    expect(mocks.getArticles).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        page: 2,
+        cursor: 'cursor_search_2',
+        keyword: 'AOT',
+        sort: 'hot'
+      }),
+      expect.any(Object)
+    )
+    refreshMount.wrapper.unmount()
+  })
+
+  it('rejects a first-page search cursor before API dispatch', async () => {
+    const router = await createFilterRouter('/search?q=AOT&cursor=cursor_search_2')
+    const { wrapper, api } = mountFilterView(router)
+    await flushPromises()
+
+    expect(api().currentPage.value).toBe(1)
+    expect(api().hasError.value).toBe(true)
+    expect(mocks.getArticles).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 

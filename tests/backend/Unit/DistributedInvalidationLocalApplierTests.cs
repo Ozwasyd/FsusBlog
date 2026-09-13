@@ -4,6 +4,7 @@ using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Storage;
@@ -85,6 +86,7 @@ public sealed class DistributedInvalidationLocalApplierTests
         Assert.NotNull(result);
         Assert.True(result.IsApplied);
         Assert.False(result.FullReconcile);
+        Assert.True(result.AotGeneration > 0);
         Assert.True(fixture.HotRead.IsReady);
         Assert.False(fixture.HotRead.Current.TryGetArticle(1, out _));
         Assert.True(fixture.HotRead.Current.TryGetArticle(2, out PublicBinaryArtifact remaining));
@@ -92,11 +94,62 @@ public sealed class DistributedInvalidationLocalApplierTests
         Assert.True(fixture.HotRead.Current.TryGetCategory(out _));
         Assert.False(fixture.TryGetL1(CachePolicyId.ArticleDetail, "1"));
         Assert.True(fixture.TryGetL1(CachePolicyId.ArticleDetail, "2"));
+        await fixture.HttpCache.Received(1).InvalidateAsync(Arg.Is<CacheTag[]>(tags =>
+            tags.Contains(CacheTag.ArticleList)
+            && tags.Contains(CacheTag.HotArticles)
+            && tags.Contains(CacheTag.Stats)));
+    }
+
+    [Fact]
+    public async Task ArticleViewProjection_AppliesRemoteValuesMonotonicallyWithoutRetiringDetailCache()
+    {
+        await using Fixture fixture = await Fixture.CreateAsync();
+        fixture.SeedArticle(42, [42]);
+
+        DistributedInvalidationLocalApplyResult? first = await fixture.Applier.ApplyAsync(
+            Event(
+                DistributedInvalidationEventKinds.ArticleViewProjection,
+                [],
+                [],
+                [DistributedInvalidationTargetResolver.FormatArticleViewProjectionTarget(42, 120, 120)],
+                "view-120"));
+        DistributedInvalidationLocalApplyResult? outOfOrder = await fixture.Applier.ApplyAsync(
+            Event(
+                DistributedInvalidationEventKinds.ArticleViewProjection,
+                [],
+                [],
+                [DistributedInvalidationTargetResolver.FormatArticleViewProjectionTarget(42, 110, 110)],
+                "view-110"));
+        DistributedInvalidationLocalApplyResult? duplicate = await fixture.Applier.ApplyAsync(
+            Event(
+                DistributedInvalidationEventKinds.ArticleViewProjection,
+                [],
+                [],
+                [DistributedInvalidationTargetResolver.FormatArticleViewProjectionTarget(42, 120, 120)],
+                "view-120-duplicate"));
+
+        Assert.True(first!.IsApplied);
+        Assert.True(outOfOrder!.IsApplied);
+        Assert.True(duplicate!.IsApplied);
+        Assert.Equal(120, fixture.ArticleDetailViews.Project(42, 100));
+        Assert.True(fixture.TryGetL1(CachePolicyId.ArticleDetail, "42"));
+        Assert.All([first, outOfOrder, duplicate], result =>
+        {
+            Assert.Equal(0, result!.L1InvalidatedEntryCount);
+            Assert.Equal(0, result.AotRouteCount);
+            Assert.Equal(0, result.HotReadFragmentCount);
+        });
+        PublicHotArtifactObligation obligation = (await fixture.Delivery.GetActiveAsync(CancellationToken.None))!;
+        IReadOnlyList<string> fragments = Assert.IsAssignableFrom<IReadOnlyList<string>>(obligation.FragmentKeys);
+        Assert.Contains("article:42", fragments);
+        Assert.Contains("list:hot", fragments);
+        Assert.Contains("list:featured", fragments);
     }
 
     [Theory]
     [InlineData("taxonomy")]
     [InlineData("seo")]
+    [InlineData("origin")]
     [InlineData("system-page")]
     public async Task ExactKindMatrix_DoesNotClearUnrelatedArticleDetail(string matrix)
     {
@@ -112,7 +165,7 @@ public sealed class DistributedInvalidationLocalApplierTests
                 ["article-list", "category", "tag"],
                 ["taxonomy:*"],
                 ["public-aot", "public-hot-read"]),
-            "seo" => Event(
+            "seo" or "origin" => Event(
                 DistributedInvalidationEventKinds.SeoMutation,
                 ["seo"],
                 ["system:seo"],
@@ -130,6 +183,7 @@ public sealed class DistributedInvalidationLocalApplierTests
         Assert.NotNull(result);
         Assert.True(result.IsApplied);
         Assert.False(result.FullReconcile);
+        Assert.True(result.AotGeneration > 0);
         Assert.True(fixture.HotRead.IsReady);
         Assert.True(fixture.HotRead.Current.TryGetArticle(9, out _));
         if (matrix == "taxonomy")
@@ -345,7 +399,7 @@ public sealed class DistributedInvalidationLocalApplierTests
 
         private Fixture()
         {
-            LocalCache = new CacheLocalStore(_memory, TimeProvider.System);
+            LocalCache = new PolicyShardedCacheL1Store(_policies, TimeProvider.System);
             var redis = Substitute.For<IConnectionMultiplexer>();
             redis.GetDatabase(Arg.Any<int>(), Arg.Any<object>()).Returns(Substitute.For<IDatabase>());
             var environment = Substitute.For<IWebHostEnvironment>();
@@ -353,7 +407,7 @@ public sealed class DistributedInvalidationLocalApplierTests
             environment.WebRootPath.Returns(Path.GetTempPath());
             PublicAot = new PublicAotFileShellCache(
                 environment,
-                redis,
+                RedisOperationExecutor.ForTestConnection(redis),
                 NullLogger<PublicAotFileShellCache>.Instance,
                 configuration: new ConfigurationBuilder().Build(),
                 publicArtifactStorage: Substitute.For<IPublicArtifactStorage>());
@@ -364,6 +418,8 @@ public sealed class DistributedInvalidationLocalApplierTests
                 Delivery,
                 Delivery);
             CacheRuntime = new CacheInvalidationRuntimeState();
+            ArticleDetailViews = new ArticleDetailViewProjection();
+            HttpCache = Substitute.For<IHttpCacheInvalidator>();
             Applier = new DistributedInvalidationLocalApplier(
                 LocalCache,
                 PublicAot,
@@ -373,10 +429,12 @@ public sealed class DistributedInvalidationLocalApplierTests
                 Queue,
                 Substitute.For<IAotSeoConfigSnapshot>(),
                 CacheRuntime,
-                NullLogger<DistributedInvalidationLocalApplier>.Instance);
+                NullLogger<DistributedInvalidationLocalApplier>.Instance,
+                ArticleDetailViews,
+                HttpCache);
         }
 
-        public CacheLocalStore LocalCache
+        public PolicyShardedCacheL1Store LocalCache
         {
             get;
         }
@@ -400,6 +458,14 @@ public sealed class DistributedInvalidationLocalApplierTests
         {
             get;
         }
+        public ArticleDetailViewProjection ArticleDetailViews
+        {
+            get;
+        }
+        public IHttpCacheInvalidator HttpCache
+        {
+            get;
+        }
         public DistributedInvalidationLocalApplier Applier
         {
             get;
@@ -417,7 +483,7 @@ public sealed class DistributedInvalidationLocalApplierTests
         public void SeedPolicy(CachePolicyId policyId, string identity, byte[] payload)
         {
             Assert.True(_policies.TryGet(policyId, out CachePolicy policy));
-            LocalCache.Set(
+            LocalCache.TrySetOwned(
                 policy,
                 CacheL1Key.ForString("default", policyId, identity),
                 policy.BuildKey(identity),

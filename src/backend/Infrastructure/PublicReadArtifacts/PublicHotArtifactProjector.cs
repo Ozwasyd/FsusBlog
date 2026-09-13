@@ -9,6 +9,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Mapping.Projectors;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Content;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
@@ -73,8 +74,11 @@ public sealed class PublicHotArtifactProjector(
     IDbConcurrencyGate dbConcurrencyGate,
     IOptions<PublicHotReadOptions> options,
     ArticleBodyRepairQueue articleBodyRepairQueue,
+    IArticleListCursorCodec articleListCursorCodec,
     TimeProvider timeProvider,
-    ILogger<PublicHotArtifactProjector> logger)
+    ILogger<PublicHotArtifactProjector> logger,
+    IArticleDetailViewProjection? articleDetailViews = null,
+    ICacheStringReader? cacheStringReader = null)
     : IPublicHotArtifactProjector, IVersionedPublicHotArtifactProjector, IPublicHotTaxonomyProjector
 {
     private const int MaxPageSize = 100;
@@ -261,6 +265,7 @@ public sealed class PublicHotArtifactProjector(
                     continue;
                 }
 
+                articleDetailViews?.ApplyAuthoritative(changed.Id, changed.Views, changed.Views);
                 changedArticleIds.Add(changed.Id);
                 ArticleDetailCoreModel core = ArticleProjection.ToCoreDetailModel(changed);
                 articleFrames[changed.Id] = EncodeFrame(AedsFrameType.ArticleDetail, writer => PodBinaryCodec.WriteArticleDetail(core, writer), version, value);
@@ -384,25 +389,26 @@ public sealed class PublicHotArtifactProjector(
         CancellationToken ct)
     {
         int rebuilt = 0;
-        int[] pages = NormalizePositive(options.PreloadPages, [1], Math.Clamp(options.MaxPreloadPage, 1, ushort.MaxValue));
+        int[] pages = [1];
         int[] sizes = NormalizePositive(options.PreloadSizes, [1, 3, 5, 10], Math.Clamp(options.MaxPreloadSize, 1, 100));
         int[] hotSizes = NormalizePositive(options.HotSizes, [1, 3, 5, 10], Math.Clamp(options.MaxPreloadSize, 1, 100));
         int[] featuredSizes = NormalizePositive(options.FeaturedSizes, [3, 4, 10], Math.Clamp(options.MaxPreloadSize, 1, 100));
 
-        await AddArticlePageFramesAsync(frames, PublicListKind.Home, 0, pages, sizes, null, null, version, options, ct).ConfigureAwait(false);
+        long queryVersion = await ReadArticleListQueryVersionAsync(ct).ConfigureAwait(false);
+        await AddArticlePageFramesAsync(frames, PublicListKind.Home, 0, pages, sizes, null, null, version, queryVersion, options, ct).ConfigureAwait(false);
         rebuilt += pages.Length * sizes.Length;
-        await AddArticlePageFramesAsync(frames, PublicListKind.Archive, 0, pages, sizes, null, null, version, options, ct).ConfigureAwait(false);
+        await AddArticlePageFramesAsync(frames, PublicListKind.Archive, 0, pages, sizes, null, null, version, queryVersion, options, ct).ConfigureAwait(false);
         rebuilt += pages.Length * sizes.Length;
 
         foreach (int categoryId in scope.CategoryIds)
         {
-            await AddArticlePageFramesAsync(frames, PublicListKind.Category, categoryId, pages, sizes, categoryId, null, version, options, ct).ConfigureAwait(false);
+            await AddArticlePageFramesAsync(frames, PublicListKind.Category, categoryId, pages, sizes, categoryId, null, version, queryVersion, options, ct).ConfigureAwait(false);
             rebuilt += pages.Length * sizes.Length;
         }
 
         foreach (int tagId in scope.TagIds)
         {
-            await AddArticlePageFramesAsync(frames, PublicListKind.Tag, tagId, pages, sizes, null, tagId, version, options, ct).ConfigureAwait(false);
+            await AddArticlePageFramesAsync(frames, PublicListKind.Tag, tagId, pages, sizes, null, tagId, version, queryVersion, options, ct).ConfigureAwait(false);
             rebuilt += pages.Length * sizes.Length;
         }
 
@@ -612,24 +618,25 @@ public sealed class PublicHotArtifactProjector(
         CancellationToken ct)
     {
         var frames = new Dictionary<PublicListKey, PublicBinaryArtifact>();
-        int[] pages = NormalizePositive(options.PreloadPages, [1], Math.Clamp(options.MaxPreloadPage, 1, ushort.MaxValue));
+        int[] pages = [1];
         int[] sizes = NormalizePositive(options.PreloadSizes, [1, 3, 5, 10], Math.Clamp(options.MaxPreloadSize, 1, 100));
         int[] hotSizes = NormalizePositive(options.HotSizes, [1, 3, 5, 10], Math.Clamp(options.MaxPreloadSize, 1, 100));
         int[] featuredSizes = NormalizePositive(options.FeaturedSizes, [3, 4, 10], Math.Clamp(options.MaxPreloadSize, 1, 100));
 
-        await AddArticlePageFramesAsync(frames, PublicListKind.Home, 0, pages, sizes, null, null, version, options, ct).ConfigureAwait(false);
-        await AddArticlePageFramesAsync(frames, PublicListKind.Archive, 0, pages, sizes, null, null, version, options, ct).ConfigureAwait(false);
+        long queryVersion = await ReadArticleListQueryVersionAsync(ct).ConfigureAwait(false);
+        await AddArticlePageFramesAsync(frames, PublicListKind.Home, 0, pages, sizes, null, null, version, queryVersion, options, ct).ConfigureAwait(false);
+        await AddArticlePageFramesAsync(frames, PublicListKind.Archive, 0, pages, sizes, null, null, version, queryVersion, options, ct).ConfigureAwait(false);
 
         List<int> categoryIds = await QueryPublicCategoryIdsAsync(utcNow, ct).ConfigureAwait(false);
         foreach (int categoryId in categoryIds)
         {
-            await AddArticlePageFramesAsync(frames, PublicListKind.Category, categoryId, pages, sizes, categoryId, null, version, options, ct).ConfigureAwait(false);
+            await AddArticlePageFramesAsync(frames, PublicListKind.Category, categoryId, pages, sizes, categoryId, null, version, queryVersion, options, ct).ConfigureAwait(false);
         }
 
         List<int> tagIds = await QueryPublicTagIdsAsync(utcNow, ct).ConfigureAwait(false);
         foreach (int tagId in tagIds)
         {
-            await AddArticlePageFramesAsync(frames, PublicListKind.Tag, tagId, pages, sizes, null, tagId, version, options, ct).ConfigureAwait(false);
+            await AddArticlePageFramesAsync(frames, PublicListKind.Tag, tagId, pages, sizes, null, tagId, version, queryVersion, options, ct).ConfigureAwait(false);
         }
 
         foreach (int size in hotSizes)
@@ -680,6 +687,7 @@ public sealed class PublicHotArtifactProjector(
         int? categoryId,
         int? tagId,
         long version,
+        long queryVersion,
         PublicHotReadOptions options,
         CancellationToken ct)
     {
@@ -705,11 +713,14 @@ public sealed class PublicHotArtifactProjector(
                     bool hasMore = offset + items.Count < window.Total && items.Count > 0;
                     ArticleListCoreModel? lastItem = items.Count > 0 ? items[^1] : null;
                     string? nextCursor = hasMore && lastItem.HasValue
-                        ? ArticleListCursorCodec.Encode(
+                        ? articleListCursorCodec.Encode(
                             new ArticleListCursorPosition(lastItem.Value.CreateTime, lastItem.Value.Id),
                             categoryId,
                             tagId,
-                            normalizedKeyword: null)
+                            normalizedKeyword: null,
+                            size,
+                            queryVersion,
+                            ArticleListSortMode.Latest)
                         : null;
                     var result = new CorePageResult<ArticleListCoreModel>(items, window.Total, nextCursor, hasMore);
                     frames[new PublicListKey(kind, targetId, (ushort)page, (byte)size)] =
@@ -721,6 +732,17 @@ public sealed class PublicHotArtifactProjector(
         {
             logger.LogDebug(ex, "public-hot-list-project-skip {Kind} {TargetId}", kind, targetId);
         }
+    }
+
+    private async ValueTask<long> ReadArticleListQueryVersionAsync(CancellationToken ct)
+    {
+        if (cacheStringReader is null)
+        {
+            return 0;
+        }
+
+        string? value = await cacheStringReader.GetStringAsync(CachePolicyId.ArticleListVersion, "main", ct).ConfigureAwait(false);
+        return long.TryParse(value, out long parsed) ? parsed : 0;
     }
 
     private async Task AddHotFrameAsync(

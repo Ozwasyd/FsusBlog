@@ -68,7 +68,7 @@ public sealed class RedisPerceptionCharacterV3ArtifactPool : IPerceptionCharacte
         redis.call('SET', KEYS[11], ARGV[12], 'PX', 3700000)
         return 1
         """;
-    private readonly IConnectionMultiplexer _redis;
+    private readonly IRedisOperationExecutor _redis;
     private readonly IRuntimeKeyScope _keyScope;
     private readonly PerceptionCharacterV3ArtifactPoolOptions _options;
     private readonly string _generationRoot;
@@ -79,7 +79,7 @@ public sealed class RedisPerceptionCharacterV3ArtifactPool : IPerceptionCharacte
     private string _packPath = string.Empty;
 
     public RedisPerceptionCharacterV3ArtifactPool(
-        IConnectionMultiplexer redis,
+        IRedisOperationExecutor redis,
         IRuntimeKeyScope keyScope,
         IConfiguration configuration,
         IHostEnvironment environment,
@@ -95,7 +95,7 @@ public sealed class RedisPerceptionCharacterV3ArtifactPool : IPerceptionCharacte
     }
 
     internal RedisPerceptionCharacterV3ArtifactPool(
-        IConnectionMultiplexer redis,
+        IRedisOperationExecutor redis,
         IRuntimeKeyScope keyScope,
         PerceptionCharacterV3ArtifactPoolOptions options,
         string contentRoot,
@@ -147,10 +147,12 @@ public sealed class RedisPerceptionCharacterV3ArtifactPool : IPerceptionCharacte
             packDigest);
         try
         {
-            if (await _redis.GetDatabase().KeyExistsAsync(RevocationKey(manifest.GenerationId)).ConfigureAwait(false))
+            if (await ExecuteRedisAsync(
+                    database => database.KeyExistsAsync(RevocationKey(manifest.GenerationId)),
+                    cancellationToken).ConfigureAwait(false))
                 throw new InvalidOperationException("PerceptionCharacterV3 active pool generation is revoked.");
         }
-        catch (RedisException ex)
+        catch (RedisOperationUnavailableException ex)
         {
             throw new PerceptionCharacterV3StoreUnavailableException(ex);
         }
@@ -179,7 +181,6 @@ public sealed class RedisPerceptionCharacterV3ArtifactPool : IPerceptionCharacte
         if (candidates.Length == 0)
             return null;
         int start = RandomNumberGenerator.GetInt32(candidates.Length);
-        IDatabase database = _redis.GetDatabase();
         for (int index = 0; index < candidates.Length; index++)
         {
             PerceptionCharacterV3PoolManifestEntry entry = candidates[(start + index) % candidates.Length];
@@ -187,14 +188,16 @@ public sealed class RedisPerceptionCharacterV3ArtifactPool : IPerceptionCharacte
             RedisResult result;
             try
             {
-                result = await database.ScriptEvaluateAsync(
-                    LeaseScript,
-                    [RevocationKey(manifest.GenerationId), EntryKey(manifest.GenerationId, entry.EntryId)],
-                    []).ConfigureAwait(false);
+                result = await ExecuteRedisAsync(
+                    database => database.ScriptEvaluateAsync(
+                        LeaseScript,
+                        [RevocationKey(manifest.GenerationId), EntryKey(manifest.GenerationId, entry.EntryId)],
+                        []),
+                    cancellationToken).ConfigureAwait(false);
                 if (_discardLeaseReply?.Invoke() == true)
                     throw new DiscardedLeaseReplyException();
             }
-            catch (Exception ex) when (ex is RedisException or DiscardedLeaseReplyException)
+            catch (Exception ex) when (ex is RedisOperationUnavailableException or DiscardedLeaseReplyException)
             {
                 throw new PerceptionCharacterV3StoreUnavailableException(ex);
             }
@@ -214,13 +217,20 @@ public sealed class RedisPerceptionCharacterV3ArtifactPool : IPerceptionCharacte
             ?? throw new InvalidOperationException("PerceptionCharacterV3 artifact pool is not initialized.");
         try
         {
-            IDatabase database = _redis.GetDatabase();
-            Task<RedisValue[]> valuesTask = database.HashGetAsync(
-                InventoryKey(manifest.GenerationId),
-                ["visual-ready", "audio-ready", "total-ready", "visual-leased", "audio-leased"]);
-            Task<bool> revokedTask = database.KeyExistsAsync(RevocationKey(manifest.GenerationId));
-            await Task.WhenAll(valuesTask, revokedTask).ConfigureAwait(false);
-            RedisValue[] values = await valuesTask.ConfigureAwait(false);
+            (RedisValue[] values, bool revoked) = await _redis.ExecuteAsync(
+                    RedisOperationPort.PerceptionArtifactPool,
+                    async (multiplexer, _) =>
+                    {
+                        IDatabase database = multiplexer.GetDatabase();
+                        Task<RedisValue[]> valuesTask = database.HashGetAsync(
+                            InventoryKey(manifest.GenerationId),
+                            ["visual-ready", "audio-ready", "total-ready", "visual-leased", "audio-leased"]);
+                        Task<bool> revokedTask = database.KeyExistsAsync(RevocationKey(manifest.GenerationId));
+                        await Task.WhenAll(valuesTask, revokedTask).ConfigureAwait(false);
+                        return (await valuesTask.ConfigureAwait(false), await revokedTask.ConfigureAwait(false));
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
             if (values.Any(static value => value.IsNull))
                 throw new PerceptionCharacterV3StoreUnavailableException(
                     new InvalidOperationException("PerceptionCharacterV3 inventory is not initialized."));
@@ -231,11 +241,11 @@ public sealed class RedisPerceptionCharacterV3ArtifactPool : IPerceptionCharacte
                 (int)values[2],
                 (int)values[3],
                 (int)values[4],
-                await revokedTask.ConfigureAwait(false),
+                revoked,
                 false,
                 true);
         }
-        catch (RedisException ex)
+        catch (RedisOperationUnavailableException ex)
         {
             throw new PerceptionCharacterV3StoreUnavailableException(ex);
         }
@@ -257,7 +267,6 @@ public sealed class RedisPerceptionCharacterV3ArtifactPool : IPerceptionCharacte
         if (candidates.Length == 0)
             return PerceptionCharacterV3PoolLeaseResult.Failed(PerceptionCharacterV3PoolLeaseOutcome.Empty);
         int start = RandomNumberGenerator.GetInt32(candidates.Length);
-        IDatabase database = _redis.GetDatabase();
         string operationToken = StableKeyToken(budget.OperationId);
         for (int index = 0; index < candidates.Length; index++)
         {
@@ -265,39 +274,41 @@ public sealed class RedisPerceptionCharacterV3ArtifactPool : IPerceptionCharacte
             RedisResult result;
             try
             {
-                result = await database.ScriptEvaluateAsync(
-                    BudgetedLeaseScript,
-                    [
-                        RevocationKey(manifest.GenerationId),
-                        EntryKey(manifest.GenerationId, entry.EntryId),
-                        InventoryKey(manifest.GenerationId),
-                        MinuteKey(manifest.GenerationId, "lease", budget.NowUnixMs),
-                        RollingHourKey(manifest.GenerationId),
-                        MinuteKey(manifest.GenerationId, "bytes", budget.NowUnixMs),
-                        MinuteDimensionKey(manifest.GenerationId, "ip", budget.IpPrefixHash, budget.NowUnixMs),
-                        MinuteDimensionKey(manifest.GenerationId, "device", budget.DeviceHash, budget.NowUnixMs),
-                        MinuteDimensionKey(manifest.GenerationId, "subject", budget.SubjectHash, budget.NowUnixMs),
-                        MinuteDimensionKey(manifest.GenerationId, "action", budget.ActionClass, budget.NowUnixMs),
-                        OperationKey(manifest.GenerationId, operationToken)
-                    ],
-                    [
-                        name,
-                        entry.ArtifactBytes,
-                        budget.NowUnixMs,
-                        budget.LeasePerMinute,
-                        budget.LeaseRollingHour,
-                        budget.EgressBytesPerMinute,
-                        budget.EgressBytesRollingHour,
-                        budget.IpPrefixPerMinute,
-                        budget.DevicePerMinute,
-                        budget.SubjectPerMinute,
-                        budget.ActionPerMinute,
-                        operationToken + ":" + entry.EntryId
-                    ]).ConfigureAwait(false);
+                result = await ExecuteRedisAsync(
+                    database => database.ScriptEvaluateAsync(
+                        BudgetedLeaseScript,
+                        [
+                            RevocationKey(manifest.GenerationId),
+                            EntryKey(manifest.GenerationId, entry.EntryId),
+                            InventoryKey(manifest.GenerationId),
+                            MinuteKey(manifest.GenerationId, "lease", budget.NowUnixMs),
+                            RollingHourKey(manifest.GenerationId),
+                            MinuteKey(manifest.GenerationId, "bytes", budget.NowUnixMs),
+                            MinuteDimensionKey(manifest.GenerationId, "ip", budget.IpPrefixHash, budget.NowUnixMs),
+                            MinuteDimensionKey(manifest.GenerationId, "device", budget.DeviceHash, budget.NowUnixMs),
+                            MinuteDimensionKey(manifest.GenerationId, "subject", budget.SubjectHash, budget.NowUnixMs),
+                            MinuteDimensionKey(manifest.GenerationId, "action", budget.ActionClass, budget.NowUnixMs),
+                            OperationKey(manifest.GenerationId, operationToken)
+                        ],
+                        [
+                            name,
+                            entry.ArtifactBytes,
+                            budget.NowUnixMs,
+                            budget.LeasePerMinute,
+                            budget.LeaseRollingHour,
+                            budget.EgressBytesPerMinute,
+                            budget.EgressBytesRollingHour,
+                            budget.IpPrefixPerMinute,
+                            budget.DevicePerMinute,
+                            budget.SubjectPerMinute,
+                            budget.ActionPerMinute,
+                            operationToken + ":" + entry.EntryId
+                        ]),
+                    cancellationToken).ConfigureAwait(false);
                 if (_discardLeaseReply?.Invoke() == true)
                     throw new DiscardedLeaseReplyException();
             }
-            catch (Exception ex) when (ex is RedisException or DiscardedLeaseReplyException)
+            catch (Exception ex) when (ex is RedisOperationUnavailableException or DiscardedLeaseReplyException)
             {
                 throw new PerceptionCharacterV3StoreUnavailableException(ex);
             }
@@ -479,16 +490,26 @@ public sealed class RedisPerceptionCharacterV3ArtifactPool : IPerceptionCharacte
         }
         try
         {
-            await _redis.GetDatabase().ScriptEvaluateAsync(
-                InitializeInventoryScript,
-                keys,
-                representations).ConfigureAwait(false);
+            await ExecuteRedisAsync(
+                database => database.ScriptEvaluateAsync(
+                    InitializeInventoryScript,
+                    keys,
+                    representations),
+                CancellationToken.None).ConfigureAwait(false);
         }
-        catch (RedisException ex)
+        catch (RedisOperationUnavailableException ex)
         {
             throw new PerceptionCharacterV3StoreUnavailableException(ex);
         }
     }
+
+    private Task<T> ExecuteRedisAsync<T>(
+        Func<IDatabase, Task<T>> operation,
+        CancellationToken cancellationToken)
+        => _redis.ExecuteAsync(
+            RedisOperationPort.PerceptionArtifactPool,
+            (multiplexer, _) => operation(multiplexer.GetDatabase()),
+            cancellationToken);
 
     private RedisKey InventoryKey(string generationId)
         => _keyScope.PrefixKey($"security:perception-v3-pool:{generationId}:inventory");

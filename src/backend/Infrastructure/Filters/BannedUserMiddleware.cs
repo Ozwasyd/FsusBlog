@@ -4,10 +4,9 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Policies;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Interfaces;
-
-using Microsoft.Extensions.Caching.Memory;
 
 namespace FsusBlog.Server.Infrastructure.Filters;
 
@@ -19,19 +18,13 @@ public class BannedUserMiddleware(RequestDelegate _next)
     private const string BannedWriteErrorCode = "ACCOUNT_BANNED_WRITE_LOCKED";
     private const string BannedWriteMessage = "account is restricted and cannot perform this write action";
 
-    private static readonly MemoryCacheEntryOptions s_accountStateCacheOptions = new()
-    {
-        AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60)
-    };
-
     // SECURITY-INVARIANT: Authenticated non-admin restricted account sessions may invoke only
     // endpoints with explicit restricted-account action metadata; unauthenticated requests and
     // authenticated administrators bypass this account gate.
     public async Task InvokeAsync(
         HttpContext context,
         IBlacklistService blacklist,
-        IUserAccountReader users,
-        IMemoryCache accountStateCache)
+        IAccountStateProjection accountStates)
     {
         // 1. 只处理已登录用户
         if (context.User.Identity?.IsAuthenticated != true)
@@ -64,10 +57,23 @@ public class BannedUserMiddleware(RequestDelegate _next)
         }
 
         bool forceAccountStateRefresh = endpoint?.Metadata.GetMetadata<ForceAccountStateRefreshMetadata>() != null;
-        UserAccountSnapshot? user = await GetAccountStateAsync(accountId, accountSubjectHash, users, accountStateCache, forceRefresh: forceAccountStateRefresh);
-        if (user == null || user.Value.DeletedAt.HasValue || user.Value.Status == 2)
+        AccountStateReadResult accountState = forceAccountStateRefresh
+            ? await accountStates.RefreshAsync(accountId, accountSubjectHash, context.RequestAborted)
+            : await accountStates.ReadAsync(accountId, accountSubjectHash, context.RequestAborted);
+        if (accountState.Outcome is AccountStateReadOutcome.Missing
+            or AccountStateReadOutcome.Deleted
+            or AccountStateReadOutcome.SubjectMismatch)
         {
             await MiddlewareResults.WriteErrorAsync(context, "账户已注销", StatusCodes.Status401Unauthorized);
+            return;
+        }
+        if (accountState.Outcome is AccountStateReadOutcome.Unknown or AccountStateReadOutcome.Conflict)
+        {
+            await MiddlewareResults.WriteErrorAsync(
+                context,
+                "账户状态暂不可确认",
+                StatusCodes.Status503ServiceUnavailable,
+                details: "account_state_unknown");
             return;
         }
 
@@ -99,8 +105,25 @@ public class BannedUserMiddleware(RequestDelegate _next)
                 return;
             }
 
-            // SECURITY-INVARIANT: Ban state is keyed by both the account ID and stable subject hash.
+            // SECURITY-INVARIANT: the reusable projection key is the stable subject hash only.
+            // Account ID is used solely by the bounded unknown-authority admission.
             BanStateSnapshot banState = await blacklist.GetBanStateAsync(accountId, accountSubjectHash);
+
+            if (!banState.IsKnown)
+            {
+                await MiddlewareResults.WriteErrorAsync(
+                    context,
+                    "账户状态暂不可确认",
+                    StatusCodes.Status503ServiceUnavailable,
+                    details: "ban_state_unknown");
+                return;
+            }
+
+            if (banState.IsDeleted)
+            {
+                await MiddlewareResults.WriteErrorAsync(context, "账户已注销", StatusCodes.Status401Unauthorized);
+                return;
+            }
 
             if (banState.IsBanned)
             {
@@ -117,37 +140,4 @@ public class BannedUserMiddleware(RequestDelegate _next)
         await _next(context);
     }
 
-    private static async Task<UserAccountSnapshot?> GetAccountStateAsync(
-        int accountId,
-        string accountSubjectHash,
-        IUserAccountReader users,
-        IMemoryCache cache,
-        bool forceRefresh)
-    {
-        string cacheKey = string.Concat("account:state:", accountSubjectHash);
-        if (!forceRefresh && cache.TryGetValue(cacheKey, out UserAccountSnapshot cached))
-        {
-            return cached;
-        }
-
-        UserAccountSnapshot? snapshot = await users.GetAccountByIdAsync(accountId);
-        if (snapshot.HasValue
-            && AccountSubjectHashRequirement.TryResolve(
-                snapshot.Value.AccountSubjectHash,
-                out string physicalAccountSubjectHash)
-            && string.Equals(
-                physicalAccountSubjectHash,
-                accountSubjectHash,
-                StringComparison.Ordinal))
-        {
-            cache.Set(cacheKey, snapshot.Value, s_accountStateCacheOptions);
-        }
-        else
-        {
-            cache.Remove(cacheKey);
-            return null;
-        }
-
-        return snapshot;
-    }
 }

@@ -4,92 +4,162 @@ using System.Text;
 
 using FsusBlog.Core.Services.Articles;
 
+using Microsoft.AspNetCore.DataProtection;
+
 namespace FsusBlog.Server.Infrastructure.Pagination;
 
-public static class ArticleListCursorCodec
+public interface IArticleListCursorCodec
 {
-    private const byte CurrentVersion = 1;
-    private const int PayloadSize = 1 + sizeof(long) + sizeof(int) + sizeof(ulong) + sizeof(ulong);
-
-    public static string Encode(
+    string Encode(
         ArticleListCursorPosition position,
         int? categoryId,
         int? tagId,
-        string? normalizedKeyword)
-    {
-        Span<byte> payload = stackalloc byte[PayloadSize];
-        payload[0] = CurrentVersion;
-        BinaryPrimitives.WriteInt64LittleEndian(payload[1..], position.CreateTimeUtc.Ticks);
-        BinaryPrimitives.WriteInt32LittleEndian(payload[(1 + sizeof(long))..], position.Id);
-        BinaryPrimitives.WriteUInt64LittleEndian(
-            payload[(1 + sizeof(long) + sizeof(int))..],
-            ComputeFilterFingerprint(categoryId, tagId, normalizedKeyword));
-        BinaryPrimitives.WriteUInt64LittleEndian(
-            payload[(PayloadSize - sizeof(ulong))..],
-            ComputeChecksum(payload[..(PayloadSize - sizeof(ulong))]));
-        return Base64UrlEncode(payload);
-    }
+        string? normalizedKeyword,
+        int pageSize,
+        long queryVersion,
+        ArticleListSortMode sort);
 
-    public static bool TryDecode(
+    bool TryDecode(
         string? encoded,
         int? categoryId,
         int? tagId,
         string? normalizedKeyword,
-        out ArticleListCursorPosition position)
+        int pageSize,
+        long queryVersion,
+        ArticleListSortMode sort,
+        out ArticleListCursorPosition position);
+}
+
+public sealed class ArticleListCursorCodec(
+    IDataProtectionProvider dataProtectionProvider,
+    TimeProvider timeProvider) : IArticleListCursorCodec
+{
+    public const int MaxEncodedLength = 512;
+
+    private const byte CurrentVersion = 3;
+    private const string ProtectionPurpose = "FsusBlog.PublicArticleListCursor.v3";
+    private const int CreateTimeOffset = 1;
+    private const int IdOffset = CreateTimeOffset + sizeof(long);
+    private const int SortValueOffset = IdOffset + sizeof(int);
+    private const int PageSizeOffset = SortValueOffset + sizeof(long);
+    private const int QueryVersionOffset = PageSizeOffset + sizeof(int);
+    private const int QueryFingerprintOffset = QueryVersionOffset + sizeof(long);
+    private const int ExpiresAtOffset = QueryFingerprintOffset + sizeof(ulong);
+    private const int PayloadSize = ExpiresAtOffset + sizeof(long);
+    private static readonly TimeSpan s_lifetime = TimeSpan.FromMinutes(15);
+    private readonly IDataProtector _protector = dataProtectionProvider.CreateProtector(ProtectionPurpose);
+
+    public string Encode(
+        ArticleListCursorPosition position,
+        int? categoryId,
+        int? tagId,
+        string? normalizedKeyword,
+        int pageSize,
+        long queryVersion,
+        ArticleListSortMode sort)
     {
-        position = default;
-        if (string.IsNullOrWhiteSpace(encoded) || encoded.Length > 64)
+        if (!Enum.IsDefined(sort))
         {
-            return false;
+            throw new ArgumentOutOfRangeException(nameof(sort));
         }
 
         Span<byte> payload = stackalloc byte[PayloadSize];
-        if (!TryBase64UrlDecode(encoded, payload, out int written)
-            || written != PayloadSize
-            || payload[0] != CurrentVersion)
-        {
-            return false;
-        }
-
-        ulong checksum = BinaryPrimitives.ReadUInt64LittleEndian(payload[(PayloadSize - sizeof(ulong))..]);
-        ulong expectedChecksum = ComputeChecksum(payload[..(PayloadSize - sizeof(ulong))]);
-        ulong filterFingerprint = BinaryPrimitives.ReadUInt64LittleEndian(
-            payload[(1 + sizeof(long) + sizeof(int))..]);
-        if (checksum != expectedChecksum
-            || filterFingerprint != ComputeFilterFingerprint(categoryId, tagId, normalizedKeyword))
-        {
-            return false;
-        }
-
-        long ticks = BinaryPrimitives.ReadInt64LittleEndian(payload[1..]);
-        int id = BinaryPrimitives.ReadInt32LittleEndian(payload[(1 + sizeof(long))..]);
-        if (id <= 0 || ticks < DateTime.UnixEpoch.Ticks || ticks > DateTime.MaxValue.Ticks)
-        {
-            return false;
-        }
-
-        position = new ArticleListCursorPosition(new DateTime(ticks, DateTimeKind.Utc), id);
-        return string.Equals(
-            encoded,
-            Encode(position, categoryId, tagId, normalizedKeyword),
-            StringComparison.Ordinal);
+        payload[0] = CurrentVersion;
+        BinaryPrimitives.WriteInt64LittleEndian(payload[CreateTimeOffset..], position.CreateTimeUtc.Ticks);
+        BinaryPrimitives.WriteInt32LittleEndian(payload[IdOffset..], position.Id);
+        BinaryPrimitives.WriteInt64LittleEndian(payload[SortValueOffset..], position.SortValue);
+        BinaryPrimitives.WriteInt32LittleEndian(payload[PageSizeOffset..], pageSize);
+        BinaryPrimitives.WriteInt64LittleEndian(payload[QueryVersionOffset..], queryVersion);
+        BinaryPrimitives.WriteUInt64LittleEndian(
+            payload[QueryFingerprintOffset..],
+            ComputeQueryFingerprint(categoryId, tagId, normalizedKeyword, sort));
+        BinaryPrimitives.WriteInt64LittleEndian(
+            payload[ExpiresAtOffset..],
+            timeProvider.GetUtcNow().Add(s_lifetime).ToUnixTimeSeconds());
+        return Base64UrlEncode(_protector.Protect(payload.ToArray()));
     }
 
-    private static ulong ComputeFilterFingerprint(int? categoryId, int? tagId, string? normalizedKeyword)
+    public bool TryDecode(
+        string? encoded,
+        int? categoryId,
+        int? tagId,
+        string? normalizedKeyword,
+        int pageSize,
+        long queryVersion,
+        ArticleListSortMode sort,
+        out ArticleListCursorPosition position)
+    {
+        position = default;
+        if (string.IsNullOrWhiteSpace(encoded) || encoded.Length > MaxEncodedLength)
+        {
+            return false;
+        }
+
+        Span<byte> protectedPayload = stackalloc byte[MaxEncodedLength * 3 / 4];
+        if (!TryBase64UrlDecode(encoded, protectedPayload, out int protectedLength)
+            || !string.Equals(encoded, Base64UrlEncode(protectedPayload[..protectedLength]), StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        byte[] payload;
+        try
+        {
+            payload = _protector.Unprotect(protectedPayload[..protectedLength].ToArray());
+        }
+        catch (CryptographicException)
+        {
+            return false;
+        }
+
+        if (payload.Length != PayloadSize || payload[0] != CurrentVersion)
+        {
+            return false;
+        }
+
+        int encodedPageSize = BinaryPrimitives.ReadInt32LittleEndian(payload.AsSpan(PageSizeOffset));
+        long encodedQueryVersion = BinaryPrimitives.ReadInt64LittleEndian(payload.AsSpan(QueryVersionOffset));
+        ulong queryFingerprint = BinaryPrimitives.ReadUInt64LittleEndian(payload.AsSpan(QueryFingerprintOffset));
+        long expiresAtUnixSeconds = BinaryPrimitives.ReadInt64LittleEndian(payload.AsSpan(ExpiresAtOffset));
+        if (!Enum.IsDefined(sort)
+            || encodedPageSize != pageSize
+            || encodedQueryVersion != queryVersion
+            || queryFingerprint != ComputeQueryFingerprint(categoryId, tagId, normalizedKeyword, sort)
+            || expiresAtUnixSeconds <= timeProvider.GetUtcNow().ToUnixTimeSeconds())
+        {
+            return false;
+        }
+
+        long ticks = BinaryPrimitives.ReadInt64LittleEndian(payload.AsSpan(CreateTimeOffset));
+        int id = BinaryPrimitives.ReadInt32LittleEndian(payload.AsSpan(IdOffset));
+        long sortValue = BinaryPrimitives.ReadInt64LittleEndian(payload.AsSpan(SortValueOffset));
+        if (id <= 0
+            || ticks < DateTime.UnixEpoch.Ticks
+            || ticks > DateTime.MaxValue.Ticks
+            || (sort == ArticleListSortMode.Latest && sortValue != 0)
+            || (sort == ArticleListSortMode.Relevance && sortValue is < 0 or > 3)
+            || (sort == ArticleListSortMode.Hot && sortValue < 0))
+        {
+            return false;
+        }
+
+        position = new ArticleListCursorPosition(new DateTime(ticks, DateTimeKind.Utc), id, sortValue);
+        return true;
+    }
+
+    private static ulong ComputeQueryFingerprint(
+        int? categoryId,
+        int? tagId,
+        string? normalizedKeyword,
+        ArticleListSortMode sort)
     {
         string identity = string.Concat(
             "category:", categoryId?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "0",
             "|tag:", tagId?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "0",
-            "|keyword:", normalizedKeyword ?? string.Empty);
+            "|keyword:", normalizedKeyword ?? string.Empty,
+            "|sort:", sort.ToString());
         Span<byte> digest = stackalloc byte[SHA256.HashSizeInBytes];
         SHA256.HashData(Encoding.UTF8.GetBytes(identity), digest);
-        return BinaryPrimitives.ReadUInt64LittleEndian(digest);
-    }
-
-    private static ulong ComputeChecksum(ReadOnlySpan<byte> payload)
-    {
-        Span<byte> digest = stackalloc byte[SHA256.HashSizeInBytes];
-        SHA256.HashData(payload, digest);
         return BinaryPrimitives.ReadUInt64LittleEndian(digest);
     }
 

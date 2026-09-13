@@ -127,7 +127,17 @@ public sealed record PublicHomePageSnapshot(
     IReadOnlyList<PublicAotArticleSummarySnapshot> Items,
     IReadOnlyList<PublicAotFeaturedArticleSnapshot> FeaturedArticles,
     IReadOnlyList<PublicAotHotArticleSnapshot> HotArticles)
-    : PublicPageSnapshot(PublicPageKind.Home, Seo);
+    : PublicPageSnapshot(PublicPageKind.Home, Seo)
+{
+    public string? NextCursor
+    {
+        get; init;
+    }
+    public bool HasMore
+    {
+        get; init;
+    }
+}
 
 public sealed record PublicArticlePageSnapshot(
     PublicAotSeoSnapshot Seo,
@@ -203,7 +213,17 @@ public sealed record PublicFilterPageSnapshot(
     int Total,
     IReadOnlyList<PublicAotArticleSummarySnapshot> Articles,
     string Title)
-    : PublicPageSnapshot(PublicPageKind.Filter, Seo);
+    : PublicPageSnapshot(PublicPageKind.Filter, Seo)
+{
+    public string? NextCursor
+    {
+        get; init;
+    }
+    public bool HasMore
+    {
+        get; init;
+    }
+}
 
 public sealed record PublicStaticPageSnapshot(
     PublicPageKind StaticKind,

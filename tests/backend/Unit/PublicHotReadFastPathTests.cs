@@ -661,11 +661,14 @@ public sealed class PublicHotReadFastPathTests
         AssertNoStore(context);
     }
 
-    [Fact]
-    public async Task TryServeAsync_ArticleListCursorQuery_ContinuesToDynamicEndpoint()
+    [Theory]
+    [InlineData("?cursor=opaque-v1-cursor")]
+    [InlineData("?keyword=fsus&sort=relevance")]
+    [InlineData("?keyword=fsus&sort=hot&cursor=opaque-v1-cursor")]
+    public async Task TryServeAsync_ArticleListCursorQuery_ContinuesToDynamicEndpoint(string query)
     {
         var context = CreateContext("/api/binary/article/list/home/2/10.aeds");
-        context.Request.QueryString = new QueryString("?cursor=opaque-v1-cursor");
+        context.Request.QueryString = new QueryString(query);
         bool nextCalled = false;
 
         await PublicHotReadFastPath.TryServeAsync(

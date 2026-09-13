@@ -8,6 +8,7 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Security;
@@ -25,7 +26,7 @@ namespace FsusBlog.Server.Services;
 public partial class UserService(
     ISqlSugarClient _db,
     ILogger<UserService> _logger,
-    ICacheCounterStore _cacheCounters,
+    IAccountStateProjectionMutationPublisher _accountStates,
     ITotpService _totpService,
     TimeProvider? timeProvider = null) : IUserMfaCommandService, IUserMfaVerificationService
 #pragma warning restore IDE1006
@@ -91,7 +92,7 @@ public partial class UserService(
         => value.HasValue ? value.Value : DBNull.Value;
 
     private Task InvalidateAccountSnapshotAsync(int userId, CancellationToken cancellationToken = default)
-        => AccountSnapshotCacheInvalidator.BumpVersionAsync(_cacheCounters, userId, cancellationToken);
+        => _accountStates.ProjectCommittedMutationAsync(userId, cancellationToken);
 
     public async Task<(bool Success, MfaSetupStartDto? Data, string Message)> StartMfaSetupAsync(
         int userId,

@@ -6,6 +6,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
@@ -192,7 +193,7 @@ public sealed class AccountEnrollmentIntegrationTests(PostgresSchemaMigrationFix
             db,
             passkeys,
             new JwtHelper(settings),
-            Substitute.For<ICacheCounterStore>(),
+            Substitute.For<IAccountStateProjectionMutationPublisher>(),
             Substitute.For<ICacheInvalidationStore>(),
             new EphemeralDataProtectionProvider(),
             new UserSessionMetadataProtector(

@@ -68,11 +68,15 @@ public sealed class ArticleBodyRepairIntegrationTests(PostgresSchemaMigrationFix
         Assert.NotNull(body);
         Assert.Equal(Markdown, body.MarkdownContent);
         Assert.Equal(0, queue.PendingCount);
-        await cache.Received(1).InvalidateArticleMutationAsync(articleId, Arg.Any<CancellationToken>());
+        await cache.Received(1).InvalidateArticleMutationAsync(
+            articleId,
+            Arg.Is<string>(value => value.StartsWith("article-repair:", StringComparison.Ordinal)),
+            Arg.Any<CancellationToken>());
         await publicAot.Received(1).InvalidateArticleMutationAsync(
             articleId,
             null,
             null,
+            Arg.Is<string>(value => value.StartsWith("article-repair:", StringComparison.Ordinal)),
             Arg.Any<CancellationToken>());
         await search.Received(1).AddOrUpdateIndexAsync(Arg.Is<Article>(article => article.Id == articleId));
     }
@@ -193,7 +197,7 @@ public sealed class ArticleBodyRepairIntegrationTests(PostgresSchemaMigrationFix
         IPublicArtifactRevocationCoordinator revocations = Substitute.For<IPublicArtifactRevocationCoordinator>();
         revocations.RevokeArticleAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
         var projections = new ArticleMutationProjectionInvalidator(
-            redis,
+            RedisOperationExecutor.ForTestConnection(redis),
             Substitute.For<IRuntimeKeyScope>(),
             Substitute.For<ICacheInvalidationStore>(),
             Substitute.For<ITaxonomyCountProjectionService>(),

@@ -510,11 +510,6 @@ function readPaginationHref(body, action)
     return element.match(/\shref="([^"]+)"/i)?.[1] || '';
 }
 
-function readArticleIds(body)
-{
-    return [...body.matchAll(/\sdata-article-id="(\d+)"/gi)].map((match) => Number(match[1]));
-}
-
 async function assertPaginationCrawlerContract(item)
 {
     const first = await runCheck(item);
@@ -522,22 +517,21 @@ async function assertPaginationCrawlerContract(item)
     if (nextHref)
     {
         const nextUrl = new URL(nextHref, baseUrl);
-        const second = await runCheck({
-            ...item,
-            name: `${item.name}_page_2`,
-            path: `${nextUrl.pathname}${nextUrl.search}`
-        });
-        const firstIds = readArticleIds(first.body);
-        const secondIds = readArticleIds(second.body);
-        assert(secondIds.length > 0, `[${item.name}] page 2 first HTML must contain target-page articles`);
-        assert(
-            secondIds.every((id) => !firstIds.includes(id)),
-            `[${item.name}] page 2 first HTML reused page 1 article identities`
-        );
-        assert(readPaginationHref(second.body, 'page-prev'), `[${item.name}] page 2 missing crawlable previous href`);
+        assert(nextUrl.searchParams.get('page') === '2', `[${item.name}] next href must select logical page 2`);
+        assert(nextUrl.searchParams.has('cursor'), `[${item.name}] next href must carry the opaque cursor`);
+        const response = await fetchWithTimeout(nextUrl.toString(), {
+            redirect: 'manual',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (FsusBlog Pagination Cursor Smoke)',
+                Accept: 'text/html,application/xhtml+xml'
+            }
+        }, requestTimeoutMs);
+        assert(response.status === 200, `[${item.name}] cursor page expected SPA 200, got ${response.status}`);
+        assert(!response.headers.get('location'), `[${item.name}] cursor page must not compatibility-redirect`);
+        await response.arrayBuffer();
     }
 
-    for (const invalidQuery of ['?page=1', '?page=0', '?page=oops', '?page=2&utm_source=smoke'])
+    for (const invalidQuery of ['?page=1', '?page=0', '?page=oops'])
     {
         const response = await fetchWithTimeout(`${baseUrl}${item.path}${invalidQuery}`, {
             redirect: 'manual',
@@ -546,13 +540,24 @@ async function assertPaginationCrawlerContract(item)
                 Accept: 'text/html,application/xhtml+xml'
             }
         }, requestTimeoutMs);
-        const expectedLocation = invalidQuery.startsWith('?page=2&') ? `${item.path}?page=2` : item.path;
         assert(response.status === 301, `[${item.name}] ${invalidQuery} expected 301, got ${response.status}`);
-        assert(response.headers.get('location') === expectedLocation, `[${item.name}] ${invalidQuery} wrong canonical redirect`);
+        assert(response.headers.get('location') === item.path, `[${item.name}] ${invalidQuery} wrong canonical redirect`);
         await response.arrayBuffer();
     }
 
-    await assertRealNotFoundStatus({ name: `${item.name}_page_overflow`, path: `${item.path}?page=2147483647` });
+    for (const cursorlessDeepQuery of ['?page=2', '?page=2&utm_source=smoke', '?page=2147483647'])
+    {
+        const response = await fetchWithTimeout(`${baseUrl}${item.path}${cursorlessDeepQuery}`, {
+            redirect: 'manual',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (FsusBlog Pagination Cursor Smoke)',
+                Accept: 'text/html,application/xhtml+xml'
+            }
+        }, requestTimeoutMs);
+        assert(response.status === 200, `[${item.name}] ${cursorlessDeepQuery} expected SPA 200, got ${response.status}`);
+        assert(!response.headers.get('location'), `[${item.name}] ${cursorlessDeepQuery} must not compatibility-redirect`);
+        await response.arrayBuffer();
+    }
 }
 
 async function fetchSettledPublicHtml(path)

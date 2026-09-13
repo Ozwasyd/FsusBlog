@@ -137,10 +137,20 @@ public sealed class ArticleBodyRepairService(
         }
 
         var failures = new List<Exception>();
+        string mutationId = $"article-repair:{Guid.CreateVersion7():N}";
         await RunAsync(() => projections.RevokeArticleAsync(request.ArticleId, cancellationToken), failures, cancellationToken).ConfigureAwait(false);
-        await RunAsync(() => cacheInvalidation.InvalidateArticleMutationAsync(request.ArticleId, cancellationToken), failures, cancellationToken).ConfigureAwait(false);
         await RunAsync(
-                () => publicAotInvalidation.InvalidateArticleMutationAsync(request.ArticleId, null, null, cancellationToken),
+                () => cacheInvalidation.InvalidateArticleMutationAsync(request.ArticleId, mutationId, cancellationToken),
+                failures,
+                cancellationToken)
+            .ConfigureAwait(false);
+        await RunAsync(
+                () => publicAotInvalidation.InvalidateArticleMutationAsync(
+                    request.ArticleId,
+                    null,
+                    null,
+                    mutationId,
+                    cancellationToken),
                 failures,
                 cancellationToken)
             .ConfigureAwait(false);

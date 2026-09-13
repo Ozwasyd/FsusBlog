@@ -64,7 +64,7 @@ internal sealed class BinaryEndpointRequestContext(
     }
 
     public string BuildArticleHotCacheIdentity(int count)
-        => hotArticlesVersionProvider.BuildVersionedHotArticlesIdentity($"core:v2:{count}");
+        => ArticleHotFrameIdentity.BuildHot(hotArticlesVersionProvider, count);
 
     public string? GetDeviceFingerprint(HttpContext context)
     {

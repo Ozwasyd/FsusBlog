@@ -112,6 +112,28 @@ public sealed class DistributedInvalidationTargetResolverTests
         Assert.Equal("cache-target:not-a-cache-target", plan.FullReconcileReason);
     }
 
+    [Fact]
+    public void ArticleViewProjection_ResolvesVersionedValueWithoutRetiringDetailCache()
+    {
+        string target = DistributedInvalidationTargetResolver.FormatArticleViewProjectionTarget(42, 123, 123);
+
+        DistributedInvalidationTargetPlan plan = Resolve(
+            DistributedInvalidationEventKinds.ArticleViewProjection,
+            [],
+            [],
+            [target]);
+
+        Assert.True(plan.IsExact, plan.FullReconcileReason);
+        Assert.Empty(plan.CacheKeys);
+        Assert.Empty(plan.AotTargets);
+        Assert.Equal(
+            new DistributedArticleViewProjectionTarget(42, 123, 123),
+            Assert.Single(plan.ArticleViewProjections));
+        Assert.Contains("article:42", plan.HotReadFragments);
+        Assert.Contains("list:hot", plan.HotReadFragments);
+        Assert.Contains("list:featured", plan.HotReadFragments);
+    }
+
     [Theory]
     [InlineData(DistributedInvalidationEventKinds.ArticleMutation)]
     [InlineData(DistributedInvalidationEventKinds.CommentMutation)]
@@ -121,6 +143,7 @@ public sealed class DistributedInvalidationTargetResolverTests
     [InlineData(DistributedInvalidationEventKinds.ComplianceMutation)]
     [InlineData(DistributedInvalidationEventKinds.PublicAotArtifactUpdated)]
     [InlineData(DistributedInvalidationEventKinds.PublicHotReadVersionPublished)]
+    [InlineData(DistributedInvalidationEventKinds.ArticleViewProjection)]
     public void EveryKnownKind_HasAResolverOwner(string kind)
     {
         DistributedInvalidationEvent invalidation = kind switch
@@ -133,6 +156,11 @@ public sealed class DistributedInvalidationTargetResolverTests
             DistributedInvalidationEventKinds.ComplianceMutation => Event(kind, ["seo"], ["system:compliance"], ["public-aot"]),
             DistributedInvalidationEventKinds.PublicAotArtifactUpdated => Event(kind, ["article"], ["article:7"], ["aot:public:aot:v2:doc:2:article:7"]),
             DistributedInvalidationEventKinds.PublicHotReadVersionPublished => Event(kind, ["hot-articles"], ["article:hot"], ["public-hot-read:v3"]),
+            DistributedInvalidationEventKinds.ArticleViewProjection => Event(
+                kind,
+                [],
+                [],
+                [DistributedInvalidationTargetResolver.FormatArticleViewProjectionTarget(7, 11, 11)]),
             _ => throw new InvalidOperationException(kind)
         };
 
