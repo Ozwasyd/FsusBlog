@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:73000983eb35fe922b151764a9e30525266a9a90b4da3a1b40552ef73a419454",
+    "policyDigest": "sha256:ab9c36f5a2d22718f29c2ae2d1507ae521eba2d07693bc1d4f86297326805004",
     "documents": [
         {
             "path": "docs/CODE_OF_CONDUCT.md",
@@ -1976,6 +1976,21 @@
             "relatedIssues": [
                 1013,
                 1430
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/operations/public-hot-read-hit-rate.md",
+            "title": "PublicHotRead hit-rate accounting",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "release",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1850,
+                3399
             ],
             "producer": null
         },

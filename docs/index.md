@@ -181,6 +181,7 @@ This index is generated from explicit metadata in `config/development/document-l
 - [Active Release Fencing and notification-stream drain](active-release-fencing.md)
 - [Operations Infrastructure Layout](operations-layout.md)
 - [FsusBlog Operations Runbook](operations.md)
+- [PublicHotRead hit-rate accounting](operations/public-hot-read-hit-rate.md)
 - [AEDS cache-miss owned-frame construction and lifecycle](performance-aeds-cache-miss-owned-frame.md)
 - [Application configuration local sensitivity and safe steps](performance-app-config-local-tuning.md)
 - [Comment moderation-queue query plan and benchmark evidence](performance-comment-moderation-queue.md)

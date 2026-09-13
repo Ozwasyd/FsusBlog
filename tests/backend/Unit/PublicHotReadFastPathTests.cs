@@ -828,8 +828,16 @@ public sealed class PublicHotReadFastPathTests
             services.GetRequiredService<PublicHotReadClassifierCounters>();
         Assert.Equal(1, classifier.CredentialBypassSnapshot());
         Assert.Equal(0, classifier.SensitivePrefixBypassSnapshot());
-        Assert.Equal(new PublicHotReadCounterSnapshot(),
-            services.GetRequiredService<PublicHotReadCounters>().Snapshot());
+        PublicHotReadCounterSnapshot unused = services.GetRequiredService<PublicHotReadCounters>().Snapshot();
+        Assert.Equal(0, unused.ArticleHit);
+        Assert.Equal(0, unused.ArticleMiss);
+        Assert.Equal(0, unused.ListHit);
+        Assert.Equal(0, unused.ListMiss);
+        Assert.Equal(0, unused.HtmlHit);
+        Assert.Equal(0, unused.HtmlMiss);
+        Assert.Equal(0, unused.Rejected);
+        Assert.Equal(0, unused.Bytes);
+        Assert.Null(unused.HitRate.CapacityHitRate);
     }
 
     [Fact]

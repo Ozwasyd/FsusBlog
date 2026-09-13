@@ -511,6 +511,13 @@ DI graph health is part of the same telemetry boundary. `/api/binary/author/ops/
 
 OTLP export is off by default. Enable it by setting either `Observability:ExporterEnabled=true` with `Observability:OtlpEndpoint=http://collector:4317`, or the standard `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable. Requests return `X-Fsus-Trace-Id`, and Serilog/audit request context uses the same trace identifier for log correlation. Do not add raw route parameters, request/response bodies, cookies, tokens, IP addresses, usernames or email addresses as OpenTelemetry attributes.
 
+L0 PublicHotRead and L1 cache capacity hit-rate share one formula:
+`calibrated-hits / (calibrated-hits + exact-misses)`. Sampled L0 hit counters
+are published as weighted counts; miss/error counters stay full-fidelity. Do
+not divide raw hit samples by exact misses, and do not treat `CounterMode=Off`
+as a 0% hit rate. Operator reading is in
+[PublicHotRead hit-rate accounting](operations/public-hot-read-hit-rate.md).
+
 ## SLO Alerts
 
 Production SLO definitions are machine-readable in `config/observability/slo.yml`; `tools/operations/check-slo-definition.mjs` verifies availability, error-rate, p95/p99 latency, WebSocket reconnect success, AOT hit rate, search rebuild success and scheduled publish delay objectives before the release gate proceeds.
