@@ -14,11 +14,26 @@ function assertEqual(actual, expected, label)
     }
 }
 
-function scopeMutationReport(report, mutateFiles, sourceProject)
+/**
+ * Stryker.NET ignores `mutate` exclusion for the top-level-statements entry
+ * file (stryker-mutator/stryker-net#3275): it still injects mutants into
+ * `Program.cs`, the mutated assembly fails to compile, and Stryker rolls the
+ * whole file back before any test runs.  Those mutants surface in the raw
+ * report with status `CompileError` even though the file is outside the
+ * selected closure.  They were never compiled into the tested binary, so
+ * they carry no evidence either way; the scoped report drops them but the
+ * authority records them as tool artifacts so the omission stays auditable.
+ * Any out-of-closure mutant with another status still fails closed.
+ */
+const rolledBackOutOfClosureStatus = 'CompileError';
+
+export function scopeChangedCriticalMutationReport(report, mutateFiles, sourceProject)
 {
     const normalizedMutateFiles = mutateFiles.map((path) => path.replaceAll('\\', '/'));
     const selectedFiles = [];
+    const scopedFiles = {};
     const unexpected = [];
+    const rolledBackOutOfClosure = [];
     for (const [file, value] of Object.entries(report.files ?? {}))
     {
         const normalizedFile = file.replaceAll('\\', '/');
@@ -28,10 +43,21 @@ function scopeMutationReport(report, mutateFiles, sourceProject)
         if (selected)
         {
             selectedFiles.push(normalizedFile);
+            scopedFiles[file] = value;
             continue;
         }
         for (const mutant of value?.mutants ?? [])
         {
+            if (mutant.status === rolledBackOutOfClosureStatus)
+            {
+                rolledBackOutOfClosure.push({
+                    file: normalizedFile,
+                    mutantId: String(mutant.id),
+                    mutator: mutant.mutatorName ?? 'unknown',
+                    status: mutant.status
+                });
+                continue;
+            }
             unexpected.push(`${file}#${mutant.id}:${mutant.status}`);
         }
     }
@@ -50,7 +76,12 @@ function scopeMutationReport(report, mutateFiles, sourceProject)
             `raw report planned mutants outside selected closure: ${unexpected.join(', ')}`
         );
     }
-    return report;
+    rolledBackOutOfClosure.sort((left, right) =>
+        left.file.localeCompare(right.file) || left.mutantId.localeCompare(right.mutantId));
+    return {
+        report: { ...report, files: scopedFiles },
+        rolledBackOutOfClosure
+    };
 }
 
 function executionMatrix(inventory)
@@ -142,7 +173,7 @@ export function createChangedCriticalMutationAuthority({
             closure.testFilter,
             `${run.sourceProject} test filter`
         );
-        const scopedReport = scopeMutationReport(
+        const { report: scopedReport, rolledBackOutOfClosure } = scopeChangedCriticalMutationReport(
             run.report,
             closure.mutateFiles,
             run.sourceProject
@@ -150,6 +181,7 @@ export function createChangedCriticalMutationAuthority({
         const authority = createStrykerAuthority({
             report: scopedReport,
             rawReport: run.rawReport,
+            rawParsedReport: run.report,
             reportPath: run.paths.report,
             reportAbsolutePath: run.reportAbsolutePath
                 ?? absoluteArtifactPath(repositoryRoot, run.paths.report),
@@ -186,6 +218,7 @@ export function createChangedCriticalMutationAuthority({
                 sha256: sha256(run.rawTrace)
             },
             traceExecution: authority.traceExecution,
+            rolledBackOutOfClosure,
             mutateFiles: closure.mutateFiles,
             testFilter: closure.testFilter,
             executed: authority.executedMutants,

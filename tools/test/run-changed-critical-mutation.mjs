@@ -14,7 +14,10 @@ import {
     attributeMutantsToBehaviors,
     qualifyBehaviorMutations,
 } from "./changed-critical-mutation-attribution.mjs";
-import { createChangedCriticalMutationAuthority } from "./changed-critical-mutation-evidence.mjs";
+import {
+    createChangedCriticalMutationAuthority,
+    scopeChangedCriticalMutationReport,
+} from "./changed-critical-mutation-evidence.mjs";
 import {
     readChangedPaths,
     repoRelative,
@@ -131,55 +134,66 @@ function runPhysicalMutations({
         );
         const configPath = resolve(runDirectory, "configs", `${runName}.json`);
         writeJsonAtomic(configPath, config);
-        const result = spawnSync(
-            "dotnet",
-            [
-                "tool",
-                "run",
-                "dotnet-stryker",
-                "--config-file",
-                configPath,
-                "--output",
-                physicalOutput,
-                "--log-to-file",
-                "--verbosity",
-                "info",
-            ],
-            {
-                cwd: resolve(root, closure.sourceProject),
-                stdio: ["ignore", "ignore", "inherit"],
-                env: { ...process.env, FSUSBLOG_MUTATION_BUILD: "1" },
-            },
+        const reportPath = resolve(
+            physicalOutput,
+            "reports/changed-critical-mutation.json",
         );
-        if (result.status !== 0) {
-            // Stryker exits non-zero when the mutation score is below the break
-            // threshold.  The JSON report is written before the crash, so check
-            // whether it exists and is valid before treating this as a hard
-            // failure.  When the report is usable the downstream qualification
-            // producer will evaluate it and emit a proper receipt.
-            const reportPath = resolve(
-                physicalOutput,
-                "reports/changed-critical-mutation.json",
+        // Resume support: when a valid report already exists from a prior run
+        // that was interrupted after Stryker completed (e.g. ENOSPC during
+        // downstream attribution), skip re-running Stryker and reuse the
+        // existing report.  This avoids a multi-hour re-run just to recover
+        // the attribution/qualification phase.
+        let reportUsable = false;
+        try {
+            JSON.parse(readFileSync(reportPath, "utf8"));
+            reportUsable = true;
+        } catch {
+            reportUsable = false;
+        }
+        if (!reportUsable) {
+            const result = spawnSync(
+                "dotnet",
+                [
+                    "tool",
+                    "run",
+                    "dotnet-stryker",
+                    "--config-file",
+                    configPath,
+                    "--output",
+                    physicalOutput,
+                    "--log-to-file",
+                    "--verbosity",
+                    "info",
+                ],
+                {
+                    cwd: resolve(root, closure.sourceProject),
+                    stdio: ["ignore", "ignore", "inherit"],
+                    env: { ...process.env, FSUSBLOG_MUTATION_BUILD: "1" },
+                },
             );
-            let reportUsable = false;
-            try {
-                JSON.parse(readFileSync(reportPath, "utf8"));
-                reportUsable = true;
-            } catch {
-                reportUsable = false;
-            }
-            if (!reportUsable) {
-                return result;
+            if (result.status !== 0) {
+                // Stryker exits non-zero when the mutation score is below the
+                // break threshold.  The JSON report is written before the
+                // crash, so check whether it exists and is valid before
+                // treating this as a hard failure.  When the report is usable
+                // the downstream qualification producer will evaluate it and
+                // emit a proper receipt.
+                try {
+                    JSON.parse(readFileSync(reportPath, "utf8"));
+                    reportUsable = true;
+                } catch {
+                    reportUsable = false;
+                }
+                if (!reportUsable) {
+                    return result;
+                }
             }
         }
         physicalRuns.push({
             sourceProject: closure.sourceProject,
             config,
             configPath,
-            reportPath: resolve(
-                physicalOutput,
-                "reports/changed-critical-mutation.json",
-            ),
+            reportPath,
             tracePath: findTraceLog(physicalOutput),
         });
     }
@@ -307,7 +321,14 @@ function main() {
     writeJsonAtomic(resolve(runDirectory, "authority.json"), authority);
     const attributed = authorityRuns.map((physical) =>
         attributeMutantsToBehaviors({
-            report: physical.report,
+            report: scopeChangedCriticalMutationReport(
+                physical.report,
+                selection.projectClosures.find(
+                    ({ sourceProject }) =>
+                        sourceProject === physical.sourceProject,
+                ).mutateFiles,
+                physical.sourceProject,
+            ).report,
             sourceProject: physical.sourceProject,
             ownerReceipt,
             selection,

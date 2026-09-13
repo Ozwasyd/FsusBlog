@@ -1199,6 +1199,7 @@ function referencedTestIdentities(inventory)
 export function createStrykerAuthority({
     report,
     rawReport,
+    rawParsedReport = report,
     reportPath,
     reportAbsolutePath,
     rawTrace,
@@ -1216,7 +1217,7 @@ export function createStrykerAuthority({
 })
 {
     const summary = validateStrykerReport(report);
-    const reportBytes = rawJsonBytes(report, rawReport, 'raw Stryker report');
+    const reportBytes = rawJsonBytes(rawParsedReport, rawReport, 'raw Stryker report');
     const configBytes = rawJsonBytes(config, rawConfig, 'raw Stryker config');
     const traceBytes = Buffer.isBuffer(rawTrace) ? rawTrace : Buffer.from(rawTrace ?? '');
     if (traceBytes.length === 0)

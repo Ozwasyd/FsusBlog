@@ -13,6 +13,9 @@ import {
     validateToolPolicy
 } from '../../tools/test/changed-critical-mutation.mjs';
 import {
+    scopeChangedCriticalMutationReport
+} from '../../tools/test/changed-critical-mutation-evidence.mjs';
+import {
     sealMutationEvidenceReceipt
 } from '../../tools/test/mutation-evidence-receipt.mjs';
 import {
@@ -322,6 +325,68 @@ test('ambiguous multi-owner file reports blocked mutants', () =>
     assert.equal(attributions.length, 0);
     assert.equal(blocked.length, 1);
     assert.equal(blocked[0].reason, 'ambiguous-owner-boundary');
+});
+
+test('report scoping drops rolled-back out-of-closure entry-file mutants but rejects executed ones', () =>
+{
+    const mutateFiles = ['Services/Owned.cs'];
+    const owned = {
+        mutants: [{ id: '1', status: 'Killed', mutatorName: 'Arithmetic', coveredBy: ['t1'], killedBy: ['t1'] }]
+    };
+    const rolledBack = {
+        mutants: [
+            { id: '9', status: 'CompileError', mutatorName: 'Statement mutation', coveredBy: [], killedBy: [] },
+            { id: '8', status: 'CompileError', mutatorName: 'Negate expression', coveredBy: [], killedBy: [] }
+        ]
+    };
+
+    const scoped = scopeChangedCriticalMutationReport(
+        {
+            schemaVersion: '2',
+            files: {
+                '/repo/src/backend/Services/Owned.cs': owned,
+                '/repo/src/backend/Program.cs': rolledBack,
+                '/repo/src/backend/Untouched.cs': { mutants: [] }
+            }
+        },
+        mutateFiles,
+        'src/backend'
+    );
+    assert.deepEqual(Object.keys(scoped.report.files), ['/repo/src/backend/Services/Owned.cs']);
+    assert.equal(scoped.report.schemaVersion, '2');
+    assert.deepEqual(scoped.rolledBackOutOfClosure.map(({ file, mutantId, status }) => ({ file, mutantId, status })), [
+        { file: '/repo/src/backend/Program.cs', mutantId: '8', status: 'CompileError' },
+        { file: '/repo/src/backend/Program.cs', mutantId: '9', status: 'CompileError' }
+    ]);
+
+    for (const status of ['Killed', 'Survived', 'NoCoverage', 'Timeout', 'Ignored'])
+    {
+        assert.throws(
+            () => scopeChangedCriticalMutationReport(
+                {
+                    files: {
+                        '/repo/src/backend/Services/Owned.cs': owned,
+                        '/repo/src/backend/Program.cs': {
+                            mutants: [{ id: '7', status, mutatorName: 'Statement mutation', coveredBy: [], killedBy: [] }]
+                        }
+                    }
+                },
+                mutateFiles,
+                'src/backend'
+            ),
+            /planned mutants outside selected closure: \/repo\/src\/backend\/Program\.cs#7/u,
+            status
+        );
+    }
+
+    assert.throws(
+        () => scopeChangedCriticalMutationReport(
+            { files: { '/repo/src/backend/Program.cs': rolledBack } },
+            mutateFiles,
+            'src/backend'
+        ),
+        /missing selected mutate file src\/backend\/Services\/Owned\.cs/u
+    );
 });
 
 test('per-behavior qualification fails on survived mutants regardless of domain score', () =>
