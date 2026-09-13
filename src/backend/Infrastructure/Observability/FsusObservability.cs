@@ -155,6 +155,10 @@ public static class FsusObservability
     private static readonly Histogram<long> s_cacheCoordinationRebuilds = s_meter.CreateHistogram<long>("fsus.cache.coordination.rebuild_count");
     private static readonly Counter<long> s_cacheCoordinationRelease = s_meter.CreateCounter<long>("fsus.cache.coordination.release");
     private static readonly Histogram<long> s_cacheCoordinationActiveEntries = s_meter.CreateHistogram<long>("fsus.cache.coordination.active_entries");
+    private static readonly Histogram<double> s_singleFlightWait = s_meter.CreateHistogram<double>("fsus.cache.singleflight.wait", "ms");
+    private static readonly Histogram<long> s_singleFlightWaiters = s_meter.CreateHistogram<long>("fsus.cache.singleflight.waiters");
+    private static readonly Counter<long> s_singleFlightRejectByCap = s_meter.CreateCounter<long>("fsus.cache.singleflight.reject_by_cap");
+    private static readonly Counter<long> s_lastGoodWhileRebuild = s_meter.CreateCounter<long>("fsus.cache.coordination.last_good_while_rebuild");
     private static readonly Histogram<double> s_dbOperationDuration = s_meter.CreateHistogram<double>("fsus.db.operation.duration", "ms");
     private static readonly Histogram<double> s_aotRenderDuration = s_meter.CreateHistogram<double>("fsus.aot.render.duration", "ms");
     private static readonly Histogram<double> s_searchOperationDuration = s_meter.CreateHistogram<double>("fsus.search.operation.duration", "ms");
@@ -475,6 +479,35 @@ public static class FsusObservability
         }
         tags.Add("fsus.cache.release.outcome", releaseOutcome);
         s_cacheCoordinationRelease.Add(1, tags);
+    }
+
+    internal static void RecordSingleFlightWait(string policy, TimeSpan wait, int waiterCount)
+    {
+        var tags = new TagList { { "fsus.cache.policy", policy } };
+        s_singleFlightWait.Record(wait.TotalMilliseconds, tags);
+        s_singleFlightWaiters.Record(waiterCount, tags);
+    }
+
+    internal static void RecordSingleFlightWaiterCount(string policy, int waiterCount)
+    {
+        var tags = new TagList { { "fsus.cache.policy", policy } };
+        s_singleFlightWaiters.Record(waiterCount, tags);
+    }
+
+    internal static void RecordSingleFlightReject(string policy, string reason)
+    {
+        var tags = new TagList
+        {
+            { "fsus.cache.policy", policy },
+            { "fsus.result", reason }
+        };
+        s_singleFlightRejectByCap.Add(1, tags);
+    }
+
+    internal static void RecordLastGoodWhileRebuild(string policy)
+    {
+        var tags = new TagList { { "fsus.cache.policy", policy } };
+        s_lastGoodWhileRebuild.Add(1, tags);
     }
 
     public static IReadOnlyList<CacheOperationRuntimeCounter> GetCacheOperationCounters()

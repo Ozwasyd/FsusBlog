@@ -544,6 +544,7 @@
       "evidencePaths": [
         "tests/backend/Unit/UnifiedCacheTests.cs",
         "tests/backend/Unit/CacheMissCoordinatorTests.cs",
+        "tests/backend/Unit/CacheMissPathBoundedWaitTests.cs",
         "tests/backend/Unit/RedisPowServiceTests.cs",
         "tests/backend/Unit/UserSessionValidationServiceTests.cs",
         "tests/backend/Integration/UserSessionRevocationIntegrationTests.cs",

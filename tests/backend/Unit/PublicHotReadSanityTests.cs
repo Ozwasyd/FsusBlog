@@ -106,9 +106,12 @@ public sealed class PublicHotReadSanityTests
         Assert.Equal("last-good", store.CoalescedRefreshReasonForTests);
         PublicHotReadCounterSnapshot metrics = counters.Snapshot();
         Assert.Equal(2, metrics.LastGoodHit);
+        Assert.Equal(1, metrics.LastGoodWhileRebuild);
         Assert.Equal(0, metrics.FreshL0Hit);
         Assert.Equal(0, metrics.SanityFallback);
         Assert.Equal(2, metrics.ArticleHit);
+        Assert.True(store.TryGetQualifiedLastGood(out PublicHotReadSnapshot qualified));
+        Assert.Same(store.LastGoodSnapshotForTests, qualified);
     }
 
     [Fact]
@@ -322,8 +325,11 @@ public sealed class PublicHotReadSanityTests
         Assert.True(store.CoalescedRefreshPendingForTests);
         Assert.Equal(PublicHotReadInvalidationPolicy.RetainLastGood, store.LastInvalidationPolicyForTests);
         Assert.Equal(1, counters.Snapshot().LastGoodHit);
+        Assert.Equal(1, counters.Snapshot().LastGoodWhileRebuild);
         Assert.Equal(0, counters.Snapshot().FreshL0Hit);
         Assert.Equal(0, counters.Snapshot().SanityFallback);
+        Assert.True(store.TryGetQualifiedLastGood(out PublicHotReadSnapshot qualified));
+        Assert.Same(retained, qualified);
     }
 
     [Fact]

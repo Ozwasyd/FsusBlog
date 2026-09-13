@@ -1296,6 +1296,18 @@
             "supersededBy": null
         },
         {
+            "path": "docs/operations/public-hot-read-miss-path-budget.md",
+            "status": "current",
+            "owner": "release",
+            "relatedIssues": [
+                1838,
+                3391,
+                3393
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/operations/public-hot-read-serving-outcomes.md",
             "status": "current",
             "owner": "release",
