@@ -37,15 +37,18 @@ public sealed class UnavailableAuthorArticlePinMutationAuthorizer : IAuthorArtic
 }
 
 /// <summary>
-/// Production write authorizer for private author article pins. It binds every mutation to the
-/// authenticated administrator, live database session, configured site and exact stable article
-/// identities. Any missing, deleted or unauthorized input fails closed before the store mutates.
+/// Production adapter for the current administrator permission authority. Until a narrower
+/// per-article authority exists, it maps the persisted root/article.write grant onto the exact
+/// requested stable identities. It still binds every decision to the authenticated administrator,
+/// live database session and configured site; any missing input is an unavailable/deny result.
 /// </summary>
 public sealed class SqlAuthorArticlePinPermissionAuthority(
     ISqlSugarClient db,
     IHttpContextAccessor httpContextAccessor,
     IConfiguration configuration,
-    TimeProvider timeProvider) : IAuthorArticlePinMutationAuthorizer
+    TimeProvider timeProvider) :
+    IAuthorArticlePinPermissionProjectionProvider,
+    IAuthorArticlePinMutationAuthorizer
 {
     public async Task AuthorizeAsync(
         AuthorArticlePinOwner owner,
@@ -53,14 +56,33 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        AuthorArticlePinContract.ValidateOwner(owner);
-        int[] requestedArticleIds = [.. articleIds];
-        if (requestedArticleIds.Length == 0
-            || requestedArticleIds.Length > AuthorArticlePinContract.MaxPinsPerOwner
-            || requestedArticleIds.Any(static articleId => articleId <= 0)
-            || requestedArticleIds.Distinct().Count() != requestedArticleIds.Length)
+        if (articleIds.Count == 0)
         {
             throw new AuthorArticlePinAccessDeniedException();
+        }
+        AuthorArticlePinPermissionSnapshot snapshot = await ResolveAsync(
+            new AuthorArticlePinPermissionBatchRequest(owner, Guid.CreateVersion7(), articleIds),
+            cancellationToken).ConfigureAwait(false);
+        if (snapshot.Status != AuthorArticlePinPermissionSnapshotStatus.Current
+            || snapshot.Decisions.Any(static decision => !decision.CanProject))
+        {
+            throw new AuthorArticlePinAccessDeniedException();
+        }
+    }
+
+    public async Task<AuthorArticlePinPermissionSnapshot> ResolveAsync(
+        AuthorArticlePinPermissionBatchRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        AuthorArticlePinContract.ValidateOwner(request.Owner);
+        AuthorArticlePinContract.ValidateRequestId(request.RequestId);
+        int[] articleIds = [.. request.ArticleIds];
+        if (articleIds.Length > AuthorArticlePinContract.MaxPinsPerOwner
+            || articleIds.Any(static articleId => articleId <= 0)
+            || articleIds.Distinct().Count() != articleIds.Length)
+        {
+            return Unavailable(request.Owner, "article_pin_permission_request_invalid");
         }
 
         HttpContext? context = httpContextAccessor.HttpContext;
@@ -70,12 +92,12 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
             || principal?.Identity?.IsAuthenticated != true
             || !principal.IsAdminPrincipal()
             || !principal.TryGetAdminPrincipalId(out long adminPrincipalId)
-            || adminPrincipalId != owner.AdminPrincipalId
+            || adminPrincipalId != request.Owner.AdminPrincipalId
             || !principal.HasAdminPermission(AdminPermissions.ArticleWrite)
             || string.IsNullOrWhiteSpace(sessionId)
-            || !string.Equals(owner.SiteScope, ResolveSiteScope(configuration), StringComparison.Ordinal))
+            || !string.Equals(request.Owner.SiteScope, ResolveSiteScope(configuration), StringComparison.Ordinal))
         {
-            throw new AuthorArticlePinAccessDeniedException();
+            return Unavailable(request.Owner, "article_pin_permission_context_denied");
         }
 
         PermissionState? state = await ReadPermissionStateAsync(
@@ -90,17 +112,44 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
             || state.IdleExpiresAtUtc <= now
             || state.AbsoluteExpiresAtUtc <= now)
         {
-            throw new AuthorArticlePinAccessDeniedException();
+            return Unavailable(request.Owner, "article_pin_permission_session_denied");
         }
 
-        Dictionary<int, ArticleAccessState> articles = await ReadArticleStatesAsync(
-            requestedArticleIds,
-            cancellationToken).ConfigureAwait(false);
-        if (articles.Count != requestedArticleIds.Length
-            || articles.Values.Any(static article => article.IsDeleted || article.Status == ArticleStatus.Deleted))
+        Dictionary<int, ArticleAccessState> articles = await ReadArticleStatesAsync(articleIds, cancellationToken)
+            .ConfigureAwait(false);
+        string siteRevision = AuthorArticlePinProjectionContract.HashText(
+            $"site:{request.Owner.SiteScope}");
+        string permissionRevision = AuthorArticlePinProjectionContract.HashText(
+            $"permission:{adminPrincipalId}:{state.PrincipalRowVersion}:{state.IsRoot}:{state.Permissions}");
+        string sessionRevision = AuthorArticlePinProjectionContract.HashText(
+            $"session:{sessionId}:{state.SessionRowVersion}:{state.IdleExpiresAtUtc:O}:{state.AbsoluteExpiresAtUtc:O}");
+        AuthorArticlePinPermissionDecision[] decisions = articleIds.Select(articleId =>
         {
-            throw new AuthorArticlePinAccessDeniedException();
-        }
+            bool canOpen = articles.TryGetValue(articleId, out ArticleAccessState? article)
+                && !article.IsDeleted
+                && article.Status != ArticleStatus.Deleted;
+            string articleRevision = article is null
+                ? "missing"
+                : $"{(int)article.Status}:{article.IsDeleted}";
+            return new AuthorArticlePinPermissionDecision(
+                articleId,
+                CanProject: true,
+                CanOpen: canOpen,
+                AuthorArticlePinProjectionContract.HashText(
+                    $"article-permission:{adminPrincipalId}:{request.Owner.SiteScope}:{articleId}:{articleRevision}:{permissionRevision}:{sessionRevision}"));
+        }).ToArray();
+        var snapshot = new AuthorArticlePinPermissionSnapshot(
+            AuthorArticlePinPermissionSnapshotStatus.Current,
+            request.Owner,
+            permissionRevision,
+            siteRevision,
+            sessionRevision,
+            decisions,
+            string.Empty);
+        return snapshot with
+        {
+            ContentDigest = AuthorArticlePinProjectionContract.ComputePermissionDigest(snapshot)
+        };
     }
 
     public static string ResolveSiteScope(IConfiguration configuration)
@@ -120,9 +169,11 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
             SELECT ap.status AS principal_status,
                    ap.isroot,
                    ap.permissions,
+                   ap.xmin::text AS principal_row_version,
                    s.revokedatutc,
                    s.idleexpiresatutc,
-                   s.absoluteexpiresatutc
+                   s.absoluteexpiresatutc,
+                   s.xmin::text AS session_row_version
             FROM admin_principal ap
             JOIN admin_session s ON s.adminprincipalid = ap.id
             WHERE ap.id = @AdminPrincipalId
@@ -138,11 +189,13 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
             reader.GetString(reader.GetOrdinal("principal_status")),
             reader.GetBoolean(reader.GetOrdinal("isroot")),
             reader.GetString(reader.GetOrdinal("permissions")),
+            reader.GetString(reader.GetOrdinal("principal_row_version")),
             reader.IsDBNull(reader.GetOrdinal("revokedatutc"))
                 ? null
                 : DateTime.SpecifyKind(reader.GetDateTime(reader.GetOrdinal("revokedatutc")), DateTimeKind.Utc),
             DateTime.SpecifyKind(reader.GetDateTime(reader.GetOrdinal("idleexpiresatutc")), DateTimeKind.Utc),
-            DateTime.SpecifyKind(reader.GetDateTime(reader.GetOrdinal("absoluteexpiresatutc")), DateTimeKind.Utc));
+            DateTime.SpecifyKind(reader.GetDateTime(reader.GetOrdinal("absoluteexpiresatutc")), DateTimeKind.Utc),
+            reader.GetString(reader.GetOrdinal("session_row_version")));
     }
 
     private async Task<Dictionary<int, ArticleAccessState>> ReadArticleStatesAsync(
@@ -150,6 +203,10 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
         CancellationToken cancellationToken)
     {
         var result = new Dictionary<int, ArticleAccessState>();
+        if (articleIds.Count == 0)
+        {
+            return result;
+        }
         using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
             SELECT id, status, isdeleted
@@ -178,13 +235,28 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
                 value.ToString(System.Globalization.CultureInfo.InvariantCulture))),
             "}");
 
+    private static AuthorArticlePinPermissionSnapshot Unavailable(
+        AuthorArticlePinOwner owner,
+        string reason)
+        => new(
+            AuthorArticlePinPermissionSnapshotStatus.Unavailable,
+            owner,
+            string.Empty,
+            string.Empty,
+            string.Empty,
+            [],
+            string.Empty,
+            reason);
+
     private sealed record PermissionState(
         string PrincipalStatus,
         bool IsRoot,
         string Permissions,
+        string PrincipalRowVersion,
         DateTime? RevokedAtUtc,
         DateTime IdleExpiresAtUtc,
-        DateTime AbsoluteExpiresAtUtc);
+        DateTime AbsoluteExpiresAtUtc,
+        string SessionRowVersion);
 
     private sealed record ArticleAccessState(
         ArticleStatus Status,

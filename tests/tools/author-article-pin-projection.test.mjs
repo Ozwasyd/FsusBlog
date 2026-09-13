@@ -129,8 +129,8 @@ app.MapGet("/api/author/article-pins/secondary", ReadPinsAgain);
         {
             const file = path.join(temporary, 'src/backend/Services/Authoring/SqlAuthorArticlePinArticleProjectionSource.cs');
             writeFileSync(file, readFileSync(file, 'utf8').replace(
-                'WHERE a.id = ANY(@ArticleIds)',
-                'WHERE a.title = ANY(@ArticleIds)'));
+                'WHERE a.id = ANY(CAST(@ArticleIds AS integer[]))',
+                'WHERE a.title = ANY(CAST(@ArticleIds AS integer[]))'));
         },
         (violations) => assert.ok(violations.some((violation) => violation.includes('stable-id batch query')), violations.join('\n')));
 });

@@ -1,8 +1,13 @@
+using System.Security.Claims;
+
 using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
+using Microsoft.Extensions.Configuration;
 
 using SqlSugar;
 
@@ -19,7 +24,10 @@ public sealed class AuthorArticlePinProjectionIntegrationTests(PostgresSchemaMig
     public async Task Projection_ConsumesRealPinArticleAndRevisionFactsAndInvalidatesOnCurrentRevisionChange()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
-        var pins = new AuthorArticlePinStore(db, TimeProvider.System);
+        SqlAuthorArticlePinPermissionAuthority permissions = CreatePermissionAuthority(db);
+        await Assert.ThrowsAsync<AuthorArticlePinAccessDeniedException>(() =>
+            permissions.AuthorizeAsync(s_owner, []));
+        var pins = new AuthorArticlePinStore(db, TimeProvider.System, permissions);
         long revision = 0;
         for (int articleId = 1; articleId <= 4; articleId++)
         {
@@ -35,7 +43,6 @@ public sealed class AuthorArticlePinProjectionIntegrationTests(PostgresSchemaMig
             DELETE FROM article WHERE id = 4;
             """);
 
-        var permissions = new LocalSimulationPermissionProvider();
         var articleFacts = new RecordingArticleSource(new SqlAuthorArticlePinArticleProjectionSource(db));
         var reconciliation = new RecordingReconciliationSink();
         var service = new AuthorArticlePinProjectionService(
@@ -59,7 +66,10 @@ public sealed class AuthorArticlePinProjectionIntegrationTests(PostgresSchemaMig
         AuthorArticlePinProjectionVerificationResult verified = AuthorArticlePinProjectionVerifier.Verify(
             new AuthorArticlePinProjectionVerificationInput(
                 collection,
-                permissions.LastSnapshot!,
+                await permissions.ResolveAsync(new AuthorArticlePinPermissionBatchRequest(
+                    s_owner,
+                    request.RequestId,
+                    [1, 2, 3, 4])),
                 articleFacts.LastFacts,
                 request,
                 initial,
@@ -107,6 +117,59 @@ public sealed class AuthorArticlePinProjectionIntegrationTests(PostgresSchemaMig
         });
         Assert.Equal(AuthorArticlePinProjectionStatus.Unavailable, crossArticleRevision.Status);
         Assert.Contains("article_pin_article_projection_invalid", crossArticleRevision.StaleReasons);
+
+        await db.Ado.ExecuteCommandAsync(
+            "UPDATE article SET current_revision_id = 11 WHERE id = 1;");
+        var reconcilingService = new AuthorArticlePinProjectionService(
+            pins,
+            permissions,
+            new SqlAuthorArticlePinArticleProjectionSource(db),
+            new DirectAuthorArticlePinProjectionCache(),
+            new AuthorArticlePinReconciliationSink(pins),
+            TimeProvider.System);
+        AuthorArticlePinProjectionPage reconciled = await reconcilingService.ReadAsync(request with
+        {
+            RequestId = Guid.CreateVersion7()
+        });
+        Assert.Equal(AuthorArticlePinProjectionStatus.Current, reconciled.Status);
+        Assert.Equal(new[] { 1, 2 }, (await pins.GetAuthoritySnapshotAsync(s_owner))
+            .Pins.Select(static pin => pin.ArticleId));
+
+        int articleReadsBeforeRevocation = articleFacts.Requests.Count;
+        await db.Ado.ExecuteCommandAsync(
+            "UPDATE admin_session SET revokedatutc = CURRENT_TIMESTAMP WHERE sessionid = 'pin-session';");
+        AuthorArticlePinProjectionPage revoked = await service.ReadAsync(request with
+        {
+            RequestId = Guid.CreateVersion7()
+        });
+        Assert.Equal(AuthorArticlePinProjectionStatus.Unavailable, revoked.Status);
+        Assert.Contains("article_pin_permission_authority_unavailable", revoked.StaleReasons);
+        Assert.Equal(articleReadsBeforeRevocation, articleFacts.Requests.Count);
+
+        await db.Ado.ExecuteCommandAsync(
+            "UPDATE admin_session SET revokedatutc = NULL WHERE sessionid = 'pin-session';");
+        AuthorArticlePinPermissionSnapshot movedSite = await CreatePermissionAuthority(db, "moved-site")
+            .ResolveAsync(new AuthorArticlePinPermissionBatchRequest(
+                s_owner,
+                Guid.CreateVersion7(),
+                [1]));
+        Assert.Equal(AuthorArticlePinPermissionSnapshotStatus.Unavailable, movedSite.Status);
+
+        AuthorArticlePinPermissionSnapshot wrongOwner = await permissions.ResolveAsync(
+            new AuthorArticlePinPermissionBatchRequest(
+                new AuthorArticlePinOwner(2, s_owner.SiteScope),
+                Guid.CreateVersion7(),
+                [1]));
+        Assert.Equal(AuthorArticlePinPermissionSnapshotStatus.Unavailable, wrongOwner.Status);
+
+        await db.Ado.ExecuteCommandAsync(
+            "UPDATE admin_principal SET permissions = '' WHERE id = 1;");
+        AuthorArticlePinPermissionSnapshot permissionRemoved = await permissions.ResolveAsync(
+            new AuthorArticlePinPermissionBatchRequest(
+                s_owner,
+                Guid.CreateVersion7(),
+                [1]));
+        Assert.Equal(AuthorArticlePinPermissionSnapshotStatus.Unavailable, permissionRemoved.Status);
     }
 
     [Fact]
@@ -151,8 +214,22 @@ public sealed class AuthorArticlePinProjectionIntegrationTests(PostgresSchemaMig
         SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
         await db.Ado.ExecuteCommandAsync(
             """
-            CREATE TABLE admin_principal(id bigint PRIMARY KEY);
-            INSERT INTO admin_principal(id) VALUES (1);
+            CREATE TABLE admin_principal(
+                id bigint PRIMARY KEY,
+                status varchar(32) NOT NULL,
+                isroot boolean NOT NULL,
+                permissions text NOT NULL);
+            INSERT INTO admin_principal(id, status, isroot, permissions)
+            VALUES (1, 'active', FALSE, 'article.write');
+            CREATE TABLE admin_session(
+                sessionid varchar(64) PRIMARY KEY,
+                adminprincipalid bigint NOT NULL REFERENCES admin_principal(id),
+                revokedatutc timestamp without time zone NULL,
+                idleexpiresatutc timestamp without time zone NOT NULL,
+                absoluteexpiresatutc timestamp without time zone NOT NULL);
+            INSERT INTO admin_session(
+                sessionid, adminprincipalid, revokedatutc, idleexpiresatutc, absoluteexpiresatutc)
+            VALUES ('pin-session', 1, NULL, TIMESTAMP '2099-01-01', TIMESTAMP '2099-01-02');
             CREATE TABLE article_revision(
                 id bigint PRIMARY KEY,
                 article_id integer NOT NULL,
@@ -181,40 +258,36 @@ public sealed class AuthorArticlePinProjectionIntegrationTests(PostgresSchemaMig
         return db;
     }
 
-    /// <summary>
-    /// Deterministic local simulation of the external #2231 authority. It is test evidence only and
-    /// must not be registered as a production permission provider.
-    /// </summary>
-    private sealed class LocalSimulationPermissionProvider : IAuthorArticlePinPermissionProjectionProvider
+    private static SqlAuthorArticlePinPermissionAuthority CreatePermissionAuthority(
+        ISqlSugarClient db,
+        string siteScope = "primary-site")
     {
-        public AuthorArticlePinPermissionSnapshot? LastSnapshot
+        var identity = new ClaimsIdentity(
+        [
+            new Claim("identity_kind", "admin_principal"),
+            new Claim("admin_id", "1"),
+            new Claim("admin_sid", "pin-session"),
+            new Claim(AdminPermissions.PermissionClaimType, AdminPermissions.ArticleWrite)
+        ],
+        "test");
+        var accessor = new HttpContextAccessor
         {
-            get; private set;
-        }
-
-        public Task<AuthorArticlePinPermissionSnapshot> ResolveAsync(
-            AuthorArticlePinPermissionBatchRequest request,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var snapshot = new AuthorArticlePinPermissionSnapshot(
-                AuthorArticlePinPermissionSnapshotStatus.Current,
-                request.Owner,
-                "permission:pg:1",
-                "site:pg:1",
-                "session:pg:1",
-                [.. request.ArticleIds.Select(articleId => new AuthorArticlePinPermissionDecision(
-                    articleId,
-                    CanProject: true,
-                    CanOpen: true,
-                    $"permission:pg:article:{articleId}"))],
-                string.Empty);
-            LastSnapshot = snapshot with
+            HttpContext = new DefaultHttpContext
             {
-                ContentDigest = AuthorArticlePinProjectionContract.ComputePermissionDigest(snapshot)
-            };
-            return Task.FromResult(LastSnapshot);
-        }
+                User = new ClaimsPrincipal(identity)
+            }
+        };
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["SITE_BASEURL"] = siteScope
+            })
+            .Build();
+        return new SqlAuthorArticlePinPermissionAuthority(
+            db,
+            accessor,
+            configuration,
+            TimeProvider.System);
     }
 
     private sealed class RecordingArticleSource(IAuthorArticlePinArticleProjectionSource inner)

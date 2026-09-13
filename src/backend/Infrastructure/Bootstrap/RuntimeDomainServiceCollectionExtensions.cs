@@ -169,8 +169,14 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IAuthorSavedViewStore, AuthorSavedViewStore>();
         services.AddScoped<IAuthorArticlePinStore, AuthorArticlePinStore>();
         services.AddScoped<SqlAuthorArticlePinPermissionAuthority>();
+        services.AddScoped<IAuthorArticlePinPermissionProjectionProvider>(sp =>
+            sp.GetRequiredService<SqlAuthorArticlePinPermissionAuthority>());
         services.AddScoped<IAuthorArticlePinMutationAuthorizer>(sp =>
             sp.GetRequiredService<SqlAuthorArticlePinPermissionAuthority>());
+        services.AddScoped<IAuthorArticlePinArticleProjectionSource, SqlAuthorArticlePinArticleProjectionSource>();
+        services.AddSingleton<IAuthorArticlePinProjectionCache, DirectAuthorArticlePinProjectionCache>();
+        services.AddScoped<IAuthorArticlePinReconciliationSink, AuthorArticlePinReconciliationSink>();
+        services.AddScoped<IAuthorArticlePinProjectionService, AuthorArticlePinProjectionService>();
         services.AddScoped<IAuthorArticlePinApplicationFacade, AuthorArticlePinApplicationFacade>();
         services.AddScoped<IArticleTemplatePersistence, PostgresArticleTemplatePersistence>();
         services.AddScoped<IArticleTemplateStore, ArticleTemplateStore>();
