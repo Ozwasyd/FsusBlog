@@ -1296,6 +1296,17 @@
             "supersededBy": null
         },
         {
+            "path": "docs/operations/public-hot-read-serving-outcomes.md",
+            "status": "current",
+            "owner": "release",
+            "relatedIssues": [
+                3391,
+                3395
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/operations/runtime-modes.md",
             "status": "current",
             "owner": "governance",

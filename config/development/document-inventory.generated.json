@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:ab9c36f5a2d22718f29c2ae2d1507ae521eba2d07693bc1d4f86297326805004",
+    "policyDigest": "sha256:4f434539c0c9416f01e1ba3a7bb27aa930ee481582c65cf0954f5200c4bd484c",
     "documents": [
         {
             "path": "docs/CODE_OF_CONDUCT.md",
@@ -1991,6 +1991,21 @@
             "relatedIssues": [
                 1850,
                 3399
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/operations/public-hot-read-serving-outcomes.md",
+            "title": "PublicHotRead serving miss outcomes",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "release",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                3391,
+                3395
             ],
             "producer": null
         },

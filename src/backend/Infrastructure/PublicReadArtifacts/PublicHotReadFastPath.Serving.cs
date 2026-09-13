@@ -454,7 +454,7 @@ public static partial class PublicHotReadFastPath
         if (!snapshot.TryGetList(key, out PublicBinaryArtifact artifact))
         {
             counters.ListMiss();
-            return WriteStatus(ctx, StatusCodes.Status404NotFound, isDevelopment);
+            return WriteServingMiss(ctx, snapshot.ClassifyListMiss(key), isDevelopment);
         }
 
         string artifactKey = options.EnableDiagnosticHeaders ? key.ToString() : string.Empty;
@@ -483,7 +483,9 @@ public static partial class PublicHotReadFastPath
         if (!snapshot.TryGetCategory(out PublicBinaryArtifact artifact))
         {
             counters.ListMiss();
-            return WriteStatus(ctx, StatusCodes.Status404NotFound, isDevelopment);
+            // Taxonomy collections are always-built critical artifacts. A Ready
+            // snapshot miss is not-resident/rebuild, never authoritative 404.
+            return WriteServingMiss(ctx, PublicHotReadServingMiss.NotResident, isDevelopment);
         }
 
         return WriteBinaryFrame(
@@ -511,7 +513,7 @@ public static partial class PublicHotReadFastPath
         if (!snapshot.TryGetTag(out PublicBinaryArtifact artifact))
         {
             counters.ListMiss();
-            return WriteStatus(ctx, StatusCodes.Status404NotFound, isDevelopment);
+            return WriteServingMiss(ctx, PublicHotReadServingMiss.NotResident, isDevelopment);
         }
 
         return WriteBinaryFrame(
@@ -540,7 +542,10 @@ public static partial class PublicHotReadFastPath
         if (!snapshot.TryGetHtml(routeKey, out PublicHtmlArtifact html))
         {
             counters.HtmlMiss();
-            return WriteStatus(ctx, StatusCodes.Status404NotFound, isDevelopment);
+            // Diagnostic HTML is another Serving miss→404 site: htmlRemovedPaths
+            // and a complete fresh snapshot miss are 404; last-good without the
+            // route is rebuild-pending 503, not authoritative not-found.
+            return WriteServingMiss(ctx, snapshot.ClassifyHtmlMiss(routeKey, lastGood), isDevelopment);
         }
 
         if (!PublicHotReadArtifactIntegrity.IsValid(

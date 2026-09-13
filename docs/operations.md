@@ -517,6 +517,11 @@ are published as weighted counts; miss/error counters stay full-fidelity. Do
 not divide raw hit samples by exact misses, and do not treat `CounterMode=Off`
 as a 0% hit rate. Operator reading is in
 [PublicHotRead hit-rate accounting](operations/public-hot-read-hit-rate.md).
+List/category/tag Serving misses use `503` + `Retry-After: 1` for not-resident
+or rebuild-pending, `404` without `Retry-After` for authoritative not-found,
+and `200` when last-good or fresh L0 still has the artifact. Operator reading
+is in
+[PublicHotRead serving miss outcomes](operations/public-hot-read-serving-outcomes.md).
 
 ## SLO Alerts
 

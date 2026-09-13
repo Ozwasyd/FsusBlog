@@ -71,6 +71,26 @@ internal enum PublicHotReadInvalidationPolicy : byte
     RetainLastGood = 1
 }
 
+/// <summary>
+/// Serving-path miss class for list/category/tag (and diagnostic HTML).
+/// Not-resident must not be written as <c>404</c>.
+/// </summary>
+internal enum PublicHotReadServingMiss : byte
+{
+    /// <summary>
+    /// Artifact is not in this snapshot: un-preloaded page/size, missing
+    /// critical taxonomy collection, or rebuild-pending last-good without
+    /// the route. Callers see <c>503</c> + <c>Retry-After: 1</c>.
+    /// </summary>
+    NotResident = 0,
+
+    /// <summary>
+    /// Authoritative public not-found: unpublished, deleted, or never
+    /// existed under this snapshot's public visibility. Callers see <c>404</c>.
+    /// </summary>
+    NotFound = 1
+}
+
 public readonly record struct PublicListKey(
     PublicListKind Kind,
     int TargetId,
@@ -283,6 +303,8 @@ public sealed class PublicHotReadSnapshot
     private readonly FrozenDictionary<string, PublicHtmlArtifact> _htmlBaseByPath;
     private readonly FrozenDictionary<string, PublicHtmlArtifact> _htmlOverlayByPath;
     private readonly FrozenSet<string> _htmlRemovedPaths;
+    private readonly FrozenSet<int> _publicCategoryIds;
+    private readonly FrozenSet<int> _publicTagIds;
     private readonly int _htmlFrameCount;
     private readonly PublicHotReadResidentBreakdown _residency;
 
@@ -357,6 +379,8 @@ public sealed class PublicHotReadSnapshot
                 PublicArtifactIntegrityContext.ForHtml(pair.Key)),
             StringComparer.Ordinal);
         _htmlRemovedPaths = htmlRemovedPaths;
+        _publicCategoryIds = TargetIdsOfKind(_listFrames, PublicListKind.Category);
+        _publicTagIds = TargetIdsOfKind(_listFrames, PublicListKind.Tag);
         _htmlFrameCount = htmlFrameCount;
         PublicArticleCount = Math.Max(publicArticleCount, articleFramesById.Count);
         ArticleFrameLimit = Math.Max(articleFrameLimit, 0);
@@ -459,6 +483,57 @@ public sealed class PublicHotReadSnapshot
         }
 
         return _htmlBaseByPath.TryGetValue(path, out html) && !html.Bytes.IsEmpty;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool IsHtmlRemoved(string path)
+        => _htmlRemovedPaths.Contains(path);
+
+    /// <summary>
+    /// Classify a list/category/tag miss against this snapshot's resident
+    /// catalog. Home/archive/hot/featured and taxonomy collections always
+    /// exist, so a miss is not-resident. Category/tag list IDs are 404 only
+    /// when the matching taxonomy collection is resident and the ID has no
+    /// public list pages in this generation.
+    /// </summary>
+    internal PublicHotReadServingMiss ClassifyListMiss(in PublicListKey key)
+        => key.Kind switch
+        {
+            PublicListKind.Home or PublicListKind.Archive or PublicListKind.Hot or PublicListKind.Featured
+                => PublicHotReadServingMiss.NotResident,
+            PublicListKind.Category
+                => CategoryFrameReady && !_publicCategoryIds.Contains(key.TargetId)
+                    ? PublicHotReadServingMiss.NotFound
+                    : PublicHotReadServingMiss.NotResident,
+            PublicListKind.Tag
+                => TagFrameReady && !_publicTagIds.Contains(key.TargetId)
+                    ? PublicHotReadServingMiss.NotFound
+                    : PublicHotReadServingMiss.NotResident,
+            _ => PublicHotReadServingMiss.NotFound
+        };
+
+    internal PublicHotReadServingMiss ClassifyHtmlMiss(string path, bool lastGoodSnapshot)
+        => IsHtmlRemoved(path) || !lastGoodSnapshot
+            ? PublicHotReadServingMiss.NotFound
+            : PublicHotReadServingMiss.NotResident;
+
+    private static FrozenSet<int> TargetIdsOfKind(
+        FrozenDictionary<PublicListKey, PublicBinaryArtifact> listFrames,
+        PublicListKind kind)
+    {
+        HashSet<int>? ids = null;
+        foreach (PublicListKey key in listFrames.Keys)
+        {
+            if (key.Kind != kind || key.TargetId <= 0)
+            {
+                continue;
+            }
+
+            ids ??= [];
+            ids.Add(key.TargetId);
+        }
+
+        return ids is null ? FrozenSet<int>.Empty : ids.ToFrozenSet();
     }
 
     internal PublicHotReadSnapshot WithoutArticle(int articleId)
