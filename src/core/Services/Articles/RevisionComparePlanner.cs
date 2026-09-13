@@ -19,6 +19,10 @@ public sealed class RevisionComparePlanner(IRevisionComparePackageReader package
         {
             return Failure(request, RevisionComparePlanStatus.Cancelled, "revision_compare_cancelled");
         }
+        if (DateTimeOffset.UtcNow > request.ExpiresAtUtc)
+        {
+            return Failure(request, RevisionComparePlanStatus.Stale, "revision_compare_plan_expired");
+        }
 
         using var timeout = new CancellationTokenSource(request.Budgets.TimeoutMilliseconds);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
@@ -60,7 +64,11 @@ public sealed class RevisionComparePlanner(IRevisionComparePackageReader package
 
             RevisionComparePackage basePackage = baseRead.Package!;
             RevisionComparePackage comparePackage = compareRead.Package!;
-            string? validationCode = ValidatePackages(request, basePackage, comparePackage);
+            string? validationCode = ValidatePackages(
+                request,
+                basePackage,
+                comparePackage,
+                out RevisionCompareAdmission? admission);
             if (validationCode is not null)
             {
                 return Failure(
@@ -73,7 +81,11 @@ public sealed class RevisionComparePlanner(IRevisionComparePackageReader package
 
             RevisionComparePackageReference baseReference = RevisionCompareCanonical.Reference(basePackage);
             RevisionComparePackageReference compareReference = RevisionCompareCanonical.Reference(comparePackage);
-            string planDigest = RevisionCompareCanonical.PlanDigest(request, baseReference, compareReference);
+            string planDigest = RevisionCompareCanonical.PlanDigest(
+                request,
+                baseReference,
+                compareReference,
+                admission!);
             var plan = new RevisionComparePlan(
                 RevisionCompareContract.SchemaVersion,
                 RevisionCompareContract.PlannerVersion,
@@ -85,6 +97,7 @@ public sealed class RevisionComparePlanner(IRevisionComparePackageReader package
                 compareReference,
                 request.Options,
                 request.Budgets,
+                admission!,
                 request.CancellationIdentity,
                 request.ExpiresAtUtc,
                 planDigest);
@@ -93,8 +106,9 @@ public sealed class RevisionComparePlanner(IRevisionComparePackageReader package
                 RevisionComparePlanStatus.Accepted,
                 "accepted",
                 planDigest,
-                basePackage.PackageDigest,
-                comparePackage.PackageDigest);
+                baseReference,
+                compareReference,
+                admission);
             linked.Token.ThrowIfCancellationRequested();
             if (DateTimeOffset.UtcNow > request.ExpiresAtUtc)
             {
@@ -143,8 +157,10 @@ public sealed class RevisionComparePlanner(IRevisionComparePackageReader package
     internal static string? ValidatePackages(
         RevisionComparePlanRequest request,
         RevisionComparePackage basePackage,
-        RevisionComparePackage comparePackage)
+        RevisionComparePackage comparePackage,
+        out RevisionCompareAdmission? admission)
     {
+        admission = null;
         if (basePackage.RawMarkdown.Length > request.Budgets.MaxSourceBytes
             || comparePackage.RawMarkdown.Length > request.Budgets.MaxSourceBytes)
         {
@@ -181,16 +197,69 @@ public sealed class RevisionComparePlanner(IRevisionComparePackageReader package
 
         int baseLines = RevisionCompareContract.CountLines(basePackage.RawMarkdown.AsSpan());
         int compareLines = RevisionCompareContract.CountLines(comparePackage.RawMarkdown.AsSpan());
+        admission = CreateAdmission(request, basePackage, comparePackage, baseLines, compareLines);
         if (baseLines > request.Budgets.MaxLineCount || compareLines > request.Budgets.MaxLineCount)
         {
             return "revision_compare_source_budget_exceeded";
         }
 
+        if (admission.InitialEstimatedMemoryBytes > request.Budgets.MaxMemoryBytes)
+        {
+            return "revision_compare_memory_budget_exceeded";
+        }
+
+        if (admission.MinimumEstimatedOutputBytes > request.Budgets.MaxOutputBytes)
+        {
+            return "revision_compare_output_budget_exceeded";
+        }
+
+        return null;
+    }
+
+    internal static RevisionCompareAdmission CreateAdmission(
+        RevisionComparePlanRequest request,
+        RevisionComparePackage basePackage,
+        RevisionComparePackage comparePackage)
+        => CreateAdmission(
+            request,
+            basePackage,
+            comparePackage,
+            RevisionCompareContract.CountLines(basePackage.RawMarkdown.AsSpan()),
+            RevisionCompareContract.CountLines(comparePackage.RawMarkdown.AsSpan()));
+
+    private static RevisionCompareAdmission CreateAdmission(
+        RevisionComparePlanRequest request,
+        RevisionComparePackage basePackage,
+        RevisionComparePackage comparePackage,
+        int baseLines,
+        int compareLines)
+    {
         long estimatedMemory = ((long)basePackage.RawMarkdown.Length + comparePackage.RawMarkdown.Length) * 4L
             + ((long)baseLines + compareLines) * 64L;
-        return estimatedMemory > request.Budgets.MaxMemoryBytes
-            ? "revision_compare_memory_budget_exceeded"
-            : null;
+        long minimumOutput = ((long)baseLines + compareLines) * 48L;
+        int hunkLimit = checked(request.Budgets.MaxHunksPerChunk * request.Budgets.MaxChunks);
+        return new RevisionCompareAdmission(
+            RevisionCompareAdmissionMode.BoundedWorkerChunksV1,
+            basePackage.RawMarkdown.Length,
+            comparePackage.RawMarkdown.Length,
+            baseLines,
+            compareLines,
+            estimatedMemory,
+            minimumOutput,
+            request.Budgets.MaxTokenCount,
+            hunkLimit,
+            request.Budgets.MaxChunks,
+            RevisionCompareCanonical.AdmissionDigest(
+                RevisionCompareAdmissionMode.BoundedWorkerChunksV1,
+                basePackage.RawMarkdown.Length,
+                comparePackage.RawMarkdown.Length,
+                baseLines,
+                compareLines,
+                estimatedMemory,
+                minimumOutput,
+                request.Budgets.MaxTokenCount,
+                hunkLimit,
+                request.Budgets.MaxChunks));
     }
 
     internal static RevisionComparePlanStatus ValidationStatus(string validationCode)
@@ -238,6 +307,9 @@ public sealed class RevisionComparePlanner(IRevisionComparePackageReader package
             status,
             reasonCode,
             null,
+            null,
+            null,
+            null,
             basePackageDigest,
             comparePackageDigest);
         return new RevisionComparePlanResult(status, null, receipt);
@@ -248,25 +320,34 @@ public sealed class RevisionComparePlanner(IRevisionComparePackageReader package
         RevisionComparePlanStatus status,
         string reasonCode,
         string? planDigest,
-        string? basePackageDigest,
-        string? comparePackageDigest)
-        => new(
+        RevisionComparePackageReference? basePackageReference,
+        RevisionComparePackageReference? comparePackageReference,
+        RevisionCompareAdmission? admission,
+        string? basePackageDigest = null,
+        string? comparePackageDigest = null)
+    {
+        var receipt = new RevisionComparePlanReceipt(
             RevisionCompareContract.SchemaVersion,
             request.Reader.RequestId,
             status,
             reasonCode,
             planDigest,
-            basePackageDigest,
-            comparePackageDigest,
+            basePackageReference?.PackageDigest ?? basePackageDigest,
+            comparePackageReference?.PackageDigest ?? comparePackageDigest,
+            basePackageReference,
+            comparePackageReference,
+            RevisionCompareCanonical.PermissionScopeDigest(request),
+            RevisionCompareCanonical.MetadataSchemaDigest(),
+            RevisionCompareCanonical.OptionsDigest(request.Options),
+            RevisionCompareCanonical.BudgetDigest(request.Budgets),
+            admission?.ContentDigest,
             request.CancellationIdentity,
-            RevisionCompareCanonical.ReceiptDigest(
-                request.Reader.RequestId,
-                status,
-                reasonCode,
-                planDigest,
-                basePackageDigest,
-                comparePackageDigest,
-                request.CancellationIdentity));
+            string.Empty);
+        return receipt with
+        {
+            ContentDigest = RevisionCompareCanonical.ReceiptDigest(receipt)
+        };
+    }
 }
 
 public sealed record RevisionComparePlanVerification(
@@ -322,13 +403,18 @@ public sealed class RevisionComparePlanVerifier(IRevisionComparePackageReader pa
             RevisionComparePackage basePackage = baseRead.Package;
             RevisionComparePackage comparePackage = compareRead.Package;
             RevisionComparePlanRequest request = Request(bundle.Plan);
-            string? validationCode = RevisionComparePlanner.ValidatePackages(request, basePackage, comparePackage);
+            string? validationCode = RevisionComparePlanner.ValidatePackages(
+                request,
+                basePackage,
+                comparePackage,
+                out RevisionCompareAdmission? admission);
             if (validationCode is not null)
             {
                 return Invalid(validationCode, RevisionComparePlanner.ValidationStatus(validationCode));
             }
             if (!RevisionCompareCanonical.ReferenceMatches(bundle.Plan.BasePackage, baseRead.Package)
-                || !RevisionCompareCanonical.ReferenceMatches(bundle.Plan.ComparePackage, compareRead.Package))
+                || !RevisionCompareCanonical.ReferenceMatches(bundle.Plan.ComparePackage, compareRead.Package)
+                || admission != bundle.Plan.Admission)
             {
                 return Invalid("revision_compare_source_stale", RevisionComparePlanStatus.Stale);
             }
@@ -349,6 +435,7 @@ public sealed class RevisionComparePlanVerifier(IRevisionComparePackageReader pa
     {
         if (bundle.Plan.SchemaVersion != RevisionCompareContract.SchemaVersion
             || !string.Equals(bundle.Plan.PlannerVersion, RevisionCompareContract.PlannerVersion, StringComparison.Ordinal)
+            || bundle.Plan.Admission is null
             || !RevisionComparePackageSeal.Verify(bundle.BasePackage)
             || !RevisionComparePackageSeal.Verify(bundle.ComparePackage)
             || !RevisionCompareCanonical.ReferenceMatches(bundle.Plan.BasePackage, bundle.BasePackage)
@@ -365,6 +452,28 @@ public sealed class RevisionComparePlanVerifier(IRevisionComparePackageReader pa
             || !string.Equals(
                 bundle.Receipt.ComparePackageDigest,
                 bundle.Plan.ComparePackage.PackageDigest,
+                StringComparison.Ordinal)
+            || bundle.Receipt.BasePackageReference != bundle.Plan.BasePackage
+            || bundle.Receipt.ComparePackageReference != bundle.Plan.ComparePackage
+            || !string.Equals(
+                bundle.Receipt.PermissionScopeDigest,
+                RevisionCompareCanonical.PermissionScopeDigest(Request(bundle.Plan)),
+                StringComparison.Ordinal)
+            || !string.Equals(
+                bundle.Receipt.MetadataSchemaDigest,
+                RevisionCompareCanonical.MetadataSchemaDigest(),
+                StringComparison.Ordinal)
+            || !string.Equals(
+                bundle.Receipt.OptionsDigest,
+                RevisionCompareCanonical.OptionsDigest(bundle.Plan.Options),
+                StringComparison.Ordinal)
+            || !string.Equals(
+                bundle.Receipt.BudgetDigest,
+                RevisionCompareCanonical.BudgetDigest(bundle.Plan.Budgets),
+                StringComparison.Ordinal)
+            || !string.Equals(
+                bundle.Receipt.AdmissionDigest,
+                bundle.Plan.Admission.ContentDigest,
                 StringComparison.Ordinal)
             || !string.Equals(
                 bundle.Receipt.CancellationIdentity,
@@ -384,18 +493,21 @@ public sealed class RevisionComparePlanVerifier(IRevisionComparePackageReader pa
             return false;
         }
 
+        RevisionCompareAdmission admission = RevisionComparePlanner.CreateAdmission(
+            request,
+            bundle.BasePackage,
+            bundle.ComparePackage);
+        if (admission != bundle.Plan.Admission)
+        {
+            return false;
+        }
+
         string expectedPlan = RevisionCompareCanonical.PlanDigest(
             request,
             bundle.Plan.BasePackage,
-            bundle.Plan.ComparePackage);
-        string expectedReceipt = RevisionCompareCanonical.ReceiptDigest(
-            bundle.Receipt.RequestId,
-            bundle.Receipt.Status,
-            bundle.Receipt.ReasonCode,
-            bundle.Receipt.PlanDigest,
-            bundle.Receipt.BasePackageDigest,
-            bundle.Receipt.ComparePackageDigest,
-            bundle.Receipt.CancellationIdentity);
+            bundle.Plan.ComparePackage,
+            bundle.Plan.Admission);
+        string expectedReceipt = RevisionCompareCanonical.ReceiptDigest(bundle.Receipt);
         return string.Equals(expectedPlan, bundle.Plan.ContentDigest, StringComparison.Ordinal)
             && string.Equals(expectedReceipt, bundle.Receipt.ContentDigest, StringComparison.Ordinal);
     }

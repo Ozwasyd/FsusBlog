@@ -6,8 +6,17 @@
             "paths": [
                 "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
                 "src/backend/Services/Authoring/AuthoringRevisionComparePackageReader.cs",
+                "src/core/Services/Articles/RevisionCompareCanonical.cs",
+                "src/core/Services/Articles/RevisionCompareContract.cs",
                 "src/core/Services/Articles/RevisionCompareContracts.cs",
+                "src/core/Services/Articles/RevisionCompareMetadataRegistry.cs",
+                "src/core/Services/Articles/RevisionComparePackages.cs",
+                "src/core/Services/Articles/RevisionComparePackageReaderContracts.cs",
+                "src/core/Services/Articles/RevisionComparePackageSeal.cs",
                 "src/core/Services/Articles/RevisionComparePlanner.cs",
+                "src/core/Services/Articles/RevisionComparePlans.cs",
+                "src/core/Services/Articles/RevisionCompareSourceEnums.cs",
+                "src/core/Services/Articles/RevisionCompareStatusEnums.cs",
                 "tools/governance/check-revision-compare-authority.mjs"
             ],
             "reason": "Preserve existing caller-visible process configuration spelling covered by the trusted C# surface registry without claiming new environment access."

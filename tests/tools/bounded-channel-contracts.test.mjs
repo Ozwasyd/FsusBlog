@@ -141,6 +141,8 @@ test('a newly discovered bounded channel fails closed until cataloged', () => {
 test('PublicHot references authoritative contracts without copied authority', () => {
   assert.match(mutate((value) => { value.queues.find((queue) => queue.owner.type === 'PublicHotArtifactUpdateQueue').copiedAuthority = { rule: 'local copy' } }).join('\n'), /must not copy/u)
   assert.match(mutate((value) => { value.queues.find((queue) => queue.owner.type === 'PublicHotArtifactUpdateQueue').authoritativeContracts.pop() }).join('\n'), /#1629-#1631 exactly/u)
+  assert.equal(catalog().queues.find((queue) => queue.owner.type === 'PublicHotReadRiskProjectionWorker').authoritativeContracts, undefined)
+  assert.match(mutate((value) => { value.queues.find((queue) => queue.owner.type === 'PublicHotReadRiskProjectionWorker').owner.type = 'PublicHotFutureQueue' }).join('\n'), /#1629-#1631 exactly/u)
 })
 
 test('stable ordering and digest reject reorder or content drift', () => {

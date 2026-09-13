@@ -2532,6 +2532,17 @@
             ]
         },
         {
+            "file": "tests/tools/revision-compare-authority.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
             "file": "tests/tools/rights-v3-projection.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",
@@ -6267,16 +6278,6 @@
                 "source-text",
                 "migration",
                 "runtime"
-            ]
-        },
-        {
-            "file": "tests/tools/revision-compare-authority.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/revision-compare-authority.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
-            "classifications": [
-                "behavior"
             ]
         },
         {

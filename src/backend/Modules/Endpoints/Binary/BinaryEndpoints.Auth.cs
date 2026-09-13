@@ -1263,7 +1263,9 @@ public static partial class BinaryEndpoints
                 user.Value.Id,
                 accountSubjectHash,
                 action,
-                risk.RequiresMfa);
+                risk.RequiresMfa,
+                deviceFp,
+                cancellationToken);
             var challenge = new MfaChallengeResultDto(false, action, ticket.TicketId, null);
             return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(challenge, writer));
         })
@@ -1295,8 +1297,12 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "MFA_CHALLENGE_REQUIRED"), aeds);
             }
 
-            var ticket = await challengeService.GetChallengeAsync(request.ChallengeToken);
-            if (ticket == null)
+            string? deviceFp = GetDeviceFingerprint(httpContext);
+            var ticket = await challengeService.GetChallengeAsync(
+                request.ChallengeToken,
+                deviceFp,
+                cancellationToken);
+            if (ticket == null || !string.Equals(request.Action, ticket.Action, StringComparison.Ordinal))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "MFA_CHALLENGE_EXPIRED"), aeds);
             }
@@ -1313,14 +1319,22 @@ public static partial class BinaryEndpoints
                     aeds);
             }
 
-            await challengeService.ConsumeChallengeAsync(ticket.TicketId);
+            MfaChallengeTicket? consumedTicket = await challengeService.ConsumeChallengeOnceAsync(
+                ticket,
+                deviceFp,
+                cancellationToken);
+            if (consumedTicket is null)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "MFA_CHALLENGE_EXPIRED"), aeds);
+            }
+            ticket = consumedTicket;
 
             if (ticket.Type == "login")
             {
                 var login = await loginWorkflow.CompleteLoginAsync(
                     ticket.AccountId,
                     httpContext.GetClientIp(),
-                    GetDeviceFingerprint(httpContext),
+                    deviceFp,
                     httpContext.GetUserAgent(),
                     mfaVerified: true,
                     rememberMe: ticket.RememberMe,
@@ -1796,6 +1810,7 @@ public static partial class BinaryEndpoints
             HttpContext httpContext,
             IPasskeyService passkeyService,
             IUserLoginWorkflowService loginWorkflow,
+            IMfaChallengeService challengeService,
             IUserLocalePreferenceReader localePreferences,
             ILocalePreferenceCookieService localeCookie,
             IWebHostEnvironment env,
@@ -1833,6 +1848,37 @@ public static partial class BinaryEndpoints
             string clientIp = httpContext.GetClientIp();
             string? deviceFp = GetDeviceFingerprint(httpContext);
             string? userAgent = httpContext.GetUserAgent();
+            if (user.MfaEnabled)
+            {
+                if (!AccountSubjectHashRequirement.TryResolve(
+                        user.AccountSubjectHash,
+                        out string accountSubjectHash))
+                {
+                    return BinaryResults.FromError(
+                        ErrorDetail.Create(ErrorCode.Unauthorized, "ACCOUNT_SUBJECT_REQUIRED"),
+                        aeds);
+                }
+
+                MfaChallengeTicket ticket = await challengeService.CreateLoginChallengeAsync(
+                    user.Id,
+                    accountSubjectHash,
+                    riskTriggered: false,
+                    rememberMe: request.RememberMe,
+                    deviceSignal: deviceFp,
+                    cancellationToken: cancellationToken);
+                await RecordPasskeyAssertionAcceptedAsync(httpContext, riskSignals, cancellationToken);
+                var pendingFlow = new AuthLoginFlowDto(
+                    user.Id,
+                    ResolveBinaryIdentityKind(user.IdentityKind),
+                    "mfa_required",
+                    "standard",
+                    ticket.TicketId);
+                return BinaryResults.Frame(
+                    aeds,
+                    AedsFrameType.AuthLoginFlow,
+                    writer => PodBinaryCodec.WriteAuthLoginFlow(pendingFlow, writer));
+            }
+
             var login = await loginWorkflow.CompleteLoginAsync(
                 user.Id,
                 clientIp,

@@ -27,7 +27,8 @@ internal sealed record PublicHotReadCrossCuttingControl(
     string? EarlyStageId = null,
     string? EndpointStageId = null,
     string? DoubleExecutionGuardId = null,
-    string? NotApplicableEvidenceId = null);
+    string? NotApplicableEvidenceId = null,
+    bool ReplayAfterWriter = false);
 
 internal static class PublicHotReadCrossCuttingControlCatalog
 {
@@ -41,7 +42,7 @@ internal static class PublicHotReadCrossCuttingControlCatalog
         Global("deployment-request-tracking", "deployment-request-tracking"),
         Global("shield-exception-binary-boundary", "core-middlewares"),
         Global("observability-correlation", "observability-correlation"),
-        Replayed("public-read-rate-limit", "public-hot-read-rate-limiter", "rate-limiter", "rate-limit-evaluated"),
+        MissPathReplayed("public-read-rate-limit", "public-hot-read-rate-limiter", "rate-limiter", "rate-limit-evaluated"),
         Replayed("request-audit-context", "public-hot-read-request-audit-context", "request-audit-context", "request-audit-context-evaluated"),
         EndpointOnly("cors", "cors", SameOriginEvidence),
         EndpointOnly("antiforgery", "antiforgery", SafeMethodEvidence),
@@ -121,6 +122,7 @@ internal static class PublicHotReadCrossCuttingControlCatalog
         ValidateStageClassifications(applicationStages, endpointStages, controls);
         int classifierIndex = IndexOfExactlyOnce(applicationStages, "public-hot-read-classifier", "application");
         int writerIndex = IndexOfExactlyOnce(applicationStages, "public-hot-read-fast-path", "application");
+        int restoreIndex = IndexOfExactlyOnce(applicationStages, "public-hot-read-fallback-restore", "application");
         int endpointPipelineIndex = IndexOfExactlyOnce(applicationStages, "endpoint-pipeline", "application");
 
         foreach (PublicHotReadCrossCuttingControl control in controls)
@@ -158,13 +160,19 @@ internal static class PublicHotReadCrossCuttingControlCatalog
                             endpointStages,
                             Require(control.EndpointStageId, control, nameof(control.EndpointStageId)),
                             "endpoint");
-                        if (earlyIndex <= classifierIndex
-                            || earlyIndex >= writerIndex
+                        bool placementValid = control.ReplayAfterWriter
+                            ? earlyIndex > writerIndex && earlyIndex < restoreIndex
+                            : earlyIndex > classifierIndex && earlyIndex < writerIndex;
+                        if (!placementValid
                             || string.IsNullOrWhiteSpace(control.DoubleExecutionGuardId)
                             || control.GlobalStageId is not null
                             || control.NotApplicableEvidenceId is not null)
                         {
-                            throw Invalid(control, "replayed control must have early/canonical stages and a double-execution guard");
+                            throw Invalid(
+                                control,
+                                control.ReplayAfterWriter
+                                    ? "miss-path replayed control must sit after L0 and before fallback restore, with a double-execution guard"
+                                    : "replayed control must have early/canonical stages and a double-execution guard");
                         }
                         break;
                     }
@@ -187,7 +195,9 @@ internal static class PublicHotReadCrossCuttingControlCatalog
             }
         }
 
-        if (classifierIndex >= writerIndex || writerIndex >= endpointPipelineIndex)
+        if (classifierIndex >= writerIndex
+            || writerIndex >= restoreIndex
+            || restoreIndex >= endpointPipelineIndex)
         {
             throw new InvalidOperationException("public hot-read branch order is invalid");
         }
@@ -312,6 +322,19 @@ internal static class PublicHotReadCrossCuttingControlCatalog
             EarlyStageId: earlyStageId,
             EndpointStageId: endpointStageId,
             DoubleExecutionGuardId: guardId);
+
+    private static PublicHotReadCrossCuttingControl MissPathReplayed(
+        string controlId,
+        string earlyStageId,
+        string endpointStageId,
+        string guardId)
+        => new(
+            controlId,
+            PublicHotReadControlCoverage.EarlyReplayed,
+            EarlyStageId: earlyStageId,
+            EndpointStageId: endpointStageId,
+            DoubleExecutionGuardId: guardId,
+            ReplayAfterWriter: true);
 
     private static PublicHotReadCrossCuttingControl EndpointOnly(
         string controlId,

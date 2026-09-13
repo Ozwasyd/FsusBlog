@@ -16,6 +16,10 @@ const deliveryClasses = new Set(['required', 'best-effort', 'coalescible', 'repl
 const dispositionKinds = new Set(['implemented', 'not-applicable', 'successor-required'])
 const publicHotAuthorities = [1629, 1630, 1631]
   .map((issue) => `https://github.com/Ozwasyd/FsusBlog/issues/${issue}`)
+const publicHotRiskProjectionQueue = Object.freeze({
+  queueId: 'public-hot-read-risk-projection-remote',
+  ownerType: 'PublicHotReadRiskProjectionWorker'
+})
 const drainParticipantSource = 'src/backend/Infrastructure/Operations/BoundedQueueDrainParticipants.cs'
 const drainParticipantRegistrationSource = 'src/backend/Infrastructure/Operations/ActiveReleaseFenceHosting.cs'
 const acceptanceReceiptSchema = 'fsusblog.bounded-queue-acceptance.v1'
@@ -43,7 +47,9 @@ const acceptanceSourcePaths = [
   drainParticipantSource,
   'src/backend/Infrastructure/Operations/BoundedQueueDrainReleaseParticipant.cs',
   'src/backend/Infrastructure/Operations/ProductionHealth.cs',
+  'src/backend/Infrastructure/Security/PublicHotReadRiskProjection.cs',
   'docs/testing.md',
+  'tests/backend/Unit/PublicHotReadRiskProjectionQueueWrapperTests.cs',
   'tests/tools/bounded-channel-contracts.test.mjs',
   matrixTestSource,
   'tools/governance/bounded-channel-contracts.mjs',
@@ -177,7 +183,9 @@ function validateQueue(queue, discovery, errors, readSource) {
   if (queue.deliveryClass === 'best-effort' && /audit|security|risk|challenge/iu.test(`${queue.queueId} ${queue.owner?.id ?? ''} ${queue.owner?.type ?? ''}`)) {
     errors.push(`${label} protected audit/security queue cannot be best-effort`)
   }
-  if (queue.owner?.type?.includes('PublicHot')) {
+  const isPublicHotRiskProjectionQueue = queue.queueId === publicHotRiskProjectionQueue.queueId
+    && queue.owner?.type === publicHotRiskProjectionQueue.ownerType
+  if (queue.owner?.type?.includes('PublicHot') && !isPublicHotRiskProjectionQueue) {
     if (JSON.stringify(queue.authoritativeContracts) !== JSON.stringify(publicHotAuthorities)) errors.push(`${label} PublicHot authority must reference #1629-#1631 exactly`)
     if (Object.hasOwn(queue, 'copiedAuthority')) errors.push(`${label} PublicHot contract must not copy authoritative logic`)
   } else if (queue.authoritativeContracts !== undefined) errors.push(`${label} non-PublicHot queue must not declare PublicHot authority`)

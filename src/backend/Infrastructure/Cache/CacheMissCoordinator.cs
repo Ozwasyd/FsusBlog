@@ -1,13 +1,39 @@
 using System.Diagnostics;
 
+using FsusBlog.Server.Infrastructure.Observability;
+
 namespace FsusBlog.Server.Infrastructure.Cache;
 
 public readonly record struct CacheRebuildStrategy(TimeSpan LeaseTtl, TimeSpan WaitTimeout, TimeSpan RebuildTimeout);
 
-public sealed class CacheCoordinationException(string reason, CachePolicyId policyId)
+/// <summary>
+/// Documented miss-path wait budget: local singleflight acquire, then lease
+/// wait, then rebuild. Followers with qualified last-good skip this budget.
+/// </summary>
+public static class CacheMissPathBudget
+{
+    public static readonly TimeSpan SingleFlightMaxAcquireWait = TimeSpan.FromMilliseconds(750);
+    public const int SingleFlightMaxWaitersPerKey = 64;
+    public static readonly TimeSpan MinLeaseWait = TimeSpan.FromMilliseconds(750);
+    public static readonly TimeSpan MaxLeaseWait = TimeSpan.FromSeconds(5);
+    public static readonly TimeSpan MinLeaseTtl = TimeSpan.FromSeconds(5);
+    public static readonly TimeSpan MaxLeaseTtl = TimeSpan.FromSeconds(30);
+
+    public static TimeSpan ComputeTotal(CacheRebuildStrategy strategy)
+        => SingleFlightMaxAcquireWait + strategy.WaitTimeout + strategy.RebuildTimeout;
+}
+
+public sealed class CacheCoordinationException(string reason, CachePolicyId policyId, int retryAfterSeconds = 1)
     : TimeoutException($"Cache coordination failed: {reason} ({policyId}).")
 {
     public string Reason { get; } = reason;
+
+    public int RetryAfterSeconds { get; } = retryAfterSeconds;
+}
+
+public interface ICacheLastGoodLookup
+{
+    bool TryGetQualifiedLastGood<T>(CachePolicyId policyId, string identity, out T? value);
 }
 
 public interface ICacheMissCoordinator
@@ -73,10 +99,15 @@ public sealed class CacheMissCoordinator(
     ICachePolicyRegistry policyRegistry,
     ILogger<CacheMissCoordinator> logger) : ICacheMissCoordinator
 {
-    private static readonly TimeSpan s_minLeaseTtl = TimeSpan.FromSeconds(5);
-    private static readonly TimeSpan s_maxLeaseTtl = TimeSpan.FromSeconds(30);
-    private static readonly TimeSpan s_minWaitTimeout = TimeSpan.FromMilliseconds(750);
-    private static readonly TimeSpan s_maxWaitTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan s_minLeaseTtl = CacheMissPathBudget.MinLeaseTtl;
+    private static readonly TimeSpan s_maxLeaseTtl = CacheMissPathBudget.MaxLeaseTtl;
+    private static readonly TimeSpan s_minWaitTimeout = CacheMissPathBudget.MinLeaseWait;
+    private static readonly TimeSpan s_maxWaitTimeout = CacheMissPathBudget.MaxLeaseWait;
+
+    internal ICacheLastGoodLookup? LastGoodLookup
+    {
+        get; init;
+    }
 
     public async Task<T?> CoordinateAsync<T>(
         CachePolicyId policyId,
@@ -143,11 +174,28 @@ public sealed class CacheMissCoordinator(
     {
 
         CacheCoordinationObservation observation = CacheCoordinationObservation.Current!;
+        if (TryServeLastGoodWhileRebuild(policyId, identity, observation, out T? stale))
+        {
+            return stale;
+        }
+
         long localWaitStarted = Stopwatch.GetTimestamp();
         IAsyncDisposable acquired;
         try
         {
             acquired = await singleFlightCoordinator.AcquireAsync(policyId, identity, cancellationToken).ConfigureAwait(false);
+        }
+        catch (CacheCoordinationException exception) when (
+            string.Equals(exception.Reason, "singleflight-timeout", StringComparison.Ordinal)
+            || string.Equals(exception.Reason, "singleflight-waiter-cap", StringComparison.Ordinal))
+        {
+            observation.LocalWait = Stopwatch.GetElapsedTime(localWaitStarted);
+            if (TryServeLastGood(policyId, identity, observation, out T? rejectedStale))
+            {
+                return rejectedStale;
+            }
+
+            throw;
         }
         finally
         {
@@ -294,6 +342,39 @@ public sealed class CacheMissCoordinator(
             : TimeSpan.FromTicks(Math.Clamp(policy.L2Ttl.Ticks / 20L, s_minLeaseTtl.Ticks, s_maxLeaseTtl.Ticks));
         TimeSpan waitTimeout = TimeSpan.FromTicks(Math.Clamp(leaseTtl.Ticks / 4L, s_minWaitTimeout.Ticks, s_maxWaitTimeout.Ticks));
         return new CacheRebuildStrategy(leaseTtl, waitTimeout, TimeSpan.FromTicks(leaseTtl.Ticks * 4));
+    }
+
+    private bool TryServeLastGoodWhileRebuild<T>(
+        CachePolicyId policyId,
+        string identity,
+        CacheCoordinationObservation observation,
+        out T? value)
+    {
+        if (!singleFlightCoordinator.IsHeld(policyId, identity))
+        {
+            value = default;
+            return false;
+        }
+
+        return TryServeLastGood(policyId, identity, observation, out value);
+    }
+
+    private bool TryServeLastGood<T>(
+        CachePolicyId policyId,
+        string identity,
+        CacheCoordinationObservation observation,
+        out T? value)
+    {
+        if (LastGoodLookup is not null
+            && LastGoodLookup.TryGetQualifiedLastGood(policyId, identity, out value))
+        {
+            observation.LastGoodWhileRebuild++;
+            FsusObservability.RecordLastGoodWhileRebuild(CachePolicyTelemetry.Name(policyId));
+            return true;
+        }
+
+        value = default;
+        return false;
     }
 
     private CachePolicy ResolvePolicy(CachePolicyId policyId)

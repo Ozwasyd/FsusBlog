@@ -108,6 +108,7 @@ public static class ActiveReleaseFenceServiceCollectionExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IBoundedQueueDrainParticipant, NotificationFanoutStateBoundedQueueDrainParticipant>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IBoundedQueueDrainParticipant, PublicAotBackfillBoundedQueueDrainParticipant>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IBoundedQueueDrainParticipant, PublicHotArtifactUpdateBoundedQueueDrainParticipant>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IBoundedQueueDrainParticipant, PublicHotReadRiskProjectionBoundedQueueDrainParticipant>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IBoundedQueueDrainParticipant, RumTelemetryBoundedQueueDrainParticipant>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IBoundedQueueDrainParticipant, SecurityRiskEventBoundedQueueDrainParticipant>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IBoundedQueueDrainParticipant, UploadSessionCleanupBoundedQueueDrainParticipant>());

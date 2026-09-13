@@ -17,6 +17,7 @@ using FsusBlog.Server.Modules.Endpoints.Binary;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -261,7 +262,7 @@ public sealed class PublicHotReadCrossCuttingControlTests
     }
 
     [Fact]
-    public async Task RequestPipeline_RateLimiterRunsExactlyOnceForArtifactHitAndMiss()
+    public async Task RequestPipeline_RateLimiterChargesMissBudgetOnceAndSkipsAllowlistedL0Hit()
     {
         byte[] payload = PodBinaryCodec.EncodeCategoryList([]);
         byte[] canonicalFrame = new AedsEncoder().Encode(AedsFrameType.CategoryList, payload);
@@ -281,9 +282,9 @@ public sealed class PublicHotReadCrossCuttingControlTests
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.Empty(hitCanonicalRequests);
-            Assert.Equal(1, hitLeaseCount);
+            Assert.Equal(0, hitLeaseCount);
             PublicHotReadEarlyPipelineState state = Assert.IsType<PublicHotReadEarlyPipelineState>(hitState);
-            Assert.True(state.RateLimitEvaluated);
+            Assert.False(state.RateLimitEvaluated);
             Assert.Equal(0, state.EndpointRateLimiterSkipCount);
         }
 
@@ -309,6 +310,56 @@ public sealed class PublicHotReadCrossCuttingControlTests
             Assert.True(state.RateLimitEvaluated);
             Assert.Equal(1, state.EndpointRateLimiterSkipCount);
         }
+    }
+
+    [Fact]
+    public async Task RequestPipeline_AllowlistedL0HitCompletesWhenMissPathIsShed()
+    {
+        byte[] payload = "l0-resident"u8.ToArray();
+        await using WebApplication app = await CreateMixedTrafficPipelineAsync(
+            CreateArticleStore(42, payload),
+            permitLimit: 1);
+        using HttpClient client = app.GetTestClient();
+
+        using HttpResponseMessage firstMiss = await SendPublicAsync(client, HttpMethod.Get, "/api/binary/article/999.aeds");
+        Assert.Equal(HttpStatusCode.OK, firstMiss.StatusCode);
+        Assert.Equal("canonical-miss", await firstMiss.Content.ReadAsStringAsync());
+
+        using HttpResponseMessage shedMiss = await SendPublicAsync(client, HttpMethod.Get, "/api/binary/article/999.aeds");
+        Assert.Equal(HttpStatusCode.TooManyRequests, shedMiss.StatusCode);
+
+        using HttpResponseMessage l0Hit = await SendPublicAsync(client, HttpMethod.Get, "/api/binary/article/42.aeds");
+        Assert.Equal(HttpStatusCode.OK, l0Hit.StatusCode);
+        byte[] l0Bytes = await l0Hit.Content.ReadAsByteArrayAsync();
+        Assert.NotEmpty(l0Bytes);
+        Assert.NotEqual("canonical-miss"u8.ToArray(), l0Bytes);
+    }
+
+    [Fact]
+    public async Task RequestPipeline_NonAllowlistedAndMutationPathsStillConsumeEndpointLimiter()
+    {
+        byte[] payload = "l0-resident"u8.ToArray();
+        await using WebApplication app = await CreateMixedTrafficPipelineAsync(
+            CreateArticleStore(42, payload),
+            permitLimit: 1);
+        using HttpClient client = app.GetTestClient();
+
+        using HttpResponseMessage l0Hit = await SendPublicAsync(client, HttpMethod.Get, "/api/binary/article/42.aeds");
+        Assert.Equal(HttpStatusCode.OK, l0Hit.StatusCode);
+
+        using HttpResponseMessage firstMutation = await SendPublicAsync(client, HttpMethod.Post, "/api/binary/article/42.aeds");
+        Assert.Equal(HttpStatusCode.OK, firstMutation.StatusCode);
+        using HttpResponseMessage shedMutation = await SendPublicAsync(client, HttpMethod.Post, "/api/binary/article/42.aeds");
+        Assert.Equal(HttpStatusCode.TooManyRequests, shedMutation.StatusCode);
+
+        using HttpResponseMessage firstAdmin = await SendPublicAsync(client, HttpMethod.Get, "/api/binary/admin/users");
+        Assert.Equal(HttpStatusCode.OK, firstAdmin.StatusCode);
+        using HttpResponseMessage shedAdmin = await SendPublicAsync(client, HttpMethod.Get, "/api/binary/admin/users");
+        Assert.Equal(HttpStatusCode.TooManyRequests, shedAdmin.StatusCode);
+
+        using HttpResponseMessage stillL0 = await SendPublicAsync(client, HttpMethod.Get, "/api/binary/article/42.aeds");
+        Assert.Equal(HttpStatusCode.OK, stillL0.StatusCode);
+        Assert.NotEqual("canonical-miss", await stillL0.Content.ReadAsStringAsync());
     }
 
     [Fact]
@@ -407,13 +458,13 @@ public sealed class PublicHotReadCrossCuttingControlTests
         WebApplication app = builder.Build();
         app.UseFsusPublicHotReadClassifier();
         app.UseFsusPublicHotReadRequestAuditContext();
-        app.UseFsusPublicHotReadRateLimiter();
         app.Use(async (context, next) =>
         {
             observeState?.Invoke(context.Features.Get<PublicHotReadEarlyPipelineState>());
             await next(context);
         });
         app.UseFsusPublicHotReadFastPath();
+        app.UseFsusPublicHotReadRateLimiter();
         app.UseFsusPublicHotReadFallbackRestore();
         app.UseFsusEndpointRateLimiter();
         app.UseFsusEndpointRequestAuditContext();
@@ -428,6 +479,109 @@ public sealed class PublicHotReadCrossCuttingControlTests
         });
         await app.StartAsync();
         return app;
+    }
+
+    private static async Task<WebApplication> CreateMixedTrafficPipelineAsync(
+        PublicHotReadStore store,
+        int permitLimit)
+    {
+        var applicationOptions = new WebApplicationOptions
+        {
+            EnvironmentName = Environments.Development
+        };
+        WebApplicationBuilder builder = WebApplication.CreateBuilder(applicationOptions);
+        builder.WebHost.UseTestServer();
+        builder.Services.Configure<PublicHotReadOptions>(static options => options.Enabled = true);
+        builder.Services.AddSingleton(store);
+        builder.Services.AddSingleton<PublicHotReadCounters>();
+        builder.Services.AddSingleton<PublicHotReadClassifierCounters>();
+        builder.Services.AddSingleton<PublicHotReadEarlyDataPlaneRuntimeState>();
+        builder.Services.AddRouting();
+        builder.Services.AddRateLimiter(options =>
+        {
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.AddPolicy(
+                "public_read",
+                httpContext =>
+                {
+                    string clientIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                    string path = httpContext.GetEndpoint()?.DisplayName
+                        ?? httpContext.Request.Path.Value
+                        ?? "/";
+                    return RateLimitPartition.GetFixedWindowLimiter(
+                        $"public-read:{clientIp}:{path}",
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = permitLimit,
+                            Window = TimeSpan.FromMinutes(1),
+                            AutoReplenishment = true,
+                            QueueLimit = 0,
+                            QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+                        });
+                });
+        });
+
+        WebApplication app = builder.Build();
+        app.Use((context, next) =>
+        {
+            context.Connection.RemoteIpAddress = IPAddress.Parse("203.0.113.51");
+            return next(context);
+        });
+        app.UseFsusPublicHotReadClassifier();
+        app.UseFsusPublicHotReadFastPath();
+        app.UseFsusPublicHotReadRateLimiter();
+        app.UseFsusPublicHotReadFallbackRestore();
+        app.UseRouting();
+        app.UseFsusEndpointRateLimiter();
+        app.MapGet("/api/binary/article/{id}.aeds", static async context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status200OK;
+            await context.Response.WriteAsync("canonical-miss");
+        }).RequireRateLimiting("public_read");
+        app.MapPost("/api/binary/article/{id}.aeds", static async context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status200OK;
+            await context.Response.WriteAsync("mutation");
+        }).RequireRateLimiting("public_read");
+        app.MapGet("/api/binary/admin/users", static async context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status200OK;
+            await context.Response.WriteAsync("admin");
+        }).RequireRateLimiting("public_read");
+        await app.StartAsync();
+        return app;
+    }
+
+    private static async Task<HttpResponseMessage> SendPublicAsync(HttpClient client, HttpMethod method, string path)
+    {
+        using var request = new HttpRequestMessage(method, path);
+        return await client.SendAsync(request);
+    }
+
+    private static PublicHotReadStore CreateArticleStore(int articleId, byte[] payload)
+    {
+        long version = s_cutoff.ToUnixTimeMilliseconds();
+        var options = new PublicHotReadOptions();
+        PublicBinaryArtifact article = PublicHotReadBinaryArtifactFactory.FromPayload(
+            new AedsEncoder(),
+            AedsFrameType.ArticleDetail,
+            payload,
+            options.CacheControl,
+            version,
+            options);
+        var store = new PublicHotReadStore(timeProvider: new FixedTimeProvider(s_cutoff));
+        store.Publish(new PublicHotReadSnapshot(
+            version,
+            new Dictionary<int, PublicBinaryArtifact>
+            {
+                [articleId] = article
+            }.ToFrozenDictionary(),
+            FrozenDictionary<PublicListKey, PublicBinaryArtifact>.Empty,
+            default,
+            default,
+            FrozenDictionary<string, PublicHtmlArtifact>.Empty,
+            PublicHotReadPublicationEvidence.CreateVerified(version, s_cutoff)));
+        return store;
     }
 
     private static PublicHotReadStore CreateCategoryStore(byte[] payload)

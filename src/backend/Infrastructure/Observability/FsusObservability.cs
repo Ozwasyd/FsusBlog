@@ -126,6 +126,9 @@ public static class FsusObservability
     private static readonly Counter<long> s_securityRiskEventInsertedRows = s_meter.CreateCounter<long>("fsus.security.risk_event.inserted_rows");
     private static readonly Counter<long> s_securityRiskEventFailedBatches = s_meter.CreateCounter<long>("fsus.security.risk_event.failed_batches");
     private static readonly Counter<long> s_securityRiskEventFallbackSingleInserts = s_meter.CreateCounter<long>("fsus.security.risk_event.fallback_single_inserts");
+    private static readonly Histogram<double> s_securityRiskEventQueueDepth = s_meter.CreateHistogram<double>("fsus.security.risk_event.queue_depth");
+    private static readonly Counter<long> s_securityRiskEventShedCounter = s_meter.CreateCounter<long>("fsus.security.risk_event.shed.count");
+    private static readonly Counter<long> s_securityRiskEventSyncFallbackCounter = s_meter.CreateCounter<long>("fsus.security.risk_event.sync_fallback.count");
     private static readonly Histogram<double> s_riskScoreAtomicUpdateElapsed = s_meter.CreateHistogram<double>("fsus.security.risk_score.atomic_update_elapsed_ms", "ms");
     private static readonly Counter<long> s_riskScoreRedisRoundTrips = s_meter.CreateCounter<long>("fsus.security.risk_score.redis_round_trips");
     private static readonly Counter<long> s_riskScoreConflictAvoided = s_meter.CreateCounter<long>("fsus.security.risk_score.conflict_avoided");
@@ -152,6 +155,10 @@ public static class FsusObservability
     private static readonly Histogram<long> s_cacheCoordinationRebuilds = s_meter.CreateHistogram<long>("fsus.cache.coordination.rebuild_count");
     private static readonly Counter<long> s_cacheCoordinationRelease = s_meter.CreateCounter<long>("fsus.cache.coordination.release");
     private static readonly Histogram<long> s_cacheCoordinationActiveEntries = s_meter.CreateHistogram<long>("fsus.cache.coordination.active_entries");
+    private static readonly Histogram<double> s_singleFlightWait = s_meter.CreateHistogram<double>("fsus.cache.singleflight.wait", "ms");
+    private static readonly Histogram<long> s_singleFlightWaiters = s_meter.CreateHistogram<long>("fsus.cache.singleflight.waiters");
+    private static readonly Counter<long> s_singleFlightRejectByCap = s_meter.CreateCounter<long>("fsus.cache.singleflight.reject_by_cap");
+    private static readonly Counter<long> s_lastGoodWhileRebuild = s_meter.CreateCounter<long>("fsus.cache.coordination.last_good_while_rebuild");
     private static readonly Histogram<double> s_dbOperationDuration = s_meter.CreateHistogram<double>("fsus.db.operation.duration", "ms");
     private static readonly Histogram<double> s_aotRenderDuration = s_meter.CreateHistogram<double>("fsus.aot.render.duration", "ms");
     private static readonly Histogram<double> s_searchOperationDuration = s_meter.CreateHistogram<double>("fsus.search.operation.duration", "ms");
@@ -474,6 +481,35 @@ public static class FsusObservability
         s_cacheCoordinationRelease.Add(1, tags);
     }
 
+    internal static void RecordSingleFlightWait(string policy, TimeSpan wait, int waiterCount)
+    {
+        var tags = new TagList { { "fsus.cache.policy", policy } };
+        s_singleFlightWait.Record(wait.TotalMilliseconds, tags);
+        s_singleFlightWaiters.Record(waiterCount, tags);
+    }
+
+    internal static void RecordSingleFlightWaiterCount(string policy, int waiterCount)
+    {
+        var tags = new TagList { { "fsus.cache.policy", policy } };
+        s_singleFlightWaiters.Record(waiterCount, tags);
+    }
+
+    internal static void RecordSingleFlightReject(string policy, string reason)
+    {
+        var tags = new TagList
+        {
+            { "fsus.cache.policy", policy },
+            { "fsus.result", reason }
+        };
+        s_singleFlightRejectByCap.Add(1, tags);
+    }
+
+    internal static void RecordLastGoodWhileRebuild(string policy)
+    {
+        var tags = new TagList { { "fsus.cache.policy", policy } };
+        s_lastGoodWhileRebuild.Add(1, tags);
+    }
+
     public static IReadOnlyList<CacheOperationRuntimeCounter> GetCacheOperationCounters()
     {
         var counters = new List<CacheOperationRuntimeCounter>(s_cacheOperationRuntimeCounters.Count);
@@ -604,6 +640,23 @@ public static class FsusObservability
             s_securityRiskEventInsertedRows.Add(Math.Max(0, insertedRows));
             s_securityRiskEventFailedBatches.Add(Math.Max(0, failedBatches));
             s_securityRiskEventFallbackSingleInserts.Add(Math.Max(0, fallbackSingleInserts));
+        });
+    }
+
+    public static void RecordSecurityRiskQueueAdmission(long queueDepth, long shedCount, long syncFallbackCount)
+    {
+        TryRecord(() =>
+        {
+            s_securityRiskEventQueueDepth.Record(Math.Max(0, queueDepth));
+            if (shedCount > 0)
+            {
+                s_securityRiskEventShedCounter.Add(shedCount);
+            }
+
+            if (syncFallbackCount > 0)
+            {
+                s_securityRiskEventSyncFallbackCounter.Add(syncFallbackCount);
+            }
         });
     }
 
@@ -1980,6 +2033,8 @@ public static class FsusObservability
             "fake_crawler",
             "illegal_path",
             "persist_failed",
+            "received",
+            "shed",
             "rate_limited",
             "rate_limiter_risk",
             "rejected",

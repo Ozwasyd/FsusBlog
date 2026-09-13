@@ -4,6 +4,7 @@ using System.Net;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Binary;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Security;
 
@@ -52,6 +53,12 @@ public partial class GlobalExceptionMiddleware(RequestDelegate _next, ILogger<Gl
         int statusCode = error.Code == ErrorCode.InfraFailure && ex is NotImplementedException
             ? (int)HttpStatusCode.NotImplemented
             : BinaryResults.MapStatusCode(error);
+        if (ex is CacheCoordinationException coordination)
+        {
+            statusCode = (int)HttpStatusCode.ServiceUnavailable;
+            context.Response.Headers.RetryAfter = Math.Max(1, coordination.RetryAfterSeconds)
+                .ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
 
         string path = PrivateAssetRoutePrivacy.RedactPath(context.Request.Path);
 

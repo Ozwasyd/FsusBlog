@@ -134,6 +134,7 @@ public sealed class ObservabilityTests
         listener.Start();
 
         FsusObservability.RecordSecurityRiskEvent("risk-control", "RateLimited", "public.read", "received");
+        FsusObservability.RecordSecurityRiskQueueAdmission(queueDepth: 4, shedCount: 1, syncFallbackCount: 0);
         FsusObservability.RecordSecurityChallengeIssued("sha256PowV1", "public.read", "risk-policy-v2");
         FsusObservability.RecordSecurityChallengeVerified("sha256PowV1", "public.read", "risk-policy-v2", TimeSpan.FromSeconds(2));
         FsusObservability.RecordSecurityChallengeFailed("sha256PowV1", "public.read", "proof_invalid", "risk-policy-v2");
@@ -151,6 +152,8 @@ public sealed class ObservabilityTests
         listener.RecordObservableInstruments();
 
         Assert.Contains("fsus.security.risk.event.count", measurements);
+        Assert.Contains("fsus.security.risk_event.queue_depth", measurements);
+        Assert.Contains("fsus.security.risk_event.shed.count", measurements);
         Assert.Contains("fsus.security.challenge.issued.count", measurements);
         Assert.Contains("fsus.security.challenge.verified.count", measurements);
         Assert.Contains("fsus.security.challenge.failed.count", measurements);

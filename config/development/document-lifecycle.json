@@ -1285,6 +1285,40 @@
             "supersededBy": null
         },
         {
+            "path": "docs/operations/public-hot-read-hit-rate.md",
+            "status": "current",
+            "owner": "release",
+            "relatedIssues": [
+                1850,
+                3399
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/operations/public-hot-read-miss-path-budget.md",
+            "status": "current",
+            "owner": "release",
+            "relatedIssues": [
+                1838,
+                3391,
+                3393
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
+            "path": "docs/operations/public-hot-read-serving-outcomes.md",
+            "status": "current",
+            "owner": "release",
+            "relatedIssues": [
+                3391,
+                3395
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/operations/runtime-modes.md",
             "status": "current",
             "owner": "governance",

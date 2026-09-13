@@ -6,7 +6,9 @@ import { fileURLToPath } from 'node:url';
 
 import {
     checkRevisionCompareAuthority,
+    checkRevisionCompareIntegrationFiles,
     checkRevisionCompareAuthoritySources,
+    readRevisionCompareIntegration,
     readRevisionCompareSources
 } from '../../tools/governance/check-revision-compare-authority.mjs';
 
@@ -44,6 +46,13 @@ test('second planner and package-reader authorities fail closed', () =>
             'public sealed class AlternativeRevisionComparePackageReader : IRevisionComparePackageReader { }'
         )),
         /expected exact-one revision compare package reader/u
+    );
+    assert.match(
+        diagnostics((fixture) => fixture.set(
+            'src/backend/Services/Authoring/AlternativeRevisionCompareDraftContextProvider.cs',
+            'public sealed class AlternativeRevisionCompareDraftContextProvider : IAuthoringRevisionCompareDraftContextProvider { }'
+        )),
+        /expected exact-one production draft context provider/u
     );
 });
 
@@ -116,6 +125,42 @@ test('metadata authority remains core-owned and exact-one', () =>
             'export class RevisionCompareMetadataMap { }'
         )),
         /expected exact-one revision compare metadata authority/u
+    );
+});
+
+test('admission budgets and canonical matrix wiring fail closed when removed', () =>
+{
+    assert.match(
+        diagnostics((fixture) =>
+        {
+            const relative = 'src/core/Services/Articles/RevisionComparePlanner.cs';
+            fixture.set(relative, fixture.get(relative).replaceAll('MaxChunks', 'RemovedChunkLimit'));
+        }),
+        /admission must execute and bind MaxChunks/u
+    );
+
+    const integration = readRevisionCompareIntegration(root);
+    const lane = new Map(integration);
+    lane.set(
+        'tools/test/lanes/static-governance.sh',
+        lane.get('tools/test/lanes/static-governance.sh').replaceAll(
+            'revision-compare-authority StaticRevisionComparePlanAuthority',
+            'revision-compare-authority RemovedRevisionCompareAuthority'
+        )
+    );
+    assert.match(
+        checkRevisionCompareIntegrationFiles(lane).join('\n'),
+        /revision compare checker and negative tests/u
+    );
+
+    const matrix = new Map(integration);
+    matrix.set(
+        'tests/matrix.yml',
+        matrix.get('tests/matrix.yml').replace(/^\s+- revision-compare-authority\s*$/mu, '')
+    );
+    assert.match(
+        checkRevisionCompareIntegrationFiles(matrix).join('\n'),
+        /static-governance coverage/u
     );
 });
 

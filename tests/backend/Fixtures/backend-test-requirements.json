@@ -35,7 +35,7 @@
         "BACKEND-SECURITY-MATRIX"
       ],
       "evidencePaths": [
-        "tests/backend/Unit/BackendAuthStateMachineTests.cs",
+        "tests/backend/Unit/MfaLoginEndpointPostgresTests.cs",
         "tests/backend/Unit/ShieldMiddlewareTests.cs",
         "tools/security/check-security-matrices.mjs",
         "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs",
@@ -87,6 +87,7 @@
         "tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs",
         "tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs",
         "tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/MfaLoginEndpointPostgresTests.cs",
         "tests/backend/Integration/PasskeyRegistrationProjectionIntegrationTests.cs",
         "tests/backend/Unit/SecurityChallengePersistenceTests.cs",
         "tests/backend/Unit/AuthoringUserBanConcurrencyTests.cs",
@@ -332,6 +333,7 @@
         "tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs",
         "tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs",
         "tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/MfaLoginEndpointPostgresTests.cs",
         "tests/backend/Unit/SecurityChallengePersistenceTests.cs",
         "tests/backend/Unit/AuthoringUserBanConcurrencyTests.cs"
       ]
@@ -455,9 +457,9 @@
     {
       "id": "BACKEND-AUTH-STATE-MACHINE",
       "risk": "critical",
-      "coverage": "PoW, login, MFA, recovery code, passkey, refresh, revoke, banned/deleted transitions",
+      "coverage": "risk-controlled Passkey login, MFA continuation, recovery code, refresh, revoke, banned/deleted transitions",
       "evidencePaths": [
-        "tests/backend/Unit/BackendAuthStateMachineTests.cs",
+        "tests/backend/Unit/MfaLoginEndpointPostgresTests.cs",
         "tests/backend/Unit/JwtHelperTests.cs",
         "tests/backend/Unit/PasskeyServiceTests.cs",
         "tests/backend/Unit/TotpServiceTests.cs",
@@ -542,6 +544,7 @@
       "evidencePaths": [
         "tests/backend/Unit/UnifiedCacheTests.cs",
         "tests/backend/Unit/CacheMissCoordinatorTests.cs",
+        "tests/backend/Unit/CacheMissPathBoundedWaitTests.cs",
         "tests/backend/Unit/RedisPowServiceTests.cs",
         "tests/backend/Unit/UserSessionValidationServiceTests.cs",
         "tests/backend/Integration/UserSessionRevocationIntegrationTests.cs",
@@ -645,7 +648,7 @@
       "evidencePaths": [
         "tools/security/check-security-matrices.mjs",
         "tests/frontend/checks/security/check-permission-matrix.mjs",
-        "tests/backend/Unit/BackendAuthStateMachineTests.cs",
+        "tests/backend/Unit/MfaLoginEndpointPostgresTests.cs",
         "tests/backend/Unit/ShieldMiddlewareTests.cs",
         "tests/backend/Unit/SecurityHardening/CanonicalPathBoundaryTests.cs",
         "tests/backend/Unit/SecurityHardening/InputLimitBoundaryTests.cs",
@@ -1026,7 +1029,6 @@
       "risk": "medium",
       "coverage": "token, refresh, session, scheduled publish, cache TTL, PoW, upload expiry without sleeps",
       "evidencePaths": [
-        "tests/backend/Unit/BackendAuthStateMachineTests.cs",
         "tests/backend/Unit/ScheduledPublishWorkerTests.cs",
         "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs",
         "tests/backend/Unit/LogCleanupWorkerBehaviorTests.cs",

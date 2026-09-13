@@ -503,9 +503,13 @@ public sealed class SecurityRiskEventSink(
         {
             SecurityRiskEventWrite write = BuildWrite(signal, totalScore);
             ApplyPublicHotReadProjection(write, publicHotReadRiskProjection, publicHotReadRiskProjectionPublisher, logger);
-            if (!await eventQueue.EnqueueAsync(write, cancellationToken).ConfigureAwait(false))
+            if (!eventQueue.TryEnqueueOrShed(write))
             {
-                FsusObservability.RecordSecurityRiskEvent(signal.Source, signal.Reason.ToString(), signal.Action, "durable_fallback");
+                FsusObservability.RecordSecurityRiskEvent(
+                    signal.Source,
+                    signal.Reason.ToString(),
+                    signal.Action,
+                    SecurityRiskHotPathAdmission.ShedTelemetryResult);
             }
         }
         catch (Exception ex)

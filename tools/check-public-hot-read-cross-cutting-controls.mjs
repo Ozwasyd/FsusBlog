@@ -95,18 +95,23 @@ function validate(source) {
     .map(([, id, stage]) => ({ id, stage }))
   const replayed = [...source.catalog.matchAll(/\bReplayed\("([^"]+)", "([^"]+)", "([^"]+)", "([^"]+)"\)/g)]
     .map(([, id, earlyStage, endpointStage, guard]) => ({ id, earlyStage, endpointStage, guard }))
+  const missPathReplayed = [...source.catalog.matchAll(/\bMissPathReplayed\("([^"]+)", "([^"]+)", "([^"]+)", "([^"]+)"\)/g)]
+    .map(([, id, earlyStage, endpointStage, guard]) => ({ id, earlyStage, endpointStage, guard }))
   const endpointOnly = [...source.catalog.matchAll(/\bEndpointOnly\("([^"]+)", "([^"]+)", ([A-Za-z]+Evidence)\)/g)]
     .map(([, id, endpointStage, evidence]) => ({ id, endpointStage, evidence }))
-  const actualControls = [...global, ...replayed, ...endpointOnly].map(({ id }) => id).sort()
+  const actualControls = [...global, ...replayed, ...missPathReplayed, ...endpointOnly].map(({ id }) => id).sort()
   assert.deepEqual(actualControls, requiredControls, 'cross-cutting control catalog must match the required set exactly')
   unique(actualControls, 'control catalog')
 
-  validateStageClassifications(applicationDescriptors, endpointDescriptors, global, replayed, endpointOnly)
+  validateStageClassifications(applicationDescriptors, endpointDescriptors, global, [...replayed, ...missPathReplayed], endpointOnly)
 
   const classifier = exactlyOnce(applicationStages, 'public-hot-read-classifier')
   const writer = exactlyOnce(applicationStages, 'public-hot-read-fast-path')
+  const restore = exactlyOnce(applicationStages, 'public-hot-read-fallback-restore')
   const endpointPipeline = exactlyOnce(applicationStages, 'endpoint-pipeline')
-  assert.ok(classifier < writer && writer < endpointPipeline, 'classifier/writer/endpoint order drifted')
+  assert.ok(
+    classifier < writer && writer < restore && restore < endpointPipeline,
+    'classifier/writer/restore/endpoint order drifted')
 
   for (const control of global) {
     assert.ok(exactlyOnce(applicationStages, control.stage) < classifier, `${control.id} must be global-before-branch`)
@@ -116,7 +121,14 @@ function validate(source) {
     assert.ok(earlyIndex > classifier && earlyIndex < writer, `${control.id} early replay is outside the branch`)
     exactlyOnce(endpointStages, control.endpointStage)
   }
-  unique(replayed.map(({ guard }) => guard), 'double execution guard')
+  for (const control of missPathReplayed) {
+    const earlyIndex = exactlyOnce(applicationStages, control.earlyStage)
+    assert.ok(
+      earlyIndex > writer && earlyIndex < restore,
+      `${control.id} miss-path replay must sit after L0 and before fallback restore`)
+    exactlyOnce(endpointStages, control.endpointStage)
+  }
+  unique([...replayed, ...missPathReplayed].map(({ guard }) => guard), 'double execution guard')
   for (const control of endpointOnly) {
     exactlyOnce(endpointStages, control.endpointStage)
     assert.ok(
@@ -189,7 +201,9 @@ function validate(source) {
     'RequestPipeline_FastAndCanonicalCategoryResponsesAreByteIdentical',
     'RequestPipeline_OnlyAnonymousSafeSameOriginArtifactReadUsesEarlyBranch',
     'RequestPipeline_ArtifactMissRunsRequestAuditContextExactlyOnce',
-    'RequestPipeline_RateLimiterRunsExactlyOnceForArtifactHitAndMiss',
+    'RequestPipeline_RateLimiterChargesMissBudgetOnceAndSkipsAllowlistedL0Hit',
+    'RequestPipeline_AllowlistedL0HitCompletesWhenMissPathIsShed',
+    'RequestPipeline_NonAllowlistedAndMutationPathsStillConsumeEndpointLimiter',
     'ProjectorMaterializer_OnlyPublishedDueSourcesEnterFrames',
     'PublicationEvidence_BindsPublicSourceVisibilityAndVersionFailClosed',
     'StartupCatalog_FailsClosedWhenControlRoutePolicyOrEndpointMetadataDrifts'

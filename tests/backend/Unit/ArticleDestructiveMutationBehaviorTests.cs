@@ -1,6 +1,5 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
@@ -405,7 +404,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
             _stringReader: Substitute.For<ICacheStringReader>(),
             _stringWriter: Substitute.For<ICacheStringWriter>(),
             _cacheMissCoordinator: Substitute.For<ICacheMissCoordinator>(),
-            _dbConcurrencyGate: Substitute.For<IDbConcurrencyGate>(),
+            _dbConcurrencyGate: new ImmediateDbConcurrencyGate(),
             _runtimeKeyScope: runtimeKeyScope,
             _httpContextAccessor: Substitute.For<IHttpContextAccessor>(),
             _logger: NullLogger<ArticleService>.Instance,

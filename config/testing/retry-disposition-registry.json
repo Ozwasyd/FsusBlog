@@ -5,15 +5,15 @@
     "entries": [
         {
             "producerId": "node-default-fixture-provider",
-            "findingId": "sha256:59070cc981684517ff83ccfb11c5f8d7a11165c5e301617a9c9d8f6a75019b17",
+            "findingId": "sha256:ff1c6fce1b027019d4568f613dbac13d40b60179a8502c3c35bdc2fb978c6068",
             "location": {
                 "path": "tests/browser-contract/default-fixture-provider.mjs",
                 "start": {
-                    "line": 1273,
+                    "line": 1208,
                     "column": 5
                 },
                 "end": {
-                    "line": 1308,
+                    "line": 1243,
                     "column": 58
                 }
             },
@@ -22,7 +22,7 @@
             "policyId": null,
             "action": "restore-only",
             "owner": "browser-contract",
-            "sourceDigest": "sha256:92f5898d02aaffef8997ad3b40cc154103f59b01653f96f91e0ab075909b717e",
+            "sourceDigest": "sha256:bf13fb69063c79b74d213e72d19e073164d81a6d776108a3bf78d1c149d51eba",
             "syntaxDigest": "sha256:5c3558aef7a50b3673894621ac243c18e539d91b3f852029823426aa090a6cf0"
         },
         {
@@ -132,9 +132,9 @@
             "policyId": null,
             "action": "restore-only",
             "owner": "development",
-            "sourceDigest": "sha256:58f2d7bc942ff323d1044fcdfa8eabe421bcb3383b3636c6e951b311da8c0b33",
+            "sourceDigest": "sha256:dc01ab33bdbd3634a00dda66ca7639555ad19352dc524a7d870e58f490524c71",
             "syntaxDigest": "sha256:bdcce7a77881b6b9ab628eb719eb3893ea4fe57f40b9516969c02ec1e46f2901"
         }
     ],
-    "contentDigest": "sha256:8ea9c685893c51b75f02be02a12913e7aabfa9cf5dbd1451351a9f14b60e3609"
+    "contentDigest": "sha256:66c361024d5e98c5c357000f749b843558bd198426edecf183f49868eebb1c29"
 }

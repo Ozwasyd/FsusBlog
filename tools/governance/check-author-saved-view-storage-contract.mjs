@@ -7,7 +7,10 @@ import { pathToFileURL } from 'node:url';
 const files = Object.freeze({
     store: 'src/backend/Services/Authoring/AuthorSavedViewStore.cs',
     persistence: 'src/backend/Services/Authoring/PostgresAuthorSavedViewPersistence.cs',
+    provider: 'src/backend/Services/Authoring/PostgresAuthorSavedViewDependencyProvider.cs',
+    bootstrap: 'src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs',
     tests: 'tests/backend/Unit/AuthorSavedViewStoreTests.cs',
+    integration: 'tests/backend/Integration/AuthorSavedViewPostgresIntegrationTests.cs',
     migration: 'src/migration/Definitions/AuthorSavedViewMigrationDefinitions.cs',
     catalog: 'src/migration/Catalogs/SchemaMigrationCatalog20260904SavedViews.cs'
 });
@@ -33,7 +36,10 @@ export function validateAuthorSavedViewStorageContract(root) {
     const errors = [];
     const store = read(root, files.store, errors);
     const persistence = read(root, files.persistence, errors);
+    const provider = read(root, files.provider, errors);
+    const bootstrap = read(root, files.bootstrap, errors);
     const tests = read(root, files.tests, errors);
+    const integration = read(root, files.integration, errors);
     const migration = read(root, files.migration, errors);
     const catalog = read(root, files.catalog, errors);
 
@@ -44,7 +50,7 @@ export function validateAuthorSavedViewStorageContract(root) {
 
     for (const command of [
         'CreateAsync(', 'GetAsync(', 'ListAsync(', 'UpdateAsync(', 'RenameAsync(',
-        'SetPinnedAsync(', 'ReorderPinnedAsync(', 'SetDefaultAsync(', 'RetireAsync(',
+        'SetPinnedAsync(', 'ReorderPinnedAsync(', 'MovePinnedAsync(', 'SetDefaultAsync(', 'RetireAsync(',
         'DeleteAsync(', 'VerifyAsync('
     ]) {
         requireText(store, command, 'saved view authority', errors);
@@ -87,10 +93,29 @@ export function validateAuthorSavedViewStorageContract(root) {
         'author_saved_view_condition',
         'author_saved_view_projection',
         'author_saved_view_receipt_change',
-        'author_saved_view_idempotency'
+        'author_saved_view_idempotency',
+        'ReadPageAsync(',
+        'LIMIT @ReadLimit',
+        'ViewIdParameters(',
+        'saved_view_history_write_count_mismatch'
     ]) {
         requireText(persistence, fact, 'PostgreSQL persistence', errors);
     }
+
+    for (const fact of [
+        'class PostgresAuthorSavedViewDependencyProvider',
+        'AuthorSavedViewFieldKind.Category => "category"',
+        'AuthorSavedViewFieldKind.Tag => "tag"',
+        'AuthorSavedViewDependencyStatus.Deleted',
+        'return null'
+    ]) {
+        requireText(provider, fact, 'saved view production dependency provider', errors);
+    }
+    requireText(
+        bootstrap,
+        'AddScoped<IAuthorSavedViewDependencyProvider, PostgresAuthorSavedViewDependencyProvider>()',
+        'saved view dependency registration',
+        errors);
 
     const requiredTables = [
         'author_saved_view_collection',
@@ -128,6 +153,7 @@ export function validateAuthorSavedViewStorageContract(root) {
         'Authority_RejectsInvalidDependencyAndFutureAstBeforePersistence',
         'Authority_IdempotentReplaySurvivesLaterDependencyRetirement',
         'Authority_PagesZeroOneAndOneThousandAndBatchReordersInOneCommit',
+        'Authority_MovesSingleAndBatchWithOneBoundedMutationAndCas',
         'Verifier_DetectsContentAndCollectionTamper',
         'Verifier_DetectsBidirectionalReceiptAndIdempotencyTamper',
         'Verifier_DetectsMissingReceiptAndBrokenCollectionRevisionChain',
@@ -135,6 +161,13 @@ export function validateAuthorSavedViewStorageContract(root) {
         'StaticGovernance_HasOneAuthorityAndClosedRelationalMigration'
     ]) {
         requireText(tests, coverage, 'saved view focused tests', errors);
+    }
+
+    for (const coverage of [
+        'ProductionProvider_UsesTaxonomyAndFailsClosedForUnavailableUpstreams',
+        'Persistence_PagesOneThousandAndBulkMovesWithOneAuditInsert'
+    ]) {
+        requireText(integration, coverage, 'saved view PostgreSQL tests', errors);
     }
 
     return errors;

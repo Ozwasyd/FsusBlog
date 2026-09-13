@@ -828,8 +828,16 @@ public sealed class PublicHotReadFastPathTests
             services.GetRequiredService<PublicHotReadClassifierCounters>();
         Assert.Equal(1, classifier.CredentialBypassSnapshot());
         Assert.Equal(0, classifier.SensitivePrefixBypassSnapshot());
-        Assert.Equal(new PublicHotReadCounterSnapshot(),
-            services.GetRequiredService<PublicHotReadCounters>().Snapshot());
+        PublicHotReadCounterSnapshot unused = services.GetRequiredService<PublicHotReadCounters>().Snapshot();
+        Assert.Equal(0, unused.ArticleHit);
+        Assert.Equal(0, unused.ArticleMiss);
+        Assert.Equal(0, unused.ListHit);
+        Assert.Equal(0, unused.ListMiss);
+        Assert.Equal(0, unused.HtmlHit);
+        Assert.Equal(0, unused.HtmlMiss);
+        Assert.Equal(0, unused.Rejected);
+        Assert.Equal(0, unused.Bytes);
+        Assert.Null(unused.HitRate.CapacityHitRate);
     }
 
     [Fact]
@@ -1710,28 +1718,60 @@ public sealed class PublicHotReadFastPathTests
     }
 
     [Fact]
-    public async Task EarlyRateLimiter_ConsumesPublicReadPolicyBeforeWriter()
+    public async Task EarlyRateLimiter_ChargesPublicReadOnlyAfterL0Miss()
     {
-        ServiceProvider services = CreateFastPathServices(CreateReadyEmptyStore(), includeRateLimiter: true);
-        var app = new ApplicationBuilder(services);
-        app.UseFsusPublicHotReadClassifier();
-        app.UseFsusPublicHotReadRateLimiter();
-        bool terminalCalled = false;
-        app.Run(context =>
+        byte[] frame = CreateFrame(AedsFrameType.ArticleDetail);
+        ServiceProvider hitServices = CreateFastPathServices(CreateReadyStoreWithArticle(42, frame), includeRateLimiter: true);
+        var hitApp = new ApplicationBuilder(hitServices);
+        int hitLeaseCount = 0;
+        bool hitTerminalCalled = false;
+        hitApp.UseFsusPublicHotReadClassifier();
+        hitApp.UseFsusPublicHotReadFastPath();
+        hitApp.Use(async (context, next) =>
         {
-            terminalCalled = true;
+            hitLeaseCount++;
+            await next(context);
+        });
+        hitApp.UseFsusPublicHotReadRateLimiter();
+        hitApp.Run(_ =>
+        {
+            hitTerminalCalled = true;
+            return Task.CompletedTask;
+        });
+        DefaultHttpContext hitContext = CreateContext("/api/binary/article/42.aeds");
+        hitContext.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("203.0.113.7");
+        hitContext.RequestServices = hitServices;
+
+        await hitApp.Build()(hitContext);
+
+        Assert.Equal(StatusCodes.Status200OK, hitContext.Response.StatusCode);
+        Assert.Equal(0, hitLeaseCount);
+        Assert.False(hitTerminalCalled);
+        PublicHotReadEarlyPipelineState hitState = Assert.IsType<PublicHotReadEarlyPipelineState>(
+            hitContext.Features.Get<PublicHotReadEarlyPipelineState>());
+        Assert.False(hitState.RateLimitEvaluated);
+
+        ServiceProvider missServices = CreateFastPathServices(CreateReadyEmptyStore(), includeRateLimiter: true);
+        var missApp = new ApplicationBuilder(missServices);
+        bool missTerminalCalled = false;
+        missApp.UseFsusPublicHotReadClassifier();
+        missApp.UseFsusPublicHotReadFastPath();
+        missApp.UseFsusPublicHotReadRateLimiter();
+        missApp.Run(context =>
+        {
+            missTerminalCalled = true;
             PublicHotReadEarlyPipelineState state = Assert.IsType<PublicHotReadEarlyPipelineState>(
                 context.Features.Get<PublicHotReadEarlyPipelineState>());
             Assert.True(state.RateLimitEvaluated);
             return Task.CompletedTask;
         });
-        DefaultHttpContext context = CreateContext("/api/binary/article/42.aeds");
-        context.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("203.0.113.7");
-        context.RequestServices = services;
+        DefaultHttpContext missContext = CreateContext("/api/binary/article/42.aeds");
+        missContext.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("203.0.113.7");
+        missContext.RequestServices = missServices;
 
-        await app.Build()(context);
+        await missApp.Build()(missContext);
 
-        Assert.True(terminalCalled);
+        Assert.True(missTerminalCalled);
     }
 
     [Fact]
@@ -1821,6 +1861,253 @@ public sealed class PublicHotReadFastPathTests
         Assert.Contains("ORDER BY a.createtime DESC, a.id DESC", runtimeShape, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("/api/binary/article/list/home/2/10.aeds")]
+    [InlineData("/api/binary/article/list/archive/2/10.aeds")]
+    [InlineData("/api/binary/article/hot/3.aeds")]
+    [InlineData("/api/binary/article/featured/3.aeds")]
+    [InlineData("/api/binary/article/list/category/7/2/10.aeds")]
+    [InlineData("/api/binary/article/list/tag/9/2/10.aeds")]
+    [InlineData("/api/binary/category.aeds")]
+    [InlineData("/api/binary/tag.aeds")]
+    public async Task TryServeAsync_NotResidentListCategoryTagMiss_Returns503WithRetryAfter(string path)
+    {
+        PublicHotReadStore store = path.Contains("category.aeds", StringComparison.Ordinal)
+            || path.Contains("tag.aeds", StringComparison.Ordinal)
+                ? CreateReadyEmptyStore()
+                : CreateReadyCatalogStore();
+        var counters = new PublicHotReadCounters();
+        var context = CreateContext(path);
+        bool nextCalled = false;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            },
+            store,
+            new PublicHotReadOptions(),
+            counters);
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, context.Response.StatusCode);
+        Assert.Equal("1", context.Response.Headers["Retry-After"]);
+        AssertNoStore(context);
+        Assert.Equal(1, counters.Snapshot().ListMiss);
+    }
+
+    [Theory]
+    [InlineData("/api/binary/article/list/category/999/1/10.aeds")]
+    [InlineData("/api/binary/article/list/tag/888/1/10.aeds")]
+    public async Task TryServeAsync_UnknownCategoryOrTagList_Returns404WithoutRetryAfter(string path)
+    {
+        var counters = new PublicHotReadCounters();
+        var context = CreateContext(path);
+        bool nextCalled = false;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            },
+            CreateReadyCatalogStore(),
+            new PublicHotReadOptions(),
+            counters);
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status404NotFound, context.Response.StatusCode);
+        Assert.False(context.Response.Headers.ContainsKey("Retry-After"));
+        AssertNoStore(context);
+        Assert.Equal(1, counters.Snapshot().ListMiss);
+    }
+
+    [Fact]
+    public async Task TryServeAsync_UnknownCategoryListWhileTaxonomyNotResident_Returns503Not404()
+    {
+        var context = CreateContext("/api/binary/article/list/category/999/1/10.aeds");
+        bool nextCalled = false;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            },
+            CreateReadyEmptyStore(),
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, context.Response.StatusCode);
+        Assert.Equal("1", context.Response.Headers["Retry-After"]);
+        AssertNoStore(context);
+    }
+
+    [Theory]
+    [InlineData("/api/binary/article/list/home/1/10.aeds")]
+    [InlineData("/api/binary/article/list/category/7/1/10.aeds")]
+    [InlineData("/api/binary/article/list/tag/9/1/10.aeds")]
+    [InlineData("/api/binary/category.aeds")]
+    [InlineData("/api/binary/tag.aeds")]
+    public async Task TryServeAsync_LastGoodListCategoryTagHit_Returns200(string path)
+    {
+        DateTimeOffset now = DateTimeOffset.Parse("2026-07-15T12:00:00Z");
+        var clock = new MutableTimeProvider(now);
+        var options = new PublicHotReadOptions { MaxSnapshotAge = TimeSpan.FromMinutes(1) };
+        var store = new PublicHotReadStore(options: Options.Create(options), timeProvider: clock);
+        store.Publish(CreateCatalogSnapshot(now));
+        clock.Advance(TimeSpan.FromMinutes(2));
+        var counters = new PublicHotReadCounters(Options.Create(options));
+        var context = CreateContext(path);
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ => throw new InvalidOperationException("next should not run"),
+            store,
+            options,
+            counters);
+
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.False(context.Response.Headers.ContainsKey("Retry-After"));
+        Assert.True(store.TryGetRequestSnapshot(out _, out string reason));
+        Assert.Equal("last-good", reason);
+        Assert.Equal(1, counters.Snapshot().LastGoodHit);
+        Assert.Equal(0, counters.Snapshot().FreshL0Hit);
+        Assert.Equal(0, counters.Snapshot().ListMiss);
+    }
+
+    [Fact]
+    public async Task TryServeAsync_DiagnosticHtmlFreshMiss_Returns404()
+    {
+        var context = CreateContext(PublicHotReadRouteKeys.HtmlPath("about"));
+        bool nextCalled = false;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            },
+            CreateReadyEmptyStore(),
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status404NotFound, context.Response.StatusCode);
+        Assert.False(context.Response.Headers.ContainsKey("Retry-After"));
+        AssertNoStore(context);
+    }
+
+    [Fact]
+    public async Task TryServeAsync_DiagnosticHtmlRemoved_Returns404()
+    {
+        var html = CreateHtmlArtifact("home");
+        var store = new PublicHotReadStore();
+        store.Publish(new PublicHotReadSnapshot(
+            1,
+            FrozenDictionary<int, PublicBinaryArtifact>.Empty,
+            FrozenDictionary<PublicListKey, PublicBinaryArtifact>.Empty,
+            default,
+            default,
+            new Dictionary<string, PublicHtmlArtifact>
+            {
+                [PublicHotReadRouteKeys.HtmlPath("home")] = html
+            }.ToFrozenDictionary(StringComparer.Ordinal),
+            PublicHotReadPublicationEvidence.CreateVerified(1, DateTimeOffset.UtcNow)));
+        store.RemoveHtml("home");
+        var context = CreateContext(PublicHotReadRouteKeys.HtmlPath("home"));
+        bool nextCalled = false;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            },
+            store,
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.True(store.Current.IsHtmlRemoved(PublicHotReadRouteKeys.HtmlPath("home")));
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status404NotFound, context.Response.StatusCode);
+        Assert.False(context.Response.Headers.ContainsKey("Retry-After"));
+        AssertNoStore(context);
+    }
+
+    [Fact]
+    public async Task TryServeAsync_DiagnosticHtmlLastGoodMiss_Returns503()
+    {
+        DateTimeOffset now = DateTimeOffset.Parse("2026-07-15T12:00:00Z");
+        var clock = new MutableTimeProvider(now);
+        var options = new PublicHotReadOptions { MaxSnapshotAge = TimeSpan.FromMinutes(1) };
+        var store = new PublicHotReadStore(options: Options.Create(options), timeProvider: clock);
+        store.Publish(new PublicHotReadSnapshot(
+            1,
+            FrozenDictionary<int, PublicBinaryArtifact>.Empty,
+            FrozenDictionary<PublicListKey, PublicBinaryArtifact>.Empty,
+            default,
+            default,
+            new Dictionary<string, PublicHtmlArtifact>
+            {
+                [PublicHotReadRouteKeys.HtmlPath("home")] = CreateHtmlArtifact("home")
+            }.ToFrozenDictionary(StringComparer.Ordinal),
+            PublicHotReadPublicationEvidence.CreateVerified(1, now)));
+        clock.Advance(TimeSpan.FromMinutes(2));
+        var context = CreateContext(PublicHotReadRouteKeys.HtmlPath("about"));
+        context.Request.Headers.Accept = "text/html";
+        bool nextCalled = false;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            },
+            store,
+            options,
+            new PublicHotReadCounters(Options.Create(options)));
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, context.Response.StatusCode);
+        Assert.Equal("1", context.Response.Headers["Retry-After"]);
+        AssertNoStore(context);
+    }
+
+    [Fact]
+    public void Snapshot_ClassifyListMiss_DistinguishesNotResidentFromNotFound()
+    {
+        PublicHotReadSnapshot catalog = CreateCatalogSnapshot(DateTimeOffset.UtcNow);
+        PublicHotReadSnapshot empty = CreateVerifiedEmptySnapshot();
+
+        Assert.Equal(
+            PublicHotReadServingMiss.NotResident,
+            catalog.ClassifyListMiss(new PublicListKey(PublicListKind.Home, 0, 2, 10)));
+        Assert.Equal(
+            PublicHotReadServingMiss.NotResident,
+            catalog.ClassifyListMiss(new PublicListKey(PublicListKind.Category, 7, 2, 10)));
+        Assert.Equal(
+            PublicHotReadServingMiss.NotFound,
+            catalog.ClassifyListMiss(new PublicListKey(PublicListKind.Category, 999, 1, 10)));
+        Assert.Equal(
+            PublicHotReadServingMiss.NotFound,
+            catalog.ClassifyListMiss(new PublicListKey(PublicListKind.Tag, 888, 1, 10)));
+        Assert.Equal(
+            PublicHotReadServingMiss.NotResident,
+            empty.ClassifyListMiss(new PublicListKey(PublicListKind.Category, 999, 1, 10)));
+        Assert.Equal(
+            PublicHotReadServingMiss.NotResident,
+            empty.ClassifyListMiss(new PublicListKey(PublicListKind.Tag, 888, 1, 10)));
+    }
+
     private static IEnumerable<MethodBase> ReadCalledMethods(MethodInfo method)
     {
         byte[] il = method.GetMethodBody()?.GetILAsByteArray() ?? [];
@@ -1897,6 +2184,37 @@ public sealed class PublicHotReadFastPathTests
         return store;
     }
 
+    private static PublicHotReadStore CreateReadyCatalogStore()
+    {
+        var store = new PublicHotReadStore();
+        store.Publish(CreateCatalogSnapshot(DateTimeOffset.UtcNow));
+        return store;
+    }
+
+    private static PublicHotReadSnapshot CreateCatalogSnapshot(DateTimeOffset cutoff)
+    {
+        var lists = new Dictionary<PublicListKey, PublicBinaryArtifact>
+        {
+            [new PublicListKey(PublicListKind.Home, 0, 1, 10)] = ListArtifact(AedsFrameType.ArticleList, "home"),
+            [new PublicListKey(PublicListKind.Archive, 0, 1, 10)] = ListArtifact(AedsFrameType.ArticleList, "archive"),
+            [new PublicListKey(PublicListKind.Category, 7, 1, 10)] = ListArtifact(AedsFrameType.ArticleList, "category-7"),
+            [new PublicListKey(PublicListKind.Tag, 9, 1, 10)] = ListArtifact(AedsFrameType.ArticleList, "tag-9"),
+            [new PublicListKey(PublicListKind.Hot, 0, 1, 10)] = ListArtifact(AedsFrameType.ArticleHot, "hot"),
+            [new PublicListKey(PublicListKind.Featured, 0, 1, 4)] = ListArtifact(AedsFrameType.ArticleFeatured, "featured")
+        }.ToFrozenDictionary();
+        return new PublicHotReadSnapshot(
+            1,
+            FrozenDictionary<int, PublicBinaryArtifact>.Empty,
+            lists,
+            ListArtifact(AedsFrameType.CategoryList, "category"),
+            ListArtifact(AedsFrameType.TagList, "tag"),
+            FrozenDictionary<string, PublicHtmlArtifact>.Empty,
+            PublicHotReadPublicationEvidence.CreateVerified(1, cutoff));
+    }
+
+    private static PublicBinaryArtifact ListArtifact(AedsFrameType frameType, string etag)
+        => new(CreateFrame(frameType), $"\"{etag}\"", "public,max-age=60", 1, frameType);
+
     private static PublicHotReadSnapshot CreateVerifiedEmptySnapshot()
         => new(
             1,
@@ -1969,6 +2287,15 @@ public sealed class PublicHotReadFastPathTests
         Assert.Equal("same-origin", context.Response.Headers["Cross-Origin-Opener-Policy"]);
         Assert.Equal("same-origin", context.Response.Headers["Cross-Origin-Resource-Policy"]);
         Assert.Contains("default-src 'self'", context.Response.Headers["Content-Security-Policy"].ToString(), StringComparison.Ordinal);
+    }
+
+    private sealed class MutableTimeProvider(DateTimeOffset now) : TimeProvider
+    {
+        private DateTimeOffset _now = now;
+
+        public override DateTimeOffset GetUtcNow() => _now;
+
+        internal void Advance(TimeSpan duration) => _now += duration;
     }
 
     private sealed class ReloadablePublicHotReadOptionsMonitor(PublicHotReadOptions current) : IOptionsMonitor<PublicHotReadOptions>

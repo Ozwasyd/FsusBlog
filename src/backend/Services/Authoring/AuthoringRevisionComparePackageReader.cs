@@ -64,6 +64,134 @@ public interface IAuthoringRevisionCompareDraftContextProvider
         CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// Re-reads the persisted draft coordinate and seals its mutable context before a
+/// compare package can be admitted. FsusBlog currently has one configured site;
+/// callers cannot manufacture an alternate site scope in the compare request.
+/// </summary>
+public sealed class AuthoringRevisionCompareDraftContextProvider(IAuthoringDraftLifecycle authoring)
+    : IAuthoringRevisionCompareDraftContextProvider
+{
+    public const string PrimarySiteScope = "primary";
+
+    public async Task<AuthoringRevisionCompareDraftContextResult> ReadAsync(
+        AuthoringRevisionCompareDraftContextRequest request,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!string.Equals(request.Reader.SiteScope, PrimarySiteScope, StringComparison.Ordinal))
+        {
+            return new AuthoringRevisionCompareDraftContextResult(
+                RevisionComparePackageReadStatus.Unavailable,
+                null);
+        }
+
+        ServerDraftResponse? draft = await authoring.GetDraftAsync(
+                request.Reader.AdminPrincipalId,
+                request.DraftKey,
+                cancellationToken)
+            .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (draft is null || draft.ArticleId != request.ArticleId)
+        {
+            return new AuthoringRevisionCompareDraftContextResult(
+                RevisionComparePackageReadStatus.Unavailable,
+                null);
+        }
+        if (draft.ServerRevision != request.ServerRevision)
+        {
+            return new AuthoringRevisionCompareDraftContextResult(
+                RevisionComparePackageReadStatus.Stale,
+                null);
+        }
+
+        byte[] rightsPayload = JsonSerializer.SerializeToUtf8Bytes(draft.Rights);
+        string rightsDigest = Convert.ToHexStringLower(SHA256.HashData(rightsPayload));
+        byte[] rawMarkdown = Encoding.UTF8.GetBytes(draft.Content);
+        string documentEpoch = CreateDocumentEpoch(
+            request.Reader,
+            request.ArticleId,
+            draft.DraftKey,
+            draft.ServerRevision,
+            draft.UpdatedAt,
+            rawMarkdown,
+            rightsDigest);
+        if (!string.Equals(rightsDigest, request.RightsPayloadDigest, StringComparison.Ordinal)
+            || !string.Equals(documentEpoch, request.DocumentEpoch, StringComparison.Ordinal))
+        {
+            return new AuthoringRevisionCompareDraftContextResult(
+                RevisionComparePackageReadStatus.Stale,
+                null);
+        }
+
+        RevisionCompareSnapshot rightsSnapshot = RevisionCompareSnapshot.Present(
+            RevisionCompareSnapshotKind.Rights,
+            $"draft-rights:{request.Reader.AdminPrincipalId}:{draft.DraftKey}:{draft.ServerRevision}",
+            1,
+            rightsPayload);
+        AuthoringRevisionCompareDraftContext context = AuthoringRevisionCompareDraftContextAuthority.Seal(
+            request,
+            [
+                rightsSnapshot,
+                RevisionCompareSnapshot.NotApplicable(RevisionCompareSnapshotKind.Responsibility),
+                RevisionCompareSnapshot.NotApplicable(RevisionCompareSnapshotKind.Release)
+            ]);
+        return new AuthoringRevisionCompareDraftContextResult(
+            RevisionComparePackageReadStatus.Available,
+            context);
+    }
+
+    public static string CreateDocumentEpoch(
+        RevisionCompareReadContext reader,
+        int articleId,
+        ServerDraftResponse draft)
+    {
+        byte[] source = Encoding.UTF8.GetBytes(draft.Content);
+        byte[] rights = JsonSerializer.SerializeToUtf8Bytes(draft.Rights);
+        return CreateDocumentEpoch(
+            reader,
+            articleId,
+            draft.DraftKey,
+            draft.ServerRevision,
+            draft.UpdatedAt,
+            source,
+            Convert.ToHexStringLower(SHA256.HashData(rights)));
+    }
+
+    private static string CreateDocumentEpoch(
+        RevisionCompareReadContext reader,
+        int articleId,
+        string draftKey,
+        long serverRevision,
+        DateTime updatedAt,
+        ReadOnlySpan<byte> source,
+        string rightsDigest)
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        Append(hash, reader.AdminPrincipalId);
+        Append(hash, reader.SiteScope);
+        Append(hash, articleId);
+        Append(hash, draftKey);
+        Append(hash, serverRevision);
+        DateTime utcUpdatedAt = updatedAt.Kind == DateTimeKind.Unspecified
+            ? DateTime.SpecifyKind(updatedAt, DateTimeKind.Utc)
+            : updatedAt.ToUniversalTime();
+        Append(hash, utcUpdatedAt.Ticks);
+        Append(hash, Convert.ToHexStringLower(SHA256.HashData(source)));
+        Append(hash, rightsDigest);
+        return $"draft-epoch-v1:{Convert.ToHexStringLower(hash.GetHashAndReset())}";
+    }
+
+    private static void Append(IncrementalHash hash, object value)
+    {
+        byte[] bytes = Encoding.UTF8.GetBytes(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty);
+        Span<byte> length = stackalloc byte[4];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(length, bytes.Length);
+        hash.AppendData(length);
+        hash.AppendData(bytes);
+    }
+}
+
 public interface IAuthoringRevisionCompareDraftContextAuthority
 {
     Task<AuthoringRevisionCompareDraftContextResult> ReadAsync(
@@ -240,6 +368,13 @@ public sealed class AuthoringRevisionCompareAuthority(
         int articleId,
         CancellationToken cancellationToken)
     {
+        if (!string.Equals(
+            context.SiteScope,
+            AuthoringRevisionCompareDraftContextProvider.PrimarySiteScope,
+            StringComparison.Ordinal))
+        {
+            return null;
+        }
         bool authorized = await db.Queryable<AdminPrincipal>()
             .Where(principal => principal.Id == context.AdminPrincipalId
                 && principal.Status == AdminPrincipalStatus.Active)

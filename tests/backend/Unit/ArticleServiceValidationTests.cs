@@ -264,12 +264,15 @@ public class ArticleServiceValidationTests
             "LoadArticleDetailFromDbAsync");
 
         Assert.Contains("ICacheMissCoordinator.CoordinateAsync", method, StringComparison.Ordinal);
+        Assert.Contains("IDbConcurrencyGate.ExecuteAsync", method, StringComparison.Ordinal);
         Assert.Contains("TryReadArticleDetailCacheAsync", method, StringComparison.Ordinal);
         Assert.Contains("LoadArticleDetailFromDbAsync", method, StringComparison.Ordinal);
         Assert.Contains("article-detail", method, StringComparison.Ordinal);
+        Assert.Contains("db-gate-timeout:article-detail", method, StringComparison.Ordinal);
         Assert.Contains("ICacheTypedReader.TryGetAsync", method, StringComparison.Ordinal);
         Assert.Contains("ICacheRawWriter.SetRawAsync", method, StringComparison.Ordinal);
         Assert.DoesNotContain("System.Int32.ToString", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("compat", method, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
