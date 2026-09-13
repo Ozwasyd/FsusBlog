@@ -278,7 +278,20 @@ public partial class ArticleService(
             CachePolicyId.ArticleDetail,
             id,
             gateCt => TryReadArticleDetailCacheAsync(id, gateCt),
-            gateCt => LoadArticleDetailFromDbAsync(id, includePrivate: false, cacheIdentity: id, gateCt),
+            async gateCt => await _dbConcurrencyGate.ExecuteAsync(
+                "article-detail",
+                innerCt => LoadArticleDetailFromDbAsync(id, includePrivate: false, cacheIdentity: id, innerCt),
+                async innerCt =>
+                {
+                    CacheReadResult<ArticleDetailReadModel> retry = await TryReadArticleDetailCacheAsync(id, innerCt);
+                    if (retry.Hit)
+                    {
+                        return retry.Value;
+                    }
+
+                    throw new TimeoutException($"db-gate-timeout:article-detail:{id}");
+                },
+                gateCt),
             "article-detail",
             effectiveCt);
     }

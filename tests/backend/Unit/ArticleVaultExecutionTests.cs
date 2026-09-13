@@ -483,6 +483,10 @@ public sealed class ArticleVaultExecutionTests
         Assert.Contains("UpdateAsync", writerSource, StringComparison.Ordinal);
         Assert.Contains("DeleteAsync", writerSource, StringComparison.Ordinal);
         Assert.Contains("_articleVaultPublicFenceScopes", transactionSource, StringComparison.Ordinal);
+        Assert.Contains("ExecuteForegroundWriteAsync", writerSource, StringComparison.Ordinal);
+        Assert.Contains("article-vault-write", writerSource, StringComparison.Ordinal);
+        Assert.Contains("DbWorkloadClass.ForegroundWrite", transactionSource, StringComparison.Ordinal);
+        Assert.Contains("article-publication-write", transactionSource, StringComparison.Ordinal);
         Assert.Contains("RecoverArticleVaultPublicMutationFencesAsync", writerSource, StringComparison.Ordinal);
         Assert.Contains("EstablishArticlePublicMutationFenceAsync(id, ct)", mutationSource, StringComparison.Ordinal);
         Assert.Contains("EstablishArticlePublicMutationFenceAsync(id, ct)", lifecycleSource, StringComparison.Ordinal);

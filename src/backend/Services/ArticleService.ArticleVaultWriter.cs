@@ -44,92 +44,99 @@ public partial class ArticleService : IArticleVaultCanonicalGroupWriter
         bool groupCommitted = false;
         try
         {
-            var transaction = await _db.Ado.UseTranAsync(async () =>
-            {
-                await _db.Ado.ExecuteCommandAsync(
-                    "SELECT pg_advisory_xact_lock(hashtextextended(@Identity, 0));",
-                    new SugarParameter("@Identity", $"article-vault:{idempotency}"));
-                ArticleVaultGroupResultReceipt? concurrentReplay = await _vaultExecutionStore.LoadGroupResultAsync(
-                    bundle.Plan.SiteIdentity,
-                    bundle.Plan.VaultIdentity,
-                    bundle.PlanSha256,
-                    group.GroupIdentity,
-                    idempotency,
-                    cancellationToken).ConfigureAwait(false);
-                if (concurrentReplay is not null)
+            var transaction = await ExecuteForegroundWriteAsync(
+                "article-vault-write",
+                async gateCt =>
                 {
-                    return concurrentReplay;
-                }
-
-                foreach (int articleId in group.Items
-                    .Select(static item => item.ServerArticleIdentity)
-                    .Where(static identity => ParseArticleId(identity, out _))
-                    .Select(static identity => int.Parse(identity!, CultureInfo.InvariantCulture))
-                    .Distinct()
-                    .Order())
-                {
-                    _ = await _db.Ado.GetScalarAsync(
-                        "SELECT id FROM article WHERE id = @ArticleId FOR UPDATE;",
-                        new SugarParameter("@ArticleId", articleId)).ConfigureAwait(false);
-                }
-
-                IReadOnlyList<ArticleVaultCurrentArticleObservation> lockedCurrent = await
-                    ((IArticleVaultCurrentObservationAuthority)this).ObserveGroupAsync(
-                        bundle,
-                        group,
-                        cancellationToken).ConfigureAwait(false);
-                if (!lockedCurrent.SequenceEqual(expectedCurrent))
-                {
-                    throw new ArticleVaultExecutionRejectedException("article_vault_current_observation_drift");
-                }
-
-                _articleVaultGroupTransactionDepth++;
-                _articleVaultOutboxReferences = new Dictionary<int, string>();
-                _articleVaultPublicFenceScopes = publicFenceScopes;
-                _articleVaultPostCommitActions = new List<Func<Task>>();
-                try
-                {
-                    Dictionary<string, ArticleVaultExecutionPayloadItem> payload = bundle.Payload.Items
-                        .ToDictionary(static item => item.OperationIdentity, StringComparer.Ordinal);
-                    var operationReceipts = new List<ArticleVaultOperationResultReceipt>(group.Items.Count);
-                    for (int index = 0; index < group.Items.Count; index++)
+                    gateCt.ThrowIfCancellationRequested();
+                    return await _db.Ado.UseTranAsync(async () =>
                     {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        VaultSyncPlanItem item = group.Items[index];
-                        ArticleVaultCurrentArticleObservation before = lockedCurrent[index];
-                        ArticleVaultOperationResultReceipt receipt = await ExecuteVaultOperationAsync(
-                            bundle,
-                            group,
-                            item,
-                            before,
-                            payload,
-                            operationReceipts,
+                        await _db.Ado.ExecuteCommandAsync(
+                            "SELECT pg_advisory_xact_lock(hashtextextended(@Identity, 0));",
+                            new SugarParameter("@Identity", $"article-vault:{idempotency}"));
+                        ArticleVaultGroupResultReceipt? concurrentReplay = await _vaultExecutionStore.LoadGroupResultAsync(
+                            bundle.Plan.SiteIdentity,
+                            bundle.Plan.VaultIdentity,
+                            bundle.PlanSha256,
+                            group.GroupIdentity,
                             idempotency,
-                            auditChainId,
                             cancellationToken).ConfigureAwait(false);
-                        operationReceipts.Add(receipt);
-                    }
+                        if (concurrentReplay is not null)
+                        {
+                            return concurrentReplay;
+                        }
 
-                    ArticleVaultGroupResultReceipt groupReceipt = SealGroupReceipt(
-                        bundle,
-                        group,
-                        idempotency,
-                        committed: true,
-                        operationReceipts,
-                        reasonCode: null);
-                    await _vaultGroupResultStore.SaveGroupResultAsync(groupReceipt, cancellationToken)
-                        .ConfigureAwait(false);
-                    return groupReceipt;
-                }
-                finally
-                {
-                    committedPostCommitActions = _articleVaultPostCommitActions;
-                    _articleVaultPostCommitActions = null;
-                    _articleVaultPublicFenceScopes = null;
-                    _articleVaultOutboxReferences = null;
-                    _articleVaultGroupTransactionDepth--;
-                }
-            }).ConfigureAwait(false);
+                        foreach (int articleId in group.Items
+                            .Select(static item => item.ServerArticleIdentity)
+                            .Where(static identity => ParseArticleId(identity, out _))
+                            .Select(static identity => int.Parse(identity!, CultureInfo.InvariantCulture))
+                            .Distinct()
+                            .Order())
+                        {
+                            _ = await _db.Ado.GetScalarAsync(
+                                "SELECT id FROM article WHERE id = @ArticleId FOR UPDATE;",
+                                new SugarParameter("@ArticleId", articleId)).ConfigureAwait(false);
+                        }
+
+                        IReadOnlyList<ArticleVaultCurrentArticleObservation> lockedCurrent = await
+                            ((IArticleVaultCurrentObservationAuthority)this).ObserveGroupAsync(
+                                bundle,
+                                group,
+                                cancellationToken).ConfigureAwait(false);
+                        if (!lockedCurrent.SequenceEqual(expectedCurrent))
+                        {
+                            throw new ArticleVaultExecutionRejectedException("article_vault_current_observation_drift");
+                        }
+
+                        _articleVaultGroupTransactionDepth++;
+                        _articleVaultOutboxReferences = new Dictionary<int, string>();
+                        _articleVaultPublicFenceScopes = publicFenceScopes;
+                        _articleVaultPostCommitActions = new List<Func<Task>>();
+                        try
+                        {
+                            Dictionary<string, ArticleVaultExecutionPayloadItem> payload = bundle.Payload.Items
+                                .ToDictionary(static item => item.OperationIdentity, StringComparer.Ordinal);
+                            var operationReceipts = new List<ArticleVaultOperationResultReceipt>(group.Items.Count);
+                            for (int index = 0; index < group.Items.Count; index++)
+                            {
+                                cancellationToken.ThrowIfCancellationRequested();
+                                VaultSyncPlanItem item = group.Items[index];
+                                ArticleVaultCurrentArticleObservation before = lockedCurrent[index];
+                                ArticleVaultOperationResultReceipt receipt = await ExecuteVaultOperationAsync(
+                                    bundle,
+                                    group,
+                                    item,
+                                    before,
+                                    payload,
+                                    operationReceipts,
+                                    idempotency,
+                                    auditChainId,
+                                    cancellationToken).ConfigureAwait(false);
+                                operationReceipts.Add(receipt);
+                            }
+
+                            ArticleVaultGroupResultReceipt groupReceipt = SealGroupReceipt(
+                                bundle,
+                                group,
+                                idempotency,
+                                committed: true,
+                                operationReceipts,
+                                reasonCode: null);
+                            await _vaultGroupResultStore.SaveGroupResultAsync(groupReceipt, cancellationToken)
+                                .ConfigureAwait(false);
+                            return groupReceipt;
+                        }
+                        finally
+                        {
+                            committedPostCommitActions = _articleVaultPostCommitActions;
+                            _articleVaultPostCommitActions = null;
+                            _articleVaultPublicFenceScopes = null;
+                            _articleVaultOutboxReferences = null;
+                            _articleVaultGroupTransactionDepth--;
+                        }
+                    }).ConfigureAwait(false);
+                },
+                cancellationToken).ConfigureAwait(false);
 
             if (!transaction.IsSuccess)
             {
@@ -148,8 +155,15 @@ public partial class ArticleService : IArticleVaultCanonicalGroupWriter
                 ? rejected.ReasonCode
                 : "article_vault_group_write_failed";
             ArticleVaultGroupResultReceipt failed = BuildFailedGroupReceipt(bundle, group, idempotency, reason);
-            var terminal = await _db.Ado.UseTranAsync(
-                () => _vaultGroupResultStore.SaveGroupResultAsync(failed, CancellationToken.None)).ConfigureAwait(false);
+            var terminal = await ExecuteForegroundWriteAsync(
+                "article-vault-write",
+                async gateCt =>
+                {
+                    gateCt.ThrowIfCancellationRequested();
+                    return await _db.Ado.UseTranAsync(
+                        () => _vaultGroupResultStore.SaveGroupResultAsync(failed, CancellationToken.None)).ConfigureAwait(false);
+                },
+                CancellationToken.None).ConfigureAwait(false);
             if (!terminal.IsSuccess)
             {
                 ArticleVaultGroupResultReceipt? concurrent = await _vaultExecutionStore.LoadGroupResultAsync(

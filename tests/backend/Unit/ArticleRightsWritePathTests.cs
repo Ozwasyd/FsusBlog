@@ -9,7 +9,6 @@ using FsusBlog.Core.Services.Implementations;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
@@ -586,7 +585,7 @@ public sealed class ArticleRightsWritePathTests(
             _stringReader: Substitute.For<ICacheStringReader>(),
             _stringWriter: Substitute.For<ICacheStringWriter>(),
             _cacheMissCoordinator: Substitute.For<ICacheMissCoordinator>(),
-            _dbConcurrencyGate: Substitute.For<IDbConcurrencyGate>(),
+            _dbConcurrencyGate: new ImmediateDbConcurrencyGate(),
             _runtimeKeyScope: Substitute.For<IRuntimeKeyScope>(),
             _httpContextAccessor: Substitute.For<IHttpContextAccessor>(),
             _logger: NullLogger<ArticleService>.Instance,
