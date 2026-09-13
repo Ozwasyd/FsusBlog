@@ -40,9 +40,9 @@ public sealed class SqlAuthorArticlePinArticleProjectionSource(ISqlSugarClient d
             LEFT JOIN article_revision revision
               ON revision.id = a.current_revision_id
              AND revision.article_id = a.id
-            WHERE a.id = ANY(@ArticleIds);
+            WHERE a.id = ANY(CAST(@ArticleIds AS integer[]));
             """,
-            new SugarParameter("@ArticleIds", articleIds.ToArray())).ConfigureAwait(false);
+            new SugarParameter("@ArticleIds", FormatIntegerArray(articleIds))).ConfigureAwait(false);
         var found = new Dictionary<int, AuthorArticlePinArticleFact>(articleIds.Count);
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
@@ -112,4 +112,11 @@ public sealed class SqlAuthorArticlePinArticleProjectionSource(ISqlSugarClient d
         }
         return facts;
     }
+
+    private static string FormatIntegerArray(IEnumerable<int> values)
+        => string.Concat(
+            "{",
+            string.Join(',', values.Select(static value =>
+                value.ToString(System.Globalization.CultureInfo.InvariantCulture))),
+            "}");
 }

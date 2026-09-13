@@ -105,7 +105,8 @@ export function checkAuthorArticlePinProjection(repositoryRoot = root)
     {
         violations.push(`${serviceFile}: projection must not implement pin or article writes`);
     }
-    if (!/WHERE a\.id = ANY\(@ArticleIds\)/u.test(articleSource)
+    if (!/WHERE a\.id = ANY\(CAST\(@ArticleIds AS integer\[\]\)\)/u.test(articleSource)
+        || !/new SugarParameter\("@ArticleIds", FormatIntegerArray\(articleIds\)\)/u.test(articleSource)
         || /WHERE a\.(?:title|slug)\s*=\s*ANY/iu.test(articleSource))
     {
         violations.push(`${sourceFile}: article resolution must be one stable-id batch query`);
