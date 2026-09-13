@@ -723,7 +723,9 @@ public sealed class PublicHotArtifactUpdateWorker(
             logger.LogWarning(ex, "public-hot obligation failed {ObligationId} {Attempt} {State} {FailureKind}", obligation.ObligationId, obligation.AttemptNumber, failed.State, failed.LastFailureKind);
             if (failed.IsTerminal && obligation.FragmentKeys is { Count: > 0 })
             {
-                store.InvalidateDistributedSnapshot("fragment-rebuild-failed");
+                store.InvalidateDistributedSnapshot(
+                    "fragment-rebuild-failed",
+                    PublicHotReadInvalidationPolicy.DropToEmpty);
                 await using AsyncServiceScope failureScope = scopeFactory.CreateAsyncScope();
                 await RecordDistributedFullReconcileAsync(
                         failureScope.ServiceProvider,

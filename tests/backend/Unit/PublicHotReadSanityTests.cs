@@ -58,15 +58,210 @@ public sealed class PublicHotReadSanityTests
     }
 
     [Fact]
-    public async Task Request_StaleSnapshotFallsBackWithoutServingOldBytes()
+    public async Task Request_AgeStaleIntegrityValidReadySnapshotServesLastGoodAndSchedulesCoalescedRefresh()
     {
         var clock = new MutableTimeProvider(s_now);
         PublicHotReadOptions options = SanityOptions();
         options.MaxSnapshotAge = TimeSpan.FromMinutes(1);
         var store = new PublicHotReadStore(options: Options.Create(options), timeProvider: clock);
         var counters = new PublicHotReadCounters(Options.Create(options));
-        store.Publish(Snapshot(Frame([1, 2, 3, 4]), s_now));
+        byte[] frame = Frame([1, 2, 3, 4]);
+        store.Publish(Snapshot(frame, s_now));
         clock.Advance(TimeSpan.FromMinutes(2));
+        DefaultHttpContext first = Context("/api/binary/article/42.aeds");
+        DefaultHttpContext second = Context("/api/binary/article/42.aeds");
+        int nextCalled = 0;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            first,
+            _ =>
+            {
+                nextCalled++;
+                return Task.CompletedTask;
+            },
+            store,
+            options,
+            counters);
+        await PublicHotReadFastPath.TryServeAsync(
+            second,
+            _ =>
+            {
+                nextCalled++;
+                return Task.CompletedTask;
+            },
+            store,
+            options,
+            counters);
+
+        Assert.Equal(0, nextCalled);
+        Assert.Equal(StatusCodes.Status200OK, first.Response.StatusCode);
+        Assert.Equal(frame, ((MemoryStream)first.Response.Body).ToArray());
+        Assert.Equal(frame, ((MemoryStream)second.Response.Body).ToArray());
+        Assert.True(store.TryGetRequestSnapshot(out PublicHotReadSnapshot snapshot, out string reason));
+        Assert.Equal("last-good", reason);
+        Assert.Same(store.LastGoodSnapshotForTests, snapshot);
+        Assert.True(store.LastGoodSnapshotForTests.Version > 0);
+        Assert.True(store.ShouldRefreshSnapshot());
+        Assert.True(store.CoalescedRefreshPendingForTests);
+        Assert.Equal("last-good", store.CoalescedRefreshReasonForTests);
+        PublicHotReadCounterSnapshot metrics = counters.Snapshot();
+        Assert.Equal(2, metrics.LastGoodHit);
+        Assert.Equal(0, metrics.FreshL0Hit);
+        Assert.Equal(0, metrics.SanityFallback);
+        Assert.Equal(2, metrics.ArticleHit);
+    }
+
+    [Fact]
+    public async Task Request_CorruptOrUnauthorizedMustNotServeLastGoodEvenWhenAgeStale()
+    {
+        var clock = new MutableTimeProvider(s_now);
+        PublicHotReadOptions options = SanityOptions();
+        options.MaxSnapshotAge = TimeSpan.FromMinutes(1);
+        byte[] frame = Frame([1, 2, 3, 4]);
+        var store = new PublicHotReadStore(options: Options.Create(options), timeProvider: clock);
+        var counters = new PublicHotReadCounters(Options.Create(options));
+        store.Publish(Snapshot(frame, s_now));
+        clock.Advance(TimeSpan.FromMinutes(2));
+        frame[0] ^= 0xff;
+        DefaultHttpContext corrupt = Context("/api/binary/article/42.aeds");
+        bool corruptNext = false;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            corrupt,
+            _ =>
+            {
+                corruptNext = true;
+                return Task.CompletedTask;
+            },
+            store,
+            options,
+            counters);
+
+        Assert.True(corruptNext);
+        Assert.Equal(0, corrupt.Response.Body.Length);
+        Assert.Equal(1, counters.Snapshot().SanityFallback);
+        Assert.Equal(0, counters.Snapshot().LastGoodHit);
+        Assert.Equal(0, counters.Snapshot().FreshL0Hit);
+
+        DefaultHttpContext unauthorized = Context("/api/binary/article/42.aeds");
+        unauthorized.Request.Headers.Origin = "https://evil.example";
+        bool unauthorizedNext = false;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            unauthorized,
+            _ =>
+            {
+                unauthorizedNext = true;
+                return Task.CompletedTask;
+            },
+            store,
+            options,
+            counters);
+
+        Assert.True(unauthorizedNext);
+        Assert.Equal(0, unauthorized.Response.Body.Length);
+        Assert.Equal(0, counters.Snapshot().LastGoodHit);
+    }
+
+    [Fact]
+    public async Task Request_FreshL0HitLastGoodHitAndFallbackToEndpointAreDistinguishable()
+    {
+        var clock = new MutableTimeProvider(s_now);
+        PublicHotReadOptions options = SanityOptions();
+        options.MaxSnapshotAge = TimeSpan.FromMinutes(1);
+        byte[] frame = Frame([9, 8, 7]);
+        var store = new PublicHotReadStore(options: Options.Create(options), timeProvider: clock);
+        var counters = new PublicHotReadCounters(Options.Create(options));
+        store.Publish(Snapshot(frame, s_now));
+
+        await PublicHotReadFastPath.TryServeAsync(
+            Context("/api/binary/article/42.aeds"),
+            _ => Task.CompletedTask,
+            store,
+            options,
+            counters);
+
+        PublicHotReadCounterSnapshot fresh = counters.Snapshot();
+        Assert.Equal(1, fresh.FreshL0Hit);
+        Assert.Equal(0, fresh.LastGoodHit);
+        Assert.Equal(0, fresh.SanityFallback);
+
+        clock.Advance(TimeSpan.FromMinutes(2));
+
+        await PublicHotReadFastPath.TryServeAsync(
+            Context("/api/binary/article/42.aeds"),
+            _ => Task.CompletedTask,
+            store,
+            options,
+            counters);
+
+        PublicHotReadCounterSnapshot lastGood = counters.Snapshot();
+        Assert.Equal(1, lastGood.FreshL0Hit);
+        Assert.Equal(1, lastGood.LastGoodHit);
+        Assert.Equal(0, lastGood.SanityFallback);
+
+        byte[] tampered = Frame([1, 2, 3, 4]);
+        store.Publish(Snapshot(tampered, clock.GetUtcNow(), version: 2));
+        tampered[1] ^= 0xff;
+        bool fallback = false;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            Context("/api/binary/article/42.aeds"),
+            _ =>
+            {
+                fallback = true;
+                return Task.CompletedTask;
+            },
+            store,
+            options,
+            counters);
+
+        Assert.True(fallback);
+        PublicHotReadCounterSnapshot metrics = counters.Snapshot();
+        Assert.Equal(1, metrics.FreshL0Hit);
+        Assert.Equal(1, metrics.LastGoodHit);
+        Assert.Equal(1, metrics.SanityFallback);
+    }
+
+    [Fact]
+    public void RetiringWeakRefs_AreNotTheRequestServingStore()
+    {
+        var clock = new MutableTimeProvider(s_now);
+        PublicHotReadOptions options = SanityOptions();
+        var store = new PublicHotReadStore(options: Options.Create(options), timeProvider: clock);
+        store.Publish(Snapshot(Frame([1]), s_now, version: 1));
+        PublicHotReadSnapshot first = store.Current;
+        store.Publish(Snapshot(Frame([2]), s_now, version: 2));
+
+        Assert.True(store.TryGetRequestSnapshot(out PublicHotReadSnapshot served, out string reason));
+        Assert.Equal("ok", reason);
+        Assert.Equal(2, served.Version);
+        Assert.Equal(2, store.LastGoodSnapshotForTests.Version);
+        Assert.NotSame(first, store.LastGoodSnapshotForTests);
+        Assert.Equal(1, store.RetiringSnapshotForTests().SnapshotCount);
+
+        store.InvalidateDistributedSnapshot("test-drop", PublicHotReadInvalidationPolicy.DropToEmpty);
+
+        Assert.False(store.TryGetRequestSnapshot(out PublicHotReadSnapshot afterDrop, out string dropReason));
+        Assert.StartsWith("invalidated-drop-to-empty:", dropReason, StringComparison.Ordinal);
+        Assert.Equal(0, afterDrop.Version);
+        Assert.Equal(0, store.LastGoodSnapshotForTests.Version);
+        Assert.Equal(PublicHotReadInvalidationPolicy.DropToEmpty, store.LastInvalidationPolicyForTests);
+        Assert.Equal("test-drop", store.LastInvalidationReasonForTests);
+        Assert.Equal(0, store.RetiringSnapshotForTests().SnapshotCount);
+        Assert.False(store.IsReady);
+    }
+
+    [Fact]
+    public async Task InvalidateDistributed_DropToEmpty_DoesNotServePriorBytesAndNamesReason()
+    {
+        var clock = new MutableTimeProvider(s_now);
+        PublicHotReadOptions options = SanityOptions();
+        var store = new PublicHotReadStore(options: Options.Create(options), timeProvider: clock);
+        var counters = new PublicHotReadCounters(Options.Create(options));
+        byte[] frame = Frame([4, 5, 6]);
+        store.Publish(Snapshot(frame, s_now));
+        store.InvalidateDistributedSnapshot("content-must-drop", PublicHotReadInvalidationPolicy.DropToEmpty);
         DefaultHttpContext context = Context("/api/binary/article/42.aeds");
         bool nextCalled = false;
 
@@ -81,9 +276,54 @@ public sealed class PublicHotReadSanityTests
             options,
             counters);
 
-        Assert.True(nextCalled);
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, context.Response.StatusCode);
         Assert.Equal(0, context.Response.Body.Length);
-        Assert.Equal(1, counters.Snapshot().SanityFallback);
+        Assert.False(store.TryGetRequestSnapshot(out _, out string reason));
+        Assert.Equal("invalidated-drop-to-empty:content-must-drop", reason);
+        Assert.Equal(0, counters.Snapshot().LastGoodHit);
+        Assert.Equal(0, counters.Snapshot().FreshL0Hit);
+    }
+
+    [Fact]
+    public async Task InvalidateDistributed_RetainLastGood_ServesStrongLastGoodAndSchedulesRefresh()
+    {
+        var clock = new MutableTimeProvider(s_now);
+        PublicHotReadOptions options = SanityOptions();
+        var store = new PublicHotReadStore(options: Options.Create(options), timeProvider: clock);
+        var counters = new PublicHotReadCounters(Options.Create(options));
+        byte[] frame = Frame([7, 7, 7]);
+        store.Publish(Snapshot(frame, s_now));
+        PublicHotReadSnapshot retained = store.LastGoodSnapshotForTests;
+        store.InvalidateDistributedSnapshot("rebuild-in-flight", PublicHotReadInvalidationPolicy.RetainLastGood);
+        DefaultHttpContext context = Context("/api/binary/article/42.aeds");
+        bool nextCalled = false;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            },
+            store,
+            options,
+            counters);
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Equal(frame, ((MemoryStream)context.Response.Body).ToArray());
+        Assert.True(store.TryGetRequestSnapshot(out PublicHotReadSnapshot snapshot, out string reason));
+        Assert.Equal("last-good", reason);
+        Assert.Same(retained, snapshot);
+        Assert.Same(retained, store.LastGoodSnapshotForTests);
+        Assert.True(store.IsReady);
+        Assert.True(store.ShouldRefreshSnapshot());
+        Assert.True(store.CoalescedRefreshPendingForTests);
+        Assert.Equal(PublicHotReadInvalidationPolicy.RetainLastGood, store.LastInvalidationPolicyForTests);
+        Assert.Equal(1, counters.Snapshot().LastGoodHit);
+        Assert.Equal(0, counters.Snapshot().FreshL0Hit);
+        Assert.Equal(0, counters.Snapshot().SanityFallback);
     }
 
     [Fact]
