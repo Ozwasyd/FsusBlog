@@ -333,17 +333,17 @@ test('fixture postconditions remain an import-only helper and cannot masquerade 
         function: entry.function,
         excerpt: entry.excerpt
     })), [
-        { findingId: '0161ebbad5c102e4', line: 461, column: 24, function: 'verifyCommentMatrix',
+        { findingId: 'c320fd68bf776601', line: 466, column: 24, function: 'verifyCommentMatrix',
             excerpt: 'const fields = matches[0].fields ?? {}' },
-        { findingId: '93c19c86428bad07', line: 503, column: 38, function: 'verifyCommentMatrix',
+        { findingId: '0da8f6697ce62c8a', line: 508, column: 38, function: 'verifyCommentMatrix',
             excerpt: "|| spam.signalEvidence.some((evidence) => String(evidence?.commentId) !== String(one('spam')[0].id)" },
-        { findingId: 'bda3eb9cd23f19ee', line: 523, column: 13, function: 'verifyCommentMatrix',
+        { findingId: '4af2e85c52a87447', line: 528, column: 13, function: 'verifyCommentMatrix',
             excerpt: "const root = one('approved-root')[0]" },
-        { findingId: 'dad5302ebd3636da', line: 561, column: 24, function: 'verifyCommentMatrix',
+        { findingId: '04e6e29093ac133d', line: 566, column: 24, function: 'verifyCommentMatrix',
             excerpt: "if (one('deleted-root-child')[0]?.fields?.publicVisible !== true) {" },
-        { findingId: '53dda5d48e67b80f', line: 564, column: 40, function: 'verifyCommentMatrix',
+        { findingId: '7a2d09e0b0884671', line: 569, column: 40, function: 'verifyCommentMatrix',
             excerpt: "const deletedRoot = one('deleted-root')[0]" },
-        { findingId: '1eab0cd97c6edc4c', line: 565, column: 41, function: 'verifyCommentMatrix',
+        { findingId: '46db740a792364cf', line: 570, column: 41, function: 'verifyCommentMatrix',
             excerpt: "const deletedChild = one('deleted-root-child')[0]" }
     ]);
     assert(findings.every((entry) => entry.ruleId === 'evidence-selection.first-match'
@@ -362,7 +362,7 @@ test('fixture postconditions remain an import-only helper and cannot masquerade 
             'const fields = matches.at(0).fields ?? {}'));
     const replacedSelector = scanEvidenceLocations({ root: mutationRoot, files: [source] });
     assert.throws(() => validateEvidenceLocationClassificationOverrides(replacedSelector),
-        /non-evidence finding override 0161ebbad5c102e4 changed (?:column|excerpt)/u);
+        /non-evidence finding override c320fd68bf776601 changed (?:column|excerpt)/u);
     const findingIds = new Set(findings.map((entry) => entry.findingId));
     const ledgerEntries = generated.ledger.entries.filter((entry) => findingIds.has(entry.findingId));
     assert.equal(ledgerEntries.length, findings.length);

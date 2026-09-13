@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "release-locator-current-run-authority",
+            "paths": [
+                "config/testing/evidence-location-migration-ledger.json",
+                "tools/test/generate-evidence-location-governance.mjs"
+            ],
+            "reason": "Preserve the existing current-run evidence authority and caller-visible locator spellings while resealing exact finding identities and source locations."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/current-run-evidence-location-acceptance.json"
+            ],
+            "reason": "Preserve the current-run acceptance receipt wire keys while its canonical finding identities, counts, digests, and source locations are resealed."
+        }
+    ]
+}
