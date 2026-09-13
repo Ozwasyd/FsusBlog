@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
+                "src/backend/Services/Authoring/AuthorSavedViewContracts.cs",
+                "src/backend/Services/Authoring/PostgresAuthorSavedViewDependencyProvider.cs"
+            ],
+            "reason": "The registered C# surfaces preserve caller-visible process environment spellings while Saved View query and dependency symbols follow repository naming rules."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/Fixtures/postgres-test-collections.json"
+            ],
+            "reason": "Preserve the canonical serialized PostgreSQL collection manifest keys while registering the query dependency integration test."
+        }
+    ]
+}

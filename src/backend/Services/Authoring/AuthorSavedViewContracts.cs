@@ -3,6 +3,8 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
+using FsusBlog.Server.Entities;
+
 namespace FsusBlog.Server.Services.Authoring;
 
 /// <summary>
@@ -163,14 +165,11 @@ public static class AuthorSavedViewContract
                 AuthorSavedViewOperatorCardinality.MultipleSet)
         });
 
-    private static readonly HashSet<string> s_lifecycleStatuses = new(StringComparer.Ordinal)
-    {
-        "inbox",
-        "draft",
-        "scheduled",
-        "published",
-        "archived"
-    };
+    private static readonly ReadOnlyDictionary<string, string> s_lifecycleStatuses =
+        new(Enum.GetValues<ArticleStatus>().ToDictionary(
+            static status => status.ToString(),
+            static status => status.ToString().ToLowerInvariant(),
+            StringComparer.OrdinalIgnoreCase));
 
     public static AuthorSavedViewSchemaVersionPolicy SchemaPolicy
     {
@@ -358,7 +357,10 @@ public static class AuthorSavedViewContract
             && descriptor.AcceptsIdentity(field.Identity);
 
     internal static bool IsLifecycleStatus(string value)
-        => s_lifecycleStatuses.Contains(value);
+        => CanonicalizeLifecycleStatus(value) is not null;
+
+    internal static string? CanonicalizeLifecycleStatus(string value)
+        => s_lifecycleStatuses.GetValueOrDefault(value);
 
     private static AuthorSavedViewOperatorDescriptor DateOperator(
         string id,
@@ -861,7 +863,10 @@ public sealed class AuthorSavedViewDependencyCatalog(
                 AuthorSavedViewDependencyStatus.Current,
                 "saved-view-contract-v1",
                 descriptor,
-                [.. condition.Values]);
+                condition.Field.Kind == AuthorSavedViewFieldKind.LifecycleStatus
+                    ? [.. condition.Values.Select(value =>
+                        AuthorSavedViewContract.CanonicalizeLifecycleStatus(value)!)]
+                    : [.. condition.Values]);
         }
 
         AuthorSavedViewDependencyFact? fact = await ResolveFromProvidersAsync(
