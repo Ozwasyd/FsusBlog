@@ -2658,7 +2658,7 @@ tiers:
           - backend-endpoint-security-metadata-and-testserver
           - backend-admin-console-endpoint-behavior
           - backend-admin-console-persistence-behavior
-          - backend-auth-mfa-pow-session-state-machine
+          - backend-auth-passkey-risk-mfa-session-state-machine
           - backend-race-idempotency-model
           - backend-fault-race-readiness
           - backend-search-index-utf8-scalar-owner
@@ -10174,7 +10174,7 @@ tiers:
           - backend-admin-console-endpoint-behavior
           - backend-admin-console-persistence-behavior
           - frontend-admin-console-behavior
-          - backend-auth-mfa-pow-session-state-machine
+          - backend-auth-passkey-risk-mfa-session-state-machine
           - backend-race-idempotency-model
           - backend-fault-race-readiness
           - backend-audit-behavior
@@ -10213,7 +10213,7 @@ tiers:
           - tests/backend/Unit/AdminConsistencyContractTests.cs
           - docs/testing.md
           - tests/frontend/unit/api/admin.test.ts
-          - tests/backend/Unit/BackendAuthStateMachineTests.cs
+          - tests/backend/Unit/MfaLoginEndpointPostgresTests.cs
           - tests/backend/Integration/UserSessionRevocationIntegrationTests.cs
           - .tmp/backend-concurrency/summary.json
           - tests/backend/Unit/AuditProjectionBehaviorTests.cs
@@ -10359,7 +10359,7 @@ tiers:
       cadence: pr
       requiredFor: fast
       coverage:
-          - backend-auth-mfa-pow-session-state-machine
+          - backend-auth-passkey-risk-mfa-session-state-machine
           - backend-endpoint-security-metadata-and-testserver
           - backend-user-session-revocation-enforcement
           - backend-auth-cookie-jwt-expiry-alignment
@@ -10373,7 +10373,7 @@ tiers:
           ]
       evidence:
           - .tmp/backend-auth-state-machine/summary.json
-          - tests/backend/Unit/BackendAuthStateMachineTests.cs
+          - tests/backend/Unit/MfaLoginEndpointPostgresTests.cs
           - tests/backend/Unit/ShieldMiddlewareTests.cs
           - tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs
           - tests/backend/Unit/SubscriptionEndpointsContractTests.cs
@@ -10476,6 +10476,7 @@ tiers:
           - tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs
           - tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs
           - tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs
+          - tests/backend/Unit/MfaLoginEndpointPostgresTests.cs
           - tests/backend/Integration/PasskeyRegistrationProjectionIntegrationTests.cs
           - tests/backend/Unit/AuthoringUserBanConcurrencyTests.cs
           - tests/backend/Unit/SecurityChallengePersistenceTests.cs
@@ -10719,7 +10720,7 @@ tiers:
       coverage:
           - backend-stryker-core-security-binary-cache
           - backend-security-hardening-boundary-and-ast
-          - backend-auth-mfa-pow-session-state-machine
+          - backend-auth-passkey-risk-mfa-session-state-machine
           - backend-race-idempotency-model
           - backend-fault-race-readiness
       artifacts: [.tmp/mutation/backend]
@@ -10729,6 +10730,7 @@ tiers:
           - tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs
           - tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs
           - tests/backend/Unit/SecurityChallengePersistenceTests.cs
+          - tests/backend/Unit/MfaLoginEndpointPostgresTests.cs
       ciJob: backend-mutation
       localOnly: false
       nightlyOnly: true

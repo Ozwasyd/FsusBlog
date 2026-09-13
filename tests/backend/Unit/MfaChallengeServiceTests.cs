@@ -3,6 +3,7 @@ using System.Reflection;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.Security;
 
 using Microsoft.Extensions.Configuration;
@@ -14,12 +15,13 @@ public sealed class MfaChallengeServiceTests
     private static readonly string s_uppercaseSubjectHash = new string('A', AccountSubjectHashRequirement.Sha256HexLength);
     private static readonly string s_atomicSubjectHash = new string('b', AccountSubjectHashRequirement.Sha256HexLength);
     private static readonly string s_lockedSubjectHash = new string('c', AccountSubjectHashRequirement.Sha256HexLength);
+    private static readonly byte[] s_deviceKey = Enumerable.Range(1, 32).Select(static value => (byte)value).ToArray();
 
     [Fact]
     public async Task RecordFailureAsync_SameAccountSubjectHashSharesCounterAcrossAccountIds()
     {
         var cache = new RecordingCounterCache();
-        var service = new MfaChallengeService(cache, cache, cache, cache, cache, NullLogger<MfaChallengeService>.Instance);
+        var service = CreateService(cache);
         const string SubjectHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
         bool locked = false;
@@ -47,7 +49,7 @@ public sealed class MfaChallengeServiceTests
     public async Task RecordFailureAsync_NormalizesSubjectHashBeforeBuildingCounterKey()
     {
         var cache = new RecordingCounterCache();
-        var service = new MfaChallengeService(cache, cache, cache, cache, cache, NullLogger<MfaChallengeService>.Instance);
+        var service = CreateService(cache);
 
         await service.RecordFailureAsync(
             new MfaChallengeTicket
@@ -69,7 +71,7 @@ public sealed class MfaChallengeServiceTests
     public async Task RecordFailureAsync_UsesSingleAtomicCounterSnapshot()
     {
         var cache = new RecordingCounterCache();
-        var service = new MfaChallengeService(cache, cache, cache, cache, cache, NullLogger<MfaChallengeService>.Instance);
+        var service = CreateService(cache);
 
         await service.RecordFailureAsync(
             new MfaChallengeTicket
@@ -98,7 +100,7 @@ public sealed class MfaChallengeServiceTests
     {
         var cache = new RecordingCounterCache();
         cache.Counters["fail:subject:" + s_lockedSubjectHash] = 9;
-        var service = new MfaChallengeService(cache, cache, cache, cache, cache, NullLogger<MfaChallengeService>.Instance);
+        var service = CreateService(cache);
 
         bool locked = await service.RecordFailureAsync(
             new MfaChallengeTicket
@@ -166,6 +168,7 @@ public sealed class MfaChallengeServiceTests
             cache,
             cache,
             NullLogger<MfaChallengeService>.Instance,
+            CreateMetadataProtector(),
             configuration);
         var ticket = new MfaChallengeTicket
         {
@@ -194,6 +197,86 @@ public sealed class MfaChallengeServiceTests
     }
 
     [Fact]
+    public async Task MfaChallenge_IsDeviceBoundWithoutPersistingRawSignal()
+    {
+        const string RawDevice = "Client-Supplied-Mfa-Device";
+        var cache = new RecordingCounterCache();
+        var service = CreateService(cache);
+
+        MfaChallengeTicket ticket = await service.CreateActionChallengeAsync(
+            42,
+            s_atomicSubjectHash,
+            "passkey.delete",
+            riskTriggered: true,
+            deviceSignal: RawDevice);
+
+        Assert.NotNull(ticket.DeviceSignalHash);
+        Assert.Equal(1, ticket.DeviceSignalEpoch);
+        Assert.NotEqual(RawDevice, ticket.DeviceSignalHash);
+        string persisted = Assert.Single(cache.Strings).Value;
+        MethodInfo decodeBase64Url = typeof(MfaChallengeService).GetMethod(
+            "Base64UrlDecode",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        byte[] persistedBytes = Assert.IsType<byte[]>(decodeBase64Url.Invoke(null, [persisted]));
+        Assert.DoesNotContain(
+            RawDevice,
+            System.Text.Encoding.UTF8.GetString(persistedBytes),
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Null(await service.GetChallengeAsync(ticket.TicketId, "other-device"));
+        Assert.NotNull(await service.GetChallengeAsync(ticket.TicketId, RawDevice));
+
+        MfaChallengeTicket wrongAccount = ticket with
+        {
+            AccountId = 43
+        };
+        Assert.Null(await service.ConsumeChallengeOnceAsync(wrongAccount, RawDevice));
+        Assert.NotNull(await service.ConsumeChallengeOnceAsync(ticket, RawDevice));
+        Assert.Null(await service.ConsumeChallengeOnceAsync(ticket, RawDevice));
+    }
+
+    [Fact]
+    public async Task MfaChallenge_AtomicConsumeAllowsExactlyOneConcurrentContinuation()
+    {
+        var cache = new RecordingCounterCache();
+        var service = CreateService(cache);
+        MfaChallengeTicket ticket = await service.CreateLoginChallengeAsync(
+            42,
+            s_atomicSubjectHash,
+            riskTriggered: true,
+            rememberMe: true,
+            deviceSignal: "device-a");
+
+        Task<MfaChallengeTicket?>[] attempts = Enumerable.Range(0, 12)
+            .Select(_ => service.ConsumeChallengeOnceAsync(ticket, "device-a"))
+            .ToArray();
+        MfaChallengeTicket?[] results = await Task.WhenAll(attempts);
+
+        Assert.Single(results, static result => result is not null);
+        Assert.Equal(11, results.Count(static result => result is null));
+        Assert.Null(await service.GetChallengeAsync(ticket.TicketId, "device-a"));
+    }
+
+    [Fact]
+    public async Task MfaChallenge_ExpiredOrCrossDeviceAttemptHasNoConsumableResult()
+    {
+        var cache = new RecordingCounterCache();
+        var service = CreateService(cache);
+        MfaChallengeTicket ticket = await service.CreateLoginChallengeAsync(
+            42,
+            s_atomicSubjectHash,
+            riskTriggered: true,
+            rememberMe: false,
+            deviceSignal: "device-a");
+
+        Assert.Null(await service.ConsumeChallengeOnceAsync(ticket, "device-b"));
+        Assert.NotNull(await service.GetChallengeAsync(ticket.TicketId, "device-a"));
+
+        cache.Expire(ticket.TicketId);
+        Assert.Null(await service.GetChallengeAsync(ticket.TicketId, "device-a"));
+        Assert.Null(await service.ConsumeChallengeOnceAsync(ticket, "device-a"));
+    }
+
+    [Fact]
     public async Task MfaProofTokens_AreBoundToSubjectActionAndCryptographicRandomness()
     {
         var cache = new RecordingCounterCache();
@@ -210,6 +293,7 @@ public sealed class MfaChallengeServiceTests
             cache,
             cache,
             NullLogger<MfaChallengeService>.Instance,
+            CreateMetadataProtector(),
             configuration);
         string first = await service.CreateProofTokenAsync(42, s_atomicSubjectHash, "session-a", "passkey.delete", UserSessionAuthenticationMethods.Passkey, TimeSpan.FromMinutes(1));
         string second = await service.CreateProofTokenAsync(42, s_atomicSubjectHash, "session-a", "passkey.delete", UserSessionAuthenticationMethods.Passkey, TimeSpan.FromMinutes(1));
@@ -244,7 +328,8 @@ public sealed class MfaChallengeServiceTests
             cache,
             cache,
             cache,
-            NullLogger<MfaChallengeService>.Instance);
+            NullLogger<MfaChallengeService>.Instance,
+            CreateMetadataProtector());
 
         string replayToken = await service.CreateProofTokenAsync(
             42,
@@ -296,6 +381,25 @@ public sealed class MfaChallengeServiceTests
         }
     }
 
+    private static MfaChallengeService CreateService(RecordingCounterCache cache)
+        => new(
+            cache,
+            cache,
+            cache,
+            cache,
+            cache,
+            NullLogger<MfaChallengeService>.Instance,
+            CreateMetadataProtector(),
+            new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["MfaChallenge:TicketSigningKey"] = "unit-test-ticket-signing-key-with-at-least-32-characters"
+                })
+                .Build());
+
+    private static IUserSessionMetadataProtector CreateMetadataProtector()
+        => new UserSessionMetadataProtector(new SecurityRiskPseudonymizer(1, s_deviceKey));
+
     private sealed class RecordingCounterCache : IUnifiedCache
     {
         public Dictionary<string, long> Counters { get; } = new(StringComparer.Ordinal);
@@ -305,6 +409,7 @@ public sealed class MfaChallengeServiceTests
         public List<TimeSpan> AtomicIncrementBatchTtls { get; } = [];
         public List<string> StringWriteIdentities { get; } = [];
         public HashSet<string> ActiveStringIdentities { get; } = new(StringComparer.Ordinal);
+        public Dictionary<string, string> Strings { get; } = new(StringComparer.Ordinal);
         public int SingleIncrementCalls
         {
             get; private set;
@@ -326,13 +431,22 @@ public sealed class MfaChallengeServiceTests
             => Task.CompletedTask;
 
         public Task<string?> GetStringAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
-            => Task.FromResult<string?>(null);
+        {
+            lock (Strings)
+            {
+                return Task.FromResult(Strings.GetValueOrDefault(identity));
+            }
+        }
 
         public Task SetStringAsync(CachePolicyId policyId, string identity, string value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
         {
             StringWriteIdentities.Add(identity);
             StringWriteTtls.Add(l2TtlOverride);
             ActiveStringIdentities.Add(identity);
+            lock (Strings)
+            {
+                Strings[identity] = value;
+            }
             return Task.CompletedTask;
         }
 
@@ -372,12 +486,38 @@ public sealed class MfaChallengeServiceTests
             => Task.FromResult(ActiveStringIdentities.Remove(identity));
 
         public Task<CacheReadResult<T>> ConsumeOnceAndGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default)
-            => Task.FromResult(new CacheReadResult<T>(false, default));
+        {
+            lock (Strings)
+            {
+                if (!Strings.Remove(identity, out string? value))
+                {
+                    return Task.FromResult(new CacheReadResult<T>(false, default));
+                }
+
+                ActiveStringIdentities.Remove(identity);
+                (bool success, T? decoded) = decoder(System.Text.Encoding.UTF8.GetBytes(value));
+                return Task.FromResult(new CacheReadResult<T>(success, success ? decoded : default));
+            }
+        }
 
         public Task RemoveAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
         {
             Removed.Add(identity);
+            lock (Strings)
+            {
+                Strings.Remove(identity);
+                ActiveStringIdentities.Remove(identity);
+            }
             return Task.CompletedTask;
+        }
+
+        public void Expire(string identity)
+        {
+            lock (Strings)
+            {
+                Strings.Remove(identity);
+                ActiveStringIdentities.Remove(identity);
+            }
         }
 
         public Task RemoveManyAsync(IReadOnlyList<CacheKeyIdentity> keys, CancellationToken cancellationToken = default)

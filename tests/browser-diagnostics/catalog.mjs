@@ -90,7 +90,7 @@ const replacementLayers = Object.freeze({
     'tests/frontend/unit/router/index.test.ts'
   ],
   'runtime-risk': [
-    'tests/backend/Unit/BackendAuthStateMachineTests.cs',
+    'tests/backend/Unit/MfaLoginEndpointPostgresTests.cs',
     'tests/frontend/unit/router/index.test.ts',
     'tests/frontend/unit/services/authBroadcastRuntime.test.ts'
   ]

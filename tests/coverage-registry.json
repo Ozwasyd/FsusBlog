@@ -767,12 +767,12 @@
             ]
         },
         {
-            "id": "backend-auth-mfa-pow-session-state-machine",
-            "description": "Backend Auth MFA Pow Session State Machine is covered by unit/property tests that exercise the named behavior.",
+            "id": "backend-auth-passkey-risk-mfa-session-state-machine",
+            "description": "Canonical Passkey and risk-controlled MFA login transitions are covered through the real endpoint, PostgreSQL session storage, concurrent continuation consumption, and supporting security tests.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
-                "tests/backend/Unit/BackendAuthStateMachineTests.cs",
+                "tests/backend/Unit/MfaLoginEndpointPostgresTests.cs",
                 "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs",
                 "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
                 "tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs",
@@ -780,7 +780,7 @@
             ],
             "assertionType": "unit",
             "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-            "minimumRequirement": "The referenced unit or property test evidence must execute assertions for this behavior, not merely prove that a source file exists.",
+            "minimumRequirement": "The referenced unit-project evidence must execute the canonical Passkey and MFA endpoints against PostgreSQL and prove session, token, cookie, replay, device, account, and concurrency side effects.",
             "tierIds": [
                 "backend-auth-state-machine",
                 "backend-unit",
