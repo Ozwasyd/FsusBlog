@@ -272,18 +272,20 @@ public static partial class PublicHotReadFastPath
             }
             return next(ctx);
         }
+
+        bool lastGood = string.Equals(snapshotState, "last-good", StringComparison.Ordinal);
         if (classified)
         {
             return route.Kind switch
             {
-                PublicHotReadRouteKind.Category => ServeCategory(ctx, next, snapshot, counters, options, isDevelopment),
-                PublicHotReadRouteKind.Tag => ServeTag(ctx, next, snapshot, counters, options, isDevelopment),
-                PublicHotReadRouteKind.ArticleDetail => ServeArticle(ctx, next, snapshot, counters, route.ArticleId, options, isDevelopment),
-                PublicHotReadRouteKind.ArticleList => ServeList(ctx, next, snapshot, counters, route.ListKey, options, isDevelopment),
-                PublicHotReadRouteKind.ArticleHot => ServeList(ctx, next, snapshot, counters, route.ListKey, options, isDevelopment),
-                PublicHotReadRouteKind.ArticleFeatured => ServeList(ctx, next, snapshot, counters, route.ListKey, options, isDevelopment),
-                PublicHotReadRouteKind.ArticleHtml => ServeHtml(ctx, next, snapshot, counters, route.HtmlRouteKey, options, isDevelopment),
-                PublicHotReadRouteKind.PublicHtml => ServePublicHtml(ctx, next, snapshot, counters, route.HtmlRouteKey, options, isDevelopment),
+                PublicHotReadRouteKind.Category => ServeCategory(ctx, next, snapshot, counters, options, isDevelopment, lastGood),
+                PublicHotReadRouteKind.Tag => ServeTag(ctx, next, snapshot, counters, options, isDevelopment, lastGood),
+                PublicHotReadRouteKind.ArticleDetail => ServeArticle(ctx, next, snapshot, counters, route.ArticleId, options, isDevelopment, lastGood),
+                PublicHotReadRouteKind.ArticleList => ServeList(ctx, next, snapshot, counters, route.ListKey, options, isDevelopment, lastGood),
+                PublicHotReadRouteKind.ArticleHot => ServeList(ctx, next, snapshot, counters, route.ListKey, options, isDevelopment, lastGood),
+                PublicHotReadRouteKind.ArticleFeatured => ServeList(ctx, next, snapshot, counters, route.ListKey, options, isDevelopment, lastGood),
+                PublicHotReadRouteKind.ArticleHtml => ServeHtml(ctx, next, snapshot, counters, route.HtmlRouteKey, options, isDevelopment, lastGood),
+                PublicHotReadRouteKind.PublicHtml => ServePublicHtml(ctx, next, snapshot, counters, route.HtmlRouteKey, options, isDevelopment, lastGood),
                 _ => WriteRejected(ctx, counters, isDevelopment)
             };
         }
@@ -414,7 +416,8 @@ public static partial class PublicHotReadFastPath
         PublicHotReadCounters counters,
         int articleId,
         PublicHotReadOptions options,
-        bool isDevelopment)
+        bool isDevelopment,
+        bool lastGood)
     {
         if (!snapshot.TryGetArticle(articleId, out PublicBinaryArtifact artifact))
         {
@@ -434,7 +437,8 @@ public static partial class PublicHotReadFastPath
             options,
             "article",
             artifactKey,
-            isDevelopment);
+            isDevelopment,
+            lastGood);
     }
 
     private static Task ServeList(
@@ -444,7 +448,8 @@ public static partial class PublicHotReadFastPath
         PublicHotReadCounters counters,
         in PublicListKey key,
         PublicHotReadOptions options,
-        bool isDevelopment)
+        bool isDevelopment,
+        bool lastGood)
     {
         if (!snapshot.TryGetList(key, out PublicBinaryArtifact artifact))
         {
@@ -462,7 +467,8 @@ public static partial class PublicHotReadFastPath
             options,
             PublicListArtifactKind(key.Kind),
             artifactKey,
-            isDevelopment);
+            isDevelopment,
+            lastGood);
     }
 
     private static Task ServeCategory(
@@ -471,7 +477,8 @@ public static partial class PublicHotReadFastPath
         PublicHotReadSnapshot snapshot,
         PublicHotReadCounters counters,
         PublicHotReadOptions options,
-        bool isDevelopment)
+        bool isDevelopment,
+        bool lastGood)
     {
         if (!snapshot.TryGetCategory(out PublicBinaryArtifact artifact))
         {
@@ -488,7 +495,8 @@ public static partial class PublicHotReadFastPath
             options,
             "category",
             "all",
-            isDevelopment);
+            isDevelopment,
+            lastGood);
     }
 
     private static Task ServeTag(
@@ -497,7 +505,8 @@ public static partial class PublicHotReadFastPath
         PublicHotReadSnapshot snapshot,
         PublicHotReadCounters counters,
         PublicHotReadOptions options,
-        bool isDevelopment)
+        bool isDevelopment,
+        bool lastGood)
     {
         if (!snapshot.TryGetTag(out PublicBinaryArtifact artifact))
         {
@@ -514,7 +523,8 @@ public static partial class PublicHotReadFastPath
             options,
             "tag",
             "all",
-            isDevelopment);
+            isDevelopment,
+            lastGood);
     }
 
     private static Task ServeHtml(
@@ -524,7 +534,8 @@ public static partial class PublicHotReadFastPath
         PublicHotReadCounters counters,
         string routeKey,
         PublicHotReadOptions options,
-        bool isDevelopment)
+        bool isDevelopment,
+        bool lastGood)
     {
         if (!snapshot.TryGetHtml(routeKey, out PublicHtmlArtifact html))
         {
@@ -541,6 +552,7 @@ public static partial class PublicHotReadFastPath
             return next(ctx);
         }
 
+        RecordSnapshotServeHit(counters, lastGood);
         counters.HtmlHit(html.Bytes.Length);
         if (html.RequiresCspNonceMutation)
         {
@@ -635,7 +647,8 @@ public static partial class PublicHotReadFastPath
         PublicHotReadCounters counters,
         string routeKey,
         PublicHotReadOptions options,
-        bool isDevelopment)
+        bool isDevelopment,
+        bool lastGood)
     {
         LocaleResolutionResult resolution = PublicLocaleRequest.Resolve(ctx, s_localeResolver);
         string localizedRouteKey = PublicHotReadRouteKeys.LocalizeHtmlPath(
@@ -649,7 +662,7 @@ public static partial class PublicHotReadFastPath
             return next(ctx);
         }
 
-        return ServeHtml(ctx, next, snapshot, counters, localizedRouteKey, options, isDevelopment);
+        return ServeHtml(ctx, next, snapshot, counters, localizedRouteKey, options, isDevelopment, lastGood);
     }
 
     private static Task WriteBinaryFrame(
@@ -661,7 +674,8 @@ public static partial class PublicHotReadFastPath
         PublicHotReadOptions options,
         string artifactKind,
         string artifactKey,
-        bool isDevelopment)
+        bool isDevelopment,
+        bool lastGood)
     {
         if (!TrySelectBinaryVariant(ctx.Request, artifact, out PublicBinaryArtifactVariant variant))
         {
@@ -673,6 +687,7 @@ public static partial class PublicHotReadFastPath
             counters.Rejected();
             return next(ctx);
         }
+        RecordSnapshotServeHit(counters, lastGood);
         if (string.Equals(artifactKind, "article", StringComparison.Ordinal))
         {
             counters.ArticleHit(artifact.Frame.Length);
@@ -731,6 +746,18 @@ public static partial class PublicHotReadFastPath
 
         ValueTask<FlushResult> write = response.BodyWriter.WriteAsync(frame, ctx.RequestAborted);
         return write.IsCompletedSuccessfully ? s_completed : AwaitWrite(write);
+    }
+
+    private static void RecordSnapshotServeHit(PublicHotReadCounters counters, bool lastGood)
+    {
+        if (lastGood)
+        {
+            counters.LastGoodHit();
+        }
+        else
+        {
+            counters.FreshL0Hit();
+        }
     }
 
     private static bool TrySelectBinaryVariant(

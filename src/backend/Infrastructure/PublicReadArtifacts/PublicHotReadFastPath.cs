@@ -48,6 +48,29 @@ public enum PublicHotReadCounterMode : byte
     Striped = 2
 }
 
+/// <summary>
+/// Named disposition for distributed public-hot-read snapshot invalidation.
+/// Callers must choose empty vs last-good explicitly; retiring
+/// <see cref="WeakReference"/> entries are residency/GC tracking only and
+/// are never a request-serving store.
+/// </summary>
+internal enum PublicHotReadInvalidationPolicy : byte
+{
+    /// <summary>
+    /// Drop current and last-good to <see cref="PublicHotReadSnapshot.Empty"/>.
+    /// New requests must not receive prior bytes. The miss reason is
+    /// <c>invalidated-drop-to-empty:{reason}</c> so this is never a silent
+    /// Empty-then-next().
+    /// </summary>
+    DropToEmpty = 0,
+
+    /// <summary>
+    /// Keep the last Ready, integrity-sealed generation strongly retained
+    /// and requestable as last-good while a coalesced rebuild is scheduled.
+    /// </summary>
+    RetainLastGood = 1
+}
+
 public readonly record struct PublicListKey(
     PublicListKind Kind,
     int TargetId,
@@ -703,7 +726,15 @@ public class PublicHotReadStore
     private readonly bool _initialEarlyDataPlaneEnabled;
     private readonly PublicHotReadBudgetLimits _budgetLimits;
     private readonly string _compressionPolicy;
+    // Weak retiring entries are residency/GC overlap tracking only. They are
+    // not a request-serving last-good store; last-good is _lastGood (strong).
     private readonly List<RetiringSnapshotReference> _retiringSnapshots = [];
+    private PublicHotReadSnapshot _lastGood = PublicHotReadSnapshot.Empty;
+    private int _retainLastGoodUntilPublish;
+    private int _coalescedRefreshRequested;
+    private string _coalescedRefreshReason = string.Empty;
+    private string _lastInvalidationReason = string.Empty;
+    private int _lastInvalidationPolicy;
     private readonly PublicHotReadRetiringLimits _retiringLimits;
     private readonly TimeProvider _timeProvider;
     private readonly TimeSpan _maxSnapshotAge;
@@ -874,7 +905,11 @@ public class PublicHotReadStore
             SetLifecycleStageLocked("admit");
             SetLifecycleStageLocked("publish");
             Volatile.Write(ref _current, next);
+            Volatile.Write(ref _lastGood, next);
             Volatile.Write(ref _ready, 1);
+            Volatile.Write(ref _retainLastGoodUntilPublish, 0);
+            Volatile.Write(ref _coalescedRefreshRequested, 0);
+            Volatile.Write(ref _lastInvalidationReason, string.Empty);
             _lastSnapshotOverlapBytes = overlapBytes;
             _lastBudgetViolations = Array.Empty<string>();
             if (current.Version != 0)
@@ -941,6 +976,21 @@ public class PublicHotReadStore
 
     internal long DistributedInvalidationGenerationForTests
         => Volatile.Read(ref _distributedInvalidationGeneration);
+
+    internal PublicHotReadSnapshot LastGoodSnapshotForTests
+        => Volatile.Read(ref _lastGood);
+
+    internal bool CoalescedRefreshPendingForTests
+        => Volatile.Read(ref _coalescedRefreshRequested) == 1;
+
+    internal string CoalescedRefreshReasonForTests
+        => Volatile.Read(ref _coalescedRefreshReason);
+
+    internal PublicHotReadInvalidationPolicy LastInvalidationPolicyForTests
+        => (PublicHotReadInvalidationPolicy)Volatile.Read(ref _lastInvalidationPolicy);
+
+    internal string LastInvalidationReasonForTests
+        => Volatile.Read(ref _lastInvalidationReason);
 
     internal int ApplyDistributedFragments(IReadOnlyList<string> fragments)
     {
@@ -1053,22 +1103,53 @@ public class PublicHotReadStore
         return false;
     }
 
-    internal void InvalidateDistributedSnapshot(string reason)
+    internal void InvalidateDistributedSnapshot(
+        string reason,
+        PublicHotReadInvalidationPolicy policy)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
         lock (_gate)
         {
+            Volatile.Write(ref _lastInvalidationReason, reason);
+            Volatile.Write(ref _lastInvalidationPolicy, (int)policy);
+            if (policy == PublicHotReadInvalidationPolicy.RetainLastGood)
+            {
+                PublicHotReadSnapshot retained = Current.Version > 0 ? Current : Volatile.Read(ref _lastGood);
+                if (retained.Version > 0)
+                {
+                    Volatile.Write(ref _lastGood, retained);
+                    Volatile.Write(ref _current, retained);
+                    Volatile.Write(ref _ready, 1);
+                    Volatile.Write(ref _retainLastGoodUntilPublish, 1);
+                    TryRequestCoalescedRefreshLocked("last-good:" + reason);
+                    SetLifecycleStageLocked("distributed-invalidated-retain-last-good");
+                    _runtime = CreateRuntimeSnapshotLocked(
+                        nameof(PublicHotReadState.Ready),
+                        retained,
+                        _timeProvider.GetUtcNow(),
+                        reason,
+                        "invalidated-retain-last-good",
+                        null);
+                    Interlocked.Increment(ref _distributedInvalidationGeneration);
+                    return;
+                }
+            }
+
             Volatile.Write(ref _current, PublicHotReadSnapshot.Empty);
+            Volatile.Write(ref _lastGood, PublicHotReadSnapshot.Empty);
             Volatile.Write(ref _ready, 0);
+            Volatile.Write(ref _retainLastGoodUntilPublish, 0);
+            Volatile.Write(ref _coalescedRefreshRequested, 0);
             _retiringSnapshots.Clear();
             _lastSnapshotOverlapBytes = 0;
             _lastBudgetViolations = Array.Empty<string>();
-            SetLifecycleStageLocked("distributed-invalidated");
+            SetLifecycleStageLocked("distributed-invalidated-drop-to-empty");
             _runtime = CreateRuntimeSnapshotLocked(
                 nameof(PublicHotReadState.NotStarted),
                 PublicHotReadSnapshot.Empty,
                 _timeProvider.GetUtcNow(),
                 reason,
-                "invalidated",
+                "invalidated-drop-to-empty",
                 null);
             Interlocked.Increment(ref _distributedInvalidationGeneration);
         }
@@ -1077,26 +1158,69 @@ public class PublicHotReadStore
     internal bool TryGetRequestSnapshot(out PublicHotReadSnapshot snapshot, out string reason)
     {
         snapshot = Current;
-        if (!IsReadyFast || snapshot.Version <= 0)
+        PublicHotReadSnapshot lastGood = Volatile.Read(ref _lastGood);
+        if (IsReadyFast && snapshot.Version > 0)
         {
-            reason = "not-ready";
+            DateTimeOffset? cutoff = snapshot.PublicationEvidence.VisibilityCutoffUtc;
+            DateTimeOffset now = _timeProvider.GetUtcNow();
+            if (cutoff > now)
+            {
+                reason = "future-cutoff";
+                snapshot = PublicHotReadSnapshot.Empty;
+                return false;
+            }
+
+            bool retainLastGood = Volatile.Read(ref _retainLastGoodUntilPublish) == 1;
+            bool ageStale = !cutoff.HasValue || now - cutoff.Value > _maxSnapshotAge;
+            if (!ageStale && !retainLastGood)
+            {
+                reason = "ok";
+                return true;
+            }
+
+            PublicHotReadSnapshot candidate = lastGood.Version > 0 ? lastGood : snapshot;
+            if (candidate.Version > 0)
+            {
+                snapshot = candidate;
+                reason = "last-good";
+                TryRequestCoalescedRefresh("last-good");
+                return true;
+            }
+
+            reason = "stale";
+            snapshot = PublicHotReadSnapshot.Empty;
             return false;
         }
 
-        DateTimeOffset? cutoff = snapshot.PublicationEvidence.VisibilityCutoffUtc;
-        DateTimeOffset now = _timeProvider.GetUtcNow();
-        if (!cutoff.HasValue || cutoff.Value > now || now - cutoff.Value > _maxSnapshotAge)
+        if (lastGood.Version > 0 && Volatile.Read(ref _retainLastGoodUntilPublish) == 1)
         {
-            reason = cutoff > now ? "future-cutoff" : "stale";
+            snapshot = lastGood;
+            reason = "last-good";
+            TryRequestCoalescedRefresh("last-good");
+            return true;
+        }
+
+        string invalidationReason = Volatile.Read(ref _lastInvalidationReason);
+        if (Volatile.Read(ref _lastInvalidationPolicy) == (int)PublicHotReadInvalidationPolicy.DropToEmpty
+            && invalidationReason.Length > 0)
+        {
+            reason = "invalidated-drop-to-empty:" + invalidationReason;
+            snapshot = PublicHotReadSnapshot.Empty;
             return false;
         }
 
-        reason = "ok";
-        return true;
+        reason = "not-ready";
+        snapshot = PublicHotReadSnapshot.Empty;
+        return false;
     }
 
     internal bool ShouldRefreshSnapshot()
     {
+        if (Volatile.Read(ref _coalescedRefreshRequested) == 1)
+        {
+            return true;
+        }
+
         PublicHotReadSnapshot snapshot = Current;
         DateTimeOffset? cutoff = snapshot.PublicationEvidence.VisibilityCutoffUtc;
         DateTimeOffset now = _timeProvider.GetUtcNow();
@@ -1104,6 +1228,26 @@ public class PublicHotReadStore
             || !cutoff.HasValue
             || cutoff.Value > now
             || now - cutoff.Value >= TimeSpan.FromTicks(_maxSnapshotAge.Ticks / 2);
+    }
+
+    internal bool TryRequestCoalescedRefresh(string reason)
+    {
+        if (Interlocked.CompareExchange(ref _coalescedRefreshRequested, 1, 0) == 0)
+        {
+            Volatile.Write(ref _coalescedRefreshReason, reason);
+            return true;
+        }
+
+        return false;
+    }
+
+    private void TryRequestCoalescedRefreshLocked(string reason)
+    {
+        if (_coalescedRefreshRequested == 0)
+        {
+            Volatile.Write(ref _coalescedRefreshRequested, 1);
+            Volatile.Write(ref _coalescedRefreshReason, reason);
+        }
     }
 
     internal TimeSpan SnapshotRefreshInterval

@@ -36,7 +36,9 @@ public readonly record struct PublicHotReadCounterSnapshot(
     long IdentityVariant,
     long BrotliVariant,
     long GzipVariant,
-    long SanityFallback);
+    long SanityFallback,
+    long FreshL0Hit = 0,
+    long LastGoodHit = 0);
 
 public sealed class PublicHotReadCounters
 {
@@ -92,6 +94,8 @@ public sealed class PublicHotReadCounters
     public void HtmlMiss() => Interlocked.Increment(ref PickStripe().HtmlMiss);
     public void Rejected() => Interlocked.Increment(ref PickStripe().Rejected);
     public void SanityFallback() => Interlocked.Increment(ref PickStripe().SanityFallback);
+    public void FreshL0Hit() => Interlocked.Increment(ref PickStripe().FreshL0Hit);
+    public void LastGoodHit() => Interlocked.Increment(ref PickStripe().LastGoodHit);
     public void VariantSelected(string contentEncoding)
     {
         if (!ShouldRecordHit())
@@ -134,6 +138,8 @@ public sealed class PublicHotReadCounters
         long brotliVariant = 0;
         long gzipVariant = 0;
         long sanityFallback = 0;
+        long freshL0Hit = 0;
+        long lastGoodHit = 0;
 
         foreach (CounterStripe stripe in _stripes)
         {
@@ -149,6 +155,8 @@ public sealed class PublicHotReadCounters
             brotliVariant += reset ? Interlocked.Exchange(ref stripe.BrotliVariant, 0) : Volatile.Read(ref stripe.BrotliVariant);
             gzipVariant += reset ? Interlocked.Exchange(ref stripe.GzipVariant, 0) : Volatile.Read(ref stripe.GzipVariant);
             sanityFallback += reset ? Interlocked.Exchange(ref stripe.SanityFallback, 0) : Volatile.Read(ref stripe.SanityFallback);
+            freshL0Hit += reset ? Interlocked.Exchange(ref stripe.FreshL0Hit, 0) : Volatile.Read(ref stripe.FreshL0Hit);
+            lastGoodHit += reset ? Interlocked.Exchange(ref stripe.LastGoodHit, 0) : Volatile.Read(ref stripe.LastGoodHit);
         }
 
         return new PublicHotReadCounterSnapshot(
@@ -163,7 +171,9 @@ public sealed class PublicHotReadCounters
             identityVariant,
             brotliVariant,
             gzipVariant,
-            sanityFallback);
+            sanityFallback,
+            freshL0Hit,
+            lastGoodHit);
     }
 
     private CounterStripe PickStripe()
@@ -207,6 +217,8 @@ public sealed class PublicHotReadCounters
         [FieldOffset(72)] public long BrotliVariant;
         [FieldOffset(80)] public long GzipVariant;
         [FieldOffset(88)] public long SanityFallback;
+        [FieldOffset(96)] public long FreshL0Hit;
+        [FieldOffset(104)] public long LastGoodHit;
     }
 }
 
@@ -227,6 +239,8 @@ public sealed class PublicHotReadMetricFlushWorker(
     private static readonly Counter<long> s_brotliVariantCounter = s_meter.CreateCounter<long>("fsus.hotread.encoding.br");
     private static readonly Counter<long> s_gzipVariantCounter = s_meter.CreateCounter<long>("fsus.hotread.encoding.gzip");
     private static readonly Counter<long> s_sanityFallbackCounter = s_meter.CreateCounter<long>("fsus.hotread.sanity.fallback");
+    private static readonly Counter<long> s_freshL0HitCounter = s_meter.CreateCounter<long>("fsus.hotread.fresh.hit");
+    private static readonly Counter<long> s_lastGoodHitCounter = s_meter.CreateCounter<long>("fsus.hotread.last_good.hit");
     private static readonly Counter<long> s_sensitivePrefixBypassCounter =
         s_meter.CreateCounter<long>("fsus.hotread.classifier.sensitive_bypass");
     private static readonly Counter<long> s_credentialBypassCounter =
@@ -264,6 +278,8 @@ public sealed class PublicHotReadMetricFlushWorker(
         AddIfPositive(s_brotliVariantCounter, snapshot.BrotliVariant);
         AddIfPositive(s_gzipVariantCounter, snapshot.GzipVariant);
         AddIfPositive(s_sanityFallbackCounter, snapshot.SanityFallback);
+        AddIfPositive(s_freshL0HitCounter, snapshot.FreshL0Hit);
+        AddIfPositive(s_lastGoodHitCounter, snapshot.LastGoodHit);
         AddIfPositive(s_sensitivePrefixBypassCounter, sensitivePrefixBypass);
         AddIfPositive(s_credentialBypassCounter, credentialBypass);
         if (snapshot.Rejected > 0)

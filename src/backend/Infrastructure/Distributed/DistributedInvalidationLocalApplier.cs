@@ -196,7 +196,9 @@ public sealed class DistributedInvalidationLocalApplier : IDistributedInvalidati
         _publicAotCache.InvalidateDistributedMemoryState();
         long publicAotGeneration = _publicAotInvalidationTracker.MarkAll(invalidation.EventId);
         _publicAotSsrRuntimeState.ClearAllRouteQuarantines();
-        _publicHotReadStore.InvalidateDistributedSnapshot(reason);
+        _publicHotReadStore.InvalidateDistributedSnapshot(
+            reason,
+            PublicHotReadInvalidationPolicy.DropToEmpty);
         PublicHotArtifactEnqueueResult queued = await _publicHotUpdateQueue.EnqueueAsync(
                 PublicHotArtifactDeliveryClass.FullRebuildMarker,
                 null,
