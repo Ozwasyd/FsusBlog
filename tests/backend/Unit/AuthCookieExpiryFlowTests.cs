@@ -148,6 +148,48 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             && measurement.Value == 1);
     }
 
+    [Theory]
+    [InlineData(MfaContinuationFailure.Expired, "MFA_CHALLENGE_EXPIRED", 0, 0)]
+    [InlineData(MfaContinuationFailure.CrossDevice, "MFA_CHALLENGE_EXPIRED", 0, 0)]
+    [InlineData(MfaContinuationFailure.ActionMismatch, "MFA_CHALLENGE_EXPIRED", 0, 0)]
+    [InlineData(MfaContinuationFailure.WrongCode, "MFA_CHALLENGE_INVALID", 1, 0)]
+    [InlineData(MfaContinuationFailure.Replay, "MFA_CHALLENGE_EXPIRED", 1, 1)]
+    [Trait("Category", "SecurityStateMachine")]
+    public async Task MfaContinuationFailure_EmitsNoSessionCookiesOrLoginSideEffects(
+        MfaContinuationFailure failure,
+        string expectedError,
+        int expectedVerificationCalls,
+        int expectedConsumeCalls)
+    {
+        MfaContinuationObservation observation = await fixture.SendMfaFailureAsync(failure);
+        using HttpResponseMessage response = observation.Response;
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(expectedError, (await EndpointSecurityTestServer.ReadErrorAsync(response)).Message);
+        Assert.False(response.Headers.TryGetValues("Set-Cookie", out _));
+        Assert.Equal(expectedVerificationCalls, observation.VerificationCalls);
+        Assert.Equal(expectedConsumeCalls, observation.ConsumeCalls);
+        Assert.Equal(0, observation.CompleteLoginCalls);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Category", "SecurityStateMachine")]
+    public async Task MfaContinuation_ValidTotpOrRecoveryCompletesExactlyOneLogin(bool useRecoveryCode)
+    {
+        MfaContinuationObservation observation = await fixture.SendMfaSuccessAsync(useRecoveryCode);
+        using HttpResponseMessage response = observation.Response;
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(1, observation.VerificationCalls);
+        Assert.Equal(1, observation.ConsumeCalls);
+        Assert.Equal(1, observation.CompleteLoginCalls);
+        Assert.Contains(
+            response.Headers.GetValues("Set-Cookie"),
+            value => value.StartsWith("AccessToken=", StringComparison.Ordinal));
+    }
+
     public sealed class AuthCookieExpiryFixture : IAsyncLifetime
     {
         private const string TemporalArtifactDigest =
@@ -262,6 +304,53 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                 _requestGate.Release();
             }
         }
+
+        internal async Task<MfaContinuationObservation> SendMfaFailureAsync(MfaContinuationFailure failure)
+        {
+            await _requestGate.WaitAsync();
+            try
+            {
+                AuthCookieExpiryHarness harness = Assert.IsType<AuthCookieExpiryHarness>(_successHarness);
+                harness.PrepareForTest();
+                harness.ConfigureMfaFailure(failure);
+                HttpResponseMessage response = await harness.SendMfaAsync(
+                    failure == MfaContinuationFailure.ActionMismatch ? "profile.email" : "login",
+                    failure == MfaContinuationFailure.CrossDevice ? "other-device" : "issue-1053-device");
+                return new MfaContinuationObservation(
+                    response,
+                    harness.MfaVerificationCallCount,
+                    harness.MfaConsumeCallCount,
+                    harness.CompleteLoginCallCount);
+            }
+            finally
+            {
+                _requestGate.Release();
+            }
+        }
+
+        internal async Task<MfaContinuationObservation> SendMfaSuccessAsync(bool useRecoveryCode)
+        {
+            await _requestGate.WaitAsync();
+            try
+            {
+                AuthCookieExpiryHarness harness = Assert.IsType<AuthCookieExpiryHarness>(_successHarness);
+                harness.PrepareForTest();
+                HttpResponseMessage response = await harness.SendMfaAsync(
+                    "login",
+                    "issue-1053-device",
+                    useRecoveryCode ? null : "123456",
+                    useRecoveryCode ? "recovery-code" : null);
+                return new MfaContinuationObservation(
+                    response,
+                    harness.MfaVerificationCallCount,
+                    harness.MfaConsumeCallCount,
+                    harness.CompleteLoginCallCount);
+            }
+            finally
+            {
+                _requestGate.Release();
+            }
+        }
     }
 
     private static void AssertDeletionCookieIsLast(string[] cookies, string cookieName)
@@ -327,6 +416,21 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
         LocalAuthFixture
     }
 
+    public enum MfaContinuationFailure
+    {
+        Expired,
+        CrossDevice,
+        ActionMismatch,
+        WrongCode,
+        Replay
+    }
+
+    public sealed record MfaContinuationObservation(
+        HttpResponseMessage Response,
+        int VerificationCalls,
+        int ConsumeCalls,
+        int CompleteLoginCalls);
+
     private sealed class AuthCookieExpiryHarness : IAsyncDisposable
     {
         private const string FixtureSecret = "issue-1053-local-fixture-secret";
@@ -338,6 +442,10 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
         private readonly string _fixtureDirectory;
         private readonly ConfigurableLocalAuthFixtureRefreshRunner _localFixtureRunner;
         private readonly IUserSessionCommandService _sessions;
+        private readonly IUserLoginWorkflowService _loginWorkflow;
+        private readonly IUserMfaVerificationService _mfaVerification;
+        private readonly IMfaChallengeService _mfaChallenges;
+        private readonly MfaChallengeTicket _mfaTicket;
         private readonly Action _prepareForTest;
 
         private AuthCookieExpiryHarness(
@@ -346,6 +454,10 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             string fixtureDirectory,
             ConfigurableLocalAuthFixtureRefreshRunner localFixtureRunner,
             IUserSessionCommandService sessions,
+            IUserLoginWorkflowService loginWorkflow,
+            IUserMfaVerificationService mfaVerification,
+            IMfaChallengeService mfaChallenges,
+            MfaChallengeTicket mfaTicket,
             Action prepareForTest)
         {
             _app = app;
@@ -353,6 +465,10 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             _fixtureDirectory = fixtureDirectory;
             _localFixtureRunner = localFixtureRunner;
             _sessions = sessions;
+            _loginWorkflow = loginWorkflow;
+            _mfaVerification = mfaVerification;
+            _mfaChallenges = mfaChallenges;
+            _mfaTicket = mfaTicket;
             _prepareForTest = prepareForTest;
         }
 
@@ -363,6 +479,15 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
 
         public int RefreshDeliveryRevocationCallCount => _sessions.ReceivedCalls().Count(call =>
             call.GetMethodInfo().Name == nameof(IUserSessionCommandService.RevokeRefreshDeliveryAsync));
+
+        public int MfaVerificationCallCount => _mfaVerification.ReceivedCalls().Count(call =>
+            call.GetMethodInfo().Name == nameof(IUserMfaVerificationService.VerifyMfaOrRecoveryCodeAsync));
+
+        public int MfaConsumeCallCount => _mfaChallenges.ReceivedCalls().Count(call =>
+            call.GetMethodInfo().Name == nameof(IMfaChallengeService.ConsumeChallengeOnceAsync));
+
+        public int CompleteLoginCallCount => _loginWorkflow.ReceivedCalls().Count(call =>
+            call.GetMethodInfo().Name == nameof(IUserLoginWorkflowService.CompleteLoginAsync));
 
         public void PrepareForTest() => _prepareForTest();
 
@@ -376,6 +501,40 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                     _ => Task.FromResult(true),
                     _ => Task.FromException<bool>(new InvalidOperationException("simulated post-commit delivery fault")));
             _sessions.ClearReceivedCalls();
+        }
+
+        public void ConfigureMfaFailure(MfaContinuationFailure failure)
+        {
+            if (failure == MfaContinuationFailure.Expired)
+            {
+                _mfaChallenges.GetChallengeAsync(
+                        "mfa-ticket",
+                        "issue-1053-device",
+                        Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult<MfaChallengeTicket?>(null));
+            }
+            else if (failure == MfaContinuationFailure.WrongCode)
+            {
+                _mfaVerification.VerifyMfaOrRecoveryCodeAsync(
+                        Arg.Any<int>(),
+                        Arg.Any<string?>(),
+                        Arg.Any<string?>(),
+                        Arg.Any<bool>(),
+                        Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult(false));
+            }
+            else if (failure == MfaContinuationFailure.Replay)
+            {
+                _mfaChallenges.ConsumeChallengeOnceAsync(
+                        _mfaTicket,
+                        "issue-1053-device",
+                        Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult<MfaChallengeTicket?>(null));
+            }
+
+            _loginWorkflow.ClearReceivedCalls();
+            _mfaVerification.ClearReceivedCalls();
+            _mfaChallenges.ClearReceivedCalls();
         }
 
         public static async Task<AuthCookieExpiryHarness> CreateAsync(
@@ -455,9 +614,16 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                 Action = "login",
                 RememberMe = true
             };
-            mfaChallenges.GetChallengeAsync("mfa-ticket")
+            mfaChallenges.GetChallengeAsync(
+                    "mfa-ticket",
+                    "issue-1053-device",
+                    Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult<MfaChallengeTicket?>(mfaTicket));
-            mfaChallenges.ConsumeChallengeAsync("mfa-ticket").Returns(Task.CompletedTask);
+            mfaChallenges.ConsumeChallengeOnceAsync(
+                    mfaTicket,
+                    "issue-1053-device",
+                    Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<MfaChallengeTicket?>(mfaTicket));
             localePreferences.GetAsync(
                     Arg.Any<int>(),
                     Arg.Any<CancellationToken>())
@@ -503,6 +669,24 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                 hotArticlesVersion.ClearReceivedCalls();
                 challengeProofs.ClearReceivedCalls();
                 fixtureRunner.ResetCallCount();
+
+                mfaVerification.VerifyMfaOrRecoveryCodeAsync(
+                        Arg.Any<int>(),
+                        Arg.Any<string?>(),
+                        Arg.Any<string?>(),
+                        Arg.Any<bool>(),
+                        Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult(true));
+                mfaChallenges.GetChallengeAsync(
+                        "mfa-ticket",
+                        "issue-1053-device",
+                        Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult<MfaChallengeTicket?>(mfaTicket));
+                mfaChallenges.ConsumeChallengeOnceAsync(
+                        mfaTicket,
+                        "issue-1053-device",
+                        Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult<MfaChallengeTicket?>(mfaTicket));
 
                 string testId = Interlocked.Increment(ref testSequence)
                     .ToString(CultureInfo.InvariantCulture);
@@ -668,6 +852,10 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                 fixtureDirectory,
                 fixtureRunner,
                 sessions,
+                loginWorkflow,
+                mfaVerification,
+                mfaChallenges,
+                mfaTicket,
                 PrepareForTest);
         }
 
@@ -718,6 +906,18 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             return _client.SendAsync(request);
         }
 
+        public Task<HttpResponseMessage> SendMfaAsync(
+            string action,
+            string deviceSignal,
+            string? code = "123456",
+            string? recoveryCode = null)
+            => SendBinaryAsync(
+                "/api/binary/auth/mfa/challenge",
+                AedsFrameType.MfaChallengeVerifyRequest,
+                PodBinaryCodec.EncodeMfaChallengeVerifyRequest(
+                    new MfaChallengeVerifyRequestCoreModel("mfa-ticket", action, code, recoveryCode)),
+                deviceSignal: deviceSignal);
+
         public async ValueTask DisposeAsync()
         {
             _client.Dispose();
@@ -733,7 +933,8 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             AedsFrameType frameType,
             byte[] payload,
             bool addPowProof = false,
-            string? adminBootstrapToken = null)
+            string? adminBootstrapToken = null,
+            string deviceSignal = "issue-1053-device")
         {
             _ = EndpointContractApplication.Find(_app, route, HttpMethods.Post);
             var request = new HttpRequestMessage(HttpMethod.Post, route)
@@ -742,7 +943,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             };
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/octet-stream"));
             request.Headers.UserAgent.ParseAdd("issue-1053-auth-cookie-expiry-tests");
-            request.Headers.Add("X-Fsus-Device-Fp", "issue-1053-device");
+            request.Headers.Add("X-Fsus-Device-Fp", deviceSignal);
             if (addPowProof)
             {
                 request.Headers.Add("X-Fsus-Pow-Proof", CreatePowProof());

@@ -7425,6 +7425,25 @@
             "reason": "PostgreSQL-backed login and session commands now drive real JWT validation through the mapped protected account-mutation endpoint, including authoritative context, expiry, revocation, identity, refresh, business-execution, and zero-side-effect evidence."
         },
         {
+            "id": "xunit:tests/backend/Unit/BackendAuthStateMachineTests.cs#BackendAuthStateMachineTests.LoginWithMfa_RequiresPartialAuthBeforeFullSession",
+            "path": "tests/backend/Unit/BackendAuthStateMachineTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/MfaLoginEndpointPostgresTests.cs#MfaLoginEndpointPostgresTests.MfaEnabledPasskeyLogin_CreatesNoSessionUntilTotpContinuationCompletes",
+                "xunit:tests/backend/Unit/MfaLoginEndpointPostgresTests.cs#MfaLoginEndpointPostgresTests.NonMfaPasskeyLogin_PreservesDirectSessionAndCookieSemantics"
+            ],
+            "reason": "The hand-written password and PoW transition table is replaced by canonical Passkey endpoint execution that proves MFA-pending users remain sessionless in PostgreSQL and only verified continuation creates cookies, tokens, and one session."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/BackendAuthStateMachineTests.cs#BackendAuthStateMachineTests.IllegalTransitions_AreRejected",
+            "path": "tests/backend/Unit/BackendAuthStateMachineTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/MfaLoginEndpointPostgresTests.cs#MfaLoginEndpointPostgresTests.MfaEnabledPasskeyLogin_CreatesNoSessionUntilTotpContinuationCompletes",
+                "xunit:tests/backend/Unit/MfaLoginEndpointPostgresTests.cs#MfaLoginEndpointPostgresTests.MfaContinuation_ConcurrentTotpCompletionCreatesExactlyOnePostgresSession",
+                "xunit:tests/backend/Unit/MfaLoginEndpointPostgresTests.cs#MfaLoginEndpointPostgresTests.MfaContinuation_RejectsMissingCrossUserCrossDeviceExpiredAndRevokedUseWithoutSession"
+            ],
+            "reason": "Dynamic TestServer requests now reject early refresh, missing, cross-user, cross-device, expired, revoked, concurrent, and replayed MFA continuations with canonical errors and PostgreSQL side-effect assertions."
+        },
+        {
             "id": "xunit:tests/backend/Unit/BackendConcurrencyModelTests.cs#BackendConcurrencyModelTests.PasskeyRegistrationLimitRace_StopsAtConfiguredLimit",
             "path": "tests/backend/Unit/BackendConcurrencyModelTests.cs",
             "replacementTestIds": [

@@ -985,7 +985,7 @@ for (const error of verifyCentralOpenApiPackageContract(centralPackages, serverP
 
 for (const path of [
     'tests/backend/Unit/BackendApiIntegrationContractTests.cs',
-    'tests/backend/Unit/BackendAuthStateMachineTests.cs',
+    'tests/backend/Unit/MfaLoginEndpointPostgresTests.cs',
     'tests/backend/Integration/UserSessionRevocationIntegrationTests.cs',
     'tests/backend/Unit/BackendGoldenCatalogTests.cs',
     'tests/backend/Unit/BackendPropertyTests.cs',

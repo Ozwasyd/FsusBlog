@@ -129,7 +129,7 @@ test('tier invocation inference accounts for ordinary, coverage, specialized, an
         ['backend-nightly', 'backend-property']
     );
     assert.deepEqual(
-        inferTierIdsForFile('tests/backend/Unit/BackendAuthStateMachineTests.cs', '[Trait("Category", "SecurityStateMachine")]'),
+        inferTierIdsForFile('tests/backend/Unit/MfaLoginEndpointPostgresTests.cs', '[Trait("Category", "SecurityStateMachine")]'),
         ['backend-auth-state-machine', 'backend-nightly']
     );
     assert.deepEqual(
