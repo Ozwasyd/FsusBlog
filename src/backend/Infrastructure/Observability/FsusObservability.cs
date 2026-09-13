@@ -126,6 +126,9 @@ public static class FsusObservability
     private static readonly Counter<long> s_securityRiskEventInsertedRows = s_meter.CreateCounter<long>("fsus.security.risk_event.inserted_rows");
     private static readonly Counter<long> s_securityRiskEventFailedBatches = s_meter.CreateCounter<long>("fsus.security.risk_event.failed_batches");
     private static readonly Counter<long> s_securityRiskEventFallbackSingleInserts = s_meter.CreateCounter<long>("fsus.security.risk_event.fallback_single_inserts");
+    private static readonly Histogram<double> s_securityRiskEventQueueDepth = s_meter.CreateHistogram<double>("fsus.security.risk_event.queue_depth");
+    private static readonly Counter<long> s_securityRiskEventShedCounter = s_meter.CreateCounter<long>("fsus.security.risk_event.shed.count");
+    private static readonly Counter<long> s_securityRiskEventSyncFallbackCounter = s_meter.CreateCounter<long>("fsus.security.risk_event.sync_fallback.count");
     private static readonly Histogram<double> s_riskScoreAtomicUpdateElapsed = s_meter.CreateHistogram<double>("fsus.security.risk_score.atomic_update_elapsed_ms", "ms");
     private static readonly Counter<long> s_riskScoreRedisRoundTrips = s_meter.CreateCounter<long>("fsus.security.risk_score.redis_round_trips");
     private static readonly Counter<long> s_riskScoreConflictAvoided = s_meter.CreateCounter<long>("fsus.security.risk_score.conflict_avoided");
@@ -604,6 +607,23 @@ public static class FsusObservability
             s_securityRiskEventInsertedRows.Add(Math.Max(0, insertedRows));
             s_securityRiskEventFailedBatches.Add(Math.Max(0, failedBatches));
             s_securityRiskEventFallbackSingleInserts.Add(Math.Max(0, fallbackSingleInserts));
+        });
+    }
+
+    public static void RecordSecurityRiskQueueAdmission(long queueDepth, long shedCount, long syncFallbackCount)
+    {
+        TryRecord(() =>
+        {
+            s_securityRiskEventQueueDepth.Record(Math.Max(0, queueDepth));
+            if (shedCount > 0)
+            {
+                s_securityRiskEventShedCounter.Add(shedCount);
+            }
+
+            if (syncFallbackCount > 0)
+            {
+                s_securityRiskEventSyncFallbackCounter.Add(syncFallbackCount);
+            }
         });
     }
 
@@ -1980,6 +2000,8 @@ public static class FsusObservability
             "fake_crawler",
             "illegal_path",
             "persist_failed",
+            "received",
+            "shed",
             "rate_limited",
             "rate_limiter_risk",
             "rejected",
