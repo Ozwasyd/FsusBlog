@@ -166,6 +166,15 @@ public interface IPublicHotReadRiskProjectionPublisher
     ValueTask PublishAsync(PublicHotReadRiskProjectionUpdate update, CancellationToken cancellationToken = default);
 }
 
+internal readonly record struct PublicHotReadRiskProjectionRemoteQueueSnapshot(
+    long QueuedCount,
+    long InFlightCount,
+    long DurablePendingCount,
+    long TerminalFailureCount,
+    long Generation,
+    long Sequence,
+    string? LastFailureReason);
+
 /// <summary>
 /// A strict entry/byte-bounded projection. Positive entries are never evicted to admit
 /// a zero entry; if no safe victim exists, the new update is rejected and the lookup is
@@ -581,6 +590,14 @@ public sealed class PublicHotReadRiskProjectionWorker(
         });
     private readonly TimeSpan _replayInterval = TimeSpan.FromSeconds(
         Math.Clamp(options.Value.ReplayIntervalSeconds, 1, 300));
+    private long _queuedRemoteCount;
+    private long _inFlightRemoteCount;
+    private long _durableReplayPendingCount;
+    private long _unresolvedReplayFailureCount;
+    private long _generation;
+    private long _sequence;
+    private string? _lastFailureReason;
+    private readonly object _remoteQueueStateGate = new();
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -593,7 +610,7 @@ public sealed class PublicHotReadRiskProjectionWorker(
                 .ConfigureAwait(false);
             subscription.OnMessage(message =>
             {
-                if (!_remoteMessages.Writer.TryWrite(message.Message))
+                if (!TryEnqueueRemote(message.Message))
                 {
                     logger.LogWarning("public-hot-risk-projection-subscriber-buffer-full");
                 }
@@ -615,10 +632,12 @@ public sealed class PublicHotReadRiskProjectionWorker(
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
+            MarkOutstandingRemoteAsReplayPending("worker-cancelled");
         }
         finally
         {
             _remoteMessages.Writer.TryComplete();
+            MarkOutstandingRemoteAsReplayPending("worker-stopped");
             if (subscription is not null)
             {
                 try
@@ -641,16 +660,42 @@ public sealed class PublicHotReadRiskProjectionWorker(
         }
     }
 
-    private async Task DrainRemoteAsync(CancellationToken cancellationToken)
+    internal async Task DrainRemoteAsync(CancellationToken cancellationToken)
     {
-        await foreach (RedisValue payload in _remoteMessages.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
+        try
         {
-            ApplyRemote(payload);
+            cancellationToken.ThrowIfCancellationRequested();
+            while (await _remoteMessages.Reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                while (TryBeginRemoteDelivery(out RedisValue payload))
+                {
+                    bool completed = false;
+                    try
+                    {
+                        ApplyRemote(payload);
+                        completed = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "public-hot-risk-projection-remote-apply-failed");
+                    }
+                    finally
+                    {
+                        CompleteRemoteDelivery(completed, "remote-apply-failed");
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            MarkOutstandingRemoteAsReplayPending("remote-drain-cancelled");
+            throw;
         }
     }
 
     internal async Task<int> ReplayDurableAsync(CancellationToken cancellationToken)
     {
+        long replayGeneration = CaptureReplayGeneration();
         try
         {
             await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
@@ -685,17 +730,155 @@ public sealed class PublicHotReadRiskProjectionWorker(
                 }
             }
 
+            MarkDurableReplaySucceeded(replayGeneration);
             return applied;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            MarkDurableReplayPending("durable-replay-cancelled");
             throw;
         }
         catch (Exception ex)
         {
+            MarkDurableReplayFailed($"durable-replay-failed:{ex.GetType().Name}");
             logger.LogWarning(ex, "public-hot-risk-projection-durable-replay-failed");
             return 0;
         }
+    }
+
+    internal bool TryEnqueueRemote(RedisValue payload)
+    {
+        lock (_remoteQueueStateGate)
+        {
+            Interlocked.Increment(ref _queuedRemoteCount);
+            if (_remoteMessages.Writer.TryWrite(payload))
+            {
+                Interlocked.Increment(ref _sequence);
+                return true;
+            }
+
+            DecrementRequired(ref _queuedRemoteCount, "queued");
+            MarkDurableReplayPending("queue-full-or-closed");
+            return false;
+        }
+    }
+
+    internal bool TryBeginRemoteDelivery(out RedisValue payload)
+    {
+        lock (_remoteQueueStateGate)
+        {
+            if (!_remoteMessages.Reader.TryRead(out payload))
+            {
+                return false;
+            }
+
+            DecrementRequired(ref _queuedRemoteCount, "queued");
+            Interlocked.Increment(ref _inFlightRemoteCount);
+            Interlocked.Increment(ref _sequence);
+            return true;
+        }
+    }
+
+    internal void CompleteRemoteDelivery(bool completed, string failureReason)
+    {
+        lock (_remoteQueueStateGate)
+        {
+            DecrementRequired(ref _inFlightRemoteCount, "in-flight");
+            if (completed)
+            {
+                Interlocked.Increment(ref _sequence);
+                return;
+            }
+
+            MarkDurableReplayPending(failureReason);
+        }
+    }
+
+    internal bool TryCompleteRemoteQueue() => _remoteMessages.Writer.TryComplete();
+
+    internal PublicHotReadRiskProjectionRemoteQueueSnapshot RemoteQueueSnapshot()
+    {
+        lock (_remoteQueueStateGate)
+        {
+            return new(
+                Volatile.Read(ref _queuedRemoteCount),
+                Volatile.Read(ref _inFlightRemoteCount),
+                Volatile.Read(ref _durableReplayPendingCount),
+                Volatile.Read(ref _unresolvedReplayFailureCount),
+                Volatile.Read(ref _generation),
+                Volatile.Read(ref _sequence),
+                Volatile.Read(ref _lastFailureReason));
+        }
+    }
+
+    private void MarkOutstandingRemoteAsReplayPending(string reason)
+    {
+        lock (_remoteQueueStateGate)
+        {
+            if (Volatile.Read(ref _queuedRemoteCount) > 0 || Volatile.Read(ref _inFlightRemoteCount) > 0)
+            {
+                MarkDurableReplayPending(reason);
+            }
+        }
+    }
+
+    private void MarkDurableReplayPending(string reason)
+    {
+        lock (_remoteQueueStateGate)
+        {
+            Interlocked.Exchange(ref _durableReplayPendingCount, 1);
+            Volatile.Write(ref _lastFailureReason, reason);
+            Interlocked.Increment(ref _generation);
+            Interlocked.Increment(ref _sequence);
+        }
+    }
+
+    private void MarkDurableReplayFailed(string reason)
+    {
+        lock (_remoteQueueStateGate)
+        {
+            Interlocked.Exchange(ref _durableReplayPendingCount, 1);
+            Interlocked.Exchange(ref _unresolvedReplayFailureCount, 1);
+            Volatile.Write(ref _lastFailureReason, reason);
+            Interlocked.Increment(ref _generation);
+            Interlocked.Increment(ref _sequence);
+        }
+    }
+
+    private long CaptureReplayGeneration()
+    {
+        lock (_remoteQueueStateGate)
+        {
+            return Volatile.Read(ref _generation);
+        }
+    }
+
+    private void MarkDurableReplaySucceeded(long replayGeneration)
+    {
+        lock (_remoteQueueStateGate)
+        {
+            if (Volatile.Read(ref _generation) != replayGeneration)
+            {
+                return;
+            }
+
+            Interlocked.Exchange(ref _durableReplayPendingCount, 0);
+            Interlocked.Exchange(ref _unresolvedReplayFailureCount, 0);
+            Volatile.Write(ref _lastFailureReason, null);
+            Interlocked.Increment(ref _generation);
+            Interlocked.Increment(ref _sequence);
+        }
+    }
+
+    private static void DecrementRequired(ref long counter, string name)
+    {
+        if (Interlocked.Decrement(ref counter) >= 0)
+        {
+            return;
+        }
+
+        Interlocked.Increment(ref counter);
+        throw new InvalidOperationException($"public-hot-risk-projection {name} accounting underflow");
     }
 
     private void ApplyRemote(RedisValue payload)
