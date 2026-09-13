@@ -43,60 +43,60 @@ const diagnosticPrograms = new Set([
 // source excerpt so a new or repurposed selector cannot inherit the exception.
 const nonEvidenceFindingOverrides = new Map([
     {
-        findingId: '0161ebbad5c102e4',
+        findingId: 'c320fd68bf776601',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 461,
+        line: 466,
         column: 24,
         function: 'verifyCommentMatrix',
         excerpt: 'const fields = matches[0].fields ?? {}',
         indirectVia: null
     },
     {
-        findingId: '93c19c86428bad07',
+        findingId: '0da8f6697ce62c8a',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 503,
+        line: 508,
         column: 38,
         function: 'verifyCommentMatrix',
         excerpt: "|| spam.signalEvidence.some((evidence) => String(evidence?.commentId) !== String(one('spam')[0].id)",
         indirectVia: null
     },
     {
-        findingId: 'bda3eb9cd23f19ee',
+        findingId: '4af2e85c52a87447',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 523,
+        line: 528,
         column: 13,
         function: 'verifyCommentMatrix',
         excerpt: "const root = one('approved-root')[0]",
         indirectVia: null
     },
     {
-        findingId: 'dad5302ebd3636da',
+        findingId: '04e6e29093ac133d',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 561,
+        line: 566,
         column: 24,
         function: 'verifyCommentMatrix',
         excerpt: "if (one('deleted-root-child')[0]?.fields?.publicVisible !== true) {",
         indirectVia: null
     },
     {
-        findingId: '53dda5d48e67b80f',
+        findingId: '7a2d09e0b0884671',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 564,
+        line: 569,
         column: 40,
         function: 'verifyCommentMatrix',
         excerpt: "const deletedRoot = one('deleted-root')[0]",
         indirectVia: null
     },
     {
-        findingId: '1eab0cd97c6edc4c',
+        findingId: '46db740a792364cf',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/test-fixtures/receipt/postconditions.mjs',
-        line: 565,
+        line: 570,
         column: 41,
         function: 'verifyCommentMatrix',
         excerpt: "const deletedChild = one('deleted-root-child')[0]",
