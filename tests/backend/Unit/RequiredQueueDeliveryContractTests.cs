@@ -234,6 +234,8 @@ public sealed class RequiredQueueDeliveryContractTests
         Assert.False(queue.TryWrite(overflow));
         Assert.Equal("risk-2", Assert.Single(store.Writes).Id);
         Assert.Equal(1, queue.Snapshot().DurableAcceptedCount);
+        Assert.Equal(1, queue.Snapshot().SyncFallbackCount);
+        Assert.Equal(0, queue.Snapshot().ShedCount);
 
         store.FailDuplicates = true;
         await store.AppendAsync(overflow, CancellationToken.None);
