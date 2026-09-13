@@ -25,6 +25,10 @@ internal sealed class CacheCoordinationObservation(CachePolicyId policy, ICacheS
     {
         get; set;
     }
+    internal int LastGoodWhileRebuild
+    {
+        get; set;
+    }
     internal string ReleaseOutcome { get; set; } = "not-owned";
 
     internal static CacheCoordinationObservation Begin(CachePolicyId policy, ICacheSingleFlightCoordinator coordinator)

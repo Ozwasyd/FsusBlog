@@ -522,6 +522,10 @@ or rebuild-pending, `404` without `Retry-After` for authoritative not-found,
 and `200` when last-good or fresh L0 still has the artifact. Operator reading
 is in
 [PublicHotRead serving miss outcomes](operations/public-hot-read-serving-outcomes.md).
+Local miss-path wait (singleflight acquire + lease wait + rebuild) has a
+documented total budget; followers with qualified last-good serve stale instead
+of waiting for the rebuild. See
+[PublicHotRead miss-path wait budget](operations/public-hot-read-miss-path-budget.md).
 
 ## SLO Alerts
 

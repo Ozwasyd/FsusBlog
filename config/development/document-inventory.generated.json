@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:4f434539c0c9416f01e1ba3a7bb27aa930ee481582c65cf0954f5200c4bd484c",
+    "policyDigest": "sha256:e30be154b0ebd2c00a034d636007c06e8adcab5ebfd8a37eb95b0d027595d31f",
     "documents": [
         {
             "path": "docs/CODE_OF_CONDUCT.md",
@@ -1991,6 +1991,22 @@
             "relatedIssues": [
                 1850,
                 3399
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/operations/public-hot-read-miss-path-budget.md",
+            "title": "PublicHotRead miss-path wait budget",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "release",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1838,
+                3391,
+                3393
             ],
             "producer": null
         },

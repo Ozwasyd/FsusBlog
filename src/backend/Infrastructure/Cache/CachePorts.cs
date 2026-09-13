@@ -173,6 +173,8 @@ public interface ICacheSingleFlightCoordinator
 {
     Task<IAsyncDisposable> AcquireAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("Single-flight coordination is not supported by this implementation.");
+
+    bool IsHeld(CachePolicyId policyId, string identity) => false;
 }
 
 public interface ICacheDiagnostics

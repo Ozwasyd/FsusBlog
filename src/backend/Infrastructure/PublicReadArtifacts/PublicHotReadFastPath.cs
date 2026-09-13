@@ -1087,8 +1087,23 @@ public class PublicHotReadStore
 
     internal TimeSpan VersionStickinessWindowForTests => _stickyWindow;
 
-    internal bool CoalescedRefreshPendingForTests
+    internal bool CoalescedRefreshPending
         => Volatile.Read(ref _coalescedRefreshRequested) == 1;
+
+    internal bool CoalescedRefreshPendingForTests
+        => CoalescedRefreshPending;
+
+    internal bool TryGetQualifiedLastGood(out PublicHotReadSnapshot snapshot)
+    {
+        if (TryGetRequestSnapshot(out snapshot, out string reason)
+            && string.Equals(reason, "last-good", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        snapshot = PublicHotReadSnapshot.Empty;
+        return false;
+    }
 
     internal string CoalescedRefreshReasonForTests
         => Volatile.Read(ref _coalescedRefreshReason);

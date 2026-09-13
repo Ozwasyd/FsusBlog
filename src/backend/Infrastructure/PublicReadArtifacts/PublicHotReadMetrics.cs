@@ -39,6 +39,7 @@ public readonly record struct PublicHotReadCounterSnapshot(
     long SanityFallback,
     long FreshL0Hit = 0,
     long LastGoodHit = 0,
+    long LastGoodWhileRebuild = 0,
     PublicHotReadHitRateReceipt HitRate = default);
 
 public sealed class PublicHotReadCounters
@@ -101,6 +102,7 @@ public sealed class PublicHotReadCounters
     public void SanityFallback() => Interlocked.Increment(ref PickStripe().SanityFallback);
     public void FreshL0Hit() => Interlocked.Increment(ref PickStripe().FreshL0Hit);
     public void LastGoodHit() => Interlocked.Increment(ref PickStripe().LastGoodHit);
+    public void LastGoodWhileRebuild() => Interlocked.Increment(ref PickStripe().LastGoodWhileRebuild);
     public void VariantSelected(string contentEncoding)
     {
         if (!ObserveHit(HitFamily.Variant))
@@ -145,6 +147,7 @@ public sealed class PublicHotReadCounters
         long sanityFallback = 0;
         long freshL0Hit = 0;
         long lastGoodHit = 0;
+        long lastGoodWhileRebuild = 0;
 
         foreach (CounterStripe stripe in _stripes)
         {
@@ -162,6 +165,7 @@ public sealed class PublicHotReadCounters
             sanityFallback += reset ? Interlocked.Exchange(ref stripe.SanityFallback, 0) : Volatile.Read(ref stripe.SanityFallback);
             freshL0Hit += reset ? Interlocked.Exchange(ref stripe.FreshL0Hit, 0) : Volatile.Read(ref stripe.FreshL0Hit);
             lastGoodHit += reset ? Interlocked.Exchange(ref stripe.LastGoodHit, 0) : Volatile.Read(ref stripe.LastGoodHit);
+            lastGoodWhileRebuild += reset ? Interlocked.Exchange(ref stripe.LastGoodWhileRebuild, 0) : Volatile.Read(ref stripe.LastGoodWhileRebuild);
         }
 
         long calibratedArticleHit = PublicHotReadHitRateAccounting.ScaleHitSamples(articleHit, _mode, _sampleRate);
@@ -185,6 +189,7 @@ public sealed class PublicHotReadCounters
             sanityFallback,
             freshL0Hit,
             lastGoodHit,
+            lastGoodWhileRebuild,
             PublicHotReadHitRateAccounting.Create(
                 _mode,
                 _sampleRate,
@@ -258,6 +263,7 @@ public sealed class PublicHotReadCounters
         [FieldOffset(88)] public long SanityFallback;
         [FieldOffset(96)] public long FreshL0Hit;
         [FieldOffset(104)] public long LastGoodHit;
+        [FieldOffset(112)] public long LastGoodWhileRebuild;
     }
 }
 
@@ -280,6 +286,7 @@ public sealed class PublicHotReadMetricFlushWorker(
     private static readonly Counter<long> s_sanityFallbackCounter = s_meter.CreateCounter<long>("fsus.hotread.sanity.fallback");
     private static readonly Counter<long> s_freshL0HitCounter = s_meter.CreateCounter<long>("fsus.hotread.fresh.hit");
     private static readonly Counter<long> s_lastGoodHitCounter = s_meter.CreateCounter<long>("fsus.hotread.last_good.hit");
+    private static readonly Counter<long> s_lastGoodWhileRebuildCounter = s_meter.CreateCounter<long>("fsus.hotread.last_good.while_rebuild");
     private static readonly Counter<long> s_sensitivePrefixBypassCounter =
         s_meter.CreateCounter<long>("fsus.hotread.classifier.sensitive_bypass");
     private static readonly Counter<long> s_credentialBypassCounter =
@@ -319,6 +326,7 @@ public sealed class PublicHotReadMetricFlushWorker(
         AddIfPositive(s_sanityFallbackCounter, snapshot.SanityFallback);
         AddIfPositive(s_freshL0HitCounter, snapshot.FreshL0Hit);
         AddIfPositive(s_lastGoodHitCounter, snapshot.LastGoodHit);
+        AddIfPositive(s_lastGoodWhileRebuildCounter, snapshot.LastGoodWhileRebuild);
         AddIfPositive(s_sensitivePrefixBypassCounter, sensitivePrefixBypass);
         AddIfPositive(s_credentialBypassCounter, credentialBypass);
         if (snapshot.Rejected > 0)

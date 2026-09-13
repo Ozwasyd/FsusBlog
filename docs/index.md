@@ -182,6 +182,7 @@ This index is generated from explicit metadata in `config/development/document-l
 - [Operations Infrastructure Layout](operations-layout.md)
 - [FsusBlog Operations Runbook](operations.md)
 - [PublicHotRead hit-rate accounting](operations/public-hot-read-hit-rate.md)
+- [PublicHotRead miss-path wait budget](operations/public-hot-read-miss-path-budget.md)
 - [PublicHotRead serving miss outcomes](operations/public-hot-read-serving-outcomes.md)
 - [AEDS cache-miss owned-frame construction and lifecycle](performance-aeds-cache-miss-owned-frame.md)
 - [Application configuration local sensitivity and safe steps](performance-app-config-local-tuning.md)

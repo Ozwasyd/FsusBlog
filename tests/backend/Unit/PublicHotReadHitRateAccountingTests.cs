@@ -176,11 +176,13 @@ public sealed class PublicHotReadHitRateAccountingTests
         {
             counters.FreshL0Hit();
             counters.LastGoodHit();
+            counters.LastGoodWhileRebuild();
         }
 
         PublicHotReadCounterSnapshot snapshot = counters.Snapshot();
         Assert.Equal(3, snapshot.FreshL0Hit);
         Assert.Equal(3, snapshot.LastGoodHit);
+        Assert.Equal(3, snapshot.LastGoodWhileRebuild);
         Assert.Equal(0, snapshot.HitRate.CalibratedHits);
     }
 
