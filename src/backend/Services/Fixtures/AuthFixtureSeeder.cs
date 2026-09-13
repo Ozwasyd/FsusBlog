@@ -958,10 +958,12 @@ public sealed class AuthFixtureSeeder(
             accountSubjectHash,
             cancellationToken);
         int expectedStatus = deleted ? 2 : 0;
+        string? expectedHandle = deleted ? null : FixturePublicHandle(fixtureIdentity);
         if (existing is not null)
         {
             if (existing.Status != expectedStatus ||
-                existing.DeletedAt.HasValue != deleted)
+                existing.DeletedAt.HasValue != deleted ||
+                existing.PublicHandle != expectedHandle)
             {
                 throw new InvalidOperationException(
                     $"owned identity {fixtureIdentity} exists with stale state; reset is forbidden");
@@ -972,7 +974,7 @@ public sealed class AuthFixtureSeeder(
         DateTime now = timeProvider.GetUtcNow().UtcDateTime;
         var user = new User
         {
-            PublicHandle = null,
+            PublicHandle = expectedHandle,
             IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
             AccountSubjectHash = accountSubjectHash,
             RegistrationState = AccountRegistrationStates.Active,
@@ -997,6 +999,11 @@ public sealed class AuthFixtureSeeder(
         }
         return user;
     }
+
+    private static string FixturePublicHandle(string fixtureIdentity)
+        => $"fx{Convert.ToHexStringLower(
+            SHA256.HashData(Encoding.UTF8.GetBytes(
+                $"fsusblog-fixture-public-handle\0{fixtureIdentity}"))[..10])}";
 
     private async Task EnableMfaAsync(User user, CancellationToken cancellationToken)
     {

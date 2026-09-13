@@ -167,7 +167,7 @@ public sealed class CommentFixtureSeeder(
             ]), cancellationToken).ConfigureAwait(false);
             Merge(latest, zkAuthorityEvidence, roots);
 
-            foreach (string role in new[] { "deleted-root", "deleted-reply-parent", "depth-root" })
+            foreach (string role in new[] { "deleted-root", "deleted-reply-parent", "depth-root", "approved-root" })
                 await ApproveAsync(binding, admin, latest[role].CommentId, role, cancellationToken).ConfigureAwait(false);
 
             CommentThreadFixtureResult firstRelations = await threads.ExecuteAsync(ThreadPlan(binding,
