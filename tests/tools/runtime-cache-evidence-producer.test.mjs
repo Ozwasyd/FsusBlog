@@ -98,7 +98,14 @@ async function startObservationServer({ redisCommands = [] } = {}) {
   const calls = []
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url, 'http://127.0.0.1')
-    calls.push({ path: url.pathname, secret: request.headers['x-fsus-runtime-evidence-secret'], requestId: request.headers['x-fsus-runtime-evidence-request'] })
+    const call = {
+      method: request.method,
+      path: url.pathname,
+      contentType: request.headers['content-type'],
+      secret: request.headers['x-fsus-runtime-evidence-secret'],
+      requestId: request.headers['x-fsus-runtime-evidence-request']
+    }
+    calls.push(call)
     if (url.pathname === '/api/binary/system/seo') {
       const body = Buffer.from('qualified-runtime-payload')
       const requestId = request.headers['x-fsus-runtime-evidence-request']
@@ -121,6 +128,34 @@ async function startObservationServer({ redisCommands = [] } = {}) {
         databaseAttributionComplete: true
       })
       response.writeHead(200, { 'content-type': 'application/octet-stream' })
+      response.end(body)
+      return
+    }
+    if (url.pathname === '/api/binary/comment') {
+      const requestChunks = []
+      for await (const chunk of request) requestChunks.push(chunk)
+      call.body = Buffer.concat(requestChunks)
+      const body = Buffer.from(`qualified-${request.method.toLowerCase()}-response`)
+      const requestId = request.headers['x-fsus-runtime-evidence-request']
+      assert.equal(request.headers['x-fsus-runtime-evidence-secret'], secret)
+      observations.set(requestId, {
+        requestId,
+        method: request.method,
+        path: url.pathname,
+        status: 201,
+        payloadDigest: sha256(body),
+        layerSource: 'database',
+        latencyMs: 2.5,
+        allocatedBytes: 12,
+        redisCommands,
+        databaseFingerprints: [],
+        databaseCommandCount: 0,
+        databaseDroppedCommandCount: 0,
+        databaseLateCommandCount: 0,
+        databaseObservationStatus: 'complete',
+        databaseAttributionComplete: true
+      })
+      response.writeHead(201, { 'content-type': 'application/octet-stream' })
       response.end(body)
       return
     }
@@ -176,6 +211,69 @@ test('request collector binds response bytes to the authenticated server observa
     assert.equal(runtime.calls.length, 2)
   } finally {
     await runtime.close()
+  }
+})
+
+test('request collector sends POST and PUT bodies to the spec secondary base URL', async () => {
+  const primaryRuntime = await startObservationServer()
+  const secondaryRuntime = await startObservationServer()
+  try {
+    const postBody = Buffer.from([0, 1, 2, 255])
+    const post = await collectObservedRequest({
+      baseUrl: primaryRuntime.baseUrl,
+      secret,
+      scenarioId: 'distributed-invalidation',
+      ordinal: 1,
+      spec: {
+        baseUrl: secondaryRuntime.baseUrl,
+        method: 'POST',
+        path: '/api/binary/comment',
+        body: postBody,
+        contentType: 'application/octet-stream',
+        subcaseId: 'comment-mutation',
+        parityGroup: 'comment-mutation',
+        headers: {}
+      }
+    })
+    const putBody = '{"state":"approved"}'
+    const put = await collectObservedRequest({
+      baseUrl: primaryRuntime.baseUrl,
+      secret,
+      scenarioId: 'distributed-invalidation',
+      ordinal: 2,
+      spec: {
+        baseUrl: secondaryRuntime.baseUrl,
+        method: 'PUT',
+        path: '/api/binary/comment',
+        body: putBody,
+        contentType: 'application/json; charset=utf-8',
+        subcaseId: 'comment-mutation',
+        parityGroup: 'comment-mutation',
+        headers: {}
+      }
+    })
+
+    assert.equal(primaryRuntime.calls.length, 0)
+    assert.equal(secondaryRuntime.calls.length, 4)
+    assert.deepEqual(secondaryRuntime.calls[0].body, postBody)
+    assert.equal(secondaryRuntime.calls[0].contentType, 'application/octet-stream')
+    assert.equal(secondaryRuntime.calls[2].body.toString('utf8'), putBody)
+    assert.equal(secondaryRuntime.calls[2].contentType, 'application/json; charset=utf-8')
+    assert.deepEqual({ method: post.method, path: post.path, status: post.status, payloadDigest: post.payloadDigest }, {
+      method: 'POST',
+      path: '/api/binary/comment',
+      status: 201,
+      payloadDigest: sha256(Buffer.from('qualified-post-response'))
+    })
+    assert.deepEqual({ method: put.method, path: put.path, status: put.status, payloadDigest: put.payloadDigest }, {
+      method: 'PUT',
+      path: '/api/binary/comment',
+      status: 201,
+      payloadDigest: sha256(Buffer.from('qualified-put-response'))
+    })
+    assert.equal(JSON.stringify([post, put]).includes(secret), false)
+  } finally {
+    await Promise.all([primaryRuntime.close(), secondaryRuntime.close()])
   }
 })
 
@@ -266,7 +364,8 @@ test('first command-budget failure remains authoritative after a later clean run
 })
 
 test('catalog scenarios without a runtime handler fail and retain a producer firstFailure artifact', async () => {
-  assert.deepEqual(implementedRuntimeCacheScenarios, ['public-hot-read'])
+  assert.equal(implementedRuntimeCacheScenarios.includes('public-hot-read'), true)
+  assert.equal(implementedRuntimeCacheScenarios.includes('pagination'), false)
   const directory = temporaryDirectory('runtime-cache-producer-dispatch-')
   const absent = scenario({ id: 'pagination', subcases: ['page-1'], requiredAssertions: ['logical-page-command-constant'], requirements: {}, requests: 1, warmupRequests: 0, concurrency: 1 })
   const result = await runRuntimeCacheProducer({

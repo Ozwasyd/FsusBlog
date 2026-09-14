@@ -288,19 +288,27 @@ export async function collectObservedRequest({
   timeoutMs = 15000
 }) {
   const id = `${scenarioId}-${ordinal}-${randomUUID()}`
-  const response = await fetchWithTimeout(fetchImpl, `${baseUrl}${spec.path}`, {
+  const requestBaseUrl = spec.baseUrl ?? baseUrl
+  const requestBody = spec.body
+  if (requestBody !== undefined && typeof requestBody !== 'string' && !Buffer.isBuffer(requestBody)) {
+    throw new Error('observed request body must be a Buffer or string')
+  }
+  const headers = {
+    Accept: 'application/octet-stream',
+    'User-Agent': 'FsusBlog qualified runtime cache evidence',
+    ...spec.headers,
+    [observationHeader]: id,
+    [secretHeader]: secret
+  }
+  if (spec.contentType !== undefined) headers['Content-Type'] = requireNonEmpty(spec.contentType, 'observed request content type')
+  const response = await fetchWithTimeout(fetchImpl, `${requestBaseUrl}${spec.path}`, {
     method: spec.method,
-    headers: {
-      Accept: 'application/octet-stream',
-      'User-Agent': 'FsusBlog qualified runtime cache evidence',
-      ...spec.headers,
-      [observationHeader]: id,
-      [secretHeader]: secret
-    }
+    headers,
+    ...(requestBody === undefined ? {} : { body: requestBody })
   }, timeoutMs)
   const body = Buffer.from(await response.arrayBuffer())
   const actual = { id, status: response.status, payloadDigest: sha256Bytes(body) }
-  const observation = await takeObservation({ fetchImpl, baseUrl, secret, requestId: id, timeoutMs })
+  const observation = await takeObservation({ fetchImpl, baseUrl: requestBaseUrl, secret, requestId: id, timeoutMs })
   return normalizeObservedRequest(observation, actual, spec)
 }
 
