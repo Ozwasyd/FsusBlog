@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicAot;
@@ -8,8 +10,11 @@ using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Taxonomy;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+
+using Npgsql;
 
 using NSubstitute;
 
@@ -28,9 +33,11 @@ public sealed class ArticleBodyRepairIntegrationTests(PostgresSchemaMigrationFix
     public async Task Worker_QueuedPublishedCurrentRevisionWithoutBody_PersistsRevisionMarkdownOnce()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
+        ConcurrentQueue<string> sqlLog = CaptureSql(db);
         const string Markdown = "# repaired body";
         var queue = new ArticleBodyRepairQueue();
-        (ArticleBodyRepairService service, ICacheInvalidationDispatcher cache, IPublicAotInvalidationService publicAot, ISearchIndexService search) = CreateService(db);
+        var workerLog = new CollectingLogger<ArticleBodyRepairWorker>();
+        (ArticleBodyRepairService service, ICacheInvalidationDispatcher cache, IPublicAotInvalidationService publicAot, ISearchIndexService search, PublicHotArtifactUpdateQueue publicHot) = CreateService(db);
         var rebuildReached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         search.AddOrUpdateIndexAsync(Arg.Any<Article>()).Returns(_ =>
         {
@@ -43,7 +50,7 @@ public sealed class ArticleBodyRepairIntegrationTests(PostgresSchemaMigrationFix
         using var worker = new ArticleBodyRepairWorker(
             queue,
             provider.GetRequiredService<IServiceScopeFactory>(),
-            NullLogger<ArticleBodyRepairWorker>.Instance);
+            workerLog);
 
         int articleId = await InsertPublishedArticleAsync(
             db,
@@ -68,6 +75,10 @@ public sealed class ArticleBodyRepairIntegrationTests(PostgresSchemaMigrationFix
         Assert.NotNull(body);
         Assert.Equal(Markdown, body.MarkdownContent);
         Assert.Equal(0, queue.PendingCount);
+        Assert.True(publicHot.Reader.TryPeek(out PublicHotArtifactUpdate hotUpdate));
+        Assert.Equal(articleId, hotUpdate.ArticleId);
+        Assert.Equal("article-body-repaired", hotUpdate.Reason);
+        AssertRepairDidNotQueryMissingPublicationTable(sqlLog, workerLog.Entries);
         await cache.Received(1).InvalidateArticleMutationAsync(
             articleId,
             Arg.Is<string>(value => value.StartsWith("article-repair:", StringComparison.Ordinal)),
@@ -85,7 +96,9 @@ public sealed class ArticleBodyRepairIntegrationTests(PostgresSchemaMigrationFix
     public async Task RepairAsync_PublicationRevisionMismatch_LeavesBodyUnresolvedWithoutSideEffects()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
-        (ArticleBodyRepairService service, ICacheInvalidationDispatcher cache, IPublicAotInvalidationService publicAot, ISearchIndexService search) = CreateService(db);
+        ConcurrentQueue<string> sqlLog = CaptureSql(db);
+        var repairLog = new CollectingLogger<ArticleBodyRepairService>();
+        (ArticleBodyRepairService service, ICacheInvalidationDispatcher cache, IPublicAotInvalidationService publicAot, ISearchIndexService search, PublicHotArtifactUpdateQueue publicHot) = CreateService(db, repairLog);
 
         int articleId = await InsertPublishedArticleAsync(
             db,
@@ -94,9 +107,11 @@ public sealed class ArticleBodyRepairIntegrationTests(PostgresSchemaMigrationFix
 
         await service.RepairAsync(new ArticleBodyRepairRequest(articleId, "article-detail-db"), CancellationToken.None);
 
-        Assert.Null(await db.Queryable<ArticleBody>()
+        Assert.Equal(0, await db.Queryable<ArticleBody>()
             .Where(item => item.ArticleId == articleId)
-            .SingleAsync());
+            .CountAsync());
+        Assert.False(publicHot.Reader.TryPeek(out _));
+        AssertRepairDidNotQueryMissingPublicationTable(sqlLog, repairLog.Entries);
         await cache.DidNotReceiveWithAnyArgs().InvalidateArticleMutationAsync(default, default);
         await publicAot.DidNotReceiveWithAnyArgs().InvalidateArticleMutationAsync(default, default, default, default);
         await search.DidNotReceiveWithAnyArgs().AddOrUpdateIndexAsync(default!);
@@ -111,6 +126,7 @@ public sealed class ArticleBodyRepairIntegrationTests(PostgresSchemaMigrationFix
             typeof(ArticleRevision),
             typeof(ArticlePublicationRecord),
             typeof(ArticleBody));
+        await AssertAuthoritativePublicationSchemaAsync(db);
         return db;
     }
 
@@ -176,7 +192,52 @@ public sealed class ArticleBodyRepairIntegrationTests(PostgresSchemaMigrationFix
         return articleId;
     }
 
-    private static (ArticleBodyRepairService Service, ICacheInvalidationDispatcher Cache, IPublicAotInvalidationService PublicAot, ISearchIndexService Search) CreateService(SqlSugarClient db)
+    private static async Task AssertAuthoritativePublicationSchemaAsync(SqlSugarClient db)
+    {
+        Assert.Equal(
+            1,
+            await db.Ado.GetIntAsync(
+                "SELECT COUNT(*) FROM pg_tables WHERE schemaname = 'public' AND tablename = 'article_publication'"));
+        Assert.Equal(
+            0,
+            await db.Ado.GetIntAsync(
+                "SELECT COUNT(*) FROM pg_tables WHERE schemaname = 'public' AND tablename = 'article_publication_record'"));
+        PostgresException missingTable = await Assert.ThrowsAsync<PostgresException>(
+            () => db.Ado.GetIntAsync("SELECT COUNT(*) FROM article_publication_record"));
+        Assert.Equal("42P01", missingTable.SqlState);
+        Assert.Contains("article_publication_record", missingTable.MessageText, StringComparison.Ordinal);
+        Assert.Equal(0, await db.Ado.GetIntAsync("SELECT COUNT(*) FROM article_publication"));
+    }
+
+    private static ConcurrentQueue<string> CaptureSql(SqlSugarClient db)
+    {
+        var statements = new ConcurrentQueue<string>();
+        db.Aop.OnLogExecuting = (sql, _) => statements.Enqueue(sql);
+        return statements;
+    }
+
+    private static void AssertRepairDidNotQueryMissingPublicationTable(
+        ConcurrentQueue<string> sqlLog,
+        IReadOnlyList<string> logEntries)
+    {
+        string[] statements = [.. sqlLog];
+        Assert.Contains(
+            statements,
+            sql => sql.Contains("article_publication", StringComparison.OrdinalIgnoreCase)
+                && sql.Contains("JOIN", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(
+            statements,
+            sql => sql.Contains("article_publication_record", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(
+            logEntries,
+            entry => entry.Contains("42P01", StringComparison.Ordinal)
+                || entry.Contains("article_publication_record", StringComparison.Ordinal)
+                || entry.Contains("article_body_repair_failed", StringComparison.Ordinal));
+    }
+
+    private static (ArticleBodyRepairService Service, ICacheInvalidationDispatcher Cache, IPublicAotInvalidationService PublicAot, ISearchIndexService Search, PublicHotArtifactUpdateQueue PublicHot) CreateService(
+        SqlSugarClient db,
+        ILogger<ArticleBodyRepairService>? logger = null)
     {
         ICacheInvalidationDispatcher cache = Substitute.For<ICacheInvalidationDispatcher>();
         cache.InvalidateArticleMutationAsync(Arg.Any<int?>(), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
@@ -196,6 +257,9 @@ public sealed class ArticleBodyRepairIntegrationTests(PostgresSchemaMigrationFix
         details.GenerateAndStoreAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
         IPublicArtifactRevocationCoordinator revocations = Substitute.For<IPublicArtifactRevocationCoordinator>();
         revocations.RevokeArticleAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+        var publicHot = new PublicHotArtifactUpdateQueue(
+            Options.Create(new PublicHotReadOptions { UpdateQueueCapacity = 4 }),
+            new InMemoryPublicHotArtifactDeliveryStateStore());
         var projections = new ArticleMutationProjectionInvalidator(
             RedisOperationExecutor.ForTestConnection(redis),
             Substitute.For<IRuntimeKeyScope>(),
@@ -203,9 +267,7 @@ public sealed class ArticleBodyRepairIntegrationTests(PostgresSchemaMigrationFix
             Substitute.For<ITaxonomyCountProjectionService>(),
             details,
             revocations,
-            new PublicHotArtifactUpdateQueue(
-                Options.Create(new PublicHotReadOptions { UpdateQueueCapacity = 4 }),
-                new InMemoryPublicHotArtifactDeliveryStateStore()),
+            publicHot,
             NullLogger<ArticleMutationProjectionInvalidator>.Instance);
 
         return (
@@ -215,9 +277,49 @@ public sealed class ArticleBodyRepairIntegrationTests(PostgresSchemaMigrationFix
                 publicAot,
                 projections,
                 search,
-                NullLogger<ArticleBodyRepairService>.Instance),
+                logger ?? NullLogger<ArticleBodyRepairService>.Instance),
             cache,
             publicAot,
-            search);
+            search,
+            publicHot);
+    }
+
+    private sealed class CollectingLogger<T> : ILogger<T>
+    {
+        private readonly List<string> _entries = [];
+
+        internal IReadOnlyList<string> Entries
+        {
+            get
+            {
+                lock (_entries)
+                {
+                    return [.. _entries];
+                }
+            }
+        }
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            string entry = formatter(state, exception);
+            if (exception is not null)
+            {
+                entry = $"{entry} | {exception}";
+            }
+
+            lock (_entries)
+            {
+                _entries.Add(entry);
+            }
+        }
     }
 }
