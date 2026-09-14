@@ -30,6 +30,62 @@ namespace FsusBlog.Server.Tests;
 public sealed class ArticleBodyRepairIntegrationTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
+    public async Task DetailAedsProjector_UsesCanonicalArticleBodyWithoutSchedulingLegacyRepair()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        int articleId = await InsertPublishedArticleAsync(
+            db,
+            markdown: string.Empty,
+            currentPublicationMatchesRevision: true);
+        Article article = await db.Queryable<Article>().InSingleAsync(articleId);
+        long revisionId = article.CurrentRevisionId!.Value;
+        await db.Insertable(new ArticleBody
+        {
+            ArticleId = articleId,
+            MarkdownContent = "# canonical body",
+            UpdatedAt = DateTime.UtcNow
+        }).ExecuteCommandAsync();
+        await db.Insertable(new ArticleRightsSnapshot
+        {
+            Id = 1,
+            ArticleId = articleId,
+            ArticleRevisionId = revisionId,
+            RevisionNo = 1,
+            ArticleRightsPolicyId = 1,
+            PolicyHash = "policy-hash",
+            ContentCanonicalHash = "content-hash"
+        }).ExecuteCommandAsync();
+        var store = Substitute.For<IArticleDetailAedsArtifactStore>();
+        var projection = Substitute.For<IPublicArticleProjectionStore>();
+        projection.VerifyShadowParityAsync(
+                articleId,
+                Arg.Any<ReadOnlyMemory<byte>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(true);
+        var repairQueue = new ArticleBodyRepairQueue();
+        var projector = new ArticleDetailAedsArtifactProjector(
+            db,
+            store,
+            projection,
+            new ImmediateDbConcurrencyGate(),
+            repairQueue,
+            TimeProvider.System,
+            NullLogger<ArticleDetailAedsArtifactProjector>.Instance);
+
+        await projector.GenerateAndStoreAsync(articleId, CancellationToken.None);
+
+        Assert.Equal(0, repairQueue.PendingCount);
+        await projection.Received(1).UpsertAsync(
+            Arg.Is<PublicArticleProjectionWrite>(write => write.ArticleId == articleId && !write.Frame.IsEmpty),
+            Arg.Any<CancellationToken>());
+        await store.Received(1).WriteAsync(
+            articleId,
+            Arg.Is<ReadOnlyMemory<byte>>(frame => !frame.IsEmpty),
+            Arg.Any<CancellationToken>());
+        await projection.DidNotReceiveWithAnyArgs().MarkUnavailableAsync(default, default!, default);
+    }
+
+    [Fact]
     public async Task Worker_QueuedPublishedCurrentRevisionWithoutBody_PersistsRevisionMarkdownOnce()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
@@ -125,7 +181,11 @@ public sealed class ArticleBodyRepairIntegrationTests(PostgresSchemaMigrationFix
             typeof(Article),
             typeof(ArticleRevision),
             typeof(ArticlePublicationRecord),
-            typeof(ArticleBody));
+            typeof(ArticleBody),
+            typeof(ArticleRightsSnapshot),
+            typeof(ArticleRightsProof),
+            typeof(Category),
+            typeof(Tag));
         await AssertAuthoritativePublicationSchemaAsync(db);
         return db;
     }
