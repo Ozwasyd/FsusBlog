@@ -480,6 +480,22 @@ public sealed class PublicContentFixtureSeeder(
 
         if (requiresDeepPagination)
         {
+            foreach (PublicContentObservedEntity article in observed
+                .Where(static item => item.Kind == "article"
+                    && item.CapabilityHint == "article-published")
+                .ToArray())
+            {
+                observed.Add(new PublicContentObservedEntity
+                {
+                    Kind = article.Kind,
+                    Id = article.Id,
+                    Owned = article.Owned,
+                    CapabilityHint = "article-pagination-deep",
+                    Projection = article.Projection,
+                    Fields = new Dictionary<string, object?>(article.Fields)
+                });
+            }
+
             // Replay the three domain-created articles before adding the set-based
             // pagination rows. Otherwise each search edge scans all 10,020 rows
             // even though deep-pagination fixtures intentionally have no bodies.
