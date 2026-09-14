@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
 using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Testing;
@@ -41,6 +42,22 @@ public sealed class RuntimeCacheEvidenceDatabaseAttributionIntegrationTests(
         AssertCompleteSingleCommand(
             sqlSugar,
             RuntimeCacheEvidenceObservation.FingerprintSql("SELECT 43"));
+    }
+
+    [Fact]
+    public async Task RealKestrel_ExposesAuthenticatedRuntimeMemorySnapshot()
+    {
+        string database = await postgres.CreateDatabaseAsync();
+        await using DatabaseEvidenceKestrelHost host = await DatabaseEvidenceKestrelHost.StartAsync(
+            postgres.BuildDatabaseConnectionString(database));
+
+        JsonElement snapshot = await host.RuntimeSnapshotAsync();
+
+        Assert.Equal(Environment.ProcessId, snapshot.GetProperty("processId").GetInt32());
+        Assert.True(snapshot.GetProperty("totalAllocatedBytes").GetInt64() > 0);
+        Assert.True(snapshot.GetProperty("residentBytes").GetInt64() > 0);
+        Assert.Equal(0, snapshot.GetProperty("activeKeyedEntries").GetInt32());
+        Assert.Equal(JsonValueKind.Array, snapshot.GetProperty("policies").ValueKind);
     }
 
     private static void AssertCompleteSingleCommand(JsonElement observation, string expectedFingerprint)
@@ -90,6 +107,12 @@ public sealed class RuntimeCacheEvidenceDatabaseAttributionIntegrationTests(
             builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
             builder.Services.AddRouting();
             builder.Services.AddSingleton<RuntimeCacheEvidenceStore>();
+            builder.Services.AddSingleton<ICacheDiagnostics, EmptyCacheDiagnostics>();
+            builder.Services.AddSingleton<ICacheSingleFlightCoordinator>(static _ =>
+                new CacheSingleFlightCoordinator(
+                    new TestCacheKeyResolver(),
+                    TimeSpan.FromSeconds(1),
+                    8));
             builder.Services.AddSqlSugar();
 
             WebApplication app = builder.Build();
@@ -152,11 +175,36 @@ public sealed class RuntimeCacheEvidenceDatabaseAttributionIntegrationTests(
             return document.RootElement.Clone();
         }
 
+        internal async Task<JsonElement> RuntimeSnapshotAsync()
+        {
+            using var request = new HttpRequestMessage(
+                HttpMethod.Get,
+                "/_fsus/testing/runtime-cache/runtime-snapshot");
+            request.Headers.TryAddWithoutValidation(
+                RuntimeCacheEvidenceMiddleware.SecretHeader,
+                Secret);
+            using HttpResponseMessage response = await _client.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+            await using Stream payload = await response.Content.ReadAsStreamAsync();
+            using JsonDocument document = await JsonDocument.ParseAsync(payload);
+            return document.RootElement.Clone();
+        }
+
         public async ValueTask DisposeAsync()
         {
             _client.Dispose();
             await _app.StopAsync();
             await _app.DisposeAsync();
+        }
+
+        private sealed class EmptyCacheDiagnostics : ICacheDiagnostics
+        {
+        }
+
+        private sealed class TestCacheKeyResolver : ICacheKeyResolver
+        {
+            public string BuildKey(CachePolicyId policyId, string identity, string? version = null)
+                => $"{policyId}:{identity}:{version}";
         }
     }
 }

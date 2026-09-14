@@ -24,8 +24,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const observationHeader = 'X-Fsus-Runtime-Evidence-Request'
 const secretHeader = 'X-Fsus-Runtime-Evidence-Secret'
 const observationRoute = '/_fsus/testing/runtime-cache/observations'
+const runtimeSnapshotRoute = '/_fsus/testing/runtime-cache/runtime-snapshot'
 const failureSchema = 'fsusblog.runtime-cache-producer-failure.v1'
-const memorySchema = 'fsusblog.runtime-cache-memory-observation.v1'
 const defaultOutputDirectory = path.join(root, '.tmp/perf/runtime-cache')
 
 export const implementedRuntimeCacheScenarios = Object.freeze(['public-hot-read'])
@@ -398,29 +398,46 @@ function buildFirstFailure(assertionResult, { attemptId, attemptNumber, rawEvide
   }
 }
 
-function validateMemoryObservation(document, context) {
-  if (document?.schema !== memorySchema) throw new Error(`memory observation schema must be ${memorySchema}`)
-  if (document.scenarioId !== context.scenario.id) throw new Error('memory observation scenario identity mismatch')
-  if (document.processId !== context.identity.runtime.processId) throw new Error('memory observation process identity mismatch')
-  if (canonicalJson(document.source) !== canonicalJson(context.sourceStart)) throw new Error('memory observation source identity mismatch')
-  const startedAt = Date.parse(document.startedAt)
-  const endedAt = Date.parse(document.endedAt)
-  if (!Number.isFinite(startedAt) || !Number.isFinite(endedAt) || startedAt > Date.parse(context.overallStartedAt) || endedAt < Date.parse(context.sampleEndedAt)) {
-    throw new Error('memory observation does not enclose the producer measurement window')
+async function takeRuntimeSnapshot({ fetchImpl, baseUrl, secret, timeoutMs }) {
+  const response = await fetchWithTimeout(fetchImpl, `${baseUrl}${runtimeSnapshotRoute}`, {
+    headers: { [secretHeader]: secret }
+  }, timeoutMs)
+  if (response.status !== 200) throw new Error(`runtime snapshot endpoint returned HTTP ${response.status}`)
+  const snapshot = await response.json()
+  const processId = pick(snapshot, 'processId', 'ProcessId')
+  if (!Number.isInteger(processId) || processId <= 0) throw new Error('runtime snapshot process identity is invalid')
+  const normalized = { processId }
+  for (const field of ['entries', 'logicalBytes', 'capacityBytes', 'logicalBudgetBytes', 'capacityBudgetBytes', 'totalAllocatedBytes', 'gen0Collections', 'gen1Collections', 'gen2Collections', 'residentBytes', 'activeKeyedEntries']) {
+    const pascal = `${field[0].toUpperCase()}${field.slice(1)}`
+    normalized[field] = pick(snapshot, field, pascal)
+    requireNonNegativeInteger(normalized[field], `runtime snapshot ${field}`)
   }
-  const memory = document.memory
-  for (const field of ['entries', 'logicalBytes', 'capacityBytes', 'logicalBudgetBytes', 'capacityBudgetBytes', 'allocatedBytes', 'gen0Collections', 'gen1Collections', 'gen2Collections', 'residentBytes']) {
-    requireNonNegativeInteger(memory?.[field], `memory observation ${field}`)
-  }
-  return { ...memory }
+  normalized.capturedAt = requireNonEmpty(pick(snapshot, 'capturedAt', 'CapturedAt'), 'runtime snapshot capturedAt')
+  if (!Number.isFinite(Date.parse(normalized.capturedAt))) throw new Error('runtime snapshot capturedAt is invalid')
+  return normalized
 }
 
-export function collectDefaultMemoryObservation(context) {
-  const directory = context.memoryDirectory ?? process.env.FSUSBLOG_RUNTIME_CACHE_MEMORY_OBSERVATION_DIR
-  if (!directory) throw new Error('FSUSBLOG_RUNTIME_CACHE_MEMORY_OBSERVATION_DIR is required for bound L1/GC/resident evidence')
-  const file = path.join(path.resolve(directory), `${context.scenario.id}.json`)
-  if (!fs.existsSync(file)) throw new Error(`memory observation is missing: ${file}`)
-  return validateMemoryObservation(JSON.parse(fs.readFileSync(file, 'utf8')), context)
+export async function collectDefaultMemoryObservation(context) {
+  const after = await takeRuntimeSnapshot(context)
+  const before = context.runtimeSnapshotStart
+  if (!before || before.processId !== after.processId || after.processId !== context.identity.runtime.processId) {
+    throw new Error('runtime memory snapshots do not bind the measured Kestrel process')
+  }
+  if (Date.parse(before.capturedAt) > Date.parse(context.sampleStartedAt) || Date.parse(after.capturedAt) < Date.parse(context.sampleEndedAt)) {
+    throw new Error('runtime memory snapshots do not enclose the sample window')
+  }
+  return {
+    entries: after.entries,
+    logicalBytes: after.logicalBytes,
+    capacityBytes: after.capacityBytes,
+    logicalBudgetBytes: after.logicalBudgetBytes,
+    capacityBudgetBytes: after.capacityBudgetBytes,
+    allocatedBytes: Math.max(0, after.totalAllocatedBytes - before.totalAllocatedBytes),
+    gen0Collections: Math.max(0, after.gen0Collections - before.gen0Collections),
+    gen1Collections: Math.max(0, after.gen1Collections - before.gen1Collections),
+    gen2Collections: Math.max(0, after.gen2Collections - before.gen2Collections),
+    residentBytes: after.residentBytes
+  }
 }
 
 export function collectDefaultCleanupProof(context) {
@@ -510,6 +527,7 @@ export async function producePublicHotReadReceipt(options) {
   const attemptId = `${runId}.attempt-${attemptNumber}`
   const sourceStart = identity.source
   const overallStartedAt = nowIso()
+  const runtimeSnapshotStart = options.collectMemory ? null : await takeRuntimeSnapshot({ fetchImpl, baseUrl, secret, timeoutMs })
   const warmupSpecs = publicHotReadSpecs(scenario.warmupRequests, 'warmup')
   const warmupStartedAt = nowIso()
   await mapConcurrent(warmupSpecs, scenario.concurrency, (spec, index) => collectObservedRequest({
@@ -529,7 +547,7 @@ export async function producePublicHotReadReceipt(options) {
     assertionForGroup('unique-ip-l0-allow', requests.slice(fixedCount))
   ]
   const failed = assertionResults.find((item) => item.assertion.status === 'failed')
-  const context = { scenario, identity, sourceStart, runId, attemptId, overallStartedAt, sampleEndedAt, memoryDirectory: options.memoryDirectory }
+  const context = { scenario, identity, sourceStart, runId, attemptId, overallStartedAt, sampleStartedAt, sampleEndedAt, runtimeSnapshotStart, fetchImpl, baseUrl, secret, timeoutMs }
   const memory = await (options.collectMemory ?? collectDefaultMemoryObservation)(context)
   const cleanupProof = await (options.collectCleanup ?? collectDefaultCleanupProof)(context)
   const raw = buildRawEvidence({ runId, scenarioId: scenario.id, attemptId, requests })
@@ -668,7 +686,6 @@ function parseArgs(args) {
     else if (argument === '--all') parsed.scenarioIds = []
     else if (argument === '--out-dir') parsed.outputDirectory = path.resolve(root, requireNonEmpty(args[++index], '--out-dir value'))
     else if (argument === '--base-url') parsed.baseUrl = requireNonEmpty(args[++index], '--base-url value')
-    else if (argument === '--memory-dir') parsed.memoryDirectory = path.resolve(root, requireNonEmpty(args[++index], '--memory-dir value'))
     else throw new Error(`unknown argument: ${argument}`)
   }
   if (parsed.scenarioIds.length === 0) delete parsed.scenarioIds

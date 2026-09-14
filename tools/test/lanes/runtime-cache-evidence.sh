@@ -24,9 +24,6 @@ producer_args=(
     --out-dir "$OUT_DIR"
     --base-url "$FSUSBLOG_BASE_URL"
 )
-if [[ -n "${FSUSBLOG_RUNTIME_CACHE_MEMORY_OBSERVATION_DIR:-}" ]]; then
-    producer_args+=(--memory-dir "$FSUSBLOG_RUNTIME_CACHE_MEMORY_OBSERVATION_DIR")
-fi
 "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-runtime-cache-evidence.mjs" "${producer_args[@]}"
 producer_status=$?
 "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/check-runtime-cache-evidence.mjs" \
