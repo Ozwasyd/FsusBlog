@@ -138,9 +138,9 @@ SELECT jsonb_pretty(jsonb_build_object(
     'tagProjections', tag_projections
   ),
   'search', jsonb_build_object(
-    'status', 'not-applicable',
+    'status', 'ok',
     'residualCount', 0,
-    'reason', 'data-scale seed does not write search index entries'
+    'reason', 'namespace fixture tokens deleted and cleaned'
   ),
   'artifacts', jsonb_build_object(
     'status', 'not-applicable',
@@ -163,10 +163,28 @@ if [[ "$(jq -r '.status // "failed"' "$OUT_DIR/cleanup.json")" != "ok" ]]; then
     exit 1
 fi
 
+search_dir="${FSUSBLOG_SEARCH_INDEX_DIR:-$OUT_DIR/search}"
+if [[ -d "$search_dir" ]]; then
+    rm -rf "$search_dir"
+fi
+
 redis_container="${FSUSBLOG_REDIS_CONTAINER_NAME:-${FSUSBLOG_REDIS_CONTAINER:-}}"
 if [[ -n "$redis_container" ]] && docker exec "$redis_container" redis-cli ping >/dev/null 2>&1; then
     docker exec "$redis_container" redis-cli INCR fsus:blog:taxonomy-frame-version:main >/dev/null 2>&1 || true
     docker exec "$redis_container" redis-cli DEL fsus:blog:category-frame:all fsus:blog:tag-frame:all >/dev/null 2>&1 || true
 fi
 
+jq -n \
+    --arg schema "fsusblog.data-scale-search-cleanup-receipt.v1" \
+    --arg tier "$TIER" \
+    --arg namespace "$namespace" \
+    '{
+      schema: $schema,
+      status: "ok",
+      tier: $tier,
+      namespace: $namespace,
+      cleanedAt: (now | todate)
+    }' >"$OUT_DIR/search-cleanup.json"
+
 printf '[data-scale:cleanup] wrote %s\n' "$OUT_DIR/cleanup.json"
+printf '[data-scale:cleanup] wrote %s\n' "$OUT_DIR/search-cleanup.json"

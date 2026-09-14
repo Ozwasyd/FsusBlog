@@ -284,7 +284,7 @@ inserted AS (
     isdeleted
   )
   SELECT
-    ctx.prefix || ':article:' || source.seed,
+    ctx.prefix || ':article:' || source.seed || ' title_canary_' || ctx.tier || '_' || source.seed,
     'Data scale fixture article ' || source.seed || ' for ' || ctx.namespace || '/' || ctx.tier,
     '/uploads/data-scale/' || ctx.namespace || '/' || ctx.tier || '/' || source.seed || '.webp',
     category.id,
@@ -303,7 +303,7 @@ inserted AS (
   RETURNING id, title, status, isdeleted
 )
 INSERT INTO tmp_data_scale_articles(seed, article_id, is_public)
-SELECT split_part(title, ':article:', 2)::integer, id, status = 2 AND isdeleted = false
+SELECT split_part(split_part(title, ':article:', 2), ' ', 1)::integer, id, status = 2 AND isdeleted = false
 FROM inserted;
 
 INSERT INTO article_body(article_id, markdown_content, updated_at)
@@ -311,6 +311,8 @@ SELECT
   article_id,
   '# Data Scale Article ' || seed || E'\n\n' ||
     'Namespace fixture: ' || (SELECT namespace FROM data_scale_context) || E'\n\n' ||
+    'Body canary: body_canary_' || (SELECT tier FROM data_scale_context) || '_' || seed || E'\n\n' ||
+    'CJK canary: 规模分词检索验证_' || (SELECT tier FROM data_scale_context) || '_' || seed || E'\n\n' ||
     'Search token: data-scale-search-' || seed || E'\n\n' ||
     'Comment cursor and public detail fixture body.',
   (SELECT business_now FROM data_scale_context)
@@ -620,21 +622,20 @@ SELECT jsonb_pretty(jsonb_build_object(
     'publicList', published > 0,
     'articleDetail', article_bodies = article_count,
     'commentCursor', root_comments > 0 OR comment_count = 0,
-    'searchPath', published > 0,
     'category', categories >= 4,
     'tag', tags >= 8
   ),
   'search', jsonb_build_object(
-    'status', 'unsupported',
-    'reason', 'data-scale seed writes queryable source rows; probe records search artifact evidence when a rebuild hook is configured'
+    'status', 'probe-required',
+    'reason', 'data-scale probe must verify canonical search index evidence for this fixture namespace'
   ),
   'artifacts', jsonb_build_object(
     'status', 'probe-required',
     'reason', 'data-scale probe must record artifact rebuild evidence for this fixture namespace'
   ),
   'searchArtifactRebuild', jsonb_build_object(
-    'status', 'unsupported',
-    'reason', 'search rebuild requires an explicit runtime hook outside the PostgreSQL seed step'
+    'status', 'probe-required',
+    'reason', 'search rebuild requires dedicated runtime indexing owner hook'
   ),
   'temporal', jsonb_build_object(
     'postgresTimezone', current_setting('TimeZone'),
@@ -658,9 +659,12 @@ SELECT jsonb_pretty(jsonb_build_object(
   ),
   'canaries', jsonb_build_object(
     'article', jsonb_build_object(
-      'id', (SELECT min(id) FROM article WHERE title = ctx.prefix || ':article:1'),
-      'title', ctx.prefix || ':article:1',
-      'searchToken', 'data-scale-search-1',
+      'id', (SELECT article_id FROM tmp_data_scale_articles WHERE seed = 1),
+      'title', (SELECT title FROM article WHERE id = (SELECT article_id FROM tmp_data_scale_articles WHERE seed = 1)),
+      'titleSearchToken', 'title_canary_' || ctx.tier || '_1',
+      'bodySearchToken', 'body_canary_' || ctx.tier || '_1',
+      'cjkSearchToken', '规模分词检索验证_' || ctx.tier || '_1',
+      'searchToken', 'title_canary_' || ctx.tier || '_1',
       'publicStatus', 'published'
     ),
     'category', jsonb_build_object(
@@ -675,7 +679,7 @@ SELECT jsonb_pretty(jsonb_build_object(
     ),
     'comment', jsonb_build_object(
       'id', (SELECT min(id) FROM comment WHERE content LIKE ctx.prefix || ':comment:%'),
-      'articleId', (SELECT min(id) FROM article WHERE title = ctx.prefix || ':article:1'),
+      'articleId', (SELECT article_id FROM tmp_data_scale_articles WHERE seed = 1),
       'contentPrefix', ctx.prefix || ':comment:',
       'content', (SELECT min(content) FROM comment WHERE id = (SELECT min(id) FROM comment WHERE content LIKE ctx.prefix || ':comment:%'))
     )
@@ -753,11 +757,11 @@ jq -n \
     summary: $summary,
     rebuilds: {
       search: {
-        status: "unsupported",
-        command: null,
+        status: "probe-required",
+        command: ("runtime-evidence-probe data-scale " + $tier + " " + $summary),
         artifactCount: null,
         sizeBytes: null,
-        reason: "search artifact rebuild hook is not configured for data-scale seed"
+        reason: "probe verifies canonical search index evidence for seeded namespace"
       },
       aot: {
         status: "unsupported",

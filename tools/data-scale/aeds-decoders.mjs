@@ -770,11 +770,28 @@ export function querySearchShard(shard, keyword)
     }
 
     const directHash = murmurHash3(trimmed);
-    const words = trimmed.match(/[a-z0-9]+/gu) ?? [];
     const queryHashes = new Set([directHash]);
+    const words = trimmed.match(/[a-z0-9_]+/gu) ?? [];
     for (const w of words)
     {
         queryHashes.add(murmurHash3(w));
+    }
+    for (const char of trimmed)
+    {
+        const code = char.codePointAt(0) ?? 0;
+        if (code > 127 && char.trim())
+        {
+            queryHashes.add(murmurHash3(char));
+        }
+    }
+    for (let i = 0; i < trimmed.length - 1; i += 1)
+    {
+        const pair = trimmed.slice(i, i + 2).trim();
+        const code0 = pair.codePointAt(0) ?? 0;
+        if (code0 > 127 && pair.length === 2)
+        {
+            queryHashes.add(murmurHash3(pair));
+        }
     }
 
     const postingsBlob = shard.bytes.subarray(shard.postingOffset, shard.postingOffset + shard.postingLength);
@@ -815,14 +832,14 @@ export function querySearchShard(shard, keyword)
         }
     }
 
-    // Direct match from docs title/summary if postings didn't catch (fallback for testing)
-    for (const doc of shard.docs)
+    const resultDocs = shard.docs.filter((doc) => matchingArticleIds.has(doc.articleId));
+    const foundIds = new Set(resultDocs.map((d) => d.articleId));
+    for (const id of matchingArticleIds)
     {
-        if (doc.title?.toLowerCase().includes(trimmed) || doc.summary?.toLowerCase().includes(trimmed))
+        if (!foundIds.has(id))
         {
-            matchingArticleIds.add(doc.articleId);
+            resultDocs.push({ articleId: id, title: 'foreign', summary: '' });
         }
     }
-
-    return shard.docs.filter((doc) => matchingArticleIds.has(doc.articleId));
+    return resultDocs;
 }

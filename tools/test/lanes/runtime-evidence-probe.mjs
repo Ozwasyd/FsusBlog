@@ -39,6 +39,9 @@ import {
     buildTaxonomyFrameVersionReceipt,
     buildTaxonomyProofReceipt
 } from '../../data-scale/taxonomy-projection.mjs';
+import {
+    computeExpectedSearchModel
+} from '../../data-scale/search-evidence.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../../..'));
 if (!process.env.FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID && process.argv[2] !== 'data-scale')
@@ -4991,7 +4994,7 @@ async function dataScale(tier, outFile)
     if (searchMetric.status !== 'ok')
     {
         searchProof = {
-            status: searchMetric.status === 'unsupported' ? 'unsupported' : 'missing',
+            status: 'failed',
             kind: 'search',
             assertionIds: ['data-scale.search.manifest'],
             errors: [searchMetric.reason || `search metric status: ${searchMetric.status}`]
@@ -5002,6 +5005,7 @@ async function dataScale(tier, outFile)
         const searchDirs = [
             process.env.FSUSBLOG_SEARCH_INDEX_DIR,
             process.env.FSUSBLOG_SEARCH_DIR,
+            path.join(scaleRoot, tier, 'search'),
             path.join(backendWwwrootDir(), 'search')
         ].filter(Boolean);
         let searchManifest = null;
@@ -5027,11 +5031,27 @@ async function dataScale(tier, outFile)
                 catch { /* ignore */ }
             }
         }
+        const searchReceiptFile = path.join(scaleRoot, tier, 'search-receipt.json');
+        const searchReceipt = readOptionalJson(searchReceiptFile);
+        const expectedSearchModel = computeExpectedSearchModel({
+            articleCount: articles,
+            tier,
+            namespace,
+            prefix
+        });
+
         searchProof = verifySearchProof({
             manifest: searchManifest,
             shard: searchShard,
             searchToken: canaries.article?.searchToken || 'data-scale-search-1',
+            tokens: {
+                titleSearchToken: canaries.article?.titleSearchToken || canaries.article?.searchToken,
+                bodySearchToken: canaries.article?.bodySearchToken,
+                cjkSearchToken: canaries.article?.cjkSearchToken
+            },
             expectedArticleId: canaries.article?.id || 1,
+            indexReceipt: searchReceipt,
+            expectedModel: expectedSearchModel,
             runtimeLease
         });
     }
