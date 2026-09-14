@@ -350,7 +350,7 @@ RUN node ../../tools/frontend/wasm-build-receipt.mjs verify-envelope \
     --client-root /app \
     --artifact-dir /app/public/wasm
 
-RUN FSUSBLOG_SKIP_ENSURE_WASM=1 npm run build:release
+RUN FSUSBLOG_SKIP_ENSURE_WASM=1 FSUSBLOG_FRONTEND_DIST_ROOT=/app/dist npm run build:release
 
 COPY tools/docker/ssr-runtime-closure.mjs /tools/docker/ssr-runtime-closure.mjs
 COPY config/build/ssr-runtime-inputs.json /config/build/ssr-runtime-inputs.json
