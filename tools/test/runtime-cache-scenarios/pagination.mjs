@@ -5,6 +5,7 @@ import {
   mapConcurrent,
   produceMeasuredScenarioReceipt
 } from '../run-runtime-cache-evidence.mjs'
+import { evaluateLogicalPaginationDatabaseCommands } from '../runtime-cache-evidence-contract.mjs'
 
 function paginationInput(identity) {
   const fixture = JSON.parse(fs.readFileSync(identity.fixtureFile, 'utf8'))
@@ -78,8 +79,19 @@ export async function producePaginationReceipt(options) {
         cursorless.push(await collect(cursorlessSpec(input, page), logical.length + index))
       }
       const requests = [...logical, ...cursorless]
-      const dbCounts = Object.fromEntries(logical.map((request) => [request.subcaseId, request.dbCommands.length]))
-      const constant = new Set(Object.values(dbCounts)).size === 1
+      const dbCounts = Object.fromEntries(logical.map((request) =>
+        [Number.parseInt(request.subcaseId.slice('page-'.length), 10), request.dbCommands.length]))
+      const logicalPageCommandResult = evaluateLogicalPaginationDatabaseCommands(dbCounts, scenario.requirements)
+      const logicalPageCommandExpected = Object.fromEntries(
+        Object.keys(logicalPageCommandResult).map((key) => [key, true]))
+      const deepReferenceCount = logical[1]?.dbCommands.length
+      const firstLogicalFailure = logical[0].dbCommands.length > scenario.requirements.countCacheMissDbCommandsMax
+        ? logical[0]
+        : logical.slice(1).find((request) =>
+            request.dbCommands.length > scenario.requirements.countCacheHitDbCommandsMax ||
+            request.dbCommands.length !== deepReferenceCount) ??
+          logical.find((request) => request.dbCommands.length === 0) ??
+          logical[0]
       const cursorlessCounts = {
         redis: cursorless.reduce((sum, request) => sum + request.redisCommands.length, 0),
         database: cursorless.reduce((sum, request) => sum + request.dbCommands.length, 0)
@@ -89,9 +101,9 @@ export async function producePaginationReceipt(options) {
         assertionResults: [
           exactAssertionResult(
             'logical-page-command-constant',
-            { constant: true, positive: true },
-            { constant, positive: Object.values(dbCounts).every((count) => count > 0) },
-            logical.find((request) => request.dbCommands.length !== logical[0].dbCommands.length) ?? logical[0]),
+            logicalPageCommandExpected,
+            logicalPageCommandResult,
+            firstLogicalFailure),
           exactAssertionResult(
             'cursorless-deep-zero-commands',
             { redis: 0, database: 0 },

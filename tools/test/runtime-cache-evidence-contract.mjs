@@ -52,6 +52,25 @@ export function digest(value) {
   return `sha256:${createHash('sha256').update(typeof value === 'string' || Buffer.isBuffer(value) ? value : canonicalJson(value)).digest('hex')}`
 }
 
+export function evaluateLogicalPaginationDatabaseCommands(pageCounts, requirements) {
+  const logicalPages = requirements.logicalPages ?? []
+  const firstPage = logicalPages[0]
+  const deepPages = logicalPages.slice(1)
+  const firstPageCount = pageCounts[firstPage]
+  const deepPageCounts = deepPages.map((page) => pageCounts[page])
+  const deepReference = deepPageCounts[0]
+
+  return {
+    firstPageWithinBudget: Number.isInteger(firstPageCount) && firstPageCount <= requirements.countCacheMissDbCommandsMax,
+    deepPagesWithinBudget: deepPageCounts.length > 0 && deepPageCounts.every((count) =>
+      Number.isInteger(count) && count <= requirements.countCacheHitDbCommandsMax),
+    deepPageCommandsConstant: deepPageCounts.length > 0 && deepPageCounts.every((count) => count === deepReference),
+    countMissObservedOnce: Number.isInteger(firstPageCount) && Number.isInteger(deepReference) &&
+      firstPageCount === deepReference + requirements.countCacheMissExtraCommands,
+    positive: logicalPages.every((page) => Number.isInteger(pageCounts[page]) && pageCounts[page] > 0)
+  }
+}
+
 export function sealReceipt(receipt) {
   const { contentDigest: _ignored, ...payload } = receipt
   return { ...payload, contentDigest: digest(payload) }
@@ -391,9 +410,15 @@ function validateScenarioRequirements(receipt, scenario, raw, errors) {
       }
     }
   }
-  if (raw && requirements.constantDbCommands) {
-    const pageCounts = ['page-1', 'page-10', 'page-100', 'page-1000'].map((id) => commandsForSubcase(raw, 'databaseCommands', id))
-    if (new Set(pageCounts).size !== 1) errors.push('logical pagination database command count is not constant')
+  if (raw && requirements.logicalDepthIndependentDbCommands) {
+    const pageCounts = Object.fromEntries(requirements.logicalPages.map((page) =>
+      [page, commandsForSubcase(raw, 'databaseCommands', `page-${page}`)]))
+    const actual = evaluateLogicalPaginationDatabaseCommands(pageCounts, requirements)
+    const assertion = findAssertion(receipt, 'logical-page-command-constant')
+    if (!assertion || !exactArray(assertion.actual, actual)) errors.push('logical pagination assertion does not match raw evidence')
+    if (Object.values(actual).some((value) => value !== true)) {
+      errors.push(`logical pagination database command budget failed: ${canonicalJson(actual)}`)
+    }
   }
   if (raw && requirements.cursorlessDeepRedisCommandsMax != null
       && commandsForSubcase(raw, 'redisCommands', 'cursorless-deep') > requirements.cursorlessDeepRedisCommandsMax) errors.push('cursorless deep Redis command budget exceeded')

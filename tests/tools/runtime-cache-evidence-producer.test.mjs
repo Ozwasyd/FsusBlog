@@ -6,7 +6,11 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
-import { loadRuntimeCacheCatalog, validateRuntimeCacheReceipt } from '../../tools/test/runtime-cache-evidence-contract.mjs'
+import {
+  evaluateLogicalPaginationDatabaseCommands,
+  loadRuntimeCacheCatalog,
+  validateRuntimeCacheReceipt
+} from '../../tools/test/runtime-cache-evidence-contract.mjs'
 import {
   collectObservedRequest,
   implementedRuntimeCacheScenarios,
@@ -97,7 +101,7 @@ function sha256(value) {
   return `sha256:${createHash('sha256').update(value).digest('hex')}`
 }
 
-async function startObservationServer({ redisCommands = [], redisFailureEvents = [] } = {}) {
+async function startObservationServer({ redisCommands = [], redisFailureEvents = [], paginationDatabaseCommandCounts = {} } = {}) {
   const observations = new Map()
   const calls = []
   let sitemapBuildCount = 0
@@ -203,6 +207,7 @@ async function startObservationServer({ redisCommands = [], redisFailureEvents =
       const page = Number.parseInt(paginationMatch[1], 10)
       const cursor = url.searchParams.get('cursor')
       const cursorlessDeep = page > 1 && !cursor
+      const paginationDatabaseCommandCount = cursorlessDeep ? 0 : (paginationDatabaseCommandCounts[page] ?? 1)
       const body = Buffer.from(cursorlessDeep ? 'cursor-required' : `qualified-page-${page}`)
       const requestId = request.headers['x-fsus-runtime-evidence-request']
       observations.set(requestId, {
@@ -217,8 +222,9 @@ async function startObservationServer({ redisCommands = [], redisFailureEvents =
         redisCommands: [],
         redisFailureEvents: [],
         cacheEvents: [],
-        databaseFingerprints: cursorlessDeep ? [] : [sha256('pagination-keyset-select')],
-        databaseCommandCount: cursorlessDeep ? 0 : 1,
+        databaseFingerprints: Array.from({ length: paginationDatabaseCommandCount }, (_, index) =>
+          sha256(index === 0 ? 'pagination-keyset-select' : `pagination-command-${index}`)),
+        databaseCommandCount: paginationDatabaseCommandCount,
         databaseDroppedCommandCount: 0,
         databaseLateCommandCount: 0,
         databaseObservationStatus: 'complete',
@@ -648,7 +654,7 @@ test('related-reading handler derives one burst rebuild from request cache event
 })
 
 test('pagination handler uses production cursors and rejects cursorless deep reads without commands', async () => {
-  const runtime = await startObservationServer()
+  const runtime = await startObservationServer({ paginationDatabaseCommandCounts: { 1: 2, 10: 1, 100: 1, 1000: 1 } })
   const directory = temporaryDirectory('runtime-cache-pagination-')
   const fixtureFile = path.join(directory, 'public-projection.json')
   writeFileSync(fixtureFile, JSON.stringify({
@@ -673,7 +679,15 @@ test('pagination handler uses production cursors and rejects cursorless deep rea
     concurrency: 1,
     warmupRequests: 4,
     requiredAssertions: ['logical-page-command-constant', 'cursorless-deep-zero-commands'],
-    requirements: { logicalPages: [1, 10, 100, 1000], constantDbCommands: true, cursorlessDeepRedisCommandsMax: 0, cursorlessDeepDbCommandsMax: 0 }
+    requirements: {
+      logicalPages: [1, 10, 100, 1000],
+      logicalDepthIndependentDbCommands: true,
+      countCacheMissDbCommandsMax: 3,
+      countCacheHitDbCommandsMax: 2,
+      countCacheMissExtraCommands: 1,
+      cursorlessDeepRedisCommandsMax: 0,
+      cursorlessDeepDbCommandsMax: 0
+    }
   })
   const currentCatalog = catalog(currentScenario)
   try {
@@ -696,6 +710,13 @@ test('pagination handler uses production cursors and rejects cursorless deep rea
     assert.ok(receipt.requests.slice(0, 4).every((request) => request.status === 200))
     assert.ok(receipt.requests.slice(4).every((request) => request.status === 400))
     assert.deepEqual(receipt.assertions.map((assertion) => assertion.status), ['passed', 'passed'])
+    assert.deepEqual(receipt.assertions[0].actual, {
+      firstPageWithinBudget: true,
+      deepPagesWithinBudget: true,
+      deepPageCommandsConstant: true,
+      countMissObservedOnce: true,
+      positive: true
+    })
     assert.deepEqual(validateRuntimeCacheReceipt(receipt, {
       catalog: currentCatalog,
       expectedSource: source,
@@ -704,6 +725,22 @@ test('pagination handler uses production cursors and rejects cursorless deep rea
   } finally {
     await runtime.close()
   }
+})
+
+test('pagination command evaluator rejects database work that grows with logical depth', () => {
+  const requirements = {
+    logicalPages: [1, 10, 100, 1000],
+    countCacheMissDbCommandsMax: 3,
+    countCacheHitDbCommandsMax: 2,
+    countCacheMissExtraCommands: 1
+  }
+  assert.deepEqual(evaluateLogicalPaginationDatabaseCommands({ 1: 2, 10: 1, 100: 2, 1000: 3 }, requirements), {
+    firstPageWithinBudget: true,
+    deepPagesWithinBudget: false,
+    deepPageCommandsConstant: false,
+    countMissObservedOnce: true,
+    positive: true
+  })
 })
 
 test('first command-budget failure remains authoritative after a later clean run', async () => {
