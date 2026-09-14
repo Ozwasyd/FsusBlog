@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import http from 'node:http'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -13,6 +13,7 @@ import {
   producePublicHotReadReceipt,
   runRuntimeCacheProducer
 } from '../../tools/test/run-runtime-cache-evidence.mjs'
+import { produceArticleDetailL1Receipt } from '../../tools/test/runtime-cache-scenarios/article-detail-l1.mjs'
 
 const secret = 'runtime-cache-producer-test-secret'
 const source = {
@@ -120,6 +121,30 @@ async function startObservationServer({ redisCommands = [] } = {}) {
         latencyMs: 1.5,
         allocatedBytes: 6,
         redisCommands,
+        databaseFingerprints: [],
+        databaseCommandCount: 0,
+        databaseDroppedCommandCount: 0,
+        databaseLateCommandCount: 0,
+        databaseObservationStatus: 'complete',
+        databaseAttributionComplete: true
+      })
+      response.writeHead(200, { 'content-type': 'application/octet-stream' })
+      response.end(body)
+      return
+    }
+    if (url.pathname === '/api/binary/article/17.aeds') {
+      const body = Buffer.from('qualified-article-detail-frame')
+      const requestId = request.headers['x-fsus-runtime-evidence-request']
+      observations.set(requestId, {
+        requestId,
+        method: 'GET',
+        path: url.pathname,
+        status: 200,
+        payloadDigest: sha256(body),
+        layerSource: 'l1-frame',
+        latencyMs: 2,
+        allocatedBytes: 0,
+        redisCommands: [],
         databaseFingerprints: [],
         databaseCommandCount: 0,
         databaseDroppedCommandCount: 0,
@@ -303,6 +328,57 @@ test('public hot-read producer emits a checker-valid receipt from real HTTP obse
     assert.deepEqual(validateRuntimeCacheReceipt(receipt, { catalog: currentCatalog, expectedSource: source, repositoryRoot: directory }), [])
     assert.ok(runtime.calls.every((call) => call.secret === secret))
     assert.equal(JSON.stringify(receipt).includes(secret), false)
+  } finally {
+    await runtime.close()
+  }
+})
+
+test('article detail L1 handler proves zero commands while real Redis is paused', async () => {
+  const runtime = await startObservationServer()
+  const directory = temporaryDirectory('runtime-cache-article-l1-')
+  const fixtureFile = path.join(directory, 'public-projection.json')
+  writeFileSync(fixtureFile, JSON.stringify({
+    articleId: '17',
+    entities: [{ producerId: 'public-content', kind: 'article', id: '17' }]
+  }))
+  const currentScenario = scenario({
+    id: 'article-detail-l1',
+    subcases: ['l1-hit', 'redis-fault'],
+    requests: 4,
+    concurrency: 2,
+    warmupRequests: 2,
+    requiredAssertions: ['l1-zero-commands', 'redis-fault-latency'],
+    requirements: { redisCommandsMax: 0, dbCommandsMax: 0, redisFaultLatencyRatioMax: 1.25 }
+  })
+  const currentCatalog = catalog(currentScenario)
+  let pauseMs = 0
+  try {
+    const receipt = await produceArticleDetailL1Receipt({
+      repositoryRoot: directory,
+      catalog: currentCatalog,
+      scenario: currentScenario,
+      identity: {
+        ...identity,
+        fixtureFile,
+        runtime: { ...identity.runtime, kestrelUrl: runtime.baseUrl }
+      },
+      baseUrl: runtime.baseUrl,
+      secret,
+      outputFile: path.join(directory, '.tmp/perf/runtime-cache/receipts/article-detail-l1.json'),
+      collectMemory: async () => memory(),
+      collectCleanup: async () => cleanup(),
+      captureSource: () => source,
+      injectRedisPause: async (value) => { pauseMs = value },
+      runId: 'article-l1-pass',
+      attemptNumber: 1
+    })
+    assert.equal(pauseMs, 500)
+    assert.equal(receipt.status, 'passed')
+    assert.deepEqual(validateRuntimeCacheReceipt(receipt, {
+      catalog: currentCatalog,
+      expectedSource: source,
+      repositoryRoot: directory
+    }), [])
   } finally {
     await runtime.close()
   }

@@ -52,9 +52,10 @@ export async function produceArticleDetailL1Receipt(options) {
       const l1Specs = specs(scenario.requests / 2, 'sample', 'l1-hit')
       const l1 = await mapConcurrent(l1Specs, scenario.concurrency, (spec, index) => collect(spec, index))
 
-      execFileSync('docker', [
+      const injectRedisPause = options.injectRedisPause ?? (() => execFileSync('docker', [
         'exec', '-i', identity.redisContainer, 'redis-cli', 'CLIENT', 'PAUSE', '500', 'ALL'
-      ], { stdio: ['ignore', 'pipe', 'pipe'] })
+      ], { stdio: ['ignore', 'pipe', 'pipe'] }))
+      await injectRedisPause(500)
       const faultSpecs = specs(scenario.requests - l1.length, 'redis-fault', 'redis-fault')
       const fault = await mapConcurrent(faultSpecs, scenario.concurrency, (spec, index) => collect(spec, l1.length + index))
       const requests = [...l1, ...fault]
