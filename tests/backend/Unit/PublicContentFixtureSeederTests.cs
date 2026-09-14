@@ -83,6 +83,44 @@ public sealed class PublicContentFixtureSeederTests
     }
 
     [Fact]
+    public void AddPaginationBoundaryEvidence_PreservesExistingIdentityAndAddsScopedObservation()
+    {
+        var identities = new List<PublicContentEntityIdentity>
+        {
+            new("article", "9010", "domain-created", "article-published")
+        };
+        var observations = new List<PublicContentObservedEntity>
+        {
+            new()
+            {
+                Kind = "article",
+                Id = "9010",
+                CapabilityHint = "article-published",
+                Fields = new Dictionary<string, object?> { ["status"] = "published" }
+            }
+        };
+        var cursor = new PublicContentPaginationCursor(
+            10,
+            "production-opaque-cursor",
+            new PublicContentPaginationBoundaryIdentity(
+                "9010",
+                new DateTime(2026, 9, 14, 8, 0, 0, DateTimeKind.Utc),
+                0,
+                90));
+
+        PublicContentFixtureSeeder.AddPaginationBoundaryEvidence(
+            identities,
+            observations,
+            "fxpc:pagination:run",
+            cursor);
+
+        Assert.Single(identities);
+        Assert.Contains(observations, item => item.Kind == "article"
+            && item.Id == "9010"
+            && item.CapabilityHint == "article-pagination-deep");
+    }
+
+    [Fact]
     public void SecurityMatrixOutboxOwnership_RequiresExplicitFixtureOwnershipAndDisabledDispatcher()
     {
         static IConfiguration Configuration(params (string Key, string Value)[] values)

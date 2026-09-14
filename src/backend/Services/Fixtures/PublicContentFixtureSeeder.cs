@@ -831,28 +831,11 @@ public sealed class PublicContentFixtureSeeder(
         {
             foreach (PublicContentPaginationCursor pageCursor in paginationProjection.Cursors)
             {
-                string articleId = pageCursor.BoundaryIdentity.ArticleId;
-                if (!entityIdentities.Any(item => item.Kind == "article" && item.Id == articleId))
-                {
-                    entityIdentities.Add(new(
-                        "article",
-                        articleId,
-                        $"{ownerPrefix}:pagination-boundary:{pageCursor.LogicalPage}",
-                        "article-pagination-deep"));
-                    observed.Add(new PublicContentObservedEntity
-                    {
-                        Kind = "article",
-                        Id = articleId,
-                        CapabilityHint = "article-pagination-deep",
-                        Fields = new Dictionary<string, object?>
-                        {
-                            ["status"] = "published",
-                            ["deleted"] = false,
-                            ["logicalPage"] = pageCursor.LogicalPage,
-                            ["boundaryIdentity"] = pageCursor.BoundaryIdentity
-                        }
-                    });
-                }
+                AddPaginationBoundaryEvidence(
+                    entityIdentities,
+                    observed,
+                    ownerPrefix,
+                    pageCursor);
             }
             entityIdentities.Add(new(
                 "pagination-keyset",
@@ -1310,6 +1293,45 @@ public sealed class PublicContentFixtureSeeder(
             OwnedArticleCount = ownedArticleCount,
             Cursors = cursors
         };
+    }
+
+    internal static void AddPaginationBoundaryEvidence(
+        List<PublicContentEntityIdentity> identities,
+        List<PublicContentObservedEntity> observations,
+        string ownerPrefix,
+        PublicContentPaginationCursor pageCursor)
+    {
+        ArgumentNullException.ThrowIfNull(identities);
+        ArgumentNullException.ThrowIfNull(observations);
+        ArgumentException.ThrowIfNullOrWhiteSpace(ownerPrefix);
+        ArgumentNullException.ThrowIfNull(pageCursor);
+        string articleId = pageCursor.BoundaryIdentity.ArticleId;
+        if (!identities.Any(item => item.Kind == "article" && item.Id == articleId))
+        {
+            identities.Add(new(
+                "article",
+                articleId,
+                $"{ownerPrefix}:pagination-boundary:{pageCursor.LogicalPage}",
+                "article-pagination-deep"));
+        }
+        if (!observations.Any(item => item.Kind == "article"
+            && item.Id == articleId
+            && item.CapabilityHint == "article-pagination-deep"))
+        {
+            observations.Add(new PublicContentObservedEntity
+            {
+                Kind = "article",
+                Id = articleId,
+                CapabilityHint = "article-pagination-deep",
+                Fields = new Dictionary<string, object?>
+                {
+                    ["status"] = "published",
+                    ["deleted"] = false,
+                    ["logicalPage"] = pageCursor.LogicalPage,
+                    ["boundaryIdentity"] = pageCursor.BoundaryIdentity
+                }
+            });
+        }
     }
 
     private static DateTime NormalizeUtc(DateTime value)
