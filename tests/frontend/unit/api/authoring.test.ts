@@ -8,7 +8,10 @@ import {
   discardServerDraft,
   getServerDraft,
   moderateComment,
+  normalizePreviewCoverImageUrl,
+  previewArticleDraft,
   previewModerationEffectivePolicy,
+  readStructuredArticlePreviewResponse,
   reloadModerationDictionaries,
   revokeAnonymousCredential,
   rollbackArticleRevision,
@@ -69,6 +72,93 @@ describe('authoring API binary transport', () => {
     })).resolves.toBe(
       'preview:sha256:a5211698f205f78847796364f1c2f15285f8946930c85d1c09c13db9f80c8272'
     )
+  })
+
+  it.each([
+    ['/uploads/cover.png', '/uploads/cover.png'],
+    ['https://example.com/cover.png', 'https://example.com/cover.png'],
+    ['http://example.com/cover.png', 'http://example.com/cover.png'],
+    ['//example.com/cover.png', null],
+    ['javascript:alert(1)', null],
+    ['data:text/html,<script>alert(1)</script>', null],
+    ['https://user:pass@example.com/cover.png', null],
+    ['mailto:owner@example.com', null]
+  ] as const)('normalizes preview cover URL %s', (input, expected) => {
+    expect(normalizePreviewCoverImageUrl(input)).toBe(expected)
+  })
+
+  it('reads only structured preview fields and rejects leftover HTML protocol keys', () => {
+    const structured = {
+      normalizedTitle: 'Title',
+      normalizedSummary: 'Summary',
+      normalizedCoverImageUrl: '/uploads/cover.png',
+      normalizedMarkdownSource: '# Markdown',
+      plainText: 'Markdown',
+      sourceIdentity: `preview:sha256:${'a'.repeat(64)}`,
+      issues: [{ severity: 'error', code: 'dangerous_html', message: '<script>issue()</script>' }]
+    }
+
+    expect(readStructuredArticlePreviewResponse({
+      ...structured,
+      extra: 'ignored'
+    })).toEqual(structured)
+    expect(readStructuredArticlePreviewResponse({
+      ...structured,
+      normalizedCoverImageUrl: 'javascript:alert(1)'
+    }).normalizedCoverImageUrl).toBeNull()
+    expect(() => readStructuredArticlePreviewResponse({
+      ...structured,
+      html: '<p>nope</p>'
+    })).toThrow('article_preview_html_field_forbidden')
+    expect(() => readStructuredArticlePreviewResponse({
+      ...structured,
+      srcdoc: '<p>nope</p>'
+    })).toThrow('article_preview_html_field_forbidden')
+  })
+
+  it('fails closed when a preview response still carries an html field', async () => {
+    binaryMock.mockResolvedValue({
+      normalizedTitle: 'Title',
+      normalizedSummary: 'Summary',
+      normalizedCoverImageUrl: '/uploads/cover.png',
+      normalizedMarkdownSource: '# Markdown',
+      plainText: 'Markdown',
+      sourceIdentity: `preview:sha256:${'b'.repeat(64)}`,
+      issues: [],
+      html: '<article>legacy</article>'
+    })
+
+    await expect(previewArticleDraft({
+      draftKey: 'article-preview-test',
+      articleId: null,
+      baseRevisionId: null,
+      title: 'Title',
+      content: '# Markdown',
+      summary: 'Summary',
+      coverImageUrl: '/uploads/cover.png',
+      categoryId: 1,
+      tagIds: [],
+      clientRevision: 'preview-test',
+      status: 0,
+      scheduledPublishAt: null,
+      rights: {
+        enabled: true,
+        licenseType: 'all-rights-reserved',
+        copyrightHolder: '',
+        copyrightYear: null,
+        rightsStatement: '',
+        attributionTemplate: '',
+        copyPolicy: 'append-attribution',
+        maxExcerptChars: 300,
+        allowCodeCopy: true,
+        showPublicBadge: true,
+        proofBindingEnabled: true
+      },
+      expectedServerRevision: null
+    })).rejects.toMatchObject({
+      code: 'ProtocolFailure',
+      message: 'article_preview_html_field_forbidden'
+    })
   })
 
   it('saveServerDraft posts an AEDS author draft request frame', async () => {
