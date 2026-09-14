@@ -67,10 +67,10 @@ export async function prepareRevocationSize({
   return result
 }
 
-function requestSpec(articleId, runId, index, size) {
+function requestSpec(articleId, size) {
   return {
     method: 'GET',
-    path: `/api/binary/article/${articleId}.aeds?runtime-cache-evidence=${encodeURIComponent(`${runId}-revocation-${size}-${index + 1}`)}`,
+    path: `/api/binary/article/${articleId}.aeds`,
     subcaseId: `size-${size}`,
     parityGroup: `revocation-unrelated-article-${articleId}`,
     headers: {}
@@ -138,7 +138,7 @@ export async function runRevocationSample({ scenario, collect, prepare, runId, a
   try {
     for (const size of sizes) {
       authorityBySize[size] = await prepare(size, runId)
-      const specs = Array.from({ length: 3 }, (_, index) => requestSpec(articleId, runId, index, size))
+      const specs = Array.from({ length: 3 }, () => requestSpec(articleId, size))
       const batch = await mapConcurrent(specs, scenario.concurrency, (spec, index) => collect(spec, ordinal + index))
       ordinal += batch.length
       requests.push(...batch)
@@ -210,9 +210,9 @@ export async function produceRevocationReceipt(options) {
     timeoutMs: options.revocationControlTimeoutMs
   }))
   return produceMeasuredScenarioReceipt(options, {
-    warmup: async ({ collect, runId }) => {
-      const specs = Array.from({ length: scenario.warmupRequests }, (_, index) =>
-        requestSpec(articleId, runId, index, 1))
+    warmup: async ({ collect }) => {
+      const specs = Array.from({ length: scenario.warmupRequests }, () =>
+        requestSpec(articleId, 1))
       return mapConcurrent(specs, scenario.concurrency, (spec, index) => collect(spec, index, 'warmup'))
     },
     sample: ({ collect, runId }) => runRevocationSample({ scenario, collect, prepare, runId, articleId })

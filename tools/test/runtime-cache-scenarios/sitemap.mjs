@@ -5,10 +5,10 @@ import {
   takeRuntimeSnapshot
 } from '../run-runtime-cache-evidence.mjs'
 
-function requestSpec(runId, phase, index, subcaseId) {
+function requestSpec(subcaseId) {
   return {
     method: 'GET',
-    path: `/sitemap.xml?runtime-cache-evidence=${encodeURIComponent(`${runId}-${phase}-${index + 1}`)}`,
+    path: '/sitemap.xml',
     subcaseId,
     parityGroup: 'sitemap-current-generation',
     headers: { Accept: 'application/xml' }
@@ -23,10 +23,10 @@ export async function produceSitemapReceipt(options) {
   let afterWarmup
 
   return produceMeasuredScenarioReceipt(options, {
-    warmup: async ({ collect, runId }) => {
-      const specs = Array.from({ length: scenario.warmupRequests }, (_, index) => ({
+    warmup: async ({ collect }) => {
+      const specs = Array.from({ length: scenario.warmupRequests }, () => ({
         method: 'GET',
-        path: `/api/binary/system/seo?runtime-cache-evidence=${encodeURIComponent(`${runId}-sitemap-warmup-${index + 1}`)}`,
+        path: '/api/binary/system/seo',
         subcaseId: 'l1-hit',
         parityGroup: 'sitemap-warmup',
         headers: {}
@@ -35,13 +35,13 @@ export async function produceSitemapReceipt(options) {
       afterWarmup = await takeRuntimeSnapshot(snapshotContext)
       return requests
     },
-    sample: async ({ collect, runId }) => {
+    sample: async ({ collect }) => {
       if (!afterWarmup) throw new Error('sitemap warmup snapshot is missing')
-      const burstSpecs = Array.from({ length: 100 }, (_, index) =>
-        requestSpec(runId, 'sample', index, 'same-generation-100'))
+      const burstSpecs = Array.from({ length: 100 }, () =>
+        requestSpec('same-generation-100'))
       const burst = await mapConcurrent(burstSpecs, scenario.concurrency, (spec, index) => collect(spec, index))
       const afterBurst = await takeRuntimeSnapshot(snapshotContext)
-      const l1 = await collect(requestSpec(runId, 'l1', 0, 'l1-hit'), 100)
+      const l1 = await collect(requestSpec('l1-hit'), 100)
       const requests = [...burst, l1]
       const afterSample = await takeRuntimeSnapshot(snapshotContext)
       const l1Requests = requests.filter((request) => request.subcaseId === 'l1-hit')

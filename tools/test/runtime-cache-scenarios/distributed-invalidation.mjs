@@ -119,13 +119,13 @@ async function waitForConvergence(api, baseUrls, eventId, timeoutMs) {
   throw new Error(`distributed invalidation did not durably converge for ${eventId}`)
 }
 
-function routeSpecs(count, articleId, baseUrls, phase) {
+function routeSpecs(count, articleId, baseUrls) {
   const subcases = ['unrelated-policy-residency', 'public-hot-read-ready', 'two-node-convergence']
   return Array.from({ length: count }, (_, index) => ({
     baseUrl: baseUrls[index % baseUrls.length],
     nodeIndex: index % baseUrls.length,
     method: 'GET',
-    path: `/api/binary/article/${articleId}.aeds?runtime-cache-evidence=${phase}-${index + 1}`,
+    path: `/api/binary/article/${articleId}.aeds`,
     subcaseId: subcases[index % subcases.length],
     parityGroup: 'distributed-route-convergence',
     headers: {}
@@ -180,7 +180,7 @@ export async function produceDistributedInvalidationReceipt(options) {
       cleanupContext = runId
       eventId = eventIdFor(runId)
       await Promise.all(baseUrls.map((baseUrl) => api.prepareDistributed(baseUrl, { runId, articleId })))
-      const specs = routeSpecs(scenario.warmupRequests, articleId, baseUrls, 'warmup')
+      const specs = routeSpecs(scenario.warmupRequests, articleId, baseUrls)
       const requests = await mapConcurrent(specs, scenario.concurrency, (spec, index) => collect(spec, index, 'warmup'))
       beforeSnapshots = await Promise.all(baseUrls.map((baseUrl) => api.snapshot(baseUrl)))
       return requests
@@ -208,7 +208,7 @@ export async function produceDistributedInvalidationReceipt(options) {
         baseUrls,
         eventId,
         options.convergenceTimeoutMs ?? 15000)
-      const specs = routeSpecs(scenario.requests - 1, articleId, baseUrls, 'sample')
+      const specs = routeSpecs(scenario.requests - 1, articleId, baseUrls)
       const routeRequests = await mapConcurrent(specs, scenario.concurrency, async (spec, index) => ({
         request: await collect(spec, index + 1),
         nodeId: afterSnapshots[spec.nodeIndex].node.nodeId

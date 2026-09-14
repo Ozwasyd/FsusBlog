@@ -16,10 +16,10 @@ function fixtureArticleIds(identity) {
   return ids
 }
 
-function spec(articleId, runId, phase, index, subcaseId) {
+function spec(articleId, subcaseId) {
   return {
     method: 'GET',
-    path: `/api/binary/article/${articleId}/related.aeds?runtime-cache-evidence=${encodeURIComponent(`${runId}-${phase}-${index + 1}`)}`,
+    path: `/api/binary/article/${articleId}/related.aeds`,
     subcaseId,
     parityGroup: `related-reading-${articleId}`,
     headers: {}
@@ -40,22 +40,22 @@ export async function produceRelatedReadingReceipt(options) {
   const [coldArticleId, burstArticleId] = fixtureArticleIds(identity)
 
   return produceMeasuredScenarioReceipt(options, {
-    warmup: async ({ collect, runId }) => {
-      const specs = Array.from({ length: scenario.warmupRequests }, (_, index) => ({
+    warmup: async ({ collect }) => {
+      const specs = Array.from({ length: scenario.warmupRequests }, () => ({
         method: 'GET',
-        path: `/api/binary/system/seo?runtime-cache-evidence=${encodeURIComponent(`${runId}-related-warmup-${index + 1}`)}`,
+        path: '/api/binary/system/seo',
         subcaseId: 'cold',
         parityGroup: 'related-reading-warmup',
         headers: {}
       }))
       return mapConcurrent(specs, scenario.concurrency, (item, index) => collect(item, index, 'warmup'))
     },
-    sample: async ({ collect, runId }) => {
-      const cold = await collect(spec(coldArticleId, runId, 'cold', 0, 'cold'), 0)
-      const burstSpecs = Array.from({ length: 100 }, (_, index) =>
-        spec(burstArticleId, runId, 'burst', index, 'same-key-100'))
+    sample: async ({ collect }) => {
+      const cold = await collect(spec(coldArticleId, 'cold'), 0)
+      const burstSpecs = Array.from({ length: 100 }, () =>
+        spec(burstArticleId, 'same-key-100'))
       const burst = await mapConcurrent(burstSpecs, scenario.concurrency, (item, index) => collect(item, index + 1))
-      const hot = await collect(spec(burstArticleId, runId, 'hot', 0, 'hot'), 101)
+      const hot = await collect(spec(burstArticleId, 'hot'), 101)
       const requests = [cold, ...burst, hot]
       const rebuildCounts = builtCounts(requests, Object.keys(scenario.requirements.rebuildCountBySubcase))
       const burstDigests = new Set(burst.map((request) => request.payloadDigest))

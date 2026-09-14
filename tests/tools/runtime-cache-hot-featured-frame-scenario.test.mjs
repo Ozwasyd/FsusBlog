@@ -82,8 +82,8 @@ test('hot-featured-frame targets only real admin whole-frame routes and proves b
   const { result, specs } = await execute()
 
   assert.equal(specs.length, 4)
-  assert.ok(specs.slice(0, 2).every((spec) => spec.path.startsWith('/api/binary/admin/article/hot?size=49&')))
-  assert.ok(specs.slice(2).every((spec) => spec.path.startsWith('/api/binary/admin/article/featured?size=9&')))
+  assert.ok(specs.slice(0, 2).every((spec) => spec.path === '/api/binary/admin/article/hot?size=49'))
+  assert.ok(specs.slice(2).every((spec) => spec.path === '/api/binary/admin/article/featured?size=9'))
   assert.ok(specs.every((spec) => spec.headers.Authorization === 'Bearer test-admin-token'))
   assert.deepEqual(result.assertionResults.map(({ assertion }) => [assertion.id, assertion.status]), [
     ['same-identity-build', 'passed'],

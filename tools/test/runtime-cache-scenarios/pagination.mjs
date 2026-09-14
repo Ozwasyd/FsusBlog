@@ -25,14 +25,13 @@ function route(page, size, parameters) {
   return `/api/binary/article/list/home/${page}/${size}.aeds?${query}`
 }
 
-function logicalSpec(input, logicalPage, runId, phase) {
+function logicalSpec(input, logicalPage) {
   const cursor = logicalPage === 1 ? null : input.cursors.get(logicalPage)
   return {
     method: 'GET',
     path: route(logicalPage, input.pageSize, {
       sort: input.sort,
-      ...(cursor === null ? {} : { cursor }),
-      'runtime-cache-evidence': `${runId}-${phase}-page-${logicalPage}`
+      ...(cursor === null ? {} : { cursor })
     }),
     subcaseId: `page-${logicalPage}`,
     parityGroup: `pagination-page-${logicalPage}`,
@@ -40,12 +39,11 @@ function logicalSpec(input, logicalPage, runId, phase) {
   }
 }
 
-function cursorlessSpec(input, logicalPage, runId, index) {
+function cursorlessSpec(input, logicalPage) {
   return {
     method: 'GET',
     path: route(logicalPage, input.pageSize, {
-      sort: input.sort,
-      'runtime-cache-evidence': `${runId}-cursorless-${index + 1}`
+      sort: input.sort
     }),
     subcaseId: 'cursorless-deep',
     parityGroup: `pagination-cursorless-${logicalPage}`,
@@ -59,25 +57,25 @@ export async function producePaginationReceipt(options) {
   const logicalPages = scenario.requirements.logicalPages
 
   return produceMeasuredScenarioReceipt(options, {
-    warmup: async ({ collect, runId }) => {
-      const specs = Array.from({ length: scenario.warmupRequests }, (_, index) => ({
+    warmup: async ({ collect }) => {
+      const specs = Array.from({ length: scenario.warmupRequests }, () => ({
         method: 'GET',
-        path: `/api/binary/system/seo?runtime-cache-evidence=${encodeURIComponent(`${runId}-pagination-warmup-${index + 1}`)}`,
+        path: '/api/binary/system/seo',
         subcaseId: 'page-1',
         parityGroup: 'pagination-warmup',
         headers: {}
       }))
       return mapConcurrent(specs, scenario.concurrency, (spec, index) => collect(spec, index, 'warmup'))
     },
-    sample: async ({ collect, runId }) => {
+    sample: async ({ collect }) => {
       const logical = []
       for (const [index, page] of logicalPages.entries()) {
-        logical.push(await collect(logicalSpec(input, page, runId, 'sample'), index))
+        logical.push(await collect(logicalSpec(input, page), index))
       }
       const cursorlessPages = [10, 100, 1000, 1001]
       const cursorless = []
       for (const [index, page] of cursorlessPages.entries()) {
-        cursorless.push(await collect(cursorlessSpec(input, page, runId, index), logical.length + index))
+        cursorless.push(await collect(cursorlessSpec(input, page), logical.length + index))
       }
       const requests = [...logical, ...cursorless]
       const dbCounts = Object.fromEntries(logical.map((request) => [request.subcaseId, request.dbCommands.length]))

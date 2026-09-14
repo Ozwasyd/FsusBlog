@@ -81,11 +81,11 @@ async function resolveAdminHeaders(options) {
   return fromFile ?? acquireLocalAdminCookie(options)
 }
 
-function requestSpecs(count, kind, runId, headers) {
+function requestSpecs(count, kind, headers) {
   const size = kind === 'hot' ? 49 : 9
-  return Array.from({ length: count }, (_, index) => ({
+  return Array.from({ length: count }, () => ({
     method: 'GET',
-    path: `/api/binary/admin/article/${kind}?size=${size}&runtime-cache-evidence=${encodeURIComponent(`${runId}-${kind}-${index + 1}`)}`,
+    path: `/api/binary/admin/article/${kind}?size=${size}`,
     subcaseId: kind,
     parityGroup: `admin-${kind}-whole-frame`,
     headers
@@ -123,10 +123,10 @@ export async function produceHotFeaturedFrameReceipt(options) {
 
   return produce(options, {
     warmup: async () => [],
-    sample: async ({ collect, runId }) => {
-      const hotSpecs = requestSpecs(perIdentity, 'hot', runId, adminHeaders)
+    sample: async ({ collect }) => {
+      const hotSpecs = requestSpecs(perIdentity, 'hot', adminHeaders)
       const hot = await mapConcurrent(hotSpecs, scenario.concurrency, (spec, index) => collect(spec, index))
-      const featuredSpecs = requestSpecs(perIdentity, 'featured', runId, adminHeaders)
+      const featuredSpecs = requestSpecs(perIdentity, 'featured', adminHeaders)
       const featured = await mapConcurrent(featuredSpecs, scenario.concurrency, (spec, index) =>
         collect(spec, hot.length + index))
       const requests = [...hot, ...featured]
