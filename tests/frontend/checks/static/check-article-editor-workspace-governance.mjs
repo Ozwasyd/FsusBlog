@@ -517,7 +517,14 @@ for (const forbidden of [
 for (const token of [
     "useMediaQuery('(max-width: 639px)', false)",
     "['h1', 'h2', 'bold']",
-    "['h1', 'h2', 'bold', 'italic', 'quote', 'link']"
+    "['h1', 'h2', 'bold', 'italic', 'quote', 'link']",
+    'compactCommandLabels',
+    "h1: 'H1'",
+    "h2: 'H2'",
+    "bold: 'B'",
+    "narrowCommandLayout.value ? '更多' : '格式工具'",
+    'markdown-text-editor__status-hint',
+    '@media (width <= 639px)'
 ])
 {
     if (!markdownEditor.includes(token))
@@ -535,7 +542,9 @@ for (const token of ['[aria-invalid="true"]', 'firstErrorFieldRoot', 'target.foc
 for (const token of [
     'type="textarea"',
     'textarea-variant="editor-title"',
-    ':autosize="{ minRows: 1, maxRows: 3 }"'
+    ':autosize="{ minRows: 1, maxRows: 5 }"',
+    'overflow-wrap: anywhere;',
+    'word-break: break-word;'
 ])
 {
     if (!titleField.includes(token))
