@@ -283,6 +283,31 @@ public sealed class PublicArtifactRevocationRegistry
         }
     }
 
+    internal bool ForgetRuntimeEvidenceGuard(PublicArtifactTombstone tombstone)
+    {
+        PublicArtifactRevocationTarget target = tombstone.Target;
+        lock (_mutationLock)
+        {
+            if (TryGetActive(target, out _))
+            {
+                return false;
+            }
+
+            if (_observedGenerations.TryGetValue(target, out long observed)
+                && observed == tombstone.Generation)
+            {
+                _observedGenerations.Remove(target);
+            }
+            if (_clearedGenerations.TryGetValue(target, out long cleared)
+                && cleared == tombstone.Generation)
+            {
+                _clearedGenerations.Remove(target);
+            }
+            return !_observedGenerations.ContainsKey(target)
+                && !_clearedGenerations.ContainsKey(target);
+        }
+    }
+
     public bool TryGet(int articleId, out PublicArtifactTombstone tombstone)
     {
         if (articleId > 0)
@@ -495,8 +520,8 @@ public sealed class RedisPublicArtifactRevocationStateStore(
     IRedisOperationExecutor redis,
     IRuntimeKeyScope runtimeKeyScope) : IPublicArtifactRevocationStateStore
 {
-    internal const string GenerationKey = "public-hot-read:revocation:generation";
-    internal const string TombstoneHashKey = "public-hot-read:revocation:tombstones";
+    private const string GenerationKey = "public-hot-read:revocation:generation";
+    private const string TombstoneHashKey = "public-hot-read:revocation:tombstones";
     private static readonly LuaScript s_beginTransition = LuaScript.Prepare(
         "local existing = redis.call('HGET', @hash, @field); " +
         "if existing then " +

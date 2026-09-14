@@ -2,6 +2,7 @@ using System.Collections.Frozen;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Middlewares;
@@ -109,6 +110,7 @@ internal static class RuntimeCacheFaultAndRevocationScenarioEndpoints
     private static async Task<IResult> PrepareRevocationAsync(
         HttpContext context,
         int count,
+        string runId,
         IRedisOperationExecutor redis,
         IRuntimeKeyScope keyScope,
         PublicArtifactRevocationRegistry registry,
@@ -131,7 +133,7 @@ internal static class RuntimeCacheFaultAndRevocationScenarioEndpoints
             registry,
             static _ => new RuntimeCacheRevocationScenarioAuthority());
         RuntimeCacheRevocationScenarioResult result = await authority
-            .PrepareAsync(count, redis, keyScope, registry, cancellationToken)
+            .PrepareAsync(count, runId, redis, keyScope, registry, cancellationToken)
             .ConfigureAwait(false);
         return Results.Ok(result);
     }
@@ -151,7 +153,7 @@ internal sealed class RuntimeCacheRevocationScenarioAuthority
         new[] { 0, 1, 10, 100, 1_000, 10_000, 100_000 }.ToFrozenSet();
     private readonly SemaphoreSlim _gate = new(1, 1);
     private PublicArtifactTombstone[] _seeded = [];
-    private bool _reservedFieldsScrubbed;
+    private string? _runId;
 
     internal static bool IsSupportedCount(int count) => s_supportedCounts.Contains(count);
 
@@ -182,6 +184,7 @@ internal sealed class RuntimeCacheRevocationScenarioAuthority
 
     internal async Task<RuntimeCacheRevocationScenarioResult> PrepareAsync(
         int count,
+        string runId,
         IRedisOperationExecutor redis,
         IRuntimeKeyScope keyScope,
         PublicArtifactRevocationRegistry registry,
@@ -191,22 +194,30 @@ internal sealed class RuntimeCacheRevocationScenarioAuthority
         {
             throw new ArgumentOutOfRangeException(nameof(count));
         }
+        if (!Regex.IsMatch(runId, "^[a-z0-9][a-z0-9.-]*$", RegexOptions.CultureInvariant))
+        {
+            throw new ArgumentException("Runtime cache evidence run ID is invalid.", nameof(runId));
+        }
 
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            RedisKey hashKey = keyScope.PrefixKey(RedisPublicArtifactRevocationStateStore.TombstoneHashKey);
-            RedisKey generationKey = keyScope.PrefixKey(RedisPublicArtifactRevocationStateStore.GenerationKey);
-            if (!_reservedFieldsScrubbed)
+            if (_runId is not null && !string.Equals(_runId, runId, StringComparison.Ordinal))
             {
-                await DeleteReservedFieldsAsync(redis, hashKey, cancellationToken).ConfigureAwait(false);
-                _reservedFieldsScrubbed = true;
+                if (_seeded.Length > 0)
+                {
+                    throw new InvalidOperationException("runtime revocation evidence run changed before cleanup");
+                }
             }
+            _runId = runId;
+            RedisKey hashKey = keyScope.PrefixKey($"runtime-cache-evidence:{runId}:revocation:tombstones");
+            RedisKey generationKey = keyScope.PrefixKey($"runtime-cache-evidence:{runId}:revocation:generation");
 
-            await RemoveSeededAsync(redis, hashKey, registry, cancellationToken).ConfigureAwait(false);
+            await RemoveSeededAsync(redis, hashKey, generationKey, registry, cancellationToken).ConfigureAwait(false);
             long redisHashLengthBefore = await HashLengthAsync(redis, hashKey, cancellationToken).ConfigureAwait(false);
             if (count == 0)
             {
+                _runId = null;
                 return new RuntimeCacheRevocationScenarioResult(0, 0, redisHashLengthBefore, redisHashLengthBefore, 0, registry.CurrentGeneration);
             }
 
@@ -274,45 +285,25 @@ internal sealed class RuntimeCacheRevocationScenarioAuthority
     private async Task RemoveSeededAsync(
         IRedisOperationExecutor redis,
         RedisKey hashKey,
+        RedisKey generationKey,
         PublicArtifactRevocationRegistry registry,
         CancellationToken cancellationToken)
     {
-        foreach (PublicArtifactTombstone[] batch in _seeded.Chunk(RedisBatchSize))
-        {
-            RedisValue[] fields = batch
-                .Select(static tombstone => (RedisValue)tombstone.ArticleId.ToString(CultureInfo.InvariantCulture))
-                .ToArray();
-            _ = await redis.ExecuteAsync(
-                    RedisOperationPort.PublicArtifactRevocation,
-                    (multiplexer, _) => multiplexer.GetDatabase().HashDeleteAsync(hashKey, fields),
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
+        _ = await redis.ExecuteAsync(
+                RedisOperationPort.PublicArtifactRevocation,
+                (multiplexer, _) => multiplexer.GetDatabase().KeyDeleteAsync([hashKey, generationKey]),
+                cancellationToken)
+            .ConfigureAwait(false);
 
         foreach (PublicArtifactTombstone tombstone in _seeded)
         {
             registry.Clear(tombstone);
+            if (!registry.ForgetRuntimeEvidenceGuard(tombstone))
+            {
+                throw new InvalidOperationException("runtime revocation evidence generation guard did not clean up");
+            }
         }
         _seeded = [];
-    }
-
-    private static async Task DeleteReservedFieldsAsync(
-        IRedisOperationExecutor redis,
-        RedisKey hashKey,
-        CancellationToken cancellationToken)
-    {
-        for (int offset = 0; offset < MaximumCount; offset += RedisBatchSize)
-        {
-            int length = Math.Min(RedisBatchSize, MaximumCount - offset);
-            RedisValue[] fields = Enumerable.Range(ScenarioArticleIdBase + offset, length)
-                .Select(static articleId => (RedisValue)articleId.ToString(CultureInfo.InvariantCulture))
-                .ToArray();
-            _ = await redis.ExecuteAsync(
-                    RedisOperationPort.PublicArtifactRevocation,
-                    (multiplexer, _) => multiplexer.GetDatabase().HashDeleteAsync(hashKey, fields),
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
     }
 
     private static Task<long> HashLengthAsync(

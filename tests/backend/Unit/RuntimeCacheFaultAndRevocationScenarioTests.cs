@@ -116,6 +116,7 @@ public sealed class RuntimeCacheFaultAndRevocationScenarioTests
             {
                 RuntimeCacheRevocationScenarioResult result = await authority.PrepareAsync(
                     count,
+                    "real-redis-large-cardinality",
                     redis,
                     keyScope,
                     registry,
@@ -129,6 +130,7 @@ public sealed class RuntimeCacheFaultAndRevocationScenarioTests
 
             RuntimeCacheRevocationScenarioResult cleanup = await authority.PrepareAsync(
                 0,
+                "real-redis-large-cardinality",
                 redis,
                 keyScope,
                 registry,
@@ -138,7 +140,7 @@ public sealed class RuntimeCacheFaultAndRevocationScenarioTests
             Assert.Equal(
                 0,
                 await connection.GetDatabase().HashLengthAsync(
-                    keyScope.PrefixKey(RedisPublicArtifactRevocationStateStore.TombstoneHashKey)));
+                    keyScope.PrefixKey("runtime-cache-evidence:real-redis-large-cardinality:revocation:tombstones")));
         }
         finally
         {

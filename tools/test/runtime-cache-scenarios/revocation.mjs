@@ -38,11 +38,12 @@ export async function prepareRevocationSize({
   baseUrl,
   secret,
   count,
+  runId,
   timeoutMs = 120000
 }) {
   const response = await fetchWithTimeout(
     fetchImpl,
-    `${baseUrl}/_fsus/testing/runtime-cache/revocation/prepare/${count}`,
+    `${baseUrl}/_fsus/testing/runtime-cache/revocation/prepare/${count}?runId=${encodeURIComponent(runId)}`,
     { method: 'POST', headers: { [evidenceSecretHeader]: secret } },
     timeoutMs)
   if (response.status !== 200) {
@@ -136,7 +137,7 @@ export async function runRevocationSample({ scenario, collect, prepare, runId, a
   let ordinal = 0
   try {
     for (const size of sizes) {
-      authorityBySize[size] = await prepare(size)
+      authorityBySize[size] = await prepare(size, runId)
       const specs = Array.from({ length: 3 }, (_, index) => requestSpec(articleId, runId, index, size))
       const batch = await mapConcurrent(specs, scenario.concurrency, (spec, index) => collect(spec, ordinal + index))
       ordinal += batch.length
@@ -152,7 +153,7 @@ export async function runRevocationSample({ scenario, collect, prepare, runId, a
       evaluationsBySize.set(size, evaluations)
     }
   } finally {
-    await prepare(0)
+    await prepare(0, runId)
   }
 
   const completeEvaluation = invalid.length === 0 && [...evaluationsBySize.values()].every((items) => items.length === 3)
@@ -200,11 +201,12 @@ export async function produceRevocationReceipt(options) {
   const { scenario, identity, baseUrl, secret } = options
   const articleId = fixtureArticleId(identity)
   const fetchImpl = options.fetchImpl ?? globalThis.fetch
-  const prepare = options.prepareRevocation ?? ((count) => prepareRevocationSize({
+  const prepare = options.prepareRevocation ?? ((count, runId) => prepareRevocationSize({
     fetchImpl,
     baseUrl,
     secret,
     count,
+    runId,
     timeoutMs: options.revocationControlTimeoutMs
   }))
   return produceMeasuredScenarioReceipt(options, {
