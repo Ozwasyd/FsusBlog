@@ -1,5 +1,6 @@
-import { initPowModule, type PowEngineKind } from '@wasm/pow';
 import { AppErrorCode, createAppError, isAppError, toAppError } from '@/utils/appError';
+
+import { initPowModule, type PowEngineKind } from '@wasm/pow';
 
 /**
  * FsusPow Engine - Worker
@@ -22,34 +23,50 @@ const POW_SOLVE_BATCH_ATTEMPTS = 65536;
 /**
  * 引擎加载器：环境感知与动态链接
  */
-const getEngine = async (disableThreadsTier = false) => {
-    if (powModule) return powModule;
-    if (modulePromise) return modulePromise;
+const getEngine = async (disableThreadsTier = false) =>
+{
+    if (powModule)
+    {
+        return powModule;
+    }
+    if (modulePromise)
+    {
+        return modulePromise;
+    }
 
-    try {
-        modulePromise = initPowModule(disableThreadsTier ? { disableThreadsTier: true } : undefined).then((initResult) => {
+    try
+    {
+        modulePromise = initPowModule(disableThreadsTier ? { disableThreadsTier: true } : undefined).then((initResult) =>
+        {
             engineType = initResult.engine;
             powModule = initResult.module;
             return powModule;
         });
 
         const resolvedModule = await modulePromise;
-        if (!resolvedModule) {
+        if (!resolvedModule)
+        {
             throw createAppError(AppErrorCode.InfraFailure, "FACTORY_MISSING: Glue code did not export createPowModule");
         }
         console.log(`[Worker] WASM Module (${engineType}) initialized successfully role=${workerRole}`);
 
-        if (!isWarmedUp && resolvedModule.solve_pow) {
-            try {
+        if (!isWarmedUp && resolvedModule.solve_pow)
+        {
+            try
+            {
                 resolvedModule.solve_pow("warmup_salt", "warmup_fp", 1);
                 isWarmedUp = true;
-            } catch (e) {
+            }
+            catch (e)
+            {
                 console.warn('[Worker] JIT Warmup skipped:', e);
             }
         }
 
         return resolvedModule;
-    } catch (err) {
+    }
+    catch (err)
+    {
         console.error('[Worker] Initialization Error:', err);
         modulePromise = null;
         powModule = null;
@@ -57,8 +74,10 @@ const getEngine = async (disableThreadsTier = false) => {
     }
 };
 
-function terminateShardWorkers() {
-    for (const worker of activeShardWorkers) {
+function terminateShardWorkers()
+{
+    for (const worker of activeShardWorkers)
+    {
         worker.onmessage = null;
         worker.onerror = null;
         worker.terminate();
@@ -66,21 +85,26 @@ function terminateShardWorkers() {
     activeShardWorkers = [];
 }
 
-function resolveShardCount(): number {
+function resolveShardCount(): number
+{
     const cores = Math.max(1, Number(navigator.hardwareConcurrency) || 1);
     return Math.min(4, Math.max(1, cores - 1));
 }
 
-function isThreadPoolCandidate(difficulty: number): boolean {
+function isThreadPoolCandidate(difficulty: number): boolean
+{
     return ENABLE_THREAD_POOL_SHARDS && engineType === 'THREADS-SIMD' && difficulty > 0 && difficulty <= 32 && resolveShardCount() > 1;
 }
 
-function yieldToWorkerEventLoop(): Promise<void> {
+function yieldToWorkerEventLoop(): Promise<void>
+{
     return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-function assertWithinDeadline(deadlineAt: number) {
-    if (Number.isFinite(deadlineAt) && performance.now() >= deadlineAt) {
+function assertWithinDeadline(deadlineAt: number)
+{
+    if (Number.isFinite(deadlineAt) && performance.now() >= deadlineAt)
+    {
         throw createAppError(AppErrorCode.Timeout, 'POW_SOLVER_TIMEOUT');
     }
 }
@@ -91,29 +115,35 @@ async function calculateWithBoundedSolver(
     browserFp: string,
     difficulty: number,
     deadlineAt: number
-): Promise<string> {
-    if (difficulty <= 0) {
+): Promise<string>
+{
+    if (difficulty <= 0)
+    {
         return '0';
     }
 
-    if (typeof engine.solve_pow_limited !== 'function') {
+    if (typeof engine.solve_pow_limited !== 'function')
+    {
         throw createAppError(AppErrorCode.InvariantViolation, 'WASM_LIMITED_METHOD_NOT_FOUND');
     }
 
     let startNonce = 0;
-    while (startNonce <= 0xffffffff) {
+    while (startNonce <= 0xffffffff)
+    {
         assertWithinDeadline(deadlineAt);
         const remainingNonceSpace = 0x1_0000_0000 - startNonce;
         const attempts = Math.min(POW_SOLVE_BATCH_ATTEMPTS, remainingNonceSpace);
         const result = engine.solve_pow_limited(salt, browserFp, difficulty, startNonce, attempts);
-        if (typeof result === 'string' && result.length > 0) {
+        if (typeof result === 'string' && result.length > 0)
+        {
             return result;
         }
 
         assertWithinDeadline(deadlineAt);
 
         startNonce = (startNonce + attempts) >>> 0;
-        if (startNonce === 0 || attempts <= 0) {
+        if (startNonce === 0 || attempts <= 0)
+        {
             break;
         }
 
@@ -123,19 +153,24 @@ async function calculateWithBoundedSolver(
     throw createAppError(AppErrorCode.Timeout, 'POW_SOLVER_EXHAUSTED');
 }
 
-function calculateWithShardWorkers(salt: string, browserFp: string, difficulty: number): Promise<{ nonce: string; engine: string }> {
+function calculateWithShardWorkers(salt: string, browserFp: string, difficulty: number): Promise<{ nonce: string; engine: string; }>
+{
     const shardCount = resolveShardCount();
     terminateShardWorkers();
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) =>
+    {
         let settled = false;
         let failures = 0;
-        const fallbackTimer = setTimeout(() => {
+        const fallbackTimer = setTimeout(() =>
+        {
             settle(() => reject(createAppError(AppErrorCode.Timeout, 'POW_SHARDS_TIMEOUT')));
         }, THREAD_POOL_FALLBACK_TIMEOUT_MS);
 
-        const settle = (action: () => void) => {
-            if (settled) {
+        const settle = (action: () => void) =>
+        {
+            if (settled)
+            {
                 return;
             }
             settled = true;
@@ -144,33 +179,40 @@ function calculateWithShardWorkers(salt: string, browserFp: string, difficulty: 
             action();
         };
 
-        for (let shard = 0; shard < shardCount; shard += 1) {
+        for (let shard = 0; shard < shardCount; shard += 1)
+        {
             const worker = new Worker(new URL('./pow.worker.ts', import.meta.url), {
                 name: `FsusPowShard-${shard}`,
                 type: 'module'
             });
             activeShardWorkers.push(worker);
 
-            worker.onmessage = (event: MessageEvent) => {
+            worker.onmessage = (event: MessageEvent) =>
+            {
                 const { success, nonce, error, engine, type } = event.data;
-                if (type !== 'CALC_RESULT' && type !== 'CALC_ERROR') {
+                if (type !== 'CALC_RESULT' && type !== 'CALC_ERROR')
+                {
                     return;
                 }
 
-                if (success && typeof nonce === 'string' && nonce.length > 0 && !nonce.startsWith('failed_')) {
+                if (success && typeof nonce === 'string' && nonce.length > 0 && !nonce.startsWith('failed_'))
+                {
                     settle(() => resolve({ nonce, engine: `THREADS-SIMD/${engine || 'shard'}` }));
                     return;
                 }
 
                 failures += 1;
-                if (failures >= shardCount) {
+                if (failures >= shardCount)
+                {
                     settle(() => reject(createAppError(AppErrorCode.InfraFailure, error || 'POW_SHARDS_FAILED')));
                 }
             };
 
-            worker.onerror = () => {
+            worker.onerror = () =>
+            {
                 failures += 1;
-                if (failures >= shardCount) {
+                if (failures >= shardCount)
+                {
                     settle(() => reject(createAppError(AppErrorCode.InfraFailure, 'POW_SHARDS_CRASHED')));
                 }
             };
@@ -190,16 +232,21 @@ function calculateWithShardWorkers(salt: string, browserFp: string, difficulty: 
 /**
  * 消息中心
  */
-ctx.onmessage = async (e: MessageEvent) => {
+ctx.onmessage = async (e: MessageEvent) =>
+{
     terminateShardWorkers();
     const { salt, browserFp, difficulty, startNonce, step, type, runId, timeoutMs } = e.data;
 
     // 1. 预热/心跳处理 (PING)
-    if (type === 'PING') {
-        try {
+    if (type === 'PING')
+    {
+        try
+        {
             await getEngine();
             return ctx.postMessage({ type: 'PONG', engine: engineType });
-        } catch (err: any) {
+        }
+        catch (err: any)
+        {
             console.error('[Worker] PING Failed:', err);
             return ctx.postMessage({
                 success: false,
@@ -210,7 +257,8 @@ ctx.onmessage = async (e: MessageEvent) => {
     }
 
     // 2. 任务准入校验
-    if (!salt || typeof salt !== 'string' || salt.length > 256) {
+    if (!salt || typeof salt !== 'string' || salt.length > 256)
+    {
         return ctx.postMessage({
             success: false,
             error: 'INVALID_INPUT',
@@ -219,10 +267,13 @@ ctx.onmessage = async (e: MessageEvent) => {
         });
     }
 
-    if (type === 'CALC_SHARD') {
-        try {
+    if (type === 'CALC_SHARD')
+    {
+        try
+        {
             const engine = await getEngine(true);
-            if (typeof engine.solve_pow_range !== 'function') {
+            if (typeof engine.solve_pow_range !== 'function')
+            {
                 throw createAppError(AppErrorCode.InvariantViolation, "WASM_RANGE_METHOD_NOT_FOUND");
             }
             const rawResult = engine.solve_pow_range(
@@ -240,7 +291,9 @@ ctx.onmessage = async (e: MessageEvent) => {
                 runId,
                 type: 'CALC_RESULT'
             });
-        } catch (err: any) {
+        }
+        catch (err: any)
+        {
             const normalized = isAppError(err) ? err : toAppError(err, 'UNKNOWN_SHARD_ERROR');
             return ctx.postMessage({
                 success: false,
@@ -252,10 +305,12 @@ ctx.onmessage = async (e: MessageEvent) => {
     }
 
     // 3. 执行核心逻辑
-    try {
+    try
+    {
         const engine = await getEngine();
 
-        if (typeof engine.solve_pow !== 'function') {
+        if (typeof engine.solve_pow !== 'function')
+        {
             throw createAppError(AppErrorCode.InvariantViolation, "WASM_METHOD_NOT_FOUND");
         }
 
@@ -267,20 +322,29 @@ ctx.onmessage = async (e: MessageEvent) => {
 
         let nonce: string;
         let resultEngine: string = engineType;
-        try {
-            if (isThreadPoolCandidate(diffNum)) {
-                try {
+        try
+        {
+            if (isThreadPoolCandidate(diffNum))
+            {
+                try
+                {
                     const threaded = await calculateWithShardWorkers(salt, browserFp || '', diffNum);
                     nonce = threaded.nonce;
                     resultEngine = threaded.engine;
-                } catch (threadedError) {
+                }
+                catch (threadedError)
+                {
                     console.warn('[Worker] threaded PoW fallback:', threadedError);
                     nonce = await calculateWithBoundedSolver(engine, salt, browserFp || '', diffNum, deadlineAt);
                 }
-            } else {
+            }
+            else
+            {
                 nonce = await calculateWithBoundedSolver(engine, salt, browserFp || '', diffNum, deadlineAt);
             }
-        } catch (wasmError: any) {
+        }
+        catch (wasmError: any)
+        {
             console.error(`[Worker] WASM Runtime Crash:`, wasmError);
             throw createAppError(AppErrorCode.InfraFailure, `WASM_CRASH: ${wasmError.message}`);
         }
@@ -297,7 +361,9 @@ ctx.onmessage = async (e: MessageEvent) => {
             type: 'CALC_RESULT'
         });
 
-    } catch (err: any) {
+    }
+    catch (err: any)
+    {
         const normalized = isAppError(err) ? err : toAppError(err, 'UNKNOWN_CALC_ERROR');
         ctx.postMessage({
             success: false,

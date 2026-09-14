@@ -63,7 +63,7 @@ const resolveElement = (
     {
         return element;
     }
-    const componentElement = element?.$el;
+    const componentElement: unknown = element instanceof Element || !element ? null : element.$el;
     return componentElement instanceof HTMLElement ? componentElement : null;
 };
 

@@ -4,13 +4,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import {
-    readCleanAttemptConsumerInventory
-} from '../release/browser-release-clean-attempt-consumers.mjs';
-import {
-    readSemanticOutcomeConsumerInventory
-} from '../release/semantic-outcome-clean-attempt-consumers.mjs';
-
+const {readCleanAttemptConsumerInventory} = await import(new URL('../release/browser-release-clean-attempt-consumers.mjs', import.meta.url));
+const {readSemanticOutcomeConsumerInventory} = await import(new URL('../release/semantic-outcome-clean-attempt-consumers.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const adapters = [
     'tools/release/browser-release-clean-attempt-consumers.mjs',

@@ -923,11 +923,11 @@ export interface CommentModerationItemResponse {
     id: string;
     articleId: number;
     articleTitle: string;
-    authorMode?: 'anonymous' | 'public' | 'zk_anonymous' | string | null;
+    authorMode?: string | null;
     authorDisplayName?: string | null;
-    displayLanguage?: 'zh-CN' | 'en' | string | null;
+    displayLanguage?: string | null;
     anonymousScope?: string | null;
-    rateClass?: 'common' | 'unknown' | string | null;
+    rateClass?: string | null;
     requiresModeration?: boolean | null;
     riskLabels?: string[] | null;
     nullifierHash?: string | null;

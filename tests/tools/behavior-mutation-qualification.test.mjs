@@ -5,37 +5,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
-import { loadCatalog, root } from '../../tools/contracts/behavior-contract-catalog.mjs';
-import { scanBehaviorTestBindings } from '../../tools/contracts/behavior-test-binding.mjs';
-import { scanBehaviorMutationGovernance } from '../../tools/governance/check-behavior-mutation-governance.mjs';
-import {
-    attachExpectedTestEvidence,
-    attributeMutantsToBehaviors,
-    expectedAttributionMutantIdsByBehavior,
-    qualifyBehaviorMutations
-} from '../../tools/test/changed-critical-mutation-attribution.mjs';
-import { createChangedCriticalMutationAuthority } from '../../tools/test/changed-critical-mutation-evidence.mjs';
-import {
-    createChangedCriticalStrykerConfig,
-    selectChangedCriticalMutation,
-    selectRequiredBehaviorMutations,
-    validateToolPolicy
-} from '../../tools/test/changed-critical-mutation.mjs';
-import { digestValue as receiptDigestValue, sealMutationEvidenceReceipt } from '../../tools/test/mutation-evidence-receipt.mjs';
-import {
-    deriveBehaviorMutationOwners,
-    loadBehaviorMutationOwnerCatalog,
-    loadFactExtractorRegistry,
-    validateBehaviorMutationOwnerCatalog
-} from '../../tools/test-matrix/behavior-mutation-owner.mjs';
-import {
-    canonicalProducerCommand,
-    produceBehaviorMutationQualification,
-    produceBehaviorMutationQualificationCommand
-} from '../../tools/test-matrix/produce-behavior-mutation-qualification.mjs';
-import { loadTestPlan } from '../../tools/test-matrix/produce-behavior-test-evidence.mjs';
-import { verifyBehaviorMutationQualification } from '../../tools/test-matrix/verify-behavior-mutation-qualification.mjs';
-
+const {loadCatalog, root} = await import(new URL('../../tools/contracts/behavior-contract-catalog.mjs', import.meta.url));
+const {scanBehaviorTestBindings} = await import(new URL('../../tools/contracts/behavior-test-binding.mjs', import.meta.url));
+const {scanBehaviorMutationGovernance} = await import(new URL('../../tools/governance/check-behavior-mutation-governance.mjs', import.meta.url));
+const {attachExpectedTestEvidence, attributeMutantsToBehaviors, expectedAttributionMutantIdsByBehavior, qualifyBehaviorMutations} = await import(new URL('../../tools/test/changed-critical-mutation-attribution.mjs', import.meta.url));
+const {createChangedCriticalMutationAuthority} = await import(new URL('../../tools/test/changed-critical-mutation-evidence.mjs', import.meta.url));
+const {createChangedCriticalStrykerConfig, selectChangedCriticalMutation, selectRequiredBehaviorMutations, validateToolPolicy} = await import(new URL('../../tools/test/changed-critical-mutation.mjs', import.meta.url));
+const {digestValue: receiptDigestValue, sealMutationEvidenceReceipt} = await import(new URL('../../tools/test/mutation-evidence-receipt.mjs', import.meta.url));
+const {deriveBehaviorMutationOwners, loadBehaviorMutationOwnerCatalog, loadFactExtractorRegistry, validateBehaviorMutationOwnerCatalog} = await import(new URL('../../tools/test-matrix/behavior-mutation-owner.mjs', import.meta.url));
+const {canonicalProducerCommand, produceBehaviorMutationQualification, produceBehaviorMutationQualificationCommand} = await import(new URL('../../tools/test-matrix/produce-behavior-mutation-qualification.mjs', import.meta.url));
+const {loadTestPlan} = await import(new URL('../../tools/test-matrix/produce-behavior-test-evidence.mjs', import.meta.url));
+const {verifyBehaviorMutationQualification} = await import(new URL('../../tools/test-matrix/verify-behavior-mutation-qualification.mjs', import.meta.url));
 const COMMIT = 'a'.repeat(40);
 const FINGERPRINT = 'b'.repeat(64);
 const RUN_ID = 'bmq-fixture-run';

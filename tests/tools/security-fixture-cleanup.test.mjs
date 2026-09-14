@@ -4,8 +4,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { plan } from '../../tools/test-fixtures/index.mjs';
-
+const { plan } = await import(new URL('../../tools/test-fixtures/index.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const readJson = (relative) => JSON.parse(readFileSync(path.join(root, relative), 'utf8'));
 const read = (relative) => readFileSync(path.join(root, relative), 'utf8');

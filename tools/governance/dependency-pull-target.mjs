@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+
 import { extractCurrentVersion } from './dependency-freshness.mjs';
 
 /** Reuse the canonical extractor over data files from one immutable PR head; execute no candidate code. */
@@ -15,7 +16,7 @@ export async function resolveDependencyPullTarget({ mapping, item, config, readF
     const files = [...new Set(item.files)];
     if (files.some(file => typeof file !== 'string' || !file || file.includes('\\')
         || file.split('/').some(segment => !segment || segment === '.' || segment === '..')
-        || /[\x00-\x1f\x7f:]/u.test(file)))
+        || /[\x00-\x1f\x7f:]/u.test(file))) // eslint-disable-line no-control-regex -- intentional ASCII-boundary probe
     {
         throw new Error('dependency_pull_target_path_invalid');
     }
@@ -31,13 +32,19 @@ export async function resolveDependencyPullTarget({ mapping, item, config, readF
                 throw new Error('dependency_pull_target_source_invalid');
             }
             totalBytes += Buffer.byteLength(source);
-            if (totalBytes > 32 * 1024 * 1024) throw new Error('dependency_pull_target_source_limit');
+            if (totalBytes > 32 * 1024 * 1024)
+            {
+                throw new Error('dependency_pull_target_source_limit');
+            }
             const destination = path.join(root, file);
             fs.mkdirSync(path.dirname(destination), { recursive: true });
             fs.writeFileSync(destination, source, { flag: 'wx' });
         }
         const targetVersion = extractCurrentVersion(root, item, config);
-        if (!targetVersion) throw new Error('dependency_pull_target_version_missing');
+        if (!targetVersion)
+        {
+            throw new Error('dependency_pull_target_version_missing');
+        }
         return { ...mapping, declaredTargetVersion: mapping.declaredTargetVersion ?? mapping.targetVersion, targetVersion };
     }
     finally

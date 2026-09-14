@@ -1,17 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { qualificationTemporalContext } from '../../tools/test/temporal-context.mjs';
-import {
-    buildSecurityFixtureOperationPlan,
-    cleanupSecurityFixtures,
-    prepareSecurityFixtures,
-    SECURITY_FIXTURE_OBSERVATION_SCHEMA,
-    validateSecurityFixtureObservation,
-    verifySecurityFixtures
-} from '../../tools/test-fixtures/producers/security-fixture-producer.mjs';
-import { digestCanonical } from '../../tools/test-fixtures/receipt/canonical.mjs';
-
+const {qualificationTemporalContext} = await import(new URL('../../tools/test/temporal-context.mjs', import.meta.url));
+const {buildSecurityFixtureOperationPlan, cleanupSecurityFixtures, prepareSecurityFixtures, SECURITY_FIXTURE_OBSERVATION_SCHEMA, validateSecurityFixtureObservation, verifySecurityFixtures} = await import(new URL('../../tools/test-fixtures/producers/security-fixture-producer.mjs', import.meta.url));
+const {digestCanonical} = await import(new URL('../../tools/test-fixtures/receipt/canonical.mjs', import.meta.url));
 const capabilityDecisions = Object.freeze({
     'security.audit.active-window': 'active-window',
     'security.clean': 'clean',
@@ -258,13 +250,41 @@ test('partial family failure recovers already applied state before rejecting', a
 });
 
 for (const [name, mutate, pattern] of [
-    ['Redis TTL drift', (value) => { value.facts[0].redis.ttlSeconds = 0; return value; }, /Redis\/TTL/u],
-    ['hash version drift', (value) => { value.facts[0].hashVersion = 'sha1-v0'; return value; }, /identity mismatch/u],
-    ['expired persisted state', (value) => { value.facts[0].database.expiresAtUtc = '2020-01-01T00:00:00Z'; return value; }, /expiry\/window/u],
-    ['revoked credential accepted', (value) => { value.facts[0].service.decision = 'accepted'; return value; }, /revoked credential/u],
-    ['partial observation', (value) => { value.partial = true; return value; }, /identity\/status/u],
-    ['warning observation', (value) => { value.warnings.push('degraded'); return value; }, /identity\/status/u],
-    ['raw IP leakage', (value) => { value.facts[0].rawIp = '192.0.2.1'; return value; }, /raw IP/u]
+    ['Redis TTL drift', (value) =>
+    {
+        value.facts[0].redis.ttlSeconds = 0;
+        return value;
+    }, /Redis\/TTL/u],
+    ['hash version drift', (value) =>
+    {
+        value.facts[0].hashVersion = 'sha1-v0';
+        return value;
+    }, /identity mismatch/u],
+    ['expired persisted state', (value) =>
+    {
+        value.facts[0].database.expiresAtUtc = '2020-01-01T00:00:00Z';
+        return value;
+    }, /expiry\/window/u],
+    ['revoked credential accepted', (value) =>
+    {
+        value.facts[0].service.decision = 'accepted';
+        return value;
+    }, /revoked credential/u],
+    ['partial observation', (value) =>
+    {
+        value.partial = true;
+        return value;
+    }, /identity\/status/u],
+    ['warning observation', (value) =>
+    {
+        value.warnings.push('degraded');
+        return value;
+    }, /identity\/status/u],
+    ['raw IP leakage', (value) =>
+    {
+        value.facts[0].rawIp = '192.0.2.1';
+        return value;
+    }, /raw IP/u]
 ])
 {
     test(`security observation rejects ${name}`, () =>

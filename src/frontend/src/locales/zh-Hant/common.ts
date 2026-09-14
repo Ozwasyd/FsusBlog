@@ -1,7 +1,7 @@
-export const localeDomainIdentity = Object.freeze({ locale: 'zh-Hant', domain: 'common' } as const)
+export const localeDomainIdentity = Object.freeze({ locale: 'zh-Hant', domain: 'common' } as const);
 
-import type { LocaleSchema } from '../keys'
-import type { common as zhCNCommon } from '../zh-CN/common'
+import type { LocaleSchema } from '../keys';
+import type { common as zhCNCommon } from '../zh-CN/common';
 
 export const common = {
     actions: {
@@ -45,4 +45,4 @@ export const common = {
         status: '正在載入',
         statusWithSite: '正在載入 {siteTitle}'
     }
-} as const satisfies LocaleSchema<typeof zhCNCommon>
+} as const satisfies LocaleSchema<typeof zhCNCommon>;

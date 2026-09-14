@@ -3,30 +3,10 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import {
-    defaultTimeoutPolicyDigest,
-    qualificationTemporalContext
-} from '../../tools/test/temporal-context.mjs';
-import {
-    buildProducerReceipt,
-    digestCanonical
-} from '../../tools/test-fixtures/receipt/index.mjs';
-import {
-    buildFixtureVariantPlan,
-    buildProducerFixtureVariantPlan,
-    fixtureCatalogDigest,
-    readFixtureCatalogs
-} from '../../tools/testing/fixture-catalog.mjs';
-
-import {
-    authSessionProducerMeta,
-    buildAuthSessionPlan,
-    prepareAuthSession,
-    projectVerifiedIdentityReferences,
-    validateAuthSessionResult,
-    verifyAuthSession
-} from '../../tools/test-fixtures/producers/auth-session-producer.mjs';
-
+const {defaultTimeoutPolicyDigest, qualificationTemporalContext} = await import(new URL('../../tools/test/temporal-context.mjs', import.meta.url));
+const {buildProducerReceipt, digestCanonical} = await import(new URL('../../tools/test-fixtures/receipt/index.mjs', import.meta.url));
+const {buildFixtureVariantPlan, buildProducerFixtureVariantPlan, fixtureCatalogDigest, readFixtureCatalogs} = await import(new URL('../../tools/testing/fixture-catalog.mjs', import.meta.url));
+const {authSessionProducerMeta, buildAuthSessionPlan, prepareAuthSession, projectVerifiedIdentityReferences, validateAuthSessionResult, verifyAuthSession} = await import(new URL('../../tools/test-fixtures/producers/auth-session-producer.mjs', import.meta.url));
 const temporalContext = qualificationTemporalContext({
     sourceCommit: 'a'.repeat(40),
     sourceFingerprint: `sha256:${'b'.repeat(64)}`,
@@ -246,7 +226,10 @@ test('profile with no auth capability never invokes the producer', async () =>
         namespace: 'a',
         runIdentity: 'b',
         temporalContext,
-        handles: { authFixtureAdapter: { prepare: async () => { calls++; } } }
+        handles: { authFixtureAdapter: { prepare: async () =>
+        {
+            calls++;
+        } } }
     }), /at least one capability/u);
     assert.equal(calls, 0);
 });

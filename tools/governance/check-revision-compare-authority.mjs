@@ -281,7 +281,10 @@ export function checkRevisionCompareIntegrationFiles(files)
     {
         const marker = `    - id: ${tierId}\n`;
         const start = matrix.indexOf(marker);
-        if (start < 0) return '';
+        if (start < 0)
+        {
+            return '';
+        }
         const next = matrix.indexOf('\n    - id: ', start + marker.length);
         return matrix.slice(start, next < 0 ? matrix.length : next);
     };

@@ -6,11 +6,10 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs';
-import { executeAuditLayers, redactAuditText, summarizeAuditLayers } from '../../tools/test/test-asset-audit/execution.mjs';
-import { assignAuditRecords, compareAuditSnapshots } from '../../tools/test/test-asset-audit/inventory.mjs';
-import { detectAuditPreflight } from '../../tools/test/test-asset-audit/preflight.mjs';
-
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
+const { executeAuditLayers, redactAuditText, summarizeAuditLayers } = await import(new URL('../../tools/test/test-asset-audit/execution.mjs', import.meta.url));
+const { assignAuditRecords, compareAuditSnapshots } = await import(new URL('../../tools/test/test-asset-audit/inventory.mjs', import.meta.url));
+const { detectAuditPreflight } = await import(new URL('../../tools/test/test-asset-audit/preflight.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 behaviorTest('test-asset-audit-reconciliation', 'positive', 'profile derives the live private registry posture without exposing credentials', () =>

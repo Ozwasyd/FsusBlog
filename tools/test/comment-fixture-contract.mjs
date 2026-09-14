@@ -49,8 +49,14 @@ const expectedCapabilityContracts = Object.freeze({
 
 function stableStringify(value)
 {
-    if (value === null || typeof value !== 'object') return JSON.stringify(value);
-    if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+    if (value === null || typeof value !== 'object')
+    {
+        return JSON.stringify(value);
+    }
+    if (Array.isArray(value))
+    {
+        return `[${value.map(stableStringify).join(',')}]`;
+    }
     return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(',')}}`;
 }
 
@@ -105,8 +111,15 @@ function validateRuntimeAuthorities(inventory, errors)
         signalModel: [/class AntiSpamModerationContract/u, /DefaultVersion/u, /AntiSpamModerationEvidence/u]
     };
     for (const [name, patterns] of Object.entries(anchors))
+    {
         for (const pattern of patterns)
-            if (!pattern.test(sources[name] ?? '')) errors.push(`runtime authority ${name} is missing ${pattern.source}`);
+        {
+            if (!pattern.test(sources[name] ?? ''))
+            {
+                errors.push(`runtime authority ${name} is missing ${pattern.source}`);
+            }
+        }
+    }
 
     const publicReader = fs.readFileSync(path.join(repositoryRoot, 'src/backend/Services/CommentQueryService.cs'), 'utf8');
     const queueReader = fs.readFileSync(path.join(repositoryRoot, 'src/backend/Services/Authoring/AuthoringModerationWorkflowService.cs'), 'utf8');
@@ -114,7 +127,9 @@ function validateRuntimeAuthorities(inventory, errors)
         || !/CommentModerationStatus\.Approved/u.test(publicReader)
         || !/CommentModerationStatus\.Pending/u.test(queueReader)
         || !/CommentModerationStatus\.Rejected/u.test(queueReader))
+    {
         errors.push('public/queue state rules are not backed by current production readers');
+    }
 }
 
 export function commentFixtureInventoryErrors(inventory)
@@ -125,19 +140,33 @@ export function commentFixtureInventoryErrors(inventory)
         'moderationStatuses', 'revisionOperations', 'threadRelations', 'stateRules', 'capabilities'
     ], 'inventory', errors);
     if (inventory?.schema !== 'fsusblog.comment-fixture-inventory.v1' || inventory?.version !== 1)
+    {
         errors.push('inventory schema/version is not current');
+    }
     if (inventory?.producerId !== 'comment-moderation' || inventory?.strategy !== 'transaction-fixture')
+    {
         errors.push('inventory does not bind the unique transaction-fixture producer');
+    }
     if (JSON.stringify(inventory?.actorModes) !== JSON.stringify(['public', 'zk_anonymous']))
+    {
         errors.push('actor modes must be exactly public and zk_anonymous');
+    }
     if ((inventory?.actorModes ?? []).some((value) => legacyActor.test(value)))
+    {
         errors.push('legacy actor alias is forbidden');
+    }
     if (JSON.stringify(inventory?.moderationStatuses) !== JSON.stringify(['approved', 'pending', 'rejected', 'spam']))
+    {
         errors.push('moderation states are incomplete or contain a private alias');
+    }
     if (JSON.stringify(inventory?.revisionOperations) !== JSON.stringify(['created', 'deleted', 'edited']))
+    {
         errors.push('revision operations are incomplete');
+    }
     if (JSON.stringify(inventory?.threadRelations) !== JSON.stringify(['depth', 'parent_id', 'reply_to_comment_id', 'root_id']))
+    {
         errors.push('thread relation schema is incomplete');
+    }
 
     exactKeys(inventory?.runtimeReferences, [
         'actorModes', 'moderationStatuses', 'revisionOperations', 'threadPolicy', 'regionPolicy', 'signalEntity', 'signalModel'
@@ -145,7 +174,9 @@ export function commentFixtureInventoryErrors(inventory)
     for (const file of Object.values(inventory?.runtimeReferences ?? {}))
     {
         if (typeof file !== 'string' || !fs.existsSync(path.join(repositoryRoot, file)))
+        {
             errors.push(`runtime reference is missing: ${file}`);
+        }
     }
     validateRuntimeAuthorities(inventory, errors);
 
@@ -153,27 +184,41 @@ export function commentFixtureInventoryErrors(inventory)
         'mutuallyExclusiveIdentityFields', 'queueMembership', 'readModels', 'softDelete'
     ], 'stateRules', errors);
     if (!sortedUnique(inventory?.stateRules?.mutuallyExclusiveIdentityFields, /^[A-Za-z][A-Za-z0-9]*$/u))
+    {
         errors.push('mutually exclusive identity fields must be sorted and unique');
+    }
     for (const status of inventory?.moderationStatuses ?? [])
     {
         if (!Object.hasOwn(inventory?.stateRules?.queueMembership ?? {}, status)
             || !Object.hasOwn(inventory?.stateRules?.readModels ?? {}, status))
+        {
             errors.push(`status ${status} has no exact queue/read-model rule`);
+        }
         exactKeys(inventory?.stateRules?.readModels?.[status], ['admin', 'public'], `readModels.${status}`, errors);
     }
     if (stableStringify(inventory?.stateRules?.queueMembership) !== stableStringify(expectedQueueMembership))
+    {
         errors.push('queue membership does not match the production moderation queue contract');
+    }
     if (stableStringify(inventory?.stateRules?.readModels) !== stableStringify(expectedReadModels))
+    {
         errors.push('read-model visibility does not match the production comment readers');
+    }
     if (stableStringify(inventory?.stateRules?.softDelete) !== stableStringify(expectedSoftDelete))
+    {
         errors.push('soft-delete rules do not match the production comment reader contract');
+    }
     if (Object.keys(inventory?.stateRules?.queueMembership ?? {}).some((key) => !inventory.moderationStatuses?.includes(key))
         || Object.keys(inventory?.stateRules?.readModels ?? {}).some((key) => !inventory.moderationStatuses?.includes(key)))
+    {
         errors.push('unknown moderation state has a second state map');
+    }
 
     const capabilities = inventory?.capabilities ?? [];
     if (!sortedUnique(capabilities.map((item) => item?.id)))
+    {
         errors.push('capabilities must be sorted, unique, and stable');
+    }
     const ids = new Set(capabilities.map((item) => item?.id));
     const required = [
         'comment.actor.public', 'comment.actor.zk-anonymous', 'comment.delete.reply', 'comment.delete.root',
@@ -183,13 +228,23 @@ export function commentFixtureInventoryErrors(inventory)
         'comment.thread.nested', 'comment.thread.reply', 'comment.thread.root', 'comment.version.edited'
     ];
     if (!exactArray(capabilities.map((item) => item?.id), required))
+    {
         errors.push('capability set is not the exact closed authority set');
-    for (const id of required) if (!ids.has(id)) errors.push(`missing capability ${id}`);
+    }
+    for (const id of required)
+    {
+        if (!ids.has(id))
+        {
+            errors.push(`missing capability ${id}`);
+        }
+    }
     for (const capability of capabilities)
     {
         exactKeys(capability, ['id', 'portId', 'requiredRefs', 'stateFields', 'postconditions', 'proofTests'], `capability ${capability?.id}`, errors);
         if (!['comment-thread-lifecycle', 'comment-moderation-lifecycle'].includes(capability?.portId))
+        {
             errors.push(`capability ${capability?.id} has unknown port`);
+        }
         for (const [field, values] of Object.entries({
             requiredRefs: capability?.requiredRefs,
             stateFields: capability?.stateFields,
@@ -198,19 +253,27 @@ export function commentFixtureInventoryErrors(inventory)
         }))
         {
             if (!sortedUnique(values, /^[A-Za-z][A-Za-z0-9]*(?:[._-][A-Za-z0-9]+)*$/u))
+            {
                 errors.push(`capability ${capability?.id} ${field} must be sorted and unique`);
+            }
         }
         const expected = expectedCapabilityContracts[capability?.id];
         if (expected && (!exactArray(capability.requiredRefs, expected[0])
             || !exactArray(capability.stateFields, expected[1])
             || !exactArray(capability.postconditions, expected[2])
             || !exactArray(capability.proofTests, expected[3])))
+        {
             errors.push(`capability ${capability?.id} does not match its exact authority binding`);
+        }
         if ((capability?.postconditions ?? []).some((value) => shortcut.test(value)))
+        {
             errors.push(`capability ${capability?.id} uses a shortcut postcondition`);
+        }
         if (!(capability?.postconditions ?? []).some((value) => value.startsWith('database.'))
             || !(capability?.postconditions ?? []).some((value) => /^(?:admin|public)\./u.test(value)))
+        {
             errors.push(`capability ${capability?.id} lacks storage/read-model evidence`);
+        }
         const requiredStateFields = {
             'comment.queue.exact-membership': ['bucket', 'commentIds', 'group', 'order', 'reason'],
             'comment.signal.verified': ['classification', 'commentId', 'confidence', 'evidenceRef', 'provider', 'signalRef', 'version'],
@@ -218,8 +281,12 @@ export function commentFixtureInventoryErrors(inventory)
             'comment.version.edited': ['commentId', 'contentDigest', 'currentVersion', 'history', 'previousVersion']
         }[capability?.id] ?? [];
         for (const field of requiredStateFields)
+        {
             if (!capability?.stateFields?.includes(field))
+            {
                 errors.push(`capability ${capability?.id} stateFields is missing ${field}`);
+            }
+        }
     }
     return errors;
 }
@@ -227,7 +294,10 @@ export function commentFixtureInventoryErrors(inventory)
 export function validateCommentFixtureInventory(inventory)
 {
     const errors = commentFixtureInventoryErrors(inventory);
-    if (errors.length) throw new Error(`comment fixture inventory invalid:\n- ${errors.join('\n- ')}`);
+    if (errors.length)
+    {
+        throw new Error(`comment fixture inventory invalid:\n- ${errors.join('\n- ')}`);
+    }
     return true;
 }
 
@@ -240,12 +310,16 @@ export function commentFixtureOwnershipErrors(inventory, ownership)
     ], 'ownership', errors);
     if (ownership?.schema !== 'fsusblog.comment-fixture-ownership.v1'
         || ownership?.inventory !== 'config/testing/comment-fixture-inventory.json')
+    {
         errors.push('ownership schema/inventory identity is invalid');
+    }
     exactKeys(ownership?.producer, ['id', 'implementation', 'strategy'], 'ownership.producer', errors);
     if (ownership?.producer?.id !== inventory?.producerId
         || ownership?.producer?.strategy !== inventory?.strategy
         || ownership?.producer?.implementation !== 'tools/test-fixtures/producers/comment-moderation-producer.mjs')
+    {
         errors.push('ownership producer is not the unique comment-moderation implementation');
+    }
 
     const expectedPorts = new Map([
         ['comment-moderation-lifecycle', ['src/backend/Services/Fixtures/CommentModerationFixturePort.cs', 'production-authoring-moderation-commands']],
@@ -253,13 +327,17 @@ export function commentFixtureOwnershipErrors(inventory, ownership)
     ]);
     const ports = ownership?.ports ?? [];
     if (ports.length !== expectedPorts.size || new Set(ports.map((item) => item?.id)).size !== expectedPorts.size)
+    {
         errors.push('ownership must expose exactly two typed comment lifecycle ports');
+    }
     for (const port of ports)
     {
         exactKeys(port, ['id', 'implementation', 'storageWrites'], `ownership port ${port?.id}`, errors);
         const expected = expectedPorts.get(port?.id);
         if (!expected || port?.implementation !== expected[0] || port?.storageWrites !== expected[1])
+        {
             errors.push(`port ${port?.id} crosses its production ownership boundary`);
+        }
     }
 
     const support = ownership?.supportImplementations ?? [];
@@ -267,32 +345,44 @@ export function commentFixtureOwnershipErrors(inventory, ownership)
         || support[0]?.id !== 'comment-anonymous-production-adapter'
         || support[0]?.implementation !== 'src/backend/Services/Fixtures/CommentAnonymousFixtureProvider.cs'
         || support[0]?.portId !== 'comment-thread-lifecycle')
+    {
         errors.push('ownership must expose the exact anonymous production adapter support implementation');
+    }
     for (const item of support)
+    {
         exactKeys(item, ['id', 'implementation', 'portId'], `ownership support ${item?.id}`, errors);
+    }
 
     exactKeys(ownership?.composition, ['implementation', 'delegatesTo'], 'ownership.composition', errors);
     if (ownership?.composition?.implementation !== 'src/backend/Services/Fixtures/CommentFixtureSeeder.cs'
         || !exactArray(ownership?.composition?.delegatesTo, ['comment-moderation-lifecycle', 'comment-thread-lifecycle']))
+    {
         errors.push('ownership composition does not delegate to the exact typed port set');
+    }
     const gateways = ownership?.gateways ?? [];
     if (gateways.length !== 1
         || gateways[0]?.id !== 'loopback-http'
         || gateways[0]?.implementation !== 'src/backend/Modules/Endpoints/LocalCommentFixtureEndpoints.cs'
         || gateways[0]?.delegatesTo !== 'comment-fixture-composition')
+    {
         errors.push('ownership gateway is not the exact local composition boundary');
+    }
 
     const capabilities = inventory?.capabilities ?? [];
     const owners = ownership?.capabilityOwners ?? [];
     if (!exactArray(owners.map((item) => item?.capabilityId), capabilities.map((item) => item?.id)))
+    {
         errors.push('capability ownership must be exact and bidirectional');
+    }
     const portIds = new Set(expectedPorts.keys());
     for (const owner of owners)
     {
         exactKeys(owner, ['capabilityId', 'portId'], `capability owner ${owner?.capabilityId}`, errors);
         const capability = capabilities.find((item) => item.id === owner?.capabilityId);
         if (!capability || capability.portId !== owner?.portId || !portIds.has(owner?.portId))
+        {
             errors.push(`capability owner mismatch for ${owner?.capabilityId}`);
+        }
     }
 
     const consumers = ownership?.consumers ?? [];
@@ -301,13 +391,19 @@ export function commentFixtureOwnershipErrors(inventory, ownership)
         || consumers[0]?.reads !== 'verified-producer-receipt'
         || consumers[1]?.implementation !== 'tools/test-fixtures/orchestrator.mjs'
         || consumers[1]?.receiptSchema !== 'fsusblog.fixture-receipt.v2')
+    {
         errors.push('ownership consumers are not the exact orchestrator/browser receipt readers');
+    }
     const privacy = ownership?.privacy;
     if (!sortedUnique(privacy?.ordinaryArtifactFields, /^[A-Za-z][A-Za-z0-9]*$/u)
         || !sortedUnique(privacy?.forbiddenFields, /^[A-Za-z][A-Za-z0-9]*$/u))
+    {
         errors.push('ownership privacy fields must be sorted and unique');
+    }
     if (!exactArray(privacy?.forbiddenFields, ['anonymousTicket', 'cookie', 'managementSecret', 'privateCredential', 'token']))
+    {
         errors.push('ownership privacy forbidden fields are incomplete');
+    }
     return errors;
 }
 
@@ -326,7 +422,10 @@ export function readCommentFixtureContract()
         ...commentFixtureInventoryErrors(inventory),
         ...commentFixtureOwnershipErrors(inventory, ownership)
     ];
-    if (errors.length) throw new Error(`comment fixture contract invalid:\n- ${errors.join('\n- ')}`);
+    if (errors.length)
+    {
+        throw new Error(`comment fixture contract invalid:\n- ${errors.join('\n- ')}`);
+    }
     return Object.freeze({
         inventory,
         ownership,

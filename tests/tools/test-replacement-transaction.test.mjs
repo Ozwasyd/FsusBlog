@@ -7,16 +7,8 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { contentDigest } from '../../tools/test-quality/schema.mjs';
-import {
-    applyReplacementTransaction,
-    createReplacementTransaction,
-    detectReplacementRequiredChanges,
-    validateReplacementReceipt,
-    validateReplacementTransaction,
-    verifyDiffHasTransaction
-} from '../../tools/test-replacement/transaction.mjs';
-
+const {contentDigest} = await import(new URL('../../tools/test-quality/schema.mjs', import.meta.url));
+const {applyReplacementTransaction, createReplacementTransaction, detectReplacementRequiredChanges, validateReplacementReceipt, validateReplacementTransaction, verifyDiffHasTransaction} = await import(new URL('../../tools/test-replacement/transaction.mjs', import.meta.url));
 const hash = (value) => `sha256:${createHash('sha256').update(String(value)).digest('hex')}`;
 
 function inventory(cases, marker)

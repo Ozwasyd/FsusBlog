@@ -1,21 +1,11 @@
 import path from 'node:path';
 import process from 'node:process';
 
-import { readEvidenceDocument } from '../test-matrix/content-addressed-evidence-store.mjs';
-import {
-    collectReleaseFinalDomainProjectionReceipts,
-    releaseFinalDomainProjectionTierIds
-} from '../test-matrix/release-domain-evidence.mjs';
-import {
-    loadCanonicalReleaseFinalEvidenceInputs
-} from '../test-matrix/release-final-evidence-contract.mjs';
-import {
-    validatePostRuntimeReceipt
-} from '../test-matrix/behavior-evidence-post-runtime.mjs';
-import {
-    validateFinalReport
-} from '../docs/behavior-document-consistency-final.mjs';
-
+const {readEvidenceDocument} = await import(new URL('../test-matrix/content-addressed-evidence-store.mjs', import.meta.url));
+const {collectReleaseFinalDomainProjectionReceipts, releaseFinalDomainProjectionTierIds} = await import(new URL('../test-matrix/release-domain-evidence.mjs', import.meta.url));
+const {loadCanonicalReleaseFinalEvidenceInputs} = await import(new URL('../test-matrix/release-final-evidence-contract.mjs', import.meta.url));
+const {validatePostRuntimeReceipt} = await import(new URL('../test-matrix/behavior-evidence-post-runtime.mjs', import.meta.url));
+const {validateFinalReport} = await import(new URL('../docs/behavior-document-consistency-final.mjs', import.meta.url));
 import { requirePublicPreviewReleaseEvidence } from './public-preview-release-evidence.mjs';
 import {
     locateReleaseReliabilityQualifiedReceipt

@@ -12,8 +12,7 @@ import {
 } from 'node:fs';
 import path from 'node:path';
 
-import { contentDigest, REPLACEMENT_TRANSACTION_SCHEMA } from '../test-quality/schema.mjs';
-
+const { contentDigest, REPLACEMENT_TRANSACTION_SCHEMA } = await import(new URL('../test-quality/schema.mjs', import.meta.url));
 export const REPLACEMENT_RECEIPT_SCHEMA = 'fsusblog.test-replacement-receipt.v1';
 
 const operations = new Set(['delete', 'rename', 'merge', 'parameterize', 'split', 'move-support']);

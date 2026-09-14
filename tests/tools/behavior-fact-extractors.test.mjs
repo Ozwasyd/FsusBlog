@@ -5,45 +5,14 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { loadCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs';
-import {
-    scanExtractorSources,
-    scanRepositoryFactExtractorGovernance,
-    assertExtractorDependencyAcyclic
-} from '../../tools/fact-extractors/governance.mjs';
-import {
-    buildIdentitySchema,
-    digestPath,
-    sealSourceIdentity,
-    validateBuildIdentity
-} from '../../tools/fact-extractors/identity.mjs';
-import { digestValue } from '../../tools/fact-extractors/lib/canonicalize.mjs';
-import { readFactObservationReceipt, assertConsumerDoesNotImportExtractors } from '../../tools/fact-extractors/reader.mjs';
-import {
-    buildReceipt,
-    computeSemanticDigest,
-    semanticDigestFromReceipt,
-    validateObservations,
-    validateReceipt,
-    validateReceiptSchemaContract
-} from '../../tools/fact-extractors/receipt.mjs';
-import {
-    loadRegistry,
-    loadRegistrySchema,
-    loadReceiptSchema,
-    registrySchemaId,
-    receiptSchemaId,
-    root,
-    validateOwnershipAgainstBehaviorCatalog,
-    validateRegistry,
-    validateRegistrySchemaContract
-} from '../../tools/fact-extractors/registry.mjs';
-import {
-    computeExecutionCacheKey,
-    runExtractor,
-    assertDeterministicSemanticDigest
-} from '../../tools/fact-extractors/runner.mjs';
-
+const { loadCatalog } = await import(new URL('../../tools/contracts/behavior-contract-catalog.mjs', import.meta.url));
+const { scanExtractorSources, scanRepositoryFactExtractorGovernance, assertExtractorDependencyAcyclic } = await import(new URL('../../tools/fact-extractors/governance.mjs', import.meta.url));
+const { buildIdentitySchema, digestPath, sealSourceIdentity, validateBuildIdentity } = await import(new URL('../../tools/fact-extractors/identity.mjs', import.meta.url));
+const { digestValue } = await import(new URL('../../tools/fact-extractors/lib/canonicalize.mjs', import.meta.url));
+const { readFactObservationReceipt, assertConsumerDoesNotImportExtractors } = await import(new URL('../../tools/fact-extractors/reader.mjs', import.meta.url));
+const { buildReceipt, computeSemanticDigest, semanticDigestFromReceipt, validateObservations, validateReceipt, validateReceiptSchemaContract } = await import(new URL('../../tools/fact-extractors/receipt.mjs', import.meta.url));
+const { loadRegistry, loadRegistrySchema, loadReceiptSchema, registrySchemaId, receiptSchemaId, root, validateOwnershipAgainstBehaviorCatalog, validateRegistry, validateRegistrySchemaContract } = await import(new URL('../../tools/fact-extractors/registry.mjs', import.meta.url));
+const { computeExecutionCacheKey, runExtractor, assertDeterministicSemanticDigest } = await import(new URL('../../tools/fact-extractors/runner.mjs', import.meta.url));
 const checker = path.join(root, 'tools/fact-extractors/check-behavior-fact-extractors.mjs');
 
 test('source identity excludes owned current-run outputs but detects source drift', (t) =>

@@ -2,20 +2,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 
-import {
-    createAndAdmitServiceEnvelope,
-    executionServiceImageReference,
-    loadExecutionServiceCatalog,
-    observeContainerService,
-    observeRunOwnedService,
-    parseExecutionEnvelopeServicesOptions,
-    requiredExecutionServices,
-    validateExecutionServiceCatalog,
-    verifyLiveServiceEnvelope
-} from '../../tools/test/execution-envelope-services.mjs';
-import { loadExecutionEnvelopeApplicability } from '../../tools/test-matrix/execution-envelope-policy.mjs';
-import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs';
-
+const {createAndAdmitServiceEnvelope, executionServiceImageReference, loadExecutionServiceCatalog, observeContainerService, observeRunOwnedService, parseExecutionEnvelopeServicesOptions, requiredExecutionServices, validateExecutionServiceCatalog, verifyLiveServiceEnvelope} = await import(new URL('../../tools/test/execution-envelope-services.mjs', import.meta.url));
+const {loadExecutionEnvelopeApplicability} = await import(new URL('../../tools/test-matrix/execution-envelope-policy.mjs', import.meta.url));
+const {parseMatrix} = await import(new URL('../../tools/test-matrix/parse-matrix.mjs', import.meta.url));
 const matrix = parseMatrix(
     fs.readFileSync(new URL('../../tests/matrix.yml', import.meta.url), 'utf8')
 );

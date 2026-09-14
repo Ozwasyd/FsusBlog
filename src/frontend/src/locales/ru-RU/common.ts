@@ -1,7 +1,7 @@
-export const localeDomainIdentity = Object.freeze({ locale: 'ru-RU', domain: 'common' } as const)
+export const localeDomainIdentity = Object.freeze({ locale: 'ru-RU', domain: 'common' } as const);
 
-import type { LocaleSchema } from '../keys'
-import type { common as zhCNCommon } from '../zh-CN/common'
+import type { LocaleSchema } from '../keys';
+import type { common as zhCNCommon } from '../zh-CN/common';
 
 export const common = {
     actions: {
@@ -45,4 +45,4 @@ export const common = {
         status: 'Загрузка',
         statusWithSite: 'Загрузка {siteTitle}'
     }
-} as const satisfies LocaleSchema<typeof zhCNCommon>
+} as const satisfies LocaleSchema<typeof zhCNCommon>;

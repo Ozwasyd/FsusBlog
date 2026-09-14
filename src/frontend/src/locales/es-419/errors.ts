@@ -1,7 +1,7 @@
-export const localeDomainIdentity = Object.freeze({ locale: 'es-419', domain: 'errors' } as const)
+export const localeDomainIdentity = Object.freeze({ locale: 'es-419', domain: 'errors' } as const);
 
-import type { LocaleSchema } from '../keys'
-import type { errors as zhCNErrors } from '../zh-CN/errors'
+import type { LocaleSchema } from '../keys';
+import type { errors as zhCNErrors } from '../zh-CN/errors';
 
 export const errors = {
     forbidden: {
@@ -19,4 +19,4 @@ export const errors = {
         searchCta: 'Buscar artículos',
         archiveCta: 'Archivo'
     }
-} as const satisfies LocaleSchema<typeof zhCNErrors>
+} as const satisfies LocaleSchema<typeof zhCNErrors>;

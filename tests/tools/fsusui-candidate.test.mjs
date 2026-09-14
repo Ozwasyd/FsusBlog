@@ -5,18 +5,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
-import {
-    assertCandidateSourceUnchanged,
-    assertOtherDependencyIdentities,
-    candidateEnvironment,
-    resolveCandidateInput,
-    snapshotCandidateSource,
-    validateCandidatePackage,
-    verifyCandidateBoundaryInput,
-    verifyFsusuiCandidate
-} from '../../tools/dependencies/verify-fsusui-candidate.mjs';
-import { verifySingleVue, verifyWorkerWasm } from '../../tools/dependencies/fsusui-candidate-package-smoke.mjs';
-
+const {assertCandidateSourceUnchanged, assertOtherDependencyIdentities, candidateEnvironment, resolveCandidateInput, snapshotCandidateSource, validateCandidatePackage, verifyCandidateBoundaryInput, verifyFsusuiCandidate} = await import(new URL('../../tools/dependencies/verify-fsusui-candidate.mjs', import.meta.url));
+const {verifySingleVue, verifyWorkerWasm} = await import(new URL('../../tools/dependencies/fsusui-candidate-package-smoke.mjs', import.meta.url));
 const root = path.resolve(import.meta.dirname, '../..');
 const name = '@ozwasyd/element-plus';
 const sourceManifest = { dependencies: { [name]: '1.5.1', vue: '^3.5.33' } };
@@ -30,13 +20,15 @@ const sourceLock = {
 };
 const packageManifest = () => ({ name, version: '1.5.2', peerDependencies: { vue: '^3.5.0' } });
 
-function write(directory, file, value) {
+function write(directory, file, value)
+{
     const target = path.join(directory, file);
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, typeof value === 'string' ? value : JSON.stringify(value));
 }
 
-function temporary(t) {
+function temporary(t)
+{
     const directory = path.join(root, '.tmp');
     fs.mkdirSync(directory, { recursive: true });
     const fixture = fs.mkdtempSync(path.join(directory, 'candidate-tests-'));
@@ -44,14 +36,16 @@ function temporary(t) {
     return fixture;
 }
 
-function tarball(directory, manifest = packageManifest()) {
+function tarball(directory, manifest = packageManifest())
+{
     write(directory, 'archive/package/package.json', manifest);
     const file = path.join(directory, 'candidate.tgz');
     execFileSync('tar', ['-czf', file, '-C', path.join(directory, 'archive'), 'package'], { stdio: 'pipe' });
     return file;
 }
 
-function repositoryFixture(directory) {
+function repositoryFixture(directory)
+{
     const repository = path.join(directory, 'consumer-source');
     fs.mkdirSync(repository);
     execFileSync('git', ['init', '-q', repository]);
@@ -65,7 +59,8 @@ function repositoryFixture(directory) {
     return repository;
 }
 
-function boundaryFixture(t, candidate = packageManifest()) {
+function boundaryFixture(t, candidate = packageManifest())
+{
     const directory = temporary(t);
     const file = tarball(directory, candidate);
     const bytes = fs.readFileSync(file);
@@ -88,7 +83,8 @@ function boundaryFixture(t, candidate = packageManifest()) {
     } };
 }
 
-function runBoundary(fixture, env = fixture.env) {
+function runBoundary(fixture, env = fixture.env)
+{
     const childEnv = { ...process.env, FSUSBLOG_FSUSUI_BOUNDARY_ROOT: fixture.directory };
     delete childEnv.FSUSBLOG_FSUSUI_CANDIDATE;
     delete childEnv.FSUSBLOG_FSUSUI_CANDIDATE_SHA256;
@@ -99,8 +95,10 @@ function runBoundary(fixture, env = fixture.env) {
     return result;
 }
 
-test('boundary revalidates candidate bytes and legal semver without weakening other checks', (t) => {
-    for (const version of ['1.5.2', '1.6.0-preview.1']) {
+test('boundary revalidates candidate bytes and legal semver without weakening other checks', (t) =>
+{
+    for (const version of ['1.5.2', '1.6.0-preview.1'])
+    {
         const fixture = boundaryFixture(t, { ...packageManifest(), version });
         assert.equal(verifyCandidateBoundaryInput(fixture.directory, fixture.env).version, version);
         const result = runBoundary(fixture);
@@ -111,7 +109,8 @@ test('boundary revalidates candidate bytes and legal semver without weakening ot
     }
 });
 
-test('ordinary file dependencies and incomplete candidate environment do not bypass the normal pin', (t) => {
+test('ordinary file dependencies and incomplete candidate environment do not bypass the normal pin', (t) =>
+{
     const fixture = boundaryFixture(t);
     assert.match(runBoundary(fixture, {}).stdout, /fsusui-version:/);
     assert.match(runBoundary(fixture, { FSUSBLOG_FSUSUI_CANDIDATE: fixture.file }).stdout, /fsusui-candidate:/);
@@ -124,20 +123,52 @@ test('ordinary file dependencies and incomplete candidate environment do not byp
     assert.match(runBoundary(fixture, {}).stdout, /fsusui-version:/);
 });
 
-test('boundary rejects candidate, manifest, lock and installed identity mismatches', (t) => {
+test('boundary rejects candidate, manifest, lock and installed identity mismatches', (t) =>
+{
     const mutations = [
-        (f) => { f.env.FSUSBLOG_FSUSUI_CANDIDATE_SHA256 = '0'.repeat(64); },
-        (f) => { fs.appendFileSync(f.file, 'changed'); },
-        (f) => { f.manifest.dependencies[name] = 'file:../../other.tgz'; },
-        (f) => { f.lock.packages[''].dependencies[name] = '1.5.2'; },
-        (f) => { f.lock.packages[`node_modules/${name}`].resolved = 'file:../../other.tgz'; },
-        (f) => { f.lock.packages[`node_modules/${name}`].version = '1.5.3'; },
-        (f) => { f.lock.packages[`node_modules/${name}`].integrity = 'sha512-wrong'; },
-        (f) => { f.lock.packages[`node_modules/${name}`].link = true; },
-        (f) => { f.lock.packages['node_modules/vue'].version = '4.0.0'; },
-        (f) => { write(f.directory, `src/frontend/node_modules/${name}/package.json`, { ...packageManifest(), version: '1.5.3' }); }
+        (f) =>
+        {
+            f.env.FSUSBLOG_FSUSUI_CANDIDATE_SHA256 = '0'.repeat(64);
+        },
+        (f) =>
+        {
+            fs.appendFileSync(f.file, 'changed');
+        },
+        (f) =>
+        {
+            f.manifest.dependencies[name] = 'file:../../other.tgz';
+        },
+        (f) =>
+        {
+            f.lock.packages[''].dependencies[name] = '1.5.2';
+        },
+        (f) =>
+        {
+            f.lock.packages[`node_modules/${name}`].resolved = 'file:../../other.tgz';
+        },
+        (f) =>
+        {
+            f.lock.packages[`node_modules/${name}`].version = '1.5.3';
+        },
+        (f) =>
+        {
+            f.lock.packages[`node_modules/${name}`].integrity = 'sha512-wrong';
+        },
+        (f) =>
+        {
+            f.lock.packages[`node_modules/${name}`].link = true;
+        },
+        (f) =>
+        {
+            f.lock.packages['node_modules/vue'].version = '4.0.0';
+        },
+        (f) =>
+        {
+            write(f.directory, `src/frontend/node_modules/${name}/package.json`, { ...packageManifest(), version: '1.5.3' });
+        }
     ];
-    for (const mutate of mutations) {
+    for (const mutate of mutations)
+    {
         const fixture = boundaryFixture(t);
         mutate(fixture);
         write(fixture.directory, 'src/frontend/package.json', fixture.manifest);
@@ -151,14 +182,16 @@ test('boundary rejects candidate, manifest, lock and installed identity mismatch
         { ...packageManifest(), name: 'wrong-package' },
         { ...packageManifest(), version: 'latest' },
         { ...packageManifest(), peerDependencies: { vue: '^4.0.0' } }
-    ]) {
+    ])
+    {
         const fixture = boundaryFixture(t, candidate);
         assert.throws(() => verifyCandidateBoundaryInput(fixture.directory, fixture.env));
         assert.match(runBoundary(fixture).stdout, /fsusui-candidate:/);
     }
 });
 
-test('local tgz CLI and environment must select exactly the same regular file', (t) => {
+test('local tgz CLI and environment must select exactly the same regular file', (t) =>
+{
     const directory = temporary(t);
     const file = tarball(directory);
     const canonical = fs.realpathSync(file);
@@ -171,7 +204,8 @@ test('local tgz CLI and environment must select exactly the same regular file', 
     const second = path.join(directory, 'second.tgz');
     fs.copyFileSync(file, second);
     assert.throws(() => resolveCandidateInput(['--tarball', file], { FSUSBLOG_FSUSUI_CANDIDATE: second }), /disagree/);
-    for (const args of [[], ['--tarball'], ['--unknown', file], ['--tarball', file, '--tarball', file], ['--tarball', 'candidate.tgz'], ['--tarball', path.join(directory, 'absent.tgz')]]) {
+    for (const args of [[], ['--tarball'], ['--unknown', file], ['--tarball', file, '--tarball', file], ['--tarball', 'candidate.tgz'], ['--tarball', path.join(directory, 'absent.tgz')]])
+    {
         assert.throws(() => resolveCandidateInput(args, {}), /required|usage|absolute|exist/);
     }
     fs.symlinkSync(file, path.join(directory, 'link.tgz'));
@@ -180,10 +214,12 @@ test('local tgz CLI and environment must select exactly the same regular file', 
     assert.throws(() => resolveCandidateInput(['--tarball', path.join(directory, 'directory.tgz')], {}), /regular file/);
 });
 
-test('candidate semver and Vue peer use actual npm parsers against the exact locked Vue', () => {
+test('candidate semver and Vue peer use actual npm parsers against the exact locked Vue', () =>
+{
     assert.deepEqual(validateCandidatePackage(packageManifest(), sourceManifest, sourceLock), { name, version: '1.5.2', vueVersion: '3.5.33' });
     assert.equal(validateCandidatePackage({ ...packageManifest(), version: '1.6.0-preview.1' }, sourceManifest, sourceLock).version, '1.6.0-preview.1');
-    for (const version of ['latest', '01.5.2', 'v1.5.2', '1.5', 1]) {
+    for (const version of ['latest', '01.5.2', 'v1.5.2', '1.5', 1])
+    {
         assert.throws(() => validateCandidatePackage({ ...packageManifest(), version }, sourceManifest, sourceLock), /package.version/);
     }
     assert.throws(() => validateCandidatePackage({ ...packageManifest(), name: 'element-plus' }, sourceManifest, sourceLock), /package.name/);
@@ -191,9 +227,12 @@ test('candidate semver and Vue peer use actual npm parsers against the exact loc
     assert.throws(() => validateCandidatePackage({ ...packageManifest(), peerDependencies: { vue: '^4.0.0' } }, sourceManifest, sourceLock), /peerDependencies.vue/);
 });
 
-for (const section of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']) {
-    test(`candidate rejects workspace/local/Git/private protocols in ${section}`, () => {
-        for (const specifier of ['workspace:*', 'file:../sibling', 'link:../sibling', 'git+https://github.com/example/fixture.git', 'github:example/fixture', 'https://npm.pkg.github.com/fixture.tgz', 'https://registry.npmjs.org/fixture.tgz']) {
+for (const section of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'])
+{
+    test(`candidate rejects workspace/local/Git/private protocols in ${section}`, () =>
+    {
+        for (const specifier of ['workspace:*', 'file:../sibling', 'link:../sibling', 'git+https://github.com/example/fixture.git', 'github:example/fixture', 'https://npm.pkg.github.com/fixture.tgz', 'https://registry.npmjs.org/fixture.tgz'])
+        {
             const manifest = packageManifest();
             manifest[section] = { ...manifest[section], fixture: specifier };
             assert.throws(() => validateCandidatePackage(manifest, sourceManifest, sourceLock), new RegExp(section));
@@ -201,12 +240,14 @@ for (const section of ['dependencies', 'devDependencies', 'optionalDependencies'
     });
 }
 
-test('private publish registry and workspace root fail closed', () => {
+test('private publish registry and workspace root fail closed', () =>
+{
     assert.throws(() => validateCandidatePackage({ ...packageManifest(), publishConfig: { registry: 'https://npm.pkg.github.com/' } }, sourceManifest, sourceLock), /publishConfig.registry/);
     assert.throws(() => validateCandidatePackage({ ...packageManifest(), workspaces: ['packages/*'] }, sourceManifest, sourceLock), /workspaces/);
 });
 
-test('other direct specifiers and lock identities cannot drift even to a compatible version', () => {
+test('other direct specifiers and lock identities cannot drift even to a compatible version', () =>
+{
     const manifest = structuredClone(sourceManifest);
     const lock = structuredClone(sourceLock);
     manifest.dependencies[name] = 'file:/isolated/candidate.tgz';
@@ -215,14 +256,16 @@ test('other direct specifiers and lock identities cannot drift even to a compati
     manifest.dependencies.vue = '^3.5.34';
     assert.throws(() => assertOtherDependencyIdentities(sourceManifest, sourceLock, manifest, lock), /specifiers/);
     manifest.dependencies.vue = '^3.5.33';
-    for (const key of ['version', 'resolved', 'integrity']) {
+    for (const key of ['version', 'resolved', 'integrity'])
+    {
         const mutated = structuredClone(lock);
         mutated.packages['node_modules/vue'][key] = 'changed';
         assert.throws(() => assertOtherDependencyIdentities(sourceManifest, sourceLock, manifest, mutated), /lock identity/);
     }
 });
 
-test('child environment isolates configs/cache, forbids install scripts and disables alias consumption', () => {
+test('child environment isolates configs/cache, forbids install scripts and disables alias consumption', () =>
+{
     const env = candidateEnvironment('/isolated-consumer', 'a'.repeat(40));
     assert.equal(env.npm_config_ignore_scripts, 'true');
     assert.equal(env.npm_config_offline, 'true');
@@ -235,7 +278,8 @@ test('child environment isolates configs/cache, forbids install scripts and disa
     assert.equal(env.FSUSBLOG_SKIP_ENSURE_WASM, undefined);
 });
 
-test('child environment carries only explicit native toolchain selectors', () => {
+test('child environment carries only explicit native toolchain selectors', () =>
+{
     const env = candidateEnvironment('/isolated-consumer', 'a'.repeat(40), {
         PATH: '/opt/emsdk/upstream/emscripten:/usr/bin',
         EMSDK: '/opt/emsdk',
@@ -251,13 +295,15 @@ test('child environment carries only explicit native toolchain selectors', () =>
     assert.equal(env.GITHUB_PACKAGES_TOKEN, undefined);
 });
 
-test('original source, manifest, config and ignored node_modules mutations are detected', (t) => {
+test('original source, manifest, config and ignored node_modules mutations are detected', (t) =>
+{
     const directory = temporary(t);
     const repository = repositoryFixture(directory);
     write(repository, 'src/frontend/node_modules/vue/sentinel', 'original');
     const snapshot = snapshotCandidateSource(repository);
     assert.doesNotThrow(() => assertCandidateSourceUnchanged(repository, snapshot));
-    for (const file of ['src/frontend/src/sentinel.ts', 'src/frontend/package.json', 'src/frontend/package-lock.json', '.npmrc', 'src/frontend/node_modules/vue/sentinel']) {
+    for (const file of ['src/frontend/src/sentinel.ts', 'src/frontend/package.json', 'src/frontend/package-lock.json', '.npmrc', 'src/frontend/node_modules/vue/sentinel'])
+    {
         const location = path.join(repository, file);
         const original = fs.readFileSync(location);
         fs.appendFileSync(location, '\nchanged');
@@ -266,18 +312,22 @@ test('original source, manifest, config and ignored node_modules mutations are d
     }
 });
 
-test('non-tarball input fails before fixture creation or npm invocation', async (t) => {
+test('non-tarball input fails before fixture creation or npm invocation', async (t) =>
+{
     const directory = temporary(t);
     const repository = repositoryFixture(directory);
     write(directory, 'broken.tgz', 'not an archive');
     const before = snapshotCandidateSource(repository);
-    await assert.rejects(verifyFsusuiCandidate(['--tarball', path.join(directory, 'broken.tgz')], { repository, env: {}, report() {} }), /tarball package/);
+    await assert.rejects(verifyFsusuiCandidate(['--tarball', path.join(directory, 'broken.tgz')], { repository, env: {}, report()
+    {} }), /tarball package/);
     assertCandidateSourceUnchanged(repository, before);
     assert.equal(fs.existsSync(path.join(repository, '.tmp')), false);
 });
 
-for (const keep of [false, true]) {
-    test(`actual offline install failure preserves original source and ${keep ? 'explicitly retains' : 'removes'} its fixture`, async (t) => {
+for (const keep of [false, true])
+{
+    test(`actual offline install failure preserves original source and ${keep ? 'explicitly retains' : 'removes'} its fixture`, async (t) =>
+    {
         const directory = temporary(t);
         const repository = repositoryFixture(directory);
         const file = tarball(directory);
@@ -291,7 +341,8 @@ for (const keep of [false, true]) {
         const fixtures = fs.readdirSync(path.join(repository, '.tmp'));
         assert.equal(fixtures.length, keep ? 1 : 0);
         assert.equal(messages.some((message) => message.startsWith('FsusUI candidate fixture retained:')), keep);
-        if (keep) {
+        if (keep)
+        {
             const isolated = path.join(repository, '.tmp', fixtures[0]);
             assert.equal(fs.existsSync(path.join(isolated, '.npmrc')), false);
             assert.equal(fs.readFileSync(path.join(isolated, '.candidate-npmrc'), 'utf8'), '');
@@ -300,7 +351,8 @@ for (const keep of [false, true]) {
     });
 }
 
-test('single Vue check rejects duplicate physical runtimes', (t) => {
+test('single Vue check rejects duplicate physical runtimes', (t) =>
+{
     const directory = temporary(t);
     write(directory, 'package.json', { private: true });
     write(directory, 'node_modules/vue/package.json', { name: 'vue', version: '3.5.33' });
@@ -310,7 +362,8 @@ test('single Vue check rejects duplicate physical runtimes', (t) => {
     assert.throws(() => verifySingleVue(directory), /exactly one Vue/);
 });
 
-test('worker smoke rejects missing public package instead of consuming adjacent source', async (t) => {
+test('worker smoke rejects missing public package instead of consuming adjacent source', async (t) =>
+{
     const directory = temporary(t);
     write(directory, 'package.json', { private: true });
     await assert.rejects(verifyWorkerWasm(directory), /Cannot find module/);

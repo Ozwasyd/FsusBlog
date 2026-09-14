@@ -1,4 +1,4 @@
-export type SliceRef = { offset: number; length: number };
+export interface SliceRef { offset: number; length: number; }
 
 export const TAG_POD_SIZE = 132;
 export const ARTICLE_LIST_ITEM_POD_SIZE = 420;

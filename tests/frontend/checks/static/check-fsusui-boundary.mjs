@@ -3,8 +3,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import { verifyCandidateBoundaryInput } from '../../../../tools/dependencies/verify-fsusui-candidate.mjs';
-
+const { verifyCandidateBoundaryInput } = await import(new URL('../../../../tools/dependencies/verify-fsusui-candidate.mjs', import.meta.url));
 // Boundary contract: src/frontend/src/fsusui/README.md
 
 const defaultRepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');

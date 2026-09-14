@@ -2,9 +2,8 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 
-import { assertPublicShellLocaleNetwork } from '../browser-contract/public-shell-locale-network.mjs';
-import { createPublicShellLocaleMatrix } from '../browser-contract/public-shell-locale-matrix.mjs';
-
+const { assertPublicShellLocaleNetwork } = await import(new URL('../browser-contract/public-shell-locale-network.mjs', import.meta.url));
+const { createPublicShellLocaleMatrix } = await import(new URL('../browser-contract/public-shell-locale-matrix.mjs', import.meta.url));
 const digest = (value) => createHash('sha256').update(String(value)).digest('hex');
 const matrix = await createPublicShellLocaleMatrix();
 const scene = matrix.scenes.find((item) => item.issue === 2085

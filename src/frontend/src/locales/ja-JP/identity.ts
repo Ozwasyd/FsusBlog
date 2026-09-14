@@ -1,7 +1,7 @@
-export const localeDomainIdentity = Object.freeze({ locale: 'ja-JP', domain: 'identity' } as const)
+export const localeDomainIdentity = Object.freeze({ locale: 'ja-JP', domain: 'identity' } as const);
 
-import type { LocaleSchema } from '../keys'
-import type { identity as zhCNIdentity } from '../zh-CN/identity'
+import type { LocaleSchema } from '../keys';
+import type { identity as zhCNIdentity } from '../zh-CN/identity';
 
 export const identity = {
     overview: {
@@ -259,27 +259,27 @@ export const identity = {
         },
         UserIdentityPasskeys: {
             title: 'パスキー',
-            description: '',
+            description: ''
         },
         UserIdentityRecoveryKey: {
             title: 'Recovery Key',
-            description: '',
+            description: ''
         },
         UserIdentityAnonymous: {
             title: '匿名アイデンティティ',
-            description: '',
+            description: ''
         },
         UserIdentityPublicProfile: {
             title: '公開プロフィール',
-            description: '',
+            description: ''
         },
         UserIdentitySessions: {
             title: 'デバイスセッション',
-            description: '',
+            description: ''
         },
         UserIdentityMfa: {
             title: '二要素認証',
-            description: '',
+            description: ''
         },
         UserIdentityCommentRecords: {
             title: '公開コメント履歴',
@@ -298,4 +298,4 @@ export const identity = {
         recoveryKeyCreatedSuccess: 'Recovery Key が作成されました',
         recoveryKeyRotatedSuccess: 'Recovery Key がローテーションされました'
     }
-} as const satisfies LocaleSchema<typeof zhCNIdentity>
+} as const satisfies LocaleSchema<typeof zhCNIdentity>;

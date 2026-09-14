@@ -13,23 +13,37 @@ export function adaptReleaseFinalizerSemanticOutcome({ identity, inputAuthorityR
     const producedOutputIds = exactIds(evidence?.producedOutputIds ?? [], 'produced output IDs');
     const reasons = [];
     for (const id of requiredInputIds.filter((id) => !consumedInputIds.includes(id)))
+    {
         reasons.push(reason('contract.missing-evidence', releaseFinalizerOutcomeProducerId, { evidenceId: id }));
+    }
     for (const id of consumedInputIds.filter((id) => !requiredInputIds.includes(id)))
+    {
         reasons.push(reason('contract.ambiguous-evidence', releaseFinalizerOutcomeProducerId, { evidenceId: id }));
+    }
     for (const id of [...failedInputIds, ...blockedInputIds])
+    {
         reasons.push(reason('product.state-mismatch', releaseFinalizerOutcomeProducerId, { semanticId: id }));
+    }
     for (const id of requiredOutputIds.filter((id) => !producedOutputIds.includes(id)))
+    {
         reasons.push(reason('contract.missing-evidence', releaseFinalizerOutcomeProducerId, { evidenceId: id }));
+    }
     for (const id of producedOutputIds.filter((id) => !requiredOutputIds.includes(id)))
+    {
         reasons.push(reason('contract.ambiguous-evidence', releaseFinalizerOutcomeProducerId, { evidenceId: id }));
+    }
     const outputDigests = evidence?.outputDigests ?? {};
     for (const id of producedOutputIds)
     {
         if (!/^sha256:[0-9a-f]{64}$/u.test(String(outputDigests[id] ?? '')))
+        {
             reasons.push(reason('product.state-mismatch', releaseFinalizerOutcomeProducerId, { semanticId: id }));
+        }
     }
     if (attemptEligibility?.cleanFirstAttempt !== true || attemptEligibility?.qualificationEligible !== true)
+    {
         reasons.push(reason('contract.missing-evidence', releaseFinalizerOutcomeProducerId, { evidenceId: 'clean-first-attempt' }));
+    }
     return candidate({ producerId: releaseFinalizerOutcomeProducerId,
         producerAuthorityId: 'tools/test-matrix/outcomes/release-finalizer-adapter.mjs',
         identity, inputAuthorityRefs, attemptEligibility,

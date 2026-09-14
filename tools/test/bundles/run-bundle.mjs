@@ -7,80 +7,29 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import { verifyProductionBuildReceipt } from '../../ci/production-build-artifacts.mjs';
-import { productionZkRequested } from '../../security/comment-privacy-build-contract.mjs';
-import { createArtifactDigestTable } from '../../test-matrix/artifact-digest-table.mjs';
-import { createAsyncLogPipeline } from '../../test-matrix/async-log-pipeline.mjs';
-import { resolveCommandGroup } from '../../test-matrix/command-groups.mjs';
-import { projectEvidence } from '../../test-matrix/evidence-projection.mjs';
-import {
-    publishFrontendBuildTerminalMarker,
-    validateFrontendBuildStageReceiptBinding,
-    validateFrontendBuildStageReceiptIdentity
-} from '../../test-matrix/frontend-build-ready-marker.mjs';
-import { writeIntegrityProofProducer } from '../../test-matrix/integrity-proof-producer.mjs';
-import {
-    artifactSubstitutionBindingDigest,
-    matrixGeneratedRuntimePaths,
-    resolveLocalProfileResources,
-    resolveArtifactSubstitutions,
-    resolveFrontendVitestAdmissionFloor, performanceMixedWindowFloorMs, validatePerformanceDeadlineEvidence
-} from '../../test-matrix/local-profile.mjs';
-import { parseMatrix } from '../../test-matrix/parse-matrix.mjs';
-import {
-    prepareProductionRuntimeLayout,
-    productionBuildEnvironment,
-    productionBuildLayoutDigest,
-    productionDotnetArtifacts,
-    productionRuntimeEnvironment,
-    resolveProductionBuildLayout
-} from '../../test-matrix/production-build-layout.mjs';
-import {
-    assertProductionFreshBundleProducerWiring,
-    captureProductionFreshOutputInventory,
-    isProductionFreshExpectedLifecycleRemoval,
-    productionFreshGovernanceOutputs,
-    productionFreshProducerInventory,
-    verifyProducerOutputDelta
-} from '../../test-matrix/production-fresh-run-bound-outputs.mjs';
-import { resolveCgroupLimits } from '../../test-matrix/production-resource-enforcement.mjs';
-import {
-    consumeResetReceiptsForStep,
-    resetPostconditionReceiptFile,
-    resetReceiptsProducedByStep,
-    resolveRuntimeResetContext
-} from '../../test-matrix/reset-postcondition-verifier.mjs';
-import {
-    consumeResidentLeaseHandoffFile,
-    productionResidentServiceIds,
-    readResidentLeaseDocument,
-    validateResidentLeaseInventory
-} from '../../test-matrix/resident-resource-leases.mjs';
-import {
-    createLinuxProcessTreeCollector,
-    createWaitLedger,
-    gnuTimeFormat,
-    parseGnuTimeReport,
-    resolveResourceSampleIntervalMs
-} from '../../test-matrix/resource-utilization.mjs';
-import {
-    publishRunBoundMarker,
-    readRunBoundMarker,
-    waitForRunBoundMarker
-} from '../../test-matrix/run-bound-marker.mjs';
-import { readSchedulerProducerTerminalFailure } from '../../test-matrix/scheduler-run-owner.mjs';
-import { backendTopologyDefaults } from '../backend-production-topology.mjs';
-import {
-    assertCorrectnessAttemptExecutionOwner,
-    validateCorrectnessAttemptMigration
-} from '../correctness-attempt-migration.mjs';
-import { buildLocalStaticManifest, planLocalStaticCommands } from '../local-static-governance.mjs';
-import {
-    readMeasurementNoiseAuthoritySequence,
-    validateMeasurementNoiseReceipt
-} from '../measurement-noise-envelope.mjs';
-import { validateShardSummaryArtifacts } from '../run-backend-production-shards.mjs';
-
+const {verifyProductionBuildReceipt} = await import(new URL('../../ci/production-build-artifacts.mjs', import.meta.url));
+const {productionZkRequested} = await import(new URL('../../security/comment-privacy-build-contract.mjs', import.meta.url));
+const {createArtifactDigestTable} = await import(new URL('../../test-matrix/artifact-digest-table.mjs', import.meta.url));
+const {createAsyncLogPipeline} = await import(new URL('../../test-matrix/async-log-pipeline.mjs', import.meta.url));
+const {resolveCommandGroup} = await import(new URL('../../test-matrix/command-groups.mjs', import.meta.url));
+const {projectEvidence} = await import(new URL('../../test-matrix/evidence-projection.mjs', import.meta.url));
+const {publishFrontendBuildTerminalMarker, validateFrontendBuildStageReceiptBinding, validateFrontendBuildStageReceiptIdentity} = await import(new URL('../../test-matrix/frontend-build-ready-marker.mjs', import.meta.url));
+const {writeIntegrityProofProducer} = await import(new URL('../../test-matrix/integrity-proof-producer.mjs', import.meta.url));
+const {artifactSubstitutionBindingDigest, matrixGeneratedRuntimePaths, resolveLocalProfileResources, resolveArtifactSubstitutions, resolveFrontendVitestAdmissionFloor, performanceMixedWindowFloorMs, validatePerformanceDeadlineEvidence} = await import(new URL('../../test-matrix/local-profile.mjs', import.meta.url));
+const {parseMatrix} = await import(new URL('../../test-matrix/parse-matrix.mjs', import.meta.url));
+const {prepareProductionRuntimeLayout, productionBuildEnvironment, productionBuildLayoutDigest, productionDotnetArtifacts, productionRuntimeEnvironment, resolveProductionBuildLayout} = await import(new URL('../../test-matrix/production-build-layout.mjs', import.meta.url));
+const {assertProductionFreshBundleProducerWiring, captureProductionFreshOutputInventory, isProductionFreshExpectedLifecycleRemoval, productionFreshGovernanceOutputs, productionFreshProducerInventory, verifyProducerOutputDelta} = await import(new URL('../../test-matrix/production-fresh-run-bound-outputs.mjs', import.meta.url));
+const {resolveCgroupLimits} = await import(new URL('../../test-matrix/production-resource-enforcement.mjs', import.meta.url));
+const {consumeResetReceiptsForStep, resetPostconditionReceiptFile, resetReceiptsProducedByStep, resolveRuntimeResetContext} = await import(new URL('../../test-matrix/reset-postcondition-verifier.mjs', import.meta.url));
+const {consumeResidentLeaseHandoffFile, productionResidentServiceIds, readResidentLeaseDocument, validateResidentLeaseInventory} = await import(new URL('../../test-matrix/resident-resource-leases.mjs', import.meta.url));
+const {createLinuxProcessTreeCollector, createWaitLedger, gnuTimeFormat, parseGnuTimeReport, resolveResourceSampleIntervalMs} = await import(new URL('../../test-matrix/resource-utilization.mjs', import.meta.url));
+const {publishRunBoundMarker, readRunBoundMarker, waitForRunBoundMarker} = await import(new URL('../../test-matrix/run-bound-marker.mjs', import.meta.url));
+const {readSchedulerProducerTerminalFailure} = await import(new URL('../../test-matrix/scheduler-run-owner.mjs', import.meta.url));
+const {backendTopologyDefaults} = await import(new URL('../backend-production-topology.mjs', import.meta.url));
+const {assertCorrectnessAttemptExecutionOwner, validateCorrectnessAttemptMigration} = await import(new URL('../correctness-attempt-migration.mjs', import.meta.url));
+const {buildLocalStaticManifest, planLocalStaticCommands} = await import(new URL('../local-static-governance.mjs', import.meta.url));
+const {readMeasurementNoiseAuthoritySequence, validateMeasurementNoiseReceipt} = await import(new URL('../measurement-noise-envelope.mjs', import.meta.url));
+const {validateShardSummaryArtifacts} = await import(new URL('../run-backend-production-shards.mjs', import.meta.url));
 import {
     buildSettledPhaseJoinEvidence,
     executeWeightedStepDag,

@@ -200,20 +200,34 @@ export function reconcileLocalRedisOutcome({
         .filter((result) => result && result.outcome !== 'Passed');
     const failureCodes = [];
     if (results.length === 0)
+    {
         failureCodes.push('zero-tests-executed');
+    }
     if (missingPlannedTestIds.length > 0)
+    {
         failureCodes.push('planned-test-not-executed');
+    }
     if (extraExecutedTestIds.length > 0)
+    {
         failureCodes.push('unplanned-test-executed');
+    }
     if (duplicateExecutedTestIds.length > 0)
+    {
         failureCodes.push('duplicate-test-executed');
+    }
     if (failedTests.length > 0)
+    {
         failureCodes.push('test-outcome-not-passed');
+    }
     if (cleanupVerified !== true)
+    {
         failureCodes.push('prefix-cleanup-not-verified');
+    }
     if (!Number.isSafeInteger(redisLuaCallsBefore) || !Number.isSafeInteger(redisLuaCallsAfter) ||
         redisLuaCallsAfter <= redisLuaCallsBefore)
+    {
         failureCodes.push('no-test-redis-lua-calls');
+    }
 
     const redisLuaCases = Array.isArray(redisLuaCaseEvidence?.cases)
         ? redisLuaCaseEvidence.cases
@@ -233,13 +247,21 @@ export function reconcileLocalRedisOutcome({
         redisLuaCaseEvidence?.runId === runId &&
         redisLuaCaseEvidence?.prefixNamespace === `${prefixNamespace}redis-lua:`;
     if (!redisLuaCaseEvidence)
+    {
         failureCodes.push('redis-lua-case-evidence-missing');
+    }
     else if (!redisLuaCaseIdentityMatches)
+    {
         failureCodes.push('redis-lua-case-identity-mismatch');
+    }
     if (missingRedisLuaCaseIds.length > 0 || extraRedisLuaCaseIds.length > 0 || duplicateRedisLuaCaseIds.length > 0)
+    {
         failureCodes.push('redis-lua-case-inventory-mismatch');
+    }
     if (failedRedisLuaCaseIds.length > 0)
+    {
         failureCodes.push('redis-lua-case-not-passed');
+    }
 
     const budgetCases = redisBudgetEvidence?.cases ?? [];
     if (redisBudgetEvidence?.schema !== 'fsusblog.perception-character-v3-budget-cases.v1' ||
@@ -273,11 +295,17 @@ export function reconcileLocalRedisOutcome({
         redisCutoverEvidence?.sourceCommit === sourceCommit &&
         redisCutoverEvidence?.sourceFingerprint === sourceFingerprint;
     if (!redisCutoverEvidence)
+    {
         failureCodes.push('redis-cutover-evidence-missing');
+    }
     else if (!cutoverIdentityMatches)
+    {
         failureCodes.push('redis-cutover-evidence-identity-mismatch');
+    }
     if (redisCutoverEvidence?.status !== 'passed')
+    {
         failureCodes.push('redis-cutover-evidence-not-passed');
+    }
 
     const cutoverNamespace = redisCutoverEvidence?.namespaceRetirement;
     if (cutoverNamespace?.stateKeysRetired !== true ||
@@ -292,7 +320,9 @@ export function reconcileLocalRedisOutcome({
 
     const cutoverDatabaseRevoke = redisCutoverEvidence?.databaseRevoke;
     if (cutoverDatabaseRevoke?.commandCount !== 1 || cutoverDatabaseRevoke?.rowsRevoked !== 2)
+    {
         failureCodes.push('redis-cutover-database-revoke-mismatch');
+    }
 
     const cutoverIdempotency = redisCutoverEvidence?.idempotency;
     if (cutoverIdempotency?.repeatedAccepted !== true ||
@@ -303,7 +333,9 @@ export function reconcileLocalRedisOutcome({
         failureCodes.push('redis-cutover-idempotency-mismatch');
     }
     if (cutoverIdempotency?.poolLeaseCount !== 0)
+    {
         failureCodes.push('redis-cutover-pool-lease-observed');
+    }
 
     const firstCutoverMutation = redisCutoverEvidence?.first?.mutation;
     const secondCutoverMutation = redisCutoverEvidence?.second?.mutation;
@@ -318,7 +350,9 @@ export function reconcileLocalRedisOutcome({
     const cutoverMutationMatches = [firstCutoverMutation, secondCutoverMutation].every((mutation) =>
         mutation && Object.entries(expectedCutoverMutation).every(([key, value]) => mutation[key] === value));
     if (!cutoverMutationMatches)
+    {
         failureCodes.push('redis-cutover-mutation-mismatch');
+    }
     if (JSON.stringify(firstCutoverMutation) !== JSON.stringify(secondCutoverMutation) ||
         redisCutoverEvidence?.first?.receiptFingerprint !== redisCutoverEvidence?.second?.receiptFingerprint ||
         redisCutoverEvidence?.first?.targetFingerprint !== redisCutoverEvidence?.second?.targetFingerprint)

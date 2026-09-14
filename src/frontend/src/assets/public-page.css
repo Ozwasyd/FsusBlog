@@ -4,261 +4,265 @@
 
 :root
 {
-  color-scheme: light dark;
+    color-scheme: light dark;
+
     --bg: #F7F7F8;
-  --surface: #FFFFFF;
-  --surface-subtle: #FCFCFC;
-  --text: #0F0F11;
-  --text-heading: #0F0F11;
-  --text-secondary: #5F5F68;
-  --text-tertiary: #71717A;
-  --text-muted: #62626A;
-  --text-decorative: #A1A1AA;
-  --border: #E4E4E7;
-  --border-strong: #D4D4D8;
-  --accent: #2A599C;
-  --accent-hover: #244E89;
-  --accent-subtle: color-mix(in srgb, var(--accent) 8%, var(--surface));
-  --accent-border: color-mix(in srgb, var(--accent) 32%, var(--border));
-  --link: var(--accent);
-  --link-hover: var(--accent-hover);
-  --fsus-page: var(--bg);
-  --fsus-paper: var(--surface);
-  --fsus-ink: var(--text);
-  --fsus-dot-gray: var(--text-decorative);
-  --fsus-border: var(--border);
-  --fsus-scholarly-blue: var(--accent);
-  --el-color-primary: var(--accent);
-  --el-color-primary-dark-2: var(--accent-hover);
-  --el-color-primary-light-3: color-mix(in srgb, var(--accent) 72%, var(--surface));
-  --el-color-primary-light-5: color-mix(in srgb, var(--accent) 48%, var(--surface));
-  --el-color-primary-light-7: color-mix(in srgb, var(--accent) 24%, var(--surface));
-  --el-color-primary-light-8: color-mix(in srgb, var(--accent) 16%, var(--surface));
-  --el-color-primary-light-9: var(--accent-subtle);
-  --el-bg-color: var(--surface);
-  --el-bg-color-page: var(--bg);
-  --el-fill-color-blank: var(--surface);
-  --el-fill-color-light: var(--surface-subtle);
-  --el-fill-color: var(--surface-subtle);
-  --el-fill-color-lighter: var(--surface);
-  --el-fill-color-extra-light: var(--surface);
-  --el-disabled-bg-color: var(--surface-subtle);
-  --el-disabled-text-color: var(--text-muted);
-  --el-border-color: var(--border);
-  --el-border-color-light: var(--border);
-  --el-border-color-lighter: var(--border);
-  --el-border-color-extra-light: var(--surface-subtle);
-  --el-border-color-dark: var(--border-strong);
-  --el-text-color-primary: var(--text-heading);
-  --el-text-color-regular: var(--text);
-  --el-text-color-secondary: var(--text-secondary);
-  --el-text-color-placeholder: var(--text-muted);
-  --fsusblog-color-primary: var(--fsus-color-action-primary, var(--accent, LinkText));
-  --fsusblog-color-surface: var(--surface);
-  --fsusblog-color-surface-soft: var(--surface-subtle);
-  --fsusblog-color-surface-muted: var(--surface-subtle);
-  --fsusblog-color-line: var(--fsus-color-border-subtle, var(--border));
-  --fsusblog-color-line-strong: var(--border-strong);
-  --fsusblog-color-disabled-bg: var(--surface-subtle);
-  --fsusblog-color-disabled-text: var(--text-muted);
-  --fsusblog-color-error: var(--el-color-danger, CanvasText);
-  --fsusblog-color-error-strong: var(--el-color-danger-dark-2, var(--fsusblog-color-error));
-  --fsusblog-color-error-bg: var(--fsusblog-reading-error-bg, color-mix(in srgb, var(--fsusblog-color-error) 10%, var(--fsusblog-page-bg)));
-  --fsusblog-color-error-border: var(--fsusblog-reading-error-border, color-mix(in srgb, var(--fsusblog-color-error) 28%, transparent));
-  --fsusblog-color-success: var(--el-color-success, Highlight);
-  --fsusblog-color-warning: var(--el-color-warning, CanvasText);
-  --fsusblog-color-warning-bg: var(--el-color-warning-light-9, color-mix(in srgb, var(--fsusblog-color-warning) 10%, var(--fsusblog-page-bg)));
-  --fsusblog-color-warning-border: var(--el-color-warning-light-5, color-mix(in srgb, var(--fsusblog-color-warning) 36%, transparent));
-  --fsusblog-color-warning-text: var(--el-color-warning-dark-2, var(--fsusblog-color-warning));
-  --fsusblog-color-focus-ring: var(--fsus-color-primary, #2A599C);
-  --fsusblog-page-bg: var(--bg);
-  --fsusblog-page-bg-soft: var(--surface);
-  --fsusblog-page-bg-muted: color-mix(in srgb, var(--fsusblog-page-bg) 72%, transparent);
-  --fsusblog-panel-bg: var(--fsusblog-color-surface);
-  --fsusblog-panel-bg-soft: var(--fsusblog-color-surface-soft);
-  --fsusblog-panel-border: var(--fsusblog-color-line);
-  --fsusblog-panel-border-strong: var(--fsusblog-color-line-strong);
-  --fsusblog-skeleton-bg: var(--surface-subtle);
-  --fsusblog-overlay-scrim: rgba(15, 15, 17, 0.72);
-  --fsusblog-overlay-button-bg: rgba(255, 255, 255, 0.12);
-  --fsusblog-overlay-button-fg: rgba(255, 255, 255, 0.92);
-  --fsusblog-overlay-button-border: rgba(255, 255, 255, 0.24);
-  --fsusblog-text-primary: var(--fsus-color-text-primary, var(--text));
-  --fsusblog-text-heading: var(--text-heading);
-  --fsusblog-text-secondary: var(--text-secondary);
-  --fsusblog-text-tertiary: var(--text-tertiary);
-  --fsusblog-text-muted: var(--fsus-color-text-muted, var(--text-muted, #71717A));
-  --fsusblog-text-subtle: var(--fsus-color-text-decorative, var(--text-decorative, #A1A1AA));
-  --fsusblog-text-quiet: var(--fsus-color-text-quiet, #A1A1AA);
-  --fsusblog-text-decorative: var(--fsus-color-text-decorative, var(--text-decorative));
-  --fsusblog-reading-text: var(--text);
-  --fsusblog-reading-heading: var(--text-heading);
-  --fsusblog-reading-subheading: var(--text-secondary);
-  --fsusblog-reading-quote: var(--text-tertiary);
-  --fsusblog-reading-link: var(--link);
-  --fsusblog-reading-link-decoration: color-mix(in srgb, var(--accent) 56%, transparent);
-  --fsusblog-reading-code-bg: var(--surface-subtle);
-  --fsusblog-reading-inline-code-bg: var(--fsus-color-surface-raised, var(--surface-subtle));
-  --fsusblog-reading-code-border: var(--border);
-  --fsusblog-reading-code-text: var(--text);
-  --fsusblog-reading-placeholder-bg: color-mix(in srgb, var(--fsusblog-page-bg) 72%, transparent);
-  --fsusblog-reading-placeholder-border: var(--border);
-  --fsusblog-reading-error-bg: var(--el-color-danger-light-9, color-mix(in srgb, var(--fsusblog-color-error) 10%, var(--fsusblog-page-bg)));
-  --fsusblog-reading-error-border: var(--el-color-danger-light-7, color-mix(in srgb, var(--fsusblog-color-error) 28%, transparent));
-  --fsusblog-reading-error-text: var(--el-color-danger, CanvasText);
-  --fsusblog-reading-marker: var(--text-decorative);
-  --fsusblog-reading-rule: var(--border);
-  --fsusblog-radius-control: var(--fsus-radius-control, 6px);
-  --fsusblog-radius-panel: var(--fsus-radius-panel, 12px);
-  --fsusblog-radius-reading-media: var(--fsus-radius-panel, 12px);
-  --fsusblog-reading-shadow-panel: none;
-  --fsusblog-reading-shadow-floating: 0 8px 24px rgba(15, 23, 42, 0.06);
-  --fsusblog-reading-backdrop-blur: 0px;
-  --fsusblog-reading-motion-trail: transparent;
-  --fsusblog-reading-glow: transparent;
-  --fsusblog-highlight-mark-bg: var(--surface-subtle);
-  --fsusblog-highlight-mark-text: var(--text);
-  --fsusblog-highlight-mark-ring: color-mix(in srgb, var(--border) 65%, transparent);
-  --fsusblog-container-reading: 48rem;
-  --fsusblog-container-article: 56rem;
-  --fsusblog-container-public: 64rem;
-  --fsusblog-container-account: 64rem;
-  --fsusblog-container-settings: 82.5rem;
-  --fsusblog-container-workbench: 92.5rem;
-  --fsusblog-container-wide: 100rem;
+    --surface: #FFF;
+    --surface-subtle: #FCFCFC;
+    --text: #0F0F11;
+    --text-heading: #0F0F11;
+    --text-secondary: #5F5F68;
+    --text-tertiary: #71717A;
+    --text-muted: #62626A;
+    --text-decorative: #A1A1AA;
+    --border: #E4E4E7;
+    --border-strong: #D4D4D8;
+    --accent: #2A599C;
+    --accent-hover: #244E89;
+    --accent-subtle: color-mix(in srgb, var(--accent) 8%, var(--surface));
+    --accent-border: color-mix(in srgb, var(--accent) 32%, var(--border));
+    --link: var(--accent);
+    --link-hover: var(--accent-hover);
+    --fsus-page: var(--bg);
+    --fsus-paper: var(--surface);
+    --fsus-ink: var(--text);
+    --fsus-dot-gray: var(--text-decorative);
+    --fsus-border: var(--border);
+    --fsus-scholarly-blue: var(--accent);
+    --el-color-primary: var(--accent);
+    --el-color-primary-dark-2: var(--accent-hover);
+    --el-color-primary-light-3: color-mix(in srgb, var(--accent) 72%, var(--surface));
+    --el-color-primary-light-5: color-mix(in srgb, var(--accent) 48%, var(--surface));
+    --el-color-primary-light-7: color-mix(in srgb, var(--accent) 24%, var(--surface));
+    --el-color-primary-light-8: color-mix(in srgb, var(--accent) 16%, var(--surface));
+    --el-color-primary-light-9: var(--accent-subtle);
+    --el-bg-color: var(--surface);
+    --el-bg-color-page: var(--bg);
+    --el-fill-color-blank: var(--surface);
+    --el-fill-color-light: var(--surface-subtle);
+    --el-fill-color: var(--surface-subtle);
+    --el-fill-color-lighter: var(--surface);
+    --el-fill-color-extra-light: var(--surface);
+    --el-disabled-bg-color: var(--surface-subtle);
+    --el-disabled-text-color: var(--text-muted);
+    --el-border-color: var(--border);
+    --el-border-color-light: var(--border);
+    --el-border-color-lighter: var(--border);
+    --el-border-color-extra-light: var(--surface-subtle);
+    --el-border-color-dark: var(--border-strong);
+    --el-text-color-primary: var(--text-heading);
+    --el-text-color-regular: var(--text);
+    --el-text-color-secondary: var(--text-secondary);
+    --el-text-color-placeholder: var(--text-muted);
+    --fsusblog-color-primary: var(--fsus-color-action-primary, var(--accent, LinkText));
+    --fsusblog-color-surface: var(--surface);
+    --fsusblog-color-surface-soft: var(--surface-subtle);
+    --fsusblog-color-surface-muted: var(--surface-subtle);
+    --fsusblog-color-line: var(--fsus-color-border-subtle, var(--border));
+    --fsusblog-color-line-strong: var(--border-strong);
+    --fsusblog-color-disabled-bg: var(--surface-subtle);
+    --fsusblog-color-disabled-text: var(--text-muted);
+    --fsusblog-color-error: var(--el-color-danger, CanvasText);
+    --fsusblog-color-error-strong: var(--el-color-danger-dark-2, var(--fsusblog-color-error));
+    --fsusblog-color-error-bg: var(--fsusblog-reading-error-bg, color-mix(in srgb, var(--fsusblog-color-error) 10%, var(--fsusblog-page-bg)));
+    --fsusblog-color-error-border: var(--fsusblog-reading-error-border, color-mix(in srgb, var(--fsusblog-color-error) 28%, transparent));
+    --fsusblog-color-success: var(--el-color-success, Highlight);
+    --fsusblog-color-warning: var(--el-color-warning, CanvasText);
+    --fsusblog-color-warning-bg: var(--el-color-warning-light-9, color-mix(in srgb, var(--fsusblog-color-warning) 10%, var(--fsusblog-page-bg)));
+    --fsusblog-color-warning-border: var(--el-color-warning-light-5, color-mix(in srgb, var(--fsusblog-color-warning) 36%, transparent));
+    --fsusblog-color-warning-text: var(--el-color-warning-dark-2, var(--fsusblog-color-warning));
+    --fsusblog-color-focus-ring: var(--fsus-color-primary, #2A599C);
+    --fsusblog-page-bg: var(--bg);
+    --fsusblog-page-bg-soft: var(--surface);
+    --fsusblog-page-bg-muted: color-mix(in srgb, var(--fsusblog-page-bg) 72%, transparent);
+    --fsusblog-panel-bg: var(--fsusblog-color-surface);
+    --fsusblog-panel-bg-soft: var(--fsusblog-color-surface-soft);
+    --fsusblog-panel-border: var(--fsusblog-color-line);
+    --fsusblog-panel-border-strong: var(--fsusblog-color-line-strong);
+    --fsusblog-skeleton-bg: var(--surface-subtle);
+    --fsusblog-overlay-scrim: rgb(15 15 17 / 72%);
+    --fsusblog-overlay-button-bg: rgb(255 255 255 / 12%);
+    --fsusblog-overlay-button-fg: rgb(255 255 255 / 92%);
+    --fsusblog-overlay-button-border: rgb(255 255 255 / 24%);
+    --fsusblog-text-primary: var(--fsus-color-text-primary, var(--text));
+    --fsusblog-text-heading: var(--text-heading);
+    --fsusblog-text-secondary: var(--text-secondary);
+    --fsusblog-text-tertiary: var(--text-tertiary);
+    --fsusblog-text-muted: var(--fsus-color-text-muted, var(--text-muted, #71717A));
+    --fsusblog-text-subtle: var(--fsus-color-text-decorative, var(--text-decorative, #A1A1AA));
+    --fsusblog-text-quiet: var(--fsus-color-text-quiet, #A1A1AA);
+    --fsusblog-text-decorative: var(--fsus-color-text-decorative, var(--text-decorative));
+    --fsusblog-reading-text: var(--text);
+    --fsusblog-reading-heading: var(--text-heading);
+    --fsusblog-reading-subheading: var(--text-secondary);
+    --fsusblog-reading-quote: var(--text-tertiary);
+    --fsusblog-reading-link: var(--link);
+    --fsusblog-reading-link-decoration: color-mix(in srgb, var(--accent) 56%, transparent);
+    --fsusblog-reading-code-bg: var(--surface-subtle);
+    --fsusblog-reading-inline-code-bg: var(--fsus-color-surface-raised, var(--surface-subtle));
+    --fsusblog-reading-code-border: var(--border);
+    --fsusblog-reading-code-text: var(--text);
+    --fsusblog-reading-placeholder-bg: color-mix(in srgb, var(--fsusblog-page-bg) 72%, transparent);
+    --fsusblog-reading-placeholder-border: var(--border);
+    --fsusblog-reading-error-bg: var(--el-color-danger-light-9, color-mix(in srgb, var(--fsusblog-color-error) 10%, var(--fsusblog-page-bg)));
+    --fsusblog-reading-error-border: var(--el-color-danger-light-7, color-mix(in srgb, var(--fsusblog-color-error) 28%, transparent));
+    --fsusblog-reading-error-text: var(--el-color-danger, CanvasText);
+    --fsusblog-reading-marker: var(--text-decorative);
+    --fsusblog-reading-rule: var(--border);
+    --fsusblog-radius-control: var(--fsus-radius-control, 6px);
+    --fsusblog-radius-panel: var(--fsus-radius-panel, 12px);
+    --fsusblog-radius-reading-media: var(--fsus-radius-panel, 12px);
+    --fsusblog-reading-shadow-panel: none;
+    --fsusblog-reading-shadow-floating: 0 8px 24px rgb(15 23 42 / 6%);
+    --fsusblog-reading-backdrop-blur: 0px;
+    --fsusblog-reading-motion-trail: transparent;
+    --fsusblog-reading-glow: transparent;
+    --fsusblog-highlight-mark-bg: var(--surface-subtle);
+    --fsusblog-highlight-mark-text: var(--text);
+    --fsusblog-highlight-mark-ring: color-mix(in srgb, var(--border) 65%, transparent);
+    --fsusblog-container-reading: 48rem;
+    --fsusblog-container-article: 56rem;
+    --fsusblog-container-public: 64rem;
+    --fsusblog-container-account: 64rem;
+    --fsusblog-container-settings: 82.5rem;
+    --fsusblog-container-workbench: 92.5rem;
+    --fsusblog-container-wide: 100rem;
 }
 
 html.light,
 html[data-theme-resolved='light']
 {
-  color-scheme: light;
+    color-scheme: light;
 }
 
 html.dark,
 html[data-theme-resolved='dark']
 {
-  color-scheme: dark;
-  --bg: #09090B;
-  --surface: #121214;
-  --surface-subtle: #1A1A1E;
-  --text: #F0F0F4;
-  --text-heading: #F0F0F4;
-  --text-secondary: #A1A1AA;
-  --text-tertiary: #A1A1AA;
-  --text-muted: #B2B2BA;
-  --text-decorative: #71717A;
-  --border: #27272A;
-  --border-strong: #3F3F46;
-  --accent: #4B79CC;
-  --accent-hover: #6F93D7;
-  --accent-subtle: color-mix(in srgb, var(--accent) 14%, var(--surface));
-  --accent-border: color-mix(in srgb, var(--accent) 40%, var(--border));
-  --link: var(--accent);
-  --link-hover: var(--accent-hover);
-  --fsus-page: var(--bg);
-  --fsus-paper: var(--surface);
-  --fsus-ink: var(--text);
-  --fsus-dot-gray: var(--text-decorative);
-  --fsus-border: var(--border);
-  --fsus-scholarly-blue: var(--accent);
-  --el-color-primary: var(--accent);
-  --el-color-primary-dark-2: var(--accent-hover);
-  --el-color-primary-light-3: color-mix(in srgb, var(--accent) 72%, var(--surface));
-  --el-color-primary-light-5: color-mix(in srgb, var(--accent) 48%, var(--surface));
-  --el-color-primary-light-7: color-mix(in srgb, var(--accent) 24%, var(--surface));
-  --el-color-primary-light-8: color-mix(in srgb, var(--accent) 16%, var(--surface));
-  --el-color-primary-light-9: var(--accent-subtle);
-  --el-bg-color: var(--surface);
-  --el-bg-color-page: var(--bg);
-  --el-fill-color-blank: var(--surface);
-  --el-fill-color-light: var(--surface-subtle);
-  --el-fill-color: var(--surface-subtle);
-  --el-fill-color-lighter: var(--surface);
-  --el-fill-color-extra-light: var(--surface);
-  --el-disabled-bg-color: var(--surface-subtle);
-  --el-disabled-text-color: var(--text-muted);
-  --el-border-color: var(--border);
-  --el-border-color-light: var(--border);
-  --el-border-color-lighter: var(--border);
-  --el-border-color-extra-light: var(--surface-subtle);
-  --el-border-color-dark: var(--border-strong);
-  --el-text-color-primary: var(--text-heading);
-  --el-text-color-regular: var(--text);
-  --el-text-color-secondary: var(--text-secondary);
-  --el-text-color-placeholder: var(--text-muted);
-  --fsusblog-color-primary: var(--fsus-color-action-primary, var(--accent, LinkText));
-  --fsusblog-color-surface: var(--surface);
-  --fsusblog-color-surface-soft: var(--surface-subtle);
-  --fsusblog-color-surface-muted: var(--surface-subtle);
-  --fsusblog-color-line: var(--fsus-color-border-subtle, var(--border));
-  --fsusblog-color-line-strong: var(--border-strong);
-  --fsusblog-color-disabled-bg: var(--surface-subtle);
-  --fsusblog-color-disabled-text: var(--text-muted);
-  --fsusblog-color-error: var(--el-color-danger, CanvasText);
-  --fsusblog-color-error-strong: var(--el-color-danger-light-3, var(--fsusblog-color-error));
-  --fsusblog-color-error-bg: var(--fsusblog-reading-error-bg, color-mix(in srgb, var(--fsusblog-color-error) 20%, var(--fsusblog-page-bg)));
-  --fsusblog-color-error-border: var(--fsusblog-reading-error-border, color-mix(in srgb, var(--fsusblog-color-error) 36%, transparent));
-  --fsusblog-color-success: var(--el-color-success, Highlight);
-  --fsusblog-color-warning: var(--el-color-warning, CanvasText);
-  --fsusblog-color-warning-bg: color-mix(in srgb, var(--fsusblog-color-warning) 12%, var(--fsusblog-page-bg));
-  --fsusblog-color-warning-border: color-mix(in srgb, var(--fsusblog-color-warning) 48%, transparent);
-  --fsusblog-color-warning-text: var(--fsusblog-color-warning);
-  --fsusblog-color-focus-ring: var(--fsus-color-primary, #2A599C);
-  --fsusblog-page-bg: var(--bg);
-  --fsusblog-page-bg-soft: var(--surface);
-  --fsusblog-page-bg-muted: color-mix(in srgb, var(--fsusblog-page-bg) 72%, transparent);
-  --fsusblog-panel-bg: var(--fsusblog-color-surface);
-  --fsusblog-panel-bg-soft: var(--fsusblog-color-surface-soft);
-  --fsusblog-panel-border: var(--fsusblog-color-line);
-  --fsusblog-panel-border-strong: var(--fsusblog-color-line-strong);
-  --fsusblog-skeleton-bg: var(--surface-subtle);
-  --fsusblog-text-primary: var(--fsus-color-text-primary, var(--text));
-  --fsusblog-text-heading: var(--text-heading);
-  --fsusblog-text-secondary: var(--text-secondary);
-  --fsusblog-text-tertiary: var(--text-tertiary);
-  --fsusblog-text-muted: var(--fsus-color-text-muted-dark, var(--text-muted, #A1A1AA));
-  --fsusblog-text-subtle: var(--fsus-color-text-decorative-dark, var(--text-decorative, #71717A));
-  --fsusblog-text-quiet: var(--fsus-color-text-quiet, #A1A1AA);
-  --fsusblog-text-decorative: var(--fsus-color-text-decorative, var(--text-decorative));
-  --fsusblog-reading-text: var(--text);
-  --fsusblog-reading-heading: var(--text-heading);
-  --fsusblog-reading-subheading: var(--text-secondary);
-  --fsusblog-reading-quote: var(--text-tertiary);
-  --fsusblog-reading-link: var(--link);
-  --fsusblog-reading-link-decoration: color-mix(in srgb, var(--accent) 56%, transparent);
-  --fsusblog-reading-code-bg: var(--surface-subtle);
-  --fsusblog-reading-inline-code-bg: var(--fsus-color-surface-raised, var(--surface-subtle));
-  --fsusblog-reading-code-border: var(--border);
-  --fsusblog-reading-code-text: var(--text);
-  --fsusblog-reading-placeholder-bg: color-mix(in srgb, var(--fsusblog-page-bg) 92%, transparent);
-  --fsusblog-reading-placeholder-border: var(--border);
-  --fsusblog-reading-error-bg: color-mix(in srgb, var(--el-color-danger) 20%, var(--fsusblog-page-bg));
-  --fsusblog-reading-error-border: color-mix(in srgb, var(--el-color-danger) 36%, transparent);
-  --fsusblog-reading-error-text: var(--el-color-danger, CanvasText);
-  --fsusblog-reading-marker: var(--text-decorative);
-  --fsusblog-reading-rule: var(--border);
-  --fsusblog-radius-control: var(--fsus-radius-control, 6px);
-  --fsusblog-radius-panel: var(--fsus-radius-panel, 12px);
-  --fsusblog-radius-reading-media: var(--fsus-radius-panel, 12px);
-  --fsusblog-reading-shadow-panel: none;
-  --fsusblog-reading-shadow-floating: 0 8px 24px rgba(15, 23, 42, 0.32);
-  --fsusblog-reading-backdrop-blur: 0px;
-  --fsusblog-reading-motion-trail: transparent;
-  --fsusblog-reading-glow: transparent;
-  --fsusblog-highlight-mark-bg: var(--surface-subtle);
-  --fsusblog-highlight-mark-text: var(--text);
-  --fsusblog-highlight-mark-ring: color-mix(in srgb, var(--border) 65%, transparent);
+    color-scheme: dark;
+
+    --bg: #09090B;
+    --surface: #121214;
+    --surface-subtle: #1A1A1E;
+    --text: #F0F0F4;
+    --text-heading: #F0F0F4;
+    --text-secondary: #A1A1AA;
+    --text-tertiary: #A1A1AA;
+    --text-muted: #B2B2BA;
+    --text-decorative: #71717A;
+    --border: #27272A;
+    --border-strong: #3F3F46;
+    --accent: #4B79CC;
+    --accent-hover: #6F93D7;
+    --accent-subtle: color-mix(in srgb, var(--accent) 14%, var(--surface));
+    --accent-border: color-mix(in srgb, var(--accent) 40%, var(--border));
+    --link: var(--accent);
+    --link-hover: var(--accent-hover);
+    --fsus-page: var(--bg);
+    --fsus-paper: var(--surface);
+    --fsus-ink: var(--text);
+    --fsus-dot-gray: var(--text-decorative);
+    --fsus-border: var(--border);
+    --fsus-scholarly-blue: var(--accent);
+    --el-color-primary: var(--accent);
+    --el-color-primary-dark-2: var(--accent-hover);
+    --el-color-primary-light-3: color-mix(in srgb, var(--accent) 72%, var(--surface));
+    --el-color-primary-light-5: color-mix(in srgb, var(--accent) 48%, var(--surface));
+    --el-color-primary-light-7: color-mix(in srgb, var(--accent) 24%, var(--surface));
+    --el-color-primary-light-8: color-mix(in srgb, var(--accent) 16%, var(--surface));
+    --el-color-primary-light-9: var(--accent-subtle);
+    --el-bg-color: var(--surface);
+    --el-bg-color-page: var(--bg);
+    --el-fill-color-blank: var(--surface);
+    --el-fill-color-light: var(--surface-subtle);
+    --el-fill-color: var(--surface-subtle);
+    --el-fill-color-lighter: var(--surface);
+    --el-fill-color-extra-light: var(--surface);
+    --el-disabled-bg-color: var(--surface-subtle);
+    --el-disabled-text-color: var(--text-muted);
+    --el-border-color: var(--border);
+    --el-border-color-light: var(--border);
+    --el-border-color-lighter: var(--border);
+    --el-border-color-extra-light: var(--surface-subtle);
+    --el-border-color-dark: var(--border-strong);
+    --el-text-color-primary: var(--text-heading);
+    --el-text-color-regular: var(--text);
+    --el-text-color-secondary: var(--text-secondary);
+    --el-text-color-placeholder: var(--text-muted);
+    --fsusblog-color-primary: var(--fsus-color-action-primary, var(--accent, LinkText));
+    --fsusblog-color-surface: var(--surface);
+    --fsusblog-color-surface-soft: var(--surface-subtle);
+    --fsusblog-color-surface-muted: var(--surface-subtle);
+    --fsusblog-color-line: var(--fsus-color-border-subtle, var(--border));
+    --fsusblog-color-line-strong: var(--border-strong);
+    --fsusblog-color-disabled-bg: var(--surface-subtle);
+    --fsusblog-color-disabled-text: var(--text-muted);
+    --fsusblog-color-error: var(--el-color-danger, CanvasText);
+    --fsusblog-color-error-strong: var(--el-color-danger-light-3, var(--fsusblog-color-error));
+    --fsusblog-color-error-bg: var(--fsusblog-reading-error-bg, color-mix(in srgb, var(--fsusblog-color-error) 20%, var(--fsusblog-page-bg)));
+    --fsusblog-color-error-border: var(--fsusblog-reading-error-border, color-mix(in srgb, var(--fsusblog-color-error) 36%, transparent));
+    --fsusblog-color-success: var(--el-color-success, Highlight);
+    --fsusblog-color-warning: var(--el-color-warning, CanvasText);
+    --fsusblog-color-warning-bg: color-mix(in srgb, var(--fsusblog-color-warning) 12%, var(--fsusblog-page-bg));
+    --fsusblog-color-warning-border: color-mix(in srgb, var(--fsusblog-color-warning) 48%, transparent);
+    --fsusblog-color-warning-text: var(--fsusblog-color-warning);
+    --fsusblog-color-focus-ring: var(--fsus-color-primary, #2A599C);
+    --fsusblog-page-bg: var(--bg);
+    --fsusblog-page-bg-soft: var(--surface);
+    --fsusblog-page-bg-muted: color-mix(in srgb, var(--fsusblog-page-bg) 72%, transparent);
+    --fsusblog-panel-bg: var(--fsusblog-color-surface);
+    --fsusblog-panel-bg-soft: var(--fsusblog-color-surface-soft);
+    --fsusblog-panel-border: var(--fsusblog-color-line);
+    --fsusblog-panel-border-strong: var(--fsusblog-color-line-strong);
+    --fsusblog-skeleton-bg: var(--surface-subtle);
+    --fsusblog-text-primary: var(--fsus-color-text-primary, var(--text));
+    --fsusblog-text-heading: var(--text-heading);
+    --fsusblog-text-secondary: var(--text-secondary);
+    --fsusblog-text-tertiary: var(--text-tertiary);
+    --fsusblog-text-muted: var(--fsus-color-text-muted-dark, var(--text-muted, #A1A1AA));
+    --fsusblog-text-subtle: var(--fsus-color-text-decorative-dark, var(--text-decorative, #71717A));
+    --fsusblog-text-quiet: var(--fsus-color-text-quiet, #A1A1AA);
+    --fsusblog-text-decorative: var(--fsus-color-text-decorative, var(--text-decorative));
+    --fsusblog-reading-text: var(--text);
+    --fsusblog-reading-heading: var(--text-heading);
+    --fsusblog-reading-subheading: var(--text-secondary);
+    --fsusblog-reading-quote: var(--text-tertiary);
+    --fsusblog-reading-link: var(--link);
+    --fsusblog-reading-link-decoration: color-mix(in srgb, var(--accent) 56%, transparent);
+    --fsusblog-reading-code-bg: var(--surface-subtle);
+    --fsusblog-reading-inline-code-bg: var(--fsus-color-surface-raised, var(--surface-subtle));
+    --fsusblog-reading-code-border: var(--border);
+    --fsusblog-reading-code-text: var(--text);
+    --fsusblog-reading-placeholder-bg: color-mix(in srgb, var(--fsusblog-page-bg) 92%, transparent);
+    --fsusblog-reading-placeholder-border: var(--border);
+    --fsusblog-reading-error-bg: color-mix(in srgb, var(--el-color-danger) 20%, var(--fsusblog-page-bg));
+    --fsusblog-reading-error-border: color-mix(in srgb, var(--el-color-danger) 36%, transparent);
+    --fsusblog-reading-error-text: var(--el-color-danger, CanvasText);
+    --fsusblog-reading-marker: var(--text-decorative);
+    --fsusblog-reading-rule: var(--border);
+    --fsusblog-radius-control: var(--fsus-radius-control, 6px);
+    --fsusblog-radius-panel: var(--fsus-radius-panel, 12px);
+    --fsusblog-radius-reading-media: var(--fsus-radius-panel, 12px);
+    --fsusblog-reading-shadow-panel: none;
+    --fsusblog-reading-shadow-floating: 0 8px 24px rgb(15 23 42 / 32%);
+    --fsusblog-reading-backdrop-blur: 0px;
+    --fsusblog-reading-motion-trail: transparent;
+    --fsusblog-reading-glow: transparent;
+    --fsusblog-highlight-mark-bg: var(--surface-subtle);
+    --fsusblog-highlight-mark-text: var(--text);
+    --fsusblog-highlight-mark-ring: color-mix(in srgb, var(--border) 65%, transparent);
 
 }
 
-html, body {
-  max-width: 100%;
+html, body
+ {
+    max-width: 100%;
 }
 
 #app,
-#fsus-aot-shell {
-  max-width: 100%;
-  overflow-x: clip;
+#fsus-aot-shell
+ {
+    max-width: 100%;
+    overflow-x: clip;
 }
 
 #app,
@@ -267,86 +271,99 @@ html, body {
 .app-wrapper,
 .account-page,
 .admin-page-shell,
-.blog-page-shell {
-  min-width: 0;
+.blog-page-shell
+ {
+    min-width: 0;
 }
 
-body {
-  background-color: var(--fsusblog-page-bg);
-  color: var(--fsusblog-text-primary);
+body
+ {
+    background-color: var(--fsusblog-page-bg);
+    color: var(--fsusblog-text-primary);
 }
 
-body[data-fsusblog-public-first-paint="true"] {
-  overflow-y: scroll;
+body[data-fsusblog-public-first-paint="true"]
+ {
+    overflow-y: scroll;
 }
 
 body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-in,
-body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
-  animation: none !important;
-  transition: none !important;
+body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in
+ {
+    animation: none !important;
+    transition: none !important;
 }
 
-.markdown-body.prose {
-  max-width: none;
+.markdown-body.prose
+ {
+    max-width: none;
 }
 
-#fsus-aot-shell :where(.ui-article-card, .ui-pagination, .ui-toast, .ui-toast-card) {
-  -webkit-tap-highlight-color: transparent;
+#fsus-aot-shell :where(.ui-article-card, .ui-pagination, .ui-toast, .ui-toast-card)
+ {
+    -webkit-tap-highlight-color: transparent;
 }
 
-#fsus-aot-shell .animate-fade-in {
-  animation: blog-motion-page-enter var(--blog-motion-panel) var(--blog-motion-ease) both;
-  animation-delay: 0ms;
+#fsus-aot-shell .animate-fade-in
+ {
+    animation: blog-motion-page-enter var(--blog-motion-panel) var(--blog-motion-ease) both;
+    animation-delay: 0ms;
 }
 
-#fsus-aot-shell .line-clamp-3 {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  overflow: hidden;
-  word-break: break-word;
-  overflow-wrap: break-word;
-  text-wrap: pretty;
+#fsus-aot-shell .line-clamp-3
+ {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    text-wrap: pretty;
 }
 
-#fsus-aot-shell .highlight-mark {
-  background-color: var(--fsusblog-highlight-mark-bg);
-  color: var(--fsusblog-highlight-mark-text);
-  padding: 0 2px;
-  border-radius: var(--fsus-radius-control-small, 4px);
-  font-weight: 500;
-  box-shadow: inset 0 0 0 1px var(--fsusblog-highlight-mark-ring);
+#fsus-aot-shell .highlight-mark
+ {
+    background-color: var(--fsusblog-highlight-mark-bg);
+    color: var(--fsusblog-highlight-mark-text);
+    padding: 0 2px;
+    border-radius: var(--fsus-radius-control-small, 4px);
+    font-weight: 500;
+    box-shadow: inset 0 0 0 1px var(--fsusblog-highlight-mark-ring);
 }
 
-#fsus-aot-shell .public-aside-placeholder {
-  min-height: 18rem;
+#fsus-aot-shell .public-aside-placeholder
+ {
+    min-height: 18rem;
 }
 
-#fsus-aot-shell .mono-link {
-  color: var(--fsusblog-text-tertiary);
-  transition: color var(--fsus-motion-control-fast) var(--fsus-motion-standard);
-  outline: none;
+#fsus-aot-shell .mono-link
+ {
+    color: var(--fsusblog-text-tertiary);
+    transition: color var(--fsus-motion-control-fast) var(--fsus-motion-standard);
+    outline: none;
 }
 
 #fsus-aot-shell .mono-link:hover,
 #fsus-aot-shell .mono-link:focus-visible,
-#fsus-aot-shell .active-link {
-  color: var(--fsusblog-text-primary);
+#fsus-aot-shell .active-link
+ {
+    color: var(--fsusblog-text-primary);
 }
 
 #fsus-aot-shell .nav-link,
-#fsus-aot-shell .blog-link-state {
-  border-bottom: 2px solid transparent;
-  border-radius: var(--fsusblog-radius-control);
-  color: var(--fsusblog-text-muted);
-  outline: none;
-  transition:
-    background-color var(--fsus-motion-control) var(--fsus-motion-standard),
-    border-color var(--fsus-motion-control) var(--fsus-motion-standard),
-    box-shadow var(--fsus-motion-control) var(--fsus-motion-standard),
-    color var(--fsus-motion-control) var(--fsus-motion-standard),
-    opacity var(--fsus-motion-control) var(--fsus-motion-standard),
-    transform var(--fsus-motion-control) var(--fsus-motion-standard);
+#fsus-aot-shell .blog-link-state
+ {
+    border-bottom: 2px solid transparent;
+    border-radius: var(--fsusblog-radius-control);
+    color: var(--fsusblog-text-muted);
+    outline: none;
+    transition:
+        background-color var(--fsus-motion-control) var(--fsus-motion-standard),
+        border-color var(--fsus-motion-control) var(--fsus-motion-standard),
+        box-shadow var(--fsus-motion-control) var(--fsus-motion-standard),
+        color var(--fsus-motion-control) var(--fsus-motion-standard),
+        opacity var(--fsus-motion-control) var(--fsus-motion-standard),
+        transform var(--fsus-motion-control) var(--fsus-motion-standard);
 }
 
 /* Editorial title link: inline content that gains Scholarly Blue underline
@@ -354,128 +371,146 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
    titles and related-reading titles. Differs from .blog-link-state:
    - 1px underline (editorial) vs 2px (navigation)
    - color stays primary (content is readable) vs muted→primary (navigation) */
-#fsus-aot-shell .blog-link-underline {
-  display: inline-block;
-  border-bottom: 1px solid transparent;
-  padding-bottom: 0.25rem;
-  transition: border-color var(--fsus-motion-control-fast) var(--fsus-motion-standard);
+#fsus-aot-shell .blog-link-underline
+ {
+    display: inline-block;
+    border-bottom: 1px solid transparent;
+    padding-bottom: 0.25rem;
+    transition: border-color var(--fsus-motion-control-fast) var(--fsus-motion-standard);
 }
 
 #fsus-aot-shell .group:hover .blog-link-underline,
-#fsus-aot-shell .group:focus-visible .blog-link-underline {
-  border-bottom-color: var(--fsusblog-color-primary);
+#fsus-aot-shell .group:focus-visible .blog-link-underline
+ {
+    border-bottom-color: var(--fsusblog-color-primary);
 }
 
 #fsus-aot-shell .nav-link:hover,
 #fsus-aot-shell .nav-link:focus-visible,
 #fsus-aot-shell .blog-link-state:hover,
-#fsus-aot-shell .blog-link-state:focus-visible {
-  color: var(--fsusblog-text-primary);
+#fsus-aot-shell .blog-link-state:focus-visible
+ {
+    color: var(--fsusblog-text-primary);
 }
 
 #fsus-aot-shell .blog-focus-ring:focus-visible,
 #fsus-aot-shell .nav-link:focus-visible,
 #fsus-aot-shell .mono-link:focus-visible,
-#fsus-aot-shell .blog-link-state:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
+#fsus-aot-shell .blog-link-state:focus-visible
+ {
+    box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
 }
 
-@media (forced-colors: active) {
-  #fsus-aot-shell .blog-focus-ring:focus-visible,
-  #fsus-aot-shell .nav-link:focus-visible,
-  #fsus-aot-shell .mono-link:focus-visible,
-  #fsus-aot-shell .blog-link-state:focus-visible {
-    outline: 2px solid Highlight;
-    outline-offset: -2px;
-  }
+@media (forced-colors: active)
+ {
+    #fsus-aot-shell .blog-focus-ring:focus-visible,
+    #fsus-aot-shell .nav-link:focus-visible,
+    #fsus-aot-shell .mono-link:focus-visible,
+    #fsus-aot-shell .blog-link-state:focus-visible
+ {
+        outline: 2px solid Highlight;
+        outline-offset: -2px;
+    }
 }
 
-#fsus-aot-shell .active-link {
-  border-bottom-color: var(--fsusblog-color-primary);
-  box-shadow: inset 0 -2px 0 var(--fsusblog-color-primary);
-  font-weight: 700;
+#fsus-aot-shell .active-link
+ {
+    border-bottom-color: var(--fsusblog-color-primary);
+    box-shadow: inset 0 -2px 0 var(--fsusblog-color-primary);
+    font-weight: 700;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  #app :where(
-    .animate-in,
-    .animate-fade-in,
-    .fade-in,
-    .slide-in-from-top-1,
-    .slide-in-from-bottom-1,
-    .slide-in-from-left-1,
-    .slide-in-from-right-1
-  ),
-  #fsus-aot-shell :where(
-    .animate-in,
-    .animate-fade-in,
-    .fade-in,
-    .slide-in-from-top-1,
-    .slide-in-from-bottom-1,
-    .slide-in-from-left-1,
-    .slide-in-from-right-1
-  ) {
-    animation: none !important;
-    transition: none !important;
-    transform: none !important;
-  }
+@media (prefers-reduced-motion: reduce)
+ {
+    #app :where(
+        .animate-in,
+        .animate-fade-in,
+        .fade-in,
+        .slide-in-from-top-1,
+        .slide-in-from-bottom-1,
+        .slide-in-from-left-1,
+        .slide-in-from-right-1
+    ),
+        #fsus-aot-shell :where(
+        .animate-in,
+        .animate-fade-in,
+        .fade-in,
+        .slide-in-from-top-1,
+        .slide-in-from-bottom-1,
+        .slide-in-from-left-1,
+        .slide-in-from-right-1
+    )
+ {
+        animation: none !important;
+        transition: none !important;
+        transform: none !important;
+    }
 }
 
-.blog-page-shell {
-  width: 100%;
-  min-width: 0;
-  overflow-wrap: anywhere;
+.blog-page-shell
+ {
+    width: 100%;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
-.safe-inline-wrap {
-  min-width: 0;
-  max-width: 100%;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+.safe-inline-wrap
+ {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
-.aot-panel {
-  border: 1px solid var(--fsusblog-panel-border);
-  background: var(--fsusblog-panel-bg);
-  border-radius: var(--fsusblog-radius-panel);
-  box-shadow: var(--fsusblog-reading-shadow-panel);
+.aot-panel
+ {
+    border: 1px solid var(--fsusblog-panel-border);
+    background: var(--fsusblog-panel-bg);
+    border-radius: var(--fsusblog-radius-panel);
+    box-shadow: var(--fsusblog-reading-shadow-panel);
 }
 
-.aot-panel__header {
-  border-bottom: 1px solid var(--fsusblog-panel-border);
-  padding: 1rem 1.25rem;
+.aot-panel__header
+ {
+    border-bottom: 1px solid var(--fsusblog-panel-border);
+    padding: 1rem 1.25rem;
 }
 
-.aot-panel__header h2 {
-  margin: 0;
-  color: var(--fsusblog-text-primary);
-  font-size: 1.125rem;
-  font-weight: 700;
+.aot-panel__header h2
+ {
+    margin: 0;
+    color: var(--fsusblog-text-primary);
+    font-size: 1.125rem;
+    font-weight: 700;
 }
 
-.aot-panel__body {
-  padding: 1.25rem;
+.aot-panel__body
+ {
+    padding: 1.25rem;
 }
 
-.aot-action-button {
-  display: inline-flex;
-  min-height: 2.5rem;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--fsusblog-text-primary);
-  background: var(--fsusblog-text-primary);
-  color: var(--fsusblog-page-bg);
-  border-radius: var(--fsusblog-radius-control);
-  padding: 0 1rem;
-  font-size: 14px;
-  font-weight: 700;
+.aot-action-button
+ {
+    display: inline-flex;
+    min-height: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--fsusblog-text-primary);
+    background: var(--fsusblog-text-primary);
+    color: var(--fsusblog-page-bg);
+    border-radius: var(--fsusblog-radius-control);
+    padding: 0 1rem;
+    font-size: 14px;
+    font-weight: 700;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  #fsus-aot-shell .animate-fade-in {
-    animation: none !important;
-    transition: none !important;
-  }
+@media (prefers-reduced-motion: reduce)
+ {
+    #fsus-aot-shell .animate-fade-in
+ {
+        animation: none !important;
+        transition: none !important;
+    }
 }
 
 @media (width < 900px)
@@ -494,31 +529,36 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
 
 .markdown-body.prose :where(pre, table):not(:where([class~="not-prose"] *)),
 .markdown-body pre,
-.markdown-body table {
-  max-width: 100%;
-  overflow-x: auto;
+.markdown-body table
+ {
+    max-width: 100%;
+    overflow-x: auto;
 }
 
 .markdown-body.prose :where(code, a):not(:where([class~="not-prose"] *)),
 .markdown-body code,
-.markdown-body a {
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-/* CSP-safe runtime classes: all varying values are applied through nonce-backed
-   stylesheet rules, never through element style attributes. */
-.fsus-public-takeover-snapshot {
-  position: fixed;
-  inset: 0;
-  overflow: hidden;
-  background: transparent;
-  contain: paint;
-  pointer-events: none;
+.markdown-body a
+ {
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
-.fsus-public-takeover-snapshot__clone {
-  pointer-events: none;
-  transform-origin: top left;
+/* CSP-safe runtime classes: all varying values are applied through nonce-backed
+   stylesheet rules, never through element style attributes. */
+.fsus-public-takeover-snapshot
+ {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background: transparent;
+    contain: paint;
+    pointer-events: none;
+}
+
+.fsus-public-takeover-snapshot__clone
+ {
+    pointer-events: none;
+    transform-origin: top left;
 }
 
 /* AOT HTML keeps SSR scoped hashes; client SFC CSS cannot paint it. */
@@ -577,16 +617,18 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
     padding-inline: 4px;
 }
 
-.fsusblog-skeleton-surface {
-  --el-skeleton-color: var(--fsusblog-skeleton-bg);
-  --el-skeleton-to-color: var(--fsusblog-skeleton-bg);
+.fsusblog-skeleton-surface
+ {
+    --el-skeleton-color: var(--fsusblog-skeleton-bg);
+    --el-skeleton-to-color: var(--fsusblog-skeleton-bg);
 }
 
-:where(#app, #fsus-aot-shell) .fsusblog-dot-loader {
-  display: inline-block;
-  width: 4px;
-  height: 4px;
-  flex: 0 0 auto;
-  border-radius: var(--fsus-radius-pill, 999px);
-  background: var(--fsusblog-text-decorative);
+:where(#app, #fsus-aot-shell) .fsusblog-dot-loader
+ {
+    display: inline-block;
+    width: 4px;
+    height: 4px;
+    flex: 0 0 auto;
+    border-radius: var(--fsus-radius-pill, 999px);
+    background: var(--fsusblog-text-decorative);
 }

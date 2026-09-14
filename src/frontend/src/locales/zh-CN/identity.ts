@@ -1,4 +1,4 @@
-export const localeDomainIdentity = Object.freeze({ locale: 'zh-CN', domain: 'identity' } as const)
+export const localeDomainIdentity = Object.freeze({ locale: 'zh-CN', domain: 'identity' } as const);
 
 export const identity = {
     overview: {
@@ -256,27 +256,27 @@ export const identity = {
         },
         UserIdentityPasskeys: {
             title: '通行密钥',
-            description: '',
+            description: ''
         },
         UserIdentityRecoveryKey: {
             title: 'Recovery Key',
-            description: '',
+            description: ''
         },
         UserIdentityAnonymous: {
             title: '匿名身份',
-            description: '',
+            description: ''
         },
         UserIdentityPublicProfile: {
             title: '公开资料',
-            description: '',
+            description: ''
         },
         UserIdentitySessions: {
             title: '设备会话',
-            description: '',
+            description: ''
         },
         UserIdentityMfa: {
             title: '二次验证',
-            description: '',
+            description: ''
         },
         UserIdentityCommentRecords: {
             title: '公开评论记录',

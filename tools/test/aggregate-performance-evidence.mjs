@@ -5,11 +5,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import {
-    assertValidSaturationReport,
-    readSaturationPolicy
-} from '../perf/performance-saturation-v2.mjs';
-
+const {assertValidSaturationReport, readSaturationPolicy} = await import(new URL('../perf/performance-saturation-v2.mjs', import.meta.url));
 import { validateMeasurementNoiseReceipt } from './measurement-noise-envelope.mjs';
 import { resolveManifestWorkers } from './run-command-manifest.mjs';
 
@@ -72,9 +68,18 @@ function resolveSourceFile(root, source)
             .flatMap((object) => object.archiveEntries ?? [])
             .map((entry) => path.resolve(root, entry.extractedPath))
             .filter((candidate) => path.basename(candidate) === path.basename(source.path));
-        if (matches.length === 1) return matches[0];
-        if (matches.length > 1) throw new Error(`ambiguous ${source.id} performance evidence in transport manifest`);
-        if (source.missingAsBlocked) return null;
+        if (matches.length === 1)
+        {
+            return matches[0];
+        }
+        if (matches.length > 1)
+        {
+            throw new Error(`ambiguous ${source.id} performance evidence in transport manifest`);
+        }
+        if (source.missingAsBlocked)
+        {
+            return null;
+        }
         throw new Error(`missing ${source.id} performance evidence: ${source.path}`);
     }
     const direct = path.resolve(root, source.path);
@@ -117,6 +122,7 @@ async function readSummary(root, source)
     }
     catch (error)
     {
+        // eslint-disable-next-line preserve-caught-error
         throw new Error(`${source.id} performance evidence is invalid: ${error instanceof Error ? error.message : String(error)}`);
     }
     if (!summary || typeof summary !== 'object' || Array.isArray(summary))

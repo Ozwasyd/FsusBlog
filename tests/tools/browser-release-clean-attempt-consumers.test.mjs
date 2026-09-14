@@ -4,25 +4,14 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { createProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs';
-import {
-    admitBrowserReleaseCleanAttempt,
-    readCleanAttemptConsumerInventory,
-    requireCleanAttemptConsumerAdmission
-} from '../../tools/release/browser-release-clean-attempt-consumers.mjs';
-import { createBrowserlessCorrectnessReceipt } from '../../tools/release/test-evidence-receipts.mjs';
-import {
-    beginCurrentRunEvidencePublication,
-    finalizeCurrentRunEvidencePublication
-} from '../../tools/test/current-run-evidence-publication.mjs';
-import { governanceContentDigest } from '../../tools/test/evidence-location-contract.mjs';
-import {
-    extractCurrentRunEvidenceTransport,
-    packCurrentRunEvidenceTransport
-} from '../../tools/test/current-run-evidence-transport.mjs';
-import { runProducerAttempts } from '../../tools/test/attempt-runner.mjs';
-import { sha256 } from '../../tools/test/attempt-provenance.mjs';
-
+const {createProductionBuildReceipt} = await import(new URL('../../tools/ci/production-build-artifacts.mjs', import.meta.url));
+const {admitBrowserReleaseCleanAttempt, readCleanAttemptConsumerInventory, requireCleanAttemptConsumerAdmission} = await import(new URL('../../tools/release/browser-release-clean-attempt-consumers.mjs', import.meta.url));
+const {createBrowserlessCorrectnessReceipt} = await import(new URL('../../tools/release/test-evidence-receipts.mjs', import.meta.url));
+const {beginCurrentRunEvidencePublication, finalizeCurrentRunEvidencePublication} = await import(new URL('../../tools/test/current-run-evidence-publication.mjs', import.meta.url));
+const {governanceContentDigest} = await import(new URL('../../tools/test/evidence-location-contract.mjs', import.meta.url));
+const {extractCurrentRunEvidenceTransport, packCurrentRunEvidenceTransport} = await import(new URL('../../tools/test/current-run-evidence-transport.mjs', import.meta.url));
+const {runProducerAttempts} = await import(new URL('../../tools/test/attempt-runner.mjs', import.meta.url));
+const {sha256} = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
 const root = path.resolve(import.meta.dirname, '../..');
 const fixtureCommand = path.join(root, 'tests/tools/fixtures/attempt-runner-command.mjs');
 const sourceCommit = '1'.repeat(40);
@@ -86,7 +75,8 @@ async function evidence(directory, {
         aggregateReceipt: result.aggregate,
         loadAttempt: (reference) => result.attempts[reference.attemptNumber - 1],
         verifyAuthority: verifyAuthority(producerId, schedulerRunId),
-        verifyArtifact: (relative, digest, receipt) => {
+        verifyArtifact: (relative, digest, receipt) =>
+        {
             const file = path.join(result.producerRoot, `attempt-${receipt.attemptNumber}`, relative);
             return fs.existsSync(file) && sha256(fs.readFileSync(file)) === digest;
         },
@@ -336,7 +326,10 @@ test('file tamper cannot be hidden by caller supplied receipt and artifact callb
     }));
     assert.ok(results.every((result) => result.eligible === false));
     assert.equal(results[0].reasons[0].code, 'attempt.content-tamper');
-    for (const result of results) assert.deepEqual(result.reasons, results[0].reasons);
+    for (const result of results)
+    {
+        assert.deepEqual(result.reasons, results[0].reasons);
+    }
 });
 
 test('a clean attempt cannot qualify an unrelated or unbound domain receipt', async (context) =>
@@ -356,7 +349,10 @@ test('a clean attempt cannot qualify an unrelated or unbound domain receipt', as
         }));
         assert.ok(results.every((result) => result.eligible === false));
         assert.equal(results[0].reasons[0].code, 'attempt.consumer-artifact-mismatch');
-        for (const result of results) assert.deepEqual(result.reasons, results[0].reasons);
+        for (const result of results)
+        {
+            assert.deepEqual(result.reasons, results[0].reasons);
+        }
     }
 });
 
@@ -375,7 +371,10 @@ test('consumer identity expectations must bind source, worktree, run and produce
         assert.ok(results.every((result) => result.eligible === false));
         assert.equal(results[0].reasons[0].code, 'attempt.consumer-identity-missing');
         assert.equal(results[0].reasons[0].field, field);
-        for (const result of results) assert.deepEqual(result.reasons, results[0].reasons);
+        for (const result of results)
+        {
+            assert.deepEqual(result.reasons, results[0].reasons);
+        }
     }
 });
 
@@ -518,7 +517,8 @@ test('shared admission helper keeps verdict and reason identity across consumers
         scenario: 'browser-crash-once',
         retryPolicyId: 'diagnostic-browser-process-crash'
     });
-    const failures = Object.keys(memberships).map((consumerId) => {
+    const failures = Object.keys(memberships).map((consumerId) =>
+    {
         try
         {
             requireCleanAttemptConsumerAdmission({

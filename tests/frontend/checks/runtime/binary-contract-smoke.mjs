@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 
-import { decodeApiErrorFrame, decodeAedsFrame } from '../../support/aeds-envelope.mjs';
-import { buildPowHeaders } from '../../support/auth-helpers.mjs';
-import { isDirectExecution, reportDirectFailure } from '../../support/direct-execution.mjs';
-import { fetchWithTimeout, probeReachable, parseTimeoutMs } from '../../support/http.mjs';
-
+const { decodeApiErrorFrame, decodeAedsFrame } = await import(new URL('../../support/aeds-envelope.mjs', import.meta.url));
+const { buildPowHeaders } = await import(new URL('../../support/auth-helpers.mjs', import.meta.url));
+const { isDirectExecution, reportDirectFailure } = await import(new URL('../../support/direct-execution.mjs', import.meta.url));
+const { fetchWithTimeout, probeReachable, parseTimeoutMs } = await import(new URL('../../support/http.mjs', import.meta.url));
 const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568';
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15000);
 

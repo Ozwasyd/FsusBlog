@@ -13,41 +13,43 @@
  * browser work and never reads Markdown to decide facts.
  */
 
-import { execFileSync } from 'node:child_process'
-import { createHash } from 'node:crypto'
-import fs from 'node:fs'
-import { createRequire, isBuiltin } from 'node:module'
-import path from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import fs from 'node:fs';
+import { createRequire, isBuiltin } from 'node:module';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { digestValue, isPlainObject } from '../fact-extractors/lib/canonicalize.mjs'
-import { parseMatrix } from './parse-matrix.mjs'
+// eslint-disable-next-line import-x/no-relative-parent-imports
+import { digestValue, isPlainObject } from '../fact-extractors/lib/canonicalize.mjs';
 
-export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-export const registryRelative = 'config/testing/post-runtime-producer-registry.json'
-export const postRuntimeRegistrySchema = 'fsusblog.post-runtime-producer-registry.v2'
-export const observationEnvelopeSchema = 'fsusblog.post-runtime-observation-result-envelope.v1'
-export const acceptedClaimsSchema = 'fsusblog.post-runtime-accepted-claims.v1'
-export const globalExactnessSchema = 'fsusblog.global-claim-exactness-terminal-receipt.v1'
-export const currentRunEvidenceReferenceSchema = 'fsusblog.current-run-evidence-reference.v1'
-export const identityAuthoritySchema = 'fsusblog.post-runtime-identity-authority.v1'
-export const sourceReceiptSchema = 'fsusblog.post-runtime-source-receipt.v1'
+import { parseMatrix } from './parse-matrix.mjs';
 
-const observationEnvelopeSchemaRelative = 'config/schemas/post-runtime-observation-result.schema.json'
-const acceptedClaimsSchemaRelative = 'config/schemas/post-runtime-accepted-claims.schema.json'
-const matrixRelative = 'tests/matrix.yml'
-const attemptProducersRelative = 'config/testing/correctness-attempt-producers.json'
-const fixtureProfileCatalogRelative = 'config/testing/fixture-profile-catalog.json'
-const configurationOwnershipRelative = 'config/configuration-ownership.json'
-const modes = Object.freeze(['positive', 'negative', 'boundary', 'failure'])
-const digestPattern = /^sha256:[a-f0-9]{64}$/u
-const toolVersionPattern = /^[a-z][a-z0-9-]*@[1-9][0-9]*$/u
-const unsafeReceiptPath = /(?:^|[/\\])(?:latest|history|historical)(?:[/\\]|$)/iu
-const runtimeProducerDomains = new Set(['testing', 'release', 'deployment'])
-const identityRoles = Object.freeze(['plan', 'attempt', 'fixture', 'profile'])
+export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+export const registryRelative = 'config/testing/post-runtime-producer-registry.json';
+export const postRuntimeRegistrySchema = 'fsusblog.post-runtime-producer-registry.v2';
+export const observationEnvelopeSchema = 'fsusblog.post-runtime-observation-result-envelope.v1';
+export const acceptedClaimsSchema = 'fsusblog.post-runtime-accepted-claims.v1';
+export const globalExactnessSchema = 'fsusblog.global-claim-exactness-terminal-receipt.v1';
+export const currentRunEvidenceReferenceSchema = 'fsusblog.current-run-evidence-reference.v1';
+export const identityAuthoritySchema = 'fsusblog.post-runtime-identity-authority.v1';
+export const sourceReceiptSchema = 'fsusblog.post-runtime-source-receipt.v1';
+
+const observationEnvelopeSchemaRelative = 'config/schemas/post-runtime-observation-result.schema.json';
+const acceptedClaimsSchemaRelative = 'config/schemas/post-runtime-accepted-claims.schema.json';
+const matrixRelative = 'tests/matrix.yml';
+const attemptProducersRelative = 'config/testing/correctness-attempt-producers.json';
+const fixtureProfileCatalogRelative = 'config/testing/fixture-profile-catalog.json';
+const configurationOwnershipRelative = 'config/configuration-ownership.json';
+const modes = Object.freeze(['positive', 'negative', 'boundary', 'failure']);
+const digestPattern = /^sha256:[a-f0-9]{64}$/u;
+const toolVersionPattern = /^[a-z][a-z0-9-]*@[1-9][0-9]*$/u;
+const unsafeReceiptPath = /(?:^|[/\\])(?:latest|history|historical)(?:[/\\]|$)/iu;
+const runtimeProducerDomains = new Set(['testing', 'release', 'deployment']);
+const identityRoles = Object.freeze(['plan', 'attempt', 'fixture', 'profile']);
 const sourceReceiptRoles = Object.freeze([
     'probe', 'aot', 'browser', 'release-authority', 'blue-green-authority'
-])
+]);
 const rawFactSourceSchemas = Object.freeze({
     'route-response-error': 'fsusblog.runtime-observation-probe.v1',
     'aot-spa-hydration': 'fsusblog.aot-spa-hydration-source-bundle.v1',
@@ -56,7 +58,7 @@ const rawFactSourceSchemas = Object.freeze({
     'browser-behavior-contract': 'fsusblog.browser-contract-receipt.v2',
     'release-identity-readiness': 'fsusblog.release-identity-readiness-authority-bundle.v1',
     'blue-green-containment': 'fsusblog.blue-green-containment-authority-bundle.v1'
-})
+});
 const embeddedIdentityCapabilities = Object.freeze({
     'fsusblog.ci-production-build-receipt.v1': ['sourceCommit', 'worktreeFingerprint'],
     'fsusblog.fixture-receipt.v2': [
@@ -76,12 +78,12 @@ const embeddedIdentityCapabilities = Object.freeze({
     ],
     'fsusblog.release-rollout-evidence.v1': ['releaseId', 'rolloutId'],
     'fsusblog.runtime-role-observation.v1': []
-})
-const stableIdentityPattern = /^[a-z][a-z0-9-]{2,127}$/u
-const runIdentityPattern = /^(?!\.{1,2}$)[A-Za-z0-9_](?:[A-Za-z0-9_.-]{0,126}[A-Za-z0-9_])?$/u
-const attemptIdentityPattern = /^attempt-[0-9]{4}$/u
-const releaseIdentityPattern = /^[0-9]{14}-[a-f0-9]{12}$/u
-const readerFirewallEntry = 'tools/test-matrix/post-runtime-producer-registry.mjs'
+});
+const stableIdentityPattern = /^[a-z][a-z0-9-]{2,127}$/u;
+const runIdentityPattern = /^(?!\.{1,2}$)[A-Za-z0-9_](?:[A-Za-z0-9_.-]{0,126}[A-Za-z0-9_])?$/u;
+const attemptIdentityPattern = /^attempt-[0-9]{4}$/u;
+const releaseIdentityPattern = /^[0-9]{14}-[a-f0-9]{12}$/u;
+const readerFirewallEntry = 'tools/test-matrix/post-runtime-producer-registry.mjs';
 const acornDependencyParser = String.raw`
 const acorn = require('internal/deps/acorn/acorn/dist/acorn')
 let source = ''
@@ -387,136 +389,191 @@ process.stdin.on('end', () => {
     walk(ast)
     process.stdout.write(JSON.stringify(dependencies))
 })
-`
+`;
 
 function parseStrictJson(source, label)
 {
-    let index = 0
-    const whitespace = /[\t\n\r ]/u
-    const skip = () => { while (whitespace.test(source[index] ?? '')) index += 1 }
+    let index = 0;
+    const whitespace = /[\t\n\r ]/u;
+    const skip = () =>
+    {
+        while (whitespace.test(source[index] ?? ''))
+        {
+            index += 1;
+        }
+    };
     const string = () =>
     {
-        const start = index
-        if (source[index] !== '"') fail(`${label} contains invalid JSON`)
-        index += 1
+        const start = index;
+        if (source[index] !== '"')
+        {
+            fail(`${label} contains invalid JSON`);
+        }
+        index += 1;
         while (index < source.length)
         {
             if (source[index] === '"')
             {
-                index += 1
-                return JSON.parse(source.slice(start, index))
+                index += 1;
+                return JSON.parse(source.slice(start, index));
             }
-            if (source[index] === '\\') index += 2
-            else index += 1
+            if (source[index] === '\\')
+            {
+                index += 2;
+            }
+            else
+            {
+                index += 1;
+            }
         }
-        fail(`${label} contains an unterminated JSON string`)
-    }
+        fail(`${label} contains an unterminated JSON string`);
+    };
     const value = () =>
     {
-        skip()
+        skip();
         if (source[index] === '{')
         {
-            index += 1
-            skip()
-            const keys = new Set()
-            if (source[index] === '}') { index += 1; return }
+            index += 1;
+            skip();
+            const keys = new Set();
+            if (source[index] === '}')
+            {
+                index += 1;
+                return;
+            }
             while (index < source.length)
             {
-                const key = string()
-                if (keys.has(key)) fail(`${label} contains duplicate JSON key ${key}`)
-                keys.add(key)
-                skip()
-                if (source[index] !== ':') fail(`${label} contains invalid JSON object syntax`)
-                index += 1
-                value()
-                skip()
-                if (source[index] === '}') { index += 1; return }
-                if (source[index] !== ',') fail(`${label} contains invalid JSON object separator`)
-                index += 1
-                skip()
+                const key = string();
+                if (keys.has(key))
+                {
+                    fail(`${label} contains duplicate JSON key ${key}`);
+                }
+                keys.add(key);
+                skip();
+                if (source[index] !== ':')
+                {
+                    fail(`${label} contains invalid JSON object syntax`);
+                }
+                index += 1;
+                value();
+                skip();
+                if (source[index] === '}')
+                {
+                    index += 1;
+                    return;
+                }
+                if (source[index] !== ',')
+                {
+                    fail(`${label} contains invalid JSON object separator`);
+                }
+                index += 1;
+                skip();
             }
         }
         else if (source[index] === '[')
         {
-            index += 1
-            skip()
-            if (source[index] === ']') { index += 1; return }
+            index += 1;
+            skip();
+            if (source[index] === ']')
+            {
+                index += 1;
+                return;
+            }
             while (index < source.length)
             {
-                value()
-                skip()
-                if (source[index] === ']') { index += 1; return }
-                if (source[index] !== ',') fail(`${label} contains invalid JSON array separator`)
-                index += 1
+                value();
+                skip();
+                if (source[index] === ']')
+                {
+                    index += 1;
+                    return;
+                }
+                if (source[index] !== ',')
+                {
+                    fail(`${label} contains invalid JSON array separator`);
+                }
+                index += 1;
             }
         }
-        else if (source[index] === '"') return string()
+        else if (source[index] === '"')
+        {
+            return string();
+        }
         else
         {
-            const start = index
-            while (index < source.length && !/[\],}\t\n\r ]/u.test(source[index])) index += 1
-            if (start === index) fail(`${label} contains invalid JSON value`)
-            JSON.parse(source.slice(start, index))
-            return
+            const start = index;
+            while (index < source.length && !/[\],}\t\n\r ]/u.test(source[index]))
+            {
+                index += 1;
+            }
+            if (start === index)
+            {
+                fail(`${label} contains invalid JSON value`);
+            }
+            JSON.parse(source.slice(start, index));
+            return;
         }
-        fail(`${label} contains unterminated JSON`)
+        fail(`${label} contains unterminated JSON`);
+    };
+    value();
+    skip();
+    if (index !== source.length)
+    {
+        fail(`${label} contains trailing JSON data`);
     }
-    value()
-    skip()
-    if (index !== source.length) fail(`${label} contains trailing JSON data`)
-    return JSON.parse(source)
+    return JSON.parse(source);
 }
 
 function parseCanonicalJson(bytes, label, indent)
 {
-    const source = Buffer.isBuffer(bytes) ? bytes.toString('utf8') : String(bytes)
-    const value = parseStrictJson(source, label)
+    const source = Buffer.isBuffer(bytes) ? bytes.toString('utf8') : String(bytes);
+    const value = parseStrictJson(source, label);
     if (source !== `${JSON.stringify(value, null, indent)}\n`)
     {
-        fail(`${label} bytes are not canonical ${indent}-space JSON`)
+        fail(`${label} bytes are not canonical ${indent}-space JSON`);
     }
-    return value
+    return value;
 }
 
 const canonicalConfigJson = new Set([
     registryRelative,
     observationEnvelopeSchemaRelative,
     acceptedClaimsSchemaRelative
-])
+]);
 const readJson = (repositoryRoot, relative) =>
 {
-    const { bytes } = readPinnedRepositoryFile(repositoryRoot, relative, relative)
+    const { bytes } = readPinnedRepositoryFile(repositoryRoot, relative, relative);
     return canonicalConfigJson.has(relative)
         ? parseCanonicalJson(bytes, relative, 4)
-        : parseStrictJson(bytes.toString('utf8'), relative)
-}
+        : parseStrictJson(bytes.toString('utf8'), relative);
+};
 
 const forbiddenRegistryFields = new Set([
     'waiver', 'manualOwner', 'manual-owner', 'artifactPath', 'jobName', 'jobId',
     'httpStatus', 'fileExists', 'screenshot', 'allowDiagnostic', 'ignoreSchemaVersion'
-])
+]);
 const forbiddenSemanticFactFields = new Set([
     'httpStatus', 'fileExists', 'filePath', 'screenshot', 'screenshotPath',
     'artifactExists', 'jobStatus', 'tierPassed', 'success'
-])
+]);
 
 function fail(message)
 {
-    throw new Error(`[post-runtime-producer-registry] ${message}`)
+    throw new Error(`[post-runtime-producer-registry] ${message}`);
 }
 
-const prefixedDigest = (value) => `sha256:${String(value ?? '').replace(/^sha256:/u, '')}`
-export const authorityDigest = (value) => `sha256:${digestValue(value)}`
+const prefixedDigest = (value) => `sha256:${String(value ?? '').replace(/^sha256:/u, '')}`;
+export const authorityDigest = (value) => `sha256:${digestValue(value)}`;
 
 function canonicalRepositoryRoot(repositoryRoot)
 {
-    const lexicalRoot = path.resolve(repositoryRoot)
-    const stat = fs.lstatSync(lexicalRoot)
+    const lexicalRoot = path.resolve(repositoryRoot);
+    const stat = fs.lstatSync(lexicalRoot);
     if (!stat.isDirectory() || stat.isSymbolicLink())
     {
-        fail('repository root must be a canonical non-symlink directory')
+        fail('repository root must be a canonical non-symlink directory');
     }
-    return { lexicalRoot, realRoot: fs.realpathSync.native(lexicalRoot) }
+    return { lexicalRoot, realRoot: fs.realpathSync.native(lexicalRoot) };
 }
 
 export function canonicalRepositoryFile(repositoryRoot, relative, label)
@@ -525,143 +582,167 @@ export function canonicalRepositoryFile(repositoryRoot, relative, label)
         || relative.includes('\\') || path.posix.normalize(relative) !== relative
         || relative.split('/').some((segment) => !segment || segment === '.' || segment === '..'))
     {
-        fail(`${label} must be a canonical repository-relative path`)
+        fail(`${label} must be a canonical repository-relative path`);
     }
-    const { lexicalRoot, realRoot } = canonicalRepositoryRoot(repositoryRoot)
-    const absolute = path.resolve(lexicalRoot, relative)
-    if (!absolute.startsWith(`${lexicalRoot}${path.sep}`)) fail(`${label} escapes the repository root`)
-    const stat = fs.lstatSync(absolute)
+    const { lexicalRoot, realRoot } = canonicalRepositoryRoot(repositoryRoot);
+    const absolute = path.resolve(lexicalRoot, relative);
+    if (!absolute.startsWith(`${lexicalRoot}${path.sep}`))
+    {
+        fail(`${label} escapes the repository root`);
+    }
+    const stat = fs.lstatSync(absolute);
     if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1)
     {
-        fail(`${label} must be a regular non-symlink single-link file`)
+        fail(`${label} must be a regular non-symlink single-link file`);
     }
-    const real = fs.realpathSync.native(absolute)
-    const expectedReal = path.join(realRoot, ...relative.split('/'))
+    const real = fs.realpathSync.native(absolute);
+    const expectedReal = path.join(realRoot, ...relative.split('/'));
     if (real !== expectedReal || !real.startsWith(`${realRoot}${path.sep}`))
     {
-        fail(`${label} must resolve to its canonical path inside the repository root`)
+        fail(`${label} must resolve to its canonical path inside the repository root`);
     }
-    return real
+    return real;
 }
 
 function readPinnedRepositoryFile(repositoryRoot, relative, label)
 {
-    const absolute = canonicalRepositoryFile(repositoryRoot, relative, label)
-    let descriptor
+    const absolute = canonicalRepositoryFile(repositoryRoot, relative, label);
+    let descriptor;
     try
     {
-        descriptor = fs.openSync(absolute, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW)
-        const before = fs.fstatSync(descriptor, { bigint: true })
+        descriptor = fs.openSync(absolute, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+        const before = fs.fstatSync(descriptor, { bigint: true });
         if (!before.isFile() || before.nlink !== 1n)
         {
-            fail(`${label} must remain a regular single-link file while open`)
+            fail(`${label} must remain a regular single-link file while open`);
         }
-        const bytes = fs.readFileSync(descriptor)
-        const after = fs.fstatSync(descriptor, { bigint: true })
-        const pathStat = fs.lstatSync(absolute, { bigint: true })
+        const bytes = fs.readFileSync(descriptor);
+        const after = fs.fstatSync(descriptor, { bigint: true });
+        const pathStat = fs.lstatSync(absolute, { bigint: true });
         for (const field of ['dev', 'ino', 'nlink', 'size', 'mtimeNs', 'ctimeNs'])
         {
-            if (before[field] !== after[field]) fail(`${label} changed while its bytes were read`)
+            if (before[field] !== after[field])
+            {
+                fail(`${label} changed while its bytes were read`);
+            }
         }
         if (!pathStat.isFile() || pathStat.isSymbolicLink() || pathStat.nlink !== 1n
             || pathStat.dev !== after.dev || pathStat.ino !== after.ino)
         {
-            fail(`${label} path identity changed while its bytes were read`)
+            fail(`${label} path identity changed while its bytes were read`);
         }
-        return { path: absolute, bytes, stat: after }
+        return { path: absolute, bytes, stat: after };
     }
     catch (error)
     {
-        if (error instanceof Error && error.message.startsWith('[post-runtime-producer-registry]')) throw error
-        fail(`${label} cannot be opened without following links: ${error.message}`)
+        if (error instanceof Error && error.message.startsWith('[post-runtime-producer-registry]'))
+        {
+            throw error;
+        }
+        fail(`${label} cannot be opened without following links: ${error.message}`);
     }
     finally
     {
-        if (descriptor !== undefined) fs.closeSync(descriptor)
+        if (descriptor !== undefined)
+        {
+            fs.closeSync(descriptor);
+        }
     }
 }
 
 function trackedRepositoryEntries(repositoryRoot)
 {
-    const { lexicalRoot } = canonicalRepositoryRoot(repositoryRoot)
-    let output
+    const { lexicalRoot } = canonicalRepositoryRoot(repositoryRoot);
+    let output;
     try
     {
         const replacements = execFileSync('git', ['-C', lexicalRoot, 'for-each-ref', '--format=%(refname)',
             'refs/replace/'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
-            env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' } }).trim()
-        if (replacements) fail('Git replacement refs are forbidden for repository authority validation')
+            env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' } }).trim();
+        if (replacements)
+        {
+            fail('Git replacement refs are forbidden for repository authority validation');
+        }
         execFileSync('git', ['-C', lexicalRoot, 'diff-index', '--cached', '--quiet', 'HEAD', '--'], {
             encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
             env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }
-        })
+        });
         output = execFileSync('git', ['-C', lexicalRoot, 'ls-files', '--stage', '-z'], {
             encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
             env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }
-        })
+        });
     }
     catch (error)
     {
-        fail(`Git HEAD/index authority is not exact-clean: ${error.stderr?.trim() || error.message}`)
+        fail(`Git HEAD/index authority is not exact-clean: ${error.stderr?.trim() || error.message}`);
     }
     const entries = output.split('\0').filter(Boolean).map((record) =>
     {
-        const separator = record.indexOf('\t')
-        const metadata = separator < 0 ? [] : record.slice(0, separator).split(' ')
+        const separator = record.indexOf('\t');
+        const metadata = separator < 0 ? [] : record.slice(0, separator).split(' ');
         if (metadata.length !== 3 || !/^[0-7]{6}$/u.test(metadata[0])
             || !/^[a-f0-9]{40,64}$/u.test(metadata[1]) || !/^[0-3]$/u.test(metadata[2]))
         {
-            fail('Git index contains an invalid tracked entry')
+            fail('Git index contains an invalid tracked entry');
         }
         return {
             mode: metadata[0],
             oid: metadata[1],
             stage: Number(metadata[2]),
             path: record.slice(separator + 1).replaceAll('\\', '/')
-        }
-    })
+        };
+    });
     if (entries.some((entry) => entry.stage !== 0)
         || new Set(entries.map((entry) => entry.path)).size !== entries.length)
     {
-        fail('Git index must contain exact-one stage-zero entry per tracked path')
+        fail('Git index must contain exact-one stage-zero entry per tracked path');
     }
-    const unsupported = entries.find((entry) => !['100644', '100755'].includes(entry.mode))
+    const unsupported = entries.find((entry) => !['100644', '100755'].includes(entry.mode));
     if (unsupported)
     {
-        fail(`Git index tracked path ${unsupported.path} has unsupported mode ${unsupported.mode}`)
+        fail(`Git index tracked path ${unsupported.path} has unsupported mode ${unsupported.mode}`);
     }
-    return entries
+    return entries;
 }
 
 function readIndexBlobs(repositoryRoot, entries)
 {
     const objectIds = [...new Set(entries
         .filter((entry) => entry.mode === '100644' || entry.mode === '100755' || entry.mode === '120000')
-        .map((entry) => entry.oid))]
+        .map((entry) => entry.oid))];
     const output = execFileSync('git', ['-C', repositoryRoot, 'cat-file', '--batch'], {
         input: `${objectIds.join('\n')}\n`, maxBuffer: 256 * 1024 * 1024,
         env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }
-    })
-    const blobs = new Map()
-    let offset = 0
+    });
+    const blobs = new Map();
+    let offset = 0;
     for (const requested of objectIds)
     {
-        const headerEnd = output.indexOf(0x0a, offset)
-        if (headerEnd < 0) fail(`Git index blob ${requested} has no batch header`)
-        const header = output.subarray(offset, headerEnd).toString('utf8').split(' ')
-        const size = Number(header[2])
+        const headerEnd = output.indexOf(0x0a, offset);
+        if (headerEnd < 0)
+        {
+            fail(`Git index blob ${requested} has no batch header`);
+        }
+        const header = output.subarray(offset, headerEnd).toString('utf8').split(' ');
+        const size = Number(header[2]);
         if (header[0] !== requested || header[1] !== 'blob' || !Number.isSafeInteger(size) || size < 0)
         {
-            fail(`Git index object ${requested} is not an exact blob`)
+            fail(`Git index object ${requested} is not an exact blob`);
         }
-        const start = headerEnd + 1
-        const end = start + size
-        if (output[end] !== 0x0a) fail(`Git index blob ${requested} has an invalid batch boundary`)
-        blobs.set(requested, output.subarray(start, end))
-        offset = end + 1
+        const start = headerEnd + 1;
+        const end = start + size;
+        if (output[end] !== 0x0a)
+        {
+            fail(`Git index blob ${requested} has an invalid batch boundary`);
+        }
+        blobs.set(requested, output.subarray(start, end));
+        offset = end + 1;
     }
-    if (offset !== output.length) fail('Git index blob batch has trailing data')
-    return blobs
+    if (offset !== output.length)
+    {
+        fail('Git index blob batch has trailing data');
+    }
+    return blobs;
 }
 
 function gitObjectFormat(repositoryRoot)
@@ -669,73 +750,82 @@ function gitObjectFormat(repositoryRoot)
     const algorithm = execFileSync('git', ['-C', repositoryRoot, 'rev-parse', '--show-object-format'], {
         encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
         env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }
-    }).trim()
-    if (!['sha1', 'sha256'].includes(algorithm)) fail(`unsupported Git object format ${algorithm}`)
-    return algorithm
+    }).trim();
+    if (!['sha1', 'sha256'].includes(algorithm))
+    {
+        fail(`unsupported Git object format ${algorithm}`);
+    }
+    return algorithm;
 }
 
 function gitBlobOid(algorithm, bytes)
 {
-    return createHash(algorithm).update(`blob ${bytes.length}\0`).update(bytes).digest('hex')
+    return createHash(algorithm).update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
 }
 
 function assertIndexWorktreeIdentity(repositoryRoot, entry, expectedBytes, objectFormat)
 {
-    const absolute = path.join(repositoryRoot, entry.path)
-    let actualBytes
+    const absolute = path.join(repositoryRoot, entry.path);
+    let actualBytes;
     if (entry.mode === '120000')
     {
-        const stat = fs.lstatSync(absolute)
-        if (!stat.isSymbolicLink()) fail(`tracked path ${entry.path} differs from its Git index file type`)
-        actualBytes = Buffer.from(fs.readlinkSync(absolute), 'utf8')
+        const stat = fs.lstatSync(absolute);
+        if (!stat.isSymbolicLink())
+        {
+            fail(`tracked path ${entry.path} differs from its Git index file type`);
+        }
+        actualBytes = Buffer.from(fs.readlinkSync(absolute), 'utf8');
     }
     else
     {
         actualBytes = readPinnedRepositoryFile(repositoryRoot, entry.path,
-            `tracked path ${entry.path}`).bytes
+            `tracked path ${entry.path}`).bytes;
     }
     if (!actualBytes.equals(expectedBytes) || gitBlobOid(objectFormat, actualBytes) !== entry.oid)
     {
-        fail(`tracked path ${entry.path} worktree bytes do not exact-match the Git index blob`)
+        fail(`tracked path ${entry.path} worktree bytes do not exact-match the Git index blob`);
     }
 }
 
 function assertIndexSnapshotUnchanged(repositoryRoot, entries)
 {
-    const current = trackedRepositoryEntries(repositoryRoot)
+    const current = trackedRepositoryEntries(repositoryRoot);
     if (JSON.stringify(current) !== JSON.stringify(entries))
     {
-        fail('Git index authority changed while repository bytes were validated')
+        fail('Git index authority changed while repository bytes were validated');
     }
 }
 
 function parseExecutableDependencies(source, relative)
 {
-    const sourceType = relative.endsWith('.cjs') ? 'script' : 'module'
+    const sourceType = relative.endsWith('.cjs') ? 'script' : 'module';
     try
     {
         return JSON.parse(execFileSync(process.execPath, [
             '--expose-internals', '--input-type=commonjs', '--eval', acornDependencyParser, sourceType,
             relative === readerFirewallEntry ? readPinnedRepositoryFile.toString() : ''
-        ], { input: source, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }))
+        ], { input: source, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }));
     }
     catch (error)
     {
-        fail(`cannot parse executable dependency AST for ${relative}: ${error.stderr?.trim() || error.message}`)
+        fail(`cannot parse executable dependency AST for ${relative}: ${error.stderr?.trim() || error.message}`);
     }
 }
 
 function resolveExecutableDependency(repositoryRoot, importer, dependency)
 {
-    const specifier = dependency.specifier
-    if (isBuiltin(specifier) || specifier.startsWith('node:')) return null
-    const importerAbsolute = path.join(repositoryRoot, importer)
-    let resolved
+    const specifier = dependency.specifier;
+    if (isBuiltin(specifier) || specifier.startsWith('node:'))
+    {
+        return null;
+    }
+    const importerAbsolute = path.join(repositoryRoot, importer);
+    let resolved;
     try
     {
         if (dependency.kind === 'require')
         {
-            resolved = createRequire(pathToFileURL(importerAbsolute)).resolve(specifier)
+            resolved = createRequire(pathToFileURL(importerAbsolute)).resolve(specifier);
         }
         else
         {
@@ -743,115 +833,141 @@ function resolveExecutableDependency(repositoryRoot, importer, dependency)
                 '--experimental-import-meta-resolve', '--input-type=module', '--eval',
                 'process.stdout.write(import.meta.resolve(process.argv[1], process.argv[2]))',
                 specifier, pathToFileURL(importerAbsolute).href
-            ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
-            if (output.startsWith('node:') || isBuiltin(output)) return null
-            if (!output.startsWith('file:')) fail(`reader dependency ${specifier} resolves to unsupported ${output}`)
-            resolved = fileURLToPath(output)
+            ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+            if (output.startsWith('node:') || isBuiltin(output))
+            {
+                return null;
+            }
+            if (!output.startsWith('file:'))
+            {
+                fail(`reader dependency ${specifier} resolves to unsupported ${output}`);
+            }
+            resolved = fileURLToPath(output);
         }
     }
     catch (error)
     {
-        fail(`reader dependency ${specifier} from ${importer} cannot be resolved by Node: ${error.stderr?.trim() || error.message}`)
+        fail(`reader dependency ${specifier} from ${importer} cannot be resolved by Node: ${error.stderr?.trim() || error.message}`);
     }
-    const { realRoot } = canonicalRepositoryRoot(repositoryRoot)
-    const absolute = path.resolve(resolved)
+    const { realRoot } = canonicalRepositoryRoot(repositoryRoot);
+    const absolute = path.resolve(resolved);
     if (!absolute.startsWith(`${realRoot}${path.sep}`))
     {
-        fail(`reader dependency ${specifier} from ${importer} resolves outside the repository`)
+        fail(`reader dependency ${specifier} from ${importer} resolves outside the repository`);
     }
-    return path.relative(realRoot, absolute).replaceAll(path.sep, '/')
+    return path.relative(realRoot, absolute).replaceAll(path.sep, '/');
 }
 
 export function validatePostRuntimeReaderFirewall(repositoryRoot = root, entry = readerFirewallEntry)
 {
-    const pending = [entry]
-    const visited = new Set()
+    const pending = [entry];
+    const visited = new Set();
     while (pending.length > 0)
     {
-        const relative = pending.pop()
-        if (visited.has(relative)) continue
-        visited.add(relative)
-        const normalizedRelative = relative.normalize('NFKC').toLowerCase()
+        const relative = pending.pop();
+        if (visited.has(relative))
+        {
+            continue;
+        }
+        visited.add(relative);
+        const normalizedRelative = relative.normalize('NFKC').toLowerCase();
         if (normalizedRelative.startsWith('docs/') || normalizedRelative.startsWith('tools/docs/')
             || /(?:^|\/)(?:doc-claim|markdown-reader)[^/]*\.(?:mjs|js|cjs)$/u.test(normalizedRelative))
         {
-            fail(`post-runtime reader import closure reaches forbidden Markdown/DocClaim module ${relative}`)
+            fail(`post-runtime reader import closure reaches forbidden Markdown/DocClaim module ${relative}`);
         }
         const source = readPinnedRepositoryFile(repositoryRoot, relative,
-            `reader module ${relative}`).bytes.toString('utf8')
-        const dependencies = parseExecutableDependencies(source, relative)
+            `reader module ${relative}`).bytes.toString('utf8');
+        const dependencies = parseExecutableDependencies(source, relative);
         for (const dependency of dependencies)
         {
-            const resolved = resolveExecutableDependency(repositoryRoot, relative, dependency)
-            if (resolved) pending.push(resolved)
+            const resolved = resolveExecutableDependency(repositoryRoot, relative, dependency);
+            if (resolved)
+            {
+                pending.push(resolved);
+            }
         }
     }
-    return { entry, modules: [...visited].sort() }
+    return { entry, modules: [...visited].sort() };
 }
 
 export function validatePostRuntimeRepositoryAuthority(repositoryRoot = root, {
     validateReaderFirewall = true
 } = {})
 {
-    canonicalRepositoryFile(repositoryRoot, registryRelative, 'canonical post-runtime registry')
-    const ownership = readJson(repositoryRoot, configurationOwnershipRelative)
+    canonicalRepositoryFile(repositoryRoot, registryRelative, 'canonical post-runtime registry');
+    const ownership = readJson(repositoryRoot, configurationOwnershipRelative);
     const owners = (ownership.ownership ?? []).filter((entry) =>
-        entry.id === 'post-runtime-producer-registry' || entry.canonicalPath === registryRelative)
+        entry.id === 'post-runtime-producer-registry' || entry.canonicalPath === registryRelative);
     if (owners.length !== 1 || owners[0].id !== 'post-runtime-producer-registry'
         || owners[0].canonicalPath !== registryRelative || owners[0].pathType !== 'file'
         || owners[0].owner !== 'behavior-test-evidence-binding'
         || owners[0].status !== 'manual')
     {
-        fail('post-runtime registry must have exact-one canonical configuration owner')
+        fail('post-runtime registry must have exact-one canonical configuration owner');
     }
-    const trackedEntries = trackedRepositoryEntries(repositoryRoot)
-    const indexBlobs = readIndexBlobs(repositoryRoot, trackedEntries)
-    const objectFormat = gitObjectFormat(repositoryRoot)
+    const trackedEntries = trackedRepositoryEntries(repositoryRoot);
+    const indexBlobs = readIndexBlobs(repositoryRoot, trackedEntries);
+    const objectFormat = gitObjectFormat(repositoryRoot);
     const registryFiles = trackedEntries
         .filter((entry) => indexBlobs.has(entry.oid))
         .filter((entry) =>
         {
-            const bytes = indexBlobs.get(entry.oid)
-            assertIndexWorktreeIdentity(repositoryRoot, entry, bytes, objectFormat)
-            const source = bytes.toString('utf8')
-            if (!source.trimStart().startsWith('{')) return false
+            const bytes = indexBlobs.get(entry.oid);
+            assertIndexWorktreeIdentity(repositoryRoot, entry, bytes, objectFormat);
+            const source = bytes.toString('utf8');
+            if (!source.trimStart().startsWith('{'))
+            {
+                return false;
+            }
             try
             {
                 return parseStrictJson(source, `tracked path ${entry.path}`)?.schema
-                    === postRuntimeRegistrySchema
+                    === postRuntimeRegistrySchema;
             }
             catch (error)
             {
-                if (source.includes(postRuntimeRegistrySchema)) throw error
-                return false
+                if (source.includes(postRuntimeRegistrySchema))
+                {
+                    throw error;
+                }
+                return false;
             }
         })
         .map((entry) => entry.path)
-        .sort()
-    assertExactSet(registryFiles, [registryRelative], 'post-runtime registry authority paths')
-    assertIndexSnapshotUnchanged(repositoryRoot, trackedEntries)
-    if (validateReaderFirewall) validatePostRuntimeReaderFirewall(repositoryRoot)
-    return true
+        .sort();
+    assertExactSet(registryFiles, [registryRelative], 'post-runtime registry authority paths');
+    assertIndexSnapshotUnchanged(repositoryRoot, trackedEntries);
+    if (validateReaderFirewall)
+    {
+        validatePostRuntimeReaderFirewall(repositoryRoot);
+    }
+    return true;
 }
 
 function receiptDigest(receipt)
 {
-    if (!isPlainObject(receipt)) fail('receipt must be a plain object')
+    if (!isPlainObject(receipt))
+    {
+        fail('receipt must be a plain object');
+    }
     const content = Object.fromEntries(Object.entries(receipt)
-        .filter(([key]) => key !== 'contentDigest'))
-    return `sha256:${digestValue(content)}`
+        .filter(([key]) => key !== 'contentDigest'));
+    return `sha256:${digestValue(content)}`;
 }
 
 function currentRunReferenceContentDigest(receipt)
 {
-    const { contentDigest: _content, producerReceiptDigest: _producer, ...payload } = receipt
-    return authorityDigest(payload)
+    // eslint-disable-next-line no-unused-vars
+    const { contentDigest: _content, producerReceiptDigest: _producer, ...payload } = receipt;
+    return authorityDigest(payload);
 }
 
 function currentRunReferenceProducerDigest(receipt)
 {
-    const { producerReceiptDigest: _producer, ...payload } = receipt
-    return authorityDigest(payload)
+    // eslint-disable-next-line no-unused-vars
+    const { producerReceiptDigest: _producer, ...payload } = receipt;
+    return authorityDigest(payload);
 }
 
 function assertExactSet(actual, expected, label)
@@ -859,7 +975,7 @@ function assertExactSet(actual, expected, label)
     if (!Array.isArray(actual) || new Set(actual).size !== actual.length
         || JSON.stringify([...actual].sort()) !== JSON.stringify([...expected].sort()))
     {
-        fail(`${label} must exact-match ${[...expected].sort().join(', ')}`)
+        fail(`${label} must exact-match ${[...expected].sort().join(', ')}`);
     }
 }
 
@@ -868,17 +984,18 @@ function assertExactKeys(value, expected, label)
     if (!isPlainObject(value)
         || JSON.stringify(Object.keys(value).sort()) !== JSON.stringify([...expected].sort()))
     {
-        fail(`${label} has missing or unknown fields`)
+        fail(`${label} has missing or unknown fields`);
     }
 }
 
+// eslint-disable-next-line no-unused-vars
 function assertAllowedKeys(value, allowed, required, label)
 {
     if (!isPlainObject(value)
         || Object.keys(value).some((key) => !allowed.includes(key))
         || required.some((key) => !Object.hasOwn(value, key)))
     {
-        fail(`${label} has missing or unknown fields`)
+        fail(`${label} has missing or unknown fields`);
     }
 }
 
@@ -888,20 +1005,23 @@ function currentReceiptFile(repositoryRoot, relative, label)
         || relative.includes('\\') || path.posix.normalize(relative) !== relative
         || !relative.startsWith('.tmp/') || unsafeReceiptPath.test(relative) || !relative.endsWith('.json'))
     {
-        fail(`${label} must be an explicit current-run JSON path`)
+        fail(`${label} must be an explicit current-run JSON path`);
     }
-    return canonicalRepositoryFile(repositoryRoot, relative, label)
+    return canonicalRepositoryFile(repositoryRoot, relative, label);
 }
 
 export const BehaviorId = (value) =>
 {
-    if (typeof value !== 'string' || !/^[a-z][a-z0-9-]*$/u.test(value)) throw new Error(`invalid behavior ID ${value}`)
-    return value
-}
+    if (typeof value !== 'string' || !/^[a-z][a-z0-9-]*$/u.test(value))
+    {
+        throw new Error(`invalid behavior ID ${value}`);
+    }
+    return value;
+};
 
 export function loadPostRuntimeProducerRegistry(repositoryRoot = root)
 {
-    return readJson(repositoryRoot, registryRelative)
+    return readJson(repositoryRoot, registryRelative);
 }
 
 export function validatePostRuntimeReceiptSchemas(registry, {
@@ -912,21 +1032,21 @@ export function validatePostRuntimeReceiptSchemas(registry, {
     if (observationSchema?.$id !== observationEnvelopeSchema
         || observationSchema.additionalProperties !== false)
     {
-        fail('observation envelope schema identity or closed shape drifted')
+        fail('observation envelope schema identity or closed shape drifted');
     }
     if (claimsSchema?.$id !== acceptedClaimsSchema || claimsSchema.additionalProperties !== false)
     {
-        fail('accepted-claims schema identity or closed shape drifted')
+        fail('accepted-claims schema identity or closed shape drifted');
     }
     const observationSchemas = Object.values(registry.observationClasses ?? {})
-        .map((definition) => definition.schema)
+        .map((definition) => definition.schema);
     assertExactSet(observationSchema.properties?.schema?.enum, observationSchemas,
-        'observation envelope schema identities')
+        'observation envelope schema identities');
     assertExactSet(observationSchema.properties?.modes?.items?.enum, modes,
-        'observation envelope modes')
+        'observation envelope modes');
     assertExactSet(observationSchema.properties?.outcome?.enum,
         Object.keys(registry.receiptSemantics?.terminalOutcomes ?? {}),
-        'observation envelope terminal outcomes')
+        'observation envelope terminal outcomes');
     assertExactSet(observationSchema.required, [
         'schema', 'producerId', 'toolVersion', 'registryDigest',
         'observationSchemaDigest', 'sourceState', 'executionClass',
@@ -935,45 +1055,45 @@ export function validatePostRuntimeReceiptSchemas(registry, {
         'attemptAuthorityRef', 'fixtureAuthorityRef', 'profileAuthorityRef',
         'sourceReceiptRef', 'canonicalRerunCommand', 'independentVerifyCommand',
         'contentDigest'
-    ], 'observation envelope required fields')
+    ], 'observation envelope required fields');
     assertExactSet(observationSchema.properties?.sourceState?.required,
         ['sourceCommit', 'worktreeFingerprint', 'runId', 'attemptId', 'fixtureId', 'profileId'],
-        'observation source-state required fields')
+        'observation source-state required fields');
     assertExactSet(observationSchema.$defs?.identityAuthorityRef?.properties?.role?.enum,
-        identityRoles, 'identity authority roles')
+        identityRoles, 'identity authority roles');
     if (observationSchema.$defs?.identityAuthorityRef?.properties?.schema?.const !== identityAuthoritySchema)
     {
-        fail('identity authority reference schema drifted')
+        fail('identity authority reference schema drifted');
     }
     assertExactSet(observationSchema.$defs?.sourceReceiptRef?.required,
         ['path', 'fileDigest', 'contentDigest', 'schema', 'role'],
-        'source receipt reference fields')
+        'source receipt reference fields');
     if (observationSchema.$defs?.sourceReceiptRef?.properties?.schema?.const !== sourceReceiptSchema
         || observationSchema.$defs?.sourceReceiptRef?.properties?.role?.const !== 'source')
     {
-        fail('source receipt reference schema/role drifted')
+        fail('source receipt reference schema/role drifted');
     }
     assertExactSet(claimsSchema.required, [
         'schema', 'sourceState', 'producerId', 'toolVersion', 'registryDigest',
         'claimsSchemaDigest', 'terminalReceiptRef', 'migrationLedgerDigest', 'claims',
         'status', 'contentDigest'
-    ], 'accepted-claims required fields')
+    ], 'accepted-claims required fields');
     assertExactSet(claimsSchema.properties?.terminalReceiptRef?.required,
         ['path', 'fileDigest', 'contentDigest', 'schema', 'authorityId', 'producerId',
             'toolVersion', 'producerCommand', 'payloadPath', 'payloadFileDigest',
             'payloadContentDigest', 'payloadSchema'],
-        'accepted terminal receipt reference fields')
+        'accepted terminal receipt reference fields');
     assertExactSet(claimsSchema.properties?.claims?.items?.required,
         ['claimId', 'behaviorId', 'scopeId', 'claimDigest'],
-        'accepted claim fields')
+        'accepted claim fields');
     if (claimsSchema.properties?.terminalReceiptRef?.properties?.schema?.const
         !== currentRunEvidenceReferenceSchema
         || claimsSchema.properties?.terminalReceiptRef?.properties?.payloadSchema?.const
         !== globalExactnessSchema)
     {
-        fail('accepted-claims terminal schema does not bind #2205 authority')
+        fail('accepted-claims terminal schema does not bind #2205 authority');
     }
-    return true
+    return true;
 }
 
 export function requiredPostRuntimeBehaviors(catalog)
@@ -983,7 +1103,7 @@ export function requiredPostRuntimeBehaviors(catalog)
             && contract.evidenceStage === 'post-runtime'
             && contract.releaseQualification === true)
         .map((contract) => contract.id)
-        .sort()
+        .sort();
 }
 
 export function validatePostRuntimeProducerRegistry(registry, {
@@ -998,38 +1118,41 @@ export function validatePostRuntimeProducerRegistry(registry, {
 {
     if (!registry || registry.schema !== postRuntimeRegistrySchema)
     {
-        fail(`unexpected registry schema: ${registry?.schema ?? 'missing'}`)
+        fail(`unexpected registry schema: ${registry?.schema ?? 'missing'}`);
     }
     for (const key of Object.keys(registry))
     {
-        if (forbiddenRegistryFields.has(key)) fail(`forbidden registry field ${key}`)
+        if (forbiddenRegistryFields.has(key))
+        {
+            fail(`forbidden registry field ${key}`);
+        }
     }
     assertExactKeys(registry, [
         'schema', 'digestAlgorithm', 'canonicalSerialization', 'receiptSemantics',
         'observationClasses', 'producers'
-    ], 'registry')
+    ], 'registry');
     if (registry.digestAlgorithm !== 'sha256' || registry.canonicalSerialization !== 'json-utf8-v1')
     {
-        fail('registry digest algorithm or canonical serialization drifted')
+        fail('registry digest algorithm or canonical serialization drifted');
     }
-    const semantics = registry.receiptSemantics
+    const semantics = registry.receiptSemantics;
     assertExactKeys(semantics, [
         'observationEnvelopeSchema', 'acceptedClaimsSchema', 'acceptedClaimsToolVersion',
         'acceptedTerminalSchema', 'acceptedTerminalAuthority', 'requiredModes',
         'qualifyingEnvelope', 'terminalOutcomes'
-    ], 'receipt semantics')
+    ], 'receipt semantics');
     if (semantics.observationEnvelopeSchema !== observationEnvelopeSchema
         || semantics.acceptedClaimsSchema !== acceptedClaimsSchema
         || semantics.acceptedTerminalSchema !== globalExactnessSchema
         || !toolVersionPattern.test(semantics.acceptedClaimsToolVersion ?? ''))
     {
-        fail('receipt semantics schema or accepted-claims tool identity drifted')
+        fail('receipt semantics schema or accepted-claims tool identity drifted');
     }
-    const terminalAuthority = semantics.acceptedTerminalAuthority
+    const terminalAuthority = semantics.acceptedTerminalAuthority;
     assertExactKeys(terminalAuthority, [
         'referenceSchema', 'authorityId', 'producerId', 'toolVersion', 'producerCommand',
         'referenceRoot', 'referenceName', 'payloadName'
-    ], 'accepted terminal authority')
+    ], 'accepted terminal authority');
     if (terminalAuthority.referenceSchema !== currentRunEvidenceReferenceSchema
         || terminalAuthority.authorityId !== 'evidence-consumer.docs.global-claim-exactness-final.current-run'
         || terminalAuthority.producerId !== 'evidence-consumer.docs.global-claim-exactness-final.producer'
@@ -1039,82 +1162,88 @@ export function validatePostRuntimeProducerRegistry(registry, {
         || !/^[a-z0-9.-]+\.json$/u.test(terminalAuthority.referenceName ?? '')
         || !/^[a-z0-9.-]+\.json$/u.test(terminalAuthority.payloadName ?? ''))
     {
-        fail('accepted terminal authority identity/path/command is invalid')
+        fail('accepted terminal authority identity/path/command is invalid');
     }
-    assertExactSet(semantics.requiredModes, modes, 'receipt semantics required modes')
+    assertExactSet(semantics.requiredModes, modes, 'receipt semantics required modes');
     assertExactKeys(semantics.qualifyingEnvelope, [
         'executionClass', 'evidenceClass', 'qualificationEligible', 'planned',
         'executed', 'outcome', 'recovered'
-    ], 'qualifying envelope')
-    const qualifying = semantics.qualifyingEnvelope
+    ], 'qualifying envelope');
+    const qualifying = semantics.qualifyingEnvelope;
     if (qualifying.executionClass !== 'correctness' || qualifying.evidenceClass !== 'correctness'
         || qualifying.qualificationEligible !== true || qualifying.planned !== true
         || qualifying.executed !== true || qualifying.outcome !== 'passed'
         || qualifying.recovered !== false)
     {
-        fail('qualifying envelope must be clean correctness execution')
+        fail('qualifying envelope must be clean correctness execution');
     }
     assertExactKeys(semantics.terminalOutcomes, ['passed', 'failed', 'timed-out', 'cancelled'],
-        'terminal outcome registry')
+        'terminal outcome registry');
     const expectedTerminal = {
         passed: [false, false, false],
         failed: [false, false, false],
         'timed-out': [true, false, true],
         cancelled: [false, true, true]
-    }
+    };
     for (const [outcome, expected] of Object.entries(expectedTerminal))
     {
-        const terminal = semantics.terminalOutcomes[outcome]
+        const terminal = semantics.terminalOutcomes[outcome];
         assertExactKeys(terminal, ['timeout', 'cancelled', 'processTreeTerminated'],
-            `terminal outcome ${outcome}`)
+            `terminal outcome ${outcome}`);
         if (JSON.stringify([terminal.timeout, terminal.cancelled, terminal.processTreeTerminated])
             !== JSON.stringify(expected))
         {
-            fail(`terminal outcome ${outcome} has contradictory process semantics`)
+            fail(`terminal outcome ${outcome} has contradictory process semantics`);
         }
     }
 
-    const classIds = Object.keys(registry.observationClasses ?? {})
-    if (classIds.length === 0) fail('observation classes must not be empty')
+    const classIds = Object.keys(registry.observationClasses ?? {});
+    if (classIds.length === 0)
+    {
+        fail('observation classes must not be empty');
+    }
     for (const [classId, definition] of Object.entries(registry.observationClasses ?? {}))
     {
         assertExactKeys(definition, [
             'schema', 'sourceReceipt', 'requiredIdentityFields', 'requiredSemanticFactFields',
             'allowedModes', 'existenceShortcutForbidden'
-        ], `observation class ${classId}`)
-        if (!/^[a-z0-9-]+$/u.test(classId)) fail(`observation class id ${classId} is not canonical`)
+        ], `observation class ${classId}`);
+        if (!/^[a-z0-9-]+$/u.test(classId))
+        {
+            fail(`observation class id ${classId} is not canonical`);
+        }
         if (!definition.schema || !/^fsusblog\.observation\.[a-z0-9.-]+\.v\d+$/u.test(definition.schema))
         {
             if (definition.schema !== 'fsusblog.browser-contract-receipt.v2')
             {
-                fail(`observation class ${classId} schema is missing or not versioned`)
+                fail(`observation class ${classId} schema is missing or not versioned`);
             }
         }
         assertExactKeys(definition.sourceReceipt, [
             'schema', 'role', 'discriminator', 'requiredFields',
             'requiredReferenceFields', 'referenceContracts', 'referenceMap'
         ],
-            `observation class ${classId} source receipt`)
+        `observation class ${classId} source receipt`);
         if (!/^fsusblog\.[a-z0-9.-]+\.v\d+$/u.test(definition.sourceReceipt.schema ?? '')
             || !sourceReceiptRoles.includes(definition.sourceReceipt.role))
         {
-            fail(`observation class ${classId} source receipt schema/role is invalid`)
+            fail(`observation class ${classId} source receipt schema/role is invalid`);
         }
         if (definition.sourceReceipt.role === 'probe')
         {
             assertExactKeys(definition.sourceReceipt.discriminator, ['field', 'value'],
-                `observation class ${classId} source receipt discriminator`)
+                `observation class ${classId} source receipt discriminator`);
             if (definition.sourceReceipt.discriminator.field !== 'kind'
                 || definition.sourceReceipt.discriminator.value !== classId)
             {
-                fail(`observation class ${classId} probe discriminator must bind its class id`)
+                fail(`observation class ${classId} probe discriminator must bind its class id`);
             }
         }
         else if (definition.sourceReceipt.discriminator !== null)
         {
-            fail(`observation class ${classId} non-probe source receipt cannot declare a discriminator`)
+            fail(`observation class ${classId} non-probe source receipt cannot declare a discriminator`);
         }
-        const sourceContract = definition.sourceReceipt
+        const sourceContract = definition.sourceReceipt;
         if (!Array.isArray(sourceContract.requiredFields)
             || new Set(sourceContract.requiredFields).size !== sourceContract.requiredFields.length
             || !['schema', 'producerId', 'toolVersion', 'sourceState', 'canonicalRerunCommand',
@@ -1124,51 +1253,51 @@ export function validatePostRuntimeProducerRegistry(registry, {
             || new Set(sourceContract.requiredReferenceFields).size !== sourceContract.requiredReferenceFields.length
             || sourceContract.requiredReferenceFields.some((field) => !sourceContract.requiredFields.includes(field)))
         {
-            fail(`observation class ${classId} source receipt must declare a closed producer/identity/reference shape`)
+            fail(`observation class ${classId} source receipt must declare a closed producer/identity/reference shape`);
         }
         if (sourceContract.referenceMap !== null)
         {
             assertExactKeys(sourceContract.referenceMap, ['field', 'keys'],
-                `observation class ${classId} source receipt reference map`)
+                `observation class ${classId} source receipt reference map`);
             if (!sourceContract.requiredFields.includes(sourceContract.referenceMap.field)
                 || !Array.isArray(sourceContract.referenceMap.keys)
                 || sourceContract.referenceMap.keys.length === 0
                 || new Set(sourceContract.referenceMap.keys).size !== sourceContract.referenceMap.keys.length)
             {
-                fail(`observation class ${classId} source receipt reference map is not exact`)
+                fail(`observation class ${classId} source receipt reference map is not exact`);
             }
         }
         const referenceKeys = [
             ...sourceContract.requiredReferenceFields,
             ...(sourceContract.referenceMap?.keys ?? []).map((key) =>
                 `${sourceContract.referenceMap.field}.${key}`)
-        ]
+        ];
         assertExactKeys(sourceContract.referenceContracts, referenceKeys,
-            `observation class ${classId} source receipt reference contracts`)
+            `observation class ${classId} source receipt reference contracts`);
         for (const [field, referenceContract] of Object.entries(sourceContract.referenceContracts))
         {
             assertExactKeys(referenceContract, ['schema', 'role', 'identityFields'],
-                `observation class ${classId} source receipt reference ${field}`)
-            const identityCapabilities = embeddedIdentityCapabilities[referenceContract.schema]
+                `observation class ${classId} source receipt reference ${field}`);
+            const identityCapabilities = embeddedIdentityCapabilities[referenceContract.schema];
             const expectedReferenceIdentities = identityCapabilities?.filter((identity) =>
-                definition.requiredIdentityFields.includes(identity))
+                definition.requiredIdentityFields.includes(identity));
             if (!/^fsusblog\.[a-z0-9.-]+\.v\d+$/u.test(referenceContract.schema ?? '')
                 || !/^[a-z][a-z0-9-]*$/u.test(referenceContract.role ?? '')
                 || identityCapabilities === undefined
                 || JSON.stringify(referenceContract.identityFields)
                     !== JSON.stringify(expectedReferenceIdentities))
             {
-                fail(`observation class ${classId} source receipt reference ${field} schema/role/identity is invalid`)
+                fail(`observation class ${classId} source receipt reference ${field} schema/role/identity is invalid`);
             }
         }
-        const identities = definition.requiredIdentityFields ?? []
+        const identities = definition.requiredIdentityFields ?? [];
         if (!identities.includes('contentDigest'))
         {
-            fail(`observation class ${classId} must bind contentDigest`)
+            fail(`observation class ${classId} must bind contentDigest`);
         }
         if (definition.existenceShortcutForbidden !== true)
         {
-            fail(`observation class ${classId} must forbid existence shortcuts`)
+            fail(`observation class ${classId} must forbid existence shortcuts`);
         }
         if (!Array.isArray(definition.requiredSemanticFactFields)
             || definition.requiredSemanticFactFields.length === 0
@@ -1176,30 +1305,39 @@ export function validatePostRuntimeProducerRegistry(registry, {
             || definition.requiredSemanticFactFields.some((field) =>
                 typeof field !== 'string' || field.length === 0 || forbiddenSemanticFactFields.has(field)))
         {
-            fail(`observation class ${classId} must declare closed semantic facts without existence shortcuts`)
+            fail(`observation class ${classId} must declare closed semantic facts without existence shortcuts`);
         }
         if (rawFactSourceSchemas[classId] !== sourceContract.schema)
         {
-            fail(`observation class ${classId} has no closed raw fact extractor for ${sourceContract.schema}`)
+            fail(`observation class ${classId} has no closed raw fact extractor for ${sourceContract.schema}`);
         }
-        assertExactSet(definition.allowedModes, modes, `observation class ${classId} allowed modes`)
+        assertExactSet(definition.allowedModes, modes, `observation class ${classId} allowed modes`);
         for (const field of Object.keys(definition))
         {
-            if (forbiddenRegistryFields.has(field)) fail(`observation class ${classId} has forbidden field ${field}`)
+            if (forbiddenRegistryFields.has(field))
+            {
+                fail(`observation class ${classId} has forbidden field ${field}`);
+            }
         }
     }
 
-    const requiredBehaviors = requiredPostRuntimeBehaviors(catalog)
-    if (requiredBehaviors.length === 0) fail('catalog declares no post-runtime release behaviors')
+    const requiredBehaviors = requiredPostRuntimeBehaviors(catalog);
+    if (requiredBehaviors.length === 0)
+    {
+        fail('catalog declares no post-runtime release behaviors');
+    }
 
-    const producers = registry.producers ?? []
-    const byBehavior = new Map()
-    const contracts = new Map((catalog.contracts ?? []).map((contract) => [contract.id, contract]))
+    const producers = registry.producers ?? [];
+    const byBehavior = new Map();
+    const contracts = new Map((catalog.contracts ?? []).map((contract) => [contract.id, contract]));
     for (const producer of producers)
     {
         for (const field of Object.keys(producer))
         {
-            if (forbiddenRegistryFields.has(field)) fail(`producer ${producer.producerId} has forbidden field ${field}`)
+            if (forbiddenRegistryFields.has(field))
+            {
+                fail(`producer ${producer.producerId} has forbidden field ${field}`);
+            }
         }
         assertExactKeys(producer, [
             'producerId', 'toolVersion', 'owner', 'behaviorId', 'behaviorDomain',
@@ -1207,38 +1345,38 @@ export function validatePostRuntimeProducerRegistry(registry, {
             'requiredIdentities', 'requiredObservations',
             'diagnosticEligible', 'timeoutPolicy', 'cancelPolicy', 'recoveryPolicy',
             'acceptedClaimRefs'
-        ], `producer ${producer.producerId ?? 'missing'}`)
+        ], `producer ${producer.producerId ?? 'missing'}`);
         if (!/^[a-z0-9-]+$/u.test(producer.producerId ?? ''))
         {
-            fail(`producer id ${producer.producerId} is not canonical`)
+            fail(`producer id ${producer.producerId} is not canonical`);
         }
         if (!toolVersionPattern.test(producer.toolVersion ?? ''))
         {
-            fail(`producer ${producer.producerId} toolVersion is missing or invalid`)
+            fail(`producer ${producer.producerId} toolVersion is missing or invalid`);
         }
         if (byBehavior.has(producer.behaviorId))
         {
-            fail(`behavior ${producer.behaviorId} is mapped by two producers (${byBehavior.get(producer.behaviorId)}, ${producer.producerId})`)
+            fail(`behavior ${producer.behaviorId} is mapped by two producers (${byBehavior.get(producer.behaviorId)}, ${producer.producerId})`);
         }
-        byBehavior.set(producer.behaviorId, producer.producerId)
+        byBehavior.set(producer.behaviorId, producer.producerId);
         if (!requiredBehaviors.includes(producer.behaviorId))
         {
-            fail(`producer ${producer.producerId} maps behavior ${producer.behaviorId} which is not a post-runtime release behavior`)
+            fail(`producer ${producer.producerId} maps behavior ${producer.behaviorId} which is not a post-runtime release behavior`);
         }
-        const contract = contracts.get(producer.behaviorId)
+        const contract = contracts.get(producer.behaviorId);
         if (producer.behaviorDomain !== contract?.domain
             || producer.producerTierId !== contract?.runtimeEvidence?.producerTierId
             || producer.observationSchema !== contract?.runtimeEvidence?.observationSchema)
         {
-            fail(`producer ${producer.producerId} domain/tier/schema conflicts with the BehaviorCatalog`)
+            fail(`producer ${producer.producerId} domain/tier/schema conflicts with the BehaviorCatalog`);
         }
         if (!runtimeProducerDomains.has(producer.behaviorDomain))
         {
-            fail(`producer ${producer.producerId} behavior domain is not runtime-eligible`)
+            fail(`producer ${producer.producerId} behavior domain is not runtime-eligible`);
         }
-        const tier = (matrix.tiers ?? []).find((entry) => entry.id === producer.producerTierId)
+        const tier = (matrix.tiers ?? []).find((entry) => entry.id === producer.producerTierId);
         const attemptAuthority = (attemptProducers.entries ?? []).find((entry) =>
-            entry.producerId === `matrix:${producer.producerTierId}`)
+            entry.producerId === `matrix:${producer.producerTierId}`);
         if (!tier || !attemptAuthority
             || attemptAuthority.sourceAuthority !== matrixRelative
             || JSON.stringify(attemptAuthority.logicalTierIds) !== JSON.stringify([producer.producerTierId])
@@ -1246,92 +1384,92 @@ export function validatePostRuntimeProducerRegistry(registry, {
             || attemptAuthority.executionOwner !== producer.owner
             || attemptAuthority.qualificationEligible !== true)
         {
-            fail(`producer ${producer.producerId} owner is not the canonical matrix producer authority`)
+            fail(`producer ${producer.producerId} owner is not the canonical matrix producer authority`);
         }
         if (typeof tier.command !== 'string' || !tier.command.startsWith('tools/')
             || tier.command.endsWith('.md'))
         {
-            fail(`producer ${producer.producerId} command must be a non-Markdown executable authority`)
+            fail(`producer ${producer.producerId} command must be a non-Markdown executable authority`);
         }
-        canonicalRepositoryFile(repositoryRoot, tier.command, `producer ${producer.producerId} command`)
+        canonicalRepositoryFile(repositoryRoot, tier.command, `producer ${producer.producerId} command`);
         if (typeof producer.owner !== 'string' || producer.owner.startsWith('docs/')
             || producer.owner.endsWith('.md'))
         {
-            fail(`producer ${producer.producerId} owner must be a non-Markdown executable authority`)
+            fail(`producer ${producer.producerId} owner must be a non-Markdown executable authority`);
         }
-        canonicalRepositoryFile(repositoryRoot, producer.owner, `producer ${producer.producerId} owner`)
+        canonicalRepositoryFile(repositoryRoot, producer.owner, `producer ${producer.producerId} owner`);
         if (producer.diagnosticEligible === true)
         {
-            fail(`producer ${producer.producerId} must never accept diagnostic evidence as qualification`)
+            fail(`producer ${producer.producerId} must never accept diagnostic evidence as qualification`);
         }
         if (producer.executionClass !== 'correctness' && producer.executionClass !== 'browser-contract')
         {
-            fail(`producer ${producer.producerId} execution class ${producer.executionClass} cannot satisfy qualification`)
+            fail(`producer ${producer.producerId} execution class ${producer.executionClass} cannot satisfy qualification`);
         }
         if (producer.evidenceClass !== tier.evidenceClass
             || !['correctness', 'browser-contract'].includes(producer.evidenceClass))
         {
-            fail(`producer ${producer.producerId} evidenceClass conflicts with its matrix tier`)
+            fail(`producer ${producer.producerId} evidenceClass conflicts with its matrix tier`);
         }
         for (const identity of producer.requiredIdentities ?? [])
         {
             if (typeof identity !== 'string' || identity.length === 0)
             {
-                fail(`producer ${producer.producerId} has an invalid required identity`)
+                fail(`producer ${producer.producerId} has an invalid required identity`);
             }
         }
         if (!(producer.requiredIdentities ?? []).includes('sourceCommit')
             || !(producer.requiredIdentities ?? []).includes('worktreeFingerprint'))
         {
-            fail(`producer ${producer.producerId} must bind source identity`)
+            fail(`producer ${producer.producerId} must bind source identity`);
         }
         assertExactKeys(producer.requiredObservations, modes,
-            `producer ${producer.producerId} required observations`)
-        const observedClasses = new Set()
+            `producer ${producer.producerId} required observations`);
+        const observedClasses = new Set();
         for (const [mode, classes] of Object.entries(producer.requiredObservations ?? {}))
         {
             if (!['positive', 'negative', 'boundary', 'failure'].includes(mode))
             {
-                fail(`producer ${producer.producerId} has unknown observation mode ${mode}`)
+                fail(`producer ${producer.producerId} has unknown observation mode ${mode}`);
             }
             if (!Array.isArray(classes) || classes.length === 0)
             {
-                fail(`producer ${producer.producerId} mode ${mode} must list observation classes`)
+                fail(`producer ${producer.producerId} mode ${mode} must list observation classes`);
             }
             if (new Set(classes).size !== classes.length)
             {
-                fail(`producer ${producer.producerId} mode ${mode} has duplicate observation classes`)
+                fail(`producer ${producer.producerId} mode ${mode} has duplicate observation classes`);
             }
             for (const classId of classes)
             {
                 if (!registry.observationClasses[classId])
                 {
-                    fail(`producer ${producer.producerId} references unknown observation class ${classId}`)
+                    fail(`producer ${producer.producerId} references unknown observation class ${classId}`);
                 }
-                observedClasses.add(classId)
+                observedClasses.add(classId);
             }
         }
         assertExactSet([...observedClasses], classIds,
-            `producer ${producer.producerId} observation class closure`)
+            `producer ${producer.producerId} observation class closure`);
         for (const policy of ['timeoutPolicy', 'cancelPolicy', 'recoveryPolicy'])
         {
             if (typeof producer[policy] !== 'string' || producer[policy].length === 0)
             {
-                fail(`producer ${producer.producerId} must declare ${policy}`)
+                fail(`producer ${producer.producerId} must declare ${policy}`);
             }
         }
         if (!Array.isArray(producer.acceptedClaimRefs) || producer.acceptedClaimRefs.length === 0)
         {
-            fail(`producer ${producer.producerId} must reference accepted document claims`)
+            fail(`producer ${producer.producerId} must reference accepted document claims`);
         }
         if (migrationLedger)
         {
             const ledgerClaims = migrationLedger.scopes
                 .flatMap((scope) => scope.entries)
                 .filter((entry) => entry['behaviorId'] === producer.behaviorId)
-                .flatMap((entry) => entry.claimIds)
+                .flatMap((entry) => entry.claimIds);
             assertExactSet(producer.acceptedClaimRefs, ledgerClaims,
-                `producer ${producer.producerId} accepted claim refs`)
+                `producer ${producer.producerId} accepted claim refs`);
         }
     }
 
@@ -1339,15 +1477,18 @@ export function validatePostRuntimeProducerRegistry(registry, {
     {
         if (!byBehavior.has(behaviorId))
         {
-            fail(`post-runtime release behavior ${behaviorId} has no producer mapping`)
+            fail(`post-runtime release behavior ${behaviorId} has no producer mapping`);
         }
     }
 
     validatePostRuntimeReceiptSchemas(registry, {
         observationSchema: readJson(repositoryRoot, observationEnvelopeSchemaRelative),
         claimsSchema: readJson(repositoryRoot, acceptedClaimsSchemaRelative)
-    })
-    if (validateRepositoryAuthority) validatePostRuntimeRepositoryAuthority(repositoryRoot)
+    });
+    if (validateRepositoryAuthority)
+    {
+        validatePostRuntimeRepositoryAuthority(repositoryRoot);
+    }
 
     return {
         schema: registry.schema,
@@ -1355,30 +1496,33 @@ export function validatePostRuntimeProducerRegistry(registry, {
         producerCount: producers.length,
         observationClassCount: classIds.length,
         warnings: 0
-    }
+    };
 }
 
 function producerFor(registry, producerId)
 {
     if (registry?.schema !== postRuntimeRegistrySchema)
     {
-        fail(`unexpected registry schema: ${registry?.schema ?? 'missing'}`)
+        fail(`unexpected registry schema: ${registry?.schema ?? 'missing'}`);
     }
-    const producer = (registry.producers ?? []).find((entry) => entry.producerId === producerId)
-    if (!producer) fail(`unknown producer ${producerId}`)
-    return producer
+    const producer = (registry.producers ?? []).find((entry) => entry.producerId === producerId);
+    if (!producer)
+    {
+        fail(`unknown producer ${producerId}`);
+    }
+    return producer;
 }
 
 function classForReceipt(registry, receipt, requestedClassId = null)
 {
     const matches = Object.entries(registry.observationClasses ?? {})
         .filter(([classId, definition]) => definition.schema === receipt?.schema
-            && (requestedClassId === null || classId === requestedClassId))
+            && (requestedClassId === null || classId === requestedClassId));
     if (matches.length !== 1)
     {
-        fail(`receipt schema ${receipt?.schema ?? 'missing'} does not resolve exact-one observation class`)
+        fail(`receipt schema ${receipt?.schema ?? 'missing'} does not resolve exact-one observation class`);
     }
-    return { classId: matches[0][0], definition: matches[0][1] }
+    return { classId: matches[0][0], definition: matches[0][1] };
 }
 
 function requiredModesFor(producer, classId)
@@ -1386,29 +1530,29 @@ function requiredModesFor(producer, classId)
     return Object.entries(producer.requiredObservations)
         .filter(([, classIds]) => classIds.includes(classId))
         .map(([mode]) => mode)
-        .sort()
+        .sort();
 }
 
 function validateTypedSourceState(sourceState, repositoryRoot, producerId,
     requiredIdentityFields)
 {
     const sourceIdentityFields = requiredIdentityFields
-        .filter((field) => !['producerId', 'toolVersion', 'contentDigest'].includes(field))
+        .filter((field) => !['producerId', 'toolVersion', 'contentDigest'].includes(field));
     assertExactKeys(sourceState, sourceIdentityFields,
-        `producer ${producerId} sourceState`)
+        `producer ${producerId} sourceState`);
     if (!/^[a-f0-9]{40}$/u.test(sourceState.sourceCommit ?? '')
         || !digestPattern.test(sourceState.worktreeFingerprint ?? '')
         || !runIdentityPattern.test(sourceState.runId ?? '')
         || !attemptIdentityPattern.test(sourceState.attemptId ?? '')
         || !stableIdentityPattern.test(sourceState.profileId ?? ''))
     {
-        fail(`producer ${producerId} receipt source identity is invalid`)
+        fail(`producer ${producerId} receipt source identity is invalid`);
     }
     for (const digestField of ['buildIdentity', 'artifactDigest'])
     {
         if (sourceState[digestField] !== undefined && !digestPattern.test(sourceState[digestField]))
         {
-            fail(`producer ${producerId} receipt source identity ${digestField} is invalid`)
+            fail(`producer ${producerId} receipt source identity ${digestField} is invalid`);
         }
     }
     const scopedIdentities = {
@@ -1417,18 +1561,18 @@ function validateTypedSourceState(sourceState, repositoryRoot, producerId,
         runtimeId: `${sourceState.runId}:runtime`,
         browserIdentity: `${sourceState.runId}:browser-contract`,
         rolloutId: `${sourceState.runId}:rollout`
-    }
+    };
     if (Object.entries(scopedIdentities).some(([field, expected]) =>
         sourceIdentityFields.includes(field) && sourceState[field] !== expected)
         || (sourceIdentityFields.includes('releaseId')
             && !releaseIdentityPattern.test(sourceState.releaseId ?? '')))
     {
-        fail(`producer ${producerId} receipt scoped candidate/runtime/browser/release identity is invalid`)
+        fail(`producer ${producerId} receipt scoped candidate/runtime/browser/release identity is invalid`);
     }
-    const profileCatalog = readJson(repositoryRoot, fixtureProfileCatalogRelative)
+    const profileCatalog = readJson(repositoryRoot, fixtureProfileCatalogRelative);
     if (!(profileCatalog.profiles ?? []).some((profile) => profile.id === sourceState.profileId))
     {
-        fail(`producer ${producerId} profileId is absent from the fixture-profile authority`)
+        fail(`producer ${producerId} profileId is absent from the fixture-profile authority`);
     }
 }
 
@@ -1438,12 +1582,12 @@ function validateMachineGlobalClaimExactnessReceipt(receipt)
         'schema', 'scopeId', 'runId', 'source', 'authorityDigests', 'counts', 'mutationAggregate',
         'claimAcceptance', 'residue', 'proseVerification', 'status', 'failureReasons',
         'contentDigest'
-    ], 'global exactness terminal receipt')
+    ], 'global exactness terminal receipt');
     if (receipt.schema !== globalExactnessSchema
         || !runIdentityPattern.test(receipt.runId ?? '')
         || receipt.contentDigest !== digestValue({ ...receipt, contentDigest: null }))
     {
-        fail('global exactness terminal schema/contentDigest mismatch')
+        fail('global exactness terminal schema/contentDigest mismatch');
     }
     if (receipt.status !== 'ok' || !Array.isArray(receipt.failureReasons)
         || receipt.failureReasons.length !== 0 || !Array.isArray(receipt.residue)
@@ -1453,21 +1597,21 @@ function validateMachineGlobalClaimExactnessReceipt(receipt)
         || receipt.counts?.proseVerified !== receipt.counts?.proseTotal
         || receipt.mutationAggregate?.killed !== receipt.mutationAggregate?.total)
     {
-        fail('global exactness terminal receipt is not a clean machine acceptance')
+        fail('global exactness terminal receipt is not a clean machine acceptance');
     }
     if (!Array.isArray(receipt.claimAcceptance)
         || receipt.claimAcceptance.length
             !== receipt.counts.generatedClaimCount + receipt.counts.proseClaimCount)
     {
-        fail('global exactness terminal claim acceptance count mismatch')
+        fail('global exactness terminal claim acceptance count mismatch');
     }
-    const claimIds = new Set()
+    const claimIds = new Set();
     for (const claim of receipt.claimAcceptance)
     {
         assertExactKeys(claim, [
             'claimId', 'behaviorId', 'scopeId', 'documentPath', 'claimType',
             'generatedSectionId', 'claimDigest'
-        ], 'global exactness terminal claim acceptance')
+        ], 'global exactness terminal claim acceptance');
         if (claimIds.has(claim.claimId) || !/^[a-z][a-z0-9.-]{2,255}$/u.test(claim.claimId ?? '')
             || !stableIdentityPattern.test(claim.behaviorId ?? '')
             || !stableIdentityPattern.test(claim.scopeId ?? '')
@@ -1476,109 +1620,112 @@ function validateMachineGlobalClaimExactnessReceipt(receipt)
             || (claim.claimType === 'generated-section') !== (claim.generatedSectionId !== null)
             || !digestPattern.test(claim.claimDigest ?? ''))
         {
-            fail('global exactness terminal claim acceptance is invalid')
+            fail('global exactness terminal claim acceptance is invalid');
         }
-        claimIds.add(claim.claimId)
+        claimIds.add(claim.claimId);
     }
-    return receipt
+    return receipt;
 }
 
 function validateIdentityAuthorityRef(repositoryRoot, ref, expectedRole, sourceState, producerId)
 {
     assertExactKeys(ref, ['path', 'fileDigest', 'contentDigest', 'schema', 'role'],
-        `producer ${producerId} ${expectedRole} authority reference`)
+        `producer ${producerId} ${expectedRole} authority reference`);
     if (ref.schema !== identityAuthoritySchema || ref.role !== expectedRole
         || !digestPattern.test(ref.fileDigest ?? '') || !digestPattern.test(ref.contentDigest ?? ''))
     {
-        fail(`producer ${producerId} ${expectedRole} authority reference is invalid`)
+        fail(`producer ${producerId} ${expectedRole} authority reference is invalid`);
     }
-    currentReceiptFile(repositoryRoot, ref.path, `producer ${producerId} ${expectedRole} authority`)
+    currentReceiptFile(repositoryRoot, ref.path, `producer ${producerId} ${expectedRole} authority`);
     const bytes = readPinnedRepositoryFile(repositoryRoot, ref.path,
-        `producer ${producerId} ${expectedRole} authority`).bytes
-    const fileDigest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`
-    if (ref.fileDigest !== fileDigest) fail(`producer ${producerId} ${expectedRole} authority file digest mismatch`)
-    const authority = parseCanonicalJson(bytes, `producer ${producerId} ${expectedRole} authority`, 2)
+        `producer ${producerId} ${expectedRole} authority`).bytes;
+    const fileDigest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+    if (ref.fileDigest !== fileDigest)
+    {
+        fail(`producer ${producerId} ${expectedRole} authority file digest mismatch`);
+    }
+    const authority = parseCanonicalJson(bytes, `producer ${producerId} ${expectedRole} authority`, 2);
     assertExactKeys(authority, ['schema', 'role', 'authorityId', 'sourceState', 'contentDigest'],
-        `producer ${producerId} ${expectedRole} authority`)
+        `producer ${producerId} ${expectedRole} authority`);
     const roleIdentity = {
         plan: 'runId',
         attempt: 'attemptId',
         fixture: 'fixtureId',
         profile: 'profileId'
-    }[expectedRole]
+    }[expectedRole];
     if (authority.schema !== identityAuthoritySchema || authority.role !== expectedRole
         || authority.authorityId !== sourceState[roleIdentity]
         || authority.contentDigest !== receiptDigest(authority)
         || ref.contentDigest !== authority.contentDigest)
     {
-        fail(`producer ${producerId} ${expectedRole} authority identity/content mismatch`)
+        fail(`producer ${producerId} ${expectedRole} authority identity/content mismatch`);
     }
     assertExactKeys(authority.sourceState,
         ['sourceCommit', 'worktreeFingerprint', 'runId', 'attemptId', 'fixtureId', 'profileId'],
-        `producer ${producerId} ${expectedRole} authority sourceState`)
+        `producer ${producerId} ${expectedRole} authority sourceState`);
     for (const field of Object.keys(authority.sourceState))
     {
         if (authority.sourceState[field] !== sourceState[field])
         {
-            fail(`producer ${producerId} ${expectedRole} authority sourceState mismatch`)
+            fail(`producer ${producerId} ${expectedRole} authority sourceState mismatch`);
         }
     }
 }
 
 function readCurrentJsonBytes(repositoryRoot, relative, label)
 {
-    currentReceiptFile(repositoryRoot, relative, label)
-    const bytes = readPinnedRepositoryFile(repositoryRoot, relative, label).bytes
-    let value
+    currentReceiptFile(repositoryRoot, relative, label);
+    const bytes = readPinnedRepositoryFile(repositoryRoot, relative, label).bytes;
+    let value;
     try
     {
-        value = parseCanonicalJson(bytes, label, 2)
+        value = parseCanonicalJson(bytes, label, 2);
     }
     catch
     {
-        fail(`${label} must contain structured JSON`)
+        fail(`${label} must contain structured JSON`);
     }
     return {
         bytes,
         value,
         fileDigest: `sha256:${createHash('sha256').update(bytes).digest('hex')}`
-    }
+    };
 }
 
 function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, label)
 {
-    assertExactKeys(ref, ['path', 'fileDigest', 'contentDigest', 'schema', 'role'], label)
+    assertExactKeys(ref, ['path', 'fileDigest', 'contentDigest', 'schema', 'role'], label);
     if (ref.schema !== contract.schema || ref.role !== contract.role
         || !digestPattern.test(ref.fileDigest ?? '') || !digestPattern.test(ref.contentDigest ?? '')
         || ref.fileDigest === ref.contentDigest)
     {
-        fail(`${label} schema/role/digest contract is invalid`)
+        fail(`${label} schema/role/digest contract is invalid`);
     }
-    const normalizedPath = ref.path.normalize('NFKC').toLowerCase()
+    const normalizedPath = ref.path.normalize('NFKC').toLowerCase();
     if (normalizedPath.split('/').some((segment) => segment === 'docs'
             || segment.startsWith('doc-claim') || segment.startsWith('markdown-reader')))
     {
-        fail(`${label} must use an explicit non-document current-run receipt`)
+        fail(`${label} must use an explicit non-document current-run receipt`);
     }
-    const current = readCurrentJsonBytes(repositoryRoot, ref.path, label)
+    const current = readCurrentJsonBytes(repositoryRoot, ref.path, label);
     if (current.fileDigest !== ref.fileDigest)
     {
-        fail(`${label} file digest mismatch`)
+        fail(`${label} file digest mismatch`);
     }
     if (current.value.schema !== contract.schema
         || !digestPattern.test(prefixedDigest(current.value.contentDigest))
         || prefixedDigest(current.value.contentDigest) !== ref.contentDigest
         || ref.contentDigest !== receiptDigest(current.value))
     {
-        fail(`${label} schema/content seal mismatch`)
+        fail(`${label} schema/content seal mismatch`);
     }
-    const projected = identityProjection(current.value)
+    const projected = identityProjection(current.value);
     for (const field of contract.identityFields)
     {
         if (projected[field] === undefined
             || prefixedDigest(projected[field]) !== prefixedDigest(sourceState[field]))
         {
-            fail(`${label} ${field} does not bind the outer source identity`)
+            fail(`${label} ${field} does not bind the outer source identity`);
         }
     }
     for (const [field, actual] of Object.entries(projected))
@@ -1586,30 +1733,30 @@ function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, lab
         if (actual !== undefined && sourceState[field] !== undefined
             && prefixedDigest(actual) !== prefixedDigest(sourceState[field]))
         {
-            fail(`${label} embedded ${field} identity mismatch`)
+            fail(`${label} embedded ${field} identity mismatch`);
         }
     }
-    return current.value
+    return current.value;
 }
 
 function replayUpstreamClosure(repositoryRoot, upstream, contract, sourceState, producerId)
 {
-    const label = `producer ${producerId} ${contract.role} upstream`
+    const label = `producer ${producerId} ${contract.role} upstream`;
     for (const field of contract.requiredReferenceFields)
     {
         replayEmbeddedReference(repositoryRoot, upstream[field], contract.referenceContracts[field],
-            sourceState, `${label} ${field}`)
+            sourceState, `${label} ${field}`);
     }
     if (contract.referenceMap !== null)
     {
-        const references = upstream[contract.referenceMap.field]
+        const references = upstream[contract.referenceMap.field];
         assertExactKeys(references, contract.referenceMap.keys,
-            `${label} ${contract.referenceMap.field}`)
+            `${label} ${contract.referenceMap.field}`);
         for (const key of contract.referenceMap.keys)
         {
-            const referenceKey = `${contract.referenceMap.field}.${key}`
+            const referenceKey = `${contract.referenceMap.field}.${key}`;
             replayEmbeddedReference(repositoryRoot, references[key],
-                contract.referenceContracts[referenceKey], sourceState, `${label} ${referenceKey}`)
+                contract.referenceContracts[referenceKey], sourceState, `${label} ${referenceKey}`);
         }
     }
 }
@@ -1619,41 +1766,41 @@ function extractSemanticFactsFromRawReceipt(upstream, definition, producerId, cl
     if (rawFactSourceSchemas[classId] !== upstream.schema
         || definition.sourceReceipt.schema !== upstream.schema)
     {
-        fail(`producer ${producerId} ${classId} raw semantic fact schema is unsupported`)
+        fail(`producer ${producerId} ${classId} raw semantic fact schema is unsupported`);
     }
-    const rawFieldFor = (field) => field.endsWith('Digest') ? field.slice(0, -'Digest'.length) : field
-    const expectedRawFields = definition.requiredSemanticFactFields.map(rawFieldFor)
+    const rawFieldFor = (field) => field.endsWith('Digest') ? field.slice(0, -'Digest'.length) : field;
+    const expectedRawFields = definition.requiredSemanticFactFields.map(rawFieldFor);
     if (new Set(expectedRawFields).size !== expectedRawFields.length)
     {
-        fail(`producer ${producerId} ${classId} semantic fact extractor has ambiguous raw fields`)
+        fail(`producer ${producerId} ${classId} semantic fact extractor has ambiguous raw fields`);
     }
     assertExactKeys(upstream.rawFacts, expectedRawFields,
-        `producer ${producerId} ${classId} raw semantic facts`)
-    const extracted = {}
+        `producer ${producerId} ${classId} raw semantic facts`);
+    const extracted = {};
     for (const field of definition.requiredSemanticFactFields)
     {
-        const rawValue = upstream.rawFacts[rawFieldFor(field)]
+        const rawValue = upstream.rawFacts[rawFieldFor(field)];
         if (rawValue === null || rawValue === undefined || rawValue === '')
         {
-            fail(`producer ${producerId} ${classId} raw semantic fact ${rawFieldFor(field)} is empty`)
+            fail(`producer ${producerId} ${classId} raw semantic fact ${rawFieldFor(field)} is empty`);
         }
         if (['candidateId', 'runtimeId', 'browserIdentity', 'releaseId', 'rolloutId',
             'runId', 'attemptId', 'fixtureId', 'profileId'].includes(field)
             && sourceState[field] !== rawValue)
         {
-            fail(`producer ${producerId} ${classId} semantic identity ${field} does not bind sourceState`)
+            fail(`producer ${producerId} ${classId} semantic identity ${field} does not bind sourceState`);
         }
-        extracted[field] = field.endsWith('Digest') ? authorityDigest(rawValue) : rawValue
+        extracted[field] = field.endsWith('Digest') ? authorityDigest(rawValue) : rawValue;
     }
-    return extracted
+    return extracted;
 }
 
 function identityProjection(value)
 {
-    const execution = value?.executionIdentity ?? {}
-    const source = value?.sourceState ?? value?.sourceIdentity ?? execution.source ?? {}
-    const candidate = value?.candidate ?? value?.target ?? {}
-    const run = value?.runIdentity ?? {}
+    const execution = value?.executionIdentity ?? {};
+    const source = value?.sourceState ?? value?.sourceIdentity ?? execution.source ?? {};
+    const candidate = value?.candidate ?? value?.target ?? {};
+    const run = value?.runIdentity ?? {};
     return {
         sourceCommit: source.sourceCommit ?? source.commit ?? value?.sourceCommit,
         worktreeFingerprint: source.worktreeFingerprint ?? value?.worktreeFingerprint,
@@ -1668,33 +1815,36 @@ function identityProjection(value)
         attemptId: source.attemptId ?? candidate.attemptId,
         fixtureId: source.fixtureId ?? candidate.fixtureId,
         profileId: source.profileId ?? candidate.profileId ?? value?.profileIdentity?.profileId
-    }
+    };
 }
 
 function validateSourceReceiptRef(repositoryRoot, ref, sourceState, producer, producerId, classId,
     definition, identityAuthorityPaths, envelope)
 {
     assertExactKeys(ref, ['path', 'fileDigest', 'contentDigest', 'schema', 'role'],
-        `producer ${producerId} source receipt reference`)
+        `producer ${producerId} source receipt reference`);
     if (ref.schema !== sourceReceiptSchema || ref.role !== 'source'
         || !digestPattern.test(ref.fileDigest ?? '') || !digestPattern.test(ref.contentDigest ?? '')
         || ref.fileDigest === ref.contentDigest)
     {
-        fail(`producer ${producerId} source receipt reference is invalid`)
+        fail(`producer ${producerId} source receipt reference is invalid`);
     }
-    const expectedPath = `.tmp/post-runtime-source-receipts/${sourceState.runId}/${sourceState.attemptId}/${classId}.json`
+    const expectedPath = `.tmp/post-runtime-source-receipts/${sourceState.runId}/${sourceState.attemptId}/${classId}.json`;
     if (ref.path !== expectedPath)
     {
-        fail(`producer ${producerId} source receipt path does not exact-match ${expectedPath}`)
+        fail(`producer ${producerId} source receipt path does not exact-match ${expectedPath}`);
     }
-    const current = readCurrentJsonBytes(repositoryRoot, ref.path, `producer ${producerId} source receipt`)
-    if (ref.fileDigest !== current.fileDigest) fail(`producer ${producerId} source receipt file digest mismatch`)
-    const sourceReceipt = current.value
+    const current = readCurrentJsonBytes(repositoryRoot, ref.path, `producer ${producerId} source receipt`);
+    if (ref.fileDigest !== current.fileDigest)
+    {
+        fail(`producer ${producerId} source receipt file digest mismatch`);
+    }
+    const sourceReceipt = current.value;
     assertExactKeys(sourceReceipt,
         ['schema', 'role', 'classId', 'producerId', 'toolVersion', 'sourceState',
             'candidatePlanRef', 'upstreamRef', 'canonicalRerunCommand',
             'independentVerifyCommand', 'contentDigest'],
-        `producer ${producerId} source receipt`)
+        `producer ${producerId} source receipt`);
     if (sourceReceipt.schema !== sourceReceiptSchema || sourceReceipt.role !== 'source'
         || sourceReceipt.classId !== classId || sourceReceipt.producerId !== producerId
         || sourceReceipt.toolVersion !== producer.toolVersion
@@ -1705,13 +1855,13 @@ function validateSourceReceiptRef(repositoryRoot, ref, sourceState, producer, pr
         || sourceReceipt.canonicalRerunCommand !== envelope.canonicalRerunCommand
         || sourceReceipt.independentVerifyCommand !== envelope.independentVerifyCommand)
     {
-        fail(`producer ${producerId} source receipt schema/producer/source identity mismatch`)
+        fail(`producer ${producerId} source receipt schema/producer/source identity mismatch`);
     }
-    const upstreamRef = sourceReceipt.upstreamRef
+    const upstreamRef = sourceReceipt.upstreamRef;
     assertExactKeys(upstreamRef, ['path', 'fileDigest', 'contentDigest', 'schema', 'role'],
-        `producer ${producerId} source receipt upstream reference`)
-    const contract = definition.sourceReceipt
-    const normalizedUpstreamPath = upstreamRef.path.normalize('NFKC').toLowerCase()
+        `producer ${producerId} source receipt upstream reference`);
+    const contract = definition.sourceReceipt;
+    const normalizedUpstreamPath = upstreamRef.path.normalize('NFKC').toLowerCase();
     if (normalizedUpstreamPath.split('/').some((segment) => segment === 'docs'
             || segment.startsWith('doc-claim') || segment.startsWith('markdown-reader'))
         || upstreamRef.path === ref.path || identityAuthorityPaths.includes(upstreamRef.path)
@@ -1720,13 +1870,13 @@ function validateSourceReceiptRef(repositoryRoot, ref, sourceState, producer, pr
         || !digestPattern.test(upstreamRef.contentDigest ?? '')
         || upstreamRef.fileDigest === upstreamRef.contentDigest)
     {
-        fail(`producer ${producerId} source receipt upstream reference is invalid`)
+        fail(`producer ${producerId} source receipt upstream reference is invalid`);
     }
     const upstreamCurrent = readCurrentJsonBytes(repositoryRoot, upstreamRef.path,
-        `producer ${producerId} ${contract.role} upstream receipt`)
-    const upstream = upstreamCurrent.value
+        `producer ${producerId} ${contract.role} upstream receipt`);
+    const upstream = upstreamCurrent.value;
     assertExactKeys(upstream, contract.requiredFields,
-        `producer ${producerId} ${contract.role} upstream receipt`)
+        `producer ${producerId} ${contract.role} upstream receipt`);
     if (upstreamCurrent.fileDigest !== upstreamRef.fileDigest || upstream.schema !== upstreamRef.schema
         || prefixedDigest(upstream.contentDigest) !== upstreamRef.contentDigest
         || upstreamRef.contentDigest !== receiptDigest(upstream)
@@ -1734,33 +1884,33 @@ function validateSourceReceiptRef(repositoryRoot, ref, sourceState, producer, pr
         || upstream.canonicalRerunCommand !== envelope.canonicalRerunCommand
         || upstream.independentVerifyCommand !== envelope.independentVerifyCommand)
     {
-        fail(`producer ${producerId} source receipt upstream schema/producer/tool/command/content identity mismatch`)
+        fail(`producer ${producerId} source receipt upstream schema/producer/tool/command/content identity mismatch`);
     }
     if (contract.discriminator !== null
         && upstream[contract.discriminator.field] !== contract.discriminator.value)
     {
-        fail(`producer ${producerId} source receipt upstream discriminator mismatch`)
+        fail(`producer ${producerId} source receipt upstream discriminator mismatch`);
     }
     const expectedSourceFields = definition.requiredIdentityFields
-        .filter((field) => !['producerId', 'toolVersion', 'contentDigest'].includes(field))
+        .filter((field) => !['producerId', 'toolVersion', 'contentDigest'].includes(field));
     assertExactKeys(upstream.sourceState, expectedSourceFields,
-        `producer ${producerId} source receipt upstream sourceState`)
-    const projected = identityProjection(upstream)
+        `producer ${producerId} source receipt upstream sourceState`);
+    const projected = identityProjection(upstream);
     for (const required of expectedSourceFields)
     {
         if (projected[required] === undefined
             || prefixedDigest(projected[required]) !== prefixedDigest(sourceState[required]))
         {
-            fail(`producer ${producerId} source receipt upstream ${required} mismatch`)
+            fail(`producer ${producerId} source receipt upstream ${required} mismatch`);
         }
     }
     const extractedFacts = extractSemanticFactsFromRawReceipt(
-        upstream, definition, producerId, classId, sourceState)
+        upstream, definition, producerId, classId, sourceState);
     if (digestValue(extractedFacts) !== digestValue(envelope.semanticFacts))
     {
-        fail(`producer ${producerId} source receipt raw semantic facts mismatch`)
+        fail(`producer ${producerId} source receipt raw semantic facts mismatch`);
     }
-    replayUpstreamClosure(repositoryRoot, upstream, contract, sourceState, producerId)
+    replayUpstreamClosure(repositoryRoot, upstream, contract, sourceState, producerId);
 }
 
 export function validateProducerReceiptAgainstRegistry({
@@ -1771,93 +1921,96 @@ export function validateProducerReceiptAgainstRegistry({
     repositoryRoot = root
 })
 {
-    const producer = producerFor(registry, producerId)
-    const { classId, definition } = classForReceipt(registry, receipt, requestedClassId)
-    const schema = readJson(repositoryRoot, observationEnvelopeSchemaRelative)
-    assertExactKeys(receipt, schema.required, `producer ${producerId} receipt`)
+    const producer = producerFor(registry, producerId);
+    const { classId, definition } = classForReceipt(registry, receipt, requestedClassId);
+    const schema = readJson(repositoryRoot, observationEnvelopeSchemaRelative);
+    assertExactKeys(receipt, schema.required, `producer ${producerId} receipt`);
     if (receipt.producerId !== producerId || receipt.toolVersion !== producer.toolVersion)
     {
-        fail(`producer ${producerId} receipt producer/tool version mismatch`)
+        fail(`producer ${producerId} receipt producer/tool version mismatch`);
     }
     if (receipt.registryDigest !== authorityDigest(registry)
         || receipt.observationSchemaDigest !== authorityDigest(schema))
     {
-        fail(`producer ${producerId} receipt registry/schema digest mismatch`)
+        fail(`producer ${producerId} receipt registry/schema digest mismatch`);
     }
     if (receipt.evidenceClass !== producer.evidenceClass)
     {
-        fail(`producer ${producerId} receipt evidenceClass does not match producer contract`)
+        fail(`producer ${producerId} receipt evidenceClass does not match producer contract`);
     }
     if (!digestPattern.test(receipt.contentDigest ?? '') || receipt.contentDigest !== receiptDigest(receipt))
     {
-        fail(`producer ${producerId} receipt contentDigest mismatch`)
+        fail(`producer ${producerId} receipt contentDigest mismatch`);
     }
-    const identity = receipt?.sourceState ?? receipt?.sourceIdentity ?? {}
+    const identity = receipt?.sourceState ?? receipt?.sourceIdentity ?? {};
     for (const required of definition.requiredIdentityFields)
     {
-        if (required === 'contentDigest') continue
+        if (required === 'contentDigest')
+        {
+            continue;
+        }
         if (identity[required] == null && receipt?.[required] == null)
         {
-            fail(`producer ${producerId} receipt is missing ${classId} identity ${required}`)
+            fail(`producer ${producerId} receipt is missing ${classId} identity ${required}`);
         }
     }
     validateTypedSourceState(identity, repositoryRoot, producerId,
-        definition.requiredIdentityFields)
+        definition.requiredIdentityFields);
     assertExactSet(receipt.modes, requiredModesFor(producer, classId),
-        `producer ${producerId} ${classId} modes`)
+        `producer ${producerId} ${classId} modes`);
     assertExactKeys(receipt.terminal,
         ['timeout', 'cancelled', 'processTreeTerminated', 'priorAttemptDigest'],
-        `producer ${producerId} terminal`)
-    const expectedTerminal = registry.receiptSemantics.terminalOutcomes[receipt.outcome]
+        `producer ${producerId} terminal`);
+    const expectedTerminal = registry.receiptSemantics.terminalOutcomes[receipt.outcome];
     if (!expectedTerminal
         || receipt.terminal.timeout !== expectedTerminal.timeout
         || receipt.terminal.cancelled !== expectedTerminal.cancelled
         || receipt.terminal.processTreeTerminated !== expectedTerminal.processTreeTerminated)
     {
-        fail(`producer ${producerId} receipt terminal outcome is contradictory`)
+        fail(`producer ${producerId} receipt terminal outcome is contradictory`);
     }
     if (receipt.recovered === true)
     {
         if (!digestPattern.test(receipt.terminal.priorAttemptDigest ?? ''))
         {
-            fail(`producer ${producerId} recovered receipt must bind a prior sealed attempt`)
+            fail(`producer ${producerId} recovered receipt must bind a prior sealed attempt`);
         }
     }
     else if (receipt.terminal.priorAttemptDigest !== null)
     {
-        fail(`producer ${producerId} non-recovered receipt cannot bind a recovery attempt`)
+        fail(`producer ${producerId} non-recovered receipt cannot bind a recovery attempt`);
     }
     const authorityRefs = [
         ['candidatePlanRef', 'plan'],
         ['attemptAuthorityRef', 'attempt'],
         ['fixtureAuthorityRef', 'fixture'],
         ['profileAuthorityRef', 'profile']
-    ]
+    ];
     if (new Set([...authorityRefs.map(([field]) => receipt[field]?.path), receipt.sourceReceiptRef?.path]).size
         !== authorityRefs.length + 1)
     {
-        fail(`producer ${producerId} identity authorities must use independent paths`)
+        fail(`producer ${producerId} identity authorities must use independent paths`);
     }
     for (const [field, role] of authorityRefs)
     {
-        validateIdentityAuthorityRef(repositoryRoot, receipt[field], role, identity, producerId)
+        validateIdentityAuthorityRef(repositoryRoot, receipt[field], role, identity, producerId);
     }
     validateSourceReceiptRef(repositoryRoot, receipt.sourceReceiptRef, identity, producer,
-        producerId, classId, definition, authorityRefs.map(([field]) => receipt[field].path), receipt)
+        producerId, classId, definition, authorityRefs.map(([field]) => receipt[field].path), receipt);
     assertExactKeys(receipt.semanticFacts, definition.requiredSemanticFactFields,
-        `producer ${producerId} ${classId} semantic facts`)
+        `producer ${producerId} ${classId} semantic facts`);
     if (Object.values(receipt.semanticFacts).some((value) => value === null || value === '')
         || typeof receipt.canonicalRerunCommand !== 'string' || receipt.canonicalRerunCommand.length === 0
         || typeof receipt.independentVerifyCommand !== 'string'
         || receipt.independentVerifyCommand.length === 0)
     {
-        fail(`producer ${producerId} receipt lacks semantic facts or replay commands`)
+        fail(`producer ${producerId} receipt lacks semantic facts or replay commands`);
     }
     for (const [field, expected] of Object.entries(registry.receiptSemantics.qualifyingEnvelope))
     {
         if (receipt[field] !== expected)
         {
-            fail(`producer ${producerId} receipt ${field} cannot satisfy qualification`)
+            fail(`producer ${producerId} receipt ${field} cannot satisfy qualification`);
         }
     }
     return {
@@ -1866,7 +2019,7 @@ export function validateProducerReceiptAgainstRegistry({
         classId,
         qualificationEligible: true,
         warnings: 0
-    }
+    };
 }
 
 export function validateAcceptedClaimsReceiptAgainstRegistry({
@@ -1877,29 +2030,29 @@ export function validateAcceptedClaimsReceiptAgainstRegistry({
     migrationLedger = readJson(repositoryRoot, 'config/contracts/document-claim-migration-ledger.json')
 })
 {
-    const producer = producerFor(registry, producerId)
-    const schema = readJson(repositoryRoot, acceptedClaimsSchemaRelative)
-    assertExactKeys(receipt, schema.required, 'accepted-claims receipt')
+    const producer = producerFor(registry, producerId);
+    const schema = readJson(repositoryRoot, acceptedClaimsSchemaRelative);
+    assertExactKeys(receipt, schema.required, 'accepted-claims receipt');
     if (receipt.schema !== acceptedClaimsSchema || receipt.status !== 'accepted'
         || receipt.producerId !== producerId
         || receipt.toolVersion !== registry.receiptSemantics.acceptedClaimsToolVersion)
     {
-        fail('accepted-claims receipt schema/status/producer/tool version mismatch')
+        fail('accepted-claims receipt schema/status/producer/tool version mismatch');
     }
     if (receipt.registryDigest !== authorityDigest(registry)
         || receipt.claimsSchemaDigest !== authorityDigest(schema))
     {
-        fail('accepted-claims receipt registry/schema digest mismatch')
+        fail('accepted-claims receipt registry/schema digest mismatch');
     }
     if (!digestPattern.test(receipt.contentDigest ?? '') || receipt.contentDigest !== receiptDigest(receipt))
     {
-        fail('accepted-claims receipt contentDigest mismatch')
+        fail('accepted-claims receipt contentDigest mismatch');
     }
     assertExactKeys(receipt.sourceState, [
         'commit', 'worktreeFingerprint', 'schedulerRunId', 'attemptId',
         'candidateIdentityDigest', 'buildIdentityDigest'
     ],
-        'accepted-claims source identity')
+    'accepted-claims source identity');
     if (!/^[a-f0-9]{40}$/u.test(receipt.sourceState.commit ?? '')
         || !digestPattern.test(receipt.sourceState.worktreeFingerprint ?? '')
         || !runIdentityPattern.test(receipt.sourceState.schedulerRunId ?? '')
@@ -1907,19 +2060,19 @@ export function validateAcceptedClaimsReceiptAgainstRegistry({
         || !digestPattern.test(receipt.sourceState.candidateIdentityDigest ?? '')
         || !digestPattern.test(receipt.sourceState.buildIdentityDigest ?? ''))
     {
-        fail('accepted-claims source identity is invalid')
+        fail('accepted-claims source identity is invalid');
     }
     assertExactKeys(receipt.terminalReceiptRef, [
         'path', 'fileDigest', 'contentDigest', 'schema', 'authorityId', 'producerId',
         'toolVersion', 'producerCommand', 'payloadPath', 'payloadFileDigest',
         'payloadContentDigest', 'payloadSchema'
     ],
-        'accepted terminal receipt reference')
-    const terminalAuthority = registry.receiptSemantics.acceptedTerminalAuthority
-    const expectedDirectory = `${terminalAuthority.referenceRoot}/${receipt.sourceState.schedulerRunId}/${receipt.sourceState.attemptId}`
-    const expectedReferencePath = `${expectedDirectory}/${terminalAuthority.referenceName}`
-    const expectedPayloadPath = `${expectedDirectory}/${terminalAuthority.payloadName}`
-    const terminalRef = receipt.terminalReceiptRef
+    'accepted terminal receipt reference');
+    const terminalAuthority = registry.receiptSemantics.acceptedTerminalAuthority;
+    const expectedDirectory = `${terminalAuthority.referenceRoot}/${receipt.sourceState.schedulerRunId}/${receipt.sourceState.attemptId}`;
+    const expectedReferencePath = `${expectedDirectory}/${terminalAuthority.referenceName}`;
+    const expectedPayloadPath = `${expectedDirectory}/${terminalAuthority.payloadName}`;
+    const terminalRef = receipt.terminalReceiptRef;
     if (terminalRef.path !== expectedReferencePath || terminalRef.payloadPath !== expectedPayloadPath
         || terminalRef.schema !== terminalAuthority.referenceSchema
         || terminalRef.authorityId !== terminalAuthority.authorityId
@@ -1928,23 +2081,23 @@ export function validateAcceptedClaimsReceiptAgainstRegistry({
         || terminalRef.producerCommand !== terminalAuthority.producerCommand
         || terminalRef.payloadSchema !== registry.receiptSemantics.acceptedTerminalSchema)
     {
-        fail('accepted terminal reference does not exact-match #2205 authority/path/producer/tool/command')
+        fail('accepted terminal reference does not exact-match #2205 authority/path/producer/tool/command');
     }
     const referenceCurrent = readPinnedRepositoryFile(repositoryRoot, terminalRef.path,
-        'accepted terminal evidence reference')
-    const referenceFileDigest = `sha256:${createHash('sha256').update(referenceCurrent.bytes).digest('hex')}`
+        'accepted terminal evidence reference');
+    const referenceFileDigest = `sha256:${createHash('sha256').update(referenceCurrent.bytes).digest('hex')}`;
     if (terminalRef.fileDigest !== referenceFileDigest)
     {
-        fail('accepted terminal evidence reference file digest mismatch')
+        fail('accepted terminal evidence reference file digest mismatch');
     }
-    const reference = parseCanonicalJson(referenceCurrent.bytes, 'accepted terminal evidence reference', 2)
+    const reference = parseCanonicalJson(referenceCurrent.bytes, 'accepted terminal evidence reference', 2);
     assertExactKeys(reference, [
         'schema', 'schedulerRunId', 'attemptId', 'sourceCommit', 'worktreeFingerprint',
         'candidateIdentity', 'buildIdentity', 'authorityId', 'producerId', 'payload',
         'contentDigest', 'producerReceiptDigest'
-    ], 'accepted terminal evidence reference')
+    ], 'accepted terminal evidence reference');
     assertExactKeys(reference.payload, ['path', 'schema', 'digest'],
-        'accepted terminal evidence payload reference')
+        'accepted terminal evidence payload reference');
     if (reference.schema !== currentRunEvidenceReferenceSchema
         || reference.authorityId !== terminalAuthority.authorityId
         || reference.producerId !== terminalAuthority.producerId
@@ -1961,42 +2114,45 @@ export function validateAcceptedClaimsReceiptAgainstRegistry({
         || reference.producerReceiptDigest !== currentRunReferenceProducerDigest(reference)
         || terminalRef.contentDigest !== reference.contentDigest)
     {
-        fail('accepted terminal evidence reference identity/content seal mismatch')
+        fail('accepted terminal evidence reference identity/content seal mismatch');
     }
     const terminalCurrent = readPinnedRepositoryFile(repositoryRoot, terminalRef.payloadPath,
-        'accepted terminal payload')
-    const terminalFileDigest = `sha256:${createHash('sha256').update(terminalCurrent.bytes).digest('hex')}`
+        'accepted terminal payload');
+    const terminalFileDigest = `sha256:${createHash('sha256').update(terminalCurrent.bytes).digest('hex')}`;
     if (terminalRef.payloadFileDigest !== terminalFileDigest)
     {
-        fail('accepted terminal payload file digest mismatch')
+        fail('accepted terminal payload file digest mismatch');
     }
-    const terminal = parseCanonicalJson(terminalCurrent.bytes, 'accepted terminal payload', 2)
+    const terminal = parseCanonicalJson(terminalCurrent.bytes, 'accepted terminal payload', 2);
     if (terminal.schema !== globalExactnessSchema
         || terminalRef.payloadContentDigest !== prefixedDigest(terminal.contentDigest))
     {
-        fail('accepted terminal payload schema/content digest mismatch')
+        fail('accepted terminal payload schema/content digest mismatch');
     }
-    validateMachineGlobalClaimExactnessReceipt(terminal)
+    validateMachineGlobalClaimExactnessReceipt(terminal);
     if (receipt.sourceState.schedulerRunId !== terminal.runId
         || receipt.sourceState.commit !== terminal.source?.sourceCommit
         || receipt.sourceState.worktreeFingerprint !== prefixedDigest(terminal.source?.worktreeFingerprint))
     {
-        fail('accepted terminal receipt source identity mismatch')
+        fail('accepted terminal receipt source identity mismatch');
     }
-    const currentLedgerDigest = `sha256:${digestValue(migrationLedger)}`
+    const currentLedgerDigest = `sha256:${digestValue(migrationLedger)}`;
     if (receipt.migrationLedgerDigest !== currentLedgerDigest
         || receipt.migrationLedgerDigest !== prefixedDigest(terminal.source?.migrationLedgerDigest))
     {
-        fail('accepted terminal receipt migration ledger digest mismatch')
+        fail('accepted terminal receipt migration ledger digest mismatch');
     }
-    const owners = new Map()
+    const owners = new Map();
     for (const scope of migrationLedger.scopes ?? [])
     {
         for (const entry of scope.entries ?? [])
         {
             for (const claimId of entry.claimIds ?? [])
             {
-                if (owners.has(claimId)) fail(`claim ${claimId} has duplicate ledger owners`)
+                if (owners.has(claimId))
+                {
+                    fail(`claim ${claimId} has duplicate ledger owners`);
+                }
                 owners.set(claimId, {
                     claimId,
                     behaviorId: BehaviorId(entry.behaviorId),
@@ -2004,18 +2160,18 @@ export function validateAcceptedClaimsReceiptAgainstRegistry({
                     documentPath: entry.documentPath,
                     entryKey: `${scope.scopeId}\u0000${entry.behaviorId}\u0000${entry.documentPath}`,
                     generatedSectionIds: [...(entry.generatedSectionIds ?? [])].sort()
-                })
+                });
             }
         }
     }
-    const terminalClaims = new Map(terminal.claimAcceptance.map((claim) => [claim.claimId, claim]))
+    const terminalClaims = new Map(terminal.claimAcceptance.map((claim) => [claim.claimId, claim]));
     if (terminalClaims.size !== owners.size)
     {
-        fail('accepted terminal claim set does not exact-match the current migration ledger')
+        fail('accepted terminal claim set does not exact-match the current migration ledger');
     }
     for (const [claimId, owner] of owners)
     {
-        const accepted = terminalClaims.get(claimId)
+        const accepted = terminalClaims.get(claimId);
         if (!accepted
             || accepted.behaviorId !== owner.behaviorId || accepted.scopeId !== owner.scopeId
             || accepted.documentPath !== owner.documentPath
@@ -2023,44 +2179,47 @@ export function validateAcceptedClaimsReceiptAgainstRegistry({
             || (accepted.generatedSectionId !== null
                 && !owner.generatedSectionIds.includes(accepted.generatedSectionId)))
         {
-            fail(`accepted terminal claim ${claimId} does not exact-match the current migration ledger`)
+            fail(`accepted terminal claim ${claimId} does not exact-match the current migration ledger`);
         }
     }
-    const ledgerEntries = new Map()
-    for (const owner of owners.values()) ledgerEntries.set(owner.entryKey, owner)
+    const ledgerEntries = new Map();
+    for (const owner of owners.values())
+    {
+        ledgerEntries.set(owner.entryKey, owner);
+    }
     for (const owner of ledgerEntries.values())
     {
         const actualSections = terminal.claimAcceptance
             .filter((claim) => owners.get(claim.claimId)?.entryKey === owner.entryKey)
             .map((claim) => claim.generatedSectionId)
             .filter((sectionId) => sectionId !== null)
-            .sort()
+            .sort();
         if (JSON.stringify(actualSections) !== JSON.stringify(owner.generatedSectionIds))
         {
-            fail(`accepted terminal generated sections do not exact-match ${owner.documentPath}`)
+            fail(`accepted terminal generated sections do not exact-match ${owner.documentPath}`);
         }
     }
     const expectedClaims = producer.acceptedClaimRefs.map((claimId) =>
     {
-        const owner = owners.get(claimId)
-        const accepted = terminalClaims.get(claimId)
+        const owner = owners.get(claimId);
+        const accepted = terminalClaims.get(claimId);
         if (!owner || !accepted || owner.behaviorId !== producer.behaviorId)
         {
-            fail(`accepted claim ${claimId} is absent from the #2205 terminal authority`)
+            fail(`accepted claim ${claimId} is absent from the #2205 terminal authority`);
         }
         return {
             claimId: owner.claimId,
             behaviorId: BehaviorId(owner.behaviorId),
             scopeId: owner.scopeId,
             claimDigest: accepted.claimDigest
-        }
-    }).sort((left, right) => left.claimId.localeCompare(right.claimId))
+        };
+    }).sort((left, right) => left.claimId.localeCompare(right.claimId));
     const actualClaims = [...(receipt.claims ?? [])]
-        .sort((left, right) => String(left?.claimId).localeCompare(String(right?.claimId)))
+        .sort((left, right) => String(left?.claimId).localeCompare(String(right?.claimId)));
     if (new Set(actualClaims.map((entry) => entry?.claimId)).size !== actualClaims.length
         || JSON.stringify(actualClaims) !== JSON.stringify(expectedClaims))
     {
-        fail('accepted claim set does not exact-match #2205 terminal authority and registry')
+        fail('accepted claim set does not exact-match #2205 terminal authority and registry');
     }
     return {
         producerId,
@@ -2068,15 +2227,15 @@ export function validateAcceptedClaimsReceiptAgainstRegistry({
         terminalReceiptDigest: receipt.terminalReceiptRef.payloadContentDigest,
         acceptedClaims: actualClaims.length,
         warnings: 0
-    }
+    };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
-    const registry = loadPostRuntimeProducerRegistry(root)
+    const registry = loadPostRuntimeProducerRegistry(root);
     const summary = validatePostRuntimeProducerRegistry(registry, {
         catalog: readJson(root, 'config/contracts/behavior-contracts.json'),
         migrationLedger: readJson(root, 'config/contracts/document-claim-migration-ledger.json')
-    })
-    console.log(`[post-runtime-producer-registry] ok behaviors=${summary.requiredBehaviors.length} producers=${summary.producerCount} classes=${summary.observationClassCount} warnings=${summary.warnings}`)
+    });
+    console.log(`[post-runtime-producer-registry] ok behaviors=${summary.requiredBehaviors.length} producers=${summary.producerCount} classes=${summary.observationClassCount} warnings=${summary.warnings}`);
 }

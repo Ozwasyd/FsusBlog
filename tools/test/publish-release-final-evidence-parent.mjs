@@ -17,7 +17,10 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 function option(name)
 {
     const index = process.argv.indexOf(name);
-    if (index < 0 || !process.argv[index + 1]) throw new Error(`${name} is required`);
+    if (index < 0 || !process.argv[index + 1])
+    {
+        throw new Error(`${name} is required`);
+    }
     return process.argv[index + 1];
 }
 
@@ -34,7 +37,10 @@ const bindings = bindingsOption >= 0
         {
             const entry = registry.entries.find((candidate) => candidate.consumerId === consumerId);
             const inputPath = String(process.env[entry?.outputBindingKey] ?? '').trim();
-            if (!inputPath) throw new Error(`missing explicit binding ${entry?.outputBindingKey ?? consumerId}`);
+            if (!inputPath)
+{
+throw new Error(`missing explicit binding ${entry?.outputBindingKey ?? consumerId}`);
+}
             return [consumerId, inputPath];
         }))
     };
@@ -55,7 +61,10 @@ const children = releaseFinalDirectConsumerIds.map((consumerId) =>
 });
 const parentEntry = registry.entries.find((entry) =>
     entry.consumerId === 'evidence-consumer.release.release-final-domain-evidence');
-if (!parentEntry) throw new Error('release-final parent registry entry is missing');
+if (!parentEntry)
+{
+    throw new Error('release-final parent registry entry is missing');
+}
 const receipt = createEvidenceParentReceipt({ context, parentAuthorityId: parentEntry.authorityId,
     producerId: parentEntry.producerId, childReferences: children });
 const published = publishCurrentRunTerminalReceipt({ authorityId: parentEntry.authorityId, context,

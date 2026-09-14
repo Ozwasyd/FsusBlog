@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
+import { requireCleanAttemptConsumerAdmission } from './browser-release-clean-attempt-consumers.mjs';
 import {
     createReleaseDomainProjectionBindings,
     validateReleaseDomainProjectionBindings
@@ -10,7 +11,6 @@ import {
 import {
     validateReleaseReliabilityQualifiedBinding
 } from './release-reliability-qualified-receipt.mjs';
-import { requireCleanAttemptConsumerAdmission } from './browser-release-clean-attempt-consumers.mjs';
 
 export const browserlessCorrectnessReceiptSchema = 'fsusblog.browserless-correctness-receipt.v1';
 export const browserDiagnosticsReceiptSchema = 'fsusblog.browser-diagnostics-receipt.v2';
@@ -769,7 +769,10 @@ export function validateBrowserContractReceipt(receipt, {
         }
         for (const field of ['fontSetDigest', 'localeDataDigest'])
         {
-            if (!isDigest(plan?.rendering?.[field])) errors.push(`Browser Contract ${field} is invalid`);
+            if (!isDigest(plan?.rendering?.[field]))
+            {
+                errors.push(`Browser Contract ${field} is invalid`);
+            }
         }
         for (const field of ['locale', 'renderingMode', 'colorScheme', 'gpuMode'])
         {

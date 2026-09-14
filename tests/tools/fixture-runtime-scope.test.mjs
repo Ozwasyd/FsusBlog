@@ -1,13 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-    FIXTURE_TEST_SESSION_HEADER,
-    fixtureTestSessionHeaders,
-    fixtureTestSessionSchema,
-    resolveFixtureTestSession
-} from '../../tools/test-fixtures/runtime-scope.mjs';
-
+const {FIXTURE_TEST_SESSION_HEADER, fixtureTestSessionHeaders, fixtureTestSessionSchema, resolveFixtureTestSession} = await import(new URL('../../tools/test-fixtures/runtime-scope.mjs', import.meta.url));
 test('fixture runtime scope binds one backend session to the exact run and namespace', () =>
 {
     const context = { namespace: 'comment-a', runIdentity: 'run-a' };

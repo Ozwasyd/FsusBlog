@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+
 import { adaptReport, failureSignature, supportedFrameworks } from './adapters.mjs';
 import { canonicalize, sha256, sha256File } from './source-identity.mjs';
 import { observationArtifactSchema, validateObservationArtifact } from './validation.mjs';
@@ -33,7 +34,10 @@ function seal(value)
 function requiredText(value, label)
 {
     const result = String(value ?? '').trim();
-    if (!result) throw new Error(`${label} is required`);
+    if (!result)
+    {
+        throw new Error(`${label} is required`);
+    }
     return result;
 }
 
@@ -41,23 +45,36 @@ function normalizeEvidenceReference(value)
 {
     const reference = requiredText(value, 'producer reference').replaceAll(path.sep, '/');
     if (path.posix.isAbsolute(reference) || reference === '..' || reference.startsWith('../'))
+    {
         throw new Error('producer reference must stay within the evidence root');
+    }
     return reference;
 }
 
 function validateMetadata(metadata)
 {
     if (!commitPattern.test(String(metadata?.sourceState?.commit ?? '')))
+    {
         throw new Error('sourceState.commit must be a full lowercase commit SHA');
+    }
     if (!digestPattern.test(String(metadata?.sourceState?.worktreeFingerprint ?? '')))
+    {
         throw new Error('sourceState.worktreeFingerprint must be a sha256 digest');
+    }
     if (!digestPattern.test(String(metadata?.sourceClosureDigest ?? '')))
+    {
         throw new Error('sourceClosureDigest must be a sha256 digest');
+    }
     requiredText(metadata?.run?.id, 'run.id');
     if (!['primary', 'retry', 'diagnostic'].includes(metadata?.run?.attemptKind))
+    {
         throw new Error('run.attemptKind must be primary, retry, or diagnostic');
+    }
     requiredText(metadata?.run?.evidenceClass, 'run.evidenceClass');
-    for (const field of ['os', 'arch', 'runtime']) requiredText(metadata?.runner?.[field], `runner.${field}`);
+    for (const field of ['os', 'arch', 'runtime'])
+    {
+        requiredText(metadata?.runner?.[field], `runner.${field}`);
+    }
 }
 
 export function createObservationArtifact({
@@ -71,7 +88,10 @@ export function createObservationArtifact({
 })
 {
     validateMetadata(metadata);
-    if (!frameworks.has(framework)) throw new Error(`unsupported test observation framework: ${framework}`);
+    if (!frameworks.has(framework))
+    {
+        throw new Error(`unsupported test observation framework: ${framework}`);
+    }
     const producerReference = normalizeEvidenceReference(evidenceReference);
     const producerDigest = sha256File(reportFile);
     const reportText = fs.readFileSync(reportFile, 'utf8');
@@ -88,7 +108,9 @@ export function createObservationArtifact({
         const outcome = entry.outcome;
         const signature = outcome === 'failed' || outcome === 'blocked' ? failureSignature(entry.failure) : null;
         if ((outcome === 'failed' || outcome === 'blocked') && !signature)
+        {
             throw new Error(`${entry.testId} has no failure details for ${outcome} outcome`);
+        }
         return {
             testId: entry.testId,
             suite: requiredText(entry.suite ?? suite, 'observation.suite'),
@@ -123,7 +145,10 @@ export function createObservationArtifact({
 
 function percentile(values, percentage)
 {
-    if (values.length === 0) return null;
+    if (values.length === 0)
+    {
+        return null;
+    }
     const sorted = [...values].sort((left, right) => left - right);
     return sorted[Math.max(0, Math.ceil((percentage / 100) * sorted.length) - 1)];
 }
@@ -134,7 +159,10 @@ export function aggregateObservationArtifacts(artifacts, options = {})
     for (const artifact of artifacts)
     {
         const errors = validateObservationArtifact(artifact, options);
-        if (errors.length > 0) throw new Error(`observation artifact rejected: ${errors.join('; ')}`);
+        if (errors.length > 0)
+        {
+            throw new Error(`observation artifact rejected: ${errors.join('; ')}`);
+        }
         observations.push(...artifact.observations);
     }
     const groups = Map.groupBy(observations, (entry) => entry.testId);
@@ -174,7 +202,10 @@ export function ingestObservationArtifact({ artifactFile, storeDirectory, eviden
 {
     const artifact = JSON.parse(fs.readFileSync(artifactFile, 'utf8'));
     const errors = validateObservationArtifact(artifact, { evidenceRoot });
-    if (errors.length > 0) throw new Error(`observation artifact rejected: ${errors.join('; ')}`);
+    if (errors.length > 0)
+    {
+        throw new Error(`observation artifact rejected: ${errors.join('; ')}`);
+    }
     const observationsDirectory = path.join(storeDirectory, 'observations');
     fs.mkdirSync(observationsDirectory, { recursive: true });
     const target = path.join(observationsDirectory, `${artifact.contentDigest.slice('sha256:'.length)}.json`);
@@ -183,7 +214,9 @@ export function ingestObservationArtifact({ artifactFile, storeDirectory, eviden
         const existing = JSON.parse(fs.readFileSync(target, 'utf8'));
         const existingErrors = validateObservationArtifact(existing);
         if (existingErrors.length > 0 || existing.contentDigest !== artifact.contentDigest)
+        {
             throw new Error('history artifact key collision');
+        }
         return { added: false, target };
     }
     fs.copyFileSync(artifactFile, target, fs.constants.COPYFILE_EXCL);
@@ -215,17 +248,27 @@ export function compactObservationStore({
 })
 {
     if (!Number.isInteger(maxArtifacts) || maxArtifacts < 1)
+    {
         throw new Error('maxArtifacts must be a positive integer');
+    }
     if (!Number.isFinite(maxAgeDays) || maxAgeDays <= 0)
+    {
         throw new Error('maxAgeDays must be a positive number');
+    }
     const observationsDirectory = path.join(storeDirectory, 'observations');
-    if (!fs.existsSync(observationsDirectory)) return { kept: [], removed: [] };
+    if (!fs.existsSync(observationsDirectory))
+    {
+        return { kept: [], removed: [] };
+    }
     const candidates = fs.readdirSync(observationsDirectory).filter((file) => file.endsWith('.json')).map((file) =>
     {
         const absolute = path.join(observationsDirectory, file);
         const artifact = JSON.parse(fs.readFileSync(absolute, 'utf8'));
         const errors = validateObservationArtifact(artifact);
-        if (errors.length > 0) throw new Error(`cannot compact invalid observation artifact ${file}: ${errors.join('; ')}`);
+        if (errors.length > 0)
+        {
+            throw new Error(`cannot compact invalid observation artifact ${file}: ${errors.join('; ')}`);
+        }
         return { file, absolute, observedAt: Date.parse(artifact.observedAt) };
     }).sort((left, right) => right.observedAt - left.observedAt || left.file.localeCompare(right.file));
     const cutoff = now.getTime() - maxAgeDays * 24 * 60 * 60 * 1000;
@@ -233,17 +276,26 @@ export function compactObservationStore({
     const removed = [];
     for (const [index, candidate] of candidates.entries())
     {
-        if (index < maxArtifacts && candidate.observedAt >= cutoff) kept.push(candidate.file);
+        if (index < maxArtifacts && candidate.observedAt >= cutoff)
+        {
+            kept.push(candidate.file);
+        }
         else
         {
             removed.push(candidate.file);
-            if (!dryRun) fs.rmSync(candidate.absolute);
+            if (!dryRun)
+            {
+                fs.rmSync(candidate.absolute);
+            }
         }
     }
     if (!dryRun && removed.length > 0)
     {
         const index = path.join(storeDirectory, 'index.json');
-        if (fs.existsSync(index)) fs.rmSync(index);
+        if (fs.existsSync(index))
+        {
+            fs.rmSync(index);
+        }
     }
     return { kept, removed };
 }

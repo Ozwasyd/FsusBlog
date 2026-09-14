@@ -4,22 +4,12 @@ import fs from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
 import { Writable } from 'node:stream';
+import test from 'node:test';
 
-import {
-    finalizeRunOwnedDirectories,
-    prepareRunOwnedDirectories
-} from '../../tools/test/execution-envelope-directories.mjs';
-import {
-    finalizeNetworkSandbox,
-    loadExecutionNetworkPolicy,
-    prepareNetworkSandbox,
-    projectPlannedEndpoints,
-    validateExecutionNetworkPolicy
-} from '../../tools/test/execution-envelope-network.mjs';
-import { runPhysicalExecution } from '../../tools/test/physical-execution-process-tree.mjs';
-
+const {finalizeRunOwnedDirectories, prepareRunOwnedDirectories} = await import(new URL('../../tools/test/execution-envelope-directories.mjs', import.meta.url));
+const {finalizeNetworkSandbox, loadExecutionNetworkPolicy, prepareNetworkSandbox, projectPlannedEndpoints, validateExecutionNetworkPolicy} = await import(new URL('../../tools/test/execution-envelope-network.mjs', import.meta.url));
+const {runPhysicalExecution} = await import(new URL('../../tools/test/physical-execution-process-tree.mjs', import.meta.url));
 const policy = loadExecutionNetworkPolicy();
 
 test('network policy is default deny with no ambient external endpoint', () =>
@@ -169,7 +159,8 @@ test('Landlock grants only the exact null device while retaining default-deny wr
 {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-landlock-file-'));
     const deniedDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-landlock-denied-'));
-    context.after(() => {
+    context.after(() =>
+    {
         fs.rmSync(directory, { recursive: true, force: true });
         fs.rmSync(deniedDirectory, { recursive: true, force: true });
     });
@@ -177,7 +168,8 @@ test('Landlock grants only the exact null device while retaining default-deny wr
     fs.writeFileSync(deniedFile, 'unchanged');
     const directories = Object.fromEntries([
         'home', 'temp', 'npmCache', 'nugetPackages', 'dotnetHome', 'toolCache'
-    ].map((name) => {
+    ].map((name) =>
+    {
         const value = path.join(directory, name);
         fs.mkdirSync(value, { recursive: true, mode: 0o700 });
         return [name, value];
@@ -242,11 +234,13 @@ test('systemd address policy permits an exact current-run loopback service and d
     });
     const directories = directoryEnvelope.fragment.directories;
     const server = net.createServer((socket) => socket.end());
-    context.after(() => {
+    context.after(() =>
+    {
         server.close();
         finalizeRunOwnedDirectories(directoryEnvelope);
     });
-    await new Promise((resolve, reject) => {
+    await new Promise((resolve, reject) =>
+    {
         server.once('error', reject);
         server.listen(0, '127.0.0.1', resolve);
     });
@@ -256,7 +250,7 @@ test('systemd address policy permits an exact current-run loopback service and d
         PATH: process.env.PATH,
         LANG: 'C.UTF-8',
         LC_ALL: 'C.UTF-8',
-        TZ: 'UTC',
+        TZ: 'UTC'
     };
     const prepared = prepareNetworkSandbox({
         command: [
@@ -287,7 +281,10 @@ test('systemd address policy permits an exact current-run loopback service and d
         ).filter((entry, index, values) => values[index - 1] === '--writable-file'),
         ['/dev/null']
     );
-    const quiet = new Writable({ write(_chunk, _encoding, callback) { callback(); } });
+    const quiet = new Writable({ write(_chunk, _encoding, callback)
+    {
+        callback();
+    } });
     await runPhysicalExecution({
         command: prepared.command,
         cwd: process.cwd(),
@@ -341,7 +338,8 @@ test('physical runner permits declared canonical outputs and denies undeclared/r
     let networkFinalized = false;
     let directoryFinalized = false;
     let networkSandbox = null;
-    context.after(() => {
+    context.after(() =>
+    {
         if (networkSandbox && !networkFinalized)
         {
             finalizeNetworkSandbox(networkSandbox);
@@ -383,7 +381,10 @@ test('physical runner permits declared canonical outputs and denies undeclared/r
         environment,
         policy
     });
-    const quiet = new Writable({ write(_chunk, _encoding, callback) { callback(); } });
+    const quiet = new Writable({ write(_chunk, _encoding, callback)
+    {
+        callback();
+    } });
     await runPhysicalExecution({
         command: networkSandbox.command,
         cwd: process.cwd(),

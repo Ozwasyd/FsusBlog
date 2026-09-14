@@ -5,18 +5,9 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs';
-import {
-    generateReleaseReliabilitySchedulerMatrix,
-    loadReleaseReliabilityCatalog,
-    releaseReliabilitySchedulerProjection,
-    validateReleaseReliabilitySchedulerCatalog,
-    validateReleaseReliabilitySchedulerMatrix
-} from '../../tools/test-matrix/release-reliability-scheduler-projection.mjs';
-import {
-    resolveScenarioSchedulerGrant
-} from '../../tools/test/release-reliability-scheduler-grant.mjs';
-
+const {parseMatrix} = await import(new URL('../../tools/test-matrix/parse-matrix.mjs', import.meta.url));
+const {generateReleaseReliabilitySchedulerMatrix, loadReleaseReliabilityCatalog, releaseReliabilitySchedulerProjection, validateReleaseReliabilitySchedulerCatalog, validateReleaseReliabilitySchedulerMatrix} = await import(new URL('../../tools/test-matrix/release-reliability-scheduler-projection.mjs', import.meta.url));
+const {resolveScenarioSchedulerGrant} = await import(new URL('../../tools/test/release-reliability-scheduler-grant.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const schedulerAuthorityAvailable = Object.hasOwn(
     loadReleaseReliabilityCatalog({ root }),
@@ -44,12 +35,30 @@ test('catalog profiles are the unique exact matrix scheduler projection', schedu
 test('projection rejects every weakened or handwritten scheduler declaration', schedulerAuthorityTest, () =>
 {
     const mutations = [
-        (matrix) => { matrix.tiers.find((tier) => tier.id === 'release-soak-min').resourceClass = 'io'; },
-        (matrix) => { matrix.tiers.find((tier) => tier.id === 'release-soak-min').exclusiveResources = []; },
-        (matrix) => { matrix.tiers.find((tier) => tier.id === 'release-load-burst').cpuWeight = 1; },
-        (matrix) => { matrix.tiers.find((tier) => tier.id === 'release-memory-leak-budget').memoryWeight = 1; },
-        (matrix) => { matrix.tiers.find((tier) => tier.id === 'release-data-scale-m').minCpuUnits = 1; },
-        (matrix) => { matrix.tiers.find((tier) => tier.id === 'release-reliability-fresh').parallelizable = true; },
+        (matrix) =>
+        {
+            matrix.tiers.find((tier) => tier.id === 'release-soak-min').resourceClass = 'io';
+        },
+        (matrix) =>
+        {
+            matrix.tiers.find((tier) => tier.id === 'release-soak-min').exclusiveResources = [];
+        },
+        (matrix) =>
+        {
+            matrix.tiers.find((tier) => tier.id === 'release-load-burst').cpuWeight = 1;
+        },
+        (matrix) =>
+        {
+            matrix.tiers.find((tier) => tier.id === 'release-memory-leak-budget').memoryWeight = 1;
+        },
+        (matrix) =>
+        {
+            matrix.tiers.find((tier) => tier.id === 'release-data-scale-m').minCpuUnits = 1;
+        },
+        (matrix) =>
+        {
+            matrix.tiers.find((tier) => tier.id === 'release-reliability-fresh').parallelizable = true;
+        },
         (matrix) =>
         {
             matrix.tiers.push({

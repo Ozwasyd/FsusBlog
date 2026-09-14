@@ -8,6 +8,5 @@ export {
 export {
     resolveScenarioSchedulerGrant
 } from './release-reliability-scheduler-grant.mjs';
-export {
-    validateReleaseReliabilitySchedulerCatalog
-} from '../test-matrix/release-reliability-scheduler-projection.mjs';
+const { validateReleaseReliabilitySchedulerCatalog } = await import(new URL('../test-matrix/release-reliability-scheduler-projection.mjs', import.meta.url));
+export { validateReleaseReliabilitySchedulerCatalog };

@@ -7,16 +7,8 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import {
-    contract,
-    encodeVisualArtifact,
-    rasterize
-} from '../../tools/contracts/perception-character-v3-reference.mjs';
-import {
-    disposeAudioEncoder,
-    encodeAudioArtifact
-} from '../../tools/security/perception-character-v3-pool-media.mjs';
-
+const {contract, encodeVisualArtifact, rasterize} = await import(new URL('../../tools/contracts/perception-character-v3-reference.mjs', import.meta.url));
+const {disposeAudioEncoder, encodeAudioArtifact} = await import(new URL('../../tools/security/perception-character-v3-pool-media.mjs', import.meta.url));
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const corpusTool = path.join(root, 'tools/security/perception-character-v3-release-corpus.mjs');
 

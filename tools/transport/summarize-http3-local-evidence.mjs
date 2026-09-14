@@ -4,17 +4,20 @@ import path from "node:path";
 import process from "node:process";
 
 const args = new Map();
-for (let index = 2; index < process.argv.length; index += 2) {
+for (let index = 2; index < process.argv.length; index += 2)
+{
     args.set(process.argv[index], process.argv[index + 1]);
 }
 
 const inputDirectory = args.get("--input");
 const outputPath = args.get("--output");
-if (!inputDirectory || !outputPath) {
+if (!inputDirectory || !outputPath)
+{
     throw new Error("usage: summarize-http3-local-evidence.mjs --input <directory> --output <file>");
 }
 
-async function readJson(name) {
+async function readJson(name)
+{
     return JSON.parse(await readFile(path.join(inputDirectory, name), "utf8"));
 }
 
@@ -41,7 +44,8 @@ const netemRows = (await readFile(path.join(inputDirectory, "netem.csv"), "utf8"
     .trim()
     .split(/\r?\n/u)
     .slice(1)
-    .map((line) => {
+    .map((line) =>
+    {
         const [condition, delayMs, lossPercent, round, requested, httpVersion, statusCode, timeTotal, exitCode] = line.split(",");
         return {
             condition,
@@ -86,12 +90,14 @@ const complete = preflight.status === "ready"
     && errorScenariosComplete
     && matrixComplete;
 
-function percentile(values, ratio) {
+function percentile(values, ratio)
+{
     const sorted = values.toSorted((left, right) => left - right);
     return sorted.length === 0 ? 0 : sorted[Math.max(0, Math.ceil(sorted.length * ratio) - 1)];
 }
 
-const matrix = requiredConditions.flatMap((condition) => ["h2", "h3"].map((protocol) => {
+const matrix = requiredConditions.flatMap((condition) => ["h2", "h3"].map((protocol) =>
+{
     const rows = netemRows.filter((row) => row.condition === condition && row.requested === protocol);
     return {
         condition,
@@ -132,6 +138,7 @@ const summary = {
 
 await writeFile(outputPath, `${JSON.stringify(summary, null, 2)}\n`, "utf8");
 console.log(JSON.stringify({ status: summary.status, output: outputPath }));
-if (!complete) {
+if (!complete)
+{
     process.exitCode = 3;
 }

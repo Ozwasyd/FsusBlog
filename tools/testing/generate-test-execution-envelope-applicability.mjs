@@ -5,8 +5,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { parseMatrix } from '../test-matrix/parse-matrix.mjs';
-
+const { parseMatrix } = await import(new URL('../test-matrix/parse-matrix.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const matrixFile = path.join(root, 'tests/matrix.yml');
 const producerContractFile = path.join(

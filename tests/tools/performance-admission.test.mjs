@@ -619,7 +619,7 @@ test('native P99 member stays exact-one, ordinary-excluded, atomic, and measurem
         nativeP99SourceContractErrors({
             ...sources,
             matrixSource: sources.matrixSource.replace(
-                /(\n    - id: backend-perf\n[\s\S]*?)exclusiveResources: \[benchmark-window\]/u,
+                /(\n {4}- id: backend-perf\n[\s\S]*?)exclusiveResources: \[benchmark-window\]/u,
                 '$1exclusiveResources: []'
             )
         }).join('\n'),

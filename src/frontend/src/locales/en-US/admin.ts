@@ -1,4 +1,4 @@
-export const localeDomainIdentity = Object.freeze({ locale: 'en-US', domain: 'admin' } as const)
+export const localeDomainIdentity = Object.freeze({ locale: 'en-US', domain: 'admin' } as const);
 
 import type { LocaleSchema } from '../keys';
 import type { admin as zhCNAdmin } from '../zh-CN/admin';

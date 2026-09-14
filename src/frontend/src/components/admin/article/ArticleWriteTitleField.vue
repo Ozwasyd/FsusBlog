@@ -42,7 +42,7 @@ defineEmits<(e: 'update:modelValue', value: string) => void>();
     width: 100%;
     min-width: 0;
     overflow-wrap: anywhere;
-    word-break: break-word;
+    word-break: break-all;
 }
 
 .write-title-input

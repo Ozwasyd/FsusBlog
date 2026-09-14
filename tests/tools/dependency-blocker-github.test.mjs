@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createDependencyBlockerGitHub, reconcileDependencyBlockers } from '../../tools/governance/dependency-blocker-github.mjs';
-import { resultSchema } from '../../tools/governance/dependency-freshness.mjs';
-
+const { createDependencyBlockerGitHub, reconcileDependencyBlockers } = await import(new URL('../../tools/governance/dependency-blocker-github.mjs', import.meta.url));
+const { resultSchema } = await import(new URL('../../tools/governance/dependency-freshness.mjs', import.meta.url));
 function snapshot()
 {
     return {
@@ -23,7 +22,8 @@ function simulatedGitHub()
     const calls = [];
     const client = createDependencyBlockerGitHub({
         repository: 'example/test', token: 'simulation-token',
-        fetchImpl: async (url, options) => {
+        fetchImpl: async (url, options) =>
+        {
             const route = new URL(url).pathname;
             const body = options.body ? JSON.parse(options.body) : undefined;
             calls.push({ method: options.method, route, body });
@@ -49,12 +49,15 @@ function simulatedGitHub()
     return { client, issues, calls };
 }
 
-test('concurrent scheduled simulations read inside the exclusive run and create exact-one issue', async () => {
+test('concurrent scheduled simulations read inside the exclusive run and create exact-one issue', async () =>
+{
     const simulated = simulatedGitHub();
     let tail = Promise.resolve();
-    const withExclusiveRun = (work) => {
+    const withExclusiveRun = (work) =>
+    {
         const next = tail.then(work);
-        tail = next.catch(() => {});
+        tail = next.catch(() =>
+        {});
         return next;
     };
     const run = () => reconcileDependencyBlockers({ client: simulated.client, withExclusiveRun, loadSnapshot: async () => snapshot() });
@@ -64,7 +67,8 @@ test('concurrent scheduled simulations read inside the exclusive run and create 
     assert.equal(simulated.calls.filter((call) => call.method === 'PATCH').length, 0);
 });
 
-test('recovery closes the same issue through the API adapter', async () => {
+test('recovery closes the same issue through the API adapter', async () =>
+{
     const simulated = simulatedGitHub();
     const withExclusiveRun = (work) => work();
     await reconcileDependencyBlockers({ client: simulated.client, withExclusiveRun, loadSnapshot: async () => snapshot() });
@@ -77,30 +81,37 @@ test('recovery closes the same issue through the API adapter', async () => {
     assert.deepEqual(simulated.calls.at(-1).body, { state: 'closed' });
 });
 
-test('registry snapshot failure performs no mutation and leaves the existing blocker open', async () => {
+test('registry snapshot failure performs no mutation and leaves the existing blocker open', async () =>
+{
     const simulated = simulatedGitHub();
     simulated.issues.push({ number: 1, title: 'Dependency freshness blockers', state: 'open', body: '' });
     await assert.rejects(reconcileDependencyBlockers({
         client: simulated.client, withExclusiveRun: (work) => work(),
-        loadSnapshot: async () => { throw new Error('registry unavailable'); }
+        loadSnapshot: async () =>
+        {
+            throw new Error('registry unavailable');
+        }
     }), /registry unavailable/);
     assert.equal(simulated.issues[0].state, 'open');
     assert.deepEqual(simulated.calls.map((call) => call.method), ['GET']);
 });
 
-test('permission errors fail without leaking token or response body', async () => {
+test('permission errors fail without leaking token or response body', async () =>
+{
     const client = createDependencyBlockerGitHub({
         repository: 'example/test', token: 'secret-simulation-token',
         fetchImpl: async () => new Response('private response', { status: 403 })
     });
-    await assert.rejects(client.listIssues(), (error) => {
+    await assert.rejects(client.listIssues(), (error) =>
+    {
         assert.match(error.message, /github_error:GET:.*:403/);
         assert.doesNotMatch(error.message, /secret-simulation-token|private response/);
         return true;
     });
 });
 
-test('late pagination failure cannot supply a partial issue snapshot', async () => {
+test('late pagination failure cannot supply a partial issue snapshot', async () =>
+{
     let count = 0;
     const client = createDependencyBlockerGitHub({
         repository: 'example/test', token: 'simulation-token',
@@ -112,15 +123,18 @@ test('late pagination failure cannot supply a partial issue snapshot', async () 
     assert.equal(count, 2);
 });
 
-test('reconciliation refuses an absent exclusive-run boundary', async () => {
+test('reconciliation refuses an absent exclusive-run boundary', async () =>
+{
     await assert.rejects(reconcileDependencyBlockers({}), /exclusive_run_required/);
 });
 
-test('failed label recovery prevents the final blocker issue close', async () => {
+test('failed label recovery prevents the final blocker issue close', async () =>
+{
     const methods = [];
     const client = createDependencyBlockerGitHub({
         repository: 'example/test', token: 'simulation-token',
-        fetchImpl: async (url, options) => {
+        fetchImpl: async (url, options) =>
+        {
             methods.push(options.method);
             if (options.method === 'GET')
             {
@@ -148,11 +162,13 @@ test('failed label recovery prevents the final blocker issue close', async () =>
     assert.deepEqual(methods, ['GET', 'DELETE']);
 });
 
-test('uncertain create response is not automatically retried into a duplicate issue', async () => {
+test('uncertain create response is not automatically retried into a duplicate issue', async () =>
+{
     let creates = 0;
     const client = createDependencyBlockerGitHub({
         repository: 'example/test', token: 'simulation-token',
-        fetchImpl: async (url, options) => {
+        fetchImpl: async (url, options) =>
+        {
             if (options.method === 'GET')
             {
                 return Response.json([]);
@@ -167,11 +183,13 @@ test('uncertain create response is not automatically retried into a duplicate is
     assert.equal(creates, 1);
 });
 
-test('Actions snapshot routes bind exact head, run and attempt', async () => {
+test('Actions snapshot routes bind exact head, run and attempt', async () =>
+{
     const urls = [];
     const client = createDependencyBlockerGitHub({
         repository: 'example/test', token: 'simulation-token',
-        fetchImpl: async (url) => {
+        fetchImpl: async (url) =>
+        {
             urls.push(url);
             return Response.json(url.includes('/attempts/')
                 ? { total_count: 1, jobs: [{ id: 50 }] }
@@ -184,7 +202,8 @@ test('Actions snapshot routes bind exact head, run and attempt', async () => {
     assert.ok(urls[1].includes('/actions/runs/20/attempts/2/jobs?per_page=100&page=1'));
 });
 
-test('truncated Actions counts and searches beyond the API cap fail closed', async () => {
+test('truncated Actions counts and searches beyond the API cap fail closed', async () =>
+{
     for (const total of [2, 1001])
     {
         const client = createDependencyBlockerGitHub({

@@ -5,16 +5,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import {
-    collectProcessGroupOrJobIdentity,
-    currentProcessIdentity,
-    processDescendantIdentities,
-    processGroupMemberIdentities,
-    processGroupOrJobIdentityMatches,
-    processIdentitySchema,
-    processIdentityStatus
-} from '../test/process-identity.mjs';
-
+const {collectProcessGroupOrJobIdentity, currentProcessIdentity, processDescendantIdentities, processGroupMemberIdentities, processGroupOrJobIdentityMatches, processIdentitySchema, processIdentityStatus} = await import(new URL('../test/process-identity.mjs', import.meta.url));
 import {
     schedulerCandidateIdentityDigest,
     schedulerProcessGroupOrJobIdentityIsComplete,

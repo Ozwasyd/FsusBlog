@@ -6,7 +6,7 @@ export type ArticleBodyH1Issue = Readonly<{
     text: string;
 }>;
 
-function fenceMarker(line: string): { character: '`' | '~'; count: number } | null
+function fenceMarker(line: string): { character: '`' | '~'; count: number; } | null
 {
     const match = /^( {0,3})(`{3,}|~{3,})/u.exec(line);
     if (!match)
@@ -21,7 +21,7 @@ function fenceMarker(line: string): { character: '`' | '~'; count: number } | nu
     };
 }
 
-function closesFence(line: string, marker: { character: '`' | '~'; count: number }): boolean
+function closesFence(line: string, marker: { character: '`' | '~'; count: number; }): boolean
 {
     const match = /^( {0,3})(`{3,}|~{3,})\s*$/u.exec(line);
     if (!match)
@@ -62,7 +62,7 @@ export function diagnoseArticleBodyH1(source: string): readonly ArticleBodyH1Iss
 
     const lines = source.split(/\r?\n/u);
     const issues: ArticleBodyH1Issue[] = [];
-    let fence: { character: '`' | '~'; count: number } | null = null;
+    let fence: { character: '`' | '~'; count: number; } | null = null;
 
     for (let index = 0; index < lines.length; index += 1)
     {

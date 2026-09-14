@@ -6,24 +6,15 @@ import { createRequire } from 'node:module';
 import os from 'node:os';
 import { resolve } from 'node:path';
 
-import { decodeAedsFrame } from '../../support/aeds-envelope.mjs';
-import {
-    authBinary,
-    baseUrl,
-    loginWithFixtureSessionBypass,
-    requestTimeoutMs
-} from '../../support/auth-helpers.mjs';
-import { fetchWithTimeout } from '../../support/http.mjs';
-import { buildMarkdownExtremeCorpus } from '../../support/markdown-extreme-corpus.mjs';
-import { waitForAuthPermissionReady } from '../../support/playwright/readiness.mjs';
-import { readPublicFixtureIds } from '../../support/public-fixtures.mjs';
-import {
-    remainingRuntimeTimeout,
-    resolveRuntimeBrowserTimeoutPlan
-} from '../../support/runtime-browser-timeout.mjs';
-import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs';
-import { testSessionHeaders } from '../../support/test-session.mjs';
-
+const {decodeAedsFrame} = await import(new URL('../../support/aeds-envelope.mjs', import.meta.url));
+const {authBinary, baseUrl, loginWithFixtureSessionBypass, requestTimeoutMs} = await import(new URL('../../support/auth-helpers.mjs', import.meta.url));
+const {fetchWithTimeout} = await import(new URL('../../support/http.mjs', import.meta.url));
+const {buildMarkdownExtremeCorpus} = await import(new URL('../../support/markdown-extreme-corpus.mjs', import.meta.url));
+const {waitForAuthPermissionReady} = await import(new URL('../../support/playwright/readiness.mjs', import.meta.url));
+const {readPublicFixtureIds} = await import(new URL('../../support/public-fixtures.mjs', import.meta.url));
+const {remainingRuntimeTimeout, resolveRuntimeBrowserTimeoutPlan} = await import(new URL('../../support/runtime-browser-timeout.mjs', import.meta.url));
+const {resolveSystemChromiumExecutablePath} = await import(new URL('../../support/system-chromium.mjs', import.meta.url));
+const {testSessionHeaders} = await import(new URL('../../support/test-session.mjs', import.meta.url));
 const frontendBaseUrl = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000';
 const trustedOrigin = process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_DEBUG_FRONTEND_URL || frontendBaseUrl;
 const userName = process.env.FSUSBLOG_USER_USERNAME || 'binaryuser';

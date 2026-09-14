@@ -1,23 +1,28 @@
-.taxonomy-filter-input {
-  width: min(15rem, 100%);
+.taxonomy-filter-input
+ {
+    width: min(15rem, 100%);
 }
 
-.taxonomy-toolbar-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--fsus-space-3);
+.taxonomy-toolbar-controls
+ {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--fsus-space-3);
 }
 
-.taxonomy-reference-cell {
-  display: grid;
-  gap: var(--fsus-space-1);
-  justify-items: center;
+.taxonomy-reference-cell
+ {
+    display: grid;
+    gap: var(--fsus-space-1);
+    justify-items: center;
 }
 
-@media (max-width: 639px) {
-  .taxonomy-toolbar-controls,
-  .taxonomy-filter-input {
-    width: 100%;
-  }
+@media (width <= 639px)
+ {
+    .taxonomy-toolbar-controls,
+    .taxonomy-filter-input
+ {
+        width: 100%;
+    }
 }

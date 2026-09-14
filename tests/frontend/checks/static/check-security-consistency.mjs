@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { analyzeHtmlSinks } from '../../../../tools/security/html-sink-ast.mjs';
+const { analyzeHtmlSinks } = await import(new URL('../../../../tools/security/html-sink-ast.mjs', import.meta.url));
 
 const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url));
 const srcRoot = resolve(repoRoot, 'src/frontend/src');
@@ -174,7 +174,7 @@ else if (/\bhtml\b/i.test(previewTs[1]))
 }
 
 const previewLifecycle = readRepoFile('src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs');
-const previewMethod = /public Task<ArticlePreviewResponse> PreviewAsync\([\s\S]*?\n    \}/.exec(previewLifecycle)?.[0]
+const previewMethod = /public Task<ArticlePreviewResponse> PreviewAsync\([\s\S]*?\n {4}\}/.exec(previewLifecycle)?.[0]
     ?? '';
 if (!previewMethod)
 {

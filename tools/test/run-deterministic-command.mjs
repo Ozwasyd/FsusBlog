@@ -41,11 +41,7 @@ import {
     qualificationTemporalContext,
     verifyTemporalReplay
 } from './temporal-context.mjs';
-import {
-    loadExecutionEnvelopeApplicability,
-    loadExecutionEnvelopePolicy,
-    resolveExecutionEnvelopeProducer
-} from '../test-matrix/execution-envelope-policy.mjs';
+const {loadExecutionEnvelopeApplicability, loadExecutionEnvelopePolicy, resolveExecutionEnvelopeProducer} = await import(new URL('../test-matrix/execution-envelope-policy.mjs', import.meta.url));
 import { resolveTemporalRolesForProducerIfBound } from './temporal-role-resolver.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -210,6 +206,7 @@ function createRunnerTemporalContext({ producerId, runId, sourceCommit, sourceFi
 
 function bindTemporalArtifact(document, executionEnvelopeBinding)
 {
+    // eslint-disable-next-line no-unused-vars
     const { digest: _digest, ...payload } = document;
     const bound = {
         ...payload,
@@ -710,6 +707,7 @@ async function main(argv)
         process.off('SIGTERM', onSigterm);
         if (finalizationError)
         {
+            // eslint-disable-next-line no-unsafe-finally
             throw finalizationError;
         }
     }

@@ -4,22 +4,10 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import {
-    bindExecutionEnvelope,
-    buildExecutionEnvelope,
-    sealExecutionEnvelopeReceipt,
-    verifyExecutionEnvelopeConsumerBindings,
-    verifyExecutionEnvelopeReceipt
-} from '../../tools/test/execution-envelope-receipt.mjs';
-import {
-    loadExecutionEnvelopeApplicability,
-    loadExecutionEnvelopePolicy,
-    executionEnvelopeDigest,
-    resolveExecutionEnvelopeProducer
-} from '../../tools/test-matrix/execution-envelope-policy.mjs';
-import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs';
-import { verifyExecutionEnvelopeFiles } from '../../tools/test/verify-execution-envelope.mjs';
-
+const {bindExecutionEnvelope, buildExecutionEnvelope, sealExecutionEnvelopeReceipt, verifyExecutionEnvelopeConsumerBindings, verifyExecutionEnvelopeReceipt} = await import(new URL('../../tools/test/execution-envelope-receipt.mjs', import.meta.url));
+const {loadExecutionEnvelopeApplicability, loadExecutionEnvelopePolicy, executionEnvelopeDigest, resolveExecutionEnvelopeProducer} = await import(new URL('../../tools/test-matrix/execution-envelope-policy.mjs', import.meta.url));
+const {validateJsonSchema} = await import(new URL('../../tools/test-matrix/schema-validator/validate.mjs', import.meta.url));
+const {verifyExecutionEnvelopeFiles} = await import(new URL('../../tools/test/verify-execution-envelope.mjs', import.meta.url));
 const policy = loadExecutionEnvelopePolicy();
 const catalog = loadExecutionEnvelopeApplicability();
 const applicability = resolveExecutionEnvelopeProducer('backend-source-file-size', catalog);
@@ -204,9 +192,18 @@ test('mismatch, fragment tamper, and cross-run splice fail with a location', () 
 {
     const plan = envelope('planned');
     for (const mutate of [
-        (actual) => { actual.cpuCount = 8; },
-        (actual) => { actual.fragmentDigests.network = `sha256:${'f'.repeat(64)}`; },
-        (actual) => { actual.schedulerRunId = 'run-b'; }
+        (actual) =>
+        {
+            actual.cpuCount = 8;
+        },
+        (actual) =>
+        {
+            actual.fragmentDigests.network = `sha256:${'f'.repeat(64)}`;
+        },
+        (actual) =>
+        {
+            actual.schedulerRunId = 'run-b';
+        }
     ])
     {
         const actual = structuredClone(envelope('actual'));

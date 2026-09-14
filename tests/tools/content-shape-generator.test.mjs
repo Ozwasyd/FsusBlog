@@ -2,18 +2,8 @@ import assert from 'node:assert/strict';
 import { performance } from 'node:perf_hooks';
 import test from 'node:test';
 
-import {
-    contentShapeLogProjection,
-    contentShapeTextChunks,
-    generateContentShape,
-    generateContentShapes,
-    verifyGeneratedContentShape
-} from '../../tools/test-fixtures/content-shape-generator.mjs';
-import {
-    contentShapeBoundaryPlan,
-    readContentShapeAuthority
-} from '../../tools/testing/content-shape-catalog.mjs';
-
+const {contentShapeLogProjection, contentShapeTextChunks, generateContentShape, generateContentShapes, verifyGeneratedContentShape} = await import(new URL('../../tools/test-fixtures/content-shape-generator.mjs', import.meta.url));
+const {contentShapeBoundaryPlan, readContentShapeAuthority} = await import(new URL('../../tools/testing/content-shape-catalog.mjs', import.meta.url));
 test('all Unicode classes generate deterministic exact bytes and statistics', () =>
 {
     const authority = readContentShapeAuthority();

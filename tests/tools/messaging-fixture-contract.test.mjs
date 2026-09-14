@@ -4,12 +4,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import {
-    MESSAGING_FIXTURE_CAPABILITY_IDS,
-    messagingFixtureContractErrors,
-    readMessagingFixtureContract
-} from '../../tools/test/messaging-fixture-contract.mjs';
-
+const {MESSAGING_FIXTURE_CAPABILITY_IDS, messagingFixtureContractErrors, readMessagingFixtureContract} = await import(new URL('../../tools/test/messaging-fixture-contract.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const clone = (value) => structuredClone(value);
 const contract = readMessagingFixtureContract();

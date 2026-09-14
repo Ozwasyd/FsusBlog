@@ -6,8 +6,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { observeExecutableIdentity } from './execution-envelope-environment.mjs';
-import { executionEnvelopeDigest } from '../test-matrix/execution-envelope-policy.mjs';
-
+const { executionEnvelopeDigest } = await import(new URL('../test-matrix/execution-envelope-policy.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const landlockSource = path.join(
     root,
@@ -167,6 +166,7 @@ export function projectPlannedEndpoints({ services, serviceEnvelope, policy })
 
 export function prepareNetworkSandbox({
     command,
+    // eslint-disable-next-line no-unused-vars
     cwd,
     directories,
     writableRoots,

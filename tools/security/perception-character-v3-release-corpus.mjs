@@ -36,19 +36,27 @@ function parse(argv)
         const name = argv.shift();
         const value = argv.shift();
         if (!name?.startsWith('--') || value === undefined)
+        {
             throw new Error(`invalid argument ${name ?? '<missing>'}`);
+        }
         options[name.slice(2)] = value;
     }
     for (const field of ['visual', 'audio', 'workers'])
     {
         options[field] = Number(options[field]);
         if (!Number.isSafeInteger(options[field]) || options[field] <= 0)
+        {
             throw new Error(`--${field} must be a positive integer`);
+        }
     }
     if (!['release', 'fixture'].includes(options.profile))
+    {
         throw new Error('--profile must be release or fixture');
+    }
     if (!options.output)
+    {
         throw new Error('--output is required');
+    }
     if (options.profile === 'release'
         && (options.visual < visualReleaseMinimum || options.audio < audioReleaseMinimum))
     {
@@ -76,7 +84,9 @@ function runWorker(data)
         worker.once('exit', code =>
         {
             if (code !== 0)
+            {
                 reject(new Error(`corpus worker exited with ${code}`));
+            }
         });
     });
 }
@@ -84,8 +94,12 @@ function runWorker(data)
 function mergePositionCounts(target, source)
 {
     for (let position = 0; position < source.length; position += 1)
+    {
         for (const [symbol, count] of Object.entries(source[position]))
+        {
             target[position][symbol] += count;
+        }
+    }
 }
 
 function percentile(values, ratio)
@@ -171,7 +185,9 @@ async function main()
     {
         const bytes = Buffer.from(fixture.bytesBase64, 'base64');
         if (sha256(bytes) !== fixture.sha256)
+        {
             throw new Error(`review fixture digest mismatch: ${fixture.name}`);
+        }
         fs.writeFileSync(path.join(reviewRoot, fixture.name), bytes, { mode: 0o600 });
         delete fixture.bytesBase64;
     }
@@ -239,7 +255,9 @@ async function main()
         durationMs: report.durationMs
     })}\n`);
     if (report.status !== 'passed')
+    {
         process.exitCode = 1;
+    }
 }
 
 await main();

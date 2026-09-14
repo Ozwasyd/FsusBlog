@@ -30,24 +30,57 @@ export function validatePublicPreviewQualityReport(report, expected, policy)
         width: finiteNumber(expected?.viewport?.width ?? expected?.viewportWidth ?? 0),
         height: finiteNumber(expected?.viewport?.height ?? expected?.viewportHeight ?? 0)
     };
-    if (report?.schema !== publicPreviewQualityReportSchema) errors.push('schema');
+    if (report?.schema !== publicPreviewQualityReportSchema)
+    {
+        errors.push('schema');
+    }
     for (const field of ['id', 'route', 'theme', 'locale'])
     {
-        if (report?.[field] !== expected?.[field]) errors.push(`${field} mismatch`);
+        if (report?.[field] !== expected?.[field])
+        {
+            errors.push(`${field} mismatch`);
+        }
     }
-    if (report?.surfaceRole !== expectedSurfaceRole) errors.push('surfaceRole mismatch');
-    if (Number(report?.zoom) !== Number(expected?.zoom)) errors.push('zoom mismatch');
+    if (report?.surfaceRole !== expectedSurfaceRole)
+    {
+        errors.push('surfaceRole mismatch');
+    }
+    if (Number(report?.zoom) !== Number(expected?.zoom))
+    {
+        errors.push('zoom mismatch');
+    }
     if (Number(report?.viewport?.width) !== expectedViewport.width
-        || Number(report?.viewport?.height) !== expectedViewport.height) errors.push('viewport mismatch');
-    if (!allowedStatuses.has(report?.status)) errors.push('status');
-    if (report?.reviewer?.classification !== report?.status) errors.push('reviewer classification');
-    if (!Array.isArray(report?.reviewer?.reasons)) errors.push('reviewer reasons');
-    if (!Array.isArray(report?.linkedIssues)) errors.push('linkedIssues');
+        || Number(report?.viewport?.height) !== expectedViewport.height)
+    {
+        errors.push('viewport mismatch');
+    }
+    if (!allowedStatuses.has(report?.status))
+    {
+        errors.push('status');
+    }
+    if (report?.reviewer?.classification !== report?.status)
+    {
+        errors.push('reviewer classification');
+    }
+    if (!Array.isArray(report?.reviewer?.reasons))
+    {
+        errors.push('reviewer reasons');
+    }
+    if (!Array.isArray(report?.linkedIssues))
+    {
+        errors.push('linkedIssues');
+    }
     for (const check of ['overflow', 'overlaps', 'clippedText', 'hitTargets', 'focusClipping', 'localeCoherence', 'headerStability', 'primaryTask'])
     {
-        if (!['pass', 'fail'].includes(report?.machine?.[check]?.status)) errors.push(`machine.${check}`);
+        if (!['pass', 'fail'].includes(report?.machine?.[check]?.status))
+        {
+            errors.push(`machine.${check}`);
+        }
     }
-    if (policy?.reviewerStatuses && !policy.reviewerStatuses.includes(report?.status)) errors.push('policy status');
+    if (policy?.reviewerStatuses && !policy.reviewerStatuses.includes(report?.status))
+    {
+        errors.push('policy status');
+    }
     return errors;
 }
 
@@ -70,18 +103,39 @@ export function createPublicPreviewQualityMatrix(reports, policyDigest = null)
 export function validatePublicPreviewQualityMatrix(document, scenarios, policy)
 {
     const errors = [];
-    if (document?.schema !== publicPreviewQualityMatrixSchema) errors.push('matrix schema');
-    if (!allowedStatuses.has(document?.status)) errors.push('matrix status');
-    if (!Array.isArray(document?.reports)) return [...errors, 'matrix reports'];
+    if (document?.schema !== publicPreviewQualityMatrixSchema)
+    {
+        errors.push('matrix schema');
+    }
+    if (!allowedStatuses.has(document?.status))
+    {
+        errors.push('matrix status');
+    }
+    if (!Array.isArray(document?.reports))
+    {
+        return [...errors, 'matrix reports'];
+    }
     const expectedById = new Map((scenarios ?? []).map((scenario) => [scenario.id, scenario]));
     const actualIds = document.reports.map((report) => report.id);
-    if (new Set(actualIds).size !== actualIds.length) errors.push('duplicate matrix report id');
-    if (actualIds.length !== expectedById.size) errors.push('matrix scenario count');
+    if (new Set(actualIds).size !== actualIds.length)
+    {
+        errors.push('duplicate matrix report id');
+    }
+    if (actualIds.length !== expectedById.size)
+    {
+        errors.push('matrix scenario count');
+    }
     for (const report of document.reports)
     {
         const expected = expectedById.get(report.id);
-        if (!expected) errors.push(`unknown matrix report ${report.id}`);
-        else errors.push(...validatePublicPreviewQualityReport(report, expected, policy).map((error) => `${report.id}: ${error}`));
+        if (!expected)
+        {
+            errors.push(`unknown matrix report ${report.id}`);
+        }
+        else
+        {
+            errors.push(...validatePublicPreviewQualityReport(report, expected, policy).map((error) => `${report.id}: ${error}`));
+        }
     }
     return errors;
 }

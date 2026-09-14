@@ -4,16 +4,10 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { fileBackedCleanAttemptEvidence } from '../../tools/release/clean-first-attempt-verifier.mjs';
-import {
-    appendCleanAttemptCohortSlot,
-    createCleanAttemptCohort,
-    persistCleanAttemptCohortRevision,
-    validateCleanAttemptCohort
-} from '../../tools/release/release-clean-attempt-cohort.mjs';
-import { sealContentDigest, sha256 } from '../../tools/test/attempt-provenance.mjs';
-import { runProducerAttempts } from '../../tools/test/attempt-runner.mjs';
-
+const {fileBackedCleanAttemptEvidence} = await import(new URL('../../tools/release/clean-first-attempt-verifier.mjs', import.meta.url));
+const {appendCleanAttemptCohortSlot, createCleanAttemptCohort, persistCleanAttemptCohortRevision, validateCleanAttemptCohort} = await import(new URL('../../tools/release/release-clean-attempt-cohort.mjs', import.meta.url));
+const {sealContentDigest, sha256} = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
+const {runProducerAttempts} = await import(new URL('../../tools/test/attempt-runner.mjs', import.meta.url));
 const root = path.resolve(import.meta.dirname, '../..');
 const commandFixture = path.join(root, 'tests/tools/fixtures/attempt-runner-command.mjs');
 const sourceCommit = '1'.repeat(40);
@@ -135,7 +129,10 @@ test('receipt size limit is inclusive and descriptors close after parse and size
     context.mock.method(fs, 'openSync', (...args) =>
     {
         const descriptor = originalOpen(...args);
-        if (args[0] === file && typeof args[1] === 'number') opened.push(descriptor);
+        if (args[0] === file && typeof args[1] === 'number')
+        {
+            opened.push(descriptor);
+        }
         return descriptor;
     });
     fs.appendFileSync(file, ' ');
@@ -144,7 +141,9 @@ test('receipt size limit is inclusive and descriptors close after parse and size
     assert.throws(() => reader.loadAggregate(), SyntaxError);
     assert.equal(opened.length, 2);
     for (const descriptor of opened)
+    {
         assert.throws(() => fs.fstatSync(descriptor), { code: 'EBADF' });
+    }
 });
 
 test('three independent first-attempt clean runs qualify an append-only cohort', async (context) =>
@@ -342,9 +341,18 @@ test('cohort admission reads files and rejects missing, replaced and aliased evi
         const logFile = path.join(path.dirname(attemptFile), attempt.stdoutPath);
         const target = kind.includes('aggregate') ? aggregateFile
             : kind.includes('attempt') ? attemptFile : logFile;
-        if (kind === 'missing-root') evidence.evidenceRoot = undefined;
-        else if (kind === 'missing-file-digest') delete evidence.aggregateReference.fileDigest;
-        else if (kind.startsWith('missing-')) fs.unlinkSync(target);
+        if (kind === 'missing-root')
+        {
+            evidence.evidenceRoot = undefined;
+        }
+        else if (kind === 'missing-file-digest')
+        {
+            delete evidence.aggregateReference.fileDigest;
+        }
+        else if (kind.startsWith('missing-'))
+        {
+            fs.unlinkSync(target);
+        }
         else if (kind.endsWith('-symlink'))
         {
             fs.renameSync(target, `${target}.original`);

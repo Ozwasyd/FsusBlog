@@ -1,9 +1,9 @@
-import type { Component } from 'vue'
+import type { Component } from 'vue';
 
-export type MarkdownEditorChrome = 'framed' | 'embedded' | 'minimal'
-export type MarkdownEditorStatusDensity = 'none' | 'minimal' | 'detailed'
-export type MarkdownEditorMode = 'source' | 'live' | 'split' | 'preview'
-export type MarkdownEditorCommandGroup = 'text' | 'structure' | 'code' | 'media' | 'action' | 'format' | 'block' | 'insert'
+export type MarkdownEditorChrome = 'framed' | 'embedded' | 'minimal';
+export type MarkdownEditorStatusDensity = 'none' | 'minimal' | 'detailed';
+export type MarkdownEditorMode = 'source' | 'live' | 'split' | 'preview';
+export type MarkdownEditorCommandGroup = 'text' | 'structure' | 'code' | 'media' | 'action' | 'format' | 'block' | 'insert';
 export type MarkdownEditorCommandKey =
   | 'undo'
   | 'redo'
@@ -25,21 +25,21 @@ export type MarkdownEditorCommandKey =
   | 'table'
   | 'hr'
   | 'image'
-  | 'save'
+  | 'save';
 
 export type MarkdownEditorCommand = Readonly<{
-  key: MarkdownEditorCommandKey
-  label: string
-  ariaLabel?: string
-  shortcut?: string
-  group: MarkdownEditorCommandGroup
-}>
+    key: MarkdownEditorCommandKey;
+    label: string;
+    ariaLabel?: string;
+    shortcut?: string;
+    group: MarkdownEditorCommandGroup;
+}>;
 
 export type MarkdownEditorProviderContract = Readonly<{
-  id: string
-  label: string
-  editorComponent: Component
-  previewComponent: Component
-  defaultMode: MarkdownEditorMode
-  defaultToolbarsExclude: readonly string[]
-}>
+    id: string;
+    label: string;
+    editorComponent: Component;
+    previewComponent: Component;
+    defaultMode: MarkdownEditorMode;
+    defaultToolbarsExclude: readonly string[];
+}>;

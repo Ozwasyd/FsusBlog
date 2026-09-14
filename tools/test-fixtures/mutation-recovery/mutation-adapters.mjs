@@ -1,11 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { validateFixtureReceipt } from '../receipt/fixture-receipt.mjs';
-import {
-    catalogContentDigest,
-    loadCanonicalMutationEnvelopeCatalog
-} from '../mutation-envelope-catalog.mjs';
+const {validateFixtureReceipt} = await import(new URL('../receipt/fixture-receipt.mjs', import.meta.url));
+const {catalogContentDigest, loadCanonicalMutationEnvelopeCatalog} = await import(new URL('../mutation-envelope-catalog.mjs', import.meta.url));
 import { canonicalJson, digest, requireStableId, seal, verifySeal } from './canonical.mjs';
 import {
     compareSemanticSnapshots,
@@ -69,6 +66,7 @@ function selectTargets(snapshot, envelope, provider)
             {
                 throw new Error(`Redis mutation target ${target.domain}/${target.role} is missing or ambiguous`);
             }
+            // eslint-disable-next-line no-useless-escape
             if (/[*?\[\]]/u.test(matches[0].stableId))
             {
                 throw new Error('Redis mutation refuses wildcard target identity');
@@ -223,6 +221,7 @@ export async function applyFixtureMutation({
         assertFilesystemConfinement(port, request.targets);
     }
     if (request.provider === 'redis'
+      // eslint-disable-next-line no-useless-escape
       && request.targets.some((target) => /[*?\[\]]/u.test(String(target.stableId))))
     {
         throw new Error('Redis mutation refuses wildcard target identity');

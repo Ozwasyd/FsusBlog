@@ -1,13 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import {
-    canonicalJson,
-    digestCanonical,
-    sealContentDigest
-} from '../test/attempt-provenance.mjs';
-import { cleanFirstAttemptVerdict, fileBackedCleanAttemptEvidence } from './clean-first-attempt-verifier.mjs';
+const {canonicalJson, digestCanonical, sealContentDigest} = await import(new URL('../test/attempt-provenance.mjs', import.meta.url));
 import { resolveTransportedCleanAttemptEvidence } from './clean-attempt-evidence-transport.mjs';
+import { cleanFirstAttemptVerdict, fileBackedCleanAttemptEvidence } from './clean-first-attempt-verifier.mjs';
 
 export const cleanAttemptCohortSchema = 'fsusblog.release-clean-attempt-cohort.v1';
 

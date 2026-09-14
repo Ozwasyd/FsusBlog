@@ -2,22 +2,22 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import {
-    evidenceContentDigest,
-    evidenceProducerReceiptDigest
-} from '../test/current-run-evidence-locator.mjs';
-import {
-    validateEvidenceTransportManifest
-} from '../test/current-run-evidence-transport.mjs';
-import { aggregateAttemptReceiptSchema } from '../test/attempt-provenance.mjs';
-
+const {evidenceContentDigest, evidenceProducerReceiptDigest} = await import(new URL('../test/current-run-evidence-locator.mjs', import.meta.url));
+const {validateEvidenceTransportManifest} = await import(new URL('../test/current-run-evidence-transport.mjs', import.meta.url));
+const {aggregateAttemptReceiptSchema} = await import(new URL('../test/attempt-provenance.mjs', import.meta.url));
 const referenceSchema = 'fsusblog.current-run-evidence-reference.v1';
 const digestPattern = /^sha256:[0-9a-f]{64}$/u;
 
 function canonicalize(value)
 {
-    if (Array.isArray(value)) return value.map(canonicalize);
-    if (!value || typeof value !== 'object') return value;
+    if (Array.isArray(value))
+    {
+        return value.map(canonicalize);
+    }
+    if (!value || typeof value !== 'object')
+    {
+        return value;
+    }
     return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]));
 }
 

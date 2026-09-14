@@ -6,13 +6,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, test } from 'node:test';
 
-import { root } from '../../tools/contracts/behavior-contract-catalog.mjs';
-import { scanBehaviorTestBindings } from '../../tools/contracts/behavior-test-binding.mjs';
-import { produceBehaviorTestEvidence } from '../../tools/test-matrix/produce-behavior-test-evidence.mjs';
-import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs';
-import { createObservationArtifact } from '../../tools/test-observations/ledger.mjs';
-import { observationArtifactSchema } from '../../tools/test-observations/validation.mjs';
-
+const { root } = await import(new URL('../../tools/contracts/behavior-contract-catalog.mjs', import.meta.url));
+const { scanBehaviorTestBindings } = await import(new URL('../../tools/contracts/behavior-test-binding.mjs', import.meta.url));
+const { produceBehaviorTestEvidence } = await import(new URL('../../tools/test-matrix/produce-behavior-test-evidence.mjs', import.meta.url));
+const { validateJsonSchema } = await import(new URL('../../tools/test-matrix/schema-validator/validate.mjs', import.meta.url));
+const { createObservationArtifact } = await import(new URL('../../tools/test-observations/ledger.mjs', import.meta.url));
+const { observationArtifactSchema } = await import(new URL('../../tools/test-observations/validation.mjs', import.meta.url));
 const producerCli = path.join(root, 'tools/test-matrix/produce-behavior-test-evidence.mjs');
 
 function sha256(data)

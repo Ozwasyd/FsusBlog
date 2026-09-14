@@ -2,17 +2,8 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import test from 'node:test';
 
-import {
-    createMinimalCorrectnessEnvironment,
-    observeExecutableIdentity,
-    prepareCorrectnessEnvironment,
-    verifyExecutableIdentity
-} from '../../tools/test/execution-envelope-environment.mjs';
-import {
-    loadExecutionEnvelopeApplicability,
-    loadExecutionEnvelopePolicy
-} from '../../tools/test-matrix/execution-envelope-policy.mjs';
-
+const {createMinimalCorrectnessEnvironment, observeExecutableIdentity, prepareCorrectnessEnvironment, verifyExecutableIdentity} = await import(new URL('../../tools/test/execution-envelope-environment.mjs', import.meta.url));
+const {loadExecutionEnvelopeApplicability, loadExecutionEnvelopePolicy} = await import(new URL('../../tools/test-matrix/execution-envelope-policy.mjs', import.meta.url));
 const policy = loadExecutionEnvelopePolicy();
 const catalog = loadExecutionEnvelopeApplicability();
 

@@ -12,11 +12,7 @@ import {
     resolvePlaywrightSessionMode
 } from './fixture-paths.mjs';
 import { resolveTestSession } from './test-session.mjs';
-import {
-    loadResolvedTemporalRoles,
-    requireResolvedTemporalRole
-} from '../../../tools/test/temporal-role-resolver.mjs';
-
+const {loadResolvedTemporalRoles, requireResolvedTemporalRole} = await import(new URL('../../../tools/test/temporal-role-resolver.mjs', import.meta.url));
 const CLAIM_NAME_IDENTIFIER = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier';
 const CLAIM_NAME = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name';
 const ACCOUNT_SUBJECT_HASH_CLAIM = 'account_subject_hash';
@@ -217,6 +213,7 @@ function temporalRoleSql(roleId)
     return `timestamptz '${temporalRole(roleId).instantUtc}'`;
 }
 
+// eslint-disable-next-line no-unused-vars
 function exactTemporalTtlSeconds(roleId, requestedSeconds)
 {
     const expiresAt = temporalRole(roleId).epochMilliseconds;

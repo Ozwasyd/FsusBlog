@@ -142,13 +142,34 @@ test('first navigation checks immutable HTML, typed copy, security domain select
 });
 
 for (const [label, mutate] of [
-    ['status', (response) => { response.status = 503; }],
-    ['content type', (response) => { response.headers['content-type'] = 'application/json'; }],
-    ['content language', (response) => { response.headers['content-language'] = 'en-US'; }],
-    ['HTML lang', (response) => { response.body = Buffer.from(response.body.toString().replace('lang="zh-CN"', 'lang="en-US"')); }],
-    ['render locale', (response) => { response.body = response.body; }],
-    ['frontend build identity', (response) => { response.body = Buffer.from(response.body.toString().replace('release-test-build', 'stale-build')); }],
-    ['typed copy', (response) => { response.body = Buffer.from(response.body.toString().replace(copy['public.shell.archive'], 'wrong-copy')); }]
+    ['status', (response) =>
+    {
+        response.status = 503;
+    }],
+    ['content type', (response) =>
+    {
+        response.headers['content-type'] = 'application/json';
+    }],
+    ['content language', (response) =>
+    {
+        response.headers['content-language'] = 'en-US';
+    }],
+    ['HTML lang', (response) =>
+    {
+        response.body = Buffer.from(response.body.toString().replace('lang="zh-CN"', 'lang="en-US"'));
+    }],
+    ['render locale', (response) =>
+    {
+        response.body = Buffer.from(response.body);
+    }],
+    ['frontend build identity', (response) =>
+    {
+        response.body = Buffer.from(response.body.toString().replace('release-test-build', 'stale-build'));
+    }],
+    ['typed copy', (response) =>
+    {
+        response.body = Buffer.from(response.body.toString().replace(copy['public.shell.archive'], 'wrong-copy'));
+    }]
 ])
 {
     test(`first navigation rejects ${label} drift`, async () =>

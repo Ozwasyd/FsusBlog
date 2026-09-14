@@ -4,14 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { readRetryPolicyRegistry, sealContentDigest } from '../../tools/test/attempt-provenance.mjs';
-import {
-    hiddenRetryScannerVersion,
-    scanHiddenRetries,
-    sourceDigest,
-    validateRetryDispositionRegistry
-} from '../../tools/test/hidden-retry-scanner.mjs';
-
+const {readRetryPolicyRegistry, sealContentDigest} = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
+const {hiddenRetryScannerVersion, scanHiddenRetries, sourceDigest, validateRetryDispositionRegistry} = await import(new URL('../../tools/test/hidden-retry-scanner.mjs', import.meta.url));
 const root = path.resolve(import.meta.dirname, '../..');
 
 function fixture(files)

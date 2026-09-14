@@ -5,25 +5,10 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import {
-    compensateVerifiedContainerCleanup,
-    deriveLocalPublicContentFixtureSecret,
-    derivePendingCommentPrivacyIdentity,
-    removeVerifiedContainerById,
-    retryLocalRuntimeCleanup,
-    retryVerifiedCleanup,
-    resolveDedicatedRuntimeRunId,
-    validateDefaultFixtureProviderState
-} from '../browser-contract/default-fixture-provider.mjs';
-import {
-    cleanupBrowserContractFixture,
-    createBrowserContractFixtureApi,
-    prepareBrowserContractFixture,
-    resolveBrowserContractRunIdentity
-} from '../browser-contract/fixture-lifecycle.mjs';
-import { fixtureReceiptView, loadBrowserContractFixture } from '../browser-contract/fixture.mjs';
-import { executionServiceImageReference } from '../../tools/test/execution-envelope-services.mjs';
-
+const {compensateVerifiedContainerCleanup, deriveLocalPublicContentFixtureSecret, derivePendingCommentPrivacyIdentity, removeVerifiedContainerById, retryLocalRuntimeCleanup, retryVerifiedCleanup, resolveDedicatedRuntimeRunId, validateDefaultFixtureProviderState} = await import(new URL('../browser-contract/default-fixture-provider.mjs', import.meta.url));
+const {cleanupBrowserContractFixture, createBrowserContractFixtureApi, prepareBrowserContractFixture, resolveBrowserContractRunIdentity} = await import(new URL('../browser-contract/fixture-lifecycle.mjs', import.meta.url));
+const {fixtureReceiptView, loadBrowserContractFixture} = await import(new URL('../browser-contract/fixture.mjs', import.meta.url));
+const {executionServiceImageReference} = await import(new URL('../../tools/test/execution-envelope-services.mjs', import.meta.url));
 const commit = 'a'.repeat(40);
 const fingerprint = 'b'.repeat(64);
 const buildDigest = `sha256:${'c'.repeat(64)}`;

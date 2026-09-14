@@ -4,9 +4,9 @@
  * Marker interiors are generator-owned; parsers never treat interior text as authority.
  */
 
-export const generatedMarkerPrefix = 'FSUSBLOG-GENERATED'
-export const beginMarkerPattern = /<!--\s*FSUSBLOG-GENERATED:BEGIN\s+([a-z][a-z0-9]*(?:[.-][a-z0-9]+)*)\s*-->/gu
-export const endMarkerPattern = /<!--\s*FSUSBLOG-GENERATED:END\s+([a-z][a-z0-9]*(?:[.-][a-z0-9]+)*)\s*-->/gu
+export const generatedMarkerPrefix = 'FSUSBLOG-GENERATED';
+export const beginMarkerPattern = /<!--\s*FSUSBLOG-GENERATED:BEGIN\s+([a-z][a-z0-9]*(?:[.-][a-z0-9]+)*)\s*-->/gu;
+export const endMarkerPattern = /<!--\s*FSUSBLOG-GENERATED:END\s+([a-z][a-z0-9]*(?:[.-][a-z0-9]+)*)\s*-->/gu;
 
 export const GeneratedSectionErrorCode = Object.freeze({
     MARKER_UNPAIRED: 'GENERATED_SECTION_MARKER_UNPAIRED',
@@ -32,30 +32,30 @@ export const GeneratedSectionErrorCode = Object.freeze({
     SECOND_REGISTRY: 'GENERATED_SECTION_SECOND_REGISTRY',
     BASELINE_ALLOWLIST: 'GENERATED_SECTION_BASELINE_ALLOWLIST',
     WARNING_ONLY: 'GENERATED_SECTION_WARNING_ONLY'
-})
+});
 
 export function makeGeneratedSectionError(code, message, details = {})
 {
-    const error = new Error(message)
-    error.code = code
-    error.details = details
-    return error
+    const error = new Error(message);
+    error.code = code;
+    error.details = details;
+    return error;
 }
 
 export function formatBeginMarker(sectionId)
 {
-    return `<!-- FSUSBLOG-GENERATED:BEGIN ${sectionId} -->`
+    return `<!-- FSUSBLOG-GENERATED:BEGIN ${sectionId} -->`;
 }
 
 export function formatEndMarker(sectionId)
 {
-    return `<!-- FSUSBLOG-GENERATED:END ${sectionId} -->`
+    return `<!-- FSUSBLOG-GENERATED:END ${sectionId} -->`;
 }
 
 export function wrapGeneratedSection(sectionId, bodyMarkdown)
 {
-    const body = bodyMarkdown.length === 0 ? '' : `${bodyMarkdown.replace(/\n+$/u, '')}\n`
-    return `${formatBeginMarker(sectionId)}\n${body}${formatEndMarker(sectionId)}`
+    const body = bodyMarkdown.length === 0 ? '' : `${bodyMarkdown.replace(/\n+$/u, '')}\n`;
+    return `${formatBeginMarker(sectionId)}\n${body}${formatEndMarker(sectionId)}`;
 }
 
 /**
@@ -65,24 +65,24 @@ export function wrapGeneratedSection(sectionId, bodyMarkdown)
  */
 export function parseGeneratedMarkers(source, documentPath = '<input>')
 {
-    assertNoCompatMarkers(source, documentPath)
+    assertNoCompatMarkers(source, documentPath);
 
-    const beginMatches = [...source.matchAll(beginMarkerPattern)]
-    const endMatches = [...source.matchAll(endMarkerPattern)]
+    const beginMatches = [...source.matchAll(beginMarkerPattern)];
+    const endMatches = [...source.matchAll(endMarkerPattern)];
 
     // Reject malformed variants that look like markers but fail the strict pattern.
-    const looseBegin = [...source.matchAll(/<!--\s*FSUSBLOG-GENERATED:BEGIN\b[^>]*-->/gu)]
-    const looseEnd = [...source.matchAll(/<!--\s*FSUSBLOG-GENERATED:END\b[^>]*-->/gu)]
+    const looseBegin = [...source.matchAll(/<!--\s*FSUSBLOG-GENERATED:BEGIN\b[^>]*-->/gu)];
+    const looseEnd = [...source.matchAll(/<!--\s*FSUSBLOG-GENERATED:END\b[^>]*-->/gu)];
     if (looseBegin.length !== beginMatches.length || looseEnd.length !== endMatches.length)
     {
         throw makeGeneratedSectionError(
             GeneratedSectionErrorCode.MARKER_INVALID,
             `invalid FSUSBLOG-GENERATED marker syntax in ${documentPath}`,
             { documentPath }
-        )
+        );
     }
 
-    const events = []
+    const events = [];
     for (const match of beginMatches)
     {
         events.push({
@@ -91,7 +91,7 @@ export function parseGeneratedMarkers(source, documentPath = '<input>')
             index: match.index,
             length: match[0].length,
             text: match[0]
-        })
+        });
     }
     for (const match of endMatches)
     {
@@ -101,13 +101,13 @@ export function parseGeneratedMarkers(source, documentPath = '<input>')
             index: match.index,
             length: match[0].length,
             text: match[0]
-        })
+        });
     }
-    events.sort((left, right) => left.index - right.index || (left.kind === 'begin' ? -1 : 1))
+    events.sort((left, right) => left.index - right.index || (left.kind === 'begin' ? -1 : 1));
 
-    const open = []
-    const sections = []
-    const seenIds = new Set()
+    const open = [];
+    const sections = [];
+    const seenIds = new Set();
 
     for (const event of events)
     {
@@ -119,7 +119,7 @@ export function parseGeneratedMarkers(source, documentPath = '<input>')
                     GeneratedSectionErrorCode.MARKER_NESTED,
                     `nested generated section begin ${event.sectionId} inside ${open[open.length - 1].sectionId} in ${documentPath}`,
                     { documentPath, sectionId: event.sectionId }
-                )
+                );
             }
             if (seenIds.has(event.sectionId))
             {
@@ -127,11 +127,11 @@ export function parseGeneratedMarkers(source, documentPath = '<input>')
                     GeneratedSectionErrorCode.MARKER_DUPLICATE_ID,
                     `duplicate generated section id ${event.sectionId} in ${documentPath}`,
                     { documentPath, sectionId: event.sectionId }
-                )
+                );
             }
-            open.push(event)
-            seenIds.add(event.sectionId)
-            continue
+            open.push(event);
+            seenIds.add(event.sectionId);
+            continue;
         }
 
         if (open.length === 0)
@@ -140,24 +140,27 @@ export function parseGeneratedMarkers(source, documentPath = '<input>')
                 GeneratedSectionErrorCode.MARKER_UNPAIRED,
                 `end marker without begin for ${event.sectionId} in ${documentPath}`,
                 { documentPath, sectionId: event.sectionId }
-            )
+            );
         }
-        const begin = open.pop()
+        const begin = open.pop();
         if (begin.sectionId !== event.sectionId)
         {
             throw makeGeneratedSectionError(
                 GeneratedSectionErrorCode.MARKER_MISMATCH,
                 `end marker ${event.sectionId} does not match open begin ${begin.sectionId} in ${documentPath}`,
                 { documentPath, sectionId: event.sectionId, openSectionId: begin.sectionId }
-            )
+            );
         }
 
-        const contentStart = begin.index + begin.length
-        const contentEnd = event.index
+        const contentStart = begin.index + begin.length;
+        const contentEnd = event.index;
         // Drop a single leading newline after BEGIN for stable body extraction.
-        let bodyStart = contentStart
-        if (source[bodyStart] === '\n') bodyStart += 1
-        const body = source.slice(bodyStart, contentEnd)
+        let bodyStart = contentStart;
+        if (source[bodyStart] === '\n')
+        {
+            bodyStart += 1;
+        }
+        const body = source.slice(bodyStart, contentEnd);
         sections.push({
             sectionId: begin.sectionId,
             documentPath,
@@ -167,20 +170,20 @@ export function parseGeneratedMarkers(source, documentPath = '<input>')
             bodyEnd: contentEnd,
             // Exposed for diagnostics only; never fed into renderers.
             existingBody: body
-        })
+        });
     }
 
     if (open.length > 0)
     {
-        const missing = open[open.length - 1]
+        const missing = open[open.length - 1];
         throw makeGeneratedSectionError(
             GeneratedSectionErrorCode.MARKER_UNPAIRED,
             `begin marker missing end for ${missing.sectionId} in ${documentPath}`,
             { documentPath, sectionId: missing.sectionId }
-        )
+        );
     }
 
-    return sections
+    return sections;
 }
 
 export function assertNoCompatMarkers(source, documentPath = '<input>')
@@ -190,7 +193,7 @@ export function assertNoCompatMarkers(source, documentPath = '<input>')
         /<!--\s*FSUSBLOG-GENERATED-V\d+:/iu,
         /<!--\s*fsus-generated:/iu,
         /<!--\s*BEGIN\s+GENERATED\s+SECTION/iu
-    ]
+    ];
     for (const pattern of compatPatterns)
     {
         if (pattern.test(source))
@@ -199,7 +202,7 @@ export function assertNoCompatMarkers(source, documentPath = '<input>')
                 GeneratedSectionErrorCode.MARKER_COMPAT,
                 `compatibility generated-section marker is forbidden in ${documentPath}`,
                 { documentPath }
-            )
+            );
         }
     }
 }
@@ -216,47 +219,47 @@ export function replaceGeneratedSections(source, replacements)
         throw makeGeneratedSectionError(
             GeneratedSectionErrorCode.MARKER_INVALID,
             'replacements must be a Map or array of {sectionId, body}'
-        )
+        );
     }
     const map = replacements instanceof Map
         ? replacements
-        : new Map(replacements.map((entry) => [entry.sectionId, entry.body]))
+        : new Map(replacements.map((entry) => [entry.sectionId, entry.body]));
 
-    const sections = parseGeneratedMarkers(source)
+    const sections = parseGeneratedMarkers(source);
     if (sections.length === 0)
     {
-        return source
+        return source;
     }
 
-    let output = ''
-    let cursor = 0
+    let output = '';
+    let cursor = 0;
     for (const section of sections)
     {
         if (!map.has(section.sectionId))
         {
             // Leave unowned markers untouched only when caller did not supply a replacement.
             // Catalog-driven generator always supplies every owned section.
-            output += source.slice(cursor, section.endIndex)
-            cursor = section.endIndex
-            continue
+            output += source.slice(cursor, section.endIndex);
+            cursor = section.endIndex;
+            continue;
         }
-        const body = map.get(section.sectionId)
+        const body = map.get(section.sectionId);
         if (typeof body !== 'string')
         {
             throw makeGeneratedSectionError(
                 GeneratedSectionErrorCode.RENDERER_SHAPE,
                 `replacement body for ${section.sectionId} must be a string`
-            )
+            );
         }
-        output += source.slice(cursor, section.beginIndex)
-        output += wrapGeneratedSection(section.sectionId, body)
-        cursor = section.endIndex
+        output += source.slice(cursor, section.beginIndex);
+        output += wrapGeneratedSection(section.sectionId, body);
+        cursor = section.endIndex;
     }
-    output += source.slice(cursor)
-    return normalizeDocumentNewlines(output)
+    output += source.slice(cursor);
+    return normalizeDocumentNewlines(output);
 }
 
 export function normalizeDocumentNewlines(text)
 {
-    return text.replace(/\r\n/gu, '\n').replace(/\r/gu, '\n')
+    return text.replace(/\r\n/gu, '\n').replace(/\r/gu, '\n');
 }

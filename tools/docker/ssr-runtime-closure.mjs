@@ -23,7 +23,6 @@
  */
 
 import { createHash } from 'node:crypto';
-import { builtinModules } from 'node:module';
 import {
     cpSync,
     existsSync,
@@ -33,6 +32,7 @@ import {
     statSync,
     writeFileSync
 } from 'node:fs';
+import { builtinModules } from 'node:module';
 import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 

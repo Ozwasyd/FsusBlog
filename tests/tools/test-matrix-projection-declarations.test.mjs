@@ -59,20 +59,24 @@ function aggregateFixture(overrides = {})
     };
 }
 
-test('matrix validates every execution mode while allowing only separately owned declaration migrations', async () => {
+test('matrix validates every execution mode while allowing only separately owned declaration migrations', async () =>
+{
     const matrix = parseMatrix(readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
     const errors = [];
 
-    for (const tier of matrix.tiers) {
+    for (const tier of matrix.tiers)
+    {
         const mode = tier.executionMode ?? 'execute';
-        if (!evidenceExecutionModes.includes(mode)) {
+        if (!evidenceExecutionModes.includes(mode))
+        {
             errors.push(`${tier.id} executionMode is invalid: ${tier.executionMode}`);
         }
 
         errors.push(...validateEvidenceExecutionDeclaration(tier, matrix));
 
         const command = String(tier.command ?? '');
-        if (command.includes('noop.sh')) {
+        if (command.includes('noop.sh'))
+        {
             errors.push(`${tier.id} must not use noop.sh physical process scheduling; found ${command}`);
         }
     }
@@ -97,10 +101,12 @@ test('matrix validates every execution mode while allowing only separately owned
     assert.deepEqual(unownedErrors, []);
 });
 
-test('real JSON Schema validation rejects missing required fields and retired tier dependsOn', () => {
+test('real JSON Schema validation rejects missing required fields and retired tier dependsOn', () =>
+{
     const directory = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-matrix-schema-'));
     const source = readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8');
-    const run = (name, matrixSource) => {
+    const run = (name, matrixSource) =>
+    {
         const matrixFile = path.join(directory, `${name}.yml`);
         writeFileSync(matrixFile, matrixSource);
         return spawnSync(process.execPath, ['tools/run-test-matrix.mjs', 'validate'], {
@@ -109,9 +115,10 @@ test('real JSON Schema validation rejects missing required fields and retired ti
             encoding: 'utf8'
         });
     };
-    try {
+    try
+    {
         const missingRequired = source.replace(
-            /(    - id: validate-matrix[\s\S]*?)      executionDependsOn: \[\]\n/u,
+            /( {4}- id: validate-matrix[\s\S]*?) {6}executionDependsOn: \[\]\n/u,
             '$1'
         );
         assert.notEqual(missingRequired, source);
@@ -123,7 +130,7 @@ test('real JSON Schema validation rejects missing required fields and retired ti
         );
 
         const retiredDependsOn = source.replace(
-            /(    - id: validate-matrix[\s\S]*?      executionDependsOn: \[\]\n)/u,
+            /( {4}- id: validate-matrix[\s\S]*? {6}executionDependsOn: \[\]\n)/u,
             '$1      dependsOn: []\n'
         );
         assert.notEqual(retiredDependsOn, source);
@@ -134,24 +141,28 @@ test('real JSON Schema validation rejects missing required fields and retired ti
             /schema \/tiers\/0\/dependsOn must NOT have additional properties/u
         );
     }
-    finally {
+    finally
+    {
         rmSync(directory, { recursive: true, force: true });
     }
 });
 
-test('canonical producer topologies define valid projectFrom dependencies and clear execution owners', async () => {
+test('canonical producer topologies define valid projectFrom dependencies and clear execution owners', async () =>
+{
     const matrix = parseMatrix(readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
     const projectionTiers = matrix.tiers.filter((tier) => tier.executionMode === 'projection');
 
     assert.ok(projectionTiers.length > 0, 'matrix must define projection tiers');
-    for (const tier of projectionTiers) {
+    for (const tier of projectionTiers)
+    {
         assert.ok(tier.executionOwner, `${tier.id} must declare executionOwner`);
         assert.ok(tier.projectFrom, `${tier.id} must declare projectFrom`);
         assert.ok(tier.projectionCatalog, `${tier.id} must declare projectionCatalog`);
     }
 });
 
-test('shared aggregate planner gives deterministic pass/fail for authority and receipt declarations', () => {
+test('shared aggregate planner gives deterministic pass/fail for authority and receipt declarations', () =>
+{
     const valid = buildAggregatePlan(aggregateFixture(), 'fixture-summary');
     assert.deepEqual(valid.errors, []);
     assert.equal(valid.executesTestCommands, false);
@@ -179,13 +190,16 @@ test('shared aggregate planner gives deterministic pass/fail for authority and r
         ['input-mismatch', { summaryInputs: ['fsusblog.other-receipt.v1'] }],
         ['output-mismatch', { outputReceiptSchema: 'fsusblog.other-receipt.v1' }]
     ];
-    for (const [name, summary] of cases) {
+    for (const [name, summary] of cases)
+    {
         assert.notDeepEqual(buildAggregatePlan(aggregateFixture({ summary }), 'fixture-summary').errors, [], name);
     }
 });
 
-test('release aggregate tier IDs remain explicit invalid fixtures until backed by authorities', () => {
-    for (const tierId of ['release-admin-console', 'release-aot-generation']) {
+test('release aggregate tier IDs remain explicit invalid fixtures until backed by authorities', () =>
+{
+    for (const tierId of ['release-admin-console', 'release-aot-generation'])
+    {
         const matrix = aggregateFixture({
             summary: {
                 id: tierId,
@@ -199,9 +213,11 @@ test('release aggregate tier IDs remain explicit invalid fixtures until backed b
     }
 });
 
-test('local validate deterministically rejects an injected invalid aggregate without relying on main matrix failures', () => {
+test('local validate deterministically rejects an injected invalid aggregate without relying on main matrix failures', () =>
+{
     const directory = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-invalid-summary-'));
-    try {
+    try
+    {
         const source = readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8');
         const invalid = source.replace(
             'command: node tools/run-test-matrix.mjs aggregate fast-summary',
@@ -249,7 +265,8 @@ test('local validate deterministically rejects an injected invalid aggregate wit
         assert.notEqual(orphan.status, 0);
         assert.match(orphan.stderr, /aggregateAuthorities\.orphan-authority:/u);
     }
-    finally {
+    finally
+    {
         rmSync(directory, { recursive: true, force: true });
     }
 });

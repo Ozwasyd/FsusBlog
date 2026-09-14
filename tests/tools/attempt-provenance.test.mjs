@@ -4,15 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import {
-    runProducerAttempts,
-    validateDockerEquivalentAttemptReceipt
-} from '../../tools/test/attempt-runner.mjs';
-import {
-    digestCanonical,
-    validateAggregateAttemptReceipt
-} from '../../tools/test/attempt-provenance.mjs';
-
+const {runProducerAttempts, validateDockerEquivalentAttemptReceipt} = await import(new URL('../../tools/test/attempt-runner.mjs', import.meta.url));
+const {digestCanonical, validateAggregateAttemptReceipt} = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
 const root = path.resolve(import.meta.dirname, '../..');
 const commandFixture = path.join(root, 'tests/tools/fixtures/attempt-runner-command.mjs');
 const commit = '1'.repeat(40);

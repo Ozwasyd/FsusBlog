@@ -3,8 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { assertEvidenceClassification } from '../operations/evidence-classification.mjs'
-
+const { assertEvidenceClassification } = await import(new URL('../operations/evidence-classification.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8')
 const fail = message => {

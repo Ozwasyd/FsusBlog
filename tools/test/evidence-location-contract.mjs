@@ -6,7 +6,7 @@ export const EVIDENCE_LOCATION_LEDGER_SCHEMA = 'fsusblog.evidence-location-migra
 export const locatorModes = Object.freeze(['content-addressed-reference', 'explicit-run-path']);
 
 const sha256Pattern = /^sha256:[0-9a-f]{64}$/u;
-const unsafePathPattern = /(?:^|\/)(?:\.\.?)(?:\/|$)|[*?\[\]{}!]/u;
+const unsafePathPattern = /(?:^|\/)(?:\.\.?)(?:\/|$)|[*?[\]{}!]/u;
 const forbiddenSelectionKey = /(?:age|ctime|fallback|glob|latest|mtime|newest|priority|scan|search|ttl)/iu;
 const requiredContextIdentity = Object.freeze([
     'attemptId',
@@ -33,7 +33,8 @@ function canonicalize(value)
 
 export function governanceContentDigest(document)
 {
-    const { contentDigest: _ignored, ...payload } = document;
+    const payload = { ...document };
+    delete payload.contentDigest;
     return `sha256:${crypto.createHash('sha256')
         .update(JSON.stringify(canonicalize(payload))).digest('hex')}`;
 }
@@ -176,7 +177,7 @@ export function validateEvidenceLocationMigrationLedger(ledger, { scan = null } 
         {
             assertString(entry[name], `${field}.${name}`);
         }
-        assert(/^[^:*?\[\]]+:[1-9][0-9]*$/u.test(entry.location), `${field}.location must be exact file:line`);
+        assert(/^[^:*?[\]]+:[1-9][0-9]*$/u.test(entry.location), `${field}.location must be exact file:line`);
         assert(['correctness-selection', 'diagnostic-only', 'not-evidence'].includes(entry.classification),
             `${field}.classification is unsupported`);
         if (entry.classification === 'not-evidence')

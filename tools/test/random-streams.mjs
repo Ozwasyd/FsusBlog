@@ -1,7 +1,7 @@
-import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
     canonicalDigest,
@@ -9,122 +9,122 @@ import {
     deriveReplayStream,
     resolveRootSeed,
     validateCanonicalTestId
-} from './execution-replay-contract.mjs'
+} from './execution-replay-contract.mjs';
 
-export const randomStreamInventorySchema = 'fsusblog.random-stream-consumers.v1'
-export const randomStreamReceiptSchema = 'fsusblog.random-stream-receipt.v1'
+export const randomStreamInventorySchema = 'fsusblog.random-stream-consumers.v1';
+export const randomStreamReceiptSchema = 'fsusblog.random-stream-receipt.v1';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const defaultInventoryFile = path.join(root, 'config/testing/random-stream-consumers.json')
-const sha256Pattern = /^sha256:[0-9a-f]{64}$/u
-const consumerKinds = new Set(['property', 'model', 'fuzz', 'fixture'])
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const defaultInventoryFile = path.join(root, 'config/testing/random-stream-consumers.json');
+const sha256Pattern = /^sha256:[0-9a-f]{64}$/u;
+const consumerKinds = new Set(['property', 'model', 'fuzz', 'fixture']);
 
 function assert(condition, message)
 {
     if (!condition)
     {
-        throw new Error(message)
+        throw new Error(message);
     }
 }
 
 function nonEmpty(value, label)
 {
-    assert(typeof value === 'string' && value.trim() === value && value.length > 0, `${label} must be a non-empty canonical string`)
-    return value
+    assert(typeof value === 'string' && value.trim() === value && value.length > 0, `${label} must be a non-empty canonical string`);
+    return value;
 }
 
 function exactKeys(value, allowed, label)
 {
-    assert(value && typeof value === 'object' && !Array.isArray(value), `${label} must be an object`)
+    assert(value && typeof value === 'object' && !Array.isArray(value), `${label} must be an object`);
     for (const key of Object.keys(value))
     {
-        assert(allowed.has(key), `${label} contains unsupported field ${key}`)
+        assert(allowed.has(key), `${label} contains unsupported field ${key}`);
     }
 }
 
 function consumerKey(consumer)
 {
-    return `${consumer.producerId}\u0000${consumer.canonicalTestId}\u0000${consumer.streamId}`
+    return `${consumer.producerId}\u0000${consumer.canonicalTestId}\u0000${consumer.streamId}`;
 }
 
 export function loadRandomStreamInventory(file = defaultInventoryFile)
 {
-    const document = JSON.parse(readFileSync(file, 'utf8'))
-    validateRandomStreamInventory(document)
-    return document
+    const document = JSON.parse(readFileSync(file, 'utf8'));
+    validateRandomStreamInventory(document);
+    return document;
 }
 
 export function validateRandomStreamInventory(document)
 {
-    exactKeys(document, new Set(['schema', 'consumers', 'nonRandomDeclarations', 'nonSemanticEntropy']), 'random stream inventory')
-    assert(document.schema === randomStreamInventorySchema, `random stream inventory schema must be ${randomStreamInventorySchema}`)
-    assert(Array.isArray(document.consumers) && document.consumers.length > 0, 'random stream inventory consumers must be non-empty')
-    assert(Array.isArray(document.nonRandomDeclarations), 'random stream inventory nonRandomDeclarations must be an array')
-    assert(Array.isArray(document.nonSemanticEntropy), 'random stream inventory nonSemanticEntropy must be an array')
+    exactKeys(document, new Set(['schema', 'consumers', 'nonRandomDeclarations', 'nonSemanticEntropy']), 'random stream inventory');
+    assert(document.schema === randomStreamInventorySchema, `random stream inventory schema must be ${randomStreamInventorySchema}`);
+    assert(Array.isArray(document.consumers) && document.consumers.length > 0, 'random stream inventory consumers must be non-empty');
+    assert(Array.isArray(document.nonRandomDeclarations), 'random stream inventory nonRandomDeclarations must be an array');
+    assert(Array.isArray(document.nonSemanticEntropy), 'random stream inventory nonSemanticEntropy must be an array');
 
-    const keys = new Set()
-    const streamOwners = new Set()
+    const keys = new Set();
+    const streamOwners = new Set();
     for (const [index, consumer] of document.consumers.entries())
     {
-        const label = `random stream inventory consumers[${index}]`
+        const label = `random stream inventory consumers[${index}]`;
         exactKeys(consumer, new Set([
             'producerId', 'canonicalTestId', 'kind', 'entrypoint', 'runner', 'runnerConfig',
             'streamId', 'version', 'budget', 'receiptOwner', 'evidenceClass',
             'qualificationEligible', 'usesRandomness', 'randomStreams'
-        ]), label)
-        nonEmpty(consumer.producerId, `${label}.producerId`)
-        validateCanonicalTestId(nonEmpty(consumer.canonicalTestId, `${label}.canonicalTestId`))
-        assert(consumerKinds.has(consumer.kind), `${label}.kind is unsupported`)
-        nonEmpty(consumer.entrypoint, `${label}.entrypoint`)
-        nonEmpty(consumer.runner, `${label}.runner`)
-        nonEmpty(consumer.runnerConfig, `${label}.runnerConfig`)
-        nonEmpty(consumer.streamId, `${label}.streamId`)
-        nonEmpty(consumer.version, `${label}.version`)
-        nonEmpty(consumer.receiptOwner, `${label}.receiptOwner`)
-        assert(consumer.evidenceClass === 'correctness', `${label}.evidenceClass must be correctness`)
-        assert(consumer.qualificationEligible === true, `${label}.qualificationEligible must be true`)
-        assert(consumer.usesRandomness === true, `${label}.usesRandomness must be true`)
+        ]), label);
+        nonEmpty(consumer.producerId, `${label}.producerId`);
+        validateCanonicalTestId(nonEmpty(consumer.canonicalTestId, `${label}.canonicalTestId`));
+        assert(consumerKinds.has(consumer.kind), `${label}.kind is unsupported`);
+        nonEmpty(consumer.entrypoint, `${label}.entrypoint`);
+        nonEmpty(consumer.runner, `${label}.runner`);
+        nonEmpty(consumer.runnerConfig, `${label}.runnerConfig`);
+        nonEmpty(consumer.streamId, `${label}.streamId`);
+        nonEmpty(consumer.version, `${label}.version`);
+        nonEmpty(consumer.receiptOwner, `${label}.receiptOwner`);
+        assert(consumer.evidenceClass === 'correctness', `${label}.evidenceClass must be correctness`);
+        assert(consumer.qualificationEligible === true, `${label}.qualificationEligible must be true`);
+        assert(consumer.usesRandomness === true, `${label}.usesRandomness must be true`);
         assert(Array.isArray(consumer.randomStreams)
             && consumer.randomStreams.length === 1
             && consumer.randomStreams[0] === consumer.streamId,
-        `${label}.randomStreams must exact-one declare its streamId`)
-        exactKeys(consumer.budget, new Set(['iterations', 'transitions', 'shrinks']), `${label}.budget`)
+        `${label}.randomStreams must exact-one declare its streamId`);
+        exactKeys(consumer.budget, new Set(['iterations', 'transitions', 'shrinks']), `${label}.budget`);
         for (const field of ['iterations', 'transitions', 'shrinks'])
         {
-            assert(Number.isInteger(consumer.budget[field]) && consumer.budget[field] >= 0, `${label}.budget.${field} must be a non-negative integer`)
+            assert(Number.isInteger(consumer.budget[field]) && consumer.budget[field] >= 0, `${label}.budget.${field} must be a non-negative integer`);
         }
-        assert(consumer.budget.iterations + consumer.budget.transitions > 0, `${label}.budget must preserve non-zero coverage`)
+        assert(consumer.budget.iterations + consumer.budget.transitions > 0, `${label}.budget must preserve non-zero coverage`);
 
-        const key = consumerKey(consumer)
-        assert(!keys.has(key), `${label} duplicates producer/test/stream identity`)
-        keys.add(key)
-        const owner = `${consumer.producerId}\u0000${consumer.streamId}`
-        assert(!streamOwners.has(owner), `${label} duplicates streamId within producer ${consumer.producerId}`)
-        streamOwners.add(owner)
+        const key = consumerKey(consumer);
+        assert(!keys.has(key), `${label} duplicates producer/test/stream identity`);
+        keys.add(key);
+        const owner = `${consumer.producerId}\u0000${consumer.streamId}`;
+        assert(!streamOwners.has(owner), `${label} duplicates streamId within producer ${consumer.producerId}`);
+        streamOwners.add(owner);
     }
 
     for (const [index, declaration] of document.nonRandomDeclarations.entries())
     {
-        const label = `random stream inventory nonRandomDeclarations[${index}]`
-        exactKeys(declaration, new Set(['producerId', 'canonicalTestId', 'entrypoint', 'randomStreams']), label)
-        nonEmpty(declaration.producerId, `${label}.producerId`)
-        validateCanonicalTestId(nonEmpty(declaration.canonicalTestId, `${label}.canonicalTestId`))
-        nonEmpty(declaration.entrypoint, `${label}.entrypoint`)
+        const label = `random stream inventory nonRandomDeclarations[${index}]`;
+        exactKeys(declaration, new Set(['producerId', 'canonicalTestId', 'entrypoint', 'randomStreams']), label);
+        nonEmpty(declaration.producerId, `${label}.producerId`);
+        validateCanonicalTestId(nonEmpty(declaration.canonicalTestId, `${label}.canonicalTestId`));
+        nonEmpty(declaration.entrypoint, `${label}.entrypoint`);
         assert(Array.isArray(declaration.randomStreams) && declaration.randomStreams.length === 0,
-            `${label}.randomStreams must be an explicit empty array`)
+            `${label}.randomStreams must be an explicit empty array`);
     }
 
-    return document
+    return document;
 }
 
 export function resolveRandomConsumer(inventory, { producerId, canonicalTestId, streamId })
 {
-    validateRandomStreamInventory(inventory)
+    validateRandomStreamInventory(inventory);
     const matches = inventory.consumers.filter((consumer) => consumer.producerId === producerId
         && consumer.canonicalTestId === canonicalTestId
-        && consumer.streamId === streamId)
-    assert(matches.length === 1, `random consumer must resolve exact-one entry, got ${matches.length}`)
-    return matches[0]
+        && consumer.streamId === streamId);
+    assert(matches.length === 1, `random consumer must resolve exact-one entry, got ${matches.length}`);
+    return matches[0];
 }
 
 export function deriveRandomConsumerStream({ rootSeed, consumer })
@@ -134,44 +134,44 @@ export function deriveRandomConsumerStream({ rootSeed, consumer })
         consumers: [consumer],
         nonRandomDeclarations: [],
         nonSemanticEntropy: []
-    })
+    });
     const stream = deriveReplayStream({
         rootSeed,
         producerId: consumer.producerId,
         canonicalTestId: consumer.canonicalTestId,
         streamId: consumer.streamId
-    })
+    });
     return Object.freeze({
         ...stream,
         rootSeedDigest: canonicalDigest(rootSeed),
         derivedSeed: stream.seed,
         streamDigest: canonicalDigest(stream)
-    })
+    });
 }
 
 export function createDeterministicRandom(seed)
 {
-    nonEmpty(seed, 'derived seed')
-    let state = Number.parseInt(createHash('sha256').update(seed).digest('hex').slice(0, 8), 16) >>> 0
+    nonEmpty(seed, 'derived seed');
+    let state = Number.parseInt(createHash('sha256').update(seed).digest('hex').slice(0, 8), 16) >>> 0;
     return () =>
     {
-        state ^= state << 13
-        state ^= state >>> 17
-        state ^= state << 5
-        return state >>> 0
-    }
+        state ^= state << 13;
+        state ^= state >>> 17;
+        state ^= state << 5;
+        return state >>> 0;
+    };
 }
 
 export function deterministicCaseIdentity({ derivedSeed, caseIndex, value })
 {
-    assert(Number.isInteger(caseIndex) && caseIndex >= 0, 'caseIndex must be a non-negative integer')
-    return canonicalDigest({ derivedSeed, caseIndex, value })
+    assert(Number.isInteger(caseIndex) && caseIndex >= 0, 'caseIndex must be a non-negative integer');
+    return canonicalDigest({ derivedSeed, caseIndex, value });
 }
 
 export function deterministicSequenceIdentity(items)
 {
-    assert(Array.isArray(items), 'sequence identity input must be an array')
-    return canonicalDigest(items)
+    assert(Array.isArray(items), 'sequence identity input must be an array');
+    return canonicalDigest(items);
 }
 
 export function createRandomStreamReceipt({
@@ -211,10 +211,10 @@ export function createRandomStreamReceipt({
         outcome,
         firstFailure,
         contentDigest: null
-    }
-    receipt.contentDigest = canonicalDigest({ ...receipt, contentDigest: null })
-    validateRandomStreamReceipt(receipt, { consumer, stream })
-    return receipt
+    };
+    receipt.contentDigest = canonicalDigest({ ...receipt, contentDigest: null });
+    validateRandomStreamReceipt(receipt, { consumer, stream });
+    return receipt;
 }
 
 export function validateRandomStreamReceipt(receipt, { consumer, stream })
@@ -225,88 +225,88 @@ export function validateRandomStreamReceipt(receipt, { consumer, stream })
         'qualificationEligible', 'budget', 'executedIterations', 'caseIdentities',
         'transitionIdentities', 'shrinkSequenceIdentity', 'minimalSample', 'artifact',
         'outcome', 'firstFailure', 'contentDigest'
-    ]), 'random stream receipt')
-    assert(receipt.schema === randomStreamReceiptSchema, `random stream receipt schema must be ${randomStreamReceiptSchema}`)
+    ]), 'random stream receipt');
+    assert(receipt.schema === randomStreamReceiptSchema, `random stream receipt schema must be ${randomStreamReceiptSchema}`);
     for (const field of ['producerId', 'canonicalTestId', 'kind', 'streamId', 'version'])
     {
-        assert(receipt[field] === consumer[field], `random stream receipt ${field} does not match inventory`)
+        assert(receipt[field] === consumer[field], `random stream receipt ${field} does not match inventory`);
     }
     for (const field of ['rootSeedDigest', 'derivedSeed', 'streamDigest'])
     {
-        assert(receipt[field] === stream[field], `random stream receipt ${field} does not match sealed stream`)
+        assert(receipt[field] === stream[field], `random stream receipt ${field} does not match sealed stream`);
     }
-    assert(sha256Pattern.test(receipt.rootSeedDigest), 'random stream receipt rootSeedDigest is invalid')
-    assert(sha256Pattern.test(receipt.streamDigest), 'random stream receipt streamDigest is invalid')
-    assert(Array.isArray(receipt.caseIdentities), 'random stream receipt caseIdentities must be an array')
-    assert(Array.isArray(receipt.transitionIdentities), 'random stream receipt transitionIdentities must be an array')
-    assert(new Set(receipt.caseIdentities).size === receipt.caseIdentities.length, 'random stream receipt has duplicate case identities')
-    assert(new Set(receipt.transitionIdentities).size === receipt.transitionIdentities.length, 'random stream receipt has duplicate transition identities')
+    assert(sha256Pattern.test(receipt.rootSeedDigest), 'random stream receipt rootSeedDigest is invalid');
+    assert(sha256Pattern.test(receipt.streamDigest), 'random stream receipt streamDigest is invalid');
+    assert(Array.isArray(receipt.caseIdentities), 'random stream receipt caseIdentities must be an array');
+    assert(Array.isArray(receipt.transitionIdentities), 'random stream receipt transitionIdentities must be an array');
+    assert(new Set(receipt.caseIdentities).size === receipt.caseIdentities.length, 'random stream receipt has duplicate case identities');
+    assert(new Set(receipt.transitionIdentities).size === receipt.transitionIdentities.length, 'random stream receipt has duplicate transition identities');
     assert(Number.isInteger(receipt.executedIterations) && receipt.executedIterations >= 0,
-        'random stream receipt executedIterations must be a non-negative integer')
-    assert(['passed', 'failed'].includes(receipt.outcome), 'random stream receipt outcome is invalid')
+        'random stream receipt executedIterations must be a non-negative integer');
+    assert(['passed', 'failed'].includes(receipt.outcome), 'random stream receipt outcome is invalid');
     if (receipt.evidenceClass === 'correctness')
     {
-        assert(receipt.qualificationEligible === true, 'correctness random stream receipt must be qualification eligible')
-        assert(receipt.executedIterations >= consumer.budget.iterations, 'random stream receipt reduced the iteration budget')
-        assert(receipt.transitionIdentities.length >= consumer.budget.transitions, 'random stream receipt reduced the transition budget')
+        assert(receipt.qualificationEligible === true, 'correctness random stream receipt must be qualification eligible');
+        assert(receipt.executedIterations >= consumer.budget.iterations, 'random stream receipt reduced the iteration budget');
+        assert(receipt.transitionIdentities.length >= consumer.budget.transitions, 'random stream receipt reduced the transition budget');
     }
     else
     {
         assert(receipt.evidenceClass === 'diagnostic' && receipt.qualificationEligible === false,
-            'non-correctness random stream receipt must be ineligible diagnostic evidence')
+            'non-correctness random stream receipt must be ineligible diagnostic evidence');
     }
     if (receipt.kind === 'fuzz' && receipt.outcome === 'failed')
     {
-        assert(sha256Pattern.test(String(receipt.shrinkSequenceIdentity ?? '')), 'failed fuzz receipt shrink identity is missing')
+        assert(sha256Pattern.test(String(receipt.shrinkSequenceIdentity ?? '')), 'failed fuzz receipt shrink identity is missing');
         assert(receipt.minimalSample && sha256Pattern.test(String(receipt.minimalSample.digest ?? '')),
-            'failed fuzz receipt minimal sample binding is missing')
+            'failed fuzz receipt minimal sample binding is missing');
         assert(receipt.firstFailure && receipt.firstFailure.attempt === 1,
-            'failed fuzz receipt must preserve the first attempt')
+            'failed fuzz receipt must preserve the first attempt');
     }
     if (receipt.artifact)
     {
-        assert(sha256Pattern.test(String(receipt.artifact.digest ?? '')), 'random fixture artifact digest is invalid')
+        assert(sha256Pattern.test(String(receipt.artifact.digest ?? '')), 'random fixture artifact digest is invalid');
         assert(Number.isInteger(receipt.artifact.generationCount) && receipt.artifact.generationCount > 0,
-            'random fixture generation count is invalid')
+            'random fixture generation count is invalid');
     }
     assert(receipt.contentDigest === canonicalDigest({ ...receipt, contentDigest: null }),
-        'random stream receipt content digest mismatch')
-    return receipt
+        'random stream receipt content digest mismatch');
+    return receipt;
 }
 
 export function generateDiagnosticRootSeed()
 {
-    let emitted = null
+    let emitted = null;
     const resolution = resolveRootSeed({
         mode: 'diagnostic',
         emitGenerated(rootSeed)
         {
-            emitted = rootSeed
+            emitted = rootSeed;
         }
-    })
-    const rootSeed = resolution.rootSeed
-    assert(emitted === rootSeed, 'diagnostic root seed was not immediately emitted and sealed')
+    });
+    const rootSeed = resolution.rootSeed;
+    assert(emitted === rootSeed, 'diagnostic root seed was not immediately emitted and sealed');
     return {
         rootSeed,
         rootSeedDigest: canonicalDigest(rootSeed),
         evidenceClass: 'diagnostic',
         qualificationEligible: false
-    }
+    };
 }
 
 export function deterministicFixtureArtifact({ consumer, stream, payload, generationCount = 1 })
 {
-    assert(consumer.kind === 'fixture', 'fixture artifact requires a fixture consumer')
-    assert(Number.isInteger(generationCount) && generationCount > 0, 'fixture generationCount must be positive')
+    assert(consumer.kind === 'fixture', 'fixture artifact requires a fixture consumer');
+    assert(Number.isInteger(generationCount) && generationCount > 0, 'fixture generationCount must be positive');
     const bytes = Buffer.from(canonicalJson({
         streamId: consumer.streamId,
         derivedSeed: stream.derivedSeed,
         generatorVersion: consumer.version,
         payload
-    }))
+    }));
     return {
         bytes,
         digest: `sha256:${createHash('sha256').update(bytes).digest('hex')}`,
         generationCount
-    }
+    };
 }

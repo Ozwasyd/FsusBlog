@@ -9,12 +9,8 @@
 
 import { createHash } from 'node:crypto';
 
-import {
-    resolveTemporalRolesForProducer,
-    verifyResolvedTemporalArtifact
-} from '../../test/temporal-role-resolver.mjs';
-import { validateProducerReceipt } from '../receipt/producer-receipt.mjs';
-
+const {resolveTemporalRolesForProducer, verifyResolvedTemporalArtifact} = await import(new URL('../../test/temporal-role-resolver.mjs', import.meta.url));
+const {validateProducerReceipt} = await import(new URL('../receipt/producer-receipt.mjs', import.meta.url));
 const PRODUCER_ID = 'auth-session';
 const STRATEGY = 'transaction-fixture';
 
@@ -576,6 +572,7 @@ async function invokeLocalCompositionRoot(context, plan, signal)
         signal
     });
     const text = await response.text();
+    // eslint-disable-next-line no-useless-assignment
     let payload = null;
     try
     {

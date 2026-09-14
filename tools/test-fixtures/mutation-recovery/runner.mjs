@@ -1,5 +1,5 @@
-import { validateFixtureReceipt } from '../receipt/fixture-receipt.mjs';
-import { loadCanonicalMutationEnvelopeCatalog } from '../mutation-envelope-catalog.mjs';
+const { validateFixtureReceipt } = await import(new URL('../receipt/fixture-receipt.mjs', import.meta.url));
+const { loadCanonicalMutationEnvelopeCatalog } = await import(new URL('../mutation-envelope-catalog.mjs', import.meta.url));
 import { canonicalJson, requireDigest, requireStableId, seal, verifySeal } from './canonical.mjs';
 import {
     applyFixtureMutation,
@@ -12,6 +12,7 @@ import {
     compareSemanticSnapshots,
     createSemanticSnapshot,
     verifySemanticDiff,
+    // eslint-disable-next-line no-unused-vars
     verifySemanticSnapshot
 } from './semantic-snapshot.mjs';
 
@@ -120,7 +121,10 @@ export async function runMutationRecovery({
         for (const [index, envelopeId] of plan.envelopeIds.entries())
         {
             const caseStartedAt = process.hrtime.bigint();
-            if (signal?.aborted) throw signal.reason ?? new Error('mutation recovery cancelled');
+            if (signal?.aborted)
+            {
+                throw signal.reason ?? new Error('mutation recovery cancelled');
+            }
             const envelope = catalog.envelopes.find((item) => item.envelopeId === envelopeId);
             const caseAttemptId = `${plan.attemptId}-case-${String(index + 1).padStart(4, '0')}`;
             const baselineRequest = buildSnapshotRequest({

@@ -2,14 +2,14 @@
  * Public entry for DocClaim/generated/prose/join single-mutation staleness matrix (#1750).
  */
 
-export { MutationLayers, allowedMutationLayers, forbiddenReasonCodes } from './layers.mjs'
+export { MutationLayers, allowedMutationLayers, forbiddenReasonCodes } from './layers.mjs';
 export {
     materializeFixtureRepository,
     currentObservations,
     matchingProseBodies,
     staleProseBodies,
     fixtureRootPrefix
-} from './fixture.mjs'
+} from './fixture.mjs';
 export {
     mutationCases,
     mutationCasesById,
@@ -19,14 +19,14 @@ export {
     surfaceCoverage,
     listMutationCases,
     getMutationCase
-} from './catalog.mjs'
+} from './catalog.mjs';
 export {
     validateMutationCaseSchema,
     applySingleMutation,
     runMutationCase,
     runAllMutationCases,
     assertCaseResult
-} from './runner.mjs'
+} from './runner.mjs';
 export {
     suiteFiles,
     runStalenessMutationGovernance,
@@ -37,4 +37,4 @@ export {
     assertCaseSchemaHygiene,
     scanWeakNegativeSurfaces,
     scanMigratedBadDocFixtures
-} from './governance.mjs'
+} from './governance.mjs';

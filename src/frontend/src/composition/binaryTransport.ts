@@ -1,6 +1,6 @@
-import { decodeBinaryFramePayload } from '@/composition/binaryDecoderRegistry'
-import { BinaryTransportError, createBinaryTransport } from '@/services/binaryTransport'
+import { decodeBinaryFramePayload } from '@/composition/binaryDecoderRegistry';
+import { BinaryTransportError, createBinaryTransport } from '@/services/binaryTransport';
 
-export { BinaryTransportError }
+export { BinaryTransportError };
 
-export const { requestBinaryOnly } = createBinaryTransport(decodeBinaryFramePayload)
+export const { requestBinaryOnly } = createBinaryTransport(decodeBinaryFramePayload);

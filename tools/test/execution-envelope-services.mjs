@@ -4,7 +4,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { executionEnvelopeDigest } from '../test-matrix/execution-envelope-policy.mjs';
+const { executionEnvelopeDigest } = await import(new URL('../test-matrix/execution-envelope-policy.mjs', import.meta.url));
 import { processIdentityStatus } from './process-identity.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -330,6 +330,7 @@ function dockerJson(args, docker = spawnSync)
     }
     catch (error)
     {
+        // eslint-disable-next-line preserve-caught-error
         throw new Error(`execution service observation returned invalid JSON: ${error.message}`);
     }
 }

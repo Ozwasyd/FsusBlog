@@ -1,9 +1,9 @@
 export type {
-  FsusBlogMotionSurface
-} from './motion'
+    FsusBlogMotionSurface
+} from './motion';
 
 export {
-  fsusBlogMotionPresets,
-  fsusBlogScrollRevealMotion,
-  fsusBlogScrollRevealOptions
-} from './motion'
+    fsusBlogMotionPresets,
+    fsusBlogScrollRevealMotion,
+    fsusBlogScrollRevealOptions
+} from './motion';

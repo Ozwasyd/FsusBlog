@@ -1,13 +1,16 @@
-import { normalizeThemeMode, syncThemeMode } from '@/fsusui/theme'
+import { normalizeThemeMode, syncThemeMode } from '@/fsusui/theme';
 
-const THEME_STORAGE_KEY = 'fsus:theme-mode'
+const THEME_STORAGE_KEY = 'fsus:theme-mode';
 
-let storedThemeMode: string | null = null
+let storedThemeMode: string | null = null;
 
-try {
-  storedThemeMode = window.localStorage.getItem(THEME_STORAGE_KEY)
-} catch {
-  storedThemeMode = null
+try
+{
+    storedThemeMode = window.localStorage.getItem(THEME_STORAGE_KEY);
+}
+catch
+{
+    storedThemeMode = null;
 }
 
-syncThemeMode(normalizeThemeMode(storedThemeMode, 'system'))
+syncThemeMode(normalizeThemeMode(storedThemeMode, 'system'));

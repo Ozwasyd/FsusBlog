@@ -2,16 +2,10 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 
-import {
-    cleanup,
-    plan,
-    prepare,
-    verify
-} from '../../tools/test-fixtures/orchestrator.mjs';
-import { createPortsForProducerIds } from '../../tools/test-fixtures/producers/catalog-ports.mjs';
-import { digestCanonical } from '../../tools/test-fixtures/receipt/canonical.mjs';
-import { qualificationTemporalContext } from '../../tools/test/temporal-context.mjs';
-
+const {cleanup, plan, prepare, verify} = await import(new URL('../../tools/test-fixtures/orchestrator.mjs', import.meta.url));
+const {createPortsForProducerIds} = await import(new URL('../../tools/test-fixtures/producers/catalog-ports.mjs', import.meta.url));
+const {digestCanonical} = await import(new URL('../../tools/test-fixtures/receipt/canonical.mjs', import.meta.url));
+const {qualificationTemporalContext} = await import(new URL('../../tools/test/temporal-context.mjs', import.meta.url));
 const decisions = Object.freeze({
     'security.audit.active-window': 'active-window',
     'security.credential.active': 'accepted',

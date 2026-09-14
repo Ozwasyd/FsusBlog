@@ -82,9 +82,9 @@ test('shared inventory and content cache build and read each source once', (t) =
     execFileSync('git', ['init', '-q'], { cwd: temporaryRoot });
     const firstFile = 'first-source.mjs';
     const secondFile = 'second-source.mjs';
-    const initialContent = 'export const state = \"initial\";\n';
-    const changedContent = 'export const state = \"changed\";\n';
-    const secondContent = 'export const state = \"second\";\n';
+    const initialContent = 'export const state = "initial";\n';
+    const changedContent = 'export const state = "changed";\n';
+    const secondContent = 'export const state = "second";\n';
     fs.writeFileSync(path.join(temporaryRoot, firstFile), initialContent);
     fs.writeFileSync(path.join(temporaryRoot, secondFile), secondContent);
     execFileSync('git', ['add', '--', firstFile, secondFile], { cwd: temporaryRoot });

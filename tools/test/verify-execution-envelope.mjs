@@ -8,8 +8,7 @@ import { pathToFileURL } from 'node:url';
 import {
     verifyExecutionEnvelopeReceipt
 } from './execution-envelope-receipt.mjs';
-import { executionEnvelopeDigest } from '../test-matrix/execution-envelope-policy.mjs';
-
+const { executionEnvelopeDigest } = await import(new URL('../test-matrix/execution-envelope-policy.mjs', import.meta.url));
 function options(argv)
 {
     const parsed = new Map();

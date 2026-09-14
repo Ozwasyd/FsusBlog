@@ -1382,7 +1382,7 @@ function decodeArticlePage(payload)
     {
         throw new Error('article_page_cursor_length_invalid');
     }
-    let nextCursor = null;
+    let nextCursor;
     try
     {
         nextCursor = cursorBytes.byteLength === 0

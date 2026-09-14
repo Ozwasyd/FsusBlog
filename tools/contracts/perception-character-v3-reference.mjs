@@ -8,10 +8,6 @@ import {
     encodeVisualArtifact as encodeVisual
 } from './perception-character-v3-artifacts.mjs';
 import {
-    switchRepresentation as switchStateRepresentation,
-    transition as transitionState
-} from './perception-character-v3-state-machine.mjs';
-import {
     ascii,
     base64url,
     bytes32,
@@ -25,6 +21,10 @@ import {
     uint16,
     utf8
 } from './perception-character-v3-bytes.mjs';
+import {
+    switchRepresentation as switchStateRepresentation,
+    transition as transitionState
+} from './perception-character-v3-state-machine.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const contract = Object.freeze(JSON.parse(readFileSync(

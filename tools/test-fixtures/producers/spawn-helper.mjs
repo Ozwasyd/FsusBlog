@@ -2,8 +2,7 @@ import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { resolveTemporalRolesForProducerIfBound } from '../../test/temporal-role-resolver.mjs';
-
+const { resolveTemporalRolesForProducerIfBound } = await import(new URL('../../test/temporal-role-resolver.mjs', import.meta.url));
 export const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const temporalChildObserver = path.join(
     repositoryRoot,

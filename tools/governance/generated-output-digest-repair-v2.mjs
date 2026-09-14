@@ -14,7 +14,10 @@ const regularBlobModes = new Set(['100644', '100755']);
 
 function requireValue(condition, message)
 {
-    if (!condition) throw new Error(`generated digest repair v2: ${message}`);
+    if (!condition)
+    {
+        throw new Error(`generated digest repair v2: ${message}`);
+    }
 }
 
 function exactKeys(value, keys, label)
@@ -42,9 +45,14 @@ function sha256(bytes)
 
 function canonicalValue(value)
 {
-    if (Array.isArray(value)) return value.map(canonicalValue);
+    if (Array.isArray(value))
+    {
+        return value.map(canonicalValue);
+    }
     if (value && typeof value === 'object')
+    {
         return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalValue(value[key])]));
+    }
     return value;
 }
 
@@ -99,7 +107,9 @@ function validateProducer(producer)
     for (const revision of [producer.qualification.sourceParent, producer.qualification.sourceCommit,
         producer.qualification.mergeCommit, producer.qualification.outerBaseCommit,
         producer.qualification.outerHeadCommit])
+    {
         requireValue(revisionPattern.test(revision), 'trusted source qualification revision is invalid');
+    }
     requireValue(Number.isSafeInteger(producer.qualification.mergedPullRequest)
         && producer.qualification.mergedPullRequest > 0,
     'trusted source qualification pull request is invalid');
@@ -116,7 +126,9 @@ function validateManifest(evidence, producer, base, head, changedFiles)
         && evidence.repairClass === producer.repairClass, 'schema, producer or repair class mismatch');
     for (const revision of [evidence.sourceParent, evidence.sourceCommit, evidence.mergeCommit,
         evidence.outerBaseCommit, evidence.outerHeadCommit, evidence.baseCommit, base, head])
+    {
         requireValue(typeof revision === 'string' && revisionPattern.test(revision), 'complete revision identities are required');
+    }
     requireValue(evidence.baseCommit === base && base !== head,
         'candidate base identity mismatch');
     for (const [label, actual, expected] of [
@@ -127,9 +139,11 @@ function validateManifest(evidence, producer, base, head, changedFiles)
         ['outer base', evidence.outerBaseCommit, producer.qualification.outerBaseCommit],
         ['outer head', evidence.outerHeadCommit, producer.qualification.outerHeadCommit]
     ])
+    {
         requireValue(actual === expected, `${label} does not match the trusted canonical qualification`);
+    }
     requireValue(Number.isSafeInteger(evidence.mergedPullRequest) && evidence.mergedPullRequest > 0,
-    'merged pull request identity is invalid');
+        'merged pull request identity is invalid');
     same(evidence.command, producer.command, 'manifest cannot choose a different command');
     requireValue(Array.isArray(evidence.closure) && evidence.closure.length === producer.closure.length,
         'manifest closure cardinality mismatch');
@@ -142,7 +156,10 @@ function validateManifest(evidence, producer, base, head, changedFiles)
     }
     exactKeys(evidence.output, ['path', 'parent', 'source', 'base', 'expected', 'candidate'], 'output binding');
     requireValue(evidence.output.path === producer.output, 'manifest cannot choose a different output');
-    for (const key of ['parent', 'source', 'base', 'expected', 'candidate']) validateIdentity(evidence.output[key], `output ${key}`);
+    for (const key of ['parent', 'source', 'base', 'expected', 'candidate'])
+    {
+        validateIdentity(evidence.output[key], `output ${key}`);
+    }
     same([...changedFiles].sort(), [producer.manifest, producer.output].sort(),
         'repair candidate must change only its exact manifest and output');
 }
@@ -165,7 +182,10 @@ export function verifyGeneratedOutputDigestRepairV2({ evidence, producer, reposi
     const readBlob = (revision, file) =>
     {
         const key = `${revision}:${file}`;
-        if (!blobCache.has(key)) blobCache.set(key, observedBlob(repository.blob(revision, file), key, { git: true }));
+        if (!blobCache.has(key))
+        {
+            blobCache.set(key, observedBlob(repository.blob(revision, file), key, { git: true }));
+        }
         return blobCache.get(key);
     };
     const commit = (revision) =>
@@ -220,24 +240,32 @@ export function verifyGeneratedOutputDigestRepairV2({ evidence, producer, reposi
         {
             const info = commit(revision);
             for (const [file, binding] of closure)
+            {
                 same(readBlob(revision, file).identity, binding.source, `closure changed after source: ${revision}:${file}`);
+            }
             for (const parent of info.parents)
             {
                 const changes = repository.changedPaths(parent, revision);
                 if (label === 'candidate history')
+                {
                     requireValue(changes.every((file) => [producer.manifest, producer.output].includes(file)),
                         `candidate history changed source or unregistered metadata: ${revision}`);
+                }
             }
             if (label === 'source history')
+            {
                 same(readBlob(revision, producer.output).identity, evidence.output.source,
                     `output changed before repair candidate: ${revision}`);
+            }
         }
     }
     const identities = new Map([
         [evidence.sourceParent, 'parent'], [evidence.sourceCommit, 'source'], [base, 'base'], [head, 'candidate']
     ]);
     for (const [revision, name] of identities)
+    {
         same(readBlob(revision, producer.output).identity, evidence.output[name], `checked-in output binding mismatch: ${name}`);
+    }
     same(evidence.output.parent, evidence.output.source, 'source event already changed its generated output');
     same(evidence.output.source, evidence.output.base, 'base output differs from the missed source output');
     same(evidence.output.expected, evidence.output.candidate, 'candidate is not the expected canonical output');
@@ -287,15 +315,23 @@ export function verifyGeneratedOutputDigestRepairV2({ evidence, producer, reposi
             && Array.isArray(document.entries), 'canonical output identity or entries are invalid');
         exactKeys(document.sourceDigests, producer.digestInputs, 'output source digests');
         for (const file of producer.digestInputs)
+        {
             requireValue(document.sourceDigests[file] === `sha256:${readBlob(revision, file).identity.sha256}`,
                 `output source digest is not bound to Git bytes: ${file}`);
+        }
         const { contentDigest: seal, ...payload } = document;
         requireValue(seal === contentDigest(payload), 'canonical output content seal is invalid');
         return document;
     };
     const before = parseOutput(parentReplay, evidence.sourceParent);
     const after = parseOutput(sourceReplay, evidence.sourceCommit);
-    const withoutDigests = ({ sourceDigests: _sources, contentDigest: _seal, ...rest }) => rest;
+    const withoutDigests = (value) =>
+    {
+        const rest = { ...value };
+        delete rest.sourceDigests;
+        delete rest.contentDigest;
+        return rest;
+    };
     same(withoutDigests(before), withoutDigests(after), 'repair changed producer entries or other non-digest fields');
     requireValue(!isDeepStrictEqual(before.sourceDigests, after.sourceDigests), 'repair did not refresh a source digest');
     return {

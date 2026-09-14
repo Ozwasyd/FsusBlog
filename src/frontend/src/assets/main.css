@@ -9,27 +9,32 @@
 @import '@/assets/account-identity.css';
 @import '@/assets/admin-workspace.css';
 @import '@/assets/admin/taxonomy.css';
+
 /* fsus-theme product overrides — must be imported AFTER the base
    element-plus dist/index.css above. See comment in
    src/assets/public-shell-critical.css for the full rationale. */
 @import '@ozwasyd/element-plus/dist/el-fsus-theme.css';
 
-:root {
+:root
+ {
     /* FsusBlog owns the active family; FsusUI consumes the stable role token. */
     --el-font-family: var(--fsus-font-ui);
 }
 
-.transition-fsus {
+.transition-fsus
+ {
     transition-property: color, background-color, border-color, box-shadow, opacity, transform;
     transition-timing-function: var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1));
 }
 
-.transition-fsus-fast {
+.transition-fsus-fast
+ {
     animation-duration: var(--fsus-motion-control-fast, 220ms);
     transition-duration: var(--fsus-motion-control-fast, 220ms);
 }
 
-.transition-fsus-base {
+.transition-fsus-base
+ {
     animation-duration: var(--fsus-motion-control-base, var(--fsus-motion-control, 360ms));
     transition-duration: var(--fsus-motion-control-base, var(--fsus-motion-control, 360ms));
 }
@@ -48,49 +53,51 @@
    default FsusUI surface contract. */
 html:has(#fsus-aot-shell)
 {
-  --fsus-page: var(--bg);
-  --fsus-paper: var(--surface);
-  --fsus-ink: var(--text);
-  --fsus-dot-gray: var(--text-decorative);
-  --fsus-border: var(--border);
-  --fsus-scholarly-blue: var(--accent);
-  --el-color-primary: var(--accent);
-  --el-color-primary-dark-2: var(--accent-hover);
-  --el-color-primary-light-3: color-mix(in srgb, var(--accent) 72%, var(--surface));
-  --el-color-primary-light-5: color-mix(in srgb, var(--accent) 48%, var(--surface));
-  --el-color-primary-light-7: color-mix(in srgb, var(--accent) 24%, var(--surface));
-  --el-color-primary-light-8: color-mix(in srgb, var(--accent) 16%, var(--surface));
-  --el-color-primary-light-9: var(--accent-subtle);
-  --el-bg-color: var(--surface);
-  --el-bg-color-page: var(--bg);
-  --el-fill-color-blank: var(--surface);
-  --el-fill-color-light: var(--surface-subtle);
-  --el-fill-color: var(--surface-subtle);
-  --el-fill-color-lighter: var(--surface);
-  --el-fill-color-extra-light: var(--surface);
-  --el-disabled-bg-color: var(--surface-subtle);
-  --el-disabled-text-color: var(--text-muted);
-  --el-border-color: var(--border);
-  --el-border-color-light: var(--border);
-  --el-border-color-lighter: var(--border);
-  --el-border-color-extra-light: var(--surface-subtle);
-  --el-border-color-dark: var(--border-strong);
-  --el-text-color-primary: var(--text-heading);
-  --el-text-color-regular: var(--text);
-  --el-text-color-secondary: var(--text-secondary);
-  --el-text-color-placeholder: var(--text-muted);
+    --fsus-page: var(--bg);
+    --fsus-paper: var(--surface);
+    --fsus-ink: var(--text);
+    --fsus-dot-gray: var(--text-decorative);
+    --fsus-border: var(--border);
+    --fsus-scholarly-blue: var(--accent);
+    --el-color-primary: var(--accent);
+    --el-color-primary-dark-2: var(--accent-hover);
+    --el-color-primary-light-3: color-mix(in srgb, var(--accent) 72%, var(--surface));
+    --el-color-primary-light-5: color-mix(in srgb, var(--accent) 48%, var(--surface));
+    --el-color-primary-light-7: color-mix(in srgb, var(--accent) 24%, var(--surface));
+    --el-color-primary-light-8: color-mix(in srgb, var(--accent) 16%, var(--surface));
+    --el-color-primary-light-9: var(--accent-subtle);
+    --el-bg-color: var(--surface);
+    --el-bg-color-page: var(--bg);
+    --el-fill-color-blank: var(--surface);
+    --el-fill-color-light: var(--surface-subtle);
+    --el-fill-color: var(--surface-subtle);
+    --el-fill-color-lighter: var(--surface);
+    --el-fill-color-extra-light: var(--surface);
+    --el-disabled-bg-color: var(--surface-subtle);
+    --el-disabled-text-color: var(--text-muted);
+    --el-border-color: var(--border);
+    --el-border-color-light: var(--border);
+    --el-border-color-lighter: var(--border);
+    --el-border-color-extra-light: var(--surface-subtle);
+    --el-border-color-dark: var(--border-strong);
+    --el-text-color-primary: var(--text-heading);
+    --el-text-color-regular: var(--text);
+    --el-text-color-secondary: var(--text-secondary);
+    --el-text-color-placeholder: var(--text-muted);
 }
 
 html.dark body,
-html[data-theme-resolved='dark'] body {
-  background: var(--fsusblog-page-bg, #09090B) !important;
-  color: var(--fsusblog-text-primary, #F0F0F4) !important;
+html[data-theme-resolved='dark'] body
+ {
+    background: var(--fsusblog-page-bg, #09090B) !important;
+    color: var(--fsusblog-text-primary, #F0F0F4) !important;
 }
 
 html.dark:has(#fsus-aot-shell) body,
 html[data-theme-resolved='dark']:has(#fsus-aot-shell) body,
 html.dark:has(#fsus-aot-shell) #fsus-aot-shell,
-html[data-theme-resolved='dark']:has(#fsus-aot-shell) #fsus-aot-shell {
-  background: var(--fsusblog-page-bg, #09090B) !important;
-  color: var(--fsusblog-text-primary, #F0F0F4) !important;
+html[data-theme-resolved='dark']:has(#fsus-aot-shell) #fsus-aot-shell
+ {
+    background: var(--fsusblog-page-bg, #09090B) !important;
+    color: var(--fsusblog-text-primary, #F0F0F4) !important;
 }

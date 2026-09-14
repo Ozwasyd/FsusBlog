@@ -1,4 +1,5 @@
 /* src/assets/public-shell-critical.css */
+
 /* IMPORTANT: fsus-theme product overrides MUST be imported LAST. They
    live in their own per-component CSS bundle (dist/el-fsus-theme.css)
    after fsus-theme.scss was extracted out of dist/index.css (see

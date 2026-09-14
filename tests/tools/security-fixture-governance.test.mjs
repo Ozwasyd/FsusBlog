@@ -5,19 +5,17 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import {
-    buildSecurityFixtureAcceptance,
-    runSecurityFixtureMutations,
-    scanSecurityFixtureGovernance
-} from '../../tools/test/check-security-fixture-governance.mjs';
-
+const {buildSecurityFixtureAcceptance, runSecurityFixtureMutations, scanSecurityFixtureGovernance} = await import(new URL('../../tools/test/check-security-fixture-governance.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const target = 'tests/frontend/support/session-fixtures.mjs';
 const original = readFileSync(path.join(root, target), 'utf8');
 
 function canonical(value)
 {
-    if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+    if (Array.isArray(value))
+    {
+        return `[${value.map(canonical).join(',')}]`;
+    }
     if (value && typeof value === 'object')
     {
         return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`;

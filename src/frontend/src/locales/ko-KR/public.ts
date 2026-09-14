@@ -1,4 +1,4 @@
-export const localeDomainIdentity = Object.freeze({ locale: 'ko-KR', domain: 'public' } as const)
+export const localeDomainIdentity = Object.freeze({ locale: 'ko-KR', domain: 'public' } as const);
 
 import type { LocaleSchema } from '../keys';
 import type { publicMessages as zhCNPublicMessages } from '../zh-CN/public';

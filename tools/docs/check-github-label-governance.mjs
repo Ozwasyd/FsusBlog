@@ -3,8 +3,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-import { changeContract } from '../governance/change-contract-registry.mjs'
-
+const { changeContract } = await import(new URL('../governance/change-contract-registry.mjs', import.meta.url));
 const root = resolve(import.meta.dirname, '../..')
 const errors = []
 

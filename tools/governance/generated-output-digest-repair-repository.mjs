@@ -24,7 +24,10 @@ const absentRuntimeProbes = new Set(['/sys/devices/system/cpu/online', '/sys/dev
 
 function requireValue(condition, message)
 {
-    if (!condition) throw new Error(`generated repair repository: ${message}`);
+    if (!condition)
+    {
+        throw new Error(`generated repair repository: ${message}`);
+    }
 }
 
 function hash(bytes)
@@ -74,7 +77,10 @@ function trustedRuntimeIdentity(source, { executable = false, exact = false, sys
         const ancestor = fs.lstatSync(directory);
         requireValue(ancestor.isDirectory() && ancestor.uid === 0 && (ancestor.mode & 0o022) === 0,
             `runtime ancestor is writable outside system ownership: ${directory}`);
-        if (directory === '/') break;
+        if (directory === '/')
+        {
+            break;
+        }
     }
     return { source, resolved, executable, exact, systemOwned, dev: stat.dev, ino: stat.ino, mode: stat.mode,
         uid: stat.uid, gid: stat.gid, size: stat.size, mtimeMs: stat.mtimeMs, ctimeMs: stat.ctimeMs,
@@ -84,8 +90,10 @@ function trustedRuntimeIdentity(source, { executable = false, exact = false, sys
 function assertRuntimeIdentities(identities)
 {
     for (const identity of identities)
+    {
         requireValue(isDeepStrictEqual(trustedRuntimeIdentity(identity.source, identity), identity),
             `trusted runtime identity drifted: ${identity.source}`);
+    }
 }
 
 function parseTrace(text, producer, runtimeFiles)
@@ -104,8 +112,14 @@ function parseTrace(text, producer, runtimeFiles)
             nodeExecutions += 1;
             supervisorPids.delete(pid);
         }
-        else if (nodeExecutions === 0) supervisorPids.add(pid);
-        if (nodeExecutions === 0 || supervisorPids.has(pid)) continue;
+        else if (nodeExecutions === 0)
+        {
+            supervisorPids.add(pid);
+        }
+        if (nodeExecutions === 0 || supervisorPids.has(pid))
+        {
+            continue;
+        }
         const opened = line.match(/\bopen(?:at|at2)?\([^\n]*?"(?<file>[^"\n]+)", (?<flags>O_[^\n]+)\)\s+=/u)?.groups;
         if (opened && (opened.flags.includes('O_RDONLY') || opened.flags.includes('O_RDWR') || opened.flags.includes('O_WRONLY')))
         {
@@ -123,13 +137,18 @@ function parseTrace(text, producer, runtimeFiles)
                 else if (relative !== producer.output)
                 {
                     requireValue(producer.closure.includes(relative), `attempted read outside declared closure: ${relative}`);
-                    if (!/\)\s+= -1/u.test(line)) reads.add(relative);
+                    if (!/\)\s+= -1/u.test(line))
+                    {
+                        reads.add(relative);
+                    }
                 }
             }
             // Successful non-repository file reads must match an exact mount;
             // sharing a mounted runtime file's directory confers no authority.
             else if (opened.flags.includes('O_WRONLY') || opened.flags.includes('O_RDWR'))
+            {
                 requireValue(false, `attempted write outside canonical output: ${file}`);
+            }
             else if (nodeExecutions > 0 && !runtimeFiles.includes(file) && !file.startsWith('/proc/')
                 && !file.startsWith('/dev/')
                 && (!absentRuntimeProbes.has(file) || !/\)\s+= -1 ENOENT/u.test(line)))
@@ -138,10 +157,17 @@ function parseTrace(text, producer, runtimeFiles)
             }
         }
         if (nodeExecutions > 0 && /\b(?:socket|connect|bind|listen|accept|sendto|sendmsg)\(/u.test(line))
+        {
             requireValue(false, 'producer attempted a network operation');
+        }
         if (nodeExecutions > 0 && /\b(?:link|linkat|symlink|symlinkat|rename|renameat|renameat2|unlink|unlinkat|mkdir|mkdirat|mknod|mknodat|chdir|fchdir|chroot|mount|umount2)\(/u.test(line))
+        {
             requireValue(false, 'producer attempted an unregistered filesystem mutation');
-        if (nodeExecutions > 0 && /\)\s+= -1 (?:EROFS|EACCES|EPERM)/u.test(line)) deniedOperations += 1;
+        }
+        if (nodeExecutions > 0 && /\)\s+= -1 (?:EROFS|EACCES|EPERM)/u.test(line))
+        {
+            deniedOperations += 1;
+        }
         const fdWrite = line.match(/\b(?:write|writev|pwrite64|ftruncate|fchmod|fchown)\(\d+<(?<file>\/work\/[^>]+)>/u)?.groups;
         if (fdWrite)
         {
@@ -214,7 +240,10 @@ export function createGeneratedOutputDigestRepairRepository({ root, authorityRoo
     let runtime = null;
     const loadRuntime = () =>
     {
-        if (runtime) return runtime;
+        if (runtime)
+        {
+            return runtime;
+        }
         requireValue(process.platform === 'linux', 'isolated digest repair replay requires Linux');
         const executableIdentities = Object.values(sandboxExecutablePaths)
             .map((source) => trustedRuntimeIdentity(source, { executable: true, exact: true }));
@@ -232,7 +261,10 @@ export function createGeneratedOutputDigestRepairRepository({ root, authorityRoo
         const libraries = [...new Set([...listing.matchAll(/(?:=>\s+)?(\/[^\s()]+)\s+\(/gu)].map((match) => match[1]))].sort();
         requireValue(libraries.length > 0 && !listing.includes('not found'), 'Node runtime library closure is unavailable');
         const mounts = libraries.map((file) => ({ source: fs.realpathSync(file), destination: file }));
-        if (fs.existsSync('/etc/ld.so.cache')) mounts.push({ source: '/etc/ld.so.cache', destination: '/etc/ld.so.cache' });
+        if (fs.existsSync('/etc/ld.so.cache'))
+        {
+            mounts.push({ source: '/etc/ld.so.cache', destination: '/etc/ld.so.cache' });
+        }
         mounts.push({ source: node, destination: sandboxNode });
         runtime = { bwrap, strace, mounts, identities: [...executableIdentities, nodeIdentity,
             ...mounts.filter((mount) => mount.source !== node).map((mount) => trustedRuntimeIdentity(mount.source))] };
@@ -303,7 +335,10 @@ export function createGeneratedOutputDigestRepairRepository({ root, authorityRoo
             for (const [file, previous] of initial)
             {
                 const current = fileSnapshot(path.join(checkout, file));
-                if (!isDeepStrictEqual(previous, current)) changedPaths.push(file);
+                if (!isDeepStrictEqual(previous, current))
+                {
+                    changedPaths.push(file);
+                }
             }
             const actualFiles = [];
             const walk = (directory, prefix = '') =>
@@ -314,12 +349,24 @@ export function createGeneratedOutputDigestRepairRepository({ root, authorityRoo
                     const relative = prefix ? `${prefix}/${name}` : name;
                     const stat = fs.lstatSync(file);
                     requireValue(!stat.isSymbolicLink(), 'replay left a symlink');
-                    if (stat.isDirectory()) walk(file, relative);
-                    else actualFiles.push(relative);
+                    if (stat.isDirectory())
+                    {
+                        walk(file, relative);
+                    }
+                    else
+                    {
+                        actualFiles.push(relative);
+                    }
                 }
             };
             walk(checkout);
-            for (const file of actualFiles) if (!initial.has(file)) changedPaths.push(file);
+            for (const file of actualFiles)
+            {
+                if (!initial.has(file))
+                {
+                    changedPaths.push(file);
+                }
+            }
             return { revision, isolationId: temporaryRoot, first, second,
                 readPaths: [...new Set(observations.flatMap((entry) => entry.readPaths))].sort(),
                 writePaths: [...new Set(observations.flatMap((entry) => entry.writePaths))].sort(),

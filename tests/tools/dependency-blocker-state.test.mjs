@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { planScheduledBlockers, readBlockerState } from '../../tools/governance/dependency-blocker-state.mjs';
-import { resultSchema } from '../../tools/governance/dependency-freshness.mjs';
-
+const { planScheduledBlockers, readBlockerState } = await import(new URL('../../tools/governance/dependency-blocker-state.mjs', import.meta.url));
+const { resultSchema } = await import(new URL('../../tools/governance/dependency-freshness.mjs', import.meta.url));
 function snapshot()
 {
     const headSha = 'a'.repeat(40);
@@ -23,7 +22,8 @@ function snapshot()
     };
 }
 
-test('latest-target PR coverage does not hide failed checks and issue state carries the timer across runs', () => {
+test('latest-target PR coverage does not hide failed checks and issue state carries the timer across runs', () =>
+{
     const value = snapshot();
     const first = planScheduledBlockers(value);
     assert.equal(first.issue.action, 'create');
@@ -42,19 +42,22 @@ test('latest-target PR coverage does not hide failed checks and issue state carr
     assert.deepEqual(recovered.labels, [{ number: 10, action: 'remove', label: 'dependency-blocked' }]);
 });
 
-test('an existing PR result without its complete check snapshot cannot close an issue', () => {
+test('an existing PR result without its complete check snapshot cannot close an issue', () =>
+{
     const value = snapshot();
     value.pullRequests = [];
     assert.throws(() => planScheduledBlockers(value), /missing_pull_snapshot/);
 });
 
-test('malformed and duplicated persisted state is rejected before planning', () => {
+test('malformed and duplicated persisted state is rejected before planning', () =>
+{
     const first = planScheduledBlockers(snapshot());
     assert.throws(() => readBlockerState(`${first.issue.body}\n${first.issue.body}`), /state_ambiguous/);
     assert.throws(() => readBlockerState('<!-- fsusblog-dependency-blocker-state:not-base64 -->'), /state_encoding/);
 });
 
-test('closed issue reopening starts a new continuous-failure interval', () => {
+test('closed issue reopening starts a new continuous-failure interval', () =>
+{
     const value = snapshot();
     const first = planScheduledBlockers(value);
     value.issues = [{ number: 20, title: first.issue.title, state: 'closed', body: first.issue.body }];
