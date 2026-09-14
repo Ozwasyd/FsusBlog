@@ -1,6 +1,7 @@
 // fixture-catalog: producer auth-session
 using System.Net;
 using System.Security.Cryptography;
+using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using System.Text.Json;
 
@@ -287,8 +288,27 @@ public static class LocalAuthFixtureEndpoints
         out DateTimeOffset expiresAtUtc)
     {
         expiresAtUtc = default;
-        if (!TryReadCookie(storageStatePath, cookieName, out value, out long? expiresAtUnixSeconds) ||
-            expiresAtUnixSeconds is not > 0)
+        if (!TryReadCookie(storageStatePath, cookieName, out value, out long? expiresAtUnixSeconds))
+        {
+            return false;
+        }
+
+        if (expiresAtUnixSeconds is not > 0)
+        {
+            try
+            {
+                expiresAtUnixSeconds = new JwtSecurityTokenHandler()
+                    .ReadJwtToken(value)
+                    .Payload
+                    .Expiration;
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+        }
+
+        if (expiresAtUnixSeconds is not > 0)
         {
             return false;
         }

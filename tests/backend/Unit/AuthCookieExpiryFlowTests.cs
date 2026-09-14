@@ -37,6 +37,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -548,12 +549,12 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             string adminStorageStatePath = Path.Combine(fixtureDirectory, "admin.storage-state.json");
             WriteStorageState(
                 userStorageStatePath,
-                ("AccessToken", "fixture-user-access", s_userAccessTokenExpiresAtUtc),
+                ("AccessToken", CreateUnsignedJwt(s_userAccessTokenExpiresAtUtc), null),
                 ("RefreshToken", "fixture-user-refresh", null),
                 ("SessionId", "fixture-user-session", null));
             WriteStorageState(
                 adminStorageStatePath,
-                ("AdminAccessToken", "fixture-admin-access", s_adminAccessTokenExpiresAtUtc),
+                ("AdminAccessToken", CreateUnsignedJwt(s_adminAccessTokenExpiresAtUtc), null),
                 ("AdminSessionId", "fixture-admin-session", null));
 
             LocalAuthFixtureRefreshResult fixtureResult = configuredFixtureResult.Success
@@ -1022,6 +1023,14 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                 origins = Array.Empty<object>()
             };
             File.WriteAllText(path, JsonSerializer.Serialize(payload));
+        }
+
+        private static string CreateUnsignedJwt(DateTimeOffset expiresAtUtc)
+        {
+            string header = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes("{\"alg\":\"none\"}"));
+            string payload = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(
+                $"{{\"exp\":{expiresAtUtc.ToUnixTimeSeconds()}}}"));
+            return $"{header}.{payload}.";
         }
 
         private static string CreatePowProof()

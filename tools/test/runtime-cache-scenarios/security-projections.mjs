@@ -51,7 +51,16 @@ async function waitForConvergence(fetchImpl, baseUrl, secret, runId, timeoutMs, 
     if (converged(current.snapshot) && (!requireDurable || durableConverged(current.durableRows))) return current
     await new Promise((resolve) => setTimeout(resolve, 25))
   } while (Date.now() < deadline)
-  throw new Error(`security projections did not converge on ${baseUrl}`)
+  const detail = current
+    ? JSON.stringify({
+        account: current.snapshot?.account,
+        ban: current.snapshot?.ban,
+        admin: current.snapshot?.admin,
+        baseline: current.snapshot?.baseline,
+        durableComplete: durableConverged(current.durableRows ?? [])
+      })
+    : 'no snapshot returned'
+  throw new Error(`security projections did not converge on ${baseUrl}: ${detail}`)
 }
 
 function requestSpecs(count, runId, baseUrl, nodeBUrl, phase) {
