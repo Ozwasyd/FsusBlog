@@ -2,6 +2,10 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-NODE_BIN="${FSUSBLOG_NODE:-node}"
 
-exec "$NODE_BIN" "$ROOT_DIR/tools/test/run-backend-qps-scenarios.mjs" "$@"
+if [[ "$#" -ne 0 ]]; then
+  echo "backend-qps arguments are retired; invoke runtime-cache-evidence.sh with current arguments" >&2
+  exit 64
+fi
+
+exec "$ROOT_DIR/tools/test/lanes/runtime-cache-evidence.sh"
