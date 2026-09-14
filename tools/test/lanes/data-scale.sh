@@ -7,7 +7,15 @@ TIER="${FSUSBLOG_SCALE_TIER:-${1:-scale-xs}}"
 DATA_SCALE_ROOT="${FSUSBLOG_DATA_SCALE_ROOT:-$ROOT_DIR/.tmp/scale}"
 OUT_DIR="$DATA_SCALE_ROOT/$TIER"
 RELEASE_SUMMARY_DIR="$DATA_SCALE_ROOT/release-summaries"
-export FSUSBLOG_POSTGRES_CONTAINER_NAME="${FSUSBLOG_POSTGRES_CONTAINER_NAME:-${FSUSBLOG_PG_CONTAINER:-fsusblog-dev-postgres}}"
+if [[ -z "${FSUSBLOG_POSTGRES_CONTAINER_NAME:-}" ]]; then
+    if [[ -n "${FSUSBLOG_PG_CONTAINER:-}" ]]; then
+        export FSUSBLOG_POSTGRES_CONTAINER_NAME="$FSUSBLOG_PG_CONTAINER"
+    fi
+fi
+if [[ -z "${FSUSBLOG_POSTGRES_CONTAINER_NAME:-}" || "${FSUSBLOG_POSTGRES_CONTAINER_NAME}" == "fsusblog-dev-postgres" || "${FSUSBLOG_POSTGRES_CONTAINER_NAME}" == fsusblog-dev-* || "${FSUSBLOG_POSTGRES_CONTAINER_NAME}" == fsusblog-test-postgres-* || "${FSUSBLOG_POSTGRES_CONTAINER_NAME}" == fsusblog-candidate-* ]]; then
+    printf '[data-scale] dedicated-scenario runtime container is required; shared or development container %s is prohibited\n' "${FSUSBLOG_POSTGRES_CONTAINER_NAME:-<empty>}" >&2
+    exit 1
+fi
 
 mkdir -p "$OUT_DIR"
 mkdir -p "$RELEASE_SUMMARY_DIR"

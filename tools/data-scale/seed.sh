@@ -67,8 +67,34 @@ case "$TIER" in
         ;;
 esac
 
-namespace="${FSUSBLOG_TEST_NAMESPACE:-local}"
-postgres_container="${FSUSBLOG_POSTGRES_CONTAINER_NAME:-${FSUSBLOG_PG_CONTAINER:-fsusblog-dev-postgres}}"
+namespace="${FSUSBLOG_TEST_NAMESPACE:-data-scale}"
+if [[ -z "${FSUSBLOG_POSTGRES_CONTAINER_NAME:-}" ]]; then
+    if [[ -n "${FSUSBLOG_PG_CONTAINER:-}" ]]; then
+        postgres_container="$FSUSBLOG_PG_CONTAINER"
+    else
+        printf '[data-scale:seed] FSUSBLOG_POSTGRES_CONTAINER_NAME is required; falling back to dev or shared postgres is prohibited\n' >&2
+        exit 1
+    fi
+else
+    postgres_container="$FSUSBLOG_POSTGRES_CONTAINER_NAME"
+fi
+
+if [[ "$postgres_container" == "fsusblog-dev-postgres" || "$postgres_container" == fsusblog-dev-* || "$postgres_container" == fsusblog-test-postgres-* || "$postgres_container" == fsusblog-candidate-* ]]; then
+    printf '[data-scale:seed] prohibited from using shared or development postgres container: %s\n' "$postgres_container" >&2
+    exit 1
+fi
+
+if [[ -n "${FSUSBLOG_DEBUG_BACKEND_URL:-}" ]]; then
+    if curl -s -f -m 1 "${FSUSBLOG_DEBUG_BACKEND_URL%/}/health/live" >/dev/null 2>&1; then
+        printf '[data-scale:seed] backend is already running; raw SQL seed is prohibited while backend is running\n' >&2
+        exit 1
+    fi
+fi
+if [[ -n "${FSUSBLOG_BACKEND_PID:-}" ]] && kill -0 "$FSUSBLOG_BACKEND_PID" 2>/dev/null; then
+    printf '[data-scale:seed] backend process %s is running; raw SQL seed is prohibited while backend is running\n' "$FSUSBLOG_BACKEND_PID" >&2
+    exit 1
+fi
+
 fixture_prefix="data-scale:$namespace:$TIER"
 # Canonical business wall clock for correctness fields. Measurement duration still
 # uses the session measurement clock; generatedAt remains artifact metadata only.
@@ -85,6 +111,12 @@ fi
 
 if ! docker exec "$postgres_container" pg_isready -U fsusblog -d fsusblog >/dev/null 2>&1; then
     printf '[data-scale:seed] postgres container is not ready: %s\n' "$postgres_container" >&2
+    exit 1
+fi
+
+active_connections="$(docker exec -i "$postgres_container" psql -X -q -t -A -U fsusblog -d fsusblog -c "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid();" 2>/dev/null || echo "0")"
+if [[ "$active_connections" -gt 0 ]]; then
+    printf '[data-scale:seed] dedicated database has %s active foreign connections; offline seed requires isolation\n' "$active_connections" >&2
     exit 1
 fi
 
@@ -537,6 +569,25 @@ SELECT jsonb_pretty(jsonb_build_object(
     'postgresTimezone', current_setting('TimeZone'),
     'businessEpochUtc', current_setting('fsusblog.test_business_epoch_utc', true)
   ),
+  'canaries', jsonb_build_object(
+    'article', jsonb_build_object(
+      'id', (SELECT min(id) FROM article WHERE title = ctx.prefix || ':article:1'),
+      'title', ctx.prefix || ':article:1',
+      'searchToken', 'data-scale-search-1',
+      'publicStatus', 'published'
+    ),
+    'category', jsonb_build_object(
+      'id', (SELECT min(id) FROM category WHERE name = ctx.prefix || ':category:1'),
+      'name', ctx.prefix || ':category:1'
+    ),
+    'tag', jsonb_build_object(
+      'id', (SELECT min(id) FROM tag WHERE name = ctx.prefix || ':tag:1'),
+      'name', ctx.prefix || ':tag:1'
+    ),
+    'comment', jsonb_build_object(
+      'contentPrefix', ctx.prefix || ':comment:'
+    )
+  ),
   'durationMs', round((extract(epoch FROM (clock_timestamp() - started_at)) * 1000)::numeric, 3),
   'generatedAt', to_char(clock_timestamp() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
 ))
@@ -552,6 +603,34 @@ if [[ "$(jq -r '.status // "failed"' "$OUT_DIR/seed.json")" != "ok" ]]; then
     printf '[data-scale:seed] fixture counts did not match %s/%s\n' "$TIER" "$namespace" >&2
     exit 1
 fi
+
+db_semantic_digest="$(
+    jq -c '{tier, namespace, declared, expected, observed, temporal, canaries}' "$OUT_DIR/seed.json" | \
+    sha256sum | awk '{print "sha256:" $1}'
+)"
+
+run_id="${FSUSBLOG_DATA_SCALE_RUN_ID:-${FSUSBLOG_TEST_RUN_ID:-run-default}}"
+
+jq -n \
+    --arg schema "fsusblog.data-scale-seed-receipt.v1" \
+    --arg runId "$run_id" \
+    --arg tier "$TIER" \
+    --arg namespace "$namespace" \
+    --arg digest "$db_semantic_digest" \
+    --argjson seed "$(cat "$OUT_DIR/seed.json")" \
+    '{
+      schema: $schema,
+      dataScaleRunId: $runId,
+      tier: $tier,
+      namespace: $namespace,
+      counts: $seed.observed,
+      canaries: $seed.canaries,
+      dbSemanticDigest: $digest,
+      generatedAt: (now | todate)
+    }' >"$OUT_DIR/seed-receipt.json"
+
+seed_receipt_content_digest="$(sha256sum "$OUT_DIR/seed-receipt.json" | awk '{print "sha256:" $1}')"
+jq --arg cd "$seed_receipt_content_digest" '. + {contentDigest: $cd}' "$OUT_DIR/seed-receipt.json" >"$OUT_DIR/seed-receipt.json.tmp" && mv "$OUT_DIR/seed-receipt.json.tmp" "$OUT_DIR/seed-receipt.json"
 
 jq -n \
     --arg tier "$TIER" \
@@ -593,4 +672,5 @@ jq -n \
   }' >"$OUT_DIR/artifact-rebuild.json"
 
 printf '[data-scale:seed] wrote %s\n' "$OUT_DIR/seed.json"
+printf '[data-scale:seed] wrote %s\n' "$OUT_DIR/seed-receipt.json"
 printf '[data-scale:seed] wrote %s\n' "$OUT_DIR/artifact-rebuild.json"
