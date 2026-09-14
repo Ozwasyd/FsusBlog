@@ -7,6 +7,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Testing;
 
 using Microsoft.Extensions.Options;
 
@@ -494,8 +495,8 @@ public sealed class RedisPublicArtifactRevocationStateStore(
     IRedisOperationExecutor redis,
     IRuntimeKeyScope runtimeKeyScope) : IPublicArtifactRevocationStateStore
 {
-    private const string GenerationKey = "public-hot-read:revocation:generation";
-    private const string TombstoneHashKey = "public-hot-read:revocation:tombstones";
+    internal const string GenerationKey = "public-hot-read:revocation:generation";
+    internal const string TombstoneHashKey = "public-hot-read:revocation:tombstones";
     private static readonly LuaScript s_beginTransition = LuaScript.Prepare(
         "local existing = redis.call('HGET', @hash, @field); " +
         "if existing then " +
@@ -1099,7 +1100,12 @@ public static class PublicArtifactRevocationMiddleware
         }
 
         context.Response.Headers["X-Fsus-Generation"] = registry.CurrentGeneration.ToString(CultureInfo.InvariantCulture);
-        if (!registry.TryResolve(feature.Route, out PublicArtifactTombstone tombstone))
+        bool revoked = registry.TryResolve(feature.Route, out PublicArtifactTombstone tombstone);
+        RuntimeCacheEvidenceObservation.Current?.RecordCacheEvent(
+            "public-artifact-revocation-lookup",
+            $"{context.Request.Method}:{context.Request.Path.Value}",
+            revoked ? "hit" : "negative");
+        if (!revoked)
         {
             return next(context);
         }

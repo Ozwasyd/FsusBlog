@@ -147,6 +147,10 @@ public static partial class PublicHotReadFastPath
             ResolveRiskRouteKey(route, path),
             routePolicy,
             classificationCount: 1);
+        RuntimeCacheEvidenceObservation.Current?.RecordCacheEvent(
+            "public-hot-read-classification",
+            $"{ctx.Request.Method}:{path}",
+            "hit");
         return true;
     }
 
