@@ -74,7 +74,7 @@ function observed(spec, index) {
     status: 200,
     payloadDigest: trigger ? digest('c') : digest('d'),
     parityGroup: spec.parityGroup,
-    layerSource: trigger ? 'database+redis' : 'l0-allow',
+    layerSource: trigger ? 'database' : 'l0-allow',
     latencyMs: index + 1,
     allocatedBytes: 128,
     redisCommands: trigger ? [{ verb: 'PUBLISH', category: 'write', source: 'stackexchange-redis-profiler' }] : [],

@@ -106,7 +106,7 @@ internal static class RuntimeCacheDistributedL1EvidenceEndpoints
                 statusCode: StatusCodes.Status503ServiceUnavailable);
         }
 
-        RuntimeCacheEvidenceObservation.Current?.MarkLayerSource("database+redis");
+        RuntimeCacheEvidenceObservation.Current?.MarkLayerSource("database");
         RuntimeCacheEvidenceObservation.Current?.RecordCacheEvent(
             "distributed-invalidation",
             request.EventId,
