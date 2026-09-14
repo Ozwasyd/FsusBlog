@@ -720,6 +720,9 @@ NODE
                 materializeArgs+=(--map "frontend-dist=$(RepositoryRelativePath "${FSUSBLOG_FRONTEND_DIST_ROOT:?FSUSBLOG_FRONTEND_DIST_ROOT is required}")")
                 materializeArgs+=(--map "frontend-dist:copy-before-write=$(RepositoryRelativePath "$SERVER_WWWROOT_DIR")")
                 ;;
+            ssr-runtime)
+                materializeArgs+=(--map "ssr-runtime=$(RepositoryRelativePath "${PUBLIC_AOT_SSR_CLIENT_ROOT:?PUBLIC_AOT_SSR_CLIENT_ROOT is required for ssr-runtime materialization}")")
+                ;;
             wasm)
                 materializeArgs+=(--map "wasm=$(RepositoryRelativePath "${FSUSBLOG_FRONTEND_WASM_ROOT:?FSUSBLOG_FRONTEND_WASM_ROOT is required}")")
                 ;;
@@ -750,13 +753,19 @@ NODE
 MaterializeCiProductionBuild
 if [[ -n "${FSUSBLOG_FRONTEND_DIST_ROOT:-}" &&
     -f "$FSUSBLOG_FRONTEND_DIST_ROOT/server/server-public-ssr.bundle.mjs" &&
-    -f "$FSUSBLOG_FRONTEND_DIST_ROOT/server/public-ssr.mjs" ]]; then
+    -f "$FSUSBLOG_FRONTEND_DIST_ROOT/server/public-ssr.mjs" &&
+    ! -f "${PUBLIC_AOT_SSR_CLIENT_ROOT:-/nonexistent}/server/server-public-ssr.bundle.mjs" ]]; then
     PUBLIC_AOT_SSR_CLIENT_ROOT="${PUBLIC_AOT_SSR_CLIENT_ROOT:-$(dirname "$FSUSBLOG_FRONTEND_DIST_ROOT")/ssr-runtime}"
     "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docker/ssr-runtime-closure.mjs" materialize \
         --client-root "$CLIENT_DIR" \
         --dist "$FSUSBLOG_FRONTEND_DIST_ROOT" \
         --inventory "$ROOT_DIR/config/build/ssr-runtime-inputs.json" \
         --output "$PUBLIC_AOT_SSR_CLIENT_ROOT"
+    PUBLIC_AOT_SSR_WORKER_SCRIPT='./server/server-public-ssr.bundle.mjs'
+fi
+if [[ -n "$PUBLIC_AOT_SSR_CLIENT_ROOT" &&
+    -f "$PUBLIC_AOT_SSR_CLIENT_ROOT/server/server-public-ssr.bundle.mjs" &&
+    -f "$PUBLIC_AOT_SSR_CLIENT_ROOT/server/public-ssr.mjs" ]]; then
     PUBLIC_AOT_SSR_WORKER_SCRIPT='./server/server-public-ssr.bundle.mjs'
 fi
 WriteEnvFile
