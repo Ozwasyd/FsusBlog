@@ -6,6 +6,8 @@ using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Services;
 
+using Microsoft.AspNetCore.Mvc;
+
 namespace FsusBlog.Server.Modules.Endpoints;
 
 internal static class CacheMissSingleFlightScenarioEndpoints
@@ -26,8 +28,8 @@ internal static class CacheMissSingleFlightScenarioEndpoints
     private static async Task<IResult> ExecuteAsync(
         HttpContext context,
         int articleId,
-        ArticleService articles,
-        IConfiguration configuration,
+        [FromServices] ArticleService articles,
+        [FromServices] IConfiguration configuration,
         CancellationToken cancellationToken)
     {
         if (!IsAuthenticated(context, configuration))
@@ -49,9 +51,9 @@ internal static class CacheMissSingleFlightScenarioEndpoints
     private static async Task<IResult> ResetAsync(
         HttpContext context,
         int articleId,
-        ICacheInvalidationStore cache,
-        CacheSingleFlightCoordinator singleFlight,
-        IConfiguration configuration,
+        [FromServices] ICacheInvalidationStore cache,
+        [FromServices] CacheSingleFlightCoordinator singleFlight,
+        [FromServices] IConfiguration configuration,
         CancellationToken cancellationToken)
     {
         if (!IsAuthenticated(context, configuration))

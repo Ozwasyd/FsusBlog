@@ -10,6 +10,8 @@ using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Testing;
 
+using Microsoft.AspNetCore.Mvc;
+
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Modules.Endpoints;
@@ -58,8 +60,8 @@ internal static class RuntimeCacheFaultAndRevocationScenarioEndpoints
     private static async Task<IResult> ProbeRedisAsync(
         HttpContext context,
         string operationClass,
-        IRedisOperationExecutor redis,
-        RedisOperationBudgetCatalog catalog,
+        [FromServices] IRedisOperationExecutor redis,
+        [FromServices] RedisOperationBudgetCatalog catalog,
         CancellationToken cancellationToken)
     {
         if (!IsAuthenticated(context))
@@ -111,9 +113,9 @@ internal static class RuntimeCacheFaultAndRevocationScenarioEndpoints
         HttpContext context,
         int count,
         string runId,
-        IRedisOperationExecutor redis,
-        IRuntimeKeyScope keyScope,
-        PublicArtifactRevocationRegistry registry,
+        [FromServices] IRedisOperationExecutor redis,
+        [FromServices] IRuntimeKeyScope keyScope,
+        [FromServices] PublicArtifactRevocationRegistry registry,
         CancellationToken cancellationToken)
     {
         if (!IsAuthenticated(context))
