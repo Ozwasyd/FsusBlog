@@ -202,9 +202,9 @@ export function collectDefaultExecutionIdentity({ repositoryRoot = root, baseUrl
   }
 }
 
-function redisCategory(verb) {
+export function redisCategory(verb) {
   if (['GET', 'MGET', 'HGET', 'HMGET', 'HGETALL', 'EXISTS', 'TTL', 'PTTL', 'SCARD', 'SMEMBERS', 'SISMEMBER', 'ZRANGE', 'ZREVRANGE', 'ZSCORE'].includes(verb)) return 'read'
-  if (['SET', 'MSET', 'HSET', 'DEL', 'UNLINK', 'EXPIRE', 'PEXPIRE', 'SADD', 'SREM', 'ZADD', 'ZREM', 'INCR', 'INCRBY', 'DECR', 'DECRBY'].includes(verb)) return 'write'
+  if (['SET', 'SETEX', 'PSETEX', 'MSET', 'HSET', 'DEL', 'UNLINK', 'EXPIRE', 'PEXPIRE', 'SADD', 'SREM', 'ZADD', 'ZREM', 'INCR', 'INCRBY', 'DECR', 'DECRBY'].includes(verb)) return 'write'
   if (['EVAL', 'EVALSHA', 'FCALL'].includes(verb)) return 'atomic-script'
   if (['PUBLISH', 'SUBSCRIBE', 'PSUBSCRIBE'].includes(verb)) return 'delivery'
   if (['MULTI', 'EXEC', 'WATCH', 'UNWATCH'].includes(verb)) return 'transaction'

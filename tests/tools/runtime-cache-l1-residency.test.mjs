@@ -5,6 +5,7 @@ import {
   buildL1ResidencySpecs,
   produceL1ResidencyReceipt
 } from '../../tools/test/runtime-cache-scenarios/l1-residency.mjs'
+import { redisCategory } from '../../tools/test/run-runtime-cache-evidence.mjs'
 
 const digest = (value) => `sha256:${value.toString(16).padStart(64, '0')}`
 const baseUrls = ['http://127.0.0.1:5201', 'http://127.0.0.1:5202']
@@ -46,6 +47,12 @@ test('builds exactly 100000 unique writes across two nodes and two policies', ()
   assert.ok(specs.every((spec) => Buffer.isBuffer(spec.body) && spec.body.length === 64))
 })
 
+test('classifies expiring Redis storage writes as writes', () => {
+  assert.equal(redisCategory('SET'), 'write')
+  assert.equal(redisCategory('SETEX'), 'write')
+  assert.equal(redisCategory('PSETEX'), 'write')
+})
+
 test('derives key cardinality and bounded residency from request-bound raw evidence', async () => {
   const requestCount = 40
   let after = false
@@ -67,7 +74,7 @@ test('derives key cardinality and bounded residency from request-bound raw evide
       layerSource: 'redis',
       latencyMs: spec.subcaseId === 'global-lock-tail' ? 4 : 2,
       allocatedBytes: 64,
-      redisCommands: [{ verb: 'SET', category: 'write', source: 'stackexchange-redis-profiler' }],
+      redisCommands: [{ verb: index % 2 === 0 ? 'SETEX' : 'PSETEX', category: 'write', source: 'stackexchange-redis-profiler' }],
       redisFailureEvents: [],
       cacheEvents: [{ family: 'l1-residency', identityDigest: digest(index + 2), outcome: 'published' }],
       dbCommands: []

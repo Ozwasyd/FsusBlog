@@ -200,8 +200,7 @@ internal static class RuntimeCacheDistributedL1EvidenceEndpoints
         RuntimeCacheEvidenceObservation.Current?.RecordCacheEvent("l1-residency", identity, "published");
         return Results.Ok(new
         {
-            ordinal,
-            policyId = policy.ToString(),
+            written = true,
             payloadBytes = payload.Length
         });
     }

@@ -13,6 +13,7 @@ import {
 } from './runtime-scenario-support.mjs'
 
 const policies = ['SystemPage', 'SystemCompliance']
+const redisStorageWriteVerbs = new Set(['SET', 'SETEX', 'PSETEX'])
 
 export function buildL1ResidencySpecs(requestCount, runId, baseUrls) {
   if (!Number.isInteger(requestCount) || requestCount < 2) throw new Error('l1-residency requires at least two requests')
@@ -142,7 +143,7 @@ export async function produceL1ResidencyReceipt(options) {
       const after = residencyEvidence(afterSnapshots)
       const uniqueKeys = uniquePublishedKeys(requests)
       const redisPublishedRequests = requests.filter((request) =>
-        request.redisCommands.some((command) => command.verb === 'SET')).length
+        request.redisCommands.some((command) => redisStorageWriteVerbs.has(command.verb))).length
       const logicalWithinBudget = after.every((item) => item.logicalBytes <= item.maxLogicalBytes)
       const capacityWithinBudget = after.every((item) => item.capacityBytes <= item.maxCapacityBytes && item.entries <= item.maxEntries) &&
         after.reduce((sum, item) => sum + item.entries, 0) > 0 &&
