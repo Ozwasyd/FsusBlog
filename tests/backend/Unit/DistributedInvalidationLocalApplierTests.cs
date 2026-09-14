@@ -264,7 +264,7 @@ public sealed class DistributedInvalidationLocalApplierTests
     }
 
     [Fact]
-    public async Task FragmentRebuildTerminalFailure_EstablishesFullReconcileAndFailsClosed()
+    public async Task FragmentRebuildTerminalFailure_RetainsSanitizedSnapshotAndEstablishesFullReconcile()
     {
         var state = new InMemoryPublicHotArtifactDeliveryStateStore();
         var queue = new PublicHotArtifactUpdateQueue(
@@ -272,7 +272,10 @@ public sealed class DistributedInvalidationLocalApplierTests
             state,
             state);
         var store = new PublicHotReadStore();
-        store.Publish(CreateSnapshot([1], category: true, seoHtml: true));
+        store.Publish(CreateSnapshot([1, 2], category: true, seoHtml: true));
+        Assert.Equal(1, store.ApplyDistributedFragments(["article:1"]));
+        Assert.False(store.Current.TryGetArticle(1, out _));
+        Assert.True(store.Current.TryGetArticle(2, out _));
         var ledger = Substitute.For<IDistributedInvalidationDeliveryLedger>();
         ledger.RecordFullReconcileObligationAsync(
                 Arg.Any<string>(),
@@ -308,7 +311,17 @@ public sealed class DistributedInvalidationLocalApplierTests
 
         await worker.ProcessOnceAsync(pending, CancellationToken.None);
 
-        Assert.False(store.IsReady);
+        Assert.True(store.IsReady);
+        Assert.False(store.Current.TryGetArticle(1, out _));
+        Assert.True(store.Current.TryGetArticle(2, out _));
+        Assert.True(store.Current.TryGetCategory(out _));
+        var hotKey = new PublicListKey(PublicListKind.Hot, 0, 1, 10);
+        Assert.True(store.Current.TryGetList(hotKey, out _));
+        Assert.Equal(PublicHotReadInvalidationPolicy.RetainLastGood, store.LastInvalidationPolicyForTests);
+        Assert.True(store.TryGetRequestSnapshot(out PublicHotReadSnapshot retained, out string reason));
+        Assert.Equal("last-good", reason);
+        Assert.True(retained.TryGetArticle(2, out _));
+        Assert.True(retained.TryGetList(hotKey, out _));
         PublicHotArtifactObligation failed = (await state.GetActiveAsync(CancellationToken.None))!;
         Assert.True(failed.IsTerminal);
         await ledger.Received().RecordFullReconcileObligationAsync(
@@ -365,10 +378,15 @@ public sealed class DistributedInvalidationLocalApplierTests
                     "frontend")
             }.ToFrozenDictionary(StringComparer.Ordinal)
             : FrozenDictionary<string, PublicHtmlArtifact>.Empty;
+        var hotKey = new PublicListKey(PublicListKind.Hot, 0, 1, 10);
+        FrozenDictionary<PublicListKey, PublicBinaryArtifact> lists = new Dictionary<PublicListKey, PublicBinaryArtifact>
+        {
+            [hotKey] = new(CreateFrame(AedsFrameType.ArticleHot), "\"hot\"", "public,max-age=60", 1, AedsFrameType.ArticleHot)
+        }.ToFrozenDictionary();
         return new PublicHotReadSnapshot(
             1,
             frames.ToFrozenDictionary(),
-            FrozenDictionary<PublicListKey, PublicBinaryArtifact>.Empty,
+            lists,
             categoryFrame,
             default,
             html,

@@ -714,7 +714,7 @@ public sealed class PublicHotArtifactUpdateWorker(
             {
                 store.InvalidateDistributedSnapshot(
                     "fragment-rebuild-failed",
-                    PublicHotReadInvalidationPolicy.DropToEmpty);
+                    PublicHotReadInvalidationPolicy.RetainLastGood);
                 await using AsyncServiceScope failureScope = scopeFactory.CreateAsyncScope();
                 await RecordDistributedFullReconcileAsync(
                         failureScope.ServiceProvider,

@@ -79,16 +79,16 @@ public sealed class ArticleBodyRepairIntegrationTests(PostgresSchemaMigrationFix
         Assert.Equal(articleId, hotUpdate.ArticleId);
         Assert.Equal("article-body-repaired", hotUpdate.Reason);
         AssertRepairDidNotQueryMissingPublicationTable(sqlLog, workerLog.Entries);
-        await cache.Received(1).InvalidateArticleMutationAsync(
+        await cache.Received(1).InvalidateArticleBodyRepairAsync(
             articleId,
             Arg.Is<string>(value => value.StartsWith("article-repair:", StringComparison.Ordinal)),
             Arg.Any<CancellationToken>());
-        await publicAot.Received(1).InvalidateArticleMutationAsync(
-            articleId,
-            null,
-            null,
-            Arg.Is<string>(value => value.StartsWith("article-repair:", StringComparison.Ordinal)),
+        await cache.DidNotReceiveWithAnyArgs().InvalidateArticleMutationAsync(default, default);
+        await publicAot.Received(1).InvalidateRouteAsync(
+            PublicPageId.ArticleDetail,
+            $"article:{articleId}",
             Arg.Any<CancellationToken>());
+        await publicAot.DidNotReceiveWithAnyArgs().InvalidateArticleMutationAsync(default, default, default, default);
         await search.Received(1).AddOrUpdateIndexAsync(Arg.Is<Article>(article => article.Id == articleId));
     }
 
@@ -112,7 +112,7 @@ public sealed class ArticleBodyRepairIntegrationTests(PostgresSchemaMigrationFix
             .CountAsync());
         Assert.False(publicHot.Reader.TryPeek(out _));
         AssertRepairDidNotQueryMissingPublicationTable(sqlLog, repairLog.Entries);
-        await cache.DidNotReceiveWithAnyArgs().InvalidateArticleMutationAsync(default, default);
+        await cache.DidNotReceiveWithAnyArgs().InvalidateArticleBodyRepairAsync(default, default!, default);
         await publicAot.DidNotReceiveWithAnyArgs().InvalidateArticleMutationAsync(default, default, default, default);
         await search.DidNotReceiveWithAnyArgs().AddOrUpdateIndexAsync(default!);
     }
