@@ -14,18 +14,27 @@ internal sealed class RuntimeCacheEvidenceMiddleware(
     internal const string RequestIdHeader = "X-Fsus-Runtime-Evidence-Request";
     internal const string SecretHeader = "X-Fsus-Runtime-Evidence-Secret";
     internal const string SecretConfigurationKey = "FSUSBLOG_RUNTIME_CACHE_EVIDENCE_SECRET";
+    private static readonly object s_authenticatedSecretItemKey = new();
+    private static readonly object s_authenticatedObservationItemKey = new();
     private readonly string? _secret = ResolveSecret(configuration, environment);
 
     public async Task InvokeAsync(HttpContext context)
     {
+        bool secretAuthenticated = _secret is not null &&
+            SecretEquals(_secret, context.Request.Headers[SecretHeader].ToString());
+        if (secretAuthenticated)
+        {
+            context.Items[s_authenticatedSecretItemKey] = true;
+        }
+
         string requestId = context.Request.Headers[RequestIdHeader].ToString().Trim();
-        if (_secret is null || requestId.Length is < 8 or > 128 ||
-            !SecretEquals(_secret, context.Request.Headers[SecretHeader].ToString()))
+        if (!secretAuthenticated || requestId.Length is < 8 or > 128)
         {
             await next(context);
             return;
         }
 
+        context.Items[s_authenticatedObservationItemKey] = true;
         Stream originalBody = context.Response.Body;
         await using var hashingBody = new HashingWriteStream(originalBody);
         context.Response.Body = hashingBody;
@@ -43,6 +52,17 @@ internal sealed class RuntimeCacheEvidenceMiddleware(
             context.Response.Body = originalBody;
             store.Store(observation, context.Response.StatusCode, hashingBody.GetDigest());
         }
+    }
+
+    internal static bool AllowsAuthenticatedHeader(HttpContext context, string headerName)
+    {
+        if (string.Equals(headerName, SecretHeader, StringComparison.OrdinalIgnoreCase))
+        {
+            return context.Items.ContainsKey(s_authenticatedSecretItemKey);
+        }
+
+        return string.Equals(headerName, RequestIdHeader, StringComparison.OrdinalIgnoreCase)
+            && context.Items.ContainsKey(s_authenticatedObservationItemKey);
     }
 
     private static string? ResolveSecret(IConfiguration configuration, IHostEnvironment environment)
