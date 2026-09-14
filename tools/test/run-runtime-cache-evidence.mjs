@@ -28,7 +28,7 @@ const runtimeSnapshotRoute = '/_fsus/testing/runtime-cache/runtime-snapshot'
 const failureSchema = 'fsusblog.runtime-cache-producer-failure.v1'
 const defaultOutputDirectory = path.join(root, '.tmp/perf/runtime-cache')
 
-export const implementedRuntimeCacheScenarios = Object.freeze(['public-hot-read', 'article-detail-l1', 'sitemap'])
+export const implementedRuntimeCacheScenarios = Object.freeze(['public-hot-read', 'article-detail-l1', 'related-reading', 'sitemap'])
 
 const evidenceIdPattern = /^[a-z0-9][a-z0-9.-]*$/u
 
@@ -767,6 +767,8 @@ export async function runRuntimeCacheProducer(options = {}) {
       let producer = producePublicHotReadReceipt
       if (scenario.id === 'article-detail-l1') {
         producer = (await import('./runtime-cache-scenarios/article-detail-l1.mjs')).produceArticleDetailL1Receipt
+      } else if (scenario.id === 'related-reading') {
+        producer = (await import('./runtime-cache-scenarios/related-reading.mjs')).produceRelatedReadingReceipt
       } else if (scenario.id === 'sitemap') {
         producer = (await import('./runtime-cache-scenarios/sitemap.mjs')).produceSitemapReceipt
       } else if (scenario.id !== 'public-hot-read') {

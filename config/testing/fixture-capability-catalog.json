@@ -752,6 +752,25 @@
             "mutability": "immutable"
         },
         {
+            "id": "public.article.pagination-deep",
+            "ownerProducerId": "public-content",
+            "stateDomains": [
+                "fixture.public-content",
+                "postgres.article",
+                "redis.cache.public"
+            ],
+            "dependsOn": [
+                "public.article.published"
+            ],
+            "conflictsWith": [],
+            "postconditionIds": [
+                "article-pagination-deep"
+            ],
+            "resetContractId": "owned-namespace",
+            "scope": "namespace",
+            "mutability": "immutable"
+        },
+        {
             "id": "public.article.published",
             "ownerProducerId": "public-content",
             "stateDomains": [

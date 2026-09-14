@@ -96,6 +96,17 @@ test('every executable matrix step binds exactly one valid fixtureProfile', () =
     }
 });
 
+test('runtime-cache pagination binds the dedicated deep-keyset fixture profile', () =>
+{
+    const matrix = parseMatrix(readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
+    const tier = matrix.tiers.find((item) => item.id === 'runtime-cache-pagination');
+    assert.equal(tier.fixtureProfile, 'runtime-cache-pagination');
+    assert.equal(tier.fixtureProfileReason, 'binds-runtime-cache-pagination');
+    const profile = catalog.profiles.find((item) => item.id === tier.fixtureProfile);
+    assert.deepEqual(profile.capabilities, ['public.article.pagination-deep']);
+    assert.equal(profile.requiresFreshNamespace, true);
+});
+
 test('missing/null/empty/free-command fixtureProfile fails closed', () =>
 {
     const missing = errorsFor({ tiers: [profileTier('sample', 'none', 'runtime')] });

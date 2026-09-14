@@ -53,6 +53,9 @@
             "id": "diagnostic-demo-seed"
         },
         {
+            "id": "fixture-authoritative-keyset"
+        },
+        {
             "id": "migration-retirement-reader"
         },
         {
@@ -1849,6 +1852,41 @@
                 "load",
                 "runtime",
                 "security"
+            ]
+        },
+        {
+            "id": "canonical.public.article.pagination-deep",
+            "capabilityId": "public.article.pagination-deep",
+            "validityClass": "canonical-positive",
+            "ownerProducerId": "public-content",
+            "writerContractId": "fixture-authoritative-keyset",
+            "contentShapeIds": [
+                "article-lifecycle"
+            ],
+            "temporalShapeId": "current-production",
+            "mediaShapeIds": [
+                "cover-and-no-cover"
+            ],
+            "distributionShapeId": null,
+            "requiredDerivedStateIds": [
+                "production-derived-state"
+            ],
+            "forbiddenSentinelIds": [
+                "created-by-admin-principal-zero",
+                "legacy-server-visible-pseudonymous",
+                "legacy-unverified",
+                "legacy-verified",
+                "rights-v3-content-hash-recompute",
+                "rights-v3-policy-hash-recompute",
+                "unknown-audit-action",
+                "unverified-local-fallback-object"
+            ],
+            "expectedBoundary": "At least 10,020 current public latest-keyset rows plus production-encoded page 10/100/1000 cursors bound to one generation and size 10.",
+            "allowedExecutionClasses": [
+                "runtime"
+            ],
+            "defaultExecutionClasses": [
+                "runtime"
             ]
         },
         {

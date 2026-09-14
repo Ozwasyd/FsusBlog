@@ -276,6 +276,17 @@
             "requiresFreshNamespace": true
         },
         {
+            "id": "runtime-cache-pagination",
+            "capabilities": [
+                "public.article.pagination-deep"
+            ],
+            "allowedExecutionClasses": [
+                "runtime"
+            ],
+            "isDestructive": false,
+            "requiresFreshNamespace": true
+        },
+        {
             "id": "scale-l-nightly",
             "capabilities": [
                 "scale.article-comment.l"

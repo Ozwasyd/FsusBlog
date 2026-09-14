@@ -6650,8 +6650,8 @@ tiers:
 
     - id: runtime-cache-pagination
       executionClass: runtime
-      fixtureProfile: public-content-lifecycle
-      fixtureProfileReason: binds-public-content-lifecycle
+      fixtureProfile: runtime-cache-pagination
+      fixtureProfileReason: binds-runtime-cache-pagination
       fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
       fixtureMutatorAllowed: true
       owner: ServerContractAgent
