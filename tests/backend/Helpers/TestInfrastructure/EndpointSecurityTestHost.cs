@@ -19,6 +19,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Policies;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Interfaces;
@@ -484,6 +485,7 @@ public sealed class EndpointSecurityTestServer : IDisposable
             false,
             null,
             AccountSubjectHash: AccountSubjectHash)));
+        var accountStates = new AccountStateProjection(new EndpointAccountStateProjectionSource(users));
         var userSessionValidator = Substitute.For<IUserSessionValidationService>();
         userSessionValidator.ValidateAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(UserSessionValidationResult.Valid));
@@ -544,6 +546,8 @@ public sealed class EndpointSecurityTestServer : IDisposable
         builder.Services.AddSingleton<IBinaryEnvelopePolicy, BinaryEnvelopePolicy>();
         builder.Services.AddSingleton(blacklist);
         builder.Services.AddSingleton(users);
+        builder.Services.RemoveAll<IAccountStateProjection>();
+        builder.Services.AddSingleton<IAccountStateProjection>(accountStates);
         builder.Services.AddSingleton<IUnifiedCache>(cache);
         builder.Services.AddSingleton(pow);
         builder.Services.AddSingleton(new AdaptivePowGovernor(cache, builder.Configuration));
@@ -818,6 +822,48 @@ public sealed class EndpointSecurityTestServer : IDisposable
                 SocialPreviewAllowedPathPrefixes: ["/", "/article/"],
                 BlockedUserAgentKeywords: ["curl"],
                 SecurityChallengeReference: "security.pow"));
+
+    private sealed class EndpointAccountStateProjectionSource(IUserAccountReader users)
+        : IAccountStateProjectionSource
+    {
+        public async ValueTask<AccountStateSnapshot> LoadAsync(
+            int accountId,
+            CancellationToken cancellationToken)
+        {
+            UserAccountSnapshot? account = await users.GetAccountByIdAsync(accountId);
+            if (!account.HasValue)
+            {
+                return new AccountStateSnapshot
+                {
+                    AccountId = accountId,
+                    Generation = 0,
+                    Knowledge = AccountStateKnowledge.Missing
+                };
+            }
+
+            UserAccountSnapshot current = account.Value;
+            return new AccountStateSnapshot
+            {
+                AccountId = current.Id,
+                Generation = 1,
+                Knowledge = current.Status == 2 || current.DeletedAt.HasValue
+                    ? AccountStateKnowledge.Deleted
+                    : AccountStateKnowledge.Present,
+                AccountSubjectHash = current.AccountSubjectHash,
+                Status = current.Status,
+                BanReason = current.BanReason,
+                DeletedAt = current.DeletedAt,
+                IdentityKind = current.IdentityKind,
+                RegistrationState = current.RegistrationState,
+                MfaEnabled = current.MfaEnabled,
+                PasskeyEnabled = current.PasskeyEnabled,
+                RecoveryEnabled = current.RecoveryEnabled,
+                PublicHandle = current.PublicHandle,
+                AnonymousCredentialStatus = current.AnonymousCredentialStatus,
+                AnonymousCredentialLevel = current.AnonymousCredentialLevel
+            };
+        }
+    }
 
     private sealed class FixedAntiCrawlerPolicyProvider(AntiCrawlerPolicySnapshot current)
         : IAntiCrawlerPolicyProvider
