@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
-import { validateRuntimeCacheReceipt } from '../../tools/test/runtime-cache-evidence-contract.mjs'
+import { loadRuntimeCacheCatalog, validateRuntimeCacheReceipt } from '../../tools/test/runtime-cache-evidence-contract.mjs'
 import {
   collectObservedRequest,
   implementedRuntimeCacheScenarios,
@@ -737,15 +737,14 @@ test('first command-budget failure remains authoritative after a later clean run
 })
 
 test('catalog scenarios without a runtime handler fail and retain a producer firstFailure artifact', async () => {
-  assert.equal(implementedRuntimeCacheScenarios.includes('public-hot-read'), true)
-  assert.equal(implementedRuntimeCacheScenarios.includes('pagination'), false)
+  assert.deepEqual(implementedRuntimeCacheScenarios, loadRuntimeCacheCatalog().scenarios.map((item) => item.id))
   const directory = temporaryDirectory('runtime-cache-producer-dispatch-')
-  const absent = scenario({ id: 'pagination', subcases: ['page-1'], requiredAssertions: ['logical-page-command-constant'], requirements: {}, requests: 1, warmupRequests: 0, concurrency: 1 })
+  const absent = scenario({ id: 'future-scenario', subcases: ['probe'], requiredAssertions: ['probe-present'], requirements: {}, requests: 1, warmupRequests: 0, concurrency: 1 })
   const result = await runRuntimeCacheProducer({
     repositoryRoot: directory,
     outputDirectory: directory,
     catalog: catalog(absent),
-    scenarioIds: ['pagination'],
+    scenarioIds: ['future-scenario'],
     source,
     identity,
     baseUrl: 'http://127.0.0.1:7568',
@@ -753,9 +752,9 @@ test('catalog scenarios without a runtime handler fail and retain a producer fir
   })
   assert.equal(result.status, 'failed')
   assert.match(result.results[0].error, /handler is absent/u)
-  const failure = JSON.parse(readFileSync(path.join(directory, 'failures/pagination.producer-failure.json'), 'utf8'))
+  const failure = JSON.parse(readFileSync(path.join(directory, 'failures/future-scenario.producer-failure.json'), 'utf8'))
   assert.equal(failure.status, 'failed')
   assert.equal(failure.firstFailure.stage, 'dispatch')
-  assert.match(failure.firstFailure.message, /pagination/u)
-  assert.equal(path.join(directory, 'receipts/pagination.json') === result.results[0].outputFile, true)
+  assert.match(failure.firstFailure.message, /future-scenario/u)
+  assert.equal(path.join(directory, 'receipts/future-scenario.json') === result.results[0].outputFile, true)
 })

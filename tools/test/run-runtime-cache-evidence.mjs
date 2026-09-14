@@ -28,7 +28,21 @@ const runtimeSnapshotRoute = '/_fsus/testing/runtime-cache/runtime-snapshot'
 const failureSchema = 'fsusblog.runtime-cache-producer-failure.v1'
 const defaultOutputDirectory = path.join(root, '.tmp/perf/runtime-cache')
 
-export const implementedRuntimeCacheScenarios = Object.freeze(['public-hot-read', 'article-detail-l1', 'related-reading', 'sitemap'])
+export const implementedRuntimeCacheScenarios = Object.freeze([
+  'public-hot-read',
+  'article-detail-l1',
+  'cache-miss-singleflight',
+  'distributed-invalidation',
+  'l1-residency',
+  'pagination',
+  'related-reading',
+  'redis-fault-classes',
+  'revocation',
+  'hot-featured-frame',
+  'sitemap',
+  'security-projections',
+  'telemetry'
+])
 
 const evidenceIdPattern = /^[a-z0-9][a-z0-9.-]*$/u
 
@@ -767,10 +781,28 @@ export async function runRuntimeCacheProducer(options = {}) {
       let producer = producePublicHotReadReceipt
       if (scenario.id === 'article-detail-l1') {
         producer = (await import('./runtime-cache-scenarios/article-detail-l1.mjs')).produceArticleDetailL1Receipt
+      } else if (scenario.id === 'cache-miss-singleflight') {
+        producer = (await import('./runtime-cache-scenarios/cache-miss-singleflight.mjs')).produceCacheMissSingleFlightReceipt
+      } else if (scenario.id === 'distributed-invalidation') {
+        producer = (await import('./runtime-cache-scenarios/distributed-invalidation.mjs')).produceDistributedInvalidationReceipt
+      } else if (scenario.id === 'l1-residency') {
+        producer = (await import('./runtime-cache-scenarios/l1-residency.mjs')).produceL1ResidencyReceipt
+      } else if (scenario.id === 'pagination') {
+        producer = (await import('./runtime-cache-scenarios/pagination.mjs')).producePaginationReceipt
       } else if (scenario.id === 'related-reading') {
         producer = (await import('./runtime-cache-scenarios/related-reading.mjs')).produceRelatedReadingReceipt
+      } else if (scenario.id === 'redis-fault-classes') {
+        producer = (await import('./runtime-cache-scenarios/redis-fault-classes.mjs')).produceRedisFaultClassesReceipt
+      } else if (scenario.id === 'revocation') {
+        producer = (await import('./runtime-cache-scenarios/revocation.mjs')).produceRevocationReceipt
+      } else if (scenario.id === 'hot-featured-frame') {
+        producer = (await import('./runtime-cache-scenarios/hot-featured-frame.mjs')).produceHotFeaturedFrameReceipt
       } else if (scenario.id === 'sitemap') {
         producer = (await import('./runtime-cache-scenarios/sitemap.mjs')).produceSitemapReceipt
+      } else if (scenario.id === 'security-projections') {
+        producer = (await import('./runtime-cache-scenarios/security-projections.mjs')).produceSecurityProjectionsReceipt
+      } else if (scenario.id === 'telemetry') {
+        producer = (await import('./runtime-cache-scenarios/telemetry.mjs')).produceTelemetryReceipt
       } else if (scenario.id !== 'public-hot-read') {
         throw new Error(`runtime scenario handler is absent for ${scenario.id}`)
       }
