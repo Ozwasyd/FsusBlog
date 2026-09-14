@@ -47,7 +47,11 @@ export async function produceArticleDetailL1Receipt(options) {
   return produceMeasuredScenarioReceipt(options, {
     warmup: async ({ collect }) => {
       const warmup = specs(scenario.warmupRequests, 'l1-hit')
-      return mapConcurrent(warmup, scenario.concurrency, (spec, index) => collect(spec, index, 'warmup'))
+      const requests = []
+      for (const [index, spec] of warmup.entries()) {
+        requests.push(await collect(spec, index, 'warmup'))
+      }
+      return requests
     },
     sample: async ({ collect }) => {
       const l1Specs = specs(scenario.requests / 2, 'l1-hit')
