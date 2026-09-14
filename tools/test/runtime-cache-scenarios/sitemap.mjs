@@ -20,49 +20,54 @@ export async function produceSitemapReceipt(options) {
   const fetchImpl = options.fetchImpl ?? globalThis.fetch
   const timeoutMs = options.timeoutMs ?? 15000
   const snapshotContext = { fetchImpl, baseUrl, secret, timeoutMs }
-  const beforeWarmup = await takeRuntimeSnapshot(snapshotContext)
   let afterWarmup
 
   return produceMeasuredScenarioReceipt(options, {
     warmup: async ({ collect, runId }) => {
-      const specs = Array.from({ length: scenario.warmupRequests }, (_, index) =>
-        requestSpec(runId, 'warmup', index, 'l1-hit'))
-      const first = specs.length === 0 ? [] : [await collect(specs[0], 0, 'warmup')]
-      const remaining = await mapConcurrent(specs.slice(1), scenario.concurrency, (spec, index) =>
-        collect(spec, index + 1, 'warmup'))
+      const specs = Array.from({ length: scenario.warmupRequests }, (_, index) => ({
+        method: 'GET',
+        path: `/api/binary/system/seo?runtime-cache-evidence=${encodeURIComponent(`${runId}-sitemap-warmup-${index + 1}`)}`,
+        subcaseId: 'l1-hit',
+        parityGroup: 'sitemap-warmup',
+        headers: {}
+      }))
+      const requests = await mapConcurrent(specs, scenario.concurrency, (spec, index) => collect(spec, index, 'warmup'))
       afterWarmup = await takeRuntimeSnapshot(snapshotContext)
-      return [...first, ...remaining]
+      return requests
     },
     sample: async ({ collect, runId }) => {
       if (!afterWarmup) throw new Error('sitemap warmup snapshot is missing')
-      const specs = Array.from({ length: scenario.requests }, (_, index) =>
-        requestSpec(runId, 'sample', index, index === 0 ? 'l1-hit' : 'same-generation-100'))
-      const requests = await mapConcurrent(specs, scenario.concurrency, (spec, index) => collect(spec, index))
+      const burstSpecs = Array.from({ length: 100 }, (_, index) =>
+        requestSpec(runId, 'sample', index, 'same-generation-100'))
+      const burst = await mapConcurrent(burstSpecs, scenario.concurrency, (spec, index) => collect(spec, index))
+      const afterBurst = await takeRuntimeSnapshot(snapshotContext)
+      const l1 = await collect(requestSpec(runId, 'l1', 0, 'l1-hit'), 100)
+      const requests = [...burst, l1]
       const afterSample = await takeRuntimeSnapshot(snapshotContext)
+      const l1Requests = requests.filter((request) => request.subcaseId === 'l1-hit')
       const zeroCommands = {
-        redis: requests.reduce((sum, request) => sum + request.redisCommands.length, 0),
-        database: requests.reduce((sum, request) => sum + request.dbCommands.length, 0),
-        layers: [...new Set(requests.map((request) => request.layerSource))].sort()
+        redis: l1Requests.reduce((sum, request) => sum + request.redisCommands.length, 0),
+        database: l1Requests.reduce((sum, request) => sum + request.dbCommands.length, 0),
+        layers: [...new Set(l1Requests.map((request) => request.layerSource))].sort()
       }
       const generation = {
-        generationStable: afterWarmup.sitemap.generation === afterSample.sitemap.generation,
-        sampleBuildDelta: afterSample.sitemap.buildCount - afterWarmup.sitemap.buildCount,
+        generationStable: afterBurst.sitemap.generation === afterSample.sitemap.generation,
+        burstBuildDelta: afterBurst.sitemap.buildCount - afterWarmup.sitemap.buildCount,
+        l1BuildDelta: afterSample.sitemap.buildCount - afterBurst.sitemap.buildCount,
         artifactCount: afterSample.sitemap.artifactCount
       }
-      const rebuildCounts = {
-        'same-generation-100': afterWarmup.sitemap.buildCount - beforeWarmup.sitemap.buildCount
-      }
+      const rebuildCounts = { 'same-generation-100': burst.flatMap((request) => request.cacheEvents).filter((event) => event.outcome === 'built').length }
       return {
         requests,
         assertionResults: [
           exactAssertionResult('l1-zero-commands', { redis: 0, database: 0, layers: ['l1-object'] }, zeroCommands, requests[0]),
-          exactAssertionResult('same-generation-build', { generationStable: true, sampleBuildDelta: 0, artifactCount: 1 }, generation, requests[0]),
+          exactAssertionResult('same-generation-build', { generationStable: true, burstBuildDelta: 1, l1BuildDelta: 0, artifactCount: 1 }, generation, burst[0]),
           exactAssertionResult('rebuild-count', scenario.requirements.rebuildCountBySubcase, rebuildCounts, requests[0])
         ],
         parameters: {
           route: '/sitemap.xml',
-          beforeWarmupSitemap: beforeWarmup.sitemap,
           afterWarmupSitemap: afterWarmup.sitemap,
+          afterBurstSitemap: afterBurst.sitemap,
           afterSampleSitemap: afterSample.sitemap
         }
       }
