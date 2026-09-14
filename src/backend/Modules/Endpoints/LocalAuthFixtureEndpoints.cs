@@ -247,15 +247,23 @@ public static class LocalAuthFixtureEndpoints
              !Path.IsPathRooted(relative));
     }
 
-    internal static string ResolveRepoRoot(IWebHostEnvironment environment)
+    internal static string ResolveRepoRoot(
+        IWebHostEnvironment environment,
+        string? configuredRoot = null)
     {
-        string[] candidates =
+        configuredRoot ??= Environment.GetEnvironmentVariable("FSUSBLOG_REPO_ROOT");
+        var candidates = new List<string>(5);
+        if (!string.IsNullOrWhiteSpace(configuredRoot))
         {
+            candidates.Add(Path.GetFullPath(configuredRoot));
+        }
+        candidates.AddRange(
+        [
             environment.ContentRootPath,
             Directory.GetCurrentDirectory(),
             Path.GetFullPath(Path.Combine(environment.ContentRootPath, "..")),
             Path.GetFullPath(Path.Combine(environment.ContentRootPath, "..", ".."))
-        };
+        ]);
         foreach (string root in candidates)
         {
             if (File.Exists(Path.Combine(root, "tests", "frontend", "fixtures", "prepare-auth-smoke-users.mjs")))

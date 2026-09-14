@@ -7,6 +7,10 @@ using System.Text.Json;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Modules.Endpoints;
 
+using Microsoft.AspNetCore.Hosting;
+
+using NSubstitute;
+
 using Xunit.Abstractions;
 
 namespace FsusBlog.Server.Tests.Unit.SecurityHardening;
@@ -32,6 +36,23 @@ public sealed class CanonicalPathBoundaryTests(ITestOutputHelper output)
         Assert.True(InvokePathValidator(validator, sandbox.Root, expected));
         Assert.False(InvokePathValidator(validator, sandbox.Root, wrongName));
         Assert.False(InvokePathValidator(validator, sandbox.Root, outside));
+    }
+
+    [Fact]
+    public void LocalFixtureRepoRoot_UsesExplicitRuntimeBinding()
+    {
+        using var sandbox = PathSandbox.Create();
+        string fixtures = Path.Combine(sandbox.Root, "tests", "frontend", "fixtures");
+        Directory.CreateDirectory(fixtures);
+        File.WriteAllText(Path.Combine(fixtures, "prepare-auth-smoke-users.mjs"), string.Empty);
+        string isolatedContentRoot = Path.Combine(sandbox.Root, "release-derived", "runtime");
+        Directory.CreateDirectory(isolatedContentRoot);
+        IWebHostEnvironment environment = Substitute.For<IWebHostEnvironment>();
+        environment.ContentRootPath.Returns(isolatedContentRoot);
+
+        string resolved = LocalAuthFixtureEndpoints.ResolveRepoRoot(environment, sandbox.Root);
+
+        Assert.Equal(Path.GetFullPath(sandbox.Root), resolved);
     }
 
     [Theory]

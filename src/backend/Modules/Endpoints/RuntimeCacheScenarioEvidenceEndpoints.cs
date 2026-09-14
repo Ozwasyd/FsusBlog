@@ -467,13 +467,13 @@ internal static class RuntimeCacheScenarioEvidenceEndpoints
             route = context.Request.Path.Value,
             account = new
             {
-                account.Outcome,
+                outcome = account.Outcome.ToString(),
                 generation = account.Snapshot?.Generation ?? 0,
                 account.LocalHit
             },
             ban = new
             {
-                ban.Status,
+                status = ban.Status.ToString(),
                 ban.Generation,
                 ban.IsKnown
             },
