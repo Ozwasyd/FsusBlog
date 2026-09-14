@@ -28,6 +28,7 @@ internal static class RuntimeCacheEvidenceEndpoints
         app.MapGet(RuntimeSnapshotRoute, TakeRuntimeSnapshot)
             .AllowAnonymous()
             .WithMetadata(new FsusRouteKindMetadata("testing"));
+        app.MapCacheMissSingleFlightScenarioEndpoints();
         return app;
     }
 

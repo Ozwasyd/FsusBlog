@@ -1,6 +1,7 @@
 using System.Diagnostics;
 
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Testing;
 
 namespace FsusBlog.Server.Infrastructure.Cache;
 
@@ -13,7 +14,7 @@ public readonly record struct CacheRebuildStrategy(TimeSpan LeaseTtl, TimeSpan W
 public static class CacheMissPathBudget
 {
     public static readonly TimeSpan SingleFlightMaxAcquireWait = TimeSpan.FromMilliseconds(750);
-    public const int SingleFlightMaxWaitersPerKey = 64;
+    public const int SingleFlightMaxWaitersPerKey = 1024;
     public static readonly TimeSpan MinLeaseWait = TimeSpan.FromMilliseconds(750);
     public static readonly TimeSpan MaxLeaseWait = TimeSpan.FromSeconds(5);
     public static readonly TimeSpan MinLeaseTtl = TimeSpan.FromSeconds(5);
@@ -206,6 +207,10 @@ public sealed class CacheMissCoordinator(
         CacheReadResult<T> hit = await tryReadAsync(cancellationToken).ConfigureAwait(false);
         if (hit.Hit)
         {
+            RuntimeCacheEvidenceObservation.Current?.RecordCacheEvent(
+                "cache-miss-singleflight",
+                BuildEvidenceIdentity(policyId, identity),
+                "hit");
             return hit.Value;
         }
 
@@ -260,6 +265,10 @@ public sealed class CacheMissCoordinator(
             observation.RebuildCount++;
             T? result = await rebuildAsync(rebuildCancellation.Token).ConfigureAwait(false);
             rebuildCancellation.Token.ThrowIfCancellationRequested();
+            RuntimeCacheEvidenceObservation.Current?.RecordCacheEvent(
+                "cache-miss-singleflight",
+                BuildEvidenceIdentity(policyId, identity),
+                result is null ? "negative" : "built");
             return result;
         }
         finally
@@ -287,6 +296,9 @@ public sealed class CacheMissCoordinator(
             }
         }
     }
+
+    private static string BuildEvidenceIdentity(CachePolicyId policyId, string identity)
+        => $"{CachePolicyTelemetry.Name(policyId)}:{identity}";
 
     private async Task RenewUntilStoppedAsync(
         CachePolicyId policyId,
