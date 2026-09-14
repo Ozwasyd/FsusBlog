@@ -57,6 +57,25 @@ SOAK_DIR="${FSUSBLOG_SOAK_EVIDENCE_DIR:-$ROOT_DIR/.tmp/soak}"
 FUZZ_DIR="${FSUSBLOG_FUZZ_EVIDENCE_DIR:-$ROOT_DIR/.tmp/fuzz}"
 mkdir -p "$OUT_DIR"
 
+if ((REQUIRE_OK == 1)); then
+    CLEAN_ATTEMPT_COHORT_INPUT="${FSUSBLOG_RELEASE_CLEAN_ATTEMPT_COHORT_INPUT:-}"
+    CLEAN_ATTEMPT_BUILD_IDENTITY="${FSUSBLOG_RELEASE_CLEAN_ATTEMPT_BUILD_IDENTITY:-${FSUSBLOG_IMAGE_DIGEST:-}}"
+    if [[ -z "$CLEAN_ATTEMPT_COHORT_INPUT" || ! -f "$CLEAN_ATTEMPT_COHORT_INPUT" ]]; then
+        echo "release qualification requires FSUSBLOG_RELEASE_CLEAN_ATTEMPT_COHORT_INPUT" >&2
+        exit 2
+    fi
+    if [[ ! "$CLEAN_ATTEMPT_BUILD_IDENTITY" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+        echo "release qualification requires a SHA-256 clean-attempt build identity" >&2
+        exit 2
+    fi
+    node "$ROOT_DIR/tools/release/release-clean-attempt-cohort-cli.mjs" \
+        --repository-root "$ROOT_DIR" \
+        --input "$CLEAN_ATTEMPT_COHORT_INPUT" \
+        --output "$OUT_DIR/release-clean-attempt-cohort.json" \
+        --cohort-id "$RELEASE_NAMESPACE" \
+        --build-identity "$CLEAN_ATTEMPT_BUILD_IDENTITY"
+fi
+
 CURRENT_RUN_MANIFEST_SESSION=""
 if [[ -n "${FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT:-}" && -n "${FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH:-}" ]]; then
     CURRENT_RUN_MANIFEST_SESSION="$(

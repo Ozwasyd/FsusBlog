@@ -6395,6 +6395,13 @@ function optionValue(args, name, fallback = null)
     return fallback;
 }
 
+function consumesProductionCorrectness(command, args)
+{
+    return (['run', 'ci-tier'].includes(command) && args[0] === 'production-correctness')
+        || command === 'ci-production'
+        || command === 'ci-release-final';
+}
+
 // BEHAVIOR-OWNER: browserless-production-correctness
 async function main()
 {
@@ -6407,10 +6414,13 @@ async function main()
 
     const matrix = loadMatrix({ validateDependencyFields: command !== 'validate' });
     validateCorrectnessAttemptMigration(root);
-    requireCleanAttemptConsumerAdmission({
-        consumerId: 'production-correctness',
-        repositoryRoot: root
-    });
+    if (consumesProductionCorrectness(command, args))
+    {
+        requireCleanAttemptConsumerAdmission({
+            consumerId: 'production-correctness',
+            repositoryRoot: root
+        });
+    }
     if (command === 'validate')
     {
         const errors = [

@@ -155,6 +155,7 @@ export function appendCleanAttemptCohortSlot(cohort, {
     const aggregateReceipt = files.aggregateReceipt;
     const boundAggregateReference = resolvedTransport?.aggregateReference ?? aggregateReference;
     const binding = evidenceBinding(verdict, boundAggregateReference, aggregateReceipt);
+    binding.buildIdentity = cohort.buildIdentity;
     if (resolvedTransport)
     {
         binding.transport = {
@@ -288,6 +289,10 @@ export function validateCleanAttemptCohort(cohort)
             throw new Error(`cohort event ${index + 1} breaks the append-only slot chain`);
         }
         slots.add(event.slot);
+        if (event.evidence?.buildIdentity !== cohort.buildIdentity)
+        {
+            throw new Error(`cohort event ${index + 1} changes build identity`);
+        }
         if (event.status === 'admitted')
         {
             normalizedReference(event.evidence?.aggregateReceipt, `cohort event ${index + 1} aggregateReceipt`);
@@ -317,4 +322,38 @@ export function persistCleanAttemptCohortRevision(file, cohort)
     validateCleanAttemptCohort(cohort);
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, `${canonicalJson(cohort)}\n`, { flag: 'wx', mode: 0o444 });
+}
+
+export function admitCleanAttemptCohort({
+    cohortId,
+    buildIdentity,
+    slots,
+    outputFile
+})
+{
+    if (!Array.isArray(slots)
+        || JSON.stringify(slots.map((entry) => entry?.slot)) !== JSON.stringify([1, 2, 3]))
+    {
+        throw new Error('release clean-attempt cohort input must contain exact ordered slots 1, 2, and 3');
+    }
+    let cohort = createCleanAttemptCohort(cohortId, buildIdentity);
+    for (const { slot, attemptEvidence } of slots)
+    {
+        cohort = appendCleanAttemptCohortSlot(cohort, {
+            slot,
+            evidenceRoot: attemptEvidence?.evidenceRoot,
+            aggregateReference: attemptEvidence?.aggregateReference,
+            verifyAuthority: attemptEvidence?.verifyAuthority,
+            expectedIdentity: attemptEvidence?.expectedIdentity,
+            transport: attemptEvidence?.transport
+        });
+    }
+    persistCleanAttemptCohortRevision(outputFile, cohort);
+    if (!cohort.qualificationEligible)
+    {
+        const rejected = cohort.events.find((event) => event.status === 'rejected');
+        const reasons = rejected?.reasons.map((reason) => reason.code).join(', ') || 'cohort.not-qualified';
+        throw new Error(`release clean-attempt cohort slot ${rejected?.slot ?? 'unknown'} rejected: ${reasons}`);
+    }
+    return cohort;
 }

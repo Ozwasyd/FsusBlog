@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
 const {fileBackedCleanAttemptEvidence} = await import(new URL('../../tools/release/clean-first-attempt-verifier.mjs', import.meta.url));
-const {appendCleanAttemptCohortSlot, createCleanAttemptCohort, persistCleanAttemptCohortRevision, validateCleanAttemptCohort} = await import(new URL('../../tools/release/release-clean-attempt-cohort.mjs', import.meta.url));
+const {admitCleanAttemptCohort, appendCleanAttemptCohortSlot, createCleanAttemptCohort, persistCleanAttemptCohortRevision, validateCleanAttemptCohort} = await import(new URL('../../tools/release/release-clean-attempt-cohort.mjs', import.meta.url));
 const {sealContentDigest, sha256} = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
 const {runProducerAttempts} = await import(new URL('../../tools/test/attempt-runner.mjs', import.meta.url));
 const root = path.resolve(import.meta.dirname, '../..');
@@ -163,6 +164,49 @@ test('three independent first-attempt clean runs qualify an append-only cohort',
     persistCleanAttemptCohortRevision(revision, cohort);
     assert.equal(fs.statSync(revision).mode & 0o222, 0);
     assert.throws(() => persistCleanAttemptCohortRevision(revision, cohort), /EEXIST/u);
+});
+
+test('release collector admission persists an exact three-slot qualified cohort', async (context) =>
+{
+    const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-cohort-adapter-'));
+    context.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
+    const slots = [];
+    for (const slot of [1, 2, 3])
+    {
+        slots.push({ slot, attemptEvidence: await producer(temporary, `adapter-run-${slot}`) });
+    }
+    const outputFile = path.join(temporary, 'release-evidence/cohort.json');
+    const cohort = admitCleanAttemptCohort({
+        cohortId: 'release-candidate-adapter',
+        buildIdentity,
+        slots,
+        outputFile
+    });
+    assert.equal(cohort.qualificationEligible, true);
+    assert.deepEqual(cohort.events.map((event) => event.evidence.buildIdentity), [
+        buildIdentity,
+        buildIdentity,
+        buildIdentity
+    ]);
+    assert.deepEqual(JSON.parse(fs.readFileSync(outputFile, 'utf8')), cohort);
+    assert.equal(fs.statSync(outputFile).mode & 0o222, 0);
+});
+
+test('release collector require-ok fails before collection without cohort admission input', () =>
+{
+    const result = spawnSync('bash', [
+        path.join(root, 'tools/operations/collect-release-evidence.sh'),
+        '--require-ok'
+    ], {
+        cwd: root,
+        encoding: 'utf8',
+        env: {
+            PATH: process.env.PATH,
+            FSUSBLOG_RELEASE_STAMP: 'issue-2647-missing-cohort'
+        }
+    });
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /FSUSBLOG_RELEASE_CLEAN_ATTEMPT_COHORT_INPUT/u);
 });
 
 test('a real producer rooted at the evidence directory is admitted with its attempt and logs', async (context) =>

@@ -9,9 +9,19 @@ const {createProductionBuildReceipt} = await import(new URL('../../tools/ci/prod
 const {digestCatalog} = await import(new URL('../../tools/contracts/behavior-contract-catalog.mjs', import.meta.url));
 const {createBrowserlessCorrectnessReceipt, sealBrowserContractReceipt} = await import(new URL('../../tools/release/test-evidence-receipts.mjs', import.meta.url));
 const {joinBehaviorEvidencePostRuntime, validatePostRuntimeReceipt} = await import(new URL('../../tools/test-matrix/behavior-evidence-post-runtime.mjs', import.meta.url));
+const {createCleanAttemptEvidenceFixture} = await import(new URL('./support/clean-attempt-evidence-fixture.mjs', import.meta.url));
 const commit = 'a'.repeat(40);
 const worktreeFingerprint = 'b'.repeat(64);
 const runId = 'post-runtime-round-1';
+const correctnessAttemptFixture = await createCleanAttemptEvidenceFixture({
+    consumerId: 'production-correctness',
+    membership: {
+        selectedTierIds: ['production-correctness'],
+        testVectors: ['tier:production-correctness']
+    },
+    schedulerRunId: 'post-runtime-clean-attempt'
+});
+test.after(() => correctnessAttemptFixture.cleanup());
 const stable = (value) => Array.isArray(value)
     ? value.map(stable)
     : value && typeof value === 'object'
@@ -101,6 +111,7 @@ function candidateFixture(context)
         now: () => new Date('2026-08-27T00:00:00.000Z')
     });
     const correctness = createBrowserlessCorrectnessReceipt({
+        attemptEvidence: correctnessAttemptFixture.attemptEvidence,
         matrix: { tiers: [{ id: 'production-correctness', dependsOn: [], requiresPlaywright: 'none' }] },
         buildReceipt: build,
         buildReceiptPath: 'build/receipt.json',

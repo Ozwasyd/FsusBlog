@@ -312,6 +312,33 @@ test('missing attempt provenance, cross-run authority and tampered artifacts fai
     }
 });
 
+test('unconfigured attempt evidence fails closed identically across all consumers', () =>
+{
+    const messages = Object.keys(memberships).map((consumerId) =>
+    {
+        assert.equal(admit(consumerId, null).eligible, false);
+        assert.equal(admit(consumerId, null).reasons[0].code, 'attempt.provenance-missing');
+        assert.throws(() => requireCleanAttemptConsumerAdmission({
+            consumerId,
+            environment: {}
+        }), (error) =>
+        {
+            assert.match(error.message, /attempt\.provenance-missing/u);
+            return true;
+        });
+        try
+        {
+            requireCleanAttemptConsumerAdmission({ consumerId, environment: {} });
+        }
+        catch (error)
+        {
+            return error.message.replace(`${consumerId} `, '');
+        }
+        return null;
+    });
+    assert.deepEqual(messages, [messages[0], messages[0], messages[0]]);
+});
+
 test('file tamper cannot be hidden by caller supplied receipt and artifact callbacks', async (context) =>
 {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-consumer-file-tamper-'));

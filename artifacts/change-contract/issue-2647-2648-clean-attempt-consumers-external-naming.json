@@ -1,0 +1,23 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/release/browser-release-clean-attempt-consumers.mjs",
+                "tools/release/release-clean-attempt-cohort-cli.mjs",
+                "tools/release/release-clean-attempt-cohort.mjs",
+                "tools/test/check-clean-attempt-consumers.mjs",
+                "tools/test/release-reliability-receipt.mjs"
+            ],
+            "reason": "Preserve caller-visible clean-attempt environment, schema, and adapter spellings while fail-closing release qualification consumers."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/operations/collect-release-evidence.sh"
+            ],
+            "reason": "Preserve the release collector process environment spelling while requiring exact three-slot cohort admission."
+        }
+    ]
+}
