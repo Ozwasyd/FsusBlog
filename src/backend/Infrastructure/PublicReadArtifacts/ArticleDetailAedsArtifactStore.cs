@@ -172,7 +172,7 @@ public sealed class ArticleDetailAedsFileArtifactStore(
 
         if (TryReadMemory(articleId, out byte[]? frame))
         {
-            FsusObservability.RecordOperation("public_read_artifact", "article_detail_aeds", "hit_memory", FsusObservability.GetElapsed(startedAt));
+            FsusObservability.RecordArticleDetailArtifactMemoryHit(FsusObservability.GetElapsed(startedAt));
             return new ArticleDetailAedsArtifact(frame);
         }
 

@@ -484,6 +484,12 @@ public static class FsusObservability
         s_operationDuration.Record(duration.TotalMilliseconds, tags);
     }
 
+    public static void RecordArticleDetailArtifactMemoryHit(TimeSpan duration)
+    {
+        RuntimeCacheEvidenceObservation.Current?.MarkLayerSource("l1-frame");
+        RecordOperation("public_read_artifact", "article_detail_aeds", "hit_memory", duration);
+    }
+
     public static void RecordHttpRequest(string routeKind, int statusCode, TimeSpan duration)
     {
         TagList tags = CreateBaseTags("http", "request", statusCode < 500 ? "ok" : "error");

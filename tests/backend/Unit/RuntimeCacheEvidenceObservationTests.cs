@@ -33,6 +33,20 @@ public sealed class RuntimeCacheEvidenceObservationTests
     }
 
     [Fact]
+    public void ArticleDetailArtifactMemoryHit_UsesL1FrameEvidenceSource()
+    {
+        using RuntimeCacheEvidenceObservation observation = RuntimeCacheEvidenceObservation.Begin(
+            "article-detail-memory-hit",
+            HttpMethods.Get,
+            "/api/binary/article/42.aeds");
+
+        FsusObservability.RecordArticleDetailArtifactMemoryHit(TimeSpan.Zero);
+        RuntimeCacheRequestObservation completed = observation.Complete(200, EmptyPayloadDigest());
+
+        Assert.Equal("l1-frame", completed.LayerSource);
+    }
+
+    [Fact]
     public void CacheEvents_DigestIdentityAndPreserveRequestOrder()
     {
         using RuntimeCacheEvidenceObservation observation = RuntimeCacheEvidenceObservation.Begin(
