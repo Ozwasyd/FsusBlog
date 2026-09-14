@@ -42,8 +42,8 @@ type RouteFilterIdentity = ReturnType<typeof resolvePublicFilterIdentity>;
 
 const parsePageQuery = (value: unknown): number =>
 {
-    const raw = Array.isArray(value) ? value[0] : value;
-    const parsed = Number.parseInt(String(raw ?? ''), 10);
+    const raw: unknown = Array.isArray(value) ? value[0] : value;
+    const parsed = Number.parseInt(typeof raw === 'string' || typeof raw === 'number' ? String(raw) : '', 10);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 };
 
@@ -172,7 +172,7 @@ export function useFilterView()
             filterType.value = PUBLIC_FILTER_TYPE.search;
             filterId.value = 0;
             filterValue.value = '';
-            currentName.value = route.query.q ? `“${route.query.q}”` : '全站搜索';
+            currentName.value = typeof route.query.q === 'string' && route.query.q ? `“${route.query.q}”` : '全站搜索';
             currentDescription.value = null;
             invalidTarget.value = false;
             loadingMeta.value = false;
@@ -366,7 +366,7 @@ export function useFilterView()
     {
         if (filterType.value === PUBLIC_FILTER_TYPE.search)
         {
-            currentName.value = route.query.q ? `“${route.query.q}”` : '全站搜索';
+            currentName.value = typeof route.query.q === 'string' && route.query.q ? `“${route.query.q}”` : '全站搜索';
             currentDescription.value = null;
             invalidTarget.value = false;
             loadingMeta.value = false;
@@ -551,7 +551,7 @@ export function useFilterView()
         }
         if (filterType.value === PUBLIC_FILTER_TYPE.search)
         {
-            currentName.value = route.query.q ? `“${route.query.q}”` : '全站搜索';
+            currentName.value = typeof route.query.q === 'string' && route.query.q ? `“${route.query.q}”` : '全站搜索';
             currentDescription.value = null;
             invalidTarget.value = false;
         }

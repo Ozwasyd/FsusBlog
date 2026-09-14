@@ -1,9 +1,9 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:7912eeb4e7e98b3b4aae4bdb4871c3659821de36f66be9a173cd0f7939e0b97e",
-    "sourceStateSha256": "7912eeb4e7e98b3b4aae4bdb4871c3659821de36f66be9a173cd0f7939e0b97e",
+    "generatedFrom": "source-state:af6c9bcc34912452d75a27a89f3daab27827db4ea3e469341a06e4f5630dd82d",
+    "sourceStateSha256": "af6c9bcc34912452d75a27a89f3daab27827db4ea3e469341a06e4f5630dd82d",
     "configurationSha256": "8bc09626eefe96c53c96eaf7a77cf4926ee02ce82eac3203cfa154dcfb8c0b05",
-    "violationCount": 64412,
+    "violationCount": 63919,
     "fileCount": 1506,
     "files": [
         {
@@ -70,16 +70,14 @@
         },
         {
             "path": "src/frontend/src/adapters/binary/articleAdapter.ts",
-            "sourceSha256": "09f12b6196d30754a97e2a5ff59dbed9aebb6e5ba3c1ffe5a0d7e0a8d3714f4b",
-            "violationCount": 5,
-            "violationDigest": "e3fc37d520d1511bae147922cb03de1b3def5921ff396d1ba3c8b2292daea1f1",
-            "rules": {
-                "eslint/@typescript-eslint/no-unsafe-assignment": 5
-            }
+            "sourceSha256": "662c671b92ca457e653b6977528f37d671376f06d096d287bb363654ebae6be1",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "src/frontend/src/adapters/binary/articleProjectionReader.ts",
-            "sourceSha256": "c1269a053ac60c3486bde04d0f46ad8634e2104d9632f4caae191d619cbfacfa",
+            "sourceSha256": "13b6499dae8bc66d276fba1e994c2dbb45fcf8470a8682535e966757e4d1808c",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -240,12 +238,10 @@
         },
         {
             "path": "src/frontend/src/api/article.ts",
-            "sourceSha256": "f0018cb49fef4df7e7ce3093c9f2a2ab8ecd1289c7b904ee2b978693c70dbb1b",
-            "violationCount": 1,
-            "violationDigest": "5cd7f8e4624e5bf56a172a2e6ce2795a557914c40f86c8f1b9a0a839f08d75b6",
-            "rules": {
-                "eslint/@typescript-eslint/no-unsafe-return": 1
-            }
+            "sourceSha256": "f8ce4425caa5d7cab3b6b2bac0f65af0c32c419033785abd1c00204fe72b607a",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "src/frontend/src/api/auth.ts",
@@ -620,7 +616,7 @@
         },
         {
             "path": "src/frontend/src/bootstrap/publicShell.ts",
-            "sourceSha256": "f3148b08d7821d55309cc8bc9012a6fa0877a8d4e0a0a609a9be29392599b5e2",
+            "sourceSha256": "8eadbf1339af4eb01842f517d4920414a3b3403ab3c598c30766744b6a35a979",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -1274,7 +1270,7 @@
         },
         {
             "path": "src/frontend/src/components/public/pages/PublicFilterPageContent.vue",
-            "sourceSha256": "9cdcdb0f9a52442c775042dd1812f582c226bff00d0b3970cc3da0ce1893b2ba",
+            "sourceSha256": "29d4db1d30022ce45518e5224d41e1b8c554f72957637e80e6b898e548a321c8",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -1801,14 +1797,13 @@
         },
         {
             "path": "src/frontend/src/composables/useFilterView.ts",
-            "sourceSha256": "15b84f9940318044961de2152958e9f7858c22c48c937007deab763dac11ef96",
-            "violationCount": 25,
-            "violationDigest": "c8f34313b4c019343da4c2f10929ea4e270aa9970f00ee53963948ab99dad4e9",
+            "sourceSha256": "df0a9f1fab7db0ed2b566cbb11fc2c64c370c9b556a71d6f6d4130670808f743",
+            "violationCount": 21,
+            "violationDigest": "143655784e2db6b3c9b214cd768ea44c3783a16306a89695044fb851bca3a588",
             "rules": {
                 "eslint/@typescript-eslint/no-unsafe-argument": 2,
-                "eslint/@typescript-eslint/no-unsafe-assignment": 1,
                 "eslint/@typescript-eslint/prefer-nullish-coalescing": 18,
-                "eslint/@typescript-eslint/restrict-template-expressions": 4
+                "eslint/@typescript-eslint/restrict-template-expressions": 1
             }
         },
         {
@@ -1820,7 +1815,7 @@
         },
         {
             "path": "src/frontend/src/composables/useHomeView.ts",
-            "sourceSha256": "c099f89f3eae089150db8c68d5b5a1079480db33fcde7ee750563788fc355add",
+            "sourceSha256": "21569574e7ecd13859b1cca706b4e266628a9183e067df53b7f2c3ca1107e389",
             "violationCount": 2,
             "violationDigest": "e424c28111343bde5e4cd02e3b4b320dbf1d77ae7485f228e9a4ff2c0dff8294",
             "rules": {
@@ -3286,7 +3281,7 @@
         },
         {
             "path": "src/frontend/src/public-renderers/publicEntryRegistry.ts",
-            "sourceSha256": "e0cd91c6697d07e91e7c601165fe98e62274d6f4e1b30273caeed40d7e8c4340",
+            "sourceSha256": "dddfd450c83359cbfafa2c3c482dff7bbae54a7a5ecc99559d6aaad20daa305f",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -3328,17 +3323,16 @@
         },
         {
             "path": "src/frontend/src/public-renderers/publicPayloadNormalizer.ts",
-            "sourceSha256": "246f4e68b652668d4f94fa5f6a5bb41c96101540835719029b0f91066398dc43",
-            "violationCount": 5,
-            "violationDigest": "7b3e7b0d8105d6ff0907d336c360548ce7022a3fb297a9cc4b749e5aff30efdf",
+            "sourceSha256": "5a2499b08a70f211efcbaf6af195d18e685aae322b79a7863462da0496a93a2d",
+            "violationCount": 1,
+            "violationDigest": "8aca16ede5772fa65b55aa2e97d2f8b743cbdebc6edae6d3039334f70bec5bc3",
             "rules": {
-                "eslint/@typescript-eslint/consistent-type-assertions": 1,
-                "eslint/@typescript-eslint/no-unused-vars": 4
+                "eslint/@typescript-eslint/consistent-type-assertions": 1
             }
         },
         {
             "path": "src/frontend/src/public-renderers/publicPayloadTypes.ts",
-            "sourceSha256": "aa8557d1a9407c1203cf4a91851fecdb7c8eafde994f6a31614adb5429588666",
+            "sourceSha256": "281c7d70ce9d71e40c665f577b6d43128c7b08dae5dc1e5984b3aad9bf22ed55",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -3359,7 +3353,7 @@
         },
         {
             "path": "src/frontend/src/public-renderers/publicRouteIdentity.ts",
-            "sourceSha256": "064dc9d97666eee5460ef8a8400e62a2608c2a2a60afaed7d2edd95c298bce41",
+            "sourceSha256": "3222f8709aaf017b95cdb41a14d242e60b9daa2658aebb10bc1ce2aa238d212b",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -3389,12 +3383,10 @@
         },
         {
             "path": "src/frontend/src/public-renderers/publicSearchRoutePolicy.ts",
-            "sourceSha256": "021497d7cb5e572a6fa102755280db1058bbb73745fc73e4387e0af105bf2707",
-            "violationCount": 1,
-            "violationDigest": "9fa2bdb291b1584335fc5c925927ec903572a963dac3ecd5fa5e2e9d2745ac78",
-            "rules": {
-                "eslint/@typescript-eslint/no-base-to-string": 1
-            }
+            "sourceSha256": "15c081fc5e19a2b93690e4c48d8d4cf6e442d7feb059cd713e9044ae6b4b4815",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "src/frontend/src/public-renderers/publicShellRuntimeState.ts",
@@ -4127,7 +4119,7 @@
         },
         {
             "path": "src/frontend/src/view-contracts/articleList.ts",
-            "sourceSha256": "91af84287b72b14376769a92b82a085c57341ec7a5fb7bd70be6e92e6909a254",
+            "sourceSha256": "843fae623f3e7773319ca5238896472b22010008edbceb5191f8ced93b4f5c23",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -5064,7 +5056,7 @@
         },
         {
             "path": "tests/frontend/checks/public/check-public-aot-contracts.mjs",
-            "sourceSha256": "54b65c9dc4b4d33386ab22cfa927fb999229803327de7fa6d12594710a7cfe89",
+            "sourceSha256": "b64c8fb9e69b8d2a351f1450211bd5bafb358bb1a6194a33e79821af374337b3",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -5159,7 +5151,7 @@
         },
         {
             "path": "tests/frontend/checks/public/check-public-payload-fixture-matrix.mjs",
-            "sourceSha256": "1d695841549c4c5b2080bebc2e2ee0429baba29dd02b295cdf4b1312be57baff",
+            "sourceSha256": "07bd1bcb8875c87bf18d80488acb4c25948771968243384d18806f372a41beb1",
             "violationCount": 2,
             "violationDigest": "cd9ee352adf15206acb324dcfb9ad7ef21990a326701aeeb5ee8b26ee27666b6",
             "rules": {
@@ -6705,15 +6697,10 @@
         },
         {
             "path": "tests/tools/backend-benchmark-regression.test.mjs",
-            "sourceSha256": "1392d6ac80c5f2fd5c98bf530e2f1cd022a1a1eaa509ec35180972c77918b38b",
-            "violationCount": 478,
-            "violationDigest": "ec24a2d56e2b392c602d4bd69059f3c76425005cc930ce648e5ae1edc9eb3a42",
-            "rules": {
-                "eslint/@stylistic/brace-style": 21,
-                "eslint/@stylistic/indent": 302,
-                "eslint/@stylistic/semi": 154,
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "cbb7f27a13bf3b1b7a248235016babaa2e0f7037a1f0adb4a67c4e1f1f5dd068",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/tools/backend-configuration-contract.test.mjs",

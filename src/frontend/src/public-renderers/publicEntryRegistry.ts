@@ -30,7 +30,6 @@ import {
 import {
     getPublicFilterLabel,
     normalizePublicFilterType,
-    PUBLIC_FILTER_TYPE,
     shouldShowPublicFilterSearchSort,
     type PublicFilterType
 } from '@/public-renderers/publicFilterSemantics';

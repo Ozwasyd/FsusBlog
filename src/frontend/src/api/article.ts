@@ -220,7 +220,7 @@ const pendingArticleMutationIds = new Map<string, string>();
 
 export const createArticle = (data: ArticleWriteRequest & { clientMutationId?: string; }, config?: ApiRequestConfig) =>
 {
-    const identityKey = JSON.stringify(data, (key, value) => key === 'clientMutationId' ? undefined : value);
+    const identityKey = JSON.stringify(data, (key, value: unknown) => key === 'clientMutationId' ? undefined : value);
     const clientMutationId = data.clientMutationId ?? pendingArticleMutationIds.get(identityKey) ?? crypto.randomUUID().toLowerCase();
     pendingArticleMutationIds.set(identityKey, clientMutationId);
     const request = requestBinaryOnly<ArticleMutationResponse>({
