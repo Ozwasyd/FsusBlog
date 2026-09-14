@@ -1359,7 +1359,7 @@ export function decodePublicAotPayload(text)
     return value;
 }
 
-function decodeArticlePage(payload)
+export function decodeArticlePage(payload)
 {
     const reader = new BinaryReader(payload);
     if (reader.readInt32() !== ARTICLE_PAGE_CURSOR_ENVELOPE_MAGIC)
@@ -1483,7 +1483,7 @@ function decodeArticlePage(payload)
     };
 }
 
-function decodeArticleDetail(payload)
+export function decodeArticleDetail(payload)
 {
     if (payload.byteLength < ARTICLE_DETAIL_V3_HEADER_SIZE)
     {
@@ -1717,7 +1717,7 @@ function decodePageContent(payload)
     };
 }
 
-function decodeTaxonomyList(payload, itemSize)
+export function decodeTaxonomyList(payload, itemSize = 136)
 {
     void itemSize;
     const reader = new BinaryReader(payload);
