@@ -117,7 +117,7 @@ test('Redis fault failure timeline remains current-schema valid when strict clas
   assert.ok(result.faultTimeline.every((item) => ['fail-open', 'fail-closed', 'recovered'].includes(item.classification)))
 })
 
-test('Docker fault controller issues exact pause, disconnect, unpause, restart and recovery commands', async () => {
+test('Docker fault controller issues exact pause, client disconnect, unpause and recovery commands', async () => {
   const calls = []
   const waits = []
   const controller = createDockerRedisFaultController({
@@ -142,8 +142,8 @@ test('Docker fault controller issues exact pause, disconnect, unpause, restart a
   const pauses = calls.filter((arguments_) => arguments_.includes('PAUSE')).map((arguments_) => Number(arguments_.at(-2)))
   assert.deepEqual(pauses, [5, 50, 500, 15000])
   assert.equal(calls.filter((arguments_) => arguments_.includes('UNPAUSE')).length, 4)
-  assert.ok(calls.some((arguments_) => arguments_.join(' ') === 'stop --time 1 redis-evidence'))
-  assert.ok(calls.some((arguments_) => arguments_.join(' ') === 'start redis-evidence'))
+  assert.ok(calls.some((arguments_) => arguments_.join(' ') ===
+    'exec -i redis-evidence redis-cli CLIENT KILL TYPE normal SKIPME yes'))
   assert.ok(calls.filter((arguments_) => arguments_.at(-1) === 'PING').length >= 6)
   assert.deepEqual(waits, [0])
 })

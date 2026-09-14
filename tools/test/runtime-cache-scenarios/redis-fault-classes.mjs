@@ -70,7 +70,7 @@ export function createDockerRedisFaultController({
         return
       }
       if (subcaseId === 'disconnect') {
-        execute(['stop', '--time', '1', container])
+        redis('CLIENT', 'KILL', 'TYPE', 'normal', 'SKIPME', 'yes')
         return
       }
       if (subcaseId !== 'recovery') throw new Error(`unsupported Redis fault subcase: ${subcaseId}`)
@@ -84,7 +84,6 @@ export function createDockerRedisFaultController({
         redis('CLIENT', 'UNPAUSE')
         await awaitReady()
       } else if (subcaseId === 'disconnect') {
-        execute(['start', container])
         await awaitReady()
       }
     }
