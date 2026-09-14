@@ -34,14 +34,17 @@
                         {{ formatSecurityMode(activePolicy?.globalMode) }}
                     </ElTag>
                 </div>
-                <div class="overflow-x-auto blog-scroll-x-safe">
-                    <table class="w-full min-w-full text-left text-[12px]">
+                <div class="blog-scroll-x-safe security-risk-control-table-scroll">
+                    <table
+                        class="w-full min-w-[32rem] text-left text-[12px]"
+                        data-test="risk-control-action-policy"
+                    >
                         <thead class="text-[11px] uppercase text-[var(--fsusblog-text-muted)]">
                             <tr class="border-b border-[var(--fsusblog-panel-border)]">
-                                <th class="px-5 py-3">动作</th>
-                                <th class="px-5 py-3">验证任务</th>
-                                <th class="px-5 py-3">升级</th>
-                                <th class="px-5 py-3">阈值</th>
+                                <th class="px-5 py-3 whitespace-nowrap">动作</th>
+                                <th class="px-5 py-3 whitespace-nowrap">验证任务</th>
+                                <th class="px-5 py-3 whitespace-nowrap">升级</th>
+                                <th class="px-5 py-3 whitespace-nowrap">阈值</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -50,9 +53,9 @@
                                 :key="row.actionName"
                                 class="border-b border-[var(--fsusblog-panel-border)]"
                             >
-                                <td class="px-5 py-3 font-bold text-[var(--fsusblog-text-primary)]">{{ row.actionLabel }}</td>
+                                <td class="px-5 py-3 whitespace-nowrap font-bold text-[var(--fsusblog-text-primary)]">{{ row.actionLabel }}</td>
                                 <td class="px-5 py-3 whitespace-nowrap">{{ row.challengeKind || '-' }}</td>
-                                <td class="px-5 py-3 tabular-nums">{{ row.escalationLevel }}</td>
+                                <td class="px-5 py-3 tabular-nums whitespace-nowrap">{{ row.escalationLevel }}</td>
                                 <td class="px-5 py-3 tabular-nums whitespace-nowrap">{{ row.thresholds }}</td>
                             </tr>
                             <tr v-if="actionPolicyRows.length === 0">
@@ -366,3 +369,15 @@ onMounted(() =>
     void loadConsole();
 });
 </script>
+
+<style scoped>
+.security-risk-control-table-scroll
+{
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+</style>
+

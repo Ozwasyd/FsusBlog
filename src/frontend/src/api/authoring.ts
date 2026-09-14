@@ -334,6 +334,114 @@ export interface ArticlePreviewResponse {
     issues: PrepublishIssue[];
 }
 
+const PREVIEW_SOURCE_IDENTITY_PATTERN = /^preview:sha256:[a-f0-9]{64}$/u;
+const FORBIDDEN_PREVIEW_PROTOCOL_FIELDS = new Set(['html', 'srcdoc', 'trustedhtml']);
+
+export function normalizePreviewCoverImageUrl(raw: string | null | undefined): string | null
+{
+    const value = typeof raw === 'string' ? raw.trim() : '';
+    if (value.length === 0)
+    {
+        return null;
+    }
+
+    if (value.startsWith('/') && !value.startsWith('//') && !value.includes('\\'))
+    {
+        return value;
+    }
+
+    let uri: URL;
+    try
+    {
+        uri = new URL(value);
+    }
+    catch
+    {
+        return null;
+    }
+
+    const scheme = uri.protocol.toLowerCase();
+    if ((scheme !== 'https:' && scheme !== 'http:') || uri.username !== '' || uri.password !== '')
+    {
+        return null;
+    }
+
+    return value;
+}
+
+export function readStructuredArticlePreviewResponse(value: unknown): ArticlePreviewResponse
+{
+    if (value === null || typeof value !== 'object' || Array.isArray(value))
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'article_preview_payload_invalid');
+    }
+
+    const record = value as Record<string, unknown>;
+    for (const key of Object.keys(record))
+    {
+        if (FORBIDDEN_PREVIEW_PROTOCOL_FIELDS.has(key.toLowerCase()))
+        {
+            throw createAppError(AppErrorCode.ProtocolFailure, 'article_preview_html_field_forbidden');
+        }
+    }
+
+    const sourceIdentity = readPreviewString(record.sourceIdentity, 'sourceIdentity');
+    if (!PREVIEW_SOURCE_IDENTITY_PATTERN.test(sourceIdentity))
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'article_preview_source_identity_invalid');
+    }
+
+    return {
+        normalizedTitle: readPreviewString(record.normalizedTitle, 'normalizedTitle'),
+        normalizedSummary: readPreviewString(record.normalizedSummary, 'normalizedSummary'),
+        normalizedCoverImageUrl: normalizePreviewCoverImageUrl(
+            record.normalizedCoverImageUrl == null
+                ? null
+                : readPreviewString(record.normalizedCoverImageUrl, 'normalizedCoverImageUrl')
+        ),
+        normalizedMarkdownSource: readPreviewString(
+            record.normalizedMarkdownSource,
+            'normalizedMarkdownSource'
+        ),
+        plainText: readPreviewString(record.plainText, 'plainText'),
+        sourceIdentity,
+        issues: readPreviewIssues(record.issues)
+    };
+}
+
+function readPreviewString(value: unknown, field: string): string
+{
+    if (typeof value !== 'string')
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, `article_preview_${field}_invalid`);
+    }
+
+    return value;
+}
+
+function readPreviewIssues(value: unknown): PrepublishIssue[]
+{
+    if (!Array.isArray(value))
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'article_preview_issues_invalid');
+    }
+
+    return value.map((item) =>
+    {
+        if (item === null || typeof item !== 'object' || Array.isArray(item))
+        {
+            throw createAppError(AppErrorCode.ProtocolFailure, 'article_preview_issues_invalid');
+        }
+
+        const issue = item as Record<string, unknown>;
+        return {
+            severity: readPreviewString(issue.severity, 'issueSeverity'),
+            code: readPreviewString(issue.code, 'issueCode'),
+            message: readPreviewString(issue.message, 'issueMessage')
+        };
+    });
+}
+
 export type ArticlePreviewIdentityInput = Pick<
     ServerDraftSaveRequest,
   'title' | 'content' | 'summary' | 'coverImageUrl'
@@ -1473,11 +1581,12 @@ export async function previewArticleDraft(
     config?: ApiRequestConfig
 ): Promise<ArticlePreviewResponse>
 {
-    return requestAuthoringBinary<ArticlePreviewResponse>('/preview', FrameType.ArticlePreviewResponse, config, {
+    const preview = await requestAuthoringBinary<unknown>('/preview', FrameType.ArticlePreviewResponse, config, {
         method: 'POST',
         requestFrame: FrameType.ArticlePreviewRequest,
         request: draft
     });
+    return readStructuredArticlePreviewResponse(preview);
 }
 
 export async function checkArticlePrepublish(

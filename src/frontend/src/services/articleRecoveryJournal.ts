@@ -1,13 +1,16 @@
 export const ARTICLE_RECOVERY_JOURNAL_DATABASE = 'fsusblog-article-recovery-journal';
 export const ARTICLE_RECOVERY_JOURNAL_STORE = 'entries';
-export const ARTICLE_RECOVERY_JOURNAL_SCHEMA = 'fsusblog.article-recovery-journal.v1';
-export const ARTICLE_RECOVERY_JOURNAL_PAYLOAD_CODEC = 'gzip-v1';
-export const ARTICLE_RECOVERY_JOURNAL_TTL_MS = 12 * 60 * 60 * 1000;
+export const ARTICLE_RECOVERY_JOURNAL_SCHEMA = 'fsusblog.article-recovery-journal.v2';
+export const ARTICLE_RECOVERY_JOURNAL_PAYLOAD_CODEC = 'utf8-v1';
+export const ARTICLE_RECOVERY_JOURNAL_TTL_HOURS = 168;
+export const ARTICLE_RECOVERY_JOURNAL_TTL_MS = ARTICLE_RECOVERY_JOURNAL_TTL_HOURS * 60 * 60 * 1000;
 export const ARTICLE_RECOVERY_JOURNAL_MAX_CONTENT_BYTES = 1024 * 1024;
 export const ARTICLE_RECOVERY_JOURNAL_MAX_STORED_BYTES = 1024 * 1024;
 export const ARTICLE_RECOVERY_JOURNAL_MAX_SCOPE_ENTRIES = 8;
 export const ARTICLE_RECOVERY_JOURNAL_MAX_TOTAL_ENTRIES = 32;
 export const ARTICLE_RECOVERY_JOURNAL_MAX_TOTAL_BYTES = 4 * 1024 * 1024;
+export const ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE
+    = '未同步正文以明文暂存在本机浏览器 IndexedDB，未加密，最长 7 天；服务端确认、发布、删除、登出或显式丢弃后立即删除。同源脚本与本机账户可读取该暂存。';
 
 const ARTICLE_RECOVERY_JOURNAL_VERSION = 1;
 const ARTICLE_RECOVERY_COORDINATION_CHANNEL = 'fsus-article-recovery-journal-v1';
@@ -171,75 +174,23 @@ async function sha256Hex(value: string): Promise<string>
     return bytesToHex(new Uint8Array(digest));
 }
 
-async function readBoundedByteStream(
-    readable: ReadableStream<Uint8Array>,
-    maxBytes: number
-): Promise<Uint8Array>
+function encodeArticleRecoveryPayload(content: string): Uint8Array
 {
-    const reader = readable.getReader();
-    const chunks: Uint8Array[] = [];
-    let totalBytes = 0;
-    try
+    const bytes = new TextEncoder().encode(content);
+    if (bytes.byteLength > ARTICLE_RECOVERY_JOURNAL_MAX_STORED_BYTES)
     {
-        while (true)
-        {
-            const next = await reader.read();
-            if (next.done)
-            {
-                break;
-            }
-            const chunk = next.value;
-            totalBytes += chunk.byteLength;
-            if (totalBytes > maxBytes)
-            {
-                await reader.cancel('article_recovery_payload_oversize');
-                throw new Error('article_recovery_payload_oversize');
-            }
-            chunks.push(chunk);
-        }
-    }
-    finally
-    {
-        reader.releaseLock();
-    }
-
-    const bytes = new Uint8Array(totalBytes);
-    let offset = 0;
-    for (const chunk of chunks)
-    {
-        bytes.set(chunk, offset);
-        offset += chunk.byteLength;
+        throw new Error('article_recovery_payload_oversize');
     }
     return bytes;
 }
 
-async function compressArticleRecoveryContent(content: string): Promise<Uint8Array>
+function decodeArticleRecoveryPayload(payload: Uint8Array): string
 {
-    if (typeof globalThis.CompressionStream !== 'function')
+    if (payload.byteLength > ARTICLE_RECOVERY_JOURNAL_MAX_CONTENT_BYTES)
     {
-        throw new Error('article_recovery_compression_unavailable');
+        throw new Error('article_recovery_payload_oversize');
     }
-    const source = new TextEncoder().encode(content);
-    const stream = new Blob([Uint8Array.from(source).buffer])
-        .stream()
-        .pipeThrough(new CompressionStream('gzip'));
-    return readBoundedByteStream(stream, ARTICLE_RECOVERY_JOURNAL_MAX_STORED_BYTES);
-}
-
-async function decompressArticleRecoveryContent(payload: Uint8Array): Promise<string>
-{
-    if (typeof globalThis.DecompressionStream !== 'function')
-    {
-        throw new Error('article_recovery_decompression_unavailable');
-    }
-    const stream = new Blob([Uint8Array.from(payload).buffer])
-        .stream()
-        .pipeThrough(new DecompressionStream('gzip'));
-    const content = await readBoundedByteStream(
-        stream,
-        ARTICLE_RECOVERY_JOURNAL_MAX_CONTENT_BYTES
-    );
-    return new TextDecoder('utf-8', { fatal: true }).decode(content);
+    return new TextDecoder('utf-8', { fatal: true }).decode(payload);
 }
 
 export function articleRecoveryArticleKey(articleId: number | null): string
@@ -418,7 +369,7 @@ async function hydrateStoredRecord(
     stored: ArticleRecoveryJournalStoredRecord
 ): Promise<ArticleRecoveryJournalRecord>
 {
-    const content = await decompressArticleRecoveryContent(stored.payload);
+    const content = decodeArticleRecoveryPayload(stored.payload);
     const contentBytes = new TextEncoder().encode(content).byteLength;
     const sourceHash = await articleRecoverySourceHash(content);
     if (contentBytes !== stored.contentBytes || sourceHash !== stored.sourceHash)
@@ -557,12 +508,12 @@ export class ArticleRecoveryJournal
         let database: IDBDatabase | null = null;
         try
         {
-            const [identityHash, sourceHash, payload] = await Promise.all([
-                articleRecoveryIdentityHash(input.identityId),
-                articleRecoverySourceHash(input.content),
-                compressArticleRecoveryContent(input.content)
-            ]);
+            const payload = encodeArticleRecoveryPayload(input.content);
             const storedBytes = payload.byteLength;
+            const [identityHash, sourceHash] = await Promise.all([
+                articleRecoveryIdentityHash(input.identityId),
+                articleRecoverySourceHash(input.content)
+            ]);
             const articleKey = articleRecoveryArticleKey(input.articleId);
             const now = this.now();
             const id = `${identityHash}:${articleKey}:${input.tabId}`;
@@ -657,9 +608,7 @@ export class ArticleRecoveryJournal
     async list(identityId: string, articleId: number | null): Promise<ArticleRecoveryJournalReadResult>
     {
         const indexedDB = this.resolveIndexedDb();
-        if (!indexedDB
-        || !identityId.trim()
-        || typeof globalThis.DecompressionStream !== 'function')
+        if (!indexedDB || !identityId.trim())
         {
             return { status: 'unavailable', records: [], removedInvalidRecords: 0 };
         }

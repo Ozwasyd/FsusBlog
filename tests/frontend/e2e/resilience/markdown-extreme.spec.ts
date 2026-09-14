@@ -33,7 +33,7 @@ interface BrowserArticleRecoveryRecord {
   hasOwnContent: boolean
 }
 
-function matchesCompressedArticleRecovery(
+function matchesPlaintextArticleRecovery(
   record: BrowserArticleRecoveryRecord,
   expected: {
     articleKey: string
@@ -41,12 +41,12 @@ function matchesCompressedArticleRecovery(
     contentBytes: number
   }
 ): record is BrowserArticleRecoveryRecord & { clientRevision: string } {
-  return record.schema === 'fsusblog.article-recovery-journal.v1'
+  return record.schema === 'fsusblog.article-recovery-journal.v2'
     && record.articleKey === expected.articleKey
     && typeof record.clientRevision === 'string'
     && ARTICLE_RECOVERY_CLIENT_REVISION_PATTERN.test(record.clientRevision)
     && record.sourceHash === expected.sourceHash
-    && record.payloadCodec === 'gzip-v1'
+    && record.payloadCodec === 'utf8-v1'
     && record.payloadIsUint8Array
     && record.payloadBytes === record.storedBytes
     && typeof record.storedBytes === 'number'
@@ -54,6 +54,7 @@ function matchesCompressedArticleRecovery(
     && record.storedBytes > 0
     && record.storedBytes <= 1024 * 1024
     && record.contentBytes === expected.contentBytes
+    && record.storedBytes === expected.contentBytes
     && !record.hasOwnContent
 }
 
@@ -249,7 +250,7 @@ test.describe('markdown extreme editor resilience', () => {
         .poll(async () => {
           const records = await readArticleRecoveryJournal(session.page)
           const matches = records.filter(record => (
-            matchesCompressedArticleRecovery(record, expectedRecoveryRecord)
+            matchesPlaintextArticleRecovery(record, expectedRecoveryRecord)
           ))
           if (matches.length !== 1) {
             return false
@@ -276,7 +277,7 @@ test.describe('markdown extreme editor resilience', () => {
       expect(runtimeClientRevision).not.toBeNull()
       const reloadedRecoveryRecords = await readArticleRecoveryJournal(session.page)
       expect(reloadedRecoveryRecords.filter(record => (
-        matchesCompressedArticleRecovery(record, expectedRecoveryRecord)
+        matchesPlaintextArticleRecovery(record, expectedRecoveryRecord)
         && record.clientRevision === runtimeClientRevision
       ))).toHaveLength(1)
       const restoreDraftButton = session.page.getByRole('button', { name: '恢复所选正文' })

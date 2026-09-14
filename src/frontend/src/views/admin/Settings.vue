@@ -120,7 +120,7 @@
                                 <ElFormItem label="社交分享预览图">
                                     <div class="flex max-w-full flex-col items-stretch gap-12 mt-4 md:flex-row md:items-start">
                                         <ElUpload
-                                            class="w-full max-w-xs"
+                                            class="settings-og-image-upload w-full max-w-xs"
                                             action="#"
                                             media-field
                                             media-aspect-ratio="16 / 9"
@@ -128,6 +128,8 @@
                                             :show-file-list="false"
                                             accept="image/*"
                                             :disabled="imageLoading || siteFormDisabled"
+                                            data-settings-upload-surface="og-image"
+                                            :data-upload-state="ogImageUploadState"
                                         >
                                             <div
                                                 v-loading="imageLoading"
@@ -136,22 +138,23 @@
                                                 <img
                                                     v-if="displayUrl"
                                                     :src="displayUrl"
-                                                    alt="当前社交媒体预览图"
+                                                    :alt="ogImagePreviewAlt"
                                                     class="w-full h-full object-cover"
                                                 />
-                                                <button
+                                                <div
                                                     v-else
-                                                    type="button"
                                                     class="h-full min-h-12 w-full flex flex-col items-center justify-center text-[var(--fsusblog-text-muted)]"
-                                                    aria-label="上传预览图"
                                                 >
                                                     <ElIcon
                                                         :size="24"
                                                         aria-hidden="true"
                                                     ><Plus /></ElIcon>
                                                     <span class="text-[11px] mt-2 font-medium normal-case tracking-normal">上传预览图</span>
-                                                </button>
-                                                <div class="image-replace-overlay absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                </div>
+                                                <div
+                                                    v-if="displayUrl"
+                                                    class="image-replace-overlay absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                                                >
                                                     <span class="text-xs font-medium normal-case tracking-normal">点击更换</span>
                                                 </div>
                                             </div>
@@ -195,7 +198,8 @@
                                         type="textarea"
                                         :rows="4"
                                         maxlength="200"
-show-word-limit :disabled="siteFormDisabled"
+                                        show-word-limit
+                                        :disabled="siteFormDisabled"
                                     />
                                 </ElFormItem>
 
@@ -209,19 +213,16 @@ show-word-limit :disabled="siteFormDisabled"
                                             <p class="mt-3 text-[12px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">这些字段会写入 favicon、Apple Touch Icon 与 manifest.webmanifest。</p>
                                         </div>
                                         <ElUpload
+                                            class="settings-icon-set-upload"
                                             action="#"
                                             :http-request="handleFaviconSetGeneration"
                                             :show-file-list="false"
                                             accept="image/png,image/jpeg,image/webp"
                                             :disabled="siteFormDisabled || iconSetGenerating"
+                                            data-settings-upload-surface="icon-set"
+                                            :data-upload-state="iconSetUploadState"
                                         >
-                                            <ElButton
-                                                size="small"
-                                                :loading="iconSetGenerating"
-                                                :disabled="siteFormDisabled || iconSetGenerating"
-                                            >
-                                                从图片生成图标组
-                                            </ElButton>
+                                            <span class="settings-icon-set-trigger">{{ iconSetTriggerText }}</span>
                                         </ElUpload>
                                     </header>
                                     <div class="grid grid-cols-1 gap-x-10 sm:grid-cols-2">
@@ -614,7 +615,8 @@ show-word-limit :disabled="siteFormDisabled"
                                             :rows="3"
                                             maxlength="512"
                                             show-word-limit
-:disabled="complianceFormDisabled" placeholder="保留所有权利。"
+                                            :disabled="complianceFormDisabled"
+                                            placeholder="保留所有权利。"
                                         />
                                     </ElFormItem>
 
@@ -836,6 +838,8 @@ show-word-limit :disabled="siteFormDisabled"
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
+
 import BrandAssetUploadField from '@/components/admin/settings/BrandAssetUploadField.vue';
 import SettingsPageEditor from '@/components/admin/settings/SettingsPageEditor.vue';
 import FsusDialog from '@/components/ui/FsusDialog.vue';
@@ -912,6 +916,37 @@ const {
 const {
     isHighlighted: isTaskHighlighted
 } = taskFeedback;
+
+const ogImageUploadState = computed(() =>
+{
+    if (siteFormDisabled.value)
+    {
+        return 'disabled';
+    }
+    if (imageLoading.value)
+    {
+        return 'uploading';
+    }
+    return displayUrl.value ? 'preview' : 'empty';
+});
+const ogImagePreviewAlt = computed(() => (
+    displayUrl.value ? '当前社交媒体预览图，点击更换' : '当前社交媒体预览图'
+));
+const iconSetUploadState = computed(() =>
+{
+    if (siteFormDisabled.value)
+    {
+        return 'disabled';
+    }
+    if (iconSetGenerating.value)
+    {
+        return 'uploading';
+    }
+    return 'empty';
+});
+const iconSetTriggerText = computed(() => (
+    iconSetGenerating.value ? '正在生成图标组' : '从图片生成图标组'
+));
 
 const showMessageBoxError = (error: unknown): void =>
 {
@@ -1070,6 +1105,32 @@ const confirmPageRefresh = async (): Promise<void> =>
  {
     background: var(--fsus-overlay-color, transparent);
     color: var(--fsusblog-page-bg);
+}
+
+.settings-og-image-upload:focus-within .image-replace-overlay
+ {
+    opacity: 1;
+}
+
+.settings-icon-set-trigger
+ {
+    display: inline-flex;
+    min-height: 2rem;
+    align-items: center;
+    justify-content: center;
+    padding-inline: 0.75rem;
+    border: 1px solid var(--fsusblog-panel-border-strong);
+    border-radius: var(--fsus-radius-popover);
+    background: var(--fsusblog-page-bg);
+    color: var(--fsusblog-text-primary);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.settings-icon-set-upload:has([aria-disabled='true']) .settings-icon-set-trigger
+ {
+    opacity: 0.55;
 }
 
 .settings-image-action

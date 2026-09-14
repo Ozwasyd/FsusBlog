@@ -6,8 +6,10 @@ import {
   ARTICLE_RECOVERY_JOURNAL_MAX_SCOPE_ENTRIES,
   ARTICLE_RECOVERY_JOURNAL_MAX_STORED_BYTES,
   ARTICLE_RECOVERY_JOURNAL_PAYLOAD_CODEC,
+  ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE,
   ARTICLE_RECOVERY_JOURNAL_SCHEMA,
   ARTICLE_RECOVERY_JOURNAL_STORE,
+  ARTICLE_RECOVERY_JOURNAL_TTL_HOURS,
   ARTICLE_RECOVERY_JOURNAL_TTL_MS,
   ArticleRecoveryCoordinator,
   ArticleRecoveryFlushOwner,
@@ -67,11 +69,12 @@ async function rawGetAll(indexedDB: IDBFactory): Promise<unknown[]> {
 }
 
 describe('article recovery journal', () => {
-  it('persists CJK, emoji, and 100k characters as deterministic versioned compressed bytes', async () => {
+  it('persists CJK, emoji, and 100k characters as deterministic versioned plaintext UTF-8 bytes', async () => {
     const indexedDB = new IDBFactory()
     const now = 1_780_000_000_000
     const journal = new ArticleRecoveryJournal({ indexedDB, now: () => now })
     const content = '恢复🙂'.repeat(25_000)
+    const expectedPayload = new TextEncoder().encode(content)
 
     const written = await journal.write({ ...baseInput, content })
     const firstRaw = (await rawGetAll(indexedDB))[0] as Record<string, unknown>
@@ -80,12 +83,18 @@ describe('article recovery journal', () => {
     const listed = await journal.list(baseInput.identityId, baseInput.articleId)
 
     expect(content.length).toBe(100_000)
+    expect(ARTICLE_RECOVERY_JOURNAL_TTL_HOURS).toBe(168)
+    expect(ARTICLE_RECOVERY_JOURNAL_TTL_MS).toBe(168 * 60 * 60 * 1000)
+    expect(ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE).toContain('未加密')
+    expect(ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE).toContain('最长 7 天')
     expect(written.status).toBe('stored')
     expect(Object.hasOwn(firstRaw, 'content')).toBe(false)
     expect(firstRaw.payloadCodec).toBe(ARTICLE_RECOVERY_JOURNAL_PAYLOAD_CODEC)
+    expect(firstRaw.payloadCodec).toBe('utf8-v1')
     expect(firstRaw.payload).toBeInstanceOf(Uint8Array)
+    expect(firstRaw.payload).toEqual(expectedPayload)
     expect(firstRaw.storedBytes).toBe((firstRaw.payload as Uint8Array).byteLength)
-    expect(firstRaw.storedBytes).toBeLessThan(firstRaw.contentBytes as number)
+    expect(firstRaw.storedBytes).toBe(firstRaw.contentBytes)
     expect(secondRaw.payload).toEqual(firstRaw.payload)
     expect(JSON.stringify(firstRaw)).not.toContain(content)
     expect(JSON.stringify(firstRaw)).not.toContain('恢复')
@@ -238,7 +247,8 @@ describe('article recovery journal', () => {
 
     await rawPut(indexedDB, {
       ...withTab('tab-1813-old-schema'),
-      schema: 'fsusblog.article-recovery-journal.v0',
+      schema: 'fsusblog.article-recovery-journal.v1',
+      payloadCodec: 'gzip-v1',
       content: baseInput.content
     })
     await rawPut(indexedDB, {
@@ -278,7 +288,7 @@ describe('article recovery journal', () => {
     expect(listed.removedInvalidRecords).toBe(8)
   })
 
-  it('degrades without raw fallback on unavailable codec/private mode, quota, and logical oversize', async () => {
+  it('degrades without localStorage fallback on private mode, quota, and logical oversize', async () => {
     const unavailable = new ArticleRecoveryJournal({ indexedDB: null })
     expect((await unavailable.write(baseInput)).status).toBe('unavailable')
     expect((await unavailable.list(baseInput.identityId, 42)).status).toBe('unavailable')
@@ -299,43 +309,78 @@ describe('article recovery journal', () => {
     })).status).toBe('oversize')
 
     const compressionStream = globalThis.CompressionStream
-    class OversizeCompressionStream {
-      readonly readable = new ReadableStream<Uint8Array>({
-        start(controller) {
-          controller.enqueue(new Uint8Array(ARTICLE_RECOVERY_JOURNAL_MAX_STORED_BYTES + 1))
-          controller.close()
-        }
-      })
-
-      readonly writable = new WritableStream<Uint8Array>()
-    }
-    vi.stubGlobal('CompressionStream', OversizeCompressionStream)
-    try {
-      expect((await new ArticleRecoveryJournal({ indexedDB: new IDBFactory() }).write(baseInput)).status)
-        .toBe('oversize')
-    } finally {
-      vi.stubGlobal('CompressionStream', compressionStream)
-    }
-
-    vi.stubGlobal('CompressionStream', undefined)
-    try {
-      expect((await new ArticleRecoveryJournal({ indexedDB: new IDBFactory() }).write(baseInput)).status)
-        .toBe('unavailable')
-    } finally {
-      vi.stubGlobal('CompressionStream', compressionStream)
-    }
-
-    const compressedIndexedDb = new IDBFactory()
-    const compressedJournal = new ArticleRecoveryJournal({ indexedDB: compressedIndexedDb })
-    expect((await compressedJournal.write(baseInput)).status).toBe('stored')
     const decompressionStream = globalThis.DecompressionStream
+    vi.stubGlobal('CompressionStream', undefined)
     vi.stubGlobal('DecompressionStream', undefined)
     try {
-      expect((await compressedJournal.list(baseInput.identityId, 42)).status).toBe('unavailable')
-      expect(await rawGetAll(compressedIndexedDb)).toHaveLength(1)
+      const indexedDB = new IDBFactory()
+      const journal = new ArticleRecoveryJournal({ indexedDB })
+      expect((await journal.write(baseInput)).status).toBe('stored')
+      const listed = await journal.list(baseInput.identityId, 42)
+      expect(listed.status).toBe('ready')
+      expect(listed.records[0]?.content).toBe(baseInput.content)
+      expect(Object.hasOwn((await rawGetAll(indexedDB))[0] as object, 'content')).toBe(false)
     } finally {
+      vi.stubGlobal('CompressionStream', compressionStream)
       vi.stubGlobal('DecompressionStream', decompressionStream)
     }
+  })
+
+  it('keeps 167h59m recoverable and deletes at the exact 168h boundary without sliding on read', async () => {
+    const indexedDB = new IDBFactory()
+    let now = 1_780_000_000_000
+    const journal = new ArticleRecoveryJournal({ indexedDB, now: () => now })
+    const written = await journal.write(baseInput)
+    expect(written.record?.expiresAt).toBe(now + ARTICLE_RECOVERY_JOURNAL_TTL_MS)
+    const createdAt = written.record!.createdAt
+    const originalExpiresAt = written.record!.expiresAt
+
+    now = createdAt + ARTICLE_RECOVERY_JOURNAL_TTL_MS - 60_000
+    const almostExpired = await journal.list(baseInput.identityId, 42)
+    expect(almostExpired.records).toHaveLength(1)
+    expect(almostExpired.records[0]?.content).toBe(baseInput.content)
+    expect(almostExpired.removedInvalidRecords).toBe(0)
+    expect(((await rawGetAll(indexedDB))[0] as { expiresAt: number }).expiresAt)
+      .toBe(originalExpiresAt)
+
+    now = createdAt + ARTICLE_RECOVERY_JOURNAL_TTL_MS
+    const atBoundary = await journal.list(baseInput.identityId, 42)
+    expect(atBoundary.records).toEqual([])
+    expect(atBoundary.removedInvalidRecords).toBe(1)
+    expect(await rawGetAll(indexedDB)).toEqual([])
+
+    const rewritten = await journal.write({
+      ...baseInput,
+      clientRevision: 'client-1813-after-boundary'
+    })
+    now = rewritten.record!.updatedAt + ARTICLE_RECOVERY_JOURNAL_TTL_MS + 1
+    const afterBoundary = await journal.list(baseInput.identityId, 42)
+    expect(afterBoundary.records).toEqual([])
+    expect(afterBoundary.removedInvalidRecords).toBe(1)
+  })
+
+  it('anchors expiresAt to the last unconfirmed mutation and does not revive expired records', async () => {
+    const indexedDB = new IDBFactory()
+    let now = 1_780_000_000_000
+    const journal = new ArticleRecoveryJournal({ indexedDB, now: () => now })
+    const first = await journal.write(baseInput)
+    now += 3_600_000
+    const mutated = await journal.write({
+      ...baseInput,
+      clientRevision: 'client-1813-mutated',
+      content: `${baseInput.content}\nlater mutation`
+    })
+    expect(first.record?.createdAt).toBe(mutated.record?.createdAt)
+    expect(mutated.record?.updatedAt).toBe(now)
+    expect(mutated.record?.expiresAt).toBe(now + ARTICLE_RECOVERY_JOURNAL_TTL_MS)
+
+    const expiredRaw = (await rawGetAll(indexedDB))[0] as Record<string, unknown>
+    await rawPut(indexedDB, {
+      ...expiredRaw,
+      expiresAt: now - 1
+    })
+    expect((await journal.list(baseInput.identityId, 42)).records).toEqual([])
+    expect(await rawGetAll(indexedDB)).toEqual([])
   })
 
   it('classifies newer server/current coordinates before an explicit recovery choice', async () => {

@@ -6,7 +6,8 @@
         <MarkdownEditorAdapter
             v-model="content"
             editor-class="settings-editor h-[400px] sm:h-[600px]"
-            preview-class="settings-preview-wrapper h-[400px] sm:h-[600px]"
+            chrome="framed"
+            status-density="minimal"
             :loading="loading"
             :saving="saving"
         />
@@ -33,8 +34,7 @@ const content = computed({
 </script>
 
 <style scoped>
-.editor-container-minimal
- {
-    width: 100%;
+.editor-container-minimal {
+  width: 100%;
 }
 </style>

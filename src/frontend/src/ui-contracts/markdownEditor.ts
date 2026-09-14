@@ -1,13 +1,16 @@
 import type { Component } from 'vue';
 
-export type MarkdownEditorMode = 'write' | 'split' | 'preview';
-export type MarkdownEditorCommandGroup = 'text' | 'structure' | 'code' | 'media' | 'action';
+export type MarkdownEditorChrome = 'framed' | 'embedded' | 'minimal';
+export type MarkdownEditorStatusDensity = 'none' | 'minimal' | 'detailed';
+export type MarkdownEditorMode = 'source' | 'live' | 'split' | 'preview';
+export type MarkdownEditorCommandGroup = 'text' | 'structure' | 'code' | 'media' | 'action' | 'format' | 'block' | 'insert';
 export type MarkdownEditorCommandKey =
   | 'undo'
   | 'redo'
-  | 'h1'
-  | 'h2'
-  | 'h3'
+  | 'heading-3'
+  | 'heading-4'
+  | 'heading-5'
+  | 'heading-6'
   | 'bold'
   | 'italic'
   | 'quote'
