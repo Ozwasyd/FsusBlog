@@ -418,7 +418,7 @@ function buildFirstFailure(assertionResult, { attemptId, attemptNumber, rawEvide
   }
 }
 
-async function takeRuntimeSnapshot({ fetchImpl, baseUrl, secret, timeoutMs }) {
+export async function takeRuntimeSnapshot({ fetchImpl, baseUrl, secret, timeoutMs }) {
   const response = await fetchWithTimeout(fetchImpl, `${baseUrl}${runtimeSnapshotRoute}`, {
     headers: { [secretHeader]: secret }
   }, timeoutMs)
@@ -460,16 +460,20 @@ export async function collectDefaultMemoryObservation(context) {
   }
 }
 
-export function collectDefaultCleanupProof(context) {
+export async function collectDefaultCleanupProof(context) {
   const namespace = `runtime-cache-evidence:${context.runId}:`
   const keys = run('docker', [
     'exec', '-i', context.identity.redisContainer, 'redis-cli', '--scan', '--pattern', `${namespace}*`
   ]).split(/\r?\n/u).filter(Boolean)
   if (keys.length > 0) throw new Error(`run namespace cleanup left ${keys.length} Redis keys`)
+  const snapshot = await takeRuntimeSnapshot(context)
+  if (snapshot.processId !== context.identity.runtime.processId) {
+    throw new Error('cleanup snapshot does not bind the measured Kestrel process')
+  }
   return {
     status: 'passed',
     namespaceRemoved: true,
-    activeKeyedEntries: 0,
+    activeKeyedEntries: snapshot.activeKeyedEntries,
     durableRowsBefore: 0,
     durableRowsAfter: 0,
     checkedAt: nowIso()
