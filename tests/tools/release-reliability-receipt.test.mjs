@@ -37,6 +37,10 @@ const {
     repositoryRoot,
     'tools/test/release-reliability-runtime-environment.mjs'
 )).href);
+const { createCleanAttemptEvidenceFixture } = await import(new URL(
+    './support/clean-attempt-evidence-fixture.mjs',
+    import.meta.url
+));
 
 const verifier = path.join(repositoryRoot, 'tools/test/verify-release-reliability-receipt.mjs');
 const scenarioIds = [
@@ -48,6 +52,15 @@ const scenarioIds = [
     'release-memory-leak-budget',
     'release-open-handle-budget'
 ];
+const reliabilityAttemptFixture = await createCleanAttemptEvidenceFixture({
+    consumerId: 'release-reliability',
+    membership: {
+        lifecyclePhases: ['measurement', 'postcondition', 'precondition', 'reset'],
+        scenarioIds: [...scenarioIds].sort()
+    },
+    schedulerRunId: 'release-reliability-receipt-clean-attempt'
+});
+test.after(() => reliabilityAttemptFixture.cleanup());
 const invocationId = 'receipt-invocation';
 const runId = 'receipt-run';
 const digest = (character) => `sha256:${character.repeat(64)}`;
@@ -800,6 +813,7 @@ function qualifiedReceipt(identity = completeIdentity(), results = scenarioResul
     });
     const receipt = createCandidateReceipt({
         repositoryRoot,
+        attemptEvidence: reliabilityAttemptFixture.attemptEvidence,
         invocationId: identity.invocationId,
         runId: identity.runId,
         scenarioResults: results,
@@ -871,6 +885,7 @@ test('identity precondition failures still produce sealed partial timeline and f
     });
     const receipt = createCandidateReceipt({
         repositoryRoot,
+        attemptEvidence: reliabilityAttemptFixture.attemptEvidence,
         invocationId: identity.invocationId,
         runId: identity.runId,
         scenarioResults: results,
@@ -2254,6 +2269,7 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
     files.timeline = path.join(root, timelinePath);
     const receipt = createCandidateReceipt({
         repositoryRoot: root,
+        attemptEvidence: reliabilityAttemptFixture.attemptEvidence,
         invocationId,
         runId,
         scenarioResults: results,

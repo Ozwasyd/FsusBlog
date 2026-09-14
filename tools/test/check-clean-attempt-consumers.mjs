@@ -12,6 +12,8 @@ const adapters = [
     'tools/release/release-clean-attempt-cohort.mjs',
     'tools/release/semantic-outcome-clean-attempt-consumers.mjs'
 ];
+const cohortCli = 'tools/release/release-clean-attempt-cohort-cli.mjs';
+const releaseCollector = 'tools/operations/collect-release-evidence.sh';
 
 try
 {
@@ -37,6 +39,14 @@ try
                 throw new Error(`${entrypoint} must call requireCleanAttemptConsumerAdmission`);
             }
         }
+    }
+    const cohortCliSource = fs.readFileSync(path.join(root, cohortCli), 'utf8');
+    const collectorSource = fs.readFileSync(path.join(root, releaseCollector), 'utf8');
+    if (!/admitCleanAttemptCohort\s*\(/u.test(cohortCliSource)
+        || !collectorSource.includes('release-clean-attempt-cohort-cli.mjs')
+        || !collectorSource.includes('FSUSBLOG_RELEASE_CLEAN_ATTEMPT_COHORT_INPUT'))
+    {
+        throw new Error('release collector must fail closed through the clean-attempt cohort adapter');
     }
     const semanticSource = fs.readFileSync(path.join(root, adapters[2]), 'utf8');
     if (/child_process|readdirSync|statSync|from\s+['"][^'"]*(?:immutable-build|release-projection|release-finalizer)-adapter/u.test(semanticSource))

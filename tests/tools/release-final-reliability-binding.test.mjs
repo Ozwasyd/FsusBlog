@@ -17,6 +17,7 @@ import {
 } from '../../tools/test/current-run-evidence-publication.mjs';
 import { packCurrentRunEvidenceTransport } from '../../tools/test/current-run-evidence-transport.mjs';
 import { governanceContentDigest } from '../../tools/test/evidence-location-contract.mjs';
+import { createCleanAttemptEvidenceFixture } from './support/clean-attempt-evidence-fixture.mjs';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
 const commit = 'a'.repeat(40);
@@ -458,12 +459,24 @@ test('locator fails closed for zero or ambiguous canonical receipts before verif
     });
 });
 
-test('locator verifies one order-independent receipt and projects exactly seven audit fields', (context) =>
+test('locator verifies one order-independent receipt and projects exactly seven audit fields', async (context) =>
 {
     const fixture = createFixture(context, 'z-qualified');
     fs.mkdirSync(path.join(fixture.root, '.tmp/release-reliability/a-no-receipt'));
     const calls = { count: 0 };
-    const binding = locate(fixture, calls);
+    const attemptFixture = await createCleanAttemptEvidenceFixture({
+        consumerId: 'release-reliability',
+        membership: {
+            lifecyclePhases: [...lifecyclePhases].sort(),
+            scenarioIds: [...releaseReliabilityScenarioIds]
+        },
+        producerId: 'release-reliability-fresh',
+        schedulerRunId: 'release-reliability-clean-run'
+    });
+    context.after(() => attemptFixture.cleanup());
+    const binding = locate(fixture, calls, {
+        attemptEvidence: attemptFixture.attemptEvidence
+    });
     assert.equal(calls.count, 1);
     assert.deepEqual(Object.keys(binding).sort(), [
         'authorityId',

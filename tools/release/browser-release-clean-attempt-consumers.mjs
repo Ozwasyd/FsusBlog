@@ -125,6 +125,28 @@ export function admitBrowserReleaseCleanAttempt({
     {
         throw new Error(`unknown clean attempt consumer: ${consumerId}`);
     }
+    if (!attemptEvidence)
+    {
+        const reason = Object.freeze({
+            code: 'attempt.provenance-missing',
+            message: 'clean-attempt aggregate and attempt provenance are required',
+            producerId: null,
+            schedulerRunId: null
+        });
+        return Object.freeze({
+            schema: 'fsusblog.browser-release-clean-attempt-admission.v1',
+            consumerId,
+            eligible: false,
+            reasons: Object.freeze([reason]),
+            attemptVerdict: Object.freeze({
+                schema: 'fsusblog.clean-first-attempt-verdict.v1',
+                eligible: false,
+                reasons: Object.freeze([reason]),
+                aggregate: null,
+                attempt: null
+            })
+        });
+    }
     const expectedIdentity = attemptEvidence?.expectedIdentity ?? {};
     let resolvedTransport = null;
     try
@@ -275,19 +297,15 @@ export function requireCleanAttemptConsumerAdmission({
 {
     const evidence = attemptEvidence
         ?? loadConfiguredCleanAttemptEvidence({ repositoryRoot, environment });
-    if (!evidence)
-    {
-        return null;
-    }
-    if (evidence.consumerId !== undefined && evidence.consumerId !== consumerId)
+    if (evidence?.consumerId !== undefined && evidence.consumerId !== consumerId)
     {
         throw new Error(`${consumerId} attempt evidence is bound to another consumer`);
     }
     const admission = admitBrowserReleaseCleanAttempt({
         consumerId,
         attemptEvidence: evidence,
-        membership: evidence.membership,
-        expected: evidence.expected
+        membership: evidence?.membership,
+        expected: evidence?.expected
     });
     if (!admission.eligible)
     {

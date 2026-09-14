@@ -20,6 +20,17 @@ import {
     validatePublicPreviewEvidenceBinding,
     validateReleaseFinalTestEvidenceBinding
 } from '../../tools/release/test-evidence-receipts.mjs';
+import { createCleanAttemptEvidenceFixture } from './support/clean-attempt-evidence-fixture.mjs';
+
+const correctnessAttemptFixture = await createCleanAttemptEvidenceFixture({
+    consumerId: 'production-correctness',
+    membership: {
+        selectedTierIds: ['production-correctness', 'unit'],
+        testVectors: ['node:unit.test.mjs#works']
+    },
+    schedulerRunId: 'receipt-schema-clean-attempt'
+});
+test.after(() => correctnessAttemptFixture.cleanup());
 
 function canonicalize(value)
 {
@@ -76,6 +87,7 @@ function buildFixture(context)
 function correctnessFixture(build)
 {
     return createBrowserlessCorrectnessReceipt({
+        attemptEvidence: correctnessAttemptFixture.attemptEvidence,
         matrix: {
             tiers: [
                 { id: 'unit', dependsOn: [], requiresPlaywright: 'none' },
@@ -364,6 +376,7 @@ test('PR plan authority separates executed and policy-skipped tiers without clai
         skippedJobIds: ['full-only-job']
     });
     const receipt = createBrowserlessCorrectnessReceipt({
+        attemptEvidence: correctnessAttemptFixture.attemptEvidence,
         matrix: {
             tiers: [
                 { id: 'full-only', dependsOn: [], requiresPlaywright: 'none' },
@@ -402,6 +415,7 @@ test('PR plan authority separates executed and policy-skipped tiers without clai
     assert.deepEqual(validateBrowserlessCorrectnessReceipt(receipt), []);
 
     const createWithPlan = (candidatePlan, authorityBuildReceiptDigest = build.receipt.contentDigest) => createBrowserlessCorrectnessReceipt({
+        attemptEvidence: correctnessAttemptFixture.attemptEvidence,
         matrix: {
             tiers: [
                 { id: 'full-only', dependsOn: [], requiresPlaywright: 'none' },
@@ -629,6 +643,7 @@ test('browserless correctness rejects stale scheduler summaries even when the co
         schedulerRunId: 'old-run'
     };
     assert.throws(() => createBrowserlessCorrectnessReceipt({
+        attemptEvidence: correctnessAttemptFixture.attemptEvidence,
         matrix: {
             tiers: [
                 { id: 'unit', dependsOn: [], requiresPlaywright: 'none' },
