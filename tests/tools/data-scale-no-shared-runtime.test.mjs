@@ -1,0 +1,209 @@
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+import {
+    assertDedicatedContainer,
+    isForbiddenContainerName
+} from '../../tools/data-scale/runtime-plan.mjs';
+
+import { DataScaleRuntimeProvisioner } from '../../tools/data-scale/runtime-provisioner.mjs';
+
+const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
+const seedScript = path.join(root, 'tools/data-scale/seed.sh');
+const cleanupScript = path.join(root, 'tools/data-scale/cleanup.sh');
+const dataScaleLane = path.join(root, 'tools/test/lanes/data-scale.sh');
+
+test('data-scale seed rejects fsusblog-dev-postgres and fails closed without writing', () =>
+{
+    // When env missing or default fsusblog-dev-postgres passed
+    const res = spawnSync('bash', [seedScript, 'scale-xs'], {
+        cwd: root,
+        env: {
+            ...process.env,
+            FSUSBLOG_POSTGRES_CONTAINER_NAME: 'fsusblog-dev-postgres',
+            FSUSBLOG_PG_CONTAINER: ''
+        },
+        encoding: 'utf8'
+    });
+
+    assert.notEqual(res.status, 0, 'seed.sh must exit with non-zero status when given fsusblog-dev-postgres');
+    assert.match(res.stderr, /prohibited from using shared or development postgres container/);
+});
+
+test('data-scale seed rejects current candidate shared PostgreSQL container', () =>
+{
+    const res = spawnSync('bash', [seedScript, 'scale-xs'], {
+        cwd: root,
+        env: {
+            ...process.env,
+            FSUSBLOG_POSTGRES_CONTAINER_NAME: 'fsusblog-test-postgres-candidate-42',
+            FSUSBLOG_PG_CONTAINER: ''
+        },
+        encoding: 'utf8'
+    });
+
+    assert.notEqual(res.status, 0);
+    assert.match(res.stderr, /prohibited from using shared or development postgres container/);
+});
+
+test('data-scale cleanup rejects fsusblog-dev-postgres and shared candidate containers', () =>
+{
+    const resDev = spawnSync('bash', [cleanupScript, 'scale-xs'], {
+        cwd: root,
+        env: {
+            ...process.env,
+            FSUSBLOG_POSTGRES_CONTAINER_NAME: 'fsusblog-dev-postgres'
+        },
+        encoding: 'utf8'
+    });
+    assert.notEqual(resDev.status, 0);
+    assert.match(resDev.stderr, /prohibited from using shared or development postgres container/);
+
+    const resCandidate = spawnSync('bash', [cleanupScript, 'scale-xs'], {
+        cwd: root,
+        env: {
+            ...process.env,
+            FSUSBLOG_POSTGRES_CONTAINER_NAME: 'fsusblog-test-postgres-candidate'
+        },
+        encoding: 'utf8'
+    });
+    assert.notEqual(resCandidate.status, 0);
+    assert.match(resCandidate.stderr, /prohibited from using shared or development postgres container/);
+});
+
+test('data-scale lane rejects missing or shared postgres container', () =>
+{
+    const res = spawnSync('bash', [dataScaleLane, 'scale-xs'], {
+        cwd: root,
+        env: {
+            ...process.env,
+            FSUSBLOG_POSTGRES_CONTAINER_NAME: 'fsusblog-dev-postgres'
+        },
+        encoding: 'utf8'
+    });
+    assert.notEqual(res.status, 0);
+    assert.match(res.stderr, /dedicated-scenario runtime container is required/);
+});
+
+test('data-scale runtime provisioner fails if backend is running when raw seed is attempted', async (t) =>
+{
+    const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-ds-running-'));
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+
+    const provisioner = new DataScaleRuntimeProvisioner({
+        repositoryRoot: temp,
+        dataScaleRunId: 'run-running-01'
+    });
+
+    await provisioner.provisionDedicatedResources();
+    await provisioner.executeMigration();
+
+    // Attempt seed with backendActive = true
+    await assert.rejects(async () =>
+    {
+        await provisioner.executeOfflineSeed({ backendActive: true });
+    }, /backend is already running; raw SQL seed is prohibited while backend is running/);
+});
+
+test('data-scale runtime provisioner fails if database is not empty or has active foreign connections', async (t) =>
+{
+    const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-ds-conn-'));
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+
+    const provisioner = new DataScaleRuntimeProvisioner({
+        repositoryRoot: temp,
+        dataScaleRunId: 'run-conn-02'
+    });
+
+    await provisioner.provisionDedicatedResources();
+    await provisioner.executeMigration();
+
+    // Attempt seed with active foreign connections
+    await assert.rejects(async () =>
+    {
+        await provisioner.executeOfflineSeed({ activeConnections: 3 });
+    }, /active foreign connections; offline seed requires isolation/);
+});
+
+test('data-scale provision failure never falls back to local or dev containers', async (t) =>
+{
+    const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-ds-nofallback-'));
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+
+    const provisioner = new DataScaleRuntimeProvisioner({
+        repositoryRoot: temp,
+        dataScaleRunId: 'run-fallback-03'
+    });
+
+    // Cause provision failure
+    await assert.rejects(async () =>
+    {
+        await provisioner.provisionDedicatedResources({
+            postgresImageDigest: 'sha256:bad0000000000000000000000000000000000000000000000000000000000000'
+        });
+    });
+
+    // Ensure migration and seed cannot run after provision failure
+    await assert.rejects(async () =>
+    {
+        await provisioner.executeMigration();
+    }, /cannot execute migration after provision failure/);
+
+    await assert.rejects(async () =>
+    {
+        await provisioner.executeOfflineSeed();
+    }, /cannot seed after provision failure/);
+
+    await assert.rejects(async () =>
+    {
+        await provisioner.startDedicatedBackend();
+    }, /cannot start backend after provision failure/);
+});
+
+test('data-scale requires runtime identity receipt before starting HTTP verification', async (t) =>
+{
+    const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-ds-receipt-req-'));
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+
+    const provisioner = new DataScaleRuntimeProvisioner({
+        repositoryRoot: temp,
+        dataScaleRunId: 'run-receipt-req-04'
+    });
+
+    await provisioner.provisionDedicatedResources();
+    await provisioner.executeMigration();
+    await provisioner.executeOfflineSeed();
+
+    // Seed succeeded, but backend hasn't generated runtime identity receipt yet
+    assert.throws(() =>
+    {
+        provisioner.assertReadyForHttpVerification();
+    }, /data-scale runtime identity receipt is missing; cannot proceed to HTTP verification/);
+});
+
+test('external containers and processes are protected from mutation by data-scale', () =>
+{
+    // Check that isForbiddenContainerName rejects all external and shared container names
+    const externalContainers = [
+        'fsusblog-dev-postgres',
+        'fsusblog-dev-redis',
+        'fsusblog-test-postgres-local',
+        'fsusblog-test-postgres-candidate',
+        'fsusblog-test-redis-candidate',
+        'fsusblog-candidate-backend'
+    ];
+
+    for (const name of externalContainers)
+    {
+        assert.ok(isForbiddenContainerName(name), `external container ${name} must be forbidden`);
+        assert.throws(() =>
+        {
+            assertDedicatedContainer(name);
+        }, /prohibited from using shared or development/);
+    }
+});

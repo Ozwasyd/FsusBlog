@@ -1,0 +1,23 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/data-scale/runtime-plan.mjs",
+                "tools/data-scale/runtime-provisioner.mjs",
+                "tools/test/lanes/runtime-evidence-probe.mjs"
+            ],
+            "reason": "Preserve process environment and configuration variable spelling while establishing data-scale runtime isolation."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/data-scale/cleanup.sh",
+                "tools/data-scale/seed.sh",
+                "tools/test/lanes/data-scale.sh"
+            ],
+            "reason": "Preserve shell environment variable spelling while prohibiting shared postgres containers."
+        }
+    ]
+}

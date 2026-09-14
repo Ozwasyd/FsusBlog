@@ -14,7 +14,7 @@ import { bindReleaseReliabilityEvidence } from '../release-reliability-evidence-
 import { fetchRouteSample, producerRouteIds, routeCatalogDigest, routeContract } from './runtime-http-route-contract.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../../..'));
-if (!process.env.FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID)
+if (!process.env.FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID && process.argv[2] !== 'data-scale')
 {
     loadBootstrapEnv(process.env.FSUSBLOG_TEST_NAMESPACE || 'local');
 }
@@ -4507,6 +4507,28 @@ async function dataScale(tier, outFile)
         : path.join(root, '.tmp', 'scale', tier, 'artifact-rebuild.json');
     const seed = readOptionalJson(seedFile);
     const seedArtifactEvidence = readOptionalJson(artifactEvidenceFile);
+    const postgresContainer = process.env.FSUSBLOG_POSTGRES_CONTAINER_NAME;
+    if (postgresContainer)
+    {
+        const forbiddenPatterns = [
+            /^fsusblog-dev-postgres$/u,
+            /^fsusblog-dev-/u,
+            /^fsusblog-test-postgres-/u,
+            /^fsusblog-candidate-/u
+        ];
+        if (forbiddenPatterns.some((pattern) => pattern.test(postgresContainer.trim())))
+        {
+            throw new Error(`data-scale prohibited from using shared or development postgres container: ${postgresContainer}`);
+        }
+    }
+    const runtimeReceiptPath = process.env.FSUSBLOG_DATA_SCALE_RUNTIME_RECEIPT_PATH;
+    if (process.env.FSUSBLOG_REQUIRE_DATA_SCALE_RUNTIME_RECEIPT === '1' || runtimeReceiptPath)
+    {
+        if (!runtimeReceiptPath || !fs.existsSync(path.resolve(root, runtimeReceiptPath)))
+        {
+            throw new Error(`data-scale runtime identity receipt is missing or unreadable: ${runtimeReceiptPath || '<empty>'}`);
+        }
+    }
     const prefix = `data-scale:${namespace}:${tier}`;
     const prefixLiteral = sqlStringLiteral(prefix);
     const declared = seed?.declared ?? { articles: seed?.expected?.articles, comments: seed?.expected?.comments };

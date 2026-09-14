@@ -7,8 +7,22 @@ TIER="${1:-scale-xs}"
 OUT_DIR="${FSUSBLOG_DATA_SCALE_ROOT:-$ROOT_DIR/.tmp/scale}/$TIER"
 mkdir -p "$OUT_DIR"
 
-namespace="${FSUSBLOG_TEST_NAMESPACE:-local}"
-postgres_container="${FSUSBLOG_POSTGRES_CONTAINER_NAME:-${FSUSBLOG_PG_CONTAINER:-fsusblog-dev-postgres}}"
+namespace="${FSUSBLOG_TEST_NAMESPACE:-data-scale}"
+if [[ -z "${FSUSBLOG_POSTGRES_CONTAINER_NAME:-}" ]]; then
+    if [[ -n "${FSUSBLOG_PG_CONTAINER:-}" ]]; then
+        postgres_container="$FSUSBLOG_PG_CONTAINER"
+    else
+        printf '[data-scale:cleanup] FSUSBLOG_POSTGRES_CONTAINER_NAME is required; falling back to dev or shared postgres is prohibited\n' >&2
+        exit 1
+    fi
+else
+    postgres_container="$FSUSBLOG_POSTGRES_CONTAINER_NAME"
+fi
+
+if [[ "$postgres_container" == "fsusblog-dev-postgres" || "$postgres_container" == fsusblog-dev-* || "$postgres_container" == fsusblog-test-postgres-* || "$postgres_container" == fsusblog-candidate-* ]]; then
+    printf '[data-scale:cleanup] prohibited from using shared or development postgres container: %s\n' "$postgres_container" >&2
+    exit 1
+fi
 
 if ! docker exec "$postgres_container" pg_isready -U fsusblog -d fsusblog >/dev/null 2>&1; then
     printf '[data-scale:cleanup] postgres container is not ready: %s\n' "$postgres_container" >&2
