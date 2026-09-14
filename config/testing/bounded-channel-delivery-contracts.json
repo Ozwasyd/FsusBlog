@@ -1,6 +1,6 @@
 {
   "schema": "fsusblog.bounded-channel-delivery-contracts.v1",
-  "digest": "sha256:f11077daf236b8f5abb3c7ee0a6ea2ad7010d468e2450f95b83e0caea951547a",
+  "digest": "sha256:49b33e706f23c1ee17ae64a48476063e1b7619e93ceeacadf57e7ff2b08fd202",
   "queues": [
     {
       "queueId": "admin-audit",
@@ -20,6 +20,25 @@
       "classProof": { "kind": "required", "durableSource": { "file": "src/backend/Infrastructure/Audit/AdminAuditLogChannel.cs", "token": "store.WriteBatchAsync(audits, cancellationToken)" }, "replaySource": { "file": "src/backend/Infrastructure/Audit/AdminAuditLogChannel.cs", "token": "WriteFallbackAsync" } },
       "disposition": "retain required delivery with aggregate in-flight qualification",
       "implementationOwner": "backend.audit"
+    },
+    {
+      "queueId": "admin-session-touch",
+      "discoveryKey": "src/backend/Infrastructure/Security/AdminSessionProjectionRuntime.cs#AdminSessionTouchScheduler._queue",
+      "owner": { "id": "AdminSessionTouchScheduler._queue", "file": "src/backend/Infrastructure/Security/AdminSessionProjectionRuntime.cs", "type": "AdminSessionTouchScheduler", "slot": "_queue" },
+      "deliveryClass": "best-effort",
+      "drainParticipant": true,
+      "participantAdapter": { "file": "src/backend/Infrastructure/Operations/BoundedQueueDrainParticipants.cs", "token": "AdminSessionTouchBoundedQueueDrainParticipant" },
+      "channelBehavior": { "fullMode": "Wait", "writerPrimitive": "TryWrite", "waitTryWriteDisposition": "A full lane rejects the idle-touch acceleration and removes its tracking reservation; validation remains projection-only and fail-closed." },
+      "writerCallsites": [{ "file": "src/backend/Infrastructure/Security/AdminSessionProjectionRuntime.cs", "token": "_queue.Writer.TryWrite(queued)" }],
+      "readerCallsites": [{ "file": "src/backend/Infrastructure/Security/AdminSessionProjectionRuntime.cs", "token": "_queue.Reader.ReadAllAsync(stoppingToken)" }],
+      "drain": { "status": "implemented", "rationale": "The catalog participant reports exact queued and active touch counts plus cumulative worker failures.", "callsites": [{ "file": "src/backend/Infrastructure/Operations/BoundedQueueDrainParticipants.cs", "token": "AdminSessionTouchBoundedQueueDrainParticipant" }] },
+      "fallback": { "status": "implemented", "rationale": "Rejected touch acceleration removes the pending reservation and increments the bounded rejection counter.", "callsites": [{ "file": "src/backend/Infrastructure/Security/AdminSessionProjectionRuntime.cs", "token": "RemoveTrackingLocked(request.SessionId)" }] },
+      "failureSemantics": { "closed": "Closed admission returns false and removes its pending tracking reservation.", "cancellation": "Shutdown waits for the bounded lane up to the configured flush timeout and reports remaining work.", "workerFailure": "Failure count remains observable while the touch is omitted without changing the local validation decision.", "overflowMarker": "RejectedCount records bounded admission pressure.", "inFlight": "InFlightCount spans dequeue through database disposition.", "commitPostcondition": "No session validity decision depends on completing the idle timestamp acceleration.", "qualificationImpact": "Omission can expire an otherwise idle session earlier; it cannot extend or revive one." },
+      "evidenceSources": [{ "file": "src/backend/Infrastructure/Security/AdminSessionProjectionRuntime.cs", "token": "AdminSessionTouchRuntimeSnapshot" }],
+      "proofTestIds": [{ "file": "tests/backend/Unit/AdminSessionValidationServiceTests.cs", "token": "TouchScheduler_TrackingAndQueueAreStrictlyBounded" }],
+      "classProof": { "kind": "best-effort", "productCapability": "idle session timestamp refresh acceleration", "impact": "a rejected refresh may cause an idle session to expire earlier but never later", "productProof": { "file": "tests/backend/Unit/AdminSessionValidationServiceTests.cs", "token": "ValidateAsync_OneThousandConcurrentReads_DoNotReadAuthority_AndCoalesceTouch" } },
+      "disposition": "retain bounded asynchronous idle-touch acceleration with exact drain accounting",
+      "implementationOwner": "backend.admin-session"
     },
     {
       "queueId": "article-asset-cleanup",
@@ -288,6 +307,25 @@
       "implementationOwner": "backend.public-aot"
     },
     {
+      "queueId": "public-aot-file-shell-invalidation",
+      "discoveryKey": "src/backend/Infrastructure/PublicAot/PublicAotFileShellCacheInvalidationSubscriber.cs#PublicAotFileShellInvalidationQueue._messages",
+      "owner": { "id": "PublicAotFileShellInvalidationQueue._messages", "file": "src/backend/Infrastructure/PublicAot/PublicAotFileShellCacheInvalidationSubscriber.cs", "type": "PublicAotFileShellInvalidationQueue", "slot": "_messages" },
+      "deliveryClass": "coalescible",
+      "drainParticipant": true,
+      "participantAdapter": { "file": "src/backend/Infrastructure/Operations/BoundedQueueDrainParticipants.cs", "token": "PublicAotFileShellInvalidationBoundedQueueDrainParticipant" },
+      "channelBehavior": { "fullMode": "Wait", "writerPrimitive": "TryWrite", "waitTryWriteDisposition": "A full or closed wake-up lane records one dominating invalidate-all marker; the worker retries failures as invalidate-all." },
+      "writerCallsites": [{ "file": "src/backend/Infrastructure/PublicAot/PublicAotFileShellCacheInvalidationSubscriber.cs", "token": "_messages.Writer.TryWrite(invalidation)" }],
+      "readerCallsites": [{ "file": "src/backend/Infrastructure/PublicAot/PublicAotFileShellCacheInvalidationSubscriber.cs", "token": "_messages.Reader" }],
+      "drain": { "status": "implemented", "rationale": "The catalog participant reports queued, active, coalesced-all and unresolved failure state.", "callsites": [{ "file": "src/backend/Infrastructure/Operations/BoundedQueueDrainParticipants.cs", "token": "PublicAotFileShellInvalidationBoundedQueueDrainParticipant" }] },
+      "fallback": { "status": "implemented", "rationale": "Any rejected key or prefix is conservatively replaced by a single invalidate-all marker.", "callsites": [{ "file": "src/backend/Infrastructure/PublicAot/PublicAotFileShellCacheInvalidationSubscriber.cs", "token": "Interlocked.Exchange(ref _coalescedAllPending, 1)" }] },
+      "failureSemantics": { "closed": "Rejected admission retains an observable invalidate-all marker and reports false.", "cancellation": "Cancellation retains the all marker and terminal state instead of claiming completion.", "workerFailure": "A failed key, prefix or all application is retried through the dominating all marker.", "overflowMarker": "CoalescedAllPendingCount is the exact process-local overflow marker.", "inFlight": "The queue snapshot spans dequeue through cache invalidation disposition.", "commitPostcondition": "The marker clears only after ApplyRemoteInvalidation completes successfully.", "qualificationImpact": "Queued, active, coalesced or failed invalidation blocks aggregate release qualification." },
+      "evidenceSources": [{ "file": "src/backend/Infrastructure/PublicAot/PublicAotFileShellCacheInvalidationSubscriber.cs", "token": "PublicAotFileShellInvalidationQueueSnapshot" }],
+      "proofTestIds": [{ "file": "tests/backend/Unit/PublicAotFileShellInvalidationQueueTests.cs", "token": "PublicAotFileShellInvalidationQueueTests" }],
+      "classProof": { "kind": "coalescible", "commutativeProof": { "file": "src/backend/Infrastructure/PublicAot/PublicAotInvalidationMessage.cs", "token": "internal static PublicAotInvalidationMessage All()" }, "monotonicProof": { "file": "src/backend/Infrastructure/PublicAot/PublicAotFileShellCacheInvalidationSubscriber.cs", "token": "Interlocked.Exchange(ref _coalescedAllPending, 1)" } },
+      "disposition": "replace silent DropWrite loss with one dominating all-invalidation marker and exact drain state",
+      "implementationOwner": "backend.public-aot"
+    },
+    {
       "queueId": "public-hot-artifact-update",
       "discoveryKey": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactUpdateQueue.cs#PublicHotArtifactUpdateQueue._channel",
       "owner": { "id": "PublicHotArtifactUpdateQueue._channel", "file": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactUpdateQueue.cs", "type": "PublicHotArtifactUpdateQueue", "slot": "_channel" },
@@ -352,12 +390,12 @@
       "deliveryClass": "required",
       "drainParticipant": true,
       "participantAdapter": { "file": "src/backend/Infrastructure/Operations/BoundedQueueDrainParticipants.cs", "token": "SecurityRiskEventBoundedQueueDrainParticipant" },
-      "channelBehavior": { "fullMode": "Wait", "writerPrimitive": "TryWrite", "waitTryWriteDisposition": "Risk-event rejection synchronously enters the durable event store or records terminal failure." },
-      "writerCallsites": [{ "file": "src/backend/Infrastructure/Security/SecurityRiskEventWriter.cs", "token": "_channel.Writer.TryWrite(write)" }],
+      "channelBehavior": { "fullMode": "Wait", "writerPrimitive": "TryWrite+TryEnqueueOrShed", "waitTryWriteDisposition": "Required admissions synchronously enter the durable event store or terminal state; the separately governed Shield/PublicHot hot path explicitly uses queue-or-shed without request SQL." },
+      "writerCallsites": [{ "file": "src/backend/Infrastructure/Security/SecurityRiskEventWriter.cs", "token": "_channel.Writer.TryWrite(write)" }, { "file": "src/backend/Infrastructure/Security/SecurityRiskEventWriter.cs", "token": "TryEnqueueOrShed(SecurityRiskEventWrite write)" }],
       "readerCallsites": [{ "file": "src/backend/Infrastructure/Security/SecurityRiskEventWriter.cs", "token": "_queue.Reader.WaitToReadAsync(stoppingToken)" }],
       "drain": { "status": "implemented", "rationale": "SecurityRiskReleaseDrainParticipant observes queue state.", "callsites": [{ "file": "src/backend/Infrastructure/Operations/ReleaseDrainParticipants.cs", "token": "SecurityRiskReleaseDrainParticipant" }] },
-      "fallback": { "status": "implemented", "rationale": "Rejected admission persists the exact event through ISecurityRiskEventStore or records terminal failure.", "callsites": [{ "file": "src/backend/Infrastructure/Security/SecurityRiskEventWriter.cs", "token": "WriteFallbackAsync" }] },
-      "failureSemantics": { "closed": "Rejected admission enters durable fallback and cannot report a false queue success.", "cancellation": "Cancellation cannot convert an unpersisted risk event into success.", "workerFailure": "Dequeued events remain requeued, durable-pending or terminal-failed until persistence completes.", "overflowMarker": "Durable pending, accepted and terminal counters retain exact event identity.", "inFlight": "Queue snapshot and release participant observe pending and active work.", "commitPostcondition": "Risk store batch or fallback persistence completes before durable acceptance.", "qualificationImpact": "Unpersisted risk evidence blocks the relevant release evidence claim." },
+      "fallback": { "status": "implemented", "rationale": "Rejected required admission persists the exact event through ISecurityRiskEventStore or records terminal failure; the explicit hot lane records shed disposition and counters.", "callsites": [{ "file": "src/backend/Infrastructure/Security/SecurityRiskEventWriter.cs", "token": "RejectAndFallback" }, { "file": "src/backend/Infrastructure/Security/SecurityRiskEventWriter.cs", "token": "Shed(write, \"queue_full\")" }] },
+      "failureSemantics": { "closed": "Required admission enters durable fallback; explicit hot admission records shed and never reports queue success.", "cancellation": "Required worker cancellation cannot claim persistence; explicit hot admission records cancellation as shed.", "workerFailure": "Dequeued events remain requeued, durable-pending or terminal-failed until persistence completes.", "overflowMarker": "Durable, terminal, rejected and shed counters preserve the applicable admission disposition.", "inFlight": "Queue snapshot and release participant observe pending and active work.", "commitPostcondition": "Required admission needs risk-store persistence or terminal evidence; hot shed is never represented as persistence.", "qualificationImpact": "Unpersisted required risk evidence blocks its release claim; explicit hot shed remains separately observable." },
       "evidenceSources": [{ "file": "src/backend/Infrastructure/Security/SecurityRiskEventWriter.cs", "token": "SecurityRiskEventWriteQueueSnapshot" }],
       "proofTestIds": [{ "file": "tests/backend/Unit/SecurityRiskEventPersistenceTests.cs", "token": "SecurityRiskEventSink_PersistenceFailureDoesNotBreakHotPathAndWritesFallbackLog" }],
       "classProof": { "kind": "required", "durableSource": { "file": "src/backend/Infrastructure/Security/SecurityRiskEventWriter.cs", "token": "ISecurityRiskEventStore" }, "replaySource": { "file": "src/backend/Infrastructure/Security/SecurityRiskEventWriter.cs", "token": "fallback" } },

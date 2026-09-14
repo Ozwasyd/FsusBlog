@@ -106,6 +106,7 @@ public sealed class AdminSessionValidationServiceTests
         Assert.False(scheduler.TrySchedule(Touch("c", hash, now)));
         AdminSessionTouchRuntimeSnapshot snapshot = scheduler.Snapshot();
         Assert.Equal(2, snapshot.QueueEntries);
+        Assert.Equal(0, snapshot.InFlightCount);
         Assert.Equal(2, snapshot.TrackingEntries);
         Assert.Equal(3, snapshot.QueueCapacity);
         Assert.Equal(2, snapshot.MaxTrackingEntries);

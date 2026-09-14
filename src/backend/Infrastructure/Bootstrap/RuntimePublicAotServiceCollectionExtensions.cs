@@ -32,6 +32,7 @@ internal static class RuntimePublicAotServiceCollectionExtensions
         services.AddSingleton<IPublicAotBackfillLease, PublicAotBackfillLease>();
         services.AddSingleton<PublicAotFileShellCache>();
         services.AddSingleton<IPublicAotShellCache>(sp => sp.GetRequiredService<PublicAotFileShellCache>());
+        services.AddSingleton<PublicAotFileShellInvalidationQueue>();
         if (!OpenApiExportMode.IsEnabled())
         {
             services.AddHostedService<PublicAotArtifactRecoveryService>();
