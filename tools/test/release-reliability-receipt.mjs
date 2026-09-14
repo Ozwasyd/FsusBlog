@@ -1259,6 +1259,7 @@ export function createTimeline({ invocationId, runId, scenarioResults, identityR
 
 export function createCandidateReceipt({
     repositoryRoot = process.cwd(),
+    attemptEvidence = null,
     invocationId,
     runId,
     scenarioResults,
@@ -1273,6 +1274,7 @@ export function createCandidateReceipt({
 {
     requireCleanAttemptConsumerAdmission({
         consumerId: 'release-reliability',
+        attemptEvidence,
         repositoryRoot
     });
     const receipt = {
