@@ -47,6 +47,7 @@ public readonly record struct AdminSessionTouchRequest(
 
 public readonly record struct AdminSessionTouchRuntimeSnapshot(
     int QueueEntries,
+    int InFlightCount,
     int QueueCapacity,
     int TrackingEntries,
     int MaxTrackingEntries,
@@ -78,6 +79,7 @@ public sealed class AdminSessionTouchScheduler : BackgroundService, IAdminSessio
     private readonly ILogger<AdminSessionTouchScheduler> _logger;
     private readonly TaskCompletionSource _drained = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private int _queueEntries;
+    private int _inFlightCount;
     private long _trackingBytes;
     private long _enqueuedCount;
     private long _debouncedCount;
@@ -173,6 +175,7 @@ public sealed class AdminSessionTouchScheduler : BackgroundService, IAdminSessio
             PruneTrackingLocked(_timeProvider.GetUtcNow());
             return new AdminSessionTouchRuntimeSnapshot(
                 Volatile.Read(ref _queueEntries),
+                Volatile.Read(ref _inFlightCount),
                 _options.TouchQueueCapacity,
                 _tracking.Count,
                 _options.MaxTouchTrackingEntries,
@@ -194,17 +197,25 @@ public sealed class AdminSessionTouchScheduler : BackgroundService, IAdminSessio
             await foreach (AdminSessionTouchRequest request in _queue.Reader.ReadAllAsync(stoppingToken).ConfigureAwait(false))
             {
                 Interlocked.Decrement(ref _queueEntries);
-                await ProcessAsync(request, stoppingToken).ConfigureAwait(false);
-                lock (_gate)
+                Interlocked.Increment(ref _inFlightCount);
+                try
                 {
-                    if (_tracking.TryGetValue(request.SessionId, out TouchTrackingEntry? current))
+                    await ProcessAsync(request, stoppingToken).ConfigureAwait(false);
+                    lock (_gate)
                     {
-                        _tracking[request.SessionId] = current with
+                        if (_tracking.TryGetValue(request.SessionId, out TouchTrackingEntry? current))
                         {
-                            Pending = false
-                        };
+                            _tracking[request.SessionId] = current with
+                            {
+                                Pending = false
+                            };
+                        }
+                        PruneTrackingLocked(_timeProvider.GetUtcNow());
                     }
-                    PruneTrackingLocked(_timeProvider.GetUtcNow());
+                }
+                finally
+                {
+                    Interlocked.Decrement(ref _inFlightCount);
                 }
             }
         }
