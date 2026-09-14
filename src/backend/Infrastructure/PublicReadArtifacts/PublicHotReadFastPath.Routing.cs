@@ -147,7 +147,8 @@ public static partial class PublicHotReadFastPath
         foreach (string headerName in headers.Keys)
         {
             if (headerName.StartsWith("X-Fsus-", StringComparison.OrdinalIgnoreCase)
-                && !AnonymousGatewayHeaderGuardMiddleware.IsAllowedHeader(headerName))
+                && !AnonymousGatewayHeaderGuardMiddleware.IsAllowedHeader(headerName)
+                && !RuntimeCacheEvidenceMiddleware.AllowsAuthenticatedHeader(context, headerName))
             {
                 return true;
             }

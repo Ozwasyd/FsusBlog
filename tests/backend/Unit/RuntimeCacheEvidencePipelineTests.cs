@@ -1,11 +1,15 @@
 using System.Net;
 
 using FsusBlog.Server.Infrastructure.Middlewares;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Testing;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+
+using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -31,6 +35,44 @@ public sealed class RuntimeCacheEvidencePipelineTests
         Assert.NotNull(observation);
         Assert.Equal(StatusCodes.Status200OK, observation.Status);
         Assert.Equal("/probe", observation.Path);
+    }
+
+    [Fact]
+    public async Task AuthenticatedEvidenceHeaders_DoNotForcePublicHotReadCredentialBypass()
+    {
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [RuntimeCacheEvidenceMiddleware.SecretConfigurationKey] = Secret
+            })
+            .Build();
+        IHostEnvironment environment = Substitute.For<IHostEnvironment>();
+        environment.EnvironmentName.Returns("Test");
+        bool classified = false;
+        bool credentialBypass = true;
+        var middleware = new RuntimeCacheEvidenceMiddleware(
+            context =>
+            {
+                classified = PublicHotReadFastPath.TryCreateRequestFeatureForTests(
+                    context,
+                    out _,
+                    out _,
+                    out credentialBypass);
+                return Task.CompletedTask;
+            },
+            configuration,
+            environment,
+            new RuntimeCacheEvidenceStore());
+        var context = new DefaultHttpContext();
+        context.Request.Method = HttpMethods.Get;
+        context.Request.Path = "/api/binary/article/hot/10.aeds";
+        context.Request.Headers[RuntimeCacheEvidenceMiddleware.RequestIdHeader] = "pipeline-fast-path-0001";
+        context.Request.Headers[RuntimeCacheEvidenceMiddleware.SecretHeader] = Secret;
+
+        await middleware.InvokeAsync(context);
+
+        Assert.True(classified);
+        Assert.False(credentialBypass);
     }
 
     [Theory]
