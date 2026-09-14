@@ -151,45 +151,51 @@ defineExpose({
 </script>
 
 <style scoped>
-.article-write-editor {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  min-width: 0;
+.article-write-editor
+ {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
 }
 
 .article-write-editor__secondary,
-.article-write-editor__surface-menu {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
+.article-write-editor__surface-menu
+ {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
 }
 
-.article-write-editor__secondary {
-  margin-top: 0.75rem;
-  color: var(--fsusblog-text-tertiary);
-  font-size: 12px;
-  line-height: 1.4;
+.article-write-editor__secondary
+ {
+    margin-top: 0.75rem;
+    color: var(--fsusblog-text-tertiary);
+    font-size: 12px;
+    line-height: 1.4;
 }
 
-.article-write-editor__secondary button {
-  min-height: 2.75rem;
-  padding-inline: 0.5rem;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
+.article-write-editor__secondary button
+ {
+    min-height: 2.75rem;
+    padding-inline: 0.5rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
 }
 
-.article-write-editor__secondary button[aria-pressed='true'] {
-  color: var(--fsusblog-text-primary);
-  font-weight: 700;
+.article-write-editor__secondary button[aria-pressed='true']
+ {
+    color: var(--fsusblog-text-primary);
+    font-weight: 700;
 }
 
-.article-write-editor__secondary button:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
+.article-write-editor__secondary button:disabled
+ {
+    cursor: not-allowed;
+    opacity: 0.6;
 }
 </style>

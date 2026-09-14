@@ -113,11 +113,12 @@ defineExpose({
 </script>
 
 <style scoped>
-.editor-shell-minimal {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  align-self: stretch;
-  min-width: 0;
+.editor-shell-minimal
+ {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    align-self: stretch;
+    min-width: 0;
 }
 </style>

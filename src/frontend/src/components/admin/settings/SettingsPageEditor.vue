@@ -34,7 +34,8 @@ const content = computed({
 </script>
 
 <style scoped>
-.editor-container-minimal {
-  width: 100%;
+.editor-container-minimal
+ {
+    width: 100%;
 }
 </style>

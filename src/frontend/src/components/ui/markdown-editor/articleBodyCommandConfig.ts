@@ -88,7 +88,7 @@ export function isArticleBodyPrimaryCommandKey(key: string): key is ArticleBodyP
 }
 
 export function applyArticleBodyPrimaryPriorities<
-    T extends { readonly key: string; readonly priority?: number }
+    T extends { readonly key: string; readonly priority?: number; }
 >(commands: readonly T[]): T[]
 {
     return commands.map((command) =>
@@ -105,7 +105,7 @@ export function applyArticleBodyPrimaryPriorities<
     });
 }
 
-export function composeArticleBodyEditorCommands<T extends { readonly key: string; readonly priority?: number }>(
+export function composeArticleBodyEditorCommands<T extends { readonly key: string; readonly priority?: number; }>(
     defaultCommands: readonly T[],
     extraCommands: readonly T[],
     excludedKeys: readonly string[] = []

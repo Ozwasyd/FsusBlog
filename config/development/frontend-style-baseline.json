@@ -1,9 +1,9 @@
 {
     "schema": "fsusblog.frontend-style-baseline.v1",
-    "generatedFrom": "source-state:af6c9bcc34912452d75a27a89f3daab27827db4ea3e469341a06e4f5630dd82d",
-    "sourceStateSha256": "af6c9bcc34912452d75a27a89f3daab27827db4ea3e469341a06e4f5630dd82d",
+    "generatedFrom": "source-state:c2912bb087299da5768ba3c9e3ba8474d254f99e66a3227c62abaf1c3238b2c5",
+    "sourceStateSha256": "c2912bb087299da5768ba3c9e3ba8474d254f99e66a3227c62abaf1c3238b2c5",
     "configurationSha256": "8bc09626eefe96c53c96eaf7a77cf4926ee02ce82eac3203cfa154dcfb8c0b05",
-    "violationCount": 63919,
+    "violationCount": 63910,
     "fileCount": 1506,
     "files": [
         {
@@ -257,7 +257,7 @@
         },
         {
             "path": "src/frontend/src/api/authoring.ts",
-            "sourceSha256": "07fe57e90529ccfe671f226ef79312f4d158024983e423d5478aef3036968f5f",
+            "sourceSha256": "1701a61217b559feb1360668e3d8dd9772908e325311e474bd5da505af1c9531",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -853,7 +853,7 @@
         },
         {
             "path": "src/frontend/src/components/admin/article/ArticlePrivatePreviewPanel.vue",
-            "sourceSha256": "d8b1223dd20840ca98d432883440f7c4dc523cf7e21f52628e4f0879021f42ab",
+            "sourceSha256": "381db33243d0ca1dd1e612542ba72c77058d26f4b26ab369ee1fc6205e2723ce",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -881,7 +881,7 @@
         },
         {
             "path": "src/frontend/src/components/admin/article/ArticleWriteEditor.vue",
-            "sourceSha256": "a6620441a5c2027e0cdf0467093f82718afc9d159bdaa3daeed610dcff1ef130",
+            "sourceSha256": "def24329e64864bdcec537c7a42675ac8978066e60109c3cb3dfc9c4ff770e99",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -911,7 +911,7 @@
         },
         {
             "path": "src/frontend/src/components/admin/article/ArticleWriteTitleField.vue",
-            "sourceSha256": "9d7e4a44060e9f8bcfb95b9bb9b3b10d2413db493aaa2ad0250c53166da86de2",
+            "sourceSha256": "bf048859818778b98e9dc805e2d7d430cd3de13bf512dbc81ff56b15973e6a77",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -960,16 +960,14 @@
         },
         {
             "path": "src/frontend/src/components/admin/settings/BrandAssetUploadField.vue",
-            "sourceSha256": "9df9411b0d2ed81ef2f403596e009960b7bea6f015f1d03739388d7065fd53ac",
-            "violationCount": 1,
-            "violationDigest": "fd8a3fb28a01209374fcdea9d30d37b6deb5f0e1342850afc68dc5dc101bc2f3",
-            "rules": {
-                "eslint/@typescript-eslint/require-await": 1
-            }
+            "sourceSha256": "e5e95dca069b9ff730c3b9dbe30b4ba261e89adc4ffcd35ee14ac015727a7ab7",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "src/frontend/src/components/admin/settings/SettingsPageEditor.vue",
-            "sourceSha256": "a19815f58de0f5f922b2d1e6dfad73f24b04d7625baeda010e401c1438dee3fb",
+            "sourceSha256": "ad05989cf48bb3e9fc711bc78e0acf5a2a40b1dd53f77e6cf097e6ae96ddfff9",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -1385,14 +1383,10 @@
         },
         {
             "path": "src/frontend/src/components/ui/MarkdownEditorAdapter.vue",
-            "sourceSha256": "e9df7251a3a45f8e0b4874cc7565beccf22ddfac13a3a7d17339865a599a2ccc",
-            "violationCount": 3,
-            "violationDigest": "df8da28fe635aa5ea13f2f11cf7a081d65c1f47145eb215f28ff409c874f8e69",
-            "rules": {
-                "eslint/@typescript-eslint/prefer-nullish-coalescing": 1,
-                "stylelint/property-no-deprecated": 1,
-                "stylelint/scss/at-rule-no-unknown": 1
-            }
+            "sourceSha256": "6f6112ca4c82259868cb36708856b7f7eb2cc0cd37ec4516a9fb950feb17fa98",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "src/frontend/src/components/ui/MarkdownRenderer.vue",
@@ -1403,7 +1397,7 @@
         },
         {
             "path": "src/frontend/src/components/ui/MarkdownTextEditor.vue",
-            "sourceSha256": "5fc120f3dffe3428d90517efe6ed8564f57779c8d39bc766460913612b300e4b",
+            "sourceSha256": "5b20b23e44320b84b37c03a8ac6eac1bc7092fa95ee7b38b940330b12b7f4134",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -1454,7 +1448,7 @@
         },
         {
             "path": "src/frontend/src/components/ui/markdown-editor/commands.ts",
-            "sourceSha256": "8e0f619c2608f68a8374108053a01f95d4f4bb3b6b6413fb3bdaec0993f278c8",
+            "sourceSha256": "501c0b440445535f9bded22c5419541e4794b6385997d70c86ca92227aa54c4c",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -1468,7 +1462,7 @@
         },
         {
             "path": "src/frontend/src/components/ui/markdownEditorProvider.ts",
-            "sourceSha256": "e71309482263a3d113f80f2838c21ec595e2bc8e83fdebef5198b7730db7246a",
+            "sourceSha256": "4f4611254b6a1b625946950fdd21c7ba85d14b55fe96aec1701ac98dd2b4e6bd",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -3913,7 +3907,7 @@
         },
         {
             "path": "src/frontend/src/ui-contracts/markdownEditor.ts",
-            "sourceSha256": "9f2b8091022e408002f628e7c60a748cb189a8a82060b61773ba548319a44295",
+            "sourceSha256": "fa9a1ca8712242e229e3c1c245b998e506da091ac8e348138ebe6db7cb1012d3",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -4345,12 +4339,10 @@
         },
         {
             "path": "src/frontend/src/views/admin/Settings.vue",
-            "sourceSha256": "396dc82e76d06a9057ad8343b7181e6a26d12258eec2fa67f92240a4970b33d1",
-            "violationCount": 6,
-            "violationDigest": "68f20cf0c36bde6fd6a63a6acfc8fd5d9647cc9bebaf45e88a1da40fef833428",
+            "sourceSha256": "ad91ea0591cb4bb42c1a74708005267ef575966107f16fa57efb8f092973e7f9",
+            "violationCount": 2,
+            "violationDigest": "db2e72eb973863b37666b7599ca57488a22f77a684aa33d272bc9ff76f146cf8",
             "rules": {
-                "eslint/vue/html-indent": 2,
-                "eslint/vue/max-attributes-per-line": 2,
                 "eslint/vue/multi-word-component-names": 1,
                 "stylelint/scss/at-rule-no-unknown": 1
             }
@@ -4400,7 +4392,7 @@
         },
         {
             "path": "src/frontend/src/views/admin/article/Write.vue",
-            "sourceSha256": "b9ca905a599c6b175dd23be06198a56fa88a6b1b9e42c3c58598c93281410c42",
+            "sourceSha256": "c7cf1701a316743f8ee1b9027b430f03c4a182bfa1d518afc5fa7b066e5bb9e5",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -4561,7 +4553,7 @@
         },
         {
             "path": "src/frontend/src/views/admin/security/SecurityRiskControl.vue",
-            "sourceSha256": "8c13867f441c2d57392dd9a4e86b83416655e46f4d2ea59746e24f52602a18b2",
+            "sourceSha256": "138515a8ac8c523733d90e8a675347d673d53ac709572083f1734053d1834df0",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -5675,14 +5667,14 @@
         },
         {
             "path": "tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
-            "sourceSha256": "2766e6cff5faf563f458456026cdeb34f4c660e080281562d908e31d1fb76ee1",
+            "sourceSha256": "9f5ca2eabd765a385ba52ad5d915a52e3314c370fd4438315aedc0da9c8d8020",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
         },
         {
             "path": "tests/frontend/checks/static/check-article-recovery-journal.mjs",
-            "sourceSha256": "d14fb3844b762fa12a55c578c9d83bb12fa204d80988a4193c0c06b1d789087e",
+            "sourceSha256": "8ecfff2c195c32acacbdebdf914dc6d647f3904dfb3d84c93e56c19a1e659d93",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -5952,7 +5944,7 @@
         },
         {
             "path": "tests/frontend/checks/static/check-markdown-editor-state-governance.mjs",
-            "sourceSha256": "7774f312b78017752e7b2c4221f49d47dc165aece5661cde53e2d7c050e78f2a",
+            "sourceSha256": "7cc937d9639a3353756ce97b8aac36ba67e84d576302512164ec7105ba916c3a",
             "violationCount": 0,
             "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "rules": {}
@@ -6184,12 +6176,10 @@
         },
         {
             "path": "tests/frontend/checks/static/check-security-consistency.mjs",
-            "sourceSha256": "8aeef73d93a02d672b2091471efe79bb48f585205cac2012d1bb4d27e8319a53",
-            "violationCount": 1,
-            "violationDigest": "7e677d5a52f139eafb67f0a2c2904ac2ba9a3df9e75b37d912057c9be30975a6",
-            "rules": {
-                "eslint/import-x/no-relative-parent-imports": 1
-            }
+            "sourceSha256": "746f2382dc8d6ee2299d3af829cd31f0b9c1eeaa0025977fa020518d280920a2",
+            "violationCount": 0,
+            "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "rules": {}
         },
         {
             "path": "tests/frontend/checks/static/check-server-try-catch.mjs",
