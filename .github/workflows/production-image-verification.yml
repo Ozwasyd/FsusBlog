@@ -48,6 +48,15 @@ on:
             - tools/architecture/FsusBlog.DiLifetimeAnalyzer/**
             - tools/docker/backend-input-closure.mjs
             - tools/docker/backend-input-environment.mjs
+            - tools/docker/ssr-runtime-closure.mjs
+            - config/build/ssr-runtime-inputs.json
+            - tests/tools/ssr-runtime-closure.test.mjs
+            - tests/tools/production-build-bootstrap.test.mjs
+            - tests/tools/production-build-layout.test.mjs
+            - tools/bootstrap-acceptance-env.sh
+            - tools/build-native.sh
+            - tools/test-matrix/production-build-layout.mjs
+            - tools/test/lanes/production-build-artifacts.sh
             - tools/deployment/check-production-compose-environment.mjs
             - tools/deployment/check-production-openresty-config.sh
             - tools/deployment/verify-container-termination.mjs

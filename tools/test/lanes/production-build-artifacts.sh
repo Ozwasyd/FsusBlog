@@ -6,7 +6,7 @@ ARTIFACT_ROOT="${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-$ROOT_DIR/.tmp/ci-product
 PAYLOAD_ROOT="$ARTIFACT_ROOT/payload"
 STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 STARTED_AT_MS="$(node -e 'process.stdout.write(String(Date.now()))')"
-REQUESTED_DOMAINS="${FSUSBLOG_CI_PRODUCTION_BUILD_DOMAINS:-backend-runtime,test-runtime,frontend-dist,wasm,generated-contracts}"
+REQUESTED_DOMAINS="${FSUSBLOG_CI_PRODUCTION_BUILD_DOMAINS:-backend-runtime,test-runtime,frontend-dist,ssr-runtime,wasm,generated-contracts}"
 REUSE_BUILD_OUTPUTS="${FSUSBLOG_CI_PRODUCTION_REUSE_BUILD_OUTPUTS:-0}"
 PRODUCER_RUN_ID="${GITHUB_RUN_ID:-${FSUSBLOG_TEST_RUN_ID:?FSUSBLOG_TEST_RUN_ID is required outside GitHub Actions}}"
 PRODUCER_RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-1}"
@@ -14,6 +14,13 @@ PRODUCER_WORKFLOW="${GITHUB_WORKFLOW:-Local production}"
 PRODUCER_JOB="${GITHUB_JOB:-production-build-artifacts}"
 export FSUSBLOG_ZK_PRODUCTION_ENABLED="${FSUSBLOG_ZK_PRODUCTION_ENABLED:-0}"
 IFS=',' read -r -a DOMAIN_LIST <<<"$REQUESTED_DOMAINS"
+_ssr_declared=0
+for domain in "${DOMAIN_LIST[@]}"; do
+    if [[ "$domain" == "ssr-runtime" ]]; then _ssr_declared=1; fi
+done
+for domain in "${DOMAIN_LIST[@]}"; do
+    if [[ "$domain" == "frontend-dist" && "$_ssr_declared" == "0" ]]; then DOMAIN_LIST+=(ssr-runtime); fi
+done
 
 node --test \
     "$ROOT_DIR/tests/tools/wasm-artifact-ownership.test.mjs" \
@@ -62,7 +69,7 @@ if ((${#DOMAIN_LIST[@]} == 0)); then
 fi
 for domain in "${DOMAIN_LIST[@]}"; do
     case "$domain" in
-        backend-runtime | test-runtime | frontend-dist | wasm | generated-contracts) ;;
+        backend-runtime | test-runtime | frontend-dist | ssr-runtime | wasm | generated-contracts) ;;
         *)
             printf '[production-build-artifacts] unknown smart-gate artifact domain: %s\n' "$domain" >&2
             exit 1
@@ -165,6 +172,11 @@ if HasDomain test-runtime; then
 fi
 if HasDomain frontend-dist; then
     AdoptDirectory "${FSUSBLOG_FRONTEND_DIST_ROOT:?FSUSBLOG_FRONTEND_DIST_ROOT is required}" "$PAYLOAD_ROOT/frontend-dist"
+    node "$ROOT_DIR/tools/docker/ssr-runtime-closure.mjs" materialize \
+        --client-root "$ROOT_DIR/src/frontend" \
+        --dist "$PAYLOAD_ROOT/frontend-dist" \
+        --inventory "$ROOT_DIR/config/build/ssr-runtime-inputs.json" \
+        --output "$PAYLOAD_ROOT/ssr-runtime"
 fi
 if HasDomain wasm; then
     WASM_SOURCE="${FSUSBLOG_FRONTEND_WASM_ROOT:-$ROOT_DIR/src/frontend/public/wasm}"
@@ -212,6 +224,8 @@ CREATE_ARGS=(
     --input tools/build-final-image.sh
     --input tools/docker/backend-input-closure.mjs
     --input tools/docker/backend-input-environment.mjs
+    --input tools/docker/ssr-runtime-closure.mjs
+    --input config/build/ssr-runtime-inputs.json
     --input tools/build-wasm-artifact.sh
     --input tools/check-wasm-artifact-ownership.mjs
     --input tools/frontend/ensure-wasm.mjs

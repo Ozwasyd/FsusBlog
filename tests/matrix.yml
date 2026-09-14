@@ -2016,6 +2016,7 @@ tiers:
               global.json,
               config/build/backend-docker-inputs.json,
               config/build/backend-restore.xml,
+              config/build/ssr-runtime-inputs.json,
               ops/docker/FsusBlog.Server.Dockerfile,
               src/backend/**,
               src/core/**,
@@ -2032,6 +2033,7 @@ tiers:
               tools/frontend/**,
               tools/docker/backend-input-closure.mjs,
               tools/docker/backend-input-environment.mjs,
+              tools/docker/ssr-runtime-closure.mjs,
               tools/build-final-image.sh,
               tools/check-wasm-artifact-ownership.mjs,
               tools/build-wasm-artifact.sh,
@@ -3442,11 +3444,14 @@ tiers:
           - tests/tools/runtime-publish-profile.test.mjs
           - tests/tools/final-image-toolchain-pin.test.mjs
           - tests/tools/backend-docker-input-closure.test.mjs
+          - tests/tools/ssr-runtime-closure.test.mjs
           - .github/workflows/production-image-verification.yml
           - tools/docker/backend-input-closure.mjs
           - tools/docker/backend-input-environment.mjs
+          - tools/docker/ssr-runtime-closure.mjs
           - config/build/backend-docker-inputs.json
           - config/build/backend-restore.xml
+          - config/build/ssr-runtime-inputs.json
           - tools/runtime-profiles/runtime-publish-profiles.json
           - tools/runtime-profiles/runtime-publish-profile.mjs
           - tools/runtime-profiles/runtime-publish-isolation.mjs
