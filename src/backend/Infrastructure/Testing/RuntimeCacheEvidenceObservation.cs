@@ -197,7 +197,9 @@ internal sealed partial class RuntimeCacheEvidenceObservation : IDisposable
 
     internal void MarkLayerSource(string layerSource)
     {
-        if (!string.IsNullOrWhiteSpace(layerSource))
+        if (!string.IsNullOrWhiteSpace(layerSource)
+            && !(string.Equals(_layerSource, "l1-frame", StringComparison.Ordinal)
+                && string.Equals(layerSource, "l1-object", StringComparison.Ordinal)))
         {
             _layerSource = layerSource;
         }

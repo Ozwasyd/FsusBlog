@@ -40,7 +40,7 @@ export async function produceArticleDetailL1Receipt(options) {
     path: route,
     subcaseId,
     parityGroup: 'article-detail-l1-payload',
-    headers: { Cookie: 'runtime-cache-l1-evidence=1' }
+    headers: { Authorization: 'Bearer runtime-cache-l1-evidence' }
   }))
 
   return produceMeasuredScenarioReceipt(options, {
