@@ -41,7 +41,7 @@ internal sealed class RuntimeCacheEvidenceMiddleware(
         {
             await hashingBody.FlushAsync(context.RequestAborted);
             context.Response.Body = originalBody;
-            store.Store(observation.Complete(context.Response.StatusCode, hashingBody.GetDigest()));
+            store.Store(observation, context.Response.StatusCode, hashingBody.GetDigest());
         }
     }
 
