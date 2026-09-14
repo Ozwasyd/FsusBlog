@@ -461,7 +461,7 @@ function rawRequest(request) {
   return result
 }
 
-function buildRawEvidence({ runId, scenarioId, attemptId, requests }) {
+function buildRawEvidence({ runId, scenarioId, attemptId, requests, faultTimeline = [] }) {
   const projectedRequests = requests.map(rawRequest)
   const redisCommands = requests.flatMap((request) => request.redisCommands.map((command) => ({
     requestId: request.id,
@@ -494,7 +494,7 @@ function buildRawEvidence({ runId, scenarioId, attemptId, requests }) {
       layerSource: request.layerSource,
       source: 'runtime-cache-evidence-observation'
     })),
-    faultTimeline: []
+    faultTimeline
   }
 }
 
@@ -515,7 +515,7 @@ function writeImmutable(file, value) {
   return bytes
 }
 
-export async function producePublicHotReadReceipt(options) {
+export async function produceMeasuredScenarioReceipt(options, plan) {
   const { scenario, identity, baseUrl, secret, outputFile } = options
   const fetchImpl = options.fetchImpl ?? globalThis.fetch
   const timeoutMs = options.timeoutMs ?? 15000
@@ -528,29 +528,33 @@ export async function producePublicHotReadReceipt(options) {
   const sourceStart = identity.source
   const overallStartedAt = nowIso()
   const runtimeSnapshotStart = options.collectMemory ? null : await takeRuntimeSnapshot({ fetchImpl, baseUrl, secret, timeoutMs })
-  const warmupSpecs = publicHotReadSpecs(scenario.warmupRequests, 'warmup')
   const warmupStartedAt = nowIso()
-  await mapConcurrent(warmupSpecs, scenario.concurrency, (spec, index) => collectObservedRequest({
-    fetchImpl, baseUrl, secret, scenarioId: `${scenario.id}-warmup`, ordinal: index + 1, spec, timeoutMs
-  }))
+  const collect = (spec, index, phase = 'sample') => collectObservedRequest({
+    fetchImpl,
+    baseUrl: spec.baseUrl ?? baseUrl,
+    secret,
+    scenarioId: phase === 'sample' ? scenario.id : `${scenario.id}-${phase}`,
+    ordinal: index + 1,
+    spec,
+    timeoutMs
+  })
+  const warmupRequests = await plan.warmup({ collect, fetchImpl, baseUrl, secret, timeoutMs, runId, attemptId })
   const warmupEndedAt = nowIso()
 
-  const sampleSpecs = publicHotReadSpecs(scenario.requests, 'sample')
   const sampleStartedAt = nowIso()
-  const requests = await mapConcurrent(sampleSpecs, scenario.concurrency, (spec, index) => collectObservedRequest({
-    fetchImpl, baseUrl, secret, scenarioId: scenario.id, ordinal: index + 1, spec, timeoutMs
-  }))
+  const measured = await plan.sample({ collect, fetchImpl, baseUrl, secret, timeoutMs, runId, attemptId })
   const sampleEndedAt = nowIso()
-  const fixedCount = Math.ceil(requests.length / 2)
-  const assertionResults = [
-    assertionForGroup('fixed-ip-l0-allow', requests.slice(0, fixedCount)),
-    assertionForGroup('unique-ip-l0-allow', requests.slice(fixedCount))
-  ]
+  const requests = measured.requests ?? []
+  if (requests.length !== scenario.requests) {
+    throw new Error(`${scenario.id} produced ${requests.length} measured requests; expected ${scenario.requests}`)
+  }
+  const assertionResults = measured.assertionResults ?? []
   const failed = assertionResults.find((item) => item.assertion.status === 'failed')
+  const faultTimeline = measured.faultTimeline ?? []
   const context = { scenario, identity, sourceStart, runId, attemptId, overallStartedAt, sampleStartedAt, sampleEndedAt, runtimeSnapshotStart, fetchImpl, baseUrl, secret, timeoutMs }
   const memory = await (options.collectMemory ?? collectDefaultMemoryObservation)(context)
   const cleanupProof = await (options.collectCleanup ?? collectDefaultCleanupProof)(context)
-  const raw = buildRawEvidence({ runId, scenarioId: scenario.id, attemptId, requests })
+  const raw = buildRawEvidence({ runId, scenarioId: scenario.id, attemptId, requests, faultTimeline })
   const rawRelativePath = `.tmp/perf/runtime-cache/raw/${scenario.id}/${attemptId}.json`
   const rawFile = path.resolve(options.repositoryRoot ?? root, rawRelativePath)
   const rawBytes = writeImmutable(rawFile, raw)
@@ -575,10 +579,10 @@ export async function producePublicHotReadReceipt(options) {
       fixtureDigest: identity.fixtureDigest,
       requestCount: scenario.requests,
       concurrency: scenario.concurrency,
-      parameters: { route: '/api/binary/system/seo', identityModes: ['fixed-ip', 'unique-ip'], runId }
+      parameters: { ...measured.parameters, runId }
     },
     windows: {
-      warmup: { startedAt: warmupStartedAt, endedAt: warmupEndedAt, requestCount: warmupSpecs.length },
+      warmup: { startedAt: warmupStartedAt, endedAt: warmupEndedAt, requestCount: warmupRequests.length },
       sample: { startedAt: sampleStartedAt, endedAt: sampleEndedAt, requestCount: requests.length }
     },
     rawEvidence: {
@@ -606,10 +610,10 @@ export async function producePublicHotReadReceipt(options) {
       p99: percentile(latencies, 99),
       max: Math.max(...latencies)
     },
-    faultTimeline: [],
+    faultTimeline,
     cleanupProof,
     assertions: assertionResults.map((item) => item.assertion),
-    firstFailure: failed ? buildFirstFailure(failed, { attemptId, attemptNumber, rawEvidenceDigest }) : null
+    firstFailure: failed ? buildFirstFailure(failed, { attemptId, attemptNumber, rawEvidenceDigest, faultTimeline }) : null
   })
   const written = writeReceiptPreservingFirstFailure(outputFile, receipt)
   const validationErrors = validateRuntimeCacheReceipt(written, {
@@ -625,6 +629,29 @@ export async function producePublicHotReadReceipt(options) {
   }
   if (validationErrors.length > 0) throw new Error(`produced receipt is invalid: ${validationErrors.join('; ')}`)
   return written
+}
+
+export async function producePublicHotReadReceipt(options) {
+  const { scenario } = options
+  return produceMeasuredScenarioReceipt(options, {
+    warmup: async ({ collect }) => {
+      const specs = publicHotReadSpecs(scenario.warmupRequests, 'warmup')
+      return mapConcurrent(specs, scenario.concurrency, (spec, index) => collect(spec, index, 'warmup'))
+    },
+    sample: async ({ collect }) => {
+      const specs = publicHotReadSpecs(scenario.requests, 'sample')
+      const requests = await mapConcurrent(specs, scenario.concurrency, (spec, index) => collect(spec, index))
+      const fixedCount = Math.ceil(requests.length / 2)
+      return {
+        requests,
+        assertionResults: [
+          assertionForGroup('fixed-ip-l0-allow', requests.slice(0, fixedCount)),
+          assertionForGroup('unique-ip-l0-allow', requests.slice(fixedCount))
+        ],
+        parameters: { route: '/api/binary/system/seo', identityModes: ['fixed-ip', 'unique-ip'] }
+      }
+    }
+  })
 }
 
 function failureDocument({ scenarioId, stage, error, source }) {
