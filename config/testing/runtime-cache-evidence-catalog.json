@@ -1,0 +1,19 @@
+{
+  "schema": "fsusblog.runtime-cache-evidence-catalog.v1",
+  "receiptSchema": "fsusblog.runtime-cache-scenario-receipt.v1",
+  "scenarios": [
+    { "id": "public-hot-read", "requests": 200, "concurrency": 32, "warmupRequests": 32, "requiredAssertions": ["fixed-ip-l0-allow", "unique-ip-l0-allow"], "requirements": { "redisCommandsMax": 0, "dbCommandsMax": 0 } },
+    { "id": "article-detail-l1", "requests": 200, "concurrency": 32, "warmupRequests": 16, "requiredAssertions": ["l1-zero-commands", "redis-fault-latency"], "requirements": { "redisCommandsMax": 0, "dbCommandsMax": 0, "redisFaultLatencyRatioMax": 1.25 } },
+    { "id": "cache-miss-singleflight", "requests": 1100, "concurrency": 1000, "warmupRequests": 0, "requiredAssertions": ["same-key-100", "same-key-1000", "rebuild-count", "active-keyed-drained"], "requirements": { "rebuildCountMax": 1, "activeKeyedEntriesFinal": 0 } },
+    { "id": "distributed-invalidation", "requests": 64, "concurrency": 8, "warmupRequests": 16, "requiredAssertions": ["unrelated-policy-residency", "public-hot-read-ready", "two-node-route", "durable-convergence", "residency-convergence"], "requirements": { "nodes": 2, "durableConvergence": true } },
+    { "id": "l1-residency", "requests": 100000, "concurrency": 64, "warmupRequests": 0, "requiredAssertions": ["unique-key-count", "logical-budget", "capacity-budget", "no-global-lock-tail"], "requirements": { "uniqueKeys": 100000, "logicalWithinBudget": true, "capacityWithinBudget": true } },
+    { "id": "pagination", "requests": 8, "concurrency": 1, "warmupRequests": 4, "requiredAssertions": ["logical-page-command-constant", "cursorless-deep-zero-commands"], "requirements": { "logicalPages": [1, 10, 100, 1000], "constantDbCommands": true, "cursorlessDeepRedisCommandsMax": 0, "cursorlessDeepDbCommandsMax": 0 } },
+    { "id": "related-reading", "requests": 102, "concurrency": 100, "warmupRequests": 1, "requiredAssertions": ["cold-db-budget", "same-key-build", "rebuild-count", "hot-direct-frame"], "requirements": { "coldDbCommandsMax": 2, "rebuildCountMax": 1, "hotLayer": "l1-frame" } },
+    { "id": "redis-fault-classes", "requests": 48, "concurrency": 4, "warmupRequests": 8, "requiredAssertions": ["fault-contract-classification", "recovery"], "requirements": { "faults": ["latency-5ms", "latency-50ms", "latency-500ms", "latency-15000ms", "disconnect", "recovery"] } },
+    { "id": "revocation", "requests": 18, "concurrency": 1, "warmupRequests": 4, "requiredAssertions": ["lookup-growth-constant", "classification-count"], "requirements": { "sizes": [1, 10, 100, 1000, 10000, 100000], "classificationCount": 1, "lookupGrowth": "constant" } },
+    { "id": "hot-featured-frame", "requests": 200, "concurrency": 100, "warmupRequests": 0, "requiredAssertions": ["same-identity-build", "rebuild-count", "db-command-budget", "atomic-redis-publication"], "requirements": { "rebuildCountMax": 1, "dbCommandsMax": 1, "atomicRedisPublication": true } },
+    { "id": "sitemap", "requests": 100, "concurrency": 32, "warmupRequests": 8, "requiredAssertions": ["l1-zero-commands", "same-generation-build", "rebuild-count"], "requirements": { "redisCommandsMax": 0, "dbCommandsMax": 0, "rebuildCountMax": 1 } },
+    { "id": "security-projections", "requests": 512, "concurrency": 64, "warmupRequests": 32, "requiredAssertions": ["hot-zero-commands", "high-cardinality-bounded", "two-node-route", "durable-convergence", "residency-convergence"], "requirements": { "redisCommandsMax": 0, "dbCommandsMax": 0, "nodes": 2, "durableConvergence": true } },
+    { "id": "telemetry", "requests": 1000, "concurrency": 64, "warmupRequests": 32, "requiredAssertions": ["unsampled-l1-zero-allocation", "exact-hit-count", "full-miss-error-capture"], "requirements": { "unsampledL1AllocationBytesMax": 0, "exactHitCount": true, "fullMissErrorCapture": true } }
+  ]
+}

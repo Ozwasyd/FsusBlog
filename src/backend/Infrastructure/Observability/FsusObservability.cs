@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Infrastructure.Testing;
 
 namespace FsusBlog.Server.Infrastructure.Observability;
 
@@ -494,6 +495,11 @@ public static class FsusObservability
 
     public static void RecordCacheOperation(string operation, string policyId, string layer, string result, TimeSpan duration)
     {
+        if (string.Equals(result, "hit", StringComparison.OrdinalIgnoreCase))
+        {
+            RuntimeCacheEvidenceObservation.Current?.MarkLayerSource(
+                string.Equals(layer, "l1", StringComparison.OrdinalIgnoreCase) ? "l1-object" : layer);
+        }
         var key = new CacheOperationMetricKey(operation, policyId, layer, result);
         CacheOperationMetricState state = s_cacheOperationRuntimeCounters.GetOrAdd(
             key,
@@ -521,6 +527,8 @@ public static class FsusObservability
         bool negative,
         CacheL1HitObservation observation)
     {
+        RuntimeCacheEvidenceObservation.Current?.MarkLayerSource(
+            operation == CacheL1Operation.OwnedFrame ? "l1-frame" : "l1-object");
         CacheL1MetricState state = ResolveCacheL1State(policyId, operation, negative);
         state.IncrementCount();
         CachePolicyHitMissMetricState policyState = ResolveCachePolicyHitMissState(policyId);

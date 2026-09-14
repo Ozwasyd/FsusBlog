@@ -1,6 +1,7 @@
 using System.Threading;
 
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Testing;
 
 using StackExchange.Redis.Profiling;
 
@@ -41,8 +42,12 @@ internal sealed class CacheCoordinationObservation(CachePolicyId policy, ICacheS
     public void Dispose()
     {
         s_current.Value = _parent;
+        string[] redisCommands = RedisProfile.FinishProfiling()
+            .Select(static command => command.Command.ToString().ToUpperInvariant())
+            .ToArray();
+        RuntimeCacheEvidenceObservation.Current?.RecordRedisCommands(redisCommands);
         FsusObservability.RecordCacheCoordination(
-            CachePolicyTelemetry.Name(policy), RedisProfile.FinishProfiling().LongCount(),
+            CachePolicyTelemetry.Name(policy), redisCommands.LongLength,
             LocalWait, LeaseWait, RebuildCount, ReleaseOutcome,
             coordinator is CacheSingleFlightCoordinator concrete ? concrete.ActiveEntryCount : null);
     }

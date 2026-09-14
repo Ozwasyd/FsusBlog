@@ -15,6 +15,7 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Shared.Contracts.Outputs;
 
 using Microsoft.Extensions.Primitives;
@@ -800,6 +801,7 @@ public static partial class PublicHotReadFastPath
         }
         else
         {
+            RuntimeCacheEvidenceObservation.Current?.MarkLayerSource("l0-allow");
             counters.FreshL0Hit();
         }
     }

@@ -1,0 +1,124 @@
+using System.Security.Cryptography;
+using System.Text;
+
+using FsusBlog.Server.Infrastructure.Testing;
+
+namespace FsusBlog.Server.Infrastructure.Middlewares;
+
+internal sealed class RuntimeCacheEvidenceMiddleware(
+    RequestDelegate next,
+    IConfiguration configuration,
+    IHostEnvironment environment,
+    RuntimeCacheEvidenceStore store)
+{
+    internal const string RequestIdHeader = "X-Fsus-Runtime-Evidence-Request";
+    internal const string SecretHeader = "X-Fsus-Runtime-Evidence-Secret";
+    internal const string SecretConfigurationKey = "FSUSBLOG_RUNTIME_CACHE_EVIDENCE_SECRET";
+    private readonly string? _secret = ResolveSecret(configuration, environment);
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        string requestId = context.Request.Headers[RequestIdHeader].ToString().Trim();
+        if (_secret is null || requestId.Length is < 8 or > 128 ||
+            !SecretEquals(_secret, context.Request.Headers[SecretHeader].ToString()))
+        {
+            await next(context);
+            return;
+        }
+
+        Stream originalBody = context.Response.Body;
+        await using var hashingBody = new HashingWriteStream(originalBody);
+        context.Response.Body = hashingBody;
+        using RuntimeCacheEvidenceObservation observation = RuntimeCacheEvidenceObservation.Begin(
+            requestId,
+            context.Request.Method,
+            context.Request.Path.Value ?? "/");
+        try
+        {
+            await next(context);
+        }
+        finally
+        {
+            await hashingBody.FlushAsync(context.RequestAborted);
+            context.Response.Body = originalBody;
+            store.Store(observation.Complete(context.Response.StatusCode, hashingBody.GetDigest()));
+        }
+    }
+
+    private static string? ResolveSecret(IConfiguration configuration, IHostEnvironment environment)
+    {
+        if (!environment.IsDevelopment() && !environment.IsEnvironment("Test"))
+        {
+            return null;
+        }
+
+        string? secret = configuration[SecretConfigurationKey]
+            ?? Environment.GetEnvironmentVariable(SecretConfigurationKey);
+        return string.IsNullOrWhiteSpace(secret) ? null : secret;
+    }
+
+    private static bool SecretEquals(string expected, string provided)
+    {
+        byte[] left = Encoding.UTF8.GetBytes(expected);
+        byte[] right = Encoding.UTF8.GetBytes(provided);
+        return left.Length == right.Length && CryptographicOperations.FixedTimeEquals(left, right);
+    }
+
+    private sealed class HashingWriteStream(Stream inner) : Stream
+    {
+        private readonly IncrementalHash _hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        private bool _finalized;
+        private string? _digest;
+
+        public override bool CanRead => false;
+        public override bool CanSeek => false;
+        public override bool CanWrite => inner.CanWrite;
+        public override long Length => throw new NotSupportedException();
+        public override long Position
+        {
+            get => throw new NotSupportedException(); set => throw new NotSupportedException();
+        }
+        public override void Flush() => inner.Flush();
+        public override Task FlushAsync(CancellationToken cancellationToken) => inner.FlushAsync(cancellationToken);
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            _hash.AppendData(buffer, offset, count);
+            inner.Write(buffer, offset, count);
+        }
+
+        public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            _hash.AppendData(buffer.Span);
+            await inner.WriteAsync(buffer, cancellationToken);
+        }
+
+        public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            _hash.AppendData(buffer, offset, count);
+            return inner.WriteAsync(buffer, offset, count, cancellationToken);
+        }
+
+        internal string GetDigest()
+        {
+            if (!_finalized)
+            {
+                _digest = $"sha256:{Convert.ToHexStringLower(_hash.GetHashAndReset())}";
+                _finalized = true;
+            }
+            return _digest!;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _hash.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+    }
+}

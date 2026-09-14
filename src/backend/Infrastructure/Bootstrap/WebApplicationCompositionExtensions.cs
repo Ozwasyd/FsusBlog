@@ -25,6 +25,7 @@ public static class WebApplicationCompositionExtensions
 
     private static readonly PipelineStage[] s_applicationPipelineStages =
     [
+        new("runtime-cache-evidence", PublicHotReadPipelineStageClassification.Infrastructure, null, static app => app.UseMiddleware<RuntimeCacheEvidenceMiddleware>()),
         new("forwarded-headers", PublicHotReadPipelineStageClassification.Infrastructure, null, static app => app.UseForwardedHeaders()),
         new("security-headers", PublicHotReadPipelineStageClassification.CrossCuttingControl, "release-and-security-headers", static app => app.UseFsusSecurityHeaders()),
         new("deployment-request-tracking", PublicHotReadPipelineStageClassification.CrossCuttingControl, "deployment-request-tracking", static app => app.UseMiddleware<DeploymentRequestTrackingMiddleware>()),
