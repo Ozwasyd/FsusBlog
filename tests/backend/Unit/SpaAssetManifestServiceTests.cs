@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.PublicAot;
@@ -144,6 +145,7 @@ public sealed class SpaAssetManifestServiceTests
             Assert.DoesNotContain(assets.Stylesheets, static href => href.Contains("markdown", StringComparison.OrdinalIgnoreCase));
             Assert.Empty(assets.ModulePreloads);
             Assert.DoesNotContain(assets.ModulePreloads, static href => href.EndsWith(".css", StringComparison.OrdinalIgnoreCase));
+            AssertViteProducerPinsRequiredOwners();
             Assert.Contains("/assets/entry-runtime-a.js", assets.FullAppTakeover.ModulePreloads);
             Assert.Contains("/assets/full-app-core-a.js", assets.FullAppTakeover.ModulePreloads);
             Assert.Contains("/assets/vendor-element-plus-a.js", assets.FullAppTakeover.ModulePreloads);
@@ -1570,11 +1572,14 @@ public sealed class SpaAssetManifestServiceTests
                     ManifestOwnerCss(manifest, "public-page")
                 }.Concat(publicRuntimeCss).Distinct(StringComparer.Ordinal),
                 home.Stylesheets);
-            Assert.Contains(ManifestOwnerCss(manifest, "homeSpotlight"), home.Stylesheets);
             Assert.Contains(ManifestOwnerCss(manifest, "PublicArticleList"), home.Stylesheets);
             Assert.Contains(ManifestOwnerCss(manifest, "PublicContentState"), home.Stylesheets);
             Assert.Contains(ManifestOwnerCss(manifest, "PublicReadingPageFrame"), home.Stylesheets);
             Assert.DoesNotContain(ManifestOwnerCss(manifest, "full-app-core"), home.Stylesheets);
+            Assert.DoesNotContain(ManifestOwnerCss(manifest, "public-shell-critical"), home.FullAppTakeover.Stylesheets);
+            Assert.DoesNotContain(ManifestOwnerCss(manifest, "tailwind"), home.FullAppTakeover.Stylesheets);
+            Assert.DoesNotContain(ManifestOwnerCss(manifest, "markdown"), home.FullAppTakeover.Stylesheets);
+            Assert.DoesNotContain(ManifestOwnerCss(manifest, "public-page"), home.FullAppTakeover.Stylesheets);
 
             SpaAssetSet article = service.GetPublicAssetSet(pageId: PublicPageId.ArticleDetail);
             Assert.Equal(
@@ -1603,6 +1608,44 @@ public sealed class SpaAssetManifestServiceTests
         finally
         {
             Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static void AssertViteProducerPinsRequiredOwners()
+    {
+        string viteConfig = File.ReadAllText(Path.Combine(
+            BackendTestPaths.RepositoryRoot,
+            "src",
+            "frontend",
+            "vite.config.ts"));
+        string[] producerOwners = Regex.Match(
+                viteConfig,
+                @"const productionRequiredManifestOwners = \[([\s\S]*?)\] as const",
+                RegexOptions.CultureInvariant)
+            .Groups[1]
+            .Value
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(static line => line.Trim().TrimEnd(',').Trim('\''))
+            .Where(static owner => owner.Length > 0)
+            .ToArray();
+
+        Assert.Equal(s_requiredManifestOwners, producerOwners);
+        Assert.Contains("production_manifest_owner_not_unique", viteConfig, StringComparison.Ordinal);
+        Assert.Contains("production_manifest_primary_entry_invalid", viteConfig, StringComparison.Ordinal);
+        Assert.Contains("output.isEntry = output.name === 'index'", viteConfig, StringComparison.Ordinal);
+        Assert.Contains("...productionRequiredManualChunkOwners.map((owner) => ({", viteConfig, StringComparison.Ordinal);
+        Assert.Contains("minSize: 0", viteConfig, StringComparison.Ordinal);
+        foreach (string owner in new[]
+                 {
+                     "public-page-runtime",
+                     "full-app-core",
+                     "route-user",
+                     "route-admin",
+                     "route-auth",
+                     "route-error"
+                 })
+        {
+            Assert.Contains($"'{owner}'", viteConfig, StringComparison.Ordinal);
         }
     }
 

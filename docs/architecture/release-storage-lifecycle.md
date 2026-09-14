@@ -82,7 +82,12 @@ owner. The standalone Public Boot kernel remains a separately emitted preload
 target but is not a second primary document entry. The four public stylesheet
 owners use explicit build-only owner facades and priority-stable, zero-minimum-size
 chunk groups so each owner retains its own `css` binding instead of collapsing
-into `index`. Production public documents also consume CSS reachable from the
+into `index`. The remaining required JavaScript owners (`public-page-runtime`,
+`full-app-core`, `route-user`, `route-admin`, `route-auth`, and `route-error`)
+also use dedicated zero-minimum-size groups so a generic `minSize` merge cannot
+erase them. The production Vite producer fail-closes when any required owner is
+missing or duplicated, or when any chunk other than `index` remains `isEntry`.
+Production public documents also consume CSS reachable from the
 `public-page-runtime` static import graph. That traversal stops at `index` because
 the base owners are selected explicitly, and at `full-app-core` because SPA
 takeover presentation is not part of the server-rendered public shell.
@@ -100,12 +105,18 @@ remains failed until all of these checks, including the descriptor/receipt/inven
 binding, succeed.
 
 `SpaAssetManifestServiceTests.ProductionBuildManifest_SealedRuntimeFixture_IsReadyAndSelectsPublicAndTakeoverAssets`
-runs the production frontend producer into an isolated temporary dist, validates
-the exact owner and primary-entry contract, seals the actual manifest bytes and
-complete file inventory into a receipt and descriptor, and then exercises runtime
-readiness plus public and takeover asset selection. Synthetic fixtures cover each
-missing or duplicate required owner, an invalid primary-entry shape, dangling
-static and dynamic imports, and bounded traversal of a circular graph.
+is the unique execution-backed entry: it runs the production frontend producer
+into an isolated temporary dist, validates the exact owner and primary-entry
+contract, seals the actual manifest bytes and complete file inventory into a
+receipt and descriptor, and then exercises runtime readiness plus public and
+takeover asset selection from those sealed owners. The producer catalog in
+`src/frontend/vite.config.ts` (`productionRequiredManifestOwners`) must match
+that runtime catalog. Synthetic fixtures cover each missing or duplicate
+required owner, an invalid primary-entry shape, dangling static and dynamic
+imports, and bounded traversal of a circular graph.
+The unique test also asserts that Vite catalog, zero-minimum-size required
+JavaScript groups, and the fail-closed unique-`index` rewrite stay aligned with
+that runtime catalog.
 
 After that validation the runtime derives one canonical asset-set receipt. It
 retains descriptor generation plus raw manifest and inventory digests for audit,
