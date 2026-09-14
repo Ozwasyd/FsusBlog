@@ -24,12 +24,18 @@ const persistentProbe = read('tests/frontend/e2e/article-editor-recovery-persist
 const architecture = read('docs/architecture.md');
 const apiDesign = read('docs/api/design.md');
 const apiContracts = read('docs/api/contracts.md');
+const security = read('docs/security.md');
+const privateSurface = read('docs/security/private-surface-runtime.md');
 
 for (const token of [
     "ARTICLE_RECOVERY_JOURNAL_DATABASE = 'fsusblog-article-recovery-journal'",
-    "ARTICLE_RECOVERY_JOURNAL_SCHEMA = 'fsusblog.article-recovery-journal.v1'",
-    "ARTICLE_RECOVERY_JOURNAL_PAYLOAD_CODEC = 'gzip-v1'",
-    'ARTICLE_RECOVERY_JOURNAL_TTL_MS = 12 * 60 * 60 * 1000',
+    "ARTICLE_RECOVERY_JOURNAL_SCHEMA = 'fsusblog.article-recovery-journal.v2'",
+    "ARTICLE_RECOVERY_JOURNAL_PAYLOAD_CODEC = 'utf8-v1'",
+    'ARTICLE_RECOVERY_JOURNAL_TTL_HOURS = 168',
+    'ARTICLE_RECOVERY_JOURNAL_TTL_MS = ARTICLE_RECOVERY_JOURNAL_TTL_HOURS * 60 * 60 * 1000',
+    'ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE',
+    'encodeArticleRecoveryPayload',
+    'decodeArticleRecoveryPayload',
     'ARTICLE_RECOVERY_JOURNAL_MAX_CONTENT_BYTES = 1024 * 1024',
     'ARTICLE_RECOVERY_JOURNAL_MAX_STORED_BYTES = 1024 * 1024',
     'ARTICLE_RECOVERY_JOURNAL_MAX_SCOPE_ENTRIES = 8',
@@ -59,12 +65,16 @@ for (const token of [
 }
 
 assert(!journal.includes('localStorage'), 'article recovery journal must not fall back to localStorage');
+assert(!journal.includes('sessionStorage'), 'article recovery journal must not fall back to sessionStorage');
+assert(!journal.includes('CompressionStream'), 'article recovery journal must not depend on gzip compression');
+assert(!journal.includes('gzip'), 'article recovery journal at-rest payload must stay plaintext UTF-8');
+assert(!journal.includes('AES'), 'article recovery journal must not add an encryption layer');
 assert(journal.includes('store.put(storedRecord)'),
-    'IndexedDB must receive only the compressed stored-record representation');
+    'IndexedDB must receive only the stored-record representation');
 assert(journal.includes('payload: Uint8Array'),
-    'persisted article recovery content must use typed compressed bytes');
-assert(journal.includes('decompressArticleRecoveryContent(stored.payload)'),
-    'journal reads must reconstruct content through the versioned codec');
+    'persisted article recovery content must use typed plaintext UTF-8 bytes');
+assert(journal.includes('decodeArticleRecoveryPayload(stored.payload)'),
+    'journal reads must reconstruct content through the versioned plaintext codec');
 assert(!journal.includes('pendingBySequence'),
     'article recovery writes must not retain an unbounded per-sequence queue');
 assert(!write.includes("localStorage.setItem('fsus:article-draft:"),
@@ -94,6 +104,11 @@ assert(view.includes('data-article-recovery-prompt="true"'),
     'recovery prompt must expose a stable production contract');
 assert(view.includes('选择要恢复的未同步正文版本'),
     'multi-tab versions must have an accessible selection name');
+assert(view.includes('articleRecoveryPrivacyNotice'),
+    'recovery prompt must surface the canonical plaintext privacy notice');
+assert(view.includes('未加密') && view.includes('最长 7 天') && view.includes('服务端确认后即删除'),
+    'editor UI must honestly describe unencrypted local storage, 7-day TTL, and confirm cleanup');
+assert(!view.includes('12 小时'), 'editor UI must not retain the retired 12-hour TTL claim');
 assert(view.includes('恢复所选正文') || view.includes('draftRestoreButtonText'),
     'recovery prompt must expose an explicit restore action');
 assert(view.includes('比较所选正文'),
@@ -105,6 +120,8 @@ assert(view.includes('articleRecoveryOperationPending')
 assert(write.includes('articleRecoveryComparisonRequired'),
     'divergent journal coordinates must require comparison before recovery');
 assert(!view.includes('已安全备份'), 'normal editor UI must not claim a permanent safe backup');
+assert(!view.includes('已加密') && !view.includes('本地天然安全'),
+    'editor UI must not claim encryption or inherent local safety');
 
 for (const token of [
     "medium: 'indexed-db'",
@@ -129,10 +146,10 @@ assert(resilience.includes('articleRecoverySourceHash(source)')
     && resilience.includes('sourceHash: expectedRecoverySourceHash')
     && resilience.includes('record.sourceHash === expected.sourceHash'),
 'markdown resilience must bind raw journal evidence to the production source-hash contract');
-assert(resilience.includes("record.payloadCodec === 'gzip-v1'")
+assert(resilience.includes("record.payloadCodec === 'utf8-v1'")
     && resilience.includes('record.payloadIsUint8Array')
     && resilience.includes("!record.hasOwnContent"),
-'markdown resilience must require compressed typed bytes without a raw content field');
+'markdown resilience must require plaintext typed UTF-8 bytes without a raw content field');
 assert(resilience.includes('ARTICLE_RECOVERY_CLIENT_REVISION_PATTERN.test(record.clientRevision)')
     && resilience.includes('runtimeClientRevision = matches[0]?.clientRevision ?? null')
     && resilience.includes('record.clientRevision === runtimeClientRevision')
@@ -165,7 +182,9 @@ for (const token of [
 for (const [path, content] of [
     ['docs/architecture.md', architecture],
     ['docs/api/design.md', apiDesign],
-    ['docs/api/contracts.md', apiContracts]
+    ['docs/api/contracts.md', apiContracts],
+    ['docs/security.md', security],
+    ['docs/security/private-surface-runtime.md', privateSurface]
 ])
 {
     assert(content.includes('IndexedDB'), `${path} must document the bounded IndexedDB recovery journal`);
@@ -173,6 +192,9 @@ for (const [path, content] of [
         `${path} must not retain the retired metadata-only owner`);
     assert(!content.includes('浏览器 localStorage 只保存 schema、保存时间、来源文章和 client revision'),
         `${path} must not retain the retired metadata-only owner`);
+    assert(!content.includes('gzip-v1'), `${path} must not claim gzip at-rest journal payloads`);
+    assert(!content.includes('TTL is 12 hours') && !content.includes('12-hour') && !content.includes('12 hours'),
+        `${path} must not retain the retired 12-hour journal TTL`);
 }
 
 console.log('[check-article-recovery-journal] ok');

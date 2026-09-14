@@ -301,6 +301,9 @@ test.describe('article editor production fixture recovery prompt', () => {
       await expect(observer.getByRole('group', { name: '选择要恢复的未同步正文版本' })).toBeVisible()
       await expect(observer.getByRole('radio')).toHaveCount(1)
       await expect(observer.getByText(/client revision 独立归属/u)).toBeVisible()
+      await expect(observer.getByText(/未加密/u)).toBeVisible()
+      await expect(observer.getByText(/最长 7 天/u)).toBeVisible()
+      await expect(observer.getByText(/服务端确认、发布、删除、登出或显式丢弃后立即删除/u)).toBeVisible()
 
       for (const action of ['比较所选正文', '恢复所选正文', '丢弃所选正文']) {
         const button = observer.getByRole('button', { name: action })
@@ -407,6 +410,7 @@ test.describe('article editor production fixture recovery touch', () => {
       const prompt = observer.locator('[data-article-recovery-prompt]')
       await expect(prompt).toBeVisible()
       await expect(observer.getByRole('group', { name: '选择要恢复的未同步正文版本' })).toBeVisible()
+      await expect(observer.getByText(/未加密/u)).toBeVisible()
       await observer.getByRole('radio').tap()
       const compare = observer.getByRole('button', { name: '比较所选正文' })
       const restore = observer.getByRole('button', { name: '恢复所选正文' })
