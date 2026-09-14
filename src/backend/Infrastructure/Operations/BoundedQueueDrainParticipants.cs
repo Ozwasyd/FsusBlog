@@ -76,6 +76,34 @@ public sealed class AdminAuditBoundedQueueDrainParticipant(
     }
 }
 
+public sealed class AdminSessionTouchBoundedQueueDrainParticipant(
+    IBoundedQueueDrainCatalog catalog,
+    AdminSessionTouchScheduler scheduler,
+    TimeProvider timeProvider) : IBoundedQueueDrainParticipant
+{
+    public string QueueId => "admin-session-touch";
+
+    public BoundedQueueParticipantReceipt Observe(string runId)
+    {
+        AdminSessionTouchRuntimeSnapshot snapshot = scheduler.Snapshot();
+        return BoundedQueueParticipantReceipts.Counts(
+            catalog,
+            QueueId,
+            runId,
+            timeProvider,
+            snapshot.QueueEntries,
+            snapshot.InFlightCount,
+            0,
+            snapshot.FailureCount,
+            BoundedQueueCommitPostcondition.Success,
+            sequence: snapshot.EnqueuedCount,
+            dropProof: new BoundedQueueDropProof(
+                "best-effort",
+                "idle-touch acceleration may be omitted under bounded pressure",
+                "AdminSessionTouchScheduler.TrySchedule"));
+    }
+}
+
 public sealed class ArticleAssetCleanupBoundedQueueDrainParticipant(
     IBoundedQueueDrainCatalog catalog,
     ArticleAssetCleanupQueue queue,
@@ -463,6 +491,36 @@ public sealed class PublicAotBackfillBoundedQueueDrainParticipant(
                 "coalescible",
                 "maximum-version coalescing",
                 "existingVersion >= version"));
+    }
+}
+
+public sealed class PublicAotFileShellInvalidationBoundedQueueDrainParticipant(
+    IBoundedQueueDrainCatalog catalog,
+    PublicAotFileShellInvalidationQueue queue,
+    TimeProvider timeProvider) : IBoundedQueueDrainParticipant
+{
+    public string QueueId => "public-aot-file-shell-invalidation";
+
+    public BoundedQueueParticipantReceipt Observe(string runId)
+    {
+        PublicAotFileShellInvalidationQueueSnapshot snapshot = queue.Snapshot();
+        return BoundedQueueParticipantReceipts.Counts(
+            catalog,
+            QueueId,
+            runId,
+            timeProvider,
+            snapshot.QueuedCount + snapshot.CoalescedAllPendingCount,
+            snapshot.InFlightCount,
+            0,
+            snapshot.TerminalFailureCount,
+            snapshot.TerminalFailureCount > 0
+                ? BoundedQueueCommitPostcondition.Failed
+                : BoundedQueueCommitPostcondition.Success,
+            sequence: snapshot.Sequence,
+            dropProof: new BoundedQueueDropProof(
+                "coalescible",
+                "invalidate-all dominates every queued key and prefix invalidation",
+                "PublicAotFileShellInvalidationQueue.TryTakeCoalescedAll"));
     }
 }
 

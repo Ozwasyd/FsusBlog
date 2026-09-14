@@ -93,6 +93,7 @@ public static class ActiveReleaseFenceServiceCollectionExtensions
         services.TryAddSingleton<BoundedQueueDrainAggregator>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IReleaseDrainParticipant, BoundedQueueDrainReleaseParticipant>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IBoundedQueueDrainParticipant, AdminAuditBoundedQueueDrainParticipant>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IBoundedQueueDrainParticipant, AdminSessionTouchBoundedQueueDrainParticipant>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IBoundedQueueDrainParticipant, ArticleAssetCleanupBoundedQueueDrainParticipant>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IBoundedQueueDrainParticipant, ArticleBodyRepairBoundedQueueDrainParticipant>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IBoundedQueueDrainParticipant, ArticleDetailAedsBoundedQueueDrainParticipant>());
@@ -107,6 +108,7 @@ public static class ActiveReleaseFenceServiceCollectionExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IBoundedQueueDrainParticipant, NotificationFanoutLowBoundedQueueDrainParticipant>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IBoundedQueueDrainParticipant, NotificationFanoutStateBoundedQueueDrainParticipant>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IBoundedQueueDrainParticipant, PublicAotBackfillBoundedQueueDrainParticipant>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IBoundedQueueDrainParticipant, PublicAotFileShellInvalidationBoundedQueueDrainParticipant>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IBoundedQueueDrainParticipant, PublicHotArtifactUpdateBoundedQueueDrainParticipant>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IBoundedQueueDrainParticipant, PublicHotReadRiskProjectionBoundedQueueDrainParticipant>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IBoundedQueueDrainParticipant, RumTelemetryBoundedQueueDrainParticipant>());

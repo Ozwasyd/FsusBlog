@@ -161,7 +161,9 @@ public sealed class NotificationStreamDeliveryAccountingTests(ITestOutputHelper 
         scope.PrefixKey(Arg.Any<string>()).Returns(call => "queues-coalescing-evidence:" + call.Arg<string>());
         batch.StreamRangeAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue?>(), Arg.Any<RedisValue?>(), Arg.Any<int?>(),
             Arg.Any<Order>(), Arg.Any<CommandFlags>())
-            .Returns(_ => Task.FromException<StreamEntry[]>(new IOException("simulated Redis replay read failure")));
+            .Returns(_ => Task.FromException<StreamEntry[]>(new RedisConnectionException(
+                ConnectionFailureType.UnableToConnect,
+                "simulated Redis replay read failure")));
         var backlog = new NotificationStreamBacklogStore(
             RedisOperationExecutor.ForTestConnection(redis), scope, NullLogger<NotificationStreamBacklogStore>.Instance);
 
@@ -173,10 +175,13 @@ public sealed class NotificationStreamDeliveryAccountingTests(ITestOutputHelper 
         output.WriteLine($"simulation retry cursor9 for failed cursor10: exception={failure?.GetType().Name ?? "none"}, frames={replay?.Frames.Count}, missedGap={replay?.MissedGap}; manager={manager.DeliverySnapshot}");
         try
         {
+            var redisBudgets = new RedisOperationBudgetCatalog();
+            RedisOperationPortDefinition replayPort = redisBudgets.Get(RedisOperationPort.NotificationBacklogRead);
+            int expectedAttempts = redisBudgets.Get(replayPort.OperationClass).RetryCount + 1;
             Assert.Null(failure);
             Assert.True(replay?.RetryableFailure == true,
                 "A failed replay read became a normal empty batch; Session can continue live without proving cursor10 delivered.");
-            Assert.Equal(3, replay?.Attempts);
+            Assert.Equal(expectedAttempts, replay?.Attempts);
             Assert.Equal("replay-read-failed", replay?.FailureReason);
             manager.RecordReplayReadFailure(replay!.FailureReason!, replay.Attempts);
             ReleaseDrainParticipantSnapshot blocked = CreateParticipant(manager,
