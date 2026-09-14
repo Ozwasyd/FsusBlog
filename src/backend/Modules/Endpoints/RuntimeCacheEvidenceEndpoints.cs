@@ -5,6 +5,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Testing;
+using FsusBlog.Server.Services.Distribution;
 
 namespace FsusBlog.Server.Modules.Endpoints;
 
@@ -59,7 +60,9 @@ internal static class RuntimeCacheEvidenceEndpoints
 
         ICacheDiagnostics cache = context.RequestServices.GetRequiredService<ICacheDiagnostics>();
         ICacheSingleFlightCoordinator singleFlight = context.RequestServices.GetRequiredService<ICacheSingleFlightCoordinator>();
+        SitemapArtifactCache sitemap = context.RequestServices.GetRequiredService<SitemapArtifactCache>();
         CacheL1PolicyResidencySnapshot[] policies = [.. cache.GetL1PolicyResidencySnapshots()];
+        SitemapArtifactCacheSnapshot sitemapSnapshot = sitemap.Snapshot();
         using System.Diagnostics.Process process = System.Diagnostics.Process.GetCurrentProcess();
         return Results.Ok(new RuntimeCacheEvidenceRuntimeSnapshot(
             DateTimeOffset.UtcNow,
@@ -75,6 +78,11 @@ internal static class RuntimeCacheEvidenceEndpoints
             GC.CollectionCount(2),
             process.WorkingSet64,
             singleFlight is CacheSingleFlightCoordinator concrete ? concrete.ActiveEntryCount : -1,
+            new RuntimeCacheEvidenceSitemapSnapshot(
+                sitemapSnapshot.Generation,
+                sitemapSnapshot.ArtifactCount,
+                sitemapSnapshot.ResidentBytes,
+                sitemapSnapshot.BuildCount),
             policies));
     }
 
@@ -101,4 +109,11 @@ internal sealed record RuntimeCacheEvidenceRuntimeSnapshot(
     int Gen2Collections,
     long ResidentBytes,
     int ActiveKeyedEntries,
+    RuntimeCacheEvidenceSitemapSnapshot Sitemap,
     IReadOnlyList<CacheL1PolicyResidencySnapshot> Policies);
+
+internal sealed record RuntimeCacheEvidenceSitemapSnapshot(
+    long Generation,
+    int ArtifactCount,
+    long ResidentBytes,
+    long BuildCount);

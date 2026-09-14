@@ -4,8 +4,10 @@ using System.Text.Json;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
 using FsusBlog.Server.Infrastructure.Middlewares;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Modules.Endpoints;
+using FsusBlog.Server.Services.Distribution;
 using FsusBlog.Server.Tests.Fixtures;
 
 using Microsoft.AspNetCore.Hosting;
@@ -57,6 +59,11 @@ public sealed class RuntimeCacheEvidenceDatabaseAttributionIntegrationTests(
         Assert.True(snapshot.GetProperty("totalAllocatedBytes").GetInt64() > 0);
         Assert.True(snapshot.GetProperty("residentBytes").GetInt64() > 0);
         Assert.Equal(0, snapshot.GetProperty("activeKeyedEntries").GetInt32());
+        JsonElement sitemap = snapshot.GetProperty("sitemap");
+        Assert.Equal(0, sitemap.GetProperty("generation").GetInt64());
+        Assert.Equal(0, sitemap.GetProperty("artifactCount").GetInt32());
+        Assert.Equal(0, sitemap.GetProperty("residentBytes").GetInt64());
+        Assert.Equal(0, sitemap.GetProperty("buildCount").GetInt64());
         Assert.Equal(JsonValueKind.Array, snapshot.GetProperty("policies").ValueKind);
     }
 
@@ -113,6 +120,8 @@ public sealed class RuntimeCacheEvidenceDatabaseAttributionIntegrationTests(
                     new TestCacheKeyResolver(),
                     TimeSpan.FromSeconds(1),
                     8));
+            builder.Services.AddSingleton<PublicAotInvalidationTracker>();
+            builder.Services.AddSingleton<SitemapArtifactCache>();
             builder.Services.AddSqlSugar();
 
             WebApplication app = builder.Build();

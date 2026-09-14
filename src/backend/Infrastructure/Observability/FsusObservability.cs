@@ -2230,6 +2230,8 @@ public static class FsusObservability
         long allocationBytes,
         TimeSpan elapsed)
     {
+        RuntimeCacheEvidenceObservation.Current?.MarkLayerSource(
+            cacheHit ? "l1-object" : "database");
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("sitemap", "build", cacheHit ? "hit" : "miss");
