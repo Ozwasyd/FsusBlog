@@ -498,7 +498,12 @@ public static class FsusObservability
         if (string.Equals(result, "hit", StringComparison.OrdinalIgnoreCase))
         {
             RuntimeCacheEvidenceObservation.Current?.MarkLayerSource(
-                string.Equals(layer, "l1", StringComparison.OrdinalIgnoreCase) ? "l1-object" : layer);
+                layer.ToLowerInvariant() switch
+                {
+                    "l1" => "l1-object",
+                    "l2" => "redis",
+                    _ => layer
+                });
         }
         var key = new CacheOperationMetricKey(operation, policyId, layer, result);
         CacheOperationMetricState state = s_cacheOperationRuntimeCounters.GetOrAdd(

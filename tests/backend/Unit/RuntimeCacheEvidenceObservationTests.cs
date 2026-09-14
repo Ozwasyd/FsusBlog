@@ -3,6 +3,7 @@ using System.Text;
 using System.Diagnostics;
 
 using FsusBlog.Server.Infrastructure.Middlewares;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Testing;
 
 using Microsoft.Extensions.Configuration;
@@ -14,6 +15,22 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class RuntimeCacheEvidenceObservationTests
 {
     private static readonly ActivitySource s_npgsqlActivitySource = new("Npgsql");
+
+    [Theory]
+    [InlineData("l1", "l1-object")]
+    [InlineData("l2", "redis")]
+    public void CacheHitLayer_UsesEvidenceContractVocabulary(string layer, string expected)
+    {
+        using RuntimeCacheEvidenceObservation observation = RuntimeCacheEvidenceObservation.Begin(
+            "cache-layer-request",
+            HttpMethods.Get,
+            "/cache-layer");
+
+        FsusObservability.RecordCacheOperation("get", "ArticleDetail", layer, "hit", TimeSpan.Zero);
+        RuntimeCacheRequestObservation completed = observation.Complete(200, EmptyPayloadDigest());
+
+        Assert.Equal(expected, completed.LayerSource);
+    }
 
     [Fact]
     public void CacheEvents_DigestIdentityAndPreserveRequestOrder()
