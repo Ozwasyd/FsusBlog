@@ -207,6 +207,38 @@ test('receipt requires the exact catalog subcases and assertion IDs', () => {
   assert.ok(validateRuntimeCacheReceipt(extraAssertion, { catalog, repositoryRoot, expectedSource: sourceSnapshot }).some((error) => error.includes('assertion IDs must exactly match')))
 })
 
+test('article-detail Redis fault latency is derived from request traces', () => {
+  const repositoryRoot = createRepository()
+  const catalog = tinyCatalog()
+  const scenario = catalog.scenarios.find((item) => item.id === 'article-detail-l1')
+  scenario.requirements = { redisCommandsMax: 0, dbCommandsMax: 0, redisFaultLatencyRatioMax: 1.25 }
+  const evidence = makeEvidence(scenario, repositoryRoot, { catalog })
+
+  const errors = validateRuntimeCacheReceipt(evidence.receipt, {
+    catalog,
+    repositoryRoot,
+    expectedSource: sourceSnapshot
+  })
+
+  assert.ok(errors.some((error) => error.includes('Redis fault changed L1 latency ratio')))
+})
+
+test('singleflight rebuild counts are exact per cold identity group', () => {
+  const repositoryRoot = createRepository()
+  const catalog = tinyCatalog()
+  const scenario = catalog.scenarios.find((item) => item.id === 'cache-miss-singleflight')
+  scenario.requirements = { rebuildCountBySubcase: { 'same-key-100': 1, 'same-key-1000': 1 } }
+  const evidence = makeEvidence(scenario, repositoryRoot, { catalog })
+
+  const errors = validateRuntimeCacheReceipt(evidence.receipt, {
+    catalog,
+    repositoryRoot,
+    expectedSource: sourceSnapshot
+  })
+
+  assert.ok(errors.some((error) => error.includes('rebuild counts must exactly match')))
+})
+
 test('raw request, command, cache and rollup closure is recomputed independently', () => {
   const repositoryRoot = createRepository()
   const catalog = tinyCatalog()

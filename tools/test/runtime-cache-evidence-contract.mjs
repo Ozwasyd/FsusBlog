@@ -318,15 +318,32 @@ function validateScenarioRequirements(receipt, scenario, raw, errors) {
   if (requirements.nodes === 2) {
     for (const id of ['two-node-route', 'durable-convergence', 'residency-convergence']) if (findAssertion(receipt, id)?.status !== 'passed') errors.push(`two-node receipt lacks passing ${id}`)
   }
-  if (requirements.rebuildCountMax != null) {
+  if (requirements.rebuildCountBySubcase != null) {
     const assertion = findAssertion(receipt, 'rebuild-count')
-    if (!assertion || Number(assertion.actual) > requirements.rebuildCountMax) errors.push(`rebuild count must be <= ${requirements.rebuildCountMax}`)
+    if (!assertion || !exactArray(assertion.actual, requirements.rebuildCountBySubcase)) {
+      errors.push(`rebuild counts must exactly match ${canonicalJson(requirements.rebuildCountBySubcase)}`)
+    }
   }
   if (raw && Number.isInteger(requirements.coldDbCommandsMax)
       && commandsForSubcase(raw, 'databaseCommands', 'cold') > requirements.coldDbCommandsMax) errors.push('cold database command budget exceeded')
   if (raw && requirements.hotLayer) {
     const hot = raw.requests.filter((request) => request.subcaseId === 'hot')
     if (hot.length === 0 || hot.some((request) => request.layerSource !== requirements.hotLayer)) errors.push(`hot subcase must use ${requirements.hotLayer}`)
+  }
+  if (raw && requirements.redisFaultLatencyRatioMax != null) {
+    const l1 = raw.requests.filter((request) => request.subcaseId === 'l1-hit')
+    const fault = raw.requests.filter((request) => request.subcaseId === 'redis-fault')
+    if (l1.length === 0 || fault.length === 0) {
+      errors.push('article detail L1/fault request windows are missing')
+    } else {
+      const invalid = [...l1, ...fault].filter((request) => request.layerSource !== 'l1-frame')
+      if (invalid.length > 0) errors.push('article detail sample did not remain on the L1 frame path')
+      const ratio = percentile(fault.map((request) => request.latencyMs), 95) /
+        Math.max(percentile(l1.map((request) => request.latencyMs), 95), 0.001)
+      if (ratio > requirements.redisFaultLatencyRatioMax) {
+        errors.push(`Redis fault changed L1 latency ratio: ${ratio} > ${requirements.redisFaultLatencyRatioMax}`)
+      }
+    }
   }
   if (raw && requirements.constantDbCommands) {
     const pageCounts = ['page-1', 'page-10', 'page-100', 'page-1000'].map((id) => commandsForSubcase(raw, 'databaseCommands', id))
