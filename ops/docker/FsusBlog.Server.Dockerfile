@@ -352,6 +352,14 @@ RUN node ../../tools/frontend/wasm-build-receipt.mjs verify-envelope \
 
 RUN FSUSBLOG_SKIP_ENSURE_WASM=1 npm run build:release
 
+COPY tools/docker/ssr-runtime-closure.mjs /tools/docker/ssr-runtime-closure.mjs
+COPY config/build/ssr-runtime-inputs.json /config/build/ssr-runtime-inputs.json
+RUN node /tools/docker/ssr-runtime-closure.mjs materialize \
+    --client-root /app \
+    --dist /app/dist \
+    --inventory /config/build/ssr-runtime-inputs.json \
+    --output /ssr-runtime
+
 ## =========================================================================
 # 阶段 4：终极生成镜像 (融合前后端)
 ## =========================================================================
@@ -424,7 +432,7 @@ LABEL org.opencontainers.image.version="${FSUSBLOG_RELEASE_ID}" \
 COPY --from=publish --chown=$APP_UID:$APP_UID /app/publish .
 COPY --chown=$APP_UID:$APP_UID security/zk/contracts/ ./security/zk/contracts/
 COPY --from=frontend-build --chown=$APP_UID:$APP_UID /app/dist ./wwwroot
-COPY --from=frontend-build --chown=$APP_UID:$APP_UID /app ./FsusBlog.ClientRuntime
+COPY --from=frontend-build --chown=$APP_UID:$APP_UID /ssr-runtime ./FsusBlog.ClientRuntime
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
   CMD host="${AllowedHosts%%;*}"; host="${host%%,*}"; \

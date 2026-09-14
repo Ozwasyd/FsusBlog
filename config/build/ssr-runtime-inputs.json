@@ -1,0 +1,35 @@
+{
+    "schema": "fsusblog.ssr-runtime-inputs.v1",
+    "payloadRoot": "server",
+    "entries": [
+        "server-public-ssr.bundle.mjs",
+        "server-public-ssr.worker-core.mjs",
+        "public-ssr.mjs"
+    ],
+    "runtimeTrees": [
+        "assets/",
+        "dist/",
+        ".vite/"
+    ],
+    "runtimeFiles": [
+        "package.json",
+        "public-shell-emergency.css",
+        "renderPublicPage.js"
+    ],
+    "packageFiles": [
+        "package.json",
+        "package-lock.json"
+    ],
+    "forbiddenSegments": [
+        "node_modules",
+        "src",
+        "tests",
+        "coverage"
+    ],
+    "forbiddenExtensions": [
+        ".map",
+        ".ts",
+        ".tsx",
+        ".tsbuildinfo"
+    ]
+}

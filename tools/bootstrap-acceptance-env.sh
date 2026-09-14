@@ -752,7 +752,13 @@ if [[ -z "$PUBLIC_AOT_SSR_CLIENT_ROOT" &&
     -n "${FSUSBLOG_FRONTEND_DIST_ROOT:-}" &&
     -f "$FSUSBLOG_FRONTEND_DIST_ROOT/server/server-public-ssr.bundle.mjs" &&
     -f "$FSUSBLOG_FRONTEND_DIST_ROOT/server/public-ssr.mjs" ]]; then
-    PUBLIC_AOT_SSR_CLIENT_ROOT="$FSUSBLOG_FRONTEND_DIST_ROOT"
+    SSR_RUNTIME_STAGE_ROOT="$(dirname "$FSUSBLOG_FRONTEND_DIST_ROOT")/ssr-runtime"
+    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docker/ssr-runtime-closure.mjs" materialize \
+        --client-root "$CLIENT_DIR" \
+        --dist "$FSUSBLOG_FRONTEND_DIST_ROOT" \
+        --inventory "$ROOT_DIR/config/build/ssr-runtime-inputs.json" \
+        --output "$SSR_RUNTIME_STAGE_ROOT"
+    PUBLIC_AOT_SSR_CLIENT_ROOT="$SSR_RUNTIME_STAGE_ROOT"
     PUBLIC_AOT_SSR_WORKER_SCRIPT='./server/server-public-ssr.bundle.mjs'
 fi
 WriteEnvFile

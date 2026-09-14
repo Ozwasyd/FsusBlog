@@ -165,6 +165,11 @@ if HasDomain test-runtime; then
 fi
 if HasDomain frontend-dist; then
     AdoptDirectory "${FSUSBLOG_FRONTEND_DIST_ROOT:?FSUSBLOG_FRONTEND_DIST_ROOT is required}" "$PAYLOAD_ROOT/frontend-dist"
+    node "$ROOT_DIR/tools/docker/ssr-runtime-closure.mjs" materialize \
+        --client-root "$ROOT_DIR/src/frontend" \
+        --dist "$PAYLOAD_ROOT/frontend-dist" \
+        --inventory "$ROOT_DIR/config/build/ssr-runtime-inputs.json" \
+        --output "$PAYLOAD_ROOT/ssr-runtime"
 fi
 if HasDomain wasm; then
     WASM_SOURCE="${FSUSBLOG_FRONTEND_WASM_ROOT:-$ROOT_DIR/src/frontend/public/wasm}"
@@ -212,6 +217,8 @@ CREATE_ARGS=(
     --input tools/build-final-image.sh
     --input tools/docker/backend-input-closure.mjs
     --input tools/docker/backend-input-environment.mjs
+    --input tools/docker/ssr-runtime-closure.mjs
+    --input config/build/ssr-runtime-inputs.json
     --input tools/build-wasm-artifact.sh
     --input tools/check-wasm-artifact-ownership.mjs
     --input tools/frontend/ensure-wasm.mjs
