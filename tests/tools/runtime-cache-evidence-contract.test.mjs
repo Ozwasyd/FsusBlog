@@ -241,6 +241,7 @@ test('article-detail Redis fault latency is derived from request traces', () => 
   })
 
   assert.ok(errors.some((error) => error.includes('Redis fault changed L1 latency ratio')))
+  assert.ok(!errors.some((error) => error.includes('did not remain on an L1 path')))
 })
 
 test('singleflight rebuild counts are exact per cold identity group', () => {

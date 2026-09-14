@@ -373,8 +373,9 @@ function validateScenarioRequirements(receipt, scenario, raw, errors) {
     if (l1.length === 0 || fault.length === 0) {
       errors.push('article detail L1/fault request windows are missing')
     } else {
-      const invalid = [...l1, ...fault].filter((request) => request.layerSource !== 'l1-frame')
-      if (invalid.length > 0) errors.push('article detail sample did not remain on the L1 frame path')
+      const invalid = [...l1, ...fault].filter((request) =>
+        request.layerSource !== 'l1-object' && request.layerSource !== 'l1-frame')
+      if (invalid.length > 0) errors.push('article detail sample did not remain on an L1 path')
       const ratio = percentile(fault.map((request) => request.latencyMs), 95) /
         Math.max(percentile(l1.map((request) => request.latencyMs), 95), 0.001)
       if (ratio > requirements.redisFaultLatencyRatioMax) {

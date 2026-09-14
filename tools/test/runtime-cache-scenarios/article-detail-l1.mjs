@@ -28,7 +28,8 @@ function percentile(values, percentage) {
 
 function qualifiedL1(requests) {
   return requests.filter((request) => request.status >= 200 && request.status < 300 &&
-    request.layerSource === 'l1-frame' && request.redisCommands.length === 0 && request.dbCommands.length === 0).length
+    (request.layerSource === 'l1-object' || request.layerSource === 'l1-frame') &&
+    request.redisCommands.length === 0 && request.dbCommands.length === 0).length
 }
 
 export async function produceArticleDetailL1Receipt(options) {

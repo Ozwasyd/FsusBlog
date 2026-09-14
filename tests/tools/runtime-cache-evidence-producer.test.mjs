@@ -151,7 +151,7 @@ async function startObservationServer({ redisCommands = [], redisFailureEvents =
         path: `${url.pathname}${url.search}`,
         status: 200,
         payloadDigest: sha256(body),
-        layerSource: 'l1-frame',
+        layerSource: 'l1-object',
         latencyMs: 2,
         allocatedBytes: 0,
         redisCommands: [],
