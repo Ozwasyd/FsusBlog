@@ -23,6 +23,7 @@
  */
 
 import { createHash } from 'node:crypto';
+import { builtinModules } from 'node:module';
 import {
     cpSync,
     existsSync,
@@ -36,6 +37,7 @@ import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const scriptRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const nodeBuiltinSpecifiers = new Set(builtinModules.flatMap(name => [name, `node:${name}`]));
 const inventoryRelativePath = 'config/build/ssr-runtime-inputs.json';
 const dockerfileRelativePath = 'ops/docker/FsusBlog.Server.Dockerfile';
 const manifestName = 'manifest.json';
@@ -495,7 +497,7 @@ export function computeClosure(distRoot, inventory)
         const scanned = scanModuleSpecifiers(source);
         for (const specifier of scanned.staticSpecifiers)
         {
-            if (specifier.startsWith('node:'))
+            if (nodeBuiltinSpecifiers.has(specifier))
             {
                 continue;
             }

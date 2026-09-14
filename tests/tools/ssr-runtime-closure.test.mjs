@@ -108,6 +108,25 @@ test('computeClosure fails closed on undeclared payload files', () =>
     }
 });
 
+test('computeClosure allows node builtin specifiers with or without node: prefix', () =>
+{
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-ssr-closure-'));
+    try
+    {
+        const dist = path.join(tmp, 'dist');
+        writeDistFixture(dist);
+        fs.writeFileSync(
+            path.join(dist, 'server', 'public-ssr.mjs'),
+            'import crypto from "crypto"\nimport { readFileSync } from "node:fs"\nimport "./assets/chunk-a.js"\nexport {}\n');
+        const closure = computeClosure(dist, inventory);
+        assert.equal(closure.fileCount, 12);
+    }
+    finally
+    {
+        fs.rmSync(tmp, { recursive: true, force: true });
+    }
+});
+
 test('computeClosure fails closed on external package imports', () =>
 {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-ssr-closure-'));
