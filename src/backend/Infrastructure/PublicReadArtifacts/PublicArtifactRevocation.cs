@@ -569,8 +569,8 @@ public sealed class RedisPublicArtifactRevocationStateStore(
                         hash = (RedisKey)runtimeKeyScope.PrefixKey(TombstoneHashKey),
                         field = (RedisValue)target.StorageField,
                         articleId = target.ArticleId,
-                        targetKind = (byte)target.Kind,
-                        scope = (byte)target.Scope,
+                        targetKind = (RedisValue)(int)target.Kind,
+                        scope = (RedisValue)(int)target.Scope,
                         revokedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
                     }),
                 cancellationToken)
