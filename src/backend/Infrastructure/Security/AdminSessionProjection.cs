@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
 
+using FsusBlog.Server.Infrastructure.Testing;
+
 namespace FsusBlog.Server.Infrastructure.Security;
 
 public sealed record AdminSessionProjectionLimits(
@@ -354,6 +356,10 @@ public sealed class AdminSessionProjection
             }
 
             _projectionReadCount++;
+            RuntimeCacheEvidenceObservation.Current?.RecordCacheEvent(
+                "security-admin-session-projection",
+                sessionId,
+                "hit");
             if (session.PrincipalId != principalId)
             {
                 return InvalidLocal(AdminSessionProjectionReasons.PrincipalMismatch, session, principalVersion: 0);
