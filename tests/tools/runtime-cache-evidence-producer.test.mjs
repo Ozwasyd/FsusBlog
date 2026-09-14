@@ -109,10 +109,12 @@ async function startObservationServer({ redisCommands = [], redisFailureEvents =
       path: url.pathname,
       contentType: request.headers['content-type'],
       secret: request.headers['x-fsus-runtime-evidence-secret'],
-      requestId: request.headers['x-fsus-runtime-evidence-request']
+      requestId: request.headers['x-fsus-runtime-evidence-request'],
+      forwardedFor: request.headers['x-forwarded-for'],
+      deviceFingerprint: request.headers['x-fsus-device-fp']
     }
     calls.push(call)
-    if (url.pathname === '/api/binary/system/seo') {
+    if (url.pathname === '/api/binary/system/seo' || url.pathname === '/api/binary/article/hot/10.aeds') {
       const body = Buffer.from('qualified-runtime-payload')
       const requestId = request.headers['x-fsus-runtime-evidence-request']
       assert.equal(request.headers['x-fsus-runtime-evidence-secret'], secret)
@@ -472,6 +474,10 @@ test('public hot-read producer emits a checker-valid receipt from real HTTP obse
     assert.equal(receipt.status, 'passed')
     assert.equal(receipt.requests.length, 4)
     assert.equal(runtime.calls.length, 12)
+    assert.equal(runtime.calls.filter((call) => call.path === '/api/binary/article/hot/10.aeds').length, 6)
+    assert.equal(runtime.calls.filter((call) => call.path === '/api/binary/system/seo').length, 0)
+    assert.ok(runtime.calls.every((call) => call.deviceFingerprint === undefined))
+    assert.ok(runtime.calls.some((call) => call.forwardedFor === '198.18.0.2'))
     assert.deepEqual(validateRuntimeCacheReceipt(receipt, { catalog: currentCatalog, expectedSource: source, repositoryRoot: directory }), [])
     assert.ok(runtime.calls.every((call) => call.secret === secret))
     assert.equal(JSON.stringify(receipt).includes(secret), false)

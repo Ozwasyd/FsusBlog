@@ -364,20 +364,19 @@ export async function mapConcurrent(items, concurrency, action) {
   return results
 }
 
-function publicHotReadSpecs(count, phase) {
+function publicHotReadSpecs(count) {
   const fixedCount = Math.ceil(count / 2)
   return Array.from({ length: count }, (_, index) => {
     const fixed = index < fixedCount
     const suffix = fixed ? '1' : String(index - fixedCount + 1)
     return {
       method: 'GET',
-      path: '/api/binary/system/seo',
+      path: '/api/binary/article/hot/10.aeds',
       subcaseId: fixed ? 'fixed-ip' : 'unique-ip',
       parityGroup: `public-hot-read-${fixed ? 'fixed-ip' : 'unique-ip'}`,
       headers: {
         'X-Forwarded-For': `198.18.0.${suffix}`,
-        'X-Real-IP': `198.18.0.${suffix}`,
-        'X-Fsus-Device-Fp': `runtime-cache-${phase}-${fixed ? 'fixed' : suffix}`
+        'X-Real-IP': `198.18.0.${suffix}`
       }
     }
   })
@@ -720,11 +719,11 @@ export async function producePublicHotReadReceipt(options) {
   const { scenario } = options
   return produceMeasuredScenarioReceipt(options, {
     warmup: async ({ collect }) => {
-      const specs = publicHotReadSpecs(scenario.warmupRequests, 'warmup')
+      const specs = publicHotReadSpecs(scenario.warmupRequests)
       return mapConcurrent(specs, scenario.concurrency, (spec, index) => collect(spec, index, 'warmup'))
     },
     sample: async ({ collect }) => {
-      const specs = publicHotReadSpecs(scenario.requests, 'sample')
+      const specs = publicHotReadSpecs(scenario.requests)
       const requests = await mapConcurrent(specs, scenario.concurrency, (spec, index) => collect(spec, index))
       const fixedCount = Math.ceil(requests.length / 2)
       return {
@@ -733,7 +732,7 @@ export async function producePublicHotReadReceipt(options) {
           assertionForGroup('fixed-ip-l0-allow', requests.slice(0, fixedCount)),
           assertionForGroup('unique-ip-l0-allow', requests.slice(fixedCount))
         ],
-        parameters: { route: '/api/binary/system/seo', identityModes: ['fixed-ip', 'unique-ip'] }
+        parameters: { route: '/api/binary/article/hot/10.aeds', identityModes: ['fixed-ip', 'unique-ip'] }
       }
     }
   })
