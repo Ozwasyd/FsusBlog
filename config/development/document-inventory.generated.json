@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:e30be154b0ebd2c00a034d636007c06e8adcab5ebfd8a37eb95b0d027595d31f",
+    "policyDigest": "sha256:eb5abc598b1cb0e03da9c888d1b6fc9ffaa3cbec7a0aa796579b33c941bb70eb",
     "documents": [
         {
             "path": "docs/CODE_OF_CONDUCT.md",
@@ -18,6 +18,18 @@
         {
             "path": "docs/CONTRIBUTING.md",
             "title": "Contributing",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "governance",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/SECURITY.md",
+            "title": "Security Policy",
             "kind": "markdown",
             "status": "current",
             "owner": "governance",
@@ -1471,6 +1483,20 @@
             "relatedIssues": [
                 1023,
                 1429
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/frontend/article-body-command-configuration.md",
+            "title": "Article body command configuration",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "frontend",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1804
             ],
             "producer": null
         },

@@ -16,31 +16,41 @@
             :action-overflow-keys="actionOverflowKeys"
             :chrome="chrome"
             :commands="fsusUiCommands"
-            :command-overflow-label="commandOverflowLabel"
+            :command-overflow-label="articleBodyCommandOverflowLabel"
             :default-mode="fsusUiMode"
             :disabled="editorDisabled"
             editor-profile="prose"
             image-action-label="上传图片"
             interaction-profile="auto"
             :loading="loading"
+            :locale-text="articleBodyLocaleText"
             mobile-layout="auto"
             :mode="fsusUiMode"
             :placeholder="placeholder"
-            :primary-command-keys="primaryCommandKeys"
+            :primary-command-keys="articleBodyPrimaryCommandKeys"
             :show-actions="showImageAction || showSaveAction"
             :show-image-action="showImageAction"
             :show-mode-switcher="showModeSwitcher"
             :show-save-action="showSaveAction"
             :show-submit-action="false"
             :status-density="statusDensity"
+            :surfaces="articleBodyCommandSurfaces"
             :textarea-id="textareaId"
             :textarea-name="textareaName"
-            :toolbar-density="toolbarDensity"
+            toolbar-density="standard"
             :writing-placeholder="writingPlaceholder"
             @save="emitSave"
             @submit="emitSubmit"
             @upload-image="requestImageUpload"
         />
+        <p
+            v-if="headingDiagnosticText"
+            class="markdown-text-editor__heading-diagnostic"
+            role="status"
+            aria-live="polite"
+        >
+            {{ headingDiagnosticText }}
+        </p>
         <p
             v-if="uploadError"
             class="markdown-text-editor__upload-error"
@@ -62,15 +72,25 @@
 </template>
 
 <script setup lang="ts">
-import { ElMarkdownEditor, type MarkdownEditorCommand as FsusUiMarkdownEditorCommand, type MarkdownEditorMode as FsusUiMarkdownEditorMode } from '@ozwasyd/element-plus';
+import { ElMarkdownEditor, defaultMarkdownEditorCommands, type MarkdownEditorCommand as FsusUiMarkdownEditorCommand, type MarkdownEditorMode as FsusUiMarkdownEditorMode } from '@ozwasyd/element-plus';
 import { computed, nextTick, ref, watch } from 'vue';
 
+import {
+    articleBodyCommandOverflowLabel,
+    articleBodyCommandSurfaces,
+    articleBodyLocaleText,
+    articleBodyPrimaryCommandKeys,
+    composeArticleBodyEditorCommands
+} from '@/components/ui/markdown-editor/articleBodyCommandConfig';
+import {
+    diagnoseArticleBodyH1,
+    formatArticleBodyH1Diagnostic
+} from '@/components/ui/markdown-editor/articleBodyHeadingDiagnostics';
 import {
     executeMarkdownEditorCommand,
     markdownEditorCommands
 } from '@/components/ui/markdown-editor/commands';
 import { createSnapshot, replaceSelection, type SelectionResult, type SelectionSnapshot } from '@/components/ui/markdown-editor/selection';
-import { useMediaQuery } from '@/composables/useMediaQuery';
 import type {
     MarkdownEditorChrome,
     MarkdownEditorCommand,
@@ -83,7 +103,7 @@ type FsusUiMarkdownEditorExpose = Readonly<{
     insertMarkdownAtCursor?: (markdown: string) => boolean;
 }>;
 
-type BlogCommandKey = Exclude<MarkdownEditorCommandKey, 'undo' | 'redo' | 'image' | 'save'>;
+type BlogCommandKey = Exclude<MarkdownEditorCommandKey, 'undo' | 'redo' | 'image' | 'save' | 'bold' | 'italic' | 'quote' | 'link' | 'code'>;
 
 const props = withDefaults(defineProps<{
     modelValue: string;
@@ -128,49 +148,6 @@ const uploadError = ref('');
 const lastSelection = ref<SelectionSnapshot | null>(null);
 const cursorState = ref({ line: 1, column: 1 });
 
-const fsusCommandKeys = new Set<BlogCommandKey>([
-    'h1',
-    'h2',
-    'h3',
-    'bold',
-    'italic',
-    'quote',
-    'ul',
-    'ol',
-    'task',
-    'link',
-    'code',
-    'block',
-    'latex',
-    'mermaid',
-    'table',
-    'hr'
-]);
-const narrowCommandLayout = useMediaQuery('(max-width: 639px)', false);
-const primaryCommandKeys = computed<readonly BlogCommandKey[]>(() => (
-    narrowCommandLayout.value
-        ? ['h1', 'h2', 'bold']
-        : ['h1', 'h2', 'bold', 'italic', 'quote', 'link']
-));
-const compactCommandLabels: Readonly<Record<BlogCommandKey, string>> = {
-    h1: 'H1',
-    h2: 'H2',
-    h3: 'H3',
-    bold: 'B',
-    italic: 'I',
-    quote: '引',
-    ul: '列',
-    ol: '序',
-    task: '待',
-    link: '链',
-    code: '码',
-    block: '块',
-    latex: '式',
-    mermaid: '图',
-    table: '表',
-    hr: '线'
-};
-const commandOverflowLabel = computed(() => (narrowCommandLayout.value ? '更多' : '格式工具'));
 const actionOverflowKeys = ['image'] as const;
 
 const localValue = computed({
@@ -192,32 +169,24 @@ const fsusUiMode = computed<FsusUiMarkdownEditorMode>(() =>
     return 'source';
 });
 const writingPlaceholder = computed(() => props.placeholder || '从这里开始写正文。');
+const headingIssues = computed(() => diagnoseArticleBodyH1(localValue.value));
+const headingDiagnosticText = computed(() => formatArticleBodyH1Diagnostic(headingIssues.value));
 const fsusUiCommands = computed<readonly FsusUiMarkdownEditorCommand[]>(() =>
-    markdownEditorCommands
-        .filter((command) => fsusCommandKeys.has(command.key as BlogCommandKey))
-        .filter((command) => !excludedToolbarKeys.value.has(command.key))
-        .map(toFsusUiCommand));
-
-function commandToolbarLabel(command: MarkdownEditorCommand): string
-{
-    if (!narrowCommandLayout.value)
-    {
-        return command.label;
-    }
-
-    return compactCommandLabels[command.key as BlogCommandKey] ?? command.label;
-}
+    composeArticleBodyEditorCommands(
+        defaultMarkdownEditorCommands,
+        markdownEditorCommands.map(toFsusUiCommand),
+        [...excludedToolbarKeys.value]
+    ));
 
 function toFsusUiCommand(command: MarkdownEditorCommand): FsusUiMarkdownEditorCommand
 {
-    const toolbarLabel = commandToolbarLabel(command);
     return {
         key: command.key,
-        label: toolbarLabel,
-        description: command.ariaLabel ?? command.label,
+        label: command.label,
+        description: command.ariaLabel,
         group: command.group,
         shortcut: normalizeShortcut(command.shortcut),
-        title: toolbarLabel,
+        title: command.label,
         run: (context: {
             selection: { start: number; end: number; direction?: 'forward' | 'backward' | 'none'; };
             value: string;
@@ -525,5 +494,19 @@ defineExpose({
     color: var(--fsusblog-color-danger);
     font-size: 12px;
     line-height: 1.5;
+}
+
+.markdown-text-editor__heading-diagnostic
+ {
+    margin: 0.5rem 0 0;
+    min-width: 0;
+    color: var(--fsusblog-text-primary);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.5;
+    border: 1px solid var(--fsusblog-panel-border);
+    border-radius: var(--fsus-radius-control-small);
+    padding: 0.4rem 0.6rem;
+    background: var(--fsusblog-page-bg);
 }
 </style>

@@ -165,9 +165,14 @@ if (contract.includes("'write' |")) {
 
 for (const token of [
   "import { ElMarkdownEditor",
+  'defaultMarkdownEditorCommands',
+  'composeArticleBodyEditorCommands',
   "'@ozwasyd/element-plus'",
   '<ElMarkdownEditor',
   ':commands="fsusUiCommands"',
+  ':primary-command-keys="articleBodyPrimaryCommandKeys"',
+  ':surfaces="articleBodyCommandSurfaces"',
+  ':locale-text="articleBodyLocaleText"',
   '@upload-image="requestImageUpload"',
   'insertMarkdownAtCursor',
 ]) {
@@ -181,6 +186,10 @@ for (const pattern of [
   /markdown-text-editor__textarea/,
   /box-shadow:\s*inset 0 0 0 1px var\(--fsusblog-color-focus-ring\)/,
   /\.markdown-text-editor__textarea:focus-visible/,
+  /:deep\(/,
+  /\.el-markdown-editor__/,
+  /primaryCommandKeys\s*=\s*computed/,
+  /narrowCommandLayout/,
 ]) {
   if (pattern.test(markdownTextEditor)) {
     fail(markdownTextEditorPath, 1, `MarkdownTextEditor must not reintroduce Blog-local textarea/focus ownership matching ${pattern}`)
