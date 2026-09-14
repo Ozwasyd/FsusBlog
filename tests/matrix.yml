@@ -1296,20 +1296,20 @@ localProfiles:
                       coverage-threshold,
                       coverage-gate,
                       load,
-                      backend-qps-view-count-flush,
-                      backend-qps-visitlog-invalidation,
-                      backend-qps-cache-hit,
-                      backend-qps-comment-cursor,
-                      backend-qps-hotread,
-                      backend-qps-cache-miss-singleflight,
-                      backend-qps-risk-filter,
-                      backend-qps-related-reading,
-                      backend-qps-list-pagination,
-                      backend-qps-article-detail-miss,
-                      backend-qps-cache-registry,
-                      backend-cache-invalidation-batch,
-                      backend-qps-index-plan,
-                      backend-qps,
+                      runtime-cache-public-hot-read,
+                      runtime-cache-article-detail-l1,
+                      runtime-cache-cache-miss-singleflight,
+                      runtime-cache-distributed-invalidation,
+                      runtime-cache-l1-residency,
+                      runtime-cache-pagination,
+                      runtime-cache-related-reading,
+                      runtime-cache-redis-fault-classes,
+                      runtime-cache-revocation,
+                      runtime-cache-hot-featured-frame,
+                      runtime-cache-sitemap,
+                      runtime-cache-security-projections,
+                      runtime-cache-telemetry,
+                      runtime-cache-evidence,
                       load-baseline,
                       load-peak,
                       backend-benchmark-regression,
@@ -6407,14 +6407,14 @@ tiers:
       triggerCoverage: [load-smoke, notification-pressure]
       triggerReason: performance-sensitive backend, notification pressure, or load policy inputs changed
 
-    - id: backend-qps-view-count-flush
-      executionClass: load
+    - id: runtime-cache-public-hot-read
+      executionClass: runtime
       fixtureProfile: public-content-lifecycle
       fixtureProfileReason: binds-public-content-lifecycle
       fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
       fixtureMutatorAllowed: true
       owner: ServerContractAgent
-      command: tools/test/lanes/backend-qps.sh view-count-flush
+      command: node tools/test/run-runtime-cache-evidence.mjs --scenario public-hot-read
       executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -6437,32 +6437,33 @@ tiers:
       risk: high
       cadence: pr
       requiredFor: production
-      coverage: [view-count-batch-flush]
-      artifacts: [.tmp/perf/backend-qps/view-count-flush.json]
-      evidence: [.tmp/perf/backend-qps/view-count-flush.json]
+      coverage: [backend-qps-static-and-runtime-evidence]
+      artifacts: [.tmp/perf/runtime-cache/public-hot-read.json]
+      evidence: [.tmp/perf/runtime-cache/public-hot-read.json]
       ciJob: backend-qps-collectors
       localOnly: false
       nightlyOnly: false
       smartGateMode: conditional
+      prDefault: true
       retentionClass: conditional
       triggerPaths:
           [
               src/backend/Services,
               src/backend/Infrastructure/CoreBridge,
               src/core/Services,
-              tools/test/lanes/backend-qps.sh,
+              tools/test/run-runtime-cache-evidence.mjs,
           ]
-      triggerCoverage: [view-count-batch-flush]
-      triggerReason: view-count flush, article core bridge, or backend-qps collector changed
+      triggerCoverage: [backend-qps-static-and-runtime-evidence]
+      triggerReason: full runtime-cache evidence migration requires the complete 13-scenario shard set
 
-    - id: backend-qps-visitlog-invalidation
-      executionClass: load
+    - id: runtime-cache-article-detail-l1
+      executionClass: runtime
       fixtureProfile: public-content-lifecycle
       fixtureProfileReason: binds-public-content-lifecycle
       fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
       fixtureMutatorAllowed: true
       owner: ServerContractAgent
-      command: tools/test/lanes/backend-qps.sh visitlog-invalidation
+      command: node tools/test/run-runtime-cache-evidence.mjs --scenario article-detail-l1
       executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -6485,31 +6486,32 @@ tiers:
       risk: high
       cadence: pr
       requiredFor: production
-      coverage: [visitlog-hot-stats-invalidation-coalescing]
-      artifacts: [.tmp/perf/backend-qps/visitlog-invalidation.json]
-      evidence: [.tmp/perf/backend-qps/visitlog-invalidation.json]
+      coverage: [backend-qps-static-and-runtime-evidence]
+      artifacts: [.tmp/perf/runtime-cache/article-detail-l1.json]
+      evidence: [.tmp/perf/runtime-cache/article-detail-l1.json]
       ciJob: backend-qps-collectors
       localOnly: false
       nightlyOnly: false
       smartGateMode: conditional
+      prDefault: true
       retentionClass: conditional
       triggerPaths:
           [
               src/backend/Services/VisitLog,
               src/backend/Infrastructure/Cache,
-              tools/test/lanes/backend-qps.sh,
+              tools/test/run-runtime-cache-evidence.mjs,
           ]
-      triggerCoverage: [visitlog-hot-stats-invalidation-coalescing]
-      triggerReason: visit log invalidation or backend-qps collector changed
+      triggerCoverage: [backend-qps-static-and-runtime-evidence]
+      triggerReason: full runtime-cache evidence migration requires the complete 13-scenario shard set
 
-    - id: backend-qps-cache-hit
-      executionClass: load
+    - id: runtime-cache-cache-miss-singleflight
+      executionClass: runtime
       fixtureProfile: public-content-lifecycle
       fixtureProfileReason: binds-public-content-lifecycle
       fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
       fixtureMutatorAllowed: true
       owner: ServerContractAgent
-      command: tools/test/lanes/backend-qps.sh cache-hit
+      command: node tools/test/run-runtime-cache-evidence.mjs --scenario cache-miss-singleflight
       executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -6532,9 +6534,9 @@ tiers:
       risk: high
       cadence: pr
       requiredFor: production
-      coverage: [aeds-full-frame-cache-hit]
-      artifacts: [.tmp/perf/backend-qps/cache-hit.json]
-      evidence: [.tmp/perf/backend-qps/cache-hit.json]
+      coverage: [backend-qps-static-and-runtime-evidence]
+      artifacts: [.tmp/perf/runtime-cache/cache-miss-singleflight.json]
+      evidence: [.tmp/perf/runtime-cache/cache-miss-singleflight.json]
       ciJob: backend-qps-collectors
       localOnly: false
       nightlyOnly: false
@@ -6545,19 +6547,19 @@ tiers:
           [
               src/backend/Infrastructure/Cache,
               src/backend/Modules/Endpoints/Binary,
-              tools/test/lanes/backend-qps.sh,
+              tools/test/run-runtime-cache-evidence.mjs,
           ]
-      triggerCoverage: [aeds-full-frame-cache-hit]
-      triggerReason: PR sentinel plus binary frame cache hit coverage
+      triggerCoverage: [backend-qps-static-and-runtime-evidence]
+      triggerReason: full runtime-cache evidence migration requires the complete 13-scenario shard set
 
-    - id: backend-qps-comment-cursor
-      executionClass: load
-      fixtureProfile: comments-moderation
-      fixtureProfileReason: binds-comments-moderation
+    - id: runtime-cache-distributed-invalidation
+      executionClass: runtime
+      fixtureProfile: acceptance-representative
+      fixtureProfileReason: binds-acceptance-representative
       fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
       fixtureMutatorAllowed: true
       owner: ServerContractAgent
-      command: tools/test/lanes/backend-qps.sh comment-cursor
+      command: node tools/test/run-runtime-cache-evidence.mjs --scenario distributed-invalidation
       executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -6580,31 +6582,32 @@ tiers:
       risk: high
       cadence: pr
       requiredFor: production
-      coverage: [comment-cursor-cache]
-      artifacts: [.tmp/perf/backend-qps/comment-cursor.json]
-      evidence: [.tmp/perf/backend-qps/comment-cursor.json]
+      coverage: [backend-qps-static-and-runtime-evidence]
+      artifacts: [.tmp/perf/runtime-cache/distributed-invalidation.json]
+      evidence: [.tmp/perf/runtime-cache/distributed-invalidation.json]
       ciJob: backend-qps-collectors
       localOnly: false
       nightlyOnly: false
       smartGateMode: conditional
+      prDefault: true
       retentionClass: conditional
       triggerPaths:
           [
               src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs,
               src/backend/Infrastructure/Cache,
-              tools/test/lanes/backend-qps.sh,
+              tools/test/run-runtime-cache-evidence.mjs,
           ]
-      triggerCoverage: [comment-cursor-cache]
-      triggerReason: comment cursor cache or backend-qps collector changed
+      triggerCoverage: [backend-qps-static-and-runtime-evidence]
+      triggerReason: full runtime-cache evidence migration requires the complete 13-scenario shard set
 
-    - id: backend-qps-hotread
-      executionClass: load
+    - id: runtime-cache-l1-residency
+      executionClass: runtime
       fixtureProfile: public-content-lifecycle
       fixtureProfileReason: binds-public-content-lifecycle
       fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
       fixtureMutatorAllowed: true
       owner: ServerContractAgent
-      command: tools/test/lanes/backend-qps.sh hotread
+      command: node tools/test/run-runtime-cache-evidence.mjs --scenario l1-residency
       executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -6627,9 +6630,9 @@ tiers:
       risk: high
       cadence: pr
       requiredFor: production
-      coverage: [public-hot-read-taxonomy]
-      artifacts: [.tmp/perf/backend-qps/hotread.json]
-      evidence: [.tmp/perf/backend-qps/hotread.json]
+      coverage: [backend-qps-static-and-runtime-evidence]
+      artifacts: [.tmp/perf/runtime-cache/l1-residency.json]
+      evidence: [.tmp/perf/runtime-cache/l1-residency.json]
       ciJob: backend-qps-collectors
       localOnly: false
       nightlyOnly: false
@@ -6640,19 +6643,19 @@ tiers:
           [
               src/backend/Infrastructure/PublicReadArtifacts,
               src/backend/Modules/Endpoints/Binary,
-              tools/test/lanes/backend-qps.sh,
+              tools/test/run-runtime-cache-evidence.mjs,
           ]
-      triggerCoverage: [public-hot-read-taxonomy]
-      triggerReason: PR sentinel plus public hot-read coverage
+      triggerCoverage: [backend-qps-static-and-runtime-evidence]
+      triggerReason: full runtime-cache evidence migration requires the complete 13-scenario shard set
 
-    - id: backend-qps-cache-miss-singleflight
-      executionClass: load
+    - id: runtime-cache-pagination
+      executionClass: runtime
       fixtureProfile: public-content-lifecycle
       fixtureProfileReason: binds-public-content-lifecycle
       fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
       fixtureMutatorAllowed: true
       owner: ServerContractAgent
-      command: tools/test/lanes/backend-qps.sh cache-miss-singleflight
+      command: node tools/test/run-runtime-cache-evidence.mjs --scenario pagination
       executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -6675,9 +6678,9 @@ tiers:
       risk: high
       cadence: pr
       requiredFor: production
-      coverage: [cache-miss-singleflight]
-      artifacts: [.tmp/perf/backend-qps/cache-miss-singleflight.json]
-      evidence: [.tmp/perf/backend-qps/cache-miss-singleflight.json]
+      coverage: [backend-qps-static-and-runtime-evidence]
+      artifacts: [.tmp/perf/runtime-cache/pagination.json]
+      evidence: [.tmp/perf/runtime-cache/pagination.json]
       ciJob: backend-qps-collectors
       localOnly: false
       nightlyOnly: false
@@ -6688,250 +6691,255 @@ tiers:
           [
               src/backend/Infrastructure/CoreBridge/Caching,
               src/backend/Infrastructure/Cache,
-              tools/test/lanes/backend-qps.sh,
+              tools/test/run-runtime-cache-evidence.mjs,
           ]
-      triggerCoverage: [cache-miss-singleflight]
-      triggerReason: PR sentinel plus cache miss singleflight coverage
+      triggerCoverage: [backend-qps-static-and-runtime-evidence]
+      triggerReason: full runtime-cache evidence migration requires the complete 13-scenario shard set
 
-    - id: backend-qps-risk-filter
-      executionClass: load
-      fixtureProfile: auth-security-matrix
-      fixtureProfileReason: binds-auth-security-matrix
-      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
-      fixtureMutatorAllowed: true
-      owner: ServerContractAgent
-      command: tools/test/lanes/backend-qps.sh risk-filter
-      executionDependsOn: [behavior-doc-static-admission]
-      services: [postgres, redis, backend, frontend]
-      parallelizable: true
-      exclusiveResources: []
-      phase: 3
-      cost: medium
-      resourceClass: network
-      cpuWeight: 1
-      memoryWeight: 1
-      minCpuUnits: 1
-      requiresBootstrap: full
-      workflowBootstraps: true
-      requiresNode: true
-      requiresDotnet: true
-      requiresPlaywright: none
-      cacheProfile: backend
-      timeoutMinutes: 45
-      shardable: false
-      defaultShards: 1
-      risk: high
-      cadence: pr
-      requiredFor: production
-      coverage: [public-read-risk-filter]
-      artifacts: [.tmp/perf/backend-qps/risk-filter.json]
-      evidence: [.tmp/perf/backend-qps/risk-filter.json]
-      ciJob: backend-qps-collectors
-      localOnly: false
-      nightlyOnly: false
-      smartGateMode: conditional
-      retentionClass: conditional
-      triggerPaths:
-          [
-              src/backend/Infrastructure/Security,
-              src/backend/Infrastructure/Bootstrap,
-              tools/test/lanes/backend-qps.sh,
-          ]
-      triggerCoverage: [public-read-risk-filter]
-      triggerReason: public read risk filter or backend-qps collector changed
-
-    - id: backend-qps-related-reading
-      executionClass: load
-      fixtureProfile: public-content-lifecycle
-      fixtureProfileReason: binds-public-content-lifecycle
-      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
-      fixtureMutatorAllowed: true
-      owner: ServerContractAgent
-      command: tools/test/lanes/backend-qps.sh related-reading
-      executionDependsOn: [behavior-doc-static-admission]
-      services: [postgres, redis, backend, frontend]
-      parallelizable: true
-      exclusiveResources: []
-      phase: 3
-      cost: medium
-      resourceClass: network
-      cpuWeight: 1
-      memoryWeight: 1
-      minCpuUnits: 1
-      requiresBootstrap: full
-      workflowBootstraps: true
-      requiresNode: true
-      requiresDotnet: true
-      requiresPlaywright: none
-      cacheProfile: backend
-      timeoutMinutes: 45
-      shardable: false
-      defaultShards: 1
-      risk: high
-      cadence: pr
-      requiredFor: production
-      coverage: [related-reading-cache]
-      artifacts: [.tmp/perf/backend-qps/related-reading.json]
-      evidence: [.tmp/perf/backend-qps/related-reading.json]
-      ciJob: backend-qps-collectors
-      localOnly: false
-      nightlyOnly: false
-      smartGateMode: conditional
-      retentionClass: conditional
-      triggerPaths:
-          [
-              src/backend/Services/Distribution,
-              src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs,
-              tools/test/lanes/backend-qps.sh,
-          ]
-      triggerCoverage: [related-reading-cache]
-      triggerReason: related reading cache or backend-qps collector changed
-
-    - id: backend-qps-list-pagination
-      executionClass: load
-      fixtureProfile: public-content-lifecycle
-      fixtureProfileReason: binds-public-content-lifecycle
-      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
-      fixtureMutatorAllowed: true
-      owner: ServerContractAgent
-      command: tools/test/lanes/backend-qps.sh list-pagination
-      executionDependsOn: [behavior-doc-static-admission]
-      services: [postgres, redis, backend, frontend]
-      parallelizable: true
-      exclusiveResources: []
-      phase: 3
-      cost: medium
-      resourceClass: network
-      cpuWeight: 1
-      memoryWeight: 1
-      minCpuUnits: 1
-      requiresBootstrap: full
-      workflowBootstraps: true
-      requiresNode: true
-      requiresDotnet: true
-      requiresPlaywright: none
-      cacheProfile: backend
-      timeoutMinutes: 45
-      shardable: false
-      defaultShards: 1
-      risk: high
-      cadence: pr
-      requiredFor: production
-      coverage: [public-list-deep-page]
-      artifacts: [.tmp/perf/backend-qps/list-pagination.json]
-      evidence: [.tmp/perf/backend-qps/list-pagination.json]
-      ciJob: backend-qps-collectors
-      localOnly: false
-      nightlyOnly: false
-      smartGateMode: conditional
-      retentionClass: conditional
-      triggerPaths:
-          [
-              src/backend/Services/ArticleService.cs,
-              tools/test/lanes/backend-qps.sh,
-          ]
-      triggerCoverage: [public-list-deep-page]
-      triggerReason: public list pagination or backend-qps collector changed
-
-    - id: backend-qps-article-detail-miss
-      executionClass: load
-      fixtureProfile: public-content-lifecycle
-      fixtureProfileReason: binds-public-content-lifecycle
-      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
-      fixtureMutatorAllowed: true
-      owner: ServerContractAgent
-      command: tools/test/lanes/backend-qps.sh article-detail-miss
-      executionDependsOn: [behavior-doc-static-admission]
-      services: [postgres, redis, backend, frontend]
-      parallelizable: true
-      exclusiveResources: []
-      phase: 3
-      cost: medium
-      resourceClass: network
-      cpuWeight: 1
-      memoryWeight: 1
-      minCpuUnits: 1
-      requiresBootstrap: full
-      workflowBootstraps: true
-      requiresNode: true
-      requiresDotnet: true
-      requiresPlaywright: none
-      cacheProfile: backend
-      timeoutMinutes: 45
-      shardable: false
-      defaultShards: 1
-      risk: high
-      cadence: pr
-      requiredFor: production
-      coverage: [article-detail-artifact-miss]
-      artifacts: [.tmp/perf/backend-qps/article-detail-miss.json]
-      evidence: [.tmp/perf/backend-qps/article-detail-miss.json]
-      ciJob: backend-qps-collectors
-      localOnly: false
-      nightlyOnly: false
-      smartGateMode: conditional
-      retentionClass: conditional
-      triggerPaths:
-          [
-              src/backend/Services/ArticleEndpointService.cs,
-              src/backend/Infrastructure/PublicReadArtifacts,
-              src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs,
-              tools/test/lanes/backend-qps.sh,
-          ]
-      triggerCoverage: [article-detail-artifact-miss]
-      triggerReason: article detail artifact miss or backend-qps collector changed
-
-    - id: backend-qps-cache-registry
-      executionClass: load
-      fixtureProfile: public-content-lifecycle
-      fixtureProfileReason: binds-public-content-lifecycle
-      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
-      fixtureMutatorAllowed: true
-      owner: ServerContractAgent
-      command: tools/test/lanes/backend-qps.sh cache-registry
-      executionDependsOn: [behavior-doc-static-admission]
-      services: [postgres, redis, backend, frontend]
-      parallelizable: true
-      exclusiveResources: []
-      phase: 3
-      cost: medium
-      resourceClass: network
-      cpuWeight: 1
-      memoryWeight: 1
-      minCpuUnits: 1
-      requiresBootstrap: full
-      workflowBootstraps: true
-      requiresNode: true
-      requiresDotnet: true
-      requiresPlaywright: none
-      cacheProfile: backend
-      timeoutMinutes: 45
-      shardable: false
-      defaultShards: 1
-      risk: high
-      cadence: pr
-      requiredFor: production
-      coverage: [cache-registry-command-reduction]
-      artifacts: [.tmp/perf/backend-qps/cache-registry.json]
-      evidence: [.tmp/perf/backend-qps/cache-registry.json]
-      ciJob: backend-qps-collectors
-      localOnly: false
-      nightlyOnly: false
-      smartGateMode: conditional
-      retentionClass: conditional
-      triggerPaths:
-          [src/backend/Infrastructure/Cache, tools/test/lanes/backend-qps.sh]
-      triggerCoverage: [cache-registry-command-reduction]
-      triggerReason: cache registry or backend-qps collector changed
-
-    - id: backend-cache-invalidation-batch
+    - id: runtime-cache-related-reading
       executionClass: runtime
       fixtureProfile: public-content-lifecycle
       fixtureProfileReason: binds-public-content-lifecycle
       fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
       fixtureMutatorAllowed: true
       owner: ServerContractAgent
-      command: tools/test/lanes/backend-qps.sh cache-invalidation-batch
+      command: node tools/test/run-runtime-cache-evidence.mjs --scenario related-reading
+      executionDependsOn: [behavior-doc-static-admission]
+      services: [postgres, redis, backend, frontend]
+      parallelizable: true
+      exclusiveResources: []
+      phase: 3
+      cost: medium
+      resourceClass: network
+      cpuWeight: 1
+      memoryWeight: 1
+      minCpuUnits: 1
+      requiresBootstrap: full
+      workflowBootstraps: true
+      requiresNode: true
+      requiresDotnet: true
+      requiresPlaywright: none
+      cacheProfile: backend
+      timeoutMinutes: 45
+      shardable: false
+      defaultShards: 1
+      risk: high
+      cadence: pr
+      requiredFor: production
+      coverage: [backend-qps-static-and-runtime-evidence]
+      artifacts: [.tmp/perf/runtime-cache/related-reading.json]
+      evidence: [.tmp/perf/runtime-cache/related-reading.json]
+      ciJob: backend-qps-collectors
+      localOnly: false
+      nightlyOnly: false
+      smartGateMode: conditional
+      prDefault: true
+      retentionClass: conditional
+      triggerPaths:
+          [
+              src/backend/Infrastructure/Security,
+              src/backend/Infrastructure/Bootstrap,
+              tools/test/run-runtime-cache-evidence.mjs,
+          ]
+      triggerCoverage: [backend-qps-static-and-runtime-evidence]
+      triggerReason: full runtime-cache evidence migration requires the complete 13-scenario shard set
+
+    - id: runtime-cache-redis-fault-classes
+      executionClass: runtime
+      fixtureProfile: acceptance-representative
+      fixtureProfileReason: binds-acceptance-representative
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
+      owner: ServerContractAgent
+      command: node tools/test/run-runtime-cache-evidence.mjs --scenario redis-fault-classes
+      executionDependsOn: [behavior-doc-static-admission]
+      services: [postgres, redis, backend, frontend]
+      parallelizable: true
+      exclusiveResources: []
+      phase: 3
+      cost: medium
+      resourceClass: network
+      cpuWeight: 1
+      memoryWeight: 1
+      minCpuUnits: 1
+      requiresBootstrap: full
+      workflowBootstraps: true
+      requiresNode: true
+      requiresDotnet: true
+      requiresPlaywright: none
+      cacheProfile: backend
+      timeoutMinutes: 45
+      shardable: false
+      defaultShards: 1
+      risk: high
+      cadence: pr
+      requiredFor: production
+      coverage: [backend-qps-static-and-runtime-evidence]
+      artifacts: [.tmp/perf/runtime-cache/redis-fault-classes.json]
+      evidence: [.tmp/perf/runtime-cache/redis-fault-classes.json]
+      ciJob: backend-qps-collectors
+      localOnly: false
+      nightlyOnly: false
+      smartGateMode: conditional
+      prDefault: true
+      retentionClass: conditional
+      triggerPaths:
+          [
+              src/backend/Services/Distribution,
+              src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs,
+              tools/test/run-runtime-cache-evidence.mjs,
+          ]
+      triggerCoverage: [backend-qps-static-and-runtime-evidence]
+      triggerReason: full runtime-cache evidence migration requires the complete 13-scenario shard set
+
+    - id: runtime-cache-revocation
+      executionClass: runtime
+      fixtureProfile: public-content-lifecycle
+      fixtureProfileReason: binds-public-content-lifecycle
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
+      owner: ServerContractAgent
+      command: node tools/test/run-runtime-cache-evidence.mjs --scenario revocation
+      executionDependsOn: [behavior-doc-static-admission]
+      services: [postgres, redis, backend, frontend]
+      parallelizable: true
+      exclusiveResources: []
+      phase: 3
+      cost: medium
+      resourceClass: network
+      cpuWeight: 1
+      memoryWeight: 1
+      minCpuUnits: 1
+      requiresBootstrap: full
+      workflowBootstraps: true
+      requiresNode: true
+      requiresDotnet: true
+      requiresPlaywright: none
+      cacheProfile: backend
+      timeoutMinutes: 45
+      shardable: false
+      defaultShards: 1
+      risk: high
+      cadence: pr
+      requiredFor: production
+      coverage: [backend-qps-static-and-runtime-evidence]
+      artifacts: [.tmp/perf/runtime-cache/revocation.json]
+      evidence: [.tmp/perf/runtime-cache/revocation.json]
+      ciJob: backend-qps-collectors
+      localOnly: false
+      nightlyOnly: false
+      smartGateMode: conditional
+      prDefault: true
+      retentionClass: conditional
+      triggerPaths:
+          [
+              src/backend/Services/ArticleService.cs,
+              tools/test/run-runtime-cache-evidence.mjs,
+          ]
+      triggerCoverage: [backend-qps-static-and-runtime-evidence]
+      triggerReason: full runtime-cache evidence migration requires the complete 13-scenario shard set
+
+    - id: runtime-cache-hot-featured-frame
+      executionClass: runtime
+      fixtureProfile: public-content-lifecycle
+      fixtureProfileReason: binds-public-content-lifecycle
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
+      owner: ServerContractAgent
+      command: node tools/test/run-runtime-cache-evidence.mjs --scenario hot-featured-frame
+      executionDependsOn: [behavior-doc-static-admission]
+      services: [postgres, redis, backend, frontend]
+      parallelizable: true
+      exclusiveResources: []
+      phase: 3
+      cost: medium
+      resourceClass: network
+      cpuWeight: 1
+      memoryWeight: 1
+      minCpuUnits: 1
+      requiresBootstrap: full
+      workflowBootstraps: true
+      requiresNode: true
+      requiresDotnet: true
+      requiresPlaywright: none
+      cacheProfile: backend
+      timeoutMinutes: 45
+      shardable: false
+      defaultShards: 1
+      risk: high
+      cadence: pr
+      requiredFor: production
+      coverage: [backend-qps-static-and-runtime-evidence]
+      artifacts: [.tmp/perf/runtime-cache/hot-featured-frame.json]
+      evidence: [.tmp/perf/runtime-cache/hot-featured-frame.json]
+      ciJob: backend-qps-collectors
+      localOnly: false
+      nightlyOnly: false
+      smartGateMode: conditional
+      prDefault: true
+      retentionClass: conditional
+      triggerPaths:
+          [
+              src/backend/Services/ArticleEndpointService.cs,
+              src/backend/Infrastructure/PublicReadArtifacts,
+              src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs,
+              tools/test/run-runtime-cache-evidence.mjs,
+          ]
+      triggerCoverage: [backend-qps-static-and-runtime-evidence]
+      triggerReason: full runtime-cache evidence migration requires the complete 13-scenario shard set
+
+    - id: runtime-cache-sitemap
+      executionClass: runtime
+      fixtureProfile: public-content-lifecycle
+      fixtureProfileReason: binds-public-content-lifecycle
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
+      owner: ServerContractAgent
+      command: node tools/test/run-runtime-cache-evidence.mjs --scenario sitemap
+      executionDependsOn: [behavior-doc-static-admission]
+      services: [postgres, redis, backend, frontend]
+      parallelizable: true
+      exclusiveResources: []
+      phase: 3
+      cost: medium
+      resourceClass: network
+      cpuWeight: 1
+      memoryWeight: 1
+      minCpuUnits: 1
+      requiresBootstrap: full
+      workflowBootstraps: true
+      requiresNode: true
+      requiresDotnet: true
+      requiresPlaywright: none
+      cacheProfile: backend
+      timeoutMinutes: 45
+      shardable: false
+      defaultShards: 1
+      risk: high
+      cadence: pr
+      requiredFor: production
+      coverage: [backend-qps-static-and-runtime-evidence]
+      artifacts: [.tmp/perf/runtime-cache/sitemap.json]
+      evidence: [.tmp/perf/runtime-cache/sitemap.json]
+      ciJob: backend-qps-collectors
+      localOnly: false
+      nightlyOnly: false
+      smartGateMode: conditional
+      prDefault: true
+      retentionClass: conditional
+      triggerPaths:
+          [src/backend/Infrastructure/Cache, tools/test/run-runtime-cache-evidence.mjs]
+      triggerCoverage: [backend-qps-static-and-runtime-evidence]
+      triggerReason: full runtime-cache evidence migration requires the complete 13-scenario shard set
+
+    - id: runtime-cache-security-projections
+      executionClass: runtime
+      fixtureProfile: auth-security-matrix
+      fixtureProfileReason: binds-auth-security-matrix
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: true
+      owner: ServerContractAgent
+      command: node tools/test/run-runtime-cache-evidence.mjs --scenario security-projections
       executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -6954,31 +6962,32 @@ tiers:
       risk: high
       cadence: pr
       requiredFor: production
-      coverage: [cache-invalidation-batch-roundtrip-reduction]
-      artifacts: [.tmp/perf/backend-qps/cache-invalidation-batch.json]
-      evidence: [.tmp/perf/backend-qps/cache-invalidation-batch.json]
+      coverage: [backend-qps-static-and-runtime-evidence]
+      artifacts: [.tmp/perf/runtime-cache/security-projections.json]
+      evidence: [.tmp/perf/runtime-cache/security-projections.json]
       ciJob: backend-qps-collectors
       localOnly: false
       nightlyOnly: false
       smartGateMode: conditional
+      prDefault: true
       retentionClass: conditional
       triggerPaths:
           [
               src/backend/Infrastructure/Cache,
               src/backend/Infrastructure/Observability,
-              tools/test/lanes/backend-qps.sh,
+              tools/test/run-runtime-cache-evidence.mjs,
           ]
-      triggerCoverage: [cache-invalidation-batch-roundtrip-reduction]
-      triggerReason: cache invalidation batching or backend-qps collector changed
+      triggerCoverage: [backend-qps-static-and-runtime-evidence]
+      triggerReason: full runtime-cache evidence migration requires the complete 13-scenario shard set
 
-    - id: backend-qps-index-plan
-      executionClass: load
-      fixtureProfile: public-content-lifecycle
-      fixtureProfileReason: binds-public-content-lifecycle
+    - id: runtime-cache-telemetry
+      executionClass: runtime
+      fixtureProfile: acceptance-representative
+      fixtureProfileReason: binds-acceptance-representative
       fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
       fixtureMutatorAllowed: true
       owner: ServerContractAgent
-      command: tools/test/lanes/backend-qps.sh index-plan
+      command: node tools/test/run-runtime-cache-evidence.mjs --scenario telemetry
       executionDependsOn: [behavior-doc-static-admission]
       services: [postgres, redis, backend, frontend]
       parallelizable: true
@@ -7001,13 +7010,14 @@ tiers:
       risk: high
       cadence: pr
       requiredFor: production
-      coverage: [db-index-plan]
-      artifacts: [.tmp/perf/backend-qps/index-plan.json]
-      evidence: [.tmp/perf/backend-qps/index-plan.json]
+      coverage: [backend-qps-static-and-runtime-evidence]
+      artifacts: [.tmp/perf/runtime-cache/telemetry.json]
+      evidence: [.tmp/perf/runtime-cache/telemetry.json]
       ciJob: backend-qps-collectors
       localOnly: false
       nightlyOnly: false
       smartGateMode: conditional
+      prDefault: true
       retentionClass: conditional
       triggerPaths:
           [
@@ -7015,35 +7025,37 @@ tiers:
               src/backend/Infrastructure/PublicReadArtifacts/PublicArticleProjectionStore.cs,
               src/backend/Infrastructure/SchemaMigration,
               tools/perf/public-article-projection-plan.sql,
-              tools/test/lanes/backend-qps.sh,
+              tools/test/run-runtime-cache-evidence.mjs,
           ]
-      triggerCoverage: [db-index-plan]
-      triggerReason: database index or public article projection plan changed
+      triggerCoverage: [backend-qps-static-and-runtime-evidence]
+      triggerReason: full runtime-cache evidence migration requires the complete 13-scenario shard set
 
-    - id: backend-qps
+    - id: runtime-cache-evidence
       executionClass: coordination
+      executionMode: summary
+      commandKind: aggregate
       fixtureProfile: none
       fixtureProfileReason: none-coordination
       fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
       fixtureMutatorAllowed: false
       owner: ServerContractAgent
-      command: tools/test/lanes/backend-qps.sh aggregate
+      command: node tools/test/check-runtime-cache-evidence.mjs
       executionDependsOn:
           [
               bootstrap,
-              backend-qps-view-count-flush,
-              backend-qps-visitlog-invalidation,
-              backend-qps-cache-hit,
-              backend-qps-comment-cursor,
-              backend-qps-hotread,
-              backend-qps-cache-miss-singleflight,
-              backend-qps-risk-filter,
-              backend-qps-related-reading,
-              backend-qps-list-pagination,
-              backend-qps-article-detail-miss,
-              backend-qps-cache-registry,
-              backend-cache-invalidation-batch,
-              backend-qps-index-plan,
+              runtime-cache-public-hot-read,
+              runtime-cache-article-detail-l1,
+              runtime-cache-cache-miss-singleflight,
+              runtime-cache-distributed-invalidation,
+              runtime-cache-l1-residency,
+              runtime-cache-pagination,
+              runtime-cache-related-reading,
+              runtime-cache-redis-fault-classes,
+              runtime-cache-revocation,
+              runtime-cache-hot-featured-frame,
+              runtime-cache-sitemap,
+              runtime-cache-security-projections,
+              runtime-cache-telemetry,
           ]
       services: []
       parallelizable: false
@@ -7067,60 +7079,15 @@ tiers:
       cadence: pr
       requiredFor: production
       coverage: [backend-qps-static-and-runtime-evidence]
-      artifacts:
-          [
-              .tmp/perf/backend-qps,
-              .tmp/release-evidence/backend-qps-summary.json,
-          ]
-      evidence: [.tmp/release-evidence/backend-qps-summary.json]
+      artifacts: [.tmp/release-evidence/runtime-cache-summary.json]
+      evidence: [.tmp/release-evidence/runtime-cache-summary.json]
       ciJob: backend-qps
       localOnly: false
       nightlyOnly: false
-      smartGateMode: full-only
+      smartGateMode: conditional
+      prDefault: true
       retentionClass: must-keep
-      triggerReason: backend-qps aggregate requires full collector evidence and runs only in full gates
-
-    - id: backend-qps-runtime-sequential
-      executionClass: load
-      fixtureProfile: acceptance-representative
-      fixtureProfileReason: binds-acceptance-representative
-      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
-      fixtureMutatorAllowed: true
-      owner: ServerContractAgent
-      command: tools/test/lanes/backend-qps.sh backend-qps-runtime-sequential
-      executionDependsOn: [bootstrap]
-      services: [postgres, redis, backend, frontend]
-      parallelizable: false
-      exclusiveResources: [backend-qps-runtime]
-      phase: 3
-      cost: medium
-      resourceClass: network
-      cpuWeight: 1
-      memoryWeight: 1
-      minCpuUnits: 1
-      maxParallel: 1
-      requiresBootstrap: full
-      requiresNode: true
-      requiresDotnet: true
-      requiresPlaywright: none
-      cacheProfile: full
-      timeoutMinutes: 45
-      shardable: false
-      defaultShards: 1
-      risk: medium
-      cadence: nightly
-      requiredFor: none
-      coverage: [backend-qps-warmed-runtime-sequential]
-      artifacts:
-          [
-              .tmp/perf/backend-qps/runtime-sequential.json,
-              .tmp/release-evidence/backend-qps-runtime-sequential-summary.json,
-          ]
-      evidence:
-          [.tmp/release-evidence/backend-qps-runtime-sequential-summary.json]
-      ciJob: backend-qps
-      localOnly: false
-      nightlyOnly: true
+      triggerReason: strict runtime-cache aggregate requires all 13 current-schema receipts
 
     - id: aeds-frame-cost
       executionClass: benchmark

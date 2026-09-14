@@ -1349,7 +1349,7 @@ jobs:
                       .tmp/release-evidence/jobs/**
 
     backend-qps-collectors:
-        name: Backend QPS Collector ${{ matrix.shard_id }}
+        name: Runtime Cache Producer ${{ matrix.shard_id }}
         runs-on: ubuntu-latest
         needs: [behavior-doc-static-admission, plan-pr-risk, production-build-artifacts]
         if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.backend_qps_collectors == 'true'
@@ -1359,7 +1359,7 @@ jobs:
             max-parallel: ${{ fromJson(needs.plan-pr-risk.outputs.backend_qps_collectors_max_parallel) }}
             matrix: ${{ fromJson(needs.plan-pr-risk.outputs.backend_qps_collectors_matrix) }}
         env:
-            FSUSBLOG_TEST_NAMESPACE: ci-backend-qps-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard_id }}
+            FSUSBLOG_TEST_NAMESPACE: ci-runtime-cache-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard_id }}
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
@@ -1383,7 +1383,7 @@ jobs:
               with:
                   source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
                   receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
-                  consumer-job: backend-qps-${{ matrix.tier }}
+                  consumer-job: ${{ matrix.tier }}
             - run: ./tools/test.sh bootstrap --no-deps
             - run: ./tools/test.sh ci-tier ${{ matrix.tier }} --no-deps
               env:
@@ -1392,18 +1392,16 @@ jobs:
               if: always()
               with:
                   name: ${{ matrix.artifact_name }}
-                  if-no-files-found: ignore
+                  if-no-files-found: error
                   retention-days: 14
                   include-hidden-files: true
-                  path: |
-                      .tmp/perf/backend-qps/**
-                      .tmp/release-evidence/jobs/**
+                  path: .tmp/perf/runtime-cache/*.json
 
     backend-qps:
-        name: Backend QPS Aggregate
+        name: Runtime Cache Strict Aggregate
         runs-on: ubuntu-latest
         needs: [behavior-doc-static-admission, plan-pr-risk, integration-runtime, backend-qps-collectors]
-        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.backend_qps == 'true'
+        if: always() && (github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.backend_qps == 'true')
         timeout-minutes: 45
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -1415,23 +1413,21 @@ jobs:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
                   receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              if: always()
               with:
                   pattern: backend-qps-collectors-*
                   path: .tmp
                   merge-multiple: true
-            - run: ./tools/test.sh ci-tier backend-qps --no-deps
+            - if: always()
+              run: ./tools/test.sh ci-tier runtime-cache-evidence --no-deps
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               if: always()
               with:
                   name: backend-qps
-                  if-no-files-found: ignore
+                  if-no-files-found: error
                   retention-days: 14
                   include-hidden-files: true
-                  path: |
-                      .tmp/perf/backend-qps/**
-                      .tmp/release-evidence/backend-qps-summary.json
-                      .tmp/release-evidence/backend-qps-runtime-sequential-summary.json
-                      .tmp/release-evidence/jobs/**
+                  path: .tmp/release-evidence/runtime-cache-summary.json
 
     perf-regression:
         name: Perf Regression

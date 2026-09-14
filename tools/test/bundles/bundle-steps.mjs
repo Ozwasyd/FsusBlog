@@ -1293,11 +1293,23 @@ export function runtimeSteps()
 export function performanceSteps()
 {
     const windowMembers = [
-        'load', 'backend-qps-view-count-flush', 'backend-qps-visitlog-invalidation', 'backend-qps-cache-hit',
-        'backend-qps-comment-cursor', 'backend-qps-hotread', 'backend-qps-cache-miss-singleflight',
-        'backend-qps-risk-filter', 'backend-qps-related-reading', 'backend-qps-list-pagination',
-        'backend-qps-article-detail-miss', 'backend-qps-cache-registry', 'backend-cache-invalidation-batch',
-        'backend-qps-index-plan', 'backend-qps', 'load-baseline', 'load-peak'
+        'load',
+        'runtime-cache-public-hot-read',
+        'runtime-cache-article-detail-l1',
+        'runtime-cache-cache-miss-singleflight',
+        'runtime-cache-distributed-invalidation',
+        'runtime-cache-l1-residency',
+        'runtime-cache-pagination',
+        'runtime-cache-related-reading',
+        'runtime-cache-redis-fault-classes',
+        'runtime-cache-revocation',
+        'runtime-cache-hot-featured-frame',
+        'runtime-cache-sitemap',
+        'runtime-cache-security-projections',
+        'runtime-cache-telemetry',
+        'runtime-cache-evidence',
+        'load-baseline',
+        'load-peak'
     ];
     const measurementBarrier = 'performance-measurement-ready';
     const benchmarkResources = { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: ['benchmark-window'] };
