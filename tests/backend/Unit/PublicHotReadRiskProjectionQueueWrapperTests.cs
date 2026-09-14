@@ -232,7 +232,7 @@ public sealed class PublicHotReadRiskProjectionQueueWrapperTests
                 .BuildServiceProvider();
             Worker = new PublicHotReadRiskProjectionWorker(
                 Projection,
-                Substitute.For<IConnectionMultiplexer>(),
+                RedisOperationExecutor.ForTestConnection(Substitute.For<IConnectionMultiplexer>()),
                 new DefaultRuntimeKeyScope(),
                 _services.GetRequiredService<IServiceScopeFactory>(),
                 Options.Create(new PublicHotReadRiskProjectionOptions

@@ -1,15 +1,15 @@
 using System.Data.Common;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Text.Json;
 
+using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Cache;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Shared.Contracts.Outputs;
-
-using Microsoft.Extensions.Caching.Memory;
+using FsusBlog.Shared.Contracts.Validation;
 
 using SqlSugar;
 
@@ -17,16 +17,18 @@ namespace FsusBlog.Server.Services.Distribution;
 
 public sealed class RelatedReadingService(
     ISqlSugarClient db,
-    ICacheTypedReader cacheReader,
-    ICacheRawWriter cacheWriter,
+    IOwnedFrameCache frameCache,
+    ICacheMissCoordinator cacheMissCoordinator,
     ICacheStringReader stringReader,
-    IMemoryCache memoryCache)
+    ICacheRawWriter cacheWriter,
+    IAedsEncoder aeds)
 {
     private const int RelatedLimit = 6;
     private const int CandidateWindow = 120;
+    internal const int RankingAlgorithmVersion = 1;
     private static readonly TimeSpan s_cacheTtl = TimeSpan.FromMinutes(5);
-    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly string[] s_scoreReasons = CreateScoreReasons();
+    private readonly BoundedTaskSingleFlight<bool> _buildFlights = new();
 
     private static readonly HashSet<string> s_stopWords = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -35,46 +37,141 @@ public sealed class RelatedReadingService(
 
     public async Task<RelatedReadingResponse?> BuildAsync(int articleId, CancellationToken cancellationToken = default)
     {
+        using OwnedAedsFrameReadLease? lease = await BuildFrameAsync(articleId, cancellationToken).ConfigureAwait(false);
+        if (lease is null)
+        {
+            return null;
+        }
+
+        var decodedFrame = aeds.TryDecode(lease.Memory);
+        if (!decodedFrame.IsSuccess
+            || decodedFrame.Value.FrameType != AedsFrameType.ArticleRelatedReading
+            || !PodBinaryCodec.TryDecodeRelatedReading(decodedFrame.Value.Payload, out RelatedReadingResponse response))
+        {
+            return null;
+        }
+
+        return response;
+    }
+
+    public async Task<OwnedAedsFrameReadLease?> BuildFrameAsync(
+        int articleId,
+        CancellationToken cancellationToken = default)
+    {
         long startedAt = Stopwatch.GetTimestamp();
         if (articleId <= 0)
         {
             return null;
         }
 
-        long version = await GetArticleListVersionAsync(cancellationToken);
-        string cacheKey = $"article:{articleId}:v:{version}";
-        if (memoryCache.TryGetValue(cacheKey, out RelatedReadingResponse? cached) && cached is not null)
-        {
-            FsusObservability.RecordRelatedReadingBuild(cacheHit: true, FsusObservability.GetElapsed(startedAt));
-            return cached;
-        }
-
-        CacheReadResult<RelatedReadingResponse> sharedCached = await cacheReader.TryGetAsync(
+        long version = await GetArticleListVersionAsync(cancellationToken).ConfigureAwait(false);
+        string cacheKey = BuildCacheIdentity(articleId, version);
+        bool cacheHit = false;
+        bool negative = false;
+        long frameBytes = 0;
+        long allocationBytes = 0;
+        long dbCommandCount = 0;
+        OwnedFrameCacheReadResult initial = await frameCache.TryGetOwnedFrameAsync(
             CachePolicyId.RelatedReading,
             cacheKey,
-            DecodeRelatedReading,
-            cancellationToken);
-        if (sharedCached.Hit && sharedCached.Value is not null)
+            AedsFrameType.ArticleRelatedReading,
+            cancellationToken).ConfigureAwait(false);
+        if (!initial.Hit)
         {
-            memoryCache.Set(cacheKey, sharedCached.Value, s_cacheTtl);
-            FsusObservability.RecordRelatedReadingBuild(cacheHit: true, FsusObservability.GetElapsed(startedAt));
-            return sharedCached.Value;
+            await _buildFlights.RunAsync(
+                CachePolicyId.RelatedReading,
+                cacheKey,
+                async buildCt =>
+                {
+                    bool? completed = await cacheMissCoordinator.CoordinateAsync(
+                        CachePolicyId.RelatedReading,
+                        cacheKey,
+                        async ct =>
+                        {
+                            OwnedFrameCacheReadResult cached = await frameCache.TryGetOwnedFrameAsync(
+                                CachePolicyId.RelatedReading,
+                                cacheKey,
+                                AedsFrameType.ArticleRelatedReading,
+                                ct).ConfigureAwait(false);
+                            cached.Lease?.Dispose();
+                            return new CacheReadResult<bool>(cached.Hit, cached.Hit);
+                        },
+                        async ct =>
+                        {
+                            long allocatedBefore = GC.GetTotalAllocatedBytes(precise: false);
+                            RelatedReadingResponse? response = await BuildResponseAsync(articleId, ct).ConfigureAwait(false);
+                            dbCommandCount = 1;
+                            if (response is null)
+                            {
+                                negative = true;
+                                allocationBytes = Math.Max(0, GC.GetTotalAllocatedBytes(precise: false) - allocatedBefore);
+                                await cacheWriter.SetNegativeAsync(CachePolicyId.RelatedReading, cacheKey, ct).ConfigureAwait(false);
+                                return true;
+                            }
+
+                            OwnedAedsFrame frame = AedsOwnedFrameBuilder.BuildOwned(
+                                AedsFrameType.ArticleRelatedReading,
+                                writer => PodBinaryCodec.WriteRelatedReading(response, writer));
+                            frameBytes = frame.LogicalLength;
+                            allocationBytes = Math.Max(0, GC.GetTotalAllocatedBytes(precise: false) - allocatedBefore);
+                            await frameCache.SetOwnedFrameAsync(
+                                CachePolicyId.RelatedReading,
+                                cacheKey,
+                                frame,
+                                s_cacheTtl,
+                                ct).ConfigureAwait(false);
+                            return true;
+                        },
+                        "related-reading-frame",
+                        buildCt).ConfigureAwait(false);
+                    return completed == true;
+                },
+                cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            initial.Lease?.Dispose();
         }
 
-        DateTime now = DateTime.UtcNow;
-        RelatedArticleRow? article = await LoadPublicArticleAsync(articleId, now, cancellationToken);
+        OwnedFrameCacheReadResult final = await frameCache.TryGetOwnedFrameAsync(
+            CachePolicyId.RelatedReading,
+            cacheKey,
+            AedsFrameType.ArticleRelatedReading,
+            cancellationToken).ConfigureAwait(false);
+        cacheHit = initial.Hit || dbCommandCount == 0;
+        negative = final.Negative;
+        frameBytes = final.Lease?.Memory.Length ?? frameBytes;
+        OwnedAedsFrameReadLease? result = final.Lease;
 
-        if (article is null)
+        FsusObservability.RecordRelatedReadingBuild(
+            cacheHit,
+            negative,
+            frameBytes,
+            allocationBytes,
+            dbCommandCount,
+            FsusObservability.GetElapsed(startedAt));
+        return result;
+    }
+
+    internal static string BuildCacheIdentity(int articleId, long publicationGeneration)
+        => FormattableString.Invariant(
+            $"article:{articleId}:publication:{publicationGeneration}:ranking:{RankingAlgorithmVersion}:aeds-frame:{AedsFrameHeader.CurrentVersion}:aeds-schema:{AedsProtocolMetadata.SchemaVersion}");
+
+    private async Task<RelatedReadingResponse?> BuildResponseAsync(int articleId, CancellationToken cancellationToken)
+    {
+        DateTime now = DateTime.UtcNow;
+        RelatedReadingBuildData? build = await LoadBuildDataAsync(articleId, now, cancellationToken).ConfigureAwait(false);
+
+        if (build is null)
         {
-            FsusObservability.RecordRelatedReadingBuild(cacheHit: false, FsusObservability.GetElapsed(startedAt));
             return null;
         }
 
-        int[] sourceTagIds = await LoadSourceTagIdsAsync(articleId, cancellationToken);
-        HashSet<int> sourceTags = sourceTagIds.ToHashSet();
+        RelatedArticleRow article = build.Source;
+        HashSet<int> sourceTags = build.SourceTags;
         string[] keywords = ExtractKeywords(article.Title, article.Summary);
 
-        CandidateIndex candidateIndex = await LoadCandidateIndexAsync(articleId, article.CategoryId, now, cancellationToken);
+        CandidateIndex candidateIndex = build.Candidates;
         List<RelatedReadingItem> related = candidateIndex.Rows
             .Select(candidate => ScoreCandidate(article, candidate, sourceTags, candidateIndex.Tags.GetValueOrDefault(candidate.Id), keywords))
             .OrderByDescending(static scored => scored.Score)
@@ -85,23 +182,11 @@ public sealed class RelatedReadingService(
             .Select(static scored => ToItem(scored.Row, scored.Reason))
             .ToList();
 
-        RelatedArticleRow? previous = await LoadAdjacentAsync(article, newer: false, now, cancellationToken);
-        RelatedArticleRow? next = await LoadAdjacentAsync(article, newer: true, now, cancellationToken);
-
         var response = new RelatedReadingResponse(
             related,
-            previous is null ? null : ToItem(previous, "上一篇"),
-            next is null ? null : ToItem(next, "下一篇"));
-        memoryCache.Set(cacheKey, response, s_cacheTtl);
-        await cacheWriter.SetRawAsync(CachePolicyId.RelatedReading, cacheKey, JsonSerializer.SerializeToUtf8Bytes(response, s_jsonOptions), s_cacheTtl, cancellationToken);
-        FsusObservability.RecordRelatedReadingBuild(cacheHit: false, FsusObservability.GetElapsed(startedAt));
+            build.Previous is null ? null : ToItem(build.Previous, "上一篇"),
+            build.Next is null ? null : ToItem(build.Next, "下一篇"));
         return response;
-    }
-
-    private static (bool Success, RelatedReadingResponse? Value) DecodeRelatedReading(ReadOnlyMemory<byte> bytes)
-    {
-        RelatedReadingResponse? value = JsonSerializer.Deserialize<RelatedReadingResponse>(bytes.Span, s_jsonOptions);
-        return (value is not null, value);
     }
 
     private async ValueTask<long> GetArticleListVersionAsync(CancellationToken cancellationToken)
@@ -110,195 +195,160 @@ public sealed class RelatedReadingService(
         return long.TryParse(version, out long parsed) ? parsed : 0;
     }
 
-    private async Task<RelatedArticleRow?> LoadPublicArticleAsync(
+    private async Task<RelatedReadingBuildData?> LoadBuildDataAsync(
         int articleId,
         DateTime now,
         CancellationToken cancellationToken)
     {
-        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync("""
-            SELECT
-                a.id AS "Id",
-                a.title AS "Title",
-                a.summary AS "Summary",
-                a.createtime AS "CreateTime",
-                a.published_at AS "PublishedAt",
-                a.categoryid AS "CategoryId"
-            FROM article a
-            WHERE a.id = @ArticleId
-              AND a.isdeleted = false
+        const string PublicArticlePredicate = """
+            a.isdeleted = false
               AND a.status = @PublishedStatus
+              AND a.current_publication_id IS NOT NULL
               AND (a.published_at IS NULL OR a.published_at <= @Now)
               AND (a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now)
-            LIMIT 1;
-            """,
-            new[]
-            {
-                new SugarParameter("@ArticleId", articleId),
-                new SugarParameter("@PublishedStatus", (int)ArticleStatus.Published),
-                new SugarParameter("@Now", now)
-            });
-
-        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            return null;
-        }
-
-        int fId = reader.GetOrdinal("Id");
-        int fTitle = reader.GetOrdinal("Title");
-        int fSummary = reader.GetOrdinal("Summary");
-        int fCreateTime = reader.GetOrdinal("CreateTime");
-        int fPublishedAt = reader.GetOrdinal("PublishedAt");
-        int fCategoryId = reader.GetOrdinal("CategoryId");
-
-        return new RelatedArticleRow
-        {
-            Id = reader.GetInt32(fId),
-            Title = reader.IsDBNull(fTitle) ? string.Empty : reader.GetString(fTitle),
-            Summary = reader.IsDBNull(fSummary) ? null : reader.GetString(fSummary),
-            CreateTime = AsUtc(reader.GetDateTime(fCreateTime)),
-            PublishedAt = reader.IsDBNull(fPublishedAt) ? null : AsUtc(reader.GetDateTime(fPublishedAt)),
-            CategoryId = reader.GetInt32(fCategoryId)
-        };
-    }
-
-    private async Task<int[]> LoadSourceTagIdsAsync(int articleId, CancellationToken cancellationToken)
-        => [.. await db.Queryable<ArticleTag>()
-            .Where(tag => tag.ArticleId == articleId)
-            .Select(tag => tag.TagId)
-            .ToListAsync(cancellationToken)];
-
-    private async Task<CandidateIndex> LoadCandidateIndexAsync(
-        int articleId,
-        int categoryId,
-        DateTime now,
-        CancellationToken cancellationToken)
-    {
-        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync("""
-            WITH candidates AS (
+            """;
+        string sql = $$"""
+            WITH visible AS MATERIALIZED (
                 SELECT
-                    a.id AS "Id",
-                    a.title AS "Title",
-                    a.summary AS "Summary",
-                    a.createtime AS "CreateTime",
-                    a.published_at AS "PublishedAt",
-                    a.categoryid AS "CategoryId",
-                    COALESCE(a.published_at, a.createtime) AS "SortTime"
+                    a.id,
+                    revision.title,
+                    revision.summary,
+                    a.createtime,
+                    publication.published_at,
+                    revision.categoryid,
+                    COALESCE(
+                        string_to_array(NULLIF(revision.tag_ids, ''), ',')::integer[],
+                        ARRAY[]::integer[]) AS tag_ids,
+                    COALESCE(publication.published_at, a.published_at, a.createtime) AS sort_time
                 FROM article a
-                WHERE a.id <> @ArticleId
-                  AND a.isdeleted = false
-                  AND a.status = @PublishedStatus
-                  AND (a.published_at IS NULL OR a.published_at <= @Now)
-                  AND (a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now)
-                  AND (
-                      a.categoryid = @CategoryId OR EXISTS (
-                          SELECT 1
-                          FROM article_tag source_tag
-                          INNER JOIN article_tag candidate_tag ON candidate_tag.tagid = source_tag.tagid
-                          WHERE source_tag.articleid = @ArticleId
-                            AND candidate_tag.articleid = a.id
-                      )
-                  )
-                ORDER BY COALESCE(a.published_at, a.createtime) DESC, a.id DESC
+                JOIN article_publication publication ON publication.id = a.current_publication_id
+                JOIN article_revision revision ON revision.id = publication.article_revision_id
+                WHERE {{PublicArticlePredicate}}
+            ), source AS (
+                SELECT * FROM visible WHERE id = @ArticleId
+            ), candidates AS (
+                SELECT visible.*
+                FROM visible CROSS JOIN source
+                WHERE visible.id <> source.id
+                  AND (visible.categoryid = source.categoryid OR visible.tag_ids && source.tag_ids)
+                ORDER BY visible.sort_time DESC, visible.id DESC
                 LIMIT @CandidateWindow
+            ), previous_row AS (
+                SELECT visible.*
+                FROM visible CROSS JOIN source
+                WHERE visible.sort_time < source.sort_time
+                   OR (visible.sort_time = source.sort_time AND visible.id < source.id)
+                ORDER BY visible.sort_time DESC, visible.id DESC
+                LIMIT 1
+            ), next_row AS (
+                SELECT visible.*
+                FROM visible CROSS JOIN source
+                WHERE visible.sort_time > source.sort_time
+                   OR (visible.sort_time = source.sort_time AND visible.id > source.id)
+                ORDER BY visible.sort_time, visible.id
+                LIMIT 1
+            ), projection AS (
+                SELECT 0 AS kind, 0::bigint AS ordinal, source.* FROM source
+                UNION ALL
+                SELECT
+                    1,
+                    ROW_NUMBER() OVER (ORDER BY candidates.sort_time DESC, candidates.id DESC),
+                    candidates.*
+                FROM candidates
+                UNION ALL
+                SELECT 2, 0::bigint, previous_row.* FROM previous_row
+                UNION ALL
+                SELECT 3, 0::bigint, next_row.* FROM next_row
             )
             SELECT
-                candidates."Id",
-                candidates."Title",
-                candidates."Summary",
-                candidates."CreateTime",
-                candidates."PublishedAt",
-                candidates."CategoryId",
-                article_tag.tagid AS "TagId"
-            FROM candidates
-            LEFT JOIN article_tag ON article_tag.articleid = candidates."Id"
-            ORDER BY candidates."SortTime" DESC, candidates."Id" DESC;
-            """,
-            new[]
+                kind AS "Kind",
+                id AS "Id",
+                title AS "Title",
+                summary AS "Summary",
+                createtime AS "CreateTime",
+                published_at AS "PublishedAt",
+                categoryid AS "CategoryId",
+                tag_ids AS "TagIds"
+            FROM projection
+            ORDER BY kind, ordinal;
+            """;
+
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            sql,
+            new SugarParameter[]
             {
                 new SugarParameter("@ArticleId", articleId),
-                new SugarParameter("@CategoryId", categoryId),
                 new SugarParameter("@PublishedStatus", (int)ArticleStatus.Published),
                 new SugarParameter("@Now", now),
                 new SugarParameter("@CandidateWindow", CandidateWindow)
             });
 
-        int fId = reader.GetOrdinal("Id");
-        int fTitle = reader.GetOrdinal("Title");
-        int fSummary = reader.GetOrdinal("Summary");
-        int fCreateTime = reader.GetOrdinal("CreateTime");
-        int fPublishedAt = reader.GetOrdinal("PublishedAt");
-        int fCategoryId = reader.GetOrdinal("CategoryId");
-        int fTagId = reader.GetOrdinal("TagId");
-
+        RelatedArticleRow? source = null;
+        var sourceTags = new HashSet<int>();
         var rows = new List<RelatedArticleRow>(CandidateWindow);
-        var seenRows = new HashSet<int>();
-        var tags = new Dictionary<int, HashSet<int>>();
+        var candidateTags = new Dictionary<int, HashSet<int>>();
+        RelatedArticleRow? previous = null;
+        RelatedArticleRow? next = null;
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
-            int id = reader.GetInt32(fId);
-            if (seenRows.Add(id))
+            int kind = reader.GetInt32(reader.GetOrdinal("Kind"));
+            RelatedArticleRow row = ReadRelatedArticleRow(reader);
+            HashSet<int> tags = ReadRelatedArticleTags(reader);
+            switch (kind)
             {
-                rows.Add(new RelatedArticleRow
-                {
-                    Id = id,
-                    Title = reader.IsDBNull(fTitle) ? string.Empty : reader.GetString(fTitle),
-                    Summary = reader.IsDBNull(fSummary) ? null : reader.GetString(fSummary),
-                    CreateTime = AsUtc(reader.GetDateTime(fCreateTime)),
-                    PublishedAt = reader.IsDBNull(fPublishedAt) ? null : AsUtc(reader.GetDateTime(fPublishedAt)),
-                    CategoryId = reader.GetInt32(fCategoryId)
-                });
-            }
-
-            if (!reader.IsDBNull(fTagId))
-            {
-                if (!tags.TryGetValue(id, out HashSet<int>? articleTags))
-                {
-                    articleTags = [];
-                    tags[id] = articleTags;
-                }
-
-                articleTags.Add(reader.GetInt32(fTagId));
+                case 0:
+                    source = row;
+                    sourceTags = tags;
+                    break;
+                case 1:
+                    rows.Add(row);
+                    candidateTags[row.Id] = tags;
+                    break;
+                case 2:
+                    previous = row;
+                    break;
+                case 3:
+                    next = row;
+                    break;
+                default:
+                    throw new InvalidOperationException("related_reading_projection_kind_invalid");
             }
         }
 
-        return new CandidateIndex(rows, tags);
+        if (source is null)
+        {
+            return null;
+        }
+
+        return new RelatedReadingBuildData(
+            source,
+            sourceTags,
+            new CandidateIndex(rows, candidateTags),
+            previous,
+            next);
     }
 
-    private async Task<RelatedArticleRow?> LoadAdjacentAsync(
-        RelatedArticleRow article,
-        bool newer,
-        DateTime now,
-        CancellationToken cancellationToken)
+    private static HashSet<int> ReadRelatedArticleTags(DbDataReader reader)
     {
-        DateTime sortTime = article.SortTime;
-        ISugarQueryable<Article> query = db.Queryable<Article>()
-            .Where(candidate => candidate.Id != article.Id
-                && !candidate.IsDeleted
-                && candidate.Status == ArticleStatus.Published
-                && (candidate.PublishedAt == null || candidate.PublishedAt <= now)
-                && (candidate.ScheduledPublishAt == null || candidate.ScheduledPublishAt <= now));
+        int ordinal = reader.GetOrdinal("TagIds");
+        return reader.IsDBNull(ordinal)
+            ? []
+            : reader.GetFieldValue<int[]>(ordinal).ToHashSet();
+    }
 
-        query = newer
-            ? query.Where(candidate => (candidate.PublishedAt ?? candidate.CreateTime) > sortTime
-                || ((candidate.PublishedAt ?? candidate.CreateTime) == sortTime && candidate.Id > article.Id))
-                .OrderBy(candidate => candidate.PublishedAt ?? candidate.CreateTime)
-                .OrderBy(candidate => candidate.Id)
-            : query.Where(candidate => (candidate.PublishedAt ?? candidate.CreateTime) < sortTime
-                || ((candidate.PublishedAt ?? candidate.CreateTime) == sortTime && candidate.Id < article.Id))
-                .OrderByDescending(candidate => candidate.PublishedAt ?? candidate.CreateTime)
-                .OrderByDescending(candidate => candidate.Id);
-
-        return await query
-            .Select(candidate => new RelatedArticleRow
-            {
-                Id = candidate.Id,
-                Title = candidate.Title,
-                Summary = candidate.Summary,
-                CreateTime = candidate.CreateTime,
-                PublishedAt = candidate.PublishedAt,
-                CategoryId = candidate.CategoryId
-            })
-            .FirstAsync(cancellationToken);
+    private static RelatedArticleRow ReadRelatedArticleRow(DbDataReader reader)
+    {
+        int publishedAt = reader.GetOrdinal("PublishedAt");
+        int summary = reader.GetOrdinal("Summary");
+        return new RelatedArticleRow
+        {
+            Id = reader.GetInt32(reader.GetOrdinal("Id")),
+            Title = reader.IsDBNull(reader.GetOrdinal("Title")) ? string.Empty : reader.GetString(reader.GetOrdinal("Title")),
+            Summary = reader.IsDBNull(summary) ? null : reader.GetString(summary),
+            CreateTime = AsUtc(reader.GetDateTime(reader.GetOrdinal("CreateTime"))),
+            PublishedAt = reader.IsDBNull(publishedAt) ? null : AsUtc(reader.GetDateTime(publishedAt)),
+            CategoryId = reader.GetInt32(reader.GetOrdinal("CategoryId"))
+        };
     }
 
     private static ScoredRelatedArticle ScoreCandidate(
@@ -567,6 +617,16 @@ public sealed class RelatedReadingService(
     private sealed record CandidateIndex(
         List<RelatedArticleRow> Rows,
         Dictionary<int, HashSet<int>> Tags);
+
+    private sealed record RelatedReadingBuildData(
+        RelatedArticleRow Source,
+        HashSet<int> SourceTags,
+        CandidateIndex CandidateIndex,
+        RelatedArticleRow? Previous,
+        RelatedArticleRow? Next)
+    {
+        public CandidateIndex Candidates => CandidateIndex;
+    }
 
     private readonly record struct ScoredRelatedArticle(RelatedArticleRow Row, int Score, int PublishedDistance, string Reason);
     private readonly record struct RelatedReadingScore(int Score, int PublishedDistance, string Reason);

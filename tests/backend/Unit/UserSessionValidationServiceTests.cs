@@ -390,7 +390,12 @@ public sealed class UserSessionValidationServiceTests
         var database = Substitute.For<IDatabase>();
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(database);
-        var cache = new UserSessionValidationCache(unified, unified, unified, redis, configuration);
+        var cache = new UserSessionValidationCache(
+            unified,
+            unified,
+            unified,
+            RedisOperationExecutor.ForTestConnection(redis),
+            configuration);
         UserSessionValidationCacheState state = CreateState("db-only-session", 42);
 
         configuration[UserSessionValidationCache.DistributedCacheEnabledKey] = "false";
@@ -429,7 +434,7 @@ public sealed class UserSessionValidationServiceTests
             unified,
             unified,
             unified,
-            redis,
+            RedisOperationExecutor.ForTestConnection(redis),
             new ConfigurationBuilder().Build());
 
         UserSessionValidationCacheState? actual = await cache.ReadAsync(state.SessionId);
@@ -468,7 +473,7 @@ public sealed class UserSessionValidationServiceTests
             unified,
             unified,
             unified,
-            redis,
+            RedisOperationExecutor.ForTestConnection(redis),
             new ConfigurationBuilder().Build());
 
         Assert.True(await cache.PublishAsync(state, allowOverwrite: true));
@@ -503,7 +508,7 @@ public sealed class UserSessionValidationServiceTests
             unified,
             unified,
             unified,
-            redis,
+            RedisOperationExecutor.ForTestConnection(redis),
             new ConfigurationBuilder().Build());
 
         await cache.InvalidateManyAsync([first, first, second]);

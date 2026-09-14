@@ -18,13 +18,13 @@ import {
     type PublicFilterType
 } from '@/public-renderers/publicFilterSemantics';
 import { createPublicSeedRenderTimeOptions } from '@/public-renderers/publicRenderClock';
-import { buildPublicPaginationHref, buildPublicTagHref, resolvePublicFilterIdentity } from '@/public-renderers/publicRouteIdentity';
+import { buildPublicPaginationHref, buildPublicTagHref, parsePublicPaginationCursor, resolvePublicFilterIdentity } from '@/public-renderers/publicRouteIdentity';
 import { PUBLIC_FILTER_ROUTE_NAMES } from '@/public-renderers/publicRouteRegistry';
-import { searchIndex, type SearchSortMode } from '@/services/localSearch';
+import type { SearchSortMode } from '@/services/localSearch';
 import { matchesCategoryFilter, matchesTagFilter, removeArticlePreview, upsertArticlePreview } from '@/services/notificationStreamArticlePatch';
 import type { ArticleUpdatePayload, NotificationStreamArticleRenderPatch } from '@/services/notificationStreamTypes';
 import { useNotificationStreamStore } from '@/store/notificationStream';
-import { AppErrorCode, isAppError } from '@/utils/appError';
+import { AppErrorCode, createAppError, isAppError } from '@/utils/appError';
 import { isAbortError } from '@/utils/errors';
 import type { ArticleListCardViewContract } from '@/view-contracts/articleList';
 import { createStableArticleCardMapper } from '@/view-contracts/articleListStableCache';
@@ -84,11 +84,29 @@ export function useFilterView()
     const hasError = ref(false);
     const searchKeyword = computed(() => String(route.query.q || '').trim());
     const searchSortMode = ref<SearchSortMode>('relevance');
+    const articleCursorByFilterPage = new Map<string, string | null>();
+    const articleCursorRevision = ref(0);
+    const cursorKeyForPage = (page: number): string => (
+        `${filterType.value}:${filterId.value}:${searchKeyword.value}:${searchSortMode.value}:${page}`
+    );
     const pageIndicatorText = computed(
         () => `${String(currentPage.value).padStart(2, '0')} / ${String(totalPages.value).padStart(2, '0')}`
     );
-    const canGoPrev = computed(() => currentPage.value > 1 && !loadingArticles.value);
-    const canGoNext = computed(() => currentPage.value < totalPages.value && !loadingArticles.value);
+    const canGoPrev = computed(() =>
+    {
+        void articleCursorRevision.value;
+        const previousPage = currentPage.value - 1;
+        return previousPage >= 1
+      && !loadingArticles.value
+      && (previousPage === 1 || articleCursorByFilterPage.has(cursorKeyForPage(previousPage)));
+    });
+    const canGoNext = computed(() =>
+    {
+        void articleCursorRevision.value;
+        return currentPage.value < totalPages.value
+      && !loadingArticles.value
+      && articleCursorByFilterPage.has(cursorKeyForPage(currentPage.value + 1));
+    });
     const isLoadingState = computed(
         () => loadingArticles.value || powProvider.isCalculating.value
     );
@@ -99,7 +117,6 @@ export function useFilterView()
     const labelText = computed(() => getPublicFilterLabel(filterType.value));
 
     const articleTask = useAbortableTask();
-    const articleCursorByFilterPage = new Map<string, string | null>();
     const buildSignalConfig = (signal: AbortSignal): ApiRequestConfig => ({ signal });
     const resolveRouteFilterIdentity = (): RouteFilterIdentity => resolvePublicFilterIdentity({
         routeName: typeof route.name === 'string' ? route.name : null,
@@ -208,7 +225,23 @@ export function useFilterView()
         setPageTotal(Number(initialHydrationView.filter?.total ?? initialHydrationView.view.articles.length) || 0);
     }
 
-    currentPage.value = parsePageQuery(route.query.page);
+    const seededNextCursor = parsePublicPaginationCursor(
+        initialHydrationView?.filter?.nextCursor ?? initialBootstrap?.filter?.nextCursor
+    );
+    if (seededNextCursor)
+    {
+        articleCursorByFilterPage.set(cursorKeyForPage(2), seededNextCursor);
+        articleCursorRevision.value++;
+    }
+
+    const initialRoutePage = parsePageQuery(route.query.page);
+    const initialRouteCursor = parsePublicPaginationCursor(route.query.cursor);
+    currentPage.value = initialRoutePage;
+    if (currentPage.value > 1 && initialRouteCursor)
+    {
+        articleCursorByFilterPage.set(cursorKeyForPage(currentPage.value), initialRouteCursor);
+        articleCursorRevision.value++;
+    }
 
     const lifecycle = usePublicPageLifecycle({
         onDispose: () =>
@@ -417,40 +450,47 @@ export function useFilterView()
                 return;
             }
 
-            let response: PageResponse<ArticleListItemResponse> | ArticleListItemResponse[];
-            if (isSearch)
+            const routeHasCursor = Object.prototype.hasOwnProperty.call(route.query, 'cursor');
+            const requestCursor = currentPage.value > 1
+                ? parsePublicPaginationCursor(route.query.cursor)
+                : null;
+            if ((currentPage.value === 1 && routeHasCursor)
+        || (currentPage.value > 1 && !requestCursor))
             {
-                response = await searchIndex(keyword, searchSortMode.value, currentPage.value, pageSize.value, signal);
+                throw createAppError(AppErrorCode.Validation, 'article_cursor_required');
+            }
+            articleCursorByFilterPage.set(cursorKeyForPage(currentPage.value), requestCursor);
+            articleCursorRevision.value++;
+            const response: PageResponse<ArticleListItemResponse> = await getArticles(
+                {
+                    page: currentPage.value,
+                    size: pageSize.value,
+                    categoryId: filterType.value === PUBLIC_FILTER_TYPE.category ? filterId.value : undefined,
+                    tagId: filterType.value === PUBLIC_FILTER_TYPE.tag ? filterId.value : undefined,
+                    keyword: isSearch ? keyword : undefined,
+                    sort: isSearch ? searchSortMode.value : undefined,
+                    cursor: requestCursor
+                },
+                buildSignalConfig(signal)
+            );
+            if (response.hasMore && response.nextCursor)
+            {
+                articleCursorByFilterPage.set(
+                    cursorKeyForPage(currentPage.value + 1),
+                    response.nextCursor
+                );
             }
             else
             {
-                const cursorKey = `${filterType.value}:${filterId.value}:${currentPage.value}`;
-                response = await getArticles(
-                    {
-                        page: currentPage.value,
-                        size: pageSize.value,
-                        categoryId: filterType.value === PUBLIC_FILTER_TYPE.category ? filterId.value : undefined,
-                        tagId: filterType.value === PUBLIC_FILTER_TYPE.tag ? filterId.value : undefined,
-                        cursor: articleCursorByFilterPage.get(cursorKey)
-                    },
-                    buildSignalConfig(signal)
-                );
-                if (response.hasMore && response.nextCursor)
-                {
-                    articleCursorByFilterPage.set(
-                        `${filterType.value}:${filterId.value}:${currentPage.value + 1}`,
-                        response.nextCursor
-                    );
-                }
+                articleCursorByFilterPage.delete(cursorKeyForPage(currentPage.value + 1));
             }
+            articleCursorRevision.value++;
 
             if (lifecycle.isActive() && !signal.aborted)
             {
-                const items = Array.isArray(response) ? response : response.items;
-                const count = Array.isArray(response) ? items.length : response.total;
                 useSeedRenderTime.value = false;
-                articleItems.value = items;
-                setPageTotal(count);
+                articleItems.value = response.items;
+                setPageTotal(response.total);
                 hasError.value = false;
             }
         }
@@ -504,6 +544,11 @@ export function useFilterView()
             searchSortMode.value = 'relevance';
         }
         currentPage.value = parsePageQuery(route.query.page);
+        const routeCursor = parsePublicPaginationCursor(route.query.cursor);
+        if (currentPage.value > 1 && !routeCursor)
+        {
+            hasError.value = true;
+        }
         if (filterType.value === PUBLIC_FILTER_TYPE.search)
         {
             currentName.value = route.query.q ? `“${route.query.q}”` : '全站搜索';
@@ -700,13 +745,27 @@ export function useFilterView()
         if (page <= 1)
         {
             delete nextQuery.page;
+            delete nextQuery.cursor;
         }
         else
         {
+            const cursor = articleCursorByFilterPage.get(cursorKeyForPage(page));
+            if (!cursor)
+            {
+                return;
+            }
             nextQuery.page = String(page);
+            if (cursor)
+            {
+                nextQuery.cursor = cursor;
+            }
+            else
+            {
+                delete nextQuery.cursor;
+            }
         }
 
-        void router.replace({ path: route.path, query: nextQuery });
+        void router.push({ path: route.path, query: nextQuery, hash: route.hash });
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -714,9 +773,14 @@ export function useFilterView()
     {
         const normalizedPage = Math.max(1, Math.trunc(page));
         const identity = resolveRouteFilterIdentity();
+        const cursor = articleCursorByFilterPage.get(cursorKeyForPage(normalizedPage));
         if (identity.filterType !== PUBLIC_FILTER_TYPE.search)
         {
-            return buildPublicPaginationHref(identity.canonicalPath || route.path, normalizedPage);
+            return buildPublicPaginationHref(
+                identity.canonicalPath || route.path,
+                normalizedPage,
+                cursor
+            );
         }
 
         const query: Record<string, string> = {};
@@ -728,9 +792,10 @@ export function useFilterView()
         {
             query.sort = searchSortMode.value;
         }
-        if (normalizedPage > 1)
+        if (normalizedPage > 1 && cursor)
         {
             query.page = String(normalizedPage);
+            query.cursor = cursor;
         }
         return router.resolve({ path: route.path, query }).href;
     }
@@ -755,11 +820,12 @@ export function useFilterView()
             nextQuery.sort = mode;
         }
         delete nextQuery.page;
+        delete nextQuery.cursor;
 
         void router.replace({ path: route.path, query: nextQuery });
     }
 
-    watch([() => route.params.id, () => route.query.q, () => route.query.sort, () => route.query.page], () =>
+    watch([() => route.params.id, () => route.query.q, () => route.query.sort, () => route.query.page, () => route.query.cursor], () =>
     {
         void init();
     });

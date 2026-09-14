@@ -24,7 +24,7 @@ public sealed class PublicAotInvalidationService(
     {
         await invalidationTracker.WithGlobalInvalidationLockAsync(async () =>
         {
-            invalidationTracker.MarkAll();
+            _ = await invalidationTracker.MarkAllAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
             ssrRuntimeState.ClearAllRouteQuarantines();
             await cache.InvalidateAllAsync(cancellationToken).ConfigureAwait(false);
             hotReadStore.ClearHtml();
@@ -37,7 +37,7 @@ public sealed class PublicAotInvalidationService(
         string prefix = ScopeKey(CacheKeyBuilder.PublicAotDocument(pageId, string.Empty));
         await invalidationTracker.WithInvalidationLockAsync([prefix], async () =>
         {
-            invalidationTracker.MarkPrefix(prefix);
+            _ = await invalidationTracker.MarkPrefixAsync(prefix, cancellationToken: cancellationToken).ConfigureAwait(false);
             await cache.RemoveByPrefixAsync(prefix, cancellationToken).ConfigureAwait(false);
             hotReadStore.ClearHtml();
         }, cancellationToken).ConfigureAwait(false);
@@ -45,10 +45,19 @@ public sealed class PublicAotInvalidationService(
 
     public async Task InvalidateRouteAsync(PublicPageId pageId, string routeKey, CancellationToken cancellationToken = default)
     {
-        await InvalidateRoutesAsync([new RouteInvalidation(pageId, routeKey)], cancellationToken);
+        await InvalidateRoutesAsync(
+            [new RouteInvalidation(pageId, routeKey)],
+            mutationId: null,
+            cancellationToken);
     }
 
     public async Task InvalidateFilterRouteFamilyAsync(string filterRouteKey, CancellationToken cancellationToken = default)
+        => await InvalidateFilterRouteFamilyAsync(filterRouteKey, mutationId: null, cancellationToken);
+
+    public async Task InvalidateFilterRouteFamilyAsync(
+        string filterRouteKey,
+        string? mutationId,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(filterRouteKey))
         {
@@ -83,8 +92,8 @@ public sealed class PublicAotInvalidationService(
         string pagePrefixKey = ScopeKey(CacheKeyBuilder.PublicAotDocument(PublicPageId.Filter, string.Empty));
         await invalidationTracker.WithInvalidationLockAsync([pagePrefixKey], async () =>
         {
-            invalidationTracker.MarkKey(exactKey);
-            invalidationTracker.MarkPrefix(familyPrefix);
+            _ = await invalidationTracker.MarkKeyAsync(exactKey, mutationId, cancellationToken).ConfigureAwait(false);
+            _ = await invalidationTracker.MarkPrefixAsync(familyPrefix, mutationId, cancellationToken).ConfigureAwait(false);
             ssrRuntimeState.ClearRouteQuarantine(PublicPageKind.Filter, familyRouteKey);
             await cache.RemoveAsync(exactKey, cancellationToken).ConfigureAwait(false);
             await cache.RemoveByPrefixAsync(familyPrefix, cancellationToken).ConfigureAwait(false);
@@ -99,14 +108,32 @@ public sealed class PublicAotInvalidationService(
         IEnumerable<int>? categoryIds,
         IEnumerable<int>? tagIds,
         CancellationToken cancellationToken = default)
+        => await InvalidateArticleMutationAsync(
+            articleId,
+            categoryIds,
+            tagIds,
+            mutationId: null,
+            cancellationToken);
+
+    public async Task InvalidateArticleMutationAsync(
+        int? articleId,
+        IEnumerable<int>? categoryIds,
+        IEnumerable<int>? tagIds,
+        string? mutationId,
+        CancellationToken cancellationToken)
     {
+        string effectiveMutationId = string.IsNullOrWhiteSpace(mutationId)
+            ? $"article:{Guid.CreateVersion7():N}"
+            : mutationId;
+        _ = await invalidationTracker.MarkSitemapAsync(effectiveMutationId, cancellationToken).ConfigureAwait(false);
         int[] normalizedCategoryIds = [.. NormalizeIds(categoryIds)];
         int[] normalizedTagIds = [.. NormalizeIds(tagIds)];
-        await InvalidateListingsAsync(normalizedCategoryIds, normalizedTagIds, cancellationToken);
+        await InvalidateListingsAsync(normalizedCategoryIds, normalizedTagIds, effectiveMutationId, cancellationToken);
         if (articleId is > 0)
         {
             await InvalidateRoutesAsync(
                 [new RouteInvalidation(PublicPageId.ArticleDetail, PublicRouteIdentity.BuildArticleRouteKey(articleId.Value))],
+                effectiveMutationId,
                 cancellationToken);
         }
 
@@ -118,14 +145,36 @@ public sealed class PublicAotInvalidationService(
         IEnumerable<int>? categoryIds,
         IEnumerable<int>? tagIds,
         CancellationToken cancellationToken = default)
+        => await InvalidateArticleMutationBatchAsync(
+            articleIds,
+            categoryIds,
+            tagIds,
+            mutationId: null,
+            cancellationToken);
+
+    public async Task InvalidateArticleMutationBatchAsync(
+        IEnumerable<int> articleIds,
+        IEnumerable<int>? categoryIds,
+        IEnumerable<int>? tagIds,
+        string? mutationId,
+        CancellationToken cancellationToken)
     {
+        string effectiveMutationId = string.IsNullOrWhiteSpace(mutationId)
+            ? $"article-batch:{Guid.CreateVersion7():N}"
+            : mutationId;
+        _ = await invalidationTracker.MarkSitemapAsync(effectiveMutationId, cancellationToken).ConfigureAwait(false);
         int[] normalizedArticleIds = [.. articleIds.Where(static id => id > 0).Distinct()];
         int[] normalizedCategoryIds = [.. NormalizeIds(categoryIds)];
         int[] normalizedTagIds = [.. NormalizeIds(tagIds)];
-        await InvalidateListingsAsync(normalizedCategoryIds, normalizedTagIds, cancellationToken);
+        await InvalidateListingsAsync(
+            normalizedCategoryIds,
+            normalizedTagIds,
+            effectiveMutationId,
+            cancellationToken);
         await InvalidateRoutesAsync(
             [.. normalizedArticleIds.Select(static articleId =>
                 new RouteInvalidation(PublicPageId.ArticleDetail, PublicRouteIdentity.BuildArticleRouteKey(articleId)))],
+            effectiveMutationId,
             cancellationToken);
 
         ScheduleArticleMutationBatchRoutes(normalizedArticleIds, normalizedCategoryIds, normalizedTagIds);
@@ -135,7 +184,18 @@ public sealed class PublicAotInvalidationService(
     {
         await invalidationTracker.WithGlobalInvalidationLockAsync(async () =>
         {
-            invalidationTracker.MarkAll();
+            _ = await invalidationTracker.MarkAllAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+            ssrRuntimeState.ClearAllRouteQuarantines();
+            await cache.InvalidateAllAsync(cancellationToken).ConfigureAwait(false);
+            hotReadStore.ClearHtml();
+        }, cancellationToken).ConfigureAwait(false);
+        await ScheduleManifestRoutesAsync(PublicAotRouteManifestScope.All, cancellationToken);
+    }
+
+    public async Task InvalidateSeoArtifactsAsync(CancellationToken cancellationToken = default)
+    {
+        await invalidationTracker.WithGlobalInvalidationLockAsync(async () =>
+        {
             ssrRuntimeState.ClearAllRouteQuarantines();
             await cache.InvalidateAllAsync(cancellationToken).ConfigureAwait(false);
             hotReadStore.ClearHtml();
@@ -147,10 +207,19 @@ public sealed class PublicAotInvalidationService(
         => await InvalidateStaticPageAsync(PublicPageKind.About, cancellationToken);
 
     public async Task InvalidateStaticPageAsync(PublicPageKind kind, CancellationToken cancellationToken = default)
+        => await InvalidateStaticPageAsync(kind, mutationId: null, cancellationToken);
+
+    public async Task InvalidateStaticPageAsync(
+        PublicPageKind kind,
+        string? mutationId,
+        CancellationToken cancellationToken)
     {
         PublicAotPageDescriptor descriptor = PublicAotPageCatalog.GetRequired(kind);
         string routeKey = descriptor.FixedRouteKey ?? PublicAotPageIdentity.GetCanonicalSlug(kind);
-        await InvalidateRouteAsync(descriptor.PageId, routeKey, cancellationToken);
+        await InvalidateRoutesAsync(
+            [new RouteInvalidation(descriptor.PageId, routeKey)],
+            mutationId,
+            cancellationToken);
         ScheduleRoute(PublicAotRouteManifestProvider.CreateStaticRoute(kind, ResolveStaticPagePriority(kind)));
     }
 
@@ -169,6 +238,7 @@ public sealed class PublicAotInvalidationService(
     private async Task InvalidateListingsAsync(
         IEnumerable<int>? categoryIds,
         IEnumerable<int>? tagIds,
+        string? mutationId,
         CancellationToken cancellationToken)
     {
         _ = categoryIds;
@@ -181,16 +251,15 @@ public sealed class PublicAotInvalidationService(
             PublicPageId.Filter
         ];
         string[] prefixes = [.. listingPageIds.Select(pageId => ScopeKey(CacheKeyBuilder.PublicAotDocument(pageId, string.Empty)))];
-        await invalidationTracker.WithInvalidationLockAsync(prefixes, () =>
+        await invalidationTracker.WithInvalidationLockAsync(prefixes, async () =>
         {
             foreach (string prefix in prefixes)
             {
-                invalidationTracker.MarkPrefix(prefix);
+                _ = await invalidationTracker.MarkPrefixAsync(prefix, mutationId, cancellationToken).ConfigureAwait(false);
             }
 
             ssrRuntimeState.ClearAllRouteQuarantines();
             hotReadStore.ClearHtml();
-            return Task.CompletedTask;
         }, cancellationToken).ConfigureAwait(false);
 
         logger.LogDebug("Public AOT listing versions bumped.");
@@ -198,6 +267,7 @@ public sealed class PublicAotInvalidationService(
 
     private async Task InvalidateRoutesAsync(
         IEnumerable<RouteInvalidation> routes,
+        string? mutationId,
         CancellationToken cancellationToken)
     {
         RouteInvalidation[] normalizedRoutes =
@@ -226,7 +296,7 @@ public sealed class PublicAotInvalidationService(
             foreach (RouteInvalidation route in normalizedRoutes)
             {
                 string cacheKey = ScopeKey(CacheKeyBuilder.PublicAotDocument(route.PageId, route.RouteKey));
-                invalidationTracker.MarkKey(cacheKey);
+                _ = await invalidationTracker.MarkKeyAsync(cacheKey, mutationId, cancellationToken).ConfigureAwait(false);
                 ssrRuntimeState.ClearRouteQuarantine(PublicAotPageCatalog.GetRequired(route.PageId).Kind, route.RouteKey);
             }
 
@@ -308,7 +378,7 @@ public sealed class PublicAotInvalidationService(
             route.Kind,
             route.RouteKey,
             route.Path,
-            PublicRouteIdentity.BuildPaginationQueryString(PublicRouteIdentity.ParsePageRouteKey(route.RouteKey)),
+            string.Empty,
             cacheKey)
         {
             InvalidationKey = baseCacheKey,

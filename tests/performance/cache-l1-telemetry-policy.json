@@ -1,0 +1,22 @@
+{
+  "schema": "fsus.cache-l1-telemetry-policy.v1",
+  "defaultDurationSampleRate": 64,
+  "benchmarkSampleRates": [16, 64, 256],
+  "exporterBenchmarkModes": ["online", "offline", "backpressured"],
+  "contentionWorkerCounts": [64, 256, 1024],
+  "durationRelativeErrorBudget": 0.05,
+  "countRelativeErrorBudget": 0.0,
+  "series": {
+    "operations": ["get", "get_raw", "get_raw_readonly", "get_owned_frame"],
+    "layers": ["l1"],
+    "results": ["hit", "hit_negative"],
+    "policySource": "CachePolicyId"
+  },
+  "instruments": {
+    "exactHitCount": "fsus.cache.l1.hit.count",
+    "sampledDuration": "fsus.cache.l1.hit.duration",
+    "durationSampleCount": "fsus.cache.l1.hit.duration.sample.count",
+    "weightedDurationSampleCount": "fsus.cache.l1.hit.duration.weighted_count"
+  },
+  "errorInterpretation": "Exact hit count is never sampled. Duration estimates use the emitted sample count and sample rate; weighted sample count is an estimator and must not replace exact hit count."
+}

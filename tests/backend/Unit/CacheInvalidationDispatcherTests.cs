@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Services.Distribution;
 using FsusBlog.Server.Services.Security;
 
 using NSubstitute;
@@ -10,6 +11,116 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class CacheInvalidationDispatcherTests
 {
+    [Theory]
+    [InlineData("article", DistributedInvalidationEventKinds.ArticleMutation)]
+    [InlineData("taxonomy", DistributedInvalidationEventKinds.TaxonomyMutation)]
+    [InlineData("system-page", DistributedInvalidationEventKinds.SystemPageMutation)]
+    [InlineData("seo", DistributedInvalidationEventKinds.SeoMutation)]
+    [InlineData("compliance", DistributedInvalidationEventKinds.ComplianceMutation)]
+    public async Task SitemapMutationPublishFailure_RejectsSourceArtifactWithAuditableEventIdentity(
+        string mutation,
+        string expectedEventKind)
+    {
+        var cacheStore = Substitute.For<IUnifiedCache>();
+        var publisher = Substitute.For<IDistributedInvalidationPublisher>();
+        DistributedInvalidationRequest? observed = null;
+        publisher.PublishAsync(Arg.Any<DistributedInvalidationRequest>(), Arg.Any<CancellationToken>())
+            .Returns<Task<DistributedInvalidationPublishResult>>(call =>
+            {
+                observed = call.Arg<DistributedInvalidationRequest>();
+                throw new InvalidOperationException("publish-failed");
+            });
+        var authority = new InMemoryPublicAotInvalidationGenerationAuthority();
+        var tracker = new PublicAotInvalidationTracker(authority);
+        var sitemap = new SitemapArtifactCache(tracker);
+        int builds = 0;
+        _ = await sitemap.GetOrBuildAsync(
+            _ => Task.FromResult(BuildSitemap(++builds)),
+            CancellationToken.None);
+        var sut = new CacheInvalidationDispatcher(
+            cacheStore,
+            cacheStore,
+            Substitute.For<IHttpCacheInvalidator>(),
+            distributedInvalidationPublisher: publisher,
+            publicAotInvalidationTracker: tracker);
+
+        InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() => mutation switch
+        {
+            "article" => sut.InvalidateArticleMutationAsync(42),
+            "taxonomy" => sut.InvalidateCategoryTagAsync(),
+            "system-page" => sut.InvalidateSystemPageAsync("about"),
+            "seo" => sut.InvalidateSeoAsync(),
+            "compliance" => sut.InvalidateComplianceAsync(),
+            _ => throw new ArgumentOutOfRangeException(nameof(mutation), mutation, null)
+        });
+        SitemapArtifactSet rebuilt = await sitemap.GetOrBuildAsync(
+            _ => Task.FromResult(BuildSitemap(++builds)),
+            CancellationToken.None);
+
+        Assert.Equal("publish-failed", failure.Message);
+        Assert.NotNull(observed);
+        Assert.Equal(expectedEventKind, observed.Kind);
+        Assert.Equal(authority.Current.LastMutationId, observed.EventId);
+        Assert.StartsWith($"{mutation}:", observed.EventId, StringComparison.Ordinal);
+        Assert.Equal(1, rebuilt.Generation);
+        Assert.Equal(1, authority.Current.AllGeneration);
+        Assert.Equal(2, builds);
+        Assert.Equal("root-2", rebuilt.RootDocument);
+        if (mutation is "article" or "taxonomy" or "system-page")
+        {
+            Assert.Contains(
+                PublicAotInvalidationGenerationStateCodec.SitemapCoordinate,
+                authority.Current.KeyGenerations.Keys);
+            Assert.DoesNotContain(
+                PublicAotInvalidationGenerationStateCodec.AllCoordinate,
+                authority.Current.KeyGenerations.Keys);
+        }
+        else
+        {
+            Assert.Contains(
+                PublicAotInvalidationGenerationStateCodec.AllCoordinate,
+                authority.Current.KeyGenerations.Keys);
+            Assert.DoesNotContain(
+                PublicAotInvalidationGenerationStateCodec.SitemapCoordinate,
+                authority.Current.KeyGenerations.Keys);
+        }
+    }
+
+    private static SitemapArtifactBuildResult BuildSitemap(int version)
+        => new(new SitemapArtifactSet($"root-{version}", []), AllocationBytes: 1);
+
+    [Fact]
+    public async Task ArticleViewProjection_PublishesOneCanonicalVersionedBatch()
+    {
+        var cache = Substitute.For<IUnifiedCache>();
+        var publisher = Substitute.For<IDistributedInvalidationPublisher>();
+        publisher.PublishAsync(Arg.Any<DistributedInvalidationRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new DistributedInvalidationPublishResult(DistributedInvalidationPublishStatus.LocalOnly, null, null));
+        var sut = new CacheInvalidationDispatcher(
+            cache,
+            cache,
+            Substitute.For<IHttpCacheInvalidator>(),
+            distributedInvalidationPublisher: publisher);
+
+        await sut.PublishArticleViewProjectionsAsync(new Dictionary<int, int>
+        {
+            [42] = 120,
+            [7] = 19
+        });
+
+        await publisher.Received(1).PublishAsync(
+            Arg.Is<DistributedInvalidationRequest>(request =>
+                request.Kind == DistributedInvalidationEventKinds.ArticleViewProjection
+                && request.CacheTags.Count == 0
+                && request.RouteKeys.Count == 0
+                && request.ArtifactKeys.SequenceEqual(new[]
+                {
+                    DistributedInvalidationTargetResolver.FormatArticleViewProjectionTarget(7, 19, 19),
+                    DistributedInvalidationTargetResolver.FormatArticleViewProjectionTarget(42, 120, 120)
+                })),
+            Arg.Any<CancellationToken>());
+    }
+
     [Fact]
     public async Task DistributedDeliveredResult_IsDurablyConsumedBeforeMutationReturns()
     {
@@ -75,6 +186,10 @@ public sealed class CacheInvalidationDispatcherTests
             && HasKey(keys, CachePolicyId.ArticleDetail, "core:v3:42")
             && HasKey(keys, CachePolicyId.ArticleDetailFrame, "core:v3:42")), Arg.Any<CancellationToken>());
         await cache.Received(1).IncrementAsync(CachePolicyId.ArticleListVersion, "main", 1, Arg.Any<CancellationToken>());
+        await cache.Received(1).RemoveByPrefixAsync(
+            CachePolicyId.RelatedReading,
+            "article:42:",
+            Arg.Any<CancellationToken>());
         await cache.Received(1).IncrementAsync(CachePolicyId.ArticleSearchVersion, "main", 1, Arg.Any<CancellationToken>());
         await cache.Received(1).RemoveAsync(CachePolicyId.ArticleRss, "main", Arg.Any<CancellationToken>());
         await cache.Received(1).IncrementAsync(
@@ -96,6 +211,25 @@ public sealed class CacheInvalidationDispatcherTests
             && tags.Contains(CacheTag.ArticleList)
             && tags.Contains(CacheTag.HotArticles)
             && tags.Contains(CacheTag.Stats)));
+    }
+
+    [Fact]
+    public async Task InvalidateCategoryTagAsync_RemovesAllRelatedReadingFrames()
+    {
+        var cache = Substitute.For<IUnifiedCache>();
+        var sut = new CacheInvalidationDispatcher(cache, cache, Substitute.For<IHttpCacheInvalidator>());
+
+        await sut.InvalidateCategoryTagAsync();
+
+        await cache.Received(1).IncrementAsync(
+            CachePolicyId.ArticleListVersion,
+            "main",
+            1,
+            Arg.Any<CancellationToken>());
+        await cache.Received(1).RemoveByPrefixAsync(
+            CachePolicyId.RelatedReading,
+            "article:",
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -126,12 +260,12 @@ public sealed class CacheInvalidationDispatcherTests
         var cache = Substitute.For<IUnifiedCache>();
         var httpCacheInvalidator = Substitute.For<IHttpCacheInvalidator>();
         var versionPublisher = Substitute.For<IHotArticlesCacheVersionPublisher>();
-        versionPublisher.PublishNextHotArticlesVersion("direct-invalidation").Returns(8L);
+        versionPublisher.PublishNextHotArticlesVersionAsync("direct-invalidation", Arg.Any<CancellationToken>()).Returns(8L);
         var sut = new CacheInvalidationDispatcher(cache, cache, httpCacheInvalidator, hotArticlesVersionPublisher: versionPublisher);
 
         await sut.InvalidateHotArticlesAsync();
 
-        versionPublisher.Received(1).PublishNextHotArticlesVersion("direct-invalidation");
+        await versionPublisher.Received(1).PublishNextHotArticlesVersionAsync("direct-invalidation", Arg.Any<CancellationToken>());
         await cache.DidNotReceive().RemoveByPrefixAsync(CachePolicyId.ArticleHot, Arg.Any<string>(), Arg.Any<CancellationToken>());
         await cache.DidNotReceive().RemoveByPrefixAsync(CachePolicyId.ArticleHotFrame, Arg.Any<string>(), Arg.Any<CancellationToken>());
         await httpCacheInvalidator.Received(1).InvalidateAsync(CacheTag.HotArticles);

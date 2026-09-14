@@ -50,6 +50,7 @@ public interface IArticleEndpointService
         int? status,
         bool canReadPrivate,
         string? keyword = null,
+        string? sort = null,
         string? cursor = null,
         CancellationToken cancellationToken = default);
 
@@ -66,7 +67,7 @@ public interface IArticleEndpointService
         int count,
         CancellationToken cancellationToken = default);
 
-    Task<Result<IReadOnlyList<FeaturedArticleSummaryDto>>> GetFeaturedArticlesAsync(
+    Task<ArticleEndpointPayload<IReadOnlyList<FeaturedArticleSummaryDto>>> GetFeaturedArticlesAsync(
         int count,
         CancellationToken cancellationToken = default);
 

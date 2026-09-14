@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json;
 
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Shared.Contracts.Security;
 
 using Microsoft.Extensions.Configuration;
@@ -47,9 +48,9 @@ public sealed partial class PerceptionCharacterV3Tests
         var redis = NSubstitute.Substitute.For<IConnectionMultiplexer>();
         var keyScope = new TestRuntimeKeyScope("test:pool-key:");
         Assert.Throws<InvalidOperationException>(() => new RedisPerceptionCharacterV3ArtifactPool(
-            redis, keyScope, options, s_root, null, new Keys(poolKey, RandomNumberGenerator.GetBytes(32))));
+            RedisOperationExecutor.ForTestConnection(redis), keyScope, options, s_root, null, new Keys(poolKey, RandomNumberGenerator.GetBytes(32))));
         Assert.Throws<InvalidOperationException>(() => new RedisPerceptionCharacterV3ArtifactPool(
-            redis, keyScope, options, s_root, null, new Keys(RandomNumberGenerator.GetBytes(32), poolKey)));
+            RedisOperationExecutor.ForTestConnection(redis), keyScope, options, s_root, null, new Keys(RandomNumberGenerator.GetBytes(32), poolKey)));
         CryptographicOperations.ZeroMemory(poolKey);
     }
 
@@ -97,11 +98,12 @@ public sealed partial class PerceptionCharacterV3Tests
                 KeyCurrent = "pool-k1",
                 Keys = new(StringComparer.Ordinal) { ["pool-k1"] = Convert.ToHexStringLower(key) }
             };
-            var pool = new RedisPerceptionCharacterV3ArtifactPool(redis, keyScope, options, s_root);
+            var pool = new RedisPerceptionCharacterV3ArtifactPool(
+                RedisOperationExecutor.ForTestConnection(redis), keyScope, options, s_root);
             await pool.InitializeAsync(CancellationToken.None);
             int discardReply = 1;
             var ambiguousPool = new RedisPerceptionCharacterV3ArtifactPool(
-                redis, keyScope, options, s_root, () => Interlocked.Exchange(ref discardReply, 0) == 1);
+                RedisOperationExecutor.ForTestConnection(redis), keyScope, options, s_root, () => Interlocked.Exchange(ref discardReply, 0) == 1);
             await ambiguousPool.InitializeAsync(CancellationToken.None);
             await Assert.ThrowsAsync<PerceptionCharacterV3StoreUnavailableException>(() => ambiguousPool.LeaseAsync(
                 PerceptionCharacterV3Representation.Visual, CancellationToken.None));
@@ -145,7 +147,8 @@ public sealed partial class PerceptionCharacterV3Tests
                 keyScope.PrefixKey($"security:perception-v3-pool:{generation}:revoked"), "revoked");
             await Assert.ThrowsAsync<InvalidOperationException>(() => pool.LeaseAsync(
                 PerceptionCharacterV3Representation.Visual, CancellationToken.None));
-            var restartedPool = new RedisPerceptionCharacterV3ArtifactPool(redis, keyScope, options, s_root);
+            var restartedPool = new RedisPerceptionCharacterV3ArtifactPool(
+                RedisOperationExecutor.ForTestConnection(redis), keyScope, options, s_root);
             await Assert.ThrowsAsync<InvalidOperationException>(() => restartedPool.InitializeAsync(CancellationToken.None));
         }
         finally
@@ -191,7 +194,8 @@ public sealed partial class PerceptionCharacterV3Tests
                 KeyCurrent = "pool-k1",
                 Keys = new(StringComparer.Ordinal) { ["pool-k1"] = Convert.ToHexStringLower(key) }
             };
-            var pool = new RedisPerceptionCharacterV3ArtifactPool(redis, keyScope, options, s_root);
+            var pool = new RedisPerceptionCharacterV3ArtifactPool(
+                RedisOperationExecutor.ForTestConnection(redis), keyScope, options, s_root);
             await pool.InitializeAsync(CancellationToken.None);
             long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var observations = new List<object>();
@@ -251,7 +255,7 @@ public sealed partial class PerceptionCharacterV3Tests
 
             int discardReply = 1;
             var ambiguousPool = new RedisPerceptionCharacterV3ArtifactPool(
-                redis, keyScope, options, s_root, () =>
+                RedisOperationExecutor.ForTestConnection(redis), keyScope, options, s_root, () =>
                     (long)redis.GetDatabase().HashGet(
                         keyScope.PrefixKey($"security:perception-v3-pool:{generation}:inventory"),
                         "visual-ready") == 7 && Interlocked.Exchange(ref discardReply, 0) == 1);

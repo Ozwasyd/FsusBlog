@@ -506,7 +506,10 @@ public sealed class PerceptionChallengeV2ServiceTests
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(database);
         var clock = new MutableTimeProvider(s_baselineNow);
-        var gate = new RedisPerceptionChallengeV2Gate(redis, new DefaultRuntimeKeyScope(), clock);
+        var gate = new RedisPerceptionChallengeV2Gate(
+            RedisOperationExecutor.ForTestConnection(redis),
+            new DefaultRuntimeKeyScope(),
+            clock);
         DateTimeOffset expiresAt = s_baselineNow.AddMinutes(5);
 
         PerceptionChallengeV2AttemptGateResult attempt = await gate.RegisterAttemptAsync("challenge-1", expiresAt, 3, CancellationToken.None);
@@ -544,7 +547,7 @@ public sealed class PerceptionChallengeV2ServiceTests
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(database);
         var gate = new RedisPerceptionChallengeV2Gate(
-            redis,
+            RedisOperationExecutor.ForTestConnection(redis),
             new DefaultRuntimeKeyScope(),
             new MutableTimeProvider(s_baselineNow));
 

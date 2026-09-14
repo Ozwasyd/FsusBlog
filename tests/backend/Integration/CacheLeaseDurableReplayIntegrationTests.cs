@@ -39,8 +39,8 @@ public sealed class CacheLeaseDurableReplayIntegrationTests(
         using var targetMemory = new MemoryCache(new MemoryCacheOptions());
         using var sourceSingleFlight = new CacheSingleFlightCoordinator(new CacheKeyResolver(policies, sourceScope, NullLogger<CacheKeyResolver>.Instance));
         using var targetSingleFlight = new CacheSingleFlightCoordinator(new CacheKeyResolver(policies, targetScope, NullLogger<CacheKeyResolver>.Instance));
-        using var sourceCache = new UnifiedCache(sourceMemory, sourceRedis, policies, sourceScope, NullLogger<UnifiedCache>.Instance);
-        using var targetCache = new UnifiedCache(targetMemory, targetRedis, policies, targetScope, NullLogger<UnifiedCache>.Instance);
+        using var sourceCache = new UnifiedCache(sourceRedis, policies, sourceScope, NullLogger<UnifiedCache>.Instance);
+        using var targetCache = new UnifiedCache(targetRedis, policies, targetScope, NullLogger<UnifiedCache>.Instance);
         var sourceCoordinator = new CacheMissCoordinator(sourceSingleFlight, sourceCache, policies, NullLogger<CacheMissCoordinator>.Instance);
         var targetCoordinator = new CacheMissCoordinator(targetSingleFlight, targetCache, policies, NullLogger<CacheMissCoordinator>.Instance);
         var ownerStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -169,7 +169,11 @@ public sealed class CacheLeaseDurableReplayIntegrationTests(
         };
         var scope = new TestRuntimeScope(prefix);
         return new DistributedInvalidationBus(
-            new RedisDistributedInvalidationTransport(redis, scope, options, TimeProvider.System),
+            new RedisDistributedInvalidationTransport(
+                RedisOperationExecutor.ForTestConnection(redis),
+                scope,
+                options,
+                TimeProvider.System),
             applier,
             new DistributedInvalidationEventFactory(options, scope, TimeProvider.System),
             options,

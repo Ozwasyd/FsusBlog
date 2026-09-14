@@ -1,5 +1,7 @@
 using System.Globalization;
 
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services.Distribution;
 using FsusBlog.Server.Tests.Unit;
 
@@ -42,8 +44,14 @@ public sealed class BlogDistributionServiceTests
             "LoadFeedSnapshotAsync",
             "LoadFeedArticlesAsync");
 
-        Assert.Contains("GetArticleListVersionAsync", sitemap, StringComparison.Ordinal);
-        Assert.Contains("sitemap:v:", sitemap, StringComparison.Ordinal);
+        Assert.Contains("GetOrBuildAsync", sitemap, StringComparison.Ordinal);
+        Assert.DoesNotContain("staticVersion", sitemap, StringComparison.Ordinal);
+        IReadOnlyList<string> articleVersionCallers = RuntimeMetadataInspection.FindMethodsCallingMember(
+            typeof(BlogDistributionService),
+            static member => member.DeclaringType == typeof(BlogDistributionService)
+                && member.Name == "GetArticleListVersionAsync");
+        Assert.DoesNotContain(articleVersionCallers,
+            static caller => caller.Contains("LoadSitemapArtifactSetAsync", StringComparison.Ordinal));
         Assert.Contains("LoadSitemapArticlesAsync", sitemap, StringComparison.Ordinal);
         Assert.Contains("LoadSitemapCategoriesAsync", sitemap, StringComparison.Ordinal);
         Assert.Contains("LoadSitemapTagsAsync", sitemap, StringComparison.Ordinal);
@@ -58,6 +66,14 @@ public sealed class BlogDistributionServiceTests
         Assert.Contains("LIMIT @Limit", feed, StringComparison.Ordinal);
         Assert.DoesNotContain("Task.WhenAll", sitemap, StringComparison.Ordinal);
         Assert.DoesNotContain("Task.WhenAll", feed, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SitemapOutputCacheCarriesEveryGenerationMutationTag()
+    {
+        IReadOnlyList<CacheTag> tags = DistributionEndpoints.SitemapOutputCacheTags;
+
+        Assert.Equal([CacheTag.ArticleList, CacheTag.Seo, CacheTag.SystemPage], tags);
     }
 
     private static T RunWithCulture<T>(string cultureName, Func<T> action)

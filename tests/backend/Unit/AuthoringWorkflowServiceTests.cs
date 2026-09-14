@@ -7,6 +7,7 @@ using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
@@ -842,7 +843,7 @@ fsusMetadataJson: {encodedMetadata}
         return new AuthoringModerationWorkflowService(
             Substitute.For<ISqlSugarClient>(),
             contentFilter,
-            Substitute.For<IBlacklistService>(),
+            Substitute.For<IBanStateProjectionObligationCoordinator>(),
             Substitute.For<ICacheInvalidationDispatcher>(),
             Substitute.For<IMessageRealtimePublisher>(),
             Substitute.For<IMessageCommandService>(),

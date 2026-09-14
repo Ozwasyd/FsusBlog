@@ -1,3 +1,4 @@
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicAot;
 
 using Microsoft.Extensions.Logging.Abstractions;
@@ -27,7 +28,7 @@ internal static partial class PublicAotCrashWorkerProgram
             .Returns(Task.FromResult(1L));
         return new PublicAotFileShellCache(
             new CrashWorkerWebHostEnvironment(root),
-            redis,
+            RedisOperationExecutor.ForTestConnection(redis),
             NullLogger<PublicAotFileShellCache>.Instance,
             derivedPublisher: null,
             configuration: null,

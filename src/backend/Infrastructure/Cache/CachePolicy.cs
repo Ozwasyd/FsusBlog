@@ -1,5 +1,10 @@
 namespace FsusBlog.Server.Infrastructure.Cache;
 
+public enum CacheL1EvictionPolicy : byte
+{
+    LeastRecentlyUsed = 0
+}
+
 public sealed record CachePolicy(
     CachePolicyId Id,
     string Domain,
@@ -10,7 +15,11 @@ public sealed record CachePolicy(
     CacheTag[]? InvalidationTags = null,
     bool SecurityCritical = false,
     double L2JitterRatio = 0d,
-    bool RegisterKeysForPrefixInvalidation = true)
+    bool RegisterKeysForPrefixInvalidation = true,
+    int L1MaxEntries = 1024,
+    long L1MaxLogicalBytes = 8 * 1024 * 1024,
+    long L1MaxCapacityBytes = 8 * 1024 * 1024,
+    CacheL1EvictionPolicy L1EvictionPolicy = CacheL1EvictionPolicy.LeastRecentlyUsed)
 {
     public string BuildKey(string identity, string? version = null)
     {

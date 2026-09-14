@@ -160,6 +160,14 @@ internal static class OpenApiObservationHost
                         Pow: HasFilter(endpoint, typeof(RequiresPowFilter)),
                         RateLimit: endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName ?? "none",
                         Cache: ClassifyCache(endpoint),
+                        QueryParameters: endpoint.Metadata
+                            .GetOrderedMetadata<FsusOpenApiQueryParameterMetadata>()
+                            .Select(static parameter => new ObservedQueryParameter(
+                                parameter.Name,
+                                parameter.SchemaRef,
+                                parameter.Required,
+                                parameter.Nullable))
+                            .ToArray(),
                         SourceIdentity: endpoint.DisplayName));
                 }
             }
@@ -424,6 +432,7 @@ internal static class OpenApiObservationHost
                 Pow: false,
                 RateLimit: policy.RequiresRateLimit ? "public_read" : "none",
                 Cache: "public-read",
+                QueryParameters: [],
                 SourceIdentity: $"public-hot-read:{policy.PolicyId}");
         }
     }

@@ -33,6 +33,10 @@ const PAGE_ROUTE_MARKER = ':page:';
 
 function normalizeText(value: unknown): string
 {
+    if (Array.isArray(value))
+    {
+        return normalizeText(value[0]);
+    }
     if (typeof value === 'string')
     {
         return value.trim();
@@ -42,6 +46,16 @@ function normalizeText(value: unknown): string
         return String(Math.trunc(value));
     }
     return '';
+}
+
+export function parsePublicPaginationCursor(value: unknown): string | null
+{
+    const normalized = normalizeText(value);
+    return normalized.length > 0
+    && normalized.length <= 512
+    && /^[A-Za-z0-9_-]+$/.test(normalized)
+        ? normalized
+        : null;
 }
 
 export function parsePositiveInt(value: unknown): number
@@ -61,44 +75,44 @@ export function buildPublicHomeRouteKey(): string
     return PUBLIC_FIXED_ROUTE_KEYS.home;
 }
 
-export function parsePublicRoutePage(routeKey: string): number
+function assertNoLegacyPaginationRouteKey(routeKey: string): string
 {
     const normalized = normalizeText(routeKey);
     const markerIndex = normalized.lastIndexOf(PAGE_ROUTE_MARKER);
-    if (markerIndex <= 0)
+    if (markerIndex > 0)
     {
-        return 1;
+        const page = Number(normalized.slice(markerIndex + PAGE_ROUTE_MARKER.length));
+        if (Number.isSafeInteger(page) && page > 1)
+        {
+            throw new Error('public_legacy_pagination_route_key_forbidden');
+        }
     }
 
-    const page = Number(normalized.slice(markerIndex + PAGE_ROUTE_MARKER.length));
-    return Number.isSafeInteger(page) && page > 1 ? page : 1;
+    return normalized;
 }
 
-export function stripPublicPaginationRouteKey(routeKey: string): string
-{
-    const normalized = normalizeText(routeKey);
-    const page = parsePublicRoutePage(normalized);
-    return page > 1 ? normalized.slice(0, normalized.lastIndexOf(PAGE_ROUTE_MARKER)) : normalized;
-}
-
-export function buildPublicPaginatedRouteKey(routeKey: string, page: number): string
-{
-    const baseRouteKey = stripPublicPaginationRouteKey(routeKey);
-    const requestedPage = Math.trunc(page);
-    const normalizedPage = Number.isSafeInteger(requestedPage) && requestedPage > 1 ? requestedPage : 1;
-    return normalizedPage > 1 ? `${baseRouteKey}${PAGE_ROUTE_MARKER}${normalizedPage}` : baseRouteKey;
-}
-
-export function buildPublicPaginationHref(path: string, page: number): string
+export function buildPublicPaginationHref(path: string, page: number, cursor?: string | null): string
 {
     const requestedPage = Math.trunc(page);
     const normalizedPage = Number.isSafeInteger(requestedPage) && requestedPage > 1 ? requestedPage : 1;
-    return normalizedPage > 1 ? `${path}?page=${normalizedPage}` : path;
+    if (normalizedPage <= 1)
+    {
+        return path;
+    }
+
+    const normalizedCursor = parsePublicPaginationCursor(cursor);
+    if (!normalizedCursor)
+    {
+        return path;
+    }
+
+    const query = new URLSearchParams({ page: String(normalizedPage), cursor: normalizedCursor });
+    return `${path}?${query.toString()}`;
 }
 
-export function buildPublicHomePaginationHref(page: number): string
+export function buildPublicHomePaginationHref(page: number, cursor?: string | null): string
 {
-    return buildPublicPaginationHref(PUBLIC_FIXED_PATHS.home, page);
+    return buildPublicPaginationHref(PUBLIC_FIXED_PATHS.home, page, cursor);
 }
 
 export function buildPublicAboutRouteKey(): string
@@ -167,7 +181,7 @@ export function buildPublicFilterRouteKey(input: {
     const routeKey = normalizeText(input.routeKey);
     if (routeKey)
     {
-        return routeKey;
+        return assertNoLegacyPaginationRouteKey(routeKey);
     }
 
     const filterKey = normalizeText(input.filterKey);
@@ -219,7 +233,7 @@ export function buildPublicTagHref(tagId: number | string): string
 
 function toCanonicalPublicPath(routeKey: string): string
 {
-    const normalizedRouteKey = stripPublicPaginationRouteKey(routeKey);
+    const normalizedRouteKey = assertNoLegacyPaginationRouteKey(routeKey);
     if (!normalizedRouteKey)
     {
         return '/';
@@ -269,15 +283,15 @@ function toCanonicalPublicPath(routeKey: string): string
     return '/';
 }
 
-export function buildPublicRoutePaginationHref(routeKey: string, page: number): string
+export function buildPublicRoutePaginationHref(routeKey: string, page: number, cursor?: string | null): string
 {
-    return buildPublicPaginationHref(toCanonicalPublicPath(routeKey), page);
+    return buildPublicPaginationHref(toCanonicalPublicPath(routeKey), page, cursor);
 }
 
 export function parsePublicFilterRouteKey(routeKey: string): PublicFilterIdentity
 {
     const fullRouteKey = normalizeText(routeKey) || UNKNOWN_FILTER_ROUTE_KEY;
-    const normalizedRouteKey = stripPublicPaginationRouteKey(fullRouteKey);
+    const normalizedRouteKey = assertNoLegacyPaginationRouteKey(fullRouteKey);
     if (normalizedRouteKey.startsWith(CATEGORY_ROUTE_PREFIX))
     {
         const filterId = parsePositiveInt(normalizedRouteKey.slice(CATEGORY_ROUTE_PREFIX.length));

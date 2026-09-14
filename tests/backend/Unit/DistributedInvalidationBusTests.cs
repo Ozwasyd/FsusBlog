@@ -368,7 +368,7 @@ public sealed class DistributedInvalidationBusTests
             Topology = topology
         };
         var transport = new RedisDistributedInvalidationTransport(
-            redis,
+            RedisOperationExecutor.ForTestConnection(redis),
             new DefaultRuntimeKeyScope(),
             options,
             TimeProvider.System);
@@ -402,7 +402,7 @@ public sealed class DistributedInvalidationBusTests
             DistributedInvalidationOptions.DefaultChannel,
             ["node-a", "node-b"]);
         var transport = new RedisDistributedInvalidationTransport(
-            redis,
+            RedisOperationExecutor.ForTestConnection(redis),
             new DefaultRuntimeKeyScope(),
             new DistributedInvalidationOptions
             {
@@ -473,23 +473,21 @@ public sealed class DistributedInvalidationBusTests
     [Fact]
     public async Task LocalApplier_InvalidatesOnlyResolvedArticleTargets()
     {
-        var localCache = new CacheLocalStore(
-            new MemoryCache(new MemoryCacheOptions()),
-            TimeProvider.System);
         var policies = new CachePolicyRegistry();
+        var localCache = new PolicyShardedCacheL1Store(policies, TimeProvider.System);
         Assert.True(policies.TryGet(CachePolicyId.ArticleDetail, out CachePolicy articlePolicy));
         Assert.True(policies.TryGet(CachePolicyId.SystemSeo, out CachePolicy seoPolicy));
-        localCache.Set(
+        localCache.TrySetOwned(
             articlePolicy,
             CacheL1Key.ForString("default", CachePolicyId.ArticleDetail, "42"),
             articlePolicy.BuildKey("42"),
             [1]);
-        localCache.Set(
+        localCache.TrySetOwned(
             articlePolicy,
             CacheL1Key.ForString("default", CachePolicyId.ArticleDetail, "7"),
             articlePolicy.BuildKey("7"),
             [2]);
-        localCache.Set(
+        localCache.TrySetOwned(
             seoPolicy,
             CacheL1Key.ForString("default", CachePolicyId.SystemSeo, "main"),
             seoPolicy.BuildKey("main"),
@@ -501,7 +499,7 @@ public sealed class DistributedInvalidationBusTests
         environment.WebRootPath.Returns(Path.GetTempPath());
         var publicAotCache = new PublicAotFileShellCache(
             environment,
-            redis,
+            RedisOperationExecutor.ForTestConnection(redis),
             NullLogger<PublicAotFileShellCache>.Instance,
             configuration: new ConfigurationBuilder().Build(),
             publicArtifactStorage: Substitute.For<IPublicArtifactStorage>());
@@ -568,7 +566,7 @@ public sealed class DistributedInvalidationBusTests
         Assert.Contains("fullReconcile:false", cacheRuntime.Snapshot().LastDetail, StringComparison.Ordinal);
         Assert.Equal(
             invalidation.EventId,
-            generationAuthority.Load().LastMutationId);
+            (await generationAuthority.LoadAsync(CancellationToken.None)).LastMutationId);
     }
 
     private static DistributedInvalidationBus CreateBus(

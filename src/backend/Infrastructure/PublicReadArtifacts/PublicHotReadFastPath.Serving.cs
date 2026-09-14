@@ -238,8 +238,8 @@ public static partial class PublicHotReadFastPath
 
             if (route.Kind == PublicHotReadRouteKind.ArticleList
                 && ctx.Request.ContentLength.GetValueOrDefault() == 0
-                && ctx.Request.Query.Count == 1
-                && ctx.Request.Query.ContainsKey("cursor"))
+                && ctx.Request.Query.Count > 0
+                && ctx.Request.Query.Keys.All(static key => key is "cursor" or "keyword" or "sort"))
             {
                 return next(ctx);
             }
@@ -459,6 +459,16 @@ public static partial class PublicHotReadFastPath
         bool lastGood,
         bool lastGoodWhileRebuild)
     {
+        bool isCursorArticleList = key.Kind is PublicListKind.Home
+            or PublicListKind.Archive
+            or PublicListKind.Category
+            or PublicListKind.Tag;
+        if (isCursorArticleList
+            && (key.Page > 1 || ctx.Request.Query.ContainsKey("cursor")))
+        {
+            return next(ctx);
+        }
+
         if (!snapshot.TryGetList(key, out PublicBinaryArtifact artifact))
         {
             counters.ListMiss();

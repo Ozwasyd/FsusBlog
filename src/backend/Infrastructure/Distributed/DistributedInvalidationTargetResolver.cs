@@ -1,8 +1,10 @@
 using System.Globalization;
 
 using FsusBlog.Core.Cache;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Infrastructure.Distributed;
@@ -13,10 +15,23 @@ public sealed record DistributedInvalidationAotTarget(
     string RouteKey,
     bool IsPrefix = false);
 
+public readonly record struct DistributedArticleViewProjectionTarget(
+    int ArticleId,
+    int Views,
+    long Version);
+
+public readonly record struct DistributedBanStateProjectionTarget(
+    string AccountSubjectHash,
+    BanStateProjectionStatus Status,
+    string? ReasonCode,
+    long Generation);
+
 public sealed record DistributedInvalidationTargetPlan(
     IReadOnlyList<CacheKeyIdentity> CacheKeys,
     IReadOnlyList<DistributedInvalidationAotTarget> AotTargets,
     IReadOnlyList<string> HotReadFragments,
+    IReadOnlyList<DistributedArticleViewProjectionTarget> ArticleViewProjections,
+    IReadOnlyList<DistributedBanStateProjectionTarget> BanStateProjections,
     int ParsedTargetCount,
     bool RequiresFullReconcile,
     string? FullReconcileReason)
@@ -39,6 +54,8 @@ public static class DistributedInvalidationTargetResolver
         var cacheKeys = new HashSet<CacheKeyIdentity>();
         var aotTargets = new HashSet<DistributedInvalidationAotTarget>();
         var hotFragments = new HashSet<string>(StringComparer.Ordinal);
+        var articleViewProjections = new HashSet<DistributedArticleViewProjectionTarget>();
+        var banStateProjections = new HashSet<DistributedBanStateProjectionTarget>();
         int parsedTargets = 0;
         string? failure = null;
 
@@ -63,7 +80,14 @@ public static class DistributedInvalidationTargetResolver
         foreach (string artifactKey in invalidation.ArtifactKeys)
         {
             parsedTargets++;
-            if (!TryResolveArtifactTarget(artifactKey, invalidation.Kind, cacheKeys, aotTargets, hotFragments))
+            if (!TryResolveArtifactTarget(
+                    artifactKey,
+                    invalidation.Kind,
+                    cacheKeys,
+                    aotTargets,
+                    hotFragments,
+                    articleViewProjections,
+                    banStateProjections))
             {
                 failure ??= $"artifact-target:{artifactKey}";
             }
@@ -96,6 +120,8 @@ public static class DistributedInvalidationTargetResolver
             cacheKeys.OrderBy(static value => value.PolicyId).ThenBy(static value => value.Identity, StringComparer.Ordinal).ToArray(),
             aotTargets.OrderBy(static value => value.PageId).ThenBy(static value => value.RouteKey, StringComparer.Ordinal).ToArray(),
             hotFragments.Order(StringComparer.Ordinal).ToArray(),
+            articleViewProjections.OrderBy(static value => value.ArticleId).ToArray(),
+            banStateProjections.OrderBy(static value => value.AccountSubjectHash, StringComparer.Ordinal).ToArray(),
             parsedTargets,
             failure is not null,
             failure);
@@ -395,8 +421,35 @@ public static class DistributedInvalidationTargetResolver
         string kind,
         ISet<CacheKeyIdentity> cacheKeys,
         ISet<DistributedInvalidationAotTarget> aotTargets,
-        ISet<string> hotFragments)
+        ISet<string> hotFragments,
+        ISet<DistributedArticleViewProjectionTarget> articleViewProjections,
+        ISet<DistributedBanStateProjectionTarget> banStateProjections)
     {
+        if (kind == DistributedInvalidationEventKinds.BanStateProjection)
+        {
+            if (!TryParseBanStateProjectionTarget(artifactKey, out DistributedBanStateProjectionTarget target))
+            {
+                return false;
+            }
+
+            banStateProjections.Add(target);
+            return true;
+        }
+
+        if (kind == DistributedInvalidationEventKinds.ArticleViewProjection)
+        {
+            if (!TryParseArticleViewProjectionTarget(artifactKey, out DistributedArticleViewProjectionTarget target))
+            {
+                return false;
+            }
+
+            articleViewProjections.Add(target);
+            hotFragments.Add($"article:{target.ArticleId}");
+            hotFragments.Add("list:hot");
+            hotFragments.Add("list:featured");
+            return true;
+        }
+
         if (artifactKey.Equals("public-aot", StringComparison.Ordinal)
             || artifactKey.Equals("public-hot-read", StringComparison.Ordinal))
         {
@@ -455,13 +508,90 @@ public static class DistributedInvalidationTargetResolver
         }
 
         if (kind == DistributedInvalidationEventKinds.PublicHotReadVersionPublished
-            && artifactKey.StartsWith("public-hot-read:v", StringComparison.Ordinal))
+            && TryParsePublicHotReadVersion(artifactKey, out _))
         {
             hotFragments.Add(artifactKey);
             return true;
         }
 
         return false;
+    }
+
+    public static string FormatArticleViewProjectionTarget(int articleId, int views, long version)
+        => string.Create(
+            CultureInfo.InvariantCulture,
+            $"article-view:{articleId}:views:{views}:version:{version}");
+
+    public static string FormatBanStateProjectionTarget(BanStateProjectionUpdate update)
+        => string.Create(
+            CultureInfo.InvariantCulture,
+            $"ban-state:{update.AccountSubjectHash}:status:{(int)update.Status}:reason:{update.ReasonCode ?? "none"}:generation:{update.Generation}");
+
+    public static bool TryParseBanStateProjectionTarget(
+        string value,
+        out DistributedBanStateProjectionTarget target)
+    {
+        target = default;
+        string[] parts = value.Split(':', StringSplitOptions.None);
+        if (parts.Length != 8
+            || !parts[0].Equals("ban-state", StringComparison.Ordinal)
+            || !parts[2].Equals("status", StringComparison.Ordinal)
+            || !parts[4].Equals("reason", StringComparison.Ordinal)
+            || !parts[6].Equals("generation", StringComparison.Ordinal)
+            || !AccountSubjectHashRequirement.TryResolve(parts[1], out string subjectHash)
+            || !int.TryParse(parts[3], NumberStyles.None, CultureInfo.InvariantCulture, out int statusValue)
+            || !Enum.IsDefined(typeof(BanStateProjectionStatus), statusValue)
+            || (BanStateProjectionStatus)statusValue is BanStateProjectionStatus.Unknown
+            || !long.TryParse(parts[7], NumberStyles.None, CultureInfo.InvariantCulture, out long generation)
+            || generation <= 0)
+        {
+            return false;
+        }
+
+        BanStateProjectionStatus status = (BanStateProjectionStatus)statusValue;
+        string? reasonCode = parts[5].Equals("none", StringComparison.Ordinal) ? null : parts[5];
+        if ((status == BanStateProjectionStatus.Banned
+                && !string.Equals(reasonCode, BanStateProjectionFacts.ManualReasonCode, StringComparison.Ordinal))
+            || (status != BanStateProjectionStatus.Banned && reasonCode is not null))
+        {
+            return false;
+        }
+
+        target = new DistributedBanStateProjectionTarget(subjectHash, status, reasonCode, generation);
+        return true;
+    }
+
+    public static bool TryParsePublicHotReadVersion(string value, out long version)
+    {
+        version = 0;
+        const string Prefix = "public-hot-read:v";
+        return value.StartsWith(Prefix, StringComparison.Ordinal)
+            && long.TryParse(value.AsSpan(Prefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out version)
+            && version >= 0;
+    }
+
+    public static bool TryParseArticleViewProjectionTarget(
+        string value,
+        out DistributedArticleViewProjectionTarget target)
+    {
+        target = default;
+        string[] parts = value.Split(':', StringSplitOptions.None);
+        if (parts.Length != 6
+            || !parts[0].Equals("article-view", StringComparison.Ordinal)
+            || !parts[2].Equals("views", StringComparison.Ordinal)
+            || !parts[4].Equals("version", StringComparison.Ordinal)
+            || !int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out int articleId)
+            || !int.TryParse(parts[3], NumberStyles.None, CultureInfo.InvariantCulture, out int views)
+            || !long.TryParse(parts[5], NumberStyles.None, CultureInfo.InvariantCulture, out long version)
+            || articleId <= 0
+            || views < 0
+            || version <= 0)
+        {
+            return false;
+        }
+
+        target = new DistributedArticleViewProjectionTarget(articleId, views, version);
+        return true;
     }
 
     private static bool IsKnownHotFragment(string fragment)
@@ -494,7 +624,6 @@ public static class DistributedInvalidationTargetResolver
         cacheKeys.Add(new(CachePolicyId.ArticleListVersion, "main"));
         cacheKeys.Add(new(CachePolicyId.ArticleSearchVersion, "main"));
         cacheKeys.Add(new(CachePolicyId.ArticleListFrame, "main"));
-        cacheKeys.Add(new(CachePolicyId.RelatedReading, "main"));
         hotFragments.Add("list:home");
         hotFragments.Add("list:archive");
     }

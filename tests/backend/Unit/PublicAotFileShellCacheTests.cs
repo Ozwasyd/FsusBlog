@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Tests.TestInfrastructure;
@@ -593,7 +594,7 @@ public sealed class PublicAotFileShellCacheTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void RemoteKeyAndStaleRegistryPrefix_NeverCreatedLocally_Succeed()
+    public async Task RemoteKeyAndStaleRegistryPrefix_NeverCreatedLocally_Succeed()
     {
         using var fixture = new JournalFixture();
         const string CacheKey = "public:aot:v2:doc:2:article:remote-only";
@@ -603,9 +604,9 @@ public sealed class PublicAotFileShellCacheTests(ITestOutputHelper output)
             PublicAotCacheRegistry.BuildRouteRegistryKey(PublicPageId.ArticleDetail, "article"),
             CacheKey);
 
-        PublicAotBatchInvalidationStats keyStats = fixture.RestartedCache.ApplyRemoteInvalidationForTests(
+        PublicAotBatchInvalidationStats keyStats = await fixture.RestartedCache.ApplyRemoteInvalidationForTests(
             PublicAotInvalidationMessage.Key(CacheKey));
-        PublicAotBatchInvalidationStats prefixStats = fixture.RestartedCache.ApplyRemoteInvalidationForTests(
+        PublicAotBatchInvalidationStats prefixStats = await fixture.RestartedCache.ApplyRemoteInvalidationForTests(
             PublicAotInvalidationMessage.Prefix(Prefix));
 
         Assert.Equal(1, keyStats.InvalidatedKeys);
@@ -711,12 +712,12 @@ public sealed class PublicAotFileShellCacheTests(ITestOutputHelper output)
             "20260712000000-0a0b0c0d0e0f");
         var oldInstance = new PublicAotFileShellCache(
             new TestWebHostEnvironment(temp.Root, Environments.Development),
-            redis,
+            RedisOperationExecutor.ForTestConnection(redis),
             NullLogger<PublicAotFileShellCache>.Instance,
             publisher);
         var newInstance = new PublicAotFileShellCache(
             new TestWebHostEnvironment(temp.Root, Environments.Development),
-            redis,
+            RedisOperationExecutor.ForTestConnection(redis),
             NullLogger<PublicAotFileShellCache>.Instance,
             secondPublisher);
         PublicAotCacheEntry first = CreateEntry("public:aot:v2:doc:2:article:42");
@@ -1047,7 +1048,7 @@ public sealed class PublicAotFileShellCacheTests(ITestOutputHelper output)
         await fixture.Cache.SetAsync(second);
         await fixture.Cache.SetAsync(other);
 
-        PublicAotBatchInvalidationStats stats = fixture.Cache.ApplyRemoteInvalidationForTests(
+        PublicAotBatchInvalidationStats stats = await fixture.Cache.ApplyRemoteInvalidationForTests(
             PublicAotInvalidationMessage.Prefix(Prefix));
 
         Assert.Equal(2, stats.InvalidatedKeys);
@@ -1344,7 +1345,7 @@ public sealed class PublicAotFileShellCacheTests(ITestOutputHelper output)
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(Substitute.For<IDatabase>());
         return new PublicAotFileShellCache(
             new TestWebHostEnvironment(root, environmentName),
-            redis,
+            RedisOperationExecutor.ForTestConnection(redis),
             NullLogger<PublicAotFileShellCache>.Instance,
             CreateDerivedPublisher(root, environmentName),
             configuration);
@@ -1451,7 +1452,7 @@ public sealed class PublicAotFileShellCacheTests(ITestOutputHelper output)
             CacheRoot = ResolveTestCacheRoot(Temp.Root, environmentName);
             Cache = new PublicAotFileShellCache(
                 new TestWebHostEnvironment(Temp.Root, environmentName),
-                redis,
+                RedisOperationExecutor.ForTestConnection(redis),
                 NullLogger<PublicAotFileShellCache>.Instance,
                 CreateDerivedPublisher(Temp.Root, environmentName));
         }
@@ -1509,7 +1510,7 @@ public sealed class PublicAotFileShellCacheTests(ITestOutputHelper output)
             Func<PublicAotArtifactCommitState, CancellationToken, Task>? observer = null)
             => new(
                 new TestWebHostEnvironment(_temp.Root, Environments.Development),
-                _redis,
+                RedisOperationExecutor.ForTestConnection(_redis),
                 NullLogger<PublicAotFileShellCache>.Instance,
                 derivedPublisher: null,
                 configuration: null,

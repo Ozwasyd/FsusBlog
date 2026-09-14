@@ -16,6 +16,7 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Shared.Contracts.Outputs;
 
 using Microsoft.AspNetCore.WebUtilities;
@@ -94,6 +95,15 @@ public interface IAdminPrincipalService
         string sessionId,
         CancellationToken cancellationToken = default);
 
+    Task<AdminSessionTokens?> RotateAdminSessionAccessTokenAsync(
+        long adminPrincipalId,
+        string sessionId,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> DisableAdminPrincipalAsync(
+        long adminPrincipalId,
+        CancellationToken cancellationToken = default);
+
     Task<AdminSessionRevokeResult> RevokeAdminSessionAsync(
         long adminPrincipalId,
         string sessionId,
@@ -140,7 +150,9 @@ public sealed class AdminPrincipalService(
     IJwtHelper jwtHelper,
     IConfiguration configuration,
     ILogger<AdminPrincipalService> logger,
-    IAdminAuditLogChannel adminAuditLogChannel) : IAdminPrincipalService
+    IAdminAuditLogChannel adminAuditLogChannel,
+    IAdminSessionProjectionMutationCoordinator? sessionProjectionMutations = null,
+    TimeProvider? timeProvider = null) : IAdminPrincipalService
 {
     public const string BootstrapTokenEnvironmentVariable = "FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN";
     private const string BootstrapCachePrefix = "admin-bootstrap";
@@ -265,7 +277,7 @@ public sealed class AdminPrincipalService(
             Permissions = string.Join('\n', AdminPermissions.All),
             CreatedAtUtc = DateTime.UtcNow
         };
-        AdminSessionTokens? tokens = null;
+        PreparedAdminSession? preparedSession = null;
         var bootstrap = await db.Ado.UseTranAsync(async () =>
         {
             await AcquireRootBootstrapLockAsync(cancellationToken);
@@ -279,8 +291,8 @@ public sealed class AdminPrincipalService(
             var credential = CreateCredential(principal.Id, challenge.UserHandle, result, request.FriendlyName);
             await db.Insertable(credential).ExecuteCommandAsync();
 
-            tokens = await CreateSessionAndTokenAsync(principal, clientContext, stepUpVerified: false, cancellationToken);
-            await WriteAuditAsync(principal.Id, tokens.SessionId, "admin.bootstrap.completed", "success", clientContext, highImpact: true, cancellationToken);
+            preparedSession = await CreateSessionAndTokenAsync(principal, clientContext, stepUpVerified: false, cancellationToken);
+            await WriteAuditAsync(principal.Id, preparedSession.Tokens.SessionId, "admin.bootstrap.completed", "success", clientContext, highImpact: true, cancellationToken);
             return true;
         });
         if (!bootstrap.IsSuccess)
@@ -294,12 +306,13 @@ public sealed class AdminPrincipalService(
             return (false, "Root admin bootstrap failed", null);
         }
 
-        if (!bootstrap.Data || tokens is null)
+        if (!bootstrap.Data || preparedSession is null)
         {
             return (false, "Root admin already exists", null);
         }
 
-        return (true, "Root admin bootstrapped", tokens);
+        await PublishSessionProjectionMutationAsync(preparedSession.Mutation, cancellationToken);
+        return (true, "Root admin bootstrapped", preparedSession.Tokens);
     }
 
     public async Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginAdminAssertionAsync(CancellationToken cancellationToken = default)
@@ -390,15 +403,25 @@ public sealed class AdminPrincipalService(
             return (false, "Admin Passkey assertion failed", null);
         }
 
-        principal.LastLoginAtUtc = DateTime.UtcNow;
-        await db.Updateable(principal)
-            .UpdateColumns(p => new { p.LastLoginAtUtc })
-            .ExecuteCommandAsync();
+        var login = await db.Ado.UseTranAsync(async () =>
+        {
+            principal.LastLoginAtUtc = DateTime.UtcNow;
+            await db.Updateable(principal)
+                .UpdateColumns(p => new { p.LastLoginAtUtc })
+                .ExecuteCommandAsync();
+            return await CreateSessionAndTokenAsync(principal, clientContext, stepUpVerified: false, cancellationToken);
+        });
+        if (!login.IsSuccess || login.Data is null)
+        {
+            logger.LogError(login.ErrorException, "Admin session creation transaction failed.");
+            return (false, "Admin login failed", null);
+        }
 
-        AdminSessionTokens tokens = await CreateSessionAndTokenAsync(principal, clientContext, stepUpVerified: false, cancellationToken);
-        await WriteAuditAsync(principal.Id, tokens.SessionId, "admin.login.completed", "success", clientContext, highImpact: true, cancellationToken);
+        PreparedAdminSession preparedSession = login.Data;
+        await PublishSessionProjectionMutationAsync(preparedSession.Mutation, cancellationToken);
+        await WriteAuditAsync(principal.Id, preparedSession.Tokens.SessionId, "admin.login.completed", "success", clientContext, highImpact: true, cancellationToken);
         FsusObservability.RecordAdminPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(startedAt), "success");
-        return (true, "Admin login completed", tokens);
+        return (true, "Admin login completed", preparedSession.Tokens);
     }
 
     public async Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginAdminStepUpAssertionAsync(
@@ -412,7 +435,7 @@ public sealed class AdminPrincipalService(
             return (false, "Admin session is required", null);
         }
 
-        DateTime now = DateTime.UtcNow;
+        DateTime now = (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime;
         bool active = await db.Queryable<AdminSession>()
             .Where(s => s.AdminPrincipalId == adminPrincipalId &&
                 s.SessionId == adminSessionId &&
@@ -701,6 +724,120 @@ public sealed class AdminPrincipalService(
     private async Task<bool> LogoutAdminSessionCoreAsync(long adminPrincipalId, string sessionId, CancellationToken cancellationToken)
         => await RevokeAdminSessionAsync(adminPrincipalId, sessionId, "logout", cancellationToken) == AdminSessionRevokeResult.Revoked;
 
+    public async Task<AdminSessionTokens?> RotateAdminSessionAccessTokenAsync(
+        long adminPrincipalId,
+        string sessionId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (adminPrincipalId <= 0 || string.IsNullOrWhiteSpace(sessionId))
+        {
+            return null;
+        }
+
+        DateTime now = (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime;
+        PreparedAdminSessionProjectionMutation? mutation = null;
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            AdminPrincipal? principal = await db.Queryable<AdminPrincipal>()
+                .Where(item => item.Id == adminPrincipalId && item.Status == AdminPrincipalStatus.Active)
+                .FirstAsync(cancellationToken);
+            AdminSession? session = await db.Queryable<AdminSession>()
+                .Where(item => item.SessionId == sessionId
+                    && item.AdminPrincipalId == adminPrincipalId
+                    && item.RevokedAtUtc == null
+                    && item.IdleExpiresAtUtc > now
+                    && item.AbsoluteExpiresAtUtc > now)
+                .FirstAsync(cancellationToken);
+            if (principal is null || session is null)
+            {
+                return (AdminSessionTokens?)null;
+            }
+
+            IssuedAccessToken issued = jwtHelper.GenerateAdminAccessToken(
+                principal,
+                session,
+                ParsePermissions(principal.Permissions),
+                session.StepUpVerified);
+            string tokenHash = HashForStorage(issued.Token);
+            int updated = await db.Ado.ExecuteCommandAsync(
+                """
+                UPDATE admin_session
+                SET accesstokenhash = @AccessTokenHash,
+                    validationversion = validationversion + 1
+                WHERE sessionid = @SessionId
+                  AND validationversion = @ValidationVersion
+                  AND revokedatutc IS NULL;
+                """,
+                new SugarParameter("@AccessTokenHash", tokenHash),
+                new SugarParameter("@SessionId", sessionId),
+                new SugarParameter("@ValidationVersion", session.ValidationVersion));
+            if (updated != 1)
+            {
+                return (AdminSessionTokens?)null;
+            }
+            mutation = await PrepareSessionProjectionMutationAsync([sessionId], cancellationToken);
+            return new AdminSessionTokens(issued.Token, issued.ExpiresAtUtc, sessionId, session.IdleExpiresAtUtc);
+        });
+        if (!transaction.IsSuccess || transaction.Data is null)
+        {
+            if (!transaction.IsSuccess)
+            {
+                logger.LogError(transaction.ErrorException, "Admin session token rotation transaction failed.");
+            }
+            return null;
+        }
+
+        await PublishSessionProjectionMutationAsync(mutation, cancellationToken);
+        return transaction.Data;
+    }
+
+    public async Task<bool> DisableAdminPrincipalAsync(
+        long adminPrincipalId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (adminPrincipalId <= 0)
+        {
+            return false;
+        }
+
+        PreparedAdminSessionProjectionMutation? mutation = null;
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            int updated = await db.Ado.ExecuteCommandAsync(
+                """
+                UPDATE admin_principal
+                SET status = @Status,
+                    validationversion = validationversion + 1
+                WHERE id = @PrincipalId
+                  AND status = @ActiveStatus;
+                """,
+                new SugarParameter("@Status", AdminPrincipalStatus.Disabled),
+                new SugarParameter("@PrincipalId", adminPrincipalId),
+                new SugarParameter("@ActiveStatus", AdminPrincipalStatus.Active));
+            if (updated != 1)
+            {
+                return false;
+            }
+            mutation = sessionProjectionMutations is null
+                ? null
+                : await sessionProjectionMutations.PreparePrincipalAsync(adminPrincipalId, cancellationToken);
+            return true;
+        });
+        if (!transaction.IsSuccess || !transaction.Data)
+        {
+            if (!transaction.IsSuccess)
+            {
+                logger.LogError(transaction.ErrorException, "Admin principal disable transaction failed.");
+            }
+            return false;
+        }
+
+        await PublishSessionProjectionMutationAsync(mutation, cancellationToken);
+        return true;
+    }
+
     public async Task<AdminSessionRevokeResult> RevokeAdminSessionAsync(
         long adminPrincipalId,
         string sessionId,
@@ -713,25 +850,41 @@ public sealed class AdminPrincipalService(
             return AdminSessionRevokeResult.NotFound;
         }
 
-        DateTime now = DateTime.UtcNow;
-        AdminSessionRevokeCandidate? candidate = await LoadAdminSessionRevokeCandidateAsync(adminPrincipalId, sessionId, cancellationToken);
-        if (candidate is null)
-        {
-            return AdminSessionRevokeResult.NotFound;
-        }
-
-        if (candidate.RevokedAtUtc.HasValue)
-        {
-            return AdminSessionRevokeResult.Conflict;
-        }
-
+        DateTime now = (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime;
         string normalizedReason = NormalizeRevokeReason(reason);
-        bool revoked = await TryRevokeAdminSessionAsync(candidate, now, normalizedReason, cancellationToken);
-        if (!revoked)
+        PreparedAdminSessionProjectionMutation? mutation = null;
+        var transaction = await db.Ado.UseTranAsync(async () =>
         {
+            AdminSessionRevokeCandidate? candidate = await LoadAdminSessionRevokeCandidateAsync(
+                adminPrincipalId,
+                sessionId,
+                cancellationToken);
+            if (candidate is null)
+            {
+                return AdminSessionRevokeResult.NotFound;
+            }
+            if (candidate.RevokedAtUtc.HasValue)
+            {
+                return AdminSessionRevokeResult.Conflict;
+            }
+            if (!await TryRevokeAdminSessionAsync(candidate, now, normalizedReason, cancellationToken))
+            {
+                return AdminSessionRevokeResult.Conflict;
+            }
+            mutation = await PrepareSessionProjectionMutationAsync([sessionId], cancellationToken);
+            return AdminSessionRevokeResult.Revoked;
+        });
+        if (!transaction.IsSuccess)
+        {
+            logger.LogError(transaction.ErrorException, "Admin session revoke transaction failed.");
             return AdminSessionRevokeResult.Conflict;
         }
+        if (transaction.Data != AdminSessionRevokeResult.Revoked)
+        {
+            return transaction.Data;
+        }
 
+        await PublishSessionProjectionMutationAsync(mutation, cancellationToken);
         await WriteAdminSessionRevokeAuditAsync(adminPrincipalId, sessionId, normalizedReason, now, cancellationToken);
         return AdminSessionRevokeResult.Revoked;
     }
@@ -747,29 +900,43 @@ public sealed class AdminPrincipalService(
             return 0;
         }
 
-        DateTime now = DateTime.UtcNow;
+        DateTime now = (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime;
         long startedAt = Stopwatch.GetTimestamp();
-        var revokedSessionIds = new List<string>();
-        using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
-            """
-            UPDATE admin_session
-            SET revokedatutc = @Now,
-                revokereason = 'revoke_others'
-            WHERE adminprincipalid = @AdminPrincipalId
-              AND sessionid <> @CurrentSessionId
-              AND revokedatutc IS NULL
-            RETURNING sessionid;
-            """,
-            new SugarParameter("@AdminPrincipalId", adminPrincipalId),
-            new SugarParameter("@CurrentSessionId", currentSessionId),
-            new SugarParameter("@Now", now)))
+        PreparedAdminSessionProjectionMutation? mutation = null;
+        var transaction = await db.Ado.UseTranAsync(async () =>
         {
-            while (await reader.ReadAsync(cancellationToken))
+            var revoked = new List<string>();
+            using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+                """
+                    UPDATE admin_session
+                    SET revokedatutc = @Now,
+                        revokereason = 'revoke_others',
+                        validationversion = validationversion + 1
+                    WHERE adminprincipalid = @AdminPrincipalId
+                      AND sessionid <> @CurrentSessionId
+                      AND revokedatutc IS NULL
+                    RETURNING sessionid;
+                    """,
+                new SugarParameter("@AdminPrincipalId", adminPrincipalId),
+                new SugarParameter("@CurrentSessionId", currentSessionId),
+                new SugarParameter("@Now", now)))
             {
-                revokedSessionIds.Add(reader.ReadString("sessionid"));
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    revoked.Add(reader.ReadString("sessionid"));
+                }
             }
+            mutation = await PrepareSessionProjectionMutationAsync(revoked, cancellationToken);
+            return revoked;
+        });
+        if (!transaction.IsSuccess || transaction.Data is null)
+        {
+            logger.LogError(transaction.ErrorException, "Admin revoke-other-sessions transaction failed.");
+            return 0;
         }
+        List<string> revokedSessionIds = transaction.Data;
 
+        await PublishSessionProjectionMutationAsync(mutation, cancellationToken);
         await WriteAdminSessionRevokeAuditsAsync(adminPrincipalId, revokedSessionIds, "revoke_others", now, cancellationToken);
         FsusObservability.RecordAdminSessionRevokeOthers(revokedSessionIds.Count, Stopwatch.GetElapsedTime(startedAt));
         return revokedSessionIds.Count;
@@ -815,7 +982,8 @@ public sealed class AdminPrincipalService(
             """
             UPDATE admin_session
             SET revokedatutc = @RevokedAtUtc,
-                revokereason = @Reason
+                revokereason = @Reason,
+                validationversion = validationversion + 1
             WHERE sessionid = @SessionId
               AND revokedatutc IS NULL
               AND xmin::text = @RowVersion;
@@ -887,13 +1055,17 @@ public sealed class AdminPrincipalService(
 
     private sealed record AdminSessionRevokeCandidate(string SessionId, DateTime? RevokedAtUtc, string RowVersion);
 
-    private async Task<AdminSessionTokens> CreateSessionAndTokenAsync(
+    private sealed record PreparedAdminSession(
+        AdminSessionTokens Tokens,
+        PreparedAdminSessionProjectionMutation? Mutation);
+
+    private async Task<PreparedAdminSession> CreateSessionAndTokenAsync(
         AdminPrincipal principal,
         AdminAuthClientContext clientContext,
         bool stepUpVerified,
         CancellationToken cancellationToken)
     {
-        DateTime now = DateTime.UtcNow;
+        DateTime now = (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime;
         var session = new AdminSession
         {
             SessionId = GenerateSecretToken(),
@@ -905,14 +1077,41 @@ public sealed class AdminPrincipalService(
             LastSeenAtUtc = now,
             IdleExpiresAtUtc = now.Add(s_adminIdleSessionTtl),
             AbsoluteExpiresAtUtc = now.Add(s_adminAbsoluteSessionTtl),
+            ValidationVersion = 1,
             StepUpVerified = stepUpVerified
         };
 
         IssuedAccessToken token = jwtHelper.GenerateAdminAccessToken(principal, session, ParsePermissions(principal.Permissions), stepUpVerified);
         session.AccessTokenHash = HashForStorage(token.Token);
         await db.Insertable(session).ExecuteCommandAsync();
-        return new AdminSessionTokens(token.Token, token.ExpiresAtUtc, session.SessionId, session.IdleExpiresAtUtc);
+        PreparedAdminSessionProjectionMutation? mutation = await PrepareSessionProjectionMutationAsync(
+            [session.SessionId],
+            cancellationToken);
+        return new PreparedAdminSession(
+            new AdminSessionTokens(token.Token, token.ExpiresAtUtc, session.SessionId, session.IdleExpiresAtUtc),
+            mutation);
     }
+
+    private Task<PreparedAdminSessionProjectionMutation?> PrepareSessionProjectionMutationAsync(
+        IReadOnlyCollection<string> sessionIds,
+        CancellationToken cancellationToken)
+        => sessionProjectionMutations is null
+            ? Task.FromResult<PreparedAdminSessionProjectionMutation?>(null)
+            : PrepareCoreAsync(sessionIds, cancellationToken);
+
+    private async Task<PreparedAdminSessionProjectionMutation?> PrepareCoreAsync(
+        IReadOnlyCollection<string> sessionIds,
+        CancellationToken cancellationToken)
+        => await sessionProjectionMutations!
+            .PrepareSessionsAsync(sessionIds, cancellationToken)
+            .ConfigureAwait(false);
+
+    private Task PublishSessionProjectionMutationAsync(
+        PreparedAdminSessionProjectionMutation? mutation,
+        CancellationToken cancellationToken)
+        => mutation is null || sessionProjectionMutations is null
+            ? Task.CompletedTask
+            : sessionProjectionMutations.PublishPreparedAsync(mutation, cancellationToken);
 
     private async Task<bool> RootAdminExistsAsync(CancellationToken cancellationToken)
     {

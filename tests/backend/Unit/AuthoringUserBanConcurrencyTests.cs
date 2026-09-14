@@ -2,7 +2,10 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
@@ -54,7 +57,7 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
             .Returns(Task.CompletedTask);
         UserAdminModerationService service = CreateAdminService(
             serviceDb,
-            new RecordingBlacklistService(),
+            new RecordingBanStateObligations(),
             cache);
 
         (bool banned, _) = await service.AdminChangeStatusAsync(new AdminChangeStatusDto
@@ -95,7 +98,7 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
         SeedArticle(setupDb, 42);
         SeedPublicPendingComment(setupDb, 100, 42, 7);
         using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
-        var blacklist = new RecordingBlacklistService();
+        var blacklist = new RecordingBanStateObligations();
         AuthoringModerationWorkflowService service = CreateService(serviceDb, blacklist);
 
         await using var holder = new NpgsqlConnection(connectionString);
@@ -139,7 +142,7 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
         CreateTables(setupDb);
         SeedUser(setupDb, 17);
         using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
-        var blacklist = new RecordingBlacklistService();
+        var blacklist = new RecordingBanStateObligations();
         UserAdminModerationService service = CreateAdminService(serviceDb, blacklist);
 
         await using var holder = new NpgsqlConnection(connectionString);
@@ -181,7 +184,7 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
         CreateTables(setupDb);
         SeedUser(setupDb, 18);
         using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
-        var blacklist = new RecordingBlacklistService();
+        var blacklist = new RecordingBanStateObligations();
         UserAdminModerationService service = CreateAdminService(serviceDb, blacklist);
 
         await using var holder = new NpgsqlConnection(connectionString);
@@ -265,7 +268,9 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
             Depth = 0
         }).ExecuteCommand();
 
-    private static AuthoringModerationWorkflowService CreateService(SqlSugarClient db, IBlacklistService blacklist)
+    private static AuthoringModerationWorkflowService CreateService(
+        SqlSugarClient db,
+        IBanStateProjectionObligationCoordinator blacklist)
     {
         var contentFilter = Substitute.For<IContentFilterService>();
         contentFilter.ValidateContent(Arg.Any<string>())
@@ -295,13 +300,13 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
         return new UserService(
             _db: db,
             _logger: NullLogger<UserService>.Instance,
-            _cacheCounters: Substitute.For<ICacheCounterStore>(),
+            _accountStates: Substitute.For<IAccountStateProjectionMutationPublisher>(),
             _totpService: Substitute.For<ITotpService>());
     }
 
     private static UserAdminModerationService CreateAdminService(
         SqlSugarClient db,
-        IBlacklistService blacklist,
+        IBanStateProjectionObligationCoordinator blacklist,
         IUserSessionValidationCache? sessionValidation = null)
     {
         var messages = Substitute.For<IMessageCommandService>();
@@ -312,23 +317,32 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
             NullLogger<UserAdminModerationService>.Instance,
             blacklist,
             messages,
-            Substitute.For<ICacheCounterStore>(),
+            Substitute.For<IAccountStateProjectionMutationPublisher>(),
             sessionValidation);
     }
 
-    private sealed class RecordingBlacklistService : IBlacklistService
+    private sealed class RecordingBanStateObligations : IBanStateProjectionObligationCoordinator
     {
         public List<int> BannedUsers { get; } = [];
 
-        public Task BanUserAsync(int userId, string? reason)
+        public Task<DistributedInvalidationEvent?> PrepareAsync(
+            IReadOnlyCollection<BanStateProjectionUpdate> updates,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult<DistributedInvalidationEvent?>(null);
+
+        public Task<DistributedInvalidationPublishResult?> ApplyLocalAndPublishPreparedAsync(
+            DistributedInvalidationEvent? invalidation,
+            IReadOnlyCollection<BanStateProjectionUpdate> updates,
+            CancellationToken cancellationToken = default)
         {
-            BannedUsers.Add(userId);
-            return Task.CompletedTask;
+            foreach (BanStateProjectionUpdate update in updates)
+            {
+                if (update.Status == BanStateProjectionStatus.Banned)
+                {
+                    BannedUsers.Add(1);
+                }
+            }
+            return Task.FromResult<DistributedInvalidationPublishResult?>(null);
         }
-
-        public Task UnbanUserAsync(int userId) => Task.CompletedTask;
-
-        public Task<BanStateSnapshot> GetBanStateAsync(int accountId, string accountSubjectHash)
-            => Task.FromResult(new BanStateSnapshot(false, null, null));
     }
 }

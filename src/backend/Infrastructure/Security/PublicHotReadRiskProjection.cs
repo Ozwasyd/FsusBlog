@@ -535,7 +535,7 @@ public sealed class PublicHotReadRiskProjection : IPublicHotReadRiskProjection
 
 /// <summary>Redis Pub/Sub transport for best-effort cross-node projection delivery.</summary>
 public sealed class RedisPublicHotReadRiskProjectionPublisher(
-    IConnectionMultiplexer redis,
+    IRedisOperationExecutor redis,
     IRuntimeKeyScope runtimeKeyScope,
     ILogger<RedisPublicHotReadRiskProjectionPublisher> logger) : IPublicHotReadRiskProjectionPublisher
 {
@@ -548,10 +548,12 @@ public sealed class RedisPublicHotReadRiskProjectionPublisher(
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            await redis.GetSubscriber()
-                .PublishAsync(
-                    RedisChannel.Literal(runtimeKeyScope.PrefixKey(Channel)),
-                    update.ToPayload())
+            await redis.ExecuteAsync(
+                    RedisOperationPort.PublicHotRiskProjection,
+                    (multiplexer, _) => multiplexer.GetSubscriber().PublishAsync(
+                        RedisChannel.Literal(runtimeKeyScope.PrefixKey(Channel)),
+                        update.ToPayload()),
+                    cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -574,7 +576,7 @@ public sealed class RedisPublicHotReadRiskProjectionPublisher(
 /// </summary>
 public sealed class PublicHotReadRiskProjectionWorker(
     PublicHotReadRiskProjection projection,
-    IConnectionMultiplexer redis,
+    IRedisOperationExecutor redis,
     IRuntimeKeyScope runtimeKeyScope,
     IServiceScopeFactory scopeFactory,
     IOptions<PublicHotReadRiskProjectionOptions> options,
@@ -605,8 +607,11 @@ public sealed class PublicHotReadRiskProjectionWorker(
         Task remoteDrain = DrainRemoteAsync(stoppingToken);
         try
         {
-            subscription = await redis.GetSubscriber()
-                .SubscribeAsync(RedisChannel.Literal(runtimeKeyScope.PrefixKey(RedisPublicHotReadRiskProjectionPublisher.Channel)))
+            subscription = await redis.ExecuteAsync(
+                    RedisOperationPort.PublicHotRiskProjection,
+                    (multiplexer, _) => multiplexer.GetSubscriber().SubscribeAsync(
+                        RedisChannel.Literal(runtimeKeyScope.PrefixKey(RedisPublicHotReadRiskProjectionPublisher.Channel))),
+                    stoppingToken)
                 .ConfigureAwait(false);
             subscription.OnMessage(message =>
             {
@@ -642,7 +647,11 @@ public sealed class PublicHotReadRiskProjectionWorker(
             {
                 try
                 {
-                    await subscription.UnsubscribeAsync().ConfigureAwait(false);
+                    await redis.ExecuteAsync(
+                            RedisOperationPort.PublicHotRiskProjection,
+                            (_, _) => subscription.UnsubscribeAsync(),
+                            CancellationToken.None)
+                        .ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {

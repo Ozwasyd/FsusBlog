@@ -27,7 +27,7 @@ public sealed class PublicAotRouteIdentityBoundaryTests
     }
 
     [Fact]
-    public void ResolveBackfillMatch_WhenRegistryRejects_UsesCatalogIdentityFallback()
+    public void ResolveBackfillMatch_WhenRegistryRejectsNonPaginatedRoute_UsesCatalogIdentityFallback()
     {
         var identity = new PublicAotRouteIdentity(new RejectingRouteRegistry());
         var request = new PublicAotBackfillRequest(
@@ -47,6 +47,29 @@ public sealed class PublicAotRouteIdentityBoundaryTests
         Assert.Equal(
             PublicRouteIdentity.BuildCanonicalPath(descriptor.PageId, "42", null),
             match.CanonicalPath);
+    }
+
+    [Theory]
+    [InlineData(PublicPageKind.Home, "home:page:2", "/", "?page=2")]
+    [InlineData(PublicPageKind.Filter, "category:7", "/category/7", "?cursor=opaque")]
+    public void ResolveBackfillMatch_WhenRegistryRejectsPaginatedRoute_DoesNotFallback(
+        PublicPageKind kind,
+        string routeKey,
+        string path,
+        string queryString)
+    {
+        var identity = new PublicAotRouteIdentity(new RejectingRouteRegistry());
+        var request = new PublicAotBackfillRequest(
+            kind,
+            routeKey,
+            path,
+            queryString,
+            "public-aot:stale");
+
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(
+            () => identity.ResolveBackfillMatch(request));
+
+        Assert.Equal("public_aot_cursor_only_route_required", error.Message);
     }
 
     [Fact]

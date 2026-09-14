@@ -134,7 +134,7 @@ public sealed class DemoFixtureSeeder(
     IAdminArtifactOperations artifactOperations,
     ISearchIndexService searchIndex,
     ICacheInvalidationDispatcher cacheInvalidation,
-    IConnectionMultiplexer redisConnection,
+    IRedisOperationExecutor redis,
     IRuntimeKeyScope runtimeKeyScope,
     IHostEnvironment hostEnvironment,
     IConfiguration configuration,
@@ -149,8 +149,6 @@ public sealed class DemoFixtureSeeder(
 
     private const string DemoPrefix = "demo-fixture:";
     private const string OwnerTokenCharacters = "0123456789abcdef";
-    private readonly IDatabase _redis = redisConnection.GetDatabase();
-
     private sealed record DemoFixtureOwner(string Value)
     {
         public string UserHandle => $"demo-reader-{Value[DemoPrefix.Length..]}";
@@ -1096,7 +1094,11 @@ public sealed class DemoFixtureSeeder(
         foreach (int articleId in articleIds.Distinct())
         {
             ct.ThrowIfCancellationRequested();
-            await _redis.SortedSetRemoveAsync(hotKey, articleId).ConfigureAwait(false);
+            await redis.ExecuteAsync(
+                    RedisOperationPort.DemoFixture,
+                    (multiplexer, _) => multiplexer.GetDatabase().SortedSetRemoveAsync(hotKey, articleId),
+                    ct)
+                .ConfigureAwait(false);
             await cacheInvalidation.InvalidateArticleMutationAsync(articleId, ct).ConfigureAwait(false);
         }
     }
@@ -1109,7 +1111,11 @@ public sealed class DemoFixtureSeeder(
         foreach ((int articleId, int views) in articlesToPublish)
         {
             ct.ThrowIfCancellationRequested();
-            await _redis.SortedSetAddAsync(hotKey, articleId, views).ConfigureAwait(false);
+            await redis.ExecuteAsync(
+                    RedisOperationPort.DemoFixture,
+                    (multiplexer, _) => multiplexer.GetDatabase().SortedSetAddAsync(hotKey, articleId, views),
+                    ct)
+                .ConfigureAwait(false);
         }
     }
 

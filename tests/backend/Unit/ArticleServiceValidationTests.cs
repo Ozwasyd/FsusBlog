@@ -43,7 +43,7 @@ public class ArticleServiceValidationTests
         return new ArticleService(
             _db: Substitute.For<ISqlSugarClient>(),
             _searchIndex: Substitute.For<ISearchIndexService>(),
-            _redisConnection: redis,
+            _redisOperations: RedisOperationExecutor.ForTestConnection(redis),
             _cacheReader: Substitute.For<ICacheTypedReader>(),
             _cacheWriter: Substitute.For<ICacheRawWriter>(),
             _stringReader: Substitute.For<ICacheStringReader>(),
@@ -103,7 +103,7 @@ public class ArticleServiceValidationTests
         var svc = new ArticleService(
             _db: db,
             _searchIndex: searchIndex,
-            _redisConnection: redisConnection,
+            _redisOperations: RedisOperationExecutor.ForTestConnection(redisConnection),
             _cacheReader: cacheReader,
             _cacheWriter: cacheWriter,
             _stringReader: stringReader,
@@ -203,6 +203,21 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
+    public async Task GetPageListAsync_RuntimeRejectsInvalidPublicPageCursorShapeBeforePorts()
+    {
+        ArticleService service = BuildService();
+        var gateway = (IArticleCoreGateway)service;
+        var cursor = new ArticleListCursorPosition(
+            new DateTime(2026, 7, 20, 8, 0, 0, DateTimeKind.Utc),
+            42);
+
+        await Assert.ThrowsAsync<ArgumentException>(() => gateway.GetPageListAsync(
+            new ArticlePageQuery(2, 10, null, null, false)));
+        await Assert.ThrowsAsync<ArgumentException>(() => gateway.GetPageListAsync(
+            new ArticlePageQuery(1, 10, null, null, false, Cursor: cursor)));
+    }
+
+    [Fact]
     public void DeleteAndRestore_RuntimeInvalidatePublicAotWithCurrentStateAfterMutation()
     {
         string deleteBlock = ArticleRuntime(nameof(ArticleService.DeleteAsync));
@@ -238,7 +253,8 @@ public class ArticleServiceValidationTests
         string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(ArticleService));
 
         Assert.Contains("LEFT JOIN article_body ab ON ab.article_id = a.id", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("COALESCE(ab.markdown_content, '')", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("article_revision_content_block published_block", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("published_block.markdown_content", runtimeShape, StringComparison.Ordinal);
         Assert.DoesNotContain("legacyArticleContent", runtimeShape, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("a.content", runtimeShape, StringComparison.Ordinal);
     }
@@ -281,11 +297,24 @@ public class ArticleServiceValidationTests
         string method = ArticleRuntime("LoadArticleDetailFromDbAsync", "ReadArticleDetailTags");
 
         Assert.Contains("LEFT JOIN article_body ab ON ab.article_id = a.id", method, StringComparison.Ordinal);
+        Assert.Contains("LEFT JOIN article_revision_content_block published_block", method, StringComparison.Ordinal);
+        Assert.Contains("ELSE published_block.markdown_content", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("COALESCE(published_block.markdown_content, published_revision.markdown_content", method, StringComparison.Ordinal);
         Assert.Contains("array_agg(t.id ORDER BY t.id)", method, StringComparison.Ordinal);
         Assert.Contains("array_agg(t.name ORDER BY t.id)", method, StringComparison.Ordinal);
         Assert.Contains("ReadArticleDetailTags", method, StringComparison.Ordinal);
         Assert.DoesNotContain("LoadArticleContentAsync(id", method, StringComparison.Ordinal);
         Assert.DoesNotContain("LoadArticleTagsAsync(id", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TryReadArticleDetailCacheAsync_EmptyContentHitNeverFallsBackToDatabase()
+    {
+        string method = ArticleRuntime("TryReadArticleDetailCacheAsync", "ProjectArticleViews");
+
+        Assert.Contains("ICacheTypedReader.TryGetAsync", method, StringComparison.Ordinal);
+        Assert.Contains("ProjectArticleViews", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadArticleContentAsync", method, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -520,15 +549,17 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
-    public void GetByIdAsync_RuntimeOverlaysProjectedViewsOnCachedArticleDetail()
+    public void GetByIdAsync_RuntimeProjectsViewsLocallyWithoutRedisOverlay()
     {
         string runtimeShape = ArticleRuntime(
             nameof(ArticleService.GetByIdAsync),
-            "OverlayProjectedViewsAsync");
+            "TryReadArticleDetailCacheAsync",
+            "ProjectArticleViews");
 
-        Assert.Contains("OverlayProjectedViewsAsync", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("SortedSetScoreAsync", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("blog:top_articles", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ProjectArticleViews", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("IArticleDetailViewProjection.Project", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("OverlayProjectedViewsAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("SortedSetScoreAsync", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -613,8 +644,8 @@ public class ArticleServiceValidationTests
 
         Assert.Contains("GetCachedArticleListTotalCountAsync", method, StringComparison.Ordinal);
         Assert.Contains("LoadPublicArticleListKeysetPageItemsAsync", method, StringComparison.Ordinal);
-        Assert.Contains("ResolveLegacyPublicArticleListCursorAsync", method, StringComparison.Ordinal);
-        Assert.Contains("ArticleListCursorCodec.Encode", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("ResolveLegacyPublicArticleListCursorAsync", method, StringComparison.Ordinal);
+        Assert.Contains("IArticleListCursorCodec.Encode", method, StringComparison.Ordinal);
         Assert.DoesNotContain("Task.WhenAll", method, StringComparison.Ordinal);
         Assert.DoesNotContain("@Offset", method, StringComparison.Ordinal);
     }
@@ -632,7 +663,7 @@ public class ArticleServiceValidationTests
                 && member.Name == "LoadPublicArticleListKeysetPageItemsAsync");
         Assert.Contains(keysetLoaderCallers,
             static caller => caller.Contains("<LoadPublicArticleListPageByKeysetAsync>", StringComparison.Ordinal));
-        Assert.Contains(keysetLoaderCallers,
+        Assert.DoesNotContain(keysetLoaderCallers,
             static caller => caller.Contains("<ResolveLegacyPublicArticleListCursorAsync>", StringComparison.Ordinal));
 
         string loader = ArticleRuntime("LoadPublicArticleListKeysetPageItemsAsync", "BuildArticleListKeysetPageSql");
@@ -653,6 +684,7 @@ public class ArticleServiceValidationTests
         string runtimeShape = ArticleRuntime("GetCachedArticleListTotalCountAsync");
         Assert.Contains("ICacheStringReader.GetStringAsync", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("ICacheStringWriter.SetStringAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ICacheMissCoordinator.CoordinateAsync", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]

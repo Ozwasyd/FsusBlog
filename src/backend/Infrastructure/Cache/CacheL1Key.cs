@@ -61,9 +61,14 @@ internal static class CachePolicyTelemetry
     private static readonly FrozenDictionary<CachePolicyId, string> s_names =
         Enum.GetValues<CachePolicyId>()
             .ToFrozenDictionary(static id => id, static id => id.ToString());
+    private static readonly FrozenDictionary<string, CachePolicyId> s_ids =
+        s_names.ToFrozenDictionary(static pair => pair.Value, static pair => pair.Key, StringComparer.Ordinal);
 
     public static string Name(CachePolicyId policyId)
         => s_names.TryGetValue(policyId, out string? name)
             ? name
             : ((int)policyId).ToString(CultureInfo.InvariantCulture);
+
+    public static bool TryParse(string name, out CachePolicyId policyId)
+        => s_ids.TryGetValue(name, out policyId);
 }

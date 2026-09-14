@@ -3,12 +3,10 @@ using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Services.Taxonomy;
 
-using StackExchange.Redis;
-
 namespace FsusBlog.Server.Services;
 
 public sealed class ArticleMutationProjectionInvalidator(
-    IConnectionMultiplexer redisConnection,
+    IRedisOperationExecutor redis,
     IRuntimeKeyScope runtimeKeyScope,
     ICacheInvalidationStore cache,
     ITaxonomyCountProjectionService taxonomyProjection,
@@ -17,8 +15,6 @@ public sealed class ArticleMutationProjectionInvalidator(
     PublicHotArtifactUpdateQueue publicHotUpdates,
     ILogger<ArticleMutationProjectionInvalidator> logger)
 {
-    private readonly IDatabase _redis = redisConnection.GetDatabase();
-
     public Task RevokeArticleAsync(int articleId, CancellationToken cancellationToken = default)
         => publicArtifactRevocations.RevokeArticleAsync(articleId, cancellationToken);
 
@@ -46,10 +42,21 @@ public sealed class ArticleMutationProjectionInvalidator(
         => cache.RemoveAsync(CachePolicyId.ArticleDetail, articleId, cancellationToken);
 
     public Task RemoveTopArticleAsync(int articleId)
-        => _redis.SortedSetRemoveAsync(RedisKey("blog:top_articles"), articleId);
+        => redis.ExecuteAsync(
+            RedisOperationPort.ArticleProjectionInvalidation,
+            (multiplexer, _) => multiplexer.GetDatabase().SortedSetRemoveAsync(
+                RedisKey("blog:top_articles"),
+                articleId),
+            CancellationToken.None);
 
     public Task RestoreTopArticleAsync(int articleId, int views)
-        => _redis.SortedSetAddAsync(RedisKey("blog:top_articles"), articleId, views);
+        => redis.ExecuteAsync(
+            RedisOperationPort.ArticleProjectionInvalidation,
+            (multiplexer, _) => multiplexer.GetDatabase().SortedSetAddAsync(
+                RedisKey("blog:top_articles"),
+                articleId,
+                views),
+            CancellationToken.None);
 
     public async Task<PublicHotArtifactEnqueueResult> QueuePublicHotUpdateAsync(
         int? articleId,

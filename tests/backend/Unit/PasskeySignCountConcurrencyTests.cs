@@ -9,6 +9,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.NotificationStream;
@@ -250,7 +251,7 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
             Substitute.For<IUnifiedCache>(),
             Substitute.For<IUnifiedCache>(),
             Substitute.For<IUnifiedCache>(),
-            Substitute.For<IUnifiedCache>(),
+            Substitute.For<IAccountStateProjectionMutationPublisher>(),
             Substitute.For<IUserSessionCommandService>(),
             Substitute.For<IMessageNotificationStreamPort>(),
             Substitute.For<IAuditEventService>(),
@@ -269,7 +270,7 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
             cache,
             cache,
             cache,
-            cache,
+            Substitute.For<IAccountStateProjectionMutationPublisher>(),
             sessions,
             Substitute.For<IMessageNotificationStreamPort>(),
             Substitute.For<IAuditEventService>(),

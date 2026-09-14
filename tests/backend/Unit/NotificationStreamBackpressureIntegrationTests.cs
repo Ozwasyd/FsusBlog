@@ -61,7 +61,7 @@ public sealed class NotificationStreamBackpressureIntegrationTests
                 Arg.Any<CommandFlags>())
             .Returns((RedisValue)"1-0", (RedisValue)"2-0");
         var store = new NotificationStreamBacklogStore(
-            redis,
+            RedisOperationExecutor.ForTestConnection(redis),
             keyScope,
             NullLogger<NotificationStreamBacklogStore>.Instance);
         NotificationStreamLocalFanoutQueue fanout = NotificationStreamBackpressureTestSupport.CreateQueue();

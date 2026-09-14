@@ -7,7 +7,6 @@ import { readCategoryPod, readFeaturedArticleItem, readTagList } from './podRead
 import { ARTICLE_LIST_ITEM_POD_SIZE, RELATED_READING_HEADER_POD_SIZE, RELATED_READING_ITEM_POD_SIZE } from './types';
 
 const ARTICLE_PAGE_CURSOR_ENVELOPE_MAGIC = 0x41535046;
-const ARTICLE_PAGE_CURSOR_ENVELOPE_LEGACY_VERSION = 1;
 const ARTICLE_PAGE_CURSOR_ENVELOPE_VERSION = 2;
 const ARTICLE_DETAIL_V3_MAGIC = 0x41524433;
 const ARTICLE_DETAIL_V3_VERSION = 3;
@@ -38,67 +37,52 @@ const ARTICLE_DETAIL_RIGHTS_FLAG_HAS_PROOF_STATUS = 1 << 10;
 
 export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<ArticleListItemResponse>
 {
-    let hasCursorMetadata = false;
-    let nextCursorUnixMs = 0;
-    let nextCursor: string | null = null;
-    let hasMore = false;
+    let nextCursor: string | null;
+    let hasMore: boolean;
     let total: number;
     let reader: BinaryReader;
-    if (payload.byteLength >= 17 && readInt32(payload, 0) === ARTICLE_PAGE_CURSOR_ENVELOPE_MAGIC)
+    if (payload.byteLength < 8 || readInt32(payload, 0) !== ARTICLE_PAGE_CURSOR_ENVELOPE_MAGIC)
     {
-        const version = readInt32(payload, 4);
-        if (version === ARTICLE_PAGE_CURSOR_ENVELOPE_LEGACY_VERSION)
+        throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_cursor_envelope_missing');
+    }
+
+    const version = readInt32(payload, 4);
+    if (version === ARTICLE_PAGE_CURSOR_ENVELOPE_VERSION)
+    {
+        reader = new BinaryReader(payload.subarray(8));
+        const hasMoreByte = reader.readByte();
+        if (hasMoreByte > 1)
         {
-            const view = new DataView(payload.buffer, payload.byteOffset + 8, 8);
-            nextCursorUnixMs = Number(view.getBigInt64(0, true));
-            hasMore = payload[16] === 1;
-            total = readInt32(payload, 17);
-            reader = new BinaryReader(payload.subarray(21));
+            throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_cursor_has_more_invalid');
         }
-        else if (version === ARTICLE_PAGE_CURSOR_ENVELOPE_VERSION)
+        hasMore = hasMoreByte === 1;
+        total = reader.readInt32();
+        const cursorBytes = reader.readBlob();
+        if (cursorBytes.byteLength > 512)
         {
-            reader = new BinaryReader(payload.subarray(8));
-            const hasMoreByte = reader.readByte();
-            if (hasMoreByte > 1)
-            {
-                throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_cursor_has_more_invalid');
-            }
-            hasMore = hasMoreByte === 1;
-            total = reader.readInt32();
-            const cursorBytes = reader.readBlob();
-            if (cursorBytes.byteLength > 64)
-            {
-                throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_cursor_length_invalid');
-            }
-            try
-            {
-                nextCursor = cursorBytes.byteLength === 0 ? null : new TextDecoder('utf-8', { fatal: true }).decode(cursorBytes);
-            }
-            catch
-            {
-                throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_cursor_utf8_invalid');
-            }
-            if (nextCursor && !/^[A-Za-z0-9_-]+$/.test(nextCursor))
-            {
-                throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_cursor_format_invalid');
-            }
-            if (hasMore !== Boolean(nextCursor))
-            {
-                throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_cursor_state_invalid');
-            }
+            throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_cursor_length_invalid');
         }
-        else
+        try
         {
-            throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_cursor_version_invalid');
+            nextCursor = cursorBytes.byteLength === 0 ? null : new TextDecoder('utf-8', { fatal: true }).decode(cursorBytes);
         }
-        hasCursorMetadata = true;
+        catch
+        {
+            throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_cursor_utf8_invalid');
+        }
+        if (nextCursor && !/^[A-Za-z0-9_-]+$/.test(nextCursor))
+        {
+            throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_cursor_format_invalid');
+        }
+        if (hasMore !== Boolean(nextCursor))
+        {
+            throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_cursor_state_invalid');
+        }
     }
     else
     {
-        reader = new BinaryReader(payload);
-        total = reader.readInt32();
+        throw createAppError(AppErrorCode.ProtocolFailure, 'article_page_cursor_version_invalid');
     }
-
     const count = readCountChecked(reader, 'article_page_count_invalid');
     const tagRecordCount = readCountChecked(reader, 'article_page_tag_count_invalid');
     const blob = reader.readBlob();
@@ -126,10 +110,10 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
     const statuses = new Int32Array(count);
     const scheduledPublishAtUnixMs = new Float64Array(count);
     const publishedAtUnixMs = new Float64Array(count);
-    const currentRevisionIds: string[] = new Array(count).fill('0');
+    const currentRevisionIds: string[] = new Array<string>(count).fill('0');
     const revisionNos = new Int32Array(count);
-    const currentPublicationIds: (string | null)[] = new Array(count).fill(null);
-    const publicationNos: (number | null)[] = new Array(count).fill(null);
+    const currentPublicationIds: (string | null)[] = new Array<string | null>(count).fill(null);
+    const publicationNos: (number | null)[] = new Array<number | null>(count).fill(null);
     const hasPublicationTail = itemRecordSize >= 76;
     const hasVersionCoordinates = itemRecordSize === 100;
 
@@ -177,10 +161,10 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
         });
     }
 
-    const items: ArticleListItemResponse[] = new Array(count);
+    const items: ArticleListItemResponse[] = new Array<ArticleListItemResponse>(count);
     for (let i = 0; i < count; i += 1)
     {
-        const tags: ArticleListItemResponse['tags'] = new Array(tagCounts[i] ?? 0);
+        const tags: ArticleListItemResponse['tags'] = new Array<ArticleListItemResponse['tags'][number]>(tagCounts[i] ?? 0);
         for (let tagIndex = 0; tagIndex < tags.length; tagIndex += 1)
         {
             tags[tagIndex] = tagRecords[(tagStarts[i] ?? 0) + tagIndex] ?? { id: 0, name: '' };
@@ -215,17 +199,10 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
         items[i] = item;
     }
 
-    if (!hasCursorMetadata)
-    {
-        return { items, total };
-    }
-
     return {
         items,
         total,
-        nextCursor: nextCursor ?? (hasMore && nextCursorUnixMs > 0 && items.length > 0
-            ? `${nextCursorUnixMs}:${items[items.length - 1].id}`
-            : null),
+        nextCursor,
         hasMore
     };
 }

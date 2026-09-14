@@ -6,6 +6,7 @@ using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
@@ -244,7 +245,7 @@ public sealed class ArticleMutationVersionedOutboxIntegrationTests(PostgresSchem
             Options.Create(new PublicHotReadOptions { UpdateQueueCapacity = 4 }),
             new InMemoryPublicHotArtifactDeliveryStateStore());
         var projections = new ArticleMutationProjectionInvalidator(
-            redis,
+            RedisOperationExecutor.ForTestConnection(redis),
             Substitute.For<IRuntimeKeyScope>(),
             Substitute.For<ICacheInvalidationStore>(),
             Substitute.For<ITaxonomyCountProjectionService>(),
@@ -336,6 +337,7 @@ public sealed class ArticleMutationVersionedOutboxIntegrationTests(PostgresSchem
                 NullLogger<DbConcurrencyGate>.Instance),
             Options.Create(new PublicHotReadOptions()),
             new ArticleBodyRepairQueue(),
+            Substitute.For<IArticleListCursorCodec>(),
             TimeProvider.System,
             NullLogger<PublicHotArtifactProjector>.Instance);
         PublicHotReadSnapshot currentSnapshot = PublicHotReadSnapshot.Empty;
@@ -530,11 +532,15 @@ public sealed class ArticleMutationVersionedOutboxIntegrationTests(PostgresSchem
             Arg.Any<ArticleMutationVersionReference>(),
             Arg.Any<IReadOnlySet<string>>(),
             Arg.Any<CancellationToken>());
-        await cacheInvalidation.Received(1).InvalidateArticleMutationAsync(1215, Arg.Any<CancellationToken>());
+        await cacheInvalidation.Received(1).InvalidateArticleMutationAsync(
+            1215,
+            eventTwo.EventId,
+            Arg.Any<CancellationToken>());
         await publicAotInvalidation.Received(1).InvalidateArticleMutationAsync(
             1215,
             Arg.Any<IEnumerable<int>>(),
             Arg.Any<IEnumerable<int>>(),
+            eventTwo.EventId,
             Arg.Any<CancellationToken>());
         List<ArticleMutationOutboxEdge> oldEdges = await db.Queryable<ArticleMutationOutboxEdge>()
             .Where(edge => edge.OutboxEventId == eventOne.Id)
@@ -557,11 +563,15 @@ public sealed class ArticleMutationVersionedOutboxIntegrationTests(PostgresSchem
             Arg.Any<ArticleMutationVersionReference>(),
             Arg.Any<IReadOnlySet<string>>(),
             Arg.Any<CancellationToken>());
-        await cacheInvalidation.Received(1).InvalidateArticleMutationAsync(1215, Arg.Any<CancellationToken>());
+        await cacheInvalidation.Received(1).InvalidateArticleMutationAsync(
+            1215,
+            eventTwo.EventId,
+            Arg.Any<CancellationToken>());
         await publicAotInvalidation.Received(1).InvalidateArticleMutationAsync(
             1215,
             Arg.Any<IEnumerable<int>>(),
             Arg.Any<IEnumerable<int>>(),
+            eventTwo.EventId,
             Arg.Any<CancellationToken>());
     }
 

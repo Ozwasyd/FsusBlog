@@ -14,8 +14,32 @@ public partial class ArticleService
         ArticlePageQuery query,
         CancellationToken cancellationToken)
     {
+        if (query.Page < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(query), query.Page, "Article list page must be greater than zero.");
+        }
+
+        if (query.Size < 1 || query.Size > MaxPageSize)
+        {
+            throw new ArgumentOutOfRangeException(nameof(query), query.Size, $"Article list size must be between 1 and {MaxPageSize}.");
+        }
+
         ArticleListPageReadModel source;
-        if (query.UseSourceCache && !query.Cursor.HasValue)
+        bool isPublicList = !query.IsDeleted && !query.IncludePrivate && !query.Status.HasValue;
+        if (isPublicList && ((query.Page == 1) == query.Cursor.HasValue))
+        {
+            throw new ArgumentException("Public article list page/cursor shape is invalid.", nameof(query));
+        }
+
+        string normalizedKeyword = NormalizeArticleListKeyword(query.Keyword);
+        if (!Enum.IsDefined(query.Sort)
+            || (!isPublicList && query.Sort != ArticleListSortMode.Latest)
+            || (normalizedKeyword.Length == 0 && query.Sort != ArticleListSortMode.Latest))
+        {
+            throw new ArgumentException("Article list sort is invalid for this query.", nameof(query));
+        }
+
+        if (query.UseSourceCache && !query.Cursor.HasValue && !isPublicList)
         {
             source = await GetPageListAsync(
                 query.Page,
@@ -31,7 +55,6 @@ public partial class ArticleService
         else
         {
             CancellationToken effectiveCt = ResolveCancellationToken(cancellationToken);
-            string keyword = NormalizeArticleListKeyword(query.Keyword);
             long version = query.ListCacheVersion ?? await GetListCacheVersionAsync(effectiveCt);
             source = await _dbConcurrencyGate.ExecuteAsync(
                 "article-list-frame-source",
@@ -44,8 +67,9 @@ public partial class ArticleService
                     query.IsDeleted,
                     query.Status,
                     query.IncludePrivate,
-                    keyword,
+                    normalizedKeyword,
                     query.Cursor,
+                    query.Sort,
                     gateCt),
                 _ => Task.FromException<ArticleListPageReadModel>(
                     new TimeoutException($"db-gate-timeout:article-list-frame-source:{query.Page}:{query.Size}")),

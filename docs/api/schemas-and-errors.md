@@ -143,7 +143,7 @@ The public failure surface for RiskControl aggregate verification is bounded. Le
 
 ---
 
-Ban errors must not depend on a Redis blacklist hit. The server of record is `sys_user.Status/BanReason`; `SecurityBlacklistUser` is only a non-expiring cache. A cache miss rechecks and repopulates the database before returning `AccountBanned`, `account_blocked`, or the write lock `ACCOUNT_BANNED_WRITE_LOCKED`. A banned account may retain a restricted session for logout, session revocation, account deletion, and other security cleanup; ordinary business writes always return `423 Locked` from the server and must not rely only on disabled frontend controls.
+Ban errors do not depend on Redis. The server of record is `sys_user.Status/BanReason/ban_state_generation`; admission reads the bounded process-local subject-hash projection. A known Banned fact returns `AccountBanned`, `account_blocked`, or the write lock `ACCOUNT_BANNED_WRITE_LOCKED`; an unknown fact fails closed and is never interpreted as Normal. A banned account may retain a restricted session for logout, session revocation, account deletion, and other security cleanup; ordinary business writes always return `423 Locked` from the server and must not rely only on disabled frontend controls.
 
 <a id="负响应"></a>
 

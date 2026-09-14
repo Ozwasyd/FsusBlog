@@ -246,26 +246,27 @@ public sealed class ArticleServiceTests
     }
 
     [Fact]
-    public void BuildArticleListIdentity_ProducesConsistentKey()
+    public void BuildAdminArticleListIdentity_ProducesConsistentKey()
     {
-        var r1 = InvokePrivateStatic<string>("BuildArticleListIdentity", [1L, 1, 10, null, null, false, null, false, ""]);
-        var r2 = InvokePrivateStatic<string>("BuildArticleListIdentity", [1L, 1, 10, null, null, false, null, false, ""]);
+        var r1 = InvokePrivateStatic<string>("BuildAdminArticleListIdentity", [1L, 1, 10, null, null, true, null, false, ""]);
+        var r2 = InvokePrivateStatic<string>("BuildAdminArticleListIdentity", [1L, 1, 10, null, null, true, null, false, ""]);
         Assert.Equal(r1, r2);
+        Assert.StartsWith("admin:v2:", r1, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void BuildArticleListIdentity_DiffParamsProduceDiffKeys()
+    public void BuildAdminArticleListIdentity_DiffParamsProduceDiffKeys()
     {
-        var r1 = InvokePrivateStatic<string>("BuildArticleListIdentity", [1L, 1, 10, (int?)5, null, false, null, false, ""]);
-        var r2 = InvokePrivateStatic<string>("BuildArticleListIdentity", [1L, 1, 10, null, null, false, null, false, ""]);
+        var r1 = InvokePrivateStatic<string>("BuildAdminArticleListIdentity", [1L, 1, 10, (int?)5, null, true, null, false, ""]);
+        var r2 = InvokePrivateStatic<string>("BuildAdminArticleListIdentity", [1L, 1, 10, null, null, true, null, false, ""]);
         Assert.NotEqual(r1, r2);
     }
 
     [Fact]
-    public void BuildArticleListIdentity_DiffKeywordProduceDiffKeys()
+    public void BuildAdminArticleListIdentity_DiffKeywordProduceDiffKeys()
     {
-        var r1 = InvokePrivateStatic<string>("BuildArticleListIdentity", [1L, 1, 10, null, null, false, null, true, "中文 keyword"]);
-        var r2 = InvokePrivateStatic<string>("BuildArticleListIdentity", [1L, 1, 10, null, null, false, null, true, ""]);
+        var r1 = InvokePrivateStatic<string>("BuildAdminArticleListIdentity", [1L, 1, 10, null, null, false, null, true, "中文 keyword"]);
+        var r2 = InvokePrivateStatic<string>("BuildAdminArticleListIdentity", [1L, 1, 10, null, null, false, null, true, ""]);
         Assert.NotEqual(r1, r2);
     }
 

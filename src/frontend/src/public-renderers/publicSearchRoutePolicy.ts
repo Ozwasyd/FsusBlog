@@ -1,4 +1,5 @@
 import { PUBLIC_SEARCH_ROUTE_POLICY } from '@/public-renderers/generated/publicPageManifest';
+import { parsePublicPaginationCursor } from '@/public-renderers/publicRouteIdentity';
 
 export type PublicSearchQuery = Readonly<Record<string, string>>;
 
@@ -14,7 +15,7 @@ function firstValue(value: unknown): string
     {
         return value.length > 0 ? String(value[0] ?? '') : '';
     }
-    return String(value ?? '');
+    return typeof value === 'string' ? value : '';
 }
 
 export function normalizePublicSearchKeyword(value: unknown): string | null
@@ -29,7 +30,7 @@ export function normalizePublicSearchKeyword(value: unknown): string | null
 
 export function normalizePublicSearchQuery(input: Readonly<Record<string, unknown>>): PublicSearchQueryNormalization
 {
-    const allowedKeys = new Set(['q', 'sort', 'page']);
+    const allowedKeys = new Set(['q', 'sort', 'page', 'cursor']);
     let shouldRedirect = Object.keys(input).some((key) => !allowedKeys.has(key))
     || Object.values(input).some((value) => Array.isArray(value) && value.length > 1);
 
@@ -86,6 +87,24 @@ export function normalizePublicSearchQuery(input: Readonly<Record<string, unknow
     else if (rawPage.length > 0 || 'page' in input)
     {
         shouldRedirect = true;
+    }
+
+    if ('cursor' in input)
+    {
+        const rawCursor = firstValue(input.cursor);
+        const cursor = parsePublicPaginationCursor(rawCursor);
+        if (cursor)
+        {
+            query.cursor = cursor;
+            shouldRedirect ||= rawCursor !== cursor;
+        }
+        else
+        {
+            // Preserve malformed or unexpected cursors so the page fails closed instead
+            // of redirecting to a cursor-less request with different semantics.
+            query.cursor = rawCursor;
+            shouldRedirect = false;
+        }
     }
 
     return { query, shouldRedirect, invalidKeyword: false };

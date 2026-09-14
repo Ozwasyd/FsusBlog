@@ -31,6 +31,17 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<IPasskeyProjectionConsistencyService, PasskeyProjectionConsistencyService>();
         services.AddScoped<IUserSecurityStepUpService, UserSecurityStepUpService>();
         services.AddScoped<IAdminPrincipalService, AdminPrincipalService>();
+        AdminSessionProjectionRuntimeOptions adminSessionProjectionOptions =
+            AdminSessionProjectionRuntimeOptions.FromConfiguration(configuration);
+        services.AddSingleton(adminSessionProjectionOptions);
+        services.AddSingleton(provider => new AdminSessionProjection(
+            adminSessionProjectionOptions.ProjectionLimits,
+            provider.GetRequiredService<TimeProvider>()));
+        services.AddScoped<IAdminSessionProjectionAuthorityReader, AdminSessionProjectionAuthorityReader>();
+        services.AddScoped<IAdminSessionProjectionMutationCoordinator, AdminSessionProjectionMutationCoordinator>();
+        services.AddSingleton<AdminSessionTouchScheduler>();
+        services.AddSingleton<IAdminSessionTouchScheduler>(provider =>
+            provider.GetRequiredService<AdminSessionTouchScheduler>());
         services.AddScoped<IAdminSessionValidationService, AdminSessionValidationService>();
         services.AddSingleton<IUserSessionValidationCache, UserSessionValidationCache>();
         services.AddSingleton<IUserSessionDbFallbackGate, UserSessionDbFallbackGate>();
@@ -152,6 +163,8 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         {
             if (perceptionV3Enabled)
                 services.AddHostedService<PerceptionCharacterV3StartupGate>();
+            services.AddHostedService(provider => provider.GetRequiredService<AdminSessionTouchScheduler>());
+            services.AddHostedService<AdminSessionProjectionColdStartWorker>();
             services.AddHostedService<ProductionStartupValidationHostedService>();
             services.AddHostedService<LifecycleHostedBootstrapService>();
             services.AddHostedService<SecurityPolicySnapshotHostedService>();

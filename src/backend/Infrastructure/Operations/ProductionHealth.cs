@@ -80,6 +80,26 @@ public sealed record DistributedIngressHealthCheck(
     bool LedgerAvailable,
     string? LastError) : IProductionHealthCheck;
 
+public sealed record BanStateProjectionHealthCheck(
+    string Status,
+    bool Ready,
+    bool Degraded,
+    string Detail,
+    int Entries,
+    long ResidentBytes,
+    long VersionLag,
+    long AuthorityLoadCommands) : IProductionHealthCheck;
+
+public sealed record AdminSessionProjectionHealthCheck(
+    string Status,
+    bool Ready,
+    string? NotReadyReason,
+    int Entries,
+    long ResidentBytes,
+    long VersionLag,
+    int TouchQueueEntries,
+    int TouchTrackingEntries) : IProductionHealthCheck;
+
 public sealed record ProductionResourceHealthCheck(
     string Status,
     bool WebRootExists,
@@ -502,6 +522,39 @@ public sealed class ProductionReadinessProbe(
                 ingressSnapshot.OldestPendingAge,
                 ingressSnapshot.LedgerAvailable,
                 ingressSnapshot.LastError);
+        }
+
+        if (serviceProvider.GetService<BanStateProjection>() is { } banProjection
+            && serviceProvider.GetService<BanStateProjectionRuntimeState>() is { } banRuntime)
+        {
+            BanStateProjectionSnapshot projectionSnapshot = banProjection.Snapshot();
+            BanStateProjectionRuntimeSnapshot runtimeSnapshot = banRuntime.Snapshot();
+            checks["banStateProjection"] = new BanStateProjectionHealthCheck(
+                runtimeSnapshot.Ready && !runtimeSnapshot.Degraded ? "ok" : "failed",
+                runtimeSnapshot.Ready,
+                runtimeSnapshot.Degraded,
+                runtimeSnapshot.Detail,
+                projectionSnapshot.Entries,
+                projectionSnapshot.Utf8ResidentBytes,
+                projectionSnapshot.VersionLag,
+                runtimeSnapshot.AuthorityLoadCommands);
+        }
+
+        if (serviceProvider.GetService<AdminSessionProjection>() is { } adminSessions)
+        {
+            AdminSessionProjectionSnapshot projection = adminSessions.Snapshot();
+            AdminSessionTouchRuntimeSnapshot touch = serviceProvider
+                .GetService<IAdminSessionTouchScheduler>()?
+                .Snapshot() ?? default;
+            checks["adminSessionProjection"] = new AdminSessionProjectionHealthCheck(
+                projection.IsReady ? "ok" : "failed",
+                projection.IsReady,
+                projection.NotReadyReason,
+                projection.SessionEntries + projection.PrincipalEntries,
+                projection.ResidentBytes,
+                Math.Max(0, projection.ReadyGeneration - projection.LastProcessedGeneration),
+                touch.QueueEntries,
+                touch.TrackingEntries);
         }
 
         checks["postgres"] = asyncChecks.Postgres;
@@ -1140,9 +1193,12 @@ public sealed class ProductionReadinessProbe(
         FsusObservability.SetTag(activity, "fsus.cache.layer", "l2");
         try
         {
-            IConnectionMultiplexer multiplexer = serviceProvider.GetRequiredService<IConnectionMultiplexer>();
-            IDatabase database = multiplexer.GetDatabase();
-            TimeSpan latency = await database.PingAsync(CommandFlags.DemandMaster);
+            IRedisOperationExecutor redis = serviceProvider.GetRequiredService<IRedisOperationExecutor>();
+            TimeSpan latency = await redis.ExecuteAsync(
+                    RedisOperationPort.ProductionHealth,
+                    (multiplexer, _) => multiplexer.GetDatabase().PingAsync(CommandFlags.DemandMaster),
+                    cancellationToken)
+                .ConfigureAwait(false);
             FsusObservability.RecordCacheOperation("ping", "redis", "l2", "ok", FsusObservability.GetElapsed(startedAt));
             return new ProductionDependencyHealthCheck("ok", LatencyMs: latency.TotalMilliseconds);
         }

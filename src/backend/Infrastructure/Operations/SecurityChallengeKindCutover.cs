@@ -439,13 +439,12 @@ public static class SecurityChallengeKindCutoverEnvelopeCodec
 }
 
 public sealed class RedisSecurityChallengeKindCutoverStore(
-    IConnectionMultiplexer redis,
+    IRedisOperationExecutor redis,
     IRuntimeKeyScope keyScope,
     IConfiguration configuration) : ISecurityChallengeKindCutoverStore
 {
     private const string EnvelopeDataField = "data";
     private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
-    private readonly IDatabase _database = redis.GetDatabase();
     private readonly string _cacheInstancePrefix = configuration["RedisOptions:InstanceName"] ?? "FsusBlog_";
     private readonly ConcurrentDictionary<string, string> _operationLocks = new(StringComparer.Ordinal);
 
@@ -456,16 +455,20 @@ public sealed class RedisSecurityChallengeKindCutoverStore(
         ArgumentNullException.ThrowIfNull(intent);
         cancellationToken.ThrowIfCancellationRequested();
         string json = JsonSerializer.Serialize(intent, s_jsonOptions);
-        bool stored = await _database.StringSetAsync(
-            IntentKey(intent.OperationId),
-            json,
-            expiry: null,
-            when: When.NotExists).ConfigureAwait(false);
+        bool stored = await ExecuteDatabaseAsync(
+            database => database.StringSetAsync(
+                IntentKey(intent.OperationId),
+                json,
+                expiry: null,
+                when: When.NotExists),
+            cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         SecurityChallengeKindCutoverIntent prepared = intent;
         if (!stored)
         {
-            RedisValue existingValue = await _database.StringGetAsync(IntentKey(intent.OperationId)).ConfigureAwait(false);
+            RedisValue existingValue = await ExecuteDatabaseAsync(
+                database => database.StringGetAsync(IntentKey(intent.OperationId)),
+                cancellationToken).ConfigureAwait(false);
             prepared = existingValue.HasValue
                 ? JsonSerializer.Deserialize<SecurityChallengeKindCutoverIntent>((string)existingValue!, s_jsonOptions)
                     ?? throw new InvalidOperationException("The durable cutover intent is invalid.")
@@ -477,19 +480,25 @@ public sealed class RedisSecurityChallengeKindCutoverStore(
             }
         }
 
-        _ = await _database.HashSetAsync(
-            StateKey(intent.OperationId),
-            "request_fingerprint",
-            intent.RequestFingerprint,
-            When.NotExists).ConfigureAwait(false);
-        _ = await _database.HashSetAsync(
-            StateKey(intent.OperationId),
-            "status",
-            SecurityChallengeKindCutover.PreparedStatus,
-            When.NotExists).ConfigureAwait(false);
-        RedisValue stateFingerprint = await _database.HashGetAsync(
-            StateKey(intent.OperationId),
-            "request_fingerprint").ConfigureAwait(false);
+        _ = await ExecuteDatabaseAsync(
+            database => database.HashSetAsync(
+                StateKey(intent.OperationId),
+                "request_fingerprint",
+                intent.RequestFingerprint,
+                When.NotExists),
+            cancellationToken).ConfigureAwait(false);
+        _ = await ExecuteDatabaseAsync(
+            database => database.HashSetAsync(
+                StateKey(intent.OperationId),
+                "status",
+                SecurityChallengeKindCutover.PreparedStatus,
+                When.NotExists),
+            cancellationToken).ConfigureAwait(false);
+        RedisValue stateFingerprint = await ExecuteDatabaseAsync(
+            database => database.HashGetAsync(
+                StateKey(intent.OperationId),
+                "request_fingerprint"),
+            cancellationToken).ConfigureAwait(false);
         if (!stateFingerprint.HasValue
             || !string.Equals((string)stateFingerprint!, intent.RequestFingerprint, StringComparison.Ordinal))
         {
@@ -498,7 +507,9 @@ public sealed class RedisSecurityChallengeKindCutoverStore(
 
         SecurityChallengeKindCutoverReceipt? receipt = await ReadReceiptAsync(intent.OperationId, cancellationToken)
             .ConfigureAwait(false);
-        RedisValue status = await _database.HashGetAsync(StateKey(intent.OperationId), "status").ConfigureAwait(false);
+        RedisValue status = await ExecuteDatabaseAsync(
+            database => database.HashGetAsync(StateKey(intent.OperationId), "status"),
+            cancellationToken).ConfigureAwait(false);
         return new SecurityChallengeKindCutoverPreparation(
             prepared,
             status.HasValue ? (string)status! : SecurityChallengeKindCutover.PreparedStatus,
@@ -510,11 +521,13 @@ public sealed class RedisSecurityChallengeKindCutoverStore(
         CancellationToken cancellationToken = default)
     {
         string lockToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
-        bool lockAcquired = await _database.StringSetAsync(
-            LockKey(request.OperationId),
-            lockToken,
-            TimeSpan.FromMinutes(2),
-            When.NotExists).ConfigureAwait(false);
+        bool lockAcquired = await ExecuteDatabaseAsync(
+            database => database.StringSetAsync(
+                LockKey(request.OperationId),
+                lockToken,
+                TimeSpan.FromMinutes(2),
+                When.NotExists),
+            cancellationToken).ConfigureAwait(false);
         if (!lockAcquired)
         {
             throw new InvalidOperationException("The cutover operation is already in progress; retry with the same operation id.");
@@ -529,15 +542,17 @@ public sealed class RedisSecurityChallengeKindCutoverStore(
         HashSet<string> targetWires = request.Targets
             .Select(static target => target.WireName)
             .ToHashSet(StringComparer.Ordinal);
-        RedisKey[] attemptKeys = Scan(KeyPattern("security:challenge:v2:attempt:*"), cancellationToken);
-        RedisKey[] usedKeys = Scan(KeyPattern("security:challenge:v2:used:*"), cancellationToken);
-        RedisKey[] envelopeKeys = Scan(EnvelopePattern(), cancellationToken);
+        RedisKey[] attemptKeys = await ScanAsync(KeyPattern("security:challenge:v2:attempt:*"), cancellationToken).ConfigureAwait(false);
+        RedisKey[] usedKeys = await ScanAsync(KeyPattern("security:challenge:v2:used:*"), cancellationToken).ConfigureAwait(false);
+        RedisKey[] envelopeKeys = await ScanAsync(EnvelopePattern(), cancellationToken).ConfigureAwait(false);
 
         foreach (RedisKey key in attemptKeys)
         {
             if (request.DryRun)
             {
-                await _database.SetAddAsync(AttemptAuditKey(request.OperationId), Fingerprint((string)key!))
+                await ExecuteDatabaseAsync(
+                    database => database.SetAddAsync(AttemptAuditKey(request.OperationId), Fingerprint((string)key!)),
+                    cancellationToken)
                     .ConfigureAwait(false);
             }
             else
@@ -549,7 +564,9 @@ public sealed class RedisSecurityChallengeKindCutoverStore(
         {
             if (request.DryRun)
             {
-                await _database.SetAddAsync(UsedAuditKey(request.OperationId), Fingerprint((string)key!))
+                await ExecuteDatabaseAsync(
+                    database => database.SetAddAsync(UsedAuditKey(request.OperationId), Fingerprint((string)key!)),
+                    cancellationToken)
                     .ConfigureAwait(false);
             }
             else
@@ -561,10 +578,14 @@ public sealed class RedisSecurityChallengeKindCutoverStore(
         foreach (RedisKey key in envelopeKeys)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await _database.SetAddAsync(
-                ExaminedEnvelopeAuditKey(request.OperationId),
-                Fingerprint((string)key!)).ConfigureAwait(false);
-            RedisValue encoded = await _database.HashGetAsync(key, EnvelopeDataField).ConfigureAwait(false);
+            await ExecuteDatabaseAsync(
+                database => database.SetAddAsync(
+                    ExaminedEnvelopeAuditKey(request.OperationId),
+                    Fingerprint((string)key!)),
+                cancellationToken).ConfigureAwait(false);
+            RedisValue encoded = await ExecuteDatabaseAsync(
+                database => database.HashGetAsync(key, EnvelopeDataField),
+                cancellationToken).ConfigureAwait(false);
             if (!SecurityChallengeKindCutoverEnvelopeCodec.TryBuildRevocation(
                     (string?)encoded ?? string.Empty,
                     targetWires,
@@ -577,7 +598,9 @@ public sealed class RedisSecurityChallengeKindCutoverStore(
             string envelopeDigest = Fingerprint(envelopeId!);
             if (request.DryRun)
             {
-                await _database.SetAddAsync(RevokedEnvelopeAuditKey(request.OperationId), envelopeDigest)
+                await ExecuteDatabaseAsync(
+                    database => database.SetAddAsync(RevokedEnvelopeAuditKey(request.OperationId), envelopeDigest),
+                    cancellationToken)
                     .ConfigureAwait(false);
             }
             else
@@ -589,10 +612,12 @@ redis.call('HSET', KEYS[1], ARGV[1], ARGV[3])
 redis.call('SADD', KEYS[2], ARGV[4])
 return 1
 """;
-                _ = await _database.ScriptEvaluateAsync(
-                    CompareAndReplace,
-                    [key, RevokedEnvelopeAuditKey(request.OperationId)],
-                    [EnvelopeDataField, encoded, replacement, envelopeDigest]).ConfigureAwait(false);
+                _ = await ExecuteDatabaseAsync(
+                    database => database.ScriptEvaluateAsync(
+                        CompareAndReplace,
+                        [key, RevokedEnvelopeAuditKey(request.OperationId)],
+                        [EnvelopeDataField, encoded, replacement, envelopeDigest]),
+                    cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -609,17 +634,29 @@ return 1
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        Task<long> attemptCount = _database.SetLengthAsync(AttemptAuditKey(operationId));
-        Task<long> usedCount = _database.SetLengthAsync(UsedAuditKey(operationId));
-        Task<long> examinedCount = _database.SetLengthAsync(ExaminedEnvelopeAuditKey(operationId));
-        Task<RedisValue[]> revokedMembers = _database.SetMembersAsync(RevokedEnvelopeAuditKey(operationId));
-        await Task.WhenAll(attemptCount, usedCount, examinedCount, revokedMembers).ConfigureAwait(false);
+        (long attemptCount, long usedCount, long examinedCount, RedisValue[] revokedMembers) = await redis.ExecuteAsync(
+            RedisOperationPort.SecurityChallengeKindCutover,
+            async (multiplexer, _) =>
+            {
+                IDatabase database = multiplexer.GetDatabase();
+                Task<long> attemptCount = database.SetLengthAsync(AttemptAuditKey(operationId));
+                Task<long> usedCount = database.SetLengthAsync(UsedAuditKey(operationId));
+                Task<long> examinedCount = database.SetLengthAsync(ExaminedEnvelopeAuditKey(operationId));
+                Task<RedisValue[]> revokedMembers = database.SetMembersAsync(RevokedEnvelopeAuditKey(operationId));
+                await Task.WhenAll(attemptCount, usedCount, examinedCount, revokedMembers).ConfigureAwait(false);
+                return (
+                    await attemptCount.ConfigureAwait(false),
+                    await usedCount.ConfigureAwait(false),
+                    await examinedCount.ConfigureAwait(false),
+                    await revokedMembers.ConfigureAwait(false));
+            },
+            cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        string[] revokedDigests = revokedMembers.Result.Select(static value => (string)value!).ToArray();
+        string[] revokedDigests = revokedMembers.Select(static value => (string)value!).ToArray();
         return new SecurityChallengeKindCutoverMutationResult(
-            attemptCount.Result,
-            usedCount.Result,
-            examinedCount.Result,
+            attemptCount,
+            usedCount,
+            examinedCount,
             revokedDigests.LongLength,
             revokedDigests);
     }
@@ -637,10 +674,12 @@ if fingerprint ~= ARGV[1] then return 0 end
 redis.call('HSET', KEYS[1], 'status', ARGV[2])
 return 1
 """;
-        RedisResult changed = await _database.ScriptEvaluateAsync(
-            UpdateStatus,
-            [StateKey(operationId)],
-            [requestFingerprint, status]).ConfigureAwait(false);
+        RedisResult changed = await ExecuteDatabaseAsync(
+            database => database.ScriptEvaluateAsync(
+                UpdateStatus,
+                [StateKey(operationId)],
+                [requestFingerprint, status]),
+            cancellationToken).ConfigureAwait(false);
         if ((long)changed != 1)
         {
             throw new InvalidOperationException("The durable cutover operation state does not match the request.");
@@ -653,11 +692,13 @@ return 1
     {
         cancellationToken.ThrowIfCancellationRequested();
         string json = JsonSerializer.Serialize(receipt, s_jsonOptions);
-        bool stored = await _database.StringSetAsync(
-            ReceiptKey(receipt.OperationId),
-            json,
-            expiry: null,
-            when: When.NotExists).ConfigureAwait(false);
+        bool stored = await ExecuteDatabaseAsync(
+            database => database.StringSetAsync(
+                ReceiptKey(receipt.OperationId),
+                json,
+                expiry: null,
+                when: When.NotExists),
+            cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         SecurityChallengeKindCutoverReceipt saved;
         if (stored)
@@ -693,28 +734,38 @@ return 1
 if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end
 return redis.call('DEL', KEYS[1])
 """;
-        _ = await _database.ScriptEvaluateAsync(Release, [LockKey(operationId)], [lockToken])
+        _ = await ExecuteDatabaseAsync(
+                database => database.ScriptEvaluateAsync(Release, [LockKey(operationId)], [lockToken]),
+                CancellationToken.None)
             .ConfigureAwait(false);
     }
 
-    private RedisKey[] Scan(RedisValue pattern, CancellationToken cancellationToken)
-    {
-        var keys = new HashSet<RedisKey>();
-        foreach (EndPoint endpoint in redis.GetEndPoints())
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            IServer server = redis.GetServer(endpoint);
-            if (!server.IsConnected || server.ServerType == ServerType.Sentinel)
+    private Task<RedisKey[]> ScanAsync(RedisValue pattern, CancellationToken cancellationToken)
+        => redis.ExecuteAsync(
+            RedisOperationPort.SecurityChallengeKindCutover,
+            async (multiplexer, deadlineToken) =>
             {
-                continue;
-            }
-            foreach (RedisKey key in server.Keys(_database.Database, pattern, pageSize: 250))
-            {
-                keys.Add(key);
-            }
-        }
-        return keys.ToArray();
-    }
+                var keys = new HashSet<RedisKey>();
+                int databaseId = multiplexer.GetDatabase().Database;
+                foreach (EndPoint endpoint in multiplexer.GetEndPoints())
+                {
+                    deadlineToken.ThrowIfCancellationRequested();
+                    IServer server = multiplexer.GetServer(endpoint);
+                    if (!server.IsConnected || server.ServerType == ServerType.Sentinel)
+                    {
+                        continue;
+                    }
+                    await foreach (RedisKey key in server.KeysAsync(
+                        databaseId,
+                        pattern,
+                        pageSize: 250).WithCancellation(deadlineToken).ConfigureAwait(false))
+                    {
+                        keys.Add(key);
+                    }
+                }
+                return keys.ToArray();
+            },
+            cancellationToken);
 
     private async Task DeleteWithAuditAsync(
         RedisKey key,
@@ -728,10 +779,12 @@ redis.call('SADD', KEYS[2], ARGV[1])
 redis.call('DEL', KEYS[1])
 return 1
 """;
-        _ = await _database.ScriptEvaluateAsync(
-            DeleteWithAudit,
-            [key, auditKey],
-            [Fingerprint((string)key!)]).ConfigureAwait(false);
+        _ = await ExecuteDatabaseAsync(
+            database => database.ScriptEvaluateAsync(
+                DeleteWithAudit,
+                [key, auditKey],
+                [Fingerprint((string)key!)]),
+            cancellationToken).ConfigureAwait(false);
     }
 
     private static string RequestFingerprint(SecurityChallengeKindCutoverRequest request)
@@ -784,10 +837,20 @@ return 1
         string operationId,
         CancellationToken cancellationToken)
     {
-        RedisValue value = await _database.StringGetAsync(ReceiptKey(operationId)).ConfigureAwait(false);
+        RedisValue value = await ExecuteDatabaseAsync(
+            database => database.StringGetAsync(ReceiptKey(operationId)),
+            cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         return value.HasValue
             ? JsonSerializer.Deserialize<SecurityChallengeKindCutoverReceipt>((string)value!, s_jsonOptions)
             : null;
     }
+
+    private Task<T> ExecuteDatabaseAsync<T>(
+        Func<IDatabase, Task<T>> operation,
+        CancellationToken cancellationToken)
+        => redis.ExecuteAsync(
+            RedisOperationPort.SecurityChallengeKindCutover,
+            (multiplexer, _) => operation(multiplexer.GetDatabase()),
+            cancellationToken);
 }

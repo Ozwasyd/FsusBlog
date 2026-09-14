@@ -4,7 +4,9 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
@@ -49,9 +51,10 @@ public sealed class ObservabilityTests
     }
 
     [Fact]
-    public void CacheMetrics_PrecacheTagsAndStripeL1HitsWhileKeepingMissesExact()
+    public void CacheMetrics_PreboundsSampledL1HitsWhileKeepingMissesExact()
     {
         const string Policy = "ArticleHotFrame";
+        CacheL1TelemetryRuntimeSnapshot telemetryBefore = FsusObservability.GetCacheL1TelemetrySnapshot();
         long hitBefore = FsusObservability.GetCacheOperationCounters()
             .Where(counter => counter.Operation == "get_raw_readonly" && counter.Policy == Policy && counter.Layer == "l1" && counter.Result == "hit")
             .Sum(static counter => counter.Count);
@@ -59,13 +62,61 @@ public sealed class ObservabilityTests
             .Where(counter => counter.Operation == "get_raw_readonly" && counter.Policy == Policy && counter.Layer == "l2" && counter.Result == "miss")
             .Sum(static counter => counter.Count);
 
-        Parallel.For(0, 1024, _ => FsusObservability.RecordCacheOperation("get_raw_readonly", Policy, "l1", "hit", TimeSpan.Zero));
+        Parallel.For(0, 1024, _ =>
+        {
+            CacheL1HitObservation observation = FsusObservability.BeginCacheL1Hit(
+                CachePolicyId.ArticleHotFrame,
+                CacheL1Operation.Readonly);
+            FsusObservability.RecordCacheL1Hit(
+                CachePolicyId.ArticleHotFrame,
+                CacheL1Operation.Readonly,
+                negative: false,
+                observation);
+        });
         FsusObservability.RecordCacheOperation("get_raw_readonly", Policy, "l2", "miss", TimeSpan.Zero);
 
         IReadOnlyList<CacheOperationRuntimeCounter> counters = FsusObservability.GetCacheOperationCounters();
+        CacheL1TelemetryRuntimeSnapshot telemetryAfter = FsusObservability.GetCacheL1TelemetrySnapshot();
         Assert.Equal(hitBefore + 1024, counters.Single(counter => counter.Operation == "get_raw_readonly" && counter.Policy == Policy && counter.Layer == "l1" && counter.Result == "hit").Count);
         Assert.Equal(missBefore + 1, counters.Single(counter => counter.Operation == "get_raw_readonly" && counter.Policy == Policy && counter.Layer == "l2" && counter.Result == "miss").Count);
-        Assert.Equal("striped", FsusObservability.CacheL1CounterMode);
+        Assert.Equal(1024, telemetryAfter.ExactHitCount - telemetryBefore.ExactHitCount);
+        Assert.Equal(16, telemetryAfter.DurationSampleCount - telemetryBefore.DurationSampleCount);
+        Assert.Equal(1024, telemetryAfter.WeightedDurationSampleCount - telemetryBefore.WeightedDurationSampleCount);
+        Assert.Equal(64, FsusObservability.CacheL1DurationSampleRate);
+    }
+
+    [Fact]
+    public void CacheMetrics_UnknownIdentitiesCannotExpandPreboundSeries()
+    {
+        int seriesBefore = FsusObservability.GetCacheL1TelemetrySnapshot().SeriesCount;
+
+        for (int index = 0; index < 100_000; index++)
+        {
+            Assert.Throws<InvalidOperationException>(() =>
+                FsusObservability.BeginCacheL1Hit(
+                    (CachePolicyId)(10_000 + index),
+                    (CacheL1Operation)(index & 7)));
+        }
+
+        Assert.Equal(seriesBefore, FsusObservability.GetCacheL1TelemetrySnapshot().SeriesCount);
+        Assert.Equal(Enum.GetValues<CachePolicyId>().Length * 8, seriesBefore);
+    }
+
+    [Fact]
+    public void CacheMetrics_MachineReadablePolicyMatchesRuntimeSchema()
+    {
+        string path = BackendTestPaths.FromRoot("tests", "performance", "cache-l1-telemetry-policy.json");
+        using JsonDocument policy = JsonDocument.Parse(File.ReadAllBytes(path));
+        JsonElement root = policy.RootElement;
+
+        Assert.Equal("fsus.cache-l1-telemetry-policy.v1", root.GetProperty("schema").GetString());
+        Assert.Equal(FsusObservability.CacheL1DurationSampleRate, root.GetProperty("defaultDurationSampleRate").GetInt32());
+        Assert.Equal([16, 64, 256], root.GetProperty("benchmarkSampleRates").EnumerateArray().Select(static value => value.GetInt32()).ToArray());
+        Assert.Equal(["online", "offline", "backpressured"], root.GetProperty("exporterBenchmarkModes").EnumerateArray().Select(static value => value.GetString()!).ToArray());
+        Assert.Equal([64, 256, 1024], root.GetProperty("contentionWorkerCounts").EnumerateArray().Select(static value => value.GetInt32()).ToArray());
+        Assert.Equal(0d, root.GetProperty("countRelativeErrorBudget").GetDouble());
+        Assert.Equal("fsus.cache.l1.hit.count", root.GetProperty("instruments").GetProperty("exactHitCount").GetString());
+        Assert.Equal("fsus.cache.l1.hit.duration", root.GetProperty("instruments").GetProperty("sampledDuration").GetString());
     }
 
     [Theory]
@@ -161,6 +212,98 @@ public sealed class ObservabilityTests
         Assert.Contains("fsus.security.challenge.solve.duration", measurements);
         Assert.Contains("fsus.security.decision.count", measurements);
         Assert.Contains("fsus.security.policy.version.active", measurements);
+    }
+
+    [Fact]
+    public void ArticleHotFrameMetrics_EmitSeedBuildDatabaseBytesPublicationAndRetryMeasurements()
+    {
+        var measurements = new ConcurrentBag<string>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (string.Equals(instrument.Meter.Name, FsusObservability.MeterName, StringComparison.Ordinal)
+                && instrument.Name.StartsWith("fsus.cache.article_hot_frame.", StringComparison.Ordinal))
+            {
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.Start();
+
+        FsusObservability.RecordArticleHotFrameSeed("hot", "redis");
+        FsusObservability.RecordArticleHotFrameWholeBuild("hot");
+        FsusObservability.RecordArticleHotFrameDatabaseCommand("hot");
+        FsusObservability.RecordArticleHotFrameBytes("hot", 128);
+        FsusObservability.RecordArticleHotFrameRedisPublication("hot");
+        FsusObservability.RecordArticleHotFrameGenerationRetry("hot");
+
+        Assert.Contains("fsus.cache.article_hot_frame.seed_reads", measurements);
+        Assert.Contains("fsus.cache.article_hot_frame.whole_builds", measurements);
+        Assert.Contains("fsus.cache.article_hot_frame.db_commands", measurements);
+        Assert.Contains("fsus.cache.article_hot_frame.bytes", measurements);
+        Assert.Contains("fsus.cache.article_hot_frame.redis_publications", measurements);
+        Assert.Contains("fsus.cache.article_hot_frame.generation_retries", measurements);
+    }
+
+    [Fact]
+    public void RelatedReadingMetrics_EmitFrameAllocationDatabaseAndResultMeasurements()
+    {
+        var measurements = new ConcurrentBag<string>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (string.Equals(instrument.Meter.Name, FsusObservability.MeterName, StringComparison.Ordinal)
+                && instrument.Name.StartsWith("fsus.related_reading.", StringComparison.Ordinal))
+            {
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.SetMeasurementEventCallback<double>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.Start();
+
+        FsusObservability.RecordRelatedReadingBuild(
+            cacheHit: false,
+            negative: false,
+            frameBytes: 4096,
+            allocationBytes: 2048,
+            dbCommandCount: 1,
+            elapsed: TimeSpan.FromMilliseconds(12));
+
+        Assert.Contains("fsus.related_reading.build.elapsed_ms", measurements);
+        Assert.Contains("fsus.related_reading.build.cache_access", measurements);
+        Assert.Contains("fsus.related_reading.frame.bytes", measurements);
+        Assert.Contains("fsus.related_reading.build.allocation_bytes", measurements);
+        Assert.Contains("fsus.related_reading.db.command_count", measurements);
+    }
+
+    [Fact]
+    public void SitemapMetrics_EmitElapsedResidencyAndAllocationMeasurements()
+    {
+        var measurements = new ConcurrentBag<string>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (string.Equals(instrument.Meter.Name, FsusObservability.MeterName, StringComparison.Ordinal)
+                && instrument.Name.StartsWith("fsus.sitemap.", StringComparison.Ordinal))
+            {
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.SetMeasurementEventCallback<double>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.Start();
+
+        FsusObservability.RecordSitemapBuild(
+            cacheHit: false,
+            residentBytes: 4096,
+            allocationBytes: 8192,
+            elapsed: TimeSpan.FromMilliseconds(12));
+
+        Assert.Contains("fsus.sitemap.build.elapsed_ms", measurements);
+        Assert.Contains("fsus.sitemap.build.cache_access", measurements);
+        Assert.Contains("fsus.sitemap.artifact.resident_bytes", measurements);
+        Assert.Contains("fsus.sitemap.build.allocation_bytes", measurements);
     }
 
     [Fact]

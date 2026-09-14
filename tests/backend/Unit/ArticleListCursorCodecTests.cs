@@ -1,5 +1,8 @@
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Infrastructure.Pagination;
+using FsusBlog.Server.Tests.TestInfrastructure;
+
+using Microsoft.AspNetCore.DataProtection;
 
 namespace FsusBlog.Server.Tests;
 
@@ -12,24 +15,54 @@ public sealed class ArticleListCursorCodecTests
     [Fact]
     public void Cursor_RoundTripsVersionedCompositePosition()
     {
-        string encoded = ArticleListCursorCodec.Encode(s_position, categoryId: 7, tagId: 9, normalizedKeyword: "fsus");
+        (ArticleListCursorCodec codec, _) = CreateCodec();
+        string encoded = codec.Encode(
+            s_position,
+            categoryId: 7,
+            tagId: 9,
+            normalizedKeyword: "fsus",
+            pageSize: 20,
+            queryVersion: 77,
+            ArticleListSortMode.Latest);
 
         Assert.DoesNotContain(':', encoded);
-        Assert.True(ArticleListCursorCodec.TryDecode(encoded, 7, 9, "fsus", out ArticleListCursorPosition decoded));
+        Assert.True(codec.TryDecode(encoded, 7, 9, "fsus", 20, 77, ArticleListSortMode.Latest, out ArticleListCursorPosition decoded));
         Assert.Equal(s_position, decoded);
     }
 
     [Fact]
     public void Cursor_RejectsTamperingAndFilterReuse()
     {
-        string encoded = ArticleListCursorCodec.Encode(s_position, categoryId: 7, tagId: null, normalizedKeyword: string.Empty);
+        (ArticleListCursorCodec codec, _) = CreateCodec();
+        string encoded = codec.Encode(
+            s_position,
+            categoryId: 7,
+            tagId: null,
+            normalizedKeyword: string.Empty,
+            pageSize: 20,
+            queryVersion: 77,
+            ArticleListSortMode.Latest);
         char replacement = encoded[^1] == 'A' ? 'B' : 'A';
         string tampered = string.Concat(encoded[..^1], replacement);
 
-        Assert.False(ArticleListCursorCodec.TryDecode(tampered, 7, null, string.Empty, out _));
-        Assert.False(ArticleListCursorCodec.TryDecode(encoded, 8, null, string.Empty, out _));
-        Assert.False(ArticleListCursorCodec.TryDecode(encoded, 7, 1, string.Empty, out _));
-        Assert.False(ArticleListCursorCodec.TryDecode(encoded, 7, null, "other", out _));
+        Assert.False(codec.TryDecode(tampered, 7, null, string.Empty, 20, 77, ArticleListSortMode.Latest, out _));
+        Assert.False(codec.TryDecode(encoded, 8, null, string.Empty, 20, 77, ArticleListSortMode.Latest, out _));
+        Assert.False(codec.TryDecode(encoded, 7, 1, string.Empty, 20, 77, ArticleListSortMode.Latest, out _));
+        Assert.False(codec.TryDecode(encoded, 7, null, "other", 20, 77, ArticleListSortMode.Latest, out _));
+        Assert.False(codec.TryDecode(encoded, 7, null, string.Empty, 10, 77, ArticleListSortMode.Latest, out _));
+        Assert.False(codec.TryDecode(encoded, 7, null, string.Empty, 20, 78, ArticleListSortMode.Latest, out _));
+        Assert.False(codec.TryDecode(encoded, 7, null, string.Empty, 20, 77, ArticleListSortMode.Hot, out _));
+    }
+
+    [Fact]
+    public void Cursor_RejectsExpiredProtectedPayload()
+    {
+        (ArticleListCursorCodec codec, TestBusinessTimeProvider time) = CreateCodec();
+        string encoded = codec.Encode(s_position, null, null, string.Empty, 20, 77, ArticleListSortMode.Latest);
+
+        time.Advance(TimeSpan.FromMinutes(15));
+
+        Assert.False(codec.TryDecode(encoded, null, null, string.Empty, 20, 77, ArticleListSortMode.Latest, out _));
     }
 
     [Theory]
@@ -37,5 +70,14 @@ public sealed class ArticleListCursorCodecTests
     [InlineData("not-a-cursor")]
     [InlineData("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")]
     public void Cursor_RejectsMalformedValues(string encoded)
-        => Assert.False(ArticleListCursorCodec.TryDecode(encoded, null, null, string.Empty, out _));
+    {
+        (ArticleListCursorCodec codec, _) = CreateCodec();
+        Assert.False(codec.TryDecode(encoded, null, null, string.Empty, 10, 0, ArticleListSortMode.Latest, out _));
+    }
+
+    private static (ArticleListCursorCodec Codec, TestBusinessTimeProvider Time) CreateCodec()
+    {
+        var time = new TestBusinessTimeProvider(new DateTimeOffset(2026, 7, 20, 8, 30, 0, TimeSpan.Zero));
+        return (new ArticleListCursorCodec(new EphemeralDataProtectionProvider(), time), time);
+    }
 }

@@ -31,6 +31,12 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Modules.Endpoints.Binary;
 
+internal sealed record FsusOpenApiQueryParameterMetadata(
+    string Name,
+    string SchemaRef,
+    bool Required,
+    bool Nullable);
+
 public static partial class BinaryEndpoints
 {
     private const string BinaryContentType = "application/octet-stream";

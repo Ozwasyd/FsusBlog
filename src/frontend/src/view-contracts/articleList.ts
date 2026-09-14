@@ -103,6 +103,8 @@ export function createArticleListViewContract(
         searchKeyword?: string;
         time?: TimeRenderOptions;
         pageHref?: (page: number) => string;
+        canGoPrev?: boolean;
+        canGoNext?: boolean;
     }
 ): ArticleListViewContract
 {
@@ -118,13 +120,13 @@ export function createArticleListViewContract(
             previous: {
                 label: '上一页',
                 href: pageHref(Math.max(1, currentPage - 1)),
-                disabled: currentPage <= 1,
+                disabled: options.canGoPrev === undefined ? currentPage <= 1 : !options.canGoPrev,
                 action: { action: 'page-prev' }
             },
             next: {
                 label: '下一页',
                 href: pageHref(Math.min(totalPages, currentPage + 1)),
-                disabled: currentPage >= totalPages,
+                disabled: options.canGoNext === undefined ? currentPage >= totalPages : !options.canGoNext,
                 action: { action: 'page-next' }
             },
             indicator: `${currentPage} / ${totalPages}`

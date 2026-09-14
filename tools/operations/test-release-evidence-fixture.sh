@@ -849,8 +849,10 @@ jq -e \
   and .evidenceSummary.operations.sloAlerts == "ok"
   and .evidenceSummary.operations.sloCriticalFiring == 0
   and .evidenceSummary.operations.runtimeTuning.nonDefaultPresetsRequireBenchmarkEvidence == true
-  and .evidenceSummary.operations.runtimeTuning.counterModes.cacheL1Hit == "striped"
-  and .evidenceSummary.operations.runtimeTuning.counterModes.publicHotRead == "Sampled"
+  and .evidenceSummary.operations.runtimeTuning.telemetryPolicies.cacheL1Hit.schema == "fsus.cache-l1-telemetry-policy.v1"
+  and .evidenceSummary.operations.runtimeTuning.telemetryPolicies.cacheL1Hit.defaultDurationSampleRate == 64
+  and .evidenceSummary.operations.runtimeTuning.telemetryPolicies.cacheL1Hit.countRelativeErrorBudget == 0
+  and .evidenceSummary.operations.runtimeTuning.telemetryPolicies.publicHotRead == "Sampled"
   and .evidenceSummary.operations.runtimeTuning.rollback == "unset RuntimeTuning/DOTNET_* overrides and restart on the same image"
   and .evidenceSummary.gates.backendQps == "ok"
   and .evidenceSummary.gates.uxViewport == "ok"

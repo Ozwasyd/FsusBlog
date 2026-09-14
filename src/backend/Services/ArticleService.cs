@@ -14,6 +14,7 @@ using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Content;
+using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
@@ -44,7 +45,7 @@ namespace FsusBlog.Server.Services;
 public partial class ArticleService(
     ISqlSugarClient _db,
     ISearchIndexService _searchIndex,
-    IConnectionMultiplexer _redisConnection,
+    IRedisOperationExecutor _redisOperations,
     ICacheTypedReader _cacheReader,
     ICacheRawWriter _cacheWriter,
     ICacheStringReader _stringReader,
@@ -64,7 +65,10 @@ public partial class ArticleService(
     TimeProvider? _timeProvider = null,
     IAuditLogStore? _vaultAuditLogStore = null,
     IArticleVaultExecutionStore? _vaultExecutionStore = null,
-    IArticleVaultTransactionalGroupResultStore? _vaultGroupResultStore = null) : IArticleCoreGateway, IArticleMutationCommandService
+    IArticleVaultTransactionalGroupResultStore? _vaultGroupResultStore = null,
+    IArticleDetailViewProjection? _articleDetailViewProjection = null,
+    IArticleListCursorCodec? _articleListCursorCodec = null,
+    IArticleViewProjectionObligationCoordinator? _articleViewProjectionObligations = null) : IArticleCoreGateway, IArticleMutationCommandService
 #pragma warning restore IDE1006
 {
     private readonly record struct TrashArticleRow(int Id, int CategoryId, string? CoverImageUrl);
@@ -101,7 +105,6 @@ public partial class ArticleService(
     private const int MaxContentLength = 200_000;
     private const int MaxTagIds = 32;
     private const int MaxArticleRevisionInsertAttempts = 3;
-    private readonly IDatabase _redis = _redisConnection.GetDatabase();
     private CancellationToken Ct => _httpContextAccessor.HttpContext?.RequestAborted ?? CancellationToken.None;
     private DateTime UtcNow => (_timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime;
 
@@ -176,38 +179,88 @@ public partial class ArticleService(
         sql.Append(
             ") AS v(id, delta) WHERE a.id = v.id AND a.isdeleted = false RETURNING a.id, a.views;");
 
+        IArticleViewProjectionObligationCoordinator obligations = _articleViewProjectionObligations
+            ?? throw new InvalidOperationException("article_view_projection_obligation_coordinator_required");
         var updatedIds = new HashSet<int>();
         var updatedViews = new Dictionary<int, int>();
-        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sql.ToString(), parameters))
+        DistributedInvalidationEvent? preparedProjection = null;
+        var transaction = await _db.Ado.UseTranAsync(async () =>
         {
-            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sql.ToString(), parameters))
             {
-                int articleId = reader.ReadInt32("id");
-                int currentViews = reader.ReadInt32("views");
-                updatedIds.Add(articleId);
-                updatedViews[articleId] = currentViews;
+                while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    int articleId = reader.ReadInt32("id");
+                    int currentViews = reader.ReadInt32("views");
+                    updatedIds.Add(articleId);
+                    updatedViews[articleId] = currentViews;
+                }
             }
+
+            preparedProjection = await obligations
+                .PrepareAsync(updatedViews, cancellationToken)
+                .ConfigureAwait(false);
+        }).ConfigureAwait(false);
+        if (!transaction.IsSuccess)
+        {
+            throw transaction.ErrorException
+                ?? new InvalidOperationException("article_view_projection_transaction_failed");
         }
 
-        string hotRankKey = RedisKey("blog:top_articles");
-        IBatch redisBatch = _redis.CreateBatch();
-        var redisTasks = new List<Task>(normalized.Length * 2);
-        foreach ((int articleId, int count) in normalized)
+        foreach ((int articleId, int currentViews) in updatedViews)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (updatedIds.Contains(articleId))
-            {
-                int currentViews = updatedViews[articleId];
-                redisTasks.Add(redisBatch.SortedSetAddAsync(hotRankKey, articleId, currentViews));
-            }
-            else
-            {
-                redisTasks.Add(redisBatch.SortedSetRemoveAsync(hotRankKey, articleId));
-            }
+            _articleDetailViewProjection?.ApplyAuthoritative(articleId, currentViews, currentViews);
         }
 
-        redisBatch.Execute();
-        await Task.WhenAll(redisTasks).ConfigureAwait(false);
+        try
+        {
+            string hotRankKey = RedisKey("blog:top_articles");
+            await _redisOperations.ExecuteAsync(
+                RedisOperationPort.ArticleServiceOptionalProjection,
+                async (multiplexer, _) =>
+                {
+                    IBatch redisBatch = multiplexer.GetDatabase().CreateBatch();
+                    var redisTasks = new List<Task>(normalized.Length * 2);
+                    foreach ((int articleId, int count) in normalized)
+                    {
+                        if (updatedIds.Contains(articleId))
+                        {
+                            int currentViews = updatedViews[articleId];
+                            redisTasks.Add(redisBatch.SortedSetAddAsync(hotRankKey, articleId, currentViews));
+                        }
+                        else
+                        {
+                            redisTasks.Add(redisBatch.SortedSetRemoveAsync(hotRankKey, articleId));
+                        }
+                    }
+
+                    redisBatch.Execute();
+                    await Task.WhenAll(redisTasks).ConfigureAwait(false);
+                },
+                CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "article-view-hot-rank-update-degraded-after-persist {ArticleCount}",
+                updatedViews.Count);
+        }
+
+        try
+        {
+            await obligations
+                .PublishPreparedAsync(preparedProjection, CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "article-view-projection-publish-degraded-durable-replay-pending {ArticleCount}",
+                updatedViews.Count);
+        }
+
         return updatedIds;
     }
 
@@ -225,9 +278,14 @@ public partial class ArticleService(
             throw new ArgumentOutOfRangeException(nameof(size), size, $"Article list size must be between 1 and {MaxPageSize}.");
         }
 
+        if (ShouldUsePublicKeysetPagination(isDeleted, status, includePrivate))
+        {
+            throw new InvalidOperationException("Public article lists must use the cursor-aware core query.");
+        }
+
         string normalizedKeyword = NormalizeArticleListKeyword(keyword);
         long version = await GetListCacheVersionAsync(effectiveCt);
-        string cacheIdentity = BuildArticleListIdentity(version, page, size, categoryId, tagId, isDeleted, status, includePrivate, normalizedKeyword);
+        string cacheIdentity = BuildAdminArticleListIdentity(version, page, size, categoryId, tagId, isDeleted, status, includePrivate, normalizedKeyword);
 
         return await _cacheMissCoordinator.CoordinateAsync(
                 CachePolicyId.ArticleList,
@@ -237,7 +295,7 @@ public partial class ArticleService(
                     "article-list",
                     async gateCt =>
                     {
-                        ArticleListPageReadModel result = await LoadArticleListPageFromDbAsync(version, page, size, categoryId, tagId, isDeleted, status, includePrivate, normalizedKeyword, cursor: null, gateCt);
+                        ArticleListPageReadModel result = await LoadArticleListPageFromDbAsync(version, page, size, categoryId, tagId, isDeleted, status, includePrivate, normalizedKeyword, cursor: null, ArticleListSortMode.Latest, gateCt);
                         gateCt.ThrowIfCancellationRequested();
                         int totalPages = Math.Max(1, (int)Math.Ceiling(result.Total / (double)size));
                         if (page <= totalPages)
@@ -312,47 +370,20 @@ public partial class ArticleService(
             return new CacheReadResult<ArticleDetailReadModel>(true, default);
         }
 
-        if (!string.IsNullOrWhiteSpace(cached.Content))
-        {
-            return new CacheReadResult<ArticleDetailReadModel>(true, await OverlayProjectedViewsAsync(cached, cancellationToken));
-        }
-
-        string healedContent = await LoadArticleContentAsync(id, cancellationToken);
-        if (string.IsNullOrWhiteSpace(healedContent))
-        {
-            MarkArticleBodyMissing(id, "article-detail-cache");
-            return new CacheReadResult<ArticleDetailReadModel>(true, await OverlayProjectedViewsAsync(cached, cancellationToken));
-        }
-
-        ReadingEstimate healedReading = ReadingEstimator.Estimate(healedContent);
-        var healed = cached with
-        {
-            Content = healedContent,
-            WordCount = healedReading.EffectiveChars,
-            EstimatedReadingMinutes = healedReading.Minutes,
-            ShowReadingNotice = healedReading.ShowLongReadNotice
-        };
-        cancellationToken.ThrowIfCancellationRequested();
-        byte[] encodedHealed = ServerCacheBinaryCodec.EncodeArticleDetail(healed);
-        cancellationToken.ThrowIfCancellationRequested();
-        await _cacheWriter.SetRawAsync(CachePolicyId.ArticleDetail, id, encodedHealed, null, cancellationToken);
-        return new CacheReadResult<ArticleDetailReadModel>(true, await OverlayProjectedViewsAsync(healed, cancellationToken));
+        return new CacheReadResult<ArticleDetailReadModel>(true, ProjectArticleViews(cached));
     }
 
-    private async Task<ArticleDetailReadModel> OverlayProjectedViewsAsync(
-        ArticleDetailReadModel article,
-        CancellationToken cancellationToken)
+    private ArticleDetailReadModel ProjectArticleViews(ArticleDetailReadModel article)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        double? projectedViews = await _redis.SortedSetScoreAsync(RedisKey("blog:top_articles"), article.Id).ConfigureAwait(false);
-        if (!projectedViews.HasValue || projectedViews.Value < article.Views || projectedViews.Value > int.MaxValue)
+        int projectedViews = _articleDetailViewProjection?.Project(article.Id, article.Views) ?? article.Views;
+        if (projectedViews == article.Views)
         {
             return article;
         }
 
         return article with
         {
-            Views = (int)Math.Round(projectedViews.Value, MidpointRounding.AwayFromZero)
+            Views = projectedViews
         };
     }
 
@@ -405,16 +436,20 @@ public partial class ArticleService(
                         a.public_updated_at)
                     ELSE a.public_updated_at
                 END AS "UpdatedAt",
-                (ab.article_id IS NOT NULL AND btrim(COALESCE(ab.markdown_content, '')) <> '') AS "BodyAvailable",
+                CASE
+                    WHEN @IncludePrivate THEN current_block.id IS NOT NULL OR ab.article_id IS NOT NULL
+                    ELSE published_block.id IS NOT NULL
+                        AND btrim(published_block.markdown_content) <> ''
+                END AS "BodyAvailable",
                 CASE WHEN @IncludePrivate THEN current_revision.id ELSE published_revision.id END AS "CurrentRevisionId",
                 CASE WHEN @IncludePrivate THEN current_revision.revision_no ELSE published_revision.revision_no END AS "RevisionNo",
+                CASE WHEN @IncludePrivate THEN current_block.id ELSE published_block.id END AS "ContentBlockId",
                 publication.id AS "CurrentPublicationId",
                 publication.publication_no AS "PublicationNo",
                 c.name AS "CategoryName",
                 CASE
-                    WHEN ab.article_id IS NULL OR btrim(COALESCE(ab.markdown_content, '')) = '' THEN ''
-                    WHEN @IncludePrivate THEN ab.markdown_content
-                    ELSE published_revision.markdown_content
+                    WHEN @IncludePrivate THEN COALESCE(current_block.markdown_content, ab.markdown_content, current_revision.markdown_content, '')
+                    ELSE published_block.markdown_content
                 END AS "Content",
                 rights.id AS "RightsSnapshotId",
                 rights.article_revision_id AS "RightsArticleRevisionId",
@@ -451,7 +486,9 @@ public partial class ArticleService(
             FROM article a
             LEFT JOIN article_publication publication ON publication.id = a.current_publication_id
             LEFT JOIN article_revision published_revision ON published_revision.id = publication.article_revision_id
+            LEFT JOIN article_revision_content_block published_block ON published_block.id = published_revision.content_block_id
             LEFT JOIN article_revision current_revision ON current_revision.id = a.current_revision_id
+            LEFT JOIN article_revision_content_block current_block ON current_block.id = current_revision.content_block_id
             LEFT JOIN category c ON c.id = CASE WHEN @IncludePrivate THEN a.categoryid ELSE published_revision.categoryid END
             LEFT JOIN article_body ab ON ab.article_id = a.id
             LEFT JOIN LATERAL (
@@ -506,8 +543,13 @@ public partial class ArticleService(
                 published_revision.categoryid,
                 published_revision.markdown_content,
                 published_revision.created_at,
+                published_block.id,
+                published_block.markdown_content,
                 current_revision.id,
                 current_revision.revision_no,
+                current_revision.markdown_content,
+                current_block.id,
+                current_block.markdown_content,
                 ab.updated_at,
                 c.name,
                 rights.id,
@@ -532,6 +574,7 @@ public partial class ArticleService(
                 ab.article_id,
                 ab.markdown_content;
             """;
+        bool incompletePublicBody = false;
         using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sql, parameters))
         {
             if (await reader.ReadAsync(cancellationToken))
@@ -564,6 +607,7 @@ public partial class ArticleService(
                     UpdatedAt = reader.IsDBNull(fUpdated) ? null : NormalizeArticleListTimestampUtc(reader.GetDateTime(fUpdated)),
                     CurrentRevisionId = reader.GetInt64(reader.GetOrdinal("CurrentRevisionId")),
                     RevisionNo = reader.GetInt32(reader.GetOrdinal("RevisionNo")),
+                    ContentBlockId = reader.IsDBNull(reader.GetOrdinal("ContentBlockId")) ? 0 : reader.GetInt64(reader.GetOrdinal("ContentBlockId")),
                     CurrentPublicationId = reader.IsDBNull(reader.GetOrdinal("CurrentPublicationId")) ? null : reader.GetInt64(reader.GetOrdinal("CurrentPublicationId")),
                     PublicationNo = reader.IsDBNull(reader.GetOrdinal("PublicationNo")) ? null : reader.GetInt32(reader.GetOrdinal("PublicationNo")),
                     CategoryName = reader.IsDBNull(fCatName) ? "默认分类" : reader.GetString(fCatName),
@@ -577,13 +621,19 @@ public partial class ArticleService(
                 if (article.Status == ArticleStatus.Published && !bodyAvailable)
                 {
                     MarkArticleBodyMissing(article.Id, "article-detail-db");
+                    if (!includePrivate)
+                    {
+                        incompletePublicBody = true;
+                        article = null;
+                    }
                 }
             }
         }
 
         if (article != null)
         {
-            if (!includePrivate && cacheIdentity is not null && !string.IsNullOrWhiteSpace(article.Content))
+            _articleDetailViewProjection?.ApplyAuthoritative(article.Id, article.Views, article.Views);
+            if (!includePrivate && cacheIdentity is not null)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 byte[] encoded = ServerCacheBinaryCodec.EncodeArticleDetail(article);
@@ -591,13 +641,13 @@ public partial class ArticleService(
                 await _cacheWriter.SetRawAsync(CachePolicyId.ArticleDetail, cacheIdentity.Value, encoded, null, cancellationToken);
             }
         }
-        else if (!includePrivate && cacheIdentity is not null)
+        else if (!includePrivate && cacheIdentity is not null && !incompletePublicBody)
         {
             cancellationToken.ThrowIfCancellationRequested();
             await _cacheWriter.SetRawAsync(CachePolicyId.ArticleDetail, cacheIdentity.Value, Array.Empty<byte>(), TimeSpan.FromMinutes(5), cancellationToken);
         }
 
-        return article;
+        return article is null ? null : ProjectArticleViews(article);
     }
 
     private static IReadOnlyList<TagReadModel> ReadArticleDetailTags(DbDataReader reader, int tagIdsOrdinal, int tagNamesOrdinal)
@@ -672,20 +722,6 @@ public partial class ArticleService(
     {
         int ordinal = reader.GetOrdinal(fieldName);
         return reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
-    }
-
-    private async Task<string> LoadArticleContentAsync(int articleId, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        string content = await _db.Queryable<Article>()
-            .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
-            .InnerJoin<ArticleRevision>((article, publication, revision) => publication.ArticleRevisionId == revision.Id)
-            .LeftJoin<ArticleRevisionContentBlock>((article, publication, revision, block) => revision.ContentBlockId == block.Id)
-            .Where(article => article.Id == articleId && !article.IsDeleted)
-            .Select((article, publication, revision, block) => SqlFunc.IsNull(block.MarkdownContent, revision.MarkdownContent))
-            .FirstAsync(cancellationToken) ?? string.Empty;
-
-        return content;
     }
 
     private void MarkArticleBodyMissing(int articleId, string source)
@@ -865,8 +901,8 @@ public partial class ArticleService(
                 int createdArticleId = result.Data.ArticleId;
                 EnqueueArticleVaultPostCommitAction(null, async () =>
                 {
-                    await InvalidateCache().ConfigureAwait(false);
-                    await InvalidatePublicAotAsync(null, [dto.CategoryId], tagIds, "create").ConfigureAwait(false);
+                    string mutationId = await InvalidateCache().ConfigureAwait(false);
+                    await InvalidatePublicAotAsync(null, [dto.CategoryId], tagIds, "create", mutationId).ConfigureAwait(false);
                     ArticleListItemResponse? realtimePreview = await LoadRealtimePreviewAsync(createdArticleId)
                         .ConfigureAwait(false);
                     await _mutationSideEffects.AfterCreatedAsync(article, createdArticleId, realtimePreview)
@@ -877,9 +913,9 @@ public partial class ArticleService(
 
             if (result.IsSuccess)
             {
-                await InvalidateCache();
+                string mutationId = await InvalidateCache();
                 ct.ThrowIfCancellationRequested();
-                await InvalidatePublicAotAsync(null, [dto.CategoryId], tagIds, "create");
+                await InvalidatePublicAotAsync(null, [dto.CategoryId], tagIds, "create", mutationId);
                 ct.ThrowIfCancellationRequested();
                 ArticleListItemResponse? realtimePreview = await LoadRealtimePreviewAsync(result.Data.ArticleId);
                 ct.ThrowIfCancellationRequested();

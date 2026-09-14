@@ -62,6 +62,11 @@ internal sealed class PublicAotArtifactStore(
 {
     public PublicAotArtifactLookup CreateLookup(HttpContext context, PublicAotRouteMatch match)
     {
+        if (!PublicRouteIdentity.AllowsStaticArtifact(match))
+        {
+            throw new InvalidOperationException("public_aot_cursor_only_route_required");
+        }
+
         string invalidationKey = runtimeKeyScope.PrefixKey(
             CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey));
         string baseDocumentCacheKey = runtimeKeyScope.PrefixKey(
@@ -104,26 +109,28 @@ internal sealed class PublicAotArtifactStore(
         HttpContext context,
         PublicAotRouteMatch match,
         PublicAotArtifactLookup lookup)
-        => backfillScheduler.TrySchedule(new PublicAotBackfillRequest(
+        => PublicRouteIdentity.AllowsStaticArtifact(match)
+            && backfillScheduler.TrySchedule(new PublicAotBackfillRequest(
             match.Kind,
             match.RouteKey,
             match.Path,
             match.QueryString,
             lookup.DocumentCacheKey)
-        {
-            InvalidationKey = runtimeKeyScope.PrefixKey(
+            {
+                InvalidationKey = runtimeKeyScope.PrefixKey(
                 CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey)),
-            PagePrefixKey = lookup.PagePrefixKey,
-            ScheduledInvalidationVersion = invalidationTracker.GetCurrentVersion(
+                PagePrefixKey = lookup.PagePrefixKey,
+                ScheduledInvalidationVersion = invalidationTracker.GetCurrentVersion(
                 runtimeKeyScope.PrefixKey(CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey)),
                 lookup.PagePrefixKey),
-            TestSessionId = ResolveTestSessionId(context),
-            FrontendAssetVersion = lookup.FrontendAssetVersion,
-            Locale = match.LocaleResolution.Locale.Code
-        });
+                TestSessionId = ResolveTestSessionId(context),
+                FrontendAssetVersion = lookup.FrontendAssetVersion,
+                Locale = match.LocaleResolution.Locale.Code
+            });
 
     public bool IsCurrentBackfill(PublicAotBackfillRequest request)
-        => !string.IsNullOrWhiteSpace(request.FrontendAssetVersion)
+        => PublicRouteIdentity.AllowsStaticArtifact(request)
+            && !string.IsNullOrWhiteSpace(request.FrontendAssetVersion)
             && string.Equals(
                 request.FrontendAssetVersion,
                 assetManifest.GetFrontendAssetVersion(),
@@ -136,6 +143,11 @@ internal sealed class PublicAotArtifactStore(
         Func<CancellationToken, Task>? beforeCommit,
         CancellationToken cancellationToken)
     {
+        if (!PublicRouteIdentity.AllowsStaticArtifact(request))
+        {
+            return false;
+        }
+
         var commitRequest = new PublicAotBackfillCommitRequest(
             request.CacheKey,
             request.PagePrefixKey,
@@ -189,7 +201,7 @@ internal sealed class PublicAotArtifactStore(
     public Task InvalidateAllAsync(CancellationToken cancellationToken)
         => invalidationTracker.WithGlobalInvalidationLockAsync(async () =>
         {
-            invalidationTracker.MarkAll();
+            _ = await invalidationTracker.MarkAllAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
             await cache.InvalidateAllAsync(cancellationToken).ConfigureAwait(false);
         }, cancellationToken);
 

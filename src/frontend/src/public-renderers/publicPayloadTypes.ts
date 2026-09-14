@@ -57,6 +57,8 @@ type BaseBootstrapPayload<K extends PublicAotBootstrapKind> = Readonly<{
 export interface PublicAotBootstrapPayloadByKind {
     Home: BaseBootstrapPayload<'Home'> & Readonly<{
         total: number;
+        nextCursor?: string | null;
+        hasMore?: boolean;
         articles: readonly BootstrapArticleSummary[];
         featuredArticles: readonly FeaturedArticleItem[];
         hotArticles: readonly PopularArticleSummaryResponse[];
@@ -114,6 +116,8 @@ export interface PublicAotBootstrapPayloadByKind {
             pageIndex?: number;
             pageSize?: number;
             total?: number;
+            nextCursor?: string | null;
+            hasMore?: boolean;
             articles?: readonly BootstrapArticleSummary[];
         }>;
     }>;
@@ -150,6 +154,8 @@ export interface PublicHydrationPayloadByKind {
         currentPage: number;
         pageSize: number;
         total: number;
+        nextCursor?: string | null;
+        hasMore?: boolean;
         view: ArticleListViewContract;
         featuredArticles: readonly FeaturedArticleItem[];
         hotArticles: readonly PopularArticleSummaryResponse[];
@@ -221,6 +227,8 @@ export interface PublicHydrationPayloadByKind {
             pageIndex?: number;
             pageSize?: number;
             total?: number;
+            nextCursor?: string | null;
+            hasMore?: boolean;
             articles?: readonly Readonly<{
                 id: number;
                 title: string;

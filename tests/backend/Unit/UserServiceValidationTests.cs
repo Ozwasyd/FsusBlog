@@ -7,8 +7,10 @@ using System.Reflection;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
@@ -52,7 +54,7 @@ public class UserServiceValidationTests
         return new UserService(
             _db: db,
             _logger: NullLogger<UserService>.Instance,
-            _cacheCounters: Substitute.For<ICacheCounterStore>(),
+            _accountStates: Substitute.For<IAccountStateProjectionMutationPublisher>(),
             _totpService: totpService);
     }
 
@@ -87,25 +89,25 @@ public class UserServiceValidationTests
 
     private static UserProfileCommandService BuildProfileService(
         ISqlSugarClient? db = null,
-        IBlacklistService? blacklist = null,
+        IBanStateProjectionObligationCoordinator? blacklist = null,
         IUserSessionValidationCache? sessionValidation = null)
         => new(
             db ?? Substitute.For<ISqlSugarClient>(),
             NullLogger<UserProfileCommandService>.Instance,
-            blacklist ?? Substitute.For<IBlacklistService>(),
+            blacklist ?? Substitute.For<IBanStateProjectionObligationCoordinator>(),
             Substitute.For<ICacheInvalidationStore>(),
-            Substitute.For<ICacheCounterStore>(),
+            Substitute.For<IAccountStateProjectionMutationPublisher>(),
             sessionValidation ?? Substitute.For<IUserSessionValidationCache>());
 
     private static UserAdminModerationService BuildAdminService(
         ISqlSugarClient db,
-        IBlacklistService? blacklist = null)
+        IBanStateProjectionObligationCoordinator? blacklist = null)
         => new(
             db,
             NullLogger<UserAdminModerationService>.Instance,
-            blacklist ?? Substitute.For<IBlacklistService>(),
+            blacklist ?? Substitute.For<IBanStateProjectionObligationCoordinator>(),
             Substitute.For<IMessageCommandService>(),
-            Substitute.For<ICacheCounterStore>());
+            Substitute.For<IAccountStateProjectionMutationPublisher>());
 
     private static UserSessionCommandService BuildSessionService(
         ISqlSugarClient? db = null,
@@ -230,7 +232,10 @@ public class UserServiceValidationTests
     {
         var db = Substitute.For<ISqlSugarClient>();
         db.Ado.ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(Task.FromResult(0));
-        db.Ado.GetIntAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(Task.FromResult(1));
+        db.Ado.GetIntAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(call =>
+            Task.FromResult(call.ArgAt<string>(0).Contains("public_handle IS NOT DISTINCT", StringComparison.Ordinal)
+                ? 0
+                : 1));
         var svc = BuildProfileService(db);
 
         var (success, message) = await svc.UpdatePublicHandleAsync(7, "QuietReader");
@@ -354,7 +359,11 @@ public class UserServiceValidationTests
             AnonymousCredentialStatus = AnonymousCredentialStatuses.Active,
             MfaEnabled = true,
             RiskFlags = 7,
-            BanReason = "old-ban"
+            BanReason = "old-ban",
+            AccountSubjectHash = AccountSubjectHasher.Create(
+                AnonymousIdentityRuntime.AnonymousAccountKind,
+                "reader-before-delete"),
+            BanStateGeneration = 4
         }));
 
         Expression<Func<PasskeyCredential, bool>>? passkeyPredicate = null;
@@ -425,7 +434,7 @@ public class UserServiceValidationTests
                 Assert.True(insideTransaction);
                 return Task.CompletedTask;
             });
-        var blacklist = Substitute.For<IBlacklistService>();
+        var blacklist = Substitute.For<IBanStateProjectionObligationCoordinator>();
         var service = BuildProfileService(db, blacklist, sessionCache);
 
         var (success, message) = await service.DeleteAccountAsync(42, new DeleteAccountRequestDto { ConfirmText = " DELETE " });
@@ -475,7 +484,10 @@ public class UserServiceValidationTests
         UserSessionValidationCacheState publishedSession = Assert.Single(publishedSessions!);
         Assert.Equal("account-delete-session", publishedSession.SessionId);
         Assert.Equal("account-delete-version", publishedSession.RowVersion);
-        await blacklist.Received(1).UnbanUserAsync(42);
+        await blacklist.Received(1).ApplyLocalAndPublishPreparedAsync(
+            Arg.Any<DistributedInvalidationEvent?>(),
+            Arg.Any<IReadOnlyCollection<BanStateProjectionUpdate>>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -1571,7 +1583,7 @@ public class UserServiceValidationTests
                 status: 0,
                 deletedAt: null,
                 rowVersion: "admin-row-version")));
-        var blacklist = Substitute.For<IBlacklistService>();
+        var blacklist = Substitute.For<IBanStateProjectionObligationCoordinator>();
         var service = BuildAdminService(db, blacklist);
 
         var result = await service.AdminChangeStatusAsync(new AdminChangeStatusDto
@@ -1584,8 +1596,10 @@ public class UserServiceValidationTests
         Assert.False(result.Success);
         Assert.Equal("管理员主体不通过普通账号状态接口治理", result.Message);
         await ado.DidNotReceive().ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>());
-        await blacklist.DidNotReceive().BanUserAsync(Arg.Any<int>(), Arg.Any<string>());
-        await blacklist.DidNotReceive().UnbanUserAsync(Arg.Any<int>());
+        await blacklist.DidNotReceive().ApplyLocalAndPublishPreparedAsync(
+            Arg.Any<DistributedInvalidationEvent?>(),
+            Arg.Any<IReadOnlyCollection<BanStateProjectionUpdate>>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -1627,22 +1641,41 @@ public class UserServiceValidationTests
         var db = Substitute.For<ISqlSugarClient>();
         var ado = Substitute.For<IAdo>();
         db.Ado.Returns(ado);
-        ado.GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>())
-            .Returns(_ => Task.FromResult((IDataReader)CreateAdminStatusReader(
-                42,
-                AnonymousIdentityRuntime.AnonymousAccountKind,
-                status: 0,
-                deletedAt: null,
-                rowVersion: "row-version-42")));
+        db.CurrentConnectionConfig.Returns(new ConnectionConfig { DbType = SqlSugar.DbType.PostgreSQL });
+        ado.UseTranAsync(Arg.Any<Func<Task>>()).Returns(async call =>
+        {
+            await call.Arg<Func<Task>>()();
+            return new DbResult<bool> { IsSuccess = true };
+        });
         string? updateSql = null;
         SugarParameter[]? updateParameters = null;
-        ado.ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(call =>
+        ado.GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(call =>
         {
-            updateSql = call.ArgAt<string>(0);
-            updateParameters = call.ArgAt<SugarParameter[]>(1);
-            return Task.FromResult(1);
+            string sql = call.ArgAt<string>(0);
+            if (sql.Contains("SELECT id", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult((IDataReader)CreateAdminStatusReader(
+                    42,
+                    AnonymousIdentityRuntime.AnonymousAccountKind,
+                    status: 0,
+                    deletedAt: null,
+                    rowVersion: "row-version-42"));
+            }
+
+            if (sql.Contains("UPDATE sys_user\n", StringComparison.OrdinalIgnoreCase))
+            {
+                updateSql = sql;
+                updateParameters = call.ArgAt<SugarParameter[]>(1);
+                return Task.FromResult((IDataReader)CreateAdminStatusUpdateReader(
+                    "account-row-version-43",
+                    AccountSubjectHasher.Create(AnonymousIdentityRuntime.AnonymousAccountKind, "account:42"),
+                    status: 1,
+                    generation: 5));
+            }
+
+            return Task.FromResult((IDataReader)CreateEmptyAdminSessionStateReader());
         });
-        var blacklist = Substitute.For<IBlacklistService>();
+        var blacklist = Substitute.For<IBanStateProjectionObligationCoordinator>();
         var service = BuildAdminService(db, blacklist);
 
         var result = await service.AdminChangeStatusAsync(new AdminChangeStatusDto
@@ -1665,7 +1698,11 @@ public class UserServiceValidationTests
         Assert.Contains(updateParameters!, parameter => parameter.ParameterName == "@BanReason" && Equals(parameter.Value, "policy"));
         Assert.Contains(updateParameters!, parameter => parameter.ParameterName == "@RowVersion" && Equals(parameter.Value, "row-version-42"));
         _ = db.DidNotReceive().Updateable<User>();
-        await blacklist.Received(1).BanUserAsync(42, "policy");
+        await blacklist.Received(1).ApplyLocalAndPublishPreparedAsync(
+            Arg.Any<DistributedInvalidationEvent?>(),
+            Arg.Is<IReadOnlyCollection<BanStateProjectionUpdate>>(updates =>
+                updates.Count == 1 && updates.Single().Status == BanStateProjectionStatus.Banned),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -1893,6 +1930,37 @@ public class UserServiceValidationTests
         table.Columns.Add("deleted_at", typeof(DateTime));
         table.Columns.Add("row_version", typeof(string));
         table.Rows.Add(accountId, identityKind, status, (object?)deletedAt ?? DBNull.Value, rowVersion);
+        return table.CreateDataReader();
+    }
+
+    private static IDataReader CreateAdminStatusUpdateReader(
+        string rowVersion,
+        string accountSubjectHash,
+        int status,
+        long generation)
+    {
+        var table = new DataTable();
+        table.Columns.Add("account_row_version", typeof(string));
+        table.Columns.Add("account_subject_hash", typeof(string));
+        table.Columns.Add("status", typeof(int));
+        table.Columns.Add("ban_state_generation", typeof(long));
+        table.Rows.Add(rowVersion, accountSubjectHash, status, generation);
+        return table.CreateDataReader();
+    }
+
+    private static IDataReader CreateEmptyAdminSessionStateReader()
+    {
+        var table = new DataTable();
+        table.Columns.Add("sessionid", typeof(string));
+        table.Columns.Add("userid", typeof(int));
+        table.Columns.Add("revokedat", typeof(DateTime));
+        table.Columns.Add("idleexpiresat", typeof(DateTime));
+        table.Columns.Add("absoluteexpiresat", typeof(DateTime));
+        table.Columns.Add("authentication_method", typeof(string));
+        table.Columns.Add("authentication_strength", typeof(string));
+        table.Columns.Add("authenticated_at_utc", typeof(DateTime));
+        table.Columns.Add("session_mode", typeof(int));
+        table.Columns.Add("row_version", typeof(string));
         return table.CreateDataReader();
     }
 

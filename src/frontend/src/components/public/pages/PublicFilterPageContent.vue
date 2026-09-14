@@ -209,4 +209,5 @@ const searchResultStateText = computed(() =>
         min-width: 0;
     }
 }
+
 </style>

@@ -15,6 +15,7 @@ using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Shared.Contracts.NotificationStream;
@@ -133,9 +134,9 @@ public sealed class PasskeyService(
     ICacheTypedReader cacheReader,
     ICacheRawWriter cacheWriter,
     ICacheStringWriter stringWriter,
-    ICacheCounterStore counters,
     ICacheOneTimeStore oneTimeStore,
     ICacheInvalidationStore invalidation,
+    IAccountStateProjectionMutationPublisher accountStates,
     IUserSessionCommandService sessions,
     IMessageNotificationStreamPort notificationStream,
     IAuditEventService auditEvents,
@@ -334,7 +335,7 @@ public sealed class PasskeyService(
             return (false, $"已达到 {MaxCredentialsPerUser} 枚通行密钥上限", null);
         }
 
-        await AccountSnapshotCacheInvalidator.BumpVersionAsync(counters, accountId, cancellationToken).ConfigureAwait(false);
+        await accountStates.ProjectCommittedMutationAsync(accountId, cancellationToken).ConfigureAwait(false);
         await invalidation.RemoveAsync(CachePolicyId.SecurityPasskeyRegChallenge, request.SessionKey, cancellationToken);
 
         return (true, "通行密钥注册成功", signalState);
@@ -624,7 +625,7 @@ public sealed class PasskeyService(
         string registrationSessionKey,
         CancellationToken cancellationToken)
     {
-        await AccountSnapshotCacheInvalidator.BumpVersionAsync(counters, accountId, cancellationToken).ConfigureAwait(false);
+        await accountStates.ProjectCommittedMutationAsync(accountId, cancellationToken).ConfigureAwait(false);
         await invalidation.RemoveAsync(
             CachePolicyId.SecurityPasskeyRegChallenge,
             registrationSessionKey,
@@ -1568,10 +1569,7 @@ public sealed class PasskeyService(
 
         if (invalidateAccountSnapshot)
         {
-            await AccountSnapshotCacheInvalidator.BumpVersionAsync(
-                counters,
-                accountId,
-                cancellationToken).ConfigureAwait(false);
+            await accountStates.ProjectCommittedMutationAsync(accountId, cancellationToken).ConfigureAwait(false);
 
         }
 
@@ -1872,7 +1870,7 @@ public sealed class PasskeyService(
     {
         try
         {
-            await AccountSnapshotCacheInvalidator.BumpVersionAsync(counters, user.Id, cancellationToken);
+            await accountStates.ProjectCommittedMutationAsync(user.Id, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

@@ -13,9 +13,17 @@ public readonly record struct ArticlePageQuery(
     string? Keyword = null,
     long? ListCacheVersion = null,
     bool UseSourceCache = true,
-    ArticleListCursorPosition? Cursor = null);
+    ArticleListCursorPosition? Cursor = null,
+    ArticleListSortMode Sort = ArticleListSortMode.Latest);
 
-public readonly record struct ArticleListCursorPosition(DateTime CreateTimeUtc, int Id);
+public readonly record struct ArticleListCursorPosition(DateTime CreateTimeUtc, int Id, long SortValue = 0);
+
+public enum ArticleListSortMode : byte
+{
+    Latest = 0,
+    Relevance = 1,
+    Hot = 2
+}
 
 public readonly record struct ArticleDetailQuery(int Id, bool IncludePrivate = false);
 

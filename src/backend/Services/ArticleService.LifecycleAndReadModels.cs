@@ -88,8 +88,8 @@ public partial class ArticleService
             {
                 EnqueueArticleVaultPostCommitAction(id, async () =>
                 {
-                    await InvalidateCache(id).ConfigureAwait(false);
-                    await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, "delete")
+                    string mutationId = await InvalidateCache(id).ConfigureAwait(false);
+                    await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, "delete", mutationId)
                         .ConfigureAwait(false);
                     await _mutationSideEffects.AfterDeletedAsync(id).ConfigureAwait(false);
                 });
@@ -97,9 +97,9 @@ public partial class ArticleService
             }
             if (mutationCommitted)
             {
-                await InvalidateCache(id);
+                string mutationId = await InvalidateCache(id);
                 ct.ThrowIfCancellationRequested();
-                await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, "delete");
+                await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, "delete", mutationId);
                 ct.ThrowIfCancellationRequested();
                 await _mutationSideEffects.AfterDeletedAsync(id);
             }
@@ -175,9 +175,9 @@ public partial class ArticleService
         success = result.IsSuccess && success;
         if (success)
         {
-            await InvalidateCache(id);
+            string mutationId = await InvalidateCache(id);
             ct.ThrowIfCancellationRequested();
-            await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, "restore");
+            await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, "restore", mutationId);
             ct.ThrowIfCancellationRequested();
             ArticleListItemResponse? realtimePreview = await LoadRealtimePreviewAsync(id);
             ct.ThrowIfCancellationRequested();
@@ -234,9 +234,9 @@ public partial class ArticleService
         ct.ThrowIfCancellationRequested();
         if (result.IsSuccess && result.Data > 0)
         {
-            await InvalidateCache(id);
+            string mutationId = await InvalidateCache(id);
             ct.ThrowIfCancellationRequested();
-            await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, "permanent-delete");
+            await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, "permanent-delete", mutationId);
             ct.ThrowIfCancellationRequested();
             await _mutationSideEffects.AfterPermanentlyDeletedAsync(id, imageUrls, ct);
             return true;
@@ -295,9 +295,9 @@ public partial class ArticleService
         ct.ThrowIfCancellationRequested();
         if (result.IsSuccess)
         {
-            await InvalidateCache();
+            string mutationId = await InvalidateCache();
             ct.ThrowIfCancellationRequested();
-            await InvalidatePublicAotBatchAsync(articleIds, categoryIds, tagIds, "clear-trash");
+            await InvalidatePublicAotBatchAsync(articleIds, categoryIds, tagIds, "clear-trash", mutationId);
             ct.ThrowIfCancellationRequested();
             await _mutationSideEffects.AfterTrashClearedAsync(articleIds, trashedBodyMap, ct);
             return result.Data;
@@ -394,61 +394,10 @@ public partial class ArticleService
             > MaxHotArticlesCount => MaxHotArticlesCount,
             _ => count
         };
-
-        string redisKey = RedisKey("blog:top_articles");
-        List<int> ids = await _cacheMissCoordinator.CoordinateAsync(
-                CachePolicyId.TopArticles,
-                $"seed:{count}",
-                ct => TryReadHotArticleSeedAsync(redisKey, count, ct),
-                async ct => await _dbConcurrencyGate.ExecuteAsync(
-                    "article-hot-seed",
-                    gateCt => SeedHotArticlesAsync(redisKey, count, gateCt),
-                    async gateCt =>
-                    {
-                        CacheReadResult<List<int>> retry = await TryReadHotArticleSeedAsync(redisKey, count, gateCt);
-                        if (retry.Hit && retry.Value is not null)
-                        {
-                            return retry.Value;
-                        }
-
-                        throw new TimeoutException($"db-gate-timeout:article-hot-seed:{count}");
-                    },
-                    ct),
-                "article-hot-seed",
-                effectiveCt)
-            .ConfigureAwait(false)
-            ?? [];
-
-        if (ids.Count == 0)
-        {
-            return [];
-        }
-
-        DateTime now = DateTime.UtcNow;
-        effectiveCt.ThrowIfCancellationRequested();
-        // SqlSugar multi-table queries require the primary alias used in Join
-        // lambdas (`article`) for subsequent In/Where expressions. Using `a`
-        // here throws at ToSql time and collapses hot/featured + Home AOT.
-        var sqlObj = _db.Queryable<Article>()
-            .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
-            .InnerJoin<ArticleRevision>((article, publication, revision) => publication.ArticleRevisionId == revision.Id)
-            .In(article => article.Id, ids)
-            .Where((article, publication, revision) => !article.IsDeleted
-                && article.Status == ArticleStatus.Published
-                && (article.PublishedAt == null || article.PublishedAt <= now)
-                && (article.ScheduledPublishAt == null || article.ScheduledPublishAt <= now))
-            .Select((article, publication, revision) => new { article.Id, revision.Title, article.Views })
-            .ToSql();
-        var articles = new List<PopularArticleSummaryDto>(ids.Count);
-        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
-        {
-            int fId = reader.GetOrdinal("Id"), fTitle = reader.GetOrdinal("Title"), fViews = reader.GetOrdinal("Views");
-            while (await reader.ReadAsync(effectiveCt))
-            {
-                articles.Add(new PopularArticleSummaryDto(reader.GetInt32(fId), reader.GetString(fTitle), reader.GetInt32(fViews)));
-            }
-        }
-        return OrderHotArticles(ids, articles);
+        IReadOnlyList<ArticleHotProjectionRow> projection = await GetArticleHotProjectionAsync(effectiveCt).ConfigureAwait(false);
+        return projection.Take(count)
+            .Select(static row => new PopularArticleSummaryDto(row.Id, row.Title, row.Views))
+            .ToList();
     }
 
     public async Task<List<FeaturedArticleSummaryDto>> GetFeaturedArticlesAsync(int size, CancellationToken cancellationToken = default)
@@ -462,104 +411,120 @@ public partial class ArticleService
             _ => size
         };
 
-        string redisKey = RedisKey("blog:top_articles");
-        // 精选文章对候选集的基数要求更高，我们取较多的热文进行过滤
-        int seedCount = MaxHotArticlesCount;
-        List<int> ids = await _cacheMissCoordinator.CoordinateAsync(
-                CachePolicyId.TopArticles,
-                $"seed:{seedCount}",
-                ct => TryReadHotArticleSeedAsync(redisKey, seedCount, ct),
-                async ct => await _dbConcurrencyGate.ExecuteAsync(
-                    "article-hot-seed",
-                    gateCt => SeedHotArticlesAsync(redisKey, seedCount, gateCt),
-                    async gateCt =>
-                    {
-                        CacheReadResult<List<int>> retry = await TryReadHotArticleSeedAsync(redisKey, seedCount, gateCt);
-                        if (retry.Hit && retry.Value is not null)
-                        {
-                            return retry.Value;
-                        }
+        IReadOnlyList<ArticleHotProjectionRow> projection = await GetArticleHotProjectionAsync(effectiveCt).ConfigureAwait(false);
+        return projection
+            .Where(static row => HasUsableFeaturedCover(row.CoverImageUrl))
+            .Take(size)
+            .Select(static row => new FeaturedArticleSummaryDto(
+                row.Id,
+                row.Title,
+                row.CoverImageUrl.Trim(),
+                row.Views,
+                row.CreateTime,
+                new ArticleCategoryView(row.CategoryId, row.CategoryName)))
+            .ToList();
+    }
 
-                        throw new TimeoutException($"db-gate-timeout:article-hot-seed:{seedCount}");
-                    },
-                    ct),
-                "article-hot-seed",
-                effectiveCt)
-            .ConfigureAwait(false)
-            ?? [];
+    private Task<IReadOnlyList<ArticleHotProjectionRow>>? _articleHotProjectionTask;
+    private readonly object _articleHotProjectionGate = new();
 
-        if (ids.Count == 0)
+    private async Task<IReadOnlyList<ArticleHotProjectionRow>> GetArticleHotProjectionAsync(CancellationToken cancellationToken)
+    {
+        Task<IReadOnlyList<ArticleHotProjectionRow>> selected;
+        lock (_articleHotProjectionGate)
         {
-            return [];
+            selected = _articleHotProjectionTask ??= LoadArticleHotProjectionAsync(cancellationToken);
         }
+        return await selected.WaitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<IReadOnlyList<ArticleHotProjectionRow>> LoadArticleHotProjectionAsync(CancellationToken cancellationToken)
+    {
+        string redisKey = RedisKey("blog:top_articles");
+        CacheReadResult<List<int>> seed = await TryReadHotArticleSeedAsync(
+            redisKey,
+            MaxHotArticlesCount,
+            cancellationToken).ConfigureAwait(false);
+        FsusObservability.RecordArticleHotFrameSeed("bundle", seed.Hit ? "redis" : "miss");
 
         DateTime now = DateTime.UtcNow;
-        effectiveCt.ThrowIfCancellationRequested();
-        var sqlObj = _db.Queryable<Article>()
+        var query = _db.Queryable<Article>()
             .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
             .InnerJoin<ArticleRevision>((article, publication, revision) => publication.ArticleRevisionId == revision.Id)
             .LeftJoin<Category>((article, publication, revision, category) => revision.CategoryId == category.Id)
-            .In(article => article.Id, ids)
             .Where((article, publication, revision, category) => !article.IsDeleted
                 && article.Status == ArticleStatus.Published
                 && (article.PublishedAt == null || article.PublishedAt <= now)
-                && (article.ScheduledPublishAt == null || article.ScheduledPublishAt <= now)
-                && revision.CoverImageUrl != null
-                && revision.CoverImageUrl != "")
-            .Select((article, publication, revision, category) => new
-            {
-                article.Id,
-                revision.Title,
-                revision.CoverImageUrl,
-                article.Views,
-                article.CreateTime,
-                revision.CategoryId,
-                CategoryName = category.Name
-            })
-            .ToSql();
-
-        var articles = new List<FeaturedArticleSummaryDto>(size);
-        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
+                && (article.ScheduledPublishAt == null || article.ScheduledPublishAt <= now));
+        if (seed.Hit && seed.Value is { Count: > 0 } ids)
         {
-            int fId = reader.GetOrdinal("Id"), fTitle = reader.GetOrdinal("Title"), fCover = reader.GetOrdinal("CoverImageUrl"),
-                fViews = reader.GetOrdinal("Views"), fCreateTime = reader.GetOrdinal("CreateTime"),
-                fCatId = reader.GetOrdinal("CategoryId"), fCatName = reader.GetOrdinal("CategoryName");
+            query = query.In(article => article.Id, ids);
+        }
+        else
+        {
+            query = query.OrderByDescending((article, publication, revision, category) => article.Views).Take(MaxHotArticlesCount);
+        }
 
-            while (await reader.ReadAsync(effectiveCt))
+        var sqlObj = query.Select((article, publication, revision, category) => new
+        {
+            article.Id,
+            revision.Title,
+            revision.CoverImageUrl,
+            article.Views,
+            article.CreateTime,
+            revision.CategoryId,
+            CategoryName = category.Name
+        }).ToSql();
+
+        List<ArticleHotProjectionRow> rows = await _dbConcurrencyGate.ExecuteClassifiedAsync(
+            DbWorkloadClass.PublicShortRead,
+            "article-hot-featured-frame-projection",
+            async gateCt =>
             {
-                string coverImageUrl = reader.IsDBNull(fCover) ? string.Empty : reader.GetString(fCover);
-                if (!HasUsableFeaturedCover(coverImageUrl))
+                FsusObservability.RecordArticleHotFrameDatabaseCommand("bundle");
+                var projected = new List<ArticleHotProjectionRow>(seed.Value?.Count ?? MaxHotArticlesCount);
+                using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value);
+                int fId = reader.GetOrdinal("Id"), fTitle = reader.GetOrdinal("Title"), fCover = reader.GetOrdinal("CoverImageUrl"),
+                    fViews = reader.GetOrdinal("Views"), fCreateTime = reader.GetOrdinal("CreateTime"),
+                    fCatId = reader.GetOrdinal("CategoryId"), fCatName = reader.GetOrdinal("CategoryName");
+
+                while (await reader.ReadAsync(gateCt))
                 {
-                    continue;
+                    projected.Add(new ArticleHotProjectionRow(
+                        reader.GetInt32(fId),
+                        reader.GetString(fTitle),
+                        reader.IsDBNull(fCover) ? string.Empty : reader.GetString(fCover),
+                        reader.GetInt32(fViews),
+                        reader.GetDateTime(fCreateTime),
+                        reader.GetInt32(fCatId),
+                        reader.IsDBNull(fCatName) ? string.Empty : reader.GetString(fCatName)));
                 }
+                return projected;
+            },
+            _ => Task.FromException<List<ArticleHotProjectionRow>>(new TimeoutException("db-gate-timeout:article-hot-featured-frame-projection")),
+            cancellationToken).ConfigureAwait(false);
 
-                articles.Add(new FeaturedArticleSummaryDto(
-                    reader.GetInt32(fId),
-                    reader.GetString(fTitle),
-                    coverImageUrl.Trim(),
-                    reader.GetInt32(fViews),
-                    reader.GetDateTime(fCreateTime),
-                    new ArticleCategoryView(reader.GetInt32(fCatId), reader.IsDBNull(fCatName) ? string.Empty : reader.GetString(fCatName))
-                ));
+        if (seed.Hit && seed.Value is { Count: > 0 } orderedSeedIds)
+        {
+            var ranks = new Dictionary<int, int>(orderedSeedIds.Count);
+            for (int i = 0; i < orderedSeedIds.Count; i++)
+            {
+                ranks.TryAdd(orderedSeedIds[i], i);
             }
+            rows.Sort((left, right) => ranks.GetValueOrDefault(left.Id, int.MaxValue)
+                .CompareTo(ranks.GetValueOrDefault(right.Id, int.MaxValue)));
         }
-
-        // 按照 redis 榜单分数顺序重新排序，然后取 count 个
-        var idDictionary = new Dictionary<int, int>(ids.Count);
-        for (int i = 0; i < ids.Count; i++)
-        {
-            idDictionary.TryAdd(ids[i], i);
-        }
-
-        articles.Sort((a, b) =>
-        {
-            int indexA = idDictionary.GetValueOrDefault(a.Id, int.MaxValue);
-            int indexB = idDictionary.GetValueOrDefault(b.Id, int.MaxValue);
-            return indexA.CompareTo(indexB);
-        });
-
-        return articles.Take(size).ToList();
+        return rows;
     }
+
+    private sealed record ArticleHotProjectionRow(
+        int Id,
+        string Title,
+        string CoverImageUrl,
+        int Views,
+        DateTime CreateTime,
+        int CategoryId,
+        string CategoryName);
 
     internal static bool HasUsableFeaturedCoverForTests(string? coverImageUrl)
         => HasUsableFeaturedCover(coverImageUrl);
@@ -578,6 +543,7 @@ public partial class ArticleService
         bool includePrivate,
         string keyword,
         ArticleListCursorPosition? cursor,
+        ArticleListSortMode sort,
         CancellationToken cancellationToken)
     {
         List<string> whereClauses = ["a.isdeleted = @IsDeleted"];
@@ -623,6 +589,8 @@ public partial class ArticleService
                 ? "EXISTS (SELECT 1 FROM article_publication filter_publication JOIN article_revision filter_revision ON filter_revision.id = filter_publication.article_revision_id WHERE filter_publication.id = a.current_publication_id AND (filter_revision.title LIKE @Keyword OR filter_revision.summary LIKE @Keyword))"
                 : "(a.title LIKE @Keyword OR a.summary LIKE @Keyword)");
             parameters.Add(new SugarParameter("@Keyword", $"%{keyword}%"));
+            parameters.Add(new SugarParameter("@KeywordExact", keyword));
+            parameters.Add(new SugarParameter("@KeywordPrefix", $"{keyword}%"));
         }
 
         string whereSql = string.Join(" AND ", whereClauses);
@@ -636,9 +604,11 @@ public partial class ArticleService
                 tagId,
                 keyword,
                 cursor,
+                sort,
                 whereSql,
                 parameters,
                 countIdentity,
+                version,
                 cancellationToken);
         }
 
@@ -710,31 +680,20 @@ public partial class ArticleService
         int? tagId,
         string keyword,
         ArticleListCursorPosition? cursor,
+        ArticleListSortMode sort,
         string whereSql,
         IReadOnlyCollection<SugarParameter> baseParameters,
         string countIdentity,
+        long queryVersion,
         CancellationToken cancellationToken)
     {
         int totalCount = await GetCachedArticleListTotalCountAsync(countIdentity, whereSql, baseParameters, cancellationToken);
-        ArticleListCursorPosition? effectiveCursor = cursor;
-        if (!effectiveCursor.HasValue && page > 1)
-        {
-            effectiveCursor = await ResolveLegacyPublicArticleListCursorAsync(
-                page,
-                size,
-                whereSql,
-                baseParameters,
-                cancellationToken);
-            if (!effectiveCursor.HasValue)
-            {
-                return new ArticleListPageReadModel { Items = [], Total = totalCount };
-            }
-        }
 
         List<ArticleListItemReadModel> pageItems = await LoadPublicArticleListKeysetPageItemsAsync(
             whereSql,
             baseParameters,
-            effectiveCursor,
+            cursor,
+            sort,
             size + 1,
             cancellationToken);
         bool hasMore = pageItems.Count > size;
@@ -743,71 +702,47 @@ public partial class ArticleService
             pageItems.RemoveAt(pageItems.Count - 1);
         }
 
-        await AttachPublishedArticleListTagsAsync(pageItems, cancellationToken);
         ArticleListItemReadModel? lastItem = pageItems.Count > 0 ? pageItems[^1] : null;
         return new ArticleListPageReadModel
         {
             Items = pageItems,
             Total = totalCount,
             NextCursor = hasMore && lastItem is not null
-                ? ArticleListCursorCodec.Encode(
-                    new ArticleListCursorPosition(lastItem.CreateTime, lastItem.Id),
+                ? (_articleListCursorCodec ?? throw new InvalidOperationException("Article list cursor codec is unavailable.")).Encode(
+                    new ArticleListCursorPosition(lastItem.CreateTime, lastItem.Id, lastItem.CursorSortValue),
                     categoryId,
                     tagId,
-                    keyword)
+                    keyword,
+                    size,
+                    queryVersion,
+                    sort)
                 : null,
             HasMore = hasMore
         };
-    }
-
-    private async Task<ArticleListCursorPosition?> ResolveLegacyPublicArticleListCursorAsync(
-        int page,
-        int size,
-        string whereSql,
-        IReadOnlyCollection<SugarParameter> baseParameters,
-        CancellationToken cancellationToken)
-    {
-        ArticleListCursorPosition? cursor = null;
-        for (int completedPage = 1; completedPage < page; completedPage++)
-        {
-            List<ArticleListItemReadModel> rows = await LoadPublicArticleListKeysetPageItemsAsync(
-                whereSql,
-                baseParameters,
-                cursor,
-                size,
-                cancellationToken);
-            if (rows.Count < size)
-            {
-                return null;
-            }
-
-            ArticleListItemReadModel last = rows[^1];
-            cursor = new ArticleListCursorPosition(last.CreateTime, last.Id);
-        }
-
-        return cursor;
     }
 
     private async Task<List<ArticleListItemReadModel>> LoadPublicArticleListKeysetPageItemsAsync(
         string whereSql,
         IReadOnlyCollection<SugarParameter> baseParameters,
         ArticleListCursorPosition? cursor,
+        ArticleListSortMode sort,
         int limit,
         CancellationToken cancellationToken)
     {
-        string pageSql = BuildArticleListKeysetPageSql(whereSql, cursor.HasValue);
+        string pageSql = BuildArticleListKeysetPageSql(whereSql, cursor.HasValue, sort);
         List<SugarParameter> parameters = CloneArticleListParameters(baseParameters);
         parameters.Add(new SugarParameter("@Limit", limit));
         if (cursor is { } position)
         {
             parameters.Add(new SugarParameter("@CursorTime", position.CreateTimeUtc));
             parameters.Add(new SugarParameter("@CursorId", position.Id));
+            parameters.Add(new SugarParameter("@CursorSortValue", position.SortValue));
         }
 
         var pageItems = new List<ArticleListItemReadModel>(limit);
         using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(pageSql, parameters))
         {
-            await ReadArticleListItemsAsync(reader, pageItems, cancellationToken);
+            await ReadArticleListItemsAsync(reader, pageItems, cancellationToken, includePublishedTags: true, includeCursorSortValue: true);
         }
 
         return pageItems;
@@ -819,37 +754,66 @@ public partial class ArticleService
         IReadOnlyCollection<SugarParameter> baseParameters,
         CancellationToken cancellationToken)
     {
-        string? cached = await _stringReader.GetStringAsync(CachePolicyId.ArticleListCount, countIdentity, cancellationToken).ConfigureAwait(false);
-        if (int.TryParse(cached, out int parsed) && parsed >= 0)
-        {
-            return parsed;
-        }
-
-        string countSql = $$"""
-            SELECT COUNT(1) AS "__TotalCount"
-            FROM article a
-            WHERE {{whereSql}};
-            """;
-
-        int totalCount = 0;
-        using (var countReader = (DbDataReader)await _db.Ado.GetDataReaderAsync(countSql, CloneArticleListParameters(baseParameters)))
-        {
-            if (await countReader.ReadAsync(cancellationToken))
-            {
-                totalCount = countReader.IsNull("__TotalCount") ? 0 : Convert.ToInt32(countReader.ReadValue("__TotalCount"));
-            }
-        }
-
-        await _stringWriter.SetStringAsync(
+        return await _cacheMissCoordinator.CoordinateAsync(
             CachePolicyId.ArticleListCount,
             countIdentity,
-            totalCount.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            cancellationToken: cancellationToken).ConfigureAwait(false);
-        return totalCount;
+            async ct =>
+            {
+                string? cached = await _stringReader.GetStringAsync(CachePolicyId.ArticleListCount, countIdentity, ct).ConfigureAwait(false);
+                return int.TryParse(cached, out int parsed) && parsed >= 0
+                    ? new CacheReadResult<int>(true, parsed)
+                    : new CacheReadResult<int>(false, default);
+            },
+            async ct =>
+            {
+                string countSql = $$"""
+                    SELECT COUNT(1) AS "__TotalCount"
+                    FROM article a
+                    WHERE {{whereSql}};
+                    """;
+
+                int totalCount = 0;
+                using (var countReader = (DbDataReader)await _db.Ado.GetDataReaderAsync(countSql, CloneArticleListParameters(baseParameters)))
+                {
+                    if (await countReader.ReadAsync(ct))
+                    {
+                        totalCount = countReader.IsNull("__TotalCount") ? 0 : Convert.ToInt32(countReader.ReadValue("__TotalCount"));
+                    }
+                }
+
+                await _stringWriter.SetStringAsync(
+                    CachePolicyId.ArticleListCount,
+                    countIdentity,
+                    totalCount.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    cancellationToken: ct).ConfigureAwait(false);
+                return totalCount;
+            },
+            "article-list-count",
+            cancellationToken).ConfigureAwait(false);
     }
 
-    private static string BuildArticleListKeysetPageSql(string whereSql, bool hasCursor)
-        => $$"""
+    private static string BuildArticleListKeysetPageSql(
+        string whereSql,
+        bool hasCursor,
+        ArticleListSortMode sort)
+    {
+        string sortExpression = sort switch
+        {
+            ArticleListSortMode.Relevance => "(CASE WHEN revision.title = @KeywordExact THEN 3 WHEN revision.title LIKE @KeywordPrefix THEN 2 WHEN revision.title LIKE @Keyword THEN 1 ELSE 0 END)::bigint",
+            ArticleListSortMode.Hot => "a.views::bigint",
+            _ => "0::bigint"
+        };
+        string cursorClause = !hasCursor
+            ? string.Empty
+            : sort == ArticleListSortMode.Latest
+                ? ArticleListCursorWhereClause
+                : $" AND ({sortExpression} < @CursorSortValue OR ({sortExpression} = @CursorSortValue AND (a.createtime < @CursorTime OR (a.createtime = @CursorTime AND a.id < @CursorId))))";
+        string orderBy = sort switch
+        {
+            ArticleListSortMode.Relevance or ArticleListSortMode.Hot => $"{sortExpression} DESC, a.createtime DESC, a.id DESC",
+            _ => "a.createtime DESC, a.id DESC"
+        };
+        return $$"""
             SELECT
                 a.id AS "Id",
                 revision.title AS "Title",
@@ -866,17 +830,34 @@ public partial class ArticleService
                 revision.id AS "CurrentRevisionId",
                 revision.revision_no AS "RevisionNo",
                 publication.id AS "CurrentPublicationId",
-                publication.publication_no AS "PublicationNo"
+                publication.publication_no AS "PublicationNo",
+                {{sortExpression}} AS "CursorSortValue",
+                COALESCE(tag_projection.tag_ids, ARRAY[]::integer[]) AS "TagIds",
+                COALESCE(tag_projection.tag_names, ARRAY[]::text[]) AS "TagNames"
             FROM article a
             JOIN article_publication publication ON publication.id = a.current_publication_id
             JOIN article_revision revision ON revision.id = publication.article_revision_id
             LEFT JOIN category c ON revision.categoryid = c.id
-            WHERE {{whereSql}}{{(hasCursor ? ArticleListCursorWhereClause : string.Empty)}}
-            ORDER BY a.createtime DESC, a.id DESC
+            LEFT JOIN LATERAL (
+                SELECT
+                    array_agg(tag.id ORDER BY source.ordinality) AS tag_ids,
+                    array_agg(tag.name ORDER BY source.ordinality) AS tag_names
+                FROM unnest(string_to_array(NULLIF(revision.tag_ids, ''), ',')::integer[])
+                    WITH ORDINALITY AS source(tag_id, ordinality)
+                JOIN tag ON tag.id = source.tag_id
+            ) tag_projection ON TRUE
+            WHERE {{whereSql}}{{cursorClause}}
+            ORDER BY {{orderBy}}
             LIMIT @Limit;
             """;
+    }
 
-    private static async Task ReadArticleListItemsAsync(DbDataReader reader, List<ArticleListItemReadModel> list, CancellationToken cancellationToken)
+    private static async Task ReadArticleListItemsAsync(
+        DbDataReader reader,
+        List<ArticleListItemReadModel> list,
+        CancellationToken cancellationToken,
+        bool includePublishedTags = false,
+        bool includeCursorSortValue = false)
     {
         int fId = reader.GetOrdinal("Id");
         int fTitle = reader.GetOrdinal("Title");
@@ -894,9 +875,22 @@ public partial class ArticleService
         int fRevisionNo = reader.GetOrdinal("RevisionNo");
         int fCurrentPublicationId = reader.GetOrdinal("CurrentPublicationId");
         int fPublicationNo = reader.GetOrdinal("PublicationNo");
+        int fTagIds = includePublishedTags ? reader.GetOrdinal("TagIds") : -1;
+        int fTagNames = includePublishedTags ? reader.GetOrdinal("TagNames") : -1;
+        int fCursorSortValue = includeCursorSortValue ? reader.GetOrdinal("CursorSortValue") : -1;
 
         while (await reader.ReadAsync(cancellationToken))
         {
+            IReadOnlyList<TagReadModel> tags = ArticleReadModelCollections.EmptyTags;
+            if (includePublishedTags)
+            {
+                int[] tagIds = reader.GetFieldValue<int[]>(fTagIds);
+                string[] tagNames = reader.GetFieldValue<string[]>(fTagNames);
+                tags = tagIds
+                    .Zip(tagNames, static (id, name) => new TagReadModel { Id = id, Name = name })
+                    .ToArray();
+            }
+
             list.Add(new ArticleListItemReadModel
             {
                 Id = reader.GetInt32(fId),
@@ -904,6 +898,7 @@ public partial class ArticleService
                 Summary = reader.IsDBNull(fSum) ? string.Empty : reader.GetString(fSum),
                 CoverImageUrl = reader.IsDBNull(fCover) ? null : reader.GetString(fCover),
                 Views = reader.GetInt32(fViews),
+                CursorSortValue = includeCursorSortValue ? reader.GetInt64(fCursorSortValue) : 0,
                 CreateTime = NormalizeArticleListTimestampUtc(reader.GetDateTime(fTime)),
                 CategoryId = reader.GetInt32(fCatId),
                 CategoryName = reader.IsDBNull(fCatName) ? "默认" : reader.GetString(fCatName),
@@ -915,7 +910,7 @@ public partial class ArticleService
                 RevisionNo = reader.IsDBNull(fRevisionNo) ? 0 : reader.GetInt32(fRevisionNo),
                 CurrentPublicationId = reader.IsDBNull(fCurrentPublicationId) ? null : reader.GetInt64(fCurrentPublicationId),
                 PublicationNo = reader.IsDBNull(fPublicationNo) ? null : reader.GetInt32(fPublicationNo),
-                Tags = ArticleReadModelCollections.EmptyTags
+                Tags = tags
             });
         }
     }
@@ -948,7 +943,10 @@ public partial class ArticleService
     private async Task AttachPublishedArticleListTagsAsync(List<ArticleListItemReadModel> list, CancellationToken cancellationToken)
     {
         if (list.Count == 0)
+        {
             return;
+        }
+
         int[] ids = list.Select(static item => item.Id).ToArray();
         List<PublishedArticleTagRow> rows = await _db.Queryable<Article>()
             .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)

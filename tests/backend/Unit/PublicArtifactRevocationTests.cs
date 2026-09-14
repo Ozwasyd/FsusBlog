@@ -1,7 +1,9 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
@@ -31,14 +33,16 @@ public sealed class PublicArtifactRevocationTests
     }
 
     [Theory]
-    [InlineData("/api/binary/article/42.aeds")]
-    [InlineData("/article/42")]
-    [InlineData("/api/binary/article/list/home/1/10.aeds")]
-    [InlineData("/api/binary/article/hot/10.aeds")]
-    public async Task Middleware_RevokedArtifactReturnsGoneWithoutCallingNext(string path)
+    [InlineData("/api/binary/article/42.aeds", 42)]
+    [InlineData("/article/42", 42)]
+    [InlineData("/api/binary/article/list/home/1/10.aeds", 0)]
+    [InlineData("/api/binary/article/hot/10.aeds", 0)]
+    public async Task Middleware_RevokedArtifactReturnsGoneWithoutCallingNext(string path, int tombstoneArticleId)
     {
         var registry = new PublicArtifactRevocationRegistry();
-        registry.Apply(new PublicArtifactTombstone(42, 17, 100));
+        registry.Apply(tombstoneArticleId > 0
+            ? new PublicArtifactTombstone(tombstoneArticleId, 17, 100)
+            : PublicArtifactTombstone.ForGlobal(17, 100));
         DefaultHttpContext context = CreateContext(path);
         bool nextCalled = false;
 
@@ -62,6 +66,385 @@ public sealed class PublicArtifactRevocationTests
         Assert.Empty(((MemoryStream)context.Response.Body).ToArray());
     }
 
+    [Fact]
+    public async Task Middleware_MissingClassifierFeatureDoesNotReclassifyRequest()
+    {
+        var registry = new PublicArtifactRevocationRegistry();
+        registry.Apply(PublicArtifactTombstone.ForGlobal(18, 100));
+        DefaultHttpContext context = CreateContext("/api/binary/article/42.aeds", attachFeature: false);
+        bool nextCalled = false;
+
+        await PublicArtifactRevocationMiddleware.TryHandleAsync(
+            context,
+            _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            },
+            registry);
+
+        Assert.True(nextCalled);
+        Assert.False(context.Response.Headers.ContainsKey("X-Fsus-Revoked"));
+    }
+
+    [Fact]
+    public async Task Registry_ExactTombstoneDoesNotApplyToUnrelatedOrAggregateRoutes()
+    {
+        var registry = new PublicArtifactRevocationRegistry();
+        registry.Apply(new PublicArtifactTombstone(42, 19, 100));
+        DefaultHttpContext unrelated = CreateContext("/api/binary/article/43.aeds");
+        DefaultHttpContext aggregate = CreateContext("/api/binary/article/hot/10.aeds");
+        int nextCalls = 0;
+
+        await PublicArtifactRevocationMiddleware.TryHandleAsync(
+            unrelated,
+            _ =>
+            {
+                nextCalls++;
+                return Task.CompletedTask;
+            },
+            registry);
+        await PublicArtifactRevocationMiddleware.TryHandleAsync(
+            aggregate,
+            _ =>
+            {
+                nextCalls++;
+                return Task.CompletedTask;
+            },
+            registry);
+
+        Assert.Equal(2, nextCalls);
+        PublicArtifactRevocationRegistrySnapshot snapshot = registry.MetricsSnapshot();
+        Assert.Equal(1, snapshot.ActiveCount);
+        Assert.Equal(2, snapshot.Misses);
+        Assert.Equal(0, snapshot.GlobalHits);
+    }
+
+    [Fact]
+    public async Task Registry_HighCardinalityLookupRemainsExactAndDoesNotScanForLatestGeneration()
+    {
+        var registry = new PublicArtifactRevocationRegistry();
+        for (int articleId = 1; articleId <= 100_000; articleId++)
+        {
+            registry.Apply(new PublicArtifactTombstone(articleId, articleId, articleId));
+        }
+
+        DefaultHttpContext missing = CreateContext("/api/binary/article/100001.aeds");
+        bool nextCalled = false;
+        await PublicArtifactRevocationMiddleware.TryHandleAsync(
+            missing,
+            _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            },
+            registry);
+
+        Assert.True(nextCalled);
+        PublicArtifactRevocationRegistrySnapshot snapshot = registry.MetricsSnapshot();
+        Assert.Equal(100_000, snapshot.ActiveCount);
+        Assert.Equal(1, snapshot.Misses);
+        Assert.Equal(0, snapshot.ExactHits);
+    }
+
+    [Fact]
+    public void Registry_RequiresProtocolExplicitGlobalAndScopeTargets()
+    {
+        var registry = new PublicArtifactRevocationRegistry();
+
+        registry.Apply(new PublicArtifactTombstone(0, 17, 100));
+        registry.Apply(PublicArtifactTombstone.ForScope(PublicArtifactRevocationScope.None, 18, 100));
+
+        Assert.Empty(registry.Snapshot());
+        Assert.Equal(0, registry.MetricsSnapshot().Applies);
+    }
+
+    [Fact]
+    public void Registry_ExactGlobalScopeAndMissMatrixUsesFixedPriority()
+    {
+        var registry = new PublicArtifactRevocationRegistry();
+        var exact = new PublicArtifactTombstone(42, 10, 100);
+        PublicArtifactTombstone global = PublicArtifactTombstone.ForGlobal(20, 200);
+        PublicArtifactTombstone scope = PublicArtifactTombstone.ForScope(
+            PublicArtifactRevocationScope.ArticleDetail,
+            30,
+            300);
+        registry.Apply(exact);
+        registry.Apply(global);
+        registry.Apply(scope);
+
+        AssertResolved(registry, "/api/binary/article/42.aeds", exact);
+        AssertResolved(registry, "/api/binary/article/43.aeds", global);
+
+        registry.Clear(global);
+
+        AssertResolved(registry, "/api/binary/article/43.aeds", scope);
+        AssertNotResolved(registry, "/api/binary/category.aeds");
+        PublicArtifactRevocationRegistrySnapshot snapshot = registry.MetricsSnapshot();
+        Assert.Equal(1, snapshot.ExactHits);
+        Assert.Equal(1, snapshot.GlobalHits);
+        Assert.Equal(1, snapshot.ScopeHits);
+        Assert.Equal(1, snapshot.Misses);
+    }
+
+    [Theory]
+    [InlineData("/api/binary/category.aeds", PublicArtifactRevocationScope.Category)]
+    [InlineData("/api/binary/tag.aeds", PublicArtifactRevocationScope.Tag)]
+    [InlineData("/api/binary/article/42.aeds", PublicArtifactRevocationScope.ArticleDetail)]
+    [InlineData("/api/binary/article/list/home/1/10.aeds", PublicArtifactRevocationScope.ArticleList)]
+    [InlineData("/api/binary/article/hot/10.aeds", PublicArtifactRevocationScope.ArticleHot)]
+    [InlineData("/api/binary/article/featured/4.aeds", PublicArtifactRevocationScope.ArticleFeatured)]
+    [InlineData("/api/binary/article/html/home.html", PublicArtifactRevocationScope.ArticleHtml)]
+    [InlineData("/", PublicArtifactRevocationScope.PublicHtml)]
+    public void Registry_ProtocolScopeMatchesClassifierRouteIdentity(
+        string path,
+        PublicArtifactRevocationScope scope)
+    {
+        var registry = new PublicArtifactRevocationRegistry();
+        PublicArtifactTombstone tombstone = PublicArtifactTombstone.ForScope(scope, 35, 100);
+        registry.Apply(tombstone);
+
+        AssertResolved(registry, path, tombstone);
+        Assert.Equal(1, registry.MetricsSnapshot().ScopeHits);
+    }
+
+    [Fact]
+    public void Registry_ApplyClearDuplicateAndOutOfOrderRemainConsistentForEveryIndex()
+    {
+        PublicArtifactTombstone[] initial =
+        [
+            new PublicArtifactTombstone(42, 10, 100, TransitionPending: true),
+            PublicArtifactTombstone.ForGlobal(10, 100, transitionPending: true),
+            PublicArtifactTombstone.ForScope(
+                PublicArtifactRevocationScope.ArticleHot,
+                10,
+                100,
+                transitionPending: true)
+        ];
+
+        foreach (PublicArtifactTombstone first in initial)
+        {
+            var registry = new PublicArtifactRevocationRegistry();
+            PublicArtifactTombstone duplicate = first with
+            {
+                PurgeConfirmed = true,
+                TransitionPending = false
+            };
+            PublicArtifactTombstone stale = first with
+            {
+                Generation = 9
+            };
+            PublicArtifactTombstone newer = duplicate with
+            {
+                Generation = 11
+            };
+            PublicArtifactTombstone newest = duplicate with
+            {
+                Generation = 12
+            };
+
+            registry.Apply(first);
+            registry.Apply(duplicate);
+            Assert.Equal(duplicate, Assert.Single(registry.Snapshot()));
+
+            registry.Clear(stale);
+            registry.Apply(stale);
+            Assert.Equal(duplicate, Assert.Single(registry.Snapshot()));
+
+            registry.Apply(newer);
+            registry.Clear(duplicate);
+            Assert.Equal(newer, Assert.Single(registry.Snapshot()));
+
+            registry.Clear(newer);
+            registry.Apply(newer);
+            Assert.Empty(registry.Snapshot());
+
+            registry.Apply(newest);
+            Assert.Equal(newest, Assert.Single(registry.Snapshot()));
+            Assert.Equal(12, registry.CurrentGeneration);
+            Assert.Equal(1, registry.MetricsSnapshot().ActiveCount);
+        }
+    }
+
+    [Fact]
+    public void Registry_ConcurrentApplyClearAndLookupLinearizesAtHighestGeneration()
+    {
+        var registry = new PublicArtifactRevocationRegistry();
+        PublicHotReadRoute route = ResolveRoute("/api/binary/article/42.aeds");
+        var failures = new ConcurrentQueue<string>();
+
+        Parallel.For(1, 2_001, generation =>
+        {
+            PublicArtifactTombstone tombstone = new(42, generation, generation);
+            registry.Apply(tombstone);
+            if (registry.TryResolve(route, out PublicArtifactTombstone observed)
+                && observed.Target != PublicArtifactRevocationTarget.ForArticle(42))
+            {
+                failures.Enqueue($"unexpected target {observed.Target}");
+            }
+
+            if ((generation & 1) == 0)
+            {
+                registry.Clear(tombstone);
+            }
+        });
+
+        Assert.Empty(failures);
+        Assert.False(registry.TryResolve(route, out _));
+        Assert.Empty(registry.Snapshot());
+        Assert.Equal(2_000, registry.CurrentGeneration);
+        Assert.Equal(0, registry.MetricsSnapshot().ActiveCount);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(10_000)]
+    [InlineData(100_000)]
+    public void Registry_LookupAllocationBudgetIsIndependentOfActiveCount(int activeCount)
+    {
+        var registry = new PublicArtifactRevocationRegistry();
+        for (int articleId = 1; articleId <= activeCount; articleId++)
+        {
+            registry.Apply(new PublicArtifactTombstone(articleId, articleId + 1L, articleId));
+        }
+        PublicHotReadRoute route = ResolveRoute("/api/binary/article/200001.aeds");
+        for (int index = 0; index < 256; index++)
+        {
+            _ = registry.TryResolve(route, out _);
+        }
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        bool resolved = false;
+        for (int index = 0; index < 4_096; index++)
+        {
+            resolved |= registry.TryResolve(route, out _);
+        }
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.False(resolved);
+        Assert.Equal(activeCount, registry.MetricsSnapshot().ActiveCount);
+        Assert.True(allocated <= 512, $"lookup allocated {allocated} bytes with {activeCount} active tombstones");
+    }
+
+    [Fact]
+    public async Task Middleware_GetHeadRangeAndQueryKeepSingleClassificationAndGoneContract()
+    {
+        foreach (string method in new[] { HttpMethods.Get, HttpMethods.Head })
+        {
+            foreach ((string? range, string? query) in new (string?, string?)[]
+            {
+                (null, null),
+                ("bytes=0-1", null),
+                (null, "?preview=1")
+            })
+            {
+                var registry = new PublicArtifactRevocationRegistry();
+                registry.Apply(new PublicArtifactTombstone(42, 40, 100));
+                DefaultHttpContext context = CreateContext("/api/binary/article/42.aeds");
+                context.Request.Method = method;
+                context.Request.Headers.Range = range;
+                context.Request.QueryString = new QueryString(query);
+                context.Response.Headers.ETag = "\"old\"";
+                context.Response.Headers.ContentEncoding = "gzip";
+                PublicHotReadRequestFeature feature = Assert.IsType<PublicHotReadRequestFeature>(
+                    context.Features.Get<PublicHotReadRequestFeature>());
+
+                await PublicArtifactRevocationMiddleware.TryHandleAsync(
+                    context,
+                    _ => throw new InvalidOperationException("revoked request must not continue"),
+                    registry);
+
+                Assert.Equal(1, feature.ClassificationCount);
+                Assert.Equal(StatusCodes.Status410Gone, context.Response.StatusCode);
+                Assert.Equal("no-store, no-cache, must-revalidate", context.Response.Headers.CacheControl);
+                Assert.Equal("none", context.Response.Headers.AcceptRanges);
+                Assert.Equal("40", context.Response.Headers["X-Fsus-Generation"]);
+                Assert.Equal("g40", context.Response.Headers["X-Fsus-Revoked"]);
+                Assert.False(context.Response.Headers.ContainsKey("ETag"));
+                Assert.False(context.Response.Headers.ContainsKey("Content-Encoding"));
+                Assert.Equal(0, context.Response.ContentLength);
+                Assert.Empty(((MemoryStream)context.Response.Body).ToArray());
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Middleware_CredentialBearingRequestBypassesClassifierAndRevocation()
+    {
+        var registry = new PublicArtifactRevocationRegistry();
+        registry.Apply(PublicArtifactTombstone.ForGlobal(41, 100));
+        DefaultHttpContext context = CreateContext("/api/binary/article/42.aeds", attachFeature: false);
+        context.Request.Headers.Authorization = "Bearer credential";
+
+        Assert.False(PublicHotReadFastPath.TryCreateRequestFeatureForTests(
+            context,
+            out PublicHotReadRequestFeature? feature,
+            out _,
+            out bool credentialBypass));
+        Assert.Null(feature);
+        Assert.True(credentialBypass);
+        bool nextCalled = false;
+
+        await PublicArtifactRevocationMiddleware.TryHandleAsync(
+            context,
+            _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            },
+            registry);
+
+        Assert.True(nextCalled);
+        Assert.False(context.Response.Headers.ContainsKey("X-Fsus-Revoked"));
+    }
+
+    [Fact]
+    public void RevocationReadPath_HasNoClassifierCallOrValuesScan()
+    {
+        string source = File.ReadAllText(BackendTestPaths.FromRoot(
+            "src",
+            "backend",
+            "Infrastructure",
+            "PublicReadArtifacts",
+            "PublicArtifactRevocation.cs"));
+        string registry = Slice(
+            source,
+            "public sealed class PublicArtifactRevocationRegistry",
+            "public readonly record struct PublicArtifactRevocationRegistrySnapshot");
+        string lookup = Slice(
+            registry,
+            "internal bool TryResolve",
+            "internal PublicArtifactRevocationRegistrySnapshot MetricsSnapshot");
+        string middleware = source[source.IndexOf(
+            "public static class PublicArtifactRevocationMiddleware",
+            StringComparison.Ordinal)..];
+        string observabilityRegistration = File.ReadAllText(BackendTestPaths.FromRoot(
+            "src",
+            "backend",
+            "Infrastructure",
+            "Observability",
+            "FsusObservabilityServiceCollectionExtensions.cs"));
+
+        Assert.DoesNotContain("TryCreateRequestFeature", middleware, StringComparison.Ordinal);
+        Assert.DoesNotContain(".Values", lookup, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "ConcurrentDictionary<int, PublicArtifactTombstone> _active",
+            registry,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("legacy", registry, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("fsus.public_artifact_revocation.lookup.hit", registry, StringComparison.Ordinal);
+        Assert.Contains("fsus.public_artifact_revocation.lookup.miss", registry, StringComparison.Ordinal);
+        Assert.Contains("fsus.public_artifact_revocation.lookup.duration", registry, StringComparison.Ordinal);
+        Assert.Contains("fsus.public_artifact_revocation.apply", registry, StringComparison.Ordinal);
+        Assert.Contains("fsus.public_artifact_revocation.clear", registry, StringComparison.Ordinal);
+        Assert.Contains("fsus.public_artifact_revocation.active.count", registry, StringComparison.Ordinal);
+        Assert.Contains(
+            "PublicArtifactRevocationRegistry.MeterName",
+            observabilityRegistration,
+            StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("/api/binary/auth/login")]
     [InlineData("/api/binary/admin/cache")]
@@ -69,7 +452,7 @@ public sealed class PublicArtifactRevocationTests
     public async Task Middleware_DoesNotInterceptAuthenticatedAdminOrNotificationRoutes(string path)
     {
         var registry = new PublicArtifactRevocationRegistry();
-        registry.Apply(new PublicArtifactTombstone(0, 18, 100));
+        registry.Apply(PublicArtifactTombstone.ForGlobal(18, 100));
         DefaultHttpContext context = CreateContext(path);
         bool nextCalled = false;
 
@@ -109,6 +492,11 @@ public sealed class PublicArtifactRevocationTests
         Assert.False(state.Published[0].PurgeConfirmed);
         Assert.True(state.Published[1].PurgeConfirmed);
         Assert.All(state.Published, static revoke => Assert.Equal("revoke", revoke.Action));
+        Assert.All(state.Published, static revoke =>
+        {
+            Assert.Equal(PublicArtifactRevocationTargetKind.ExactArticle, revoke.TargetKind);
+            Assert.Equal(PublicArtifactRevocationScope.None, revoke.Scope);
+        });
 
         DefaultHttpContext blocked = CreateContext("/api/binary/article/42.aeds");
         bool oldSnapshotReached = false;
@@ -145,6 +533,24 @@ public sealed class PublicArtifactRevocationTests
     }
 
     [Fact]
+    public async Task Coordinator_GlobalRevocationPublishesExplicitTarget()
+    {
+        var state = new FakeStateStore(new PublicArtifactTombstone(42, 22, 100));
+        var registry = new PublicArtifactRevocationRegistry();
+        var coordinator = new PublicArtifactRevocationCoordinator(state, registry, new FakeCdnPurger());
+
+        await coordinator.RevokeAllAsync();
+
+        PublicArtifactTombstone global = Assert.Single(registry.Snapshot());
+        Assert.Equal(PublicArtifactRevocationTarget.Global, global.Target);
+        Assert.All(state.Published, static message =>
+        {
+            Assert.Equal(PublicArtifactRevocationTargetKind.Global, message.TargetKind);
+            Assert.Equal(PublicArtifactRevocationScope.None, message.Scope);
+        });
+    }
+
+    [Fact]
     public async Task Coordinator_OldRebuildCannotClearNewerGeneration()
     {
         var first = new PublicArtifactTombstone(42, 30, 100, PurgeConfirmed: true);
@@ -166,17 +572,20 @@ public sealed class PublicArtifactRevocationTests
     [Fact]
     public async Task Coordinator_GlobalTombstoneRequiresFullRebuild()
     {
-        var global = new PublicArtifactTombstone(0, 32, 100, PurgeConfirmed: true);
+        PublicArtifactTombstone global = PublicArtifactTombstone.ForGlobal(
+            32,
+            100,
+            purgeConfirmed: true);
         var state = new FakeStateStore(global);
         var registry = new PublicArtifactRevocationRegistry();
         registry.Apply(global);
         var coordinator = new PublicArtifactRevocationCoordinator(state, registry, new FakeCdnPurger());
 
         await coordinator.CompleteRebuildAsync([42], coordinator.CurrentGeneration);
-        Assert.True(registry.TryGet(0, out _));
+        Assert.Contains(global, registry.Snapshot());
 
         await coordinator.CompleteRebuildAsync(null, coordinator.CurrentGeneration);
-        Assert.False(registry.TryGet(0, out _));
+        Assert.DoesNotContain(global, registry.Snapshot());
         Assert.Equal(global, Assert.Single(state.Cleared));
     }
 
@@ -367,7 +776,35 @@ public sealed class PublicArtifactRevocationTests
         Assert.True(document.RootElement.GetProperty("purge_everything").GetBoolean());
     }
 
-    private static DefaultHttpContext CreateContext(string path)
+    private static void AssertResolved(
+        PublicArtifactRevocationRegistry registry,
+        string path,
+        PublicArtifactTombstone expected)
+    {
+        Assert.True(registry.TryResolve(ResolveRoute(path), out PublicArtifactTombstone actual));
+        Assert.Equal(expected, actual);
+    }
+
+    private static void AssertNotResolved(PublicArtifactRevocationRegistry registry, string path)
+        => Assert.False(registry.TryResolve(ResolveRoute(path), out _));
+
+    private static PublicHotReadRoute ResolveRoute(string path)
+    {
+        DefaultHttpContext context = CreateContext(path);
+        return Assert.IsType<PublicHotReadRequestFeature>(
+            context.Features.Get<PublicHotReadRequestFeature>()).Route;
+    }
+
+    private static string Slice(string source, string startMarker, string endMarker)
+    {
+        int start = source.IndexOf(startMarker, StringComparison.Ordinal);
+        int end = source.IndexOf(endMarker, start, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"missing start marker: {startMarker}");
+        Assert.True(end > start, $"missing end marker: {endMarker}");
+        return source[start..end];
+    }
+
+    private static DefaultHttpContext CreateContext(string path, bool attachFeature = true)
     {
         var context = new DefaultHttpContext();
         context.Request.Method = HttpMethods.Get;
@@ -376,6 +813,14 @@ public sealed class PublicArtifactRevocationTests
             ? "application/octet-stream"
             : "text/html";
         context.Response.Body = new MemoryStream();
+        if (attachFeature
+            && PublicHotReadFastPath.TryCreateRequestFeatureForTests(
+                context,
+                out PublicHotReadRequestFeature? feature))
+        {
+            context.Features.Set(feature);
+        }
+
         return context;
     }
 
@@ -386,7 +831,7 @@ public sealed class PublicArtifactRevocationTests
         public List<PublicArtifactTombstone> Cleared { get; } = [];
 
         public Task<PublicArtifactTombstone> BeginMutationFenceAsync(
-            int articleId,
+            PublicArtifactRevocationTarget target,
             CancellationToken cancellationToken)
         {
             if (_current.TransitionPending || !_current.PurgeConfirmed)
@@ -395,19 +840,25 @@ public sealed class PublicArtifactRevocationTests
             }
 
             _current = new PublicArtifactTombstone(
-                articleId,
+                target.ArticleId,
                 _current.Generation + 1,
                 _current.RevokedAtUnixMilliseconds + 1,
                 PurgeConfirmed: false,
-                TransitionPending: true);
+                TransitionPending: true,
+                TargetKind: target.Kind,
+                Scope: target.Scope);
             return Task.FromResult(_current);
         }
 
-        public Task<PublicArtifactTombstone> RevokeArticleAsync(int articleId, CancellationToken cancellationToken)
+        public Task<PublicArtifactTombstone> RevokeAsync(
+            PublicArtifactRevocationTarget target,
+            CancellationToken cancellationToken)
         {
             _current = _current with
             {
-                ArticleId = articleId
+                ArticleId = target.ArticleId,
+                TargetKind = target.Kind,
+                Scope = target.Scope
             };
             return Task.FromResult(_current);
         }

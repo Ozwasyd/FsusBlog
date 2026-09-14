@@ -24,28 +24,41 @@ internal sealed class SharedRedisDistributedCache : IBufferDistributedCache
     private static readonly RedisValue[] s_metadataFields =
         [AbsoluteExpirationKey, SlidingExpirationKey];
 
-    private readonly IConnectionMultiplexer _connection;
-    private readonly IDatabase _database;
+    private readonly IRedisOperationExecutor _redisOperations;
+    private readonly IConnectionMultiplexer? _testConnection;
     private readonly RedisKey _instancePrefix;
 
     public SharedRedisDistributedCache(
-        IConnectionMultiplexer connection,
+        IRedisOperationExecutor redisOperations,
         SharedRedisDistributedCacheOptions options)
     {
-        _connection = connection;
-        _database = connection.GetDatabase();
+        _redisOperations = redisOperations;
         if (!string.IsNullOrEmpty(options.InstanceName))
         {
             _instancePrefix = Encoding.UTF8.GetBytes(options.InstanceName);
         }
     }
 
-    internal IConnectionMultiplexer Connection => _connection;
+    internal SharedRedisDistributedCache(
+        IConnectionMultiplexer connection,
+        SharedRedisDistributedCacheOptions options)
+        : this(
+            new RedisOperationExecutor(
+                new DirectConnectionProvider(connection),
+                new RedisOperationBudgetCatalog(),
+                TimeProvider.System),
+            options)
+    {
+        _testConnection = connection;
+    }
+
+    internal IConnectionMultiplexer Connection
+        => _testConnection ?? throw new InvalidOperationException("shared_redis_connection_is_executor_owned");
 
     public byte[]? Get(string key)
     {
         ArgumentNullException.ThrowIfNull(key);
-        return GetAndRefresh(key, getData: true);
+        throw SyncOperationNotSupported();
     }
 
     public async Task<byte[]?> GetAsync(string key, CancellationToken token = default)
@@ -57,15 +70,17 @@ internal sealed class SharedRedisDistributedCache : IBufferDistributedCache
 
     public void Set(string key, byte[] value, DistributedCacheEntryOptions options)
     {
+        ArgumentNullException.ThrowIfNull(key);
         ArgumentNullException.ThrowIfNull(value);
-        SetCore(key, new ReadOnlySequence<byte>(value), options);
+        ArgumentNullException.ThrowIfNull(options);
+        throw SyncOperationNotSupported();
     }
 
     void IBufferDistributedCache.Set(
         string key,
         ReadOnlySequence<byte> value,
         DistributedCacheEntryOptions options)
-        => SetCore(key, value, options);
+        => throw SyncOperationNotSupported();
 
     public async Task SetAsync(
         string key,
@@ -89,19 +104,7 @@ internal sealed class SharedRedisDistributedCache : IBufferDistributedCache
         ArgumentNullException.ThrowIfNull(key);
         ArgumentNullException.ThrowIfNull(destination);
 
-        RedisKey redisKey = BuildKey(key);
-        Task<RedisValue[]> pendingMetadata = _database.HashGetAsync(redisKey, s_metadataFields);
-        using Lease<byte>? data = _database.HashGetLease(redisKey, DataKey);
-        RedisValue[] metadata = pendingMetadata.GetAwaiter().GetResult();
-
-        if (data is null)
-        {
-            return false;
-        }
-
-        RefreshSlidingExpiration(redisKey, metadata);
-        destination.Write(data.Span);
-        return true;
+        throw SyncOperationNotSupported();
     }
 
     async ValueTask<bool> IBufferDistributedCache.TryGetAsync(
@@ -113,49 +116,15 @@ internal sealed class SharedRedisDistributedCache : IBufferDistributedCache
         ArgumentNullException.ThrowIfNull(destination);
         token.ThrowIfCancellationRequested();
 
-        RedisKey redisKey = BuildKey(key);
-        Task<RedisValue[]> pendingMetadata = _database.HashGetAsync(redisKey, s_metadataFields);
-        using Lease<byte>? data = await _database.HashGetLeaseAsync(redisKey, DataKey).ConfigureAwait(false);
-        RedisValue[] metadata = await pendingMetadata.ConfigureAwait(false);
-
+        byte[]? data = await GetAndRefreshAsync(key, getData: true, token).ConfigureAwait(false);
         if (data is null)
         {
             return false;
         }
 
         token.ThrowIfCancellationRequested();
-        await RefreshSlidingExpirationAsync(redisKey, metadata).ConfigureAwait(false);
-        destination.Write(data.Span);
+        destination.Write(data);
         return true;
-    }
-
-    private void SetCore(
-        string key,
-        ReadOnlySequence<byte> value,
-        DistributedCacheEntryOptions options)
-    {
-        ArgumentNullException.ThrowIfNull(key);
-        ArgumentNullException.ThrowIfNull(options);
-
-        DateTimeOffset creationTime = DateTimeOffset.UtcNow;
-        DateTimeOffset? absoluteExpiration = GetAbsoluteExpiration(creationTime, options);
-        RedisKey redisKey = BuildKey(key);
-        ReadOnlyMemory<byte> payload = Linearize(value, out byte[]? lease);
-        HashEntry[] fields = GetHashFields(payload, absoluteExpiration, options.SlidingExpiration);
-        long? ttlSeconds = GetExpirationInSeconds(creationTime, absoluteExpiration, options);
-        if (ttlSeconds is null)
-        {
-            _database.HashSet(redisKey, fields);
-            Recycle(lease);
-            return;
-        }
-
-        IBatch batch = _database.CreateBatch();
-        Task setFields = batch.HashSetAsync(redisKey, fields);
-        Task setTtl = batch.KeyExpireAsync(redisKey, TimeSpan.FromSeconds(ttlSeconds.Value));
-        batch.Execute();
-        _database.WaitAll(setFields, setTtl);
-        Recycle(lease);
     }
 
     private async Task SetCoreAsync(
@@ -174,23 +143,42 @@ internal sealed class SharedRedisDistributedCache : IBufferDistributedCache
         ReadOnlyMemory<byte> payload = Linearize(value, out byte[]? lease);
         HashEntry[] fields = GetHashFields(payload, absoluteExpiration, options.SlidingExpiration);
         long? ttlSeconds = GetExpirationInSeconds(creationTime, absoluteExpiration, options);
-        if (ttlSeconds is null)
+        try
         {
-            await _database.HashSetAsync(redisKey, fields).ConfigureAwait(false);
-            Recycle(lease);
-            return;
+            _ = await _redisOperations.ExecuteAsync(
+                RedisOperationPort.SharedDistributedCacheWrite,
+                async (multiplexer, commandCancellation) =>
+                {
+                    commandCancellation.ThrowIfCancellationRequested();
+                    IDatabase database = multiplexer.GetDatabase();
+                    await database.HashSetAsync(redisKey, fields).ConfigureAwait(false);
+                    if (ttlSeconds.HasValue)
+                    {
+                        _ = await database.KeyExpireAsync(
+                            redisKey,
+                            TimeSpan.FromSeconds(ttlSeconds.Value)).ConfigureAwait(false);
+                    }
+                    return true;
+                },
+                token).ConfigureAwait(false);
         }
-
-        await Task.WhenAll(
-            _database.HashSetAsync(redisKey, fields),
-            _database.KeyExpireAsync(redisKey, TimeSpan.FromSeconds(ttlSeconds.Value))).ConfigureAwait(false);
-        Recycle(lease);
+        catch (RedisOperationUnavailableException exception)
+            when (exception.Port.OperationClass == RedisOperationClass.ContentCacheWrite)
+        {
+            // IDistributedCache is a best-effort cache boundary. The classified
+            // executor records the degraded write and the caller's business result
+            // remains authoritative.
+        }
+        finally
+        {
+            Recycle(lease);
+        }
     }
 
     public void Refresh(string key)
     {
         ArgumentNullException.ThrowIfNull(key);
-        _ = GetAndRefresh(key, getData: false);
+        throw SyncOperationNotSupported();
     }
 
     public async Task RefreshAsync(string key, CancellationToken token = default)
@@ -203,63 +191,83 @@ internal sealed class SharedRedisDistributedCache : IBufferDistributedCache
     public void Remove(string key)
     {
         ArgumentNullException.ThrowIfNull(key);
-        _database.KeyDelete(BuildKey(key));
+        throw SyncOperationNotSupported();
     }
 
     public async Task RemoveAsync(string key, CancellationToken token = default)
     {
         ArgumentNullException.ThrowIfNull(key);
         token.ThrowIfCancellationRequested();
-        await _database.KeyDeleteAsync(BuildKey(key)).ConfigureAwait(false);
-    }
-
-    private byte[]? GetAndRefresh(string key, bool getData)
-    {
-        RedisKey redisKey = BuildKey(key);
-        RedisValue[] values = _database.HashGet(
-            redisKey,
-            getData ? s_metadataAndDataFields : s_metadataFields);
-        RefreshSlidingExpiration(redisKey, values);
-        return getData && values.Length >= 3 && !values[2].IsNull
-            ? (byte[]?)values[2]
-            : null;
+        try
+        {
+            _ = await _redisOperations.ExecuteAsync(
+                RedisOperationPort.SharedDistributedCacheWrite,
+                (multiplexer, _) => multiplexer.GetDatabase().KeyDeleteAsync(BuildKey(key)),
+                token).ConfigureAwait(false);
+        }
+        catch (RedisOperationUnavailableException exception)
+            when (exception.Port.OperationClass == RedisOperationClass.ContentCacheWrite)
+        {
+            // Deletion failure leaves only stale cache state; the executor exposes
+            // the degraded action without failing the business request.
+        }
     }
 
     private async Task<byte[]?> GetAndRefreshAsync(string key, bool getData, CancellationToken token)
     {
         RedisKey redisKey = BuildKey(key);
-        RedisValue[] values = await _database.HashGetAsync(
-            redisKey,
-            getData ? s_metadataAndDataFields : s_metadataFields).ConfigureAwait(false);
+        RedisValue[] values;
+        try
+        {
+            values = await _redisOperations.ExecuteAsync(
+                RedisOperationPort.SharedDistributedCacheRead,
+                (multiplexer, _) => multiplexer.GetDatabase().HashGetAsync(
+                    redisKey,
+                    getData ? s_metadataAndDataFields : s_metadataFields),
+                token).ConfigureAwait(false);
+        }
+        catch (RedisOperationUnavailableException exception)
+            when (exception.Port.OperationClass == RedisOperationClass.ContentCacheRead)
+        {
+            return null;
+        }
         token.ThrowIfCancellationRequested();
-        await RefreshSlidingExpirationAsync(redisKey, values).ConfigureAwait(false);
+        await RefreshSlidingExpirationAsync(redisKey, values, token).ConfigureAwait(false);
         return getData && values.Length >= 3 && !values[2].IsNull
             ? (byte[]?)values[2]
             : null;
     }
 
-    private void RefreshSlidingExpiration(RedisKey key, RedisValue[] values)
+    private async Task RefreshSlidingExpirationAsync(
+        RedisKey key,
+        RedisValue[] values,
+        CancellationToken cancellationToken)
     {
         MapMetadata(values, out DateTimeOffset? absoluteExpiration, out TimeSpan? slidingExpiration);
         if (slidingExpiration.HasValue)
         {
-            _database.KeyExpire(key, ResolveRefreshTtl(absoluteExpiration, slidingExpiration.Value));
-        }
-    }
-
-    private async Task RefreshSlidingExpirationAsync(RedisKey key, RedisValue[] values)
-    {
-        MapMetadata(values, out DateTimeOffset? absoluteExpiration, out TimeSpan? slidingExpiration);
-        if (slidingExpiration.HasValue)
-        {
-            await _database.KeyExpireAsync(
-                key,
-                ResolveRefreshTtl(absoluteExpiration, slidingExpiration.Value)).ConfigureAwait(false);
+            try
+            {
+                _ = await _redisOperations.ExecuteAsync(
+                    RedisOperationPort.SharedDistributedCacheWrite,
+                    (multiplexer, _) => multiplexer.GetDatabase().KeyExpireAsync(
+                        key,
+                        ResolveRefreshTtl(absoluteExpiration, slidingExpiration.Value)),
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (RedisOperationUnavailableException exception)
+                when (exception.Port.OperationClass == RedisOperationClass.ContentCacheWrite)
+            {
+                // Refresh is optional once the cached value has already been read.
+            }
         }
     }
 
     private RedisKey BuildKey(string key)
         => _instancePrefix.Append(key);
+
+    private static NotSupportedException SyncOperationNotSupported()
+        => new("redis_sync_operation_forbidden");
 
     private static ReadOnlyMemory<byte> Linearize(ReadOnlySequence<byte> value, out byte[]? lease)
     {
@@ -370,5 +378,10 @@ internal sealed class SharedRedisDistributedCache : IBufferDistributedCache
         return options.AbsoluteExpirationRelativeToNow.HasValue
             ? creationTime + options.AbsoluteExpirationRelativeToNow
             : options.AbsoluteExpiration;
+    }
+
+    private sealed class DirectConnectionProvider(IConnectionMultiplexer connection) : IRedisConnectionProvider
+    {
+        public Task<IConnectionMultiplexer> WaitAsync() => Task.FromResult(connection);
     }
 }

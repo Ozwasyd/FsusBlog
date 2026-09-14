@@ -508,12 +508,13 @@ public partial class ArticleService
             {
                 EnqueueArticleVaultPostCommitAction(id, async () =>
                 {
-                    await InvalidateCache(id).ConfigureAwait(false);
+                    string mutationId = await InvalidateCache(id).ConfigureAwait(false);
                     await InvalidatePublicAotAsync(
                         id,
                         MergeIds([state.CategoryId], [dto.CategoryId]),
                         MergeIds(state.TagIds, tagIds),
-                        "update").ConfigureAwait(false);
+                        "update",
+                        mutationId).ConfigureAwait(false);
                     ArticleListItemResponse? realtimePreview = await LoadRealtimePreviewAsync(id)
                         .ConfigureAwait(false);
                     await _mutationSideEffects.AfterUpdatedAsync(id, realtimePreview).ConfigureAwait(false);
@@ -522,13 +523,14 @@ public partial class ArticleService
             }
             if (mutationCommitted)
             {
-                await InvalidateCache(id);
+                string mutationId = await InvalidateCache(id);
                 ct.ThrowIfCancellationRequested();
                 await InvalidatePublicAotAsync(
                     id,
                     MergeIds([state.CategoryId], [dto.CategoryId]),
                     MergeIds(state.TagIds, tagIds),
-                    "update");
+                    "update",
+                    mutationId);
                 ct.ThrowIfCancellationRequested();
                 ArticleListItemResponse? realtimePreview = await LoadRealtimePreviewAsync(id);
                 ct.ThrowIfCancellationRequested();

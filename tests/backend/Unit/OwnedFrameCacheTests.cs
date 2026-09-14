@@ -4,6 +4,7 @@ using System.Collections.Concurrent;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Results;
+using FsusBlog.Shared.Contracts.Outputs;
 
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -252,6 +253,28 @@ public sealed class OwnedFrameCacheTests
     }
 
     [Fact]
+    public async Task InvalidSensitiveL2Frame_IsClearedAfterValidationFailure()
+    {
+        byte[] frame = new AedsEncoder().Encode(AedsFrameType.AdminStats, [7, 8, 9]);
+        frame[^1] ^= 0xff;
+        IDatabase db = Substitute.For<IDatabase>();
+        db.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
+            .Returns(Task.FromResult((RedisValue)frame));
+        db.KeyDeleteAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>()).Returns(Task.FromResult(true));
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        using UnifiedCache cache = CreateCache(memory, db);
+
+        OwnedFrameCacheReadResult read = await cache.TryGetOwnedFrameAsync(
+            CachePolicyId.AdminStatsFrame,
+            "core:main",
+            AedsFrameType.AdminStats);
+
+        Assert.False(read.Hit);
+        Assert.Null(read.Lease);
+        Assert.All(frame, static value => Assert.Equal(0, value));
+    }
+
+    [Fact]
     public async Task MemoryCacheAdmissionFailure_PreservesPreviousOwnerAndCounters()
     {
         var firstPool = new MultiTrackingArrayPool();
@@ -282,28 +305,6 @@ public sealed class OwnedFrameCacheTests
 
         cache.Dispose();
         Assert.True(SpinWait.SpinUntil(() => firstPool.WasReturned(firstBacking), TimeSpan.FromSeconds(5)));
-    }
-
-    [Fact]
-    public async Task InvalidSensitiveL2Frame_IsClearedAfterValidationFailure()
-    {
-        byte[] frame = new AedsEncoder().Encode(AedsFrameType.AdminStats, [7, 8, 9]);
-        frame[^1] ^= 0xff;
-        IDatabase db = Substitute.For<IDatabase>();
-        db.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
-            .Returns(Task.FromResult((RedisValue)frame));
-        db.KeyDeleteAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>()).Returns(Task.FromResult(true));
-        using var memory = new MemoryCache(new MemoryCacheOptions());
-        using UnifiedCache cache = CreateCache(memory, db);
-
-        OwnedFrameCacheReadResult read = await cache.TryGetOwnedFrameAsync(
-            CachePolicyId.AdminStatsFrame,
-            "core:main",
-            AedsFrameType.AdminStats);
-
-        Assert.False(read.Hit);
-        Assert.Null(read.Lease);
-        Assert.All(frame, static value => Assert.Equal(0, value));
     }
 
     [Fact]
@@ -356,15 +357,69 @@ public sealed class OwnedFrameCacheTests
         Assert.Equal(default, cache.GetOwnedFrameResidencySnapshot());
     }
 
+    [Fact]
+    public async Task RelatedReading_TenThousandArticleFramesStayWithinPolicyResidencyBudget()
+    {
+        var policies = new CachePolicyRegistry();
+        Assert.True(policies.TryGet(CachePolicyId.RelatedReading, out CachePolicy policy));
+        IDatabase db = SuccessfulDatabase();
+        db.SetAddAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<CommandFlags>())
+            .Returns(Task.FromResult(true));
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        using UnifiedCache cache = CreateCache(memory, db);
+
+        for (int articleId = 1; articleId <= 10_000; articleId++)
+        {
+            DateTime createdAt = DateTime.UnixEpoch.AddMinutes(articleId);
+            var response = new RelatedReadingResponse(
+                Enumerable.Range(1, 6)
+                    .Select(offset => new RelatedReadingItem(
+                        articleId + offset,
+                        $"Related article {articleId + offset}",
+                        $"Published recommendation summary {offset}",
+                        createdAt.AddMinutes(-offset),
+                        offset % 2 == 0 ? "同分类 / 共同标签" : "全文关键词 / 发布时间接近"))
+                    .ToArray(),
+                new RelatedReadingItem(articleId - 1, "Previous published article", null, createdAt.AddMinutes(-1), "上一篇"),
+                new RelatedReadingItem(articleId + 7, "Next published article", null, createdAt.AddMinutes(1), "下一篇"));
+            OwnedAedsFrame frame = AedsOwnedFrameBuilder.BuildOwned(
+                AedsFrameType.ArticleRelatedReading,
+                writer => PodBinaryCodec.WriteRelatedReading(response, writer));
+            await cache.SetOwnedFrameAsync(
+                CachePolicyId.RelatedReading,
+                RelatedReadingIdentity(articleId),
+                frame);
+        }
+
+        OwnedFrameCacheResidencySnapshot residency = cache.GetOwnedFrameResidencySnapshot();
+        Assert.InRange(residency.EntryCount, 1, policy.L1MaxEntries);
+        Assert.InRange(residency.LogicalBytes, 1, policy.L1MaxLogicalBytes);
+        Assert.InRange(residency.CapacityBytes, 1, policy.L1MaxCapacityBytes);
+        Assert.True(residency.LogicalBytes > residency.EntryCount * 256L);
+
+        static string RelatedReadingIdentity(int articleId)
+            => $"article:{articleId}:publication:1:ranking:1:aeds-frame:2:aeds-schema:1";
+    }
+
     private static UnifiedCache CreateCache(IMemoryCache memory, IDatabase db)
     {
         IConnectionMultiplexer redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(db);
+        var policies = new CachePolicyRegistry();
+        var scope = new DefaultRuntimeKeyScope();
+        var keyResolver = new CacheKeyResolver(
+            policies,
+            scope,
+            NullLogger<CacheKeyResolver>.Instance);
         return new UnifiedCache(
             memory,
+            new PolicyShardedCacheL1Store(policies),
             redis,
-            new CachePolicyRegistry(),
-            new DefaultRuntimeKeyScope(),
+            policies,
+            scope,
+            keyResolver,
+            new CacheSingleFlightCoordinator(keyResolver),
+            new CacheTelemetry(),
             NullLogger<UnifiedCache>.Instance);
     }
 
@@ -456,6 +511,7 @@ public sealed class OwnedFrameCacheTests
 
         public void Dispose() => _inner.Dispose();
     }
+
 }
 
 public sealed class OwnedFrameResponseResultTests

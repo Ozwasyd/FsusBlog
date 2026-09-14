@@ -162,7 +162,8 @@ public sealed class NotificationStreamDeliveryAccountingTests(ITestOutputHelper 
         batch.StreamRangeAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue?>(), Arg.Any<RedisValue?>(), Arg.Any<int?>(),
             Arg.Any<Order>(), Arg.Any<CommandFlags>())
             .Returns(_ => Task.FromException<StreamEntry[]>(new IOException("simulated Redis replay read failure")));
-        var backlog = new NotificationStreamBacklogStore(redis, scope, NullLogger<NotificationStreamBacklogStore>.Instance);
+        var backlog = new NotificationStreamBacklogStore(
+            RedisOperationExecutor.ForTestConnection(redis), scope, NullLogger<NotificationStreamBacklogStore>.Instance);
 
         NotificationStreamReplayBatch? replay = null;
         Exception? failure = await Record.ExceptionAsync(async () =>
@@ -769,7 +770,8 @@ public sealed class NotificationStreamDeliveryAccountingTests(ITestOutputHelper 
         database.StringIncrementAsync(Arg.Any<RedisKey>(), Arg.Any<long>(), Arg.Any<CommandFlags>()).Returns(7L);
         database.StreamAddAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<RedisValue>(), Arg.Any<RedisValue?>(),
             Arg.Any<int?>(), Arg.Any<bool>(), Arg.Any<CommandFlags>()).Returns((RedisValue)"7-0");
-        var backlog = new NotificationStreamBacklogStore(redis, scope, NullLogger<NotificationStreamBacklogStore>.Instance);
+        var backlog = new NotificationStreamBacklogStore(
+            RedisOperationExecutor.ForTestConnection(redis), scope, NullLogger<NotificationStreamBacklogStore>.Instance);
         var queue = NotificationStreamBackpressureTestSupport.CreateQueue();
         var manager = CreateManager();
         return (new RedisNotificationStreamPublisher(backlog, queue, manager, new PolicyTestFrameCodec(),

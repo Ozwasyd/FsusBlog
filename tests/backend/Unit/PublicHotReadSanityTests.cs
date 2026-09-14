@@ -514,7 +514,7 @@ public sealed class PublicHotReadSanityTests
     {
         var registry = new PublicArtifactRevocationRegistry();
         registry.Apply(new PublicArtifactTombstone(42, 7, s_now.ToUnixTimeMilliseconds()));
-        DefaultHttpContext context = Context("/api/binary/article/42.aeds");
+        DefaultHttpContext context = Context("/api/binary/article/42.aeds", attachFeature: true);
         bool nextCalled = false;
 
         await PublicArtifactRevocationMiddleware.TryHandleAsync(
@@ -554,7 +554,7 @@ public sealed class PublicHotReadSanityTests
                 options,
                 new PublicHotReadCounters(Options.Create(options))),
             registry);
-        DefaultHttpContext transitioning = Context("/api/binary/article/42.aeds");
+        DefaultHttpContext transitioning = Context("/api/binary/article/42.aeds", attachFeature: true);
 
         await pipeline(transitioning);
 
@@ -563,7 +563,7 @@ public sealed class PublicHotReadSanityTests
 
         store.Publish(Snapshot(newFrame, s_now, version: 2));
         registry.Clear(tombstone);
-        DefaultHttpContext converged = Context("/api/binary/article/42.aeds");
+        DefaultHttpContext converged = Context("/api/binary/article/42.aeds", attachFeature: true);
 
         await pipeline(converged);
 
@@ -631,12 +631,20 @@ public sealed class PublicHotReadSanityTests
             MaxSnapshotAge = TimeSpan.FromMinutes(5)
         };
 
-    private static DefaultHttpContext Context(string path)
+    private static DefaultHttpContext Context(string path, bool attachFeature = false)
     {
         var context = new DefaultHttpContext();
         context.Request.Method = HttpMethods.Get;
         context.Request.Path = path;
         context.Response.Body = new MemoryStream();
+        if (attachFeature
+            && PublicHotReadFastPath.TryCreateRequestFeatureForTests(
+                context,
+                out PublicHotReadRequestFeature? feature))
+        {
+            context.Features.Set(feature);
+        }
+
         return context;
     }
 

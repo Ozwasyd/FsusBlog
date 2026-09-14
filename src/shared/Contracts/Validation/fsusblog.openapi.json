@@ -5818,6 +5818,27 @@
               "SchemaRef": "route://int",
               "Required": true,
               "Nullable": false
+            },
+            {
+              "Name": "cursor",
+              "Source": "query",
+              "SchemaRef": "query://string",
+              "Required": false,
+              "Nullable": true
+            },
+            {
+              "Name": "keyword",
+              "Source": "query",
+              "SchemaRef": "query://string",
+              "Required": false,
+              "Nullable": true
+            },
+            {
+              "Name": "sort",
+              "Source": "query",
+              "SchemaRef": "query://string",
+              "Required": false,
+              "Nullable": true
             }
           ],
           "FieldSetState": "not-applicable",
@@ -5920,6 +5941,27 @@
               "SchemaRef": "route://int",
               "Required": true,
               "Nullable": false
+            },
+            {
+              "Name": "cursor",
+              "Source": "query",
+              "SchemaRef": "query://string",
+              "Required": false,
+              "Nullable": true
+            },
+            {
+              "Name": "keyword",
+              "Source": "query",
+              "SchemaRef": "query://string",
+              "Required": false,
+              "Nullable": true
+            },
+            {
+              "Name": "sort",
+              "Source": "query",
+              "SchemaRef": "query://string",
+              "Required": false,
+              "Nullable": true
             }
           ],
           "FieldSetState": "not-applicable",
@@ -6015,6 +6057,27 @@
               "SchemaRef": "route://int",
               "Required": true,
               "Nullable": false
+            },
+            {
+              "Name": "cursor",
+              "Source": "query",
+              "SchemaRef": "query://string",
+              "Required": false,
+              "Nullable": true
+            },
+            {
+              "Name": "keyword",
+              "Source": "query",
+              "SchemaRef": "query://string",
+              "Required": false,
+              "Nullable": true
+            },
+            {
+              "Name": "sort",
+              "Source": "query",
+              "SchemaRef": "query://string",
+              "Required": false,
+              "Nullable": true
             }
           ],
           "FieldSetState": "not-applicable",
@@ -6117,6 +6180,27 @@
               "SchemaRef": "route://int",
               "Required": true,
               "Nullable": false
+            },
+            {
+              "Name": "cursor",
+              "Source": "query",
+              "SchemaRef": "query://string",
+              "Required": false,
+              "Nullable": true
+            },
+            {
+              "Name": "keyword",
+              "Source": "query",
+              "SchemaRef": "query://string",
+              "Required": false,
+              "Nullable": true
+            },
+            {
+              "Name": "sort",
+              "Source": "query",
+              "SchemaRef": "query://string",
+              "Required": false,
+              "Nullable": true
             }
           ],
           "FieldSetState": "not-applicable",
@@ -22009,7 +22093,7 @@
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json",
     "endpointContracts": "src/shared/Contracts/Validation/aeds-endpoint-contracts.json"
   },
-  "x-fsus-observation-digest": "e8869afd13054bc3f86c7cdde15cc3a4581447f967665f6268d74da2f13cc4bf",
+  "x-fsus-observation-digest": "c19733e235e322499fdc86033bc138c4a9348086e53f6c5fb817ff8118f78134",
   "x-fsus-protocol-states": {
     "SupportedVersions": [
       2

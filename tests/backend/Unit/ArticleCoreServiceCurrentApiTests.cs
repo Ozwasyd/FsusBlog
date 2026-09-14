@@ -87,6 +87,23 @@ public partial class ArticleCoreServiceTests
     }
 
     [Fact]
+    public async Task GetPageList_PublicPageAndCursorShape_FailsClosedBeforeGateway()
+    {
+        var cursor = new ArticleListCursorPosition(new DateTime(2026, 7, 20, 8, 0, 0, DateTimeKind.Utc), 42);
+
+        Result<CorePageResult<ArticleListCoreModel>> deepWithoutCursor = await Svc().GetPageListAsync(
+            new ArticlePageQuery(2, 10, null, null, false));
+        Result<CorePageResult<ArticleListCoreModel>> firstWithCursor = await Svc().GetPageListAsync(
+            new ArticlePageQuery(1, 10, null, null, false, Cursor: cursor));
+
+        Assert.False(deepWithoutCursor.IsSuccess);
+        Assert.Equal(ErrorCode.Validation, deepWithoutCursor.Error.Code);
+        Assert.False(firstWithCursor.IsSuccess);
+        Assert.Equal(ErrorCode.Validation, firstWithCursor.Error.Code);
+        await _gw.DidNotReceiveWithAnyArgs().GetPageListAsync(default, default);
+    }
+
+    [Fact]
     public async Task GetPageList_AdminOrNonUtcCursor_FailsClosed()
     {
         var utcCursor = new ArticleListCursorPosition(new DateTime(2026, 7, 20, 8, 0, 0, DateTimeKind.Utc), 42);

@@ -105,16 +105,19 @@ public sealed class ActiveReleaseFenceStoreException(string errorCode, string me
 }
 
 public sealed class RedisActiveReleaseFenceStore(
-    IConnectionMultiplexer redis,
+    IRedisOperationExecutor redis,
     IRuntimeKeyScope keyScope) : IActiveReleaseFenceReplicaStore
 {
     private const string FenceKey = "fsus:deployment:active-release-fence:v1";
-    private readonly IDatabase _database = redis.GetDatabase();
 
     public async Task<ActiveReleaseFenceSnapshot> ReadAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        HashEntry[] entries = await _database.HashGetAllAsync(Key()).ConfigureAwait(false);
+        HashEntry[] entries = await redis.ExecuteAsync(
+                RedisOperationPort.ActiveReleaseFence,
+                (multiplexer, _) => multiplexer.GetDatabase().HashGetAllAsync(Key()),
+                cancellationToken)
+            .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         return Parse(entries);
     }
@@ -177,20 +180,23 @@ redis.call('HSET', KEYS[1],
   'revoked_at_unix_ms', '')
 return result(1, 0, 'acquired', '', ARGV[1], ARGV[2], target_generation, ARGV[4], 'active', ARGV[8], '')
 """;
-        RedisResult raw = await _database.ScriptEvaluateAsync(
-                Script,
-                [Key()],
-                [
-                    Normalize(request.ReleaseId),
-                    Normalize(request.Slot),
-                    request.Generation,
-                    Normalize(request.ImageDigest),
-                    Normalize(request.ExpectedReleaseId),
-                    Normalize(request.ExpectedSlot),
-                    request.ExpectedGeneration?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
-                    now.ToUnixTimeMilliseconds(),
-                    request.DryRun ? "1" : "0"
-                ])
+        RedisResult raw = await redis.ExecuteAsync(
+                RedisOperationPort.ActiveReleaseFence,
+                (multiplexer, _) => multiplexer.GetDatabase().ScriptEvaluateAsync(
+                    Script,
+                    [Key()],
+                    [
+                        Normalize(request.ReleaseId),
+                        Normalize(request.Slot),
+                        request.Generation,
+                        Normalize(request.ImageDigest),
+                        Normalize(request.ExpectedReleaseId),
+                        Normalize(request.ExpectedSlot),
+                        request.ExpectedGeneration?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                        now.ToUnixTimeMilliseconds(),
+                        request.DryRun ? "1" : "0"
+                    ]),
+                cancellationToken)
             .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         return ParseOperation(raw, request.DryRun);
@@ -232,16 +238,19 @@ end
 redis.call('HSET', KEYS[1], 'status', 'revoked', 'revoked_at_unix_ms', ARGV[4])
 return result(1, 0, 'revoked', '', 'revoked', ARGV[4])
 """;
-        RedisResult raw = await _database.ScriptEvaluateAsync(
-                Script,
-                [Key()],
-                [
-                    Normalize(request.ReleaseId),
-                    Normalize(request.Slot),
-                    request.Generation,
-                    now.ToUnixTimeMilliseconds(),
-                    request.DryRun ? "1" : "0"
-                ])
+        RedisResult raw = await redis.ExecuteAsync(
+                RedisOperationPort.ActiveReleaseFence,
+                (multiplexer, _) => multiplexer.GetDatabase().ScriptEvaluateAsync(
+                    Script,
+                    [Key()],
+                    [
+                        Normalize(request.ReleaseId),
+                        Normalize(request.Slot),
+                        request.Generation,
+                        now.ToUnixTimeMilliseconds(),
+                        request.DryRun ? "1" : "0"
+                    ]),
+                cancellationToken)
             .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         return ParseOperation(raw, request.DryRun);
@@ -292,19 +301,22 @@ redis.call('HSET', KEYS[1],
   'revoked_at_unix_ms', ARGV[7])
 return exists == 0 and 'restored' or 'updated'
 """;
-        RedisResult raw = await _database.ScriptEvaluateAsync(
-                Script,
-                [Key()],
-                [
-                    Normalize(snapshot.ReleaseId),
-                    Normalize(snapshot.Slot),
-                    snapshot.Generation,
-                    Normalize(snapshot.ImageDigest),
-                    Normalize(snapshot.Status),
-                    snapshot.ActivatedAtUtc?.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture) ?? string.Empty,
-                    snapshot.RevokedAtUtc?.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture) ?? string.Empty,
-                    now.ToUnixTimeMilliseconds()
-                ])
+        RedisResult raw = await redis.ExecuteAsync(
+                RedisOperationPort.ActiveReleaseFence,
+                (multiplexer, _) => multiplexer.GetDatabase().ScriptEvaluateAsync(
+                    Script,
+                    [Key()],
+                    [
+                        Normalize(snapshot.ReleaseId),
+                        Normalize(snapshot.Slot),
+                        snapshot.Generation,
+                        Normalize(snapshot.ImageDigest),
+                        Normalize(snapshot.Status),
+                        snapshot.ActivatedAtUtc?.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                        snapshot.RevokedAtUtc?.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                        now.ToUnixTimeMilliseconds()
+                    ]),
+                cancellationToken)
             .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         string result = raw.ToString() ?? string.Empty;

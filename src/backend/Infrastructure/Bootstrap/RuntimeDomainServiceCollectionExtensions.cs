@@ -201,6 +201,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IAuthoringModerationQueue>(sp => sp.GetRequiredService<AuthoringModerationWorkflowService>());
         services.AddScoped<IAuthoringModerationCommands>(sp => sp.GetRequiredService<AuthoringModerationWorkflowService>());
         services.AddScoped<IAuthoringAuditWriter, AuthoringAuditWriter>();
+        services.AddSingleton<SitemapArtifactCache>();
         services.AddScoped<BlogDistributionService>();
         services.AddScoped<RelatedReadingService>();
         services.AddSingleton<RumTelemetryChannel>();

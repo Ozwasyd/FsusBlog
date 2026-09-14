@@ -163,10 +163,10 @@ public class PublicAotShellContractRulesTests
     }
 
     [Fact]
-    public void NormalizeRouteKey_HomePagination_PreservesNormalizedPageIdentity()
+    public void NormalizeRouteKey_HomePagination_DropsLegacyPageIdentity()
     {
         string result = PublicAotShellContractRules.NormalizeRouteKey(PublicPageId.Home, "home:page:2", null);
-        Assert.Equal("home:page:2", result);
+        Assert.Equal("home", result);
     }
 
     [Fact]

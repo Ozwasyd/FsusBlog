@@ -25,6 +25,9 @@ public sealed class AdminPrincipal
     [SugarColumn(Length = 32)]
     public string Status { get; set; } = AdminPrincipalStatus.Active;
 
+    [SugarColumn(DefaultValue = "1")]
+    public long ValidationVersion { get; set; } = 1;
+
     [SugarColumn(DefaultValue = "false")]
     public bool IsRoot
     {

@@ -11,7 +11,7 @@ const { auditBackendPhysicalTopology } = await import(pathToFileURL(
     join(root, 'tools/architecture/check-backend-physical-topology.mjs')
 ).href);
 const policy = JSON.parse(readFileSync(join(root, 'tests/governance/backend-physical-topology.json'), 'utf8'));
-const expectedCanonicalPolicySha256 = '4678d34b767a80337485c89f63eaf505403964cae9efe32862970dd242c93e39';
+const expectedCanonicalPolicySha256 = '9901b98da7121c61f812c49ad255ed6a90daa6e63d8c7dd197b73c1d66cb497e';
 const fixturePaths = [
     'src/backend/Infrastructure/Bootstrap',
     'src/backend/Services/Authoring',

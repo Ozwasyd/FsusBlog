@@ -12,7 +12,8 @@ public sealed record DistributedInvalidationRequest(
     string Kind,
     IReadOnlyList<string> CacheTags,
     IReadOnlyList<string> RouteKeys,
-    IReadOnlyList<string> ArtifactKeys);
+    IReadOnlyList<string> ArtifactKeys,
+    string? EventId = null);
 
 public enum DistributedInvalidationPublishStatus
 {
@@ -200,6 +201,11 @@ public interface IDistributedInvalidationPublisher
     Task<DistributedInvalidationPublishResult> PublishAsync(
         DistributedInvalidationRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<DistributedInvalidationPublishResult> PublishPreparedAsync(
+        DistributedInvalidationEvent invalidation,
+        CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This distributed invalidation publisher cannot publish a pre-durable event.");
 }
 
 public interface IDistributedInvalidationTransport
@@ -657,7 +663,9 @@ public sealed class DistributedInvalidationEventFactory(
             : runtimeKeyScope.ScopeToken;
         string traceId = Activity.Current?.TraceId.ToString() ?? Guid.NewGuid().ToString("N");
         return DistributedInvalidationEvent.Create(
-            Guid.NewGuid().ToString("N"),
+            string.IsNullOrWhiteSpace(request.EventId)
+                ? Guid.NewGuid().ToString("N")
+                : request.EventId,
             request.Kind,
             options.NodeId,
             runtimeScope,
@@ -849,5 +857,18 @@ public sealed class SingleNodeDistributedInvalidationPublisher : IDistributedInv
             DistributedInvalidationPublishStatus.LocalOnly,
             null,
             "single-mode-local-invalidation-complete"));
+    }
+
+    public Task<DistributedInvalidationPublishResult> PublishPreparedAsync(
+        DistributedInvalidationEvent invalidation,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(invalidation);
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(new DistributedInvalidationPublishResult(
+            DistributedInvalidationPublishStatus.LocalOnly,
+            invalidation.EventId,
+            "single-mode-local-invalidation-complete",
+            invalidation));
     }
 }

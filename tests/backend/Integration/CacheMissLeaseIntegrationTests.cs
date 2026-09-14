@@ -24,84 +24,6 @@ namespace FsusBlog.Server.Tests;
 public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture redis, PostgresSchemaMigrationFixture postgres, Xunit.Abstractions.ITestOutputHelper output) : IClassFixture<PublicHotDeliveryRedisFixture>
 {
     [Theory]
-    [InlineData("valid")]
-    [InlineData("lost")]
-    [InlineData("cancelled")]
-    [InlineData("parent-lost")]
-    [InlineData("owner-exited")]
-    [InlineData("different-connection")]
-    public async Task SortedSetPublication_RequiresEveryLiveLeaseAndPreservesMembers(string scenario)
-    {
-        await using ConnectionMultiplexer connection = await redis.ConnectAsync();
-        using var memory = new MemoryCache(new MemoryCacheOptions());
-        var scope = new TestKeyScope($"eight-cache-seed-{Guid.NewGuid():N}:");
-        using var cache = new UnifiedCache(memory, connection, new CachePolicyRegistry(), scope, NullLogger<UnifiedCache>.Instance);
-        IDatabase db = connection.GetDatabase();
-        string key = scope.PrefixKey("blog:top_articles");
-        string lease = cache.BuildKey(CachePolicyId.TopArticles, "__lease__:seed:10");
-        string parentKey = cache.BuildKey(CachePolicyId.TopArticles, "__lease__:parent");
-        await db.StringSetAsync(lease, "owner", TimeSpan.FromSeconds(10));
-        await db.StringSetAsync(parentKey, "parent", TimeSpan.FromSeconds(10));
-        await db.SortedSetAddAsync(key, "existing", 9);
-        await db.KeyExpireAsync(key, TimeSpan.FromSeconds(30));
-        TimeSpan? before = await db.KeyTimeToLiveAsync(key);
-        using var cancellation = new CancellationTokenSource();
-        using var parent = new CacheRebuildLeaseScope(cache, CachePolicyId.TopArticles, "__lease__:parent", "parent", CancellationToken.None);
-        using var owner = new CacheRebuildLeaseScope(cache, CachePolicyId.TopArticles, "__lease__:seed:10", "owner", cancellation.Token);
-        SortedSetEntry[] entries = [new(new byte[] { 0, 1, 255 }, 12.5), new("42", 7)];
-        if (scenario == "lost")
-        {
-            await db.StringSetAsync(lease, "replacement", TimeSpan.FromSeconds(10));
-        }
-        if (scenario == "parent-lost")
-        {
-            await db.StringSetAsync(parentKey, "replacement", TimeSpan.FromSeconds(10));
-        }
-        if (scenario == "cancelled")
-        {
-            cancellation.Cancel();
-        }
-        if (scenario == "owner-exited")
-        {
-            owner.StopPublishing();
-        }
-        if (scenario == "different-connection")
-        {
-            await using ConnectionMultiplexer other = await redis.ConnectAsync();
-            CacheCoordinationException failure = await Assert.ThrowsAsync<CacheCoordinationException>(() => CacheRebuildLeaseScope.PublishSortedSetAsync(other.GetDatabase(), key, entries, cancellation.Token));
-            Assert.Equal("publication-store-mismatch", failure.Reason);
-            Assert.Equal(new SortedSetEntry("existing", 9), Assert.Single(await db.SortedSetRangeByRankWithScoresAsync(key)));
-        }
-        else if (scenario == "valid")
-        {
-            await CacheRebuildLeaseScope.PublishSortedSetAsync(db, key, entries, cancellation.Token);
-            Assert.Equal(3, await db.SortedSetLengthAsync(key));
-            foreach (SortedSetEntry entry in entries)
-            {
-                Assert.Equal(entry.Score, await db.SortedSetScoreAsync(key, entry.Element));
-            }
-        }
-        else
-        {
-            if (scenario == "cancelled")
-            {
-                await Assert.ThrowsAnyAsync<OperationCanceledException>(() => CacheRebuildLeaseScope.PublishSortedSetAsync(db, key, entries, cancellation.Token));
-            }
-            else
-            {
-                CacheCoordinationException failure = await Assert.ThrowsAsync<CacheCoordinationException>(() => CacheRebuildLeaseScope.PublishSortedSetAsync(db, key, entries, cancellation.Token));
-                Assert.Equal(scenario == "owner-exited" ? "publication-after-owner-exit" : "publication-lease-lost", failure.Reason);
-            }
-            Assert.Equal(new SortedSetEntry("existing", 9), Assert.Single(await db.SortedSetRangeByRankWithScoresAsync(key)));
-        }
-        Assert.Equal(9, await db.SortedSetScoreAsync(key, "existing"));
-        TimeSpan? after = await db.KeyTimeToLiveAsync(key);
-        Assert.NotNull(after);
-        Assert.True(after > TimeSpan.Zero && after <= before);
-        await db.KeyDeleteAsync([key, lease, parentKey]);
-    }
-
-    [Theory]
     [InlineData(100)]
     [InlineData(1000)]
     public async Task SeparateProcesses_ColdKey_ExecuteOneDatabaseCommand(int concurrency)
@@ -133,7 +55,7 @@ public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture
         await using ConnectionMultiplexer connection = await redis.ConnectAsync();
         string prefix = $"eight-cache-crash-{Guid.NewGuid():N}:";
         using var memory = new MemoryCache(new MemoryCacheOptions());
-        using var cache = new UnifiedCache(memory, connection, new CachePolicyRegistry(), new TestKeyScope(prefix), NullLogger<UnifiedCache>.Instance);
+        using var cache = new UnifiedCache(connection, new CachePolicyRegistry(), new TestKeyScope(prefix), NullLogger<UnifiedCache>.Instance);
         string lease = cache.BuildKey(CachePolicyId.SystemPage, "__lease__:value");
         string value = cache.BuildKey(CachePolicyId.SystemPage, "value");
         IDatabase db = connection.GetDatabase();
@@ -184,10 +106,10 @@ public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture
         using var memory = new MemoryCache(new MemoryCacheOptions());
         var policies = new CachePolicyRegistry();
         var scope = new TestKeyScope($"eight-cache-failure-capture-{Guid.NewGuid():N}:");
-        using var cache = new UnifiedCache(memory, connection, policies, scope, NullLogger<UnifiedCache>.Instance);
+        using var cache = new UnifiedCache(connection, policies, scope, NullLogger<UnifiedCache>.Instance);
         using var singleFlight = new CacheSingleFlightCoordinator(new CacheKeyResolver(policies, scope, NullLogger<CacheKeyResolver>.Instance));
         var coordinator = new CacheMissCoordinator(singleFlight, cache, policies, NullLogger<CacheMissCoordinator>.Instance);
-        const CachePolicyId Policy = CachePolicyId.ArticleHotFrame;
+        const CachePolicyId Policy = CachePolicyId.TaxonomyExactMetadataFrame;
         string leaseKey = cache.BuildKey(Policy, "__lease__:value");
         string valueKey = cache.BuildKey(Policy, "value");
         string registryKey = scope.PrefixKey(UnifiedCache.BuildRegistryKeyForTests(Policy));
@@ -254,7 +176,7 @@ public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture
         using var memory = new MemoryCache(new MemoryCacheOptions());
         var policies = new CachePolicyRegistry();
         var scope = new TestKeyScope($"eight-cache-metrics-{Guid.NewGuid():N}:");
-        using var cache = new UnifiedCache(memory, connection, policies, scope, NullLogger<UnifiedCache>.Instance);
+        using var cache = new UnifiedCache(connection, policies, scope, NullLogger<UnifiedCache>.Instance);
         using var singleFlight = new CacheSingleFlightCoordinator(new CacheKeyResolver(policies, scope, NullLogger<CacheKeyResolver>.Instance));
         var coordinator = new CacheMissCoordinator(singleFlight, cache, policies, NullLogger<CacheMissCoordinator>.Instance);
         using Activity activity = new Activity("cache-coordination-test").Start();
@@ -316,10 +238,10 @@ public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture
         using var memory = new MemoryCache(new MemoryCacheOptions());
         var policies = new CachePolicyRegistry();
         var scope = new TestKeyScope($"eight-cache-write-failure-{Guid.NewGuid():N}:");
-        using var cache = new UnifiedCache(memory, connection, policies, scope, NullLogger<UnifiedCache>.Instance);
+        using var cache = new UnifiedCache(connection, policies, scope, NullLogger<UnifiedCache>.Instance);
         using var singleFlight = new CacheSingleFlightCoordinator(new CacheKeyResolver(policies, scope, NullLogger<CacheKeyResolver>.Instance));
         var coordinator = new CacheMissCoordinator(singleFlight, cache, policies, NullLogger<CacheMissCoordinator>.Instance);
-        const CachePolicyId Policy = CachePolicyId.ArticleHotFrame;
+        const CachePolicyId Policy = CachePolicyId.TaxonomyExactMetadataFrame;
         string registryKey = scope.PrefixKey(UnifiedCache.BuildRegistryKeyForTests(Policy));
         string valueKey = cache.BuildKey(Policy, "value");
         string leaseKey = cache.BuildKey(Policy, "__lease__:value");
@@ -354,7 +276,7 @@ public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture
         using var memory = new MemoryCache(new MemoryCacheOptions());
         var policies = new CachePolicyRegistry();
         var scope = new TestKeyScope($"eight-cache-renew-success-{Guid.NewGuid():N}:");
-        using var cache = new UnifiedCache(memory, connection, policies, scope, NullLogger<UnifiedCache>.Instance);
+        using var cache = new UnifiedCache(connection, policies, scope, NullLogger<UnifiedCache>.Instance);
         using var singleFlight = new CacheSingleFlightCoordinator(new CacheKeyResolver(policies, scope, NullLogger<CacheKeyResolver>.Instance));
         var coordinator = new CacheMissCoordinator(singleFlight, cache, policies, NullLogger<CacheMissCoordinator>.Instance);
         string valueKey = cache.BuildKey(CachePolicyId.SystemPage, "value");
@@ -390,7 +312,7 @@ public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture
         using var memory = new MemoryCache(new MemoryCacheOptions());
         var policies = new CachePolicyRegistry();
         var scope = new DefaultRuntimeKeyScope();
-        using var cache = new UnifiedCache(memory, connection, policies, scope, NullLogger<UnifiedCache>.Instance);
+        using var cache = new UnifiedCache(connection, policies, scope, NullLogger<UnifiedCache>.Instance);
         using var singleFlight = new CacheSingleFlightCoordinator(new CacheKeyResolver(policies, scope, NullLogger<CacheKeyResolver>.Instance));
         var coordinator = new CacheMissCoordinator(singleFlight, cache, policies, NullLogger<CacheMissCoordinator>.Instance);
         string identity = $"eight-cache-profile-{Guid.NewGuid():N}";
@@ -423,6 +345,199 @@ public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture
         }
     }
 
+    [Fact]
+    public async Task ArticleHotFrame_ColdLeaderPublishesAtomicallyWithoutRegistryAndL1HitUsesNoRedis()
+    {
+        await using ConnectionMultiplexer connection = await redis.ConnectAsync();
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var policies = new CachePolicyRegistry();
+        var scope = new TestKeyScope($"eight-cache-hot-frame-{Guid.NewGuid():N}:");
+        using var cache = new UnifiedCache(connection, policies, scope, NullLogger<UnifiedCache>.Instance);
+        using var singleFlight = new CacheSingleFlightCoordinator(new CacheKeyResolver(policies, scope, NullLogger<CacheKeyResolver>.Instance));
+        var coordinator = new CacheMissCoordinator(singleFlight, cache, policies, NullLogger<CacheMissCoordinator>.Instance);
+        string identity = "v1:frame:article-hot:aeds-v2:ranking-v1:count:10";
+        Assert.Equal(1, await cache.IncrementAsync(
+            CachePolicyId.AdminStats,
+            IHotArticlesCacheVersionProvider.AuthorityCounterIdentity));
+        var activeProfile = new ProfilingSession();
+        connection.RegisterProfiler(() => activeProfile);
+        OwnedAedsFrameReadLease? response = null;
+        try
+        {
+            response = await coordinator.CoordinateAsync<OwnedAedsFrameReadLease>(
+                CachePolicyId.ArticleHotFrame,
+                identity,
+                async token =>
+                {
+                    OwnedFrameCacheReadResult read = await cache.TryGetOwnedFrameAsync(
+                        CachePolicyId.ArticleHotFrame,
+                        identity,
+                        AedsFrameType.ArticleHot,
+                        token);
+                    return new CacheReadResult<OwnedAedsFrameReadLease>(read.Hit, read.Lease);
+                },
+                async token =>
+                {
+                    OwnedAedsFrame frame = AedsOwnedFrameBuilder.BuildOwned(
+                        AedsFrameType.ArticleHot,
+                        writer => PodBinaryCodec.WritePopularArticles([], writer));
+                    OwnedAedsFrameReadLease lease = frame.AcquireReadLease();
+                    Assert.True(await cache.TrySetOwnedFrameAsync(
+                        CachePolicyId.ArticleHotFrame,
+                        identity,
+                        frame,
+                        new OwnedFramePublicationGuard(
+                            CachePolicyId.AdminStats,
+                            IHotArticlesCacheVersionProvider.AuthorityCounterIdentity,
+                            1),
+                        cancellationToken: token));
+                    return lease;
+                },
+                "article-hot-frame");
+
+            Assert.NotNull(response);
+            string[] coldCommands = activeProfile.FinishProfiling().Select(command => command.Command).ToArray();
+            Assert.Equal(2, coldCommands.Count(command => command == "GET"));
+            Assert.Equal(1, coldCommands.Count(command => command == "SET"));
+            Assert.Equal(2, coldCommands.Count(command => command is "EVAL" or "EVALSHA"));
+            Assert.DoesNotContain("SADD", coldCommands);
+            Assert.False(await connection.GetDatabase().KeyExistsAsync(scope.PrefixKey(UnifiedCache.BuildRegistryKeyForTests(CachePolicyId.ArticleHotFrame))));
+
+            activeProfile = new ProfilingSession();
+            OwnedFrameCacheReadResult l1 = await cache.TryGetOwnedFrameAsync(
+                CachePolicyId.ArticleHotFrame,
+                identity,
+                AedsFrameType.ArticleHot);
+            Assert.True(l1.Hit);
+            l1.Lease!.Dispose();
+            Assert.Empty(activeProfile.FinishProfiling());
+        }
+        finally
+        {
+            response?.Dispose();
+            await cache.RemoveAsync(CachePolicyId.ArticleHotFrame, identity);
+            await cache.RemoveAsync(CachePolicyId.AdminStats, IHotArticlesCacheVersionProvider.AuthorityCounterIdentity);
+        }
+    }
+
+    [Fact]
+    public async Task ArticleHotFrame_GenerationDriftIsRejectedAtPublicationLinearizationPoint()
+    {
+        await using ConnectionMultiplexer connection = await redis.ConnectAsync();
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var policies = new CachePolicyRegistry();
+        var scope = new TestKeyScope($"eight-cache-hot-frame-drift-{Guid.NewGuid():N}:");
+        using var cache = new UnifiedCache(connection, policies, scope, NullLogger<UnifiedCache>.Instance);
+        using var singleFlight = new CacheSingleFlightCoordinator(new CacheKeyResolver(policies, scope, NullLogger<CacheKeyResolver>.Instance));
+        var coordinator = new CacheMissCoordinator(singleFlight, cache, policies, NullLogger<CacheMissCoordinator>.Instance);
+        const string Identity = "v1:frame:article-hot:aeds-v2:ranking-v1:count:10";
+
+        Assert.Equal(1, await cache.IncrementAsync(
+            CachePolicyId.AdminStats,
+            IHotArticlesCacheVersionProvider.AuthorityCounterIdentity));
+        try
+        {
+            bool? published = await coordinator.CoordinateAsync<bool>(
+                CachePolicyId.ArticleHotFrame,
+                Identity,
+                _ => Task.FromResult(new CacheReadResult<bool>(false, default)),
+                async token =>
+                {
+                    Assert.Equal(2, await cache.IncrementAsync(
+                        CachePolicyId.AdminStats,
+                        IHotArticlesCacheVersionProvider.AuthorityCounterIdentity,
+                        cancellationToken: token));
+                    OwnedAedsFrame frame = AedsOwnedFrameBuilder.BuildOwned(
+                        AedsFrameType.ArticleHot,
+                        writer => PodBinaryCodec.WritePopularArticles([], writer));
+                    return await cache.TrySetOwnedFrameAsync(
+                        CachePolicyId.ArticleHotFrame,
+                        Identity,
+                        frame,
+                        new OwnedFramePublicationGuard(
+                            CachePolicyId.AdminStats,
+                            IHotArticlesCacheVersionProvider.AuthorityCounterIdentity,
+                            1),
+                        cancellationToken: token);
+                },
+                "article-hot-frame-generation-drift");
+
+            Assert.False(published);
+            Assert.False(await connection.GetDatabase().KeyExistsAsync(cache.BuildKey(CachePolicyId.ArticleHotFrame, Identity)));
+            OwnedFrameCacheReadResult local = await cache.TryGetOwnedFrameAsync(
+                CachePolicyId.ArticleHotFrame,
+                Identity,
+                AedsFrameType.ArticleHot);
+            Assert.False(local.Hit);
+        }
+        finally
+        {
+            await cache.RemoveAsync(CachePolicyId.ArticleHotFrame, Identity);
+            await cache.RemoveAsync(CachePolicyId.AdminStats, IHotArticlesCacheVersionProvider.AuthorityCounterIdentity);
+        }
+    }
+
+    [Fact]
+    public async Task ArticleHotFrame_TwoNodesSameGenerationExecuteOneWholeBuild()
+    {
+        await using ConnectionMultiplexer connection = await redis.ConnectAsync();
+        using var firstMemory = new MemoryCache(new MemoryCacheOptions());
+        using var secondMemory = new MemoryCache(new MemoryCacheOptions());
+        var policies = new CachePolicyRegistry();
+        var scope = new TestKeyScope($"eight-cache-hot-frame-two-node-{Guid.NewGuid():N}:");
+        using var firstCache = new UnifiedCache(connection, policies, scope, NullLogger<UnifiedCache>.Instance);
+        using var secondCache = new UnifiedCache(connection, policies, scope, NullLogger<UnifiedCache>.Instance);
+        using var firstSingleFlight = new CacheSingleFlightCoordinator(new CacheKeyResolver(policies, scope, NullLogger<CacheKeyResolver>.Instance));
+        using var secondSingleFlight = new CacheSingleFlightCoordinator(new CacheKeyResolver(policies, scope, NullLogger<CacheKeyResolver>.Instance));
+        var firstCoordinator = new CacheMissCoordinator(firstSingleFlight, firstCache, policies, NullLogger<CacheMissCoordinator>.Instance);
+        var secondCoordinator = new CacheMissCoordinator(secondSingleFlight, secondCache, policies, NullLogger<CacheMissCoordinator>.Instance);
+        const string Identity = "v7:frame:article-hot:aeds-v2:ranking-v1:count:50";
+        int wholeBuilds = 0;
+
+        async Task<OwnedAedsFrameReadLease?> ExecuteAsync(UnifiedCache cache, CacheMissCoordinator coordinator)
+            => await coordinator.CoordinateAsync<OwnedAedsFrameReadLease>(
+                CachePolicyId.ArticleHotFrame,
+                Identity,
+                async token =>
+                {
+                    OwnedFrameCacheReadResult read = await cache.TryGetOwnedFrameAsync(
+                        CachePolicyId.ArticleHotFrame,
+                        Identity,
+                        AedsFrameType.ArticleHot,
+                        token);
+                    return new CacheReadResult<OwnedAedsFrameReadLease>(read.Hit, read.Lease);
+                },
+                async token =>
+                {
+                    Interlocked.Increment(ref wholeBuilds);
+                    await Task.Delay(100, token);
+                    OwnedAedsFrame frame = AedsOwnedFrameBuilder.BuildOwned(
+                        AedsFrameType.ArticleHot,
+                        writer => PodBinaryCodec.WritePopularArticles([], writer));
+                    OwnedAedsFrameReadLease lease = frame.AcquireReadLease();
+                    await cache.SetOwnedFrameAsync(CachePolicyId.ArticleHotFrame, Identity, frame, cancellationToken: token);
+                    return lease;
+                },
+                "article-hot-frame-two-node");
+
+        Task<OwnedAedsFrameReadLease?> first = ExecuteAsync(firstCache, firstCoordinator);
+        Task<OwnedAedsFrameReadLease?> second = ExecuteAsync(secondCache, secondCoordinator);
+        OwnedAedsFrameReadLease?[] results = await Task.WhenAll(first, second);
+        try
+        {
+            Assert.Equal(1, Volatile.Read(ref wholeBuilds));
+            Assert.All(results, Assert.NotNull);
+        }
+        finally
+        {
+            foreach (OwnedAedsFrameReadLease? result in results)
+            {
+                result?.Dispose();
+            }
+            await firstCache.RemoveAsync(CachePolicyId.ArticleHotFrame, Identity);
+        }
+    }
+
     [Theory]
     [InlineData("string")]
     [InlineData("negative")]
@@ -431,12 +546,12 @@ public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture
     {
         await using ConnectionMultiplexer connection = await redis.ConnectAsync();
         using var memory = new MemoryCache(new MemoryCacheOptions());
-        using var cache = new UnifiedCache(memory, connection, new CachePolicyRegistry(), new DefaultRuntimeKeyScope(), NullLogger<UnifiedCache>.Instance);
+        using var cache = new UnifiedCache(connection, new CachePolicyRegistry(), new DefaultRuntimeKeyScope(), NullLogger<UnifiedCache>.Instance);
         var resolver = new CacheKeyResolver(new CachePolicyRegistry(), new DefaultRuntimeKeyScope(), NullLogger<CacheKeyResolver>.Instance);
         using var singleFlight = new CacheSingleFlightCoordinator(resolver);
         var coordinator = new CacheMissCoordinator(singleFlight, cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
         string identity = $"eight-cache-fence-{Guid.NewGuid():N}";
-        CachePolicyId policy = kind == "owned" ? CachePolicyId.ArticleListFrame : CachePolicyId.SystemPage;
+        CachePolicyId policy = kind == "owned" ? CachePolicyId.ArticleHotFrame : CachePolicyId.SystemPage;
         string leaseKey = cache.BuildKey(policy, $"__lease__:{identity}");
         string valueKey = cache.BuildKey(policy, identity);
         IDatabase db = connection.GetDatabase();
@@ -456,7 +571,7 @@ public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture
                     {
                         using var writer = new AedsFrameBufferWriter(128);
                         writer.Write(new byte[8]);
-                        writer.Seal(AedsFrameType.ArticleList);
+                        writer.Seal(AedsFrameType.ArticleHot);
                         await cache.SetOwnedFrameAsync(policy, identity, writer.DetachOwnedFrame(), cancellationToken: CancellationToken.None);
                     }
                     else
@@ -496,8 +611,8 @@ public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture
         using var memoryB = new MemoryCache(new MemoryCacheOptions());
         var policies = new CachePolicyRegistry();
         var scope = new DefaultRuntimeKeyScope();
-        using var cacheA = new UnifiedCache(memoryA, connection, policies, scope, NullLogger<UnifiedCache>.Instance);
-        using var cacheB = new UnifiedCache(memoryB, connection, policies, scope, NullLogger<UnifiedCache>.Instance);
+        using var cacheA = new UnifiedCache(connection, policies, scope, NullLogger<UnifiedCache>.Instance);
+        using var cacheB = new UnifiedCache(connection, policies, scope, NullLogger<UnifiedCache>.Instance);
         var resolver = new CacheKeyResolver(policies, scope, NullLogger<CacheKeyResolver>.Instance);
         using var singleA = new CacheSingleFlightCoordinator(resolver);
         using var singleB = new CacheSingleFlightCoordinator(resolver);
@@ -557,7 +672,7 @@ public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture
         using var memory = new MemoryCache(new MemoryCacheOptions());
         var policies = new CachePolicyRegistry();
         var scope = new DefaultRuntimeKeyScope();
-        using var cache = new UnifiedCache(memory, connection, policies, scope, NullLogger<UnifiedCache>.Instance);
+        using var cache = new UnifiedCache(connection, policies, scope, NullLogger<UnifiedCache>.Instance);
         using var singleFlight = new CacheSingleFlightCoordinator(new CacheKeyResolver(policies, scope, NullLogger<CacheKeyResolver>.Instance));
         var coordinator = new CacheMissCoordinator(singleFlight, cache, policies, NullLogger<CacheMissCoordinator>.Instance);
         string identity = $"eight-cache-renew-loss-{Guid.NewGuid():N}";
@@ -595,11 +710,11 @@ public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture
         using var memory = new MemoryCache(new MemoryCacheOptions());
         var policies = new CachePolicyRegistry();
         var scope = new DefaultRuntimeKeyScope();
-        using var cache = new UnifiedCache(memory, connection, policies, scope, NullLogger<UnifiedCache>.Instance);
+        using var cache = new UnifiedCache(connection, policies, scope, NullLogger<UnifiedCache>.Instance);
         using var singleFlight = new CacheSingleFlightCoordinator(new CacheKeyResolver(policies, scope, NullLogger<CacheKeyResolver>.Instance));
         var coordinator = new CacheMissCoordinator(singleFlight, cache, policies, NullLogger<CacheMissCoordinator>.Instance);
         string identity = $"eight-cache-registry-{Guid.NewGuid():N}";
-        const CachePolicyId Policy = CachePolicyId.ArticleHotFrame;
+        const CachePolicyId Policy = CachePolicyId.TaxonomyExactMetadataFrame;
         string valueKey = cache.BuildKey(Policy, identity);
         string registryKey = UnifiedCache.BuildRegistryKeyForTests(Policy);
         IDatabase db = connection.GetDatabase();
@@ -634,8 +749,8 @@ public sealed class CacheMissLeaseIntegrationTests(PublicHotDeliveryRedisFixture
         using var otherMemory = new MemoryCache(new MemoryCacheOptions());
         var policies = new CachePolicyRegistry();
         var scope = new DefaultRuntimeKeyScope();
-        using var cache = new UnifiedCache(memory, connection, policies, scope, NullLogger<UnifiedCache>.Instance);
-        using var other = new UnifiedCache(otherMemory, connection, policies, scope, NullLogger<UnifiedCache>.Instance);
+        using var cache = new UnifiedCache(connection, policies, scope, NullLogger<UnifiedCache>.Instance);
+        using var other = new UnifiedCache(connection, policies, scope, NullLogger<UnifiedCache>.Instance);
         string identity = $"eight-cache-nested-{Guid.NewGuid():N}";
         string leaseKey = cache.BuildKey(CachePolicyId.SystemPage, identity);
         string childKey = cache.BuildKey(CachePolicyId.SystemPage, $"{identity}-child");

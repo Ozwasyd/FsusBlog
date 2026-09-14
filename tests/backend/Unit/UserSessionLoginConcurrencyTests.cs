@@ -1,6 +1,7 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
@@ -257,6 +258,7 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
             Status = 0,
             PrivacyInitializedAt = DateTime.UtcNow
         };
+        user.AccountSubjectHash = AccountSubjectHasher.Create(user);
         user.Id = await db.Insertable(user).ExecuteReturnIdentityAsync();
         return user;
     }
@@ -297,8 +299,8 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
         => new(
             db,
             NullLogger<UserProfileCommandService>.Instance,
-            Substitute.For<IBlacklistService>(),
+            Substitute.For<IBanStateProjectionObligationCoordinator>(),
             Substitute.For<ICacheInvalidationStore>(),
-            Substitute.For<ICacheCounterStore>(),
+            Substitute.For<IAccountStateProjectionMutationPublisher>(),
             Substitute.For<IUserSessionValidationCache>());
 }
