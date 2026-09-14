@@ -3,6 +3,7 @@ using System.Reflection;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Fixtures;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
@@ -19,6 +20,8 @@ public sealed class TemporalBusinessClockBindingTests
     [InlineData(typeof(PublicHotArtifactProjector))]
     [InlineData(typeof(ArticleDetailAedsArtifactProjector))]
     [InlineData(typeof(ArticleDetailAedsArtifactMaintenanceService))]
+    [InlineData(typeof(ArticleService))]
+    [InlineData(typeof(ArticleMutationSideEffectCoordinator))]
     public void CorrectnessProjector_UsesInjectedBusinessClock(Type runtimeType)
     {
         Assert.Contains(
