@@ -29,6 +29,7 @@ import {
   type ArticleWriteInspectorView
 } from '@/composables/useArticleWriteInspector'
 import {
+  ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE,
   ArticleRecoveryCoordinator,
   articleRecoveryJournal,
   articleRecoverySourceHash,
@@ -580,6 +581,7 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
                 h('p', recoveryCandidates.value.length > 1
                   ? '不同标签页各自保留版本，没有 last-write-wins。请选择一个版本恢复或逐个丢弃。'
                   : '此正文尚未得到服务端确认。恢复只替换当前表单正文，随后继续现有自动保存。'),
+                h('p', ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE),
                 h('fieldset', {
                   'aria-label': '选择要恢复的未同步正文版本'
                 }, recoveryCandidates.value.map((candidate, index) => h('label', {

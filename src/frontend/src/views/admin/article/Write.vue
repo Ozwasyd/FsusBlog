@@ -60,6 +60,12 @@
                             <p class="write-draft-description">
                                 {{ draftStatusText ? `${draftStatusText}。` : '' }}{{ pendingDraftDescription }}
                             </p>
+                            <p
+                                v-if="hasArticleRecoveryCandidates"
+                                class="write-recovery-privacy"
+                            >
+                                {{ articleRecoveryPrivacyNotice }}
+                            </p>
                             <fieldset
                                 v-if="hasArticleRecoveryCandidates"
                                 class="write-recovery-candidates"
@@ -719,7 +725,7 @@
             :close-on-click-modal="false"
         >
             <p class="text-sm text-[var(--fsusblog-text-secondary)]">
-                服务端草稿仍是长期权威。浏览器会在 12 小时内短期保留有界的未确认正文；返回编辑页后如存在额外内容，会要求你明确恢复或丢弃。
+                服务端草稿仍是长期权威。未确认正文以明文暂存在本机浏览器，未加密，最长 7 天，服务端确认后即删除；返回编辑页后如存在额外内容，会要求你明确恢复或丢弃。
             </p>
             <template #footer>
                 <div class="grid grid-cols-2 gap-4">
@@ -761,9 +767,12 @@ import {
     useArticleWriteInspector,
     type ArticleWriteInspectorView
 } from '@/composables/useArticleWriteInspector';
+import { ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE } from '@/services/articleRecoveryJournal';
 import { showErrorToast } from '@/utils/errorPresentation';
 
 defineOptions({ name: 'ArticleWriteView' });
+
+const articleRecoveryPrivacyNotice = ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE;
 
 type SubmitChecklistState = 'pass' | 'warning';
 
@@ -1154,6 +1163,15 @@ const submitQuickCreateTag = async (): Promise<void> =>
     margin: 0;
     color: var(--fsusblog-text-tertiary);
     font-size: 14px;
+    font-weight: 500;
+    line-height: 1.55;
+}
+
+.write-recovery-privacy
+ {
+    margin: 0.5rem 0 0;
+    color: var(--fsusblog-text-tertiary);
+    font-size: 12px;
     font-weight: 500;
     line-height: 1.55;
 }

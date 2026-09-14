@@ -183,11 +183,13 @@ async function readJournal(page)
                             {
                                 throw new Error('browser_probe_raw_body_persisted');
                             }
-                            if (record.payloadCodec !== 'gzip-v1'
+                            if (record.schema !== 'fsusblog.article-recovery-journal.v2'
+                            || record.payloadCodec !== 'utf8-v1'
                             || !(record.payload instanceof Uint8Array)
-                            || record.payload.byteLength !== record.storedBytes)
+                            || record.payload.byteLength !== record.storedBytes
+                            || record.storedBytes !== record.contentBytes)
                             {
-                                throw new Error('browser_probe_compressed_payload_contract_mismatch');
+                                throw new Error('browser_probe_plaintext_payload_contract_mismatch');
                             }
                             return {
                                 articleKey: record.articleKey,
