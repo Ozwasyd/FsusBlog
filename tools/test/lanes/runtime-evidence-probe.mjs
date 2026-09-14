@@ -12,6 +12,26 @@ import { validateMeasurementNoiseReceipt } from '../measurement-noise-envelope.m
 import { bindReleaseReliabilityEvidence } from '../release-reliability-evidence-binding.mjs';
 
 import { fetchRouteSample, producerRouteIds, routeCatalogDigest, routeContract } from './runtime-http-route-contract.mjs';
+import {
+    decodeAedsFrame,
+    decodeArticlePage,
+    decodeArticleDetail,
+    decodeTaxonomyList,
+    decodeSearchManifest,
+    decodeSearchShard,
+    decodeCommentArticleCursor,
+    decodePublicAotPayload
+} from '../../data-scale/aeds-decoders.mjs';
+import {
+    DATA_SCALE_SEMANTIC_PROOF_SCHEMA,
+    REQUIRED_KINDS,
+    verifyDatabaseProof,
+    verifyHttpPayloadProof,
+    verifySearchProof,
+    verifyAotProof,
+    verifyHotReadProof,
+    buildSemanticProofReceipt
+} from '../../data-scale/semantic-proof.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../../..'));
 if (!process.env.FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID && process.argv[2] !== 'data-scale')
@@ -381,6 +401,7 @@ async function fetchPathSample(relativePath, options = {})
             ok: response.status >= 200 && response.status < 400,
             elapsedMs: Number(elapsedMs.toFixed(3)),
             bytes: body.byteLength,
+            body: options.includeBody ? new Uint8Array(body) : null,
             errorBody: response.status >= 400 && body.byteLength <= 16384
                 ? new TextDecoder().decode(body)
                 : null,
@@ -989,14 +1010,18 @@ function buildDataScaleArtifactEvidence({
     };
     const entries = Object.entries(rebuilds);
     const missing = entries.filter(([, value]) => value.status === 'missing').map(([key]) => key);
+    const unsupported = entries.filter(([, value]) => value.status === 'unsupported').map(([key]) => key);
     const ok = entries.filter(([, value]) => value.status === 'ok').map(([key]) => key);
-    const status = seedMatches && missing.length === 0 && ok.length > 0 ? 'ok' : 'missing';
+    const allRequiredOk = ['search', 'aot', 'hotRead'].every((kind) => rebuilds[kind]?.status === 'ok');
+    const status = seedMatches && allRequiredOk ? 'ok' : 'failed';
     const seedReason = seedMatches
         ? null
         : `data-scale artifact rebuild hook missing seed evidence for ${namespace}/${tier}`;
-    const missingReason = missing.length > 0
-        ? `data-scale artifact rebuild hook missing: ${missing.join(', ')}`
-        : null;
+    const failureReason = unsupported.length > 0
+        ? `data-scale artifact rebuild hook unsupported kinds: ${unsupported.join(', ')}`
+        : missing.length > 0
+            ? `data-scale artifact rebuild hook missing: ${missing.join(', ')}`
+            : null;
 
     return {
         status,
@@ -1014,7 +1039,7 @@ function buildDataScaleArtifactEvidence({
         missing,
         artifactCount: entries.reduce((total, [, value]) => total + Number(value.artifactCount ?? 0), 0),
         sizeBytes: entries.reduce((total, [, value]) => total + Number(value.sizeBytes ?? 0), 0),
-        reason: seedReason ?? missingReason,
+        reason: seedReason ?? failureReason,
         generatedAt
     };
 }
@@ -4500,11 +4525,13 @@ async function dataScale(tier, outFile)
         process.env.FSUSBLOG_DATA_SCALE_REQUESTS,
         tier === 'scale-xs' ? 6 : 12
     );
-    const concurrency = positiveInt(process.env.FSUSBLOG_DATA_SCALE_CONCURRENCY, 2);
-    const seedFile = path.join(root, '.tmp', 'scale', tier, 'seed.json');
+    const scaleRoot = process.env.FSUSBLOG_DATA_SCALE_ROOT
+        ? path.resolve(root, process.env.FSUSBLOG_DATA_SCALE_ROOT)
+        : path.join(root, '.tmp', 'scale');
+    const seedFile = path.join(scaleRoot, tier, 'seed.json');
     const artifactEvidenceFile = process.env.FSUSBLOG_DATA_SCALE_ARTIFACT_EVIDENCE
         ? path.resolve(root, process.env.FSUSBLOG_DATA_SCALE_ARTIFACT_EVIDENCE)
-        : path.join(root, '.tmp', 'scale', tier, 'artifact-rebuild.json');
+        : path.join(scaleRoot, tier, 'artifact-rebuild.json');
     const seed = readOptionalJson(seedFile);
     const seedArtifactEvidence = readOptionalJson(artifactEvidenceFile);
     const postgresContainer = process.env.FSUSBLOG_POSTGRES_CONTAINER_NAME;
@@ -4543,10 +4570,54 @@ async function dataScale(tier, outFile)
     && seedObserved.articles === articles
     && seedObserved.comments === comments;
 
+    const seedReceiptFile = path.join(scaleRoot, tier, 'seed-receipt.json');
+    const seedReceipt = readOptionalJson(seedReceiptFile);
+    const canaries = seedReceipt?.canaries ?? seed?.canaries ?? {
+        article: {
+            id: 1,
+            title: `${prefix}:article:1`,
+            searchToken: 'data-scale-search-1',
+            publicStatus: 'published'
+        },
+        category: {
+            id: 10,
+            name: `${prefix}:category:1`
+        },
+        tag: {
+            id: 20,
+            name: `${prefix}:tag:1`
+        },
+        comment: {
+            id: comments > 0 ? 100 : null,
+            articleId: 1,
+            contentPrefix: `${prefix}:comment:`
+        }
+    };
+    const canaryArticleId = canaries?.article?.id ?? 1;
+
+    const dataScaleRunId = process.env.FSUSBLOG_DATA_SCALE_RUN_ID
+        || seedReceipt?.dataScaleRunId
+        || seed?.dataScaleRunId
+        || 'run-default';
+    const runtimeReceipt = runtimeReceiptPath ? readOptionalJson(path.resolve(root, runtimeReceiptPath)) : null;
+    const runtimeLeaseDigest = runtimeReceipt?.contentDigest || runtimeReceipt?.leaseDigest || '';
+    const seedReceiptDigest = seedReceipt?.contentDigest || seed?.contentDigest || '';
+    const runtimeLease = { dataScaleRunId, runtimeLeaseDigest, seedReceiptDigest };
+
     if (!seedMatches)
     {
-        writeReleaseReliabilityAuthority(outFile, {
-            status: 'failed',
+        const failReceipt = buildSemanticProofReceipt({
+            dataScaleRunId,
+            runtimeLeaseDigest,
+            seedReceiptDigest,
+            canaries,
+            results: {
+                database: { status: 'failed', errors: ['data-scale seed summary missing or mismatched'], assertionIds: ['data-scale.database.counts'] },
+                httpPayload: { status: 'missing', errors: ['seed_mismatched'], assertionIds: [] },
+                search: { status: 'missing', errors: ['seed_mismatched'], assertionIds: [] },
+                aot: { status: 'missing', errors: ['seed_mismatched'], assertionIds: [] },
+                hotRead: { status: 'missing', errors: ['seed_mismatched'], assertionIds: [] }
+            },
             tier,
             namespace,
             seedManifest: seed ?? null,
@@ -4554,13 +4625,20 @@ async function dataScale(tier, outFile)
             error: `data-scale seed summary missing or mismatched: ${path.relative(root, seedFile)}`,
             generatedAt: nowIso()
         });
+        writeReleaseReliabilityAuthority(outFile, failReceipt);
         throw new Error(`data-scale seed summary missing or mismatched for ${tier}/${namespace}`);
     }
 
     let probe;
     try
     {
-        probe = await runHttpProbe(['/api/binary/article/list/home/1/10.aeds', '/api/binary/category', '/api/binary/tag'], {
+        probe = await runHttpProbe([
+            '/api/binary/article/list/home/1/10.aeds',
+            '/api/binary/category',
+            '/api/binary/tag',
+            `/api/binary/article/${canaryArticleId}.aeds`,
+            `/api/binary/comment/${canaryArticleId}`
+        ], {
             iterations: requests,
             concurrency
         });
@@ -4584,6 +4662,85 @@ async function dataScale(tier, outFile)
             generatedAt: nowIso()
         };
     }
+
+    const [
+        articleListSample,
+        categorySample,
+        tagSample,
+        articleDetailSample,
+        commentCursorSample
+    ] = await Promise.all([
+        fetchPathSample('/api/binary/article/list/home/1/10.aeds', { includeBody: true }),
+        fetchPathSample('/api/binary/category', { includeBody: true }),
+        fetchPathSample('/api/binary/tag', { includeBody: true }),
+        fetchPathSample(`/api/binary/article/${canaryArticleId}.aeds`, { includeBody: true }),
+        fetchPathSample(`/api/binary/comment/${canaryArticleId}`, { includeBody: true })
+    ]);
+
+    let articleListDecoded = null;
+    let categoryListDecoded = null;
+    let tagListDecoded = null;
+    let articleDetailDecoded = null;
+    let commentCursorDecoded = null;
+
+    try
+    {
+        if (articleListSample?.body)
+        {
+            const frame = decodeAedsFrame(articleListSample.body);
+            articleListDecoded = decodeArticlePage(frame.payload);
+        }
+    }
+    catch { /* verifier handles missing */ }
+
+    try
+    {
+        if (categorySample?.body)
+        {
+            const frame = decodeAedsFrame(categorySample.body);
+            categoryListDecoded = decodeTaxonomyList(frame.payload);
+        }
+    }
+    catch { /* verifier handles missing */ }
+
+    try
+    {
+        if (tagSample?.body)
+        {
+            const frame = decodeAedsFrame(tagSample.body);
+            tagListDecoded = decodeTaxonomyList(frame.payload);
+        }
+    }
+    catch { /* verifier handles missing */ }
+
+    try
+    {
+        if (articleDetailSample?.body)
+        {
+            const frame = decodeAedsFrame(articleDetailSample.body);
+            articleDetailDecoded = decodeArticleDetail(frame.payload);
+        }
+    }
+    catch { /* verifier handles missing */ }
+
+    try
+    {
+        if (commentCursorSample?.body)
+        {
+            const frame = decodeAedsFrame(commentCursorSample.body);
+            commentCursorDecoded = decodeCommentArticleCursor(frame.payload);
+        }
+    }
+    catch { /* verifier handles missing */ }
+
+    const decodedResponses = {
+        articleList: articleListDecoded,
+        categoryList: categoryListDecoded,
+        tagList: tagListDecoded,
+        articleDetail: articleDetailDecoded,
+        commentCursor: commentCursorDecoded
+    };
+
     const articleRows = queryPostgresScalar(`select count(*) from article where title like ${prefixLiteral} || ':article:%';`);
     const commentRows = queryPostgresScalar(`select count(*) from "comment" where content like ${prefixLiteral} || ':comment:%';`);
     const publishedRows = queryPostgresScalar(`select count(*) from article where title like ${prefixLiteral} || ':article:%' and status = 2 and isdeleted = false;`);
@@ -4676,19 +4833,188 @@ async function dataScale(tier, outFile)
     && rootCommentRows.value === expectedRootComments
     && nestedCommentRows.value === expectedNestedComments
     && (articles === 1 || (publishedRows.value > 0 && scheduledRows.value > 0 && archivedRows.value > 0 && deletedRows.value > 0));
+
+    // Semantic Proofs:
+    // 1. HTTP Payload
+    const httpPayloadProof = verifyHttpPayloadProof({
+        decodedResponses,
+        canaries,
+        runtimeLease
+    });
+
+    // 2. Database
+    const dbProof = verifyDatabaseProof({
+        seedReceipt: seedReceipt ?? seed,
+        counts: {
+            articles: articleRows.available ? articleRows.value : null,
+            comments: commentRows.available ? commentRows.value : null,
+            published: publishedRows.available ? publishedRows.value : null,
+            scheduled: scheduledRows.available ? scheduledRows.value : null,
+            archived: archivedRows.available ? archivedRows.value : null,
+            deleted: deletedRows.available ? deletedRows.value : null,
+            categories: categoryRows.available ? categoryRows.value : null,
+            tags: tagRows.available ? tagRows.value : null,
+            articleBodies: articleBodyRows.available ? articleBodyRows.value : null,
+            articleTags: articleTagRows.available ? articleTagRows.value : null,
+            rootComments: rootCommentRows.available ? rootCommentRows.value : null,
+            nestedComments: nestedCommentRows.available ? nestedCommentRows.value : null
+        },
+        canaries,
+        dbSemanticDigest: seedReceipt?.dbSemanticDigest ?? seed?.dbSemanticDigest,
+        queries: {
+            categoryDistribution: categoryDistribution.available ? categoryDistribution.value : [],
+            tagDistribution: tagDistribution.available ? tagDistribution.value : []
+        }
+    });
+
+    // 3. Search
+    let searchProof;
+    if (searchMetric.status !== 'ok')
+    {
+        searchProof = {
+            status: searchMetric.status === 'unsupported' ? 'unsupported' : 'missing',
+            kind: 'search',
+            assertionIds: ['data-scale.search.manifest'],
+            errors: [searchMetric.reason || `search metric status: ${searchMetric.status}`]
+        };
+    }
+    else
+    {
+        const searchDirs = [
+            process.env.FSUSBLOG_SEARCH_INDEX_DIR,
+            process.env.FSUSBLOG_SEARCH_DIR,
+            path.join(backendWwwrootDir(), 'search')
+        ].filter(Boolean);
+        let searchManifest = null;
+        let searchShard = null;
+        for (const dir of searchDirs)
+        {
+            const manifestFile = path.join(dir, 'index.manifest.aeds');
+            if (fs.existsSync(manifestFile))
+            {
+                try
+                {
+                    searchManifest = decodeSearchManifest(fs.readFileSync(manifestFile));
+                    const shardManifest = searchManifest?.shards?.[0];
+                    const shardFile = shardManifest?.path
+                        ? path.resolve(dir, shardManifest.path)
+                        : path.join(dir, 'shard.0.fhs2');
+                    if (fs.existsSync(shardFile))
+                    {
+                        searchShard = decodeSearchShard(fs.readFileSync(shardFile));
+                    }
+                    break;
+                }
+                catch { /* ignore */ }
+            }
+        }
+        searchProof = verifySearchProof({
+            manifest: searchManifest,
+            shard: searchShard,
+            searchToken: canaries.article?.searchToken || 'data-scale-search-1',
+            expectedArticleId: canaries.article?.id || 1,
+            runtimeLease
+        });
+    }
+
+    // 4. Public AOT
+    let aotProof;
+    if (aotMetric.status !== 'ok')
+    {
+        aotProof = {
+            status: aotMetric.status === 'unsupported' ? 'unsupported' : 'missing',
+            kind: 'aot',
+            assertionIds: ['data-scale.aot.manifest'],
+            errors: [aotMetric.reason || `aot metric status: ${aotMetric.status}`]
+        };
+    }
+    else
+    {
+        const aotDirs = [
+            process.env.FSUSBLOG_AOT_CACHE_DIR,
+            process.env.FSUSBLOG_PUBLIC_AOT_CACHE_DIR,
+            path.join(backendWwwrootDir(), 'aot-cache')
+        ].filter(Boolean);
+        let aotManifest = null;
+        const aotArtifacts = {};
+        for (const dir of aotDirs)
+        {
+            const manifestFile = path.join(dir, 'manifest.json');
+            if (fs.existsSync(manifestFile))
+            {
+                try
+                {
+                    aotManifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+                    const articleFile = path.join(dir, `article-${canaryArticleId}.json`);
+                    if (fs.existsSync(articleFile))
+                    {
+                        aotArtifacts[`/article/${canaryArticleId}`] = JSON.parse(fs.readFileSync(articleFile, 'utf8'));
+                    }
+                    break;
+                }
+                catch { /* ignore */ }
+            }
+        }
+        aotProof = verifyAotProof({
+            aotManifest,
+            aotArtifacts,
+            canaries,
+            runtimeLease
+        });
+    }
+
+    // 5. HotRead
+    let hotReadProof;
+    if (hotReadMetric.status !== 'ok')
+    {
+        hotReadProof = {
+            status: hotReadMetric.status === 'unsupported' ? 'unsupported' : 'missing',
+            kind: 'hotRead',
+            assertionIds: ['data-scale.hotread.samples'],
+            errors: [hotReadMetric.reason || `hotRead metric status: ${hotReadMetric.status}`]
+        };
+    }
+    else
+    {
+        let warmResponse = null;
+        try
+        {
+            warmResponse = await fetchPathSample(`/api/binary/article/${canaryArticleId}.aeds`, { includeBody: true });
+        }
+        catch { /* ignored */ }
+        hotReadProof = verifyHotReadProof({
+            coldResponse: articleDetailSample,
+            warmResponse: warmResponse ?? articleDetailSample,
+            cacheGeneration: dataScaleRunId,
+            runtimeLease
+        });
+    }
+
+    const results = {
+        database: dbProof,
+        httpPayload: httpPayloadProof,
+        search: searchProof,
+        aot: aotProof,
+        hotRead: hotReadProof
+    };
+
     const artifactEvidenceReady = artifactEvidence.status === 'ok';
-    const summaryStatus = countsMatch && artifactEvidenceReady
-        ? 'ok'
-        : countsMatch
-      ? 'blocked'
-      : 'failed';
     const error = !countsMatch
         ? 'data-scale observed counts did not match expected tier fixture counts'
         : !artifactEvidenceReady
       ? artifactEvidence.reason ?? 'data-scale artifact rebuild hook missing'
       : null;
-    writeReleaseReliabilityAuthority(outFile, {
-        status: summaryStatus,
+
+    const receipt = buildSemanticProofReceipt({
+        dataScaleRunId,
+        runtimeLeaseDigest,
+        seedReceiptDigest,
+        canaries,
+        results,
+        artifactRefs: [
+            path.relative(root, seedFile),
+            path.relative(root, artifactEvidenceFile)
+        ],
         tier,
         namespace,
         expected: {
@@ -4712,7 +5038,7 @@ async function dataScale(tier, outFile)
         sampling: {
             requests,
             concurrency,
-            routeCount: 3
+            routeCount: 5
         },
         categoryDistribution: categoryDistribution.available
             ? { status: 'ok', totalArticles: categoryDistributionTotal, buckets: categoryDistribution.value }
@@ -4758,7 +5084,7 @@ async function dataScale(tier, outFile)
                 articleRows: articles,
                 commentRows: comments,
                 rootCommentRows: expectedRootComments,
-                nestedCommentRows: expectedNestedComments
+                nestedComments: expectedNestedComments
             },
             countsMatch
         },
@@ -4777,12 +5103,14 @@ async function dataScale(tier, outFile)
         resources: { cpuPercent: null, rssBytes: null, gcCount: null },
         cleanup: { status: 'pending', reason: 'tools/data-scale/cleanup.sh deletes namespace-prefixed fixture rows after probe' },
         runtime: probe,
-        error,
+        error: error || (Object.values(results).some((r) => r.status !== 'ok') ? 'one or more data-scale semantic proofs failed' : null),
         generatedAt: probe.generatedAt
     });
-    if (summaryStatus !== 'ok')
+
+    writeReleaseReliabilityAuthority(outFile, receipt);
+    if (receipt.status !== 'ok')
     {
-        throw new Error(error ?? `data-scale status ${summaryStatus}`);
+        throw new Error(error ?? receipt.failureReasons?.join('; ') ?? `data-scale status ${receipt.status}`);
     }
 }
 

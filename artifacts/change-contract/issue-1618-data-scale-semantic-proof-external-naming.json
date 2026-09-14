@@ -1,0 +1,22 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/data-scale/aeds-decoders.mjs",
+                "tools/data-scale/semantic-proof.mjs",
+                "tools/test/lanes/runtime-evidence-probe.mjs"
+            ],
+            "reason": "Preserve process environment and configuration variable spelling while verifying data-scale semantic proofs."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/data-scale/seed.sh",
+                "tools/test/lanes/data-scale.sh"
+            ],
+            "reason": "Preserve shell environment variable spelling while verifying data-scale seed receipt and probe script injection."
+        }
+    ]
+}

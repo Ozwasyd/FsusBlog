@@ -47,7 +47,7 @@ case "$TIER" in
 esac
 
 set +e
-bash "$ROOT_DIR/tools/data-scale/probe.sh" "$TIER"
+bash "${FSUSBLOG_DATA_SCALE_PROBE_SCRIPT:-$ROOT_DIR/tools/data-scale/probe.sh}" "$TIER"
 probe_status=$?
 set -e
 
@@ -63,7 +63,12 @@ ReadJsonOrNull() {
 
 summary_json="$(ReadJsonOrNull "$OUT_DIR/summary.json")"
 summary_status="$(jq -r '.status // "failed"' <<<"$summary_json")"
+summary_schema="$(jq -r '.schema // empty' <<<"$summary_json")"
 release_status="ok"
+if [[ "$summary_schema" != "fsusblog.data-scale-semantic-proof.v2" ]]; then
+    printf '[data-scale] summary.json schema must be fsusblog.data-scale-semantic-proof.v2, got %s\n' "${summary_schema:-<empty>}" >&2
+    release_status="failed"
+fi
 if [[ "$probe_status" -ne 0 || "$summary_status" != "ok" ]]; then
     release_status="failed"
 fi

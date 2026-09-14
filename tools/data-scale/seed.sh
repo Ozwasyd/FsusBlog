@@ -585,7 +585,10 @@ SELECT jsonb_pretty(jsonb_build_object(
       'name', ctx.prefix || ':tag:1'
     ),
     'comment', jsonb_build_object(
-      'contentPrefix', ctx.prefix || ':comment:'
+      'id', (SELECT min(id) FROM comment WHERE content LIKE ctx.prefix || ':comment:%'),
+      'articleId', (SELECT min(id) FROM article WHERE title = ctx.prefix || ':article:1'),
+      'contentPrefix', ctx.prefix || ':comment:',
+      'content', (SELECT min(content) FROM comment WHERE id = (SELECT min(id) FROM comment WHERE content LIKE ctx.prefix || ':comment:%'))
     )
   ),
   'durationMs', round((extract(epoch FROM (clock_timestamp() - started_at)) * 1000)::numeric, 3),
