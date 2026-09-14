@@ -516,19 +516,94 @@ for (const forbidden of [
         fail(commandBarPath, 1, `Article editor command bar must not use decorative emphasis matching ${forbidden}`);
     }
 }
+const commandConfigPath = path.join(
+    repoRoot,
+    'src/frontend/src/components/ui/markdown-editor/articleBodyCommandConfig.ts'
+);
+const commandConfig = read(commandConfigPath);
+const frozenPrimaryKeys = ['heading', 'bold', 'italic', 'link', 'quote', 'code'];
 for (const token of [
-    "useMediaQuery('(max-width: 639px)', false)",
-    "['h1', 'h2', 'bold']",
-    "['h1', 'h2', 'bold', 'italic', 'quote', 'link']",
-
+    "articleBodyPrimaryCommandKeys = [",
+    "'heading',\n    'bold',\n    'italic',\n    'link',\n    'quote',\n    'code'",
+    "toolbar: true",
+    "commandPalette: true",
+    "selectionToolbar: true",
+    "slashMenu: true",
+    "heading: '章节'",
+    "bold: '粗体'",
+    "italic: '斜体'",
+    "link: '链接'",
+    "quote: '引用'",
+    "code: '行内代码'"
+])
+{
+    if (!commandConfig.includes(token))
+    {
+        fail(commandConfigPath, 1, `Article body command configuration is missing ${token}`);
+    }
+}
+const primaryKeysBlock = commandConfig.slice(
+    commandConfig.indexOf('articleBodyPrimaryCommandKeys = ['),
+    commandConfig.indexOf('articleBodyForbiddenCommandKeys')
+);
+const extraKeysBlock = commandConfig.slice(
+    commandConfig.indexOf('articleBodyExtraCommandKeys = ['),
+    commandConfig.indexOf('export type ArticleBodyExtraCommandKey')
+);
+for (const forbidden of ["'h1'", "'heading-1'"])
+{
+    if (primaryKeysBlock.includes(forbidden) || extraKeysBlock.includes(forbidden))
+    {
+        fail(commandConfigPath, 1, `Frozen article body command keys must not include ${forbidden}`);
+    }
+}
+for (const forbidden of ['matchMedia', 'innerWidth', 'telemetry', 'analytics'])
+{
+    if (commandConfig.includes(forbidden))
+    {
+        fail(commandConfigPath, lineOf(commandConfig, forbidden), `Article body command configuration must not include ${forbidden}`);
+    }
+}
+for (const token of [
     ':chrome="chrome"',
-    ':status-density="statusDensity"'
+    ':status-density="statusDensity"',
+    'articleBodyPrimaryCommandKeys',
+    'articleBodyCommandSurfaces',
+    'articleBodyLocaleText',
+    'composeArticleBodyEditorCommands',
+    'defaultMarkdownEditorCommands',
+    ':primary-command-keys="articleBodyPrimaryCommandKeys"',
+    ':surfaces="articleBodyCommandSurfaces"',
+    'toolbar-density="standard"',
+    'markdown-text-editor__heading-diagnostic',
+    'diagnoseArticleBodyH1',
+    'formatArticleBodyH1Diagnostic'
 ])
 {
     if (!markdownEditor.includes(token))
     {
-        fail(markdownEditorPath, 1, `Article editor responsive command contract is missing ${token}`);
+        fail(markdownEditorPath, 1, `Article editor body command contract is missing ${token}`);
     }
+}
+for (const forbidden of [
+    "'h1'",
+    "['h1', 'h2', 'bold']",
+    'narrowCommandLayout',
+    'compactCommandLabels',
+    '<template #status>',
+    ':deep(',
+    '.el-markdown-editor__command',
+    '.el-markdown-editor__toolbar'
+])
+{
+    if (markdownEditor.includes(forbidden))
+    {
+        fail(markdownEditorPath, lineOf(markdownEditor, forbidden), `Article editor must not revive ${forbidden}`);
+    }
+}
+if (!/mobile-layout="auto"/.test(markdownEditor))
+{
+    fail(markdownEditorPath, 1, 'Article editor must keep one FsusUI mobile layout for the same primary command set');
 }
 for (const token of ['[aria-invalid="true"]', 'firstErrorFieldRoot', 'target.focus({ preventScroll: true })', "block: 'center'"])
 {
@@ -574,6 +649,19 @@ for (const forbidden of [
 if (productionFixtureContract.schema !== 'fsusblog.article-editor-production-fixture.v1')
 {
     fail(productionFixtureContractPath, 1, 'Article editor production fixture schema is missing or stale');
+}
+const fixtureBodyCommands = productionFixtureContract.bodyCommands ?? {};
+if (JSON.stringify(fixtureBodyCommands.primaryKeys) !== JSON.stringify(frozenPrimaryKeys))
+{
+    fail(productionFixtureContractPath, 1, 'Article editor fixture primary command keys drifted from the frozen six-item set');
+}
+if (!(fixtureBodyCommands.forbiddenKeys ?? []).includes('h1'))
+{
+    fail(productionFixtureContractPath, 1, 'Article editor fixture must reject body H1 command keys');
+}
+if (JSON.stringify(fixtureBodyCommands.structureKeys) !== JSON.stringify(['heading-3', 'heading-4', 'heading-5', 'heading-6']))
+{
+    fail(productionFixtureContractPath, 1, 'Article editor fixture structure command keys drifted');
 }
 for (const width of [375, 768, 1366, 1440])
 {
@@ -714,6 +802,18 @@ if (scripts['check:article-editor-workspace-governance'] !== checkScript)
 if (!String(scripts['check:views-constraints'] ?? '').includes('check:article-editor-workspace-governance'))
 {
     fail(packageJsonPath, 1, 'check:views-constraints must run check:article-editor-workspace-governance');
+}
+
+
+const articleWriteEditorPathForDensity = path.join(repoRoot, 'src/frontend/src/components/admin/article/ArticleWriteEditor.vue');
+const articleWriteEditorDensitySource = read(articleWriteEditorPathForDensity);
+if (!articleWriteEditorDensitySource.includes('toolbar-density="standard"'))
+{
+    fail(articleWriteEditorPathForDensity, 1, 'ArticleWriteEditor must force toolbar-density=standard so six frozen primaries remain visible');
+}
+if (articleWriteEditorDensitySource.includes('toolbar-density="minimal"'))
+{
+    fail(articleWriteEditorPathForDensity, 1, 'ArticleWriteEditor must not pass toolbar-density=minimal (FsusUI caps visible primaries at 2)');
 }
 
 if (failures.length > 0)

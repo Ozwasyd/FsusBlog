@@ -115,6 +115,7 @@ This index is generated from explicit metadata in `config/development/document-l
 - [Account style ownership](frontend/account-style-ownership.md)
 - [Admin dashboard task workbench](frontend/admin-dashboard-workbench.md)
 - [Admin information architecture](frontend/admin-information-architecture.md)
+- [Article body command configuration](frontend/article-body-command-configuration.md)
 - [Browser Runtime Baseline](frontend/browser-runtime-baseline.md)
 - [Console feedback entry](frontend/console-welcome-callout.md)
 - [FsusUI Typecheck Modes](frontend/fsusui-typecheck-modes.md)
@@ -238,6 +239,7 @@ This index is generated from explicit metadata in `config/development/document-l
 
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Contributing](CONTRIBUTING.md)
+- [Security Policy](SECURITY.md)
 - [Support](SUPPORT.md)
 - [ADR: Playwright replay uses repository-owned sealed lanes](architecture/decisions/ADR-Test-Execution-Replay-Playwright.md)
 - [Content Credentials offline prototype](content-credentials.md)

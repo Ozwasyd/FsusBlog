@@ -26,5 +26,11 @@
   },
   "geometry": {
     "maximumDocumentWidthDelta": 8
+  },
+  "bodyCommands": {
+    "primaryKeys": ["heading", "bold", "italic", "link", "quote", "code"],
+    "forbiddenKeys": ["h1", "heading-1"],
+    "structureKeys": ["heading-3", "heading-4", "heading-5", "heading-6"],
+    "insertKeys": ["ul", "ol", "task", "block", "latex", "mermaid", "table", "hr"]
   }
 }

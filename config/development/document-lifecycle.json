@@ -958,6 +958,16 @@
             "supersededBy": null
         },
         {
+            "path": "docs/frontend/article-body-command-configuration.md",
+            "status": "current",
+            "owner": "frontend",
+            "relatedIssues": [
+                1804
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/frontend/browser-runtime-baseline.md",
             "status": "current",
             "owner": "frontend",

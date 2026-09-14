@@ -13,7 +13,7 @@
       placeholder="从这里开始写正文。"
       chrome="embedded"
       status-density="minimal"
-      toolbar-density="minimal"
+      toolbar-density="standard"
       :show-mode-switcher="false"
       :mode="activeSurface"
       :editor-class="editorSizingClass"
