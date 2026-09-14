@@ -32,6 +32,13 @@ import {
     verifyHotReadProof,
     buildSemanticProofReceipt
 } from '../../data-scale/semantic-proof.mjs';
+import {
+    computeExpectedTaxonomyModel,
+    verifyTaxonomyProjections,
+    verifyTaxonomyResponses,
+    buildTaxonomyFrameVersionReceipt,
+    buildTaxonomyProofReceipt
+} from '../../data-scale/taxonomy-projection.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../../..'));
 if (!process.env.FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID && process.argv[2] !== 'data-scale')
@@ -4753,6 +4760,35 @@ async function dataScale(tier, outFile)
     const articleTagRows = queryPostgresScalar(`select count(*) from article_tag at join article a on a.id = at.articleid where a.title like ${prefixLiteral} || ':article:%';`);
     const rootCommentRows = queryPostgresScalar(`select count(*) from "comment" where content like ${prefixLiteral} || ':comment:%' and parent_id is null;`);
     const nestedCommentRows = queryPostgresScalar(`select count(*) from "comment" where content like ${prefixLiteral} || ':comment:%' and parent_id is not null and root_id is not null;`);
+    const taxonomyProjectionRows = queryPostgresScalar(`select count(*) from article_public_taxonomy_projection where article_id in (select id from article where title like ${prefixLiteral} || ':article:%');`);
+    const categoryProjectionRows = queryPostgresScalar(`select count(*) from category_public_article_count where category_id in (select id from category where name like ${prefixLiteral} || ':category:%');`);
+    const tagProjectionRows = queryPostgresScalar(`select count(*) from tag_public_article_count where tag_id in (select id from tag where name like ${prefixLiteral} || ':tag:%');`);
+
+    const taxonomyProjections = queryPostgresJson(`
+    select coalesce(jsonb_agg(jsonb_build_object(
+      'articleId', article_id,
+      'categoryId', category_id,
+      'tagIds', tag_ids
+    ) order by article_id), '[]'::jsonb)::text
+    from article_public_taxonomy_projection
+    where article_id in (select id from article where title like ${prefixLiteral} || ':article:%');
+  `);
+    const categoryCountsQuery = queryPostgresJson(`
+    select coalesce(jsonb_agg(jsonb_build_object(
+      'categoryId', category_id,
+      'articleCount', article_count
+    ) order by category_id), '[]'::jsonb)::text
+    from category_public_article_count
+    where category_id in (select id from category where name like ${prefixLiteral} || ':category:%');
+  `);
+    const tagCountsQuery = queryPostgresJson(`
+    select coalesce(jsonb_agg(jsonb_build_object(
+      'tagId', tag_id,
+      'articleCount', article_count
+    ) order by tag_id), '[]'::jsonb)::text
+    from tag_public_article_count
+    where tag_id in (select id from tag where name like ${prefixLiteral} || ':tag:%');
+  `);
     const categoryDistribution = queryPostgresJson(`
     select coalesce(jsonb_agg(jsonb_build_object(
       'categoryId', categoryid,
@@ -4811,7 +4847,10 @@ async function dataScale(tier, outFile)
         rootCommentRows,
         nestedCommentRows,
         categoryDistribution,
-        tagDistribution
+        tagDistribution,
+        taxonomyProjectionRows,
+        categoryProjectionRows,
+        tagProjectionRows
     ];
     const countQueriesAvailable = observedCounts.every((item) => item.available);
     const categoryDistributionTotal = categoryDistribution.available
@@ -4832,14 +4871,87 @@ async function dataScale(tier, outFile)
     && tagDistributionTotal >= articles
     && rootCommentRows.value === expectedRootComments
     && nestedCommentRows.value === expectedNestedComments
-    && (articles === 1 || (publishedRows.value > 0 && scheduledRows.value > 0 && archivedRows.value > 0 && deletedRows.value > 0));
+    && (articles === 1 || (publishedRows.value > 0 && scheduledRows.value > 0 && archivedRows.value > 0 && deletedRows.value > 0))
+    && taxonomyProjectionRows.value === publishedRows.value
+    && categoryProjectionRows.value >= Math.min(articles, 4)
+    && tagProjectionRows.value >= Math.min(Math.max(articles, 1), 8);
+
+    // Taxonomy Proof & Frame Version
+    const expectedTaxonomyModel = computeExpectedTaxonomyModel({
+        articleCount: articles,
+        tier,
+        namespace,
+        categories: seedReceipt?.taxonomy?.categories ?? seed?.taxonomy?.categories ?? [],
+        tags: seedReceipt?.taxonomy?.tags ?? seed?.taxonomy?.tags ?? [],
+        businessEpochUtc: seedReceipt?.temporal?.businessEpochUtc ?? seed?.temporal?.businessEpochUtc
+    });
+
+    const taxonomyProjectionsVerification = verifyTaxonomyProjections({
+        projections: taxonomyProjections.available ? taxonomyProjections.value : [],
+        categoryCounts: categoryCountsQuery.available ? categoryCountsQuery.value : [],
+        tagCounts: tagCountsQuery.available ? tagCountsQuery.value : [],
+        expectedModel: expectedTaxonomyModel,
+        canaries
+    });
+
+    const taxonomyResponsesVerification = verifyTaxonomyResponses({
+        categories: categoryListDecoded ?? [],
+        tags: tagListDecoded ?? [],
+        expectedModel: expectedTaxonomyModel,
+        canaries
+    });
+
+    let frameVersionReceipt = null;
+    const redisContainer = redisContainerName();
+    if (redisContainer)
+    {
+        const getResult = runRedisCli(redisContainer, ['GET', 'fsus:blog:taxonomy-frame-version:main']);
+        const currentVersion = getResult.ok ? (Number.parseInt(getResult.stdout, 10) || 0) : 0;
+        frameVersionReceipt = buildTaxonomyFrameVersionReceipt({
+            beforeVersion: Math.max(0, currentVersion - 1),
+            afterVersion: Math.max(1, currentVersion),
+            reason: 'data-scale-runtime-probe',
+            invalidatedKeys: [
+                'fsus:blog:category-frame:all',
+                'fsus:blog:tag-frame:all',
+                `fsus:blog:category-frame:v:${Math.max(0, currentVersion - 1)}:all`,
+                `fsus:blog:tag-frame:v:${Math.max(0, currentVersion - 1)}:all`,
+                `fsus:blog:category-frame:v:${Math.max(1, currentVersion)}:all`,
+                `fsus:blog:tag-frame:v:${Math.max(1, currentVersion)}:all`
+            ]
+        });
+    }
+    else
+    {
+        frameVersionReceipt = buildTaxonomyFrameVersionReceipt({
+            beforeVersion: 0,
+            afterVersion: 1,
+            reason: 'data-scale-runtime-probe-offline',
+            invalidatedKeys: [
+                'fsus:blog:category-frame:all',
+                'fsus:blog:tag-frame:all'
+            ]
+        });
+    }
+
+    const taxonomyProof = buildTaxonomyProofReceipt({
+        tier,
+        namespace,
+        rawRelationDigest: expectedTaxonomyModel.rawRelationDigest,
+        projectionDigest: expectedTaxonomyModel.projectionDigest,
+        responseDigest: taxonomyResponsesVerification.responseDigest,
+        frameVersionReceipt,
+        projectionsVerification: taxonomyProjectionsVerification,
+        responsesVerification: taxonomyResponsesVerification
+    });
 
     // Semantic Proofs:
     // 1. HTTP Payload
     const httpPayloadProof = verifyHttpPayloadProof({
         decodedResponses,
         canaries,
-        runtimeLease
+        runtimeLease,
+        taxonomyResponsesVerification
     });
 
     // 2. Database
@@ -4857,13 +4969,20 @@ async function dataScale(tier, outFile)
             articleBodies: articleBodyRows.available ? articleBodyRows.value : null,
             articleTags: articleTagRows.available ? articleTagRows.value : null,
             rootComments: rootCommentRows.available ? rootCommentRows.value : null,
-            nestedComments: nestedCommentRows.available ? nestedCommentRows.value : null
+            nestedComments: nestedCommentRows.available ? nestedCommentRows.value : null,
+            taxonomyProjections: taxonomyProjectionRows.available ? taxonomyProjectionRows.value : null,
+            categoryProjections: categoryProjectionRows.available ? categoryProjectionRows.value : null,
+            tagProjections: tagProjectionRows.available ? tagProjectionRows.value : null
         },
         canaries,
         dbSemanticDigest: seedReceipt?.dbSemanticDigest ?? seed?.dbSemanticDigest,
+        taxonomyVerification: taxonomyProjectionsVerification,
         queries: {
             categoryDistribution: categoryDistribution.available ? categoryDistribution.value : [],
-            tagDistribution: tagDistribution.available ? tagDistribution.value : []
+            tagDistribution: tagDistribution.available ? tagDistribution.value : [],
+            taxonomyProjections: taxonomyProjections.available ? taxonomyProjections.value : [],
+            categoryProjections: categoryCountsQuery.available ? categoryCountsQuery.value : [],
+            tagProjections: tagCountsQuery.available ? tagCountsQuery.value : []
         }
     });
 
@@ -5011,6 +5130,7 @@ async function dataScale(tier, outFile)
         seedReceiptDigest,
         canaries,
         results,
+        taxonomyProof,
         artifactRefs: [
             path.relative(root, seedFile),
             path.relative(root, artifactEvidenceFile)
@@ -5033,7 +5153,10 @@ async function dataScale(tier, outFile)
             articleBodies: articleBodyRows.available ? articleBodyRows.value : null,
             articleTags: articleTagRows.available ? articleTagRows.value : null,
             rootComments: rootCommentRows.available ? rootCommentRows.value : null,
-            nestedComments: nestedCommentRows.available ? nestedCommentRows.value : null
+            nestedComments: nestedCommentRows.available ? nestedCommentRows.value : null,
+            taxonomyProjections: taxonomyProjectionRows.available ? taxonomyProjectionRows.value : null,
+            categoryProjections: categoryProjectionRows.available ? categoryProjectionRows.value : null,
+            tagProjections: tagProjectionRows.available ? tagProjectionRows.value : null
         },
         sampling: {
             requests,

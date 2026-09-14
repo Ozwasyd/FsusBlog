@@ -209,6 +209,15 @@ target_articles AS (
 DELETE FROM article_body WHERE article_id IN (SELECT id FROM target_articles);
 
 WITH ctx AS (SELECT prefix FROM data_scale_context)
+DELETE FROM article_public_taxonomy_projection WHERE article_id IN (SELECT id FROM article WHERE title LIKE (SELECT prefix || ':article:%' FROM ctx));
+
+WITH ctx AS (SELECT prefix FROM data_scale_context)
+DELETE FROM category_public_article_count WHERE category_id IN (SELECT id FROM category WHERE name LIKE (SELECT prefix || ':category:%' FROM ctx));
+
+WITH ctx AS (SELECT prefix FROM data_scale_context)
+DELETE FROM tag_public_article_count WHERE tag_id IN (SELECT id FROM tag WHERE name LIKE (SELECT prefix || ':tag:%' FROM ctx));
+
+WITH ctx AS (SELECT prefix FROM data_scale_context)
 DELETE FROM article WHERE title LIKE (SELECT prefix || ':article:%' FROM ctx);
 
 WITH ctx AS (SELECT prefix FROM data_scale_context)
@@ -216,6 +225,7 @@ DELETE FROM category WHERE name LIKE (SELECT prefix || ':category:%' FROM ctx);
 
 WITH ctx AS (SELECT prefix FROM data_scale_context)
 DELETE FROM tag WHERE name LIKE (SELECT prefix || ':tag:%' FROM ctx);
+
 
 CREATE TEMP TABLE tmp_data_scale_categories(rn integer PRIMARY KEY, id integer NOT NULL) ON COMMIT DROP;
 CREATE TEMP TABLE tmp_data_scale_tags(rn integer PRIMARY KEY, id integer NOT NULL) ON COMMIT DROP;
@@ -481,6 +491,58 @@ SELECT
 FROM nested_plan nested
 CROSS JOIN data_scale_context ctx;
 
+-- Taxonomy Projections
+INSERT INTO article_public_taxonomy_projection(article_id, category_id, tag_ids, updated_at_utc)
+SELECT
+  a.id,
+  a.categoryid,
+  COALESCE(string_agg(at.tagid::text, ',' ORDER BY at.tagid), ''),
+  ctx.business_now
+FROM article a
+JOIN tmp_data_scale_articles tmp ON tmp.article_id = a.id
+CROSS JOIN data_scale_context ctx
+LEFT JOIN article_tag at ON at.articleid = a.id
+WHERE a.isdeleted = false
+  AND a.status = 2
+  AND (a.published_at IS NULL OR a.published_at <= ctx.business_now)
+  AND (a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= ctx.business_now)
+GROUP BY a.id, a.categoryid, ctx.business_now
+ON CONFLICT (article_id) DO UPDATE
+SET category_id = EXCLUDED.category_id,
+    tag_ids = EXCLUDED.tag_ids,
+    updated_at_utc = EXCLUDED.updated_at_utc;
+
+INSERT INTO category_public_article_count(category_id, article_count, updated_at_utc)
+SELECT
+  c.id,
+  count(p.article_id)::bigint,
+  ctx.business_now
+FROM tmp_data_scale_categories c
+CROSS JOIN data_scale_context ctx
+LEFT JOIN article_public_taxonomy_projection p ON p.category_id = c.id
+GROUP BY c.id, ctx.business_now
+ON CONFLICT (category_id) DO UPDATE
+SET article_count = EXCLUDED.article_count,
+    updated_at_utc = EXCLUDED.updated_at_utc;
+
+INSERT INTO tag_public_article_count(tag_id, article_count, updated_at_utc)
+SELECT
+  t.id,
+  count(distinct p.article_id)::bigint,
+  ctx.business_now
+FROM tmp_data_scale_tags t
+CROSS JOIN data_scale_context ctx
+LEFT JOIN (
+  SELECT article_id, tag_id::integer
+  FROM article_public_taxonomy_projection,
+       regexp_split_to_table(tag_ids, ',') AS tag_id
+  WHERE tag_ids <> ''
+) p ON p.tag_id = t.id
+GROUP BY t.id, ctx.business_now
+ON CONFLICT (tag_id) DO UPDATE
+SET article_count = EXCLUDED.article_count,
+    updated_at_utc = EXCLUDED.updated_at_utc;
+
 WITH ctx AS (SELECT * FROM data_scale_context),
 observed AS (
   SELECT
@@ -495,7 +557,10 @@ observed AS (
     (SELECT count(*) FROM article_body b JOIN article a ON a.id = b.article_id WHERE a.title LIKE ctx.prefix || ':article:%')::integer AS article_bodies,
     (SELECT count(*) FROM article_tag at JOIN article a ON a.id = at.articleid WHERE a.title LIKE ctx.prefix || ':article:%')::integer AS article_tags,
     (SELECT count(*) FROM comment WHERE content LIKE ctx.prefix || ':comment:%' AND parent_id IS NULL)::integer AS root_comments,
-    (SELECT count(*) FROM comment WHERE content LIKE ctx.prefix || ':comment:%' AND parent_id IS NOT NULL AND root_id IS NOT NULL)::integer AS nested_comments
+    (SELECT count(*) FROM comment WHERE content LIKE ctx.prefix || ':comment:%' AND parent_id IS NOT NULL AND root_id IS NOT NULL)::integer AS nested_comments,
+    (SELECT count(*) FROM article_public_taxonomy_projection WHERE article_id IN (SELECT article_id FROM tmp_data_scale_articles))::integer AS taxonomy_projections,
+    (SELECT count(*) FROM category_public_article_count WHERE category_id IN (SELECT id FROM tmp_data_scale_categories))::integer AS category_projections,
+    (SELECT count(*) FROM tag_public_article_count WHERE tag_id IN (SELECT id FROM tmp_data_scale_tags))::integer AS tag_projections
   FROM ctx
 ),
 result AS (
@@ -510,6 +575,9 @@ result AS (
       AND observed.article_bodies = ctx.article_count
       AND observed.root_comments = ((ctx.comment_count + 1) / 2)
       AND observed.nested_comments = (ctx.comment_count - ((ctx.comment_count + 1) / 2))
+      AND observed.taxonomy_projections = observed.published
+      AND observed.category_projections >= 4
+      AND observed.tag_projections >= 8
       AND (ctx.article_count = 1 OR (observed.published > 0 AND observed.scheduled > 0 AND observed.archived > 0 AND observed.deleted > 0))
     ) AS ok
   FROM ctx, observed
@@ -543,7 +611,10 @@ SELECT jsonb_pretty(jsonb_build_object(
     'articleBodies', article_bodies,
     'articleTags', article_tags,
     'rootComments', root_comments,
-    'nestedComments', nested_comments
+    'nestedComments', nested_comments,
+    'taxonomyProjections', taxonomy_projections,
+    'categoryProjections', category_projections,
+    'tagProjections', tag_projections
   ),
   'coverage', jsonb_build_object(
     'publicList', published > 0,
@@ -569,6 +640,22 @@ SELECT jsonb_pretty(jsonb_build_object(
     'postgresTimezone', current_setting('TimeZone'),
     'businessEpochUtc', current_setting('fsusblog.test_business_epoch_utc', true)
   ),
+  'taxonomy', jsonb_build_object(
+    'status', 'ok',
+    'projections', (SELECT count(*) FROM article_public_taxonomy_projection WHERE article_id IN (SELECT id FROM tmp_data_scale_articles)),
+    'categories', (
+      SELECT jsonb_agg(jsonb_build_object('id', c.id, 'name', c.name, 'articleCount', cp.article_count) ORDER BY c.id)
+      FROM tmp_data_scale_categories tmp
+      JOIN category c ON c.id = tmp.id
+      JOIN category_public_article_count cp ON cp.category_id = c.id
+    ),
+    'tags', (
+      SELECT jsonb_agg(jsonb_build_object('id', t.id, 'name', t.name, 'articleCount', tp.article_count) ORDER BY t.id)
+      FROM tmp_data_scale_tags tmp
+      JOIN tag t ON t.id = tmp.id
+      JOIN tag_public_article_count tp ON tp.tag_id = t.id
+    )
+  ),
   'canaries', jsonb_build_object(
     'article', jsonb_build_object(
       'id', (SELECT min(id) FROM article WHERE title = ctx.prefix || ':article:1'),
@@ -578,11 +665,13 @@ SELECT jsonb_pretty(jsonb_build_object(
     ),
     'category', jsonb_build_object(
       'id', (SELECT min(id) FROM category WHERE name = ctx.prefix || ':category:1'),
-      'name', ctx.prefix || ':category:1'
+      'name', ctx.prefix || ':category:1',
+      'articleCount', COALESCE((SELECT article_count FROM category_public_article_count WHERE category_id = (SELECT min(id) FROM category WHERE name = ctx.prefix || ':category:1')), 0)
     ),
     'tag', jsonb_build_object(
       'id', (SELECT min(id) FROM tag WHERE name = ctx.prefix || ':tag:1'),
-      'name', ctx.prefix || ':tag:1'
+      'name', ctx.prefix || ':tag:1',
+      'articleCount', COALESCE((SELECT article_count FROM tag_public_article_count WHERE tag_id = (SELECT min(id) FROM tag WHERE name = ctx.prefix || ':tag:1')), 0)
     ),
     'comment', jsonb_build_object(
       'id', (SELECT min(id) FROM comment WHERE content LIKE ctx.prefix || ':comment:%'),
@@ -607,6 +696,19 @@ if [[ "$(jq -r '.status // "failed"' "$OUT_DIR/seed.json")" != "ok" ]]; then
     exit 1
 fi
 
+redis_container="${FSUSBLOG_REDIS_CONTAINER_NAME:-${FSUSBLOG_REDIS_CONTAINER:-}}"
+if [[ -n "$redis_container" ]] && docker exec "$redis_container" redis-cli ping >/dev/null 2>&1; then
+    before_version="$(docker exec "$redis_container" redis-cli GET fsus:blog:taxonomy-frame-version:main 2>/dev/null || echo "0")"
+    after_version="$(docker exec "$redis_container" redis-cli INCR fsus:blog:taxonomy-frame-version:main 2>/dev/null || echo "1")"
+    docker exec "$redis_container" redis-cli DEL \
+        fsus:blog:category-frame:all \
+        fsus:blog:tag-frame:all \
+        "fsus:blog:category-frame:v:${before_version}:all" \
+        "fsus:blog:tag-frame:v:${before_version}:all" \
+        "fsus:blog:category-frame:v:${after_version}:all" \
+        "fsus:blog:tag-frame:v:${after_version}:all" >/dev/null 2>&1 || true
+fi
+
 db_semantic_digest="$(
     jq -c '{tier, namespace, declared, expected, observed, temporal, canaries}' "$OUT_DIR/seed.json" | \
     sha256sum | awk '{print "sha256:" $1}'
@@ -628,6 +730,7 @@ jq -n \
       namespace: $namespace,
       counts: $seed.observed,
       canaries: $seed.canaries,
+      taxonomy: $seed.taxonomy,
       dbSemanticDigest: $digest,
       generatedAt: (now | todate)
     }' >"$OUT_DIR/seed-receipt.json"

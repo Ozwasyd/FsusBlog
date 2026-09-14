@@ -21,6 +21,37 @@ export {
     encodeAedsFrame
 };
 
+export function encodeTaxonomyList(items = [])
+{
+    const strings = items.map((it) => Buffer.from(it.name || '', 'utf8'));
+    const totalBlobLen = strings.reduce((sum, s) => sum + s.length, 0);
+    const blob = Buffer.alloc(totalBlobLen);
+    let offset = 0;
+    const sliceRefs = [];
+    for (const s of strings)
+    {
+        s.copy(blob, offset);
+        sliceRefs.push({ offset, length: s.length });
+        offset += s.length;
+    }
+
+    const buf = Buffer.alloc(8 + totalBlobLen + items.length * 16);
+    buf.writeInt32LE(items.length, 0);
+    buf.writeInt32LE(totalBlobLen, 4);
+    blob.copy(buf, 8);
+    let recordOffset = 8 + totalBlobLen;
+    for (let i = 0; i < items.length; i += 1)
+    {
+        buf.writeInt32LE(items[i].id, recordOffset);
+        buf.writeInt32LE(items[i].articleCount ?? 0, recordOffset + 4);
+        buf.writeInt32LE(sliceRefs[i].offset, recordOffset + 8);
+        buf.writeInt32LE(sliceRefs[i].length, recordOffset + 12);
+        recordOffset += 16;
+    }
+    return buf;
+}
+
+
 export function murmurHash3(source)
 {
     const data = typeof source === 'string' ? UTF8_ENCODER.encode(source) : new Uint8Array(source);

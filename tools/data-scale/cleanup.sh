@@ -84,6 +84,24 @@ target_articles AS (
 )
 DELETE FROM article_body WHERE article_id IN (SELECT id FROM target_articles);
 
+WITH ctx AS (SELECT prefix FROM data_scale_context),
+target_articles AS (
+  SELECT id FROM article WHERE title LIKE (SELECT prefix || ':article:%' FROM ctx)
+)
+DELETE FROM article_public_taxonomy_projection WHERE article_id IN (SELECT id FROM target_articles);
+
+WITH ctx AS (SELECT prefix FROM data_scale_context),
+target_categories AS (
+  SELECT id FROM category WHERE name LIKE (SELECT prefix || ':category:%' FROM ctx)
+)
+DELETE FROM category_public_article_count WHERE category_id IN (SELECT id FROM target_categories);
+
+WITH ctx AS (SELECT prefix FROM data_scale_context),
+target_tags AS (
+  SELECT id FROM tag WHERE name LIKE (SELECT prefix || ':tag:%' FROM ctx)
+)
+DELETE FROM tag_public_article_count WHERE tag_id IN (SELECT id FROM target_tags);
+
 WITH ctx AS (SELECT prefix FROM data_scale_context)
 DELETE FROM article WHERE title LIKE (SELECT prefix || ':article:%' FROM ctx);
 
@@ -99,11 +117,14 @@ remaining AS (
     (SELECT count(*) FROM article WHERE title LIKE ctx.prefix || ':article:%')::integer AS articles,
     (SELECT count(*) FROM comment WHERE content LIKE ctx.prefix || ':comment:%')::integer AS comments,
     (SELECT count(*) FROM category WHERE name LIKE ctx.prefix || ':category:%')::integer AS categories,
-    (SELECT count(*) FROM tag WHERE name LIKE ctx.prefix || ':tag:%')::integer AS tags
+    (SELECT count(*) FROM tag WHERE name LIKE ctx.prefix || ':tag:%')::integer AS tags,
+    (SELECT count(*) FROM article_public_taxonomy_projection WHERE article_id IN (SELECT id FROM article WHERE title LIKE ctx.prefix || ':article:%'))::integer AS taxonomy_projections,
+    (SELECT count(*) FROM category_public_article_count WHERE category_id IN (SELECT id FROM category WHERE name LIKE ctx.prefix || ':category:%'))::integer AS category_projections,
+    (SELECT count(*) FROM tag_public_article_count WHERE tag_id IN (SELECT id FROM tag WHERE name LIKE ctx.prefix || ':tag:%'))::integer AS tag_projections
   FROM ctx
 )
 SELECT jsonb_pretty(jsonb_build_object(
-  'status', CASE WHEN articles = 0 AND comments = 0 AND categories = 0 AND tags = 0 THEN 'ok' ELSE 'failed' END,
+  'status', CASE WHEN articles = 0 AND comments = 0 AND categories = 0 AND tags = 0 AND taxonomy_projections = 0 AND category_projections = 0 AND tag_projections = 0 THEN 'ok' ELSE 'failed' END,
   'tier', tier,
   'namespace', namespace,
   'strategy', 'namespace-prefix-delete',
@@ -111,7 +132,10 @@ SELECT jsonb_pretty(jsonb_build_object(
     'articles', articles,
     'comments', comments,
     'categories', categories,
-    'tags', tags
+    'tags', tags,
+    'taxonomyProjections', taxonomy_projections,
+    'categoryProjections', category_projections,
+    'tagProjections', tag_projections
   ),
   'search', jsonb_build_object(
     'status', 'not-applicable',
@@ -137,6 +161,12 @@ printf '%s\n' "$summary" >"$OUT_DIR/cleanup.json"
 if [[ "$(jq -r '.status // "failed"' "$OUT_DIR/cleanup.json")" != "ok" ]]; then
     printf '[data-scale:cleanup] namespace cleanup left rows for %s/%s\n' "$TIER" "$namespace" >&2
     exit 1
+fi
+
+redis_container="${FSUSBLOG_REDIS_CONTAINER_NAME:-${FSUSBLOG_REDIS_CONTAINER:-}}"
+if [[ -n "$redis_container" ]] && docker exec "$redis_container" redis-cli ping >/dev/null 2>&1; then
+    docker exec "$redis_container" redis-cli INCR fsus:blog:taxonomy-frame-version:main >/dev/null 2>&1 || true
+    docker exec "$redis_container" redis-cli DEL fsus:blog:category-frame:all fsus:blog:tag-frame:all >/dev/null 2>&1 || true
 fi
 
 printf '[data-scale:cleanup] wrote %s\n' "$OUT_DIR/cleanup.json"

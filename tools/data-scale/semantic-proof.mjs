@@ -18,7 +18,8 @@ export function verifyDatabaseProof({
     counts,
     canaries,
     dbSemanticDigest,
-    queries = {}
+    queries = {},
+    taxonomyVerification
 })
 {
     const errors = [];
@@ -133,6 +134,24 @@ export function verifyDatabaseProof({
         errors.push(`database_semantic_digest_mismatch: expected ${expectedDigest}, got ${dbSemanticDigest}`);
     }
 
+    // 6. Taxonomy Projections
+    assertionIds.push('data-scale.database.taxonomy-projections');
+    const effectiveTaxonomyVerification = taxonomyVerification ?? queries?.taxonomyVerification;
+    if (effectiveTaxonomyVerification)
+    {
+        if (effectiveTaxonomyVerification.status !== 'ok')
+        {
+            errors.push(...(effectiveTaxonomyVerification.errors || ['database_taxonomy_projections_failed']));
+        }
+    }
+    else if (counts?.taxonomyProjections !== undefined && counts?.taxonomyProjections !== null)
+    {
+        if (counts.taxonomyProjections === 0 && expectedCounts.articles > 0)
+        {
+            errors.push('database_taxonomy_projections_empty');
+        }
+    }
+
     const status = errors.length === 0 ? 'ok' : 'failed';
     return {
         status,
@@ -154,7 +173,8 @@ export function verifyDatabaseProof({
 export function verifyHttpPayloadProof({
     decodedResponses,
     canaries,
-    runtimeLease
+    runtimeLease,
+    taxonomyResponsesVerification
 })
 {
     const errors = [];
@@ -237,6 +257,17 @@ export function verifyHttpPayloadProof({
             {
                 errors.push(`http_category_list_missing_canary: expected id=${canaryCategory?.id} name=${canaryCategory?.name}`);
             }
+            else if (canaryCategory?.articleCount !== undefined && canaryCategory?.articleCount !== null)
+            {
+                if (Number(found.articleCount) !== Number(canaryCategory.articleCount))
+                {
+                    errors.push(`http_category_list_article_count_mismatch: expected ${canaryCategory.articleCount}, got ${found.articleCount}`);
+                }
+                if (Number(found.articleCount) === 0 && Number(canaryCategory.articleCount) > 0)
+                {
+                    errors.push(`http_category_list_article_count_zero_fail_closed: category ${found.id} has count 0 while raw count is ${canaryCategory.articleCount}`);
+                }
+            }
         }
     }
 
@@ -265,6 +296,17 @@ export function verifyHttpPayloadProof({
             if (!found)
             {
                 errors.push(`http_tag_list_missing_canary: expected id=${canaryTag?.id} name=${canaryTag?.name}`);
+            }
+            else if (canaryTag?.articleCount !== undefined && canaryTag?.articleCount !== null)
+            {
+                if (Number(found.articleCount) !== Number(canaryTag.articleCount))
+                {
+                    errors.push(`http_tag_list_article_count_mismatch: expected ${canaryTag.articleCount}, got ${found.articleCount}`);
+                }
+                if (Number(found.articleCount) === 0 && Number(canaryTag.articleCount) > 0)
+                {
+                    errors.push(`http_tag_list_article_count_zero_fail_closed: tag ${found.id} has count 0 while raw count is ${canaryTag.articleCount}`);
+                }
             }
         }
     }
@@ -323,6 +365,17 @@ export function verifyHttpPayloadProof({
         if (decodedResponses.runtimeLeaseDigest && decodedResponses.runtimeLeaseDigest !== runtimeLease.runtimeLeaseDigest)
         {
             errors.push('http_payload_runtime_lease_mismatch');
+        }
+    }
+
+    // 7. Taxonomy responses verification if provided
+    const effectiveTaxonomyResponsesVerification = taxonomyResponsesVerification ?? decodedResponses?.taxonomyResponsesVerification;
+    if (effectiveTaxonomyResponsesVerification)
+    {
+        assertionIds.push('data-scale.http-payload.taxonomy-responses');
+        if (effectiveTaxonomyResponsesVerification.status !== 'ok')
+        {
+            errors.push(...(effectiveTaxonomyResponsesVerification.errors || ['http_payload_taxonomy_responses_failed']));
         }
     }
 
@@ -663,7 +716,10 @@ export function buildSemanticProofReceipt({
             ...(results.httpPayload?.assertionIds ?? []),
             ...(results.search?.assertionIds ?? []),
             ...(results.aot?.assertionIds ?? []),
-            ...(results.hotRead?.assertionIds ?? [])
+            ...(results.hotRead?.assertionIds ?? []),
+            ...(results.taxonomy?.assertionIds ?? []),
+            ...(extraFields.taxonomyProof?.assertionIds ?? []),
+            ...(extraFields.taxonomy?.assertionIds ?? [])
         ])
     ];
 
