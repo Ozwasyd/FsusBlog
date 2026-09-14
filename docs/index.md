@@ -294,7 +294,7 @@ This index is generated from explicit metadata in `config/development/document-l
 - `releases`: 1 document
 - `reports`: 15 documents
 - `reports/open-source-readiness`: 1 asset
-- `testing`: 72 documents
+- `testing`: 71 documents
 
 ## Generated
 
