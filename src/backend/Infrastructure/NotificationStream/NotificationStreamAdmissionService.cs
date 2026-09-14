@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+using System.Text;
 
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Observability;
@@ -92,36 +92,202 @@ internal sealed record NotificationStreamAccountAdmissionCacheResult(
     bool Hit,
     bool LoadedFromDb);
 
+internal sealed class NotificationStreamAccountAdmissionCacheOptions
+{
+    internal const string SectionName = "NotificationStream:AccountAdmissionCache";
+
+    public int MaxEntries { get; set; } = 100_000;
+
+    public long MaxLogicalBytes { get; set; } = 48L * 1024 * 1024;
+
+    public long MaxCapacityBytes { get; set; } = 96L * 1024 * 1024;
+
+    internal static NotificationStreamAccountAdmissionCacheOptions FromConfiguration(IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        var options = new NotificationStreamAccountAdmissionCacheOptions();
+        configuration.GetSection(SectionName).Bind(options);
+        options.Validate();
+        return options;
+    }
+
+    internal void Validate()
+    {
+        if (MaxEntries <= 0 || MaxLogicalBytes <= 0 || MaxCapacityBytes < MaxLogicalBytes)
+        {
+            throw new InvalidOperationException("Notification stream account admission cache budgets are invalid.");
+        }
+    }
+}
+
+internal readonly record struct NotificationStreamAccountAdmissionCacheSnapshot(
+    int Entries,
+    long LogicalBytes,
+    long CapacityBytes,
+    int MaxEntries,
+    long MaxLogicalBytes,
+    long MaxCapacityBytes);
+
 internal sealed class NotificationStreamAccountAdmissionCache
 {
     private static readonly TimeSpan s_entryTtl = TimeSpan.FromSeconds(60);
-    private readonly ConcurrentDictionary<int, CacheEntry> _entries = new();
+    private const long EntryLogicalOverhead = 64;
+    private const long EntryCapacityOverhead = 192;
+    private readonly object _gate = new();
+    private readonly Dictionary<int, CacheEntry> _entries = [];
+    private readonly LinkedList<int> _insertionOrder = [];
+    private readonly NotificationStreamAccountAdmissionCacheOptions _options;
+    private readonly TimeProvider _timeProvider;
+    private long _logicalBytes;
+    private long _capacityBytes;
+
+    public NotificationStreamAccountAdmissionCache()
+        : this(new NotificationStreamAccountAdmissionCacheOptions(), TimeProvider.System)
+    {
+    }
+
+    internal NotificationStreamAccountAdmissionCache(
+        NotificationStreamAccountAdmissionCacheOptions options,
+        TimeProvider timeProvider)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        options.Validate();
+        _options = options;
+        _timeProvider = timeProvider;
+    }
 
     public async Task<NotificationStreamAccountAdmissionCacheResult> GetOrCreateAsync(
         int accountId,
         IUserAccountReader users,
         CancellationToken cancellationToken)
     {
-        long nowTicks = DateTimeOffset.UtcNow.UtcTicks;
-        if (_entries.TryGetValue(accountId, out CacheEntry? current) && current.ExpiresAtUtcTicks > nowTicks)
+        ArgumentNullException.ThrowIfNull(users);
+        lock (_gate)
         {
-            return new NotificationStreamAccountAdmissionCacheResult(current.Account, Hit: true, LoadedFromDb: false);
+            long nowTicks = _timeProvider.GetUtcNow().UtcTicks;
+            SweepExpiredLocked(nowTicks);
+            if (_entries.TryGetValue(accountId, out CacheEntry? current))
+            {
+                return new NotificationStreamAccountAdmissionCacheResult(current.Account, Hit: true, LoadedFromDb: false);
+            }
         }
 
         cancellationToken.ThrowIfCancellationRequested();
         UserAccountSnapshot? loaded = await users.GetAccountByIdAsync(accountId).ConfigureAwait(false);
-        if (loaded.HasValue
-            && AccountSubjectHashRequirement.TryResolve(loaded.Value.AccountSubjectHash, out _))
+        lock (_gate)
         {
-            _entries[accountId] = new CacheEntry(loaded.Value, DateTimeOffset.UtcNow.Add(s_entryTtl).UtcTicks);
-        }
-        else
-        {
-            _entries.TryRemove(accountId, out _);
+            long nowTicks = _timeProvider.GetUtcNow().UtcTicks;
+            SweepExpiredLocked(nowTicks);
+            RemoveLocked(accountId);
+            if (loaded.HasValue
+                && AccountSubjectHashRequirement.TryResolve(loaded.Value.AccountSubjectHash, out _))
+            {
+                AddWithinBudgetLocked(accountId, loaded.Value, nowTicks + s_entryTtl.Ticks);
+            }
         }
 
         return new NotificationStreamAccountAdmissionCacheResult(loaded, Hit: false, LoadedFromDb: true);
     }
 
-    private sealed record CacheEntry(UserAccountSnapshot Account, long ExpiresAtUtcTicks);
+    internal NotificationStreamAccountAdmissionCacheSnapshot Snapshot()
+    {
+        lock (_gate)
+        {
+            SweepExpiredLocked(_timeProvider.GetUtcNow().UtcTicks);
+            return new NotificationStreamAccountAdmissionCacheSnapshot(
+                _entries.Count,
+                _logicalBytes,
+                _capacityBytes,
+                _options.MaxEntries,
+                _options.MaxLogicalBytes,
+                _options.MaxCapacityBytes);
+        }
+    }
+
+    private void AddWithinBudgetLocked(int accountId, UserAccountSnapshot account, long expiresAtUtcTicks)
+    {
+        (long logicalBytes, long capacityBytes) = Measure(account);
+        if (logicalBytes > _options.MaxLogicalBytes || capacityBytes > _options.MaxCapacityBytes)
+        {
+            return;
+        }
+
+        while (_insertionOrder.First is { } oldest
+            && (_entries.Count >= _options.MaxEntries
+                || _logicalBytes + logicalBytes > _options.MaxLogicalBytes
+                || _capacityBytes + capacityBytes > _options.MaxCapacityBytes))
+        {
+            RemoveLocked(oldest.Value);
+        }
+
+        if (_entries.Count >= _options.MaxEntries
+            || _logicalBytes + logicalBytes > _options.MaxLogicalBytes
+            || _capacityBytes + capacityBytes > _options.MaxCapacityBytes)
+        {
+            return;
+        }
+
+        LinkedListNode<int> orderNode = _insertionOrder.AddLast(accountId);
+        _entries.Add(accountId, new CacheEntry(account, expiresAtUtcTicks, logicalBytes, capacityBytes, orderNode));
+        _logicalBytes += logicalBytes;
+        _capacityBytes += capacityBytes;
+    }
+
+    private void SweepExpiredLocked(long nowTicks)
+    {
+        while (_insertionOrder.First is { } oldest
+            && _entries.TryGetValue(oldest.Value, out CacheEntry? entry)
+            && entry.ExpiresAtUtcTicks <= nowTicks)
+        {
+            RemoveLocked(oldest.Value);
+        }
+    }
+
+    private void RemoveLocked(int accountId)
+    {
+        if (!_entries.Remove(accountId, out CacheEntry? removed))
+        {
+            return;
+        }
+
+        _insertionOrder.Remove(removed.OrderNode);
+        _logicalBytes -= removed.LogicalBytes;
+        _capacityBytes -= removed.CapacityBytes;
+    }
+
+    private static (long LogicalBytes, long CapacityBytes) Measure(UserAccountSnapshot account)
+    {
+        string?[] strings =
+        [
+            account.BanReason,
+            account.PublicHandle,
+            account.IdentityKind,
+            account.AnonymousCredentialStatus,
+            account.AnonymousCredentialLevel,
+            account.AccountSubjectHash,
+            account.RegistrationState
+        ];
+        long logicalBytes = EntryLogicalOverhead;
+        long capacityBytes = EntryCapacityOverhead;
+        foreach (string? value in strings)
+        {
+            if (value is null)
+            {
+                continue;
+            }
+
+            logicalBytes += Encoding.UTF8.GetByteCount(value);
+            capacityBytes += 24L + (value.Length * sizeof(char));
+        }
+
+        return (logicalBytes, Math.Max(logicalBytes, capacityBytes));
+    }
+
+    private sealed record CacheEntry(
+        UserAccountSnapshot Account,
+        long ExpiresAtUtcTicks,
+        long LogicalBytes,
+        long CapacityBytes,
+        LinkedListNode<int> OrderNode);
 }

@@ -49,7 +49,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<DeploymentDrainCoordinator>();
         services.AddBinaryRuntime();
         services.AddCustomizationRuntime();
-        services.AddNotificationRuntime();
+        services.AddNotificationRuntime(configuration);
         services.AddCrawlerAndSearchRuntime(configuration);
         services.AddFileAndAuthRuntime();
         services.AddAuditRuntime();
@@ -158,11 +158,18 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         return services;
     }
 
-    private static IServiceCollection AddNotificationRuntime(this IServiceCollection services)
+    private static IServiceCollection AddNotificationRuntime(
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
         services.AddSingleton<INotificationFrameCodec, NotificationFrameCodec>();
         services.AddSingleton<NotificationStreamOriginSnapshotProvider>();
-        services.AddSingleton<NotificationStreamAccountAdmissionCache>();
+        NotificationStreamAccountAdmissionCacheOptions accountAdmissionCacheOptions =
+            NotificationStreamAccountAdmissionCacheOptions.FromConfiguration(configuration);
+        services.AddSingleton(accountAdmissionCacheOptions);
+        services.AddSingleton(serviceProvider => new NotificationStreamAccountAdmissionCache(
+            accountAdmissionCacheOptions,
+            serviceProvider.GetRequiredService<TimeProvider>()));
         services.AddScoped<INotificationStreamAdmissionService, NotificationStreamAdmissionService>();
         services.AddScoped<INotificationStreamAudienceResolver, NotificationStreamAudienceResolver>();
         services.AddScoped<INotificationStreamHandshakeRequestValidator, NotificationStreamHandshakeRequestValidator>();
