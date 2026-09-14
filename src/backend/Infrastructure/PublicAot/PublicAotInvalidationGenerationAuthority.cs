@@ -121,6 +121,8 @@ public interface IPublicAotInvalidationGenerationBootstrapGuard
 public sealed class FilePublicAotInvalidationGenerationBootstrapGuard :
     IPublicAotInvalidationGenerationBootstrapGuard
 {
+    internal const string MissingStateAfterInitializationError =
+        "public-aot-invalidation-generation-state-missing-after-initialization";
     private const string WitnessDirectoryName = ".generation-authority";
     private const string WitnessSchema = "fsusblog.public-aot-invalidation-bootstrap.v1";
     private const string InitializingPhase = "initializing";
@@ -200,8 +202,7 @@ public sealed class FilePublicAotInvalidationGenerationBootstrapGuard :
         {
             if (_initializedObserved)
             {
-                throw new InvalidOperationException(
-                    "public-aot-invalidation-generation-state-missing-after-initialization");
+                throw new InvalidOperationException(MissingStateAfterInitializationError);
             }
 
             PublicAotInvalidationBootstrapWitness? current = ReadCurrentWitness();
@@ -210,8 +211,7 @@ public sealed class FilePublicAotInvalidationGenerationBootstrapGuard :
                 if (string.Equals(current.Phase, InitializedPhase, StringComparison.Ordinal))
                 {
                     _initializedObserved = true;
-                    throw new InvalidOperationException(
-                        "public-aot-invalidation-generation-state-missing-after-initialization");
+                    throw new InvalidOperationException(MissingStateAfterInitializationError);
                 }
 
                 if (string.Equals(current.Phase, InitializingPhase, StringComparison.Ordinal))
@@ -231,8 +231,7 @@ public sealed class FilePublicAotInvalidationGenerationBootstrapGuard :
             if (ReadRetainedWitnesses().Any())
             {
                 _initializedObserved = true;
-                throw new InvalidOperationException(
-                    "public-aot-invalidation-generation-state-missing-after-initialization");
+                throw new InvalidOperationException(MissingStateAfterInitializationError);
             }
 
             if (HasRetainedPublicAotArtifactEvidence())
@@ -258,8 +257,7 @@ public sealed class FilePublicAotInvalidationGenerationBootstrapGuard :
                 if (!string.Equals(raced.Phase, InitializingPhase, StringComparison.Ordinal))
                 {
                     _initializedObserved = true;
-                    throw new InvalidOperationException(
-                        "public-aot-invalidation-generation-state-missing-after-initialization");
+                    throw new InvalidOperationException(MissingStateAfterInitializationError);
                 }
             }
         }
@@ -556,22 +554,43 @@ public sealed class RedisPublicAotInvalidationGenerationAuthority :
             .ConfigureAwait(false);
         if (payload.IsNullOrEmpty)
         {
-            _bootstrapGuard.PrepareInitialBootstrap();
-            PublicAotInvalidationGenerationState initial =
-                PublicAotInvalidationGenerationStateCodec.CreateEmpty(_runtimeScope);
-            _ = await database
-                .StringSetAsync(
-                    _key,
-                    PublicAotInvalidationGenerationStateCodec.Serialize(initial),
-                    expiry: null,
-                    when: When.NotExists,
-                    flags: CommandFlags.DemandMaster)
-                .WaitAsync(cancellationToken)
-                .ConfigureAwait(false);
-            payload = await database
-                .StringGetAsync(_key, CommandFlags.DemandMaster)
-                .WaitAsync(cancellationToken)
-                .ConfigureAwait(false);
+            try
+            {
+                _bootstrapGuard.PrepareInitialBootstrap();
+            }
+            catch (InvalidOperationException exception) when (string.Equals(
+                exception.Message,
+                FilePublicAotInvalidationGenerationBootstrapGuard.MissingStateAfterInitializationError,
+                StringComparison.Ordinal))
+            {
+                payload = await database
+                    .StringGetAsync(_key, CommandFlags.DemandMaster)
+                    .WaitAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                if (payload.IsNullOrEmpty)
+                {
+                    throw;
+                }
+            }
+
+            if (payload.IsNullOrEmpty)
+            {
+                PublicAotInvalidationGenerationState initial =
+                    PublicAotInvalidationGenerationStateCodec.CreateEmpty(_runtimeScope);
+                _ = await database
+                    .StringSetAsync(
+                        _key,
+                        PublicAotInvalidationGenerationStateCodec.Serialize(initial),
+                        expiry: null,
+                        when: When.NotExists,
+                        flags: CommandFlags.DemandMaster)
+                    .WaitAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                payload = await database
+                    .StringGetAsync(_key, CommandFlags.DemandMaster)
+                    .WaitAsync(cancellationToken)
+                    .ConfigureAwait(false);
+            }
             if (payload.IsNullOrEmpty)
             {
                 throw new InvalidOperationException(

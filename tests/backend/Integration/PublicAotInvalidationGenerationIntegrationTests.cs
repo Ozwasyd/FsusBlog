@@ -459,6 +459,31 @@ public sealed class PublicAotInvalidationGenerationIntegrationTests(
     }
 
     [Fact]
+    public async Task ConcurrentBootstrap_ReloadsStatePublishedByCompetingNode()
+    {
+        string prefix = $"test:public-aot-generation:{Guid.CreateVersion7():N}:";
+        try
+        {
+            await using ConnectionMultiplexer connection = await redis.ConnectAsync();
+            var scope = new PrefixRuntimeKeyScope(prefix);
+            var guard = new CompetingBootstrapGuard(connection.GetDatabase(), scope);
+            var authority = new RedisPublicAotInvalidationGenerationAuthority(
+                RedisOperationExecutor.ForTestConnection(connection),
+                scope,
+                guard);
+
+            PublicAotInvalidationGenerationState state = await authority.LoadAsync(CancellationToken.None);
+
+            Assert.Equal(scope.ScopeToken, state.RuntimeScope);
+            Assert.True(guard.RecordInitializedCalled);
+        }
+        finally
+        {
+            await redis.DeleteNamespaceAsync(prefix);
+        }
+    }
+
+    [Fact]
     public async Task RedisDurableGeneration_PreventsFreshProcessFromReadingLv0DiskArtifact()
     {
         string prefix = $"test:public-aot-generation:{Guid.CreateVersion7():N}:";
@@ -669,6 +694,33 @@ public sealed class PublicAotInvalidationGenerationIntegrationTests(
                 temp.AotRoot,
                 releaseDerivedBase: null,
                 scope.ScopeToken));
+
+    private sealed class CompetingBootstrapGuard(
+        IDatabase database,
+        PrefixRuntimeKeyScope scope) : IPublicAotInvalidationGenerationBootstrapGuard
+    {
+        public bool RecordInitializedCalled
+        {
+            get; private set;
+        }
+
+        public void PrepareInitialBootstrap()
+        {
+            PublicAotInvalidationGenerationState state =
+                PublicAotInvalidationGenerationStateCodec.CreateEmpty(scope.ScopeToken);
+            _ = database.StringSetAsync(
+                    scope.PrefixKey(RedisPublicAotInvalidationGenerationAuthority.StateKey),
+                    PublicAotInvalidationGenerationStateCodec.Serialize(state),
+                    flags: CommandFlags.DemandMaster)
+                .GetAwaiter()
+                .GetResult();
+            throw new InvalidOperationException(
+                FilePublicAotInvalidationGenerationBootstrapGuard.MissingStateAfterInitializationError);
+        }
+
+        public void RecordInitialized(PublicAotInvalidationGenerationState state)
+            => RecordInitializedCalled = true;
+    }
 
     private static async Task GenerateFailingBackfillAsync(
         IPublicAotShellCache cache,
