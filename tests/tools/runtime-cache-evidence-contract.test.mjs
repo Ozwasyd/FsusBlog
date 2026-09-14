@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -18,123 +18,317 @@ import {
 import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const source = { commit: 'a'.repeat(40), dirty: false, worktreeFingerprint: `sha256:${'b'.repeat(64)}` }
+const sourceSnapshot = {
+  commit: 'a'.repeat(40),
+  dirty: false,
+  statusDigest: `sha256:${'1'.repeat(64)}`,
+  worktreeFingerprint: `sha256:${'b'.repeat(64)}`
+}
+const source = { start: sourceSnapshot, end: sourceSnapshot }
 const fixtureDigest = `sha256:${'c'.repeat(64)}`
 const payloadDigest = `sha256:${'d'.repeat(64)}`
 const runtimeDigest = `sha256:${'e'.repeat(64)}`
 const dependencyDigest = `sha256:${'f'.repeat(64)}`
 const temporaryRoots = []
 
+function createRepository() {
+  const repositoryRoot = mkdtempSync(path.join(tmpdir(), 'runtime-cache-contract-'))
+  temporaryRoots.push(repositoryRoot)
+  for (const relative of ['.tmp/perf/runtime-cache/receipts', '.tmp/perf/runtime-cache/raw', '.tmp/release-evidence']) {
+    mkdirSync(path.join(repositoryRoot, relative), { recursive: true })
+  }
+  return repositoryRoot
+}
+
 function tinyCatalog() {
   const catalog = structuredClone(loadRuntimeCacheCatalog())
   for (const scenario of catalog.scenarios) {
-    scenario.requests = 1
+    scenario.requests = scenario.subcases.length
     scenario.concurrency = 1
     scenario.warmupRequests = 0
-    scenario.requiredAssertions = []
     scenario.requirements = {}
   }
   return catalog
 }
 
-function makeReceipt(scenarioId, overrides = {}) {
+function rawAuthority() {
+  return {
+    requests: 'kestrel-request-observation',
+    redis: 'stackexchange-redis-profiler',
+    database: 'sqlsugar-aop',
+    cache: 'runtime-cache-evidence-observation',
+    fault: 'runtime-fault-controller'
+  }
+}
+
+function makeEvidence(scenario, repositoryRoot, options = {}) {
   const timestamp = '2026-09-14T00:00:00.000Z'
-  return sealReceipt({
-    schema: 'fsusblog.runtime-cache-scenario-receipt.v1',
-    scenarioId,
+  const runId = options.runId ?? 'run-1'
+  const attemptNumber = options.attemptNumber ?? 1
+  const attemptId = `${runId}.attempt-${attemptNumber}`
+  const requests = scenario.subcases.map((subcaseId, index) => ({
+    id: `${scenario.id}.${index + 1}`,
+    subcaseId,
+    method: 'GET',
+    path: `/fixture/${subcaseId}`,
+    status: 200,
+    payloadDigest,
+    parityGroup: 'fixture',
+    layerSource: 'l1-frame',
+    latencyMs: index + 1,
+    allocatedBytes: 0
+  }))
+  const authority = rawAuthority()
+  const raw = {
+    schema: 'fsusblog.runtime-cache-raw-evidence.v1',
+    runId,
+    scenarioId: scenario.id,
+    attemptId,
+    authority,
+    requests,
+    redisCommands: [],
+    databaseCommands: [],
+    cacheClassifications: requests.map((request) => ({
+      requestId: request.id,
+      subcaseId: request.subcaseId,
+      layerSource: request.layerSource,
+      source: authority.cache
+    })),
+    faultTimeline: []
+  }
+  options.mutateRaw?.(raw)
+  const rawRelativePath = `.tmp/perf/runtime-cache/raw/${scenario.id}.${attemptNumber}.json`
+  const rawBytes = `${JSON.stringify(raw, null, 2)}\n`
+  writeFileSync(path.join(repositoryRoot, rawRelativePath), rawBytes)
+
+  const latencies = requests.map((request) => request.latencyMs).sort((a, b) => a - b)
+  const percentile = (p) => latencies[Math.max(0, Math.ceil((p / 100) * latencies.length) - 1)]
+  const receipt = {
+    schema: 'fsusblog.runtime-cache-scenario-receipt.v2',
+    catalogDigest: digest(options.catalog ?? loadRuntimeCacheCatalog()),
+    runId,
+    scenarioId: scenario.id,
+    attemptId,
+    attemptNumber,
+    subcases: [...scenario.subcases],
     status: 'passed',
     generatedAt: timestamp,
     source,
-    runtime: { digest: runtimeDigest, imageDigest: null, dotnetVersion: '10.0.0', processId: 42, kestrelUrl: 'http://127.0.0.1:7568' },
+    runtime: { digest: runtimeDigest, imageDigest: runtimeDigest, dotnetVersion: '10.0.0', processId: 42, kestrelUrl: 'http://127.0.0.1:7568' },
     dependencies: {
       postgres: { version: '18.0', topology: 'isolated-database', digest: dependencyDigest },
       redis: { version: '8.0', topology: 'isolated-namespace', digest: dependencyDigest }
     },
     machine: { os: 'test', arch: 'arm64', cpuModel: 'fixture', logicalCpuCount: 1, memoryBytes: 1024, runtime: 'node-test' },
-    input: { fixtureDigest, requestCount: 1, concurrency: 1, parameters: {} },
-    windows: { warmup: { startedAt: timestamp, endedAt: timestamp, requestCount: 0 }, sample: { startedAt: timestamp, endedAt: timestamp, requestCount: 1 } },
-    requests: [{ id: `${scenarioId}-1`, method: 'GET', path: '/fixture', status: 200, payloadDigest, parityGroup: 'fixture', layerSource: 'l1-frame', latencyMs: 1, allocatedBytes: 0, redisCommands: [], dbCommands: [] }],
-    commandSummary: { redis: { count: 0, byCategory: {} }, database: { count: 0, byCategory: {} } },
+    input: { fixtureDigest, requestCount: requests.length, concurrency: 1, parameters: {} },
+    windows: { warmup: { startedAt: timestamp, endedAt: timestamp, requestCount: 0 }, sample: { startedAt: timestamp, endedAt: timestamp, requestCount: requests.length } },
+    rawEvidence: {
+      schema: raw.schema,
+      path: rawRelativePath,
+      digest: digest(rawBytes),
+      authority: structuredClone(authority),
+      rowCounts: {
+        requests: raw.requests.length,
+        redisCommands: raw.redisCommands.length,
+        databaseCommands: raw.databaseCommands.length,
+        cacheClassifications: raw.cacheClassifications.length,
+        faultEvents: raw.faultTimeline.length
+      }
+    },
+    requests,
+    commandSummary: { redis: { count: 0, byVerb: {}, byCategory: {} }, database: { count: 0, byFingerprint: {} } },
     memory: { entries: 1, logicalBytes: 1, capacityBytes: 1, logicalBudgetBytes: 2, capacityBudgetBytes: 2, allocatedBytes: 0, gen0Collections: 0, gen1Collections: 0, gen2Collections: 0, residentBytes: 1 },
-    latencyMs: { p50: 1, p95: 1, p99: 1, max: 1 },
+    latencyMs: { p50: percentile(50), p95: percentile(95), p99: percentile(99), max: Math.max(...latencies) },
     faultTimeline: [],
     cleanupProof: { status: 'passed', namespaceRemoved: true, activeKeyedEntries: 0, durableRowsBefore: 0, durableRowsAfter: 0, checkedAt: timestamp },
-    assertions: [{ id: 'fixture', status: 'passed', expected: true, actual: true }],
-    firstFailure: null,
-    ...overrides
-  })
+    assertions: scenario.requiredAssertions.map((id) => ({ id, status: 'passed', expected: true, actual: true })),
+    firstFailure: null
+  }
+  options.mutateReceipt?.(receipt)
+  return { receipt: sealReceipt(receipt), raw, rawRelativePath }
+}
+
+function rewriteRaw(repositoryRoot, evidence, mutation) {
+  mutation(evidence.raw)
+  const bytes = `${JSON.stringify(evidence.raw, null, 2)}\n`
+  writeFileSync(path.join(repositoryRoot, evidence.rawRelativePath), bytes)
+  evidence.receipt.rawEvidence.digest = digest(bytes)
+  evidence.receipt = sealReceipt(evidence.receipt)
+  return evidence.receipt
+}
+
+function writeCompleteSet(repositoryRoot, catalog) {
+  const receiptDir = path.join(repositoryRoot, '.tmp/perf/runtime-cache/receipts')
+  const receipts = catalog.scenarios.map((scenario) => makeEvidence(scenario, repositoryRoot, { catalog }).receipt)
+  for (const receipt of receipts) writeFileSync(path.join(receiptDir, `${receipt.scenarioId}.json`), `${JSON.stringify(receipt, null, 2)}\n`)
+  return { receiptDir, receipts }
 }
 
 test.after(() => {
   for (const directory of temporaryRoots) rmSync(directory, { recursive: true, force: true })
 })
 
-test('catalog is the only current 13-scenario runtime cache catalog', () => {
+test('catalog seals one exact current set of 13 scenarios and subcases', () => {
   const catalog = loadRuntimeCacheCatalog()
-  assert.equal(catalog.schema, 'fsusblog.runtime-cache-evidence-catalog.v1')
-  assert.equal(catalog.receiptSchema, 'fsusblog.runtime-cache-scenario-receipt.v1')
+  assert.equal(catalog.schema, 'fsusblog.runtime-cache-evidence-catalog.v2')
+  assert.equal(catalog.receiptSchema, 'fsusblog.runtime-cache-scenario-receipt.v2')
+  assert.equal(catalog.rawEvidenceSchema, 'fsusblog.runtime-cache-raw-evidence.v1')
   assert.equal(catalog.scenarios.length, 13)
   assert.equal(new Set(catalog.scenarios.map((scenario) => scenario.id)).size, 13)
+  assert.ok(catalog.scenarios.every((scenario) => scenario.subcases.length > 0 && new Set(scenario.subcases).size === scenario.subcases.length))
   assert.ok(catalog.scenarios.every((scenario) => !('requiredTokens' in scenario) && !('forbiddenTokens' in scenario)))
 })
 
-test('canonical fixture validates against the current schema and has a valid content seal', () => {
-  const fixture = JSON.parse(readFileSync(path.join(root, 'tests/fixtures/runtime-cache-scenario-receipt.v1.json'), 'utf8'))
+test('canonical fixture validates only against the current sealed schema', () => {
+  const fixture = JSON.parse(readFileSync(path.join(root, 'tests/fixtures/runtime-cache-scenario-receipt.v2.json'), 'utf8'))
   assert.deepEqual(validateJsonSchema(fixture, loadRuntimeCacheSchema()), [])
   assert.equal(sealReceipt(fixture).contentDigest, fixture.contentDigest)
 })
 
-test('current checker rejects legacy receipt schemas and token-only fields', () => {
+test('source start/end and exact dirty identity fail closed on drift', () => {
+  const repositoryRoot = createRepository()
   const catalog = tinyCatalog()
-  const legacy = makeReceipt('public-hot-read')
-  legacy.schema = 'backend-qps-collector-evidence'
-  assert.match(validateRuntimeCacheReceipt(legacy, { catalog, expectedSource: source })[0], /schema/u)
+  const evidence = makeEvidence(catalog.scenarios[0], repositoryRoot, { catalog })
+  assert.deepEqual(validateRuntimeCacheReceipt(evidence.receipt, { catalog, repositoryRoot, expectedSource: sourceSnapshot }), [])
 
-  const tokenOnly = { ...makeReceipt('public-hot-read'), requiredTokens: ['singleflight'] }
-  assert.ok(validateRuntimeCacheReceipt(tokenOnly, { catalog, expectedSource: source }).some((error) => error.includes('requiredTokens')))
+  const changedDuringRun = sealReceipt({ ...evidence.receipt, source: { start: sourceSnapshot, end: { ...sourceSnapshot, dirty: true } } })
+  assert.ok(validateRuntimeCacheReceipt(changedDuringRun, { catalog, repositoryRoot, expectedSource: sourceSnapshot }).some((error) => error.includes('changed between start and end')))
+  const staleDirty = sealReceipt({ ...evidence.receipt, source: { start: { ...sourceSnapshot, dirty: true }, end: { ...sourceSnapshot, dirty: true } } })
+  assert.ok(validateRuntimeCacheReceipt(staleDirty, { catalog, repositoryRoot, expectedSource: sourceSnapshot }).some((error) => error.includes('source.start.dirty')))
 })
 
-test('checker binds exact source identity and direct request command traces', () => {
+test('receipt requires the exact catalog subcases and assertion IDs', () => {
+  const repositoryRoot = createRepository()
   const catalog = tinyCatalog()
-  const receipt = makeReceipt('public-hot-read')
-  assert.deepEqual(validateRuntimeCacheReceipt(receipt, { catalog, expectedSource: source }), [])
-
-  const stale = sealReceipt({ ...receipt, source: { ...source, commit: '0'.repeat(40) } })
-  assert.ok(validateRuntimeCacheReceipt(stale, { catalog, expectedSource: source }).some((error) => error.includes('source.commit')))
-
-  const unbound = structuredClone(receipt)
-  unbound.commandSummary.redis.count = 1
-  const unboundSealed = sealReceipt(unbound)
-  assert.ok(validateRuntimeCacheReceipt(unboundSealed, { catalog, expectedSource: source }).some((error) => error.includes('rollup')))
+  const evidence = makeEvidence(catalog.scenarios[0], repositoryRoot, { catalog })
+  const missingSubcase = sealReceipt({ ...evidence.receipt, subcases: evidence.receipt.subcases.slice(1) })
+  assert.ok(validateRuntimeCacheReceipt(missingSubcase, { catalog, repositoryRoot, expectedSource: sourceSnapshot }).some((error) => error.includes('subcases must exactly match')))
+  const extraAssertion = sealReceipt({ ...evidence.receipt, assertions: [...evidence.receipt.assertions, { id: 'unknown-assertion', status: 'passed', expected: true, actual: true }] })
+  assert.ok(validateRuntimeCacheReceipt(extraAssertion, { catalog, repositoryRoot, expectedSource: sourceSnapshot }).some((error) => error.includes('assertion IDs must exactly match')))
 })
 
-test('checker requires all and only the 13 current scenario receipts', () => {
+test('raw request, command, cache and rollup closure is recomputed independently', () => {
+  const repositoryRoot = createRepository()
   const catalog = tinyCatalog()
-  const receipts = catalog.scenarios.map((scenario) => makeReceipt(scenario.id))
-  assert.deepEqual(validateRuntimeCacheReceiptSet(receipts, { catalog, expectedSource: source }), [])
-  assert.ok(validateRuntimeCacheReceiptSet(receipts.slice(1), { catalog, expectedSource: source }).some((error) => error.includes('missing current-schema receipt')))
+  const evidence = makeEvidence(catalog.scenarios[0], repositoryRoot, { catalog })
+  const receipt = rewriteRaw(repositoryRoot, evidence, (raw) => {
+    raw.redisCommands.push({ requestId: 'missing-request', subcaseId: raw.requests[0].subcaseId, verb: 'GET', category: 'read', source: raw.authority.redis })
+  })
+  receipt.rawEvidence.rowCounts.redisCommands = 1
+  const sealed = sealReceipt(receipt)
+  const errors = validateRuntimeCacheReceipt(sealed, { catalog, repositoryRoot, expectedSource: sourceSnapshot })
+  assert.ok(errors.some((error) => error.includes('references unknown request')))
+  assert.ok(errors.some((error) => error.includes('Redis command rollup')))
 })
 
-test('aggregate checker writes a passed summary only for a complete current set', () => {
-  const directory = mkdtempSync(path.join(tmpdir(), 'runtime-cache-receipts-'))
-  temporaryRoots.push(directory)
-  const receiptDir = path.join(directory, 'receipts')
-  const summary = path.join(directory, 'summary.json')
-  mkdirSync(receiptDir)
+test('raw evidence rejects unknown fields and unsupported authorities', () => {
+  const repositoryRoot = createRepository()
   const catalog = tinyCatalog()
-  for (const scenario of catalog.scenarios) writeFileSync(path.join(receiptDir, `${scenario.id}.json`), `${JSON.stringify(makeReceipt(scenario.id))}\n`)
-  const result = checkRuntimeCacheEvidence({ receiptDir, summary, catalog, expectedSource: source, repositoryRoot: root })
+  const unknown = makeEvidence(catalog.scenarios[0], repositoryRoot, { catalog, mutateRaw: (raw) => { raw.unknown = true } })
+  assert.ok(validateRuntimeCacheReceipt(unknown.receipt, { catalog, repositoryRoot, expectedSource: sourceSnapshot }).some((error) => error.includes('fields must be exact')))
+
+  const unsupported = makeEvidence(catalog.scenarios[1], repositoryRoot, { catalog })
+  const unsupportedReceipt = rewriteRaw(repositoryRoot, unsupported, (raw) => { raw.authority.redis = 'mock-command-counter' })
+  assert.ok(validateRuntimeCacheReceipt(unsupportedReceipt, { catalog, repositoryRoot, expectedSource: sourceSnapshot }).some((error) => error.includes('unsupported Redis authority')))
+})
+
+test('legacy, unknown, unsupported and waived receipt states are rejected', () => {
+  const repositoryRoot = createRepository()
+  const catalog = tinyCatalog()
+  const receipt = makeEvidence(catalog.scenarios[0], repositoryRoot, { catalog }).receipt
+  for (const mutation of [
+    { schema: 'fsusblog.runtime-cache-scenario-receipt.v1' },
+    { scenarioId: 'unknown-runtime-cache-scenario' },
+    { status: 'waived' },
+    { unsupported: true }
+  ]) {
+    const invalid = sealReceipt({ ...receipt, ...mutation })
+    assert.ok(validateRuntimeCacheReceipt(invalid, { catalog, repositoryRoot, expectedSource: sourceSnapshot }).length > 0)
+  }
+})
+
+test('raw evidence path escape and symlink are rejected before reading', () => {
+  const repositoryRoot = createRepository()
+  const catalog = tinyCatalog()
+  const evidence = makeEvidence(catalog.scenarios[0], repositoryRoot, { catalog })
+  const escaped = sealReceipt({ ...evidence.receipt, rawEvidence: { ...evidence.receipt.rawEvidence, path: '.tmp/perf/runtime-cache/../outside.json' } })
+  assert.ok(validateRuntimeCacheReceipt(escaped, { catalog, repositoryRoot, expectedSource: sourceSnapshot }).some((error) => error.includes('escapes')))
+
+  const target = path.join(repositoryRoot, evidence.rawRelativePath)
+  const link = path.join(repositoryRoot, '.tmp/perf/runtime-cache/raw/link.json')
+  symlinkSync(target, link)
+  const linked = sealReceipt({ ...evidence.receipt, rawEvidence: { ...evidence.receipt.rawEvidence, path: '.tmp/perf/runtime-cache/raw/link.json' } })
+  assert.ok(validateRuntimeCacheReceipt(linked, { catalog, repositoryRoot, expectedSource: sourceSnapshot }).some((error) => error.includes('non-symlink')))
+
+  const outside = mkdtempSync(path.join(tmpdir(), 'runtime-cache-physical-escape-'))
+  temporaryRoots.push(outside)
+  writeFileSync(path.join(outside, 'raw.json'), readFileSync(target))
+  symlinkSync(outside, path.join(repositoryRoot, '.tmp/perf/runtime-cache/raw-parent'))
+  const parentLinked = sealReceipt({ ...evidence.receipt, rawEvidence: { ...evidence.receipt.rawEvidence, path: '.tmp/perf/runtime-cache/raw-parent/raw.json' } })
+  assert.ok(validateRuntimeCacheReceipt(parentLinked, { catalog, repositoryRoot, expectedSource: sourceSnapshot }).some((error) => error.includes('physical path escapes')))
+})
+
+test('first failure and attempt receipts are append-only and block later success', () => {
+  const repositoryRoot = createRepository()
+  const catalog = tinyCatalog()
+  const scenario = catalog.scenarios[0]
+  const evidence = makeEvidence(scenario, repositoryRoot, { catalog })
+  const failure = {
+    attemptId: evidence.receipt.attemptId,
+    attemptNumber: 1,
+    capturedAt: '2026-09-14T00:00:00.000Z',
+    requestId: evidence.receipt.requests[0].id,
+    subcaseId: evidence.receipt.requests[0].subcaseId,
+    assertionId: evidence.receipt.assertions[0].id,
+    message: 'first failure',
+    rawEvidenceDigest: evidence.receipt.rawEvidence.digest,
+    faultTimeline: []
+  }
+  const attemptDirectory = path.join(repositoryRoot, '.tmp/perf/runtime-cache/attempts/public-hot-read')
+  const firstAttempt = path.join(attemptDirectory, 'attempt-1.json')
+  const failed = writeReceiptPreservingFirstFailure(firstAttempt, { ...evidence.receipt, status: 'failed', firstFailure: failure })
+  const firstFailureBytes = readFileSync(path.join(attemptDirectory, 'first-failure.json'), 'utf8')
+  assert.equal(failed.firstFailure.message, 'first failure')
+  assert.throws(() => writeReceiptPreservingFirstFailure(firstAttempt, evidence.receipt), /first failure is append-only/u)
+
+  const retry = makeEvidence(scenario, repositoryRoot, { catalog, attemptNumber: 2 }).receipt
+  assert.throws(() => writeReceiptPreservingFirstFailure(path.join(attemptDirectory, 'attempt-2.json'), retry), /blocks a later success/u)
+  assert.equal(readFileSync(path.join(attemptDirectory, 'first-failure.json'), 'utf8'), firstFailureBytes)
+})
+
+test('checker requires one clean first attempt for all 13 scenarios', () => {
+  const repositoryRoot = createRepository()
+  const catalog = tinyCatalog()
+  const { receipts } = writeCompleteSet(repositoryRoot, catalog)
+  assert.deepEqual(validateRuntimeCacheReceiptSet(receipts, { catalog, repositoryRoot, expectedSource: sourceSnapshot }), [])
+  assert.ok(validateRuntimeCacheReceiptSet(receipts.slice(1), { catalog, repositoryRoot, expectedSource: sourceSnapshot }).some((error) => error.includes('missing current-schema receipt')))
+  const retry = sealReceipt({ ...receipts[0], attemptNumber: 2, attemptId: 'run-1.attempt-2' })
+  assert.ok(validateRuntimeCacheReceiptSet([retry, ...receipts.slice(1)], { catalog, repositoryRoot, expectedSource: sourceSnapshot }).some((error) => error.includes('only clean first-attempt success qualifies')))
+})
+
+test('aggregate checker rejects extra and legacy artifact contamination', () => {
+  const repositoryRoot = createRepository()
+  const catalog = tinyCatalog()
+  const { receiptDir } = writeCompleteSet(repositoryRoot, catalog)
+  const summary = path.join(repositoryRoot, '.tmp/release-evidence/runtime-cache-summary.json')
+  const result = checkRuntimeCacheEvidence({ receiptDir, summary, catalog, expectedSource: sourceSnapshot, repositoryRoot })
   assert.equal(result.status, 'passed')
-  assert.equal(Object.keys(result.receiptDigests).length, 13)
+
+  writeFileSync(path.join(receiptDir, 'backend-qps-summary.json'), '{}\n')
+  assert.throws(() => checkRuntimeCacheEvidence({ receiptDir, summary, catalog, expectedSource: sourceSnapshot, repositoryRoot }), /legacy artifact contaminates/u)
+  rmSync(path.join(receiptDir, 'backend-qps-summary.json'))
+  const legacyRoot = path.join(repositoryRoot, '.tmp/perf/backend-qps')
+  mkdirSync(legacyRoot, { recursive: true })
+  writeFileSync(path.join(legacyRoot, 'old.json'), '{}\n')
+  assert.throws(() => checkRuntimeCacheEvidence({ receiptDir, summary, catalog, expectedSource: sourceSnapshot, repositoryRoot }), /legacy backend-qps artifact contamination/u)
 })
 
-test('first failure survives a later successful write', () => {
-  const directory = mkdtempSync(path.join(tmpdir(), 'runtime-cache-first-failure-'))
-  temporaryRoots.push(directory)
-  const file = path.join(directory, 'receipt.json')
-  const failure = { capturedAt: '2026-09-14T00:00:00.000Z', requestId: 'request-1', assertionId: 'budget', message: 'failed first', redisCommands: [], dbCommands: [], faultTimeline: [] }
-  writeReceiptPreservingFirstFailure(file, makeReceipt('public-hot-read', { status: 'failed', firstFailure: failure }))
-  const rewritten = writeReceiptPreservingFirstFailure(file, makeReceipt('public-hot-read'))
-  assert.deepEqual(rewritten.firstFailure, failure)
-  assert.equal(rewritten.contentDigest, digest(Object.fromEntries(Object.entries(rewritten).filter(([key]) => key !== 'contentDigest'))))
+test('checker rejects receipt and summary paths outside their owned roots', () => {
+  const repositoryRoot = createRepository()
+  const catalog = tinyCatalog()
+  const outside = mkdtempSync(path.join(tmpdir(), 'runtime-cache-outside-'))
+  temporaryRoots.push(outside)
+  assert.throws(() => checkRuntimeCacheEvidence({ receiptDir: outside, summary: path.join(repositoryRoot, '.tmp/release-evidence/summary.json'), catalog, expectedSource: sourceSnapshot, repositoryRoot }), /receipt directory escapes/u)
+  const { receiptDir } = writeCompleteSet(repositoryRoot, catalog)
+  assert.throws(() => checkRuntimeCacheEvidence({ receiptDir, summary: path.join(outside, 'summary.json'), catalog, expectedSource: sourceSnapshot, repositoryRoot }), /summary path escapes/u)
 })
