@@ -252,6 +252,7 @@ defineExpose({
   box-sizing: border-box;
   display: grid;
   height: 2.5rem;
+  min-height: 2.5rem;
   align-items: center;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.5rem;
@@ -298,12 +299,21 @@ defineExpose({
 }
 
 @media (max-width: 640px) {
+  .editor-shell__header {
+    height: auto;
+    min-height: 2.5rem;
+    align-items: start;
+  }
+
   .editor-shell__meta {
+    flex-wrap: wrap;
     gap: 0.5rem;
   }
 
   .editor-shell__status {
-    width: 7rem;
+    width: auto;
+    max-width: 100%;
+    flex: 1 1 8rem;
   }
 }
 

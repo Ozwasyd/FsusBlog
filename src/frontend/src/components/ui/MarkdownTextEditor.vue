@@ -15,7 +15,7 @@
             class="markdown-text-editor__fsusui"
             :action-overflow-keys="actionOverflowKeys"
             :commands="fsusUiCommands"
-            command-overflow-label="格式工具"
+            :command-overflow-label="commandOverflowLabel"
             :default-mode="fsusUiMode"
             :disabled="editorDisabled"
             editor-profile="prose"
@@ -63,7 +63,7 @@
                         <span>{{ readingTimeText }}</span>
                     </div>
                     <div class="markdown-text-editor__status-group markdown-text-editor__status-group--secondary">
-                        <span>{{ keyboardHint }}</span>
+                        <span class="markdown-text-editor__status-hint">{{ keyboardHint }}</span>
                         <span
                             v-if="editorStateText"
                             class="markdown-text-editor__status-state"
@@ -172,6 +172,25 @@ const primaryCommandKeys = computed<readonly BlogCommandKey[]>(() => (
         ? ['h1', 'h2', 'bold']
         : ['h1', 'h2', 'bold', 'italic', 'quote', 'link']
 ));
+const compactCommandLabels: Readonly<Record<BlogCommandKey, string>> = {
+    h1: 'H1',
+    h2: 'H2',
+    h3: 'H3',
+    bold: 'B',
+    italic: 'I',
+    quote: '引',
+    ul: '列',
+    ol: '序',
+    task: '待',
+    link: '链',
+    code: '码',
+    block: '块',
+    latex: '式',
+    mermaid: '图',
+    table: '表',
+    hr: '线'
+};
+const commandOverflowLabel = computed(() => (narrowCommandLayout.value ? '更多' : '格式工具'));
 const actionOverflowKeys = ['image'] as const;
 
 const localValue = computed({
@@ -244,15 +263,26 @@ const fsusUiCommands = computed<readonly FsusUiMarkdownEditorCommand[]>(() =>
         .filter((command) => !excludedToolbarKeys.value.has(command.key))
         .map(toFsusUiCommand));
 
+function commandToolbarLabel(command: MarkdownEditorCommand): string
+{
+    if (!narrowCommandLayout.value)
+    {
+        return command.label;
+    }
+
+    return compactCommandLabels[command.key as BlogCommandKey] ?? command.label;
+}
+
 function toFsusUiCommand(command: MarkdownEditorCommand): FsusUiMarkdownEditorCommand
 {
+    const toolbarLabel = commandToolbarLabel(command);
     return {
         key: command.key,
-        label: command.label,
-        description: command.ariaLabel,
+        label: toolbarLabel,
+        description: command.ariaLabel ?? command.label,
         group: command.group,
         shortcut: normalizeShortcut(command.shortcut),
-        title: command.label,
+        title: toolbarLabel,
         run: (context: {
             selection: { start: number; end: number; direction?: 'forward' | 'backward' | 'none'; };
             value: string;
@@ -643,7 +673,7 @@ defineExpose({
     white-space: nowrap;
 }
 
-@media (width <= 620px)
+@media (width <= 639px)
  {
     .markdown-text-editor__status
  {
@@ -661,6 +691,8 @@ defineExpose({
         justify-content: flex-start;
         flex-wrap: wrap;
         gap: 0.375rem 0.5rem;
+        grid-column: auto;
+        grid-row: auto;
     }
 
     .markdown-text-editor__status-group--metrics
@@ -674,6 +706,11 @@ defineExpose({
         align-items: flex-start;
         justify-content: flex-start;
         flex-flow: row wrap;
+    }
+
+    .markdown-text-editor__status-hint
+ {
+        display: none;
     }
 }
 
