@@ -297,6 +297,7 @@ public sealed class ArticleMutationVersionedOutboxIntegrationTests(PostgresSchem
             projections,
             new ArticleMutationDelivery(search, publisher, Substitute.For<IIntegrityProofScheduler>()),
             new ArticleAssetCleanupPolicy(new ArticleAssetCleanupQueue()),
+            TimeProvider.System,
             NullLogger<ArticleMutationSideEffectCoordinator>.Instance);
         var alreadyCompleted = new HashSet<string>(StringComparer.Ordinal)
         {

@@ -181,6 +181,7 @@ public sealed class ArticleMutationOutboxFailurePropagationTests
             projections,
             delivery,
             new ArticleAssetCleanupPolicy(new ArticleAssetCleanupQueue()),
+            TimeProvider.System,
             NullLogger<ArticleMutationSideEffectCoordinator>.Instance);
     }
 
