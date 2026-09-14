@@ -3,7 +3,10 @@ using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Distributed.Cluster;
+using FsusBlog.Server.Infrastructure.Distributed.Scheduling;
+using FsusBlog.Server.Infrastructure.Distributed.StateControl;
 using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Modules.Endpoints;
 
@@ -15,6 +18,9 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
+
+using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -87,6 +93,69 @@ public sealed class ClusterMembershipTests
         Assert.Contains(adaptiveServices, descriptor =>
             descriptor.ServiceType == typeof(IHostedService)
             && descriptor.ImplementationType == typeof(ClusterMembershipHostedService));
+    }
+
+    [Fact]
+    public async Task Heartbeat_RedisOutageDoesNotStopHostedService()
+    {
+        IClusterMembershipStore store = Substitute.For<IClusterMembershipStore>();
+        ILeaseManager leaseManager = Substitute.For<ILeaseManager>();
+        IResponsibilityRuntime responsibilities = Substitute.For<IResponsibilityRuntime>();
+        var secondHeartbeat = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var catalog = new RedisOperationBudgetCatalog();
+        RedisOperationPortDefinition port = catalog.Get(RedisOperationPort.ClusterMembership);
+        var unavailable = new RedisOperationUnavailableException(
+            port,
+            catalog.Get(port.OperationClass),
+            RedisOperationFailureKind.CommandTimeout);
+        int heartbeatCount = 0;
+
+        store.UpsertNodeAsync(Arg.Any<NodeDescriptor>(), Arg.Any<CancellationToken>())
+            .Returns(ValueTask.CompletedTask);
+        store.MarkHeartbeatAsync(Arg.Any<NodeHeartbeat>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                if (Interlocked.Increment(ref heartbeatCount) == 1)
+                {
+                    return ValueTask.FromException(unavailable);
+                }
+                secondHeartbeat.TrySetResult();
+                return ValueTask.CompletedTask;
+            });
+        store.ListNodesAsync(Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<IReadOnlyList<NodeDescriptor>>([]));
+        responsibilities.ListActiveAsync(Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<IReadOnlyList<ActiveResponsibility>>([]));
+        leaseManager.TryAcquireAsync(
+                Arg.Any<LeaseKey>(),
+                Arg.Any<NodeId>(),
+                Arg.Any<TimeSpan>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<LeaseAcquireResult>(new LeaseAcquireResult(false, null, null)));
+
+        var options = new ClusterMembershipOptions(
+            new NodeId("node-heartbeat-test"),
+            Guid.NewGuid(),
+            "test",
+            DateTimeOffset.UtcNow,
+            ClusterRuntimeMode.StaticRole,
+            [ClusterCapabilities.WebApi],
+            TimeSpan.FromMilliseconds(10),
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromSeconds(2));
+        var service = new ClusterMembershipHostedService(
+            store,
+            leaseManager,
+            responsibilities,
+            options,
+            TimeProvider.System,
+            NullLogger<ClusterMembershipHostedService>.Instance);
+
+        await service.StartAsync(CancellationToken.None);
+        await secondHeartbeat.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await service.StopAsync(CancellationToken.None);
+
+        Assert.True(heartbeatCount >= 2);
     }
 
     [Fact]
