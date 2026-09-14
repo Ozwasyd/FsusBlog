@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { adaptImmutableBuildSemanticOutcome } from '../../tools/test-matrix/outcomes/immutable-build-adapter.mjs';
-
+const { adaptImmutableBuildSemanticOutcome } = await import(new URL('../../tools/test-matrix/outcomes/immutable-build-adapter.mjs', import.meta.url));
 const d = (digit) => `sha256:${digit.repeat(64)}`;
 const identity = { buildIdentity: d('1'), executionEnvelopeDigest: d('2'), producerId: 'immutable-build-semantic-outcome',
     replayPlanDigest: d('3'), schedulerRunId: 'build-run', sourceCommit: '4'.repeat(40), temporalContextDigest: d('5'),

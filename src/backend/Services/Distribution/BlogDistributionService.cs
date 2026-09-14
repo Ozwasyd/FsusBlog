@@ -23,14 +23,14 @@ public sealed class BlogDistributionService(
     ISystemService systemService,
     ICacheStringReader cache,
     IMemoryCache memoryCache,
-    IConfiguration configuration)
+    IConfiguration configuration,
+    SitemapArtifactCache sitemapArtifacts)
 {
     private const int FeedLimit = 50;
     private const int SitemapPageSize = 45_000;
     private const int StaticSitemapPageCount = 6;
     private const string DiagnosticsCacheKey = "distribution:diagnostics-counts:v2";
     private static readonly TimeSpan s_diagnosticsCacheTtl = TimeSpan.FromSeconds(45);
-    private static readonly TimeSpan s_sitemapCacheTtl = TimeSpan.FromMinutes(5);
     private static readonly XNamespace s_atomNamespace = "http://www.w3.org/2005/Atom";
 
     public async Task<string> BuildRssAsync(CancellationToken cancellationToken = default)
@@ -248,26 +248,15 @@ public sealed class BlogDistributionService(
     }
 
     private async Task<SitemapArtifactSet> LoadSitemapArtifactSetAsync(CancellationToken cancellationToken)
-    {
-        long startedAt = Stopwatch.GetTimestamp();
-        SeoConfigReadModel seo = await systemService.GetSeoConfigAsync();
-        string baseUrl = PublicOriginPolicy.Resolve(configuration["Seo:BaseUrl"], seo.BaseUrl);
-        long version = await GetArticleListVersionAsync(cancellationToken);
-        IReadOnlyDictionary<string, DateTimeOffset> staticPageUpdates = await LoadStaticPageUpdatesAsync(cancellationToken);
-        string staticVersion = string.Join(
-            ',',
-            staticPageUpdates.OrderBy(static pair => pair.Key, StringComparer.Ordinal)
-                .Select(static pair => $"{pair.Key}:{pair.Value.UtcTicks}"));
-        string cacheKey = $"sitemap:v:{version}:origin:{baseUrl}:static:{staticVersion}";
-        if (memoryCache.TryGetValue(cacheKey, out SitemapArtifactSet? cached) && cached is not null)
-        {
-            FsusObservability.RecordSitemapBuild(cacheHit: true, FsusObservability.GetElapsed(startedAt));
-            return cached;
-        }
+        => await sitemapArtifacts.GetOrBuildAsync(BuildSitemapArtifactSetAsync, cancellationToken).ConfigureAwait(false);
 
-        IReadOnlyList<SitemapArticleRow> articles = await LoadSitemapArticlesAsync(cancellationToken);
-        IReadOnlyList<SitemapTaxonomyRow> categories = await LoadSitemapCategoriesAsync(cancellationToken);
-        IReadOnlyList<SitemapTaxonomyRow> tags = await LoadSitemapTagsAsync(cancellationToken);
+    private async Task<SitemapArtifactBuildResult> BuildSitemapArtifactSetAsync(CancellationToken cancellationToken)
+    {
+        SitemapBootstrapProjection bootstrap = await LoadSitemapBootstrapAsync(cancellationToken).ConfigureAwait(false);
+        string baseUrl = PublicOriginPolicy.Resolve(configuration["Seo:BaseUrl"], bootstrap.StoredBaseUrl);
+        IReadOnlyList<SitemapArticleRow> articles = await LoadSitemapArticlesAsync(cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<SitemapTaxonomyRow> categories = await LoadSitemapCategoriesAsync(cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<SitemapTaxonomyRow> tags = await LoadSitemapTagsAsync(cancellationToken).ConfigureAwait(false);
         DateTimeOffset? collectionUpdatedAt = articles.Count == 0
             ? null
             : articles.Max(static article => article.ModifiedAt);
@@ -275,10 +264,10 @@ public sealed class BlogDistributionService(
         {
             new($"{baseUrl}/", collectionUpdatedAt),
             new($"{baseUrl}/archive", collectionUpdatedAt),
-            new($"{baseUrl}/about", GetOptionalUpdate(staticPageUpdates, "about")),
-            new($"{baseUrl}/privacy", GetOptionalUpdate(staticPageUpdates, "privacy")),
-            new($"{baseUrl}/guidelines", GetOptionalUpdate(staticPageUpdates, "guidelines")),
-            new($"{baseUrl}/copyright", GetOptionalUpdate(staticPageUpdates, "copyright"))
+            new($"{baseUrl}/about", GetOptionalUpdate(bootstrap.StaticPageUpdates, "about")),
+            new($"{baseUrl}/privacy", GetOptionalUpdate(bootstrap.StaticPageUpdates, "privacy")),
+            new($"{baseUrl}/guidelines", GetOptionalUpdate(bootstrap.StaticPageUpdates, "guidelines")),
+            new($"{baseUrl}/copyright", GetOptionalUpdate(bootstrap.StaticPageUpdates, "copyright"))
         };
         entries.AddRange(articles.Select(article => new SitemapEntry(
             $"{baseUrl}{PublicRouteIdentity.BuildCanonicalPath(PublicPageId.ArticleDetail, PublicRouteIdentity.BuildArticleRouteKey(article.Id), article.Id)}",
@@ -286,10 +275,52 @@ public sealed class BlogDistributionService(
         entries.AddRange(categories.Select(category => new SitemapEntry($"{baseUrl}/category/{category.Id}", category.ModifiedAt)));
         entries.AddRange(tags.Select(tag => new SitemapEntry($"{baseUrl}/tag/{tag.Id}", tag.ModifiedAt)));
 
+        long allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
         SitemapArtifactSet artifact = BuildSitemapArtifactSet(baseUrl, entries);
-        memoryCache.Set(cacheKey, artifact, s_sitemapCacheTtl);
-        FsusObservability.RecordSitemapBuild(cacheHit: false, FsusObservability.GetElapsed(startedAt));
-        return artifact;
+        long allocationBytes = Math.Max(0, GC.GetAllocatedBytesForCurrentThread() - allocatedBefore);
+        return new SitemapArtifactBuildResult(artifact, allocationBytes);
+    }
+
+    private async Task<SitemapBootstrapProjection> LoadSitemapBootstrapAsync(CancellationToken cancellationToken)
+    {
+        const string Sql = """
+            SELECT value AS "BaseUrl"
+            FROM sys_systemconfig
+            WHERE key = @BaseUrlKey
+            LIMIT 1;
+
+            SELECT slug AS "Slug", updated_at AS "UpdatedAt"
+            FROM page_content
+            WHERE slug IN (@AboutSlug, @PrivacySlug, @GuidelinesSlug, @CopyrightSlug)
+            ORDER BY slug;
+            """;
+        string? storedBaseUrl = null;
+        var staticPageUpdates = new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal);
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            Sql,
+            new SugarParameter[]
+            {
+                new SugarParameter("@BaseUrlKey", "Seo_BaseUrl"),
+                new SugarParameter("@AboutSlug", "about"),
+                new SugarParameter("@PrivacySlug", "privacy"),
+                new SugarParameter("@GuidelinesSlug", "guidelines"),
+                new SugarParameter("@CopyrightSlug", "copyright")
+            });
+        if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            storedBaseUrl = ReadNullableString(reader, "BaseUrl");
+        }
+
+        if (await reader.NextResultAsync(cancellationToken).ConfigureAwait(false))
+        {
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                staticPageUpdates[reader.GetString(reader.GetOrdinal("Slug"))] =
+                    ToUtcOffset(reader.GetDateTime(reader.GetOrdinal("UpdatedAt")));
+            }
+        }
+
+        return new SitemapBootstrapProjection(storedBaseUrl, staticPageUpdates);
     }
 
     private async Task<IReadOnlyList<SitemapArticleRow>> LoadSitemapArticlesAsync(CancellationToken cancellationToken)
@@ -366,23 +397,6 @@ public sealed class BlogDistributionService(
                 ToUtcOffset(reader.GetDateTime(reader.GetOrdinal("ModifiedAt")))));
         }
         return rows;
-    }
-
-    private async Task<IReadOnlyDictionary<string, DateTimeOffset>> LoadStaticPageUpdatesAsync(CancellationToken cancellationToken)
-    {
-        string[] slugs = ["about", "privacy", "guidelines", "copyright"];
-        List<SitemapStaticPageRow> rows = await db.Queryable<PageContent>()
-            .In(page => page.Slug, slugs)
-            .Select(page => new SitemapStaticPageRow
-            {
-                Slug = page.Slug,
-                UpdatedAt = page.UpdatedAt
-            })
-            .ToListAsync(cancellationToken);
-        return rows.ToDictionary(
-            static row => row.Slug,
-            static row => ToUtcOffset(row.UpdatedAt),
-            StringComparer.Ordinal);
     }
 
     private async Task<string> ResolvePublicOriginAsync(CancellationToken cancellationToken)
@@ -562,18 +576,9 @@ public sealed class BlogDistributionService(
         }
     }
 
-    private sealed class SitemapStaticPageRow
-    {
-        public string Slug { get; init; } = string.Empty;
-        public DateTime UpdatedAt
-        {
-            get; init;
-        }
-    }
-
-    private sealed record SitemapArtifactSet(
-        string RootDocument,
-        IReadOnlyList<string> PageDocuments);
+    private sealed record SitemapBootstrapProjection(
+        string? StoredBaseUrl,
+        IReadOnlyDictionary<string, DateTimeOffset> StaticPageUpdates);
 
     private sealed record SitemapEntry(string Location, DateTimeOffset? LastModified);
 

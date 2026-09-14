@@ -1,13 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-    readOutcomeFailureTaxonomy,
-    sealProducerSemanticOutcomeCandidate,
-    validateOutcomeFieldDispositions,
-    validateProducerSemanticOutcomeCandidate
-} from '../../tools/test-matrix/outcomes/outcome-contract.mjs';
-
+const {readOutcomeFailureTaxonomy, sealProducerSemanticOutcomeCandidate, validateOutcomeFieldDispositions, validateProducerSemanticOutcomeCandidate} = await import(new URL('../../tools/test-matrix/outcomes/outcome-contract.mjs', import.meta.url));
 const digest = (digit) => `sha256:${digit.repeat(64)}`;
 const identity = {
     buildIdentity: digest('1'), executionEnvelopeDigest: digest('2'), producerId: 'fixture-producer',

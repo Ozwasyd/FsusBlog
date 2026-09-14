@@ -1,5 +1,5 @@
-import type { RouteStateClass } from '@/security/privateNavigationPolicy';
 import type { RouteTitleKey } from '@/router/routeTitleContract';
+import type { RouteStateClass } from '@/security/privateNavigationPolicy';
 
 import type { RouteRecordRaw } from 'vue-router';
 

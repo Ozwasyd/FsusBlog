@@ -4,8 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { checkAuthorArticlePinProjection } from '../../tools/governance/check-author-article-pin-projection.mjs';
-
+const { checkAuthorArticlePinProjection } = await import(new URL('../../tools/governance/check-author-article-pin-projection.mjs', import.meta.url));
 const root = path.resolve(import.meta.dirname, '../..');
 
 function withFixture(mutate, verify)

@@ -2,12 +2,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import {
-    AttemptContractError,
-    digestCanonical,
-    validateAggregateAttemptReceipt
-} from '../test/attempt-provenance.mjs';
-
+const {AttemptContractError, digestCanonical, validateAggregateAttemptReceipt} = await import(new URL('../test/attempt-provenance.mjs', import.meta.url));
 export const cleanFirstAttemptVerdictSchema = 'fsusblog.clean-first-attempt-verdict.v1';
 
 const digestPattern = /^sha256:[0-9a-f]{64}$/u;
@@ -126,7 +121,10 @@ export function fileBackedCleanAttemptEvidence({
                         'attempt receipt exceeds the size limit', { ref: relative });
                 }
                 hash.update(buffer.subarray(0, count));
-                if (json) chunks.push(Buffer.from(buffer.subarray(0, count)));
+                if (json)
+                {
+                    chunks.push(Buffer.from(buffer.subarray(0, count)));
+                }
             }
             const finished = fs.fstatSync(descriptor);
             const current = fs.lstatSync(file);
@@ -161,7 +159,10 @@ export function fileBackedCleanAttemptEvidence({
         }
     }
     return {
-        get aggregateReceipt() { return aggregateReceipt; },
+        get aggregateReceipt()
+        {
+            return aggregateReceipt;
+        },
         loadAggregate()
         {
             const loaded = readFile(aggregateReference?.path, { json: true });
@@ -254,7 +255,9 @@ export function cleanFirstAttemptVerdict({
         if (loadAggregate !== undefined)
         {
             if (typeof loadAggregate !== 'function')
+            {
                 throw new AttemptContractError('attempt.aggregate-invalid', 'aggregate loader must be a function');
+            }
             aggregateReceipt = loadAggregate();
         }
         if (typeof verifyArtifact !== 'function')

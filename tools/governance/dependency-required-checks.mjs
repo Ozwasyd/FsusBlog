@@ -45,7 +45,7 @@ export function discoverWorkflowChecks(root)
             continue;
         }
         const languages = [...source.matchAll(/^\s+-\s+language:\s*([A-Za-z0-9-]+)\s*$/gmu)].map((match) => match[1]);
-        for (const match of source.matchAll(/^        name:\s*(.+)\s*$/gmu))
+        for (const match of source.matchAll(/^ {8}name:\s*(.+)\s*$/gmu))
         {
             const jobName = match[1].trim();
             const expanded = jobName.includes('${{ matrix.language }}')

@@ -133,17 +133,17 @@ if redis.call('HGET',KEYS[1],'lastOperationId')==ARGV[1] and redis.call('HGET',K
 return 0
 """;
 
-    private readonly IConnectionMultiplexer _redis;
+    private readonly IRedisOperationExecutor _redis;
     private readonly IRuntimeKeyScope _keyScope;
     private readonly Func<PerceptionCharacterV3RedisFaultPoint, bool>? _discardReply;
 
-    public RedisPerceptionCharacterV3StateStore(IConnectionMultiplexer redis, IRuntimeKeyScope keyScope)
+    public RedisPerceptionCharacterV3StateStore(IRedisOperationExecutor redis, IRuntimeKeyScope keyScope)
         : this(redis, keyScope, null)
     {
     }
 
     internal RedisPerceptionCharacterV3StateStore(
-        IConnectionMultiplexer redis,
+        IRedisOperationExecutor redis,
         IRuntimeKeyScope keyScope,
         Func<PerceptionCharacterV3RedisFaultPoint, bool>? discardReply)
     {
@@ -157,13 +157,14 @@ return 0
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            IDatabase db = _redis.GetDatabase();
             RedisKey key = Key(r.ChallengeId);
-            RedisResult result = await db.ScriptEvaluateAsync(CreateScript, [key, ActiveIdentityKey(r)], CreateArguments(r), CommandFlags.DemandMaster).ConfigureAwait(false);
+            RedisResult result = await ExecuteRedisAsync(
+                database => database.ScriptEvaluateAsync(CreateScript, [key, ActiveIdentityKey(r)], CreateArguments(r), CommandFlags.DemandMaster),
+                cancellationToken).ConfigureAwait(false);
             Discard(PerceptionCharacterV3RedisFaultPoint.CreateReply);
             return (long)result == 1;
         }
-        catch (Exception ex) when (ex is RedisException or DiscardedRedisReplyException)
+        catch (Exception ex) when (ex is RedisOperationUnavailableException or DiscardedRedisReplyException)
         {
             return await ConfirmCreatedAsync(r).ConfigureAwait(false);
         }
@@ -177,7 +178,9 @@ return 0
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            HashEntry[] e = await _redis.GetDatabase().HashGetAllAsync(Key(challengeId), CommandFlags.DemandMaster).ConfigureAwait(false);
+            HashEntry[] e = await ExecuteRedisAsync(
+                database => database.HashGetAllAsync(Key(challengeId), CommandFlags.DemandMaster),
+                cancellationToken).ConfigureAwait(false);
             if (e.Length == 0)
                 return null;
             var d = e.ToDictionary(x => x.Name.ToString(), x => x.Value.ToString(), StringComparer.Ordinal);
@@ -186,7 +189,7 @@ return 0
                 ushort.Parse(d["displayWidth"], System.Globalization.CultureInfo.InvariantCulture), ushort.Parse(d["displayHeight"], System.Globalization.CultureInfo.InvariantCulture),
                 long.Parse(d["issuedAt"], System.Globalization.CultureInfo.InvariantCulture), long.Parse(d["expiresAt"], System.Globalization.CultureInfo.InvariantCulture), d["tokenKeyVersion"], d["answerKeyVersion"], d["tokenHash"]);
         }
-        catch (Exception ex) when (ex is RedisException or KeyNotFoundException or FormatException or OverflowException)
+        catch (Exception ex) when (ex is RedisOperationUnavailableException or KeyNotFoundException or FormatException or OverflowException)
         {
             throw new PerceptionCharacterV3StoreUnavailableException(ex);
         }
@@ -216,7 +219,7 @@ return 0
         {
             return await ReadbackSettleAndMapAsync(lost.Key, lost.OperationId).ConfigureAwait(false);
         }
-        catch (RedisException)
+        catch (RedisOperationUnavailableException)
         {
             return await ReadbackSettleAndMapAsync(key, operationId).ConfigureAwait(false);
         }
@@ -244,7 +247,7 @@ return 0
         {
             return await ReadbackSettleAndMapAsync(lost.Key, lost.OperationId).ConfigureAwait(false);
         }
-        catch (RedisException)
+        catch (RedisOperationUnavailableException)
         {
             return await ReadbackSettleAndMapAsync(oldKey, operationId).ConfigureAwait(false);
         }
@@ -255,10 +258,12 @@ return 0
         try
         {
             RedisValue[] arguments = [record.ChallengeId, .. StateFieldArguments(record)];
-            RedisResult result = await _redis.GetDatabase().ScriptEvaluateAsync(CreateReadbackScript, [Key(record.ChallengeId), ActiveIdentityKey(record)], arguments, CommandFlags.DemandMaster).ConfigureAwait(false);
+            RedisResult result = await ExecuteRedisAsync(
+                database => database.ScriptEvaluateAsync(CreateReadbackScript, [Key(record.ChallengeId), ActiveIdentityKey(record)], arguments, CommandFlags.DemandMaster),
+                CancellationToken.None).ConfigureAwait(false);
             return (long)result == 1;
         }
-        catch (RedisException)
+        catch (RedisOperationUnavailableException)
         {
             return false;
         }
@@ -266,16 +271,26 @@ return 0
 
     private async Task<RedisResult> EvaluateAfterPendingAsync(string script, RedisKey[] keys, RedisValue[] arguments, CancellationToken cancellationToken)
     {
-        RedisResult result = default!;
-        for (int attempt = 0; attempt < 20; attempt++)
-        {
-            result = await _redis.GetDatabase().ScriptEvaluateAsync(script, keys, arguments, CommandFlags.DemandMaster).ConfigureAwait(false);
-            RedisResult[] values = (RedisResult[])result!;
-            if ((long)values[0] != -3)
+        return await _redis.ExecuteAsync(
+            RedisOperationPort.PerceptionState,
+            async (multiplexer, deadlineToken) =>
+            {
+                RedisResult result = default!;
+                for (int attempt = 0; attempt < 20; attempt++)
+                {
+                    result = await multiplexer.GetDatabase().ScriptEvaluateAsync(
+                        script,
+                        keys,
+                        arguments,
+                        CommandFlags.DemandMaster).ConfigureAwait(false);
+                    RedisResult[] values = (RedisResult[])result!;
+                    if ((long)values[0] != -3)
+                        return result;
+                    await Task.Delay(TimeSpan.FromMilliseconds(5), deadlineToken).ConfigureAwait(false);
+                }
                 return result;
-            await Task.Delay(TimeSpan.FromMilliseconds(5), cancellationToken).ConfigureAwait(false);
-        }
-        return result;
+            },
+            cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<PerceptionCharacterV3Transition> ReadbackSettleAndMapAsync(RedisKey key, string operationId)
@@ -283,10 +298,12 @@ return 0
         try
         {
             Discard(PerceptionCharacterV3RedisFaultPoint.OperationReadback);
-            RedisResult result = await _redis.GetDatabase().ScriptEvaluateAsync(OperationReadbackScript, [key], [operationId], CommandFlags.DemandMaster).ConfigureAwait(false);
+            RedisResult result = await ExecuteRedisAsync(
+                database => database.ScriptEvaluateAsync(OperationReadbackScript, [key], [operationId], CommandFlags.DemandMaster),
+                CancellationToken.None).ConfigureAwait(false);
             return await SettleAndMapAsync(key, operationId, result).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is RedisException or DiscardedRedisReplyException)
+        catch (Exception ex) when (ex is RedisOperationUnavailableException or DiscardedRedisReplyException)
         {
             return new(PerceptionCharacterV3TransitionKind.Unavailable, "redis_result_ambiguous", 0);
         }
@@ -301,12 +318,14 @@ return 0
         {
             try
             {
-                RedisResult settled = await _redis.GetDatabase().ScriptEvaluateAsync(OperationSettlementScript, [key], [operationId], CommandFlags.DemandMaster).ConfigureAwait(false);
+                RedisResult settled = await ExecuteRedisAsync(
+                    database => database.ScriptEvaluateAsync(OperationSettlementScript, [key], [operationId], CommandFlags.DemandMaster),
+                    CancellationToken.None).ConfigureAwait(false);
                 Discard(PerceptionCharacterV3RedisFaultPoint.OperationSettlement);
                 if ((long)settled != 1)
                     return new(PerceptionCharacterV3TransitionKind.Unavailable, "redis_result_ambiguous", attempts);
             }
-            catch (Exception ex) when (ex is RedisException or DiscardedRedisReplyException)
+            catch (Exception ex) when (ex is RedisOperationUnavailableException or DiscardedRedisReplyException)
             {
                 if (!await ConfirmSettlementAsync(key, operationId).ConfigureAwait(false))
                     return new(PerceptionCharacterV3TransitionKind.Unavailable, "redis_result_ambiguous", attempts);
@@ -344,14 +363,24 @@ return 0
     {
         try
         {
-            RedisResult result = await _redis.GetDatabase().ScriptEvaluateAsync(OperationSettlementReadbackScript, [key], [operationId], CommandFlags.DemandMaster).ConfigureAwait(false);
+            RedisResult result = await ExecuteRedisAsync(
+                database => database.ScriptEvaluateAsync(OperationSettlementReadbackScript, [key], [operationId], CommandFlags.DemandMaster),
+                CancellationToken.None).ConfigureAwait(false);
             return (long)result == 1;
         }
-        catch (RedisException)
+        catch (RedisOperationUnavailableException)
         {
             return false;
         }
     }
+
+    private Task<T> ExecuteRedisAsync<T>(
+        Func<IDatabase, Task<T>> operation,
+        CancellationToken cancellationToken)
+        => _redis.ExecuteAsync(
+            RedisOperationPort.PerceptionState,
+            (multiplexer, _) => operation(multiplexer.GetDatabase()),
+            cancellationToken);
 
     private void Discard(PerceptionCharacterV3RedisFaultPoint point)
     {
@@ -391,7 +420,7 @@ public interface IPerceptionCharacterV3DeviceAuthority
     Task<PerceptionCharacterV3DeviceAuthorityResult> ResolveAsync(HttpContext context, string clientIpHash, CancellationToken cancellationToken);
 }
 
-public sealed class RedisPerceptionCharacterV3DeviceAuthority(IConnectionMultiplexer redis, IRuntimeKeyScope keyScope) : IPerceptionCharacterV3DeviceAuthority
+public sealed class RedisPerceptionCharacterV3DeviceAuthority(IRedisOperationExecutor redis, IRuntimeKeyScope keyScope) : IPerceptionCharacterV3DeviceAuthority
 {
     internal const string CookieName = "__Host-Fsus-Perception-Device";
     private static readonly TimeSpan s_lifetime = TimeSpan.FromDays(30);
@@ -404,36 +433,45 @@ public sealed class RedisPerceptionCharacterV3DeviceAuthority(IConnectionMultipl
             return PerceptionCharacterV3DeviceAuthorityResult.Success("session:" + serverSession.Trim());
         try
         {
-            IDatabase database = redis.GetDatabase();
-            string supplied = context.Request.Cookies[CookieName] ?? string.Empty;
-            string deviceId;
-            if (supplied.Length > 0)
-            {
-                if (!Guid.TryParseExact(supplied, "D", out Guid parsed) || parsed.Version != 7 || !await database.KeyExistsAsync(DeviceKey(supplied), CommandFlags.DemandMaster).ConfigureAwait(false))
-                    return PerceptionCharacterV3DeviceAuthorityResult.Failed("device_binding_invalid");
-                deviceId = supplied;
-            }
-            else
-            {
-                RedisKey ipKey = IpKey(clientIpHash);
-                RedisValue existing = await database.StringGetAsync(ipKey, CommandFlags.DemandMaster).ConfigureAwait(false);
-                if (existing.HasValue)
-                    deviceId = existing.ToString();
-                else
+            return await redis.ExecuteAsync(
+                RedisOperationPort.PerceptionState,
+                async (multiplexer, deadlineToken) =>
                 {
-                    string candidate = Guid.CreateVersion7().ToString("D");
-                    bool created = await database.StringSetAsync(ipKey, candidate, s_lifetime, When.NotExists, CommandFlags.DemandMaster).ConfigureAwait(false);
-                    deviceId = created ? candidate : (await database.StringGetAsync(ipKey, CommandFlags.DemandMaster).ConfigureAwait(false)).ToString();
-                }
-                if (!Guid.TryParseExact(deviceId, "D", out Guid parsed) || parsed.Version != 7)
-                    return PerceptionCharacterV3DeviceAuthorityResult.Failed("device_binding_unavailable");
-                await database.StringSetAsync(DeviceKey(deviceId), "active", s_lifetime, When.Always, CommandFlags.DemandMaster).ConfigureAwait(false);
-            }
-            _ = database.KeyExpireAsync(DeviceKey(deviceId), s_lifetime, CommandFlags.FireAndForget);
-            WriteCookie(context, deviceId);
-            return PerceptionCharacterV3DeviceAuthorityResult.Success("anonymous-device:" + deviceId);
+                    IDatabase database = multiplexer.GetDatabase();
+                    string supplied = context.Request.Cookies[CookieName] ?? string.Empty;
+                    string deviceId;
+                    if (supplied.Length > 0)
+                    {
+                        if (!Guid.TryParseExact(supplied, "D", out Guid parsed)
+                            || parsed.Version != 7
+                            || !await database.KeyExistsAsync(DeviceKey(supplied), CommandFlags.DemandMaster).ConfigureAwait(false))
+                            return PerceptionCharacterV3DeviceAuthorityResult.Failed("device_binding_invalid");
+                        deviceId = supplied;
+                    }
+                    else
+                    {
+                        RedisKey ipKey = IpKey(clientIpHash);
+                        RedisValue existing = await database.StringGetAsync(ipKey, CommandFlags.DemandMaster).ConfigureAwait(false);
+                        if (existing.HasValue)
+                            deviceId = existing.ToString();
+                        else
+                        {
+                            string candidate = Guid.CreateVersion7().ToString("D");
+                            bool created = await database.StringSetAsync(ipKey, candidate, s_lifetime, When.NotExists, CommandFlags.DemandMaster).ConfigureAwait(false);
+                            deviceId = created ? candidate : (await database.StringGetAsync(ipKey, CommandFlags.DemandMaster).ConfigureAwait(false)).ToString();
+                        }
+                        if (!Guid.TryParseExact(deviceId, "D", out Guid parsed) || parsed.Version != 7)
+                            return PerceptionCharacterV3DeviceAuthorityResult.Failed("device_binding_unavailable");
+                        await database.StringSetAsync(DeviceKey(deviceId), "active", s_lifetime, When.Always, CommandFlags.DemandMaster).ConfigureAwait(false);
+                    }
+                    deadlineToken.ThrowIfCancellationRequested();
+                    _ = database.KeyExpireAsync(DeviceKey(deviceId), s_lifetime, CommandFlags.FireAndForget);
+                    WriteCookie(context, deviceId);
+                    return PerceptionCharacterV3DeviceAuthorityResult.Success("anonymous-device:" + deviceId);
+                },
+                cancellationToken).ConfigureAwait(false);
         }
-        catch (RedisException)
+        catch (RedisOperationUnavailableException)
         {
             return PerceptionCharacterV3DeviceAuthorityResult.Failed("device_binding_unavailable");
         }

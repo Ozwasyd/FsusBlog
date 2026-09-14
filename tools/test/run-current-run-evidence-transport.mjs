@@ -15,7 +15,10 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 function option(name)
 {
     const index = process.argv.indexOf(name);
-    if (index < 0 || !process.argv[index + 1]) throw new Error(`${name} is required`);
+    if (index < 0 || !process.argv[index + 1])
+    {
+        throw new Error(`${name} is required`);
+    }
     return process.argv[index + 1];
 }
 
@@ -70,7 +73,10 @@ function main()
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
-    try { main(); }
+    try
+    {
+        main();
+    }
     catch (error)
     {
         process.stderr.write(`[current-run-evidence-transport] ${error instanceof Error ? error.message : String(error)}\n`);

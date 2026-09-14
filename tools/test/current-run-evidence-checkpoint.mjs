@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { locateCurrentRunEvidence } from './current-run-evidence-locator.mjs';
 import {
     EVIDENCE_TERMINAL_HANDOFF_PREFIX,
     EVIDENCE_TERMINAL_HANDOFF_SCHEMA,
@@ -11,14 +12,16 @@ import {
     validateCurrentRunEvidenceContext,
     validateEvidenceLocatorRegistry
 } from './evidence-location-contract.mjs';
-import { locateCurrentRunEvidence } from './current-run-evidence-locator.mjs';
 
 export const CHECKPOINT_EVIDENCE_REFERENCES_SCHEMA =
     'fsusblog.test-matrix.current-run-evidence-references.v1';
 
 function assert(condition, message)
 {
-    if (!condition) throw new Error(message);
+    if (!condition)
+    {
+        throw new Error(message);
+    }
 }
 
 function same(left, right)
@@ -51,7 +54,10 @@ export function resumeCurrentRunEvidenceCheckpoint(previous, context)
 {
     validateCurrentRunEvidenceContext(context);
     const block = previous?.currentRunEvidenceReferences;
-    if (!block) return initializeCurrentRunEvidenceCheckpoint(context);
+    if (!block)
+    {
+        return initializeCurrentRunEvidenceCheckpoint(context);
+    }
     assert(block.schema === CHECKPOINT_EVIDENCE_REFERENCES_SCHEMA,
         'scheduler checkpoint lacks a current-attempt evidence reference block');
     assert(block.contentDigest === governanceContentDigest(block),
@@ -62,7 +68,10 @@ export function resumeCurrentRunEvidenceCheckpoint(previous, context)
         && block.worktreeFingerprint === context.worktreeFingerprint
         && same(block.candidateIdentity, context.candidateIdentity)
         && same(block.buildIdentity, context.buildIdentity);
-    if (!sameAttempt) return initializeCurrentRunEvidenceCheckpoint(context);
+    if (!sameAttempt)
+    {
+        return initializeCurrentRunEvidenceCheckpoint(context);
+    }
     assertReferenceBlock(block, context);
     return block;
 }
@@ -74,9 +83,13 @@ function assertReferenceBlock(block, context)
     assert(block.contentDigest === governanceContentDigest(block),
         'scheduler checkpoint evidence reference block contentDigest mismatch');
     for (const field of ['schedulerRunId', 'attemptId', 'sourceCommit', 'worktreeFingerprint'])
+    {
         assert(block[field] === context[field], `scheduler checkpoint evidence ${field} mismatch`);
+    }
     for (const field of ['candidateIdentity', 'buildIdentity'])
+    {
         assert(same(block[field], context[field]), `scheduler checkpoint evidence ${field} mismatch`);
+    }
     assert(Array.isArray(block.references), 'scheduler checkpoint evidence references must be an array');
 }
 
@@ -87,14 +100,20 @@ function assertHandoff(handoff, context, entry)
     assert(handoff.contentDigest === governanceContentDigest(handoff),
         'producer terminal handoff contentDigest mismatch');
     for (const field of ['schedulerRunId', 'attemptId', 'sourceCommit', 'worktreeFingerprint'])
+    {
         assert(handoff[field] === context[field], `producer terminal handoff ${field} mismatch`);
+    }
     for (const field of ['candidateIdentity', 'buildIdentity'])
+    {
         assert(same(handoff[field], context[field]), `producer terminal handoff ${field} mismatch`);
+    }
     assert(handoff.authorityId === entry.authorityId && handoff.producerId === entry.producerId,
         'producer terminal handoff authority identity mismatch');
     for (const field of ['inputDigest', 'receiptContentDigest', 'producerReceiptDigest'])
+    {
         assert(/^sha256:[0-9a-f]{64}$/u.test(handoff[field] ?? ''),
             `producer terminal handoff ${field} is invalid`);
+    }
     assert(typeof handoff.path === 'string' && handoff.path.length > 0,
         'producer terminal handoff path is missing');
 }
@@ -149,7 +168,10 @@ export function parseCurrentRunEvidenceHandoffs(logText)
     for (const line of String(logText).split(/\r?\n/u))
     {
         const index = line.indexOf(EVIDENCE_TERMINAL_HANDOFF_PREFIX);
-        if (index < 0) continue;
+        if (index < 0)
+        {
+            continue;
+        }
         const value = line.slice(index + EVIDENCE_TERMINAL_HANDOFF_PREFIX.length).trim();
         handoffs.push(JSON.parse(value));
     }

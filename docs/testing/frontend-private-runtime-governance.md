@@ -24,11 +24,12 @@ identity-derived UI preferences. Every exact key, database or prefix has a
 table-driven cleanup assertion. The article journal gate covers exact
 confirmation cleanup; create/edit and identity scopes; one, two and eight
 tab-owned records; quota/unavailable, corrupt/old/unsupported codec, expired and
-logical/stored oversize failure; deterministic `gzip-v1` raw representation;
-bounded one-in-flight/one-latest scheduling; and 100k CJK/emoji round-trip.
-Public theme, image preferences and Public AOT seed state are deliberately not
-part of that registry. Compression is not encryption: the compressed payload
-retains the same local profile privacy risk as the original private Markdown.
+logical/stored oversize failure; deterministic `utf8-v1` plaintext representation;
+168-hour TTL with 167h59m / 168h / 168h+ expiry; bounded one-in-flight/one-latest
+scheduling; and 100k CJK/emoji round-trip. Public theme, image preferences and
+Public AOT seed state are deliberately not part of that registry. The payload is
+unencrypted plaintext: it retains the same local profile privacy risk as the
+original private Markdown, with no WebCrypto confidentiality claim.
 
 The production article-editor fixture covers the recovery prompt only when an
 extra unsynced source hash exists. It verifies explicit candidate selection,

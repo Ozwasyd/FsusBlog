@@ -4,14 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import {
-    createExecutionEnvelopePolicyIdentity,
-    executionEnvelopeDigest,
-    loadExecutionEnvelopeApplicability,
-    loadExecutionEnvelopePolicy,
-    resolveExecutionEnvelopeProducer,
-    validateExecutionEnvelopeReceiptSchema
-} from '../test-matrix/execution-envelope-policy.mjs';
+const {createExecutionEnvelopePolicyIdentity, executionEnvelopeDigest, loadExecutionEnvelopeApplicability, loadExecutionEnvelopePolicy, resolveExecutionEnvelopeProducer, validateExecutionEnvelopeReceiptSchema} = await import(new URL('../test-matrix/execution-envelope-policy.mjs', import.meta.url));
 import {
     assertBrowserPlanActualMatch,
     validateBrowserIdentityPlan
@@ -619,12 +612,14 @@ function mismatchPaths(left, right, location = '')
 
 function envelopePayload(envelope)
 {
+    // eslint-disable-next-line no-unused-vars
     const { envelopeDigest: _envelopeDigest, ...payload } = envelope ?? {};
     return payload;
 }
 
 function receiptPayload(receipt)
 {
+    // eslint-disable-next-line no-unused-vars
     const { receiptDigest: _receiptDigest, ...payload } = receipt ?? {};
     return payload;
 }

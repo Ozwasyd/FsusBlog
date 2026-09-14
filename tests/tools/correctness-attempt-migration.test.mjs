@@ -1,11 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-    assertCorrectnessAttemptExecutionOwner,
-    validateCorrectnessAttemptMigration
-} from '../../tools/test/correctness-attempt-migration.mjs';
-
+const {assertCorrectnessAttemptExecutionOwner, validateCorrectnessAttemptMigration} = await import(new URL('../../tools/test/correctness-attempt-migration.mjs', import.meta.url));
 test('all 222 correctness producers bind canonical attempt and external authorities', () =>
 {
     const verification = validateCorrectnessAttemptMigration();

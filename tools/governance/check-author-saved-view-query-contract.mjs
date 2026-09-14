@@ -8,12 +8,21 @@ const contractPath = 'src/backend/Services/Authoring/AuthorSavedViewContracts.cs
 
 function walkCSharpFiles(directory)
 {
-    if (!fs.existsSync(directory)) return [];
+    if (!fs.existsSync(directory))
+    {
+        return [];
+    }
     return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) =>
     {
-        if (entry.name === 'bin' || entry.name === 'obj') return [];
+        if (entry.name === 'bin' || entry.name === 'obj')
+        {
+            return [];
+        }
         const entryPath = path.join(directory, entry.name);
-        if (entry.isDirectory()) return walkCSharpFiles(entryPath);
+        if (entry.isDirectory())
+        {
+            return walkCSharpFiles(entryPath);
+        }
         return entry.isFile() && entry.name.endsWith('.cs') ? [entryPath] : [];
     });
 }
@@ -33,7 +42,10 @@ export function validateAuthorSavedViewQueryContract(repositoryRoot)
 {
     const root = path.resolve(repositoryRoot);
     const sourceFile = path.join(root, contractPath);
-    if (!fs.existsSync(sourceFile)) return [`missing ${contractPath}`];
+    if (!fs.existsSync(sourceFile))
+    {
+        return [`missing ${contractPath}`];
+    }
 
     const source = fs.readFileSync(sourceFile, 'utf8');
     const backendSources = walkCSharpFiles(path.join(root, 'src/backend'))
@@ -63,11 +75,17 @@ export function validateAuthorSavedViewQueryContract(repositoryRoot)
     ].join(' ');
 
     if (normalizedRecordSignature(source, 'AuthorSavedViewQuery') !== expectedQuery)
+    {
         errors.push('AuthorSavedViewQuery must remain the exact non-recursive closed shape');
+    }
     if (normalizedRecordSignature(source, 'AuthorSavedViewCondition') !== expectedCondition)
+    {
         errors.push('AuthorSavedViewCondition must remain the exact non-recursive closed shape');
+    }
     if (normalizedRecordSignature(source, 'AuthorSavedViewDependencyFact') !== expectedFact)
+    {
         errors.push('dependency providers must return the exact descriptor-free fact shape');
+    }
 
     const provider = source.match(/public interface IAuthorSavedViewDependencyProvider\s*\{(?<body>[\s\S]*?)\n\}/u)?.groups?.body ?? '';
     if (occurrences(provider, /ValueTask<AuthorSavedViewDependencyFact\?>/gu) !== 3
@@ -78,7 +96,9 @@ export function validateAuthorSavedViewQueryContract(repositoryRoot)
     }
 
     if (occurrences(backendSources, /public sealed record AuthorSavedViewQuery\b/gu) !== 1)
+    {
         errors.push('AuthorSavedViewQuery must have exactly one backend definition');
+    }
     if (occurrences(backendSources, /\bReadOnlyDictionary<string,\s*AuthorSavedViewOperatorDescriptor>/gu) !== 1
         || occurrences(backendSources, /new Dictionary<string,\s*AuthorSavedViewOperatorDescriptor>/gu) !== 1)
     {
@@ -92,7 +112,9 @@ export function validateAuthorSavedViewQueryContract(repositoryRoot)
 
     const forbiddenIdentifier = /\bAuthorSavedView\w*(?:Sql|JavaScript|Regex|AiQuery|ResultIds|ClientFunction|ExpressionTree|RecursiveGroup)\w*\b/gu;
     if (forbiddenIdentifier.test(backendSources))
+    {
         errors.push('saved view backend contains an executable, AI, result snapshot, or recursive expression surface');
+    }
 
     for (const required of [
         'saved_view_field_kind_unknown',
@@ -102,7 +124,10 @@ export function validateAuthorSavedViewQueryContract(repositoryRoot)
         'saved_view_dependency_fact_tampered'
     ])
     {
-        if (!source.includes(required)) errors.push(`missing fail-closed validation: ${required}`);
+        if (!source.includes(required))
+        {
+            errors.push(`missing fail-closed validation: ${required}`);
+        }
     }
 
     return errors;
@@ -120,7 +145,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     const errors = validateAuthorSavedViewQueryContract(root);
     if (errors.length > 0)
     {
-        for (const error of errors) console.error(`[author-saved-view-query-contract] ${error}`);
+        for (const error of errors)
+        {
+            console.error(`[author-saved-view-query-contract] ${error}`);
+        }
         process.exitCode = 1;
     }
     else

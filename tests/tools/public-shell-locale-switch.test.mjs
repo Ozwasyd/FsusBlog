@@ -1,12 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-    createPublicShellLocaleMatrix,
-    resolvePublicShellLocaleCopy
-} from '../browser-contract/public-shell-locale-matrix.mjs';
-import { assertPublicShellLocaleSwitch } from '../browser-contract/public-shell-locale-switch.mjs';
-
+const {createPublicShellLocaleMatrix, resolvePublicShellLocaleCopy} = await import(new URL('../browser-contract/public-shell-locale-matrix.mjs', import.meta.url));
+const {assertPublicShellLocaleSwitch} = await import(new URL('../browser-contract/public-shell-locale-switch.mjs', import.meta.url));
 const matrix = await createPublicShellLocaleMatrix();
 const preparing = matrix.scenes.find((item) => item.issue === 2086 && item.stage === 'preparing' && item.route === 'Home');
 const commit = matrix.scenes.find((item) => item.issue === 2086 && item.stage === 'commit' && item.route === 'Home'

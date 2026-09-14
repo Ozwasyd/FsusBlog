@@ -135,9 +135,8 @@ public static partial class BinaryEndpoints
         group.MapPost("/category", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             ISqlSugarClient db,
-            IHttpCacheInvalidator httpCacheInvalidator,
             ICacheInvalidationStore cacheInvalidation,
-            ITaxonomyCountProjectionService taxonomyProjection,
+            ICacheInvalidationDispatcher invalidationDispatcher,
             PublicHotArtifactUpdateQueue publicHotUpdates,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
@@ -180,9 +179,8 @@ public static partial class BinaryEndpoints
                 AuditTypeCatalog.Audit,
                 new KeyValuePair<string, object?>("AuditAction", "category.create"),
                 new KeyValuePair<string, object?>("CategoryName", trimmedName));
-            await taxonomyProjection.BumpFrameVersionAsync("taxonomy-category-created", CancellationToken.None);
             await cacheInvalidation.RemoveAsync(CachePolicyId.TaxonomyExactMetadataFrame, TaxonomyExactMetadataCache.ForCategory(newId), CancellationToken.None);
-            await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
+            await invalidationDispatcher.InvalidateCategoryTagAsync(CancellationToken.None);
             PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
                 PublicHotArtifactDeliveryClass.RequiredTaxonomy,
                 null,
@@ -201,9 +199,8 @@ public static partial class BinaryEndpoints
             int id,
             HttpContext httpContext,
             ISqlSugarClient db,
-            IHttpCacheInvalidator httpCacheInvalidator,
             ICacheInvalidationStore cacheInvalidation,
-            ITaxonomyCountProjectionService taxonomyProjection,
+            ICacheInvalidationDispatcher invalidationDispatcher,
             PublicHotArtifactUpdateQueue publicHotUpdates,
             IPublicAotInvalidationService publicAotInvalidation,
             IAedsEncoder aeds,
@@ -265,9 +262,8 @@ public static partial class BinaryEndpoints
                 apply,
                 id,
                 isCategory: true,
-                httpCacheInvalidator,
                 cacheInvalidation,
-                taxonomyProjection,
+                invalidationDispatcher,
                 publicAotInvalidation,
                 "taxonomy-category-updated",
                 CancellationToken.None);
@@ -291,9 +287,8 @@ public static partial class BinaryEndpoints
         group.MapDelete("/category/{id:int}", static async Task<BinaryFrameResult> (
             int id,
             ISqlSugarClient db,
-            IHttpCacheInvalidator httpCacheInvalidator,
             ICacheInvalidationStore cacheInvalidation,
-            ITaxonomyCountProjectionService taxonomyProjection,
+            ICacheInvalidationDispatcher invalidationDispatcher,
             PublicHotArtifactUpdateQueue publicHotUpdates,
             CancellationToken cancellationToken,
             IAedsEncoder aeds) =>
@@ -315,9 +310,8 @@ public static partial class BinaryEndpoints
                 AuditTypeCatalog.Audit,
                 new KeyValuePair<string, object?>("AuditAction", "category.delete"),
                 new KeyValuePair<string, object?>("CategoryId", id));
-            await taxonomyProjection.BumpFrameVersionAsync("taxonomy-category-deleted", CancellationToken.None);
             await cacheInvalidation.RemoveAsync(CachePolicyId.TaxonomyExactMetadataFrame, TaxonomyExactMetadataCache.ForCategory(id), CancellationToken.None);
-            await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
+            await invalidationDispatcher.InvalidateCategoryTagAsync(CancellationToken.None);
             PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
                 PublicHotArtifactDeliveryClass.RequiredTaxonomy,
                 null,
@@ -335,9 +329,8 @@ public static partial class BinaryEndpoints
         group.MapPost("/tag", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             ISqlSugarClient db,
-            IHttpCacheInvalidator httpCacheInvalidator,
             ICacheInvalidationStore cacheInvalidation,
-            ITaxonomyCountProjectionService taxonomyProjection,
+            ICacheInvalidationDispatcher invalidationDispatcher,
             PublicHotArtifactUpdateQueue publicHotUpdates,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
@@ -381,9 +374,8 @@ public static partial class BinaryEndpoints
                 AuditTypeCatalog.Audit,
                 new KeyValuePair<string, object?>("AuditAction", "tag.create"),
                 new KeyValuePair<string, object?>("TagName", trimmedName));
-            await taxonomyProjection.BumpFrameVersionAsync("taxonomy-tag-created", CancellationToken.None);
             await cacheInvalidation.RemoveAsync(CachePolicyId.TaxonomyExactMetadataFrame, TaxonomyExactMetadataCache.ForTag(newId), CancellationToken.None);
-            await httpCacheInvalidator.InvalidateAsync(CacheTag.Tag, CacheTag.ArticleList);
+            await invalidationDispatcher.InvalidateCategoryTagAsync(CancellationToken.None);
             PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
                 PublicHotArtifactDeliveryClass.RequiredTaxonomy,
                 null,
@@ -402,9 +394,8 @@ public static partial class BinaryEndpoints
             int id,
             HttpContext httpContext,
             ISqlSugarClient db,
-            IHttpCacheInvalidator httpCacheInvalidator,
             ICacheInvalidationStore cacheInvalidation,
-            ITaxonomyCountProjectionService taxonomyProjection,
+            ICacheInvalidationDispatcher invalidationDispatcher,
             PublicHotArtifactUpdateQueue publicHotUpdates,
             IPublicAotInvalidationService publicAotInvalidation,
             IAedsEncoder aeds,
@@ -467,9 +458,8 @@ public static partial class BinaryEndpoints
                 apply,
                 id,
                 isCategory: false,
-                httpCacheInvalidator,
                 cacheInvalidation,
-                taxonomyProjection,
+                invalidationDispatcher,
                 publicAotInvalidation,
                 "taxonomy-tag-updated",
                 CancellationToken.None);
@@ -493,9 +483,8 @@ public static partial class BinaryEndpoints
         group.MapDelete("/tag/{id:int}", static async Task<BinaryFrameResult> (
             int id,
             ISqlSugarClient db,
-            IHttpCacheInvalidator httpCacheInvalidator,
             ICacheInvalidationStore cacheInvalidation,
-            ITaxonomyCountProjectionService taxonomyProjection,
+            ICacheInvalidationDispatcher invalidationDispatcher,
             PublicHotArtifactUpdateQueue publicHotUpdates,
             CancellationToken cancellationToken,
             IAedsEncoder aeds) =>
@@ -516,9 +505,8 @@ public static partial class BinaryEndpoints
                 AuditTypeCatalog.Audit,
                 new KeyValuePair<string, object?>("AuditAction", "tag.delete"),
                 new KeyValuePair<string, object?>("TagId", id));
-            await taxonomyProjection.BumpFrameVersionAsync("taxonomy-tag-deleted", CancellationToken.None);
             await cacheInvalidation.RemoveAsync(CachePolicyId.TaxonomyExactMetadataFrame, TaxonomyExactMetadataCache.ForTag(id), CancellationToken.None);
-            await httpCacheInvalidator.InvalidateAsync(CacheTag.Tag, CacheTag.ArticleList);
+            await invalidationDispatcher.InvalidateCategoryTagAsync(CancellationToken.None);
             PublicHotArtifactEnqueueResult delivery = await publicHotUpdates.EnqueueAsync(
                 PublicHotArtifactDeliveryClass.RequiredTaxonomy,
                 null,
@@ -1128,9 +1116,8 @@ public static partial class BinaryEndpoints
         TaxonomyUpdateApplyResult apply,
         int id,
         bool isCategory,
-        IHttpCacheInvalidator httpCacheInvalidator,
         ICacheInvalidationStore cacheInvalidation,
-        ITaxonomyCountProjectionService taxonomyProjection,
+        ICacheInvalidationDispatcher invalidationDispatcher,
         IPublicAotInvalidationService publicAotInvalidation,
         string bumpReason,
         CancellationToken cancellationToken)
@@ -1150,17 +1137,18 @@ public static partial class BinaryEndpoints
 
         if (apply.NameChanged)
         {
-            await taxonomyProjection.BumpFrameVersionAsync(bumpReason, cancellationToken);
-            await httpCacheInvalidator.InvalidateAsync(
-                isCategory ? CacheTag.Category : CacheTag.Tag,
-                CacheTag.ArticleList);
+            await invalidationDispatcher.InvalidateCategoryTagAsync(cancellationToken);
             return;
         }
 
         string filterRouteKey = isCategory
             ? PublicRouteIdentity.BuildCategoryRouteKey(id)
             : PublicRouteIdentity.BuildTagIdRouteKey(id);
-        await publicAotInvalidation.InvalidateFilterRouteFamilyAsync(filterRouteKey, cancellationToken);
+        string mutationId = $"taxonomy-metadata:{Guid.CreateVersion7():N}";
+        await publicAotInvalidation
+            .InvalidateFilterRouteFamilyAsync(filterRouteKey, mutationId, cancellationToken);
+        await invalidationDispatcher
+            .InvalidateTaxonomyMetadataAsync(filterRouteKey, mutationId, cancellationToken);
     }
 
     internal static bool IsRequiredTaxonomyDeliveryDurable(PublicHotArtifactEnqueueResult receipt)

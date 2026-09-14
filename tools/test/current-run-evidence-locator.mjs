@@ -12,8 +12,14 @@ const digestPattern = /^sha256:[0-9a-f]{64}$/u;
 
 function canonicalize(value)
 {
-    if (Array.isArray(value)) return value.map(canonicalize);
-    if (!value || typeof value !== 'object') return value;
+    if (Array.isArray(value))
+    {
+        return value.map(canonicalize);
+    }
+    if (!value || typeof value !== 'object')
+    {
+        return value;
+    }
     return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]));
 }
 
@@ -29,19 +35,25 @@ function digestFile(file)
 
 export function evidenceContentDigest(receipt)
 {
-    const { contentDigest: _content, producerReceiptDigest: _producer, ...payload } = receipt;
+    const payload = { ...receipt };
+    delete payload.contentDigest;
+    delete payload.producerReceiptDigest;
     return digestValue(payload);
 }
 
 export function evidenceProducerReceiptDigest(receipt)
 {
-    const { producerReceiptDigest: _producer, ...payload } = receipt;
+    const payload = { ...receipt };
+    delete payload.producerReceiptDigest;
     return digestValue(payload);
 }
 
 function assert(condition, message)
 {
-    if (!condition) throw new Error(message);
+    if (!condition)
+    {
+        throw new Error(message);
+    }
 }
 
 function equalIdentity(left, right)
@@ -61,7 +73,10 @@ function assertSafeExplicitPath(file, entry, context, repositoryRoot)
     const inside = allowed.some((root) =>
     {
         const rootPath = path.resolve(repositoryRoot, root);
-        if (!fs.existsSync(rootPath)) return false;
+        if (!fs.existsSync(rootPath))
+        {
+            return false;
+        }
         const realRoot = fs.realpathSync(rootPath);
         return real === realRoot || real.startsWith(`${realRoot}${path.sep}`);
     });

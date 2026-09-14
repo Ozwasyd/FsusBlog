@@ -105,6 +105,16 @@ public class User
     }
 
     /// <summary>
+    /// Monotonic authority revision for the process-local ban-state projection.
+    /// Every Normal/Banned/Deleted transition increments this value.
+    /// </summary>
+    [SugarColumn(ColumnName = "ban_state_generation", DefaultValue = "1")]
+    public long BanStateGeneration
+    {
+        get; set;
+    } = 1;
+
+    /// <summary>
     /// 注册时间 (审计用)
     /// </summary>
     [SugarColumn(IsNullable = true)]

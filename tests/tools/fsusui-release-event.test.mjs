@@ -4,20 +4,15 @@ import { createServer } from 'node:http';
 import test from 'node:test';
 import { gzipSync } from 'node:zlib';
 
-import {
-    parseFsusuiReleaseEvent,
-    requireVerifiedFsusuiEvent,
-    reverifyFsusuiEventReceipt,
-    verifyFsusuiReleaseEvent
-} from '../../tools/dependencies/verify-fsusui-release-event.mjs';
-
+const {parseFsusuiReleaseEvent, requireVerifiedFsusuiEvent, reverifyFsusuiEventReceipt, verifyFsusuiReleaseEvent} = await import(new URL('../../tools/dependencies/verify-fsusui-release-event.mjs', import.meta.url));
 const packageName = '@ozwasyd/element-plus';
 const registry = 'https://registry.npmjs.org/';
 const now = () => new Date('2026-09-05T00:00:00.000Z');
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const integrity = (bytes) => `sha512-${createHash('sha512').update(bytes).digest('base64')}`;
 
-function archive(manifest, duplicate = false) {
+function archive(manifest, duplicate = false)
+{
     const bytes = Buffer.isBuffer(manifest) ? manifest : Buffer.from(JSON.stringify(manifest));
     const header = Buffer.alloc(512);
     header.write('package/package.json');
@@ -36,7 +31,8 @@ function archive(manifest, duplicate = false) {
     return gzipSync(Buffer.concat([entry, ...(duplicate ? [entry] : []), Buffer.alloc(1024)]));
 }
 
-function fixture({ manifest = { name: packageName, version: '1.5.2' }, tarball = archive(manifest), candidateManifestSha256 } = {}) {
+function fixture({ manifest = { name: packageName, version: '1.5.2' }, tarball = archive(manifest), candidateManifestSha256 } = {})
+{
     const manifestBytes = Buffer.from(JSON.stringify(manifest));
     const payload = {
         schemaVersion: 1,
@@ -58,8 +54,10 @@ function fixture({ manifest = { name: packageName, version: '1.5.2' }, tarball =
     return { payload, version, latest: structuredClone(version), tarball, requests: [] };
 }
 
-async function registryFixture(t, data) {
-    const server = createServer((request, response) => {
+async function registryFixture(t, data)
+{
+    const server = createServer((request, response) =>
+    {
         data.requests.push(request.url);
         const value = request.url === '/%40ozwasyd%2Felement-plus/1.5.2' ? data.version
             : request.url === '/%40ozwasyd%2Felement-plus/latest' ? data.latest
@@ -68,8 +66,13 @@ async function registryFixture(t, data) {
         response.end(Buffer.isBuffer(value) ? value : JSON.stringify(value ?? {}));
     });
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-    t.after(() => new Promise((resolve) => { server.close(resolve); server.closeAllConnections(); }));
-    return async (url, options) => {
+    t.after(() => new Promise((resolve) =>
+    {
+        server.close(resolve);
+        server.closeAllConnections();
+    }));
+    return async (url, options) =>
+    {
         assert.equal(new URL(url).origin, 'https://registry.npmjs.org');
         assert.equal(options.redirect, 'error');
         const local = `http://127.0.0.1:${server.address().port}${new URL(url).pathname}`;
@@ -79,7 +82,8 @@ async function registryFixture(t, data) {
     };
 }
 
-test('simulation: same candidate bytes traverse HTTP metadata, latest, archive and sealed receipt', async (t) => {
+test('simulation: same candidate bytes traverse HTTP metadata, latest, archive and sealed receipt', async (t) =>
+{
     const data = fixture();
     const transport = await registryFixture(t, data);
     const raw = JSON.stringify(data.payload, null, 2);
@@ -93,7 +97,10 @@ test('simulation: same candidate bytes traverse HTTP metadata, latest, archive a
     assert.equal(receipt.verifiedAt, now().toISOString());
     assert.equal(data.requests.length, 3);
     assert.ok(Object.isFrozen(receipt) && Object.isFrozen(receipt.payload));
-    assert.throws(() => { receipt.payload.version = '9.9.9'; }, TypeError);
+    assert.throws(() =>
+    {
+        receipt.payload.version = '9.9.9';
+    }, TypeError);
     assert.throws(() => requireVerifiedFsusuiEvent(data.payload), /sealed verified/);
     assert.throws(() => requireVerifiedFsusuiEvent(JSON.parse(JSON.stringify(receipt))), /sealed verified/);
     assert.throws(() => requireVerifiedFsusuiEvent({ ...receipt }), /sealed verified/);
@@ -103,18 +110,22 @@ test('simulation: same candidate bytes traverse HTTP metadata, latest, archive a
     assert.equal(data.requests.length, 6);
 });
 
-test('every missing field, unknown field and field type fails before any network request', async () => {
+test('every missing field, unknown field and field type fails before any network request', async () =>
+{
     const { payload } = fixture();
     const transport = () => assert.fail('invalid payload reached network');
-    for (const key of Object.keys(payload)) {
+    for (const key of Object.keys(payload))
+    {
         const missing = { ...payload };
         delete missing[key];
         await assert.rejects(verifyFsusuiReleaseEvent(JSON.stringify(missing), { transport }), /missing/);
-        for (const value of [null, {}, [], false]) {
+        for (const value of [null, {}, [], false])
+        {
             assert.throws(() => parseFsusuiReleaseEvent(JSON.stringify({ ...payload, [key]: value })), new RegExp(key));
         }
     }
-    for (const key of ['url', 'tarball', 'authToken', 'unknown']) {
+    for (const key of ['url', 'tarball', 'authToken', 'unknown'])
+    {
         await assert.rejects(verifyFsusuiReleaseEvent(JSON.stringify({ ...payload, [key]: 'https://example.invalid/' }), { transport }), /unknown/);
     }
 });
@@ -125,34 +136,70 @@ for (const [key, value] of [
     ['sourceRepository', 'other/FsusUI'], ['sourceCommit', 'abcd'], ['releaseTag', 'v1.5.3'],
     ['releaseTag', '1.5.2'], ['candidateSha256', '0'.repeat(64)], ['crossGateReceiptSha256', ''],
     ['candidateManifestSha256', 'unknown'], ['publishRunId', '0'], ['npmIntegrity', 'sha512-aA==']
-]) {
-    test(`rejects payload ${key}=${value}`, () => {
+])
+{
+    test(`rejects payload ${key}=${value}`, () =>
+    {
         assert.throws(() => parseFsusuiReleaseEvent(JSON.stringify({ ...fixture().payload, [key]: value })), new RegExp(key));
     });
 }
 
-test('rejects duplicate and escaped duplicate JSON keys', () => {
+test('rejects duplicate and escaped duplicate JSON keys', () =>
+{
     const raw = JSON.stringify(fixture().payload);
     assert.throws(() => parseFsusuiReleaseEvent(raw.replace('{', '{"version":"1.5.2",')), /duplicate/);
     assert.throws(() => parseFsusuiReleaseEvent(raw.replace('{', '{"vers\\u0069on":"1.5.2",')), /duplicate/);
-    for (const value of ['null', '[]', '{', 'false']) {
+    for (const value of ['null', '[]', '{', 'false'])
+    {
         assert.throws(() => parseFsusuiReleaseEvent(value), /payload/);
     }
 });
 
 for (const [label, mutate, error] of [
-    ['latest version', (d) => { d.latest.version = '1.5.3'; }, /latest/],
-    ['metadata name', (d) => { d.version.name = 'other'; }, /name\/version/],
-    ['metadata version', (d) => { d.version.version = '1.5.3'; }, /name\/version/],
-    ['metadata integrity', (d) => { d.version.dist.integrity = integrity('other'); }, /integrity/],
-    ['latest integrity', (d) => { d.latest.dist.integrity = integrity('other'); }, /latest identity/],
-    ['tarball integrity', (d) => { d.tarball = Buffer.from('other'); }, /tarball integrity/],
-    ['tarball SHA', (d) => { d.payload.candidateSha256 = d.payload.npmTarballSha256 = '0'.repeat(64); }, /tarball SHA/],
-    ['registry unavailable', (d) => { d.status = 503; }, /network\/registry/],
-    ['foreign tarball URL', (d) => { d.latest.dist.tarball = d.version.dist.tarball = 'https://example.invalid/package.tgz'; }, /URL origin/],
-    ['credential tarball URL', (d) => { d.latest.dist.tarball = d.version.dist.tarball = 'https://token@registry.npmjs.org/package.tgz'; }, /URL origin/]
-]) {
-    test(`simulation: rejects ${label}`, async (t) => {
+    ['latest version', (d) =>
+    {
+        d.latest.version = '1.5.3';
+    }, /latest/],
+    ['metadata name', (d) =>
+    {
+        d.version.name = 'other';
+    }, /name\/version/],
+    ['metadata version', (d) =>
+    {
+        d.version.version = '1.5.3';
+    }, /name\/version/],
+    ['metadata integrity', (d) =>
+    {
+        d.version.dist.integrity = integrity('other');
+    }, /integrity/],
+    ['latest integrity', (d) =>
+    {
+        d.latest.dist.integrity = integrity('other');
+    }, /latest identity/],
+    ['tarball integrity', (d) =>
+    {
+        d.tarball = Buffer.from('other');
+    }, /tarball integrity/],
+    ['tarball SHA', (d) =>
+    {
+        d.payload.candidateSha256 = d.payload.npmTarballSha256 = '0'.repeat(64);
+    }, /tarball SHA/],
+    ['registry unavailable', (d) =>
+    {
+        d.status = 503;
+    }, /network\/registry/],
+    ['foreign tarball URL', (d) =>
+    {
+        d.latest.dist.tarball = d.version.dist.tarball = 'https://example.invalid/package.tgz';
+    }, /URL origin/],
+    ['credential tarball URL', (d) =>
+    {
+        d.latest.dist.tarball = d.version.dist.tarball = 'https://token@registry.npmjs.org/package.tgz';
+    }, /URL origin/]
+])
+{
+    test(`simulation: rejects ${label}`, async (t) =>
+    {
         const data = fixture();
         mutate(data);
         const transport = await registryFixture(t, data);
@@ -165,21 +212,29 @@ for (const [label, fixtureOptions, error] of [
     ['wrong package version', { manifest: { name: packageName, version: '1.5.3' } }, /tarball name\/version/],
     ['invalid archive', { tarball: Buffer.from('not a gzip tar archive') }, /tarball package/],
     ['duplicate manifest', { manifest: { name: packageName, version: '1.5.2' }, tarball: archive({ name: packageName, version: '1.5.2' }, true) }, /tarball package/]
-]) {
-    test(`simulation: rejects ${label} even when all cryptographic digests agree`, async (t) => {
+])
+{
+    test(`simulation: rejects ${label} even when all cryptographic digests agree`, async (t) =>
+    {
         const data = fixture(fixtureOptions);
         const transport = await registryFixture(t, data);
         await assert.rejects(verifyFsusuiReleaseEvent(JSON.stringify(data.payload), { transport, now }), error);
     });
 }
 
-test('network errors and redirects fail closed without exposing transport secrets', async () => {
+test('network errors and redirects fail closed without exposing transport secrets', async () =>
+{
     for (const transport of [
-        () => { throw new Error('credential-secret'); },
+        () =>
+        {
+            throw new Error('credential-secret');
+        },
         () => ({ ok: true, redirected: true, body: [] }),
         () => ({ ok: true, redirected: false, url: 'https://example.invalid/', body: [] })
-    ]) {
-        await assert.rejects(verifyFsusuiReleaseEvent(JSON.stringify(fixture().payload), { transport }), (error) => {
+    ])
+    {
+        await assert.rejects(verifyFsusuiReleaseEvent(JSON.stringify(fixture().payload), { transport }), (error) =>
+        {
             assert.match(error.message, /network\/registry/);
             assert.ok(!error.message.includes('credential-secret'));
             return true;
@@ -187,12 +242,14 @@ test('network errors and redirects fail closed without exposing transport secret
     }
 });
 
-test('simulation: tampered receipts, even rehashed, cannot authorize writes', async (t) => {
+test('simulation: tampered receipts, even rehashed, cannot authorize writes', async (t) =>
+{
     const data = fixture();
     const transport = await registryFixture(t, data);
     const receipt = await verifyFsusuiReleaseEvent(JSON.stringify(data.payload), { transport, now });
     const changed = { ...receipt, npmTarballSha256: '0'.repeat(64) };
     await assert.rejects(reverifyFsusuiEventReceipt(JSON.stringify(changed), { transport, now }), /receipt digest/);
+    // eslint-disable-next-line no-unused-vars
     const { receiptSha256, ...body } = changed;
     const rehashed = { ...body, receiptSha256: sha256(JSON.stringify(body)) };
     await assert.rejects(reverifyFsusuiEventReceipt(JSON.stringify(rehashed), { transport, now }), /receipt binding/);
@@ -200,18 +257,22 @@ test('simulation: tampered receipts, even rehashed, cannot authorize writes', as
     await assert.rejects(reverifyFsusuiEventReceipt(JSON.stringify(receipt), { transport, now }), /latest dist-tag/);
 });
 
-test('payload and streamed metadata size bounds fail before archive processing', async () => {
+test('payload and streamed metadata size bounds fail before archive processing', async () =>
+{
     assert.throws(() => parseFsusuiReleaseEvent(' '.repeat(4 * 1024 * 1024 + 1)), /size\/type/);
     const transport = async () => new Response(Buffer.alloc(4 * 1024 * 1024 + 1));
     await assert.rejects(verifyFsusuiReleaseEvent(JSON.stringify(fixture().payload), { transport }), /network\/registry\/response/);
 });
 
-test('tarball streaming enforces 128 MiB without buffering an oversized response', async () => {
+test('tarball streaming enforces 128 MiB without buffering an oversized response', async () =>
+{
     const data = fixture();
     let request = 0;
-    const transport = async () => {
+    const transport = async () =>
+    {
         request += 1;
-        if (request < 3) {
+        if (request < 3)
+        {
             return new Response(JSON.stringify(request === 1 ? data.version : data.latest));
         }
         const chunk = Buffer.alloc(1024 * 1024);
@@ -221,14 +282,16 @@ test('tarball streaming enforces 128 MiB without buffering an oversized response
     assert.equal(request, 3);
 });
 
-test('simulation: decompressed package manifest size is bounded independently of gzip size', async (t) => {
+test('simulation: decompressed package manifest size is bounded independently of gzip size', async (t) =>
+{
     const data = fixture({ tarball: archive({ name: packageName, version: '1.5.2', padding: ' '.repeat(4 * 1024 * 1024) }) });
     assert.ok(data.tarball.length < 10000);
     const transport = await registryFixture(t, data);
     await assert.rejects(verifyFsusuiReleaseEvent(JSON.stringify(data.payload), { transport, now }), /tarball package/);
 });
 
-test('simulation: duplicate package identity inside a valid tarball is rejected', async (t) => {
+test('simulation: duplicate package identity inside a valid tarball is rejected', async (t) =>
+{
     const manifestBytes = Buffer.from('{"name":"other","name":"@ozwasyd/element-plus","version":"1.5.2"}');
     const data = fixture({
         tarball: archive(manifestBytes),
@@ -239,12 +302,19 @@ test('simulation: duplicate package identity inside a valid tarball is rejected'
     await assert.rejects(verifyFsusuiReleaseEvent(JSON.stringify(data.payload), { transport, now }), /duplicate/);
 });
 
-test('simulation: stalled HTTP registry is aborted by the production 30-second deadline', { timeout: 35000 }, async (t) => {
-    const server = createServer(() => {});
+test('simulation: stalled HTTP registry is aborted by the production 30-second deadline', { timeout: 35000 }, async (t) =>
+{
+    const server = createServer(() =>
+    {});
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-    t.after(() => new Promise((resolve) => { server.close(resolve); server.closeAllConnections(); }));
+    t.after(() => new Promise((resolve) =>
+    {
+        server.close(resolve);
+        server.closeAllConnections();
+    }));
     let requestSignal;
-    const transport = async (_url, options) => {
+    const transport = async (_url, options) =>
+    {
         requestSignal = options.signal;
         return fetch(`http://127.0.0.1:${server.address().port}/`, options);
     };

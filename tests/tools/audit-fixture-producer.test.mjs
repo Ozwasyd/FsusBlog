@@ -1,17 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-    buildAuditPlan,
-    computeAuditNegativeContentDigest,
-    computeAuditReceiptContentDigest,
-    validateAuditReceipt
-} from '../../tools/test-fixtures/producers/audit-producer.mjs';
-import {
-    createAuditRecordsPort,
-    createDefaultProducerPorts
-} from '../../tools/test-fixtures/producers/catalog-ports.mjs';
-
+const {buildAuditPlan, computeAuditNegativeContentDigest, computeAuditReceiptContentDigest, validateAuditReceipt} = await import(new URL('../../tools/test-fixtures/producers/audit-producer.mjs', import.meta.url));
+const {createAuditRecordsPort, createDefaultProducerPorts} = await import(new URL('../../tools/test-fixtures/producers/catalog-ports.mjs', import.meta.url));
 function context(capabilities)
 {
     return {

@@ -39,7 +39,7 @@ public partial class CommentCommandService(
     ICommentMutationOutbox? mutationOutbox = null,
     IArticleCommentPolicyService? articleCommentPolicy = null) : ICommentEndpointService, ICommentCommandService
 {
-    private const int DefaultMaxThreadDepth = 32;
+    internal const int DefaultMaxThreadDepth = 32;
     private const int DefaultMaxChildrenPerNode = 500;
     private const int DefaultMutationTtlHours = 24;
 
@@ -450,6 +450,17 @@ public partial class CommentCommandService(
             if (mutationOutbox is not null)
             {
                 DateTime occurredAt = DateTime.UtcNow;
+                await db.Insertable(new CommentModerationEvent
+                {
+                    CommentId = generatedId,
+                    EventType = CommentModerationEventTypes.Create,
+                    PreviousStatus = null,
+                    NextStatus = comment.ModerationStatus,
+                    ActorType = actor.UserId is > 0 ? "account" : "anonymous",
+                    ReasonCode = "comment_create",
+                    TransitionSource = "create",
+                    OccurredAtUtc = occurredAt
+                }).ExecuteCommandAsync(cancellationToken);
                 await mutationOutbox.EnqueueAsync(BuildOutboxEvent(
                     CommentMutationEventTypes.Created,
                     comment,
@@ -1061,6 +1072,18 @@ public partial class CommentCommandService(
             deleted = await TrySoftDeleteCommentAsync(row.Id, row.RowVersion, reason, normalizedReason, deletedAt);
             if (deleted && mutationOutbox is not null)
             {
+                await db.Insertable(new CommentModerationEvent
+                {
+                    CommentId = row.Id,
+                    EventType = CommentModerationEventTypes.Delete,
+                    PreviousStatus = row.ModerationStatus,
+                    NextStatus = CommentModerationStatus.Hidden,
+                    ActorType = actorAdminPrincipalId is > 0 ? "admin" : "account",
+                    ReasonCode = normalizedReason,
+                    TransitionSource = actorAdminPrincipalId is > 0 ? "admin" : "account",
+                    AdminPrincipalId = actorAdminPrincipalId > 0 ? actorAdminPrincipalId : null,
+                    OccurredAtUtc = deletedAt
+                }).ExecuteCommandAsync();
                 await mutationOutbox.EnqueueAsync(new CommentMutationOutboxEvent
                 {
                     EventType = CommentMutationEventTypes.Deleted,

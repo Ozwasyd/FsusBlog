@@ -3,29 +3,26 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { maskCSharpTrivia, verifyFactWrappersAndSearchUtf8ScalarOwner } from './test/csharp-source-mask.mjs';
-import { parseMatrix } from './test-matrix/parse-matrix.mjs';
 import {
-    backendEvidencePathAuthorityFile,
-    buildBackendEvidencePathAuthority
-} from './test/backend-evidence-path-authority.mjs';
+    factWrapperContracts,
+    verifyCentralOpenApiPackageContract
+} from './backend-test-governance-contracts.mjs';
 import {
     verifyPlatformRuntimeGovernance,
     verifyPublicAotCrashWorkerGovernance
 } from './backend-test-runtime-governance.mjs';
 import {
-    factWrapperContracts,
-    verifyCentralOpenApiPackageContract
-} from './backend-test-governance-contracts.mjs';
+    backendEvidencePathAuthorityFile,
+    buildBackendEvidencePathAuthority
+} from './test/backend-evidence-path-authority.mjs';
+import { maskCSharpTrivia, verifyFactWrappersAndSearchUtf8ScalarOwner } from './test/csharp-source-mask.mjs';
+import { parseMatrix } from './test-matrix/parse-matrix.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const requirementCatalogPath = 'tests/backend/Fixtures/backend-test-requirements.json';
 const aedsCatalogPath = 'tests/backend/Fixtures/aeds-golden-catalog.json';
 const pathGovernanceFixtureDirectory = 'tests/backend/Fixtures/backend-test-path-governance';
 const environmentVariableGovernanceFixtureDirectory = 'tests/backend/Fixtures/environment-variable-governance';
-const platformRuntimeGovernanceFixtureDirectory = 'tests/backend/Fixtures/platform-runtime-governance';
-const publicAotCrashWorkerGovernanceFixtureDirectory =
-    'tests/backend/Fixtures/public-aot-crash-worker-governance';
 const localRedisFixtureGovernanceDirectory =
     'tests/backend/Fixtures/local-redis-fixture-governance';
 const environmentVariableCollectionPath = 'tests/backend/Fixtures/EnvironmentVariableCollection.cs';
@@ -299,7 +296,7 @@ function scanEnvironmentVariableMutations(relativePath, source)
     for (const match of masked.matchAll(classPattern))
     {
         const declarationRemainder = masked.slice(match.index + match[0].length);
-        const openingOffset = declarationRemainder.search(/[\{;]/u);
+        const openingOffset = declarationRemainder.search(/[{;]/u);
         if (openingOffset < 0)
         {
             continue;
@@ -985,7 +982,7 @@ for (const error of verifyCentralOpenApiPackageContract(centralPackages, serverP
 
 for (const path of [
     'tests/backend/Unit/BackendApiIntegrationContractTests.cs',
-    'tests/backend/Unit/BackendAuthStateMachineTests.cs',
+    'tests/backend/Unit/MfaLoginEndpointPostgresTests.cs',
     'tests/backend/Integration/UserSessionRevocationIntegrationTests.cs',
     'tests/backend/Unit/BackendGoldenCatalogTests.cs',
     'tests/backend/Unit/BackendPropertyTests.cs',

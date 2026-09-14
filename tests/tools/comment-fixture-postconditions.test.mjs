@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { runPostcondition } from '../../tools/test-fixtures/receipt/postconditions.mjs';
-
+const { runPostcondition } = await import(new URL('../../tools/test-fixtures/receipt/postconditions.mjs', import.meta.url));
 function comment(role, id, fields = {})
 {
     return {
@@ -161,7 +160,9 @@ function observations()
 test('comment postconditions accept complete typed runtime observations', () =>
 {
     for (const id of ['comment-moderation-matrix', 'comment-threaded', 'moderation-policy-matrix'])
+    {
         assert.equal(runPostcondition(id, { observations: observations() }).ok, true, id);
+    }
 });
 
 test('comment moderation postcondition rejects public/queue/signal projection drift', () =>

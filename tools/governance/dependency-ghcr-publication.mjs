@@ -21,7 +21,10 @@ export async function readGhcrPublication(packageName, tag, digest, fetchJson, h
     for (let page = 1; page <= 100; page++)
     {
         const versions = await fetchJson(`https://api.github.com/${path}?state=active&per_page=100&page=${page}`, headers);
-        if (!Array.isArray(versions) || versions.length > 100) throw new Error('ghcr_publication_page_invalid');
+        if (!Array.isArray(versions) || versions.length > 100)
+        {
+            throw new Error('ghcr_publication_page_invalid');
+        }
         for (const version of versions)
         {
             if (!Number.isSafeInteger(version.id) || version.id <= 0 || seen.has(version.id))
@@ -41,7 +44,10 @@ export async function readGhcrPublication(packageName, tag, digest, fetchJson, h
         }
         if (versions.length < 100)
         {
-            if (matching.length !== 1) throw new Error('ghcr_publication_digest_missing_or_ambiguous');
+            if (matching.length !== 1)
+            {
+                throw new Error('ghcr_publication_digest_missing_or_ambiguous');
+            }
             return registryRelease(digest, matching[0].created_at, `ghcr:${owner}/${name}`).releasedAt;
         }
     }

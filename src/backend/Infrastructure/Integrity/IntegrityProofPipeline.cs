@@ -164,7 +164,8 @@ public sealed class IntegrityProofScheduler(
     PublicHotReadStore publicHotReadStore,
     IPublishProofTransparencyLog transparencyLog,
     IConfiguration configuration,
-    ILogger<IntegrityProofScheduler> logger) : IIntegrityProofScheduler
+    ILogger<IntegrityProofScheduler> logger,
+    TimeProvider timeProvider) : IIntegrityProofScheduler
 {
     private const string EmptyArtifactHash = "0000000000000000000000000000000000000000000000000000000000000000";
 
@@ -328,7 +329,7 @@ public sealed class IntegrityProofScheduler(
         int articleId,
         CancellationToken cancellationToken)
     {
-        DateTime now = DateTime.UtcNow;
+        DateTime now = timeProvider.GetUtcNow().UtcDateTime;
         return ArticleMutationOutboxProducer.CreateCurrentAsync(
             db,
             articleId,
@@ -456,7 +457,7 @@ public sealed class IntegrityProofScheduler(
     private async Task<long> UpsertProofAsync(PublishProofInput proof, string? failureCode, CancellationToken cancellationToken)
     {
         string idempotencyKey = PublishProofIdempotency.BuildKey(proof.ArticleId, proof.ArticleRevisionId, proof.ProofVersion);
-        DateTime now = DateTime.UtcNow;
+        DateTime now = timeProvider.GetUtcNow().UtcDateTime;
         System.Data.DataTable rows = await db.Ado.GetDataTableAsync(
             """
             INSERT INTO article_publish_proof (
@@ -556,7 +557,7 @@ public sealed class IntegrityProofScheduler(
             proof.ArticleId,
             proof.ArticleRevisionId,
             proof.ProofVersion);
-        DateTime now = DateTime.UtcNow;
+        DateTime now = timeProvider.GetUtcNow().UtcDateTime;
         System.Data.DataTable rows = await db.Ado.GetDataTableAsync(
             """
             INSERT INTO article_rights_proof (

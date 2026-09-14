@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { evaluateFreshness } from '../../tools/governance/dependency-freshness.mjs';
-import { parseRenovatePullRequests } from '../../tools/governance/dependency-freshness-pulls.mjs';
-import { resolveDependencyPullTarget } from '../../tools/governance/dependency-pull-target.mjs';
-import { buildDependencyBlockerSnapshot } from '../../tools/governance/dependency-blocker-snapshot.mjs';
-import { planScheduledBlockers } from '../../tools/governance/dependency-blocker-state.mjs';
-
-test('source-qualified major PR flows through freshness, required checks, 24h label and recovery', async () => {
+const { evaluateFreshness } = await import(new URL('../../tools/governance/dependency-freshness.mjs', import.meta.url));
+const { parseRenovatePullRequests } = await import(new URL('../../tools/governance/dependency-freshness-pulls.mjs', import.meta.url));
+const { resolveDependencyPullTarget } = await import(new URL('../../tools/governance/dependency-pull-target.mjs', import.meta.url));
+const { buildDependencyBlockerSnapshot } = await import(new URL('../../tools/governance/dependency-blocker-snapshot.mjs', import.meta.url));
+const { planScheduledBlockers } = await import(new URL('../../tools/governance/dependency-blocker-state.mjs', import.meta.url));
+test('source-qualified major PR flows through freshness, required checks, 24h label and recovery', async () =>
+{
     const headSha = 'a'.repeat(40);
     const item = { id: 'npm-example', packageName: 'example', manager: 'npm', datasource: 'npm', group: 'runtime',
         files: ['package.json', 'package-lock.json'], fieldPaths: ['/dependencies/example'] };
@@ -15,7 +15,8 @@ test('source-qualified major PR flows through freshness, required checks, 24h la
     const exceptions = { schema: 'fsusblog.dependency-exceptions.v1', exceptions: [] };
     const pull = { number: 1, state: 'open', head: { sha: headSha }, labels: [], title: 'Update example to v2', user: { login: 'renovate[bot]' },
         body: '| Package | Update | New value |\n| --- | --- | --- |\n| example | major | ^2.0.0 |' };
-    const readFileAtHead = async (file, sha) => {
+    const readFileAtHead = async (file, sha) =>
+    {
         assert.equal(sha, headSha);
         const root = { dependencies: { example: '^2.0.0' } };
         return JSON.stringify(file === 'package.json' ? root : {

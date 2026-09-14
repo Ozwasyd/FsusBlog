@@ -7,6 +7,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Server.Services.Security;
@@ -202,16 +203,12 @@ public sealed class PasskeyRegistrationProjectionIntegrationTests(PostgresSchema
 
             int winnerIndex = Array.FindIndex(targetResults, static result => result.Success);
             int loserIndex = 1 - winnerIndex;
-            await cache.Received(1).IncrementAsync(
-                CachePolicyId.AccountSnapshotVersion,
-                accountId.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                1,
-                Arg.Any<CancellationToken>());
-            await cache.Received(1).IncrementAsync(
-                CachePolicyId.AccountSnapshotVersion,
-                otherAccountId.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                1,
-                Arg.Any<CancellationToken>());
+            await targetRegistrations[winnerIndex].AccountStates.Received(1)
+                .ProjectCommittedMutationAsync(accountId, Arg.Any<CancellationToken>());
+            await targetRegistrations[loserIndex].AccountStates.DidNotReceive()
+                .ProjectCommittedMutationAsync(accountId, Arg.Any<CancellationToken>());
+            await otherRegistration.AccountStates.Received(1)
+                .ProjectCommittedMutationAsync(otherAccountId, Arg.Any<CancellationToken>());
             await cache.Received(1).RemoveAsync(
                 CachePolicyId.SecurityPasskeyRegChallenge,
                 targetRegistrations[winnerIndex].Request.SessionKey,
@@ -380,11 +377,10 @@ public sealed class PasskeyRegistrationProjectionIntegrationTests(PostgresSchema
             Assert.Equal(2, (await setupDb.Queryable<User>().SingleAsync(user => user.Id == accountId)).PasskeySignalVersion);
             int winnerIndex = Array.FindIndex(results, static result => result.Success);
             int conflictIndex = 1 - winnerIndex;
-            await cache.Received(1).IncrementAsync(
-                CachePolicyId.AccountSnapshotVersion,
-                accountId.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                1,
-                Arg.Any<CancellationToken>());
+            await registrations[winnerIndex].AccountStates.Received(1)
+                .ProjectCommittedMutationAsync(accountId, Arg.Any<CancellationToken>());
+            await registrations[conflictIndex].AccountStates.DidNotReceive()
+                .ProjectCommittedMutationAsync(accountId, Arg.Any<CancellationToken>());
             await cache.Received(1).RemoveAsync(
                 CachePolicyId.SecurityPasskeyRegChallenge,
                 registrations[winnerIndex].Request.SessionKey,
@@ -462,6 +458,7 @@ public sealed class PasskeyRegistrationProjectionIntegrationTests(PostgresSchema
                 Arg.Any<string>(),
                 Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask);
+        var accountStates = Substitute.For<IAccountStateProjectionMutationPublisher>();
         var service = new PasskeyService(
             fido,
             db,
@@ -470,7 +467,7 @@ public sealed class PasskeyRegistrationProjectionIntegrationTests(PostgresSchema
             cache,
             cache,
             cache,
-            cache,
+            accountStates,
             Substitute.For<IUserSessionCommandService>(),
             Substitute.For<IMessageNotificationStreamPort>(),
             Substitute.For<IAuditEventService>(),
@@ -547,6 +544,7 @@ public sealed class PasskeyRegistrationProjectionIntegrationTests(PostgresSchema
                 Arg.Any<Func<ReadOnlyMemory<byte>, (bool Success, PasskeyRegisterBeginCoreModel? Value)>>(),
                 Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(new CacheReadResult<PasskeyRegisterBeginCoreModel>(true, options)));
+        var accountStates = Substitute.For<IAccountStateProjectionMutationPublisher>();
         var service = new PasskeyService(
             fido,
             db,
@@ -555,12 +553,12 @@ public sealed class PasskeyRegistrationProjectionIntegrationTests(PostgresSchema
             cache,
             cache,
             cache,
-            cache,
+            accountStates,
             Substitute.For<IUserSessionCommandService>(),
             Substitute.For<IMessageNotificationStreamPort>(),
             Substitute.For<IAuditEventService>(),
             NullLogger<PasskeyService>.Instance);
-        return new RegistrationFixture(service, request, fido);
+        return new RegistrationFixture(service, request, fido, accountStates);
     }
 
     private static IUnifiedCache CreateRegistrationCache()
@@ -696,5 +694,6 @@ public sealed class PasskeyRegistrationProjectionIntegrationTests(PostgresSchema
     private sealed record RegistrationFixture(
         PasskeyService Service,
         PasskeyRegisterCompleteCoreModel Request,
-        IFido2 Fido);
+        IFido2 Fido,
+        IAccountStateProjectionMutationPublisher AccountStates);
 }

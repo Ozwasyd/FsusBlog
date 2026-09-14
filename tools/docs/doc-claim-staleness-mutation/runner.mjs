@@ -6,35 +6,13 @@
 import { createHash } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import {
-    DocClaimErrorCode,
-    parseDocumentClaims,
-    validateClaimDeclaration
-} from '../doc-claim.mjs'
-import {
-    makeLocatedClaim,
-    verifyProseClaims
-} from '../prose-claim-verifier/verifier.mjs'
-import {
-    processGeneratedFactSections,
-    indexReceiptsByExtractor
-} from '../generated-fact-sections/generator.mjs'
-import {
-    GeneratedSectionErrorCode,
-    formatBeginMarker,
-    formatEndMarker,
-    parseGeneratedMarkers,
-    wrapGeneratedSection
-} from '../generated-fact-sections/markers.mjs'
-import { loadCatalog } from '../generated-fact-sections/catalog.mjs'
-import {
-    joinBehaviorGraph,
-    sealDocClaimVerificationReceipt,
-    sealGeneratedSectionCheckReceipt,
-    sealOwnerBindingReceipt,
-    digestValue
-} from '../../contracts/behavior-graph-join.mjs'
-import { buildReceipt, sealReceipt } from '../../fact-extractors/receipt.mjs'
+const {DocClaimErrorCode, parseDocumentClaims, validateClaimDeclaration} = await import(new URL('../doc-claim.mjs', import.meta.url));
+const {makeLocatedClaim, verifyProseClaims} = await import(new URL('../prose-claim-verifier/verifier.mjs', import.meta.url));
+const {processGeneratedFactSections, indexReceiptsByExtractor} = await import(new URL('../generated-fact-sections/generator.mjs', import.meta.url));
+const {GeneratedSectionErrorCode, formatBeginMarker, formatEndMarker, parseGeneratedMarkers, wrapGeneratedSection} = await import(new URL('../generated-fact-sections/markers.mjs', import.meta.url));
+const {loadCatalog} = await import(new URL('../generated-fact-sections/catalog.mjs', import.meta.url));
+const {joinBehaviorGraph, sealDocClaimVerificationReceipt, sealGeneratedSectionCheckReceipt, sealOwnerBindingReceipt, digestValue} = await import(new URL('../../contracts/behavior-graph-join.mjs', import.meta.url));
+const {buildReceipt, sealReceipt} = await import(new URL('../../fact-extractors/receipt.mjs', import.meta.url));
 import { MutationLayers, forbiddenReasonCodes } from './layers.mjs'
 import {
     BEHAVIOR_ID,

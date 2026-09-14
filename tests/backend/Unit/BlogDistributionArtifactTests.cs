@@ -1,23 +1,46 @@
+using System.Diagnostics;
+using System.Net;
 using System.Xml.Linq;
 
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Distributed;
+using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Server.Infrastructure.Spa;
+using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
+using FsusBlog.Server.Models.Requests;
+using FsusBlog.Server.Modules.Endpoints;
+using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Distribution;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
 
 using NSubstitute;
 
 using SqlSugar;
+
+using StackExchange.Redis;
+using StackExchange.Redis.Profiling;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
-public sealed class BlogDistributionArtifactTests(PostgresSchemaMigrationFixture fixture)
+public sealed class BlogDistributionArtifactTests(
+    PostgresSchemaMigrationFixture fixture,
+    PublicHotDeliveryRedisFixture redis) : IClassFixture<PublicHotDeliveryRedisFixture>
 {
     private static readonly XNamespace s_sitemapNamespace = "http://www.sitemaps.org/schemas/sitemap/0.9";
 
@@ -117,7 +140,8 @@ public sealed class BlogDistributionArtifactTests(PostgresSchemaMigrationFixture
 
         IUnifiedCache cache = CreateVersionCache("1");
         using var memory = new MemoryCache(new MemoryCacheOptions());
-        BlogDistributionService service = CreateService(db, cache, memory);
+        var generation = new PublicAotInvalidationTracker();
+        BlogDistributionService service = CreateService(db, cache, memory, generation);
         string first = await service.BuildSitemapAsync();
         JsonFeedDocument firstFeed = await service.BuildJsonFeedAsync();
         Assert.Equal("2026-03-04", ReadLastmod(first, $"https://public.example/article/{articleId}"));
@@ -142,6 +166,8 @@ public sealed class BlogDistributionArtifactTests(PostgresSchemaMigrationFixture
         }).ExecuteCommand();
         cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<string?>("2"));
+        await CreatePublicAotInvalidationService(generation)
+            .InvalidateArticleMutationAsync(articleId, [categoryId], []);
         string metadataOnly = await service.BuildSitemapAsync();
         JsonFeedDocument metadataOnlyFeed = await service.BuildJsonFeedAsync();
         Assert.Equal("2026-03-07", ReadLastmod(metadataOnly, $"https://public.example/article/{articleId}"));
@@ -158,6 +184,8 @@ public sealed class BlogDistributionArtifactTests(PostgresSchemaMigrationFixture
             .ExecuteCommand();
         cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<string?>("3"));
+        await CreatePublicAotInvalidationService(generation)
+            .InvalidateArticleMutationAsync(articleId, [categoryId], []);
         string second = await service.BuildSitemapAsync();
         JsonFeedDocument secondFeed = await service.BuildJsonFeedAsync();
         Assert.Equal("2026-03-08", ReadLastmod(second, $"https://public.example/article/{articleId}"));
@@ -189,6 +217,427 @@ public sealed class BlogDistributionArtifactTests(PostgresSchemaMigrationFixture
         Assert.Contains("https://public.example/sitemap/2.xml", root, StringComparison.Ordinal);
     }
 
+    [Fact]
+    [Trait("Category", "Performance")]
+    public async Task ProductionSitemap45_001Urls_HasBoundedAllocationResidentBytesAndP99()
+    {
+        const int Samples = 128;
+        const int Warmups = 3;
+        const int ArticleCount = 44_994;
+        const long AllocationBudgetBytes = 256L * 1024 * 1024;
+        const long ResidentBudgetBytes = 16L * 1024 * 1024;
+        const double P99BudgetMilliseconds = 2_000;
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        int categoryId = db.Insertable(new Category { Name = "Production benchmark" }).ExecuteReturnIdentity();
+        _ = await db.Ado.ExecuteCommandAsync(
+            """
+            INSERT INTO article
+                (title, categoryid, views, createtime, metadata_updated_at, status,
+                 published_at, last_published_at, public_updated_at, isdeleted)
+            SELECT
+                'Benchmark article ' || value,
+                @CategoryId,
+                0,
+                CAST('2026-01-01T00:00:00Z' AS timestamp) + value * INTERVAL '1 second',
+                CAST('2026-01-01T00:00:00Z' AS timestamp) + value * INTERVAL '1 second',
+                @PublishedStatus,
+                CAST('2026-01-01T00:00:00Z' AS timestamp) + value * INTERVAL '1 second',
+                CAST('2026-01-01T00:00:00Z' AS timestamp) + value * INTERVAL '1 second',
+                CAST('2026-01-01T00:00:00Z' AS timestamp) + value * INTERVAL '1 second',
+                false
+            FROM generate_series(1, @ArticleCount) AS value;
+            """,
+            new SugarParameter("@CategoryId", categoryId),
+            new SugarParameter("@PublishedStatus", (int)ArticleStatus.Published),
+            new SugarParameter("@ArticleCount", ArticleCount));
+        var elapsedMilliseconds = new double[Samples];
+        var allocationBytes = new long[Samples];
+        long residentBytes = 0;
+
+        for (int sample = -Warmups; sample < Samples; sample++)
+        {
+            using var memory = new MemoryCache(new MemoryCacheOptions());
+            var artifacts = new SitemapArtifactCache(new PublicAotInvalidationTracker());
+            BlogDistributionService service = CreateService(
+                db,
+                Substitute.For<ICacheStringReader>(),
+                memory,
+                artifacts: artifacts);
+            long allocatedBefore = GC.GetTotalAllocatedBytes(precise: true);
+            long startedAt = Stopwatch.GetTimestamp();
+            _ = await service.BuildSitemapAsync();
+            TimeSpan elapsed = Stopwatch.GetElapsedTime(startedAt);
+            long allocated = GC.GetTotalAllocatedBytes(precise: true) - allocatedBefore;
+            SitemapArtifactCacheSnapshot snapshot = artifacts.Snapshot();
+            DistributionDiagnosticsCounts diagnostics = await service.GetDiagnosticsCountsAsync();
+            Assert.Equal(45_001, diagnostics.SitemapUrlCount);
+            if (sample < 0)
+            {
+                continue;
+            }
+
+            elapsedMilliseconds[sample] = elapsed.TotalMilliseconds;
+            allocationBytes[sample] = allocated;
+            residentBytes = snapshot.ResidentBytes;
+        }
+
+        Array.Sort(elapsedMilliseconds);
+        double p99 = elapsedMilliseconds[(int)Math.Ceiling(Samples * 0.99d) - 1];
+        long maxAllocation = allocationBytes.Max();
+        Console.WriteLine(
+            $"[sitemap-production] urls=45001 warmups={Warmups} samples={Samples} "
+            + $"p99Ms={p99:F2} maxAllocationBytes={maxAllocation} residentBytes={residentBytes}");
+        Assert.True(p99 <= P99BudgetMilliseconds, $"sitemap p99 {p99:F2}ms exceeds {P99BudgetMilliseconds:F0}ms");
+        Assert.True(maxAllocation <= AllocationBudgetBytes, $"sitemap allocation {maxAllocation} exceeds {AllocationBudgetBytes}");
+        Assert.True(residentBytes <= ResidentBudgetBytes, $"sitemap resident bytes {residentBytes} exceeds {ResidentBudgetBytes}");
+    }
+
+    [Fact]
+    public async Task SitemapColdMissIsProcessWideSingleflightAndFollowingHitExecutesNoRedisOrDatabaseCommands()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        int commandCount = 0;
+        db.Aop.OnLogExecuting = (_, _) => Interlocked.Increment(ref commandCount);
+        var generation = new PublicAotInvalidationTracker();
+        var artifacts = new SitemapArtifactCache(generation);
+        ISystemService system = Substitute.For<ISystemService>();
+        IUnifiedCache redis = Substitute.For<IUnifiedCache>();
+        IConfiguration configuration = CreateConfiguration("https://public.example");
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        BlogDistributionService[] services = Enumerable.Range(0, 100)
+            .Select(_ => new BlogDistributionService(db, system, redis, memory, configuration, artifacts))
+            .ToArray();
+
+        Task<string>[] requests = services.Select(static service => service.BuildSitemapAsync()).ToArray();
+        string[] documents = await Task.WhenAll(requests);
+
+        Assert.All(documents, document => Assert.Equal(documents[0], document));
+        Assert.Equal(4, commandCount);
+        await system.DidNotReceive().GetSeoConfigAsync();
+        await redis.DidNotReceiveWithAnyArgs().GetStringAsync(default, default!, default);
+
+        commandCount = 0;
+        Assert.Equal(documents[0], await services[0].BuildSitemapAsync());
+        Assert.Equal(0, commandCount);
+        await system.DidNotReceive().GetSeoConfigAsync();
+        SitemapArtifactCacheSnapshot snapshot = artifacts.Snapshot();
+        Assert.Equal(1, snapshot.ArtifactCount);
+        Assert.True(snapshot.ResidentBytes > 0);
+    }
+
+    [Fact]
+    public async Task KestrelWithoutOutputCache_ColdRequestUsesFourPostgresCommandsAndHitUsesNoExternalCommand()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        int dbCommands = 0;
+        db.Aop.OnLogExecuting = (_, _) => Interlocked.Increment(ref dbCommands);
+        await using ConnectionMultiplexer connection = await redis.ConnectAsync();
+        var redisProfile = new ProfilingSession();
+        connection.RegisterProfiler(() => redisProfile);
+        string prefix = $"test:sitemap-kestrel:{Guid.CreateVersion7():N}:";
+        var scope = new PrefixRuntimeKeyScope(prefix);
+        var unifiedCache = new UnifiedCache(
+            connection,
+            new CachePolicyRegistry(),
+            scope,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<UnifiedCache>.Instance);
+        var artifacts = new SitemapArtifactCache(new PublicAotInvalidationTracker());
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        BlogDistributionService service = CreateService(
+            db,
+            unifiedCache,
+            memory,
+            generation: null,
+            artifacts: artifacts);
+        WebApplicationBuilder builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            EnvironmentName = Environments.Production
+        });
+        builder.Configuration["AllowedHosts"] = "127.0.0.1;localhost";
+        builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
+        builder.Services.AddRouting();
+        builder.Services.AddOutputCache();
+        builder.Services.AddSingleton(service);
+        WebApplication app = builder.Build();
+        app.MapDistributionEndpoints();
+        await app.StartAsync();
+        try
+        {
+            string address = app.Services
+                .GetRequiredService<Microsoft.AspNetCore.Hosting.Server.IServer>()
+                .Features
+                .Get<IServerAddressesFeature>()!
+                .Addresses
+                .Single();
+            using var client = new HttpClient(new HttpClientHandler { UseProxy = false })
+            {
+                BaseAddress = new Uri(address),
+                Timeout = TimeSpan.FromSeconds(10)
+            };
+            _ = redisProfile.FinishProfiling().ToArray();
+
+            using HttpResponseMessage cold = await client.GetAsync("/sitemap.xml");
+            string coldBody = await cold.Content.ReadAsStringAsync();
+            string[] coldRedis = redisProfile.FinishProfiling().Select(static command => command.Command).ToArray();
+
+            Assert.Equal(HttpStatusCode.OK, cold.StatusCode);
+            Assert.Contains("<urlset", coldBody, StringComparison.Ordinal);
+            Assert.Equal(4, dbCommands);
+            Assert.Empty(coldRedis);
+            Assert.Equal(1, artifacts.Snapshot().BuildCount);
+
+            dbCommands = 0;
+            using HttpResponseMessage hit = await client.GetAsync("/sitemap.xml");
+            string hitBody = await hit.Content.ReadAsStringAsync();
+            string[] hitRedis = redisProfile.FinishProfiling().Select(static command => command.Command).ToArray();
+
+            Assert.Equal(HttpStatusCode.OK, hit.StatusCode);
+            Assert.Equal(coldBody, hitBody);
+            Assert.Equal(0, dbCommands);
+            Assert.Empty(hitRedis);
+            Assert.Equal(1, artifacts.Snapshot().BuildCount);
+        }
+        finally
+        {
+            await app.StopAsync();
+            await app.DisposeAsync();
+            await redis.DeleteNamespaceAsync(prefix);
+        }
+    }
+
+    [Fact]
+    public async Task PublicOriginMutationAdvancesGenerationAndReplacesEverySitemapDocument()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        db.Insertable(new SystemConfig { Key = "Seo_BaseUrl", Value = "https://origin-a.example" }).ExecuteCommand();
+        var generation = new PublicAotInvalidationTracker();
+        var artifacts = new SitemapArtifactCache(generation);
+        ISystemService system = Substitute.For<ISystemService>();
+        IUnifiedCache redis = Substitute.For<IUnifiedCache>();
+        IConfiguration configuration = new ConfigurationBuilder().Build();
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var service = new BlogDistributionService(db, system, redis, memory, configuration, artifacts);
+
+        string first = await service.BuildSitemapAsync();
+        db.Updateable<SystemConfig>()
+            .SetColumns(config => config.Value == "https://origin-b.example")
+            .Where(config => config.Key == "Seo_BaseUrl")
+            .ExecuteCommand();
+        await CreatePublicAotInvalidationService(generation).InvalidateSeoAsync();
+        long nextGeneration = generation.GetSitemapGeneration();
+        string second = await service.BuildSitemapAsync();
+
+        Assert.Contains("https://origin-a.example/", first, StringComparison.Ordinal);
+        Assert.DoesNotContain("https://origin-a.example/", second, StringComparison.Ordinal);
+        Assert.Contains("https://origin-b.example/", second, StringComparison.Ordinal);
+        Assert.Equal(nextGeneration, artifacts.Snapshot().Generation);
+        await system.DidNotReceive().GetSeoConfigAsync();
+        await redis.DidNotReceiveWithAnyArgs().GetStringAsync(default, default!, default);
+    }
+
+    [Theory]
+    [InlineData("seo", DistributedInvalidationEventKinds.SeoMutation)]
+    [InlineData("compliance", DistributedInvalidationEventKinds.ComplianceMutation)]
+    [InlineData("system-page", DistributedInvalidationEventKinds.SystemPageMutation)]
+    public async Task SystemMutationPublishFailure_CommitsDbButInvalidatesSourceArtifactExactlyOnce(
+        string mutation,
+        string expectedEventKind)
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        var authority = new InMemoryPublicAotInvalidationGenerationAuthority();
+        var generation = new PublicAotInvalidationTracker(authority);
+        var shell = Substitute.For<IPublicAotShellCache>();
+        PublicAotInvalidationService publicAot = CreatePublicAotInvalidationService(generation, shell);
+        var publisher = Substitute.For<IDistributedInvalidationPublisher>();
+        DistributedInvalidationRequest? observed = null;
+        publisher.PublishAsync(Arg.Any<DistributedInvalidationRequest>(), Arg.Any<CancellationToken>())
+            .Returns<Task<DistributedInvalidationPublishResult>>(call =>
+            {
+                observed = call.Arg<DistributedInvalidationRequest>();
+                throw new InvalidOperationException("publish-failed");
+            });
+        var cache = Substitute.For<IUnifiedCache>();
+        var dispatcher = new CacheInvalidationDispatcher(
+            cache,
+            cache,
+            Substitute.For<IHttpCacheInvalidator>(),
+            distributedInvalidationPublisher: publisher,
+            publicAotInvalidationTracker: generation);
+        var system = new SystemService(
+            db,
+            cache,
+            cache,
+            cache,
+            Substitute.For<ICacheMissCoordinator>(),
+            Substitute.For<IDbConcurrencyGate>(),
+            NullLogger<SystemService>.Instance,
+            publicAot,
+            Substitute.For<IMessageRealtimePublisher>(),
+            dispatcher);
+        var artifacts = new SitemapArtifactCache(generation);
+        int builds = 0;
+        _ = await artifacts.GetOrBuildAsync(
+            _ => Task.FromResult(new SitemapArtifactBuildResult(
+                new SitemapArtifactSet($"root-{++builds}", []),
+                AllocationBytes: 1)),
+            CancellationToken.None);
+
+        InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() => mutation switch
+        {
+            "seo" => system.UpdateSeoConfigAsync(new UpdateSeoConfigRequest
+            {
+                Title = "Committed SEO",
+                BaseUrl = "https://committed.example"
+            }),
+            "compliance" => system.UpdateSiteComplianceConfigAsync(new UpdateSiteComplianceConfigRequest
+            {
+                Enabled = true,
+                RegionMode = "global"
+            }),
+            "system-page" => system.UpdatePageContentAsync(new UpdatePageContentRequest
+            {
+                Slug = "about",
+                Content = "Committed about page"
+            }),
+            _ => throw new ArgumentOutOfRangeException(nameof(mutation), mutation, null)
+        });
+        SitemapArtifactSet rebuilt = await artifacts.GetOrBuildAsync(
+            _ => Task.FromResult(new SitemapArtifactBuildResult(
+                new SitemapArtifactSet($"root-{++builds}", []),
+                AllocationBytes: 1)),
+            CancellationToken.None);
+
+        Assert.Equal("publish-failed", failure.Message);
+        Assert.Equal(1, authority.Current.AllGeneration);
+        Assert.Equal(1, rebuilt.Generation);
+        Assert.Equal(2, builds);
+        Assert.NotNull(observed);
+        Assert.Equal(expectedEventKind, observed.Kind);
+        Assert.Equal(authority.Current.LastMutationId, observed.EventId);
+        if (mutation == "system-page")
+        {
+            await shell.DidNotReceive().InvalidateAllAsync(Arg.Any<CancellationToken>());
+            await shell.Received(1).RemoveManyAsync(
+                Arg.Is<IReadOnlyCollection<string>>(keys => keys.Count == 1),
+                Arg.Any<CancellationToken>());
+        }
+        else
+        {
+            await shell.Received(1).InvalidateAllAsync(Arg.Any<CancellationToken>());
+        }
+        Assert.True(mutation switch
+        {
+            "seo" => db.Queryable<SystemConfig>().Any(config =>
+                config.Key == "Seo_Title" && config.Value == "Committed SEO"),
+            "compliance" => db.Queryable<SystemConfig>().Any(config =>
+                config.Key == "Compliance_Enabled" && config.Value == "true"),
+            "system-page" => db.Queryable<PageContent>().Any(page =>
+                page.Slug == "about" && page.Content == "Committed about page"),
+            _ => false
+        });
+    }
+
+    [Theory]
+    [InlineData("seo", DistributedInvalidationEventKinds.SeoMutation)]
+    [InlineData("compliance", DistributedInvalidationEventKinds.ComplianceMutation)]
+    [InlineData("system-page", DistributedInvalidationEventKinds.SystemPageMutation)]
+    public async Task SystemMutation_AdvancesSitemapOnceAndPreservesTargetedAotInvalidation(
+        string mutation,
+        string expectedEventKind)
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        var authority = new InMemoryPublicAotInvalidationGenerationAuthority();
+        var generation = new PublicAotInvalidationTracker(authority);
+        var shell = Substitute.For<IPublicAotShellCache>();
+        PublicAotInvalidationService publicAot = CreatePublicAotInvalidationService(generation, shell);
+        var publisher = Substitute.For<IDistributedInvalidationPublisher>();
+        DistributedInvalidationRequest? observed = null;
+        bool identityBoundAtPublish = false;
+        publisher.PublishAsync(Arg.Any<DistributedInvalidationRequest>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                observed = call.Arg<DistributedInvalidationRequest>();
+                identityBoundAtPublish = string.Equals(
+                    authority.Current.LastMutationId,
+                    observed.EventId,
+                    StringComparison.Ordinal);
+                return new DistributedInvalidationPublishResult(
+                    DistributedInvalidationPublishStatus.LocalOnly,
+                    observed.EventId,
+                    null);
+            });
+        var cache = Substitute.For<IUnifiedCache>();
+        var dispatcher = new CacheInvalidationDispatcher(
+            cache,
+            cache,
+            Substitute.For<IHttpCacheInvalidator>(),
+            distributedInvalidationPublisher: publisher,
+            publicAotInvalidationTracker: generation);
+        var system = new SystemService(
+            db,
+            cache,
+            cache,
+            cache,
+            Substitute.For<ICacheMissCoordinator>(),
+            Substitute.For<IDbConcurrencyGate>(),
+            NullLogger<SystemService>.Instance,
+            publicAot,
+            Substitute.For<IMessageRealtimePublisher>(),
+            dispatcher);
+
+        switch (mutation)
+        {
+            case "seo":
+                await system.UpdateSeoConfigAsync(new UpdateSeoConfigRequest
+                {
+                    Title = "Committed SEO",
+                    BaseUrl = "https://committed.example"
+                });
+                break;
+            case "compliance":
+                await system.UpdateSiteComplianceConfigAsync(new UpdateSiteComplianceConfigRequest
+                {
+                    Enabled = true,
+                    RegionMode = "global"
+                });
+                break;
+            case "system-page":
+                Assert.True(await system.UpdatePageContentAsync(new UpdatePageContentRequest
+                {
+                    Slug = "about",
+                    Content = "Committed about page"
+                }));
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(mutation), mutation, null);
+        }
+
+        Assert.Equal(1, generation.GetSitemapGeneration());
+        Assert.NotNull(observed);
+        Assert.Equal(expectedEventKind, observed.Kind);
+        Assert.True(identityBoundAtPublish);
+        if (mutation == "system-page")
+        {
+            Assert.DoesNotContain(
+                PublicAotInvalidationGenerationStateCodec.AllCoordinate,
+                authority.Current.KeyGenerations.Keys);
+            Assert.Contains(
+                PublicAotInvalidationGenerationStateCodec.SitemapCoordinate,
+                authority.Current.KeyGenerations.Keys);
+            await shell.DidNotReceive().InvalidateAllAsync(Arg.Any<CancellationToken>());
+            await shell.Received(1).RemoveManyAsync(
+                Arg.Is<IReadOnlyCollection<string>>(keys => keys.Count == 1),
+                Arg.Any<CancellationToken>());
+        }
+        else
+        {
+            Assert.Contains(
+                PublicAotInvalidationGenerationStateCodec.AllCoordinate,
+                authority.Current.KeyGenerations.Keys);
+            await shell.Received(1).InvalidateAllAsync(Arg.Any<CancellationToken>());
+        }
+    }
+
     private const int StaticPageCount = 6;
 
     private async Task<SqlSugarClient> CreateDatabaseAsync()
@@ -202,14 +651,17 @@ public sealed class BlogDistributionArtifactTests(PostgresSchemaMigrationFixture
             typeof(ArticleBody),
             typeof(ArticleTag),
             typeof(Comment),
-            typeof(PageContent));
+            typeof(PageContent),
+            typeof(SystemConfig));
         return db;
     }
 
     private static BlogDistributionService CreateService(
         ISqlSugarClient db,
-        IUnifiedCache cache,
-        IMemoryCache memory)
+        ICacheStringReader cache,
+        IMemoryCache memory,
+        PublicAotInvalidationTracker? generation = null,
+        SitemapArtifactCache? artifacts = null)
     {
         ISystemService system = Substitute.For<ISystemService>();
         system.GetSeoConfigAsync().Returns(Task.FromResult(new SeoConfigReadModel
@@ -226,7 +678,47 @@ public sealed class BlogDistributionArtifactTests(PostgresSchemaMigrationFixture
                 ["Seo:BaseUrl"] = "https://public.example"
             })
             .Build();
-        return new BlogDistributionService(db, system, cache, memory, configuration);
+        return new BlogDistributionService(
+            db,
+            system,
+            cache,
+            memory,
+            configuration,
+            artifacts ?? new SitemapArtifactCache(generation ?? new PublicAotInvalidationTracker()));
+    }
+
+    private static IConfiguration CreateConfiguration(string baseUrl)
+        => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Seo:BaseUrl"] = baseUrl
+            })
+            .Build();
+
+    private static PublicAotInvalidationService CreatePublicAotInvalidationService(
+        PublicAotInvalidationTracker generation,
+        IPublicAotShellCache? shell = null)
+    {
+        var manifest = Substitute.For<IPublicAotRouteManifestProvider>();
+        manifest.ListRoutesAsync(Arg.Any<PublicAotRouteManifestScope>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<PublicAotRouteDescriptor>());
+        var scheduler = Substitute.For<IPublicAotBackfillScheduler>();
+        scheduler.TrySchedule(Arg.Any<PublicAotBackfillRequest>()).Returns(true);
+        var testScope = Substitute.For<ITestSessionKeyScope>();
+        testScope.PrefixKey(Arg.Any<string>()).Returns(call => call.Arg<string>());
+        var assets = Substitute.For<ISpaAssetManifestService>();
+        assets.GetFrontendAssetVersion(Arg.Any<Microsoft.AspNetCore.Http.HttpContext?>()).Returns("sitemap-test-assets");
+        return new PublicAotInvalidationService(
+            shell ?? Substitute.For<IPublicAotShellCache>(),
+            new PrefixRuntimeKeyScope(string.Empty),
+            generation,
+            scheduler,
+            manifest,
+            new PublicHotReadStore(),
+            testScope,
+            assets,
+            new PublicAotSsrRuntimeState(new ConfigurationBuilder().Build()),
+            NullLogger<PublicAotInvalidationService>.Instance);
     }
 
     private static IUnifiedCache CreateVersionCache(string version)
@@ -246,6 +738,12 @@ public sealed class BlogDistributionArtifactTests(PostgresSchemaMigrationFixture
             new PageContent { Slug = "guidelines", Content = "Guidelines", UpdatedAt = new DateTime(2026, 1, 5, 0, 0, 0, DateTimeKind.Utc) },
             new PageContent { Slug = "copyright", Content = "Copyright", UpdatedAt = new DateTime(2026, 1, 6, 0, 0, 0, DateTimeKind.Utc) }
         }).ExecuteCommand();
+    }
+
+    private sealed class PrefixRuntimeKeyScope(string prefix) : IRuntimeKeyScope
+    {
+        public string ScopeToken => prefix;
+        public string PrefixKey(string key) => string.Concat(prefix, key);
     }
 
     private static string? ReadLastmod(string sitemap, string location)

@@ -3,9 +3,8 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { isInventoryPath } from '../test-inventory/adapters.mjs';
-import { snapshotGitWorktree } from '../test-matrix/scheduler.mjs';
-
+const { isInventoryPath } = await import(new URL('../test-inventory/adapters.mjs', import.meta.url));
+const { snapshotGitWorktree } = await import(new URL('../test-matrix/scheduler.mjs', import.meta.url));
 function tierExecutionDependencies(tier)
 {
     return tier?.executionDependsOn ?? tier?.dependsOn ?? [];

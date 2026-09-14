@@ -19,13 +19,15 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class PublicAotInvalidationTrackerTests
 {
     [Fact]
-    public void DurableAuthority_PreservesGenerationAcrossTrackerRestart()
+    public async Task DurableAuthority_PreservesGenerationAcrossTrackerRestart()
     {
         var authority = new InMemoryPublicAotInvalidationGenerationAuthority();
         var beforeRestart = new PublicAotInvalidationTracker(authority);
-        long marked = beforeRestart.MarkKey("scope:public-aot:home");
+        await beforeRestart.InitializeAsync(CancellationToken.None);
+        long marked = await beforeRestart.MarkKeyAsync("scope:public-aot:home");
 
         var afterRestart = new PublicAotInvalidationTracker(authority);
+        await afterRestart.InitializeAsync(CancellationToken.None);
 
         Assert.Equal(marked, afterRestart.GetCurrentVersion("scope:public-aot:home", "scope:public-aot:"));
     }
@@ -35,17 +37,15 @@ public sealed class PublicAotInvalidationTrackerTests
     {
         var tracker = new PublicAotInvalidationTracker(new FailingGenerationAuthority());
 
-        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-        {
-            await Task.Run(() => tracker.GetCurrentVersion("a", "b"));
-        });
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => tracker.InitializeAsync(CancellationToken.None));
     }
 
     [Fact]
     public async Task DurableAuthorityFailure_FailsStartupValidation()
     {
         var validator = new PublicAotInvalidationGenerationStartupValidator(
-            new FailingGenerationAuthority());
+            new PublicAotInvalidationTracker(new FailingGenerationAuthority()));
 
         InvalidOperationException failure =
             await Assert.ThrowsAsync<InvalidOperationException>(
@@ -55,15 +55,17 @@ public sealed class PublicAotInvalidationTrackerTests
     }
 
     [Fact]
-    public void TamperedDurableState_FailsClosedBeforeLookup()
+    public async Task TamperedDurableState_FailsClosedBeforeLookup()
     {
-        PublicAotInvalidationGenerationState valid = new InMemoryPublicAotInvalidationGenerationAuthority().Load();
+        PublicAotInvalidationGenerationState valid = await new InMemoryPublicAotInvalidationGenerationAuthority()
+            .LoadAsync(CancellationToken.None);
         var tracker = new PublicAotInvalidationTracker(new FixedGenerationAuthority(valid with
         {
             ContentDigest = "tampered"
         }));
 
-        Assert.Throws<InvalidOperationException>(() => tracker.GetCurrentVersion("a", "b"));
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => tracker.InitializeAsync(CancellationToken.None));
     }
 
     [Fact]
@@ -112,33 +114,37 @@ public sealed class PublicAotInvalidationTrackerTests
     }
 
     [Fact]
-    public void Compaction_PreservesCurrentArtifactAndPrefixWatermarks()
+    public async Task Compaction_PreservesCurrentArtifactAndPrefixWatermarks()
     {
         var authority = new InMemoryPublicAotInvalidationGenerationAuthority();
-        authority.Mark("key", "scope:article:42");
-        authority.Mark("prefix", "scope:article:");
-        long watermark = authority.Load().AllGeneration;
+        await authority.MarkAsync("key", "scope:article:42", null, CancellationToken.None);
+        await authority.MarkAsync("prefix", "scope:article:", null, CancellationToken.None);
+        long watermark = (await authority.LoadAsync(CancellationToken.None)).AllGeneration;
 
-        PublicAotInvalidationGenerationState compacted = authority.Compact(
+        PublicAotInvalidationGenerationState compacted = await authority.CompactAsync(
             new HashSet<string>(StringComparer.Ordinal) { "scope:article:42" },
-            new HashSet<string>(StringComparer.Ordinal) { "scope:article:" });
+            new HashSet<string>(StringComparer.Ordinal) { "scope:article:" },
+            CancellationToken.None);
 
         Assert.Equal(watermark, compacted.AllGeneration);
         Assert.Equal(watermark, compacted.Current("scope:article:42", "scope:article:"));
     }
 
     [Fact]
-    public void Compaction_AlwaysPreservesGlobalCoordinate()
+    public async Task Compaction_AlwaysPreservesGlobalCoordinate()
     {
         var authority = new InMemoryPublicAotInvalidationGenerationAuthority();
-        long global = authority.Mark(
+        long global = (await authority.MarkAsync(
             "all",
-            PublicAotInvalidationGenerationStateCodec.AllCoordinate).AllGeneration;
-        _ = authority.Mark("key", "retired:key");
+            PublicAotInvalidationGenerationStateCodec.AllCoordinate,
+            null,
+            CancellationToken.None)).AllGeneration;
+        _ = await authority.MarkAsync("key", "retired:key", null, CancellationToken.None);
 
-        PublicAotInvalidationGenerationState compacted = authority.Compact(
+        PublicAotInvalidationGenerationState compacted = await authority.CompactAsync(
             new HashSet<string>(StringComparer.Ordinal),
-            new HashSet<string>(StringComparer.Ordinal));
+            new HashSet<string>(StringComparer.Ordinal),
+            CancellationToken.None);
 
         Assert.Equal(2, compacted.AllGeneration);
         Assert.Equal(
@@ -149,28 +155,52 @@ public sealed class PublicAotInvalidationTrackerTests
     }
 
     [Fact]
-    public void ProductionCompaction_MissingArtifactRegistryDoesNotMutateAuthority()
+    public async Task CompactionAndRestart_AlwaysPreserveSitemapCoordinate()
+    {
+        var authority = new InMemoryPublicAotInvalidationGenerationAuthority();
+        var tracker = new PublicAotInvalidationTracker(authority);
+        _ = await tracker.MarkSitemapAsync("taxonomy:durable");
+        long expected = tracker.GetSitemapGeneration();
+        _ = await authority.MarkAsync("key", "retired:key", null, CancellationToken.None);
+
+        PublicAotInvalidationGenerationState compacted = await authority.CompactAsync(
+            new HashSet<string>(StringComparer.Ordinal),
+            new HashSet<string>(StringComparer.Ordinal),
+            CancellationToken.None);
+        var restarted = new PublicAotInvalidationTracker(authority);
+        await restarted.InitializeAsync(CancellationToken.None);
+
+        Assert.Equal(
+            expected,
+            compacted.KeyGenerations[PublicAotInvalidationGenerationStateCodec.SitemapCoordinate]);
+        Assert.Equal(expected, restarted.GetSitemapGeneration());
+    }
+
+    [Fact]
+    public async Task ProductionCompaction_MissingArtifactRegistryDoesNotMutateAuthority()
     {
         IPublicAotInvalidationGenerationAuthority authority =
             Substitute.For<IPublicAotInvalidationGenerationAuthority>();
-        authority.Load().Returns(
-            PublicAotInvalidationGenerationStateCodec.CreateEmpty("scope"));
+        authority.LoadAsync(Arg.Any<CancellationToken>()).Returns(
+            Task.FromResult(PublicAotInvalidationGenerationStateCodec.CreateEmpty("scope")));
         var database = Substitute.For<IDatabase>();
-        database.KeyExists(
+        database.KeyExistsAsync(
                 PublicAotCacheRegistry.GlobalRegistryKey,
                 CommandFlags.DemandMaster)
-            .Returns(false);
+            .Returns(Task.FromResult(false));
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(database);
         var worker = new PublicAotInvalidationGenerationCompactionWorker(
             authority,
-            redis,
+            RedisOperationExecutor.ForTestConnection(redis),
             NullLogger<PublicAotInvalidationGenerationCompactionWorker>.Instance);
 
-        Assert.Throws<InvalidOperationException>(worker.CompactOnce);
-        authority.DidNotReceive().Compact(
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => worker.CompactOnceAsync(CancellationToken.None));
+        _ = authority.DidNotReceive().CompactAsync(
             Arg.Any<IReadOnlySet<string>>(),
-            Arg.Any<IReadOnlySet<string>>());
+            Arg.Any<IReadOnlySet<string>>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -179,31 +209,36 @@ public sealed class PublicAotInvalidationTrackerTests
         var authority = new InMemoryPublicAotInvalidationGenerationAuthority();
         var firstNode = new PublicAotInvalidationTracker(authority);
         var secondNode = new PublicAotInvalidationTracker(authority);
+        await firstNode.InitializeAsync(CancellationToken.None);
+        await secondNode.InitializeAsync(CancellationToken.None);
 
         await Task.WhenAll(
-            Enumerable.Range(0, 32).Select(index => Task.Run(() =>
+            Enumerable.Range(0, 32).Select(index =>
                 (index & 1) == 0
-                    ? firstNode.MarkKey($"scope:key:{index}")
-                    : secondNode.MarkPrefix($"scope:prefix:{index}"))));
+                    ? firstNode.MarkKeyAsync($"scope:key:{index}")
+                    : secondNode.MarkPrefixAsync($"scope:prefix:{index}")));
 
-        Assert.Equal(32, authority.Load().AllGeneration);
+        Assert.Equal(32, (await authority.LoadAsync(CancellationToken.None)).AllGeneration);
+        await firstNode.InitializeAsync(CancellationToken.None);
+        await secondNode.InitializeAsync(CancellationToken.None);
         Assert.Equal(
             firstNode.GetCurrentVersion("scope:key:30", "scope:prefix:31"),
             secondNode.GetCurrentVersion("scope:key:30", "scope:prefix:31"));
     }
 
     [Fact]
-    public void DistributedMutationIdentity_IsPersistedAndImmediateReplayIsIdempotent()
+    public async Task DistributedMutationIdentity_IsPersistedAndImmediateReplayIsIdempotent()
     {
         var authority = new InMemoryPublicAotInvalidationGenerationAuthority();
         var tracker = new PublicAotInvalidationTracker(authority);
+        await tracker.InitializeAsync(CancellationToken.None);
 
-        long first = tracker.MarkAll("distributed-event-a");
-        long replay = tracker.MarkAll("distributed-event-a");
+        long first = await tracker.MarkAllAsync("distributed-event-a");
+        long replay = await tracker.MarkAllAsync("distributed-event-a");
 
         Assert.Equal(first, replay);
-        Assert.Equal("distributed-event-a", authority.Load().LastMutationId);
-        Assert.Equal(1, authority.Load().AllGeneration);
+        Assert.Equal("distributed-event-a", (await authority.LoadAsync(CancellationToken.None)).LastMutationId);
+        Assert.Equal(1, (await authority.LoadAsync(CancellationToken.None)).AllGeneration);
     }
 
     [Fact]
@@ -284,7 +319,7 @@ public sealed class PublicAotInvalidationTrackerTests
     }
 
     [Fact]
-    public void WasInvalidatedAfter_DetectsExactRouteInvalidation()
+    public async Task WasInvalidatedAfter_DetectsExactRouteInvalidation()
     {
         var tracker = new PublicAotInvalidationTracker();
         string cacheKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.Filter, "category:1");
@@ -300,13 +335,13 @@ public sealed class PublicAotInvalidationTrackerTests
             ScheduledInvalidationVersion = tracker.GetCurrentVersion(cacheKey, pagePrefixKey)
         };
 
-        tracker.MarkKey(cacheKey);
+        _ = await tracker.MarkKeyAsync(cacheKey);
 
         Assert.True(tracker.WasInvalidatedAfter(request));
     }
 
     [Fact]
-    public void WasInvalidatedAfter_DetectsPagePrefixInvalidation()
+    public async Task WasInvalidatedAfter_DetectsPagePrefixInvalidation()
     {
         var tracker = new PublicAotInvalidationTracker();
         string cacheKey = "session-1:" + CacheKeyBuilder.PublicAotDocument(PublicPageId.Filter, "tag:1");
@@ -322,13 +357,13 @@ public sealed class PublicAotInvalidationTrackerTests
             ScheduledInvalidationVersion = tracker.GetCurrentVersion(cacheKey, pagePrefixKey)
         };
 
-        tracker.MarkPrefix(pagePrefixKey);
+        _ = await tracker.MarkPrefixAsync(pagePrefixKey);
 
         Assert.True(tracker.WasInvalidatedAfter(request));
     }
 
     [Fact]
-    public void WasInvalidatedAfter_DetectsGlobalInvalidation()
+    public async Task WasInvalidatedAfter_DetectsGlobalInvalidation()
     {
         var tracker = new PublicAotInvalidationTracker();
         string cacheKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.About, "about");
@@ -344,7 +379,7 @@ public sealed class PublicAotInvalidationTrackerTests
             ScheduledInvalidationVersion = tracker.GetCurrentVersion(cacheKey, pagePrefixKey)
         };
 
-        tracker.MarkAll();
+        _ = await tracker.MarkAllAsync();
 
         Assert.True(tracker.WasInvalidatedAfter(request));
     }
@@ -555,7 +590,7 @@ public sealed class PublicAotInvalidationTrackerTests
     }
 
     [Fact]
-    public void Tracker_DoesNotTreatScopedPrefixAsUnscopedPageInvalidation()
+    public async Task Tracker_DoesNotTreatScopedPrefixAsUnscopedPageInvalidation()
     {
         var tracker = new PublicAotInvalidationTracker();
         string cacheKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.Filter, "category:7");
@@ -571,7 +606,7 @@ public sealed class PublicAotInvalidationTrackerTests
             ScheduledInvalidationVersion = tracker.GetCurrentVersion(cacheKey, string.Empty)
         };
 
-        tracker.MarkPrefix(scopedPrefix);
+        _ = await tracker.MarkPrefixAsync(scopedPrefix);
 
         Assert.True(tracker.WasInvalidatedAfter(scoped));
         Assert.False(tracker.WasInvalidatedAfter(unscoped));
@@ -625,29 +660,43 @@ public sealed class PublicAotInvalidationTrackerTests
 
     private sealed class FailingGenerationAuthority : IPublicAotInvalidationGenerationAuthority
     {
-        public PublicAotInvalidationGenerationState Load()
-            => throw new InvalidOperationException("generation-store-unavailable");
+        public Task<PublicAotInvalidationGenerationState> LoadAsync(CancellationToken cancellationToken)
+            => Task.FromException<PublicAotInvalidationGenerationState>(
+                new InvalidOperationException("generation-store-unavailable"));
 
-        public PublicAotInvalidationGenerationState Mark(
+        public Task<PublicAotInvalidationGenerationState> MarkAsync(
             string kind,
             string key,
-            string? mutationId = null)
-            => throw new InvalidOperationException("generation-store-unavailable");
+            string? mutationId,
+            CancellationToken cancellationToken)
+            => Task.FromException<PublicAotInvalidationGenerationState>(
+                new InvalidOperationException("generation-store-unavailable"));
 
-        public PublicAotInvalidationGenerationState Compact(IReadOnlySet<string> artifactKeys, IReadOnlySet<string> prefixKeys)
-            => throw new InvalidOperationException("generation-store-unavailable");
+        public Task<PublicAotInvalidationGenerationState> CompactAsync(
+            IReadOnlySet<string> artifactKeys,
+            IReadOnlySet<string> prefixKeys,
+            CancellationToken cancellationToken)
+            => Task.FromException<PublicAotInvalidationGenerationState>(
+                new InvalidOperationException("generation-store-unavailable"));
     }
 
     private sealed class FixedGenerationAuthority(PublicAotInvalidationGenerationState state) : IPublicAotInvalidationGenerationAuthority
     {
-        public PublicAotInvalidationGenerationState Load() => state;
+        public Task<PublicAotInvalidationGenerationState> LoadAsync(CancellationToken cancellationToken)
+            => Task.FromResult(state);
 
-        public PublicAotInvalidationGenerationState Mark(
+        public Task<PublicAotInvalidationGenerationState> MarkAsync(
             string kind,
             string key,
-            string? mutationId = null) => state;
+            string? mutationId,
+            CancellationToken cancellationToken)
+            => Task.FromResult(state);
 
-        public PublicAotInvalidationGenerationState Compact(IReadOnlySet<string> artifactKeys, IReadOnlySet<string> prefixKeys) => state;
+        public Task<PublicAotInvalidationGenerationState> CompactAsync(
+            IReadOnlySet<string> artifactKeys,
+            IReadOnlySet<string> prefixKeys,
+            CancellationToken cancellationToken)
+            => Task.FromResult(state);
     }
 
     private sealed class RecordingBackfillScheduler : IPublicAotBackfillScheduler

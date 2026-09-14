@@ -4,15 +4,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import {
-    auditRequiredChecks,
-    discoverWorkflowChecks,
-    evaluateRequiredChecks,
-    resolveGroupChecks,
-    runRequiredChecksFixtures,
-    validateRequiredChecksCatalog
-} from '../../tools/governance/check-dependency-required-checks.mjs';
-
+const {auditRequiredChecks, discoverWorkflowChecks, evaluateRequiredChecks, resolveGroupChecks, runRequiredChecksFixtures, validateRequiredChecksCatalog} = await import(new URL('../../tools/governance/check-dependency-required-checks.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const catalog = JSON.parse(fs.readFileSync(path.join(root, 'config/dependencies/required-checks.json'), 'utf8'));
 const fixtures = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/governance/dependency-required-checks.json'), 'utf8'));
@@ -23,7 +15,8 @@ function successRuns(names)
     return names.map((name) => ({ name, status: 'completed', conclusion: 'success' }));
 }
 
-test('required-checks catalog matches workflows and simulated branch protection', () => {
+test('required-checks catalog matches workflows and simulated branch protection', () =>
+{
     const result = auditRequiredChecks(root, { forbidAutomerge: false });
     assert.deepEqual(result.errors, []);
     assert.equal(result.catalog.schema, 'fsusblog.dependency-required-checks.v1');
@@ -33,7 +26,8 @@ test('required-checks catalog matches workflows and simulated branch protection'
     }
 });
 
-test('required-checks fixtures kill missing, skipped, lint-only and drift cases', () => {
+test('required-checks fixtures kill missing, skipped, lint-only and drift cases', () =>
+{
     const failures = runRequiredChecksFixtures(catalog, fixtures, {
         root,
         workflowChecks,
@@ -42,7 +36,8 @@ test('required-checks fixtures kill missing, skipped, lint-only and drift cases'
     assert.deepEqual(failures, []);
 });
 
-test('patch and minor hit the same contract set while major and digest differ', () => {
+test('patch and minor hit the same contract set while major and digest differ', () =>
+{
     const patch = resolveGroupChecks(catalog, 'frontend-runtime', 'patch');
     const minor = resolveGroupChecks(catalog, 'frontend-runtime', 'minor');
     const major = resolveGroupChecks(catalog, 'frontend-runtime', 'major');
@@ -59,7 +54,8 @@ test('patch and minor hit the same contract set while major and digest differ', 
     assert.ok(lockfile.includes('Quality Gate / Fast Frontend Unit DAG'));
 });
 
-test('skipped, neutral, cancelled, timed_out and missing required checks are not success', () => {
+test('skipped, neutral, cancelled, timed_out and missing required checks are not success', () =>
+{
     const required = ['Quality Gate / Production Summary'];
     assert.deepEqual(
         evaluateRequiredChecks(required, [{ name: required[0], status: 'completed', conclusion: 'skipped' }]).map((error) => error.code),
@@ -81,7 +77,8 @@ test('skipped, neutral, cancelled, timed_out and missing required checks are not
     assert.deepEqual(evaluateRequiredChecks(required, successRuns(required)), []);
 });
 
-test('local branch protection simulation rejects catalog drift', () => {
+test('local branch protection simulation rejects catalog drift', () =>
+{
     const errors = validateRequiredChecksCatalog(catalog, {
         root,
         workflowChecks,
@@ -93,7 +90,8 @@ test('local branch protection simulation rejects catalog drift', () => {
     assert.ok(errors.some((error) => error.code === 'branch-protection-missing-catalog-check'));
 });
 
-test('required-checks catalog does not encode automerge or freshness workflows', () => {
+test('required-checks catalog does not encode automerge or freshness workflows', () =>
+{
     const serialized = JSON.stringify(catalog);
     assert.equal(serialized.includes('automerge'), false);
     assert.equal(serialized.includes('dependency-freshness.yml'), false);

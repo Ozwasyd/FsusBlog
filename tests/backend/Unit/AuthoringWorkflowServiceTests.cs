@@ -7,6 +7,7 @@ using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
@@ -700,12 +701,45 @@ fsusMetadataJson: {encodedMetadata}
             static property => property.Name.Equals("Html", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public async Task PreviewAsync_ReturnsStructuredPreviewWhenPrepublishIssuesExist()
+    {
+        AuthoringDraftLifecycleService service = BuildDraftService();
+
+        ArticlePreviewResponse response = await service.PreviewAsync(new ServerDraftSaveRequest(
+            "fsus:article-draft:create",
+            null,
+            "Title",
+            "safe text <script>alert(1)</script>",
+            "summary",
+            "javascript:alert(1)",
+            1,
+            [],
+            "rev-1",
+            0,
+            null));
+
+        Assert.Equal("Title", response.NormalizedTitle);
+        Assert.Equal("summary", response.NormalizedSummary);
+        Assert.Null(response.NormalizedCoverImageUrl);
+        Assert.Equal("safe text <script>alert(1)</script>", response.NormalizedMarkdownSource);
+        Assert.False(string.IsNullOrWhiteSpace(response.PlainText));
+        Assert.Contains(response.Issues, static issue => issue.Code == "dangerous_html" && issue.Severity == "error");
+        Assert.DoesNotContain(
+            typeof(ArticlePreviewResponse).GetProperties(),
+            static property => property.Name.Equals("Html", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(
+            typeof(ArticlePreviewResponse).GetProperties(),
+            static property => property.Name.Contains("Render", StringComparison.OrdinalIgnoreCase));
+    }
+
     [Theory]
     [InlineData("/uploads/cover.png", "/uploads/cover.png")]
     [InlineData("https://example.com/cover.png", "https://example.com/cover.png")]
     [InlineData("http://example.com/cover.png", "http://example.com/cover.png")]
     [InlineData("//example.com/cover.png", null)]
     [InlineData("javascript:alert(1)", null)]
+    [InlineData("data:text/html,<script>alert(1)</script>", null)]
     [InlineData("data:image/png;base64,AAAA", null)]
     [InlineData("https://user:pass@example.com/cover.png", null)]
     [InlineData("mailto:owner@example.com", null)]
@@ -842,7 +876,7 @@ fsusMetadataJson: {encodedMetadata}
         return new AuthoringModerationWorkflowService(
             Substitute.For<ISqlSugarClient>(),
             contentFilter,
-            Substitute.For<IBlacklistService>(),
+            Substitute.For<IBanStateProjectionObligationCoordinator>(),
             Substitute.For<ICacheInvalidationDispatcher>(),
             Substitute.For<IMessageRealtimePublisher>(),
             Substitute.For<IMessageCommandService>(),

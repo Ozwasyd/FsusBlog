@@ -1,100 +1,106 @@
-import { computed, nextTick, onMounted, ref, watch, onUnmounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { getFeaturedArticles, getHotArticles, getPublicArticleCardProjections, type FeaturedArticleItem, type PopularArticleSummaryResponse } from '@/api/article'
-import { toBootstrapArticleListItem } from '@/bootstrap/publicAotBootstrap'
-import { consumePublicPageSeed } from '@/public-renderers/pageSeed'
-import { useNotificationStreamStore } from '@/store/notificationStream'
-import { useAbortableTask } from '@/composables/useAbortableTask'
-import { usePagedListState } from '@/composables/usePagedListState'
-import { usePublicPageLifecycle } from '@/composables/usePublicPageLifecycle'
-import { markCurrentRouteContentReady, markCurrentRouteFailed } from '@/bootstrap/routeReadiness'
-import { upsertArticlePreview, removeArticlePreview } from '@/services/notificationStreamArticlePatch'
-import type { ArticleUpdatePayload, NotificationStreamArticleRenderPatch } from '@/services/notificationStreamTypes'
-import { isAbortError } from '@/utils/errors'
-import { AppErrorCode, createAppError, toAppError } from '@/utils/appError'
-import { createArticleListViewContract, type ArticleListCardViewContract } from '@/view-contracts/articleList'
-import { createStableArticleCardMapper } from '@/view-contracts/articleListStableCache'
-import { createPublicSeedRenderTimeOptions } from '@/public-renderers/publicRenderClock'
-import { buildPublicHomePaginationHref } from '@/public-renderers/publicRouteIdentity'
-import { toPublicArticleListCardProjection, type PublicArticleListCardProjection } from '@/adapters/binary/articleProjectionReader'
+import { computed, nextTick, onMounted, ref, watch, onUnmounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
-const HOME_FEATURED_ARTICLE_COUNT = 1
-const HOME_FEATURED_ARTICLE_PREFETCH_COUNT = 3
-const HOME_HOT_ARTICLE_PREFETCH_COUNT = 10
-const HOME_SECONDARY_CONTENT_SENTINEL_ID = 'fsus-home-secondary-content-sentinel'
-const HOME_SECONDARY_LIST_ROOT_MARGIN = '600px 0px 600px 0px'
-const HOME_SECONDARY_LIST_FALLBACK_DELAY_MS = 2500
-const HOME_ARTICLE_BATCH_REFRESH_DELAY_MS = 100
-const HOME_SECONDARY_REFRESH_DELAY_MS = 500
+import { toPublicArticleListCardProjection, type PublicArticleListCardProjection } from '@/adapters/binary/articleProjectionReader';
+import { getFeaturedArticles, getHotArticles, getPublicArticleCardProjections, type FeaturedArticleItem, type PopularArticleSummaryResponse } from '@/api/article';
+import { toBootstrapArticleListItem } from '@/bootstrap/publicAotBootstrap';
+import { markCurrentRouteContentReady, markCurrentRouteFailed } from '@/bootstrap/routeReadiness';
+import { useAbortableTask } from '@/composables/useAbortableTask';
+import { usePagedListState } from '@/composables/usePagedListState';
+import { usePublicPageLifecycle } from '@/composables/usePublicPageLifecycle';
+import { consumePublicPageSeed } from '@/public-renderers/pageSeed';
+import { createPublicSeedRenderTimeOptions } from '@/public-renderers/publicRenderClock';
+import { buildPublicHomePaginationHref, parsePublicPaginationCursor } from '@/public-renderers/publicRouteIdentity';
+import { upsertArticlePreview, removeArticlePreview } from '@/services/notificationStreamArticlePatch';
+import type { ArticleUpdatePayload, NotificationStreamArticleRenderPatch } from '@/services/notificationStreamTypes';
+import { useNotificationStreamStore } from '@/store/notificationStream';
+import { AppErrorCode, createAppError, toAppError } from '@/utils/appError';
+import { isAbortError } from '@/utils/errors';
+import { createArticleListViewContract, type ArticleListCardViewContract } from '@/view-contracts/articleList';
+import { createStableArticleCardMapper } from '@/view-contracts/articleListStableCache';
 
-const parsePageQuery = (value: unknown): number => {
-  const raw = Array.isArray(value) ? value[0] : value
-  const parsed = Number.parseInt(String(raw ?? ''), 10)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1
-}
+const HOME_FEATURED_ARTICLE_COUNT = 1;
+const HOME_FEATURED_ARTICLE_PREFETCH_COUNT = 3;
+const HOME_HOT_ARTICLE_PREFETCH_COUNT = 10;
+const HOME_SECONDARY_CONTENT_SENTINEL_ID = 'fsus-home-secondary-content-sentinel';
+const HOME_SECONDARY_LIST_ROOT_MARGIN = '600px 0px 600px 0px';
+const HOME_SECONDARY_LIST_FALLBACK_DELAY_MS = 2500;
+const HOME_ARTICLE_BATCH_REFRESH_DELAY_MS = 100;
+const HOME_SECONDARY_REFRESH_DELAY_MS = 500;
 
-const firstArrayOf = <T>(...candidates: (T[] | null | undefined)[]): T[] => {
-  const selected = candidates.find((candidate) => Array.isArray(candidate))
-  return selected ? [...selected] : []
-}
+const parsePageQuery = (value: unknown): number =>
+{
+    const raw = Array.isArray(value) ? value[0] : value;
+    const parsed = Number.parseInt(String(raw ?? ''), 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+};
 
-export function useHomeView() {
-  const route = useRoute()
-  const router = useRouter()
-  const notificationStreamStore = useNotificationStreamStore()
-  const { bootstrap: initialBootstrap, hydration: initialHydrationPayload } = consumePublicPageSeed('Home', { fullPath: route?.fullPath })
-  const initialHydrationView = initialHydrationPayload?.view ?? null
-  const hasInitialRouteSeed = Boolean(initialBootstrap || initialHydrationView)
-  const seedRenderTimeOptions = createPublicSeedRenderTimeOptions(initialHydrationPayload, initialBootstrap)
-  const useSeedRenderTime = ref(Boolean(seedRenderTimeOptions))
-  const initialFeaturedArticles = firstArrayOf(
-    initialHydrationPayload?.featuredArticles,
-    initialBootstrap?.featuredArticles
-  )
-  const initialHotArticles = firstArrayOf(
-    initialHydrationPayload?.hotArticles,
-    initialBootstrap?.hotArticles
-  )
+const firstArrayOf = <T>(...candidates: (T[] | null | undefined)[]): T[] =>
+{
+    const selected = candidates.find((candidate) => Array.isArray(candidate));
+    return selected ? [...selected] : [];
+};
 
-  const articleItems = ref<PublicArticleListCardProjection[]>([])
-  const featuredArticles = ref<FeaturedArticleItem[]>(initialFeaturedArticles)
-  const hotArticles = ref<PopularArticleSummaryResponse[]>(initialHotArticles)
-  const featuredLoading = ref(false)
-  const initialViewItems = ref<readonly ArticleListCardViewContract[] | null>(
+export function useHomeView()
+{
+    const route = useRoute();
+    const router = useRouter();
+    const notificationStreamStore = useNotificationStreamStore();
+    const { bootstrap: initialBootstrap, hydration: initialHydrationPayload } = consumePublicPageSeed('Home', { fullPath: route?.fullPath });
+    const initialHydrationView = initialHydrationPayload?.view ?? null;
+    const hasInitialRouteSeed = Boolean(initialBootstrap || initialHydrationView);
+    const seedRenderTimeOptions = createPublicSeedRenderTimeOptions(initialHydrationPayload, initialBootstrap);
+    const useSeedRenderTime = ref(Boolean(seedRenderTimeOptions));
+    const initialFeaturedArticles = firstArrayOf(
+        initialHydrationPayload?.featuredArticles,
+        initialBootstrap?.featuredArticles
+    );
+    const initialHotArticles = firstArrayOf(
+        initialHydrationPayload?.hotArticles,
+        initialBootstrap?.hotArticles
+    );
+
+    const articleItems = ref<PublicArticleListCardProjection[]>([]);
+    const featuredArticles = ref<FeaturedArticleItem[]>(initialFeaturedArticles);
+    const hotArticles = ref<PopularArticleSummaryResponse[]>(initialHotArticles);
+    const featuredLoading = ref(false);
+    const initialViewItems = ref<readonly ArticleListCardViewContract[] | null>(
     initialHydrationView && Array.isArray(initialHydrationView.items)
-      ? initialHydrationView.items
-      : null
-  )
-  const mapArticleCards = createStableArticleCardMapper(() => useSeedRenderTime.value ? seedRenderTimeOptions : undefined)
-  const {
-    currentPage,
-    pageSize,
-    total,
-    totalPages,
-    loading,
-    error,
-    beginLoading,
-    endLoading,
-    setError,
-    setPageTotal
-  } = usePagedListState({ pageSize: 10 })
-  const isError = computed(() => error.value !== null)
-  const pageIndicatorText = computed(() => `${currentPage.value} / ${totalPages.value}`)
-  const articles = computed<ArticleListCardViewContract[]>(() =>
+        ? initialHydrationView.items
+        : null
+    );
+    const mapArticleCards = createStableArticleCardMapper(() => useSeedRenderTime.value ? seedRenderTimeOptions : undefined);
+    const articleCursorByPage = new Map<number, string | null>([[1, null]]);
+    const articleCursorRevision = ref(0);
+    const {
+        currentPage,
+        pageSize,
+        total,
+        totalPages,
+        loading,
+        error,
+        beginLoading,
+        endLoading,
+        setError,
+        setPageTotal
+    } = usePagedListState({ pageSize: 10 });
+    const isError = computed(() => error.value !== null);
+    const pageIndicatorText = computed(() => `${currentPage.value} / ${totalPages.value}`);
+    const articles = computed<ArticleListCardViewContract[]>(() =>
     initialViewItems.value
-      ? [...initialViewItems.value]
-      : mapArticleCards(articleItems.value)
-  )
-  const listView = computed(() =>
+        ? [...initialViewItems.value]
+        : mapArticleCards(articleItems.value)
+    );
+    const listView = computed(() =>
     initialViewItems.value && initialHydrationView
-      ? {
+        ? {
           ...initialHydrationView,
           items: [...initialViewItems.value],
           pagination: {
             ...initialHydrationView.pagination
           }
         }
-      : createArticleListViewContract(
+        : createArticleListViewContract(
           {
             items: articleItems.value,
             total: total.value
@@ -102,474 +108,639 @@ export function useHomeView() {
           {
             currentPage: currentPage.value,
             pageSize: pageSize.value,
-            pageHref: buildPublicHomePaginationHref,
+            pageHref: (page) => buildPublicHomePaginationHref(page, articleCursorByPage.get(page)),
+            canGoPrev: canGoPrev.value,
+            canGoNext: canGoNext.value,
             time: useSeedRenderTime.value ? seedRenderTimeOptions : undefined
           }
         )
-  )
-  const canGoPrev = computed(() => currentPage.value > 1 && !loading.value)
-  const canGoNext = computed(() => currentPage.value < totalPages.value && !loading.value)
+    );
+    const canGoPrev = computed(() =>
+    {
+        void articleCursorRevision.value;
+        const previousPage = currentPage.value - 1;
+        return previousPage >= 1
+      && !loading.value
+      && (previousPage === 1 || articleCursorByPage.has(previousPage));
+    });
+    const canGoNext = computed(() =>
+    {
+        void articleCursorRevision.value;
+        return currentPage.value < totalPages.value
+      && !loading.value
+      && articleCursorByPage.has(currentPage.value + 1);
+    });
 
-  const articleTask = useAbortableTask()
-  const articleCursorByPage = new Map<number, string | null>([[1, null]])
-  const featuredTask = useAbortableTask()
-  const homeRuntimeMetrics = {
-    patchApplied: 0,
-    fallbackSync: 0,
-    secondaryRefresh: 0,
-    stalePageMarks: 0
-  }
-  const pendingArticleBatchRefresh = {
-    syncList: false,
-    refreshSecondary: false
-  }
-  let articleRefreshTimer: ReturnType<typeof setTimeout> | null = null
-  let secondaryRefreshTimer: ReturnType<typeof setTimeout> | null = null
-  let secondaryListObserver: IntersectionObserver | null = null
-  let secondaryListFallbackTimer: ReturnType<typeof setTimeout> | null = null
-  let secondaryListsLoaded = initialFeaturedArticles.length > 0 || initialHotArticles.length > 0
-  let secondaryListRequestInFlight = false
+    const articleTask = useAbortableTask();
+    const featuredTask = useAbortableTask();
+    const homeRuntimeMetrics = {
+        patchApplied: 0,
+        fallbackSync: 0,
+        secondaryRefresh: 0,
+        stalePageMarks: 0
+    };
+    const pendingArticleBatchRefresh = {
+        syncList: false,
+        refreshSecondary: false
+    };
+    let articleRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+    let secondaryRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+    let secondaryListObserver: IntersectionObserver | null = null;
+    let secondaryListFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+    let secondaryListsLoaded = initialFeaturedArticles.length > 0 || initialHotArticles.length > 0;
+    let secondaryListRequestInFlight = false;
 
-  const lifecycle = usePublicPageLifecycle({
-    onDispose: () => {
-      articleTask.cancel()
-      featuredTask.cancel()
-      if (articleRefreshTimer) {
-        clearTimeout(articleRefreshTimer)
-      }
-      if (secondaryRefreshTimer) {
-        clearTimeout(secondaryRefreshTimer)
-      }
-      clearSecondaryListFallbackTimer()
-      disconnectSecondaryListObserver()
-    }
-  })
-  const markRouteReadyIfSettled = (): void => {
-    if (isError.value) {
-      markCurrentRouteFailed(route)
-      return
-    }
-
-    if (!loading.value) {
-      markCurrentRouteContentReady(route)
-    }
-  }
-
-  if (initialBootstrap) {
-    articleItems.value = initialBootstrap.articles
-      .map((article) => toPublicArticleListCardProjection(toBootstrapArticleListItem(article)))
-    setPageTotal(Number(initialBootstrap.total) || 0)
-  }
-  if (initialHydrationView) {
-    currentPage.value = Math.max(1, Number(initialHydrationPayload?.currentPage) || 1)
-    pageSize.value = Math.max(1, Number(initialHydrationPayload?.pageSize) || pageSize.value)
-    setPageTotal(Number(initialHydrationPayload?.total) || 0)
-  }
-
-  currentPage.value = parsePageQuery(route.query.page)
-
-  const syncPageQuery = (page: number): void => {
-    const nextQuery = { ...route.query }
-    if (page <= 1) {
-      delete nextQuery.page
-    } else {
-      nextQuery.page = String(page)
-    }
-
-    void router.replace({ path: route.path, query: nextQuery })
-  }
-
-  const handlePageChange = (page: number): void => {
-    if (page < 1 || page > totalPages.value || loading.value) {
-      return
-    }
-    syncPageQuery(page)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
-  const loadArticles = async (showLoading = true): Promise<void> => {
-    if (showLoading) {
-      beginLoading()
-    } else {
-      error.value = null
-    }
-
-    try {
-      const response = await articleTask.run(
-        async (signal) =>
-          await getPublicArticleCardProjections(
+    const lifecycle = usePublicPageLifecycle({
+        onDispose: () =>
+        {
+            articleTask.cancel();
+            featuredTask.cancel();
+            if (articleRefreshTimer)
             {
-              page: currentPage.value,
-              size: pageSize.value,
-              cursor: articleCursorByPage.get(currentPage.value)
-            },
-            { signal }
-          )
-      )
-
-      if (lifecycle.isActive() && response) {
-        if (Array.isArray(response.items)) {
-          initialViewItems.value = null
-          useSeedRenderTime.value = false
-          articleItems.value = response.items
-          setPageTotal(Number(response.total) || 0)
-          if (response.hasMore && response.nextCursor) {
-            articleCursorByPage.set(currentPage.value + 1, response.nextCursor)
-          }
-          error.value = null
-        } else {
-          throw createAppError(AppErrorCode.ProtocolFailure, 'home_articles_response_invalid')
+                clearTimeout(articleRefreshTimer);
+            }
+            if (secondaryRefreshTimer)
+            {
+                clearTimeout(secondaryRefreshTimer);
+            }
+            clearSecondaryListFallbackTimer();
+            disconnectSecondaryListObserver();
         }
-      }
-    } catch (caught: unknown) {
-      if (isAbortError(caught)) {
-        return
-      }
-
-      if (lifecycle.isActive()) {
-        const normalized = toAppError(caught, 'home_articles_load_failed')
-        console.error('[Home] Data loading error:', normalized.message)
-        setError(normalized.code === AppErrorCode.ProtocolFailure ? '内容格式不一致' : '内容不可用')
-        articleItems.value = []
-        setPageTotal(0)
-        markCurrentRouteFailed(route)
-      }
-    } finally {
-      if (lifecycle.isActive() && showLoading) {
-        endLoading()
-      }
-      if (lifecycle.isActive()) {
-        markRouteReadyIfSettled()
-      }
-    }
-  }
-
-  const clearSecondaryListFallbackTimer = (): void => {
-    if (!secondaryListFallbackTimer) {
-      return
-    }
-
-    clearTimeout(secondaryListFallbackTimer)
-    secondaryListFallbackTimer = null
-  }
-
-  const disconnectSecondaryListObserver = (): void => {
-    secondaryListObserver?.disconnect()
-    secondaryListObserver = null
-  }
-
-  const loadHomeSecondaryArticles = async (showLoading = true): Promise<void> => {
-    if (secondaryListRequestInFlight) {
-      return
-    }
-
-    secondaryListRequestInFlight = true
-    if (showLoading) {
-      featuredLoading.value = true
-    }
-
-    try {
-      const [featuredResult, hotResult] = await featuredTask.run(
-        async (signal) => await Promise.allSettled([
-          getFeaturedArticles(HOME_FEATURED_ARTICLE_PREFETCH_COUNT, { signal }),
-          getHotArticles(HOME_HOT_ARTICLE_PREFETCH_COUNT, { signal })
-        ])
-      )
-
-      if (hotResult.status === 'rejected') throw hotResult.reason
-      let featured: FeaturedArticleItem[] = []
-      if (featuredResult.status === 'fulfilled') {
-        featured = featuredResult.value || []
-      } else {
-        const featuredError = toAppError(featuredResult.reason, 'home_featured_load_failed')
-        if (featuredError.code !== AppErrorCode.NotFound && featuredError.status !== 404) {
-          throw featuredResult.reason
+    });
+    const markRouteReadyIfSettled = (): void =>
+    {
+        if (isError.value)
+        {
+            markCurrentRouteFailed(route);
+            return;
         }
-      }
-      const hot = hotResult.value
 
-      if (lifecycle.isActive()) {
-        // Keep source order intact here. One shared editorial selector owns
-        // lead/secondary/feed deduplication for SSR, hydration, and SPA.
-        featuredArticles.value = (featured || []).slice(0, HOME_FEATURED_ARTICLE_COUNT)
-        hotArticles.value = (hot || []).slice(0, HOME_HOT_ARTICLE_PREFETCH_COUNT)
-        secondaryListsLoaded = true
-        homeRuntimeMetrics.secondaryRefresh++
-      }
-    } catch (caught: unknown) {
-      if (isAbortError(caught)) {
-        return
-      }
-      console.error('[Home] Featured articles load error:', caught)
-    } finally {
-      secondaryListRequestInFlight = false
-      if (lifecycle.isActive()) {
-        featuredLoading.value = false
-      }
+        if (!loading.value)
+        {
+            markCurrentRouteContentReady(route);
+        }
+    };
+
+    if (initialBootstrap)
+    {
+        articleItems.value = initialBootstrap.articles
+            .map((article) => toPublicArticleListCardProjection(toBootstrapArticleListItem(article)));
+        setPageTotal(Number(initialBootstrap.total) || 0);
     }
-  }
-
-  const triggerSecondaryListLoad = (showLoading = true): void => {
-    clearSecondaryListFallbackTimer()
-    disconnectSecondaryListObserver()
-    void loadHomeSecondaryArticles(showLoading)
-  }
-
-  const scheduleSecondaryListLoad = async (): Promise<void> => {
-    if (secondaryListsLoaded || secondaryListRequestInFlight || secondaryListObserver || secondaryListFallbackTimer) {
-      return
+    if (initialHydrationView)
+    {
+        currentPage.value = Math.max(1, Number(initialHydrationPayload?.currentPage) || 1);
+        pageSize.value = Math.max(1, Number(initialHydrationPayload?.pageSize) || pageSize.value);
+        setPageTotal(Number(initialHydrationPayload?.total) || 0);
     }
 
-    await nextTick()
-    if (!lifecycle.isActive() || loading.value || isError.value || listView.value.items.length === 0) {
-      return
+    const seededNextCursor = parsePublicPaginationCursor(
+        initialHydrationPayload?.nextCursor ?? initialBootstrap?.nextCursor
+    );
+    if (seededNextCursor)
+    {
+        articleCursorByPage.set(2, seededNextCursor);
+        articleCursorRevision.value++;
     }
 
-    const target = typeof document === 'undefined'
-      ? null
-      : document.getElementById(HOME_SECONDARY_CONTENT_SENTINEL_ID)
-    if (!target) {
-      return
+    const initialRoutePage = parsePageQuery(route.query.page);
+    const initialRouteCursor = parsePublicPaginationCursor(route.query.cursor);
+    currentPage.value = initialRoutePage;
+    if (currentPage.value > 1 && initialRouteCursor)
+    {
+        articleCursorByPage.set(currentPage.value, initialRouteCursor);
+        articleCursorRevision.value++;
     }
 
-    if (typeof IntersectionObserver === 'undefined') {
-      secondaryListFallbackTimer = setTimeout(() => {
-        secondaryListFallbackTimer = null
-        triggerSecondaryListLoad(true)
-      }, HOME_SECONDARY_LIST_FALLBACK_DELAY_MS)
-      return
-    }
+    const syncPageQuery = (page: number): boolean =>
+    {
+        const nextQuery = { ...route.query };
+        if (page <= 1)
+        {
+            delete nextQuery.page;
+            delete nextQuery.cursor;
+        }
+        else
+        {
+            const cursor = articleCursorByPage.get(page);
+            if (!cursor)
+            {
+                return false;
+            }
+            nextQuery.page = String(page);
+            nextQuery.cursor = cursor;
+        }
 
-    secondaryListObserver = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0)) {
-        triggerSecondaryListLoad(true)
-      }
-    }, {
-      root: null,
-      rootMargin: HOME_SECONDARY_LIST_ROOT_MARGIN,
-      threshold: 0
-    })
-    secondaryListObserver.observe(target)
-  }
+        void router.push({ path: route.path, query: nextQuery, hash: route.hash });
+        return true;
+    };
 
-  const scheduleHomeSecondaryRefresh = (showLoading = false): void => {
-    if (!secondaryListsLoaded && !secondaryListRequestInFlight) {
-      return
-    }
+    const handlePageChange = (page: number): void =>
+    {
+        if (page < 1 || page > totalPages.value || loading.value)
+        {
+            return;
+        }
+        if (syncPageQuery(page))
+        {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
 
-    if (secondaryRefreshTimer) {
-      clearTimeout(secondaryRefreshTimer)
-    }
+    const loadArticles = async (showLoading = true): Promise<void> =>
+    {
+        if (showLoading)
+        {
+            beginLoading();
+        }
+        else
+        {
+            error.value = null;
+        }
 
-    secondaryRefreshTimer = setTimeout(() => {
-      void loadHomeSecondaryArticles(showLoading)
-      secondaryRefreshTimer = null
-    }, HOME_SECONDARY_REFRESH_DELAY_MS)
-  }
+        try
+        {
+            const routeHasCursor = Object.prototype.hasOwnProperty.call(route.query, 'cursor');
+            const requestCursor = articleCursorByPage.get(currentPage.value);
+            if ((currentPage.value === 1 && routeHasCursor)
+        || (currentPage.value > 1 && !requestCursor))
+            {
+                throw createAppError(AppErrorCode.Validation, 'article_cursor_required');
+            }
+            const response = await articleTask.run(
+                async (signal) =>
+                    await getPublicArticleCardProjections(
+                        {
+                            page: currentPage.value,
+                            size: pageSize.value,
+                            cursor: requestCursor
+                        },
+                        { signal }
+                    )
+            );
 
-  const scheduleArticleBatchRefresh = (request: { syncList: boolean; refreshSecondary: boolean }): void => {
-    pendingArticleBatchRefresh.syncList ||= request.syncList
-    pendingArticleBatchRefresh.refreshSecondary ||= request.refreshSecondary
+            if (lifecycle.isActive() && response)
+            {
+                if (Array.isArray(response.items))
+                {
+                    initialViewItems.value = null;
+                    useSeedRenderTime.value = false;
+                    articleItems.value = response.items;
+                    setPageTotal(Number(response.total) || 0);
+                    if (response.hasMore && response.nextCursor)
+                    {
+                        articleCursorByPage.set(currentPage.value + 1, response.nextCursor);
+                    }
+                    else
+                    {
+                        articleCursorByPage.delete(currentPage.value + 1);
+                    }
+                    articleCursorRevision.value++;
+                    error.value = null;
+                }
+                else
+                {
+                    throw createAppError(AppErrorCode.ProtocolFailure, 'home_articles_response_invalid');
+                }
+            }
+        }
+        catch (caught: unknown)
+        {
+            if (isAbortError(caught))
+            {
+                return;
+            }
 
-    if (articleRefreshTimer) {
-      clearTimeout(articleRefreshTimer)
-    }
+            if (lifecycle.isActive())
+            {
+                const normalized = toAppError(caught, 'home_articles_load_failed');
+                console.error('[Home] Data loading error:', normalized.message);
+                setError(normalized.code === AppErrorCode.ProtocolFailure ? '内容格式不一致' : '内容不可用');
+                articleItems.value = [];
+                setPageTotal(0);
+                markCurrentRouteFailed(route);
+            }
+        }
+        finally
+        {
+            if (lifecycle.isActive() && showLoading)
+            {
+                endLoading();
+            }
+            if (lifecycle.isActive())
+            {
+                markRouteReadyIfSettled();
+            }
+        }
+    };
 
-    articleRefreshTimer = setTimeout(() => {
-      const shouldSyncList = pendingArticleBatchRefresh.syncList
-      const shouldRefreshSecondary = pendingArticleBatchRefresh.refreshSecondary
-      pendingArticleBatchRefresh.syncList = false
-      pendingArticleBatchRefresh.refreshSecondary = false
-      articleRefreshTimer = null
+    const clearSecondaryListFallbackTimer = (): void =>
+    {
+        if (!secondaryListFallbackTimer)
+        {
+            return;
+        }
 
-      if (!lifecycle.isActive()) {
-        return
-      }
+        clearTimeout(secondaryListFallbackTimer);
+        secondaryListFallbackTimer = null;
+    };
 
-      if (shouldSyncList) {
-        homeRuntimeMetrics.fallbackSync++
-        lifecycle.scheduleSync(() => {
-          void loadArticles(false)
-        })
-      }
+    const disconnectSecondaryListObserver = (): void =>
+    {
+        secondaryListObserver?.disconnect();
+        secondaryListObserver = null;
+    };
 
-      if (shouldRefreshSecondary) {
-        scheduleHomeSecondaryRefresh(false)
-      }
-    }, HOME_ARTICLE_BATCH_REFRESH_DELAY_MS)
-  }
+    const loadHomeSecondaryArticles = async (showLoading = true): Promise<void> =>
+    {
+        if (secondaryListRequestInFlight)
+        {
+            return;
+        }
 
-  const applyArticlePatch = (payload: ArticleUpdatePayload): boolean => {
-    const exists = articleItems.value.some((article) => article.id === payload.articleId)
+        secondaryListRequestInFlight = true;
+        if (showLoading)
+        {
+            featuredLoading.value = true;
+        }
 
-    if (payload.action === 'Created' || payload.action === 'Restored') {
-      if (!payload.preview) {
-        return false
-      }
+        try
+        {
+            const [featuredResult, hotResult] = await featuredTask.run(
+                async (signal) => await Promise.allSettled([
+                    getFeaturedArticles(HOME_FEATURED_ARTICLE_PREFETCH_COUNT, { signal }),
+                    getHotArticles(HOME_HOT_ARTICLE_PREFETCH_COUNT, { signal })
+                ])
+            );
 
-      if (!exists) {
-        setPageTotal(total.value + 1)
-      }
+            if (hotResult.status === 'rejected')
+            {
+                throw hotResult.reason;
+            }
+            let featured: FeaturedArticleItem[] = [];
+            if (featuredResult.status === 'fulfilled')
+            {
+                featured = featuredResult.value || [];
+            }
+            else
+            {
+                const featuredError = toAppError(featuredResult.reason, 'home_featured_load_failed');
+                if (featuredError.code !== AppErrorCode.NotFound && featuredError.status !== 404)
+                {
+                    throw featuredResult.reason;
+                }
+            }
+            const hot = hotResult.value;
 
-      if (currentPage.value === 1) {
-        initialViewItems.value = null
-        articleItems.value = upsertArticlePreview(
-          articleItems.value,
-          toPublicArticleListCardProjection(payload.preview)
-        ).slice(0, pageSize.value)
-        homeRuntimeMetrics.patchApplied++
-      } else {
-        homeRuntimeMetrics.stalePageMarks++
-      }
+            if (lifecycle.isActive())
+            {
+                // Keep source order intact here. One shared editorial selector owns
+                // lead/secondary/feed deduplication for SSR, hydration, and SPA.
+                featuredArticles.value = (featured || []).slice(0, HOME_FEATURED_ARTICLE_COUNT);
+                hotArticles.value = (hot || []).slice(0, HOME_HOT_ARTICLE_PREFETCH_COUNT);
+                secondaryListsLoaded = true;
+                homeRuntimeMetrics.secondaryRefresh++;
+            }
+        }
+        catch (caught: unknown)
+        {
+            if (isAbortError(caught))
+            {
+                return;
+            }
+            console.error('[Home] Featured articles load error:', caught);
+        }
+        finally
+        {
+            secondaryListRequestInFlight = false;
+            if (lifecycle.isActive())
+            {
+                featuredLoading.value = false;
+            }
+        }
+    };
 
-      return true
-    }
+    const triggerSecondaryListLoad = (showLoading = true): void =>
+    {
+        clearSecondaryListFallbackTimer();
+        disconnectSecondaryListObserver();
+        void loadHomeSecondaryArticles(showLoading);
+    };
 
-    if (payload.action === 'Updated') {
-      if (!payload.preview) {
-        return false
-      }
+    const scheduleSecondaryListLoad = async (): Promise<void> =>
+    {
+        if (secondaryListsLoaded || secondaryListRequestInFlight || secondaryListObserver || secondaryListFallbackTimer)
+        {
+            return;
+        }
 
-      if (!exists && currentPage.value !== 1) {
-        homeRuntimeMetrics.stalePageMarks++
-        return true
-      }
+        await nextTick();
+        if (!lifecycle.isActive() || loading.value || isError.value || listView.value.items.length === 0)
+        {
+            return;
+        }
 
-      if (!exists) {
-        return false
-      }
+        const target = typeof document === 'undefined'
+            ? null
+            : document.getElementById(HOME_SECONDARY_CONTENT_SENTINEL_ID);
+        if (!target)
+        {
+            return;
+        }
 
-      articleItems.value = upsertArticlePreview(
-        articleItems.value,
-        toPublicArticleListCardProjection(payload.preview)
-      )
-      initialViewItems.value = null
-      homeRuntimeMetrics.patchApplied++
-      return true
-    }
+        if (typeof IntersectionObserver === 'undefined')
+        {
+            secondaryListFallbackTimer = setTimeout(() =>
+            {
+                secondaryListFallbackTimer = null;
+                triggerSecondaryListLoad(true);
+            }, HOME_SECONDARY_LIST_FALLBACK_DELAY_MS);
+            return;
+        }
 
-    if (!exists) {
-      return false
-    }
+        secondaryListObserver = new IntersectionObserver((entries) =>
+        {
+            if (entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0))
+            {
+                triggerSecondaryListLoad(true);
+            }
+        }, {
+            root: null,
+            rootMargin: HOME_SECONDARY_LIST_ROOT_MARGIN,
+            threshold: 0
+        });
+        secondaryListObserver.observe(target);
+    };
 
-    articleItems.value = removeArticlePreview(articleItems.value, payload.articleId)
-    initialViewItems.value = null
-    setPageTotal(Math.max(0, total.value - 1))
-    homeRuntimeMetrics.patchApplied++
-    if (currentPage.value !== 1) {
-      homeRuntimeMetrics.stalePageMarks++
-      return true
-    }
+    const scheduleHomeSecondaryRefresh = (showLoading = false): void =>
+    {
+        if (!secondaryListsLoaded && !secondaryListRequestInFlight)
+        {
+            return;
+        }
 
-    return currentPage.value === 1 && articleItems.value.length >= pageSize.value
-  }
+        if (secondaryRefreshTimer)
+        {
+            clearTimeout(secondaryRefreshTimer);
+        }
 
-  const handleArticleBatch = (patches: readonly NotificationStreamArticleRenderPatch[]): void => {
-    let needsSync = false
-    let needsFeaturedSync = false
+        secondaryRefreshTimer = setTimeout(() =>
+        {
+            void loadHomeSecondaryArticles(showLoading);
+            secondaryRefreshTimer = null;
+        }, HOME_SECONDARY_REFRESH_DELAY_MS);
+    };
 
-    for (const patch of patches) {
-      if (patch.kind === 'reconnected') {
-        needsSync = true
-        needsFeaturedSync = true
-        continue
-      }
+    const scheduleArticleBatchRefresh = (request: { syncList: boolean; refreshSecondary: boolean; }): void =>
+    {
+        pendingArticleBatchRefresh.syncList ||= request.syncList;
+        pendingArticleBatchRefresh.refreshSecondary ||= request.refreshSecondary;
 
-      if (!patch.event) {
-        needsSync = true
-        needsFeaturedSync = true
-        continue
-      }
+        if (articleRefreshTimer)
+        {
+            clearTimeout(articleRefreshTimer);
+        }
 
-      const action = patch.event.payload.action
-      if (action === 'Created' || action === 'Deleted' || action === 'Restored') {
-        needsFeaturedSync = true
-      }
+        articleRefreshTimer = setTimeout(() =>
+        {
+            const shouldSyncList = pendingArticleBatchRefresh.syncList;
+            const shouldRefreshSecondary = pendingArticleBatchRefresh.refreshSecondary;
+            pendingArticleBatchRefresh.syncList = false;
+            pendingArticleBatchRefresh.refreshSecondary = false;
+            articleRefreshTimer = null;
 
-      if (!applyArticlePatch(patch.event.payload)) {
-        needsSync = true
-      }
-    }
+            if (!lifecycle.isActive())
+            {
+                return;
+            }
 
-    if ((needsSync || needsFeaturedSync) && lifecycle.isActive()) {
-      scheduleArticleBatchRefresh({
-        syncList: needsSync,
-        refreshSecondary: needsFeaturedSync
-      })
-    }
-  }
+            if (shouldSyncList)
+            {
+                homeRuntimeMetrics.fallbackSync++;
+                lifecycle.scheduleSync(() =>
+                {
+                    void loadArticles(false);
+                });
+            }
 
-  watch(
-    () => route.query.page,
-    () => {
-      const nextPage = parsePageQuery(route.query.page)
-      if (nextPage === currentPage.value) {
-        return
-      }
+            if (shouldRefreshSecondary)
+            {
+                scheduleHomeSecondaryRefresh(false);
+            }
+        }, HOME_ARTICLE_BATCH_REFRESH_DELAY_MS);
+    };
 
-      initialViewItems.value = null
-      currentPage.value = nextPage
-      void loadArticles()
-    }
-  )
+    const applyArticlePatch = (payload: ArticleUpdatePayload): boolean =>
+    {
+        const exists = articleItems.value.some((article) => article.id === payload.articleId);
 
-  watch(
-    () => notificationStreamStore.articleRevision,
-    () => {
-      if (!lifecycle.isActive()) {
-        return
-      }
+        if (payload.action === 'Created' || payload.action === 'Restored')
+        {
+            if (!payload.preview)
+            {
+                return false;
+            }
 
-      handleArticleBatch(notificationStreamStore.articleBatch)
-    }
-  )
+            if (!exists)
+            {
+                setPageTotal(total.value + 1);
+            }
 
-  onMounted(() => {
-    void scheduleSecondaryListLoad()
+            if (currentPage.value === 1)
+            {
+                initialViewItems.value = null;
+                articleItems.value = upsertArticlePreview(
+                    articleItems.value,
+                    toPublicArticleListCardProjection(payload.preview)
+                ).slice(0, pageSize.value);
+                homeRuntimeMetrics.patchApplied++;
+            }
+            else
+            {
+                homeRuntimeMetrics.stalePageMarks++;
+            }
 
-    if (!hasInitialRouteSeed) {
-      initialViewItems.value = null
-      void loadArticles()
-    }
+            return true;
+        }
 
-    void nextTick(markRouteReadyIfSettled)
-  })
+        if (payload.action === 'Updated')
+        {
+            if (!payload.preview)
+            {
+                return false;
+            }
 
-  watch(
-    () => [loading.value, isError.value, initialViewItems.value?.length, articleItems.value.length] as const,
-    () => {
-      markRouteReadyIfSettled()
-      void scheduleSecondaryListLoad()
-    },
-    { flush: 'post' }
-  )
+            if (!exists && currentPage.value !== 1)
+            {
+                homeRuntimeMetrics.stalePageMarks++;
+                return true;
+            }
 
-  onUnmounted(() => {
-    if (articleRefreshTimer) {
-      clearTimeout(articleRefreshTimer)
-    }
-    if (secondaryRefreshTimer) {
-      clearTimeout(secondaryRefreshTimer)
-    }
-    clearSecondaryListFallbackTimer()
-    disconnectSecondaryListObserver()
-  })
+            if (!exists)
+            {
+                return false;
+            }
 
-  return {
-    listView,
-    articles,
-    featuredArticles,
-    hotArticles,
-    featuredLoading,
-    currentPage,
-    totalPages,
-    loading,
-    isError,
-    pageIndicatorText,
-    canGoPrev,
-    canGoNext,
-    handlePageChange,
-    loadArticles,
-    loadHomeSecondaryArticles
-  }
+            articleItems.value = upsertArticlePreview(
+                articleItems.value,
+                toPublicArticleListCardProjection(payload.preview)
+            );
+            initialViewItems.value = null;
+            homeRuntimeMetrics.patchApplied++;
+            return true;
+        }
+
+        if (!exists)
+        {
+            return false;
+        }
+
+        articleItems.value = removeArticlePreview(articleItems.value, payload.articleId);
+        initialViewItems.value = null;
+        setPageTotal(Math.max(0, total.value - 1));
+        homeRuntimeMetrics.patchApplied++;
+        if (currentPage.value !== 1)
+        {
+            homeRuntimeMetrics.stalePageMarks++;
+            return true;
+        }
+
+        return currentPage.value === 1 && articleItems.value.length >= pageSize.value;
+    };
+
+    const handleArticleBatch = (patches: readonly NotificationStreamArticleRenderPatch[]): void =>
+    {
+        let needsSync = false;
+        let needsFeaturedSync = false;
+
+        for (const patch of patches)
+        {
+            if (patch.kind === 'reconnected')
+            {
+                needsSync = true;
+                needsFeaturedSync = true;
+                continue;
+            }
+
+            if (!patch.event)
+            {
+                needsSync = true;
+                needsFeaturedSync = true;
+                continue;
+            }
+
+            const action = patch.event.payload.action;
+            if (action === 'Created' || action === 'Deleted' || action === 'Restored')
+            {
+                needsFeaturedSync = true;
+            }
+
+            if (!applyArticlePatch(patch.event.payload))
+            {
+                needsSync = true;
+            }
+        }
+
+        if ((needsSync || needsFeaturedSync) && lifecycle.isActive())
+        {
+            scheduleArticleBatchRefresh({
+                syncList: needsSync,
+                refreshSecondary: needsFeaturedSync
+            });
+        }
+    };
+
+    watch(
+        () => [route.query.page, route.query.cursor] as const,
+        () =>
+        {
+            const nextPage = parsePageQuery(route.query.page);
+            const nextCursor = parsePublicPaginationCursor(route.query.cursor);
+            if (nextPage > 1 && !nextCursor)
+            {
+                initialViewItems.value = null;
+                currentPage.value = nextPage;
+                setError('分页参数无效');
+                markCurrentRouteFailed(route);
+                return;
+            }
+
+            if (nextPage > 1 && nextCursor)
+            {
+                articleCursorByPage.set(nextPage, nextCursor);
+                articleCursorRevision.value++;
+            }
+            initialViewItems.value = null;
+            currentPage.value = nextPage;
+            void loadArticles();
+        }
+    );
+
+    watch(
+        () => notificationStreamStore.articleRevision,
+        () =>
+        {
+            if (!lifecycle.isActive())
+            {
+                return;
+            }
+
+            handleArticleBatch(notificationStreamStore.articleBatch);
+        }
+    );
+
+    onMounted(() =>
+    {
+        void scheduleSecondaryListLoad();
+
+        if (!hasInitialRouteSeed)
+        {
+            initialViewItems.value = null;
+            void loadArticles();
+        }
+
+        void nextTick(markRouteReadyIfSettled);
+    });
+
+    watch(
+        () => [loading.value, isError.value, initialViewItems.value?.length, articleItems.value.length] as const,
+        () =>
+        {
+            markRouteReadyIfSettled();
+            void scheduleSecondaryListLoad();
+        },
+        { flush: 'post' }
+    );
+
+    onUnmounted(() =>
+    {
+        if (articleRefreshTimer)
+        {
+            clearTimeout(articleRefreshTimer);
+        }
+        if (secondaryRefreshTimer)
+        {
+            clearTimeout(secondaryRefreshTimer);
+        }
+        clearSecondaryListFallbackTimer();
+        disconnectSecondaryListObserver();
+    });
+
+    return {
+        listView,
+        articles,
+        featuredArticles,
+        hotArticles,
+        featuredLoading,
+        currentPage,
+        totalPages,
+        loading,
+        isError,
+        pageIndicatorText,
+        canGoPrev,
+        canGoNext,
+        handlePageChange,
+        loadArticles,
+        loadHomeSecondaryArticles
+    };
 }

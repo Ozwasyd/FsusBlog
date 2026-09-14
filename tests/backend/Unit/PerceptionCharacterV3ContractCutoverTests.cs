@@ -251,7 +251,7 @@ public sealed class PerceptionCharacterV3ContractCutoverTests
                 ["RedisOptions:InstanceName"] = string.Empty
             }).Build();
         var store = new RedisPerceptionCharacterV3CutoverStore(
-            redis,
+            RedisOperationExecutor.ForTestConnection(redis),
             scope,
             configuration,
             provider.GetRequiredService<IServiceScopeFactory>());

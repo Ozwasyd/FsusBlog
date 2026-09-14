@@ -357,7 +357,9 @@ public static class PublicHotReadEarlyDataPlaneExtensions
 
     public static IApplicationBuilder UseFsusPublicHotReadRateLimiter(this IApplicationBuilder app)
         => app.UseWhen(
-            static context => context.Features.Get<PublicHotReadRequestFeature>()?.RequiresSecurityGate == true,
+            static context =>
+                context.Features.Get<PublicHotReadRequestFeature>()?.RequiresSecurityGate == true
+                && !context.Response.HasStarted,
             static branch =>
             {
                 branch.Use((context, next) =>

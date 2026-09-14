@@ -6,14 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import {
-    canonicalDigest,
-    materializationReceiptPath,
-    runtimeReadyReceiptPath,
-    verifyCurrentSchemaMaterializationReceipt,
-    verifyCurrentSchemaRuntimeReadyReceipt
-} from '../../tools/db/verify-current-schema-test-materialization-receipt.mjs';
-
+const {canonicalDigest, materializationReceiptPath, runtimeReadyReceiptPath, verifyCurrentSchemaMaterializationReceipt, verifyCurrentSchemaRuntimeReadyReceipt} = await import(new URL('../../tools/db/verify-current-schema-test-materialization-receipt.mjs', import.meta.url));
 const runId = 'issue-3105-receipt-fixture';
 const sourceCommit = 'a'.repeat(40);
 const imageReference = `postgres@sha256:${'b'.repeat(64)}`;
@@ -528,7 +521,8 @@ test('missing, prepared, stale, tampered, and structurally ambiguous receipts fa
         );
         value.cleanup();
     }
-    t.after(() => {});
+    t.after(() =>
+    {});
 });
 
 test('catalog, envelope, PostgreSQL observation, and database identity drift fail exact binding', () =>

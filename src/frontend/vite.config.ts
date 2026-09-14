@@ -493,6 +493,28 @@ const productionManifestStyleOwners = [
         source: '/src/assets/public-page.css'
     }
 ] as const
+const productionRequiredManifestOwners = [
+    'index',
+    'entry-runtime',
+    'public-page-runtime',
+    'public-shell-critical',
+    'tailwind',
+    'markdown',
+    'public-page',
+    'full-app-core',
+    'route-user',
+    'route-admin',
+    'route-auth',
+    'route-error'
+] as const
+const productionRequiredManualChunkOwners = [
+    'public-page-runtime',
+    'full-app-core',
+    'route-user',
+    'route-admin',
+    'route-auth',
+    'route-error'
+] as const
 const productionManifestOwnerRequestPrefix = '/@fsusblog-manifest-owner/'
 const productionManifestOwnerResolvedPrefix = '\0fsusblog:manifest-owner:'
 
@@ -552,26 +574,43 @@ function preserveProductionManifestOwners(validateOwners: boolean): Plugin {
                 }))
             }
         },
-        generateBundle(_options, bundle) {
-            // The kernel remains a standalone Rolldown input so build.mjs can
-            // publish its stable alias without creating an index -> kernel ->
-            // index dependency cycle. It is a preload target, not the SPA
-            // document entry, so only index may carry isEntry in the manifest.
-            for (const output of Object.values(bundle)) {
-                if (output.type === 'chunk' && output.name === 'publicBootKernel') {
-                    output.isEntry = false
+        generateBundle: {
+            order: 'pre' as const,
+            handler(_options, bundle) {
+                // The kernel remains a standalone Rolldown input so build.mjs can
+                // publish its stable alias without creating an index -> kernel ->
+                // index dependency cycle. It is a preload target, not the SPA
+                // document entry, so only index may carry isEntry in the manifest.
+                for (const output of Object.values(bundle)) {
+                    if (output.type !== 'chunk') {
+                        continue
+                    }
+                    if (output.name === 'publicBootKernel') {
+                        output.isEntry = false
+                        continue
+                    }
+                    if (validateOwners) {
+                        output.isEntry = output.name === 'index'
+                    }
                 }
-            }
 
-            if (!validateOwners) {
-                return
-            }
+                if (!validateOwners) {
+                    return
+                }
 
-            for (const owner of owners) {
-                const matches = Object.values(bundle)
-                    .filter((output) => output.type === 'chunk' && output.name === owner)
-                if (matches.length !== 1) {
-                    throw new Error(`production_manifest_owner_not_unique:${owner}:${matches.length}`)
+                const chunks = Object.values(bundle).filter((output) => output.type === 'chunk')
+                for (const owner of productionRequiredManifestOwners) {
+                    const matches = chunks.filter((output) => output.name === owner)
+                    if (matches.length !== 1) {
+                        throw new Error(`production_manifest_owner_not_unique:${owner}:${matches.length}`)
+                    }
+                }
+
+                const primaryEntries = chunks.filter((output) => output.isEntry)
+                if (primaryEntries.length !== 1 || primaryEntries[0].name !== 'index') {
+                    throw new Error(
+                        `production_manifest_primary_entry_invalid:${primaryEntries.map((entry) => entry.name).join(',')}`
+                    )
                 }
             }
         }
@@ -878,6 +917,14 @@ export default defineConfig(({ command, mode }) => {
                                         priority: 110,
                                         minSize: 0
                                     },
+                                    ...productionRequiredManualChunkOwners.map((owner) => ({
+                                        name: owner,
+                                        test(moduleId: string) {
+                                            return resolveManualChunk(moduleId) === owner
+                                        },
+                                        priority: 50,
+                                        minSize: 0
+                                    })),
                                     {
                                         name: 'publicBootKernel',
                                         test: /[\\/]src[\\/]bootstrap[\\/]publicBootKernel\.ts$/u,

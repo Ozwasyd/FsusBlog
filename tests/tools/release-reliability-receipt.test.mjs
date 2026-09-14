@@ -8,8 +8,7 @@ import process from 'node:process';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs';
-
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const {
     collectRunIdentity,
@@ -1981,7 +1980,6 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
         collectedAt: '2026-07-26T00:00:00.000Z',
         collectionErrors: []
     });
-    const runRoot = path.join(root, '.tmp/release-reliability', invocationId);
     const identityPath = `.tmp/release-reliability/${invocationId}/identity.json`;
     writeJson(path.join(root, identityPath), identity);
     const identityRef = { path: identityPath, contentDigest: identity.contentDigest };

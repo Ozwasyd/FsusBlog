@@ -14,7 +14,8 @@ public enum PublicHotArtifactDirtyReason
     Unknown = 0,
     Content = 1,
     ViewProjection = 2,
-    ScheduledPublish = 4
+    ScheduledPublish = 4,
+    SoftRefresh = 8
 }
 
 public enum PublicHotArtifactDeliveryClass
@@ -457,6 +458,12 @@ public sealed class PublicHotArtifactUpdateQueue
             return PublicHotArtifactDirtyReason.ScheduledPublish | PublicHotArtifactDirtyReason.Content;
         }
 
+        if (reason.Contains("last-good", StringComparison.OrdinalIgnoreCase)
+            || reason.Contains("sanity-age-refresh", StringComparison.OrdinalIgnoreCase))
+        {
+            return PublicHotArtifactDirtyReason.SoftRefresh;
+        }
+
         return PublicHotArtifactDirtyReason.Content;
     }
 }
@@ -470,9 +477,6 @@ public sealed class PublicHotArtifactUpdateWorker(
     IOptions<PublicHotReadOptions> options,
     ILogger<PublicHotArtifactUpdateWorker> logger) : BackgroundService
 {
-    private static readonly TimeSpan s_viewProjectionRefreshInterval = TimeSpan.FromSeconds(30);
-    private DateTime _lastViewProjectionRefreshUtc = DateTime.MinValue;
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (queue.Obligations is { } obligations)
@@ -542,21 +546,6 @@ public sealed class PublicHotArtifactUpdateWorker(
                 CollectUpdate(next, articleIds, expectedReleaseIds, fragmentKeys, ref requiresFullRebuild);
             }
 
-            if (dirtyReason == PublicHotArtifactDirtyReason.ViewProjection)
-            {
-                DateTime now = DateTime.UtcNow;
-                if (now - _lastViewProjectionRefreshUtc < s_viewProjectionRefreshInterval)
-                {
-                    logger.LogInformation(
-                        "public-hot-read-view-refresh-coalesced {Reason} {Coalesced}",
-                        reason,
-                        coalesced);
-                    return;
-                }
-
-                _lastViewProjectionRefreshUtc = now;
-            }
-
             long maximumRevocationGeneration = revocations.CurrentGeneration;
             store.BeginBuild(reason);
             await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
@@ -593,7 +582,7 @@ public sealed class PublicHotArtifactUpdateWorker(
                 queue.RecordProjectorFinished();
             }
 
-            store.Publish(snapshot);
+            PublishSnapshot(store, snapshot, dirtyReason, reason);
             if ((dirtyReason & PublicHotArtifactDirtyReason.Content) != 0)
             {
                 await revocations
@@ -688,7 +677,7 @@ public sealed class PublicHotArtifactUpdateWorker(
             }
             await obligations.RecordStageSuccessAsync(obligation.ObligationId, obligation.AttemptNumber, PublicHotArtifactAttemptStage.Projector, DateTimeOffset.UtcNow, stoppingToken).ConfigureAwait(false);
             stage = PublicHotArtifactAttemptStage.Publish;
-            store.Publish(snapshot);
+            PublishSnapshot(store, snapshot, obligation.DirtyReasons, string.Empty);
             await obligations.RecordStageSuccessAsync(obligation.ObligationId, obligation.AttemptNumber, PublicHotArtifactAttemptStage.Publish, DateTimeOffset.UtcNow, stoppingToken).ConfigureAwait(false);
             stage = PublicHotArtifactAttemptStage.RevocationCompletion;
             if ((obligation.DirtyReasons & PublicHotArtifactDirtyReason.Content) != 0)
@@ -723,7 +712,9 @@ public sealed class PublicHotArtifactUpdateWorker(
             logger.LogWarning(ex, "public-hot obligation failed {ObligationId} {Attempt} {State} {FailureKind}", obligation.ObligationId, obligation.AttemptNumber, failed.State, failed.LastFailureKind);
             if (failed.IsTerminal && obligation.FragmentKeys is { Count: > 0 })
             {
-                store.InvalidateDistributedSnapshot("fragment-rebuild-failed");
+                store.InvalidateDistributedSnapshot(
+                    "fragment-rebuild-failed",
+                    PublicHotReadInvalidationPolicy.DropToEmpty);
                 await using AsyncServiceScope failureScope = scopeFactory.CreateAsyncScope();
                 await RecordDistributedFullReconcileAsync(
                         failureScope.ServiceProvider,
@@ -768,6 +759,22 @@ public sealed class PublicHotArtifactUpdateWorker(
 
         lease.Dispose();
         queue.RecordBackgroundClaimFinished();
+    }
+
+    private static void PublishSnapshot(
+        PublicHotReadStore store,
+        PublicHotReadSnapshot snapshot,
+        PublicHotArtifactDirtyReason dirtyReason,
+        string reason)
+    {
+        if (PublicHotReadVersionStickiness.Classify(dirtyReason, reason, store.Current.Version)
+            == PublicHotReadPublishCause.SoftRefresh)
+        {
+            store.PublishSoftRefresh(snapshot);
+            return;
+        }
+
+        store.Publish(snapshot);
     }
 
     private static bool RequiresInitialSnapshot(PublicHotReadSnapshot snapshot)

@@ -4,11 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
-import {
-    createExecutionEnvelopePolicyIdentity,
-    executionEnvelopeDigest
-} from '../test-matrix/execution-envelope-policy.mjs';
-
+const {createExecutionEnvelopePolicyIdentity, executionEnvelopeDigest} = await import(new URL('../test-matrix/execution-envelope-policy.mjs', import.meta.url));
 export const executionEnvelopeEnvironmentSchema =
     'fsusblog.test-execution-envelope-environment.v1';
 const environmentNamePattern = /^[A-Za-z_][A-Za-z0-9_]*$/u;

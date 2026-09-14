@@ -1,38 +1,45 @@
-#nprogress {
-  position: fixed;
-  z-index: 1031;
-  inset: 0 0 auto;
-  height: 2px;
-  pointer-events: none;
+#nprogress
+ {
+    position: fixed;
+    z-index: 1031;
+    inset: 0 0 auto;
+    height: 2px;
+    pointer-events: none;
 }
 
-#nprogress .bar {
-  width: 100%;
-  height: 100%;
-  background: var(--fsusblog-color-primary, var(--fsus-scholarly-blue, #2A599C));
-  transform: scaleX(0);
-  transform-origin: left center;
+#nprogress .bar
+ {
+    width: 100%;
+    height: 100%;
+    background: var(--fsusblog-color-primary, var(--fsus-scholarly-blue, #2A599C));
+    transform: scaleX(0);
+    transform-origin: left center;
 }
 
-#nprogress.is-active .bar {
-  animation: fsus-navigation-progress calc(var(--blog-motion-panel) * 5) var(--blog-motion-ease) infinite;
+#nprogress.is-active .bar
+ {
+    animation: fsus-navigation-progress calc(var(--blog-motion-panel) * 5) var(--blog-motion-ease) infinite;
 }
 
-#nprogress.is-completing .bar {
-  transform: scaleX(1);
-  transition: transform var(--blog-motion-fast) var(--blog-motion-ease);
+#nprogress.is-completing .bar
+ {
+    transform: scaleX(1);
+    transition: transform var(--blog-motion-fast) var(--blog-motion-ease);
 }
 
-#nprogress .peg {
-  position: absolute;
-  inset: 0 0 0 auto;
-  width: 96px;
-  opacity: 0.8;
+#nprogress .peg
+ {
+    position: absolute;
+    inset: 0 0 0 auto;
+    width: 96px;
+    opacity: 0.8;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  #nprogress.is-active .bar {
-    animation: none;
-    transform: scaleX(0.7);
-  }
+@media (prefers-reduced-motion: reduce)
+ {
+    #nprogress.is-active .bar
+ {
+        animation: none;
+        transform: scaleX(0.7);
+    }
 }

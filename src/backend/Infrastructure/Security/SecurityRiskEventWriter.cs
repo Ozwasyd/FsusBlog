@@ -34,6 +34,8 @@ public sealed class SecurityRiskEventWriterOptions
 /// <summary>Captures queue admission, in-flight, durable and terminal dispositions.</summary>
 /// <param name="QueuedCount">The approximate number of events awaiting persistence.</param>
 /// <param name="DroppedCount">The cumulative number of rejected admissions, not an acknowledged loss.</param>
+/// <param name="ShedCount">Hot-path drops that skipped request-path SQL fallback.</param>
+/// <param name="SyncFallbackCount">Admissions that opened request-path SQL; target 0 on Shield/public-hot-read.</param>
 public sealed record SecurityRiskEventWriteQueueSnapshot(
     long QueuedCount,
     long DroppedCount,
@@ -47,12 +49,27 @@ public sealed record SecurityRiskEventWriteQueueSnapshot(
     long Sequence = 0,
     string? LastDisposition = null,
     string? LastFailureReason = null,
-    string? LastItemReference = null)
+    string? LastItemReference = null,
+    long ShedCount = 0,
+    long SyncFallbackCount = 0)
 {
     public long OutstandingCount => Math.Max(0, QueuedCount)
         + Math.Max(0, InFlightCount)
         + Math.Max(0, DurablePendingCount)
         + Math.Max(0, TerminalFailureCount);
+}
+
+/// <summary>
+/// Bounded Shield/public-hot-read risk persistence: queue, then shed. The client
+/// still receives the already-computed hot-path decision; durable SQL is sampled
+/// to telemetry when dropped. Request-path sync SQL fallback is not used.
+/// </summary>
+public static class SecurityRiskHotPathAdmission
+{
+    public const string ShedDisposition = "shed";
+    public const string ShedTelemetryResult = "shed";
+    public const string ClientOutcome = "unchanged-hot-path-decision";
+    public const string TelemetrySample = "queue-depth,shed-count,sync-fallback-count";
 }
 
 /// <summary>Provides single-reader admission and accounting for the bounded security-risk event channel.</summary>
@@ -70,6 +87,8 @@ public sealed class SecurityRiskEventWriteQueue
     private long _requeuedCount;
     private long _rejectedCount;
     private long _terminalFailureCount;
+    private long _shedCount;
+    private long _syncFallbackCount;
     private long _sequence;
     private string? _lastDisposition;
     private string? _lastFailureReason;
@@ -116,30 +135,47 @@ public sealed class SecurityRiskEventWriteQueue
 
         Interlocked.Increment(ref _queuedCount);
         SetDisposition("queued", write.Id);
+        RecordAdmission(shedDelta: 0, syncFallbackDelta: 0);
         return true;
     }
 
-    /// <summary>Admits an event or waits for its own durable store fallback.</summary>
-    public async ValueTask<bool> EnqueueAsync(
+    /// <summary>
+    /// Admits a request-path Shield/risk event without waiting and without SQL.
+    /// A saturated or closed queue sheds: the HTTP decision is unchanged and
+    /// the drop is sampled to telemetry.
+    /// </summary>
+    public bool TryEnqueueOrShed(SecurityRiskEventWrite write)
+    {
+        if (Volatile.Read(ref _completed) != 0)
+        {
+            Shed(write, "closed");
+            return false;
+        }
+
+        if (_channel.Writer.TryWrite(write))
+        {
+            Interlocked.Increment(ref _queuedCount);
+            SetDisposition("queued", write.Id);
+            RecordAdmission(shedDelta: 0, syncFallbackDelta: 0);
+            return true;
+        }
+
+        Shed(write, "queue_full");
+        return false;
+    }
+
+    /// <summary>Admits a request-path event with queue+shed; never opens request-path SQL.</summary>
+    public ValueTask<bool> EnqueueAsync(
         SecurityRiskEventWrite write,
         CancellationToken cancellationToken = default)
     {
         if (cancellationToken.IsCancellationRequested)
         {
-            await WriteFallbackAsync(write, CancellationToken.None).ConfigureAwait(false);
-            return false;
+            Shed(write, "cancelled");
+            return ValueTask.FromResult(false);
         }
 
-        if (Volatile.Read(ref _completed) == 0 && _channel.Writer.TryWrite(write))
-        {
-            Interlocked.Increment(ref _queuedCount);
-            SetDisposition("queued", write.Id);
-            return true;
-        }
-
-        Interlocked.Increment(ref _rejectedCount);
-        await WriteFallbackAsync(write, CancellationToken.None).ConfigureAwait(false);
-        return false;
+        return ValueTask.FromResult(TryEnqueueOrShed(write));
     }
 
     /// <summary>Attempts to remove one event and updates the queue-depth accounting on success.</summary>
@@ -174,7 +210,9 @@ public sealed class SecurityRiskEventWriteQueue
             Volatile.Read(ref _sequence),
             Volatile.Read(ref _lastDisposition),
             Volatile.Read(ref _lastFailureReason),
-            Volatile.Read(ref _lastItemReference));
+            Volatile.Read(ref _lastItemReference),
+            Volatile.Read(ref _shedCount),
+            Volatile.Read(ref _syncFallbackCount));
 
     public void Complete(Exception? error = null)
     {
@@ -260,10 +298,13 @@ public sealed class SecurityRiskEventWriteQueue
         if (_scopeFactory is null)
         {
             MarkTerminalFailure(1, write.Id, $"{reason}:fallback-unavailable");
+            RecordAdmission(shedDelta: 0, syncFallbackDelta: 0);
             return false;
         }
 
         MarkDurablePending(1);
+        Interlocked.Increment(ref _syncFallbackCount);
+        RecordAdmission(shedDelta: 0, syncFallbackDelta: 1);
         try
         {
             using IServiceScope scope = _scopeFactory.CreateScope();
@@ -280,29 +321,28 @@ public sealed class SecurityRiskEventWriteQueue
         return false;
     }
 
-    private async Task WriteFallbackAsync(SecurityRiskEventWrite write, CancellationToken cancellationToken)
+    private void Shed(SecurityRiskEventWrite write, string reason)
     {
-        MarkDurablePending(1);
-        try
-        {
-            await using AsyncServiceScope scope = _scopeFactory is null
-                ? throw new InvalidOperationException("security-risk durable fallback unavailable")
-                : _scopeFactory.CreateAsyncScope();
-            ISecurityRiskEventStore store = scope.ServiceProvider.GetRequiredService<ISecurityRiskEventStore>();
-            await store.AppendAsync(write, cancellationToken).ConfigureAwait(false);
-            MarkDurableAccepted(1);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            MarkDurableFailed(1, write.Id, $"fallback-failed:{ex.GetType().Name}");
-            throw new InvalidOperationException($"security-risk durable fallback failed for {write.Id}", ex);
-        }
-        catch (OperationCanceledException)
-        {
-            MarkDurableFailed(1, write.Id, "fallback-cancelled");
-            throw;
-        }
+        Interlocked.Increment(ref _droppedCount);
+        Interlocked.Increment(ref _shedCount);
+        SetDisposition(SecurityRiskHotPathAdmission.ShedDisposition, write.Id, reason);
+        _logger.LogWarning(
+            "security-risk-event-shed Source={Source} Reason={Reason} Action={Action} TraceId={TraceId} Disposition={Disposition} ClientSees={ClientSees} Sampled={Sampled}",
+            write.Source,
+            write.Reason,
+            write.Action,
+            write.TraceId,
+            SecurityRiskHotPathAdmission.ShedDisposition,
+            SecurityRiskHotPathAdmission.ClientOutcome,
+            SecurityRiskHotPathAdmission.TelemetrySample);
+        RecordAdmission(shedDelta: 1, syncFallbackDelta: 0);
     }
+
+    private void RecordAdmission(long shedDelta, long syncFallbackDelta)
+        => FsusObservability.RecordSecurityRiskQueueAdmission(
+            Volatile.Read(ref _queuedCount),
+            shedDelta,
+            syncFallbackDelta);
 
     private void MarkRead()
     {

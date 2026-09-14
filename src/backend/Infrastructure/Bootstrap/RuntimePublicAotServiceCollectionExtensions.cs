@@ -21,12 +21,8 @@ internal static class RuntimePublicAotServiceCollectionExtensions
             IPublicAotInvalidationGenerationBootstrapGuard,
             FilePublicAotInvalidationGenerationBootstrapGuard>();
         services.AddSingleton<IPublicAotInvalidationGenerationAuthority, RedisPublicAotInvalidationGenerationAuthority>();
-        services.AddSingleton(sp =>
-        {
-            IPublicAotInvalidationGenerationAuthority authority = sp.GetRequiredService<IPublicAotInvalidationGenerationAuthority>();
-            _ = authority.Load();
-            return new PublicAotInvalidationTracker(authority);
-        });
+        services.AddSingleton(sp => new PublicAotInvalidationTracker(
+            sp.GetRequiredService<IPublicAotInvalidationGenerationAuthority>()));
         if (!OpenApiExportMode.IsEnabled())
         {
             services.AddHostedService<PublicAotInvalidationGenerationStartupValidator>();

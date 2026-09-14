@@ -143,21 +143,17 @@ internal sealed class AdminCacheDiagnosticsReader(
             await cache.GetPolicyStorageSnapshotsAsync(policyIds, cancellationToken);
         Dictionary<CachePolicyId, CachePolicyStorageSnapshot> storageByPolicy =
             storage.ToDictionary(static item => item.PolicyId);
-        IReadOnlyList<CacheOperationRuntimeCounter> counters = FsusObservability.GetCacheOperationCounters();
+        Dictionary<CachePolicyId, CacheL1PolicyResidencySnapshot> l1ByPolicy = cache
+            .GetL1PolicyResidencySnapshots()
+            .ToDictionary(static item => item.PolicyId);
         var result = new List<ArticleCachePolicyDiagnosticsResponse>(policyIds.Length);
         foreach (CachePolicyId policyId in policyIds)
         {
             ArticleCacheOwnership ownership = ArticleCacheOwnershipCatalog.Policies[policyId];
             storageByPolicy.TryGetValue(policyId, out CachePolicyStorageSnapshot? snapshot);
+            l1ByPolicy.TryGetValue(policyId, out CacheL1PolicyResidencySnapshot? l1);
             string policyName = policyId.ToString();
-            long hits = counters
-                .Where(counter => string.Equals(counter.Policy, policyName, StringComparison.Ordinal)
-                    && counter.Result.Contains("hit", StringComparison.OrdinalIgnoreCase))
-                .Sum(static counter => counter.Count);
-            long misses = counters
-                .Where(counter => string.Equals(counter.Policy, policyName, StringComparison.Ordinal)
-                    && counter.Result.Contains("miss", StringComparison.OrdinalIgnoreCase))
-                .Sum(static counter => counter.Count);
+            CachePolicyHitMissRuntimeCounter counters = FsusObservability.GetCachePolicyHitMissCounter(policyId);
             result.Add(new ArticleCachePolicyDiagnosticsResponse(
                 policyId,
                 policyName,
@@ -168,8 +164,22 @@ internal sealed class AdminCacheDiagnosticsReader(
                 ownership.Retention,
                 snapshot?.KeyCount ?? 0,
                 snapshot?.Bytes ?? 0,
-                hits,
-                misses));
+                l1?.Entries ?? 0,
+                l1?.LogicalBytes ?? 0,
+                l1?.CapacityBytes ?? 0,
+                l1?.MaxEntries ?? 0,
+                l1?.MaxLogicalBytes ?? 0,
+                l1?.MaxCapacityBytes ?? 0,
+                l1?.ExpiredEvictions ?? 0,
+                l1?.CapacityEvictions ?? 0,
+                l1?.ReplacedEvictions ?? 0,
+                l1?.InvalidatedEvictions ?? 0,
+                l1?.AdmissionRejects ?? 0,
+                l1?.ContendedLockWaitTicks ?? 0,
+                l1?.Hits ?? 0,
+                l1?.Misses ?? 0,
+                counters.Hits,
+                counters.Misses));
         }
 
         return result;

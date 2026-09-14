@@ -10,10 +10,9 @@ public sealed class PublicAotShellCache(
     ICacheTypedReader cacheReader,
     ICacheRawWriter cacheWriter,
     ICacheInvalidationStore invalidation,
-    IConnectionMultiplexer redis) : IPublicAotShellCache
+    IRedisOperationExecutor redis) : IPublicAotShellCache
 {
     private const int InvalidationBatchSize = 256;
-    private readonly IDatabase _db = redis.GetDatabase();
 
     public async Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, CancellationToken cancellationToken = default)
         => await TryGetEntryAsync(cacheKey, frontendAssetVersion: null, cancellationToken).ConfigureAwait(false);
@@ -40,7 +39,11 @@ public sealed class PublicAotShellCache(
         cancellationToken.ThrowIfCancellationRequested();
         foreach (string registryKey in PublicAotCacheRegistry.GetRegistryKeys(entry.PageId, entry.RouteKey))
         {
-            _ = await _db.SetAddAsync(registryKey, entry.CacheKey);
+            _ = await redis.ExecuteAsync(
+                    RedisOperationPort.PublicAotShellWrite,
+                    (multiplexer, _) => multiplexer.GetDatabase().SetAddAsync(registryKey, entry.CacheKey),
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
     }
 
@@ -71,7 +74,7 @@ public sealed class PublicAotShellCache(
             cancellationToken).ConfigureAwait(false);
         if (unregisterKeys)
         {
-            await UnregisterKeysAsync(distinctKeys).ConfigureAwait(false);
+            await UnregisterKeysAsync(distinctKeys, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -97,7 +100,8 @@ public sealed class PublicAotShellCache(
         HashSet<string> keysToDelete = [];
         foreach (string registryKey in PublicAotCacheRegistry.GetAllKnownRegistryKeys())
         {
-            foreach (RedisValue key in _db.SetScan(registryKey, pageSize: 256))
+            RedisValue[] registeredKeys = await ScanRegistryAsync(registryKey, cancellationToken).ConfigureAwait(false);
+            foreach (RedisValue key in registeredKeys)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 if (key.IsNullOrEmpty)
@@ -118,7 +122,11 @@ public sealed class PublicAotShellCache(
         RedisKey[] registryKeys = [.. PublicAotCacheRegistry.GetAllKnownRegistryKeys().Select(static key => (RedisKey)key)];
         if (registryKeys.Length > 0)
         {
-            _ = await _db.KeyDeleteAsync(registryKeys);
+            _ = await redis.ExecuteAsync(
+                    RedisOperationPort.PublicAotShellMaintenance,
+                    (multiplexer, _) => multiplexer.GetDatabase().KeyDeleteAsync(registryKeys),
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
     }
 
@@ -141,7 +149,8 @@ public sealed class PublicAotShellCache(
     {
         int removed = 0;
         List<string> batch = new(InvalidationBatchSize);
-        foreach (RedisValue key in _db.SetScan(registryKey, pageSize: 256))
+        RedisValue[] registeredKeys = await ScanRegistryAsync(registryKey, cancellationToken).ConfigureAwait(false);
+        foreach (RedisValue key in registeredKeys)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (key.IsNullOrEmpty)
@@ -179,7 +188,9 @@ public sealed class PublicAotShellCache(
         return cacheKeys.Count;
     }
 
-    private async Task<long> UnregisterKeysAsync(IReadOnlyCollection<string> cacheKeys)
+    private async Task<long> UnregisterKeysAsync(
+        IReadOnlyCollection<string> cacheKeys,
+        CancellationToken cancellationToken)
     {
         if (cacheKeys.Count == 0)
         {
@@ -205,11 +216,34 @@ public sealed class PublicAotShellCache(
         long removed = 0;
         foreach ((string registryKey, List<RedisValue> members) in grouped)
         {
-            removed += await _db.SetRemoveAsync((RedisKey)registryKey, [.. members]).ConfigureAwait(false);
+            removed += await redis.ExecuteAsync(
+                    RedisOperationPort.PublicAotShellWrite,
+                    (multiplexer, _) => multiplexer.GetDatabase().SetRemoveAsync((RedisKey)registryKey, [.. members]),
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
 
         return removed;
     }
+
+    private Task<RedisValue[]> ScanRegistryAsync(
+        RedisKey registryKey,
+        CancellationToken cancellationToken)
+        => redis.ExecuteAsync(
+            RedisOperationPort.PublicAotShellMaintenance,
+            async (multiplexer, deadlineToken) =>
+            {
+                var values = new List<RedisValue>();
+                await foreach (RedisValue value in multiplexer.GetDatabase()
+                    .SetScanAsync(registryKey, pageSize: InvalidationBatchSize)
+                    .WithCancellation(deadlineToken)
+                    .ConfigureAwait(false))
+                {
+                    values.Add(value);
+                }
+                return values.ToArray();
+            },
+            cancellationToken);
 
     private static void AddRegistryMember(Dictionary<string, List<RedisValue>> grouped, string registryKey, string cacheKey)
     {

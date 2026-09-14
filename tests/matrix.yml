@@ -2014,6 +2014,10 @@ tiers:
               Directory.Packages.props,
               FsusBlog.slnx,
               global.json,
+              config/build/backend-docker-inputs.json,
+              config/build/backend-restore.xml,
+              config/build/ssr-runtime-inputs.json,
+              ops/docker/FsusBlog.Server.Dockerfile,
               src/backend/**,
               src/core/**,
               src/shared/**,
@@ -2027,6 +2031,10 @@ tiers:
               tools/ci/**,
               tools/contracts/**,
               tools/frontend/**,
+              tools/docker/backend-input-closure.mjs,
+              tools/docker/backend-input-environment.mjs,
+              tools/docker/ssr-runtime-closure.mjs,
+              tools/build-final-image.sh,
               tools/check-wasm-artifact-ownership.mjs,
               tools/build-wasm-artifact.sh,
               tools/test/run-with-dotnet-release-build-lock.sh,
@@ -2658,10 +2666,11 @@ tiers:
           - backend-endpoint-security-metadata-and-testserver
           - backend-admin-console-endpoint-behavior
           - backend-admin-console-persistence-behavior
-          - backend-auth-mfa-pow-session-state-machine
+          - backend-auth-passkey-risk-mfa-session-state-machine
           - backend-race-idempotency-model
           - backend-fault-race-readiness
           - backend-search-index-utf8-scalar-owner
+          - backend-author-saved-view-postgres-boundaries
           - backend-audit-behavior
           - backend-operations-readiness-behavior
           - backend-public-aot-artifact-behavior
@@ -2680,6 +2689,7 @@ tiers:
           - backend-projection-serialization-behavior
           - pod-binary-codec-batch-allocation
           - backend-unix-platform-membership
+          - revision-compare-authority
       artifacts:
           [
               .tmp/backend-unit,
@@ -2709,6 +2719,21 @@ tiers:
           - tests/backend/Fixtures/platform-runtime-governance/runtime-return.fixture.cs.txt
           - tests/backend/Unit/FsusHostRuntimeTuningTests.cs
           - tests/backend/Unit/PodBinaryCodecBatchAllocationTests.cs
+          - tests/backend/Unit/AuthoringRevisionComparePackageReaderTests.cs
+          - tests/backend/Unit/RevisionComparePlannerPackageTests.cs
+          - tests/backend/Unit/RevisionComparePlannerTests.cs
+          - src/core/Services/Articles/RevisionCompareCanonical.cs
+          - src/core/Services/Articles/RevisionCompareContract.cs
+          - src/core/Services/Articles/RevisionCompareContracts.cs
+          - src/core/Services/Articles/RevisionCompareMetadataRegistry.cs
+          - src/core/Services/Articles/RevisionComparePackages.cs
+          - src/core/Services/Articles/RevisionComparePackageReaderContracts.cs
+          - src/core/Services/Articles/RevisionComparePackageSeal.cs
+          - src/core/Services/Articles/RevisionComparePlanner.cs
+          - src/core/Services/Articles/RevisionComparePlans.cs
+          - src/core/Services/Articles/RevisionCompareSourceEnums.cs
+          - src/core/Services/Articles/RevisionCompareStatusEnums.cs
+          - src/backend/Services/Authoring/AuthoringRevisionComparePackageReader.cs
           - src/backend/Services/SearchIndexService.Dictionary.cs
           - src/backend/Properties/AssemblyInfo.cs
           - tests/backend/FsusBlog.Server.Tests.csproj
@@ -2720,6 +2745,10 @@ tiers:
           - src/migration/SchemaMigrationExecution.cs
           - src/migration/SchemaMigrationManifest.cs
           - tests/backend/Unit/SearchIndexServiceTests.cs
+          - tests/backend/Unit/AuthorSavedViewStoreTests.cs
+          - tests/backend/Integration/AuthorSavedViewPostgresIntegrationTests.cs
+          - tools/governance/check-author-saved-view-storage-contract.mjs
+          - tests/tools/author-saved-view-storage-contract.test.mjs
           - tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs
           - tests/backend/Unit/UserSecurityStepUpServiceTests.cs
           - tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs
@@ -3171,6 +3200,7 @@ tiers:
       cadence: pr
       requiredFor: fast
       coverage:
+          - backend-docker-input-closure
           - gate-integrity
           - matrix-integrity
           - evidence-schema
@@ -3234,6 +3264,7 @@ tiers:
           - article-embed-authoring-static-governance
           - article-embed-publication-static-governance
           - article-embed-relations-static-governance
+          - revision-compare-authority
           - article-scale-plan-static-governance
           - static-client-payload-baseline-contract
       artifacts:
@@ -3412,6 +3443,15 @@ tiers:
           - tests/tools/dotnet-release-metadata.test.mjs
           - tests/tools/runtime-publish-profile.test.mjs
           - tests/tools/final-image-toolchain-pin.test.mjs
+          - tests/tools/backend-docker-input-closure.test.mjs
+          - tests/tools/ssr-runtime-closure.test.mjs
+          - .github/workflows/production-image-verification.yml
+          - tools/docker/backend-input-closure.mjs
+          - tools/docker/backend-input-environment.mjs
+          - tools/docker/ssr-runtime-closure.mjs
+          - config/build/backend-docker-inputs.json
+          - config/build/backend-restore.xml
+          - config/build/ssr-runtime-inputs.json
           - tools/runtime-profiles/runtime-publish-profiles.json
           - tools/runtime-profiles/runtime-publish-profile.mjs
           - tools/runtime-profiles/runtime-publish-isolation.mjs
@@ -3535,6 +3575,8 @@ tiers:
           - tests/fixtures/governance/article-scale-plan-governance.json
           - tests/tools/article-scale-plan-governance.test.mjs
           - src/backend/Services/Fixtures/DataScale/ArticleScalePlan.cs
+          - tools/governance/check-revision-compare-authority.mjs
+          - tests/tools/revision-compare-authority.test.mjs
           - docs/testing/issue-1174-csharp-entrypoint-ownership.md
           - .editorconfig
           - Directory.Build.props
@@ -4573,6 +4615,7 @@ tiers:
           - backend-physical-account-subject-retirement
           - backend-online-schema-migration-protocol
           - backend-admin-console-persistence-behavior
+          - backend-author-saved-view-postgres-boundaries
           - backend-audit-behavior
           - backend-operations-readiness-behavior
           - backend-log-cleanup-behavior
@@ -4605,6 +4648,7 @@ tiers:
           - docs/anonymous-identity-smoke-flow.md
           - tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs
           - tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs
+          - tests/backend/Integration/AuthorSavedViewPostgresIntegrationTests.cs
           - tests/backend/Integration/UserSessionRevocationIntegrationTests.cs
           - tests/backend/user-session-revocation-evidence.json
           - tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs
@@ -10155,7 +10199,7 @@ tiers:
           - backend-admin-console-endpoint-behavior
           - backend-admin-console-persistence-behavior
           - frontend-admin-console-behavior
-          - backend-auth-mfa-pow-session-state-machine
+          - backend-auth-passkey-risk-mfa-session-state-machine
           - backend-race-idempotency-model
           - backend-fault-race-readiness
           - backend-audit-behavior
@@ -10194,7 +10238,7 @@ tiers:
           - tests/backend/Unit/AdminConsistencyContractTests.cs
           - docs/testing.md
           - tests/frontend/unit/api/admin.test.ts
-          - tests/backend/Unit/BackendAuthStateMachineTests.cs
+          - tests/backend/Unit/MfaLoginEndpointPostgresTests.cs
           - tests/backend/Integration/UserSessionRevocationIntegrationTests.cs
           - .tmp/backend-concurrency/summary.json
           - tests/backend/Unit/AuditProjectionBehaviorTests.cs
@@ -10340,7 +10384,7 @@ tiers:
       cadence: pr
       requiredFor: fast
       coverage:
-          - backend-auth-mfa-pow-session-state-machine
+          - backend-auth-passkey-risk-mfa-session-state-machine
           - backend-endpoint-security-metadata-and-testserver
           - backend-user-session-revocation-enforcement
           - backend-auth-cookie-jwt-expiry-alignment
@@ -10354,7 +10398,7 @@ tiers:
           ]
       evidence:
           - .tmp/backend-auth-state-machine/summary.json
-          - tests/backend/Unit/BackendAuthStateMachineTests.cs
+          - tests/backend/Unit/MfaLoginEndpointPostgresTests.cs
           - tests/backend/Unit/ShieldMiddlewareTests.cs
           - tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs
           - tests/backend/Unit/SubscriptionEndpointsContractTests.cs
@@ -10457,6 +10501,7 @@ tiers:
           - tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs
           - tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs
           - tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs
+          - tests/backend/Unit/MfaLoginEndpointPostgresTests.cs
           - tests/backend/Integration/PasskeyRegistrationProjectionIntegrationTests.cs
           - tests/backend/Unit/AuthoringUserBanConcurrencyTests.cs
           - tests/backend/Unit/SecurityChallengePersistenceTests.cs
@@ -10700,7 +10745,7 @@ tiers:
       coverage:
           - backend-stryker-core-security-binary-cache
           - backend-security-hardening-boundary-and-ast
-          - backend-auth-mfa-pow-session-state-machine
+          - backend-auth-passkey-risk-mfa-session-state-machine
           - backend-race-idempotency-model
           - backend-fault-race-readiness
       artifacts: [.tmp/mutation/backend]
@@ -10710,6 +10755,7 @@ tiers:
           - tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs
           - tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs
           - tests/backend/Unit/SecurityChallengePersistenceTests.cs
+          - tests/backend/Unit/MfaLoginEndpointPostgresTests.cs
       ciJob: backend-mutation
       localOnly: false
       nightlyOnly: true

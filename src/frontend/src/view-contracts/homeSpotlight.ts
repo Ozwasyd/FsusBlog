@@ -1,35 +1,38 @@
-import type { FeaturedArticleItem, PopularArticleSummaryResponse } from '@/api/article'
-import type { ArticleListCardViewContract, ArticleListViewContract } from '@/view-contracts/articleList'
+import type { FeaturedArticleItem, PopularArticleSummaryResponse } from '@/api/article';
+import type { ArticleListCardViewContract, ArticleListViewContract } from '@/view-contracts/articleList';
 
-const DEFAULT_SECONDARY_ARTICLE_LIMIT = 5
+const DEFAULT_SECONDARY_ARTICLE_LIMIT = 5;
 
 type HomeArticleIdentity = Readonly<{
-  id: number
-}>
+    id: number;
+}>;
 
 export type HomeEditorialComposition<TFeedItem extends HomeArticleIdentity = ArticleListCardViewContract> = Readonly<{
-  leadArticle: FeaturedArticleItem | null
-  secondaryArticles: readonly PopularArticleSummaryResponse[]
-  feedItems: readonly TFeedItem[]
-}>
+    leadArticle: FeaturedArticleItem | null;
+    secondaryArticles: readonly PopularArticleSummaryResponse[];
+    feedItems: readonly TFeedItem[];
+}>;
 
 export type HomeEditorialPageState = Readonly<{
-  composition: HomeEditorialComposition<ArticleListCardViewContract>
-  view: ArticleListViewContract
-  hasRecommendations: boolean
-}>
+    composition: HomeEditorialComposition<ArticleListCardViewContract>;
+    view: ArticleListViewContract;
+    hasRecommendations: boolean;
+}>;
 
-function normalizedArticleId(article: HomeArticleIdentity): number | null {
-  const id = Number(article.id)
-  return Number.isSafeInteger(id) && id > 0 ? id : null
+function normalizedArticleId(article: HomeArticleIdentity): number | null
+{
+    const id = Number(article.id);
+    return Number.isSafeInteger(id) && id > 0 ? id : null;
 }
 
-function normalizedSecondaryLimit(value: number | undefined): number {
-  if (value === undefined) {
-    return DEFAULT_SECONDARY_ARTICLE_LIMIT
-  }
+function normalizedSecondaryLimit(value: number | undefined): number
+{
+    if (value === undefined)
+    {
+        return DEFAULT_SECONDARY_ARTICLE_LIMIT;
+    }
 
-  return Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : DEFAULT_SECONDARY_ARTICLE_LIMIT
+    return Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : DEFAULT_SECONDARY_ARTICLE_LIMIT;
 }
 
 /**
@@ -38,45 +41,51 @@ function normalizedSecondaryLimit(value: number | undefined): number {
  * server rendering, hydration, and the SPA takeover path.
  */
 export function selectHomeEditorialComposition<TFeedItem extends HomeArticleIdentity>(input: {
-  featuredArticles: readonly FeaturedArticleItem[]
-  hotArticles: readonly PopularArticleSummaryResponse[]
-  feedItems: readonly TFeedItem[]
-  secondaryLimit?: number
-}): HomeEditorialComposition<TFeedItem> {
-  const recommendationIds = new Set<number>()
-  let leadArticle: FeaturedArticleItem | null = null
+    featuredArticles: readonly FeaturedArticleItem[];
+    hotArticles: readonly PopularArticleSummaryResponse[];
+    feedItems: readonly TFeedItem[];
+    secondaryLimit?: number;
+}): HomeEditorialComposition<TFeedItem>
+{
+    const recommendationIds = new Set<number>();
+    let leadArticle: FeaturedArticleItem | null = null;
 
-  for (const article of input.featuredArticles) {
-    const id = normalizedArticleId(article)
-    if (id === null || recommendationIds.has(id)) {
-      continue
+    for (const article of input.featuredArticles)
+    {
+        const id = normalizedArticleId(article);
+        if (id === null || recommendationIds.has(id))
+        {
+            continue;
+        }
+
+        leadArticle = article;
+        recommendationIds.add(id);
+        break;
     }
 
-    leadArticle = article
-    recommendationIds.add(id)
-    break
-  }
+    const secondaryArticles: PopularArticleSummaryResponse[] = [];
+    const secondaryLimit = normalizedSecondaryLimit(input.secondaryLimit);
+    for (const article of input.hotArticles)
+    {
+        if (secondaryArticles.length >= secondaryLimit)
+        {
+            break;
+        }
 
-  const secondaryArticles: PopularArticleSummaryResponse[] = []
-  const secondaryLimit = normalizedSecondaryLimit(input.secondaryLimit)
-  for (const article of input.hotArticles) {
-    if (secondaryArticles.length >= secondaryLimit) {
-      break
+        const id = normalizedArticleId(article);
+        if (id === null || recommendationIds.has(id))
+        {
+            continue;
+        }
+        recommendationIds.add(id);
+        secondaryArticles.push(article);
     }
 
-    const id = normalizedArticleId(article)
-    if (id === null || recommendationIds.has(id)) {
-      continue
-    }
-    recommendationIds.add(id)
-    secondaryArticles.push(article)
-  }
-
-  return {
-    leadArticle,
-    secondaryArticles,
-    feedItems: [...input.feedItems]
-  }
+    return {
+        leadArticle,
+        secondaryArticles,
+        feedItems: [...input.feedItems]
+    };
 }
 
 /**
@@ -85,24 +94,25 @@ export function selectHomeEditorialComposition<TFeedItem extends HomeArticleIden
  * introducing a second recommendation order or a separate deduplication pass.
  */
 export function createHomeEditorialPageState(input: {
-  view: ArticleListViewContract
-  featuredArticles: readonly FeaturedArticleItem[]
-  hotArticles: readonly PopularArticleSummaryResponse[]
-  secondaryLimit?: number
-}): HomeEditorialPageState {
-  const composition = selectHomeEditorialComposition({
-    featuredArticles: input.featuredArticles,
-    hotArticles: input.hotArticles,
-    feedItems: input.view.items,
-    ...(input.secondaryLimit === undefined ? {} : { secondaryLimit: input.secondaryLimit })
-  })
+    view: ArticleListViewContract;
+    featuredArticles: readonly FeaturedArticleItem[];
+    hotArticles: readonly PopularArticleSummaryResponse[];
+    secondaryLimit?: number;
+}): HomeEditorialPageState
+{
+    const composition = selectHomeEditorialComposition({
+        featuredArticles: input.featuredArticles,
+        hotArticles: input.hotArticles,
+        feedItems: input.view.items,
+        ...(input.secondaryLimit === undefined ? {} : { secondaryLimit: input.secondaryLimit })
+    });
 
-  return {
-    composition,
-    view: input.view,
-    hasRecommendations: Boolean(
-      composition.leadArticle
+    return {
+        composition,
+        view: input.view,
+        hasRecommendations: Boolean(
+            composition.leadArticle
       || composition.secondaryArticles.length > 0
-    )
-  }
+        )
+    };
 }

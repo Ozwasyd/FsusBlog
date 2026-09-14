@@ -2,6 +2,28 @@
     "schema": "fsusblog.coverage-registry.v1",
     "entries": [
         {
+            "id": "backend-docker-input-closure",
+            "description": "Backend Docker restore, compile and publish domains are exactly derived from isolated real MSBuild evaluation and have one canonical lifecycle owner with complete CI trigger and producer-receipt bindings.",
+            "owner": "ServerContractAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "tests/tools/backend-docker-input-closure.test.mjs",
+                "tools/docker/backend-input-closure.mjs",
+                "tools/docker/backend-input-environment.mjs",
+                "config/build/backend-docker-inputs.json",
+                "config/build/backend-restore.xml",
+                "ops/docker/FsusBlog.Server.Dockerfile",
+                "tools/test/lanes/production-build-artifacts.sh",
+                ".github/workflows/production-image-verification.yml"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Reject undeclared MSBuild imports, project references or source inputs; symlink and alternate context reads; host configuration leakage; missing lifecycle ownership, CI input triggers or restore-config receipt binding; and incomplete or false BuildKit cache observations.",
+            "minimumRequirement": "The canonical static-governance subprocess owner executes the real closure and materialization fixtures once, verifies unchanged unrelated domains and invalidated true inputs, and retains raw process evidence. Local fixtures do not substitute for actual BuildKit cache or cold-image runtime qualification.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "backend-distributed-contract-fast",
             "description": "Distributed contracts fail fast across runtime mode selection, lease identity and TTL, projection checkpoints, Outbox critical failures, invalidation wire schema and two-node local convergence.",
             "owner": "ServerContractAgent",
@@ -767,12 +789,12 @@
             ]
         },
         {
-            "id": "backend-auth-mfa-pow-session-state-machine",
-            "description": "Backend Auth MFA Pow Session State Machine is covered by unit/property tests that exercise the named behavior.",
+            "id": "backend-auth-passkey-risk-mfa-session-state-machine",
+            "description": "Canonical Passkey and risk-controlled MFA login transitions are covered through the real endpoint, PostgreSQL session storage, concurrent continuation consumption, and supporting security tests.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
-                "tests/backend/Unit/BackendAuthStateMachineTests.cs",
+                "tests/backend/Unit/MfaLoginEndpointPostgresTests.cs",
                 "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs",
                 "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
                 "tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs",
@@ -780,7 +802,7 @@
             ],
             "assertionType": "unit",
             "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-            "minimumRequirement": "The referenced unit or property test evidence must execute assertions for this behavior, not merely prove that a source file exists.",
+            "minimumRequirement": "The referenced unit-project evidence must execute the canonical Passkey and MFA endpoints against PostgreSQL and prove session, token, cookie, replay, device, account, and concurrency side effects.",
             "tierIds": [
                 "backend-auth-state-machine",
                 "backend-unit",
@@ -984,6 +1006,23 @@
             "minimumRequirement": "The backend-unit result must retain the exact scalar-length Theory ID with all 10 ASCII, 2/3/4-byte and continuation fallback cases plus a tokenizer read-path assertion over valid 2/3/4-byte dictionary terms.",
             "tierIds": [
                 "backend-unit"
+            ]
+        },
+        {
+            "id": "backend-author-saved-view-postgres-boundaries",
+            "description": "Author Saved View production dependency resolution and persistence retain PostgreSQL-backed taxonomy facts, fail-closed unavailable upstreams, bounded 0/1/1000 paging, single/batch pinned moves and one-statement audit history writes.",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "tests/backend/Integration/AuthorSavedViewPostgresIntegrationTests.cs",
+                "tests/backend/Unit/AuthorSavedViewStoreTests.cs"
+            ],
+            "assertionType": "integration",
+            "failClosedRule": "Reject a production provider that forges unavailable dependency facts, an owner read that materializes an unbounded snapshot, per-view reorder or audit writes, cross-owner/site reads, or a 1000-view page and move that loses deterministic ordering, CAS or receipt history.",
+            "minimumRequirement": "The backend unit lane must exercise bounded collection and batch-move semantics, and the integration lane must use real PostgreSQL to resolve taxonomy facts, fail closed for unavailable upstreams, page 1000 views, persist one batch reorder and verify one batched audit insert.",
+            "tierIds": [
+                "backend-unit",
+                "integration"
             ]
         },
         {
@@ -5339,6 +5378,38 @@
             "failClosedRule": "The checker fails when the plan schema or type gains a second backend owner, or when any ArticleScale or scale-plan backend context introduces ID/status modulo, a simplified graph declaration, placeholder or recompute hashes, or manual Redis, search, AOT, or hot-read declarations.",
             "minimumRequirement": "Canonical source scanning plus isolated owner-root and repo-level overlay mutations must kill each forbidden class without scanning test fixtures as production source or treating the production outbox edge catalog reference as a manual declaration.",
             "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
+            "id": "revision-compare-authority",
+            "description": "Revision comparison keeps one authorized sealed package and immutable plan chain with bounded admission.",
+            "owner": "ContentAgent",
+            "risk": "high",
+            "evidencePaths": [
+                "src/core/Services/Articles/RevisionCompareCanonical.cs",
+                "src/core/Services/Articles/RevisionCompareContract.cs",
+                "src/core/Services/Articles/RevisionCompareContracts.cs",
+                "src/core/Services/Articles/RevisionCompareMetadataRegistry.cs",
+                "src/core/Services/Articles/RevisionComparePackages.cs",
+                "src/core/Services/Articles/RevisionComparePackageReaderContracts.cs",
+                "src/core/Services/Articles/RevisionComparePackageSeal.cs",
+                "src/core/Services/Articles/RevisionComparePlanner.cs",
+                "src/core/Services/Articles/RevisionComparePlans.cs",
+                "src/core/Services/Articles/RevisionCompareSourceEnums.cs",
+                "src/core/Services/Articles/RevisionCompareStatusEnums.cs",
+                "src/backend/Services/Authoring/AuthoringRevisionComparePackageReader.cs",
+                "tests/backend/Unit/AuthoringRevisionComparePackageReaderTests.cs",
+                "tests/backend/Unit/RevisionComparePlannerPackageTests.cs",
+                "tests/backend/Unit/RevisionComparePlannerTests.cs",
+                "tools/governance/check-revision-compare-authority.mjs",
+                "tests/tools/revision-compare-authority.test.mjs"
+            ],
+            "assertionType": "static",
+            "failClosedRule": "The static lane fails when package authorization, exact source coordinates, bounded admission, immutable plans and receipts, or the single planner, reader, and draft-provider ownership chain is removed, duplicated, or replaced by HTML, DOM, UI metadata, latest-pointer, or second-body authority.",
+            "minimumRequirement": "Focused C# behavior tests cover package and plan tamper, draft and revision drift, immutable caller inputs, cancellation, expiry, size, line, token, memory, output, hunk and chunk admission budgets, while isolated Node mutations kill every forbidden plan or package authority class.",
+            "tierIds": [
+                "backend-unit",
                 "static-governance"
             ]
         },

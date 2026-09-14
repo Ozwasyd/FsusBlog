@@ -227,8 +227,9 @@ public partial class SystemService(
         ];
 
         await _db.Storageable(configs).ExecuteCommandAsync();
-        await _cacheInvalidationDispatcher.InvalidateSeoAsync();
-        await InvalidateSeoPublicAotAsync("update-seo");
+        string mutationId = $"seo:{Guid.CreateVersion7():N}";
+        await _publicAotInvalidationService.InvalidateSeoArtifactsAsync(CancellationToken.None);
+        await _cacheInvalidationDispatcher.InvalidateSeoAsync(mutationId, CancellationToken.None);
         await _messageService.PushCacheControlAsync(new CacheControlPayload("shell.invalidate", "seo"));
         LogSeoUpdateSuccess();
     }
@@ -295,8 +296,9 @@ public partial class SystemService(
         ];
 
         await _db.Storageable(configs).ExecuteCommandAsync();
-        await _cacheInvalidationDispatcher.InvalidateComplianceAsync();
-        await InvalidateSeoPublicAotAsync("update-compliance");
+        string mutationId = $"compliance:{Guid.CreateVersion7():N}";
+        await _publicAotInvalidationService.InvalidateSeoArtifactsAsync(CancellationToken.None);
+        await _cacheInvalidationDispatcher.InvalidateComplianceAsync(mutationId, CancellationToken.None);
         await _messageService.PushCacheControlAsync(new CacheControlPayload("shell.invalidate", "compliance"));
         LogComplianceUpdateSuccess();
     }
@@ -383,8 +385,9 @@ public partial class SystemService(
             return false;
 
         // Invalidate only after the durable write succeeds.
-        await _cacheInvalidationDispatcher.InvalidateSystemPageAsync(slug);
-        await InvalidatePagePublicAotAsync(slug, $"update-page:{slug}");
+        string mutationId = $"system-page:{Guid.CreateVersion7():N}";
+        await InvalidatePagePublicAotAsync(slug, $"update-page:{slug}", mutationId);
+        await _cacheInvalidationDispatcher.InvalidateSystemPageAsync(slug, mutationId, CancellationToken.None);
         await _messageService.PushCacheControlAsync(new CacheControlPayload("shell.invalidate", slug));
         LogPageUpdateSuccess(slug);
         return true;
@@ -398,8 +401,9 @@ public partial class SystemService(
             return false;
         }
 
-        await _cacheInvalidationDispatcher.InvalidateSystemPageAsync(slug);
-        await InvalidatePagePublicAotAsync(slug, $"refresh-page:{slug}");
+        string mutationId = $"system-page:{Guid.CreateVersion7():N}";
+        await InvalidatePagePublicAotAsync(slug, $"refresh-page:{slug}", mutationId);
+        await _cacheInvalidationDispatcher.InvalidateSystemPageAsync(slug, mutationId, CancellationToken.None);
         await _messageService.PushCacheControlAsync(new CacheControlPayload("shell.invalidate", slug));
         return true;
     }
@@ -700,25 +704,24 @@ public partial class SystemService(
         return builder.ToString();
     }
 
-    private async Task InvalidateSeoPublicAotAsync(string operation)
-    {
-        await BoundaryExecutor.ExecuteAsync(
-            () => _publicAotInvalidationService.InvalidateSeoAsync(),
-            _logger,
-            $"invalidate-seo-aot:{operation}");
-    }
-
-    private async Task InvalidatePagePublicAotAsync(string slug, string operation)
+    private async Task InvalidatePagePublicAotAsync(string slug, string operation, string mutationId)
     {
         if (!TryResolveStaticPageKind(slug, out PublicPageKind kind))
         {
             return;
         }
 
-        await BoundaryExecutor.ExecuteAsync(
-            () => _publicAotInvalidationService.InvalidateStaticPageAsync(kind),
-            _logger,
-            $"invalidate-static-page-aot:{slug}:{operation}");
+        try
+        {
+            await _publicAotInvalidationService
+                .InvalidateStaticPageAsync(kind, mutationId, CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "invalidate-static-page-aot-failed {Slug} {Operation}", slug, operation);
+            throw;
+        }
     }
 
     private static bool TryResolveStaticPageKind(string slug, out PublicPageKind kind)

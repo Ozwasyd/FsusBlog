@@ -17,8 +17,14 @@ export function resolveFrontendBuildIdentity(
 ): string
 {
     const normalized = normalizeFrontendBuildId(value);
-    if (normalized) {return normalized};
-    if (!production) {return LOCAL_UNVERSIONED_RELEASE_ID};
+    if (normalized)
+    {
+        return normalized;
+    };
+    if (!production)
+    {
+        return LOCAL_UNVERSIONED_RELEASE_ID;
+    };
     throw new Error('Production frontend build identity is missing or invalid.');
 }
 

@@ -213,14 +213,14 @@ ARG TARGET_RUNTIME=linux-musl-x64
 ARG PUBLISH_READY_TO_RUN=false
 WORKDIR /src
 
-COPY ["src/backend/FsusBlog.Server.csproj", "src/backend/"]
-COPY ["src/core/FsusBlog.Core.csproj", "src/core/"]
-COPY ["src/shared/FsusBlog.Shared.csproj", "src/shared/"]
-COPY ["tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj", "tools/architecture/FsusBlog.DiLifetimeAnalyzer/"]
+RUN for input in /.editorconfig /.globalconfig /Directory.Build.props /Directory.Build.targets /Directory.Packages.props /NuGet.Config /NuGet.config /nuget.config /global.json; do test ! -e "$input" && test ! -L "$input" || exit 1; done
 
-RUN dotnet restore "./src/backend/FsusBlog.Server.csproj" --runtime "$TARGET_RUNTIME" /p:PublishReadyToRun="$PUBLISH_READY_TO_RUN" /p:ReadyToRunUseCrossgen2="$PUBLISH_READY_TO_RUN"
+COPY --from=backend-inputs /restore/ /src/
 
-COPY . .
+RUN test "$(cat /src/.backend-input-profile)" = "$(printf '%s\n%s\n%s\n' "$BUILD_CONFIGURATION" "$TARGET_RUNTIME" "$PUBLISH_READY_TO_RUN")"
+RUN dotnet restore "./src/backend/FsusBlog.Server.csproj" --configfile /src/config/build/backend-restore.xml --runtime "$TARGET_RUNTIME" /p:Configuration="$BUILD_CONFIGURATION" /p:PublishReadyToRun="$PUBLISH_READY_TO_RUN" /p:ReadyToRunUseCrossgen2="$PUBLISH_READY_TO_RUN"
+
+COPY --from=backend-inputs /compile/ /src/
 WORKDIR "/src/src/backend"
 
 FROM build AS publish
@@ -234,12 +234,15 @@ ARG TIERED_PGO=true
 ARG QUICK_JIT_FOR_LOOPS=true
 ARG SERVER_GC=true
 ARG NATIVE_AOT=false
+RUN test "$(cat /src/.backend-input-profile)" = "$(printf '%s\n%s\n%s\n' "$BUILD_CONFIGURATION" "$TARGET_RUNTIME" "$PUBLISH_READY_TO_RUN")"
+RUN test "$(cat /src/.backend-publish-profile)" = "$(printf '%s\n' publish "$BUILD_CONFIGURATION" "$TARGET_RUNTIME" "$PUBLISH_READY_TO_RUN" "$PUBLISH_SINGLE_FILE" "$TIERED_PGO" "$QUICK_JIT_FOR_LOOPS" "$SERVER_GC" "$FSUSBLOG_RELEASE_ID" "$FSUSBLOG_COMMIT_SHA")"
 RUN dotnet publish "./FsusBlog.Server.csproj" \
     -c "$BUILD_CONFIGURATION" \
     -r "$TARGET_RUNTIME" \
     -o /app/publish \
     --no-restore \
     --self-contained true \
+    /p:RestoreConfigFile=/src/config/build/backend-restore.xml \
     /p:SkipClientDependenciesForPublish=true \
     /p:SkipClientReleaseBuild=true \
     /p:SkipClientReleaseArtifactCopy=true \
@@ -256,6 +259,7 @@ RUN dotnet publish "./FsusBlog.Server.csproj" \
     /p:ReadyToRunUseCrossgen2="$PUBLISH_READY_TO_RUN"
 
 ARG ZK_NATIVE_ARTIFACT_DIR=build/artifacts/native-zk
+COPY --from=backend-inputs /publish/ /src/
 RUN sh -lc 'set -eu; \
   artifact_dir="/src/${ZK_NATIVE_ARTIFACT_DIR}/${TARGET_RUNTIME}"; \
   if [ -d "$artifact_dir" ]; then \
@@ -271,12 +275,15 @@ RUN sh -lc 'set -eu; \
 FROM build AS publish-debug
 ARG BUILD_CONFIGURATION=Debug
 ARG TARGET_RUNTIME=linux-musl-x64
+RUN test "$(cat /src/.backend-input-profile)" = "$(printf '%s\n%s\n%s\n' "$BUILD_CONFIGURATION" "$TARGET_RUNTIME" false)"
+RUN test "$(cat /src/.backend-publish-profile)" = "$(printf '%s\n' publish-debug "$BUILD_CONFIGURATION" "$TARGET_RUNTIME" false)"
 RUN dotnet publish "./FsusBlog.Server.csproj" \
     -c "$BUILD_CONFIGURATION" \
     -r "$TARGET_RUNTIME" \
     -o /app/publish \
     --no-restore \
     --self-contained false \
+    /p:RestoreConfigFile=/src/config/build/backend-restore.xml \
     /p:UseAppHost=false \
     /p:TieredPGO=false \
     /p:TieredCompilation=true \
@@ -343,7 +350,15 @@ RUN node ../../tools/frontend/wasm-build-receipt.mjs verify-envelope \
     --client-root /app \
     --artifact-dir /app/public/wasm
 
-RUN FSUSBLOG_SKIP_ENSURE_WASM=1 npm run build:release
+RUN FSUSBLOG_SKIP_ENSURE_WASM=1 FSUSBLOG_FRONTEND_DIST_ROOT=/app/dist npm run build:release
+
+COPY tools/docker/ssr-runtime-closure.mjs /tools/docker/ssr-runtime-closure.mjs
+COPY config/build/ssr-runtime-inputs.json /config/build/ssr-runtime-inputs.json
+RUN node /tools/docker/ssr-runtime-closure.mjs materialize \
+    --client-root /app \
+    --dist /app/dist \
+    --inventory /config/build/ssr-runtime-inputs.json \
+    --output /ssr-runtime
 
 ## =========================================================================
 # 阶段 4：终极生成镜像 (融合前后端)
@@ -417,7 +432,7 @@ LABEL org.opencontainers.image.version="${FSUSBLOG_RELEASE_ID}" \
 COPY --from=publish --chown=$APP_UID:$APP_UID /app/publish .
 COPY --chown=$APP_UID:$APP_UID security/zk/contracts/ ./security/zk/contracts/
 COPY --from=frontend-build --chown=$APP_UID:$APP_UID /app/dist ./wwwroot
-COPY --from=frontend-build --chown=$APP_UID:$APP_UID /app ./FsusBlog.ClientRuntime
+COPY --from=frontend-build --chown=$APP_UID:$APP_UID /ssr-runtime ./FsusBlog.ClientRuntime
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
   CMD host="${AllowedHosts%%;*}"; host="${host%%,*}"; \

@@ -7,58 +7,65 @@ const clientRoot = process.cwd();
 const repoRoot = resolve(clientRoot, '..', '..');
 
 const scanRoots = [
-  join(repoRoot, 'src', 'backend'),
-  join(repoRoot, 'src', 'core'),
-  join(repoRoot, 'src', 'shared')
+    join(repoRoot, 'src', 'backend'),
+    join(repoRoot, 'src', 'core'),
+    join(repoRoot, 'src', 'shared')
 ];
 
 const defaultWhitelist = [
-  'src/backend/Program.cs',
-  'src/backend/Infrastructure/',
-  'src/backend/Modules/Endpoints/',
-  'src/backend/Services/',
-  'src/core/Algorithms/',
-  'src/core/Cache/',
-  'src/core/Integrity/',
-  'src/core/Mapping/Codecs/',
-  'src/core/Services/',
-  'src/shared/Contracts/Outputs/',
-  'src/shared/Contracts/Security/'
+    'src/backend/Program.cs',
+    'src/backend/Infrastructure/',
+    'src/backend/Modules/Endpoints/',
+    'src/backend/Services/',
+    'src/core/Algorithms/',
+    'src/core/Cache/',
+    'src/core/Integrity/',
+    'src/core/Mapping/Codecs/',
+    'src/core/Services/',
+    'src/shared/Contracts/Outputs/',
+    'src/shared/Contracts/Security/'
 ];
 
 const extraWhitelist = (process.env.FSUSBLOG_TRY_CATCH_WHITELIST ?? '')
-  .split(',')
-  .map((value) => value.trim())
-  .filter(Boolean);
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
 
 const whitelist = [...defaultWhitelist, ...extraWhitelist].map(normalizeRelativePath);
 
-function normalizeRelativePath(value) {
-  return value.replaceAll('\\', '/').replace(/^\.\/+/, '').replace(/\/+$/, value.endsWith('/') ? '/' : '');
+function normalizeRelativePath(value)
+{
+    return value.replaceAll('\\', '/').replace(/^\.\/+/, '').replace(/\/+$/, value.endsWith('/') ? '/' : '');
 }
 
-function walkCsFiles(dir, output = []) {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (shouldSkip(entry.name)) {
-      continue;
+function walkCsFiles(dir, output = [])
+{
+    for (const entry of readdirSync(dir, { withFileTypes: true }))
+    {
+        if (shouldSkip(entry.name))
+        {
+            continue;
+        }
+
+        const fullPath = join(dir, entry.name);
+        if (entry.isDirectory())
+        {
+            walkCsFiles(fullPath, output);
+            continue;
+        }
+
+        if (entry.isFile() && fullPath.endsWith('.cs') && !fullPath.endsWith('.g.cs') && !fullPath.endsWith('.generated.cs'))
+        {
+            output.push(fullPath);
+        }
     }
 
-    const fullPath = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      walkCsFiles(fullPath, output);
-      continue;
-    }
-
-    if (entry.isFile() && fullPath.endsWith('.cs') && !fullPath.endsWith('.g.cs') && !fullPath.endsWith('.generated.cs')) {
-      output.push(fullPath);
-    }
-  }
-
-  return output;
+    return output;
 }
 
-function shouldSkip(name) {
-  return name === 'bin'
+function shouldSkip(name)
+{
+    return name === 'bin'
     || name === 'obj'
     || name === '.git'
     || name === '.codex'
@@ -68,219 +75,266 @@ function shouldSkip(name) {
     || name === 'BenchmarkDotNet.Artifacts';
 }
 
-function isWhitespace(char) {
-  return char === ' ' || char === '\t' || char === '\n' || char === '\r' || char === '\f';
+function isWhitespace(char)
+{
+    return char === ' ' || char === '\t' || char === '\n' || char === '\r' || char === '\f';
 }
 
-function isIdentStart(char) {
-  return (char >= 'A' && char <= 'Z')
+function isIdentStart(char)
+{
+    return (char >= 'A' && char <= 'Z')
     || (char >= 'a' && char <= 'z')
     || char === '_';
 }
 
-function isIdentPart(char) {
-  return isIdentStart(char) || (char >= '0' && char <= '9');
+function isIdentPart(char)
+{
+    return isIdentStart(char) || (char >= '0' && char <= '9');
 }
 
-function isWhitelisted(relativePath) {
-  const normalized = relativePath.replaceAll('\\', '/');
-  return whitelist.some((entry) => {
-    if (entry.endsWith('/')) {
-      return normalized.startsWith(entry);
-    }
+function isWhitelisted(relativePath)
+{
+    const normalized = relativePath.replaceAll('\\', '/');
+    return whitelist.some((entry) =>
+    {
+        if (entry.endsWith('/'))
+        {
+            return normalized.startsWith(entry);
+        }
 
-    if (normalized === entry) {
-      return true;
-    }
+        if (normalized === entry)
+        {
+            return true;
+        }
 
-    return entry.endsWith('.cs')
+        return entry.endsWith('.cs')
       && normalized.startsWith(`${entry.slice(0, -3)}.`)
       && normalized.endsWith('.cs');
-  });
+    });
 }
 
-function previousNonWhitespace(source, index) {
-  for (let i = index - 1; i >= 0; i--) {
-    if (!isWhitespace(source[i])) {
-      return source[i];
+function previousNonWhitespace(source, index)
+{
+    for (let i = index - 1; i >= 0; i--)
+    {
+        if (!isWhitespace(source[i]))
+        {
+            return source[i];
+        }
     }
-  }
 
-  return '';
+    return '';
 }
 
-function findTryCatchViolations(source) {
-  const violations = [];
-  let state = 'code';
-  let rawQuoteCount = 0;
-  let line = 1;
+function findTryCatchViolations(source)
+{
+    const violations = [];
+    let state = 'code';
+    let rawQuoteCount = 0;
+    let line = 1;
 
-  for (let i = 0; i < source.length; i++) {
-    const char = source[i];
-    const next = source[i + 1] ?? '';
+    for (let i = 0; i < source.length; i++)
+    {
+        const char = source[i];
+        const next = source[i + 1] ?? '';
 
-    if (char === '\n') {
-      line++;
+        if (char === '\n')
+        {
+            line++;
+        }
+
+        if (state === 'lineComment')
+        {
+            if (char === '\n')
+            {
+                state = 'code';
+            }
+            continue;
+        }
+
+        if (state === 'blockComment')
+        {
+            if (char === '*' && next === '/')
+            {
+                state = 'code';
+                i++;
+            }
+            continue;
+        }
+
+        if (state === 'string')
+        {
+            if (char === '\\')
+            {
+                i++;
+                continue;
+            }
+
+            if (char === '"')
+            {
+                state = 'code';
+            }
+            continue;
+        }
+
+        if (state === 'verbatimString')
+        {
+            if (char === '"' && next === '"')
+            {
+                i++;
+                continue;
+            }
+
+            if (char === '"')
+            {
+                state = 'code';
+            }
+            continue;
+        }
+
+        if (state === 'char')
+        {
+            if (char === '\\')
+            {
+                i++;
+                continue;
+            }
+
+            if (char === '\'')
+            {
+                state = 'code';
+            }
+            continue;
+        }
+
+        if (state === 'rawString')
+        {
+            let quoteCount = 0;
+            while (source[i + quoteCount] === '"')
+            {
+                quoteCount++;
+            }
+
+            if (quoteCount >= rawQuoteCount)
+            {
+                i += quoteCount - 1;
+                state = 'code';
+            }
+            continue;
+        }
+
+        if (char === '/' && next === '/')
+        {
+            state = 'lineComment';
+            i++;
+            continue;
+        }
+
+        if (char === '/' && next === '*')
+        {
+            state = 'blockComment';
+            i++;
+            continue;
+        }
+
+        if (char === '"')
+        {
+            let quoteCount = 1;
+            while (source[i + quoteCount] === '"')
+            {
+                quoteCount++;
+            }
+
+            if (quoteCount >= 3)
+            {
+                state = 'rawString';
+                rawQuoteCount = quoteCount;
+                i += quoteCount - 1;
+                continue;
+            }
+
+            const previous = previousNonWhitespace(source, i);
+            const beforePrevious = previousNonWhitespace(source, i - 1);
+            if (previous === '@' || (previous === '$' && beforePrevious === '@') || (previous === '@' && beforePrevious === '$'))
+            {
+                state = 'verbatimString';
+            }
+            else
+            {
+                state = 'string';
+            }
+            continue;
+        }
+
+        if (char === '\'')
+        {
+            state = 'char';
+            continue;
+        }
+
+        if (!isIdentStart(char))
+        {
+            continue;
+        }
+
+        const start = i;
+        let end = i + 1;
+        while (end < source.length && isIdentPart(source[end]))
+        {
+            end++;
+        }
+
+        const token = source.slice(start, end);
+        const before = source[start - 1] ?? '';
+        const after = source[end] ?? '';
+        const isBoundaryBefore = !isIdentPart(before);
+        const isBoundaryAfter = !isIdentPart(after);
+
+        if (isBoundaryBefore && isBoundaryAfter && (token === 'try' || token === 'catch'))
+        {
+            violations.push({ token, line });
+        }
+
+        i = end - 1;
     }
 
-    if (state === 'lineComment') {
-      if (char === '\n') {
-        state = 'code';
-      }
-      continue;
-    }
-
-    if (state === 'blockComment') {
-      if (char === '*' && next === '/') {
-        state = 'code';
-        i++;
-      }
-      continue;
-    }
-
-    if (state === 'string') {
-      if (char === '\\') {
-        i++;
-        continue;
-      }
-
-      if (char === '"') {
-        state = 'code';
-      }
-      continue;
-    }
-
-    if (state === 'verbatimString') {
-      if (char === '"' && next === '"') {
-        i++;
-        continue;
-      }
-
-      if (char === '"') {
-        state = 'code';
-      }
-      continue;
-    }
-
-    if (state === 'char') {
-      if (char === '\\') {
-        i++;
-        continue;
-      }
-
-      if (char === '\'') {
-        state = 'code';
-      }
-      continue;
-    }
-
-    if (state === 'rawString') {
-      let quoteCount = 0;
-      while (source[i + quoteCount] === '"') {
-        quoteCount++;
-      }
-
-      if (quoteCount >= rawQuoteCount) {
-        i += quoteCount - 1;
-        state = 'code';
-      }
-      continue;
-    }
-
-    if (char === '/' && next === '/') {
-      state = 'lineComment';
-      i++;
-      continue;
-    }
-
-    if (char === '/' && next === '*') {
-      state = 'blockComment';
-      i++;
-      continue;
-    }
-
-    if (char === '"') {
-      let quoteCount = 1;
-      while (source[i + quoteCount] === '"') {
-        quoteCount++;
-      }
-
-      if (quoteCount >= 3) {
-        state = 'rawString';
-        rawQuoteCount = quoteCount;
-        i += quoteCount - 1;
-        continue;
-      }
-
-      const previous = previousNonWhitespace(source, i);
-      const beforePrevious = previousNonWhitespace(source, i - 1);
-      if (previous === '@' || (previous === '$' && beforePrevious === '@') || (previous === '@' && beforePrevious === '$')) {
-        state = 'verbatimString';
-      } else {
-        state = 'string';
-      }
-      continue;
-    }
-
-    if (char === '\'') {
-      state = 'char';
-      continue;
-    }
-
-    if (!isIdentStart(char)) {
-      continue;
-    }
-
-    const start = i;
-    let end = i + 1;
-    while (end < source.length && isIdentPart(source[end])) {
-      end++;
-    }
-
-    const token = source.slice(start, end);
-    const before = source[start - 1] ?? '';
-    const after = source[end] ?? '';
-    const isBoundaryBefore = !isIdentPart(before);
-    const isBoundaryAfter = !isIdentPart(after);
-
-    if (isBoundaryBefore && isBoundaryAfter && (token === 'try' || token === 'catch')) {
-      violations.push({ token, line });
-    }
-
-    i = end - 1;
-  }
-
-  return violations;
+    return violations;
 }
 
 const violations = [];
 
-for (const root of scanRoots) {
-  for (const filePath of walkCsFiles(root)) {
-    const relativePath = relative(repoRoot, filePath).split(sep).join('/');
-    if (isWhitelisted(relativePath)) {
-      continue;
-    }
+for (const root of scanRoots)
+{
+    for (const filePath of walkCsFiles(root))
+    {
+        const relativePath = relative(repoRoot, filePath).split(sep).join('/');
+        if (isWhitelisted(relativePath))
+        {
+            continue;
+        }
 
-    const source = readFileSync(filePath, 'utf8');
-    const fileViolations = findTryCatchViolations(source);
-    for (const violation of fileViolations) {
-      violations.push({
-        path: relativePath,
-        line: violation.line,
-        token: violation.token
-      });
+        const source = readFileSync(filePath, 'utf8');
+        const fileViolations = findTryCatchViolations(source);
+        for (const violation of fileViolations)
+        {
+            violations.push({
+                path: relativePath,
+                line: violation.line,
+                token: violation.token
+            });
+        }
     }
-  }
 }
 
-if (violations.length > 0) {
-  for (const violation of violations) {
-    console.error(`[server-try-catch] violation: ${violation.path}:${violation.line} contains "${violation.token}" outside whitelist`);
-  }
+if (violations.length > 0)
+{
+    for (const violation of violations)
+    {
+        console.error(`[server-try-catch] violation: ${violation.path}:${violation.line} contains "${violation.token}" outside whitelist`);
+    }
 
-  console.error(`[server-try-catch] failed total=${violations.length} whitelist=${whitelist.length}`);
-  process.exit(1);
+    console.error(`[server-try-catch] failed total=${violations.length} whitelist=${whitelist.length}`);
+    process.exit(1);
 }
 
 console.log(`[server-try-catch] ok total=0 whitelist=${whitelist.length} scanned=${scanRoots.length}`);

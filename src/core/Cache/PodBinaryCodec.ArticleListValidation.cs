@@ -86,25 +86,6 @@ public static partial class PodBinaryCodec
         return true;
     }
 
-    private static string? NormalizeLegacyArticleListCursor(
-        string? nextCursor,
-        bool hasMore,
-        List<ArticleListCoreModel> items)
-    {
-        if (hasMore
-            && nextCursor is not null
-            && nextCursor.IndexOf(':', StringComparison.Ordinal) < 0
-            && long.TryParse(nextCursor, out long legacyUnixMs)
-            && items.Count > 0)
-        {
-            return string.Create(
-                System.Globalization.CultureInfo.InvariantCulture,
-                $"{legacyUnixMs}:{items[^1].Id}");
-        }
-
-        return nextCursor;
-    }
-
     private readonly record struct ArticleListRecordHeader(
         int Id,
         int Views,

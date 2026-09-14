@@ -4,14 +4,9 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import { loadCanonicalInventory } from '../test-inventory/api.mjs';
-import {
-    buildQualityArtifact,
-    renderQualitySummary,
-    validateQualityArtifact
-} from '../test-quality/artifact.mjs';
-import { runConformanceCorpus } from '../test-quality/conformance.mjs';
-
+const {loadCanonicalInventory} = await import(new URL('../test-inventory/api.mjs', import.meta.url));
+const {buildQualityArtifact, renderQualitySummary, validateQualityArtifact} = await import(new URL('../test-quality/artifact.mjs', import.meta.url));
+const {runConformanceCorpus} = await import(new URL('../test-quality/conformance.mjs', import.meta.url));
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const summaryPath = path.join(root, '.tmp/release-evidence/test-quality-summary.json');
 const generatedSummaryPath = path.join(root, '.tmp/release-evidence/test-quality-summary.generated.md');
@@ -65,8 +60,14 @@ try
     }
     catch (error)
     {
-        if (artifactWritten) rmSync(summaryPath, { force: true });
-        if (generatedWritten) rmSync(generatedSummaryPath, { force: true });
+        if (artifactWritten)
+        {
+            rmSync(summaryPath, { force: true });
+        }
+        if (generatedWritten)
+        {
+            rmSync(generatedSummaryPath, { force: true });
+        }
         throw error;
     }
     console.log(`[test-quality] ${artifact.status} cases=${artifact.cases.length} violations=${artifact.violations.length} digest=${artifact.contentDigest}`);

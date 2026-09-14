@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Operations/AdminIntegrityOperations.cs"
+            ],
+            "reason": "preserve the PostgreSQL relation spelling article_publication required by the existing SugarTable contract"
+        }
+    ]
+}

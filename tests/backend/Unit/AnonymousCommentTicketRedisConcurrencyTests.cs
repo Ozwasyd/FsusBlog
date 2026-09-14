@@ -162,7 +162,6 @@ public sealed class AnonymousCommentTicketRedisConcurrencyTests(
         failingConnection.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(failingDatabase);
         using var failureMemory = new MemoryCache(new MemoryCacheOptions());
         using var failureCache = new UnifiedCache(
-            failureMemory,
             failingConnection,
             context.Policies,
             context.Scope,
@@ -534,7 +533,7 @@ public sealed class AnonymousCommentTicketRedisConcurrencyTests(
     private sealed class TicketCacheContext(
         ConnectionMultiplexer connection,
         MemoryCache memory,
-        CacheLocalStore localStore,
+        PolicyShardedCacheL1Store localStore,
         UnifiedCache cache,
         AnonymousCommentTicketService service,
         PrefixRuntimeKeyScope scope,
@@ -544,7 +543,7 @@ public sealed class AnonymousCommentTicketRedisConcurrencyTests(
         public ConnectionMultiplexer Connection { get; } = connection;
         public IDatabase Database { get; } = connection.GetDatabase();
         public MemoryCache Memory { get; } = memory;
-        public CacheLocalStore LocalStore { get; } = localStore;
+        public PolicyShardedCacheL1Store LocalStore { get; } = localStore;
         public UnifiedCache Cache { get; } = cache;
         public AnonymousCommentTicketService Service { get; } = service;
         public PrefixRuntimeKeyScope Scope { get; } = scope;
@@ -561,7 +560,7 @@ public sealed class AnonymousCommentTicketRedisConcurrencyTests(
             var scope = new PrefixRuntimeKeyScope($"fsus-ticket-{Guid.NewGuid():N}:");
             ICachePolicyRegistry policies = new AnonymousTicketPolicyRegistry(warmL1);
             Assert.True(policies.TryGet(CachePolicyId.AnonymousCommentTicket, out CachePolicy policy));
-            var localStore = new CacheLocalStore(memory, TimeProvider.System);
+            var localStore = new PolicyShardedCacheL1Store(policies, TimeProvider.System);
             var keyResolver = new CacheKeyResolver(
                 policies,
                 scope,

@@ -8,6 +8,19 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public class CachePolicyTests
 {
+    [Fact]
+    public void ArticleHotFrameIdentity_BindsGenerationCountFrameTypeSchemaAndRanking()
+    {
+        var versions = new FixedHotArticlesVersionProvider(42);
+
+        string hot = ArticleHotFrameIdentity.BuildHot(versions, 10);
+        string featured = ArticleHotFrameIdentity.BuildFeatured(versions, 10);
+
+        Assert.Equal("v42:frame:article-hot:aeds-v2:ranking-v1:count:10", hot);
+        Assert.Equal("v42:frame:article-featured:aeds-v2:ranking-v1:count:10", featured);
+        Assert.NotEqual(hot, featured);
+    }
+
     private static CachePolicy MakePolicy(string domain = "blog", string resource = "article") =>
         new(CachePolicyId.ArticleList, domain, resource, TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(10));
 
@@ -49,6 +62,13 @@ public class CachePolicyTests
         var policy = MakePolicy("sys", "seo");
         string key = policy.BuildKey("admin");
         Assert.Equal("fsus:sys:seo:admin", key);
+    }
+
+    private sealed class FixedHotArticlesVersionProvider(long version) : IHotArticlesCacheVersionProvider
+    {
+        public long CurrentHotArticlesVersion => version;
+
+        public string BuildVersionedHotArticlesIdentity(string identity) => $"v{version}:{identity}";
     }
 }
 
@@ -108,14 +128,6 @@ public class CachePolicyRegistryTests
     }
 
     [Fact]
-    public void SecurityBlacklistUser_UsesNonExpiringL2Cache()
-    {
-        Assert.True(_registry.TryGet(CachePolicyId.SecurityBlacklistUser, out var policy));
-
-        Assert.Equal(Timeout.InfiniteTimeSpan, policy.L2Ttl);
-    }
-
-    [Fact]
     public void SecurityChallengeVerifyRateLimit_UsesSecurityCriticalTtlPolicy()
     {
         Assert.True(
@@ -143,4 +155,15 @@ public class CachePolicyRegistryTests
         Assert.False(policy.SecurityCritical);
         Assert.False(policy.RegisterKeysForPrefixInvalidation);
     }
+
+    [Fact]
+    public void RelatedReading_UsesNegativeCacheAndArticleTaxonomyInvalidationTags()
+    {
+        Assert.True(_registry.TryGet(CachePolicyId.RelatedReading, out CachePolicy policy));
+
+        Assert.Equal(TimeSpan.FromMinutes(5), policy.NegativeTtl);
+        Assert.Equal([CacheTag.ArticleList, CacheTag.Category, CacheTag.Tag], policy.InvalidationTags);
+        Assert.True(policy.RegisterKeysForPrefixInvalidation);
+    }
+
 }

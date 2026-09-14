@@ -2,31 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 
-import {
-    REPLAY_PLAN_SCHEMA,
-    REPLAY_RECEIPT_SCHEMA,
-    canonicalDigest,
-    canonicalJson,
-    canonicalTestId,
-    collectCanonicalDiscovery,
-    deriveReplayStream,
-    planExactShards,
-    resolveRootSeed,
-    sealReplayPlan,
-    sealReplayReceipt,
-    sortCanonicalTestIds,
-    validateCanonicalTestId,
-    validateDiscoveryAgainstPlan,
-    validateReplayBundle,
-    validateReplayPlan,
-    validateReplayReceipt
-} from '../../tools/test/execution-replay-contract.mjs';
-import {
-    scanEntropyGovernanceSource,
-    validateTestEntropyGovernance,
-    verifyRepositoryTestEntropyGovernance
-} from '../../tools/test/check-test-entropy-governance.mjs';
-
+const {REPLAY_PLAN_SCHEMA, REPLAY_RECEIPT_SCHEMA, canonicalDigest, canonicalJson, canonicalTestId, collectCanonicalDiscovery, deriveReplayStream, planExactShards, resolveRootSeed, sealReplayPlan, sealReplayReceipt, sortCanonicalTestIds, validateCanonicalTestId, validateDiscoveryAgainstPlan, validateReplayBundle, validateReplayPlan, validateReplayReceipt} = await import(new URL('../../tools/test/execution-replay-contract.mjs', import.meta.url));
+const {scanEntropyGovernanceSource, validateTestEntropyGovernance, verifyRepositoryTestEntropyGovernance} = await import(new URL('../../tools/test/check-test-entropy-governance.mjs', import.meta.url));
 const zeroDigest = `sha256:${'0'.repeat(64)}`;
 const oneDigest = `sha256:${'1'.repeat(64)}`;
 const rootSeed = `seed256:${'ab'.repeat(32)}`;

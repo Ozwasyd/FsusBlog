@@ -1,1 +1,1 @@
-export * from '@ozwasyd/element-plus/icons-vue'
+export * from '@ozwasyd/element-plus/icons-vue';

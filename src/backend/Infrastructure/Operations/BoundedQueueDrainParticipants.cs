@@ -518,6 +518,39 @@ public sealed class PublicHotArtifactUpdateBoundedQueueDrainParticipant(
     }
 }
 
+public sealed class PublicHotReadRiskProjectionBoundedQueueDrainParticipant(
+    IBoundedQueueDrainCatalog catalog,
+    PublicHotReadRiskProjectionWorker worker,
+    TimeProvider timeProvider) : IBoundedQueueDrainParticipant
+{
+    public string QueueId => "public-hot-read-risk-projection-remote";
+
+    public BoundedQueueParticipantReceipt Observe(string runId)
+    {
+        PublicHotReadRiskProjectionRemoteQueueSnapshot snapshot = worker.RemoteQueueSnapshot();
+        IReadOnlyList<string>? blockers = string.IsNullOrWhiteSpace(snapshot.LastFailureReason)
+            ? null
+            : [$"public-hot-risk-projection={snapshot.LastFailureReason}"];
+        return BoundedQueueParticipantReceipts.Counts(
+            catalog,
+            QueueId,
+            runId,
+            timeProvider,
+            snapshot.QueuedCount,
+            snapshot.InFlightCount,
+            snapshot.DurablePendingCount,
+            snapshot.TerminalFailureCount,
+            snapshot.TerminalFailureCount > 0
+                ? BoundedQueueCommitPostcondition.Failed
+                : snapshot.DurablePendingCount > 0
+                    ? BoundedQueueCommitPostcondition.Unknown
+                    : BoundedQueueCommitPostcondition.Success,
+            snapshot.Generation,
+            snapshot.Sequence,
+            blockers: blockers);
+    }
+}
+
 public sealed class RumTelemetryBoundedQueueDrainParticipant(
     IBoundedQueueDrainCatalog catalog,
     RumTelemetryChannel channel,

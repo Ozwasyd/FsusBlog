@@ -681,11 +681,12 @@ public sealed partial class PerceptionCharacterV3Tests
         string redisPrefix = redisPrefixRoot + "redis-lua:";
         var keyScope = new TestRuntimeKeyScope(redisPrefix);
         await using var redisCleanup = new RedisPrefixCleanup(redis, redisPrefix);
-        var store = new RedisPerceptionCharacterV3StateStore(redis, keyScope);
+        IRedisOperationExecutor redisOperations = RedisOperationExecutor.ForTestConnection(redis);
+        var store = new RedisPerceptionCharacterV3StateStore(redisOperations, keyScope);
         var completedCases = new List<string>();
         long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
-        var deviceAuthority = new RedisPerceptionCharacterV3DeviceAuthority(redis, keyScope);
+        var deviceAuthority = new RedisPerceptionCharacterV3DeviceAuthority(redisOperations, keyScope);
         var firstAnonymous = new DefaultHttpContext();
         PerceptionCharacterV3DeviceAuthorityResult firstDevice = await deviceAuthority.ResolveAsync(firstAnonymous, new string('8', 64), CancellationToken.None);
         Assert.True(firstDevice.Succeeded);
@@ -767,7 +768,7 @@ public sealed partial class PerceptionCharacterV3Tests
 
         PerceptionCharacterV3StateRecord atomicCreate = Record(now);
         var createFaults = new HashSet<PerceptionCharacterV3RedisFaultPoint> { PerceptionCharacterV3RedisFaultPoint.CreateReply };
-        var createReplyLoss = new RedisPerceptionCharacterV3StateStore(redis, keyScope, createFaults.Remove);
+        var createReplyLoss = new RedisPerceptionCharacterV3StateStore(redisOperations, keyScope, createFaults.Remove);
         Assert.True(await createReplyLoss.CreateAsync(atomicCreate, CancellationToken.None));
         TimeSpan? stateTtl = await redis.GetDatabase().KeyTimeToLiveAsync(keyScope.PrefixKey("security:perception-v3:" + atomicCreate.ChallengeId), CommandFlags.DemandMaster);
         Assert.True(stateTtl > TimeSpan.Zero);
@@ -791,7 +792,7 @@ public sealed partial class PerceptionCharacterV3Tests
         PerceptionCharacterV3StateRecord transitionReplyLossRecord = Record(now);
         Assert.True(await store.CreateAsync(transitionReplyLossRecord, CancellationToken.None));
         var transitionFaults = new HashSet<PerceptionCharacterV3RedisFaultPoint> { PerceptionCharacterV3RedisFaultPoint.TransitionReply };
-        var transitionReplyLoss = new RedisPerceptionCharacterV3StateStore(redis, keyScope, transitionFaults.Remove);
+        var transitionReplyLoss = new RedisPerceptionCharacterV3StateStore(redisOperations, keyScope, transitionFaults.Remove);
         PerceptionCharacterV3Transition recoveredTransition = await transitionReplyLoss.VerifyAsync(transitionReplyLossRecord, false, now, CancellationToken.None);
         Assert.Equal((PerceptionCharacterV3TransitionKind.Retryable, 1), (recoveredTransition.Kind, recoveredTransition.Attempts));
         PerceptionCharacterV3Transition secondWrong = await store.VerifyAsync(transitionReplyLossRecord, false, now, CancellationToken.None);
@@ -801,7 +802,7 @@ public sealed partial class PerceptionCharacterV3Tests
         PerceptionCharacterV3StateRecord settlementReplyLossRecord = Record(now);
         Assert.True(await store.CreateAsync(settlementReplyLossRecord, CancellationToken.None));
         var settlementFaults = new HashSet<PerceptionCharacterV3RedisFaultPoint> { PerceptionCharacterV3RedisFaultPoint.OperationSettlement };
-        var settlementReplyLoss = new RedisPerceptionCharacterV3StateStore(redis, keyScope, settlementFaults.Remove);
+        var settlementReplyLoss = new RedisPerceptionCharacterV3StateStore(redisOperations, keyScope, settlementFaults.Remove);
         Assert.Equal(PerceptionCharacterV3TransitionKind.Retryable,
             (await settlementReplyLoss.VerifyAsync(settlementReplyLossRecord, false, now, CancellationToken.None)).Kind);
         Assert.Equal(PerceptionCharacterV3TransitionKind.Rejected,
@@ -818,7 +819,7 @@ public sealed partial class PerceptionCharacterV3Tests
             PerceptionCharacterV3RedisFaultPoint.TransitionReply,
             PerceptionCharacterV3RedisFaultPoint.OperationReadback
         };
-        var unresolvedReplyLoss = new RedisPerceptionCharacterV3StateStore(redis, keyScope, unresolvedFaults.Remove);
+        var unresolvedReplyLoss = new RedisPerceptionCharacterV3StateStore(redisOperations, keyScope, unresolvedFaults.Remove);
         Assert.Equal("redis_result_ambiguous", (await unresolvedReplyLoss.VerifyAsync(unresolvedReplyLossRecord, false, now, CancellationToken.None)).InternalReason);
         PerceptionCharacterV3Transition prohibitedRetry = await store.VerifyAsync(unresolvedReplyLossRecord, true, now, CancellationToken.None);
         Assert.Equal((PerceptionCharacterV3TransitionKind.Unavailable, "ambiguous_operation_pending", 1),
@@ -847,7 +848,7 @@ public sealed partial class PerceptionCharacterV3Tests
             TokenHash = new string('8', 64)
         };
         var replaceFaults = new HashSet<PerceptionCharacterV3RedisFaultPoint> { PerceptionCharacterV3RedisFaultPoint.ReplaceReply };
-        var replaceReplyLoss = new RedisPerceptionCharacterV3StateStore(redis, keyScope, replaceFaults.Remove);
+        var replaceReplyLoss = new RedisPerceptionCharacterV3StateStore(redisOperations, keyScope, replaceFaults.Remove);
         PerceptionCharacterV3Transition replaced = await replaceReplyLoss.ReplaceAsync(replaceOld, replaceNew, now, CancellationToken.None);
         Assert.Equal((PerceptionCharacterV3TransitionKind.Success, "replaced"), (replaced.Kind, replaced.InternalReason));
         Assert.NotNull(await store.ReadAsync(replaceNew.ChallengeId, CancellationToken.None));
@@ -870,9 +871,10 @@ public sealed partial class PerceptionCharacterV3Tests
         completedCases.Add("stale-replace-expiry");
 
         await using ConnectionMultiplexer unavailable = await ConnectionMultiplexer.ConnectAsync("127.0.0.1:1,abortConnect=false,connectTimeout=50,syncTimeout=50,asyncTimeout=50");
-        var unavailableStore = new RedisPerceptionCharacterV3StateStore(unavailable, keyScope);
+        IRedisOperationExecutor unavailableOperations = RedisOperationExecutor.ForTestConnection(unavailable);
+        var unavailableStore = new RedisPerceptionCharacterV3StateStore(unavailableOperations, keyScope);
         Assert.Equal(PerceptionCharacterV3TransitionKind.Unavailable, (await unavailableStore.VerifyAsync(Record(now), true, now, CancellationToken.None)).Kind);
-        var unavailableAuthority = new RedisPerceptionCharacterV3DeviceAuthority(unavailable, keyScope);
+        var unavailableAuthority = new RedisPerceptionCharacterV3DeviceAuthority(unavailableOperations, keyScope);
         Assert.False((await unavailableAuthority.ResolveAsync(new DefaultHttpContext(), new string('6', 64), CancellationToken.None)).Succeeded);
         Assert.True((await unavailableAuthority.ResolveAsync(ContextWithSession("server-session-offline"), new string('6', 64), CancellationToken.None)).Succeeded);
         completedCases.Add("redis-unavailable-store-and-device-authority-fail-closed");

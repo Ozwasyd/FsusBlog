@@ -57,8 +57,14 @@ function runtimeIdentifier()
 
 function nativeLibraryName()
 {
-    if (process.platform === 'win32') return 'mcl.dll';
-    if (process.platform === 'darwin') return 'libmcl.dylib';
+    if (process.platform === 'win32')
+    {
+        return 'mcl.dll';
+    }
+    if (process.platform === 'darwin')
+    {
+        return 'libmcl.dylib';
+    }
     return 'libmcl.so';
 }
 
@@ -66,26 +72,46 @@ export function nativeP99SourceContractErrors({ testSource, suiteSource, atomicS
 {
     const errors = [];
     if (testSource.includes('FSUSBLOG_RUN_PERFORMANCE_TESTS'))
+    {
         errors.push('native P99 test still consumes FSUSBLOG_RUN_PERFORMANCE_TESTS');
+    }
     if (!testSource.includes('[Trait("Category", "Performance")]'))
+    {
         errors.push('native P99 test must retain Category=Performance');
+    }
     if (!testSource.includes('private const int NativeP99SampleCount = 32;'))
+    {
         errors.push('native P99 test must retain 32 samples');
+    }
     if (!testSource.includes('private const double NativeP99BudgetMilliseconds = 50;'))
+    {
         errors.push('native P99 test must retain the 50ms budget');
+    }
     if (!suiteSource.includes('Category!=Performance'))
+    {
         errors.push('ordinary backend filter must exclude Category=Performance');
+    }
     if ((suiteSource.match(new RegExp(nativeP99TestId.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'), 'gu')) ?? []).length !== 1)
+    {
         errors.push('native P99 test ID must have exactly one suite member binding');
+    }
     if (suiteSource.includes('RunBackendPerfOnly()'))
+    {
         errors.push('legacy RunBackendPerfOnly sequential producer must not remain');
+    }
     if (!atomicSource.includes('RunBackendPerfNativeP99Only backend-perf'))
+    {
         errors.push('atomic native P99 script must delegate to its exact member owner');
+    }
     if (!atomicSource.includes('export FSUSBLOG_BACKEND_TEST_CONFIGURATION=Release'))
+    {
         errors.push('atomic native P99 script must select the Release test assembly');
+    }
     if ((workflowSource?.match(/\.\/tools\/test\.sh backend-perf --no-deps/gu) ?? []).length !== 1)
+    {
         errors.push('CI must invoke the same backend-perf matrix producer exactly once');
-    const backendPerf = matrixSource.match(/\n    - id: backend-perf\n[\s\S]*?(?=\n    - id: )/u)?.[0] ?? '';
+    }
+    const backendPerf = matrixSource.match(/\n {4}- id: backend-perf\n[\s\S]*?(?=\n {4}- id: )/u)?.[0] ?? '';
     if (!backendPerf.includes('command: tools/test/lanes/perf-regression.sh')
         || !backendPerf.includes('exclusiveResources: [benchmark-window]')
         || !backendPerf.includes('executionVariant: performance')
@@ -99,10 +125,22 @@ export function nativeP99SourceContractErrors({ testSource, suiteSource, atomicS
 export function validateNativeP99Evidence(document, expected = {})
 {
     const errors = [];
-    if (document?.schema !== measurementSchema) errors.push(`measurement schema must be ${measurementSchema}`);
-    if (document?.status !== 'passed') errors.push('measurement status must be passed');
-    if (document?.testId !== nativeP99TestId) errors.push('measurement test ID does not match the producer member');
-    if (document?.warmupCount !== 1) errors.push('measurement must retain one warmup');
+    if (document?.schema !== measurementSchema)
+    {
+        errors.push(`measurement schema must be ${measurementSchema}`);
+    }
+    if (document?.status !== 'passed')
+    {
+        errors.push('measurement status must be passed');
+    }
+    if (document?.testId !== nativeP99TestId)
+    {
+        errors.push('measurement test ID does not match the producer member');
+    }
+    if (document?.warmupCount !== 1)
+    {
+        errors.push('measurement must retain one warmup');
+    }
     if (document?.sampleCount !== nativeP99SampleCount
         || !Array.isArray(document?.samples)
         || document.samples.length !== nativeP99SampleCount)
@@ -110,7 +148,9 @@ export function validateNativeP99Evidence(document, expected = {})
         errors.push(`measurement must contain exactly ${nativeP99SampleCount} samples`);
     }
     if (document?.thresholdMs !== nativeP99BudgetMilliseconds)
+    {
         errors.push(`measurement threshold must remain ${nativeP99BudgetMilliseconds}ms`);
+    }
     const samples = Array.isArray(document?.samples) ? document.samples : [];
     if (samples.some((sample, index) => sample?.index !== index
         || sample?.verified !== true
@@ -124,9 +164,13 @@ export function validateNativeP99Evidence(document, expected = {})
         const sorted = samples.map((sample) => sample.elapsedMs).sort((left, right) => left - right);
         const computedP99 = sorted[Math.ceil(sorted.length * 0.99) - 1];
         if (!Number.isFinite(document?.p99Ms) || Math.abs(document.p99Ms - computedP99) > 1e-9)
+        {
             errors.push('measurement p99 does not match the sorted samples');
+        }
         if (computedP99 > nativeP99BudgetMilliseconds)
+        {
             errors.push(`measurement p99 exceeds ${nativeP99BudgetMilliseconds}ms`);
+        }
     }
     if (expected.testAssemblySha256
         && document?.testAssembly?.sha256 !== expected.testAssemblySha256)
@@ -143,7 +187,9 @@ export function validateNativeP99Bindings(preflight, {
 {
     const errors = [];
     if (preflight?.schema !== preflightSchema || preflight?.status !== 'ready')
+    {
         errors.push('native P99 preflight receipt is not ready');
+    }
     if (!/^[0-9a-f]{40}$/u.test(String(preflight?.source?.commit ?? ''))
         || !/^[0-9a-f]{64}$/u.test(String(preflight?.source?.digest ?? '')))
     {
@@ -161,15 +207,23 @@ export function validateNativeP99Bindings(preflight, {
     ])
     {
         if (!binding?.path || !binding?.sha256 || !exists(binding.path))
+        {
             errors.push(`${label} binding is missing`);
+        }
         else if (digest(binding.path) !== binding.sha256)
+        {
             errors.push(`${label} identity drifted`);
+        }
     }
     const fixture = preflight?.verifyingKeyFixture;
     if (!fixture?.sourcePath || !fixture?.sourceSha256 || !exists(fixture.sourcePath))
+    {
         errors.push('verifying-key fixture binding is missing');
+    }
     else if (digest(fixture.sourcePath) !== fixture.sourceSha256)
+    {
         errors.push('verifying-key fixture identity drifted');
+    }
     return errors;
 }
 
@@ -182,7 +236,9 @@ function parseOptions(argumentsList)
         const key = argumentsList[index];
         const value = argumentsList[index + 1];
         if (!key?.startsWith('--') || value === undefined)
+        {
             throw new Error(`invalid native P99 producer option: ${key ?? '<missing>'}`);
+        }
         options[key.slice(2)] = value;
     }
     return { command, options };
@@ -209,7 +265,10 @@ function prepare(root, options, env)
     const evidenceFile = path.resolve(options.evidence);
     const summaryFile = path.resolve(options.summary);
     const trxFile = path.resolve(options.trx);
-    for (const stale of [preflightFile, evidenceFile, summaryFile, trxFile]) fs.rmSync(stale, { force: true });
+    for (const stale of [preflightFile, evidenceFile, summaryFile, trxFile])
+    {
+        fs.rmSync(stale, { force: true });
+    }
 
     const inputs = sourceInputs(root);
     const sourceByPath = Object.fromEntries(inputs.map(({ relative, file }) => [relative, fs.readFileSync(file, 'utf8')]));
@@ -220,10 +279,16 @@ function prepare(root, options, env)
         matrixSource: sourceByPath['tests/matrix.yml'],
         workflowSource: sourceByPath['.github/workflows/quality-gate.yml']
     });
-    if (sourceErrors.length > 0) throw new Error(sourceErrors.join('; '));
+    if (sourceErrors.length > 0)
+    {
+        throw new Error(sourceErrors.join('; '));
+    }
 
     const measurementOwner = String(env.FSUSBLOG_MEASUREMENT_ENVELOPE_OWNER ?? '').trim();
-    if (!measurementOwner) throw new Error('native P99 producer requires the admitted measurement envelope owner');
+    if (!measurementOwner)
+    {
+        throw new Error('native P99 producer requires the admitted measurement envelope owner');
+    }
 
     const outputDirectory = resolveOutputDirectory(root, env);
     const testAssembly = existingRegularFile(path.join(outputDirectory, 'FsusBlog.Server.Tests.dll'), 'test assembly');
@@ -271,13 +336,20 @@ function validateTrx(source)
     const results = [...source.matchAll(/<UnitTestResult\b[^>]*\btestName="([^"]+)"[^>]*\boutcome="([^"]+)"/gu)];
     const memberResults = results.filter((match) => match[1].includes('MclGroth16VerifierLibrary_VerifyP99StaysInsideNativeBudget'));
     if (results.length !== 1 || memberResults.length !== 1)
+    {
         errors.push('TRX must contain exactly one executed native P99 test result');
-    if (memberResults[0]?.[2] !== 'Passed') errors.push('native P99 TRX outcome must be Passed');
+    }
+    if (memberResults[0]?.[2] !== 'Passed')
+    {
+        errors.push('native P99 TRX outcome must be Passed');
+    }
     const counters = source.match(/<Counters\b([^>]*)\/>/u)?.[1] ?? '';
     for (const [name, expected] of [['total', '1'], ['executed', '1'], ['passed', '1'], ['failed', '0']])
     {
         if (!new RegExp(`\\b${name}="${expected}"`, 'u').test(counters))
+        {
             errors.push(`TRX counter ${name} must be ${expected}`);
+        }
     }
     return errors;
 }
@@ -291,19 +363,49 @@ function verify(root, options)
     const errors = [];
     let preflight;
     let evidence;
-    try { preflight = JSON.parse(fs.readFileSync(preflightFile, 'utf8')); }
-    catch { errors.push('native P99 preflight receipt is missing or invalid'); }
-    try { evidence = JSON.parse(fs.readFileSync(evidenceFile, 'utf8')); }
-    catch { errors.push('native P99 measurement evidence is missing or invalid'); }
-    if (preflight) errors.push(...validateNativeP99Bindings(preflight));
-    if (evidence) errors.push(...validateNativeP99Evidence(evidence, {
-        testAssemblySha256: preflight?.build?.testAssembly?.sha256
-    }));
+    try
+    {
+        preflight = JSON.parse(fs.readFileSync(preflightFile, 'utf8'));
+    }
+    catch
+    {
+        errors.push('native P99 preflight receipt is missing or invalid');
+    }
+    try
+    {
+        evidence = JSON.parse(fs.readFileSync(evidenceFile, 'utf8'));
+    }
+    catch
+    {
+        errors.push('native P99 measurement evidence is missing or invalid');
+    }
+    if (preflight)
+    {
+        errors.push(...validateNativeP99Bindings(preflight));
+    }
+    if (evidence)
+    {
+        errors.push(...validateNativeP99Evidence(evidence, {
+            testAssemblySha256: preflight?.build?.testAssembly?.sha256
+        }));
+    }
     let trxSource = '';
-    try { trxSource = fs.readFileSync(trxFile, 'utf8'); }
-    catch { errors.push('native P99 TRX is missing'); }
-    if (trxSource) errors.push(...validateTrx(trxSource));
-    if (Number(options['test-exit-code']) !== 0) errors.push(`dotnet test exited ${options['test-exit-code']}`);
+    try
+    {
+        trxSource = fs.readFileSync(trxFile, 'utf8');
+    }
+    catch
+    {
+        errors.push('native P99 TRX is missing');
+    }
+    if (trxSource)
+    {
+        errors.push(...validateTrx(trxSource));
+    }
+    if (Number(options['test-exit-code']) !== 0)
+    {
+        errors.push(`dotnet test exited ${options['test-exit-code']}`);
+    }
 
     const summary = {
         schema: summarySchema,
@@ -320,7 +422,10 @@ function verify(root, options)
         errors
     };
     writeJsonAtomic(summaryFile, summary);
-    if (errors.length > 0) throw new Error(errors.join('; '));
+    if (errors.length > 0)
+    {
+        throw new Error(errors.join('; '));
+    }
     process.stdout.write(`[native-p99] passed samples=${nativeP99SampleCount} p99=${evidence.p99Ms.toFixed(2)}ms\n`);
 }
 
@@ -330,16 +435,31 @@ function main()
     const root = path.resolve(options.root ?? defaultRoot);
     for (const required of ['preflight', 'evidence', 'summary', 'trx'])
     {
-        if (!options[required]) throw new Error(`native P99 producer requires --${required}`);
+        if (!options[required])
+        {
+            throw new Error(`native P99 producer requires --${required}`);
+        }
     }
-    if (command === 'prepare') prepare(root, options, process.env);
-    else if (command === 'verify') verify(root, options);
-    else throw new Error('usage: native-p99-producer-contract.mjs <prepare|verify> --preflight FILE --evidence FILE --summary FILE --trx FILE');
+    if (command === 'prepare')
+    {
+        prepare(root, options, process.env);
+    }
+    else if (command === 'verify')
+    {
+        verify(root, options);
+    }
+    else
+    {
+        throw new Error('usage: native-p99-producer-contract.mjs <prepare|verify> --preflight FILE --evidence FILE --summary FILE --trx FILE');
+    }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
-    try { main(); }
+    try
+    {
+        main();
+    }
     catch (error)
     {
         console.error(`[native-p99] ${error instanceof Error ? error.message : String(error)}`);

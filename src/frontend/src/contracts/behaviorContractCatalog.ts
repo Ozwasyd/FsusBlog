@@ -1,522 +1,522 @@
 // Generated from config/contracts/behavior-contracts.json; digest 05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff; do not edit by hand.
 
-export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = '05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff' as const
+export const BEHAVIOR_CONTRACT_CATALOG_DIGEST = '05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff' as const;
 export const BEHAVIOR_CONTRACTS = [
-  {
-    "id": "test-asset-audit-reconciliation",
-    "domain": "testing",
-    "risk": "high",
-    "status": "active",
-    "implementationOwnerCardinality": "one",
-    "allowedImplementationOwnerRoles": [],
-    "factExtractorId": "test-asset-audit-fact-extractor",
-    "requiredTestKinds": [
-      "positive",
-      "negative"
-    ],
-    "documentationPolicy": "required",
-    "documentationRationale": "Current testing documentation states the executable coverage-evidence contract.",
-    "allowedClaimTypes": [
-      "behavioral",
-      "safety"
-    ],
-    "releaseQualification": true,
-    "evidenceStage": "pre-runtime",
-    "coverageIds": [
-      "test-asset-audit-reconciliation"
-    ],
-    "documents": [
-      "docs/testing.md"
-    ]
-  },
-  {
-    "id": "code-intent-governance",
-    "domain": "governance",
-    "risk": "high",
-    "status": "active",
-    "implementationOwnerCardinality": "one",
-    "allowedImplementationOwnerRoles": [],
-    "factExtractorId": "code-intent-fact-extractor",
-    "requiredTestKinds": [
-      "positive",
-      "negative"
-    ],
-    "documentationPolicy": "required",
-    "documentationRationale": "Current governance documentation states the code-intent contract.",
-    "allowedClaimTypes": [
-      "behavioral",
-      "safety"
-    ],
-    "releaseQualification": true,
-    "evidenceStage": "pre-runtime",
-    "coverageIds": [
-      "code-intent-governance"
-    ],
-    "documents": [
-      "docs/development/code-intent-governance.md"
-    ]
-  },
-  {
-    "id": "document-lifecycle-governance",
-    "domain": "documentation",
-    "risk": "high",
-    "status": "active",
-    "implementationOwnerCardinality": "one",
-    "allowedImplementationOwnerRoles": [],
-    "factExtractorId": "document-lifecycle-fact-extractor",
-    "requiredTestKinds": [
-      "positive",
-      "negative",
-      "migration"
-    ],
-    "documentationPolicy": "rationale-only",
-    "documentationRationale": "Lifecycle policy is explanatory; exact lifecycle metadata remains executable.",
-    "allowedClaimTypes": [
-      "operational",
-      "safety"
-    ],
-    "releaseQualification": true,
-    "evidenceStage": "pre-runtime",
-    "coverageIds": [
-      "document-lifecycle-governance"
-    ],
-    "documents": [
-      "docs/development/document-lifecycle.md"
-    ]
-  },
-  {
-    "id": "binary-api-aeds-contract",
-    "domain": "protocol",
-    "risk": "critical",
-    "status": "active",
-    "implementationOwnerCardinality": "one",
-    "allowedImplementationOwnerRoles": [],
-    "factExtractorId": "openapi-aeds-fact-extractor",
-    "requiredTestKinds": [
-      "positive",
-      "negative"
-    ],
-    "documentationPolicy": "required",
-    "documentationRationale": "Current API contract documents state binary OpenAPI and AEDS operation metadata.",
-    "allowedClaimTypes": [
-      "behavioral",
-      "safety"
-    ],
-    "releaseQualification": true,
-    "evidenceStage": "pre-runtime",
-    "coverageIds": [
-      "binary-api-aeds-contract"
-    ],
-    "documents": [
-      "docs/api.md",
-      "docs/api/aeds-only-policy.md",
-      "docs/api/contracts.md",
-      "docs/api/quick-reference.md",
-      "docs/api/schemas-and-errors.md",
-      "docs/api/stability.md"
-    ],
-    "documentAuthorities": [
-      {
-        "path": "docs/api.md",
-        "owner": "backend",
-        "anchor": "protocol.operations",
-        "claimIds": [
-          "binary-api-aeds-contract.operation-active-state",
-          "binary-api-aeds-contract.operations",
-          "binary-api-aeds-contract.request-non-nullable",
-          "binary-api-aeds-contract.request-required",
-          "binary-api-aeds-contract.request-source",
-          "binary-api-aeds-contract.response-non-nullable",
-          "binary-api-aeds-contract.response-result-placement"
+    {
+        "id": "test-asset-audit-reconciliation",
+        "domain": "testing",
+        "risk": "high",
+        "status": "active",
+        "implementationOwnerCardinality": "one",
+        "allowedImplementationOwnerRoles": [],
+        "factExtractorId": "test-asset-audit-fact-extractor",
+        "requiredTestKinds": [
+            "positive",
+            "negative"
         ],
-        "sectionIds": [
-          "api.operations"
+        "documentationPolicy": "required",
+        "documentationRationale": "Current testing documentation states the executable coverage-evidence contract.",
+        "allowedClaimTypes": [
+            "behavioral",
+            "safety"
         ],
-        "proofIds": [
-          "binary-api-aeds-contract"
+        "releaseQualification": true,
+        "evidenceStage": "pre-runtime",
+        "coverageIds": [
+            "test-asset-audit-reconciliation"
+        ],
+        "documents": [
+            "docs/testing.md"
         ]
-      },
-      {
-        "path": "docs/api/aeds-only-policy.md",
-        "owner": "backend",
-        "anchor": "protocol.aeds-only",
-        "claimIds": [
-          "binary-api-aeds-contract.aeds-only",
-          "binary-api-aeds-contract.migration-only-state",
-          "binary-api-aeds-contract.protocol",
-          "binary-api-aeds-contract.protocol-states"
-        ],
-        "sectionIds": [
-          "api.protocol",
-          "api.protocol-states"
-        ],
-        "proofIds": [
-          "binary-api-aeds-contract"
-        ]
-      },
-      {
-        "path": "docs/api/contracts.md",
-        "owner": "backend",
-        "anchor": "protocol.aeds-contract",
-        "claimIds": [
-          "binary-api-aeds-contract.aeds-version"
-        ],
-        "sectionIds": [
-          "api.aeds-version"
-        ],
-        "proofIds": [
-          "binary-api-aeds-contract"
-        ]
-      },
-      {
-        "path": "docs/api/quick-reference.md",
-        "owner": "backend",
-        "anchor": "protocol.operation-keys",
-        "claimIds": [
-          "binary-api-aeds-contract.operation-keys"
-        ],
-        "sectionIds": [
-          "api.operation-keys"
-        ],
-        "proofIds": [
-          "binary-api-aeds-contract"
-        ]
-      },
-      {
-        "path": "docs/api/schemas-and-errors.md",
-        "owner": "backend",
-        "anchor": "protocol.operation-count",
-        "claimIds": [
-          "binary-api-aeds-contract.error-authority-reference",
-          "binary-api-aeds-contract.operation-count",
-          "binary-api-aeds-contract.public-error-authority-owner",
-          "binary-api-aeds-contract.public-error-reference-state"
-        ],
-        "sectionIds": [
-          "api.error-authority-reference",
-          "api.operation-count"
-        ],
-        "proofIds": [
-          "binary-api-aeds-contract"
-        ]
-      },
-      {
-        "path": "docs/api/stability.md",
-        "owner": "backend",
-        "anchor": "protocol.observation-identity",
-        "claimIds": [
-          "binary-api-aeds-contract.observation-digest"
-        ],
-        "sectionIds": [
-          "api.observation-digest"
-        ],
-        "proofIds": [
-          "binary-api-aeds-contract"
-        ]
-      }
-    ],
-    "crossDomainReferences": [
-      {
-        "domain": "security",
-        "behaviorId": "configuration-error-security-policy",
-        "documentPath": "docs/api/schemas-and-errors.md",
-        "factIds": [
-          "facts.error-codes.domain.active",
-          "facts.error-codes.transport-mapping"
-        ]
-      }
-    ],
-    "mutationPolicy": {
-      "mutationRequired": true,
-      "minimumMutationScore": 70,
-      "requireExecutedMutants": true,
-      "allowedEquivalentMutantPolicy": "none"
-    }
-  },
-  {
-    "id": "browserless-production-correctness",
-    "domain": "testing",
-    "risk": "critical",
-    "status": "active",
-    "implementationOwnerCardinality": "one",
-    "allowedImplementationOwnerRoles": [],
-    "factExtractorId": "test-matrix-fact-extractor",
-    "requiredTestKinds": [
-      "positive",
-      "negative",
-      "concurrency"
-    ],
-    "documentationPolicy": "required",
-    "documentationRationale": "Current testing documentation states the executable test-topology contract.",
-    "allowedClaimTypes": [
-      "behavioral",
-      "operational",
-      "safety"
-    ],
-    "releaseQualification": true,
-    "evidenceStage": "post-runtime",
-    "runtimeEvidence": {
-      "producerTierId": "production-correctness",
-      "observationSchema": "fsusblog.browserless-correctness-receipt.v1"
     },
-    "coverageIds": [
-      "browserless-production-correctness"
-    ],
-    "documents": [
-      "docs/testing.md",
-      "docs/releases/release-identity.md",
-      "docs/releases/blue-green-deployment-runbook.md",
-      "docs/architecture/monolithic-distributed-boundary.md",
-      "docs/architecture.md",
-      "docs/architecture/overview.md"
-    ]
-  },
-  {
-    "id": "release-final-aggregate-contract",
-    "domain": "release",
-    "risk": "critical",
-    "status": "active",
-    "implementationOwnerCardinality": "one",
-    "allowedImplementationOwnerRoles": [],
-    "factExtractorId": "test-matrix-fact-extractor",
-    "requiredTestKinds": [
-      "positive",
-      "negative"
-    ],
-    "documentationPolicy": "required",
-    "documentationRationale": "Current release documentation states the aggregate-only finalizer and current-run evidence contract.",
-    "allowedClaimTypes": [
-      "operational",
-      "safety"
-    ],
-    "releaseQualification": true,
-    "evidenceStage": "pre-runtime",
-    "coverageIds": [
-      "release-final-publish-credential"
-    ],
-    "documents": [
-      "docs/testing.md",
-      "docs/releases/release-identity.md"
-    ],
-    "documentAuthorities": [
-      {
-        "path": "docs/testing.md",
-        "owner": "release",
-        "anchor": "release.finalizer-contract",
-        "claimIds": [
-          "release-final-aggregate-contract.finalizer"
+    {
+        "id": "code-intent-governance",
+        "domain": "governance",
+        "risk": "high",
+        "status": "active",
+        "implementationOwnerCardinality": "one",
+        "allowedImplementationOwnerRoles": [],
+        "factExtractorId": "code-intent-fact-extractor",
+        "requiredTestKinds": [
+            "positive",
+            "negative"
         ],
-        "sectionIds": [
-          "release.finalizer-contract"
+        "documentationPolicy": "required",
+        "documentationRationale": "Current governance documentation states the code-intent contract.",
+        "allowedClaimTypes": [
+            "behavioral",
+            "safety"
         ],
-        "proofIds": [
-          "release-final-coverage-thresholds",
-          "release-final-shard-completeness"
+        "releaseQualification": true,
+        "evidenceStage": "pre-runtime",
+        "coverageIds": [
+            "code-intent-governance"
+        ],
+        "documents": [
+            "docs/development/code-intent-governance.md"
         ]
-      },
-      {
-        "path": "docs/releases/release-identity.md",
-        "owner": "release",
-        "anchor": "release.current-run-identity",
-        "claimIds": [
-          "release-final-aggregate-contract.current-run-binding"
+    },
+    {
+        "id": "document-lifecycle-governance",
+        "domain": "documentation",
+        "risk": "high",
+        "status": "active",
+        "implementationOwnerCardinality": "one",
+        "allowedImplementationOwnerRoles": [],
+        "factExtractorId": "document-lifecycle-fact-extractor",
+        "requiredTestKinds": [
+            "positive",
+            "negative",
+            "migration"
         ],
-        "sectionIds": [
-          "release.current-run-binding"
+        "documentationPolicy": "rationale-only",
+        "documentationRationale": "Lifecycle policy is explanatory; exact lifecycle metadata remains executable.",
+        "allowedClaimTypes": [
+            "operational",
+            "safety"
         ],
-        "proofIds": [
-          "immutable-release-identity",
-          "release-final-publish-credential"
+        "releaseQualification": true,
+        "evidenceStage": "pre-runtime",
+        "coverageIds": [
+            "document-lifecycle-governance"
+        ],
+        "documents": [
+            "docs/development/document-lifecycle.md"
         ]
-      }
-    ]
-  },
-  {
-    "id": "deployment-blue-green-runtime-role",
-    "domain": "deployment",
-    "risk": "critical",
-    "status": "active",
-    "implementationOwnerCardinality": "one",
-    "allowedImplementationOwnerRoles": [],
-    "factExtractorId": "test-matrix-fact-extractor",
-    "requiredTestKinds": [
-      "positive",
-      "negative",
-      "concurrency"
-    ],
-    "documentationPolicy": "required",
-    "documentationRationale": "Current deployment documentation states blue-green active-release protection and runtime-role composition.",
-    "allowedClaimTypes": [
-      "operational",
-      "safety"
-    ],
-    "releaseQualification": true,
-    "evidenceStage": "pre-runtime",
-    "coverageIds": [
-      "blue-green-slot-orchestration",
-      "deployment-runtime-lifecycle"
-    ],
-    "documents": [
-      "docs/releases/blue-green-deployment-runbook.md",
-      "docs/architecture/monolithic-distributed-boundary.md"
-    ],
-    "documentAuthorities": [
-      {
-        "path": "docs/releases/blue-green-deployment-runbook.md",
-        "owner": "release",
-        "anchor": "deployment.blue-green-contract",
-        "claimIds": [
-          "deployment-blue-green-runtime-role.blue-green"
+    },
+    {
+        "id": "binary-api-aeds-contract",
+        "domain": "protocol",
+        "risk": "critical",
+        "status": "active",
+        "implementationOwnerCardinality": "one",
+        "allowedImplementationOwnerRoles": [],
+        "factExtractorId": "openapi-aeds-fact-extractor",
+        "requiredTestKinds": [
+            "positive",
+            "negative"
         ],
-        "sectionIds": [
-          "deployment.blue-green-contract"
+        "documentationPolicy": "required",
+        "documentationRationale": "Current API contract documents state binary OpenAPI and AEDS operation metadata.",
+        "allowedClaimTypes": [
+            "behavioral",
+            "safety"
         ],
-        "proofIds": [
-          "blue-green-slot-orchestration",
-          "blue-green-release-storage-lifecycle"
+        "releaseQualification": true,
+        "evidenceStage": "pre-runtime",
+        "coverageIds": [
+            "binary-api-aeds-contract"
+        ],
+        "documents": [
+            "docs/api.md",
+            "docs/api/aeds-only-policy.md",
+            "docs/api/contracts.md",
+            "docs/api/quick-reference.md",
+            "docs/api/schemas-and-errors.md",
+            "docs/api/stability.md"
+        ],
+        "documentAuthorities": [
+            {
+                "path": "docs/api.md",
+                "owner": "backend",
+                "anchor": "protocol.operations",
+                "claimIds": [
+                    "binary-api-aeds-contract.operation-active-state",
+                    "binary-api-aeds-contract.operations",
+                    "binary-api-aeds-contract.request-non-nullable",
+                    "binary-api-aeds-contract.request-required",
+                    "binary-api-aeds-contract.request-source",
+                    "binary-api-aeds-contract.response-non-nullable",
+                    "binary-api-aeds-contract.response-result-placement"
+                ],
+                "sectionIds": [
+                    "api.operations"
+                ],
+                "proofIds": [
+                    "binary-api-aeds-contract"
+                ]
+            },
+            {
+                "path": "docs/api/aeds-only-policy.md",
+                "owner": "backend",
+                "anchor": "protocol.aeds-only",
+                "claimIds": [
+                    "binary-api-aeds-contract.aeds-only",
+                    "binary-api-aeds-contract.migration-only-state",
+                    "binary-api-aeds-contract.protocol",
+                    "binary-api-aeds-contract.protocol-states"
+                ],
+                "sectionIds": [
+                    "api.protocol",
+                    "api.protocol-states"
+                ],
+                "proofIds": [
+                    "binary-api-aeds-contract"
+                ]
+            },
+            {
+                "path": "docs/api/contracts.md",
+                "owner": "backend",
+                "anchor": "protocol.aeds-contract",
+                "claimIds": [
+                    "binary-api-aeds-contract.aeds-version"
+                ],
+                "sectionIds": [
+                    "api.aeds-version"
+                ],
+                "proofIds": [
+                    "binary-api-aeds-contract"
+                ]
+            },
+            {
+                "path": "docs/api/quick-reference.md",
+                "owner": "backend",
+                "anchor": "protocol.operation-keys",
+                "claimIds": [
+                    "binary-api-aeds-contract.operation-keys"
+                ],
+                "sectionIds": [
+                    "api.operation-keys"
+                ],
+                "proofIds": [
+                    "binary-api-aeds-contract"
+                ]
+            },
+            {
+                "path": "docs/api/schemas-and-errors.md",
+                "owner": "backend",
+                "anchor": "protocol.operation-count",
+                "claimIds": [
+                    "binary-api-aeds-contract.error-authority-reference",
+                    "binary-api-aeds-contract.operation-count",
+                    "binary-api-aeds-contract.public-error-authority-owner",
+                    "binary-api-aeds-contract.public-error-reference-state"
+                ],
+                "sectionIds": [
+                    "api.error-authority-reference",
+                    "api.operation-count"
+                ],
+                "proofIds": [
+                    "binary-api-aeds-contract"
+                ]
+            },
+            {
+                "path": "docs/api/stability.md",
+                "owner": "backend",
+                "anchor": "protocol.observation-identity",
+                "claimIds": [
+                    "binary-api-aeds-contract.observation-digest"
+                ],
+                "sectionIds": [
+                    "api.observation-digest"
+                ],
+                "proofIds": [
+                    "binary-api-aeds-contract"
+                ]
+            }
+        ],
+        "crossDomainReferences": [
+            {
+                "domain": "security",
+                "behaviorId": "configuration-error-security-policy",
+                "documentPath": "docs/api/schemas-and-errors.md",
+                "factIds": [
+                    "facts.error-codes.domain.active",
+                    "facts.error-codes.transport-mapping"
+                ]
+            }
+        ],
+        "mutationPolicy": {
+            "mutationRequired": true,
+            "minimumMutationScore": 70,
+            "requireExecutedMutants": true,
+            "allowedEquivalentMutantPolicy": "none"
+        }
+    },
+    {
+        "id": "browserless-production-correctness",
+        "domain": "testing",
+        "risk": "critical",
+        "status": "active",
+        "implementationOwnerCardinality": "one",
+        "allowedImplementationOwnerRoles": [],
+        "factExtractorId": "test-matrix-fact-extractor",
+        "requiredTestKinds": [
+            "positive",
+            "negative",
+            "concurrency"
+        ],
+        "documentationPolicy": "required",
+        "documentationRationale": "Current testing documentation states the executable test-topology contract.",
+        "allowedClaimTypes": [
+            "behavioral",
+            "operational",
+            "safety"
+        ],
+        "releaseQualification": true,
+        "evidenceStage": "post-runtime",
+        "runtimeEvidence": {
+            "producerTierId": "production-correctness",
+            "observationSchema": "fsusblog.browserless-correctness-receipt.v1"
+        },
+        "coverageIds": [
+            "browserless-production-correctness"
+        ],
+        "documents": [
+            "docs/testing.md",
+            "docs/releases/release-identity.md",
+            "docs/releases/blue-green-deployment-runbook.md",
+            "docs/architecture/monolithic-distributed-boundary.md",
+            "docs/architecture.md",
+            "docs/architecture/overview.md"
         ]
-      },
-      {
-        "path": "docs/architecture/monolithic-distributed-boundary.md",
-        "owner": "backend",
-        "anchor": "deployment.runtime-role-contract",
-        "claimIds": [
-          "deployment-blue-green-runtime-role.runtime-role"
+    },
+    {
+        "id": "release-final-aggregate-contract",
+        "domain": "release",
+        "risk": "critical",
+        "status": "active",
+        "implementationOwnerCardinality": "one",
+        "allowedImplementationOwnerRoles": [],
+        "factExtractorId": "test-matrix-fact-extractor",
+        "requiredTestKinds": [
+            "positive",
+            "negative"
         ],
-        "sectionIds": [
-          "deployment.runtime-role-contract"
+        "documentationPolicy": "required",
+        "documentationRationale": "Current release documentation states the aggregate-only finalizer and current-run evidence contract.",
+        "allowedClaimTypes": [
+            "operational",
+            "safety"
         ],
-        "proofIds": [
-          "deployment-runtime-lifecycle"
+        "releaseQualification": true,
+        "evidenceStage": "pre-runtime",
+        "coverageIds": [
+            "release-final-publish-credential"
+        ],
+        "documents": [
+            "docs/testing.md",
+            "docs/releases/release-identity.md"
+        ],
+        "documentAuthorities": [
+            {
+                "path": "docs/testing.md",
+                "owner": "release",
+                "anchor": "release.finalizer-contract",
+                "claimIds": [
+                    "release-final-aggregate-contract.finalizer"
+                ],
+                "sectionIds": [
+                    "release.finalizer-contract"
+                ],
+                "proofIds": [
+                    "release-final-coverage-thresholds",
+                    "release-final-shard-completeness"
+                ]
+            },
+            {
+                "path": "docs/releases/release-identity.md",
+                "owner": "release",
+                "anchor": "release.current-run-identity",
+                "claimIds": [
+                    "release-final-aggregate-contract.current-run-binding"
+                ],
+                "sectionIds": [
+                    "release.current-run-binding"
+                ],
+                "proofIds": [
+                    "immutable-release-identity",
+                    "release-final-publish-credential"
+                ]
+            }
         ]
-      }
-    ]
-  },
-  {
-    "id": "authentication-session-permission",
-    "domain": "security",
-    "risk": "critical",
-    "status": "active",
-    "implementationOwnerCardinality": "one",
-    "allowedImplementationOwnerRoles": [],
-    "factExtractorId": "auth-session-permission-fact-extractor",
-    "requiredTestKinds": [
-      "positive",
-      "negative",
-      "migration"
-    ],
-    "documentationPolicy": "required",
-    "documentationRationale": "Current security documentation states authentication methods, session duration, step-up and admin permission contracts.",
-    "allowedClaimTypes": [
-      "behavioral",
-      "safety"
-    ],
-    "releaseQualification": true,
-    "evidenceStage": "pre-runtime",
-    "coverageIds": [
-      "authentication-session-permission"
-    ],
-    "documents": [
-      "docs/anonymous-identity-smoke-flow.md",
-      "docs/architecture/decisions/ADR-Anonymous-Credential-Blind-Issuance.md",
-      "docs/security/user-session-authentication-context.md",
-      "docs/security.md"
-    ],
-    "mutationPolicy": {
-      "mutationRequired": true,
-      "minimumMutationScore": 70,
-      "requireExecutedMutants": true,
-      "allowedEquivalentMutantPolicy": "none"
+    },
+    {
+        "id": "deployment-blue-green-runtime-role",
+        "domain": "deployment",
+        "risk": "critical",
+        "status": "active",
+        "implementationOwnerCardinality": "one",
+        "allowedImplementationOwnerRoles": [],
+        "factExtractorId": "test-matrix-fact-extractor",
+        "requiredTestKinds": [
+            "positive",
+            "negative",
+            "concurrency"
+        ],
+        "documentationPolicy": "required",
+        "documentationRationale": "Current deployment documentation states blue-green active-release protection and runtime-role composition.",
+        "allowedClaimTypes": [
+            "operational",
+            "safety"
+        ],
+        "releaseQualification": true,
+        "evidenceStage": "pre-runtime",
+        "coverageIds": [
+            "blue-green-slot-orchestration",
+            "deployment-runtime-lifecycle"
+        ],
+        "documents": [
+            "docs/releases/blue-green-deployment-runbook.md",
+            "docs/architecture/monolithic-distributed-boundary.md"
+        ],
+        "documentAuthorities": [
+            {
+                "path": "docs/releases/blue-green-deployment-runbook.md",
+                "owner": "release",
+                "anchor": "deployment.blue-green-contract",
+                "claimIds": [
+                    "deployment-blue-green-runtime-role.blue-green"
+                ],
+                "sectionIds": [
+                    "deployment.blue-green-contract"
+                ],
+                "proofIds": [
+                    "blue-green-slot-orchestration",
+                    "blue-green-release-storage-lifecycle"
+                ]
+            },
+            {
+                "path": "docs/architecture/monolithic-distributed-boundary.md",
+                "owner": "backend",
+                "anchor": "deployment.runtime-role-contract",
+                "claimIds": [
+                    "deployment-blue-green-runtime-role.runtime-role"
+                ],
+                "sectionIds": [
+                    "deployment.runtime-role-contract"
+                ],
+                "proofIds": [
+                    "deployment-runtime-lifecycle"
+                ]
+            }
+        ]
+    },
+    {
+        "id": "authentication-session-permission",
+        "domain": "security",
+        "risk": "critical",
+        "status": "active",
+        "implementationOwnerCardinality": "one",
+        "allowedImplementationOwnerRoles": [],
+        "factExtractorId": "auth-session-permission-fact-extractor",
+        "requiredTestKinds": [
+            "positive",
+            "negative",
+            "migration"
+        ],
+        "documentationPolicy": "required",
+        "documentationRationale": "Current security documentation states authentication methods, session duration, step-up and admin permission contracts.",
+        "allowedClaimTypes": [
+            "behavioral",
+            "safety"
+        ],
+        "releaseQualification": true,
+        "evidenceStage": "pre-runtime",
+        "coverageIds": [
+            "authentication-session-permission"
+        ],
+        "documents": [
+            "docs/anonymous-identity-smoke-flow.md",
+            "docs/architecture/decisions/ADR-Anonymous-Credential-Blind-Issuance.md",
+            "docs/security/user-session-authentication-context.md",
+            "docs/security.md"
+        ],
+        "mutationPolicy": {
+            "mutationRequired": true,
+            "minimumMutationScore": 70,
+            "requireExecutedMutants": true,
+            "allowedEquivalentMutantPolicy": "none"
+        }
+    },
+    {
+        "id": "configuration-error-security-policy",
+        "domain": "security",
+        "risk": "critical",
+        "status": "active",
+        "implementationOwnerCardinality": "one",
+        "allowedImplementationOwnerRoles": [],
+        "factExtractorId": "config-error-security-policy-fact-extractor",
+        "requiredTestKinds": [
+            "positive",
+            "negative",
+            "boundary"
+        ],
+        "documentationPolicy": "required",
+        "documentationRationale": "Current security and configuration documentation states public error codes, challenge/rate/cache policy and configuration default contracts.",
+        "allowedClaimTypes": [
+            "behavioral",
+            "safety",
+            "operational"
+        ],
+        "releaseQualification": true,
+        "evidenceStage": "pre-runtime",
+        "coverageIds": [
+            "configuration-error-security-policy"
+        ],
+        "documents": [
+            "docs/security.md",
+            "docs/configuration-layout.md",
+            "docs/configuration/appsettings-authority.md",
+            "docs/api/schemas-and-errors.md",
+            "docs/api/contracts.md"
+        ],
+        "mutationPolicy": {
+            "mutationRequired": true,
+            "minimumMutationScore": 70,
+            "requireExecutedMutants": true,
+            "allowedEquivalentMutantPolicy": "none"
+        }
+    },
+    {
+        "id": "article-comment-lifecycle-outbox",
+        "domain": "content",
+        "risk": "critical",
+        "status": "active",
+        "implementationOwnerCardinality": "one",
+        "allowedImplementationOwnerRoles": [],
+        "factExtractorId": "content-lifecycle-fact-extractor",
+        "requiredTestKinds": [
+            "positive",
+            "negative"
+        ],
+        "documentationPolicy": "required",
+        "documentationRationale": "Current article/comment documentation states lifecycle, visibility and outbox edge contracts.",
+        "allowedClaimTypes": [
+            "behavioral",
+            "safety"
+        ],
+        "releaseQualification": true,
+        "evidenceStage": "pre-runtime",
+        "coverageIds": [
+            "article-comment-lifecycle-outbox"
+        ],
+        "documents": [
+            "docs/api/design.md",
+            "docs/api/contracts.md",
+            "docs/api/article-publication-revisions.md",
+            "docs/moderation.md",
+            "docs/architecture/article-asset-reference-lifecycle.md",
+            "docs/architecture/article-deletion-lifecycle.md",
+            "docs/architecture/article-mutation-outbox-claim-lease.md",
+            "docs/architecture/article-mutation-outbox-versioning.md",
+            "docs/architecture/article-mutation-side-effect-boundaries.md",
+            "docs/architecture/article-revision-concurrency.md",
+            "docs/architecture/comment-attribution-privacy-boundary.md",
+            "docs/architecture/comment-command-boundary.md",
+            "docs/architecture/comment-moderation-visibility-boundary.md",
+            "docs/architecture/comment-mutation-outbox.md",
+            "docs/architecture/comment-notification-boundary.md",
+            "docs/architecture/comment-query-boundary.md"
+        ],
+        "mutationPolicy": {
+            "mutationRequired": true,
+            "minimumMutationScore": 70,
+            "requireExecutedMutants": true,
+            "allowedEquivalentMutantPolicy": "none"
+        }
     }
-  },
-  {
-    "id": "configuration-error-security-policy",
-    "domain": "security",
-    "risk": "critical",
-    "status": "active",
-    "implementationOwnerCardinality": "one",
-    "allowedImplementationOwnerRoles": [],
-    "factExtractorId": "config-error-security-policy-fact-extractor",
-    "requiredTestKinds": [
-      "positive",
-      "negative",
-      "boundary"
-    ],
-    "documentationPolicy": "required",
-    "documentationRationale": "Current security and configuration documentation states public error codes, challenge/rate/cache policy and configuration default contracts.",
-    "allowedClaimTypes": [
-      "behavioral",
-      "safety",
-      "operational"
-    ],
-    "releaseQualification": true,
-    "evidenceStage": "pre-runtime",
-    "coverageIds": [
-      "configuration-error-security-policy"
-    ],
-    "documents": [
-      "docs/security.md",
-      "docs/configuration-layout.md",
-      "docs/configuration/appsettings-authority.md",
-      "docs/api/schemas-and-errors.md",
-      "docs/api/contracts.md"
-    ],
-    "mutationPolicy": {
-      "mutationRequired": true,
-      "minimumMutationScore": 70,
-      "requireExecutedMutants": true,
-      "allowedEquivalentMutantPolicy": "none"
-    }
-  },
-  {
-    "id": "article-comment-lifecycle-outbox",
-    "domain": "content",
-    "risk": "critical",
-    "status": "active",
-    "implementationOwnerCardinality": "one",
-    "allowedImplementationOwnerRoles": [],
-    "factExtractorId": "content-lifecycle-fact-extractor",
-    "requiredTestKinds": [
-      "positive",
-      "negative"
-    ],
-    "documentationPolicy": "required",
-    "documentationRationale": "Current article/comment documentation states lifecycle, visibility and outbox edge contracts.",
-    "allowedClaimTypes": [
-      "behavioral",
-      "safety"
-    ],
-    "releaseQualification": true,
-    "evidenceStage": "pre-runtime",
-    "coverageIds": [
-      "article-comment-lifecycle-outbox"
-    ],
-    "documents": [
-      "docs/api/design.md",
-      "docs/api/contracts.md",
-      "docs/api/article-publication-revisions.md",
-      "docs/moderation.md",
-      "docs/architecture/article-asset-reference-lifecycle.md",
-      "docs/architecture/article-deletion-lifecycle.md",
-      "docs/architecture/article-mutation-outbox-claim-lease.md",
-      "docs/architecture/article-mutation-outbox-versioning.md",
-      "docs/architecture/article-mutation-side-effect-boundaries.md",
-      "docs/architecture/article-revision-concurrency.md",
-      "docs/architecture/comment-attribution-privacy-boundary.md",
-      "docs/architecture/comment-command-boundary.md",
-      "docs/architecture/comment-moderation-visibility-boundary.md",
-      "docs/architecture/comment-mutation-outbox.md",
-      "docs/architecture/comment-notification-boundary.md",
-      "docs/architecture/comment-query-boundary.md"
-    ],
-    "mutationPolicy": {
-      "mutationRequired": true,
-      "minimumMutationScore": 70,
-      "requireExecutedMutants": true,
-      "allowedEquivalentMutantPolicy": "none"
-    }
-  }
-] as const
-export type BehaviorId = typeof BEHAVIOR_CONTRACTS[number]['id']
-export type BehaviorContract = typeof BEHAVIOR_CONTRACTS[number]
-export const behaviorContractById: ReadonlyMap<BehaviorId, BehaviorContract> = new Map(BEHAVIOR_CONTRACTS.map((contract) => [contract.id, contract]))
+] as const;
+export type BehaviorId = typeof BEHAVIOR_CONTRACTS[number]['id'];
+export type BehaviorContract = typeof BEHAVIOR_CONTRACTS[number];
+export const behaviorContractById: ReadonlyMap<BehaviorId, BehaviorContract> = new Map(BEHAVIOR_CONTRACTS.map((contract) => [contract.id, contract]));

@@ -1,5 +1,6 @@
 using FsusBlog.Server.Infrastructure.Bootstrap;
-using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Projections;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Tests.TestInfrastructure;
@@ -25,9 +26,9 @@ public sealed class UserAdminProjectionBoundaryTests
             [
                 typeof(ISqlSugarClient),
                 typeof(ILogger<UserAdminModerationService>),
-                typeof(IBlacklistService),
+                typeof(IBanStateProjectionObligationCoordinator),
                 typeof(IMessageCommandService),
-                typeof(ICacheCounterStore),
+                typeof(IAccountStateProjectionMutationPublisher),
                 typeof(FsusBlog.Server.Services.Security.IUserSessionValidationCache)
             ],
             dependencies);

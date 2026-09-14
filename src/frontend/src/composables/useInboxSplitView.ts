@@ -1,38 +1,45 @@
-import { computed, ref, type Ref } from 'vue'
-import { useMediaQuery } from '@/composables/useMediaQuery'
+import { computed, ref, type Ref } from 'vue';
 
-const MOBILE_BREAKPOINT = 1024
-type InboxMobilePane = 'list' | 'detail'
+import { useMediaQuery } from '@/composables/useMediaQuery';
 
-export function useInboxSplitView(selectedConversationId: Readonly<Ref<string>>) {
-  const isMobile = useMediaQuery(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
-  const requestedMobilePane = ref<InboxMobilePane | null>(null)
-  const mobilePane = computed<InboxMobilePane>((previousPane) => {
-    if (!isMobile.value) {
-      return 'detail'
-    }
+const MOBILE_BREAKPOINT = 1024;
+type InboxMobilePane = 'list' | 'detail';
 
-    if (!selectedConversationId.value) {
-      return 'list'
-    }
+export function useInboxSplitView(selectedConversationId: Readonly<Ref<string>>)
+{
+    const isMobile = useMediaQuery(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
+    const requestedMobilePane = ref<InboxMobilePane | null>(null);
+    const mobilePane = computed<InboxMobilePane>((previousPane) =>
+    {
+        if (!isMobile.value)
+        {
+            return 'detail';
+        }
 
-    return requestedMobilePane.value ?? previousPane ?? 'list'
-  })
+        if (!selectedConversationId.value)
+        {
+            return 'list';
+        }
 
-  const openListPane = (): void => {
-    requestedMobilePane.value = 'list'
-  }
+        return requestedMobilePane.value ?? previousPane ?? 'list';
+    });
 
-  const openDetailPane = (): void => {
-    requestedMobilePane.value = 'detail'
-  }
+    const openListPane = (): void =>
+    {
+        requestedMobilePane.value = 'list';
+    };
 
-  return {
-    isMobile,
-    mobilePane,
-    showListPane: computed(() => !isMobile.value || mobilePane.value === 'list'),
-    showDetailPane: computed(() => !isMobile.value || mobilePane.value === 'detail'),
-    openListPane,
-    openDetailPane
-  }
+    const openDetailPane = (): void =>
+    {
+        requestedMobilePane.value = 'detail';
+    };
+
+    return {
+        isMobile,
+        mobilePane,
+        showListPane: computed(() => !isMobile.value || mobilePane.value === 'list'),
+        showDetailPane: computed(() => !isMobile.value || mobilePane.value === 'detail'),
+        openListPane,
+        openDetailPane
+    };
 }

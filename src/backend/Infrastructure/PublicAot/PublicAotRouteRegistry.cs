@@ -27,7 +27,10 @@ public sealed class PublicAotRouteRegistry : IPublicAotRouteRegistry
         if (PublicRouteIdentity.SupportsPagination(descriptor.PageId))
         {
             (page, canonicalQueryString, requiresPaginationRedirect) = ResolvePagination(context.Request);
-            routeKey = PublicRouteIdentity.BuildPaginatedRouteKey(routeKey, page);
+            if (page > 1 || context.Request.Query.ContainsKey("cursor"))
+            {
+                return false;
+            }
         }
         string canonicalPath = PublicRouteIdentity.BuildCanonicalPath(descriptor.PageId, routeKey, null);
         match = new PublicAotRouteMatch(
@@ -57,7 +60,7 @@ public sealed class PublicAotRouteRegistry : IPublicAotRouteRegistry
         int page = hasValidPage && pageValues.Count == 1
             ? int.Parse(rawPage, CultureInfo.InvariantCulture)
             : 1;
-        string canonicalQueryString = PublicRouteIdentity.BuildPaginationQueryString(page);
+        string canonicalQueryString = string.Empty;
         string originalQueryString = request.QueryString.Value ?? string.Empty;
         bool requiresRedirect = !hasOnlyPageKey
             || !hasValidPage

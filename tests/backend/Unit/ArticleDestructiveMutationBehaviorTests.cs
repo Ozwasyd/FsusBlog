@@ -1,5 +1,6 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
@@ -60,6 +61,67 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
         Assert.Equal(ArticleStatus.Published, restored.Status);
         Assert.Null(restored.DeletedAt);
         Assert.NotNull(restored.PublishedAt);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_AdvancesOnlySitemapCoordinateAndKeepsTargetedAotEdge()
+    {
+        string connectionString = classDatabase.ConnectionString;
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(db);
+        SeedTaxonomy(db);
+        int articleId = SeedArticle(db, isDeleted: false, status: ArticleStatus.Published);
+        var authority = new InMemoryPublicAotInvalidationGenerationAuthority();
+        var tracker = new PublicAotInvalidationTracker(authority);
+        var publisher = Substitute.For<IDistributedInvalidationPublisher>();
+        DistributedInvalidationRequest? observed = null;
+        bool identityBoundAtPublish = false;
+        publisher.PublishAsync(Arg.Any<DistributedInvalidationRequest>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                observed = call.Arg<DistributedInvalidationRequest>();
+                identityBoundAtPublish = string.Equals(
+                    authority.Current.LastMutationId,
+                    observed.EventId,
+                    StringComparison.Ordinal);
+                return new DistributedInvalidationPublishResult(
+                    DistributedInvalidationPublishStatus.LocalOnly,
+                    observed.EventId,
+                    null);
+            });
+        var cache = Substitute.For<IUnifiedCache>();
+        var dispatcher = new CacheInvalidationDispatcher(
+            cache,
+            cache,
+            Substitute.For<IHttpCacheInvalidator>(),
+            distributedInvalidationPublisher: publisher,
+            publicAotInvalidationTracker: tracker);
+        var publicAot = Substitute.For<IPublicAotInvalidationService>();
+        ArticleService service = CreateService(
+            db,
+            publicAotInvalidation: publicAot,
+            cacheInvalidation: dispatcher);
+
+        Assert.True(await service.DeleteAsync(articleId));
+
+        Assert.True(LoadArticle(db, articleId).IsDeleted);
+        Assert.Equal(1, tracker.GetSitemapGeneration());
+        Assert.DoesNotContain(
+            PublicAotInvalidationGenerationStateCodec.AllCoordinate,
+            authority.Current.KeyGenerations.Keys);
+        Assert.Contains(
+            PublicAotInvalidationGenerationStateCodec.SitemapCoordinate,
+            authority.Current.KeyGenerations.Keys);
+        Assert.True(identityBoundAtPublish);
+        Assert.Equal(DistributedInvalidationEventKinds.ArticleMutation, observed?.Kind);
+        NSubstitute.Core.ICall targetedAot = Assert.Single(
+            publicAot.ReceivedCalls(),
+            call => string.Equals(
+                call.GetMethodInfo().Name,
+                nameof(IPublicAotInvalidationService.InvalidateArticleMutationAsync),
+                StringComparison.Ordinal));
+        Assert.Equal(articleId, targetedAot.GetArguments()[0]);
+        await publicAot.DidNotReceive().InvalidateAllAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -389,7 +451,9 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
 
     private static ArticleService CreateService(
         SqlSugarClient db,
-        IArticlePublicMutationFence? mutationFence = null)
+        IArticlePublicMutationFence? mutationFence = null,
+        IPublicAotInvalidationService? publicAotInvalidation = null,
+        ICacheInvalidationDispatcher? cacheInvalidation = null)
     {
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(Substitute.For<IDatabase>());
@@ -399,18 +463,18 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
         return new ArticleService(
             _db: db,
             _searchIndex: Substitute.For<ISearchIndexService>(),
-            _redisConnection: redis,
+            _redisOperations: RedisOperationExecutor.ForTestConnection(redis),
             _cacheReader: Substitute.For<ICacheTypedReader>(),
             _cacheWriter: Substitute.For<ICacheRawWriter>(),
             _stringReader: Substitute.For<ICacheStringReader>(),
             _stringWriter: Substitute.For<ICacheStringWriter>(),
             _cacheMissCoordinator: Substitute.For<ICacheMissCoordinator>(),
-            _dbConcurrencyGate: Substitute.For<IDbConcurrencyGate>(),
+            _dbConcurrencyGate: new ImmediateDbConcurrencyGate(),
             _runtimeKeyScope: runtimeKeyScope,
             _httpContextAccessor: Substitute.For<IHttpContextAccessor>(),
             _logger: NullLogger<ArticleService>.Instance,
-            _publicAotInvalidationService: Substitute.For<IPublicAotInvalidationService>(),
-            _cacheInvalidationDispatcher: Substitute.For<ICacheInvalidationDispatcher>(),
+            _publicAotInvalidationService: publicAotInvalidation ?? Substitute.For<IPublicAotInvalidationService>(),
+            _cacheInvalidationDispatcher: cacheInvalidation ?? Substitute.For<ICacheInvalidationDispatcher>(),
             _mutationFence: mutationFence ?? Substitute.For<IArticlePublicMutationFence>(),
             _mutationSideEffects: Substitute.For<IArticleMutationSideEffectCoordinator>(),
             _viewWriteBuffer: Substitute.For<IArticleViewWriteBuffer>(),

@@ -55,8 +55,8 @@ const fast = block.indexOf('UseFsusPublicHotReadFastPath');
 const restore = block.indexOf('UseFsusPublicHotReadFallbackRestore');
 const endpoint = block.indexOf('ConfigureEndpointPipeline(app)');
 if ([core, correlation, classifier, audit, limiter, gate, revocation, fast, restore, endpoint].some(index => index < 0)
-    || !(core < correlation && correlation < classifier && classifier < audit && audit < limiter && limiter < gate && gate < revocation && revocation < fast && fast < restore && restore < endpoint)) {
-  console.error('[public-hot-read] trace/classifier/rate/security/revocation/writer must run before the generic endpoint pipeline');
+    || !(core < correlation && correlation < classifier && classifier < audit && audit < gate && gate < revocation && revocation < fast && fast < limiter && limiter < restore && restore < endpoint)) {
+  console.error('[public-hot-read] classify/gate/L0 must run before public_read miss limiter; limiter must run before fallback restore');
   process.exit(1);
 }
 

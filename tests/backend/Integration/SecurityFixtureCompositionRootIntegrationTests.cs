@@ -5,6 +5,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Services.Fixtures;
 using FsusBlog.Server.Services.Security;
@@ -135,7 +136,6 @@ public sealed class SecurityFixtureCompositionRootIntegrationTests(
         string redisPrefix = $"security-fixture:{Guid.NewGuid():N}:";
         var scope = new PrefixRuntimeKeyScope(redisPrefix);
         var cache = new UnifiedCache(
-            memory,
             connection,
             registry,
             scope,
@@ -163,11 +163,17 @@ public sealed class SecurityFixtureCompositionRootIntegrationTests(
         IWebHostEnvironment environment = Substitute.For<IWebHostEnvironment>();
         environment.EnvironmentName.Returns("Test");
         TestTemporalRuntimeContext temporal = CreateTemporalContext();
+        (BanStateProjection banProjection, IBanStateProjectionObligationCoordinator banObligations) =
+            TestBanStateProjectionRuntime.Create(db);
         var root = new SecurityFixtureCompositionRoot(
             db,
             risk,
             risk,
-            new BlacklistService(cache, cache, cache, cache, db),
+            new BlacklistService(
+                db,
+                Substitute.For<IAccountStateProjectionMutationPublisher>(),
+                banProjection,
+                banObligations),
             credentialService,
             new CommentAnonymousNullifierService(db, configuration),
             new AnonymousCredentialIssuanceAuditStore(db),

@@ -1,6 +1,8 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
@@ -73,9 +75,9 @@ public sealed class UserPublicHandleConcurrencyTests(PostgresSchemaMigrationFixt
         => new(
             db,
             NullLogger<UserProfileCommandService>.Instance,
-            Substitute.For<IBlacklistService>(),
+            Substitute.For<IBanStateProjectionObligationCoordinator>(),
             Substitute.For<ICacheInvalidationStore>(),
-            Substitute.For<ICacheCounterStore>(),
+            Substitute.For<IAccountStateProjectionMutationPublisher>(),
             Substitute.For<IUserSessionValidationCache>());
 
     private static Task<T> StartBarrierTaskAsync<T>(Barrier barrier, Func<Task<T>> action)

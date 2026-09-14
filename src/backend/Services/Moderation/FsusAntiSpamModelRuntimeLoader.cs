@@ -65,6 +65,15 @@ public sealed class FsusAntiSpamModelRuntimeSnapshot(
                     severity,
                     "show_category_only")
             ];
+        AntiSpamModerationEvidence[] evidence = best is null
+            ? []
+            :
+            [
+                new AntiSpamModerationEvidence(
+                    best.Category,
+                    "token_weight_match",
+                    best.Token)
+            ];
 
         return new AntiSpamModerationResult(
             true,
@@ -77,7 +86,7 @@ public sealed class FsusAntiSpamModelRuntimeSnapshot(
             best?.Reason,
             best is not null,
             categories,
-            [],
+            evidence,
             best?.Reason,
             TimeSpan.Zero,
             AntiSpamModerationStatuses.Ok,

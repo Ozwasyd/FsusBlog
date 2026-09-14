@@ -6,10 +6,9 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { generatedOutputDigestRepairProducers } from '../../tools/governance/change-contract-registry.mjs';
-import { createGeneratedOutputDigestRepairRepository } from '../../tools/governance/generated-output-digest-repair-repository.mjs';
-import { generatedOutputDigestRepairSchema, verifyGeneratedOutputDigestRepairV2 } from '../../tools/governance/generated-output-digest-repair-v2.mjs';
-
+const { generatedOutputDigestRepairProducers } = await import(new URL('../../tools/governance/change-contract-registry.mjs', import.meta.url));
+const { createGeneratedOutputDigestRepairRepository } = await import(new URL('../../tools/governance/generated-output-digest-repair-repository.mjs', import.meta.url));
+const { generatedOutputDigestRepairSchema, verifyGeneratedOutputDigestRepairV2 } = await import(new URL('../../tools/governance/generated-output-digest-repair-v2.mjs', import.meta.url));
 const adapterTest = (name, fn) => test(name, {
     skip: process.platform === 'linux' ? false : 'requires Linux Bubblewrap/strace namespace support'
 }, fn);
@@ -24,7 +23,8 @@ test('canonical registry qualification binds the real merged PR and complete reg
         env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1', GIT_GRAFT_FILE: '/dev/null' },
         encoding: 'utf8'
     }).trim();
-    const commit = (revision) => {
+    const commit = (revision) =>
+    {
         const fields = git('show', '-s', '--format=%H%x00%P%x00%s', revision).split('\0');
         return { revision: fields[0], parents: fields[1] ? fields[1].split(' ') : [], subject: fields[2] };
     };
@@ -92,7 +92,9 @@ adapterTest('candidate PATH executables cannot replace bwrap, strace or ldd', (t
     fs.mkdirSync(executables);
     const marker = path.join(root, 'hijacked');
     for (const name of ['bwrap', 'strace', 'ldd'])
+    {
         fs.writeFileSync(path.join(executables, name), `#!/bin/sh\nprintf hijacked > '${marker}'\nexit 97\n`, { mode: 0o755 });
+    }
     const previous = process.env.PATH;
     process.env.PATH = `${executables}:${previous}`;
     try
@@ -104,8 +106,14 @@ adapterTest('candidate PATH executables cannot replace bwrap, strace or ldd', (t
     }
     finally
     {
-        if (previous === undefined) delete process.env.PATH;
-        else process.env.PATH = previous;
+        if (previous === undefined)
+        {
+            delete process.env.PATH;
+        }
+        else
+        {
+            process.env.PATH = previous;
+        }
     }
 });
 
@@ -140,7 +148,10 @@ adapterTest('trusted executable rejects same-byte inode replacement between fres
     t.mock.method(fs, 'lstatSync', (file, ...args) =>
     {
         const stat = original(file, ...args);
-        if (file === '/usr/bin/bwrap') stat.ino += 1;
+        if (file === '/usr/bin/bwrap')
+        {
+            stat.ino += 1;
+        }
         return stat;
     });
     assert.throws(() => repository.replay({ revision: base, producer, attempt: 1 }), /trusted runtime identity drifted/u);
@@ -153,7 +164,10 @@ adapterTest('trusted executable rejects task-owned system path observations', (t
     t.mock.method(fs, 'lstatSync', (file, ...args) =>
     {
         const stat = original(file, ...args);
-        if (file === '/usr/bin/bwrap') stat.uid = 1000;
+        if (file === '/usr/bin/bwrap')
+        {
+            stat.uid = 1000;
+        }
         return stat;
     });
     assert.throws(() => repository.replay({ revision: base, producer, attempt: 0 }), /not system-owned/u);
@@ -181,7 +195,10 @@ for (const [name, file, syscallResult, accepted, bootstrap = false] of [
         t.mock.method(fs, 'readFileSync', (source, ...args) =>
         {
             const result = original(source, ...args);
-            if (typeof source !== 'string' || !source.endsWith('.strace')) return result;
+            if (typeof source !== 'string' || !source.endsWith('.strace'))
+            {
+                return result;
+            }
             const pid = result.match(/^(\d+)\s+execve\("\/runtime\/node"/mu)?.[1];
             assert.ok(pid, 'real trace must identify the canonical Node process');
             const injected = `${pid} openat(AT_FDCWD</work>, "${file}", O_RDONLY|O_CLOEXEC) = ${syscallResult}`;
@@ -189,8 +206,14 @@ for (const [name, file, syscallResult, accepted, bootstrap = false] of [
                 : `${result}\n${injected}\n`;
         });
         const replay = () => repository.replay({ revision: base, producer, attempt: 0 });
-        if (accepted) assert.equal(replay().first.bytes.toString(), 'canonical\n');
-        else assert.throws(replay, /attempted read outside the sparse runtime/u);
+        if (accepted)
+        {
+            assert.equal(replay().first.bytes.toString(), 'canonical\n');
+        }
+        else
+        {
+            assert.throws(replay, /attempted read outside the sparse runtime/u);
+        }
     });
 }
 

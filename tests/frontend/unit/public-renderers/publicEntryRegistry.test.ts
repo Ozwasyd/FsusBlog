@@ -398,9 +398,7 @@ describe('publicEntryRegistry shared coverage', () => {
     expect(hydration?.view?.items).toHaveLength(1)
   })
 
-  it('keeps the complete second-page payload when recommendations reuse current feed articles', async () => {
-    const renderShellMock = vi.mocked(renderShell)
-    renderShellMock.mockClear()
+  it('rejects cursor-less deep public producer seeds', async () => {
     const articles = [11, 12, 13].map((id) => ({
       id,
       title: `Article ${id}`,
@@ -411,7 +409,7 @@ describe('publicEntryRegistry shared coverage', () => {
       tags: [{ id: 3, name: 'Tag' }]
     }))
 
-    const result = await buildPublicEntry('Home', {
+    await expect(buildPublicEntry('Home', {
       siteTitle: 'FsusBlog',
       siteDescription: 'desc',
       routeKey: 'home:page:2',
@@ -427,67 +425,10 @@ describe('publicEntryRegistry shared coverage', () => {
         createTime: '2026-07-11T00:00:00.000Z',
         category: { id: 2, name: 'Category' }
       }],
-      hotArticles: [
-        { id: 11, title: 'Article 11', views: 11 },
-        { id: 12, title: 'Article 12', views: 12 }
-      ]
-    })
-
-    const hydration = decodePublicAotPayload<{
-      currentPage?: number
-      pageSize?: number
-      total?: number
-      view?: {
-        items?: readonly { id: number }[]
-        pagination?: {
-          indicator?: string
-          previous?: { href?: string; disabled?: boolean }
-          next?: { href?: string; disabled?: boolean }
-        }
-      }
-    }>(result.entry.hydrationPropsPayload)
-    const assembly = renderShellMock.mock.calls.at(-1)?.[2] as {
-      props?: { view?: { items?: readonly { id: number }[] } }
-    }
-
-    expect(hydration?.currentPage).toBe(2)
-    expect(hydration?.pageSize).toBe(10)
-    expect(hydration?.total).toBe(13)
-    expect(hydration?.view?.items?.map((article) => article.id)).toEqual([11, 12, 13])
-    expect(hydration?.view?.pagination).toEqual(expect.objectContaining({
-      indicator: '2 / 2',
-      previous: expect.objectContaining({ href: '/', disabled: false }),
-      next: expect.objectContaining({ href: '/?page=2', disabled: true })
-    }))
-    expect(assembly.props?.view?.items?.map((article) => article.id)).toEqual([11, 12, 13])
-  })
-
-  it('preserves page-specific route seeds and canonical pagination links in SSR assemblies', async () => {
-    const renderShellMock = vi.mocked(renderShell)
-    renderShellMock.mockClear()
-
-    const home = await buildPublicEntry('Home', {
-      siteTitle: 'FsusBlog',
-      siteDescription: 'desc',
-      routeKey: 'home:page:2',
-      pageIndex: 2,
-      pageSize: 10,
-      total: 30,
-      articles: [],
-      featuredArticles: [],
       hotArticles: []
-    })
-    const homeAssembly = renderShellMock.mock.calls.at(-1)?.[2] as {
-      props?: { view?: { pagination?: { previous?: { href?: string }; next?: { href?: string } } } }
-    }
-    const homeHydration = decodePublicAotPayload<{ routeKey?: string }>(home.entry.hydrationPropsPayload)
+    })).rejects.toThrow('public_home_cursorless_deep_seed_forbidden')
 
-    expect(home.entry.routeKey).toBe('home:page:2')
-    expect(homeHydration?.routeKey).toBe('home:page:2')
-    expect(homeAssembly.props?.view?.pagination?.previous?.href).toBe('/')
-    expect(homeAssembly.props?.view?.pagination?.next?.href).toBe('/?page=3')
-
-    await buildPublicEntry('Filter', {
+    await expect(buildPublicEntry('Filter', {
       siteTitle: 'FsusBlog',
       siteDescription: 'desc',
       routeKey: 'category:7:page:2',
@@ -501,14 +442,64 @@ describe('publicEntryRegistry shared coverage', () => {
         pageIndex: 2,
         pageSize: 10,
         total: 30,
+        articles
+      }
+    })).rejects.toThrow('public_filter_cursorless_deep_seed_forbidden')
+  })
+
+  it('carries first-page cursors into crawlable public producer links and hydration', async () => {
+    const renderShellMock = vi.mocked(renderShell)
+    renderShellMock.mockClear()
+
+    const home = await buildPublicEntry('Home', {
+      siteTitle: 'FsusBlog',
+      siteDescription: 'desc',
+      routeKey: 'home',
+      pageIndex: 1,
+      pageSize: 10,
+      total: 30,
+      nextCursor: 'cursor_home_2',
+      hasMore: true,
+      articles: [],
+      featuredArticles: [],
+      hotArticles: []
+    })
+    const homeAssembly = renderShellMock.mock.calls.at(-1)?.[2] as {
+      props?: { view?: { pagination?: { previous?: { href?: string }; next?: { href?: string } } } }
+    }
+    const homeHydration = decodePublicAotPayload<{ routeKey?: string; nextCursor?: string; hasMore?: boolean }>(home.entry.hydrationPropsPayload)
+
+    expect(home.entry.routeKey).toBe('home')
+    expect(homeHydration).toMatchObject({ routeKey: 'home', nextCursor: 'cursor_home_2', hasMore: true })
+    expect(homeAssembly.props?.view?.pagination?.previous?.href).toBe('/')
+    expect(homeAssembly.props?.view?.pagination?.next?.href).toBe('/?page=2&cursor=cursor_home_2')
+
+    const filter = await buildPublicEntry('Filter', {
+      siteTitle: 'FsusBlog',
+      siteDescription: 'desc',
+      routeKey: 'category:7',
+      title: 'Category',
+      filter: {
+        filterType: 'category',
+        filterKey: 'category:7',
+        filterId: 7,
+        filterName: 'Category',
+        isInvalidTarget: false,
+        pageIndex: 1,
+        pageSize: 10,
+        total: 30,
+        nextCursor: 'cursor_category_2',
+        hasMore: true,
         articles: []
       }
     })
     const filterAssembly = renderShellMock.mock.calls.at(-1)?.[2] as {
       props?: { view?: { pagination?: { previousHref?: string; nextHref?: string } } }
     }
+    const filterHydration = decodePublicAotPayload<{ filter?: { nextCursor?: string; hasMore?: boolean } }>(filter.entry.hydrationPropsPayload)
+    expect(filterHydration?.filter).toMatchObject({ nextCursor: 'cursor_category_2', hasMore: true })
     expect(filterAssembly.props?.view?.pagination?.previousHref).toBe('/category/7')
-    expect(filterAssembly.props?.view?.pagination?.nextHref).toBe('/category/7?page=3')
+    expect(filterAssembly.props?.view?.pagination?.nextHref).toBe('/category/7?page=2&cursor=cursor_category_2')
   })
 
   it('emits one render clock for public article detail and related-reading display times', async () => {

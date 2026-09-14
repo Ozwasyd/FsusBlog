@@ -1,22 +1,17 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
-import { createServer } from 'node:http';
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { digestCommentFixtureValue } from './comment-fixture-contract.mjs';
 import {
     buildCanonicalCommentFixtureRuntimeEvidence,
     buildCommentFixtureCleanupReceipt
 } from './comment-fixture-governance.mjs';
-import { digestCommentFixtureValue } from './comment-fixture-contract.mjs';
-import {
-    cleanupCommentModeration,
-    prepareCommentModeration,
-    verifyCommentModeration
-} from '../test-fixtures/producers/comment-moderation-producer.mjs';
-
+const {cleanupCommentModeration, prepareCommentModeration, verifyCommentModeration} = await import(new URL('../test-fixtures/producers/comment-moderation-producer.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 function hex(value)
@@ -175,7 +170,10 @@ function rawResult(plan, index)
 async function readJson(request)
 {
     const chunks = [];
-    for await (const chunk of request) chunks.push(chunk);
+    for await (const chunk of request)
+    {
+        chunks.push(chunk);
+    }
     return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 
@@ -184,7 +182,9 @@ function requireInvocationHeaders(request)
     if (!request.headers['x-fsus-test-namespace']
         || !request.headers['x-fsus-test-run-id']
         || !request.headers['x-fsus-test-session'])
+    {
         throw new Error('simulated fixture transport is missing current-run headers');
+    }
 }
 
 async function startBackend()
@@ -200,7 +200,10 @@ async function startBackend()
                 requireInvocationHeaders(request);
                 const plan = await readJson(request);
                 const index = plan.runId.endsWith('-1') ? 1 : plan.runId.endsWith('-2') ? 2 : 0;
-                if (index === 0) throw new Error('simulated prepare run is unknown');
+                if (index === 0)
+                {
+                    throw new Error('simulated prepare run is unknown');
+                }
                 const result = rawResult(plan, index);
                 sessions.set(plan.testSession, plan.runId);
                 requests.push({ runId: plan.runId, method: 'POST', path: request.url, status: 200 });
@@ -211,7 +214,10 @@ async function startBackend()
             if (request.method === 'GET' && request.url === '/__local/temporal-observation')
             {
                 const runId = sessions.get(String(request.headers['x-fsus-test-session'] ?? ''));
-                if (!runId) throw new Error('simulated temporal observation is cross-run');
+                if (!runId)
+                {
+                    throw new Error('simulated temporal observation is cross-run');
+                }
                 requests.push({ runId, method: 'GET', path: request.url, status: 200 });
                 response.writeHead(200, { 'Content-Type': 'application/json' });
                 response.end(JSON.stringify({
@@ -282,7 +288,9 @@ export async function collectSimulatedCommentFixtureRuntimeEvidence()
             const result = await prepareCommentModeration(context);
             const verified = await verifyCommentModeration(context, result);
             if (verified?.ok !== true)
+            {
                 throw new Error(`simulated comment producer verification failed: ${verified?.reason ?? 'unknown'}`);
+            }
             const cleanup = await cleanupCommentModeration(context, result);
             return { result, cleanup };
         }));
@@ -298,7 +306,9 @@ export async function collectSimulatedCommentFixtureRuntimeEvidence()
                 { method: 'POST', path: '/api/local/comment-fixture/cleanup', status: 200 }
             ];
             if (JSON.stringify(requests) !== JSON.stringify(expected))
+            {
                 throw new Error(`simulated comment producer run ${index + 1} did not execute the exact transport sequence`);
+            }
             const producerInvocation = {
                 schema: 'fsusblog.comment-fixture-producer-invocation.v1',
                 ordinal: index + 1,
@@ -351,8 +361,10 @@ async function main()
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
+{
     main().catch((error) =>
     {
         process.stderr.write(`${error.stack ?? error.message ?? error}\n`);
         process.exitCode = 1;
     });
+}

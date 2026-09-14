@@ -2,8 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { digestCanonical, sealContentDigest } from '../../test/attempt-provenance.mjs';
-
+const { digestCanonical, sealContentDigest } = await import(new URL('../../test/attempt-provenance.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const digestPattern = /^sha256:[0-9a-f]{64}$/u;
 const candidateFields = Object.freeze([
@@ -30,7 +29,10 @@ function exactKeys(value, fields, label)
 
 function digest(value, label)
 {
-    if (!digestPattern.test(String(value ?? ''))) throw new Error(`${label} must be SHA-256`);
+    if (!digestPattern.test(String(value ?? '')))
+    {
+        throw new Error(`${label} must be SHA-256`);
+    }
 }
 
 export function readOutcomeFailureTaxonomy(file = path.join(root, 'config/testing/outcome-failure-taxonomy.json'))
@@ -95,7 +97,10 @@ function validateIdentity(identity)
 
 function validateReasons(reasons, producerId, taxonomy)
 {
-    if (!Array.isArray(reasons)) throw new Error('outcome reasons must be an array');
+    if (!Array.isArray(reasons))
+    {
+        throw new Error('outcome reasons must be an array');
+    }
     for (const reason of reasons)
     {
         const rule = taxonomy.get(reason?.kind);
@@ -156,7 +161,10 @@ export function validateProducerSemanticOutcomeCandidate(candidate, {
         && (candidate.outcome.status === 'success'
             ? candidate.outcome.requiredMembershipVerified === true && candidate.outcome.reasons.length === 0
             : candidate.outcome.requiredMembershipVerified === false && candidate.outcome.reasons.length > 0);
-    if (!validShape) throw new Error('candidate semantic outcome shape is inconsistent');
+    if (!validShape)
+    {
+        throw new Error('candidate semantic outcome shape is inconsistent');
+    }
     if (candidate.outcome.status === 'success'
         && (candidate.attemptEligibility.attemptNumber !== 1
             || candidate.attemptEligibility.cleanFirstAttempt !== true
@@ -167,7 +175,10 @@ export function validateProducerSemanticOutcomeCandidate(candidate, {
     }
     const unsigned = { ...candidate };
     delete unsigned.contentDigest;
-    if (candidate.contentDigest !== digestCanonical(unsigned)) throw new Error('candidate content digest mismatch');
+    if (candidate.contentDigest !== digestCanonical(unsigned))
+    {
+        throw new Error('candidate content digest mismatch');
+    }
     return candidate;
 }
 
@@ -191,7 +202,10 @@ export function externalCandidateVerification(candidate, {
     validateProducerSemanticOutcomeCandidate(candidate);
     for (const [field, expected] of Object.entries(expectedIdentity))
     {
-        if (candidate.identity[field] !== expected) throw new Error(`candidate identity crosses ${field}`);
+        if (candidate.identity[field] !== expected)
+        {
+            throw new Error(`candidate identity crosses ${field}`);
+        }
     }
     return {
         verified: true,

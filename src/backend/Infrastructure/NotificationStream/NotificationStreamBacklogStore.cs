@@ -12,7 +12,7 @@ public readonly record struct NotificationStreamAppendResult(bool Appended);
 
 public readonly record struct NotificationStreamPublishOrderLock(RedisKey Key, RedisValue Token);
 
-public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis, IRuntimeKeyScope keyScope, ILogger<NotificationStreamBacklogStore> logger)
+public sealed class NotificationStreamBacklogStore(IRedisOperationExecutor redis, IRuntimeKeyScope keyScope, ILogger<NotificationStreamBacklogStore> logger)
 {
     private const string SequenceKey = "fsus:notification-stream:v2:sequence";
     private const string IdempotencyKeyPrefix = "fsus:notification-stream:v2:idempotency:";
@@ -20,13 +20,9 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
     private const string PublishOrderLockPrefix = "fsus:notification-stream:v2:publish-order-lock:";
     private const int StreamMaxLength = 4096;
     private const int MaxReplayEntries = 512;
-    private const int MaxReplayAttempts = 3;
     private static readonly TimeSpan s_idempotencyRetention = TimeSpan.FromDays(7);
     private static readonly TimeSpan s_publishOrderLockExpiry = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan s_publishOrderRetryDelay = TimeSpan.FromMilliseconds(10);
-    private static readonly TimeSpan s_replayRetryDelay = TimeSpan.FromMilliseconds(25);
-
-    private readonly IDatabase _database = redis.GetDatabase();
 
     public async Task<IReadOnlyList<NotificationStreamPublishOrderLock>> AcquirePublishOrderLocksAsync(
         string route,
@@ -49,7 +45,10 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
             {
                 RedisKey lockKey = keyScope.PrefixKey(PublishOrderLockPrefix + storageRoute);
                 RedisValue lockToken = Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture);
-                while (!await _database.LockTakeAsync(lockKey, lockToken, s_publishOrderLockExpiry).ConfigureAwait(false))
+                while (!await ExecuteDatabaseAsync(
+                    RedisOperationPort.NotificationPublishOrderLease,
+                    (database, _) => database.LockTakeAsync(lockKey, lockToken, s_publishOrderLockExpiry),
+                    cancellationToken).ConfigureAwait(false))
                 {
                     await Task.Delay(s_publishOrderRetryDelay, cancellationToken).ConfigureAwait(false);
                 }
@@ -79,7 +78,10 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
         for (int i = locks.Count - 1; i >= 0; i--)
         {
             NotificationStreamPublishOrderLock ownedLock = locks[i];
-            releasedAll &= await _database.LockReleaseAsync(ownedLock.Key, ownedLock.Token).ConfigureAwait(false);
+            releasedAll &= await ExecuteDatabaseAsync(
+                RedisOperationPort.NotificationPublishOrderLease,
+                (database, _) => database.LockReleaseAsync(ownedLock.Key, ownedLock.Token),
+                CancellationToken.None).ConfigureAwait(false);
         }
 
         return releasedAll;
@@ -88,7 +90,10 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
     public async Task<long> NextEventIdAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return await _database.StringIncrementAsync(keyScope.PrefixKey(SequenceKey)).ConfigureAwait(false);
+        return await ExecuteDatabaseAsync(
+            RedisOperationPort.NotificationBacklog,
+            (database, _) => database.StringIncrementAsync(keyScope.PrefixKey(SequenceKey)),
+            cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<long> GetOrCreateEventIdAsync(
@@ -103,18 +108,21 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
 
         RedisKey dedupeKey = keyScope.PrefixKey(string.Concat(IdempotencyKeyPrefix, idempotencyKey));
         RedisKey sequenceKey = keyScope.PrefixKey(SequenceKey);
-        RedisResult result = await _database.ScriptEvaluateAsync(
-            """
-            local existing = redis.call('GET', KEYS[1])
-            if existing then
-                return existing
-            end
-            local event_id = redis.call('INCR', KEYS[2])
-            redis.call('SET', KEYS[1], event_id, 'PX', ARGV[1], 'NX')
-            return event_id
-            """,
-            [dedupeKey, sequenceKey],
-            [(RedisValue)(long)s_idempotencyRetention.TotalMilliseconds]).ConfigureAwait(false);
+        RedisResult result = await ExecuteDatabaseAsync(
+            RedisOperationPort.NotificationBacklog,
+            (database, _) => database.ScriptEvaluateAsync(
+                """
+                local existing = redis.call('GET', KEYS[1])
+                if existing then
+                    return existing
+                end
+                local event_id = redis.call('INCR', KEYS[2])
+                redis.call('SET', KEYS[1], event_id, 'PX', ARGV[1], 'NX')
+                return event_id
+                """,
+                [dedupeKey, sequenceKey],
+                [(RedisValue)(long)s_idempotencyRetention.TotalMilliseconds]),
+            cancellationToken).ConfigureAwait(false);
         return (long)result;
     }
 
@@ -128,8 +136,11 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
             return null;
         }
 
-        RedisValue value = await _database.StringGetAsync(
-                keyScope.PrefixKey(string.Concat(IdempotencyKeyPrefix, idempotencyKey)))
+        RedisValue value = await ExecuteDatabaseAsync(
+                RedisOperationPort.NotificationBacklogRead,
+                (database, _) => database.StringGetAsync(
+                    keyScope.PrefixKey(string.Concat(IdempotencyKeyPrefix, idempotencyKey))),
+                cancellationToken)
             .ConfigureAwait(false);
         return value.TryParse(out long eventId) && eventId > 0 ? eventId : null;
     }
@@ -144,10 +155,13 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
         var eventIds = new SortedSet<long>();
         foreach (string route in routes)
         {
-            StreamEntry[] entries = await _database.StreamRangeAsync(
-                    RouteStreamKey(route),
-                    count: MaxReplayEntries,
-                    messageOrder: Order.Ascending)
+            StreamEntry[] entries = await ExecuteDatabaseAsync(
+                    RedisOperationPort.NotificationBacklogRead,
+                    (database, _) => database.StreamRangeAsync(
+                        RouteStreamKey(route),
+                        count: MaxReplayEntries,
+                        messageOrder: Order.Ascending),
+                    cancellationToken)
                 .ConfigureAwait(false);
             foreach (StreamEntry entry in entries)
             {
@@ -189,7 +203,10 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
         {
             if (streamIds.Length > 0)
             {
-                await _database.StreamDeleteAsync(RouteStreamKey(route), streamIds).ConfigureAwait(false);
+                await ExecuteDatabaseAsync(
+                    RedisOperationPort.NotificationBacklog,
+                    (database, _) => database.StreamDeleteAsync(RouteStreamKey(route), streamIds),
+                    cancellationToken).ConfigureAwait(false);
             }
         }
         RedisKey[] dedupeKeys = idempotencyKeys
@@ -200,7 +217,10 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
             .ToArray();
         if (dedupeKeys.Length > 0)
         {
-            await _database.KeyDeleteAsync(dedupeKeys).ConfigureAwait(false);
+            await ExecuteDatabaseAsync(
+                RedisOperationPort.NotificationBacklog,
+                (database, _) => database.KeyDeleteAsync(dedupeKeys),
+                cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -229,7 +249,14 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
                 bool appended = false;
                 foreach (string storageRoute in storageRoutes)
                 {
-                    appended |= await AppendToRouteIdempotentlyAsync(RouteStreamKey(storageRoute), streamId, frame)
+                    appended |= await ExecuteDatabaseAsync(
+                            RedisOperationPort.NotificationBacklog,
+                            (database, _) => AppendToRouteIdempotentlyAsync(
+                                database,
+                                RouteStreamKey(storageRoute),
+                                streamId,
+                                frame),
+                            cancellationToken)
                         .ConfigureAwait(false);
                 }
                 return Result<NotificationStreamAppendResult>.Success(new NotificationStreamAppendResult(appended));
@@ -237,32 +264,41 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
 
             if (storageRoutes.Count == 1)
             {
-                await _database.StreamAddAsync(
-                        RouteStreamKey(storageRoutes[0]),
-                        "f",
-                        frame.BufferMemory,
-                        streamId,
-                        StreamMaxLength,
-                        useApproximateMaxLength: true)
+                await ExecuteDatabaseAsync(
+                        RedisOperationPort.NotificationBacklog,
+                        (database, _) => database.StreamAddAsync(
+                            RouteStreamKey(storageRoutes[0]),
+                            "f",
+                            frame.BufferMemory,
+                            streamId,
+                            StreamMaxLength,
+                            useApproximateMaxLength: true),
+                        cancellationToken)
                     .ConfigureAwait(false);
                 return Result<NotificationStreamAppendResult>.Success(new NotificationStreamAppendResult(true));
             }
 
-            IBatch batch = _database.CreateBatch();
-            var writes = new Task<RedisValue>[storageRoutes.Count];
-            for (int i = 0; i < storageRoutes.Count; i++)
-            {
-                writes[i] = batch.StreamAddAsync(
-                    RouteStreamKey(storageRoutes[i]),
-                    "f",
-                    frame.BufferMemory,
-                    streamId,
-                    StreamMaxLength,
-                    useApproximateMaxLength: true);
-            }
+            await ExecuteDatabaseAsync(
+                RedisOperationPort.NotificationBacklog,
+                async (database, _) =>
+                {
+                    IBatch batch = database.CreateBatch();
+                    var writes = new Task<RedisValue>[storageRoutes.Count];
+                    for (int i = 0; i < storageRoutes.Count; i++)
+                    {
+                        writes[i] = batch.StreamAddAsync(
+                            RouteStreamKey(storageRoutes[i]),
+                            "f",
+                            frame.BufferMemory,
+                            streamId,
+                            StreamMaxLength,
+                            useApproximateMaxLength: true);
+                    }
 
-            batch.Execute();
-            await Task.WhenAll(writes).ConfigureAwait(false);
+                    batch.Execute();
+                    await Task.WhenAll(writes).ConfigureAwait(false);
+                },
+                cancellationToken).ConfigureAwait(false);
             return Result<NotificationStreamAppendResult>.Success(new NotificationStreamAppendResult(true));
         }
         catch (Exception ex)
@@ -275,11 +311,12 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
     }
 
     private async Task<bool> AppendToRouteIdempotentlyAsync(
+        IDatabase database,
         RedisKey streamKey,
         RedisValue streamId,
         SharedNotificationStreamFrame frame)
     {
-        StreamEntry[] existing = await _database.StreamRangeAsync(streamKey, streamId, streamId, 1)
+        StreamEntry[] existing = await database.StreamRangeAsync(streamKey, streamId, streamId, 1)
             .ConfigureAwait(false);
         if (existing.Length > 0)
         {
@@ -288,7 +325,7 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
 
         try
         {
-            await _database.StreamAddAsync(
+            await database.StreamAddAsync(
                     streamKey,
                     "f",
                     frame.BufferMemory,
@@ -300,7 +337,7 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
         }
         catch
         {
-            existing = await _database.StreamRangeAsync(streamKey, streamId, streamId, 1).ConfigureAwait(false);
+            existing = await database.StreamRangeAsync(streamKey, streamId, streamId, 1).ConfigureAwait(false);
             if (existing.Length == 0)
             {
                 throw;
@@ -319,36 +356,37 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
             return NotificationStreamReplayBatch.Empty;
         }
 
-        Exception? lastFailure = null;
-        for (int attempt = 1; attempt <= MaxReplayAttempts; attempt++)
+        int attempt = 0;
+        try
         {
-            try
-            {
-                return await ReplayOnceAsync(cursor, userId, groups, cancellationToken, attempt).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                lastFailure = ex;
-                if (attempt < MaxReplayAttempts)
-                {
-                    await Task.Delay(s_replayRetryDelay, cancellationToken).ConfigureAwait(false);
-                }
-            }
+            return await ExecuteDatabaseAsync(
+                RedisOperationPort.NotificationBacklogRead,
+                (database, deadlineToken) => ReplayOnceAsync(
+                    database,
+                    cursor,
+                    userId,
+                    groups,
+                    deadlineToken,
+                    Interlocked.Increment(ref attempt)),
+                cancellationToken).ConfigureAwait(false);
         }
-
-        logger.LogWarning(
-            lastFailure,
-            "Failed to replay notification stream backlog after bounded retries. Cursor: {Cursor} | Attempts: {Attempts}",
-            cursor.Value,
-            MaxReplayAttempts);
-        return NotificationStreamReplayBatch.Failed("replay-read-failed", MaxReplayAttempts);
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex,
+                "Failed to replay notification stream backlog after classified retries. Cursor: {Cursor} | Attempts: {Attempts}",
+                cursor.Value,
+                Math.Max(1, attempt));
+            return NotificationStreamReplayBatch.Failed("replay-read-failed", Math.Max(1, attempt));
+        }
     }
 
     private async Task<NotificationStreamReplayBatch> ReplayOnceAsync(
+        IDatabase database,
         NotificationStreamCursor cursor,
         string? userId,
         IReadOnlySet<string> groups,
@@ -360,7 +398,7 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
         bool missedGap = false;
         int scannedEntries = 0;
         List<ReplayEntry> replayEntries = [];
-        RouteReplayReadBatch routeReplayBatch = await ReadRouteReplaysAsync(replayRoutes, start, cursor.Value).ConfigureAwait(false);
+        RouteReplayReadBatch routeReplayBatch = await ReadRouteReplaysAsync(database, replayRoutes, start, cursor.Value).ConfigureAwait(false);
         RouteReplayRead[] reads = routeReplayBatch.Reads;
         int redisCommandCount = routeReplayBatch.RedisCommandCount;
         for (int routeIndex = 0; routeIndex < reads.Length; routeIndex++)
@@ -419,7 +457,11 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
     private string RouteStreamKey(string route)
         => keyScope.PrefixKey(RouteStreamPrefix + route);
 
-    private async Task<RouteReplayReadBatch> ReadRouteReplaysAsync(IReadOnlyList<string> routes, string start, long cursorValue)
+    private async Task<RouteReplayReadBatch> ReadRouteReplaysAsync(
+        IDatabase database,
+        IReadOnlyList<string> routes,
+        string start,
+        long cursorValue)
     {
         if (routes.Count == 0)
         {
@@ -428,11 +470,11 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
 
         if (routes.Count == 1)
         {
-            RouteReplayRead read = await ReadRouteReplayAsync(routes[0], start, cursorValue).ConfigureAwait(false);
+            RouteReplayRead read = await ReadRouteReplayAsync(database, routes[0], start, cursorValue).ConfigureAwait(false);
             return new RouteReplayReadBatch([read], 1);
         }
 
-        IBatch batch = _database.CreateBatch();
+        IBatch batch = database.CreateBatch();
         PendingRouteReplayRead[] pendingReads = new PendingRouteReplayRead[routes.Count];
         string cursorUpperBound = string.Create(CultureInfo.InvariantCulture, $"{cursorValue}-0");
         for (int i = 0; i < routes.Count; i++)
@@ -468,10 +510,14 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
         return new RouteReplayReadBatch(reads, routes.Count);
     }
 
-    private async Task<RouteReplayRead> ReadRouteReplayAsync(string route, string start, long cursorValue)
+    private async Task<RouteReplayRead> ReadRouteReplayAsync(
+        IDatabase database,
+        string route,
+        string start,
+        long cursorValue)
     {
         string streamKey = RouteStreamKey(route);
-        IBatch batch = _database.CreateBatch();
+        IBatch batch = database.CreateBatch();
         Task<StreamEntry[]> firstTask = batch.StreamRangeAsync(streamKey, count: 1);
         Task<StreamEntry[]> entriesTask = batch.StreamRangeAsync(streamKey, start, "+", MaxReplayEntries);
         string cursorUpperBound = string.Create(CultureInfo.InvariantCulture, $"{cursorValue}-0");
@@ -525,6 +571,24 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
 
         return long.TryParse(raw.AsSpan(0, separator), NumberStyles.None, CultureInfo.InvariantCulture, out eventId);
     }
+
+    private Task<T> ExecuteDatabaseAsync<T>(
+        RedisOperationPort port,
+        Func<IDatabase, CancellationToken, Task<T>> operation,
+        CancellationToken cancellationToken)
+        => redis.ExecuteAsync(
+            port,
+            (multiplexer, deadlineToken) => operation(multiplexer.GetDatabase(), deadlineToken),
+            cancellationToken);
+
+    private Task ExecuteDatabaseAsync(
+        RedisOperationPort port,
+        Func<IDatabase, CancellationToken, Task> operation,
+        CancellationToken cancellationToken)
+        => redis.ExecuteAsync(
+            port,
+            (multiplexer, deadlineToken) => operation(multiplexer.GetDatabase(), deadlineToken),
+            cancellationToken);
 
     private readonly record struct ReplayEntry(long EventId, RedisValue Frame);
     private readonly record struct RouteReplayRead(StreamEntry[] Entries, bool MissedGap);

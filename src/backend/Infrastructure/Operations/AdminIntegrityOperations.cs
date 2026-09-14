@@ -149,7 +149,7 @@ internal sealed class AdminIntegrityOperations(
         IntegrityCheckSample invalidCurrentPublication = await RunIntegritySqlCheckAsync("article_current_publication_invalid", $$"""
             SELECT 'article:' || a.id || ':publication:' || COALESCE(a.current_publication_id::text, 'null') AS sample_key
             FROM article a
-            LEFT JOIN article_publication_record p
+            LEFT JOIN article_publication p
               ON p.id = a.current_publication_id
              AND p.article_id = a.id
             LEFT JOIN article_revision r

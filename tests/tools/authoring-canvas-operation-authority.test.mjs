@@ -4,10 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import {
-    checkAuthoringCanvasOperationAuthority
-} from '../../tools/governance/check-authoring-canvas-operation-authority.mjs';
-
+const {checkAuthoringCanvasOperationAuthority} = await import(new URL('../../tools/governance/check-authoring-canvas-operation-authority.mjs', import.meta.url));
 const root = path.resolve(import.meta.dirname, '../..');
 
 function write(repositoryRoot, relative, source)

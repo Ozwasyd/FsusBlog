@@ -5,6 +5,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Pagination;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
@@ -440,7 +441,7 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
         var service = new AuthoringModerationWorkflowService(
             db,
             contentFilter,
-            Substitute.For<IBlacklistService>(),
+            Substitute.For<IBanStateProjectionObligationCoordinator>(),
             Substitute.For<ICacheInvalidationDispatcher>(),
             realtime,
             commands,

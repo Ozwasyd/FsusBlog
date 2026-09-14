@@ -12,13 +12,17 @@ function exactKeys(value, keys, label)
 {
     if (!plainObject(value)
         || JSON.stringify(Object.keys(value).sort()) !== JSON.stringify([...keys].sort()))
+    {
         throw new Error(`comment cleanup ${label} has an invalid shape`);
+    }
 }
 
 function requireText(value, label)
 {
     if (typeof value !== 'string' || !value.trim())
+    {
         throw new Error(`comment cleanup ${label} is required`);
+    }
     return value;
 }
 
@@ -33,21 +37,29 @@ function normalizeBinding(binding)
     ];
     exactKeys(binding, keys, 'binding');
     if (!Number.isSafeInteger(binding.articleId) || binding.articleId <= 0)
+    {
         throw new Error('comment cleanup binding articleId is invalid');
+    }
     const capabilities = binding.capabilities;
     if (!Array.isArray(capabilities) || capabilities.length === 0
         || JSON.stringify(capabilities) !== JSON.stringify([...new Set(capabilities)].sort()))
+    {
         throw new Error('comment cleanup binding capabilities must be sorted and unique');
+    }
     const references = binding.authPrepareReferenceDigests;
     if (!Array.isArray(references) || references.length !== 3
         || JSON.stringify(references) !== JSON.stringify([...new Set(references)].sort()))
+    {
         throw new Error('comment cleanup auth references must be exact');
+    }
     for (const key of [
         'authProducerResultDigest', 'publicContentProducerResultDigest', 'articleProjectionDigest',
         'inventoryDigest', 'capabilityCatalogDigest', 'variantCatalogDigest',
         'temporalContextDigest', 'producerPlanDigest', 'planDigest'
     ])
+    {
         assertDigest(binding[key], `comment cleanup binding ${key}`);
+    }
     references.forEach((value, index) => assertDigest(value, `comment cleanup auth reference ${index}`));
     const result = {
         runId: requireText(binding.runId, 'runId'),
@@ -69,7 +81,9 @@ function normalizeBinding(binding)
         planDigest: binding.planDigest
     };
     if (result.owner !== `comment-fixture:${result.namespace}:${result.runId}`)
+    {
         throw new Error('comment cleanup binding owner is cross-run');
+    }
     return freezeDeep(result);
 }
 
@@ -88,14 +102,18 @@ function normalizeCrossDomain(value, binding)
         || !Number.isSafeInteger(value.adminPrincipalId) || value.adminPrincipalId <= 0
         || ['articleDigest', 'authDigest', 'adminDigest', 'securityDigest']
             .some((key) => !digest.test(String(value[key] ?? ''))))
+    {
         throw new Error('comment cleanup cross-domain sentinel is invalid');
+    }
     return freezeDeep({ ...value, accountIds: Object.freeze([...value.accountIds]) });
 }
 
 function normalizeOwnedComments(value, binding)
 {
     if (!plainObject(value) || Object.keys(value).length === 0)
+    {
         throw new Error('comment cleanup ownedComments must be non-empty');
+    }
     const identityKeys = [
         'commentId', 'articleId', 'semanticRole', 'actorMode', 'accountId',
         'contentDigest', 'currentVersion', 'isDeleted', 'operationPlanDigest'
@@ -118,7 +136,9 @@ function normalizeOwnedComments(value, binding)
             || typeof identity.isDeleted !== 'boolean'
             || !digest.test(String(identity.operationPlanDigest ?? ''))
             || operationDigests.has(identity.operationPlanDigest))
+        {
             throw new Error(`comment cleanup owned comment ${id} is invalid`);
+        }
         roles.add(identity.semanticRole);
         operationDigests.add(identity.operationPlanDigest);
         normalized[id] = freezeDeep({ ...identity });
@@ -129,11 +149,15 @@ function normalizeOwnedComments(value, binding)
 export function normalizeCleanupContract(value)
 {
     if (!plainObject(value) || value.kind !== 'comment-exact-receipt')
+    {
         throw new Error('comment cleanup contract requires comment-exact-receipt');
+    }
     exactKeys(value, ['kind', 'receipt'], 'contract');
     exactKeys(value.receipt, ['schema', 'binding', 'ownedComments', 'crossDomainBefore'], 'receipt');
     if (value.receipt.schema !== 'fsusblog.comment-thread-fixture-cleanup.v1')
+    {
         throw new Error('comment cleanup contract requires its exact typed receipt');
+    }
     const binding = normalizeBinding(value.receipt.binding);
     const receipt = {
         schema: value.receipt.schema,

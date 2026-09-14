@@ -3,8 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { extractCurrentVersion } from '../../tools/governance/dependency-freshness.mjs';
-
+const { extractCurrentVersion } = await import(new URL('../../tools/governance/dependency-freshness.mjs', import.meta.url));
 const digest = `sha256:${'a'.repeat(64)}`;
 function fixture(t, source)
 {
@@ -14,7 +13,8 @@ function fixture(t, source)
     return root;
 }
 
-test('literal Dockerfile and Compose references retain their immutable digest', t => {
+test('literal Dockerfile and Compose references retain their immutable digest', t =>
+{
     for (const [manager, source] of [
         ['dockerfile', `FROM redis:8.0@${digest} AS cache`],
         ['docker-compose', `services:\n  cache:\n    image: "redis:8.0@${digest}"`]
@@ -25,7 +25,8 @@ test('literal Dockerfile and Compose references retain their immutable digest', 
     }
 });
 
-test('custom container projections retain pins and reject inconsistent repeated identities', t => {
+test('custom container projections retain pins and reject inconsistent repeated identities', t =>
+{
     const root = fixture(t, `redis:8.0@${digest}\nredis:8.0@${digest}\nversion=8.0`);
     const item = { id: 'redis', manager: 'custom.regex', datasource: 'docker', customManager: 'pins', packageName: 'redis', files: ['source'] };
     const config = { customManagers: [{ description: 'pins', depNameTemplate: 'redis', managerFilePatterns: ['/source/'], matchStrings: [
@@ -36,7 +37,8 @@ test('custom container projections retain pins and reject inconsistent repeated 
     assert.throws(() => extractCurrentVersion(root, item, config), /references-disagree/);
 });
 
-test('Dockerfile global ARG expansion preserves every flavor and ignores stage-scoped defaults', t => {
+test('Dockerfile global ARG expansion preserves every flavor and ignores stage-scoped defaults', t =>
+{
     const other = `sha256:${'b'.repeat(64)}`;
     const root = fixture(t, `ARG NODE_VERSION=24.1.0\nARG MUSL=${digest}\nARG GLIBC=${other}\nFROM node:\${NODE_VERSION}-alpine@\${MUSL} AS musl\nARG NODE_VERSION=99.0.0\nFROM --platform=linux/amd64 node:\${NODE_VERSION}-slim@\${GLIBC} AS glibc`);
     const item = { manager: 'dockerfile', packageName: 'node', files: ['source'] };

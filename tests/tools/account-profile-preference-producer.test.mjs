@@ -5,25 +5,12 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { plan } from '../../tools/test-fixtures/orchestrator.mjs';
-import { createProducerContext } from '../../tools/test-fixtures/producer-port.mjs';
-import {
-    defaultTimeoutPolicyDigest,
-    qualificationTemporalContext
-} from '../../tools/test/temporal-context.mjs';
-import {
-    cleanupAccountProfilePreferences,
-    prepareAccountProfilePreferences,
-    verifyAccountProfilePreferences
-} from '../../tools/test-fixtures/producers/account-profile-preference-producer.mjs';
-import { buildProducerReceipt } from '../../tools/test-fixtures/receipt/index.mjs';
-import {
-    buildFixtureVariantPlan,
-    buildProducerFixtureVariantPlan,
-    fixtureCatalogDigest,
-    readFixtureCatalogs
-} from '../../tools/testing/fixture-catalog.mjs';
-
+const {plan} = await import(new URL('../../tools/test-fixtures/orchestrator.mjs', import.meta.url));
+const {createProducerContext} = await import(new URL('../../tools/test-fixtures/producer-port.mjs', import.meta.url));
+const {defaultTimeoutPolicyDigest, qualificationTemporalContext} = await import(new URL('../../tools/test/temporal-context.mjs', import.meta.url));
+const {cleanupAccountProfilePreferences, prepareAccountProfilePreferences, verifyAccountProfilePreferences} = await import(new URL('../../tools/test-fixtures/producers/account-profile-preference-producer.mjs', import.meta.url));
+const {buildProducerReceipt} = await import(new URL('../../tools/test-fixtures/receipt/index.mjs', import.meta.url));
+const {buildFixtureVariantPlan, buildProducerFixtureVariantPlan, fixtureCatalogDigest, readFixtureCatalogs} = await import(new URL('../../tools/testing/fixture-catalog.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const producerId = 'account-profile-preferences';
 const digest = 'ab'.repeat(32);

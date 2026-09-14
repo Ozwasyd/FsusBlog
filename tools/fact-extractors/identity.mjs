@@ -34,40 +34,94 @@ function assertSortedUniqueSourceDigests(sourceDigests)
         throw new Error('buildIdentity.sourceDigests must be a non-empty sealed array');
     }
     const paths = sourceDigests.map((entry) => canonicalRelativePath(entry.path, 'buildIdentity.sourceDigests.path'));
-    if (new Set(paths).size !== paths.length) throw new Error('buildIdentity.sourceDigests must not contain duplicate paths');
-    if (JSON.stringify(paths) !== JSON.stringify([...paths].sort())) throw new Error('buildIdentity.sourceDigests must use canonical path order');
-    if (sourceDigests.some((entry) => !/^[a-f0-9]{64}$/u.test(entry.digest ?? ''))) throw new Error('buildIdentity.sourceDigests digests must be lowercase sha256 hex');
+    if (new Set(paths).size !== paths.length)
+    {
+        throw new Error('buildIdentity.sourceDigests must not contain duplicate paths');
+    }
+    if (JSON.stringify(paths) !== JSON.stringify([...paths].sort()))
+    {
+        throw new Error('buildIdentity.sourceDigests must use canonical path order');
+    }
+    if (sourceDigests.some((entry) => !/^[a-f0-9]{64}$/u.test(entry.digest ?? '')))
+    {
+        throw new Error('buildIdentity.sourceDigests digests must be lowercase sha256 hex');
+    }
     return sourceDigests.map((entry, index) => ({ path: paths[index], digest: entry.digest }));
 }
 
 function readCanonicalReceipt(repositoryRoot, receiptPath, receiptOverride)
 {
-    if (receiptOverride !== undefined) return structuredClone(receiptOverride);
-    if (typeof receiptPath !== 'string' || receiptPath.length === 0) throw new Error('canonical build identity requires a canonical receipt path');
+    if (receiptOverride !== undefined)
+    {
+        return structuredClone(receiptOverride);
+    }
+    if (typeof receiptPath !== 'string' || receiptPath.length === 0)
+    {
+        throw new Error('canonical build identity requires a canonical receipt path');
+    }
     const absolute = path.isAbsolute(receiptPath) ? path.resolve(receiptPath) : path.resolve(repositoryRoot, receiptPath);
     const relative = path.relative(path.resolve(repositoryRoot), absolute).replaceAll(path.sep, '/');
     canonicalRelativePath(relative, 'build receipt path');
-    if (!existsSync(absolute)) throw new Error(`canonical build receipt is missing: ${relative}`);
-    try { return JSON.parse(readFileSync(absolute, 'utf8')); }
-    catch (error) { throw new Error(`canonical build receipt is not valid JSON: ${error.message}`); }
+    if (!existsSync(absolute))
+    {
+        throw new Error(`canonical build receipt is missing: ${relative}`);
+    }
+    try
+    {
+        return JSON.parse(readFileSync(absolute, 'utf8'));
+    }
+    catch (error)
+    {
+        throw new Error(`canonical build receipt is not valid JSON: ${error.message}`, { cause: error });
+    }
 }
 
 function validateCanonicalBuildIdentity(buildIdentity, requiredBuildArtifact, {
     repositoryRoot, receiptPath, receipt, expectedSourceIdentity = null
 })
 {
-    if (!hasExactKeys(buildIdentity, canonicalBuildIdentityKeys)) throw new Error(`buildIdentity fields are not sealed for ${requiredBuildArtifact}`);
-    if (buildIdentity.schema !== buildIdentitySchema) throw new Error(`buildIdentity.schema must be ${buildIdentitySchema}`);
-    if (buildIdentity.artifactId !== requiredBuildArtifact) throw new Error(`buildIdentity.artifactId ${buildIdentity.artifactId || '<empty>'} does not match requiredBuildArtifact ${requiredBuildArtifact}`);
-    if (!/^[a-f0-9]{64}$/u.test(buildIdentity.receiptDigest ?? '') || !/^[a-f0-9]{64}$/u.test(buildIdentity.artifactDigest ?? '') || !/^[a-f0-9]{64}$/u.test(buildIdentity.sourceDigest ?? '')) throw new Error('buildIdentity digests must be lowercase sha256 hex');
+    if (!hasExactKeys(buildIdentity, canonicalBuildIdentityKeys))
+    {
+        throw new Error(`buildIdentity fields are not sealed for ${requiredBuildArtifact}`);
+    }
+    if (buildIdentity.schema !== buildIdentitySchema)
+    {
+        throw new Error(`buildIdentity.schema must be ${buildIdentitySchema}`);
+    }
+    if (buildIdentity.artifactId !== requiredBuildArtifact)
+    {
+        throw new Error(`buildIdentity.artifactId ${buildIdentity.artifactId || '<empty>'} does not match requiredBuildArtifact ${requiredBuildArtifact}`);
+    }
+    if (!/^[a-f0-9]{64}$/u.test(buildIdentity.receiptDigest ?? '') || !/^[a-f0-9]{64}$/u.test(buildIdentity.artifactDigest ?? '') || !/^[a-f0-9]{64}$/u.test(buildIdentity.sourceDigest ?? ''))
+    {
+        throw new Error('buildIdentity digests must be lowercase sha256 hex');
+    }
     const sourceDigests = assertSortedUniqueSourceDigests(buildIdentity.sourceDigests);
-    if (buildIdentity.sourceDigest !== digestValue(sourceDigests)) throw new Error('buildIdentity sourceDigest does not match sourceDigests');
-    if (repositoryRoot == null || typeof repositoryRoot !== 'string') throw new Error('canonical build identity requires repositoryRoot');
+    if (buildIdentity.sourceDigest !== digestValue(sourceDigests))
+    {
+        throw new Error('buildIdentity sourceDigest does not match sourceDigests');
+    }
+    if (repositoryRoot == null || typeof repositoryRoot !== 'string')
+    {
+        throw new Error('canonical build identity requires repositoryRoot');
+    }
     const canonicalReceipt = readCanonicalReceipt(repositoryRoot, receiptPath, receipt);
-    if (canonicalReceipt == null || typeof canonicalReceipt !== 'object' || Array.isArray(canonicalReceipt)) throw new Error('canonical build receipt must be an object');
-    if (typeof canonicalReceipt.contentDigest !== 'string' || canonicalReceipt.contentDigest !== digestValue({ ...canonicalReceipt, contentDigest: null })) throw new Error('canonical build receipt self-digest mismatch');
-    if (buildIdentity.receiptDigest !== canonicalReceipt.contentDigest) throw new Error('buildIdentity.receiptDigest does not bind the canonical receipt');
-    if (canonicalReceipt.schema !== 'fsusblog.behavior-doc-minimal-contract-build-receipt.v1' || canonicalReceipt.status !== 'ok' || !Array.isArray(canonicalReceipt.failureReasons) || canonicalReceipt.failureReasons.length !== 0) throw new Error('canonical build receipt is not an admitted minimal build receipt');
+    if (canonicalReceipt == null || typeof canonicalReceipt !== 'object' || Array.isArray(canonicalReceipt))
+    {
+        throw new Error('canonical build receipt must be an object');
+    }
+    if (typeof canonicalReceipt.contentDigest !== 'string' || canonicalReceipt.contentDigest !== digestValue({ ...canonicalReceipt, contentDigest: null }))
+    {
+        throw new Error('canonical build receipt self-digest mismatch');
+    }
+    if (buildIdentity.receiptDigest !== canonicalReceipt.contentDigest)
+    {
+        throw new Error('buildIdentity.receiptDigest does not bind the canonical receipt');
+    }
+    if (canonicalReceipt.schema !== 'fsusblog.behavior-doc-minimal-contract-build-receipt.v1' || canonicalReceipt.status !== 'ok' || !Array.isArray(canonicalReceipt.failureReasons) || canonicalReceipt.failureReasons.length !== 0)
+    {
+        throw new Error('canonical build receipt is not an admitted minimal build receipt');
+    }
     if (!commitPattern.test(canonicalReceipt.sourceCommit ?? '')
         || !/^[a-f0-9]{64}$/u.test(canonicalReceipt.worktreeFingerprint ?? '')
         || !/^[a-f0-9]{64}$/u.test(canonicalReceipt.buildKey ?? '')
@@ -80,17 +134,35 @@ function validateCanonicalBuildIdentity(buildIdentity, requiredBuildArtifact, {
     {
         throw new Error('canonical build receipt identity is incomplete');
     }
-    if (expectedSourceIdentity && (canonicalReceipt.sourceCommit !== expectedSourceIdentity.sourceCommit || canonicalReceipt.worktreeFingerprint !== expectedSourceIdentity.worktreeFingerprint)) throw new Error('canonical build receipt source/worktree identity mismatch');
+    if (expectedSourceIdentity && (canonicalReceipt.sourceCommit !== expectedSourceIdentity.sourceCommit || canonicalReceipt.worktreeFingerprint !== expectedSourceIdentity.worktreeFingerprint))
+    {
+        throw new Error('canonical build receipt source/worktree identity mismatch');
+    }
     const receiptSourceDigests = canonicalReceipt.sourceClosureDigests ?? canonicalReceipt.sourceDigests;
     const normalizedReceiptSourceDigests = assertSortedUniqueSourceDigests(receiptSourceDigests);
-    if (JSON.stringify(normalizedReceiptSourceDigests) !== JSON.stringify(sourceDigests)) throw new Error('buildIdentity source path set does not match the canonical receipt');
-    if (canonicalReceipt.sourceDigest != null && canonicalReceipt.sourceDigest !== buildIdentity.sourceDigest) throw new Error('canonical build receipt sourceDigest mismatch');
+    if (JSON.stringify(normalizedReceiptSourceDigests) !== JSON.stringify(sourceDigests))
+    {
+        throw new Error('buildIdentity source path set does not match the canonical receipt');
+    }
+    if (canonicalReceipt.sourceDigest != null && canonicalReceipt.sourceDigest !== buildIdentity.sourceDigest)
+    {
+        throw new Error('canonical build receipt sourceDigest mismatch');
+    }
     if (typeof canonicalReceipt.buildKey === 'string' && typeof canonicalReceipt.buildRoot === 'string' && canonicalReceipt.toolchain != null)
     {
         const expectedBuildKey = digestValue({ sourceIdentity: { sourceCommit: canonicalReceipt.sourceCommit, worktreeFingerprint: canonicalReceipt.worktreeFingerprint }, toolchain: canonicalReceipt.toolchain, sourceClosureDigests: normalizedReceiptSourceDigests });
-        if (canonicalReceipt.buildKey !== expectedBuildKey || canonicalReceipt.buildRoot !== `.tmp/behavior-doc-contract-builds/${canonicalReceipt.buildKey}`) throw new Error('canonical build receipt content address mismatch');
+        if (canonicalReceipt.buildKey !== expectedBuildKey || canonicalReceipt.buildRoot !== `.tmp/behavior-doc-contract-builds/${canonicalReceipt.buildKey}`)
+        {
+            throw new Error('canonical build receipt content address mismatch');
+        }
     }
-    for (const source of sourceDigests) if (digestPath(repositoryRoot, source.path) !== source.digest) throw new Error(`canonical build source digest mismatch: ${source.path}`);
+    for (const source of sourceDigests)
+    {
+        if (digestPath(repositoryRoot, source.path) !== source.digest)
+        {
+            throw new Error(`canonical build source digest mismatch: ${source.path}`);
+        }
+    }
     const artifact = canonicalReceipt.artifacts?.[requiredBuildArtifact];
     if (artifact == null || typeof artifact !== 'object' || Array.isArray(artifact)
         || (!hasExactKeys(artifact, ['project', 'projectDigest', 'path', 'artifactDigest']) && !hasExactKeys(artifact, ['project', 'projectDigest', 'path', 'artifactPath', 'artifactDigest']))
@@ -101,13 +173,22 @@ function validateCanonicalBuildIdentity(buildIdentity, requiredBuildArtifact, {
     }
     canonicalRelativePath(artifact.project, `canonical artifact ${requiredBuildArtifact}.project`);
     canonicalRelativePath(artifact.path, `canonical artifact ${requiredBuildArtifact}.path`);
-    if (digestPath(repositoryRoot, artifact.project) !== artifact.projectDigest) throw new Error(`canonical build project digest mismatch: ${requiredBuildArtifact}`);
-    if (digestPath(repositoryRoot, artifact.path) !== buildIdentity.artifactDigest) throw new Error(`canonical build artifact digest mismatch: ${requiredBuildArtifact}`);
+    if (digestPath(repositoryRoot, artifact.project) !== artifact.projectDigest)
+    {
+        throw new Error(`canonical build project digest mismatch: ${requiredBuildArtifact}`);
+    }
+    if (digestPath(repositoryRoot, artifact.path) !== buildIdentity.artifactDigest)
+    {
+        throw new Error(`canonical build artifact digest mismatch: ${requiredBuildArtifact}`);
+    }
     if (artifact.artifactPath != null || artifact.outputPath != null)
     {
         const outputPath = artifact.artifactPath ?? artifact.outputPath;
         canonicalRelativePath(outputPath, `canonical artifact ${requiredBuildArtifact}.artifactPath`);
-        if (digestPath(repositoryRoot, outputPath) !== buildIdentity.artifactDigest) throw new Error(`canonical published artifact digest mismatch: ${requiredBuildArtifact}`);
+        if (digestPath(repositoryRoot, outputPath) !== buildIdentity.artifactDigest)
+        {
+            throw new Error(`canonical published artifact digest mismatch: ${requiredBuildArtifact}`);
+        }
     }
     return { schema: buildIdentitySchema, artifactId: buildIdentity.artifactId, receiptDigest: buildIdentity.receiptDigest, artifactDigest: buildIdentity.artifactDigest, sourceDigests, sourceDigest: buildIdentity.sourceDigest };
 }
@@ -244,7 +325,10 @@ export function validateBuildIdentity(buildIdentity, requiredBuildArtifact, opti
     {
         throw new Error('buildIdentity digests must be lowercase sha256 hex');
     }
-    if (!hasExactKeys(buildIdentity, legacyBuildIdentityKeys)) throw new Error(`buildIdentity fields are not sealed for ${requiredBuildArtifact}`);
+    if (!hasExactKeys(buildIdentity, legacyBuildIdentityKeys))
+    {
+        throw new Error(`buildIdentity fields are not sealed for ${requiredBuildArtifact}`);
+    }
     // Reject ambient bin/Debug style identities without a sealed receipt.
     if (/bin[/\\](?:Debug|Release)\b/iu.test(artifactId) || /bin[/\\](?:Debug|Release)\b/iu.test(String(buildIdentity.path ?? '')))
     {

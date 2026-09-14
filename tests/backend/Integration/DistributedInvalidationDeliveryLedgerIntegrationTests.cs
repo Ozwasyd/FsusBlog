@@ -4,6 +4,7 @@ using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Distributed;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
@@ -23,6 +24,98 @@ public sealed class DistributedInvalidationDeliveryLedgerIntegrationTests(
     PostgresSchemaMigrationFixture postgres,
     PublicHotDeliveryRedisFixture redis) : IClassFixture<PublicHotDeliveryRedisFixture>
 {
+    [Fact]
+    public async Task AdminSessionProjection_LostPubSubAndRestart_ReplaysDurablyOnEveryNode()
+    {
+        string connection = await CreateDatabaseAsync();
+        string prefix = $"test:admin-session-ledger:{Guid.CreateVersion7():N}:";
+        string channel = $"admin-session-{Guid.CreateVersion7():N}";
+        await using ConnectionMultiplexer sourceRedis = await redis.ConnectAsync();
+        await using ConnectionMultiplexer targetRedis = await redis.ConnectAsync();
+        using ServiceProvider sourceServices = CreateLedgerServices(connection);
+        using ServiceProvider targetServices = CreateLedgerServices(connection);
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        var update = new AdminSessionProjectionSessionUpdate(
+            "admin-session-1",
+            7,
+            System.Security.Cryptography.SHA256.HashData("token"u8),
+            null,
+            now.AddHours(1),
+            now.AddHours(2),
+            1,
+            1,
+            new AdminSessionProjectionPrincipalUpdate(
+                7,
+                AdminSessionProjectionPrincipalStatus.Active,
+                1,
+                1));
+        var sourceProjection = new AdminSessionProjection(
+            new AdminSessionProjectionLimits(16, 16, 1024 * 1024));
+        var sourceApplier = new AdminProjectionRecordingApplier(sourceProjection);
+        using DistributedInvalidationBus source = CreateBus(
+            "node-a",
+            ["node-a", "node-b"],
+            channel,
+            prefix,
+            sourceRedis,
+            sourceServices,
+            sourceApplier);
+        await source.StartAsync(CancellationToken.None);
+
+        DistributedInvalidationPublishResult published = await source.PublishAsync(new DistributedInvalidationRequest(
+            DistributedInvalidationEventKinds.AdminSessionProjectionMutation,
+            [],
+            [],
+            [AdminSessionProjectionEventCodec.Format(update)]));
+
+        Assert.Equal(DistributedInvalidationPublishStatus.Degraded, published.Status);
+        await EventuallyAsync(() => sourceApplier.Applied == 1);
+        var targetProjection = new AdminSessionProjection(
+            new AdminSessionProjectionLimits(16, 16, 1024 * 1024));
+        var targetApplier = new AdminProjectionRecordingApplier(targetProjection);
+        using (DistributedInvalidationBus target = CreateBus(
+            "node-b",
+            ["node-a", "node-b"],
+            channel,
+            prefix,
+            targetRedis,
+            targetServices,
+            targetApplier))
+        {
+            await target.StartAsync(CancellationToken.None);
+            await EventuallyAsync(() => targetApplier.Applied == 1);
+            await EventuallyAsync(async () =>
+            {
+                using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connection);
+                return db.Queryable<DistributedInvalidationConvergenceObligationEntity>().Single().State
+                    == CompleteState;
+            });
+            await target.StopAsync(CancellationToken.None);
+        }
+
+        var restartedApplier = new AdminProjectionRecordingApplier(targetProjection);
+        using (DistributedInvalidationBus restarted = CreateBus(
+            "node-b",
+            ["node-a", "node-b"],
+            channel,
+            prefix,
+            targetRedis,
+            targetServices,
+            restartedApplier))
+        {
+            await restarted.StartAsync(CancellationToken.None);
+            await Task.Delay(TimeSpan.FromMilliseconds(300));
+            Assert.Equal(0, restartedApplier.Applied);
+            await restarted.StopAsync(CancellationToken.None);
+        }
+
+        Assert.True(sourceProjection.MarkReady(1));
+        Assert.True(targetProjection.MarkReady(1));
+        Assert.True(sourceProjection.Validate("admin-session-1", 7, update.AccessTokenHash.Span).IsValid);
+        Assert.True(targetProjection.Validate("admin-session-1", 7, update.AccessTokenHash.Span).IsValid);
+        await source.StopAsync(CancellationToken.None);
+    }
+
     [Fact]
     public async Task OnlineExpand_ExecutesAgainstLegacyTableWithoutRewritingLegacyState()
     {
@@ -591,7 +684,7 @@ public sealed class DistributedInvalidationDeliveryLedgerIntegrationTests(
         string prefix,
         IConnectionMultiplexer redis,
         ServiceProvider services,
-        RecordingApplier applier,
+        IDistributedInvalidationLocalApplier applier,
         bool enableIngressLedger = false)
     {
         var options = new DistributedInvalidationOptions
@@ -608,7 +701,7 @@ public sealed class DistributedInvalidationDeliveryLedgerIntegrationTests(
         var scope = new TestRuntimeScope(prefix);
         return new DistributedInvalidationBus(
             new RedisDistributedInvalidationTransport(
-                redis,
+                RedisOperationExecutor.ForTestConnection(redis),
                 scope,
                 options,
                 TimeProvider.System,
@@ -709,6 +802,48 @@ public sealed class DistributedInvalidationDeliveryLedgerIntegrationTests(
                 "ledger-proof",
                 100,
                 aotGeneration));
+        }
+    }
+
+    private sealed class AdminProjectionRecordingApplier(AdminSessionProjection projection)
+        : IDistributedInvalidationLocalApplier
+    {
+        public int Applied
+        {
+            get;
+            private set;
+        }
+
+        public Task<DistributedInvalidationLocalApplyResult?> ApplyAsync(
+            DistributedInvalidationEvent invalidation,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            foreach (string target in invalidation.ArtifactKeys)
+            {
+                if (!AdminSessionProjectionEventCodec.TryParse(target, out var session, out var principal))
+                {
+                    throw new InvalidDataException("admin-session projection target invalid");
+                }
+                AdminSessionProjectionApplyResult result = session.HasValue
+                    ? projection.Apply(session.Value)
+                    : projection.Apply(principal!.Value);
+                if (!result.Accepted)
+                {
+                    throw new InvalidOperationException($"admin-session projection apply {result.Status}");
+                }
+            }
+            Applied++;
+            return Task.FromResult<DistributedInvalidationLocalApplyResult?>(new(
+                true,
+                true,
+                true,
+                true,
+                DistributedInvalidationRebuildObligationStatus.Queued,
+                DistributedInvalidationLocalApplyStatus.Applied,
+                null,
+                1,
+                0));
         }
     }
 

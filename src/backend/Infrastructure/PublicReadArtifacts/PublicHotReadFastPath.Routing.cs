@@ -42,6 +42,20 @@ public static partial class PublicHotReadFastPath
         return s_completed;
     }
 
+    private static Task WriteServingMiss(
+        HttpContext ctx,
+        PublicHotReadServingMiss miss,
+        bool isDevelopment)
+    {
+        if (miss == PublicHotReadServingMiss.NotFound)
+        {
+            return WriteStatus(ctx, StatusCodes.Status404NotFound, isDevelopment);
+        }
+
+        ctx.Response.Headers["Retry-After"] = "1";
+        return WriteStatus(ctx, StatusCodes.Status503ServiceUnavailable, isDevelopment);
+    }
+
     private static void WriteDiagnosticHeaders(
         HttpResponse response,
         PublicHotReadOptions options,

@@ -1,7 +1,7 @@
-export const localeDomainIdentity = Object.freeze({ locale: 'es-419', domain: 'auth' } as const)
+export const localeDomainIdentity = Object.freeze({ locale: 'es-419', domain: 'auth' } as const);
 
-import type { LocaleSchema } from '../keys'
-import type { auth as zhCNAuth } from '../zh-CN/auth'
+import type { LocaleSchema } from '../keys';
+import type { auth as zhCNAuth } from '../zh-CN/auth';
 
 export const auth = {
     register: {
@@ -81,4 +81,4 @@ export const auth = {
         acknowledgementCta: 'He leído esto',
         bodyAriaLabel: 'Contenido de la política'
     }
-} as const satisfies LocaleSchema<typeof zhCNAuth>
+} as const satisfies LocaleSchema<typeof zhCNAuth>;

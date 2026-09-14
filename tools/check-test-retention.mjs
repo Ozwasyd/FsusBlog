@@ -7,13 +7,12 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { inventorySourceFiles, loadCanonicalInventory } from './test-inventory/api.mjs';
+import { parseMatrix } from './test-matrix/parse-matrix.mjs';
 import { buildOracleFacts } from './test-quality/oracle-facts.mjs';
 import { evaluateQuality, loadQualityPolicy } from './test-quality/policy.mjs';
-import { parseMatrix } from './test-matrix/parse-matrix.mjs';
 import {
     auditTestRecords,
     buildRetentionCatalogSnapshot,
-    compactRetentionKey,
     compactRetentionBaseline,
     decodeCompactRetentionIndex,
     inferTierIdsForFile,

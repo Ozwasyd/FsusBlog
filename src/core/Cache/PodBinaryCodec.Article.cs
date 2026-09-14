@@ -82,7 +82,6 @@ public static partial class PodBinaryCodec
     internal const int ArticleDetailDirectCharThreshold = 8 * 1024;
     // COMPATIBILITY: The wire prefix is ASCII FSPA in little-endian storage order.
     private const int ArticlePageCursorEnvelopeMagic = 0x41535046;
-    private const int ArticlePageCursorEnvelopeLegacyVersion = 1;
     private const int ArticlePageCursorEnvelopeVersion = 2;
     // COMPATIBILITY: Existing payloads retain the ARD3 and ARD4 wire identifiers.
     private const uint ArticleDetailV3PayloadMagic = 0x41524433;
@@ -501,7 +500,7 @@ public static partial class PodBinaryCodec
 
             string cursor = page.HasMore ? page.NextCursor ?? string.Empty : string.Empty;
             int cursorByteCount = Encoding.UTF8.GetByteCount(cursor);
-            if ((page.HasMore && cursorByteCount == 0) || cursorByteCount > 64)
+            if ((page.HasMore && cursorByteCount == 0) || cursorByteCount > 512)
             {
                 throw new InvalidOperationException("Article page cursor metadata is invalid.");
             }
@@ -639,59 +638,30 @@ public static partial class PodBinaryCodec
             return false;
         }
 
-        if (total == ArticlePageCursorEnvelopeMagic)
+        if (total != ArticlePageCursorEnvelopeMagic
+            || !reader.TryReadInt32(out int version)
+            || version != ArticlePageCursorEnvelopeVersion)
         {
-            if (!reader.TryReadInt32(out int version))
-            {
-                page = default;
-                return false;
-            }
+            page = default;
+            return false;
+        }
 
-            if (version == ArticlePageCursorEnvelopeLegacyVersion)
-            {
-                if (!reader.TryReadInt64(out long nextCursorUnixMs)
-                    || !reader.TryReadByte(out byte legacyHasMoreByte)
-                    || legacyHasMoreByte > 1
-                    || !reader.TryReadInt32(out total))
-                {
-                    page = default;
-                    return false;
-                }
+        if (!reader.TryReadByte(out byte hasMoreByte)
+            || hasMoreByte > 1
+            || !reader.TryReadInt32(out total)
+            || !reader.TryReadBytes(out ReadOnlySpan<byte> cursorBytes)
+            || cursorBytes.Length > 512)
+        {
+            page = default;
+            return false;
+        }
 
-                hasMore = legacyHasMoreByte == 1;
-                nextCursor = nextCursorUnixMs > 0
-                    ? nextCursorUnixMs.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                    : null;
-            }
-            else if (version == ArticlePageCursorEnvelopeVersion)
-            {
-                if (!reader.TryReadByte(out byte hasMoreByte)
-                    || hasMoreByte > 1
-                    || !reader.TryReadInt32(out total)
-                    || !reader.TryReadBytes(out ReadOnlySpan<byte> cursorBytes)
-                    || cursorBytes.Length > 64)
-                {
-                    page = default;
-                    return false;
-                }
-
-                hasMore = hasMoreByte == 1;
-                if (!TryDecodeArticleListCursorUtf8(cursorBytes, out nextCursor))
-                {
-                    page = default;
-                    return false;
-                }
-                if (hasMore != !string.IsNullOrWhiteSpace(nextCursor))
-                {
-                    page = default;
-                    return false;
-                }
-            }
-            else
-            {
-                page = default;
-                return false;
-            }
+        hasMore = hasMoreByte == 1;
+        if (!TryDecodeArticleListCursorUtf8(cursorBytes, out nextCursor)
+            || hasMore != !string.IsNullOrWhiteSpace(nextCursor))
+        {
+            page = default;
+            return false;
         }
 
         if (
@@ -807,7 +777,6 @@ public static partial class PodBinaryCodec
             return false;
         }
 
-        nextCursor = NormalizeLegacyArticleListCursor(nextCursor, hasMore, items);
         page = new CorePageResult<ArticleListCoreModel>(items, total, nextCursor, hasMore);
         return reader.IsConsumed;
     }

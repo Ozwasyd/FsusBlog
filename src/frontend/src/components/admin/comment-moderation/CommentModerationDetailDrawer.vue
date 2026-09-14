@@ -236,12 +236,12 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 
-import { Check, Close, Hide } from '@/fsusui/icons';
 import { CommentModerationStatus, type CommentModerationStatus as CommentModerationStatusValue } from '@/api/authoring';
 import { getCommentRevisions } from '@/api/commentRevision';
-import type { CommentRevisionResult } from '@/contracts/binaryApi';
 import SemanticTime from '@/components/ui/SemanticTime.vue';
 import type { CommentModerationViewItem } from '@/composables/useCommentModerationQueue';
+import type { CommentRevisionResult } from '@/contracts/binaryApi';
+import { Check, Close, Hide } from '@/fsusui/icons';
 
 const props = defineProps<{
     visible: boolean;

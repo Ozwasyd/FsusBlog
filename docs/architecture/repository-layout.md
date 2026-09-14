@@ -53,6 +53,42 @@ Release Reliability separates scenario and action authorities: `config/testing/r
 
 Operations templates have one top-level root, `ops/`. Production containers/Compose, development dependencies, gateway templates, and privacy-operation examples belong to `ops/docker/`, `ops/development/`, `ops/gateway/`, and `ops/privacy/`. Zero-downtime resource thresholds are configuration in `config/deployment/`, not templates; executable deployment and general operations remain in `tools/deployment/` and `tools/operations/`. Backend environment templates are owned by `config/examples/`; the root `.env.example` and `.env.production.example` paths are retired. See [`docs/operations-layout.md`](../operations-layout.md) for the path table, historical local-proxy removal decision, and fallback boundary.
 
+Backend Docker SDK stage 的唯一输入 inventory 是
+`config/build/backend-docker-inputs.json`。`tools/docker/backend-input-closure.mjs`
+用 production publish properties 读取真实 `ProjectReference`、repo-local MSBuild
+imports 与编译/发布 items，双向核对 inventory 后才生成隔离的 named build context；
+`ops/docker/FsusBlog.Server.Dockerfile` 只消费其中的 `restore`、`compile` 与
+`publish` domain。frontend/WASM、release evidence、docs/tests 和无关 tooling
+不能回退进入 backend SDK stage，新增 project/import 或越界 item 会 fail closed。
+`config/build/backend-restore.xml` 是该 context 的显式 NuGet configuration：host
+evaluation 与 Docker restore/publish 指向同一文件，不复制用户级 configuration 或凭证。
+settings lookup 必须返回该文件的 exact singleton；空结果不能解释为没有 host configuration。
+所有 closure evaluation 通过 `tools/docker/backend-input-environment.mjs` 使用 Linux
+`bubblewrap` 与 canonical physical runner：repository 只读挂载到 `/src`，网络和 `/tmp`
+隔离；passwd/group/NSS 为 task-owned synthetic identity，不挂载 host home 或配置。
+缺少隔离能力时失败，不回退 host evaluation。SDK stage 和 evaluation 同时要求 `/src`
+以外的根目录 MSBuild/NuGet/editor 配置不存在；真实 environment/process/log receipt
+保存在 `.tmp/backend-input-evaluations/`，不进入 backend compile cache key。
+materializer 分别观察实际 restore/publish properties 的输入并取闭包并集；Configuration、
+RuntimeIdentifier 与完整 publish request 写入无时间的 profile markers，参与 restore domain
+digest，且每个 Docker consumer 在调用前验证。Debug probe 明确传递 Debug request，不借用
+Release observation；实际 publish 调用次数与各 target 的发布语义保持不变。
+候选分支使用 `backend-input-closure.mjs probe-buildkit` 在 tracked-clean Git snapshot
+上执行 cold、无关输入、backend source 与 MSBuild import 四组真实 BuildKit build；
+materializer domain digest 是稳定 cache key，raw progress 另行证明无关输入的
+restore/compile/publish vertex 命中真实 BuildKit cache，backend/MSBuild 输入变化则 miss；
+实际 SDK image 与 root-context witness 还会双向证明 `.env` 等无关文件存在于 build
+context 但没有进入 `/src`。
+
+闭包测试的唯一 physical owner 是 lifecycle registry 中的
+`backend-docker-input-closure` real-subprocess entry，由 matrix 的 `static-governance`
+执行，并绑定同名 coverage entry；production-image workflow 不再重复 raw 执行测试。
+该 workflow 的 PR filters 覆盖 inventory 声明的 project、restore、external item 与
+publish roots，也覆盖各 project ancestor 的隐式 MSBuild/editor/SDK 配置。
+production-build-artifacts 同时绑定 restore XML，并在 matrix 中声明 inventory、restore、
+checker 和 Dockerfile 的触发输入。Local closure/materialization fixtures 不能替代实际
+BuildKit cache、SDK image 文件排除或 cold final-image runtime 验收。
+
 ## Language entrypoint ownership
 
 `src/frontend/` is owned by `FsusBlog.Client.esproj`, Vite, and the JavaScript/TypeScript toolchain; it may not contain a C# application entry point. Every C# source file must be within a `.csproj` directory boundary or explicitly registered as a file-based app with owner, dependency declaration, invocation command, tests, and output contract. `tests/governance/repository-source-layout.json` binds this language boundary to `tests/governance/csharp-entrypoint-ownership.json` and `tools/check-csharp-entrypoint-ownership.mjs`; protocol-fixture generators also need stable `generate`/`check` commands and may not hard-code `/tmp` or `/var/tmp`. See [`docs/testing/issue-1174-csharp-entrypoint-ownership.md`](../testing/issue-1174-csharp-entrypoint-ownership.md) for the full decision.

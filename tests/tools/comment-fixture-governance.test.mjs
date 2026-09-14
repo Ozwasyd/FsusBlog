@@ -4,29 +4,13 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import path from 'node:path';
 import test from 'node:test';
 
-import {
-    buildCommentFixtureAcceptanceReceipt,
-    buildCanonicalCommentFixtureRuntimeEvidence,
-    buildCommentFixtureCleanupReceipt,
-    COMMENT_FIXTURE_REPOSITORY_ROOT,
-    verifyCommentFixtureAcceptanceReceipt
-} from '../../tools/test/comment-fixture-governance.mjs';
-import { digestCommentFixtureValue } from '../../tools/test/comment-fixture-contract.mjs';
-import { collectSimulatedCommentFixtureRuntimeEvidence } from '../../tools/test/run-comment-fixture-simulated-runtime.mjs';
-import { normalizeCleanupContract as normalizeCommentCleanupContract } from '../../tools/test-fixtures/receipt/comment-cleanup-contract.mjs';
-import {
-    buildProducerReceipt,
-    digestCanonical,
-    validateProducerReceipt
-} from '../../tools/test-fixtures/receipt/index.mjs';
-import {
-    buildFixtureVariantPlan,
-    buildProducerFixtureVariantPlan,
-    fixtureCatalogDigest,
-    readFixtureCatalogs
-} from '../../tools/testing/fixture-catalog.mjs';
-import { createCommentFixtureBackendError } from '../../tools/test-fixtures/producers/comment-moderation-producer.mjs';
-
+const {buildCommentFixtureAcceptanceReceipt, buildCanonicalCommentFixtureRuntimeEvidence, buildCommentFixtureCleanupReceipt, COMMENT_FIXTURE_REPOSITORY_ROOT, verifyCommentFixtureAcceptanceReceipt} = await import(new URL('../../tools/test/comment-fixture-governance.mjs', import.meta.url));
+const {digestCommentFixtureValue} = await import(new URL('../../tools/test/comment-fixture-contract.mjs', import.meta.url));
+const {collectSimulatedCommentFixtureRuntimeEvidence} = await import(new URL('../../tools/test/run-comment-fixture-simulated-runtime.mjs', import.meta.url));
+const {normalizeCleanupContract: normalizeCommentCleanupContract} = await import(new URL('../../tools/test-fixtures/receipt/comment-cleanup-contract.mjs', import.meta.url));
+const {buildProducerReceipt, digestCanonical, validateProducerReceipt} = await import(new URL('../../tools/test-fixtures/receipt/index.mjs', import.meta.url));
+const {buildFixtureVariantPlan, buildProducerFixtureVariantPlan, fixtureCatalogDigest, readFixtureCatalogs} = await import(new URL('../../tools/testing/fixture-catalog.mjs', import.meta.url));
+const {createCommentFixtureBackendError} = await import(new URL('../../tools/test-fixtures/producers/comment-moderation-producer.mjs', import.meta.url));
 const cliEvidenceRoot = path.join(COMMENT_FIXTURE_REPOSITORY_ROOT, '.tmp/test-evidence');
 const cliRuntimeEvidence = path.join(cliEvidenceRoot, 'comment-fixture-runtime.json');
 const cliCleanupReceipt = path.join(cliEvidenceRoot, 'comment-fixture-cleanup.json');
@@ -35,7 +19,9 @@ const cliAcceptanceReceipt = path.join(cliEvidenceRoot, 'comment-fixture-accepta
 function clearCommentFixtureCliEvidence()
 {
     for (const target of [cliRuntimeEvidence, cliCleanupReceipt, cliAcceptanceReceipt])
+    {
         rmSync(target, { force: true });
+    }
 }
 
 function runCommentFixtureCli()
@@ -196,7 +182,9 @@ test('two parallel local-simulated producer invocations produce terminal accepta
             : 'comment.threaded';
     const databaseObservation = structuredClone(run.observations.database);
     for (const entity of databaseObservation.entities)
+    {
         entity.variantId = variantByCapability.get(capabilityForRole(entity.fields.semanticRole));
+    }
     const fixtureVariantIds = [...variantByCapability.values()].sort();
     const variantPlan = buildFixtureVariantPlan(fixtureVariantIds, catalogs);
     const producerVariantPlan = buildProducerFixtureVariantPlan({

@@ -322,13 +322,26 @@ const homeEntryDefinition = definePublicEntry({
             .map(normalizeHotArticle)
             .filter((item): item is PopularArticleSummaryResponse => item !== null);
         const currentPage = toNumber(options.pageIndex ?? options.page, 1);
+        if (currentPage !== 1)
+        {
+            throw new Error('public_home_cursorless_deep_seed_forbidden');
+        }
         const pageSize = toNumber(options.pageSize ?? options.size, 8);
         const total = toNumber(options.total, items.length);
-        const scope = createScope(toText(options.routeKey, buildPublicHomeRouteKey()));
+        const nextCursor = toText(options.nextCursor, '') || null;
+        const hasMore = Boolean(options.hasMore && nextCursor);
+        const routeKey = toText(options.routeKey, buildPublicHomeRouteKey());
+        if (routeKey !== buildPublicHomeRouteKey())
+        {
+            throw new Error('public_home_route_key_invalid');
+        }
+        const scope = createScope(routeKey);
         const view = createArticleListViewContract({ items, total }, {
             currentPage,
             pageSize,
-            pageHref: buildPublicHomePaginationHref,
+            pageHref: (page) => buildPublicHomePaginationHref(page, page === currentPage + 1 ? nextCursor : null),
+            canGoPrev: false,
+            canGoNext: hasMore,
             time: scope.renderTimeOptions
         });
         const hydration = {
@@ -337,6 +350,8 @@ const homeEntryDefinition = definePublicEntry({
             currentPage,
             pageSize,
             total,
+            nextCursor,
+            hasMore,
             view,
             featuredArticles,
             hotArticles
@@ -346,6 +361,8 @@ const homeEntryDefinition = definePublicEntry({
             pageIndex: currentPage,
             pageSize,
             total,
+            nextCursor,
+            hasMore,
             articles: items,
             featuredArticles,
             hotArticles
@@ -544,6 +561,11 @@ const filterEntryDefinition = definePublicEntry({
         const filterType: PublicFilterType = normalizePublicFilterType(filterInput.filterType);
         const filterName = toText(filterInput.filterName, '');
         const description = normalizeFilterDescription(filterInput.description);
+        const pageIndex = toNumber(filterInput.pageIndex, 1);
+        if (pageIndex !== 1)
+        {
+            throw new Error('public_filter_cursorless_deep_seed_forbidden');
+        }
         const scope = createScope(buildPublicFilterRouteKey({
             routeKey: options.routeKey,
             filterType,
@@ -552,9 +574,10 @@ const filterEntryDefinition = definePublicEntry({
             filterName
         }));
         const title = toText(options.title, filterName || '筛选');
-        const pageIndex = toNumber(filterInput.pageIndex, 1);
         const pageSize = toNumber(filterInput.pageSize, 10);
         const total = toNumber(filterInput.total, 0);
+        const nextCursor = toText(filterInput.nextCursor, '') || null;
+        const hasMore = Boolean(filterInput.hasMore && nextCursor);
         const totalPages = Math.max(1, Math.ceil(total / Math.max(1, pageSize)));
         const articles = Array.isArray(filterInput.articles) ? filterInput.articles.map(normalizeArticleSummary) : [];
         const cards = articles.map((article, index) => createArticleListCardViewContract(article, index, scope.renderTimeOptions));
@@ -574,9 +597,9 @@ const filterEntryDefinition = definePublicEntry({
             totalPages,
             pageIndicatorText: `${pageIndex} / ${totalPages}`,
             canGoPrev: pageIndex > 1,
-            canGoNext: pageIndex < totalPages,
+            canGoNext: pageIndex < totalPages && hasMore,
             previousHref: buildPublicRoutePaginationHref(scope.routeKey, Math.max(1, pageIndex - 1)),
-            nextHref: buildPublicRoutePaginationHref(scope.routeKey, Math.min(totalPages, pageIndex + 1))
+            nextHref: buildPublicRoutePaginationHref(scope.routeKey, Math.min(totalPages, pageIndex + 1), nextCursor)
         });
         const filter = {
             filterType,
@@ -588,6 +611,8 @@ const filterEntryDefinition = definePublicEntry({
             pageIndex,
             pageSize,
             total,
+            nextCursor,
+            hasMore,
             articles
         };
         const hydration = {

@@ -68,9 +68,13 @@ function main()
     {
         const current = fs.readFileSync(outputPath, 'utf8');
         if (current !== serialized(receipt))
+        {
             throw new Error('current-run evidence location acceptance receipt is stale');
+        }
         if (receipt.warnings.length !== 0)
+        {
             throw new Error('current-run evidence location acceptance receipt has warnings');
+        }
     }
     else
     {

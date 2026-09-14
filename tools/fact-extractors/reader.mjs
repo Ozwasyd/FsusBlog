@@ -2,16 +2,17 @@
  * Public receipt reader for DocClaim verifiers, test joiners, and matrix consumers.
  * Consumers must use this module only — never import seed/extractor implementations.
  */
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
-import { isPlainObject } from './lib/canonicalize.mjs'
-import { loadReceiptFromFile, semanticDigestFromReceipt, validateReceipt } from './receipt.mjs'
-import { root } from './registry.mjs'
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
+import { isPlainObject } from './lib/canonicalize.mjs';
+import { loadReceiptFromFile, semanticDigestFromReceipt, validateReceipt } from './receipt.mjs';
+import { root } from './registry.mjs';
 
 const fail = (message) =>
 {
-    throw new Error(`[fact-observation-reader] ${message}`)
-}
+    throw new Error(`[fact-observation-reader] ${message}`);
+};
 
 /**
  * Read and validate a sealed FactObservationReceipt from disk or an in-memory object.
@@ -21,9 +22,9 @@ export function readFactObservationReceipt(source, options = {})
 {
     const receipt = typeof source === 'string'
         ? loadReceiptFromFile(path.isAbsolute(source) ? source : path.join(options.repositoryRoot ?? root, source))
-        : structuredClone(source)
+        : structuredClone(source);
 
-    validateReceipt(receipt, options)
+    validateReceipt(receipt, options);
 
     const view = Object.freeze({
         schema: receipt.schema,
@@ -42,28 +43,34 @@ export function readFactObservationReceipt(source, options = {})
         failureReasons: Object.freeze([...receipt.failureReasons]),
         contentDigest: receipt.contentDigest,
         semanticDigest: semanticDigestFromReceipt(receipt)
-    })
-    return view
+    });
+    return view;
 }
 
 function deepFreeze(value)
 {
     if (Array.isArray(value))
     {
-        for (const entry of value) deepFreeze(entry)
-        return Object.freeze(value)
+        for (const entry of value)
+        {
+            deepFreeze(entry);
+        }
+        return Object.freeze(value);
     }
     if (isPlainObject(value))
     {
-        for (const nested of Object.values(value)) deepFreeze(nested)
-        return Object.freeze(value)
+        for (const nested of Object.values(value))
+        {
+            deepFreeze(nested);
+        }
+        return Object.freeze(value);
     }
-    return value
+    return value;
 }
 
 export function readFactObservationReceiptFile(relativeOrAbsolute, options = {})
 {
-    return readFactObservationReceipt(relativeOrAbsolute, options)
+    return readFactObservationReceipt(relativeOrAbsolute, options);
 }
 
 /**
@@ -74,7 +81,7 @@ export function assertConsumerDoesNotImportExtractors(sourceText, consumerLabel 
 {
     if (/fact-extractors\/seeds\//u.test(sourceText))
     {
-        fail(`${consumerLabel} must not import extractor seed implementations`)
+        fail(`${consumerLabel} must not import extractor seed implementations`);
     }
     if (/from\s+['"][^'"]*fact-extractors\/(?!reader\.mjs|receipt\.mjs)[^'"]*['"]/u.test(sourceText)
         && /extract\s*\(/u.test(sourceText))
@@ -83,12 +90,12 @@ export function assertConsumerDoesNotImportExtractors(sourceText, consumerLabel 
     }
     if (/\bimportExtractorModule\b|\brunExtractor\b/.test(sourceText) && /seeds\//u.test(sourceText))
     {
-        fail(`${consumerLabel} must not invoke extractors; read receipts only`)
+        fail(`${consumerLabel} must not invoke extractors; read receipts only`);
     }
-    return true
+    return true;
 }
 
 export function loadReceiptJson(filePath)
 {
-    return JSON.parse(readFileSync(filePath, 'utf8'))
+    return JSON.parse(readFileSync(filePath, 'utf8'));
 }

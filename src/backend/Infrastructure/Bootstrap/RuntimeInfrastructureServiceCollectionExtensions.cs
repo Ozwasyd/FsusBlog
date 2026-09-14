@@ -9,7 +9,9 @@ using FsusBlog.Server.Infrastructure.Fonts;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Plugins;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Security;
@@ -28,6 +30,7 @@ using FsusBlog.Server.Services.Telemetry;
 using FsusBlog.Server.Services.VisitLog;
 
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 
@@ -196,6 +199,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<PublicHotReadRiskProjection>();
         services.AddSingleton<IPublicHotReadRiskProjection>(sp => sp.GetRequiredService<PublicHotReadRiskProjection>());
         services.AddSingleton<IPublicHotReadRiskProjectionPublisher, RedisPublicHotReadRiskProjectionPublisher>();
+        services.AddSingleton<PublicHotReadRiskProjectionWorker>();
         services.AddSingleton<IVisitLogIpPseudonymizer, VisitLogIpPseudonymizer>();
         services.AddScoped<ISecurityRiskEventStore, SecurityRiskEventStore>();
         services.AddScoped<IRiskScoreEngine, RiskScoreEngine>();
@@ -208,7 +212,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         if (!OpenApiExportMode.IsEnabled())
         {
             services.AddHostedService<SecurityRiskEventWriterWorker>();
-            services.AddHostedService<PublicHotReadRiskProjectionWorker>();
+            services.AddHostedService(sp => sp.GetRequiredService<PublicHotReadRiskProjectionWorker>());
             services.AddHostedService(sp => sp.GetRequiredService<CrawlerUpdateWorker>());
         }
         services.AddSingleton<ISearchIndexService, SearchIndexService>();
@@ -293,13 +297,23 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
     private static IServiceCollection AddCacheRuntime(this IServiceCollection services)
     {
         services.AddSingleton<ICachePolicyRegistry, CachePolicyRegistry>();
-        services.AddSingleton<CacheLocalStore>();
+        services.AddSingleton<PolicyShardedCacheL1Store>();
         services.AddSingleton<CacheKeyResolver>();
         services.AddSingleton<ICacheKeyResolver>(sp => sp.GetRequiredService<CacheKeyResolver>());
         services.AddSingleton<CacheSingleFlightCoordinator>();
         services.AddSingleton<ICacheSingleFlightCoordinator>(sp => sp.GetRequiredService<CacheSingleFlightCoordinator>());
         services.AddSingleton<ICacheTelemetry, CacheTelemetry>();
-        services.AddSingleton<UnifiedCache>();
+        services.AddSingleton(static sp => new UnifiedCache(
+            sp.GetRequiredService<IMemoryCache>(),
+            sp.GetRequiredService<PolicyShardedCacheL1Store>(),
+            sp.GetRequiredService<IRedisConnectionProvider>(),
+            sp.GetRequiredService<ICachePolicyRegistry>(),
+            sp.GetRequiredService<IRuntimeKeyScope>(),
+            sp.GetRequiredService<ICacheKeyResolver>(),
+            sp.GetRequiredService<CacheSingleFlightCoordinator>(),
+            sp.GetRequiredService<ICacheTelemetry>(),
+            sp.GetRequiredService<ILogger<UnifiedCache>>(),
+            sp.GetRequiredService<IRedisOperationExecutor>()));
         services.AddSingleton<ICacheTypedReader>(sp => sp.GetRequiredService<UnifiedCache>());
         services.AddSingleton<ICacheRawReader>(sp => sp.GetRequiredService<UnifiedCache>());
         services.AddSingleton<ICacheStringReader>(sp => sp.GetRequiredService<UnifiedCache>());
@@ -332,6 +346,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<DistributedInvalidationConvergenceRuntimeState>();
         services.AddScoped<IDistributedInvalidationObligationStore, DistributedInvalidationConvergenceObligationStore>();
         services.AddScoped<IDistributedInvalidationDeliveryLedger, DistributedInvalidationConvergenceObligationStore>();
+        services.AddScoped<IArticleViewProjectionObligationCoordinator, ArticleViewProjectionObligationCoordinator>();
         if (!OpenApiExportMode.IsEnabled())
         {
             services.AddHostedService(sp => sp.GetRequiredService<HotStatsInvalidationCoalescer>());
@@ -348,6 +363,12 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
     private static IServiceCollection AddPublicReadArtifactRuntime(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<PublicHotReadOptions>(configuration.GetSection("PublicHotRead"));
+        services.AddOptions<ArticleDetailViewProjectionOptions>()
+            .Bind(configuration.GetSection(ArticleDetailViewProjectionOptions.SectionName))
+            .Validate(static options => options.IsValid(), "ArticleDetailViewProjection limits are invalid")
+            .ValidateOnStart();
+        services.AddSingleton<ArticleDetailViewProjection>();
+        services.AddSingleton<IArticleDetailViewProjection>(static sp => sp.GetRequiredService<ArticleDetailViewProjection>());
         services.AddOptions<PublicArtifactRevocationOptions>()
             .Bind(configuration.GetSection("PublicArtifactRevocation"))
             .Validate(static options => options.IsValid(), "PublicArtifactRevocation CDN provider configuration is invalid")
@@ -357,6 +378,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<PublicHotReadClassifierCounters>();
         services.AddSingleton<PublicHotReadStore>();
         services.AddSingleton<PublicHotReadCounters>();
+        services.AddSingleton<IArticleListCursorCodec, ArticleListCursorCodec>();
         services.AddSingleton<PublicArtifactRevocationRegistry>();
         services.AddSingleton<LocalPublicArtifactStorage>();
         services.AddSingleton<IPublicArtifactStorage>(sp => sp.GetRequiredService<LocalPublicArtifactStorage>());
@@ -395,6 +417,18 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
 
     private static IServiceCollection AddIdentityRuntime(this IServiceCollection services)
     {
+        services.AddSingleton<AccountStateProjectionRuntimeState>();
+        services.AddSingleton<IAccountStateProjectionSource, SqlAccountStateProjectionSource>();
+        services.AddSingleton<AccountStateProjection>();
+        services.AddSingleton<IAccountStateProjection>(static provider => provider.GetRequiredService<AccountStateProjection>());
+        services.AddSingleton<AccountStateProjectionTelemetry>();
+        services.AddSingleton<IAccountStateProjectionMutationPublisher, AccountStateProjectionMutationPublisher>();
+        services.AddSingleton<BanStateProjectionRuntimeState>();
+        services.AddSingleton<IBanStateProjectionSource, SqlBanStateProjectionSource>();
+        services.AddSingleton<BanStateProjection>();
+        services.AddSingleton<BanStateProjectionTelemetry>();
+        services.AddScoped<IBanStateProjectionAuthorityLoader, BanStateProjectionAuthorityLoader>();
+        services.AddScoped<IBanStateProjectionObligationCoordinator, BanStateProjectionObligationCoordinator>();
         services.AddScoped<IBlacklistService, BlacklistService>();
         return services;
     }
@@ -432,7 +466,8 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         if (!OpenApiExportMode.IsEnabled())
         {
             services.AddHostedService<LogCleanupService>();
-            services.AddHostedService<ArticleMutationOutboxDispatcher>();
+            services.AddSingleton<ArticleMutationOutboxDispatcher>();
+            services.AddHostedService(static provider => provider.GetRequiredService<ArticleMutationOutboxDispatcher>());
             services.AddHostedService<ArticleAssetCleanupWorker>();
             services.AddHostedService<ArticleBodyRepairWorker>();
             services.AddHostedService<RumTelemetryFlushWorker>();

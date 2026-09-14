@@ -919,8 +919,7 @@ async function assertBundleWorkerSmoke(bundle)
         tags: [{ id: 9, name: 'Tag' }]
     };
     const cases = [
-        { kind: 'Home', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', pageIndex: 1, pageSize: 10, total: 1, articles: [], featuredArticles: [featuredArticle], hotArticles: [hotArticle] } },
-        { kind: 'Home', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', routeKey: 'home:page:2', pageIndex: 2, pageSize: 10, total: 30, articles: [listArticle], featuredArticles: [], hotArticles: [] } },
+        { kind: 'Home', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', pageIndex: 1, pageSize: 10, total: 30, nextCursor: 'cursor_home_2', hasMore: true, articles: [listArticle], featuredArticles: [featuredArticle], hotArticles: [hotArticle] } },
         { kind: 'About', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', content: 'About content' } },
         { kind: 'Archive', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', total: 0, articles: [] } },
         {
@@ -956,7 +955,7 @@ async function assertBundleWorkerSmoke(bundle)
             }
         },
         { kind: 'Filter', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', routeKey: 'search', title: 'Search', filter: { filterType: 'search', filterKey: 'search', filterId: 0, filterName: '', isInvalidTarget: false, pageIndex: 1, pageSize: 10, total: 0, articles: [] } } },
-        { kind: 'Filter', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', routeKey: 'category:7:page:2', title: 'Category', filter: { filterType: 'category', filterKey: 'category:7', filterId: 7, filterName: 'Category', isInvalidTarget: false, pageIndex: 2, pageSize: 10, total: 30, articles: [listArticle] } } }
+        { kind: 'Filter', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', routeKey: 'category:7', title: 'Category', filter: { filterType: 'category', filterKey: 'category:7', filterId: 7, filterName: 'Category', isInvalidTarget: false, pageIndex: 1, pageSize: 10, total: 30, nextCursor: 'cursor_category_2', hasMore: true, articles: [listArticle] } } }
     ];
 
     for (const { kind, options } of cases)
@@ -973,20 +972,17 @@ async function assertBundleWorkerSmoke(bundle)
         {
             fail(`bundle worker HTML missing public shell root for ${kind}`);
         }
-        if (String(options.routeKey ?? '').endsWith(':page:2'))
+        const nextCursor = options.nextCursor ?? options.filter?.nextCursor;
+        if (nextCursor)
         {
-            if (entry.routeKey !== options.routeKey)
-            {
-                fail(`bundle worker dropped pagination route identity for ${kind}`);
-            }
             if (!entry.html.includes('data-article-id="20"'))
             {
-                fail(`bundle worker page 2 first HTML missing target article for ${kind}`);
+                fail(`bundle worker cursor seed first HTML missing target article for ${kind}`);
             }
-            if (!/<a\b[^>]*href="[^"]+"[^>]*data-aot-action="page-prev"/i.test(entry.html)
-          || !/<a\b[^>]*href="[^"]+"[^>]*data-aot-action="page-next"/i.test(entry.html))
+            if (!entry.html.includes(`cursor=${nextCursor}`)
+                || !/<a\b[^>]*href="[^"]+"[^>]*data-aot-action="page-next"/i.test(entry.html))
             {
-                fail(`bundle worker page 2 pagination links are not crawlable anchors for ${kind}`);
+                fail(`bundle worker cursor pagination link is not a crawlable anchor for ${kind}`);
             }
         }
     }

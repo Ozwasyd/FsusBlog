@@ -125,12 +125,21 @@ export function validateReleaseDomainProjectionReceipt({
 
 function visitProjectionReceipts(directory, files)
 {
-    if (!fs.existsSync(directory)) return;
+    if (!fs.existsSync(directory))
+    {
+        return;
+    }
     for (const entry of fs.readdirSync(directory, { withFileTypes: true }))
     {
         const candidate = path.join(directory, entry.name);
-        if (entry.isDirectory()) visitProjectionReceipts(candidate, files);
-        else if (entry.isFile() && entry.name.endsWith('.json')) files.push(candidate);
+        if (entry.isDirectory())
+        {
+            visitProjectionReceipts(candidate, files);
+        }
+        else if (entry.isFile() && entry.name.endsWith('.json'))
+        {
+            files.push(candidate);
+        }
     }
 }
 

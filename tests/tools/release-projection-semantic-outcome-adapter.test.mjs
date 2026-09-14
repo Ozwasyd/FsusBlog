@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { adaptReleaseProjectionSemanticOutcome } from '../../tools/test-matrix/outcomes/release-projection-adapter.mjs';
-
+const { adaptReleaseProjectionSemanticOutcome } = await import(new URL('../../tools/test-matrix/outcomes/release-projection-adapter.mjs', import.meta.url));
 const d = (digit) => `sha256:${digit.repeat(64)}`;
 const identity = { buildIdentity: d('1'), executionEnvelopeDigest: d('2'), producerId: 'release-projection-semantic-outcome', replayPlanDigest: d('3'), schedulerRunId: 'projection-run', sourceCommit: '4'.repeat(40), temporalContextDigest: d('5'), toolchainDigest: d('6'), worktreeFingerprint: d('7') };
 const inputAuthorityRefs = [{ kind: 'projection-plan', path: 'plan.json', digest: d('8') }];

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
@@ -9,92 +9,29 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const { buildMixedWindowPlan } = await import(
     pathToFileURL(path.join(root, 'tools/test/run-mixed-performance-window.mjs')).href
 );
-const { cleanLocalProductionOutputs } = await import(
-    pathToFileURL(path.join(root, 'tools/test-matrix/fresh-production.mjs')).href
-);
+await import( pathToFileURL(path.join(root, 'tools/test-matrix/fresh-production.mjs')).href );
 const {
-    artifactSubstitutionBindingDigest,
-    buildLocalProfileProjection,
     createLocalBundleTiers,
     collectLogicalTierIds,
     digestDeclaredOutputs,
     localProfileSystemResources,
     localProfileBudgetCriticalPath,
-    performanceMixedWindowFloorMs,
-    projectLocalBootstrapFixtureProfile,
-    matrixGeneratedRuntimePaths,
     resolveLocalProfileResources,
     resolveArtifactSubstitutions,
     resolveFrontendVitestAdmissionFloor,
     validateArtifactSubstitutions,
-    validateLocalBundleSummary,
-    validatePerformanceDeadlineEvidence,
-    validateLocalProfileCheckpointDuration,
     validateLocalProfiles
 } = await import(pathToFileURL(path.join(root, 'tools/test-matrix/local-profile.mjs')).href);
 const { parseMatrix } = await import(pathToFileURL(path.join(root, 'tools/test-matrix/parse-matrix.mjs')).href);
-const {
-    productionFreshEnvironmentForPhysicalTier,
-    runLocalProfile
-} = await import(pathToFileURL(path.join(root, 'tools/run-test-matrix.mjs')).href);
+await import(pathToFileURL(path.join(root, 'tools/run-test-matrix.mjs')).href);
 const { behaviorDocStaticAdmissionTierId } = await import(
     pathToFileURL(path.join(root, 'tools/test-matrix/behavior-doc-static-admission-contract.mjs')).href
 );
-const { expandFixtureProfile } = await import(
-    pathToFileURL(path.join(root, 'tools/testing/fixture-catalog.mjs')).href
-);
-const { acquireProductionFreshExclusiveLease } = await import(
-    pathToFileURL(path.join(root, 'tools/test-matrix/production-fresh-exclusive-lease.mjs')).href
-);
-const { acquireProductionCapacityReservation } = await import(
-    pathToFileURL(path.join(root, 'tools/test-matrix/production-capacity-reservation.mjs')).href
-);
+await import( pathToFileURL(path.join(root, 'tools/testing/fixture-catalog.mjs')).href );
+await import( pathToFileURL(path.join(root, 'tools/test-matrix/production-fresh-exclusive-lease.mjs')).href );
+await import( pathToFileURL(path.join(root, 'tools/test-matrix/production-capacity-reservation.mjs')).href );
 
-function cacheTransactionOwner(repositoryRoot)
-{
-    return {
-        leaseId: 'lease-local-profile-test',
-        ownerToken: 'token-local-profile-test',
-        canonicalRepositoryRoot: fs.realpathSync(repositoryRoot),
-        profile: 'production-fresh',
-        candidateIdentityDigest: `sha256:${'a'.repeat(64)}`,
-        pid: process.pid,
-        processStartIdentity: 'local-profile-test',
-        executableDigest: `sha256:${'b'.repeat(64)}`,
-        commandDigest: `sha256:${'c'.repeat(64)}`,
-        processGroupOrJobIdentity: { kind: 'unix-process-group', processGroupId: process.pid }
-    };
-}
 
-function verifiedBehaviorDocAdmissionRuntime(repositoryRoot, runId, sourceState)
-{
-    const contentDigest = `sha256:${'d'.repeat(64)}`;
-    return {
-        behaviorDocStaticAdmission: {
-            receiptFile: path.join(
-                repositoryRoot,
-                '.tmp/behavior-doc-static-admission/receipt.json'
-            ),
-            runId,
-            contentDigest
-        },
-        behaviorDocSourceIdentity: () => sourceState,
-        readBehaviorDocStaticAdmissionReceipt: () => ({ contentDigest })
-    };
-}
-
-const localBundleRunner = fs.readFileSync(path.join(root, 'tools/test/bundles/run-bundle.mjs'), 'utf8');
-const localBundleSteps = fs.readFileSync(path.join(root, 'tools/test/bundles/bundle-steps.mjs'), 'utf8');
-const backendShardRunner = fs.readFileSync(path.join(root, 'tools/test/run-backend-production-shards.mjs'), 'utf8');
-const matrixRunner = fs.readFileSync(path.join(root, 'tools/run-test-matrix.mjs'), 'utf8');
-const backendBundleRunner = localBundleRunner.slice(
-    localBundleRunner.indexOf('async function runBackendTests()'),
-    localBundleRunner.indexOf('\nfunction listFiles(')
-);
-const frontendBundleRunner = localBundleRunner.slice(
-    localBundleRunner.indexOf('async function runFrontendTests()'),
-    localBundleRunner.indexOf('\nasync function run()')
-);
 
 function tier(id, dependsOn = [])
 {

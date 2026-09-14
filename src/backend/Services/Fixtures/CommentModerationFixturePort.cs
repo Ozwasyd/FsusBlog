@@ -8,6 +8,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Services.Authoring;
+using FsusBlog.Server.Services.Background;
 using FsusBlog.Shared.Contracts.Outputs;
 
 using SqlSugar;
@@ -110,9 +111,12 @@ public sealed class CommentModerationFixturePort(
     IAuthoringModerationQueue queue,
     ICommentQueryService publicQueries,
     IRegionLegalModerationService regionPolicies,
+    CommentMutationOutboxWorker outboxWorker,
     ISqlSugarClient db) : ICommentModerationFixturePort
 {
     private const string PlanSchema = "fsusblog.comment-moderation-fixture-plan.v1";
+    private const int MaxOutboxDrainPasses = 16;
+    private static readonly TimeSpan s_outboxDrainPassDelay = TimeSpan.FromMilliseconds(200);
     private const string ResultSchema = "fsusblog.comment-moderation-fixture-result.v1";
 
     public RegionModerationDecision ResolveRegion(
@@ -145,13 +149,21 @@ public sealed class CommentModerationFixturePort(
         foreach (CommentModerationFixtureOperation operation in plan.Operations)
             await TransitionAsync(plan.Binding, plan.AdminPrincipalId, operation, cancellationToken).ConfigureAwait(false);
 
+        await DrainOutboxAsync(plan.Operations, cancellationToken).ConfigureAwait(false);
+
         var queueMembership = new Dictionary<CommentModerationStatus, IReadOnlyList<string>>();
         foreach (CommentModerationStatus status in new[] {
             CommentModerationStatus.Pending,
             CommentModerationStatus.Rejected,
             CommentModerationStatus.Approved
         })
-            queueMembership[status] = await ReadExactQueueAsync(status, cancellationToken).ConfigureAwait(false);
+        {
+            // Approved membership means presence in the actionable moderation queue;
+            // a plain status browse would list every approved comment and make the
+            // "excluded" assertion unreachable.
+            CommentModerationStatus? queueFilter = status == CommentModerationStatus.Approved ? null : status;
+            queueMembership[status] = await ReadExactQueueAsync(queueFilter, cancellationToken).ConfigureAwait(false);
+        }
 
         var entities = new List<CommentModerationFixtureEntity>(plan.Operations.Count);
         foreach (CommentModerationFixtureOperation operation in plan.Operations.OrderBy(item => item.SemanticRole, StringComparer.Ordinal))
@@ -297,8 +309,36 @@ public sealed class CommentModerationFixturePort(
             [.. outbox.Select(item => item.EventId)]);
     }
 
+    private async Task DrainOutboxAsync(
+        IReadOnlyList<CommentModerationFixtureOperation> operations,
+        CancellationToken cancellationToken)
+    {
+        long[] commentIds = operations.Select(static item => item.CommentId).Distinct().ToArray();
+        for (int pass = 0; pass < MaxOutboxDrainPasses; pass++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            List<CommentMutationOutboxEvent> pending = await db.Queryable<CommentMutationOutboxEvent>()
+                .Where(item => commentIds.Contains(item.CommentId)
+                    && item.Status != CommentMutationOutboxStatus.Processed)
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
+            if (pending.Count == 0)
+            {
+                return;
+            }
+            if (pending.Any(static item => item.Status == CommentMutationOutboxStatus.Poison))
+            {
+                throw new InvalidOperationException("Comment mutation outbox did not reach exact processed state.");
+            }
+            // Rows may be in-flight under the hosted worker's claim lease; give the
+            // current claim owner a bounded window to commit before the next pass.
+            await Task.Delay(s_outboxDrainPassDelay, cancellationToken).ConfigureAwait(false);
+            await outboxWorker.ProcessPendingAsync(cancellationToken).ConfigureAwait(false);
+        }
+        throw new InvalidOperationException("Comment mutation outbox did not converge within the bounded worker drain.");
+    }
+
     private async Task<IReadOnlyList<string>> ReadExactQueueAsync(
-        CommentModerationStatus status,
+        CommentModerationStatus? status,
         CancellationToken cancellationToken)
     {
         var ids = new List<string>();

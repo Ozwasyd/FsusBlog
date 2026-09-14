@@ -1,36 +1,30 @@
-import assert from 'node:assert/strict'
-import { createHash } from 'node:crypto'
-import fs from 'node:fs'
-import os from 'node:os'
-import path from 'node:path'
-import test from 'node:test'
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import test from 'node:test';
 
-import { createProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs'
-import { digestCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs'
-import {
-    createBrowserlessCorrectnessReceipt,
-    sealBrowserContractReceipt
-} from '../../tools/release/test-evidence-receipts.mjs'
-import {
-    joinBehaviorEvidencePostRuntime,
-    validatePostRuntimeReceipt
-} from '../../tools/test-matrix/behavior-evidence-post-runtime.mjs'
-
-const commit = 'a'.repeat(40)
-const worktreeFingerprint = 'b'.repeat(64)
-const runId = 'post-runtime-round-1'
+const {createProductionBuildReceipt} = await import(new URL('../../tools/ci/production-build-artifacts.mjs', import.meta.url));
+const {digestCatalog} = await import(new URL('../../tools/contracts/behavior-contract-catalog.mjs', import.meta.url));
+const {createBrowserlessCorrectnessReceipt, sealBrowserContractReceipt} = await import(new URL('../../tools/release/test-evidence-receipts.mjs', import.meta.url));
+const {joinBehaviorEvidencePostRuntime, validatePostRuntimeReceipt} = await import(new URL('../../tools/test-matrix/behavior-evidence-post-runtime.mjs', import.meta.url));
+const commit = 'a'.repeat(40);
+const worktreeFingerprint = 'b'.repeat(64);
+const runId = 'post-runtime-round-1';
 const stable = (value) => Array.isArray(value)
     ? value.map(stable)
     : value && typeof value === 'object'
         ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])]))
-        : value
-const seal = (value) => {
-    const receipt = { ...value, contentDigest: null }
-    const content = { ...receipt }
-    delete content.contentDigest
-    receipt.contentDigest = `sha256:${createHash('sha256').update(JSON.stringify(stable(content))).digest('hex')}`
-    return receipt
-}
+        : value;
+const seal = (value) =>
+{
+    const receipt = { ...value, contentDigest: null };
+    const content = { ...receipt };
+    delete content.contentDigest;
+    receipt.contentDigest = `sha256:${createHash('sha256').update(JSON.stringify(stable(content))).digest('hex')}`;
+    return receipt;
+};
 
 function catalog()
 {
@@ -61,7 +55,7 @@ function catalog()
             coverageIds: ['production-correctness'],
             documents: ['docs/testing.md']
         }]
-    }
+    };
 }
 
 function preRuntime(behaviorCatalog)
@@ -79,20 +73,20 @@ function preRuntime(behaviorCatalog)
         runtimeCandidateSpawnCountBeforeReceipt: 0,
         status: 'ok',
         failureReasons: []
-    })
+    });
 }
 
 function candidateFixture(context)
 {
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-post-runtime-'))
-    context.after(() => fs.rmSync(directory, { recursive: true, force: true }))
-    const repositoryRoot = path.join(directory, 'repo')
-    const artifactRoot = path.join(directory, 'build')
-    fs.mkdirSync(path.join(repositoryRoot, 'inputs'), { recursive: true })
-    fs.mkdirSync(path.join(artifactRoot, 'frontend-dist'), { recursive: true })
-    fs.writeFileSync(path.join(repositoryRoot, 'inputs', 'lock.json'), '{}\n')
-    fs.writeFileSync(path.join(artifactRoot, 'frontend-dist', 'index.html'), '<!doctype html>\n')
-    const sourceState = { commit, worktreeFingerprint }
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-post-runtime-'));
+    context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const repositoryRoot = path.join(directory, 'repo');
+    const artifactRoot = path.join(directory, 'build');
+    fs.mkdirSync(path.join(repositoryRoot, 'inputs'), { recursive: true });
+    fs.mkdirSync(path.join(artifactRoot, 'frontend-dist'), { recursive: true });
+    fs.writeFileSync(path.join(repositoryRoot, 'inputs', 'lock.json'), '{}\n');
+    fs.writeFileSync(path.join(artifactRoot, 'frontend-dist', 'index.html'), '<!doctype html>\n');
+    const sourceState = { commit, worktreeFingerprint };
     const build = createProductionBuildReceipt({
         root: repositoryRoot,
         artifactRoot,
@@ -105,7 +99,7 @@ function candidateFixture(context)
         inputPaths: ['inputs'],
         domains: [{ name: 'frontend-dist', path: 'frontend-dist' }],
         now: () => new Date('2026-08-27T00:00:00.000Z')
-    })
+    });
     const correctness = createBrowserlessCorrectnessReceipt({
         matrix: { tiers: [{ id: 'production-correctness', dependsOn: [], requiresPlaywright: 'none' }] },
         buildReceipt: build,
@@ -123,7 +117,7 @@ function candidateFixture(context)
         }],
         authority: { kind: 'scheduler-checkpoint', status: 'success', runId, authoritative: true },
         now: () => new Date('2026-08-27T00:01:00.000Z')
-    })
+    });
     const browserPlan = seal({
         schema: 'fsusblog.playwright-browser-identity.v1',
         executionClass: 'correctness', evidenceClass: 'browser-contract',
@@ -139,7 +133,7 @@ function candidateFixture(context)
             locale: 'zh-CN', deviceScaleFactor: 1, renderingMode: 'headless',
             colorScheme: 'light', gpuMode: 'software'
         }
-    })
+    });
     const browserActual = seal({
         ...structuredClone(browserPlan),
         schema: 'fsusblog.playwright-browser-actual.v1',
@@ -148,7 +142,7 @@ function candidateFixture(context)
             locale: 'zh-CN', deviceScaleFactor: 1, colorScheme: 'light',
             renderer: 'SwiftShader fixture renderer'
         }
-    })
+    });
     const browserContract = sealBrowserContractReceipt({
         schema: 'fsusblog.browser-contract-receipt.v2',
         status: 'success',
@@ -193,30 +187,30 @@ function candidateFixture(context)
         finishedAt: '2026-08-27T00:00:01.000Z',
         wallClockMs: 1_000,
         error: null
-    })
-    return { build, correctness, browserContract }
+    });
+    return { build, correctness, browserContract };
 }
 
 test('post-runtime join seals exact pre/runtime/browser candidate evidence', (context) =>
 {
-    const behaviorCatalog = catalog()
-    const candidate = candidateFixture(context)
+    const behaviorCatalog = catalog();
+    const candidate = candidateFixture(context);
     const receipt = joinBehaviorEvidencePostRuntime({
         preRuntimeReceipt: preRuntime(behaviorCatalog),
         catalog: behaviorCatalog,
         browserContractReceipt: candidate.browserContract,
         runtimeEvidenceReceipts: [candidate.correctness]
-    })
-    assert.equal(validatePostRuntimeReceipt(receipt).status, 'ok', receipt.failureReasons.join('; '))
-    assert.equal(receipt.candidateIdentity.buildReceiptDigest, candidate.build.contentDigest)
-    assert.equal(receipt.candidateIdentity.browserContractDigest, candidate.browserContract.contentDigest)
-})
+    });
+    assert.equal(validatePostRuntimeReceipt(receipt).status, 'ok', receipt.failureReasons.join('; '));
+    assert.equal(receipt.candidateIdentity.buildReceiptDigest, candidate.build.contentDigest);
+    assert.equal(receipt.candidateIdentity.browserContractDigest, candidate.browserContract.contentDigest);
+});
 
 test('HTTP 200, diagnostic browser evidence, stale candidate and missing browser cannot qualify', (context) =>
 {
-    const behaviorCatalog = catalog()
-    const pre = preRuntime(behaviorCatalog)
-    const candidate = candidateFixture(context)
+    const behaviorCatalog = catalog();
+    const pre = preRuntime(behaviorCatalog);
+    const candidate = candidateFixture(context);
     const cases = [
         {
             name: 'HTTP 200 only',
@@ -237,26 +231,26 @@ test('HTTP 200, diagnostic browser evidence, stale candidate and missing browser
             name: 'missing browser contract',
             runtimeEvidenceReceipts: [candidate.correctness]
         }
-    ]
+    ];
     for (const scenario of cases)
     {
-        const receipt = joinBehaviorEvidencePostRuntime({ preRuntimeReceipt: pre, catalog: behaviorCatalog, ...scenario })
-        assert.equal(receipt.status, 'failed', scenario.name)
-        assert.ok(receipt.failureReasons.length > 0, scenario.name)
+        const receipt = joinBehaviorEvidencePostRuntime({ preRuntimeReceipt: pre, catalog: behaviorCatalog, ...scenario });
+        assert.equal(receipt.status, 'failed', scenario.name);
+        assert.ok(receipt.failureReasons.length > 0, scenario.name);
     }
-})
+});
 
 test('post-runtime receipt refuses release-final spawn before sealing', (context) =>
 {
-    const behaviorCatalog = catalog()
-    const candidate = candidateFixture(context)
+    const behaviorCatalog = catalog();
+    const candidate = candidateFixture(context);
     const receipt = joinBehaviorEvidencePostRuntime({
         preRuntimeReceipt: preRuntime(behaviorCatalog),
         catalog: behaviorCatalog,
         browserContractReceipt: candidate.browserContract,
         runtimeEvidenceReceipts: [candidate.correctness],
         releaseFinalSpawnCountBeforeReceipt: 1
-    })
-    assert.equal(receipt.status, 'failed')
-    assert.throws(() => validatePostRuntimeReceipt(receipt), /must be 0/u)
-})
+    });
+    assert.equal(receipt.status, 'failed');
+    assert.throws(() => validatePostRuntimeReceipt(receipt), /must be 0/u);
+});

@@ -7,7 +7,6 @@ import {
   buildPublicFilterRouteKey,
   buildPublicHomeRouteKey,
   buildPublicHomePaginationHref,
-  buildPublicPaginatedRouteKey,
   buildPublicRoutePaginationHref,
   buildPublicTagHref,
   resolvePublicFilterIdentity
@@ -29,13 +28,15 @@ describe('public route identity builders', () => {
     expect(buildPublicArticleHref('oops')).toBe('/article/0')
   })
 
-  it('keeps normalized page identity in route keys and canonical hrefs', () => {
-    expect(buildPublicPaginatedRouteKey('home', 2)).toBe('home:page:2')
-    expect(buildPublicPaginatedRouteKey('category:7:page:2', 3)).toBe('category:7:page:3')
+  it('builds only cursor-bearing deeper hrefs and rejects legacy page route keys', () => {
     expect(buildPublicHomePaginationHref(1)).toBe('/')
-    expect(buildPublicHomePaginationHref(2)).toBe('/?page=2')
-    expect(buildPublicRoutePaginationHref('category:7:page:2', 3)).toBe('/category/7?page=3')
-    expect(buildPublicRoutePaginationHref('tag:9:page:2', 1)).toBe('/tag/9')
+    expect(buildPublicHomePaginationHref(2, 'cursor_home_2')).toBe('/?page=2&cursor=cursor_home_2')
+    expect(buildPublicHomePaginationHref(2)).toBe('/')
+    expect(buildPublicRoutePaginationHref('category:7', 3, 'cursor_category_3')).toBe('/category/7?page=3&cursor=cursor_category_3')
+    expect(buildPublicRoutePaginationHref('category:7', 3)).toBe('/category/7')
+    expect(buildPublicRoutePaginationHref('tag:9', 1)).toBe('/tag/9')
+    expect(() => buildPublicRoutePaginationHref('category:7:page:2', 3, 'cursor_category_3'))
+      .toThrow('public_legacy_pagination_route_key_forbidden')
   })
 
   it('derives filter route keys without duplicating page-specific rules in SSR builders', () => {

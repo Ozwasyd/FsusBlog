@@ -1,7 +1,8 @@
-import type { ArticleListItemResponse, CommentAuthorView, CommentReplyItem, CommentReplyPreviewItem, CommentThreadItem, CommentTreeNode, FeaturedArticleItem } from '@/contracts/binaryApi';
-import { resolveCommentAuthorView } from '@/utils/commentAuthorView';
-import { AppErrorCode, createAppError } from '@/utils/appError';
 import { BinaryReader, readBlobText, readFixedUtf8, readInt32, readInt64Number, readInt64String, readNullableId64, readIsoDate64, readSliceRef, readSliceText, readUint16 } from '@/codecs/binary/reader';
+import type { ArticleListItemResponse, CommentAuthorView, CommentReplyItem, CommentReplyPreviewItem, CommentThreadItem, CommentTreeNode, FeaturedArticleItem } from '@/contracts/binaryApi';
+import { AppErrorCode, createAppError } from '@/utils/appError';
+import { resolveCommentAuthorView } from '@/utils/commentAuthorView';
+
 import { COMMENT_AUTHOR_VIEW_POD_SIZE, COMMENT_REPLY_PREVIEW_ITEM_POD_SIZE, COMMENT_THREAD_ITEM_POD_SIZE, COMMENT_TREE_NODE_POD_SIZE, FEATURED_ARTICLE_POD_SIZE, TAG_POD_SIZE } from './types';
 
 type TagViewModel = ArticleListItemResponse['tags'][number];
@@ -12,156 +13,185 @@ type CommentCore = Pick<
   'id' | 'parentId' | 'rootId' | 'replyToCommentId' | 'depth' | 'isDeleted' | 'isEdited' | 'createTime' | 'author' | 'replyToAuthor' | 'content'
 >;
 
-type EmbeddedAuthorRead = {
-  author: CommentAuthorView | null;
-  nextOffset: number;
-};
+interface EmbeddedAuthorRead {
+    author: CommentAuthorView | null;
+    nextOffset: number;
+}
 
 const textDecoder = new TextDecoder();
 
-function readTagPod(span: Uint8Array): TagViewModel {
-  return {
-    id: readInt32(span, 0),
-    name: readFixedUtf8(span, 4, 128)
-  };
+function readTagPod(span: Uint8Array): TagViewModel
+{
+    return {
+        id: readInt32(span, 0),
+        name: readFixedUtf8(span, 4, 128)
+    };
 }
 
 export function readCategoryPod(
-  pod: Uint8Array,
-  idOffset: number,
-  nameOffset: number,
-  nameLength: number
-): CategoryViewModel {
-  return {
-    id: readInt32(pod, idOffset),
-    name: readFixedUtf8(pod, nameOffset, nameLength)
-  };
+    pod: Uint8Array,
+    idOffset: number,
+    nameOffset: number,
+    nameLength: number
+): CategoryViewModel
+{
+    return {
+        id: readInt32(pod, idOffset),
+        name: readFixedUtf8(pod, nameOffset, nameLength)
+    };
 }
 
-export function readTagList(reader: BinaryReader): TagViewModel[] {
-  const tagCount = reader.readInt32();
-  if (tagCount < 0) {
-    throw createAppError(AppErrorCode.ProtocolFailure, 'tag_count_invalid');
-  }
-
-  const tags: TagViewModel[] = [];
-  for (let i = 0; i < tagCount; i++) {
-    tags.push(readTagPod(reader.readSpan(TAG_POD_SIZE)));
-  }
-
-  return tags;
-}
-
-export function readFeaturedArticleItem(reader: BinaryReader): FeaturedArticleItem {
-  const pod = reader.readSpan(FEATURED_ARTICLE_POD_SIZE);
-  const payload = reader.readBlob();
-
-  return {
-    id: readInt32(pod, 0),
-    views: readInt32(pod, 4),
-    createTime: readIsoDate64(pod, 8),
-    category: readCategoryPod(pod, 16, 20, 128),
-    title: readFixedUtf8(pod, 148, 256),
-    coverImageUrl: readBlobText(pod, payload, 404)
-  };
-}
-
-function readStrictSliceText(blob: Uint8Array, pod: Uint8Array, sliceOffset: number, errorCode: string): { text: string; nextOffset: number } {
-  const slice = readSliceRef(pod, sliceOffset);
-  const end = slice.offset + slice.length;
-  if (slice.offset !== 0 || slice.length < 0 || end > blob.byteLength) {
-    throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
-  }
-
-  return {
-    text: textDecoder.decode(blob.subarray(slice.offset, end)),
-    nextOffset: end
-  };
-}
-
-function readEmbeddedPayload(blob: Uint8Array, offset: number, errorCode: string): { payload: Uint8Array; nextOffset: number } {
-  if (offset < 0 || offset + 4 > blob.byteLength) {
-    throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
-  }
-
-  const length = readInt32(blob, offset);
-  const payloadOffset = offset + 4;
-  const nextOffset = payloadOffset + length;
-  if (length < 0 || nextOffset > blob.byteLength) {
-    throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
-  }
-
-  return {
-    payload: blob.subarray(payloadOffset, nextOffset),
-    nextOffset
-  };
-}
-
-function readRequiredEmbeddedAuthorView(blob: Uint8Array, offset: number, errorCode: string): EmbeddedAuthorRead {
-  const result = readEmbeddedPayload(blob, offset, errorCode);
-  if (result.payload.byteLength === 0) {
-    throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
-  }
-
-  return {
-    author: readCommentAuthorViewPayload(result.payload, errorCode),
-    nextOffset: result.nextOffset
-  };
-}
-
-function readOptionalEmbeddedAuthorView(blob: Uint8Array, offset: number, errorCode: string): EmbeddedAuthorRead {
-  const result = readEmbeddedPayload(blob, offset, errorCode);
-  return {
-    author: result.payload.byteLength === 0 ? null : readCommentAuthorViewPayload(result.payload, errorCode),
-    nextOffset: result.nextOffset
-  };
-}
-
-function readCommentAuthorViewPayload(payload: Uint8Array, errorCode: string): CommentAuthorView {
-  const reader = new BinaryReader(payload);
-  const pod = reader.readSpan(COMMENT_AUTHOR_VIEW_POD_SIZE);
-  const blob = reader.readBlob();
-  if (reader.remaining() !== 0) {
-    throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
-  }
-
-  return resolveCommentAuthorView({
-    author: {
-      mode: decodeCommentAuthorMode(pod[0] ?? 0, errorCode),
-      displayName: readSliceText(blob, readSliceRef(pod, 4)),
-      displayLanguage: decodeCommentDisplayLanguage(readSliceText(blob, readSliceRef(pod, 12))),
-      badge: nullableAuthorField(readSliceText(blob, readSliceRef(pod, 20))),
-      scopeLabel: nullableAuthorField(readSliceText(blob, readSliceRef(pod, 28)))
+export function readTagList(reader: BinaryReader): TagViewModel[]
+{
+    const tagCount = reader.readInt32();
+    if (tagCount < 0)
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'tag_count_invalid');
     }
-  });
+
+    const tags: TagViewModel[] = [];
+    for (let i = 0; i < tagCount; i++)
+    {
+        tags.push(readTagPod(reader.readSpan(TAG_POD_SIZE)));
+    }
+
+    return tags;
 }
 
-function decodeCommentAuthorMode(raw: number, errorCode: string): CommentAuthorView['mode'] {
-  if (raw === 0 || raw === 1) return 'legacy_server_visible_pseudonymous';
-  if (raw === 3) return 'public';
-  if (raw === 4) return 'zk_anonymous';
-  throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
+export function readFeaturedArticleItem(reader: BinaryReader): FeaturedArticleItem
+{
+    const pod = reader.readSpan(FEATURED_ARTICLE_POD_SIZE);
+    const payload = reader.readBlob();
+
+    return {
+        id: readInt32(pod, 0),
+        views: readInt32(pod, 4),
+        createTime: readIsoDate64(pod, 8),
+        category: readCategoryPod(pod, 16, 20, 128),
+        title: readFixedUtf8(pod, 148, 256),
+        coverImageUrl: readBlobText(pod, payload, 404)
+    };
 }
 
-function decodeCommentDisplayLanguage(value: string): CommentAuthorView['displayLanguage'] {
-  return value === 'en' ? 'en' : 'zh-CN';
+function readStrictSliceText(blob: Uint8Array, pod: Uint8Array, sliceOffset: number, errorCode: string): { text: string; nextOffset: number; }
+{
+    const slice = readSliceRef(pod, sliceOffset);
+    const end = slice.offset + slice.length;
+    if (slice.offset !== 0 || slice.length < 0 || end > blob.byteLength)
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
+    }
+
+    return {
+        text: textDecoder.decode(blob.subarray(slice.offset, end)),
+        nextOffset: end
+    };
 }
 
-function nullableAuthorField(value: string): string | null {
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
+function readEmbeddedPayload(blob: Uint8Array, offset: number, errorCode: string): { payload: Uint8Array; nextOffset: number; }
+{
+    if (offset < 0 || offset + 4 > blob.byteLength)
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
+    }
+
+    const length = readInt32(blob, offset);
+    const payloadOffset = offset + 4;
+    const nextOffset = payloadOffset + length;
+    if (length < 0 || nextOffset > blob.byteLength)
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
+    }
+
+    return {
+        payload: blob.subarray(payloadOffset, nextOffset),
+        nextOffset
+    };
 }
 
-function readCommentCore(pod: Uint8Array, blob: Uint8Array): CommentCore {
-  const content = readStrictSliceText(blob, pod, 52, 'comment_content_slice_invalid');
-  const author = readRequiredEmbeddedAuthorView(blob, content.nextOffset, 'comment_author_contract_missing');
-  const replyToAuthor = readOptionalEmbeddedAuthorView(blob, author.nextOffset, 'comment_reply_author_contract_missing');
-  validateCommentAuthorPayload(replyToAuthor.nextOffset, blob.byteLength);
+function readRequiredEmbeddedAuthorView(blob: Uint8Array, offset: number, errorCode: string): EmbeddedAuthorRead
+{
+    const result = readEmbeddedPayload(blob, offset, errorCode);
+    if (result.payload.byteLength === 0)
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
+    }
 
-  return {
-    id: String(readInt64Number(pod, 0)),
-    parentId: readNullableId64(pod, 8),
-    rootId: String(readInt64Number(pod, 16)),
+    return {
+        author: readCommentAuthorViewPayload(result.payload, errorCode),
+        nextOffset: result.nextOffset
+    };
+}
+
+function readOptionalEmbeddedAuthorView(blob: Uint8Array, offset: number, errorCode: string): EmbeddedAuthorRead
+{
+    const result = readEmbeddedPayload(blob, offset, errorCode);
+    return {
+        author: result.payload.byteLength === 0 ? null : readCommentAuthorViewPayload(result.payload, errorCode),
+        nextOffset: result.nextOffset
+    };
+}
+
+function readCommentAuthorViewPayload(payload: Uint8Array, errorCode: string): CommentAuthorView
+{
+    const reader = new BinaryReader(payload);
+    const pod = reader.readSpan(COMMENT_AUTHOR_VIEW_POD_SIZE);
+    const blob = reader.readBlob();
+    if (reader.remaining() !== 0)
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
+    }
+
+    return resolveCommentAuthorView({
+        author: {
+            mode: decodeCommentAuthorMode(pod[0] ?? 0, errorCode),
+            displayName: readSliceText(blob, readSliceRef(pod, 4)),
+            displayLanguage: decodeCommentDisplayLanguage(readSliceText(blob, readSliceRef(pod, 12))),
+            badge: nullableAuthorField(readSliceText(blob, readSliceRef(pod, 20))),
+            scopeLabel: nullableAuthorField(readSliceText(blob, readSliceRef(pod, 28)))
+        }
+    });
+}
+
+function decodeCommentAuthorMode(raw: number, errorCode: string): CommentAuthorView['mode']
+{
+    if (raw === 0 || raw === 1)
+    {
+        return 'legacy_server_visible_pseudonymous';
+    }
+    if (raw === 3)
+    {
+        return 'public';
+    }
+    if (raw === 4)
+    {
+        return 'zk_anonymous';
+    }
+    throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
+}
+
+function decodeCommentDisplayLanguage(value: string): CommentAuthorView['displayLanguage']
+{
+    return value === 'en' ? 'en' : 'zh-CN';
+}
+
+function nullableAuthorField(value: string): string | null
+{
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+}
+
+function readCommentCore(pod: Uint8Array, blob: Uint8Array): CommentCore
+{
+    const content = readStrictSliceText(blob, pod, 52, 'comment_content_slice_invalid');
+    const author = readRequiredEmbeddedAuthorView(blob, content.nextOffset, 'comment_author_contract_missing');
+    const replyToAuthor = readOptionalEmbeddedAuthorView(blob, author.nextOffset, 'comment_reply_author_contract_missing');
+    validateCommentAuthorPayload(replyToAuthor.nextOffset, blob.byteLength);
+
+    return {
+        id: String(readInt64Number(pod, 0)),
+        parentId: readNullableId64(pod, 8),
+        rootId: String(readInt64Number(pod, 16)),
         replyToCommentId: readNullableId64(pod, 28),
         depth: readInt32(pod, 36),
         isDeleted: (pod[40] ?? 0) === 1,
@@ -169,11 +199,12 @@ function readCommentCore(pod: Uint8Array, blob: Uint8Array): CommentCore {
         createTime: readIsoDate64(pod, 44),
         author: author.author!,
         replyToAuthor: replyToAuthor.author,
-    content: content.text
-  };
+        content: content.text
+    };
 }
 
-export function readReplyItem(pod: Uint8Array, blob: Uint8Array): CommentReplyItem {
+export function readReplyItem(pod: Uint8Array, blob: Uint8Array): CommentReplyItem
+{
     return readCommentCore(pod, blob);
 }
 
@@ -192,7 +223,7 @@ export function readCommentTreeNodeFromReader(reader: BinaryReader): CommentTree
     if (isDeleted > 1 || hasMoreChildren > 1 || depth < 0 || childCount < 0
     || (hasMoreChildren === 1 && childCount === 0)
     || readUint16(pod, 42) > 1)
-{
+    {
         throw createAppError(AppErrorCode.ProtocolFailure, 'comment_tree_node_value_invalid');
     }
 
@@ -217,10 +248,10 @@ function readReplyPreviewItemFromReader(reader: BinaryReader): CommentReplyPrevi
 {
     const pod = reader.readSpan(COMMENT_REPLY_PREVIEW_ITEM_POD_SIZE);
     const blob = reader.readBlob();
-  const content = readStrictSliceText(blob, pod, 20, 'comment_preview_content_slice_invalid');
-  const author = readRequiredEmbeddedAuthorView(blob, content.nextOffset, 'comment_author_contract_missing');
-  const replyToAuthor = readOptionalEmbeddedAuthorView(blob, author.nextOffset, 'comment_reply_author_contract_missing');
-  validateCommentAuthorPayload(replyToAuthor.nextOffset, blob.byteLength);
+    const content = readStrictSliceText(blob, pod, 20, 'comment_preview_content_slice_invalid');
+    const author = readRequiredEmbeddedAuthorView(blob, content.nextOffset, 'comment_author_contract_missing');
+    const replyToAuthor = readOptionalEmbeddedAuthorView(blob, author.nextOffset, 'comment_reply_author_contract_missing');
+    validateCommentAuthorPayload(replyToAuthor.nextOffset, blob.byteLength);
 
     return {
         id: String(readInt64Number(pod, 0)),
@@ -229,28 +260,30 @@ function readReplyPreviewItemFromReader(reader: BinaryReader): CommentReplyPrevi
         createTime: readIsoDate64(pod, 12),
         author: author.author!,
         replyToAuthor: replyToAuthor.author,
-    content: content.text
-  };
+        content: content.text
+    };
 }
 
-export function readThreadItemFromReader(reader: BinaryReader): CommentThreadItem {
-  const pod = reader.readSpan(COMMENT_THREAD_ITEM_POD_SIZE);
-  const blob = reader.readBlob();
-  const previewReplyCount = pod[65] ?? 0;
-  const repliesPreview: CommentReplyPreviewItem[] = [];
-  const content = readStrictSliceText(blob, pod, 52, 'comment_content_slice_invalid');
-  const author = readRequiredEmbeddedAuthorView(blob, content.nextOffset, 'comment_author_contract_missing');
-  const replyToAuthor = readOptionalEmbeddedAuthorView(blob, author.nextOffset, 'comment_reply_author_contract_missing');
-  validateCommentAuthorPayload(replyToAuthor.nextOffset, blob.byteLength);
+export function readThreadItemFromReader(reader: BinaryReader): CommentThreadItem
+{
+    const pod = reader.readSpan(COMMENT_THREAD_ITEM_POD_SIZE);
+    const blob = reader.readBlob();
+    const previewReplyCount = pod[65] ?? 0;
+    const repliesPreview: CommentReplyPreviewItem[] = [];
+    const content = readStrictSliceText(blob, pod, 52, 'comment_content_slice_invalid');
+    const author = readRequiredEmbeddedAuthorView(blob, content.nextOffset, 'comment_author_contract_missing');
+    const replyToAuthor = readOptionalEmbeddedAuthorView(blob, author.nextOffset, 'comment_reply_author_contract_missing');
+    validateCommentAuthorPayload(replyToAuthor.nextOffset, blob.byteLength);
 
-  for (let i = 0; i < previewReplyCount; i++) {
-    repliesPreview.push(readReplyPreviewItemFromReader(reader));
-  }
+    for (let i = 0; i < previewReplyCount; i++)
+    {
+        repliesPreview.push(readReplyPreviewItemFromReader(reader));
+    }
 
-  return {
-    id: String(readInt64Number(pod, 0)),
-    content: content.text,
-    createTime: readIsoDate64(pod, 44),
+    return {
+        id: String(readInt64Number(pod, 0)),
+        content: content.text,
+        createTime: readIsoDate64(pod, 44),
         author: author.author!,
         rootId: String(readInt64Number(pod, 16)),
         isDeleted: (pod[40] ?? 0) === 1,
@@ -258,14 +291,16 @@ export function readThreadItemFromReader(reader: BinaryReader): CommentThreadIte
         replyCount: readInt32(pod, 60),
         hasMoreReplies: (pod[64] ?? 0) === 1,
         repliesPreview
-  };
+    };
 }
 
 function validateCommentAuthorPayload(
-  nextOffset: number,
-  blobLength: number
-): void {
-  if (nextOffset !== blobLength) {
-    throw createAppError(AppErrorCode.ProtocolFailure, 'comment_author_trailing_payload_invalid');
-  }
+    nextOffset: number,
+    blobLength: number
+): void
+{
+    if (nextOffset !== blobLength)
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'comment_author_trailing_payload_invalid');
+    }
 }

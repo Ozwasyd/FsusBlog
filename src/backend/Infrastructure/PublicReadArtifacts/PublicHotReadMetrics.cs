@@ -36,13 +36,21 @@ public readonly record struct PublicHotReadCounterSnapshot(
     long IdentityVariant,
     long BrotliVariant,
     long GzipVariant,
-    long SanityFallback);
+    long SanityFallback,
+    long FreshL0Hit = 0,
+    long LastGoodHit = 0,
+    long LastGoodWhileRebuild = 0,
+    PublicHotReadHitRateReceipt HitRate = default);
 
 public sealed class PublicHotReadCounters
 {
     private readonly CounterStripe[] _stripes = BuildStripes();
     private readonly PublicHotReadCounterMode _mode;
     private readonly int _sampleRate;
+    private long _articleHitAttempts;
+    private long _listHitAttempts;
+    private long _htmlHitAttempts;
+    private long _variantAttempts;
 
     public PublicHotReadCounters(IOptions<PublicHotReadOptions>? options = null)
     {
@@ -53,7 +61,7 @@ public sealed class PublicHotReadCounters
 
     public void ArticleHit(int bytes)
     {
-        if (!ShouldRecordHit())
+        if (!ObserveHit(HitFamily.Article))
         {
             return;
         }
@@ -66,7 +74,7 @@ public sealed class PublicHotReadCounters
     public void ArticleMiss() => Interlocked.Increment(ref PickStripe().ArticleMiss);
     public void ListHit(int bytes)
     {
-        if (!ShouldRecordHit())
+        if (!ObserveHit(HitFamily.List))
         {
             return;
         }
@@ -79,7 +87,7 @@ public sealed class PublicHotReadCounters
     public void ListMiss() => Interlocked.Increment(ref PickStripe().ListMiss);
     public void HtmlHit(int bytes)
     {
-        if (!ShouldRecordHit())
+        if (!ObserveHit(HitFamily.Html))
         {
             return;
         }
@@ -92,9 +100,12 @@ public sealed class PublicHotReadCounters
     public void HtmlMiss() => Interlocked.Increment(ref PickStripe().HtmlMiss);
     public void Rejected() => Interlocked.Increment(ref PickStripe().Rejected);
     public void SanityFallback() => Interlocked.Increment(ref PickStripe().SanityFallback);
+    public void FreshL0Hit() => Interlocked.Increment(ref PickStripe().FreshL0Hit);
+    public void LastGoodHit() => Interlocked.Increment(ref PickStripe().LastGoodHit);
+    public void LastGoodWhileRebuild() => Interlocked.Increment(ref PickStripe().LastGoodWhileRebuild);
     public void VariantSelected(string contentEncoding)
     {
-        if (!ShouldRecordHit())
+        if (!ObserveHit(HitFamily.Variant))
         {
             return;
         }
@@ -134,6 +145,9 @@ public sealed class PublicHotReadCounters
         long brotliVariant = 0;
         long gzipVariant = 0;
         long sanityFallback = 0;
+        long freshL0Hit = 0;
+        long lastGoodHit = 0;
+        long lastGoodWhileRebuild = 0;
 
         foreach (CounterStripe stripe in _stripes)
         {
@@ -149,21 +163,39 @@ public sealed class PublicHotReadCounters
             brotliVariant += reset ? Interlocked.Exchange(ref stripe.BrotliVariant, 0) : Volatile.Read(ref stripe.BrotliVariant);
             gzipVariant += reset ? Interlocked.Exchange(ref stripe.GzipVariant, 0) : Volatile.Read(ref stripe.GzipVariant);
             sanityFallback += reset ? Interlocked.Exchange(ref stripe.SanityFallback, 0) : Volatile.Read(ref stripe.SanityFallback);
+            freshL0Hit += reset ? Interlocked.Exchange(ref stripe.FreshL0Hit, 0) : Volatile.Read(ref stripe.FreshL0Hit);
+            lastGoodHit += reset ? Interlocked.Exchange(ref stripe.LastGoodHit, 0) : Volatile.Read(ref stripe.LastGoodHit);
+            lastGoodWhileRebuild += reset ? Interlocked.Exchange(ref stripe.LastGoodWhileRebuild, 0) : Volatile.Read(ref stripe.LastGoodWhileRebuild);
         }
 
+        long calibratedArticleHit = PublicHotReadHitRateAccounting.ScaleHitSamples(articleHit, _mode, _sampleRate);
+        long calibratedListHit = PublicHotReadHitRateAccounting.ScaleHitSamples(listHit, _mode, _sampleRate);
+        long calibratedHtmlHit = PublicHotReadHitRateAccounting.ScaleHitSamples(htmlHit, _mode, _sampleRate);
+        long observedHitSamples = articleHit + listHit + htmlHit;
+        long calibratedHits = calibratedArticleHit + calibratedListHit + calibratedHtmlHit;
+        long exactMisses = articleMiss + listMiss + htmlMiss;
         return new PublicHotReadCounterSnapshot(
-            articleHit,
+            calibratedArticleHit,
             articleMiss,
-            listHit,
+            calibratedListHit,
             listMiss,
-            htmlHit,
+            calibratedHtmlHit,
             htmlMiss,
             rejected,
-            bytes,
-            identityVariant,
-            brotliVariant,
-            gzipVariant,
-            sanityFallback);
+            PublicHotReadHitRateAccounting.ScaleHitSamples(bytes, _mode, _sampleRate),
+            PublicHotReadHitRateAccounting.ScaleHitSamples(identityVariant, _mode, _sampleRate),
+            PublicHotReadHitRateAccounting.ScaleHitSamples(brotliVariant, _mode, _sampleRate),
+            PublicHotReadHitRateAccounting.ScaleHitSamples(gzipVariant, _mode, _sampleRate),
+            sanityFallback,
+            freshL0Hit,
+            lastGoodHit,
+            lastGoodWhileRebuild,
+            PublicHotReadHitRateAccounting.Create(
+                _mode,
+                _sampleRate,
+                observedHitSamples,
+                calibratedHits,
+                exactMisses));
     }
 
     private CounterStripe PickStripe()
@@ -172,13 +204,27 @@ public sealed class PublicHotReadCounters
         return _stripes[index];
     }
 
-    private bool ShouldRecordHit()
-        => _mode switch
+    private bool ObserveHit(HitFamily family)
+    {
+        if (_mode == PublicHotReadCounterMode.Off)
         {
-            PublicHotReadCounterMode.Off => false,
-            PublicHotReadCounterMode.Sampled => (Environment.TickCount & int.MaxValue) % _sampleRate == 0,
-            _ => true
+            return false;
+        }
+
+        if (_mode != PublicHotReadCounterMode.Sampled)
+        {
+            return true;
+        }
+
+        long attempt = family switch
+        {
+            HitFamily.Article => Interlocked.Increment(ref _articleHitAttempts),
+            HitFamily.List => Interlocked.Increment(ref _listHitAttempts),
+            HitFamily.Html => Interlocked.Increment(ref _htmlHitAttempts),
+            _ => Interlocked.Increment(ref _variantAttempts)
         };
+        return attempt % _sampleRate == 0;
+    }
 
     private static CounterStripe[] BuildStripes()
     {
@@ -190,6 +236,14 @@ public sealed class PublicHotReadCounters
         }
 
         return stripes;
+    }
+
+    private enum HitFamily : byte
+    {
+        Article = 0,
+        List = 1,
+        Html = 2,
+        Variant = 3
     }
 
     [StructLayout(LayoutKind.Explicit, Size = 128)]
@@ -207,6 +261,9 @@ public sealed class PublicHotReadCounters
         [FieldOffset(72)] public long BrotliVariant;
         [FieldOffset(80)] public long GzipVariant;
         [FieldOffset(88)] public long SanityFallback;
+        [FieldOffset(96)] public long FreshL0Hit;
+        [FieldOffset(104)] public long LastGoodHit;
+        [FieldOffset(112)] public long LastGoodWhileRebuild;
     }
 }
 
@@ -227,6 +284,9 @@ public sealed class PublicHotReadMetricFlushWorker(
     private static readonly Counter<long> s_brotliVariantCounter = s_meter.CreateCounter<long>("fsus.hotread.encoding.br");
     private static readonly Counter<long> s_gzipVariantCounter = s_meter.CreateCounter<long>("fsus.hotread.encoding.gzip");
     private static readonly Counter<long> s_sanityFallbackCounter = s_meter.CreateCounter<long>("fsus.hotread.sanity.fallback");
+    private static readonly Counter<long> s_freshL0HitCounter = s_meter.CreateCounter<long>("fsus.hotread.fresh.hit");
+    private static readonly Counter<long> s_lastGoodHitCounter = s_meter.CreateCounter<long>("fsus.hotread.last_good.hit");
+    private static readonly Counter<long> s_lastGoodWhileRebuildCounter = s_meter.CreateCounter<long>("fsus.hotread.last_good.while_rebuild");
     private static readonly Counter<long> s_sensitivePrefixBypassCounter =
         s_meter.CreateCounter<long>("fsus.hotread.classifier.sensitive_bypass");
     private static readonly Counter<long> s_credentialBypassCounter =
@@ -264,6 +324,9 @@ public sealed class PublicHotReadMetricFlushWorker(
         AddIfPositive(s_brotliVariantCounter, snapshot.BrotliVariant);
         AddIfPositive(s_gzipVariantCounter, snapshot.GzipVariant);
         AddIfPositive(s_sanityFallbackCounter, snapshot.SanityFallback);
+        AddIfPositive(s_freshL0HitCounter, snapshot.FreshL0Hit);
+        AddIfPositive(s_lastGoodHitCounter, snapshot.LastGoodHit);
+        AddIfPositive(s_lastGoodWhileRebuildCounter, snapshot.LastGoodWhileRebuild);
         AddIfPositive(s_sensitivePrefixBypassCounter, sensitivePrefixBypass);
         AddIfPositive(s_credentialBypassCounter, credentialBypass);
         if (snapshot.Rejected > 0)

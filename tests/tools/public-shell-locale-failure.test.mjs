@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { assertPublicShellLocaleFailure } from '../browser-contract/public-shell-locale-failure.mjs';
-import { createPublicShellLocaleMatrix } from '../browser-contract/public-shell-locale-matrix.mjs';
-
+const { assertPublicShellLocaleFailure } = await import(new URL('../browser-contract/public-shell-locale-failure.mjs', import.meta.url));
+const { createPublicShellLocaleMatrix } = await import(new URL('../browser-contract/public-shell-locale-matrix.mjs', import.meta.url));
 const matrix = await createPublicShellLocaleMatrix();
 const domain = matrix.scenes.find((item) => item.issue === 2087 && item.stage === 'domain-failure'
     && item.transition.failureMode === 'timeout' && item.route === 'Home');

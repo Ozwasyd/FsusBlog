@@ -54,53 +54,29 @@ public static partial class PodBinaryCodec
             return false;
         }
 
-        if (total == AedsArticleListAccessProfile.CursorMagic)
+        if (total != AedsArticleListAccessProfile.CursorMagic
+            || !reader.TryReadInt32(out int version)
+            || version != ArticlePageCursorEnvelopeVersion)
         {
-            if (!reader.TryReadInt32(out int version))
-            {
-                page = default!;
-                return false;
-            }
+            page = default!;
+            return false;
+        }
 
-            if (version == ArticlePageCursorEnvelopeLegacyVersion)
-            {
-                if (!reader.TryReadInt64(out long nextCursorUnixMs)
-                    || !reader.TryReadByte(out byte hasMoreByte)
-                    || hasMoreByte > 1
-                    || !reader.TryReadInt32(out total))
-                {
-                    page = default!;
-                    return false;
-                }
-                hasMore = hasMoreByte == 1;
-                nextCursor = nextCursorUnixMs > 0
-                    ? nextCursorUnixMs.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                    : null;
-            }
-            else if (version == ArticlePageCursorEnvelopeVersion)
-            {
-                if (!reader.TryReadByte(out byte hasMoreByte)
-                    || hasMoreByte > 1
-                    || !reader.TryReadInt32(out total)
-                    || !reader.TryReadBytes(out ReadOnlySpan<byte> cursorBytes)
-                    || cursorBytes.Length > 64
-                    || !TryDecodeArticleListCursorUtf8(cursorBytes, out nextCursor))
-                {
-                    page = default!;
-                    return false;
-                }
-                hasMore = hasMoreByte == 1;
-                if (hasMore != !string.IsNullOrWhiteSpace(nextCursor))
-                {
-                    page = default!;
-                    return false;
-                }
-            }
-            else
-            {
-                page = default!;
-                return false;
-            }
+        if (!reader.TryReadByte(out byte hasMoreByte)
+            || hasMoreByte > 1
+            || !reader.TryReadInt32(out total)
+            || !reader.TryReadBytes(out ReadOnlySpan<byte> cursorBytes)
+            || cursorBytes.Length > 512
+            || !TryDecodeArticleListCursorUtf8(cursorBytes, out nextCursor))
+        {
+            page = default!;
+            return false;
+        }
+        hasMore = hasMoreByte == 1;
+        if (hasMore != !string.IsNullOrWhiteSpace(nextCursor))
+        {
+            page = default!;
+            return false;
         }
 
         if (!reader.TryReadInt32(out int count)
@@ -216,14 +192,6 @@ public static partial class PodBinaryCodec
                 title,
                 summary,
                 projectedTags);
-        }
-
-        if (hasMore && nextCursor is not null && nextCursor.IndexOf(':', StringComparison.Ordinal) < 0
-            && long.TryParse(nextCursor, out long legacyUnixMs) && items.Length > 0)
-        {
-            nextCursor = string.Create(
-                System.Globalization.CultureInfo.InvariantCulture,
-                $"{legacyUnixMs}:{items[^1].Id}");
         }
 
         page = new PublicArticleListProjectionPage(

@@ -105,7 +105,10 @@ fi
 
 Log "packaging client runtime for Node SSR worker"
 rm -rf "${OUTPUT_DIR}/FsusBlog.ClientRuntime"
-mkdir -p "${OUTPUT_DIR}/FsusBlog.ClientRuntime"
-cp -a "${CLIENT_DIR}/." "${OUTPUT_DIR}/FsusBlog.ClientRuntime/"
+"${FSUSBLOG_NODE:-node}" "${ROOT_DIR}/tools/docker/ssr-runtime-closure.mjs" materialize \
+    --client-root "${CLIENT_DIR}" \
+    --dist "${FRONTEND_DIST_DIR}" \
+    --inventory "${ROOT_DIR}/config/build/ssr-runtime-inputs.json" \
+    --output "${OUTPUT_DIR}/FsusBlog.ClientRuntime"
 
 Log "native release ready at ${OUTPUT_DIR}"

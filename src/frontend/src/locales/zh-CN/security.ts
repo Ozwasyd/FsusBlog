@@ -1,4 +1,4 @@
-export const localeDomainIdentity = Object.freeze({ locale: 'zh-CN', domain: 'security' } as const)
+export const localeDomainIdentity = Object.freeze({ locale: 'zh-CN', domain: 'security' } as const);
 
 export const security = {
     challenge: {

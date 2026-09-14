@@ -1,22 +1,69 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
+
+using FsusBlog.Server.Infrastructure.Observability;
 
 namespace FsusBlog.Server.Infrastructure.Cache;
 
-public sealed class CacheSingleFlightCoordinator(ICacheKeyResolver keyResolver) : ICacheSingleFlightCoordinator, IDisposable
+public sealed class CacheSingleFlightCoordinator : ICacheSingleFlightCoordinator, IDisposable
 {
+    private readonly ICacheKeyResolver _keyResolver;
+    private readonly TimeSpan _maxAcquireWait;
+    private readonly int _maxWaitersPerKey;
     private readonly ConcurrentDictionary<string, Entry> _entries = new(StringComparer.Ordinal);
     private int _disposed;
+    private long _rejectByCap;
+    private long _rejectByTimeout;
+
+    public CacheSingleFlightCoordinator(ICacheKeyResolver keyResolver)
+        : this(
+            keyResolver,
+            CacheMissPathBudget.SingleFlightMaxAcquireWait,
+            CacheMissPathBudget.SingleFlightMaxWaitersPerKey)
+    {
+    }
+
+    public CacheSingleFlightCoordinator(
+        ICacheKeyResolver keyResolver,
+        TimeSpan maxAcquireWait,
+        int maxWaitersPerKey)
+    {
+        ArgumentNullException.ThrowIfNull(keyResolver);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(maxAcquireWait, TimeSpan.Zero);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxWaitersPerKey, 1);
+        _keyResolver = keyResolver;
+        _maxAcquireWait = maxAcquireWait;
+        _maxWaitersPerKey = maxWaitersPerKey;
+    }
 
     public int ActiveEntryCount => _entries.Count;
+
+    internal TimeSpan MaxAcquireWait => _maxAcquireWait;
+
+    internal int MaxWaitersPerKey => _maxWaitersPerKey;
+
+    internal long RejectByCapCount => Volatile.Read(ref _rejectByCap);
+
+    internal long RejectByTimeoutCount => Volatile.Read(ref _rejectByTimeout);
 
     public Task<IAsyncDisposable> AcquireAsync(
         CachePolicyId policyId,
         string identity,
         CancellationToken cancellationToken = default)
-        => AcquireKeyedAsync($"singleflight:{keyResolver.BuildKey(policyId, identity)}", cancellationToken);
+        => AcquireKeyedAsync(
+            $"singleflight:{_keyResolver.BuildKey(policyId, identity)}",
+            cancellationToken,
+            policyId,
+            applyWaitBudget: true);
+
+    public bool IsHeld(CachePolicyId policyId, string identity)
+    {
+        string key = $"singleflight:{_keyResolver.BuildKey(policyId, identity)}";
+        return _entries.TryGetValue(key, out Entry? entry) && entry.IsHeld;
+    }
 
     internal Task<IAsyncDisposable> AcquireMutationAsync(string redisKey, CancellationToken cancellationToken)
-        => AcquireKeyedAsync($"owned-frame:{redisKey}", cancellationToken);
+        => AcquireKeyedAsync($"owned-frame:{redisKey}", cancellationToken, default, applyWaitBudget: false);
 
     internal async Task<IAsyncDisposable> AcquireMutationsAsync(
         IEnumerable<string> redisKeys,
@@ -48,7 +95,11 @@ public sealed class CacheSingleFlightCoordinator(ICacheKeyResolver keyResolver) 
         }
     }
 
-    private async Task<IAsyncDisposable> AcquireKeyedAsync(string key, CancellationToken cancellationToken)
+    private async Task<IAsyncDisposable> AcquireKeyedAsync(
+        string key,
+        CancellationToken cancellationToken,
+        CachePolicyId policyId,
+        bool applyWaitBudget)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
         while (true)
@@ -67,14 +118,66 @@ public sealed class CacheSingleFlightCoordinator(ICacheKeyResolver keyResolver) 
 
             try
             {
-                await entry.Semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
-                return new Lease(this, key, entry);
+                if (!applyWaitBudget)
+                {
+                    await entry.Semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+                    return new Lease(this, key, entry);
+                }
+
+                return await AcquireWithBudgetAsync(key, entry, policyId, cancellationToken).ConfigureAwait(false);
             }
             catch
             {
                 Release(key, entry);
                 throw;
             }
+        }
+    }
+
+    private async Task<IAsyncDisposable> AcquireWithBudgetAsync(
+        string key,
+        Entry entry,
+        CachePolicyId policyId,
+        CancellationToken cancellationToken)
+    {
+        long waitStarted = Stopwatch.GetTimestamp();
+        if (await entry.Semaphore.WaitAsync(TimeSpan.Zero, cancellationToken).ConfigureAwait(false))
+        {
+            FsusObservability.RecordSingleFlightWait(
+                CachePolicyTelemetry.Name(policyId),
+                Stopwatch.GetElapsedTime(waitStarted),
+                waiterCount: 0);
+            return new Lease(this, key, entry);
+        }
+
+        int waiters = entry.IncrementWaiters();
+        try
+        {
+            FsusObservability.RecordSingleFlightWaiterCount(CachePolicyTelemetry.Name(policyId), waiters);
+            if (waiters > _maxWaitersPerKey)
+            {
+                Interlocked.Increment(ref _rejectByCap);
+                FsusObservability.RecordSingleFlightReject(CachePolicyTelemetry.Name(policyId), "waiter-cap");
+                throw new CacheCoordinationException("singleflight-waiter-cap", policyId);
+            }
+
+            bool acquired = await entry.Semaphore.WaitAsync(_maxAcquireWait, cancellationToken).ConfigureAwait(false);
+            FsusObservability.RecordSingleFlightWait(
+                CachePolicyTelemetry.Name(policyId),
+                Stopwatch.GetElapsedTime(waitStarted),
+                waiters);
+            if (!acquired)
+            {
+                Interlocked.Increment(ref _rejectByTimeout);
+                FsusObservability.RecordSingleFlightReject(CachePolicyTelemetry.Name(policyId), "timeout");
+                throw new CacheCoordinationException("singleflight-timeout", policyId);
+            }
+
+            return new Lease(this, key, entry);
+        }
+        finally
+        {
+            entry.DecrementWaiters();
         }
     }
 
@@ -105,8 +208,33 @@ public sealed class CacheSingleFlightCoordinator(ICacheKeyResolver keyResolver) 
         private int _references;
         private int _retired;
         private int _disposed;
+        private int _waiters;
 
         internal SemaphoreSlim Semaphore { get; } = new(1, 1);
+
+        internal bool IsHeld
+        {
+            get
+            {
+                if (Volatile.Read(ref _disposed) != 0 || Volatile.Read(ref _retired) != 0)
+                {
+                    return false;
+                }
+
+                try
+                {
+                    return Semaphore.CurrentCount == 0;
+                }
+                catch (ObjectDisposedException)
+                {
+                    return false;
+                }
+            }
+        }
+
+        internal int IncrementWaiters() => Interlocked.Increment(ref _waiters);
+
+        internal int DecrementWaiters() => Interlocked.Decrement(ref _waiters);
 
         internal bool TryAddReference()
         {

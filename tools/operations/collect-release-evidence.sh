@@ -669,15 +669,15 @@ CoverageSummaryJson() {
 }
 
 RuntimeTuningJson() {
-    local cacheL1CounterMode publicHotReadCounterMode
+    local cacheL1TelemetryPolicy publicHotReadCounterMode
     local benchmarkEvidence runtimeMatrixEvidence
-    cacheL1CounterMode="$(awk -F'"' '/CacheL1CounterMode =/ { print $2; exit }' "$ROOT_DIR/src/backend/Infrastructure/Observability/FsusObservability.cs")"
+    cacheL1TelemetryPolicy="$(jq -c '.' "$ROOT_DIR/tests/performance/cache-l1-telemetry-policy.json" 2>/dev/null || printf 'null')"
     publicHotReadCounterMode="$(awk -F'"' '
     /"PublicHotRead"[[:space:]]*:/ { in_public_hot_read = 1; next }
     in_public_hot_read && /"CounterMode"[[:space:]]*:/ { print $4; exit }
     in_public_hot_read && /^[[:space:]]*}/ { exit }
   ' "$ROOT_DIR/src/backend/appsettings.Production.json")"
-    cacheL1CounterMode="${cacheL1CounterMode:-unknown}"
+    cacheL1TelemetryPolicy="${cacheL1TelemetryPolicy:-null}"
     publicHotReadCounterMode="${publicHotReadCounterMode:-unknown}"
     benchmarkEvidence="$(jq -r '.' <<<"${PERF_ARTIFACT:-null}")"
     runtimeMatrixEvidence="$(jq -r '.' <<<"${RUNTIME_MATRIX_ARTIFACT:-null}")"
@@ -687,7 +687,7 @@ RuntimeTuningJson() {
         --arg tieredPgo "${DOTNET_TieredPGO:-}" \
         --arg minWorkerThreads "${FSUSBLOG_RUNTIME_THREADPOOL_MIN_WORKER_THREADS:-}" \
         --arg minCompletionPortThreads "${FSUSBLOG_RUNTIME_THREADPOOL_MIN_COMPLETION_PORT_THREADS:-}" \
-        --arg cacheL1CounterMode "$cacheL1CounterMode" \
+        --arg cacheL1TelemetryPolicy "$cacheL1TelemetryPolicy" \
         --arg publicHotReadCounterMode "$publicHotReadCounterMode" \
         --arg benchmarkEvidence "$benchmarkEvidence" \
         --arg runtimeMatrixEvidence "$runtimeMatrixEvidence" \
@@ -708,8 +708,8 @@ RuntimeTuningJson() {
         minWorkerThreads: (if $minWorkerThreads == "" then null else $minWorkerThreads end),
         minCompletionPortThreads: (if $minCompletionPortThreads == "" then null else $minCompletionPortThreads end)
       },
-      counterModes: {
-        cacheL1Hit: $cacheL1CounterMode,
+      telemetryPolicies: {
+        cacheL1Hit: (if $cacheL1TelemetryPolicy == "null" then null else ($cacheL1TelemetryPolicy | fromjson) end),
         publicHotRead: $publicHotReadCounterMode
       },
       benchmarkEvidence: (if $benchmarkEvidence == "null" then null else $benchmarkEvidence end),

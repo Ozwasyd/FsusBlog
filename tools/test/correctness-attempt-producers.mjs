@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { productionFreshProducerInventory } from '../test-matrix/production-fresh-run-bound-outputs.mjs';
-import { parseMatrix } from '../test-matrix/parse-matrix.mjs';
+const { productionFreshProducerInventory } = await import(new URL('../test-matrix/production-fresh-run-bound-outputs.mjs', import.meta.url));
+const { parseMatrix } = await import(new URL('../test-matrix/parse-matrix.mjs', import.meta.url));
 import { canonicalJson, sealContentDigest, sha256 } from './attempt-provenance.mjs';
 
 const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -41,16 +41,40 @@ function producerKind(id, domain)
     }
     if (domain === 'build-release-producers')
     {
-        if (/reliability/u.test(id)) return 'reliability';
-        if (/projection/u.test(id)) return 'projection';
-        if (/(?:final|summary)/u.test(id)) return 'finalizer';
+        if (/reliability/u.test(id))
+        {
+            return 'reliability';
+        }
+        if (/projection/u.test(id))
+        {
+            return 'projection';
+        }
+        if (/(?:final|summary)/u.test(id))
+        {
+            return 'finalizer';
+        }
         return 'build';
     }
-    if (/mutation/u.test(id)) return 'mutation';
-    if (/fuzz/u.test(id)) return 'fuzz';
-    if (/property/u.test(id)) return 'property';
-    if (/model/u.test(id)) return 'model';
-    if (/integration|runtime|contract/u.test(id)) return 'integration';
+    if (/mutation/u.test(id))
+    {
+        return 'mutation';
+    }
+    if (/fuzz/u.test(id))
+    {
+        return 'fuzz';
+    }
+    if (/property/u.test(id))
+    {
+        return 'property';
+    }
+    if (/model/u.test(id))
+    {
+        return 'model';
+    }
+    if (/integration|runtime|contract/u.test(id))
+    {
+        return 'integration';
+    }
     return 'unit';
 }
 

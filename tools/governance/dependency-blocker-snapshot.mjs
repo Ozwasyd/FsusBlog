@@ -1,7 +1,7 @@
 import { collectDependencyPullSnapshot } from './dependency-blocker-pull-snapshot.mjs';
 import { parseRenovatePullRequests } from './dependency-freshness-pulls.mjs';
-import { resolveGroupChecks } from './dependency-required-checks.mjs';
 import { resolveDependencyPullTarget } from './dependency-pull-target.mjs';
+import { resolveGroupChecks } from './dependency-required-checks.mjs';
 
 function mappingIdentity(mappings)
 {
@@ -47,7 +47,8 @@ export async function buildDependencyBlockerSnapshot({ report, catalog, exceptio
             client, number,
             dependencyIds: mappings.map((item) => item.dependencyId).sort(),
             requirements: mappings.map((item) => ({ group: item.group, updateType: item.updateType })),
-            verifyPull: async (pull) => {
+            verifyPull: async (pull) =>
+            {
                 const declared = parseRenovatePullRequests([pull], catalog);
                 const expectedDeclarations = mappings.map(mapping => ({ ...mapping, targetVersion: mapping.declaredTargetVersion ?? mapping.targetVersion }));
                 if (mappingIdentity(declared) !== mappingIdentity(expectedDeclarations))
@@ -62,7 +63,10 @@ export async function buildDependencyBlockerSnapshot({ report, catalog, exceptio
                         mapping, item: items.get(mapping.dependencyId), config, readFileAtHead: client.readFileAtHead
                     }));
                 }
-                if (mappingIdentity(verified) !== expected) throw new Error('dependency_blocker_pull_target_changed');
+                if (mappingIdentity(verified) !== expected)
+                {
+                    throw new Error('dependency_blocker_pull_target_changed');
+                }
             }
         }));
     }

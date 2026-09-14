@@ -1,4 +1,4 @@
-export const localeDomainIdentity = Object.freeze({ locale: 'ko-KR', domain: 'layout' } as const)
+export const localeDomainIdentity = Object.freeze({ locale: 'ko-KR', domain: 'layout' } as const);
 
 import type { LocaleSchema } from '../keys';
 import type { layout as zhCNLayout } from '../zh-CN/layout';

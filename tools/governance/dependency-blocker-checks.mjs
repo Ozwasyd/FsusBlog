@@ -28,7 +28,8 @@ export function planDependencyCheckLabels({ catalog, pullRequests, now, previous
         {
             throw new Error('dependency_checks_missing_requirements');
         }
-        const required = [...new Set(requirements.flatMap((requirement) => {
+        const required = [...new Set(requirements.flatMap((requirement) =>
+        {
             const names = resolveGroupChecks(catalog, requirement.group, requirement.updateType);
             if (names.length === 0)
             {

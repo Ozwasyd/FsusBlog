@@ -1,7 +1,7 @@
-export const localeDomainIdentity = Object.freeze({ locale: 'es-419', domain: 'article' } as const)
+export const localeDomainIdentity = Object.freeze({ locale: 'es-419', domain: 'article' } as const);
 
-import type { LocaleSchema } from '../keys'
-import type { article as zhCNArticle } from '../zh-CN/article'
+import type { LocaleSchema } from '../keys';
+import type { article as zhCNArticle } from '../zh-CN/article';
 
 export const article = {
     actions: {
@@ -67,4 +67,4 @@ export const article = {
         relatedAria: 'Artículos relacionados',
         coverAlt: '{title} — imagen de portada'
     }
-} as const satisfies LocaleSchema<typeof zhCNArticle>
+} as const satisfies LocaleSchema<typeof zhCNArticle>;

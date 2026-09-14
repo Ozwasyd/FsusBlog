@@ -5,6 +5,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
@@ -482,7 +483,7 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
         return new AuthoringModerationWorkflowService(
             db,
             contentFilter,
-            Substitute.For<IBlacklistService>(),
+            Substitute.For<IBanStateProjectionObligationCoordinator>(),
             invalidations,
             realtime,
             Substitute.For<IMessageCommandService>(),

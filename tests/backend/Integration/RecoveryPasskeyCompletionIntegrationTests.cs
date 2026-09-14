@@ -12,6 +12,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.NotificationStream;
@@ -105,7 +106,8 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
         DateTime issuedAt = DateTime.UtcNow.AddMinutes(-1);
         SeedCredential(db, accountId, "old-before-recovery", issuedAt.AddMinutes(-5));
         var cache = Substitute.For<IUnifiedCache>();
-        PasskeyService service = CreateService(db, suppliedCache: cache);
+        var accountStates = Substitute.For<IAccountStateProjectionMutationPublisher>();
+        PasskeyService service = CreateService(db, suppliedCache: cache, suppliedAccountStates: accountStates);
         var session = new RecoveryKeySession(accountId, true, issuedAt, issuedAt.AddMinutes(10));
         PasskeyCredential newCredential = Credential(accountId, "new-recovery-credential", DateTime.UtcNow);
 
@@ -123,11 +125,7 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
         Assert.Equal(RecoveryRequestHash, stored.RecoveryRequestHash);
         Assert.Equal(1, await db.Queryable<PasskeyCredential>().CountAsync(item => item.AccountId == accountId));
         Assert.True((await db.Queryable<User>().SingleAsync(item => item.Id == accountId)).PasskeyEnabled);
-        await cache.Received(1).IncrementAsync(
-            CachePolicyId.AccountSnapshotVersion,
-            accountId.ToString(),
-            1,
-            Arg.Any<CancellationToken>());
+        await accountStates.Received(1).ProjectCommittedMutationAsync(accountId, Arg.Any<CancellationToken>());
         await cache.Received(1).RemoveAsync(
             CachePolicyId.SecurityPasskeyRegChallenge,
             "challenge-transaction",
@@ -141,11 +139,7 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
             Credential(accountId, "must-not-be-inserted", DateTime.UtcNow));
         Assert.Equal(RecoveryPasskeyRegistrationStatus.AlreadyCompleted, replay.Status);
         Assert.Equal(1, await db.Queryable<PasskeyCredential>().CountAsync(item => item.AccountId == accountId));
-        await cache.Received(2).IncrementAsync(
-            CachePolicyId.AccountSnapshotVersion,
-            accountId.ToString(),
-            1,
-            Arg.Any<CancellationToken>());
+        await accountStates.Received(2).ProjectCommittedMutationAsync(accountId, Arg.Any<CancellationToken>());
         await cache.Received(2).RemoveAsync(
             CachePolicyId.SecurityPasskeyRegChallenge,
             "challenge-transaction",
@@ -161,16 +155,13 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
         DateTime issuedAt = DateTime.UtcNow.AddMinutes(-1);
         SeedCredential(db, accountId, "old-before-snapshot-failure", issuedAt.AddMinutes(-5));
         var cache = Substitute.For<IUnifiedCache>();
-        PasskeyService service = CreateService(db, suppliedCache: cache);
+        var accountStates = Substitute.For<IAccountStateProjectionMutationPublisher>();
+        PasskeyService service = CreateService(db, suppliedCache: cache, suppliedAccountStates: accountStates);
         int snapshotAttempts = 0;
-        cache.IncrementAsync(
-                CachePolicyId.AccountSnapshotVersion,
-                accountId.ToString(),
-                1,
-                Arg.Any<CancellationToken>())
+        accountStates.ProjectCommittedMutationAsync(accountId, Arg.Any<CancellationToken>())
             .Returns(_ => Interlocked.Increment(ref snapshotAttempts) == 1
-                ? Task.FromException<long>(new IOException("snapshot cache unavailable after commit"))
-                : Task.FromResult(2L));
+                ? Task.FromException(new IOException("account projection unavailable after commit"))
+                : Task.CompletedTask);
         var session = new RecoveryKeySession(accountId, true, issuedAt, issuedAt.AddMinutes(10));
         string sessionHash = new('3', 64);
         string requestHash = new('4', 64);
@@ -249,7 +240,8 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
         const string DuplicateCredentialId = "duplicate-database-credential";
         SeedCredential(db, accountId, DuplicateCredentialId, DateTime.UtcNow.AddMinutes(-5));
         var cache = Substitute.For<IUnifiedCache>();
-        PasskeyService service = CreateService(db, suppliedCache: cache);
+        var accountStates = Substitute.For<IAccountStateProjectionMutationPublisher>();
+        PasskeyService service = CreateService(db, suppliedCache: cache, suppliedAccountStates: accountStates);
         DateTime issuedAt = DateTime.UtcNow.AddMinutes(-1);
         var session = new RecoveryKeySession(accountId, false, issuedAt, issuedAt.AddMinutes(10));
         string sessionHash = new('1', 64);
@@ -268,11 +260,7 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
         Assert.Equal(0, await db.Queryable<PasskeyCredential>()
             .CountAsync(item => item.RecoverySessionHash == sessionHash));
         Assert.False((await db.Queryable<User>().SingleAsync(item => item.Id == accountId)).PasskeyEnabled);
-        await cache.DidNotReceive().IncrementAsync(
-            CachePolicyId.AccountSnapshotVersion,
-            accountId.ToString(),
-            1,
-            Arg.Any<CancellationToken>());
+        await accountStates.DidNotReceive().ProjectCommittedMutationAsync(accountId, Arg.Any<CancellationToken>());
         await cache.DidNotReceive().RemoveAsync(
             CachePolicyId.SecurityPasskeyRegChallenge,
             "challenge-database-exception",
@@ -415,6 +403,7 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
             cache,
             cache,
             cache,
+            Substitute.For<IAccountStateProjectionMutationPublisher>(),
             new ConfigurationBuilder().Build(),
             passkeys,
             NullLogger<RecoveryKeyService>.Instance,
@@ -515,7 +504,8 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
     private static PasskeyService CreateService(
         SqlSugarClient db,
         IFido2? fido = null,
-        IUnifiedCache? suppliedCache = null)
+        IUnifiedCache? suppliedCache = null,
+        IAccountStateProjectionMutationPublisher? suppliedAccountStates = null)
     {
         IUnifiedCache cache = suppliedCache ?? Substitute.For<IUnifiedCache>();
         cache.IncrementAsync(
@@ -534,7 +524,7 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
             cache,
             cache,
             cache,
-            cache,
+            suppliedAccountStates ?? Substitute.For<IAccountStateProjectionMutationPublisher>(),
             Substitute.For<IUserSessionCommandService>(),
             Substitute.For<IMessageNotificationStreamPort>(),
             Substitute.For<IAuditEventService>(),

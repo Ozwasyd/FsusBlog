@@ -5,23 +5,10 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import {
-    beginCurrentRunEvidencePublication,
-    finalizeCurrentRunEvidencePublication
-} from '../../tools/test/current-run-evidence-publication.mjs';
-import {
-    completeEvidenceLocatorRegistryEntry,
-    governanceContentDigest
-} from '../../tools/test/evidence-location-contract.mjs';
-import { locateCurrentRunEvidence } from '../../tools/test/current-run-evidence-locator.mjs';
-import {
-    browseDiagnosticTransportEntries,
-    extractCurrentRunEvidenceTransport,
-    locateTransportedCurrentRunEvidence,
-    packCurrentRunEvidenceTransport,
-    resolveCorrectnessEvidencePath
-} from '../../tools/test/current-run-evidence-transport.mjs';
-
+const {beginCurrentRunEvidencePublication, finalizeCurrentRunEvidencePublication} = await import(new URL('../../tools/test/current-run-evidence-publication.mjs', import.meta.url));
+const {completeEvidenceLocatorRegistryEntry, governanceContentDigest} = await import(new URL('../../tools/test/evidence-location-contract.mjs', import.meta.url));
+const {locateCurrentRunEvidence} = await import(new URL('../../tools/test/current-run-evidence-locator.mjs', import.meta.url));
+const {browseDiagnosticTransportEntries, extractCurrentRunEvidenceTransport, locateTransportedCurrentRunEvidence, packCurrentRunEvidenceTransport, resolveCorrectnessEvidencePath} = await import(new URL('../../tools/test/current-run-evidence-transport.mjs', import.meta.url));
 const d = (value) => `sha256:${value.repeat(64)}`;
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 
@@ -116,7 +103,10 @@ test('legal transport round-trip survives extract mtime changes and records cons
         assert.match(located.consumerReceipt.transportManifestDigest, /^sha256:[0-9a-f]{64}$/u);
         assert.equal(located.consumerReceipt.transportRef.extractedPath, extracted.objects[0].extractedPath);
     }
-    finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+    finally
+    {
+        fs.rmSync(f.root, { recursive: true, force: true });
+    }
 });
 
 test('origin identity digest mapping and path-safety failures are fail closed', () =>
@@ -159,7 +149,10 @@ test('origin identity digest mapping and path-safety failures are fail closed', 
             repositoryRoot: f.root, manifestPath: 'artifacts/current-run/transport-manifest.json'
         }), /archive digest mismatch|duplicate transport|contentDigest/u);
     }
-    finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+    finally
+    {
+        fs.rmSync(f.root, { recursive: true, force: true });
+    }
 });
 
 test('path traversal symlink entries local-downloaded ambiguity and unbound downloads fail', () =>
@@ -186,7 +179,10 @@ test('path traversal symlink entries local-downloaded ambiguity and unbound down
             fs.symlinkSync(outside, path.join(f2.root, f2.outputPath));
             assert.throws(() => pack(f2), /must not be a symlink/u);
         }
-        finally { fs.rmSync(f2.root, { recursive: true, force: true }); }
+        finally
+        {
+            fs.rmSync(f2.root, { recursive: true, force: true });
+        }
         const f3 = fixture();
         try
         {
@@ -202,9 +198,15 @@ test('path traversal symlink entries local-downloaded ambiguity and unbound down
                 repositoryRoot: f3.root, localPath: f3.outputPath, authorityId: f3.entry.authorityId
             }), /without a transport manifest/u);
         }
-        finally { fs.rmSync(f3.root, { recursive: true, force: true }); }
+        finally
+        {
+            fs.rmSync(f3.root, { recursive: true, force: true });
+        }
     }
-    finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+    finally
+    {
+        fs.rmSync(f.root, { recursive: true, force: true });
+    }
 });
 
 test('explicit mismatch does not bind a sibling artifact and diagnostic browse cannot create correctness bindings', () =>
@@ -268,7 +270,10 @@ test('explicit mismatch does not bind a sibling artifact and diagnostic browse c
         assert.equal(Object.hasOwn(browse, 'locatorBindingDigest'), false);
         assert.equal(Object.hasOwn(browse, 'transportManifestDigest'), false);
     }
-    finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+    finally
+    {
+        fs.rmSync(f.root, { recursive: true, force: true });
+    }
 });
 
 test('quality-gate consumers reject broad downloaded scans and missing consumer bindings', () =>
@@ -310,5 +315,8 @@ test('quality-gate consumers reject broad downloaded scans and missing consumer 
         });
         assert.equal(local.bindingReceipt.bindingDigest, located.bindingReceipt.bindingDigest);
     }
-    finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+    finally
+    {
+        fs.rmSync(f.root, { recursive: true, force: true });
+    }
 });

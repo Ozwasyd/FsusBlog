@@ -11,7 +11,7 @@ export const commitTypes = Object.freeze([
     'chore',
     'security',
     'revert'
-])
+]);
 
 export const commitScopes = Object.freeze([
     'admin',
@@ -48,7 +48,7 @@ export const commitScopes = Object.freeze([
     'wasm',
     'yaml',
     'zk'
-])
+]);
 
 export const changeClassifications = Object.freeze([
     'Behavior change',
@@ -57,7 +57,7 @@ export const changeClassifications = Object.freeze([
     'Generated output',
     'Public contract change',
     'External naming exception'
-])
+]);
 
 export const releaseNoteCategories = Object.freeze([
     Object.freeze({ category: 'Added', audience: 'user-facing', label: 'release-note:added' }),
@@ -68,14 +68,14 @@ export const releaseNoteCategories = Object.freeze([
     Object.freeze({ category: 'Removed', audience: 'user-facing', label: 'release-note:removed' }),
     Object.freeze({ category: 'Internal/Tooling', audience: 'internal', label: 'release-note:internal' }),
     Object.freeze({ category: 'none', audience: 'none', label: 'release-note:none' })
-])
+]);
 
 export const machineIdentifierExceptions = Object.freeze([
     Object.freeze({ kind: 'git-branch', convention: 'lowercase/kebab-case' }),
     Object.freeze({ kind: 'github-label', convention: 'lowercase/kebab-case with namespace colon' }),
     Object.freeze({ kind: 'test-id', convention: 'lowercase/kebab-case' }),
     Object.freeze({ kind: 'cli-key', convention: 'lowercase/kebab-case' })
-])
+]);
 
 // These migrations predate the executable footer contract introduced by
 // #1163. Their immutable SHAs were independently reviewed and are the only
@@ -95,13 +95,13 @@ export const reviewedLegacyFormatRevisions = Object.freeze([
     '2d4101efba4e9b056a291ca4d1eed50cec07168f',
     '494b36e41942402cc35c5997bb0a6840e846af57',
     '465c8b3cf0387f157d5f82cf8bab5df1964ddf5a'
-])
+]);
 
 export const generatedPathPatterns = Object.freeze([
     '(?:^|/)generated(?:/|$)',
     '\\.generated\\.[^/]+$',
     '(?:^|/)cross-stack-contract-matrix\\.generated\\.json$'
-])
+]);
 
 export const generatedOutputRepairProducers = Object.freeze([
     Object.freeze({
@@ -133,7 +133,7 @@ export const generatedOutputRepairProducers = Object.freeze([
             'tests/backend/Fixtures/backend-evidence-path-authority.generated.json'
         ])
     })
-])
+]);
 
 // Historical exception for the exact #3203 repair candidate. The source blob
 // was carried unchanged through #3201's second-parent merge, so Git's
@@ -179,7 +179,7 @@ export const generatedOutputRepairPassThroughExceptions = Object.freeze([
             })
         ])
     })
-])
+]);
 
 // Reviewed #3241 history is an exact, finite exception, not an ancestry waiver.
 // The seal includes ordered parents and regular object/mode entries at every
@@ -287,7 +287,7 @@ export const generatedOutputRepairDags = Object.freeze([
             })
         ])
     })
-])
+]);
 
 // The correctness inventory is the only producer admitted by digest-refresh
 // v2.  The qualification tuple is deliberately fixed to the real source
@@ -354,7 +354,7 @@ export const generatedOutputDigestRepairProducers = Object.freeze([
             outerHeadCommit: 'd9f4a947f46c83278275f5bbf8fb0d651b3862e5'
         })
     })
-])
+]);
 
 // A pull request is evaluated by the checker from its trusted base revision.
 // These files define that checker or one of its release/review adapters, so a
@@ -374,7 +374,7 @@ export const trustedPolicyFiles = Object.freeze([
     'tools/governance/generated-output-digest-repair-repository.mjs',
     'tools/governance/generated-output-digest-repair-v2.mjs',
     'tools/governance/generate-generated-output-digest-repair-manifest.mjs'
-])
+]);
 
 export const changeContract = Object.freeze({
     schema: 'fsusblog.change-contract.v1',
@@ -405,4 +405,4 @@ export const changeContract = Object.freeze({
     summaryMaximumLength: 100,
     summaryMinimumLength: 12,
     performanceClaimLevels: Object.freeze(['none', 'S', 'M', 'R', 'C'])
-})
+});

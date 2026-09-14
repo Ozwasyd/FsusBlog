@@ -1,7 +1,8 @@
-import Ajv2020 from 'ajv/dist/2020.js';
 import fs from 'node:fs';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
+
+import Ajv2020 from 'ajv/dist/2020.js';
 
 function errorLocation(error)
 {

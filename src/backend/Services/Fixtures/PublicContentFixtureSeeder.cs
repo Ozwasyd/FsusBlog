@@ -12,6 +12,7 @@ using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
+using FsusBlog.Server.Services.Background;
 
 using SqlSugar;
 
@@ -242,9 +243,14 @@ public sealed class PublicContentFixtureSeeder(
     IPublicArtifactRevocationStateStore publicArtifactRevocationState,
     IPublicHotArtifactObligationStore publicHotObligations,
     TimeProvider timeProvider,
+    ArticleMutationOutboxDispatcher articleOutboxDispatcher,
+    IActiveReleaseFence? activeReleaseFence,
+    IActiveReleaseExecutionContextAccessor? releaseExecutionContext,
     IConfiguration configuration) : IPublicContentFixtureSeeder
 {
     private const string Strategy = "transaction-fixture";
+    private const int MaxOutboxDrainPasses = 16;
+    private static readonly TimeSpan s_outboxDrainPassDelay = TimeSpan.FromMilliseconds(200);
     private static readonly TimeSpan s_securityMatrixConvergenceTimeout = TimeSpan.FromMinutes(6);
     private static readonly TimeSpan s_securityMatrixConvergencePollInterval = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan s_securityMatrixHandoffQuietPeriod = TimeSpan.FromSeconds(10);
@@ -489,8 +495,9 @@ public sealed class PublicContentFixtureSeeder(
 
             Article row = await LoadArticleAsync(archivedId, cancellationToken).ConfigureAwait(false)
                 ?? throw new InvalidOperationException("archived article missing");
+            List<long> archivedRevisionIds = await LoadRevisionIdsAsync(archivedId, cancellationToken).ConfigureAwait(false);
             entityIdentities.Add(new("article", archivedId.ToString(System.Globalization.CultureInfo.InvariantCulture), row.Title, "article-archived"));
-            observed.Add(StatusEntity(archivedId, "archived", "article-archived", row));
+            observed.Add(StatusEntity(archivedId, "archived", "article-archived", row, archivedRevisionIds));
         }
 
         if (capabilities.Contains("public.article.deleted", StringComparer.Ordinal))
@@ -661,6 +668,8 @@ public sealed class PublicContentFixtureSeeder(
         }
 
         // Cache / search / hot rebuild via domain ports — fail closed if degraded.
+        await DrainArticleMutationOutboxAsync(cancellationToken).ConfigureAwait(false);
+
         AdminCacheActionResponse searchRebuild = await artifactOperations.RunCacheActionAsync(
             new AdminCacheActionRequest("search-rebuild"),
             cancellationToken).ConfigureAwait(false);
@@ -918,11 +927,12 @@ public sealed class PublicContentFixtureSeeder(
         int id = await CreateArticleAsync(plan, categoryId, tagId, cancellationToken).ConfigureAwait(false);
         Article row = await LoadArticleAsync(id, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException($"{plan.Role} article missing");
+        List<long> revisionIds = await LoadRevisionIdsAsync(id, cancellationToken).ConfigureAwait(false);
         identities.Add(new("article", id.ToString(System.Globalization.CultureInfo.InvariantCulture), plan.Title, capabilityHint));
-        observed.Add(StatusEntity(id, plan.Status.ToString().ToLowerInvariant(), capabilityHint, row));
+        observed.Add(StatusEntity(id, plan.Status.ToString().ToLowerInvariant(), capabilityHint, row, revisionIds));
     }
 
-    private static PublicContentObservedEntity StatusEntity(int id, string status, string capabilityHint, Article row)
+    private static PublicContentObservedEntity StatusEntity(int id, string status, string capabilityHint, Article row, List<long> revisionIds)
         => new()
         {
             Kind = "article",
@@ -936,9 +946,55 @@ public sealed class PublicContentFixtureSeeder(
                 ["currentPublicationId"] = row.CurrentPublicationId,
                 ["currentRevisionId"] = row.CurrentRevisionId,
                 ["scheduledPublishAt"] = row.ScheduledPublishAt,
-                ["archivedAt"] = row.ArchivedAt
+                ["archivedAt"] = row.ArchivedAt,
+                ["revisionIds"] = revisionIds.Select(static revisionId => revisionId.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToArray()
             }
         };
+
+    private async Task DrainArticleMutationOutboxAsync(CancellationToken cancellationToken)
+    {
+        for (int pass = 0; pass < MaxOutboxDrainPasses; pass++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            int pending = await db.Queryable<ArticleMutationOutboxEvent>()
+                .Where(item => item.Status == "pending" || item.Status == "processing")
+                .CountAsync(cancellationToken).ConfigureAwait(false);
+            if (pending == 0)
+            {
+                return;
+            }
+            if (await db.Queryable<ArticleMutationOutboxEvent>()
+                    .Where(item => item.Status == "poison")
+                    .AnyAsync(cancellationToken).ConfigureAwait(false))
+            {
+                throw new InvalidOperationException("Article mutation outbox did not reach exact processed state.");
+            }
+            // Rows may be in-flight under the hosted dispatcher's claim lease; give the
+            // current claim owner a bounded window to commit before the next pass.
+            await Task.Delay(s_outboxDrainPassDelay, cancellationToken).ConfigureAwait(false);
+            await RunDispatcherPassAsync(cancellationToken).ConfigureAwait(false);
+        }
+        throw new InvalidOperationException("Article mutation outbox did not converge within the bounded worker drain.");
+    }
+
+    private async Task RunDispatcherPassAsync(CancellationToken cancellationToken)
+    {
+        // The dispatcher's commit guard requires an ambient release execution ticket,
+        // which the hosted fenced lease supplies per iteration; replicate that context.
+        if (activeReleaseFence is null || releaseExecutionContext is null)
+        {
+            await articleOutboxDispatcher.ProcessPendingAsync(cancellationToken).ConfigureAwait(false);
+            return;
+        }
+        ActiveReleaseExecutionTicket? ticket = await activeReleaseFence
+            .TryCaptureExecutionTicketAsync(cancellationToken).ConfigureAwait(false);
+        if (ticket is null)
+        {
+            throw new InvalidOperationException("Article mutation outbox drain requires an active release execution ticket.");
+        }
+        using IDisposable executionScope = releaseExecutionContext.Push(ticket);
+        await articleOutboxDispatcher.ProcessPendingAsync(cancellationToken).ConfigureAwait(false);
+    }
 
     private async Task<int> CreateArticleAsync(
         SeedArticlePlan plan,

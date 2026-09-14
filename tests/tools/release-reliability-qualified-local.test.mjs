@@ -1371,8 +1371,8 @@ test('production build environment CLI executes from ASCII and Unicode script pa
         copyProductionBuildEnvironmentTool(path.join(fixtureRoot, 'ascii')),
         copyProductionBuildEnvironmentTool(path.join(fixtureRoot, 'unicode-路徑'))
     ];
-    assert.doesNotMatch(candidates[0], /[^\x00-\x7f]/u);
-    assert.match(candidates[1], /[^\x00-\x7f]/u);
+    assert.doesNotMatch(candidates[0], /[^\x00-\x7f]/u); // eslint-disable-line no-control-regex -- intentional ASCII-boundary probe
+    assert.match(candidates[1], /[^\x00-\x7f]/u); // eslint-disable-line no-control-regex -- intentional ASCII-boundary probe
 
     for (const [index, tool] of candidates.entries())
     {

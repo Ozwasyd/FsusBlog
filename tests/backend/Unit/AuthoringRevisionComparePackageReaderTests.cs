@@ -19,6 +19,7 @@ public sealed class AuthoringRevisionComparePackageReaderTests
     {
         var services = new ServiceCollection();
         services.AddFsusRuntimeDomainServices();
+        services.AddSingleton(Substitute.For<IAuthoringDraftLifecycle>());
         services.AddSingleton(Substitute.For<IAuthoringRevisionCompareAuthority>());
         using ServiceProvider provider = services.BuildServiceProvider(validateScopes: true);
         using IServiceScope scope = provider.CreateScope();
@@ -27,6 +28,10 @@ public sealed class AuthoringRevisionComparePackageReaderTests
             services,
             static descriptor => descriptor.ServiceType == typeof(IAuthoringRevisionCompareAuthority)
                 && descriptor.ImplementationType == typeof(AuthoringRevisionCompareAuthority));
+        Assert.Contains(
+            services,
+            static descriptor => descriptor.ServiceType == typeof(IAuthoringRevisionCompareDraftContextProvider)
+                && descriptor.ImplementationType == typeof(AuthoringRevisionCompareDraftContextProvider));
         Assert.IsType<AuthoringRevisionCompareDraftContextAuthority>(
             scope.ServiceProvider.GetRequiredService<IAuthoringRevisionCompareDraftContextAuthority>());
         Assert.IsType<AuthoringRevisionComparePackageReader>(
@@ -175,11 +180,120 @@ public sealed class AuthoringRevisionComparePackageReaderTests
             .GetParameters()
             .Select(static parameter => parameter.ParameterType)
             .ToArray();
+        Type[] draftContextProviderDependencies = typeof(AuthoringRevisionCompareDraftContextProvider)
+            .GetConstructors()
+            .Single()
+            .GetParameters()
+            .Select(static parameter => parameter.ParameterType)
+            .ToArray();
 
         Assert.Contains(typeof(IAuthoringDraftLifecycle), authorityDependencies);
+        Assert.Equal([typeof(IAuthoringDraftLifecycle)], draftContextProviderDependencies);
         Assert.Equal(
             [typeof(IAuthoringRevisionCompareAuthority), typeof(IAuthoringRevisionCompareDraftContextAuthority)],
             packageReaderDependencies);
+    }
+
+    [Fact]
+    public async Task DraftContextProvider_RereadsAndSealsExactAuthoritativeDraftContext()
+    {
+        DateTime updatedAt = new(2026, 9, 8, 5, 0, 0, DateTimeKind.Utc);
+        ServerDraftResponse draft = Draft(7, 3, "client-write-3", updatedAt: updatedAt);
+        IAuthoringDraftLifecycle authoring = Substitute.For<IAuthoringDraftLifecycle>();
+        authoring.GetDraftAsync(5, "draft-key", Arg.Any<CancellationToken>()).Returns(draft);
+        var provider = new AuthoringRevisionCompareDraftContextProvider(authoring);
+        string epoch = AuthoringRevisionCompareDraftContextProvider.CreateDocumentEpoch(Context(), 7, draft);
+        var request = new AuthoringRevisionCompareDraftContextRequest(
+            Context(),
+            7,
+            "draft-key",
+            3,
+            epoch,
+            RightsPayloadDigest(draft));
+
+        AuthoringRevisionCompareDraftContextResult result = await provider.ReadAsync(request, default);
+
+        Assert.Equal(RevisionComparePackageReadStatus.Available, result.Status);
+        Assert.Equal(epoch, result.Context!.DocumentEpoch);
+        Assert.Equal(request.RightsPayloadDigest, result.Context.RightsPayloadDigest);
+        Assert.Equal(
+            request.RightsPayloadDigest,
+            result.Context.Snapshots.Single(static snapshot => snapshot.Kind == RevisionCompareSnapshotKind.Rights)
+                .PayloadDigest);
+        Assert.All(result.Context.Snapshots, static snapshot =>
+            Assert.NotEqual(RevisionCompareSnapshotState.Missing, snapshot.State));
+        await authoring.Received(1).GetDraftAsync(5, "draft-key", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task DraftContextProvider_RejectsSiteArticleRevisionAndEpochDriftWithoutLeakingContext()
+    {
+        DateTime updatedAt = new(2026, 9, 8, 5, 0, 0, DateTimeKind.Utc);
+        ServerDraftResponse draft = Draft(7, 3, "client-write-3", updatedAt: updatedAt);
+        IAuthoringDraftLifecycle authoring = Substitute.For<IAuthoringDraftLifecycle>();
+        authoring.GetDraftAsync(5, "draft-key", Arg.Any<CancellationToken>()).Returns(draft);
+        var provider = new AuthoringRevisionCompareDraftContextProvider(authoring);
+        string epoch = AuthoringRevisionCompareDraftContextProvider.CreateDocumentEpoch(Context(), 7, draft);
+        var accepted = new AuthoringRevisionCompareDraftContextRequest(
+            Context(),
+            7,
+            "draft-key",
+            3,
+            epoch,
+            RightsPayloadDigest(draft));
+        AuthoringRevisionCompareDraftContextRequest[] rejected =
+        [
+            accepted with { Reader = accepted.Reader with { SiteScope = "other" } },
+            accepted with { ArticleId = 8 },
+            accepted with { ServerRevision = 4 },
+            accepted with { DocumentEpoch = "draft-epoch-v1:" + new string('0', 64) },
+            accepted with { RightsPayloadDigest = new string('0', 64) }
+        ];
+
+        foreach (AuthoringRevisionCompareDraftContextRequest request in rejected)
+        {
+            AuthoringRevisionCompareDraftContextResult result = await provider.ReadAsync(request, default);
+
+            Assert.NotEqual(RevisionComparePackageReadStatus.Available, result.Status);
+            Assert.Null(result.Context);
+        }
+    }
+
+    [Fact]
+    public void DraftDocumentEpoch_BindsOwnerSiteArticleRevisionTimeSourceAndRights()
+    {
+        DateTime updatedAt = new(2026, 9, 8, 5, 0, 0, DateTimeKind.Utc);
+        ServerDraftResponse draft = Draft(7, 3, "client-write-3", updatedAt: updatedAt);
+        string expected = AuthoringRevisionCompareDraftContextProvider.CreateDocumentEpoch(Context(), 7, draft);
+        string repeated = AuthoringRevisionCompareDraftContextProvider.CreateDocumentEpoch(Context(), 7, draft);
+        string changedSource = AuthoringRevisionCompareDraftContextProvider.CreateDocumentEpoch(
+            Context(),
+            7,
+            draft with
+            {
+                Content = draft.Content + "changed"
+            });
+        string changedRights = AuthoringRevisionCompareDraftContextProvider.CreateDocumentEpoch(
+            Context(),
+            7,
+            draft with
+            {
+                Rights = draft.Rights with
+                {
+                    Enabled = false
+                }
+            });
+        string changedSite = AuthoringRevisionCompareDraftContextProvider.CreateDocumentEpoch(
+            Context() with
+            {
+                SiteScope = "other"
+            },
+            7,
+            draft);
+
+        Assert.Equal(expected, repeated);
+        Assert.Equal(3, new[] { changedSource, changedRights, changedSite }.Distinct(StringComparer.Ordinal).Count());
+        Assert.DoesNotContain(expected, new[] { changedSource, changedRights, changedSite });
     }
 
     [Fact]
@@ -458,9 +572,9 @@ public sealed class AuthoringRevisionComparePackageReaderTests
         return provider;
     }
 
-    private static string RightsPayloadDigest()
+    private static string RightsPayloadDigest(ServerDraftResponse? draft = null)
         => Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
-            JsonSerializer.SerializeToUtf8Bytes(Draft(7, 3, "client-write-3").Rights)));
+            JsonSerializer.SerializeToUtf8Bytes((draft ?? Draft(7, 3, "client-write-3")).Rights)));
 
     private static RevisionCompareReadContext Context()
         => new(5, "primary", Guid.Parse("297dfbc4-ddaa-4830-9455-d88e6c8f29de"));
@@ -472,7 +586,8 @@ public sealed class AuthoringRevisionComparePackageReaderTests
         int articleId,
         long serverRevision,
         string clientRevision,
-        string content = "raw\r\nmarkdown\n")
+        string content = "raw\r\nmarkdown\n",
+        DateTime? updatedAt = null)
         => new(
             "draft-key",
             articleId,
@@ -485,7 +600,7 @@ public sealed class AuthoringRevisionComparePackageReaderTests
             clientRevision,
             1,
             null,
-            DateTime.UtcNow,
+            updatedAt ?? DateTime.UtcNow,
             new ArticleRightsRequest { Enabled = true, LicenseType = "all-rights-reserved" },
             11,
             serverRevision);

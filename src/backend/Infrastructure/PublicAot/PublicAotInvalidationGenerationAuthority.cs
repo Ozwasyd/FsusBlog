@@ -13,23 +13,23 @@ namespace FsusBlog.Server.Infrastructure.PublicAot;
 /// <summary>Durable, scope-bound source of truth for Public AOT invalidation coordinates.</summary>
 public interface IPublicAotInvalidationGenerationAuthority
 {
-    PublicAotInvalidationGenerationState Load();
-    PublicAotInvalidationGenerationState Mark(
+    Task<PublicAotInvalidationGenerationState> LoadAsync(CancellationToken cancellationToken);
+    Task<PublicAotInvalidationGenerationState> MarkAsync(
         string kind,
         string key,
-        string? mutationId = null);
-    PublicAotInvalidationGenerationState Compact(IReadOnlySet<string> artifactKeys, IReadOnlySet<string> prefixKeys);
+        string? mutationId,
+        CancellationToken cancellationToken);
+    Task<PublicAotInvalidationGenerationState> CompactAsync(
+        IReadOnlySet<string> artifactKeys,
+        IReadOnlySet<string> prefixKeys,
+        CancellationToken cancellationToken);
 }
 
 public sealed class PublicAotInvalidationGenerationStartupValidator(
-    IPublicAotInvalidationGenerationAuthority authority) : IHostedService
+    PublicAotInvalidationTracker tracker) : IHostedService
 {
     public Task StartAsync(CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        _ = authority.Load();
-        return Task.CompletedTask;
-    }
+        => tracker.InitializeAsync(cancellationToken);
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }
@@ -58,17 +58,29 @@ public sealed class InMemoryPublicAotInvalidationGenerationAuthority : IPublicAo
     private PublicAotInvalidationGenerationState _state =
         PublicAotInvalidationGenerationStateCodec.CreateEmpty("test");
 
-    public PublicAotInvalidationGenerationState Load()
+    internal PublicAotInvalidationGenerationState Current
     {
-        lock (_gate)
-            return _state;
+        get
+        {
+            lock (_gate)
+                return _state;
+        }
     }
 
-    public PublicAotInvalidationGenerationState Mark(
+    public Task<PublicAotInvalidationGenerationState> LoadAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate)
+            return Task.FromResult(_state);
+    }
+
+    public Task<PublicAotInvalidationGenerationState> MarkAsync(
         string kind,
         string key,
-        string? mutationId = null)
+        string? mutationId,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         lock (_gate)
         {
             _state = PublicAotInvalidationGenerationStateCodec.Mutate(
@@ -76,18 +88,20 @@ public sealed class InMemoryPublicAotInvalidationGenerationAuthority : IPublicAo
                 kind,
                 key,
                 mutationId);
-            return _state;
+            return Task.FromResult(_state);
         }
     }
 
-    public PublicAotInvalidationGenerationState Compact(
+    public Task<PublicAotInvalidationGenerationState> CompactAsync(
         IReadOnlySet<string> artifactKeys,
-        IReadOnlySet<string> prefixKeys)
+        IReadOnlySet<string> prefixKeys,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         lock (_gate)
         {
             _state = PublicAotInvalidationGenerationStateCodec.Compact(_state, artifactKeys, prefixKeys);
-            return _state;
+            return Task.FromResult(_state);
         }
     }
 }
@@ -504,20 +518,20 @@ public sealed class RedisPublicAotInvalidationGenerationAuthority :
         "local current = redis.call('GET', @key); " +
         "if current ~= @expected then return 0; end; " +
         "redis.call('SET', @key, @replacement); return 1;");
-    private readonly IDatabase _database;
+    private readonly IRedisOperationExecutor _redisOperations;
     private readonly RedisKey _key;
     private readonly string _runtimeScope;
     private readonly IPublicAotInvalidationGenerationBootstrapGuard _bootstrapGuard;
 
     public RedisPublicAotInvalidationGenerationAuthority(
-        IConnectionMultiplexer redis,
+        IRedisOperationExecutor redisOperations,
         IRuntimeKeyScope runtimeKeyScope,
         IPublicAotInvalidationGenerationBootstrapGuard bootstrapGuard)
     {
-        ArgumentNullException.ThrowIfNull(redis);
+        ArgumentNullException.ThrowIfNull(redisOperations);
         ArgumentNullException.ThrowIfNull(runtimeKeyScope);
         ArgumentNullException.ThrowIfNull(bootstrapGuard);
-        _database = redis.GetDatabase();
+        _redisOperations = redisOperations;
         _key = runtimeKeyScope.PrefixKey(StateKey);
         _runtimeScope = string.IsNullOrWhiteSpace(runtimeKeyScope.ScopeToken)
             ? "default"
@@ -525,21 +539,39 @@ public sealed class RedisPublicAotInvalidationGenerationAuthority :
         _bootstrapGuard = bootstrapGuard;
     }
 
-    public PublicAotInvalidationGenerationState Load()
+    public Task<PublicAotInvalidationGenerationState> LoadAsync(CancellationToken cancellationToken)
+        => _redisOperations.ExecuteAsync(
+            RedisOperationPort.PublicAotGeneration,
+            LoadCoreAsync,
+            cancellationToken);
+
+    private async Task<PublicAotInvalidationGenerationState> LoadCoreAsync(
+        IConnectionMultiplexer redis,
+        CancellationToken cancellationToken)
     {
-        RedisValue payload = _database.StringGet(_key, CommandFlags.DemandMaster);
+        IDatabase database = redis.GetDatabase();
+        RedisValue payload = await database
+            .StringGetAsync(_key, CommandFlags.DemandMaster)
+            .WaitAsync(cancellationToken)
+            .ConfigureAwait(false);
         if (payload.IsNullOrEmpty)
         {
             _bootstrapGuard.PrepareInitialBootstrap();
             PublicAotInvalidationGenerationState initial =
                 PublicAotInvalidationGenerationStateCodec.CreateEmpty(_runtimeScope);
-            _ = _database.StringSet(
-                _key,
-                PublicAotInvalidationGenerationStateCodec.Serialize(initial),
-                expiry: null,
-                when: When.NotExists,
-                flags: CommandFlags.DemandMaster);
-            payload = _database.StringGet(_key, CommandFlags.DemandMaster);
+            _ = await database
+                .StringSetAsync(
+                    _key,
+                    PublicAotInvalidationGenerationStateCodec.Serialize(initial),
+                    expiry: null,
+                    when: When.NotExists,
+                    flags: CommandFlags.DemandMaster)
+                .WaitAsync(cancellationToken)
+                .ConfigureAwait(false);
+            payload = await database
+                .StringGetAsync(_key, CommandFlags.DemandMaster)
+                .WaitAsync(cancellationToken)
+                .ConfigureAwait(false);
             if (payload.IsNullOrEmpty)
             {
                 throw new InvalidOperationException(
@@ -559,101 +591,175 @@ public sealed class RedisPublicAotInvalidationGenerationAuthority :
         return state;
     }
 
-    public PublicAotInvalidationGenerationState Mark(
+    public Task<PublicAotInvalidationGenerationState> MarkAsync(
         string kind,
         string key,
-        string? mutationId = null)
-        => CompareAndSet(current =>
+        string? mutationId,
+        CancellationToken cancellationToken)
+        => CompareAndSetAsync(current =>
             PublicAotInvalidationGenerationStateCodec.Mutate(
                 current,
                 kind,
                 key,
-                mutationId));
+                mutationId), cancellationToken);
 
-    public PublicAotInvalidationGenerationState Compact(
+    public Task<PublicAotInvalidationGenerationState> CompactAsync(
         IReadOnlySet<string> artifactKeys,
-        IReadOnlySet<string> prefixKeys)
+        IReadOnlySet<string> prefixKeys,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(artifactKeys);
         ArgumentNullException.ThrowIfNull(prefixKeys);
-        return CompareAndSet(current =>
+        return CompareAndSetAsync(current =>
             PublicAotInvalidationGenerationStateCodec.Compact(
                 current,
                 artifactKeys,
-                prefixKeys));
+                prefixKeys), cancellationToken);
     }
 
-    private PublicAotInvalidationGenerationState CompareAndSet(
-        Func<PublicAotInvalidationGenerationState, PublicAotInvalidationGenerationState> mutation)
-    {
-        for (int attempt = 0; attempt < MaxCompareAndSetAttempts; attempt++)
-        {
-            PublicAotInvalidationGenerationState current = Load();
-            PublicAotInvalidationGenerationState next = mutation(current);
-            RedisResult result = _database.ScriptEvaluate(
-                s_compareAndSet,
-                new
+    private Task<PublicAotInvalidationGenerationState> CompareAndSetAsync(
+        Func<PublicAotInvalidationGenerationState, PublicAotInvalidationGenerationState> mutation,
+        CancellationToken cancellationToken)
+        => _redisOperations.ExecuteAsync(
+            RedisOperationPort.PublicAotGeneration,
+            async (redis, token) =>
+            {
+                IDatabase database = redis.GetDatabase();
+                for (int attempt = 0; attempt < MaxCompareAndSetAttempts; attempt++)
                 {
-                    key = _key,
-                    expected = PublicAotInvalidationGenerationStateCodec.Serialize(current),
-                    replacement = PublicAotInvalidationGenerationStateCodec.Serialize(next)
-                },
-                CommandFlags.DemandMaster);
-            if ((long)result == 1)
-            {
-                return next;
-            }
+                    token.ThrowIfCancellationRequested();
+                    PublicAotInvalidationGenerationState current = await LoadFromDatabaseAsync(database, token)
+                        .ConfigureAwait(false);
+                    PublicAotInvalidationGenerationState next = mutation(current);
+                    RedisResult result = await database
+                        .ScriptEvaluateAsync(
+                            s_compareAndSet,
+                            new
+                            {
+                                key = _key,
+                                expected = PublicAotInvalidationGenerationStateCodec.Serialize(current),
+                                replacement = PublicAotInvalidationGenerationStateCodec.Serialize(next)
+                            },
+                            CommandFlags.DemandMaster)
+                        .WaitAsync(token)
+                        .ConfigureAwait(false);
+                    if ((long)result == 1)
+                    {
+                        return next;
+                    }
 
-            if ((attempt & 15) == 15)
+                    if ((attempt & 15) == 15)
+                    {
+                        await Task.Yield();
+                    }
+                }
+
+                throw new InvalidOperationException(
+                    "public-aot-invalidation-generation-cas-failed");
+            },
+            cancellationToken);
+
+    private async Task<PublicAotInvalidationGenerationState> LoadFromDatabaseAsync(
+        IDatabase database,
+        CancellationToken cancellationToken)
+    {
+        RedisValue payload = await database
+            .StringGetAsync(_key, CommandFlags.DemandMaster)
+            .WaitAsync(cancellationToken)
+            .ConfigureAwait(false);
+        if (payload.IsNullOrEmpty)
+        {
+            _bootstrapGuard.PrepareInitialBootstrap();
+            PublicAotInvalidationGenerationState initial =
+                PublicAotInvalidationGenerationStateCodec.CreateEmpty(_runtimeScope);
+            _ = await database
+                .StringSetAsync(
+                    _key,
+                    PublicAotInvalidationGenerationStateCodec.Serialize(initial),
+                    expiry: null,
+                    when: When.NotExists,
+                    flags: CommandFlags.DemandMaster)
+                .WaitAsync(cancellationToken)
+                .ConfigureAwait(false);
+            payload = await database
+                .StringGetAsync(_key, CommandFlags.DemandMaster)
+                .WaitAsync(cancellationToken)
+                .ConfigureAwait(false);
+            if (payload.IsNullOrEmpty)
             {
-                Thread.Yield();
+                throw new InvalidOperationException(
+                    "public-aot-invalidation-generation-bootstrap-store-missing");
             }
         }
 
-        throw new InvalidOperationException(
-            "public-aot-invalidation-generation-cas-failed");
+        PublicAotInvalidationGenerationState state =
+            PublicAotInvalidationGenerationStateCodec.Deserialize((string)payload!);
+        if (!string.Equals(state.RuntimeScope, _runtimeScope, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "public-aot-invalidation-generation-scope-invalid");
+        }
+        _bootstrapGuard.RecordInitialized(state);
+        return state;
     }
 }
 
 public sealed class PublicAotInvalidationGenerationCompactionWorker(
     IPublicAotInvalidationGenerationAuthority authority,
-    IConnectionMultiplexer redis,
+    IRedisOperationExecutor redisOperations,
     ILogger<PublicAotInvalidationGenerationCompactionWorker> logger) : BackgroundService
 {
     private static readonly TimeSpan s_interval = TimeSpan.FromMinutes(15);
-    private readonly IDatabase _database = redis.GetDatabase();
 
-    internal PublicAotInvalidationGenerationState CompactOnce()
+    internal async Task<PublicAotInvalidationGenerationState> CompactOnceAsync(
+        CancellationToken cancellationToken)
     {
-        PublicAotInvalidationGenerationState state = authority.Load();
-        if (!_database.KeyExists(
-            PublicAotCacheRegistry.GlobalRegistryKey,
-            CommandFlags.DemandMaster))
-        {
-            throw new InvalidOperationException(
-                "public-aot-invalidation-generation-compaction-registry-missing");
-        }
+        PublicAotInvalidationGenerationState state = await authority
+            .LoadAsync(cancellationToken)
+            .ConfigureAwait(false);
+        HashSet<string> artifactKeys = await redisOperations.ExecuteAsync(
+                RedisOperationPort.PublicAotShellMaintenance,
+                async (redis, token) =>
+                {
+                    IDatabase database = redis.GetDatabase();
+                    if (!await database
+                        .KeyExistsAsync(
+                            PublicAotCacheRegistry.GlobalRegistryKey,
+                            CommandFlags.DemandMaster)
+                        .WaitAsync(token)
+                        .ConfigureAwait(false))
+                    {
+                        throw new InvalidOperationException(
+                            "public-aot-invalidation-generation-compaction-registry-missing");
+                    }
 
-        var artifactKeys = new HashSet<string>(StringComparer.Ordinal);
-        foreach (RedisValue registered in _database.SetScan(
-            PublicAotCacheRegistry.GlobalRegistryKey,
-            pageSize: 256,
-            flags: CommandFlags.DemandMaster))
-        {
-            if (registered.IsNullOrEmpty
-                || !TryRemoveInvalidationVersion((string)registered!, out string artifactKey))
-            {
-                continue;
-            }
-
-            artifactKeys.Add(artifactKey);
-        }
+                    var keys = new HashSet<string>(StringComparer.Ordinal);
+                    await foreach (RedisValue registered in database
+                        .SetScanAsync(
+                            PublicAotCacheRegistry.GlobalRegistryKey,
+                            pageSize: 256,
+                            flags: CommandFlags.DemandMaster)
+                        .WithCancellation(token)
+                        .ConfigureAwait(false))
+                    {
+                        if (!registered.IsNullOrEmpty
+                            && TryRemoveInvalidationVersion((string)registered!, out string artifactKey))
+                        {
+                            keys.Add(artifactKey);
+                        }
+                    }
+                    return keys;
+                },
+                cancellationToken)
+            .ConfigureAwait(false);
 
         var prefixKeys = state.PrefixGenerations.Keys
             .Where(prefix => artifactKeys.Any(key =>
                 key.StartsWith(prefix, StringComparison.Ordinal)))
             .ToHashSet(StringComparer.Ordinal);
-        return authority.Compact(artifactKeys, prefixKeys);
+        return await authority
+            .CompactAsync(artifactKeys, prefixKeys, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -663,7 +769,7 @@ public sealed class PublicAotInvalidationGenerationCompactionWorker(
         {
             try
             {
-                _ = CompactOnce();
+                _ = await CompactOnceAsync(stoppingToken).ConfigureAwait(false);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
@@ -701,6 +807,7 @@ public sealed class PublicAotInvalidationGenerationCompactionWorker(
 internal static class PublicAotInvalidationGenerationStateCodec
 {
     internal const string AllCoordinate = "__all__";
+    internal const string SitemapCoordinate = "__sitemap__";
 
     public static PublicAotInvalidationGenerationState CreateEmpty(string scope)
         => Seal(
@@ -732,22 +839,17 @@ internal static class PublicAotInvalidationGenerationStateCodec
         string? mutationId = null)
     {
         Validate(current);
-        if (!string.IsNullOrWhiteSpace(mutationId)
-            && string.Equals(
-                current.LastMutationId,
-                mutationId,
-                StringComparison.Ordinal))
-        {
-            return current;
-        }
-
         if (string.IsNullOrWhiteSpace(key))
         {
             throw new InvalidOperationException(
                 "public-aot-invalidation-generation-coordinate-invalid");
         }
 
-        long generation = checked(current.AllGeneration + 1);
+        bool extendsCurrentMutation = !string.IsNullOrWhiteSpace(mutationId)
+            && string.Equals(current.LastMutationId, mutationId, StringComparison.Ordinal);
+        long generation = extendsCurrentMutation
+            ? current.AllGeneration
+            : checked(current.AllGeneration + 1);
         var keys = new Dictionary<string, long>(
             current.KeyGenerations,
             StringComparer.Ordinal);
@@ -770,6 +872,15 @@ internal static class PublicAotInvalidationGenerationStateCodec
                     "public-aot-invalidation-generation-kind-invalid");
         }
 
+        if (extendsCurrentMutation
+            && current.KeyGenerations.Count == keys.Count
+            && current.PrefixGenerations.Count == prefixes.Count
+            && current.KeyGenerations.All(pair => keys.GetValueOrDefault(pair.Key) == pair.Value)
+            && current.PrefixGenerations.All(pair => prefixes.GetValueOrDefault(pair.Key) == pair.Value))
+        {
+            return current;
+        }
+
         return Seal(
             current.RuntimeScope,
             generation,
@@ -790,6 +901,7 @@ internal static class PublicAotInvalidationGenerationStateCodec
         var keys = current.KeyGenerations
             .Where(pair =>
                 string.Equals(pair.Key, AllCoordinate, StringComparison.Ordinal)
+                || string.Equals(pair.Key, SitemapCoordinate, StringComparison.Ordinal)
                 || artifactKeys.Contains(pair.Key))
             .ToDictionary(
                 static pair => pair.Key,
@@ -878,6 +990,7 @@ internal static class PublicAotInvalidationGenerationStateCodec
                 state.PrefixGenerations,
                 state.AllGeneration,
                 allowAllCoordinate: false)
+            || state.PrefixGenerations.ContainsKey(SitemapCoordinate)
             || (state.AllGeneration == 0
                 && (state.KeyGenerations.Count != 0
                     || state.PrefixGenerations.Count != 0

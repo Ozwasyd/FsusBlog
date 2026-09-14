@@ -707,6 +707,8 @@ jobs:
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
                   dotnet-version: 10.0.x
+            - name: Install isolated backend closure prerequisites
+              run: sudo apt-get update && sudo apt-get install --yes bubblewrap python3
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}

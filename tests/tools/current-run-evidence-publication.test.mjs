@@ -6,23 +6,9 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import {
-    attachCurrentRunEvidenceHandoff,
-    initializeCurrentRunEvidenceCheckpoint,
-    parseCurrentRunEvidenceHandoffs,
-    resumeCurrentRunEvidenceCheckpoint
-} from '../../tools/test/current-run-evidence-checkpoint.mjs';
-import {
-    beginCurrentRunEvidencePublication,
-    createEvidenceParentReceipt,
-    finalizeCurrentRunEvidencePublication,
-    prepareCurrentRunEvidencePublication,
-    readCurrentRunEvidencePublication,
-    recoverCurrentRunEvidencePublication,
-    resolveEvidenceReferencePayload
-} from '../../tools/test/current-run-evidence-publication.mjs';
-import { governanceContentDigest } from '../../tools/test/evidence-location-contract.mjs';
-
+const {attachCurrentRunEvidenceHandoff, initializeCurrentRunEvidenceCheckpoint, parseCurrentRunEvidenceHandoffs, resumeCurrentRunEvidenceCheckpoint} = await import(new URL('../../tools/test/current-run-evidence-checkpoint.mjs', import.meta.url));
+const {beginCurrentRunEvidencePublication, createEvidenceParentReceipt, finalizeCurrentRunEvidencePublication, prepareCurrentRunEvidencePublication, readCurrentRunEvidencePublication, recoverCurrentRunEvidencePublication, resolveEvidenceReferencePayload} = await import(new URL('../../tools/test/current-run-evidence-publication.mjs', import.meta.url));
+const {governanceContentDigest} = await import(new URL('../../tools/test/evidence-location-contract.mjs', import.meta.url));
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const d = (value) => `sha256:${value.repeat(64)}`;
 
@@ -101,7 +87,10 @@ test('terminal success publishes one sealed explicit ref and complete handoff', 
             repositoryRoot: f.root }).state.state, 'finalized');
         assert.throws(() => beginCurrentRunEvidencePublication(f.options), /already has a final reference/u);
     }
-    finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+    finally
+    {
+        fs.rmSync(f.root, { recursive: true, force: true });
+    }
 });
 
 test('failure cancel missing output and directory substitutes never publish success', () =>
@@ -117,7 +106,10 @@ test('failure cancel missing output and directory substitutes never publish succ
                 sessionId: session.sessionId, terminalStatus }), /only terminal success/u);
             assert.equal(fs.existsSync(path.join(f.root, f.options.outputPath)), false);
         }
-        finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+        finally
+        {
+            fs.rmSync(f.root, { recursive: true, force: true });
+        }
     }
     const missing = fixture();
     try
@@ -129,7 +121,10 @@ test('failure cancel missing output and directory substitutes never publish succ
             sessionId: session.sessionId }), /payload is missing/u);
         assert.equal(fs.existsSync(path.join(missing.root, missing.options.outputPath)), false);
     }
-    finally { fs.rmSync(missing.root, { recursive: true, force: true }); }
+    finally
+    {
+        fs.rmSync(missing.root, { recursive: true, force: true });
+    }
 });
 
 test('sealed crash recovery aborts pre-receipt work and completes exact staged bytes', () =>
@@ -143,7 +138,10 @@ test('sealed crash recovery aborts pre-receipt work and completes exact staged b
         assert.equal(recovered.state.state, 'aborted');
         assert.equal(recovered.handoff, null);
     }
-    finally { fs.rmSync(beforeReceipt.root, { recursive: true, force: true }); }
+    finally
+    {
+        fs.rmSync(beforeReceipt.root, { recursive: true, force: true });
+    }
 
     const afterReceipt = fixture();
     try
@@ -156,7 +154,10 @@ test('sealed crash recovery aborts pre-receipt work and completes exact staged b
         assert.equal(recovered.state.state, 'finalized');
         assert.equal(recovered.handoff.inputDigest, recovered.state.reference.inputDigest);
     }
-    finally { fs.rmSync(afterReceipt.root, { recursive: true, force: true }); }
+    finally
+    {
+        fs.rmSync(afterReceipt.root, { recursive: true, force: true });
+    }
 });
 
 test('pointer and prepared-byte tamper fail closed', () =>
@@ -172,7 +173,10 @@ test('pointer and prepared-byte tamper fail closed', () =>
         assert.throws(() => readCurrentRunEvidencePublication({ outputPath: pointerTamper.options.outputPath,
             repositoryRoot: pointerTamper.root }), /contentDigest mismatch/u);
     }
-    finally { fs.rmSync(pointerTamper.root, { recursive: true, force: true }); }
+    finally
+    {
+        fs.rmSync(pointerTamper.root, { recursive: true, force: true });
+    }
 
     const stagedTamper = fixture();
     try
@@ -186,7 +190,10 @@ test('pointer and prepared-byte tamper fail closed', () =>
             outputPath: stagedTamper.options.outputPath, repositoryRoot: stagedTamper.root }),
         /prepared evidence reference bytes mismatch/u);
     }
-    finally { fs.rmSync(stagedTamper.root, { recursive: true, force: true }); }
+    finally
+    {
+        fs.rmSync(stagedTamper.root, { recursive: true, force: true });
+    }
 });
 
 test('checkpoint accepts producer-supplied digests once and rejects old attempts or legacy blocks', () =>
@@ -218,7 +225,10 @@ test('checkpoint accepts producer-supplied digests once and rejects old attempts
             entry: f.entry, handoff: result.handoff, registry: f.registry, repositoryRoot: f.root }),
         /attemptId mismatch/u);
     }
-    finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+    finally
+    {
+        fs.rmSync(f.root, { recursive: true, force: true });
+    }
 });
 
 test('parent preserves exact child descriptors and rejects rewrite or identity drift', () =>
@@ -249,7 +259,10 @@ test('parent preserves exact child descriptors and rejects rewrite or identity d
             childReferences: [{ ...child, buildIdentity: { id: 'old', digest: d('f') } }] }),
         /buildIdentity mismatch/u);
     }
-    finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+    finally
+    {
+        fs.rmSync(f.root, { recursive: true, force: true });
+    }
 });
 
 test('a real hooked producer process publishes this-attempt payload and never wraps an old receipt', () =>
@@ -311,7 +324,10 @@ test('a real hooked producer process publishes this-attempt payload and never wr
         assert.match(`${wrapped.stderr}${wrapped.stdout}`, /payload must be absent|schedulerRunId mismatch/u);
         assert.equal(oldPayload.attemptId, 'attempt-0');
     }
-    finally { fs.rmSync(absoluteDirectory, { recursive: true, force: true }); }
+    finally
+    {
+        fs.rmSync(absoluteDirectory, { recursive: true, force: true });
+    }
 });
 
 test('wrapping an old-attempt payload or scanning a sibling file never publishes a new ref', () =>
@@ -333,7 +349,10 @@ test('wrapping an old-attempt payload or scanning a sibling file never publishes
         assert.equal(result.receipt.payload.path.replaceAll('\\', '/'), f.options.payloadPath);
         assert.equal(fs.existsSync(path.join(f.root, 'artifacts/current-run/sibling.json')), true);
     }
-    finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+    finally
+    {
+        fs.rmSync(f.root, { recursive: true, force: true });
+    }
 });
 
 test('aborted publication can retry the same attempt and resume keeps same-attempt checkpoint refs', () =>
@@ -363,5 +382,8 @@ test('aborted publication can retry the same attempt and resume keeps same-attem
         assert.equal(dropped.references.length, 0);
         assert.equal(dropped.attemptId, 'attempt-0');
     }
-    finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+    finally
+    {
+        fs.rmSync(f.root, { recursive: true, force: true });
+    }
 });

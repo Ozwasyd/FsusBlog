@@ -198,21 +198,21 @@ public sealed class PublicAotHomeBootstrapProvider(
         const int PageSize = 10;
         const int FeaturedSize = 3;
         const int HotSize = 5;
-        int pageIndex = PublicRouteIdentity.ParsePageRouteKey(match.RouteKey);
-        if (pageIndex == 1)
+        const int PageIndex = 1;
+        if (!PublicRouteIdentity.AllowsStaticArtifact(match))
         {
-            pageIndex = Math.Max(1, match.Page);
+            return Result<PublicPageSnapshot>.Failure(ErrorCode.Validation, "public_aot_cursor_required");
         }
         PublicAotSeoSnapshot seo = await LoadSeoSnapshotAsync();
         var pageResult = await articleService.GetPageListAsync(
-            new ArticlePageQuery(pageIndex, PageSize, null, null, false),
+            new ArticlePageQuery(PageIndex, PageSize, null, null, false, UseSourceCache: false),
             cancellationToken);
         if (!pageResult.IsSuccess)
         {
             return Result<PublicPageSnapshot>.Failure(pageResult.Error.Code, pageResult.Error.Message);
         }
         CorePageResult<ArticleListCoreModel> page = pageResult.Value;
-        if (IsPageOutOfRange(pageIndex, PageSize, page.Total))
+        if (IsPageOutOfRange(PageIndex, PageSize, page.Total))
         {
             return Result<PublicPageSnapshot>.Failure(ErrorCode.NotFound, "public_aot_page_out_of_range");
         }
@@ -223,12 +223,16 @@ public sealed class PublicAotHomeBootstrapProvider(
 
         return Result<PublicPageSnapshot>.Success(new PublicHomePageSnapshot(
             seo,
-            Page: pageIndex,
+            Page: PageIndex,
             PageSize,
             page.Total,
             page.Items.Select(ToArticleSummarySnapshot).ToArray(),
             featuredArticles.Select(ToFeaturedArticleSnapshot).ToArray(),
-            hotArticles.Select(ToHotArticleSnapshot).ToArray()));
+            hotArticles.Select(ToHotArticleSnapshot).ToArray())
+        {
+            NextCursor = page.NextCursor,
+            HasMore = page.HasMore
+        });
     }
 
     private static bool IsPageOutOfRange(int page, int pageSize, int total)
@@ -616,10 +620,10 @@ public sealed class PublicAotFilterBootstrapProvider(
     public override async Task<Result<PublicPageSnapshot>> BuildSnapshotAsync(PublicAotRouteMatch match, CancellationToken cancellationToken = default)
     {
         const int PageSize = 10;
-        int pageIndex = PublicRouteIdentity.ParsePageRouteKey(match.RouteKey);
-        if (pageIndex == 1)
+        const int PageIndex = 1;
+        if (!PublicRouteIdentity.AllowsStaticArtifact(match))
         {
-            pageIndex = Math.Max(1, match.Page);
+            return Result<PublicPageSnapshot>.Failure(ErrorCode.Validation, "public_aot_cursor_required");
         }
         FilterIdentity identity = await ResolveFilterIdentityAsync(match.RouteKey, cancellationToken);
         if (identity.IsInvalidTarget)
@@ -629,7 +633,7 @@ public sealed class PublicAotFilterBootstrapProvider(
 
         Task<PublicAotSeoSnapshot> seoTask = LoadSeoSnapshotAsync();
         Task<Result<CorePageResult<ArticleListCoreModel>>> pageTask = articleService.GetPageListAsync(
-            new ArticlePageQuery(pageIndex, PageSize, identity.CategoryId, identity.TagId, false),
+            new ArticlePageQuery(PageIndex, PageSize, identity.CategoryId, identity.TagId, false, UseSourceCache: false),
             cancellationToken);
         PublicAotSeoSnapshot seo = await seoTask;
         Result<CorePageResult<ArticleListCoreModel>> pageResult = await pageTask;
@@ -639,7 +643,7 @@ public sealed class PublicAotFilterBootstrapProvider(
         }
         CorePageResult<ArticleListCoreModel> page = pageResult.Value;
         if (!PublicTagUrlIdentity.IsNameRouteKey(match.RouteKey)
-            && pageIndex > Math.Max(1, (int)Math.Ceiling(page.Total / (double)PageSize)))
+            && PageIndex > Math.Max(1, (int)Math.Ceiling(page.Total / (double)PageSize)))
         {
             return Result<PublicPageSnapshot>.Failure(ErrorCode.NotFound, "public_aot_page_out_of_range");
         }
@@ -654,11 +658,15 @@ public sealed class PublicAotFilterBootstrapProvider(
             identity.FilterName,
             identity.Description,
             identity.IsInvalidTarget,
-            pageIndex,
+            PageIndex,
             PageSize,
             page.Total,
             page.Items.Select(ToArticleSummarySnapshot).ToArray(),
-            title));
+            title)
+        {
+            NextCursor = page.NextCursor,
+            HasMore = page.HasMore
+        });
     }
 
     private async Task<FilterIdentity> ResolveFilterIdentityAsync(string routeKey, CancellationToken cancellationToken)

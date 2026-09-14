@@ -11,7 +11,8 @@ const checkerPath = path.join(repoRoot, 'tests/frontend/checks/static/check-bina
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'binary-import-fixture-'));
 
-try {
+try
+{
     const apiDir = path.join(tempDir, 'api');
     const adaptersDir = path.join(tempDir, 'adapters/binary');
     const contractsDir = path.join(tempDir, 'contracts');
@@ -43,19 +44,23 @@ try {
 
     const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
 
-    if (result.status === 0) {
+    if (result.status === 0)
+    {
         console.error('[binary-import-boundaries-fixture] Expected type-only adapter import fixture to fail the checker');
         console.error(output);
         process.exit(1);
     }
 
-    if (!output.includes('API must not import binary decoder adapter')) {
+    if (!output.includes('API must not import binary decoder adapter'))
+    {
         console.error('[binary-import-boundaries-fixture] Output missing expected failure message');
         console.error(output);
         process.exit(1);
     }
 
     console.log('[binary-import-boundaries-fixture] ok');
-} finally {
+}
+finally
+{
     fs.rmSync(tempDir, { recursive: true, force: true });
 }

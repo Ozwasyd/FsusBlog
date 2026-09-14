@@ -46,14 +46,16 @@ function declaredTitleUpdate(title)
 export function parseRenovatePullRequests(pulls, catalog)
 {
     const items = catalog.items ?? [];
-    return pulls.flatMap((pull) => {
+    return pulls.flatMap((pull) =>
+    {
         if (pull.user?.login !== 'renovate[bot]')
         {
             return [];
         }
         const updates = declaredUpdates(pull.body);
         const titleUpdate = updates.length === 0 ? declaredTitleUpdate(pull.title) : undefined;
-        return items.flatMap((item) => {
+        return items.flatMap((item) =>
+        {
             const declared = updates.filter((update) => update.packageName === item.packageName);
             if (declared.length > 0)
             {

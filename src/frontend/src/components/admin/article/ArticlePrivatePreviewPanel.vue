@@ -59,7 +59,7 @@
                 <h1>{{ preview.normalizedTitle }}</h1>
                 <p class="author-preview__summary">{{ preview.normalizedSummary }}</p>
                 <figure
-                    v-if="preview.normalizedCoverImageUrl"
+                    v-if="coverImageUrl"
                     class="author-preview__cover"
                 >
                     <img
@@ -89,7 +89,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 
-import type { ArticlePreviewResponse } from '@/api/authoring';
+import {
+    normalizePreviewCoverImageUrl,
+    type ArticlePreviewResponse
+} from '@/api/authoring';
 import ArticleBodyMarkdownPreview from '@/components/admin/article/ArticleBodyMarkdownPreview.vue';
 import { View } from '@/fsusui/icons';
 import type {
@@ -106,6 +109,10 @@ const props = defineProps<{
 }>();
 
 defineEmits<(e: 'preview') => void>();
+
+const coverImageUrl = computed(() =>
+    normalizePreviewCoverImageUrl(props.preview?.normalizedCoverImageUrl)
+);
 
 type MarkdownCompletionObservation = Readonly<{
     previewIdentity: string;
@@ -155,8 +162,7 @@ watch(
 function belongsToCurrentPreview(result: MarkdownRenderResult): boolean
 {
     return Boolean(
-        props.preview
-            && result.normalizedSource === props.preview.normalizedMarkdownSource
+        result.normalizedSource === props.preview?.normalizedMarkdownSource
     );
 }
 
@@ -177,8 +183,7 @@ function currentObservation(
 function isCurrentGeneration(contentVersion: number | string | null): boolean
 {
     return Boolean(
-        props.preview
-            && contentVersion === props.preview.sourceIdentity
+        contentVersion === props.preview?.sourceIdentity
     );
 }
 
@@ -336,6 +341,7 @@ function resetPreviewCompletion(): void
 .author-preview
  {
     min-width: 0;
+
     --preview-radius-inline: var(--fsus-radius-control-small, 4px);
 }
 

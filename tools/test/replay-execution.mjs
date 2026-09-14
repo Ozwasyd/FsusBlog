@@ -1,59 +1,59 @@
 #!/usr/bin/env node
 
-import { spawn } from 'node:child_process'
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { validateReplayPlan } from './execution-replay-contract.mjs'
+import { validateReplayPlan } from './execution-replay-contract.mjs';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 function args(argv)
 {
-    const output = {}
+    const output = {};
     for (let index = 0; index < argv.length; index += 2)
     {
-        const key = argv[index]
-        const value = argv[index + 1]
+        const key = argv[index];
+        const value = argv[index + 1];
         if (!key?.startsWith('--') || value === undefined || Object.hasOwn(output, key))
         {
-            throw new Error('replay command arguments must be unique --key value pairs')
+            throw new Error('replay command arguments must be unique --key value pairs');
         }
-        output[key] = value
+        output[key] = value;
     }
-    return output
+    return output;
 }
 
 function exact(actual, expected, label)
 {
     if (actual !== expected)
     {
-        throw new Error(`replay ${label} drift: expected ${expected}, got ${actual}`)
+        throw new Error(`replay ${label} drift: expected ${expected}, got ${actual}`);
     }
 }
 
 try
 {
-    const options = args(process.argv.slice(2))
-    const planPath = path.resolve(options['--plan'] ?? '')
-    const relative = path.relative(root, planPath)
+    const options = args(process.argv.slice(2));
+    const planPath = path.resolve(options['--plan'] ?? '');
+    const relative = path.relative(root, planPath);
     if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative))
     {
-        throw new Error('replay plan path escapes repository')
+        throw new Error('replay plan path escapes repository');
     }
-    const plan = JSON.parse(readFileSync(planPath, 'utf8'))
-    validateReplayPlan(plan)
-    exact(options['--plan-digest'], plan.planDigest, 'plan digest')
-    exact(options['--producer'], plan.producer.id, 'producer')
-    exact(options['--root-seed'], plan.rootSeed, 'root seed')
-    exact(options['--shard-digest'], plan.shardDigest, 'shard membership')
-    exact(options['--workers'], plan.workers.ids.join(','), 'worker topology')
-    exact(options['--scheduler-policy'], plan.schedulerReadyPolicy.kind, 'scheduler policy')
-    exact(options['--scheduler-seed'], plan.schedulerShuffleSeed, 'scheduler seed')
+    const plan = JSON.parse(readFileSync(planPath, 'utf8'));
+    validateReplayPlan(plan);
+    exact(options['--plan-digest'], plan.planDigest, 'plan digest');
+    exact(options['--producer'], plan.producer.id, 'producer');
+    exact(options['--root-seed'], plan.rootSeed, 'root seed');
+    exact(options['--shard-digest'], plan.shardDigest, 'shard membership');
+    exact(options['--workers'], plan.workers.ids.join(','), 'worker topology');
+    exact(options['--scheduler-policy'], plan.schedulerReadyPolicy.kind, 'scheduler policy');
+    exact(options['--scheduler-seed'], plan.schedulerShuffleSeed, 'scheduler seed');
     if (!/^sha256:[0-9a-f]{64}$/u.test(String(options['--execution-envelope'] ?? '')))
     {
-        throw new Error('replay execution envelope ref is invalid')
+        throw new Error('replay execution envelope ref is invalid');
     }
     const child = spawn(plan.command.executable, plan.command.args, {
         cwd: root,
@@ -70,19 +70,19 @@ try
         },
         stdio: 'inherit',
         shell: false
-    })
+    });
     child.once('error', (error) =>
     {
-        process.stderr.write(`${error.message}\n`)
-        process.exitCode = 1
-    })
+        process.stderr.write(`${error.message}\n`);
+        process.exitCode = 1;
+    });
     child.once('close', (code, signal) =>
     {
-        process.exitCode = code ?? (signal ? 1 : 0)
-    })
+        process.exitCode = code ?? (signal ? 1 : 0);
+    });
 }
 catch (error)
 {
-    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`)
-    process.exitCode = 1
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exitCode = 1;
 }

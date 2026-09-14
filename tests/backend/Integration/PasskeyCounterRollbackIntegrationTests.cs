@@ -9,6 +9,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Server.Services.Security;
@@ -55,10 +56,8 @@ public sealed class PasskeyCounterRollbackIntegrationTests(PostgresSchemaMigrati
             harness.AccountId,
             "passkey_counter_non_monotonic",
             Arg.Any<CancellationToken>());
-        await harness.Cache.Received(1).IncrementAsync(
-            CachePolicyId.AccountSnapshotVersion,
-            harness.AccountId.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            1,
+        await harness.AccountStates.Received(1).ProjectCommittedMutationAsync(
+            harness.AccountId,
             Arg.Any<CancellationToken>());
         await harness.NotificationStream.Received(1).PublishToUserAsync(
             NotificationStreamEventType.SessionRevoked,
@@ -378,6 +377,7 @@ public sealed class PasskeyCounterRollbackIntegrationTests(PostgresSchemaMigrati
                     ["PasskeyCounterRisk:ResponseAction"] = responseAction
                 })
             .Build();
+        var accountStates = Substitute.For<IAccountStateProjectionMutationPublisher>();
         var service = new PasskeyService(
             fido,
             db,
@@ -386,7 +386,7 @@ public sealed class PasskeyCounterRollbackIntegrationTests(PostgresSchemaMigrati
             cache,
             cache,
             cache,
-            cache,
+            accountStates,
             sessions,
             notificationStream,
             auditEvents,
@@ -398,6 +398,7 @@ public sealed class PasskeyCounterRollbackIntegrationTests(PostgresSchemaMigrati
             credentialId,
             service,
             cache,
+            accountStates,
             sessions,
             notificationStream,
             auditEvents);
@@ -430,6 +431,7 @@ public sealed class PasskeyCounterRollbackIntegrationTests(PostgresSchemaMigrati
         string CredentialId,
         PasskeyService Service,
         IUnifiedCache Cache,
+        IAccountStateProjectionMutationPublisher AccountStates,
         IUserSessionCommandService Sessions,
         IMessageNotificationStreamPort NotificationStream,
         IAuditEventService AuditEvents) : IAsyncDisposable

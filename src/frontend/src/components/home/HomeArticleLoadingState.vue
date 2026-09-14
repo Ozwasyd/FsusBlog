@@ -39,6 +39,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+
 import { useI18nText } from '@/composables/useI18nText';
 import { publicPeriodMotif } from '@/ui-contracts/publicPeriodMotif';
 

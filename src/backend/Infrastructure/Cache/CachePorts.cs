@@ -3,7 +3,11 @@ namespace FsusBlog.Server.Infrastructure.Cache;
 public readonly record struct CacheReadResult<T>(bool Hit, T? Value);
 public readonly record struct CacheKeyIdentity(CachePolicyId PolicyId, string Identity, string? Version = null);
 public readonly record struct CachePrefixIdentity(CachePolicyId PolicyId, string IdentityPrefix);
-public sealed record CachePolicyStorageSnapshot(CachePolicyId PolicyId, long KeyCount, long Bytes);
+public sealed record CachePolicyStorageSnapshot(
+    CachePolicyId PolicyId,
+    long KeyCount,
+    long Bytes,
+    long CapacityBytes = 0);
 
 public sealed record CacheL1InvalidationPolicyReceipt(
     CachePolicyId PolicyId,
@@ -173,10 +177,15 @@ public interface ICacheSingleFlightCoordinator
 {
     Task<IAsyncDisposable> AcquireAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("Single-flight coordination is not supported by this implementation.");
+
+    bool IsHeld(CachePolicyId policyId, string identity) => false;
 }
 
 public interface ICacheDiagnostics
 {
+    IReadOnlyList<CacheL1PolicyResidencySnapshot> GetL1PolicyResidencySnapshots()
+        => Array.Empty<CacheL1PolicyResidencySnapshot>();
+
     Task<IReadOnlyList<CachePolicyStorageSnapshot>> GetPolicyStorageSnapshotsAsync(IReadOnlyList<CachePolicyId> policyIds, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<CachePolicyStorageSnapshot>>(
             policyIds.Select(static policyId => new CachePolicyStorageSnapshot(policyId, 0, 0)).ToArray());

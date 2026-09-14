@@ -105,9 +105,10 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<ICommentEndpointService>(sp => sp.GetRequiredService<CommentCommandService>());
         services.AddScoped<ICommentCommandService>(sp => sp.GetRequiredService<CommentCommandService>());
         services.AddSingleton<CommentMutationOutboxRuntimeState>();
+        services.AddSingleton<CommentMutationOutboxWorker>();
         if (!OpenApiExportMode.IsEnabled())
         {
-            services.AddHostedService<CommentMutationOutboxWorker>();
+            services.AddHostedService(static provider => provider.GetRequiredService<CommentMutationOutboxWorker>());
         }
         return services;
     }
@@ -154,6 +155,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IAuthoringDraftLifecycle>(sp => sp.GetRequiredService<AuthoringDraftLifecycleService>());
         services.AddScoped<IAuthoringPrepublishPolicy>(sp => sp.GetRequiredService<AuthoringDraftLifecycleService>());
         services.AddScoped<IAuthoringRevisionCompareAuthority, AuthoringRevisionCompareAuthority>();
+        services.AddScoped<IAuthoringRevisionCompareDraftContextProvider, AuthoringRevisionCompareDraftContextProvider>();
         services.AddScoped<IAuthoringRevisionCompareDraftContextAuthority, AuthoringRevisionCompareDraftContextAuthority>();
         services.AddScoped<IRevisionComparePackageReader, AuthoringRevisionComparePackageReader>();
         services.AddScoped<RevisionComparePlanner>();
@@ -163,6 +165,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IAuthoringCanvasReferenceFactSource, AuthoringCanvasReferenceFactSource>();
         services.AddSingleton<AuthoringCanvasReferenceProjectionCache>();
         services.AddScoped<AuthoringCanvasReferenceResolver>();
+        services.AddScoped<IAuthorSavedViewDependencyProvider, PostgresAuthorSavedViewDependencyProvider>();
         services.AddScoped<IAuthorSavedViewDependencyCatalog, AuthorSavedViewDependencyCatalog>();
         services.AddScoped<IAuthorSavedViewQueryValidator, AuthorSavedViewQueryValidator>();
         services.AddScoped<IAuthorSavedViewPersistence, PostgresAuthorSavedViewPersistence>();
@@ -198,6 +201,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IAuthoringModerationQueue>(sp => sp.GetRequiredService<AuthoringModerationWorkflowService>());
         services.AddScoped<IAuthoringModerationCommands>(sp => sp.GetRequiredService<AuthoringModerationWorkflowService>());
         services.AddScoped<IAuthoringAuditWriter, AuthoringAuditWriter>();
+        services.AddSingleton<SitemapArtifactCache>();
         services.AddScoped<BlogDistributionService>();
         services.AddScoped<RelatedReadingService>();
         services.AddSingleton<RumTelemetryChannel>();

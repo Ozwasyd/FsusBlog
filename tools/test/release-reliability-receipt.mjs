@@ -5,13 +5,9 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
-import {
-    collectProductionToolchain,
-    verifyProductionBuildReceipt
-} from '../ci/production-build-artifacts.mjs';
-import { requireCleanAttemptConsumerAdmission } from '../release/browser-release-clean-attempt-consumers.mjs';
-import { snapshotGitWorktree } from '../test-matrix/scheduler.mjs';
-
+const {collectProductionToolchain, verifyProductionBuildReceipt} = await import(new URL('../ci/production-build-artifacts.mjs', import.meta.url));
+const {requireCleanAttemptConsumerAdmission} = await import(new URL('../release/browser-release-clean-attempt-consumers.mjs', import.meta.url));
+const {snapshotGitWorktree} = await import(new URL('../test-matrix/scheduler.mjs', import.meta.url));
 const digestPattern = /^sha256:[0-9a-f]{64}$/u;
 const isoTimePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
 const productionBuildToolchainKeys = ['dotnet', 'emsdk', 'node', 'npm', 'playwright', 'vite', 'vitest'];

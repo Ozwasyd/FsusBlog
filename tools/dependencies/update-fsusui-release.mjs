@@ -25,56 +25,72 @@ export const RELEASE_TITLE_PREFIX = `deps: update ${PACKAGE_NAME} to `;
 const dependencySections = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'];
 const stableVersionPattern = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/u;
 
-function releaseError(detail) {
+function releaseError(detail)
+{
     return new Error(`FsusUI release train: ${detail}`);
 }
 
-function requireCondition(condition, detail) {
-    if (!condition) {
+function requireCondition(condition, detail)
+{
+    if (!condition)
+    {
         throw releaseError(detail);
     }
 }
 
-function canonical(value) {
-    if (Array.isArray(value)) {
+function canonical(value)
+{
+    if (Array.isArray(value))
+    {
         return value.map(canonical);
     }
-    if (value && typeof value === 'object') {
+    if (value && typeof value === 'object')
+    {
         return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]));
     }
     return value;
 }
 
-function equalJson(left, right) {
+function equalJson(left, right)
+{
     return JSON.stringify(canonical(left)) === JSON.stringify(canonical(right));
 }
 
-export function parseStableVersion(value, label = 'version') {
+export function parseStableVersion(value, label = 'version')
+{
     const match = typeof value === 'string' ? stableVersionPattern.exec(value) : null;
     requireCondition(match, `${label} must be a stable X.Y.Z version`);
     return match.slice(1).map(Number);
 }
 
-export function compareStableVersions(left, right) {
+export function compareStableVersions(left, right)
+{
     const leftParts = parseStableVersion(left, 'left version');
     const rightParts = parseStableVersion(right, 'right version');
-    for (let index = 0; index < leftParts.length; index += 1) {
-        if (leftParts[index] !== rightParts[index]) {
+    for (let index = 0; index < leftParts.length; index += 1)
+    {
+        if (leftParts[index] !== rightParts[index])
+        {
             return leftParts[index] > rightParts[index] ? 1 : -1;
         }
     }
     return 0;
 }
 
-function readJsonFile(file) {
-    try {
+function readJsonFile(file)
+{
+    try
+    {
         return JSON.parse(fs.readFileSync(file, 'utf8'));
-    } catch {
+    }
+    catch
+    {
         throw releaseError(`invalid JSON: ${file}`);
     }
 }
 
-export function readFrontendFiles(repository) {
+export function readFrontendFiles(repository)
+{
     const frontend = path.join(repository, 'src/frontend');
     return {
         manifest: readJsonFile(path.join(frontend, 'package.json')),
@@ -82,27 +98,34 @@ export function readFrontendFiles(repository) {
     };
 }
 
-function withoutTargetDependency(value) {
+function withoutTargetDependency(value)
+{
     const copy = structuredClone(value);
-    for (const section of dependencySections) {
-        if (copy[section] && typeof copy[section] === 'object') {
+    for (const section of dependencySections)
+    {
+        if (copy[section] && typeof copy[section] === 'object')
+        {
             delete copy[section][PACKAGE_NAME];
         }
     }
     return copy;
 }
 
-function withoutTargetRootDependency(lockfile) {
+function withoutTargetRootDependency(lockfile)
+{
     const root = structuredClone(lockfile?.packages?.[''] ?? {});
-    for (const section of dependencySections) {
-        if (root[section] && typeof root[section] === 'object') {
+    for (const section of dependencySections)
+    {
+        if (root[section] && typeof root[section] === 'object')
+        {
             delete root[section][PACKAGE_NAME];
         }
     }
     return root;
 }
 
-function assertManifestTargetOnly(beforeManifest, afterManifest) {
+function assertManifestTargetOnly(beforeManifest, afterManifest)
+{
     requireCondition(
         equalJson(withoutTargetDependency(beforeManifest), withoutTargetDependency(afterManifest)),
         'package.json changed a dependency or field outside @ozwasyd/element-plus'
@@ -111,7 +134,8 @@ function assertManifestTargetOnly(beforeManifest, afterManifest) {
         Object.hasOwn(afterManifest.dependencies ?? {}, PACKAGE_NAME),
         'package.json target dependency is missing'
     );
-    for (const section of dependencySections.slice(1)) {
+    for (const section of dependencySections.slice(1))
+    {
         requireCondition(
             !Object.hasOwn(afterManifest[section] ?? {}, PACKAGE_NAME),
             `package.json must not duplicate ${PACKAGE_NAME} in ${section}`
@@ -119,11 +143,15 @@ function assertManifestTargetOnly(beforeManifest, afterManifest) {
     }
 }
 
-export function assertPublicNpmTarballUrl(value, version) {
+export function assertPublicNpmTarballUrl(value, version)
+{
     let url;
-    try {
+    try
+    {
         url = new URL(value);
-    } catch {
+    }
+    catch
+    {
         throw releaseError('package-lock resolved URL is invalid');
     }
     requireCondition(
@@ -140,7 +168,8 @@ export function assertPublicNpmTarballUrl(value, version) {
     requireCondition(decodeURIComponent(url.pathname) === expectedPath, 'package-lock resolved URL package/version mismatch');
 }
 
-export function assertPublicReleaseLock(lockfile, payload) {
+export function assertPublicReleaseLock(lockfile, payload)
+{
     const entry = lockfile?.packages?.[PACKAGE_LOCK_LOCATION];
     requireCondition(entry && typeof entry === 'object' && !Array.isArray(entry), 'package-lock target entry is missing');
     requireCondition(entry.link !== true, 'package-lock target entry must not be a link');
@@ -151,7 +180,8 @@ export function assertPublicReleaseLock(lockfile, payload) {
     return entry;
 }
 
-export function currentPackageVersion(manifest, lockfile) {
+export function currentPackageVersion(manifest, lockfile)
+{
     const manifestVersion = manifest?.dependencies?.[PACKAGE_NAME];
     const lockRootVersion = lockfile?.packages?.['']?.dependencies?.[PACKAGE_NAME];
     const lockTargetVersion = lockfile?.packages?.[PACKAGE_LOCK_LOCATION]?.version;
@@ -161,11 +191,13 @@ export function currentPackageVersion(manifest, lockfile) {
     return manifestVersion;
 }
 
-function directDependencyNames(manifest) {
+function directDependencyNames(manifest)
+{
     return new Set(dependencySections.flatMap((section) => Object.keys(manifest?.[section] ?? {})));
 }
 
-function assertGeneratedFiles(beforeManifest, beforeLockfile, afterManifest, afterLockfile, payload) {
+function assertGeneratedFiles(beforeManifest, beforeLockfile, afterManifest, afterLockfile, payload)
+{
     assertManifestTargetOnly(beforeManifest, afterManifest);
     requireCondition(afterManifest.dependencies?.[PACKAGE_NAME] === payload.version, 'package.json target must be exact verified version');
     requireCondition(afterLockfile.packages?.['']?.dependencies?.[PACKAGE_NAME] === payload.version, 'package-lock direct target must be exact verified version');
@@ -173,8 +205,10 @@ function assertGeneratedFiles(beforeManifest, beforeLockfile, afterManifest, aft
         equalJson(withoutTargetRootDependency(beforeLockfile), withoutTargetRootDependency(afterLockfile)),
         'package-lock changed root metadata outside the target dependency'
     );
-    for (const packageName of directDependencyNames(beforeManifest)) {
-        if (packageName === PACKAGE_NAME) {
+    for (const packageName of directDependencyNames(beforeManifest))
+    {
+        if (packageName === PACKAGE_NAME)
+        {
             continue;
         }
         const location = `node_modules/${packageName}`;
@@ -186,7 +220,8 @@ function assertGeneratedFiles(beforeManifest, beforeLockfile, afterManifest, aft
     assertPublicReleaseLock(afterLockfile, payload);
 }
 
-export function formatReleaseTrainBody(payload, receipt, { firstPublicNpmMigration = false } = {}) {
+export function formatReleaseTrainBody(payload, receipt, { firstPublicNpmMigration = false } = {})
+{
     return [
         'Refs #1983',
         '',
@@ -208,15 +243,18 @@ export function formatReleaseTrainBody(payload, receipt, { firstPublicNpmMigrati
     ].join('\n');
 }
 
-export function buildReleasePlan({ manifest, lockfile, receipt, generatedManifest, generatedLockfile, firstPublicNpmMigration = false }) {
+export function buildReleasePlan({ manifest, lockfile, receipt, generatedManifest, generatedLockfile, firstPublicNpmMigration = false })
+{
     const payload = requireVerifiedFsusuiEvent(receipt);
     requireCondition(payload.package === PACKAGE_NAME, 'verified event package is not the managed package');
     const currentVersion = currentPackageVersion(manifest, lockfile);
     const ordering = compareStableVersions(payload.version, currentVersion);
-    if (ordering < 0) {
+    if (ordering < 0)
+    {
         throw releaseError(`verified version ${payload.version} is older than current ${currentVersion}`);
     }
-    if (ordering === 0) {
+    if (ordering === 0)
+    {
         assertPublicReleaseLock(lockfile, payload);
         return Object.freeze({
             action: 'idempotent',
@@ -242,20 +280,25 @@ export function buildReleasePlan({ manifest, lockfile, receipt, generatedManifes
     });
 }
 
-function npmCommand(environment) {
+function npmCommand(environment)
+{
     const npmExecPath = environment.npm_execpath;
     return npmExecPath ? { command: process.execPath, prefix: [npmExecPath] } : { command: 'npm', prefix: [] };
 }
 
-function runNpmCommand({ cwd, args, env }) {
+function runNpmCommand({ cwd, args, env })
+{
     const npm = npmCommand(env);
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) =>
+    {
         execFile(npm.command, [...npm.prefix, ...args], {
             cwd,
             env,
             maxBuffer: 4 * 1024 * 1024
-        }, (error) => {
-            if (error) {
+        }, (error) =>
+        {
+            if (error)
+            {
                 reject(error);
                 return;
             }
@@ -264,14 +307,18 @@ function runNpmCommand({ cwd, args, env }) {
     });
 }
 
-function cleanNpmEnvironment(tempRoot) {
+function cleanNpmEnvironment(tempRoot)
+{
     const env = { ...process.env };
-    for (const key of Object.keys(env)) {
-        if (/^(?:npm_config_|NPM_CONFIG_)/u.test(key)) {
+    for (const key of Object.keys(env))
+    {
+        if (/^(?:npm_config_|NPM_CONFIG_)/u.test(key))
+        {
             delete env[key];
         }
     }
-    for (const key of ['GITHUB_TOKEN', 'GH_TOKEN', 'GITHUB_PACKAGES_TOKEN', 'NODE_AUTH_TOKEN', 'NPM_TOKEN']) {
+    for (const key of ['GITHUB_TOKEN', 'GH_TOKEN', 'GITHUB_PACKAGES_TOKEN', 'NODE_AUTH_TOKEN', 'NPM_TOKEN'])
+    {
         delete env[key];
     }
     const userConfig = path.join(tempRoot, 'npmrc');
@@ -287,10 +334,12 @@ function cleanNpmEnvironment(tempRoot) {
     };
 }
 
-export async function regeneratePublicLock({ manifest, lockfile, version, runNpm = runNpmCommand }) {
+export async function regeneratePublicLock({ manifest, lockfile, version, runNpm = runNpmCommand })
+{
     parseStableVersion(version, 'verified version');
     const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusui-release-train-'));
-    try {
+    try
+    {
         const nextManifest = {
             ...manifest,
             dependencies: { ...manifest.dependencies, [PACKAGE_NAME]: version }
@@ -308,50 +357,65 @@ export async function regeneratePublicLock({ manifest, lockfile, version, runNpm
             '--save-exact',
             `${PACKAGE_NAME}@${version}`
         ];
-        try {
+        try
+        {
             await runNpm({ cwd: temporary, args, env });
-        } catch {
+        }
+        catch
+        {
             throw releaseError('public npm lock regeneration failed');
         }
         return {
             manifest: readJsonFile(path.join(temporary, 'package.json')),
             lockfile: readJsonFile(path.join(temporary, 'package-lock.json'))
         };
-    } finally {
+    }
+    finally
+    {
         fs.rmSync(temporary, { recursive: true, force: true });
     }
 }
 
-export function writeReleaseFiles(repository, plan) {
+export function writeReleaseFiles(repository, plan)
+{
     requireCondition(plan?.manifest && plan?.lockfile, 'release plan package files are missing');
     const frontend = path.join(repository, 'src/frontend');
     const manifestFile = path.join(frontend, 'package.json');
     const lockfileFile = path.join(frontend, 'package-lock.json');
     const beforeManifest = fs.readFileSync(manifestFile);
     const beforeLockfile = fs.readFileSync(lockfileFile);
-    try {
+    try
+    {
         fs.writeFileSync(manifestFile, `${JSON.stringify(plan.manifest, null, 4)}\n`);
         fs.writeFileSync(lockfileFile, `${JSON.stringify(plan.lockfile, null, 4)}\n`);
-    } catch {
-        try {
+    }
+    catch
+    {
+        try
+        {
             fs.writeFileSync(manifestFile, beforeManifest);
             fs.writeFileSync(lockfileFile, beforeLockfile);
-        } catch {
+        }
+        catch
+        {
             throw releaseError('failed to restore package files after an interrupted write');
         }
         throw releaseError('failed to write package files');
     }
 }
 
-export async function applyReleaseUpdate({ repository = defaultRoot, receipt, runNpm = runNpmCommand }) {
+export async function applyReleaseUpdate({ repository = defaultRoot, receipt, runNpm = runNpmCommand })
+{
     const before = readFrontendFiles(repository);
     const payload = requireVerifiedFsusuiEvent(receipt);
     const currentVersion = currentPackageVersion(before.manifest, before.lockfile);
     const ordering = compareStableVersions(payload.version, currentVersion);
-    if (ordering < 0) {
+    if (ordering < 0)
+    {
         throw releaseError(`verified version ${payload.version} is older than current ${currentVersion}`);
     }
-    if (ordering === 0) {
+    if (ordering === 0)
+    {
         return buildReleasePlan({ ...before, receipt });
     }
     const generated = await regeneratePublicLock({
@@ -370,50 +434,62 @@ export async function applyReleaseUpdate({ repository = defaultRoot, receipt, ru
     return plan;
 }
 
-function git(repository, args, { allowFailure = false } = {}) {
-    try {
+function git(repository, args, { allowFailure = false } = {})
+{
+    try
+    {
         return execFileSync('git', args, {
             cwd: repository,
             encoding: 'utf8',
             stdio: ['ignore', 'pipe', 'pipe'],
             maxBuffer: 4 * 1024 * 1024
         }).trim();
-    } catch (error) {
-        if (allowFailure) {
+    }
+    catch
+    {
+        if (allowFailure)
+        {
             return '';
         }
         throw releaseError(`git command failed: git ${args.join(' ')}`);
     }
 }
 
-function assertCleanWorktree(repository) {
+function assertCleanWorktree(repository)
+{
     requireCondition(git(repository, ['status', '--porcelain']) === '', 'worktree must be clean before release-train branch preparation');
 }
 
-export function prepareReleaseTrainBranch(repository, baseBranch = 'master') {
+export function prepareReleaseTrainBranch(repository, baseBranch = 'master')
+{
     requireCondition(baseBranch !== RELEASE_TRAIN_BRANCH, 'release-train branch must not be the default branch');
     assertCleanWorktree(repository);
     git(repository, ['fetch', 'origin', baseBranch]);
     const remoteRef = `refs/heads/${RELEASE_TRAIN_BRANCH}`;
     const remoteBranch = git(repository, ['ls-remote', '--exit-code', 'origin', remoteRef], { allowFailure: true });
     const exists = remoteBranch.length > 0;
-    if (exists) {
+    if (exists)
+    {
         git(repository, ['fetch', 'origin', `${remoteRef}:refs/remotes/origin/${RELEASE_TRAIN_BRANCH}`]);
         git(repository, ['checkout', '--force', '-B', RELEASE_TRAIN_BRANCH, `origin/${RELEASE_TRAIN_BRANCH}`]);
         git(repository, ['merge', '--no-edit', `origin/${baseBranch}`]);
-    } else {
+    }
+    else
+    {
         git(repository, ['checkout', '-B', RELEASE_TRAIN_BRANCH, `origin/${baseBranch}`]);
     }
     return { branch: RELEASE_TRAIN_BRANCH, baseBranch, existed: exists };
 }
 
-function repositoryParts(repository) {
+function repositoryParts(repository)
+{
     const match = /^(?<owner>[A-Za-z0-9_.-]+)\/(?<name>[A-Za-z0-9_.-]+)$/u.exec(repository ?? '');
     requireCondition(match, 'GITHUB_REPOSITORY must be owner/name');
     return match.groups;
 }
 
-export function createGithubApi({ token, repository, fetchImpl = fetch }) {
+export function createGithubApi({ token, repository, fetchImpl = fetch })
+{
     requireCondition(typeof token === 'string' && token.length > 0, 'GitHub write token is required');
     repositoryParts(repository);
     const apiRoot = `https://api.github.com/repos/${repository}`;
@@ -422,50 +498,63 @@ export function createGithubApi({ token, repository, fetchImpl = fetch }) {
         authorization: `Bearer ${token}`,
         'x-github-api-version': '2022-11-28'
     };
-    async function request(url, options = {}) {
+    async function request(url, options = {})
+    {
         let response;
-        try {
+        try
+        {
             response = await fetchImpl(url, { ...options, headers: { ...headers, ...(options.headers ?? {}) } });
-        } catch {
+        }
+        catch
+        {
             throw releaseError('GitHub API network request failed');
         }
         let body;
-        try {
+        try
+        {
             body = await response.json();
-        } catch {
+        }
+        catch
+        {
             body = null;
         }
-        if (!response.ok) {
+        if (!response.ok)
+        {
             throw releaseError(`GitHub API request failed (${response.status})`);
         }
         return body;
     }
     return {
-        async getRepository() {
+        async getRepository()
+        {
             return request(apiRoot);
         },
-        async listOpenPullRequests(baseBranch) {
+        async listOpenPullRequests(baseBranch)
+        {
             const url = new URL(`${apiRoot}/pulls`);
             url.searchParams.set('state', 'open');
             url.searchParams.set('base', baseBranch);
             url.searchParams.set('per_page', '100');
             return request(url.href);
         },
-        async createPullRequest(payload) {
+        async createPullRequest(payload)
+        {
             return request(`${apiRoot}/pulls`, {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
                 body: JSON.stringify(payload)
             });
         },
-        async updatePullRequest(number, payload) {
+        async updatePullRequest(number, payload)
+        {
             return request(`${apiRoot}/pulls/${number}`, {
                 method: 'PATCH',
                 headers: { 'content-type': 'application/json' },
                 body: JSON.stringify(payload)
             });
         },
-        async enableAutoMerge(nodeId) {
+        async enableAutoMerge(nodeId)
+        {
             const body = await request('https://api.github.com/graphql', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
@@ -474,7 +563,8 @@ export function createGithubApi({ token, repository, fetchImpl = fetch }) {
                     variables: { pullRequestId: nodeId }
                 })
             });
-            if (body?.errors?.length) {
+            if (body?.errors?.length)
+            {
                 throw releaseError('GitHub platform auto-merge could not be enabled');
             }
             return body?.data?.enablePullRequestAutoMerge?.pullRequest;
@@ -482,21 +572,25 @@ export function createGithubApi({ token, repository, fetchImpl = fetch }) {
     };
 }
 
-export function selectReleaseTrainPullRequest(pullRequests, baseBranch) {
-    const relevant = (pullRequests ?? []).filter((pullRequest) => {
+export function selectReleaseTrainPullRequest(pullRequests, baseBranch)
+{
+    const relevant = (pullRequests ?? []).filter((pullRequest) =>
+    {
         const sameBranch = pullRequest.head?.ref === RELEASE_TRAIN_BRANCH;
         const samePackage = typeof pullRequest.title === 'string' && pullRequest.title.startsWith(RELEASE_TITLE_PREFIX);
         return pullRequest.base?.ref === baseBranch && (sameBranch || samePackage);
     });
     requireCondition(relevant.length <= 1, 'multiple open FsusUI release-train PRs exist');
     const selected = relevant[0];
-    if (selected && selected.head?.ref !== RELEASE_TRAIN_BRANCH) {
+    if (selected && selected.head?.ref !== RELEASE_TRAIN_BRANCH)
+    {
         throw releaseError('another open PR owns the FsusUI release-train package');
     }
     return selected ?? null;
 }
 
-export async function ensureSingleReleaseTrainPullRequest({ api, payload, receipt, baseBranch, firstPublicNpmMigration = false }) {
+export async function ensureSingleReleaseTrainPullRequest({ api, payload, receipt, baseBranch, firstPublicNpmMigration = false })
+{
     const verifiedPayload = requireVerifiedFsusuiEvent(receipt);
     requireCondition(payload === undefined || payload === verifiedPayload, 'PR payload must be the sealed verified event payload');
     const eventPayload = verifiedPayload;
@@ -520,11 +614,13 @@ export async function ensureSingleReleaseTrainPullRequest({ api, payload, receip
     return pullRequest;
 }
 
-function equalPathLists(left, right) {
+function equalPathLists(left, right)
+{
     return JSON.stringify([...left].sort()) === JSON.stringify([...right].sort());
 }
 
-function stageAndCommit(repository, plan) {
+function stageAndCommit(repository, plan)
+{
     const files = [...new Set(plan.changedFiles ?? [])].sort();
     requireCondition(files.length > 0, 'release-train plan has no files to commit');
     git(repository, ['add', '--', ...files]);
@@ -533,19 +629,30 @@ function stageAndCommit(repository, plan) {
     git(repository, ['commit', '-m', plan.title]);
 }
 
-function parseArguments(args) {
+function parseArguments(args)
+{
     const options = { repository: defaultRoot, receipt: null, apply: false, firstMigration: false };
-    for (let index = 0; index < args.length; index += 1) {
+    for (let index = 0; index < args.length; index += 1)
+    {
         const argument = args[index];
-        if (argument === '--receipt') {
+        if (argument === '--receipt')
+        {
             options.receipt = path.resolve(args[++index] ?? '');
-        } else if (argument === '--root') {
+        }
+        else if (argument === '--root')
+        {
             options.repository = path.resolve(args[++index] ?? '');
-        } else if (argument === '--apply') {
+        }
+        else if (argument === '--apply')
+        {
             options.apply = true;
-        } else if (argument === '--first-migration') {
+        }
+        else if (argument === '--first-migration')
+        {
             options.firstMigration = true;
-        } else {
+        }
+        else
+        {
             throw releaseError('usage: --receipt FILE [--root DIR] [--apply] [--first-migration]');
         }
     }
@@ -553,16 +660,19 @@ function parseArguments(args) {
     return options;
 }
 
-async function main() {
+async function main()
+{
     const options = parseArguments(process.argv.slice(2));
     const rawReceipt = fs.readFileSync(options.receipt, 'utf8');
     const receipt = await reverifyFsusuiEventReceipt(rawReceipt);
     const payload = requireVerifiedFsusuiEvent(receipt);
-    if (!options.apply) {
+    if (!options.apply)
+    {
         const files = readFrontendFiles(options.repository);
         const currentVersion = currentPackageVersion(files.manifest, files.lockfile);
         const ordering = compareStableVersions(payload.version, currentVersion);
-        if (ordering < 0) {
+        if (ordering < 0)
+        {
             throw releaseError(`verified version ${payload.version} is older than current ${currentVersion}`);
         }
         process.stdout.write(`${JSON.stringify({ action: ordering === 0 ? 'idempotent' : 'upgrade', currentVersion, targetVersion: payload.version, firstMigration: options.firstMigration })}\n`);
@@ -582,10 +692,12 @@ async function main() {
 
     let plan;
     let firstPublicNpmMigration = false;
-    if (options.firstMigration) {
+    if (options.firstMigration)
+    {
         const { migrateVerifiedFsusuiRelease } = await import('./migrate-fsusui-public-npm.mjs');
         const migration = await migrateVerifiedFsusuiRelease({ repository: options.repository, receipt });
-        if (migration.action === 'migrated') {
+        if (migration.action === 'migrated')
+        {
             firstPublicNpmMigration = true;
             plan = {
                 action: 'migration',
@@ -595,14 +707,19 @@ async function main() {
                 title: `${RELEASE_TITLE_PREFIX}${payload.version}`,
                 body: formatReleaseTrainBody(payload, receipt, { firstPublicNpmMigration: true })
             };
-        } else {
+        }
+        else
+        {
             plan = await applyReleaseUpdate({ repository: options.repository, receipt });
         }
-    } else {
+    }
+    else
+    {
         plan = await applyReleaseUpdate({ repository: options.repository, receipt });
     }
 
-    if (plan.action === 'idempotent' || plan.action === 'not-required') {
+    if (plan.action === 'idempotent' || plan.action === 'not-required')
+    {
         process.stdout.write(`${JSON.stringify({ action: plan.action, version: plan.version })}\n`);
         return;
     }
@@ -618,10 +735,14 @@ async function main() {
     process.stdout.write(`${JSON.stringify({ action: plan.action, version: plan.version, branch: RELEASE_TRAIN_BRANCH, pullRequest: pullRequest.html_url ?? pullRequest.number })}\n`);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-    try {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
+{
+    try
+    {
         await main();
-    } catch (error) {
+    }
+    catch (error)
+    {
         process.stderr.write(`${error.message}\n`);
         process.exitCode = 1;
     }

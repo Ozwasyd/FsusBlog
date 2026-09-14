@@ -1,0 +1,30 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/AuthorSavedViewStore.cs",
+                "src/backend/Services/Authoring/PostgresAuthorSavedViewPersistence.cs",
+                "tools/governance/check-author-saved-view-storage-contract.mjs"
+            ],
+            "reason": "The changed C# and Node.js storage surfaces preserve caller-visible process environment spellings while Saved View persistence symbols follow repository naming rules."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/backend/Fixtures/postgres-test-collections.json"
+            ],
+            "reason": "Preserve canonical serialized governance and PostgreSQL collection keys while registering the bounded Saved View storage evidence."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md",
+                "tests/coverage-registry.json"
+            ],
+            "reason": "Preserve registered external coverage identifiers while adding the Saved View PostgreSQL storage boundary contract."
+        }
+    ]
+}

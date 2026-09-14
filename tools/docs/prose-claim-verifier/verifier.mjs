@@ -4,22 +4,22 @@
  * Does not read implementations, tests, network, embeddings, or human review state.
  */
 
-import { readFactObservationReceipt } from '../../fact-extractors/reader.mjs'
+const { readFactObservationReceipt } = await import(new URL('../../fact-extractors/reader.mjs', import.meta.url));
 import {
     ProseClaimErrorCode,
     makeProseClaimError,
     sortDiagnostics
-} from './errors.mjs'
+} from './errors.mjs';
+import { verifyBodyAgainstPlan } from './parser.mjs';
 import {
     ProseRenderRegistry,
     proseRejectedClaimTypes,
     proseSupportedClaimTypes
-} from './renderers.mjs'
-import { verifyBodyAgainstPlan } from './parser.mjs'
+} from './renderers.mjs';
 
-const absoluteCommitmentPattern = /(?:总是|永不|永远|仅|必须|禁止|始终|不得|always|never|must\b|only\b|forbidden|required\b)/iu
-const preciseQuantityPattern = /(?<![A-Za-z0-9_])\d+(?:[.,]\d+)?\s*(?:分钟|秒钟|秒|小时|天|毫秒|字节|位|层|次|个|项|minutes?|seconds?|hours?|days?|ms|bytes?|bits?)/iu
-const precisePathPattern = /(?:^|[\s`])((?:src|tools|config|tests|ops|docs)\/[A-Za-z0-9_./-]+)/u
+const absoluteCommitmentPattern = /(?:总是|永不|永远|仅|必须|禁止|始终|不得|always|never|must\b|only\b|forbidden|required\b)/iu;
+const preciseQuantityPattern = /(?<![A-Za-z0-9_])\d+(?:[.,]\d+)?\s*(?:分钟|秒钟|秒|小时|天|毫秒|字节|位|层|次|个|项|minutes?|seconds?|hours?|days?|ms|bytes?|bits?)/iu;
+const precisePathPattern = /(?:^|[\s`])((?:src|tools|config|tests|ops|docs)\/[A-Za-z0-9_./-]+)/u;
 
 const executableNeighborTypes = new Set([
     'scalar',
@@ -28,9 +28,9 @@ const executableNeighborTypes = new Set([
     'binary-relation',
     'implication',
     'preservation-rule'
-])
+]);
 
-const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value)
+const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 /**
  * Resolve a fact path against receipt observations.
@@ -40,36 +40,39 @@ export function resolveFactPath(observations, factPath)
 {
     if (!isPlainObject(observations))
     {
-        return undefined
+        return undefined;
     }
     if (Object.hasOwn(observations, factPath))
     {
-        return observations[factPath]
+        return observations[factPath];
     }
-    const parts = String(factPath).split('.')
-    let current = observations
-    let index = 0
+    const parts = String(factPath).split('.');
+    let current = observations;
+    let index = 0;
     while (index < parts.length)
     {
         if (!isPlainObject(current))
         {
-            return undefined
+            return undefined;
         }
-        let matched = null
+        let matched = null;
         for (let end = parts.length; end > index; end -= 1)
         {
-            const candidate = parts.slice(index, end).join('.')
+            const candidate = parts.slice(index, end).join('.');
             if (Object.hasOwn(current, candidate))
             {
-                matched = { key: candidate, end }
-                break
+                matched = { key: candidate, end };
+                break;
             }
         }
-        if (matched === null) return undefined
-        current = current[matched.key]
-        index = matched.end
+        if (matched === null)
+        {
+            return undefined;
+        }
+        current = current[matched.key];
+        index = matched.end;
     }
-    return current
+    return current;
 }
 
 /**
@@ -78,24 +81,24 @@ export function resolveFactPath(observations, factPath)
  */
 export function indexReceipts(receipts = [])
 {
-    const byExtractor = new Map()
-    const list = []
+    const byExtractor = new Map();
+    const list = [];
     for (const entry of receipts)
     {
         const view = typeof entry === 'string'
             ? readFactObservationReceipt(entry)
-            : readFactObservationReceipt(entry)
+            : readFactObservationReceipt(entry);
         if (byExtractor.has(view.extractorId))
         {
             throw makeProseClaimError(
                 ProseClaimErrorCode.OBSERVATION_AMBIGUOUS,
                 `duplicate receipt for extractor ${view.extractorId}`
-            )
+            );
         }
-        byExtractor.set(view.extractorId, view)
-        list.push(view)
+        byExtractor.set(view.extractorId, view);
+        list.push(view);
     }
-    return { byExtractor, list }
+    return { byExtractor, list };
 }
 
 /**
@@ -104,13 +107,13 @@ export function indexReceipts(receipts = [])
  */
 export function findObservationForClaim(claim, receiptIndex)
 {
-    const factPath = claim.declaration.factPath
+    const factPath = claim.declaration.factPath;
     if (!factPath)
     {
-        return { status: 'missing', reason: 'no factPath' }
+        return { status: 'missing', reason: 'no factPath' };
     }
-    const behaviorId = claim.declaration.behaviorId
-    const matches = []
+    const behaviorId = claim.declaration.behaviorId;
+    const matches = [];
     for (const receipt of receiptIndex.list)
     {
         if (receipt.status !== 'ok')
@@ -122,47 +125,47 @@ export function findObservationForClaim(claim, receiptIndex)
                     receipt,
                     reason: `receipt status=${receipt.status}`,
                     failureReasons: receipt.failureReasons
-                }
+                };
             }
-            continue
+            continue;
         }
         if (!receipt.behaviorIds.includes(behaviorId) && receipt.behaviorIds.length > 0)
         {
             // Still allow exact factPath hit from any ok receipt, but prefer behavior match.
         }
-        const value = resolveFactPath(receipt.observations, factPath)
+        const value = resolveFactPath(receipt.observations, factPath);
         if (value !== undefined)
         {
             matches.push({
                 receipt,
                 value,
                 behaviorMatch: receipt.behaviorIds.includes(behaviorId)
-            })
+            });
         }
     }
-    const preferred = matches.filter((entry) => entry.behaviorMatch)
-    const pool = preferred.length > 0 ? preferred : matches
+    const preferred = matches.filter((entry) => entry.behaviorMatch);
+    const pool = preferred.length > 0 ? preferred : matches;
     if (pool.length === 0)
     {
-        return { status: 'missing', reason: `factPath ${factPath} not found in receipts` }
+        return { status: 'missing', reason: `factPath ${factPath} not found in receipts` };
     }
     if (pool.length > 1)
     {
         // Ambiguous only when values differ across receipts.
-        const serialized = new Set(pool.map((entry) => JSON.stringify(entry.value)))
+        const serialized = new Set(pool.map((entry) => JSON.stringify(entry.value)));
         if (serialized.size > 1)
         {
             return {
                 status: 'ambiguous',
                 reason: `factPath ${factPath} has conflicting observations across receipts`
-            }
+            };
         }
     }
     return {
         status: 'ok',
         value: pool[0].value,
         receipt: pool[0].receipt
-    }
+    };
 }
 
 function diagnosticBase(claim)
@@ -173,29 +176,38 @@ function diagnosticBase(claim)
         line: claim.location.claimStartLine,
         claimType: claim.declaration.claimType,
         render: claim.declaration.render
-    }
+    };
 }
 
 function neighboringExecutableClaims(claim, allClaims)
 {
-    const documentPath = claim.location.documentPath
-    const headingKey = (claim.location.headingPath ?? []).join('\0')
+    const documentPath = claim.location.documentPath;
+    const headingKey = (claim.location.headingPath ?? []).join('\0');
     return allClaims.filter((other) =>
     {
-        if (other.declaration.claimId === claim.declaration.claimId) return false
-        if (other.location.documentPath !== documentPath) return false
-        if (!executableNeighborTypes.has(other.declaration.claimType)) return false
-        const otherHeading = (other.location.headingPath ?? []).join('\0')
+        if (other.declaration.claimId === claim.declaration.claimId)
+        {
+            return false;
+        }
+        if (other.location.documentPath !== documentPath)
+        {
+            return false;
+        }
+        if (!executableNeighborTypes.has(other.declaration.claimType))
+        {
+            return false;
+        }
+        const otherHeading = (other.location.headingPath ?? []).join('\0');
         // Neighbor = same heading path or same behaviorId in the same document.
-        return otherHeading === headingKey || other.declaration.behaviorId === claim.declaration.behaviorId
-    })
+        return otherHeading === headingKey || other.declaration.behaviorId === claim.declaration.behaviorId;
+    });
 }
 
 function verifyRationaleClaim(claim, allClaims)
 {
-    const diagnostics = []
-    const body = claim.location.bodyText ?? ''
-    const base = diagnosticBase(claim)
+    const diagnostics = [];
+    const body = claim.location.bodyText ?? '';
+    const base = diagnosticBase(claim);
 
     if (preciseQuantityPattern.test(body) || precisePathPattern.test(body))
     {
@@ -203,23 +215,23 @@ function verifyRationaleClaim(claim, allClaims)
             ...base,
             code: ProseClaimErrorCode.RATIONALE_PRECISE_FACT,
             message: 'rationale body contains an unregistered precise quantity or path'
-        })
+        });
     }
 
     if (absoluteCommitmentPattern.test(body))
     {
-        const neighbors = neighboringExecutableClaims(claim, allClaims)
+        const neighbors = neighboringExecutableClaims(claim, allClaims);
         if (neighbors.length === 0)
         {
             diagnostics.push({
                 ...base,
                 code: ProseClaimErrorCode.RATIONALE_UNBOUND,
                 message: 'rationale absolute commitment has no neighboring executable claim'
-            })
+            });
         }
     }
 
-    return diagnostics
+    return diagnostics;
 }
 
 /**
@@ -227,15 +239,15 @@ function verifyRationaleClaim(claim, allClaims)
  */
 export function verifyLocatedClaim(claim, receiptIndex, allClaims = [])
 {
-    const declaration = claim.declaration
-    const base = diagnosticBase(claim)
-    const claimType = declaration.claimType
-    const render = declaration.render
+    const declaration = claim.declaration;
+    const base = diagnosticBase(claim);
+    const claimType = declaration.claimType;
+    const render = declaration.render;
 
     if (claimType === 'generated-section')
     {
         // Owned by generated-fact-sections engine; prose verifier does not pass on marker alone.
-        return []
+        return [];
     }
 
     if (proseRejectedClaimTypes.includes(claimType))
@@ -244,7 +256,7 @@ export function verifyLocatedClaim(claim, receiptIndex, allClaims = [])
             ...base,
             code: ProseClaimErrorCode.UNSUPPORTED_CLAIM_TYPE,
             message: `claimType ${claimType} must use generated-section; free-prose / fuzzy comparison is rejected`
-        }]
+        }];
     }
 
     if (!proseSupportedClaimTypes.includes(claimType))
@@ -253,16 +265,16 @@ export function verifyLocatedClaim(claim, receiptIndex, allClaims = [])
             ...base,
             code: ProseClaimErrorCode.UNSUPPORTED_CLAIM_TYPE,
             message: `claimType ${claimType} is not admitted for prose verification`
-        }]
+        }];
     }
 
     if (claimType === 'rationale')
     {
-        return verifyRationaleClaim(claim, allClaims)
+        return verifyRationaleClaim(claim, allClaims);
     }
 
     // Marker without observation comparison must never count as pass.
-    const observed = findObservationForClaim(claim, receiptIndex)
+    const observed = findObservationForClaim(claim, receiptIndex);
     if (observed.status === 'failed')
     {
         return [{
@@ -270,7 +282,7 @@ export function verifyLocatedClaim(claim, receiptIndex, allClaims = [])
             code: ProseClaimErrorCode.OBSERVATION_FAILED,
             message: observed.reason,
             details: { failureReasons: observed.failureReasons }
-        }]
+        }];
     }
     if (observed.status === 'ambiguous')
     {
@@ -278,7 +290,7 @@ export function verifyLocatedClaim(claim, receiptIndex, allClaims = [])
             ...base,
             code: ProseClaimErrorCode.OBSERVATION_AMBIGUOUS,
             message: observed.reason
-        }]
+        }];
     }
     if (observed.status === 'missing')
     {
@@ -286,15 +298,15 @@ export function verifyLocatedClaim(claim, receiptIndex, allClaims = [])
             ...base,
             code: ProseClaimErrorCode.MISSING_OBSERVATION,
             message: observed.reason
-        }]
+        }];
     }
 
-    let plan
+    let plan;
     try
     {
         plan = ProseRenderRegistry.render(claimType, render, observed.value, {
             projection: declaration.projection
-        })
+        });
     }
     catch (error)
     {
@@ -303,19 +315,19 @@ export function verifyLocatedClaim(claim, receiptIndex, allClaims = [])
             code: error.code ?? ProseClaimErrorCode.RENDER_SHAPE,
             message: error.message?.replace(/^\[prose-claim\]\s+[A-Z0-9_]+:\s*/u, '') ?? String(error),
             details: error.details
-        }]
+        }];
     }
 
-    const bodyDiagnostics = verifyBodyAgainstPlan(claim.location.bodyText, plan, base)
+    const bodyDiagnostics = verifyBodyAgainstPlan(claim.location.bodyText, plan, base);
     if (bodyDiagnostics.length === 0 && !claim.location.bodyText)
     {
         return [{
             ...base,
             code: ProseClaimErrorCode.MARKER_ONLY_PASS,
             message: 'claim marker without verifiable body cannot pass'
-        }]
+        }];
     }
-    return bodyDiagnostics
+    return bodyDiagnostics;
 }
 
 /**
@@ -328,20 +340,20 @@ export function verifyLocatedClaim(claim, receiptIndex, allClaims = [])
  */
 export function verifyProseClaims({ claims = [], receipts = [] } = {})
 {
-    const receiptIndex = indexReceipts(receipts)
-    const located = [...claims]
-    let diagnostics = []
+    const receiptIndex = indexReceipts(receipts);
+    const located = [...claims];
+    let diagnostics = [];
 
     for (const claim of located)
     {
-        diagnostics = diagnostics.concat(verifyLocatedClaim(claim, receiptIndex, located))
+        diagnostics = diagnostics.concat(verifyLocatedClaim(claim, receiptIndex, located));
     }
 
-    diagnostics = sortDiagnostics(diagnostics)
+    diagnostics = sortDiagnostics(diagnostics);
     return {
         ok: diagnostics.length === 0,
         diagnostics
-    }
+    };
 }
 
 /** Convenience: build a minimal located claim for unit tests. */
@@ -363,9 +375,15 @@ export function makeLocatedClaim({
         behaviorId,
         claimType,
         render
+    };
+    if (factPath)
+    {
+        declaration.factPath = factPath;
     }
-    if (factPath) declaration.factPath = factPath
-    if (projection) declaration.projection = projection
+    if (projection)
+    {
+        declaration.projection = projection;
+    }
     return {
         declaration,
         location: {
@@ -379,7 +397,7 @@ export function makeLocatedClaim({
             bodyEndLine: bodyText ? claimStartLine + 5 : null,
             bodyText: bodyText ?? ''
         }
-    }
+    };
 }
 
 export const ProseClaimVerifier = Object.freeze({
@@ -390,4 +408,4 @@ export const ProseClaimVerifier = Object.freeze({
     supportedClaimTypes: proseSupportedClaimTypes,
     rejectedClaimTypes: proseRejectedClaimTypes,
     renderRegistry: ProseRenderRegistry
-})
+});

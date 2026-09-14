@@ -30,6 +30,10 @@ public sealed class CachePortArchitectureTests
             backend.GetType("FsusBlog.Server.Infrastructure.Cache.UnifiedCache"));
         Assert.True(unifiedCache.IsNotPublic);
         Assert.True(unifiedCache.IsSealed);
+        Assert.Null(backend.GetType("FsusBlog.Server.Infrastructure.Cache.CacheLocalStore"));
+        Assert.DoesNotContain(
+            typeof(PolicyShardedCacheL1Store).GetFields(BindingFlags.Instance | BindingFlags.NonPublic),
+            static field => field.FieldType == typeof(IMemoryCache));
         Assert.Contains(typeof(ICacheStringReader), unifiedCache.GetInterfaces());
         Assert.Contains(typeof(ICacheLeaseStore), unifiedCache.GetInterfaces());
     }
@@ -99,11 +103,10 @@ public sealed class CachePortArchitectureTests
     }
 
     [Fact]
-    public void LocalStoreUsesFixedTimeProviderAndDefensivePayloadOwnership()
+    public void LocalStoreUsesFixedTimeProviderAndControlledReadonlyOwnership()
     {
-        using var memoryCache = new MemoryCache(new MemoryCacheOptions());
         var time = new ManualTimeProvider();
-        var store = new CacheLocalStore(memoryCache, time);
+        using var store = new PolicyShardedCacheL1Store(new CachePolicyRegistry(), time);
         var policy = new CachePolicy(
             CachePolicyId.ArticleDetail,
             "test",
@@ -113,11 +116,14 @@ public sealed class CachePortArchitectureTests
         CacheL1Key key = CacheL1Key.ForString("test", CachePolicyId.ArticleDetail, "42");
         byte[] source = [1, 2, 3];
 
-        store.Set(policy, key, "fsus:test:article:42", source);
-        source[0] = 9;
+        Assert.True(store.TrySetOwned(policy, key, "fsus:test:article:42", source));
 
-        Assert.True(store.TryGet(key, out byte[] cached));
-        Assert.Equal(new byte[] { 1, 2, 3 }, cached);
+        Assert.True(store.TryAcquire(key, out PolicyShardedCacheL1Store.CacheL1ReadLease lease));
+        using (lease)
+        {
+            Assert.False(System.Runtime.InteropServices.MemoryMarshal.TryGetArray(lease.Memory, out _));
+            Assert.Equal(source, lease.Memory.ToArray());
+        }
         time.Advance(TimeSpan.FromSeconds(6));
         Assert.False(store.TryGet(key, out _));
     }

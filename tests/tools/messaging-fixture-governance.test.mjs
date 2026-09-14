@@ -1,12 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-    buildMessagingFixtureAcceptanceReceipt,
-    buildMessagingFixtureCleanupReceipt,
-    verifyMessagingFixtureAcceptanceReceipt
-} from '../../tools/test/messaging-fixture-governance.mjs';
-
+const {buildMessagingFixtureAcceptanceReceipt, buildMessagingFixtureCleanupReceipt, verifyMessagingFixtureAcceptanceReceipt} = await import(new URL('../../tools/test/messaging-fixture-governance.mjs', import.meta.url));
 test('messaging terminal acceptance binds cleanup, parity, mutations, and privacy with zero warnings', () =>
 {
     const cleanup = buildMessagingFixtureCleanupReceipt();

@@ -11,7 +11,7 @@ using StackExchange.Redis;
 namespace FsusBlog.Server.Infrastructure.Distributed.StateControl;
 
 public sealed class RedisDistributedStateControlStore(
-    IConnectionMultiplexer redis,
+    IRedisOperationExecutor redis,
     IRuntimeKeyScope runtimeKeyScope,
     TimeProvider timeProvider) : IDistributedStateControlStore
 {
@@ -50,17 +50,20 @@ redis.call('PEXPIRE', KEYS[1], ARGV[4])
 redis.call('SET', KEYS[3], KEYS[1], 'PX', ARGV[4])
 return {1, ARGV[1], token, ARGV[2], expiresAt}
 """;
-        RedisResult result = await Database.ScriptEvaluateAsync(
-                Script,
-                [leaseKey, counterKey, indexKey],
-                [
-                    leaseId.ToString(),
-                    nodeId.Value,
-                    key.Responsibility,
-                    checked((long)ttl.TotalMilliseconds),
-                    key.Resource
-                ],
-                CommandFlags.None)
+        RedisResult result = await ExecuteAsync(
+                RedisOperationPort.DistributedStateControl,
+                (database, _) => database.ScriptEvaluateAsync(
+                    Script,
+                    [leaseKey, counterKey, indexKey],
+                    [
+                        leaseId.ToString(),
+                        nodeId.Value,
+                        key.Responsibility,
+                        checked((long)ttl.TotalMilliseconds),
+                        key.Resource
+                    ],
+                    CommandFlags.None),
+                cancellationToken)
             .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         RedisResult[] values = (RedisResult[])result!;
@@ -79,11 +82,6 @@ return {1, ARGV[1], token, ARGV[2], expiresAt}
         cancellationToken.ThrowIfCancellationRequested();
         ValidateTtl(ttl);
         RedisKey indexKey = BuildLeaseIndexKey(leaseId);
-        RedisValue indexedLeaseKey = await Database.StringGetAsync(indexKey).ConfigureAwait(false);
-        if (indexedLeaseKey.IsNullOrEmpty)
-        {
-            return false;
-        }
         const string Script = """
 if redis.call('HGET', KEYS[1], 'leaseId') ~= ARGV[1]
   or redis.call('HGET', KEYS[1], 'token') ~= ARGV[2] then
@@ -97,14 +95,26 @@ redis.call('PEXPIRE', KEYS[1], ARGV[3])
 redis.call('PEXPIRE', KEYS[2], ARGV[3])
 return 1
 """;
-        RedisResult result = await Database.ScriptEvaluateAsync(
-                Script,
-                [(RedisKey)indexedLeaseKey.ToString(), indexKey],
-                [leaseId.ToString(), token.ToString(), checked((long)ttl.TotalMilliseconds)],
-                CommandFlags.None)
+        bool renewed = await ExecuteAsync(
+                RedisOperationPort.DistributedStateControl,
+                async (database, _) =>
+                {
+                    RedisValue indexedLeaseKey = await database.StringGetAsync(indexKey).ConfigureAwait(false);
+                    if (indexedLeaseKey.IsNullOrEmpty)
+                    {
+                        return false;
+                    }
+                    RedisResult result = await database.ScriptEvaluateAsync(
+                        Script,
+                        [(RedisKey)indexedLeaseKey.ToString(), indexKey],
+                        [leaseId.ToString(), token.ToString(), checked((long)ttl.TotalMilliseconds)],
+                        CommandFlags.None).ConfigureAwait(false);
+                    return (long)result == 1L;
+                },
+                cancellationToken)
             .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        return (long)result == 1L;
+        return renewed;
     }
 
     public async ValueTask<bool> ReleaseAsync(
@@ -114,11 +124,6 @@ return 1
     {
         cancellationToken.ThrowIfCancellationRequested();
         RedisKey indexKey = BuildLeaseIndexKey(leaseId);
-        RedisValue indexedLeaseKey = await Database.StringGetAsync(indexKey).ConfigureAwait(false);
-        if (indexedLeaseKey.IsNullOrEmpty)
-        {
-            return false;
-        }
         const string Script = """
 if redis.call('HGET', KEYS[1], 'leaseId') ~= ARGV[1]
   or redis.call('HGET', KEYS[1], 'token') ~= ARGV[2] then
@@ -128,14 +133,26 @@ redis.call('DEL', KEYS[1])
 redis.call('DEL', KEYS[2])
 return 1
 """;
-        RedisResult result = await Database.ScriptEvaluateAsync(
-                Script,
-                [(RedisKey)indexedLeaseKey.ToString(), indexKey],
-                [leaseId.ToString(), token.ToString()],
-                CommandFlags.None)
+        bool released = await ExecuteAsync(
+                RedisOperationPort.DistributedStateControl,
+                async (database, _) =>
+                {
+                    RedisValue indexedLeaseKey = await database.StringGetAsync(indexKey).ConfigureAwait(false);
+                    if (indexedLeaseKey.IsNullOrEmpty)
+                    {
+                        return false;
+                    }
+                    RedisResult result = await database.ScriptEvaluateAsync(
+                        Script,
+                        [(RedisKey)indexedLeaseKey.ToString(), indexKey],
+                        [leaseId.ToString(), token.ToString()],
+                        CommandFlags.None).ConfigureAwait(false);
+                    return (long)result == 1L;
+                },
+                cancellationToken)
             .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        return (long)result == 1L;
+        return released;
     }
 
     public async ValueTask<bool> IsCurrentWriterAsync(
@@ -144,9 +161,12 @@ return 1
     {
         cancellationToken.ThrowIfCancellationRequested();
         RedisKey leaseKey = BuildLeaseKey(lease.Key);
-        RedisValue[] values = await Database.HashGetAsync(
-                leaseKey,
-                ["leaseId", "token", "nodeId"])
+        RedisValue[] values = await ExecuteAsync(
+                RedisOperationPort.DistributedStateControl,
+                (database, _) => database.HashGetAsync(
+                    leaseKey,
+                    ["leaseId", "token", "nodeId"]),
+                cancellationToken)
             .ConfigureAwait(false);
         return values.Length == 3
             && StringComparer.Ordinal.Equals(values[0].ToString(), lease.LeaseId.ToString())
@@ -323,7 +343,10 @@ return 1
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        RedisValue payload = await Database.StringGetAsync(BuildTaskKey(key)).ConfigureAwait(false);
+        RedisValue payload = await ExecuteAsync(
+            RedisOperationPort.DistributedStateControl,
+            (database, _) => database.StringGetAsync(BuildTaskKey(key)),
+            cancellationToken).ConfigureAwait(false);
         return payload.IsNullOrEmpty ? null : DeserializeRecord(payload);
     }
 
@@ -333,10 +356,14 @@ return 1
     {
         DistributedStateControlGuards.DiagnosticLimit(limit);
         var diagnostics = new List<DistributedLeaseDiagnostic>(limit);
-        foreach (RedisKey key in ScanKeys($"{_prefix}:lease:*", limit))
+        RedisKey[] keys = await ScanKeysAsync($"{_prefix}:lease:*", limit, cancellationToken).ConfigureAwait(false);
+        foreach (RedisKey key in keys)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            HashEntry[] entries = await Database.HashGetAllAsync(key).ConfigureAwait(false);
+            HashEntry[] entries = await ExecuteAsync(
+                RedisOperationPort.DistributedStateControlMaintenance,
+                (database, _) => database.HashGetAllAsync(key),
+                cancellationToken).ConfigureAwait(false);
             Dictionary<string, string> fields = entries.ToDictionary(
                 static entry => entry.Name.ToString(),
                 static entry => entry.Value.ToString(),
@@ -363,10 +390,14 @@ return 1
     {
         DistributedStateControlGuards.DiagnosticLimit(limit);
         var diagnostics = new List<DistributedTaskDiagnostic>(limit);
-        foreach (RedisKey key in ScanKeys($"{_prefix}:task:*", limit))
+        RedisKey[] keys = await ScanKeysAsync($"{_prefix}:task:*", limit, cancellationToken).ConfigureAwait(false);
+        foreach (RedisKey key in keys)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            RedisValue payload = await Database.StringGetAsync(key).ConfigureAwait(false);
+            RedisValue payload = await ExecuteAsync(
+                RedisOperationPort.DistributedStateControlMaintenance,
+                (database, _) => database.StringGetAsync(key),
+                cancellationToken).ConfigureAwait(false);
             if (payload.IsNullOrEmpty)
             {
                 continue;
@@ -388,12 +419,6 @@ return 1
     {
         cancellationToken.ThrowIfCancellationRequested();
         RedisKey indexKey = BuildLeaseIndexKey(leaseId);
-        RedisValue indexedLeaseKey = await Database.StringGetAsync(indexKey).ConfigureAwait(false);
-        if (indexedLeaseKey.IsNullOrEmpty)
-        {
-            // Redis TTL expiry is already an authoritative release.
-            return false;
-        }
         const string Script = """
 local expiresAt = redis.call('HGET', KEYS[1], 'expiresAt')
 if not expiresAt then
@@ -409,44 +434,61 @@ redis.call('DEL', KEYS[1])
 redis.call('DEL', KEYS[2])
 return 1
 """;
-        RedisResult result = await Database.ScriptEvaluateAsync(
-                Script,
-                [(RedisKey)indexedLeaseKey.ToString(), indexKey],
-                [],
-                CommandFlags.None)
+        bool released = await ExecuteAsync(
+                RedisOperationPort.DistributedStateControl,
+                async (database, _) =>
+                {
+                    RedisValue indexedLeaseKey = await database.StringGetAsync(indexKey).ConfigureAwait(false);
+                    if (indexedLeaseKey.IsNullOrEmpty)
+                    {
+                        // Redis TTL expiry is already an authoritative release.
+                        return false;
+                    }
+                    RedisResult result = await database.ScriptEvaluateAsync(
+                        Script,
+                        [(RedisKey)indexedLeaseKey.ToString(), indexKey],
+                        [],
+                        CommandFlags.None).ConfigureAwait(false);
+                    return (long)result == 1L;
+                },
+                cancellationToken)
             .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        return (long)result == 1L;
+        return released;
     }
 
-    private IDatabase Database => redis.GetDatabase();
-
-    private IEnumerable<RedisKey> ScanKeys(string pattern, int limit)
-    {
-        var seen = new HashSet<RedisKey>();
-        foreach (EndPoint endpoint in redis.GetEndPoints())
-        {
-            IServer server = redis.GetServer(endpoint);
-            if (!server.IsConnected)
+    private Task<RedisKey[]> ScanKeysAsync(
+        string pattern,
+        int limit,
+        CancellationToken cancellationToken)
+        => redis.ExecuteAsync(
+            RedisOperationPort.DistributedStateControlMaintenance,
+            async (multiplexer, deadlineToken) =>
             {
-                continue;
-            }
-            foreach (RedisKey key in server.Keys(
-                Database.Database,
-                pattern,
-                pageSize: Math.Min(limit, 128)))
-            {
-                if (seen.Add(key))
+                var seen = new HashSet<RedisKey>();
+                int databaseId = multiplexer.GetDatabase().Database;
+                foreach (EndPoint endpoint in multiplexer.GetEndPoints())
                 {
-                    yield return key;
-                    if (seen.Count >= limit)
+                    deadlineToken.ThrowIfCancellationRequested();
+                    IServer server = multiplexer.GetServer(endpoint);
+                    if (!server.IsConnected)
                     {
-                        yield break;
+                        continue;
+                    }
+                    await foreach (RedisKey key in server.KeysAsync(
+                        databaseId,
+                        pattern,
+                        pageSize: Math.Min(limit, 128)).WithCancellation(deadlineToken).ConfigureAwait(false))
+                    {
+                        if (seen.Add(key) && seen.Count >= limit)
+                        {
+                            return seen.ToArray();
+                        }
                     }
                 }
-            }
-        }
-    }
+                return seen.ToArray();
+            },
+            cancellationToken);
 
     private static bool TryReadLeaseDiagnostic(
         IReadOnlyDictionary<string, string> fields,
@@ -501,47 +543,76 @@ return 1
     {
         RedisKey taskKey = BuildTaskKey(key);
         RedisKey leaseKey = BuildLeaseKey(lease.Key);
-        for (int attempt = 0; attempt < 8; attempt++)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            RedisValue currentValue = await Database.StringGetAsync(taskKey).ConfigureAwait(false);
-            DistributedTaskRecord? current = currentValue.IsNullOrEmpty
-                ? null
-                : DeserializeRecord(currentValue);
-            MutationResult<T> result = mutation(current);
-            if (!result.HasChange)
+        return await ExecuteAsync(
+            RedisOperationPort.DistributedStateControl,
+            async (database, deadlineToken) =>
             {
-                return result.Value;
-            }
-            ITransaction transaction = Database.CreateTransaction();
-            transaction.AddCondition(currentValue.IsNull
-                ? Condition.KeyNotExists(taskKey)
-                : Condition.StringEqual(taskKey, currentValue));
-            transaction.AddCondition(Condition.HashEqual(
-                leaseKey,
-                "leaseId",
-                lease.LeaseId.ToString()));
-            transaction.AddCondition(Condition.HashEqual(
-                leaseKey,
-                "token",
-                lease.FencingToken.ToString()));
-            transaction.AddCondition(Condition.HashEqual(
-                leaseKey,
-                "nodeId",
-                lease.OwnerNodeId.Value));
-            _ = transaction.StringSetAsync(
-                taskKey,
-                JsonSerializer.Serialize(result.Record, s_jsonOptions));
-            if (await transaction.ExecuteAsync().ConfigureAwait(false))
-            {
-                return result.Value;
-            }
-            if (!await IsCurrentWriterAsync(lease, cancellationToken).ConfigureAwait(false))
-            {
-                throw new StaleFencingTokenException("stale_fencing_token");
-            }
-        }
-        throw new InvalidOperationException("distributed_task_concurrent_update_exhausted");
+                for (int attempt = 0; attempt < 8; attempt++)
+                {
+                    deadlineToken.ThrowIfCancellationRequested();
+                    RedisValue currentValue = await database.StringGetAsync(taskKey).ConfigureAwait(false);
+                    DistributedTaskRecord? current = currentValue.IsNullOrEmpty
+                        ? null
+                        : DeserializeRecord(currentValue);
+                    MutationResult<T> result = mutation(current);
+                    if (!result.HasChange)
+                    {
+                        return result.Value;
+                    }
+                    ITransaction transaction = database.CreateTransaction();
+                    transaction.AddCondition(currentValue.IsNull
+                        ? Condition.KeyNotExists(taskKey)
+                        : Condition.StringEqual(taskKey, currentValue));
+                    transaction.AddCondition(Condition.HashEqual(
+                        leaseKey,
+                        "leaseId",
+                        lease.LeaseId.ToString()));
+                    transaction.AddCondition(Condition.HashEqual(
+                        leaseKey,
+                        "token",
+                        lease.FencingToken.ToString()));
+                    transaction.AddCondition(Condition.HashEqual(
+                        leaseKey,
+                        "nodeId",
+                        lease.OwnerNodeId.Value));
+                    _ = transaction.StringSetAsync(
+                        taskKey,
+                        JsonSerializer.Serialize(result.Record, s_jsonOptions));
+                    if (await transaction.ExecuteAsync().ConfigureAwait(false))
+                    {
+                        return result.Value;
+                    }
+                    if (!await IsCurrentWriterAsync(database, leaseKey, lease).ConfigureAwait(false))
+                    {
+                        throw new StaleFencingTokenException("stale_fencing_token");
+                    }
+                }
+                throw new InvalidOperationException("distributed_task_concurrent_update_exhausted");
+            },
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private Task<T> ExecuteAsync<T>(
+        RedisOperationPort port,
+        Func<IDatabase, CancellationToken, Task<T>> operation,
+        CancellationToken cancellationToken)
+        => redis.ExecuteAsync(
+            port,
+            (multiplexer, deadlineToken) => operation(multiplexer.GetDatabase(), deadlineToken),
+            cancellationToken);
+
+    private static async Task<bool> IsCurrentWriterAsync(
+        IDatabase database,
+        RedisKey leaseKey,
+        DistributedLease lease)
+    {
+        RedisValue[] values = await database.HashGetAsync(
+            leaseKey,
+            ["leaseId", "token", "nodeId"]).ConfigureAwait(false);
+        return values.Length == 3
+            && StringComparer.Ordinal.Equals(values[0].ToString(), lease.LeaseId.ToString())
+            && StringComparer.Ordinal.Equals(values[1].ToString(), lease.FencingToken.ToString())
+            && StringComparer.Ordinal.Equals(values[2].ToString(), lease.OwnerNodeId.Value);
     }
 
     private RedisKey BuildLeaseKey(LeaseKey key)

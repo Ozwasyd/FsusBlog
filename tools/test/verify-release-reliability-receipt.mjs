@@ -8,15 +8,9 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import {
-    collectProductionToolchain,
-    verifyProductionBuildReceipt
-} from '../ci/production-build-artifacts.mjs';
-import { snapshotGitWorktree } from '../test-matrix/scheduler.mjs';
-import {
-    validateReleaseReliabilitySchedulerCatalog
-} from '../test-matrix/release-reliability-scheduler-projection.mjs';
-
+const {collectProductionToolchain, verifyProductionBuildReceipt} = await import(new URL('../ci/production-build-artifacts.mjs', import.meta.url));
+const {snapshotGitWorktree} = await import(new URL('../test-matrix/scheduler.mjs', import.meta.url));
+const {validateReleaseReliabilitySchedulerCatalog} = await import(new URL('../test-matrix/release-reliability-scheduler-projection.mjs', import.meta.url));
 import { parseRuntimeEnvironment } from './bundles/runtime-environment.mjs';
 import {
     expandLifecycleTemplate,

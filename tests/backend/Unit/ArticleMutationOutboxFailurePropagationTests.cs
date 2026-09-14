@@ -157,7 +157,7 @@ public sealed class ArticleMutationOutboxFailurePropagationTests
         }
 
         var projections = new ArticleMutationProjectionInvalidator(
-            redis,
+            RedisOperationExecutor.ForTestConnection(redis),
             Substitute.For<IRuntimeKeyScope>(),
             cache,
             taxonomy,

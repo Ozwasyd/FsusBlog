@@ -5,16 +5,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import {
-    collectProcessGroupOrJobIdentity,
-    currentProcessIdentity,
-    processDescendantIdentities,
-    processGroupMemberIdentities,
-    processGroupOrJobIdentityMatches,
-    processIdentitySchema,
-    processIdentityStatus
-} from '../test/process-identity.mjs';
-
+const {collectProcessGroupOrJobIdentity, currentProcessIdentity, processDescendantIdentities, processGroupMemberIdentities, processGroupOrJobIdentityMatches, processIdentitySchema, processIdentityStatus} = await import(new URL('../test/process-identity.mjs', import.meta.url));
 import {
     schedulerCandidateIdentityDigest,
     schedulerProcessGroupOrJobIdentityIsComplete,
@@ -68,6 +59,7 @@ export function resolveProductionBuildLayout({
         manifestFile: path.join(runRoot, 'layout.json'),
         dotnetRoot: path.join(runRoot, 'dotnet'),
         frontendDist: path.join(runRoot, 'frontend/dist'),
+        frontendSsrRuntime: path.join(runRoot, 'frontend/ssr-runtime'),
         frontendCache: path.join(runRoot, 'frontend/cache'),
         frontendWasm: path.join(runRoot, 'frontend/wasm'),
         backendWebRoot: path.join(runRoot, 'frontend/wwwroot'),
@@ -697,7 +689,7 @@ export function productionBuildEnvironment(layout, env = process.env)
         FSUSBLOG_FRONTEND_WASM_ROOT: layout.frontendWasm,
         FSUSBLOG_WASM_ARTIFACT_ROOT: layout.wasmArtifacts,
         FSUSBLOG_BACKEND_WEBROOT: layout.backendWebRoot,
-        FSUSBLOG_PUBLIC_AOT_SSR_CLIENT_ROOT: layout.frontendDist,
+        FSUSBLOG_PUBLIC_AOT_SSR_CLIENT_ROOT: layout.frontendSsrRuntime,
         FSUSBLOG_PUBLIC_AOT_SSR_WORKER_SCRIPT: './server/server-public-ssr.bundle.mjs',
         FSUSBLOG_WEB_ROOT: layout.backendWebRoot,
         FSUSBLOG_RETENTION_WEBROOT_DIR: layout.backendWebRoot,

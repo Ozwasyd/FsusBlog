@@ -5,11 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import {
-    buildCommentFixtureCleanupReceipt,
-    verifyCommentFixtureCleanupReceipt
-} from '../../tools/test/comment-fixture-governance.mjs';
-
+const {buildCommentFixtureCleanupReceipt, verifyCommentFixtureCleanupReceipt} = await import(new URL('../../tools/test/comment-fixture-governance.mjs', import.meta.url));
 const ownerPaths = [
     'src/backend/Modules/Endpoints/LocalCommentFixtureEndpoints.cs',
     'src/backend/Services/Fixtures/CommentFixtureSeeder.cs',

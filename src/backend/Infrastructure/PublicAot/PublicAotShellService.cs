@@ -47,6 +47,13 @@ public sealed class PublicAotShellService(
         PublicAotRouteMatch match,
         CancellationToken cancellationToken = default)
     {
+        if (!PublicRouteIdentity.AllowsStaticArtifact(match))
+        {
+            return Result<PublicAotNavigationSnapshot>.Failure(
+                ErrorCode.Validation,
+                "public_aot_cursor_only_route_required");
+        }
+
         match = ResolveLocale(context, match);
         DateTimeOffset generatedAtUtc = DateTimeOffset.UtcNow;
         return await dbConcurrencyGate.ExecuteAsync(
@@ -71,6 +78,15 @@ public sealed class PublicAotShellService(
         bool classifyColdMiss,
         CancellationToken cancellationToken)
     {
+        if (!PublicRouteIdentity.AllowsStaticArtifact(match))
+        {
+            return classifyColdMiss
+                ? PublicAotRenderOutcome.NotFound(ErrorDetail.Create(
+                    ErrorCode.Validation,
+                    "public_aot_cursor_only_route_required"))
+                : PublicAotRenderOutcome.Success(null);
+        }
+
         match = ResolveLocale(context, match);
         PublicAotArtifactLookup lookup = artifactStore.CreateLookup(context, match);
         runtimeState.SetAssetMode(context, lookup.AssetMode);
@@ -126,12 +142,10 @@ public sealed class PublicAotShellService(
         {
             throw;
         }
-        catch (Exception ex) when (classifyColdMiss)
+        catch (Exception ex)
         {
             s_publicAotCacheFailedLog(logger, match.Kind, match.RouteKey, ex);
-            runtimeState.SetClassifiedFailure(context, PublicAotRenderStatus.TransientFailure, lookup.AssetMode);
-            return PublicAotRenderOutcome.TransientFailure(
-                ErrorDetail.Create(ErrorCode.InfraFailure, "public_aot_cache_read_failed"));
+            entry = null;
         }
         if (artifactStore.IsRenderable(entry, lookup))
         {
@@ -230,6 +244,15 @@ public sealed class PublicAotShellService(
         CancellationToken cancellationToken = default,
         Func<CancellationToken, Task>? beforeCommit = null)
     {
+        if (!PublicRouteIdentity.AllowsStaticArtifact(request))
+        {
+            logger.LogInformation(
+                "Public AOT backfill dropped cursor-only-ineligible route: {Kind} {RouteKey}",
+                request.Kind,
+                request.RouteKey);
+            return;
+        }
+
         DateTimeOffset renderTimestampUtc = DateTimeOffset.UtcNow;
         Result<PublicAotBackfillDocument> document = await dbConcurrencyGate.ExecuteAsync(
             "public-aot-backfill",

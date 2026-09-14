@@ -12,10 +12,10 @@ public sealed class PublicAotRendererPayloadMapperTests
     public void HomeOptions_UseFlatBootstrapShape()
     {
         IReadOnlyDictionary<string, object?> payload = PublicAotRendererPayloadMapper.ToBuildEntryPayload(new PublicAotRenderRequest(
-            new PublicAotRouteMatch(PublicPageKind.Home, PublicPageId.Home, "home:page:2", "/", "/", "?page=2") { Page = 2 },
+            new PublicAotRouteMatch(PublicPageKind.Home, PublicPageId.Home, "home", "/", "/", string.Empty),
             new PublicHomePageSnapshot(
                 Seo(),
-                Page: 2,
+                Page: 1,
                 Size: 10,
                 Total: 1,
                 Items:
@@ -42,15 +42,21 @@ public sealed class PublicAotRendererPayloadMapperTests
                 HotArticles:
                 [
                     new PublicAotHotArticleSnapshot(10, "Home article", 7)
-                ]),
+                ])
+            {
+                NextCursor = "opaque-next-cursor",
+                HasMore = true
+            },
             s_renderTimestamp));
 
         IReadOnlyDictionary<string, object?> options = GetOptions(payload);
 
         Assert.False(options.ContainsKey("response"));
-        Assert.Equal("home:page:2", options["routeKey"]);
+        Assert.Equal("home", options["routeKey"]);
         Assert.Equal("2026-07-27T12:34:56.0000000Z", options["renderTimestamp"]);
         Assert.Equal(1, options["total"]);
+        Assert.Equal("opaque-next-cursor", options["nextCursor"]);
+        Assert.Equal(true, options["hasMore"]);
         Assert.Single(Assert.IsType<Dictionary<string, object?>[]>(options["articles"]));
         Assert.Single(Assert.IsType<Dictionary<string, object?>[]>(options["featuredArticles"]));
         Assert.Single(Assert.IsType<Dictionary<string, object?>[]>(options["hotArticles"]));

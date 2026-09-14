@@ -11,6 +11,9 @@ import {
     type PopularArticleSummaryResponse,
     type RelatedReadingResponse
 } from '@/contracts/binaryApi';
+import { AEDS_ACCESS_PROFILE } from '@/generated/aedsAccessProfiles';
+import { AppErrorCode, createAppError } from '@/utils/appError';
+import type { PublicArticleListProjectionPage } from '@/view-contracts/articleList';
 
 import { FrameType } from '@wasm/protocol/frame';
 
@@ -19,9 +22,6 @@ import { encodeAedsFrame } from './binaryFrame';
 
 import type { ApiRequestConfig } from './requestConfig';
 
-import { AppErrorCode, createAppError } from '@/utils/appError'
-import { AEDS_ACCESS_PROFILE } from '@/generated/aedsAccessProfiles'
-import type { PublicArticleListProjectionPage } from '@/view-contracts/articleList'
 export { ArticlePublishStatus };
 export type {
     ArticleDetailResponse,
@@ -45,7 +45,7 @@ export type PageResponse<T> = BinaryPageResponse<T>;
 
 /** 获取文章列表 */
 export const getArticles = (
-    params: { page?: number; size?: number; categoryId?: number; tagId?: number; cursor?: string | null; listKind?: 'home' | 'archive'; },
+    params: { page?: number; size?: number; categoryId?: number; tagId?: number; keyword?: string | null; sort?: 'relevance' | 'latest' | 'hot' | null; cursor?: string | null; listKind?: 'home' | 'archive'; },
     config?: ApiRequestConfig
 ) =>
 {
@@ -54,6 +54,8 @@ export const getArticles = (
         size: params.size ?? 10,
         categoryId: params.categoryId,
         tagId: params.tagId,
+        keyword: params.keyword,
+        sort: params.sort,
         cursor: params.cursor,
         listKind: params.listKind
     };
@@ -216,9 +218,9 @@ export interface ArticleMutationResponse {
 
 const pendingArticleMutationIds = new Map<string, string>();
 
-export const createArticle = (data: ArticleWriteRequest & { clientMutationId?: string }, config?: ApiRequestConfig) =>
+export const createArticle = (data: ArticleWriteRequest & { clientMutationId?: string; }, config?: ApiRequestConfig) =>
 {
-    const identityKey = JSON.stringify(data, (key, value) => key === 'clientMutationId' ? undefined : value);
+    const identityKey = JSON.stringify(data, (key, value: unknown) => key === 'clientMutationId' ? undefined : value);
     const clientMutationId = data.clientMutationId ?? pendingArticleMutationIds.get(identityKey) ?? crypto.randomUUID().toLowerCase();
     pendingArticleMutationIds.set(identityKey, clientMutationId);
     const request = requestBinaryOnly<ArticleMutationResponse>({
@@ -299,16 +301,25 @@ export const permanentDeleteArticle = (id: number, config?: ApiRequestConfig) =>
         }
     });
 
-function buildPublicArticleListRoute(params: { page: number; size: number; categoryId?: number; tagId?: number; cursor?: string | null; listKind?: 'home' | 'archive'; })
+function buildPublicArticleListRoute(params: { page: number; size: number; categoryId?: number; tagId?: number; keyword?: string | null; sort?: 'relevance' | 'latest' | 'hot' | null; cursor?: string | null; listKind?: 'home' | 'archive'; })
 {
     const page = normalizePositiveInt(params.page, 1);
     const size = normalizeSize(params.size, 10);
+    const hasCursor = typeof params.cursor === 'string' && params.cursor.trim().length > 0;
+    if (page === 1 && hasCursor)
+    {
+        throw createAppError(AppErrorCode.Validation, 'article_cursor_not_allowed_on_first_page');
+    }
+    if (page > 1 && !hasCursor)
+    {
+        throw createAppError(AppErrorCode.Validation, 'article_cursor_required');
+    }
     if (params.categoryId !== undefined)
     {
         return withArticleCursorQuery({
             operationId: 'binary_get_article_list_category_categoryId_page_size_aeds' as const,
             params: { categoryId: normalizePositiveInt(params.categoryId, 1), page, size }
-        }, params.cursor);
+        }, params.cursor, params.keyword, params.sort);
     }
 
     if (params.tagId !== undefined)
@@ -316,7 +327,7 @@ function buildPublicArticleListRoute(params: { page: number; size: number; categ
         return withArticleCursorQuery({
             operationId: 'binary_get_article_list_tag_tagId_page_size_aeds' as const,
             params: { tagId: normalizePositiveInt(params.tagId, 1), page, size }
-        }, params.cursor);
+        }, params.cursor, params.keyword, params.sort);
     }
 
     return withArticleCursorQuery({
@@ -324,21 +335,35 @@ function buildPublicArticleListRoute(params: { page: number; size: number; categ
             ? 'binary_get_article_list_archive_page_size_aeds' as const
             : 'binary_get_article_list_home_page_size_aeds' as const,
         params: { page, size }
-    }, params.cursor);
+    }, params.cursor, params.keyword, params.sort);
 }
 
 function withArticleCursorQuery<T extends { operationId: string; params?: Record<string, string | number | bigint>; }>(
     route: T,
-    cursor?: string | null
+    cursor?: string | null,
+    keyword?: string | null,
+    sort?: 'relevance' | 'latest' | 'hot' | null
 ): T | (T & { query: URLSearchParams; })
 {
-    if (!cursor)
+    const normalizedKeyword = keyword?.trim();
+    if (!cursor && !normalizedKeyword && !sort)
     {
         return route;
     }
 
     const query = new URLSearchParams();
-    query.set('cursor', cursor);
+    if (cursor)
+    {
+        query.set('cursor', cursor);
+    }
+    if (normalizedKeyword)
+    {
+        query.set('keyword', normalizedKeyword);
+    }
+    if (sort)
+    {
+        query.set('sort', sort);
+    }
     return { ...route, query };
 }
 
@@ -449,7 +474,8 @@ function encodeArticleWriteRequest(data: ArticleWriteRequest): Uint8Array
     }
 
     const baseRevisionId = data.baseRevisionId == null ? 0n : BigInt(data.baseRevisionId);
-    if (baseRevisionId < 0n) {
+    if (baseRevisionId < 0n)
+    {
         throw createAppError(AppErrorCode.Validation, 'article_base_revision_invalid');
     }
     view.setBigInt64(cursor, baseRevisionId, true);

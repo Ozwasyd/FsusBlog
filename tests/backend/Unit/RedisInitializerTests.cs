@@ -24,6 +24,65 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class RedisInitializerTests
 {
     [Fact]
+    public async Task ArticleHotRegistryRetirement_DeletesEveryRetiredRegistrySetInOneCommand()
+    {
+        IConnectionMultiplexer connection = Substitute.For<IConnectionMultiplexer>();
+        IDatabase database = Substitute.For<IDatabase>();
+        var deleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        connection.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(database);
+        database.KeyDeleteAsync(Arg.Any<RedisKey[]>(), Arg.Any<CommandFlags>()).Returns(_ =>
+        {
+            deleted.TrySetResult();
+            return 4L;
+        });
+        var service = new ArticleHotRegistryRetirementHostedService(
+            RedisOperationExecutor.ForTestConnection(connection),
+            new DefaultRuntimeKeyScope(),
+            NullLogger<ArticleHotRegistryRetirementHostedService>.Instance);
+
+        await service.StartAsync(CancellationToken.None);
+
+        await deleted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        await database.Received(1).KeyDeleteAsync(
+            Arg.Is<RedisKey[]>(keys => keys.Select(static key => key.ToString()).SequenceEqual(new[]
+            {
+                "cache:registry:3",
+                "cache:registry:7",
+                "cache:registry:30",
+                "cache:registry:31"
+            })),
+            CommandFlags.None);
+        await service.StopAsync(CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task ArticleHotRegistryRetirement_RetriesAfterRedisRecovery()
+    {
+        IConnectionMultiplexer connection = Substitute.For<IConnectionMultiplexer>();
+        IDatabase database = Substitute.For<IDatabase>();
+        var deleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        connection.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(database);
+        database.KeyDeleteAsync(Arg.Any<RedisKey[]>(), Arg.Any<CommandFlags>()).Returns(_ =>
+        {
+            deleted.TrySetResult();
+            return 4L;
+        });
+        var operations = new FailOnceRedisOperationExecutor(connection);
+        var service = new ArticleHotRegistryRetirementHostedService(
+            operations,
+            new DefaultRuntimeKeyScope(),
+            NullLogger<ArticleHotRegistryRetirementHostedService>.Instance);
+
+        await service.StartAsync(CancellationToken.None);
+        await deleted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.Equal(2, operations.AttemptCount);
+        await database.Received(1).KeyDeleteAsync(Arg.Any<RedisKey[]>(), CommandFlags.None);
+        await service.StopAsync(CancellationToken.None);
+    }
+
+    [Fact]
     public void RedisInitializer_RegistersHostedAsyncConnectionLifecycle()
     {
         ServiceCollection services = CreateRedisServices();
@@ -34,17 +93,24 @@ public sealed class RedisInitializerTests
         ServiceDescriptor holderDescriptor = Assert.Single(
             services,
             static descriptor => descriptor.ServiceType == typeof(RedisConnectionMultiplexerHolder));
-        ServiceDescriptor multiplexerDescriptor = Assert.Single(
+        ServiceDescriptor providerDescriptor = Assert.Single(
             services,
-            static descriptor => descriptor.ServiceType == typeof(IConnectionMultiplexer));
+            static descriptor => descriptor.ServiceType == typeof(IRedisConnectionProvider));
+        ServiceDescriptor executorDescriptor = Assert.Single(
+            services,
+            static descriptor => descriptor.ServiceType == typeof(IRedisOperationExecutor));
         ServiceDescriptor distributedCacheDescriptor = Assert.Single(
             services,
             static descriptor => descriptor.ServiceType == typeof(IDistributedCache));
 
         Assert.Equal(ServiceLifetime.Singleton, factoryDescriptor.Lifetime);
         Assert.Equal(ServiceLifetime.Singleton, holderDescriptor.Lifetime);
-        Assert.Equal(ServiceLifetime.Singleton, multiplexerDescriptor.Lifetime);
+        Assert.Equal(ServiceLifetime.Singleton, providerDescriptor.Lifetime);
+        Assert.Equal(ServiceLifetime.Singleton, executorDescriptor.Lifetime);
         Assert.Equal(ServiceLifetime.Singleton, distributedCacheDescriptor.Lifetime);
+        Assert.DoesNotContain(
+            services,
+            static descriptor => descriptor.ServiceType == typeof(IConnectionMultiplexer));
         Assert.Contains(
             services,
             static descriptor => descriptor.ServiceType == typeof(IHostedService)
@@ -66,6 +132,10 @@ public sealed class RedisInitializerTests
         services.AddMemoryCache();
         services.AddSingleton<ICachePolicyRegistry, CachePolicyRegistry>();
         services.AddSingleton<IRuntimeKeyScope, DefaultRuntimeKeyScope>();
+        services.AddSingleton<PolicyShardedCacheL1Store>();
+        services.AddSingleton<ICacheKeyResolver, CacheKeyResolver>();
+        services.AddSingleton<CacheSingleFlightCoordinator>();
+        services.AddSingleton<ICacheTelemetry, CacheTelemetry>();
         services.AddSingleton<UnifiedCache>();
         services.AddSingleton<IHostedService, DirectRedisHostedConsumer>();
 
@@ -84,7 +154,7 @@ public sealed class RedisInitializerTests
                 .OfType<DirectRedisHostedConsumer>()
                 .Single();
 
-            Assert.Equal(1, factory.CreateCount);
+            Assert.Equal(0, factory.CreateCount);
 
             await Task.WhenAll(
                 hosted.StartAsync(CancellationToken.None),
@@ -96,20 +166,26 @@ public sealed class RedisInitializerTests
             Assert.NotNull(factory.Options);
             Assert.False(factory.Options!.AbortOnConnectFail);
             Assert.Equal(5, factory.Options.ConnectRetry);
+            RedisOperationBudgetCatalog operationBudgets = provider.GetRequiredService<RedisOperationBudgetCatalog>();
+            Assert.Equal(operationBudgets.TransportConnectTimeoutMilliseconds, factory.Options.ConnectTimeout);
+            Assert.Equal(operationBudgets.TransportTimeoutMilliseconds, factory.Options.AsyncTimeout);
+            Assert.Equal(operationBudgets.TransportTimeoutMilliseconds, factory.Options.SyncTimeout);
 
-            IConnectionMultiplexer registered = provider.GetRequiredService<IConnectionMultiplexer>();
             var distributedCache = Assert.IsType<SharedRedisDistributedCache>(
                 provider.GetRequiredService<IDistributedCache>());
             UnifiedCache unifiedCache = provider.GetRequiredService<UnifiedCache>();
 
-            FieldInfo redisField = typeof(UnifiedCache).GetField(
-                "_redis",
+            FieldInfo operationsField = typeof(UnifiedCache).GetField(
+                "_redisOperations",
                 BindingFlags.Instance | BindingFlags.NonPublic)
-                ?? throw new InvalidOperationException("UnifiedCache Redis identity field was not found.");
+                ?? throw new InvalidOperationException("UnifiedCache Redis operation executor field was not found.");
 
-            Assert.Same(multiplexer, registered);
-            Assert.Same(multiplexer, distributedCache.Connection);
-            Assert.Same(multiplexer, redisField.GetValue(unifiedCache));
+            Assert.Same(multiplexer, provider.GetRequiredService<RedisConnectionMultiplexerHolder>().Current);
+            Assert.DoesNotContain(
+                typeof(IConnectionMultiplexer),
+                Assert.Single(typeof(SharedRedisDistributedCache).GetConstructors()).GetParameters()
+                    .Select(static parameter => parameter.ParameterType));
+            Assert.Same(provider.GetRequiredService<IRedisOperationExecutor>(), operationsField.GetValue(unifiedCache));
             Assert.Same(multiplexer, consumer.Connection);
 
             int failedEvents = 0;
@@ -132,7 +208,7 @@ public sealed class RedisInitializerTests
             Assert.Equal(1, failedEvents);
             Assert.Equal(1, restoredEvents);
             Assert.Equal(1, factory.CreateCount);
-            Assert.Same(multiplexer, provider.GetRequiredService<IConnectionMultiplexer>());
+            Assert.Same(multiplexer, provider.GetRequiredService<RedisConnectionMultiplexerHolder>().Current);
 
             IConfiguration configuration = CreateRedisConfiguration();
             var environment = new TestWebHostEnvironment(tempRoot);
@@ -167,29 +243,24 @@ public sealed class RedisInitializerTests
     }
 
     [Fact]
-    public async Task RedisMultiplexerHostedService_StartAsyncPreservesRedisConnectionException()
+    public async Task RedisMultiplexerHostedService_StartAsyncDoesNotBlockHostAndReadinessPreservesConnectionException()
     {
         var expected = new RedisConnectionException(
             ConnectionFailureType.UnableToConnect,
             "unit redis failed");
         var holder = new RedisConnectionMultiplexerHolder();
-        using ServiceProvider services = new ServiceCollection().BuildServiceProvider();
         var service = new RedisMultiplexerHostedService(
             ConfigurationOptions.Parse("localhost:6379"),
             holder,
             new FailingRedisFactory(expected),
-            services,
             NullLogger<RedisMultiplexerHostedService>.Instance);
 
-        RedisConnectionException actual = await Assert.ThrowsAsync<RedisConnectionException>(
-            () => service.StartAsync(CancellationToken.None));
+        await service.StartAsync(CancellationToken.None);
         RedisConnectionException published = await Assert.ThrowsAsync<RedisConnectionException>(
             () => holder.WaitAsync());
 
-        Assert.Same(expected, actual);
         Assert.Same(expected, published);
-        await Assert.ThrowsAsync<RedisConnectionException>(
-            () => service.StartAsync(CancellationToken.None));
+        await service.StartAsync(CancellationToken.None);
     }
 
     [Fact]
@@ -209,16 +280,46 @@ public sealed class RedisInitializerTests
         Task startTask = service.StartAsync(CancellationToken.None);
         await factory.Started.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
-        Assert.False(startTask.IsCompleted);
+        Assert.True(startTask.IsCompletedSuccessfully);
         Assert.False(holder.WaitAsync().IsCompleted);
 
         IConnectionMultiplexer multiplexer = Substitute.For<IConnectionMultiplexer>();
         factory.Release(multiplexer);
-        await startTask.WaitAsync(TimeSpan.FromSeconds(1));
+        await holder.WaitAsync().WaitAsync(TimeSpan.FromSeconds(1));
 
         Assert.Same(multiplexer, holder.Current);
         services.Dispose();
         multiplexer.Received(1).Dispose();
+    }
+
+    [Fact]
+    public void LegacyMultiplexerIsNotRegisteredForRequestTimeResolution()
+    {
+        IConnectionMultiplexer multiplexer = Substitute.For<IConnectionMultiplexer>();
+        var factory = new RetryingCountingRedisFactory(multiplexer);
+        ServiceCollection services = CreateRedisServices();
+        services.RemoveAll<IRedisConnectionMultiplexerFactory>();
+        services.AddSingleton<IRedisConnectionMultiplexerFactory>(factory);
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        Assert.Null(provider.GetService<IConnectionMultiplexer>());
+        Assert.Equal(0, factory.CreateCount);
+    }
+
+    [Fact]
+    public void ClassifiedExecutorResolutionBeforeHostedStartupDoesNotResolveOrBlockOnMultiplexer()
+    {
+        IConnectionMultiplexer multiplexer = Substitute.For<IConnectionMultiplexer>();
+        var factory = new RetryingCountingRedisFactory(multiplexer);
+        ServiceCollection services = CreateRedisServices();
+        services.RemoveAll<IRedisConnectionMultiplexerFactory>();
+        services.AddSingleton<IRedisConnectionMultiplexerFactory>(factory);
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        IRedisOperationExecutor executor = provider.GetRequiredService<IRedisOperationExecutor>();
+
+        Assert.IsType<RedisOperationExecutor>(executor);
+        Assert.Equal(0, factory.CreateCount);
     }
 
     [Fact]
@@ -237,8 +338,8 @@ public sealed class RedisInitializerTests
             .Single();
         RedisConnectionMultiplexerHolder holder = services.GetRequiredService<RedisConnectionMultiplexerHolder>();
 
-        await Assert.ThrowsAsync<OperationCanceledException>(
-            () => service.StartAsync(cancellation.Token));
+        await service.StartAsync(cancellation.Token);
+        Assert.Same(multiplexer, await holder.WaitAsync());
 
         multiplexer.DidNotReceive().Dispose();
         Assert.Same(multiplexer, holder.Current);
@@ -309,6 +410,22 @@ public sealed class RedisInitializerTests
     }
 
     [Fact]
+    public void SharedRedisDistributedCache_SynchronousRequestApisFailImmediatelyWithoutRedisWait()
+    {
+        IConnectionMultiplexer multiplexer = Substitute.For<IConnectionMultiplexer>();
+        var cache = new SharedRedisDistributedCache(
+            multiplexer,
+            new SharedRedisDistributedCacheOptions("FsusBlog_Tests_"));
+        var options = new DistributedCacheEntryOptions();
+
+        Assert.Equal("redis_sync_operation_forbidden", Assert.Throws<NotSupportedException>(() => cache.Get("key")).Message);
+        Assert.Equal("redis_sync_operation_forbidden", Assert.Throws<NotSupportedException>(() => cache.Set("key", [1], options)).Message);
+        Assert.Equal("redis_sync_operation_forbidden", Assert.Throws<NotSupportedException>(() => cache.Refresh("key")).Message);
+        Assert.Equal("redis_sync_operation_forbidden", Assert.Throws<NotSupportedException>(() => cache.Remove("key")).Message);
+        multiplexer.DidNotReceiveWithAnyArgs().GetDatabase(default, default);
+    }
+
+    [Fact]
     public void ProductionSource_CreatesTheMultiplexerOnlyThroughTheAsyncFactory()
     {
         string backendRoot = BackendTestPaths.FromRoot("src", "backend");
@@ -375,9 +492,9 @@ public sealed class RedisInitializerTests
             })
             .Build();
 
-    private sealed class DirectRedisHostedConsumer(IConnectionMultiplexer connection) : IHostedService
+    private sealed class DirectRedisHostedConsumer(RedisConnectionMultiplexerHolder holder) : IHostedService
     {
-        public IConnectionMultiplexer Connection { get; } = connection;
+        public IConnectionMultiplexer Connection => holder.Current;
 
         public Task StartAsync(CancellationToken cancellationToken)
             => Task.CompletedTask;
@@ -461,6 +578,44 @@ public sealed class RedisInitializerTests
             ConnectionAttemptCount++;
             return Task.FromResult(connection);
         }
+    }
+
+    private sealed class FailOnceRedisOperationExecutor(IConnectionMultiplexer connection) : IRedisOperationExecutor
+    {
+        private readonly RedisOperationBudgetCatalog _catalog = new();
+        private int _attemptCount;
+
+        public int AttemptCount => Volatile.Read(ref _attemptCount);
+
+        public async Task<T> ExecuteAsync<T>(
+            RedisOperationPort port,
+            Func<IConnectionMultiplexer, CancellationToken, Task<T>> command,
+            CancellationToken cancellationToken)
+        {
+            if (Interlocked.Increment(ref _attemptCount) == 1)
+            {
+                RedisOperationPortDefinition definition = _catalog.Get(port);
+                throw new RedisOperationUnavailableException(
+                    definition,
+                    _catalog.Get(definition.OperationClass),
+                    RedisOperationFailureKind.ConnectionUnavailable);
+            }
+
+            return await command(connection, cancellationToken);
+        }
+
+        public async Task ExecuteAsync(
+            RedisOperationPort port,
+            Func<IConnectionMultiplexer, CancellationToken, Task> command,
+            CancellationToken cancellationToken)
+            => await ExecuteAsync(
+                port,
+                async (multiplexer, token) =>
+                {
+                    await command(multiplexer, token);
+                    return true;
+                },
+                cancellationToken);
     }
 
     private sealed class TestWebHostEnvironment(string root) : IWebHostEnvironment

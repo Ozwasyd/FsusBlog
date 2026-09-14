@@ -39,7 +39,8 @@ const exactKeys = (value, keys, label) =>
     {
         fail(`${label} must be an object`);
     }
-    const actual = Object.keys(value).sort(); const expected = [...keys].sort();
+    const actual = Object.keys(value).sort();
+    const expected = [...keys].sort();
     if (actual.join('\0') !== expected.join('\0'))
     {
         fail(`${label} has unsupported or missing fields`);
@@ -288,13 +289,25 @@ export function validateCatalog(catalog, repositoryRoot = root)
                 {
                     fail(`${contract.id} document authority ${authority.path} conflicts with current lifecycle owner`);
                 }
-                if (!contract.documents.includes(authority.path)) fail(`${contract.id} authority path is outside documents: ${authority.path}`);
-                if (migratedFromPaths.has(authority.path)) fail(`${contract.id} archived/moved path cannot remain a current authority: ${authority.path}`);
-                if (!/^[a-z][a-z0-9.-]*$/u.test(authority.anchor)) fail(`${contract.id} has invalid authority anchor`);
+                if (!contract.documents.includes(authority.path))
+                {
+                    fail(`${contract.id} authority path is outside documents: ${authority.path}`);
+                }
+                if (migratedFromPaths.has(authority.path))
+                {
+                    fail(`${contract.id} archived/moved path cannot remain a current authority: ${authority.path}`);
+                }
+                if (!/^[a-z][a-z0-9.-]*$/u.test(authority.anchor))
+                {
+                    fail(`${contract.id} has invalid authority anchor`);
+                }
                 uniqueStrings(authority.claimIds, `${contract.id}.${authority.path}.claimIds`);
                 uniqueStrings(authority.sectionIds, `${contract.id}.${authority.path}.sectionIds`);
                 uniqueStrings(authority.proofIds, `${contract.id}.${authority.path}.proofIds`, { min: 1 });
-                if (authority.claimIds.length === 0 && authority.sectionIds.length === 0) fail(`${contract.id} authority ${authority.path} has no required claim/section`);
+                if (authority.claimIds.length === 0 && authority.sectionIds.length === 0)
+                {
+                    fail(`${contract.id} authority ${authority.path} has no required claim/section`);
+                }
                 authorityPaths.push(authority.path);
             }
             if (new Set(authorityPaths).size !== authorityPaths.length || authorityPaths.sort().join('\0') !== [...contract.documents].sort().join('\0'))
@@ -309,12 +322,21 @@ export function validateCatalog(catalog, repositoryRoot = root)
         if (Object.hasOwn(contract, 'crossDomainReferences'))
         {
             generatedSectionCatalog ??= readJson('config/contracts/generated-fact-sections.json', repositoryRoot);
-            if (!Array.isArray(contract.crossDomainReferences)) fail(`${contract.id}.crossDomainReferences must be a list`);
+            if (!Array.isArray(contract.crossDomainReferences))
+            {
+                fail(`${contract.id}.crossDomainReferences must be a list`);
+            }
             for (const reference of contract.crossDomainReferences)
             {
                 exactKeys(reference, ['domain', 'behaviorId', 'documentPath', 'factIds'], `${contract.id}.crossDomainReference`);
-                if (reference.domain === contract.domain) fail(`${contract.id} cross-domain reference must target another domain`);
-                if (!catalog.domains.includes(reference.domain)) fail(`${contract.id} references unknown domain ${reference.domain}`);
+                if (reference.domain === contract.domain)
+                {
+                    fail(`${contract.id} cross-domain reference must target another domain`);
+                }
+                if (!catalog.domains.includes(reference.domain))
+                {
+                    fail(`${contract.id} references unknown domain ${reference.domain}`);
+                }
                 const target = catalog.contracts.find((entry) => entry.id === reference.behaviorId);
                 if (!target || target.domain !== reference.domain || !target.documents.includes(reference.documentPath))
                 {
@@ -384,7 +406,8 @@ const walk = (directory, out = []) =>
         {
             continue;
         }
-        const target = path.join(directory, entry); const stat = statSync(target);
+        const target = path.join(directory, entry);
+        const stat = statSync(target);
         if (stat.isDirectory())
         {
             walk(target, out);
@@ -591,7 +614,8 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root)
     {
         for (const file of walk(path.join(repositoryRoot, directory)))
         {
-            const relative = path.relative(repositoryRoot, file); if (allowedGenerated.has(relative))
+            const relative = path.relative(repositoryRoot, file);
+            if (allowedGenerated.has(relative))
             {
                 continue;
             }
@@ -659,7 +683,10 @@ export function validateBehaviorReferences(catalog, repositoryRoot = root)
                     }
                     const literals = [...reference[2].matchAll(/["'`]([a-z][a-z0-9-]*)["'`]/gu)].map((match) => match[1]);
                     const markerLiteral = reference[2].trim().match(/^([a-z][a-z0-9-]*)$/u)?.[1];
-                    if (markerLiteral) literals.push(markerLiteral);
+                    if (markerLiteral)
+                    {
+                        literals.push(markerLiteral);
+                    }
                     if (literals.length === 0)
                     {
                         fail(`${relative} contains an untyped or free-string behavior reference`);

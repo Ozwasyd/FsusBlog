@@ -1,7 +1,7 @@
-export const localeDomainIdentity = Object.freeze({ locale: 'ru-RU', domain: 'admin' } as const)
+export const localeDomainIdentity = Object.freeze({ locale: 'ru-RU', domain: 'admin' } as const);
 
-import type { LocaleSchema } from '../keys'
-import type { admin as zhCNAdmin } from '../zh-CN/admin'
+import type { LocaleSchema } from '../keys';
+import type { admin as zhCNAdmin } from '../zh-CN/admin';
 
 export const admin = {
     shell: {
@@ -144,4 +144,4 @@ export const admin = {
         metricRemovedRiskLabels: 'Удалено меток риска',
         errorToastFallback: 'Ошибка предпросмотра повторного применения политики'
     }
-} as const satisfies LocaleSchema<typeof zhCNAdmin>
+} as const satisfies LocaleSchema<typeof zhCNAdmin>;

@@ -137,11 +137,14 @@ test.describe('article editor production fixture title hierarchy', () => {
         await openFixture(page, title, theme)
 
         const titleInput = page.getByRole('textbox', { name: '文章标题' })
-        const toolbar = page.getByRole('toolbar')
         const editor = page.getByRole('textbox', { name: '正文' })
         await expect(titleInput).toBeVisible()
-        await expect(toolbar).toBeVisible()
         await expect(editor).toBeVisible()
+        await expect(page.locator('.editor-shell__header')).toHaveCount(0)
+        await expect(page.getByRole('radio', { name: '编辑' })).toHaveCount(0)
+        await expect(page.getByRole('radio', { name: '分屏' })).toHaveCount(0)
+        await expect(page.getByRole('radio', { name: '预览' })).toHaveCount(0)
+        await expect(page.getByRole('toolbar')).toHaveCount(0)
 
         const geometry = await titleInput.evaluate((element) => {
           const style = getComputedStyle(element)
@@ -166,15 +169,19 @@ test.describe('article editor production fixture title hierarchy', () => {
     }
   }
 
-  test('150% zoom keeps the toolbar in the first fold', async ({ page }) => {
+  test('150% zoom keeps the title and body in the first fold', async ({ page }) => {
     await openFixture(page, 'long', 'light')
     await page.evaluate(() => {
       document.documentElement.style.zoom = '1.5'
     })
 
-    const toolbarBox = await page.getByRole('toolbar').boundingBox()
-    expect(toolbarBox).not.toBeNull()
-    expect(toolbarBox!.y + toolbarBox!.height).toBeLessThanOrEqual(900)
+    const titleBox = await page.getByRole('textbox', { name: '文章标题' }).boundingBox()
+    const editorBox = await page.getByRole('textbox', { name: '正文' }).boundingBox()
+    expect(titleBox).not.toBeNull()
+    expect(editorBox).not.toBeNull()
+    expect(titleBox!.y).toBeLessThan(editorBox!.y)
+    expect(Math.abs(titleBox!.x - editorBox!.x)).toBeLessThanOrEqual(1)
+    expect(editorBox!.y + Math.min(editorBox!.height, 120)).toBeLessThanOrEqual(900)
   })
 
   test('long title grows by content instead of a fixed empty shell', async ({ page }) => {
@@ -301,6 +308,9 @@ test.describe('article editor production fixture recovery prompt', () => {
       await expect(observer.getByRole('group', { name: '选择要恢复的未同步正文版本' })).toBeVisible()
       await expect(observer.getByRole('radio')).toHaveCount(1)
       await expect(observer.getByText(/client revision 独立归属/u)).toBeVisible()
+      await expect(observer.getByText(/未加密/u)).toBeVisible()
+      await expect(observer.getByText(/最长 7 天/u)).toBeVisible()
+      await expect(observer.getByText(/服务端确认、发布、删除、登出或显式丢弃后立即删除/u)).toBeVisible()
 
       for (const action of ['比较所选正文', '恢复所选正文', '丢弃所选正文']) {
         const button = observer.getByRole('button', { name: action })
@@ -407,6 +417,7 @@ test.describe('article editor production fixture recovery touch', () => {
       const prompt = observer.locator('[data-article-recovery-prompt]')
       await expect(prompt).toBeVisible()
       await expect(observer.getByRole('group', { name: '选择要恢复的未同步正文版本' })).toBeVisible()
+      await expect(observer.getByText(/未加密/u)).toBeVisible()
       await observer.getByRole('radio').tap()
       const compare = observer.getByRole('button', { name: '比较所选正文' })
       const restore = observer.getByRole('button', { name: '恢复所选正文' })
@@ -534,15 +545,20 @@ test.describe('article editor production fixture command bar', () => {
   })
 })
 
-test.describe('article editor production fixture mode and save status', () => {
+test.describe('article editor production fixture canvas and save status', () => {
   test.use({ viewport: { width: 1440, height: 900 } })
 
-  test('exposes only task copy and keeps all status transitions on a 40px baseline', async ({ page }) => {
+  test('keeps a continuous canvas without a write/preview/split header or duplicate save status', async ({ page }) => {
     await openFixture(page, 'short', 'light', 'editor')
 
-    const header = page.locator('.editor-shell__header')
-    const status = page.getByRole('status')
-    const heights: number[] = []
+    await expect(page.locator('.editor-shell__header')).toHaveCount(0)
+    await expect(page.getByRole('radio', { name: '编辑' })).toHaveCount(0)
+    await expect(page.getByRole('radio', { name: '分屏' })).toHaveCount(0)
+    await expect(page.getByRole('radio', { name: '预览' })).toHaveCount(0)
+    await expect(page.locator('[data-markdown-chrome="embedded"]')).toBeVisible()
+    await expect(page.locator('[data-status-density="minimal"]')).toBeVisible()
+
+    const status = page.locator('.article-write-command-bar [role="status"]')
     for (const state of ['editing', 'saving', 'saved', 'failed'] as const) {
       await page.evaluate((nextState) => {
         const controller = (
@@ -558,24 +574,26 @@ test.describe('article editor production fixture mode and save status', () => {
         saved: '已保存',
         failed: '保存失败，请重试'
       }[state])
-      heights.push(await header.evaluate((element) => element.getBoundingClientRect().height))
     }
-    expect(new Set(heights)).toEqual(new Set([40]))
-    await expect(status).toHaveClass(/editor-shell__status--danger/u)
+    await expect(page.locator('[role="status"]')).toHaveCount(1)
+    await expect(status).toHaveClass(/article-write-command-bar__save-status--danger/u)
 
     const productionText = await page.locator('.editor-shell-minimal').innerText()
     expect(productionText).not.toMatch(/FsusUI|Element Plus|adapter|component|MarkdownEditor/iu)
-    await expect(page.getByText('正文', { exact: true })).toBeVisible()
-    await expect(page.getByRole('radio', { name: '编辑' })).toBeChecked()
-    await page.getByText('分屏', { exact: true }).click()
-    await expect(page.getByRole('radio', { name: '分屏' })).toBeChecked()
-    await page.getByText('预览', { exact: true }).click()
-    await expect(page.getByRole('radio', { name: '预览' })).toBeChecked()
+    await expect(page.getByRole('heading', { name: '正文', exact: true })).toHaveCount(1)
+    await expect(page.getByRole('button', { name: '实时' })).toBeVisible()
+    await expect(page.getByRole('button', { name: '源码' })).toBeVisible()
+    await expect(page.getByRole('button', { name: '源码对照' })).toBeVisible()
+    await expect(page.getByRole('radio', { name: '实时' })).toHaveCount(0)
+    await page.getByRole('button', { name: '实时' }).click()
+    await expect(page.getByRole('button', { name: '实时' })).toHaveAttribute('aria-pressed', 'true')
+    await page.getByRole('button', { name: '源码对照' }).click()
+    await expect(page.getByRole('button', { name: '源码对照' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('[data-markdown-chrome="embedded"]')).toHaveCount(1)
   })
 
-  test('375/768/1440 light/dark keep the mode/status row stable', async ({ page }) => {
+  test('375/768/1440 light/dark keep title and body aligned without a four-mode header', async ({ page }) => {
     await openFixture(page, 'short', 'light', 'editor')
-    const header = page.locator('.editor-shell__header')
     for (const viewport of contract.viewports.filter(({ width }) => [375, 768, 1440].includes(width))) {
       await page.setViewportSize({ width: viewport.width, height: viewport.height })
       for (const theme of contract.themes) {
@@ -583,14 +601,16 @@ test.describe('article editor production fixture mode and save status', () => {
           document.documentElement.classList.toggle('dark', nextTheme === 'dark')
           document.documentElement.dataset.themeResolved = nextTheme
         }, theme)
-        await expect(header).toBeVisible()
-        expect(await header.evaluate((element) => element.getBoundingClientRect().height)).toBe(40)
+        await expect(page.locator('.editor-shell__header')).toHaveCount(0)
+        await expect(page.locator('[data-markdown-chrome="embedded"]')).toBeVisible()
         expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth))
           .toBeLessThanOrEqual(1)
-        await expect(page.getByRole('radio', { name: '编辑' })).toBeVisible()
-        await expect(page.getByRole('radio', { name: '预览' })).toBeVisible()
-        await expect(page.getByRole('radio', { name: '分屏' }))
-          .toHaveCount(viewport.width < 768 ? 0 : 1)
+        await expect(page.getByRole('button', { name: '实时' })).toBeVisible()
+        await expect(page.getByRole('button', { name: '源码' })).toBeVisible()
+        await expect(page.getByRole('button', { name: '源码对照' })).toBeVisible()
+        await expect(page.getByRole('radio', { name: '编辑' })).toHaveCount(0)
+        await expect(page.getByRole('radio', { name: '预览' })).toHaveCount(0)
+        await expect(page.getByRole('radio', { name: '分屏' })).toHaveCount(0)
       }
     }
   })

@@ -33,7 +33,7 @@ export const REQUIRED_DIMENSIONS = [
     'article-list:empty',
     'article-list:one-item',
     'article-list:full-page',
-    'article-list:last-page',
+    'article-list:first-page',
     'article-list:long-title',
     'article-list:long-summary',
     'home-secondary:both-empty',
@@ -358,13 +358,13 @@ export const PUBLIC_PAYLOAD_FIXTURES = [
         })
     },
     {
-        id: 'home-full-last-secondary-boundary',
+        id: 'home-full-first-secondary-boundary',
         route: '/',
         kind: 'Home',
         releaseSubset: true,
         dimensions: [
             'article-list:full-page',
-            'article-list:last-page',
+            'article-list:first-page',
             'home-secondary:both-present',
             'home-secondary:boundary-ordering',
             'footer:complete-config'
@@ -374,9 +374,11 @@ export const PUBLIC_PAYLOAD_FIXTURES = [
             articles: repeatedArticles(10, 1200),
             featuredArticles: [featuredArticle(2201), featuredArticle(2202)],
             hotArticles: [hotArticle(2301), hotArticle(2302), hotArticle(2303)],
-            pageIndex: 3,
+            pageIndex: 1,
             pageSize: 10,
-            total: 30
+            total: 30,
+            nextCursor: 'cursor_home_2',
+            hasMore: true
         })
     },
     {
@@ -511,9 +513,11 @@ export const PUBLIC_PAYLOAD_FIXTURES = [
                 filterName: 'hydration',
                 description: 'Hydration tag description',
                 articles: repeatedArticles(10, 4200),
-                pageIndex: 2,
+                pageIndex: 1,
                 pageSize: 10,
                 total: 24,
+                nextCursor: 'cursor_tag_2',
+                hasMore: true,
                 isInvalidTarget: false
             },
             title: 'hydration'
@@ -761,7 +765,9 @@ function assertHomeFixture(fixture, hydrationPayload, bootstrapPayload, domSnaps
     }
     if (fixture.dimensions.includes('home-secondary:boundary-ordering'))
     {
-        assert(hydrationPayload.view.pagination.indicator === '3 / 3', `${fixture.id} last-page pagination drift`);
+        assert(hydrationPayload.view.pagination.indicator === '1 / 3', `${fixture.id} first-page pagination drift`);
+        assert(hydrationPayload.nextCursor === 'cursor_home_2' && hydrationPayload.hasMore === true, `${fixture.id} cursor metadata drift`);
+        assert(hydrationPayload.view.pagination.next.href === '/?page=2&cursor=cursor_home_2', `${fixture.id} cursor next href drift`);
         assert(hydrationPayload.featuredArticles[0]?.id < hydrationPayload.hotArticles[0]?.id, `${fixture.id} secondary ordering fixture drift`);
     }
     if (fixture.dimensions.includes('logo:present'))
@@ -863,6 +869,8 @@ function assertFilterFixture(fixture, hydrationPayload, bootstrapPayload)
     {
         assert(hydrationPayload.filter.total > hydrationPayload.filter.pageSize, `${fixture.id} expected multi-page filter result`);
         assert(hydrationPayload.view.pagination.totalPages > 1, `${fixture.id} expected multi-page view contract`);
+        assert(hydrationPayload.filter.nextCursor === 'cursor_tag_2' && hydrationPayload.filter.hasMore === true, `${fixture.id} filter cursor metadata drift`);
+        assert(hydrationPayload.view.pagination.nextHref.includes('cursor=cursor_tag_2'), `${fixture.id} filter cursor next href drift`);
     }
     return {
         filterType: hydrationPayload.filter.filterType,

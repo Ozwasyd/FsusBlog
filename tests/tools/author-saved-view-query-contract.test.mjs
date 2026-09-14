@@ -4,10 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import {
-    validateAuthorSavedViewQueryContract
-} from '../../tools/governance/check-author-saved-view-query-contract.mjs';
-
+const {validateAuthorSavedViewQueryContract} = await import(new URL('../../tools/governance/check-author-saved-view-query-contract.mjs', import.meta.url));
 const root = path.resolve(import.meta.dirname, '../..');
 const contractPath = 'src/backend/Services/Authoring/AuthorSavedViewContracts.cs';
 const source = fs.readFileSync(path.join(root, contractPath), 'utf8');

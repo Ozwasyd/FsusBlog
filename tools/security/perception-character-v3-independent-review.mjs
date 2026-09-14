@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -19,7 +19,9 @@ function parse(argv)
         const name = argv.shift();
         const value = argv.shift();
         if (!name?.startsWith('--') || value === undefined)
+        {
             throw new Error(`invalid argument ${name ?? '<missing>'}`);
+        }
         options[name.slice(2)] = value;
     }
     for (const field of [
@@ -32,7 +34,9 @@ function parse(argv)
     ])
     {
         if (!options[field])
+        {
             throw new Error(`--${field} is required`);
+        }
     }
     return options;
 }
@@ -50,7 +54,9 @@ function readJson(file)
 function requireCondition(condition, message)
 {
     if (!condition)
+    {
         throw new Error(message);
+    }
 }
 
 function scanKeys(value, location = '$')
@@ -61,7 +67,9 @@ function scanKeys(value, location = '$')
         return;
     }
     if (!value || typeof value !== 'object')
+    {
         return;
+    }
     for (const [key, entry] of Object.entries(value))
     {
         requireCondition(!forbiddenEvidenceKeys.test(key), `sensitive evidence field ${location}.${key}`);
@@ -92,7 +100,9 @@ function main()
     const benchmark = readJson(options['benchmark-report']);
     const migration = readJson(options['migration-receipt']);
     for (const document of [implementation, corpus, benchmark, migration])
+    {
         scanKeys(document);
+    }
 
     const expectedImplementationFingerprint = sha256(JSON.stringify(
         Object.fromEntries(Object.entries(implementation)
@@ -101,7 +111,9 @@ function main()
     requireCondition(implementation.receiptFingerprint === expectedImplementationFingerprint,
         'implementation receipt fingerprint is invalid');
     for (const entry of Object.values(implementation.evidence))
+    {
         requireCondition(evidenceDigest(entry) === entry.sha256, `evidence drift: ${entry.path}`);
+    }
     requireCondition(implementation.pool.generationId === poolManifest.generationId,
         'pool generation differs from implementation receipt');
     requireCondition(implementation.corpus.corpusDigest === corpus.corpusDigest,

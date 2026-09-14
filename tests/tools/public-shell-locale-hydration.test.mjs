@@ -1,12 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { assertPublicShellLocaleHydration } from '../browser-contract/public-shell-locale-hydration.mjs';
-import {
-    createPublicShellLocaleMatrix,
-    resolvePublicShellLocaleCopy
-} from '../browser-contract/public-shell-locale-matrix.mjs';
-
+const {assertPublicShellLocaleHydration} = await import(new URL('../browser-contract/public-shell-locale-hydration.mjs', import.meta.url));
+const {createPublicShellLocaleMatrix, resolvePublicShellLocaleCopy} = await import(new URL('../browser-contract/public-shell-locale-matrix.mjs', import.meta.url));
 const matrix = await createPublicShellLocaleMatrix();
 const scene = matrix.scenes.find((item) => item.issue === 2084
     && item.stage === 'interactive-ready'

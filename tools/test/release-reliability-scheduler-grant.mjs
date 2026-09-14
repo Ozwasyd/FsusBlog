@@ -3,7 +3,6 @@ import fs from 'node:fs';
 import { sealDocument } from './release-reliability-receipt.mjs';
 
 export function resolveScenarioSchedulerGrant({
-    catalog,
     scenario,
     runId,
     ambientEnvironment = {},

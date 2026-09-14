@@ -2,12 +2,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import {
-    productionBuildEnvironmentAssignments,
-    productionBuildEnvironmentKeys,
-    validateProductionRunId
-} from '../test-matrix/production-build-layout.mjs';
-
+const {productionBuildEnvironmentAssignments, productionBuildEnvironmentKeys, validateProductionRunId} = await import(new URL('../test-matrix/production-build-layout.mjs', import.meta.url));
 function usage()
 {
     throw new Error('usage: export-production-build-environment.mjs --root <absolute-root> --run-id <run-id>');

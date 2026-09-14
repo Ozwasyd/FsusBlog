@@ -11,7 +11,14 @@ internal sealed record ObservedOperation(
     bool Pow,
     string RateLimit,
     string Cache,
+    IReadOnlyList<ObservedQueryParameter> QueryParameters,
     string? SourceIdentity);
+
+internal sealed record ObservedQueryParameter(
+    string Name,
+    string SchemaRef,
+    bool Required,
+    bool Nullable);
 
 internal sealed record AedsEndpointContract(
     string Method,
@@ -453,7 +460,7 @@ internal static class ObservationMerger
                 RateLimit = live.RateLimit,
                 Cache = live.Cache,
                 SuccessStatus = contract.SuccessStatus,
-                Request = BuildRequest(contract.RequestFrame, live.Path),
+                Request = BuildRequest(contract.RequestFrame, live.Path, live.QueryParameters),
                 Responses =
                 [
                     new OperationResponseContract(
@@ -519,9 +526,12 @@ internal static class ObservationMerger
         };
     }
 
-    private static OperationRequestContract BuildRequest(string? requestFrame, string route)
+    private static OperationRequestContract BuildRequest(
+        string? requestFrame,
+        string route,
+        IReadOnlyList<ObservedQueryParameter> queryParameters)
     {
-        IReadOnlyList<RouteParameterContract> parameters = System.Text.RegularExpressions.Regex
+        RouteParameterContract[] pathParameters = System.Text.RegularExpressions.Regex
             .Matches(route, @"\{([A-Za-z_][A-Za-z0-9_]*)(?::([^}]+))?\}")
             .Select(match => new RouteParameterContract(
                 match.Groups[1].Value,
@@ -529,6 +539,14 @@ internal static class ObservationMerger
                 match.Groups[2].Success ? $"route://{match.Groups[2].Value}" : "route://string",
                 true,
                 false))
+            .ToArray();
+        RouteParameterContract[] parameters = pathParameters
+            .Concat(queryParameters.Select(static parameter => new RouteParameterContract(
+                parameter.Name,
+                "query",
+                parameter.SchemaRef,
+                parameter.Required,
+                parameter.Nullable)))
             .ToArray();
         return new OperationRequestContract(
             requestFrame is null ? "none" : "aeds-frame-body",

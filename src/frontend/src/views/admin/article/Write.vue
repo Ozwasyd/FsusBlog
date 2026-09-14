@@ -41,8 +41,9 @@
                 @submit.prevent="requestSubmit"
             >
                 <section
-                    class="write-title-panel px-4"
-                    aria-label="文章标题"
+                    class="write-document-canvas"
+                    aria-label="文章文档"
+                    data-editor-document-column="stable"
                 >
                     <div
                         v-if="hasLocalDraft"
@@ -59,6 +60,12 @@
                             >{{ pendingDraftSourceLabel }}</h2>
                             <p class="write-draft-description">
                                 {{ draftStatusText ? `${draftStatusText}。` : '' }}{{ pendingDraftDescription }}
+                            </p>
+                            <p
+                                v-if="hasArticleRecoveryCandidates"
+                                class="write-recovery-privacy"
+                            >
+                                {{ articleRecoveryPrivacyNotice }}
                             </p>
                             <fieldset
                                 v-if="hasArticleRecoveryCandidates"
@@ -138,35 +145,31 @@
                         v-model="articleForm.title"
                         :disabled="submitting"
                     />
-                </section>
 
-                <div
-                    class="write-grid"
-                    aria-label="写作工作区"
-                    data-editor-document-column="stable"
-                >
-                    <section
-                        class="write-editor-panel"
-                        aria-label="正文编辑器"
+                    <h2
+                        id="article-body-heading"
+                        class="sr-only"
                     >
-                        <div class="overflow-hidden">
-                            <ElFormItem prop="content">
-                                <ArticleWriteEditor
-                                    ref="articleEditorRef"
-                                    v-model="articleForm.content"
-                                    :loading="pageLoading"
-                                    :saving="submitting"
-                                    :status-text="editorSaveStatusText"
-                                    :status-tone="editorSaveStatusTone"
-                                    @save="saveDraftNow"
-                                    @draft-save="saveDraftNow"
-                                    @submit="requestSubmit"
-                                    @upload-img="handleUploadImg"
-                                />
-                            </ElFormItem>
-                        </div>
-                    </section>
-                </div>
+                        正文
+                    </h2>
+                    <div
+                        class="write-editor-panel"
+                        data-editor-panel="true"
+                    >
+                        <ElFormItem prop="content">
+                            <ArticleWriteEditor
+                                ref="articleEditorRef"
+                                v-model="articleForm.content"
+                                :loading="pageLoading"
+                                :saving="submitting"
+                                @save="saveDraftNow"
+                                @draft-save="saveDraftNow"
+                                @submit="requestSubmit"
+                                @upload-img="handleUploadImg"
+                            />
+                        </ElFormItem>
+                    </div>
+                </section>
 
                 <ArticleWriteInspectorShell
                     :active-inspector="activeInspector"
@@ -719,7 +722,7 @@
             :close-on-click-modal="false"
         >
             <p class="text-sm text-[var(--fsusblog-text-secondary)]">
-                服务端草稿仍是长期权威。浏览器会在 12 小时内短期保留有界的未确认正文；返回编辑页后如存在额外内容，会要求你明确恢复或丢弃。
+                服务端草稿仍是长期权威。未确认正文以明文暂存在本机浏览器，未加密，最长 7 天，服务端确认后即删除；返回编辑页后如存在额外内容，会要求你明确恢复或丢弃。
             </p>
             <template #footer>
                 <div class="grid grid-cols-2 gap-4">
@@ -761,9 +764,12 @@ import {
     useArticleWriteInspector,
     type ArticleWriteInspectorView
 } from '@/composables/useArticleWriteInspector';
+import { ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE } from '@/services/articleRecoveryJournal';
 import { showErrorToast } from '@/utils/errorPresentation';
 
 defineOptions({ name: 'ArticleWriteView' });
+
+const articleRecoveryPrivacyNotice = ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE;
 
 type SubmitChecklistState = 'pass' | 'warning';
 
@@ -1126,6 +1132,14 @@ const submitQuickCreateTag = async (): Promise<void> =>
     flex-direction: column;
 }
 
+.write-document-canvas
+ {
+    box-sizing: border-box;
+    width: min(100%, var(--fsusblog-article-document-inline-size));
+    margin-inline: auto;
+    padding: 0 1rem;
+}
+
 .write-draft-banner
  {
     display: flex;
@@ -1154,6 +1168,15 @@ const submitQuickCreateTag = async (): Promise<void> =>
     margin: 0;
     color: var(--fsusblog-text-tertiary);
     font-size: 14px;
+    font-weight: 500;
+    line-height: 1.55;
+}
+
+.write-recovery-privacy
+ {
+    margin: 0.5rem 0 0;
+    color: var(--fsusblog-text-tertiary);
+    font-size: 12px;
     font-weight: 500;
     line-height: 1.55;
 }
@@ -1282,17 +1305,6 @@ const submitQuickCreateTag = async (): Promise<void> =>
     color: var(--fsusblog-color-warning);
 }
 
-.write-grid
- {
-    display: grid;
-    box-sizing: border-box;
-    width: min(100%, var(--fsusblog-article-document-inline-size));
-    align-items: start;
-    grid-template-columns: minmax(0, 1fr);
-    margin-inline: auto;
-    padding: 0 1rem;
-}
-
 .write-editor-panel
  {
     min-width: 0;
@@ -1304,17 +1316,9 @@ const submitQuickCreateTag = async (): Promise<void> =>
     min-width: 0;
 }
 
-.write-title-panel
- {
-    box-sizing: border-box;
-    width: min(100%, var(--fsusblog-article-document-inline-size));
-    margin-inline: auto;
-    margin-bottom: 1.5rem;
-}
-
 @media (width >= 1024px)
  {
-    .write-title-panel
+    .write-document-canvas
  {
         padding-right: calc(
             var(--fsus-control-height-spacious) + var(--fsus-space-8)
@@ -1325,6 +1329,14 @@ const submitQuickCreateTag = async (): Promise<void> =>
 .write-disclosure-summary::-webkit-details-marker
  {
     display: none;
+}
+
+@media (width <= 767px)
+ {
+    .write-workspace
+ {
+        padding-bottom: 5rem;
+    }
 }
 
 @media (width <= 1023px)

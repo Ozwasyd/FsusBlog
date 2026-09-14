@@ -1,12 +1,13 @@
+import { execFile } from 'node:child_process';
 import crypto from 'node:crypto';
 import diagnosticsChannel from 'node:diagnostics_channel';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
-import { execFile } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { format, promisify } from 'node:util';
+
 import { readVerifiedSecurityCleanupReceipt } from './security-cleanup-barrier.mjs';
 
 const execFileAsync = promisify(execFile);

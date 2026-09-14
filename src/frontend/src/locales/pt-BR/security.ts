@@ -1,7 +1,7 @@
-export const localeDomainIdentity = Object.freeze({ locale: 'pt-BR', domain: 'security' } as const)
+export const localeDomainIdentity = Object.freeze({ locale: 'pt-BR', domain: 'security' } as const);
 
-import type { LocaleSchema } from '../keys'
-import type { security as zhCNSecurity } from '../zh-CN/security'
+import type { LocaleSchema } from '../keys';
+import type { security as zhCNSecurity } from '../zh-CN/security';
 
 export const security = {
     challenge: {
@@ -114,4 +114,4 @@ export const security = {
         verifyCta: 'Verificar',
         verifying: 'Verificando'
     }
-} as const satisfies LocaleSchema<typeof zhCNSecurity>
+} as const satisfies LocaleSchema<typeof zhCNSecurity>;

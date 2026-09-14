@@ -6,22 +6,11 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { changeContract } from '../../tools/governance/change-contract-registry.mjs';
-import {
-    governanceContentDigest,
-    validateEvidenceLocationMigrationLedger,
-    verifyEvidenceLocationGovernance
-} from '../../tools/test/evidence-location-contract.mjs';
-import {
-    generateEvidenceLocationGovernance,
-    validateEvidenceLocationClassificationOverrides
-} from '../../tools/test/generate-evidence-location-governance.mjs';
-import {
-    evidenceLocationDigest,
-    scanEvidenceLocations
-} from '../../tools/test/evidence-location-scanner.mjs';
-import { generateCurrentRunEvidenceLocationAcceptance } from '../../tools/test/generate-current-run-evidence-location-acceptance.mjs';
-
+const {changeContract} = await import(new URL('../../tools/governance/change-contract-registry.mjs', import.meta.url));
+const {governanceContentDigest, validateEvidenceLocationMigrationLedger, verifyEvidenceLocationGovernance} = await import(new URL('../../tools/test/evidence-location-contract.mjs', import.meta.url));
+const {generateEvidenceLocationGovernance, validateEvidenceLocationClassificationOverrides} = await import(new URL('../../tools/test/generate-evidence-location-governance.mjs', import.meta.url));
+const {evidenceLocationDigest, scanEvidenceLocations} = await import(new URL('../../tools/test/evidence-location-scanner.mjs', import.meta.url));
+const {generateCurrentRunEvidenceLocationAcceptance} = await import(new URL('../../tools/test/generate-current-run-evidence-location-acceptance.mjs', import.meta.url));
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const load = (name) => JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'config/testing', name), 'utf8'));
 const seal = (value) => ({ ...value, contentDigest: governanceContentDigest(value) });

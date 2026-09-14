@@ -4,14 +4,10 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { admitBrowserReleaseCleanAttempt } from '../../tools/release/browser-release-clean-attempt-consumers.mjs';
-import {
-    cleanAttemptEvidenceInputSchema,
-    readCleanAttemptEvidenceSource
-} from '../../tools/release/clean-attempt-evidence-source.mjs';
-import { runProducerAttempts } from '../../tools/test/attempt-runner.mjs';
-import { sha256 } from '../../tools/test/attempt-provenance.mjs';
-
+const {admitBrowserReleaseCleanAttempt} = await import(new URL('../../tools/release/browser-release-clean-attempt-consumers.mjs', import.meta.url));
+const {cleanAttemptEvidenceInputSchema, readCleanAttemptEvidenceSource} = await import(new URL('../../tools/release/clean-attempt-evidence-source.mjs', import.meta.url));
+const {runProducerAttempts} = await import(new URL('../../tools/test/attempt-runner.mjs', import.meta.url));
+const {sha256} = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
 const root = path.resolve(import.meta.dirname, '../..');
 const fixtureCommand = path.join(root, 'tests/tools/fixtures/attempt-runner-command.mjs');
 const sourceCommit = '1'.repeat(40);

@@ -3,8 +3,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { loadConfiguredCleanAttemptEvidence } from './clean-attempt-evidence-source.mjs';
-import { cleanFirstAttemptVerdict, fileBackedCleanAttemptEvidence } from './clean-first-attempt-verifier.mjs';
 import { resolveTransportedCleanAttemptEvidence } from './clean-attempt-evidence-transport.mjs';
+import { cleanFirstAttemptVerdict, fileBackedCleanAttemptEvidence } from './clean-first-attempt-verifier.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const inventoryFile = path.join(root, 'config/testing/clean-attempt-consumers.json');

@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -54,14 +56,104 @@ public sealed class PublicArtifactRevocationOptions
     }
 }
 
+public enum PublicArtifactRevocationTargetKind : byte
+{
+    ExactArticle = 0,
+    Global = 1,
+    Scope = 2
+}
+
+public enum PublicArtifactRevocationScope : byte
+{
+    None = 0,
+    Category = 1,
+    Tag = 2,
+    ArticleDetail = 3,
+    ArticleList = 4,
+    ArticleHot = 5,
+    ArticleFeatured = 6,
+    ArticleHtml = 7,
+    PublicHtml = 8
+}
+
+public readonly record struct PublicArtifactRevocationTarget(
+    PublicArtifactRevocationTargetKind Kind,
+    int ArticleId = 0,
+    PublicArtifactRevocationScope Scope = PublicArtifactRevocationScope.None)
+{
+    public static PublicArtifactRevocationTarget ForArticle(int articleId)
+        => new(PublicArtifactRevocationTargetKind.ExactArticle, articleId);
+
+    public static PublicArtifactRevocationTarget Global
+        => new(PublicArtifactRevocationTargetKind.Global);
+
+    public static PublicArtifactRevocationTarget ForScope(PublicArtifactRevocationScope scope)
+        => new(PublicArtifactRevocationTargetKind.Scope, Scope: scope);
+
+    internal bool IsValid
+        => Kind switch
+        {
+            PublicArtifactRevocationTargetKind.ExactArticle => ArticleId > 0
+                && Scope == PublicArtifactRevocationScope.None,
+            PublicArtifactRevocationTargetKind.Global => ArticleId == 0
+                && Scope == PublicArtifactRevocationScope.None,
+            PublicArtifactRevocationTargetKind.Scope => ArticleId == 0
+                && Scope is > PublicArtifactRevocationScope.None and <= PublicArtifactRevocationScope.PublicHtml,
+            _ => false
+        };
+
+    internal string StorageField
+        => Kind switch
+        {
+            PublicArtifactRevocationTargetKind.ExactArticle when IsValid
+                => ArticleId.ToString(CultureInfo.InvariantCulture),
+            PublicArtifactRevocationTargetKind.Global when IsValid => "0",
+            PublicArtifactRevocationTargetKind.Scope when IsValid
+                => $"scope:{((byte)Scope).ToString(CultureInfo.InvariantCulture)}",
+            _ => throw new ArgumentOutOfRangeException(nameof(Kind), "public artifact revocation target is invalid")
+        };
+}
+
 public readonly record struct PublicArtifactTombstone(
     int ArticleId,
     long Generation,
     long RevokedAtUnixMilliseconds,
     bool PurgeConfirmed = false,
-    bool TransitionPending = false)
+    bool TransitionPending = false,
+    PublicArtifactRevocationTargetKind TargetKind = PublicArtifactRevocationTargetKind.ExactArticle,
+    PublicArtifactRevocationScope Scope = PublicArtifactRevocationScope.None)
 {
     public string Marker => $"g{Generation.ToString(CultureInfo.InvariantCulture)}";
+
+    public PublicArtifactRevocationTarget Target => new(TargetKind, ArticleId, Scope);
+
+    public static PublicArtifactTombstone ForGlobal(
+        long generation,
+        long revokedAtUnixMilliseconds,
+        bool purgeConfirmed = false,
+        bool transitionPending = false)
+        => new(
+            0,
+            generation,
+            revokedAtUnixMilliseconds,
+            purgeConfirmed,
+            transitionPending,
+            PublicArtifactRevocationTargetKind.Global);
+
+    public static PublicArtifactTombstone ForScope(
+        PublicArtifactRevocationScope scope,
+        long generation,
+        long revokedAtUnixMilliseconds,
+        bool purgeConfirmed = false,
+        bool transitionPending = false)
+        => new(
+            0,
+            generation,
+            revokedAtUnixMilliseconds,
+            purgeConfirmed,
+            transitionPending,
+            PublicArtifactRevocationTargetKind.Scope,
+            scope);
 }
 
 public sealed record PublicArtifactRevocationMessage(
@@ -70,96 +162,266 @@ public sealed record PublicArtifactRevocationMessage(
     long Generation,
     long RevokedAtUnixMilliseconds,
     bool PurgeConfirmed = false,
-    bool TransitionPending = false)
+    bool TransitionPending = false,
+    PublicArtifactRevocationTargetKind TargetKind = PublicArtifactRevocationTargetKind.ExactArticle,
+    PublicArtifactRevocationScope Scope = PublicArtifactRevocationScope.None)
 {
     internal const string Channel = "fsus:public-artifact-revocation:v1";
 
     internal PublicArtifactTombstone Tombstone
-        => new(ArticleId, Generation, RevokedAtUnixMilliseconds, PurgeConfirmed, TransitionPending);
+        => new(
+            ArticleId,
+            Generation,
+            RevokedAtUnixMilliseconds,
+            PurgeConfirmed,
+            TransitionPending,
+            TargetKind,
+            Scope);
 }
 
 public sealed class PublicArtifactRevocationRegistry
 {
-    private readonly ConcurrentDictionary<int, PublicArtifactTombstone> _active = new();
-    private readonly ConcurrentDictionary<int, long> _observedGenerations = new();
-    private readonly ConcurrentDictionary<int, long> _clearedGenerations = new();
+    internal const string MeterName = "FsusBlog.PublicArtifactRevocation";
+    private static readonly Meter s_meter = new(MeterName, "1.0.0");
+    private static readonly Counter<long> s_lookupHits = s_meter.CreateCounter<long>(
+        "fsus.public_artifact_revocation.lookup.hit");
+    private static readonly Counter<long> s_lookupMisses = s_meter.CreateCounter<long>(
+        "fsus.public_artifact_revocation.lookup.miss");
+    private static readonly Counter<long> s_applyCount = s_meter.CreateCounter<long>(
+        "fsus.public_artifact_revocation.apply");
+    private static readonly Counter<long> s_clearCount = s_meter.CreateCounter<long>(
+        "fsus.public_artifact_revocation.clear");
+    private static readonly UpDownCounter<long> s_activeCount = s_meter.CreateUpDownCounter<long>(
+        "fsus.public_artifact_revocation.active.count");
+    private static readonly Histogram<double> s_lookupDuration = s_meter.CreateHistogram<double>(
+        "fsus.public_artifact_revocation.lookup.duration",
+        "ms");
+    private readonly ConcurrentDictionary<int, PublicArtifactTombstone> _exact = new();
+    private readonly ConcurrentDictionary<PublicArtifactRevocationScope, PublicArtifactTombstone> _scopes = new();
+    private readonly Dictionary<PublicArtifactRevocationTarget, long> _observedGenerations = [];
+    private readonly Dictionary<PublicArtifactRevocationTarget, long> _clearedGenerations = [];
+    private readonly object _mutationLock = new();
+    private TombstoneBox? _global;
+    private int _activeCount;
     private long _generation;
+    private long _lookupCount;
+    private long _exactHits;
+    private long _globalHits;
+    private long _scopeHits;
+    private long _misses;
+    private long _applies;
+    private long _clears;
 
     public long CurrentGeneration => Volatile.Read(ref _generation);
 
     public void Apply(PublicArtifactTombstone tombstone)
     {
-        if (tombstone.Generation <= 0)
+        PublicArtifactRevocationTarget target = tombstone.Target;
+        if (tombstone.Generation <= 0 || !target.IsValid)
         {
             return;
         }
 
-        if (_clearedGenerations.TryGetValue(tombstone.ArticleId, out long cleared)
-            && cleared >= tombstone.Generation)
+        lock (_mutationLock)
         {
-            return;
-        }
+            if (_clearedGenerations.TryGetValue(target, out long cleared)
+                && cleared >= tombstone.Generation)
+            {
+                return;
+            }
 
-        long observed = _observedGenerations.AddOrUpdate(
-            tombstone.ArticleId,
-            tombstone.Generation,
-            (_, current) => Math.Max(current, tombstone.Generation));
-        if (observed != tombstone.Generation)
-        {
-            return;
-        }
+            if (_observedGenerations.TryGetValue(target, out long observed)
+                && observed > tombstone.Generation)
+            {
+                return;
+            }
 
-        _active.AddOrUpdate(
-            tombstone.ArticleId,
-            tombstone,
-            (_, current) => Merge(current, tombstone));
-        AdvanceGeneration(tombstone.Generation);
+            _observedGenerations[target] = tombstone.Generation;
+            bool hadActive = TryGetActive(target, out PublicArtifactTombstone current);
+            PublicArtifactTombstone applied = hadActive ? Merge(current, tombstone) : tombstone;
+            SetActive(target, applied);
+            if (!hadActive)
+            {
+                Interlocked.Increment(ref _activeCount);
+                s_activeCount.Add(1);
+            }
+
+            AdvanceGeneration(tombstone.Generation);
+            Interlocked.Increment(ref _applies);
+            s_applyCount.Add(1);
+        }
     }
 
     public void Clear(PublicArtifactTombstone tombstone)
     {
-        _clearedGenerations.AddOrUpdate(
-            tombstone.ArticleId,
-            tombstone.Generation,
-            (_, current) => Math.Max(current, tombstone.Generation));
-        _observedGenerations.AddOrUpdate(
-            tombstone.ArticleId,
-            tombstone.Generation,
-            (_, current) => Math.Max(current, tombstone.Generation));
-        ((ICollection<KeyValuePair<int, PublicArtifactTombstone>>)_active)
-            .Remove(new KeyValuePair<int, PublicArtifactTombstone>(tombstone.ArticleId, tombstone));
-        AdvanceGeneration(tombstone.Generation);
+        PublicArtifactRevocationTarget target = tombstone.Target;
+        if (tombstone.Generation <= 0 || !target.IsValid)
+        {
+            return;
+        }
+
+        lock (_mutationLock)
+        {
+            _clearedGenerations[target] = _clearedGenerations.TryGetValue(target, out long cleared)
+                ? Math.Max(cleared, tombstone.Generation)
+                : tombstone.Generation;
+            _observedGenerations[target] = _observedGenerations.TryGetValue(target, out long observed)
+                ? Math.Max(observed, tombstone.Generation)
+                : tombstone.Generation;
+            if (TryGetActive(target, out PublicArtifactTombstone active)
+                && active.Generation <= tombstone.Generation)
+            {
+                RemoveActive(target, active);
+                Interlocked.Decrement(ref _activeCount);
+                s_activeCount.Add(-1);
+            }
+
+            AdvanceGeneration(tombstone.Generation);
+            Interlocked.Increment(ref _clears);
+            s_clearCount.Add(1);
+        }
     }
 
     public bool TryGet(int articleId, out PublicArtifactTombstone tombstone)
-        => _active.TryGetValue(articleId, out tombstone);
+    {
+        if (articleId > 0)
+        {
+            return _exact.TryGetValue(articleId, out tombstone);
+        }
+
+        tombstone = default;
+        return false;
+    }
 
     internal bool TryResolve(in PublicHotReadRoute route, out PublicArtifactTombstone tombstone)
     {
-        if (route.ArticleId > 0 && _active.TryGetValue(route.ArticleId, out tombstone))
+        long lookup = Interlocked.Increment(ref _lookupCount);
+        bool sampled = (lookup & 63) == 0;
+        long started = sampled ? Stopwatch.GetTimestamp() : 0;
+        if (route.ArticleId > 0 && _exact.TryGetValue(route.ArticleId, out tombstone))
         {
+            Interlocked.Increment(ref _exactHits);
+            s_lookupHits.Add(1, new KeyValuePair<string, object?>("target", "exact"));
+            RecordLookupDuration(sampled, started);
             return true;
         }
 
-        if (_active.TryGetValue(0, out tombstone))
+        TombstoneBox? global = Volatile.Read(ref _global);
+        if (global is not null)
         {
+            tombstone = global.Value;
+            Interlocked.Increment(ref _globalHits);
+            s_lookupHits.Add(1, new KeyValuePair<string, object?>("target", "global"));
+            RecordLookupDuration(sampled, started);
+            return true;
+        }
+
+        PublicArtifactRevocationScope scope = ResolveScope(route.Kind);
+        if (scope != PublicArtifactRevocationScope.None
+            && _scopes.TryGetValue(scope, out tombstone))
+        {
+            Interlocked.Increment(ref _scopeHits);
+            s_lookupHits.Add(1, new KeyValuePair<string, object?>("target", "scope"));
+            RecordLookupDuration(sampled, started);
             return true;
         }
 
         tombstone = default;
-        foreach (PublicArtifactTombstone candidate in _active.Values)
-        {
-            if (candidate.Generation > tombstone.Generation)
-            {
-                tombstone = candidate;
-            }
-        }
-
-        return tombstone.Generation > 0;
+        Interlocked.Increment(ref _misses);
+        s_lookupMisses.Add(1);
+        RecordLookupDuration(sampled, started);
+        return false;
     }
 
+    internal PublicArtifactRevocationRegistrySnapshot MetricsSnapshot()
+        => new(
+            Volatile.Read(ref _activeCount),
+            Volatile.Read(ref _exactHits),
+            Volatile.Read(ref _globalHits),
+            Volatile.Read(ref _scopeHits),
+            Volatile.Read(ref _misses),
+            Volatile.Read(ref _applies),
+            Volatile.Read(ref _clears));
+
     public IReadOnlyList<PublicArtifactTombstone> Snapshot()
-        => _active.Values.OrderBy(static item => item.Generation).ToArray();
+    {
+        lock (_mutationLock)
+        {
+            var snapshot = new List<PublicArtifactTombstone>(_activeCount);
+            snapshot.AddRange(_exact.Values);
+            snapshot.AddRange(_scopes.Values);
+            TombstoneBox? global = Volatile.Read(ref _global);
+            if (global is not null)
+            {
+                snapshot.Add(global.Value);
+            }
+
+            return snapshot.OrderBy(static item => item.Generation).ToArray();
+        }
+    }
+
+    private bool TryGetActive(
+        PublicArtifactRevocationTarget target,
+        out PublicArtifactTombstone tombstone)
+    {
+        switch (target.Kind)
+        {
+            case PublicArtifactRevocationTargetKind.ExactArticle:
+                return _exact.TryGetValue(target.ArticleId, out tombstone);
+            case PublicArtifactRevocationTargetKind.Global:
+                TombstoneBox? global = Volatile.Read(ref _global);
+                if (global is not null)
+                {
+                    tombstone = global.Value;
+                    return true;
+                }
+                break;
+            case PublicArtifactRevocationTargetKind.Scope:
+                return _scopes.TryGetValue(target.Scope, out tombstone);
+        }
+
+        tombstone = default;
+        return false;
+    }
+
+    private void SetActive(PublicArtifactRevocationTarget target, PublicArtifactTombstone tombstone)
+    {
+        switch (target.Kind)
+        {
+            case PublicArtifactRevocationTargetKind.ExactArticle:
+                _exact[target.ArticleId] = tombstone;
+                break;
+            case PublicArtifactRevocationTargetKind.Global:
+                Volatile.Write(ref _global, new TombstoneBox(tombstone));
+                break;
+            case PublicArtifactRevocationTargetKind.Scope:
+                _scopes[target.Scope] = tombstone;
+                break;
+        }
+    }
+
+    private void RemoveActive(PublicArtifactRevocationTarget target, PublicArtifactTombstone tombstone)
+    {
+        switch (target.Kind)
+        {
+            case PublicArtifactRevocationTargetKind.ExactArticle:
+                _exact.TryRemove(new KeyValuePair<int, PublicArtifactTombstone>(target.ArticleId, tombstone));
+                break;
+            case PublicArtifactRevocationTargetKind.Global:
+                Volatile.Write(ref _global, null);
+                break;
+            case PublicArtifactRevocationTargetKind.Scope:
+                _scopes.TryRemove(new KeyValuePair<PublicArtifactRevocationScope, PublicArtifactTombstone>(
+                    target.Scope,
+                    tombstone));
+                break;
+        }
+    }
+
+    private static PublicArtifactRevocationScope ResolveScope(PublicHotReadRouteKind routeKind)
+        => routeKind is > PublicHotReadRouteKind.None and <= PublicHotReadRouteKind.PublicHtml
+            ? (PublicArtifactRevocationScope)(byte)routeKind
+            : PublicArtifactRevocationScope.None;
 
     private static PublicArtifactTombstone Merge(
         PublicArtifactTombstone current,
@@ -190,12 +452,35 @@ public sealed class PublicArtifactRevocationRegistry
             current = observed;
         }
     }
+
+    private static void RecordLookupDuration(bool sampled, long started)
+    {
+        if (sampled)
+        {
+            s_lookupDuration.Record(Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+        }
+    }
+
+    private sealed record TombstoneBox(PublicArtifactTombstone Value);
 }
+
+public readonly record struct PublicArtifactRevocationRegistrySnapshot(
+    int ActiveCount,
+    long ExactHits,
+    long GlobalHits,
+    long ScopeHits,
+    long Misses,
+    long Applies,
+    long Clears);
 
 public interface IPublicArtifactRevocationStateStore
 {
-    Task<PublicArtifactTombstone> BeginMutationFenceAsync(int articleId, CancellationToken cancellationToken);
-    Task<PublicArtifactTombstone> RevokeArticleAsync(int articleId, CancellationToken cancellationToken);
+    Task<PublicArtifactTombstone> BeginMutationFenceAsync(
+        PublicArtifactRevocationTarget target,
+        CancellationToken cancellationToken);
+    Task<PublicArtifactTombstone> RevokeAsync(
+        PublicArtifactRevocationTarget target,
+        CancellationToken cancellationToken);
     Task<PublicArtifactTombstone?> MarkTransitionCommittedAsync(
         PublicArtifactTombstone tombstone,
         CancellationToken cancellationToken);
@@ -206,7 +491,7 @@ public interface IPublicArtifactRevocationStateStore
 }
 
 public sealed class RedisPublicArtifactRevocationStateStore(
-    IConnectionMultiplexer redis,
+    IRedisOperationExecutor redis,
     IRuntimeKeyScope runtimeKeyScope) : IPublicArtifactRevocationStateStore
 {
     private const string GenerationKey = "public-hot-read:revocation:generation";
@@ -220,6 +505,8 @@ public sealed class RedisPublicArtifactRevocationStateStore(
         "local generation = redis.call('INCR', @generationKey); " +
         "local payload = cjson.encode({" +
         "ArticleId=tonumber(@articleId)," +
+        "TargetKind=tonumber(@targetKind)," +
+        "Scope=tonumber(@scope)," +
         "Generation=generation," +
         "RevokedAtUnixMilliseconds=tonumber(@revokedAt)," +
         "PurgeConfirmed=false," +
@@ -237,24 +524,30 @@ public sealed class RedisPublicArtifactRevocationStateStore(
         "local decoded = cjson.decode(value); " +
         "if tonumber(decoded.Generation) ~= tonumber(@generation) then return 0; end; " +
         "redis.call('HDEL', @hash, @field); return 1;");
-    private readonly IDatabase _database = redis.GetDatabase();
-    private readonly ISubscriber _subscriber = redis.GetSubscriber();
-
     public async Task<PublicArtifactTombstone> BeginMutationFenceAsync(
-        int articleId,
+        PublicArtifactRevocationTarget target,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        RedisResult result = await _database.ScriptEvaluateAsync(
-                s_beginTransition,
-                new
-                {
-                    generationKey = (RedisKey)runtimeKeyScope.PrefixKey(GenerationKey),
-                    hash = (RedisKey)runtimeKeyScope.PrefixKey(TombstoneHashKey),
-                    field = (RedisValue)articleId.ToString(CultureInfo.InvariantCulture),
-                    articleId,
-                    revokedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-                })
+        if (!target.IsValid)
+        {
+            throw new ArgumentOutOfRangeException(nameof(target));
+        }
+
+        RedisResult result = await ExecuteDatabaseAsync(
+                database => database.ScriptEvaluateAsync(
+                    s_beginTransition,
+                    new
+                    {
+                        generationKey = (RedisKey)runtimeKeyScope.PrefixKey(GenerationKey),
+                        hash = (RedisKey)runtimeKeyScope.PrefixKey(TombstoneHashKey),
+                        field = (RedisValue)target.StorageField,
+                        articleId = target.ArticleId,
+                        targetKind = (byte)target.Kind,
+                        scope = (byte)target.Scope,
+                        revokedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                    }),
+                cancellationToken)
             .ConfigureAwait(false);
         string payload = result.ToString();
         return TryParse(payload, out PublicArtifactTombstone tombstone)
@@ -262,27 +555,47 @@ public sealed class RedisPublicArtifactRevocationStateStore(
             : throw new InvalidOperationException("public artifact mutation fence is already active");
     }
 
-    public async Task<PublicArtifactTombstone> RevokeArticleAsync(int articleId, CancellationToken cancellationToken)
+    public async Task<PublicArtifactTombstone> RevokeAsync(
+        PublicArtifactRevocationTarget target,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (!target.IsValid)
+        {
+            throw new ArgumentOutOfRangeException(nameof(target));
+        }
+
         RedisKey hashKey = runtimeKeyScope.PrefixKey(TombstoneHashKey);
-        RedisValue field = articleId.ToString(CultureInfo.InvariantCulture);
-        RedisValue existing = await _database.HashGetAsync(hashKey, field).ConfigureAwait(false);
+        RedisValue field = target.StorageField;
+        RedisValue existing = await ExecuteDatabaseAsync(
+            database => database.HashGetAsync(hashKey, field),
+            cancellationToken).ConfigureAwait(false);
         if (TryParse(existing, out PublicArtifactTombstone tombstone))
         {
             return tombstone;
         }
 
-        long generation = await _database.StringIncrementAsync(runtimeKeyScope.PrefixKey(GenerationKey)).ConfigureAwait(false);
-        tombstone = new PublicArtifactTombstone(articleId, generation, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        long generation = await ExecuteDatabaseAsync(
+            database => database.StringIncrementAsync(runtimeKeyScope.PrefixKey(GenerationKey)),
+            cancellationToken).ConfigureAwait(false);
+        tombstone = new PublicArtifactTombstone(
+            target.ArticleId,
+            generation,
+            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            TargetKind: target.Kind,
+            Scope: target.Scope);
         string payload = JsonSerializer.Serialize(tombstone);
-        bool stored = await _database.HashSetAsync(hashKey, field, payload, When.NotExists).ConfigureAwait(false);
+        bool stored = await ExecuteDatabaseAsync(
+            database => database.HashSetAsync(hashKey, field, payload, When.NotExists),
+            cancellationToken).ConfigureAwait(false);
         if (stored)
         {
             return tombstone;
         }
 
-        existing = await _database.HashGetAsync(hashKey, field).ConfigureAwait(false);
+        existing = await ExecuteDatabaseAsync(
+            database => database.HashGetAsync(hashKey, field),
+            cancellationToken).ConfigureAwait(false);
         return TryParse(existing, out tombstone)
             ? tombstone
             : throw new InvalidOperationException("public artifact tombstone could not be persisted");
@@ -291,7 +604,9 @@ public sealed class RedisPublicArtifactRevocationStateStore(
     public async Task<IReadOnlyList<PublicArtifactTombstone>> LoadActiveAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        HashEntry[] entries = await _database.HashGetAllAsync(runtimeKeyScope.PrefixKey(TombstoneHashKey)).ConfigureAwait(false);
+        HashEntry[] entries = await ExecuteDatabaseAsync(
+            database => database.HashGetAllAsync(runtimeKeyScope.PrefixKey(TombstoneHashKey)),
+            cancellationToken).ConfigureAwait(false);
         return entries
             .Select(static entry => TryParse(entry.Value, out PublicArtifactTombstone value) ? value : default)
             .Where(static value => value.Generation > 0)
@@ -312,15 +627,17 @@ public sealed class RedisPublicArtifactRevocationStateStore(
         {
             TransitionPending = false
         };
-        RedisResult result = await _database.ScriptEvaluateAsync(
-                s_compareAndSet,
-                new
-                {
-                    hash = (RedisKey)runtimeKeyScope.PrefixKey(TombstoneHashKey),
-                    field = (RedisValue)tombstone.ArticleId.ToString(CultureInfo.InvariantCulture),
-                    generation = tombstone.Generation,
-                    replacement = (RedisValue)JsonSerializer.Serialize(committed)
-                })
+        RedisResult result = await ExecuteDatabaseAsync(
+                database => database.ScriptEvaluateAsync(
+                    s_compareAndSet,
+                    new
+                    {
+                        hash = (RedisKey)runtimeKeyScope.PrefixKey(TombstoneHashKey),
+                        field = (RedisValue)tombstone.Target.StorageField,
+                        generation = tombstone.Generation,
+                        replacement = (RedisValue)JsonSerializer.Serialize(committed)
+                    }),
+                cancellationToken)
             .ConfigureAwait(false);
         return (long)result == 1 ? committed : null;
     }
@@ -336,8 +653,10 @@ public sealed class RedisPublicArtifactRevocationStateStore(
         }
 
         RedisKey hashKey = runtimeKeyScope.PrefixKey(TombstoneHashKey);
-        RedisValue field = tombstone.ArticleId.ToString(CultureInfo.InvariantCulture);
-        RedisValue current = await _database.HashGetAsync(hashKey, field).ConfigureAwait(false);
+        RedisValue field = tombstone.Target.StorageField;
+        RedisValue current = await ExecuteDatabaseAsync(
+            database => database.HashGetAsync(hashKey, field),
+            cancellationToken).ConfigureAwait(false);
         if (!TryParse(current, out PublicArtifactTombstone persisted)
             || persisted.Generation != tombstone.Generation)
         {
@@ -353,15 +672,17 @@ public sealed class RedisPublicArtifactRevocationStateStore(
         {
             PurgeConfirmed = true
         };
-        RedisResult updated = await _database.ScriptEvaluateAsync(
-                s_compareAndSet,
-                new
-                {
-                    hash = hashKey,
-                    field,
-                    generation = tombstone.Generation,
-                    replacement = (RedisValue)JsonSerializer.Serialize(confirmed)
-                })
+        RedisResult updated = await ExecuteDatabaseAsync(
+                database => database.ScriptEvaluateAsync(
+                    s_compareAndSet,
+                    new
+                    {
+                        hash = hashKey,
+                        field,
+                        generation = tombstone.Generation,
+                        replacement = (RedisValue)JsonSerializer.Serialize(confirmed)
+                    }),
+                cancellationToken)
             .ConfigureAwait(false);
         if ((long)updated != 1)
         {
@@ -373,14 +694,16 @@ public sealed class RedisPublicArtifactRevocationStateStore(
     public async Task<bool> ClearAsync(PublicArtifactTombstone tombstone, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        RedisResult result = await _database.ScriptEvaluateAsync(
-                s_compareAndDelete,
-                new
-                {
-                    hash = (RedisKey)runtimeKeyScope.PrefixKey(TombstoneHashKey),
-                    field = (RedisValue)tombstone.ArticleId.ToString(CultureInfo.InvariantCulture),
-                    generation = tombstone.Generation
-                })
+        RedisResult result = await ExecuteDatabaseAsync(
+                database => database.ScriptEvaluateAsync(
+                    s_compareAndDelete,
+                    new
+                    {
+                        hash = (RedisKey)runtimeKeyScope.PrefixKey(TombstoneHashKey),
+                        field = (RedisValue)tombstone.Target.StorageField,
+                        generation = tombstone.Generation
+                    }),
+                cancellationToken)
             .ConfigureAwait(false);
         return (long)result == 1;
     }
@@ -388,11 +711,22 @@ public sealed class RedisPublicArtifactRevocationStateStore(
     public async Task PublishAsync(PublicArtifactRevocationMessage message, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        await _subscriber.PublishAsync(
-                RedisChannel.Literal(runtimeKeyScope.PrefixKey(PublicArtifactRevocationMessage.Channel)),
-                JsonSerializer.Serialize(message))
+        await redis.ExecuteAsync(
+                RedisOperationPort.PublicArtifactRevocation,
+                (multiplexer, _) => multiplexer.GetSubscriber().PublishAsync(
+                    RedisChannel.Literal(runtimeKeyScope.PrefixKey(PublicArtifactRevocationMessage.Channel)),
+                    JsonSerializer.Serialize(message)),
+                cancellationToken)
             .ConfigureAwait(false);
     }
+
+    private Task<T> ExecuteDatabaseAsync<T>(
+        Func<IDatabase, Task<T>> operation,
+        CancellationToken cancellationToken)
+        => redis.ExecuteAsync(
+            RedisOperationPort.PublicArtifactRevocation,
+            (multiplexer, _) => operation(multiplexer.GetDatabase()),
+            cancellationToken);
 
     private static bool TryParse(RedisValue payload, out PublicArtifactTombstone tombstone)
     {
@@ -401,7 +735,7 @@ public sealed class RedisPublicArtifactRevocationStateStore(
             tombstone = payload.HasValue
                 ? JsonSerializer.Deserialize<PublicArtifactTombstone>((string)payload!)
                 : default;
-            return tombstone.Generation > 0;
+            return tombstone.Generation > 0 && tombstone.Target.IsValid;
         }
         catch (JsonException)
         {
@@ -445,14 +779,15 @@ public sealed class HttpPublicArtifactCdnPurger(
             ? new Uri($"https://api.cloudflare.com/client/v4/zones/{value.CloudflareZoneId}/purge_cache", UriKind.Absolute)
             : new Uri(value.CdnPurgeEndpoint, UriKind.Absolute);
 
-        string articlePath = tombstone.ArticleId > 0 ? $"/article/{tombstone.ArticleId}" : "/*";
-        string binaryPath = tombstone.ArticleId > 0 ? $"/api/binary/article/{tombstone.ArticleId}.aeds" : "/api/binary/article/*";
+        bool exactArticle = tombstone.TargetKind == PublicArtifactRevocationTargetKind.ExactArticle;
+        string articlePath = exactArticle ? $"/article/{tombstone.ArticleId}" : "/*";
+        string binaryPath = exactArticle ? $"/api/binary/article/{tombstone.ArticleId}.aeds" : "/api/binary/article/*";
         var payload = new PublicArtifactCdnPurgeRequest(
             tombstone.Generation,
             tombstone.Marker,
             value.PurgeAllOnArticleRevocation,
             [articlePath, binaryPath, "/api/binary/article/list/*", "/api/binary/article/hot/*", "/api/binary/article/featured/*"],
-            ["fsus-public-artifact", tombstone.ArticleId > 0 ? $"article-{tombstone.ArticleId}" : "all-articles"]);
+            ["fsus-public-artifact", exactArticle ? $"article-{tombstone.ArticleId}" : "all-articles"]);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
         {
@@ -505,10 +840,16 @@ public sealed class PublicArtifactRevocationCoordinator(
     public long CurrentGeneration => registry.CurrentGeneration;
 
     public Task BeginArticleMutationFenceAsync(int articleId, CancellationToken cancellationToken = default)
-        => RevokeAsync(articleId, transitionPending: true, cancellationToken: cancellationToken);
+        => RevokeAsync(
+            PublicArtifactRevocationTarget.ForArticle(articleId),
+            transitionPending: true,
+            cancellationToken: cancellationToken);
 
     public Task BeginGlobalMutationFenceAsync(CancellationToken cancellationToken = default)
-        => RevokeAsync(0, transitionPending: true, cancellationToken: cancellationToken);
+        => RevokeAsync(
+            PublicArtifactRevocationTarget.Global,
+            transitionPending: true,
+            cancellationToken: cancellationToken);
 
     public async Task<bool> RecoverPendingMutationFenceAsync(
         PublicArtifactTombstone tombstone,
@@ -550,10 +891,16 @@ public sealed class PublicArtifactRevocationCoordinator(
     }
 
     public Task RevokeArticleAsync(int articleId, CancellationToken cancellationToken = default)
-        => RevokeAsync(articleId, transitionPending: false, cancellationToken: cancellationToken);
+        => RevokeAsync(
+            PublicArtifactRevocationTarget.ForArticle(articleId),
+            transitionPending: false,
+            cancellationToken: cancellationToken);
 
     public Task RevokeAllAsync(CancellationToken cancellationToken = default)
-        => RevokeAsync(0, transitionPending: false, cancellationToken: cancellationToken);
+        => RevokeAsync(
+            PublicArtifactRevocationTarget.Global,
+            transitionPending: false,
+            cancellationToken: cancellationToken);
 
     public async Task CompleteRebuildAsync(
         IReadOnlyCollection<int>? articleIds,
@@ -570,12 +917,15 @@ public sealed class PublicArtifactRevocationCoordinator(
                 continue;
             }
 
-            if (tombstone.ArticleId == 0 && selected is not null)
+            if (tombstone.TargetKind != PublicArtifactRevocationTargetKind.ExactArticle
+                && selected is not null)
             {
                 continue;
             }
 
-            if (selected is not null && tombstone.ArticleId != 0 && !selected.Contains(tombstone.ArticleId))
+            if (selected is not null
+                && tombstone.TargetKind == PublicArtifactRevocationTargetKind.ExactArticle
+                && !selected.Contains(tombstone.ArticleId))
             {
                 continue;
             }
@@ -590,13 +940,13 @@ public sealed class PublicArtifactRevocationCoordinator(
     }
 
     private async Task RevokeAsync(
-        int articleId,
+        PublicArtifactRevocationTarget target,
         bool transitionPending,
         CancellationToken cancellationToken)
     {
         PublicArtifactTombstone tombstone = transitionPending
-            ? await stateStore.BeginMutationFenceAsync(articleId, cancellationToken).ConfigureAwait(false)
-            : await stateStore.RevokeArticleAsync(articleId, cancellationToken).ConfigureAwait(false);
+            ? await stateStore.BeginMutationFenceAsync(target, cancellationToken).ConfigureAwait(false)
+            : await stateStore.RevokeAsync(target, cancellationToken).ConfigureAwait(false);
         if (!transitionPending && tombstone.TransitionPending)
         {
             tombstone = await stateStore
@@ -633,12 +983,14 @@ public sealed class PublicArtifactRevocationCoordinator(
                 tombstone.Generation,
                 tombstone.RevokedAtUnixMilliseconds,
                 tombstone.PurgeConfirmed,
-                tombstone.TransitionPending),
+                tombstone.TransitionPending,
+                tombstone.TargetKind,
+                tombstone.Scope),
             cancellationToken);
 }
 
 public sealed class PublicArtifactRevocationSubscriber(
-    IConnectionMultiplexer redis,
+    IRedisOperationExecutor redis,
     IRuntimeKeyScope runtimeKeyScope,
     IPublicArtifactRevocationStateStore stateStore,
     PublicArtifactRevocationRegistry registry,
@@ -649,9 +1001,11 @@ public sealed class PublicArtifactRevocationSubscriber(
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        ISubscriber subscriber = redis.GetSubscriber();
-        _subscription = await subscriber
-            .SubscribeAsync(RedisChannel.Literal(runtimeKeyScope.PrefixKey(PublicArtifactRevocationMessage.Channel)))
+        _subscription = await redis.ExecuteAsync(
+                RedisOperationPort.PublicArtifactRevocation,
+                (multiplexer, _) => multiplexer.GetSubscriber().SubscribeAsync(
+                    RedisChannel.Literal(runtimeKeyScope.PrefixKey(PublicArtifactRevocationMessage.Channel))),
+                cancellationToken)
             .ConfigureAwait(false);
         _subscription.OnMessage(message => Apply(message.Message));
         foreach (PublicArtifactTombstone tombstone in await stateStore.LoadActiveAsync(cancellationToken).ConfigureAwait(false))
@@ -665,7 +1019,11 @@ public sealed class PublicArtifactRevocationSubscriber(
     {
         if (_subscription is not null)
         {
-            await _subscription.UnsubscribeAsync().ConfigureAwait(false);
+            await redis.ExecuteAsync(
+                    RedisOperationPort.PublicArtifactRevocation,
+                    (_, _) => _subscription.UnsubscribeAsync(),
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
     }
 
@@ -700,7 +1058,9 @@ public sealed class PublicArtifactRevocationSubscriber(
 
         PublicHotArtifactEnqueueResult result = updateQueue.EnqueueAsync(
                 PublicHotArtifactDeliveryClass.RequiredContent,
-                tombstone.ArticleId > 0 ? tombstone.ArticleId : null,
+                tombstone.TargetKind == PublicArtifactRevocationTargetKind.ExactArticle
+                    ? tombstone.ArticleId
+                    : null,
                 "public-artifact-revocation-edge",
                 cancellationToken: CancellationToken.None)
             .GetAwaiter()
@@ -732,8 +1092,8 @@ public static class PublicArtifactRevocationMiddleware
             return next(context);
         }
 
-        if (!PublicHotReadFastPath.TryCreateRequestFeature(context, out PublicHotReadRequestFeature? feature)
-            || feature is null)
+        PublicHotReadRequestFeature? feature = context.Features.Get<PublicHotReadRequestFeature>();
+        if (feature is null)
         {
             return next(context);
         }

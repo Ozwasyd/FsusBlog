@@ -223,6 +223,17 @@ public sealed class CommentAuthorManagementService(
             }
 
             await InsertRevisionAsync(comment, comment.CurrentVersion + 1, CommentRevisionOperations.Deleted, now, null, cancellationToken);
+            await db.Insertable(new CommentModerationEvent
+            {
+                CommentId = comment.Id,
+                EventType = CommentModerationEventTypes.Delete,
+                PreviousStatus = comment.ModerationStatus,
+                NextStatus = comment.ModerationStatus,
+                ActorType = "anonymous",
+                ReasonCode = "author_deleted",
+                TransitionSource = "anonymous",
+                OccurredAtUtc = now
+            }).ExecuteCommandAsync(cancellationToken);
             await mutationOutbox.EnqueueAsync(BuildOutbox(
                 CommentMutationEventTypes.Deleted,
                 comment,
@@ -287,6 +298,17 @@ public sealed class CommentAuthorManagementService(
                 now,
                 accountId,
                 cancellationToken);
+            await db.Insertable(new CommentModerationEvent
+            {
+                CommentId = comment.Id,
+                EventType = CommentModerationEventTypes.Delete,
+                PreviousStatus = comment.ModerationStatus,
+                NextStatus = comment.ModerationStatus,
+                ActorType = "account",
+                ReasonCode = "author_deleted",
+                TransitionSource = "account",
+                OccurredAtUtc = now
+            }).ExecuteCommandAsync(cancellationToken);
             await mutationOutbox.EnqueueAsync(BuildOutbox(
                 CommentMutationEventTypes.Deleted,
                 comment,

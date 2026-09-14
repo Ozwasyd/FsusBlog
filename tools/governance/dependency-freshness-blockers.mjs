@@ -65,7 +65,8 @@ export function planBlockerIssue({ report, catalog, exceptions, issues, previous
     const blockers = report.results.filter((result) => result.state === 'uncovered' || failedByDependency.has(result.dependencyId))
         .sort((left, right) => left.dependencyId < right.dependencyId ? -1 : left.dependencyId > right.dependencyId ? 1 : 0);
     const observations = {};
-    const rows = blockers.map((result) => {
+    const rows = blockers.map((result) =>
+    {
         const prior = previousObservations[result.dependencyId];
         if (prior !== undefined && (!Number.isFinite(Date.parse(prior)) || Date.parse(prior) > Date.parse(report.now)))
         {

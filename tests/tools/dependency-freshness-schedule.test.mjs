@@ -5,16 +5,16 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { admitScheduledRun, produceScheduledFreshness, runDependencyFreshnessSchedule } from '../../tools/governance/run-dependency-freshness-schedule.mjs';
-import { resultSchema } from '../../tools/governance/dependency-freshness.mjs';
-
+const { admitScheduledRun, produceScheduledFreshness, runDependencyFreshnessSchedule } = await import(new URL('../../tools/governance/run-dependency-freshness-schedule.mjs', import.meta.url));
+const { resultSchema } = await import(new URL('../../tools/governance/dependency-freshness.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const environment = {
     GITHUB_ACTIONS: 'true', GITHUB_REPOSITORY: 'example/test', GITHUB_EVENT_NAME: 'schedule', GITHUB_REF: 'refs/heads/master',
     GITHUB_WORKFLOW_REF: 'example/test/.github/workflows/dependency-freshness.yml@refs/heads/master', GITHUB_RUN_ID: '1', GITHUB_RUN_ATTEMPT: '1'
 };
 
-test('schedule and manual dispatch are admitted only on the exact default-branch workflow', () => {
+test('schedule and manual dispatch are admitted only on the exact default-branch workflow', () =>
+{
     assert.equal(admitScheduledRun(environment, 'master'), 'example/test');
     assert.equal(admitScheduledRun({ ...environment, GITHUB_EVENT_NAME: 'workflow_dispatch' }, 'master'), 'example/test');
     for (const override of [{ GITHUB_EVENT_NAME: 'pull_request' }, { GITHUB_ACTIONS: 'false' }, { GITHUB_REF: 'refs/heads/feature' }, { GITHUB_WORKFLOW_REF: 'example/test/.github/workflows/other.yml@refs/heads/master' }])
@@ -23,11 +23,12 @@ test('schedule and manual dispatch are admitted only on the exact default-branch
     }
 });
 
-test('workflow fixes six-hour cadence, shared serialization and least-privilege write surfaces', () => {
+test('workflow fixes six-hour cadence, shared serialization and least-privilege write surfaces', () =>
+{
     const workflow = fs.readFileSync(path.join(root, '.github/workflows/dependency-freshness.yml'), 'utf8');
     assert.match(workflow, /cron: '0 \*\/6 \* \* \*'/);
     assert.match(workflow, /workflow_dispatch:/);
-    assert.match(workflow, /group: dependency-freshness-blockers\n    cancel-in-progress: false/);
+    assert.match(workflow, /group: dependency-freshness-blockers\n {4}cancel-in-progress: false/);
     assert.match(workflow, /contents: read/);
     assert.match(workflow, /issues: write/);
     assert.match(workflow, /pull-requests: read/);
@@ -35,7 +36,8 @@ test('workflow fixes six-hour cadence, shared serialization and least-privilege 
     assert.match(workflow, /run: node tools\/governance\/run-dependency-freshness-schedule.mjs/);
 });
 
-test('scheduled consumer preserves failure across create and idempotent update, then closes on recovery', async () => {
+test('scheduled consumer preserves failure across create and idempotent update, then closes on recovery', async () =>
+{
     const catalog = JSON.parse(fs.readFileSync(path.join(root, 'config/dependencies/update-surface.json'), 'utf8'));
     const report = {
         schema: resultSchema, status: 'fail', now: '2026-09-05T00:00:00Z', pullRequests: [],
@@ -46,8 +48,12 @@ test('scheduled consumer preserves failure across create and idempotent update, 
     const actions = [];
     const client = {
         listIssues: async () => structuredClone(issues),
-        applyLabel: async () => { throw new Error('unexpected PR label'); },
-        applyIssue: async (plan) => {
+        applyLabel: async () =>
+        {
+            throw new Error('unexpected PR label');
+        },
+        applyIssue: async (plan) =>
+        {
             actions.push(plan.action);
             if (plan.action === 'create')
             {
@@ -71,7 +77,8 @@ test('scheduled consumer preserves failure across create and idempotent update, 
     assert.deepEqual(actions, ['create', 'none', 'close']);
 });
 
-test('scheduled producer failure preserves an existing issue without any mutation', async () => {
+test('scheduled producer failure preserves an existing issue without any mutation', async () =>
+{
     const mutations = [];
     const client = {
         listIssues: async () => [{ number: 1, title: 'Dependency freshness blockers', state: 'open', body: 'Existing diagnostics' }],
@@ -80,12 +87,16 @@ test('scheduled producer failure preserves an existing issue without any mutatio
     };
     await assert.rejects(runDependencyFreshnessSchedule({
         root, client, withExclusiveRun: (work) => work(),
-        produceReport: async () => { throw new Error('registry unavailable'); }
+        produceReport: async () =>
+        {
+            throw new Error('registry unavailable');
+        }
     }), /registry unavailable/);
     assert.deepEqual(mutations, []);
 });
 
-test('real npm subprocess boundary accepts matching results and rejects simulation or exit-code drift', async () => {
+test('real npm subprocess boundary accepts matching results and rejects simulation or exit-code drift', async () =>
+{
     const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-freshness-producer-test-'));
     const frontend = path.join(fixtureRoot, 'src/frontend');
     fs.mkdirSync(frontend, { recursive: true });

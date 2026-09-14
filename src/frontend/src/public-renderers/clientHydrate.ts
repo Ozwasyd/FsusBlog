@@ -141,7 +141,7 @@ export async function hydratePublicPage(payload: PublicHydrationPayload): Promis
     }
 
     const shell = container.querySelector<HTMLElement>(SHELL_SELECTOR);
-    if (!shell || shell.dataset.publicHydrationKind !== payload.pageKind)
+    if (shell?.dataset.publicHydrationKind !== payload.pageKind)
     {
         return;
     }

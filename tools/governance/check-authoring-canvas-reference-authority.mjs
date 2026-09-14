@@ -83,7 +83,7 @@ export function checkAuthoringCanvasReferenceAuthority(repositoryRoot = root)
         return violations;
     }
     const resolver = codeOnly(sources.get(resolverFile));
-    const factSource = codeOnly(sources.get(factSourceFile));
+    codeOnly(sources.get(factSourceFile));
     const verifier = codeOnly(sources.get(verifierFile));
     const referenceSources = [...sources]
         .filter(([relative, source]) => relative.includes('AuthoringCanvasReference')

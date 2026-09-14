@@ -217,7 +217,10 @@ export function validateReleaseDomainMatrix(root, matrix)
             const tier = matrix.tiers.find((candidate) => candidate.id === tierId);
             const catalogPath =
                 path.join(root, `tests/fixtures/evidence-projection/${tierId}.json`);
-            if (!tier) throw new Error(`${tierId} is missing from matrix`);
+            if (!tier)
+            {
+                throw new Error(`${tierId} is missing from matrix`);
+            }
             const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
             const domainEntries = validateCatalogAgainstLedger(catalog, ledger);
             for (const field of [

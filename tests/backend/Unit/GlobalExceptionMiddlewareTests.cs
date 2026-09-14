@@ -1,6 +1,7 @@
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Codecs;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Middlewares;
 
 using Microsoft.AspNetCore.Http;
@@ -128,6 +129,21 @@ public sealed class GlobalExceptionMiddlewareTests
         await middleware.InvokeAsync(context);
 
         Assert.Equal(StatusCodes.Status501NotImplemented, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_CacheCoordinationException_Returns503WithRetryAfter()
+    {
+        var middleware = BuildMiddleware(
+            _ => throw new CacheCoordinationException("singleflight-waiter-cap", CachePolicyId.ArticleDetail));
+
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, context.Response.StatusCode);
+        Assert.Equal("1", context.Response.Headers.RetryAfter);
     }
 
     [Fact]

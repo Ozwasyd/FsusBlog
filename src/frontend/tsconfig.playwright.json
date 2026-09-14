@@ -39,6 +39,7 @@
     },
     "include": [
         "playwright.config.ts",
+        "playwright.upload-trigger.config.ts",
         "../../tests/frontend/**/*.ts",
         "src/**/*.ts",
         "wasm/web/**/*.ts"

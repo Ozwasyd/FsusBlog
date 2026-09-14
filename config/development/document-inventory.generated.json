@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:73000983eb35fe922b151764a9e30525266a9a90b4da3a1b40552ef73a419454",
+    "policyDigest": "sha256:eb5abc598b1cb0e03da9c888d1b6fc9ffaa3cbec7a0aa796579b33c941bb70eb",
     "documents": [
         {
             "path": "docs/CODE_OF_CONDUCT.md",
@@ -1487,6 +1487,20 @@
             "producer": null
         },
         {
+            "path": "docs/frontend/article-body-command-configuration.md",
+            "title": "Article body command configuration",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "frontend",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1804
+            ],
+            "producer": null
+        },
+        {
             "path": "docs/frontend/browser-runtime-baseline.md",
             "title": "Browser Runtime Baseline",
             "kind": "markdown",
@@ -1976,6 +1990,52 @@
             "relatedIssues": [
                 1013,
                 1430
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/operations/public-hot-read-hit-rate.md",
+            "title": "PublicHotRead hit-rate accounting",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "release",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1850,
+                3399
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/operations/public-hot-read-miss-path-budget.md",
+            "title": "PublicHotRead miss-path wait budget",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "release",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1838,
+                3391,
+                3393
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/operations/public-hot-read-serving-outcomes.md",
+            "title": "PublicHotRead serving miss outcomes",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "release",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                3391,
+                3395
             ],
             "producer": null
         },

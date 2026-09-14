@@ -10,9 +10,11 @@ const execFileAsync = promisify(execFile);
 const root = path.resolve(import.meta.dirname, "../..");
 const summarizer = path.join(root, "tools/transport/summarize-http3-local-evidence.mjs");
 
-test("HTTP/3 evidence summary requires both clients, fallbacks, error categories, and all netem cells", async () => {
+test("HTTP/3 evidence summary requires both clients, fallbacks, error categories, and all netem cells", async () =>
+{
     const directory = await mkdtemp(path.join(os.tmpdir(), "fsus-http3-evidence-"));
-    try {
+    try
+    {
         const probe = (major = 3) => ({
             schema: "fsusblog.http3-probe.v1",
             status: "complete",
@@ -45,9 +47,12 @@ test("HTTP/3 evidence summary requires both clients, fallbacks, error categories
             writeFile(path.join(directory, name), `${JSON.stringify(value)}\n`, "utf8")));
 
         const rows = ["condition,delay_ms,loss_percent,round,requested,http_version,status,time_total,exit_code"];
-        for (const condition of ["baseline", "rtt40", "rtt100", "rtt200", "loss1", "loss3", "loss5"]) {
-            for (const protocol of ["h2", "h3"]) {
-                for (let round = 1; round <= 3; round += 1) {
+        for (const condition of ["baseline", "rtt40", "rtt100", "rtt200", "loss1", "loss3", "loss5"])
+        {
+            for (const protocol of ["h2", "h3"])
+            {
+                for (let round = 1; round <= 3; round += 1)
+                {
                     rows.push(`${condition},0,0,${round},${protocol},${protocol === "h2" ? 2 : 3},200,0.01,0`);
                 }
             }
@@ -62,7 +67,9 @@ test("HTTP/3 evidence summary requires both clients, fallbacks, error categories
         assert.equal(summary.publicNetworkClaim, false);
         assert.equal(summary.releaseDecision.http3DefaultEnabled, false);
         assert.equal(summary.networkMatrix.length, 14);
-    } finally {
+    }
+    finally
+    {
         await rm(directory, { recursive: true, force: true });
     }
 });

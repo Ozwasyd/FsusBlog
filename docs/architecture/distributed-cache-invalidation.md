@@ -25,6 +25,7 @@ The receiving node resolves every canonical `CacheTags`/`RouteKeys`/`ArtifactKey
 - `system_page_mutation`: the exact slug's AOT/HotRead HTML route.
 - `seo_mutation` / `compliance_mutation`: SEO/compliance keys and the public shell HTML they own, never binary article frames.
 - `public_aot_artifact_updated` / `public_hot_read_version_published`: only the artifact or version named by the event.
+- `article_view_projection`: the versioned article-ID/view-count pairs only; it does not evict ArticleDetail L1 or AOT content, and it schedules the named article plus hot/featured PublicHotRead fragments.
 
 After the plan is exact, local apply is target-scoped:
 

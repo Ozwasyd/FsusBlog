@@ -829,12 +829,10 @@ public sealed class PerceptionChallengeV2VerifyService(
 }
 
 public sealed class RedisPerceptionChallengeV2Gate(
-    IConnectionMultiplexer redis,
+    IRedisOperationExecutor redis,
     IRuntimeKeyScope keyScope,
     TimeProvider timeProvider) : IPerceptionChallengeV2RedisGate
 {
-    private readonly IDatabase _database = redis.GetDatabase();
-
     public async Task<PerceptionChallengeV2AttemptGateResult> RegisterAttemptAsync(
         string challengeId,
         DateTimeOffset expiresAt,
@@ -859,11 +857,14 @@ end
 return count
 """;
             long ttlMilliseconds = Math.Max(1L, (long)Math.Ceiling(ttl.Value.TotalMilliseconds));
-            RedisResult result = await _database.ScriptEvaluateAsync(
-                    Script,
-                    [key],
-                    [ttlMilliseconds],
-                    CommandFlags.None)
+            RedisResult result = await redis.ExecuteAsync(
+                    RedisOperationPort.PerceptionChallenge,
+                    (multiplexer, _) => multiplexer.GetDatabase().ScriptEvaluateAsync(
+                        Script,
+                        [key],
+                        [ttlMilliseconds],
+                        CommandFlags.None),
+                    cancellationToken)
                 .ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             long count = (long)result;
@@ -892,7 +893,16 @@ return count
 
         try
         {
-            bool stored = await _database.StringSetAsync(key, "1", ttl, When.NotExists, CommandFlags.None).ConfigureAwait(false);
+            bool stored = await redis.ExecuteAsync(
+                    RedisOperationPort.PerceptionChallenge,
+                    (multiplexer, _) => multiplexer.GetDatabase().StringSetAsync(
+                        key,
+                        "1",
+                        ttl,
+                        When.NotExists,
+                        CommandFlags.None),
+                    cancellationToken)
+                .ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             return stored ? PerceptionChallengeV2ConsumeResult.ConsumedOnce : PerceptionChallengeV2ConsumeResult.Replayed;
         }

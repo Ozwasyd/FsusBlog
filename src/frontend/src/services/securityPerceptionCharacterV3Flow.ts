@@ -7,6 +7,7 @@ import {
     type SecurityChallengeVerifyResponse
 } from '@/contracts/binaryApi';
 import type { FsusUiPerceptionCharacterMedia } from '@/fsusui/perceptionCharacterChallenge';
+
 import {
     isCanonicalPerceptionCharacterV3OpusOgg,
     isCanonicalPerceptionCharacterV3Png

@@ -2,10 +2,7 @@ import { createHash } from 'node:crypto';
 
 // fixture-catalog: producer account-messaging
 
-import {
-    digestMessagingFixtureValue,
-    readMessagingFixtureContract
-} from '../../test/messaging-fixture-contract.mjs';
+const {digestMessagingFixtureValue, readMessagingFixtureContract} = await import(new URL('../../test/messaging-fixture-contract.mjs', import.meta.url));
 import { projectVerifiedIdentityReferences } from './auth-session-producer.mjs';
 
 const PRODUCER_ID = 'account-messaging';
@@ -149,10 +146,11 @@ async function resolveTemporalRoles(context, resolver)
     {
         try
         {
-            authority = await import('../../test/temporal-role-resolver.mjs');
+            authority = await import(new URL('../../test/temporal-role-resolver.mjs', import.meta.url));
         }
         catch (error)
         {
+            // eslint-disable-next-line preserve-caught-error
             throw new Error(`account-messaging temporal role authority is unavailable: ${error.message}`);
         }
     }
@@ -411,6 +409,7 @@ async function invokeCompositionRoot(context, plan, signal)
         signal
     });
     const text = await response.text();
+    // eslint-disable-next-line no-useless-assignment
     let payload = null;
     try
     {

@@ -5,7 +5,9 @@ export function encodeVisualArtifact(contract, gray8, artifactSeed)
 {
     const { physicalWidth: width, physicalHeight: height, noise } = contract.raster;
     if (!Buffer.isBuffer(gray8) || gray8.length !== width * height)
+    {
         throw new Error('visual source has invalid dimensions');
+    }
     const random = deterministicStream(artifactSeed);
     const biases = Array.from({ length: height / noise.cellHeightPixels }, () =>
         Array.from({ length: width / noise.cellWidthPixels }, () => random.integer(noise.levelBiasMin, noise.levelBiasMax)));
@@ -31,7 +33,9 @@ export function encodeVisualArtifact(contract, gray8, artifactSeed)
             strategy: zlibConstants.Z_DEFAULT_STRATEGY
         })), chunk('IEND', Buffer.alloc(0))]);
     if (png.length > contract.media.visual.maximumBytes)
+    {
         throw new Error('visual artifact exceeds canonical hard limit');
+    }
     return png;
 }
 
@@ -58,7 +62,9 @@ export function buildAudioArtifactVector(contract, serialSeed = Buffer.from('SUS
 export function buildAudioArtifactFromPackets(contract, packets, serialSeed)
 {
     if (!Array.isArray(packets) || packets.length === 0 || packets.some(packet => !Buffer.isBuffer(packet) || packet.length === 0 || packet.length >= 255))
+    {
         throw new Error('Opus packet set is invalid');
+    }
     const head = Buffer.alloc(19);
     head.write('OpusHead', 0, 'ascii');
     head.set([1, 1], 8);
@@ -74,17 +80,23 @@ export function buildAudioArtifactFromPackets(contract, packets, serialSeed)
     const serial = Buffer.from(serialSeed).readUInt32LE(0);
     const pages = [oggPage(serial, 0, 0, 2, [head]), oggPage(serial, 1, 0, 0, [tags])];
     for (let index = 0; index < packets.length; index += 1)
+    {
         pages.push(oggPage(serial, index + 2, (index + 1) * 960, index === packets.length - 1 ? 4 : 0, [packets[index]]));
+    }
     const artifact = Buffer.concat(pages);
     if (artifact.length > contract.media.audio.maximumBytes)
+    {
         throw new Error('audio artifact exceeds canonical hard limit');
+    }
     return artifact;
 }
 
 function deterministicStream(seed)
 {
     if (!Buffer.isBuffer(seed) || seed.length !== 32)
+    {
         throw new Error('artifact seed must be 32 bytes');
+    }
     let counter = 0;
     let available = Buffer.alloc(0);
     return { integer(minimum, maximum)
@@ -103,7 +115,9 @@ function deterministicStream(seed)
             const candidate = available.readUInt32BE();
             available = available.subarray(4);
             if (candidate < limit)
+            {
                 return minimum + (candidate % span);
+            }
         }
     } };
 }
@@ -130,7 +144,9 @@ function crc32(data)
     {
         crc ^= value;
         for (let bit = 0; bit < 8; bit += 1)
+        {
             crc = (crc >>> 1) ^ ((crc & 1) === 0 ? 0 : 0xedb88320);
+        }
     }
     return (crc ^ 0xffffffff) >>> 0;
 }
@@ -157,7 +173,9 @@ function oggCrc32(data)
     {
         crc ^= value << 24;
         for (let bit = 0; bit < 8; bit += 1)
+        {
             crc = ((crc << 1) ^ ((crc & 0x80000000) === 0 ? 0 : 0x04c11db7)) >>> 0;
+        }
     }
     return crc;
 }

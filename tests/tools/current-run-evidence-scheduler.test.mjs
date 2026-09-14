@@ -4,14 +4,9 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { runDag } from '../../tools/test-matrix/scheduler.mjs';
-import {
-    EVIDENCE_TERMINAL_HANDOFF_PREFIX,
-    beginCurrentRunEvidencePublication,
-    finalizeCurrentRunEvidencePublication
-} from '../../tools/test/current-run-evidence-publication.mjs';
-import { governanceContentDigest } from '../../tools/test/evidence-location-contract.mjs';
-
+const {runDag} = await import(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url));
+const {EVIDENCE_TERMINAL_HANDOFF_PREFIX, beginCurrentRunEvidencePublication, finalizeCurrentRunEvidencePublication} = await import(new URL('../../tools/test/current-run-evidence-publication.mjs', import.meta.url));
+const {governanceContentDigest} = await import(new URL('../../tools/test/evidence-location-contract.mjs', import.meta.url));
 const d = (value) => `sha256:${value.repeat(64)}`;
 
 test('scheduler recordSettled consumes the producer terminal handoff into its current-attempt checkpoint', async (t) =>

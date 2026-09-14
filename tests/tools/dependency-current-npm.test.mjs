@@ -3,8 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { extractCurrentVersion } from '../../tools/governance/dependency-freshness.mjs';
-
+const { extractCurrentVersion } = await import(new URL('../../tools/governance/dependency-freshness.mjs', import.meta.url));
 function fixture(t, { range = '^1.0.0', locked = '1.2.0', lockRange = range } = {})
 {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'freshness-npm-current-'));
@@ -18,7 +17,8 @@ function fixture(t, { range = '^1.0.0', locked = '1.2.0', lockRange = range } = 
     return { root, item };
 }
 
-test('current npm identity is locked resolution, not range lower bound or wildcard', t => {
+test('current npm identity is locked resolution, not range lower bound or wildcard', t =>
+{
     for (const range of ['^1.0.0', '~1.2.0', '*'])
     {
         const { root, item } = fixture(t, { range });
@@ -26,7 +26,8 @@ test('current npm identity is locked resolution, not range lower bound or wildca
     }
 });
 
-test('manifest drift and missing lock identity fail rather than using an allowed range', t => {
+test('manifest drift and missing lock identity fail rather than using an allowed range', t =>
+{
     const drift = fixture(t, { lockRange: '^0.9.0' });
     assert.throws(() => extractCurrentVersion(drift.root, drift.item, {}), /manifest-drift/);
     const missing = fixture(t, { locked: '' });
@@ -36,7 +37,8 @@ test('manifest drift and missing lock identity fail rather than using an allowed
     assert.throws(() => extractCurrentVersion(unowned.root, unowned.item, {}), /lockfile-not-owned/);
 });
 
-test('packageManager is a tool pin, and every declared source must agree', t => {
+test('packageManager is a tool pin, and every declared source must agree', t =>
+{
     const { root } = fixture(t);
     for (const [file, version] of [['package.json', '11.0.0'], ['other/package.json', '11.1.0']])
     {
@@ -49,7 +51,8 @@ test('packageManager is a tool pin, and every declared source must agree', t => 
     assert.throws(() => extractCurrentVersion(root, item, {}), /current-versions-disagree/);
 });
 
-test('override resolutions use the selected parent and do not require overrides in lock root metadata', t => {
+test('override resolutions use the selected parent and do not require overrides in lock root metadata', t =>
+{
     const { root, item } = fixture(t);
     fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ overrides: { parent: { example: '^2.0.0' } } }));
     const lock = { lockfileVersion: 3, packages: {

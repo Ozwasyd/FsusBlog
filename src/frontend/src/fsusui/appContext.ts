@@ -1,11 +1,13 @@
-import type { App } from 'vue'
-import { ID_INJECTION_KEY } from '@ozwasyd/element-plus'
+import { ID_INJECTION_KEY } from '@ozwasyd/element-plus';
 
-const FSUSBLOG_FSUSUI_ID_PREFIX = 240524
+import type { App } from 'vue';
 
-export function provideFsusUiAppContext(app: App): void {
-  app.provide(ID_INJECTION_KEY, {
-    prefix: FSUSBLOG_FSUSUI_ID_PREFIX,
-    current: 0
-  })
+const FSUSBLOG_FSUSUI_ID_PREFIX = 240524;
+
+export function provideFsusUiAppContext(app: App): void
+{
+    app.provide(ID_INJECTION_KEY, {
+        prefix: FSUSBLOG_FSUSUI_ID_PREFIX,
+        current: 0
+    });
 }

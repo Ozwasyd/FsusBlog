@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { verifyCentralOpenApiPackageContract } from '../../tools/backend-test-governance-contracts.mjs';
-
+const { verifyCentralOpenApiPackageContract } = await import(new URL('../../tools/backend-test-governance-contracts.mjs', import.meta.url));
 const validCentralPackages = `
 <Project>
   <PropertyGroup>

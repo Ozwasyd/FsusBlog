@@ -17,12 +17,18 @@ export const EVIDENCE_TRANSPORT_ARCHIVE_SCHEMA = 'fsusblog.current-run-evidence-
 export const EVIDENCE_CONSUMER_RECEIPT_SCHEMA = 'fsusblog.current-run-evidence-consumer-receipt.v1';
 export const EVIDENCE_TRANSPORT_MANIFEST_ENV = 'FSUSBLOG_EVIDENCE_TRANSPORT_MANIFEST';
 const digestPattern = /^sha256:[0-9a-f]{64}$/u;
-const unsafePath = /(?:^|\/)(?:\.\.?)(?:\/|$)|^[\\/]|[*?\[\]{}!\0]/u;
+const unsafePath = /(?:^|\/)(?:\.\.?)(?:\/|$)|^[\\/]|[*?[\]{}!\0]/u;
 
 function canonicalize(value)
 {
-    if (Array.isArray(value)) return value.map(canonicalize);
-    if (!value || typeof value !== 'object') return value;
+    if (Array.isArray(value))
+    {
+        return value.map(canonicalize);
+    }
+    if (!value || typeof value !== 'object')
+    {
+        return value;
+    }
     return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]));
 }
 
@@ -48,7 +54,10 @@ function sealed(document)
 
 function assert(condition, message)
 {
-    if (!condition) throw new Error(message);
+    if (!condition)
+    {
+        throw new Error(message);
+    }
 }
 
 function assertDigest(value, field)
@@ -160,7 +169,9 @@ export function validateEvidenceTransportManifest(manifest)
             'transport original ref is required');
         assertSafeRelativePath(object.originalRef.path, 'originalRef.path');
         for (const field of ['inputDigest', 'contentDigest', 'producerReceiptDigest'])
+        {
             assertDigest(object.originalRef[field], `originalRef.${field}`);
+        }
         assertDigest(object.contentDigest, 'contentDigest');
         assertDigest(object.producerDigest, 'producerDigest');
         assertDigest(object.objectDigest, 'objectDigest');

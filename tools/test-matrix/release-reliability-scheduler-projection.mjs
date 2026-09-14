@@ -343,7 +343,7 @@ function replaceTierProjection(matrixText, scenarioId, projection)
         else
         {
             block = block.replace(
-                /^(      services:.*)$/mu,
+                /^( {6}services:.*)$/mu,
                 `$1\n${line}`
             );
         }
