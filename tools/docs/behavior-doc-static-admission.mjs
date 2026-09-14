@@ -6,38 +6,14 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import {
-    digestCatalog,
-    loadCatalog,
-    root,
-    validateBehaviorReferences,
-    validateCatalog
-} from '../contracts/behavior-contract-catalog.mjs';
-import {
-    sealDocClaimVerificationReceipt,
-    sealGeneratedSectionCheckReceipt,
-    sealOwnerBindingReceipt
-} from '../contracts/behavior-graph-join.mjs';
-import {
-    formatOwnerBindingReport,
-    scanBehaviorOwnerBindings
-} from '../contracts/behavior-owner-binding.mjs';
-import {
-    scanRepositoryFactExtractorGovernance
-} from '../fact-extractors/governance.mjs';
-import {
-    digestPath,
-    digestValue,
-    sealSourceIdentity
-} from '../fact-extractors/identity.mjs';
-import { semanticDigestFromReceipt } from '../fact-extractors/receipt.mjs';
-import {
-    loadRegistry,
-    validateOwnershipAgainstBehaviorCatalog,
-    validateRegistry
-} from '../fact-extractors/registry.mjs';
-import { runExtractor } from '../fact-extractors/runner.mjs';
-
+const {digestCatalog, loadCatalog, root, validateBehaviorReferences, validateCatalog} = await import(new URL('../contracts/behavior-contract-catalog.mjs', import.meta.url));
+const {sealDocClaimVerificationReceipt, sealGeneratedSectionCheckReceipt, sealOwnerBindingReceipt} = await import(new URL('../contracts/behavior-graph-join.mjs', import.meta.url));
+const {formatOwnerBindingReport, scanBehaviorOwnerBindings} = await import(new URL('../contracts/behavior-owner-binding.mjs', import.meta.url));
+const {scanRepositoryFactExtractorGovernance} = await import(new URL('../fact-extractors/governance.mjs', import.meta.url));
+const {digestPath, digestValue, sealSourceIdentity} = await import(new URL('../fact-extractors/identity.mjs', import.meta.url));
+const {semanticDigestFromReceipt} = await import(new URL('../fact-extractors/receipt.mjs', import.meta.url));
+const {loadRegistry, validateOwnershipAgainstBehaviorCatalog, validateRegistry} = await import(new URL('../fact-extractors/registry.mjs', import.meta.url));
+const {runExtractor} = await import(new URL('../fact-extractors/runner.mjs', import.meta.url));
 import {
     runMinimalContractBuild,
     validateMinimalContractBuildReceipt

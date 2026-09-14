@@ -21,7 +21,10 @@ if (enabled)
     let completed = false;
     const finalize = () =>
     {
-        if (completed || Number(process.exitCode ?? 0) !== 0) return;
+        if (completed || Number(process.exitCode ?? 0) !== 0)
+        {
+            return;
+        }
         completed = true;
         try
         {

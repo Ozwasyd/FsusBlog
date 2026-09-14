@@ -5,18 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import {
-    collectProductionBuildArtifactStore,
-    createProductionBuildReceipt,
-    materializeProductionBuildDomains,
-    productionBuildConsumerMaterializationVerificationSchema,
-    productionBuildReceiptSchema,
-    registerProductionBuildConsumer,
-    releaseProductionBuildConsumer,
-    verifyProductionBuildConsumerMaterialization,
-    verifyProductionBuildReceipt
-} from '../../tools/ci/production-build-artifacts.mjs';
-
+const {collectProductionBuildArtifactStore, createProductionBuildReceipt, materializeProductionBuildDomains, productionBuildConsumerMaterializationVerificationSchema, productionBuildReceiptSchema, registerProductionBuildConsumer, releaseProductionBuildConsumer, verifyProductionBuildConsumerMaterialization, verifyProductionBuildReceipt} = await import(new URL('../../tools/ci/production-build-artifacts.mjs', import.meta.url));
 const sourceState = {
     commit: 'a'.repeat(40),
     worktreeFingerprint: 'b'.repeat(64)
@@ -174,7 +163,7 @@ test('lane builds and binds Migration before the no-dependencies backend test co
 test('lane dependency contract rejects missing, reordered, implicit and unbound Migration builds', () =>
 {
     const lane = fs.readFileSync(new URL('../../tools/test/lanes/production-build-artifacts.sh', import.meta.url), 'utf8');
-    const migrationCommand = /    "\$ROOT_DIR\/tools\/test\/run-with-dotnet-release-build-lock\.sh" \\\n        "\$ROOT_DIR\/tools\/build-with-data-env\.sh" dotnet build "\$ROOT_DIR\/src\/migration\/FsusBlog\.Migration\.csproj" \\\n        -c Release --no-restore --no-dependencies --no-incremental -warnaserror -v minimal \/p:NuGetAudit=false\n/u;
+    const migrationCommand = / {4}"\$ROOT_DIR\/tools\/test\/run-with-dotnet-release-build-lock\.sh" \\\n {8}"\$ROOT_DIR\/tools\/build-with-data-env\.sh" dotnet build "\$ROOT_DIR\/src\/migration\/FsusBlog\.Migration\.csproj" \\\n {8}-c Release --no-restore --no-dependencies --no-incremental -warnaserror -v minimal \/p:NuGetAudit=false\n/u;
     const match = lane.match(migrationCommand);
     assert.ok(match, 'test fixture must locate the exact Migration build command');
     const withoutMigration = lane.replace(migrationCommand, '');
@@ -187,13 +176,13 @@ test('lane dependency contract rejects missing, reordered, implicit and unbound 
     assert.throws(() => verifyMigrationBuildDependency(reordered), /before the no-dependencies test consumer/u);
 
     const implicitTestBuild = lane.replace(
-        /("\$ROOT_DIR\/tests\/backend\/FsusBlog\.Server\.Tests\.csproj" \\\n        -c Release --no-restore )--no-dependencies /u,
+        /("\$ROOT_DIR\/tests\/backend\/FsusBlog\.Server\.Tests\.csproj" \\\n {8}-c Release --no-restore )--no-dependencies /u,
         '$1'
     );
     assert.throws(() => verifyMigrationBuildDependency(implicitTestBuild), /test consumer must remain no-dependencies/u);
 
     const unboundServerAssembly = lane.replace(
-        / \\\n+        -p:FsusBlogCommitSha="\$\{FSUSBLOG_TEST_SOURCE_COMMIT:\?production build source commit is required\}"/u,
+        / \\\n+ {8}-p:FsusBlogCommitSha="\$\{FSUSBLOG_TEST_SOURCE_COMMIT:\?production build source commit is required\}"/u,
         ''
     );
     assert.throws(
@@ -497,12 +486,30 @@ test('consumer verifier rejects non-canonical and tampered materialization evide
     );
 
     for (const [mutate, expected] of [
-        [evidence => { evidence.schema = 'fake'; }, /schema\/status/u],
-        [evidence => { evidence.status = 'failure'; }, /schema\/status/u],
-        [evidence => { evidence.receiptContentDigest = `sha256:${'0'.repeat(64)}`; }, /digest binding/u],
-        [evidence => { evidence.sourceState.commit = 'c'.repeat(40); }, /source binding/u],
-        [evidence => { evidence.consumerLease.runId = 'stale-run'; }, /evidence lease binding/u],
-        [evidence => { evidence.materialization.domains[0].bytes += 1; }, /mapping evidence is not exact/u]
+        [evidence =>
+        {
+            evidence.schema = 'fake';
+        }, /schema\/status/u],
+        [evidence =>
+        {
+            evidence.status = 'failure';
+        }, /schema\/status/u],
+        [evidence =>
+        {
+            evidence.receiptContentDigest = `sha256:${'0'.repeat(64)}`;
+        }, /digest binding/u],
+        [evidence =>
+        {
+            evidence.sourceState.commit = 'c'.repeat(40);
+        }, /source binding/u],
+        [evidence =>
+        {
+            evidence.consumerLease.runId = 'stale-run';
+        }, /evidence lease binding/u],
+        [evidence =>
+        {
+            evidence.materialization.domains[0].bytes += 1;
+        }, /mapping evidence is not exact/u]
     ])
     {
         const value = consumerMaterializationFixture(t);

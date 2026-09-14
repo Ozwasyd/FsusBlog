@@ -1,7 +1,7 @@
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -10,8 +10,7 @@ import {
     digestCommentFixtureValue,
     readCommentFixtureContract
 } from './comment-fixture-contract.mjs';
-import { runPostcondition } from '../test-fixtures/receipt/postconditions.mjs';
-
+const { runPostcondition } = await import(new URL('../test-fixtures/receipt/postconditions.mjs', import.meta.url));
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const producerMarker = `fixture-${'catalog: producer comment-moderation'}`;
 const acceptedExtensions = new Set(['.cs', '.js', '.json', '.mjs', '.sh', '.ts', '.tsx', '.yml', '.yaml']);
@@ -43,7 +42,10 @@ function trackedFiles(root)
         encoding: 'utf8',
         maxBuffer: 32 * 1024 * 1024
     });
-    if (result.status !== 0) throw new Error(`cannot enumerate comment fixture sources: ${result.stderr}`);
+    if (result.status !== 0)
+    {
+        throw new Error(`cannot enumerate comment fixture sources: ${result.stderr}`);
+    }
     return result.stdout.split('\0').filter(Boolean).sort();
 }
 
@@ -59,12 +61,14 @@ function firstRowViolations(relativePath, source)
     {
         const context = source.slice(Math.max(0, match.index - 260), match.index);
         if (!/\.Where\s*\([\s\S]*(?:\.Id|CommentId)\s*==/u.test(context))
+        {
             violations.push({
                 id: 'first-row-discovery',
                 path: relativePath,
                 line: lineFor(source, match.index),
                 detail: 'comment correctness must resolve an exact owned identity before reading one row'
             });
+        }
     }
     return violations;
 }
@@ -88,11 +92,18 @@ function scanSources(root, ownership)
     const markers = [];
     const tracked = trackedFiles(root);
     for (const relativePath of expected)
+    {
         if (!tracked.includes(relativePath))
+        {
             violations.push({ id: 'owned-implementation-missing', path: relativePath, line: 1, detail: 'declared comment fixture implementation is missing' });
+        }
+    }
     for (const relativePath of tracked)
     {
-        if (!acceptedExtensions.has(path.extname(relativePath)) || governancePaths.has(relativePath)) continue;
+        if (!acceptedExtensions.has(path.extname(relativePath)) || governancePaths.has(relativePath))
+        {
+            continue;
+        }
         const absolutePath = path.join(root, relativePath);
         const stat = fs.lstatSync(absolutePath);
         if (!stat.isFile() || stat.isSymbolicLink())
@@ -101,32 +112,45 @@ function scanSources(root, ownership)
             continue;
         }
         const source = fs.readFileSync(absolutePath, 'utf8');
-        if (source.includes(producerMarker)) markers.push(relativePath);
-        if (!expected.has(relativePath) && !consumerPaths.has(relativePath) && !source.includes(producerMarker)) continue;
+        if (source.includes(producerMarker))
+        {
+            markers.push(relativePath);
+        }
+        if (!expected.has(relativePath) && !consumerPaths.has(relativePath) && !source.includes(producerMarker))
+        {
+            continue;
+        }
         for (const [id, pattern] of forbiddenPatterns)
         {
             const match = pattern.exec(source);
-            if (match) violations.push({
-                id,
-                path: relativePath,
-                line: lineFor(source, match.index),
-                detail: 'active comment fixture correctness source contains a forbidden legacy or shortcut pattern'
-            });
+            if (match)
+            {
+                violations.push({
+                    id,
+                    path: relativePath,
+                    line: lineFor(source, match.index),
+                    detail: 'active comment fixture correctness source contains a forbidden legacy or shortcut pattern'
+                });
+            }
         }
         violations.push(...firstRowViolations(relativePath, source));
         if (!expected.has(relativePath) && source.includes(producerMarker))
+        {
             violations.push({ id: 'second-producer', path: relativePath, line: 1, detail: 'producer marker is outside exact ownership' });
+        }
     }
     const supportPaths = new Set((ownership.supportImplementations ?? []).map((item) => item.implementation));
     const expectedMarkers = [...expected].filter((item) => !supportPaths.has(item)).sort();
     markers.sort();
     if (JSON.stringify(markers) !== JSON.stringify(expectedMarkers))
+    {
         violations.push({
             id: 'producer-owner-exactness',
             path: ownership.producer.implementation,
             line: 1,
             detail: `expected ${expectedMarkers.join(', ')}, observed ${markers.join(', ') || '<none>'}`
         });
+    }
     return violations;
 }
 
@@ -134,7 +158,9 @@ function sourceIdentity(root, ownership)
 {
     const revision = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' });
     if (revision.status !== 0 || !/^[a-f0-9]{40}\n?$/u.test(revision.stdout))
+    {
         throw new Error('comment fixture governance cannot resolve source revision');
+    }
     const paths = [
         'config/testing/comment-fixture-inventory.json',
         'config/testing/comment-fixture-ownership.json',
@@ -167,7 +193,8 @@ function mutationCases(contract)
         ['approved-public-hidden', (inventory) => inventory.stateRules.readModels.approved.public = 'hidden-exact'],
         ['pending-public-visible', (inventory) => inventory.stateRules.readModels.pending.public = 'visible-exact'],
         ['spam-queue-excluded', (inventory) => inventory.stateRules.queueMembership.spam = 'excluded'],
-        ['unknown-capability', (inventory) => {
+        ['unknown-capability', (inventory) =>
+        {
             inventory.capabilities[0].id = 'comment.zz.unregistered';
             inventory.capabilities.sort((left, right) => left.id.localeCompare(right.id));
         }],
@@ -211,29 +238,44 @@ function exactRuntimeErrors(run)
 {
     const errors = [];
     if (run?.producerId !== 'comment-moderation' || run?.strategy !== 'transaction-fixture')
+    {
         errors.push('runtime producer identity is not canonical');
+    }
     const proofs = run?.capabilityProofs ?? [];
     const capabilityIds = ['comment.moderation-matrix', 'comment.threaded', 'moderation.policy-matrix'];
     if (JSON.stringify(proofs.map((item) => item?.capabilityId)) !== JSON.stringify(capabilityIds)
         || proofs.some((item) => item?.status !== 'verified'
             || [item.thread, item.moderation, item.publicReadModel, item.adminReadModel, item.queue, item.cacheOutbox]
                 .some((value) => value !== 'exact')))
+    {
         errors.push('runtime capability proofs are partial');
+    }
     const threads = run?.threadEntities ?? [];
     const ids = threads.map((item) => String(item?.commentId ?? ''));
     if (threads.length === 0 || new Set(ids).size !== ids.length || ids.some((id) => !/^[1-9][0-9]*$/u.test(id)))
+    {
         errors.push('runtime comment identities are missing or reused');
+    }
     for (const role of ['approved-root', 'approved-reply', 'approved-nested', 'pending', 'rejected', 'spam', 'edited', 'deleted-root', 'deleted-root-child', 'deleted-reply', 'region-global', 'region-manual-review'])
-        if (threads.filter((item) => item?.semanticRole === role).length !== 1) errors.push(`runtime semantic role ${role} is not exact`);
+    {
+        if (threads.filter((item) => item?.semanticRole === role).length !== 1)
+        {
+            errors.push(`runtime semantic role ${role} is not exact`);
+        }
+    }
     if (!threads.some((item) => item?.actorMode === 'zk_anonymous'))
+    {
         errors.push('runtime zk_anonymous actor evidence is missing');
+    }
     const moderation = run?.moderation;
     const semantics = moderation?.runtimeSemantics;
     if (semantics?.schema !== 'fsusblog.comment-fixture-runtime-semantics.v1'
         || JSON.stringify(semantics.publicVisibility) !== JSON.stringify({ approved: 'visible-exact', pending: 'hidden-exact', rejected: 'hidden-exact', spam: 'hidden-exact' })
         || JSON.stringify(semantics.queueMembership) !== JSON.stringify({ approved: 'excluded', pending: 'included-pending', rejected: 'included-rejected', spam: 'included-rejected' })
         || semantics.source !== 'production-comment-query-and-authoring-moderation-queue')
+    {
         errors.push('runtime public/queue semantic evidence drifted');
+    }
     const moderated = moderation?.entities ?? [];
     const moderationByRole = new Map(moderated.map((item) => [item?.semanticRole, item]));
     const observations = {
@@ -288,16 +330,22 @@ function exactRuntimeErrors(run)
     for (const postconditionId of ['comment-moderation-matrix', 'comment-threaded', 'moderation-policy-matrix'])
     {
         const result = runPostcondition(postconditionId, { observations });
-        if (result.ok !== true) errors.push(`runtime ${postconditionId}: ${result.reason}`);
+        if (result.ok !== true)
+        {
+            errors.push(`runtime ${postconditionId}: ${result.reason}`);
+        }
     }
     const before = String(run?.cacheGenerationBefore ?? '');
     const after = String(run?.cacheGenerationAfter ?? '');
     if (!/^[0-9]+$/u.test(before) || !/^[1-9][0-9]*$/u.test(after) || BigInt(after) <= BigInt(before))
+    {
         errors.push('runtime cache generation did not advance');
+    }
     const receiptIds = Object.keys(run?.cleanupReceipt?.ownedComments ?? {}).sort();
     const receiptBinding = run?.cleanupReceipt?.binding ?? run?.cleanupReceipt;
     const threadById = new Map(threads.map((item) => [String(item?.commentId), item]));
-    const invalidOwnedIdentity = Object.entries(run?.cleanupReceipt?.ownedComments ?? {}).some(([commentId, identity]) => {
+    const invalidOwnedIdentity = Object.entries(run?.cleanupReceipt?.ownedComments ?? {}).some(([commentId, identity]) =>
+    {
         const thread = threadById.get(commentId);
         return !thread || String(identity?.commentId) !== commentId
             || identity?.articleId !== thread.articleId
@@ -314,11 +362,15 @@ function exactRuntimeErrors(run)
         || receiptBinding?.articleId != null && receiptBinding.articleId !== threads[0]?.articleId
         || JSON.stringify(receiptIds) !== JSON.stringify([...ids].sort())
         || invalidOwnedIdentity)
+    {
         errors.push('runtime cleanup receipt does not own the exact comment identity set');
+    }
     if (!validRuntimeCrossDomain(run?.crossDomainBefore, threads[0]?.articleId)
         || JSON.stringify(run.crossDomainBefore) !== JSON.stringify(run?.crossDomainAfterPrepare)
         || JSON.stringify(run.crossDomainBefore) !== JSON.stringify(run?.cleanupReceipt?.crossDomainBefore))
+    {
         errors.push('runtime cross-domain prepare sentinel is missing or changed');
+    }
     return errors;
 }
 
@@ -564,17 +616,25 @@ function runtimeEvidenceErrors(runtimeEvidence, cleanup, runs, cleanups)
 {
     const errors = [];
     if (runtimeEvidence?.schema !== 'fsusblog.comment-fixture-runtime-evidence.v2')
+    {
         errors.push('runtime evidence schema is not the invocation-bound v2 contract');
+    }
     if (!['local-runtime-producer-invocation', 'local-simulated-producer-invocation']
         .includes(runtimeEvidence?.authorityClass))
+    {
         errors.push('runtime evidence is not an actual producer invocation authority');
+    }
     if (JSON.stringify(runtimeEvidence?.source) !== JSON.stringify(cleanup.source))
+    {
         errors.push('runtime evidence source is stale or cross-worktree');
+    }
     const invocations = runs.map((run) => run?.producerInvocation);
     if (invocations.length !== 2
         || invocations.some((item) => item?.schema !== 'fsusblog.comment-fixture-producer-invocation.v1')
         || runtimeEvidence?.invocationSetDigest !== digestCommentFixtureValue(invocations))
+    {
         errors.push('runtime producer invocation set is missing or unsealed');
+    }
     runs.forEach((run, index) =>
     {
         const invocation = run?.producerInvocation;
@@ -598,7 +658,9 @@ function runtimeEvidenceErrors(runtimeEvidence, cleanup, runs, cleanups)
             || JSON.stringify(invocation?.requests) !== JSON.stringify(expectedRequests)
             || invocation?.producerResultDigest !== digestCommentFixtureValue(unsignedRun)
             || invocation?.cleanupResultDigest !== digestCommentFixtureValue(cleanups[index]))
+        {
             errors.push(`runtime producer invocation ${index + 1} is missing, forged, or cross-run`);
+        }
     });
     return errors;
 }
@@ -629,7 +691,9 @@ export function verifyCommentFixtureCleanupReceipt(receipt, { root = repositoryR
         || receipt.contentDigest !== live.contentDigest
         || receipt.scanner.status !== 'accepted' || receipt.scanner.violations.length !== 0
         || receipt.exactOwnership !== true || receipt.warnings.length !== 0)
+    {
         throw new Error('comment fixture cleanup receipt is missing, stale, tampered, or rejected');
+    }
     return live;
 }
 
@@ -647,7 +711,9 @@ export function buildCommentFixtureAcceptanceReceipt(cleanupReceipt, runtimeEvid
     runtimeEvidenceErrors(runtimeEvidence, cleanup, runs, cleanups)
         .forEach((detail) => violations.push({ id: 'runtime.provenance', detail }));
     if (runs.length !== 2 || cleanups.length !== 2)
+    {
         violations.push({ id: 'runtime.parallel-rerun', detail: 'two canonical runtime runs and cleanup results are required' });
+    }
     runs.forEach((run, index) => exactRuntimeErrors(run)
         .forEach((detail) => violations.push({ id: `runtime.run-${index + 1}`, detail })));
     cleanups.forEach((cleanupResult, index) => cleanupResultErrors(runs[index], cleanupResult)
@@ -661,7 +727,9 @@ export function buildCommentFixtureAcceptanceReceipt(cleanupReceipt, runtimeEvid
         if (firstBinding?.runId === secondBinding?.runId
             || firstBinding?.namespace === secondBinding?.namespace
             || right.some((id) => left.has(id)))
+        {
             violations.push({ id: 'runtime.parallel-isolation', detail: 'parallel/rerun identities are not independent' });
+        }
     }
     const receipt = {
         schema: 'fsusblog.comment-fixture-acceptance.v1',
@@ -727,7 +795,9 @@ export function verifyCommentFixtureAcceptanceReceipt(receipt, cleanupReceipt, r
         || receipt.contentDigest !== live.contentDigest
         || receipt.status !== 'accepted' || receipt.violations.length !== 0
         || receipt.warnings.length !== 0 || receipt.mutations.some((item) => item.killed !== true))
+    {
         throw new Error('comment fixture acceptance receipt is missing, stale, tampered, or not terminal accepted');
+    }
     return live;
 }
 

@@ -363,7 +363,7 @@ const rightsLicenseText = computed(() =>
 const appendixCopyrightText = computed(() =>
 {
     const rights = props.detailView.rights;
-    const holder = rights.copyrightHolder?.trim() || siteTitle.value;
+    const holder = rights.copyrightHolder?.trim() ? rights.copyrightHolder.trim() : siteTitle.value;
     const copyrightPrefix = rights.copyrightYear
         ? `© ${rights.copyrightYear} ${holder}.`
         : `© ${holder}.`;

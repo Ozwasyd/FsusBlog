@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { adaptReleaseFinalizerSemanticOutcome } from '../../tools/test-matrix/outcomes/release-finalizer-adapter.mjs';
-
+const { adaptReleaseFinalizerSemanticOutcome } = await import(new URL('../../tools/test-matrix/outcomes/release-finalizer-adapter.mjs', import.meta.url));
 const d = (digit) => `sha256:${digit.repeat(64)}`;
 const identity = { buildIdentity: d('1'), executionEnvelopeDigest: d('2'), producerId: 'release-finalizer-semantic-outcome', replayPlanDigest: d('3'), schedulerRunId: 'finalizer-run', sourceCommit: '4'.repeat(40), temporalContextDigest: d('5'), toolchainDigest: d('6'), worktreeFingerprint: d('7') };
 const inputAuthorityRefs = [{ kind: 'finalizer-contract', path: 'contract.json', digest: d('8') }];

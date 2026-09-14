@@ -1,7 +1,7 @@
-export const localeDomainIdentity = Object.freeze({ locale: 'pt-BR', domain: 'identity' } as const)
+export const localeDomainIdentity = Object.freeze({ locale: 'pt-BR', domain: 'identity' } as const);
 
-import type { LocaleSchema } from '../keys'
-import type { identity as zhCNIdentity } from '../zh-CN/identity'
+import type { LocaleSchema } from '../keys';
+import type { identity as zhCNIdentity } from '../zh-CN/identity';
 
 export const identity = {
     overview: {
@@ -263,27 +263,27 @@ export const identity = {
         },
         UserIdentityPasskeys: {
             title: 'Passkeys',
-            description: '',
+            description: ''
         },
         UserIdentityRecoveryKey: {
             title: 'Recovery Key',
-            description: '',
+            description: ''
         },
         UserIdentityAnonymous: {
             title: 'Identidade anônima',
-            description: '',
+            description: ''
         },
         UserIdentityPublicProfile: {
             title: 'Perfil público',
-            description: '',
+            description: ''
         },
         UserIdentitySessions: {
             title: 'Sessões de dispositivos',
-            description: '',
+            description: ''
         },
         UserIdentityMfa: {
             title: 'Verificação em duas etapas',
-            description: '',
+            description: ''
         },
         UserIdentityCommentRecords: {
             title: 'Registros de comentários públicos',
@@ -302,4 +302,4 @@ export const identity = {
         recoveryKeyCreatedSuccess: 'Recovery Key criada',
         recoveryKeyRotatedSuccess: 'Recovery Key rotacionada'
     }
-} as const satisfies LocaleSchema<typeof zhCNIdentity>
+} as const satisfies LocaleSchema<typeof zhCNIdentity>;

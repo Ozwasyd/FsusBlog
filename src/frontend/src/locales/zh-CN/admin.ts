@@ -1,4 +1,4 @@
-export const localeDomainIdentity = Object.freeze({ locale: 'zh-CN', domain: 'admin' } as const)
+export const localeDomainIdentity = Object.freeze({ locale: 'zh-CN', domain: 'admin' } as const);
 
 export const admin = {
     shell: {

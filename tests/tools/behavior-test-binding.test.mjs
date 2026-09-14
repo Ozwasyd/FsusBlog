@@ -13,23 +13,11 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { loadCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs';
-import {
-    formatBehaviorTestBindingReport,
-    joinBehaviorTestEvidence,
-    parseBehaviorBindingsFromSource,
-    scanBehaviorTestBindings,
-    validateExactBehaviorCoverage
-} from '../../tools/contracts/behavior-test-binding.mjs';
-import {
-    behaviorTest,
-    concurrencyHarnessId,
-    createBehaviorTest,
-    runRealConcurrencyHarness
-} from '../../tools/contracts/behavior-test.mjs';
-import { createObservationArtifact } from '../../tools/test-observations/ledger.mjs';
-import { observationArtifactSchema } from '../../tools/test-observations/validation.mjs';
-
+const { loadCatalog } = await import(new URL('../../tools/contracts/behavior-contract-catalog.mjs', import.meta.url));
+const { formatBehaviorTestBindingReport, joinBehaviorTestEvidence, parseBehaviorBindingsFromSource, scanBehaviorTestBindings, validateExactBehaviorCoverage } = await import(new URL('../../tools/contracts/behavior-test-binding.mjs', import.meta.url));
+const { behaviorTest, concurrencyHarnessId, createBehaviorTest, runRealConcurrencyHarness } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
+const { createObservationArtifact } = await import(new URL('../../tools/test-observations/ledger.mjs', import.meta.url));
+const { observationArtifactSchema } = await import(new URL('../../tools/test-observations/validation.mjs', import.meta.url));
 const root = path.resolve(import.meta.dirname, '../..');
 const checker = path.join(root, 'tools/contracts/check-behavior-test-evidence.mjs');
 
@@ -83,103 +71,103 @@ function loadFixtureCatalog(repositoryRoot)
 function seedRequiredBindings(repositoryRoot)
 {
     write(repositoryRoot, 'tests/tools/audit.positive.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('test-asset-audit-reconciliation', 'positive', 'audit positive', () => {})
 `);
     write(repositoryRoot, 'tests/tools/audit.negative.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('test-asset-audit-reconciliation', 'negative', { title: 'audit negative', invariantIds: ['audit-neg'] }, () => {})
 `);
     write(repositoryRoot, 'tests/tools/code.positive.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('code-intent-governance', 'positive', 'code positive', () => {})
 `);
     write(repositoryRoot, 'tests/tools/code.negative.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('code-intent-governance', 'negative', { title: 'code negative', reasonId: 'code-neg' }, () => {})
 `);
     write(repositoryRoot, 'tests/tools/docs.positive.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('document-lifecycle-governance', 'positive', 'docs positive', () => {})
 `);
     write(repositoryRoot, 'tests/tools/docs.negative.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('document-lifecycle-governance', 'negative', { title: 'docs negative', invariantIds: ['docs-neg'] }, () => {})
 `);
     write(repositoryRoot, 'tests/tools/docs.migration.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('document-lifecycle-governance', 'migration', { title: 'docs migration', invariantIds: ['docs-mig'] }, () => {})
 `);
     write(repositoryRoot, 'tests/tools/matrix.positive.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('browserless-production-correctness', 'positive', 'matrix positive', () => {})
 `);
     write(repositoryRoot, 'tests/tools/matrix.negative.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('browserless-production-correctness', 'negative', { title: 'matrix negative', invariantIds: ['matrix-neg'] }, () => {})
 `);
     write(repositoryRoot, 'tests/tools/matrix.concurrency.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('browserless-production-correctness', 'concurrency', { title: 'matrix concurrency', concurrencyHarness: 'fsusblog.real-concurrency.v1' }, () => {})
 `);
     write(repositoryRoot, 'tests/tools/binary-aeds.positive.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('binary-api-aeds-contract', 'positive', 'aeds positive', () => {})
 `);
     write(repositoryRoot, 'tests/tools/binary-aeds.negative.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('binary-api-aeds-contract', 'negative', { title: 'aeds negative', invariantIds: ['aeds-crc-invariant'] }, () => {})
 `);
     write(repositoryRoot, 'tests/tools/auth.positive.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('authentication-session-permission', 'positive', 'auth positive', () => {})
 `);
     write(repositoryRoot, 'tests/tools/auth.negative.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('authentication-session-permission', 'negative', { title: 'auth negative', invariantIds: ['session-revocation-enforcement'] }, () => {})
 `);
     write(repositoryRoot, 'tests/tools/auth.migration.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('authentication-session-permission', 'migration', { title: 'auth migration', invariantIds: ['jwt-kid-migration-window'] }, () => {})
 `);
     write(repositoryRoot, 'tests/tools/config.positive.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('configuration-error-security-policy', 'positive', 'config positive', () => {})
 `);
     write(repositoryRoot, 'tests/tools/config.negative.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('configuration-error-security-policy', 'negative', { title: 'config negative', invariantIds: ['risk-pseudonym-key-required'] }, () => {})
 `);
     write(repositoryRoot, 'tests/tools/config.boundary.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('configuration-error-security-policy', 'boundary', { title: 'config boundary', invariantIds: ['session-limit-boundary'] }, () => {})
 `);
     write(repositoryRoot, 'tests/tools/comment.positive.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('article-comment-lifecycle-outbox', 'positive', 'comment positive', () => {})
 `);
     write(repositoryRoot, 'tests/tools/comment.negative.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('article-comment-lifecycle-outbox', 'negative', { title: 'comment negative', invariantIds: ['transactional-rollback-boundary'] }, () => {})
 `);
     write(repositoryRoot, 'tests/tools/deployment.positive.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('deployment-blue-green-runtime-role', 'positive', 'deployment positive', () => {})
 `);
     write(repositoryRoot, 'tests/tools/deployment.negative.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('deployment-blue-green-runtime-role', 'negative', { title: 'deployment negative', invariantIds: ['deployment-mode-failure-continuation'] }, () => {})
 `);
     write(repositoryRoot, 'tests/tools/deployment.concurrency.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('deployment-blue-green-runtime-role', 'concurrency', { title: 'deployment concurrency', concurrencyHarness: 'fsusblog.real-concurrency.v1' }, () => {})
 `);
     write(repositoryRoot, 'tests/tools/release.positive.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('release-final-aggregate-contract', 'positive', 'release positive', () => {})
 `);
     write(repositoryRoot, 'tests/tools/release.negative.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('release-final-aggregate-contract', 'negative', { title: 'release negative', invariantIds: ['release-final-shard-completeness'] }, () => {})
 `);
     // Install helper modules referenced by relative imports in fixture tests (not executed).
@@ -327,12 +315,12 @@ test('Node/Vitest/Playwright share one formal behaviorTest helper surface', () =
 behaviorTest('code-intent-governance', 'positive', 'node title', () => {})
 `;
     const vitestSource = `import { test } from 'vitest'
-import { createBehaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { createBehaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 const behaviorTest = createBehaviorTest(test)
 behaviorTest('code-intent-governance', 'boundary', 'vitest title', () => {})
 `;
     const playwrightSource = `import { test } from '@playwright/test'
-import { createBehaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { createBehaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 const behaviorTest = createBehaviorTest(test)
 behaviorTest('code-intent-governance', 'positive', 'pw title', async () => {})
 `;
@@ -381,7 +369,7 @@ test('1) behavior requires boundary but only positive test fails exact coverage'
         write(directory, 'config/contracts/behavior-contracts.json', `${JSON.stringify(catalog, null, 2)}\n`);
         // only positive remains
         write(directory, 'tests/tools/code.negative.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('code-intent-governance', 'positive', 'second positive only', () => {})
 `);
         const scan = scanBehaviorTestBindings({ repositoryRoot: directory, catalog });
@@ -535,7 +523,7 @@ test('7) renamed test leaves old fully-qualified ID without current binding evid
         const catalog = loadFixtureCatalog(directory);
         // Observation still uses old title while source binding renamed.
         write(directory, 'tests/tools/code.positive.test.mjs', `
-import { behaviorTest } from '../../tools/contracts/behavior-test.mjs'
+const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 behaviorTest('code-intent-governance', 'positive', 'renamed positive title', () => {})
 `);
         const scan = scanBehaviorTestBindings({ repositoryRoot: directory, catalog });

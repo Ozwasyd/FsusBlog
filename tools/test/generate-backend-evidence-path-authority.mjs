@@ -8,8 +8,7 @@ import {
     backendEvidencePathAuthorityFile,
     buildBackendEvidencePathAuthority
 } from './backend-evidence-path-authority.mjs';
-import { parseMatrix } from '../test-matrix/parse-matrix.mjs';
-
+const { parseMatrix } = await import(new URL('../test-matrix/parse-matrix.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const matrixSource = fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8');
 const requirementCatalog = JSON.parse(fs.readFileSync(

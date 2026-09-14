@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { readLatestNuget } from '../../tools/governance/dependency-nuget-registry.mjs';
-
+const { readLatestNuget } = await import(new URL('../../tools/governance/dependency-nuget-registry.mjs', import.meta.url));
 function fixture(external = false)
 {
     const entry = { id: 'Example.Package', version: '2.0.0', listed: true, published: '2026-01-01T12:00:00+00:00' };
     const page = { '@id': 'https://api.nuget.org/registration/page', count: 1, items: [{ catalogEntry: entry }] };
     const index = { count: 1, items: [external ? { '@id': page['@id'], count: 1 } : page] };
     const requests = [];
-    const read = async (url) => {
+    const read = async (url) =>
+    {
         requests.push(url);
         switch (url)
         {
@@ -25,7 +25,8 @@ function fixture(external = false)
     return { entry, page, index, read, requests };
 }
 
-test('NuGet preserves the existing stable target and reads actual publication time', async () => {
+test('NuGet preserves the existing stable target and reads actual publication time', async () =>
+{
     for (const external of [false, true])
     {
         const data = fixture(external);
@@ -36,7 +37,8 @@ test('NuGet preserves the existing stable target and reads actual publication ti
     }
 });
 
-test('missing, unlisted, sentinel and invalid publication metadata never become query time', async () => {
+test('missing, unlisted, sentinel and invalid publication metadata never become query time', async () =>
+{
     for (const change of [{ published: undefined }, { published: 'invalid' }, { published: '1900-01-01T00:00:00Z' }, { listed: false }])
     {
         const data = fixture();
@@ -45,7 +47,8 @@ test('missing, unlisted, sentinel and invalid publication metadata never become 
     }
 });
 
-test('partial or duplicated registration evidence fails closed', async () => {
+test('partial or duplicated registration evidence fails closed', async () =>
+{
     const partial = fixture();
     partial.page.count = 2;
     await assert.rejects(readLatestNuget('Example.Package', partial.read), /page_incomplete/);
@@ -55,7 +58,8 @@ test('partial or duplicated registration evidence fails closed', async () => {
     await assert.rejects(readLatestNuget('Example.Package', duplicate.read), /page_duplicate/);
 });
 
-test('inline page fragment identities are preserved but never used for external page fetches', async () => {
+test('inline page fragment identities are preserved but never used for external page fetches', async () =>
+{
     const inline = fixture();
     inline.page['@id'] += '#page/1.0.0/2.0.0';
     assert.equal((await readLatestNuget('Example.Package', inline.read)).latestStable, '2.0.0');
@@ -65,17 +69,23 @@ test('inline page fragment identities are preserved but never used for external 
     await assert.rejects(readLatestNuget('Example.Package', external.read), /registry_url_invalid/);
 });
 
-test('foreign package metadata and late network errors cannot supply a freshness result', async () => {
+test('foreign package metadata and late network errors cannot supply a freshness result', async () =>
+{
     const data = fixture(true);
     data.entry.id = 'Other.Package';
     await assert.rejects(readLatestNuget('Example.Package', data.read), /entry_invalid/);
-    await assert.rejects(readLatestNuget('Example.Package', async (url) => {
-        if (url === data.page['@id']) throw new Error('registry unavailable');
+    await assert.rejects(readLatestNuget('Example.Package', async (url) =>
+    {
+        if (url === data.page['@id'])
+        {
+            throw new Error('registry unavailable');
+        }
         return data.read(url);
     }), /registry unavailable/);
 });
 
-test('explicitly unlisted newest version does not displace the latest listed stable target', async () => {
+test('explicitly unlisted newest version does not displace the latest listed stable target', async () =>
+{
     const data = fixture();
     data.entry.listed = false;
     data.entry.published = '1900-01-01T00:00:00Z';

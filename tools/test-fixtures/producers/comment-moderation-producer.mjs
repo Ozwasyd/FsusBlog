@@ -2,16 +2,8 @@ import { createHash } from 'node:crypto';
 
 // fixture-catalog: producer comment-moderation
 
-import {
-    digestCommentFixtureValue,
-    readCommentFixtureInventory
-} from '../../test/comment-fixture-contract.mjs';
-import {
-    fixtureTestSessionHeaders,
-    fixtureTestSessionSchema,
-    resolveFixtureTestSession
-} from '../runtime-scope.mjs';
-
+const {digestCommentFixtureValue, readCommentFixtureInventory} = await import(new URL('../../test/comment-fixture-contract.mjs', import.meta.url));
+const {fixtureTestSessionHeaders, fixtureTestSessionSchema, resolveFixtureTestSession} = await import(new URL('../runtime-scope.mjs', import.meta.url));
 const PRODUCER_ID = 'comment-moderation';
 const STRATEGY = 'transaction-fixture';
 const digestPattern = /^sha256:[a-f0-9]{64}$/u;
@@ -19,15 +11,24 @@ const digestPattern = /^sha256:[a-f0-9]{64}$/u;
 function asDigest(value)
 {
     const text = String(value ?? '');
-    if (digestPattern.test(text)) return text;
-    if (/^[a-f0-9]{64}$/u.test(text)) return `sha256:${text}`;
+    if (digestPattern.test(text))
+    {
+        return text;
+    }
+    if (/^[a-f0-9]{64}$/u.test(text))
+    {
+        return `sha256:${text}`;
+    }
     return digestCommentFixtureValue(value);
 }
 
 function requirePositiveId(value, label)
 {
     const text = String(value ?? '').trim();
-    if (!/^[1-9][0-9]*$/u.test(text)) throw new Error(`comment-moderation requires ${label}`);
+    if (!/^[1-9][0-9]*$/u.test(text))
+    {
+        throw new Error(`comment-moderation requires ${label}`);
+    }
     return Number(text);
 }
 
@@ -37,7 +38,9 @@ function resolveIdentityReferences(context)
     if (!source || source.producerId !== 'auth-session'
         || !/^[a-f0-9]{64}$/u.test(String(source.producerResultDigest ?? ''))
         || !Array.isArray(source.identityPrepareReferences))
+    {
         throw new Error('comment-moderation requires current-run auth-session prepare references');
+    }
     const expected = new Map([
         ['admin', 'auth.admin.full-permission'],
         ['primary-author', 'auth.user.active'],
@@ -45,7 +48,10 @@ function resolveIdentityReferences(context)
     ]);
     const refs = source.identityPrepareReferences
         .filter((item) => item?.consumerProducerId === PRODUCER_ID);
-    if (refs.length !== expected.size) throw new Error('comment-moderation auth roles are missing or orphaned');
+    if (refs.length !== expected.size)
+    {
+        throw new Error('comment-moderation auth roles are missing or orphaned');
+    }
     const byRole = new Map();
     for (const item of refs)
     {
@@ -58,13 +64,24 @@ function resolveIdentityReferences(context)
             || item.capabilityId !== expected.get(item.role)
             || item.producerResultDigest !== source.producerResultDigest
             || digest !== recalculated || byRole.has(item.role))
+        {
             throw new Error(`comment-moderation auth role ${item?.role ?? '<missing>'} is invalid`);
+        }
         byRole.set(item.role, item);
     }
-    for (const role of expected.keys()) if (!byRole.has(role)) throw new Error(`comment-moderation auth role ${role} is missing`);
+    for (const role of expected.keys())
+    {
+        if (!byRole.has(role))
+        {
+            throw new Error(`comment-moderation auth role ${role} is missing`);
+        }
+    }
     const primary = requirePositiveId(byRole.get('primary-author').publicId, 'primary account ID');
     const secondary = requirePositiveId(byRole.get('secondary-author').publicId, 'secondary account ID');
-    if (primary === secondary) throw new Error('comment-moderation authors must be independent identities');
+    if (primary === secondary)
+    {
+        throw new Error('comment-moderation authors must be independent identities');
+    }
     return Object.freeze({
         primaryAccountId: primary,
         secondaryAccountId: secondary,
@@ -85,7 +102,9 @@ function resolveArticleReference(context)
         || !/^sha256:[a-f0-9]{64}$/u.test(String(resultBindingDigest ?? ''))
         || !/^[1-9][0-9]*$/u.test(articleId)
         || !(source.entityIdentities ?? []).some((item) => item.kind === 'article' && String(item.id) === articleId))
+    {
         throw new Error('comment-moderation requires the current-run published article projection');
+    }
     return Object.freeze({
         articleId: Number(articleId),
         publicContentProducerResultDigest: resultBindingDigest,
@@ -99,13 +118,18 @@ function resolveArticleReference(context)
 
 export function buildCommentFixturePlan(context)
 {
-    const { inventory, inventoryDigest } = readCommentFixtureInventory();
+    const { inventoryDigest } = readCommentFixtureInventory();
     const capabilities = [...new Set(context?.plan?.capabilities ?? [])]
         .filter((id) => ['comment.moderation-matrix', 'comment.threaded', 'moderation.policy-matrix'].includes(id))
         .sort();
     if (JSON.stringify(capabilities) !== JSON.stringify(['comment.moderation-matrix', 'comment.threaded', 'moderation.policy-matrix']))
+    {
         throw new Error('comment-moderation producer requires the exact comments-moderation capability profile');
-    if (!context.temporalContext) throw new Error('comment-moderation requires the canonical temporal context');
+    }
+    if (!context.temporalContext)
+    {
+        throw new Error('comment-moderation requires the canonical temporal context');
+    }
     const identityReferences = resolveIdentityReferences(context);
     const articleReference = resolveArticleReference(context);
     const body = {
@@ -132,7 +156,10 @@ async function invokeBackend(context, path, body, signal)
 {
     const baseUrl = String(context.handles?.baseUrl ?? context.handles?.debugBackendUrl ?? '').replace(/\/+$/u, '');
     const secret = context.handles?.localCommentFixtureSecret ?? context.handles?.localAuthFixtureSecret ?? '';
-    if (!baseUrl || !secret) throw new Error('comment-moderation requires explicit backend URL and local fixture secret handles');
+    if (!baseUrl || !secret)
+    {
+        throw new Error('comment-moderation requires explicit backend URL and local fixture secret handles');
+    }
     const response = await fetch(`${baseUrl}${path}`, {
         method: 'POST',
         headers: {
@@ -148,8 +175,18 @@ async function invokeBackend(context, path, body, signal)
     });
     const text = await response.text();
     let payload;
-    try { payload = text ? JSON.parse(text) : null; } catch { payload = null; }
-    if (!response.ok) throw createCommentFixtureBackendError(response.status, payload, text, body);
+    try
+    {
+        payload = text ? JSON.parse(text) : null;
+    }
+    catch
+    {
+        payload = null;
+    }
+    if (!response.ok)
+    {
+        throw createCommentFixtureBackendError(response.status, payload, text, body);
+    }
     return payload;
 }
 
@@ -231,7 +268,10 @@ async function observeBackendTemporalContext(context, signal)
 {
     const baseUrl = String(context.handles?.baseUrl ?? context.handles?.debugBackendUrl ?? '').replace(/\/+$/u, '');
     const secret = context.handles?.localPublicContentFixtureSecret ?? context.handles?.localAuthFixtureSecret ?? '';
-    if (!baseUrl || !secret) throw new Error('comment-moderation requires explicit temporal observation handles');
+    if (!baseUrl || !secret)
+    {
+        throw new Error('comment-moderation requires explicit temporal observation handles');
+    }
     const response = await fetch(`${baseUrl}/__local/temporal-observation`, {
         headers: {
             'X-Fsus-Local-Temporal-Fixture-Secret': secret,
@@ -241,9 +281,18 @@ async function observeBackendTemporalContext(context, signal)
     });
     const text = await response.text();
     let payload;
-    try { payload = text ? JSON.parse(text) : null; } catch { payload = null; }
+    try
+    {
+        payload = text ? JSON.parse(text) : null;
+    }
+    catch
+    {
+        payload = null;
+    }
     if (!response.ok || !payload || typeof payload !== 'object')
+    {
         throw new Error(`comment fixture temporal observation failed HTTP ${response.status}: ${text.slice(0, 400)}`);
+    }
     return payload;
 }
 
@@ -255,7 +304,10 @@ function variantForRole(role, variants)
             ? 'comment.moderation-matrix'
             : 'comment.threaded';
     const matches = variants.filter((item) => item.capabilityId === capability);
-    if (matches.length !== 1) throw new Error(`comment role ${role} has no exact typed variant`);
+    if (matches.length !== 1)
+    {
+        throw new Error(`comment role ${role} has no exact typed variant`);
+    }
     return matches[0].id;
 }
 
@@ -271,16 +323,22 @@ function normalizeResult(raw, context, plan, temporalObservation)
         || raw.variantCatalogDigest !== plan.variantCatalogDigest
         || raw.temporalContextDigest !== plan.temporalContextDigest
         || raw.producerPlanDigest !== plan.producerPlanDigest)
+    {
         throw new Error('comment fixture backend result is stale or cross-plan');
+    }
     if (!validCrossDomainSentinel(raw.crossDomainBefore, plan)
         || !sameCrossDomainSentinel(raw.crossDomainBefore, raw.crossDomainAfterPrepare)
         || !sameCrossDomainSentinel(raw.crossDomainBefore, raw.cleanupReceipt?.crossDomainBefore))
+    {
         throw new Error('comment fixture cross-domain prepare sentinel is missing or changed');
+    }
     const proofs = raw.capabilityProofs;
     if (!Array.isArray(proofs) || JSON.stringify(proofs.map((item) => item.capabilityId)) !== JSON.stringify(plan.capabilities)
         || proofs.some((item) => item.status !== 'verified'
             || [item.thread, item.moderation, item.publicReadModel, item.adminReadModel, item.queue, item.cacheOutbox].some((value) => value !== 'exact')))
+    {
         throw new Error('comment fixture capability proof is partial');
+    }
     const zkAuthorityEvidence = raw.zkAuthorityEvidence;
     if (!Array.isArray(zkAuthorityEvidence)
         || JSON.stringify(zkAuthorityEvidence.map((item) => item.semanticRole).sort())
@@ -295,10 +353,13 @@ function normalizeResult(raw, context, plan, temporalObservation)
             || !/^[a-f0-9]{64}$/u.test(item.operationPlanDigest)
             || !/^[a-f0-9]{64}$/u.test(item.publicInputsDigest)
             || !/^[a-f0-9]{64}$/u.test(item.rootDigest)))
+    {
         throw new Error('comment fixture ZK authority evidence is missing, secret-bearing, or production-ambiguous');
+    }
     const variants = context.variantPlan?.variants ?? [];
     const moderationByRole = new Map((raw.moderation?.entities ?? []).map((item) => [item.semanticRole, item]));
-    const entities = raw.threadEntities.map((item) => {
+    const entities = raw.threadEntities.map((item) =>
+    {
         const moderation = moderationByRole.get(item.semanticRole);
         const variantId = variantForRole(item.semanticRole, variants);
         return {
@@ -343,13 +404,18 @@ function normalizeResult(raw, context, plan, temporalObservation)
             }
         };
     });
-    if (new Set(entities.map((item) => item.id)).size !== entities.length) throw new Error('comment fixture reused an entity identity');
+    if (new Set(entities.map((item) => item.id)).size !== entities.length)
+    {
+        throw new Error('comment fixture reused an entity identity');
+    }
     const entityIdentities = entities.map((item) => ({ kind: item.kind, id: item.id, variantId: item.variantId }));
     const cacheGenerationBefore = String(raw.cacheGenerationBefore ?? '');
     const cacheGenerationAfter = String(raw.cacheGenerationAfter ?? '');
     if (!/^[0-9]+$/u.test(cacheGenerationBefore) || !/^[1-9][0-9]*$/u.test(cacheGenerationAfter)
         || BigInt(cacheGenerationAfter) <= BigInt(cacheGenerationBefore))
+    {
         throw new Error('comment fixture lacks an advanced production cache generation');
+    }
     return Object.freeze({
         producerId: PRODUCER_ID,
         strategy: STRATEGY,
@@ -424,7 +490,9 @@ export async function verifyCommentModeration(context, result)
             || result.crossDomainBefore?.schema !== 'fsusblog.comment-fixture-cross-domain-sentinel.v1'
             || !sameCrossDomainSentinel(result.crossDomainBefore, result.crossDomainAfterPrepare)
             || !sameCrossDomainSentinel(result.crossDomainBefore, result.cleanupReceipt?.crossDomainBefore))
+        {
             throw new Error('comment fixture verified result is incomplete');
+        }
         const semantics = result.runtimeSemantics;
         if (semantics?.schema !== 'fsusblog.comment-fixture-runtime-semantics.v1'
             || semantics.publicVisibility?.approved !== 'visible-exact'
@@ -433,7 +501,9 @@ export async function verifyCommentModeration(context, result)
             || semantics.queueMembership?.pending !== 'included-pending'
             || semantics.queueMembership?.rejected !== 'included-rejected'
             || semantics.queueMembership?.spam !== 'included-rejected')
+        {
             throw new Error('comment fixture runtime semantic evidence drifted');
+        }
         return { ok: true, producerId: PRODUCER_ID };
     }
     catch (error)
@@ -445,7 +515,10 @@ export async function verifyCommentModeration(context, result)
 export async function cleanupCommentModeration(context, result, signal)
 {
     const receipt = result?.cleanupReceipt ?? result?.cleanupContract?.receipt;
-    if (!receipt) throw new Error('comment fixture exact cleanup receipt is missing');
+    if (!receipt)
+    {
+        throw new Error('comment fixture exact cleanup receipt is missing');
+    }
     const cleanup = await invokeBackend(context, '/api/local/comment-fixture/cleanup', receipt, signal);
     const receiptBinding = receipt.binding ?? receipt;
     const cleanupBinding = cleanup?.binding ?? cleanup;
@@ -462,6 +535,8 @@ export async function cleanupCommentModeration(context, result, signal)
         || JSON.stringify(deletedIds) !== JSON.stringify(expectedIds)
         || !sameCrossDomainSentinel(cleanup.crossDomainBefore, receipt.crossDomainBefore)
         || !sameCrossDomainSentinel(cleanup.crossDomainAfter, receipt.crossDomainBefore))
+    {
         throw new Error('comment fixture cleanup result is incomplete or cross-run');
+    }
     return Object.freeze(cleanup);
 }

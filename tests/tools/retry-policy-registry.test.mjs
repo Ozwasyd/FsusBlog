@@ -3,18 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
-import {
-    aggregateAttemptReceiptSchema,
-    attemptReceiptSchema,
-    canonicalJson,
-    digestCanonical,
-    readRetryPolicyRegistry,
-    sealContentDigest,
-    validateAggregateAttemptReceipt,
-    validateAttemptReceipt,
-    validateRetryPolicyRegistry
-} from '../../tools/test/attempt-provenance.mjs';
-
+const {aggregateAttemptReceiptSchema, attemptReceiptSchema, canonicalJson, digestCanonical, readRetryPolicyRegistry, sealContentDigest, validateAggregateAttemptReceipt, validateAttemptReceipt, validateRetryPolicyRegistry} = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
 const root = path.resolve(import.meta.dirname, '../..');
 const commit = 'a'.repeat(40);
 const fingerprint = `sha256:${'b'.repeat(64)}`;
@@ -141,11 +130,26 @@ test('policy validator rejects correctness, diagnostic and restore retry semanti
 {
     const source = JSON.parse(fs.readFileSync(path.join(root, 'config/testing/retry-policy-registry.json'), 'utf8'));
     for (const mutate of [
-        (value) => { value.policies[0].allowedRetries = 1; },
-        (value) => { value.policies[1].allowedRetries = 2; },
-        (value) => { value.policies[1].retryOn = ['any-nonzero']; },
-        (value) => { value.policies[2].recoveredClassification = 'clean-success'; },
-        (value) => { value.defaultDisposition.qualificationEligible = true; }
+        (value) =>
+        {
+            value.policies[0].allowedRetries = 1;
+        },
+        (value) =>
+        {
+            value.policies[1].allowedRetries = 2;
+        },
+        (value) =>
+        {
+            value.policies[1].retryOn = ['any-nonzero'];
+        },
+        (value) =>
+        {
+            value.policies[2].recoveredClassification = 'clean-success';
+        },
+        (value) =>
+        {
+            value.defaultDisposition.qualificationEligible = true;
+        }
     ])
     {
         const candidate = clone(source);
@@ -182,10 +186,22 @@ test('aggregate validator preserves the first attempt and clean qualification se
     assert.equal(validated.qualificationEligible, true);
 
     for (const mutate of [
-        (value) => { value.attempts[0].attemptNumber = 2; },
-        (value) => { value.firstAttemptStatus = 'failed-no-retry'; },
-        (value) => { value.qualificationEligible = false; },
-        (value) => { value.finalClassification = 'success'; }
+        (value) =>
+        {
+            value.attempts[0].attemptNumber = 2;
+        },
+        (value) =>
+        {
+            value.firstAttemptStatus = 'failed-no-retry';
+        },
+        (value) =>
+        {
+            value.qualificationEligible = false;
+        },
+        (value) =>
+        {
+            value.finalClassification = 'success';
+        }
     ])
     {
         const candidate = clone(receipt);

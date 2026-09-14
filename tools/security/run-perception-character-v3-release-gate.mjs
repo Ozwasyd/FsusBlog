@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -36,7 +36,9 @@ function run(id, command, args, environment = {}, record = true)
 {
     const rendered = commandString(command, args);
     if (record)
+    {
         commands.push(rendered);
+    }
     const result = spawnSync(command, args, {
         cwd: repositoryRoot,
         encoding: 'utf8',
@@ -47,7 +49,9 @@ function run(id, command, args, environment = {}, record = true)
     fs.writeFileSync(path.join(logRoot, `${id}.log`), output, { mode: 0o600 });
     process.stdout.write(output);
     if (result.error || result.status !== 0)
+    {
         throw new Error(`${rendered} failed: ${result.error?.message ?? result.status}`);
+    }
 }
 
 function requireCleanCheckout()
@@ -57,7 +61,9 @@ function requireCleanCheckout()
         encoding: 'utf8'
     });
     if (status.error || status.status !== 0 || status.stdout.trim().length > 0)
+    {
         throw new Error('PerceptionCharacterV3 release gate requires a clean tracked checkout');
+    }
 }
 
 function writeJson(file, value)

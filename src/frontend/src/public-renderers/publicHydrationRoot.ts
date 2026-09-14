@@ -1,4 +1,4 @@
-import { defineComponent, type Ref, type ShallowRef, type VNode } from 'vue';
+import { defineComponent, type Component, type Ref, type ShallowRef, type VNode } from 'vue';
 
 import {
     renderMarkdownOrThrow,
@@ -63,12 +63,12 @@ function createHydrationPageAssembly(
             return createPublicArticleDetailPageAssembly({
                 detailView: payload.detailView,
                 articleId,
-                authorName: payload.authorName?.trim() || getSiteTitle(payload),
+                authorName: payload.authorName?.trim() ? payload.authorName.trim() : getSiteTitle(payload),
                 responsibilityAuthors: payload.responsibilityAuthors?.length
                     ? payload.responsibilityAuthors
-                    : [{ name: payload.authorName?.trim() || getSiteTitle(payload), profileUrl: null }],
+                    : [{ name: payload.authorName?.trim() ? payload.authorName.trim() : getSiteTitle(payload), profileUrl: null }],
                 responsibilityManifest: payload.responsibilityManifest ?? null,
-                articleSummary: payload.articleSummary?.trim() || payload.detailView.header.title,
+                articleSummary: payload.articleSummary?.trim() ? payload.articleSummary.trim() : payload.detailView.header.title,
                 canonicalUrl: payload.baseUrl
                     ? `${String(payload.baseUrl).replace(/\/+$/u, '')}/article/${articleId}`
                     : null,
@@ -138,7 +138,7 @@ export function createPublicHydrationRootComponent(
     payload: PublicHydrationPayload,
     initialRender: MarkdownSafeRenderResult | null = null,
     takeover?: PublicHydrationTakeoverController
-): ReturnType<typeof defineComponent>
+): Component
 {
     return defineComponent({
         name: 'PublicHydrationRoot',

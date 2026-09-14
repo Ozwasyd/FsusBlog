@@ -77,7 +77,8 @@ export function scanAuditFixtureGovernance(repositoryRoot = root)
         producerId,
         scannedFileCount: files.length,
         auditCapabilityCount: auditCapabilities.length,
-        directAuditSqlOwners: files.filter((relative) => {
+        directAuditSqlOwners: files.filter((relative) =>
+        {
             if (scannerSources.has(relative))
             {
                 return false;

@@ -4,13 +4,9 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import {
-    admitSemanticOutcomeCleanAttempt,
-    readSemanticOutcomeConsumerInventory
-} from '../../tools/release/semantic-outcome-clean-attempt-consumers.mjs';
-import { runProducerAttempts } from '../../tools/test/attempt-runner.mjs';
-import { sha256 } from '../../tools/test/attempt-provenance.mjs';
-
+const {admitSemanticOutcomeCleanAttempt, readSemanticOutcomeConsumerInventory} = await import(new URL('../../tools/release/semantic-outcome-clean-attempt-consumers.mjs', import.meta.url));
+const {runProducerAttempts} = await import(new URL('../../tools/test/attempt-runner.mjs', import.meta.url));
+const {sha256} = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
 const root = path.resolve(import.meta.dirname, '../..');
 const fixtureCommand = path.join(root, 'tests/tools/fixtures/attempt-runner-command.mjs');
 const sourceCommit = '1'.repeat(40);
@@ -65,7 +61,8 @@ async function cleanEvidence(directory, {
         aggregateReceipt: result.aggregate,
         loadAttempt: (reference) => result.attempts[reference.attemptNumber - 1],
         verifyAuthority: attemptAuthority(producerId, schedulerRunId),
-        verifyArtifact: (relative, digest, receipt) => {
+        verifyArtifact: (relative, digest, receipt) =>
+        {
             const file = path.join(result.producerRoot, `attempt-${receipt.attemptNumber}`, relative);
             return fs.existsSync(file) && sha256(fs.readFileSync(file)) === digest;
         }

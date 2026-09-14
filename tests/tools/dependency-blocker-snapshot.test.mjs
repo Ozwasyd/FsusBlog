@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { planDependencyCheckLabels } from '../../tools/governance/dependency-blocker-checks.mjs';
-import { buildDependencyBlockerSnapshot } from '../../tools/governance/dependency-blocker-snapshot.mjs';
-import { parseRenovatePullRequests } from '../../tools/governance/dependency-freshness-pulls.mjs';
-
+const { planDependencyCheckLabels } = await import(new URL('../../tools/governance/dependency-blocker-checks.mjs', import.meta.url));
+const { buildDependencyBlockerSnapshot } = await import(new URL('../../tools/governance/dependency-blocker-snapshot.mjs', import.meta.url));
+const { parseRenovatePullRequests } = await import(new URL('../../tools/governance/dependency-freshness-pulls.mjs', import.meta.url));
 function setup()
 {
     const headSha = 'a'.repeat(40);
@@ -19,7 +18,8 @@ function setup()
     return { request: { report, catalog, requiredChecks, exceptions: { exceptions: [] }, client }, pull };
 }
 
-test('mixed update types on one PR keep the union of canonical required checks', async () => {
+test('mixed update types on one PR keep the union of canonical required checks', async () =>
+{
     const { request } = setup();
     const snapshot = await buildDependencyBlockerSnapshot(request);
     assert.equal(snapshot.pullRequests.length, 1);
@@ -28,26 +28,30 @@ test('mixed update types on one PR keep the union of canonical required checks',
     assert.deepEqual(plan.blockedPullRequests[0].failedChecks.map((check) => check.name), ['Quality / Production', 'Quality / Test']);
 });
 
-test('producer metadata drift at unchanged SHA is rejected before accepting checks', async () => {
+test('producer metadata drift at unchanged SHA is rejected before accepting checks', async () =>
+{
     const { request, pull } = setup();
     pull.body = pull.body.replace('major', 'patch');
     await assert.rejects(buildDependencyBlockerSnapshot(request), /mapping_changed/);
 });
 
-test('undeclared update type never falls back to patch requirements', async () => {
+test('undeclared update type never falls back to patch requirements', async () =>
+{
     const { request } = setup();
     delete request.report.pullRequests[0].updateType;
     await assert.rejects(buildDependencyBlockerSnapshot(request), /invalid_canonical_pull_mapping/);
 });
 
-test('metadata change during check collection rejects the completed snapshot', async () => {
+test('metadata change during check collection rejects the completed snapshot', async () =>
+{
     const { request, pull } = setup();
     let calls = 0;
     request.client.readPullRequest = async () => ({ ...pull, body: ++calls === 1 ? pull.body : pull.body.replace('2.0.0', '3.0.0') });
     await assert.rejects(buildDependencyBlockerSnapshot(request), /mapping_changed/);
 });
 
-test('source-bound targets are re-extracted and asynchronous failures prevent a snapshot', async () => {
+test('source-bound targets are re-extracted and asynchronous failures prevent a snapshot', async () =>
+{
     const { request, pull } = setup();
     const item = request.catalog.items[0];
     request.catalog.items = [{ ...item, manager: 'github-actions', files: ['workflow.yml'] }];
@@ -55,7 +59,8 @@ test('source-bound targets are re-extracted and asynchronous failures prevent a 
     const pin = 'b'.repeat(40);
     request.report.pullRequests = parseRenovatePullRequests([pull], request.catalog).map(mapping => ({ ...mapping, declaredTargetVersion: mapping.targetVersion, targetVersion: pin }));
     let reads = 0;
-    request.client.readFileAtHead = async (file, sha) => {
+    request.client.readFileAtHead = async (file, sha) =>
+    {
         assert.equal(file, 'workflow.yml');
         assert.equal(sha, pull.head.sha);
         reads++;
@@ -63,6 +68,9 @@ test('source-bound targets are re-extracted and asynchronous failures prevent a 
     };
     await buildDependencyBlockerSnapshot(request);
     assert.equal(reads, 2);
-    request.client.readFileAtHead = async () => { throw new Error('source unavailable'); };
+    request.client.readFileAtHead = async () =>
+    {
+        throw new Error('source unavailable');
+    };
     await assert.rejects(buildDependencyBlockerSnapshot(request), /source unavailable/);
 });

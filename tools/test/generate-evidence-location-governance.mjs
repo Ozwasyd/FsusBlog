@@ -185,36 +185,68 @@ function consumerIdFor(file)
 
 function ownerFor(file)
 {
-    if (file.startsWith('.github/') || file.startsWith('tools/ci/')) return 'ci-governance';
-    if (file.startsWith('tools/release/')) return 'release-final-governance';
-    if (file.startsWith('tools/operations/')) return 'operations-governance';
-    if (file.startsWith('tools/docs/')) return 'documentation-governance';
-    if (file.startsWith('tools/frontend/')) return 'frontend-build-governance';
-    if (file.startsWith('tools/test-matrix/')) return 'test-matrix-governance';
+    if (file.startsWith('.github/') || file.startsWith('tools/ci/'))
+    {
+        return 'ci-governance';
+    }
+    if (file.startsWith('tools/release/'))
+    {
+        return 'release-final-governance';
+    }
+    if (file.startsWith('tools/operations/'))
+    {
+        return 'operations-governance';
+    }
+    if (file.startsWith('tools/docs/'))
+    {
+        return 'documentation-governance';
+    }
+    if (file.startsWith('tools/frontend/'))
+    {
+        return 'frontend-build-governance';
+    }
+    if (file.startsWith('tools/test-matrix/'))
+    {
+        return 'test-matrix-governance';
+    }
     return 'test-evidence-governance';
 }
 
-function receiptSchemaFor(file)
-{
-    if (file === 'tools/ci/check-flaky-evidence.mjs') return 'fsusblog.ci.flaky.v1';
-    if (file === 'tools/ci/summarize-quality-gate.mjs') return 'fsusblog.quality-gate-summary.v1';
-    if (file === 'tools/release/check-release-final.mjs') return 'fsusblog.current-run-evidence-reference.v1';
-    if (file === 'tools/release/release-final-domain-evidence.mjs') return 'fsusblog.current-run-evidence-parent.v1';
-    if (file === 'tools/release/public-preview-release-evidence.mjs') return 'fsusblog.current-run-evidence-reference.v1';
-    return 'fsusblog.current-run-evidence-binding.v1';
-}
 
 function producerCommandFor(file)
 {
-    if (file === 'tools/ci/summarize-quality-gate.mjs') return 'node tools/ci/summarize-quality-gate.mjs';
-    if (file === 'tools/release/public-preview-release-evidence.mjs') return 'bash tools/docs/run-public-preview-capture.sh';
-    if (file === 'tools/release/check-release-final.mjs') return 'bash tools/operations/collect-release-evidence.sh --require-ok';
-    if (file === 'tools/release/release-final-domain-evidence.mjs') return 'node tools/test/publish-release-final-evidence-parent.mjs';
+    if (file === 'tools/ci/summarize-quality-gate.mjs')
+    {
+        return 'node tools/ci/summarize-quality-gate.mjs';
+    }
+    if (file === 'tools/release/public-preview-release-evidence.mjs')
+    {
+        return 'bash tools/docs/run-public-preview-capture.sh';
+    }
+    if (file === 'tools/release/check-release-final.mjs')
+    {
+        return 'bash tools/operations/collect-release-evidence.sh --require-ok';
+    }
+    if (file === 'tools/release/release-final-domain-evidence.mjs')
+    {
+        return 'node tools/test/publish-release-final-evidence-parent.mjs';
+    }
     if (file === '.github/workflows/browser-diagnostics.yml')
+    {
         return 'bash tools/test/lanes/browser-diagnostics.sh manual --workers 1';
-    if (file === '.github/workflows/quality-gate.yml') return 'node tools/ci/summarize-quality-gate.mjs';
-    if (file.endsWith('.sh')) return `bash ${file}`;
-    if (file.endsWith('.mjs') || file.endsWith('.js')) return `node ${file}`;
+    }
+    if (file === '.github/workflows/quality-gate.yml')
+    {
+        return 'node tools/ci/summarize-quality-gate.mjs';
+    }
+    if (file.endsWith('.sh'))
+    {
+        return `bash ${file}`;
+    }
+    if (file.endsWith('.mjs') || file.endsWith('.js'))
+    {
+        return `node ${file}`;
+    }
     throw new Error(`evidence producer has no canonical command: ${file}`);
 }
 
@@ -264,7 +296,10 @@ function producerExecutableFile(command)
     const tokens = String(command).match(/(?:"[^"]*"|'[^']*'|\S+)/gu)
         ?.map((token) => token.replace(/^['"]|['"]$/gu, '')) ?? [];
     const file = tokens.find((token, index) => index > 0 && !token.startsWith('-') && !token.includes('='));
-    if (!file) throw new Error(`canonical evidence producer has no executable file: ${command}`);
+    if (!file)
+    {
+        throw new Error(`canonical evidence producer has no executable file: ${command}`);
+    }
     return file;
 }
 
@@ -281,9 +316,13 @@ function canonicalProducerFor(file)
     };
     const executableFile = producerExecutableFile(producer.producerExecutable);
     if (!fs.existsSync(path.join(repositoryRoot, executableFile)))
+    {
         throw new Error(`canonical evidence producer executable is missing: ${producer.producerExecutable}`);
+    }
     if (!fs.existsSync(path.join(repositoryRoot, producer.producerCallsite)))
+    {
         throw new Error(`canonical evidence producer callsite is missing: ${producer.producerCallsite}`);
+    }
     return producer;
 }
 

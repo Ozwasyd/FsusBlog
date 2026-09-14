@@ -1,14 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-    commentFixtureOwnershipErrors,
-    readCommentFixtureContract,
-    commentFixtureInventoryErrors,
-    readCommentFixtureInventory
-} from '../../tools/test/comment-fixture-contract.mjs';
-
-function clone(value) { return structuredClone(value); }
+const {commentFixtureOwnershipErrors, readCommentFixtureContract, commentFixtureInventoryErrors, readCommentFixtureInventory} = await import(new URL('../../tools/test/comment-fixture-contract.mjs', import.meta.url));
+function clone(value)
+{
+    return structuredClone(value);
+}
 
 test('comment fixture inventory is closed, current, and complete', () =>
 {

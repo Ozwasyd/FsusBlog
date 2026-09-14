@@ -7,20 +7,8 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import {
-    checkWasmArtifactOwnership,
-    computeWasmProducerCompileCacheKey,
-    validateProductionWasmStagingContract,
-    validateGeneratedPackageFreshness,
-    validateGeneratedWasmPackage,
-    validateWasmProducerInputClosure
-} from '../../tools/check-wasm-artifact-ownership.mjs';
-import {
-    resolveWasmRequiredOutputFiles,
-    wasmArtifactContract,
-    wasmToolchainContract
-} from '../../tools/frontend/ensure-wasm.mjs';
-
+const {checkWasmArtifactOwnership, computeWasmProducerCompileCacheKey, validateProductionWasmStagingContract, validateGeneratedPackageFreshness, validateGeneratedWasmPackage, validateWasmProducerInputClosure} = await import(new URL('../../tools/check-wasm-artifact-ownership.mjs', import.meta.url));
+const {resolveWasmRequiredOutputFiles, wasmArtifactContract, wasmToolchainContract} = await import(new URL('../../tools/frontend/ensure-wasm.mjs', import.meta.url));
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const frontendRoot = path.join(repoRoot, 'src/frontend');
 const ensureWasmPath = path.join(repoRoot, 'tools/frontend/ensure-wasm.mjs');

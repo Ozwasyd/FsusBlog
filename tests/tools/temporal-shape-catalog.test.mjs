@@ -4,16 +4,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 
-import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs';
-import { verifyTemporalShapeGovernance } from '../../tools/test/check-temporal-shape-governance.mjs';
-import {
-    readTemporalShapeCatalog,
-    temporalShapeDigest,
-    validateTemporalShapeCatalog,
-    verifyAuthSessionPolicyRoles
-} from '../../tools/test/temporal-shape-catalog.mjs';
-import { readTemporalDomainProducerInventory } from '../../tools/test/temporal-role-resolver.mjs';
-
+const {validateJsonSchema} = await import(new URL('../../tools/test-matrix/schema-validator/validate.mjs', import.meta.url));
+const {verifyTemporalShapeGovernance} = await import(new URL('../../tools/test/check-temporal-shape-governance.mjs', import.meta.url));
+const {readTemporalShapeCatalog, temporalShapeDigest, validateTemporalShapeCatalog, verifyAuthSessionPolicyRoles} = await import(new URL('../../tools/test/temporal-shape-catalog.mjs', import.meta.url));
+const {readTemporalDomainProducerInventory} = await import(new URL('../../tools/test/temporal-role-resolver.mjs', import.meta.url));
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
 
 function clone(value)

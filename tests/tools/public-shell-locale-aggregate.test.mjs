@@ -1,28 +1,16 @@
 import assert from 'node:assert/strict';
+// eslint-disable-next-line import-x/order
 import fs from 'node:fs';
-import os from 'node:os';
+
 import path from 'node:path';
 import test from 'node:test';
 
-import {
-    createProductionBuildReceipt,
-    verifyProductionBuildReceipt
-} from '../../tools/ci/production-build-artifacts.mjs';
-import {
-    aggregatePublicShellLocale
-} from '../../tools/test-matrix/aggregate-public-shell-locale.mjs';
-import {
-    gateDigest,
-    loadPublicShellLocaleGate,
-    publicShellLocaleSubResultSchema
-} from '../../tools/test-matrix/public-shell-locale-gate.mjs';
-import {
-    publicShellLocaleIdentity,
-    validatePublicShellLocaleSubResults
-} from '../../tools/test-matrix/public-shell-locale-evidence.mjs';
-import { verifyPublicShellLocaleQualification } from '../../tools/test-matrix/verify-public-shell-locale.mjs';
-import { createPublicShellLocaleMatrix } from '../../tests/browser-contract/public-shell-locale-matrix.mjs';
-
+const {createProductionBuildReceipt, verifyProductionBuildReceipt} = await import(new URL('../../tools/ci/production-build-artifacts.mjs', import.meta.url));
+const {aggregatePublicShellLocale} = await import(new URL('../../tools/test-matrix/aggregate-public-shell-locale.mjs', import.meta.url));
+const {gateDigest, loadPublicShellLocaleGate, publicShellLocaleSubResultSchema} = await import(new URL('../../tools/test-matrix/public-shell-locale-gate.mjs', import.meta.url));
+const {publicShellLocaleIdentity, validatePublicShellLocaleSubResults} = await import(new URL('../../tools/test-matrix/public-shell-locale-evidence.mjs', import.meta.url));
+const {verifyPublicShellLocaleQualification} = await import(new URL('../../tools/test-matrix/verify-public-shell-locale.mjs', import.meta.url));
+const {createPublicShellLocaleMatrix} = await import(new URL('../../tests/browser-contract/public-shell-locale-matrix.mjs', import.meta.url));
 const root = path.resolve(new URL('../../', import.meta.url).pathname);
 const matrix = await createPublicShellLocaleMatrix(root);
 

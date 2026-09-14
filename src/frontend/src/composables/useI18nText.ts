@@ -1,4 +1,5 @@
 import { hasInjectionContext, inject } from 'vue';
+
 import {
     ENABLED_LOCALES,
     formatDate,
@@ -14,7 +15,7 @@ import {
     type PluralTranslationArguments,
     type PluralTranslationKey,
     type TranslationArguments,
-    type TranslationKey,
+    type TranslationKey
 } from '@/locales';
 
 export function useI18nText()

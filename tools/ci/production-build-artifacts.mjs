@@ -39,7 +39,8 @@ function compareArtifactPaths(left, right)
 
 function contentDigest(value)
 {
-    const { contentDigest: _ignored, ...content } = value;
+    const content = { ...value };
+    delete content.contentDigest;
     return sha256Buffer(JSON.stringify(canonicalize(content)));
 }
 
@@ -676,7 +677,7 @@ function readCanonicalRegularJson(file, label)
     }
     catch (error)
     {
-        throw new Error(`${label} is not valid JSON: ${error.message}`);
+        throw new Error(`${label} is not valid JSON: ${error.message}`, { cause: error });
     }
 }
 

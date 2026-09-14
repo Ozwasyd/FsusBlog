@@ -1,7 +1,7 @@
-export const localeDomainIdentity = Object.freeze({ locale: 'pt-BR', domain: 'public' } as const)
+export const localeDomainIdentity = Object.freeze({ locale: 'pt-BR', domain: 'public' } as const);
 
-import type { LocaleSchema } from '../keys'
-import type { publicMessages as zhCNPublicMessages } from '../zh-CN/public'
+import type { LocaleSchema } from '../keys';
+import type { publicMessages as zhCNPublicMessages } from '../zh-CN/public';
 
 export const publicMessages = {
     shell: {
@@ -80,4 +80,4 @@ export const publicMessages = {
         unavailable: 'Alvo da busca indisponível',
         backHome: 'Início'
     }
-} as const satisfies LocaleSchema<typeof zhCNPublicMessages>
+} as const satisfies LocaleSchema<typeof zhCNPublicMessages>;

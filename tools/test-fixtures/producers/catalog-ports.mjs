@@ -9,13 +9,13 @@ import path from 'node:path';
 
 const { readFixtureCatalogs } = await import(new URL("../../testing/fixture-catalog.mjs", import.meta.url));
 
+import { accountProfilePreferenceIdentityRoleRequests } from './account-profile-preference-producer.mjs';
 import {
     buildProducerChildEnv,
     repositoryRoot,
     runProcess,
     runTemporalProcess
 } from './spawn-helper.mjs';
-import { accountProfilePreferenceIdentityRoleRequests } from './account-profile-preference-producer.mjs';
 
 function catalogProducer(id, catalogs = readFixtureCatalogs())
 {
@@ -397,86 +397,6 @@ function requireConsumedProducerOutputs(producer, context)
  * and enforces consume ordering — but does not invent SQL/API business rows (#1709 scope).
  * Callers may inject a real adapter via handles.<id>Adapter to replace the structural path.
  */
-function createStructuralBusinessPort(producer, adapterHandleName)
-{
-    return basePort(producer, {
-        async prepare(context, signal)
-        {
-            assertNoStrategyEnv();
-            const adapter = context.handles?.[adapterHandleName];
-            if (adapter && typeof adapter.prepare === 'function')
-            {
-                requireConsumedProducerOutputs(producer, context);
-                const result = await adapter.prepare(context, signal);
-                const backendObservation = context.temporalContext
-                    ? await observeBackendTemporalContext(context, signal)
-                    : null;
-                return {
-                    producerId: producer.id,
-                    strategy: producer.strategy,
-                    implementation: `injected-${adapterHandleName}`,
-                    structuralOnly: false,
-                    ...(result && typeof result === 'object' ? result : {}),
-                    ...variantOutputFromTypedPlan(context, producer.id),
-                    postconditions: [...producer.receiptPostconditions],
-                    ...(backendObservation
-                        ? {
-                            temporalObservation: {
-                                ...backendObservation,
-                                observationBoundary: `server-owned-${producer.id}-backend-and-postgres-session`
-                            }
-                        }
-                        : {})
-                };
-            }
-            requireConsumedProducerOutputs(producer, context);
-            return {
-                producerId: producer.id,
-                strategy: producer.strategy,
-                implementation: 'structural-port',
-                structuralOnly: true,
-                ...variantOutputFromTypedPlan(context, producer.id),
-                postconditions: [...producer.receiptPostconditions]
-            };
-        },
-        async verify(context, producerReceipt)
-        {
-            // #1710: structural-only prepare cannot become verified evidence.
-            if (producerReceipt?.structuralOnly === true)
-            {
-                return {
-                    ok: false,
-                    structuralOnly: true,
-                    producerId: producer.id,
-                    reason: 'business observations required before ProducerReceipt success (#1712+)'
-                };
-            }
-            const adapter = context.handles?.[adapterHandleName];
-            if (adapter && typeof adapter.verify === 'function')
-            {
-                return adapter.verify(context, producerReceipt);
-            }
-            // Without an injected adapter or observations, fail closed.
-            if (!producerReceipt?.observations && !producerReceipt?.databaseObservation)
-            {
-                return {
-                    ok: false,
-                    producerId: producer.id,
-                    reason: 'producer verify missing database/redis/cache observations'
-                };
-            }
-            return { ok: true, producerId: producer.id };
-        },
-        async cleanup(context, receipt, signal)
-        {
-            const adapter = context.handles?.[adapterHandleName];
-            if (adapter && typeof adapter.cleanup === 'function')
-            {
-                await adapter.cleanup(context, receipt, signal);
-            }
-        }
-    });
-}
 
 export function createAccountMessagingPort(catalogs = readFixtureCatalogs())
 {

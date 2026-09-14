@@ -28,10 +28,6 @@ function fail(message)
     throw new Error(`invalid ${QUALITY_POLICY_SCHEMA}: ${message}`);
 }
 
-function sortedUnique(values)
-{
-    return [...new Set((values ?? []).filter((value) => String(value ?? '').trim()).map(String))].sort();
-}
 
 function policyDigest(policy)
 {
@@ -164,11 +160,26 @@ function literalValue(operand)
         return Symbol.for('not-literal');
     }
     const text = operand.text;
-    if (text === 'true') return true;
-    if (text === 'false') return false;
-    if (text === 'null') return null;
-    if (text === 'undefined') return undefined;
-    if (/^-?\d+(?:\.\d+)?$/u.test(text)) return Number(text);
+    if (text === 'true')
+    {
+        return true;
+    }
+    if (text === 'false')
+    {
+        return false;
+    }
+    if (text === 'null')
+    {
+        return null;
+    }
+    if (text === 'undefined')
+    {
+        return undefined;
+    }
+    if (/^-?\d+(?:\.\d+)?$/u.test(text))
+    {
+        return Number(text);
+    }
     return text.slice(1, -1);
 }
 

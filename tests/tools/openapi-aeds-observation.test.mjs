@@ -55,7 +55,7 @@ function sampleObservation(overrides = {})
         errorAuthorityBehaviorId: 'configuration-error-security-policy',
         resultPlacement: 'aeds.frame.payload',
         protocolState: 'active-aeds-only'
-    })
+    });
     return {
         schema: 'fsusblog.api-aeds-observation.v2',
         protocol: 'AEDS',
@@ -349,27 +349,90 @@ test('stale artifact digest (yesterday Debug swap) fails', () =>
 test('typed request, response, protocol, and error authority counterexamples fail closed', () =>
 {
     const cases = [
-        ['missing request', (value) => { delete value.operations[0].request; }, /request contract/iu],
-        ['incorrect request required', (value) => { value.operations[0].request.required = true; }, /request direction|request contract/iu],
-        ['incorrect request nullable', (value) => { value.operations[1].request.nullable = true; }, /request contract/iu],
-        ['invented request field bounds', (value) => { value.operations[1].request.boundsState = 'frame-contract'; }, /request contract/iu],
-        ['invented request union', (value) => { value.operations[1].request.unionState = 'oneOf'; }, /request contract/iu],
-        ['invented request required field', (value) => { value.operations[1].request.requiredFields.push('frame'); }, /request contract/iu],
-        ['missing error response', (value) => { value.operations[0].responses.pop(); }, /response contracts/iu],
-        ['success status drift', (value) => { value.operations[0].responses[0].status = 201; }, /response status/iu],
-        ['content type drift', (value) => { value.operations[0].responses[0].contentType = 'application/json'; }, /response contracts/iu],
-        ['response schema drift', (value) => { value.operations[0].responses[0].schemaRef = 'aeds://frame/ApiError'; }, /response status/iu],
-        ['result placement drift', (value) => { value.operations[0].responses[0].resultPlacement = 'json.body'; }, /response contracts/iu],
-        ['duplicate response', (value) => { value.operations[0].responses.push({ ...value.operations[0].responses[0] }); }, /response contracts/iu],
-        ['active migration overlap', (value) => { value.protocolStates.migrationOnlyFrameIds.push('ArticleDetail'); }, /protocol states conflict/iu],
-        ['reserved frame in active partition', (value) => { value.protocolStates.activeFrameIds.push('Reserved178'); }, /protocol states conflict/iu],
-        ['non-reserved migration frame', (value) => { value.protocolStates.migrationOnlyFrameIds.push('MigrationFrame'); }, /protocol states conflict/iu],
-        ['duplicate retired protocol value', (value) => { value.protocolStates.retiredFrameValues.push(40); }, /protocol states conflict/iu],
-        ['missing migration partition', (value) => { delete value.protocolStates.migrationOnlyFrameIds; }, /protocol states missing/iu],
-        ['error behavior drift', (value) => { value.operations[0].errorAuthorityBehaviorId = 'binary-api-aeds-contract'; }, /public errors/iu],
-        ['invented operation error allow-list', (value) => { value.operations[0].publicErrorRefState = 'operation-allow-list'; }, /public errors/iu],
-        ['duplicate public error ref', (value) => { value.operations[0].publicErrorRefs.push(value.operations[0].publicErrorRefs[0]); }, /public errors/iu],
-        ['duplicate authority fact', (value) => { value.errorAuthority.factIds.push(value.errorAuthority.factIds[0]); }, /error authority binding/iu]
+        ['missing request', (value) =>
+        {
+            delete value.operations[0].request;
+        }, /request contract/iu],
+        ['incorrect request required', (value) =>
+        {
+            value.operations[0].request.required = true;
+        }, /request direction|request contract/iu],
+        ['incorrect request nullable', (value) =>
+        {
+            value.operations[1].request.nullable = true;
+        }, /request contract/iu],
+        ['invented request field bounds', (value) =>
+        {
+            value.operations[1].request.boundsState = 'frame-contract';
+        }, /request contract/iu],
+        ['invented request union', (value) =>
+        {
+            value.operations[1].request.unionState = 'oneOf';
+        }, /request contract/iu],
+        ['invented request required field', (value) =>
+        {
+            value.operations[1].request.requiredFields.push('frame');
+        }, /request contract/iu],
+        ['missing error response', (value) =>
+        {
+            value.operations[0].responses.pop();
+        }, /response contracts/iu],
+        ['success status drift', (value) =>
+        {
+            value.operations[0].responses[0].status = 201;
+        }, /response status/iu],
+        ['content type drift', (value) =>
+        {
+            value.operations[0].responses[0].contentType = 'application/json';
+        }, /response contracts/iu],
+        ['response schema drift', (value) =>
+        {
+            value.operations[0].responses[0].schemaRef = 'aeds://frame/ApiError';
+        }, /response status/iu],
+        ['result placement drift', (value) =>
+        {
+            value.operations[0].responses[0].resultPlacement = 'json.body';
+        }, /response contracts/iu],
+        ['duplicate response', (value) =>
+        {
+            value.operations[0].responses.push({ ...value.operations[0].responses[0] });
+        }, /response contracts/iu],
+        ['active migration overlap', (value) =>
+        {
+            value.protocolStates.migrationOnlyFrameIds.push('ArticleDetail');
+        }, /protocol states conflict/iu],
+        ['reserved frame in active partition', (value) =>
+        {
+            value.protocolStates.activeFrameIds.push('Reserved178');
+        }, /protocol states conflict/iu],
+        ['non-reserved migration frame', (value) =>
+        {
+            value.protocolStates.migrationOnlyFrameIds.push('MigrationFrame');
+        }, /protocol states conflict/iu],
+        ['duplicate retired protocol value', (value) =>
+        {
+            value.protocolStates.retiredFrameValues.push(40);
+        }, /protocol states conflict/iu],
+        ['missing migration partition', (value) =>
+        {
+            delete value.protocolStates.migrationOnlyFrameIds;
+        }, /protocol states missing/iu],
+        ['error behavior drift', (value) =>
+        {
+            value.operations[0].errorAuthorityBehaviorId = 'binary-api-aeds-contract';
+        }, /public errors/iu],
+        ['invented operation error allow-list', (value) =>
+        {
+            value.operations[0].publicErrorRefState = 'operation-allow-list';
+        }, /public errors/iu],
+        ['duplicate public error ref', (value) =>
+        {
+            value.operations[0].publicErrorRefs.push(value.operations[0].publicErrorRefs[0]);
+        }, /public errors/iu],
+        ['duplicate authority fact', (value) =>
+        {
+            value.errorAuthority.factIds.push(value.errorAuthority.factIds[0]);
+        }, /error authority binding/iu]
     ];
 
     for (const [name, mutate, expected] of cases)

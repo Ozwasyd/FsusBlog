@@ -10,7 +10,8 @@ export async function readLatestDotnetSdk(fetchJson)
         throw new Error('dotnet_release_index_invalid');
     }
     const candidates = index['releases-index'].filter((entry) => stableVersion.test(entry['latest-sdk'] ?? ''));
-    candidates.sort((left, right) => {
+    candidates.sort((left, right) =>
+    {
         const a = left['latest-sdk'].split('.').map(Number);
         const b = right['latest-sdk'].split('.').map(Number);
         return b[0] - a[0] || b[1] - a[1] || b[2] - a[2];

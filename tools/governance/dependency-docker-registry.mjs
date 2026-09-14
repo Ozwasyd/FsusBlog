@@ -19,7 +19,10 @@ export async function readMcrPublication(packageName, tag, digest, fetchJson)
         throw new Error('mcr_publication_input_invalid');
     }
     const entries = await fetchJson(`https://mcr.microsoft.com/api/v1/catalog/${name}/tags?reg=mar`);
-    if (!Array.isArray(entries)) throw new Error('mcr_publication_catalog_invalid');
+    if (!Array.isArray(entries))
+    {
+        throw new Error('mcr_publication_catalog_invalid');
+    }
     const matching = entries.filter((entry) => entry?.name === tag);
     if (matching.length !== 1 || matching[0].digest !== digest || matching[0].repository !== name
         || matching[0].regHash !== 'mar' || !manifestTypes.includes(matching[0].manifestType))
@@ -38,7 +41,10 @@ export async function readDockerHubPublication(packageName, tag, digest, fetchJs
         throw new Error('docker_hub_publication_input_invalid');
     }
     const [namespace, repository, ...extra] = name.split('/');
-    if (extra.length) throw new Error('docker_hub_repository_invalid');
+    if (extra.length)
+    {
+        throw new Error('docker_hub_repository_invalid');
+    }
     const body = await fetchJson(`https://hub.docker.com/v2/namespaces/${namespace}/repositories/${repository}/tags/${tag}`);
     if (body.name !== tag || body.digest !== digest)
     {
@@ -85,9 +91,15 @@ export async function readLatestDocker(packageName, currentVersion, readResponse
 
 function numericDockerTag(tag)
 {
-    if (typeof tag !== 'string' || /^[0-9a-f]{40,64}$/.test(tag)) return null;
+    if (typeof tag !== 'string' || /^[0-9a-f]{40,64}$/.test(tag))
+    {
+        return null;
+    }
     const match = /^(v?)(0|[1-9][0-9]*)(\.(?:0|[1-9][0-9]*)){0,3}(-[A-Za-z0-9][A-Za-z0-9_.-]*)?$/.exec(tag);
-    if (!match) return null;
+    if (!match)
+    {
+        return null;
+    }
     const separator = tag.indexOf('-');
     const version = separator < 0 ? tag : tag.slice(0, separator);
     return {
@@ -100,8 +112,14 @@ function compareDockerTags(left, right)
 {
     for (let index = 0; index < left.parts.length; index++)
     {
-        if (left.parts[index] < right.parts[index]) return -1;
-        if (left.parts[index] > right.parts[index]) return 1;
+        if (left.parts[index] < right.parts[index])
+        {
+            return -1;
+        }
+        if (left.parts[index] > right.parts[index])
+        {
+            return 1;
+        }
     }
     return 0;
 }
@@ -110,13 +128,22 @@ function compareDockerTags(left, right)
 export function selectLatestDockerTag(tags, currentVersion)
 {
     const current = numericDockerTag(currentVersion);
-    if (!current || !Array.isArray(tags)) throw new Error('docker_numeric_tag_required');
+    if (!current || !Array.isArray(tags))
+    {
+        throw new Error('docker_numeric_tag_required');
+    }
     const candidates = tags.map(numericDockerTag).filter((tag) => tag
         && tag.parts.length === current.parts.length && tag.suffix === current.suffix && tag.prefix === current.prefix);
-    if (candidates.length === 0) throw new Error('docker_compatible_tag_missing');
+    if (candidates.length === 0)
+    {
+        throw new Error('docker_compatible_tag_missing');
+    }
     candidates.sort(compareDockerTags);
     const latest = candidates.at(-1);
-    if (compareDockerTags(latest, current) < 0) throw new Error('docker_latest_tag_would_downgrade');
+    if (compareDockerTags(latest, current) < 0)
+    {
+        throw new Error('docker_latest_tag_would_downgrade');
+    }
     return latest.tag;
 }
 
@@ -124,14 +151,20 @@ export function dockerRepository(packageName)
 {
     let registry = 'registry-1.docker.io';
     let name = packageName;
-    if (name.startsWith('docker.io/')) name = name.slice('docker.io/'.length);
+    if (name.startsWith('docker.io/'))
+    {
+        name = name.slice('docker.io/'.length);
+    }
     else if (name.startsWith('mcr.microsoft.com/') || name.startsWith('ghcr.io/'))
     {
         const slash = name.indexOf('/');
         registry = name.slice(0, slash);
         name = name.slice(slash + 1);
     }
-    if (!name.includes('/')) name = `library/${name}`;
+    if (!name.includes('/'))
+    {
+        name = `library/${name}`;
+    }
     if (name.length >= 256 || !/^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\/[a-z0-9]+(?:[._-][a-z0-9]+)*)+$/.test(name))
     {
         throw new Error('docker_repository_invalid');
@@ -148,15 +181,24 @@ export async function readDockerManifest(packageName, reference, readResponse)
     }
     const { origin, name } = dockerRepository(packageName);
     const response = await readResponse(`${origin}/v2/${name}/manifests/${reference}`, manifestTypes.join(', '));
-    if (!response.ok) throw new Error(`docker_manifest_http_error:${packageName}:${response.status}`);
+    if (!response.ok)
+    {
+        throw new Error(`docker_manifest_http_error:${packageName}:${response.status}`);
+    }
     const mediaType = response.headers.get('content-type')?.split(';')[0].trim();
-    if (!manifestTypes.includes(mediaType)) throw new Error('docker_manifest_media_type_invalid');
+    if (!manifestTypes.includes(mediaType))
+    {
+        throw new Error('docker_manifest_media_type_invalid');
+    }
     const chunks = [];
     let size = 0;
     for await (const chunk of response.body)
     {
         size += chunk.byteLength;
-        if (size > 4 * 1024 * 1024) throw new Error('docker_manifest_size_exceeded');
+        if (size > 4 * 1024 * 1024)
+        {
+            throw new Error('docker_manifest_size_exceeded');
+        }
         chunks.push(Buffer.from(chunk));
     }
     const bytes = Buffer.concat(chunks);
@@ -187,7 +229,8 @@ export function createDockerRegistryReader(packageName, fetchImpl = fetch)
 {
     const { origin, name } = dockerRepository(packageName);
     let token;
-    return async (value, accept = 'application/json') => {
+    return async (value, accept = 'application/json') =>
+    {
         const url = new URL(value);
         if (url.origin !== origin || !url.pathname.startsWith(`/v2/${name}/`)
             || url.username || url.password || url.hash)
@@ -199,11 +242,17 @@ export function createDockerRegistryReader(packageName, fetchImpl = fetch)
             headers: { Accept: accept, ...(token ? { Authorization: `Bearer ${token}` } : {}) }
         });
         let response = await request();
-        if (response.status !== 401 || token) return response;
+        if (response.status !== 401 || token)
+        {
+            return response;
+        }
         const authority = origin === 'https://registry-1.docker.io'
             ? ['https://auth.docker.io/token', 'registry.docker.io']
             : origin === 'https://ghcr.io' ? ['https://ghcr.io/token', 'ghcr.io'] : null;
-        if (!authority) return response;
+        if (!authority)
+        {
+            return response;
+        }
         await response.body?.cancel();
         const tokenUrl = new URL(authority[0]);
         tokenUrl.searchParams.set('service', authority[1]);
@@ -211,7 +260,10 @@ export function createDockerRegistryReader(packageName, fetchImpl = fetch)
         const grant = await fetchImpl(tokenUrl.href, {
             method: 'GET', redirect: 'error', signal: AbortSignal.timeout(12000), headers: { Accept: 'application/json' }
         });
-        if (!grant.ok) throw new Error(`docker_public_token_http_error:${packageName}:${grant.status}`);
+        if (!grant.ok)
+        {
+            throw new Error(`docker_public_token_http_error:${packageName}:${grant.status}`);
+        }
         const body = await grant.json();
         token = body.token ?? body.access_token;
         if (typeof token !== 'string' || token.length === 0 || /[\r\n]/.test(token))
@@ -233,10 +285,16 @@ export async function readDockerTags(packageName, readResponse)
     const tags = new Set();
     while (next)
     {
-        if (pages.size >= 100 || pages.has(next)) throw new Error('docker_tag_pagination_incomplete');
+        if (pages.size >= 100 || pages.has(next))
+        {
+            throw new Error('docker_tag_pagination_incomplete');
+        }
         pages.add(next);
         const response = await readResponse(next);
-        if (!response.ok) throw new Error(`docker_tags_http_error:${packageName}:${response.status}`);
+        if (!response.ok)
+        {
+            throw new Error(`docker_tags_http_error:${packageName}:${response.status}`);
+        }
         const body = await response.json();
         if (body.name !== name || !Array.isArray(body.tags)
             || body.tags.some((tag) => typeof tag !== 'string' || !/^[\w][\w.-]{0,127}$/.test(tag)))
@@ -245,7 +303,10 @@ export async function readDockerTags(packageName, readResponse)
         }
         for (const tag of body.tags)
         {
-            if (tags.has(tag)) throw new Error(`docker_tags_duplicate:${packageName}`);
+            if (tags.has(tag))
+            {
+                throw new Error(`docker_tags_duplicate:${packageName}`);
+            }
             tags.add(tag);
         }
         const link = response.headers.get('link');
@@ -253,7 +314,10 @@ export async function readDockerTags(packageName, readResponse)
         if (link)
         {
             const match = /^<([^>]+)>;\s*rel="next"$/.exec(link);
-            if (!match) throw new Error('docker_tag_next_link_invalid');
+            if (!match)
+            {
+                throw new Error('docker_tag_next_link_invalid');
+            }
             const url = new URL(match[1], origin);
             if (url.origin !== origin || url.pathname !== pathname || url.username || url.password || url.hash
                 || [...url.searchParams.keys()].some((key) => !['n', 'last'].includes(key)))

@@ -7,7 +7,8 @@ export async function collectRegistryResults(items, lookup, concurrency = 8)
     }
     const results = new Array(items.length);
     let next = 0;
-    await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, async () =>
+    {
         while (next < items.length)
         {
             const index = next++;

@@ -1,4 +1,5 @@
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue';
+
 import {
     messageApi,
     type AdminConversationDetailResponse,
@@ -9,13 +10,7 @@ import {
     type InboxMessageAppendPayload,
     type InboxReadUpdatedPayload
 } from '@/api/message';
-import { useNotificationStreamStore } from '@/store/notificationStream';
-import type { NotificationStreamInboxRenderPatch } from '@/services/notificationStreamTypes';
-import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
-import { toast } from '@/fsusui/feedback'
-import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback';
 import { mergeConversationPages } from '@/composables/messageConversationPagination';
-import { mergeConversationMessagePages } from '@/composables/messageThreadPagination';
 import {
     isOlderPatchVersion,
     newerMessageId,
@@ -26,6 +21,12 @@ import {
     reduceStatusChanged,
     type InboxPatchVersion
 } from '@/composables/messageInboxPatchReducer';
+import { mergeConversationMessagePages } from '@/composables/messageThreadPagination';
+import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback';
+import { toast } from '@/fsusui/feedback';
+import type { NotificationStreamInboxRenderPatch } from '@/services/notificationStreamTypes';
+import { useNotificationStreamStore } from '@/store/notificationStream';
+import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
 
 const PAGE_SIZE = 30;
 
@@ -34,11 +35,26 @@ const isAbortError = (error: unknown): boolean =>
 
 const matchesFilter = (item: AdminConversationListItemResponse, filter: ConversationFilter): boolean =>
 {
-    if (filter === 'all') {return true};
-    if (filter === 'unread') {return item.unreadCount > 0};
-    if (filter === 'system') {return item.isSystemSource};
-    if (filter === 'open') {return item.status === 0};
-    if (filter === 'pending') {return item.status === 1};
+    if (filter === 'all')
+    {
+        return true;
+    };
+    if (filter === 'unread')
+    {
+        return item.unreadCount > 0;
+    };
+    if (filter === 'system')
+    {
+        return item.isSystemSource;
+    };
+    if (filter === 'open')
+    {
+        return item.status === 0;
+    };
+    if (filter === 'pending')
+    {
+        return item.status === 1;
+    };
     return item.status === 2;
 };
 
@@ -47,16 +63,17 @@ const resetDetailState = (detailRef: { value: AdminConversationDetailResponse | 
     detailRef.value = null;
     selectionRef.value = '';
     conversationsRef.value = [];
-  replyRef.value = ''
-}
+    replyRef.value = '';
+};
 
-export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
-  const notificationStreamStore = useNotificationStreamStore()
+export function useAdminMessageCenter(isEnabled: () => boolean = () => true)
+{
+    const notificationStreamStore = useNotificationStreamStore();
 
-  const loading = ref(false)
-  const loadingDetail = ref(false)
-  const loadingOlderMessages = ref(false)
-  const processing = ref(false)
+    const loading = ref(false);
+    const loadingDetail = ref(false);
+    const loadingOlderMessages = ref(false);
+    const processing = ref(false);
     const taskFeedback = useAdminTaskFeedback();
 
     const filter = ref<ConversationFilter>('open');
@@ -87,12 +104,13 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
 
     const selectedConversation = computed(() =>
         conversations.value.find((it) => it.conversationId === selectedConversationId.value) ?? null
-  )
+    );
 
-  const resetPagination = (): void => {
-    totalConversations.value = 0
-    nextCursor.value = null
-    hasMoreConversations.value = false
+    const resetPagination = (): void =>
+    {
+        totalConversations.value = 0;
+        nextCursor.value = null;
+        hasMoreConversations.value = false;
         loadedPageCount.value = 0;
     };
 
@@ -100,14 +118,14 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
         authoritative: readonly AdminConversationListItemResponse[],
         patchRevisionAtStart: number
     ): AdminConversationListItemResponse[] =>
-{
+    {
         const current = conversations.value;
         let merged = mergeConversationPages(authoritative, current) as AdminConversationListItemResponse[];
         const currentIds = new Set(current.map((item) => item.conversationId));
         for (const [conversationId, revision] of conversationPatchRevision)
-{
+        {
             if (revision > patchRevisionAtStart && !currentIds.has(conversationId))
-{
+            {
                 merged = merged.filter((item) => item.conversationId !== conversationId);
             }
         }
@@ -115,101 +133,130 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
     };
 
     const loadConversations = async (silent = false, preserveLoaded = silent): Promise<boolean> =>
-{
+    {
         if (!isEnabled())
-{
+        {
             resetDetailState(detail, selectedConversationId, conversations, replyBody);
-      resetPagination()
+            resetPagination();
             return true;
         }
 
         const generation = ++listRequestGeneration;
         const patchRevisionAtStart = listPatchRevision;
-        if (!silent) {loading.value = true};
+        if (!silent)
+        {
+            loading.value = true;
+        };
         try
-{
+        {
             const data = await messageApi.adminGetConversations(PAGE_SIZE, filter.value);
-            if (generation !== listRequestGeneration || !isEnabled()) {return false};
-            const authoritative = (data.items || []) as AdminConversationListItemResponse[];
+            if (generation !== listRequestGeneration || !isEnabled())
+            {
+                return false;
+            };
+            const authoritative = (data.items || []);
             const preservePagination = preserveLoaded && loadedPageCount.value > 1;
             if (listPatchRevision !== patchRevisionAtStart)
-{
+            {
                 conversations.value = mergeAuthoritativeConversations(authoritative, patchRevisionAtStart);
             }
- else if (preservePagination)
-{
+            else if (preservePagination)
+            {
                 conversations.value = mergeConversationPages(conversations.value, authoritative) as AdminConversationListItemResponse[];
             }
- else
-{
+            else
+            {
                 conversations.value = mergeConversationPages([], authoritative) as AdminConversationListItemResponse[];
             }
             if (!preservePagination)
-{
+            {
                 nextCursor.value = data.nextCursor ?? null;
                 hasMoreConversations.value = Boolean(data.hasMore && data.nextCursor);
                 loadedPageCount.value = 1;
             }
-            if (listPatchRevision === patchRevisionAtStart) {totalConversations.value = data.total};
+            if (listPatchRevision === patchRevisionAtStart)
+            {
+                totalConversations.value = data.total;
+            };
             if (!selectedConversationId.value && conversations.value.length > 0)
-{
-                selectedConversationId.value = conversations.value[0]!.conversationId;
+            {
+                selectedConversationId.value = conversations.value[0].conversationId;
             }
             if (selectedConversationId.value)
-{
+            {
                 const exists = conversations.value.some((it) => it.conversationId === selectedConversationId.value);
                 const preservePatchedSelection = silent && detail.value?.conversationId === selectedConversationId.value;
                 if (!exists && !preservePatchedSelection)
-{
+                {
                     selectedConversationId.value = conversations.value[0]?.conversationId ?? '';
                 }
             }
-    } catch (error) {
-            if (!silent) {showErrorToast(error, '管理员会话列表加载失败')};
+        }
+        catch (error)
+        {
+            if (!silent)
+            {
+                showErrorToast(error, '管理员会话列表加载失败');
+            };
             return false;
         }
- finally
-{
-            if (generation === listRequestGeneration) {loading.value = false};
+        finally
+        {
+            if (generation === listRequestGeneration)
+            {
+                loading.value = false;
+            };
         }
 
         return true;
-  }
+    };
 
-  const loadMoreConversations = async (): Promise<boolean> => {
-    if (!isEnabled() || loadingMoreConversations.value || !hasMoreConversations.value || !nextCursor.value) {
-      return false
+    const loadMoreConversations = async (): Promise<boolean> =>
+    {
+        if (!isEnabled() || loadingMoreConversations.value || !hasMoreConversations.value || !nextCursor.value)
+        {
+            return false;
         }
 
         loadingMoreConversations.value = true;
         const patchRevisionAtStart = listPatchRevision;
         try
-{
+        {
             const data = await messageApi.adminGetConversations(PAGE_SIZE, filter.value, nextCursor.value);
-            const authoritative = (data.items || []) as AdminConversationListItemResponse[];
+            const authoritative = (data.items || []);
             conversations.value = listPatchRevision === patchRevisionAtStart
                 ? mergeConversationPages(conversations.value, authoritative) as AdminConversationListItemResponse[]
                 : mergeAuthoritativeConversations(authoritative, patchRevisionAtStart);
-            if (listPatchRevision === patchRevisionAtStart) {totalConversations.value = data.total};
+            if (listPatchRevision === patchRevisionAtStart)
+            {
+                totalConversations.value = data.total;
+            };
             nextCursor.value = data.nextCursor ?? null;
             hasMoreConversations.value = Boolean(data.hasMore && data.nextCursor);
             loadedPageCount.value += 1;
-      return true
-    } catch (error) {
-      showErrorToast(error, '更多管理员会话加载失败')
-      return false
-    } finally {
-      loadingMoreConversations.value = false
-    }
-  }
+            return true;
+        }
+        catch (error)
+        {
+            showErrorToast(error, '更多管理员会话加载失败');
+            return false;
+        }
+        finally
+        {
+            loadingMoreConversations.value = false;
+        }
+    };
 
-  const loadDetail = async (conversationId: string, silent = false): Promise<boolean> => {
-    if (!isEnabled()) {
-      detail.value = null
-      return true
-    }
+    const loadDetail = async (conversationId: string, silent = false): Promise<boolean> =>
+    {
+        if (!isEnabled())
+        {
+            detail.value = null;
+            return true;
+        }
 
-    if (!conversationId) {
+        if (!conversationId)
+        {
             detail.value = null;
             return true;
         }
@@ -220,10 +267,13 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
         const patchRevisionAtStart = detailPatchRevision;
         loadingDetail.value = true;
         try
-{
+        {
             const payload = await messageApi.adminGetConversationDetail(conversationId, null, { signal: controller.signal });
             if (controller.signal.aborted || generation !== detailRequestGeneration ||
-        selectedConversationId.value !== conversationId || !isEnabled()) {return false};
+        selectedConversationId.value !== conversationId || !isEnabled())
+            {
+                return false;
+            };
             const current = detail.value?.conversationId === conversationId ? detail.value : null;
             detail.value = current && detailPatchRevision !== patchRevisionAtStart
                 ? {
@@ -235,93 +285,120 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
           }
                 : payload;
         }
- catch (error)
-{
+        catch (error)
+        {
             if (!controller.signal.aborted && !isAbortError(error) && !silent)
-{
+            {
                 showErrorToast(error, '会话详情加载失败');
             }
             return false;
         }
- finally
-{
-            if (generation === detailRequestGeneration) {loadingDetail.value = false};
+        finally
+        {
+            if (generation === detailRequestGeneration)
+            {
+                loadingDetail.value = false;
+            };
         }
 
         return true;
-  }
+    };
 
-  const loadOlderMessages = async (): Promise<boolean> => {
-    const current = detail.value
-    const conversationId = selectedConversationId.value
-    if (!current || !conversationId || loadingOlderMessages.value || !current.hasOlder || !current.previousCursor) {
-      return false
-    }
-
-    const cursor = current.previousCursor
-    loadingOlderMessages.value = true
-    try {
-      const older = await messageApi.adminGetConversationDetail(conversationId, cursor)
-      const latest = detail.value
-      if (!latest || latest.conversationId !== conversationId || selectedConversationId.value !== conversationId) {
-        return false
-      }
-      detail.value = {
-        ...latest,
-        previousCursor: older.previousCursor ?? null,
-        hasOlder: Boolean(older.hasOlder),
-        messages: mergeConversationMessagePages(latest.messages, older.messages)
-      }
-      return true
-    } catch (error) {
-      showErrorToast(error, '更早消息加载失败')
-      return false
-    } finally {
-      loadingOlderMessages.value = false
-    }
-  }
-
-  const selectConversation = async (conversationId: string): Promise<void> => {
-    selectedConversationId.value = conversationId
-    await loadDetail(conversationId)
-  }
-
-  const reply = async (): Promise<void> => {
-    if (!selectedConversationId.value || !replyBody.value.trim() || processing.value) return
-    processing.value = true
-    const conversationId = selectedConversationId.value
-    taskFeedback.begin('正在发送站内信回复', conversationId, conversationId)
-    try {
-      const message = await messageApi.adminReplyConversation(conversationId, { body: replyBody.value })
-      replyBody.value = ''
-      if (detail.value && detail.value.conversationId === conversationId) {
-        detail.value = {
-          ...detail.value,
-          messages: [...detail.value.messages, message],
-          lastMessageAt: message.createdAt
+    const loadOlderMessages = async (): Promise<boolean> =>
+    {
+        const current = detail.value;
+        const conversationId = selectedConversationId.value;
+        if (!current || !conversationId || loadingOlderMessages.value || !current.hasOlder || !current.previousCursor)
+        {
+            return false;
         }
-      }
-      const listSynced = await loadConversations(true)
-      taskFeedback.succeed('站内信回复已发送', listSynced ? conversationId : '列表同步失败，请稍后刷新', conversationId)
-      toast.success('回复已发送')
-      if (!listSynced) {
-        showWarningToast('回复已发送，但会话列表同步失败，请稍后刷新', '回复已发送，但会话列表同步失败，请稍后刷新')
-      }
-    } catch (error) {
-      taskFeedback.fail('发送回复失败', error, '发送回复失败', conversationId)
-      showErrorToast(error, '发送回复失败')
-    } finally {
-      processing.value = false
-    }
-  }
 
-  const updateStatus = async (status: 'open' | 'pending' | 'closed'): Promise<void> => {
-    if (!selectedConversationId.value || processing.value) return
-    processing.value = true
+        const cursor = current.previousCursor;
+        loadingOlderMessages.value = true;
+        try
+        {
+            const older = await messageApi.adminGetConversationDetail(conversationId, cursor);
+            const latest = detail.value;
+            if (!latest || latest.conversationId !== conversationId || selectedConversationId.value !== conversationId)
+            {
+                return false;
+            }
+            detail.value = {
+                ...latest,
+                previousCursor: older.previousCursor ?? null,
+                hasOlder: Boolean(older.hasOlder),
+                messages: mergeConversationMessagePages(latest.messages, older.messages)
+            };
+            return true;
+        }
+        catch (error)
+        {
+            showErrorToast(error, '更早消息加载失败');
+            return false;
+        }
+        finally
+        {
+            loadingOlderMessages.value = false;
+        }
+    };
+
+    const selectConversation = async (conversationId: string): Promise<void> =>
+    {
+        selectedConversationId.value = conversationId;
+        await loadDetail(conversationId);
+    };
+
+    const reply = async (): Promise<void> =>
+    {
+        if (!selectedConversationId.value || !replyBody.value.trim() || processing.value)
+        {
+            return;
+        }
+        processing.value = true;
+        const conversationId = selectedConversationId.value;
+        taskFeedback.begin('正在发送站内信回复', conversationId, conversationId);
+        try
+        {
+            const message = await messageApi.adminReplyConversation(conversationId, { body: replyBody.value });
+            replyBody.value = '';
+            if (detail.value && detail.value.conversationId === conversationId)
+            {
+                detail.value = {
+                    ...detail.value,
+                    messages: [...detail.value.messages, message],
+                    lastMessageAt: message.createdAt
+                };
+            }
+            const listSynced = await loadConversations(true);
+            taskFeedback.succeed('站内信回复已发送', listSynced ? conversationId : '列表同步失败，请稍后刷新', conversationId);
+            toast.success('回复已发送');
+            if (!listSynced)
+            {
+                showWarningToast('回复已发送，但会话列表同步失败，请稍后刷新', '回复已发送，但会话列表同步失败，请稍后刷新');
+            }
+        }
+        catch (error)
+        {
+            taskFeedback.fail('发送回复失败', error, '发送回复失败', conversationId);
+            showErrorToast(error, '发送回复失败');
+        }
+        finally
+        {
+            processing.value = false;
+        }
+    };
+
+    const updateStatus = async (status: 'open' | 'pending' | 'closed'): Promise<void> =>
+    {
+        if (!selectedConversationId.value || processing.value)
+        {
+            return;
+        }
+        processing.value = true;
         const conversationId = selectedConversationId.value;
         taskFeedback.begin('正在更新会话状态', `${conversationId} -> ${status}`, conversationId);
         try
-{
+        {
             const projectedStatus = detail.value?.status ?? conversations.value.find((item) => item.conversationId === conversationId)?.status ?? 0;
             const previousStatus = projectedStatus === 1 ? 'pending' : projectedStatus === 2 ? 'closed' : 'open';
             const result = await messageApi.adminUpdateConversationStatus(conversationId, {
@@ -330,61 +407,71 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
             });
             const nextStatus = result.currentStatus;
             if (detail.value && detail.value.conversationId === conversationId)
-{
+            {
                 detail.value = {
                     ...detail.value,
-          status: nextStatus
-        }
-      }
-      const currentList = conversations.value.slice()
-      const index = currentList.findIndex((it) => it.conversationId === conversationId)
-      if (index >= 0) {
-        currentList[index] = {
-          ...currentList[index]!,
-          status: nextStatus
-        }
-        conversations.value = currentList
-      }
+                    status: nextStatus
+                };
+            }
+            const currentList = conversations.value.slice();
+            const index = currentList.findIndex((it) => it.conversationId === conversationId);
+            if (index >= 0)
+            {
+                currentList[index] = {
+                    ...currentList[index],
+                    status: nextStatus
+                };
+                conversations.value = currentList;
+            }
             const listSynced = await loadConversations(true);
             const detailSynced = await loadDetail(conversationId, true);
             if (listSynced && detailSynced)
-{
+            {
                 taskFeedback.succeed(
           result.outcome === 'no_change' ? '会话状态未变化' : '会话状态已更新',
           `${conversationId} -> ${status}`,
           conversationId
                 );
             }
- else
-{
+            else
+            {
                 taskFeedback.partial('会话状态已更新', '列表或详情同步失败，请稍后刷新', conversationId);
             }
             toast.success(result.outcome === 'no_change' ? '状态未变化' : '状态已更新');
             if (!listSynced || !detailSynced)
-{
+            {
                 showWarningToast('状态已更新，但列表或详情同步失败，请稍后刷新', '状态已更新，但列表或详情同步失败，请稍后刷新');
             }
-    } catch (error) {
-      taskFeedback.fail('状态更新失败', error, '状态更新失败', conversationId)
-      showErrorToast(error, '状态更新失败')
-    } finally {
-      processing.value = false
-    }
-  }
+        }
+        catch (error)
+        {
+            taskFeedback.fail('状态更新失败', error, '状态更新失败', conversationId);
+            showErrorToast(error, '状态更新失败');
+        }
+        finally
+        {
+            processing.value = false;
+        }
+    };
 
-  const sendSystemMessage = async (): Promise<void> => {
-    if (!systemTargetAccountId.value.trim() || !systemBody.value.trim() || processing.value) return
+    const sendSystemMessage = async (): Promise<void> =>
+    {
+        if (!systemTargetAccountId.value.trim() || !systemBody.value.trim() || processing.value)
+        {
+            return;
+        }
 
-    const parsedTargetAccountId = Number(systemTargetAccountId.value.trim())
-    if (!Number.isInteger(parsedTargetAccountId) || parsedTargetAccountId <= 0) {
-      showErrorToast('请输入有效的账号 ID', '请输入有效的账号 ID')
-      return
-    }
+        const parsedTargetAccountId = Number(systemTargetAccountId.value.trim());
+        if (!Number.isInteger(parsedTargetAccountId) || parsedTargetAccountId <= 0)
+        {
+            showErrorToast('请输入有效的账号 ID', '请输入有效的账号 ID');
+            return;
+        }
 
         processing.value = true;
         taskFeedback.begin('正在发送系统消息', `账号 ${parsedTargetAccountId}`, 'admin-system-message');
         try
-{
+        {
             await messageApi.adminSendSystemMessage({
                 targetAccountId: parsedTargetAccountId,
                 subject: systemSubject.value || '系统通知',
@@ -396,42 +483,59 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
             const listSynced = await loadConversations(true);
             taskFeedback.succeed('系统消息已发送', listSynced ? `账号 ${parsedTargetAccountId}` : '列表同步失败，请稍后刷新', 'admin-system-message');
             toast.success('系统消息已发送');
-      if (!listSynced) {
-        showWarningToast('系统消息已发送，但会话列表同步失败，请稍后刷新', '系统消息已发送，但会话列表同步失败，请稍后刷新')
-      }
-    } catch (error) {
-      taskFeedback.fail('系统消息发送失败', error, '系统消息发送失败', 'admin-system-message')
-      showErrorToast(error, '系统消息发送失败')
-    } finally {
-      processing.value = false
+            if (!listSynced)
+            {
+                showWarningToast('系统消息已发送，但会话列表同步失败，请稍后刷新', '系统消息已发送，但会话列表同步失败，请稍后刷新');
+            }
+        }
+        catch (error)
+        {
+            taskFeedback.fail('系统消息发送失败', error, '系统消息发送失败', 'admin-system-message');
+            showErrorToast(error, '系统消息发送失败');
+        }
+        finally
+        {
+            processing.value = false;
         }
     };
 
     const scheduleRecovery = (refreshList: boolean, detailConversationId = ''): void =>
-{
+    {
         pendingListRecovery ||= refreshList;
-        if (detailConversationId) {pendingDetailRecoveryId = detailConversationId};
-        if (recoveryScheduled) {return};
+        if (detailConversationId)
+        {
+            pendingDetailRecoveryId = detailConversationId;
+        };
+        if (recoveryScheduled)
+        {
+            return;
+        };
         recoveryScheduled = true;
         queueMicrotask(() =>
-{
+        {
             recoveryScheduled = false;
             const shouldRefreshList = pendingListRecovery;
             const conversationId = pendingDetailRecoveryId;
             pendingListRecovery = false;
             pendingDetailRecoveryId = '';
             const tasks: Promise<unknown>[] = [];
-            if (shouldRefreshList) {tasks.push(loadConversations(true, true))};
+            if (shouldRefreshList)
+            {
+                tasks.push(loadConversations(true, true));
+            };
             if (conversationId && selectedConversationId.value === conversationId)
-{
+            {
                 tasks.push(loadDetail(conversationId, true));
             }
-            if (tasks.length > 0) {void Promise.allSettled(tasks)};
+            if (tasks.length > 0)
+            {
+                void Promise.allSettled(tasks);
+            };
         });
     };
 
     const patchConversationId = (patch: NotificationStreamInboxRenderPatch): string =>
-{
+    {
         const payload = patch.payload;
         return typeof payload === 'object' && payload && 'conversationId' in payload
             ? String(payload.conversationId ?? '')
@@ -443,8 +547,11 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
     };
 
     const patchKey = (patch: NotificationStreamInboxRenderPatch, conversationId: string): string =>
-{
-        if (patch.eventId !== undefined) {return `event:${patch.eventId}`};
+    {
+        if (patch.eventId !== undefined)
+        {
+            return `event:${patch.eventId}`;
+        };
         const payload = patch.payload;
         const messageId = typeof payload === 'object' && payload && 'message' in payload &&
       typeof payload.message === 'object' && payload.message && 'messageId' in payload.message
@@ -454,19 +561,25 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
     };
 
     const rememberPatch = (key: string): boolean =>
-{
-        if (seenPatchKeys.has(key)) {return false};
+    {
+        if (seenPatchKeys.has(key))
+        {
+            return false;
+        };
         seenPatchKeys.add(key);
         if (seenPatchKeys.size > 512)
-{
+        {
             const oldest = seenPatchKeys.values().next().value;
-            if (oldest) {seenPatchKeys.delete(oldest)};
+            if (oldest)
+            {
+                seenPatchKeys.delete(oldest);
+            };
         }
         return true;
     };
 
     const consumePatches = (patches: readonly NotificationStreamInboxRenderPatch[]): void =>
-{
+    {
         const originalConversations = conversations.value;
         const originalDetail = detail.value;
         let nextConversations = originalConversations;
@@ -477,23 +590,32 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
         const handledConversationIds = new Set<string>();
 
         for (const patch of patches)
-{
+        {
             const conversationId = patchConversationId(patch);
-            if (!rememberPatch(patchKey(patch, conversationId))) {continue};
+            if (!rememberPatch(patchKey(patch, conversationId)))
+            {
+                continue;
+            };
             const payloadTime = typeof patch.payload === 'object' && patch.payload && 'time' in patch.payload
                 ? Date.parse(String(patch.payload.time ?? '')) || undefined
                 : undefined;
             const version: InboxPatchVersion = { eventId: patch.eventId, time: patch.ts ?? payloadTime };
             const currentVersion = conversationId ? latestPatchVersion.get(conversationId) ?? null : null;
-            if (conversationId && isOlderPatchVersion(version, currentVersion)) {continue};
+            if (conversationId && isOlderPatchVersion(version, currentVersion))
+            {
+                continue;
+            };
             if (conversationId && (version.eventId !== undefined || version.time !== undefined))
-{
+            {
                 latestPatchVersion.set(conversationId, version);
             }
-            if (conversationId) {handledConversationIds.add(conversationId)};
+            if (conversationId)
+            {
+                handledConversationIds.add(conversationId);
+            };
 
             switch (patch.kind)
-{
+            {
                 case 'conversation-upsert': {
                     const projection = reduceConversationUpsert(
                         nextConversations,
@@ -517,7 +639,7 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
                     nextDetail = projection.detail;
                     refreshList ||= !projection.targetInList || !projection.complete;
                     if (!projection.complete && conversationId === selectedConversationId.value)
-{
+                    {
                         refreshDetailId = conversationId;
                     }
                     handledProjection = true;
@@ -550,7 +672,7 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
                 case 'reconnected':
                     refreshList = true;
                     if (patch.replayMissed && selectedConversationId.value)
-{
+                    {
                         refreshDetailId = selectedConversationId.value;
                     }
                     break;
@@ -558,7 +680,7 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
         }
 
         if (handledProjection)
-{
+        {
             const beforeFilterCount = nextConversations.length;
             nextConversations = nextConversations.filter((item) => matchesFilter(item, filter.value));
             const removedCount = beforeFilterCount - nextConversations.length;
@@ -566,42 +688,54 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
             detail.value = nextDetail;
             listPatchRevision += 1;
             for (const conversationId of handledConversationIds)
-{
+            {
                 conversationPatchRevision.set(conversationId, listPatchRevision);
             }
-            if (nextDetail !== originalDetail || refreshDetailId) {detailPatchRevision += 1};
-            if (removedCount > 0) {totalConversations.value = Math.max(0, totalConversations.value - removedCount)};
+            if (nextDetail !== originalDetail || refreshDetailId)
+            {
+                detailPatchRevision += 1;
+            };
+            if (removedCount > 0)
+            {
+                totalConversations.value = Math.max(0, totalConversations.value - removedCount);
+            };
         }
         scheduleRecovery(refreshList, refreshDetailId);
     };
 
     watch(
-    () => filter.value,
-    () => {
-      if (!isEnabled()) {
-        return
-      }
-      void loadConversations()
-    }
-  )
+        () => filter.value,
+        () =>
+        {
+            if (!isEnabled())
+            {
+                return;
+            }
+            void loadConversations();
+        }
+    );
 
-  watch(
-    () => notificationStreamStore.inboxRevision,
-    () => {
-      if (!isEnabled()) {
-        return
-      }
-      consumePatches(notificationStreamStore.inboxBatch)
-    }
-  )
+    watch(
+        () => notificationStreamStore.inboxRevision,
+        () =>
+        {
+            if (!isEnabled())
+            {
+                return;
+            }
+            consumePatches(notificationStreamStore.inboxBatch);
+        }
+    );
 
-  watch(
-    () => isEnabled(),
-    (enabled) => {
-      if (enabled) {
-        void loadConversations()
-        return
-      }
+    watch(
+        () => isEnabled(),
+        (enabled) =>
+        {
+            if (enabled)
+            {
+                void loadConversations();
+                return;
+            }
 
             resetDetailState(detail, selectedConversationId, conversations, replyBody);
             resetPagination();
@@ -614,19 +748,22 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
         }
     );
 
-  onMounted(async () => {
-    if (!isEnabled()) {
-      return
-    }
+    onMounted(async () =>
+    {
+        if (!isEnabled())
+        {
+            return;
+        }
 
-    await loadConversations()
-    if (selectedConversationId.value) {
-      await loadDetail(selectedConversationId.value)
+        await loadConversations();
+        if (selectedConversationId.value)
+        {
+            await loadDetail(selectedConversationId.value);
         }
     });
 
     onUnmounted(() =>
-{
+    {
         listRequestGeneration += 1;
         detailRequestGeneration += 1;
         detailRequestController?.abort();
@@ -637,26 +774,26 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
     return {
         taskFeedback,
         loading,
-    loadingDetail,
-    loadingOlderMessages,
-    processing,
-    filter,
-    conversations,
-    totalConversations,
-    hasMoreConversations,
-    loadingMoreConversations,
-    selectedConversationId,
-    selectedConversation,
-    detail,
-    replyBody,
-    systemTargetAccountId,
-    systemSubject,
-    systemBody,
-    selectConversation,
-    loadMoreConversations,
-    loadOlderMessages,
-    reply,
-    updateStatus,
-    sendSystemMessage
-  }
+        loadingDetail,
+        loadingOlderMessages,
+        processing,
+        filter,
+        conversations,
+        totalConversations,
+        hasMoreConversations,
+        loadingMoreConversations,
+        selectedConversationId,
+        selectedConversation,
+        detail,
+        replyBody,
+        systemTargetAccountId,
+        systemSubject,
+        systemBody,
+        selectConversation,
+        loadMoreConversations,
+        loadOlderMessages,
+        reply,
+        updateStatus,
+        sendSystemMessage
+    };
 }

@@ -41,7 +41,10 @@ function findProducerReceipt(directory, producerId, tierId, { commit, worktreeFi
         for (const entry of fs.readdirSync(current, { withFileTypes: true }))
         {
             const candidate = path.join(current, entry.name);
-            if (entry.isDirectory()) visit(candidate);
+            if (entry.isDirectory())
+            {
+                visit(candidate);
+            }
             else if (entry.isFile() && entry.name.endsWith('.json'))
             {
                 try
@@ -50,9 +53,13 @@ function findProducerReceipt(directory, producerId, tierId, { commit, worktreeFi
                     if (document?.schema === 'fsusblog.evidence-producer-receipt.v1'
                         && document.producerId === producerId && document.logicalTierId === tierId && document.runId === runId
                         && document.namespace === namespace && document.sourceState?.commit === commit
-                        && document.sourceState?.worktreeFingerprint === worktreeFingerprint.replace(/^sha256:/u, '')) matches.push(candidate);
+                        && document.sourceState?.worktreeFingerprint === worktreeFingerprint.replace(/^sha256:/u, ''))
+                    {
+                        matches.push(candidate);
+                    }
                 }
-                catch { /* Non-receipt JSON is not evidence. */ }
+                catch
+                { /* Non-receipt JSON is not evidence. */ }
             }
         }
     };

@@ -30,14 +30,14 @@ export const ProseClaimErrorCode = Object.freeze({
     SECOND_REGISTRY: 'PROSE_CLAIM_SECOND_REGISTRY',
     LLM_OR_NETWORK_FORBIDDEN: 'PROSE_CLAIM_LLM_OR_NETWORK_FORBIDDEN',
     CLAIM_TYPE_RENDER_MISMATCH: 'PROSE_CLAIM_CLAIM_TYPE_RENDER_MISMATCH'
-})
+});
 
 export function makeProseClaimError(code, message, details = {})
 {
-    const error = new Error(`[prose-claim] ${code}: ${message}`)
-    error.code = code
-    error.details = details
-    return error
+    const error = new Error(`[prose-claim] ${code}: ${message}`);
+    error.code = code;
+    error.details = details;
+    return error;
 }
 
 export function formatProseClaimDiagnostic(diagnostic)
@@ -46,8 +46,8 @@ export function formatProseClaimDiagnostic(diagnostic)
         diagnostic.documentPath,
         diagnostic.line != null ? `:${diagnostic.line}` : '',
         diagnostic.claimId ? ` claimId=${diagnostic.claimId}` : ''
-    ].join('')
-    return `${diagnostic.code}${location ? ` (${location})` : ''}: ${diagnostic.message}`
+    ].join('');
+    return `${diagnostic.code}${location ? ` (${location})` : ''}: ${diagnostic.message}`;
 }
 
 /**
@@ -57,14 +57,26 @@ export function sortDiagnostics(diagnostics)
 {
     return [...diagnostics].sort((left, right) =>
     {
-        const byPath = String(left.documentPath ?? '').localeCompare(String(right.documentPath ?? ''))
-        if (byPath !== 0) return byPath
-        const byLine = (left.line ?? 0) - (right.line ?? 0)
-        if (byLine !== 0) return byLine
-        const byClaim = String(left.claimId ?? '').localeCompare(String(right.claimId ?? ''))
-        if (byClaim !== 0) return byClaim
-        const byCode = String(left.code ?? '').localeCompare(String(right.code ?? ''))
-        if (byCode !== 0) return byCode
-        return String(left.message ?? '').localeCompare(String(right.message ?? ''))
-    })
+        const byPath = String(left.documentPath ?? '').localeCompare(String(right.documentPath ?? ''));
+        if (byPath !== 0)
+        {
+            return byPath;
+        }
+        const byLine = (left.line ?? 0) - (right.line ?? 0);
+        if (byLine !== 0)
+        {
+            return byLine;
+        }
+        const byClaim = String(left.claimId ?? '').localeCompare(String(right.claimId ?? ''));
+        if (byClaim !== 0)
+        {
+            return byClaim;
+        }
+        const byCode = String(left.code ?? '').localeCompare(String(right.code ?? ''));
+        if (byCode !== 0)
+        {
+            return byCode;
+        }
+        return String(left.message ?? '').localeCompare(String(right.message ?? ''));
+    });
 }

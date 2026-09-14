@@ -9,17 +9,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 /* eslint-disable import-x/no-relative-parent-imports */
 import { verifyProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs';
+import { requireCleanAttemptConsumerAdmission } from '../../tools/release/browser-release-clean-attempt-consumers.mjs';
 import {
     sealBrowserContractReceipt,
     sha256File,
     validateBrowserContractReceipt
 } from '../../tools/release/test-evidence-receipts.mjs';
-import { requireCleanAttemptConsumerAdmission } from '../../tools/release/browser-release-clean-attempt-consumers.mjs';
-import { loadTemporalContext } from '../../tools/test/temporal-context.mjs';
-import {
-    bindCorrectnessProducerTemporalArtifacts,
-    observeBrowserTemporalContext
-} from '../../tools/test/temporal-producer-bindings.mjs';
 import {
     bindBrowserRenderingObservation,
     createCorrectnessBrowserPlan,
@@ -27,6 +22,11 @@ import {
     observeCorrectnessBrowser,
     serializableBrowserPlan
 } from '../../tools/test/playwright-browser-identity.mjs';
+import { loadTemporalContext } from '../../tools/test/temporal-context.mjs';
+import {
+    bindCorrectnessProducerTemporalArtifacts,
+    observeBrowserTemporalContext
+} from '../../tools/test/temporal-producer-bindings.mjs';
 
 import {
     BrowserContractFailure,

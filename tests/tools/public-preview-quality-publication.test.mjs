@@ -4,19 +4,9 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 
-import { loadPublicPreviewRegistry } from '../../tools/docs/public-preview-registry.mjs'
-import {
-  comparePublicPreviewQualityManifests,
-  createPublicPreviewQualityManifest,
-  validatePublicPreviewQualityManifest,
-  writePublicPreviewQualityManifest
-} from '../../tools/docs/public-preview-quality-publication.mjs'
-import {
-  createPublicPreviewQualityMatrix,
-  publicPreviewQualityReportSchema,
-  qualitySidecarFile
-} from '../../tools/docs/public-preview-quality.mjs'
-
+const {loadPublicPreviewRegistry} = await import(new URL('../../tools/docs/public-preview-registry.mjs', import.meta.url));
+const {comparePublicPreviewQualityManifests, createPublicPreviewQualityManifest, validatePublicPreviewQualityManifest, writePublicPreviewQualityManifest} = await import(new URL('../../tools/docs/public-preview-quality-publication.mjs', import.meta.url));
+const {createPublicPreviewQualityMatrix, publicPreviewQualityReportSchema, qualitySidecarFile} = await import(new URL('../../tools/docs/public-preview-quality.mjs', import.meta.url));
 const root = path.resolve(import.meta.dirname, '../..')
 const commit = 'a'.repeat(40)
 

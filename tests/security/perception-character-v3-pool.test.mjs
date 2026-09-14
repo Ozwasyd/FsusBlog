@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const command = path.join(root, 'tools/security/perception-character-v3-pool.mjs');
-const { buildSpokenPcm } = await import('../../tools/security/perception-character-v3-pool-media.mjs');
+const { buildSpokenPcm } = await import(new URL('../../tools/security/perception-character-v3-pool-media.mjs', import.meta.url));
 
 function run(args, key)
 {
@@ -92,7 +92,10 @@ test('pool validation fails closed for tamper, wrong key, duplicate IDs and cont
                 pack[0] ^= 1;
                 fs.writeFileSync(packPath, pack);
             }
-            else if (mutation === 'key') key = randomBytes(32);
+            else if (mutation === 'key')
+            {
+                key = randomBytes(32);
+            }
             else if (mutation === 'duplicate')
             {
                 manifest.entries[1].entryId = manifest.entries[0].entryId;
@@ -105,7 +108,10 @@ test('pool validation fails closed for tamper, wrong key, duplicate IDs and cont
             }
             const checked = run(['validate', ...value.common], key);
             assert.notEqual(checked.status, 0, `${mutation} must fail closed`);
-            if (key !== value.key) key.fill(0);
+            if (key !== value.key)
+            {
+                key.fill(0);
+            }
         }
         finally
         {

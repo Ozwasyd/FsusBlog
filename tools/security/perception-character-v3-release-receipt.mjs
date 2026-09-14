@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -22,7 +22,9 @@ function parse(argv)
         const name = argv.shift();
         const value = argv.shift();
         if (!name?.startsWith('--') || value === undefined)
+        {
             throw new Error(`invalid argument ${name ?? '<missing>'}`);
+        }
         options[name.slice(2)] = value;
     }
     for (const field of [
@@ -36,7 +38,9 @@ function parse(argv)
     ])
     {
         if (!options[field])
+        {
             throw new Error(`--${field} is required`);
+        }
     }
     return options;
 }
@@ -71,7 +75,9 @@ function writeJson(file, value)
 function requireCondition(condition, message)
 {
     if (!condition)
+    {
         throw new Error(message);
+    }
 }
 
 function main()

@@ -4,24 +4,9 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import {
-    CONTENT_SHAPE_BOUNDARY_KINDS,
-    CONTENT_SHAPE_SCRIPT_CLASSES,
-    contentShapeBoundaryPlan,
-    contentShapeCatalogDigest,
-    projectContentFieldContracts,
-    readContentShapeAuthority,
-    shapeContentDigest,
-    stableStringify,
-    validateContentShapeAuthority,
-    validateContentShapeGovernance
-} from '../../tools/testing/content-shape-catalog.mjs';
-import {
-    fixtureCatalogDigest,
-    readFixtureCatalogs
-} from '../../tools/testing/fixture-catalog.mjs';
-import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs';
-
+const {CONTENT_SHAPE_BOUNDARY_KINDS, CONTENT_SHAPE_SCRIPT_CLASSES, contentShapeBoundaryPlan, contentShapeCatalogDigest, projectContentFieldContracts, readContentShapeAuthority, shapeContentDigest, stableStringify, validateContentShapeAuthority, validateContentShapeGovernance} = await import(new URL('../../tools/testing/content-shape-catalog.mjs', import.meta.url));
+const {fixtureCatalogDigest, readFixtureCatalogs} = await import(new URL('../../tools/testing/fixture-catalog.mjs', import.meta.url));
+const {validateJsonSchema} = await import(new URL('../../tools/test-matrix/schema-validator/validate.mjs', import.meta.url));
 const root = path.resolve(import.meta.dirname, '..', '..');
 
 function clonedAuthority()

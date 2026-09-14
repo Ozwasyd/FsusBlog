@@ -1,14 +1,14 @@
-import type { SecurityChallengeKind } from './binaryApi'
+import type { SecurityChallengeKind } from './binaryApi';
 
 export interface RiskChallengeProof {
-  action: string
-  routeKey: string
-  challengeId: string
-  kind: SecurityChallengeKind
-  proofToken: string
-  policyVersion: string
-  verifiedAtUnixMs: number
-  expiresAtUnixMs: number
+    action: string;
+    routeKey: string;
+    challengeId: string;
+    kind: SecurityChallengeKind;
+    proofToken: string;
+    policyVersion: string;
+    verifiedAtUnixMs: number;
+    expiresAtUnixMs: number;
 }
 
 export type RiskChallengeProofSettlement =
@@ -20,16 +20,16 @@ export type RiskChallengeProofSettlement =
   | 'binding_mismatch'
   | 'revoked'
   | 'rejected'
-  | 'unknown_network'
+  | 'unknown_network';
 
 /**
  * Opaque lease produced only by the challenge proof store. Binary callers pass
  * the lease itself instead of constructing protocol headers or token maps.
  */
 export interface RiskChallengeProofContext {
-  readonly proof: RiskChallengeProof
-  markInFlight(): boolean
-  settle(outcome: RiskChallengeProofSettlement): boolean
+    readonly proof: RiskChallengeProof;
+    markInFlight(): boolean;
+    settle(outcome: RiskChallengeProofSettlement): boolean;
 }
 
 export type RiskChallengeFailureReason =
@@ -38,13 +38,13 @@ export type RiskChallengeFailureReason =
   | 'replayed'
   | 'binding_mismatch'
   | 'revoked'
-  | 'rejected'
+  | 'rejected';
 
-export type RiskControlDecision = 'challenge' | 'stepUp' | 'queue' | 'throttle' | 'block' | 'reject'
+export type RiskControlDecision = 'challenge' | 'stepUp' | 'queue' | 'throttle' | 'block' | 'reject';
 
 export interface RiskChallengeHandoff {
-  decision: 'challenge' | 'stepUp'
-  action: string
-  routeKey: string
-  policyVersion: string
+    decision: 'challenge' | 'stepUp';
+    action: string;
+    routeKey: string;
+    policyVersion: string;
 }

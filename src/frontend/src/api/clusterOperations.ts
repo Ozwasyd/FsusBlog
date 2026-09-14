@@ -1,6 +1,8 @@
-import type { ApiRequestConfig } from './requestConfig';
 import { FrameType } from '@wasm/protocol/frame';
+
 import { requestAuthoringBinary } from './authoring';
+
+import type { ApiRequestConfig } from './requestConfig';
 
 export interface ClusterHealthResponse {
     status: 'healthy' | 'degraded' | 'unhealthy';

@@ -8,17 +8,15 @@ import {
     canonicalJson,
     digestCanonical,
     sealContentDigest,
-    sha256
+    sha256, readRetryPolicyRegistry
 } from './attempt-provenance.mjs';
 import { validateCorrectnessAttemptMigration } from './correctness-attempt-migration.mjs';
 import {
     scanHiddenRetries,
     validateRetryDispositionRegistry
 } from './hidden-retry-scanner.mjs';
-import { readRetryPolicyRegistry } from './attempt-provenance.mjs';
-import { readCleanAttemptConsumerInventory } from '../release/browser-release-clean-attempt-consumers.mjs';
-import { readSemanticOutcomeConsumerInventory } from '../release/semantic-outcome-clean-attempt-consumers.mjs';
-
+const { readCleanAttemptConsumerInventory } = await import(new URL('../release/browser-release-clean-attempt-consumers.mjs', import.meta.url));
+const { readSemanticOutcomeConsumerInventory } = await import(new URL('../release/semantic-outcome-clean-attempt-consumers.mjs', import.meta.url));
 const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const attemptGovernanceAcceptanceSchema = 'fsusblog.attempt-governance-acceptance.v1';
 

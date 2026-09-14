@@ -4,23 +4,9 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 
-import { validateJsonSchema } from '../../tools/test-matrix/schema-validator/validate.mjs';
-import {
-    defaultTimeoutPolicyDigest,
-    qualificationTemporalContext,
-    semanticOutcomeDigest
-} from '../../tools/test/temporal-context.mjs';
-import {
-    createTemporalDomainProducerReceipt,
-    projectTemporalRolesForBrowser,
-    projectTemporalRolesForDotNet,
-    projectTemporalRolesForPostgres,
-    requireResolvedTemporalRole,
-    resolveTemporalRoles,
-    resolveTemporalRolesForProducer,
-    verifyResolvedTemporalArtifact
-} from '../../tools/test/temporal-role-resolver.mjs';
-
+const {validateJsonSchema} = await import(new URL('../../tools/test-matrix/schema-validator/validate.mjs', import.meta.url));
+const {defaultTimeoutPolicyDigest, qualificationTemporalContext, semanticOutcomeDigest} = await import(new URL('../../tools/test/temporal-context.mjs', import.meta.url));
+const {createTemporalDomainProducerReceipt, projectTemporalRolesForBrowser, projectTemporalRolesForDotNet, projectTemporalRolesForPostgres, requireResolvedTemporalRole, resolveTemporalRoles, resolveTemporalRolesForProducer, verifyResolvedTemporalArtifact} = await import(new URL('../../tools/test/temporal-role-resolver.mjs', import.meta.url));
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
 const sourceCommit = 'a'.repeat(40);
 const sourceFingerprint = `sha256:${'b'.repeat(64)}`;

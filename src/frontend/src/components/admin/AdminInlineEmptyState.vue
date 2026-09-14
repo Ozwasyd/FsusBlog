@@ -66,6 +66,7 @@ function hasActionContent(): boolean
 .admin-inline-empty-state
 {
     --fsus-admin-inline-empty-state-inset: var(--fsus-space-5);
+
     padding: var(--fsus-admin-inline-empty-state-inset);
 }
 

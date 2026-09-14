@@ -4,16 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import {
-    assertBrowserPlanActualMatch,
-    bindBrowserRenderingObservation,
-    createCorrectnessBrowserPlan,
-    diagnosticBrowserIdentity,
-    observeCorrectnessBrowser,
-    validateBrowserIdentityPlan,
-    validatePlaywrightBrowserIdentityPolicy
-} from '../../tools/test/playwright-browser-identity.mjs';
-
+const {assertBrowserPlanActualMatch, bindBrowserRenderingObservation, createCorrectnessBrowserPlan, diagnosticBrowserIdentity, observeCorrectnessBrowser, validateBrowserIdentityPlan, validatePlaywrightBrowserIdentityPolicy} = await import(new URL('../../tools/test/playwright-browser-identity.mjs', import.meta.url));
 const policy = {
     schema: 'fsusblog.playwright-browser-identity-policy.v1',
     correctness: {
@@ -68,7 +59,10 @@ function fixture()
         path.join(frontendRoot, 'package-lock.json'),
         path.join(root, 'font-source.css'),
         path.join(root, 'locales/zh-CN.json')
-    ]) fs.mkdirSync(path.dirname(file), { recursive: true });
+    ])
+    {
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+    }
     fs.writeFileSync(executablePath, 'managed-browser-binary');
     fs.writeFileSync(packageFile, JSON.stringify({ name: '@playwright/test', version: '1.59.1' }));
     fs.writeFileSync(moduleFile, 'fixture module');
@@ -92,13 +86,19 @@ function fixture()
     {
         const require = (request) =>
         {
-            if (request === moduleFile) return { chromium: browserType };
+            if (request === moduleFile)
+            {
+                return { chromium: browserType };
+            }
             throw new Error(`unexpected fixture require: ${request}`);
         };
         require.resolve = (request) =>
         {
             const result = resolved.get(request);
-            if (!result) throw new Error(`unexpected fixture resolution: ${request}`);
+            if (!result)
+            {
+                throw new Error(`unexpected fixture resolution: ${request}`);
+            }
             return result;
         };
         return require;
@@ -119,6 +119,7 @@ function fixture()
 
 function actualFrom(plan, overrides = {})
 {
+    // eslint-disable-next-line no-unused-vars
     const { browserType: _browserType, contentDigest: _contentDigest, ...identity } = plan;
     return {
         ...structuredClone(identity),

@@ -10,13 +10,9 @@
 
 import { createHash } from 'node:crypto';
 
-import {
-    resolveTemporalRolesForProducer,
-    verifyResolvedTemporalArtifact
-} from '../../test/temporal-role-resolver.mjs';
-import { digestCanonical } from '../receipt/canonical.mjs';
-import { assertNoSecrets } from '../receipt/secrets.mjs';
-
+const {resolveTemporalRolesForProducer, verifyResolvedTemporalArtifact} = await import(new URL('../../test/temporal-role-resolver.mjs', import.meta.url));
+const {digestCanonical} = await import(new URL('../receipt/canonical.mjs', import.meta.url));
+const {assertNoSecrets} = await import(new URL('../receipt/secrets.mjs', import.meta.url));
 export const SECURITY_FIXTURE_OBSERVATION_SCHEMA = 'fsusblog.security-fixture-observation.v1';
 export const SECURITY_FIXTURE_OPERATION_PLAN_SCHEMA = 'fsusblog.security-fixture-operation-plan.v1';
 
@@ -338,6 +334,7 @@ function createHttpSecurityFixturePorts(context)
             signal
         });
         const text = await response.text();
+        // eslint-disable-next-line no-useless-assignment
         let payload = null;
         try
         {
@@ -770,6 +767,7 @@ export async function prepareSecurityFixtures(context, signal)
         }
         if (cleanupErrors.length)
         {
+            // eslint-disable-next-line preserve-caught-error
             throw new AggregateError([error], `security prepare failed and recovery cleanup failed: ${cleanupErrors.join('; ')}`);
         }
         throw error;

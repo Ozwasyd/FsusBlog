@@ -26,7 +26,7 @@ const root = resolve(
     argRootIndex >= 0
         ? process.argv[argRootIndex + 1]
         : dirname(fileURLToPath(import.meta.url)),
-    argRootIndex >= 0 ? "" : "../..",
+    argRootIndex >= 0 ? "" : "../.."
 );
 const failures = [];
 const rollupMigrationIds = [
@@ -43,34 +43,50 @@ const rollupMigrationIds = [
     "20260904-post-author-article-pins",
     "20260904-post-author-saved-view",
     "20260905-post-article-template-authority",
-    "20260908-post-article-create-authority",
+    "20260908-post-article-create-authority"
 ];
-function fail(message) {
+function fail(message)
+{
     failures.push(message);
 }
 
-function collectFileNames(dir, suffix) {
+function collectFileNames(dir, suffix)
+{
     const names = [];
-    if (!existsSync(dir)) return names;
-    for (const entry of readdirSync(dir)) {
-        if (entry.endsWith(suffix)) {
+    if (!existsSync(dir))
+    {
+        return names;
+    }
+    for (const entry of readdirSync(dir))
+    {
+        if (entry.endsWith(suffix))
+        {
             names.push(join(dir, entry));
         }
     }
     return names;
 }
 
-function sourceFilesRecursive(dir, suffix) {
+function sourceFilesRecursive(dir, suffix)
+{
     const files = [];
-    if (!existsSync(dir)) return files;
+    if (!existsSync(dir))
+    {
+        return files;
+    }
     const stack = [dir];
-    while (stack.length > 0) {
+    while (stack.length > 0)
+    {
         const current = stack.pop();
-        for (const entry of readdirSync(current, { withFileTypes: true })) {
+        for (const entry of readdirSync(current, { withFileTypes: true }))
+        {
             const full = join(current, entry.name);
-            if (entry.isDirectory()) {
+            if (entry.isDirectory())
+            {
                 stack.push(full);
-            } else if (entry.isFile() && entry.name.endsWith(suffix)) {
+            }
+            else if (entry.isFile() && entry.name.endsWith(suffix))
+            {
                 files.push(full);
             }
         }
@@ -78,11 +94,13 @@ function sourceFilesRecursive(dir, suffix) {
     return files;
 }
 
-function rel(file) {
+function rel(file)
+{
     return file.slice(root.length + 1).replaceAll("\\", "/");
 }
 
-function normalizeSql(sql) {
+function normalizeSql(sql)
+{
     return sql
         .replaceAll("\r\n", "\n")
         .split("\n")
@@ -91,28 +109,34 @@ function normalizeSql(sql) {
         .join("\n");
 }
 
-function extractNamedRawSql(source) {
+function extractNamedRawSql(source)
+{
     const tables = new Map();
     const pattern =
         /(?:new\s+EnsureTableStep|new)\(\s*"([a-z_0-9]+)"\s*,\s*"""(.*?)"""/gsu;
-    for (const match of source.matchAll(pattern)) {
+    for (const match of source.matchAll(pattern))
+    {
         tables.set(match[1], normalizeSql(match[2]));
     }
     return tables;
 }
 
-function splitStatements(sql) {
+function splitStatements(sql)
+{
     const statements = [];
     let current = [];
-    for (const line of sql.split("\n")) {
+    for (const line of sql.split("\n"))
+    {
         current.push(line);
-        if (line.trimEnd().endsWith(";")) {
+        if (line.trimEnd().endsWith(";"))
+        {
             statements.push(current.join("\n"));
             current = [];
         }
     }
     const rest = current.join("\n").trim();
-    if (rest.length > 0) {
+    if (rest.length > 0)
+    {
         statements.push(rest);
     }
     return statements;
@@ -122,22 +146,26 @@ function splitStatements(sql) {
 // descriptors, across EnsureTableStep, CreateIndexStep-adjacent raw blocks and
 // multi-statement RawSqlStep bodies, in both triple-quoted and single-line
 // string forms. Descriptor ids may be literals or file-scoped const names.
-function extractDescriptorTables(source, wantedIds) {
+function extractDescriptorTables(source, wantedIds)
+{
     const tables = new Map();
     const constIds = new Map();
     for (const match of source.matchAll(
-        /const string (\w+) = "([0-9]{6,8}-[a-z0-9-]+)"/gu,
-    )) {
+        /const string (\w+) = "([0-9]{6,8}-[a-z0-9-]+)"/gu
+    ))
+    {
         constIds.set(match[1], match[2]);
     }
     const allStarts = [
-        ...source.matchAll(/new\s+SchemaMigrationDescriptor\(/gu),
+        ...source.matchAll(/new\s+SchemaMigrationDescriptor\(/gu)
     ].map((match) => match.index);
     for (const match of source.matchAll(
-        /new\s+SchemaMigrationDescriptor\(\s*(?:"([0-9]{6,8}-[a-z0-9-]+)"|(\w+))/gu,
-    )) {
+        /new\s+SchemaMigrationDescriptor\(\s*(?:"([0-9]{6,8}-[a-z0-9-]+)"|(\w+))/gu
+    ))
+    {
         const id = match[1] ?? constIds.get(match[2]);
-        if (!id || !wantedIds.has(id)) {
+        if (!id || !wantedIds.has(id))
+        {
             continue;
         }
         const next = allStarts.find((pos) => pos > match.index);
@@ -145,29 +173,35 @@ function extractDescriptorTables(source, wantedIds) {
             next === undefined
                 ? source.slice(match.index)
                 : source.slice(match.index, next);
-        for (const inner of block.matchAll(/"""([\s\S]*?)"""/gu)) {
-            for (const statement of splitStatements(inner[1])) {
+        for (const inner of block.matchAll(/"""([\s\S]*?)"""/gu))
+        {
+            for (const statement of splitStatements(inner[1]))
+            {
                 const table = statement.match(
-                    /CREATE TABLE IF NOT EXISTS ([a-z_0-9]+)/u,
+                    /CREATE TABLE IF NOT EXISTS ([a-z_0-9]+)/u
                 );
-                if (table) {
+                if (table)
+                {
                     tables.set(table[1], normalizeSql(statement));
                 }
             }
         }
         for (const inner of block.matchAll(
-            /new\s+(?:EnsureTableStep|RawSqlStep)\(\s*"(CREATE TABLE[^"]*)"\s*\)/gu,
-        )) {
+            /new\s+(?:EnsureTableStep|RawSqlStep)\(\s*"(CREATE TABLE[^"]*)"\s*\)/gu
+        ))
+        {
             const table = inner[1].match(
-                /CREATE TABLE IF NOT EXISTS ([a-z_0-9]+)/u,
+                /CREATE TABLE IF NOT EXISTS ([a-z_0-9]+)/u
             );
-            if (table) {
+            if (table)
+            {
                 tables.set(table[1], normalizeSql(inner[1]));
             }
         }
         for (const inner of block.matchAll(
-            /new\s+EnsureTableStep\(\s*"([a-z_0-9]+)"\s*,\s*"(CREATE TABLE[^"]*)"\s*\)/gu,
-        )) {
+            /new\s+EnsureTableStep\(\s*"([a-z_0-9]+)"\s*,\s*"(CREATE TABLE[^"]*)"\s*\)/gu
+        ))
+        {
             tables.set(inner[1], normalizeSql(inner[2]));
         }
     }
@@ -176,9 +210,11 @@ function extractDescriptorTables(source, wantedIds) {
 
 // 1. All canonical entity table names (SugarTable attribute).
 const entityTables = new Set();
-for (const file of sourceFilesRecursive(join(root, "src/backend"), ".cs")) {
+for (const file of sourceFilesRecursive(join(root, "src/backend"), ".cs"))
+{
     const src = readFileSync(file, "utf8");
-    for (const match of src.matchAll(/SugarTable\("([a-z_0-9]+)"\)/gu)) {
+    for (const match of src.matchAll(/SugarTable\("([a-z_0-9]+)"\)/gu))
+    {
         entityTables.add(match[1]);
     }
 }
@@ -187,13 +223,15 @@ for (const file of sourceFilesRecursive(join(root, "src/backend"), ".cs")) {
 const migrationTables = new Set();
 const definitionFiles = collectFileNames(
     join(root, "src/migration/Definitions"),
-    ".cs",
+    ".cs"
 );
-for (const file of definitionFiles) {
+for (const file of definitionFiles)
+{
     const src = readFileSync(file, "utf8");
     for (const match of src.matchAll(
-        /CREATE TABLE(?: IF NOT EXISTS)?\s+([a-z_0-9]+)/gu,
-    )) {
+        /CREATE TABLE(?: IF NOT EXISTS)?\s+([a-z_0-9]+)/gu
+    ))
+    {
         migrationTables.add(match[1]);
     }
 }
@@ -201,21 +239,24 @@ for (const file of definitionFiles) {
 // 3. The verifier optional allowlist.
 const runnerPath = join(
     root,
-    "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs",
+    "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs"
 );
 const runnerSrc = existsSync(runnerPath)
     ? readFileSync(runnerPath, "utf8")
     : "";
 const allowedStart = runnerSrc.indexOf("s_allowedExtraTables =");
 const allowedEnd = runnerSrc.indexOf("];", allowedStart);
-if (allowedStart < 0 || allowedEnd < 0) {
+if (allowedStart < 0 || allowedEnd < 0)
+{
     fail("SchemaMigrationRunner.cs: s_allowedExtraTables block not found");
 }
 const allowedTables = new Set();
-if (allowedStart >= 0 && allowedEnd >= 0) {
+if (allowedStart >= 0 && allowedEnd >= 0)
+{
     for (const match of runnerSrc
         .slice(allowedStart, allowedEnd)
-        .matchAll(/"([a-z_0-9]+)"/gu)) {
+        .matchAll(/"([a-z_0-9]+)"/gu))
+    {
         allowedTables.add(match[1]);
     }
 }
@@ -223,11 +264,12 @@ if (allowedStart >= 0 && allowedEnd >= 0) {
 // 4. Required PostCodeFirst rollup EnsureTable catalog owned by the Server.
 const rollupPath = join(
     root,
-    "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRuntimeRollupTables.cs",
+    "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRuntimeRollupTables.cs"
 );
-if (!existsSync(rollupPath)) {
+if (!existsSync(rollupPath))
+{
     fail(
-        "CurrentSchemaRuntimeRollupTables.cs: required rollup catalog is missing",
+        "CurrentSchemaRuntimeRollupTables.cs: required rollup catalog is missing"
     );
 }
 const rollupSrc = existsSync(rollupPath)
@@ -237,90 +279,110 @@ const requiredSql = extractNamedRawSql(rollupSrc);
 const requiredTables = new Set(requiredSql.keys());
 
 const migrationRollupSql = new Map();
-for (const file of definitionFiles) {
+for (const file of definitionFiles)
+{
     const src = readFileSync(file, "utf8");
     for (const [tableName, sql] of extractDescriptorTables(
         src,
-        new Set(rollupMigrationIds),
-    )) {
+        new Set(rollupMigrationIds)
+    ))
+    {
         migrationRollupSql.set(tableName, sql);
     }
 }
 
-if (migrationRollupSql.size === 0) {
+if (migrationRollupSql.size === 0)
+{
     fail(
-        "PostCodeFirst runtime-table migration descriptors were not found in migration definitions",
+        "PostCodeFirst runtime-table migration descriptors were not found in migration definitions"
     );
 }
 
 // Invariant 1: no dead entries (entity table also listed as allowed or required).
-for (const table of allowedTables) {
-    if (entityTables.has(table)) {
+for (const table of allowedTables)
+{
+    if (entityTables.has(table))
+    {
         fail(
             `${rel(runnerPath)}: "${table}" is a SugarTable entity; it must not be listed in ` +
-                "s_allowedExtraTables (the canonical expected model already covers it)",
+                "s_allowedExtraTables (the canonical expected model already covers it)"
         );
     }
 }
-for (const table of requiredTables) {
-    if (entityTables.has(table)) {
+for (const table of requiredTables)
+{
+    if (entityTables.has(table))
+    {
         fail(
-            `${rel(rollupPath)}: "${table}" is a SugarTable entity; it must not be a required extra table`,
+            `${rel(rollupPath)}: "${table}" is a SugarTable entity; it must not be a required extra table`
         );
     }
-    if (allowedTables.has(table)) {
+    if (allowedTables.has(table))
+    {
         fail(
             `${rel(runnerPath)}: "${table}" is a required rollup table; it must not remain in ` +
-                "s_allowedExtraTables (the verifier must require it, not only allow it)",
+                "s_allowedExtraTables (the verifier must require it, not only allow it)"
         );
     }
 }
 
 // Invariant 2: no missing migration tables (migration-created, no entity,
 // absent from both the optional allowlist and the required rollup catalog).
-for (const table of migrationTables) {
+for (const table of migrationTables)
+{
     if (
         !entityTables.has(table) &&
         !allowedTables.has(table) &&
         !requiredTables.has(table)
-    ) {
+    )
+    {
         fail(
             `${rel(runnerPath)}: migration-created table "${table}" has no SugarTable entity and ` +
                 "is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; " +
-                "the verifier would reject it as an extra table",
+                "the verifier would reject it as an extra table"
         );
     }
 }
 
 // Invariant 3: required rollup catalog matches the two PostCodeFirst EnsureTable sets.
-for (const table of requiredTables) {
-    if (!migrationRollupSql.has(table)) {
+for (const table of requiredTables)
+{
+    if (!migrationRollupSql.has(table))
+    {
         fail(
-            `${rel(rollupPath)}: "${table}" is not created by the PostCodeFirst rollup EnsureTable methods`,
+            `${rel(rollupPath)}: "${table}" is not created by the PostCodeFirst rollup EnsureTable methods`
         );
         continue;
     }
-    if (requiredSql.get(table) !== migrationRollupSql.get(table)) {
+    if (requiredSql.get(table) !== migrationRollupSql.get(table))
+    {
         fail(
-            `${rel(rollupPath)}: CREATE TABLE SQL for "${table}" does not match the PostCodeFirst EnsureTable step`,
+            `${rel(rollupPath)}: CREATE TABLE SQL for "${table}" does not match the PostCodeFirst EnsureTable step`
         );
     }
 }
-for (const table of migrationRollupSql.keys()) {
-    if (!requiredTables.has(table)) {
+for (const table of migrationRollupSql.keys())
+{
+    if (!requiredTables.has(table))
+    {
         fail(
-            `${rel(rollupPath)}: PostCodeFirst rollup table "${table}" is missing from the required catalog`,
+            `${rel(rollupPath)}: PostCodeFirst rollup table "${table}" is missing from the required catalog`
         );
     }
 }
 
-if (failures.length > 0) {
+if (failures.length > 0)
+{
     for (const issue of failures)
+    {
         process.stderr.write(`[schema-allowed-extra-tables] ${issue}\n`);
+    }
     process.exitCode = 1;
-} else {
+}
+else
+{
     process.stdout.write(
         `[schema-allowed-extra-tables] ok entities=${entityTables.size} migration=${migrationTables.size} ` +
-            `allowed=${allowedTables.size} required=${requiredTables.size}\n`,
+            `allowed=${allowedTables.size} required=${requiredTables.size}\n`
     );
 }

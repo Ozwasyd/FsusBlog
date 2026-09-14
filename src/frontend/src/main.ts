@@ -1,1 +1,1 @@
-import '@/bootstrap/entry'
+import '@/bootstrap/entry';

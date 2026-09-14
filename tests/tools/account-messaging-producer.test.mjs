@@ -2,28 +2,10 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 
-import {
-    defaultTimeoutPolicyDigest,
-    qualificationTemporalContext
-} from '../../tools/test/temporal-context.mjs';
-import {
-    buildMessagingFixturePlan,
-    cleanupAccountMessaging,
-    prepareAccountMessaging,
-    resolveMessagingIdentityReferences,
-    verifyAccountMessaging
-} from '../../tools/test-fixtures/producers/account-messaging-producer.mjs';
-import {
-    buildProducerReceipt,
-    digestCanonical
-} from '../../tools/test-fixtures/receipt/index.mjs';
-import {
-    buildFixtureVariantPlan,
-    buildProducerFixtureVariantPlan,
-    fixtureCatalogDigest,
-    readFixtureCatalogs
-} from '../../tools/testing/fixture-catalog.mjs';
-
+const {defaultTimeoutPolicyDigest, qualificationTemporalContext} = await import(new URL('../../tools/test/temporal-context.mjs', import.meta.url));
+const {buildMessagingFixturePlan, cleanupAccountMessaging, prepareAccountMessaging, resolveMessagingIdentityReferences, verifyAccountMessaging} = await import(new URL('../../tools/test-fixtures/producers/account-messaging-producer.mjs', import.meta.url));
+const {buildProducerReceipt, digestCanonical} = await import(new URL('../../tools/test-fixtures/receipt/index.mjs', import.meta.url));
+const {buildFixtureVariantPlan, buildProducerFixtureVariantPlan, fixtureCatalogDigest, readFixtureCatalogs} = await import(new URL('../../tools/testing/fixture-catalog.mjs', import.meta.url));
 const digest = (character) => `sha256:${character.repeat(64)}`;
 const temporalArtifact = Object.freeze({
     schema: 'fsusblog.resolved-temporal-roles.v1',
@@ -407,6 +389,7 @@ test('account-messaging rejects projection mismatch, payload leaks, and duplicat
             {
                 return item;
             }
+            // eslint-disable-next-line no-unused-vars
             const { digest: _digest, ...body } = item;
             const changed = { ...body, publicId: '101' };
             return { ...changed, digest: stableHexDigest(changed) };

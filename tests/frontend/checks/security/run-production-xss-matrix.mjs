@@ -8,36 +8,14 @@ import path from 'node:path';
 import process from 'node:process';
 import { setTimeout as delay } from 'node:timers/promises';
 
-import { verifyProductionBuildReceipt } from '../../../../tools/ci/production-build-artifacts.mjs';
-import {
-    bindBrowserRenderingObservation,
-    createCorrectnessBrowserPlan,
-    observeBrowserRendering,
-    observeCorrectnessBrowser,
-    serializableBrowserPlan
-} from '../../../../tools/test/playwright-browser-identity.mjs';
-import { deriveLocalPublicContentFixtureSecret } from '../../../browser-contract/default-fixture-provider.mjs';
-import { loadBrowserContractFixture } from '../../../browser-contract/fixture.mjs';
-import {
-    cleanupSingleBrowserContractFixture,
-    prepareSingleBrowserContractFixture
-} from '../../../browser-contract/prepare-fixture.mjs';
-import { navigateThroughRetryablePublicAot } from '../../support/playwright/publicAotNavigationRetry.mjs';
-import {
-    loadProductionXssCorpus,
-    markdownForCorpusCase,
-    persistenceSafeMarkdownForCorpusCase,
-    resolveMetadataProbe,
-    resolveProductionFeatureGatewayAsset,
-    selectProductionXssCases
-} from '../../support/security/productionXssCorpus.mjs';
-import {
-    evaluateSecurityObservation,
-    isSecurityRelevantConsoleMessage,
-    productionXssRelevantCspDirectives,
-    recordMainFrameNavigation
-} from '../../support/security/productionXssObserver.mjs';
-
+const {verifyProductionBuildReceipt} = await import(new URL('../../../../tools/ci/production-build-artifacts.mjs', import.meta.url));
+const {bindBrowserRenderingObservation, createCorrectnessBrowserPlan, observeBrowserRendering, observeCorrectnessBrowser, serializableBrowserPlan} = await import(new URL('../../../../tools/test/playwright-browser-identity.mjs', import.meta.url));
+const {deriveLocalPublicContentFixtureSecret} = await import(new URL('../../../browser-contract/default-fixture-provider.mjs', import.meta.url));
+const {loadBrowserContractFixture} = await import(new URL('../../../browser-contract/fixture.mjs', import.meta.url));
+const {cleanupSingleBrowserContractFixture, prepareSingleBrowserContractFixture} = await import(new URL('../../../browser-contract/prepare-fixture.mjs', import.meta.url));
+const {navigateThroughRetryablePublicAot} = await import(new URL('../../support/playwright/publicAotNavigationRetry.mjs', import.meta.url));
+const {loadProductionXssCorpus, markdownForCorpusCase, persistenceSafeMarkdownForCorpusCase, resolveMetadataProbe, resolveProductionFeatureGatewayAsset, selectProductionXssCases} = await import(new URL('../../support/security/productionXssCorpus.mjs', import.meta.url));
+const {evaluateSecurityObservation, isSecurityRelevantConsoleMessage, productionXssRelevantCspDirectives, recordMainFrameNavigation} = await import(new URL('../../support/security/productionXssObserver.mjs', import.meta.url));
 const repositoryRoot = path.resolve(import.meta.dirname, '../../../..');
 const frontendRoot = path.join(repositoryRoot, 'src', 'frontend');
 const require = createRequire(import.meta.url);

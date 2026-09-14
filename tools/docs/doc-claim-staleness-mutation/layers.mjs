@@ -9,9 +9,9 @@ export const MutationLayers = Object.freeze({
     GENERATED_SECTION_CHECK: 'generated-section-check',
     PROSE_VERIFIER: 'prose-verifier',
     BEHAVIOR_GRAPH_JOIN: 'behavior-graph-join'
-})
+});
 
-export const allowedMutationLayers = Object.freeze(Object.values(MutationLayers))
+export const allowedMutationLayers = Object.freeze(Object.values(MutationLayers));
 
 /** Vague outcomes that prove nothing about body/current-observation join. */
 export const forbiddenReasonCodes = Object.freeze([
@@ -22,4 +22,4 @@ export const forbiddenReasonCodes = Object.freeze([
     'failed',
     'error',
     'unknown'
-])
+]);

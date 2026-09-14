@@ -4,39 +4,12 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import {
-    buildFixtureReceipt,
-    buildProducerReceipt,
-    digestCanonical
-} from '../../tools/test-fixtures/receipt/index.mjs';
-import {
-    buildFixtureVariantPlan,
-    buildProducerFixtureVariantPlan,
-    fixtureCatalogDigest,
-    readFixtureCatalogs
-} from '../../tools/testing/fixture-catalog.mjs';
-import {
-    applyFixtureMutation,
-    buildMutationRecoveryPlan,
-    buildMutationRequest,
-    buildSnapshotRequest,
-    compareSemanticSnapshots,
-    createSemanticSnapshot,
-    runMutationRecovery,
-    readMutationJournal,
-    verifyMutationJournal,
-    verifyMutationRecoveryReceipt,
-    verifySemanticDiff,
-    verifyExternalSemanticSnapshot,
-    verifySemanticSnapshot,
-    writeMutationJournal
-} from '../../tools/test-fixtures/mutation-recovery/index.mjs';
-import {
-    loadCanonicalMutationEnvelopeCatalog
-} from '../../tools/test-fixtures/mutation-envelope-catalog.mjs';
-import { digest, seal } from '../../tools/test-fixtures/mutation-recovery/canonical.mjs';
-import { checkFixtureMutationRecoveryGovernance } from '../../tools/governance/check-fixture-mutation-recovery-governance.mjs';
-
+const {buildFixtureReceipt, buildProducerReceipt, digestCanonical} = await import(new URL('../../tools/test-fixtures/receipt/index.mjs', import.meta.url));
+const {buildFixtureVariantPlan, buildProducerFixtureVariantPlan, fixtureCatalogDigest, readFixtureCatalogs} = await import(new URL('../../tools/testing/fixture-catalog.mjs', import.meta.url));
+const {applyFixtureMutation, buildMutationRecoveryPlan, buildMutationRequest, buildSnapshotRequest, compareSemanticSnapshots, createSemanticSnapshot, runMutationRecovery, readMutationJournal, verifyMutationJournal, verifyMutationRecoveryReceipt, verifySemanticDiff, verifyExternalSemanticSnapshot, verifySemanticSnapshot, writeMutationJournal} = await import(new URL('../../tools/test-fixtures/mutation-recovery/index.mjs', import.meta.url));
+const {loadCanonicalMutationEnvelopeCatalog} = await import(new URL('../../tools/test-fixtures/mutation-envelope-catalog.mjs', import.meta.url));
+const {digest, seal} = await import(new URL('../../tools/test-fixtures/mutation-recovery/canonical.mjs', import.meta.url));
+const {checkFixtureMutationRecoveryGovernance} = await import(new URL('../../tools/governance/check-fixture-mutation-recovery-governance.mjs', import.meta.url));
 const catalogs = readFixtureCatalogs();
 const fixtureCatalog = fixtureCatalogDigest(catalogs);
 const mutationCatalog = loadCanonicalMutationEnvelopeCatalog();
@@ -455,7 +428,10 @@ function fakePort(provider, state, apply)
         },
         async recoverInterruptedAttempt()
         {
-            if (state.before) state.current = structuredClone(state.before);
+            if (state.before)
+            {
+                state.current = structuredClone(state.before);
+            }
             return { restored: true };
         }
     };
@@ -476,7 +452,10 @@ test('PostgreSQL, MySQL and SQLite adapters apply one parameter-bound semantic m
             provider, attemptId: `${provider}-attempt`, catalog: mutationCatalog
         });
         const state = { current: { publishedAt: '2026-01-01T00:00:00.123Z' } };
-        const port = fakePort(provider, state, (current) => { current.publishedAt = '2026-04-01T00:00:00.123Z'; });
+        const port = fakePort(provider, state, (current) =>
+        {
+            current.publishedAt = '2026-04-01T00:00:00.123Z';
+        });
         let mutated;
         const journal = await applyFixtureMutation({
             request: mutationRequest, baseline, baselineRequest, envelope, port,
@@ -522,7 +501,8 @@ test('missing target drift restores before-state and duplicate attempts fail wit
         provider: 'postgresql', attemptId: 'no-drift-attempt', catalog: mutationCatalog
     });
     const state = { current: { publishedAt: '2026-01-01T00:00:00.123Z' }, restoreCount: 0 };
-    const port = fakePort('postgresql', state, () => {});
+    const port = fakePort('postgresql', state, () =>
+    {});
     const restore = port.restoreMutation;
     port.restoreMutation = async (input) =>
     {
@@ -543,7 +523,10 @@ test('missing target drift restores before-state and duplicate attempts fail wit
     assert.equal(state.restoreCount, 1);
     await assert.rejects(applyFixtureMutation({
         request: mutationRequest, baseline, baselineRequest, envelope, port,
-        observeMutated: async () => { throw new Error('must not observe duplicate'); }
+        observeMutated: async () =>
+        {
+            throw new Error('must not observe duplicate');
+        }
     }), /single-attempt result/);
     assert.equal(state.restoreCount, 1);
 });
@@ -561,8 +544,15 @@ test('Redis and filesystem adapters reject wildcard and root escape and verify e
         const state = { current: {} };
         const port = fakePort(provider, state, (current) =>
         {
-            if (provider === 'redis') current.ttl = 5;
-            else { current.byteDigest = `sha256:${'4'.repeat(64)}`; current.byteLength = 0; }
+            if (provider === 'redis')
+            {
+                current.ttl = 5;
+            }
+            else
+            {
+                current.byteDigest = `sha256:${'4'.repeat(64)}`;
+                current.byteLength = 0;
+            }
         });
         const targets = provider === 'redis'
             ? [{ domain: 'public.projection', role: 'deleted-article-projection-generation', stableId: 'key-1', ttlMilliseconds: 1234, generation: 'generation-1', beforeDigest: digest(semanticRecords()[2]) }]
@@ -609,7 +599,10 @@ test('same-runtime runner proves drift then canonical same-profile exact recover
     const receipt = verifiedReceipt();
     const envelopeId = 'mutation/article-metadata-timestamp';
     const state = { current: { publishedAt: '2026-01-01T00:00:00.123Z' } };
-    const port = fakePort('postgresql', state, (current) => { current.publishedAt = '2026-05-01T00:00:00.123Z'; });
+    const port = fakePort('postgresql', state, (current) =>
+    {
+        current.publishedAt = '2026-05-01T00:00:00.123Z';
+    });
     let prepareCount = 0;
     const plan = buildMutationRecoveryPlan({
         runId: 'run-a', attemptId: 'attempt-0001', profileId: 'public-minimal', provider: 'postgresql',
@@ -641,7 +634,10 @@ test('runner rejects runtime restart and restores the active mutation before pro
 {
     const receipt = verifiedReceipt();
     const state = { current: { publishedAt: '2026-01-01T00:00:00.123Z' }, restoreCount: 0 };
-    const port = fakePort('postgresql', state, (current) => { current.publishedAt = '2026-06-01T00:00:00.123Z'; });
+    const port = fakePort('postgresql', state, (current) =>
+    {
+        current.publishedAt = '2026-06-01T00:00:00.123Z';
+    });
     const restore = port.restoreMutation;
     port.restoreMutation = async (input) =>
     {
@@ -709,7 +705,10 @@ test('snapshot sharding scales without row-count-only equality and tamper remain
         receipt,
         observe: async () => ({ runtimeIdentity, serviceGeneration: 'generation-1', serviceIdentity, records: millionRecords() }),
         shardSize: 10_000,
-        shardWriter: async () => { writtenShards += 1; },
+        shardWriter: async () =>
+        {
+            writtenShards += 1;
+        },
         retainShards: false
     });
     assert.equal(external.manifest.recordCount, 1_000_000);

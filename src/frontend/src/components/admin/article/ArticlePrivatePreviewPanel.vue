@@ -155,8 +155,7 @@ watch(
 function belongsToCurrentPreview(result: MarkdownRenderResult): boolean
 {
     return Boolean(
-        props.preview
-            && result.normalizedSource === props.preview.normalizedMarkdownSource
+        result.normalizedSource === props.preview?.normalizedMarkdownSource
     );
 }
 
@@ -177,8 +176,7 @@ function currentObservation(
 function isCurrentGeneration(contentVersion: number | string | null): boolean
 {
     return Boolean(
-        props.preview
-            && contentVersion === props.preview.sourceIdentity
+        contentVersion === props.preview?.sourceIdentity
     );
 }
 
@@ -336,6 +334,7 @@ function resetPreviewCompletion(): void
 .author-preview
  {
     min-width: 0;
+
     --preview-radius-inline: var(--fsus-radius-control-small, 4px);
 }
 

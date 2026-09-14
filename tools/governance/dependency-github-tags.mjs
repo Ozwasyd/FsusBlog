@@ -12,25 +12,47 @@ export async function readLatestGithubTag(packageName, fetchJson, headers = {})
     const seen = new Set();
     for (let page = 1; ; page += 1)
     {
-        if (page > 100) throw new Error(`github_tags_pagination_limit:${packageName}`);
+        if (page > 100)
+        {
+            throw new Error(`github_tags_pagination_limit:${packageName}`);
+        }
         const tags = await fetchJson(`${base}/tags?per_page=100&page=${page}`, headers);
-        if (!Array.isArray(tags) || tags.length > 100) throw new Error('github_tags_page_invalid');
+        if (!Array.isArray(tags) || tags.length > 100)
+        {
+            throw new Error('github_tags_page_invalid');
+        }
         for (const tag of tags)
         {
-            if (typeof tag?.name !== 'string' || seen.has(tag.name)) throw new Error('github_tags_identity_invalid');
+            if (typeof tag?.name !== 'string' || seen.has(tag.name))
+            {
+                throw new Error('github_tags_identity_invalid');
+            }
             seen.add(tag.name);
-            if (!/^v?\d+\.\d+\.\d+$/u.test(tag.name)) continue;
-            if (!/^[0-9a-f]{40}$/u.test(tag.commit?.sha ?? '')) throw new Error('github_tags_commit_invalid');
+            if (!/^v?\d+\.\d+\.\d+$/u.test(tag.name))
+            {
+                continue;
+            }
+            if (!/^[0-9a-f]{40}$/u.test(tag.commit?.sha ?? ''))
+            {
+                throw new Error('github_tags_commit_invalid');
+            }
             candidates.push(tag);
         }
-        if (tags.length < 100) break;
+        if (tags.length < 100)
+        {
+            break;
+        }
     }
-    candidates.sort((left, right) => {
+    candidates.sort((left, right) =>
+    {
         const a = left.name.replace(/^v/u, '').split('.').map(BigInt);
         const b = right.name.replace(/^v/u, '').split('.').map(BigInt);
         for (let index = 0; index < a.length; index += 1)
         {
-            if (a[index] !== b[index]) return a[index] > b[index] ? -1 : 1;
+            if (a[index] !== b[index])
+            {
+                return a[index] > b[index] ? -1 : 1;
+            }
         }
         return left.name.localeCompare(right.name);
     });
@@ -41,7 +63,10 @@ export async function readLatestGithubTag(packageName, fetchJson, headers = {})
         {
             throw new Error('github_tags_release_identity_invalid');
         }
-        if (release.draft || release.prerelease) continue;
+        if (release.draft || release.prerelease)
+        {
+            continue;
+        }
         return { ...registryRelease(tag.name, release.published_at, `github-tags:${packageName}`), targetDigest: tag.commit.sha };
     }
     throw new Error(`github_tags_stable_release_missing:${packageName}`);

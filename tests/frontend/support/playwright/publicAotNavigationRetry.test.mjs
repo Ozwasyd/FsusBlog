@@ -71,12 +71,12 @@ test('public AOT navigation rejects a revocation-fenced 410 on the first attempt
         {
             attempts += 1;
             return {
-            status: () => 410,
-            headers: () => ({
-              'cache-control': 'no-store, no-cache, must-revalidate',
-              'x-fsus-revoked': 'g67'
-            })
-          };
+                status: () => 410,
+                headers: () => ({
+                    'cache-control': 'no-store, no-cache, must-revalidate',
+                    'x-fsus-revoked': 'g67'
+                })
+            };
         },
         sleep: async () => assert.fail('correctness navigation must not sleep for retry'),
         onRetryableResponse: (value) => observations.push(value),

@@ -8,12 +8,14 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
-test('default npm freshness entrypoint invokes the sole producer without simulation flags', () => {
+test('default npm freshness entrypoint invokes the sole producer without simulation flags', () =>
+{
     const manifest = JSON.parse(fs.readFileSync(path.join(root, 'src/frontend/package.json'), 'utf8'));
     assert.equal(manifest.scripts['deps:freshness'], 'node ../../tools/governance/check-dependency-freshness.mjs --root ../..');
 });
 
-test('explicit fixture execution remains available through the same npm entrypoint', () => {
+test('explicit fixture execution remains available through the same npm entrypoint', () =>
+{
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-freshness-entrypoint-'));
     try
     {

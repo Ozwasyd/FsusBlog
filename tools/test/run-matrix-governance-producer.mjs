@@ -3,15 +3,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { readCleanAttemptConsumerInventory } from '../release/browser-release-clean-attempt-consumers.mjs';
-import { readSemanticOutcomeConsumerInventory } from '../release/semantic-outcome-clean-attempt-consumers.mjs';
-import { validateRuntimeStateDomainCatalog } from '../test-matrix/runtime-state-domain-catalog.mjs';
+const { readCleanAttemptConsumerInventory } = await import(new URL('../release/browser-release-clean-attempt-consumers.mjs', import.meta.url));
+const { readSemanticOutcomeConsumerInventory } = await import(new URL('../release/semantic-outcome-clean-attempt-consumers.mjs', import.meta.url));
+const { validateRuntimeStateDomainCatalog } = await import(new URL('../test-matrix/runtime-state-domain-catalog.mjs', import.meta.url));
 import { readRetryPolicyRegistry } from './attempt-provenance.mjs';
+import { validateCorrectnessAttemptMigration } from './correctness-attempt-migration.mjs';
 import {
     buildCorrectnessAttemptProducerInventory,
     correctnessAttemptProducerFile
 } from './correctness-attempt-producers.mjs';
-import { validateCorrectnessAttemptMigration } from './correctness-attempt-migration.mjs';
 import { scanHiddenRetries, validateRetryDispositionRegistry } from './hidden-retry-scanner.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');
@@ -47,5 +47,5 @@ if (errors.length > 0)
 else
 {
     console.log('[runtime-state-domain] ok');
-    await import('../check-test-matrix.mjs');
+    await import(new URL('../check-test-matrix.mjs', import.meta.url));
 }

@@ -15,8 +15,8 @@ import {
     beginCurrentRunEvidencePublication,
     finalizeCurrentRunEvidencePublication
 } from '../../tools/test/current-run-evidence-publication.mjs';
-import { governanceContentDigest } from '../../tools/test/evidence-location-contract.mjs';
 import { packCurrentRunEvidenceTransport } from '../../tools/test/current-run-evidence-transport.mjs';
+import { governanceContentDigest } from '../../tools/test/evidence-location-contract.mjs';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
 const commit = 'a'.repeat(40);

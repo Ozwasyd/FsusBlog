@@ -5,9 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { buildAudioArtifactFromPackets } from '../contracts/perception-character-v3-artifacts.mjs';
-import { contract } from '../contracts/perception-character-v3-reference.mjs';
-
+const { buildAudioArtifactFromPackets } = await import(new URL('../contracts/perception-character-v3-artifacts.mjs', import.meta.url));
+const { contract } = await import(new URL('../contracts/perception-character-v3-reference.mjs', import.meta.url));
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const spokenAtlasPath = path.join(root, 'src/shared/Contracts/Validation/Security/perception-character-v3-spoken-atlas.json');
 const opusSourcePath = path.join(root, 'tools/security/perception-character-v3-opus.c');

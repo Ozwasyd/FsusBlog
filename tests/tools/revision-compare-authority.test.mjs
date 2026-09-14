@@ -4,14 +4,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import {
-    checkRevisionCompareAuthority,
-    checkRevisionCompareIntegrationFiles,
-    checkRevisionCompareAuthoritySources,
-    readRevisionCompareIntegration,
-    readRevisionCompareSources
-} from '../../tools/governance/check-revision-compare-authority.mjs';
-
+const {checkRevisionCompareAuthority, checkRevisionCompareIntegrationFiles, checkRevisionCompareAuthoritySources, readRevisionCompareIntegration, readRevisionCompareSources} = await import(new URL('../../tools/governance/check-revision-compare-authority.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 function sources()

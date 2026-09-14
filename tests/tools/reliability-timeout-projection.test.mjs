@@ -4,14 +4,8 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs';
-import {
-    loadReleaseReliabilityCatalog,
-    releaseReliabilitySchedulerProjection,
-    validateReleaseReliabilitySchedulerCatalog,
-    validateReleaseReliabilitySchedulerMatrix
-} from '../../tools/test-matrix/release-reliability-scheduler-projection.mjs';
-
+const {parseMatrix} = await import(new URL('../../tools/test-matrix/parse-matrix.mjs', import.meta.url));
+const {loadReleaseReliabilityCatalog, releaseReliabilitySchedulerProjection, validateReleaseReliabilitySchedulerCatalog, validateReleaseReliabilitySchedulerMatrix} = await import(new URL('../../tools/test-matrix/release-reliability-scheduler-projection.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const catalog = loadReleaseReliabilityCatalog({ root });
 const schedulerAuthorityAvailable = Object.hasOwn(catalog, 'schedulerTimeoutPolicies');

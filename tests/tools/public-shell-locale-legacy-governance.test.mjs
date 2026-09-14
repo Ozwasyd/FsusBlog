@@ -4,8 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { checkPublicShellLocaleLegacyGovernance } from '../../tools/test-matrix/public-shell-locale-legacy-governance.mjs';
-
+const { checkPublicShellLocaleLegacyGovernance } = await import(new URL('../../tools/test-matrix/public-shell-locale-legacy-governance.mjs', import.meta.url));
 const root = path.resolve(new URL('../../', import.meta.url).pathname);
 
 test('PublicShell locale gate has one canonical matrix/runner and no legacy runner or fixture', async () =>

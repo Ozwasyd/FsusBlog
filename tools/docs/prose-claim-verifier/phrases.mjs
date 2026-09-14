@@ -10,7 +10,7 @@ export function normalizeBody(text)
     return String(text ?? '')
         .normalize('NFC')
         .replace(/\s+/gu, ' ')
-        .trim()
+        .trim();
 }
 
 /**
@@ -20,48 +20,57 @@ export function normalizeBody(text)
  */
 export function bodyIncludesToken(body, token)
 {
-    if (!token) return false
-    const haystack = normalizeBody(body)
-    const needle = normalizeBody(token)
-    if (!needle) return false
-    const lowerHay = haystack.toLowerCase()
-    const lowerNeedle = needle.toLowerCase()
-    let from = 0
+    if (!token)
+    {
+        return false;
+    }
+    const haystack = normalizeBody(body);
+    const needle = normalizeBody(token);
+    if (!needle)
+    {
+        return false;
+    }
+    const lowerHay = haystack.toLowerCase();
+    const lowerNeedle = needle.toLowerCase();
+    let from = 0;
     while (from <= lowerHay.length)
     {
-        const index = lowerHay.indexOf(lowerNeedle, from)
-        if (index < 0) return false
-        const before = haystack.slice(Math.max(0, index - 2), index)
+        const index = lowerHay.indexOf(lowerNeedle, from);
+        if (index < 0)
+        {
+            return false;
+        }
+        const before = haystack.slice(Math.max(0, index - 2), index);
         // Reject positive hit when immediately preceded by Chinese negation.
         if (/(?:不|未|非|无)$/u.test(before) || /不会$/u.test(haystack.slice(Math.max(0, index - 2), index)))
         {
-            from = index + lowerNeedle.length
-            continue
+            from = index + lowerNeedle.length;
+            continue;
         }
         // Reject when negation char precedes with connector/space gap (e.g. "不是 optional").
-        const beforeExtended = haystack.slice(Math.max(0, index - 4), index)
+        const beforeExtended = haystack.slice(Math.max(0, index - 4), index);
         if (/(?:不|未|非|无)[是为会]?\s*$/u.test(beforeExtended))
         {
-            from = index + lowerNeedle.length
-            continue
+            from = index + lowerNeedle.length;
+            continue;
         }
         // Also reject when the match is the tail of a longer negative phrase token site.
-        const windowStart = Math.max(0, index - 4)
-        const window = haystack.slice(windowStart, index + lowerNeedle.length)
+        const windowStart = Math.max(0, index - 4);
+        const window = haystack.slice(windowStart, index + lowerNeedle.length);
         if (new RegExp(`不会${escapeRegExp(needle)}`, 'u').test(window)
             || new RegExp(`不${escapeRegExp(needle)}`, 'u').test(window))
         {
-            from = index + lowerNeedle.length
-            continue
+            from = index + lowerNeedle.length;
+            continue;
         }
-        return true
+        return true;
     }
-    return false
+    return false;
 }
 
 function escapeRegExp(value)
 {
-    return String(value).replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')
+    return String(value).replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 }
 
 /**
@@ -136,15 +145,15 @@ export const PhraseRegistry = Object.freeze({
         anyOf: Object.freeze(['不含', 'exclusive', '开区间']),
         forbidden: Object.freeze(['含端点', 'inclusive', '闭区间'])
     })
-})
+});
 
 export function getPhrasePack(phraseId)
 {
     if (!Object.hasOwn(PhraseRegistry, phraseId))
     {
-        return null
+        return null;
     }
-    return PhraseRegistry[phraseId]
+    return PhraseRegistry[phraseId];
 }
 
 /** Unit display tokens fixed by renderer policy — never converted by the parser. */
@@ -163,18 +172,18 @@ export const UnitTokenRegistry = Object.freeze({
     layers: Object.freeze({ tokens: Object.freeze(['层', 'layers', 'layer']), dimension: 'count-layers' }),
     layer: Object.freeze({ tokens: Object.freeze(['层', 'layers', 'layer']), dimension: 'count-layers' }),
     count: Object.freeze({ tokens: Object.freeze(['次', '个', '项', 'count', 'counts']), dimension: 'count-generic' })
-})
+});
 
 export function unitTokens(unit)
 {
-    const key = String(unit ?? '').toLowerCase()
+    const key = String(unit ?? '').toLowerCase();
     if (Object.hasOwn(UnitTokenRegistry, key))
     {
-        return UnitTokenRegistry[key]
+        return UnitTokenRegistry[key];
     }
     // Unknown unit: require exact unit string only; dimension is unit-specific.
     return {
         tokens: Object.freeze([String(unit)]),
         dimension: `unit:${key}`
-    }
+    };
 }

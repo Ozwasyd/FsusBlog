@@ -269,7 +269,8 @@ function unitState(authority, unit)
     {
         return null;
     }
-    const fields = Object.fromEntries(String(result.stdout).trim().split('\n').map((line) => {
+    const fields = Object.fromEntries(String(result.stdout).trim().split('\n').map((line) =>
+    {
         const separator = line.indexOf('=');
         return separator > 0 ? [line.slice(0, separator), line.slice(separator + 1)] : ['', ''];
     }));
@@ -341,8 +342,8 @@ function evaluateExecutableProjects(root, projects, configurations, errors, runt
     const input = Buffer.from(JSON.stringify({ configurations, dotnet, projects }), 'utf8').toString('base64url');
     const readOnlyBindings = [...new Set([root, defaultRoot])].sort();
     const unit = `fsusblog-msbuild-entrypoints-${process.pid}-${randomUUID().replaceAll('-', '')}.service`;
-    let result = null;
-    let unitIsTerminal = false;
+    let result;
+    let unitIsTerminal;
     try
     {
         result = spawnSync(authority.runCommand, [

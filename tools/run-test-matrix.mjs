@@ -14,8 +14,17 @@ import {
     runBehaviorDocStaticAdmission
 } from './docs/behavior-doc-static-admission.mjs';
 import { sealSourceIdentity } from './fact-extractors/identity.mjs';
-import { availableMemoryGiB } from './test/system-memory.mjs';
+import { requireCleanAttemptConsumerAdmission } from './release/browser-release-clean-attempt-consumers.mjs';
 import { validateCorrectnessAttemptMigration } from './test/correctness-attempt-migration.mjs';
+import {
+    loadExecutionNetworkPolicy,
+    validateExecutionNetworkPolicy
+} from './test/execution-envelope-network.mjs';
+import {
+    loadExecutionServiceCatalog,
+    validateExecutionServiceCatalog
+} from './test/execution-envelope-services.mjs';
+import { availableMemoryGiB } from './test/system-memory.mjs';
 import {
     buildAggregatePlan as buildAggregateReachabilityPlan,
     buildReceiptPlan as buildReceiptReachabilityPlan
@@ -36,14 +45,6 @@ import {
     discoverOrphanDotnetBuildServers,
     dotnetBuildServerInventory
 } from './test-matrix/dotnet-build-server-cleanup.mjs';
-import {
-    loadExecutionServiceCatalog,
-    validateExecutionServiceCatalog
-} from './test/execution-envelope-services.mjs';
-import {
-    loadExecutionNetworkPolicy,
-    validateExecutionNetworkPolicy
-} from './test/execution-envelope-network.mjs';
 import {
     loadExecutionEnvelopeApplicability,
     loadExecutionEnvelopePolicy,
@@ -109,14 +110,14 @@ import {
 import { validateEvidenceExecutionDeclaration, validateReleaseDomainMatrix } from './test-matrix/projection-declaration.mjs';
 import { buildReleaseFinalizerPlan } from './test-matrix/release-final-evidence-contract.mjs';
 import {
+    loadReleaseReliabilityCatalog,
+    validateReleaseReliabilitySchedulerMatrix
+} from './test-matrix/release-reliability-scheduler-projection.mjs';
+import {
     measureResourceCollectorOverhead,
     writeResourceUtilizationEvidence
 } from './test-matrix/resource-utilization.mjs';
 import { validateRuntimeStateDomainCatalog } from './test-matrix/runtime-state-domain-catalog.mjs';
-import {
-    loadReleaseReliabilityCatalog,
-    validateReleaseReliabilitySchedulerMatrix
-} from './test-matrix/release-reliability-scheduler-projection.mjs';
 import {
     aggregateArtifactPathExists,
     applySupersedes,
@@ -144,7 +145,6 @@ import {
     sealMatrixFixtureProfile, validateFixtureCatalogs
 } from './testing/fixture-catalog.mjs';
 import { parseWorkflowJobNeeds } from './yaml/workflow-structure.mjs';
-import { requireCleanAttemptConsumerAdmission } from './release/browser-release-clean-attempt-consumers.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'));
 const matrixFile = process.env.FSUSBLOG_MATRIX_FILE
@@ -2067,7 +2067,7 @@ function bindScheduledBuildLayoutSource(layout, sourceState)
     });
 }
 
-function applyUxViewportResumeEnvironment(env, tier, resume)
+function applyUxViewportResumeEnvironment(env, tier)
 {
     if (!uxViewportTierIds.has(tier.id))
     {

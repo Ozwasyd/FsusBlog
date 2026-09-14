@@ -143,7 +143,8 @@ export async function reconcileDependencyBlockers({ withExclusiveRun, loadSnapsh
     {
         throw new Error('dependency_blocker_exclusive_run_required');
     }
-    return withExclusiveRun(async () => {
+    return withExclusiveRun(async () =>
+    {
         const issues = await client.listIssues();
         const snapshot = await loadSnapshot();
         const plan = planScheduledBlockers({ ...snapshot, issues });

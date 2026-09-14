@@ -1,17 +1,12 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import fs from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { verifyProductionBuildReceipt } from '../ci/production-build-artifacts.mjs';
-import {
-    createPublicShellLocaleMatrix,
-    publicShellLocaleContentDigest,
-    validatePublicShellLocaleMatrix
-} from '../../tests/browser-contract/public-shell-locale-matrix.mjs';
-
+const {verifyProductionBuildReceipt} = await import(new URL('../ci/production-build-artifacts.mjs', import.meta.url));
+const {createPublicShellLocaleMatrix, validatePublicShellLocaleMatrix} = await import(new URL('../../tests/browser-contract/public-shell-locale-matrix.mjs', import.meta.url));
 export const publicShellLocaleGateSchema = 'fsusblog.public-shell-locale-gate.v1';
 export const publicShellLocaleSubResultsSchema = 'fsusblog.public-shell-locale-sub-results.v1';
 export const publicShellLocaleSubResultSchema = 'fsusblog.public-shell-locale-sub-result.v1';

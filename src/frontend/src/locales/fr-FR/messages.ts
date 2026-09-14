@@ -1,7 +1,7 @@
-export const localeDomainIdentity = Object.freeze({ locale: 'fr-FR', domain: 'messages' } as const)
+export const localeDomainIdentity = Object.freeze({ locale: 'fr-FR', domain: 'messages' } as const);
 
-import type { LocaleSchema } from '../keys'
-import type { messages as zhCNMessages } from '../zh-CN/messages'
+import type { LocaleSchema } from '../keys';
+import type { messages as zhCNMessages } from '../zh-CN/messages';
 
 export const messages = {
     conversationList: {
@@ -83,4 +83,4 @@ export const messages = {
         loadFailed: 'Échec du chargement des messages',
         sendFailed: "Échec de l'envoi"
     }
-} as const satisfies LocaleSchema<typeof zhCNMessages>
+} as const satisfies LocaleSchema<typeof zhCNMessages>;

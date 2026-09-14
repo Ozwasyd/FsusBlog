@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { validateFixtureReceipt } from '../receipt/fixture-receipt.mjs';
-import { catalogContentDigest, loadCanonicalMutationEnvelopeCatalog } from '../mutation-envelope-catalog.mjs';
+const { validateFixtureReceipt } = await import(new URL('../receipt/fixture-receipt.mjs', import.meta.url));
+const { catalogContentDigest, loadCanonicalMutationEnvelopeCatalog } = await import(new URL('../mutation-envelope-catalog.mjs', import.meta.url));
 import {
     canonicalJson,
     digest,
@@ -421,21 +421,36 @@ function recordMap(snapshot)
 
 function changeDetails(before, after)
 {
-    if (!before) return { kind: 'extra', afterDigest: after.digest };
-    if (!after) return { kind: 'missing', beforeDigest: before.digest };
+    if (!before)
+    {
+        return { kind: 'extra', afterDigest: after.digest };
+    }
+    if (!after)
+    {
+        return { kind: 'missing', beforeDigest: before.digest };
+    }
     const beforeFields = new Map(before.record.fields.map((field) => [field.name, field]));
     const afterFields = new Map(after.record.fields.map((field) => [field.name, field]));
     const fieldChanges = [...new Set([...beforeFields.keys(), ...afterFields.keys()])].sort()
         .filter((field) => canonicalJson(beforeFields.get(field)) !== canonicalJson(afterFields.get(field)));
     const details = { kind: 'changed', beforeDigest: before.digest, afterDigest: after.digest, fieldChanges };
-    if (before.record.kind === 'relation') details.relationChanges = fieldChanges;
+    if (before.record.kind === 'relation')
+    {
+        details.relationChanges = fieldChanges;
+    }
     if (before.record.kind === 'redis-key')
     {
         details.ttlChanged = before.record.ttlMilliseconds !== after.record.ttlMilliseconds;
         details.generationChanged = before.record.generation !== after.record.generation;
     }
-    if (before.record.kind === 'file') details.byteChanged = before.record.byteDigest !== after.record.byteDigest;
-    if (before.record.kind === 'api-projection') details.projectionChanges = fieldChanges;
+    if (before.record.kind === 'file')
+    {
+        details.byteChanged = before.record.byteDigest !== after.record.byteDigest;
+    }
+    if (before.record.kind === 'api-projection')
+    {
+        details.projectionChanges = fieldChanges;
+    }
     return details;
 }
 
@@ -444,11 +459,23 @@ function allowedSignatures(envelope)
     const result = [];
     for (const target of envelope?.allowedChanges?.entities ?? [])
     {
-        for (const field of target.fields) result.push(`entity:${target.domain}:${target.kind}:${field}`);
+        for (const field of target.fields)
+        {
+            result.push(`entity:${target.domain}:${target.kind}:${field}`);
+        }
     }
-    for (const target of envelope?.allowedChanges?.redisKeys ?? []) result.push(`redis-key:${target.domain}:${target.keyRole}`);
-    for (const target of envelope?.allowedChanges?.cacheEntries ?? []) result.push(`redis-key:${target.domain}:${target.generationRole}`);
-    for (const target of envelope?.allowedChanges?.ownedFiles ?? []) result.push(`file:${target.domain}:${target.role}`);
+    for (const target of envelope?.allowedChanges?.redisKeys ?? [])
+    {
+        result.push(`redis-key:${target.domain}:${target.keyRole}`);
+    }
+    for (const target of envelope?.allowedChanges?.cacheEntries ?? [])
+    {
+        result.push(`redis-key:${target.domain}:${target.generationRole}`);
+    }
+    for (const target of envelope?.allowedChanges?.ownedFiles ?? [])
+    {
+        result.push(`file:${target.domain}:${target.role}`);
+    }
     return new Set(result);
 }
 
@@ -483,7 +510,10 @@ export function compareSemanticSnapshots({ baseline, candidate, baselineRequest,
     {
         const left = before.get(key);
         const right = after.get(key);
-        if (left?.digest === right?.digest) continue;
+        if (left?.digest === right?.digest)
+        {
+            continue;
+        }
         const record = left?.record ?? right.record;
         changes.push({
             key,
@@ -500,9 +530,18 @@ export function compareSemanticSnapshots({ baseline, candidate, baselineRequest,
         ? changes
         : changes.filter((change) => !change.owned || !changeIsAllowed(change, allowed));
     const reasons = [];
-    if (identityMismatch) reasons.push('runtime-or-service-identity-mismatch');
-    if (unexpectedDrift.length > 0) reasons.push('unexpected-or-nonowned-drift');
-    if (envelope != null && expectedDrift.length === 0) reasons.push('declared-target-not-mutated');
+    if (identityMismatch)
+    {
+        reasons.push('runtime-or-service-identity-mismatch');
+    }
+    if (unexpectedDrift.length > 0)
+    {
+        reasons.push('unexpected-or-nonowned-drift');
+    }
+    if (envelope != null && expectedDrift.length === 0)
+    {
+        reasons.push('declared-target-not-mutated');
+    }
     const body = {
         schema: semanticDiffSchema,
         baselineDigest: baseline.manifest.contentDigest,
@@ -529,9 +568,18 @@ export function verifySemanticDiff(diff, { requireExpectedDrift = false, require
 {
     verifySeal(diff, 'contentDigest', 'semantic diff');
     const expectedReasons = [];
-    if (diff.identityMismatch) expectedReasons.push('runtime-or-service-identity-mismatch');
-    if (diff.unexpectedDrift.length > 0) expectedReasons.push('unexpected-or-nonowned-drift');
-    if (diff.envelopeDigest != null && diff.expectedDrift.length === 0) expectedReasons.push('declared-target-not-mutated');
+    if (diff.identityMismatch)
+    {
+        expectedReasons.push('runtime-or-service-identity-mismatch');
+    }
+    if (diff.unexpectedDrift.length > 0)
+    {
+        expectedReasons.push('unexpected-or-nonowned-drift');
+    }
+    if (diff.envelopeDigest != null && diff.expectedDrift.length === 0)
+    {
+        expectedReasons.push('declared-target-not-mutated');
+    }
     if (canonicalJson(diff.reasons) !== canonicalJson(expectedReasons)
       || diff.status !== (expectedReasons.length === 0 ? 'verified' : 'failed'))
     {

@@ -3,8 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
-import { inventoryByDomain } from '../../tools/test/correctness-attempt-producers.mjs';
-
+const { inventoryByDomain } = await import(new URL('../../tools/test/correctness-attempt-producers.mjs', import.meta.url));
 const root = path.resolve(import.meta.dirname, '../..');
 const inventory = JSON.parse(fs.readFileSync(
     path.join(root, 'config/testing/correctness-attempt-producers.json'),

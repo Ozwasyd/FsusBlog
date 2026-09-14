@@ -271,14 +271,17 @@ function mutationSensitivity(cases, mutations)
         throw new Error(`conformance mutation survived: ${mutation}`);
     };
     const byName = (items, name) => items.find((item) => item.displayName === name);
-    const dropRule = (items, name, rule) => {
+    const dropRule = (items, name, rule) =>
+    {
         const item = byName(items, name);
         item.actualRules = item.actualRules.filter((candidate) => candidate !== rule);
     };
-    expectFailure('drop-zero-outcome-rule', (items) => {
+    expectFailure('drop-zero-outcome-rule', (items) =>
+    {
         byName(items, 'vitest empty masked case').actualRules = [];
     });
-    expectFailure('drop-constant-rule', (items) => {
+    expectFailure('drop-constant-rule', (items) =>
+    {
         byName(items, 'vitest constant self proof').actualRules = [];
     });
     expectFailure('drop-early-return-rule', (items) => dropRule(items, 'vitest early return', 'TQ-EARLY-RETURN'));
@@ -292,26 +295,32 @@ function mutationSensitivity(cases, mutations)
     expectFailure('drop-http-only-rule', (items) => dropRule(items, 'security http only', 'TQ-HTTP-200-ONLY-CRITICAL'));
     expectFailure('drop-snapshot-only-rule', (items) => dropRule(items, 'security snapshot only', 'TQ-SNAPSHOT-ONLY-CRITICAL'));
     expectFailure('drop-unresolved-rule', (items) => dropRule(items, 'vitest early return', 'TQ-UNRESOLVED-FACTS'));
-    expectFailure('accept-file-level-mask', (items) => {
+    expectFailure('accept-file-level-mask', (items) =>
+    {
         const item = byName(items, 'vitest empty masked case');
         item.actualOutcome = 'passed';
         item.actualRules = [];
     });
-    expectFailure('treat-unresolved-as-passed', (items) => {
+    expectFailure('treat-unresolved-as-passed', (items) =>
+    {
         byName(items, 'vitest early return').actualOutcome = 'passed';
     });
-    expectFailure('remove-symbol-resolution', (items) => {
+    expectFailure('remove-symbol-resolution', (items) =>
+    {
         const item = byName(items, 'node assert equal');
         item.actualOutcome = 'failed';
         item.actualRules = ['TQ-ZERO-OUTCOME'];
     });
-    expectFailure('delete-violation', (items) => {
+    expectFailure('delete-violation', (items) =>
+    {
         byName(items, 'vitest cache name mismatch').actualRules.pop();
     });
-    expectFailure('change-case-id', (items) => {
+    expectFailure('change-case-id', (items) =>
+    {
         byName(items, 'node assert match').testId += '-changed';
     });
-    expectFailure('change-source-span', (items) => {
+    expectFailure('change-source-span', (items) =>
+    {
         byName(items, 'playwright exact state').sourceSpan.start.line += 1;
     });
     const expected = mutations.toSorted();

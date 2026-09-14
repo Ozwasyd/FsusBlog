@@ -58,7 +58,8 @@ function relative(root, absolute)
 
 function withoutDigest(value)
 {
-    const { contentDigest: _ignored, ...body } = value;
+    const body = { ...value };
+    delete body.contentDigest;
     return body;
 }
 

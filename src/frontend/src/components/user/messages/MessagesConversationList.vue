@@ -67,8 +67,11 @@
                     :title="isAdminMode ? conversationListCopy.emptyTitleAdmin : conversationListCopy.emptyTitleAccount"
                     :description="isAdminMode ? conversationListCopy.emptyDescriptionAdmin : conversationListCopy.emptyDescriptionAccount"
                 >
-                    <template v-if="!isAdminMode" #action>
-                        <el-button @click="emit('createTicket')">{{ conversationListCopy.newTicketCta }}</el-button>
+                    <template
+                        v-if="!isAdminMode"
+                        #action
+                    >
+                        <ElButton @click="emit('createTicket')">{{ conversationListCopy.newTicketCta }}</ElButton>
                     </template>
                 </MessagesEmptyState>
 

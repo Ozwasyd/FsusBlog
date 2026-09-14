@@ -4,11 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import {
-    finalizeRunOwnedDirectories,
-    prepareRunOwnedDirectories
-} from '../../tools/test/execution-envelope-directories.mjs';
-
+const {finalizeRunOwnedDirectories, prepareRunOwnedDirectories} = await import(new URL('../../tools/test/execution-envelope-directories.mjs', import.meta.url));
 test('HOME, TMP, npm, NuGet, and tool caches are unique run-attempt owned roots', (context) =>
 {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-directories-'));

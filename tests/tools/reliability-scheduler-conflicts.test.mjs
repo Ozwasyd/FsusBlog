@@ -6,13 +6,8 @@ import process from 'node:process';
 import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 
-import {
-    loadReleaseReliabilityCatalog,
-    releaseReliabilityResourceConflict,
-    releaseReliabilitySchedulerProjection
-} from '../../tools/test-matrix/release-reliability-scheduler-projection.mjs';
-import { runDag } from '../../tools/test-matrix/scheduler.mjs';
-
+const {loadReleaseReliabilityCatalog, releaseReliabilityResourceConflict, releaseReliabilitySchedulerProjection} = await import(new URL('../../tools/test-matrix/release-reliability-scheduler-projection.mjs', import.meta.url));
+const {runDag} = await import(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url));
 const catalog = loadReleaseReliabilityCatalog();
 const schedulerAuthorityAvailable = Object.hasOwn(catalog, 'schedulerTimeoutPolicies');
 const schedulerAuthorityTest = {

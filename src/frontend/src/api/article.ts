@@ -11,6 +11,9 @@ import {
     type PopularArticleSummaryResponse,
     type RelatedReadingResponse
 } from '@/contracts/binaryApi';
+import { AEDS_ACCESS_PROFILE } from '@/generated/aedsAccessProfiles';
+import { AppErrorCode, createAppError } from '@/utils/appError';
+import type { PublicArticleListProjectionPage } from '@/view-contracts/articleList';
 
 import { FrameType } from '@wasm/protocol/frame';
 
@@ -19,9 +22,6 @@ import { encodeAedsFrame } from './binaryFrame';
 
 import type { ApiRequestConfig } from './requestConfig';
 
-import { AppErrorCode, createAppError } from '@/utils/appError'
-import { AEDS_ACCESS_PROFILE } from '@/generated/aedsAccessProfiles'
-import type { PublicArticleListProjectionPage } from '@/view-contracts/articleList'
 export { ArticlePublishStatus };
 export type {
     ArticleDetailResponse,
@@ -216,7 +216,7 @@ export interface ArticleMutationResponse {
 
 const pendingArticleMutationIds = new Map<string, string>();
 
-export const createArticle = (data: ArticleWriteRequest & { clientMutationId?: string }, config?: ApiRequestConfig) =>
+export const createArticle = (data: ArticleWriteRequest & { clientMutationId?: string; }, config?: ApiRequestConfig) =>
 {
     const identityKey = JSON.stringify(data, (key, value) => key === 'clientMutationId' ? undefined : value);
     const clientMutationId = data.clientMutationId ?? pendingArticleMutationIds.get(identityKey) ?? crypto.randomUUID().toLowerCase();
@@ -449,7 +449,8 @@ function encodeArticleWriteRequest(data: ArticleWriteRequest): Uint8Array
     }
 
     const baseRevisionId = data.baseRevisionId == null ? 0n : BigInt(data.baseRevisionId);
-    if (baseRevisionId < 0n) {
+    if (baseRevisionId < 0n)
+    {
         throw createAppError(AppErrorCode.Validation, 'article_base_revision_invalid');
     }
     view.setBigInt64(cursor, baseRevisionId, true);

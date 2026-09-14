@@ -8,7 +8,7 @@ const digestPattern = /^sha256:[0-9a-f]{64}$/u;
 const seedPattern = /^seed256:[0-9a-f]{64}$/u;
 const stableIdPattern = /^[a-z][a-z0-9.-]*$/u;
 const frameworkPattern = /^[a-z][a-z0-9-]*$/u;
-const forbiddenIdentityCharacters = /[\u0000-\u001f\u007f]/u;
+const forbiddenIdentityCharacters = /[\u0000-\u001f\u007f]/u; // eslint-disable-line no-control-regex -- intentional control-range probe
 
 export class ReplayContractError extends Error
 {
@@ -702,7 +702,8 @@ export function validateDiscoveryAgainstPlan(plan, discoveredTestIds)
 
 function unsignedPlan(plan)
 {
-    const { planDigest, ...unsigned } = plan;
+    const unsigned = { ...plan };
+    delete unsigned.planDigest;
     return unsigned;
 }
 
@@ -850,7 +851,9 @@ function validateProcessOutcome(value)
 
 function unsignedReceipt(receipt)
 {
-    const { receiptDigest, ...unsigned } = receipt;
+    const unsigned = { ...receipt };
+    delete unsigned.receiptDigest;
+    delete unsigned.receiptDigest;
     return unsigned;
 }
 

@@ -399,7 +399,10 @@ export async function runProducerAttempts(input)
         schedulerRunId: safeSegment(input.schedulerRunId, 'schedulerRunId'),
         command: Array.isArray(input.command) && input.command.length > 0
             ? input.command.map((value) => String(value))
-            : (() => { throw new Error('command must be a non-empty array'); })(),
+            : (() =>
+{
+ throw new Error('command must be a non-empty array');
+})(),
         cwd: path.resolve(input.cwd),
         env: input.env ?? {},
         now: input.now ?? (() => new Date().toISOString()),

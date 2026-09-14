@@ -5,11 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import {
-    buildMessagingFixtureCleanupReceipt,
-    verifyMessagingFixtureCleanupReceipt
-} from '../../tools/test/messaging-fixture-governance.mjs';
-
+const {buildMessagingFixtureCleanupReceipt, verifyMessagingFixtureCleanupReceipt} = await import(new URL('../../tools/test/messaging-fixture-governance.mjs', import.meta.url));
 function fixtureRepository(context, files)
 {
     const root = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-message-cleanup-'));

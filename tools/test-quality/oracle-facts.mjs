@@ -372,7 +372,8 @@ function resolveRepositoryWrapperOperands(snippet, candidate, source)
     }
     const values = splitArguments(assertionArgs.body);
     const matcher = assertion[1];
-    const substitution = (value) => {
+    const substitution = (value) =>
+    {
         const parameterIndex = parameters.indexOf(value.trim());
         return parameterIndex >= 0 ? supplied[parameterIndex] ?? value : value;
     };
@@ -710,6 +711,15 @@ export function buildOracleFacts(inventory, {
     artifact.contentDigest = contentDigest(artifact);
     return validateOracleFacts(artifact);
 }
+
+const assertionAssemblies = new Set([
+    'xunit.assert',
+    'FluentAssertions',
+    'node:assert',
+    'node:assert/strict',
+    'vitest',
+    '@playwright/test'
+]);
 
 export function assertionRegistryIdentity()
 {

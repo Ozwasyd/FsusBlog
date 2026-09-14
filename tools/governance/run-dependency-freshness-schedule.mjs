@@ -30,7 +30,8 @@ export async function produceScheduledFreshness(root)
     try
     {
         const output = path.join(directory, 'freshness.json');
-        const exitCode = await new Promise((resolve, reject) => {
+        const exitCode = await new Promise((resolve, reject) =>
+        {
             const child = spawn('npm', ['--prefix', 'src/frontend', 'run', 'deps:freshness', '--', '--output', output], {
                 cwd: root, stdio: ['ignore', 'inherit', 'inherit'],
                 env: { ...process.env, FSUSBLOG_DEPS_FRESHNESS_FIXTURES: '' }
@@ -62,7 +63,8 @@ export async function runDependencyFreshnessSchedule({ root, client, withExclusi
     let report;
     const result = await reconcileDependencyBlockers({
         client, withExclusiveRun,
-        loadSnapshot: async () => {
+        loadSnapshot: async () =>
+        {
             report = await produceReport(root);
             return buildDependencyBlockerSnapshot({ report, catalog, exceptions, requiredChecks, client, config });
         }

@@ -5,7 +5,9 @@ export function utf8(value)
     const text = String(value);
     const bytes = Buffer.from(text, 'utf8');
     if (bytes.toString('utf8') !== text)
+    {
         throw new Error('invalid UTF-8 scalar sequence');
+    }
     return bytes;
 }
 
@@ -13,14 +15,18 @@ export function ascii(value)
 {
     const text = String(value);
     if ([...text].some((character) => character.codePointAt(0) > 0x7f))
+    {
         throw new Error('ASCII field contains a non-ASCII code point');
+    }
     return Buffer.from(text, 'ascii');
 }
 
 export function hex32(value)
 {
     if (!/^[0-9a-f]{64}$/u.test(String(value)))
+    {
         throw new Error('hash field must be 32-byte lowercase hexadecimal');
+    }
     return Buffer.from(value, 'hex');
 }
 
@@ -28,7 +34,9 @@ export function bytes32(value, label)
 {
     const bytes = Buffer.from(value);
     if (bytes.length !== 32)
+    {
         throw new Error(`${label} must be 32 bytes`);
+    }
     return bytes;
 }
 
@@ -42,7 +50,9 @@ export function int64(value)
 export function uint16(value)
 {
     if (!Number.isInteger(value) || value < 0 || value > 0xffff)
+    {
         throw new Error('uint16 field is out of range');
+    }
     const bytes = Buffer.alloc(2);
     bytes.writeUInt16BE(value);
     return bytes;
@@ -51,7 +61,9 @@ export function uint16(value)
 export function requireKey(contract, value)
 {
     if (!Buffer.isBuffer(value) || value.length !== contract.cryptography.keyBytes)
+    {
         throw new Error('key must be exactly 256 bits');
+    }
 }
 
 export function base64url(value)

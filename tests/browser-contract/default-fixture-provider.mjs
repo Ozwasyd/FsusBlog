@@ -9,12 +9,11 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { releaseProductionBuildConsumer } from '../../tools/ci/production-build-artifacts.mjs';
-import { executionServiceImageReference } from '../../tools/test/execution-envelope-services.mjs';
-import { loadTemporalContext } from '../../tools/test/temporal-context.mjs';
-import { cleanupLocalRuntime } from '../../tools/test-matrix/local-runtime-cleanup.mjs';
-import { readFixtureReceipt } from '../../tools/test-fixtures/receipt/fixture-receipt.mjs';
-
+const { releaseProductionBuildConsumer } = await import(new URL('../../tools/ci/production-build-artifacts.mjs', import.meta.url));
+const { executionServiceImageReference } = await import(new URL('../../tools/test/execution-envelope-services.mjs', import.meta.url));
+const { loadTemporalContext } = await import(new URL('../../tools/test/temporal-context.mjs', import.meta.url));
+const { cleanupLocalRuntime } = await import(new URL('../../tools/test-matrix/local-runtime-cleanup.mjs', import.meta.url));
+const { readFixtureReceipt } = await import(new URL('../../tools/test-fixtures/receipt/fixture-receipt.mjs', import.meta.url));
 const responseSchema = 'fsusblog.browser-contract-fixture-provider-response.v1';
 const requestSchema = 'fsusblog.browser-contract-fixture-provider-request.v1';
 const here = path.dirname(fileURLToPath(import.meta.url));

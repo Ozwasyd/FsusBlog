@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+
 import {
     compactObservationStore,
     computeSourceClosureDigest,
@@ -15,7 +16,10 @@ function values(name)
     const result = [];
     for (let index = 2; index < process.argv.length; index += 1)
     {
-        if (process.argv[index] === `--${name}` && process.argv[index + 1]) result.push(process.argv[index + 1]);
+        if (process.argv[index] === `--${name}` && process.argv[index + 1])
+        {
+            result.push(process.argv[index + 1]);
+        }
     }
     return result;
 }
@@ -28,7 +32,10 @@ function option(name, fallback = null)
 function required(name)
 {
     const result = option(name);
-    if (!result) throw new Error(`--${name} is required`);
+    if (!result)
+    {
+        throw new Error(`--${name} is required`);
+    }
     return result;
 }
 
@@ -118,11 +125,26 @@ function compact()
 try
 {
     const command = process.argv[2];
-    if (command === 'adapt') adapt();
-    else if (command === 'ingest') ingest();
-    else if (command === 'rebuild') rebuild();
-    else if (command === 'compact') compact();
-    else throw new Error('usage: cli.mjs <adapt|ingest|rebuild|compact> [options]');
+    if (command === 'adapt')
+    {
+        adapt();
+    }
+    else if (command === 'ingest')
+    {
+        ingest();
+    }
+    else if (command === 'rebuild')
+    {
+        rebuild();
+    }
+    else if (command === 'compact')
+    {
+        compact();
+    }
+    else
+    {
+        throw new Error('usage: cli.mjs <adapt|ingest|rebuild|compact> [options]');
+    }
 }
 catch (error)
 {

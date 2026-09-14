@@ -6,8 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { scanAuditFixtureGovernance } from '../../tools/testing/check-audit-fixture-governance.mjs';
-
+const { scanAuditFixtureGovernance } = await import(new URL('../../tools/testing/check-audit-fixture-governance.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 test('audit fixture governance has one production writer and no retired actions', () =>

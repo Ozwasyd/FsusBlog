@@ -1,62 +1,32 @@
 import assert from 'node:assert/strict';
-import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
-import fs from 'node:fs';
-import { gzipSync } from 'node:zlib';
 import { once } from 'node:events';
+import fs, { readFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+// eslint-disable-next-line import-x/order
 import os from 'node:os';
+
+const {applyReleaseUpdate, assertPublicReleaseLock, buildReleasePlan, compareStableVersions, ensureSingleReleaseTrainPullRequest, PACKAGE_LOCK_LOCATION, PACKAGE_NAME, PUBLIC_NPM_REGISTRY, RELEASE_TRAIN_BRANCH, selectReleaseTrainPullRequest} = await import(new URL('../../tools/dependencies/update-fsusui-release.mjs', import.meta.url));
+const {migrateVerifiedFsusuiRelease, PRIVATE_REFERENCE_MARKERS, scanPrivateFsusuiReferences} = await import(new URL('../../tools/dependencies/migrate-fsusui-public-npm.mjs', import.meta.url));
+const {activateFsusuiReleaseTrainManager, assertFsusuiManagerState, evaluateFsusuiManagerOwnership, FSUSUI_ITEM_ID, FSUSUI_RELEASE_TRAIN_MANAGER} = await import(new URL('../../tools/dependencies/fsusui-manager-ownership.mjs', import.meta.url));
+const {evaluateFreshness, exceptionsSchema, extractCurrentVersions} = await import(new URL('../../tools/governance/dependency-freshness.mjs', import.meta.url));
+const {evaluatePlatformAutomerge} = await import(new URL('../../tools/governance/dependency-automerge.mjs', import.meta.url));
+const {resolveGroupChecks} = await import(new URL('../../tools/governance/dependency-required-checks.mjs', import.meta.url));
 import path from 'node:path';
 import test from 'node:test';
-
-import {
-    applyReleaseUpdate,
-    assertPublicReleaseLock,
-    buildReleasePlan,
-    compareStableVersions,
-    ensureSingleReleaseTrainPullRequest,
-    PACKAGE_LOCK_LOCATION,
-    PACKAGE_NAME,
-    PUBLIC_NPM_REGISTRY,
-    RELEASE_TRAIN_BRANCH,
-    selectReleaseTrainPullRequest
-} from '../../tools/dependencies/update-fsusui-release.mjs';
-import {
-    migrateVerifiedFsusuiRelease,
-    PRIVATE_REFERENCE_MARKERS,
-    scanPrivateFsusuiReferences
-} from '../../tools/dependencies/migrate-fsusui-public-npm.mjs';
-import {
-    activateFsusuiReleaseTrainManager,
-    assertFsusuiManagerState,
-    evaluateFsusuiManagerOwnership,
-    FSUSUI_ITEM_ID,
-    FSUSUI_RELEASE_TRAIN_MANAGER
-} from '../../tools/dependencies/fsusui-manager-ownership.mjs';
-import {
-    evaluateFreshness,
-    exceptionsSchema,
-    extractCurrentVersions
-} from '../../tools/governance/dependency-freshness.mjs';
-import {
-    evaluatePlatformAutomerge
-} from '../../tools/governance/dependency-automerge.mjs';
-import { resolveGroupChecks } from '../../tools/governance/dependency-required-checks.mjs';
-import { readFileSync } from 'node:fs';
-import {
-    requireVerifiedFsusuiEvent,
-    verifyFsusuiReleaseEvent
-} from '../../tools/dependencies/verify-fsusui-release-event.mjs';
-
+import { gzipSync } from 'node:zlib';
+const {requireVerifiedFsusuiEvent, verifyFsusuiReleaseEvent} = await import(new URL('../../tools/dependencies/verify-fsusui-release-event.mjs', import.meta.url));
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
 const packageVersion = '1.5.2';
 const oldPackageVersion = '1.5.1';
 const packagePath = `/${PACKAGE_NAME}`;
-const publicTarballPath = `${packagePath}/-/${PACKAGE_NAME.slice(PACKAGE_NAME.indexOf('/') + 1)}-${packageVersion}.tgz`;
+
 const fixedNow = new Date('2026-09-08T00:00:00.000Z');
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const integrity = (value) => `sha512-${createHash('sha512').update(value).digest('base64')}`;
 
-function archive(manifestBytes) {
+function archive(manifestBytes)
+{
     const header = Buffer.alloc(512, 0);
     header.write('package/package.json', 0, 'utf8');
     header.write('0000644', 100, 'ascii');
@@ -72,7 +42,8 @@ function archive(manifestBytes) {
     return gzipSync(Buffer.concat([header, manifestBytes, padding, Buffer.alloc(1024)]));
 }
 
-async function registryFixture(t, version = packageVersion) {
+async function registryFixture(t, version = packageVersion)
+{
     const manifest = { name: PACKAGE_NAME, version };
     const manifestBytes = Buffer.from(JSON.stringify(manifest));
     const tarball = archive(manifestBytes);
@@ -100,14 +71,17 @@ async function registryFixture(t, version = packageVersion) {
         npmTarballSha256: sha256(tarball),
         publishRunId: '1986'
     };
-    const server = createServer((request, response) => {
+    const server = createServer((request, response) =>
+    {
         const route = decodeURIComponent(new URL(request.url, 'http://fixture.invalid').pathname);
-        if (route === `/${PACKAGE_NAME}/${version}` || route === `/${PACKAGE_NAME}/latest`) {
+        if (route === `/${PACKAGE_NAME}/${version}` || route === `/${PACKAGE_NAME}/latest`)
+        {
             response.setHeader('content-type', 'application/json');
             response.end(JSON.stringify(metadata));
             return;
         }
-        if (route === `${packagePath}/-/${PACKAGE_NAME.slice(PACKAGE_NAME.indexOf('/') + 1)}-${version}.tgz`) {
+        if (route === `${packagePath}/-/${PACKAGE_NAME.slice(PACKAGE_NAME.indexOf('/') + 1)}-${version}.tgz`)
+        {
             response.setHeader('content-type', 'application/octet-stream');
             response.end(tarball);
             return;
@@ -118,7 +92,8 @@ async function registryFixture(t, version = packageVersion) {
     server.listen(0, '127.0.0.1');
     await once(server, 'listening');
     const address = server.address();
-    const transport = async (target, options) => {
+    const transport = async (target, options) =>
+    {
         const targetUrl = new URL(target);
         const response = await fetch(`http://127.0.0.1:${address.port}${targetUrl.pathname}`, { signal: options?.signal });
         return {
@@ -136,17 +111,20 @@ async function registryFixture(t, version = packageVersion) {
     return { metadata, manifestBytes, payload, receipt, tarball };
 }
 
-function temporaryRoot(t) {
+function temporaryRoot(t)
+{
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusui-release-train-test-'));
     t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
     return directory;
 }
 
-function publicResolved(version) {
+function publicResolved(version)
+{
     return `${PUBLIC_NPM_REGISTRY}${PACKAGE_NAME}/-/${PACKAGE_NAME.slice(PACKAGE_NAME.indexOf('/') + 1)}-${version}.tgz`;
 }
 
-function writeConsumerFixture(directory, { version = oldPackageVersion, payload, privateReferences = true } = {}) {
+function writeConsumerFixture(directory, { version = oldPackageVersion, payload, privateReferences = true } = {})
+{
     const frontend = path.join(directory, 'src/frontend');
     fs.mkdirSync(frontend, { recursive: true });
     const oldIntegrity = `sha512-${'A'.repeat(86)}==`;
@@ -188,7 +166,8 @@ function writeConsumerFixture(directory, { version = oldPackageVersion, payload,
     };
     fs.writeFileSync(path.join(frontend, 'package.json'), `${JSON.stringify(manifest, null, 4)}\n`);
     fs.writeFileSync(path.join(frontend, 'package-lock.json'), `${JSON.stringify(lockfile, null, 4)}\n`);
-    if (privateReferences) {
+    if (privateReferences)
+    {
         fs.writeFileSync(path.join(directory, '.npmrc'), '@ozwasyd:registry=https://npm.pkg.github.com\n//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}\n');
         fs.writeFileSync(path.join(frontend, '.npmrc'), 'registry=https://registry.npmjs.org/\n@ozwasyd:registry=https://npm.pkg.github.com\n');
         fs.mkdirSync(path.join(directory, 'ops/docker'), { recursive: true });
@@ -200,8 +179,10 @@ function writeConsumerFixture(directory, { version = oldPackageVersion, payload,
     return { manifest, lockfile };
 }
 
-function fakePublicLockGenerator(payload) {
-    return async ({ cwd, env, args }) => {
+function fakePublicLockGenerator(payload)
+{
+    return async ({ cwd, env, args }) =>
+    {
         assert.equal(env.npm_config_registry, PUBLIC_NPM_REGISTRY);
         assert.equal(env.GITHUB_PACKAGES_TOKEN, undefined);
         assert.equal(env.NPM_TOKEN, undefined);
@@ -222,7 +203,8 @@ function fakePublicLockGenerator(payload) {
     };
 }
 
-function preMigrationCatalog() {
+function preMigrationCatalog()
+{
     return {
         schema: 'fsusblog.dependency-update-surface.v1',
         items: [{
@@ -240,7 +222,8 @@ function preMigrationCatalog() {
     };
 }
 
-test('full local registry fixture carries one candidate through strict verifier and public lock update', async (t) => {
+test('full local registry fixture carries one candidate through strict verifier and public lock update', async (t) =>
+{
     const fixture = await registryFixture(t);
     const directory = temporaryRoot(t);
     writeConsumerFixture(directory, { payload: fixture.payload });
@@ -266,7 +249,8 @@ test('full local registry fixture carries one candidate through strict verifier 
     assert.equal(repeat.action, 'idempotent');
 });
 
-test('release train rejects old or private idempotent states and updates one fixed PR', async (t) => {
+test('release train rejects old or private idempotent states and updates one fixed PR', async (t) =>
+{
     const current = await registryFixture(t, packageVersion);
     const old = await registryFixture(t, oldPackageVersion);
     const privateDirectory = temporaryRoot(t);
@@ -298,10 +282,24 @@ test('release train rejects old or private idempotent states and updates one fix
         title: 'deps: update @ozwasyd/element-plus to 1.5.1'
     };
     const api = {
-        async listOpenPullRequests() { return [existing]; },
-        async updatePullRequest(number, body) { calls.push(['update', number, body]); return { ...existing, ...body }; },
-        async createPullRequest(body) { calls.push(['create', body]); return { ...existing, ...body }; },
-        async enableAutoMerge(nodeId) { calls.push(['automerge', nodeId]); }
+        async listOpenPullRequests()
+        {
+            return [existing];
+        },
+        async updatePullRequest(number, body)
+        {
+            calls.push(['update', number, body]);
+            return { ...existing, ...body };
+        },
+        async createPullRequest(body)
+        {
+            calls.push(['create', body]);
+            return { ...existing, ...body };
+        },
+        async enableAutoMerge(nodeId)
+        {
+            calls.push(['automerge', nodeId]);
+        }
     };
     const pullRequest = await ensureSingleReleaseTrainPullRequest({
         api,
@@ -317,7 +315,8 @@ test('release train rejects old or private idempotent states and updates one fix
     assert.throws(() => selectReleaseTrainPullRequest([{ ...existing, head: { ref: 'other-branch' } }], 'master'), /another open PR/u);
 });
 
-test('first verified migration is atomic, removes private wiring, and is idempotent', async (t) => {
+test('first verified migration is atomic, removes private wiring, and is idempotent', async (t) =>
+{
     const fixture = await registryFixture(t);
     const directory = temporaryRoot(t);
     writeConsumerFixture(directory, { payload: fixture.payload });
@@ -340,12 +339,16 @@ test('first verified migration is atomic, removes private wiring, and is idempot
     const repeat = await migrateVerifiedFsusuiRelease({
         repository: directory,
         receipt: fixture.receipt,
-        runNpm: async () => { throw new Error('idempotent migration must not invoke npm'); }
+        runNpm: async () =>
+        {
+            throw new Error('idempotent migration must not invoke npm');
+        }
     });
     assert.equal(repeat.action, 'not-required');
 });
 
-test('migration fails closed and leaves the fixture unchanged when public lock generation fails', async (t) => {
+test('migration fails closed and leaves the fixture unchanged when public lock generation fails', async (t) =>
+{
     const fixture = await registryFixture(t);
     const directory = temporaryRoot(t);
     writeConsumerFixture(directory, { payload: fixture.payload });
@@ -357,18 +360,25 @@ test('migration fails closed and leaves the fixture unchanged when public lock g
         migrateVerifiedFsusuiRelease({
             repository: directory,
             receipt: fixture.receipt,
-            runNpm: async () => { throw new Error('registry unavailable'); }
+            runNpm: async () =>
+            {
+                throw new Error('registry unavailable');
+            }
         }),
         /public npm lock regeneration failed/u
     );
-    for (const [file, contents] of before) assert.deepEqual(fs.readFileSync(path.join(directory, file)), contents);
+    for (const [file, contents] of before)
+    {
+        assert.deepEqual(fs.readFileSync(path.join(directory, file)), contents);
+    }
     await assert.rejects(
         migrateVerifiedFsusuiRelease({ repository: directory, receipt: JSON.parse(JSON.stringify(fixture.receipt)) }),
         /sealed verified event/u
     );
 });
 
-test('manager activation is migration-gated and freshness retains exact-one release-train coverage', async (t) => {
+test('manager activation is migration-gated and freshness retains exact-one release-train coverage', async (t) =>
+{
     const fixture = await registryFixture(t);
     const directory = temporaryRoot(t);
     writeConsumerFixture(directory, { version: packageVersion, payload: fixture.payload, privateReferences: false });
@@ -442,7 +452,8 @@ test('manager activation is migration-gated and freshness retains exact-one rele
     assert.ok(exactOneFailure.errors.some((error) => error.code === 'state-not-exact-one'));
 });
 
-test('release-train PRs use the existing required checks and platform auto-merge contract', () => {
+test('release-train PRs use the existing required checks and platform auto-merge contract', () =>
+{
     const requiredCatalog = JSON.parse(readFileSync(path.join(repositoryRoot, 'config/dependencies/required-checks.json'), 'utf8'));
     const required = resolveGroupChecks(requiredCatalog, FSUSUI_RELEASE_TRAIN_MANAGER, 'patch');
     assert.ok(required.length > 0);
@@ -467,7 +478,8 @@ test('release-train PRs use the existing required checks and platform auto-merge
     assert.equal(decision.decision, 'merge');
 });
 
-test('workflow keeps verifier-before-updater ordering and does not perform registry string replacement', () => {
+test('workflow keeps verifier-before-updater ordering and does not perform registry string replacement', () =>
+{
     const workflow = readFileSync(path.join(repositoryRoot, '.github/workflows/fsusui-release-train.yml'), 'utf8');
     const verifier = workflow.indexOf('verify-fsusui-release-event.mjs');
     const updater = workflow.indexOf('update-fsusui-release.mjs');

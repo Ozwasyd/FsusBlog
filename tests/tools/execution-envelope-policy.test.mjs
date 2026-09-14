@@ -2,17 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 
-import {
-    createExecutionEnvelopePolicyIdentity,
-    executionEnvelopeDigest,
-    executionEnvelopePolicySchemaFile,
-    loadExecutionEnvelopeApplicability,
-    loadExecutionEnvelopePolicy,
-    projectExecutionEnvelopeApplicability,
-    validateExecutionEnvelopeContracts
-} from '../../tools/test-matrix/execution-envelope-policy.mjs';
-import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs';
-
+const {createExecutionEnvelopePolicyIdentity, executionEnvelopeDigest, executionEnvelopePolicySchemaFile, loadExecutionEnvelopeApplicability, loadExecutionEnvelopePolicy, projectExecutionEnvelopeApplicability, validateExecutionEnvelopeContracts} = await import(new URL('../../tools/test-matrix/execution-envelope-policy.mjs', import.meta.url));
+const {parseMatrix} = await import(new URL('../../tools/test-matrix/parse-matrix.mjs', import.meta.url));
 const matrix = parseMatrix(
     fs.readFileSync(new URL('../../tests/matrix.yml', import.meta.url), 'utf8')
 );

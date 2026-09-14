@@ -6,19 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import {
-    BUDGETED_LEASE_TEST,
-    BUDGET_CASE_IDS,
-    CANONICAL_LOCAL_REDIS_TESTS,
-    CUTOVER_TEST,
-    LOCAL_REDIS_FILTER,
-    LOCAL_REDIS_PLANNED_TESTS,
-    MANDATORY_BURN_TEST,
-    REDIS_LUA_CASE_IDS,
-    REDIS_LUA_TEST,
-    reconcileLocalRedisOutcome
-} from '../../tools/test/perception-redis-producer.mjs';
-
+const {BUDGETED_LEASE_TEST, BUDGET_CASE_IDS, CANONICAL_LOCAL_REDIS_TESTS, CUTOVER_TEST, LOCAL_REDIS_FILTER, LOCAL_REDIS_PLANNED_TESTS, MANDATORY_BURN_TEST, REDIS_LUA_CASE_IDS, REDIS_LUA_TEST, reconcileLocalRedisOutcome} = await import(new URL('../../tools/test/perception-redis-producer.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 function budgetEvidence(overrides = {})
