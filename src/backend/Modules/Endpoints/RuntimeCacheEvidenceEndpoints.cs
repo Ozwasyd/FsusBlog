@@ -29,6 +29,7 @@ internal static class RuntimeCacheEvidenceEndpoints
             .AllowAnonymous()
             .WithMetadata(new FsusRouteKindMetadata("testing"));
         app.MapCacheMissSingleFlightScenarioEndpoints();
+        app.MapRuntimeCacheFaultAndRevocationScenarioEndpoints();
         return app;
     }
 
