@@ -230,14 +230,10 @@ internal static class RuntimeCacheDistributedL1EvidenceEndpoints
                     .Select(ordinal => new CacheKeyIdentity(PolicyForOrdinal(ordinal), BuildL1Identity(request.RunId, ordinal)))
                     .ToArray();
                 _ = localCache.InvalidateLocal(keys);
-            }
-
-            if (request.DeleteShared)
-            {
-                string prefix = $"runtime-cache-evidence:{request.RunId}:l1:";
-                await sharedCache.RemoveByPrefixManyAsync(
-                    [new(CachePolicyId.SystemPage, prefix), new(CachePolicyId.SystemCompliance, prefix)],
-                    cancellationToken).ConfigureAwait(false);
+                if (request.DeleteShared)
+                {
+                    await sharedCache.RemoveManyAsync(keys, cancellationToken).ConfigureAwait(false);
+                }
             }
         }
         else if (string.Equals(request.Scenario, "distributed-invalidation", StringComparison.Ordinal) && request.ArticleId > 0)

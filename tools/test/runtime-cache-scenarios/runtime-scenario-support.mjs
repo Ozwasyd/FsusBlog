@@ -65,7 +65,7 @@ export function createScenarioApi(options) {
 export function assertRedisNamespaceRemoved(identity, runId, execFile = execFileSync) {
   const output = execFile('docker', [
     'exec', '-i', identity.redisContainer, 'redis-cli', '--scan', '--pattern', `*runtime-cache-evidence:${runId}:*`
-  ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024 })
   const keys = String(output).split(/\r?\n/u).filter(Boolean)
   if (keys.length > 0) throw new Error(`runtime cache scenario cleanup left ${keys.length} Redis keys`)
   return true
