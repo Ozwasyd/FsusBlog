@@ -139,7 +139,8 @@ for (const required of [
     ':src="preview.normalizedCoverImageUrl"',
     '{{ preview.normalizedTitle }}',
     '{{ preview.normalizedSummary }}',
-    ':content="preview.normalizedMarkdownSource"'
+    ':content="preview.normalizedMarkdownSource"',
+    'normalizePreviewCoverImageUrl'
 ])
 {
     if (!privatePreview.includes(required))
@@ -147,6 +148,55 @@ for (const required of [
         violations.push(`src/frontend/src/components/admin/article/ArticlePrivatePreviewPanel.vue: structured preview must include ${required}`);
     }
 }
+
+const previewDto = /public sealed record class ArticlePreviewResponse\(([\s\S]*?)\)\s*;/.exec(
+    readRepoFile('src/backend/Models/Dtos/AuthoringDtos.cs')
+);
+if (!previewDto)
+{
+    violations.push('src/backend/Models/Dtos/AuthoringDtos.cs: ArticlePreviewResponse record is missing');
+}
+else if (/\bHtml\b/i.test(previewDto[1]))
+{
+    violations.push('src/backend/Models/Dtos/AuthoringDtos.cs: ArticlePreviewResponse must not contain an Html field');
+}
+
+const previewTs = /export interface ArticlePreviewResponse \{([\s\S]*?)\n\}/.exec(
+    readRepoFile('src/frontend/src/api/authoring.ts')
+);
+if (!previewTs)
+{
+    violations.push('src/frontend/src/api/authoring.ts: ArticlePreviewResponse interface is missing');
+}
+else if (/\bhtml\b/i.test(previewTs[1]))
+{
+    violations.push('src/frontend/src/api/authoring.ts: ArticlePreviewResponse must not contain an html field');
+}
+
+const previewLifecycle = readRepoFile('src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs');
+const previewMethod = /public Task<ArticlePreviewResponse> PreviewAsync\([\s\S]*?\n    \}/.exec(previewLifecycle)?.[0]
+    ?? '';
+if (!previewMethod)
+{
+    violations.push('src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs: PreviewAsync is missing');
+}
+for (const forbidden of ['RenderPreviewMarkdown', '<!doctype', 'srcdoc', 'HtmlEncode', '<article>', '<h1>', '<figure>'])
+{
+    if (previewLifecycle.includes(forbidden) || previewMethod.includes(forbidden))
+    {
+        violations.push(`src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs: preview path must not contain ${forbidden}`);
+    }
+}
+requireContains(
+    'src/frontend/src/api/authoring.ts',
+    'article_preview_html_field_forbidden',
+    'private preview decoder must fail closed on leftover html fields'
+);
+requireContains(
+    'src/frontend/src/components/admin/article/ArticleBodyMarkdownPreview.vue',
+    'mode="preview"',
+    'private preview markdown must use FsusUI MarkdownRenderer mode=preview'
+);
 
 const localFixtureSession = readRepoFile('src/frontend/src/services/localFixtureSession.ts');
 for (const token of ['import.meta.env.MODE', 'import.meta.env.PROD', 'isLocalFixtureHost'])

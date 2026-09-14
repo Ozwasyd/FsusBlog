@@ -146,6 +146,39 @@ describe('ArticlePrivatePreviewPanel structured rendering boundary', () => {
     expect(wrapper.get('.author-preview__cover img').attributes('src')).toBe('/uploads/cover.png')
   })
 
+  it.each([
+    'javascript:alert(1)',
+    'data:text/html,<script>steal()</script>',
+    '//cdn.example.test/cover.png',
+    'https://user:pass@cdn.example.test/cover.png'
+  ])('does not render a hostile cover URL %s', (coverImageUrl) => {
+    const wrapper = mount(ArticlePrivatePreviewPanel, {
+      props: {
+        preview: {
+          normalizedTitle: 'Preview title',
+          normalizedSummary: 'Preview summary',
+          normalizedCoverImageUrl: coverImageUrl,
+          normalizedMarkdownSource: 'preview markdown',
+          plainText: 'preview',
+          sourceIdentity: `preview:sha256:${'4'.repeat(64)}`,
+          issues: []
+        },
+        loading: false,
+        statusText: '已生成',
+        canPreview: true
+      },
+      global: {
+        stubs: {
+          ArticleBodyMarkdownPreview: MarkdownRendererStub,
+          ElButton: { template: '<button><slot /></button>' }
+        }
+      }
+    })
+
+    expect(wrapper.find('.author-preview__cover').exists()).toBe(false)
+    expect(wrapper.find('img').exists()).toBe(false)
+  })
+
   it('keeps the complete structured preview visible and emits regeneration intent', async () => {
     const markdown = [
       '| column | value |',
