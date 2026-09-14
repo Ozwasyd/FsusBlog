@@ -55,6 +55,7 @@ function rawAuthority() {
   return {
     requests: 'kestrel-request-observation',
     redis: 'stackexchange-redis-profiler',
+    redisFailure: 'redis-operation-executor',
     database: 'sqlsugar-aop',
     cache: 'runtime-cache-evidence-observation',
     fault: 'runtime-fault-controller'
@@ -80,13 +81,14 @@ function makeEvidence(scenario, repositoryRoot, options = {}) {
   }))
   const authority = rawAuthority()
   const raw = {
-    schema: 'fsusblog.runtime-cache-raw-evidence.v1',
+    schema: 'fsusblog.runtime-cache-raw-evidence.v2',
     runId,
     scenarioId: scenario.id,
     attemptId,
     authority,
     requests,
     redisCommands: [],
+    redisFailureEvents: [],
     databaseCommands: [],
     cacheClassifications: requests.map((request) => ({
       requestId: request.id,
@@ -130,6 +132,7 @@ function makeEvidence(scenario, repositoryRoot, options = {}) {
       rowCounts: {
         requests: raw.requests.length,
         redisCommands: raw.redisCommands.length,
+        redisFailureEvents: raw.redisFailureEvents.length,
         databaseCommands: raw.databaseCommands.length,
         cacheClassifications: raw.cacheClassifications.length,
         faultEvents: raw.faultTimeline.length
@@ -172,7 +175,7 @@ test('catalog seals one exact current set of 13 scenarios and subcases', () => {
   const catalog = loadRuntimeCacheCatalog()
   assert.equal(catalog.schema, 'fsusblog.runtime-cache-evidence-catalog.v2')
   assert.equal(catalog.receiptSchema, 'fsusblog.runtime-cache-scenario-receipt.v2')
-  assert.equal(catalog.rawEvidenceSchema, 'fsusblog.runtime-cache-raw-evidence.v1')
+  assert.equal(catalog.rawEvidenceSchema, 'fsusblog.runtime-cache-raw-evidence.v2')
   assert.equal(catalog.scenarios.length, 13)
   assert.equal(new Set(catalog.scenarios.map((scenario) => scenario.id)).size, 13)
   assert.ok(catalog.scenarios.every((scenario) => scenario.subcases.length > 0 && new Set(scenario.subcases).size === scenario.subcases.length))
@@ -251,6 +254,32 @@ test('raw request, command, cache and rollup closure is recomputed independently
   const errors = validateRuntimeCacheReceipt(sealed, { catalog, repositoryRoot, expectedSource: sourceSnapshot })
   assert.ok(errors.some((error) => error.includes('references unknown request')))
   assert.ok(errors.some((error) => error.includes('Redis command rollup')))
+})
+
+test('request-bound Redis failures require executor authority and request closure', () => {
+  const repositoryRoot = createRepository()
+  const catalog = tinyCatalog()
+  const evidence = makeEvidence(catalog.scenarios[0], repositoryRoot, { catalog })
+  const receipt = rewriteRaw(repositoryRoot, evidence, (raw) => {
+    raw.redisFailureEvents.push({
+      requestId: raw.requests[0].id,
+      subcaseId: raw.requests[0].subcaseId,
+      sequence: 1,
+      elapsedMilliseconds: 2.5,
+      operationClass: 'ContentCacheRead',
+      failureKind: 'CommandTimeout',
+      failAction: 'bounded-origin-gate',
+      source: raw.authority.redisFailure
+    })
+  })
+  receipt.rawEvidence.rowCounts.redisFailureEvents = 1
+  assert.deepEqual(validateRuntimeCacheReceipt(sealReceipt(receipt), { catalog, repositoryRoot, expectedSource: sourceSnapshot }), [])
+
+  const invalidReceipt = rewriteRaw(repositoryRoot, evidence, (raw) => {
+    raw.redisFailureEvents[0].requestId = 'missing-request'
+  })
+  assert.ok(validateRuntimeCacheReceipt(invalidReceipt, { catalog, repositoryRoot, expectedSource: sourceSnapshot })
+    .some((error) => error.includes('references unknown request')))
 })
 
 test('raw evidence rejects unknown fields and unsupported authorities', () => {

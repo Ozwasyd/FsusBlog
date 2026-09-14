@@ -1,7 +1,7 @@
 {
   "schema": "fsusblog.runtime-cache-evidence-catalog.v2",
   "receiptSchema": "fsusblog.runtime-cache-scenario-receipt.v2",
-  "rawEvidenceSchema": "fsusblog.runtime-cache-raw-evidence.v1",
+  "rawEvidenceSchema": "fsusblog.runtime-cache-raw-evidence.v2",
   "scenarios": [
     { "id": "public-hot-read", "subcases": ["fixed-ip", "unique-ip"], "requests": 200, "concurrency": 32, "warmupRequests": 32, "requiredAssertions": ["fixed-ip-l0-allow", "unique-ip-l0-allow"], "requirements": { "redisCommandsMax": 0, "dbCommandsMax": 0 } },
     { "id": "article-detail-l1", "subcases": ["l1-hit", "redis-fault"], "requests": 200, "concurrency": 32, "warmupRequests": 16, "requiredAssertions": ["l1-zero-commands", "redis-fault-latency"], "requirements": { "redisCommandsMax": 0, "dbCommandsMax": 0, "redisFaultLatencyRatioMax": 1.25 } },

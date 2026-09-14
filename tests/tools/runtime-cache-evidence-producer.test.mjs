@@ -59,7 +59,7 @@ function catalog(current = scenario()) {
   return {
     schema: 'fsusblog.runtime-cache-evidence-catalog.v2',
     receiptSchema: 'fsusblog.runtime-cache-scenario-receipt.v2',
-    rawEvidenceSchema: 'fsusblog.runtime-cache-raw-evidence.v1',
+    rawEvidenceSchema: 'fsusblog.runtime-cache-raw-evidence.v2',
     scenarios: [current]
   }
 }
@@ -94,7 +94,7 @@ function sha256(value) {
   return `sha256:${createHash('sha256').update(value).digest('hex')}`
 }
 
-async function startObservationServer({ redisCommands = [] } = {}) {
+async function startObservationServer({ redisCommands = [], redisFailureEvents = [] } = {}) {
   const observations = new Map()
   const calls = []
   const server = http.createServer(async (request, response) => {
@@ -121,6 +121,7 @@ async function startObservationServer({ redisCommands = [] } = {}) {
         latencyMs: 1.5,
         allocatedBytes: 6,
         redisCommands,
+        redisFailureEvents,
         databaseFingerprints: [],
         databaseCommandCount: 0,
         databaseDroppedCommandCount: 0,
@@ -145,6 +146,7 @@ async function startObservationServer({ redisCommands = [] } = {}) {
         latencyMs: 2,
         allocatedBytes: 0,
         redisCommands: [],
+        redisFailureEvents: [],
         databaseFingerprints: [],
         databaseCommandCount: 0,
         databaseDroppedCommandCount: 0,
@@ -173,6 +175,7 @@ async function startObservationServer({ redisCommands = [] } = {}) {
         latencyMs: 2.5,
         allocatedBytes: 12,
         redisCommands,
+        redisFailureEvents: [],
         databaseFingerprints: [],
         databaseCommandCount: 0,
         databaseDroppedCommandCount: 0,
@@ -220,7 +223,9 @@ test.after(() => {
 })
 
 test('request collector binds response bytes to the authenticated server observation', async () => {
-  const runtime = await startObservationServer()
+  const runtime = await startObservationServer({
+    redisFailureEvents: [{ sequence: 1, elapsedMilliseconds: 1.25, operationClass: 'ContentCacheRead', failureKind: 'ConnectionUnavailable', failAction: 'bounded-origin-gate' }]
+  })
   try {
     const request = await collectObservedRequest({
       baseUrl: runtime.baseUrl,
@@ -232,6 +237,14 @@ test('request collector binds response bytes to the authenticated server observa
     assert.equal(request.layerSource, 'l0-allow')
     assert.equal(request.payloadDigest, sha256(Buffer.from('qualified-runtime-payload')))
     assert.deepEqual(request.redisCommands, [])
+    assert.deepEqual(request.redisFailureEvents, [{
+      sequence: 1,
+      elapsedMilliseconds: 1.25,
+      operationClass: 'ContentCacheRead',
+      failureKind: 'ConnectionUnavailable',
+      failAction: 'bounded-origin-gate',
+      source: 'redis-operation-executor'
+    }])
     assert.deepEqual(request.dbCommands, [])
     assert.equal(runtime.calls.length, 2)
   } finally {

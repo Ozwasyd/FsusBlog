@@ -9,7 +9,7 @@ import { validateJsonSchema } from '../test-matrix/schema-validator/validate.mjs
 
 export const RUNTIME_CACHE_RECEIPT_SCHEMA = 'fsusblog.runtime-cache-scenario-receipt.v2'
 export const RUNTIME_CACHE_CATALOG_SCHEMA = 'fsusblog.runtime-cache-evidence-catalog.v2'
-export const RUNTIME_CACHE_RAW_EVIDENCE_SCHEMA = 'fsusblog.runtime-cache-raw-evidence.v1'
+export const RUNTIME_CACHE_RAW_EVIDENCE_SCHEMA = 'fsusblog.runtime-cache-raw-evidence.v2'
 
 const moduleRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const defaultCatalogPath = path.join(moduleRoot, 'config/testing/runtime-cache-evidence-catalog.json')
@@ -190,19 +190,20 @@ function validateRawRequest(request, label, errors) {
 }
 
 function validateRawEvidenceDocument(raw, receipt, errors) {
-  if (!exactKeys(raw, ['schema', 'runId', 'scenarioId', 'attemptId', 'authority', 'requests', 'redisCommands', 'databaseCommands', 'cacheClassifications', 'faultTimeline'], 'raw evidence', errors)) return null
+  if (!exactKeys(raw, ['schema', 'runId', 'scenarioId', 'attemptId', 'authority', 'requests', 'redisCommands', 'redisFailureEvents', 'databaseCommands', 'cacheClassifications', 'faultTimeline'], 'raw evidence', errors)) return null
   if (raw.schema !== RUNTIME_CACHE_RAW_EVIDENCE_SCHEMA) errors.push(`unsupported raw evidence schema: ${raw.schema}`)
   for (const field of ['runId', 'scenarioId', 'attemptId']) if (raw[field] !== receipt[field]) errors.push(`raw evidence ${field} does not match receipt`)
-  if (!exactKeys(raw.authority, ['requests', 'redis', 'database', 'cache', 'fault'], 'raw evidence authority', errors)) return null
+  if (!exactKeys(raw.authority, ['requests', 'redis', 'redisFailure', 'database', 'cache', 'fault'], 'raw evidence authority', errors)) return null
   if (!exactArray(raw.authority, receipt.rawEvidence.authority)) errors.push('raw evidence authority does not match receipt authority')
   if (raw.authority.requests !== 'kestrel-request-observation') errors.push(`unsupported request authority: ${raw.authority.requests}`)
   if (!redisSources.has(raw.authority.redis)) errors.push(`unsupported Redis authority: ${raw.authority.redis}`)
+  if (raw.authority.redisFailure !== 'redis-operation-executor') errors.push(`unsupported Redis failure authority: ${raw.authority.redisFailure}`)
   if (!databaseSources.has(raw.authority.database)) errors.push(`unsupported database authority: ${raw.authority.database}`)
   if (raw.authority.cache !== 'runtime-cache-evidence-observation') errors.push(`unsupported cache authority: ${raw.authority.cache}`)
   if (raw.authority.fault !== 'runtime-fault-controller') errors.push(`unsupported fault authority: ${raw.authority.fault}`)
 
   let arraysValid = true
-  for (const field of ['requests', 'redisCommands', 'databaseCommands', 'cacheClassifications', 'faultTimeline']) {
+  for (const field of ['requests', 'redisCommands', 'redisFailureEvents', 'databaseCommands', 'cacheClassifications', 'faultTimeline']) {
     if (!Array.isArray(raw[field])) {
       errors.push(`raw evidence ${field} must be an array`)
       arraysValid = false
@@ -225,6 +226,17 @@ function validateRawEvidenceDocument(raw, receipt, errors) {
     if (!/^[A-Z]+$/u.test(String(command.verb ?? ''))) errors.push(`${label}.verb is invalid`)
     if (!idPattern.test(String(command.category ?? ''))) errors.push(`${label}.category is invalid`)
     if (command.source !== raw.authority.redis) errors.push(`${label}.source does not match Redis authority`)
+  }
+  for (const [index, event] of raw.redisFailureEvents.entries()) {
+    const label = `raw redisFailureEvents[${index}]`
+    if (!exactKeys(event, ['requestId', 'subcaseId', 'sequence', 'elapsedMilliseconds', 'operationClass', 'failureKind', 'failAction', 'source'], label, errors)) continue
+    validateReference(event, label)
+    if (!Number.isInteger(event.sequence) || event.sequence < 1) errors.push(`${label}.sequence is invalid`)
+    if (!Number.isFinite(event.elapsedMilliseconds) || event.elapsedMilliseconds < 0) errors.push(`${label}.elapsedMilliseconds is invalid`)
+    if (!/^[A-Z][A-Za-z0-9]*$/u.test(String(event.operationClass ?? ''))) errors.push(`${label}.operationClass is invalid`)
+    if (!/^[A-Z][A-Za-z0-9]*$/u.test(String(event.failureKind ?? ''))) errors.push(`${label}.failureKind is invalid`)
+    if (!idPattern.test(String(event.failAction ?? ''))) errors.push(`${label}.failAction is invalid`)
+    if (event.source !== raw.authority.redisFailure) errors.push(`${label}.source does not match Redis failure authority`)
   }
   for (const [index, command] of raw.databaseCommands.entries()) {
     const label = `raw databaseCommands[${index}]`
@@ -412,6 +424,7 @@ export function validateRuntimeCacheReceipt(receipt, options = {}) {
     const expectedCounts = {
       requests: raw.requests.length,
       redisCommands: raw.redisCommands.length,
+      redisFailureEvents: raw.redisFailureEvents.length,
       databaseCommands: raw.databaseCommands.length,
       cacheClassifications: raw.cacheClassifications.length,
       faultEvents: raw.faultTimeline.length

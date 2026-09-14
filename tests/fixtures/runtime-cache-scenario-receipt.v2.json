@@ -1,6 +1,6 @@
 {
   "schema": "fsusblog.runtime-cache-scenario-receipt.v2",
-  "catalogDigest": "sha256:ccfee0da7ca7e8149df0e22509ea16b059f7b224fdef8421ad31ddd8b6288280",
+  "catalogDigest": "sha256:eca6f854d4eb779968c76e5102909eff7f1aad403f71e3fde219ff038cec41b5",
   "runId": "canonical-run",
   "scenarioId": "public-hot-read",
   "attemptId": "canonical-run.attempt-1",
@@ -24,11 +24,11 @@
     "sample": { "startedAt": "2026-09-14T00:00:00.000Z", "endedAt": "2026-09-14T00:00:01.000Z", "requestCount": 2 }
   },
   "rawEvidence": {
-    "schema": "fsusblog.runtime-cache-raw-evidence.v1",
+    "schema": "fsusblog.runtime-cache-raw-evidence.v2",
     "path": ".tmp/perf/runtime-cache/canonical/public-hot-read.json",
     "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
-    "authority": { "requests": "kestrel-request-observation", "redis": "stackexchange-redis-profiler", "database": "sqlsugar-aop", "cache": "runtime-cache-evidence-observation", "fault": "runtime-fault-controller" },
-    "rowCounts": { "requests": 2, "redisCommands": 0, "databaseCommands": 0, "cacheClassifications": 2, "faultEvents": 0 }
+    "authority": { "requests": "kestrel-request-observation", "redis": "stackexchange-redis-profiler", "redisFailure": "redis-operation-executor", "database": "sqlsugar-aop", "cache": "runtime-cache-evidence-observation", "fault": "runtime-fault-controller" },
+    "rowCounts": { "requests": 2, "redisCommands": 0, "redisFailureEvents": 0, "databaseCommands": 0, "cacheClassifications": 2, "faultEvents": 0 }
   },
   "requests": [
     { "id": "public-hot-read.1", "subcaseId": "fixed-ip", "method": "GET", "path": "/fixture/fixed-ip", "status": 200, "payloadDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "parityGroup": "public-hot-read", "layerSource": "l0-allow", "latencyMs": 1, "allocatedBytes": 0 },
@@ -44,5 +44,5 @@
     { "id": "unique-ip-l0-allow", "status": "passed", "expected": true, "actual": true }
   ],
   "firstFailure": null,
-  "contentDigest": "sha256:b6ac0dd3241c3b9ce2c4aa8461d31ee042e742bc167cd162dae188f90beef58a"
+  "contentDigest": "sha256:e1f3a10e9b90ad9133653d30023b219028a4fefe3588600c58e02e851b4a9d64"
 }
