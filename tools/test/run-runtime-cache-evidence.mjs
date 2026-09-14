@@ -28,7 +28,7 @@ const runtimeSnapshotRoute = '/_fsus/testing/runtime-cache/runtime-snapshot'
 const failureSchema = 'fsusblog.runtime-cache-producer-failure.v1'
 const defaultOutputDirectory = path.join(root, '.tmp/perf/runtime-cache')
 
-export const implementedRuntimeCacheScenarios = Object.freeze(['public-hot-read'])
+export const implementedRuntimeCacheScenarios = Object.freeze(['public-hot-read', 'article-detail-l1'])
 
 const evidenceIdPattern = /^[a-z0-9][a-z0-9.-]*$/u
 
@@ -312,7 +312,7 @@ export async function collectObservedRequest({
   return normalizeObservedRequest(observation, actual, spec)
 }
 
-async function mapConcurrent(items, concurrency, action) {
+export async function mapConcurrent(items, concurrency, action) {
   const results = new Array(items.length)
   let next = 0
   async function worker() {
@@ -388,6 +388,18 @@ function assertionForGroup(id, requests) {
       actual
     },
     firstRequest: failures[0] ?? requests[0]
+  }
+}
+
+export function exactAssertionResult(id, expected, actual, firstRequest) {
+  return {
+    assertion: {
+      id,
+      status: canonicalJson(expected) === canonicalJson(actual) ? 'passed' : 'failed',
+      expected,
+      actual
+    },
+    firstRequest
   }
 }
 
@@ -502,7 +514,7 @@ function buildRawEvidence({ runId, scenarioId, attemptId, requests, faultTimelin
       layerSource: request.layerSource,
       source: 'runtime-cache-evidence-observation'
     })),
-    faultTimeline
+    faultTimeline: faultTimeline.map((event) => ({ ...event, source: 'runtime-fault-controller' }))
   }
 }
 
@@ -701,8 +713,13 @@ export async function runRuntimeCacheProducer(options = {}) {
     if (!scenario) throw new Error(`scenario is not in the current runtime cache catalog: ${scenarioId}`)
     const outputFile = path.join(outputDirectory, 'receipts', `${scenario.id}.json`)
     try {
-      if (scenario.id !== 'public-hot-read') throw new Error(`runtime scenario handler is absent for ${scenario.id}`)
-      const receipt = await producePublicHotReadReceipt({ ...options, repositoryRoot, catalog, scenario, identity, baseUrl, secret, outputFile, runId, attemptNumber })
+      let producer = producePublicHotReadReceipt
+      if (scenario.id === 'article-detail-l1') {
+        producer = (await import('./runtime-cache-scenarios/article-detail-l1.mjs')).produceArticleDetailL1Receipt
+      } else if (scenario.id !== 'public-hot-read') {
+        throw new Error(`runtime scenario handler is absent for ${scenario.id}`)
+      }
+      const receipt = await producer({ ...options, repositoryRoot, catalog, scenario, identity, baseUrl, secret, outputFile, runId, attemptNumber })
       results.push({ scenarioId, status: receipt.status, outputFile })
     } catch (error) {
       const failureFile = path.join(outputDirectory, 'failures', `${scenario.id}.producer-failure.json`)
