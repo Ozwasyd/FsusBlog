@@ -14,6 +14,7 @@ import {
   runRuntimeCacheProducer
 } from '../../tools/test/run-runtime-cache-evidence.mjs'
 import { produceArticleDetailL1Receipt } from '../../tools/test/runtime-cache-scenarios/article-detail-l1.mjs'
+import { producePaginationReceipt } from '../../tools/test/runtime-cache-scenarios/pagination.mjs'
 import { produceRelatedReadingReceipt } from '../../tools/test/runtime-cache-scenarios/related-reading.mjs'
 import { produceSitemapReceipt } from '../../tools/test/runtime-cache-scenarios/sitemap.mjs'
 
@@ -191,6 +192,36 @@ async function startObservationServer({ redisCommands = [], redisFailureEvents =
         databaseAttributionComplete: true
       })
       response.writeHead(201, { 'content-type': 'application/octet-stream' })
+      response.end(body)
+      return
+    }
+    const paginationMatch = /^\/api\/binary\/article\/list\/home\/(\d+)\/10\.aeds$/u.exec(url.pathname)
+    if (paginationMatch) {
+      const page = Number.parseInt(paginationMatch[1], 10)
+      const cursor = url.searchParams.get('cursor')
+      const cursorlessDeep = page > 1 && !cursor
+      const body = Buffer.from(cursorlessDeep ? 'cursor-required' : `qualified-page-${page}`)
+      const requestId = request.headers['x-fsus-runtime-evidence-request']
+      observations.set(requestId, {
+        requestId,
+        method: 'GET',
+        path: `${url.pathname}${url.search}`,
+        status: cursorlessDeep ? 400 : 200,
+        payloadDigest: sha256(body),
+        layerSource: 'database',
+        latencyMs: cursorlessDeep ? 0.5 : 2,
+        allocatedBytes: 0,
+        redisCommands: [],
+        redisFailureEvents: [],
+        cacheEvents: [],
+        databaseFingerprints: cursorlessDeep ? [] : [sha256('pagination-keyset-select')],
+        databaseCommandCount: cursorlessDeep ? 0 : 1,
+        databaseDroppedCommandCount: 0,
+        databaseLateCommandCount: 0,
+        databaseObservationStatus: 'complete',
+        databaseAttributionComplete: true
+      })
+      response.writeHead(cursorlessDeep ? 400 : 200, { 'content-type': 'application/octet-stream' })
       response.end(body)
       return
     }
@@ -581,6 +612,65 @@ test('related-reading handler derives one burst rebuild from request cache event
     assert.equal(receipt.status, 'passed')
     assert.equal(receipt.requests.length, 102)
     assert.deepEqual(receipt.assertions.find((assertion) => assertion.id === 'rebuild-count').actual, { 'same-key-100': 1 })
+    assert.deepEqual(validateRuntimeCacheReceipt(receipt, {
+      catalog: currentCatalog,
+      expectedSource: source,
+      repositoryRoot: directory
+    }), [])
+  } finally {
+    await runtime.close()
+  }
+})
+
+test('pagination handler uses production cursors and rejects cursorless deep reads without commands', async () => {
+  const runtime = await startObservationServer()
+  const directory = temporaryDirectory('runtime-cache-pagination-')
+  const fixtureFile = path.join(directory, 'public-projection.json')
+  writeFileSync(fixtureFile, JSON.stringify({
+    pagination: {
+      route: 'article/list/home',
+      sort: 'latest',
+      pageSize: 10,
+      generation: 47,
+      articleCount: 10023,
+      ownedArticleCount: 10020,
+      cursors: [
+        { logicalPage: 10, cursor: 'opaque-page-10' },
+        { logicalPage: 100, cursor: 'opaque-page-100' },
+        { logicalPage: 1000, cursor: 'opaque-page-1000' }
+      ]
+    }
+  }))
+  const currentScenario = scenario({
+    id: 'pagination',
+    subcases: ['page-1', 'page-10', 'page-100', 'page-1000', 'cursorless-deep'],
+    requests: 8,
+    concurrency: 1,
+    warmupRequests: 4,
+    requiredAssertions: ['logical-page-command-constant', 'cursorless-deep-zero-commands'],
+    requirements: { logicalPages: [1, 10, 100, 1000], constantDbCommands: true, cursorlessDeepRedisCommandsMax: 0, cursorlessDeepDbCommandsMax: 0 }
+  })
+  const currentCatalog = catalog(currentScenario)
+  try {
+    const receipt = await producePaginationReceipt({
+      repositoryRoot: directory,
+      catalog: currentCatalog,
+      scenario: currentScenario,
+      identity: { ...identity, fixtureFile, runtime: { ...identity.runtime, kestrelUrl: runtime.baseUrl } },
+      baseUrl: runtime.baseUrl,
+      secret,
+      outputFile: path.join(directory, '.tmp/perf/runtime-cache/receipts/pagination.json'),
+      collectMemory: async () => memory(),
+      collectCleanup: async () => cleanup(),
+      captureSource: () => source,
+      runId: 'pagination-pass',
+      attemptNumber: 1
+    })
+    assert.equal(receipt.status, 'passed')
+    assert.equal(receipt.requests.length, 8)
+    assert.ok(receipt.requests.slice(0, 4).every((request) => request.status === 200))
+    assert.ok(receipt.requests.slice(4).every((request) => request.status === 400))
+    assert.deepEqual(receipt.assertions.map((assertion) => assertion.status), ['passed', 'passed'])
     assert.deepEqual(validateRuntimeCacheReceipt(receipt, {
       catalog: currentCatalog,
       expectedSource: source,
