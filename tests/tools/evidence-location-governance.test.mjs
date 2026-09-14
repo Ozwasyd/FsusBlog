@@ -464,7 +464,8 @@ test('clean-attempt evidence retains its finding and binds the real CLI through 
     assert.match(callerSource, /loadConfiguredCleanAttemptEvidence\(\{ repositoryRoot, environment \}\)/u);
     const executableSource = fs.readFileSync(path.join(repositoryRoot, executable), 'utf8');
     assert.match(executableSource, /requireCleanAttemptConsumerAdmission\(\{/u);
-    assert.match(executableSource, /options\.command === 'create-correctness'\) createCorrectness\(options\)/u);
+    assert.match(executableSource,
+        /if\s*\(options\.command === 'create-correctness'\)\s*\{\s*createCorrectness\(options\);\s*\}/u);
 
     // An unsupported command proves the real entry point runs without producing evidence.
     const probeArguments = ['locator-entry-probe'];

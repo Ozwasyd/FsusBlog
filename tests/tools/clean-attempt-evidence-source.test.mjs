@@ -145,6 +145,13 @@ test('file-backed authority source drives a real producer aggregate into consume
             transport: null
         });
         const source = readCleanAttemptEvidenceSource(inputFile, { repositoryRoot: directory });
+        assert.deepEqual(source.authorityReferences, authorities.references.map((reference) => ({
+            kind: reference.kind,
+            artifactPath: reference.artifactPath,
+            artifactDigest: reference.artifactDigest,
+            verificationReceiptPath: reference.verificationReceiptPath,
+            verificationReceiptDigest: reference.verificationReceiptDigest
+        })));
         const admission = admitBrowserReleaseCleanAttempt({
             consumerId: source.consumerId,
             attemptEvidence: source,
