@@ -129,7 +129,7 @@ function requestSpec(runId, phase, index, subcaseId, probe) {
     method: 'GET',
     path: `/_fsus/testing/runtime-cache/redis-fault/${probe.id}?runtime-cache-evidence=${encodeURIComponent(`${runId}-${phase}-${index + 1}`)}`,
     subcaseId,
-    parityGroup: `redis-fault-${subcaseId}-${probe.id}`,
+    parityGroup: `redis-fault-${subcaseId}-${probe.id}-${index + 1}`,
     headers: {}
   }
 }
