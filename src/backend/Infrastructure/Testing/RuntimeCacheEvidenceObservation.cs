@@ -2,7 +2,10 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+
+using FsusBlog.Server.Infrastructure.Cache;
 
 using StackExchange.Redis.Profiling;
 
@@ -15,6 +18,7 @@ internal sealed partial class RuntimeCacheEvidenceObservation : IDisposable
     private readonly RuntimeCacheDatabaseObservationLimits _databaseLimits;
     private readonly object _databaseGate = new();
     private readonly List<string> _databaseFingerprints = [];
+    private readonly List<RuntimeCacheRedisFailureObservation> _redisFailureEvents = [];
     private readonly ConcurrentQueue<string> _redisCommands = new();
     private readonly long _startedAt = Stopwatch.GetTimestamp();
     private readonly long _allocatedBytesAtStart = GC.GetAllocatedBytesForCurrentThread();
@@ -29,6 +33,7 @@ internal sealed partial class RuntimeCacheEvidenceObservation : IDisposable
     private int _databaseDroppedCommandCount;
     private int _databaseLateCommandCount;
     private int _databaseActiveCommandCount;
+    private long _redisFailureSequence;
     private bool _databaseTruncated;
     private bool _databaseLate;
     private bool _completed;
@@ -153,6 +158,23 @@ internal sealed partial class RuntimeCacheEvidenceObservation : IDisposable
         }
     }
 
+    internal void RecordRedisFailure(
+        RedisOperationClass operationClass,
+        RedisOperationFailureKind failureKind,
+        string failAction)
+    {
+        lock (_databaseGate)
+        {
+            _redisFailureEvents.Add(new RuntimeCacheRedisFailureObservation(
+                Sequence: ++_redisFailureSequence,
+                ElapsedMilliseconds: Stopwatch.GetElapsedTime(_startedAt).TotalMilliseconds,
+                OperationClass: operationClass,
+                FailureKind: failureKind,
+                FailAction: failAction));
+            PublishUpdateLocked();
+        }
+    }
+
     internal void MarkLayerSource(string layerSource)
     {
         if (!string.IsNullOrWhiteSpace(layerSource))
@@ -261,6 +283,7 @@ internal sealed partial class RuntimeCacheEvidenceObservation : IDisposable
             _completedLatencyMs,
             _completedAllocatedBytes,
             _completedRedisCommands,
+            [.. _redisFailureEvents],
             [.. _databaseFingerprints],
             _databaseCommandCount,
             _databaseDroppedCommandCount,
@@ -383,12 +406,22 @@ internal sealed record RuntimeCacheRequestObservation(
     double LatencyMs,
     long AllocatedBytes,
     IReadOnlyList<string> RedisCommands,
+    IReadOnlyList<RuntimeCacheRedisFailureObservation> RedisFailureEvents,
     IReadOnlyList<string> DatabaseFingerprints,
     int DatabaseCommandCount,
     int DatabaseDroppedCommandCount,
     int DatabaseLateCommandCount,
     string DatabaseObservationStatus,
     bool DatabaseAttributionComplete);
+
+internal sealed record RuntimeCacheRedisFailureObservation(
+    long Sequence,
+    double ElapsedMilliseconds,
+    [property: JsonConverter(typeof(JsonStringEnumConverter<RedisOperationClass>))]
+    RedisOperationClass OperationClass,
+    [property: JsonConverter(typeof(JsonStringEnumConverter<RedisOperationFailureKind>))]
+    RedisOperationFailureKind FailureKind,
+    string FailAction);
 
 internal sealed class RuntimeCacheEvidenceStore(int capacity = 4096)
 {
