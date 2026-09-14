@@ -87,12 +87,10 @@ const trustedTypesRuntime = read(trustedTypesRuntimeFile);
 const packageJson = JSON.parse(read(packageFile));
 const combinedCorpus = Object.values(corpus).join('\n\n');
 const requirements = [
-    ['preview debounced at 250ms', adapter.includes('MARKDOWN_PREVIEW_DEBOUNCE_MS = 250')],
-    ['large document byte threshold', adapter.includes('LARGE_PREVIEW_CONTENT_BYTES = 80 * 1024')],
-    ['large document node threshold', adapter.includes('LARGE_PREVIEW_NODE_ESTIMATE = 3000')],
-    ['preview pane uses v-if', /v-if="isPreviewMounted"/u.test(adapter)],
-    ['manual refresh for stale large preview', adapter.includes('refreshManualPreview')],
-    ['CSS content visibility containment', adapter.includes('content-visibility: auto') && adapter.includes('contain-intrinsic-size: 900px')],
+    ['adapter does not host a four-mode header', !adapter.includes('editor-shell__header') && !adapter.includes('el-radio-group')],
+    ['adapter keeps a stable editor instance', !/v-if=".*editor/u.test(adapter) && adapter.includes('ref="editorRef"')],
+    ['adapter consumes public chrome variant', adapter.includes(':chrome="chrome"') && adapter.includes('data-markdown-chrome')],
+    ['adapter consumes FsusUI status density', adapter.includes(':status-density="statusDensity"')],
     ['FsusUI 1.5 markdown renderer dependency', packageJson.dependencies?.['@ozwasyd/element-plus'] === '1.5.1'],
     ['MarkdownRenderer forwards FsusUI activation events', renderer.includes('@features-activated') && renderer.includes("emit('features-activated'")],
     ['MarkdownRenderer has no downstream activation import', !renderer.includes('markdownActivationService') && !renderer.includes('queueFeatureActivation')],

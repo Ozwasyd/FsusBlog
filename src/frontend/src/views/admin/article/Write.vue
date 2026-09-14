@@ -41,8 +41,9 @@
                 @submit.prevent="requestSubmit"
             >
                 <section
-                    class="write-title-panel px-4"
-                    aria-label="文章标题"
+                    class="write-document-canvas"
+                    aria-label="文章文档"
+                    data-editor-document-column="stable"
                 >
                     <div
                         v-if="hasLocalDraft"
@@ -144,35 +145,31 @@
                         v-model="articleForm.title"
                         :disabled="submitting"
                     />
-                </section>
 
-                <div
-                    class="write-grid"
-                    aria-label="写作工作区"
-                    data-editor-document-column="stable"
-                >
-                    <section
-                        class="write-editor-panel"
-                        aria-label="正文编辑器"
+                    <h2
+                        id="article-body-heading"
+                        class="sr-only"
                     >
-                        <div class="overflow-hidden">
-                            <ElFormItem prop="content">
-                                <ArticleWriteEditor
-                                    ref="articleEditorRef"
-                                    v-model="articleForm.content"
-                                    :loading="pageLoading"
-                                    :saving="submitting"
-                                    :status-text="editorSaveStatusText"
-                                    :status-tone="editorSaveStatusTone"
-                                    @save="saveDraftNow"
-                                    @draft-save="saveDraftNow"
-                                    @submit="requestSubmit"
-                                    @upload-img="handleUploadImg"
-                                />
-                            </ElFormItem>
-                        </div>
-                    </section>
-                </div>
+                        正文
+                    </h2>
+                    <div
+                        class="write-editor-panel"
+                        data-editor-panel="true"
+                    >
+                        <ElFormItem prop="content">
+                            <ArticleWriteEditor
+                                ref="articleEditorRef"
+                                v-model="articleForm.content"
+                                :loading="pageLoading"
+                                :saving="submitting"
+                                @save="saveDraftNow"
+                                @draft-save="saveDraftNow"
+                                @submit="requestSubmit"
+                                @upload-img="handleUploadImg"
+                            />
+                        </ElFormItem>
+                    </div>
+                </section>
 
                 <ArticleWriteInspectorShell
                     :active-inspector="activeInspector"
@@ -1135,6 +1132,14 @@ const submitQuickCreateTag = async (): Promise<void> =>
     flex-direction: column;
 }
 
+.write-document-canvas
+ {
+    box-sizing: border-box;
+    width: min(100%, var(--fsusblog-article-document-inline-size));
+    margin-inline: auto;
+    padding: 0 1rem;
+}
+
 .write-draft-banner
  {
     display: flex;
@@ -1300,17 +1305,6 @@ const submitQuickCreateTag = async (): Promise<void> =>
     color: var(--fsusblog-color-warning);
 }
 
-.write-grid
- {
-    display: grid;
-    box-sizing: border-box;
-    width: min(100%, var(--fsusblog-article-document-inline-size));
-    align-items: start;
-    grid-template-columns: minmax(0, 1fr);
-    margin-inline: auto;
-    padding: 0 1rem;
-}
-
 .write-editor-panel
  {
     min-width: 0;
@@ -1322,17 +1316,9 @@ const submitQuickCreateTag = async (): Promise<void> =>
     min-width: 0;
 }
 
-.write-title-panel
- {
-    box-sizing: border-box;
-    width: min(100%, var(--fsusblog-article-document-inline-size));
-    margin-inline: auto;
-    margin-bottom: 1.5rem;
-}
-
 @media (width >= 1024px)
  {
-    .write-title-panel
+    .write-document-canvas
  {
         padding-right: calc(
             var(--fsus-control-height-spacious) + var(--fsus-space-8)
@@ -1343,6 +1329,14 @@ const submitQuickCreateTag = async (): Promise<void> =>
 .write-disclosure-summary::-webkit-details-marker
  {
     display: none;
+}
+
+@media (width <= 767px)
+ {
+    .write-workspace
+ {
+        padding-bottom: 5rem;
+    }
 }
 
 @media (width <= 1023px)

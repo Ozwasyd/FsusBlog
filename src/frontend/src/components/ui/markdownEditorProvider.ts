@@ -19,7 +19,7 @@ const markdownTextEditorProvider: MarkdownEditorProviderContract = {
     label: 'FsusUI MarkdownEditor',
     editorComponent: requireComponent(MarkdownTextEditor, 'MarkdownTextEditor'),
     previewComponent: requireComponent(AsyncMarkdownRenderer, 'AsyncMarkdownRenderer'),
-    defaultMode: 'write',
+    defaultMode: 'source',
     defaultToolbarsExclude: []
 };
 

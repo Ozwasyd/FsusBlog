@@ -1,6 +1,8 @@
 import type { Component } from 'vue'
 
-export type MarkdownEditorMode = 'write' | 'split' | 'preview'
+export type MarkdownEditorChrome = 'framed' | 'embedded' | 'minimal'
+export type MarkdownEditorStatusDensity = 'none' | 'minimal' | 'detailed'
+export type MarkdownEditorMode = 'source' | 'live' | 'split' | 'preview'
 export type MarkdownEditorCommandGroup = 'text' | 'structure' | 'code' | 'media' | 'action'
 export type MarkdownEditorCommandKey =
   | 'undo'

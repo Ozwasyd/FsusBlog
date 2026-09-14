@@ -4,6 +4,18 @@ body,
   min-height: 100%;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 body {
   margin: 0;
   background: var(--fsusblog-page-bg);
@@ -47,23 +59,21 @@ body {
   min-height: 2.5rem;
 }
 
-.article-editor-production-fixture__title {
-  margin: 1.5rem 0;
+.write-document-canvas {
+  box-sizing: border-box;
+  width: min(100%, 70rem);
+  margin-inline: auto;
 }
 
-.article-editor-production-fixture__toolbar {
-  box-sizing: border-box;
-  display: flex;
-  height: 2.5rem;
-  align-items: center;
-  gap: 0.5rem;
-  border-block: 1px solid var(--fsusblog-panel-border);
+.article-editor-production-fixture__title {
+  margin: 1.5rem 0 0;
 }
 
 .article-editor-production-fixture__canvas {
   box-sizing: border-box;
   min-height: 26.25rem;
-  padding: 1rem 0;
+  margin-top: 0.25rem;
+  padding: 0.25rem 0 1rem;
   outline: none;
   color: var(--fsusblog-text-secondary);
 }
@@ -140,8 +150,28 @@ body {
   padding-block: 0.5rem;
 }
 
-.article-editor-production-fixture__command-surface {
+.article-editor-production-fixture__command-surface,
+.article-editor-production-fixture__editor-component.write-workspace {
   min-height: 56rem;
+}
+
+@media (max-width: 767px) {
+  .write-workspace {
+    padding-bottom: 5rem;
+  }
+
+  .article-editor-production-fixture__command-surface .article-write-command-bar__actions {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 2;
+    box-sizing: border-box;
+    width: 100%;
+    height: 64px;
+    min-height: 64px;
+    padding: 0.75rem 1rem;
+  }
 }
 
 .article-editor-production-fixture__command-surface .write-validation-form {
