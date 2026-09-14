@@ -135,12 +135,26 @@ function requestSpec(runId, phase, index, subcaseId, probe) {
   }
 }
 
+function timelineClassification(request) {
+  const firstFailure = request.redisFailureEvents?.[0]
+  if (firstFailure) {
+    try {
+      return classificationForFailAction(firstFailure.failAction)
+    } catch {
+      // Keep the failure receipt schema-valid; the strict assertion still fails below.
+    }
+  }
+  if (request.redisCommands?.some((command) => command.verb === 'PING')) return 'recovered'
+  if (['fail-open', 'fail-closed'].includes(request.layerSource)) return request.layerSource
+  return 'recovered'
+}
+
 function evaluateRequests(requests, probes) {
   return requests.map((request, index) => {
     try {
       return { request, valid: true, classification: classifyRedisFaultRequest(request, probes[index]) }
     } catch (error) {
-      return { request, valid: false, classification: 'invalid', error: error.message }
+      return { request, valid: false, classification: timelineClassification(request), error: error.message }
     }
   })
 }

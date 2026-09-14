@@ -98,6 +98,25 @@ test('Redis classification ignores HTTP status and rejects a mismatched fail act
     /does not match security-atomic/u)
 })
 
+test('Redis fault failure timeline remains current-schema valid when strict classification rejects evidence', async () => {
+  const result = await runRedisFaultClassesSample({
+    scenario: scenario(),
+    runId: 'fault-invalid-evidence',
+    controller: {
+      inject: async () => {},
+      clear: async () => {}
+    },
+    collect: async (spec, ordinal) => {
+      const request = observedRequest(spec, ordinal)
+      if (ordinal === 16) request.redisFailureEvents[0].operationClass = 'WrongClass'
+      return request
+    }
+  })
+
+  assert.equal(result.assertionResults[0].assertion.status, 'failed')
+  assert.ok(result.faultTimeline.every((item) => ['fail-open', 'fail-closed', 'recovered'].includes(item.classification)))
+})
+
 test('Docker fault controller issues exact pause, disconnect, unpause, restart and recovery commands', async () => {
   const calls = []
   const waits = []
